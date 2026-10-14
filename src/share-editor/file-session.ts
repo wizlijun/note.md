@@ -88,8 +88,9 @@ export async function createShareFileSession(options: ShareFileSessionOptions): 
         if (!current()) throw new Error('file-session-unavailable')
         mounted.owner.setReadOnly(true)
         await mounted.owner.flush()
+        if (!current()) throw new Error('file-save-not-confirmed')
         const request = capture()
-        if (!current() || !await persist(request)) throw new Error('file-save-not-confirmed')
+        if (!await persist(request)) throw new Error('file-save-not-confirmed')
         await mounted.closeIfSaved({ identity: request.identity, raw: request.snapshot.raw })
         closed = true; unsubscribe(); mounted.destroyView()
       } catch (error) { mounted.owner.setReadOnly(previous); throw error }

@@ -162,3 +162,36 @@ it('closing the actual owner invalidates an already in-flight receipt', async ()
   await edited(s, 'B'); const save = s.save(); await vi.waitFor(() => expect(stored).toBeDefined())
   await s.mounted.owner.close(); gate.resolve(stored); await save; expect(s.saved()).toBeUndefined()
 })
+
+it.each([
+  ['lineageId', false], ['lineageId', true], ['snapshotId', false], ['snapshotId', true],
+] as const)('close preserves a replaced %s draft after its second flush (readonly=%s)', async (field, readOnly) => {
+  const live = draft(), saveDraft = vi.fn(async (value: DraftV2) => structuredClone(value))
+  const s = await open(live, saveDraft)
+  await edited(s, 'Old owner edit'); s.setReadOnly(readOnly)
+  const owner = s.mounted.owner, view = (s.mounted as FileMountSession).view, before = owner.snapshot()
+  const entered = deferred<void>(), resume = deferred<void>(), flush = owner.flush
+  let count = 0
+  const spy = vi.spyOn(owner, 'flush').mockImplementation(async () => {
+    const snapshot = await flush()
+    if (++count === 2) { entered.resolve(); await resume.promise }
+    return snapshot
+  })
+  try {
+    const closing = s.close(), rejected = expect(closing).rejects.toThrow('file-save-not-confirmed')
+    await entered.promise
+    expect(view.editable).toBe(false)
+    live[field] = 'new'
+    live.after['a.md'] = 'NEW LINEAGE UNSAVED INPUT'
+    const cache = live.editorFiles = {}
+    const nextDraft = structuredClone(live)
+    resume.resolve(); await rejected
+    expect(saveDraft).not.toHaveBeenCalled()
+    expect(live).toEqual(nextDraft); expect(live.editorFiles).toBe(cache)
+    expect(owner.snapshot()).toEqual(before)
+    expect(view.isDestroyed).toBe(false); expect(view.dom.isConnected).toBe(true)
+    expect(view.editable).toBe(!readOnly)
+    owner.setReadOnly(false); expect(owner.undo()).toBe(true)
+    expect(owner.snapshot().raw).toBe('A')
+  } finally { resume.resolve(); spy.mockRestore() }
+})
