@@ -813,3 +813,6 @@ Ruling: 新增独立Task5（Task4后、唯一whole-range final前）补齐普通
 
 
 Ruling: Task3真实Chromium从空Rich逐键输入**bold**!失败：首*被escape，第二*经exact原样写入，第一关闭*候选误成italic后doc.eq拒绝，用户键入丢失（t3-browser-mount-first与mount-input-diagnostic）。授权source-fidelity.ts现有needsInline语法标点选择分支将纯插入与已有replacement同样预选既有inline recipe，保留原Step/docs与全部captured/protected/strict校验；不先失败parse再fallback、不全篇重写、不扩body权限 — 根因是现行step.from<step.to条件漏掉纯插入而exact语义失败又必须终止 — 成本是必要消费者分流修补，先同session真实逐步RED→GREEN、原inline/empty/markup能力回归及真实浏览器完整InputRules序列；旧expected变化须具名核准。CORE新增完整gate/commit/install以7f1946793310887b999a62dde33aa6670a5a59e5为实际前驱，cap103424不变，HOST消费者随后复验。
+
+
+Ruling: Task3 literal标点分流后只迁移两处具名旧expected：source-nested-producer.spec.ts的quote正文起点insertText('>')由semantic-mismatch负例改为精确局部escape正例，独立expected为`> \\>Alpha\n`，保留serializer spy零调用、原base/单edit和严格doc.eq。source-nested-cache.spec.ts最后用于失败后重试的插入'>'改为正文内真实文本LF插入，并明确semantic-mismatch，保留全部原cache/base/retry及/new引用断言；不得换成提前拒绝的unknown Step/atom而削弱failed-candidate覆盖 — ROOT实际installed独立root-literal-expected-proof证明escaped raw严格等于原目标PM，完整缓存测试raw下LF真实候选失败且base逐项不变、随后甲→乙仍正确 — 成本是两条旧能力边界预期调整，原1397通过/2失败全量证据保留，新focused/strict/full必须全绿后才build/install，不改其他旧negative。
