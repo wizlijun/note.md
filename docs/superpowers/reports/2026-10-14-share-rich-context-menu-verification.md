@@ -19,4 +19,4 @@ file-menus补齐右键入口，复用客户端EditorContextMenu/menu-model/rich-
 
 证据：.superpowers/sdd/2026-10-14-share-rich-context-menu/evidence；最终浏览器context-real-browser-selection，截图context-desktop.png/context-mobile.png。
 
-本次已修复源码，尚未发布新的宿主版本；分享网页采用冻结发布资源，升级并重新发布项目后生效。
+本次已随 [v6.1014.3](2026-10-15-v6.1014.3-release-verification.md) 正式发布；分享网页采用冻结发布资源，升级并重新发布项目后生效，沿用原链接。
