@@ -853,13 +853,15 @@ describe('versioned drafts in serialized browser',()=> {
     try {
       Array.from($('old-drafts').querySelectorAll('button')).find(button=>button.textContent==='按旧版本提交')!.click()
       await reading;input('first current input');await writing
-      input('queued current input');releaseRead()
+      input('queued current input');($('message') as HTMLInputElement).value='queued current description';$('message').dispatchEvent(new Event('input'));releaseRead()
       await vi.waitFor(()=>expect($('comments').textContent).toContain('OLD NOTE'))
       releaseWrite()
       await vi.waitFor(async()=>expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).after['README.md']).toBe('queued current input'))
       expect((await idb('readonly',store=>store.get(draftKey))).after).toEqual(old.after)
       expect(await idb('readonly',store=>store.get('project_1:draft2-notes:lineage-one'))).toEqual(oldNotes)
       expect(await idb('readonly',store=>store.get('project_1:draft2-notes:current-lineage'))).toEqual(currentNotes)
+      expect((await idb('readonly',store=>store.get('project_1:draft2:current-lineage'))).message).toBe('queued current description')
+      expect((await idb('readonly',store=>store.get(draftKey))).message).toBeUndefined()
     } finally {releaseRead();releaseWrite();getSpy.mockRestore();putSpy.mockRestore()}
   })
 
@@ -1049,5 +1051,88 @@ describe('serialized fallback Critic multiset guard',()=> {
     await serialized();click('submit');await vi.waitFor(()=>expect(($('submit') as HTMLButtonElement).disabled).toBe(false))
     if(duplicate) {expect(bodies).toHaveLength(0);expect(status()).toContain('请恢复增强编辑器或导出备份')}
     else {expect(bodies).toHaveLength(1);expect(JSON.parse(bodies[0]).edits[0].afterMarkdown).toBe(raw)}
+  })
+})
+
+describe('bounded browser rebase transitions',()=> {
+  beforeEach(()=>vi.stubGlobal('indexedDB',new IDBFactory()))
+  async function transitionHost() {
+    const initial={...draftFixture(),previous:undefined,rebasedFrom:undefined}
+    await idb('readwrite',store=>store.put(initial,draftKey))
+    const data=JSON.parse($('project-data').textContent!)
+    data.editorKit={apiVersion:1,js:{url:location.origin+'/test-editor.js',integrity:'sha384-test'},css:{url:location.origin+'/test-editor.css',integrity:'sha384-test'}}
+    $('project-data').textContent=JSON.stringify(data)
+    let host:import('../../share-editor/contract').ShareEditorHost|undefined
+    vi.stubGlobal('NotemdShareEditor',{apiVersion:1,mount:async(_root:HTMLElement,value:typeof host)=>{host=value;return {}}})
+    const append=vi.spyOn(document.head,'append').mockImplementation((...nodes)=> {queueMicrotask(()=>nodes.forEach(node=>{if(node instanceof HTMLElement)node.dispatchEvent(new Event('load'))}))})
+    try {await serialized();click('edit');await vi.waitFor(()=>expect(host).toBeDefined())} finally {append.mockRestore()}
+    const old=await host!.loadDraft()
+    if(!old) throw Error('missing seeded draft')
+    const next=structuredClone(old)
+    next.previous={snapshotId:old.snapshotId,base:structuredClone(old.base),after:structuredClone(old.after),annotationKinds:structuredClone(old.annotationKinds)}
+    next.snapshotId=snapshot.snapshotId;next.rebasedFrom=old.snapshotId
+    next.base={'README.md':{hash:snapshot.files[0].hash,markdown:snapshot.files[0].markdown!}};next.after={'README.md':snapshot.files[0].markdown!}
+    return {host:host!,old,next}
+  }
+  it('rejects malformed recovery at the real serialized host seam before any atomic write',async()=> {
+    const {host,old,next}=await transitionHost(), notes={expectedAnnotations:[],annotations:[]}
+    await host.transitionDraft!(old,next,notes)
+    const restored={...structuredClone(old),rebaseRecovery:{snapshot:structuredClone(host.snapshot),candidate:structuredClone(next)}}
+    const changes:((value:any)=>void)[]=[
+      value=>{value.rebaseRecovery.candidate.previous.previous={}},
+      value=>{value.rebaseRecovery.candidate.previous.pending={}},
+      value=>{value.rebaseRecovery.candidate.previous.rebaseRecovery={}},
+      value=>{value.rebaseRecovery.candidate.previous.snapshotId='wrong'},
+      value=>{value.rebaseRecovery.candidate.previous.annotationKinds={wrong:'question'}},
+      value=>{value.rebaseRecovery.candidate.previous.rebasedFrom='wrong'},
+      value=>{value.rebaseRecovery.candidate.previous.annotations=[{path:'README.md',selector:{exact:'x'},comment:'unexpected'}]},
+      value=>{value.rebaseRecovery.snapshot.token='not-public'},
+      value=>{value.rebaseRecovery.snapshot.files[0].token='not-public'},
+      value=>{value.rebaseRecovery.candidate.after['outside.md']='out of scope'},
+      value=>{value.rebaseRecovery.candidate.pending={}},
+      value=>{value.rebaseRecovery.candidate.rebaseRecovery={}},
+      value=>{value.rebaseRecovery.extra={}},
+    ]
+    const spy=vi.spyOn(FakeObjectStore.prototype,'put')
+    try {
+      for(const change of changes) {
+        const invalid=structuredClone(restored);change(invalid)
+        await expect(host.transitionDraft!(next,invalid,notes)).rejects.toThrow('身份')
+        expect(spy).not.toHaveBeenCalled()
+        expect(await host.loadDraft()).toBe(next)
+      }
+    } finally {spy.mockRestore()}
+    await host.transitionDraft!(next,restored,notes)
+    expect((await idb('readonly',store=>store.get(draftKey))).rebaseRecovery.candidate.snapshotId).toBe(snapshot.snapshotId)
+    const cleared=structuredClone(restored);delete (cleared as any).rebaseRecovery
+    await host.transitionDraft!(restored,cleared,notes)
+    expect((await idb('readonly',store=>store.get(draftKey))).rebaseRecovery).toBeUndefined()
+  })
+  it('retains accepted message input during the transition atomic write on the new lineage aggregate',async()=> {
+    const {host,old,next}=await transitionHost(), put=FakeObjectStore.prototype.put
+    let injected=false
+    const spy=vi.spyOn(FakeObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,value,key){
+      const result=put.call(this,value,key)
+      if(value?.v===2 && value.snapshotId===snapshot.snapshotId && !injected) {
+        injected=true;queueMicrotask(()=>{($('message') as HTMLInputElement).value='during transition';$('message').dispatchEvent(new Event('input'))})
+      }
+      return result
+    })
+    try {
+      await host.transitionDraft!(old,next,{expectedAnnotations:[],annotations:[]})
+      await host.saveDraft(next)
+      expect(await host.loadDraft()).toMatchObject({snapshotId:snapshot.snapshotId,message:'during transition'})
+      expect(await idb('readonly',store=>store.get(draftKey))).toMatchObject({snapshotId:snapshot.snapshotId,message:'during transition',previous:{snapshotId:old.snapshotId}})
+    } finally {spy.mockRestore()}
+  })
+  it('locks sidecar removal during a transition and rejects the stale owner save',async()=> {
+    const {host,old,next}=await transitionHost()
+    const notes=await host.loadAnnotations!()
+    const transition=host.transitionDraft!(old,next,{expectedAnnotations:notes,annotations:[]})
+    expect(($('annotate') as HTMLButtonElement).disabled).toBe(true)
+    const stale=host.saveDraft(old)
+    await transition;await expect(stale).rejects.toThrow('身份')
+    expect(await idb('readonly',store=>store.get(draftKey))).toMatchObject({snapshotId:snapshot.snapshotId})
+    expect(($('submit') as HTMLButtonElement).disabled).toBe(false)
   })
 })

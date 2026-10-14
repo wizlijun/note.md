@@ -154,8 +154,10 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
     session!.setReadOnly(true)
     let persisted = false, rollbackFailed = false
     try {
+      const expectedDurable = JSON.stringify(next)
       const durable = await host.transitionDraft(old, next, { expectedAnnotations: oldNotes, annotations: nextNotes }); persisted = true
-      if (JSON.stringify(durable) !== JSON.stringify(next)) throw Error('迁移尚未完成本机保存')
+      // A later queued description may mutate next after this exact write.
+      if (JSON.stringify(durable) !== expectedDurable) throw Error('迁移尚未完成本机保存')
       const result = session!.mounted.owner.installBaseline({ documentId: `${next.lineageId}:${nextPath}`, authority: `${next.lineageId}:${next.snapshotId}:${nextPath}`, raw: next.after[nextPath] ?? next.base[nextPath].markdown }, { policy: policyFor(next, nextPath) })
       if (!result.ok) throw Error(result.reason)
       draft = next; snapshot = nextSnapshot; path = nextPath

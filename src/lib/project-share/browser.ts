@@ -48,6 +48,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
 
   let saving = Promise.resolve()
   let busy = false
+  let transitioning = 0
   const draftKey = () => prefix+'draft2:'+draft.lineageId
   const notesKey = () => prefix+'draft2-notes:'+draft.lineageId
   const sentKey = () => prefix+'draft2-sent:'+draft.lineageId
@@ -138,12 +139,26 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     // This retains in-flight input without crossing an asynchronous switch or
     // reviving pending after that lineage's durable submission completes.
     const operation=saving.catch(()=>{}).then(async()=> {
-      if(guard && !guard()) throw Object.assign(Error('草稿身份已变化'), { staleDraft:true })
+      if((!installed && ((drafts.get(prefix+'draft2:'+owner.lineageId)??draft)!==owner || owner===draft && ownerNotes!==notes)) || (guard && !guard())) throw Object.assign(Error('草稿身份已变化'), { staleDraft:true })
       const durable=structuredClone(owner), durableNotes=structuredClone(ownerNotes)
       await atomic([[prefix+'draft2:'+owner.lineageId,durable],[prefix+'draft2-notes:'+owner.lineageId,durableNotes]])
       installed?.()
+      if(!installed) drafts.set(prefix+'draft2:'+owner.lineageId,owner)
       if(owner===draft) renderTree()
       return durable
+    }).catch(error=> {if(!error?.staleDraft) {ready=false;render()}throw error})
+    saving=operation.then(()=>{},()=>{})
+    return operation
+  }
+  const saveMessage = (value: string) => {
+    const initial=draft, lineage=initial.lineageId
+    draft.message=value;labelOldDraft()
+    // A description is a field edit, not permission to save a captured old
+    // aggregate. Resolve its current identity inside the same FIFO slot.
+    const operation=saving.catch(()=>{}).then(async()=> {
+      const owner=drafts.get(prefix+'draft2:'+lineage)??initial
+      owner.message=value
+      await atomic([[prefix+'draft2:'+lineage,structuredClone(owner)]])
     }).catch(error=> {if(!error?.staleDraft) {ready=false;render()}throw error})
     saving=operation.then(()=>{},()=>{})
     return operation
@@ -489,9 +504,9 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     $('comments').replaceChildren()
     for(const item of state.annotations.filter((item:any)=>item.path===path)) {
       const block=document.createElement('blockquote'); block.textContent=item.selector.exact+'\n'+item.comment
-      const remove=document.createElement('button');remove.className='reader-button';remove.textContent='移除批注';remove.disabled=busy
+      const remove=document.createElement('button');remove.className='reader-button';remove.textContent='移除批注';remove.disabled=busy || !!transitioning
       remove.onclick=async()=> {
-        if(busy) return
+        if(busy || transitioning || !notes.includes(item)) return
         notes.splice(notes.indexOf(item),1);labelOldDraft();comments()
         try {await save();say('批注已移除；待确认的原包仍保持不变')} catch(error:any) {say('批注修改未保存：'+error.message+'；请导出备份')}
       }
@@ -527,7 +542,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     ;($('export') as HTMLButtonElement).disabled=!token || !initialized
     ;(name as HTMLInputElement).disabled=!token || !initialized
     submit.disabled=!token || !ready || busy || revoked
-    ;($('annotate') as HTMLButtonElement).disabled=!token || !initialized
+    ;($('annotate') as HTMLButtonElement).disabled=!token || !initialized || !!transitioning
     if(token && initialized && draft.snapshotId!==snapshot.snapshotId && !draft.base[path]) say('此文件没有旧版本原文，无法加入旧草稿；请导出备份后刷新到当前版本')
     correctRejected.hidden=!rejectedPending || rejectedPending!==draft.pending
     correctRejected.disabled=busy || !ready
@@ -599,28 +614,59 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
         if(expected!==owner || owner!==draft || next.lineageId!==owner.lineageId || owner.pending || next.pending) return false
         if(Object.keys(next).some(key=>!['v','lineageId','snapshotId','base','after','editorFiles','annotationKinds','message','lastSubmissionId','rebasedFrom','previous','rebaseRecovery'].includes(key))) return false
         if(!noteChange || JSON.stringify(noteChange.expectedAnnotations)!==JSON.stringify(ownerNotes) || !Array.isArray(noteChange.annotations) || noteChange.annotations.length>2000) return false
-        const prior=next.previous
         const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b)
-        const forward=next.snapshotId===snapshot.snapshotId && !expected.previous && prior?.snapshotId===expected.snapshotId && same(prior.base,expected.base) && same(prior.after,expected.after) && same(prior.annotationKinds??{},expected.annotationKinds) && prior.rebasedFrom===expected.rebasedFrom
-        const reverse=expected.previous?.snapshotId===next.snapshotId && !next.previous && same(expected.previous.base,next.base) && same(expected.previous.after,next.after)
+        const object=(value:any):value is Record<string,any> => !!value && typeof value==='object' && !Array.isArray(value)
+        const keys=(value:any,allowed:string[]) => object(value) && Object.keys(value).every(key=>allowed.includes(key))
+        const strings=(value:any) => object(value) && Object.values(value).every(item=>typeof item==='string')
+        const kinds=(value:any) => object(value) && Object.values(value).every(item=>['comment','question','blocker'].includes(item as string))
+        const bases=(value:any) => object(value) && Object.values(value).every(base=>keys(base,['hash','markdown']) && typeof (base as any).hash==='string' && typeof (base as any).markdown==='string')
+        const annotations=(value:any) => Array.isArray(value) && value.length<=2000 && value.every(note=>keys(note,['path','selector','comment','kind'])
+          && typeof note.path==='string' && typeof note.comment==='string' && (note.kind===undefined || ['comment','question','blocker'].includes(note.kind))
+          && keys(note.selector,['exact','prefix','suffix','start','end']) && typeof note.selector.exact==='string'
+          && ['prefix','suffix'].every(key=>note.selector[key]===undefined || typeof note.selector[key]==='string')
+          && ['start','end'].every(key=>note.selector[key]===undefined || Number.isSafeInteger(note.selector[key]) && note.selector[key]>=0))
+        const previous=(value:any) => keys(value,['snapshotId','base','after','annotationKinds','rebasedFrom','annotations']) && typeof value.snapshotId==='string'
+          && bases(value.base) && strings(value.after) && (value.annotationKinds===undefined || kinds(value.annotationKinds))
+          && (value.rebasedFrom===undefined || typeof value.rebasedFrom==='string') && (value.annotations===undefined || annotations(value.annotations))
+        const draftFields=(value:DraftV2) => value.v===2 && kinds(value.annotationKinds)
+          && ['message','lastSubmissionId','rebasedFrom'].every(key=>(value as any)[key]===undefined || typeof (value as any)[key]==='string')
+          && (value.editorFiles===undefined || object(value.editorFiles) && Object.entries(value.editorFiles).every(([path,file])=>Object.hasOwn(value.base,path)
+            && keys(file,['v','sourceHash','sourceRevision','bindings']) && file.v===1 && typeof file.sourceHash==='string' && Number.isSafeInteger(file.sourceRevision) && file.sourceRevision>=0
+            && Array.isArray(file.bindings) && file.bindings.every(row=>keys(row,['rootOrdinal','id']) && Number.isSafeInteger(row.rootOrdinal) && row.rootOrdinal>=0 && typeof row.id==='string')))
+        if(!draftFields(next)) return false
+        const prior=next.previous
+        if(prior && !previous(prior)) return false
+        const matchesPrevious=(prior:any,target:DraftV2,annotations:readonly ProjectAnnotationV2[]) => previous(prior) && prior.snapshotId===target.snapshotId
+          && same(prior.base,target.base) && same(prior.after,target.after) && same(prior.annotationKinds??{},target.annotationKinds)
+          && prior.rebasedFrom===target.rebasedFrom && same(prior.annotations??[],annotations)
+        const publicBase=(value:DraftV2) => bases(value.base) && strings(value.after)
+          && Object.entries(value.base).every(([path,base])=>snapshot.files.some((file:any)=>file.path===path && file.hash===base.hash && file.markdown===base.markdown))
+          && Object.keys(value.after).every(path=>Object.hasOwn(value.base,path))
+        const forward=next.snapshotId===snapshot.snapshotId && !expected.previous && matchesPrevious(prior,expected,explicitNotes?ownerNotes:prior?.annotations??[])
+        const reverse=expected.previous?.snapshotId===next.snapshotId && !next.previous && matchesPrevious(expected.previous,next,explicitNotes?noteChange.annotations:expected.previous.annotations??[])
         const cleared={...expected};delete cleared.rebaseRecovery
         const clearRecovery=!!expected.rebaseRecovery && !next.rebaseRecovery && same(cleared,next) && same(noteChange.annotations,ownerNotes)
         if(!forward && !reverse && !clearRecovery) return false
-        if(explicitNotes && forward && (noteChange.annotations.length || !same(prior?.annotations??[],ownerNotes))) return false
-        if(explicitNotes && reverse && !same(noteChange.annotations,expected.previous?.annotations??[])) return false
-        if(forward && Object.entries(next.base).some(([path,base])=>!snapshot.files.some((file:any)=>file.path===path && file.hash===base.hash && file.markdown===base.markdown))) return false
-        if(prior && (Object.hasOwn(prior,'previous') || Object.hasOwn(prior,'pending') || Object.hasOwn(prior,'rebaseRecovery'))) return false
+        if(explicitNotes && forward && noteChange.annotations.length) return false
+        if(forward && !publicBase(next)) return false
         const recovery=next.rebaseRecovery
-        if(recovery && (recovery.snapshot.project_id!==snapshot.project_id || recovery.snapshot.snapshotId!==snapshot.snapshotId || !same(recovery.snapshot.files,snapshot.files)
-          || recovery.candidate.lineageId!==next.lineageId || recovery.candidate.snapshotId!==snapshot.snapshotId
-          || Object.keys(recovery.candidate).some(key=>!['v','lineageId','snapshotId','base','after','editorFiles','annotationKinds','message','lastSubmissionId','rebasedFrom','previous'].includes(key))
-          || Object.entries(recovery.candidate.base).some(([path,base])=>!snapshot.files.some((file:any)=>file.path===path && file.hash===base.hash && file.markdown===base.markdown))
-          || recovery.snapshot.entry!==snapshot.entry
-          || !same(recovery.candidate.previous?.base,next.base) || !same(recovery.candidate.previous?.after,next.after))) return false
+        if(recovery) {
+          const candidate=recovery.candidate, publicSnapshot=recovery.snapshot
+          const expectedCandidate={...expected};delete expectedCandidate.rebaseRecovery;delete expectedCandidate.pending
+          if(!keys(recovery,['snapshot','candidate']) || !keys(publicSnapshot,['schemaVersion','project_id','snapshotId','entry','files'])
+            || !same(publicSnapshot,snapshot) || !Array.isArray(publicSnapshot.files)
+            || publicSnapshot.files.some(file=>!keys(file,['path','hash','markdown','dataUrl','bytes','modifiedAt']))
+            || !keys(candidate,['v','lineageId','snapshotId','base','after','editorFiles','annotationKinds','message','lastSubmissionId','rebasedFrom','previous'])
+            || !draftFields(candidate) || candidate.lineageId!==next.lineageId || candidate.snapshotId!==snapshot.snapshotId
+            || !publicBase(candidate) || !matchesPrevious(candidate.previous,next,noteChange.annotations)
+            || !same(candidate,expectedCandidate)) return false
+        }
         return true
       }
       const nextNotes=structuredClone([...noteChange.annotations])
-      return save(next,nextNotes,valid,()=> {owner=next;draft=next;ownerNotes=nextNotes;notes=nextNotes;drafts.set(prefix+'draft2:'+next.lineageId,next)})
+      transitioning++;comments();($('annotate') as HTMLButtonElement).disabled=true
+      try { return await save(next,nextNotes,valid,()=> {owner=next;draft=next;ownerNotes=nextNotes;notes=nextNotes;drafts.set(prefix+'draft2:'+next.lineageId,next)}) }
+      finally {transitioning--;comments();($('annotate') as HTMLButtonElement).disabled=!token || !initialized || !!transitioning}
     },
     submit:async(body,id)=> {
       const pending=durablePending.get(owner.lineageId)
@@ -710,7 +756,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   }
   $('annotate').onclick=async()=> {
     if(!baseline && currentText()!==(original(path)??files.get(path)?.markdown??'')) { say('标注基于发布时的原文；请先点击“查看发布原文”再选文'); return }
-    if(!token || !initialized) return
+    if(!token || !initialized || transitioning) return
     const selection=window.getSelection()
     if(editing || !selection?.rangeCount || Array.from({length:selection.rangeCount},(_,index)=>selection.getRangeAt(index)).some(range=>!article.contains(range.startContainer) || !article.contains(range.endContainer))) { say('请在发布原文的正文中选中要标注的文字'); return }
     const quote=selection.toString()
@@ -733,7 +779,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     const url=URL.createObjectURL(blob); const a=document.createElement('a');a.href=url;a.download='project-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
   }
   name.oninput=()=> { void request('readwrite',prefix+'nickname',name.value).catch(()=>say('署名未保存；草稿仍可导出')) }
-  ;($('message') as HTMLInputElement).oninput=()=> {draft.message=($('message') as HTMLInputElement).value;labelOldDraft();void save().catch(error=>say('说明未保存：'+error.message))}
+  ;($('message') as HTMLInputElement).oninput=()=> {void saveMessage(($('message') as HTMLInputElement).value).catch(error=>say('说明未保存：'+error.message))}
   const correctRejected=document.createElement('button');correctRejected.id='correct-rejected';correctRejected.className='reader-button';correctRejected.textContent='纠正已拒收的提交';correctRejected.hidden=true;status.after(correctRejected)
   correctRejected.onclick=async()=> {
     const pending=draft.pending

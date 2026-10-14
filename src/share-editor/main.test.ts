@@ -127,6 +127,19 @@ it('real rebase UI installs new authority/floor and explicit undo restores old r
   restored.value = '撤销后可以编辑'; restored.dispatchEvent(new Event('input', { bubbles: true })); await handle.buildSubmission({})
   expect(f.live().after['a.md']).toBe('撤销后可以编辑')
 })
+it('checks the frozen transition receipt while a later description edit updates the live aggregate', async () => {
+  const f = rebaseFixture(), transition = f.host.transitionDraft!
+  f.host.transitionDraft = async (...args) => {
+    const durable = await transition(...args)
+    args[1].message = 'queued description'
+    return durable
+  }
+  const { target, handle } = await open(f), pending = handle.rebase(f.host.snapshot, f.draft)
+  await vi.waitFor(() => expect(target.querySelector('[aria-label="在新版本上继续"]')).not.toBeNull())
+  await button(target, '完成迁移')
+  expect((await pending).status).toBe('applied')
+  expect(f.live()).toMatchObject({ snapshotId: 'S2', message: 'queued description', previous: { snapshotId: 'S' } })
+})
 it('cancel leaves aggregate byte-identical and pending never opens a rebase panel', async () => {
   const f = rebaseFixture(), { target, handle } = await open(f)
   await handle.buildSubmission({}); const old = structuredClone(f.draft)

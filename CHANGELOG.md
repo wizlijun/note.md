@@ -1,5 +1,7 @@
 ## Unreleased — shared share editor foundations
 
+- Preserve descriptions typed during shared-draft migration without overwriting the new version; reject malformed nested recovery records before saving.
+
 - Old shared drafts can continue on the current snapshot with per-conflict choices, explicit export of removed files or orphaned annotations, and durable rebase undo/recovery. Legacy annotation sidecars migrate atomically. Mermaid preview loads a separate same-origin SRI-verified resource only when needed; failed loading preserves editable source.
 
 - Shared pages load the verified Rich/Source editor only when editing starts, with a basic-editor fallback. My changes shows each edit with individual undo, file badges and submission counts. Submissions are durably frozen once and retries reuse the exact body; later edits remain saved. Frozen themes, math fonts and shared editing controls are retained.
