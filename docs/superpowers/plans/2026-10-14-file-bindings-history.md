@@ -835,7 +835,7 @@ Ruling: Task3公开file factory复用已有KitCSS资源，允许将main现有纯
 - [ ] **5.2 image局部单位与原链。** canonical image采用实际schema、leaf/nodeSize1和可表示src/alt/title，承认helper真实继承marks。旧未改attrs的image输出原occurrence raw；新生或attrs变化仅调用既有image callback/编码的共享局部renderer，不复制URI编码或根/全文serializer。图片marks沿已有envelope。消费每个original Step/docs，支持插入/选区替换/多步临时空body/更新/完整删除；不因此开放math payload、未知atom或任意schema attrs。
 - [ ] **5.3 正确路由与删除边界。** exact AttrStep和Add/RemoveNodeMarkStep仅实际目标canonical image可走stable局部路径，执行原Step，其他节点分类不变。needsInline在exact unmapped早返回前识别真实image删除/替换/端点输入；范围来源必须是facts。空body复用prepareEmptyInlineContent/EmptyBody，删除唯一图片只处理本body相应separator与terminal EOL，不吞邻空行/definitions。setNodeMarkup真实ReplaceStep和原Attr/NodeMark正例都验邻文不改写。
 - [ ] **5.4 首个真实desktop消费者。** committed CORE安装后，原cursor/pos helper、marked selection/storedMarks、clipboardTextParser/HTML img、slash/context dialog/native drop各核实际入口；只对已有异步入口复用Task3 guard，取消/拒绝不先删trigger。真实EditorView/controller验证insert→resize→delete的独立undo/redo、跨Source模式同owner、flush/save不清历史、bindings保持、readonly/policy/stale零写。native系统API与浏览器模拟逐项区分。
-- [ ] **5.5 验证及提交。** 先真实focused RED再实现，cumulative strict→CORE full/type/build/artifact→精确source+dist提交→真实前驱受控installed→HOST focused/full/purity/空env build/Kit+image/mount/resize/recovery→精确HOST commit/installed audit→独立spec+quality review。未变门槛不为次数重复；原失败保留。index Node gzip上限103424，当前已验证103317仅余107；若实测超限先报告最小必要增量与复用情况，不静默加cap、不搬公开出口逃预算。最终share IIFE900KiB预算独立不变。
+- [ ] **5.5 验证及提交。** 先真实focused RED再实现，cumulative strict→CORE full/type/build/artifact→精确source+dist提交→真实前驱受控installed→HOST focused/full/purity/空env build/Kit+image/mount/resize/recovery→精确HOST commit/installed audit→独立spec+quality review。未变门槛不为次数重复；原失败保留。index Node gzip上限104448（Task5具名预算裁定），Task5起点基线103317；后续最终构建须实测。若实测超限先报告最小必要增量与复用情况，不静默加cap、不搬公开出口逃预算。最终share IIFE900KiB预算独立不变。
 
 **表示性矩阵。** 精确expected独立于serializer：路径空格/括号/%20/%25/中文/Windows、alt括号与ampersand、title quotes、table pipes、reference definitions、annotation/HTML外层marks、mixed EOL/无EOF。无法严格roundtrip的非canonical attrs拒绝且不改目标doc。相同attrs不同raw occurrence不得串用。probe零写，失败后合法请求可继续；unknown Step/subclass/假docs/maps/外来raw facts/protected编辑继续拒绝。
 
@@ -866,3 +866,22 @@ Task4正式合同收束为恢复/native时，旧4.3整阶段验收迁至这里�
 - ROOT累计strict/final Svelte与前后两仓tracked指纹；task full的准确SHA与最终covering分列。前置source能力不被更高层回退/fullserializer绕过。
 - 仅一次最强whole-range final，读取全部deferred Task2M1 colwidth夹具、Task2M2/Task3M1告警等；最多一次统一fix及scoped复审。阶段报告/archive清单/rulings完整，先验证archive再只清OWN临时目录，不清用户源/依赖。
 - 完成此阶段仍继续E1–E4与所有未发布产品统一发行；无平台证据的具体限制须如实向用户报告，不能把本地commits等同发版。
+
+
+Ruling: Task5 CORE主入口Node gzipSync默认cap由103424调整为104448（102KiB）。t5-core-budget1实际baseline raw450727/gzip103317，working raw454361/gzip104108，增3634 raw/791 gzip；ROOT已逐一核markdown/source-inline-recipe/source-fidelity/source-structure全部production diff，复用真实atom capture、现有局部image callback、统一imageStepRange与emptyBodyEdits，无新公开exports/deps或第二parser。剩余684字节超旧cap不能通过压缩式改写或移出口规避；保真image兼容所需能力合理增加1KiB预算。新删除边界修补后仍须最终重新测量并通过104448，share IIFE900KiB独立不变，旧cap失败完整保留 — 成本是CORE预算上调1024字节，并由实际artifact audit持续限制。
+
+Ruling: Task5终端图片删除真实RED（t5-core-terminal-delete-red2）证明原末空白必须保持PM语义，独立expected __Keep__&#32; CRLF严格doc.eq。批准既有edgeSpace实体路径仅处理final已成为body首/尾空白、原同侧有本链实际删除captured image occurrence的旧scalar；旧已边界的escaped/entity whitespace原bytes保持，不以本body任意删图普遍授权。本链合法image birth后删除仅沿真实删除单位驱动既有emptyBodyEdits，替代仅baseline image事实的限制，不据birth授权旧scalar改写。新增左右、多space/tab、替换后仍有文本不改、旧实体保留、CRLF/protected及重试验证，原Step/docs/strict/F1不变；不parse失败fallback、不改目标doc — 成本是两个实际既有图片入口兼容边界，全部CORE门槛重新验证。
+
+
+Ruling: Task5 t5-host-focused-red2真实RichEditor context image选择窗口未返回时，更换同raw/same-generation baseline后旧dialog结果写入新正文。批准仅RichEditor.svelte file ctxActions的image分支复用captureFileInput，await dialog后再次核且helper前不再await，取消/拒绝/stale零写；legacy其它入口不另造架构。新增真实组件交互回归 — 成本是必要异步旧目标隔离修补，不扩大公开API。
+
+Ruling: Task5 t5-core-image-mark-flanking-red证明新strong/em图片wrapper紧邻旧AB时，独立expected imagewrapper+&#65;B严格doc.eq原storedMarks插图Step，原literal邻接不成立。批准沿既有adjacentEntities仅本链新建/改变em/strong wrapper的实际canonical image边界，左右紧邻无marks的完整非空白/非标点Unicode scalar做必要数字entity emission；允许旧scalar但已有满足flanking的entity/escape原raw spelling保持。kept wrapper与其他marks不开放，不parse失败fallback、不剥marks、不改目标doc。须左右ASCII/中文/astral、已有entity、标点/space、protected/nativehistory独立回归；完整CORE gates与104448预算，实际installed812049d为新安装前驱 — 成本是既有storedMarks图片操作必需的局部表示性兼容。
+
+
+Ruling: Task5真实cursor与file-main slash native space路径RED批准attachment-insert.ts新增HOST内部imageSourceForNativePath供两个既有图片helper与file-main image分支共用。参数明确native filesystem path：仅必要ASCII URI转义复用原生encodeURIComponent，保留实际parser支持的Unicode、路径分隔及真实drive colon，literal%20/%25必须%2520/%2525，#/?必须编码，使localResourceCandidates一次decode恢复原文件名。HTML/Markdown已编码src不经过native-path函数，不猜测通用URL、不复制完整Markdown serializer、不改resolver或公开Owner/Adapters；actualPM attrs/strict raw/resolver同路径、slash取消拒绝/history需验 — 成本是已有native入口的canonical初始节点修补，不在CORE擅改事务目标doc。
+
+
+Ruling: Task5 t5-core-kept-image-flanking-red 追加：既有 kept strong/em 分支内侧标点识别可含实际 captured canonical image 边界；仅原 Step 本链新生 outer scalar（before undefined）做已有数字 entity emission，kept wrapper、旧 image occurrence、旧 scalar 原 bytes 不改。此项明确细化前条 kept wrapper 不开放的内侧识别，不授权重写 wrapper/旧相邻文本，不扩其他 marks。沿现有 scalar/flanking 工具，无 parse 失败 fallback；须左右、reference/inline、完整 Unicode 与无 storedMarks 实际输入/undo 证明。ROOT 已授权 writer 仅同步此一条计划，完整原链 guards 与 strict doc.eq/protected 保持。
+
+
+Ruling: Task5 t5-host-full 仅 file-owner.test.ts 两个 Task3 明确记录 image gap 的旧 negative 失败（4658 pass/2 fail）。批准仅具名迁移 prepared image slash 为一次原子成功，精确 ![](/vault/a.png)+LF，单次 undo 回 /insert+LF，file 分支不变；actual desktop image helpers 改 cursor 与 pos 的精确成功 raw、邻文和独立 history，保留 attachment link 断言。拒绝保 trigger 继续由 file-image policy/readonly 回归验证，其他边界不动。ROOT 授权 writer 同步本 ruling 与将该测试加入 Task5 精确 allowlist；保留旧失败，重新完整 HOST full green 后提交。
