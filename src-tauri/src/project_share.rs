@@ -4808,6 +4808,31 @@ mod tests {
             .is_err());
     }
     #[test]
+    fn project_share_desktop_guest_fixture_real_review_apply() {
+        let raw=include_bytes!("share_guest/fixtures/desktop-submission.json");
+        let payload:ProjectFeedbackPayload=serde_json::from_slice(raw).unwrap();
+        let t=TempDir::new().unwrap();let source=t.path().join("source");std::fs::create_dir_all(&source).unwrap();let source=source.canonicalize().unwrap();
+        let base="# Heading\r\n\r\nHello\r\n";std::fs::write(source.join("a.md"),base).unwrap();
+        let s=ProjectStore::new(t.path().join("vault"),t.path().join("state"));
+        // Frozen synthetic project identity matches the actual desktop producer bytes.
+        let id=payload.project_id();let sid=payload.snapshot_id();let submission=payload.submission_id();
+        let b=Binding{generation:0,project_id:id.into(),source_root:source.to_string_lossy().into(),mirror_root:s.vault.join(vault_settings::resolve_sync_dir(&s.vault)).join(id).to_string_lossy().into(),deleting:false,deletion_files:None,deletion_requires_stop:false};
+        write_json(&s.bindings_path(),&vec![b.clone()]).unwrap();
+        write_json(&s.management(&b,"project.json").unwrap(),&Config{project_id:id.into(),entry:"a.md".into(),files:vec!["a.md".into()],published_snapshot_id:Some(sid.into()),url:None,git_target:None}).unwrap();
+        let mut frozen=s.snapshot(id,vec!["a.md".into()],[("a.md".into(),sha256_hex(base.as_bytes()))].into()).unwrap();
+        frozen.snapshot_id=sid.into();
+        write_json(&s.management(&b,&format!("snapshots/{sid}/manifest.json")).unwrap(),&frozen).unwrap();
+        write_atomic(&s.management(&b,&format!("snapshots/{sid}/files/a.md")).unwrap(),base.as_bytes()).unwrap();
+        write_atomic(&Path::new(&b.mirror_root).join("a.md"),base.as_bytes()).unwrap();
+        let imported=s.feedback(id,FeedbackEnvelope{payload:payload.clone(),request_hash:sha256_hex(raw),received_at:"2026-10-14T00:00:00Z".into()}).unwrap();assert_eq!(imported.status,"pending");
+        let review=s.review(id,submission,"a.md").unwrap();assert_eq!(review.base,base);assert_eq!(review.after,"# Heading\r\n\r\nHello world\r\n");
+        s.apply(id,submission,"a.md",&review.current_hash,&review.after,None).unwrap();
+        assert_eq!(std::fs::read_to_string(source.join("a.md")).unwrap(),review.after);
+        let local=s.inbox(id).unwrap().remove(0);assert_eq!(local.decisions["a.md"].status,"accepted");
+        println!("desktop fixture sha256={} applied sha256={}",sha256_hex(raw),sha256_hex(review.after.as_bytes()));
+        if let Ok(dir)=std::env::var("GATE_LOG_DIR") { std::fs::write(Path::new(&dir).join("owner-feedback.json"),serde_json::to_vec(&local).unwrap()).unwrap(); }
+    }
+    #[test]
     fn project_share_v2_real_baseline_review_apply_and_reload() {
         let (_t, s, p) = fixture();
         let snapshot = freeze(&s, &p);

@@ -1,3 +1,4 @@
+import { guestForTab } from '../share-guest/state.svelte'
 import { Store } from '@tauri-apps/plugin-store'
 import { t } from '../i18n/store.svelte'
 import type { Tab } from '../tabs.svelte'
@@ -139,6 +140,12 @@ export async function loadSidePanels(): Promise<void> {
 
 /** Register the built-in views. Idempotent; call once at startup. */
 export function registerBuiltinSideViews(): void {
+  registerSideView({
+    id: 'share-guest', side: 'right', order: 3,
+    title: () => t('guest.title'), isAvailable: () => true,
+    appliesTo: tab => !!guestForTab(tab),
+    component: () => import('../../components/share-guest/GuestPanel.svelte'),
+  })
   registerSideView({
     id: 'folder-view', side: 'left', order: 0,
     title: () => t('folderView.tabTitle'),

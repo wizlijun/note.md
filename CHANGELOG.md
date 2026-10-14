@@ -1,8 +1,10 @@
 ## Unreleased — shared share editor foundations
 
+- Desktop shared projects now open through confirmed `notemd://` links or File → Open Share Link, use the normal local editor, and submit through a durable single-package outbox with exact retries and public receipts. Read-only links keep local editing without granting submission rights. Native macOS launch/menu/offline-restart acceptance and Windows/Linux registration remain unverified; update checks report versions only (merging follows separately).
+
 - Keep guest download code outside iOS builds and fix Windows directory handling in the shared atomic writer. Unix directory sync errors still propagate; Windows does not claim directory-entry durability after power loss.
 
-- Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Desktop entry and update workflows remain pending.
+- Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Version merging remains separate.
 
 - Preserve descriptions typed during shared-draft migration without overwriting the new version; reject malformed nested recovery records before saving.
 

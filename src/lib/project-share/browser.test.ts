@@ -1136,3 +1136,22 @@ describe('bounded browser rebase transitions',()=> {
     expect(($('submit') as HTMLButtonElement).disabled).toBe(false)
   })
 })
+
+it('opens desktop from the live IDB credential after the address fragment is cleared, including reload', async () => {
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response('{}',{status:404})))
+  history.replaceState(null, '', '/2026-10-14-test#feedback=visitor-token')
+  await projectShareBrowser(new Marked())
+  click('edit')
+  const link=document.getElementById('open-notemd') as HTMLAnchorElement
+  expect(link).not.toBeNull()
+  expect(link.hidden).toBe(false)
+  const inner=new URL(new URL(link.href).searchParams.get('u')!)
+  expect(inner.hash).toBe('#feedback=visitor-token')
+  expect(location.hash).not.toContain('visitor-token')
+  const html=buildProjectBundle(snapshot,'https://share.test/feedback/project_1')
+  document.body.innerHTML=html.slice(html.indexOf('<body>')+6,html.indexOf('</body>'))
+  await projectShareBrowser(new Marked())
+  click('edit')
+  expect(new URL(new URL((document.getElementById('open-notemd') as HTMLAnchorElement).href).searchParams.get('u')!).hash).toBe('#feedback=visitor-token')
+  expect($('project-data').textContent).not.toContain('visitor-token')
+})

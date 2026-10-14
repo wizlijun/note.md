@@ -495,3 +495,18 @@ Ruling: Task7 copy-base action 允许明确 sourcePath（可信 pending manifest
 Ruling: Task7 附件人工选择使用单独受限 resolve-file {root,path,expectedHash,choice:keep-local|use-base}，path 指分享路径并由可信 workPaths 解到工作路径；use-base 只能从当前 pending manifest 取验证原 bytes，keep-local 仅记完成而不写文件。对于旧/新源均存在而本机工作文件缺失，保留缺失、列待人工选择同一 keep-local/use-base（expectedHash:null），不得把缺失当空字符串 propose 或自动恢复。选择保留删除后照现有提交规则忽略并提示缺失，不把删除加入 wire。— 文本 resolve(content) 不能表达 binary 或删除，用户改动优先。— 成本是窄 tagged 文件级选择，须验证两种附件选择、缺失两种选择以及 CAS 变化拒绝。
 
 Ruling: Task7 hash-only update-plan journal 不保存正文，但写前先将文本 merge/人工 edited 结果以不可变原 bytes 写入受管 .notemd/update-results/<toSnapshotId>/<rowId>，file write/sync 完成后才耐久 intent（记录目标、expectedHash/resultHash、action/state 与受管结果标识），再执行工作路径 CAS 写入和完成标记。重启校验结果 bytes hash 后可重放未写行；工作 hash 为 resultHash 标完成，等于 expectedHash 可按同一结果重试，否则留 unresolved，禁止重新 propose 覆盖用户。全部完成并耐久 guest.json 新 snapshotId/files/workPaths 后才清旧 base 和本批 staged results；清理失败可重试不回滚已确认用户文件。— hash 本身不能还原尚未写入内容，原只存 hash 的计划缺恢复材料。— 成本是有界临时结果文件，与已验证快照/最大工作数据边界共同限制；要以 write-before/after 及 guest.json 前后故障证明真实恢复，而非假设内存仍在。
+
+
+Ruling: Task6 每个 received 项目最多一个耐久 outbox pending；已有 pending 时只重放原 body/id，新的不同 id 拒绝入队，同 id 不同 bytes 同样拒绝。guest.json 使用读写一致 32 MiB 总上限，body 仍严格按 UTF-8 ≤5 MiB 验证，metadata/pending 数量和协议另作验证，不能将文件 cap 当 wire 放宽；32 MiB 保守覆盖字符串 JSON 转义与有限 metadata。允许原 share_guest.rs/store 增 list/read-work/check-version/queue/deliver/receipts 窄操作；Task6 检查更新只读公开 version 并显示有更新，不下载/改 base 或合并，Task7承接。— 原计划已要求既有outbox直接重放但未给容量；单pending最小且避免无限放大 guest.json。— 成本是离线时先送达旧提交才能产生下一份，UI须明确提示且保留新工作修改；测试5MiB及转义后重启读取、第二id拒绝、同id异bytes拒绝、旧包重放不读新工作稿。
+
+
+Ruling: Task6 为6.5 producer→consumer验收扩允许范围至 src-tauri/src/project_share.rs 的 cfg(test) 一条实际主人 import/review/apply→P2 receipt 测试，以及 share_guest/fixtures/desktop-submission.json；fixture 必须由真实 GuestPanel 提交测试经生产 builder/队列路径生成并冻结，绑定生成命令与SHA，不能手写等价对象冒称真实UI产物。只新增测试，不改owner生产逻辑；fixture无真实用户内容/token，浏览器与桌面包比较只剔除既定submissionId/client字段，其余同输入逐项比较。— 原P2旧测试不能证明新增桌面生产者与主人消费端相容。— 成本是一份小型真实合成fixture和窄Rust测试，生成与后续回读SHA必须一致，版本值属于冻结样本而不能冒充之后发行包的client.version。
+
+
+Ruling: Task6 允许追加 share_guest/fixtures/desktop-receipt.json，必须由同一真实主人 apply 结果经现有 buildProjectReceipt 生成冻结，再被原生 HTTP receipts 消费与组件纯文本展示测试直接读取；记录生成命令/SHA且断言无正文/token，不手写伪回执。— 上一裁定的真实提交fixture仅闭合输入，独立实际P2回执bytes才能闭合新消费端。— 成本是一份小型合成公共fixture及生成/消费身份校验；原canonical/source-binding测试设置失败保留，不当成产品逻辑RED。
+
+
+Ruling: Task6 deliver ACK 的 post-rename sync 失败不能只靠一次尽力回写旧 GuestInfo：第二次回写也可能失败并丢掉唯一 pending。采用单个受管 .notemd/guest-ack-recovery.json 保存待清理的同一 Outbox 原包（无token），在清 outbox 前通过现有 writer 完整耐久写入；若准备失败，原 guest.json pending 不动。inspect/list/queue/deliver 统一读取并验证该恢复记录（project/snapshot/id/body与可信base一致、安全路径、有界、同id冲突拒绝），将其视作仍待发送，直到 guest.json ACK 写入成功并清掉恢复记录。ACK替换/同步或清理失败都保留可重放的耐久来源，不依赖再次写盘成功才能找回原body；重复成功重放仍为同id/body。成功仅移走匹配pending并保留工作文件与submitted去重，不新增服务/通用journal；恢复标记存在时新包和Task7切sid仍受pending约束。— write_atomic Err不能证明rename没发生，原硬门槛要求本机ACK失败后能恢复。— 成本是一份最多单包的短期本机恢复副本和读取协调；需真实替换后故障注入+重构GuestStore/重启读取原body、恢复写不可用仍可读原包、成功清理三类证据；底层介质全面不可读仍不能保证物理持久性。
+
+
+Ruling: Task6 ACK恢复标记的清理采用 remove_file 成功即逻辑完成，不在 unlink 后新增目录 fsync 成功门槛；此时 guest.json 的 ACK 写入已经完整成功，掉电后若旧标记复现，只允许同 id/body 的幂等重放。inspect 的恢复协调为只读，即使目录不可写仍可取得原包；不为清理另造第二文件/阶段。— 删除后再以fsync错误报ACK失败会移走唯一恢复来源，垃圾回收无需强于已耐久ACK。— 成本是极端掉电可能多一次安全重放，不能承诺 exactly-once 或 Windows目录掉电保证。

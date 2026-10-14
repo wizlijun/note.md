@@ -1355,7 +1355,7 @@ fn argv_requests_cli_background(argv: &[String]) -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dlog("=== note.md start ===");
-    dlog(&format!("argv: {:?}", std::env::args().collect::<Vec<_>>()));
+    dlog("argv received");
 
     // rustls 0.23 no longer auto-selects a crypto provider; install ring as
     // the default so reqwest::Client::new() doesn't panic with "No provider
@@ -1392,7 +1392,9 @@ pub fn run() {
     let builder = builder.manage(preview_window::PreviewStore::default());
     #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-        dlog(&format!("single_instance argv: {:?}", argv));
+        dlog("single_instance argv received");
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        { use tauri_plugin_deep_link::DeepLinkExt; app.deep_link().handle_cli_arguments(argv.iter()); }
         if argv_requests_cli_background(&argv) {
             dlog("single_instance background wake: preserving main-window visibility");
             return;
@@ -1866,6 +1868,8 @@ pub fn run() {
             // captured via `RunEvent::Opened` (handled in app.run() below) AND via
             // `tauri-plugin-deep-link`'s `on_open_url` (frontend-side belt-and-braces).
             let handle = app.handle();
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            { use tauri_plugin_deep_link::DeepLinkExt; handle.deep_link().register_all()?; }
             for arg in std::env::args().skip(1) {
                 if let Some(path) = argv_open_target(&arg) {
                     emit_open_file_delayed(handle, &path);
@@ -1886,10 +1890,10 @@ pub fn run() {
             // Windows/Linux deliver file-open through argv and deep-link instead.
             #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             RunEvent::Opened { urls } => {
-                dlog(&format!("RunEvent::Opened {} urls: {:?}",
-                    urls.len(),
-                    urls.iter().map(|u| u.to_string()).collect::<Vec<_>>()));
+                dlog(&format!("RunEvent::Opened {} urls", urls.len()));
                 for url in urls {
+                    #[cfg(not(target_os = "ios"))]
+                    if url.scheme() == "notemd" { continue; }
                     match url.to_file_path() {
                         Ok(path) => {
                             #[cfg(target_os = "ios")]
@@ -2000,7 +2004,7 @@ fn bootstrap_themes(app: &tauri::AppHandle) -> Result<(), String> {
 /// them against. A path that does not exist is passed through unchanged so the
 /// frontend still reports it, rather than the arg vanishing silently.
 fn argv_open_target(arg: &str) -> Option<String> {
-    if arg.starts_with('-') {
+    if arg.starts_with('-') || arg.get(..7).is_some_and(|prefix| prefix.eq_ignore_ascii_case("notemd:")) {
         return None;
     }
     Some(
@@ -2156,6 +2160,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         // Core feature, formerly carried by the bundled `base` plugin manifest —
         // wording preserved from its i18n block.
         "file.newBase" => ("New Base", "新建 Base", "新規 Base", "Neue Base"),
+        "file.openShareLink" => ("Open Share Link…", "打开分享链接…", "共有リンクを開く…", "Freigabelink öffnen…"),
         "file.open" => ("Open…", "打开…", "開く…", "Öffnen…"),
         "file.closeTab" => ("Close Tab", "关闭标签页", "タブを閉じる", "Tab schließen"),
         "file.save" => ("Save", "保存", "保存", "Speichern"),
@@ -2715,6 +2720,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&MenuItemBuilder::with_id("new-base", menu_label(locale, "file.newBase")).build(app)?)
         .item(&MenuItemBuilder::with_id("new-canvas", menu_label(locale, "file.newCanvas")).build(app)?)
         .item(&MenuItemBuilder::with_id("open", menu_label(locale, "file.open")).accelerator("CmdOrCtrl+O").build(app)?)
+        .item(&MenuItemBuilder::with_id("open-share-link", menu_label(locale, "file.openShareLink")).build(app)?)
         .item(&recent_menu)
         .item(&latest_menu)
         .separator()
@@ -3099,5 +3105,15 @@ mod file_history_route_tests {
         state.started("main"); assert!(state.init("main").is_err());
         assert!(state.set("main", published(FILE_HISTORY_MAX, 1)).is_err());
         assert_eq!(state.effective(), (false, false, false));
+    }
+}
+
+#[cfg(test)]
+mod guest_entry_tests {
+    #[test]
+    fn notemd_urls_never_enter_file_queue_and_files_still_do() {
+        assert!(super::argv_open_target("notemd://share/open?u=https%3A%2F%2Fhost%23feedback%3DSECRET").is_none());
+        assert!(super::argv_open_target("NOTEMD://share/open?u=SECRET").is_none());
+        assert!(super::argv_open_target("/tmp/ordinary.md").is_some());
     }
 }

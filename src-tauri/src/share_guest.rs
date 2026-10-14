@@ -1,4 +1,4 @@
-//! Verified public downloads. Credentials never cross this command boundary.
+//! Verified public downloads and durable guest delivery. Credentials stay in app-data Store.
 mod archive;
 mod reader;
 mod store;
@@ -145,6 +145,31 @@ enum Request {
         #[serde(rename = "shareUrl")]
         share_url: String,
     },
+    #[serde(rename = "list")]
+    List,
+    #[serde(rename = "read-work")]
+    ReadWork { root: String },
+    #[serde(rename = "check-version")]
+    CheckVersion { root: String },
+    #[serde(rename = "queue")]
+    Queue {
+        root: String,
+        #[serde(rename = "submissionId")]
+        submission_id: String,
+        body: String,
+    },
+    #[serde(rename = "deliver")]
+    Deliver {
+        root: String,
+        #[serde(rename = "submissionId")]
+        submission_id: String,
+    },
+    #[serde(rename = "receipts")]
+    Receipts {
+        root: String,
+        #[serde(rename = "submissionIds")]
+        submission_ids: Vec<String>,
+    },
     #[serde(rename = "inspect")]
     Inspect { root: String },
     #[serde(rename = "read-base")]
@@ -155,6 +180,142 @@ enum Request {
         snapshot_id: String,
     },
 }
+fn credential(app: &tauri::AppHandle, info: &store::GuestInfo) -> Result<String> {
+    use tauri_plugin_store::StoreExt;
+    let db = app
+        .store("share_db.json")
+        .map_err(|_| "guest credential unavailable")?;
+    db.get(format!("guest:{}:{}", info.origin, info.project_id))
+        .and_then(|v| v.get("token").and_then(|t| t.as_str()).map(str::to_owned))
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| "GUEST_READ_ONLY".into())
+}
+fn guest_client() -> Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|_| "guest network unavailable".into())
+}
+async fn send_pending(info: &store::GuestInfo, id: &str, token: &str) -> Result<String> {
+    let pending = info
+        .outbox
+        .iter()
+        .find(|p| p.submission_id == id)
+        .ok_or("pending submission missing")?;
+    let response = guest_client()?
+        .post(format!("{}/feedback/{}", info.origin, info.slug))
+        .header("X-Feedback-Token", token)
+        .header("Content-Type", "application/json")
+        .body(pending.body.clone())
+        .send()
+        .await
+        .map_err(|_| "GUEST_NETWORK".to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("GUEST_HTTP_{}", response.status().as_u16()));
+    }
+    Ok(pending.body.clone())
+}
+fn valid_receipt(value: &serde_json::Value, info: &store::GuestInfo, id: &str) -> bool {
+    let keys = |value: &serde_json::Value, allowed: &[&str]| {
+        value
+            .as_object()
+            .is_some_and(|o| o.keys().all(|k| allowed.contains(&k.as_str())))
+    };
+    let count = |v: &serde_json::Value| v.as_u64().filter(|n| *n <= 9_007_199_254_740_991);
+    let outcome = |v: &serde_json::Value, superseded: bool| {
+        v.as_str().is_some_and(|s| {
+            ["accepted", "partial", "rejected", "forwarded"].contains(&s)
+                || superseded && s == "superseded"
+        })
+    };
+    keys(
+        value,
+        &[
+            "schemaVersion",
+            "project_id",
+            "submissionId",
+            "decidedAt",
+            "outcome",
+            "files",
+            "annotations",
+            "reply",
+            "includedInSnapshotId",
+        ],
+    ) && value["schemaVersion"] == 1
+        && value["project_id"] == info.project_id
+        && value["submissionId"] == id
+        && value["decidedAt"]
+            .as_str()
+            .is_some_and(|s| chrono::DateTime::parse_from_rfc3339(s).is_ok())
+        && outcome(&value["outcome"], true)
+        && value["files"].as_array().is_some_and(|files| {
+            files.iter().all(|f| {
+                keys(f, &["path", "outcome", "accepted", "total"])
+                    && f["path"]
+                        .as_str()
+                        .is_some_and(|p| reader::valid_path(p).is_ok())
+                    && outcome(&f["outcome"], false)
+                    && count(&f["accepted"])
+                        .zip(count(&f["total"]))
+                        .is_some_and(|(a, t)| a <= t)
+            })
+        })
+        && keys(&value["annotations"], &["promoted", "total"])
+        && count(&value["annotations"]["promoted"])
+            .zip(count(&value["annotations"]["total"]))
+            .is_some_and(|(a, t)| a <= t)
+        && value
+            .get("reply")
+            .is_none_or(|v| v.as_str().is_some_and(|s| s.encode_utf16().count() <= 2000))
+        && value
+            .get("includedInSnapshotId")
+            .is_none_or(|v| v.as_str().is_some_and(reader::valid_id))
+}
+async fn read_receipts(
+    info: &store::GuestInfo,
+    ids: &[String],
+    token: &str,
+) -> Result<serde_json::Value> {
+    if ids.len() > 20 || ids.iter().any(|id| !info.submitted.contains(id)) {
+        return Err("invalid receipt ids".into());
+    }
+    let client = guest_client()?;
+    let mut results = vec![];
+    // Serial reads keep concurrency at one, within the four-request ceiling.
+    for id in ids {
+        let response = client
+            .get(format!(
+                "{}/feedback/{}/receipt/{}",
+                info.origin, info.slug, id
+            ))
+            .header("X-Feedback-Token", token)
+            .send()
+            .await;
+        let Ok(mut response) = response else {
+            results.push(serde_json::json!({"submissionId":id,"status":0}));
+            continue;
+        };
+        let status = response.status().as_u16();
+        if status != 200 {
+            results.push(serde_json::json!({"submissionId":id,"status":status}));
+            continue;
+        }
+        let mut bytes = vec![];
+        while let Some(chunk) = response.chunk().await.map_err(|_| "GUEST_NETWORK")? {
+            if chunk.len() > 64 * 1024 - bytes.len() {
+                return Err("invalid receipt size".into());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let receipt = reader::unique_json(&bytes)?;
+        if !valid_receipt(&receipt, info, id) {
+            return Err("invalid receipt identity".into());
+        }
+        results.push(serde_json::json!({"submissionId":id,"status":200,"receipt":receipt}));
+    }
+    Ok(results.into())
+}
 #[tauri::command]
 pub async fn share_guest(
     app: tauri::AppHandle,
@@ -162,6 +323,60 @@ pub async fn share_guest(
 ) -> Result<serde_json::Value> {
     let request: Request = serde_json::from_value(request).map_err(|_| "invalid guest request")?;
     let vault = crate::sotvault::resolve_vault_root(&app).ok_or("Vault not configured")?;
+    match &request {
+        Request::Deliver {
+            root,
+            submission_id,
+        } => {
+            let info = {
+                let _guard = GUEST_IO.lock().map_err(|_| "guest store unavailable")?;
+                store::GuestStore::new(vault.clone())?.inspect(Path::new(root))?
+            };
+            let token = credential(&app, &info)?;
+            let body = send_pending(&info, submission_id, &token).await?;
+            let _guard = GUEST_IO.lock().map_err(|_| "guest store unavailable")?;
+            if crate::sotvault::resolve_vault_root(&app).as_ref() != Some(&vault) {
+                return Err("active Vault changed".into());
+            }
+            return serde_json::to_value(store::GuestStore::new(vault)?.delivered(
+                Path::new(root),
+                submission_id,
+                &body,
+            )?)
+            .map_err(|_| "invalid guest result".into());
+        }
+        Request::Receipts {
+            root,
+            submission_ids,
+        } => {
+            let info = store::GuestStore::new(vault.clone())?.inspect(Path::new(root))?;
+            return read_receipts(&info, submission_ids, &credential(&app, &info)?).await;
+        }
+        Request::CheckVersion { root } => {
+            let info = store::GuestStore::new(vault.clone())?.inspect(Path::new(root))?;
+            let version = Version::parse(
+                &bounded_get(
+                    &guest_client()?,
+                    &format!("{}/project/{}/version", info.origin, info.slug),
+                    64 * 1024,
+                )
+                .await?,
+            )?;
+            if version.project_id != info.project_id {
+                return Err("share version identity mismatch".into());
+            }
+            return Ok(
+                serde_json::json!({"snapshotId":version.snapshot_id,"changed": version.snapshot_id != info.snapshot_id}),
+            );
+        }
+        Request::Queue { root, .. } => {
+            credential(
+                &app,
+                &store::GuestStore::new(vault.clone())?.inspect(Path::new(root))?,
+            )?;
+        }
+        _ => {}
+    }
     let snapshot = if let Request::Open {
         origin,
         slug,
@@ -191,6 +406,19 @@ pub async fn share_guest(
                 &snapshot.ok_or("missing verified snapshot")?,
             )?)
             .map_err(|_| "invalid guest result".into()),
+            Request::List => {
+                serde_json::to_value(store.list()?).map_err(|_| "invalid guest result".into())
+            }
+            Request::ReadWork { root } => store.read_work(Path::new(&root)),
+            Request::Queue {
+                root,
+                submission_id,
+                body,
+            } => serde_json::to_value(store.queue(Path::new(&root), &submission_id, &body)?)
+                .map_err(|_| "invalid guest result".into()),
+            Request::Deliver { .. } | Request::Receipts { .. } | Request::CheckVersion { .. } => {
+                Err("invalid guest operation".into())
+            }
             Request::Inspect { root } => serde_json::to_value(store.inspect(Path::new(&root))?)
                 .map_err(|_| "invalid guest result".into()),
             Request::ReadBase {
@@ -207,6 +435,173 @@ pub async fn share_guest(
 mod tests {
     use super::*;
     use std::io::{Read, Write};
+    fn submission_server(statuses: Vec<u16>) -> (String, std::thread::JoinHandle<Vec<String>>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let thread = std::thread::spawn(move || {
+            let mut bodies = vec![];
+            for status in statuses {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut headers = vec![];
+                let mut one = [0u8; 1];
+                while !headers.ends_with(b"\r\n\r\n") {
+                    stream.read_exact(&mut one).unwrap();
+                    headers.push(one[0]);
+                }
+                let header = String::from_utf8(headers).unwrap();
+                let len: usize = header
+                    .lines()
+                    .find_map(|line| {
+                        line.to_lowercase()
+                            .strip_prefix("content-length: ")
+                            .map(str::to_owned)
+                    })
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                let mut bytes = vec![0; len];
+                stream.read_exact(&mut bytes).unwrap();
+                bodies.push(String::from_utf8(bytes).unwrap());
+                assert!(header
+                    .to_lowercase()
+                    .contains("x-feedback-token: fixture_token"));
+                stream.write_all(format!("HTTP/1.1 {status} Result\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).unwrap();
+            }
+            bodies
+        });
+        (origin, thread)
+    }
+    #[tokio::test]
+    async fn actual_http_restart_replays_durable_bytes_after_503_409_and_failed_ack() {
+        let (origin, server) = submission_server(vec![503, 409, 200, 200]);
+        let t = tempfile::tempdir().unwrap();
+        let store = store::GuestStore::new(t.path().into()).unwrap();
+        let snapshot = reader::extract_public_snapshot(&reader::tests::html(1)).unwrap();
+        let info = store
+            .install(
+                &origin,
+                "2026-10-14-test",
+                &format!("{origin}/2026-10-14-test"),
+                &snapshot,
+            )
+            .unwrap();
+        let root = Path::new(&info.root);
+        let wire=serde_json::json!({"schemaVersion":2,"project_id":info.project_id,"snapshotId":info.snapshot_id,"submissionId":"request1","client":{"kind":"notemd","version":"6.1013.2"},"edits":[],"annotations":[]}).to_string();
+        let queued = store.queue(root, "request1", &wire).unwrap();
+        let before = std::fs::read(root.join(".notemd/base/sid/0.md")).unwrap();
+        assert_eq!(
+            send_pending(&queued, "request1", "FIXTURE_TOKEN")
+                .await
+                .unwrap_err(),
+            "GUEST_HTTP_503"
+        );
+        std::fs::write(root.join("0.md"), "later draft").unwrap();
+        let restarted = store::GuestStore::new(t.path().into()).unwrap();
+        let pending = restarted.inspect(root).unwrap();
+        assert_eq!(
+            send_pending(&pending, "request1", "FIXTURE_TOKEN")
+                .await
+                .unwrap_err(),
+            "GUEST_HTTP_409"
+        );
+        let body = send_pending(&pending, "request1", "FIXTURE_TOKEN")
+            .await
+            .unwrap();
+        // Successful POST followed by failed local acknowledgement must leave pending durable.
+        let metadata = root.join(".notemd/guest.json");
+        let permissions = std::fs::metadata(&metadata).unwrap().permissions();
+        let mut readonly = permissions.clone();
+        readonly.set_readonly(true);
+        std::fs::set_permissions(&metadata, readonly).unwrap();
+        assert_eq!(
+            restarted.delivered(root, "request1", &body).unwrap_err(),
+            "cannot save guest metadata"
+        );
+        std::fs::set_permissions(&metadata, permissions).unwrap();
+        let restart2 = store::GuestStore::new(t.path().into()).unwrap();
+        assert_eq!(restart2.inspect(root).unwrap().outbox[0].body, body);
+        send_pending(
+            &restart2.inspect(root).unwrap(),
+            "request1",
+            "FIXTURE_TOKEN",
+        )
+        .await
+        .unwrap();
+        restart2.delivered(root, "request1", &body).unwrap();
+        assert_eq!(server.join().unwrap(), vec![wire.clone(); 4]);
+        assert_eq!(
+            std::fs::read_to_string(root.join("0.md")).unwrap(),
+            "later draft"
+        );
+        assert_eq!(
+            std::fs::read(root.join(".notemd/base/sid/0.md")).unwrap(),
+            before
+        );
+    }
+    #[tokio::test]
+    async fn actual_p2_receipt_http_and_statuses_keep_pending() {
+        let wire = include_bytes!("share_guest/fixtures/desktop-receipt.json");
+        let receipt: serde_json::Value = serde_json::from_slice(wire).unwrap();
+        let id = receipt["submissionId"].as_str().unwrap().to_string();
+        let mut responses = vec![response(wire)];
+        for status in [404, 403, 410] {
+            responses.push(
+                format!(
+                    "HTTP/1.1 {status} Result\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                )
+                .into_bytes(),
+            );
+        }
+        let (origin, server) = serve(responses);
+        let t = tempfile::tempdir().unwrap();
+        let store = store::GuestStore::new(t.path().into()).unwrap();
+        let snapshot = reader::extract_public_snapshot(&reader::tests::html(1)).unwrap();
+        let mut info = store
+            .install(
+                &origin,
+                "2026-10-14-test",
+                &format!("{origin}/2026-10-14-test"),
+                &snapshot,
+            )
+            .unwrap();
+        info.submitted = vec![id.clone()];
+        for status in [200, 404, 403, 410] {
+            let rows = read_receipts(&info, &[id.clone()], "FIXTURE_TOKEN")
+                .await
+                .unwrap();
+            assert_eq!(rows[0]["status"], status);
+            if status == 200 {
+                assert_eq!(rows[0]["receipt"], receipt);
+            }
+        }
+        assert_eq!(server.join().unwrap().len(), 4);
+        assert!(read_receipts(&info, &vec![id.clone(); 21], "FIXTURE_TOKEN")
+            .await
+            .is_err());
+        assert!(read_receipts(&info, &["foreign".into()], "FIXTURE_TOKEN")
+            .await
+            .is_err());
+        // Server is closed: network errors become a local row, not a fake receipt.
+        assert_eq!(
+            read_receipts(&info, &[id], "FIXTURE_TOKEN").await.unwrap()[0]["status"],
+            0
+        );
+        let mut malicious = receipt.clone();
+        malicious["body"] = "SECRET_BODY".into();
+        assert!(!valid_receipt(
+            &malicious,
+            &info,
+            receipt["submissionId"].as_str().unwrap()
+        ));
+        assert!(store
+            .inspect(Path::new(&info.root))
+            .unwrap()
+            .outbox
+            .is_empty());
+    }
     fn serve(responses: Vec<Vec<u8>>) -> (String, std::thread::JoinHandle<Vec<String>>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());

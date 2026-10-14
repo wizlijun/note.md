@@ -14,6 +14,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   const article = $('document')
   const submit = $('submit') as HTMLButtonElement
   const editButton = $('edit') as HTMLButtonElement
+  const desktopLink=document.createElement('a');desktopLink.id='open-notemd';desktopLink.className='reader-button';desktopLink.textContent='在 note.md 中打开';desktopLink.hidden=true;$('collaboration').append(desktopLink)
   let path = snapshot.entry
   let editing = false
   let baseline = false
@@ -514,6 +515,12 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     }
   }
   const render = () => {
+    desktopLink.hidden=!editing || !token
+    if(editing && token) {
+      const share=new URL(location.origin+location.pathname)
+      share.hash=new URLSearchParams({feedback:token}).toString()
+      desktopLink.href='notemd://share/open?u='+encodeURIComponent(share.href)
+    } else desktopLink.removeAttribute('href')
     editor.value=currentText()
     const publishedOriginal=(baseline?original(path):currentText())===files.get(path)?.markdown
     const published=data.presentation?.documents[path]

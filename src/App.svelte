@@ -8,7 +8,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
   import { invoke } from '@tauri-apps/api/core'
-  import { onOpenUrl } from '@tauri-apps/plugin-deep-link'
+  import { onOpenUrl, getCurrent } from '@tauri-apps/plugin-deep-link'
   import TabBar from './components/TabBar.svelte'
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
@@ -26,6 +26,8 @@
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
+  import OpenShareDialog from './components/share-guest/OpenShareDialog.svelte'
+  import { guestState, receiveGuestUrl, closeGuestLink, finishGuestBootstrap, refreshGuests, retryGuests } from './lib/share-guest/state.svelte'
   import ProjectShareDialog from './components/ProjectShareDialog.svelte'
   import UpdateBanner from './components/UpdateBanner.svelte'
   import UpdateDialog from './components/UpdateDialog.svelte'
@@ -362,6 +364,7 @@
 
     const unlistenDeepLink = onOpenUrl((urls) => {
       for (const url of urls) {
+        if (receiveGuestUrl(url)) continue
         let path = url
         if (path.startsWith('file://')) {
           try {
@@ -374,6 +377,14 @@
         openFile(path).catch((err) => { console.warn('[App] deep-link openFile:', path, err); showError(String(err)) })
       }
     })
+
+    void unlistenDeepLink.then(async () => {
+      try { for (const url of await getCurrent() ?? []) receiveGuestUrl(url) }
+      catch { guestState.error = 'GUEST_LINK_UNAVAILABLE' }
+      finally { finishGuestBootstrap() }
+    })
+    const retryGuestOnline = () => { void retryGuests() }
+    window.addEventListener('online', retryGuestOnline)
 
     ;(async () => {
       try { await loadSettings() } catch (e) { console.warn('[App] loadSettings:', e) }
@@ -612,7 +623,7 @@
       // Populate the Open Recent menu now that settings (recentFiles) and the
       // vault root are loaded. installRecentsSync deliberately skips this — it
       // can run before loadSettings finishes.
-      void refreshSotvault().then(() => refreshRecentMenu()).catch((e) => console.warn('[App] recents init:', e))
+      void refreshSotvault().then(async () => { await refreshGuests(sotvaultStore.vaultRoot); await refreshRecentMenu() }).catch((e) => console.warn('[App] recents init:', e))
     })()
 
     const uninstallFocus = installFocusPoll()
@@ -653,7 +664,7 @@
     // vault's oversize files can never be attributed to another; keeping the
     // frontend snapshot would undo that at the display layer — the settings
     // page would describe the previous vault until something refreshed it.
-    setVaultRootChangedHandler(() => { indexStatus.reset(); void maybeInstallTracker(); void ensureWikilinkBlocklist(); void defaultRootToVault(sotvaultStore.vaultRoot) })
+    setVaultRootChangedHandler(() => { void refreshGuests(sotvaultStore.vaultRoot); indexStatus.reset(); void maybeInstallTracker(); void ensureWikilinkBlocklist(); void defaultRootToVault(sotvaultStore.vaultRoot) })
     // 镜像的伴生笔记要在 front-matter 里记下源文件(OKF §5.1)。store 不直接依赖
     // sotvault(会成环),所以解析器在这里注入。
     setMirrorSourceResolver((mainPath) => deviceSourceForVaultPath(mainPath))
@@ -698,6 +709,7 @@
         case 'new-base':    await createNewBase(); break
         case 'new-canvas':  await dispatch('new-canvas'); break
         case 'open':        cmdOpen(); break
+        case 'open-share-link': guestState.menuOpen = true; break
         case 'save':        cmdSave(); break
         case 'save-as':     cmdSaveAs(); break
         case 'print':       cmdPrint(); break
@@ -849,6 +861,7 @@
       unlistenPluginToast.then((fn) => fn())
       unlistenPluginsChanged.then((fn) => fn())
       unlistenMenuRebuilt.then((fn) => fn())
+      window.removeEventListener('online', retryGuestOnline)
       unlistenDeepLink.then((fn) => fn())
       cleanupRecents?.()
       setVaultRootChangedHandler(null)
@@ -1006,6 +1019,14 @@
   <SettingsDialog bind:open={uiState.showSettings} />
   {#if uiState.showProjectShare && platformName !== 'ios'}
     <ProjectShareDialog onClose={() => uiState.showProjectShare = false} />
+  {/if}
+  {#if guestState.error && platformName !== 'ios'}
+    <div role="alert">{t(guestState.error === 'GUEST_INVALID_LINK' ? 'guest.invalidLink' : 'guest.failed')}<button onclick={() => guestState.error = ''}>{t('guest.cancel')}</button></div>
+  {/if}
+  {#if guestState.ready && (guestState.links.length || guestState.menuOpen) && platformName !== 'ios'}
+    {#key guestState.links[0]}
+      <OpenShareDialog link={guestState.links[0]} onClose={closeGuestLink} />
+    {/key}
   {/if}
   <UpdateDialog bind:open={showUpdateDialog} />
 </main>
