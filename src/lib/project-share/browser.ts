@@ -1,4 +1,4 @@
-import type { ShareEditorHandleE1, ShareEditorHost, ShareEditorModule } from '../../share-editor/contract'
+import type { ShareEditorHandle, ShareEditorHost, ShareEditorModule } from '../../share-editor/contract'
 import type { DraftV2, ProjectAnnotationV2 } from './types'
 
 /** Serialized into the static bundle. Keep every runtime dependency inside this function. */
@@ -17,12 +17,13 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   let path = snapshot.entry
   let editing = false
   let baseline = false
-  let handle: ShareEditorHandleE1 | undefined
+  let handle: ShareEditorHandle | undefined
   let editorHost: ShareEditorHost | undefined
   let loadEpoch = 0
   let loading: Promise<void> | undefined
   let cancelLoad = () => {}
   const enhanced = document.createElement('section'); enhanced.id='enhanced-editor'; enhanced.hidden=true; editor.after(enhanced)
+  const continueCurrent=document.createElement('button');continueCurrent.className='reader-button';continueCurrent.textContent='在新版本上继续';continueCurrent.hidden=true;$('old-drafts').append(continueCurrent)
   const badges = new Map<string, {changed:boolean;annotations:number}>()
   const durablePending = new Map<string, NonNullable<DraftV2['pending']>>()
   const providedToken = new URLSearchParams(location.hash.slice(1)).get('feedback') ?? ''
@@ -132,16 +133,18 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     tx.oncomplete=()=>resolve()
     tx.onabort=tx.onerror=()=>reject(tx.error??new Error('本地保存失败'))
   })
-  const save = (owner=draft, ownerNotes=notes): Promise<Readonly<DraftV2>> => {
+  const save = (owner=draft, ownerNotes=notes, guard?: () => boolean, installed?: () => void): Promise<Readonly<DraftV2>> => {
     // Bind ownership now, but read that lineage's live contents when writing.
     // This retains in-flight input without crossing an asynchronous switch or
     // reviving pending after that lineage's durable submission completes.
     const operation=saving.catch(()=>{}).then(async()=> {
+      if(guard && !guard()) throw Object.assign(Error('草稿身份已变化'), { staleDraft:true })
       const durable=structuredClone(owner), durableNotes=structuredClone(ownerNotes)
       await atomic([[prefix+'draft2:'+owner.lineageId,durable],[prefix+'draft2-notes:'+owner.lineageId,durableNotes]])
+      installed?.()
       if(owner===draft) renderTree()
       return durable
-    }).catch(error=> {ready=false;render();throw error})
+    }).catch(error=> {if(!error?.staleDraft) {ready=false;render()}throw error})
     saving=operation.then(()=>{},()=>{})
     return operation
   }
@@ -528,6 +531,9 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     if(token && initialized && draft.snapshotId!==snapshot.snapshotId && !draft.base[path]) say('此文件没有旧版本原文，无法加入旧草稿；请导出备份后刷新到当前版本')
     correctRejected.hidden=!rejectedPending || rejectedPending!==draft.pending
     correctRejected.disabled=busy || !ready
+    continueCurrent.hidden=!initialized || draft.snapshotId===snapshot.snapshotId || oldDraftLabels.has(draft.lineageId)
+    continueCurrent.disabled=busy || !token
+    if(!continueCurrent.hidden) $('old-drafts').hidden=false
     comments()
   }
   let navigating=Promise.resolve(), mounting=false
@@ -559,10 +565,63 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     if(!menu.hidden) { event.preventDefault(); closeMenu(true) }
     else if(!panel.hidden) { event.preventDefault(); setPanel(false,true) }
   })
+  let mermaidLoading: Promise<{render(code:string, appearance:import('../../share-editor/contract').ShareMermaidAppearance):Promise<string>}> | undefined
+  const loadMermaid: NonNullable<ShareEditorHost['loadMermaid']> = () => {
+    if(mermaidLoading) return mermaidLoading
+    const resource=data.editorKit?.mermaid
+    mermaidLoading=new Promise((resolve,reject)=> {
+      if(!resource || new URL(resource.url).origin!==location.origin || !/^sha384-[A-Za-z0-9+/=]+$/.test(resource.integrity)) {reject(Error('图表资源不可用'));return}
+      const script=document.createElement('script')
+      const timer=setTimeout(()=>fail(),15000)
+      const fail=()=> {clearTimeout(timer);script.remove();reject(Error('图表加载失败，源码已保留'))}
+      script.src=resource.url;script.integrity=resource.integrity;script.crossOrigin='anonymous'
+      script.onerror=fail;script.onload=()=> {
+        clearTimeout(timer)
+        const module=(globalThis as typeof globalThis & {NotemdShareMermaid?:Awaited<ReturnType<NonNullable<ShareEditorHost['loadMermaid']>>>}).NotemdShareMermaid
+        if(!module || typeof module.render!=='function') {fail();return}
+        resolve(module)
+      }
+      document.head.append(script)
+    })
+    mermaidLoading.catch(()=> {mermaidLoading=undefined})
+    return mermaidLoading
+  }
   const hostFor = (owner: DraftV2, ownerNotes: ProjectAnnotationV2[]): ShareEditorHost => ({
     apiVersion:1, snapshot, theme:{themeId:data.presentation?.themeId??''},
+    ...(data.editorKit?.mermaid ? {loadMermaid} : {}),
     loadDraft:async()=>owner,
-    saveDraft:live=> {if(live!==owner) return Promise.reject(Error('草稿身份已变化'));return save(owner,ownerNotes)},
+    loadAnnotations:async()=>structuredClone(ownerNotes),
+    saveDraft:live=> save(live,ownerNotes,()=>live===owner && owner===draft),
+    transitionDraft:async(expected,next,noteChange)=> {
+      const explicitNotes=!!noteChange
+      noteChange??={expectedAnnotations:structuredClone(ownerNotes),annotations:structuredClone(ownerNotes)}
+      const valid=()=> {
+        if(expected!==owner || owner!==draft || next.lineageId!==owner.lineageId || owner.pending || next.pending) return false
+        if(Object.keys(next).some(key=>!['v','lineageId','snapshotId','base','after','editorFiles','annotationKinds','message','lastSubmissionId','rebasedFrom','previous','rebaseRecovery'].includes(key))) return false
+        if(!noteChange || JSON.stringify(noteChange.expectedAnnotations)!==JSON.stringify(ownerNotes) || !Array.isArray(noteChange.annotations) || noteChange.annotations.length>2000) return false
+        const prior=next.previous
+        const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b)
+        const forward=next.snapshotId===snapshot.snapshotId && !expected.previous && prior?.snapshotId===expected.snapshotId && same(prior.base,expected.base) && same(prior.after,expected.after) && same(prior.annotationKinds??{},expected.annotationKinds) && prior.rebasedFrom===expected.rebasedFrom
+        const reverse=expected.previous?.snapshotId===next.snapshotId && !next.previous && same(expected.previous.base,next.base) && same(expected.previous.after,next.after)
+        const cleared={...expected};delete cleared.rebaseRecovery
+        const clearRecovery=!!expected.rebaseRecovery && !next.rebaseRecovery && same(cleared,next) && same(noteChange.annotations,ownerNotes)
+        if(!forward && !reverse && !clearRecovery) return false
+        if(explicitNotes && forward && (noteChange.annotations.length || !same(prior?.annotations??[],ownerNotes))) return false
+        if(explicitNotes && reverse && !same(noteChange.annotations,expected.previous?.annotations??[])) return false
+        if(forward && Object.entries(next.base).some(([path,base])=>!snapshot.files.some((file:any)=>file.path===path && file.hash===base.hash && file.markdown===base.markdown))) return false
+        if(prior && (Object.hasOwn(prior,'previous') || Object.hasOwn(prior,'pending') || Object.hasOwn(prior,'rebaseRecovery'))) return false
+        const recovery=next.rebaseRecovery
+        if(recovery && (recovery.snapshot.project_id!==snapshot.project_id || recovery.snapshot.snapshotId!==snapshot.snapshotId || !same(recovery.snapshot.files,snapshot.files)
+          || recovery.candidate.lineageId!==next.lineageId || recovery.candidate.snapshotId!==snapshot.snapshotId
+          || Object.keys(recovery.candidate).some(key=>!['v','lineageId','snapshotId','base','after','editorFiles','annotationKinds','message','lastSubmissionId','rebasedFrom','previous'].includes(key))
+          || Object.entries(recovery.candidate.base).some(([path,base])=>!snapshot.files.some((file:any)=>file.path===path && file.hash===base.hash && file.markdown===base.markdown))
+          || recovery.snapshot.entry!==snapshot.entry
+          || !same(recovery.candidate.previous?.base,next.base) || !same(recovery.candidate.previous?.after,next.after))) return false
+        return true
+      }
+      const nextNotes=structuredClone([...noteChange.annotations])
+      return save(next,nextNotes,valid,()=> {owner=next;draft=next;ownerNotes=nextNotes;notes=nextNotes;drafts.set(prefix+'draft2:'+next.lineageId,next)})
+    },
     submit:async(body,id)=> {
       const pending=durablePending.get(owner.lineageId)
       if(!ready || owner!==draft || pending?.body!==body || pending?.submissionId!==id || owner.pending?.body!==body || owner.pending.submissionId!==id) throw Error('提交尚未完成本机保存')
@@ -616,11 +675,22 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
         handle=mounted;editorHost=host;renderNavigation()
       } catch (error:any) {
         dispose()
-        if(epoch===loadEpoch && owner===draft) {say('增强编辑器不可用，已切换到基础编辑'+(error?.unsavedDraft?'；草稿未保存，输入仍保留，请重试或导出':''));render();editor.focus()}
+        if(epoch===loadEpoch && owner===draft) {const params=new URLSearchParams(location.hash.slice(1));params.set('doc',path);params.delete('heading');history.replaceState(null,'','#'+params.toString());say('增强编辑器不可用，已切换到基础编辑'+(error?.unsavedDraft?'；草稿未保存，输入仍保留，请重试或导出':''));render();editor.focus()}
       } finally {mounting=false;if(epoch===loadEpoch) {loading=undefined;cancelLoad=()=>{};render()}}
     })()
     return loading
   }
+  const continueDraft = async () => {
+    if(busy || !token || !initialized) return
+    if(draft.pending) {say('请先发送或导出冻结提交包，再迁移版本');return}
+    editing=true;baseline=false;render();await loadEditor()
+    if(!handle) {say('迁移需要增强编辑器；旧草稿已保留，可导出备份');return}
+    busy=true;render()
+    try { const result=await handle.rebase(snapshot,draft);if(result.status==='applied') {restoredContentHash=await contentHash(content());say('已迁移到新版本；提交后才能开始下一次迁移')} }
+    catch(error:any) {say('迁移未完成：'+error.message)}
+    finally {busy=false;render()}
+  }
+  continueCurrent.onclick=continueDraft
   editButton.onclick=async()=> {
     if(!token || !initialized) return
     if(editing && handle) {try {await handle.buildSubmission({})} catch {say('预览前保存失败，当前编辑已保留');return}}
@@ -745,6 +815,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
         target.lastSubmissionId=pending!.submissionId
         if(target.pending?.submissionId===pending!.submissionId && target.pending.body===pending!.body) delete target.pending
         delete target.previous
+        delete target.rebaseRecovery
       }
       const operation=saving.catch(()=>{}).then(async()=> {
         const next=structuredClone(owner)
@@ -831,6 +902,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     ;($('message') as HTMLInputElement).value=draft.message??''
     const oldPanel=$('old-drafts')
     const choose=(candidate:DraftV2)=>async()=> {
+      candidate=drafts.get(prefix+'draft2:'+candidate.lineageId)??candidate
       if(busy || candidate===draft) return
       busy=true;render()
       try {
@@ -859,7 +931,14 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
       oldDraftLabels.set(candidate.lineageId,label);row.append(label)
       const button=document.createElement('button');button.className='reader-button';button.textContent='按旧版本提交';button.onclick=choose(candidate)
       const exportButton=document.createElement('button');exportButton.className='reader-button';exportButton.textContent='导出草稿';exportButton.onclick=async()=> {await choose(candidate)();$('export').click()}
-      row.append(button,exportButton);oldPanel.append(row)
+      const rebaseButton=document.createElement('button');rebaseButton.className='reader-button';rebaseButton.textContent='在新版本上继续'
+      rebaseButton.onclick=async()=> {
+        if(busy) return
+        await choose(drafts.get(prefix+'draft2:'+candidate.lineageId)??candidate)()
+        if(draft.lineageId!==candidate.lineageId) return
+        await continueDraft()
+      }
+      row.append(button,rebaseButton,exportButton);oldPanel.append(row)
     }
     for(const [key,value] of legacy) {
       oldPanel.hidden=false

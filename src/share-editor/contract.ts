@@ -1,4 +1,4 @@
-import type { DraftV2 } from '../lib/project-share/types'
+import type { DraftV2, ProjectAnnotationV2, ShareSnapshotInput } from '../lib/project-share/types'
 export type RebaseUiResult = { status: 'applied'; draft: DraftV2 } | { status: 'cancelled' }
 export type ShareMermaidAppearance = {
   theme: 'default' | 'dark'
@@ -6,10 +6,13 @@ export type ShareMermaidAppearance = {
 }
 export interface ShareEditorHost {
   apiVersion: 1
-  snapshot: { project_id: string; snapshotId: string; entry: string; files: { path: string; hash: string; markdown?: string; dataUrl?: string }[] }
+  snapshot: ShareSnapshotInput
   theme: { themeId: string; cssVars?: Record<string, string> }
   loadDraft(): Promise<DraftV2 | null>
   saveDraft(live: DraftV2): Promise<Readonly<DraftV2>>
+  /** Explicit aggregate CAS, in the same durable FIFO as ordinary saves. */
+  loadAnnotations?(): Promise<readonly ProjectAnnotationV2[]>
+  transitionDraft?(expected: DraftV2, next: DraftV2, notes?: { expectedAnnotations: readonly ProjectAnnotationV2[]; annotations: readonly ProjectAnnotationV2[] }): Promise<Readonly<DraftV2>>
   submit(body: string, submissionId: string): Promise<{ ok: true } | { ok: false; status: number; message: string }>
   openFile(path: string): void
   notify(text: string): void
@@ -23,8 +26,7 @@ export interface ShareEditorHandle {
   destroy(): Promise<void>
 }
 export type ShareEditorHandleE1 = Omit<ShareEditorHandle, 'rebase'>
-/** E1 intentionally has no rebase method. Task 4 supplies the complete handle. */
 export interface ShareEditorModule {
   apiVersion: 1
-  mount(container: HTMLElement, host: ShareEditorHost, opts: { path: string }): Promise<ShareEditorHandleE1>
+  mount(container: HTMLElement, host: ShareEditorHost, opts: { path: string }): Promise<ShareEditorHandle>
 }

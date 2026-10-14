@@ -60,6 +60,7 @@ export interface ProjectAnnotationV2 {
   comment: string
   kind?: 'comment' | 'question' | 'blocker'
 }
+export type ShareSnapshotInput = { project_id: string; snapshotId: string; entry: string; files: { path: string; hash: string; markdown?: string; dataUrl?: string }[] }
 export interface DraftV2 {
   v: 2
   lineageId: string
@@ -71,7 +72,8 @@ export interface DraftV2 {
   message?: string
   lastSubmissionId?: string
   rebasedFrom?: string
-  previous?: { snapshotId: string; base: DraftV2['base']; after: DraftV2['after'] }
+  previous?: { snapshotId: string; base: DraftV2['base']; after: DraftV2['after']; annotationKinds?: DraftV2['annotationKinds']; rebasedFrom?: string; annotations?: ProjectAnnotationV2[] }
+  rebaseRecovery?: { snapshot: ShareSnapshotInput; candidate: Omit<DraftV2, 'rebaseRecovery' | 'pending'> }
   pending?: { submissionId: string; body: string }
 }
 export interface ProjectContributor { name?: string; aiAssisted?: boolean }

@@ -2,11 +2,12 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { tick } from 'svelte'
 import { shareEditor } from './main'
+import * as fileMount from '../editor-kit-v2/file-main'
 import type { ShareEditorHandleE1, ShareEditorHost } from './contract'
 import type { DraftV2 } from '../lib/project-share/types'
 import { sha256Sync } from '../lib/share-merge/hash'
 const handles: ShareEditorHandleE1[] = []
-afterEach(async () => { for (const h of handles.splice(0)) await h.destroy(); document.body.replaceChildren() })
+afterEach(async () => { vi.restoreAllMocks(); for (const h of handles.splice(0)) await h.destroy(); document.body.replaceChildren() })
 function fixture(raw = '\uFEFF---\r\ntitle: X\r\n---\r\n\r\nHello\r\n') {
   const draft: DraftV2 = { v: 2, lineageId: 'L', snapshotId: 'S', base: { 'a.md': { markdown: raw, hash: sha256Sync(raw) } }, after: {}, annotationKinds: {} }
   const pending = vi.fn(), submit = vi.fn(async () => ({ ok: true as const })), saveDraft = vi.fn(async (d: DraftV2) => { if (d.pending) pending(); return structuredClone(d) })
@@ -73,7 +74,7 @@ it('real mount is Rich by default; three mode cycles preserve BOM/frontmatter/ra
   for (let i = 0; i < 3; i++) { await button(target, 'Source'); await button(target, 'Rich') }
   const result = await handle.buildSubmission({})
   expect(JSON.parse(result.body).edits).toEqual([]); expect(draft.after['a.md']).toBe(draft.base['a.md'].markdown)
-  expect('rebase' in handle).toBe(false)
+  expect('rebase' in handle).toBe(true)
 })
 it('build and repeated preview never submit or freeze pending; flush failure does not build', async () => {
   const { handle, submit, pending, saveDraft } = await open()
@@ -91,12 +92,65 @@ it('switch failure preserves the live editor and Source retry; success flushes b
   expect(target.querySelector('textarea')?.value).toBe('B')
   await handle.switchFile('b.md'); expect(draft.after['a.md']).toBe('B'); expect(target.textContent).toContain('Other')
 })
-it('E1 real Mermaid draft stays source and does not ask host for the optional loader', async () => {
+it('E3 Mermaid load failure retains editable source and asks host for the optional loader', async () => {
   const { target, host, handle } = await open(fixture('```mermaid\ngraph TD; A-->B\n```'))
   await new Promise(r => setTimeout(r, 220))
   expect(target.querySelector('pre')?.style.display).not.toBe('none')
-  expect(host.loadMermaid).not.toHaveBeenCalled()
+  expect(host.loadMermaid).toHaveBeenCalledTimes(1)
   expect(JSON.parse((await handle.buildSubmission({})).body).edits).toEqual([])
+})
+
+function rebaseFixture() {
+  const f = fixture('甲。\n\n乙。\n')
+  f.draft.after['a.md'] = '甲！\n\n乙。\n'
+  f.host.snapshot.snapshotId = 'S2'
+  f.host.snapshot.files[0] = { path: 'a.md', markdown: '甲。\n\n乙！\n{>>新主人<<}', hash: sha256Sync('甲。\n\n乙！\n{>>新主人<<}') }
+  let live = f.draft, durable = structuredClone(live)
+  f.host.saveDraft = vi.fn(async value => { if (value !== live) throw Error('stale'); durable = structuredClone(value); return durable })
+  f.host.transitionDraft = vi.fn(async (expected, next) => { if (expected !== live) throw Error('stale'); durable = structuredClone(next); live = next; return structuredClone(durable) })
+  return { ...f, live: () => live, durable: () => durable }
+}
+it('real rebase UI installs new authority/floor and explicit undo restores old raw/base/sid', async () => {
+  const f = rebaseFixture(), { target, handle } = await open(f)
+  const old = structuredClone(f.draft), pending = handle.rebase(f.host.snapshot, f.draft)
+  await vi.waitFor(() => expect(target.querySelector('[aria-label="在新版本上继续"]')).not.toBeNull())
+  await button(target, '完成迁移'); expect((await pending).status).toBe('applied')
+  const built = JSON.parse((await handle.buildSubmission({})).body)
+  expect(built).toMatchObject({ snapshotId: 'S2', rebasedFrom: 'S' })
+  expect(f.live().after['a.md']).toBe('甲！\n\n乙！\n{>>新主人<<}')
+  const note = await clickNote(target, 'point', '新主人')
+  await saveNote(note, '删除新主人'); expect(f.live().after['a.md']).toContain('{>>新主人<<}')
+  await saveNote(note, '新主人')
+  await button(target, '撤销 rebase'); await vi.waitFor(() => expect(f.live().snapshotId).toBe('S'))
+  expect(f.live().base).toEqual(old.base); expect(f.live().after).toEqual(old.after)
+  await button(target, 'Source'); const restored = target.querySelector('textarea')!
+  restored.value = '撤销后可以编辑'; restored.dispatchEvent(new Event('input', { bubbles: true })); await handle.buildSubmission({})
+  expect(f.live().after['a.md']).toBe('撤销后可以编辑')
+})
+it('cancel leaves aggregate byte-identical and pending never opens a rebase panel', async () => {
+  const f = rebaseFixture(), { target, handle } = await open(f)
+  await handle.buildSubmission({}); const old = structuredClone(f.draft)
+  const pending = handle.rebase(f.host.snapshot, f.draft)
+  await vi.waitFor(() => expect(target.querySelector('[aria-label="在新版本上继续"]')).not.toBeNull())
+  await button(target, '取消'); expect(await pending).toEqual({ status: 'cancelled' }); expect(f.live()).toEqual(old)
+  f.draft.pending = { submissionId: 'pending', body: '{}' }
+  await expect(handle.rebase(f.host.snapshot, f.draft)).rejects.toThrow('冻结')
+})
+it('install failure durably restores old aggregate and retains a recoverable candidate', async () => {
+  const mount = fileMount.mountFileEditor
+  let fail = true
+  vi.spyOn(fileMount, 'mountFileEditor').mockImplementation(async (...args) => {
+    const mounted = await mount(...args), install = mounted.owner.installBaseline
+    mounted.owner.installBaseline = (...args) => fail ? { ok: false, reason: 'injected-install-failure' } : install(...args)
+    return mounted
+  })
+  const f = rebaseFixture(), { target, handle } = await open(f), pending = handle.rebase(f.host.snapshot, f.draft)
+  await vi.waitFor(() => expect(target.querySelector('[aria-label="在新版本上继续"]')).not.toBeNull())
+  await button(target, '完成迁移'); await vi.waitFor(() => expect(target.textContent).toContain('injected-install-failure'))
+  expect(f.durable().snapshotId).toBe('S'); expect(f.durable().rebaseRecovery?.candidate.snapshotId).toBe('S2')
+  expect(target.querySelector('.ProseMirror')?.textContent).toContain('甲！')
+  fail = false; await button(target, '完成迁移'); await pending; await vi.waitFor(() => expect(f.live().snapshotId).toBe('S2'))
+  expect(f.live().rebaseRecovery).toBeUndefined(); expect(f.live().previous?.snapshotId).toBe('S')
 })
 it('only navigates shared relative links and wikilinks through the host', async () => {
   const { target, host } = await open(fixture('[other](b.md) [[b]] [external](https://evil.test)'))

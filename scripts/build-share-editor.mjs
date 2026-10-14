@@ -1,4 +1,5 @@
 import { build } from 'vite'
+import { shareMermaidBrowser } from './share-mermaid-browser.mjs'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -33,8 +34,19 @@ try {
     manifest[extension] = { name, sha256, sri: 'sha384-' + createHash('sha384').update(bytes).digest('base64') }
     await writeFile(join(outDir, 'assets', name), bytes)
   }
+  let mermaidModules = [], mermaidInputs = [], browserGlobals = []
+  const mermaidResult = await build({ configFile: false, envDir: emptyEnv, plugins: [shareMermaidBrowser(browserGlobals), { name: 'share-mermaid-module-graph', generateBundle(_options, bundle) {
+    mermaidInputs = [...this.getModuleIds()].sort()
+    mermaidModules = Object.values(bundle).filter(item => item.type === 'chunk').flatMap(chunk => Object.keys(chunk.modules)).sort()
+  } }], build: { write: false, target: 'safari15', minify: 'esbuild', sourcemap: false, assetsInlineLimit: Number.MAX_SAFE_INTEGER,
+    rollupOptions: { input: 'src/share-editor/mermaid.ts', preserveEntrySignatures: false, output: { format: 'iife', inlineDynamicImports: true } } } })
+  const mermaidOutput = (Array.isArray(mermaidResult) ? mermaidResult[0] : mermaidResult).output
+  if (mermaidOutput.length !== 1 || mermaidOutput[0].type !== 'chunk') throw Error('Expected one independent Mermaid IIFE')
+  const mermaidBytes = Buffer.from(mermaidOutput[0].code), mermaidHash = createHash('sha256').update(mermaidBytes).digest('hex')
+  manifest.mermaid = { name: `share-editor-mermaid.${mermaidHash}.js`, sha256: mermaidHash, sri: 'sha384-' + createHash('sha384').update(mermaidBytes).digest('base64') }
+  await writeFile(join(outDir, 'assets', manifest.mermaid.name), mermaidBytes)
   await writeFile(join(outDir, 'share-editor-manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
   await mkdir(dirname(graphPath), { recursive: true })
-  await writeFile(graphPath, JSON.stringify({ jsSha256: manifest.js.sha256, modules }, null, 2) + '\n')
+  await writeFile(graphPath, JSON.stringify({ jsSha256: manifest.js.sha256, modules, mermaid: { jsSha256: manifest.mermaid.sha256, modules: mermaidModules, inputs: mermaidInputs, browserGlobals } }, null, 2) + '\n')
   console.log(JSON.stringify(manifest, null, 2))
 } finally { if (!process.argv[3]) await rm(emptyEnv, { recursive: true, force: true }) }

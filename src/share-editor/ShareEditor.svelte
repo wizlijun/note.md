@@ -4,7 +4,9 @@
   import NoteEditPopup from '../lib/note-anno/NoteEditPopup.svelte'
   import NotePopover from '../lib/note-anno/NotePopover.svelte'
   import { noteUi } from '../lib/note-anno/note-ui.svelte'
-  let { ready, notify, revert, toggleChanges }: { ready(target: HTMLElement): void; notify(text: string): void; revert(id:string):void; toggleChanges(value:boolean):void } = $props()
+  let { ready, notify, revert, toggleChanges, undoRebase, recoverRebase, discardRecovery }: { ready(target: HTMLElement): void; notify(text: string): void; revert(id:string):void; toggleChanges(value:boolean):void; undoRebase():void; recoverRebase():void; discardRecovery():void } = $props()
+  let canUndoRebase = $state(false), canRecoverRebase = $state(false)
+  export function rebaseState(undo: boolean, recover: boolean) { canUndoRebase = undo; canRecoverRebase = recover }
   let showChanges=$state(false)
   let changes=$state<{id:string;label:string}[]>([])
   let summary=$state<{path:string;blocks:number;annotations:number}[]>([])
@@ -28,6 +30,9 @@
     <button type="button" aria-pressed={mode === 'source'} onclick={() => setMode('source')}>Source</button>
     <button type="button" onclick={() => mounted?.owner.undo()}>撤销</button>
     <button type="button" onclick={() => mounted?.owner.redo()}>重做</button>
+    {#if canUndoRebase}<button type="button" onclick={undoRebase}>撤销 rebase</button>{/if}
+    {#if canRecoverRebase}<button type="button" onclick={recoverRebase}>恢复上次迁移</button>{/if}
+    {#if canRecoverRebase}<button type="button" onclick={discardRecovery}>取消上次迁移</button>{/if}
     <button type="button" disabled={mode !== 'rich'} onclick={() => mounted?.annotations.insert()}>批注</button>
     <button type="button" aria-pressed={showChanges} onclick={() => {showChanges=!showChanges;toggleChanges(showChanges)}}>我的修改</button>
     <button type="button" onclick={() => notify('无法添加图片或附件，请在批注中描述')}>图片与附件</button>

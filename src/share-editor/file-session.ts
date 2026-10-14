@@ -40,30 +40,32 @@ function sameRecovery(actual: FileRecovery | undefined, expected: FileRecovery):
 /** One real file owner; delivery/rebase and aggregate persistence belong to the caller. */
 export async function createShareFileSession(options: ShareFileSessionOptions): Promise<ShareFileSession> {
   if (!options.policy) throw new TypeError('share file session requires an explicit policy')
-  const { draft, path } = options, lineage = draft.lineageId, snapshotId = draft.snapshotId
+  const { draft, path } = options, lineage = draft.lineageId, initialSnapshotId = draft.snapshotId
   if (!draft.base[path]) {
-    if (snapshotId !== options.snapshotId) throw new Error('old-draft-missing-base')
+    if (draft.snapshotId !== options.snapshotId) throw new Error('old-draft-missing-base')
     draft.base[path] = { hash: sha256Sync(options.raw), markdown: options.raw }
   }
   const raw = Object.hasOwn(draft.after, path) ? draft.after[path] : draft.base[path].markdown
   let closed = false, closing: Promise<void> | undefined, readOnly = options.readOnly ?? false
   let durable: { identity: object; value: SavedFile } | undefined
   const mounted = await mountFileEditor(options.mountTarget, {
-    file: { documentId: `${lineage}:${path}`, authority: `${lineage}:${snapshotId}:${path}`, raw, recovery: draft.editorFiles?.[path] },
+    file: { documentId: `${lineage}:${path}`, authority: `${lineage}:${draft.snapshotId}:${path}`, raw, recovery: draft.editorFiles?.[path] },
     policy: options.policy, adapters: options.adapters, render: options.render, readOnly,
   }, { styles: options.styles, plugins: options.plugins })
-  const current = () => !closed && !mounted.view.isDestroyed && draft.lineageId === lineage && draft.snapshotId === snapshotId
+  const current = () => !closed && !mounted.view.isDestroyed && options.draft.lineageId === lineage
+    && (options.draft !== draft || draft.snapshotId === initialSnapshotId)
   function capture() {
+    const draft = options.draft, path = options.path
     const identity = mounted.baselineIdentity, snapshot = mounted.owner.snapshot(), recovery = recoveryFromSnapshot(snapshot)
     draft.after[path] = snapshot.raw
     ;(draft.editorFiles ??= {})[path] = recovery
-    return { identity, snapshot, recovery }
+    return { identity, snapshot, recovery, draft, path }
   }
   function saved() { return durable?.identity === mounted.baselineIdentity ? durable.value : undefined }
   async function persist(request: ReturnType<typeof capture>): Promise<boolean> {
+    const { identity, snapshot, recovery, draft, path } = request
     const result = await options.saveDraft(draft)
-    const { identity, snapshot, recovery } = request
-    if (!current() || result.lineageId !== lineage || result.snapshotId !== snapshotId
+    if (!current() || options.draft !== draft || result.lineageId !== lineage || result.snapshotId !== draft.snapshotId
       || mounted.baselineIdentity !== identity || mounted.owner.snapshot().authority !== snapshot.authority
       || result.after[path] !== snapshot.raw || !sameRecovery(result.editorFiles?.[path], recovery)) return false
     durable = { identity, value: acknowledgeSaved(saved(), snapshot) }

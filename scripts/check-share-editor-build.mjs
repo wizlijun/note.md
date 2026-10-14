@@ -23,7 +23,12 @@ export async function checkShareEditorBuild(directory, graphPath = resolve('dist
   const modules = graph.modules
   assert(Array.isArray(modules), 'Invalid module graph')
   assert(modules.length && modules.some(id => id.endsWith('src/share-editor/main.ts')), 'Missing actual main module')
-  assert(modules.every(id => !/@tauri-apps|node_modules\/(?:\.pnpm\/)?mermaid(?:[-/@])/.test(id)), 'Forbidden Tauri or Mermaid main dependency')
+  assert(modules.every(id => !/@tauri-apps|mermaid-renderer|node_modules\/(?:\.pnpm\/)?mermaid(?:[-/@])/.test(id)), 'Forbidden Tauri or Mermaid main dependency')
+  if (manifest.mermaid) {
+    assert(graph.mermaid?.jsSha256 === manifest.mermaid.sha256, 'Mermaid graph hash mismatch')
+    assert(Array.isArray(graph.mermaid.modules) && graph.mermaid.modules.some(id => id.endsWith('src/share-editor/mermaid.ts')) && graph.mermaid.modules.some(id => /node_modules\/mermaid\//.test(id)) && Array.isArray(graph.mermaid.inputs) && graph.mermaid.inputs.some(id => /node_modules\/mermaid-mini\//.test(id)), 'Missing actual Mermaid module')
+    assert(graph.mermaid.modules.every(id => !/@tauri-apps|src\/share-editor\/main.ts/.test(id)), 'Forbidden Mermaid dependency')
+  }
   const resources = {}
   for (const [kind, asset] of Object.entries(manifest).filter(([key]) => key !== 'apiVersion')) {
     const ext = kind === 'css' ? 'css' : 'js'
@@ -45,8 +50,13 @@ export async function checkShareEditorBuild(directory, graphPath = resolve('dist
   assert(resources.js.gzip <= 900 * 1024, 'Main kit gzip exceeds 900KiB')
   const window = new Window({ url: 'https://share.test/' })
   try {
+    window.structuredClone = structuredClone
     window.eval(readFileSync(join(directory, 'assets', manifest.js.name), 'utf8'))
     assert(window.NotemdShareEditor?.apiVersion === 1 && typeof window.NotemdShareEditor?.mount === 'function', 'Kit API registration missing')
+    if (manifest.mermaid) {
+      window.eval(readFileSync(join(directory, 'assets', manifest.mermaid.name), 'utf8'))
+      assert(typeof window.NotemdShareMermaid?.render === 'function', 'Mermaid API registration missing')
+    }
     return { apiVersion: window.NotemdShareEditor.apiVersion, mount: typeof window.NotemdShareEditor.mount, resources, modules: modules.length }
   } finally { await window.happyDOM.close() }
 }

@@ -374,12 +374,14 @@ interface DraftV2 {
     after: DraftV2['after']
     annotationKinds?: DraftV2['annotationKinds'] // E3 保存旧值；可选以兼容旧草稿
     rebasedFrom?: string                        // E3 保存旧值，撤销时恢复
+    annotations?: ProjectAnnotationV2[]          // 旧 fallback sidecar；同事务迁入 Critic，撤销时恢复
   } // 完整 rebase 撤销点；成功提交的本机确认完成后清除
+  rebaseRecovery?: { snapshot: ShareSnapshotInput; candidate: Omit<DraftV2, 'rebaseRecovery' | 'pending'> } // 单层本机候选，无 token
   pending?: { submissionId: string; body: string } // 已冻结、待投递的请求体（逐字节重放保证幂等）
 }
 ```
 
-`FileRecovery` 复用 `src/editor-kit-v2/file-contract.ts` 的既有类型，不另抄恢复协议。`after` 是唯一正文；恢复缓存的 raw hash、完整 bindings 或形状失配时只丢该缓存，保留原文并生成新身份，不以缓存授予源码写权限。旧草稿没有 `editorFiles` 或 `previous` 的新增可选字段仍可读，不升级 DB 或建议包协议。撤销 rebase 必须从 `previous` 恢复旧 snapshot/base/after/annotationKinds/rebasedFrom；缺省元数据按旧 v2 默认值恢复，不从当前快照猜造旧基线。
+`FileRecovery` 复用 `src/editor-kit-v2/file-contract.ts` 的既有类型，不另抄恢复协议。`after` 是唯一正文；恢复缓存的 raw hash、完整 bindings 或形状失配时只丢该缓存，保留原文并生成新身份，不以缓存授予源码写权限。旧草稿没有 `editorFiles` 或 `previous` 的新增可选字段仍可读，不升级 DB 或建议包协议。撤销 rebase 必须从 `previous` 恢复旧 snapshot/base/after/annotationKinds/rebasedFrom 及旧旁存 annotations；缺省元数据按旧 v2 默认值恢复，不从当前快照猜造旧基线。
 
 ### 6.8 桌面访客客户端 `guest.json`
 
@@ -1004,7 +1006,9 @@ interface ShareEditorHost {                // 由内联脚本实现
               files: { path: string; hash: string; markdown?: string; dataUrl?: string }[] }
   theme: { themeId: string; cssVars?: Record<string, string> }
   loadDraft(): Promise<DraftV2 | null>      // 同 realm、固定 lineage 的共享 live aggregate
-  saveDraft(live: DraftV2): Promise<Readonly<DraftV2>> // 返回本次实际 atomic 写入的 detached clone
+  saveDraft(live: DraftV2): Promise<Readonly<DraftV2>>
+  loadAnnotations?(): Promise<readonly ProjectAnnotationV2[]>
+  transitionDraft?(expected: DraftV2, next: DraftV2, notes?: { expectedAnnotations: readonly ProjectAnnotationV2[]; annotations: readonly ProjectAnnotationV2[] }): Promise<Readonly<DraftV2>> // 返回本次实际 atomic 写入的 detached clone
   submit(body: string, submissionId: string): Promise<{ ok: true } | { ok: false; status: number; message: string }>
   openFile(path: string): void              // 文件树导航仍由宿主负责
   notify(text: string): void
@@ -1120,6 +1124,8 @@ v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值�
 - **批注**：用 `anchor` 重新锚定到新文本上。`orphan` 的批注列出来，由访客手动处理；保留 kind 与对应 annotationKinds，不丢批注。
 - **准入**：pending 存在时不得换 base；已有 previous 时先提交完成或撤销上次 rebase，不覆盖旧撤销点。取消返回 `{status:'cancelled'}` 并保留旧状态。
 - **撤销点与耐久边界**：host 创建新的 aggregate 对象，previous 完整保存旧 snapshotId/base/after/annotationKinds/rebasedFrom；先完成 previous 与新草稿的耐久写入，再以目标 snapshot+目标 draft 显式 `installBaseline(input,{policy:newPolicy})`。不在前置 bindings Task4 已交付的单文件 `createShareFileSession` 上新增 rebase API。
+- **显式宿主事务**：`transitionDraft` 与普通保存共用同一 FIFO，在执行槽核对当前 live 对象、lineage、公开范围和旁存批注 CAS；原子写入 aggregate 与目标旁存批注后才更新宿主引用。普通 `saveDraft` 不放宽身份守卫。`loadAnnotations` 读取的旧 fallback 批注和 Critic 访客批注一起调用同一 anchor、合法 Critic 回读校验与降序插入；无法放置的条目显式导出处理，完整原批注保存在 previous。
+- **故障恢复**：首次写失败保留旧状态；安装失败后回写旧草稿及单层 rebaseRecovery 候选，重载后显式恢复。若回滚写也失败，耐久状态仍是 next+previous，重载后可撤销到 old，不能声称 old 已耐久保存。恢复快照只含公开数据，必须匹配当前 project/sid/path/hash 范围，不授予权限、不自动提交；公开版本变化则保留候选供导出。候选禁止嵌套 recovery/pending。
 - **基线切换**：成功构造目标 owner/controller 后才交换 aggregate、policy、authority 与 history，失败恢复旧 aggregate/base/owner/history，并保留可恢复候选。不能只依赖 authority 字符串或重置 generation 判断是否换代，沿 §12.3 内部基线实例隔离旧保存回执。
 - **完成后**：新 aggregate 的 `snapshotId = 新快照`、`rebasedFrom = 旧快照`、`base = 新快照中对应文件`，返回 `{status:'applied',draft:新草稿}`。
 - **撤销 rebase**：从 previous 恢复旧 raw/base/snapshot 及可选元数据，并以该目标 snapshot+draft 显式重建 floor/policy；不得继承新基线 floor。previous 只在成功提交的本机确认后清除，重新加载仍可恢复未完成事务。
