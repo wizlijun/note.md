@@ -16,6 +16,7 @@ import { placeholderPlugin } from '../lib/placeholder-plugin'
 import { createImeGuard, guardRichEditor, type ImeGuard } from '../lib/ime'
 import { autoPairInsert } from '../lib/autopair'
 import { renderSourceHtml } from '../lib/source-highlight'
+import { bindFileHistoryFocus, refreshFileHistoryRoute } from '../lib/file-history-focus'
 import { injectKitCss } from './file-kit-styles'
 
 /** Desktop-only callers assemble these dependencies; this module stays pure. */
@@ -26,6 +27,8 @@ export interface FileMountWiring {
   imeGuard?: ImeGuard
 }
 export interface FileMountSession extends MountedFileEditor {
+  closeIfSaved(expected: { identity: object; raw: string }): Promise<void>
+  readonly baselineIdentity: object
   readonly view: EditorView
   attachSource(textarea: HTMLTextAreaElement, options?: FileSourceOptions): FileSourceInput
   attach(container: HTMLElement): void
@@ -48,6 +51,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   let schema: Schema
   let basePlugins: Plugin[] = []
   let source: FileSourceInput | undefined
+  let unbindRichHistory = () => {}, unbindSourceHistory = () => {}
   let pane: HTMLElement | undefined
   let mode: 'rich' | 'source' = 'rich'
   let closed = false, detached = false, readOnly = options.readOnly ?? false
@@ -130,13 +134,15 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       return controller.snapshot()
     },
     observe(listener) { listeners.add(listener); return () => { listeners.delete(listener) } },
-    async close() {
-      if (closed) return
-      await owner.flush()
-      closed = true; source?.detach(); unsubscribeController(); listeners.clear(); layers.clear()
-      if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
-      controller.bindView(null); instance.destroy(); root.remove()
-    },
+    close: () => close(),
+  }
+  async function close(expected?: { identity: object; raw: string }): Promise<void> {
+    if (closed) return
+    await owner.flush()
+    if (expected && (controller !== expected.identity || controller.snapshot().raw !== expected.raw)) throw new Error('File changed while closing; saved content no longer matches')
+    closed = true; unbindRichHistory(); unbindSourceHistory(); source?.detach(); unsubscribeController(); listeners.clear(); layers.clear()
+    if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
+    controller.bindView(null); instance.destroy(); root.remove()
   }
   function createController(file: FileInput, nextPolicy?: FilePolicy): FileController {
     const resize = createFileResize(() => controller)
@@ -214,11 +220,20 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     }
     root.remove(); throw error
   }
-  rich.addEventListener('compositionstart', () => { richComposing = true }, true)
+  function bindRichHistory() {
+    unbindRichHistory()
+    unbindRichHistory = bindFileHistoryFocus({ owner, element: instance.view.dom, kind: 'rich', identity: () => controller,
+      available: () => !closed && !detached && mode === 'rich', capture: () => {
+        const selection = instance.view.state.selection.getBookmark(), doc = instance.view.state.doc
+        return () => { if (instance.view.state.doc !== doc) return; instance.view.focus(); instance.view.dispatch(instance.view.state.tr.setSelection(selection.resolve(doc))) }
+      } })
+  }
+  bindRichHistory()
+  rich.addEventListener('compositionstart', () => { richComposing = true; refreshFileHistoryRoute() }, true)
   rich.addEventListener('compositionend', () => {
     if (richFrame !== null) cancelAnimationFrame(richFrame)
     richFrame = requestAnimationFrame(() => {
-      richFrame = null; richComposing = false
+      richFrame = null; richComposing = false; refreshFileHistoryRoute()
       for (const waiter of richWaiters.splice(0)) waiter.resolve()
     })
   }, true)
@@ -228,9 +243,15 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     }
   }, true)
   function attachSource(textarea: HTMLTextAreaElement, callbacks: FileSourceOptions = {}) {
-    const config = { ...callbacks, identity: () => controller, onCompositionChange: (value: boolean) => { controller.setComposing(value); callbacks.onCompositionChange?.(value) } }
+    const config = { ...callbacks, identity: () => controller, onCompositionChange: (value: boolean) => { controller.setComposing(value); callbacks.onCompositionChange?.(value); refreshFileHistoryRoute() } }
     if (source) source.bind(textarea, config)
     else source = attachFileSourceInput(textarea, owner, config)
+    unbindSourceHistory()
+    unbindSourceHistory = bindFileHistoryFocus({ owner, element: textarea, kind: 'source', identity: () => controller,
+      available: () => !closed && !detached && mode === 'source', capture: () => {
+        const start = textarea.selectionStart, end = textarea.selectionEnd, direction = textarea.selectionDirection
+        return () => { textarea.focus(); textarea.setSelectionRange(start, end, direction) }
+      } })
     return source
   }
   function sourcePane() {
@@ -294,7 +315,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     },
   }
   return {
-    owner, annotations, get view() { return instance.view }, attachSource,
+    owner, annotations, closeIfSaved: expected => close(expected), get baselineIdentity() { return controller }, get view() { return instance.view }, attachSource,
     async flushForDetach() { const value = await owner.flush(); finishOwnedEdit(); return value },
     insertSlashNote(seed = '') {
       const gate = admission(), state = instance.view.state, { $from, empty } = state.selection
@@ -318,17 +339,18 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       mode = next
       if (mode === 'source') sourcePane()
       rich.hidden = mode !== 'rich'; if (pane) pane.hidden = mode !== 'source'
+      refreshFileHistoryRoute()
       return true
     },
     focus() { if (!closed && !detached) { if (mode === 'source') pane?.querySelector('textarea')?.focus(); else instance.view.focus() } },
     destroyView() {
       if (detached || closed) return
-      source?.detach(); controller.bindView(null); detached = true; root.remove()
+      unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
       if (richFrame !== null) cancelAnimationFrame(richFrame)
       richFrame = null
       if (richComposing) { richComposing = false; for (const waiter of richWaiters.splice(0)) waiter.reject(new Error('composition-interrupted')) }
     },
-    attach(target) { if (closed) throw new Error('file-closed'); target.append(root); detached = false; instance.view.updateState(controller.state); controller.bindView(instance.view); if (pane) source!.bind(pane.querySelector('textarea')!) },
+    attach(target) { if (closed) throw new Error('file-closed'); target.append(root); detached = false; instance.view.updateState(controller.state); controller.bindView(instance.view); bindRichHistory(); if (pane) attachSource(pane.querySelector('textarea')!) },
     decorations: {
       setLayer(id, items) { if (closed) return; layers.set(id, items.map(item => ({ ...item }))); instance.view.updateState(controller.state) },
       removeLayer(id) { if (closed) return; layers.delete(id); instance.view.updateState(controller.state) },

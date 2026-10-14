@@ -143,3 +143,14 @@ it('retains an oversized diff as a visible draft instead of normalizing raw', as
   await expect(f.input.flush()).rejects.toThrow('source-diff-limit')
   expect(f.textarea.value).toBe('X'.repeat(20001))
 })
+
+it('source history preserves the current textarea selection on keyboard and native owner paths', async () => {
+  const f = fixture(); f.type('Alpha'); await Promise.resolve()
+  f.textarea.setSelectionRange(0, 1)
+  f.textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, cancelable: true }))
+  expect(f.textarea.selectionStart).toBe(0); expect(f.textarea.selectionEnd).toBe(1)
+  await Promise.resolve(); f.owner.redo(); await Promise.resolve()
+  f.textarea.setSelectionRange(0, 2); f.textarea.dispatchEvent(new Event('select'))
+  f.owner.undo(); await Promise.resolve()
+  expect(f.textarea.selectionStart).toBe(0); expect(f.textarea.selectionEnd).toBe(2)
+})

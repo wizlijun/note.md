@@ -121,7 +121,7 @@ export function attachFileSourceInput(textarea: HTMLTextAreaElement, owner: Sour
   }
   function history(direction: 'undo' | 'redo') {
     if (composing || pending) return
-    owner[direction](); follow()
+    read(); owner[direction](); follow()
   }
   function beforeInput(event: Event) {
     const input = event as InputEvent
@@ -142,7 +142,7 @@ export function attachFileSourceInput(textarea: HTMLTextAreaElement, owner: Sour
     queueMicrotask(() => { shortcut = null })
   }
   const events: [string, EventListener][] = [
-    ['input', commitBuffer], ['compositionstart', start], ['compositionend', end], ['beforeinput', beforeInput], ['keydown', keydown],
+    ['select', read], ['input', commitBuffer], ['compositionstart', start], ['compositionend', end], ['beforeinput', beforeInput], ['keydown', keydown],
   ]
   function detach() {
     read()

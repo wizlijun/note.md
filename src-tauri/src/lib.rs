@@ -1370,7 +1370,12 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TrayStatusItem(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
-    let builder = builder.manage(RecentMenu(Mutex::new(None)));
+    let builder = builder.manage(Mutex::new(FileHistoryRouteState::default())).on_page_load(|webview, payload| {
+        if matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
+            let changed = webview.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().started(webview.label());
+            if changed { rebuild_menu(webview.app_handle()); }
+        }
+    }).manage(RecentMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(LatestMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
@@ -1492,6 +1497,7 @@ pub fn run() {
                 canvas_resource::canvas_resource_resolve,
                 set_default_app_for_extensions,
                 set_plugin_menu_item_enabled,
+                set_file_history_route,
                 plugin_host::get_plugin_manifests,
                 plugin_runtime::commands::plugin_v2_execute,
                 plugin_runtime::commands::plugin_v2_open_window,
@@ -1697,6 +1703,8 @@ pub fn run() {
                 }
 
                 *app.state::<DailyNotesEnabled>().0.lock().unwrap() = read_daily_notes_enabled(&app.handle());
+                let main_focused = app.get_webview_window("main").and_then(|window| window.is_focused().ok()).unwrap_or(false);
+                app.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().focus("main", main_focused);
                 let menu_locale = read_saved_locale(&app.handle());
                 let plugin_items = plugin_host::collect_top_menu_items(&menu_locale);
                 let (menu, recent_submenu, latest_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
@@ -1734,6 +1742,13 @@ pub fn run() {
                     // produces a harmless "unknown command id" WARN (e.g. the
                     // tray-sync-log click surfacing it right into the log window).
                     if event.id().0.as_str().starts_with("tray-") {
+                        return;
+                    }
+                    if matches!(event.id().0.as_str(), "file-undo" | "file-redo") {
+                        let (active, undo, redo) = app.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().effective();
+                        if active && (if event.id().0 == "file-undo" { undo } else { redo }) {
+                            if let Some(main) = app.get_webview_window("main") { let _ = main.emit("menu-event", event.id().0.as_str()); }
+                        }
                         return;
                     }
                     let _ = app.emit("menu-event", event.id().0.as_str());
@@ -1927,6 +1942,11 @@ pub fn run() {
             }
             RunEvent::WindowEvent { ref label, event: ref e, .. } => {
                 match e {
+                    #[cfg(not(target_os = "ios"))]
+                    WindowEvent::Focused(focused) => {
+                        let changed = app_handle.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().focus(label, *focused);
+                        if changed { rebuild_menu(app_handle); }
+                    }
                     WindowEvent::CloseRequested { api, .. } => {
                         dlog(&format!("WindowEvent CloseRequested on {}", label));
                         api.prevent_close();
@@ -2579,6 +2599,62 @@ pub(crate) fn rebuild_menu(app: &tauri::AppHandle) {
     }
 }
 
+// JS numbers are safe integers; page epochs belong exclusively to the load hook.
+#[cfg(not(target_os = "ios"))]
+const FILE_HISTORY_MAX: u64 = 9_007_199_254_740_991;
+#[cfg(not(target_os = "ios"))]
+#[derive(Clone, Copy, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileHistoryRoute { epoch: u64, route_version: u64, active: bool, can_undo: bool, can_redo: bool }
+#[cfg(not(target_os = "ios"))]
+#[derive(Default)]
+struct FileHistoryRouteState { epoch: u64, route: FileHistoryRoute, main_focused: bool, exhausted: bool }
+#[cfg(not(target_os = "ios"))]
+impl FileHistoryRouteState {
+    fn effective(&self) -> (bool, bool, bool) {
+        let active = !self.exhausted && self.main_focused && self.route.active;
+        (active, active && self.route.can_undo, active && self.route.can_redo)
+    }
+    fn started(&mut self, label: &str) -> bool {
+        if label != "main" { return false; }
+        let before = self.effective();
+        if self.epoch == FILE_HISTORY_MAX { self.exhausted = true; } else { self.epoch += 1; }
+        self.route = FileHistoryRoute::default();
+        before != self.effective()
+    }
+    fn init(&self, caller: &str) -> Result<u64, String> {
+        if caller != "main" || self.exhausted { return Err("invalid file history caller or epoch".into()); }
+        Ok(self.epoch)
+    }
+    fn set(&mut self, caller: &str, route: FileHistoryRoute) -> Result<bool, String> {
+        self.init(caller)?;
+        if route.epoch != self.epoch || route.route_version > FILE_HISTORY_MAX || route.route_version <= self.route.route_version {
+            return Err("stale file history route".into());
+        }
+        let before = self.effective(); self.route = route;
+        Ok(before != self.effective())
+    }
+    fn focus(&mut self, label: &str, focused: bool) -> bool {
+        let before = self.effective();
+        if label == "main" { self.main_focused = focused; }
+        else if focused { self.main_focused = false; }
+        before != self.effective()
+    }
+}
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn set_file_history_route(app: tauri::AppHandle, webview: tauri::Webview, route: Option<FileHistoryRoute>) -> Result<u64, String> {
+    let (epoch, changed) = {
+        let state = app.state::<Mutex<FileHistoryRouteState>>();
+        let mut state = state.lock().unwrap();
+        let epoch = state.init(webview.label())?;
+        let changed = match route { Some(route) => state.set(webview.label(), route)?, None => false };
+        (epoch, changed)
+    };
+    if changed { rebuild_menu(&app); }
+    Ok(epoch)
+}
+
 #[cfg(not(target_os = "ios"))]
 fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -2674,10 +2750,17 @@ fn build_menu<R: tauri::Runtime>(
     // keep their native menu slots.
     let file_menu: Submenu<R> = file_b.build()?;
 
-    let edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"))
-        .item(&PredefinedMenuItem::undo(app, Some(&menu_label(locale, "sys.undo")))?)
-        .item(&PredefinedMenuItem::redo(app, Some(&menu_label(locale, "sys.redo")))?)
-        .separator()
+    let (file_active, can_undo, can_redo) = app.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().effective();
+    let edit_b = SubmenuBuilder::new(app, menu_label(locale, "menu.edit"));
+    // No accelerator: the single webview keydown path owns Mod-Z/Shift-Mod-Z.
+    let edit_b = if file_active {
+        edit_b.item(&MenuItemBuilder::with_id("file-undo", menu_label(locale, "sys.undo")).enabled(can_undo).build(app)?)
+            .item(&MenuItemBuilder::with_id("file-redo", menu_label(locale, "sys.redo")).enabled(can_redo).build(app)?)
+    } else {
+        edit_b.item(&PredefinedMenuItem::undo(app, Some(&menu_label(locale, "sys.undo")))?)
+            .item(&PredefinedMenuItem::redo(app, Some(&menu_label(locale, "sys.redo")))?)
+    };
+    let edit_b = edit_b.separator()
         .item(&PredefinedMenuItem::cut(app, Some(&menu_label(locale, "sys.cut")))?)
         .item(&PredefinedMenuItem::copy(app, Some(&menu_label(locale, "sys.copy")))?)
         .item(&PredefinedMenuItem::paste(app, Some(&menu_label(locale, "sys.paste")))?)
@@ -2971,5 +3054,47 @@ mod exit_tests {
     fn window_close_keeps_app_in_tray() {
         // User-interaction exit (last window closing) → code None → stay alive.
         assert!(should_prevent_exit(None));
+    }
+}
+
+#[cfg(all(test, not(target_os = "ios")))]
+mod file_history_route_tests {
+    use super::*;
+    fn published(epoch: u64, version: u64) -> FileHistoryRoute { FileHistoryRoute { epoch, route_version: version, active: true, can_undo: true, can_redo: false } }
+    #[test]
+    fn init_is_read_only_and_main_only() {
+        let mut state = FileHistoryRouteState::default();
+        state.started("main"); assert_eq!(state.init("main").unwrap(), 1);
+        assert_eq!(state.init("main").unwrap(), 1); assert!(state.init("preview").is_err());
+        assert!(state.set("preview", published(1, 1)).is_err());
+        state.started("preview"); assert_eq!(state.epoch, 1);
+    }
+    #[test]
+    fn reload_rejects_old_high_version_and_orders_current_updates() {
+        let mut state = FileHistoryRouteState::default(); state.focus("main", true); state.started("main");
+        assert!(state.set("main", published(1, 8)).unwrap());
+        assert!(state.started("main")); assert_eq!(state.effective(), (false, false, false));
+        assert!(state.set("main", published(1, FILE_HISTORY_MAX)).is_err());
+        assert!(state.set("main", published(2, 1)).unwrap());
+        assert!(state.set("main", published(2, 1)).is_err());
+        assert!(state.set("main", published(2, 0)).is_err());
+        assert!(!state.set("main", published(2, 2)).unwrap());
+        assert!(state.set("main", published(2, FILE_HISTORY_MAX + 1)).is_err());
+    }
+    #[test]
+    fn native_focus_cannot_be_reactivated_by_late_js() {
+        let mut state = FileHistoryRouteState::default(); state.started("main"); state.focus("main", true);
+        state.set("main", published(1, 1)).unwrap(); assert!(state.focus("preview", true));
+        assert!(!state.set("main", published(1, 2)).unwrap()); assert_eq!(state.effective(), (false, false, false));
+        assert!(!state.focus("preview", false)); assert!(state.focus("main", true));
+        let inactive = FileHistoryRoute { active: false, ..published(1, 3) };
+        assert!(state.set("main", inactive).unwrap()); assert_eq!(state.effective(), (false, false, false));
+    }
+    #[test]
+    fn exhausted_epoch_fails_closed() {
+        let mut state = FileHistoryRouteState { epoch: FILE_HISTORY_MAX, ..Default::default() };
+        state.started("main"); assert!(state.init("main").is_err());
+        assert!(state.set("main", published(FILE_HISTORY_MAX, 1)).is_err());
+        assert_eq!(state.effective(), (false, false, false));
     }
 }

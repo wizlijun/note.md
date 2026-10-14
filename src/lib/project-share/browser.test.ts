@@ -566,6 +566,16 @@ describe('versioned drafts in serialized browser',()=> {
     expect((await idb('readonly',store=>store.getAllKeys())).some((key:string)=>key.includes(':draft2:'))).toBe(true)
     expect(($('editor') as HTMLTextAreaElement).value).toBe('current work')
   })
+  it('serialized v2 bundle retains optional file recovery until fallback textarea changes its raw', async()=> {
+    const candidate=draftFixture()
+    const recovery={v:1,sourceHash:'cache-hash',sourceRevision:7,bindings:[{rootOrdinal:0,id:'cached'}]}
+    await idb('readwrite',store=>store.put({...candidate,editorFiles:{'README.md':recovery}},draftKey))
+    await serialized()
+    expect((await idb('readonly',store=>store.get(draftKey))).editorFiles['README.md']).toEqual(recovery)
+    click('edit');input('new exact raw')
+    await vi.waitFor(async()=>expect((await idb('readonly',store=>store.get(draftKey))).after['README.md']).toBe('new exact raw'))
+    expect((await idb('readonly',store=>store.get(draftKey))).editorFiles['README.md']).toBeUndefined()
+  })
   it('restores pending exact bytes on reload despite later name/message/input edits',async()=> {
     const candidate=draftFixture()
     const body=JSON.stringify({schemaVersion:2,project_id:'project_1',snapshotId:'snapshot-old',submissionId:'frozen',edits:[{path:'README.md',baseHash:'f'.repeat(64),afterMarkdown:'frozen text'}],annotations:[],client:{kind:'browser-fallback'}})

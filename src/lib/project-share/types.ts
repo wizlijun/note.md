@@ -1,3 +1,5 @@
+import type { FileRecovery } from '../../editor-kit-v2/file-contract'
+
 export type GitTarget = 'worktree' | 'branch' | 'patch'
 export interface GitProbe { git: boolean; team: boolean; prefix: string; head?: string; branch?: string; remote?: string; reason?: string; target?: GitTarget }
 export interface GitPrepared { head: string; entry: string; feedback: LocalFeedback; files: { path: string; base: string; current: string; after: string }[]; commitMessage: string; remote?: string }
@@ -64,6 +66,7 @@ export interface DraftV2 {
   snapshotId: string
   base: Record<string, { hash: string; markdown: string }>
   after: Record<string, string>
+  editorFiles?: Record<string, FileRecovery>
   annotationKinds: Record<string, 'comment' | 'question' | 'blocker'>
   message?: string
   lastSubmissionId?: string

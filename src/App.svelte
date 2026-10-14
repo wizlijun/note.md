@@ -4,6 +4,7 @@
   import 'mermaid-mini/style.css'
   import './styles/responsive.css'
   import { onMount } from 'svelte'
+  import { observeFileHistoryRoute, routeFileHistory } from './lib/file-history-focus'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
   import { invoke } from '@tauri-apps/api/core'
@@ -159,6 +160,16 @@
     let dispatchPlugin: (pluginId: string, command: string) => Promise<void> = async () => {}
 
     const win = getCurrentWindow()
+    let stopHistoryRoute: (() => void) | undefined
+    if (win.label === 'main') void isIOS().then(async mobile => {
+      if (mobile || disposed) return
+      const epoch = await invoke<number>('set_file_history_route', { route: null })
+      if (disposed) return
+      let routeVersion = 0
+      stopHistoryRoute = observeFileHistoryRoute(route => {
+        void invoke('set_file_history_route', { route: { ...route, epoch, routeVersion: ++routeVersion } }).catch(error => console.warn('[file-history] route:', error))
+      })
+    }).catch(error => console.warn('[file-history] init:', error))
 
     // Register file-open listeners IMMEDIATELY (before any async work)
     // so we never miss events from Rust side.
@@ -681,6 +692,8 @@
         return
       }
       switch (id) {
+        case 'file-undo': if (win.label === 'main') routeFileHistory('undo'); break
+        case 'file-redo': if (win.label === 'main') routeFileHistory('redo'); break
         case 'new':         await newFile(); break
         case 'new-base':    await createNewBase(); break
         case 'new-canvas':  await dispatch('new-canvas'); break
@@ -824,6 +837,7 @@
         if (typeof unlistenClose === 'function') unlistenClose()
         else unlistenClose.then((fn) => fn())
       }
+      stopHistoryRoute?.()
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())

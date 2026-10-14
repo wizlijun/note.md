@@ -7,7 +7,7 @@ import {createServer} from 'vite'
 import {svelte} from '@sveltejs/vite-plugin-svelte'
 const own=resolve('.superpowers/sdd/2026-10-14-file-bindings-history')
 const caseName=process.argv[3]
-assert.equal(process.argv[2],'--case');assert.ok(['resize','mount'].includes(caseName),'unknown file editor browser case')
+assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery'].includes(caseName),'unknown file editor browser case')
 for(const name of ['FILE_PLAN_OWN','FILE_EDITOR_OUTPUT_DIR','FILE_EDITOR_CACHE_DIR','PLAYWRIGHT_MODULE'])assert.ok(process.env[name],`${name} required`)
 assert.equal(resolve(process.env.FILE_PLAN_OWN),own)
 const outputDir=resolve(process.env.FILE_EDITOR_OUTPUT_DIR),cacheDir=resolve(process.env.FILE_EDITOR_CACHE_DIR)
@@ -61,16 +61,31 @@ document.querySelector('#rich').onclick=()=>mounted.setMode('rich')
 document.querySelector('#save').onclick=async()=>{try{document.querySelector('#saved').textContent=(await mounted.owner.flush()).raw}catch{document.querySelector('#saved').textContent='pending'}}
 await test.open('A');window.ready=true
 </script></body></html>`
-const fixture=caseName==='mount'?mountFixture:resizeFixture
+const recoveryFixture=`<!doctype html><html><head><meta charset="utf-8"><style>#editor{height:450px;width:700px;margin:20px}.ProseMirror{min-height:250px}</style></head><body><input id="search"><div id="editor"></div><script type="module">
+import {createShareFileSession} from '/src/share-editor/file-session.ts'
+import {BrowserMediaResolver} from '@moraya/core/adapters/browser-media-resolver'
+import {routeFileHistory,observeFileHistoryRoute} from '/src/lib/file-history-focus.ts'
+let session,durable,release,route;let live={v:2,lineageId:'browser',snapshotId:'S',base:{},after:{},annotationKinds:{}}
+observeFileHistoryRoute(value=>route=value)
+window.test={
+ async open(){session=await createShareFileSession({path:'a.md',snapshotId:'S',raw:'Alpha',draft:live,policy:{acceptRawChange:()=>true},adapters:{mediaResolver:new BrowserMediaResolver()},mountTarget:document.querySelector('#editor'),saveDraft:async d=>{const clone=structuredClone(d);if(this.hold)await new Promise(r=>release=r);durable=clone;return clone}})},
+ snapshot(){return {...session.mounted.owner.snapshot(),saved:session.saved(),route,live:structuredClone(live),durable}},
+ mode:mode=>session.mounted.setMode(mode),undo:()=>routeFileHistory('undo'),redo:()=>routeFileHistory('redo'),
+ save(){this.pending=session.save();return true},async finish(){release();await this.pending},
+ async reopen(){await session.mounted.owner.close();live=structuredClone(durable);await this.open()},
+ async close(){await session.close()},hold:false
+};await test.open();window.ready=true
+</script></body></html>`
+const fixture=caseName==='recovery'?recoveryFixture:caseName==='mount'?mountFixture:resizeFixture
 writeFileSync(resolve(outputDir,`${caseName}-fixture.html`),fixture)
 const output={case:caseName,environment:{node:process.version,playwright:process.env.PLAYWRIGHT_MODULE,core:realpathSync('node_modules/@moraya/core'),coreSha256:createHash('sha256').update(readFileSync('node_modules/@moraya/core/dist/index.js')).digest('hex')},pageErrors:[],console:[],cases:[],platformLimitations:['Synthetic Chromium mouse/pointer tests are not native iOS/Android touch or Safari/IME device acceptance.']}
-const server=await createServer({root:process.cwd(),configFile:false,envDir:resolve(own,'empty-env'),cacheDir,resolve:{dedupe:['prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history']},optimizeDeps:{include:['@moraya/core','@moraya/core/schema','@moraya/core/commands','@moraya/core/source-history','@moraya/core/plugins/session-table-view','prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history','prosemirror-commands','prosemirror-schema-list']},server:{host:'127.0.0.1',port:0,hmr:false,watch:null},plugins:[...(caseName==='mount'?[svelte()]:[]),{name:'file-resize-fixture',configureServer(vite){vite.middlewares.use('/src/editor-kit-v2/editor-kit-v1.css',(_req,res)=>{res.statusCode=302;res.setHeader('Location','/src/editor-kit/kit.css');res.end()});vite.middlewares.use('/__file_resize',async(_req,res,next)=>{try{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await vite.transformIndexHtml('/__file_resize',fixture))}catch(error){next(error)}})}}]})
+const server=await createServer({root:process.cwd(),configFile:false,envDir:resolve(own,'empty-env'),cacheDir,resolve:{dedupe:['prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history']},optimizeDeps:{include:['@moraya/core','@moraya/core/schema','@moraya/core/commands','@moraya/core/source-history','@moraya/core/plugins/session-table-view','prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history','prosemirror-commands','prosemirror-schema-list']},server:{host:'127.0.0.1',port:0,hmr:false,watch:null},plugins:[...(caseName!=='resize'?[svelte()]:[]),{name:'file-resize-fixture',configureServer(vite){vite.middlewares.use('/src/editor-kit-v2/editor-kit-v1.css',(_req,res)=>{res.statusCode=302;res.setHeader('Location','/src/editor-kit/kit.css');res.end()});vite.middlewares.use('/__file_resize',async(_req,res,next)=>{try{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await vite.transformIndexHtml('/__file_resize',fixture))}catch(error){next(error)}})}}]})
 let browser,page
 try{
  await server.listen();browser=await chromium.launch({headless:true});output.environment.browser=browser.version();page=await browser.newPage({viewport:{width:1000,height:700}})
  page.on('pageerror',e=>output.pageErrors.push(e.stack??String(e)));page.on('console',message=>output.console.push({type:message.type(),text:message.text()}))
  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/__file_resize`);await page.waitForFunction(()=>window.ready)
- if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
+ if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
  const snapshot=()=>page.evaluate(()=>test.snapshot())
  const drag=async(column,dx,finish=true)=>{
   const box=await page.locator('.column-resize-handle').nth(column).boundingBox();assert.ok(box,'real handle rectangle')
@@ -160,4 +175,27 @@ async function checkMount(page,output,outputDir){
   output.cases.push({name:initial?'existing link continued input':'public link command complete label and continued input',before,after:link})
  }
  assert.deepEqual(output.pageErrors,[]);await page.screenshot({path:resolve(outputDir,'mount.png')})
+}
+
+async function checkRecovery(page,output){
+ const snapshot=()=>page.evaluate(()=>test.snapshot())
+ await page.evaluate(()=>test.mode('source'));const source=page.locator('textarea');await source.fill('Beta')
+ await page.waitForFunction(()=>test.snapshot().raw==='Beta')
+ await page.evaluate(()=>{test.hold=true;test.save()});await page.waitForFunction(()=>test.pending!==undefined)
+ await source.fill('Gamma');await page.evaluate(()=>test.finish())
+ let value=await snapshot();assert.equal(value.raw,'Gamma');assert.equal(value.saved.generation,1);assert.equal(value.durable.after['a.md'],'Beta');assert.equal(value.live.after['a.md'],'Gamma')
+ await page.evaluate(async()=>{test.hold=false;test.save();await test.pending})
+ const saved=await snapshot();assert.equal(saved.saved.hash,saved.sourceHash)
+ await source.focus();await page.keyboard.press('Home');await page.keyboard.down('Shift');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');await page.keyboard.up('Shift')
+ await page.evaluate(()=>document.activeElement.blur());assert.equal(await page.evaluate(()=>test.undo()),true)
+ assert.deepEqual(await source.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,2]);assert.equal((await snapshot()).raw,'Alpha')
+ assert.equal(await page.evaluate(()=>test.redo()),true);await source.focus();await page.keyboard.press('ControlOrMeta+z');assert.equal((await snapshot()).raw,'Alpha');assert.deepEqual(await source.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,2]);await page.keyboard.press('ControlOrMeta+Shift+z');assert.equal((await snapshot()).raw,'Gamma')
+ await page.evaluate(()=>test.reopen());value=await snapshot();assert.equal(value.raw,'Gamma');assert.deepEqual(value.bindings,saved.bindings);assert.equal(value.generation,0)
+ await page.locator('.ProseMirror').click();await page.keyboard.press('End');await page.keyboard.type('X')
+ await page.waitForFunction(()=>test.snapshot().raw==='GammaX')
+ await page.evaluate(()=>document.activeElement.blur());assert.equal(await page.evaluate(()=>test.undo()),true);assert.equal((await snapshot()).raw,'Gamma')
+ assert.equal(await page.evaluate(()=>test.redo()),true);assert.equal((await snapshot()).raw,'GammaX')
+ await page.locator('#search').focus();assert.equal(await page.evaluate(()=>test.undo()),false);assert.equal((await snapshot()).route.active,false)
+ await page.evaluate(()=>test.close());assert.equal(await page.locator('.ProseMirror').count(),0)
+ output.cases.push({name:'real source input B/C exact durable, restored first frame bindings, native-route focus and close',saved,value})
 }

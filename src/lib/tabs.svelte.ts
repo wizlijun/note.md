@@ -15,7 +15,7 @@ import { isReadonlyMarkdownTab } from './readonly-document'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 import { formatJsonSource } from './json-format'
-import { fileEditorSession, closeFileEditorSession } from './file-editor-sessions'
+import { fileEditorSession, closeFileEditorSession, captureFileSave, acknowledgeFileSave, type FileSaveRequest } from './file-editor-sessions'
 
 export type Mode = 'source' | 'rich'
 
@@ -704,6 +704,7 @@ export function persistMarkdownSnapshot(
   content: string,
   requireFinishedTitle = false,
   expectedPath?: string,
+  fileSave: FileSaveRequest | undefined = captureFileSave(t.id, content),
 ): Promise<string | undefined> {
   const previous = markdownSaveQueues.get(t.id)
   const ready = previous ? previous.catch(() => undefined) : Promise.resolve()
@@ -713,6 +714,7 @@ export function persistMarkdownSnapshot(
     await writeMd(path, content)
     if (t.filePath !== path) return
     t.initialContent = content
+    acknowledgeFileSave(t.id, content, fileSave)
     await recordOurWrite(t, content)
     await startWatchingTab(t)
     if (t.filePath !== path) return
@@ -964,6 +966,8 @@ export async function closeTab(
   const idx = tabs.findIndex((t) => t.id === id)
   if (idx < 0) return false
   const tab = tabs[idx]
+  const session = fileEditorSession(id), identity = session?.baselineIdentity
+  let discard = false
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (isDirty(id)) {
     if (!tab.filePath) {
@@ -985,6 +989,7 @@ export async function closeTab(
           cancelLabel: t('common.cancel'),
         })
         if (!doClose) return false
+        discard = true
       }
     } else {
       // ── NAMED dirty file ─────────────────────────────────────────────────
@@ -994,10 +999,10 @@ export async function closeTab(
       if (choice === 'save') {
         await saveTab(id)                   // saves to existing path, no dialog
       }
-      // choice === 'discard': fall through to close without saving
+      discard = choice === 'discard'
     }
   }
-  await closeFileEditorSession(id)
+  await closeFileEditorSession(id, !discard && session && identity ? { session, identity, raw: tab.initialContent } : undefined)
   tabs.splice(idx, 1)
   resetFileViewSelection(id)
   await stopWatchingTab(id)

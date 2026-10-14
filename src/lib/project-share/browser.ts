@@ -123,13 +123,18 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     tx.oncomplete=()=>resolve()
     tx.onabort=tx.onerror=()=>reject(tx.error??new Error('本地保存失败'))
   })
-  const save = (): Promise<void> => {
+  const save = (): Promise<Readonly<DraftV2>> => {
     // Bind ownership now, but read that lineage's live contents when writing.
     // This retains in-flight input without crossing an asynchronous switch or
     // reviving pending after that lineage's durable submission completes.
     const owner=draft, ownerNotes=notes
-    saving=saving.catch(()=>{}).then(()=>atomic([[prefix+'draft2:'+owner.lineageId,structuredClone(owner)],[prefix+'draft2-notes:'+owner.lineageId,structuredClone(ownerNotes)]])).catch(error=> {ready=false;render();throw error})
-    return saving
+    const operation=saving.catch(()=>{}).then(async()=> {
+      const durable=structuredClone(owner), durableNotes=structuredClone(ownerNotes)
+      await atomic([[prefix+'draft2:'+owner.lineageId,durable],[prefix+'draft2-notes:'+owner.lineageId,durableNotes]])
+      return durable
+    }).catch(error=> {ready=false;render();throw error})
+    saving=operation.then(()=>{},()=>{})
+    return operation
   }
   const original = (filePath: string) => draft.base[filePath]?.markdown ?? (draft.snapshotId===snapshot.snapshotId ? files.get(filePath)?.markdown : undefined)
   const ensureBase = () => {
@@ -533,6 +538,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   editor.oninput=()=> {
     if(!ensureBase()) { render(); return }
     state.drafts[path]=editor.value
+    delete draft.editorFiles?.[path]
     labelOldDraft()
     say('正在保存草稿…')
     void save().then(()=> {if(!busy && !revoked && status.textContent==='正在保存草稿…') say('草稿已保存到本浏览器')}).catch(error=>say('草稿未保存：'+error.message+'；请导出备份'))

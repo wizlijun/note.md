@@ -600,3 +600,92 @@ it('destroys successful frontmatter and spreadsheet handles exactly once at norm
   expect(front).not.toHaveBeenCalled(); expect(sheet).not.toHaveBeenCalled()
   await f.owner.close(); await f.owner.close(); expect(front).toHaveBeenCalledOnce(); expect(sheet).toHaveBeenCalledOnce()
 })
+
+it('baseline identity survives edits and view modes but changes for every successful install', async () => {
+  const target = document.createElement('div'); document.body.append(target)
+  const session = await mountFileEditor(target, { file: { documentId: 'identity', authority: 'A', raw: 'A' }, adapters: { mediaResolver: new BrowserMediaResolver() } }, {})
+  try {
+    const identity = (session as FileMountSession & { baselineIdentity?: object }).baselineIdentity
+    expect(identity).toBeDefined()
+    expect(session.owner.restoreContent('B').ok).toBe(true)
+    expect(await session.setMode('source')).toBe(true)
+    expect(session.owner.undo()).toBe(true)
+    expect((session as FileMountSession & { baselineIdentity?: object }).baselineIdentity).toBe(identity)
+    expect(session.owner.installBaseline({ documentId: 'identity', authority: 'A', raw: 'A' }).ok).toBe(true)
+    expect((session as FileMountSession & { baselineIdentity?: object }).baselineIdentity).not.toBe(identity)
+  } finally { await session.owner.close(); target.remove() }
+})
+
+it('desktop capture ACK matches written B, isolates baseline, and never clears live C history', async () => {
+  const { captureFileSave, acknowledgeFileSave, savedFileEditor } = await import('../lib/file-editor-sessions')
+  const target = document.createElement('div'); document.body.append(target)
+  const session = await mountFileEditor(target, { file: { documentId: 'save', authority: 'A', raw: 'A' }, adapters: { mediaResolver: new BrowserMediaResolver() } }, {})
+  registerFileEditorSession('ack', session)
+  try {
+    expect(session.owner.restoreContent('B').ok).toBe(true)
+    const request = captureFileSave('ack', 'B')!
+    expect(captureFileSave('ack', 'wrong')).toBeUndefined()
+    expect(session.owner.restoreContent('C').ok).toBe(true)
+    acknowledgeFileSave('ack', 'wrong', request); expect(savedFileEditor('ack')).toBeUndefined()
+    acknowledgeFileSave('ack', 'B', request)
+    expect(savedFileEditor('ack')?.value.generation).toBe(request.snapshot.generation)
+    expect(savedFileEditor('ack')?.recovery.sourceHash).toBe(request.snapshot.sourceHash)
+    expect(session.owner.snapshot().raw).toBe('C'); expect(session.owner.canUndo()).toBe(true)
+    session.owner.installBaseline({ documentId: 'new', authority: 'A', raw: 'B' })
+    acknowledgeFileSave('ack', 'B', request); expect(savedFileEditor('ack')).toBeUndefined()
+  } finally { await closeFileEditorSession('ack'); target.remove() }
+})
+
+it.each(['BC', 'second-flush', 'baseline', 'saveAs', 'discard', 'write-failure'] as const)('real desktop close consumer keeps unsaved owner: %s', async kind => {
+  const fs = await import('../lib/fs'), watcher = await import('../lib/file-watcher.svelte'), dialogs = await import('../lib/dialogs')
+  const { tabs, closeTab, persistMarkdownSnapshot } = await import('../lib/tabs.svelte')
+  const { savedFileEditor } = await import('../lib/file-editor-sessions')
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const write = vi.spyOn(fs, 'writeMd').mockImplementation(async () => { if (kind === 'write-failure') throw new Error('disk full'); await gate })
+  const stat = vi.spyOn(fs, 'statFile').mockResolvedValue(null)
+  const start = vi.spyOn(watcher, 'startWatchingTab').mockResolvedValue(undefined)
+  const stop = vi.spyOn(watcher, 'stopWatchingTab').mockResolvedValue(undefined)
+  const rebind = vi.spyOn(watcher, 'rebindTabPath').mockResolvedValue(undefined)
+  const pick = vi.spyOn(dialogs, 'pickSaveFile').mockResolvedValue('/vault/persist.markdown')
+  const target = document.createElement('div'); document.body.append(target)
+  const id = 'persist-'+kind
+  tabs.push({ id, filePath: kind === 'saveAs' ? '' : '/vault/persist.markdown', title: 'persist', kind: 'markdown', mode: 'rich', currentContent: 'A', initialContent: 'A', externalState: 'fresh', externalBannerDismissed: false, lastKnownMtime: 0, lastKnownHash: '' })
+  const tab = tabs.find(t => t.id === id)!
+  const session = await mountFileEditor(target, { file: { documentId: id, authority: 'A', raw: 'A' }, adapters: { mediaResolver: new BrowserMediaResolver() } }, {})
+  registerFileEditorSession(id, session)
+  const unobserve = session.owner.observe(() => { tab.currentContent = session.owner.snapshot().raw })
+  let flushSpy: ReturnType<typeof vi.spyOn> | undefined
+  try {
+    if (kind !== 'second-flush') { expect(session.owner.restoreContent('B').ok).toBe(true); await Promise.resolve() }
+    if (kind === 'second-flush') {
+      const flush = session.owner.flush; let n = 0
+      flushSpy = vi.spyOn(session.owner, 'flush').mockImplementation(async () => {
+        const value = await flush(); if (++n === 2) session.owner.restoreContent('C'); return value
+      })
+    }
+    const closing = closeTab(id, async () => kind === 'discard' ? 'discard' : 'save')
+    // Attach rejection handling while the atomic write is under control.
+    const result = closing.then(value => ({ value }), error => ({ error }))
+    if (kind !== 'discard' && kind !== 'second-flush' && kind !== 'write-failure') {
+      await vi.waitFor(() => expect(write).toHaveBeenCalledOnce())
+      if (kind === 'baseline') session.owner.installBaseline({ documentId: id, authority: 'A', raw: 'B' })
+      else session.owner.restoreContent('C')
+      await Promise.resolve(); release()
+    }
+    const outcome = await result
+    if (kind === 'discard') { expect(outcome).toEqual({ value: true }); expect(session.view.isDestroyed).toBe(true) }
+    else {
+      expect('error' in outcome).toBe(true); expect(session.view.isDestroyed).toBe(false); expect(tabs.some(t => t.id === id)).toBe(true)
+      expect(session.owner.snapshot().raw).toBe(kind === 'baseline' || kind === 'write-failure' ? 'B' : 'C')
+      if (kind === 'BC') {
+        expect(savedFileEditor(id)?.value.hash).not.toBe(session.owner.snapshot().sourceHash)
+        expect(tab.initialContent).toBe('B'); expect(tab.currentContent).toBe('C'); expect(session.owner.canUndo()).toBe(true)
+        await persistMarkdownSnapshot(tab, 'C'); expect(savedFileEditor(id)?.value.hash).toBe(session.owner.snapshot().sourceHash)
+      }
+    }
+  } finally {
+    release(); flushSpy?.mockRestore(); unobserve(); await closeFileEditorSession(id); tabs.splice(tabs.findIndex(t => t.id === id), 1); target.remove()
+    write.mockRestore(); stat.mockRestore(); start.mockRestore(); stop.mockRestore(); rebind.mockRestore(); pick.mockRestore()
+  }
+})

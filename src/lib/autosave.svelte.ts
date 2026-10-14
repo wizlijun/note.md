@@ -1,3 +1,4 @@
+import { captureFileSave } from './file-editor-sessions'
 import {
   tabs, isDirty, isReadOnlyTab, shouldSkipEmptySave,
   persistMarkdownSnapshot, persistCanvasSnapshot,
@@ -30,6 +31,7 @@ export function startAutoSaveWatcher(): () => void {
         const content = tab.currentContent
         const id = tab.id
         const path = tab.filePath
+        const fileSave = captureFileSave(id, content)
         const dirty = isDirty(id)
         const existing = timers.get(id)
         if (existing) clearTimeout(existing)
@@ -49,7 +51,7 @@ export function startAutoSaveWatcher(): () => void {
             }
             // Naming shares the save queue; obsolete temporary paths must not
             // be recreated by a debounce that was waiting behind the rename.
-            const savedPath = await persistMarkdownSnapshot(cur, content, true, path)
+            const savedPath = await persistMarkdownSnapshot(cur, content, true, path, fileSave)
             if (savedPath && cur.currentContent === content) {
               // 自动保存也要同步到 vault 影子——否则 autosave 的静默写会绕过 save-push,
               // 且它让 tab 保持非脏,导致关闭/退出走 discard 而永不同步(见 tabs.saveActive)。
