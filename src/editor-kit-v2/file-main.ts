@@ -28,6 +28,7 @@ export interface FileMountWiring {
   onDelta?: (delta: ObserverDelta) => void
   externalSource?: boolean
   imeGuard?: ImeGuard
+  notify?(text: string): void
 }
 export interface FileMountSession extends MountedFileEditor {
   closeIfSaved(expected: { identity: object; raw: string }): Promise<void>
@@ -129,7 +130,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
         return { ok: false, reason: error instanceof Error ? error.message : 'baseline-failed' }
       }
     },
-    setReadOnly(value) { if (ownedEdit && noteUi.edit === ownedEdit) ownedEdit.readOnly = value; readOnly = value; controller.setReadOnly(value); instance.view.setProps({ editable: () => !readOnly }); if (pane) pane.querySelector('textarea')!.readOnly = readOnly },
+    setReadOnly(value) { menus.closeContext(); if (ownedEdit && noteUi.edit === ownedEdit) ownedEdit.readOnly = value; readOnly = value; controller.setReadOnly(value); instance.view.setProps({ editable: () => !readOnly }); if (pane) pane.querySelector('textarea')!.readOnly = readOnly },
     async flush() {
       if (closed) throw new Error('file-closed')
       if (richComposing) await new Promise<void>((resolve, reject) => richWaiters.push({ resolve, reject }))
@@ -337,6 +338,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   const menus = createFileMenus({ view: instance.view, owner, ime,
     available: () => !wiring.externalSource && !closed && !detached && !readOnly && mode === 'rich' && !blocked(),
     insertNote: () => insertSlashNote(),
+    insertContextNote: seed => annotations.insert(seed), notify: wiring.notify,
   })
   return {
     owner, annotations, menus, closeIfSaved: expected => close(expected), get baselineIdentity() { return controller }, get view() { return instance.view }, attachSource,
@@ -352,6 +354,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     },
     async setMode(next) {
       if (closed) return false
+      menus.closeContext()
       try { await owner.flush() } catch { return false }
       if (mode === next) return true
       if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
@@ -365,7 +368,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     focus() { if (!closed && !detached) { if (mode === 'source') pane?.querySelector('textarea')?.focus(); else instance.view.focus() } },
     destroyView() {
       if (detached || closed) return
-      menus.closeSlash(); unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
+      menus.closeSlash(); menus.closeContext(); unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
       if (richFrame !== null) cancelAnimationFrame(richFrame)
       richFrame = null
       if (richComposing) { richComposing = false; for (const waiter of richWaiters.splice(0)) waiter.reject(new Error('composition-interrupted')) }

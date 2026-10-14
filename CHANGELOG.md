@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Restore the Rich editor context menu on shared pages.** Formatting, headings, lists, table alignment, notes and clipboard actions reuse the desktop menu. Menus fit narrow screens and window edges, and delayed paste cannot target a different file or editing mode.
+
 ## v6.1014.2 — 2026-10-14
 
 - **Shared pages use a compact editor toolbar matching the desktop app.** Icon tabs switch between Rich and Source with keyboard navigation; undo, notes and changes use compact controls, and submission options open in a popup.

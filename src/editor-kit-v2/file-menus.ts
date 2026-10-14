@@ -4,13 +4,16 @@ import SlashMenu from '../lib/slash-menu/SlashMenu.svelte'
 import { filterSlashItems, getShareSlashItems, type SlashItem } from '../lib/slash-menu/slash-items-common'
 import type { FileEditorOwner, FileSlashCommand } from './file-contract'
 import type { ImeGuard } from '../lib/ime'
+import { createFileContextMenu } from './file-context-menu'
 
 /** UI only: every file command is admitted atomically by the existing owner. */
 export function createFileMenus(input: {
   view: EditorView; owner: FileEditorOwner; ime: ImeGuard
   available(): boolean; insertNote(): boolean
+  insertContextNote(seed: string): boolean; notify?(text: string): void
 }) {
   const { view, owner, ime } = input
+  const context = createFileContextMenu({ ...input, insertNote: input.insertContextNote })
   let popup: ReturnType<typeof mount> | undefined, target: HTMLElement | undefined
   let items: SlashItem[] = [], selected = 0
   let captured: { authority: string; generation: number; from: number; to: number } | undefined
@@ -38,6 +41,7 @@ export function createFileMenus(input: {
     if (!empty || $from.parent.type.name !== 'paragraph') { closeSlash(); return }
     const query = /^\/([a-zA-Z0-9一-龥]*)$/.exec($from.parent.textBetween(0, $from.parentOffset, ''))
     if (!query) { closeSlash(); return }
+    context.close()
     const now = owner.snapshot()
     captured = { authority: now.authority, generation: now.generation, from: view.state.selection.from, to: view.state.selection.to }
     items = filterSlashItems(query[1], getShareSlashItems()); selected = 0; paint()
@@ -55,7 +59,8 @@ export function createFileMenus(input: {
   view.dom.addEventListener('input', openSlash)
   view.dom.addEventListener('keydown', keydown, true)
   view.dom.addEventListener('compositionstart', closeSlash)
-  return { openSlash, closeSlash, destroy() {
+  return { openSlash, closeSlash, closeContext: context.close, destroy() {
+    context.destroy()
     closeSlash(); view.dom.removeEventListener('input', openSlash); view.dom.removeEventListener('keydown', keydown, true)
     view.dom.removeEventListener('compositionstart', closeSlash)
   } }

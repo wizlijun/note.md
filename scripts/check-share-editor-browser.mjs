@@ -94,7 +94,50 @@ try {
    try{return await new Promise((r,j)=>{const tx=db.transaction('data'),store=tx.objectStore('data'),o=store.getAll();tx.oncomplete=()=>r(o.result.filter(v=>v?.v===2));tx.onabort=()=>j(tx.error)})}finally{db.close()}
   })
  }
- if(process.env.SHARE_EDITOR_BROWSER_CASE==='toolbar') {
+ if(process.env.SHARE_EDITOR_BROWSER_CASE==='context-menu') {
+  const {page,context}=await open();await enter(page)
+  const menuRow=label=>page.locator('.menu-row').filter({has:page.getByText(label,{exact:true})})
+  async function richText(text) {await source(page,text);await page.getByRole('tab',{name:'富文本',exact:true}).click();await page.locator('.ProseMirror').waitFor()}
+  async function selectFirstWord() {
+   await page.evaluate(()=> {
+    const text=document.querySelector('.ProseMirror p').firstChild,range=document.createRange()
+    range.setStart(text,0);range.setEnd(text,5);const selection=getSelection();selection.removeAllRanges();selection.addRange(range)
+   });await page.waitForTimeout(80)
+  }
+  const text='Alpha\n\n__Keep__\n'
+  await richText(text);await selectFirstWord();await page.locator('.ProseMirror p').first().click({button:'right',position:{x:24,y:10}})
+  await page.locator('.ctx-menu.menu-panel').waitFor();await menuRow('加粗').hover()
+  assert.equal(await menuRow('加粗').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
+  await page.screenshot({path:resolve(output,'context-desktop.png'),fullPage:true})
+  await menuRow('加粗').click();await page.waitForFunction(()=>window.live.after['a.md']==='**Alpha**\n\n__Keep__\n')
+  await page.getByRole('button',{name:'撤销',exact:true}).click();assert.equal(await raw(page),text)
+  await selectFirstWord();await page.locator('.ProseMirror p').first().click({button:'right',position:{x:24,y:10}})
+  await menuRow('提问').click();await page.locator('.note-edit textarea').fill('review?');await page.locator('.note-edit textarea').press('Enter')
+  await page.waitForFunction(()=>window.live.after['a.md'].includes('{>>review?<<}'))
+  await source(page);assert.match(await page.locator('.kit-source-ta').inputValue(),/\{>>review\?<<\}/)
+  await richText('| A | B |\n|---|---|\n| 1 | 2 |\n')
+  await page.locator('.ProseMirror td').first().click();await page.locator('.ProseMirror td').first().click({button:'right'})
+  await menuRow('列对齐').hover();await menuRow('居中').click()
+  await page.waitForFunction(()=>window.live.after['a.md'].includes('| :---: | --- |'))
+  await page.setViewportSize({width:390,height:480})
+  await page.locator('.ProseMirror td').first().click({button:'right',position:{x:12,y:10}})
+  await menuRow('插入').hover();await page.locator('.ctx-sub').waitFor()
+  assert.equal(await menuRow('图片…').count(),0);assert.equal(await menuRow('溯源').count(),0)
+  const geometry=await page.evaluate(()=>[...document.querySelectorAll('.ctx-menu,.ctx-sub')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top,left:r.left,bottom:r.bottom,right:r.right,height:r.height}}))
+  for(const r of geometry) {assert.ok(r.top>=0&&r.left>=0&&r.bottom<=481&&r.right<=391,JSON.stringify(geometry))}
+  await menuRow('公式').hover();assert.equal(await menuRow('公式').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
+  await page.screenshot({path:resolve(output,'context-mobile.png'),fullPage:true})
+  await page.keyboard.press('Escape');assert.equal(await page.locator('.ctx-menu').count(),0)
+  await page.getByRole('tab',{name:'源码',exact:true}).click()
+  assert.equal(await page.locator('.ctx-menu').count(),0)
+  const after=await page.locator('.kit-source-ta').inputValue()
+  await page.locator('#submit').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('已送达'))
+  assert.equal(JSON.parse(bodies.at(-1)).edits[0].afterMarkdown,after)
+  evidence.push({case:'actual-context-menu',geometry,after,submission:JSON.parse(bodies.at(-1))})
+  violations.push(...await page.evaluate(()=>window.cspViolations));assert.deepEqual(errors,[]);assert.deepEqual(violations,[])
+  checks.push('actual-right-click-owner-format-and-undo','shared-note-popup-to-Source','context-table-column-alignment','context-main-and-submenu-fit-mobile','global-menu-hover','context-no-native-upload-or-trace','actual-context-edits-submit')
+  await context.close()
+ } else if(process.env.SHARE_EDITOR_BROWSER_CASE==='toolbar') {
   const {page,context}=await open()
   await page.goto(origin+'/project/mock')
   assert.ok(await page.locator('#collaboration').isHidden())

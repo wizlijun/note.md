@@ -13,7 +13,7 @@ const MARK_BY_ID: Record<string, string> = {
 }
 
 /** Select the word under the cursor if the selection is empty, so mark toggles have a target. */
-function ensureSelection(view: EditorView) {
+export function ensureSelection(view: EditorView) {
   const { selection, doc } = view.state
   if (!selection.empty) return
   const $pos = selection.$from
@@ -81,7 +81,13 @@ async function pasteText(view: EditorView) {
 
 export function createRichActions(
   view: EditorView,
-  opts: { imageEl?: HTMLImageElement } = {},
+  opts: {
+    imageEl?: HTMLImageElement
+    copyImage?(image: HTMLImageElement): Promise<void>
+    insertImage?(): Promise<void>
+    trace?(text: string): Promise<void>
+    insertNote?(seed: string): void
+  } = {},
 ): EditorActions {
   return {
     canRun(id) {
@@ -91,7 +97,9 @@ export function createRichActions(
         case 'table-align-right': return gfmTableCommand({ kind: 'align-column', alignment: 'right' })(view.state)
       }
       if (id === 'link') return !view.state.selection.empty
-      if (id === 'copyImage') return !!opts.imageEl
+      if (id === 'copyImage') return !!opts.imageEl && !!opts.copyImage
+      if (id === 'image') return !!opts.insertImage
+      if (id === 'trace') return !!opts.trace
       return true
     },
     async run(id): Promise<void> {
@@ -105,18 +113,19 @@ export function createRichActions(
         case 'paste':     return pasteText(view)
         case 'copyImage': {
           if (!opts.imageEl) return
-          const { copyImageToClipboard } = await import('../copy-image')
-          try { await copyImageToClipboard(opts.imageEl) }
+          try { await opts.copyImage?.(opts.imageEl) }
           catch (e) { console.error('copy image failed', e) }
           return
         }
         case 'selectAll': applySelectAll(view); return
         case 'wikilink':  return wrapWikilink(view)
         case 'note': {
+          if (opts.insertNote) { opts.insertNote(''); return }
           const { insertNoteRich } = await import('../note-anno/note-commands')
           insertNoteRich(view); return
         }
         case 'question': {
+          if (opts.insertNote) { opts.insertNote('?'); return }
           // Same annotation, seeded with `?` — that's what makes it a question
           // to the agent (isQuestionText); the popup caret lands before it.
           const { insertNoteRich } = await import('../note-anno/note-commands')
@@ -126,8 +135,7 @@ export function createRichActions(
           const { from, to } = view.state.selection
           const text = view.state.doc.textBetween(from, to, '\n')
           if (!text.trim()) return
-          const { openTraceDelegation } = await import('./trace-action')
-          return openTraceDelegation(text)
+          return opts.trace?.(text)
         }
         case 'link':      return toggleLink(view)
         case 'h1':        setBlock(view, 'heading', { level: 1 }); return
@@ -144,13 +152,7 @@ export function createRichActions(
         case 'mermaid':   setBlock(view, 'code_block', { language: 'mermaid' }); return
         case 'date':      return insertDate(view)
         case 'image': {
-          const { open } = await import('@tauri-apps/plugin-dialog')
-          const result = await open({ multiple: false,
-            filters: [{ name: 'Images', extensions: ['png','jpg','jpeg','gif','svg','webp','bmp','avif'] }] })
-          if (typeof result !== 'string') return
-          const { insertImageAtCursor } = await import('../attachment-insert')
-          insertImageAtCursor(view, result)
-          return
+          return opts.insertImage?.()
         }
       }
     },

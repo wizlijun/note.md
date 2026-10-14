@@ -16,10 +16,13 @@ import { wikilinkPlugin } from '../lib/wikilink-plugin'
 import { noteUi, readThemeStyle } from '../lib/note-anno/note-ui.svelte'
 import type { FileMountSession } from '../editor-kit-v2/file-main'
 import '../styles/popup-menu.css'
+import { i18n, isLocale } from '../lib/i18n/runtime.svelte'
 import './share-editor.css'
 
 async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path: string }): Promise<ShareEditorHandle> {
   if (host.apiVersion !== 1) throw new Error('Unsupported share editor host')
+  const locale = document.documentElement.lang.split('-')[0]
+  if (isLocale(locale)) i18n.locale = locale
   let draft: DraftV2 = await host.loadDraft() ?? { v: 2, lineageId: crypto.randomUUID(), snapshotId: host.snapshot.snapshotId, base: {}, after: {}, annotationKinds: {} }
   const root = document.createElement('div'); root.className = 'share-editor-root'; root.dataset.theme = host.theme.themeId
   root.style.height = '100%'
@@ -115,7 +118,7 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
       policy: policyFor(draft, next),
       adapters: { mermaidLoader, mediaResolver: resolver, linkOpener: { open: openLink }, platform: { getCurrentFilePath: () => path, isMacOS: /Mac/.test(navigator.platform) } },
       render: { enableMath: true, enableMermaid: true }, styles: 'host',
-      plugins: [shareMediaPlugin(resolver, host.notify), wikilinkPlugin()], mountTarget: target, saveDraft: live => host.saveDraft(live),
+      plugins: [shareMediaPlugin(resolver, host.notify), wikilinkPlugin()], mountTarget: target, saveDraft: live => host.saveDraft(live), notify: host.notify,
     })
     path = next
     ui.install(session.mounted, path, extractGuestAnnotations({ base, draft: initial }).ownerAnnotationsTouched.length)

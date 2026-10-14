@@ -107,7 +107,7 @@ try {
  async function source(raw) {await page.getByRole('tab',{name:'源码',exact:true}).click();await page.locator('.kit-source-ta').fill(raw);await page.getByRole('tab',{name:'富文本',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.share-editor-modes [role=tab]').getAttribute('aria-selected')==='true');await page.evaluate(()=>window.realHandle.buildSubmission({}))}
  async function current() {return page.evaluate(async()=>{const draft=await window.realHost.loadDraft();return draft.after['README.md']})}
  const editingControls=[]
- for(const [label,pattern] of [['Table',/\|/],['Math formula',/\$\$/]]) {
+ for(const [label,pattern] of [['表格',/\|/],['数学公式',/\$\$/]]) {
   await source('/')
   await page.locator('.ProseMirror p').last().click();await page.keyboard.press('End');await page.keyboard.press('Backspace');await page.keyboard.type('/')
   await page.locator('.slash-menu').waitFor();const row=page.locator('.slash-menu .menu-row').filter({hasText:label});await row.hover()

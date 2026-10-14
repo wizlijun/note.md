@@ -380,6 +380,8 @@
   import { reveal } from '../lib/outline/reveal.svelte'
   import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
   import { createSourceActions } from '../lib/context-menu/source-actions'
+  import { pluginRuntime } from '../lib/plugins/runtime.svelte'
+  import { TRACE_PLUGIN_ID } from '../lib/context-menu/trace-action'
 
   // Same reasoning as RichEditor's copy: `{#key tab.id}` rebuilds this on every
   // file switch, so a request issued before the switch must still be claimable
@@ -746,6 +748,7 @@
       position={ctxMenuPos}
       hasSelection={ctxHasSel}
       {readOnly}
+      traceInstalled={pluginRuntime.manifests.some(m => m.id === TRACE_PLUGIN_ID)}
       actions={ctxActions}
       onClose={() => { showCtxMenu = false }}
     />

@@ -17,6 +17,7 @@ export interface ShareFileSessionOptions {
   readOnly?: boolean
   styles?: 'host'
   plugins?: Plugin[]
+  notify?(text: string): void
   /** Shared lineage FIFO: clone live + its notes at execution, await atomic, return that clone. */
   saveDraft(live: DraftV2): Promise<Readonly<DraftV2>>
 }
@@ -51,7 +52,7 @@ export async function createShareFileSession(options: ShareFileSessionOptions): 
   const mounted = await mountFileEditor(options.mountTarget, {
     file: { documentId: `${lineage}:${path}`, authority: `${lineage}:${draft.snapshotId}:${path}`, raw, recovery: draft.editorFiles?.[path] },
     policy: options.policy, adapters: options.adapters, render: options.render, readOnly,
-  }, { styles: options.styles, plugins: options.plugins })
+  }, { styles: options.styles, plugins: options.plugins, notify: options.notify })
   const current = () => !closed && !mounted.view.isDestroyed && options.draft.lineageId === lineage
     && (options.draft !== draft || draft.snapshotId === initialSnapshotId)
   function capture() {

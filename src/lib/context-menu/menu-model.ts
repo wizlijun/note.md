@@ -1,4 +1,4 @@
-import { t } from '../i18n/store.svelte'
+import { t } from '../i18n/runtime.svelte'
 import type { Messages } from '../i18n/en'
 
 export interface MenuItemSpec {
@@ -26,6 +26,7 @@ export interface MenuContext {
    *  entry point — without it the item would open nothing, so it is omitted
    *  rather than offered dead. */
   traceInstalled?: boolean
+  allowImageInsert?: boolean
 }
 
 function item(id: string, key: keyof Messages, extra: Partial<MenuItemSpec> = {}): MenuItemSpec {
@@ -97,7 +98,7 @@ export function getMenuModel(ctx: MenuContext): MenuGroup[] {
     ] }] : []),
     { id: 'insert', items: [
       item('insert', 'ctxmenu.insert', { icon: 'insert', children: [
-        item('table', 'ctxmenu.table'), item('image', 'ctxmenu.image'),
+        item('table', 'ctxmenu.table'), ...(ctx.allowImageInsert === false ? [] : [item('image', 'ctxmenu.image')]),
         item('math', 'ctxmenu.math'), item('mermaid', 'ctxmenu.mermaid'),
         item('date', 'ctxmenu.date'),
       ] }),

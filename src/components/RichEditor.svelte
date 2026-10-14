@@ -29,6 +29,8 @@
   import { getSlashItems, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
   import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
   import { createRichActions } from '../lib/context-menu/rich-actions'
+  import { pluginRuntime } from '../lib/plugins/runtime.svelte'
+  import { TRACE_PLUGIN_ID } from '../lib/context-menu/trace-action'
   import { noteUi, readThemeStyle } from '../lib/note-anno/note-ui.svelte'
   import { openEditForMark, openEditForAnchor, insertNoteRich } from '../lib/note-anno/note-commands'
   import NotePopover from '../lib/note-anno/NotePopover.svelte'
@@ -534,7 +536,16 @@
     const imgEl = (event.target as HTMLElement).closest('img') as HTMLImageElement | null
     ctxHasSel   = !view.state.selection.empty
     ctxImage    = !!imgEl
-    ctxActions  = createRichActions(view, imgEl ? { imageEl: imgEl } : {})
+    ctxActions  = createRichActions(view, {
+      imageEl: imgEl ?? undefined,
+      copyImage: async image => { const { copyImageToClipboard } = await import('../lib/copy-image'); await copyImageToClipboard(image) },
+      insertImage: async () => {
+        const { open } = await import('@tauri-apps/plugin-dialog')
+        const path = await open({ multiple: false, filters: [{ name: 'Images', extensions: ['png','jpg','jpeg','gif','svg','webp','bmp','avif'] }] })
+        if (typeof path === 'string') insertImageAtCursor(view, path)
+      },
+      trace: async text => { const { openTraceDelegation } = await import('../lib/context-menu/trace-action'); await openTraceDelegation(text) },
+    })
     if (fileSession) {
       const legacy = ctxActions, session = fileSession
       ctxActions = { canRun: legacy.canRun, async run(id) {
@@ -1462,6 +1473,7 @@
       hasSelection={ctxHasSel}
       image={ctxImage}
       {readOnly}
+      traceInstalled={pluginRuntime.manifests.some(m => m.id === TRACE_PLUGIN_ID)}
       actions={ctxActions}
       onClose={() => { showCtxMenu = false }}
     />
