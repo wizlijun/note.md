@@ -1,6 +1,22 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  "guest.editedResult": "Bearbeitetes Ergebnis",
+  "guest.recoveredDraft": "Aktualisierung konnte nicht geladen werden; Entwurf erhalten",
+  "guest.inputPending": "Eingabe oder Anmerkung abschließen und erneut versuchen.",
+  "guest.workChanged": "Die Arbeitsdatei wurde geändert. Die externe Änderung vor dem nächsten Versuch klären.",
+  "guest.editorNotReady": "Der Editor ist noch nicht bereit. Source öffnen oder die Datei schließen und erneut versuchen.",
+  "guest.publisherVersion": "Version des Freigebers",
+  "guest.myVersion": "Meine Version",
+  "guest.useEdited": "Bearbeitung übernehmen",
+  "guest.update": "Kopie aktualisieren",
+  "guest.resumeUpdate": "Aktualisierung fortsetzen",
+  "guest.keepLocal": "Lokal behalten",
+  "guest.useBase": "Neue Datei verwenden",
+  "guest.resolve": "Konfliktlösung speichern",
+  "guest.updated": "Aktualisierung abgeschlossen",
+  "guest.removed": "Nicht mehr geteilt",
+  "guest.updatePending": "Aktualisierung prüfen",
   "guest.open": "Freigabelink öffnen…",
   "guest.title": "Geteiltes Projekt",
   "guest.confirmDownload": "„Dieses geteilte Projekt“ von {host} herunterladen?",

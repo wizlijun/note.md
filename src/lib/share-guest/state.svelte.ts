@@ -59,6 +59,7 @@ export async function retryGuests(): Promise<void> {
   }
 }
 export function guestErrorCode(error: unknown): string {
-  const code = String(error).match(/GUEST_(?:HTTP_\d{3}|READ_ONLY|PENDING_CONFLICT|NETWORK|BASE_CHANGED|TAB_CHANGED)/)?.[0]
+  if (/composing|annotation-pending|file-input-pending/.test(String(error))) return 'GUEST_INPUT_PENDING'
+  const code = String(error).match(/GUEST_(?:HTTP_\d{3}|READ_ONLY|PENDING_CONFLICT|NETWORK|BASE_CHANGED|TAB_CHANGED|INPUT_CHANGED|INPUT_PENDING|WORK_CHANGED|UNRESOLVED|UPDATE_BUSY|UPDATE_PENDING|EDITOR_NOT_READY)/)?.[0]
   return code ?? 'GUEST_FAILED'
 }

@@ -16,6 +16,8 @@ import {
 } from '../lib/plugins/file-view-presentation.svelte'
 
 vi.mock('../lib/tabs.svelte', () => ({
+  isGuestUpdateFrozen: () => false,
+  documentPolicyReadOnly: (tab: Tab) => tab.filePath === '/vault/MEMORY.md' || isReadonlyMarkdownTab(tab),
   isManagedMemoryTab: (tab: { filePath: string }) => tab.filePath === '/vault/MEMORY.md',
   isReadOnlyTab: (tab: Tab) => tab.filePath === '/vault/MEMORY.md' || isReadonlyMarkdownTab(tab),
   setContent: vi.fn(),

@@ -27,13 +27,15 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { migrateTempResources, getTempDir } from '../lib/paste-resources'
   import { t } from '../lib/i18n/store.svelte'
+  import { documentPolicyReadOnly, isGuestUpdateFrozen } from '../lib/tabs.svelte'
   import type { FileMountSession } from '../editor-kit-v2/file-main'
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
   let documentReadOnly = $derived(isReadOnlyTab(tab))
+  let policyReadOnly = $derived(documentPolicyReadOnly(tab))
   let presentation = $derived(fileViewPresentation(tab, pluginRuntime.manifests))
-  let fileView = $derived(documentReadOnly || tab.mode === 'source' ? null : presentation.active)
+  let fileView = $derived(policyReadOnly || tab.mode === 'source' ? null : presentation.active)
   let readyFile = $state<{ id: string; session: FileMountSession }>()
   let fileSession = $derived(readyFile?.id === tab.id ? readyFile.session : undefined)
   let useFileOwner = $derived(tab.kind === 'markdown' && !memoryReadOnly && !presentation.active)
@@ -142,7 +144,7 @@
     <!-- MDX rich mode remains read-only; source mode preserves JSX byte-for-byte. -->
     {#key tab.id}<RichEditor {tab} readOnly />{/key}
   {:else}
-    {#key `${tab.id}:${documentReadOnly}`}
+    {#key `${tab.id}:${policyReadOnly}`}
       <RichEditor
         {tab}
         onFlush={onRichFlush}
@@ -156,6 +158,8 @@
 <div class="editor-stack" bind:this={stackEl}>
   {#if memoryReadOnly}
     <div class="memory-readonly" role="status">{t('memory.projectionReadOnly')}</div>
+  {:else if isGuestUpdateFrozen(tab.filePath)}
+    <div class="memory-readonly" role="status">{t('guest.updatePending')}</div>
   {:else if documentReadOnly}
     <div class="memory-readonly" role="status">{t('document.frontmatterReadOnly')}</div>
   {/if}
@@ -211,7 +215,7 @@
       {/if}
     {/key}
   {:else if tab.mode === 'source'}
-    {#key `${tab.id}:${documentReadOnly}`}
+    {#key `${tab.id}:${policyReadOnly}`}
       <SourceView
         value={tab.currentContent}
         oninput={onSourceInput}

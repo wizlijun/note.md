@@ -51,7 +51,7 @@
   })
   function scheduleSave() {
     cancelSave()
-    if (composing) return
+    if (composing || editState.readOnly) return
     saveTimer = setTimeout(() => {
       saveTimer = null
       if (noteUi.edit === editState) attempt()
@@ -65,18 +65,19 @@
     if (noteUi.edit === editState) noteUi.edit = null
   }
   function onDelete() {
+    if (editState.readOnly) return
     if (noteUi.edit !== editState) return
     if (attempt(true) === false) return
     if (noteUi.edit === editState) noteUi.edit = null
   }
   function discard() {
-    if (composing || noteUi.edit !== editState) return
+    if (composing || editState.readOnly || noteUi.edit !== editState) return
     cancelSave()
     noteUi.edit = null
   }
   /** ⁇ 提问:尾部无问号则补全角 ？,保存并关闭。问题身份由文本中的问号承载,按钮只是糖 */
   function onAsk() {
-    if (composing) return
+    if (composing || editState.readOnly) return
     if (!/[?？]\s*$/.test(text)) text = text.trimEnd() + '？'
     if (ta) ta.value = text
     close(true)
@@ -113,6 +114,7 @@
 >
   <textarea
     bind:this={ta}
+    readonly={editState.readOnly ?? false}
     bind:value={text}
     oninput={scheduleSave}
     rows="3"
@@ -120,12 +122,13 @@
   ></textarea>
   {#if blocked}
     <div class="pending" role="status">{t('noteedit.unsaved')}</div>
-    <button class="menu-row" disabled={composing} onclick={() => close(true)}>{t('noteedit.retrySave')}</button>
-    <button class="menu-row" disabled={composing} onclick={discard}>{t('noteedit.discardChanges')}</button>
+    <button class="menu-row" disabled={composing || editState.readOnly} onclick={() => close(true)}>{t('noteedit.retrySave')}</button>
+    <button class="menu-row" disabled={composing || editState.readOnly} onclick={discard}>{t('noteedit.discardChanges')}</button>
   {/if}
   <div class="row">
-    <button class="ask" onclick={onAsk} title={t('noteedit.askHint')}>⁇ {t('noteedit.ask')}</button>
+    <button disabled={editState.readOnly} class="ask" onclick={onAsk} title={t('noteedit.askHint')}>⁇ {t('noteedit.ask')}</button>
     <button
+      disabled={editState.readOnly}
       class="del"
       onclick={onDelete}
       title={t('noteedit.delete')}

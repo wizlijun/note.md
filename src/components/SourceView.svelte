@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { registerFileSourceGuard } from '../lib/file-editor-sessions'
   import type { FileSourceInput, FileSourceOptions, PendingSource } from '../editor-kit-v2/file-source-input'
   import { t } from '../lib/i18n/store.svelte'
   import {
@@ -54,6 +55,14 @@
   let sourceDisplay = $state('')
   let sourcePending = $state<PendingSource | null>(null)
   let sourceComposing = $state(false)
+  let localComposing = false
+  $effect(() => {
+    const id=tabId, element=textareaEl
+    if (!id || !element) return
+    return registerFileSourceGuard(id,{check() {
+      if (!element.isConnected || element!==textareaEl || localComposing || sourceInput?.composing() || sourceInput?.pending()) throw Error('GUEST_INPUT_PENDING')
+    }})
+  })
   let value = $derived(attachFileSource ? sourceDisplay : rawValue)
   let bufferVersion = 0
   $effect(() => {
@@ -722,8 +731,8 @@
       oninput={(event) => { if (!sourceInput) oninput(event) }}
       onscroll={syncScroll}
       onkeydown={onTextareaKeydown}
-      oncompositionstart={() => ime.start()}
-      oncompositionend={() => ime.end()}
+      oncompositionstart={() => { localComposing=true; ime.start() }}
+      oncompositionend={() => { localComposing=false; ime.end() }}
       onblur={() => ime.reset()}
       onpaste={handlePaste}
       oncontextmenu={onContextMenu}

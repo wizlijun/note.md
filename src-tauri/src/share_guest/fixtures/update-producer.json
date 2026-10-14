@@ -1,0 +1,171 @@
+{
+  "input": {
+    "fromSnapshotId": "S1",
+    "toSnapshotId": "S2",
+    "oldBase": {
+      "clean.md": "甲。\n\n乙。\n",
+      "publisher.md": "甲。",
+      "mine.md": "甲。",
+      "human.md": "甲。"
+    },
+    "newBase": {
+      "clean.md": "甲？\n\n乙。\n",
+      "publisher.md": "乙。",
+      "mine.md": "乙。",
+      "human.md": "乙。"
+    },
+    "work": {
+      "clean.md": "甲。\n\n乙！\n",
+      "publisher.md": "丙。",
+      "mine.md": "丙。",
+      "human.md": "丙。"
+    }
+  },
+  "plan": {
+    "fromSnapshotId": "S1",
+    "toSnapshotId": "S2",
+    "actions": [
+      {
+        "kind": "write",
+        "path": "clean.md",
+        "expectedHash": "7f140f0267a342be95634adaf1bb267fbd91fccec5d58a4a12f4df2cb0c815ed",
+        "content": "甲？\n\n乙！\n"
+      }
+    ],
+    "conflicts": [
+      {
+        "path": "publisher.md",
+        "proposal": {
+          "kernelVersion": 1,
+          "path": "publisher.md",
+          "baseHash": "8c253750d3f6defea05cb346892fc182d3476e4fcfdb740e85855750d58e9bc6",
+          "oursHash": "2fa35ac9d58898850cfebe84c021d972228fb72acd6e6cb0a82bebf21540d1ce",
+          "theirsHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90",
+          "theirsEolAligned": false,
+          "segments": [
+            {
+              "type": "hunk",
+              "id": "h_ddb939c8af4ba4b2"
+            }
+          ],
+          "hunks": [
+            {
+              "id": "h_ddb939c8af4ba4b2",
+              "kind": "conflict",
+              "base": "甲。",
+              "ours": "乙。",
+              "theirs": "丙。",
+              "oursStart": 0,
+              "oursEnd": 2,
+              "flags": []
+            }
+          ],
+          "stats": {
+            "theirs-only": 0,
+            "ours-only": 0,
+            "both-same": 0,
+            "conflict": 1
+          }
+        },
+        "expectedHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90"
+      },
+      {
+        "path": "mine.md",
+        "proposal": {
+          "kernelVersion": 1,
+          "path": "mine.md",
+          "baseHash": "8c253750d3f6defea05cb346892fc182d3476e4fcfdb740e85855750d58e9bc6",
+          "oursHash": "2fa35ac9d58898850cfebe84c021d972228fb72acd6e6cb0a82bebf21540d1ce",
+          "theirsHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90",
+          "theirsEolAligned": false,
+          "segments": [
+            {
+              "type": "hunk",
+              "id": "h_f400d6065c807af0"
+            }
+          ],
+          "hunks": [
+            {
+              "id": "h_f400d6065c807af0",
+              "kind": "conflict",
+              "base": "甲。",
+              "ours": "乙。",
+              "theirs": "丙。",
+              "oursStart": 0,
+              "oursEnd": 2,
+              "flags": []
+            }
+          ],
+          "stats": {
+            "theirs-only": 0,
+            "ours-only": 0,
+            "both-same": 0,
+            "conflict": 1
+          }
+        },
+        "expectedHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90"
+      },
+      {
+        "path": "human.md",
+        "proposal": {
+          "kernelVersion": 1,
+          "path": "human.md",
+          "baseHash": "8c253750d3f6defea05cb346892fc182d3476e4fcfdb740e85855750d58e9bc6",
+          "oursHash": "2fa35ac9d58898850cfebe84c021d972228fb72acd6e6cb0a82bebf21540d1ce",
+          "theirsHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90",
+          "theirsEolAligned": false,
+          "segments": [
+            {
+              "type": "hunk",
+              "id": "h_60e890d5285ed6f0"
+            }
+          ],
+          "hunks": [
+            {
+              "id": "h_60e890d5285ed6f0",
+              "kind": "conflict",
+              "base": "甲。",
+              "ours": "乙。",
+              "theirs": "丙。",
+              "oursStart": 0,
+              "oursEnd": 2,
+              "flags": []
+            }
+          ],
+          "stats": {
+            "theirs-only": 0,
+            "ours-only": 0,
+            "both-same": 0,
+            "conflict": 1
+          }
+        },
+        "expectedHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90"
+      }
+    ],
+    "choices": []
+  },
+  "resolutions": [
+    {
+      "path": "publisher.md",
+      "expectedHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90",
+      "content": "乙。"
+    },
+    {
+      "path": "mine.md",
+      "expectedHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90",
+      "content": "丙。"
+    },
+    {
+      "path": "human.md",
+      "expectedHash": "5cad3331f3aad63e5f4bf927ebeaacced7518fcdf0b01930b01aab410b98ae90",
+      "content": "人工。"
+    }
+  ],
+  "after": {
+    "clean.md": "甲？\n\n乙！\n",
+    "publisher.md": "乙。",
+    "mine.md": "丙。",
+    "human.md": "人工。"
+  },
+  "submission": "{\"schemaVersion\":2,\"project_id\":\"pid\",\"snapshotId\":\"S2\",\"submissionId\":\"new-submission\",\"edits\":[{\"path\":\"clean.md\",\"baseHash\":\"e2a51422aed65a9c7faa7855119d34246d5a709b588975d75141111f4806c24b\",\"afterMarkdown\":\"甲？\\n\\n乙！\\n\"},{\"path\":\"human.md\",\"baseHash\":\"2fa35ac9d58898850cfebe84c021d972228fb72acd6e6cb0a82bebf21540d1ce\",\"afterMarkdown\":\"人工。\"},{\"path\":\"mine.md\",\"baseHash\":\"2fa35ac9d58898850cfebe84c021d972228fb72acd6e6cb0a82bebf21540d1ce\",\"afterMarkdown\":\"丙。\"}],\"annotations\":[],\"client\":{\"kind\":\"notemd\",\"version\":\"test\"},\"supersedes\":\"previous\",\"message\":\"updated\",\"contributor\":{\"name\":\"Guest\"}}"
+}

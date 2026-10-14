@@ -77,6 +77,8 @@ export function styleVars(s: ThemeStyle | null | undefined): string {
 }
 
 export interface NoteEditState {
+  /** The owning file can temporarily suspend popup input during an external update. */
+  readOnly?: boolean
   x: number
   y: number
   note: string

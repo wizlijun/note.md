@@ -32,6 +32,9 @@
   }
 </script>
 
+{#if tab.guestUpdateRecovery}
+  <details class="guest-recovery"><summary>{t('guest.recoveredDraft')}: {tab.guestUpdateRecovery.path}</summary><pre>{tab.guestUpdateRecovery.content}</pre></details>
+{/if}
 {#if !tab.externalBannerDismissed}
   {#if tab.externalState === 'changed'}
     <div class="banner changed" role="status" aria-live="polite">
@@ -61,6 +64,8 @@
 {/if}
 
 <style>
+  .guest-recovery { padding: 8px 10px; font-size: 12px; overflow-wrap: anywhere; }
+  .guest-recovery pre { white-space: pre-wrap; user-select: text; }
   .banner {
     display: flex;
     align-items: center;

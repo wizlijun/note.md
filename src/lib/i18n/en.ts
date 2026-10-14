@@ -8,6 +8,22 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  "guest.editedResult": "Edited result",
+  "guest.recoveredDraft": "Update could not be loaded; preserved draft",
+  "guest.inputPending": "Finish typing or editing the annotation, then retry.",
+  "guest.workChanged": "The working file changed. Resolve the external change before retrying.",
+  "guest.editorNotReady": "The editor is not ready. Open Source or close this file, then retry.",
+  "guest.publisherVersion": "Publisher version",
+  "guest.myVersion": "My version",
+  "guest.useEdited": "Use edited text",
+  "guest.update": "Update copy",
+  "guest.resumeUpdate": "Resume update",
+  "guest.keepLocal": "Keep local",
+  "guest.useBase": "Use new file",
+  "guest.resolve": "Save resolved file",
+  "guest.updated": "Update complete",
+  "guest.removed": "No longer shared",
+  "guest.updatePending": "Update needs attention",
   "guest.open": "Open Share Link…",
   "guest.title": "Shared project",
   "guest.confirmDownload": "Download “this shared project” from {host}?",

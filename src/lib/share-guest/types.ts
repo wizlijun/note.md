@@ -8,10 +8,11 @@ export interface GuestInfo {
   shareUrl: string
   project_id: string
   snapshotId: string
+  workPaths?: Record<string, string>
   contributorName?: string
   lastSubmissionId?: string
   files: readonly { path: string; hash: string }[]
   submitted: readonly string[]
   outbox: readonly { submissionId: string; body: string; queuedAt: string }[]
-  pendingUpdate: null | { snapshotId: string; unresolved: string[] }
+  pendingUpdate: null | { snapshotId: string; unresolved: string[]; paths?: string[] }
 }

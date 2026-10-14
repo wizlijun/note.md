@@ -3,6 +3,22 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  "guest.editedResult": "編集結果",
+  "guest.recoveredDraft": "更新を読み込めませんでした。元の入力を保持しています",
+  "guest.inputPending": "入力または注釈の編集を完了してから再試行してください。",
+  "guest.workChanged": "作業ファイルが変更されました。外部変更を確認してから再試行してください。",
+  "guest.editorNotReady": "エディターの準備ができていません。Sourceを開くかファイルを閉じて再試行してください。",
+  "guest.publisherVersion": "共有者のバージョン",
+  "guest.myVersion": "自分のバージョン",
+  "guest.useEdited": "編集結果を使用",
+  "guest.update": "コピーを更新",
+  "guest.resumeUpdate": "更新を再開",
+  "guest.keepLocal": "ローカルを保持",
+  "guest.useBase": "新しいファイルを使用",
+  "guest.resolve": "解決結果を保存",
+  "guest.updated": "更新完了",
+  "guest.removed": "共有対象外",
+  "guest.updatePending": "更新に確認が必要",
   "guest.open": "共有リンクを開く…",
   "guest.title": "共有プロジェクト",
   "guest.confirmDownload": "{host} から「この共有プロジェクト」をダウンロードしますか？",

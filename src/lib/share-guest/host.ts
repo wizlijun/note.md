@@ -21,18 +21,14 @@ import { buildGuestSubmission, type BuiltSubmission } from '../project-share/gue
 import type { GuestInfo } from './types'
 import type { DraftV2 } from '../project-share/types'
 import { relative } from '../paths'
-import { classifyPath } from '../fs'
+import { isGuestMarkdownPath } from './update'
+export { isGuestMarkdownPath } from './update'
 import { version } from '../../../package.json'
 
 export async function canSubmitGuest(info: GuestInfo): Promise<boolean> {
   const store = await Store.load('share_db.json')
   const value = await store.get<{ token?: unknown }>(`guest:${info.origin}:${info.project_id}`)
   return typeof value?.token === 'string' && value.token.length > 0
-}
-/** The shared snapshot's document extensions follow the existing file classifier. */
-export function isGuestMarkdownPath(path: string): boolean {
-  const kind = classifyPath(path)?.kind
-  return kind === 'markdown' || kind === 'mdx'
 }
 export interface GuestWork {
   info: GuestInfo; base: DraftV2['base']; after: DraftV2['after']; added: string[]; missing: string[]
@@ -48,7 +44,7 @@ export async function buildDesktopSubmission(root: string, tabId: string, messag
   const stable = () => tabs.includes(tab) && tab.filePath === originalPath && !isReadOnlyTab(tab)
   const writableDocument = (item: typeof tab) => {
     const path = item.filePath && relative(root, item.filePath)
-    return path && info.files.some(file => file.path === path) && isGuestMarkdownPath(path)
+    return path && info.files.some(file => (info.workPaths?.[file.path] ?? file.path) === path) && isGuestMarkdownPath(path)
       && (item.kind === 'markdown' || item.kind === 'mdx') && !isReadOnlyTab(item)
   }
   for (const item of [...tabs].filter(writableDocument)) {
@@ -113,4 +109,44 @@ export interface GuestReceipt {
 export async function guestReceipts(root: string, submissionIds: string[]): Promise<GuestReceipt[]> {
   await allowedInfo(root)
   return guestCommand('receipts', { root, submissionIds: submissionIds.slice(-20) })
+}
+
+import { planGuestUpdate, composeGuest, type GuestUpdateInput } from './update'
+import { propose, type HunkDecision, type MergeProposal } from '../share-merge'
+export interface GuestUpdateRow { canUseBase?: boolean; sourcePath: string; path: string; expectedHash: string | null; currentHash: string | null; resultHash: string | null; action: string; state: string }
+export interface GuestUpdateView { info: GuestInfo; rows: GuestUpdateRow[]; conflicts: {path:string;expectedHash:string;proposal:MergeProposal}[] }
+const updateFlights = new Set<string>()
+async function updateWindow(root: string, action?: {path:string; expectedHash:string|null; content?:string; choice?:'keep-local'|'use-base'}): Promise<GuestUpdateView> {
+  if (updateFlights.has(root)) throw Error('GUEST_UPDATE_BUSY')
+  updateFlights.add(root)
+  try {
+    const info=await guestCommand<GuestInfo>('update-prepare',{root})
+    if (!info.pendingUpdate) return {info,rows:[],conflicts:[]}
+    const {withGuestFileUpdate,tabs}=await import('../tabs.svelte')
+    const managedPaths=info.files.map(file=>root+'/'+(info.workPaths?.[file.path]??file.path))
+    const paths=[...new Set([...managedPaths,...(info.pendingUpdate.paths??[]).map(path=>root+'/'+path)])]
+    return await withGuestFileUpdate(paths,async check=>{
+      const input=await guestCommand<GuestUpdateInput & {journal:boolean}>('update-read',{root});await check()
+      if (input.fromSnapshotId!==info.snapshotId || input.toSnapshotId!==info.pendingUpdate!.snapshotId) throw Error('GUEST_BASE_CHANGED')
+      if (action) {
+        await guestCommand(action.content !== undefined ? 'resolve' : 'resolve-file',{root,path:action.path,expectedHash:action.expectedHash,...(action.content!==undefined?{content:action.content}:{choice:action.choice})});await check()
+      } else if (input.journal) { await guestCommand('update-resume',{root});await check() }
+      else { input.occupied=[...new Set([...(input.occupied??[]),...tabs.flatMap(tab=>{const path=relative(root,tab.filePath);return path?[path]:[]})])];const plan=planGuestUpdate(input);await check();await guestCommand('update-apply',{root,plan});await check() }
+      const view=await guestCommand<GuestUpdateView>('update-status',{root});await check()
+      const writes=Object.fromEntries(view.rows.filter(r=>r.state==='done').map(r=>[root+'/'+r.path,r.resultHash]))
+      view.conflicts=[]
+      for (const row of view.rows) if (row.action==='conflict' && row.state==='waiting' && row.expectedHash===input.workHashes?.[row.path]) {
+        view.conflicts.push({path:row.sourcePath,expectedHash:row.expectedHash!,proposal:propose({path:row.sourcePath,base:input.oldBase[row.sourcePath],ours:input.newBase[row.sourcePath],theirs:input.work[row.path]})})
+      }
+      if (view.rows.every(r=>r.state==='done')) {view.info=await guestCommand('update-finish',{root});await check()}
+      return {value:view,writes}
+    },{root,managedPaths})
+  } finally {updateFlights.delete(root)}
+}
+export function updateGuest(root:string):Promise<GuestUpdateView> {return updateWindow(root)}
+export function resolveGuest(root:string,path:string,expectedHash:string,proposal:MergeProposal,decisions:Record<string,HunkDecision>):Promise<GuestUpdateView> {
+  return updateWindow(root,{path,expectedHash,content:composeGuest(proposal,decisions)})
+}
+export function resolveGuestFile(root:string,path:string,expectedHash:string|null,choice:'keep-local'|'use-base'):Promise<GuestUpdateView> {
+  return updateWindow(root,{path,expectedHash,choice})
 }

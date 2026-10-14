@@ -1,3 +1,5 @@
+#[path = "update.rs"]
+pub mod update;
 use super::{
     reader::{self, Snapshot},
     Result, MAX_SOURCE,
@@ -23,6 +25,8 @@ pub struct GuestInfo {
     pub project_id: String,
     pub snapshot_id: String,
     pub files: Vec<GuestFile>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub work_paths: std::collections::BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contributor_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -49,6 +53,8 @@ pub struct Outbox {
 pub struct PendingUpdate {
     pub snapshot_id: String,
     pub unresolved: Vec<String>,
+    #[serde(default)]
+    pub paths: Vec<String>,
 }
 
 pub struct GuestStore {
@@ -176,6 +182,19 @@ impl GuestStore {
                 return Err("invalid guest file metadata".into());
             }
         }
+        self.validate_work_paths(root, &info.files, &info.work_paths)?;
+        if let Some(pending) = &info.pending_update {
+            if !reader::valid_id(&pending.snapshot_id)
+                || pending.snapshot_id == info.snapshot_id
+                || pending.paths.len() > 512
+                || pending.unresolved.len() > 1024
+            {
+                return Err("invalid pending update".into());
+            }
+            for path in pending.paths.iter().chain(&pending.unresolved) {
+                reader::valid_path(path)?;
+            }
+        }
         if !info.files.iter().any(|f| f.path == info.entry) {
             return Err("missing guest entry".into());
         }
@@ -258,6 +277,9 @@ impl GuestStore {
     }
     pub fn queue(&self, root: &Path, id: &str, body: &str) -> Result<GuestInfo> {
         let mut info = self.inspect(root)?;
+        if info.pending_update.is_some() {
+            return Err("GUEST_UPDATE_PENDING".into());
+        }
         Self::validate_body(&info, id, body)?;
         if let Some(pending) = info.outbox.first() {
             return if pending.submission_id == id && pending.body == body {
@@ -364,7 +386,10 @@ impl GuestStore {
                 file.path.clone(),
                 self.read_base(root, &file.path, &info.snapshot_id)?,
             );
-            let path = self.checked(&root.join(&file.path), true)?;
+            let path = self.checked(
+                &root.join(info.work_paths.get(&file.path).unwrap_or(&file.path)),
+                true,
+            )?;
             if !path.exists() {
                 missing.push(file.path.clone());
                 continue;
@@ -390,7 +415,11 @@ impl GuestStore {
                         .map_err(|_| "outside guest root")?
                         .to_string_lossy()
                         .replace('\\', "/");
-                    if !info.files.iter().any(|f| f.path == relative) {
+                    if !info
+                        .files
+                        .iter()
+                        .any(|f| info.work_paths.get(&f.path).unwrap_or(&f.path) == &relative)
+                    {
                         added.push(relative);
                     }
                 }
@@ -464,6 +493,7 @@ impl GuestStore {
                     hash: f.hash.clone(),
                 })
                 .collect(),
+            work_paths: Default::default(),
             contributor_name: None,
             last_submission_id: None,
             submitted: vec![],

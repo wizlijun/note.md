@@ -1216,6 +1216,16 @@ v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值�
 - **新快照新增了某个文件**：直接写入。如果工作目录里已有同名但不在旧 `files` 中的文件，保留用户的文件，把新文件写成 `<name>.shared.md`，并给出提示。
 - **收尾**：所有文件都处理完之后，更新 `snapshotId` 和 `files`，删除旧的 base 目录。在此之前，旧 base 一律保留，用于撤销和重试。
 
+#### 13.4.1 received 更新的本机身份与恢复合同
+
+- `update-prepare` 复用 V1/reader/ZIP/V2 完整校验，只 stage 新 base 与可信 manifest 路径元数据；`update-read` 必须在宿主实际 flush/save 的短操作窗口内捕获旧/新 base、工作原字节和 hash。网络等待期间继续编辑；写入窗口由既有 tabs/file-session 保存队列统一准入，Rich/外部 Source/普通保存/autosave 共用临时只读策略。未知已打开稿不保存，碰撞选择也包含未落盘的打开路径。
+- `guest.json.workPaths?: Record<分享路径, 工作相对路径>` 只记录非同名碰撞映射；缺省同名，不进入公开快照或建议 wire。Rust 验证来源在 files、目标安全且唯一、不存在文件系统别名。打开、提交、再次更新与删除均通过映射；建议仍使用原分享 path/baseHash。`.shared` 已存在时递增 `.shared-2`，保留未知原文件。
+- Markdown 使用同一 `propose({path,base:旧base,ours:新base,theirs:work})` 和 `compose`，显式接受全部 theirs-only（包含 owner 风险 flags）；CAS hash 始终来自工作文件原 bytes，不取内核对齐 EOL 后的 hash。guest 仅提供分享者版本、我的版本、人手编辑三种真实 decision；owner 原有五种保持。
+- 附件绝不转成 UTF-8 合并；旧工作 hash 等于旧 base 可 `copy-base`。`copy-base.sourcePath` 只能取当前 pending manifest，`path` 为经验证的受管目标。已修改附件或 old/new 均有但工作缺失时，`resolve-file` 以工作当前 `expectedHash` 和 `keep-local|use-base` 显式决定；保留缺失不生成删除建议。
+- `.notemd/update-plan.json` 只保存 from/to、受管映射、每行目标、expectedHash/resultHash、action/state 与受管结果标识，不保存正文。文本合并/人工结果先以不可变原 bytes 持久到 `.notemd/update-results/<toSnapshotId>/<rowId>`，然后 durable intent，工作路径 CAS/原子写，最后完成标记。重启只按工作 hash 和已校验的结果材料重放；结果 hash 相同表示已写、expectedHash 相同才重试，其余保留 unresolved，不重新自动 propose 覆盖。
+- 全部 journal 行明确完成并耐久写入新的 `snapshotId/files/workPaths` 后才清旧 base 和结果材料；metadata rename 后失败可重试清理。outbox 或 `guest-ack-recovery.json` 协调出的待发送包存在时，prepare/apply/finish 均禁止切换。submitted/lastSubmissionId 保留，新建议使用新 snapshot/baseHash 和旧 lastSubmissionId。
+- 写后以真实磁盘结果安装 owner baseline/history；每个 await 后核 tab/path/session/baseline/authority/raw 与 Source 未决状态。失败保留原稿并显示外部冲突；tab 改绑时恢复稿保留原 path 的独立内存身份并显示于既有横幅，不把旧稿绑定新 path，不补偿回写磁盘。
+
 ### 13.5 回执
 
 项目侧栏会对 `submitted` 中的 ID 拉取回执（§10.3），展示方式与浏览器相同（§11.4）。

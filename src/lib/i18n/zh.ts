@@ -3,6 +3,22 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  "guest.editedResult": "手改结果",
+  "guest.recoveredDraft": "更新未能载入，已保留原稿",
+  "guest.inputPending": "请先完成输入或批注编辑，再重试更新。",
+  "guest.workChanged": "工作文件已变化。请保留或处理外部冲突后重试。",
+  "guest.editorNotReady": "编辑器尚未准备好；请打开 Source 或关闭此文件后重试。",
+  "guest.publisherVersion": "分享者版本",
+  "guest.myVersion": "我的版本",
+  "guest.useEdited": "采用手改",
+  "guest.update": "更新副本",
+  "guest.resumeUpdate": "继续恢复更新",
+  "guest.keepLocal": "保留本机",
+  "guest.useBase": "采用新文件",
+  "guest.resolve": "保存冲突结果",
+  "guest.updated": "更新已完成",
+  "guest.removed": "已不在分享中",
+  "guest.updatePending": "更新待处理",
   "guest.open": "打开分享链接…",
   "guest.title": "分享协作",
   "guest.confirmDownload": "从 {host} 下载分享项目「此分享项目」？",

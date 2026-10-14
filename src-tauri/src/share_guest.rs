@@ -157,6 +157,37 @@ enum Request {
         #[serde(rename = "shareUrl")]
         share_url: String,
     },
+    #[serde(rename = "update-prepare")]
+    UpdatePrepare { root: String },
+    #[serde(rename = "update-read")]
+    UpdateRead { root: String },
+    #[serde(rename = "update-status")]
+    UpdateStatus { root: String },
+    #[serde(rename = "update-apply")]
+    UpdateApply {
+        root: String,
+        plan: store::update::Plan,
+    },
+    #[serde(rename = "update-resume")]
+    UpdateResume { root: String },
+    #[serde(rename = "update-finish")]
+    UpdateFinish { root: String },
+    #[serde(rename = "resolve")]
+    Resolve {
+        root: String,
+        path: String,
+        #[serde(rename = "expectedHash")]
+        expected_hash: String,
+        content: String,
+    },
+    #[serde(rename = "resolve-file")]
+    ResolveFile {
+        root: String,
+        path: String,
+        #[serde(rename = "expectedHash")]
+        expected_hash: Option<String>,
+        choice: String,
+    },
     #[serde(rename = "list")]
     List,
     #[serde(rename = "read-work")]
@@ -400,6 +431,15 @@ pub async fn share_guest(
     } = &request
     {
         Some(download(origin, slug, share_url).await?)
+    } else if let Request::UpdatePrepare { root } = &request {
+        let info = store::GuestStore::new(vault.clone())?.inspect(Path::new(root))?;
+        if !info.outbox.is_empty() {
+            return Err("GUEST_PENDING_CONFLICT".into());
+        }
+        if info.pending_update.is_some() {
+            return serde_json::to_value(info).map_err(|_| "invalid guest result".into());
+        }
+        Some(download(&info.origin, &info.slug, &info.share_url).await?)
     } else {
         None
     };
@@ -425,6 +465,51 @@ pub async fn share_guest(
             Request::List => {
                 serde_json::to_value(store.list()?).map_err(|_| "invalid guest result".into())
             }
+            Request::UpdatePrepare { root } => serde_json::to_value(store.prepare_update(
+                Path::new(&root),
+                &snapshot.ok_or("missing verified snapshot")?,
+            )?)
+            .map_err(|_| "invalid guest result".into()),
+            Request::UpdateRead { root } => store.read_update(Path::new(&root)),
+            Request::UpdateStatus { root } => store.update_status(Path::new(&root)),
+            Request::UpdateApply { root, plan } => {
+                serde_json::to_value(store.apply_update(Path::new(&root), plan)?)
+                    .map_err(|_| "invalid guest result".into())
+            }
+            Request::UpdateResume { root } => {
+                serde_json::to_value(store.resume_update(Path::new(&root))?)
+                    .map_err(|_| "invalid guest result".into())
+            }
+            Request::UpdateFinish { root } => {
+                serde_json::to_value(store.finish_update(Path::new(&root))?)
+                    .map_err(|_| "invalid guest result".into())
+            }
+            Request::Resolve {
+                root,
+                path,
+                expected_hash,
+                content,
+            } => serde_json::to_value(store.resolve_update(
+                Path::new(&root),
+                &path,
+                Some(expected_hash),
+                Some(content),
+                None,
+            )?)
+            .map_err(|_| "invalid guest result".into()),
+            Request::ResolveFile {
+                root,
+                path,
+                expected_hash,
+                choice,
+            } => serde_json::to_value(store.resolve_update(
+                Path::new(&root),
+                &path,
+                expected_hash,
+                None,
+                Some(&choice),
+            )?)
+            .map_err(|_| "invalid guest result".into()),
             Request::ReadWork { root } => store.read_work(Path::new(&root)),
             Request::Queue {
                 root,
@@ -834,5 +919,85 @@ mod tests {
             .unwrap_err()
             .contains("limit"));
         thread.join().unwrap();
+    }
+    #[tokio::test]
+    async fn owner_published_s2_check_download_validate_and_guest_update() {
+        use crate::sotvault::logic::sha256_hex;
+        use std::collections::BTreeMap;
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("source");
+        std::fs::create_dir_all(&source).unwrap();
+        let owner = crate::project_share::ProjectStore::new(
+            temp.path().join("owner-vault"),
+            temp.path().join("owner-state"),
+        );
+        std::fs::write(source.join("a.md"), b"S1\r\n").unwrap();
+        let project = owner.open(source.to_str().unwrap(), "a.md").unwrap();
+        let mut snapshots = vec![];
+        let mut responses = vec![];
+        for bytes in [b"S1\r\n".as_slice(), b"S2\r\n".as_slice()] {
+            std::fs::write(source.join("a.md"), bytes).unwrap();
+            let snapshot = owner
+                .snapshot(
+                    &project.project_id,
+                    vec!["a.md".into()],
+                    BTreeMap::from([("a.md".into(), sha256_hex(bytes))]),
+                )
+                .unwrap();
+            let public = serde_json::json!({"schemaVersion":1,"project_id":snapshot.project_id,"snapshotId":snapshot.snapshot_id,"entry":"a.md","files":[{"path":"a.md","hash":sha256_hex(bytes),"bytes":bytes.len(),"markdown":std::str::from_utf8(bytes).unwrap()}]});
+            let html = format!(
+                "<script id=\"project-data\" type=\"application/json\">{}</script>",
+                serde_json::json!({"snapshot":public})
+            );
+            owner
+                .bundle(&project.project_id, &snapshot.snapshot_id, &html)
+                .unwrap();
+            let published = owner
+                .published(
+                    &project.project_id,
+                    &snapshot.snapshot_id,
+                    "https://share.example/2026-10-14-test",
+                )
+                .unwrap();
+            assert_eq!(
+                published.published_snapshot_id.as_deref(),
+                Some(snapshot.snapshot_id.as_str())
+            );
+            let version=response(serde_json::json!({"schemaVersion":1,"project_id":project.project_id,"snapshotId":snapshot.snapshot_id,"archiveReady":true}).to_string().as_bytes());
+            if !snapshots.is_empty() {
+                responses.push(version.clone());
+            }
+            responses.extend([
+                version.clone(),
+                response(html.as_bytes()),
+                response(&archive::tests::fixture(&[("a.md", bytes)])),
+                version,
+            ]);
+            snapshots.push(snapshot);
+        }
+        assert_eq!(
+            snapshots[1].parent_snapshot_id.as_deref(),
+            Some(snapshots[0].snapshot_id.as_str())
+        );
+        let (origin, server) = serve(responses);
+        let url = format!("{origin}/2026-10-14-test");
+        let vault = temp.path().join("guest-vault");
+        std::fs::create_dir_all(&vault).unwrap();
+        let guest = store::GuestStore::new(vault).unwrap();
+        let initial = download(&origin, "2026-10-14-test", &url).await.unwrap();
+        let info = guest
+            .install(&origin, "2026-10-14-test", &url, &initial)
+            .unwrap();
+        let root = Path::new(&info.root);
+        assert_eq!(check_version(&info).await.unwrap()["changed"], true);
+        let next = download(&origin, "2026-10-14-test", &url).await.unwrap();
+        guest.prepare_update(root, &next).unwrap();
+        let plan=serde_json::from_value(serde_json::json!({"fromSnapshotId":info.snapshot_id,"toSnapshotId":next.manifest.snapshot_id,"actions":[{"kind":"copy-base","path":"a.md","sourcePath":"a.md","expectedHash":sha256_hex(b"S1\r\n")}],"conflicts":[],"choices":[]})).unwrap();
+        guest.apply_update(root, plan).unwrap();
+        let finished = guest.finish_update(root).unwrap();
+        assert_eq!(finished.snapshot_id, snapshots[1].snapshot_id);
+        assert_eq!(std::fs::read(root.join("a.md")).unwrap(), b"S2\r\n");
+        assert_eq!(std::fs::read(source.join("a.md")).unwrap(), b"S2\r\n");
+        assert_eq!(server.join().unwrap().len(), 9);
     }
 }

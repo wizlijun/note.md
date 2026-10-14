@@ -129,7 +129,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
         return { ok: false, reason: error instanceof Error ? error.message : 'baseline-failed' }
       }
     },
-    setReadOnly(value) { readOnly = value; controller.setReadOnly(value); instance.view.setProps({ editable: () => !readOnly }); if (pane) pane.querySelector('textarea')!.readOnly = readOnly },
+    setReadOnly(value) { if (ownedEdit && noteUi.edit === ownedEdit) ownedEdit.readOnly = value; readOnly = value; controller.setReadOnly(value); instance.view.setProps({ editable: () => !readOnly }); if (pane) pane.querySelector('textarea')!.readOnly = readOnly },
     async flush() {
       if (closed) throw new Error('file-closed')
       if (richComposing) await new Promise<void>((resolve, reject) => richWaiters.push({ resolve, reject }))
@@ -313,12 +313,12 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   }
   const annotations = {
     insert(seed = '') {
-      if (closed || detached || mode !== 'rich' || richComposing || !finishNoteEdit()) return false
+      if (readOnly || closed || detached || mode !== 'rich' || richComposing || !finishNoteEdit()) return false
       ownedEdit = insertNoteRich(instance.view, seed, admission())
       return !!ownedEdit
     },
     editAt(position: number) {
-      if (closed || detached || mode !== 'rich' || richComposing) return false
+      if (readOnly || closed || detached || mode !== 'rich' || richComposing) return false
       const before = controller.snapshot().generation
       if (!finishNoteEdit() || before !== controller.snapshot().generation || position < 0 || position > instance.view.state.doc.content.size) return false
       const coords = instance.view.coordsAtPos(position), rect = new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top)

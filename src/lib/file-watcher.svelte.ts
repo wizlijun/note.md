@@ -1,5 +1,5 @@
 import { watchImmediate } from '@tauri-apps/plugin-fs'
-import { tabs, type Tab } from './tabs.svelte'
+import { tabs, isGuestUpdateBusy, type Tab } from './tabs.svelte'
 import { readMd, statFile } from './fs'
 import { sha256Hex } from './hash'
 import { decide, type ExternalEvent } from './external-state'
@@ -21,6 +21,7 @@ export async function verifyAllOpen(): Promise<void> {
 }
 
 async function checkTab(tab: Tab): Promise<void> {
+  if (isGuestUpdateBusy(tab.filePath)) return
   if (tab.kind === 'canvas') {
     await checkCanvasTab(tab)
     return
@@ -65,6 +66,7 @@ async function checkTab(tab: Tab): Promise<void> {
     : null
   const isOutlineNote = isBuiltinOutlineFileView(activeView)
   const isReadOnlyFileView = !!activeView && !isOutlineNote
+  if (isGuestUpdateBusy(tab.filePath)) return
   const decision = decide({ ...tab, isOutlineNote, isReadOnlyFileView }, event)
   applyDecision(tab, decision)
 }

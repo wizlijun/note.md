@@ -1,3 +1,4 @@
+import { tick } from 'svelte'
 import {
   readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary,
   isPermissionError, modeKeyFor, statFile, type FileKind,
@@ -15,7 +16,7 @@ import { isReadonlyMarkdownTab } from './readonly-document'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 import { formatJsonSource } from './json-format'
-import { fileEditorSession, closeFileEditorSession, captureFileSave, acknowledgeFileSave, type FileSaveRequest } from './file-editor-sessions'
+import { fileEditorSessionClosing, fileSourceGuard, fileEditorSession, closeFileEditorSession, captureFileSave, acknowledgeFileSave, type FileSaveRequest } from './file-editor-sessions'
 
 export type Mode = 'source' | 'rich'
 
@@ -43,6 +44,7 @@ export interface Tab {
   lastKnownHash: string
   /** Cached new-content snapshot when externalState === 'changed'. */
   pendingExternal?: { mtime: number; hash: string; content: string }
+  guestUpdateRecovery?: { path: string; content: string }
   /** Path-backed drafts such as quick notes should not create 0-byte files. */
   skipEmptySave?: boolean
   /** Exact disk identity used by the Canvas atomic compare-and-replace path. */
@@ -62,8 +64,10 @@ export function activeTab(): Tab | null {
 async function flushMountedDocument(tabId: string, leaving = false): Promise<void> {
   const session = fileEditorSession(tabId)
   if (session) {
+    const before = tabs.find(tab=>tab.id===tabId), path=before?.filePath, identity=session.baselineIdentity, epoch=markdownWriteEpoch(path??'')
     const snapshot = await (leaving ? session.flushForDetach() : session.owner.flush())
     const tab = tabs.find(tab => tab.id === tabId)
+    if (tab!==before || tab?.filePath!==path || fileEditorSession(tabId)!==session || session.baselineIdentity!==identity || markdownWriteEpoch(path??'')!==epoch) throw Error('GUEST_TAB_CHANGED')
     if (tab) tab.currentContent = snapshot.raw
     return
   }
@@ -84,7 +88,133 @@ export function isManagedMemoryTab(
 }
 
 export function isReadOnlyTab(tab: Pick<Tab, 'filePath' | 'kind' | 'initialContent'>): boolean {
+  return isGuestUpdateFrozen(tab.filePath) || documentPolicyReadOnly(tab)
+}
+
+export function documentPolicyReadOnly(tab: Pick<Tab, 'filePath' | 'kind' | 'initialContent'>): boolean {
   return isManagedMemoryTab(tab) || isReadonlyMarkdownTab(tab)
+}
+const guestUpdates = $state<Record<string, { token: symbol; frozen: boolean }>>({})
+const guestUpdateRoots = $state<Record<string, { token: symbol; frozen: boolean }>>({})
+function updateForPath(path: string) { return guestUpdates[path] ?? Object.entries(guestUpdateRoots).find(([root])=>path.startsWith(root+'/'))?.[1] }
+const guestUpdateEpochs = new Map<string, number>()
+export function isGuestUpdateBusy(path: string): boolean { return !!updateForPath(path) }
+export function isGuestUpdateFrozen(path: string): boolean { return updateForPath(path)?.frozen ?? false }
+export function markdownWriteEpoch(path: string): number { return guestUpdateEpochs.get(path) ?? 0 }
+
+/** Received-only admission, sharing the ordinary save queue and real file owner. */
+export async function withGuestFileUpdate<T>(paths: readonly string[], run: (check: () => Promise<void>) => Promise<{ value: T; writes: Record<string, string | null> }>, scope?: {root:string;managedPaths:readonly string[]}): Promise<T> {
+  const unique = [...new Set(paths)], token = Symbol('guest-update')
+  if (unique.some(isGuestUpdateBusy) || scope && guestUpdateRoots[scope.root]) throw Error('GUEST_UPDATE_BUSY')
+  if (scope) guestUpdateRoots[scope.root]={token,frozen:false}
+  for (const path of unique) { guestUpdates[path] = {token, frozen:false}; guestUpdateEpochs.set(path,markdownWriteEpoch(path)+1) }
+  const included = (path:string) => unique.includes(path) || !!scope && path.startsWith(scope.root+'/')
+  const selected = tabs.filter(tab=>included(tab.filePath))
+  const identities = selected.map(tab=>({tab,path:tab.filePath,session:fileEditorSession(tab.id),identity:fileEditorSession(tab.id)?.baselineIdentity,
+    mode:tab.mode, source:fileSourceGuard(tab.id), managed: !scope || scope.managedPaths.includes(tab.filePath), initial:tab.initialContent, raw:tab.currentContent, snapshot:fileEditorSession(tab.id)?.owner.snapshot()}))
+  let prepared = false
+  const check = () => {
+    if (tabs.filter(tab=>included(tab.filePath)).some(tab=>!selected.includes(tab))) throw Error('GUEST_TAB_CHANGED')
+    for (const item of identities) {
+      const {tab,session}=item
+      if (fileEditorSessionClosing(tab.id) || !tabs.includes(tab) || tab.filePath!==item.path || fileEditorSession(tab.id)!==session || session?.baselineIdentity!==item.identity || tab.mode!==item.mode || fileSourceGuard(tab.id)!==item.source) throw Error('GUEST_TAB_CHANGED')
+      if (prepared) item.source?.check()
+      if (prepared && (tab.currentContent!==item.raw || item.managed && tab.initialContent!==item.raw || session && (session.owner.snapshot().raw!==item.raw || session.owner.snapshot().authority!==item.snapshot?.authority || session.owner.snapshot().generation!==item.snapshot?.generation))) throw Error('GUEST_INPUT_CHANGED')
+    }
+  }
+  try {
+    for (const item of identities) {
+      const {tab,session}=item
+      if (!item.managed || tab.kind!=='markdown' && tab.kind!=='mdx') continue
+      if (tab.externalState==='changed') throw Error('GUEST_WORK_CHANGED')
+      if (!documentPolicyReadOnly(tab) && !session && !item.source && tab.kind!=='mdx') throw Error('GUEST_EDITOR_NOT_READY')
+      if (!session) item.source?.check()
+      if (session) {
+        const snapshot=await session.owner.flush();check()
+        tab.currentContent=snapshot.raw;item.raw=snapshot.raw;item.snapshot=snapshot
+      }
+    }
+    // Flush may accept an IME/Source draft; freeze only after that exact content is known.
+    if (scope) guestUpdateRoots[scope.root].frozen=true
+    for (const path of unique) guestUpdates[path].frozen=true
+    for (const item of identities) item.session?.owner.setReadOnly(true)
+    await tick();check()
+    for (const item of identities) {
+      await waitForMarkdownSaves(item.tab.id);check()
+      if (item.session && (item.session.owner.snapshot().raw!==item.raw || item.session.owner.snapshot().generation!==item.snapshot?.generation)) throw Error('GUEST_INPUT_CHANGED')
+      if (item.tab.currentContent!==item.raw) throw Error('GUEST_INPUT_CHANGED')
+      if (item.managed && (item.tab.kind==='markdown' || item.tab.kind==='mdx') && !documentPolicyReadOnly(item.tab) && item.tab.initialContent!==item.raw) {
+        let disk: string
+        try {disk=await readMd(item.path)} catch {
+          item.tab.guestUpdateRecovery={path:item.path,content:item.raw};item.tab.externalState='changed';item.tab.externalBannerDismissed=false
+          throw Error('GUEST_WORK_CHANGED')
+        }
+        check()
+        if (disk!==item.tab.initialContent) {
+          item.tab.pendingExternal={content:disk,hash:await sha256Hex(disk),mtime:(await statFile(item.path))?.mtime??0}
+          check();item.tab.guestUpdateRecovery={path:item.path,content:item.raw};item.tab.externalState='changed';item.tab.externalBannerDismissed=false
+          throw Error('GUEST_WORK_CHANGED')
+        }
+        const saved=await persistMarkdownSnapshot(item.tab,item.raw,false,item.path,captureFileSave(item.tab.id,item.raw),markdownWriteEpoch(item.path),token)
+        check();if (saved!==item.path) throw Error('GUEST_SAVE_FAILED')
+      }
+    }
+    // Non-text/readonly tabs do not enter Markdown persistence or owner reload.
+    for (const item of identities) item.raw=item.tab.currentContent
+    prepared=true;check()
+    let outcome: { value: T; writes: Record<string, string | null> } | undefined
+    const checkpoint=async()=>{
+      check()
+      for (const item of identities) if (item.managed && item.session) {
+        const snapshot=await item.session.owner.flush();check()
+        if (snapshot.raw!==item.raw || snapshot.authority!==item.snapshot?.authority || snapshot.generation!==item.snapshot?.generation) throw Error('GUEST_INPUT_CHANGED')
+      }
+    }
+    try { await checkpoint();outcome=await run(checkpoint) }
+    finally {
+      // Even a backend error may follow rename. Read disk and preserve drafts on every failure.
+      let reloadError: unknown
+      for (const item of identities) {
+        const {tab,session,path}=item
+        if (!item.managed || tab.kind!=='markdown' && tab.kind!=='mdx') continue
+        try {
+          const stat=await statFile(path);check()
+          if (outcome && Object.hasOwn(outcome.writes,path) && outcome.writes[path]===null && !stat) {tab.externalState='deleted';tab.externalBannerDismissed=false;tab.pendingExternal=undefined;continue}
+          const content=await readMd(path), hash=await sha256Hex(content)
+          tab.pendingExternal={content,mtime:stat?.mtime??0,hash}
+          check()
+          const expected = outcome?.writes[path] ?? await sha256Hex(item.raw)
+          check()
+          if (hash !== expected) throw Error('GUEST_WORK_CHANGED')
+          if (session) {
+            const flushed=await session.owner.flush();check()
+            if (flushed.raw!==item.raw) throw Error('GUEST_INPUT_CHANGED')
+            const installed=session.owner.installBaseline({documentId:path,authority:crypto.randomUUID(),raw:content})
+            if (!installed.ok) throw Error(installed.reason)
+            item.identity=session.baselineIdentity;item.snapshot=session.owner.snapshot()
+            session.owner.setReadOnly(true)
+          }
+          const oldContent=tab.initialContent
+          tab.initialContent=tab.currentContent=content;item.raw=content
+          tab.guestUpdateRecovery=undefined
+          tab.lastKnownMtime=stat?.mtime??0;tab.lastKnownHash=hash;tab.externalState='fresh';tab.pendingExternal=undefined;tab.externalBannerDismissed=false
+          if (typeof window!=='undefined') window.dispatchEvent(new CustomEvent('notemd:auto-reloaded',{detail:{tabId:tab.id,oldContent,newContent:content}}))
+        } catch (error) {
+          tab.guestUpdateRecovery={path,content:item.raw}
+          if (tab.filePath===path) tab.externalState='changed'
+          else tab.pendingExternal=undefined
+          tab.externalBannerDismissed=false
+          reloadError ??= error
+        }
+      }
+      if (reloadError) throw reloadError
+    }
+    return outcome!.value
+  } finally {
+    if (scope && guestUpdateRoots[scope.root]?.token===token) delete guestUpdateRoots[scope.root]
+    for (const path of unique) if (guestUpdates[path]?.token===token) delete guestUpdates[path]
+    for (const {tab,session} of identities) if (fileEditorSession(tab.id)===session) session?.owner.setReadOnly(documentPolicyReadOnly(tab))
+  }
 }
 
 /**
@@ -590,7 +720,7 @@ export function setContent(id: string, md: string): void {
  */
 export async function restoreVersion(id: string, content: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || !t.filePath || isReadOnlyTab(t)) return
+  if (!t || !t.filePath || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath)) return
   const session = fileEditorSession(id)
   if (session) {
     await flushMountedDocument(id)
@@ -613,7 +743,7 @@ export function toggleMode(id: string): void {
 
 export async function setMode(id: string, mode: Mode): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || t.kind === 'canvas' || t.mode === mode) return
+  if (!t || t.kind === 'canvas' || t.mode === mode || isGuestUpdateBusy(t.filePath)) return
   const session = fileEditorSession(id)
   if (session && !await session.setMode(mode)) return
   if (mode === 'source'
@@ -705,12 +835,13 @@ export function persistMarkdownSnapshot(
   requireFinishedTitle = false,
   expectedPath?: string,
   fileSave: FileSaveRequest | undefined = captureFileSave(t.id, content),
+  expectedEpoch = markdownWriteEpoch(t.filePath),
+  guestToken?: symbol,
 ): Promise<string | undefined> {
-  const previous = markdownSaveQueues.get(t.id)
-  const ready = previous ? previous.catch(() => undefined) : Promise.resolve()
-  const operation = ready.then(async () => {
+  return enqueueMarkdownSave(t, async () => {
     const path = t.filePath
-    if (!path || isReadOnlyTab(t) || (expectedPath !== undefined && path !== expectedPath)) return
+    const internal = guestToken !== undefined && guestUpdates[path]?.token === guestToken
+    if (!path || expectedEpoch !== markdownWriteEpoch(path) || (internal ? documentPolicyReadOnly(t) : isReadOnlyTab(t) || isGuestUpdateBusy(path)) || (expectedPath !== undefined && path !== expectedPath)) return
     await writeMd(path, content)
     if (t.filePath !== path) return
     t.initialContent = content
@@ -721,10 +852,12 @@ export function persistMarkdownSnapshot(
     await renameAutoQuickNoteIfTitled(t, requireFinishedTitle, content)
     return t.filePath
   })
-  const tracked = operation.finally(() => {
-    if (markdownSaveQueues.get(t.id) === tracked) markdownSaveQueues.delete(t.id)
-  })
-  markdownSaveQueues.set(t.id, tracked)
+}
+function enqueueMarkdownSave(t: Tab, write: () => Promise<string | undefined>): Promise<string | undefined> {
+  const previous=markdownSaveQueues.get(t.id)
+  const operation=(previous ? previous.catch(()=>undefined) : Promise.resolve()).then(write)
+  const tracked=operation.finally(()=>{if(markdownSaveQueues.get(t.id)===tracked) markdownSaveQueues.delete(t.id)})
+  markdownSaveQueues.set(t.id,tracked)
   return tracked
 }
 
@@ -752,7 +885,7 @@ export async function saveActive(): Promise<void> {
     await saveAs(t.id, p)
     return
   }
-  if (isReadOnlyTab(t)) return
+  if (isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath)) return
   if (t.externalState === 'changed') {
     throw new Error(
       `"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`,
@@ -776,7 +909,7 @@ export async function saveActive(): Promise<void> {
 /** 按 id 保存指定 tab（不改变 active）；供大纲工具栏保存按钮在笔记以 tab 打开时调用。 */
 export async function saveTab(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || !t.filePath || isReadOnlyTab(t)) return
+  if (!t || !t.filePath || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath)) return
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (t.externalState === 'changed') {
     throw new Error(`"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`)
@@ -865,7 +998,7 @@ async function rewriteOpenCanvasReferences(oldPath: string, newPath: string): Pr
 
 export async function saveAs(id: string, newPath: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || isReadOnlyTab(t)) return
+  if (!t || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath) || isGuestUpdateBusy(newPath)) return
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return
   const targetIsCanvas = /\.canvas$/i.test(newPath)
@@ -912,6 +1045,9 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
     })
     return
   }
+  const oldPath=t.filePath, epoch=markdownWriteEpoch(oldPath)
+  await enqueueMarkdownSave(t,async()=>{
+  if (t.filePath!==oldPath || epoch!==markdownWriteEpoch(oldPath) || isGuestUpdateBusy(oldPath) || isGuestUpdateBusy(newPath)) throw Error('GUEST_TAB_CHANGED')
   await writeMd(newPath, content)
   t.filePath = newPath
   t.title = basename(newPath)
@@ -931,6 +1067,8 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   if (newPath.endsWith('.md')) {
     void maybeAutoRefresh(newPath)
   }
+  return newPath
+  })
 }
 
 /**
@@ -966,6 +1104,7 @@ export async function closeTab(
   const idx = tabs.findIndex((t) => t.id === id)
   if (idx < 0) return false
   const tab = tabs[idx]
+  if (isGuestUpdateBusy(tab.filePath)) return false
   const session = fileEditorSession(id), identity = session?.baselineIdentity
   let discard = false
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
@@ -1002,6 +1141,7 @@ export async function closeTab(
       discard = choice === 'discard'
     }
   }
+  if (isGuestUpdateBusy(tab.filePath)) return false
   await closeFileEditorSession(id, !discard && session && identity ? { session, identity, raw: tab.initialContent } : undefined)
   tabs.splice(idx, 1)
   resetFileViewSelection(id)
@@ -1061,7 +1201,7 @@ export async function recordOurWrite(t: Tab, content = t.currentContent): Promis
  */
 export async function reloadFromDisk(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || !t.pendingExternal) return
+  if (!t || !t.pendingExternal || isGuestUpdateBusy(t.filePath)) return
   let p = t.pendingExternal
   if (t.kind === 'canvas') {
     const { canvasDocumentOpen, canvasMtimeMs } = await import('./canvas/io')
@@ -1105,16 +1245,14 @@ export async function reloadFromDisk(id: string): Promise<void> {
  */
 export async function overwriteOnDisk(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
-  if (!t || isReadOnlyTab(t)) return
+  if (!t || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath)) return
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return
   if (t.kind === 'canvas') {
     await persistCanvasSnapshot(t, t.currentContent, true)
     return
   }
-  await writeMd(t.filePath, t.currentContent)
-  t.initialContent = t.currentContent
-  await recordOurWrite(t)
+  await persistMarkdownSnapshot(t,t.currentContent)
 }
 
 /**

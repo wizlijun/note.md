@@ -1,5 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import HunkView from '../project-review/HunkView.svelte'
+  import type { HunkDecision } from '../../lib/share-merge'
+  import { composeGuest } from '../../lib/share-guest/update'
+  import { updateGuest, resolveGuest, resolveGuestFile, type GuestUpdateView } from '../../lib/share-guest/host'
   import type { Tab } from '../../lib/tabs.svelte'
   import { openFile } from '../../lib/tabs.svelte'
   import { guestForTab, rememberGuest, guestState, guestErrorCode } from '../../lib/share-guest/state.svelte'
@@ -12,6 +16,7 @@
   let allowed = $state(false), busy = $state(false), message = $state(''), name = $state(''), notice = $state('')
   let receipts = $state<GuestReceipt[]>([]), preview = $state<GuestPreview | undefined>()
   const projectKey = $derived(info ? info.root + '#' + info.snapshotId : '')
+  let updateView = $state<GuestUpdateView | undefined>(), decisions = $state<Record<string, Record<string,HunkDecision>>>({})
   let generation = 0
   let resolveConfirm: ((yes: boolean) => void) | undefined
   $effect(() => {
@@ -19,7 +24,9 @@
     generation++
     busy = false
     const current = untrack(() => info)
-    allowed = false; receipts = []; notice = ''; message = ''
+    const completed=untrack(()=>updateView)
+    const keep=!!completed && completed.info.root===current?.root && completed.info.snapshotId===current?.snapshotId && !completed.info.pendingUpdate
+    allowed=false;receipts=[];notice=keep?t('guest.updated'):'';message='';updateView=keep?completed:undefined;decisions={}
     let disposed = false
     if (current) {
       void canSubmitGuest(current).then(value => { if(!disposed) allowed = value }).catch(() => {})
@@ -31,6 +38,9 @@
   })
   function errorLabel(error: unknown): string {
     const code = guestErrorCode(error)
+    if (['GUEST_INPUT_PENDING','GUEST_INPUT_CHANGED','GUEST_UPDATE_BUSY'].includes(code)) return t('guest.inputPending')
+    if (code === 'GUEST_WORK_CHANGED') return t('guest.workChanged')
+    if (code === 'GUEST_EDITOR_NOT_READY') return t('guest.editorNotReady')
     if (code === 'GUEST_HTTP_409' || code === 'GUEST_PENDING_CONFLICT') return t('guest.conflict')
     if (code === 'GUEST_HTTP_403' || code === 'GUEST_READ_ONLY') return t('guest.forbidden')
     if (code === 'GUEST_HTTP_410') return t('guest.expired')
@@ -67,6 +77,19 @@
     catch (error) { if(run === generation) notice = errorLabel(error) }
     finally { if(run === generation) busy = false }
   }
+  async function update(action?: () => Promise<GuestUpdateView>) {
+    if (!info || busy || info.outbox.length) return
+    const root=info.root, run=generation
+    busy=true
+    try {
+      const next=await (action ? action() : updateGuest(root))
+      if (run===generation) { updateView=next;rememberGuest(next.info);notice=t(next.info.pendingUpdate?'guest.updatePending':'guest.updated') }
+    } catch(error) { if(run===generation) {notice=errorLabel(error);try {const next=await guestCommand<import('../../lib/share-guest/types').GuestInfo>('inspect',{root});if(run===generation)rememberGuest(next)} catch {}} }
+    finally {if(run===generation) busy=false}
+  }
+  function resolved(file: NonNullable<GuestUpdateView['conflicts']>[number]): boolean {
+    try {composeGuest(file.proposal,decisions[file.path]??{});return true} catch {return false}
+  }
   async function loadReceipts() {
     if (!info || !allowed || busy) return
     const run = generation
@@ -90,8 +113,24 @@
     {#if guestState.statuses[info.root]}<p role="status">{errorLabel(guestState.statuses[info.root])}</p>{/if}
     <label>{t('guest.name')}<input bind:value={name} maxlength="80" disabled={!allowed || busy} /></label>
     <label>{t('guest.message')}<textarea bind:value={message} maxlength="2000" disabled={!allowed || busy}></textarea></label>
-    <button disabled={!allowed || busy} onclick={send}>{t('guest.submit')}</button>
+    <button disabled={!allowed || busy || !!info.pendingUpdate} onclick={send}>{t('guest.submit')}</button>
     <button disabled={busy} onclick={check}>{t('guest.check')}</button>
+    <button disabled={busy || !!info.outbox.length} onclick={() => update()}>{t(info.pendingUpdate ? 'guest.resumeUpdate' : 'guest.update')}</button>
+    {#if updateView}
+      {#each updateView.conflicts as file (file.path)}
+        <h4>{file.path}</h4>
+        {#each file.proposal.hunks.filter(h=>h.kind==='conflict') as hunk (hunk.id)}
+          <HunkView {hunk} mode="guest" disabled={busy} decision={decisions[file.path]?.[hunk.id]} onDecide={(id,decision)=>decisions[file.path]={...decisions[file.path],[id]:decision}} />
+        {/each}
+        <button disabled={busy || !resolved(file)} onclick={() => update(()=>resolveGuest(info!.root,file.path,file.expectedHash,file.proposal,decisions[file.path]??{}))}>{t('guest.resolve')}</button>
+      {/each}
+      {#each updateView.rows.filter(row=>row.state!=='done' && !updateView!.conflicts.some(f=>f.path===row.sourcePath)) as row}
+        <p>{row.sourcePath}: {t('guest.updatePending')}</p>
+        <button disabled={busy} onclick={()=>update(()=>resolveGuestFile(info!.root,row.sourcePath,row.currentHash,'keep-local'))}>{t('guest.keepLocal')}</button>
+        {#if row.canUseBase !== false}<button disabled={busy} onclick={()=>update(()=>resolveGuestFile(info!.root,row.sourcePath,row.currentHash,'use-base'))}>{t('guest.useBase')}</button>{/if}
+      {/each}
+      {#each updateView.rows.filter(row=>row.action==='retain-removed') as row}<p>{row.path}: {t('guest.removed')}</p>{/each}
+    {/if}
     <button disabled={!allowed || busy} onclick={loadReceipts}>{t('guest.submissions')}</button>
     {#if preview}
       <div role="alert">
@@ -109,7 +148,7 @@
         {:else if row.receipt}<p>{t(`guest.outcome.${row.receipt.outcome}`)} {row.receipt.files.reduce((n,f)=>n+f.accepted,0)}/{row.receipt.files.reduce((n,f)=>n+f.total,0)}</p><p>{row.receipt.reply ?? ''}</p>{/if}
       </div>
     {/each}
-    <ul>{#each info.files.filter(file=>isGuestMarkdownPath(file.path)) as file}<li><button onclick={() => openFile(info!.root+'/'+file.path)}>{file.path}</button></li>{/each}</ul>
+    <ul>{#each info.files.filter(file=>isGuestMarkdownPath(file.path)) as file}<li><button onclick={() => openFile(info!.root+'/'+(info!.workPaths?.[file.path]??file.path))}>{file.path}</button>{#if info.workPaths?.[file.path]} <small>{info.workPaths[file.path]}</small>{/if}</li>{/each}</ul>
   </section>
 {/if}
 <style>

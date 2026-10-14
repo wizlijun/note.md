@@ -3,6 +3,8 @@ import { acknowledgeSaved, recoveryFromSnapshot, type SavedFile } from '../edito
 import type { FileMountSession } from '../editor-kit-v2/file-main'
 
 const sessions = new Map<string, FileMountSession>()
+const closing = new Set<string>()
+export function fileEditorSessionClosing(tabId: string): boolean { return closing.has(tabId) }
 export function fileEditorSession(tabId: string): FileMountSession | undefined { return sessions.get(tabId) }
 export function registerFileEditorSession(tabId: string, session: FileMountSession): void {
   const previous = sessions.get(tabId)
@@ -13,9 +15,12 @@ export async function closeFileEditorSession(tabId: string, expected?: { session
   const session = sessions.get(tabId)
   if (expected && session !== expected.session) throw new Error('File session changed while closing')
   if (!session) return
-  if (expected) await session.closeIfSaved(expected)
-  else await session.owner.close()
-  if (sessions.get(tabId) === session) sessions.delete(tabId)
+  closing.add(tabId)
+  try {
+    if (expected) await session.closeIfSaved(expected)
+    else await session.owner.close()
+    if (sessions.get(tabId) === session) sessions.delete(tabId)
+  } finally { closing.delete(tabId) }
 }
 
 /** In-memory recovery only: ordinary Markdown files need no sidecar. */
@@ -38,4 +43,13 @@ export function acknowledgeFileSave(tabId: string, raw: string, request: FileSav
 export function savedFileEditor(tabId: string): Readonly<{ value: SavedFile; recovery: FileRecovery }> | undefined {
   const session = sessions.get(tabId), saved = session && durable.get(session)
   return saved?.identity === session?.baselineIdentity ? saved : undefined
+}
+
+/** Mounted Source input admission, including legacy MDX Source without a Markdown owner. */
+export interface FileSourceGuard { check(): void }
+const sourceGuards = new Map<string, FileSourceGuard>()
+export function fileSourceGuard(tabId: string): FileSourceGuard | undefined { return sourceGuards.get(tabId) }
+export function registerFileSourceGuard(tabId: string, guard: FileSourceGuard): () => void {
+  sourceGuards.set(tabId, guard)
+  return () => { if (sourceGuards.get(tabId) === guard) sourceGuards.delete(tabId) }
 }

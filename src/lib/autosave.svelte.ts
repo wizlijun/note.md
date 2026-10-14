@@ -1,6 +1,6 @@
 import { captureFileSave } from './file-editor-sessions'
 import {
-  tabs, isDirty, isReadOnlyTab, shouldSkipEmptySave,
+  tabs, isDirty, isReadOnlyTab, shouldSkipEmptySave, markdownWriteEpoch, isGuestUpdateBusy,
   persistMarkdownSnapshot, persistCanvasSnapshot,
 } from './tabs.svelte'
 import { settings } from './settings.svelte'
@@ -20,7 +20,7 @@ export function startAutoSaveWatcher(): () => void {
         // Image files have no text content and are never dirty; skip entirely.
         if (tab.kind === 'image') continue
         // Managed projections and YAML mirrors are persisted by their source workflow.
-        if (isReadOnlyTab(tab)) continue
+        if (isReadOnlyTab(tab) || isGuestUpdateBusy(tab.filePath)) { const old = timers.get(tab.id); if (old) clearTimeout(old); timers.delete(tab.id); continue }
         // Auto-save is on hold while the user reconciles an external change;
         // resuming would silently overwrite either the disk or the buffer.
         if (tab.externalState !== 'fresh') {
@@ -31,6 +31,7 @@ export function startAutoSaveWatcher(): () => void {
         const content = tab.currentContent
         const id = tab.id
         const path = tab.filePath
+        const epoch = markdownWriteEpoch(path)
         const fileSave = captureFileSave(id, content)
         const dirty = isDirty(id)
         const existing = timers.get(id)
@@ -51,7 +52,7 @@ export function startAutoSaveWatcher(): () => void {
             }
             // Naming shares the save queue; obsolete temporary paths must not
             // be recreated by a debounce that was waiting behind the rename.
-            const savedPath = await persistMarkdownSnapshot(cur, content, true, path, fileSave)
+            const savedPath = await persistMarkdownSnapshot(cur, content, true, path, fileSave, epoch)
             if (savedPath && cur.currentContent === content) {
               // 自动保存也要同步到 vault 影子——否则 autosave 的静默写会绕过 save-push,
               // 且它让 tab 保持非脏,导致关闭/退出走 discard 而永不同步(见 tabs.saveActive)。

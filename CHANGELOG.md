@@ -1,12 +1,14 @@
 ## Unreleased — shared share editor foundations
 
+- Received projects can now update through the shared merge kernel, resolve publisher/local/edited conflicts, and recover interrupted writes from a durable hash journal. Unknown collisions keep unique work paths across updates and submissions; binary/missing files require explicit choices. Updates coordinate real Rich/Source input and existing save queues, preserving drafts on reload failure. Native restart and system-IME acceptance remain pending.
+
 - Fix desktop guest submissions preserving opened image attachments and read-only tabs, include all supported Markdown extensions, clear descriptions when switching projects, and retain update-check HTTP status messages.
 
-- Desktop shared projects now open through confirmed `notemd://` links or File → Open Share Link, use the normal local editor, and submit through a durable single-package outbox with exact retries and public receipts. Read-only links keep local editing without granting submission rights. Native macOS launch/menu/offline-restart acceptance and Windows/Linux registration remain unverified; update checks report versions only (merging follows separately).
+- Desktop shared projects now open through confirmed `notemd://` links or File → Open Share Link, use the normal local editor, and submit through a durable single-package outbox with exact retries and public receipts. Read-only links keep local editing without granting submission rights. Native macOS launch/menu/offline-restart acceptance and Windows/Linux registration remain unverified; received version merging is described above.
 
 - Keep guest download code outside iOS builds and fix Windows directory handling in the shared atomic writer. Unix directory sync errors still propagate; Windows does not claim directory-entry durability after power loss.
 
-- Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Version merging remains separate.
+- Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Version merging is described above.
 
 - Preserve descriptions typed during shared-draft migration without overwriting the new version; reject malformed nested recovery records before saving.
 
