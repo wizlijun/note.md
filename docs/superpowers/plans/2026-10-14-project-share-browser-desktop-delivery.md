@@ -484,3 +484,14 @@ Ruling: Task6无token的“只读/不可提交”表示分享协作权限，不�
 Ruling: Task5 I2 的 mandated write_atomic 复用继续保留，但修复该共享实现并让 received 发布调用同一 crate-private 目录同步 helper；采用仓库 knowledge_structure/store.rs 已有平台边界：Unix 目录 open+sync_all 错误必须传播，非 Unix 不尝试不受支持的普通目录 File::open，并明确不保证目录项掉电耐久性。所有平台的文件 write/sync_all/rename 错误仍严格传播，no-replace/零覆盖合同不变，不引入新依赖或复制 writer。— Windows 普通目录 open 必然失败，既有 Unix 策略不能直接通用于 Windows；最小修复保留受支持的耐久性与原子可见性，而不伪造 Windows FlushFileBuffers 目录保证。— 如果平台假设不成立，需要补平台专用持久化 API；当前无 Windows 实机，Windows 掉电耐久及真实运行不得报通过。
 
 iOS 的 share_guest 模块及 command 注册遵相邻 desktop-only cfg；无实机/SDK不得以桌面 cargo check 替代 iOS 编译证据。
+
+
+### Task7 实际API与更新恢复合同裁定
+
+Ruling: Task7 保持同一 propose({path,base:oldBase,ours:newBase,theirs:work})/compose 内核，但 guest 显式为所有 theirs-only 构造 accept decision，不使用会按 owner 风险 flags 跳过的 acceptUnconflicted；resolve 前核 pendingConflicts/pendingTheirs/staleDecisions 均空。expectedHash 取受控读盘原 bytes SHA，不取经过内核 alignEol 的 proposal.theirsHash。扩 SourceDiff 一个可选 currentLabel（默认当前原件），guest 两侧标题/aria 同步为分享者版本/我的版本，owner 默认行为保持。— 真实 API 与原简写/owner helper 不同。— 错误会丢本机改动或把 CAS 绑定归一后的文本，因此须覆盖 flagged theirs-only、BOM/CRLF 原始 hash、owner 五选项回归。
+
+Ruling: Task7 copy-base action 允许明确 sourcePath（可信 pending manifest 的分享相对路径）与 path（受管目标相对路径）；Rust 验证二者及其匹配关系，不接受任意源路径/byte payload。碰撞另存需在 guest.json 增加向后兼容可选 workPaths 映射，仅记录分享路径→非同名工作相对路径；缺省同名。此映射是 received 本机身份记录，不进建议 wire/公开快照；Rust 验证来源属于对应 files、目标安全/唯一/无文件系统别名，并与更新 journal 一起耐久。后续提交按映射读工作文件但 wire 仍用分享 path，后续更新/删除/打开入口同样消费映射；原未知同名文件始终保持未知，不能自动纳入 edits，既有映射不每次生成新 .shared。— spec 要求保留未知文件又将新源另存，现有同名 key 无法维持两者身份。— 成本是一个必要本机路径映射及跨提交/更新接线，必须连续两次更新再提交证明源路径正确、未知文件 SHA 不变；错误会串稿，不能只验证第一次另存。
+
+Ruling: Task7 附件人工选择使用单独受限 resolve-file {root,path,expectedHash,choice:keep-local|use-base}，path 指分享路径并由可信 workPaths 解到工作路径；use-base 只能从当前 pending manifest 取验证原 bytes，keep-local 仅记完成而不写文件。对于旧/新源均存在而本机工作文件缺失，保留缺失、列待人工选择同一 keep-local/use-base（expectedHash:null），不得把缺失当空字符串 propose 或自动恢复。选择保留删除后照现有提交规则忽略并提示缺失，不把删除加入 wire。— 文本 resolve(content) 不能表达 binary 或删除，用户改动优先。— 成本是窄 tagged 文件级选择，须验证两种附件选择、缺失两种选择以及 CAS 变化拒绝。
+
+Ruling: Task7 hash-only update-plan journal 不保存正文，但写前先将文本 merge/人工 edited 结果以不可变原 bytes 写入受管 .notemd/update-results/<toSnapshotId>/<rowId>，file write/sync 完成后才耐久 intent（记录目标、expectedHash/resultHash、action/state 与受管结果标识），再执行工作路径 CAS 写入和完成标记。重启校验结果 bytes hash 后可重放未写行；工作 hash 为 resultHash 标完成，等于 expectedHash 可按同一结果重试，否则留 unresolved，禁止重新 propose 覆盖用户。全部完成并耐久 guest.json 新 snapshotId/files/workPaths 后才清旧 base 和本批 staged results；清理失败可重试不回滚已确认用户文件。— hash 本身不能还原尚未写入内容，原只存 hash 的计划缺恢复材料。— 成本是有界临时结果文件，与已验证快照/最大工作数据边界共同限制；要以 write-before/after 及 guest.json 前后故障证明真实恢复，而非假设内存仍在。
