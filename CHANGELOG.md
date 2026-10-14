@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1014.2 — 2026-10-14
+
 - **Shared pages use a compact editor toolbar matching the desktop app.** Icon tabs switch between Rich and Source with keyboard navigation; undo, notes and changes use compact controls, and submission options open in a popup.
 - **Shared-page Source editors fill the available window height.** Both enhanced and basic editors resize with the viewport, while the changes panel leaves space for editing.
 
