@@ -1163,11 +1163,11 @@ v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值�
 
 - **注册 scheme**：在 `src-tauri/tauri.conf.json` 中加入 `plugins.deep-link.desktop.schemes: ["notemd"]`。macOS 的 Info.plist 由 Tauri 生成，需要核对产物。
 - **深链路由**：`App.svelte` 的 `onOpenUrl` 新增对 `notemd://share/open?u=<encodeURIComponent(分享页完整 URL，含 #feedback=token)>` 的处理。
-  - 解析 `u`，要求协议为 `https:`（开发构建允许 `http://localhost`）；
+  - 解析 `u`，要求协议为 `https:`（开发构建仅允许 `http://localhost`、`http://127.0.0.1`、`http://[::1]`（可带端口，拒绝数字缩写地址别名））；
   - **不得**把 URL 或 token 写入日志、错误信息或遥测。
 - **分享页按钮**：编辑模式下显示「在 note.md 中打开」，链接到上面的深链。
 - **菜单入口**：「文件 → 打开分享链接…」，粘贴链接即可。
-- **确认框**：开始任何网络请求之前，先弹窗显示「从 <host> 下载分享项目「<title>」？」，让用户确认。
+- **确认框**：开始任何网络请求或原生下载命令之前，先弹窗显示「从 <host> 下载分享项目「<title>」？」，让用户确认。没有可信标题时用「此分享项目」，不得预取页面补标题。纯链接解析支持原 URL 和 `notemd://share/open?u=...`，拒绝 userinfo 与查询参数；仅从 fragment 的 `feedback` 取 token，交给原生的 shareUrl 一律去 fragment，错误不回显输入。
 
 ### 13.2 下载与落盘（`share_guest.rs`）
 
@@ -1180,16 +1180,16 @@ v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值�
    - 路径沿现有 `validate_relative` 校验；UTF-8 路径不超过 1024 B，不得有反斜杠、冒号、控制符、空段、点段、绝对路径、`.notemd` 或大小写折叠重名。既有 `.note.md/.notes.md`、隐藏段、node_modules、凭据命名拒绝规则保持；恶意源直接拒绝，不改名规避。
    - 只接受 stored/deflate 的 regular file；拒绝 symlink/hardlink/device、加密、多磁盘、重复路径、目录外记录、重叠或未列本地头、central/local 头冲突与 CRC 错误。不得有清单外源文件。
    - 兼容 legacy 包时只额外允许既定 `.__notemd-<snapshotId>/manifest.json` 与 `.__notemd-<snapshotId>/reader.html` 两个内部元数据条目，并与外部 snapshot 核对；内部 manifest 最多 256 KiB、reader 额外最多 25 MiB。它们只验证，绝不执行或写入 received 项目；其它管理条目拒绝。原 source ZIP 不因缺内部 manifest 被拒绝。
-4. **确定落盘位置**：`Vault/received/<host>/<project_id>/`。`<host>` 取小写主机名，端口用 `_` 连接，例如 `share.example_8787`。如果该目录已经存在：
-   - 其中 `guest.json` 的 `project_id` 一致：转入更新流程（§13.4）；
-   - 不一致：报错，不覆盖。
+4. **确定落盘位置**：`Vault/received/<host>/<project_id>/`。`<host>` 取小写主机名，端口用 `_` 连接，例如 `share.example_8787`；开发 IPv6 回环目录名以 `_` 代替冒号（`[__1]_8787`），与 URL origin 分别保存。如果该目录已经存在：
+   - 只有其中 `.notemd/guest.json` 通过 schema、受管 root、origin 与 project_id 校验时才可信；相同 snapshot 返回既有项目，不覆盖本地编辑，不同 snapshot 返回 `GUEST_UPDATE_REQUIRED` 供 §13.4 更新流程接管。
+   - 不一致、空目录或只有用户文件：报错，不覆盖。
 5. **写入文件**：
    - 普通文件写到项目目录；
    - 每个文件同时写一份到 `.notemd/base/<snapshotId>/<path>`；
-   - 写入 `guest.json`；
+   - 写入 `.notemd/guest.json`；
    - token 存入 `share_db.json`（§6.8）；
-   - 所有写入都使用 `write_atomic`。
-6. **保持隔离**：收到的项目是纯 `.md`，不是 `.note.md`，所以**不进入关系系统**（「关系只在人确认处生长」）。收到的项目**不得**被当作 sync 镜像或项目分享的源（`project_share::source_root` 已拒绝 sync 目录。`received/` 不在 sync 目录下，因此要另加一条规则：`create` 拒绝位于 `received/` 下的源）。
+   - 所有文件写入都复用 `write_atomic`。全部网络/清单/ZIP/版本验证完成后才建立同目录受管临时目录，写齐源文件、base 和元数据后原子无覆盖 rename；检查每级目录的 symlink、文件类型及 canonical containment。失败保留已有项目。
+6. **保持隔离**：收到的项目是纯 `.md`，不是 `.note.md`，所以**不进入关系系统**（「关系只在人确认处生长」）。收到的项目**不得**被当作 sync 镜像或项目分享的源；`project_share::source_root/source_path/create` 和 Vault-root 引用读取都拒绝 received 及其 symlink 别名。GuestStore 同时拒绝 received 与用户配置 Sync 的父子重叠，不创建 sync mapping。
 
 ### 13.3 编辑与提交
 
@@ -1497,7 +1497,7 @@ WP0.2 ─┤      │
 | 3 | 回执 | **默认开启**，可对单份提交关闭 | §8.5、§10.3 |
 | 4 | 逐人邀请 | **暂不做**，以轻便易用为先 | §1.3-6 |
 | 5 | 分享是否包含主人批注 | **包含**，不加开关，访客只读 | §12.5 |
-| 6 | 编辑器的交付方式 | **只放线上**（同源、内容寻址、SRI）；source-only 离线归档中的原 Markdown/附件由本地阅读器打开，不承诺 ZIP 内离线 HTML reader；需要富文本离线协作的人用 note.md 打开 | §12.2、§13 |
+| 6 | 编辑器的交付方式 | **只放线上**（同源、内容寻址、SRI）；source-only 离线归档中的原 Markdown/附件由本地阅读器打开，不承诺 ZIP 内离线 HTML reader；旧包内 reader 只做兼容校验、不执行或落盘；需要富文本离线协作的人用 note.md 打开 | §12.2、§13 |
 | 7 | 现有 Kit 与桌面 Rich 未通过源码保真门槛（2026-10-13 后续确认） | **增加共享编辑器保真前置，再完成网页与桌面协作**：保留原始源码、仅局部序列化；保留 I7 与 §12.4 判据，不以格式差异过滤绕过 | §12.4、§13、§21；[前置计划](../plans/2026-10-13-shared-editor-source-fidelity.md) |
 
 本规格新增的工程决定：

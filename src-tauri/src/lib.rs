@@ -46,6 +46,7 @@ pub mod notifications;
 pub mod sotvault;
 #[cfg(not(target_os = "ios"))]
 pub mod project_share;
+pub mod share_guest;
 #[cfg(not(target_os = "ios"))]
 pub(crate) mod project_share_git;
 #[cfg(not(target_os = "ios"))]
@@ -1543,6 +1544,7 @@ pub fn run() {
                 sotvault::sotvault_forget,
                 sotvault::sotvault_sync_to_vault,
                 project_share::project_share,
+                share_guest::share_guest,
                 project_share::project_share_git,
                 sotvault::sotvault_check_update,
                 sotvault::sotvault_apply_update,

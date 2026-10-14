@@ -52,6 +52,8 @@
 
 正式开始E4前同步修主spec§13.2，记录A的成本及旧包兼容。§20决定6写“离线归档只保证可读”；准确出处是§20，**不是§12.2**。现行source ZIP里的原Markdown可用本地阅读器读，不能宣称有离线HTML reader；正式修订明确这一点。下载仍复用批准的完整ZIP，读者下载无需feedback token；token仅用于feedback提交/receipt读取。
 
+开发 HTTP 例外仅限显式 `localhost`、`127.0.0.1`、`[::1]`（可带端口），TS/Rust 一致拒绝 IPv4 数字缩写别名；其余仅 HTTPS。received 主机目录中的 IPv6 冒号映射为 `_`，元数据仍保存规范 origin。
+
 本机A解析边界：请求顺序 V1 → reader → ZIP → V2；V1/V2 schema1、project_id、snapshotId都相等且archiveReady=true。reader snapshot身份与之相等；ZIP每项均以reader清单核hash/bytes。版本变化不落盘、保留已有base/工作文件；提示重新检查，不无限循环。
 
 reader只用一个小型确定性HTML标签扫描器找到文档中的真实script raw-text边界；跳过注释，按引号解析属性，script内容只由HTML结束标签终止；id/type属性ASCII大小写不敏感，重复属性拒绝，唯一id=project-data且type=application/json，拒绝第二个同id（不论type）。不得用“搜索任意匹配regex”从注释/字符串取假payload，不用DOM执行器或WebView加载reader。JSON用自定义serde visitor保留键检查，所有对象重复键拒绝；只从顶层snapshot取schema1公开字段，不信任HTML脚本、presentation或任意sourceRoot/git字段。保留JSON `\u003c/\u2028/\u2029`正常decode语义，字节hash取decode后的UTF8正文，BOM不能被TextDecoder隐式吃掉。

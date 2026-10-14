@@ -1,5 +1,7 @@
 ## Unreleased — shared share editor foundations
 
+- Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Desktop entry and update workflows remain pending.
+
 - Preserve descriptions typed during shared-draft migration without overwriting the new version; reject malformed nested recovery records before saving.
 
 - Old shared drafts can continue on the current snapshot with per-conflict choices, explicit export of removed files or orphaned annotations, and durable rebase undo/recovery. Legacy annotation sidecars migrate atomically. Mermaid preview loads a separate same-origin SRI-verified resource only when needed; failed loading preserves editable source.

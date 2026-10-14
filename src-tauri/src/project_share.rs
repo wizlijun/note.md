@@ -397,7 +397,7 @@ fn remove_reserved_tree(root: &Path, files: &BTreeMap<String, String>) -> Result
     }
     Ok(())
 }
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or("missing parent")?;
     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     let temp = parent.join(format!(".{}.tmp", uuid::Uuid::new_v4()));
@@ -585,6 +585,12 @@ impl ProjectStore {
                 return Err("project source and Sync mirror directories cannot overlap".into());
             }
         }
+        let received = vault.join("received");
+        for protected in [received.clone(), received.canonicalize().unwrap_or(received)] {
+            if source.starts_with(&protected) || (source != vault && protected.starts_with(&source)) {
+                return Err("project source and received directories cannot overlap".into());
+            }
+        }
         Ok(source)
     }
     fn lock(&self) -> Result<store::RecordsLock> {
@@ -599,15 +605,26 @@ impl ProjectStore {
         self.source_root(root.to_str().ok_or("invalid UTF-8 source root")?)?;
         let vault = self.vault.canonicalize().map_err(io_error)?;
         let sync = vault.join(vault_settings::resolve_sync_dir(&vault));
+        let received = vault.join("received");
+        let received_actual = received.canonicalize().unwrap_or_else(|_| received.clone());
         // Check the requested path before resolving it: an absent Sync target is unsafe too.
         let requested = root.join(relative);
+        if requested.starts_with(&received) || requested.starts_with(&received_actual) {
+            return Err("UNSAFE_PATH: received is not a project source".into());
+        }
         if requested.starts_with(&sync) { return Err("UNSAFE_PATH: Sync is not a project source".into()); }
         for ancestor in requested.ancestors().take_while(|p| *p != root) {
             if let Ok(target) = ancestor.canonicalize() {
+                if target.starts_with(&received) || target.starts_with(&received_actual) {
+                    return Err("UNSAFE_PATH: received alias is not a project source".into());
+                }
                 if target.starts_with(&sync) { return Err("UNSAFE_PATH: Sync alias is not a project source".into()); }
             }
         }
         let actual = safe_source(root, relative)?;
+        if actual.starts_with(&received) || actual.starts_with(&received_actual) {
+            return Err("UNSAFE_PATH: received is not a project source".into());
+        }
         if actual.starts_with(&sync) { return Err("UNSAFE_PATH: Sync is not a project source".into()); }
         if let Ok(rel) = actual.strip_prefix(&vault) {
             validate_relative(rel.to_str().ok_or("invalid UTF-8 source path")?)?;
@@ -1767,6 +1784,23 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    #[test]
+    fn project_share_received_source_and_vault_reference_isolation() {
+        let (_t, s, _) = fixture();
+        let received = s.vault.join("received/share.example/pid");
+        std::fs::create_dir_all(&received).unwrap();
+        std::fs::write(received.join("README.md"), "guest source").unwrap();
+        assert!(s.create(received.join("README.md").to_str().unwrap()).is_err());
+        assert!(s.source_root(received.to_str().unwrap()).is_err());
+        assert!(s.source_path(&s.vault, "received/share.example/pid/README.md").is_err());
+        #[cfg(unix)] {
+            let alias = s.vault.join("guest-alias");
+            std::os::unix::fs::symlink(&received, &alias).unwrap();
+            assert!(s.source_root(alias.to_str().unwrap()).is_err());
+            assert!(s.source_path(&s.vault, "guest-alias/README.md").is_err());
+        }
+        assert_eq!(std::fs::read(received.join("README.md")).unwrap(), b"guest source");
+    }
     #[test]
     fn project_share_receipt_metadata_never_recovers_and_survives_restart() {
         let (t, s, p) = git_fixture(); let snap = git_freeze(&s, &p);
