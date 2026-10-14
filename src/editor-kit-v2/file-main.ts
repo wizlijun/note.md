@@ -29,6 +29,7 @@ export interface FileMountSession extends MountedFileEditor {
   readonly view: EditorView
   attachSource(textarea: HTMLTextAreaElement, options?: FileSourceOptions): FileSourceInput
   attach(container: HTMLElement): void
+  flushForDetach(): Promise<FileSnapshot>
   insertSlashNote(seed?: string): boolean
   insertSlashAttachment(kind: 'image' | 'file', href: string): boolean
 }
@@ -61,6 +62,10 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   function flushNote(): boolean {
     if (!ownedEdit || noteUi.edit !== ownedEdit) { ownedEdit = undefined; return true }
     return ownedEdit.flushDraft?.() !== false
+  }
+  function finishOwnedEdit() {
+    if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
+    ownedEdit = undefined
   }
   function blocked(): string | null {
     if (closed) return 'file-closed'
@@ -100,6 +105,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
         instance.view.updateState(candidate.state)
         candidate.bindView(detached ? null : instance.view)
         previous.bindView(null); unsubscribeController(); subscribeController()
+        finishOwnedEdit()
         const value = candidate.snapshot(), subscribers = [...listeners]
         queueMicrotask(() => {
           if (closed) return
@@ -159,9 +165,28 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       }
     })
   }
+  const pendingAdapters = new Set<() => void>()
+  let mounting = true
+  function acquired(handle: { destroy(): void }) {
+    let live = true
+    const destroy = () => {
+      if (!live) return
+      live = false; pendingAdapters.delete(destroy); handle.destroy()
+    }
+    if (mounting) pendingAdapters.add(destroy)
+    return { destroy }
+  }
+  const frontmatter = options.adapters.frontmatterViewFactory, spreadsheet = options.adapters.spreadsheetViewFactory
   try {
     instance = guardRichEditor(rich, await createEditor({
       ...options.adapters, ...options.render, container: rich,
+      ...(frontmatter ? { frontmatterViewFactory: { render(...args: Parameters<typeof frontmatter.render>) {
+        const handle = frontmatter.render(...args)
+        return handle ? acquired(handle) : undefined
+      } } } : {}),
+      ...(spreadsheet ? { spreadsheetViewFactory: { create(...args: Parameters<typeof spreadsheet.create>) {
+        return acquired(spreadsheet.create(...args))
+      } } } : {}),
       configureSchema: withBlockIdentitySchema,
       createState(finalSchema, plugins) {
         schema = finalSchema
@@ -181,7 +206,14 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     controller!.bindView(instance.view)
     instance.view.setProps({ editable: () => !readOnly })
     subscribeController()
-  } catch (error) { root.remove(); throw error }
+    mounting = false; pendingAdapters.clear()
+  } catch (error) {
+    mounting = false
+    for (const destroy of [...pendingAdapters].reverse()) {
+      try { destroy() } catch (cleanupError) { console.error('File editor adapter cleanup failed', cleanupError) }
+    }
+    root.remove(); throw error
+  }
   rich.addEventListener('compositionstart', () => { richComposing = true }, true)
   rich.addEventListener('compositionend', () => {
     if (richFrame !== null) cancelAnimationFrame(richFrame)
@@ -263,6 +295,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   }
   return {
     owner, annotations, get view() { return instance.view }, attachSource,
+    async flushForDetach() { const value = await owner.flush(); finishOwnedEdit(); return value },
     insertSlashNote(seed = '') {
       const gate = admission(), state = instance.view.state, { $from, empty } = state.selection
       if (!empty || $from.parent.type.name !== 'paragraph' || !/^\/[a-zA-Z0-9一-龥]*$/.test($from.parent.textBetween(0, $from.parentOffset))) return false

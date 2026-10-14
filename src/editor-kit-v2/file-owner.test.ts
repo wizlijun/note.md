@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 import { afterEach, expect, it, vi } from 'vitest'
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => null), convertFileSrc: (s: string) => s }))
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'macos', type: () => 'macos' }))
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }))
 import { Plugin } from 'prosemirror-state'
@@ -27,7 +28,7 @@ async function desktopPaste(raw: string, run: (session: FileMountSession) => Pro
   finally { await unmount(component); await closeFileEditorSession(tab.id); tabs.splice(0); activeId.value = null }
 }
 
-it.each([false, true])('real binary attachment paste checks its captured generation: stale=%s', async stale => {
+it.each([false, true, 'baseline'] as const)('real binary attachment paste checks its captured generation: stale=%s', async stale => {
   const resources = await import('../lib/paste-resources')
   let resolve!: (path: string) => void
   const save = vi.spyOn(resources, 'saveClipboardResource').mockImplementation(() => new Promise(r => { resolve = r }))
@@ -36,13 +37,18 @@ it.each([false, true])('real binary attachment paste checks its captured generat
     Object.defineProperty(event, 'clipboardData', { value: { items: [{ kind: 'file', type: 'application/pdf', getAsFile: () => new File(['x'], 'report.pdf', { type: 'application/pdf' }) }] } })
     session.view.dom.dispatchEvent(event)
     expect(save).toHaveBeenCalledOnce()
-    if (stale) expect(session.owner.restoreContent('B').ok).toBe(true)
+    if (stale === true) expect(session.owner.restoreContent('B').ok).toBe(true)
+    if (stale === 'baseline') {
+      const before = session.owner.snapshot()
+      expect(session.owner.installBaseline({ documentId: 'new', authority: 'new', raw: 'B' }).ok).toBe(true)
+      expect(session.owner.snapshot().generation).toBe(before.generation)
+    }
     resolve('/vault/report.pdf'); await tick(); await Promise.resolve()
     expect(session.owner.snapshot().raw).toBe(stale ? 'B' : '[report.pdf](/vault/report.pdf)A')
   }) } finally { save.mockRestore() }
 })
 
-it.each([false, true])('video metadata updates only its accepted placeholder: stale=%s', async stale => {
+it.each([false, true, 'baseline'] as const)('video metadata updates only its accepted placeholder: stale=%s', async stale => {
   const video = await import('../lib/video-links')
   let resolve!: (value: VideoInfo) => void
   const fetch = vi.spyOn(video, 'fetchVideoInfo').mockImplementation(() => new Promise(r => { resolve = r }))
@@ -56,9 +62,16 @@ it.each([false, true])('video metadata updates only its accepted placeholder: st
     expect(fetch).toHaveBeenCalledOnce()
     const placeholder = session.owner.snapshot().raw
     expect(placeholder).toBe(raw + `[${href}](${href})`)
-    if (stale) expect(session.owner.restoreContent('Changed').ok).toBe(true)
+    if (stale === true) expect(session.owner.restoreContent('Changed').ok).toBe(true)
+    if (stale === 'baseline') {
+      const before = session.owner.snapshot(), selection = session.view.state.selection
+      expect(session.owner.installBaseline({ documentId: 'new', authority: 'new', raw: 'Changed' }).ok).toBe(true)
+      expect(session.owner.restoreContent(placeholder).ok).toBe(true)
+      session.view.dispatch(session.view.state.tr.setSelection(TextSelection.create(session.view.state.doc, selection.from, selection.to)))
+      expect(session.owner.snapshot().generation).toBe(before.generation)
+    }
     resolve({ title: 'Video title', thumbnailUrl: '', videoUrl: href, platform: 'youtube' }); await tick(); await Promise.resolve()
-    expect(session.owner.snapshot().raw).toBe(stale ? 'Changed' : raw + `[Video title](${href})`)
+    expect(session.owner.snapshot().raw).toBe(stale === 'baseline' ? placeholder : stale ? 'Changed' : raw + `[Video title](${href})`)
   }) } finally { fetch.mockRestore() }
 })
 
@@ -115,7 +128,7 @@ it('desktop RichEditor uses the first captured state and its shared annotation o
   } finally { noteUi.edit = null; await unmount(component); await closeFileEditorSession(tab.id); tabs.splice(0); activeId.value = null }
 })
 
-it.each(['generation', 'tab', 'source', 'readonly', 'selection', 'current'] as const)('guards delayed real Rich context-menu paste after %s', async change => {
+it.each(['baseline', 'generation', 'tab', 'source', 'readonly', 'selection', 'current'] as const)('guards delayed real Rich context-menu paste after %s', async change => {
   const { default: RichEditor } = await import('../components/RichEditor.svelte')
   const { tabs, activeId, setMode } = await import('../lib/tabs.svelte')
   const { fileEditorSession } = await import('../lib/file-editor-sessions')
@@ -133,6 +146,11 @@ it.each(['generation', 'tab', 'source', 'readonly', 'selection', 'current'] as c
     const paste = [...document.querySelectorAll<HTMLElement>('.menu-row')].find(row => /^Paste/.test(row.textContent?.trim() ?? ''))!
     expect(paste).toBeTruthy(); paste.click(); await tick()
     expect(clipboard).toHaveBeenCalledOnce()
+    if (change === 'baseline') {
+      const before = session.owner.snapshot()
+      expect(session.owner.installBaseline({ documentId: tab.filePath, authority: 'new-authority', raw: 'B' }).ok).toBe(true)
+      expect(session.owner.snapshot().generation).toBe(before.generation)
+    }
     if (change === 'generation') expect(session.owner.restoreContent('B').ok).toBe(true)
     if (change === 'tab') activeId.value = 'other'
     if (change === 'source') await setMode(tab.id, 'source')
@@ -142,7 +160,7 @@ it.each(['generation', 'tab', 'source', 'readonly', 'selection', 'current'] as c
       session.view.dispatch(session.view.state.tr.setSelection(TextSelection.create(session.view.state.doc, 2)))
     }
     resolve('stale'); await tick(); await Promise.resolve()
-    expect(session.owner.snapshot().raw).toBe(change === 'generation' ? 'B' : change === 'current' ? 'staleA' : 'A')
+    expect(session.owner.snapshot().raw).toBe(change === 'generation' || change === 'baseline' ? 'B' : change === 'current' ? 'staleA' : 'A')
   } finally { clipboard.mockRestore(); await unmount(component); await closeFileEditorSession(tab.id); tabs.splice(0); activeId.value = null }
 })
 
@@ -380,4 +398,205 @@ it('desktop tab activation waits for the same owner and preserves rejected sourc
     await activate('file-owner-test-b')
     expect(activeId.value).toBe('file-owner-test-b')
   } finally { tabs.splice(0); activeId.value = null; await closeFileEditorSession('file-owner-test-a').catch(() => {}) }
+})
+
+function tab(id: string, raw: string) { return { id, filePath: '/vault/' + id + '.md', title: id + '.md', kind: 'markdown' as const, mode: 'rich' as const, currentContent: raw, initialContent: raw, externalState: 'fresh' as const, externalBannerDismissed: false, lastKnownMtime: 0, lastKnownHash: '' } }
+it('does not carry a saved popup from the detached tab into the next actual Rich component', async () => {
+  const { default: RichEditor } = await import('../components/RichEditor.svelte')
+  const { tabs, activeId, activate } = await import('../lib/tabs.svelte')
+  const { fileEditorSession } = await import('../lib/file-editor-sessions')
+  const a = tab('review-popup-a', '{>>old<<}\n'), b = tab('review-popup-b', 'B')
+  tabs.push(a, b); activeId.value = a.id
+  let first: ReturnType<typeof mount> | undefined = mount(RichEditor, { target: document.body, props: { tab: a, fileBacked: true } })
+  let second: ReturnType<typeof mount> | undefined
+  try {
+    await vi.waitFor(() => expect(fileEditorSession(a.id)).toBeDefined())
+    const sessionA = fileEditorSession(a.id)!
+    expect(sessionA.annotations.editAt(1)).toBe(true); await tick()
+    const input = document.querySelector<HTMLTextAreaElement>('.note-edit textarea')!
+    input.value = 'saved latest'; input.dispatchEvent(new Event('input', { bubbles: true })); await tick()
+    await activate(b.id); expect(activeId.value).toBe(b.id)
+    expect(sessionA.owner.snapshot().raw).toBe('{>>saved latest<<}\n')
+    await unmount(first); first = undefined
+    second = mount(RichEditor, { target: document.body, props: { tab: b, fileBacked: true } })
+    await vi.waitFor(() => expect(fileEditorSession(b.id)).toBeDefined()); await tick()
+    const lingering = document.querySelector<HTMLTextAreaElement>('.note-edit textarea')?.value
+    expect(lingering).toBeUndefined()
+    const inserted = fileEditorSession(b.id)!.annotations.insert()
+    console.log('review detached popup', JSON.stringify({ lingering, inserted, oldRaw: sessionA.owner.snapshot().raw }))
+    expect(inserted).toBe(true)
+    expect(sessionA.owner.snapshot().raw).toBe('{>>saved latest<<}\n')
+  } finally { noteUi.edit = null; if(first) await unmount(first); if(second) await unmount(second); await closeFileEditorSession(a.id); await closeFileEditorSession(b.id); tabs.splice(0); activeId.value = null; document.body.replaceChildren() }
+})
+
+it('uses the first real frontmatter callback to edit an empty CRLF body without an initialization write', async () => {
+  let change!: (raw: string) => void
+  const changes: string[] = [], destroyed = vi.fn()
+  const f = await setup('\ufeff---\r\n---\r\n', { onChange: value => changes.push(value.raw), adapters: {
+    mediaResolver: new BrowserMediaResolver(), frontmatterViewFactory: { render(container, raw, onChange) {
+      expect(onChange).toBeTypeOf('function'); change = onChange!; container.textContent = raw
+      return { destroy: destroyed }
+    } },
+  } })
+  expect(f.container.querySelector('.frontmatter-node-view')?.textContent).toBe('')
+  expect(changes).toEqual([]); expect(f.owner.canUndo()).toBe(false)
+  change('title: Added')
+  expect(f.owner.snapshot().raw).toBe('\ufeff---\r\ntitle: Added\r\n---\r\n')
+  expect(f.container.querySelector('.frontmatter-node-view')?.textContent).toBe('title: Added')
+  await Promise.resolve(); expect(changes).toEqual(['\ufeff---\r\ntitle: Added\r\n---\r\n'])
+  expect(f.owner.undo()).toBe(true); expect(f.owner.snapshot().raw).toBe('\ufeff---\r\n---\r\n')
+  await f.owner.close(); expect(destroyed).toHaveBeenCalledTimes(3)
+})
+
+it('cleans acquired adapter resources if a later first-frame adapter throws, leaving the prior owner alive', async () => {
+  const original = await setup('Original')
+  const target = document.createElement('div'); document.body.append(target)
+  const release = vi.fn()
+  await expect(mountFileEditor(target, { file: { documentId: 'candidate', authority: 'candidate', raw: '---\ntitle: X\n---\n\n```csv\na,b\n```\n' },
+    adapters: { mediaResolver: new BrowserMediaResolver(),
+      frontmatterViewFactory: { render(el, value) { el.textContent = value; return { destroy: release } } },
+      spreadsheetViewFactory: { create() { throw new Error('adapter-fault') } },
+    } })).rejects.toThrow('adapter-fault')
+  expect(target.childElementCount).toBe(0); expect(release).toHaveBeenCalledOnce()
+  expect(original.owner.restoreContent('Still alive').ok).toBe(true)
+  expect(original.owner.snapshot().raw).toBe('Still alive')
+})
+
+it.each([['O', 'N'], ['N', 'O']] as const)('requires an explicit new baseline floor from %s to %s', async (oldFloor, newFloor) => {
+  const f = await setup(oldFloor, { policy: { acceptRawChange: (_before, after) => after.includes(oldFloor) } })
+  expect(f.owner.installBaseline({ documentId: 'new', authority: 'missing-policy', raw: newFloor }).ok).toBe(true)
+  expect(f.owner.restoreContent(newFloor + ' edited').ok).toBe(false)
+  expect(f.owner.restoreContent(oldFloor).ok).toBe(true) // old policy no longer protects the new floor
+  expect(f.owner.installBaseline({ documentId: 'new', authority: 'explicit-policy', raw: newFloor },
+    { policy: { acceptRawChange: (_before, after) => after.includes(newFloor) } }).ok).toBe(true)
+  expect(f.owner.restoreContent(newFloor + ' edited').ok).toBe(true)
+  expect(f.owner.restoreContent(oldFloor).ok).toBe(false)
+})
+
+it('keeps repeated decoration layers attached to roots across reorder, removal, modes and destruction', async () => {
+  const changes = vi.fn(), f = await setup('A\n\nB\n', { onChange: changes })
+  const id = f.owner.snapshot().bindings[0].id
+  const item = { blockId: id, kind: 'proposal' as const, label: 'First' }
+  f.decorations.setLayer('one', [item]); f.decorations.setLayer('one', [{ ...item, label: 'Replacement' }])
+  f.decorations.setLayer('two', [{ ...item, kind: 'activity', label: 'Other' }])
+  expect(f.container.querySelectorAll('[data-cdr-decoration]')).toHaveLength(1)
+  expect(f.container.querySelector('[data-cdr-decoration]')?.getAttribute('data-cdr-label')).toBe('Replacement · Other')
+  expect(f.owner.canUndo()).toBe(false); expect(changes).not.toHaveBeenCalled()
+  expect(f.owner.execute({ kind: 'block.move-down', blockId: id })).toBe(true)
+  expect(f.container.querySelector('[data-cdr-decoration]')?.textContent).toBe('A')
+  const moved = f.owner.snapshot(); await Promise.resolve(); const count = changes.mock.calls.length
+  await f.setMode('source'); expect(f.container.querySelector<HTMLElement>('.file-rich')?.hidden).toBe(true)
+  await f.setMode('rich'); expect(f.container.querySelector('[data-cdr-decoration]')?.textContent).toBe('A')
+  f.decorations.removeLayer('two'); expect(f.container.querySelector('[data-cdr-decoration]')?.getAttribute('data-cdr-label')).toBe('Replacement')
+  expect(f.owner.snapshot()).toEqual(moved); expect(changes).toHaveBeenCalledTimes(count)
+  expect(f.owner.execute({ kind: 'block.delete', blockId: id })).toBe(true)
+  expect(f.container.querySelector('[data-cdr-decoration]')).toBeNull()
+  expect(f.owner.undo()).toBe(true); expect(f.container.querySelector('[data-cdr-decoration]')?.textContent).toBe('A')
+  f.destroyView(); expect(f.container.childElementCount).toBe(0)
+  await f.owner.close(); f.decorations.setLayer('closed', [item]); expect(f.container.childElementCount).toBe(0)
+})
+
+it('invalidates the real popup after its accepted save appends text before the annotation target', async () => {
+  let armed = false
+  const target = document.createElement('div'); document.body.append(target)
+  const session = await mountFileEditor(target, { file: { documentId: 'append', authority: 'a', raw: 'A {>>old<<}\n' },
+    adapters: { mediaResolver: new BrowserMediaResolver() } }, { plugins: [new Plugin({ appendTransaction(transactions, _old, state) {
+      if (!armed || !transactions.some(tr => tr.docChanged)) return null
+      armed = false; return state.tr.insertText('X', 1)
+    } })] })
+  editors.push(session); expect(session.annotations.editAt(3)).toBe(true)
+  const popup = document.createElement('div'); document.body.append(popup); popups.push(mount(NoteEditPopup, { target: popup })); await tick()
+  const edit = noteUi.edit!, textarea = popup.querySelector('textarea')!
+  textarea.value = 'saved'; textarea.dispatchEvent(new Event('input', { bubbles: true })); await tick(); armed = true
+  expect((await session.owner.flush()).raw).toBe('XA {>>saved<<}\n')
+  expect(session.view.state.doc.nodeAt(4)?.type.name).toBe('note_anchor')
+  expect(edit.save('late')).toBe(false); expect(edit.remove()).toBe(false)
+  expect(session.owner.snapshot().raw).toBe('XA {>>saved<<}\n'); expect(noteUi.edit).toBe(edit)
+})
+
+it('consumes supplied media, renderer, platform and link adapters in the first mounted view', async () => {
+  const data = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+  const image = vi.fn(async (_path: string) => data), getPath = vi.fn(() => '/fixture/current.md'), open = vi.fn()
+  const render = vi.fn((source: string, target: HTMLElement) => { target.textContent = 'Rendered: ' + source }), destroy = vi.fn()
+  const load = vi.fn(async () => ({ render, destroy }))
+  const { invoke } = await import('@tauri-apps/api/core'); vi.mocked(invoke).mockClear()
+  const raw = '![fixture](/fixture/pixel.png)\n\n```fixture\nexact source\n```\n\n[relative](./next.md)\n'
+  const f = await setup(raw, { adapters: {
+    mediaResolver: { loadLocalImage: image, loadLocalMedia: async () => data, loadRemoteMedia: async () => data },
+    rendererRegistry: { has: language => language === 'fixture', load, versions: { fixture: '1' } },
+    platform: { getCurrentFilePath: getPath, isMacOS: true }, linkOpener: { open },
+  } })
+  await vi.waitFor(() => expect(render).toHaveBeenCalledOnce())
+  expect(image.mock.calls[0]?.[0]).toBe('/fixture/pixel.png')
+  expect(f.container.querySelector('img')?.getAttribute('src')).toBe(data)
+  expect(load).toHaveBeenCalledWith('fixture'); expect(render.mock.calls[0]?.[0]).toBe('exact source')
+  expect(f.container.textContent).toContain('Rendered: exact source')
+  f.container.querySelector('a[href="./next.md"]')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, metaKey: true }))
+  expect(getPath).toHaveBeenCalled(); expect(open).toHaveBeenCalledWith('/fixture/./next.md')
+  expect(invoke).not.toHaveBeenCalled(); expect(f.owner.snapshot().raw).toBe(raw); expect(f.owner.canUndo()).toBe(false)
+  await f.owner.close(); expect(destroy).toHaveBeenCalledOnce()
+})
+
+it('ends only its saved popup on successful baseline and preserves failed or forced-detach drafts', async () => {
+  let allow = false
+  const target = document.createElement('div'); document.body.append(target)
+  const f = await mountFileEditor(target, { file: { documentId: 'lifecycle', authority: 'old', raw: '{>>old<<}\n' },
+    adapters: { mediaResolver: new BrowserMediaResolver() }, policy: { acceptRawChange: (before, after) => before === after || allow } }, {})
+  editors.push(f); expect(f.annotations.editAt(1)).toBe(true)
+  const popup = document.createElement('div'); document.body.append(popup); popups.push(mount(NoteEditPopup, { target: popup })); await tick()
+  const edit = noteUi.edit!, textarea = popup.querySelector('textarea')!
+  textarea.value = 'draft'; textarea.dispatchEvent(new Event('input', { bubbles: true })); await tick()
+  await expect(f.flushForDetach()).rejects.toThrow('annotation-pending'); expect(noteUi.edit).toBe(edit)
+  expect(f.owner.installBaseline({ documentId: 'new', authority: 'new', raw: 'New' }).ok).toBe(false)
+  f.destroyView(); expect(noteUi.edit).toBe(edit); expect(textarea.value).toBe('draft'); expect(f.owner.snapshot().raw).toBe('{>>old<<}\n')
+  f.attach(target); allow = true
+  expect(f.owner.installBaseline({ documentId: 'new', authority: 'new', raw: 'New' }).ok).toBe(true)
+  expect(noteUi.edit).toBeNull(); expect(edit.save('late')).toBe(false); expect(f.owner.snapshot().raw).toBe('New')
+})
+
+it('rejects an actual pending slash attachment dialog after a same-generation baseline replacement', async () => {
+  const dialog = await import('@tauri-apps/plugin-dialog')
+  let resolve!: (path: string) => void
+  vi.mocked(dialog.open).mockImplementation(() => new Promise<string>(r => { resolve = r }))
+  await desktopPaste('/doc', async session => {
+    const { TextSelection } = await import('prosemirror-state')
+    session.view.dispatch(session.view.state.tr.setSelection(TextSelection.create(session.view.state.doc, 5)))
+    session.view.dom.dispatchEvent(new Event('input', { bubbles: true })); await tick()
+    const item = [...document.querySelectorAll<HTMLElement>('.menu-row')].find(row => /attachment|document|file/i.test(row.textContent ?? ''))!
+    expect(item).toBeTruthy(); item.click(); await tick(); await vi.waitFor(() => expect(dialog.open).toHaveBeenCalled())
+    const before = session.owner.snapshot()
+    expect(session.owner.installBaseline({ documentId: 'new', authority: 'new', raw: '/doc' }).ok).toBe(true)
+    session.view.dispatch(session.view.state.tr.setSelection(TextSelection.create(session.view.state.doc, 5)))
+    expect(session.owner.snapshot().generation).toBe(before.generation)
+    resolve('/vault/old.pdf'); await tick(); await Promise.resolve()
+    expect(session.owner.snapshot().raw).toBe('/doc')
+  })
+})
+
+it('continues reverse adapter cleanup after destroy throws and preserves the original mount error', async () => {
+  const target = document.createElement('div'); document.body.append(target)
+  const order: string[] = [], handle = { destroy() { expect(this).toBe(handle); order.push('frontmatter') } }
+  let created = 0
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+  try {
+    await expect(mountFileEditor(target, { file: { documentId: 'fail', authority: 'fail', raw: '---\nx: y\n---\n\n```csv\na,b\n```\n\n```csv\nc,d\n```\n' },
+      adapters: { mediaResolver: new BrowserMediaResolver(), frontmatterViewFactory: { render: () => handle },
+        spreadsheetViewFactory: { create() {
+          if (++created === 2) throw new Error('original-adapter-fault')
+          return { destroy() { order.push('spreadsheet'); throw new Error('cleanup-fault') } }
+        } },
+      } })).rejects.toThrow('original-adapter-fault')
+    expect(order).toEqual(['spreadsheet', 'frontmatter']); expect(error).toHaveBeenCalledWith('File editor adapter cleanup failed', expect.objectContaining({ message: 'cleanup-fault' }))
+    expect(target.childElementCount).toBe(0)
+  } finally { error.mockRestore() }
+})
+
+it('destroys successful frontmatter and spreadsheet handles exactly once at normal close', async () => {
+  const front = vi.fn(), sheet = vi.fn()
+  const f = await setup('---\nx: y\n---\n\n```csv\na,b\n```\n', { adapters: {
+    mediaResolver: new BrowserMediaResolver(), frontmatterViewFactory: { render: () => ({ destroy: front }) },
+    spreadsheetViewFactory: { create: () => ({ destroy: sheet }) },
+  } })
+  expect(front).not.toHaveBeenCalled(); expect(sheet).not.toHaveBeenCalled()
+  await f.owner.close(); await f.owner.close(); expect(front).toHaveBeenCalledOnce(); expect(sheet).toHaveBeenCalledOnce()
 })

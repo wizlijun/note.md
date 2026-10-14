@@ -59,10 +59,10 @@ export function activeTab(): Tab | null {
   return tabs.find((t) => t.id === activeId.value) ?? null
 }
 
-async function flushMountedDocument(tabId: string): Promise<void> {
+async function flushMountedDocument(tabId: string, leaving = false): Promise<void> {
   const session = fileEditorSession(tabId)
   if (session) {
-    const snapshot = await session.owner.flush()
+    const snapshot = await (leaving ? session.flushForDetach() : session.owner.flush())
     const tab = tabs.find(tab => tab.id === tabId)
     if (tab) tab.currentContent = snapshot.raw
     return
@@ -104,7 +104,7 @@ export async function activate(id: string): Promise<void> {
     const previous = activeId.value
     if (previous && previous !== id) {
       if (fileEditorSession(previous)) {
-        try { await flushMountedDocument(previous) } catch { return }
+        try { await flushMountedDocument(previous, true) } catch { return }
         if (activeId.value !== previous || !tabs.some(tab => tab.id === id)) return
       } else void flushMountedDocument(previous)
     }

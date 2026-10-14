@@ -220,11 +220,13 @@
   function captureFileInput(view: EditorView) {
     const session = fileSession
     if (!session) return () => true
-    const generation = session.owner.snapshot().generation, selection = view.state.selection, tabId = tab.id
+    const captured = session.owner.snapshot(), selection = view.state.selection, tabId = tab.id
     return () => !disposed && !readOnly && view.editable && fileSession === session && editor?.view === view
       && activeTab()?.id === tabId && tab.id === tabId && activeTab()?.mode === 'rich'
       && !view.dom.closest<HTMLElement>('.file-rich')?.hidden
-      && session.owner.snapshot().generation === generation && view.state.selection.eq(selection)
+      && session.owner.snapshot().generation === captured.generation
+      && session.owner.snapshot().authority === captured.authority
+      && session.owner.snapshot().sourceLineage === captured.sourceLineage && view.state.selection.eq(selection)
   }
 
   async function handlePaste(event: ClipboardEvent) {
@@ -598,14 +600,12 @@
       const session = fileSession
       if (item.id === 'insert-note') { if (session.insertSlashNote()) closeSlashMenu(); return }
       if (item.id === 'insert-image' || item.id === 'insert-doc') {
-        const generation = session.owner.snapshot().generation, selection = view.state.selection
+        const isCurrent = captureFileInput(view)
         const { open } = await import('@tauri-apps/plugin-dialog')
         const path = await open({ multiple: false, filters: item.id === 'insert-image'
           ? [{ name: t('slash.filter.images'), extensions: ['png','jpg','jpeg','gif','svg','webp','bmp','ico','tiff','tif','avif'] }]
           : [{ name: t('slash.filter.docs'), extensions: ['pdf','doc','docx','xls','xlsx','ppt','pptx','zip','gz','tar','rar','7z','mp3','wav','ogg','flac','mp4','mov','avi','mkv','webm','txt','csv','json','xml'] }] })
-        if (typeof path !== 'string' || disposed || fileSession !== session || editor?.view !== view
-          || tab.mode !== 'rich' || activeTab()?.id !== tab.id || session.owner.snapshot().generation !== generation
-          || !view.state.selection.eq(selection)) return
+        if (typeof path !== 'string' || !isCurrent()) return
         if (session.insertSlashAttachment(item.id === 'insert-image' ? 'image' : 'file', path)) closeSlashMenu()
         return
       }

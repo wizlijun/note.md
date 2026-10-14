@@ -42,7 +42,12 @@
   editState.flushDraft = flushDraft
   onDestroy(() => {
     cancelSave()
-    if (editState.flushDraft === flushDraft) delete editState.flushDraft
+    if (editState.flushDraft === flushDraft) {
+      if (noteUi.edit === editState) {
+        editState.note = ta?.value ?? text
+        editState.flushDraft = () => false
+      } else delete editState.flushDraft
+    }
   })
   function scheduleSave() {
     cancelSave()

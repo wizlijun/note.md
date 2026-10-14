@@ -81,3 +81,18 @@ it('does not close another popup installed synchronously by a callback', async (
   f.textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await tick()
   expect(noteUi.edit?.note).toBe('other')
 })
+
+it('retains an unaccepted draft across forced component unmount and remount without claiming flush success', async () => {
+  const save = () => false
+  noteUi.edit = { x: 0, y: 0, note: 'old', save, remove: () => false }
+  const edit = noteUi.edit
+  const target = document.createElement('div'); document.body.append(target)
+  const first = mount(NoteEditPopup, { target }); await tick()
+  const textarea = target.querySelector('textarea')!
+  textarea.value = 'unsaved draft'; textarea.dispatchEvent(new Event('input', { bubbles: true })); await tick()
+  await unmount(first)
+  expect(noteUi.edit).toBe(edit); expect(edit.flushDraft?.()).toBe(false)
+  const second = mount(NoteEditPopup, { target }); await tick()
+  try { expect(target.querySelector('textarea')?.value).toBe('unsaved draft'); expect(edit.flushDraft?.()).toBe(false) }
+  finally { noteUi.edit = null; await unmount(second) }
+})
