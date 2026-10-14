@@ -470,3 +470,10 @@ Ruling: Task4 fix1原reviewer message-race探针在核心断言前等待S1写入
 
 
 Ruling: Task4 fix1普通fallback保存的有效owner按其lineage当前aggregate判定，不一律等于界面当前选中draft。ROOT已读browser.test.ts原queued input ownership回归：切到另一个lineage后，前一lineage已接收的排队正文和notes必须仍写回它自己的key；不能迁移旧expected掩盖丢输入。普通save在实际FIFO槽核drafts map内该lineage对象身份，当前选中时另核notes引用；同lineage rebase成功后map指向next，旧owner任务仍须拒绝，不同lineage仍有效owner可完成保存。增强host.saveDraft继续严格当前选中owner；message字段任务按捕获lineage的最新有效aggregate更新，不跨lineage转移。复用既有map/FIFO，不新增状态库；保留首次276中1失败及原测试，增加/复用同lineage stale与不同lineage有效两种证据。成本是区分编辑目标身份与界面选择，若错误会丢旧稿或回写旧版本，故两侧都必须验证。
+
+
+Ruling: Task6只读API地图已核当前installed deep-link2.4.9和single-instance2.4.2源码；single-instance未启deep-link feature，选在既有callback显式使用已装DeepLinkExt/handle_cli_arguments（Windows/Linux，按真实单URL参数合同）并先排除notemd旧文件分支，不改Cargo feature/依赖。Mac沿已有插件RunEvent::Opened→onOpenUrl/getCurrent，注册只用配置生成产物，不对Mac调用不支持的runtime register。App先监听再getCurrent、统一暂存和同一次交付去重，等有效Vault后确认；取消后用户再次主动打开相同链接仍可确认，不做永久URL黑名单。所有入口先阻断带token URL的旧argv/path日志，保留普通文件打开行为。成本是既有平台API接线，Windows/Linux无实机只作编译/代码证据，Mac仍需真外部启动验收。
+
+Ruling: Task6“唯一open-share-link事件”落在既有Rust menu-event的唯一menu id与App明确case，直接打开同一确认dialog；不另加CustomEvent/central command或强制cast未知CommandId，现有四语言menu_label与前端字典分别同步。guest side view复用registry，选right/order3，位于现有git-history之后，仅经Task5可信list/inspect缓存匹配活动tab时显示；appliesTo保持同步，不增第二侧栏。成本是明确最小装配与常规文档工具位置，不改变原菜单命令/现有侧栏顺序。
+
+Ruling: Task6无token的“只读/不可提交”表示分享协作权限，不能据此把已公开下载的本机Markdown设为全局不可编辑；主spec§13.2明确公开下载不需token、§13.3明确使用桌面编辑器全部功能。侧栏应明确“只读分享/无回传权限；修改仅保存在本机”，禁queue/deliver/receipt，保留本机普通Rich/Source与保存；不扩isReadOnlyTab或改桌面owner policy。builder/预览不发送，真正提交仍必须凭据与用户明确动作。成本是区分公开副本编辑与线上协作权限，需用无token实际下载、编辑保存和零提交/回执请求证明，不把本地可写宣传为获得分享权限。
