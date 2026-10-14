@@ -1,5 +1,7 @@
 # File bindings 与原生 PM history：实施计划
 
+2026-10-14阶段受理：CORE `6a6d0f940383c1e2cd19dc3c9c3df8f63e69baff` / HOST `8a0b555ca6a0e8df226700fc74f67ffa64f3925e`。Task1–5、唯一全阶段审查及一次合并finalfix/scoped复审已完成；准确验证、平台待验与归档见[阶段报告](../reports/2026-10-14-file-bindings-history-verification.md)。用户明确无移动测试设备，iOS/Android真实中日IME保留待验，继续E1–E4及统一发行；本阶段不是已发布声明。下文历史计划及逐项裁定保留。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task.
 
 **Goal:** 让普通文件编辑与分享协作共用保真 raw、稳定块身份和一份跨 Source/Rich 的原生撤销历史。
