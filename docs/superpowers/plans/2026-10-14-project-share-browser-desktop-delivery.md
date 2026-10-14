@@ -422,3 +422,18 @@ Ruling: Task1媒体限制在share-editor/media.ts内以真实PM Plugin提供imag
 
 
 Ruling: Task1 main 的 owner observer 除派生徽标，还须短防抖复用既有 ShareFileSession.save 完成停留编辑的耐久保存；不得另造 ACK/FIFO。ROOT 已核 main 当前只有 build/switch/close 保存，ShareEditorHost 无另一个 onChange 入口，故仅停留编辑会缺耐久保存。计时器捕获实际 session/lineage，在途保存后的继续输入须再次排入，切换/关闭取消本 timer 并由原 close 保存；失败保留 raw 并明确提示且可重试。加实际 Source 输入→durable save、失败留稿以及 pending/submit 零副作用测试，重跑受影响 main/types/UI。成本是一处必要生命周期触发器；不改 wire、不重复持久化协议，HOST 全套4695此前结果据原输入如实保留。
+
+
+Ruling: Task2 允许新增 scripts/share-editor-assets.mjs 并在 vite.config.ts 与 vitest.config.ts 复用 virtual module resolve/emit 接线；必要TS声明优先现有声明文件（实施时核真实路径并报告）。ROOT已核原两配置和host.test：host新增虚拟manifest import需要测试模块解析，独立脚本避免重复构建规则。生产build缺manifest必须失败，emit读取冻结真实bytes；仅测试配置明确提供mock，真实build/hash/graph/evaluate不得mock或自动fallback。成本是最小构建与测试装配文件增加，不能掩盖漏打包；仍不安装依赖或改CORE。首次worker测试命令脚本参数实际跑488全量，按真实输出保留，不作仅focused描述；后继同输入不重复全量。
+
+
+Ruling: Task2保留现有share-editor.css，不把完整kit.css/editor-base.css/KaTeX CSS追加到分享包。ROOT已读实际kit.css（CanvasText/Canvas）、editor-base（高特异性hljs色等）及presentation.ts:inlineMathCss/themedStyleHead；真实reader已有同一KaTeX woff2内嵌与冻结正文主题，重复导入会增加字体副本并可能覆盖冻结正文颜色。Task2检查实际资源hash/SRI/图与CSS url只允许data或fragment，主JS预算照验；真实reader字体glyph/无font网络/两主题及必要编辑结构样式在Task3闭合，不能以当前空字体CSS检查冒称已验。若Task3真实测试暴露结构样式缺口，先按实际必要控制/几何确定最小共享样式接线，保持正文font/color/lineheight来自冻结主题，不直接全量覆盖。成本是UI样式闭环明确落在本来负责真实reader的Task3，Task2不额外复制KaTeX或提前称可交付。另批准新src/share-editor-assets.d.ts纯virtual module声明，原vite-env.d.ts不存在。
+
+
+Ruling: Task2修复完整Worker tsc暴露的5处原类型缺口，而非skip/加DOM lib。ROOT核原错误、file-contract/contract/project-share types/receipt/tests/env后批准6处：新增纯file-recovery.ts只type-import RootIdRow维护同一个FileRecovery；file-contract import/reexport保留公共接口；project-share/types只引用纯recovery模块，隔断Worker类型到HTMLElement的UI边。receipt.ts TextDecoder明确ignoreBOM:false（当前默认），ROOT实际Node plain/BOM/Unicode对比记录root-task2-decoder-default-check，Worker现有receipt测试再覆盖实际runtime。worker/tests/env.d.ts引用真实Vite ImportMeta类型；receipt.test仅headers参数/矩阵显式Record<string,string>，不变断言、不增加any。成本是纯持久化类型独立维护点及最小类型声明修补，公开shape/协议/JSON行为不变；若错会由Worker全tsc和kit/receipt/feedback、HOST相关与累计strict捕获。保留最初7错误，新Task2两条已自行修；修后全tsc成功才进入依赖build/提交，不另重复无关完整488。
+
+
+Ruling: 更正紧前Task2纯恢复类型新文件名为file-recovery-contract.ts；ROOT已核file-recovery.ts原本存在且承载recoveryFromSnapshot/acknowledgeSaved，不能覆盖或改成纯类型。新路径原不存在，其他5处接线及原FileRecovery shape/导出保持。成本只为避免撞名，不扩实际功能；原裁定保留并由此明确替代文件名。
+
+
+Ruling: Task2真实模块图属于构建证据，不是运行资源；ROOT已读plugin generateBundle把绝对模块路径JSON emit最终dist，writer确认并先冻结a46cc2a81fa908bfa097107e71261d0ed373b05e。批准追加精确修补：独立build写/dist-share-editor/share-editor-modules.json并.gitignore仅该构建目录，JSON绑定{jsSha256,modules}；checker显式graphPath（默认对应独立build），断主JS实际hash与graph相同并仍检查无Tauri/Mermaid。插件不读取/emit graph，最终app dist无该证据文件；fixture更新shape和stale/mismatch负例，OWN受控脚本传明确当轮graphPath。成本是私有构建证据格式/参数调整及一个精确ignore项，运行manifest/js/css和预算不变；旧真实emit证据保留，新build/check/probe/相关checker测试与strict覆盖，Worker和业务无改不重复完整层。初审仍取Task2原BASE覆盖全部提交。
