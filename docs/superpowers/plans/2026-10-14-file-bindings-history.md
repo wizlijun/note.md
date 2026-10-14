@@ -823,3 +823,24 @@ Ruling: Task3真实InputRules连续输入 **bold**! 保留strong storedMark，�
 Ruling: Task3纳入已有Rich异步输入生命周期安全。file分支在clipboard/resource/video/context paste准备前捕获owner/view/generation/tab/mode/selection，await后复核；video仅替换本次成功插入的exact range及expected text/mark，不扫描文档第一同href；旧legacy不扩大重写 — 同一真实owner不代表异步返回时仍是原用户目标 — 成本是局部stale guards及实际消费者延迟回归，图片producer本身仍留Task5。
 
 Ruling: Task3公开file factory复用已有KitCSS资源，允许将main现有纯injectKitCss最小提取到file-kit-styles.ts由两个入口共享；非externalSource file挂载注入并加kit-host，desktop沿原宿主CSS，不引host theme RPC或第二factory。实际browser fixture撤除手工CSS掩盖并检查资源加载/Source布局。check-editor-kit-build允许可选outDir（默认dist）及真实mountFileEditor导出检查 — 当前factory未注入CSS而测试手工import掩盖部署缺口 — 成本是小型共享样式接缝与产物断言，后续share builder仍需独立CSS/IIFE闭包。
+
+
+## Task 5：desktop既有图片操作的局部保真兼容
+
+**顺序与范围。** Task4独立受理后开始，单writer；Task5受理后才执行唯一全阶段Svelte/能力聚合/whole-range final。本节替代Task4原文中提前作全阶段最终受理的时间安排；Task4本身的Rust、保存与路由检查仍执行。沿唯一file factory/controller，不退回legacy或Source写旁路。网页仍遵守主spec §12.9不新增附件权限。
+
+**Consumes。** Task3最终installed CORE的source facts/原Step链，Task4最终owner/recovery/focus；当前只读设计desktop-image-fidelity-design.md及真实installed/controller矩阵。Task3仍在改动，Task5启动时再冻结实际两仓BASE与最终HOST消费入口，不能将当前设计探针算实现通过。
+
+**CORE Files。** src/markdown.ts、src/source-inline-recipe.ts、src/source-fidelity.ts、src/source-structure.ts；新src/__tests__/source-image-producer.spec.ts与source-image-cache.spec.ts；精准增强source-structure-commands.spec.ts image正例及下述具名source-math-producer.spec.ts用例；CHANGELOG及审计manifest列明dist。source-empty-body.ts、commands.ts、package/exports/deps/锁/原14fixture不默认修改。
+
+**HOST Files。** 新src/editor-kit-v2/file-image.test.ts；scripts/check-file-editor-browser.mjs增加image case。最终Task3/4若未覆盖所需消费者，才按实际RED具名补RichEditor.svelte、attachment-insert.ts、rich-actions.ts、slash-items.ts或file-main.ts的最小接线；不默认全开，不扩FileEditorOwner/FileAdapters公开接口。
+
+- [ ] **5.1 成功image occurrence捕获。** 仅实际markdown-it image成功且非silent规则本次消耗raw范围，沿已有atomTokenRanges；精确image token→实际schema leaf node/pos/attrs/marks绑定，保留finalizer对象核验。禁止regex/raw同文查找/第二parser/按src合并。同src多occurrence、引用/full/collapsed/shortcut、容器、BOM/CRLF均按真实capture；definitions仍protected。cache沿已有cloneTokenBatch范围平移，至少3代+raw/line delta+外来layout recapture；旧facts不授权新doc。
+- [ ] **5.2 image局部单位与原链。** canonical image采用实际schema、leaf/nodeSize1和可表示src/alt/title，承认helper真实继承marks。旧未改attrs的image输出原occurrence raw；新生或attrs变化仅调用既有image callback/编码的共享局部renderer，不复制URI编码或根/全文serializer。图片marks沿已有envelope。消费每个original Step/docs，支持插入/选区替换/多步临时空body/更新/完整删除；不因此开放math payload、未知atom或任意schema attrs。
+- [ ] **5.3 正确路由与删除边界。** exact AttrStep和Add/RemoveNodeMarkStep仅实际目标canonical image可走stable局部路径，执行原Step，其他节点分类不变。needsInline在exact unmapped早返回前识别真实image删除/替换/端点输入；范围来源必须是facts。空body复用prepareEmptyInlineContent/EmptyBody，删除唯一图片只处理本body相应separator与terminal EOL，不吞邻空行/definitions。setNodeMarkup真实ReplaceStep和原Attr/NodeMark正例都验邻文不改写。
+- [ ] **5.4 首个真实desktop消费者。** committed CORE安装后，原cursor/pos helper、marked selection/storedMarks、clipboardTextParser/HTML img、slash/context dialog/native drop各核实际入口；只对已有异步入口复用Task3 guard，取消/拒绝不先删trigger。真实EditorView/controller验证insert→resize→delete的独立undo/redo、跨Source模式同owner、flush/save不清历史、bindings保持、readonly/policy/stale零写。native系统API与浏览器模拟逐项区分。
+- [ ] **5.5 验证及提交。** 先真实focused RED再实现，cumulative strict→CORE full/type/build/artifact→精确source+dist提交→真实前驱受控installed→HOST focused/full/purity/空env build/Kit+image/mount/resize/recovery→精确HOST commit/installed audit→独立spec+quality review。未变门槛不为次数重复；原失败保留。index Node gzip上限103424，当前已验证102947仅余477；若实测超限先报告最小必要增量与复用情况，不静默加cap、不搬公开出口逃预算。最终share IIFE900KiB预算独立不变。
+
+**表示性矩阵。** 精确expected独立于serializer：路径空格/括号/%20/%25/中文/Windows、alt括号与ampersand、title quotes、table pipes、reference definitions、annotation/HTML外层marks、mixed EOL/无EOF。无法严格roundtrip的非canonical attrs拒绝且不改目标doc。相同attrs不同raw occurrence不得串用。probe零写，失败后合法请求可继续；unknown Step/subclass/假docs/maps/外来raw facts/protected编辑继续拒绝。
+
+Ruling: Task5允许仅迁移source-math-producer.spec.ts具名旧negative中的canonical math+image混合新生单ReplaceStep为正例，独立expected `__Keep__ $x$![](/x)`；同组empty math与birth后partial payload仍负例，原所有其它guard不变。真实installed独立image-design-mark-mixed已证原ReplaceStep(6,8,[math(x),image(/x)])的目标doc与该raw完整parser严格doc.eq，现拒绝源于未实现image能力 — 标准剪贴板混合内容不应凭旧缺能力负例继续退化 — 成本是一个边界用例迁移，Task5仍须实际producer GREEN/F1及审核，独立probe不当实现证据。
