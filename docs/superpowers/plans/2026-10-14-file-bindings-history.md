@@ -847,3 +847,6 @@ Ruling: Task5允许仅迁移source-math-producer.spec.ts具名旧negative中的c
 
 
 Ruling: Task3真实Mod+B退出粗体后紧接字母仍丢键，属于必修输入边界，不能换成先空格的验收规避。批准在source-inline-recipe既有adjacentEntities中，仅已保留em/strong wrapper内侧完整Unicode scalar为标点/符号、外侧本链新生scalar（before未定义）非空白/非标点符号时，对新生scalar使用现有数字entity emission；保留旧scalar/wrapper字节，完整左右surrogate分类，不改旧字范围、不做parse失败fallback、不扩其它mark权限。ROOT独立root-kept-mark-flanking-proof真实installed证明strong/em左右+x/中/𐐀共12例原单ReplaceStep当前semantic-mismatch，而独立entity expected完整parser严格doc.eq；writer普通无标点strong/em边界现状成功不变 — 成本是局部delimiter flanking兼容修补及source-inline-input/source-inline-recipe原真实输入/边界回归，前驱2eb07明确，须完整CORE gates后再commit/install与实际浏览器复验，原失败保留。
+
+
+Ruling: Task3链接连续输入补实际正向断言后确认真实产品拒绝：single Replace在noninclusive link末端插入plain text，from.marks为空导致误走exact映射到label内。批准source-fidelity在single exact Replace纯插入命中真实captured link edge pmFrom/pmTo时预选既有inline recipe，仅link family，不在候选parse失败后回退。ROOT独立root-link-boundary-proof证文件末端/中段目标raw完整parser严格doc.eq，而旧路径分别semantic-mismatch/unmapped；writer实际recipe对左x/右!/中段/不同href间x/ref右!均strict eq并只插边界。另新生无marks !紧邻实际输出的保留 '[' link opener前，复用局部literal转义为\!防止变图片；仅新生scalar，不改旧wrapper/definitions/标签内。Files source-fidelity/source-inline-recipe及现有source-inline-input/source-inline-recipe测试 — 成本是必要的局部source选路和标点生成修补，全部正向输入/原Step及ref/邻link回归后完整CORE门槛；当前103221距cap103424仅203，超限须先具名报告，旧浏览器仅负条件PASS保留为范围不足而非功能证明。
