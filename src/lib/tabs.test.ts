@@ -965,6 +965,23 @@ describe('tabs', () => {
     expect(settings.setRecentMode).toHaveBeenCalledWith('md', 'source')
   })
 
+  it('saveAs cannot enter a received target during admission and works after release', async () => {
+    const fs = await import('./fs')
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/outside.txt')
+    const tab = m.tabs[0]
+    m.setContent(tab.id, 'outside draft')
+    await m.withGuestFileUpdate(['/received/a.md'], async () => {
+      await m.saveAs(tab.id, '/received/a.md')
+      expect(fs.writeMd).not.toHaveBeenCalled()
+      expect(tab.filePath).toBe('/tmp/outside.txt')
+      return { value: true, writes: {} }
+    }, { root: '/received', managedPaths: [] })
+    await m.saveAs(tab.id, '/received/a.md')
+    expect(fs.writeMd).toHaveBeenCalledWith('/received/a.md', 'outside draft')
+    expect(tab.filePath).toBe('/received/a.md')
+  })
+
   it('openFile uses stored mode for extension', async () => {
     const settings = await import('./settings.svelte')
     ;(settings.getRecentMode as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce('rich')

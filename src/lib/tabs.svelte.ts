@@ -109,12 +109,12 @@ export async function withGuestFileUpdate<T>(paths: readonly string[], run: (che
   if (scope) guestUpdateRoots[scope.root]={token,frozen:false}
   for (const path of unique) { guestUpdates[path] = {token, frozen:false}; guestUpdateEpochs.set(path,markdownWriteEpoch(path)+1) }
   const included = (path:string) => unique.includes(path) || !!scope && path.startsWith(scope.root+'/')
-  const selected = tabs.filter(tab=>included(tab.filePath))
-  const identities = selected.map(tab=>({tab,path:tab.filePath,session:fileEditorSession(tab.id),identity:fileEditorSession(tab.id)?.baselineIdentity,
+  const capture = () => tabs.filter(tab=>included(tab.filePath)).map(tab=>({tab,path:tab.filePath,session:fileEditorSession(tab.id),identity:fileEditorSession(tab.id)?.baselineIdentity,
     mode:tab.mode, source:fileSourceGuard(tab.id), managed: !scope || scope.managedPaths.includes(tab.filePath), initial:tab.initialContent, raw:tab.currentContent, snapshot:fileEditorSession(tab.id)?.owner.snapshot()}))
+  let identities: ReturnType<typeof capture> = []
   let prepared = false
   const check = () => {
-    if (tabs.filter(tab=>included(tab.filePath)).some(tab=>!selected.includes(tab))) throw Error('GUEST_TAB_CHANGED')
+    if (tabs.filter(tab=>included(tab.filePath)).some(tab=>!identities.some(item=>item.tab===tab))) throw Error('GUEST_TAB_CHANGED')
     for (const item of identities) {
       const {tab,session}=item
       if (fileEditorSessionClosing(tab.id) || !tabs.includes(tab) || tab.filePath!==item.path || fileEditorSession(tab.id)!==session || session?.baselineIdentity!==item.identity || tab.mode!==item.mode || fileSourceGuard(tab.id)!==item.source) throw Error('GUEST_TAB_CHANGED')
@@ -123,6 +123,10 @@ export async function withGuestFileUpdate<T>(paths: readonly string[], run: (che
     }
   }
   try {
+    // Save As may already be writing here while its tab still belongs to another root.
+    // Reserve admission first, then drain target tails before capturing rebound identities.
+    await waitForMarkdownSaveTargets(included)
+    identities=capture()
     for (const item of identities) {
       const {tab,session}=item
       if (!item.managed || tab.kind!=='markdown' && tab.kind!=='mdx') continue
@@ -814,7 +818,7 @@ function renameAutoNamedTab(t: Tab, target: string, content = t.currentContent):
   return operation
 }
 
-const markdownSaveQueues = new Map<string, Promise<string | undefined>>()
+const markdownSaveQueues = new Map<string, { tail: Promise<string | undefined>; targets: Set<string> }>()
 
 async function waitForMarkdownSaves(tabId: string): Promise<void> {
   // A save can enqueue its successor before settling. Follow the current tail
@@ -823,8 +827,16 @@ async function waitForMarkdownSaves(tabId: string): Promise<void> {
   for (;;) {
     const pending = markdownSaveQueues.get(tabId)
     if (!pending) return
-    await pending.catch(() => undefined)
+    await pending.tail.catch(() => undefined)
     if (markdownSaveQueues.get(tabId) === pending) return
+  }
+}
+
+async function waitForMarkdownSaveTargets(included: (path: string) => boolean): Promise<void> {
+  for (;;) {
+    const pending=[...markdownSaveQueues.values()].filter(queue=>[...queue.targets].some(included))
+    if (!pending.length) return
+    await Promise.all(pending.map(queue=>queue.tail.catch(()=>undefined)))
   }
 }
 
@@ -838,10 +850,11 @@ export function persistMarkdownSnapshot(
   expectedEpoch = markdownWriteEpoch(t.filePath),
   guestToken?: symbol,
 ): Promise<string | undefined> {
-  return enqueueMarkdownSave(t, async () => {
+  return enqueueMarkdownSave(t, expectedPath ?? t.filePath, async trackTarget => {
     const path = t.filePath
     const internal = guestToken !== undefined && guestUpdates[path]?.token === guestToken
     if (!path || expectedEpoch !== markdownWriteEpoch(path) || (internal ? documentPolicyReadOnly(t) : isReadOnlyTab(t) || isGuestUpdateBusy(path)) || (expectedPath !== undefined && path !== expectedPath)) return
+    trackTarget(path)
     await writeMd(path, content)
     if (t.filePath !== path) return
     t.initialContent = content
@@ -853,11 +866,13 @@ export function persistMarkdownSnapshot(
     return t.filePath
   })
 }
-function enqueueMarkdownSave(t: Tab, write: () => Promise<string | undefined>): Promise<string | undefined> {
+function enqueueMarkdownSave(t: Tab, target: string, write: (trackTarget: (path: string) => void) => Promise<string | undefined>): Promise<string | undefined> {
   const previous=markdownSaveQueues.get(t.id)
-  const operation=(previous ? previous.catch(()=>undefined) : Promise.resolve()).then(write)
-  const tracked=operation.finally(()=>{if(markdownSaveQueues.get(t.id)===tracked) markdownSaveQueues.delete(t.id)})
-  markdownSaveQueues.set(t.id,tracked)
+  const targets=previous?.targets ?? new Set<string>()
+  targets.add(target)
+  const operation=(previous ? previous.tail.catch(()=>undefined) : Promise.resolve()).then(()=>write(path=>targets.add(path)))
+  const tracked=operation.finally(()=>{if(markdownSaveQueues.get(t.id)?.tail===tracked) markdownSaveQueues.delete(t.id)})
+  markdownSaveQueues.set(t.id,{tail:tracked,targets})
   return tracked
 }
 
@@ -1046,7 +1061,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
     return
   }
   const oldPath=t.filePath, epoch=markdownWriteEpoch(oldPath)
-  await enqueueMarkdownSave(t,async()=>{
+  await enqueueMarkdownSave(t,newPath,async()=>{
   if (t.filePath!==oldPath || epoch!==markdownWriteEpoch(oldPath) || isGuestUpdateBusy(oldPath) || isGuestUpdateBusy(newPath)) throw Error('GUEST_TAB_CHANGED')
   await writeMd(newPath, content)
   t.filePath = newPath

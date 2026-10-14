@@ -521,3 +521,5 @@ Ruling: Task7允许将update-prepare与新增窄update-read分开：prepare在�
 
 
 Ruling: Task7 pendingUpdate允许附已验证新manifest路径元数据（向后兼容default），只供更新操作的保存/输入准入和目标枚举；来源、路径、数量沿可信snapshot校验，正文与原bytes hash仍在受控窗口内update-read取得。保存只涉及旧approved workPaths；新manifest路径撞未知文件时只能冻结必要输入/检查，不把未知稿保存或纳入edits。碰撞另存的.shared/-2目标除磁盘存在检查，还必须防已打开但尚未落盘的目标及窗口内重绑被覆盖；沿已批准的tabs统一操作边界处理，不能只把磁盘不存在等同于无人编辑。— 锁外读取工作正文会使计划过时，单看磁盘也看不到新本地draft。— 成本是小型本机路径metadata及实际打开未落盘目标回归，不改变公开wire或新增服务。
+
+Ruling: Task7 fix1的原review probe保留原文件/原RED，新增wait-aware副本先在未修产品验证“旧SaveAs tail释放前更新callback不得进入”的真实RED，finally可靠释放旧保存，再修后GREEN并保留最终publisher S2原bytes断言。— 原probe故意await更新完成才释放旧保存，正确等待语义下会天然死锁，调度断言必须适应新增同步契约而不能削弱等待。— 成本是小型测试调度迁移，报告准确称同一场景新增准入时序回归RED→GREEN，不称原probe未经修改GREEN；生产保存合同不变。

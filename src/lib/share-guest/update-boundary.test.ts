@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 import { expect, it, vi } from 'vitest'
-import { mkdtemp, readFile, writeFile, stat, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile, stat, rm, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const mocked = vi.hoisted(() => ({ invoke: vi.fn() }))
+const mocked = vi.hoisted(() => ({ invoke: vi.fn(), beforeWrite: undefined as undefined | ((path: string) => Promise<void>) }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocked.invoke }))
 vi.mock('@tauri-apps/plugin-store', () => ({ Store: { load: async () => ({ get: async () => ({ token: 'synthetic' }) }) } }))
-vi.mock('@tauri-apps/plugin-fs', () => ({ readTextFile: (p: string) => readFile(p, 'utf8'), writeTextFile: (p: string, s: string) => writeFile(p, s), stat: (p: string) => stat(p) }))
+vi.mock('@tauri-apps/plugin-fs', () => ({ readTextFile: (p: string) => readFile(p, 'utf8'), writeTextFile: async (p: string, s: string) => {await mocked.beforeWrite?.(p);await writeFile(p, s)}, stat: (p: string) => stat(p) }))
 vi.mock('../settings.svelte', () => ({ settings: { mdblock: {enabled:false} }, pushRecentFile: async () => {}, getRecentMode: () => null, setRecentMode: async () => {} }))
 vi.mock('../plugins/custom-editors', () => ({ customEditorFor: () => null }))
 vi.mock('../plugins/runtime.svelte', () => ({ pluginRuntime: { manifests: [] } }))
@@ -22,7 +22,7 @@ import { mount, unmount, tick } from 'svelte'
 import { BrowserMediaResolver } from '@moraya/core/adapters/browser-media-resolver'
 import { mountFileEditor } from '../../editor-kit-v2/file-main'
 import { registerFileEditorSession, closeFileEditorSession, captureFileSave } from '../file-editor-sessions'
-import { tabs, activeId, withGuestFileUpdate, persistMarkdownSnapshot, markdownWriteEpoch, isReadOnlyTab, isGuestUpdateBusy, saveTab } from '../tabs.svelte'
+import { tabs, activeId, withGuestFileUpdate, persistMarkdownSnapshot, markdownWriteEpoch, isReadOnlyTab, isGuestUpdateBusy, saveTab, saveAs } from '../tabs.svelte'
 import { sha256Sync } from '../share-merge/hash'
 import SourceHarness from './UpdateSourceHarness.svelte'
 import {noteUi} from '../note-anno/note-ui.svelte'
@@ -201,4 +201,22 @@ it('host collision selection preserves an open unsaved shared target that does n
   await expect(readFile(f.path)).rejects.toThrow();expect(await readFile(join(f.root,'a.md'),'utf8')).toBe('unknown original\n')
   expect(await readFile(join(f.root,'a.shared-2.md'),'utf8')).toBe('published\n');expect(f.session.owner.snapshot().raw).toBe('still unsaved\n');await tick();expect(f.textarea.readOnly).toBe(false)
  }finally{await f.close()}
+})
+it.each([false,true])('received admission drains an already writing outside Save As target, including failure: %s',async(fail)=>{
+ const temp=await mkdtemp(join(tmpdir(),'guest-saveas-target-')),root=join(temp,'received'),outside=join(temp,'outside.txt'),target=join(root,'a.md')
+ await mkdir(root);await writeFile(outside,'outside');let release:(()=>void)|undefined,entered=false,updated=false,updating:Promise<unknown>|undefined
+ mocked.beforeWrite=async path=>{if(path===target){entered=true;await new Promise<void>(resolve=>release=resolve);if(fail)throw Error('injected Save As failure')}}
+ tabs.push({id:'outside-saveas',filePath:outside,title:'outside.txt',kind:'code',mode:'source',currentContent:'outside draft',initialContent:'outside',externalState:'fresh',externalBannerDismissed:false,lastKnownHash:'',lastKnownMtime:0})
+ const saving=saveAs('outside-saveas',target),settled=saving.catch(error=>error)
+ try {
+  await vi.waitFor(()=>expect(entered).toBe(true))
+  updating=withGuestFileUpdate([target],async()=>{
+   updated=true
+   if(!fail){expect(await readFile(target,'utf8')).toBe('outside draft');expect(tabs[0].filePath).toBe(target)}
+   await writeFile(target,'publisher S2');return{value:true,writes:{}}
+  },{root,managedPaths:[]})
+  await new Promise(resolve=>setTimeout(resolve,20));expect(updated).toBe(false);expect(isGuestUpdateBusy(target)).toBe(true)
+  release!();await settled;await updating
+  expect(await readFile(target,'utf8')).toBe('publisher S2');expect(isGuestUpdateBusy(target)).toBe(false)
+ }finally{release?.();await settled;await updating?.catch(()=>{});mocked.beforeWrite=undefined;tabs.length=0;await rm(temp,{recursive:true,force:true})}
 })
