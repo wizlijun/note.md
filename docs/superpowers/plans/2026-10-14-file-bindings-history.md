@@ -853,3 +853,6 @@ Ruling: Task3链接连续输入补实际正向断言后确认真实产品拒绝�
 
 
 Ruling: Task3新增empty stored-link逐键fixture按实际noninclusive PM事务修正expected为`[l](/url)ink!xyz`：首l有link mark、后续ink退出，原Step全部接受且未丢字；不改既有storedMarks/noninclusive语义以迎合测试。另保留真实公开link command一次完整label并继续键入的browser正向验证 — 原新fixture误假设每笔insertText自动延续非inclusive mark — 成本是一条新fixture预期更正，失败归验收假设错误不是产品RED，逐Step/strict/noU+200B仍必核。
+
+
+Ruling: Task3 fix1 I3真实adapter异常RED证mount已获得frontmatter destroy句柄后spreadsheet.create抛错，file-main仅移除root而未清已有资源。批准只在file-main挂载期间为这两个显式factory已获得的destroy句柄做一次性登记，正常NodeView destroy取消登记，创建成功释放临时登记，失败catch逆序清剩余；调用原handle.destroy保留this，cleanup单个抛错继续清理并诊断且保留原创建异常。CORE实际类型仅destroy方法（frontmatter可void），无需CORE/API/第二NodeView/全局资源框架 — 成本是必要挂载失败回收接缝，新增真实失败/正常close只一次/cleanup异常仍清完与原异常回归；不扩未被证明的长期资源管理。
