@@ -1,6 +1,8 @@
 # 项目分享：外部编辑/评审的回流与合并 —— 实现规格
 
-日期：2026-10-12。状态：**实现规格 v1（Opus 起草），§20 的 6 项产品决定已由用户确认，未实施。** 本文交给实现 agent 使用。
+> 2026-10-14 正式实施合同。前置已受理：CORE `6a6d0f940383c1e2cd19dc3c9c3df8f63e69baff` / HOST产品 `8a0b555ca6a0e8df226700fc74f67ffa64f3925e`；唯一全阶段审查及一次 finalfix/scoped复审完成，准确证据见 [docs/superpowers/reports/2026-10-14-file-bindings-history-verification.md](/Users/bruce/git/mdeditor/docs/superpowers/reports/2026-10-14-file-bindings-history-verification.md)。本合同的 E1–E4 尚待实施与发行。用户暂无移动设备，移动端真实中日 IME 保持待验，继续独立实现。
+
+日期：2026-10-12，事实对齐：2026-10-14。状态：**实现规格 v1 的正式交付修订；§20 产品决定已确认，前置共享编辑器已受理，E1–E4实施/验收与发行继续按§21分别记录。** 本文交给实现 agent 使用。
 上游：`2026-10-10-project-document-sharing-design.md`（收件与人工审阅合同）、`2026-10-10-current-document-project-sharing-design.md`（项目身份与生命周期）、`2026-10-12-project-share-free-upload-design.md`（分段发布）。本文只覆盖一段流程：分享出去 → 外部修改/评审 → 回到分享者 → 合入主项目。
 
 ---
@@ -52,7 +54,7 @@ note.md 的项目分享采用业界成熟的**投影 + 回流导入**模式（Co
 | 并发 | 进程内全局 `Mutex`，另加 `store::lock_records` 跨进程文件锁 | 同上 |
 | git | **桌面端没有 git2 依赖。** git2 只在 iOS 和 dev-deps 中；桌面一律通过外部 `git` CLI（`vault_sync::git_ops::run_git`） | `src-tauri/Cargo.toml` 的 `[target.'cfg(target_os = "ios")'.dependencies]` 注释 |
 | 深链 | 已集成 `tauri-plugin-deep-link`，权限是 `deep-link:default`；`onOpenUrl` 只处理 `file://`。**没有注册任何自定义 scheme** | `src/App.svelte` 中的 `onOpenUrl` |
-| 公开路由 | `GET /<slug>` 返回页面；`GET/HEAD /project/<slug>/download` 返回 ZIP。ZIP 内含 `.__notemd-<snapshotId>/manifest.json`（文件路径、hash、bytes） | `worker/src/project.ts` 中的 `handleProject`；`project-zip.ts` 中的 `validateProjectZip` |
+| 公开路由 | `GET /<slug>` 返回已发布阅读页；`GET/HEAD /project/<slug>/download` 返回 source-only ZIP，只含批准的源文档和附件，不加入 reader、内部 manifest 或管理文件。E4 从阅读页的公开 snapshot 投影校验清单，版本双读与旧包兼容见 §13.2 | `worker/src/project.ts` 中的 `publicProject`、`handleProject`；`src/lib/project-share/archive.ts` |
 | 编辑器 Kit | v1（`src/editor-kit/`）API 冻结，依赖图中不得出现 Tauri IPC；v2（`src/editor-kit-v2/`）提供块身份、`DecorationHost`、`mergeAcknowledgedDraft`（块级、只合不相交的修改）。两者都是 vite entry，并由 `scripts/check-editor-kit-build.mjs` 守护 | `vite.config.ts`、`src/editor-kit-v2/contract.ts` |
 | 批注 | 批注写成 CriticMarkup：`{==选文==}{>>批注<<}`，以及点批注 `{>>批注<<}`；由 moraya-core 解析和序列化，`sanitizeNote` 会把换行和 `<<}` 转义 | `../moraya-core/src/markdown.ts`；`src/lib/note-anno/note-commands.ts` |
 
@@ -184,6 +186,7 @@ project_share.rs ◄── project_share_git.rs        share_guest.rs
 - **偏移量**：所有 `start`、`end`、`oursStart`、`oursEnd` 都是 **UTF-16 code unit 偏移**（JS 字符串下标）。Rust 不解释偏移量，只做形状校验。
 - **换行与 BOM**：内核不得改写原文中的 `\r\n` 和 BOM（I6）。访客端提交前按 §7.1 做 EOL 对齐。
 - **时间**：ISO 8601 UTC 字符串。
+- **公开数据边界**：公开阅读页 snapshot 及 E4 从它投影的校验清单只含公开白名单字段，不含 `parentSnapshotId`、`git`、`gitError`、本机路径或凭据。source-only ZIP 不加入内部 manifest、reader 或 `.notemd` 管理文件；协作 token 不进入 ZIP、`received/`、日志或错误。旧包仅按 §13.2 验证既定两个内部元数据条目，绝不执行或写入收到的项目。
 
 ### 6.2 本机快照 manifest v2
 
@@ -214,7 +217,7 @@ project_share.rs ◄── project_share_git.rs        share_guest.rs
 
 - Rust 字段一律加 `#[serde(default)]`，保证 v1 manifest 可读。
 - `parentSnapshotId` 取 `Config.published_snapshot_id`，即上一次**成功发布**的快照。发布失败留下的孤儿快照不会成为父节点。
-- 公开包（`bundle.ts` 的 payload 和 ZIP 内的 manifest）**不得**包含 `parentSnapshotId`、`git`、`gitError`。
+- 公开包（`bundle.ts` 的 payload，以及 §13.2 从公开阅读页投影的校验清单）**不得**包含 `parentSnapshotId`、`git`、`gitError`。当前 source-only ZIP 不带内部 manifest；旧包元数据的兼容校验不得将本机敏感字段重新公开。
 
 ### 6.3 建议包（submission）v2
 
@@ -359,15 +362,24 @@ interface DraftV2 {
   lineageId: string
   snapshotId: string                         // 当前基线
   base: Record<string, { hash: string; markdown: string }> // 被编辑文件的基线原文（rebase 必需：新页面里不再有旧快照）
-  after: Record<string, string>              // 编辑后的全文，含访客的 CriticMarkup 批注（提交时再抽取）
+  after: Record<string, string>              // 唯一正文；含访客 CriticMarkup，提交时再抽取
+  editorFiles?: Record<string, FileRecovery> // 按 path 保存既有 file owner 的恢复缓存，不保存第二份正文
   annotationKinds: Record<string, 'comment' | 'question' | 'blocker'> // key = sha256(exact + '\0' + comment) 的前 16 位
   message?: string
   lastSubmissionId?: string                  // 用作下一次的 supersedes
   rebasedFrom?: string
-  previous?: { snapshotId: string; base: DraftV2['base']; after: DraftV2['after'] } // rebase 的撤销点；提交成功后清除
+  previous?: {
+    snapshotId: string
+    base: DraftV2['base']
+    after: DraftV2['after']
+    annotationKinds?: DraftV2['annotationKinds'] // E3 保存旧值；可选以兼容旧草稿
+    rebasedFrom?: string                        // E3 保存旧值，撤销时恢复
+  } // 完整 rebase 撤销点；成功提交的本机确认完成后清除
   pending?: { submissionId: string; body: string } // 已冻结、待投递的请求体（逐字节重放保证幂等）
 }
 ```
+
+`FileRecovery` 复用 `src/editor-kit-v2/file-contract.ts` 的既有类型，不另抄恢复协议。`after` 是唯一正文；恢复缓存的 raw hash、完整 bindings 或形状失配时只丢该缓存，保留原文并生成新身份，不以缓存授予源码写权限。旧草稿没有 `editorFiles` 或 `previous` 的新增可选字段仍可读，不升级 DB 或建议包协议。撤销 rebase 必须从 `previous` 恢复旧 snapshot/base/after/annotationKinds/rebasedFrom；缺省元数据按旧 v2 默认值恢复，不从当前快照猜造旧基线。
 
 ### 6.8 桌面访客客户端 `guest.json`
 
@@ -944,7 +956,7 @@ refs/notemd/share/<project_id>/exports/<submissionId>
 
 ### 12.2 构建与交付
 
-- **构建**：新增 vite entry `share-editor`，入口 `src/share-editor/main.ts`。
+- **构建**：以 `src/share-editor/main.ts` 为独立 Vite IIFE 构建入口，不能直接塞入现有多 entry 应用构建；应用构建读取并打包下面已冻结的同字节资源。
   - 输出格式为 **IIFE 单文件**：禁用代码分割，内联所有动态 import，CSS 单独输出一个文件。
   - 文件名为 `share-editor.<sha256>.js` 和 `share-editor.<sha256>.css`，其中 sha256 是**文件内容**的十六进制摘要。
   - 产出清单 `dist/share-editor-manifest.json`：`{ js: {name, sha256, sri}, css: {name, sha256, sri}, apiVersion: 1 }`，其中 `sri = "sha384-<base64>"`。
@@ -954,7 +966,7 @@ refs/notemd/share/<project_id>/exports/<submissionId>
   2. 文件名中的 hash 等于实际内容的 hash；
   3. 不含 `import(` 动态加载；
   4. 体积预算为 gzip 后 ≤ 900 KiB，超出时失败，要提高预算必须修改本 spec。
-- **Mermaid**：作为第二个可选资源 `share-editor-mermaid.<sha256>.js`，规则相同，只在文档里存在 mermaid 块时加载。这属于 E3。
+- **Mermaid**：作为第二个可选资源 `share-editor-mermaid.<sha256>.js`，沿用同源、内容 hash、SRI 和资源上限，manifest 可选记录 `mermaid: {name, sha256, sri}`。它属于 E3，仅编辑中的非空 mermaid 块需要预览时才加载，普通文本与只读页面不请求；主 IIFE 不含默认 Mermaid renderer 或库副本，独立资源体积另记，不藏入主包预算。显式 loader 与 SDK 默认行为迁移见 §21。
 - **Worker 端 `/_kit/<name>`**：
   - name 必须匹配 `^share-editor(-mermaid)?\.[a-f0-9]{64}\.(js|css)$`；
   - PUT 请求体 ≤ 8 MiB，服务端重新计算 sha256 并与文件名比对，不符返回 400；对象已存在且内容相同返回 200，否则写入后返回 201；
@@ -963,10 +975,10 @@ refs/notemd/share/<project_id>/exports/<submissionId>
   - 这些对象不会被清理（数量与应用版本数相当）。
 - **发布流程**（`host.ts` 中的 `publishProject`）：在上传 entry 之前，对 js 和 css 分别执行 HEAD 检查，返回 404 时 PUT。上传失败**不得**阻塞发布，页面里不写入 `editorKit`，访客端会自动走 textarea 兜底，并且发布结果中带上一条 warning。
 - **页面 payload** 新增两个字段：
-  - `editorKit?: { js: {url, integrity}, css: {url, integrity}, apiVersion: 1 }`
+  - `editorKit?: { js: {url, integrity}, css: {url, integrity}, mermaid?: {url, integrity}, apiVersion: 1 }`；同一次发布尝试冻结同一个 descriptor，包括资源失败时的缺省结果，重试不得换成较新的 kit。
   - `versionUrl`
 - **CSP**（修改 `bundle.ts` 中的 meta），只在存在 `editorKit` 时追加内容：
-  - `script-src 'nonce-N' <js 的完整 URL>`
+  - `script-src 'nonce-N' <js 的完整 URL>`；存在可选 Mermaid descriptor 时，仅再列出其完整同源 URL。
   - `style-src 'unsafe-inline' <css 的完整 URL>`
 
   其余指令保持不变。**不得**使用 `'strict-dynamic'`、通配路径、`'unsafe-eval'`。如果编辑器需要 `font-src`、`worker-src` 或 `wasm-unsafe-eval`，必须先修改本 spec。
@@ -978,16 +990,26 @@ refs/notemd/share/<project_id>/exports/<submissionId>
 ### 12.3 宿主与编辑器的接口契约（`apiVersion = 1`）
 
 ```ts
+type RebaseUiResult = { status: 'applied'; draft: DraftV2 } | { status: 'cancelled' }
+type ShareMermaidAppearance = {
+  theme: 'default' | 'dark'
+  themeVariables: {
+    primaryColor: string; primaryTextColor: string; primaryBorderColor: string
+    lineColor: string; secondaryColor: string; tertiaryColor: string
+  }
+}
 interface ShareEditorHost {                // 由内联脚本实现
   apiVersion: 1
   snapshot: { project_id: string; snapshotId: string; entry: string
               files: { path: string; hash: string; markdown?: string; dataUrl?: string }[] }
   theme: { themeId: string; cssVars?: Record<string, string> }
-  loadDraft(): Promise<DraftV2 | null>
-  saveDraft(d: DraftV2): Promise<void>     // 写入 IndexedDB；由宿主负责节流
+  loadDraft(): Promise<DraftV2 | null>      // 同 realm、固定 lineage 的共享 live aggregate
+  saveDraft(live: DraftV2): Promise<Readonly<DraftV2>> // 返回本次实际 atomic 写入的 detached clone
   submit(body: string, submissionId: string): Promise<{ ok: true } | { ok: false; status: number; message: string }>
   openFile(path: string): void              // 文件树导航仍由宿主负责
   notify(text: string): void
+  setFileBadges?(rows: readonly { path: string; changed: boolean; annotations: number }[]): void
+  loadMermaid?(): Promise<{ render(code: string, appearance: ShareMermaidAppearance): Promise<string> }>
 }
 interface ShareEditorModule {
   apiVersion: 1
@@ -1002,13 +1024,21 @@ interface ShareEditorHandle {
 }
 ```
 
+这是最终 API v1 合同，不表示 E1–E4 已实现。E1 实施阶段使用 `ShareEditorHandleE1 = Omit<ShareEditorHandle, 'rebase'>`，不提供空 rebase 方法；E3 实际完成后才返回完整 Handle 并冻结最终 API。
+
+`loadDraft` 共享固定 lineage 的同一 live aggregate，编辑器只更新 `after`、`editorFiles` 和 `annotationKinds`；`pending`、`previous`、`lastSubmissionId` 和送达确认由宿主唯一编排。`saveDraft` 进入现有同 lineage 的 atomic FIFO，在实际执行槽 clone 捕获的 live 对象及同身份 notes，原子写入成功后返回此次实际 durable detached clone；不得把调用时冻结的旧整 draft 排队覆盖较新的 pending 或正文。送达的 atomic 写与内存 `markDelivered` 完成共同占有队列槽，不能在二者之间插入旧保存。队列捕获固定 lineage 对象，不能执行时改读页面当前草稿。
+
+单文件保存复用已受理 `createShareFileSession`：同步捕获实际内部 baseline identity 与一致 snapshot，返回的 raw/recovery 精确匹配且基线实例未换代时才 ACK；observer 仅作信号并重读当前一致组合。同基线 B 保存/C 续写只 ACK B，换基线后忽略旧 ACK；内部 identity 不导出或持久化到公共 API。切文件与关闭先 flush 并取得实际 durable 回执，关闭期间按既有 owner 合同阻止续写；失败保留 owner、草稿和 history 并恢复先前 readonly，不猜测保存成功。
+
+`setFileBadges` 只传派生 UI 状态，不存第二份草稿。`loadMermaid` 由内联宿主持有冻结的同源 descriptor 并以 SRI 加载；返回模块的 `render` 接 code 与 appearance。六项颜色从实际编辑根取得，明暗由明确页面设置或系统偏好取得，`themeId` 不作为明暗枚举；安全 strict 参数与 SVG 净化不可由 caller 覆盖。
+
 ### 12.4 字节保持（硬约束 I7）
 
-做法：以 Kit v2 的块身份为基础。
+做法：消费共享 source fidelity 与唯一 file owner，以及已逐 Task 受理的 bindings/history 实现；最终 committed 源码、dist、installed 与真实 consumer 证据见上方前置冻结身份与阶段报告。E1 实际 IIFE 仍独立验收，不能以本节描述代替验收。
 
-1. 打开文件时，用快照原文构造 `EditorSnapshot`（`DocumentRevision{documentId: path, revisionId: snapshotId, blocks}`）。每个块保留原始 Markdown 字节和 blockId。
-2. 生成 `afterMarkdown` 时，只有被 Kit 操作触碰过的块才使用 `serializeSpan` 的结果，其余块原样使用快照字节。
-3. 源码模式下，直接编辑文本本来就满足字节保持。从源码切回富文本时，只重新解析发生了变化的块。
+1. 以快照原文创建共享 `FileInput`，完整 raw 是唯一 authority。成功 parser capture 产生源码事实与自然 roots；稳定 bindings 仅承载业务身份，synthetic/gaps 不伪造业务块，业务 ID、JSON 或 metadata 不授予源码写权限。
+2. Rich 通过同一 file controller 消费真实原 Step/docs 有序链，沿成功捕获的事实与局部 producer 生成 raw edits；未触碰切片保持原字节。安装前完成 protected 检查及最终完整严格 `doc.eq`，raw/doc/bindings/layout 一致才安装；不全文件重序列化、不重写目标 PM doc 迎合候选，也不在失败后绕过许可。`afterMarkdown` 直接取 owner 的完整 raw。
+3. Source 与 Rich 共用同一存活 PM owner 和原生 history。textarea 的 LF display 与原 raw 分离，经 UTF16/CRLF 安全的离散差分恢复实际 raw edits，再由同一 F1/source 准入与语义事务安装；切模式不另建正文 authority 或撤销栈。不能假定浏览器文本输入天然保留 BOM/EOL，也不能只解析所谓“变化块”跳过完整候选一致性验证。
 
 **验收语料**放在 `src/share-editor/__fixtures__/corpus/`，至少覆盖：
 
@@ -1050,7 +1080,9 @@ interface ShareEditorHandle {
 5. O 中没有被消耗完的条目（分享者批注被删除或改动）记入 `ownerAnnotationsTouched`。
 6. 返回 `{ clean, annotations, ownerAnnotationsTouched }`。如果 `clean` 与 base 相同，该文件不进入 `edits`。
 
-**编辑器保护**：分享者批注的 mark 带 `origin: owner` 属性，由 `filterTransaction` 阻止任何修改或删除这类 mark 的事务。主人侧在 `propose` 时仍会再校验一次，触及 base 中批注片段的 hunk 都会打上 `owner-annotation` 标记。
+**编辑器保护**：浏览器在每个基线挂载时，按同一原始 CriticMarkup 片段分别统计完整 base 与初始 draft 的多重集，并冻结 `floor(raw) = min(baseCount(raw), initialCount(raw))`。共享 controller 先验证完整 root+appendTransaction 及 history 有序 delta 的源码许可，只对安装前 raw 与最终候选 raw 执行一次纯 policy veto；最终任一种片段计数低于 floor 时，raw/doc/bindings/layout/generation 和 observer 全不安装、不发布。不得对 history 中临时移除后恢复的中间 delta 提前检查 floor；policy 通过也不能绕过 capture/protected/严格 `doc.eq`。
+
+允许复制后删除任意一个同文 occurrence，只要最低计数保持；这不是逐节点 `origin: owner` 身份保护。初始旧稿已改删分享者批注时只提示 `ownerAnnotationsTouched`，不强制修复原文；恢复后 undo 仍可回到初始 floor。普通 Source、restore、paste/drop、Rich 和原生 undo/redo 共用该最终边界，不重冻 floor。rebase/撤销 rebase 必须以目标 snapshot+目标 draft 显式准备新 policy，成功切换基线才重冻，不能省略 policy 沿用旧 floor；公开 URL、草稿和 ShareEditor API 不得关闭保护。桌面访客允许编辑分享者批注，但提交前必须明确提醒并由用户继续（§13.3）。主人侧在 `propose` 时仍会再校验一次，触及 base 中批注片段的 hunk 都会打上 `owner-annotation` 标记。
 
 **kind**：从 `DraftV2.annotationKinds` 中查得；查不到时为 `comment`。
 
@@ -1062,7 +1094,9 @@ interface ShareEditorHandle {
 - 删除分享者批注：会被报告。
 - 嵌套或残缺语法：当作文本，不崩溃。
 
-### 12.6 组包（`buildSubmission`）
+### 12.6 组包（`buildSubmission`）与用户提交
+
+浏览器与桌面调用同一纯 TS 组包函数。`ShareEditorHandle.buildSubmission` 只 flush 实际文件 owner、捕获一致 draft 并返回 `{body, submissionId, summary}`；不冻结 pending、不调用 `host.submit`、不 POST、不更新送达记录。flush 可触发普通草稿保存，但预览或调用 build API 本身没有提交副作用；flush 失败不产包。
 
 对每个有草稿的文件，执行以下步骤：
 
@@ -1070,18 +1104,27 @@ interface ShareEditorHandle {
 2. 当 `clean ≠ base` 时，生成 `edits[{path, baseHash, afterMarkdown: clean}]`；
 3. 合并所有批注。
 
-v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值。`message` 和 `contributor` 来自提交面板。请求体用 `JSON.stringify` 一次生成，先冻结进 `DraftV2.pending`，再交给 `host.submit`。
+v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值。`message` 和 `contributor` 来自提交面板。纯 builder 不读取时钟、随机数或网络；handle 为本次新 build 生成 submissionId 后传入，按确定性输入生成一次 JSON body。`ownerAnnotationsTouched` 只留本机提示，不进入建议包。
+
+**唯一浏览器 submit 编排**是内联 `browser.ts` 的显式用户提交 handler，以单一 busy/lineage 锁去重。已有 pending 时直接重试原 id/body，跳过 build、新 id 和再次冻结；无 pending 才调用 build，核对 lineage/snapshot 未切换，在既有 atomic 队列中合并最新 live draft 并耐久写入不可变 pending，不以旧 build 快照覆盖后续 after。durable 成功才调用一次 `host.submit(body,id)`；后者仅验证参数与已耐久 pending 相同、强制版本检查并执行一次原有 POST，不重新组包/冻结/清除状态或另起发送。成功后的 submitted/lastSubmissionId、匹配 pending 与 previous 清除由原 handler 在同一既有送达流程确认；失败或本机确认失败保留 exact pending。飞行中续输入保留，flush/build 期间 lineage 切换则取消该次新包。fallback 也沿同一 handler，不增第二 POST 流程；无法抽取增强 Critic 草稿时保留原文并要求恢复 kit 或导出，不能漏抽取后冒充正确 v2。
+
+桌面同样仅用户明确提交的 host 流程调用纯 builder→Rust queue 耐久一次→deliver 一次；重试直接发送已存 outbox 的原 body/id，不重新 build 或 queue。
 
 ### 12.7 rebase 界面（E3）
 
-对每个草稿文件，执行 `rebaseDraft({oldBase: draft.base[path].markdown, newBase: 新快照[path], draft: draft.after[path]})`。
+先抽取访客批注，对每个草稿文件调用唯一内核 `rebaseDraft({oldBase: draft.base[path].markdown, newBase: 新快照[path], draft: clean})`，随后重锚批注，不另写 diff3 或 Critic serializer。
 
-- **结果干净**：直接替换。
-- **有冲突**：在编辑器中，用 `DecorationHost` 的 `proposal` 层标出冲突块，冲突逐个解决（三种选择见 §7.10）。
-- **文件已被移出新快照**：进入「无法迁移」列表，只能导出。
-- **批注**：用 `anchor` 重新锚定到新文本上。`orphan` 的批注列出来，由访客手动处理。
-- **撤销点**：完成前把旧状态写入 `DraftV2.previous`，「撤销 rebase」恢复它。提交成功后清除。
-- **完成后**：设置 `snapshotId = 新快照`、`rebasedFrom = 旧快照`、`base = 新快照中对应文件`。
+- **结果干净**：准备新候选，尚未完成整次 rebase 前不替换当前 owner/base。
+- **有冲突**：在编辑器中，用 `DecorationHost` 的 `proposal` 层标出冲突块，冲突逐个解决（三种选择见 §7.10），决定交给同一 `compose`。
+- **文件已被移出新快照**：进入「无法迁移」列表，只能导出；未明确完成处理不静默丢弃旧 raw。
+- **批注**：用 `anchor` 重新锚定到新文本上。`orphan` 的批注列出来，由访客手动处理；保留 kind 与对应 annotationKinds，不丢批注。
+- **准入**：pending 存在时不得换 base；已有 previous 时先提交完成或撤销上次 rebase，不覆盖旧撤销点。取消返回 `{status:'cancelled'}` 并保留旧状态。
+- **撤销点与耐久边界**：host 创建新的 aggregate 对象，previous 完整保存旧 snapshotId/base/after/annotationKinds/rebasedFrom；先完成 previous 与新草稿的耐久写入，再以目标 snapshot+目标 draft 显式 `installBaseline(input,{policy:newPolicy})`。不在前置 bindings Task4 已交付的单文件 `createShareFileSession` 上新增 rebase API。
+- **基线切换**：成功构造目标 owner/controller 后才交换 aggregate、policy、authority 与 history，失败恢复旧 aggregate/base/owner/history，并保留可恢复候选。不能只依赖 authority 字符串或重置 generation 判断是否换代，沿 §12.3 内部基线实例隔离旧保存回执。
+- **完成后**：新 aggregate 的 `snapshotId = 新快照`、`rebasedFrom = 旧快照`、`base = 新快照中对应文件`，返回 `{status:'applied',draft:新草稿}`。
+- **撤销 rebase**：从 previous 恢复旧 raw/base/snapshot 及可选元数据，并以该目标 snapshot+draft 显式重建 floor/policy；不得继承新基线 floor。previous 只在成功提交的本机确认后清除，重新加载仍可恢复未完成事务。
+
+这部分由 E3 首次实现和验收，既有单文件保存适配不等于多文件 rebase 已交付。
 
 ### 12.8 「我的修改」与提交面板（E2）
 
@@ -1122,14 +1165,15 @@ v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值�
 
 ### 13.2 下载与落盘（`share_guest.rs`）
 
-1. **查询版本**：`GET <origin>/project/<slug>/version`，失败时中止。
-2. **下载归档**：`GET <origin>/project/<slug>/download`。上限沿用 Worker 的 `MAX_ZIP_BYTES`，在 Rust 中计数读取。
-3. **校验 ZIP**：按 `validateProjectZip` 的规则在 Rust 中重新实现一遍：
-   - 内部 manifest 必须是 `schemaVersion 1`，`project_id` 和 `snapshotId` 与版本接口一致；
-   - 文件数、大小、hash 必须逐一相符；
-   - 路径用 `validate_relative` 校验，不得含 `.notemd` 段，不得出现大小写折叠后重名；
-   - 不得有清单之外的文件；
-   - 单个文件解压后有大小上限，防止解压炸弹。
+1. **查询版本 V1**：`GET <origin>/project/<slug>/version`，失败时中止，必须为公开 schemaVersion 1 且 `archiveReady = true`。公开下载不需要协作 token，不把 token 带入 reader 或 ZIP 请求。
+2. **取得外部清单并下载候选**：依次读取已发布 reader（`GET <origin>/<slug>`）、source-only ZIP（`GET <origin>/project/<slug>/download`），再查询版本 V2。V1/V2 的 schemaVersion、project_id、snapshotId 必须一致且都 archiveReady，reader 的公开 snapshot 身份也必须一致；变化或任一失败时丢弃候选，不落盘、不切基线，保留已有工作文件并提示重新检查，不无限重试。reader 最多 25 MiB，ZIP 最多 32 MiB，流式逐字节计数，不信任 Content-Length；关闭重定向，不隐式改变确认过的 host。
+   - reader 只以小型确定性 HTML 标签扫描器提取真实 script raw-text 边界内唯一 `id=project-data`、`type=application/json`。跳过注释、按引号解析属性，属性名 ASCII 大小写不敏感；重复属性或第二个同 id（不论 type）拒绝。不得用任意 regex 搜索假 payload，不执行 HTML/脚本，不用 WebView/DOM 执行器。
+   - JSON 所有对象重复键拒绝；只从顶层 snapshot 读取公开 schemaVersion 1 白名单，忽略 presentation，不接受 sourceRoot/git/本机身份授权。保留 JSON 正常转义解码语义，hash 取解码后原正文 UTF-8 字节，不能隐式去 BOM。投影外部校验清单：files 为 1..512、清单不超过 256 KiB、源文件总和与单项都不超过 25 MiB；严格验证 ID/hash/entry/path、每项 bytes 与正文/资源的一致性。不新增 Worker manifest artifact、接口或路由。
+3. **校验 ZIP**：使用上述同快照外部清单完整验证，current source-only ZIP 不含 reader 或内部 manifest：
+   - 清单内源文件必须齐全，逐项实际解压 bytes/hash 相符；累计源解压不超过 25 MiB，逐项计数防止解压炸弹。
+   - 路径沿现有 `validate_relative` 校验；UTF-8 路径不超过 1024 B，不得有反斜杠、冒号、控制符、空段、点段、绝对路径、`.notemd` 或大小写折叠重名。既有 `.note.md/.notes.md`、隐藏段、node_modules、凭据命名拒绝规则保持；恶意源直接拒绝，不改名规避。
+   - 只接受 stored/deflate 的 regular file；拒绝 symlink/hardlink/device、加密、多磁盘、重复路径、目录外记录、重叠或未列本地头、central/local 头冲突与 CRC 错误。不得有清单外源文件。
+   - 兼容 legacy 包时只额外允许既定 `.__notemd-<snapshotId>/manifest.json` 与 `.__notemd-<snapshotId>/reader.html` 两个内部元数据条目，并与外部 snapshot 核对；内部 manifest 最多 256 KiB、reader 额外最多 25 MiB。它们只验证，绝不执行或写入 received 项目；其它管理条目拒绝。原 source ZIP 不因缺内部 manifest 被拒绝。
 4. **确定落盘位置**：`Vault/received/<host>/<project_id>/`。`<host>` 取小写主机名，端口用 `_` 连接，例如 `share.example_8787`。如果该目录已经存在：
    - 其中 `guest.json` 的 `project_id` 一致：转入更新流程（§13.4）；
    - 不一致：报错，不覆盖。
@@ -1447,7 +1491,7 @@ WP0.2 ─┤      │
 | 3 | 回执 | **默认开启**，可对单份提交关闭 | §8.5、§10.3 |
 | 4 | 逐人邀请 | **暂不做**，以轻便易用为先 | §1.3-6 |
 | 5 | 分享是否包含主人批注 | **包含**，不加开关，访客只读 | §12.5 |
-| 6 | 编辑器的交付方式 | **只放线上**（同源、内容寻址、SRI）；离线归档只保证可读；需要离线协作的人用 note.md 打开 | §12.2、§13 |
+| 6 | 编辑器的交付方式 | **只放线上**（同源、内容寻址、SRI）；source-only 离线归档中的原 Markdown/附件由本地阅读器打开，不承诺 ZIP 内离线 HTML reader；需要富文本离线协作的人用 note.md 打开 | §12.2、§13 |
 | 7 | 现有 Kit 与桌面 Rich 未通过源码保真门槛（2026-10-13 后续确认） | **增加共享编辑器保真前置，再完成网页与桌面协作**：保留原始源码、仅局部序列化；保留 I7 与 §12.4 判据，不以格式差异过滤绕过 | §12.4、§13、§21；[前置计划](../plans/2026-10-13-shared-editor-source-fidelity.md) |
 
 本规格新增的工程决定：
@@ -1457,7 +1501,7 @@ WP0.2 ─┤      │
 | D1 | 合并内核用纯 TS 写一份，三端共用；撤销原提案中的「libgit2 merge_file」 | 桌面端没有 git2；三端需要一致的 hunk ID |
 | D2 | 散文以「句子 token」为合并单位；首尾相接的修改不算冲突 | 让「两人改同段不同句」能够自动拆开，并且结果确定、ID 稳定 |
 | D3 | git 只通过 CLI 访问，用临时 index 造树 | 与仓库现有做法一致，不碰用户状态 |
-| D4 | 版本号单独提供一个公开接口；ZIP 内已有 manifest，不再另设 manifest 接口 | 最小改动 |
+| D4 | 版本号单独提供公开接口；source-only ZIP 不带内部 manifest。E4 按 V1→已发布 reader→ZIP→V2，从唯一 project-data 的公开 snapshot 投影外部清单，不另设 manifest 接口或 Worker 路由 | 保持既有源包及分段上传协议；接受一次有界 reader 读取和版本竞态校验成本 |
 | D5 | 回执单独使用 `receipts/` 前缀 | 不破坏 `listFeedback` |
 | D6 | 编辑器资源打包成 IIFE 单文件，以经典脚本加 SRI 加载 | 动态 `import()` 无法附带 SRI |
 | D7 | 访客批注统一用「与 base 的 CriticMarkup 多重集差」来识别 | 浏览器与桌面共用同一算法，不引入新语法 |
@@ -1468,12 +1512,16 @@ WP0.2 ─┤      │
 
 | 事项 | 默认做法 | 核实不通过时 |
 | --- | --- | --- |
-| Kit v2 能否满足 §12.4 的字节保持 | 先用 WP-E1 的语料测试 | E1 阻塞，回报给人，不得绕过 |
-| Kit v2 的 annotation mark 是否支持 `origin` 属性与 `filterTransaction` 保护 | 扩展 mark 的 attrs | 在 PR 中说明替代方案 |
+| 共享 file owner 能否满足 §12.4 的字节保持 | 复用已受理 source fidelity/bindings/history，实际 committed+installed SHA 与最终 IIFE 各自验证原 corpus、三次零 diff、一字 raw index expected 及真实 propose 一 hunk | 前置冻结身份见上方阶段报告；E1 实际产物门槛未过仍阻塞，不得绕过 |
+| 分享者批注保护替代方案 | 按 §12.5 冻结同 raw 多重集 floor，最终候选一次 veto；同文复制后删除任意 occurrence 可通过，不等于逐节点 origin 保护 | 在实施报告与用户可见限制中记录；旧已改批注不强制修复，仍报告 ownerAnnotationsTouched |
 | `revokeProject` 或删除流程是否清理 `feedback/` | 回执随之处理（§10.3） | — |
 | Tauri deep-link 在 Windows 和 Linux 上注册 scheme 的方式 | 按 Tauri v2 文档实现 | 如果只能在 macOS 上做到，界面隐藏按钮，只保留菜单入口 |
 | `@testing-library/svelte` 和 `fake-indexeddb` 是否已在 devDependencies 中 | 缺失时新增，限 devDependency | — |
-| share-editor 的体积预算（900 KiB gzip） | 实测 | 超出时回报，不得擅自提高 |
+| share-editor 的体积预算（900 KiB gzip） | 实测最终主 IIFE 与必要可执行闭包，可选 Mermaid 独立记录；CORE 的预算不能代替此预算 | 超出时回报，不得擅自提高 |
+| Mermaid seam M0 与 SDK 默认迁移 | 后继交付 Task1 先实现显式 MermaidLoader；共享 setup/NodeView 无默认 renderer 加载边，flag false 抑制注入，true 不创造默认 loader。无 loader 显示可编辑源码；桌面显式注入原 CORE 可选 renderer，旧 Kit false 保持源码。pending/completed cache 同时按 schema/registry/loader 身份隔离，防异步迟到写回并保留失败源码 | 未实现或真实 installed 图/产物 AST/预算/桌面回归未过时阻塞 E1；在 CORE/HOST 未发布日志、API 文档和迁移用例明确无参数 SDK 自动 preview 行为改变，不加隐式 fallback 或第二 factory |
+| 真平台与设备证据 | macOS Safari/Chrome、iOS Safari、Android Chrome × 中文/日文 IME × tablecell/list，以及 Desktop macOS 菜单/键盘/普通 input fallback，按实际 OS/browser/app/IME 版本与 raw 结果记录 | 用户已明确暂时没有移动设备，iOS Safari/Android Chrome 中文、日文真实 IME 保持待验；不重复询问或停下独立实现。前置三次原生 UI 库存因 Sky native pipe 失败未能实测，macOS/原生 UI 相应项仍待验；headless Chromium 或合成 composition 不能替代真实系统 IME、Safari 或设备实测，不宣称全平台完成 |
+
+前置 bindings Task1–5 已逐 Task 受理，其报告只证明列明 SHA 与验证范围；前置最终 phase/收尾身份已在阶段报告确认，真实 IIFE/原生交付仍由后继证据确认，不将本地 commit、前置单元测试或旧 Kit 的失败直接冒称 E1–E4 已完成或已进入安装包。免费 Worker CPU 的既定严格门槛及未通过的 10ms 遗留保持，后继必须绑定实际部署版本重新验证，不以本候选或新路径通过清除旧缺证。
 
 ---
 

@@ -1,0 +1,410 @@
+# Browser E1–E3 and Desktop E4 Implementation Plan
+
+> 2026-10-14 正式实施合同。前置已受理：CORE `6a6d0f940383c1e2cd19dc3c9c3df8f63e69baff` / HOST产品 `8a0b555ca6a0e8df226700fc74f67ffa64f3925e`；唯一全阶段审查及一次 finalfix/scoped复审完成，准确证据见 [docs/superpowers/reports/2026-10-14-file-bindings-history-verification.md](/Users/bruce/git/mdeditor/docs/superpowers/reports/2026-10-14-file-bindings-history-verification.md)。本合同的 E1–E4 尚待实施与发行。用户暂无移动设备，移动端真实中日 IME 保持待验，继续独立实现。
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. ROOT 已核对规格、真实接口与逐Task生产者/消费者，正式按下列8 Task串行实施。
+
+**Goal:** 完成同一保真编辑器的网页协作与桌面离线协作，并证明提交、主人审阅、回执和更新两条真实用户链路。
+
+**Architecture:** 保留当前local-first源文件、现有Worker/R2/KV和v2建议包；分享kit用独立IIFE、内容寻址和SRI交付。浏览器/桌面调用同一TS合并内核与组包函数；桌面Rust负责有界下载、安全IO、base/outbox和CAS更新，永不实现第二套diff3。
+
+**Tech Stack:** TypeScript、Svelte5、ProseMirror、现有@moraya/core、Vite6、Vitest、已安装Playwright、Rust/Tauri2、reqwest、zip2.2、现有Wrangler3。
+
+**Spec:** `docs/superpowers/specs/2026-10-12-project-share-review-merge-design.md`；本OWN `docs/superpowers/specs/2026-10-14-project-share-docs/superpowers/specs/2026-10-14-project-share-browser-desktop-delivery-design.md`解释现行源码seam及需同步的陈旧条文。
+
+## Global Constraints
+
+- I1 base只取声明snapshot原字节；I2主人源文件只经ProjectStore::apply；I4单一TS内核；I6/I7不归一BOM/EOL、不过滤格式差异、不全文件重序列化。
+- Worker不理解正文；不新服务/数据库/协作DO；保持免费方案、现行分段上传协议和source-only ZIP。
+- v1永久兼容；v2≤5MiB、edits/annotations各≤2000、message≤2000 UTF16、name≤80无Cc、正文不含凭据。offset为UTF16。
+- kit name严格 `^share-editor(-mermaid)?\.[a-f0-9]{64}\.(js|css)$`；PUT≤8MiB；js/css SHA256内容命名、SHA384 SRI；IIFE禁止动态import；主kit gzip≤900KiB；旧kit永不删除。
+- CSP不加strict-dynamic、unsafe-eval或通配路径；不使用第三方CDN；只读链接不请求/_kit。
+- 分享者批注browser保护；desktop允许改但显式提醒；所有访客数据纯文本/净化渲染，不自动加载外部资源。
+- token只在IDB/app-data Store；不得进vault、ZIP、日志、错误、回执；没有token仍可下载公开ZIP，但不能提交/读receipt。
+- 不读.env；运行时只root受控加载发布凭据且不得打印。所有pnpm验证加 `env pnpm_config_verify_deps_before_run=false`，不触发隐式安装。
+- 本规划未运行任何测试/build/install/发布。前置 bindings 的实际 mount/owner/单文件保存 API 已实现并逐 Task 受理；最终 phase 与收尾 SHA 见上方冻结身份。下面命令是后继 E1–E4 的将来步骤，不表示已执行。每Task独立记录RED→GREEN/类型检查/精确提交SHA，未提交必须明确标注。
+- 现有工作目录main，不新worktree；不替并行任务提交dirty文件；发布前审所有worktree/分支/stash和补丁等价。
+- 真IME矩阵为macOS Safari/Chrome、iOS Safari、Android Chrome × 中文拼音/日文假名 × 表格cell/列表；当前后两平台无可用设备，保持“未验收”，合成事件不能替代。
+
+---
+
+## File Structure / 前置接线门槛
+
+先读design inventory；只改本Task明确文件。前置 bindings Task3 已交付 `src/editor-kit-v2/file-contract.ts` / `file-main.ts` / `main.ts` 中的 `mountFileEditor`、FileEditorOwner、FileSnapshot、同一 PM history 与 Source 输入，以及 design §3.2 的 adapters/render/pure-veto/decorations/annotations 接口；E1 以本合同列明的前置冻结提交消费。pure-veto由bindings Task2的createFileController首产，Task3仅传递；controller先完整准入root+append事务及所有history有序delta，最后对初始raw/最终raw纯调用一次policy，拒绝时raw/doc/bindings/layout/generation与observer全不发布。不得在history delta中间态执行veto。既有 `createShareFileSession` 已实现于 `src/share-editor/file-session.ts`，E1在该文件继续接线，不创建另一个factory。
+
+前置确切公开接口：`mountFileEditor(container,options):Promise<MountedFileEditor>`；owner `snapshot/replaceSource/execute/canExecute/executeSlash/canExecuteSlash/undo/redo/canUndo/canRedo/restoreContent/installBaseline/setReadOnly/flush/observe/close`；snapshot.raw完整保留文件字节。`installBaseline(input,options?:{policy:FilePolicy|null})`在成功构造目标controller后才原子交换policy/authority/history；分享rebase/undo-rebase显式传以目标snapshot+目标draft新建的policy，省略仅兼容普通host，null不向URL/draft/公开ShareEditor API开放。共享file-main/file-contract/file-controller只接显式adapters并保持browser-safe；未传字段仅用core既有browser-safe默认，无默认的必需项由调用者提供。桌面 RichEditor 对应宿主调用路径已在前置 bindings 中组装现有 Tauri/media/link/platform 等依赖并传入；共享路径不得导入desktop工厂/Tauri总模块/默认bridge，不靠tree-shake或dynamic alias，不增第二factory。adapters 的来源是 CORE `src/setup.ts` 的公开 `CreateEditorOptions`；`DecorationHost` 来自 HOST `editor-kit-v2/contract.ts`。FileAdapters 类型可选不表示 mediaResolver 可缺省；当前 mount 会拒绝缺失的 mediaResolver。E1不得从未提交core源码直接导入，也不得绕过已安装dist。
+
+后继文件职责：
+
+| 新/改文件 | 责任 |
+|---|---|
+| `src/share-editor/contract.ts`, `main.ts`, `ShareEditor.svelte`, `share-editor.css` | 固定浏览器API v1、UI、全局注册 |
+| `src/share-editor/file-session.ts`, `media.ts`, `owner-policy.ts` | 复用前置file owner、批准资源、browser owner保护 |
+| `src/lib/project-share/guest-submission.ts` | 两端纯TS统一组包，不含IDB/IPC/fetch |
+| `src/share-editor/changes.ts`, `rebase.ts`, `RebasePanel.svelte`, `mermaid.ts` | proposal/revert、rebase事务、可选渲染器 |
+| `scripts/build-share-editor.mjs`, `check-share-editor-build.mjs` | 独立IIFE构建、hash/SRI、依赖图/闭包预算 |
+| `worker/src/kit.ts`, `worker/tests/kit.test.ts` | 同源不可变资源 |
+| `src/lib/project-share/{browser,bundle,host}.ts` | 现行IDB/发布状态机的kit接线 |
+| `src-tauri/src/share_guest.rs`, `share_guest/{archive,reader,store}.rs` | 原生IPC分发、有界归档/reader解析、受管工作目录 |
+| `src/lib/share-guest/{types,host,link,update}.ts`, `state.svelte.ts` | 客户端合同、IPC/Store、深链解析、内核编排 |
+| `src/components/share-guest/{OpenShareDialog,GuestPanel}.svelte` | 网络前确认和项目侧栏 |
+| `scripts/check-share-editor-browser.mjs`, `check-share-guest-native.mjs` | 真实产物浏览器与原生验收recording入口 |
+
+## Task 1: 共享组包、保真mount和批注/媒体能力
+
+**明确前置 M0（本 Task 首生产，等 bindings 阶段受理后串行实施）：** 按 `docs/superpowers/specs/2026-10-14-mermaid-loader-design.md` §4–6 在 CORE 增加纯 `MermaidApi/MermaidLoader`、setup/NodeView 显式注入，删除共享运行时对默认 mermaid-renderer 的加载边；flag false 抑制注入，true 不创造默认 loader。pending 与完成 cache 同时按 schema/registry/loader 身份隔离；保留专有 NodeView，防异步迟到写回与失败隐藏源码。desktop bridge 注入原 CORE 可选 renderer（稳定 adapter）；旧 Kit false 保持源码。新增 focused RED/GREEN、旧主题测试显式注入、产物实际图/installed 字节验收与 SDK 迁移文档，记录无参数 SDK 自动预览行为改变。无第二 factory、无别名/stub/字符串改写，registry 不注册 Mermaid。FileAdapters 增加 mermaidLoader 并透传，共享 mount 不 import desktop adapter；E1 无 loader 并以真实 Mermaid 草稿验零加载。预算按当前已受理 CORE 口径重新核，不能预称通过。
+
+**Task 1 首产纯主题类型，Task 4 首实现：** `ShareMermaidAppearance={theme:'default'|'dark';themeVariables:{primaryColor:string;primaryTextColor:string;primaryBorderColor:string;lineColor:string;secondaryColor:string;tertiaryColor:string}}`。render 必须接 code 与 appearance。reader data-theme 是冻结 themeId，不是暗色枚举；Task4 adapter 每次从实际 mount root 读取六项 CSS 颜色，明暗来自明确页面设置或系统偏好。仅六色，调用者不能覆盖 strict 安全参数。
+
+
+**Files:** Create `src/share-editor/{contract,main,media,owner-policy}.ts`、`ShareEditor.svelte`、`share-editor.css`及同名tests；Modify前置 `file-session.ts`；Create `src/lib/project-share/guest-submission.ts`/test；必要仅按前置已采纳合同改file-contract/file-main；Create `src/lib/i18n/runtime.svelte.ts`、`src/lib/slash-menu/slash-items-common.ts`、`src/editor-kit-v2/file-menus.ts`；Modify `src/lib/i18n/store.svelte.ts`、`src/lib/slash-menu/{SlashMenu.svelte,slash-items.ts}`、`src/lib/note-anno/NoteEditPopup.svelte`及对应tests；双CHANGELOG。
+
+**Interfaces:** 使用主spec §12.3完整ShareEditorHost及最终ShareEditorModule/Handle，不改submit/body协议；本Task module实际返回E1 handle（下述精确Omit类型），Task3消费 `ShareEditorHandleE1 & Partial<Pick<ShareEditorHandle,'rebase'>>`，Task4才将module返回类型收紧为完整Handle。补齐spec未定义 `RebaseUiResult={status:'applied';draft:DraftV2}|{status:'cancelled'}`，Task4产出；host增加可选 `loadMermaid?():Promise<{render(code:string,appearance:ShareMermaidAppearance):Promise<string>}>`（Task4首实现，同源SRI加载由inline host持有descriptor）；另可选 `setFileBadges?(rows:readonly {path:string;changed:boolean;annotations:number}[]):void`，只传派生UI状态、不持久化第二份draft；正式API文档一并列出，避免浏览器内联脚本复制内核做徽标。
+
+```ts
+export interface SubmissionInput {
+ project_id:string;draft:DraftV2;submissionId:string;
+ client:{kind:'browser'|'notemd';version:string};
+ message?:string;name?:string;aiAssisted?:boolean
+}
+export interface BuiltSubmission {
+ body:string;submissionId:string;
+ summary:{files:number;blocks:number;annotations:number};
+ ownerAnnotationsTouched:readonly {path:string;raw:string[]}[]
+}
+export function buildGuestSubmission(input:SubmissionInput):BuiltSubmission
+export function ownerAnnotationFloor(base:string,initial:string):ReadonlyMap<string,number>
+export function acceptsOwnerFloor(floor:ReadonlyMap<string,number>,candidate:string):boolean
+// scanOwnerAnnotations使用share-merge/critic.ts已有实现；不新写Critic解析器。
+// bundleMediaResolver(files,currentPath)返回core MediaResolver；只解析批准dataUrl。
+```
+
+- [ ] **1.1 组包真实RED。** 新test直接调用实际extract/propose/anchor，不mock内核：
+
+```ts
+const base='\uFEFF{==主人==}{>>保留<<}\r\n\r\n风险。\r\n'
+const raw='\uFEFF{==主人==}{>>保留<<}\r\n\r\n{==风险==}{>>请量化<<}！\r\n'
+const draft:DraftV2={v:2,lineageId:'L',snapshotId:'S1',
+ base:{'a.md':{hash:sha256Hex(base),markdown:base}},after:{'a.md':raw},annotationKinds:{}}
+const r=buildGuestSubmission({project_id:'P',draft,submissionId:'I',client:{kind:'browser',version:'test-version'}})
+const p=JSON.parse(r.body)
+expect(p.edits[0].afterMarkdown).toBe('\uFEFF{==主人==}{>>保留<<}\r\n\r\n风险！\r\n')
+expect(anchor(p.edits[0].afterMarkdown,p.annotations[0].selector).status).toBe('exact')
+expect(r.body).not.toContain('ownerAnnotationsTouched')
+```
+
+导入明确：`DraftV2` from ../project-share/types，`sha256Hex,anchor` from ../share-merge；在guest-submission.test相对路径据文件改为 `../share-merge` / `./types`。另以相同id/version输入browser/notemd，剔除client后deepEqual；无变更无edit；批注only不造edit；point、重复owner、kind hash、5MiB边界、message/name非法、非base文件拒绝。
+
+运行 `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/project-share/guest-submission.test.ts src/share-editor/owner-policy.test.ts`；先建立可编译的最小接口，再记录实际组包/保护行为失败；缺导出或编译错误单列，不算行为RED。
+
+- [ ] **1.2 实现统一builder。** path排序遍历draft.after，必须有base；extractGuestAnnotations→clean!==base才add edit；selector kind由 `sha256Hex(exact+'\0'+comment).slice(0,16)`查annotationKinds；blocks用真实propose(base,base,clean).hunks计数。完整协议字段校验后只JSON.stringify一次。outer客户端负责pending持久化，不在pure builder读取时钟/随机/fetch；同输入确定。
+
+**buildSubmission公开API边界（Task1首次实现与测试）：** `ShareEditorHandle.buildSubmission(input)`只flush实际owner、capture一致draft并调用builder，返回spec既定body/id/summary；不持久pending、不host.submit、不POST、不更新receipt/submitted。builder仍不取时钟/随机；handle每次新build生成一次id并传入，预览丢弃该结果无提交记录持久化副作用。flush可走普通draft保存；这是原输入生命周期，不能误标为冻结pending。用host.submit与atomic pending spies证明build/preview网络0次、冻结0次；flush失败不产包/不发送。提交唯一orchestrator在Task3，Task1 UI不能另装发送handler。正式同步spec§12.6措辞以区分API返回与用户submit流程，不改wire。
+
+- [ ] **1.3 owner floor RED/GREEN。** base O计数2、initial1→floor1；删除最后一份拒绝；复制至2→删任意一份允许；undo复制允许回1；old touched initial0→恢复O→undo回0允许；新authority才重冻，rebase/undo-rebase用目标snapshot+目标draft显式`installBaseline(input,{policy:newPolicy})`；故意沿用旧floor必须用新旧O计数相反的fixture检出，baseline构造失败旧policy/authority/history不变；restoreContent/Source/原生undo都走最终候选veto；混合appendTransaction只能最终一次安装；原生undo单history事件内部先删后复原owner的中间delta不veto，只核最终count。追加插件使最终floor失效时root与append全链都零observer/零代安装。仍以完整base抽取，old touched不被静默修复。把复制后删原occurrence的语义局限写入spec§21与验收，不伪装逐node身份保护。
+
+```ts
+const O='{==甲==}{>>旧注<<}'
+const floor=ownerAnnotationFloor(O+O,O)
+expect(acceptsOwnerFloor(floor,'')).toBe(false)
+expect(acceptsOwnerFloor(floor,O+O)).toBe(true)
+expect(acceptsOwnerFloor(floor,O)).toBe(true)
+const missing=ownerAnnotationFloor(O,'')
+expect(acceptsOwnerFloor(missing,O)).toBe(true)
+expect(acceptsOwnerFloor(missing,'')).toBe(true)
+```
+
+- [ ] **1.4 真mount与UI。** 先消除真实Tauri依赖边：`i18n/store.svelte.ts` 的 Store 静态 import 与 Tauri event 动态 import；将现有纯locale/registry/t原样移到runtime.svelte.ts，store重导出并保留桌面持久化，NoteEditPopup/SlashMenu只import纯runtime。`slash-items.ts` 的 dialog/attachment 动态 import不能靠菜单filter tree-shake；bindings Task2已首产纯slash-command与原Steps原子组合，本Task只把无桌面依赖UI metadata/翻译条目与filter算法移到slash-items-common.ts，条目委托同一已实现producer；桌面getSlashItems合并原附件条目保持顺序，网页消费同一common+明确允许列表。新test比较桌面既有id/顺序/翻译和网页禁止项；没有浏览器别名替代Tauri的stub。 main只注册 `{apiVersion:1,mount}`；E1阶段实现类型明确为 `ShareEditorHandleE1 = Omit<ShareEditorHandle,'rebase'>`，main不创建该方法，Task3的browser以方法存在性显示迁移按钮；Task4实际实现后才按完整ShareEditorHandle完成最终API v1。完整主spec接口只在最终E1–E4发行时冻结，不用取消空实现或fake mount伪装已具备rebase。ShareEditor使用前置createShareFileSession→mountFileEditor，default Rich、Source切换、slash/快捷键/undo、真实 `src/lib/note-anno/note-commands.ts`、`NoteEditPopup.svelte`、`NotePopover.svelte`、`note-plugin.ts` 气泡/徽标。owner floor仅browser启用；旧被改owner提示本地统计且不阻止修复/原样导出。切文件与 close 委托已有 createShareFileSession 的保存/close 机制完成 flush、实际 durable 回执及 baselineIdentity 校验，确认成功后卸载旧 view 并挂新 file；不在 ShareEditor 再实现第二套 ACK。失败不丢 raw，不新建 textarea 撤销栈。已有Rich→Source→Rich三次零diff、BOM/frontmatter初mount零change必须用实际IIFE页面重新验。
+
+- [ ] **1.5 adapters与安全。** bundleMediaResolver只返回files集合中与当前path解析相符的dataUrl，路径escape/远端URL/file:///未分享目标不给网络权限；wikilink与相对链接仅host.openFile已分享集合；不自动加载HTML远程媒体。图像粘贴/drop/附件按钮被能力层阻止并提示“在批注中描述”，纯文本paste保留；不出现AI/插件/全库搜索。math使用共享KaTeX，font全部data；高亮复用registry默认；Graphviz仍源码。菜单复用popup-menu.css，全局menu-panel/menu-row；真实hover验收。
+
+**正文主题与资源闭包的明确实现/测试：** `presentation.ts` 的 inlineMathCss 把本机 KaTeX woff2 变 data，renderProjectPresentation 用 frozenTheme.compiledCss，`share-baker.ts`组合KaTeX/hljs light+dark/正文theme/响应式/Critic样式。网页编辑根延续同 `.moraya-editor` 与data-theme，复用页面已内嵌styleHead；不要import整个presentation.ts（含Tauri），不要调用editor-kit/theme.ts的host bridge。share-editor.css仅编辑器几何/工具条与proposal层，不覆盖正文font/color/line-height。主IIFE只包含KaTeX/必要hljs运行时，不重复注入有外部url的katex.min.css；若独立预览需要CSS，由build从同一字体名单生成data闭包。所有CSS url扫描必须仅data或同页fragment，字体不发HTTP、无worker/wasm，非法资源构建失败；不改font-src data:。真实browser装载后await document.fonts.ready，document.fonts.check的KaTeX字体覆盖数学样本，DOM glyph边界/截图证明无缺字；spy网络无font404/外域请求。至少两个实际theme含自定义正文font/heading/code颜色，比较reader与Rich computed font-size/family/color/line-height和代码hljs颜色，切Rich/Source、暗色及重试保持同冻结theme。保留现行“本机主题字体未打包时替代字体”warning，不宣称任意系统字体一致。高亮/Math出现时不能额外动态import分块；Mermaid独立hash/SRI在Task4，Graphviz仍源码。
+
+- [ ] **1.6 GREEN/类型/提交。** 跑新builder/policy/media/file-session tests与前置已安装consumer回归；运行现有host完整build与新main严格类型检查；IIFE产物/Tauri闭包/预算及上述实际reader/Rich资源截图验收在紧接的Task2/3完成，不借Task1宣称已交付浏览器产物。新增测试纳入严格tsc/svelte-check。记录脚本、raw fixture committed SHA、UI截图和行为；精确提交，不能拿仅builder green说UI完成。
+
+## Task 2: E1 kit产物、Worker运输和主人发布闭包
+
+**Files:** Create `scripts/build-share-editor.mjs`、`scripts/check-share-editor-build.mjs`、`worker/src/kit.ts`、`worker/tests/kit.test.ts`、`src/lib/project-share/editor-kit.ts`与`.test.ts`；Modify `package.json`, `vite.config.ts`, `worker/src/index.ts`, `src/lib/project-share/{host,bundle}.ts`及对应test、双CHANGELOG。构建入口消费Task1真实main，不发布空壳。
+
+**Interfaces:**
+
+```ts
+// editor-kit.ts：Node build写入dist，Vite虚拟module读冻结manifest并emit确切资源。
+export interface KitAsset {name:string;sha256:string;sri:string}
+export interface KitManifest {apiVersion:1;js:KitAsset;css:KitAsset;mermaid?:KitAsset}
+export interface EditorKitDescriptor {
+  apiVersion:1;js:{url:string;integrity:string};css:{url:string;integrity:string}
+  mermaid?:{url:string;integrity:string}
+}
+export async function ensureProjectEditorKit(input:{
+  origin:string;apiKey:string;manifest:KitManifest;
+  readAsset:(name:string)=>Promise<Uint8Array>
+}):Promise<{editorKit?:EditorKitDescriptor;warnings:string[]}>
+// Worker：
+export async function handleKit(req:Request,env:Env,url:URL):Promise<Response>
+```
+
+- [ ] **2.1 写Worker RED。** 在现有worker test环境用 `SELF.fetch`/env.MEDIA，沿 `receipt.test.ts` fixture owner鉴权。下列行为用固定body求hash后构造name，不hardcode错误hash：
+
+```ts
+const bytes = new TextEncoder().encode('globalThis.NotemdShareEditor={apiVersion:1};')
+const hex = [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
+  .map(x=>x.toString(16).padStart(2,'0')).join('')
+const url='https://share.test/_kit/share-editor.'+hex+'.js'
+// PUT无Bearer=>401；feedback token不能代Bearer；合法PUT=>201、相同重传=>200。
+// GET=>bytes，HEAD=>零body且同length/MIME/immutable/nosniff；跨目录/name错=>404。
+// 正确name+不同bytes=>400；8MiB+1(含无Content-Length流)=>413，不写R2。
+```
+
+运行：`env pnpm_config_verify_deps_before_run=false pnpm --dir worker test -- tests/kit.test.ts`。期待新路由404导致断言失败，不接受环境/依赖失败当RED。
+
+- [ ] **2.2 最小实现。** boundedBody(req,8MiB)→digest→比name→head旧key→相同对象200/不存在put201，错误不得存。旧对象hash身份不能靠用户声明，GET只读取 `kit/<validated name>`。index在handleGet前 `if(path.startsWith('_kit/')) return withCors(await handleKit(...))`，PUT owner授权、GET/HEAD无token。未知method405，头/错误同样走CORS。禁止revoke顺手清kit。
+
+- [ ] **2.3 写build RED与实现。** 独立Vite build `configFile:false,envDir:受控空目录,build.rollupOptions.input='src/share-editor/main.ts',build.rollupOptions.output.format='iife',build.rollupOptions.output.inlineDynamicImports=true,build.cssCodeSplit=false`；不能把IIFE塞现有多entry app build。入口仅side-effect注册globalThis.NotemdShareEditor，不设置同名Rollup output.name覆盖已注册对象。第一阶段使用临时文件名，拿最终bytes后SHA256命名和SHA384 SRI，写manifest。app build虚拟模块静态导入该manifest，`emitFile`把同bytes作为assets置入dist；不重新编译改hash。记录rollup模块列表检查无@tauri-apps；KaTeX字体inline data；禁外链/动态import；gzip固定默认参数，主JS+必要runtime闭包≤900KiB且每资源≤8MiB。
+
+```js
+const asset = bytes => ({sha256:createHash('sha256').update(bytes).digest('hex'),
+  sri:'sha384-'+createHash('sha384').update(bytes).digest('base64')})
+// 主kit必须evaluate后暴露apiVersion===1和mount函数，不能仅检查字符串。
+// 完整JS闭包只能一个主IIFE；可选Mermaid从第二IIFE外置，不在主bundle中藏副本。
+```
+
+`package.json build`保持purity→share build→app vite build→existing kit check→share check，失败即停；`vite.config.ts`只增加产物读取/emit插件，不破坏既有Kit入口。
+
+- [ ] **2.4 宿主与bundle RED。** host.test冻结S1的manifest A，第一次HEAD404/PUT失败→warning+页面无editorKit但发布继续；成功后第二次attempt不能换manifest B；重启重放bundle bytes不变；新一轮发布才采用B。bundle.test断言可选字段完整同源URL/SRI、无token/local path/git；editorKit absent时CSP逐字保持现行语义；相对/跨origin/credential URL拒绝。
+
+- [ ] **2.5 接线。** 新分享阶段首次构造entry前ensure kit；先本地读bytes核manifest，再HEAD→404 PUT，错误只返回warning。`PendingBase`新增本机冻结descriptor和kit选择完成标识，确保undefined fallback也固定；首次和full bundle都用同descriptor；legacy pending不得重新构建旧body。资产读路径来自Vite emitted同源app静态资源，不fetch网络CDN；读取失败仍warning。可选Mermaid descriptor同冻结。
+
+- [ ] **2.6 GREEN/类型/提交。** Worker kit+project/feedback/receipt tests，host/bundle/editor-kit tests，受控完整build后真实manifest/hash/module graph检查；记录installed app resources能读这些bytes。新增未发布条目，精确提交以上source/test/config；记录SHA、manifest与资源SHA；不宣称部署。E1对免费生产/_kit 8MiB PUT的CPU门槛留Task8实测，不能以test pool通过代替。
+
+## Task 3: 浏览器E1装载与E2可见修改/持久化闭环
+
+**Files:** Modify `browser.ts`, `bundle.ts`, browser/bundle.test，Create `src/share-editor/changes.ts`/test、`scripts/check-share-editor-browser.mjs`；Modify `ShareEditor.svelte`、`file-session.ts`及双CHANGELOG。
+
+**Interfaces:** `projectShareBrowser`仍零runtime import；持有ShareEditorHost、module/handle和单IDB写队列。新增纯函数 `revertGuestHunk(input:{path:string;base:string;draft:string;hunkId:string}):string`，只能使用当前propose并匹配稳定hunk ID；未命中拒绝，不凭旧raw offsets覆盖。派生summary经host.setFileBadges推回当前文件树。
+
+- [ ] **3.1 实际产物RED。** 新脚本沿 `check-project-share-browser.mjs`的isolated Vite服务、`PLAYWRIGHT_MODULE`、空envDir、真实buildProjectBundle；服务返回Task2真实JS/CSS字节，禁止注入fake NotemdShareEditor替代产物。录网络body、IDB读回、截图、securitypolicyviolation，不收token。只读零/_kit；点击编辑请求恰一js/css；SRI篡改、404、15s超时、apiVersion错各回textarea；原始页面仍可提交。
+
+- [ ] **3.2 loader最小实现。** 可用token+initialized之后才启用Edit；只用户点击时同源link/script带integrity与crossOrigin='anonymous'；CSS和JS均成功且module.apiVersion===1才mount。超时dispose script/link监听并保留draft；后到旧promise不得覆盖后续实例。mount失败await销毁临时owner，恢复同raw fallback，不提前清after/base。只读无编辑自动加载。SRI失败文案采用主spec；不把错误堆栈或URL fragment展示。
+
+- [ ] **3.3 host状态桥与唯一用户submit编排。** loadDraft返回当前固定lineage的同一live Draft对象（同realm，不另建正文镜像）；saveDraft(liveLineage):Promise<Readonly<DraftV2>>进入同一atomic FIFO，实际轮到时clone该对象与同身份notes并写入，成功返回此次实际durable detached clone，失败ready=false并停止提交；成功后徽标刷新。Kit普通编辑只写after/editorFiles/annotationKinds，pending/送达控制字段由inline宿主唯一编排。队列捕获固定lineage对象，不能执行时读取页面当前draft。内联`browser.ts`现有显式提交handler（现有 freeze/POST/确认流程）是唯一orchestrator；kit UI只触发该用户入口，不在buildSubmission内或另一个监听器发送。handler以现有busy/lineage锁去重：已有pending直接重放exact id/body，跳过build/new-id/再次冻结；无pending才await handle.buildSubmission，检查lineage/snapshot仍匹配，然后在既有atomic队列合并**最新**draft并持久化pending（不能旧build snapshot覆盖后续after）。durable成功才调用一次host.submit。host.submit仅验证body/id等于durable pending、force版本检查（保留draft.snapshotId）、执行一次现有POST并返回结果；不freeze、不saveDraft、不rebuild、不清pending/previous、不另行重试。成功结果只由原handler沿现有atomic流程一次写submitted/lastSubmissionId、清匹配pending/previous；错误留原pending。flush/build期间lineage变化取消新包；飞行中后续after继续保留。普通saveDraft与pending/送达确认是不同必要事务，禁止两层重复冻结或双POST。fallback在同一个handler里走原组包分支，不能复制发送流程。现行notes辅助store/v1迁移/旧草稿导出保留；增强Critic草稿降级时不能直接作为fallback after提交造成漏抽取，应保留并提示恢复增强编辑器或导出。禁止为了fallback清Critic或重写用户字节。
+
+- [ ] **3.4 E2 RED与实现。** My changes调用extract→propose，proposal层按真正binding定位，删除hunk无正文也提供侧边操作；hunk点击“撤销这处”重算当前proposal后从base恢复这处raw，访客批注重锚，orphan提示保留。调用owner.replaceSource/restoreContent进入同一undo历史，失败不安装；不可用旧hunk ID盲改。两处修改撤一处，提交raw须与独立构造的只改另一处expected严格相等。文件树点/批注数/只看改过从同draft派生；昵称本机保留，AI默认false，summary列每file blocks/annotations；receipt仍复用P2纯文本panel。
+
+```ts
+const base='第一句。\n\n第二句。\n'
+const draft='第一句！\n\n第二句！\n'
+const p=propose({path:'a.md',base,ours:base,theirs:draft})
+expect(p.hunks).toHaveLength(2)
+const next=revertGuestHunk({path:'a.md',base,draft,hunkId:p.hunks[0].id})
+expect(next).toBe('第一句。\n\n第二句！\n')
+```
+
+- [ ] **3.5 durability故障矩阵。** build/preview调用host.submit=0、pending-write=0；首次显式点击仅一份pending事务+一次POST；双击同一flight只一次；pending重试build/new-id/再次freeze均0且id/body逐字相同；flush/build失败或lineage切换网络0次；冻结期间继续编辑after不被旧快照覆盖；frozen save失败网络0次；POST成功但IDB确认失败→refresh重试body字节相同；503/网络中断→重试同id/body；pending中继续编辑→送达后保留后续after；两file切换保存失败保留编辑面；v1旧snapshot无base只旧v1提交/导出；返回410禁新提交保留导出；receipt404待处理/403权限不足/410失效。伪造owner改动由真实主人propose标owner-annotation。
+
+- [ ] **3.6 GREEN/提交。** 新Vitest+原browser.test+既有P2实际serialized脚本、新IIFE脚本；真实浏览器复查菜单hover、选择→批注、切file/Source/undo。每层证据单独命名，提交source/tests/CHANGELOG并记录SHA；自动事件不冒称真IME。
+
+## Task 4: E3 rebase、撤销与Mermaid按需加载
+
+**Files:** Create `src/share-editor/{rebase,mermaid}.ts`、`RebasePanel.svelte`和tests；Modifymain/contract/file-session/ShareEditor、browser旧稿按钮、build/check和bundle CSP，双CHANGELOG。
+
+**Interfaces:**
+
+```ts
+export interface RebaseCandidate {
+ old:DraftV2;next:DraftV2;
+ files:readonly {path:string;proposal:MergeProposal;decisions:Record<string,HunkDecision>}[];
+ removed:readonly string[];
+ orphans:readonly {path:string;annotation:ProjectAnnotationV2}[];
+}
+export function prepareGuestRebase(draft:DraftV2,next:ShareEditorHost['snapshot']):RebaseCandidate
+export function completeGuestRebase(candidate:RebaseCandidate):DraftV2
+// complete拒绝任何pending conflict/orphan/removed尚未导出确认；旧draft不变。
+// async handle.rebase返回applied/cancelled；永久记录沿用DraftV2及向后兼容的previous恢复元数据，不新增DB/store版本。
+```
+
+- [ ] **4.1 RED。** prepare用实际rebaseDraft对两句独立修改合并；同句双方修改保留conflicts；新snapshot缺path列removed，不从after静默删；批注exact不存在列orphan；BOM/CRLF两边未动字节不变；cancel旧对象深等；pending存在先要求发送/导出冻结包，不切base。真实fixture：old='甲。\n\n乙。\n'、draft='甲！\n\n乙。\n'、new='甲。\n\n乙！\n'→两处；old='甲。' draft='甲！' new='甲？'→conflict。
+
+- [ ] **4.2 实现。** 每file先extractGuestAnnotations(base,draft)；用rebaseDraft({oldBase:base,newBase:incoming,draft:clean})迁clean，保留分享者Critic；guest批注用anchor(newClean,selector)定位，按raw UTF16降序重新插入现行Critic格式，重新计算exact变化后的annotationKinds hash；重叠或无法表达合法Critic的选区列入人工处理，不丢/拼坏；kind与message/lineage保留。冲突用proposal层+guest三选按钮，决定交compose；不能另写diff3。被移除file先导出完整raw，明确用户处理后才从新scope移除。
+
+- [ ] **4.3 完成/撤销原子边界。** next.previous保存完整旧snapshot/base/after；saveDraft(next)完成后`installBaseline(nextInput,{policy:policyFor(newSnapshot,next)})`安装新authority；undo-rebase显式用previous目标snapshot+draft重建floor，不能省略options继承旧保护；mount失败回存old并留可恢复候选，不半装。已有previous时先完成提交或撤销上次rebase，不能覆盖旧撤销点；pending期间禁重复rebase。本机DraftV2.previous向后兼容追加可选 `annotationKinds`、`rebasedFrom`，迁移时保存旧值；undo rebase从previous恢复old及这些旧元数据，缺省字段按原v2默认值恢复，不凭当前snapshot重建旧base；同步spec§6.7本机草稿说明，wire不变。清previous只在成功提交本机确认后。重新加载继续看到事务故障恢复入口。
+
+- [ ] **4.4 Mermaid RED/GREEN。** share-editor-mermaid IIFE独立注册 `NotemdShareMermaid.render(code:string,appearance:ShareMermaidAppearance):Promise<string>`，由browser实现host.loadMermaid，script load成功后返回该全局module；share模块不猜测/_kit URL。用现有mermaid-mini，安全strict且结果净化；普通文本页/只读页/_kit失败不请求；编辑有mermaid块或之后输入产生块才加载，切文件复用一次。仅manifest所列完整同源URL/SRI，CSS不运行外部字体/fetch；加载失败保留源码与提示。build检查主bundle无Mermaid副本，CSP明确列可选完整URL。
+
+- [ ] **4.5 UI验收与提交。** browser实际点击旧稿“在新版本上继续”→四场景→逐冲突→提交新snapshot/rebasedFrom；“撤销rebase”后旧raw/base/sid完全恢复；无Mermaiddoc网络0次、有doc1次/SRI篡改不执行。focused tests、build、真实脚本、types通过再精确提交。
+
+## Task 5: E4受控下载、安全received与token边界
+
+**Files:** Create `src-tauri/src/share_guest.rs`, `share_guest/{archive,reader,store}.rs`；Modify `lib.rs`注册、`project_share.rs` received保护；Create `src/lib/share-guest/{types,host,link}.ts`及tests；主spec§13.2/§20按design修订，双CHANGELOG。不修改archive/source ZIP及Worker上传。
+
+**Interfaces:**
+
+```ts
+export interface GuestLink {origin:string;slug:string;shareUrl:string;token?:string}
+export function parseGuestLink(value:string,dev:boolean):GuestLink
+export interface GuestInfo {schemaVersion:1;root:string;entry:string;origin:string;slug:string;shareUrl:string;project_id:string;snapshotId:string;
+ contributorName?:string;lastSubmissionId?:string;
+ files:readonly {path:string;hash:string}[];submitted:readonly string[];
+ outbox:readonly {submissionId:string;body:string;queuedAt:string}[];
+ pendingUpdate:null|{snapshotId:string;unresolved:string[]}}
+export function guestCommand<T>(op:string,input:Record<string,unknown>):Promise<T>
+// invoke('share_guest',{request:{op,...input}})
+// ops open {origin,slug,shareUrl} => GuestInfo；inspect {root} => GuestInfo；
+// read-base {root,path,snapshotId} => {markdown,hash}；token不传进Rust下载open。
+```
+
+Rust公开 `share_guest(app:AppHandle,request:serde_json::Value)->Result<Value,String>`；`GuestStore`限定当前Vault/received，不能让caller提供任意工作根；share_db凭据由TS Store保存于 `guest:<origin>:<pid>`，网络无token下载。重定向关闭（包含同源重定向也清楚报错，防隐式改host）；HTTP仅开发localhost，HTTPS无userinfo、query只接受分享路径所需且最终strip fragment，slug按Worker真实SLUG_RE。
+
+- [ ] **5.1 先修确认入口解析RED。** parse支持原share URL/`notemd://share/open?u=...`，URL内username/password拒绝，非https拒绝（dev只localhost、127.0.0.1、[::1]若准许需与spec localhost统一），错误字符串不含原输入/token；hash只有feedback取token。确认之前不得调用guestCommand或任何fetch；无标题用“此分享项目”，不预取网页补title。
+
+- [ ] **5.2 reader/ZIP RED。** `reader.rs`包含 `#[cfg(test)]`真实byte parser tests：注释内假project-data、script rawtext内假tag、重复id/重复属性/重复JSON键、截断/非法UTF8、错误type、转义 `\u003c`、BOM正文hash正确、512/513files、大小写path碰撞。archive tests用zip::ZipWriter生成小归档并手工变异central/local metadata，逐类路径穿越、symlink、未列条目、hash/CRC错、重复名、zip bomb、解压计数、额外本地entry、overlap。读取器只允许stored/deflate普通entry，逐entry限定字节并完成CRC。
+
+```rust
+#[test]
+fn reader_rejects_comment_payload_and_duplicate_json_keys() {
+    let comment=b"<!-- <script id=\"project-data\" type=\"application/json\">{}</script> -->";
+    assert!(reader::extract_public_snapshot(comment).is_err());
+    let duplicate=b"<script id=\"project-data\" type=\"application/json\">{\"snapshot\":{},\"snapshot\":{}}</script>";
+    assert!(reader::extract_public_snapshot(duplicate).is_err());
+}
+```
+
+运行 `cargo test --manifest-path src-tauri/Cargo.toml --lib share_guest`；真实路径/fixture导致RED，不把编译环境错误当安全逻辑失败。
+
+- [ ] **5.3 本机验证实现。** 按design §3.1确定性HTML tokenizer+serde duplicate-reject visitor；公开snapshot严格白名单字段、markdown/dataUrl需与hash/bytes相符，ignore presentation/script。V-before→reader→ZIP→V-after项目/snapshot相同、archiveReady true才接受；409未准备/410停止/identity mismatch/version race均不创建目标项目。流式计数HTTP reader≤25MiB/ZIP≤32MiB，无Content-Length同限。legacy内manifest与reader外snapshot同时一致，只允许精确2内部文件；原包无manifest走source验证，不降低清单完整性。
+
+- [ ] **5.4 原子落盘/隔离。** 验证完成先写受管临时目录与base，再同目录rename到 `received/<lowercase hostname_port>/<pid>`；existing仅可信guest.json同origin+pid可转更新，其他目录即使空/只有用户文件也拒绝覆盖。每级symlink/文件类型/canonical containment验证；复用 `write_atomic` 的crate私有导出，不复制不安全实现；guest.json/所有base无token。源条目逐项复用现有validate_relative（`project_share.rs` 的 `validate_relative`），它已经拒绝.note.md/.notes.md、隐藏段、node_modules及凭据命名；恶意外部manifest含这些直接拒收，不改后缀、不扩大到关系索引重构；`project_share::source_root/source_path/create`及Vault-root引用解析拒绝received或其symlink别名，避免从Vault根把received再发布。复用现有Sync不相交保护模式，收到项目也不生成sync mapping。
+
+- [ ] **5.5 GREEN与数据证明。** 临时Vault创建已有同名文件、symlink父目录、项目identity冲突、网络截断/版本换代都零覆盖；遍历全Vault文件断言不含fixture token；路径/源字节SHA逐项相等。运行 `project_share_` 针对received与既有Sync安全tests；Rust编译+TS link测试，提交精确source/tests/spec/CHANGELOG。
+
+## Task 6: E4入口、项目侧栏、离线提交和回执
+
+**Files:** Create `src/components/share-guest/{OpenShareDialog,GuestPanel}.svelte`及tests、`src/lib/share-guest/state.svelte.ts`/tests；Modify `App.svelte`, `src-tauri/tauri.conf.json`, `src-tauri/src/lib.rs`菜单/冷启动、`src/lib/side-panel/registry.svelte.ts`, `src/lib/i18n/{zh,en,ja,de}.ts`、Task5 store/host/types、browser/bundle及双CHANGELOG。
+
+**Interfaces:** 新ops `queue {root,submissionId,body}`先持久化、`deliver {root,submissionId,token}`按stored body网络POST、`receipts {root,submissionIds,token}`最多20并发≤4；token仅从app Store读，在IPC进程内使用且禁日志；若Rust插件Store可直接取键则只传root/id，仍不得自读凭据文件。`list`只枚举可信guest.json，启动时重试已有outbox。
+
+- [ ] **6.1 入口RED。** 真onOpenUrl/冷启动queue/单实例转发对notemd scheme先parse并进入确认，绝不落旧openFile带URL日志分支；取消网络0次、确认后host与download相符。文件菜单“打开分享链接…”dispatch唯一`open-share-link`事件，设置dialog；read-only无token URL下载后侧栏明确只读/不可提交，不伪造token。网页编辑状态才有`notemd://share/open?u=`按钮，完整fragment仅深链携带，禁止console/analytics采集。
+
+- [ ] **6.2 deep link注册/原生菜单实现。** Tauri plugins.deep-link.desktop.schemes=['notemd']；保留已装plugin，Windows/Linux按已有plugin平台API调用注册（正式实施时依实际安装API核对，不由app打开任意shell）。Mac核Info.plist CFBundleURLTypes；冷启动先暂存未处理URL待settings/Vault可用，再确认；getCurrent/onOpenUrl去重相同交付，避免两次导入。菜单翻译沿lib.rs现有menu_label与四语言字典，禁直接hardcode另一菜单系统。
+
+- [ ] **6.3 侧栏与编辑。** registerSideView id='share-guest'，appliesTo只可信received项目的活动tab，GuestPanel展示base版本/状态、“提交修改”“检查更新”“我的提交”；打开文件复用openFile与前置file owner/Source/history，正常desktop adapters。Rich离线编辑→flush真实tab保存成功→读磁盘再组包；新增/缺失文件明确警告，不自动加入edits。ownerAnnotationsTouched需先显示数量与明确继续动作；不触发browser保护floor。
+
+- [ ] **6.4 outbox RED/GREEN。** 仅用户明确提交按钮的host单一orchestrator使用Task1builder，client.kind='notemd'、app package真实version；纯build/预览不queue或deliver；首次queue durable一次后deliver一次，已有outbox直接deliver原body/id，不build/new-id/重复queue；UI双击以同一flight锁去重。queue拒绝body内pid/sid与base不一致、非法协议/超5MiB，write_atomic guest.json后才送；无网络/503/发送成功本机写失败重启重放同body；409保留outbox且可导出，不能生成新id悄悄重试。成功只移走匹配id，submitted去重保留200、lastSubmissionId更新，不清工作文件；用户后续修改保持。针对新body与pending同id不同字节拒绝。
+
+```ts
+// host.test：跨重启读真实临时guest.json，不用第二次重新build替代重放。
+expect(firstRequestBody).toBe(persistedOutboxBody)
+expect(restartedRequestBody).toBe(persistedOutboxBody)
+expect(JSON.parse(restartedRequestBody).client.kind).toBe('notemd')
+// 发送失败/409后工作文件和base SHA都与发送前相同。
+```
+
+- [ ] **6.5 两端共通结构/回执验证。** 同base+draft，browser通过真实handle提交和desktop通过真实GuestPanel提交；规范化只删除submissionId/client，其余逐字段相等（message/contributor同输入）；owner实际import/review→apply→receipt，receipt统计由P2生成，无正文。无网络/404/403/410界面准确，不清outbox/草稿；reply按纯文本。
+
+- [ ] **6.6 真实native GREEN/提交。** Mac实际安装app菜单/外部deep link→确认→received打开→断网输入→重启→联网发送；AX/截图+磁盘SHA+HTTPbody证据。先组件/Rust/unit green再native，不用invoke stub宣称原生链路完成；Windows/Linux无实机保持未验状态/仅菜单fallback按spec，不宣称三平台注册完成。精确提交与双CHANGELOG。
+
+## Task 7: E4版本更新、guest冲突与恢复
+
+**Files:** Create `src/lib/share-guest/update.ts`/test；Modify Ruststore/share_guest、GuestPanel、`components/project-review/{HunkView,ConflictEditor}.svelte`及tests（Create `ConflictEditor.test.ts`、`HunkView.test.ts`），双CHANGELOG。
+
+**Interfaces:**
+
+```ts
+export type GuestUpdateAction =
+ | {kind:'write';path:string;expectedHash:string|null;content:string}
+ | {kind:'copy-base';path:string;expectedHash:string|null}
+ | {kind:'delete';path:string;expectedHash:string}
+ | {kind:'retain-removed';path:string;expectedHash:string}
+export interface GuestUpdatePlan {fromSnapshotId:string;toSnapshotId:string;
+ actions:GuestUpdateAction[];conflicts:{path:string;proposal:MergeProposal;expectedHash:string}[]}
+export function planGuestUpdate(input:{oldBase:Record<string,string>;
+ newBase:Record<string,string>;work:Record<string,string>;
+ fromSnapshotId:string;toSnapshotId:string}):GuestUpdatePlan
+// ops update-prepare {root}=>已验证新base+旧base+work hashes（不写工作文件）；
+// update-apply {root,plan}=>pendingUpdate；resolve {root,path,expectedHash,content}；
+// update-finish {root}：所有journal行确认后更新guest.json.sid/files并清旧base。
+```
+
+- [ ] **7.1 RED。** 真实propose(old,new,work)→theirs-only接受，不复制diff算法；同句冲突零写；删除unchanged可删、删除changed保留；新文件撞未知工作文件写`.shared.md`，若该名也存在用`name.shared-2.md`且collision检查不覆盖；大/小写折叠collision在磁盘同样保护。更新期间外部改工作文件expectedHash失配→停该文件保留其它journal进度。
+
+```ts
+const p=planGuestUpdate({oldBase:{'a.md':'甲。\n\n乙。\n'},
+ newBase:{'a.md':'甲？\n\n乙。\n'},work:{'a.md':'甲！\n\n乙。\n'},
+ fromSnapshotId:'S1',toSnapshotId:'S2'})
+expect(p.conflicts.map(x=>x.path)).toEqual(['a.md'])
+expect(p.actions.filter(x=>x.path==='a.md')).toEqual([])
+```
+
+- [ ] **7.2 journal与CAS实现。** TS planGuestUpdate只对markdown运行内核；附件用Rust已校验新base bytes：旧工作hash==old base→copy-base，新附件无目标→copy-base，已被本机改动则保留并列人工选择（保留本机/采用新附件），绝不把binary转UTF8或空字符串。copy-base只从当前pendingUpdate.snapshotId受管base取对应path；无caller byte payload或任意source路径。新增附件同名冲突也用唯一.shared后缀保留原文件。 `.notemd/update-plan.json`只保存from/to/每path expectedHash/resultHash/action状态，任何写前durable intent；实际安全路径write_atomic/CAS完成再标row。pendingUpdate.unresolved列冲突及失败文件；crash后按hash判断未写/已写/用户改，不用重新propose覆盖用户内容。old base保留到全部文件明确完成；新base下载完整校验后才stage；outbox非空不切换sid。新增未知文件只保留/提示，不因新manifest掉scope而删除。
+
+- [ ] **7.3 guest UI最小扩展。** HunkView/ConflictEditor新增 `mode?:'owner'|'guest'`默认owner，guest标题“分享者版本/我的版本”，仅ours/theirs/edited三种；按钮直接commit对应真实HunkDecision，edited source='human'；不显示owner批量接受/拼接两版/风险采纳的无关文案。每fileconflicts全decided→compose→guest resolve(expectedHash)，不是ProjectStore::apply（这是received访客副本，主人原件仍唯一apply）。owner既有5按钮回归不变。
+
+- [ ] **7.4 真更新验收。** 主人publish S2→访客检查→new ZIP严格验证→clean自动合并/冲突原file不动→选三种各一例→finish后guest.sid/base切新；中断每个write-before/after、guest.json完成前后，重启恢复不丢old base与用户文件。提交新建议snapshot=S2、baseHash来自S2、lastSubmissionId供supersedes；旧outbox仍存在不能误提交新sid。
+
+- [ ] **7.5 GREEN/提交。** new update Vitest、guest Rust、ProjectReview/HunkView/ConflictEditor现有及guest tests；原生同名文件/冲突保存/重启验证，独立记录source/base SHA；精确commit。
+
+## Task 8: 两端完整验收、版本打包与发行证据
+
+用户2026-10-14追加发布顺序：完成实现与必要验证后，**先推送并部署Worker**，确认实际线上版本/100%部署与受影响路径，再发布应用；仍包含全部未发布宿主/插件更新。此前授权继续有效，不重复询问。不提前将未完成的E1–E4或本地提交当作已发布。移动端真实中日IME继续保留待验。
+
+**Files:** Create `docs/superpowers/reports/2026-10-14-project-share-e1-e4-verification.md`（报告内逐次记录真实执行日期，不以文件日期冒充验收日期）、新增native/browser recording脚本；Modify双CHANGELOG与正式spec已核修订。版本/发布文件仅root冻结release时改，不能本规划提前填写将来版本号。
+
+- [ ] **8.1 冻结证据输入。** root记录core/host完整SHA、installed package所有export JS/DTS实际bytes、fixture Git blob SHA、kit manifest/assets、Worker待验commit。保存argv/cwd/tool session/退出code、操作输入与日志；不覆盖先前失败。read-only inventory主/所有worktree dirty/untracked、未合入commit/stash、补丁等价；逐项范围，所有用户要求的未发布更新包括LatestCreated10项按tag实际hunks核验。
+
+- [ ] **8.2 顺序检查。** focused都通过后仅一次host完整Vitest→share-merge purity→strict new-test tsc→svelte-check→受控empty-envDir完整build→existing/shared kit checks→Rust相关全集→Worker相关全集。任何非零停止依赖的stage/commit/package；最终root指纹变则只重跑受影响层并诚实说明范围。不得pnpm自动install或换Wrangler。
+
+- [ ] **8.3 真实网页用户链。** 已构建IIFE+真实Worker本地或隔离fixture：主人实际冻结发布approved两Markdown+附件→只读无kit/匿名download字节一致→编辑Rich/Source来回、slash/table/math/note→撤一hunk→submit→真实主人review/apply→receipt→新publish→rebase/cancel/undo→export。截图/网络/body/磁盘SHA四类证据闭环；mock只用于明确故障注入，不能替代全链。
+
+- [ ] **8.4 真native/IME矩阵。** Mac在真正Tauri app Rich与Source：中文拼音/日文假名在段落、列表、表格输入；候选窗Enter/Esc/方向键、切Mode、undo/redo、立即保存/关闭/重开；核未触块raw SHA与一次完整输入不丢/重复。Safari和Chrome同矩阵；iOS Safari/Android Chrome接入真实设备后同验。记录OS/browser/IME/app版本、操作录像/截图及raw结果。当前无iOS模拟器/Android连接就把相应行写“未验收，E1完整跨端验收仍未闭合”，不以Playwright mobile viewport或composition dispatch填通过。native deep-link必须从外部浏览器/OS启动链验证，不能只调用组件函数。
+
+- [ ] **8.5 免费Worker新路径生产证据。** root按现有Wrangler3/Account Token与deploy-worker渠道，确认main push触发的run完成，记录commit→Worker version→100% deployment；不把较早手动deploy version当持续有效。只上传合成非用户内容：HEAD404→PUT→HEAD/GET exact hash/SRI→重复PUT200、8MiB边界及HTTP错误；使用既有CPU验收机制记录新路径免费预算，超限停并回报不升套餐。旧free-upload reseal/status-cleanup各10ms且strict<10ms未过单独列遗留，不能被本批新路径green清掉，也不扩大成本批上传重构。
+
+- [ ] **8.6 版本/安装包冻结。** root选实际发行日日期版本（当前base 6.1013.2，不预承诺6.1014.1），package.json/tauri.conf/Cargo.toml/Cargo.lock/app Info.plist/client.version一致；`MERGE_KERNEL_VERSION`不变（本批不改算法），ShareEditor apiVersion1/documentEditor apiVersion2各守边界。沿既有scripts/release.sh双架构签名、公证和updater验签；该脚本包含git fetch/push与secret加载，不能当普通本地build运行，正式外发按root已有授权和spec I11产品不自动push边界分别记录。发布脚本git行为是维护者发行操作，不可混入产品guest功能。
+
+- [ ] **8.7 frozen tag→产物→公开回读。** 从tag实际源码核Task1–7及所有点名未发布更改；资产SHA与kit manifest对应安装包内字节，实际安装app点分享后上传正确kit；Mac Info.plist scheme存在；GitHub Release两dmg/tarball/sig/latest.json匿名下载并签名验证；Worker匿名获取kit字节与SRI、页面descriptor/hash相符。旧kit继续可访问，旧分享和v1建议仍工作。各平台未验/CPU遗留分别列出，不称“全部发布验证通过”。
+
+- [ ] **8.8 结果回顾。** 报告列已提交SHAs、实际release tag/asset/Worker version、已验矩阵与未验边界；tasks/todo只由root更新实际勾选及review；未发布变更不得写成已进入安装包。没有真native/IME证据的对应能力保持未完成，继续独立完成可推进项，不反复要用户确认已授权范围。
+
+## Spec Coverage / 自审映射
+
+- §10 kit/现有P2：Task2；§11版本、旧稿、freeze、receipt：Task3/6，已有P2仅复用。
+- §12.2资源/CSP/SRI/build：Task2/4/8；§12.3接口：Task1/3；§12.4 I7：前置+Task1/8实际产物；§12.5/12.6批注/组包：Task1/3/6；§12.7 rebase：Task4；§12.8 E2：Task3；§12.9能力/IME：Task1/4/8。
+- §13.1入口：Task5/6；§13.2下载/base/隔离：Task5（正式修旧ZIP条文）；§13.3离线submit：Task6；§13.4更新：Task7；§13.5receipt：Task6。
+- I1/I6/I7跨Task1–8原byte断言；I2主人仍原apply，guest只能received；I4纯内核；I8 Worker只运输；I12/I13纯文本receipt与净化；I14不自动verified/关系提升。
+- 已有前置实际 mount 合同与逐 Task 受理记录；最终冻结 SHA/phase 见上方与前置报告。仍未证明：E1 实际 IIFE 的该合同消费、900KiB 实测、免费 /_kit CPU、native 跨平台 scheme、相应真实平台 IME、发布 tag 包含性。前置证据不能替代后继交付验收。
+
+## 每Task精确验证入口（实施时顺序执行，不在本规划运行）
+
+所有命令cwd为HOST，Worker使用现有--dir worker。Playwright脚本必须从已发现的安装路径设置PLAYWRIGHT_MODULE；不npx下载。前置installed package与源码SHA由root固定。
+
+| Task | focused命令 | 第一生产者→消费者/收尾 |
+|---|---|---|
+| 1 | `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/project-share/guest-submission.test.ts src/share-editor/owner-policy.test.ts src/share-editor/media.test.ts src/share-editor/file-session.test.ts src/share-editor/main.test.ts src/lib/i18n/store.test.ts src/lib/slash-menu/slash-items.test.ts` | builder+E1 main→Task2/3；新增main.test实际mount前置owner，不fake EditorView；精确commit，记录未打包 |
+| 2 | `env pnpm_config_verify_deps_before_run=false pnpm --dir worker test -- tests/kit.test.ts tests/project.test.ts tests/receipt.test.ts tests/feedback.test.ts`；host `pnpm exec vitest run src/lib/project-share/editor-kit.test.ts src/lib/project-share/host.test.ts src/lib/project-share/bundle.test.ts` 同加env前缀 | descriptor/build manifest→Task3；受控build成功才 `node scripts/check-share-editor-build.mjs` |
+| 3 | `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/project-share/browser.test.ts src/lib/project-share/bundle.test.ts src/share-editor/changes.test.ts`；`node scripts/check-project-share-browser.mjs`；`node scripts/check-share-editor-browser.mjs` | inline Host/IDB+真正IIFE→Task4；先build后browser，不自挂假module |
+| 4 | `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/share-editor/rebase.test.ts src/share-editor/mermaid.test.ts src/share-editor/file-session.test.ts`；build后新browser脚本 | 完整Handle.rebase/Mermaid→最终API冻结；previous恢复元数据向后兼容 |
+| 5 | `cargo test --manifest-path src-tauri/Cargo.toml --lib share_guest`；`cargo test --manifest-path src-tauri/Cargo.toml --lib project_share`；`env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/share-guest/link.test.ts` | GuestStore/open/read-base/GuestInfo→Task6/7；spec ZIP条文同步提交 |
+| 6 | `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/share-guest/host.test.ts src/lib/share-guest/state.test.ts src/components/share-guest/OpenShareDialog.test.ts src/components/share-guest/GuestPanel.test.ts`；Rust share_guest | outbox/deliver/receipt/入口→Task7；native菜单/深链独立实际recording |
+| 7 | `env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/lib/share-guest/update.test.ts src/components/project-review/ProjectReview.test.ts src/components/project-review/ConflictEditor.test.ts src/components/project-review/HunkView.test.ts`；Rust share_guest | GuestUpdatePlan+CAS/journal+guest choices→最终两端链 |
+| 8 | `env pnpm_config_verify_deps_before_run=false pnpm test`；`env pnpm_config_verify_deps_before_run=false pnpm run check:share-merge`；`env pnpm_config_verify_deps_before_run=false pnpm run check`；`node scripts/check-editor-kit-build.mjs`、`node scripts/check-share-editor-build.mjs` 在受控build之后 | 每层保存真实exit；strict测试tsconfig由root按最终新增测试集合在本轮执行OWN创建 `tsconfig-share-delivery-tests.json` 并运行 `env pnpm_config_verify_deps_before_run=false pnpm exec tsc --noEmit -p "$DELIVERY_PLAN_OWN/tsconfig-share-delivery-tests.json"`；该文件为实施时新建，extends HOST tsconfig并保留实际ambient shims，以明确include覆盖截至本Task已创建的新TS测试，不假称现已存在 |
+
+新增tests的文件责任归属已在相应Task；上述ConflictEditor/HunkView tests明确为Task7新建，旧组件只有ProjectReview.test.ts不能假称已有独立测试。每Task收尾执行root的精确allowlist diff-check→commit流程，提交号写实施报告，禁止git add .。
+
+### API/接线自审补充
+
+- Task1的pure `RebaseUiResult`和最终Handle只定义类型，运行时代码不import Task4文件；E1 module明确返回E1 handle，无rebase方法，不以空实现假通过。Task4才实现并收紧返回类型，最终v1验收检查全部方法实际可调用。
+- Task1的popup/slash共用消费者需在file-main的私有真实view上运行；ShareEditor不能新造EditorView或绕过owner。当前 `RichEditor.svelte` 的 `executeSlashItem` 在 fileSession 分支已调用同一 owner.executeSlash；两 dispatch 的旧实现仅留在 legacy 非 file 分支。E1 提取识别/选择/IME/菜单 UI 接线并消费已有原子 producer，不迁回 legacy 两 dispatch；Task1把同一选择/IME/菜单接线提成 `src/editor-kit-v2/file-menus.ts`（新增），由file-main首次消费并暴露 `menus:{openSlash():void;closeSlash():void}` 界面控制，实际命令闭包持有view、不导出raw权限。失败用真实consumer证明没有丢slash或半次结构保存；前置 bindings Task2 已交付并逐 Task 受理 executeSlashCommand 的窄同步 collector：逐笔tr.before/tr.docs一致、原Steps依序保留，selection/storedMarks/真实metadata验证，root+append完整链只准入一次；前置 bindings Task3 的 owner 已委托，该 UI 只消费。若实际受理产物缺少该能力即前置不满足，不在share shell私造serializer/撤销栈。异步popup/import准备完成后重新验证authority/generation/selection/slash字节；无真实同步producer不能先删slash或cast假view，保留原scope并列formal接线验收。UI直接复用SlashMenu渲染与common条目，禁import整个RichEditor（含tabs/Tauri）。此额外seam是源代码核实得到的必要接线，菜单 UI first producer 为交付 Task1，交付 Task3 仅消费完成的 mount。
+- theme来自现行`browser.ts` 写入 reader/article 的 data-theme；增强root也取同一个presentation.themeId。任何整页默认theme替代都应使两主题computed-style验收失败。
+- Task4新增 `previous.annotationKinds`、`previous.rebasedFrom`只用于本机可逆恢复，序列化v2建议包不得携带它们；旧DraftV2缺字段继续可读。Task1不提前依赖这两个字段。
+
+## 冻结实施与证据约束
+
+- CORE 主入口预算沿前置最终裁定：Node 默认 gzipSync ≤104448 bytes；分享主 IIFE ≤900KiB 独立不变。不得通过搬出口、stub、CDN、第二factory或不实产物图规避。
+- 同时只有一个产品 writer；每Task fresh implementer + combined spec/quality reviewer，fix1–3回原writer；最后唯一全阶段final及最多一次合并finalfix/scoped复审。ROOT不直接修产品。
+- 当前唯一工作证据目录 `.superpowers/sdd/2026-10-14-project-share-browser-desktop-delivery`。所有gate保留实际argv/cwd/exit/stdout/stderr及tool lifecycle；pnpm关闭隐式安装，build使用空env，只有最终正式发布由ROOT受控加载凭据。精确stage/commit；不改无关dirty/stash/untracked。
+- CORE修改仅已批准M0源、公开纯类型、测试/文档与真实dist；package/依赖/锁不变。提交/审计后才能受控安装，明确实际上一installed SHA，不用阶段BASE猜前驱。不直接复制node_modules或清理未知产物。HOST package build脚本仅Task2按合同更改，依赖变更必须先核需要，不能静默安装。
+- saveDraft返回实际durable detached clone，固定live lineage FIFO和baselineIdentity复用已有实现；普通保存不写pending/previous，build API不提交。两端只有用户显式提交编排耐久pending/outbox和网络一次发送。
+- M0显式MermaidLoader、三身份pending/完成cache、SDK默认行为迁移、来源/UI生命周期见正式Mermaid设计；Task1不实现E3 preview，Task4首实现独立SRI模块。
+- 主spec已同步source-only ZIP、外部reader清单、真实file源码合同、批注floor局限、精确保存回执和纯build边界；I7语料/判据、禁令、平台能力、900KiB预算未放宽。
+- 免费CPU旧10ms遗留保持失败。Task2只实现kit运输，不顺带盲改上传状态机。Task8先按当前冻结部署复测small；若仍失败，停止依赖的线上验收并基于保存的真实事件重新规划最小等价控制JSON读取优化，方案线索在selected-input/free-worker-cpu-preflight.md。任何此类产品修补须独立记录/审查/重新部署验证，不提高套餐或门槛；其余独立实现继续。
+- 实机缺证逐行保留，不用合成composition替代；用户明确移动端保留待验，不重复询问。正式发行说明必须列明未验和失败项，不能称全平台通过。
