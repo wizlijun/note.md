@@ -602,73 +602,58 @@ FILE_EDITOR_OUTPUT_DIR="$FILE_PLAN_OWN/browser" FILE_EDITOR_CACHE_DIR="$FILE_PLA
 
 脚本case必须输入真实键盘/点击Source切换/拖列/快捷键，保存raw与PM JSON、实际hunks、console/page errors、installed core/hash、浏览器版本和截图。合成composition仅状态回归，不能标真实中日IME通过。
 
-## Task 4：保存恢复、分享适配、native菜单与最终验收
+## Task 4：保存恢复、分享适配与native菜单
 
-**Files。** CORE 无预定改动，消费 Task 3 committed installed 产物。HOST 新增 `src/editor-kit-v2/file-recovery.ts`、`file-recovery.test.ts`、`src/share-editor/file-session.ts`、`file-session.test.ts`、`src/lib/file-history-focus.ts`、`file-history-focus.test.ts`；修改 `src/lib/project-share/{types,browser}.ts`、`src/App.svelte`、`src-tauri/src/lib.rs`（route state 单元测试放同文件测试模块），并在已建立的 `src/lib/file-editor-sessions.ts` / `src/lib/editor-bridge.ts` / `src/components/{RichEditor,SourceView}.svelte` 连接保存回执与真实 focus/selection；扩展同一 browser 脚本为 `recovery` case。不得创建第二 source cache 校验器或 history router 栈。
+Task3已独立受理；这是Task4生效合同，替代早期rebase/在线mount候选。设计证据为本OWN/task-4-seams-discovery.md §§6–8；执行规范沿common-execution，CORE cap103424。
 
-**Consumes。** Task 1 唯一 FileRecovery 类型及 `restoreRecovery` 校验，Task 2 controller/native PM history，Task 3 已实现 owner 的 flush/close/baseline/Source input 能力，既有 Draft.previous/pending/IndexedDB 与桌面菜单 rebuild 流程。
+### 范围与文件
 
-**Produces / API。** `file-recovery.ts` 只提供 `recoveryFromSnapshot(snapshot):FileRecovery` 与 `acknowledgeSaved(previous,snapshot):{generation:number;hash:string}`，验证调用 Task 1 helper；`createShareFileSession` 对接已实现 mountFileEditor；file-history-focus 持有当前真实 owner 引用和选区，提供 `focusFile` / `leaveFile` / `routeHistory` 私有接线，Rust `set_file_history_route` 与 App 菜单事件消费同一 owner。菜单 state 无撤销内容副本。
+CORE不预定修改，消费Task3实际committed installed。HOST新建file-recovery.ts/test、share-editor/file-session.ts/test、lib/file-history-focus.ts/test；修改project-share/types.ts及browser.ts/test、App.svelte、src-tauri/src/lib.rs。按实际接线最小修改file-editor-sessions/editor-bridge/RichEditor/SourceView、tabs.svelte.ts/tabs.test.ts/autosave.svelte.ts；browser脚本增加recovery case。累计strict加入实际创建测试。CHANGELOG双语同条。
 
-**具体测试 / 提交边界。** 本 Task 的 recovery/share/focus 单元测试 + 严格 test TS、完整 host checks、实际 Tauri 编译/Rust route 测试、真实菜单与键盘/fallback/移动 IME 验收。保留 Task 1–3 回归，精确提交本 Task host 文件与 root 最终核定的双语未发布日志。设备/SDK缺失逐项未验证，不能用单元测试代替真机或宣告完整交付；本稿不生成 commit 或评审通过声明。
+不新增source验证器/history栈/数据库/服务/Worker协议；不修改Memory/CDR历史。旧inline browser的projectShareBrowser.toString仍必须自足，不能runtime import新module。此任务首次创建纯单文件share session，E1首次在线mount、E3首次multi-file rebase，不谎称既有在线链已完成。
 
-- [ ] **4.1 local恢复与pending闭包。** `file-recovery.ts`仅生成FileRecovery并调用 Task 1 `restoreRecovery` 验证，不复制 hash/完整覆盖算法；DraftV2新增optional `editorFiles:Record<string,FileRecovery>`。
+### 基线实例身份
 
-Draft.after[path]唯一正文；saveDraft既有IndexedDB transaction同时保存after+editorFiles；源hash不符就丢缓存，旧draft缺字段正常打开，不升DB或wire版本。
-`src/share-editor/file-session.ts`提供 `createShareFileSession({path,snapshotId,raw,draft,saveDraft,mountTarget})`：使用draft.after[path]或snapshotraw+缓存mountFileEditor；onChange更新after/cache，排程既有saveDraft。
-保存序号 `{generation,sourceHash}`冻结在发起时；旧save完成只确认那代持久化，不清后续dirty；失败保留raw并允许原retry，不能把save回执当新authority。
-browser现有导入/导出/校验链保留optional editorFiles或按hash规则丢弃缓存，不丢after；pending.body保持原冻结字符串，后续输入不能修改它。
-建议送达仍只清pending/设置lastSubmissionId/按既有合同清Draft.previous；不调owner.installBaseline、不清native PM历史。
-rebase先写Draft.previous并await durable save；再构造全新FileInput authority/snapshot并调用installBaseline；ShareEditor调用者必须同时以目标snapshot+目标draft显式传新policy，undo-rebase同样重建，不能省略参数沿用旧floor。失败保留旧owner/policy/history与previous，不半装。
-撤销rebase从previous恢复base/after并重新建立明确authority历史边界；bindings缓存失配可重建。普通same-authorityrestoreContent继续可撤销。
-E4保持工作.md/base/outbox权威；可选hash-bound恢复缓存不与文件争夺正文，不谎称多文件原子写；工作raw先写成功，旧缓存缺失/不匹配就重建。
-本模块不接CDR ack-local/OperationBatch，不改Worker/ProjectEdit.afterMarkdown或签名协议。
+Ruling: 仅内部 FileMountSession 增只读 baselineIdentity: object getter，返回既有 controller 引用，只作引用比较，不扩公开 Owner/Snapshot/Recovery、不持久化、不加 registry。保存同步捕获 identity 和当前 snapshot；回执先核同 identity，再核 durable raw/recovery。saved 标记本身按 identity 隔离，换基线后旧 generation max 不阻碍新基线。普通编辑/undo/模式切换 identity 不变，允许 B 保存期间继续 C 后只 ack B。失败 installBaseline 保留 identity/旧 durable。observer 只作保存信号，重新同步读当前 identity+snapshot，不能旧通知配新 identity；await flush 后同理重新读取 — authority 字符串允许复用，generation 归零，sourceLineage 普通编辑也变化，均不能区分基线实例 — 成本是一个内部只读 getter 与本地 saved tuple；须真实 mount 覆盖同authority重装、A→B→A、高generation到0、失败baseline、B/C、模式切换及旧microtask通知跨baseline。
 
-- [ ] **4.2 native菜单最小真实路由。** `file-history-focus.ts`记录最后真实file编辑owner、view kind、generation、selection bookmark/textarea selection；仅真正focusin普通input/其它编辑器或owner关闭时解除。
+Files 补充 file-main.ts、file-owner.test.ts，仅上述内部getter与基线身份回归。
 
-菜单导致document短暂blur/activeElement=body不解除owner；点击普通搜索框切回native default。切Source/Rich仍同owner，避免focus roundtrip把选区恢复到旧doc。
-JS发布 `{active,canUndo,canRedo,routeVersion}` 到新增Tauri命令 `set_file_history_route`；Rust在现有menu state中存最新routeVersion，过期调用忽略，主窗失焦到别的原生窗口恢复default。
-沿现有build_menu/rebuild_menu：active时Edit前两项用具名 `file-undo/file-redo` MenuItem并设置enabled；不设accelerator（快捷键由webview处理）；inactive仍原PredefinedMenuItem undo/redo。
-App现有menu-event switch新增两case发送给focus router；router核owner存活/authority/generation与composition/pending buffer，再调用同owner history，无document.execCommand替代file操作。
-只有active/inactive或enabled改变才重建菜单，使用已有main-thread rebuild路径；locale/recent/plugin菜单继续同build_menu，不另维护第二菜单模板。
-原生菜单和键盘重复触发是验收失败；普通input/legacy Rich的Predefined fallback必须真实验证，不能因为file路径成功就替换所有编辑器历史。
-Rust相关测试新建route state顺序/旧generation无效的单元例；菜单focus/selection恢复必须桌面实机，不能只检查case字符串。
+### 恢复与精确保存
 
-- [ ] **4.3 最终整合测试与实际数据。** `src/share-editor/file-session.test.ts`用生产适配与可控save Promise检查B保存飞行中继续C、pending.body不变、重开hash错回退、rebase/撤销rebase边界。
+1. file-recovery只生成recoveryFromSnapshot及acknowledgeSaved；校验复用Task1 restoreRecovery，不复写hash/coverage。acknowledgeSaved同authority调用者内只保较大generation，不安装baseline，不dispatch。
+2. DraftV2 optional editorFiles按路径持有既有FileRecovery；after[path]是唯一正文。空字符串由hasOwn判存在。旧draft缺cache合法；hash不符丢cache不丢正文，不升DB/wire版本。
+3. createShareFileSession输入固定path/snapshotId、该文件快照raw、同lineage live DraftV2、明确policy、既有adapters/render、mountTarget和saveDraft；无全局默认policy。旧snapshot draft仅可用其本身base该文件，缺失就拒绝，不拿新snapshotraw补旧base。
+4. 单一mountFileEditor owner；onChange把本文件raw/recovery写入同live aggregate。save时先flush最新snapshot，写live after/editorFiles，冻结本次请求snapshot S和recovery R。
+5. callback `saveDraft(live:DraftV2):Promise<Readonly<DraftV2>>` 返回实际durable detached clone D，必须await真实atomic成功；不把调用时capture当durable。调用者以同lineage共享FIFO：进入实际执行槽时clone最新live aggregate及对应notes身份，然后atomic保存。delivery槽位包含atomic与内存markDelivered完整动作，防止queued旧pending写回。
+6. session只在D.after[path]===S.raw且D.editorFiles[path]的v/hash/revision/有序bindings逐字段等于R，且原session/lineage/authority仍当前时，确认S这一代。已有helpers负责recovery合法性，这里只比对本次实际请求，不新验证器。
+7. B保存中继续C：B回执只确认B，C仍dirty且历史完整。若排队B执行时实际写C，B请求不能伪确认，C自己的save可以；失败/旧authority/跨lineage回执不清新输入。pending.body字节不受编辑影响。
+8. close先flush pending/IME，临时锁本owner只读再读最新snapshot并精确durable保存，确认后close；失败恢复本次锁前实际readonly并保留owner/草稿。内部session可用setReadOnly记录值，不扩公开FileEditorOwner为读回属性或全局registry。禁止假设原来false。
+9. 最小session表面只mounted/save/close/saved及必要readonly代理；本Task不提供session.rebase。底层owner.installBaseline显式新policy/authority仅用于恢复边界测试；E3负责先durable previous再multi-file exchange，不能在此造半套rebase编排。
+10. desktop真正write汇合是tabs.persistMarkdownSnapshot；精确保存成功的captured raw才能ack，缓存必须与实际写盘raw匹配，不从RichEditor initialContent猜回执。普通md不新增sidecar。autosave续输入/晚到回执不能覆盖raw或清history。
 
-```ts
-// file-recovery.test.ts；同一真实owner，save回执只影响宿主持久标记。
-import {expect,it} from 'vitest'
-import {undoDepth} from 'prosemirror-history'
-import {open} from './file-test-utils'
-import {acknowledgeSaved} from './file-recovery'
-it('保存B完成不覆盖继续输入C且不清history',async()=>{
- const c=open('A'),b=c.replaceSource({expectedGeneration:c.snapshot().generation,value:'B'})
- expect(b.ok).toBe(true)
- const saved=c.snapshot(),depth=undoDepth(c.state)
- expect(c.replaceSource({expectedGeneration:saved.generation,value:'C'}).ok).toBe(true)
- const current=c.snapshot()
- // acknowledgeSaved仅更新持久generation；生产recovery helper明确不dispatch。
- const durable=acknowledgeSaved({generation:0,hash:''},saved)
- expect(durable.generation).toBe(saved.generation)
- expect(c.snapshot()).toEqual(current);expect(undoDepth(c.state)).toBeGreaterThanOrEqual(depth)
- expect(c.snapshot().raw).toBe('C')
-})
-```
+### native历史菜单
 
-`acknowledgeSaved(previous,snapshot)`只返回generation较大的 `{generation,hash:sourceHash}`，过期回执返回previous；dirty以当前sourceHash/未提交buffer与durable值判定，不以last completed布尔清零。
-测试直接 import Task 2 已提交的 `file-test-utils.ts` 唯一 `open`；不得等到 Task 4 才抽 helper，也不得复制一个假的controller供各测试自己通过。
-真实I7语料：保留14原文、加nested前置已核的内嵌位置，一字改动expected直接由预定raw index替换而非serializer计算；actual propose恰一hunk。
-普通prose按句，table按行，fence/math/HTML按实际块token；另断言仅一个raw字符改变，不为凑句子hunk修改tokenizer/diff。
-三次Rich/Source无修改切换必须零bytes diff；Source format-only→Rich undo/redo、Rich字符→Source→redo、definition-only/空/BOM/CRLF/gaps全部覆盖。
-平台：macOS Safari、Chrome、iOS Safari、Android Chrome实际中文/日文IME；Desktop macOS菜单+快捷键+普通input fallback。其它已支持桌面平台有native history事件差异时逐项列未验证，不虚报全平台PASS。
-本批scope内失败修对应producer/controller，不能以全篇serializer或Source fallback完成验收；前置未涵盖能力形成明确后续项，E1完整验收仍不得勾完。
+1. TS focus router仅持实际owner引用、view kind、当时generation和selection/bookmark；不持历史副本。focusin普通input/其他编辑器或owner关闭解除；系统菜单导致blur/body不解除。
+2. Source/Rich同owner，恢复selection必须核同authority/generation/currentview；不能把旧bookmark resolve到新doc。composition/pending时遵循owner阻断，不用execCommand替代。
+3. Rust现有Tauri2.11.1 Builder.on_page_load仅main Started推进safe-integer epoch、清route/version并恢复default。set_file_history_route同命令init只读epoch，set限定main caller、epoch相等、严格递增safe-integer routeVersion；旧page高version与非main请求拒绝。无时间戳。
+4. Rust mainFocused独立控制有效active，其他native window时default，旧JS迟到invoke不能激活。沿现有main-thread build_menu/rebuild_menu，locale/recent/plugin同一个模板。
+5. active时具名file-undo/file-redo MenuItem依canUndo/Redo启用，无accelerators；inactive原Predefined undo/redo。仅有效active/enabled变化重建。App事件主窗路由当前owner，同一键盘动作不能native+PM双执行。
+6. Rust纯route状态测试覆盖init/set/epoch/reload/caller/focus/旧version；不能替代实际macOS菜单/键盘/fallback验收。当前CUA失败已记录，若仍不可用逐项未验，不造平台PASS。
 
-```sh
-# HOST Task 4 focused tests；然后共同 host 门槛、现有 Rust 测试/编译与真实菜单验收。
-env pnpm_config_verify_deps_before_run=false pnpm exec vitest run src/editor-kit-v2/file-recovery.test.ts src/share-editor/file-session.test.ts src/lib/file-history-focus.test.ts
-FILE_EDITOR_OUTPUT_DIR="$FILE_PLAN_OWN/browser" FILE_EDITOR_CACHE_DIR="$FILE_PLAN_OWN/vite-cache" node scripts/check-file-editor-browser.mjs --case recovery
-```
+### 必要验证矩阵
+
+- recovery缺字段/hash错/有序bindings、空after、旧snapshot缺base拒绝；真实owner首帧与history，非fake controller。
+- controllable atomic save B/C与pending投递：live FIFO实际durable结果、旧authority不ack、close成功/失败/readonly/pending/IME；reject保留retry且不丢正文。
+- 旧serialized browser bundle载入editorFiles不破toString；原pending/notes并发稳定，不声称新online mount已接。
+- desktop保存汇合精确ack、切tab/close失败保留、延迟autosave不清C；旧Memory/legacy回归。
+- real browser recovery case复用唯一factory/production adapter；真实focus/history选择恢复，不以case字符串检测算行为。
+- Rust route测试、现有Tauri实际check/build；菜单实机平台验收或准确未验原因。禁止下载工具链/SDK补环境。
+- focused RED→GREEN、累计strict/full/purity/empty-env Vite/Kit/current browser cases、精确commit/installed audit。最终全阶段Svelte/能力汇总放Task5后，Task4任务自己的类型与Rust必要检查不延后。
+
+### 交付
+
+报告实际BASE/HEAD、全部失败与warning、旧全量/最终covering各自SHA范围、唯一owner接口、native未验矩阵。只stage本Task允许文件；ROOT独立combined spec/quality受理后才Task5。当前阶段无Worker/应用发布声明，后继E1–E4及统一发行仍必做。
+
 
 ## 5. 共同验证、提交与产物闭包（执行时适配，当前不运行）
 
