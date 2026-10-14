@@ -15,10 +15,13 @@ function walk(node) {
   if (node.type === 'CallExpression' || node.type === 'NewExpression') assert(node.callee?.name !== 'eval' && node.callee?.name !== 'Function', 'Kit requires unsafe-eval')
   for (const value of Object.values(node)) if (Array.isArray(value)) value.forEach(walk); else if (value && typeof value === 'object') walk(value)
 }
-export async function checkShareEditorBuild(directory) {
+export async function checkShareEditorBuild(directory, graphPath = resolve('dist-share-editor/share-editor-modules.json')) {
   const manifest = JSON.parse(readFileSync(join(directory, 'share-editor-manifest.json'), 'utf8'))
   assert(manifest.apiVersion === 1 && Object.keys(manifest).every(key => ['apiVersion', 'js', 'css', 'mermaid'].includes(key)), 'Invalid manifest version or fields')
-  const modules = JSON.parse(readFileSync(join(directory, 'share-editor-modules.json'), 'utf8'))
+  const graph = JSON.parse(readFileSync(graphPath, 'utf8'))
+  assert(graph.jsSha256 === manifest.js?.sha256, 'Module graph hash mismatch')
+  const modules = graph.modules
+  assert(Array.isArray(modules), 'Invalid module graph')
   assert(modules.length && modules.some(id => id.endsWith('src/share-editor/main.ts')), 'Missing actual main module')
   assert(modules.every(id => !/@tauri-apps|node_modules\/(?:\.pnpm\/)?mermaid(?:[-/@])/.test(id)), 'Forbidden Tauri or Mermaid main dependency')
   const resources = {}
@@ -47,4 +50,4 @@ export async function checkShareEditorBuild(directory) {
     return { apiVersion: window.NotemdShareEditor.apiVersion, mount: typeof window.NotemdShareEditor.mount, resources, modules: modules.length }
   } finally { await window.happyDOM.close() }
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) console.log(JSON.stringify(await checkShareEditorBuild(resolve(process.argv[2] ?? 'dist')), null, 2))
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) console.log(JSON.stringify(await checkShareEditorBuild(resolve(process.argv[2] ?? 'dist'), process.argv[3] ? resolve(process.argv[3]) : undefined), null, 2))

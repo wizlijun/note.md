@@ -20,7 +20,7 @@ export function shareEditorAssets({ test = false } = {}) {
       if (hash !== asset.sha256 || !asset.name.includes(`.${hash}.`) || asset.sri !== 'sha384-' + createHash('sha384').update(bytes).digest('base64')) throw new Error('Share editor asset hash/SRI mismatch')
       return { ...asset, bytes }
     })
-    frozen = { manifest, manifestBytes, assets, modules: readFileSync(join(directory, 'share-editor-modules.json')) }
+    frozen = { manifest, manifestBytes, assets }
     return frozen
   }
   return {
@@ -42,9 +42,8 @@ export function shareEditorAssets({ test = false } = {}) {
     },
     generateBundle() {
       if (test) return
-      const { manifestBytes, modules } = read()
+      const { manifestBytes } = read()
       this.emitFile({ type: 'asset', fileName: 'share-editor-manifest.json', source: manifestBytes })
-      this.emitFile({ type: 'asset', fileName: 'share-editor-modules.json', source: modules })
     },
   }
 }

@@ -2,12 +2,13 @@ import { build } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 
 // A separate single-entry build: app/Kit entries cannot share an IIFE output.
 const emptyEnv = process.argv[3] ? resolve(process.argv[3]) : await mkdtemp(join(tmpdir(), 'notemd-share-empty-env-'))
 const outDir = resolve(process.argv[2] ?? 'dist')
+const graphPath = resolve(process.argv[4] ?? 'dist-share-editor/share-editor-modules.json')
 try {
   let modules = []
   const result = await build({ configFile: false, envDir: emptyEnv, plugins: [svelte(), {
@@ -33,6 +34,7 @@ try {
     await writeFile(join(outDir, 'assets', name), bytes)
   }
   await writeFile(join(outDir, 'share-editor-manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
-  await writeFile(join(outDir, 'share-editor-modules.json'), JSON.stringify(modules, null, 2) + '\n')
+  await mkdir(dirname(graphPath), { recursive: true })
+  await writeFile(graphPath, JSON.stringify({ jsSha256: manifest.js.sha256, modules }, null, 2) + '\n')
   console.log(JSON.stringify(manifest, null, 2))
 } finally { if (!process.argv[3]) await rm(emptyEnv, { recursive: true, force: true }) }

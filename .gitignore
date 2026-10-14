@@ -60,3 +60,6 @@ location-helper/target/
 
 # superpowers brainstorm/SDD scratch
 .superpowers/
+
+# Share editor build evidence (never app resources)
+/dist-share-editor/
