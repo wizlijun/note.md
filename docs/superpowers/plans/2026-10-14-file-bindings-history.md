@@ -655,6 +655,17 @@ Files 补充 file-main.ts、file-owner.test.ts，仅上述内部getter与基线�
 报告实际BASE/HEAD、全部失败与warning、旧全量/最终covering各自SHA范围、唯一owner接口、native未验矩阵。只stage本Task允许文件；ROOT独立combined spec/quality受理后才Task5。当前阶段无Worker/应用发布声明，后继E1–E4及统一发行仍必做。
 
 
+Ruling: Task4真实native Source undo用例t4-focus-first证明textarea已选(1,3)，内部Source adapter仍持旧selection(0,0)，follow重画覆盖用户选区。批准file-source-input.ts仅增加select同步读取与其自身history入口先read，保留pending/composition阻断、原value/原raw准入与唯一history；file-source-input.test.ts纳入精确允许范围。不得借此重新序列化正文或把未知旧选区resolve到新doc — 成本是补齐同owner Source选区状态同步；真实browser recovery需覆盖选择→菜单式undo及键盘undo，不能仅手工dispatch select后函数测试代替浏览器行为。
+
+
+Ruling: Task4桌面closeTab实际await saveTab/saveAs期间可继续输入C；保存B成功不能授权销毁C。采用内部FileMountSession.closeIfSaved({identity:object,raw:string}):Promise<void>，与公开owner.close共用一个private close(expected?)；最终await owner.flush后、同步destroy前核当前controller identity与snapshot.raw，失配throw且保留owner/DOM/history。file-editor-sessions关闭函数可接捕获的session引用/identity/raw并核registry一致；tabs.closeTab开始捕获session+identity，所有询问/保存完成后非显式discard传实际tab.initialContent字节（包含开始clean和untitled成功saveAs路径），显式discard沿原无guard关闭。无需桌面readonly getter/锁整段保存，不改变公开Owner — 成本是一个内部关闭guard接缝；须真实B保存/C续写、最终flush接受新输入、同authority baseline交换、untitled/显式discard回归；拒绝关闭不再remove tab或destroyowner。
+
+
+Ruling: Task4实际svelte-check发现rich-actions.ts:97的async run返回Promise<boolean|void|NoteEditState>违反既有EditorActions.run void|Promise<void>；当前1 error不能当既有通过。批准该文件仅selectAll/note/question三分支执行原调用后显式return void，保持原副作用/权限与既有接口，不放宽返回类型 — Task3批注新增返回句柄被无意泄漏到菜单执行合同 — 成本是三个必要调用方类型修复；重跑实际Svelte与相关已有菜单/批注覆盖，不为机械void修复新增镜像测试，原失败完整保留；若full在修复前已运行，准确记录其代码范围并补所需covering。
+
+Ruling补充：首轮void修复后t4-svelte-fix1仍1error，剩余boolean来自Task2同步producer helper的菜单分支。将同一最小void-return修复扩到rich-actions.run现有h1/h2/h3/quote/codeblock/bullet/ordered/task/hr/table/math/mermaid分支：调用setBlock/wrapBlock/wrapList/insertAtom/insertTable/insertTaskList后return void；不改helper布尔返回或EditorActions合同。此前三处分支不足以闭合实际推断，旧失败保留 — 成本仍仅同一菜单调用方机械修复，Svelte必须真实零error后才通过。
+
+
 ## 5. 共同验证、提交与产物闭包（执行时适配，当前不运行）
 
 每个Task形成core/host精确提交（若只host则不伪造core提交）；只stage本Task verified allowlist，tasks目录和其它writer文件不进提交。
@@ -814,7 +825,7 @@ Ruling: Task3公开file factory复用已有KitCSS资源，允许将main现有纯
 
 **顺序与范围。** Task4独立受理后开始，单writer；Task5受理后才执行唯一全阶段Svelte/能力聚合/whole-range final。本节替代Task4原文中提前作全阶段最终受理的时间安排；Task4本身的Rust、保存与路由检查仍执行。沿唯一file factory/controller，不退回legacy或Source写旁路。网页仍遵守主spec §12.9不新增附件权限。
 
-**Consumes。** Task3最终installed CORE的source facts/原Step链，Task4最终owner/recovery/focus；当前只读设计desktop-image-fidelity-design.md及真实installed/controller矩阵。Task3仍在改动，Task5启动时再冻结实际两仓BASE与最终HOST消费入口，不能将当前设计探针算实现通过。
+**Consumes。** Task3最终installed CORE的source facts/原Step链，Task4最终owner/recovery/focus；当前只读设计desktop-image-fidelity-design.md及真实installed/controller矩阵。Task3已经受理，Task5启动时再冻结Task4受理后的实际两仓BASE与最终HOST消费入口，不能将当前设计探针算实现通过。
 
 **CORE Files。** src/markdown.ts、src/source-inline-recipe.ts、src/source-fidelity.ts、src/source-structure.ts；新src/__tests__/source-image-producer.spec.ts与source-image-cache.spec.ts；精准增强source-structure-commands.spec.ts image正例及下述具名source-math-producer.spec.ts用例；CHANGELOG及审计manifest列明dist。source-empty-body.ts、commands.ts、package/exports/deps/锁/原14fixture不默认修改。
 
@@ -824,7 +835,7 @@ Ruling: Task3公开file factory复用已有KitCSS资源，允许将main现有纯
 - [ ] **5.2 image局部单位与原链。** canonical image采用实际schema、leaf/nodeSize1和可表示src/alt/title，承认helper真实继承marks。旧未改attrs的image输出原occurrence raw；新生或attrs变化仅调用既有image callback/编码的共享局部renderer，不复制URI编码或根/全文serializer。图片marks沿已有envelope。消费每个original Step/docs，支持插入/选区替换/多步临时空body/更新/完整删除；不因此开放math payload、未知atom或任意schema attrs。
 - [ ] **5.3 正确路由与删除边界。** exact AttrStep和Add/RemoveNodeMarkStep仅实际目标canonical image可走stable局部路径，执行原Step，其他节点分类不变。needsInline在exact unmapped早返回前识别真实image删除/替换/端点输入；范围来源必须是facts。空body复用prepareEmptyInlineContent/EmptyBody，删除唯一图片只处理本body相应separator与terminal EOL，不吞邻空行/definitions。setNodeMarkup真实ReplaceStep和原Attr/NodeMark正例都验邻文不改写。
 - [ ] **5.4 首个真实desktop消费者。** committed CORE安装后，原cursor/pos helper、marked selection/storedMarks、clipboardTextParser/HTML img、slash/context dialog/native drop各核实际入口；只对已有异步入口复用Task3 guard，取消/拒绝不先删trigger。真实EditorView/controller验证insert→resize→delete的独立undo/redo、跨Source模式同owner、flush/save不清历史、bindings保持、readonly/policy/stale零写。native系统API与浏览器模拟逐项区分。
-- [ ] **5.5 验证及提交。** 先真实focused RED再实现，cumulative strict→CORE full/type/build/artifact→精确source+dist提交→真实前驱受控installed→HOST focused/full/purity/空env build/Kit+image/mount/resize/recovery→精确HOST commit/installed audit→独立spec+quality review。未变门槛不为次数重复；原失败保留。index Node gzip上限103424，当前已验证102947仅余477；若实测超限先报告最小必要增量与复用情况，不静默加cap、不搬公开出口逃预算。最终share IIFE900KiB预算独立不变。
+- [ ] **5.5 验证及提交。** 先真实focused RED再实现，cumulative strict→CORE full/type/build/artifact→精确source+dist提交→真实前驱受控installed→HOST focused/full/purity/空env build/Kit+image/mount/resize/recovery→精确HOST commit/installed audit→独立spec+quality review。未变门槛不为次数重复；原失败保留。index Node gzip上限103424，当前已验证103317仅余107；若实测超限先报告最小必要增量与复用情况，不静默加cap、不搬公开出口逃预算。最终share IIFE900KiB预算独立不变。
 
 **表示性矩阵。** 精确expected独立于serializer：路径空格/括号/%20/%25/中文/Windows、alt括号与ampersand、title quotes、table pipes、reference definitions、annotation/HTML外层marks、mixed EOL/无EOF。无法严格roundtrip的非canonical attrs拒绝且不改目标doc。相同attrs不同raw occurrence不得串用。probe零写，失败后合法请求可继续；unknown Step/subclass/假docs/maps/外来raw facts/protected编辑继续拒绝。
 
@@ -841,3 +852,17 @@ Ruling: Task3新增empty stored-link逐键fixture按实际noninclusive PM事务�
 
 
 Ruling: Task3 fix1 I3真实adapter异常RED证mount已获得frontmatter destroy句柄后spreadsheet.create抛错，file-main仅移除root而未清已有资源。批准只在file-main挂载期间为这两个显式factory已获得的destroy句柄做一次性登记，正常NodeView destroy取消登记，创建成功释放临时登记，失败catch逆序清剩余；调用原handle.destroy保留this，cleanup单个抛错继续清理并诊断且保留原创建异常。CORE实际类型仅destroy方法（frontmatter可void），无需CORE/API/第二NodeView/全局资源框架 — 成本是必要挂载失败回收接缝，新增真实失败/正常close只一次/cleanup异常仍清完与原异常回归；不扩未被证明的长期资源管理。
+
+
+## Phase final：Task5后的原I7与平台聚合
+
+Task4正式合同收束为恢复/native时，旧4.3整阶段验收迁至这里，未取消；本节保留该验收范围。Task5当前基线实际CORE48f25，Nodegzip103317/cap103424，余107；旧102947/477已过时，不能作为启动预算。
+
+- 保留两仓各14原文与manifest hash，HOST真实installed factory消费；另含已核nested内嵌位置。
+- I7零修改三次Rich/Source切换零bytes；一字修改expected直接按既定raw index替换，不由serializer生成，actual propose恰一hunk且只一raw字符改变。prose按句/table按行/fence、math、HTML按真实块token，不能为hunk改diff/tokenizer。
+- Source format-only→Rich undo/redo，Rich字符→Source→redo；definition-only、空/BOM/CRLF/gaps。Task3/5已实际覆盖且未受后续改动的证据可复用，缺失或变化部分执行，不为次数重复。
+- 聚合命令、批注、图片、layout、保存/close/recovery、native菜单按各Task实际证据与SHA列矩阵，不把拒绝当已支持。
+- 平台macOS Safari/Chrome、iOS Safari、Android Chrome × 中文/日文IME × tablecell/list，Desktop macOS菜单+键盘+普通input fallback；系统UI不可用/无设备逐项未验，合成事件不能替代。不宣称全平台完成。
+- ROOT累计strict/final Svelte与前后两仓tracked指纹；task full的准确SHA与最终covering分列。前置source能力不被更高层回退/fullserializer绕过。
+- 仅一次最强whole-range final，读取全部deferred Task2M1 colwidth夹具、Task2M2/Task3M1告警等；最多一次统一fix及scoped复审。阶段报告/archive清单/rulings完整，先验证archive再只清OWN临时目录，不清用户源/依赖。
+- 完成此阶段仍继续E1–E4与所有未发布产品统一发行；无平台证据的具体限制须如实向用户报告，不能把本地commits等同发版。
