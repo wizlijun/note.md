@@ -50,7 +50,7 @@ describe('static project bundle',()=>{
     expect(()=>payload('https://share.example/feedback/slug/extra')).toThrow(/version endpoint/)
     expect(()=>payload('https://share.example/feedback/slug',{versionUrl:'https://else.example/project/slug/version'})).toThrow(/version endpoint/)
     const html=buildProjectBundle(snapshot,'https://share.example/feedback/slug')
-    expect(html).not.toContain('editorKit')
+    expect(payload('https://share.example/feedback/slug').editorKit).toBeUndefined()
     expect(html.match(/content="(default-src[^"]+)/)![1].replace(/nonce-[a-z0-9]+/g,'nonce-NONCE')).toBe("default-src 'none'; script-src 'nonce-NONCE'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data:; connect-src https://share.example; base-uri 'none'; form-action 'none'")
   })
 

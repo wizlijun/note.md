@@ -1012,3 +1012,42 @@ describe('versioned drafts in serialized browser',()=> {
   })
 
 })
+
+describe('enhanced reader compatibility boundaries',()=> {
+  it('keeps enhanced Critic raw and blocks fallback submission until the editor is restored',async()=> {
+    const raw='{==原始内容==}{>>访客批注<<}'
+    values.set('project_1:draft2:enhanced',{v:2,lineageId:'enhanced',snapshotId:'snapshot_1',base:{'README.md':{hash:'a'.repeat(64),markdown:snapshot.files[0].markdown}},after:{'README.md':raw},annotationKinds:{},editorFiles:{'README.md':{v:1}}})
+    const send=vi.fn();vi.stubGlobal('fetch',send)
+    await serialized();click('submit')
+    await vi.waitFor(()=>expect(status()).toContain('请恢复增强编辑器或导出备份'))
+    expect(send).not.toHaveBeenCalled();expect(values.get('project_1:draft2:enhanced').after['README.md']).toBe(raw)
+    click('edit');input(raw+' 后续')
+    await vi.waitFor(()=>expect(values.get('project_1:draft2:enhanced').after['README.md']).toBe(raw+' 后续'))
+    click('submit');await vi.waitFor(()=>expect(($('submit') as HTMLButtonElement).disabled).toBe(false))
+    expect(status()).toContain('请恢复增强编辑器或导出备份');expect(send).not.toHaveBeenCalled()
+  })
+  it.each([[404,'已送达，待处理'],[403,'权限不足'],[410,'分享已失效']])('shows receipt HTTP %i as plain text %s',async(code,label)=> {
+    values.set('project_1:submitted',['receipt-one'])
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response('',{status:code as number})))
+    await projectShareBrowser(new Marked())
+    await vi.waitFor(()=>expect($('receipts').textContent).toContain(label))
+  })
+  it('defaults AI off and derives fallback tree badges and filter from the same draft',async()=> {
+    await projectShareBrowser(new Marked());click('edit');input('a changed file')
+    await vi.waitFor(()=>expect(document.querySelector('[data-file="README.md"] .file-badge')?.textContent).toContain('●'))
+    expect(($('ai-assisted') as HTMLInputElement).checked).toBe(false)
+    ;($('changed-only') as HTMLInputElement).checked=true;$('changed-only').dispatchEvent(new Event('change'))
+    expect(document.querySelectorAll('[data-file]')).toHaveLength(1)
+  })
+})
+
+describe('serialized fallback Critic multiset guard',()=> {
+  it.each([false,true])('preserves original owner notes while ordinary editing; duplicate=%s',async(duplicate)=> {
+    const owner='{==owner==}{>>原注<<}', base=owner+'\n\nA', raw=owner+(duplicate?owner:'')+'\n\nB'
+    values.set('project_1:draft2:owner-plain',{v:2,lineageId:'owner-plain',snapshotId:'snapshot_1',base:{'README.md':{hash:'a'.repeat(64),markdown:base}},after:{'README.md':raw},annotationKinds:{}})
+    const bodies:string[]=[];vi.stubGlobal('fetch',vi.fn(async(_url,init)=>{bodies.push(init.body);return Response.json({})}))
+    await serialized();click('submit');await vi.waitFor(()=>expect(($('submit') as HTMLButtonElement).disabled).toBe(false))
+    if(duplicate) {expect(bodies).toHaveLength(0);expect(status()).toContain('请恢复增强编辑器或导出备份')}
+    else {expect(bodies).toHaveLength(1);expect(JSON.parse(bodies[0]).edits[0].afterMarkdown).toBe(raw)}
+  })
+})

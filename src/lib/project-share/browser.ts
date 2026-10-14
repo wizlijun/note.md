@@ -1,7 +1,8 @@
+import type { ShareEditorHandleE1, ShareEditorHost, ShareEditorModule } from '../../share-editor/contract'
 import type { DraftV2, ProjectAnnotationV2 } from './types'
 
 /** Serialized into the static bundle. Keep every runtime dependency inside this function. */
-export async function projectShareBrowser(parser: any, zipper?: any): Promise<void> {
+export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?: (raw: string) => { raw: string }[]): Promise<void> {
   const data = JSON.parse(document.getElementById('project-data')!.textContent!)
   const snapshot = data.snapshot
   const files = new Map<string, any>(snapshot.files.map((file: any) => [file.path, file]))
@@ -16,6 +17,14 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   let path = snapshot.entry
   let editing = false
   let baseline = false
+  let handle: ShareEditorHandleE1 | undefined
+  let editorHost: ShareEditorHost | undefined
+  let loadEpoch = 0
+  let loading: Promise<void> | undefined
+  let cancelLoad = () => {}
+  const enhanced = document.createElement('section'); enhanced.id='enhanced-editor'; enhanced.hidden=true; editor.after(enhanced)
+  const badges = new Map<string, {changed:boolean;annotations:number}>()
+  const durablePending = new Map<string, NonNullable<DraftV2['pending']>>()
   const providedToken = new URLSearchParams(location.hash.slice(1)).get('feedback') ?? ''
   let token = providedToken
   let db: IDBDatabase | undefined
@@ -123,14 +132,14 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     tx.oncomplete=()=>resolve()
     tx.onabort=tx.onerror=()=>reject(tx.error??new Error('本地保存失败'))
   })
-  const save = (): Promise<Readonly<DraftV2>> => {
+  const save = (owner=draft, ownerNotes=notes): Promise<Readonly<DraftV2>> => {
     // Bind ownership now, but read that lineage's live contents when writing.
     // This retains in-flight input without crossing an asynchronous switch or
     // reviving pending after that lineage's durable submission completes.
-    const owner=draft, ownerNotes=notes
     const operation=saving.catch(()=>{}).then(async()=> {
       const durable=structuredClone(owner), durableNotes=structuredClone(ownerNotes)
       await atomic([[prefix+'draft2:'+owner.lineageId,durable],[prefix+'draft2-notes:'+owner.lineageId,durableNotes]])
+      if(owner===draft) renderTree()
       return durable
     }).catch(error=> {ready=false;render();throw error})
     saving=operation.then(()=>{},()=>{})
@@ -275,7 +284,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
         const id=ids[index++], row=document.createElement('p');row.textContent=id+'：已送达，待处理';list.append(row)
         try {
           const response=await fetch(data.feedbackUrl+'/receipt/'+encodeURIComponent(id),{headers:{'X-Feedback-Token':token},cache:'no-store'})
-          if(!response.ok) continue
+          if(!response.ok) { if(response.status===403) row.textContent=id+'：权限不足'; if(response.status===410) row.textContent=id+'：分享已失效'; continue }
           const receipt=await response.json()
           if(receipt.submissionId && receipt.submissionId!==id) continue
           if(receipt.project_id && receipt.project_id!==snapshot.project_id) continue
@@ -429,16 +438,19 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     if(restoreFocus) fileToggle.focus()
   }
   const renderTree = () => {
+    if(!handle && !loading) {badges.clear();for(const p of new Set([...Object.keys(draft.after),...notes.map(note=>note.path)])) badges.set(p,{changed:draft.after[p]!==undefined && draft.after[p]!==original(p),annotations:notes.filter(note=>note.path===p).length})}
     const tree=treeForDraft()
     const append = (parent:any,list:HTMLElement,depth:number) => {
       const nodes=Array.from(parent.children.values()) as any[]
       nodes.sort((a,b)=>Number(b.folder)-Number(a.folder) || (b.modifiedAt??-1)-(a.modifiedAt??-1) || a.name.localeCompare(b.name) || a.path.localeCompare(b.path))
       for(const node of nodes) {
+        if(($('changed-only') as HTMLInputElement | null)?.checked && !node.folder && !badges.get(node.path)?.changed && !badges.get(node.path)?.annotations) continue
         const item=document.createElement('li')
         const button=document.createElement('button')
         button.className='file-row'; button.style.paddingLeft=(8+depth*14)+'px'; button.title=node.name
         button.innerHTML=(node.folder?'<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>':'<span class="chevron"></span>')+icon(node.folder)
         const label=document.createElement('span'); label.className='file-label'; label.textContent=node.name+(!node.folder && !files.has(node.path)?'（旧版本）':''); button.append(label)
+        if(!node.folder) { const badge=badges.get(node.path); if(badge?.changed || badge?.annotations) { const mark=document.createElement('span');mark.className='file-badge';mark.textContent=(badge.changed?'● ':'')+(badge.annotations?String(badge.annotations):'');button.append(mark) } }
         if(node.folder) {
           button.setAttribute('data-folder',node.path); button.setAttribute('aria-expanded',String(expanded.has(node.path)))
           const children=document.createElement('ul'); children.hidden=!expanded.has(node.path)
@@ -500,14 +512,15 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
         const hint=document.createElement('p'); hint.className='draft-diagram-note'; hint.textContent='草稿图表显示源代码；主人合入并重新发布后完整渲染。'; article.prepend(hint)
       }
     }
-    editor.hidden=!editing
+    editor.hidden=!editing || !!handle
+    enhanced.hidden=!editing || !handle
     article.hidden=editing
     editButton.textContent=editing?'预览':'编辑 Markdown'
     $('baseline').textContent=baseline?'查看我的修改':'查看发布原文'
     document.title=data.title+' · '+(token?'可编辑':'只读')
     $('collaboration').hidden=!token
-    editButton.disabled=!token || !initialized || (draft.snapshotId!==snapshot.snapshotId && !draft.base[path])
-    ;($('baseline') as HTMLButtonElement).disabled=!token || !initialized
+    editButton.disabled=!token || !initialized || !!loading || (draft.snapshotId!==snapshot.snapshotId && !draft.base[path])
+    ;($('baseline') as HTMLButtonElement).disabled=!token || !initialized || !!loading
     ;($('export') as HTMLButtonElement).disabled=!token || !initialized
     ;(name as HTMLInputElement).disabled=!token || !initialized
     submit.disabled=!token || !ready || busy || revoked
@@ -517,10 +530,23 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     correctRejected.disabled=busy || !ready
     comments()
   }
+  let navigating=Promise.resolve()
   const navigate = () => {
+    const params=new URLSearchParams(location.hash.slice(1)), target=params.get('doc')
+    if(handle && target && target!==path && (files.get(target)?.markdown!==undefined || draft.base[target])) {
+      const current=handle
+      navigating=navigating.catch(()=>{}).then(async()=> {
+        if(current!==handle) return
+        try { await current.switchFile(target); if(current===handle) {path=target;renderNavigation()} }
+        catch { say('切换前保存失败，当前编辑已保留；请重试或导出') }
+      }); return
+    }
+    renderNavigation()
+  }
+  const renderNavigation = () => {
     const params=new URLSearchParams(location.hash.slice(1))
     const target=params.get('doc')
-    if(target && (files.get(target)?.markdown!==undefined || draft.base[target])) path=target
+    if(!handle && target && (files.get(target)?.markdown!==undefined || draft.base[target])) path=target
     revealCurrent(); renderTree(); render()
     const heading=params.get('heading')
     if(heading) Array.from(article.querySelectorAll('[id]')).find(element=>element.id===heading)?.scrollIntoView?.()
@@ -533,8 +559,67 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
     if(!menu.hidden) { event.preventDefault(); closeMenu(true) }
     else if(!panel.hidden) { event.preventDefault(); setPanel(false,true) }
   })
-  editButton.onclick=()=> { if(!token || !initialized) return; editing=!editing; baseline=false; render(); if(editing) editor.focus() }
-  $('baseline').onclick=()=> { baseline=!baseline; editing=false; render() }
+  const hostFor = (owner: DraftV2, ownerNotes: ProjectAnnotationV2[]): ShareEditorHost => ({
+    apiVersion:1, snapshot, theme:{themeId:data.presentation?.themeId??''},
+    loadDraft:async()=>owner,
+    saveDraft:live=> {if(live!==owner) return Promise.reject(Error('草稿身份已变化'));return save(owner,ownerNotes)},
+    submit:async(body,id)=> {
+      const pending=durablePending.get(owner.lineageId)
+      if(!ready || owner!==draft || pending?.body!==body || pending?.submissionId!==id || owner.pending?.body!==body || owner.pending.submissionId!==id) throw Error('提交尚未完成本机保存')
+      await checkVersion(true)
+      if(revoked) return {ok:false,status:410,message:'分享已失效'}
+      const response=await fetch(data.feedbackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-Feedback-Token':token},body})
+      if(!response.ok) return {ok:false,status:response.status,message:'HTTP '+response.status}
+      await response.json();return {ok:true}
+    },
+    notify:say,
+    openFile:next=> {const params=new URLSearchParams(location.hash.slice(1));params.set('doc',next);params.delete('heading');history.pushState(null,'','#'+params.toString());navigate()},
+    setFileBadges:rows=> {if(owner!==draft)return;badges.clear();for(const row of rows)badges.set(row.path,row);renderTree()},
+  })
+  const loadEditor = (): Promise<void> => {
+    if(loading) return loading
+    if(handle || !data.editorKit) return Promise.resolve()
+    const owner=draft, ownerNotes=notes, epoch=++loadEpoch, kit=data.editorKit
+    loading=(async()=> {
+      const script=document.createElement('script'), css=document.createElement('link')
+      let timer: ReturnType<typeof setTimeout> | undefined, rejectLoad: (error:Error)=>void=()=>{}
+      const dispose=()=> {clearTimeout(timer);script.onload=script.onerror=css.onload=css.onerror=null;script.remove();css.remove()}
+      cancelLoad=()=> {rejectLoad(Error('cancelled'));dispose()}
+      try {
+        await new Promise<void>((resolve,reject)=> {
+          rejectLoad=reject;let loaded=0
+          const done=()=> {if(++loaded===2)resolve()}
+          script.onload=css.onload=done;script.onerror=css.onerror=()=>reject(Error('kit-unavailable'))
+          timer=setTimeout(()=>reject(Error('kit-timeout')),15000)
+          if(new URL(kit.js.url).origin!==location.origin || new URL(kit.css.url).origin!==location.origin) {reject(Error('kit-origin'));return}
+          css.rel='stylesheet';css.href=kit.css.url;css.integrity=kit.css.integrity;css.crossOrigin='anonymous'
+          script.src=kit.js.url;script.integrity=kit.js.integrity;script.crossOrigin='anonymous'
+          document.head.append(css,script)
+        })
+        clearTimeout(timer);script.onload=script.onerror=css.onload=css.onerror=null
+        const module=(globalThis as typeof globalThis & {NotemdShareEditor?:ShareEditorModule}).NotemdShareEditor
+        if(epoch!==loadEpoch || owner!==draft || !editing) {dispose();return}
+        if(module?.apiVersion!==1) throw Error('kit-version')
+        const host=hostFor(owner,ownerNotes)
+        const mounted=await module.mount(enhanced,host,{path})
+        if(epoch!==loadEpoch || owner!==draft || !editing) {await mounted.destroy();dispose();return}
+        handle=mounted;editorHost=host;render()
+      } catch {
+        dispose()
+        if(epoch===loadEpoch && owner===draft) {say('增强编辑器不可用，已切换到基础编辑');render();editor.focus()}
+      } finally {if(epoch===loadEpoch) {loading=undefined;cancelLoad=()=>{};render()}}
+    })()
+    return loading
+  }
+  editButton.onclick=async()=> {
+    if(!token || !initialized) return
+    if(editing && handle) {try {await handle.buildSubmission({})} catch {say('预览前保存失败，当前编辑已保留');return}}
+    editing=!editing;baseline=false
+    if(!editing && loading) {++loadEpoch;cancelLoad();loading=undefined}
+    render();if(editing) {if(!handle) editor.focus();const pending=loadEditor();render();await pending}
+  }
+  $('changed-only')?.addEventListener('change',renderTree)
+  $('baseline').onclick=async()=> { if(editing && handle) {try {await handle.buildSubmission({})} catch {say('预览前保存失败，当前编辑已保留');return}} baseline=!baseline; editing=false;if(loading){++loadEpoch;cancelLoad();loading=undefined} render() }
   editor.oninput=()=> {
     if(!ensureBase()) { render(); return }
     state.drafts[path]=editor.value
@@ -580,7 +665,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
         // One immutable rejected body per lineage, replaced only by another
         // explicit correction. The export includes this recovery copy.
         await atomic([[draftKey(),next],[notesKey(),structuredClone(notes)],[prefix+'draft2-rejected:'+draft.lineageId,pending]])
-        delete draft.pending;rejectedBodies.set(draft.lineageId,pending);rejectedPending=undefined
+        delete draft.pending;durablePending.delete(draft.lineageId);rejectedBodies.set(draft.lineageId,pending);rejectedPending=undefined
       }).catch(error=>{ready=false;throw error})
       await saving;say('已解除冻结，原拒收包已保留供导出；请纠正输入后提交')
     } catch(error:any) {say('纠正未保存：'+error.message+'；原包仍保留')}
@@ -588,52 +673,82 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
   }
   submit.onclick=async()=> {
     if(busy || !ready || !token || revoked) return
+    const owner=draft, ownerNotes=notes, ownerSnapshot=owner.snapshotId
     busy=true;render()
     try {
       await checkVersion(true)
       if(revoked) return
-      let pending=draft.pending
+      let pending=owner.pending
       if(!pending) {
-        const candidate=content(draft,notes,true)
-        if(!candidate.edits.length && !notes.length) {say('没有新的修改或标注');return}
-        const submissionId=uuid()
-        const payload={schemaVersion:2,project_id:snapshot.project_id,...candidate,submissionId,client:{kind:'browser-fallback'},contributor:{name:name.value},supersedes:draft.lastSubmissionId,rebasedFrom:draft.rebasedFrom}
-        const body=JSON.stringify(payload)
-        const invalid=invalidV2(JSON.parse(body))
+        let body: string, submissionId: string
+        if(handle) {
+          await navigating
+          const result=await handle.buildSubmission({message:owner.message,name:name.value,aiAssisted:($('ai-assisted') as HTMLInputElement | null)?.checked??false})
+          if(owner!==draft || owner.snapshotId!==ownerSnapshot) throw Error('草稿已切换，本次提交已取消')
+          const payload=JSON.parse(result.body)
+          const clean={...owner,after:{...Object.fromEntries(Object.entries(owner.base).map(([p,b])=>[p,b.markdown])),...Object.fromEntries(payload.edits.map((e:any)=>[e.path,e.afterMarkdown]))}}
+          payload.annotations.push(...content(clean,ownerNotes,true).annotations)
+          body=JSON.stringify(payload);submissionId=result.submissionId
+        } else {
+          const guestCritic=Object.entries(owner.after).some(([p,raw])=> {
+            const base=owner.base[p]?.markdown??''
+            if(raw===base || !/\{>>|\{==/.test(raw)) return false
+            // Old direct callers without the scanner must fail closed for Critic.
+            if(!scanCritic) return true
+            const remaining=new Map<string,number>()
+            for(const row of scanCritic(base)) remaining.set(row.raw,(remaining.get(row.raw)??0)+1)
+            return scanCritic(raw).some(row=> {const count=remaining.get(row.raw)??0;if(count)remaining.set(row.raw,count-1);return !count})
+          })
+          if(guestCritic) throw Error('增强批注草稿已保留；请恢复增强编辑器或导出备份后提交')
+          const candidate=content(owner,ownerNotes,true)
+          submissionId=uuid()
+          body=JSON.stringify({schemaVersion:2,project_id:snapshot.project_id,...candidate,submissionId,client:{kind:'browser-fallback'},contributor:{name:name.value,aiAssisted:($('ai-assisted') as HTMLInputElement | null)?.checked??false},supersedes:owner.lastSubmissionId,rebasedFrom:owner.rebasedFrom})
+        }
+        const payload=JSON.parse(body)
+        if(!payload.edits.length && !payload.annotations.length) {say('没有新的修改或标注');return}
+        const invalid=invalidV2(payload)
         if(invalid) {say(invalid);return}
         if(new TextEncoder().encode(body).byteLength>5*1024*1024) {say('修改包超过 5 MiB，请导出备份并联系主人');return}
-        const hash=await contentHash(JSON.parse(body))
-        if(sentMarker?.submissionId===draft.lastSubmissionId && sentMarker?.contentHash===hash) {say('没有新的修改或标注');return}
-        if(draft.lastSubmissionId && !sentMarker && restoredContentHash===hash) {say('已有提交，但缺少本机内容记录；请编辑后再提交或导出备份');return}
-        pending={submissionId,body};draft.pending=pending
+        const hash=await contentHash(payload)
+        if(owner!==draft || owner.snapshotId!==ownerSnapshot) throw Error('草稿已切换，本次提交已取消')
+        if(sentMarker?.submissionId===owner.lastSubmissionId && sentMarker?.contentHash===hash) {say('没有新的修改或标注');return}
+        if(owner.lastSubmissionId && !sentMarker && restoredContentHash===hash) {say('已有提交，但缺少本机内容记录；请编辑后再提交或导出备份');return}
+        pending={submissionId,body}
+        const frozen=pending
+        const operation=saving.catch(()=>{}).then(async()=> {
+          if(owner!==draft || owner.snapshotId!==ownerSnapshot) throw Error('草稿已切换，本次提交已取消')
+          const next=structuredClone(owner);next.pending=frozen
+          await atomic([[prefix+'draft2:'+owner.lineageId,next],[prefix+'draft2-notes:'+owner.lineageId,structuredClone(ownerNotes)]])
+          owner.pending=frozen;durablePending.set(owner.lineageId,frozen)
+        }).catch(error=>{ready=false;throw error})
+        saving=operation.then(()=>{},()=>{});await operation
       }
-      say('提交中…');await save()
-      const response=await fetch(data.feedbackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-Feedback-Token':token},body:pending.body})
+      say('提交中…')
+      const response=await (editorHost??hostFor(owner,ownerNotes)).submit(pending.body,pending.submissionId)
       if(!response.ok) {
         const invalid=response.status===400?invalidFrozenV2(pending.body):undefined
         if(invalid) {rejectedPending=pending;say('已明确拒收（HTTP 400）：'+invalid+'。点击“纠正已拒收的提交”解除冻结；原包仍保留');return}
-        throw new Error('HTTP '+response.status)
+        throw new Error(response.message)
       }
-      await response.json()
       const marker={submissionId:pending.submissionId,contentHash:await contentHash(JSON.parse(pending.body))}
       const markDelivered = (target: DraftV2) => {
-        target.lastSubmissionId=pending!.submissionId;delete target.pending;delete target.previous
+        target.lastSubmissionId=pending!.submissionId
+        if(target.pending?.submissionId===pending!.submissionId && target.pending.body===pending!.body) delete target.pending
+        delete target.previous
       }
-      saving=saving.catch(()=>{}).then(async()=> {
-        const next=structuredClone(draft)
+      const operation=saving.catch(()=>{}).then(async()=> {
+        const next=structuredClone(owner)
         const nextSubmitted=[...submitted.filter(id=>id!==pending!.submissionId),pending!.submissionId].slice(-200)
         markDelivered(next)
-        await atomic([[draftKey(),next],[notesKey(),structuredClone(notes)],[sentKey(),marker],[prefix+'submitted',nextSubmitted]])
-        // Keep cumulative edited text and form notes, including input received
-        // during the request or commit; queued saves use this live state.
-        markDelivered(draft);submitted=nextSubmitted;sentMarker=marker
+        await atomic([[prefix+'draft2:'+owner.lineageId,next],[prefix+'draft2-notes:'+owner.lineageId,structuredClone(ownerNotes)],[prefix+'draft2-sent:'+owner.lineageId,marker],[prefix+'submitted',nextSubmitted]])
+        markDelivered(owner);durablePending.delete(owner.lineageId);submitted=nextSubmitted;sentMarker=marker
       }).catch(error=> {ready=false;throw error})
-      await saving
+      saving=operation.then(()=>{},()=>{});await operation
       labelOldDraft(marker.contentHash===await contentHash(content()))
       $('my-submissions').hidden=false
       const row=document.createElement('p');row.textContent=pending.submissionId+'：已送达，待处理';$('receipts').prepend(row)
       say('已送达，等待主人审阅；页面正文需主人重新发布后更新')
-    } catch(error:any) {say(draft.pending?'结果未知或未送达：'+error.message+'；草稿已保留，点击提交重试原包':'无法提交：'+error.message)}
+    } catch(error:any) {say(owner.pending?'结果未知或未送达：'+error.message+'；草稿已保留，点击提交重试原包':'无法提交：'+error.message)}
     finally {busy=false;render()}
   }
   window.addEventListener('hashchange',navigate)
@@ -695,6 +810,7 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
         } else legacy.set(key,value)
       }
     }
+    for(const candidate of drafts.values()) if(candidate.pending) durablePending.set(candidate.lineageId,candidate.pending)
     draft=Array.from(drafts.values()).find(value=>value.snapshotId===snapshot.snapshotId)??Array.from(drafts.values())[0]??draft
     if(draft.snapshotId!==snapshot.snapshotId && !draft.base[path]) path=Object.keys(draft.base)[0]??path
     notes=await request('readonly',notesKey())??[]
@@ -708,6 +824,9 @@ export async function projectShareBrowser(parser: any, zipper?: any): Promise<vo
       if(busy || candidate===draft) return
       busy=true;render()
       try {
+        if(handle) {await handle.destroy();handle=undefined;editorHost=undefined;enhanced.replaceChildren()}
+        const previousLoad=loading
+        ++loadEpoch;cancelLoad();if(previousLoad) await previousLoad;loading=undefined
         await saving.catch(()=>{})
         const nextNotes=await request('readonly',prefix+'draft2-notes:'+candidate.lineageId)??[]
         const nextMarker=await request('readonly',prefix+'draft2-sent:'+candidate.lineageId)

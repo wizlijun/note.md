@@ -219,3 +219,9 @@ it.each([false, true])('rebase and undo-rebase explicitly install the target mul
   expect(session.mounted.owner.installBaseline({ documentId: 'a', authority: 'old', raw: old }, { policy: policy(old) }).ok).toBe(true)
   expect(session.mounted.owner.restoreContent(next).ok).toBe(false)
 })
+it('submission save requires the actual exact durable receipt while ordinary save only withholds ACK',async()=> {
+ const s=await open(draft(),async d=>({...structuredClone(d),after:{'a.md':'wrong'}}))
+ await edited(s,'B');await s.save();expect(s.saved()).toBeUndefined()
+ await expect(s.save({requireConfirmed:true})).rejects.toThrow('file-save-not-confirmed')
+ expect(s.mounted.owner.snapshot().raw).toBe('B')
+})

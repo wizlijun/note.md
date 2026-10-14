@@ -22,7 +22,7 @@ export interface ShareFileSessionOptions {
 }
 export interface ShareFileSession {
   mounted: MountedFileEditor
-  save(): Promise<FileSnapshot>
+  save(options?: { requireConfirmed?: boolean }): Promise<FileSnapshot>
   close(): Promise<void>
   saved(): SavedFile | undefined
   setReadOnly(value: boolean): void
@@ -69,12 +69,13 @@ export async function createShareFileSession(options: ShareFileSessionOptions): 
   }
   // Notifications may describe an older baseline: reread the consistent current pair.
   const unsubscribe = mounted.owner.observe(() => { if (current()) capture() })
-  async function save() {
+  async function save(options?: { requireConfirmed?: boolean }) {
     if (!current() || closing) throw new Error('file-session-unavailable')
     await mounted.owner.flush()
     if (!current() || closing) throw new Error('file-session-unavailable')
     const request = capture()
-    await persist(request)
+    const confirmed=await persist(request)
+    if(options?.requireConfirmed && !confirmed) throw new Error('file-save-not-confirmed')
     return request.snapshot
   }
   function setReadOnly(value: boolean) {

@@ -136,3 +136,23 @@ it('typing during autosave schedules another save of the continuing input', asyn
   expect((await saveDraft.mock.results[1].value).after['a.md']).toBe('C')
   expect(submit).not.toHaveBeenCalled(); expect(pending).not.toHaveBeenCalled()
 })
+it('My changes reverts only one current hunk through shared history and decorates actual bindings',async()=> {
+ const f=fixture('第一句。\n\n第二句。\n');f.draft.after['a.md']='第一句！\n\n第二句！\n'
+ const {target,handle,draft}=await open(f)
+ await button(target,'我的修改')
+ const actions=target.querySelectorAll('aside button')
+ expect(actions).toHaveLength(2)
+ expect(target.querySelectorAll('[data-cdr-kind="proposal"]')).toHaveLength(2)
+ ;(actions[0] as HTMLButtonElement).click();await tick()
+ await handle.buildSubmission({})
+ expect(draft.after['a.md']).toBe('第一句。\n\n第二句！\n')
+ await button(target,'撤销');await handle.buildSubmission({})
+ expect(draft.after['a.md']).toBe('第一句！\n\n第二句！\n')
+})
+
+it('build refuses an unconfirmed durable snapshot and never freezes or submits',async()=> {
+ const {handle,saveDraft,submit,pending}=await open(fixture('A'))
+ saveDraft.mockImplementationOnce(async d=>({...structuredClone(d),after:{'a.md':'wrong durable raw'}}))
+ await expect(handle.buildSubmission({})).rejects.toThrow('file-save-not-confirmed')
+ expect(submit).not.toHaveBeenCalled();expect(pending).not.toHaveBeenCalled()
+})

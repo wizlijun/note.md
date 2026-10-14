@@ -1,3 +1,5 @@
+import { createSourceSession } from '@moraya/core'
+import { guestChanges, revertGuestHunk } from './changes'
 import { mount as mountComponent, unmount } from 'svelte'
 import type { ShareEditorModule, ShareEditorHost, ShareEditorHandleE1 } from './contract'
 import type { DraftV2 } from '../lib/project-share/types'
@@ -22,7 +24,18 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
   container.append(root)
   let resolveTarget!: (target: HTMLElement) => void
   const targetReady = new Promise<HTMLElement>(resolve => { resolveTarget = resolve })
-  const ui = mountComponent(ShareEditor, { target: root, props: { ready: resolveTarget, notify: host.notify } })
+  let showChanges=false
+  const ui = mountComponent(ShareEditor, { target: root, props: { ready: resolveTarget, notify: host.notify,
+    toggleChanges: (value:boolean)=> {showChanges=value;updateBadges()},
+    revert: (id:string)=> {void serial(async()=> {
+      await session!.mounted.owner.flush()
+      const snapshot=session!.mounted.owner.snapshot()
+      const value=revertGuestHunk({path,base:draft.base[path].markdown,draft:snapshot.raw,hunkId:id})
+      const result=session!.mounted.owner.replaceSource({expectedGeneration:snapshot.generation,value})
+      if(!result.ok) throw Error('无法撤销这处，修改仍保留')
+      await session!.save();updateBadges()
+    }).catch(error=>host.notify(error.message))},
+  } })
   const target = await targetReady
   let session: ShareFileSession | undefined, path = '', closed = false, unsubscribe = () => {}
   let saveTimer: ReturnType<typeof setTimeout> | undefined
@@ -47,11 +60,24 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
     return file
   }
   function updateBadges() {
-    host.setFileBadges?.(Object.keys(draft.after).sort().filter(p => Object.hasOwn(draft.base, p)).map(p => {
-      const result = extractGuestAnnotations({ base: draft.base[p].markdown, draft: draft.after[p] })
-      return { path: p, changed: result.clean !== draft.base[p].markdown, annotations: result.annotations.length }
+    const summaries=Object.keys(draft.after).sort().filter(p=>Object.hasOwn(draft.base,p)).map(p=> {
+      const changes=guestChanges({path:p,base:draft.base[p].markdown,draft:draft.after[p]})
+      return {path:p,changed:changes.extracted.clean!==draft.base[p].markdown,blocks:changes.hunks.length,annotations:changes.extracted.annotations.length}
+    })
+    host.setFileBadges?.(summaries)
+    if(!session || !draft.base[path]) return
+    const snapshot=session.mounted.owner.snapshot(), changes=guestChanges({path,base:draft.base[path].markdown,draft:snapshot.raw})
+    ui.warning(changes.extracted.ownerAnnotationsTouched.length)
+    ui.updateChanges(changes.hunks.map(({hunk})=>({id:hunk.id,label:hunk.theirs.trim() || '删除：'+hunk.base.trim()})),summaries)
+    if(!showChanges) {session.mounted.decorations.removeLayer('proposal');return}
+    const view=(session.mounted as FileMountSession).view, source=createSourceSession(snapshot.raw,view.state.schema)
+    if(!source.ok) {session.mounted.decorations.removeLayer('proposal');return}
+    session.mounted.decorations.setLayer('proposal',snapshot.bindings.flatMap(binding=> {
+      const root=source.session.roots.find(root=>root.id===binding.rootOrdinal)
+      if(!root) return []
+      const count=changes.hunks.filter(row=>changes.rawOffset(row.from)<root.sourceTo && changes.rawOffset(row.to,true)>root.sourceFrom).length
+      return count?[{blockId:binding.id,kind:'proposal' as const,label:count+' 处修改'}]:[]
     }))
-    if (session && draft.base[path]) ui.warning(extractGuestAnnotations({ base: draft.base[path].markdown, draft: session.mounted.owner.snapshot().raw }).ownerAnnotationsTouched.length)
   }
   function openLink(href: string) {
     const resolved = sharedPath(href, path)
@@ -105,7 +131,11 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
     }
   }
   target.addEventListener('mousedown', linkDown, true); target.addEventListener('mouseover', hover); target.addEventListener('click', click); target.addEventListener('keydown', key)
-  try { await open(opts.path) } catch (error) { await unmount(ui); root.remove(); throw error }
+  try { await open(opts.path) } catch (error) {
+    cancelSave(); unsubscribe()
+    if (session) await session.close()
+    await unmount(ui); root.remove(); throw error
+  }
   return {
     switchFile: next => serial(async () => {
       fileFor(next); if (next === path) return
@@ -114,8 +144,10 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
       try { await open(next) } catch (error) { await open(previous); throw error }
     }),
     buildSubmission: input => serial(async () => {
-      cancelSave(); await session!.save()
-      const snapshot = session!.mounted.owner.snapshot(), captured = structuredClone(draft)
+      cancelSave(); await session!.save({requireConfirmed:true})
+      const snapshot = session!.mounted.owner.snapshot(), saved=session!.saved()
+      if(saved?.generation!==snapshot.generation || saved.hash!==snapshot.sourceHash) throw Error('file-save-not-confirmed')
+      const captured = structuredClone(draft)
       captured.after[path] = snapshot.raw
       const { body, submissionId, summary } = buildGuestSubmission({ project_id: host.snapshot.project_id, draft: captured,
         submissionId: crypto.randomUUID(), client: { kind: 'browser', version: 'share-editor-1' }, ...input })

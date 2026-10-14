@@ -1,0 +1,218 @@
+/* Shared editing structure and controls. Document typography and code colors belong to the frozen theme. */
+.moraya-editor {
+  outline: none;
+  /* ProseMirror renders hard/soft line breaks as a `<span>` containing a raw
+     "\n". Without pre-wrap on the content root the browser collapses that "\n"
+     to a space, so multi-line blockquotes (and any in-block Shift-Enter breaks)
+     merged onto one line. pre-wrap keeps the newline while still wrapping long
+     lines. Blocks with their own whitespace mode (pre, code) override this. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* Links are clickable in rich mode (plain click follows them; Cmd/Ctrl-click
+   edits). Show the hand cursor so they read as actionable rather than text. */
+.moraya-editor a[href] {
+  cursor: pointer;
+}
+
+
+/* ── Inline annotations (CriticMarkup notes) ─────────────────── */
+.moraya-editor .moraya-annotation {
+  background: rgba(255, 213, 79, 0.28);
+  border-bottom: 1px dashed #d9a400;
+}
+.moraya-editor .note-badge,
+.moraya-editor .moraya-note-anchor {
+  /* 必须是 inline,不能是 inline-block —— 这是标题/表格里行高变大的真正原因。
+     非替换 inline 盒对行框高度的贡献恰好等于它的 line-height(这里是 0),字形
+     照常绘制但完全不参与布局。inline-block 则按 margin 盒高度参与,且其基线取自
+     内部行框:line-height:0 时那条基线落在盒顶之上,与父级基线对齐后整个盒子被推到
+     基线以下,凭空给行框加出下伸部 —— 字号越大越明显(大标题),行距越紧越明显(表格)。
+     只加 line-height:0(596b1c9)治不了这一点,因为病根在 display。
+     抬升靠相对偏移,不用 vertical-align:super(那个会实打实撑高行框)。 */
+  display: inline;
+  line-height: 0;
+  cursor: pointer;
+  user-select: none;
+  color: #b8860b;
+  font-size: 0.72em;
+  vertical-align: baseline;
+  position: relative;
+  top: -0.4em;
+  margin: 0 1px;
+}
+.moraya-editor .note-badge::before,
+.moraya-editor .moraya-note-anchor::before {
+  content: '※';
+}
+/* 提问批注({>>…<<} 内含 ?/？):徽标换 ⁇(U+2047),一眼区分「我的备注」与「抛给 agent 的问题」 */
+.moraya-editor .note-badge[data-note*='?']::before,
+.moraya-editor .note-badge[data-note*='？']::before,
+.moraya-editor .moraya-note-anchor[data-note*='?']::before,
+.moraya-editor .moraya-note-anchor[data-note*='？']::before {
+  content: '⁇';
+}
+.moraya-editor .note-badge:hover,
+.moraya-editor .moraya-note-anchor:hover {
+  color: #8a6508;
+}
+@media (prefers-color-scheme: dark) {
+  .moraya-editor .moraya-annotation {
+    background: rgba(217, 164, 0, 0.24);
+    border-bottom-color: #e3b341;
+  }
+  .moraya-editor .note-badge,
+  .moraya-editor .moraya-note-anchor { color: #e3b341; }
+  .moraya-editor .note-badge:hover,
+  .moraya-editor .moraya-note-anchor:hover { color: #f5cd60; }
+}
+
+
+/* ── Code block (NodeView wrapper from @moraya/core code-block-view) ───── */
+
+.moraya-editor .code-block-wrapper {
+  position: relative;
+  margin: 1em 0;
+  padding-top: 1.4rem;
+  border-radius: 6px;
+}
+.moraya-editor .code-block-wrapper.renderer-preview-mode,
+.moraya-editor .code-block-wrapper.mermaid-preview-mode {
+  padding-top: 0;
+}
+.moraya-editor .code-block-toolbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 11px;
+  color: GrayText;
+  user-select: none;
+  border-radius: 6px 6px 0 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.moraya-editor .code-block-wrapper:hover .code-block-toolbar,
+.moraya-editor .code-block-wrapper.ProseMirror-selectednode .code-block-toolbar,
+.moraya-editor .code-block-wrapper.picker-open .code-block-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+.moraya-editor .code-lang-label {
+  cursor: pointer;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+}
+.moraya-editor .code-lang-label:hover {
+  background: color-mix(in srgb, CanvasText 12%, transparent);
+}
+.moraya-editor .code-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.moraya-editor .code-copy-btn,
+.moraya-editor .mermaid-toggle-btn {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: GrayText;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0;
+  font-family: inherit;
+}
+.moraya-editor .code-copy-btn:hover,
+.moraya-editor .mermaid-toggle-btn:hover {
+  background: color-mix(in srgb, CanvasText 12%, transparent);
+  color: CanvasText;
+}
+
+/* Toggle button: show code icon (Edit) when in preview mode */
+.moraya-editor .mermaid-toggle-btn::before {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 16px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 18 22 12 16 6'/%3E%3Cpolyline points='8 6 2 12 8 18'/%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 18 22 12 16 6'/%3E%3Cpolyline points='8 6 2 12 8 18'/%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3C/svg%3E") center/contain no-repeat;
+  background-color: currentColor;
+}
+
+/* Toggle button: show eye icon (Preview) when in edit mode */
+.moraya-editor .code-block-wrapper:not(.mermaid-preview-mode):not(.renderer-preview-mode) .mermaid-toggle-btn::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+
+/* Copy button: hide original SVGs, show copy icon */
+.moraya-editor .code-copy-btn svg { display: none !important; }
+.moraya-editor .code-copy-btn::before {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='3'/%3E%3Cpath d='M5 15H4a3 3 0 01-3-3V4a3 3 0 013-3h8a3 3 0 013 3v1'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='3'/%3E%3Cpath d='M5 15H4a3 3 0 01-3-3V4a3 3 0 013-3h8a3 3 0 013 3v1'/%3E%3C/svg%3E") center/contain no-repeat;
+  background-color: currentColor;
+}
+.moraya-editor .code-copy-btn.copied::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+}
+
+/* Task list item — `data-item-type="task"` is the only marker the schema
+ * exposes. We draw the checkbox ourselves because the schema doesn't emit
+ * an <input> element. The checkbox sits in the marker slot (absolute, left:0)
+ * with the text indented past it so alignment is independent of the parent
+ * ul's padding (which a theme might override). */
+.moraya-editor li[data-item-type="task"] {
+  list-style: none;
+  position: relative;
+  padding-left: 1.5em;
+}
+.moraya-editor li[data-item-type="task"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.5px solid color-mix(in srgb, CanvasText 55%, transparent);
+  border-radius: 3px;
+  background: Canvas;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.moraya-editor li[data-item-type="task"][data-checked="true"]::before {
+  background: AccentColor;
+  border-color: AccentColor;
+}
+/* Checkmark — two rotated borders form a tick. */
+.moraya-editor li[data-item-type="task"][data-checked="true"]::after {
+  content: '';
+  position: absolute;
+  left: 0.3em;
+  top: 0.5em;
+  width: 0.3em;
+  height: 0.55em;
+  border-right: 2px solid Canvas;
+  border-bottom: 2px solid Canvas;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.moraya-editor li[data-item-type="task"][data-checked="true"] > p {
+  text-decoration: line-through;
+  color: color-mix(in srgb, CanvasText 55%, transparent);
+}
+
