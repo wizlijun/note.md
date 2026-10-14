@@ -1,28 +1,3 @@
-## Unreleased — shared share editor foundations
-
-- Received projects can now update through the shared merge kernel, resolve publisher/local/edited conflicts, and recover interrupted writes from a durable hash journal. Unknown collisions keep unique work paths across updates and submissions; binary/missing files require explicit choices. Updates coordinate real Rich/Source input and existing save queues, preserving drafts on reload failure. Native restart and system-IME acceptance remain pending.
-
-- Fix desktop guest submissions preserving opened image attachments and read-only tabs, include all supported Markdown extensions, clear descriptions when switching projects, and retain update-check HTTP status messages.
-
-- Desktop shared projects now open through confirmed `notemd://` links or File → Open Share Link, use the normal local editor, and submit through a durable single-package outbox with exact retries and public receipts. Read-only links keep local editing without granting submission rights. Native macOS launch/menu/offline-restart acceptance and Windows/Linux registration remain unverified; received version merging is described above.
-
-- Keep guest download code outside iOS builds and fix Windows directory handling in the shared atomic writer. Unix directory sync errors still propagate; Windows does not claim directory-entry durability after power loss.
-
-- Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Version merging is described above.
-
-- Preserve descriptions typed during shared-draft migration without overwriting the new version; reject malformed nested recovery records before saving.
-
-- Old shared drafts can continue on the current snapshot with per-conflict choices, explicit export of removed files or orphaned annotations, and durable rebase undo/recovery. Legacy annotation sidecars migrate atomically. Mermaid preview loads a separate same-origin SRI-verified resource only when needed; failed loading preserves editable source.
-
-- Shared pages load the verified Rich/Source editor only when editing starts, with a basic-editor fallback. My changes shows each edit with individual undo, file badges and submission counts. Submissions are durably frozen once and retries reuse the exact body; later edits remain saved. Frozen themes, math fonts and shared editing controls are retained.
-
-- Add content-addressed sharing editor assets with SHA-384 SRI, a checked single-IIFE build, authenticated immutable Worker transport, and a frozen per-publication editor selection. Upload failures keep publishing with a warning and basic editing; production deployment remains pending.
-- Clicking a range annotation badge beside a point annotation now edits or deletes the selected range annotation, preserving the neighbouring note and shared undo history.
-- Add the E1 shared Rich/Source editing surface, atomic slash commands, annotations, shared-only media/navigation and byte-preserving file-session saving. Browser submission building now uses one deterministic pure builder and does not send or freeze pending submissions.
-- Mermaid SDK preview is explicitly injected: desktop retains its original renderer; legacy Editor Kit and E1 share editing show editable Mermaid source. E3 adds rebase and optional browser Mermaid preview.
-- Owner annotation protection preserves exact raw multiset counts frozen at mount; it does not identify individual duplicated occurrences. Existing modified owner annotations remain visible and exportable.
-- Publication and real mobile/system IME acceptance are pending; this entry does not claim a released installable artifact.
-
 # Changelog
 
 What changed in each release, from the point of view of someone using note.md.
@@ -32,35 +7,18 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Desktop file images preserve neighbouring Markdown and share native undo history.** Insert, resize and delete retain source spelling and reference definitions; native file paths are encoded once, and stale image dialogs cannot change a new baseline. Bold/italic image edges retain Unicode typing. / 桌面文件图片插入、尺寸调整与删除保留邻文及引用定义，共用撤销历史；本地路径只编码一次，旧图片窗口结果不能写入新基线，粗体和斜体图片边界保留 Unicode 输入。
-
-- **File recovery and save receipts now track the exact durable content without clearing undo history.** Shared-file sessions retain rejected drafts and protect close/save races; desktop saves acknowledge only matching snapshots. Native Undo/Redo routes to the focused file owner with reload and window-focus guards. Online collaboration mounting and macOS menu acceptance remain pending. / 文件恢复与保存回执核对实际持久化正文，保留撤销历史；共享文件会话保留拒绝草稿并防止关闭、保存竞态，桌面仅确认匹配快照。原生撤销、重做按当前文件焦点路由，防护页面重载与窗口切换；在线协作挂载和 macOS 菜单实机验收仍待完成。
-
-- **File editors share one source-preserving owner and undo history across Rich and Source views.** First mount keeps the original BOM and line endings; rejected Source or annotation drafts remain editable, and save or tab changes wait for pending input. Shared annotation actions and desktop adapters use the same transaction admission. Replacing a baseline rejects old async inputs; successful tab switches finish saved annotation popups, and failed mounts release acquired adapter resources. Existing desktop image compatibility and native mobile IME acceptance remain separate, unfinished gates. / 文件编辑器的 Rich 与 Source 共用原文保真 owner 和撤销历史；首次挂载保留 BOM 与换行，拒绝后的 Source、批注草稿可继续编辑，保存和切换等待待处理输入。基线替换拒绝旧异步输入，成功切换结束已保存批注弹窗，挂载失败释放已获取适配器资源。桌面图片兼容性及移动系统输入法验收仍待后续门槛闭合。
-
-- **Shared file editor groundwork now preserves stable root IDs through canonical transactions and recovery.** Internal helpers project every parsed child, validate real source correspondence, restore trusted binding images, and admit only transaction-bound identity steps. Reversible raw/layout payloads use the installed isolated core history entry. / 共享文件编辑器新增稳定块身份、完整规范投影及恢复校验基础；控制器、统一撤销与界面接线仍待后续任务。
-
-- **Shared editor source saving now covers existing math commands and InputRules.** Installed root/subpath commands, context insertion and slash math actions save empty formula blocks; inline math conversion preserves neighbouring Markdown and existing formulas. Formula payload editing remains in Source mode; full collaboration UI/history integration is still in progress.
-
-- **Shared editor source preservation supports continuous typing in definition-only empty quote and list paragraphs.** Installed consumers cover first input and text entered immediately after deleting a marked or unmarked point note, while retaining reference-definition bytes.
-
-- **Shared editor source preservation fixes code-toolbar entity/escape toggles and removal of marked point notes.** Installed-core regressions cover real toolbar commands and note popup removal while retaining neighbouring Markdown and surviving mark wrappers.
-
-- **Shared editor annotation preservation covers the actual note popup and insert command.** Installed-core checks retain annotated Markdown while adding, editing and removing range or point notes, including certified empty files, quote paragraphs and table cells. Inline toolbar consumers now run with the actual DOM test environment; full file collaboration UI and history integration remain in progress.
-
-- **Shared editor source preservation adds inline command consumer coverage.** New installed-core tests cover partial and cross-paragraph/table formatting, code span edits, and marked/link input into certified empty bodies. These consumers await the aggregate core build and installed validation; this change does not enable the file collaboration UI.
-
-- **Shared editor empty-body preservation groundwork now covers first input, consecutive Enter, empty container toolbar actions, table row/exit commands and frontmatter NodeView changes through the installed core.** Source capture retains actual nested blank paragraphs, supports continuous input beside protected reference definitions, and preserves surrounding Markdown. Full file UI, history and native/IME integration remain in progress.
-
-- **Shared editor preservation foundations retain nested prose, table padding and supported literal body bytes during local edits.** Installed-core merge checks cover actual container contents; supported LF container edits reparse nearby blocks. Full file UI, history and native/IME integration remain in progress.
-
-- **Shared editor preservation foundations now reparse nearby paragraphs for ordinary text changes and keep reference links and footnotes consistent across the file.** Untouched Markdown stays intact; full rich-text collaboration is still in progress.
-- **Shared editor preservation foundations retain list markers, spacing style and task checkboxes through supported local edits.** Ordered lists can start at zero; mixed nested list outdents retain their container style. Full rich-text collaboration is still in progress.
-- **Shared table commands preserve column alignment when adding rows and support header-only tables.** Rich, Kit and Memory use the same commands; column alignment actions use the standard menu.
-- **Code input distinguishes an unspecified language from explicit text.** Typing a fence at the start of a Rich paragraph now works alongside inline code.
-- **Shared editor source-preservation foundations retain untouched Markdown bytes during supported local edits.** Full editor integration and rich-text collaboration are still in progress. The SDK no longer advertises the missing style export; hosts provide styles.
-
-- **File → Latest Created now shows up to 10 Markdown files instead of 7.** The metadata scan and native menu share the same limit.
+- **Rich and Source share source-preserving editing, undo and durable recovery.** Untouched BOM, line endings, list style, reference definitions and supported literal bodies retain their original bytes. Formatting, table commands, annotations, empty paragraphs and math insertion use the same file session; formula payload editing remains in Source mode. Saves acknowledge exact durable snapshots, and pending input and stale asynchronous actions are guarded across tab changes, close and baseline replacement.
+- **Desktop image editing preserves neighbouring Markdown and native undo.** Insert, resize and delete retain source spelling and reference definitions; file paths are encoded once, image edges retain Unicode input, and table resize cancels during composition.
+- **Shared pages offer Rich/Source editing on demand.** The verified editor loads when editing starts, with a basic-editor fallback. My changes supports individual undo, file badges and submission summaries. Frozen themes, math fonts, slash commands, tables and notes are shared; existing owner-note counts remain protected, without identifying individual duplicate occurrences.
+- **Browser submissions and version updates preserve drafts.** Submissions freeze one durable package for exact retries while later edits remain saved. Old drafts can move to a new publication with per-conflict decisions, export for removed files/orphaned notes, and durable rebase undo/recovery. Legacy annotation sidecars migrate atomically; description edits survive migration.
+- **Mermaid previews load separately when needed.** Shared pages verify the same-origin resource with SRI and preserve editable source on failure. Desktop keeps its renderer; legacy Editor Kit retains editable Mermaid source. The SDK uses an explicit renderer capability and no longer advertises a missing style export.
+- **Desktop received projects open from confirmed share links and use the local editor.** Verified downloads preserve snapshot/base bytes, bound public resources and install atomically. A durable outbox supports exact retries and public receipts; read-only links allow local editing without submission rights. Received projects cannot be republished as project sources, and collaboration credentials remain in app-data.
+- **Received projects can merge new publications with local work.** The shared merge kernel supports publisher/local/edited conflict decisions, explicit attachment/missing-file choices and hash-journal recovery. Unknown collisions keep unique work paths. Updates coordinate pending Rich/Source input, saves and in-flight Save As targets; reload failures preserve drafts. Submissions retain opened attachments and read-only tabs and include supported Markdown extensions.
+- **Sharing editor resources are frozen per publication.** Content-addressed JS/CSS/Mermaid use SHA-256 and SHA-384 SRI, a checked IIFE build and authenticated immutable Worker transport; upload failure keeps publishing with a warning and basic editing.
+- **Shared tables retain column alignment on inserted rows and support header-only tables.** Rich, Kit and Memory use the same commands and global menus. Code fences distinguish unspecified languages from explicit text and work alongside inline code.
+- **Memory 2.5.3 is the plugin release candidate for the updated collaborative-document UI and shared table controls.** Marketplace publication is pending; published 2.5.2 objects must remain immutable.
+- **File → Latest Created shows up to 10 Markdown files instead of 7.** Metadata scanning and the native menu share the same limit.
+- **Acceptance and release boundaries:** these changes are not yet a published installable release. Native macOS restart/deep-link/system-IME coverage, Windows/Linux registration, and real iOS/Android IME remain separately tracked; mobile real-device acceptance is pending. The iOS build and legacy free-upload CPU failures remain unresolved evidence. Windows atomic writes do not claim directory-entry durability after power loss. Production Worker, signed application packages and marketplace publication require their own verification.
 
 ## v6.1013.2 — 2026-10-13
 

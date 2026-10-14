@@ -3,6 +3,8 @@
 # One-shot release helper for note.md.
 #
 #   scripts/release.sh [version] [--draft] [--prerelease]
+#     [--allow-untracked <exact JSON list>] [--expected-share-manifest <frozen JSON>]
+# Controlled options require NOTEMD_EMPTY_ENV_DIR; they never skip release gates.
 #
 # Version numbers are DATE-BASED and auto-derived when omitted:
 #   MAJOR = current year - 2020        (2026 → 6, 2030 → 10; strictly increasing)
@@ -73,9 +75,19 @@ die() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 # ---------- args ----------
 
 VERSION=""
+ALLOW_UNTRACKED=""; EXPECTED_SHARE_MANIFEST=""
+ALLOW_UNTRACKED_COPY=""; EXPECTED_SHARE_COPY=""
 DRAFT=0; PRERELEASE=0
-for arg in "$@"; do
+while (( $# )); do
+  arg="$1"; shift
   case "$arg" in
+    --allow-untracked|--expected-share-manifest)
+      (( $# )) || die "missing value for $arg"
+      case "$arg" in
+        --allow-untracked) ALLOW_UNTRACKED="$1" ;;
+        --expected-share-manifest) EXPECTED_SHARE_MANIFEST="$1" ;;
+      esac
+      shift ;;
     --universal)
       echo "warning: --universal is no longer supported; building per-arch dmgs instead" >&2
       ;;
@@ -133,8 +145,27 @@ cd "$ROOT"
 
 say "pre-flight"
 
-[[ -z "$(git status --porcelain)" ]] \
-  || die "working tree is dirty — commit or stash first"
+cleanup_release_inputs() {
+  [[ -z "$ALLOW_UNTRACKED_COPY" ]] || rm -f "$ALLOW_UNTRACKED_COPY"
+  [[ -z "$EXPECTED_SHARE_COPY" ]] || rm -f "$EXPECTED_SHARE_COPY"
+  return 0
+}
+trap cleanup_release_inputs EXIT
+node scripts/release-inputs.mjs clean ${ALLOW_UNTRACKED:+"$ALLOW_UNTRACKED"}
+if [[ -n "$ALLOW_UNTRACKED" ]]; then
+  ALLOW_UNTRACKED_COPY=$(mktemp -t notemd-preserved-files)
+  cp "$ALLOW_UNTRACKED" "$ALLOW_UNTRACKED_COPY"
+fi
+if [[ -n "$ALLOW_UNTRACKED" || -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+  node scripts/release-inputs.mjs env
+fi
+if [[ -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+  # Freeze the expected bytes once; builds may never rewrite this input.
+  EXPECTED_SHARE_COPY=$(mktemp -t notemd-share-manifest)
+  cp "$EXPECTED_SHARE_MANIFEST" "$EXPECTED_SHARE_COPY"
+  node scripts/release-inputs.mjs share "$EXPECTED_SHARE_COPY" dist
+fi
+export pnpm_config_verify_deps_before_run=false
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 [[ "$BRANCH" == "main" ]] || die "not on main (current: $BRANCH)"
@@ -204,7 +235,7 @@ for var in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
   fi
 done
 if (( NOTARIZE_OK )); then
-  echo "    notarize:   yes (APPLE_ID=$APPLE_ID, team=$APPLE_TEAM_ID)"
+  echo "    notarize:   yes"
 else
   die "notarization credentials are required for a public macOS release"
 fi
@@ -214,7 +245,7 @@ fi
 # ---------- tests ----------
 
 say "running tests"
-pnpm -s test
+pnpm -s test --maxWorkers=2
 pnpm -s check
 pnpm -s check:protocol
 pnpm audit --prod --audit-level=high
@@ -280,13 +311,26 @@ is_transient_apple_service_failure() {
 tauri_build_with_apple_retries() {
   local arch="$1" attempt=1 max_attempts=3 log rc
   while :; do
+    if [[ -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+      cmp "$EXPECTED_SHARE_MANIFEST" "$EXPECTED_SHARE_COPY"
+      node scripts/release-inputs.mjs share "$EXPECTED_SHARE_COPY" dist
+    fi
     log=$(mktemp -t notemd-tauri-build)
     set +e
     APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" pnpm tauri build --target "$arch" 2>&1 | tee "$log"
     rc=${PIPESTATUS[0]}
     set -e
 
+    if [[ -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+      cmp "$EXPECTED_SHARE_MANIFEST" "$EXPECTED_SHARE_COPY"
+      node scripts/release-inputs.mjs share "$EXPECTED_SHARE_COPY" dist
+    fi
     if (( rc == 0 )); then
+      if [[ -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+        node scripts/release-share-payload.mjs "$EXPECTED_SHARE_COPY" \
+          "src-tauri/target/$arch/release/bundle/macos/note.md.app/Contents/MacOS/notemd" \
+          "src-tauri/target/$arch/release/deps/notemd_lib.d"
+      fi
       rm -f "$log"
       return 0
     fi
@@ -396,6 +440,19 @@ build_arch() {
   [[ -n "$inner_app" ]] || die "arch-check: no .app in staged $arch_tag tarball"
   inner_bin=$(find "$arch_check_dir" -path '*/Contents/MacOS/notemd' -type f -print -quit)
   [[ -n "$inner_bin" ]] || die "arch-check: no Contents/MacOS/notemd in staged $arch_tag tarball"
+  if [[ -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+    local built_bin="src-tauri/target/$arch/release/bundle/macos/note.md.app/Contents/MacOS/notemd"
+    cmp "$built_bin" "$inner_bin" || die "updater Mach-O differs from verified build"
+    local dmg_mount
+    dmg_mount=$(mktemp -d -t notemd-kit-dmg)
+    hdiutil attach "$dmg_staged" -readonly -nobrowse -mountpoint "$dmg_mount" >/dev/null
+    local dmg_result=0
+    cmp "$built_bin" "$dmg_mount/note.md.app/Contents/MacOS/notemd" || dmg_result=$?
+    hdiutil detach "$dmg_mount" >/dev/null
+    rmdir "$dmg_mount"
+    (( dmg_result == 0 )) || die "DMG Mach-O differs from verified build"
+    shasum -a 256 "$dmg_staged" "$tarball_staged" "$built_bin"
+  fi
   got_arch=$(lipo -archs "$inner_bin" 2>/dev/null || true)
   [[ "$got_arch" == "$want_arch" ]] \
     || die "arch-check FAILED for $arch_tag: staged tarball binary is '$got_arch', expected '$want_arch' — refusing to publish a mismatched-arch update"
@@ -471,6 +528,14 @@ build_arch x86_64-apple-darwin  x86_64
 
 # ---------- commit, tag, push ----------
 
+if [[ -n "$EXPECTED_SHARE_MANIFEST" ]]; then
+  cmp "$EXPECTED_SHARE_MANIFEST" "$EXPECTED_SHARE_COPY"
+  node scripts/release-inputs.mjs share "$EXPECTED_SHARE_COPY" dist
+fi
+if [[ -n "$ALLOW_UNTRACKED" ]]; then
+  cmp "$ALLOW_UNTRACKED" "$ALLOW_UNTRACKED_COPY"
+fi
+node scripts/release-inputs.mjs version-changes ${ALLOW_UNTRACKED_COPY:+"$ALLOW_UNTRACKED_COPY"}
 say "committing v$VERSION"
 trap - ERR  # build succeeded — keep version bumps even if a later step fails
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock \

@@ -1,7 +1,9 @@
+import { controlledEnvDir } from '../../scripts/controlled-env.mjs'
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 export default defineConfig({
+  envDir: controlledEnvDir(),
   plugins: [svelte()],
   base: './',
   build: {

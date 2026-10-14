@@ -523,3 +523,34 @@ Ruling: Task7允许将update-prepare与新增窄update-read分开：prepare在�
 Ruling: Task7 pendingUpdate允许附已验证新manifest路径元数据（向后兼容default），只供更新操作的保存/输入准入和目标枚举；来源、路径、数量沿可信snapshot校验，正文与原bytes hash仍在受控窗口内update-read取得。保存只涉及旧approved workPaths；新manifest路径撞未知文件时只能冻结必要输入/检查，不把未知稿保存或纳入edits。碰撞另存的.shared/-2目标除磁盘存在检查，还必须防已打开但尚未落盘的目标及窗口内重绑被覆盖；沿已批准的tabs统一操作边界处理，不能只把磁盘不存在等同于无人编辑。— 锁外读取工作正文会使计划过时，单看磁盘也看不到新本地draft。— 成本是小型本机路径metadata及实际打开未落盘目标回归，不改变公开wire或新增服务。
 
 Ruling: Task7 fix1的原review probe保留原文件/原RED，新增wait-aware副本先在未修产品验证“旧SaveAs tail释放前更新callback不得进入”的真实RED，finally可靠释放旧保存，再修后GREEN并保留最终publisher S2原bytes断言。— 原probe故意await更新完成才释放旧保存，正确等待语义下会天然死锁，调度断言必须适应新增同步契约而不能削弱等待。— 成本是小型测试调度迁移，报告准确称同一场景新增准入时序回归RED→GREEN，不称原probe未经修改GREEN；生产保存合同不变。
+
+
+# Task8 ROOT正式实施裁定
+
+Ruling: Task8分为本地交付审查与真实外发两段。本地修改/必要验收/候选材料先Task8 combined review，再唯一whole-phase final及最多一次合并fix/scoped复审；ROOT随后先CORE main源码同步（不推CORE tags、不触发npm发行）、HOST main与Worker真实100%部署验证，再应用/相关插件发行。8.5–8.7外发复核及最终Task8完成只能在实际发生后勾选。— 避免“需先发布才能审查”的循环，又不把本地成功当已发布。— 成本是报告分阶段更新，任何未发/失败均明确保留。
+
+Ruling: 发行仅对现有scripts/release.sh和真实Vite配置、现有资源checks作必要窄扩展，可有小型可测试helper，不建第二发行脚本/通用部署框架。允许ROOT提供精确untracked清单，仍拒tracked/staged变化和未知untracked，默认继续严格clean。保留六份无关文档/HTML及.pnpm-store缓存；不stash/搬移/删除/加入发布，cache不递归备份，六文档前后SHA与目录存在单独核。最终仍精确add原六版本/日志文件。— 既有7项文件会阻断原clean门槛，用户未授权收走这些内容。— 成本是一个明确可选的保留清单入口，必须有拒绝错误/额外路径的验证。
+
+Ruling: HOST Vite/Vitest与Memory相应配置允许同一显式empty envDir入口，默认开发行为不变；本次受控调用核目录为空，传至嵌套双架构/retry build与Memory build，沿原share builder空env。pnpm禁隐式install不变。— 正式beforeBuildCommand当前裸vite会隐式读根dotenv，外部纯shell环境不足以阻止。— 成本是必要配置接缝及实际传递检查，不安装/升级依赖。
+
+Ruling: 不实现release六gate receipt/skip/reuse协议。Task8本地软件验收照常，正式release.sh保留原六项强制门槛并在最终发行SHA、实际发行环境和当时依赖审计上执行一次；ROOT接受这一次有界重验，所有实际命令/退出记录。除此之外普通同输入回归仍复用，不mock git/pnpm或过滤失败。— 比给生产发布流程增加跳过分支、证据索引协议更简单，保留既有 fail closed 流程。— 成本是正式发版额外一次六门槛运行时间；不得宣传为此前同输入重复的必要功能证据。
+
+Ruling: 每次正式架构构建/重试都核冻结share manifest原文与所列全部资源原bytes，候选改变即停止自动tag/push，不更新expected迎合结果。实际MachO中完整Brotli payload唯一匹配→取回解压→SHA/SRI与候选相等，配合同次build/depfile/cache身份，作为包内包含证据；实际tar/DMG内MachO与已核binary逐bytes相等才传递证明。该方法不宣称PHF选键/运行resolver已验，实际app正常分享资源仍另验；不得为验收开生产debug/RPC后门或扩大plugin协议。— dist自洽不证明两个发布包包含同一候选，现有codegen逐资源压缩已实际验证可读取。— 成本是窄只读包验收与额外资源副本，不造完整二进制解析器。
+
+Ruling: 仅删除既有release.sh已知APPLE_ID明文输出；保持原签名/公证/私钥注入与Wrangler3+Account Token、R2包/签名→匿名验签→KV→公开复核通道。只有ROOT正式外发受控加载凭据，记录入口argv/非敏感结果，不打印env或展开带凭据命令。— 当前日志确有已知身份输出点，不能用全新凭据框架解决。— 成本是小型输出收敛；实际错误不能因脱敏而伪称成功。
+
+Ruling: CORE .github/workflows/ci.yml的主入口预算同步至已批准Node默认gzipSync<=104448 bytes，其他type/tests/build/purity门槛保持；真实当前dist与超限拒绝逻辑验证，精确提交CI-only，不改预算/出口/package/锁/dist来过门槛。— 当前workflow仍81920和gzip CLI口径，与已受理合同不一致，不能明知CI必失败仍push。— 成本是一处CI合同同步，需区分新CORE仓库HEAD与源码/installed dist未变的字节证明，不无谓重装。
+
+Ruling: 原生QA保留独立identifier、OSdeny真实appdata和全新合成Vault；空间仅20GiB时，不复制约16GiB新target，冻结源码后无其他cargo时串行复用现debug缓存并正常重编译核新binary。正式打包必须不带QA override，另核生产identifier/资源。允许仅QA前台临时选择已启用可选的测试输入源，finally恢复原源；每键核PID/TIS，不安装/启用源，遇第三方干预停止。— target不是数据隔离边界，而输入源准备是已授权真实IME验证必要可逆动作。— 成本是编译缓存切换与短时输入源改变，必须留身份/恢复/cleanup证据，不以工具probe代替产品IME。
+
+本Task还须统一中英Unreleased实际范围和局限、Memory变更版本与包验收、引用已盘点release scope；不静默漏掉Latest10/Memory/Rich等用户点名更新。移动真实IME按用户持续指示待验，iOS编译/旧免费CPU等失败逐项保留，不能称全平台通过。原生cp首轮失败尚未归因，须先实际记录定位再决定最小产品修复，不通过重置文档/改期望消掉失败。
+
+Ruling: Memory发布候选版本为2.5.3，按实际未发布UI改动同步manifest.v2.json和package.json；app日期版本仍由ROOT正式发行时决定。ROOT于2026-10-14T08:26:00Z匿名读取公开index，真实id notemd.memory最新2.5.2、包SHA92c74e85da3994641d494238d6c7b15bc0ffc072fb27126f772923bf71b392f4，未见2.5.3，证据task8-memory-version-scope.json/两个root-task8-public-memory-* gate。首次过滤简写memory无结果仅查询错误，后按实际manifest id核实，不称插件缺失。正式R2/KV外发前再核版本占用，不能覆盖别人的同版本包。— 新UI不能继续覆盖已发布2.5.2不可变对象。— 成本是一次正常插件patch版本与发布前占用复核，不改变host最小版本除非实际API依赖证明需要。
+
+原生event3已结束并核清理；Rich中文慢速/原节奏保存通过，重开/Source未验，首轮cp未归因。报告 task8-native-event3-report.md 保留全部失败，不重启已完成Task1–7。
+
+Ruling: Task8 focused初验的两处测试预期允许窄迁移：empty envDir以macOS实际canonical路径比，旧release-plugins.test逐字git-status片段改为现clean helper真实调用接线；dirty/未知untracked/tracked/staged/保留文件变更拒绝要求仍由真实临时Git仓库测试证明，不mock通过/删除语义。— /var与/private/var及已批准helper替换不构成产品拒绝能力失效，原文本断言不能再表示合同。— 成本是测试接线变化，首失败保留并明确非功能RED，新label重新验证。
+
+Ruling: Task8允许一个ignored Rust integration recorder，显式执行并只调用现有公开ProjectStore方法，串接真实owner-freeze→浏览器原HTTP body→实际TS propose/compose→review_save/apply→receipt/S2；无生产RPC/feature/依赖变化。显式合成root须自有标识/路径边界，不能自动读应用配置回落真实Vault；阶段原bytes/hash身份绑定，report区分浏览器UI与RustAPI。— 现有浏览器录制的模拟中间件不足以证明实际Worker与主人磁盘合并，分段真实producer/consumer比新生产调试接口简单。— 成本是一个默认ignored的专用录制test，Task8必须实际运行，不能以默认suite skip当通过。
+
+Ruling: Task8原生QA运行于明确冻结的在途Task8 bytes而非旧HEAD单独宣称：writer暂停非OWN全部写入/index/commit，ROOT创建task8-source-worktree-freeze.json（SHA b4bb88bbaff0ab2d2dbe54c2f8764eab75658b8cc9a68706e9d1d66f1e5d36a0；22 dirty/untracked完整路径/hash、status/index SHA、HEAD2037fc94），runner启动/结束核同清单，prod另核reference。— 已批准发布接线含实际Vite配置未提交，不可用旧clean guard拒绝后删改工作区；冻结真实bytes才能诚实验证。— 成本是本次结果绑定该工作输入，后继输入变更需按影响重新核，不称最终tag验收。CORE97fcc3e为CI-only，runtime保持3e06。

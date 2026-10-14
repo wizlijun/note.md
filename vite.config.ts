@@ -1,3 +1,4 @@
+import { controlledEnvDir } from './scripts/controlled-env.mjs'
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
@@ -8,6 +9,7 @@ import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
 const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
+  envDir: controlledEnvDir(),
   plugins: [svelte(), shareEditorAssets()],
   clearScreen: false,
   server: {

@@ -253,7 +253,7 @@ notarize_dmg_with_apple_retries /fixture.dmg aarch64
   })
 
   it('rejects untracked files as well as tracked and staged changes', () => {
-    expect(HOST_RELEASE).toMatch(/\[\[ -z "\$\(git status --porcelain\)" \]\]/)
+    expect(HOST_RELEASE).toContain('node scripts/release-inputs.mjs clean ${ALLOW_UNTRACKED:+"$ALLOW_UNTRACKED"}')
     expect(HOST_RELEASE).not.toContain('git diff --quiet && git diff --cached --quiet')
   })
 
