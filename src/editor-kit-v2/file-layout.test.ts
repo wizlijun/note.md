@@ -13,7 +13,12 @@ it('colwidth is not silently normalized into supported session tables',()=>{
  const parsed=createSourceSession('| A |\n| --- |');if(!parsed.ok)throw Error(parsed.reason)
  const table=parsed.session.doc.firstChild!,row=table.firstChild!,cell=row.firstChild!
  const changed=table.type.create(table.attrs,row.type.create(row.attrs,cell.type.create({...cell.attrs,colwidth:[80]},cell.content)))
- expect(scanTables(parsed.session.doc.copy(changed.content))).toEqual([])
+ const doc=parsed.session.doc.type.create(parsed.session.doc.attrs,changed)
+ expect(doc.firstChild?.type.name).toBe('table');expect(doc.firstChild?.firstChild?.firstChild?.attrs.colwidth).toEqual([80])
+ expect(scanTables(doc)).toEqual([])
+ const supported=table.type.create(table.attrs,row.type.create(row.attrs,cell.type.create({...cell.attrs,colwidth:null},cell.content)))
+ const control=doc.type.create(doc.attrs,supported)
+ expect(control.firstChild?.type.name).toBe('table');expect(scanTables(control)).toHaveLength(1)
 })
 import {TextSelection} from 'prosemirror-state'
 import {gfmTableCommand} from '@moraya/core/commands'

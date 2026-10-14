@@ -176,6 +176,39 @@ async function checkMount(page,output,outputDir){
  assert.equal(await page.evaluate(()=>test.undo()),true);assert.deepEqual(await columns(),widthsBefore);assert.equal((await snapshot()).raw,tableBefore.raw)
  assert.equal(await page.evaluate(()=>test.redo()),true);assert.deepEqual(await columns(),widthsAfter);assert.equal((await snapshot()).raw,tableBefore.raw)
  output.cases.push({name:'public mount real table handle and owner layout undo redo',before:tableBefore,after:tableAfter,widthsBefore,widthsAfter})
+ // Exercise the public factory with real Chromium pointer capture and DOM text input.
+ // Composition events are synthetic; this is not a system IME acceptance test.
+ await page.evaluate(()=>test.open('| Alpha | Beta |\n| --- | --- |\n| Gamma | Delta |'))
+ await page.evaluate(()=>test.select(4));await rich.focus()
+ const compositionBefore=await snapshot(),compositionWidths=await columns()
+ const pendingHandle=await page.locator('.column-resize-handle').first().boundingBox();assert.ok(pendingHandle)
+ await page.mouse.move(pendingHandle.x+pendingHandle.width/2,pendingHandle.y+pendingHandle.height/2);await page.mouse.down()
+ await page.mouse.move(pendingHandle.x+pendingHandle.width/2+35,pendingHandle.y+pendingHandle.height/2,{steps:4})
+ assert.notDeepEqual(await columns(),compositionWidths);assert.equal((await snapshot()).generation,compositionBefore.generation)
+ await rich.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true})))
+ assert.deepEqual(await columns(),compositionWidths);assert.equal(await page.locator('.column-resize-handle').count(),0)
+ await page.mouse.move(pendingHandle.x+80,pendingHandle.y+pendingHandle.height/2);await page.mouse.up()
+ assert.equal((await snapshot()).generation,compositionBefore.generation);assert.equal((await snapshot()).undoDepth,0)
+ await page.keyboard.insertText('中');assert.equal((await snapshot()).raw,compositionBefore.raw.replace('Alpha','中Alpha'))
+ const endWindow=await rich.evaluate(async el=>{
+  let resolved=false;const flush=test.flush().then(value=>{resolved=true;return value});await Promise.resolve()
+  const pending=!resolved
+  el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))
+  const blocked=el.querySelectorAll('.column-resize-handle').length===0&&!resolved
+  el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,isPrimary:true,button:0,pointerId:1,clientX:300}))
+  return {pending,blocked,flushed:await flush}
+ })
+ assert.equal(endWindow.pending,true);assert.equal(endWindow.blocked,true);assert.equal(endWindow.flushed.raw,compositionBefore.raw.replace('Alpha','中Alpha'))
+ assert.equal(await page.locator('.column-resize-handle').count(),4);assert.equal((await snapshot()).undoDepth,1)
+ assert.equal(await page.evaluate(()=>test.undo()),true);assert.equal((await snapshot()).raw,compositionBefore.raw)
+ assert.equal(await page.evaluate(()=>test.redo()),true)
+ const resumedHandle=await page.locator('.column-resize-handle').first().boundingBox();assert.ok(resumedHandle)
+ await page.mouse.move(resumedHandle.x+resumedHandle.width/2,resumedHandle.y+resumedHandle.height/2);await page.mouse.down()
+ await page.mouse.move(resumedHandle.x+resumedHandle.width/2+25,resumedHandle.y+resumedHandle.height/2,{steps:4});await page.mouse.up()
+ assert.notDeepEqual(await columns(),compositionWidths);assert.equal((await snapshot()).undoDepth,2)
+ assert.equal(await page.evaluate(()=>test.undo()),true);assert.deepEqual(await columns(),compositionWidths)
+ assert.equal((await snapshot()).raw,endWindow.flushed.raw)
+ output.cases.push({name:'public factory synthetic Rich composition cancels real pointer preview, blocks tail commit, admits text/flush/history and resumes resize',before:compositionBefore,endWindow,after:await snapshot()})
  for(const initial of ['[link](https://example.com)\n','']){
   await page.evaluate(raw=>test.open(raw),initial);await rich.click()
   if(!initial)assert.equal(await page.evaluate(()=>test.command({kind:'link',href:'https://example.com',text:'link'})),true)
@@ -210,6 +243,7 @@ async function checkRecovery(page,output){
  await page.locator('#search').focus();assert.equal(await page.evaluate(()=>test.undo()),false);assert.equal((await snapshot()).route.active,false)
  await page.evaluate(()=>test.close());assert.equal(await page.locator('.ProseMirror').count(),0)
  output.cases.push({name:'real source input B/C exact durable, restored first frame bindings, native-route focus and close',saved,value})
+ assert.deepEqual(output.pageErrors,[])
 }
 
 async function checkImage(page,output,dir){

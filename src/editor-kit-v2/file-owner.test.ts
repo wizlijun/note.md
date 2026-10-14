@@ -334,6 +334,63 @@ it('admits native Rich composition transactions while flush and mode switch wait
   expect(target.querySelector('textarea')?.value).toBe('A中文')
 })
 
+it.each(['idle', 'dragging'] as const)('Rich composition cancels resize from %s through end cleanup and restores native history', async start => {
+  const target = document.createElement('div'); document.body.append(target)
+  const raw = '| A | B |\n| --- | --- |\n| C | D |'
+  const session = await mountFileEditor(target, { file: { documentId: 'ime-table', authority: 'a', raw },
+    adapters: { mediaResolver: new BrowserMediaResolver() } }, { externalSource: true })
+  editors.push(session)
+  const { undoDepth } = await import('prosemirror-history')
+  const view = session.view, before = session.owner.snapshot()
+  const prepareHandle = () => {
+    const handle = view.dom.querySelector<HTMLElement>('.column-resize-handle')!
+    handle.closest('th')!.getBoundingClientRect = () => new DOMRect(0, 0, 80, 20)
+    handle.setPointerCapture = () => {}; handle.releasePointerCapture = () => {}
+    return handle
+  }
+  const pointer = (target: HTMLElement, type: string, x: number) => target.dispatchEvent(new PointerEvent(type,
+    { bubbles: true, cancelable: true, isPrimary: true, button: 0, pointerId: 1, clientX: x }))
+  const handle = prepareHandle()
+  if (start === 'dragging') {
+    pointer(handle, 'pointerdown', 80); pointer(view.dom, 'pointermove', 110)
+    expect(view.dom.querySelector('col')!.style.width).toBe('110px')
+    expect(session.owner.snapshot()).toEqual(before)
+  }
+  view.dom.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+  try {
+    expect(view.dom.querySelector('col')!.style.width).toBe('')
+    expect(view.dom.classList.contains('resize-cursor')).toBe(false)
+    expect(view.dom.querySelectorAll('.column-resize-handle')).toHaveLength(0)
+    pointer(handle, 'pointerdown', 80); pointer(view.dom, 'pointermove', 110); pointer(view.dom, 'pointerup', 110)
+    expect(session.owner.snapshot()).toEqual(before); expect(undoDepth(view.state)).toBe(0)
+    // Real Rich transactions remain admissible while layout gestures are blocked.
+    view.dispatch(view.state.tr.insertText('中', 4).setMeta('composition', 1))
+    let flushed = false
+    const flush = session.owner.flush().then(value => { flushed = true; return value })
+    await Promise.resolve(); expect(flushed).toBe(false)
+    view.dom.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+    pointer(handle, 'pointerdown', 80); pointer(view.dom, 'pointermove', 130); pointer(view.dom, 'pointerup', 130)
+    expect(view.dom.querySelectorAll('.column-resize-handle')).toHaveLength(0)
+    expect(flushed).toBe(false)
+    view.dispatch(view.state.tr.insertText('文', 5).setMeta('composition', 1))
+    expect((await flush).raw).toBe(raw.replace('A', '中文A'))
+    expect(view.dom.querySelectorAll('.column-resize-handle')).toHaveLength(4)
+    expect(view.dom.querySelector('col')!.style.width).toBe('')
+    expect(undoDepth(view.state)).toBe(1)
+    expect(session.owner.undo()).toBe(true); expect(session.owner.snapshot().raw).toBe(raw)
+    expect(session.owner.redo()).toBe(true); expect(session.owner.snapshot().raw).toBe(raw.replace('A', '中文A'))
+    const restored = prepareHandle()
+    pointer(restored, 'pointerdown', 80); pointer(view.dom, 'pointermove', 120); pointer(view.dom, 'pointerup', 120)
+    expect(view.dom.querySelector('col')!.style.width).toBe('120px'); expect(undoDepth(view.state)).toBe(2)
+    expect(session.owner.undo()).toBe(true); expect(view.dom.querySelector('col')!.style.width).toBe('')
+    expect(session.owner.snapshot().raw).toBe(raw.replace('A', '中文A'))
+    expect(session.owner.undo()).toBe(true); expect(session.owner.snapshot().raw).toBe(raw)
+  } finally {
+    view.dom.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  }
+})
+
 it('installs the explicit new baseline policy atomically and notifies after returning', async () => {
   let fail = false, counter = 0
   const f = await setup('O\n', { policy: { acceptRawChange: (_before, after) => after.includes('O') }, ids: {

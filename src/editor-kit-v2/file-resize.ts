@@ -4,7 +4,8 @@ import {createSessionTableView,type SessionTablePainter} from '@moraya/core/plug
 import type {FileController} from './file-controller'
 
 /** The same pointer producer and upstream TableView adapter serve both hosts. */
-export function createFileResize(controller:()=>FileController){
+export function createFileResize(controller:()=>FileController,richInput?:{composing():boolean;observe(listener:()=>void):()=>void}){
+ const writable=()=>controller().writable()&&!richInput?.composing()
  const painters=new Set<SessionTablePainter>()
  type Gesture={pointerId:number;target:HTMLElement;tableId:string;generation:number;columns:number;column:number;beforeWidths:readonly(number|null)[];startWidth:number;startX:number;afterWidth:number;bookmark:SelectionBookmark;painter:SessionTablePainter}
  let gesture:Gesture|null=null,view:EditorView|null=null,refreshing=false
@@ -18,7 +19,7 @@ export function createFileResize(controller:()=>FileController){
  const plugin=new Plugin({
   props:{
    decorations(state){
-    if(!controller().writable())return null
+    if(!writable())return null
     const widgets:Decoration[]=[]
     state.doc.descendants((node,pos)=>{
      if(node.type.name!=='table'||!controller().readTable(pos))return true
@@ -34,7 +35,7 @@ export function createFileResize(controller:()=>FileController){
    handleDOMEvents:{
     pointerdown(editor,event){
      const c=controller(),target=event.target
-     if(gesture||!c.writable()||!event.isPrimary||event.button!==0||!(target instanceof HTMLElement)||!target.classList.contains('column-resize-handle'))return false
+     if(gesture||!writable()||!event.isPrimary||event.button!==0||!(target instanceof HTMLElement)||!target.classList.contains('column-resize-handle'))return false
      const cell=target.closest('td,th');if(!cell)return false
      const position=editor.posAtDOM(cell,0),resolved=editor.state.doc.resolve(position)
      let depth=resolved.depth;while(depth>0&&resolved.node(depth).type.name!=='table')depth--
@@ -53,7 +54,7 @@ export function createFileResize(controller:()=>FileController){
     pointerup(editor,event){
      if(!gesture||event.pointerId!==gesture.pointerId)return false
      const g=finish()!,c=controller(),table=[...c.readLayout()].find(([id])=>id===g.tableId)?.[1]
-     if(!c.writable()||c.snapshot().generation!==g.generation||table?.columns!==g.columns||g.afterWidth===g.startWidth){repaint();return true}
+     if(!writable()||c.snapshot().generation!==g.generation||table?.columns!==g.columns||g.afterWidth===g.startWidth){repaint();return true}
      const widths=[...g.beforeWidths];widths[g.column]=g.afterWidth
      if(c.commitWidth({generation:g.generation,tableId:g.tableId,beforeWidths:g.beforeWidths,afterWidths:widths})){
       const selection=g.bookmark.resolve(c.state.doc);if(!selection.eq(c.state.selection))c.dispatch(c.state.tr.setSelection(selection))
@@ -68,17 +69,17 @@ export function createFileResize(controller:()=>FileController){
   },
   view(editor){
    view=editor
-   let wasWritable=controller().writable()
+   let wasWritable=writable()
    const refresh=()=>{
-    const c=controller();if(gesture&&(!c.writable()||!c.view||c.snapshot().generation!==gesture.generation))cancel()
+    const c=controller();if(gesture&&(!writable()||!c.view||c.snapshot().generation!==gesture.generation))cancel()
     repaint()
-    const writable=c.writable()
-    if(writable!==wasWritable&&!refreshing){wasWritable=writable;refreshing=true;try{editor.updateState(c.state)}finally{refreshing=false}}
+    const available=writable()
+    if(available!==wasWritable&&!refreshing){wasWritable=available;refreshing=true;try{editor.updateState(c.state)}finally{refreshing=false}}
    }
-   const dispose=controller().observeView(refresh),blur=()=>{if(gesture)cancel()}
+   const dispose=controller().observeView(refresh),disposeRich=richInput?.observe(refresh),blur=()=>{if(gesture)cancel()}
    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&gesture){cancel();event.preventDefault()}}
    window.addEventListener('blur',blur);window.addEventListener('keydown',escape)
-   return {update(){repaint()},destroy(){cancel();dispose();window.removeEventListener('blur',blur);window.removeEventListener('keydown',escape);view=null}}
+   return {update(){repaint()},destroy(){cancel();dispose();disposeRich?.();window.removeEventListener('blur',blur);window.removeEventListener('keydown',escape);view=null}}
   },
  })
  return {plugin,nodeView}

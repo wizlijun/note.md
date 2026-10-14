@@ -61,6 +61,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   let ownedEdit: NoteEditState | undefined
   const layers = new Map<string, readonly DecorationItem[]>()
   const listeners = new Set<(value: FileSnapshot) => void>()
+  const richCompositionListeners = new Set<() => void>()
   const richWaiters: { resolve(): void; reject(error: Error): void }[] = []
   const ids = options.ids ?? { blockId: () => crypto.randomUUID(), lineage: () => crypto.randomUUID(), tableId: () => crypto.randomUUID() }
   const ime = wiring.imeGuard ?? createImeGuard()
@@ -146,7 +147,9 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     controller.bindView(null); instance.destroy(); root.remove()
   }
   function createController(file: FileInput, nextPolicy?: FilePolicy): FileController {
-    const resize = createFileResize(() => controller)
+    const resize = createFileResize(() => controller, { composing: () => richComposing,
+      observe(listener) { richCompositionListeners.add(listener); return () => { richCompositionListeners.delete(listener) } },
+    })
     const decoration = new Plugin({ props: { decorations(state) {
       const items = [...layers.values()].flat(), decorations: Decoration[] = []
       state.doc.forEach((node, pos) => {
@@ -230,11 +233,19 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       } })
   }
   bindRichHistory()
-  rich.addEventListener('compositionstart', () => { richComposing = true; refreshFileHistoryRoute() }, true)
+  function setRichComposing(value: boolean) {
+    richComposing = value
+    for (const listener of richCompositionListeners) listener()
+    refreshFileHistoryRoute()
+  }
+  rich.addEventListener('compositionstart', () => {
+    if (richFrame !== null) { cancelAnimationFrame(richFrame); richFrame = null }
+    setRichComposing(true)
+  }, true)
   rich.addEventListener('compositionend', () => {
     if (richFrame !== null) cancelAnimationFrame(richFrame)
     richFrame = requestAnimationFrame(() => {
-      richFrame = null; richComposing = false; refreshFileHistoryRoute()
+      richFrame = null; setRichComposing(false)
       for (const waiter of richWaiters.splice(0)) waiter.resolve()
     })
   }, true)
