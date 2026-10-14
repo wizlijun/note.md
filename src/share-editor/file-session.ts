@@ -1,3 +1,4 @@
+import type { Plugin } from 'prosemirror-state'
 import { mountFileEditor } from '../editor-kit-v2/file-main'
 import type { FileAdapters, FilePolicy, FileRender, FileSnapshot, FileRecovery, MountedFileEditor } from '../editor-kit-v2/file-contract'
 import { acknowledgeSaved, recoveryFromSnapshot, type SavedFile } from '../editor-kit-v2/file-recovery'
@@ -14,6 +15,8 @@ export interface ShareFileSessionOptions {
   render?: FileRender
   mountTarget: HTMLElement
   readOnly?: boolean
+  styles?: 'host'
+  plugins?: Plugin[]
   /** Shared lineage FIFO: clone live + its notes at execution, await atomic, return that clone. */
   saveDraft(live: DraftV2): Promise<Readonly<DraftV2>>
 }
@@ -46,7 +49,7 @@ export async function createShareFileSession(options: ShareFileSessionOptions): 
   const mounted = await mountFileEditor(options.mountTarget, {
     file: { documentId: `${lineage}:${path}`, authority: `${lineage}:${snapshotId}:${path}`, raw, recovery: draft.editorFiles?.[path] },
     policy: options.policy, adapters: options.adapters, render: options.render, readOnly,
-  }, {})
+  }, { styles: options.styles, plugins: options.plugins })
   const current = () => !closed && !mounted.view.isDestroyed && draft.lineageId === lineage && draft.snapshotId === snapshotId
   function capture() {
     const identity = mounted.baselineIdentity, snapshot = mounted.owner.snapshot(), recovery = recoveryFromSnapshot(snapshot)

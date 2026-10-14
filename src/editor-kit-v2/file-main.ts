@@ -1,3 +1,4 @@
+import { createFileMenus } from './file-menus'
 import {imageSourceForNativePath} from '../lib/attachment-insert'
 import { createEditor, type MorayaEditorInstance } from '@moraya/core'
 import { Plugin, type Transaction } from 'prosemirror-state'
@@ -22,6 +23,7 @@ import { injectKitCss } from './file-kit-styles'
 
 /** Desktop-only callers assemble these dependencies; this module stays pure. */
 export interface FileMountWiring {
+  styles?: 'host'
   plugins?: Plugin[]
   onDelta?: (delta: ObserverDelta) => void
   externalSource?: boolean
@@ -42,7 +44,7 @@ export function mountFileEditor(container: HTMLElement, options: MountFileEditor
 export function mountFileEditor(container: HTMLElement, options: MountFileEditorOptions, wiring: FileMountWiring): Promise<FileMountSession>
 export async function mountFileEditor(container: HTMLElement, options: MountFileEditorOptions, wiring: FileMountWiring = {}): Promise<FileMountSession> {
   if (!options.adapters?.mediaResolver) throw new TypeError('file editor requires an explicit mediaResolver')
-  if (!wiring.externalSource) injectKitCss()
+  if (!wiring.externalSource && wiring.styles !== 'host') injectKitCss()
   const root = document.createElement('div'), rich = document.createElement('div')
   root.className = wiring.externalSource ? 'file-editor' : 'file-editor kit-host'; root.style.cssText = 'position:relative;width:100%;height:100%;min-height:0'
   rich.className = 'file-rich'; root.append(rich)
@@ -142,7 +144,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     if (closed) return
     await owner.flush()
     if (expected && (controller !== expected.identity || controller.snapshot().raw !== expected.raw)) throw new Error('File changed while closing; saved content no longer matches')
-    closed = true; unbindRichHistory(); unbindSourceHistory(); source?.detach(); unsubscribeController(); listeners.clear(); layers.clear()
+    closed = true; menus.destroy(); unbindRichHistory(); unbindSourceHistory(); source?.detach(); unsubscribeController(); listeners.clear(); layers.clear()
     if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
     controller.bindView(null); instance.destroy(); root.remove()
   }
@@ -326,15 +328,20 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       return !!ownedEdit
     },
   }
+  function insertSlashNote(seed = '') {
+    const gate = admission(), state = instance.view.state, { $from, empty } = state.selection
+    if (!empty || $from.parent.type.name !== 'paragraph' || !/^\/[a-zA-Z0-9一-龥]*$/.test($from.parent.textBetween(0, $from.parentOffset))) return false
+    ownedEdit = insertNoteRich(instance.view, seed, gate, { from: $from.start(), to: $from.pos })
+    return !!ownedEdit
+  }
+  const menus = createFileMenus({ view: instance.view, owner, ime,
+    available: () => !wiring.externalSource && !closed && !detached && !readOnly && mode === 'rich' && !blocked(),
+    insertNote: () => insertSlashNote(),
+  })
   return {
-    owner, annotations, closeIfSaved: expected => close(expected), get baselineIdentity() { return controller }, get view() { return instance.view }, attachSource,
+    owner, annotations, menus, closeIfSaved: expected => close(expected), get baselineIdentity() { return controller }, get view() { return instance.view }, attachSource,
     async flushForDetach() { const value = await owner.flush(); finishOwnedEdit(); return value },
-    insertSlashNote(seed = '') {
-      const gate = admission(), state = instance.view.state, { $from, empty } = state.selection
-      if (!empty || $from.parent.type.name !== 'paragraph' || !/^\/[a-zA-Z0-9一-龥]*$/.test($from.parent.textBetween(0, $from.parentOffset))) return false
-      ownedEdit = insertNoteRich(instance.view, seed, gate, { from: $from.start(), to: $from.pos })
-      return !!ownedEdit
-    },
+    insertSlashNote,
     insertSlashAttachment(kind, href) {
       if (closed || detached || mode !== 'rich' || blocked()) return false
       const state = instance.view.state, { $from, empty } = state.selection
@@ -348,6 +355,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       try { await owner.flush() } catch { return false }
       if (mode === next) return true
       if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
+      menus.closeSlash()
       mode = next
       if (mode === 'source') sourcePane()
       rich.hidden = mode !== 'rich'; if (pane) pane.hidden = mode !== 'source'
@@ -357,7 +365,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     focus() { if (!closed && !detached) { if (mode === 'source') pane?.querySelector('textarea')?.focus(); else instance.view.focus() } },
     destroyView() {
       if (detached || closed) return
-      unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
+      menus.closeSlash(); unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
       if (richFrame !== null) cancelAnimationFrame(richFrame)
       richFrame = null
       if (richComposing) { richComposing = false; for (const waiter of richWaiters.splice(0)) waiter.reject(new Error('composition-interrupted')) }

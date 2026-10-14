@@ -1,3 +1,4 @@
+import { loadDesktopMermaid } from './adapters/mermaid-loader'
 import 'katex/dist/katex.min.css'
 import {
   createEditor as coreCreateEditor,
@@ -101,7 +102,7 @@ export async function mountRichEditor(
         session = await mountFileEditor(root, {
           file: { documentId: file.tab.filePath || file.tab.id, authority: crypto.randomUUID(), raw: file.tab.currentContent },
           readOnly,
-          adapters: { mediaResolver, rendererRegistry, linkOpener: tauriLinkOpener,
+          adapters: { mediaResolver, rendererRegistry, mermaidLoader: loadDesktopMermaid, linkOpener: tauriLinkOpener,
             platform: { ...platform, getCurrentFilePath: () => file.tab.filePath || null },
             spreadsheetViewFactory: spreadsheetFactory,
             frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory },
@@ -131,6 +132,7 @@ export async function mountRichEditor(
       frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory,
       enableMath: true,
       enableMermaid: true,
+      mermaidLoader: loadDesktopMermaid,
       enableTableResize: true,
       enableImageSelection: true,
       enableHistory: true,

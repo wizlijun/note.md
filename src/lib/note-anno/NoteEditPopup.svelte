@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import { noteUi, styleVars } from './note-ui.svelte'
-  import { t } from '../i18n/store.svelte'
+  import { t } from '../i18n/runtime.svelte'
   import { iconSvg } from '../context-menu/icons'
   import { createImeGuard } from '../ime'
 

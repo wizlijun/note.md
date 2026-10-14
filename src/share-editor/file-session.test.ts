@@ -1,3 +1,4 @@
+import { ownerAnnotationFloor, acceptsOwnerFloor } from './owner-policy'
 /** @vitest-environment happy-dom */
 import { afterEach, expect, it, vi } from 'vitest'
 import { BrowserMediaResolver } from '@moraya/core/adapters/browser-media-resolver'
@@ -194,4 +195,27 @@ it.each([
     owner.setReadOnly(false); expect(owner.undo()).toBe(true)
     expect(owner.snapshot().raw).toBe('A')
   } finally { resume.resolve(); spy.mockRestore() }
+})
+
+it('host styling suppresses the legacy CSS link while retaining real Source', async () => {
+  document.querySelectorAll('link[href$="editor-kit-v1.css"]').forEach(el => el.remove())
+  const mountTarget = document.createElement('div'); document.body.append(mountTarget)
+  const session = await createShareFileSession({ path: 'a.md', snapshotId: 'S', raw: 'A', draft: draft(), policy: { acceptRawChange: () => true }, adapters: { mediaResolver: new BrowserMediaResolver() }, mountTarget, saveDraft: async d => structuredClone(d), styles: 'host' })
+  sessions.push(session)
+  expect(document.querySelector('link[href$="editor-kit-v1.css"]')).toBeNull()
+  expect(await session.mounted.setMode('source')).toBe(true)
+  expect(mountTarget.querySelector('textarea')?.value).toBe('A')
+})
+
+it.each([false, true])('rebase and undo-rebase explicitly install the target multiset floor: reverse=%s', async reverse => {
+  const O = '{==甲==}{>>旧注<<}', N = '{==乙==}{>>新注<<}'
+  const [old, next] = reverse ? [N, O] : [O, N], session = await open()
+  const policy = (raw: string) => { const floor = ownerAnnotationFloor(raw + raw, raw); return { acceptRawChange: (_before: string, after: string) => acceptsOwnerFloor(floor, after) } }
+  expect(session.mounted.owner.installBaseline({ documentId: 'a', authority: 'old', raw: old }, { policy: policy(old) }).ok).toBe(true)
+  expect(session.mounted.owner.installBaseline({ documentId: 'a', authority: 'new', raw: next }).ok).toBe(true)
+  expect(session.mounted.owner.restoreContent(old).ok).toBe(true) // deliberately old policy fails to protect target
+  expect(session.mounted.owner.installBaseline({ documentId: 'a', authority: 'new', raw: next }, { policy: policy(next) }).ok).toBe(true)
+  expect(session.mounted.owner.restoreContent(old).ok).toBe(false)
+  expect(session.mounted.owner.installBaseline({ documentId: 'a', authority: 'old', raw: old }, { policy: policy(old) }).ok).toBe(true)
+  expect(session.mounted.owner.restoreContent(next).ok).toBe(false)
 })

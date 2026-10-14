@@ -109,6 +109,7 @@ export async function mountRich(
     // Math / mermaid pull heavy renderers the kit's consumers do not need
     // (spec §3.4: kit options are narrowed for plugin windows).
     enableMath: false,
+    // Legacy Kit deliberately keeps Mermaid source-only; never inject a loader.
     enableMermaid: false,
     enableTableResize: true,
     enableImageSelection: false,

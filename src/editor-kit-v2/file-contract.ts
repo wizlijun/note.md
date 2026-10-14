@@ -4,7 +4,7 @@ import type {DecorationHost, EditorCommand, StructuralCommand} from './contract'
 export type {ObserverDelta} from '../lib/insights/observer'
 
 export type FileAdapters = Pick<CreateEditorOptions,
- 'mediaResolver'|'rendererRegistry'|'linkOpener'|'platform'|'spreadsheetViewFactory'|'frontmatterViewFactory'>
+ 'mediaResolver'|'mermaidLoader'|'rendererRegistry'|'linkOpener'|'platform'|'spreadsheetViewFactory'|'frontmatterViewFactory'>
 export type FileRender = Pick<CreateEditorOptions,'enableMath'|'enableMermaid'|'enableImageSelection'>
 export type FilePolicy = Readonly<{acceptRawChange(before:string,after:string):boolean}>
 export type FileSlashCommand = 'h1'|'h2'|'h3'|'quote'|'code'|'mermaid'|'math'|'table'|'spreadsheet'|'bullet'|'ordered'|'task'|'hr'|'highlight'|'wikilink'
@@ -46,4 +46,5 @@ export type MountedFileEditor = {
  owner:FileEditorOwner;setMode(mode:'rich'|'source'):Promise<boolean>
  focus():void;destroyView():void;decorations:DecorationHost
  annotations:{insert(seed?:string):boolean;editAt(position:number):boolean}
+ menus:{openSlash():void;closeSlash():void}
 }

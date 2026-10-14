@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { SlashItem } from './slash-items'
-  import { t } from '../i18n/store.svelte'
+  import type { SlashItem } from './slash-items-common'
+  import { t } from '../i18n/runtime.svelte'
 
   let {
     position,
@@ -17,8 +17,8 @@
   } = $props()
 
   let menuEl: HTMLDivElement | undefined = $state()
-  let adjustedTop = $state(position.top)
-  let adjustedLeft = $state(position.left)
+  let adjustedTop = $state(0)
+  let adjustedLeft = $state(0)
 
   // Flip up if menu would overflow bottom of viewport
   $effect(() => {
