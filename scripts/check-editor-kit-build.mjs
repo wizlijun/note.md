@@ -20,13 +20,19 @@
 //   3. the JS actually exports `mountMarkdownEditor` (the v1 API entry point).
 
 import { readFileSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createRequire } from 'node:module'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const JS = 'dist/assets/editor-kit-v1.js'
-const CSS = 'dist/assets/editor-kit-v1.css'
-const V2_JS = 'dist/assets/editor-kit-v2.js'
+if (process.argv.length > 4 || (process.argv[2] && process.argv[2] !== '--out-dir') || (process.argv[2] && !process.argv[3])) throw new Error('usage: check-editor-kit-build.mjs [--out-dir path]')
+const outDir = process.argv[3] ? resolve(root, process.argv[3]) : join(root, 'dist')
+const JS = join(outDir, 'assets/editor-kit-v1.js')
+const CSS = join(outDir, 'assets/editor-kit-v1.css')
+const V2_JS = join(outDir, 'assets/editor-kit-v2.js')
+const require = createRequire(import.meta.url)
+const viteRequire = createRequire(require.resolve('vite/package.json'))
+const { parseAst } = await import(pathToFileURL(viteRequire.resolve('rollup/parseAst')).href)
 
 // A correct build is ~tens of KB of shell code; the known tree-shaken stub was
 // 35 bytes. Anything under 1 KB is not a real kit.
@@ -36,7 +42,7 @@ const problems = []
 
 function sizeOf(rel) {
   try {
-    return statSync(join(root, rel)).size
+    return statSync(rel).size
   } catch {
     return null
   }
@@ -54,7 +60,7 @@ if (jsSize === null) {
       `(check rollupOptions.preserveEntrySignatures in vite.config.ts).`,
   )
 } else {
-  const js = readFileSync(join(root, JS), 'utf8')
+  const js = readFileSync(JS, 'utf8')
   if (!js.includes('mountMarkdownEditor')) {
     problems.push(
       `${JS} does not export mountMarkdownEditor — plugins load it with ` +
@@ -74,7 +80,10 @@ if (v2JsSize === null) {
 } else if (v2JsSize < MIN_JS_BYTES) {
   problems.push(`${V2_JS} is only ${v2JsSize} bytes — the v2 entry was almost certainly tree-shaken away.`)
 } else {
-  const js = readFileSync(join(root, V2_JS), 'utf8')
+  const js = readFileSync(V2_JS, 'utf8')
+  const exports = parseAst(js).body.flatMap(node => node.type === 'ExportNamedDeclaration'
+    ? [...node.specifiers.map(specifier => specifier.exported.name ?? specifier.exported.value), ...(node.declaration?.id ? [node.declaration.id.name] : [])] : [])
+  if (!exports.includes('mountFileEditor')) problems.push(`${V2_JS} has no mountFileEditor named export.`)
   if (!js.includes('mountDocumentEditor')) {
     problems.push(`${V2_JS} does not export mountDocumentEditor.`)
   }

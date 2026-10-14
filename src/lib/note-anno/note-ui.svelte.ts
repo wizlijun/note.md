@@ -84,8 +84,9 @@ export interface NoteEditState {
    *  Ask uses 0 so the pre-filled `?` isn't wiped by the first keystroke. */
   caret?: number
   style?: ThemeStyle | null
-  save: (note: string) => void
-  remove: () => void
+  save: (note: string) => boolean | void
+  remove: () => boolean | void
+  flushDraft?: () => boolean | void
 }
 
 export interface NoteHoverState {

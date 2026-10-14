@@ -27,12 +27,16 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { migrateTempResources, getTempDir } from '../lib/paste-resources'
   import { t } from '../lib/i18n/store.svelte'
+  import type { FileMountSession } from '../editor-kit-v2/file-main'
 
   let { tab }: { tab: Tab } = $props()
   let memoryReadOnly = $derived(isManagedMemoryTab(tab))
   let documentReadOnly = $derived(isReadOnlyTab(tab))
   let presentation = $derived(fileViewPresentation(tab, pluginRuntime.manifests))
   let fileView = $derived(documentReadOnly || tab.mode === 'source' ? null : presentation.active)
+  let readyFile = $state<{ id: string; session: FileMountSession }>()
+  let fileSession = $derived(readyFile?.id === tab.id ? readyFile.session : undefined)
+  let useFileOwner = $derived(tab.kind === 'markdown' && !memoryReadOnly && !presentation.active)
 
   // A selected file view that became unavailable falls back to Rich and does
   // not silently jump to a different matching plugin.
@@ -194,6 +198,18 @@
     {#key tab.id}
       <CustomEditorIframe {tab} />
     {/key}
+  {:else if useFileOwner}
+    {#key tab.id}
+      <div class="file-rich-container" class:file-hidden={tab.mode !== 'rich'}>
+        <RichEditor {tab} fileBacked readOnly={documentReadOnly} onFlush={onRichFlush}
+          onFileReady={(session) => { readyFile = { id: tab.id, session } }} />
+      </div>
+      {#if tab.mode === 'source' && fileSession}
+        <SourceView value={tab.currentContent} oninput={onSourceInput}
+          tabId={tab.id} filePath={tab.filePath} readOnly={documentReadOnly}
+          attachFileSource={(textarea, options) => fileSession!.attachSource(textarea, options)} />
+      {/if}
+    {/key}
   {:else if tab.mode === 'source'}
     {#key `${tab.id}:${documentReadOnly}`}
       <SourceView
@@ -223,6 +239,8 @@
 </div>
 
 <style>
+  .file-rich-container { display: flex; flex: 1; min-width: 0; min-height: 0; }
+  .file-rich-container.file-hidden { display: none; }
   .editor-stack {
     display: flex;
     flex-direction: column;

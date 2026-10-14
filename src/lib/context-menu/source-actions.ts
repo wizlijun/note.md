@@ -11,14 +11,35 @@ export interface SourceHandle {
   el: HTMLTextAreaElement
   tabId: string
   value(): string
+  applyBuffer?: (value: string, selection: [number, number]) => void
+  isCurrent?: () => boolean
+  version?: () => unknown
+}
+
+function applyBuffer(h: SourceHandle, next: string, start: number, end = start) {
+  if (h.isCurrent?.() === false) return
+  if (h.applyBuffer) h.applyBuffer(next, [start, end])
+  else setContent(h.tabId, next)
+}
+function capture(h: SourceHandle) {
+  const value = h.value(), start = h.el.selectionStart, end = h.el.selectionEnd, version = h.version?.()
+  return () => h.el.isConnected && h.isCurrent?.() !== false && h.version?.() === version && h.value() === value && h.el.selectionStart === start && h.el.selectionEnd === end
+}
+
+function selectAfterPaint(h: SourceHandle, value: string, start: number, end = start) {
+  const version = h.version?.()
+  requestAnimationFrame(() => {
+    if (!h.el.isConnected || h.isCurrent?.() === false || h.value() !== value || h.version?.() !== version) return
+    h.el.focus(); h.el.setSelectionRange(start, end)
+  })
 }
 
 function replaceRange(h: SourceHandle, start: number, end: number, text: string, caret?: number) {
   const v = h.value()
   const next = v.slice(0, start) + text + v.slice(end)
-  setContent(h.tabId, next)
   const pos = caret ?? start + text.length
-  requestAnimationFrame(() => { h.el.focus(); h.el.setSelectionRange(pos, pos) })
+  applyBuffer(h, next, pos)
+  selectAfterPaint(h, next, pos)
 }
 
 function wrap(h: SourceHandle, open: string, close: string) {
@@ -26,8 +47,8 @@ function wrap(h: SourceHandle, open: string, close: string) {
   let end = h.el.selectionEnd ?? 0
   if (start === end) { const w = expandToWord(h.value(), start); start = w.start; end = w.end }
   const r = applyWrap(h.value(), start, end, open, close)
-  setContent(h.tabId, r.value)
-  requestAnimationFrame(() => { h.el.focus(); h.el.setSelectionRange(r.selStart, r.selEnd) })
+  applyBuffer(h, r.value, r.selStart, r.selEnd)
+  selectAfterPaint(h, r.value, r.selStart, r.selEnd)
 }
 
 function wikilink(h: SourceHandle) {
@@ -45,9 +66,9 @@ function link(h: SourceHandle) {
   if (start === end) return
   const inner = h.value().slice(start, end)
   const text = `[${inner}](url)`
-  replaceRange(h, start, end, text, start + inner.length + 3)
-  requestAnimationFrame(() =>
-    h.el.setSelectionRange(start + inner.length + 3, start + inner.length + 6))
+  const next = h.value().slice(0, start) + text + h.value().slice(end)
+  applyBuffer(h, next, start + inner.length + 3, start + inner.length + 6)
+  selectAfterPaint(h, next, start + inner.length + 3, start + inner.length + 6)
 }
 
 /** Toggle a single-line prefix on the line containing the cursor. */
@@ -73,9 +94,10 @@ function insertText(h: SourceHandle, text: string) {
  * blocked in Tauri's WKWebView, so read the clipboard directly and splice.
  */
 async function pasteText(h: SourceHandle) {
+  const current = capture(h)
   try {
     const text = await navigator.clipboard.readText()
-    if (!text) return
+    if (!text || !current()) return
     insertText(h, text)
   } catch { /* clipboard permission denied */ }
 }
@@ -102,8 +124,8 @@ export function createSourceActions(h: SourceHandle): EditorActions {
           // 'question' seeds the note with `?` so it reads as a question the
           // moment it exists; the caret lands before it.
           const r = insertNoteMarkup(h.value(), start, end, id === 'question' ? '?' : '')
-          setContent(h.tabId, r.value)
-          requestAnimationFrame(() => { h.el.focus(); h.el.setSelectionRange(r.selStart, r.selEnd) })
+          applyBuffer(h, r.value, r.selStart, r.selEnd)
+          selectAfterPaint(h, r.value, r.selStart, r.selEnd)
           return
         }
         case 'trace': {
@@ -127,10 +149,11 @@ export function createSourceActions(h: SourceHandle): EditorActions {
         case 'mermaid':   return insertText(h, '```mermaid\n\n```\n')
         case 'date':      return insertText(h, new Date().toISOString().slice(0, 10))
         case 'image': {
+          const current = capture(h)
           const { open } = await import('@tauri-apps/plugin-dialog')
           const result = await open({ multiple: false,
             filters: [{ name: 'Images', extensions: ['png','jpg','jpeg','gif','svg','webp','bmp','avif'] }] })
-          if (typeof result !== 'string') return
+          if (typeof result !== 'string' || !current()) return
           insertText(h, `![](${result})`)
           return
         }

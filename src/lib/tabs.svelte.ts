@@ -15,6 +15,7 @@ import { isReadonlyMarkdownTab } from './readonly-document'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 import { formatJsonSource } from './json-format'
+import { fileEditorSession, closeFileEditorSession } from './file-editor-sessions'
 
 export type Mode = 'source' | 'rich'
 
@@ -58,7 +59,14 @@ export function activeTab(): Tab | null {
   return tabs.find((t) => t.id === activeId.value) ?? null
 }
 
-function flushMountedDocument(tabId: string): void {
+async function flushMountedDocument(tabId: string): Promise<void> {
+  const session = fileEditorSession(tabId)
+  if (session) {
+    const snapshot = await session.owner.flush()
+    const tab = tabs.find(tab => tab.id === tabId)
+    if (tab) tab.currentContent = snapshot.raw
+    return
+  }
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } }))
 }
@@ -91,9 +99,15 @@ function notifyInsights(method: 'onActiveDocChanged' | 'onModeChanged'): void {
   void import('./insights/tracker.svelte').then((m) => m[method]()).catch(() => {})
 }
 
-export function activate(id: string): void {
+export async function activate(id: string): Promise<void> {
   if (tabs.some((t) => t.id === id)) {
-    if (activeId.value && activeId.value !== id) flushMountedDocument(activeId.value)
+    const previous = activeId.value
+    if (previous && previous !== id) {
+      if (fileEditorSession(previous)) {
+        try { await flushMountedDocument(previous) } catch { return }
+        if (activeId.value !== previous || !tabs.some(tab => tab.id === id)) return
+      } else void flushMountedDocument(previous)
+    }
     activeId.value = id
     notifyInsights('onActiveDocChanged')
   }
@@ -375,7 +389,7 @@ export async function replaceCurrentFile(path: string, currentPath: string): Pro
 
   const originalId = current.id
   const originalPath = current.filePath
-  flushMountedDocument(originalId)
+  await flushMountedDocument(originalId)
   if (isDirty(originalId)) {
     throw new Error('当前标签页有未保存的修改，无法替换打开的文件。请先保存或放弃修改。')
   }
@@ -474,6 +488,11 @@ export async function replaceCurrentFile(path: string, currentPath: string): Pro
   }
   const index = tabs.findIndex((tab) => tab.id === originalId)
   if (index < 0) throw new Error('当前标签页在导航期间已关闭，请重试。')
+  const session = fileEditorSession(originalId)
+  if (session) {
+    const installed = session.owner.installBaseline({ documentId: path, authority: crypto.randomUUID(), raw: content })
+    if (!installed.ok) throw new Error(installed.reason)
+  }
   await stopWatchingTab(originalId)
   resetFileViewSelection(originalId)
   tabs[index] = replacement
@@ -516,6 +535,12 @@ export async function reloadTabFromDisk(path: string, options?: { expectedConten
     return
   }
   const oldContent = t.initialContent
+  const session = fileEditorSession(t.id)
+  if (session) {
+    await flushMountedDocument(t.id)
+    const installed = session.owner.installBaseline({ documentId: path, authority: crypto.randomUUID(), raw: content })
+    if (!installed.ok) throw new Error(installed.reason)
+  }
   t.initialContent = content
   t.currentContent = content
   t.lastKnownMtime = mtime
@@ -535,6 +560,12 @@ let questionCapture: typeof import('./outline/question-capture') | null = null
 export function setContent(id: string, md: string): void {
   const t = tabs.find((x) => x.id === id)
   if (!t || isReadOnlyTab(t)) return
+  const session = fileEditorSession(id)
+  if (session && session.owner.snapshot().raw !== md) {
+    const accepted = session.owner.restoreContent(md)
+    if (!accepted.ok) return
+    md = accepted.snapshot.raw
+  }
   t.currentContent = md
   if (!t.filePath || t.kind === 'canvas') return
   // 提问捕获:模块加载后无条件调用(schedule 自带在途取消,批注整体删除也能撤回);
@@ -560,6 +591,15 @@ export function setContent(id: string, md: string): void {
 export async function restoreVersion(id: string, content: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || !t.filePath || isReadOnlyTab(t)) return
+  const session = fileEditorSession(id)
+  if (session) {
+    await flushMountedDocument(id)
+    const restored = session.owner.restoreContent(content)
+    if (!restored.ok) throw new Error(restored.reason)
+    t.currentContent = restored.snapshot.raw
+    await saveTab(id)
+    return
+  }
   if (t.kind === 'canvas') await persistCanvasSnapshot(t, content)
   else await writeMd(t.filePath, content)
   await reloadTabFromDisk(t.filePath)
@@ -571,9 +611,11 @@ export function toggleMode(id: string): void {
   setMode(id, t.mode === 'source' ? 'rich' : 'source')
 }
 
-export function setMode(id: string, mode: Mode): void {
+export async function setMode(id: string, mode: Mode): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || t.kind === 'canvas' || t.mode === mode) return
+  const session = fileEditorSession(id)
+  if (session && !await session.setMode(mode)) return
   if (mode === 'source'
     && t.kind === 'code'
     && t.filePath.toLowerCase().endsWith('.json')
@@ -698,7 +740,7 @@ function saveCanvasTab(t: Tab, content: string): Promise<void> {
 export async function saveActive(): Promise<void> {
   const t = activeTab()
   if (!t) return
-  flushMountedDocument(t.id)
+  await flushMountedDocument(t.id)
   if (!t.filePath) {
     const { pickSaveCanvasFile, pickSaveFile } = await import('./dialogs')
     const p = t.kind === 'canvas'
@@ -733,7 +775,7 @@ export async function saveActive(): Promise<void> {
 export async function saveTab(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || !t.filePath || isReadOnlyTab(t)) return
-  if (activeId.value === id) flushMountedDocument(id)
+  if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (t.externalState === 'changed') {
     throw new Error(`"${t.title}" was modified externally. Use the banner to Reload, Overwrite, or Save as…`)
   }
@@ -822,7 +864,7 @@ async function rewriteOpenCanvasReferences(oldPath: string, newPath: string): Pr
 export async function saveAs(id: string, newPath: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || isReadOnlyTab(t)) return
-  if (activeId.value === id) flushMountedDocument(id)
+  if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return
   const targetIsCanvas = /\.canvas$/i.test(newPath)
   if (t.kind === 'canvas' && !targetIsCanvas) {
@@ -922,7 +964,7 @@ export async function closeTab(
   const idx = tabs.findIndex((t) => t.id === id)
   if (idx < 0) return false
   const tab = tabs[idx]
-  if (activeId.value === id) flushMountedDocument(id)
+  if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (isDirty(id)) {
     if (!tab.filePath) {
       // ── UNTITLED dirty file ──────────────────────────────────────────────
@@ -955,6 +997,7 @@ export async function closeTab(
       // choice === 'discard': fall through to close without saving
     }
   }
+  await closeFileEditorSession(id)
   tabs.splice(idx, 1)
   resetFileViewSelection(id)
   await stopWatchingTab(id)
@@ -1027,6 +1070,12 @@ export async function reloadFromDisk(id: string): Promise<void> {
       mtime: canvasMtimeMs(opened.revision),
     }
   }
+  const session = fileEditorSession(id)
+  if (session) {
+    await flushMountedDocument(id)
+    const installed = session.owner.installBaseline({ documentId: t.filePath, authority: crypto.randomUUID(), raw: p.content })
+    if (!installed.ok) throw new Error(installed.reason)
+  }
   const oldContent = t.currentContent
   t.initialContent = p.content
   t.currentContent = p.content
@@ -1052,6 +1101,7 @@ export async function reloadFromDisk(id: string): Promise<void> {
 export async function overwriteOnDisk(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || isReadOnlyTab(t)) return
+  if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return
   if (t.kind === 'canvas') {
     await persistCanvasSnapshot(t, t.currentContent, true)

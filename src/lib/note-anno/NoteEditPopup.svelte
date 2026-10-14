@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { noteUi, styleVars } from './note-ui.svelte'
   import { t } from '../i18n/store.svelte'
   import { iconSvg } from '../context-menu/icons'
@@ -9,6 +10,8 @@
   let text = $state(editState.note)
   let root: HTMLDivElement | undefined = $state()
   let ta: HTMLTextAreaElement | undefined = $state()
+  let blocked = $state(false)
+  let composing = $state(false)
 
   // 默认全选(编辑已有批注:直接改写);带 caret 时收起选区停在该位置
   // (提问:预填的 ? 不能被首个按键吃掉)
@@ -21,29 +24,56 @@
   // 输入即保存（防抖）：大纲/徽标从文档派生，等到关闭弹窗才写入会显得"不更新"。
   // save() 自带 no-op 判断，重复提交同文本无副作用。
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  function scheduleSave() {
+  function cancelSave() {
     if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  function attempt(remove = false) {
+    cancelSave()
+    if (noteUi.edit !== editState) return false
+    if (composing) { blocked = true; return false }
+    // Read the DOM as well: flush can arrive before Svelte's next render.
+    if (ta) text = ta.value
+    const result = remove ? editState.remove() : editState.save(text)
+    blocked = result === false
+    return result
+  }
+  const flushDraft = () => attempt()
+  editState.flushDraft = flushDraft
+  onDestroy(() => {
+    cancelSave()
+    if (editState.flushDraft === flushDraft) delete editState.flushDraft
+  })
+  function scheduleSave() {
+    cancelSave()
+    if (composing) return
     saveTimer = setTimeout(() => {
       saveTimer = null
-      if (noteUi.edit === editState) editState.save(text)
+      if (noteUi.edit === editState) attempt()
     }, 300)
   }
 
   function close(save: boolean) {
     if (noteUi.edit !== editState) return
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-    noteUi.edit = null
-    if (save) editState.save(text)
+    if (save && attempt() === false) return
+    cancelSave()
+    if (noteUi.edit === editState) noteUi.edit = null
   }
   function onDelete() {
     if (noteUi.edit !== editState) return
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+    if (attempt(true) === false) return
+    if (noteUi.edit === editState) noteUi.edit = null
+  }
+  function discard() {
+    if (composing || noteUi.edit !== editState) return
+    cancelSave()
     noteUi.edit = null
-    editState.remove()
   }
   /** ⁇ 提问:尾部无问号则补全角 ？,保存并关闭。问题身份由文本中的问号承载,按钮只是糖 */
   function onAsk() {
+    if (composing) return
     if (!/[?？]\s*$/.test(text)) text = text.trimEnd() + '？'
+    if (ta) ta.value = text
     close(true)
   }
   /** 变换区间(含结束那一下按键)的守卫,见 src/lib/ime.ts */
@@ -70,8 +100,8 @@
   bind:this={root}
   style="left:{editState.x}px; top:{editState.y}px; {styleVars(editState.style)}"
   onkeydown={onKeydown}
-  oncompositionstart={() => ime.start()}
-  oncompositionend={() => ime.end()}
+  oncompositionstart={() => { composing = true; cancelSave(); ime.start() }}
+  oncompositionend={() => { composing = false; ime.end(); scheduleSave() }}
   role="dialog"
   aria-label={t('ctxmenu.note')}
   tabindex="-1"
@@ -83,6 +113,11 @@
     rows="3"
     placeholder={t('noteedit.placeholder')}
   ></textarea>
+  {#if blocked}
+    <div class="pending" role="status">{t('noteedit.unsaved')}</div>
+    <button class="menu-row" disabled={composing} onclick={() => close(true)}>{t('noteedit.retrySave')}</button>
+    <button class="menu-row" disabled={composing} onclick={discard}>{t('noteedit.discardChanges')}</button>
+  {/if}
   <div class="row">
     <button class="ask" onclick={onAsk} title={t('noteedit.askHint')}>⁇ {t('noteedit.ask')}</button>
     <button

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **File editors share one source-preserving owner and undo history across Rich and Source views.** First mount keeps the original BOM and line endings; rejected Source or annotation drafts remain editable, and save or tab changes wait for pending input. Shared annotation actions and desktop adapters use the same transaction admission. Existing desktop image compatibility and native mobile IME acceptance remain separate, unfinished gates. / 文件编辑器的 Rich 与 Source 共用原文保真 owner 和撤销历史；首次挂载保留 BOM 与换行，拒绝后的 Source、批注草稿可继续编辑，保存和切换等待待处理输入。桌面图片兼容性及移动系统输入法验收仍待后续门槛闭合。
+
 - **Shared file editor groundwork now preserves stable root IDs through canonical transactions and recovery.** Internal helpers project every parsed child, validate real source correspondence, restore trusted binding images, and admit only transaction-bound identity steps. Reversible raw/layout payloads use the installed isolated core history entry. / 共享文件编辑器新增稳定块身份、完整规范投影及恢复校验基础；控制器、统一撤销与界面接线仍待后续任务。
 
 - **Shared editor source saving now covers existing math commands and InputRules.** Installed root/subpath commands, context insertion and slash math actions save empty formula blocks; inline math conversion preserves neighbouring Markdown and existing formulas. Formula payload editing remains in Source mode; full collaboration UI/history integration is still in progress.

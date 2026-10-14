@@ -11,7 +11,15 @@ import { rendererRegistry } from './adapters/renderer-registry'
 import { spreadsheetFactory } from './adapters/spreadsheet-factory'
 import { frontmatterFactory, readonlyFrontmatterFactory } from './frontmatter-view'
 import { activeTab } from './tabs.svelte'
-import { analyticsPluginForEditor } from './insights/tracker.svelte'
+import { analyticsPluginForEditor, recordEditorDelta } from './insights/tracker.svelte'
+import type { Plugin } from 'prosemirror-state'
+import type { Tab } from './tabs.svelte'
+import { fileEditorSession, registerFileEditorSession } from './file-editor-sessions'
+
+export interface DesktopFileMount {
+  tab: Pick<Tab, 'id' | 'filePath' | 'currentContent' | 'mode'>
+  plugins: Plugin[]
+}
 import { isApplePlatformSync } from './platform-sync'
 import { guardRichEditor, type ImeGuard } from './ime'
 import { ensureMermaidCssStyleSheetCompatibility } from './mermaid-cssom'
@@ -73,6 +81,7 @@ export async function mountRichEditor(
   imeGuard?: ImeGuard,
   mediaResolver: MediaResolver = tauriMediaResolver,
   readOnly = false,
+  file?: DesktopFileMount,
 ): Promise<MorayaEditorInstance> {
   const capturedBaseDir = requestedDocumentBaseDir
   const previousMount = mountQueue
@@ -84,6 +93,33 @@ export async function mountRichEditor(
   try {
     setDocumentBaseDir(capturedBaseDir)
     ensureMermaidCssStyleSheetCompatibility()
+    if (file) {
+      let session = fileEditorSession(file.tab.id)
+      if (session) session.attach(root)
+      else {
+        const { mountFileEditor } = await import('../editor-kit-v2/file-main')
+        session = await mountFileEditor(root, {
+          file: { documentId: file.tab.filePath || file.tab.id, authority: crypto.randomUUID(), raw: file.tab.currentContent },
+          readOnly,
+          adapters: { mediaResolver, rendererRegistry, linkOpener: tauriLinkOpener,
+            platform: { ...platform, getCurrentFilePath: () => file.tab.filePath || null },
+            spreadsheetViewFactory: spreadsheetFactory,
+            frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory },
+          render: { enableMath: true, enableMermaid: true, enableImageSelection: true },
+        }, { plugins: file.plugins, onDelta: recordEditorDelta, externalSource: true, imeGuard })
+        registerFileEditorSession(file.tab.id, session)
+        await session.setMode(file.tab.mode)
+      }
+      session.owner.setReadOnly(readOnly)
+      const mounted = session
+      const unsubscribe = mounted.owner.observe(() => onChange(mounted.owner.snapshot().raw))
+      return {
+        view: mounted.view,
+        getMarkdown: () => mounted.owner.snapshot().raw,
+        setContent() { throw new Error('File content replacement requires owner admission') },
+        destroy() { unsubscribe(); mounted.destroyView() },
+      }
+    }
     instance = await coreCreateEditor({
       container: root,
       initialContent,

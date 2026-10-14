@@ -43,6 +43,9 @@
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { dirname } from '../lib/paths'
   import { findRichAnchorTarget } from '../lib/rich-anchor'
+  import { fileEditorSession } from '../lib/file-editor-sessions'
+  import type { FileMountSession } from '../editor-kit-v2/file-main'
+  import type { FileSlashCommand } from '../editor-kit-v2/file-contract'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -62,8 +65,12 @@
     onFlush,
     wrapAsCodeBlock,
     readOnly = false,
+    fileBacked = false,
+    onFileReady,
   }: {
     tab: Tab
+    fileBacked?: boolean
+    onFileReady?: (session: FileMountSession) => void
     onFlush?: (md: string) => void
     /**
      * Render-only mode: the view is mounted non-editable and nothing is ever
@@ -104,6 +111,8 @@
   let host: HTMLDivElement | undefined = $state()
   let scrollEl: HTMLDivElement | undefined = $state()
   let editor: EditorInstance | null = null
+  let fileSession: FileMountSession | undefined
+  let disposed = false
   let status = $state<'mounting' | 'mounted' | 'error'>('mounting')
   let errorMsg = $state<string | null>(null)
 
@@ -208,8 +217,20 @@
   let ctxImage      = $state(false)
   let ctxActions    = $state<EditorActions | null>(null)
 
+  function captureFileInput(view: EditorView) {
+    const session = fileSession
+    if (!session) return () => true
+    const generation = session.owner.snapshot().generation, selection = view.state.selection, tabId = tab.id
+    return () => !disposed && !readOnly && view.editable && fileSession === session && editor?.view === view
+      && activeTab()?.id === tabId && tab.id === tabId && activeTab()?.mode === 'rich'
+      && !view.dom.closest<HTMLElement>('.file-rich')?.hidden
+      && session.owner.snapshot().generation === generation && view.state.selection.eq(selection)
+  }
+
   async function handlePaste(event: ClipboardEvent) {
     if (readOnly || !editor || !event.clipboardData) return
+    const originalView = editor.view as unknown as EditorView, isCurrent = captureFileInput(originalView)
+    if (!isCurrent()) return
 
     // ── 1. Binary blob in clipboard (screenshot, copied image from browser) ──
     const items = Array.from(event.clipboardData.items)
@@ -221,6 +242,7 @@
         event.stopImmediatePropagation()
         try {
           const path = await saveClipboardResource(file, tab.filePath)
+          if (!isCurrent()) return
           const view = editor.view as unknown as EditorView
           if (binaryItem.type.startsWith('image/')) {
             insertImageAtCursor(view, path)
@@ -240,6 +262,22 @@
       event.preventDefault()
       event.stopImmediatePropagation()
       const view = editor.view as unknown as EditorView
+      if (fileSession) {
+        const mark = view.state.schema.marks.link.create({ href: text, title: null })
+        const tr = view.state.tr.replaceSelectionWith(view.state.schema.text(text, [mark]), false)
+        const from = tr.selection.from - text.length, to = tr.selection.from
+        const generation = fileSession.owner.snapshot().generation
+        view.dispatch(tr)
+        if (!view.state.doc.eq(tr.doc) || fileSession.owner.snapshot().generation === generation) return
+        const currentPlaceholder = captureFileInput(view)
+        fetchVideoInfo(text).then(info => {
+          if (!info || !currentPlaceholder()) return
+          const content = view.state.doc.slice(from, to).content
+          if (content.childCount !== 1 || content.firstChild?.text !== text || !content.firstChild.hasMarkup(view.state.schema.nodes.text, null, [mark])) return
+          view.dispatch(view.state.tr.replaceWith(from, to, view.state.schema.text(info.title, [mark])))
+        }).catch(() => {})
+        return
+      }
       // Insert placeholder link immediately
       insertAttachmentLink(view, text)
       // Async: fetch real title and replace the placeholder link text
@@ -308,6 +346,10 @@
     const view = editor.view as unknown as EditorView
     const rect = badge.getBoundingClientRect()
     const pos = view.posAtDOM(badge, 0)
+    if (fileSession) {
+      fileSession.annotations.editAt(badge.classList.contains('moraya-note-anchor') && view.state.doc.nodeAt(pos)?.type.name === 'note_anchor' ? pos : pos - 1)
+      return
+    }
     if (badge.classList.contains('moraya-note-anchor')) {
       // posAtDOM may resolve just inside/after the atom — probe both sides.
       const node = view.state.doc.nodeAt(pos)
@@ -491,6 +533,23 @@
     ctxHasSel   = !view.state.selection.empty
     ctxImage    = !!imgEl
     ctxActions  = createRichActions(view, imgEl ? { imageEl: imgEl } : {})
+    if (fileSession) {
+      const legacy = ctxActions, session = fileSession
+      ctxActions = { canRun: legacy.canRun, async run(id) {
+        const isCurrent = captureFileInput(view)
+        if (!isCurrent()) return
+        if (id === 'note' || id === 'question') { session.annotations.insert(id === 'question' ? '?' : ''); return }
+        if (id === 'paste') {
+          try {
+            const text = await navigator.clipboard.readText()
+            if (!text || !isCurrent()) return
+            view.dispatch(view.state.tr.insertText(text).scrollIntoView()); view.focus()
+          } catch { /* clipboard permission denied */ }
+          return
+        }
+        return legacy.run(id)
+      } }
+    }
     ctxMenuPos  = { x: event.clientX, y: event.clientY }
     showCtxMenu = true
   }
@@ -532,9 +591,27 @@
     showSlashMenu    = true
   }
 
-  function executeSlashItem(item: SlashItem) {
+  async function executeSlashItem(item: SlashItem) {
     if (!editor) return
     const view = editor.view as unknown as EditorView
+    if (fileSession) {
+      const session = fileSession
+      if (item.id === 'insert-note') { if (session.insertSlashNote()) closeSlashMenu(); return }
+      if (item.id === 'insert-image' || item.id === 'insert-doc') {
+        const generation = session.owner.snapshot().generation, selection = view.state.selection
+        const { open } = await import('@tauri-apps/plugin-dialog')
+        const path = await open({ multiple: false, filters: item.id === 'insert-image'
+          ? [{ name: t('slash.filter.images'), extensions: ['png','jpg','jpeg','gif','svg','webp','bmp','ico','tiff','tif','avif'] }]
+          : [{ name: t('slash.filter.docs'), extensions: ['pdf','doc','docx','xls','xlsx','ppt','pptx','zip','gz','tar','rar','7z','mp3','wav','ogg','flac','mp4','mov','avi','mkv','webm','txt','csv','json','xml'] }] })
+        if (typeof path !== 'string' || disposed || fileSession !== session || editor?.view !== view
+          || tab.mode !== 'rich' || activeTab()?.id !== tab.id || session.owner.snapshot().generation !== generation
+          || !view.state.selection.eq(selection)) return
+        if (session.insertSlashAttachment(item.id === 'insert-image' ? 'image' : 'file', path)) closeSlashMenu()
+        return
+      }
+      if (session.owner.executeSlash(item.id as FileSlashCommand)) closeSlashMenu()
+      return
+    }
     const fromPos = view.state.selection.$from
     // Delete '/' + filter text (from paragraph start to cursor)
     view.dispatch(view.state.tr.delete(fromPos.start(), fromPos.pos))
@@ -623,7 +700,8 @@
     // (Cmd+Shift+M is taken by math block below.)
     if (mod && shift && !alt && key === 'n') {
       event.preventDefault()
-      insertNoteRich(view)
+      if (fileSession) fileSession.annotations.insert()
+      else insertNoteRich(view)
       return
     }
 
@@ -632,7 +710,8 @@
     // elsewhere on others — the printed character is what the user aims for.
     if (mod && !alt && event.key === '?') {
       event.preventDefault()
-      insertNoteRich(view, '?')
+      if (fileSession) fileSession.annotations.insert('?')
+      else insertNoteRich(view, '?')
       return
     }
 
@@ -933,6 +1012,7 @@
   })
 
   function onFindSearch(e: Event) {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     const { query, caseSensitive, wholeWord, useRegex } = (e as CustomEvent).detail
     lastSearchPattern = query
     lastSearchCS = caseSensitive
@@ -954,6 +1034,7 @@
   }
 
   function onFindNext() {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     if (searchMatches.length === 0) return
     searchIndex = (searchIndex + 1) % searchMatches.length
     findState.currentMatch = searchIndex + 1
@@ -962,6 +1043,7 @@
   }
 
   function onFindPrev() {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     if (searchMatches.length === 0) return
     searchIndex = (searchIndex - 1 + searchMatches.length) % searchMatches.length
     findState.currentMatch = searchIndex + 1
@@ -970,6 +1052,7 @@
   }
 
   function onFindReplace(e: Event) {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     if (!editor || searchIndex < 0 || searchIndex >= searchMatches.length) return
     const { replacement } = (e as CustomEvent).detail
     const view = editor.view as any
@@ -997,6 +1080,7 @@
   }
 
   function onFindReplaceAll(e: Event) {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     if (!editor || searchMatches.length === 0) return
     const { replacement } = (e as CustomEvent).detail
     const view = editor.view as any
@@ -1031,6 +1115,7 @@
   }
 
   function onFindClear() {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     searchMatches = []
     searchIndex = -1
     findState.matchCount = 0
@@ -1087,6 +1172,7 @@
   // at all and the focus round-trip below is fragile. This path stays for the
   // mouse, where that round-trip is unavoidable.
   function onSelectAll(): void {
+    if (fileBacked && (tab.mode !== 'rich' || activeTab()?.id !== tab.id)) return
     if (!editor || status !== 'mounted') return
     const view = editor.view as any
     // Focus BEFORE writing the selection: clicking the menu item leaves the
@@ -1102,6 +1188,22 @@
     const resync = () => { if (editor && status === 'mounted') view.focus() }
     requestAnimationFrame(resync)
     setTimeout(resync, 60)
+  }
+
+  async function desktopPlugins() {
+    const { wikilinkPlugin } = await import('../lib/wikilink-plugin')
+    const { noteBadgePlugin } = await import('../lib/note-anno/note-plugin')
+    const { placeholderPlugin } = await import('../lib/placeholder-plugin')
+    const { answerCardPlugin } = await import('../lib/note-anno/answer-card')
+    const { answeredMap } = await import('../lib/note-anno/answers-store.svelte')
+    const { adoptAnswer } = await import('../lib/note-anno/adopt-answer')
+    const { powerModePlugin } = await import('../lib/power-mode/plugin')
+    const { mainWindowConfig } = await import('../lib/power-mode/host-config.svelte')
+    return [wikilinkPlugin(), noteBadgePlugin(),
+      answerCardPlugin({ getEntries: () => answeredMap(),
+        onAdopt: (entry, pos, view) => { void adoptAnswer(view, entry, pos, tab.filePath ?? null) } }),
+      placeholderPlugin(t('editor.emptyPlaceholder')),
+      powerModePlugin(mainWindowConfig, () => tab.filePath ?? 'untitled')]
   }
 
   onMount(() => {
@@ -1121,17 +1223,27 @@
           vaultRoot: sotvaultStore.vaultRoot,
           ...(tab.filePath ? { baseDir: dirname(tab.filePath) } : {}),
         }))
+        const plugins = await desktopPlugins()
+        if (disposed) return
         updateDocumentBaseDir(tab.filePath)
         const inst = await mountRichEditor(host!, wrapIfNeeded(tab.currentContent), (md) => {
           // Read-only tabs render a transformed copy of the file; letting that
           // copy flow back would overwrite the real content with its display
           // form. Belt to `editable: () => false`'s braces.
           if (readOnly) return
-          const unwrapped = unwrapIfNeeded(md)
+          const unwrapped = fileBacked ? md : unwrapIfNeeded(md)
           lastSync = unwrapped
           setContent(tabId, unwrapped)
-        }, ime, mediaResolver, readOnly)
-        if (readOnly) {
+        }, ime, mediaResolver, readOnly, fileBacked ? { tab, plugins } : undefined)
+        if (disposed) { inst.destroy(); return }
+        if (fileBacked) {
+          fileSession = fileEditorSession(tabId)
+          if (!fileSession) throw new Error('File editor owner missing')
+          onFileReady?.(fileSession)
+        } else {
+          inst.view.updateState(inst.view.state.reconfigure({ plugins: inst.view.state.plugins.concat(plugins) }))
+        }
+        if (readOnly && !fileBacked) {
           const v = inst.view as unknown as EditorView
           // `editable: false` only stops DOM-level input. Menu commands,
           // keymap shortcuts and paste all reach the doc through
@@ -1163,41 +1275,6 @@
           focusRichEditorAtEnd(inst.view as any)
         }
 
-        // Append the wikilink decoration plugin. moraya's setContent only
-        // dispatches transactions (never reconfigures), so this survives
-        // inbound content syncs. prosemirror-* is already loaded by moraya,
-        // so these dynamic imports resolve from cache.
-        try {
-          const view = inst.view as unknown as EditorView
-          const { wikilinkPlugin } = await import('../lib/wikilink-plugin')
-          const { noteBadgePlugin } = await import('../lib/note-anno/note-plugin')
-          const { placeholderPlugin } = await import('../lib/placeholder-plugin')
-          const { answerCardPlugin } = await import('../lib/note-anno/answer-card')
-          const { answeredMap } = await import('../lib/note-anno/answers-store.svelte')
-          const { adoptAnswer } = await import('../lib/note-anno/adopt-answer')
-          const { powerModePlugin } = await import('../lib/power-mode/plugin')
-          const { mainWindowConfig } = await import('../lib/power-mode/host-config.svelte')
-          view.updateState(
-            view.state.reconfigure({
-              plugins: view.state.plugins.concat(
-                wikilinkPlugin(),
-                noteBadgePlugin(),
-                // 已作答问题 → 被批注段落之后的可展开 ✦ 卡片(采纳才写源文件)
-                answerCardPlugin({
-                  getEntries: () => answeredMap(),
-                  onAdopt: (entry, pos, v) => { void adoptAnswer(v, entry, pos, tab.filePath ?? null) },
-                }),
-                placeholderPlugin(t('editor.emptyPlaceholder')),
-                // Power Mode:getter 每次击键现取,配置改了下一次输入就生效;
-                // 生效面关着时返回 null,引擎整条链路直接短路。
-                powerModePlugin(mainWindowConfig, () => tab.filePath ?? 'untitled'),
-              ),
-            }),
-          )
-        } catch (e) {
-          console.warn('[RichEditor] wikilink plugin init failed:', e)
-        }
-
         _pmEl?.addEventListener('paste', handlePaste, true)
         _pmEl?.addEventListener('click', handleNoteClick as EventListener, true)
         _pmEl?.addEventListener('mouseover', handleNoteHover as EventListener)
@@ -1218,7 +1295,7 @@
         _flushDocHandler = (event: Event) => {
           const requestedTabId = (event as CustomEvent<{ tabId?: string }>).detail?.tabId
           if (requestedTabId && requestedTabId !== tabId) return
-          if (!editor) return
+          if (!editor || fileSession) return
           const md = unwrapIfNeeded(editor.getMarkdown())
           lastSync = md
           setContent(tabId, md)
@@ -1241,7 +1318,7 @@
   // by `lastSync`.
   $effect(() => {
     const target = tab.currentContent
-    if (status !== 'mounted' || !editor) return
+    if (status !== 'mounted' || !editor || fileBacked) return
     if (target === lastSync) return
     applyingExternalContent = true
     try {
@@ -1250,6 +1327,11 @@
       applyingExternalContent = false
     }
     lastSync = target
+  })
+
+  $effect(() => {
+    const value = readOnly
+    if (status === 'mounted' && fileSession) fileSession.owner.setReadOnly(value)
   })
 
   // Keep documentBaseDir in sync with the active file path so relative
@@ -1294,6 +1376,7 @@
   })
 
   onDestroy(() => {
+    disposed = true
     _pmEl?.removeEventListener('paste', handlePaste, true)
     _pmEl?.removeEventListener('click', handleNoteClick as EventListener, true)
     _pmEl?.removeEventListener('mouseover', handleNoteHover as EventListener)
@@ -1308,6 +1391,7 @@
     host?.removeEventListener('drop',     _dropHandler!)
     if (editor) {
       try {
+        if (fileSession) { editor.destroy(); editor = null; return }
         const md = editor.getMarkdown()
         const unwrapped = unwrapIfNeeded(md)
         // Skip flush when the editor is already in sync with tab.currentContent
@@ -1378,7 +1462,7 @@
   {/if}
   <NotePopover />
   {#if noteUi.edit}
-    <NoteEditPopup />
+    {#key noteUi.edit}<NoteEditPopup />{/key}
   {/if}
 </div>
 

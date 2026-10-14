@@ -1,5 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import type { FileSourceInput, FileSourceOptions, PendingSource } from '../editor-kit-v2/file-source-input'
+  import { t } from '../lib/i18n/store.svelte'
   import {
     hoverStore,
     getHoverState,
@@ -27,11 +29,12 @@
   import { reportTocLocation, tocLocation } from '../lib/toc/location.svelte'
 
   let {
-    value,
+    value: rawValue,
     oninput,
     tabId,
     filePath,
     readOnly = false,
+    attachFileSource,
   }: {
     value: string
     oninput: (e: Event) => void
@@ -41,11 +44,48 @@
     filePath?: string | null
     /** Controlled projections remain selectable and searchable, but not editable. */
     readOnly?: boolean
+    attachFileSource?: (textarea: HTMLTextAreaElement, options: FileSourceOptions) => FileSourceInput
   } = $props()
 
   let textareaEl: HTMLTextAreaElement | undefined = $state()
   let highlightEl: HTMLPreElement | undefined = $state()
   let gutterEl: HTMLDivElement | undefined = $state()
+  let sourceInput: FileSourceInput | undefined
+  let sourceDisplay = $state('')
+  let sourcePending = $state<PendingSource | null>(null)
+  let sourceComposing = $state(false)
+  let value = $derived(attachFileSource ? sourceDisplay : rawValue)
+  let bufferVersion = 0
+  $effect(() => {
+    const element = textareaEl, attach = attachFileSource
+    if (!element || !attach) return
+    untrack(() => {
+      const paint = () => {
+        sourceDisplay = element.value; sourcePending = sourceInput?.pending() ?? null
+        sourceComposing = sourceInput?.composing() ?? false; bufferVersion++
+      }
+      sourceInput = attach(element, { paint }); paint()
+    })
+    return () => { sourceInput?.detach(); sourceInput = undefined }
+  })
+  function applySourceBuffer(next: string, selection?: [number, number]) {
+    if (readOnly) return
+    if (sourceInput && textareaEl) {
+      textareaEl.value = next
+      if (selection) textareaEl.setSelectionRange(...selection)
+      sourceInput.commitBuffer()
+    } else if (tabId) {
+      setContent(tabId, next)
+      if (textareaEl) { textareaEl.value = next; if (selection) textareaEl.setSelectionRange(...selection) }
+      bufferVersion++
+    }
+  }
+  function captureBuffer() {
+    const element = textareaEl, version = bufferVersion, before = element?.value
+    const start = element?.selectionStart, end = element?.selectionEnd
+    return () => !!element?.isConnected && textareaEl === element && version === bufferVersion && element.value === before
+      && element.selectionStart === start && element.selectionEnd === end && (!tabId || activeTab()?.id === tabId)
+  }
 
   // Find/replace hits. Reactive because the overlay (`highlighted`) paints
   // them — the transparent textarea's own selection is invisible while focus
@@ -118,7 +158,7 @@
         ev.stopPropagation()
         const el = textareaEl
         const r = insertNoteMarkup(el.value, el.selectionStart ?? 0, el.selectionEnd ?? 0, isAsk ? '?' : '')
-        setContent(tabId, r.value)
+        applySourceBuffer(r.value, [r.selStart, r.selEnd])
         requestAnimationFrame(() => el.setSelectionRange(r.selStart, r.selEnd))
         return
       }
@@ -133,7 +173,7 @@
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
         const r = applyWrap(el.value, start, end, open, close)
-        setContent(tabId, r.value)
+        applySourceBuffer(r.value, [r.selStart, r.selEnd])
         requestAnimationFrame(() => el.setSelectionRange(r.selStart, r.selEnd))
         return
       }
@@ -149,7 +189,7 @@
           ev.preventDefault()
           const pos = el.selectionStart
           const newVal = el.value.slice(0, pos) + res.insert + el.value.slice(pos)
-          setContent(tabId, newVal)
+          applySourceBuffer(newVal, [pos + res.caret, pos + res.caret])
           requestAnimationFrame(() => el.setSelectionRange(pos + res.caret, pos + res.caret))
           return
         }
@@ -362,7 +402,7 @@
     const start = textareaEl.selectionStart
     const end   = textareaEl.selectionEnd
     const newValue = value.slice(0, start) + text + value.slice(end)
-    setContent(tabId, newValue)
+    applySourceBuffer(newValue, [start + text.length, start + text.length])
     requestAnimationFrame(() => {
       textareaEl?.setSelectionRange(start + text.length, start + text.length)
     })
@@ -382,7 +422,9 @@
         try {
           const tab = activeTab()
           if (!tab) return
+          const current = captureBuffer()
           const path = await saveClipboardResource(file, tab.filePath)
+          if (!current()) return
           const md = binaryItem.type.startsWith('image/')
             ? `![](${path})`
             : `[${basenameOf(path)}](${path})`
@@ -403,14 +445,15 @@
       if (!tab) return
       // Insert placeholder immediately, then replace with real title
       insertAtCursor(tab.id, `[${text}](${text})`)
+      const current = captureBuffer()
+      const inserted = textareaEl?.value ?? value
+      const placeholder = `[${text}](${text})`
+      const insertedAt = (textareaEl?.selectionStart ?? 0) - placeholder.length
       fetchVideoInfo(text).then(info => {
-        if (!info) return
-        const t = activeTab()
-        if (!t) return
-        const placeholder = `[${text}](${text})`
+        if (!info || !current()) return
         const real = `[${info.title}](${text})`
-        if (t.currentContent.includes(placeholder)) {
-          setContent(t.id, t.currentContent.replace(placeholder, real))
+        if (insertedAt >= 0 && inserted.slice(insertedAt, insertedAt + placeholder.length) === placeholder) {
+          applySourceBuffer(inserted.slice(0, insertedAt) + real + inserted.slice(insertedAt + placeholder.length))
         }
       }).catch(() => {})
       return
@@ -506,6 +549,7 @@
   }
 
   function onFindReplace(e: Event) {
+    if (readOnly || (tabId && activeTab()?.id !== tabId) || activeTab()?.mode === 'rich') return
     if (searchIndex < 0 || searchIndex >= searchMatches.length) return
     const { replacement } = (e as CustomEvent).detail
     const match = searchMatches[searchIndex]
@@ -522,7 +566,7 @@
     }
 
     const newContent = value.slice(0, match.start) + replaceText + value.slice(match.end)
-    setContent(tab.id, newContent)
+    applySourceBuffer(newContent)
     // Re-search
     setTimeout(() => onFindSearch(new CustomEvent('', { detail: {
       query: lastSearchPattern, caseSensitive: lastSearchCS,
@@ -531,6 +575,7 @@
   }
 
   function onFindReplaceAll(e: Event) {
+    if (readOnly || (tabId && activeTab()?.id !== tabId) || activeTab()?.mode === 'rich') return
     const { replacement } = (e as CustomEvent).detail
     const tab = activeTab()
     if (!tab || searchMatches.length === 0) return
@@ -542,7 +587,7 @@
     catch { return }
 
     const newContent = value.replace(regex, replacement)
-    setContent(tab.id, newContent)
+    applySourceBuffer(newContent)
     onFindClear()
   }
 
@@ -635,7 +680,11 @@
     event.preventDefault()
     const el = textareaEl
     ctxHasSel  = (el.selectionStart ?? 0) !== (el.selectionEnd ?? 0)
-    ctxActions = createSourceActions({ el, tabId, value: () => el.value })
+    ctxActions = createSourceActions({ el, tabId, value: () => el.value,
+      version: () => bufferVersion,
+      applyBuffer: (next, selection) => applySourceBuffer(next, selection),
+      isCurrent: () => textareaEl === el && el.isConnected && activeTab()?.id === tabId,
+    })
     ctxMenuPos = { x: event.clientX, y: event.clientY }
     showCtxMenu = true
   }
@@ -651,6 +700,13 @@
 </script>
 
 <div class="src">
+  {#if sourcePending}
+    <div class="source-pending" role="status">
+      {t(sourcePending.reason === 'stale-source' ? 'source.pendingStale' : 'source.pending')}
+      <button disabled={sourceComposing || sourcePending.reason === 'stale-source'} onclick={() => sourceInput?.retry()}>{t('source.retryPending')}</button>
+      <button disabled={sourceComposing} onclick={() => sourceInput?.discard()}>{t('source.discardPending')}</button>
+    </div>
+  {/if}
   <div class="gutter"
        class:gutter-with-markers={showMarkers}
        bind:this={gutterEl}
@@ -663,7 +719,7 @@
       class="src-textarea"
       data-tab-id={tabId}
       {value}
-      {oninput}
+      oninput={(event) => { if (!sourceInput) oninput(event) }}
       onscroll={syncScroll}
       onkeydown={onTextareaKeydown}
       oncompositionstart={() => ime.start()}

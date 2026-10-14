@@ -5,6 +5,39 @@
 // editor while the find bar keeps its query, and the bar only dispatches when
 // the query changes — so the editor has to pull the current state on mount.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { FileSourceOptions } from '../editor-kit-v2/file-source-input'
+
+it('file replace-all preserves disjoint mixed EOL and paints rejected draft matches', async () => {
+  const { mount, unmount, tick } = await import('svelte')
+  const { default: SourceView } = await import('./SourceView.svelte')
+  const { open } = await import('../editor-kit-v2/file-test-utils')
+  const { attachFileSourceInput } = await import('../editor-kit-v2/file-source-input')
+  const { tabs, activeId } = await import('../lib/tabs.svelte')
+  const { findState } = await import('../lib/find-replace.svelte')
+  let allow = true
+  const raw = 'A\r\nkeep\nA\rTail', controller = open(raw, [], undefined, { acceptRawChange: () => allow })
+  const owner = { snapshot: controller.snapshot, replaceSource: controller.replaceSource, observe: controller.observe,
+    undo: () => controller.runHistory('undo', true), redo: () => controller.runHistory('redo', true) }
+  tabs.push({ id: 'find-file', title: 'file', filePath: '', kind: 'markdown', mode: 'source', currentContent: raw, initialContent: raw,
+    externalState: 'fresh', externalBannerDismissed: false, lastKnownMtime: 0, lastKnownHash: '' }); activeId.value = 'find-file'
+  const target = document.createElement('div'); document.body.append(target)
+  const component = mount(SourceView, { target, props: { value: raw, tabId: 'find-file', oninput() { throw new Error('adapter bypass') },
+    attachFileSource: (el: HTMLTextAreaElement, options?: FileSourceOptions) => attachFileSourceInput(el, owner, options) } })
+  try {
+    await tick()
+    window.dispatchEvent(new CustomEvent('notemd:find-search', { detail: { query: 'A', caseSensitive: true, wholeWord: false, useRegex: false } })); await tick()
+    window.dispatchEvent(new CustomEvent('notemd:find-replace-all', { detail: { replacement: 'Z' } })); await tick()
+    expect(controller.snapshot().raw).toBe('Z\r\nkeep\nZ\rTail')
+    allow = false
+    window.dispatchEvent(new CustomEvent('notemd:find-search', { detail: { query: 'Z', caseSensitive: true, wholeWord: false, useRegex: false } })); await tick()
+    window.dispatchEvent(new CustomEvent('notemd:find-replace-all', { detail: { replacement: 'Draft' } })); await tick()
+    expect(controller.snapshot().raw).toBe('Z\r\nkeep\nZ\rTail')
+    expect(target.querySelector('textarea')!.value).toBe('Draft\nkeep\nDraft\nTail')
+    window.dispatchEvent(new CustomEvent('notemd:find-search', { detail: { query: 'Draft', caseSensitive: true, wholeWord: false, useRegex: false } })); await tick()
+    expect(findState.matchCount).toBe(2)
+    expect(target.querySelectorAll('.search-hit,.search-hit-current')).toHaveLength(2)
+  } finally { await unmount(component); target.remove(); tabs.splice(0); activeId.value = null }
+})
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => null), convertFileSrc: (s: string) => s }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'macos', type: () => 'macos' }))

@@ -24,7 +24,7 @@ function safeAddress(value: string): boolean {
   return !scheme || /^(https?|mailto|tel)$/i.test(scheme)
 }
 
-function commandFor(command: EditorCommand, state: EditorState): Command | null {
+export function commandFor(command: EditorCommand, state: EditorState, history?: { undo: Command; redo: Command }): Command | null {
   const { nodes, marks: schemaMarks } = state.schema
   const mark = schemaMarks[marks[command.kind]]
   if (mark) return toggleMark(mark)
@@ -37,8 +37,8 @@ function commandFor(command: EditorCommand, state: EditorState): Command | null 
     case 'table.next-cell': return gfmTableCommand({ kind: 'next-cell' })
     case 'table.previous-cell': return gfmTableCommand({ kind: 'previous-cell' })
     case 'table.align-column': return gfmTableCommand({ kind: 'align-column', alignment: command.alignment })
-    case 'undo': return governedUndo
-    case 'redo': return governedRedo
+    case 'undo': return history?.undo ?? governedUndo
+    case 'redo': return history?.redo ?? governedRedo
     case 'paragraph': return nodes.paragraph ? setBlockType(nodes.paragraph) : null
     case 'heading': return nodes.heading ? setBlockType(nodes.heading, { level: command.level }) : null
     case 'code-block': return nodes.code_block ? setBlockType(nodes.code_block, { language: '' }) : null
