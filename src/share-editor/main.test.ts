@@ -19,6 +19,53 @@ async function open(f = fixture()) {
   await tick(); return { ...f, handle, target }
 }
 async function button(target: HTMLElement, text: string) { const el = [...target.querySelectorAll('button')].find(b => b.textContent === text)!; el.click(); await tick(); await new Promise(r => setTimeout(r, 0)) }
+async function clickNote(target: HTMLElement, kind: 'range' | 'point', note: string) {
+  const badge = target.querySelector<HTMLElement>(`${kind === 'range' ? '.note-badge' : '.moraya-note-anchor'}[data-note="${note}"]`)!
+  badge.click(); await tick()
+  const textarea = target.querySelector<HTMLTextAreaElement>('.note-edit textarea')!
+  expect(textarea.value).toBe(note)
+  return textarea
+}
+async function saveNote(textarea: HTMLTextAreaElement, text: string) {
+  textarea.value = text; textarea.dispatchEvent(new Event('input', { bubbles: true }))
+  textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await tick()
+}
+it.each(['range', 'point'] as const)('adjacent %s badge edits and deletes only the clicked annotation with shared undo/redo', async kind => {
+  const raw = '{==Text==}{>>RANGE<<}{>>POINT<<}', f = fixture('Text')
+  f.draft.after['a.md'] = raw
+  const { target, handle, draft, submit, pending } = await open(f)
+  const note = kind === 'range' ? 'RANGE' : 'POINT'
+  const changed = kind === 'range' ? '{==Text==}{>>CHANGED<<}{>>POINT<<}' : '{==Text==}{>>RANGE<<}{>>CHANGED<<}'
+  const removed = kind === 'range' ? 'Text{>>POINT<<}' : '{==Text==}{>>RANGE<<}'
+  async function expectRaw(expected: string) { await handle.buildSubmission({}); expect(draft.after['a.md']).toBe(expected) }
+  await saveNote(await clickNote(target, kind, note), 'CHANGED')
+  await expectRaw(changed)
+  await button(target, '撤销'); await expectRaw(raw)
+  await button(target, '重做'); await expectRaw(changed)
+  await clickNote(target, kind, 'CHANGED')
+  target.querySelector<HTMLButtonElement>('.note-edit .del')!.click(); await tick()
+  await expectRaw(removed)
+  await button(target, '撤销'); await expectRaw(changed)
+  await button(target, '重做'); await expectRaw(removed)
+  expect(submit).not.toHaveBeenCalled(); expect(pending).not.toHaveBeenCalled()
+})
+it.each(['range', 'point'] as const)('adjacent owner %s badge cannot bypass owner floor by editing or deleting', async kind => {
+  const raw = '{==Text==}{>>RANGE<<}{>>POINT<<}', { target, host, draft } = await open(fixture(raw))
+  const note = kind === 'range' ? 'RANGE' : 'POINT'
+  const textarea = await clickNote(target, kind, note)
+  await saveNote(textarea, 'CHANGED')
+  expect(target.querySelector('.note-edit [role="status"]')).not.toBeNull()
+  expect(target.querySelector<HTMLTextAreaElement>('.note-edit textarea')?.value).toBe('CHANGED')
+  expect(draft.after['a.md'] ?? draft.base['a.md'].markdown).toBe(raw)
+  target.querySelector<HTMLButtonElement>('.note-edit .del')!.click(); await tick()
+  expect(target.querySelector('.note-edit')).not.toBeNull()
+  expect(host.notify).toHaveBeenCalledWith('分享者批注需保留；请添加自己的批注')
+  await saveNote(textarea, note)
+  expect(target.querySelector('.note-edit')).toBeNull()
+  await button(target, '撤销'); await button(target, '重做')
+  await button(target, 'Source')
+  expect(target.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe(raw)
+})
 it('real mount is Rich by default; three mode cycles preserve BOM/frontmatter/raw without edits', async () => {
   const { target, handle, draft } = await open()
   expect(target.querySelector('.ProseMirror')).not.toBeNull(); expect(target.querySelector('[data-theme]')?.getAttribute('data-theme')).toBe('frozen-custom')

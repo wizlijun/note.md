@@ -88,7 +88,7 @@ async function mount(container: HTMLElement, host: ShareEditorHost, opts: { path
     if (badge) {
       event.preventDefault(); event.stopPropagation()
       const view = (session.mounted as FileMountSession).view, pos = view.posAtDOM(badge, 0)
-      session.mounted.annotations.editAt(view.state.doc.nodeAt(pos)?.type.name === 'note_anchor' ? pos : pos - 1)
+      session.mounted.annotations.editAt(badge.classList.contains('moraya-note-anchor') && view.state.doc.nodeAt(pos)?.type.name === 'note_anchor' ? pos : pos - 1)
     } else {
       const wiki = el.closest('[data-wikilink]')
       if (wiki) { event.preventDefault(); event.stopPropagation(); openLink(wiki.getAttribute('data-wikilink')!); return }

@@ -1,5 +1,6 @@
 ## Unreleased — shared share editor foundations
 
+- Clicking a range annotation badge beside a point annotation now edits or deletes the selected range annotation, preserving the neighbouring note and shared undo history.
 - Add the E1 shared Rich/Source editing surface, atomic slash commands, annotations, shared-only media/navigation and byte-preserving file-session saving. Browser submission building now uses one deterministic pure builder and does not send or freeze pending submissions.
 - Mermaid SDK preview is explicitly injected: desktop retains its original renderer; legacy Editor Kit and E1 share editing show editable Mermaid source. Rebase and optional browser Mermaid preview follow in later delivery tasks.
 - Owner annotation protection preserves exact raw multiset counts frozen at mount; it does not identify individual duplicated occurrences. Existing modified owner annotations remain visible and exportable.
