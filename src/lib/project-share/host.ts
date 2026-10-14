@@ -3,6 +3,7 @@ import { Store } from '@tauri-apps/plugin-store'
 import { sha256Hex } from '../hash'
 import { generateSlug } from '../share/slug'
 import { buildProjectBundle } from './bundle'
+import { installedProjectEditorKit, type EditorKitDescriptor } from './editor-kit'
 import { captureProjectTheme, renderProjectPresentation } from './presentation'
 import { buildProjectArchive } from './archive'
 import { uploadProjectPart, type ProjectUploadProgress } from './upload'
@@ -28,6 +29,9 @@ export interface ProjectIdentity {
   pending?: ProjectPending
 }
 interface PendingBase {
+  editorKit?: EditorKitDescriptor
+  kitSelected?: true
+  kitWarnings?: string[]
   snapshotId: string
   entry: string
   expiresInSeconds: number | null
@@ -228,7 +232,9 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     })
     const shareTitle = normalizeShareTitle(title ?? identity.shareTitle, snapshot.entry)
     const presentation = await renderProjectPresentation(snapshot, { useCurrentTheme, frozenTheme })
+    const kit = await installedProjectEditorKit(identity.baseUrl, cfg.apiKey)
     const html = buildProjectBundle(snapshot, `${identity.baseUrl}/feedback/${identity.slug}`, {
+      editorKit: kit.editorKit,
       versionUrl: `${identity.baseUrl}/project/${identity.slug}/version`,
       title: shareTitle, presentation, publicationPending: true, archiveUrl: `${identity.baseUrl}/project/${identity.slug}/download`,
     })
@@ -236,7 +242,8 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     const plan = await createArtifactPlan('entry', new TextEncoder().encode(html))
     identity = { ...identity, sourceRoot: info.sourceRoot, entry: info.entry, pending: {
       snapshotId: snapshot.snapshotId, entrySnapshotId: snapshot.snapshotId, entry: snapshot.entry, expiresInSeconds: cfg.expiresInSeconds,
-      shareTitle, useCurrentTheme, warnings: presentation.warnings, frozenTheme,
+      shareTitle, useCurrentTheme, warnings: [...presentation.warnings, ...kit.warnings], frozenTheme,
+      editorKit: kit.editorKit, kitSelected: true, kitWarnings: kit.warnings,
       phase: 'entry', publicationId: crypto.randomUUID(), previousPublicationId: identity.publicationId ?? null,
       approved: files.map(({ path, hash }) => ({ path, hash })), protocol: 2, archiveFormat: 'source',
       upload: { sessionId: crypto.randomUUID(), phase: 'entry', plans: [plan], receipts: {} },
@@ -398,11 +405,12 @@ export async function publishProject(info: ProjectInfo, files: ProjectFile[], ti
     })
     const presentation = await renderProjectPresentation(snapshot, { useCurrentTheme: pending.useCurrentTheme, frozenTheme: pending.frozenTheme })
     const html = buildProjectBundle(snapshot, `${identity.baseUrl}/feedback/${identity.slug}`, {
+      editorKit: pending.editorKit,
       versionUrl: `${identity.baseUrl}/project/${identity.slug}/version`,
       title: pending.shareTitle, presentation, archiveUrl: `${identity.baseUrl}/project/${identity.slug}/download`,
     })
     await projectCommand('bundle', { project_id: info.project_id, snapshotId: snapshot.snapshotId, html })
-    await persist({ ...pending, phase: 'full', protocol: 2, archiveFormat: 'source', snapshotId: snapshot.snapshotId, warnings: presentation.warnings, upload: undefined })
+    await persist({ ...pending, phase: 'full', protocol: 2, archiveFormat: 'source', snapshotId: snapshot.snapshotId, warnings: [...presentation.warnings, ...(pending.kitWarnings ?? [])], upload: undefined })
   }
   const html = await projectCommand<string>('bundle-get', { project_id: info.project_id, snapshotId: pending.snapshotId })
   if (pending.phase === 'legacy') remote = await transfer([{ name: 'entry', bytes: new TextEncoder().encode(html) }])

@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitest/config'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
 
 export default defineConfig({
-  plugins: [svelte({ hot: false })],
+  plugins: [svelte({ hot: false }), shareEditorAssets({ test: true })],
   resolve: {
     conditions: ['browser'],
   },

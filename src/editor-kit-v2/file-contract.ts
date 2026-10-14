@@ -1,3 +1,5 @@
+import type {FileRecovery} from './file-recovery-contract'
+export type {FileRecovery} from './file-recovery-contract'
 import type {CreateEditorOptions, SourceSession} from '@moraya/core'
 import type {RootIdRow, TableImage} from '@moraya/core/source-history'
 import type {DecorationHost, EditorCommand, StructuralCommand} from './contract'
@@ -18,7 +20,6 @@ export type FileSnapshot = Readonly<{
  raw:string;sourceRevision:number;generation:number;authority:string
  sourceLineage:string;sourceHash:string;bindings:readonly FileBinding[]
 }>
-export type FileRecovery = Readonly<{v:1;sourceHash:string;sourceRevision:number;bindings:readonly FileBinding[]}>
 export type FileInput = Readonly<{documentId:string;authority:string;raw:string;recovery?:FileRecovery}>
 export type FileFailure = {ok:false;reason:string}
 export type FileResult = {ok:true;changed:boolean;snapshot:FileSnapshot}|FileFailure

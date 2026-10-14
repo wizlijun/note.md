@@ -55,3 +55,19 @@ describe('static project bundle',()=>{
   })
 
 })
+
+describe('frozen editor kit payload and CSP', () => {
+  const resource = (ext: string, prefix = 'share-editor') => ({ url: `https://share.example/_kit/${prefix}.${'a'.repeat(64)}.${ext}`, integrity: 'sha384-' + 'a'.repeat(64) })
+  const editorKit = { apiVersion: 1 as const, js: resource('js'), css: resource('css'), mermaid: resource('js', 'share-editor-mermaid') }
+  it('projects only complete same-origin descriptors and grants exact script/style URLs', () => {
+    const html = buildProjectBundle(snapshot, 'https://share.example/feedback/slug', { editorKit: { ...editorKit, token: 'private-token', localPath: '/private/path', git: 'private-git' } } as any)
+    const payload = JSON.parse(html.match(/<script id="project-data" type="application\/json">([\s\S]*?)<\/script>/)![1])
+    expect(payload.editorKit).toEqual(editorKit)
+    expect(html).not.toMatch(/private-token|private-git|\/private\/path/)
+    const csp = html.match(/content="(default-src[^"]+)/)![1].replace(/nonce-[a-z0-9]+/g, 'nonce-NONCE')
+    expect(csp).toBe(`default-src 'none'; script-src 'nonce-NONCE' ${editorKit.js.url} ${editorKit.mermaid.url}; style-src 'unsafe-inline' ${editorKit.css.url}; img-src data: https: http:; font-src data:; connect-src https://share.example; base-uri 'none'; form-action 'none'`)
+  })
+  it.each(['/relative.js', 'https://other.test/kit.js', 'https://owner:password@share.example/kit.js', 'https://share.example/kit.js?token=secret', 'javascript:alert(1)'])('rejects unsafe kit URL %s', url => {
+    expect(() => buildProjectBundle(snapshot, 'https://share.example/feedback/slug', { editorKit: { ...editorKit, js: { ...editorKit.js, url } } } as any)).toThrow()
+  })
+})

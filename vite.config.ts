@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
 
 // `tauri ios dev` sets TAURI_DEV_HOST to the Mac's LAN IP so the iPhone /
 // iPad can reach the Vite dev server over Wi-Fi. On desktop dev this stays
@@ -7,7 +8,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), shareEditorAssets()],
   clearScreen: false,
   server: {
     port: 1420,

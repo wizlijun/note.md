@@ -68,7 +68,7 @@ export async function handleReceipt(req: Request, env: Env, url: URL): Promise<R
   try { bytes = await boundedBody(req, MAX_RECEIPT_BYTES) }
   catch { return response('Receipt exceeds 64 KiB', 413) }
   let value: unknown
-  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) }
+  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(bytes)) }
   catch { return response('Bad JSON', 400) }
   if (!validReceipt(value, projectId, submissionId)) return response('Invalid receipt', 400)
   await env.MEDIA.put(key, JSON.stringify(value), { httpMetadata: { contentType: 'application/json' } })

@@ -5,8 +5,9 @@ import { projectShareBrowser } from './browser'
 import type { ProjectSnapshot, PublicProjectSnapshot } from './types'
 import type { ProjectPresentation } from './presentation'
 import { normalizeShareTitle } from './title'
+import type { EditorKitDescriptor } from './editor-kit'
 
-export interface ProjectBundleOptions { title?: string; presentation?: ProjectPresentation; archiveUrl?: string; publicationPending?: boolean; versionUrl?: string }
+export interface ProjectBundleOptions { editorKit?: EditorKitDescriptor; title?: string; presentation?: ProjectPresentation; archiveUrl?: string; publicationPending?: boolean; versionUrl?: string }
 
 /** One self-contained static page for either publication stage. */
 export function buildProjectBundle(snapshot: ProjectSnapshot, feedbackUrl: string, options: ProjectBundleOptions = {}): string {
@@ -21,6 +22,20 @@ export function buildProjectBundle(snapshot: ProjectSnapshot, feedbackUrl: strin
   if(!versionUrl) throw new Error('Missing project version endpoint: configure versionUrl or use /feedback/<slug>')
   const version=new URL(versionUrl)
   if(version.origin!==endpoint.origin || version.username || version.password) throw new Error('Invalid project version endpoint')
+  let editorKit: EditorKitDescriptor | undefined
+  if (options.editorKit) {
+    const kit = options.editorKit
+    if (kit.apiVersion !== 1 || !kit.js || !kit.css) throw new Error('Invalid editor kit')
+    const resource = (value: { url: string; integrity: string }, kind: 'js' | 'css' | 'mermaid') => {
+      const url = new URL(value.url)
+      const extension = kind === 'css' ? 'css' : 'js'
+      if (url.origin !== endpoint.origin || url.username || url.password || url.search || url.hash
+        || !new RegExp(`^/_kit/share-editor${kind === 'mermaid' ? '-mermaid' : ''}\\.[a-f0-9]{64}\\.${extension}$`).test(url.pathname)
+        || !/^sha384-[A-Za-z0-9+/]{64}$/.test(value.integrity)) throw new Error('Invalid editor kit resource')
+      return { url: url.href, integrity: value.integrity }
+    }
+    editorKit = { apiVersion: 1, js: resource(kit.js, 'js'), css: resource(kit.css, 'css'), ...(kit.mermaid ? { mermaid: resource(kit.mermaid, 'mermaid') } : {}) }
+  }
   const exports=markedSource.match(/export\s*\{([^}]+)\}/)?.[1]
   const constructor=exports?.match(/(\w+)\s+as\s+Marked\b/)?.[1]
   if(!constructor) throw new Error('Cannot bundle the installed Markdown renderer')
@@ -34,10 +49,10 @@ export function buildProjectBundle(snapshot: ProjectSnapshot, feedbackUrl: strin
     schemaVersion:1,project_id:snapshot.project_id,snapshotId:snapshot.snapshotId,entry:snapshot.entry,
     files:snapshot.files.map(({path,hash,bytes,modifiedAt,markdown,dataUrl})=>({path,hash,bytes,modifiedAt,markdown,dataUrl})),
   }
-  const payload=JSON.stringify({snapshot:publicSnapshot,feedbackUrl:endpoint.href,versionUrl:version.href,title,presentation,archiveUrl:options.archiveUrl,publicationPending:options.publicationPending}).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')
+  const payload=JSON.stringify({snapshot:publicSnapshot,editorKit,feedbackUrl:endpoint.href,versionUrl:version.href,title,presentation,archiveUrl:options.archiveUrl,publicationPending:options.publicationPending}).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')
   const nonce=crypto.randomUUID().replace(/-/g,'')
   const origin=endpoint.origin.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
-  const html=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data:; connect-src ${origin}; base-uri 'none'; form-action 'none'"><title>${escape(title)} · 只读</title>${options.presentation?.styleHead??''}<style>${menuStyles}
+  const html=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'${editorKit ? ' ' + escape(editorKit.js.url) + (editorKit.mermaid ? ' ' + escape(editorKit.mermaid.url) : '') : ''}; style-src 'unsafe-inline'${editorKit ? ' ' + escape(editorKit.css.url) : ''}; img-src data: https: http:; font-src data:; connect-src ${origin}; base-uri 'none'; form-action 'none'"><title>${escape(title)} · 只读</title>${options.presentation?.styleHead??''}<style>${menuStyles}
 
 *{box-sizing:border-box}body{margin:0;padding:0;font:15px/1.7 system-ui,sans-serif;color:#242424;background:#fff;color-scheme:light dark}.layout{--panel-width:240px;display:flex;min-height:100vh}button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.5}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #4a8bd6;outline-offset:2px}[hidden]{display:none!important}
 #file-panel{width:var(--panel-width);flex-shrink:0;position:sticky;top:0;height:100vh;overflow:auto;display:flex;flex-direction:column;background:#f8f8f8;border-right:1px solid #e5e5e5;padding:48px 6px 10px}#files{overflow:auto;flex:1;min-height:0}#download-all{flex:none;margin-top:10px;text-align:left;border-top:1px solid #ddd;border-radius:0;padding:10px 12px}#file-toggle{position:fixed;top:10px;left:8px;z-index:21;width:30px;height:30px;padding:5px;display:grid;place-items:center;background:Canvas;box-shadow:0 1px 4px #0001}.files-open #file-toggle{left:calc(var(--panel-width) - 38px)}#file-toggle svg{width:20px;height:20px}#file-toggle .toggle-collapse,.files-open #file-toggle .toggle-expand{display:none}.files-open #file-toggle .toggle-collapse{display:inline}#file-menu{position:fixed;z-index:30}.file-download-action{border:0;background:none;color:inherit;font:inherit;width:100%;text-align:left}.reader-button{border:0;border-radius:5px;background:transparent;color:inherit;padding:5px 8px;font-size:13px;white-space:nowrap}.reader-button:hover{background:#ededed}#files,#files ul{list-style:none;padding:0;margin:0}.file-row{display:flex;align-items:center;gap:4px;width:100%;min-height:28px;padding:4px 8px;border:0;border-radius:4px;background:transparent;color:inherit;font-size:13px;line-height:20px;text-align:left}.file-row:hover{background:#eaeaea}.file-row[aria-current=page]{background:#e2e9f2;color:#175eaa}.file-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-icon{width:15px;height:15px;flex:none;opacity:.75}.chevron{width:14px;height:14px;flex:none;transition:transform .12s}.file-row[aria-expanded=true] .chevron{transform:rotate(90deg)}

@@ -31,8 +31,8 @@ async function request(method: string, body?: unknown, headers: Record<string, s
   expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
   return response
 }
-const get = (headers = { 'X-Feedback-Token': TOKEN }) => request('GET', undefined, headers)
-const put = (body: unknown = receipt(), headers = AUTH) => request('PUT', body, headers)
+const get = (headers: Record<string, string> = { 'X-Feedback-Token': TOKEN }) => request('GET', undefined, headers)
+const put = (body: unknown = receipt(), headers: Record<string, string> = AUTH) => request('PUT', body, headers)
 
 beforeEach(async () => {
   await state()
@@ -58,12 +58,12 @@ describe('independent collaboration receipts', () => {
     expect(await (await bindings.MEDIA.get(feedbackKey))!.text()).toBe(originalFeedback)
   })
   it('keeps Bearer and visitor credentials separate and requires a configured owner key', async () => {
-    for (const headers of [{}, { 'X-Feedback-Token': TOKEN }, { Authorization: 'Bearer wrong' }]) {
+    for (const headers of [{}, { 'X-Feedback-Token': TOKEN }, { Authorization: 'Bearer wrong' }] as Record<string, string>[]) {
       expect((await put(receipt(), headers)).status).toBe(401)
       expect((await request('DELETE', undefined, headers)).status).toBe(401)
     }
     expect((await put()).status).toBe(204)
-    for (const headers of [{}, AUTH, { 'X-Feedback-Token': 'wrong' }]) expect((await get(headers as any)).status).toBe(403)
+    for (const headers of [{}, AUTH, { 'X-Feedback-Token': 'wrong' }] as Record<string, string>[]) expect((await get(headers)).status).toBe(403)
     for (const method of ['PUT', 'DELETE']) {
       const response = await worker.fetch(new Request(url, { method, headers: { Authorization: 'Bearer ' }, ...(method === 'PUT' ? { body: JSON.stringify(receipt()) } : {}) }), { ...bindings, SHARE_API_KEY: '' })
       expect(response.status).toBe(401)

@@ -1,4 +1,4 @@
-import type { FileRecovery } from '../../editor-kit-v2/file-contract'
+import type { FileRecovery } from '../../editor-kit-v2/file-recovery-contract'
 
 export type GitTarget = 'worktree' | 'branch' | 'patch'
 export interface GitProbe { git: boolean; team: boolean; prefix: string; head?: string; branch?: string; remote?: string; reason?: string; target?: GitTarget }

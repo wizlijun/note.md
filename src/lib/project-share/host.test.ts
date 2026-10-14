@@ -6,7 +6,7 @@ import { anchor, propose } from '../share-merge'
 import { createProjectReview } from './review.svelte'
 import { buildProjectReceipt } from './receipt'
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test', render: vi.fn(), bundle: vi.fn(), capture: vi.fn(), archive: vi.fn() }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), save: vi.fn(), data: {} as Record<string, any>, events: [] as string[], baseUrl: 'https://share.test', render: vi.fn(), bundle: vi.fn(), capture: vi.fn(), archive: vi.fn(), kit: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/plugin-store', () => ({ Store: { load: async () => ({
   get: async (key: string) => structuredClone(mocks.data[key]),
@@ -17,6 +17,7 @@ vi.mock('../settings.svelte', () => ({ getPluginScopedKey: (key: string) => ({ '
 vi.mock('./bundle', () => ({ buildProjectBundle: mocks.bundle }))
 vi.mock('./presentation', () => ({ captureProjectTheme: mocks.capture, renderProjectPresentation: mocks.render }))
 vi.mock('./archive', () => ({ buildProjectArchive: mocks.archive }))
+vi.mock('./editor-kit', () => ({ installedProjectEditorKit: mocks.kit }))
 import { projectCommand, syncProjectReceipt, syncProjectReceipts, setProjectReceipt, publishProject, projectIdentities, pullProjectFeedback, stopProjectShare, listProjects, createProject, deleteProject, cancelProjectDeletion, saveProjectReview, decideProjectAnnotation } from './host'
 
 const info: ProjectInfo = { project_id: 'project_1', sourceRoot: '/project', mirrorRoot: '/vault/sync/project_1', entry: 'README.md', files: [] }
@@ -60,6 +61,7 @@ const identity = async () => (await projectIdentities())[info.project_id]
 
 beforeEach(() => {
   remote = null; frozen = 0; mocks.data = {}; mocks.events = []; mocks.invoke.mockReset(); mocks.fetch.mockReset().mockImplementation(server); mocks.save.mockReset()
+  mocks.kit.mockReset().mockResolvedValue({ warnings: [] })
   mocks.capture.mockReset().mockResolvedValue(frozenTheme)
   mocks.archive.mockReset().mockResolvedValue(new Uint8Array([1, 2, 3]))
   mocks.baseUrl = 'https://share.test'
@@ -924,5 +926,33 @@ describe('fix1 durable receipt boundaries', () => {
     if (kind !== 'unavailable') snapshots.set('proof', { ...snapshot, snapshotId: 'proof', files: kind === 'missing-file' ? [] : [{ ...file, hash: kind === 'different-hash' ? 'b'.repeat(64) : file.hash }] })
     await syncProjectReceipt(info.project_id, 'sub'); await syncProjectReceipts(info.project_id, 'proof')
     expect(puts).toHaveLength(1); expect(puts[0].includedInSnapshotId).toBeUndefined(); expect(local.receipt?.included_in_snapshot_id).toBeUndefined()
+  })
+})
+
+
+describe('frozen publication editor kit choice', () => {
+  const kit = (hash: string) => ({ apiVersion: 1, js: { url: `https://share.test/_kit/share-editor.${hash.repeat(64)}.js`, integrity: 'sha384-' + 'a'.repeat(64) }, css: { url: `https://share.test/_kit/share-editor.${hash.repeat(64)}.css`, integrity: 'sha384-' + 'b'.repeat(64) } })
+  it.each([true, false])('freezes successful or absent kit across durable retry, then adopts a new kit only in a new publication: %s', async success => {
+    const first = success ? { editorKit: kit('a'), warnings: [] } : { warnings: ['增强编辑器资源不可用'] }
+    mocks.kit.mockResolvedValue(first)
+    mocks.fetch.mockImplementationOnce(async () => { throw new Error('offline status') })
+    await expect(publishProject(info, [file])).rejects.toThrow('offline status')
+    const saved = structuredClone(mocks.data)
+    expect(saved.projectShares[info.project_id].pending).toMatchObject({ kitSelected: true, ...(success ? { editorKit: kit('a') } : {}) })
+    expect(mocks.bundle.mock.calls[0][2].editorKit).toEqual(success ? kit('a') : undefined)
+    const originalPlan = saved.projectShares[info.project_id].pending.upload.plans
+    mocks.data = structuredClone(saved) // simulate process restart using durable Store data
+    mocks.kit.mockResolvedValue({ editorKit: kit('b'), warnings: [] })
+    mocks.bundle.mockClear()
+    const result = await publishProject(info, [file])
+    expect(mocks.kit).toHaveBeenCalledTimes(1)
+    expect(mocks.bundle).toHaveBeenCalledTimes(1) // entry bytes replayed, only full bundle newly rendered
+    expect(mocks.bundle.mock.calls[0][2].editorKit).toEqual(success ? kit('a') : undefined)
+    expect(saved.projectShares[info.project_id].pending.upload.plans).toEqual(originalPlan)
+    if (!success) expect(result.warnings).toContain('增强编辑器资源不可用')
+    mocks.bundle.mockClear()
+    await publishProject(info, [file])
+    expect(mocks.kit).toHaveBeenCalledTimes(2)
+    for (const call of mocks.bundle.mock.calls) expect(call[2].editorKit).toEqual(kit('b'))
   })
 })
