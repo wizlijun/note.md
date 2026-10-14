@@ -357,7 +357,7 @@ impl GuestStore {
         let mut added = vec![];
         let mut total = 0;
         for file in &info.files {
-            if !file.path.to_lowercase().ends_with(".md") {
+            if !crate::project_share::is_md(&file.path) {
                 continue;
             }
             base.insert(
@@ -629,6 +629,51 @@ mod tests {
         let restarted = GuestStore::new(t.path().into()).unwrap();
         assert_eq!(restarted.inspect(root).unwrap().outbox[0].body, wire);
         assert!(restarted.queue(root, "max", &(wire + " ")).is_err());
+    }
+    #[test]
+    fn read_work_includes_all_shared_markdown_extensions() {
+        let t = tempfile::tempdir().unwrap();
+        let store = GuestStore::new(t.path().into()).unwrap();
+        let mut snap = reader::extract_public_snapshot(&reader::tests::html(5)).unwrap();
+        let paths = ["a.markdown", "b.mdown", "c.mkd", "d.mdx", "A.MD"];
+        for (file, path) in snap.manifest.files.iter_mut().zip(paths) {
+            file.path = path.into();
+        }
+        snap.manifest.entry = paths[0].into();
+        let info = store
+            .install(
+                "https://share.example",
+                "2026-10-14-test",
+                "https://share.example/2026-10-14-test",
+                &snap,
+            )
+            .unwrap();
+        let root = Path::new(&info.root);
+        for path in paths {
+            std::fs::write(root.join(path), format!("edited {path}")).unwrap();
+        }
+        let work = store.read_work(root).unwrap();
+        assert_eq!(work["base"].as_object().unwrap().len(), paths.len());
+        for path in paths {
+            assert_eq!(work["after"][path], format!("edited {path}"));
+        }
+        let edits: Vec<_> = paths.iter().map(|path| serde_json::json!({"path": path, "baseHash": work["base"][*path]["hash"], "afterMarkdown": work["after"][*path]})).collect();
+        let wire = serde_json::json!({"schemaVersion":2,"project_id":info.project_id,"snapshotId":info.snapshot_id,"submissionId":"all-extensions","client":{"kind":"notemd","version":"fixture"},"edits":edits,"annotations":[]}).to_string();
+        store.queue(root, "all-extensions", &wire).unwrap();
+        assert_eq!(
+            GuestStore::new(t.path().into())
+                .unwrap()
+                .inspect(root)
+                .unwrap()
+                .outbox[0]
+                .body,
+            wire
+        );
+        std::fs::remove_file(root.join(paths[1])).unwrap();
+        assert_eq!(
+            store.read_work(root).unwrap()["missing"],
+            serde_json::json!([paths[1]])
+        );
     }
     #[test]
     fn queue_rejects_protocol_identity_and_unlisted_files_and_read_work_warns() {

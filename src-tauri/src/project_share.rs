@@ -285,7 +285,7 @@ fn valid_id(id: &str) -> Result<()> {
     }
     Ok(())
 }
-fn is_md(path: &str) -> bool {
+pub(crate) fn is_md(path: &str) -> bool {
     [".md", ".markdown", ".mdown", ".mkd", ".mdx"]
         .iter()
         .any(|e| path.to_lowercase().ends_with(e))

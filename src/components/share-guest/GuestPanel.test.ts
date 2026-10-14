@@ -24,7 +24,7 @@ it('real GuestPanel and real browser handle build equal wire structures; disk ou
   const dir=await mkdtemp(join(tmpdir(),'notemd-guest-')), metadata=join(dir,'guest.json'), working=join(dir,'a.md')
   const info:GuestInfo={schemaVersion:1,root:dir,entry:'a.md',origin:'https://host',slug:'2026-10-14-test',shareUrl:'https://host/2026-10-14-test',project_id:'pid',snapshotId:'sid',files:[{path:'a.md',hash:sha256Sync(base)}],outbox:[],submitted:[],pendingUpdate:null}
   await writeFile(metadata,JSON.stringify(info));await writeFile(working,base)
-  const tab={id:'tab',filePath:working,currentContent:after};mocks.tabs.push(tab);guestState.projects=[info];mocks.get.mockResolvedValue({token:'FIXTURE_TOKEN'})
+  const tab={id:'tab',kind:'markdown',filePath:working,currentContent:after};mocks.tabs.push(tab);guestState.projects=[info];mocks.get.mockResolvedValue({token:'FIXTURE_TOKEN'})
   mocks.saveTab.mockImplementation(async()=>writeFile(working,tab.currentContent))
   const requests:string[]=[];let builds=0,queues=0
   mocks.invoke.mockImplementation(async(_cmd,{request:r})=>{
@@ -96,4 +96,28 @@ it('discards a receipt result after project identity changes while the request i
   guestState.projects=[{...info,snapshotId:'new-sid'}];await tick()
   finish!([{submissionId:'old-submission',status:404}]);await tick();await new Promise(r=>setTimeout(r,0))
   expect(document.body.textContent).not.toContain('old-submission');await unmount(component)
+})
+
+it('clears the description across real A→B→A panel reuse and lists every shared Markdown extension',async()=>{
+  const paths=['a.markdown','b.mdown','c.mkd','d.mdx','A.MD']
+  const a={schemaVersion:1,root:'/received/a',entry:paths[0],origin:'https://host',slug:'2026-10-14-test',shareUrl:'https://host/2026-10-14-test',project_id:'a',snapshotId:'sid',files:[...paths.map(path=>({path,hash:sha256Sync(base)})),{path:'image.png',hash:'image'}],outbox:[],submitted:[],pendingUpdate:null} as GuestInfo
+  const b={...a,root:'/received/b',project_id:'b'}
+  guestState.projects=[a,b];mocks.get.mockResolvedValue({token:'FIXTURE_TOKEN'});mocks.invoke.mockResolvedValue({changed:false})
+  const {default:Harness}=await import('./GuestPanelTestHarness.svelte')
+  const component=mount(Harness,{target:document.body,props:{a:a.root+'/'+paths[0],b:b.root+'/'+paths[0]}})
+  try {
+    await vi.waitFor(()=>expect(button('Submit changes').disabled).toBe(false))
+    const field=document.querySelector('textarea')!;field.value='project A private explanation';field.dispatchEvent(new Event('input'));await tick()
+    button('Go B').click();await tick()
+    expect(document.querySelector('textarea')!.value).toBe('')
+    button('Go A').click();await tick()
+    expect(document.querySelector('textarea')!.value).toBe('')
+    expect(Array.from(document.querySelectorAll('li button')).map(el=>el.textContent)).toEqual(paths)
+  } finally {await unmount(component)}
+})
+it.each([[404,'not found'],[410,'expired']])('check-version %s shows the query status',async(status,label)=>{
+  const info={schemaVersion:1,root:'/received/pid',entry:'a.md',origin:'https://host',slug:'2026-10-14-test',shareUrl:'https://host/2026-10-14-test',project_id:'pid',snapshotId:'sid',files:[],outbox:[],submitted:[],pendingUpdate:null} as GuestInfo
+  guestState.projects=[info];mocks.get.mockResolvedValue({token:'FIXTURE_TOKEN'});mocks.invoke.mockRejectedValue(Error('GUEST_HTTP_'+status))
+  const component=mount(GuestPanel,{target:document.body,props:{tab:{id:'t',filePath:info.root+'/a.md'} as any}})
+  try {await vi.waitFor(()=>expect(document.body.textContent).toContain(label));button('Check for updates').click();await vi.waitFor(()=>expect(document.body.textContent).toContain(label));expect(document.body.textContent).not.toContain('result unknown')} finally {await unmount(component)}
 })

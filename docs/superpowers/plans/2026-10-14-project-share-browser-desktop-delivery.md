@@ -510,3 +510,8 @@ Ruling: Task6 deliver ACK 的 post-rename sync 失败不能只靠一次尽力回
 
 
 Ruling: Task6 ACK恢复标记的清理采用 remove_file 成功即逻辑完成，不在 unlink 后新增目录 fsync 成功门槛；此时 guest.json 的 ACK 写入已经完整成功，掉电后若旧标记复现，只允许同 id/body 的幂等重放。inspect 的恢复协调为只读，即使目录不可写仍可取得原包；不为清理另造第二文件/阶段。— 删除后再以fsync错误报ACK失败会移走唯一恢复来源，垃圾回收无需强于已耐久ACK。— 成本是极端掉电可能多一次安全重放，不能承诺 exactly-once 或 Windows目录掉电保证。
+
+
+Ruling: Task7 received更新必须将已打开普通Markdown的输入/保存与backend CAS/写后owner reload纳入同一有界操作；现有saveTab、owner.setReadOnly与reloadTabFromDisk(expectedContent)各自不构成完整边界。允许窄扩现有tabs/file-editor-sessions及其documentReadOnly/Source/watcher接线，复用markdownSaveQueues，不另造第二保存队列或通用锁框架。新base网络下载可先完成而不锁编辑；真正捕获工作稿并规划/写盘前，先取得按受管真实path的操作准入，await真实owner/Source/批注flush及既有保存tail，将原dirty精确保存，再在所有await后核tab/path/session/baseline/authority/raw仍一致。仅在这段写入窗口使对应Rich/Source及普通save/autosave共同识别临时不可写状态，原本readonly原因保留；内部准备保存使用明确受控通路，不能因临时readonly静默跳过持久化。操作期间到达的旧timer/save不能在CAS后写回旧稿；新增/关闭/切换tab或未决composition不能被忽略。写后从真实disk经原file owner安装baseline/history，检查各await后的身份与未接受draft；若无法安装或外部改动则保留原稿和可见冲突/恢复信息，不强制覆盖、不用旧稿补偿回写。成功或失败finally只释放本次操作状态；owner/Source读写能力恢复到原策略。只为guest调用提供此边界，不顺带重构旧ProjectReview工作流。
+— 只做磁盘CAS看不到未保存输入，现成reload在await flush前检查一次会漏窗口，Source外部textarea也不由单独owner.setReadOnly控制。
+— 成本是必要宿主基础保存接口扩展及针对性真实测试；必须以真实owner/Source与临时盘验证IME或popup未决时零CAS且保留输入、排队autosave/保存后继续输入、CAS成功reload、reload失败保稿、tab换代与能力恢复，不能用busy按钮或mock saveTab代替。无实际系统IME设备时仅称软件状态/合成事件验证，真设备项继续待验。

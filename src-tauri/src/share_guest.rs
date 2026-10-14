@@ -74,6 +74,15 @@ impl Version {
     }
 }
 async fn bounded_get(client: &reqwest::Client, url: &str, limit: usize) -> Result<Vec<u8>> {
+    bounded_get_status(client, url, limit, false).await
+}
+// Only the desktop version query uses the guest UI status vocabulary.
+async fn bounded_get_status(
+    client: &reqwest::Client,
+    url: &str,
+    limit: usize,
+    guest_status: bool,
+) -> Result<Vec<u8>> {
     let mut response = client
         .get(url)
         .send()
@@ -83,6 +92,9 @@ async fn bounded_get(client: &reqwest::Client, url: &str, limit: usize) -> Resul
         return Err("share redirects are not allowed".into());
     }
     if !response.status().is_success() {
+        if guest_status {
+            return Err(format!("GUEST_HTTP_{}", response.status().as_u16()));
+        }
         return Err(match response.status().as_u16() {
             409 => "share archive is not ready",
             410 => "share is stopped or expired",
@@ -316,6 +328,23 @@ async fn read_receipts(
     }
     Ok(results.into())
 }
+async fn check_version(info: &store::GuestInfo) -> Result<serde_json::Value> {
+    let version = Version::parse(
+        &bounded_get_status(
+            &guest_client()?,
+            &format!("{}/project/{}/version", info.origin, info.slug),
+            64 * 1024,
+            true,
+        )
+        .await?,
+    )?;
+    if version.project_id != info.project_id {
+        return Err("share version identity mismatch".into());
+    }
+    Ok(
+        serde_json::json!({"snapshotId":version.snapshot_id,"changed": version.snapshot_id != info.snapshot_id}),
+    )
+}
 #[tauri::command]
 pub async fn share_guest(
     app: tauri::AppHandle,
@@ -354,20 +383,7 @@ pub async fn share_guest(
         }
         Request::CheckVersion { root } => {
             let info = store::GuestStore::new(vault.clone())?.inspect(Path::new(root))?;
-            let version = Version::parse(
-                &bounded_get(
-                    &guest_client()?,
-                    &format!("{}/project/{}/version", info.origin, info.slug),
-                    64 * 1024,
-                )
-                .await?,
-            )?;
-            if version.project_id != info.project_id {
-                return Err("share version identity mismatch".into());
-            }
-            return Ok(
-                serde_json::json!({"snapshotId":version.snapshot_id,"changed": version.snapshot_id != info.snapshot_id}),
-            );
+            return check_version(&info).await;
         }
         Request::Queue { root, .. } => {
             credential(
@@ -601,6 +617,41 @@ mod tests {
             .unwrap()
             .outbox
             .is_empty());
+    }
+    #[tokio::test]
+    async fn check_version_preserves_http_status_without_credentials() {
+        let responses = [404, 410]
+            .iter()
+            .map(|status| {
+                format!(
+                    "HTTP/1.1 {status} Result\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                )
+                .into_bytes()
+            })
+            .collect();
+        let (origin, server) = serve(responses);
+        let t = tempfile::tempdir().unwrap();
+        let store = store::GuestStore::new(t.path().into()).unwrap();
+        let snapshot = reader::extract_public_snapshot(&reader::tests::html(1)).unwrap();
+        let mut info = store
+            .install(
+                "https://share.example",
+                "2026-10-14-test",
+                "https://share.example/2026-10-14-test",
+                &snapshot,
+            )
+            .unwrap();
+        info.origin = origin;
+        let errors = [
+            check_version(&info).await.unwrap_err(),
+            check_version(&info).await.unwrap_err(),
+        ];
+        let requests = server.join().unwrap();
+        for request in requests {
+            assert!(request.starts_with("GET /project/2026-10-14-test/version "));
+            assert!(!request.to_lowercase().contains("x-feedback-token"));
+        }
+        assert_eq!(errors, ["GUEST_HTTP_404", "GUEST_HTTP_410"]);
     }
     fn serve(responses: Vec<Vec<u8>>) -> (String, std::thread::JoinHandle<Vec<String>>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();

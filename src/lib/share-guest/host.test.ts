@@ -38,7 +38,7 @@ function setup() {
   const fresh={...info,files:[{path:'a.md',hash:sha256Sync(base)}]}
   let persisted:any=fresh
   const order:string[]=[]
-  mocks.tabs.push({id:'tab',filePath:info.root+'/a.md',currentContent:'STALE MEMORY'})
+  mocks.tabs.push({id:'tab',kind:'markdown',filePath:info.root+'/a.md',currentContent:'STALE MEMORY'})
   mocks.saveTab.mockImplementation(async()=>{order.push('save')})
   mocks.invoke.mockImplementation(async(_cmd,{request:r})=>{
     order.push(r.op)

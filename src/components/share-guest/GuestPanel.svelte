@@ -3,7 +3,7 @@
   import type { Tab } from '../../lib/tabs.svelte'
   import { openFile } from '../../lib/tabs.svelte'
   import { guestForTab, rememberGuest, guestState, guestErrorCode } from '../../lib/share-guest/state.svelte'
-  import { canSubmitGuest, guestCommand, submitGuest, guestReceipts, type GuestPreview, type GuestReceipt } from '../../lib/share-guest/host'
+  import { isGuestMarkdownPath, canSubmitGuest, guestCommand, submitGuest, guestReceipts, type GuestPreview, type GuestReceipt } from '../../lib/share-guest/host'
   import { t } from '../../lib/i18n/store.svelte'
   import { save } from '@tauri-apps/plugin-dialog'
   import { writeTextFile } from '@tauri-apps/plugin-fs'
@@ -19,7 +19,7 @@
     generation++
     busy = false
     const current = untrack(() => info)
-    allowed = false; receipts = []; notice = ''
+    allowed = false; receipts = []; notice = ''; message = ''
     let disposed = false
     if (current) {
       void canSubmitGuest(current).then(value => { if(!disposed) allowed = value }).catch(() => {})
@@ -109,7 +109,7 @@
         {:else if row.receipt}<p>{t(`guest.outcome.${row.receipt.outcome}`)} {row.receipt.files.reduce((n,f)=>n+f.accepted,0)}/{row.receipt.files.reduce((n,f)=>n+f.total,0)}</p><p>{row.receipt.reply ?? ''}</p>{/if}
       </div>
     {/each}
-    <ul>{#each info.files.filter(file=>file.path.endsWith('.md')) as file}<li><button onclick={() => openFile(info!.root+'/'+file.path)}>{file.path}</button></li>{/each}</ul>
+    <ul>{#each info.files.filter(file=>isGuestMarkdownPath(file.path)) as file}<li><button onclick={() => openFile(info!.root+'/'+file.path)}>{file.path}</button></li>{/each}</ul>
   </section>
 {/if}
 <style>

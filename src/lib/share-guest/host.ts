@@ -21,12 +21,18 @@ import { buildGuestSubmission, type BuiltSubmission } from '../project-share/gue
 import type { GuestInfo } from './types'
 import type { DraftV2 } from '../project-share/types'
 import { relative } from '../paths'
+import { classifyPath } from '../fs'
 import { version } from '../../../package.json'
 
 export async function canSubmitGuest(info: GuestInfo): Promise<boolean> {
   const store = await Store.load('share_db.json')
   const value = await store.get<{ token?: unknown }>(`guest:${info.origin}:${info.project_id}`)
   return typeof value?.token === 'string' && value.token.length > 0
+}
+/** The shared snapshot's document extensions follow the existing file classifier. */
+export function isGuestMarkdownPath(path: string): boolean {
+  const kind = classifyPath(path)?.kind
+  return kind === 'markdown' || kind === 'mdx'
 }
 export interface GuestWork {
   info: GuestInfo; base: DraftV2['base']; after: DraftV2['after']; added: string[]; missing: string[]
@@ -40,8 +46,13 @@ export async function buildDesktopSubmission(root: string, tabId: string, messag
   if (!tab?.filePath || relative(root, tab.filePath) === null || isReadOnlyTab(tab)) throw new Error('GUEST_TAB_CHANGED')
   const originalPath = tab.filePath
   const stable = () => tabs.includes(tab) && tab.filePath === originalPath && !isReadOnlyTab(tab)
-  for (const item of [...tabs].filter(item => item.filePath && relative(root, item.filePath) !== null)) {
-    if (!stable() || isReadOnlyTab(item)) throw new Error('GUEST_TAB_CHANGED')
+  const writableDocument = (item: typeof tab) => {
+    const path = item.filePath && relative(root, item.filePath)
+    return path && info.files.some(file => file.path === path) && isGuestMarkdownPath(path)
+      && (item.kind === 'markdown' || item.kind === 'mdx') && !isReadOnlyTab(item)
+  }
+  for (const item of [...tabs].filter(writableDocument)) {
+    if (!stable() || !writableDocument(item)) throw new Error('GUEST_TAB_CHANGED')
     const path = item.filePath
     await saveTab(item.id)
     if (!stable() || !tabs.includes(item) || item.filePath !== path) throw new Error('GUEST_TAB_CHANGED')
