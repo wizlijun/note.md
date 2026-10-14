@@ -2,7 +2,7 @@ use super::{
     reader::{self, Snapshot},
     Result, MAX_SOURCE,
 };
-use crate::project_share::write_atomic;
+use crate::project_share::{sync_directory, write_atomic};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -274,9 +274,7 @@ impl GuestStore {
         self.checked(parent, false)?;
         self.checked(&root, true)?;
         rename_new(staging.path(), &root)?;
-        std::fs::File::open(parent)
-            .and_then(|f| f.sync_all())
-            .map_err(|_| "cannot sync received directory")?;
+        sync_directory(parent).map_err(|_| "cannot sync received directory")?;
         Ok(info)
     }
 }

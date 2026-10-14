@@ -1188,7 +1188,7 @@ v2 中的 `supersedes = lastSubmissionId`，`rebasedFrom` 取 DraftV2 中的值�
    - 每个文件同时写一份到 `.notemd/base/<snapshotId>/<path>`；
    - 写入 `.notemd/guest.json`；
    - token 存入 `share_db.json`（§6.8）；
-   - 所有文件写入都复用 `write_atomic`。全部网络/清单/ZIP/版本验证完成后才建立同目录受管临时目录，写齐源文件、base 和元数据后原子无覆盖 rename；检查每级目录的 symlink、文件类型及 canonical containment。失败保留已有项目。
+   - 所有文件写入都复用 `write_atomic`。全部网络/清单/ZIP/版本验证完成后才建立同目录受管临时目录，写齐源文件、base 和元数据后原子无覆盖 rename；检查每级目录的 symlink、文件类型及 canonical containment。失败保留已有项目。文件 write、sync_all、rename 错误在所有平台传播；目录同步复用共享 helper，Unix open+sync_all 错误传播，非 Unix 不尝试普通目录 File::open，保留原子可见性但不保证目录项掉电耐久性。
 6. **保持隔离**：收到的项目是纯 `.md`，不是 `.note.md`，所以**不进入关系系统**（「关系只在人确认处生长」）。收到的项目**不得**被当作 sync 镜像或项目分享的源；`project_share::source_root/source_path/create` 和 Vault-root 引用读取都拒绝 received 及其 symlink 别名。GuestStore 同时拒绝 received 与用户配置 Sync 的父子重叠，不创建 sync mapping。
 
 ### 13.3 编辑与提交

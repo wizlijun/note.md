@@ -1,5 +1,7 @@
 ## Unreleased — shared share editor foundations
 
+- Keep guest download code outside iOS builds and fix Windows directory handling in the shared atomic writer. Unix directory sync errors still propagate; Windows does not claim directory-entry durability after power loss.
+
 - Add the native verified-download foundation for received projects: bounded public downloads, snapshot/ZIP integrity checks, atomic installation and source/base preservation. Received projects cannot be republished as project sources; collaboration credentials stay in app-data. Desktop entry and update workflows remain pending.
 
 - Preserve descriptions typed during shared-draft migration without overwriting the new version; reject malformed nested recovery records before saving.

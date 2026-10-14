@@ -397,6 +397,18 @@ fn remove_reserved_tree(root: &Path, files: &BTreeMap<String, String>) -> Result
     }
     Ok(())
 }
+/// Persist directory entries where the platform supports ordinary directory handles.
+/// Non-Unix retains atomic rename visibility and file fsync, but makes no promise
+/// of directory-entry durability after power loss.
+pub(crate) fn sync_directory(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    std::fs::File::open(path)
+        .and_then(|file| file.sync_all())
+        .map_err(|error| error.to_string())?;
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or("missing parent")?;
     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -418,9 +430,7 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
             std::fs::set_permissions(&temp, meta.permissions()).map_err(|e| e.to_string())?;
         }
         std::fs::rename(&temp, path).map_err(|e| e.to_string())?;
-        std::fs::File::open(parent)
-            .and_then(|f| f.sync_all())
-            .map_err(|e| e.to_string())
+        sync_directory(parent)
     })();
     if result.is_err() {
         let _ = std::fs::remove_file(temp);
@@ -1784,6 +1794,38 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    #[cfg(unix)]
+    #[test]
+    fn project_share_directory_sync_propagates_unix_open_and_sync_errors() {
+        let temp = TempDir::new().unwrap();
+        sync_directory(temp.path()).unwrap();
+        assert!(sync_directory(&temp.path().join("missing-directory")).is_err());
+        // /dev/null opens successfully, but fsync is unsupported: the helper must
+        // propagate that error as well as the open failure above.
+        assert!(std::fs::File::open("/dev/null").is_ok());
+        assert!(sync_directory(Path::new("/dev/null")).is_err());
+    }
+    #[test]
+    fn project_share_atomic_writer_preserves_source_on_readonly_and_rename_errors() {
+        let temp = TempDir::new().unwrap();
+        let file = temp.path().join("source.md");
+        let original = "\u{feff}source\r\n".as_bytes();
+        write_atomic(&file, original).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), original);
+        let permissions = std::fs::metadata(&file).unwrap().permissions();
+        let mut readonly = permissions.clone();
+        readonly.set_readonly(true);
+        std::fs::set_permissions(&file, readonly).unwrap();
+        assert!(write_atomic(&file, b"replacement").is_err());
+        assert_eq!(std::fs::read(&file).unwrap(), original);
+        std::fs::set_permissions(&file, permissions).unwrap();
+        let directory = temp.path().join("existing-directory");
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::write(directory.join("user.md"), original).unwrap();
+        assert!(write_atomic(&directory, b"replacement").is_err());
+        assert_eq!(std::fs::read(directory.join("user.md")).unwrap(), original);
+        assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 2);
+    }
     #[test]
     fn project_share_received_source_and_vault_reference_isolation() {
         let (_t, s, _) = fixture();

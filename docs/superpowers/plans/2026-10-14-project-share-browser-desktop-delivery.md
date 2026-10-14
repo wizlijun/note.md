@@ -477,3 +477,10 @@ Ruling: Task6只读API地图已核当前installed deep-link2.4.9和single-instan
 Ruling: Task6“唯一open-share-link事件”落在既有Rust menu-event的唯一menu id与App明确case，直接打开同一确认dialog；不另加CustomEvent/central command或强制cast未知CommandId，现有四语言menu_label与前端字典分别同步。guest side view复用registry，选right/order3，位于现有git-history之后，仅经Task5可信list/inspect缓存匹配活动tab时显示；appliesTo保持同步，不增第二侧栏。成本是明确最小装配与常规文档工具位置，不改变原菜单命令/现有侧栏顺序。
 
 Ruling: Task6无token的“只读/不可提交”表示分享协作权限，不能据此把已公开下载的本机Markdown设为全局不可编辑；主spec§13.2明确公开下载不需token、§13.3明确使用桌面编辑器全部功能。侧栏应明确“只读分享/无回传权限；修改仅保存在本机”，禁queue/deliver/receipt，保留本机普通Rich/Source与保存；不扩isReadOnlyTab或改桌面owner policy。builder/预览不发送，真正提交仍必须凭据与用户明确动作。成本是区分公开副本编辑与线上协作权限，需用无token实际下载、编辑保存和零提交/回执请求证明，不把本地可写宣传为获得分享权限。
+
+
+### Task5 审查后平台兼容裁定
+
+Ruling: Task5 I2 的 mandated write_atomic 复用继续保留，但修复该共享实现并让 received 发布调用同一 crate-private 目录同步 helper；采用仓库 knowledge_structure/store.rs 已有平台边界：Unix 目录 open+sync_all 错误必须传播，非 Unix 不尝试不受支持的普通目录 File::open，并明确不保证目录项掉电耐久性。所有平台的文件 write/sync_all/rename 错误仍严格传播，no-replace/零覆盖合同不变，不引入新依赖或复制 writer。— Windows 普通目录 open 必然失败，既有 Unix 策略不能直接通用于 Windows；最小修复保留受支持的耐久性与原子可见性，而不伪造 Windows FlushFileBuffers 目录保证。— 如果平台假设不成立，需要补平台专用持久化 API；当前无 Windows 实机，Windows 掉电耐久及真实运行不得报通过。
+
+iOS 的 share_guest 模块及 command 注册遵相邻 desktop-only cfg；无实机/SDK不得以桌面 cargo check 替代 iOS 编译证据。

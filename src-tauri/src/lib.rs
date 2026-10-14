@@ -46,6 +46,7 @@ pub mod notifications;
 pub mod sotvault;
 #[cfg(not(target_os = "ios"))]
 pub mod project_share;
+#[cfg(not(target_os = "ios"))]
 pub mod share_guest;
 #[cfg(not(target_os = "ios"))]
 pub(crate) mod project_share_git;
