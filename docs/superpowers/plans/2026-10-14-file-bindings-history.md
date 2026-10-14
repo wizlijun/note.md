@@ -816,3 +816,10 @@ Ruling: Task3真实Chromium从空Rich逐键输入**bold**!失败：首*被escape
 
 
 Ruling: Task3 literal标点分流后只迁移两处具名旧expected：source-nested-producer.spec.ts的quote正文起点insertText('>')由semantic-mismatch负例改为精确局部escape正例，独立expected为`> \\>Alpha\n`，保留serializer spy零调用、原base/单edit和严格doc.eq。source-nested-cache.spec.ts最后用于失败后重试的插入'>'改为正文内真实文本LF插入，并明确semantic-mismatch，保留全部原cache/base/retry及/new引用断言；不得换成提前拒绝的unknown Step/atom而削弱failed-candidate覆盖 — ROOT实际installed独立root-literal-expected-proof证明escaped raw严格等于原目标PM，完整缓存测试raw下LF真实候选失败且base逐项不变、随后甲→乙仍正确 — 成本是两条旧能力边界预期调整，原1397通过/2失败全量证据保留，新focused/strict/full必须全绿后才build/install，不改其他旧negative。
+
+
+Ruling: Task3真实InputRules连续输入 **bold**! 保留strong storedMark，正确raw为 **bold!**；浏览器预期按实际PM语义修正，并追加Mod+B退出后x与undo/source断言，不能改InputRule来迎合旧测试 — 当前实际Chromium已证无丢字 — 成本是修正一条新验收预期，旧失败完整保留。
+
+Ruling: Task3纳入已有Rich异步输入生命周期安全。file分支在clipboard/resource/video/context paste准备前捕获owner/view/generation/tab/mode/selection，await后复核；video仅替换本次成功插入的exact range及expected text/mark，不扫描文档第一同href；旧legacy不扩大重写 — 同一真实owner不代表异步返回时仍是原用户目标 — 成本是局部stale guards及实际消费者延迟回归，图片producer本身仍留Task5。
+
+Ruling: Task3公开file factory复用已有KitCSS资源，允许将main现有纯injectKitCss最小提取到file-kit-styles.ts由两个入口共享；非externalSource file挂载注入并加kit-host，desktop沿原宿主CSS，不引host theme RPC或第二factory。实际browser fixture撤除手工CSS掩盖并检查资源加载/Source布局。check-editor-kit-build允许可选outDir（默认dist）及真实mountFileEditor导出检查 — 当前factory未注入CSS而测试手工import掩盖部署缺口 — 成本是小型共享样式接缝与产物断言，后续share builder仍需独立CSS/IIFE闭包。
