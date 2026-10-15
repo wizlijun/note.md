@@ -20,6 +20,8 @@ pub struct SharedConfig {
     /// reasoning as `sotvault` — see the module docs on what "shared" means.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub git_proxy: Option<String>,
+    #[serde(default, rename = "linuxWindowDecorations")]
+    pub linux_window_decorations: Option<bool>,
 }
 
 fn default_version() -> u32 { 1 }
@@ -87,6 +89,7 @@ mod tests {
             rawvault: Some("/tmp/raw".into()),
             calibre_path: Some("/Applications/calibre.app/Contents/MacOS".into()),
             git_proxy: Some("http://127.0.0.1:1080".into()),
+            linux_window_decorations: Some(false),
         };
         write(&p, &cfg).unwrap();
         let back = read(&p).unwrap();

@@ -20,6 +20,10 @@ pub mod canvas_resource;
 pub mod log_bus;
 pub mod platform;
 pub mod shared_config;
+pub mod linux_env;
+pub mod desktop_policy;
+#[cfg(not(target_os = "ios"))]
+pub mod launch_actions;
 
 #[cfg(not(target_os = "ios"))]
 pub mod cli;
@@ -114,6 +118,11 @@ pub struct GlobalShortcuts(pub Mutex<std::collections::HashMap<u32, GlobalShortc
 pub(crate) fn reconcile_global_shortcuts<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use std::str::FromStr;
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+
+    if !platform::global_shortcuts_supported() {
+        app.state::<GlobalShortcuts>().0.lock().unwrap().clear();
+        return;
+    }
 
     if let Err(e) = app.global_shortcut().unregister_all() {
         dlog(&format!(
@@ -543,7 +552,7 @@ fn show_insights_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             .inner_size(900.0, 640.0)
             .min_inner_size(520.0, 360.0)
             .resizable(true)
-            .decorations(true)
+            .decorations(platform::window_decorations())
             .visible(false)
             .build()
             .map_err(|e| eprintln!("[insights] window build failed: {e}"))
@@ -571,7 +580,7 @@ fn show_daily_notes_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             .inner_size(720.0, 900.0)
             .min_inner_size(480.0, 480.0)
             .resizable(true)
-            .decorations(true)
+            .decorations(platform::window_decorations())
             .visible(false)
             .build()
             .map_err(|e| eprintln!("[daily-notes] window build failed: {e}"))
@@ -608,7 +617,7 @@ fn open_logs_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>, filter: Option
             .inner_size(900.0, 640.0)
             .min_inner_size(520.0, 360.0)
             .resizable(true)
-            .decorations(true)
+            .decorations(platform::window_decorations())
             .visible(false)
             .build()
             .map_err(|e| eprintln!("[logs] window build failed: {e}"))
@@ -659,7 +668,7 @@ fn show_plugin_market_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         .inner_size(900.0, 640.0)
         .min_inner_size(520.0, 360.0)
         .resizable(true)
-        .decorations(true)
+        .decorations(platform::window_decorations())
         .visible(false)
         .build()
         .map_err(|e| eprintln!("[plugin-market] window build failed: {e}"))
@@ -705,7 +714,7 @@ fn smart_search_window<R: tauri::Runtime>(
     .inner_size(1020.0, 700.0)
     .min_inner_size(560.0, 420.0)
     .resizable(true)
-    .decorations(true)
+    .decorations(platform::window_decorations())
     // Quick-entry should accept its first click even when note.md was not the
     // active application before the global shortcut was pressed.
     .accept_first_mouse(true)
@@ -916,6 +925,23 @@ fn shared_config_write(cfg: crate::shared_config::SharedConfig) -> Result<(), St
     crate::shared_config::write(&path, &cfg).map_err(|e| e.to_string())
 }
 
+/// Persist only the machine-local override and apply it to every existing window.
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn linux_window_decorations_set(app: tauri::AppHandle, value: Option<bool>) -> Result<platform::DesktopCapabilities, String> {
+    if std::env::consts::OS != "linux" { return Err("Linux setting is unavailable on this platform".into()); }
+    let path = shared_config::config_path().map_err(|e| e.to_string())?;
+    let mut cfg = shared_config::read(&path).map_err(|e| e.to_string())?;
+    cfg.linux_window_decorations = value;
+    shared_config::write(&path, &cfg).map_err(|e| e.to_string())?;
+    let decorations = platform::window_decorations();
+    for window in app.webview_windows().values() {
+        window.set_decorations(decorations).map_err(|e| e.to_string())?;
+    }
+    let capabilities = platform::desktop_capabilities();
+    Ok(capabilities)
+}
+
 /// Read the proxy that vault sync's `git` runs through (`""` when unset).
 #[cfg(not(target_os = "ios"))]
 #[tauri::command]
@@ -951,6 +977,7 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         // Window might have been destroyed, recreate it.
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
             .title("note.md")
+            .decorations(platform::window_decorations())
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
             .build()
@@ -1333,6 +1360,55 @@ pub fn tauri_context() -> tauri::Context {
     tauri::generate_context!()
 }
 
+/// Configure initial windows before GTK creates them, including action-only launches.
+fn gui_context() -> tauri::Context {
+    let mut context = tauri_context();
+    #[cfg(not(target_os = "ios"))]
+    {
+        let argv = std::env::args().collect::<Vec<_>>();
+        let action_launch = launch_actions::parse(&argv).has_action;
+        configure_gui_windows(context.config_mut(), platform::window_decorations(),
+            action_launch || argv_requests_cli_background(&argv));
+    }
+    context
+}
+
+/// One consumer for initial and single-instance argv. Action values never enter file routing.
+#[cfg(not(target_os = "ios"))]
+fn dispatch_launch_request<R: tauri::Runtime>(app: &tauri::AppHandle<R>, argv: &[String]) -> bool {
+    if argv_requests_cli_background(argv) { return true; }
+    let request = launch_actions::parse(argv);
+    for arg in request.files {
+        if let Some(path) = argv_open_target(&arg) { emit_open_file_delayed(app, &path); }
+    }
+    match request.action {
+        Some(launch_actions::Action::SmartSearch) => {
+            if let Err(error) = show_smart_search_window(app) { dlog(&format!("launch action failed: {error}")); }
+        }
+        Some(launch_actions::Action::Plugin { plugin_id, window }) => activate_plugin_tray_target(app, &plugin_id, &window),
+        None if request.has_action => dlog("unsupported or invalid launch action"),
+        None => {}
+    }
+    request.has_action
+}
+
+#[cfg(not(target_os = "ios"))]
+fn configure_gui_windows(config: &mut tauri::Config, decorations: bool, hide_main: bool) {
+    for window in &mut config.app.windows {
+        window.decorations = decorations;
+        if window.label == "main" && hide_main {
+            window.visible = false;
+            window.focus = false;
+        }
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
+fn window_state_flags(os: &str) -> tauri_plugin_window_state::StateFlags {
+    let flags = tauri_plugin_window_state::StateFlags::all();
+    if os == "linux" { flags - tauri_plugin_window_state::StateFlags::DECORATIONS } else { flags }
+}
+
 /// True when this x86_64 process is running under Rosetta 2 on Apple Silicon.
 /// `sysctl.proc_translated` is 1 only for translated processes; absent (Intel
 /// Mac) or 0 means native. Used to override the updater target so a Rosetta
@@ -1399,14 +1475,12 @@ pub fn run() {
             dlog("single_instance background wake: preserving main-window visibility");
             return;
         }
-        for arg in argv.iter().skip(1) {
-            if let Some(path) = argv_open_target(arg) {
-                emit_open_file_delayed(app, &path);
+        let action_launch = dispatch_launch_request(app, &argv);
+        if !action_launch {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
             }
-        }
-        if let Some(w) = app.get_webview_window("main") {
-            let _ = w.show();
-            let _ = w.set_focus();
         }
     }));
     // On iOS the deep-link plugin republishes every RunEvent::Opened URL,
@@ -1425,7 +1499,17 @@ pub fn run() {
         .plugin(tauri_plugin_os::init());
     #[cfg(not(target_os = "ios"))]
     let app = app
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin({
+            let argv = std::env::args().collect::<Vec<_>>();
+            let builder = tauri_plugin_window_state::Builder::default()
+                .with_state_flags(window_state_flags(std::env::consts::OS));
+            // Restoring VISIBLE would show and focus main despite the hidden
+            // initial config, stealing focus from the requested action window.
+            let builder = if launch_actions::parse(&argv).has_action || argv_requests_cli_background(&argv) {
+                builder.skip_initial_state("main")
+            } else { builder };
+            builder.build()
+        })
         .plugin({
             // Self-heal Rosetta installs. The updater picks its platform key from
             // the RUNNING process arch, not the hardware: an x86_64 build running
@@ -1448,7 +1532,7 @@ pub fn run() {
     // System-wide tray action hotkeys. Keep these in sync with the tray menu's
     // display-only accelerator strings in `build_tray_menu`.
     #[cfg(not(target_os = "ios"))]
-    let app = app.plugin(
+    let app = if platform::global_shortcuts_supported() { app.plugin(
         tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, shortcut, event| {
                 if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
@@ -1469,7 +1553,7 @@ pub fn run() {
                 }
             })
             .build(),
-    );
+    ) } else { app };
     // plugin:// scheme — plugin UI static assets + fetch-RPC bridge (spec §7.1).
     // Registration cannot be flag-conditional; the handler answers 404 for
     // flag-off/unknown ids, so v2-off behavior is unchanged.
@@ -1605,6 +1689,7 @@ pub fn run() {
                 shared_config_write,
                 git_proxy_get,
                 git_proxy_set,
+                linux_window_decorations_set,
                 log_bus::logs_append_frontend,
                 log_bus::logs_get_snapshot,
                 log_bus::logs_clear,
@@ -1773,10 +1858,12 @@ pub fn run() {
                     *status_item_state.0.lock().unwrap() = Some(status_item.clone());
                     *app.state::<TraySyncNowItem>().0.lock().unwrap() = Some(sync_now_item);
                 }
-                let _tray = TrayIconBuilder::with_id("main")
+                let tray_builder = TrayIconBuilder::with_id("main");
+                #[cfg(not(target_os = "linux"))]
+                let tray_builder = tray_builder.tooltip("note.md");
+                let _tray = tray_builder
                     .icon(tray_icon)
                     .icon_as_template(false)
-                    .tooltip("note.md")
                     .menu(&tray_menu)
                     .show_menu_on_left_click(true)
                     .on_menu_event(|app, event| {
@@ -1872,15 +1959,12 @@ pub fn run() {
             let handle = app.handle();
             #[cfg(any(target_os = "windows", target_os = "linux"))]
             { use tauri_plugin_deep_link::DeepLinkExt; handle.deep_link().register_all()?; }
-            for arg in std::env::args().skip(1) {
-                if let Some(path) = argv_open_target(&arg) {
-                    emit_open_file_delayed(handle, &path);
-                }
-            }
+            #[cfg(not(target_os = "ios"))]
+            dispatch_launch_request(handle, &std::env::args().collect::<Vec<_>>());
 
             Ok(())
         })
-        .build(tauri_context())
+        .build(gui_context())
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
@@ -3117,5 +3201,44 @@ mod guest_entry_tests {
         assert!(super::argv_open_target("notemd://share/open?u=https%3A%2F%2Fhost%23feedback%3DSECRET").is_none());
         assert!(super::argv_open_target("NOTEMD://share/open?u=SECRET").is_none());
         assert!(super::argv_open_target("/tmp/ordinary.md").is_some());
+    }
+}
+
+#[cfg(all(test, not(target_os = "ios")))]
+mod linux_gui_config_tests {
+    #[test]
+    fn applies_native_policy_before_initial_main_window_is_created() {
+        let mut config: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "net.notemd.app",
+            "app": { "windows": [
+                { "label": "main", "decorations": true, "visible": true, "focus": true },
+                { "label": "aux", "decorations": true, "visible": true, "focus": true }
+            ] }
+        })).unwrap();
+        super::configure_gui_windows(&mut config, false, true);
+        assert!(!config.app.windows[0].decorations);
+        assert!(!config.app.windows[0].visible);
+        assert!(!config.app.windows[0].focus);
+        assert!(!config.app.windows[1].decorations);
+        assert!(config.app.windows[1].visible);
+        assert!(config.app.windows[1].focus);
+    }
+    #[test]
+    fn linux_state_restore_cannot_override_native_decoration_policy() {
+        use tauri_plugin_window_state::StateFlags;
+        assert!(!super::window_state_flags("linux").contains(StateFlags::DECORATIONS));
+        assert!(super::window_state_flags("linux").contains(StateFlags::VISIBLE));
+        assert!(super::window_state_flags("macos").contains(StateFlags::DECORATIONS));
+    }
+    #[test]
+    fn ordinary_launch_preserves_initial_visibility_and_focus() {
+        let mut config: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "net.notemd.app",
+            "app": { "windows": [{ "label": "main", "visible": true, "focus": true }] }
+        })).unwrap();
+        super::configure_gui_windows(&mut config, true, false);
+        assert!(config.app.windows[0].decorations);
+        assert!(config.app.windows[0].visible);
+        assert!(config.app.windows[0].focus);
     }
 }

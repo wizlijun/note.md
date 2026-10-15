@@ -67,7 +67,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
   Store: { load: vi.fn(async () => ({ get: vi.fn(async () => undefined), set: vi.fn(async () => {}), save: vi.fn(async () => {}) })) },
 }))
 // Desktop, not iOS — the tab is `!isIOSPlatform`-gated in the strip.
-vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'macos', type: () => 'macos' }))
+vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos' }))
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn(async () => null) }))
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: vi.fn(async () => {}), exit: vi.fn(async () => {}) }))
 vi.mock('@tauri-apps/api/webviewWindow', () => ({
@@ -92,6 +92,8 @@ import * as settingsModule from '../lib/settings.svelte'
 import * as toastModule from '../lib/toast.svelte'
 import { t } from '../lib/i18n/store.svelte'
 import { i18n } from '../lib/i18n/store.svelte'
+import { platform as nativePlatform } from '@tauri-apps/plugin-os'
+import { _resetCacheForTests } from '../lib/platform.svelte'
 import { desktopCapabilities } from '../lib/desktop-capabilities.svelte'
 import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
 
@@ -101,6 +103,8 @@ let progress: Mock<() => Promise<SearchProgress | null>>
 beforeEach(() => {
   // See ThemeImportDialog.test.ts: resetModules() breaks Svelte's DOM
   // operations singleton under happy-dom; clearAllMocks is enough.
+  vi.mocked(nativePlatform).mockReturnValue('macos')
+  _resetCacheForTests()
   desktopCapabilities.value = null
   desktopCapabilities.error = null
   vi.clearAllMocks()
@@ -1073,5 +1077,41 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
     await settle()
     expect(document.body.textContent).not.toContain('desktop identity unavailable')
     expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(true)
+  })
+})
+
+
+describe('SettingsDialog — Linux desktop policy', () => {
+  it('shows a copyable Hyprland replacement when native global shortcuts are unavailable', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('linux')
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: false, windowDecorations: false }
+      if (command === 'shared_config_read') return { version: 1 }
+      return defaultInvokeImpl(command, args)
+    })
+    await mountDialog()
+    await settle()
+    expect(document.querySelector<HTMLTextAreaElement>('textarea[readonly]')?.value).toContain('bind = SUPER CTRL, M, exec, notemd --gui --action smart-search')
+    expect(document.querySelector<HTMLTextAreaElement>('textarea[readonly]')?.value).toContain('--action plugin:PLUGIN_ID:WINDOW_ID')
+    expect(document.querySelector('select[aria-label="Linux window decorations"]')).not.toBe(null)
+  })
+  it('saves a Linux decoration override and refreshes the effective native capability', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('linux')
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: false, windowDecorations: false }
+      if (command === 'shared_config_read') return { version: 1 }
+      if (command === 'linux_window_decorations_set') return { ...desktopCapabilities.value, windowDecorations: true }
+      return defaultInvokeImpl(command, args)
+    })
+    await mountDialog()
+    await settle()
+    const select = document.querySelector<HTMLSelectElement>('select[aria-label="Linux window decorations"]')
+    expect(select).not.toBe(null)
+    select!.value = 'on'
+    select!.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('linux_window_decorations_set', { value: true })
+    expect(settings.linuxWindowDecorations).toBe(true)
+    expect(desktopCapabilities.value?.windowDecorations).toBe(true)
   })
 })

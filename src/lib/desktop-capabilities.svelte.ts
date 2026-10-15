@@ -44,3 +44,10 @@ export function loadDesktopCapabilities(): Promise<DesktopCapabilities> {
   })()
   return pending
 }
+
+export async function setLinuxWindowDecorations(value: boolean | null): Promise<void> {
+  if (pending) await pending.catch(() => {})
+  const capabilities = await invoke<DesktopCapabilities>('linux_window_decorations_set', { value })
+  desktopCapabilities.value = capabilities
+  desktopCapabilities.error = null
+}

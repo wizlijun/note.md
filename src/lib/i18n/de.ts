@@ -1,6 +1,16 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  "settings.linux.title": "Linux-Desktop",
+  "settings.linux.decorations": "Linux-Fensterdekorationen",
+  "settings.linux.auto": "Automatisch",
+  "settings.linux.on": "Titelleisten anzeigen",
+  "settings.linux.off": "Titelleisten ausblenden",
+  "settings.linux.decorationsHint": "Automatisch blendet Titelleisten unter Hyprland aus. Änderungen gelten für offene Fenster.",
+  "settings.linux.shortcutsHint": "Globale Tastenkürzel sind in dieser Wayland-Sitzung nicht verfügbar. Fügen Sie diese Bindings zur Hyprland-Konfiguration hinzu und ersetzen Sie die Plugin- und Fenster-IDs.",
+  "settings.linux.bindings": "Hyprland-Tastenkürzel",
+  "settings.linux.copy": "Konfiguration kopieren",
+
   "guest.editedResult": "Bearbeitetes Ergebnis",
   "guest.recoveredDraft": "Aktualisierung konnte nicht geladen werden; Entwurf erhalten",
   "guest.inputPending": "Eingabe oder Anmerkung abschließen und erneut versuchen.",

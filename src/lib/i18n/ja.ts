@@ -3,6 +3,16 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  "settings.linux.title": "Linux デスクトップ",
+  "settings.linux.decorations": "Linux ウィンドウ装飾",
+  "settings.linux.auto": "自動",
+  "settings.linux.on": "タイトルバーを表示",
+  "settings.linux.off": "タイトルバーを非表示",
+  "settings.linux.decorationsHint": "自動では Hyprland のタイトルバーを非表示にします。変更は開いているウィンドウに適用されます。",
+  "settings.linux.shortcutsHint": "この Wayland セッションではグローバルショートカットを使用できません。Hyprland 設定に追加し、プラグイン ID とウィンドウ ID を置き換えてください。",
+  "settings.linux.bindings": "Hyprland キーバインド",
+  "settings.linux.copy": "設定をコピー",
+
   "guest.editedResult": "編集結果",
   "guest.recoveredDraft": "更新を読み込めませんでした。元の入力を保持しています",
   "guest.inputPending": "入力または注釈の編集を完了してから再試行してください。",

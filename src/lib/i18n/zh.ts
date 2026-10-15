@@ -3,6 +3,16 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  "settings.linux.title": "Linux 桌面",
+  "settings.linux.decorations": "Linux 窗口装饰",
+  "settings.linux.auto": "自动",
+  "settings.linux.on": "显示标题栏",
+  "settings.linux.off": "隐藏标题栏",
+  "settings.linux.decorationsHint": "自动模式在 Hyprland 下隐藏标题栏。修改立即应用于已打开窗口。",
+  "settings.linux.shortcutsHint": "当前 Wayland 会话不支持全局快捷键。将以下绑定添加到 Hyprland 配置，并将插件标识替换为已安装插件及其窗口。",
+  "settings.linux.bindings": "Hyprland 快捷键配置",
+  "settings.linux.copy": "复制配置",
+
   "guest.editedResult": "手改结果",
   "guest.recoveredDraft": "更新未能载入，已保留原稿",
   "guest.inputPending": "请先完成输入或批注编辑，再重试更新。",

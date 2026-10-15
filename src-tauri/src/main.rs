@@ -10,6 +10,8 @@ fn main() -> ExitCode {
             return notemd_lib::cli::run_cli(argv);
         }
     }
+    #[cfg(target_os = "linux")]
+    notemd_lib::linux_env::apply();
     notemd_lib::run();
     ExitCode::from(0)
 }

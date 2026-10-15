@@ -1,8 +1,9 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
+  import { writeText } from '@tauri-apps/plugin-clipboard-manager'
   import { onMount } from 'svelte'
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
-  import { settings, saveSettings as persistSettings, getPluginScopedAll, setPluginScopedValue, pluginScopedVersion } from '../lib/settings.svelte'
+  import { settings, loadLinuxWindowDecorations, saveSettings as persistSettings, getPluginScopedAll, setPluginScopedValue, pluginScopedVersion } from '../lib/settings.svelte'
   import { modalFocus } from '../lib/ui/modal-focus'
   import { i18n, setLocale, availableLocales, t, type Locale } from '../lib/i18n/store.svelte'
   import type { Messages } from '../lib/i18n/en'
@@ -12,7 +13,7 @@
     downloadAndInstall as updaterDownloadAndInstall, restartApp as updaterRestart,
     hasUpdateForSettings,
   } from '../lib/updater.svelte'
-  import { desktopCapabilities, loadDesktopCapabilities } from '../lib/desktop-capabilities.svelte'
+  import { desktopCapabilities, loadDesktopCapabilities, setLinuxWindowDecorations } from '../lib/desktop-capabilities.svelte'
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
   import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
   import ThemeImportDialog from './ThemeImportDialog.svelte'
@@ -52,9 +53,16 @@
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
+  let isLinuxPlatform = $state(false)
+  let linuxPolicyError = $state<string | null>(null)
+  let linuxPolicyBusy = $state(false)
+  const hyprlandBindings = "bind = SUPER CTRL, M, exec, notemd --gui --action smart-search\nbind = SUPER CTRL, P, exec, notemd --gui --action plugin:PLUGIN_ID:WINDOW_ID"
   let isIOSPlatform = $state(false)
   $effect(() => {
-    platform().then((p) => { isIOSPlatform = p === 'ios' })
+    platform().then((p) => {
+      isIOSPlatform = p === 'ios'
+      isLinuxPlatform = p === 'linux'
+    })
   })
 
   let pluginTabs = $state<SettingsTab[]>([])
@@ -95,6 +103,29 @@
       return false
     } finally { settingsSaveBusy-- }
   }
+  async function changeLinuxDecorations(event: Event) {
+    const raw = (event.currentTarget as HTMLSelectElement).value
+    const value = raw === 'auto' ? null : raw === 'on'
+    linuxPolicyBusy = true
+    try {
+      await setLinuxWindowDecorations(value)
+      settings.linuxWindowDecorations = value
+      linuxPolicyError = null
+    } catch (error) { linuxPolicyError = String(error) }
+    finally { linuxPolicyBusy = false }
+  }
+  async function copyHyprlandBindings() {
+    try { await writeText(hyprlandBindings); linuxPolicyError = null }
+    catch (error) { linuxPolicyError = String(error) }
+  }
+  $effect(() => {
+    if (open && isLinuxPlatform) {
+      linuxPolicyBusy = true
+      loadLinuxWindowDecorations().catch((error) => { linuxPolicyError = String(error) })
+        .finally(() => { linuxPolicyBusy = false })
+    }
+  })
+
   async function onLocaleChange(locale: Locale): Promise<void> {
     settingsSaveBusy++
     try { await setLocale(locale); localeSaveError = null }
@@ -103,7 +134,7 @@
   }
 
   function canClose(): boolean {
-    return !importReport && !importBusy && !fontBusy && !busy && !cliBusy && !gitProxyBusy
+    return !linuxPolicyBusy && !importReport && !importBusy && !fontBusy && !busy && !cliBusy && !gitProxyBusy
       && !syncDirBusy && !thresholdBusy && !searchExcludeDirsBusy && !searchThresholdBusy
       && !globSaveBusy && !weightsBusy && !vaultBusy && settingsSaveBusy === 0
   }
@@ -1238,6 +1269,27 @@
             </p>
           {/if}
         </section>
+
+        {#if isLinuxPlatform}
+          <section class="block">
+            <h3>{t('settings.linux.title')}</h3>
+            <label class="row">
+              <span class="lbl">{t('settings.linux.decorations')}</span>
+              <select aria-label={t('settings.linux.decorations')} value={settings.linuxWindowDecorations === null ? 'auto' : settings.linuxWindowDecorations ? 'on' : 'off'} onchange={changeLinuxDecorations} disabled={linuxPolicyBusy}>
+                <option value="auto">{t('settings.linux.auto')}</option>
+                <option value="on">{t('settings.linux.on')}</option>
+                <option value="off">{t('settings.linux.off')}</option>
+              </select>
+            </label>
+            <p class="desc">{t('settings.linux.decorationsHint')}</p>
+            {#if desktopCapabilities.value && !desktopCapabilities.value.globalShortcuts}
+              <p class="desc">{t('settings.linux.shortcutsHint')}</p>
+              <textarea readonly rows="4" aria-label={t('settings.linux.bindings')}>{hyprlandBindings}</textarea>
+              <button onclick={copyHyprlandBindings}>{t('settings.linux.copy')}</button>
+            {/if}
+            {#if linuxPolicyError}<p class="desc" role="alert">{linuxPolicyError}</p>{/if}
+          </section>
+        {/if}
 
         <section class="block">
           <h3>{t('vaultSync.title')}</h3>

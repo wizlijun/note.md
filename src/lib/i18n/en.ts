@@ -8,6 +8,16 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  "settings.linux.title": "Linux desktop",
+  "settings.linux.decorations": "Linux window decorations",
+  "settings.linux.auto": "Automatic",
+  "settings.linux.on": "Show title bars",
+  "settings.linux.off": "Hide title bars",
+  "settings.linux.decorationsHint": "Automatic hides title bars under Hyprland. Changes apply to open windows.",
+  "settings.linux.shortcutsHint": "Global shortcuts are unavailable in this Wayland session. Add these bindings to your Hyprland config; replace the plugin identifiers with an installed plugin window.",
+  "settings.linux.bindings": "Hyprland bindings",
+  "settings.linux.copy": "Copy bindings",
+
   "guest.editedResult": "Edited result",
   "guest.recoveredDraft": "Update could not be loaded; preserved draft",
   "guest.inputPending": "Finish typing or editing the annotation, then retry.",

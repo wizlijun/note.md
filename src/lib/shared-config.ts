@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export interface SharedConfig {
   version: number;
+  linuxWindowDecorations?: boolean | null;
   sotvault: string | null;
   rawvault: string | null;
   calibre_path: string | null;

@@ -85,7 +85,7 @@ pub fn open_preview_tab(
         .inner_size(760.0, 680.0)
         .min_inner_size(420.0, 320.0)
         .resizable(true)
-        .decorations(true)
+        .decorations(crate::platform::window_decorations())
         .visible(false)
         .build()
         .map_err(|e| format!("preview window build: {e}"))?;

@@ -52,6 +52,7 @@ export interface ThemeSettings {
 const DEFAULT_THEME: ThemeSettings = { light: 'default', dark: 'default', followSystem: true }
 
 export const settings = $state<{
+  linuxWindowDecorations: boolean | null
   autoSave: boolean
   toastAutoClose: boolean
   theme: ThemeSettings
@@ -60,6 +61,7 @@ export const settings = $state<{
   mcpServer: { enabled: boolean }
   smartLookup: SmartLookupSettings
 }>({
+  linuxWindowDecorations: null,
   autoSave: false,
   toastAutoClose: false,
   theme: { ...DEFAULT_THEME },
@@ -434,4 +436,11 @@ export function applyPluginScopedExternalValue(pluginId: string, key: string, va
   if (!pluginScoped[pluginId]) pluginScoped[pluginId] = {}
   pluginScoped[pluginId][key] = value
   pluginScopedVersion.value++
+}
+
+/** Machine-local source of truth also read by native window builders before GUI startup. */
+export async function loadLinuxWindowDecorations(): Promise<void> {
+  const { readSharedConfig } = await import('./shared-config')
+  const config = await readSharedConfig()
+  settings.linuxWindowDecorations = typeof config.linuxWindowDecorations === 'boolean' ? config.linuxWindowDecorations : null
 }

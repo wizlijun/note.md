@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Linux desktop launch and window controls.** Wayland sessions can launch smart search or plugin windows through Hyprland bindings shown in Settings. Linux GUI startup accepts allowlisted environment overrides, and window title bars follow Hyprland defaults with a saved override.
+
 ## v6.1015.1 — 2026-10-15
 
 - **Choose whether single-file shares use your current theme.** The Share settings checkbox is on by default; turn it off to use the built-in default theme. `notemd share file.md --no-theme` uses the default theme for that command without changing your preference.

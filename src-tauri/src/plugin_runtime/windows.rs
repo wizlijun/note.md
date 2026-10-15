@@ -358,7 +358,7 @@ pub fn open_plugin_window<R: Runtime>(
         .title(title)
         .inner_size(win.width, win.height)
         .resizable(true)
-        .decorations(true)
+        .decorations(crate::platform::window_decorations())
         // macOS normally spends the first click only activating an inactive
         // window. Plugin controls must respond on that click, like native
         // utility windows and inspectors do.

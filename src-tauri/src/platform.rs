@@ -45,9 +45,26 @@ fn capabilities_for_platform(os: &str, channel: Option<&str>) -> DesktopCapabili
 
 #[tauri::command]
 pub fn desktop_capabilities() -> DesktopCapabilities {
-    capabilities_for_platform(std::env::consts::OS, option_env!("NOTEMD_DIST_CHANNEL"))
+    let mut capabilities = capabilities_for_platform(std::env::consts::OS, option_env!("NOTEMD_DIST_CHANNEL"));
+    capabilities.global_shortcuts = global_shortcuts_supported();
+    capabilities.window_decorations = window_decorations();
+    capabilities
 }
 
+
+pub fn global_shortcuts_supported() -> bool {
+    crate::desktop_policy::supports_global_shortcuts(std::env::consts::OS,
+        std::env::var_os("WAYLAND_DISPLAY").as_ref().map(|_| ""), std::env::var("GDK_BACKEND").ok().as_deref())
+}
+
+pub fn window_decorations() -> bool {
+    let override_value = if cfg!(target_os = "linux") {
+        crate::shared_config::config_path().ok().and_then(|path| crate::shared_config::read(&path).ok())
+            .and_then(|cfg| cfg.linux_window_decorations)
+    } else { None };
+    crate::desktop_policy::window_decorations(std::env::consts::OS,
+        std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").as_ref().map(|_| ""), override_value)
+}
 
 /// `CREATE_NO_WINDOW` (winbase.h). Suppresses the console window that a GUI
 /// parent would otherwise pop for a console child.
