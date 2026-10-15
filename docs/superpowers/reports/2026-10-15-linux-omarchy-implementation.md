@@ -7,9 +7,10 @@ The implementation sequence on `main` starts at `ec0cd76b` and includes:
 `90d97900` + `cb5b6e2d` (Wayland/config/window behavior), `640778d3`
 (market/font compatibility), and `5195fc42` (draft release gates).
 Task 6 documents these changes, prepares an unsubmitted downstream recipe and
-updates website source/generated content. Its exact commit and subsequent
-review/fix commits will be recorded in the controller's final source ledger;
-this report is part of that documentation commit, not a frozen release tag.
+updates website source/generated content in `3d6d6ce9`. Final product fixes
+are committed in `d3d3484e`; subsequent `3bf6a947` and this report update change
+only evidence documentation. Final package source is exactly `d3d3484e`, not
+the later documentation HEAD. No frozen public release tag is claimed.
 
 No version bump, push, release publication or upstream PR was performed.
 The seven original untracked paths were preserved. The only pre-existing
@@ -17,10 +18,11 @@ tracked diff included by explicit controller authorization is the two-line
 plan diff describing the Windows draft gate.
 
 Durable evidence destination is `tasks/linux-omarchy-evidence/2026-10-15/`.
-The controller archived completed stage logs/reports/review diffs and the older
-Task 4 arm64 package there; SDD inputs remain available. Final architecture
-packages and the final scoped review are still pending. Log names below refer
-to that destination; missing/unarchived logs are not passing proof.
+The controller archived completed stage logs/reports/review diffs, older stage
+packages, and both final product packages with source-bound validation metadata
+there; SDD inputs remain available. Both final builds, package verifiers and the
+AMD64 Arch runtime check passed. The final scoped review is still pending. Log
+names below refer to that destination; missing/unarchived logs are not passing proof.
 
 ## Task 6 verification
 
@@ -102,9 +104,9 @@ Arch verifier retained PGP/dependency checks while its pacman wrapper used
 older amd64 package, not the default old-Colima script. No diagnostic workaround
 was added to product or release configuration.
 
-A build of `640778d3` cannot prove the final reviewed commit or a future frozen
-release tag was built. The controller will append final-snapshot architecture
-results and the whole-change review disposition after the final fixes.
+A build of `640778d3` does not prove the final product commit or a future frozen
+release tag was built. Final product architecture results and whole-change
+review disposition are recorded separately below, with exact source association.
 
 ## Public availability, deviations and pending milestones
 
@@ -185,12 +187,64 @@ not pristine. The same prefix with `pnpm run build` ran once and exited 0
 (`final-fix-build.log`), including share merge purity, Vite production bundles,
 editor-kit and shared-editor resource/module/budget checks. Existing chunk-size
 warnings remain. Exact product commit: **`d3d3484e1fbc9d9bc6b1bf5e20077650972c5953`**,
-12 explicitly staged source/test/locale/docs/changelog paths. Final snapshot
-architecture builds, package hashes and scoped review remain controller work;
-no earlier package proves this fixwave. The seven original untracked paths are
-preserved; no .env read, sibling core/native change, push or publication.
+12 explicitly staged source/test/locale/docs/changelog paths. The final package
+source and architecture results are recorded below; no older package is used
+as proof of this fixwave. The final scoped review remains controller work.
+The seven original untracked paths are preserved; no .env read, sibling core/native change, push or publication.
 
 The controller has frozen product source `d3d3484e` with core `97fcc3e4`
 for both final architecture builds. This evidence-only documentation update
 does not change build product sources; its later docs HEAD is not the package
-source SHA. Both final build results remain pending at this checkpoint.
+source SHA. Both final builds and the final Arch runtime verifier have now
+completed successfully, as recorded below.
+
+## Frozen final product package evidence
+
+Both final architecture builds use the same committed archives:
+`mdeditor=d3d3484e1fbc9d9bc6b1bf5e20077650972c5953` and readonly
+`moraya-core=97fcc3e41f1791c763effe9de880cf4302feea32`
+(`final-build-source.txt`). No subsequent evidence documentation commit changes
+these package inputs. These are local unpublished Debian packages; version
+`6.1015.1` alone does not identify a Linux public release.
+
+| Frozen product check | Observed result | Evidence boundary |
+| --- | --- | --- |
+| arm64 Debian 12 build | exit 0, OOM false; Rust 2m37 / container 4m38 | Cached build, not cold or desktop GUI |
+| arm64 actual deb | `note.md_6.1015.1_arm64.deb`, SHA256 `4203496013bbee3ae130be68b3efb0bc9f9749380c6407787d078b44bc248f18` | Exact frozen source `d3d3484e` / core `97fcc3e4` |
+| arm64 verifier/native Debian CLI | exit 0; ELF/layout/max GLIBC 2.35; exact `notemd 6.1015.1 (plugin API v1)` | Native container CLI, not native desktop/Omarchy UI |
+| amd64 Debian 12 build | exit 0, OOM false; Rust 14m10 / container 18m33 | Cached/QEMU build, not cold |
+| amd64 actual deb | `note.md_6.1015.1_amd64.deb`, SHA256 `6bd1e4bac77e329a9eee554ff96f04de90056a218623a0f63d92dacdd272944c` | Exact frozen source `d3d3484e` / core `97fcc3e4` |
+| amd64 independent Debian static verifier | exit 0; ELF/layout/max GLIBC 2.35 | `final-amd64-static-verifier.log`; not Arch or desktop GUI |
+| amd64 final Arch runtime verifier | exit 0; `ldd -r` resolves without missing/undefined symbols; exact CLI `notemd 6.1015.1 (plugin API v1)` | Arch GLIBC 2.44 / WebKit 2.54.1; headless runtime, not GUI |
+
+Final logs/metadata: `final-build-source.txt`, `final-arm64-build.log`,
+`final-arm64-verifier.log`, `final-arm64-validation.json`,
+`final-amd64-build.log`, `final-amd64-static-verifier.log`,
+`final-amd64-arch-runtime.log`, `final-amd64-validation.json`,
+`final-arch-runtime-versions.log`. The final Arch environment also reports GTK
+3.24.52, libayatana-appindicator 0.6.1, dpkg 1.23.11 and binutils 2.47.
+Both actual packages, their generated `SHA256SUMS-linux.txt` and combined
+`validation.json` are archived under
+`tasks/linux-omarchy-evidence/2026-10-15/final-packages/`. The combined metadata
+binds both packages to the exact frozen source/core and records
+`unpublished: true`. Both archive files were read and their actual SHA256 bytes
+independently matched the checksum file, validation metadata and this report.
+The verifier source SHA256 for both architectures is
+`9bcc4ae7dd99928b8c0c979d05bd9a35934ef4d1dde10b9a582cbbad1e7debff`.
+
+The AMD64 build used the process-local existing-QEMU Node wrapper. Its isolated
+Arch pacman wrapper used `--disable-sandbox-syscalls --disable-download-timeout`
+while retaining PGP/dependency checks. This is explicit local compatibility
+execution, not proof that the unmodified default release script passes on the
+older Colima/QEMU environment. No workaround changed product/release sources.
+`final-fix-doc-verification.log` records source/metadata/archive hash and
+report-only diff validation; no product tests were repeated for documentation.
+The unique scoped re-review is scheduled after this evidence documentation
+commit; this report does not claim that re-review is complete or clean.
+
+L4 actual Omarchy/Hyprland/fcitx5/tray/HiDPI/xdg and native aarch64 desktop UI,
+L5 actual three-platform prerelease/Windows-host gh roundtrip, and L6 downstream
+CI/upstream PR remain pending. Diagnostic old-Colima QEMU/pacman execution does
+not prove an unmodified default release script on that environment. There are
+no published Linux assets, no Windows live rehearsal, and no release/PR
+mutation in this work.
