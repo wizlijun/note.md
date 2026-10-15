@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1015.1 — 2026-10-15
+
 - **Choose whether single-file shares use your current theme.** The Share settings checkbox is on by default; turn it off to use the built-in default theme. `notemd share file.md --no-theme` uses the default theme for that command without changing your preference.
 
 ## v6.1014.3 — 2026-10-14
