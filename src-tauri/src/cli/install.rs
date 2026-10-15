@@ -10,6 +10,7 @@
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 const LINK_NAME: &str = "notemd";
@@ -42,10 +43,12 @@ pub fn candidate_dirs() -> Vec<PathBuf> {
 
 /// POSIX-escape a string so it can be embedded inside a single-quoted shell
 /// argument. Replaces `'` with `'\''` (close-quote, escaped quote, open-quote).
+#[cfg(target_os = "macos")]
 fn sh_single_quote_escape(s: &str) -> String {
     s.replace('\'', "'\\''")
 }
 
+#[cfg(target_os = "macos")]
 fn assert_candidate(dir: &str) -> Result<(), String> {
     let candidates = candidate_dirs();
     let path = std::path::Path::new(dir);
@@ -58,21 +61,23 @@ fn assert_candidate(dir: &str) -> Result<(), String> {
     }
 }
 
-/// Create the `notemd` launcher link. Split by platform the same way
-/// `agents_sync::make_symlink` is: unix gets a real symlink, everything else
-/// reports the capability as missing rather than failing to compile.
-#[cfg(unix)]
+/// The desktop package owns the executable on other platforms.
+#[cfg(target_os = "macos")]
 fn make_link(target: &Path, link: &Path) -> Result<(), String> {
     std::os::unix::fs::symlink(target, link).map_err(|e| e.to_string())
 }
 
-/// Windows has no unprivileged symlink; the plan is a PATH shim written by the
-/// NSIS installer instead (see docs/2026-08-08-pc-port-refactor-plan.md §5.1).
-#[cfg(not(unix))]
-fn make_link(_target: &Path, _link: &Path) -> Result<(), String> {
-    Err("CLI symlink install is not supported on this platform".to_string())
+#[cfg(not(target_os = "macos"))]
+pub fn install(_dir: &Path) -> Result<bool, String> {
+    Err("CLI install is not supported on this platform".to_string())
 }
 
+#[cfg(not(target_os = "macos"))]
+pub fn uninstall(_dir: &Path) -> Result<(), String> {
+    Err("CLI uninstall is not supported on this platform".to_string())
+}
+
+#[cfg(target_os = "macos")]
 pub fn install(dir: &Path) -> Result<bool, String> {
     let target = current_app_binary();
     if !target.exists() {
@@ -120,6 +125,7 @@ pub fn install(dir: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
+#[cfg(target_os = "macos")]
 pub fn uninstall(dir: &Path) -> Result<(), String> {
     let links: Vec<PathBuf> = [LINK_NAME, LEGACY_LINK_NAME]
         .iter()
@@ -192,12 +198,14 @@ pub fn cli_install_status() -> InstallStatus {
 
 #[tauri::command]
 pub fn cli_install(dir: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
     assert_candidate(&dir)?;
     install(Path::new(&dir)).map(|_| ())
 }
 
 #[tauri::command]
 pub fn cli_uninstall(dir: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
     assert_candidate(&dir)?;
     uninstall(Path::new(&dir))
 }
@@ -207,12 +215,9 @@ pub fn cli_install_candidates() -> Vec<String> {
     candidate_dirs().into_iter().map(|p| p.display().to_string()).collect()
 }
 
-// The suite below exercises the unix install path end to end: real symlinks,
-// `/usr/local/bin`-shaped candidate dirs, and `sh` quoting for the osascript
-// elevation script. None of that has a Windows counterpart — `install()`
-// reports the capability as missing there (see `make_link`) — so the module is
-// unix-gated rather than contorted, and Windows gets its own assertion below.
-#[cfg(all(test, unix))]
+// macOS retains real symlink installation and AppleScript quoting coverage.
+// Other platforms exercise the unsupported capability without path changes.
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
     use crate::platform::test_symlink as unix_symlink;
@@ -307,27 +312,44 @@ mod tests {
     }
 }
 
-#[cfg(all(test, windows))]
-mod windows_tests {
+#[cfg(all(test, not(target_os = "macos")))]
+mod unsupported_tests {
     use super::*;
 
-    /// Windows has no unprivileged symlink, so CLI install must fail loudly
-    /// rather than half-succeed. The NSIS installer writes a PATH shim instead
-    /// (docs/2026-08-08-pc-port-refactor-plan.md §5.1), and the settings UI is
-    /// expected to hide the affordance.
     #[test]
-    fn install_reports_unsupported() {
+    fn install_and_uninstall_are_unsupported_without_creating_paths() {
         let dir = std::env::temp_dir().join(format!(
-            "notemd-install-win-{}-{}",
+            "notemd-unsupported-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        assert!(!dir.exists());
+        assert!(install(&dir).unwrap_err().contains("not supported"));
+        assert!(uninstall(&dir).unwrap_err().contains("not supported"));
+        assert!(!dir.exists());
+        assert!(cli_install(dir.display().to_string()).unwrap_err().contains("not supported"));
+        assert!(cli_uninstall(dir.display().to_string()).unwrap_err().contains("not supported"));
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn unsupported_operations_preserve_existing_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "notemd-unsupported-existing-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
         ));
         std::fs::create_dir_all(&dir).unwrap();
-        let err = install(&dir).unwrap_err();
-        assert!(err.contains("not supported"), "{err}");
-        let _ = std::fs::remove_dir_all(&dir);
+        for name in ["notemd", "mdedit"] {
+            std::fs::write(dir.join(name), b"preserve me").unwrap();
+        }
+        let installed = install(&dir);
+        let uninstalled = uninstall(&dir);
+        let contents: Vec<_> = ["notemd", "mdedit"].iter()
+            .map(|name| std::fs::read(dir.join(name))).collect();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(installed.unwrap_err().contains("not supported"));
+        assert!(uninstalled.unwrap_err().contains("not supported"));
+        for content in contents { assert_eq!(content.unwrap(), b"preserve me"); }
     }
 }

@@ -79,7 +79,12 @@ pub fn is_cli_mode(argv: &[String]) -> bool {
     // marker it passes has to win over every heuristic below, or a `notemd`
     // that lives outside a bundle would relaunch itself forever.
     if argv.iter().any(|a| a == open::GUI_FLAG) { return false; }
+    // Explicit CLI requests beat URL detection; only --gui overrides --cli.
     if argv.iter().any(|a| a == "--cli") { return true; }
+    // Desktop scheme handlers may invoke /usr/bin/notemd without --gui.
+    if argv.iter().skip(1).any(|a| a.get(..7).is_some_and(|s| s.eq_ignore_ascii_case("notemd:"))) {
+        return false;
+    }
     if let Some(arg0) = argv.first() {
         // `cargo run` (tauri dev) launches with a *relative* arg0
         // (`target/debug/notemd`), so match "target/" without a leading
@@ -240,6 +245,33 @@ mod tests {
             "notemd".to_string(),
             "--cli".to_string(),
             "--gui".to_string(),
+        ]));
+    }
+
+    #[test]
+    fn linux_launcher_selects_gui_but_bare_binary_remains_cli() {
+        assert!(!is_cli_mode(&vec!["/usr/bin/notemd".into(), "--gui".into()]));
+        assert!(is_cli_mode(&vec!["/usr/bin/notemd".into()]));
+    }
+
+    #[test]
+    fn desktop_deep_links_select_gui() {
+        assert!(!is_cli_mode(&vec![
+            "/usr/bin/notemd".into(), "notemd://share/open?x=y".into(),
+        ]));
+        assert!(!is_cli_mode(&vec![
+            "/usr/bin/notemd".into(), "NOTEMD://share/open?x=y".into(),
+        ]));
+    }
+
+    #[test]
+    fn explicit_cli_beats_deep_link_except_when_gui_is_explicit() {
+        assert!(is_cli_mode(&vec![
+            "/usr/bin/notemd".into(), "--cli".into(), "notemd://share/open?x=y".into(),
+        ]));
+        assert!(!is_cli_mode(&vec![
+            "/usr/bin/notemd".into(), "--cli".into(), "--gui".into(),
+            "notemd://share/open?x=y".into(),
         ]));
     }
 
