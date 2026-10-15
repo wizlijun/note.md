@@ -6,15 +6,15 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { validateRelease } from './release-publish-core.mjs'
 
-const tag = 'v6.1015.1', version = '6.1015.1'
+const tag = 'v6.1015.2', version = '6.1015.2'
 const base = `https://github.com/wizlijun/note.md/releases/download/${tag}/`
 const sha = (bytes: string) => createHash('sha256').update(bytes).digest('hex')
 function fixture() {
-  const names = ['note.md-6.1015.1-aarch64.dmg', 'note.md-6.1015.1-x86_64.dmg',
+  const names = ['note.md-6.1015.2-aarch64.dmg', 'note.md-6.1015.2-x86_64.dmg',
     'note.md-aarch64.app.tar.gz', 'note.md-aarch64.app.tar.gz.sig',
     'note.md-x86_64.app.tar.gz', 'note.md-x86_64.app.tar.gz.sig',
-    'note.md_6.1015.1_x64-setup.exe', 'note.md_6.1015.1_x64-setup.exe.sig',
-    'note.md_6.1015.1_amd64.deb', 'note.md_6.1015.1_arm64.deb', 'SHA256SUMS-linux.txt', 'latest.json']
+    'note.md_6.1015.2_x64-setup.exe', 'note.md_6.1015.2_x64-setup.exe.sig',
+    'note.md_6.1015.2_amd64.deb', 'note.md_6.1015.2_arm64.deb', 'SHA256SUMS-linux.txt', 'latest.json']
   const platforms = {
     'darwin-aarch64': { url: base + names[2], signature: 'signed-arm' },
     'darwin-x86_64': { url: base + names[4], signature: 'signed-intel' },
@@ -28,7 +28,7 @@ function fixture() {
   const latest: { version: string; platforms: Record<string, { url: string; signature: string }> } = { version, platforms }
   contents['latest.json'] = JSON.stringify(latest)
   const assets = names.map(name => ({ name, url: base + name, content: contents[name], sha256: sha(contents[name] || '') }))
-  return { tag, draft: true, assets, latest, contents }
+  return { tag, draft: true, url: `https://github.com/wizlijun/note.md/releases/tag/${tag}`, assets, latest, contents }
 }
 
 describe('draft publication gate', () => {
@@ -90,17 +90,27 @@ describe('draft publication gate', () => {
   })
 })
 
+// The URL shape is captured from the real v6.1015.2 draft gh response.
+const draftSlug = 'untagged-a2fb6bea037b48551500'
+const draftBase = `https://github.com/wizlijun/note.md/releases/download/${draftSlug}/`
+function draftFixture() {
+  const input = fixture()
+  input.url = `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}`
+  input.assets.forEach(asset => { asset.url = draftBase + asset.name })
+  return input
+}
+
 const roots: string[] = []
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })))
 function harness(input = fixture(), prerelease = false, recheck = '') {
   const root = mkdtempSync(join(tmpdir(), 'notemd-publish-')); roots.push(root)
-  writeFileSync(join(root, 'release.json'), JSON.stringify({ tagName: tag, isDraft: input.draft, isPrerelease: prerelease, assets: input.assets }))
+  writeFileSync(join(root, 'release.json'), JSON.stringify({ tagName: tag, isDraft: input.draft, isPrerelease: prerelease, url: input.url, assets: input.assets }))
   writeFileSync(join(root, 'contents.json'), JSON.stringify({ ...input.contents, 'latest.json': JSON.stringify(input.latest) }))
   const log = join(root, 'calls.jsonl')
   writeFileSync(join(root, 'gh'), `#!/usr/bin/env node
 const fs=require('fs'),path=require('path'),args=process.argv.slice(2),root=${JSON.stringify(root)};
 fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(args)+'\\n');
-if(args.includes('view')) {const release=JSON.parse(fs.readFileSync(path.join(root,'release.json'))),second=fs.readFileSync(${JSON.stringify(log)},'utf8').split('\\n').filter(line=>line.includes('"view"')).length>1;if(second&&${JSON.stringify(recheck)}==='downloads')release.assets[0].downloadCount=7;if(second&&${JSON.stringify(recheck)}==='identity')release.assets[0].id='replacement';if(second&&${JSON.stringify(recheck)}==='published')release.isDraft=false;process.stdout.write(JSON.stringify(release));}
+if(args.includes('view')) {const release=JSON.parse(fs.readFileSync(path.join(root,'release.json'))),second=fs.readFileSync(${JSON.stringify(log)},'utf8').split('\\n').filter(line=>line.includes('"view"')).length>1;if(second&&${JSON.stringify(recheck)}==='downloads')release.assets[0].downloadCount=7;if(second&&${JSON.stringify(recheck)}==='identity')release.assets[0].id='replacement';if(second&&${JSON.stringify(recheck)}==='published')release.isDraft=false;if(second&&${JSON.stringify(recheck)}==='draft-url')release.url=release.url.replace('a2fb6bea037b48551500','bbbbbbbbbbbbbbbbbbbb');process.stdout.write(JSON.stringify(release));}
 else if(args.includes('download')) {const name=args[args.indexOf('--pattern')+1],dir=args[args.indexOf('--dir')+1];const data=JSON.parse(fs.readFileSync(path.join(root,'contents.json')));if(!(name in data)) process.exit(7);fs.writeFileSync(path.join(dir,name),data[name]);}
 else if(!args.includes('edit')) process.exit(8);
 `)
@@ -147,7 +157,7 @@ describe('publish command boundary (fake network CLI, real gate)', () => {
     expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
   })
   it.each(['yes', 'v6.1014.1 without windows', `${tag} without linux`, `${tag} without windows`])('requires exact tag/platform interactive confirmation: %s', answer => {
-    const input = fixture(); input.assets = input.assets.filter(a => !a.name.includes('setup.exe'))
+    const input = draftFixture(); input.assets = input.assets.filter(a => !a.name.includes('setup.exe'))
     delete input.latest.platforms['windows-x86_64']
     const h = harness(input)
     const result = spawnSync('python3', ['-c', `
@@ -177,4 +187,82 @@ sys.exit(child.returncode)
     expect(result.status === 0, result.stdout + result.stderr).toBe(accepted)
     expect(calls(h.log).some(c => c.includes('edit'))).toBe(accepted)
   }, 20_000)
+})
+
+
+describe('actual GitHub untagged draft URL boundary', () => {
+  it('validates captured draft asset URLs while using only the exact requested tag for gh calls', () => {
+    const h = harness(draftFixture()), result = h.run()
+    expect(result.status, result.stderr).toBe(0)
+    const issued = calls(h.log)
+    expect(issued.filter(c => c.includes('edit'))).toEqual([['-R', 'wizlijun/note.md', 'release', 'edit', tag, '--draft=false', '--latest']])
+    for (const call of issued) {
+      for (const action of ['view', 'download', 'edit']) {
+        const index = call.indexOf(action)
+        if (index >= 0) expect(call[index + 1]).toBe('v6.1015.2')
+      }
+    }
+    expect(issued.filter(c => c.includes('view')).every(c => c[c.indexOf('--json') + 1].split(',').includes('url'))).toBe(true)
+  })
+
+  it('accepts a mix of canonical final-tag and same-draft asset URLs', () => {
+    const input = draftFixture(); input.assets[0].url = base + input.assets[0].name
+    const h = harness(input), result = h.run()
+    expect(result.status, result.stderr).toBe(0)
+  })
+
+  it.each([
+    ['other draft', 'https://github.com/wizlijun/note.md/releases/download/untagged-bbbbbbbbbbbbbbbbbbbb/'],
+    ['other repository', 'https://github.com/wizlijun/other/releases/download/untagged-a2fb6bea037b48551500/'],
+    ['other owner', 'https://github.com/other/note.md/releases/download/untagged-a2fb6bea037b48551500/'],
+    ['old tag', 'https://github.com/wizlijun/note.md/releases/download/v6.1015.1/'],
+    ['other host', 'https://example.com/wizlijun/note.md/releases/download/untagged-a2fb6bea037b48551500/'],
+    ['HTTP', 'http://github.com/wizlijun/note.md/releases/download/untagged-a2fb6bea037b48551500/'],
+  ])('refuses an asset from %s before any download or mutation', (_, maliciousBase) => {
+    const input = draftFixture(); input.assets.find(a => a.name === 'latest.json')!.url = maliciousBase + 'latest.json'
+    const h = harness(input), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit') || c.includes('download'))).toBe(false)
+  })
+
+  it.each(['?download=1', '#fragment', '/extra-path'])('refuses asset URL suffix %s', suffix => {
+    const input = draftFixture(); input.assets.find(a => a.name === 'latest.json')!.url += suffix
+    const h = harness(input), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit') || c.includes('download'))).toBe(false)
+  })
+
+  it.each([
+    '',
+    `http://github.com/wizlijun/note.md/releases/tag/${draftSlug}`,
+    `https://example.com/wizlijun/note.md/releases/tag/${draftSlug}`,
+    `https://github.com/other/note.md/releases/tag/${draftSlug}`,
+    `https://github.com/wizlijun/other/releases/tag/${draftSlug}`,
+    `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}?query=1`,
+    `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}#fragment`,
+    `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}/extra`,
+    'https://github.com/wizlijun/note.md/releases/tag/v6.1015.1',
+    'https://github.com/wizlijun/note.md/releases/tag/not-a-draft-slug',
+    `https://github.com@evil.test/wizlijun/note.md/releases/tag/${draftSlug}`,
+  ])('rejects malformed or mismatched release HTML URL %s', url => {
+    // Canonical assets ensure this cannot pass just by rejecting draft URLs.
+    const input = fixture(); input.url = url
+    const h = harness(input), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit') || c.includes('download'))).toBe(false)
+  })
+
+  it('refuses draft-page identity changes before publication', () => {
+    const h = harness(draftFixture(), false, 'draft-url'), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain('release changed during validation')
+    expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
+  })
+
+  it('still rejects an updater manifest referencing the draft-only URL', () => {
+    const input = draftFixture(); input.latest.platforms['darwin-aarch64'].url = draftBase + 'note.md-aarch64.app.tar.gz'
+    const h = harness(input), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
+  })
 })

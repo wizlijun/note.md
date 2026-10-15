@@ -94,14 +94,28 @@ async function main(args) {
     if (result.error || result.status !== 0) fail(`gh ${argv[1]} failed: ${result.error?.message || result.stderr}`)
     return result.stdout
   }
-  const release = JSON.parse(gh(['release', 'view', tag, '--json', 'tagName,isDraft,isPrerelease,assets']))
+  const release = JSON.parse(gh(['release', 'view', tag, '--json', 'tagName,isDraft,isPrerelease,url,assets']))
   if (release.tagName !== tag || release.isDraft !== true || typeof release.isPrerelease !== 'boolean') fail('expected the exact existing draft tag and prerelease status')
+  // GitHub serves unpublished drafts under their own untagged-* slug even
+  // when tagName is already the final tag. Trust only this exact draft page.
+  const pageBase = `https://github.com/${repo}/releases/tag/`
+  if (typeof release.url !== 'string' || !release.url.startsWith(pageBase)) fail('invalid exact draft release URL')
+  const slug = release.url.slice(pageBase.length)
+  if (slug !== tag && !/^untagged-[a-f0-9]+$/.test(slug)) fail('invalid exact draft release URL')
+  const finalBase = `https://github.com/${repo}/releases/download/${tag}/`
+  const draftBase = `https://github.com/${repo}/releases/download/${slug}/`
+  const currentAsset = asset => {
+    if (!asset || typeof asset.name !== 'string' || !/^[\w.-]+$/.test(asset.name) ||
+        ![finalBase + asset.name, draftBase + asset.name].includes(asset.url)) fail(`missing/current-tag or same-draft asset: ${asset?.name}`)
+    return { ...asset, url: finalBase + asset.name }
+  }
   const root = mkdtempSync(join(tmpdir(), 'notemd-release-publish-'))
   try {
-    const assets = release.assets.map(asset => ({ ...asset }))
+    // Normalize only validated asset metadata. The updater manifest must still
+    // reference the final tag, and the raw release remains intact for recheck.
+    const assets = release.assets.map(currentAsset)
     const download = name => {
-      const asset = assets.find(a => a.name === name)
-      if (!asset || asset.url !== `https://github.com/${repo}/releases/download/${tag}/${name}`) fail(`missing/current-tag asset: ${name}`)
+      currentAsset(release.assets.find(a => a.name === name))
       gh(['release', 'download', tag, '--pattern', name, '--dir', root])
       return readFileSync(join(root, name))
     }
@@ -128,9 +142,9 @@ async function main(args) {
     }
     // Re-read immediately before mutation so another operator cannot publish the
     // draft while this process was downloading assets or waiting for confirmation.
-    const current = JSON.parse(gh(['release', 'view', tag, '--json', 'tagName,isDraft,isPrerelease,assets']))
+    const current = JSON.parse(gh(['release', 'view', tag, '--json', 'tagName,isDraft,isPrerelease,url,assets']))
     const identity = value => JSON.stringify({
-      tag: value.tagName, draft: value.isDraft, prerelease: value.isPrerelease,
+      tag: value.tagName, draft: value.isDraft, prerelease: value.isPrerelease, url: value.url,
       assets: value.assets.map(({ id, name, url, size, updatedAt, state }) =>
         ({ id, name, url, size, updatedAt, state })).sort((a, b) => a.name.localeCompare(b.name)),
     })
