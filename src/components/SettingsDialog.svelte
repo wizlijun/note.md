@@ -2161,7 +2161,7 @@
     line-height: 1.7;
     color: var(--ui-secondary);
   }
-  .ext-list li { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+  .ext-list li { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace; font-size: 12px; overflow-wrap: anywhere; }
   .ext-list li strong { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; }
   .actions { display: flex; justify-content: flex-end; align-items: center; gap: 16px; padding: 12px 22px; border-top: 1px solid var(--ui-separator); flex-shrink: 0; max-height: 35%; overflow: auto; }
   .save-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-right: auto; color: var(--ui-danger); font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
@@ -2302,7 +2302,7 @@
     flex: 1 1 160px;
   }
   .shortcut-input {
-    font-family: ui-monospace, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     font-size: 12px;
     padding: 4px 8px;
     min-width: 120px;

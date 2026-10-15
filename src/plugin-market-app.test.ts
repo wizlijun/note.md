@@ -31,6 +31,8 @@ vi.mock('./lib/toast.svelte', () => ({
 vi.mock('./lib/i18n/store.svelte', () => {
   const labels: Record<string, string> = {
     'pluginMarket.windowTitle': 'Plugin Market',
+    'pluginMarket.unavailablePlatform': 'Unavailable on this platform',
+    'pluginMarket.install': 'Install',
     'pluginMarket.subtitle': 'Browse plugins',
     'pluginMarket.hostVersion': 'note.md {version}',
     'pluginMarket.restartHint': 'Plugins reload automatically after installation or update. You don’t need to restart note.md.',
@@ -148,6 +150,7 @@ afterEach(async () => {
 describe('plugin market staged loading', () => {
   it('shows the current note.md version and automatic reload guidance below the subtitle', async () => {
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve([])
       if (command === 'plugin_market_index') return Promise.resolve({ plugins: [] })
       return Promise.resolve()
@@ -163,6 +166,7 @@ describe('plugin market staged loading', () => {
   it('uses a normal online request on startup and forces a fresh online request after clicking Refresh', async () => {
     let indexCalls = 0
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve([])
       if (command === 'plugin_market_index') {
         indexCalls += 1
@@ -193,6 +197,7 @@ describe('plugin market staged loading', () => {
     const local = deferred<InstalledV2[]>()
     const registry = deferred<RegistryIndex>()
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return local.promise
       if (command === 'plugin_market_index') return registry.promise
       return Promise.resolve()
@@ -225,6 +230,7 @@ describe('plugin market staged loading', () => {
   it('keeps authoritative installed plugins visible when the registry fails', async () => {
     const registry = deferred<RegistryIndex>()
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve([installed('Device Next', false)])
       if (command === 'plugin_market_index') return registry.promise
       return Promise.resolve()
@@ -252,6 +258,7 @@ describe('plugin market staged loading', () => {
     writeInstalledCache([cachedPlugin])
     const registry = deferred<RegistryIndex>()
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') {
         return Promise.resolve([{
           ...cachedPlugin,
@@ -291,6 +298,7 @@ describe('plugin market staged loading', () => {
       zh: { name: '溯源', description: '追溯文字的原始出处。' },
     }
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve([localPlugin])
       if (command === 'plugin_market_index') {
         return Promise.resolve({ plugins: [installedListing, availablePlugin] })
@@ -319,6 +327,7 @@ describe('plugin market staged loading', () => {
     const next = entry('notemd.next', 'Next')
     next.category = 'thinking'
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve([])
       if (command === 'plugin_market_index') {
         return Promise.resolve({ plugins: [next, ebook, memory, dictionary, codex, claude, deepseek] })
@@ -354,6 +363,7 @@ describe('plugin market staged loading', () => {
     const power = entry('notemd.power-mode', 'Power Mode')
     power.category = 'editing'
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve([])
       if (command === 'plugin_market_index') return Promise.resolve({ plugins: [roam, pdf, power] })
       return Promise.resolve()
@@ -371,6 +381,7 @@ describe('plugin market staged loading', () => {
     let localPlugins: InstalledV2[] = []
     const listing = entry('notemd.next', 'Next')
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve(localPlugins)
       if (command === 'plugin_market_index') return Promise.resolve({ plugins: [listing] })
       if (command === 'plugin_market_preview') return Promise.resolve({ ...listing, capabilities: [] })
@@ -398,6 +409,7 @@ describe('plugin market staged loading', () => {
     let localPlugins = [installed('Next')]
     const listing = entry('notemd.next', 'Next', '1.1.0')
     mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve(localPlugins)
       if (command === 'plugin_market_index') return Promise.resolve({ plugins: [listing] })
       if (command === 'plugin_market_preview') return Promise.resolve({ ...listing, capabilities: [] })
@@ -433,6 +445,7 @@ describe('plugin market staged loading', () => {
       ],
     }
     mocks.invoke.mockImplementation((command: string, args?: { id?: string; version?: string }) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve(localPlugins)
       if (command === 'plugin_market_index') return Promise.resolve(index)
       if (command === 'plugin_market_install') {
@@ -473,6 +486,7 @@ describe('plugin market staged loading', () => {
       ],
     }
     mocks.invoke.mockImplementation((command: string, args?: { id?: string }) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
       if (command === 'plugin_market_installed') return Promise.resolve(localPlugins)
       if (command === 'plugin_market_index') return Promise.resolve(index)
       if (command === 'plugin_market_install' && args?.id === 'notemd.next') {
@@ -496,5 +510,57 @@ describe('plugin market staged loading', () => {
       message: 'Updated 1; 1 failed · Open plugin windows were closed; reopen them to continue.',
       detail: expect.stringMatching(/Idea Spark[\s\S]*signature mismatch/),
     })))
+  })
+})
+
+describe('plugin market platform availability', () => {
+  it('keeps unsupported plugins visible and rejects even dispatched install clicks before preview', async () => {
+    const unsupported = { ...entry('vendor.macos', 'Mac Only'), archs: ['aarch64-apple-darwin'],
+      download: { 'aarch64-apple-darwin': 'https://plugins.notemd.net/mac.zip' },
+      sha256: { 'aarch64-apple-darwin': 'aa' } }
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
+      if (command === 'plugin_market_installed') return Promise.resolve([])
+      if (command === 'plugin_market_index') return Promise.resolve({ plugins: [unsupported, entry('vendor.ui', 'UI Only')] })
+      return Promise.resolve()
+    })
+    component = mount(PluginMarketApp, { target: document.body })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Mac Only'))
+    const blocked = document.querySelector<HTMLButtonElement>('[data-plugin-id="vendor.macos"] .available-footer button')!
+    expect(blocked.disabled).toBe(true)
+    expect(blocked.textContent).toBe('Unavailable on this platform')
+    // Dispatch bypasses the browser's disabled-button click suppression.
+    blocked.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(mocks.invoke.mock.calls.some(([c]) => c === 'plugin_market_preview' || c === 'plugin_market_install')).toBe(false)
+    const ui = document.querySelector<HTMLButtonElement>('[data-plugin-id="vendor.ui"] .available-footer button')!
+    expect(ui.disabled).toBe(false)
+  })
+
+  it.each(['pending', 'failure'])('offers no install or update while host platform is %s', async (state) => {
+    const triple = deferred<string>()
+    void triple.promise.catch(() => {}) // The absent command in RED has no consumer yet.
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return triple.promise
+      if (command === 'plugin_market_installed') return Promise.resolve([installed('Next')])
+      if (command === 'plugin_market_index') return Promise.resolve({ plugins: [entry('notemd.next', 'Next', '1.1.0'), entry('vendor.ui', 'UI Only')] })
+      return Promise.resolve()
+    })
+    component = mount(PluginMarketApp, { target: document.body })
+    if (state === 'failure') triple.reject(new Error('identity unavailable'))
+    await vi.waitFor(() => expect(document.body.textContent).toContain('UI Only'))
+    expect(document.querySelector('.update-action')).toBeNull()
+    expect(document.querySelector('.update-all')).toBeNull()
+    const button = document.querySelector<HTMLButtonElement>('.available-footer button')!
+    expect(button.disabled).toBe(true)
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mocks.invoke.mock.calls.some(([c]) => c === 'plugin_market_preview' || c === 'plugin_market_install')).toBe(false)
+    if (state === 'pending') {
+      triple.resolve('x86_64-unknown-linux-gnu')
+      await vi.waitFor(() => expect(button.disabled).toBe(false))
+      expect(document.querySelector('.update-action')?.textContent).toContain('1.1.0')
+    }
   })
 })

@@ -2,7 +2,7 @@
 
 /* Shared window chrome, not document typography. Plugins opt in via ui-surface. */
 :root {
-  --ui-font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --ui-font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Noto Sans CJK SC', sans-serif;
   --ui-bg: color-mix(in srgb, CanvasText 3%, Canvas);
   --ui-surface: Canvas;
   --ui-secondary: color-mix(in srgb, CanvasText 72%, Canvas);

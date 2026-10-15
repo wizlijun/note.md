@@ -334,6 +334,7 @@ export const en = {
   'pluginMarket.localStateError': 'Could not refresh installed plugins: {error}',
   'pluginMarket.noneInstalled': 'No plugins installed.',
   'pluginMarket.noneAvailable': 'No additional plugins available.',
+  'pluginMarket.unavailablePlatform': 'Unavailable on this platform',
   'pluginMarket.install': 'Install',
   'pluginMarket.installing': 'Installing…',
   'pluginMarket.uninstall': 'Uninstall',

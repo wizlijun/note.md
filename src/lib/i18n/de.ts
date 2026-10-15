@@ -327,6 +327,7 @@ export const de: Record<keyof Messages, string> = {
   'pluginMarket.localStateError': 'Installierte Plugins konnten nicht aktualisiert werden: {error}',
   'pluginMarket.noneInstalled': 'Keine Plugins installiert.',
   'pluginMarket.noneAvailable': 'Keine weiteren Plugins verfügbar.',
+  'pluginMarket.unavailablePlatform': 'Auf dieser Plattform nicht verfügbar',
   'pluginMarket.install': 'Installieren',
   'pluginMarket.installing': 'Wird installiert…',
   'pluginMarket.uninstall': 'Deinstallieren',

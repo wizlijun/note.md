@@ -1,7 +1,7 @@
 @import './ui-foundation.css';
 
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Noto Sans CJK SC', sans-serif;
   font-size: 14px;
   color-scheme: light dark;
   /* Outline left gutter, as a UNITLESS multiplier of the outline body font-size.

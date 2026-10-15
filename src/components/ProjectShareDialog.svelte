@@ -658,7 +658,7 @@
   summary { cursor: pointer; color: var(--ui-secondary); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
   .columns { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 12px 0; } .columns.two { grid-template-columns: repeat(2,minmax(0,1fr)); } .columns > div { min-width: 0; }
-  pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--ui-separator); border-radius: 6px; background: var(--ui-bg); font: 12px/1.6 ui-monospace, Menlo, monospace; max-height: 340px; overflow: auto; margin: 0 0 10px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--ui-separator); border-radius: 6px; background: var(--ui-bg); font: 12px/1.6 ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace; max-height: 340px; overflow: auto; margin: 0 0 10px; }
   .empty-state { display: flex; min-height: 100%; flex-direction: column; justify-content: center; align-items: center; text-align: center; box-sizing: border-box; gap: 12px; padding: 24px 0; }
   .empty-state svg { width: 48px; height: 48px; color: var(--ui-secondary); }
   .empty-state h3 { font-size: 16px; margin: 0; } .empty-state p { color: var(--ui-secondary); margin: 0; }

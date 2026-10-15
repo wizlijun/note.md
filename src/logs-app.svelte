@@ -127,7 +127,7 @@
      window follows light/dark like every other surface; accent colors use
      light-dark() pairs (the old values were dark-only VSCode hex codes). The
      monospace stack is intentional — this is a log stream viewer. */
-  .logs-root { display: flex; flex-direction: column; height: 100vh; background: Canvas; color: CanvasText; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .logs-root { display: flex; flex-direction: column; height: 100vh; background: Canvas; color: CanvasText; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace; font-size: 12px; }
   .bar { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: color-mix(in srgb, CanvasText 6%, Canvas); border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, transparent); flex-wrap: wrap; }
   .bar select, .bar input, .bar button { background: color-mix(in srgb, CanvasText 9%, Canvas); color: CanvasText; border: 1px solid color-mix(in srgb, CanvasText 22%, transparent); border-radius: 4px; padding: 2px 6px; font: inherit; }
   .search { flex: 1; min-width: 120px; }

@@ -13,13 +13,13 @@
 .project-review .submission-list button.selected { background: var(--ui-selection); }
 .project-review .hunk, .project-review .review-annotation { padding: 12px; border: 1px solid var(--ui-separator); border-radius: 6px; margin: 12px 0; min-width: 0; overflow-wrap: anywhere; }
 .project-review .hunk:focus { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
-.project-review pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, Menlo, monospace; padding: 10px; background: var(--ui-bg); border-radius: 4px; margin: 4px 0 12px; min-width: 0; }
+.project-review pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace; padding: 10px; background: var(--ui-bg); border-radius: 4px; margin: 4px 0 12px; min-width: 0; }
 .project-review .removed { border-left: 3px solid var(--ui-danger); }
 .project-review .added { border-left: 3px solid var(--ui-success); }
 .project-review .word-change { background: color-mix(in srgb, var(--ui-accent) 14%, transparent); }
 .project-review .conflict-columns { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 10px; }
 .project-review .conflict-columns > * { min-width: 0; }
-.project-review textarea { box-sizing: border-box; width: 100%; font-family: ui-monospace, Menlo, monospace; resize: vertical; margin-top: 8px; }
+.project-review textarea { box-sizing: border-box; width: 100%; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace; resize: vertical; margin-top: 8px; }
 .project-review blockquote { margin: 8px 0; border-left: 3px solid var(--ui-separator); padding-left: 12px; white-space: pre-wrap; }
 .project-review .review-annotation p { white-space: pre-wrap; }
 .project-review .rendered-preview { overflow-wrap: anywhere; }

@@ -240,7 +240,7 @@
 .moraya-editor .code-block-wrapper.mermaid-preview-mode { background: transparent; }
 .moraya-editor .code-block-pre,
 .moraya-editor pre {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
   font-size: 0.9em;
   line-height: 1.6;
   padding: 0 1em 0.7em;
@@ -293,7 +293,7 @@
 }
 .moraya-editor .frontmatter-summary-keys {
   margin-left: 0.8em;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
   font-size: 0.92em;
   opacity: 0.65;
 }
@@ -310,7 +310,7 @@
   display: grid;
   gap: 1px;
   font-size: 0.92em;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
 }
 .moraya-editor .frontmatter-properties .fm-property {
   display: grid;
@@ -615,7 +615,7 @@
 .moraya-editor .mermaid-error {
   color: #cf222e;
   font-size: 11px;
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
   padding: 6px 8px;
   background: rgba(207, 34, 46, 0.08);
   border-radius: 4px;

@@ -329,6 +329,7 @@ export const zh: Record<keyof Messages, string> = {
   'pluginMarket.localStateError': '无法刷新已安装插件：{error}',
   'pluginMarket.noneInstalled': '尚未安装任何插件。',
   'pluginMarket.noneAvailable': '没有更多可安装的插件。',
+  'pluginMarket.unavailablePlatform': '此平台不可用',
   'pluginMarket.install': '安装',
   'pluginMarket.installing': '安装中…',
   'pluginMarket.uninstall': '卸载',

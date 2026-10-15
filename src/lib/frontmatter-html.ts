@@ -169,7 +169,7 @@ export const FRONTMATTER_CSS = `
 .moraya-editor .frontmatter-summary-title { font-weight: 600; }
 .moraya-editor .frontmatter-summary-keys {
   margin-left: 0.8em;
-  font: 0.92em ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 0.92em ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
   opacity: 0.65;
 }
 .moraya-editor .frontmatter-details[open] > .frontmatter-summary {
@@ -182,7 +182,7 @@ export const FRONTMATTER_CSS = `
 .moraya-editor .frontmatter-properties {
   display: grid;
   gap: 1px;
-  font: 0.92em ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 0.92em ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
 }
 .moraya-editor .frontmatter-properties .fm-property {
   display: grid;

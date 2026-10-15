@@ -107,7 +107,7 @@
   cursor: pointer;
   padding: 1px 5px;
   border-radius: 3px;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
   font-size: 11px;
 }
 .moraya-editor .code-lang-label:hover {

@@ -165,7 +165,7 @@
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     font-size: 12px;
     line-height: 1.5;
   }
@@ -196,7 +196,7 @@
   }
   .error {
     color: tomato;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     font-size: 12px;
     white-space: pre-wrap;
     word-break: break-word;

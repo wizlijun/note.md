@@ -329,6 +329,7 @@ export const ja: Record<keyof Messages, string> = {
   'pluginMarket.localStateError': 'インストール済みプラグインを更新できませんでした：{error}',
   'pluginMarket.noneInstalled': 'インストール済みのプラグインはありません。',
   'pluginMarket.noneAvailable': 'これ以上利用可能なプラグインはありません。',
+  'pluginMarket.unavailablePlatform': 'このプラットフォームでは利用できません',
   'pluginMarket.install': 'インストール',
   'pluginMarket.installing': 'インストール中…',
   'pluginMarket.uninstall': 'アンインストール',

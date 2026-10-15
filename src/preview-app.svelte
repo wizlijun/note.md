@@ -91,7 +91,7 @@
     color: CanvasText;
     /* Same UI font stack as the main window (app.css) — without it the window
        chrome falls back to the WebKit default serif. */
-    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Noto Sans CJK SC', sans-serif;
     overflow: hidden;
   }
   .tabbar {

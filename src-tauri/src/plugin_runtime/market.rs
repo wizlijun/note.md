@@ -86,6 +86,15 @@ pub struct RegistryEntry {
     pub download: BTreeMap<String, String>,
 }
 
+/// Installer-authoritative host identity for marketplace platform selection.
+/// An unsupported host returns an empty triple so installation stays disabled.
+#[tauri::command]
+pub fn plugin_market_host_triple() -> String {
+    super::discovery::current_arch_triple()
+        .unwrap_or_default()
+        .to_owned()
+}
+
 /// Pure decode of an index JSON body. Kept separate from the network so the
 /// happy/invalid paths are unit-testable without a live registry.
 pub fn parse_index(bytes: &[u8]) -> Result<RegistryIndex, String> {

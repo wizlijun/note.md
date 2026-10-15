@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { minHostSatisfied, pickAvailable, pickUpdateTo } from './select'
+import { minHostSatisfied, pickAvailable, pickUpdateTo, platformSatisfied } from './select'
 import type { RegistryEntry } from './types'
 
 function entry(id: string, version: string, min_host: string, name = id): RegistryEntry {
@@ -89,5 +89,44 @@ describe('pickUpdateTo', () => {
     expect(pickUpdateTo(posLog, 'notemd.pos-log', '1.0.3', '6.717.0')).toBe(null)
     expect(pickUpdateTo(posLog, 'notemd.pos-log', '1.1.0', '6.722.1')).toBe(null)
     expect(pickUpdateTo(posLog, 'notemd.other', '0.1.0', '6.722.1')).toBe(null)
+  })
+})
+
+const linux = 'x86_64-unknown-linux-gnu'
+const mac = 'aarch64-apple-darwin'
+function platformEntry(version: string, arch: string): RegistryEntry {
+  return { ...entry('vendor.plugin', version, '>=6.0.0'), archs: [arch],
+    download: { [arch]: 'https://plugins.notemd.net/package' }, sha256: { [arch]: 'aa' } }
+}
+
+describe('platform-compatible selection', () => {
+  it('selects an older Linux package over the latest macOS-only package', () => {
+    const entries = [platformEntry('2.0.0', mac), platformEntry('1.0.0', linux)]
+    expect(pickAvailable(entries, new Set(), '6.1015.1', linux)[0].version).toBe('1.0.0')
+    expect(pickUpdateTo(entries, 'vendor.plugin', '0.9.0', '6.1015.1', linux)).toBe('1.0.0')
+    expect(pickUpdateTo(entries, 'vendor.plugin', '1.0.0', '6.1015.1', linux)).toBeNull()
+  })
+
+  it('keeps incompatible entries discoverable and universal UI packages installable regardless of id', () => {
+    const native = platformEntry('2.0.0', mac)
+    expect(pickAvailable([native], new Set(), '6.1015.1', linux)).toEqual([native])
+    expect(platformSatisfied(native, linux)).toBe(false)
+    expect(platformSatisfied(entry('vendor.native-sounding-name', '1.0.0', '*'), linux)).toBe(true)
+  })
+
+  it('requires advertised architecture and resolvable download plus hash metadata', () => {
+    const e = platformEntry('1.0.0', linux)
+    expect(platformSatisfied({ ...e, download: {} }, linux)).toBe(false)
+    expect(platformSatisfied({ ...e, sha256: {} }, linux)).toBe(false)
+    expect(platformSatisfied({ ...e, archs: [mac] }, linux)).toBe(false)
+    // Installer resolves download and hash independently, falling back to universal.
+    expect(platformSatisfied({ ...e, sha256: { universal: 'aa' } }, linux)).toBe(true)
+  })
+
+  it('fails closed for unknown platform while preserving callers that omit the optional triple', () => {
+    const entries = [platformEntry('2.0.0', mac)]
+    expect(platformSatisfied(entries[0], null)).toBe(false)
+    expect(pickUpdateTo(entries, 'vendor.plugin', '1.0.0', '6.1015.1', null)).toBeNull()
+    expect(pickUpdateTo(entries, 'vendor.plugin', '1.0.0', '6.1015.1')).toBe('2.0.0')
   })
 })

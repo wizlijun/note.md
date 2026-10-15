@@ -1495,7 +1495,7 @@
   .diag {
     flex-shrink: 0;
     padding: 4px 12px;
-    font-family: ui-monospace, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     font-size: 11px;
     background: color-mix(in srgb, CanvasText 8%, Canvas);
     color: GrayText;

@@ -41,7 +41,7 @@
     type InstalledV2,
     type InstalledRow,
   } from './lib/market/types'
-  import { pickAvailable, pickUpdateTo } from './lib/market/select'
+  import { pickAvailable, pickUpdateTo, platformSatisfied } from './lib/market/select'
   import { readInstalledCache, writeInstalledCache } from './lib/market/cache'
   import { localizedPluginDescription, localizedPluginName } from './lib/market/plugin-text'
   import {
@@ -81,6 +81,7 @@
   let installedState = $state<InstalledV2[]>([])
   let available = $state<RegistryEntry[]>([])
   let catalogEntries = $state<RegistryEntry[]>([])
+  let registryEntries = $state<RegistryEntry[]>([])
   let catalogReady = $state(false)
   let busy = $state<Record<string, boolean>>({})
   let batchUpdating = $state(false)
@@ -88,6 +89,8 @@
   let batchTotal = $state(0)
   // Running app version for min_host selection; null = unknown (fail open).
   let hostVersion = $state<string | null>(null)
+  // Unknown / failed platform identity never offers an installation.
+  let hostTriple = $state<string | null>(null)
   let refreshSequence = 0
   let catalogById = $derived(new Map(catalogEntries.map((entry) => [entry.id, entry])))
   let marketItems: MarketItem[] = $derived([
@@ -140,6 +143,10 @@
       const cached = readInstalledCache()
       if (cached.length > 0) applyInstalled(cached, [], false)
       ready = true
+      void invoke<string>('plugin_market_host_triple').then((triple) => {
+        hostTriple = typeof triple === 'string' && triple.trim() ? triple : null
+        if (catalogReady) applyCatalog({ plugins: registryEntries })
+      }).catch(() => { hostTriple = null })
       await refresh()
       // The main window emits `plugins-changed` after every mutating op; when it
       // fires from elsewhere (e.g. a CLI install) keep our lists fresh too.
@@ -167,7 +174,7 @@
     })
     try {
       const localInstalled = await installedRequest
-      if (sequence === refreshSequence) applyInstalled(localInstalled, catalogEntries, true)
+      if (sequence === refreshSequence) applyInstalled(localInstalled, registryEntries, true)
     } catch (e) {
       if (sequence === refreshSequence) {
         // Keep the cache visible if querying the device fails.
@@ -195,7 +202,7 @@
   ) {
     const previousById = new Map(installedState.map((plugin) => [plugin.id, plugin]))
     const listings = new Map(
-      pickAvailable(entries, new Set<string>(), hostVersion).map((entry) => [entry.id, entry]),
+      pickAvailable(entries, new Set<string>(), hostVersion, hostTriple).map((entry) => [entry.id, entry]),
     )
     installedState = v2.map((plugin) => {
       const listing = listings.get(plugin.id)
@@ -227,7 +234,7 @@
         version: p.version,
         enabled: p.enabled,
         capabilities: p.capabilities ?? [],
-        updateTo: pickUpdateTo(entries, p.id, p.version, hostVersion),
+        updateTo: pickUpdateTo(entries, p.id, p.version, hostVersion, hostTriple),
       })
     }
     installedRows = rows.sort((a, b) => a.id.localeCompare(b.id))
@@ -238,12 +245,13 @@
 
   function applyCatalog(index: RegistryIndex) {
     const entries = index.plugins ?? []
-    catalogEntries = pickAvailable(entries, new Set<string>(), hostVersion)
+    registryEntries = entries
+    catalogEntries = pickAvailable(entries, new Set<string>(), hostVersion, hostTriple)
     // Registry metadata fills category/name gaps in older installed manifests,
     // and the enriched result becomes the next launch's local-first snapshot.
     applyInstalled(installedState, entries, true)
     const installedIds = new Set(installedState.map((row) => row.id))
-    available = pickAvailable(entries, installedIds, hostVersion)
+    available = pickAvailable(entries, installedIds, hostVersion, hostTriple)
     catalogReady = true
   }
 
@@ -287,7 +295,7 @@
   // new version + reconciles). Runs through the consent modal, same as a fresh
   // install, so the user re-consents to the new version's capabilities.
   function update(item: InstalledMarketItem) {
-    if (!item.row.updateTo) return
+    if (!item.row.updateTo || !canInstallVersion(item.id, item.row.updateTo)) return
     consent = {
       action: 'update',
       id: item.id,
@@ -324,6 +332,7 @@
       // still performs the host's download, hash, signature and manifest checks.
       for (const item of items) {
         try {
+          if (!item.row.updateTo || !canInstallVersion(item.id, item.row.updateTo)) throw new Error(t('pluginMarket.unavailablePlatform'))
           const result = await invoke<PluginInstallResult>('plugin_market_install', {
             id: item.id,
             version: item.row.updateTo,
@@ -383,7 +392,13 @@
 
   // ── Available actions ──────────────────────────────────────────────────────
 
+  function canInstallVersion(id: string, version: string): boolean {
+    const entry = registryEntries.find((entry) => entry.id === id && entry.version === version)
+    return !!entry && platformSatisfied(entry, hostTriple)
+  }
+
   function beginInstall(entry: RegistryEntry) {
+    if (!canInstallVersion(entry.id, entry.version)) return
     consent = {
       action: 'install',
       id: entry.id,
@@ -634,7 +649,7 @@
 
                       <footer class="card-footer available-footer">
                         <span class="plugin-id">{item.entry.id}</span>
-                        <button class="mini primary" disabled={batchUpdating} onclick={() => beginInstall(item.entry)}>{t('pluginMarket.install')}</button>
+                        <button class="mini primary" disabled={batchUpdating || !platformSatisfied(item.entry, hostTriple)} onclick={() => beginInstall(item.entry)}>{t(platformSatisfied(item.entry, hostTriple) ? 'pluginMarket.install' : 'pluginMarket.unavailablePlatform')}</button>
                       </footer>
                     {/if}
                   </article>
@@ -648,7 +663,7 @@
   {/if}
 </main>
 
-{#if consent}
+{#if consent && canInstallVersion(consent.id, consent.version)}
   <ConsentModal id={consent.id} version={consent.version} name={consent.name}
                 description={consent.description} i18n={consent.i18n}
                 onInstalled={onInstalled} onClose={() => (consent = null)} />
@@ -658,7 +673,7 @@
   :global(:root) { color-scheme: light dark; }
   :global(body) {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Noto Sans CJK SC', sans-serif;
     background: Canvas;
     color: CanvasText;
   }
@@ -714,7 +729,7 @@
     border-radius: 6px;
     background: color-mix(in srgb, CanvasText 6%, transparent);
     color: var(--ui-secondary);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     white-space: nowrap;
   }
   .restart-hint { font-weight: 520; }
@@ -869,7 +884,7 @@
   .plugin-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
   .version {
     color: var(--ui-secondary);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     font-size: 12px;
   }
   .ai-badge {
@@ -939,7 +954,7 @@
     flex: 1;
     overflow: hidden;
     color: var(--ui-secondary);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;

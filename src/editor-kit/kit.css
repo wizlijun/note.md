@@ -50,7 +50,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'CaskaydiaMono Nerd Font', 'DejaVu Sans Mono', monospace;
   font-size: 14px;
   line-height: 1.6;
   /* Promote to its own layer; isolate paint/layout (large documents repaint

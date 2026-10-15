@@ -36,11 +36,22 @@ export function minHostSatisfied(range: string, host: string | null): boolean {
   return true
 }
 
+/** Match the installer's host-triple / universal download and hash fallback.
+ * Omitted triple preserves legacy callers; an explicitly unknown host is closed.
+ */
+export function platformSatisfied(entry: RegistryEntry, hostTriple?: string | null): boolean {
+  if (hostTriple === undefined) return true
+  if (!hostTriple) return false
+  return (entry.archs.includes(hostTriple) || entry.archs.includes('universal'))
+    && !!(entry.download[hostTriple] ?? entry.download.universal)
+    && !!(entry.sha256[hostTriple] ?? entry.sha256.universal)
+}
+
 /** Newest entry of `candidates`; with `compatibleOnly`, only host-satisfied ones. */
-function newest(candidates: RegistryEntry[], host: string | null, compatibleOnly: boolean): RegistryEntry | null {
+function newest(candidates: RegistryEntry[], host: string | null, compatibleOnly: boolean, hostTriple?: string | null): RegistryEntry | null {
   let best: RegistryEntry | null = null
   for (const e of candidates) {
-    if (compatibleOnly && !minHostSatisfied(e.min_host, host)) continue
+    if (compatibleOnly && (!minHostSatisfied(e.min_host, host) || !platformSatisfied(e, hostTriple))) continue
     if (!best || isNewerVersion(e.version, best.version)) best = e
   }
   return best
@@ -48,14 +59,15 @@ function newest(candidates: RegistryEntry[], host: string | null, compatibleOnly
 
 /**
  * The Available list: one entry per not-installed plugin id — the newest
- * version the host satisfies, or the newest overall when it satisfies none
- * (still listed so the plugin stays discoverable; installing it surfaces the
- * installer's "requires notemd X" error). Sorted by display name.
+ * version compatible with the host version and platform, or the newest overall
+ * when none match (still discoverable; unsupported platforms cannot install).
+ * Sorted by id.
  */
 export function pickAvailable(
   entries: RegistryEntry[],
   installedIds: ReadonlySet<string>,
   host: string | null,
+  hostTriple?: string | null,
 ): RegistryEntry[] {
   const byId = new Map<string, RegistryEntry[]>()
   for (const e of entries) {
@@ -66,7 +78,7 @@ export function pickAvailable(
   }
   const picked: RegistryEntry[] = []
   for (const group of byId.values()) {
-    const e = newest(group, host, true) ?? newest(group, host, false)
+    const e = newest(group, host, true, hostTriple) ?? newest(group, host, false)
     if (e) picked.push(e)
   }
   // By id, not display name: names are localized, so sorting on them makes the
@@ -84,8 +96,9 @@ export function pickUpdateTo(
   id: string,
   installedVersion: string,
   host: string | null,
+  hostTriple?: string | null,
 ): string | null {
   const candidates = entries.filter((e) => e.id === id)
-  const best = newest(candidates, host, true)
+  const best = newest(candidates, host, true, hostTriple)
   return best && isNewerVersion(best.version, installedVersion) ? best.version : null
 }
