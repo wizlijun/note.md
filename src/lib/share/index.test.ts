@@ -30,7 +30,7 @@ vi.mock('./copy-link', () => ({ copyShareLink: vi.fn() }))
 vi.mock('./upload-image', () => ({ uploadImage: vi.fn() }))
 vi.mock('../i18n/store.svelte', () => ({ t: (k: string) => k }))
 
-import { sharePublishCurrent, shareUnpublishCurrent } from './index'
+import { getShareConfig, sharePublishCurrent, shareUnpublishCurrent } from './index'
 import { bakeShareHtml } from '../plugins/share-baker'
 import { activeTab } from '../tabs.svelte'
 import { getPluginScopedKey } from '../settings.svelte'
@@ -57,6 +57,13 @@ beforeEach(() => {
 })
 
 describe('sharePublishCurrent', () => {
+  it.each([undefined, true, false])('resolves saved theme preference %s for publishing', async (useCurrentTheme) => {
+    vi.mocked(getPluginScopedKey).mockImplementation((key) => key === 'share.useCurrentTheme' ? useCurrentTheme : CONFIGURED[key])
+    expect(getShareConfig()?.useCurrentTheme).toBe(useCurrentTheme ?? true)
+    await sharePublishCurrent()
+    expect(bakeShareHtml).toHaveBeenCalledWith(expect.anything(), useCurrentTheme === false ? 'default' : 'paper-light')
+  })
+
   it('bakes with the ACTIVE theme, not the default', async () => {
     // followSystem=false → active theme is the light slot ('paper-light').
     await sharePublishCurrent()

@@ -579,6 +579,7 @@ ARGUMENTS:
 
 FLAGS:
   --update         Force update existing share (default if already shared)
+  --no-theme       Use the default theme instead of the current theme
   --copy-link      Print previously-shared URL instead of re-publishing
   --unshare        Remove share for this file
 
@@ -2406,6 +2407,7 @@ mod tests {
                 "topic {topic} missing summary"
             );
             assert!(out.contains("--unshare"), "topic {topic} missing flags");
+            assert!(out.contains("--no-theme"), "topic {topic} missing theme flag");
             assert!(
                 out.contains("EXIT CODES:"),
                 "topic {topic} missing exit codes"

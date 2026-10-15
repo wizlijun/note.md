@@ -15,7 +15,7 @@ import { ShareError } from './types'
 import { t } from '../i18n/store.svelte'
 import type { Messages } from '../i18n/en'
 
-export function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean } | null {
+export function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'|'30d'|'90d'; slugRandomSuffix: boolean; useCurrentTheme: boolean } | null {
   const baseUrl = getPluginScopedKey('share.baseUrl') as string | undefined
   const apiKey = getPluginScopedKey('share.apiKey') as string | undefined
   if (!baseUrl || !apiKey) return null
@@ -23,6 +23,7 @@ export function getShareConfig(): { baseUrl: string; defaultExpiry: 'never'|'7d'
     baseUrl: baseUrl.replace(/\/+$/, ''),
     defaultExpiry: (getPluginScopedKey('share.defaultExpiry') as any) ?? 'never',
     slugRandomSuffix: (getPluginScopedKey('share.slugRandomSuffix') as boolean | undefined) ?? true,
+    useCurrentTheme: (getPluginScopedKey('share.useCurrentTheme') as boolean | undefined) ?? true,
   }
 }
 
@@ -117,12 +118,9 @@ export async function sharePublishCurrent(): Promise<void> {
       throw e
     }
 
-    // Bake with the ACTIVE theme, not bakeShareHtml's 'default' fallback —
-    // same resolution as the CLI (settings.theme + prefers-color-scheme).
-    // globalThis.matchMedia exists in both the desktop and iOS webviews; the
-    // optional chain keeps this headless/test safe.
+    // Honor the saved preference, using the same theme resolution as the CLI.
     const systemDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-    const themeId = computeActiveThemeId(settings.theme, systemDark)
+    const themeId = cfg.useCurrentTheme ? computeActiveThemeId(settings.theme, systemDark) : 'default'
     // bakeShareHtml throws ShareError('too_large') itself when input/output
     // exceeds 25 MB — the catch below localizes it.
     const html = await bakeShareHtml(tab, themeId)

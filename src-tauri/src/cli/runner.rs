@@ -177,6 +177,7 @@ pub fn core_cli_stub_manifests() -> Vec<PluginManifest> {
             "args": [{ "name": "file", "type": "path", "required": true, "help": "Markdown or image file to share" }],
             "flags": [
                 { "long": "--update", "type": "boolean", "help": "Force update existing share (default if already shared)" },
+                { "long": "--no-theme", "type": "boolean", "help": "Use the default theme instead of the current theme" },
                 { "long": "--copy-link", "type": "boolean", "help": "Print previously-shared URL instead of re-publishing" },
                 { "long": "--unshare", "type": "boolean", "help": "Remove share for this file" }
             ],
@@ -793,6 +794,26 @@ mod tests {
                 .unwrap();
         assert_eq!(args.get("file").and_then(|v| v.as_str()), Some("draft.md"));
         assert_eq!(flags.get("update").and_then(|v| v.as_bool()), Some(true));
+    }
+
+    #[test]
+    fn parse_share_no_theme_preserves_publish_command() {
+        let manifests = core_cli_stub_manifests();
+        let entry = &manifests.iter().find(|m| m.id == "share").unwrap().cli[0];
+        for argv in [
+            s(&["draft.md", "--no-theme"]),
+            s(&["--no-theme", "draft.md", "--update"]),
+        ] {
+            let (args, flags) = parse_subcommand_args(&argv, entry).unwrap();
+            assert_eq!(args.get("file").and_then(|v| v.as_str()), Some("draft.md"));
+            assert_eq!(flags.get("no-theme").and_then(|v| v.as_bool()), Some(true));
+            assert_eq!(
+                decide_plugin_command(&flags, &entry.command).unwrap(),
+                "publish"
+            );
+        }
+        let (_, flags) = parse_subcommand_args(&s(&["draft.md"]), entry).unwrap();
+        assert!(!flags.contains_key("no-theme"));
     }
 
     #[test]

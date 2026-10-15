@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Choose whether single-file shares use your current theme.** The Share settings checkbox is on by default; turn it off to use the built-in default theme. `notemd share file.md --no-theme` uses the default theme for that command without changing your preference.
+
 ## v6.1014.3 — 2026-10-14
 
 - **Restore the Rich editor context menu on shared pages.** Formatting, headings, lists, table alignment, notes and clipboard actions reuse the desktop menu. Menus fit narrow screens and window edges, and delayed paste cannot target a different file or editing mode.

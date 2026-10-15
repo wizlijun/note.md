@@ -280,7 +280,8 @@ export async function runShareCli(payload: CliPayload, deps: ShareCliDeps): Prom
       return
     }
 
-    const themeId = computeActiveThemeId(settings.theme, systemDark())
+    const themeId = payload.flags['no-theme'] === true || !cfg.useCurrentTheme
+      ? 'default' : computeActiveThemeId(settings.theme, systemDark())
     // bakeShareHtml throws ShareError('too_large') itself when input/output
     // exceeds 25 MB — the outer catch maps it to exit 4 / code 'too_large'.
     const html = await bakeShareHtml(tab, themeId)

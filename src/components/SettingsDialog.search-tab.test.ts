@@ -359,6 +359,33 @@ async function settle() {
   flushSync()
 }
 
+describe('SettingsDialog — single-file share theme preference', () => {
+  it('defaults on, saves an unchecked preference, and restores it when reopened', async () => {
+    await settingsModule.setPluginScopedValue('share', 'useCurrentTheme', undefined)
+    await mountDialog()
+    await settle()
+    openSettings('share')
+    await settle()
+    const themeControl = () => {
+      const label = Array.from(document.querySelectorAll('.plugin-field'))
+        .find((item) => /current theme|使用当前主题/.test(item.textContent ?? ''))
+      return label?.querySelector<HTMLInputElement>('input[type="checkbox"]')
+    }
+    expect(themeControl()?.checked).toBe(true)
+    themeControl()!.click()
+    await settle()
+    expect(getPluginScopedAll('share')['share.useCurrentTheme']).toBe(false)
+    closeSettings()
+    await settle()
+    openSettings('share')
+    await settle()
+    expect(themeControl()?.checked).toBe(false)
+    themeControl()!.click()
+    await settle()
+    expect(getPluginScopedAll('share')['share.useCurrentTheme']).toBe(true)
+  })
+})
+
 describe('SettingsDialog — plugin number fields', () => {
   it('renders numeric constraints and only persists finite valueAsNumber values', async () => {
     invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {

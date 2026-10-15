@@ -13,12 +13,13 @@ const STUB: PluginManifest = {
       { key: 'share.apiKey', type: 'secret', label: 'API Key' },
       { key: 'share.defaultExpiry', type: 'select', label: 'Default expiry', options: ['never', '7d', '30d', '90d'], default: 'never' },
       { key: 'share.slugRandomSuffix', type: 'boolean', label: 'Append 3-char random suffix to URL (recommended)', default: true },
+      { key: 'share.useCurrentTheme', type: 'boolean', label: 'Use current theme (use default theme when unchecked)', default: true },
     ],
   },
   i18n: {
-    zh: { 'settings.tab_label': '分享', 'settings.fields': { 'share.baseUrl': '服务基础 URL', 'share.apiKey': 'API Key', 'share.defaultExpiry': '默认有效期', 'share.slugRandomSuffix': '在 URL 后追加 3 位随机后缀（推荐）' } },
-    ja: { 'settings.tab_label': '共有', 'settings.fields': { 'share.baseUrl': 'サービスのベース URL', 'share.apiKey': 'API Key', 'share.defaultExpiry': '既定の有効期限', 'share.slugRandomSuffix': 'URL に 3 文字のランダムな接尾辞を追加（推奨）' } },
-    de: { 'settings.tab_label': 'Teilen', 'settings.fields': { 'share.baseUrl': 'Dienst-Basis-URL', 'share.apiKey': 'API-Schlüssel', 'share.defaultExpiry': 'Standardablauf', 'share.slugRandomSuffix': '3-stelliges Zufallssuffix an URL anhängen (empfohlen)' } },
+    zh: { 'settings.tab_label': '分享', 'settings.fields': { 'share.baseUrl': '服务基础 URL', 'share.apiKey': 'API Key', 'share.defaultExpiry': '默认有效期', 'share.slugRandomSuffix': '在 URL 后追加 3 位随机后缀（推荐）', 'share.useCurrentTheme': '使用当前主题（取消后使用默认主题）' } },
+    ja: { 'settings.tab_label': '共有', 'settings.fields': { 'share.baseUrl': 'サービスのベース URL', 'share.apiKey': 'API Key', 'share.defaultExpiry': '既定の有効期限', 'share.slugRandomSuffix': 'URL に 3 文字のランダムな接尾辞を追加（推奨）', 'share.useCurrentTheme': '現在のテーマを使用（オフの場合は既定のテーマ）' } },
+    de: { 'settings.tab_label': 'Teilen', 'settings.fields': { 'share.baseUrl': 'Dienst-Basis-URL', 'share.apiKey': 'API-Schlüssel', 'share.defaultExpiry': 'Standardablauf', 'share.slugRandomSuffix': '3-stelliges Zufallssuffix an URL anhängen (empfohlen)', 'share.useCurrentTheme': 'Aktuelles Theme verwenden (sonst Standard-Theme)' } },
   },
 }
 

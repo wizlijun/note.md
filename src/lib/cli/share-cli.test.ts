@@ -34,6 +34,7 @@ const CFG = {
   baseUrl: 'https://w',
   defaultExpiry: 'never' as const,
   slugRandomSuffix: true,
+  useCurrentTheme: true,
 }
 
 const HTML_RECORD = {
@@ -90,10 +91,21 @@ describe('runShareCli publish', () => {
     })
   })
 
-  it('bakes with the active theme id, never the default', async () => {
+  it('bakes with the active theme id by default', async () => {
     const { deps } = makeDeps()
     await runShareCli(payload(), deps)
     expect((bakeShareHtml as any).mock.calls[0][1]).toBe('paper-light')
+  })
+
+  it.each([true, false])('--no-theme overrides saved preference %s for this invocation only', async (useCurrentTheme) => {
+    const config = { ...CFG, useCurrentTheme }
+    vi.mocked(getShareConfig).mockReturnValue(config)
+    const { deps } = makeDeps()
+    await runShareCli(payload({ flags: { 'no-theme': true } }), deps)
+    expect(bakeShareHtml).toHaveBeenLastCalledWith(expect.anything(), 'default')
+    expect(config.useCurrentTheme).toBe(useCurrentTheme)
+    await runShareCli(payload(), deps)
+    expect(bakeShareHtml).toHaveBeenLastCalledWith(expect.anything(), useCurrentTheme ? 'paper-light' : 'default')
   })
 
   it('non-json prints the bare url and writes the clipboard', async () => {
