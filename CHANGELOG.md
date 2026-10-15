@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1015.2 — 2026-10-15
+
 - **Download the latest available package for your platform.** The website now offers Linux beta downloads for x86_64/aarch64 alongside Windows. Links find actual published packages even when the newest release omits that platform; Linux ARM never falls back to an x86_64 package.
 
 - **Recover desktop identity checks without restarting.** Settings retries clear only resolved updater identity errors, the plugin market Refresh retries platform detection, and failed Linux title-bar saves restore the saved selection for another attempt.
