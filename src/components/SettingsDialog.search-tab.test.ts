@@ -36,6 +36,7 @@ import { mount, unmount, flushSync } from 'svelte'
 // override, only clears call history.
 const { invokeMock, defaultInvokeImpl } = vi.hoisted(() => {
   const defaultInvokeImpl = async (cmd: string, _args?: unknown): Promise<unknown> => {
+    if (cmd === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: true, themeFontInstall: true, setDefaultApp: true, location: true, globalShortcuts: true, windowDecorations: true }
     if (cmd === 'sotvault_vault_root') return '/tmp/vault'
     throw new Error('no tauri host in vitest')
   }
@@ -91,6 +92,7 @@ import * as settingsModule from '../lib/settings.svelte'
 import * as toastModule from '../lib/toast.svelte'
 import { t } from '../lib/i18n/store.svelte'
 import { i18n } from '../lib/i18n/store.svelte'
+import { desktopCapabilities } from '../lib/desktop-capabilities.svelte'
 import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
 
 let stats: Mock<() => Promise<SearchStats | null>>
@@ -99,6 +101,8 @@ let progress: Mock<() => Promise<SearchProgress | null>>
 beforeEach(() => {
   // See ThemeImportDialog.test.ts: resetModules() breaks Svelte's DOM
   // operations singleton under happy-dom; clearAllMocks is enough.
+  desktopCapabilities.value = null
+  desktopCapabilities.error = null
   vi.clearAllMocks()
   invokeMock.mockImplementation(defaultInvokeImpl)
   document.body.innerHTML = ''
@@ -783,7 +787,8 @@ describe('SettingsDialog — Search & Index tab, source-glob candidates (task C-
 describe('SettingsDialog — Search & Index tab, saved pattern row shows its real match count (review round 1, Important 2)', () => {
   it('renders the count next to each already-saved pattern, not just the candidate ladder', async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
-      if (cmd === 'sotvault_vault_root') return '/tmp/vault'
+      if (cmd === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: true, themeFontInstall: true, setDefaultApp: true, location: true, globalShortcuts: true, windowDecorations: true }
+    if (cmd === 'sotvault_vault_root') return '/tmp/vault'
       if (cmd === 'notemd_vault_settings_get') return { searchSourceGlobs: ['ebook/**'] }
       if (cmd === 'notemd_search_glob_matches') return 42
       throw new Error('no tauri host in vitest')
@@ -958,7 +963,8 @@ describe('SettingsDialog — Search & Index tab, saving tier weights preserves a
    *  the save succeed so the payload can be inspected. */
   function routeStoredWeights(attention: number) {
     invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === 'sotvault_vault_root') return '/tmp/vault'
+      if (cmd === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: true, themeFontInstall: true, setDefaultApp: true, location: true, globalShortcuts: true, windowDecorations: true }
+    if (cmd === 'sotvault_vault_root') return '/tmp/vault'
       if (cmd === 'notemd_vault_settings_get') {
         return { searchWeights: { human: 1.25, derived: 1, source: 0.9, unlabeled: 0.3, attention } }
       }
@@ -1015,5 +1021,57 @@ describe('SettingsDialog — Search & Index tab, saving tier weights preserves a
 
     expect(savedWeights().human).toBe(1.25) // the tier defaults did get restored
     expect(savedWeights().attention).toBe(0)
+  })
+})
+
+
+describe('SettingsDialog — desktop distribution capabilities', () => {
+  it('package-manager shows version and system update guidance without app updater controls', async () => {
+    const normalInvoke = invokeMock.getMockImplementation()!
+    invokeMock.mockImplementation(async (cmd, args) => cmd === 'desktop_capabilities'
+      ? { distributionChannel: 'package-manager', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: true, windowDecorations: true }
+      : normalInvoke(cmd, args))
+    const { updater } = await import('../lib/updater.svelte')
+    updater.currentVersion = '6.1015.1'
+    await mountDialog()
+    openSettings('updates')
+    await settle()
+    expect(document.body.textContent).toContain('6.1015.1')
+    expect(document.body.textContent).toContain('omarchy update')
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(false)
+    expect(document.querySelector('input[type="checkbox"]')).toBe(null)
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.tab.cli'))).toBe(false)
+    openSettings('core')
+    await settle()
+    expect(document.body.textContent).not.toContain(t('settings.defaultApp.heading'))
+    expect(invokeMock.mock.calls.some(([cmd]) => cmd === 'cli_install_status')).toBe(false)
+    const previousTheme = { ...settings.theme }
+    try {
+      settings.theme.light = 'effie'
+      await settle()
+      expect(document.body.textContent).not.toContain('Download offline fonts')
+      expect(invokeMock.mock.calls.some(([cmd]) => cmd === 'theme_font_status' || cmd === 'theme_font_download')).toBe(false)
+    } finally { settings.theme = previousTheme }
+  })
+
+  it('capability errors are visible on updates and retry restores direct controls', async () => {
+    let fail = true
+    const normalInvoke = invokeMock.getMockImplementation()!
+    invokeMock.mockImplementation(async (cmd, args) => {
+      if (cmd === 'desktop_capabilities' && fail) throw new Error('desktop identity unavailable')
+      return normalInvoke(cmd, args)
+    })
+    await mountDialog()
+    openSettings('updates')
+    await settle()
+    expect(document.body.textContent).toContain('desktop identity unavailable')
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(false)
+    fail = false
+    const retry = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Retry') || b.textContent?.includes('重试'))
+    expect(retry).toBeTruthy()
+    retry!.click()
+    await settle()
+    expect(document.body.textContent).not.toContain('desktop identity unavailable')
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(true)
   })
 })

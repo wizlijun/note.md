@@ -12,6 +12,7 @@
     downloadAndInstall as updaterDownloadAndInstall, restartApp as updaterRestart,
     hasUpdateForSettings,
   } from '../lib/updater.svelte'
+  import { desktopCapabilities, loadDesktopCapabilities } from '../lib/desktop-capabilities.svelte'
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
   import { pendingThemeImport } from '../lib/theme-import-bus.svelte'
   import ThemeImportDialog from './ThemeImportDialog.svelte'
@@ -684,7 +685,15 @@
     }
   }
 
+  async function refreshCapabilities() {
+    try {
+      const value = await loadDesktopCapabilities()
+      if (value.cliInstall) await refreshCliStatus()
+    } catch { /* The shared capability state renders the retryable error. */ }
+  }
+
   onMount(async () => {
+    void refreshCapabilities()
     try {
       const manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
       // Defensive guard: no shipped manifest contributes a share settings tab
@@ -712,7 +721,6 @@
     } catch {
       smartLookupAgents = []
     }
-    void refreshCliStatus()
   })
 
   $effect(() => {
@@ -920,7 +928,7 @@
   } satisfies Record<Locale, { download: string; downloading: string; installed: string }>
 
   $effect(() => {
-    if (!open || (settings.theme.light !== 'effie' && settings.theme.dark !== 'effie')) return
+    if (!desktopCapabilities.value?.themeFontInstall || !open || (settings.theme.light !== 'effie' && settings.theme.dark !== 'effie')) return
     let active = true
     void invoke<{ installed: number; total: number }>('theme_font_status')
       .then((status) => { if (active) { fontStatus = status; fontError = null } })
@@ -1089,7 +1097,9 @@
         <button aria-current={selectedTab === 'core' ? 'page' : undefined} data-initial-focus={selectedTab === 'core' ? '' : undefined} class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>{t('settings.tab.core')}</button>
         <button aria-current={selectedTab === 'block' ? 'page' : undefined} data-initial-focus={selectedTab === 'block' ? '' : undefined} class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>{t('settings.tab.block')}</button>
         {#if !isIOSPlatform}
+          {#if desktopCapabilities.value?.cliInstall}
           <button aria-current={selectedTab === 'cli' ? 'page' : undefined} data-initial-focus={selectedTab === 'cli' ? '' : undefined} class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>{t('settings.tab.cli')}</button>
+          {/if}
           <button aria-current={selectedTab === 'updates' ? 'page' : undefined} data-initial-focus={selectedTab === 'updates' ? '' : undefined} class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>{t('settings.tab.updates')}</button>
         {/if}
         {#if isIOSPlatform}
@@ -1114,6 +1124,12 @@
       </nav>
 
       <div class="settings-content" role="region" aria-label={selectedTabLabel} tabindex="-1" bind:this={contentPane}>
+      {#if desktopCapabilities.error}
+        <section class="block" role="alert">
+          <p class="result fail">{t('settings.capabilities.error', { error: desktopCapabilities.error })}</p>
+          <button onclick={refreshCapabilities} disabled={desktopCapabilities.loading}>{t('settings.capabilities.retry')}</button>
+        </section>
+      {/if}
       {#if selectedTab === 'core'}
         <section class="block">
           <label class="row">
@@ -1154,7 +1170,7 @@
               {/each}
             </select>
           </label>
-          {#if settings.theme.light === 'effie' && fontStatus?.total}{@render themeFontControl()}{/if}
+          {#if desktopCapabilities.value?.themeFontInstall && settings.theme.light === 'effie' && fontStatus?.total}{@render themeFontControl()}{/if}
           <label class="row">
             <span class="lbl">{t('settings.darkTheme')}</span>
             <select value={settings.theme.dark} onchange={onDarkThemeChange}>
@@ -1163,7 +1179,7 @@
               {/each}
             </select>
           </label>
-          {#if settings.theme.dark === 'effie' && fontStatus?.total}{@render themeFontControl()}{/if}
+          {#if desktopCapabilities.value?.themeFontInstall && settings.theme.dark === 'effie' && fontStatus?.total}{@render themeFontControl()}{/if}
           {#if fontError && (settings.theme.light === 'effie' || settings.theme.dark === 'effie')}
             <p class="desc" role="alert">{fontError}</p>
           {/if}
@@ -1260,6 +1276,7 @@
         </section>
 
         {#if !isIOSPlatform}
+          {#if desktopCapabilities.value?.setDefaultApp}
           <section class="block">
             <h3>{t('settings.defaultApp.heading')}</h3>
             <p class="desc">{@html t('settings.defaultApp.desc1')}</p>
@@ -1287,6 +1304,7 @@
             {/if}
             <p class="undo-note">{@html t('settings.defaultApp.undoNote')}</p>
           </section>
+          {/if}
 
           <section class="block">
             <h3>{t('settings.proxy.title')}</h3>
@@ -1399,7 +1417,7 @@
             {t('settings.viz.richGutter')}
           </label>
         </section>
-      {:else if selectedTab === 'cli'}
+      {:else if selectedTab === 'cli' && desktopCapabilities.value?.cliInstall}
         <section class="block">
           <h3>{t('settings.cli.heading')}</h3>
           <p class="desc">{@html t('settings.cli.desc')}</p>
@@ -1438,6 +1456,10 @@
           <p class="desc">
             {t('settings.update.currentVersionLabel')}<strong>v{updaterState.currentVersion || '—'}</strong>
           </p>
+          {#if desktopCapabilities.value?.distributionChannel === 'package-manager'}
+            <p class="desc">{t('settings.update.packageManager')}</p>
+            <code>omarchy update</code>
+          {:else if desktopCapabilities.value?.distributionChannel === 'direct'}
           <p class="desc">
             {t('settings.update.lastChecked', { time: formatLastChecked(updaterState.lastCheckedAt) })}
           </p>
@@ -1470,9 +1492,9 @@
             </p>
           {/if}
 
-          {#if updaterMessage}
+          {#if updaterMessage || updaterState.error}
             <p class="result" class:ok={updaterState.state === 'uptodate'} class:fail={updaterState.state === 'error'}>
-              {updaterMessage}
+              {updaterMessage || updaterState.error}
             </p>
           {/if}
 
@@ -1486,6 +1508,7 @@
           <p class="desc" style="margin-top: 14px;">
             {t('settings.update.distNote')}
           </p>
+          {/if}
         </section>
       {:else if selectedTab === 'vault' && isIOSPlatform}
         <VaultSettingsTab onBusyChange={(value) => vaultBusy = value} />

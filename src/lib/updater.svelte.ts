@@ -14,6 +14,7 @@ import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Store } from '@tauri-apps/plugin-store'
 import { getVersion } from '@tauri-apps/api/app'
+import { desktopCapabilities, loadDesktopCapabilities } from './desktop-capabilities.svelte'
 
 const CACHE_TTL_MS = 20 * 60 * 60 * 1000  // 20 hours, matches codex
 const STARTUP_DELAY_MS = 1500
@@ -120,12 +121,30 @@ function compareVersion(a: string, b: string): number {
   return 0
 }
 
+/** Gate every updater entry before touching persisted state or updater IPC. */
+async function canUpdate(): Promise<boolean> {
+  try {
+    const capabilities = await loadDesktopCapabilities()
+    if (capabilities.distributionChannel === 'direct') return true
+    pendingUpdate = null
+    updater.state = 'idle'
+    updater.latestVersion = null
+    updater.notes = null
+    updater.error = null
+  } catch (error) {
+    updater.state = 'error'
+    updater.error = error instanceof Error ? error.message : String(error)
+  }
+  return false
+}
+
 /**
  * Banner-visible only when we have an available update AND the user hasn't
  * dismissed THIS specific version. Settings panel uses its own visibility
  * logic (ignores dismissed_version).
  */
 export function shouldShowBanner(): boolean {
+  if (desktopCapabilities.value?.distributionChannel !== 'direct') return false
   if (updater.state === 'downloading' || updater.state === 'ready') return true
   if (updater.state !== 'available') return false
   if (!updater.latestVersion) return false
@@ -146,6 +165,7 @@ export async function initUpdater(): Promise<void> {
   } catch (e) {
     console.warn('[updater] getVersion:', e)
   }
+  if (!await canUpdate()) { booted = false; return }
   await loadPersisted()
 
   if (!persisted.check_on_startup) {
@@ -188,6 +208,7 @@ interface CheckOpts {
  * last_checked_at (even on failure) so we don't hot-loop on broken networks.
  */
 export async function runCheck(opts: CheckOpts = {}): Promise<void> {
+  if (!await canUpdate()) return
   if (updater.state === 'checking' || updater.state === 'downloading') return
   await loadPersisted()
   updater.state = 'checking'
@@ -223,6 +244,7 @@ export async function runCheck(opts: CheckOpts = {}): Promise<void> {
  * shows the update so users can change their mind.
  */
 export async function dismissCurrent(): Promise<void> {
+  if (!await canUpdate()) return
   if (!updater.latestVersion) return
   persisted.dismissed_version = updater.latestVersion
   await savePersisted()
@@ -233,6 +255,7 @@ export async function dismissCurrent(): Promise<void> {
  * "立即检查更新" in Settings.
  */
 export async function setCheckOnStartup(v: boolean): Promise<void> {
+  if (!await canUpdate()) return
   persisted.check_on_startup = v
   updater.checkOnStartup = v
   await savePersisted()
@@ -243,6 +266,7 @@ export async function setCheckOnStartup(v: boolean): Promise<void> {
  * Progress arrives via the onProgress callback Tauri gives us.
  */
 export async function downloadAndInstall(): Promise<void> {
+  if (!await canUpdate()) return
   if (!pendingUpdate) {
     // Re-fetch if state was hydrated from cache without a live handle.
     await runCheck({ forceFresh: true })
@@ -274,6 +298,7 @@ export async function downloadAndInstall(): Promise<void> {
 }
 
 export async function restartApp(): Promise<void> {
+  if (!await canUpdate()) return
   await relaunch()
 }
 
@@ -283,6 +308,7 @@ export async function restartApp(): Promise<void> {
  * version, regardless of dismissed state.
  */
 export function hasUpdateForSettings(): boolean {
+  if (desktopCapabilities.value?.distributionChannel !== 'direct') return false
   if (!updater.latestVersion) return false
   return compareVersion(updater.latestVersion, updater.currentVersion) > 0
 }

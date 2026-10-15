@@ -411,6 +411,9 @@ export const de: Record<keyof Messages, string> = {
   'settings.update.restartNow': 'Jetzt neu starten, um die Aktualisierung abzuschließen',
   'settings.update.downloading': 'Herunterladen:',
   'settings.update.notes': 'v{version} Versionshinweise',
+  'settings.update.packageManager': 'Aktualisieren Sie diese Installation über die Systempaketverwaltung. Unter Omarchy:',
+  'settings.capabilities.error': 'Desktop-Funktionen konnten nicht geladen werden: {error}',
+  'settings.capabilities.retry': 'Erneut versuchen',
   'settings.update.distNote': 'Updates werden über GitHub Releases verteilt; Downloads werden mit einem integrierten öffentlichen Schlüssel signaturgeprüft, bevor sie installiert werden — nur signierte Pakete ersetzen die .app.',
 
   // Vault browser

@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-env-changed=NOTEMD_DIST_CHANNEL");
     // libgit2 (via git2 crate with vendored-libgit2) links against zlib and
     // iconv. On macOS host they're auto-discovered via pkg-config; on iOS
     // the linker doesn't find them unless we explicitly link the system

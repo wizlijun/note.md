@@ -413,6 +413,9 @@ export const ja: Record<keyof Messages, string> = {
   'settings.update.restartNow': '今すぐ再起動して更新を完了',
   'settings.update.downloading': 'ダウンロード中：',
   'settings.update.notes': 'v{version} のリリースノート',
+  'settings.update.packageManager': 'このアプリはシステムのパッケージマネージャーで更新してください。Omarchy では次を実行します：',
+  'settings.capabilities.error': 'デスクトップ機能を読み込めません：{error}',
+  'settings.capabilities.retry': '再試行',
   'settings.update.distNote': '更新は GitHub Releases 経由で配布され、インストール前に組み込みの公開鍵で署名を検証します。署名済みのパッケージのみが .app に置き換えられます。',
 
   // Vault browser

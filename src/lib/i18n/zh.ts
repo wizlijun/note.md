@@ -451,6 +451,9 @@ export const zh: Record<keyof Messages, string> = {
   'settings.update.restartNow': '立即重启完成更新',
   'settings.update.downloading': '下载中：',
   'settings.update.notes': 'v{version} 更新说明',
+  'settings.update.packageManager': '请通过系统包管理器更新此安装。Omarchy 用户请运行：',
+  'settings.capabilities.error': '无法加载桌面能力：{error}',
+  'settings.capabilities.retry': '重试',
   'settings.update.distNote': '更新通过 GitHub Releases 分发，下载前会用内置公钥校验签名；只有签名通过的包才会被替换到 .app 中。',
 
   // Vault browser

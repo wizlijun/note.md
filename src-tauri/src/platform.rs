@@ -16,6 +16,39 @@
 
 use std::ffi::OsStr;
 
+/// Desktop feature policy sent to the frontend; distribution identity is baked
+/// into the binary and cannot be changed by the runtime environment.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopCapabilities {
+    pub distribution_channel: &'static str,
+    pub cli_install: bool,
+    pub theme_font_install: bool,
+    pub set_default_app: bool,
+    pub location: bool,
+    pub global_shortcuts: bool,
+    pub window_decorations: bool,
+}
+
+fn capabilities_for_platform(os: &str, channel: Option<&str>) -> DesktopCapabilities {
+    let macos = os == "macos";
+    DesktopCapabilities {
+        distribution_channel: if channel == Some("package-manager") { "package-manager" } else { "direct" },
+        cli_install: macos,
+        theme_font_install: macos,
+        set_default_app: macos,
+        location: macos,
+        global_shortcuts: os != "ios",
+        window_decorations: os != "ios",
+    }
+}
+
+#[tauri::command]
+pub fn desktop_capabilities() -> DesktopCapabilities {
+    capabilities_for_platform(std::env::consts::OS, option_env!("NOTEMD_DIST_CHANNEL"))
+}
+
+
 /// `CREATE_NO_WINDOW` (winbase.h). Suppresses the console window that a GUI
 /// parent would otherwise pop for a console child.
 #[cfg(windows)]
@@ -539,4 +572,34 @@ mod tests {
         assert_eq!(c.get_program(), std::ffi::OsStr::new("git"));
     }
 
+}
+
+#[cfg(test)]
+mod desktop_capability_tests {
+    use super::*;
+
+    #[test]
+    fn desktop_capabilities_only_offer_macos_installation_actions() {
+        for os in ["macos", "linux", "windows", "ios"] {
+            let value = capabilities_for_platform(os, None);
+            assert_eq!(value.distribution_channel, "direct");
+            assert_eq!(value.cli_install, os == "macos");
+            assert_eq!(value.theme_font_install, os == "macos");
+            assert_eq!(value.set_default_app, os == "macos");
+            assert_eq!(value.location, os == "macos");
+            assert_eq!(value.global_shortcuts, os != "ios");
+            assert_eq!(value.window_decorations, os != "ios");
+        }
+    }
+
+    #[test]
+    fn desktop_capabilities_serialize_the_frontend_contract() {
+        let value = serde_json::to_value(capabilities_for_platform("linux", Some("package-manager"))).unwrap();
+        assert_eq!(value, serde_json::json!({
+            "distributionChannel": "package-manager", "cliInstall": false,
+            "themeFontInstall": false, "setDefaultApp": false, "location": false,
+            "globalShortcuts": true, "windowDecorations": true,
+        }));
+        assert_eq!(capabilities_for_platform("linux", Some("unexpected")).distribution_channel, "direct");
+    }
 }

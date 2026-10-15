@@ -60,7 +60,7 @@
   import { loadOutlineGate } from './lib/outline/gate.svelte'
   import { loadHistoryGate, historyAppliesTo } from './lib/git-history/gate.svelte'
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
-  import { platform, isIOS } from './lib/platform.svelte'
+  import { platform, isIOS, type Platform } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { canSyncActive, isTrackedVaultFile, deviceSourceForVaultPath, isMirroredSource, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
   import { indexStatus } from './lib/search/index-status.svelte'
@@ -107,7 +107,7 @@
     activate(tab.id)
   }
 
-  let platformName = $state<'macos' | 'ios' | 'unknown'>('unknown')
+  let platformName = $state<Platform>('unknown')
   let drawerOpen = $state(false)
   $effect(() => {
     platform().then((p) => { platformName = p })

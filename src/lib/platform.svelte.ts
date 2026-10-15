@@ -1,6 +1,6 @@
 import { platform as tauriPlatform } from '@tauri-apps/plugin-os'
 
-export type Platform = 'macos' | 'ios' | 'unknown'
+export type Platform = 'macos' | 'ios' | 'linux' | 'windows' | 'unknown'
 export type FormFactor = 'desktop' | 'tablet' | 'phone'
 
 let cached: Promise<Platform> | null = null
@@ -14,7 +14,7 @@ export function platform(): Promise<Platform> {
     nativeResult = 'unknown'
   }
   const result = Promise.resolve(nativeResult).then(
-    (raw: string): Platform => (raw === 'macos' || raw === 'ios' ? raw : 'unknown'),
+    (raw: string): Platform => (raw === 'macos' || raw === 'ios' || raw === 'linux' || raw === 'windows' ? raw : 'unknown'),
   )
   cached = result
   return result

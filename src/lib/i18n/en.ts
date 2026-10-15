@@ -418,6 +418,9 @@ export const en = {
   'settings.update.restartNow': 'Restart now to finish updating',
   'settings.update.downloading': 'Downloading:',
   'settings.update.notes': 'v{version} release notes',
+  'settings.update.packageManager': 'Update this installation through your system package manager. On Omarchy, run:',
+  'settings.capabilities.error': 'Unable to load desktop capabilities: {error}',
+  'settings.capabilities.retry': 'Retry',
   'settings.update.distNote': 'Updates are distributed via GitHub Releases; downloads are signature-verified with a built-in public key before install — only signed packages replace the .app.',
 
   // Vault browser

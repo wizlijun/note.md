@@ -26,8 +26,15 @@ describe('platform()', () => {
     expect(await isIOS()).toBe(true)
   })
 
-  it('returns "unknown" for non-Apple platforms', async () => {
-    ;(tauriPlatform as any).mockResolvedValue('linux')
+  it.each(['linux', 'windows'])('retains %s as a desktop platform', async (name) => {
+    ;(tauriPlatform as any).mockResolvedValue(name)
+    expect(await platform()).toBe(name)
+    expect(await isMacOS()).toBe(false)
+    expect(await isIOS()).toBe(false)
+  })
+
+  it('returns unknown for unsupported platforms', async () => {
+    ;(tauriPlatform as any).mockResolvedValue('android')
     expect(await platform()).toBe('unknown')
   })
 

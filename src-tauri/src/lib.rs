@@ -1490,6 +1490,7 @@ pub fn run() {
         .invoke_handler({
             #[cfg(not(target_os = "ios"))]
             { tauri::generate_handler![
+                platform::desktop_capabilities,
                 quit_app,
                 drain_pending_files,
                 canvas_document::canvas_document_open,
@@ -1610,6 +1611,7 @@ pub fn run() {
             ] }
             #[cfg(target_os = "ios")]
             { tauri::generate_handler![
+                platform::desktop_capabilities,
                 drain_pending_files,
                 canvas_document::canvas_document_open,
                 canvas_document::canvas_document_probe,
