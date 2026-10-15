@@ -19,25 +19,25 @@ export function normalizeArch(raw) {
 export function normalizeOs(raw) {
   if (!raw) return null;
   const v = raw.toLowerCase().trim();
+  if (v === "linux") return "linux";
   if (v === "windows" || v === "win" || v === "win32" || v === "win64") return "windows";
   if (v === "mac" || v === "macos" || v === "osx" || v === "darwin") return "mac";
   return null;
 }
 
-// UA sniffing is deliberately narrow: we only need to tell "this machine can
-// run a .dmg" from "this machine can run a .exe". Anything else (Linux, iOS,
-// Android, crawlers) gets no binary — the caller sends it to the releases page.
+// Only desktop systems receive installers; mobile visitors go to Releases.
 export function osFromUserAgent(ua) {
   if (!ua) return null;
   if (/iPhone|iPad|iPod|Android/i.test(ua)) return null;
   if (/Macintosh|Mac OS X/.test(ua)) return "mac";
   if (/Windows NT/.test(ua)) return "windows";
+  if (/Linux/.test(ua)) return "linux";
   return null;
 }
 
 /**
  * Decide what to hand this visitor.
- * @returns {{os: 'mac'|'windows', arch: 'aarch64'|'x86_64'}|null}
+ * @returns {{os: 'mac'|'windows'|'linux', arch: 'aarch64'|'x86_64'}|null}
  *
  * Precedence: explicit ?os= / ?arch= > Sec-CH-UA-Arch client hint (Chromium
  * only) > per-OS default. Headers cannot reliably distinguish Intel from Apple
@@ -47,7 +47,8 @@ export function osFromUserAgent(ua) {
 export function detectTarget({ ua = "", osParam = null, archParam = null, archHint = null } = {}) {
   const os = normalizeOs(osParam) ?? osFromUserAgent(ua);
   if (!os) return null;
-  const arch = normalizeArch(archParam) ?? normalizeArch(archHint) ?? (os === "mac" ? "aarch64" : "x86_64");
+  const linuxUaArch = os === "linux" && /\b(?:aarch64|arm64)\b/i.test(ua) ? "aarch64" : null;
+  const arch = normalizeArch(archParam) ?? normalizeArch(archHint) ?? linuxUaArch ?? (os === "mac" ? "aarch64" : "x86_64");
   return { os, arch };
 }
 
@@ -95,16 +96,20 @@ export function isWindowsInstaller(name, arch) {
  * `releases` is the GitHub /releases payload; it arrives newest-first, and we
  * preserve that order rather than parsing versions out of tag names.
  */
-export function windowsUrlFromReleases(releases, arch) {
+function installerUrlFromReleases(releases, arch, matches) {
   for (const rel of Array.isArray(releases) ? releases : []) {
     if (rel?.draft || rel?.prerelease) continue;
     for (const asset of rel?.assets ?? []) {
-      if (isWindowsInstaller(asset?.name, arch) && asset?.browser_download_url) {
+      if (matches(asset?.name, arch) && asset?.browser_download_url) {
         return asset.browser_download_url;
       }
     }
   }
   return null;
+}
+
+export function windowsUrlFromReleases(releases, arch) {
+  return installerUrlFromReleases(releases, arch, isWindowsInstaller);
 }
 
 /**
@@ -115,13 +120,30 @@ export function windowsUrlFromReleases(releases, arch) {
  * `loadPage` receives a one-based page number. A short page (including an
  * empty one after an exactly-full final page) marks the end of the list.
  */
-export async function windowsUrlFromReleasePages(loadPage, arch, pageSize) {
+async function installerUrlFromReleasePages(loadPage, arch, pageSize, select) {
   for (let page = 1; ; page += 1) {
     const releases = await loadPage(page);
     if (!Array.isArray(releases)) return null;
 
-    const url = windowsUrlFromReleases(releases, arch);
+    const url = select(releases, arch);
     if (url) return url;
     if (releases.length < pageSize) return null;
   }
+}
+
+export function windowsUrlFromReleasePages(loadPage, arch, pageSize) {
+  return installerUrlFromReleasePages(loadPage, arch, pageSize, windowsUrlFromReleases);
+}
+
+// Debian architecture names differ from the canonical download query names.
+// Linux installers come only from actual release assets, never latest.json.
+export function linuxUrlFromReleases(releases, arch) {
+  const debArch = { aarch64: "arm64", x86_64: "amd64" }[arch];
+  if (!debArch) return null;
+  return installerUrlFromReleases(releases, arch,
+    (name) => new RegExp(`^note\\.md_[^_]+_${debArch}\\.deb$`).test(name || ""));
+}
+
+export function linuxUrlFromReleasePages(loadPage, arch, pageSize) {
+  return installerUrlFromReleasePages(loadPage, arch, pageSize, linuxUrlFromReleases);
 }

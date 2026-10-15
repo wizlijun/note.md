@@ -218,14 +218,11 @@ describe('localized navigation and social metadata', () => {
   })
 })
 
-describe('Linux beta publication boundary', () => {
-  it.each(['index.html', 'zh/index.html'])('describes unpublished packages and native-machine limits on %s', (home) => {
+describe('Linux beta download links', () => {
+  it.each(locales)('offers explicit native package choices on the $lang homepage', ({ home }) => {
     const html = readFileSync(join(publicDir, home), 'utf8')
-    expect(html).toContain('Linux beta')
-    expect(html).toContain('aarch64')
-    expect(html).toMatch(/no Linux assets are published|尚无已发布 Linux 包/)
-    expect(html).toMatch(/has not been verified on a native desktop machine|未经实机验证/)
-    expect(html).toMatch(/package-manager updates|使用包管理器更新/)
-    expect(html).not.toMatch(/href="[^"]*(?:\.deb|os=linux)/)
+    expect(html).toContain('href="/download?os=linux&amp;arch=x86_64"')
+    expect(html).toContain('href="/download?os=linux&amp;arch=aarch64"')
+    expect(html).not.toMatch(/href="[^"]*releases\/latest\/download\/[^"]*\.deb/)
   })
 })

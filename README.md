@@ -6,7 +6,7 @@
 
 A markdown reader, editor, and bidirectional-linking notes tool designed for
 people and AI agents to work in the same files. Desktop app for macOS 13+
-(Apple Silicon and Intel) and Windows 10/11 x64. The signed macOS build is
+(Apple Silicon and Intel), Windows 10/11 x64, and Linux beta. The signed macOS build is
 ~12 MB to download and ~19 MB installed. Your notes are a folder of plain
 `.md` files on your disk — forever.
 
@@ -14,7 +14,19 @@ people and AI agents to work in the same files. Desktop app for macOS 13+
 
 ---
 
-**Linux beta is being prepared** for Debian 12 / Omarchy (x86_64 and aarch64). No Linux release assets are published yet; aarch64 has not been verified on a native desktop machine. Packages update through the package manager. Native plugins without a Linux build and app-internal agent panels are excluded; Wayland shortcuts use compositor bindings. See [Linux installation, limitations and acceptance](docs/linux-omarchy.md).
+**Linux beta packages** target Debian 12 / Omarchy (x86_64 and aarch64 `.deb`); aarch64 has not been verified on a native desktop machine. Packages update through the package manager. Native plugins without a Linux build and app-internal agent panels are excluded; Wayland shortcuts use compositor bindings. See [Linux installation, limitations and acceptance](docs/linux-omarchy.md).
+
+## Download packages
+
+| Platform | Architecture | Package |
+| --- | --- | --- |
+| macOS 13+ | Apple Silicon | [`.dmg`](https://notemd.net/download?os=mac&arch=aarch64) |
+| macOS 13+ | Intel | [`.dmg`](https://notemd.net/download?os=mac&arch=x86_64) |
+| Windows 10/11 | x64 | [`.exe`](https://notemd.net/download?os=windows&arch=x86_64) |
+| Linux beta · Debian 12 / Omarchy | x86_64 (amd64) | [`.deb`](https://notemd.net/download?os=linux&arch=x86_64) |
+| Linux beta · Debian 12 / Omarchy | aarch64 (arm64) | [`.deb`](https://notemd.net/download?os=linux&arch=aarch64) |
+
+Windows and Linux links select the latest published version that actually has a package for that platform and architecture; it may differ from the newest overall release. Linux ARM never substitutes an x86_64 package. If none is available, the link opens [all releases](https://github.com/wizlijun/note.md/releases). Linux uses package-manager updates, outside the desktop updater manifest. The Omarchy repository entry has not been submitted, and Wayland/fcitx5/tray desktop acceptance is pending.
 
 ## 1. The best place to read what your agents wrote
 

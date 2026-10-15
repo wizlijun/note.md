@@ -7,9 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Download the latest available package for your platform.** The website now offers Linux beta downloads for x86_64/aarch64 alongside Windows. Links find actual published packages even when the newest release omits that platform; Linux ARM never falls back to an x86_64 package.
+
 - **Recover desktop identity checks without restarting.** Settings retries clear only resolved updater identity errors, the plugin market Refresh retries platform detection, and failed Linux title-bar saves restore the saved selection for another attempt.
 
-- **Linux beta distribution preparation.** Debian 12 `.deb` packaging for x86_64/aarch64 and an unsubmitted Omarchy recipe are ready for validation; no Linux release assets are published yet. Updates use the package manager. Native plugins need a Linux build; app-internal agent panels are excluded. Wayland/fcitx5/tray acceptance is pending, and aarch64 has not been verified on a native desktop machine. See [Linux notes](docs/linux-omarchy.md).
+- **Linux beta packages.** Debian 12 `.deb` packages target x86_64/aarch64; the Omarchy repository recipe is not yet submitted. Updates use the package manager. Native plugins need a Linux build; app-internal agent panels are excluded. Wayland/fcitx5/tray acceptance is pending, and aarch64 has not been verified on a native desktop machine. See [Linux notes](docs/linux-omarchy.md).
 
 - **Linux desktop launch and window controls.** Wayland sessions can launch smart search or plugin windows through Hyprland bindings shown in Settings. Linux GUI startup accepts allowlisted environment overrides, and window title bars follow Hyprland defaults with a saved override.
 

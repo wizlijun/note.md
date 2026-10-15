@@ -7,6 +7,7 @@ import {
   GH_REPO,
   RELEASES_PAGE,
   detectTarget,
+  linuxUrlFromReleasePages,
   macDownloadUrl,
   windowsUrlFromManifest,
   windowsUrlFromReleasePages,
@@ -15,10 +16,10 @@ import {
 const LATEST_JSON_URL = `https://github.com/${GH_REPO}/releases/latest/download/latest.json`;
 const RELEASES_API_URL = `https://api.github.com/repos/${GH_REPO}/releases`;
 const UA = "notemd-site-worker";
-const RELEASES_PER_PAGE = 100; // GitHub's maximum; pagination handles older Windows builds
+const RELEASES_PER_PAGE = 100; // GitHub's maximum; pagination handles older platform builds
 
 const MANIFEST_TTL_S = 300; // 5 min — keeps GitHub traffic to ~1 hit per POP per TTL
-const RELEASES_TTL_S = 1800; // 30 min — only queried during a Windows lag window
+const RELEASES_TTL_S = 1800; // 30 min — shared by Windows and Linux platform lookups
 const RESOLVED_TTL_S = 600; // 10 min — a resolved installer URL is stable
 const LKG_TTL_S = 60 * 60 * 24 * 30; // 30 d — last known good, the failure net
 
@@ -109,24 +110,23 @@ async function resolveInstaller(target, ctx) {
   if (fresh?.url) return fresh.url;
 
   let url = null;
-  try {
-    const manifest = await fetchManifest(ctx);
-    url = os === "mac" ? macDownloadUrl(manifest, arch) : windowsUrlFromManifest(manifest, arch);
-  } catch (e) {
-    console.warn("[/download] manifest unavailable:", e);
+  if (os !== "linux") {
+    try {
+      const manifest = await fetchManifest(ctx);
+      url = os === "mac" ? macDownloadUrl(manifest, arch) : windowsUrlFromManifest(manifest, arch);
+    } catch (e) {
+      console.warn("[/download] manifest unavailable:", e);
+    }
   }
 
-  if (!url && os === "windows") {
+  if (!url && (os === "windows" || os === "linux")) {
     try {
-      // No native arm64 build yet; Windows on ARM runs the x64 installer under
-      // emulation, so fall through rather than dead-ending ARM visitors.
+      const select = os === "linux" ? linuxUrlFromReleasePages : windowsUrlFromReleasePages;
       const findRelease = (releaseArch) =>
-        windowsUrlFromReleasePages(
-          (page) => fetchReleasesPage(page, ctx),
-          releaseArch,
-          RELEASES_PER_PAGE,
-        );
-      url = (await findRelease(arch)) ?? (arch === "x86_64" ? null : await findRelease("x86_64"));
+        select((page) => fetchReleasesPage(page, ctx), releaseArch, RELEASES_PER_PAGE);
+      url = await findRelease(arch);
+      // Windows on ARM supports x64 emulation. Linux must match native arch.
+      if (!url && os === "windows" && arch !== "x86_64") url = await findRelease("x86_64");
     } catch (e) {
       console.warn("[/download] releases list unavailable:", e);
     }
@@ -144,13 +144,13 @@ async function resolveInstaller(target, ctx) {
   return lkg?.url ?? null;
 }
 
-// GET /download[?os=mac|windows][&arch=aarch64|x86_64] → 302 to the installer.
+// GET /download[?os=mac|windows|linux][&arch=aarch64|x86_64] → 302 to the installer.
 //
 // Precedence: explicit ?os=/?arch= > User-Agent / Sec-CH-UA-Arch client hint
 // (Chromium only) > per-OS default. Headers cannot reliably distinguish Intel
 // from Apple Silicon (Safari reports Intel on both), so the homepage carries
 // an explicit Intel fallback link instead. Visitors we can't serve a binary to
-// (Linux, mobile, crawlers) get the releases page rather than a download that
+// (mobile, crawlers) get the releases page rather than a download that
 // won't run.
 async function handleDownload(request, ctx) {
   const url = new URL(request.url);

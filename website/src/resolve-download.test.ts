@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   detectTarget,
   isWindowsInstaller,
+  linuxUrlFromReleasePages,
+  linuxUrlFromReleases,
   macDownloadUrl,
   normalizeArch,
   normalizeOs,
@@ -97,31 +99,32 @@ describe('normalizeOs', () => {
     expect(normalizeOs('Windows')).toBe('windows')
     expect(normalizeOs('macos')).toBe('mac')
     expect(normalizeOs('darwin')).toBe('mac')
+    expect(normalizeOs('linux')).toBe('linux')
   })
 
   it('rejects platforms we ship no binary for', () => {
-    expect(normalizeOs('linux')).toBeNull()
     expect(normalizeOs('ios')).toBeNull()
   })
 })
 
 describe('osFromUserAgent', () => {
-  it('splits mac from windows', () => {
+  it('recognizes desktop mac, Windows and Linux', () => {
     expect(osFromUserAgent(MAC_UA)).toBe('mac')
     expect(osFromUserAgent(WIN_UA)).toBe('windows')
+    expect(osFromUserAgent(LINUX_UA)).toBe('linux')
   })
 
   it('serves nothing to platforms without a build', () => {
-    expect(osFromUserAgent(LINUX_UA)).toBeNull()
     expect(osFromUserAgent(IPHONE_UA)).toBeNull()
     expect(osFromUserAgent('')).toBeNull()
   })
 })
 
 describe('detectTarget', () => {
-  it('defaults mac to Apple Silicon and Windows to x64', () => {
+  it('defaults mac to Apple Silicon and Windows/Linux to x64', () => {
     expect(detectTarget({ ua: MAC_UA })).toEqual({ os: 'mac', arch: 'aarch64' })
     expect(detectTarget({ ua: WIN_UA })).toEqual({ os: 'windows', arch: 'x86_64' })
+    expect(detectTarget({ ua: LINUX_UA })).toEqual({ os: 'linux', arch: 'x86_64' })
   })
 
   it('lets explicit params override the user agent', () => {
@@ -142,8 +145,6 @@ describe('detectTarget', () => {
   })
 
   it('returns null when we have nothing to offer', () => {
-    expect(detectTarget({ ua: LINUX_UA })).toBeNull()
-    expect(detectTarget({ ua: LINUX_UA, archParam: 'x86_64' })).toBeNull()
     expect(detectTarget({})).toBeNull()
   })
 })
@@ -262,5 +263,48 @@ describe('windowsUrlFromReleasePages', () => {
 
     expect(url).toBeNull()
     expect(requested).toEqual([1])
+  })
+})
+
+
+describe('Linux download selection', () => {
+  it('detects Linux ARM without a Chromium client hint and respects explicit architecture', () => {
+    const ua = 'Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36'
+    expect(detectTarget({ ua })).toEqual({ os: 'linux', arch: 'aarch64' })
+    expect(detectTarget({ ua: 'Mozilla/5.0 (X11; Linux arm64)' })).toEqual({ os: 'linux', arch: 'aarch64' })
+    expect(detectTarget({ ua, archParam: 'amd64' })).toEqual({ os: 'linux', arch: 'x86_64' })
+    expect(detectTarget({ ua: LINUX_UA, archHint: '"arm"' })).toEqual({ os: 'linux', arch: 'aarch64' })
+    expect(detectTarget({ ua: MAC_UA, osParam: 'linux', archParam: 'arm64' })).toEqual({ os: 'linux', arch: 'aarch64' })
+    expect(osFromUserAgent('Mozilla/5.0 (Linux; Android 15; arm64)')).toBeNull()
+  })
+
+  const releases = [
+    { draft: true, assets: [dl('v9.0.0', 'note.md_9.0.0_amd64.deb')] },
+    { prerelease: true, assets: [dl('v8.0.0', 'note.md_8.0.0_arm64.deb')] },
+    { assets: [dl('v7.0.0', 'note.md-7.0.0-aarch64.dmg')] },
+    { assets: [dl('v6.1015.3', 'note.md_6.1015.3_amd64.deb'), dl('v6.1015.3', 'note.md_6.1015.3_arm64.deb.sig')] },
+    { assets: [dl('v6.1015.2', 'note.md_6.1015.2_amd64.deb'), dl('v6.1015.2', 'note.md_6.1015.2_arm64.deb')] },
+  ]
+
+  it('chooses the newest published actual Debian asset separately for each architecture', () => {
+    expect(linuxUrlFromReleases(releases, 'x86_64')).toBe('https://github.com/wizlijun/note.md/releases/download/v6.1015.3/note.md_6.1015.3_amd64.deb')
+    expect(linuxUrlFromReleases(releases, 'aarch64')).toBe('https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_arm64.deb')
+  })
+
+  it('does not substitute AMD64 or signatures for unavailable native ARM packages', () => {
+    expect(linuxUrlFromReleases(releases.slice(0, 4), 'aarch64')).toBeNull()
+    expect(linuxUrlFromReleases([{ assets: [dl('v1', 'unrelated_1_arm64.deb')] }], 'aarch64')).toBeNull()
+    expect(linuxUrlFromReleases(null, 'x86_64')).toBeNull()
+  })
+
+  it('walks past a full mac-only page and stops on a short page without a matching architecture', async () => {
+    const first = Array.from({ length: 100 }, () => ({ assets: [] }))
+    const requested: number[] = []
+    expect(await linuxUrlFromReleasePages(async (page: number) => {
+      requested.push(page)
+      return page === 1 ? first : releases
+    }, 'aarch64', 100)).toBe('https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_arm64.deb')
+    expect(requested).toEqual([1, 2])
+    expect(await linuxUrlFromReleasePages(async () => releases.slice(0, 4), 'aarch64', 100)).toBeNull()
   })
 })

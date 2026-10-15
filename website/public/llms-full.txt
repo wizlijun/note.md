@@ -4,7 +4,7 @@ This document tells an LLM agent everything it needs to understand and work
 with note.md and its vaults. It is the authoritative plain-text companion to
 https://notemd.net/. Last reviewed: 2026-09-22 for note.md 6.921.2.
 
-Linux beta is being prepared for Debian 12 / Omarchy (x86_64 and aarch64); no Linux release assets or downstream package entry are published yet. Updates use the package manager. Native plugins need a matching Linux build; app-internal agent panels are excluded. Wayland/fcitx5/tray acceptance is pending. aarch64 has not been verified on a native desktop machine. Installation and acceptance: https://github.com/wizlijun/note.md/blob/main/docs/linux-omarchy.md.
+Linux beta packages target Debian 12 / Omarchy (x86_64 and aarch64 .deb). The downstream Omarchy package entry has not been submitted. Downloads: https://notemd.net/download?os=linux&arch=x86_64 and https://notemd.net/download?os=linux&arch=aarch64. Linux and Windows downloads select the latest published release that actually provides the requested platform and architecture, even when the newest overall release omits it. Linux ARM never falls back to x86_64; unavailable packages lead to the release list. Linux packages are excluded from the desktop updater manifest. Updates use the package manager. Native plugins need a matching Linux build; app-internal agent panels are excluded. Wayland/fcitx5/tray acceptance is pending. aarch64 has not been verified on a native desktop machine. Installation and acceptance: https://github.com/wizlijun/note.md/blob/main/docs/linux-omarchy.md.
 
 ## What note.md is
 
@@ -26,7 +26,7 @@ claims in user-selected work and conversations; only a human decision makes
 one trusted context. Search and Memory remain separate because relevance is
 not permission.
 
-- Platform: macOS 13+ (Apple Silicon & Intel) and Windows 10/11 x64 — a Tauri
+- Platform: macOS 13+ (Apple Silicon & Intel), Windows 10/11 x64, and Linux beta — a Tauri
   app rendering in the system WebView. The macOS build is code-signed and
   notarized (~12 MB download, ~19 MB installed). Windows releases may trail
   macOS significantly, and some native plugins currently ship only for macOS;

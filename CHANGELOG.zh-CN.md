@@ -6,9 +6,11 @@
 
 ## 未发布
 
+- **下载所在平台实际可用的最新安装包。** 官网新增 Linux beta 的 x86_64/aarch64 下载，与 Windows 一样按实际已发布安装包选择版本，不受最新全平台版本缺包影响；Linux ARM 不会回退到 x86_64 包。
+
 - **桌面身份检查失败后可直接重试。** 设置页仅清除已恢复的更新身份错误，插件市场刷新可重试平台识别；Linux 标题栏设置保存失败后恢复已保存选项，便于再次选择重试。
 
-- **Linux beta 发行准备。** Debian 12 的 x86_64/aarch64 `.deb` 打包及尚未提交的 Omarchy 配方已准备待验，当前没有已发布 Linux 包。由包管理器更新；原生插件需 Linux 构建，应用内 Agent 面板暂不包含。Wayland/fcitx5/托盘待实机验收，aarch64 未经实机验证。见 [Linux 说明](docs/linux-omarchy.md)。
+- **Linux beta 安装包。** 提供面向 Debian 12 的 x86_64/aarch64 `.deb` 包；Omarchy 仓库配方尚未提交。由包管理器更新；原生插件需 Linux 构建，应用内 Agent 面板暂不包含。Wayland/fcitx5/托盘待实机验收，aarch64 未经实机验证。见 [Linux 说明](docs/linux-omarchy.md)。
 
 - **Linux 桌面启动与窗口设置。** Wayland 会话可通过设置页提供的 Hyprland 绑定唤起智能搜索或插件窗口；GUI 启动支持白名单环境配置，窗口标题栏跟随 Hyprland 默认值并可保存覆盖设置。
 

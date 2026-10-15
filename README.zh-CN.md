@@ -5,14 +5,26 @@
 > **读 AI 写的，留下你想的，留住只有你才写得出的字。**
 
 为人与 AI Agent 在同一批文件中协作而设计的 markdown 阅读器、编辑器、双链笔记工具。
-桌面版支持 macOS 13+（Apple Silicon 与 Intel）和 Windows 10/11 x64；签名并公证的
+桌面版支持 macOS 13+（Apple Silicon 与 Intel）、Windows 10/11 x64 和 Linux beta；签名并公证的
 macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `.md` 文件夹——永远属于你。
 
 [下载](https://notemd.net/download) · [插件市场](https://plugins.notemd.net) · [完整功能清单](docs/FEATURES.zh-CN.md)
 
 ---
 
-**Linux beta 正在准备中**，面向 Debian 12 / Omarchy（x86_64、aarch64）；当前没有已发布 Linux 包，aarch64 未经实机验证。使用包管理器更新；缺少 Linux 构建的原生插件及应用内 Agent 面板不在 beta 范围，Wayland 快捷键由合成器绑定。见 [Linux 安装、限制与验收](docs/linux-omarchy.md)。
+**Linux beta 包**面向 Debian 12 / Omarchy（x86_64、aarch64 `.deb`）；aarch64 未经实机验证。使用包管理器更新；缺少 Linux 构建的原生插件及应用内 Agent 面板不在 beta 范围，Wayland 快捷键由合成器绑定。见 [Linux 安装、限制与验收](docs/linux-omarchy.md)。
+
+## 下载安装包
+
+| 平台 | 架构 | 安装包 |
+| --- | --- | --- |
+| macOS 13+ | Apple Silicon | [`.dmg`](https://notemd.net/download?os=mac&arch=aarch64) |
+| macOS 13+ | Intel | [`.dmg`](https://notemd.net/download?os=mac&arch=x86_64) |
+| Windows 10/11 | x64 | [`.exe`](https://notemd.net/download?os=windows&arch=x86_64) |
+| Linux beta · Debian 12 / Omarchy | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&arch=x86_64) |
+| Linux beta · Debian 12 / Omarchy | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&arch=aarch64) |
+
+Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux ARM 不会回退到 x86_64 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
 
 ## 1. 读 agent 写的东西，这里体验最好
 

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 //
 // The homepage ships in its macOS form and rewrites the download CTA in place
-// for Windows visitors. That swap is a few lines of inline JS with no module
+// for Windows and Linux visitors. That swap is a few lines of inline JS with no module
 // boundary, so exercise it the only way that proves anything: load the real
 // public/index.html, run its script under a faked navigator, read the DOM.
 import { readFileSync } from 'node:fs'
@@ -80,9 +80,9 @@ describe.each(PAGES)('%s', (page) => {
   })
 
   it('sends unsupported desktop visitors to the releases page', () => {
-    load(page, 'Linux')
+    load(page, 'FreeBSD')
     for (const cta of Array.from(document.querySelectorAll('[data-dl]'))) {
-      expect(cta.getAttribute('href')).toBe('https://github.com/wizlijun/note.md/releases/latest')
+      expect(cta.getAttribute('href')).toBe('https://github.com/wizlijun/note.md/releases')
       expect(cta.querySelector('.bl')?.textContent).toBe(cta.getAttribute('data-dl-other'))
     }
   })
