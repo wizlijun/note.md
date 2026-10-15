@@ -91,6 +91,9 @@
   let hostVersion = $state<string | null>(null)
   // Unknown / failed platform identity never offers an installation.
   let hostTriple = $state<string | null>(null)
+  let hostLoading = $state(true)
+  let hostError = $state<string | null>(null)
+  let hostRequest: Promise<void> | null = null
   let refreshSequence = 0
   let catalogById = $derived(new Map(catalogEntries.map((entry) => [entry.id, entry])))
   let marketItems: MarketItem[] = $derived([
@@ -143,10 +146,6 @@
       const cached = readInstalledCache()
       if (cached.length > 0) applyInstalled(cached, [], false)
       ready = true
-      void invoke<string>('plugin_market_host_triple').then((triple) => {
-        hostTriple = typeof triple === 'string' && triple.trim() ? triple : null
-        if (catalogReady) applyCatalog({ plugins: registryEntries })
-      }).catch(() => { hostTriple = null })
       await refresh()
       // The main window emits `plugins-changed` after every mutating op; when it
       // fires from elsewhere (e.g. a CLI install) keep our lists fresh too.
@@ -161,11 +160,31 @@
     busy = { ...busy, [id]: v }
   }
 
+  function refreshHostTriple(): void {
+    if (hostTriple || hostRequest) return
+    hostLoading = true
+    hostError = null
+    hostRequest = (async () => {
+      try {
+        const triple = await invoke<string>('plugin_market_host_triple')
+        if (typeof triple !== 'string' || !triple.trim()) throw new Error('Invalid host platform')
+        hostTriple = triple
+        if (catalogReady) applyCatalog({ plugins: registryEntries })
+      } catch (error) {
+        hostError = String(error)
+      } finally {
+        hostLoading = false
+        hostRequest = null
+      }
+    })()
+  }
+
   /** Re-fetch device state first, then enrich it with the remote catalog. */
   async function refresh(forceOnline = false) {
     const sequence = ++refreshSequence
     loading = true
     notice = null
+    refreshHostTriple()
     // Start both requests together, but apply the device-local result first.
     // The registry can be slow or offline and must never gate installed plugins.
     const installedRequest = invoke<InstalledV2[]>('plugin_market_installed')
@@ -530,6 +549,12 @@
         </div>
       </header>
 
+      {#if hostError}
+        <div class="notice" role="alert"><span aria-hidden="true">!</span><p>{t('pluginMarket.platformError', { error: hostError })}</p></div>
+      {:else if hostLoading}
+        <div class="notice" role="status"><p>{t('pluginMarket.platformLoading')}</p></div>
+      {/if}
+
       {#if notice}
         <div class="notice" role="status"><span aria-hidden="true">!</span><p>{notice}</p></div>
       {/if}
@@ -649,7 +674,7 @@
 
                       <footer class="card-footer available-footer">
                         <span class="plugin-id">{item.entry.id}</span>
-                        <button class="mini primary" disabled={batchUpdating || !platformSatisfied(item.entry, hostTriple)} onclick={() => beginInstall(item.entry)}>{t(platformSatisfied(item.entry, hostTriple) ? 'pluginMarket.install' : 'pluginMarket.unavailablePlatform')}</button>
+                        <button class="mini primary" disabled={batchUpdating || !platformSatisfied(item.entry, hostTriple)} onclick={() => beginInstall(item.entry)}>{t(!hostTriple ? (hostLoading ? 'pluginMarket.platformLoading' : 'pluginMarket.platformUnknown') : platformSatisfied(item.entry, hostTriple) ? 'pluginMarket.install' : 'pluginMarket.unavailablePlatform')}</button>
                       </footer>
                     {/if}
                   </article>

@@ -11,7 +11,7 @@
   import {
     updater as updaterState, runCheck as updaterRunCheck, setCheckOnStartup,
     downloadAndInstall as updaterDownloadAndInstall, restartApp as updaterRestart,
-    hasUpdateForSettings,
+    hasUpdateForSettings, recoverUpdaterCapabilityError,
   } from '../lib/updater.svelte'
   import { desktopCapabilities, loadDesktopCapabilities, setLinuxWindowDecorations } from '../lib/desktop-capabilities.svelte'
   import { themes, loadThemes, reloadThemes } from '../lib/themes.svelte'
@@ -105,8 +105,11 @@
     } finally { settingsSaveBusy-- }
   }
   async function changeLinuxDecorations(event: Event) {
-    const raw = (event.currentTarget as HTMLSelectElement).value
+    const select = event.currentTarget as HTMLSelectElement
+    const raw = select.value
     await applyLinuxDecorations(raw === 'auto' ? null : raw === 'on')
+    // A rejected write leaves the one-way-bound DOM at the uncommitted choice.
+    select.value = settings.linuxWindowDecorations === null ? 'auto' : settings.linuxWindowDecorations ? 'on' : 'off'
   }
   async function applyLinuxDecorations(value: boolean | null) {
     linuxPolicyBusy = true
@@ -723,6 +726,7 @@
   async function refreshCapabilities() {
     try {
       const value = await loadDesktopCapabilities()
+      recoverUpdaterCapabilityError()
       if (value.cliInstall) await refreshCliStatus()
     } catch { /* The shared capability state renders the retryable error. */ }
   }

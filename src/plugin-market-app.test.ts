@@ -33,6 +33,9 @@ vi.mock('./lib/i18n/store.svelte', () => {
     'pluginMarket.windowTitle': 'Plugin Market',
     'pluginMarket.unavailablePlatform': 'Unavailable on this platform',
     'pluginMarket.install': 'Install',
+    'pluginMarket.platformLoading': 'Identifying platform…',
+    'pluginMarket.platformError': 'Could not identify this platform. Refresh to retry: {error}',
+    'pluginMarket.platformUnknown': 'Platform unknown',
     'pluginMarket.subtitle': 'Browse plugins',
     'pluginMarket.hostVersion': 'note.md {version}',
     'pluginMarket.restartHint': 'Plugins reload automatically after installation or update. You don’t need to restart note.md.',
@@ -514,6 +517,33 @@ describe('plugin market staged loading', () => {
 })
 
 describe('plugin market platform availability', () => {
+  it('Refresh retries failed identity and restores compatible installs and updates only', async () => {
+    let fail = true
+    const unsupported = { ...entry('vendor.macos', 'Mac Only'), archs: ['aarch64-apple-darwin'],
+      download: { 'aarch64-apple-darwin': 'https://plugins.notemd.net/mac.zip' },
+      sha256: { 'aarch64-apple-darwin': 'aa' } }
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return fail ? Promise.reject(new Error('identity unavailable')) : Promise.resolve('x86_64-unknown-linux-gnu')
+      if (command === 'plugin_market_installed') return Promise.resolve([installed('Next')])
+      if (command === 'plugin_market_index') return Promise.resolve({ plugins: [entry('notemd.next', 'Next', '1.1.0'), entry('vendor.ui', 'UI Only'), unsupported] })
+      return Promise.resolve()
+    })
+    component = mount(PluginMarketApp, { target: document.body })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('UI Only'))
+    expect(document.querySelector('.update-action')).toBeNull()
+    expect(document.querySelector<HTMLButtonElement>('[data-plugin-id="vendor.ui"] .available-footer button')!.disabled).toBe(true)
+    fail = false
+    document.querySelector<HTMLButtonElement>('.refresh')!.click()
+    await vi.waitFor(() => expect(document.querySelector<HTMLButtonElement>('[data-plugin-id="vendor.ui"] .available-footer button')!.disabled).toBe(false))
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'plugin_market_host_triple')).toHaveLength(2)
+    expect(document.querySelector('.update-action')?.textContent).toContain('1.1.0')
+    expect(document.querySelector('.update-all')).not.toBeNull()
+    const blocked = document.querySelector<HTMLButtonElement>('[data-plugin-id="vendor.macos"] .available-footer button')!
+    expect(blocked.disabled).toBe(true)
+    expect(blocked.textContent).toBe('Unavailable on this platform')
+    expect(document.body.textContent).not.toContain('identity unavailable')
+  })
+
   it('keeps unsupported plugins visible and rejects even dispatched install clicks before preview', async () => {
     const unsupported = { ...entry('vendor.macos', 'Mac Only'), archs: ['aarch64-apple-darwin'],
       download: { 'aarch64-apple-darwin': 'https://plugins.notemd.net/mac.zip' },
@@ -554,6 +584,8 @@ describe('plugin market platform availability', () => {
     expect(document.querySelector('.update-all')).toBeNull()
     const button = document.querySelector<HTMLButtonElement>('.available-footer button')!
     expect(button.disabled).toBe(true)
+    expect(button.textContent).toBe(state === 'pending' ? 'Identifying platform…' : 'Platform unknown')
+    expect(document.body.textContent).toContain(state === 'pending' ? 'Identifying platform…' : 'Could not identify this platform. Refresh to retry: Error: identity unavailable')
     button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(mocks.invoke.mock.calls.some(([c]) => c === 'plugin_market_preview' || c === 'plugin_market_install')).toBe(false)

@@ -69,6 +69,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 // Desktop, not iOS — the tab is `!isIOSPlatform`-gated in the strip.
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos' }))
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn(async () => null) }))
+vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn(async () => '6.1015.1') }))
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: vi.fn(async () => {}), exit: vi.fn(async () => {}) }))
 vi.mock('@tauri-apps/api/webviewWindow', () => ({
   WebviewWindow: class { static getCurrent() { return { label: 'main' } } },
@@ -1058,13 +1059,16 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
     } finally { settings.theme = previousTheme }
   })
 
-  it('capability errors are visible on updates and retry restores direct controls', async () => {
+  it('capability errors from updater initialization disappear after Settings retry', async () => {
     let fail = true
     const normalInvoke = invokeMock.getMockImplementation()!
     invokeMock.mockImplementation(async (cmd, args) => {
       if (cmd === 'desktop_capabilities' && fail) throw new Error('desktop identity unavailable')
       return normalInvoke(cmd, args)
     })
+    const { initUpdater, updater } = await import('../lib/updater.svelte')
+    await initUpdater()
+    expect(updater.error).toBe('desktop identity unavailable')
     await mountDialog()
     openSettings('updates')
     await settle()
@@ -1075,9 +1079,45 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
     expect(retry).toBeTruthy()
     retry!.click()
     await settle()
+    expect(updater.error).toBe(null)
+    expect(updater.state).toBe('idle')
     expect(document.body.textContent).not.toContain('desktop identity unavailable')
     expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(true)
   })
+  it.each(['network unavailable', 'download interrupted', 'signature mismatch'])('capability retry preserves genuine updater error: %s', async (message) => {
+    const { check } = await import('@tauri-apps/plugin-updater')
+    const { runCheck, downloadAndInstall, updater } = await import('../lib/updater.svelte')
+    if (message === 'network unavailable') {
+      vi.mocked(check).mockRejectedValueOnce(new Error(message))
+      await expect(runCheck()).rejects.toThrow(message)
+    } else {
+      vi.mocked(check).mockResolvedValueOnce({ version: '999.0.0', downloadAndInstall: async () => { throw new Error(message) } } as unknown as Awaited<ReturnType<typeof check>>)
+      await runCheck()
+      await expect(downloadAndInstall()).rejects.toThrow(message)
+    }
+    desktopCapabilities.value = null
+    let fail = true
+    invokeMock.mockImplementation(async (cmd, args) => {
+      if (cmd === 'desktop_capabilities' && fail) throw new Error('identity retry needed')
+      return defaultInvokeImpl(cmd, args)
+    })
+    await runCheck() // The capability gate must not overwrite a genuine updater error.
+    await mountDialog()
+    openSettings('updates')
+    await settle()
+    expect(document.body.textContent).toContain('identity retry needed')
+    fail = false
+    const retry = [...document.querySelectorAll('button')].find((button) => button.textContent === t('settings.capabilities.retry'))!
+    retry.click()
+    await settle()
+    expect(desktopCapabilities.error).toBe(null)
+    expect(updater.error).toBe(message)
+    expect(updater.state).toBe('error')
+    expect(document.body.textContent).toContain(message)
+    updater.error = null
+    updater.state = 'idle'
+  })
+
 })
 
 
@@ -1141,6 +1181,7 @@ describe('SettingsDialog — committed Linux decoration failures', () => {
       select.value = 'on'
       select.dispatchEvent(new Event('change', { bubbles: true }))
       await settle()
+      expect(select.value).toBe('on')
       expect(diskPreference).toBe(true)
       expect(settings.linuxWindowDecorations).toBe(true)
       expect(desktopCapabilities.value?.windowDecorations).toBe(true)
@@ -1160,10 +1201,14 @@ describe('SettingsDialog — committed Linux decoration failures', () => {
   it('does not update committed frontend state or cache on a pure write failure', async () => {
     vi.mocked(nativePlatform).mockReturnValue('linux')
     const native = { distributionChannel: 'direct', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: false, windowDecorations: false }
+    let fail = true
     invokeMock.mockImplementation(async (command, args) => {
       if (command === 'desktop_capabilities') return native
       if (command === 'shared_config_read') return { version: 1, linuxWindowDecorations: null }
-      if (command === 'linux_window_decorations_set') throw new Error('shared.json write failed')
+      if (command === 'linux_window_decorations_set') {
+        if (fail) throw new Error('shared.json write failed')
+        return { value: true, capabilities: { ...native, windowDecorations: true }, failedWindows: [] }
+      }
       return defaultInvokeImpl(command, args)
     })
     await mountDialog()
@@ -1175,5 +1220,14 @@ describe('SettingsDialog — committed Linux decoration failures', () => {
     expect(settings.linuxWindowDecorations).toBe(null)
     expect(desktopCapabilities.value).toEqual(native)
     expect(document.querySelector('[role="alert"]')?.textContent).toContain('shared.json write failed')
+    expect(select.value).toBe('auto')
+    fail = false
+    select.value = 'on'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'linux_window_decorations_set')).toHaveLength(2)
+    expect(settings.linuxWindowDecorations).toBe(true)
+    expect(select.value).toBe('on')
+    expect(document.querySelector('[role="alert"]')).toBe(null)
   })
 })

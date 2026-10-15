@@ -69,6 +69,7 @@ let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let persisted: Persisted = { ...DEFAULT_PERSISTED }
 let pendingUpdate: Update | null = null
 let hydrated = false
+let errorSource: 'capabilities' | 'updater' | null = null
 
 async function getStore() {
   if (!store) store = await Store.load(UPDATER_STORE_FILE)
@@ -125,17 +126,30 @@ function compareVersion(a: string, b: string): number {
 async function canUpdate(): Promise<boolean> {
   try {
     const capabilities = await loadDesktopCapabilities()
+    recoverUpdaterCapabilityError()
     if (capabilities.distributionChannel === 'direct') return true
     pendingUpdate = null
     updater.state = 'idle'
     updater.latestVersion = null
     updater.notes = null
     updater.error = null
+    errorSource = null
   } catch (error) {
-    updater.state = 'error'
-    updater.error = error instanceof Error ? error.message : String(error)
+    if (errorSource !== 'updater') {
+      updater.state = 'error'
+      updater.error = error instanceof Error ? error.message : String(error)
+      errorSource = 'capabilities'
+    }
   }
   return false
+}
+
+/** Clear only the identity error whose cause a successful capability retry resolved. */
+export function recoverUpdaterCapabilityError(): void {
+  if (!desktopCapabilities.value || errorSource !== 'capabilities') return
+  updater.error = null
+  errorSource = null
+  if (updater.state === 'error') updater.state = 'idle'
 }
 
 /**
@@ -213,6 +227,7 @@ export async function runCheck(opts: CheckOpts = {}): Promise<void> {
   await loadPersisted()
   updater.state = 'checking'
   updater.error = null
+  errorSource = null
   try {
     const result = await check()
     persisted.last_checked_at = new Date().toISOString()
@@ -234,6 +249,7 @@ export async function runCheck(opts: CheckOpts = {}): Promise<void> {
     updater.lastCheckedAt = persisted.last_checked_at
     updater.state = 'error'
     updater.error = e instanceof Error ? e.message : String(e)
+    errorSource = 'updater'
     await savePersisted().catch(() => {})
     if (!opts.silent) throw e
   }
@@ -293,6 +309,7 @@ export async function downloadAndInstall(): Promise<void> {
   } catch (e) {
     updater.state = 'error'
     updater.error = e instanceof Error ? e.message : String(e)
+    errorSource = 'updater'
     throw e
   }
 }

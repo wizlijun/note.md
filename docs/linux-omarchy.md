@@ -189,11 +189,12 @@ Run the Windows command on Windows before Linux/final publication. Linux uses
 Debian 12 containers for both architectures, verifies package layout/ELF/CLI
 and Arch compatibility, then uploads both debs plus their checksums. Keep the
 sibling `moraya-core` source available read-only as required by the build.
-The publish script validates the exact draft and platform assets and asks for
-explicit confirmation of the tag/platform set. A missing platform may only be
-omitted through its explicit supported confirmation flow; never fabricate an
-asset or add a Linux updater entry. A real three-platform prerelease rehearsal
-(L5) remains pending; these local scripts/tests are not that rehearsal.
+The publish script validates the exact draft and complete platform asset set,
+then publishes immediately; the normal command has no confirmation prompt.
+Only `--without windows|linux` permits a missing platform and requires typing
+the exact tag/omitted-platform confirmation in an interactive terminal. Never
+fabricate an asset or add a Linux updater entry. A real three-platform prerelease
+rehearsal (L5) remains pending; these local scripts/tests are not that rehearsal.
 
 ## Omarchy real-machine acceptance (spec §8, exact checklist)
 
