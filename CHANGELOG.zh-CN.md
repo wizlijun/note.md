@@ -6,6 +6,8 @@
 
 ## 未发布
 
+- **Linux beta 发行准备。** Debian 12 的 x86_64/aarch64 `.deb` 打包及尚未提交的 Omarchy 配方已准备待验，当前没有已发布 Linux 包。由包管理器更新；原生插件需 Linux 构建，应用内 Agent 面板暂不包含。Wayland/fcitx5/托盘待实机验收，aarch64 未经实机验证。见 [Linux 说明](docs/linux-omarchy.md)。
+
 - **Linux 桌面启动与窗口设置。** Wayland 会话可通过设置页提供的 Hyprland 绑定唤起智能搜索或插件窗口；GUI 启动支持白名单环境配置，窗口标题栏跟随 Hyprland 默认值并可保存覆盖设置。
 
 ## v6.1015.1 — 2026-10-15

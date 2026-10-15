@@ -14,6 +14,8 @@ people and AI agents to work in the same files. Desktop app for macOS 13+
 
 ---
 
+**Linux beta is being prepared** for Debian 12 / Omarchy (x86_64 and aarch64). No Linux release assets are published yet; aarch64 has not been verified on a native desktop machine. Packages update through the package manager. Native plugins without a Linux build and app-internal agent panels are excluded; Wayland shortcuts use compositor bindings. See [Linux installation, limitations and acceptance](docs/linux-omarchy.md).
+
 ## 1. The best place to read what your agents wrote
 
 Rich view and source view, one keystroke apart. Import Typora-compatible
@@ -265,13 +267,17 @@ run it.
 ## Release (maintainers)
 
 ```bash
-scripts/release.sh [x.y.z] [--draft|--prerelease]
+scripts/release.sh
+# Windows: scripts/release-windows.ps1 <tag>
+scripts/release-linux.sh <tag>
+scripts/release-publish.sh <tag>
 ```
 
-Tests → version bump → signed per-arch builds → notarize → tag → push →
-GitHub Release (two `.dmg`s, two updater tarballs + signatures, and a
-`latest.json` manifest driving per-arch auto-update). Windows packages are
-then added to the same tag with `scripts/release-windows.ps1`. Requires `APPLE_ID`,
+Build macOS into a draft, add Windows on Windows and both Linux architectures,
+then validate and publish the same tag through the final gate. Linux updates
+use the package manager, without Linux keys in `latest.json`.
+See [release order and acceptance limits](docs/linux-omarchy.md).
+Requires `APPLE_ID`,
 `APPLE_PASSWORD`, `APPLE_TEAM_ID` in `.env.release` and the updater key at
 `~/.tauri/mdeditor.key`.
 

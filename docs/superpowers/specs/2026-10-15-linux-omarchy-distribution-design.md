@@ -324,3 +324,22 @@ L7  CHANGELOG / README / 官网 / llms.txt                                0.5d
 - Hyprland 下 `decorations(true)` 的实际呈现(L4)。
 - gh 对 draft Release 的 `view/upload/download` 按 tag 定位(L5)。
 - amd64 / arm64 容器构建时长(L1)。
+
+### 2026-10-15 实现观察（不是 L4/L5/L6 验收）
+
+- source snapshot `640778d3` 的原生 arm64 Debian 12 容器构建 exit 0；实际产物
+  `note.md_6.1015.1_arm64.deb`，SHA256
+  `9780e6ec8de83a57290278dea8faefe7aa19577fe71e2bbc8076480469fd4fa0`。
+  `Package: note-md`；实际布局含 `/usr/bin/notemd`、
+  `/usr/lib/note.md/resources/themes`、`/usr/share/applications/note.md.desktop`、
+  `hicolor` 的 `notemd` 图标和 `/usr/share/doc/note.md/copyright`。
+  ARM ELF64、最大 GLIBC 2.35、直接 NEEDED 无 libssl；Debian 容器 CLI 版本检查 exit 0。
+  这些结论属于该冻结源码快照，不证明最终提交或未来 release tag 已构建。
+- 该 arm64 包通过最终 Task5 静态 verifier（exit 0）；不代表 Arch 运行、浏览器
+  deep link、Hyprland/fcitx5/托盘或 aarch64 实机 UI 通过。amd64 与最终快照结果由
+  控制器补录，未观察到完成之前保持待验。
+- 本轮只读 release audit：公开 `v6.1015.1` 有七个 macOS 资产，没有 Windows/Linux
+  资产。Omarchy 模板尚未提交，准备 helper 必须对明确已发布稳定 tag 下载的两种
+  deb 核真实 SHA256 后生成配方；没有对外发布或 PR。
+- 耐久证据归档位置：`tasks/linux-omarchy-evidence/2026-10-15/`，由控制器在 SDD
+  清理前归档；当前文档不能把待归档日志或源码观察当作实机/真实发布证据。

@@ -12,6 +12,8 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 
 ---
 
+**Linux beta 正在准备中**，面向 Debian 12 / Omarchy（x86_64、aarch64）；当前没有已发布 Linux 包，aarch64 未经实机验证。使用包管理器更新；缺少 Linux 构建的原生插件及应用内 Agent 面板不在 beta 范围，Wayland 快捷键由合成器绑定。见 [Linux 安装、限制与验收](docs/linux-omarchy.md)。
+
 ## 1. 读 agent 写的东西，这里体验最好
 
 富文本与源码双模，一个快捷键之隔。可导入 Typora 兼容主题。Mermaid、Graphviz、
@@ -229,12 +231,15 @@ Unix domain socket，Windows 是命名管道），不碰网络。默认开启，
 ## 发布（仓库维护者）
 
 ```bash
-scripts/release.sh [x.y.z] [--draft|--prerelease]
+scripts/release.sh
+# Windows: scripts/release-windows.ps1 <tag>
+scripts/release-linux.sh <tag>
+scripts/release-publish.sh <tag>
 ```
 
-依次执行：测试 → 版本号 → 按架构签名构建 → 公证 → 打 tag → push → GitHub  
-Release（两个 `.dmg`、两个 updater 包及签名、驱动按架构自动更新的  
-`latest.json`）。随后用 `scripts/release-windows.ps1` 把 Windows 包补进同一 tag。
+先构建 macOS draft，再在 Windows 上补包并构建两种架构 Linux 包，最后验证
+同一 tag 的产物后发布。Linux 由包管理器更新，不写入 `latest.json`。
+见 [发布顺序与待验边界](docs/linux-omarchy.md)。
 需要 `.env.release` 中的 `APPLE_ID`、`APPLE_PASSWORD`、
 `APPLE_TEAM_ID`，以及 `~/.tauri/mdeditor.key` 的 updater 签名私钥。
 
