@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  把 Windows 安装包补进一个【已经由 macOS 侧发布好】的 GitHub Release。
+  把 Windows 安装包补进一个【已经由 macOS 侧创建】的 GitHub 草稿 Release。
 
 .DESCRIPTION
   note.md 的发版是分两台机器、两个阶段完成的:
@@ -72,8 +72,20 @@ function Invoke-Cli {
 foreach ($cmd in @('git', 'gh', 'node', 'pnpm', 'cargo')) {
   if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { Die "$cmd 不在 PATH 上" }
 }
+$ghVersion = Invoke-Cli { gh --version }
+if ($LASTEXITCODE -ne 0) { Die '无法读取 gh 版本' }
+Say ("Windows gh: " + ($ghVersion | Select-Object -First 1))
 Invoke-Cli { gh auth status *> $null }
 if ($LASTEXITCODE -ne 0) { Die 'gh 未登录,先跑 gh auth login' }
+
+# 只给草稿补包;长构建后和每次上传前都重新确认,不修改已公开的 Release。
+function Assert-Draft {
+  $releaseJson = Invoke-Cli { gh -R $Repo release view $Tag --json isDraft }
+  if ($LASTEXITCODE -ne 0) { Die "草稿 Release $Tag 不存在或无权访问。必须先在 Mac 上创建草稿。" }
+  try { $release = $releaseJson | ConvertFrom-Json }
+  catch { Die '无法解析 Release 草稿状态' }
+  if ($release.isDraft -ne $true) { Die "Release $Tag 已公开,拒绝上传。必须使用现有草稿。" }
+}
 
 # ── 1. 签名密钥:必须“存在且为空”,不是“不存在” ───────────────────────────────
 #
@@ -190,8 +202,7 @@ Invoke-Cli { git checkout --quiet $Tag }
 $pkgVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
 if ($pkgVersion -ne $Version) { Die "package.json 是 $pkgVersion,tag 是 $Version —— 对不上" }
 
-Invoke-Cli { gh -R $Repo release view $Tag *> $null }
-if ($LASTEXITCODE -ne 0) { Die "Release $Tag 不存在。必须先在 Mac 上发版,Windows 只做补包。" }
+Assert-Draft
 Say "对齐到 $Tag(版本 $Version)"
 
 # ── 3. 架构 ───────────────────────────────────────────────────────────────────
@@ -290,6 +301,7 @@ Say "产物:$($setup.Name) ($([math]::Round($setup.Length/1MB,1)) MB)"
 # ── 5. 上传到【同一个】 Release ───────────────────────────────────────────────
 # --clobber:允许重跑覆盖,避免失败一次就得手工去网页删附件。
 Say '上传安装包与 updater 产物…'
+Assert-Draft
 Invoke-Cli { gh -R $Repo release upload $Tag $setup.FullName $sig.FullName --clobber }
 if ($LASTEXITCODE -ne 0) { Die '上传失败' }
 
@@ -308,6 +320,7 @@ $setupUrl = "https://github.com/$Repo/releases/download/$Tag/$($setup.Name)"
 Invoke-Cli { node scripts/merge-latest-json.mjs --file $latest --platform $PlatformKey --url $setupUrl --sig-file $sig.FullName --version $Version }
 if ($LASTEXITCODE -ne 0) { Die '合并 latest.json 失败(上面有原因),尚未上传,线上仍是旧的' }
 
+Assert-Draft
 Invoke-Cli { gh -R $Repo release upload $Tag $latest --clobber }
 if ($LASTEXITCODE -ne 0) { Die 'latest.json 上传失败' }
 

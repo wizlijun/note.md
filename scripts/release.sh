@@ -77,7 +77,7 @@ die() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 VERSION=""
 ALLOW_UNTRACKED=""; EXPECTED_SHARE_MANIFEST=""
 ALLOW_UNTRACKED_COPY=""; EXPECTED_SHARE_COPY=""
-DRAFT=0; PRERELEASE=0
+PRERELEASE=0
 while (( $# )); do
   arg="$1"; shift
   case "$arg" in
@@ -91,7 +91,7 @@ while (( $# )); do
     --universal)
       echo "warning: --universal is no longer supported; building per-arch dmgs instead" >&2
       ;;
-    --draft)      DRAFT=1      ;;
+    --draft)      :            ;; # compatibility alias; every release starts as a draft
     --prerelease) PRERELEASE=1 ;;
     -*) echo "unknown flag: $arg" >&2; exit 2 ;;
     *)
@@ -582,7 +582,7 @@ NOTES="${PREAMBLE}"$'\n\n'"## What's Changed
 ${CHANGELOG_SECTION}"
 
 EXTRA=()
-(( DRAFT ))      && EXTRA+=(--draft)
+EXTRA+=(--draft)
 (( PRERELEASE )) && EXTRA+=(--prerelease)
 
 # Generate latest.json — the updater manifest that the app polls. Each arch
@@ -620,4 +620,5 @@ gh -R "$GH_REPO" release create "$TAG" \
   "$LATEST_JSON_STAGED"
 
 URL=$(gh -R "$GH_REPO" release view "$TAG" --json url -q .url)
-printf '\033[1;32m✓\033[0m released: %s\n' "$URL"
+printf '\033[1;32m✓\033[0m draft ready: %s\n' "$URL"
+echo "Upload Windows/Linux packages, then run scripts/release-publish.sh $TAG"
