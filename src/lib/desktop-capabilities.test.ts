@@ -62,7 +62,7 @@ it('changing Linux decorations refreshes the cached native policy', async () => 
     if (command === 'desktop_capabilities') return direct
     if (command === 'linux_window_decorations_set') {
       expect(args).toEqual({ value: false })
-      return { ...direct, windowDecorations: false }
+      return { value: false, capabilities: { ...direct, windowDecorations: false }, failedWindows: [] }
     }
     throw new Error(`Unexpected command ${command}`)
   })
@@ -77,7 +77,7 @@ it('an earlier capability load cannot overwrite a newer decoration policy', asyn
   let resolve!: (value: unknown) => void
   mockIPC((command) => {
     if (command === 'desktop_capabilities') return new Promise((done) => { resolve = done })
-    if (command === 'linux_window_decorations_set') return { ...direct, windowDecorations: false }
+    if (command === 'linux_window_decorations_set') return { value: false, capabilities: { ...direct, windowDecorations: false }, failedWindows: [] }
     throw new Error(`Unexpected command ${command}`)
   })
   const capabilities = await import('./desktop-capabilities.svelte')
@@ -87,4 +87,26 @@ it('an earlier capability load cannot overwrite a newer decoration policy', asyn
   resolve(direct)
   await Promise.all([loading, setting])
   expect(capabilities.desktopCapabilities.value?.windowDecorations).toBe(false)
+})
+
+
+it('a committed partial apply refreshes native capabilities and returns retryable window failures', async () => {
+  const receipt = { value: false, capabilities: { ...direct, windowDecorations: false }, failedWindows: [{ label: 'closed', error: 'window closed' }] }
+  mockIPC((command) => command === 'desktop_capabilities' ? direct : receipt)
+  const capabilities = await import('./desktop-capabilities.svelte')
+  await capabilities.loadDesktopCapabilities()
+  const result = await capabilities.setLinuxWindowDecorations(false)
+  expect(result).toEqual(receipt)
+  expect(capabilities.desktopCapabilities.value).toEqual(receipt.capabilities)
+})
+
+it('a native write failure leaves the last committed capability cache unchanged', async () => {
+  mockIPC((command) => {
+    if (command === 'desktop_capabilities') return direct
+    throw new Error('shared.json write failed')
+  })
+  const capabilities = await import('./desktop-capabilities.svelte')
+  await capabilities.loadDesktopCapabilities()
+  await expect(capabilities.setLinuxWindowDecorations(false)).rejects.toThrow('shared.json write failed')
+  expect(capabilities.desktopCapabilities.value).toEqual(direct)
 })

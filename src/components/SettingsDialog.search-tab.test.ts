@@ -1100,7 +1100,7 @@ describe('SettingsDialog — Linux desktop policy', () => {
     invokeMock.mockImplementation(async (command, args) => {
       if (command === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: false, windowDecorations: false }
       if (command === 'shared_config_read') return { version: 1 }
-      if (command === 'linux_window_decorations_set') return { ...desktopCapabilities.value, windowDecorations: true }
+      if (command === 'linux_window_decorations_set') return { value: true, capabilities: { ...desktopCapabilities.value, windowDecorations: true }, failedWindows: [] }
       return defaultInvokeImpl(command, args)
     })
     await mountDialog()
@@ -1113,5 +1113,67 @@ describe('SettingsDialog — Linux desktop policy', () => {
     expect(invokeMock).toHaveBeenCalledWith('linux_window_decorations_set', { value: true })
     expect(settings.linuxWindowDecorations).toBe(true)
     expect(desktopCapabilities.value?.windowDecorations).toBe(true)
+  })
+})
+
+
+describe('SettingsDialog — committed Linux decoration failures', () => {
+  it('keeps the committed preference and native cache visible after partial apply, then retries', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('linux')
+    const previousLocale = i18n.locale
+    i18n.locale = 'en'
+    let diskPreference: boolean | null = null
+    let failed = true
+    const native = { distributionChannel: 'direct', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: false, windowDecorations: false }
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === 'desktop_capabilities') return native
+      if (command === 'shared_config_read') return { version: 1, linuxWindowDecorations: diskPreference }
+      if (command === 'linux_window_decorations_set') {
+        diskPreference = (args as { value: boolean | null }).value
+        return { value: diskPreference, capabilities: { ...native, windowDecorations: true }, failedWindows: failed ? [{ label: 'closed', error: 'window closed' }] : [] }
+      }
+      return defaultInvokeImpl(command, args)
+    })
+    try {
+      await mountDialog()
+      await settle()
+      const select = document.querySelector<HTMLSelectElement>('select[aria-label="Linux window decorations"]')!
+      select.value = 'on'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+      await settle()
+      expect(diskPreference).toBe(true)
+      expect(settings.linuxWindowDecorations).toBe(true)
+      expect(desktopCapabilities.value?.windowDecorations).toBe(true)
+      expect(document.querySelector('[role="alert"]')?.textContent).toContain('preference was saved')
+      expect(document.querySelector('[role="alert"]')?.textContent).toContain('closed')
+      const retry = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Retry applying to windows')
+      expect(retry).toBeTruthy()
+      failed = false
+      retry!.click()
+      await settle()
+      expect(invokeMock.mock.calls.filter(([command]) => command === 'linux_window_decorations_set')).toHaveLength(2)
+      expect(settings.linuxWindowDecorations).toBe(true)
+      expect(desktopCapabilities.value?.windowDecorations).toBe(true)
+      expect(document.querySelector('[role="alert"]')).toBe(null)
+    } finally { i18n.locale = previousLocale }
+  })
+  it('does not update committed frontend state or cache on a pure write failure', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('linux')
+    const native = { distributionChannel: 'direct', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: false, windowDecorations: false }
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === 'desktop_capabilities') return native
+      if (command === 'shared_config_read') return { version: 1, linuxWindowDecorations: null }
+      if (command === 'linux_window_decorations_set') throw new Error('shared.json write failed')
+      return defaultInvokeImpl(command, args)
+    })
+    await mountDialog()
+    await settle()
+    const select = document.querySelector<HTMLSelectElement>('select[aria-label="Linux window decorations"]')!
+    select.value = 'on'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(settings.linuxWindowDecorations).toBe(null)
+    expect(desktopCapabilities.value).toEqual(native)
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('shared.json write failed')
   })
 })

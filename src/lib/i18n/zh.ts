@@ -3,6 +3,10 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  "settings.linux.partialApply": "设置已保存，但部分已打开窗口未能应用。可以重试或重新打开这些窗口。",
+  "settings.linux.retryApply": "重试应用到窗口",
+  "settings.linux.failureDetails": "窗口更新详情",
+
   "settings.linux.title": "Linux 桌面",
   "settings.linux.decorations": "Linux 窗口装饰",
   "settings.linux.auto": "自动",

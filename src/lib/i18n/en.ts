@@ -8,6 +8,10 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  "settings.linux.partialApply": "The preference was saved, but some open windows could not be updated. Retry or reopen those windows.",
+  "settings.linux.retryApply": "Retry applying to windows",
+  "settings.linux.failureDetails": "Window update details",
+
   "settings.linux.title": "Linux desktop",
   "settings.linux.decorations": "Linux window decorations",
   "settings.linux.auto": "Automatic",

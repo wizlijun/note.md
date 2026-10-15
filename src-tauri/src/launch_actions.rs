@@ -70,3 +70,39 @@ mod tests {
         assert_eq!(request.files, ["notemd://share/open?u=x", "a.md"]);
     }
 }
+
+/// Invoked by the delayed file callback with the originating launch's focus policy.
+pub fn deliver_file(activate_main: bool, show_main: impl FnOnce(), deliver: impl FnOnce()) {
+    if activate_main { show_main(); }
+    deliver();
+}
+
+#[cfg(test)]
+mod delayed_file_tests {
+    use super::*;
+    use std::cell::RefCell;
+    #[test]
+    fn mixed_action_files_keep_delivery_without_delayed_main_focus() {
+        for action in ["smart-search", "plugin:com.example:capture"] {
+            let request = parse(&["notemd", "--gui", "--action", action, "/tmp/n.md"].map(String::from));
+            assert_eq!(request.files, ["/tmp/n.md"]);
+            let events = RefCell::new(Vec::new());
+            let activate_main = !request.has_action;
+            let delayed = || deliver_file(activate_main,
+                || events.borrow_mut().push("main.show/focus"),
+                || events.borrow_mut().push("file.delivery"));
+            events.borrow_mut().push("action.focus");
+            delayed();
+            assert_eq!(*events.borrow(), ["action.focus", "file.delivery"], "{action}");
+        }
+    }
+    #[test]
+    fn ordinary_file_open_still_shows_and_focuses_main_before_delivery() {
+        let request = parse(&["notemd", "--gui", "/tmp/n.md"].map(String::from));
+        let events = RefCell::new(Vec::new());
+        deliver_file(!request.has_action,
+            || events.borrow_mut().push("main.show/focus"),
+            || events.borrow_mut().push("file.delivery"));
+        assert_eq!(*events.borrow(), ["main.show/focus", "file.delivery"]);
+    }
+}

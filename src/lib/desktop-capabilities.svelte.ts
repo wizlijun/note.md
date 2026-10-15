@@ -10,6 +10,12 @@ export interface DesktopCapabilities {
   windowDecorations: boolean
 }
 
+export interface LinuxWindowDecorationsUpdate {
+  value: boolean | null
+  capabilities: DesktopCapabilities
+  failedWindows: { label: string; error: string }[]
+}
+
 /** Authoritative process-lifetime identity. Unknown capabilities grant no access. */
 export const desktopCapabilities = $state<{
   value: DesktopCapabilities | null
@@ -45,9 +51,10 @@ export function loadDesktopCapabilities(): Promise<DesktopCapabilities> {
   return pending
 }
 
-export async function setLinuxWindowDecorations(value: boolean | null): Promise<void> {
+export async function setLinuxWindowDecorations(value: boolean | null): Promise<LinuxWindowDecorationsUpdate> {
   if (pending) await pending.catch(() => {})
-  const capabilities = await invoke<DesktopCapabilities>('linux_window_decorations_set', { value })
-  desktopCapabilities.value = capabilities
+  const result = await invoke<LinuxWindowDecorationsUpdate>('linux_window_decorations_set', { value })
+  desktopCapabilities.value = result.capabilities
   desktopCapabilities.error = null
+  return result
 }

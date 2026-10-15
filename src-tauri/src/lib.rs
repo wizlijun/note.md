@@ -925,21 +925,41 @@ fn shared_config_write(cfg: crate::shared_config::SharedConfig) -> Result<(), St
     crate::shared_config::write(&path, &cfg).map_err(|e| e.to_string())
 }
 
-/// Persist only the machine-local override and apply it to every existing window.
+#[cfg(not(target_os = "ios"))]
+#[derive(serde::Serialize)]
+struct WindowDecorationFailure {
+    label: String,
+    error: String,
+}
+
+#[cfg(not(target_os = "ios"))]
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LinuxWindowDecorationsUpdate {
+    value: Option<bool>,
+    capabilities: platform::DesktopCapabilities,
+    failed_windows: Vec<WindowDecorationFailure>,
+}
+
+/// Persistence commits the preference; live-window failures are reported separately.
 #[cfg(not(target_os = "ios"))]
 #[tauri::command]
-fn linux_window_decorations_set(app: tauri::AppHandle, value: Option<bool>) -> Result<platform::DesktopCapabilities, String> {
+fn linux_window_decorations_set(app: tauri::AppHandle, value: Option<bool>) -> Result<LinuxWindowDecorationsUpdate, String> {
     if std::env::consts::OS != "linux" { return Err("Linux setting is unavailable on this platform".into()); }
-    let path = shared_config::config_path().map_err(|e| e.to_string())?;
-    let mut cfg = shared_config::read(&path).map_err(|e| e.to_string())?;
-    cfg.linux_window_decorations = value;
-    shared_config::write(&path, &cfg).map_err(|e| e.to_string())?;
-    let decorations = platform::window_decorations();
-    for window in app.webview_windows().values() {
-        window.set_decorations(decorations).map_err(|e| e.to_string())?;
-    }
-    let capabilities = platform::desktop_capabilities();
-    Ok(capabilities)
+    let (capabilities, failures) = desktop_policy::persist_and_apply(|| {
+        let path = shared_config::config_path().map_err(|e| e.to_string())?;
+        let mut cfg = shared_config::read(&path).map_err(|e| e.to_string())?;
+        cfg.linux_window_decorations = value;
+        shared_config::write(&path, &cfg).map_err(|e| e.to_string())?;
+        Ok(platform::desktop_capabilities())
+    }, app.webview_windows(), |window, capabilities| {
+        window.set_decorations(capabilities.window_decorations).map_err(|e| e.to_string())
+    })?;
+    Ok(LinuxWindowDecorationsUpdate {
+        value,
+        capabilities,
+        failed_windows: failures.into_iter().map(|(label, error)| WindowDecorationFailure { label, error }).collect(),
+    })
 }
 
 /// Read the proxy that vault sync's `git` runs through (`""` when unset).
@@ -1379,7 +1399,7 @@ fn dispatch_launch_request<R: tauri::Runtime>(app: &tauri::AppHandle<R>, argv: &
     if argv_requests_cli_background(argv) { return true; }
     let request = launch_actions::parse(argv);
     for arg in request.files {
-        if let Some(path) = argv_open_target(&arg) { emit_open_file_delayed(app, &path); }
+        if let Some(path) = argv_open_target(&arg) { emit_open_file_delayed_with_focus(app, &path, !request.has_action); }
     }
     match request.action {
         Some(launch_actions::Action::SmartSearch) => {
@@ -2102,6 +2122,10 @@ fn argv_open_target(arg: &str) -> Option<String> {
 }
 
 fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
+    emit_open_file_delayed_with_focus(app, path, true);
+}
+
+fn emit_open_file_delayed_with_focus<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str, activate_main: bool) {
     if let Some(state) = app.try_state::<PendingFiles>() {
         state.0.lock().unwrap().push(path.to_string());
     }
@@ -2117,8 +2141,11 @@ fn emit_open_file_delayed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &s
         std::thread::sleep(std::time::Duration::from_millis(300));
         dlog(&format!("emit open-file → {}", path));
         #[cfg(not(target_os = "ios"))]
-        show_main_window(&app);
-        let _ = app.emit("open-file", path);
+        launch_actions::deliver_file(activate_main,
+            || show_main_window(&app),
+            || { let _ = app.emit("open-file", path); });
+        #[cfg(target_os = "ios")]
+        { let _ = activate_main; let _ = app.emit("open-file", path); }
     });
 }
 

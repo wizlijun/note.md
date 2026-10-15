@@ -3,6 +3,10 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  "settings.linux.partialApply": "設定は保存されましたが、一部のウィンドウに適用できませんでした。再試行するか、対象のウィンドウを開き直してください。",
+  "settings.linux.retryApply": "ウィンドウへの適用を再試行",
+  "settings.linux.failureDetails": "ウィンドウ更新の詳細",
+
   "settings.linux.title": "Linux デスクトップ",
   "settings.linux.decorations": "Linux ウィンドウ装飾",
   "settings.linux.auto": "自動",

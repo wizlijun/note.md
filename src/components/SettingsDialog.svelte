@@ -56,6 +56,7 @@
   let isLinuxPlatform = $state(false)
   let linuxPolicyError = $state<string | null>(null)
   let linuxPolicyBusy = $state(false)
+  let linuxPolicyFailures = $state<{ label: string; error: string }[]>([])
   const hyprlandBindings = "bind = SUPER CTRL, M, exec, notemd --gui --action smart-search\nbind = SUPER CTRL, P, exec, notemd --gui --action plugin:PLUGIN_ID:WINDOW_ID"
   let isIOSPlatform = $state(false)
   $effect(() => {
@@ -105,11 +106,14 @@
   }
   async function changeLinuxDecorations(event: Event) {
     const raw = (event.currentTarget as HTMLSelectElement).value
-    const value = raw === 'auto' ? null : raw === 'on'
+    await applyLinuxDecorations(raw === 'auto' ? null : raw === 'on')
+  }
+  async function applyLinuxDecorations(value: boolean | null) {
     linuxPolicyBusy = true
     try {
-      await setLinuxWindowDecorations(value)
-      settings.linuxWindowDecorations = value
+      const result = await setLinuxWindowDecorations(value)
+      settings.linuxWindowDecorations = result.value
+      linuxPolicyFailures = result.failedWindows
       linuxPolicyError = null
     } catch (error) { linuxPolicyError = String(error) }
     finally { linuxPolicyBusy = false }
@@ -1286,6 +1290,18 @@
               <p class="desc">{t('settings.linux.shortcutsHint')}</p>
               <textarea readonly rows="4" aria-label={t('settings.linux.bindings')}>{hyprlandBindings}</textarea>
               <button onclick={copyHyprlandBindings}>{t('settings.linux.copy')}</button>
+            {/if}
+            {#if linuxPolicyFailures.length > 0}
+              <div role="alert">
+                <p class="desc">{t('settings.linux.partialApply')}</p>
+                <details>
+                  <summary>{t('settings.linux.failureDetails')}</summary>
+                  {#each linuxPolicyFailures as failure}
+                    <p class="desc"><code>{failure.label}</code>: {failure.error}</p>
+                  {/each}
+                </details>
+                <button onclick={() => applyLinuxDecorations(settings.linuxWindowDecorations)} disabled={linuxPolicyBusy}>{t('settings.linux.retryApply')}</button>
+              </div>
             {/if}
             {#if linuxPolicyError}<p class="desc" role="alert">{linuxPolicyError}</p>{/if}
           </section>

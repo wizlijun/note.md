@@ -1,6 +1,10 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  "settings.linux.partialApply": "Die Einstellung wurde gespeichert, aber einige offene Fenster konnten nicht aktualisiert werden. Versuchen Sie es erneut oder öffnen Sie diese Fenster neu.",
+  "settings.linux.retryApply": "Erneut auf Fenster anwenden",
+  "settings.linux.failureDetails": "Details zur Fensteraktualisierung",
+
   "settings.linux.title": "Linux-Desktop",
   "settings.linux.decorations": "Linux-Fensterdekorationen",
   "settings.linux.auto": "Automatisch",
