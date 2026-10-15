@@ -1,16 +1,21 @@
-# Linux / Omarchy beta preparation
+# Linux / Omarchy beta
 
-Linux beta is being prepared for x86_64 and aarch64 using Debian 12 (bookworm)
-`.deb` builds and WebKitGTK. No Linux release package or Omarchy repository entry
-has been published as part of this implementation. The public `v6.1015.1` release
-has macOS assets only. **aarch64 has not been verified on a native desktop
-machine.** A successful container build is not desktop acceptance.
+Linux beta targets x86_64 and aarch64 with Debian 12 (bookworm) `.deb` builds
+and WebKitGTK. Download the latest published package for your architecture:
+[amd64](https://notemd.net/download?os=linux&arch=x86_64) ·
+[arm64](https://notemd.net/download?os=linux&arch=aarch64) ·
+[GitHub releases and checksums](https://github.com/wizlijun/note.md/releases).
+Each platform's download entry keeps its most recent available package when a
+newer release omits that platform. Linux packages update through the package
+manager. **aarch64 has not been verified on a native desktop machine.**
+A successful container build is not desktop acceptance.
 
-Linux beta 正在准备中：只提供 Debian 12 基线的 x86_64 / aarch64 `.deb`，
-当前没有已发布的 Linux 包或 Omarchy 仓库条目。**aarch64 未经实机验证。**
-没有 AppImage、rpm、Flatpak 或 apt 仓库。
+Linux beta 使用 Debian 12 基线的 x86_64 / aarch64 `.deb`，下载入口分别保留
+对应架构最后一个实际已发布的包，不随缺少 Linux 包的新版本失效。
+**aarch64 未经桌面实机验证。** Omarchy 下游仓库尚未收录；没有 AppImage、rpm、
+Flatpak 或 apt 仓库。
 
-## Install after a Linux release exists
+## Install a published Linux package
 
 Choose an explicitly published release containing both
 `note.md_<version>_amd64.deb`, `note.md_<version>_arm64.deb` and
