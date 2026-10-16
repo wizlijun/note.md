@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Start writing in the body of a new Rich note.** The caret stays outside collapsed metadata, pasted content appears in the body, and an old tab's delayed focus request cannot steal focus after switching tabs.
+
 - **Keep adopted answers in Rich documents with footnotes.** Answer adoption uses the file editor's source-preserving insertion. A rejected insertion leaves the answer pending and its card available to retry.
 
 - **Publish GitHub drafts with their temporary asset URLs.** Release tooling validates URLs against that exact draft while retaining checksum, signature and platform gates. This is a post-tag maintainer tooling fix; it does not change the v6.1015.2 app binaries.

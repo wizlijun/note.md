@@ -15,6 +15,7 @@ import {runSlashCommand,type SlashCommandTarget} from '../lib/slash-menu/slash-c
 import {prepareFileStructural,type StructuralPreparation,type MoveWitness} from './file-commands'
 import type {StructuralCommand} from './contract'
 import {editorDelta} from '../lib/insights/observer'
+import {richBodySelection} from '../lib/rich-editor-focus'
 
 export interface FileStructuralPort {prepareStructural(command:StructuralCommand):StructuralPreparation;dispatch(tr:Transaction):boolean;probe(tr:Transaction):boolean}
 export interface FileControllerOptions {raw:string;authority:string;schema:Schema;ids:FileIds;plugins:Plugin[];recovery?:FileRecovery;onDelta?:(delta:ObserverDelta)=>void;policy?:FilePolicy}
@@ -253,7 +254,8 @@ export function createFileController(options:FileControllerOptions){
   }catch(error){lastError=error;return false}finally{active=null;inDispatch=false}
  }
  const historyCommands=createFileHistory({get state(){return current},get view(){return attached},prepareHistory,admit,writable})
- current=EditorState.create({doc:projectBindings(initial.session,initial.bindings),plugins:[first,historyCommands.plugin,...options.plugins]})
+ const doc=projectBindings(initial.session,initial.bindings),selection=richBodySelection(doc)
+ current=EditorState.create({doc,...(selection?{selection}:{}),plugins:[first,historyCommands.plugin,...options.plugins]})
  function replaceSource(input:{expectedGeneration:number;value:string},kind:'source'|'restore'='source'):FileResult{
   if(input.expectedGeneration!==read(current).generation)return {ok:false,reason:'stale-source'}
   if(!writable()||inDispatch)return {ok:false,reason:'file-not-writable'}

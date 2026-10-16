@@ -48,6 +48,7 @@
   import { fileEditorSession } from '../lib/file-editor-sessions'
   import type { FileMountSession } from '../editor-kit-v2/file-main'
   import type { FileSlashCommand } from '../editor-kit-v2/file-contract'
+  import { focusRichBodyEnd } from '../lib/rich-editor-focus'
 
   // Reactive store of the currently active theme id, set by the theme-init
   // block in App.svelte. Default is 'default'.
@@ -118,19 +119,21 @@
   let status = $state<'mounting' | 'mounted' | 'error'>('mounting')
   let errorMsg = $state<string | null>(null)
 
-  function focusRichEditorAtEnd(view: any, delayMs = 60) {
-    void getPmState().then(({ Selection }) => {
-      setTimeout(() => {
-        try {
-          const doc = view.state.doc
-          // Selection.atEnd finds the nearest valid text position; a raw
-          // TextSelection at doc.content.size throws on a doc with no inline
-          // content (e.g. an empty doc).
-          view.dispatch(view.state.tr.setSelection(Selection.atEnd(doc)))
-          view.focus()
-        } catch { /* ignore */ }
-      }, delayMs)
-    })
+  let focusTimer: ReturnType<typeof setTimeout> | null = null
+  function focusRichEditorAtEnd(view: EditorView, delayMs = 60) {
+    if (focusTimer) clearTimeout(focusTimer)
+    const current = () => !disposed && status === 'mounted' && editor?.view === view
+      && (!fileBacked || (tab.mode === 'rich' && activeTab()?.id === tab.id))
+    if (!current() || !focusRichBodyEnd(view, fileSession?.owner)) return
+    // Establish the body selection immediately; only the native menu focus resync waits.
+    const doc = view.state.doc, selection = view.state.selection
+    const focused = document.activeElement, identity = fileSession?.baselineIdentity
+    focusTimer = setTimeout(() => {
+      focusTimer = null
+      if (!current() || view.isDestroyed || view.state.doc !== doc || !view.state.selection.eq(selection)
+        || document.activeElement !== focused || fileSession?.baselineIdentity !== identity) return
+      view.focus()
+    }, delayMs)
   }
 
   /** Clicking the blank area below the document puts the caret at the end
@@ -1397,6 +1400,7 @@
 
   onDestroy(() => {
     disposed = true
+    if (focusTimer) clearTimeout(focusTimer)
     _pmEl?.removeEventListener('paste', handlePaste, true)
     _pmEl?.removeEventListener('click', handleNoteClick as EventListener, true)
     _pmEl?.removeEventListener('mouseover', handleNoteHover as EventListener)
