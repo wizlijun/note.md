@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1016.1 — 2026-10-16
+
 - **Start writing in the body of a new Rich note.** The caret stays outside collapsed metadata, pasted content appears in the body, and an old tab's delayed focus request cannot steal focus after switching tabs.
 
 - **Keep adopted answers in Rich documents with footnotes.** Answer adoption uses the file editor's source-preserving insertion. A rejected insertion leaves the answer pending and its card available to retry.
