@@ -7,6 +7,8 @@ import { parseOutline, serializeOutline } from '../outline/markdown'
 import { addVerified } from '../okf/actor'
 import { questionAtOccurrence, type AnswerEntry } from '../outline/answers'
 import { answersStore, loadAnswersFor } from './answers-store.svelte'
+import type { FileEditorOwner } from '../../editor-kit-v2/file-contract'
+import { nodeBlockId } from '../../editor-kit-v2/identity'
 
 /**
  * 在一段 .note.md 文本里把指定问题置为 adopted。找不到该问题返回 null(不写盘)。
@@ -32,12 +34,23 @@ export function markAdoptedInText(
  * 与你原本的正文区分开。仍是干净 markdown:没有 ✦、没有出处标记,只是引用格式。
  * 一次 transaction,⌘Z 即回退。
  */
-export function insertAnswerIntoDoc(view: EditorView, entry: AnswerEntry, pos: number): void {
+export function insertAnswerIntoDoc(view: EditorView, entry: AnswerEntry, pos: number, owner?: FileEditorOwner): boolean {
+  if (view.isDestroyed || !entry.body.trim() || pos < 0 || pos > view.state.doc.content.size) return false
+  if (owner) {
+    const $pos = view.state.doc.resolve(pos)
+    const blockId = $pos.depth === 0 && $pos.nodeBefore ? nodeBlockId($pos.nodeBefore) : null
+    if (!blockId) return false
+    // 文件编辑器必须走保真结构插入；直接 PM 插入在带多条脚注的文档中会被拒绝。
+    const content = entry.body.split(/\r?\n/).map(line => line ? `> ${line}` : '>').join('\n')
+    return owner.execute({ kind: 'block.insert-after', blockId, content })
+  }
+  const before = view.state.doc
   const parsed = parseMarkdown(entry.body, view.state.schema)
   const quote = view.state.schema.nodes.blockquote
   // 用 schema 节点包裹而不是给每行加 "> ":嵌套列表/代码块也能正确成块
   const content = quote ? quote.create(null, parsed.content) : parsed.content
   view.dispatch(view.state.tr.insert(pos, content).scrollIntoView())
+  return !view.state.doc.eq(before)
 }
 
 /** 回写 .note.md 的 status:: adopted + front-matter 的 verified(人工确认署名)。
@@ -79,9 +92,10 @@ export async function markAdoptedOnDisk(entry: AnswerEntry): Promise<void> {
 
 /** 卡片按钮入口:插正文 → 回写状态 → 刷新索引(卡片随即消失)。 */
 export async function adoptAnswer(
-  view: EditorView, entry: AnswerEntry, pos: number, mainPath: string | null,
-): Promise<void> {
-  insertAnswerIntoDoc(view, entry, pos)
+  view: EditorView, entry: AnswerEntry, pos: number, mainPath: string | null, owner?: FileEditorOwner,
+): Promise<boolean> {
+  if (!insertAnswerIntoDoc(view, entry, pos, owner)) return false
   await markAdoptedOnDisk(entry)
   await loadAnswersFor(mainPath)
+  return true
 }

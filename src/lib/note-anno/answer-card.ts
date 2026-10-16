@@ -15,7 +15,7 @@ export const ANSWER_CARDS_REFRESH = 'answer-cards-refresh'
 
 interface CardDeps {
   getEntries: () => AnswerIndex
-  onAdopt: (entry: AnswerEntry, pos: number, view: EditorView) => void
+  onAdopt: (entry: AnswerEntry, pos: number, view: EditorView) => boolean | Promise<boolean>
 }
 
 /** 答复首个非空行,作折叠态摘要。答复只有子节点清单时首行是个列表项,摘要里不显示行首的 `- ` */
@@ -102,6 +102,9 @@ function buildCard(entry: AnswerEntry, pos: number, view: EditorView, deps: Card
         adopt.type = 'button'
         adopt.className = 'answer-card-adopt'
         adopt.textContent = t('answerCard.adopt')
+        const failure = document.createElement('span')
+        failure.setAttribute('role', 'status')
+        failure.hidden = true
         adopt.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation() })
         adopt.addEventListener('click', (ev) => {
           ev.preventDefault(); ev.stopPropagation()
@@ -109,9 +112,18 @@ function buildCard(entry: AnswerEntry, pos: number, view: EditorView, deps: Card
           // 不禁用的话双击会把答复插进正文两次。
           if (adopt.disabled) return
           adopt.disabled = true
-          deps.onAdopt(entry, pos, view)
+          failure.hidden = true
+          void Promise.resolve().then(() => deps.onAdopt(entry, pos, view)).catch((error) => {
+            console.warn('[adopt] insertion failed:', error)
+            return false
+          }).then((accepted) => {
+            if (accepted) return
+            adopt.disabled = false
+            failure.textContent = t('answerCard.adoptFailed')
+            failure.hidden = false
+          })
         })
-        actions.append(collapse, adopt)
+        actions.append(collapse, adopt, failure)
         bodyEl.append(html, actions)
       })
     }

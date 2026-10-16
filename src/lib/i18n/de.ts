@@ -231,6 +231,7 @@ export const de: Record<keyof Messages, string> = {
   'noteedit.askHint': 'Als Frage an den Agenten markieren (ergänzt ? und speichert)',
   'answerCard.label': 'Antwort',
   'answerCard.adopt': 'In den Text übernehmen',
+  'answerCard.adoptFailed': 'Die Antwort konnte nicht eingefügt werden. Bitte erneut versuchen.',
   'answerCard.expand': 'Antwort anzeigen',
   'answerCard.collapse': 'Antwort ausblenden',
   'slash.h1.label': 'Überschrift 1',

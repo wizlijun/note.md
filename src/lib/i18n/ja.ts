@@ -233,6 +233,7 @@ export const ja: Record<keyof Messages, string> = {
   'noteedit.askHint': 'エージェントへの質問にする(？を補って保存)',
   'answerCard.label': '回答',
   'answerCard.adopt': '本文に取り込む',
+  'answerCard.adoptFailed': '回答を挿入できませんでした。もう一度お試しください。',
   'answerCard.expand': '回答を表示',
   'answerCard.collapse': '回答を隠す',
   'slash.h1.label': '見出し 1',

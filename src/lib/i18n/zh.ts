@@ -233,6 +233,7 @@ export const zh: Record<keyof Messages, string> = {
   'noteedit.askHint': '标记为向 agent 提问(补全问号并保存)',
   'answerCard.label': '答复',
   'answerCard.adopt': '采纳入正文',
+  'answerCard.adoptFailed': '未能插入答复，请重试。',
   'answerCard.expand': '展开答复',
   'answerCard.collapse': '收起答复',
   'slash.h1.label': '标题 1',

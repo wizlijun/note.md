@@ -238,6 +238,7 @@ export const en = {
   'noteedit.askHint': 'Mark as a question for your agent (appends ? and saves)',
   'answerCard.label': 'Answer',
   'answerCard.adopt': 'Insert into document',
+  'answerCard.adoptFailed': 'Could not insert the answer. Please retry.',
   'answerCard.expand': 'Show answer',
   'answerCard.collapse': 'Hide answer',
   'slash.h1.label': 'Heading 1',

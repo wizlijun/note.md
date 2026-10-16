@@ -1218,7 +1218,10 @@
     const { mainWindowConfig } = await import('../lib/power-mode/host-config.svelte')
     return [wikilinkPlugin(), noteBadgePlugin(),
       answerCardPlugin({ getEntries: () => answeredMap(),
-        onAdopt: (entry, pos, view) => { void adoptAnswer(view, entry, pos, tab.filePath ?? null) } }),
+        onAdopt: (entry, pos, view) => {
+          if (!editor || editor.view !== view || disposed || readOnly || (fileBacked && !fileSession)) return false
+          return adoptAnswer(view, entry, pos, tab.filePath ?? null, fileSession?.owner)
+        } }),
       placeholderPlugin(t('editor.emptyPlaceholder')),
       powerModePlugin(mainWindowConfig, () => tab.filePath ?? 'untitled')]
   }
