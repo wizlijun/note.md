@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1016.2 — 2026-10-16
+
 - **Adopt answers after returning to a document and reopen Rich without an initialization error.** Answer cards use the current file session, and startup answer refreshes keep the view in sync to prevent `file-view-state-mismatch`.
 
 ## v6.1016.1 — 2026-10-16
