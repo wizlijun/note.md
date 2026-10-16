@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Adopt answers after returning to a document and reopen Rich without an initialization error.** Answer cards use the current file session, and startup answer refreshes keep the view in sync to prevent `file-view-state-mismatch`.
+
 ## v6.1016.1 — 2026-10-16
 
 - **Start writing in the body of a new Rich note.** The caret stays outside collapsed metadata, pasted content appears in the body, and an old tab's delayed focus request cannot steal focus after switching tabs.

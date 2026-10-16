@@ -1211,6 +1211,8 @@
   }
 
   async function desktopPlugins() {
+    const tabId = tab.id
+    const isFile = fileBacked
     const { wikilinkPlugin } = await import('../lib/wikilink-plugin')
     const { noteBadgePlugin } = await import('../lib/note-anno/note-plugin')
     const { placeholderPlugin } = await import('../lib/placeholder-plugin')
@@ -1222,8 +1224,14 @@
     return [wikilinkPlugin(), noteBadgePlugin(),
       answerCardPlugin({ getEntries: () => answeredMap(),
         onAdopt: (entry, pos, view) => {
-          if (!editor || editor.view !== view || disposed || readOnly || (fileBacked && !fileSession)) return false
-          return adoptAnswer(view, entry, pos, tab.filePath ?? null, fileSession?.owner)
+          // File sessions retain their plugins across component unmounts.
+          if (isFile) {
+            const current = activeTab(), session = fileEditorSession(tabId)
+            if (current?.id !== tabId || current.mode !== 'rich' || session?.view !== view || !view.dom.isConnected || view.isDestroyed) return false
+            return adoptAnswer(view, entry, pos, current.filePath ?? null, session.owner)
+          }
+          if (!editor || editor.view !== view || disposed || readOnly) return false
+          return adoptAnswer(view, entry, pos, tab.filePath ?? null)
         } }),
       placeholderPlugin(t('editor.emptyPlaceholder')),
       powerModePlugin(mainWindowConfig, () => tab.filePath ?? 'untitled')]

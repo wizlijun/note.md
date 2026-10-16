@@ -213,7 +213,11 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
         controller = createController(options.file, policy)
         return controller.state
       },
-      dispatchTransaction(_view, tr) { controller.dispatch(tr) },
+      dispatchTransaction(view, tr) {
+        // Plugin startup microtasks may dispatch before createEditor resolves.
+        if (mounting && controller.view !== view) controller.bindView(view)
+        controller.dispatch(tr)
+      },
       enableHistory: true, enableTableResize: false,
     }), ime)
     controller!.bindView(instance.view)

@@ -40,6 +40,24 @@ afterEach(async () => {
   document.body.replaceChildren()
   vi.restoreAllMocks()
 })
+it('mounts a file with an already-loaded answer index and keeps the startup refresh in sync', async () => {
+  resetNote()
+  await loadAnswersFor('/vault/repro.md')
+  const { answerCardPlugin } = await import('../lib/note-anno/answer-card')
+  const target = document.createElement('div'); document.body.append(target)
+  const f = await mountFileEditor(target, {
+    file: { documentId: '/vault/repro.md', authority: 'A', raw },
+    adapters: { mediaResolver: new BrowserMediaResolver() },
+  }, { plugins: [answerCardPlugin({ getEntries: () => answeredMap(), onAdopt: () => false })] })
+  editors.push(f)
+  expect(target.querySelector('.answer-card-head')).toBeTruthy()
+  expect(f.owner.snapshot().raw).toBe(raw)
+  expect(f.owner.execute({ kind: 'block.insert-after', blockId: f.owner.snapshot().bindings[1].id, content: '> startup answer' })).toBe(true)
+  expect(f.view.state.doc.textContent).toContain('startup answer')
+  expect(f.owner.snapshot().raw).toContain('> startup answer')
+  expect(f.owner.undo()).toBe(true)
+  expect(f.owner.snapshot().raw).toBe(raw)
+})
 it('failed file admission keeps the answer pending and does not write adopted', async () => {
   resetNote()
   const target = document.createElement('div'); document.body.append(target)
@@ -94,4 +112,50 @@ it('actual desktop card adopts a quoted answer, saves it through the owner and s
     expect(f.owner.redo()).toBe(true); expect(f.owner.snapshot().raw).toBe(saved)
     expect(document.querySelector('.answer-card')).toBeNull()
   } finally { await unmount(component); await closeFileEditorSession(tab.id); const watcher = await import('../lib/file-watcher.svelte'); await watcher.stopWatchingTab(tab.id); tabs.splice(0); activeId.value = null }
+})
+
+it.each(['cold', 'warm'])('adopts through the current file session after leaving and returning to the same tab (%s index)', async index => {
+  resetNote()
+  const { default: RichEditor } = await import('../components/RichEditor.svelte')
+  const { tabs, activeId } = await import('../lib/tabs.svelte')
+  const { fileEditorSession, closeFileEditorSession } = await import('../lib/file-editor-sessions')
+  const tab = { id: 'answer-remount', filePath: '/vault/repro.md', title: 'repro.md', kind: 'markdown' as const, mode: 'rich' as const, currentContent: raw, initialContent: raw, externalState: 'fresh' as const, externalBannerDismissed: false, lastKnownMtime: 0, lastKnownHash: '' }
+  tabs.push(tab); activeId.value = tab.id
+  if (index === 'warm') await loadAnswersFor(tab.filePath)
+  let component = mount(RichEditor, { target: document.body, props: { tab, fileBacked: true } })
+  try {
+    await vi.waitFor(() => expect(document.querySelector('.answer-card-head')).toBeTruthy())
+    const session = fileEditorSession(tab.id)!
+    await unmount(component)
+    component = mount(RichEditor, { target: document.body, props: { tab, fileBacked: true } })
+    await vi.waitFor(() => expect(document.querySelector('.answer-card-head')).toBeTruthy())
+    expect(fileEditorSession(tab.id)).toBe(session)
+    ;(document.querySelector('.answer-card-head') as HTMLElement).click()
+    await vi.waitFor(() => expect(document.querySelector('.answer-card-adopt')).toBeTruthy())
+    const adopt = document.querySelector('.answer-card-adopt') as HTMLButtonElement
+    activeId.value = 'other'
+    adopt.click()
+    await vi.waitFor(() => expect(adopt.disabled).toBe(false))
+    expect(io.writes).not.toHaveBeenCalled()
+    expect(session.owner.snapshot().raw).toBe(raw)
+    activeId.value = tab.id
+    session.owner.setReadOnly(true)
+    adopt.click()
+    await vi.waitFor(() => expect(adopt.disabled).toBe(false))
+    expect(io.writes).not.toHaveBeenCalled()
+    expect(session.owner.snapshot().raw).toBe(raw)
+    session.owner.setReadOnly(false)
+    adopt.click()
+    await vi.waitFor(() => expect(deriveAnswers(parseOutline(io.note))[0].status).toBe('adopted'))
+    expect(session.owner.snapshot().raw).toContain('> 答复导语。')
+    expect(io.writes).toHaveBeenCalledOnce()
+    expect(session.owner.undo()).toBe(true)
+    expect(session.owner.snapshot().raw).toBe(raw)
+    expect(session.owner.redo()).toBe(true)
+    expect(session.owner.snapshot().raw).toContain('> 答复导语。')
+  } finally {
+    await unmount(component); await closeFileEditorSession(tab.id)
+    const watcher = await import('../lib/file-watcher.svelte'); await watcher.stopWatchingTab(tab.id)
+    tabs.splice(0); activeId.value = null
+  }
 })
