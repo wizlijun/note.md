@@ -11,8 +11,6 @@ For the full commit history, see the git log.
 
 - **Keep adopted answers in Rich documents with footnotes.** Answer adoption uses the file editor's source-preserving insertion. A rejected insertion leaves the answer pending and its card available to retry.
 
-- **Publish GitHub drafts with their temporary asset URLs.** Release tooling validates URLs against that exact draft while retaining checksum, signature and platform gates. This is a post-tag maintainer tooling fix; it does not change the v6.1015.2 app binaries.
-
 ## v6.1015.2 — 2026-10-15
 
 - **Download the latest available package for your platform.** The website now offers Linux beta downloads for x86_64/aarch64 alongside Windows. Links find actual published packages even when the newest release omits that platform; Linux ARM never falls back to an x86_64 package.
