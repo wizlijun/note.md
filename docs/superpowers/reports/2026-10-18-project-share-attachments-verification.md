@@ -20,3 +20,7 @@ Wiki 扫描此前把 PDF/ZIP 等明确扩展名追加 .md，导致附件缺失�
 ## 产物与状态
 
 原始日志、网页夹具、真实下载摘要、截图、源码SHA位于 `.superpowers/sdd/2026-10-18-project-share-attachments/`。未测试移动真机，窄屏Chrome仅代表浏览器视口。未替用户更新安装或重新发布已有项目。修改提交后仍需随新宿主版本分发，并重新发布项目使现有分享网页更新。
+
+## 发布状态
+
+已随 [v6.1018.1](https://github.com/wizlijun/note.md/releases/tag/v6.1018.1) 发布macOS双架构版本；Worker已按同源码重新部署并核100%。升级后重新发布项目使已分享网页更新，详细发行证据见同目录2026-10-18-v6.1018.1-release-verification.md。
