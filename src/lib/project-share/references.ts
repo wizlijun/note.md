@@ -94,14 +94,16 @@ export async function scanProject(
       if(link.wiki) {
         const withoutFragment = link.target.split('#')[0]
         if(!withoutFragment) continue
-        const withExtension = /\.(md|markdown|mdown|mkd|mdx)$/i.test(resolved.path) ? resolved.path : resolved.path+'.md'
+        const markdownExtension = /\.(md|markdown|mdown|mkd|mdx)$/i.test(resolved.path)
+        const withExtension = markdownExtension ? resolved.path : resolved.path+'.md'
+        const fallback = !markdownExtension && /\.[^./]+$/.test(resolved.path) ? resolved.path : withExtension
         if(candidates.includes(withExtension)) resolved = {...resolved,path:withExtension}
         else if(!withoutFragment.includes('/')) {
           const name = withoutFragment.replace(/\.(md|markdown|mdown|mkd|mdx)$/i,'')
           const matches = candidates.filter(p=>p.split('/').pop()!.replace(/\.(md|markdown|mdown|mkd|mdx)$/i,'')===name)
           if(matches.length > 1) { addIssue(file.path,link.target,'ambiguous',`同名文档：${matches.join('、')}`,'warning'); continue }
-          resolved = {...resolved,path:matches[0]??withExtension}
-        } else resolved = {...resolved,path:withExtension}
+          resolved = {...resolved,path:matches[0]??fallback}
+        } else resolved = {...resolved,path:fallback}
       }
       queue.push({path:resolved.path,from:file.path,target:link.target})
     }

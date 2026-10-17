@@ -128,6 +128,47 @@ describe('browser project collaboration', () => {
     save.mockRestore()
   })
 
+  it.each([false,true])('lists attachments by folder and downloads original bytes without navigating (editing=%s)', async editing => {
+    const data=JSON.parse($('project-data').textContent!)
+    const attachments=[
+      {path:'附件/说明.pdf',dataUrl:'data:application/pdf;base64,AAH+/w==',bytes:4},
+      {path:'附件/包.zip',dataUrl:'data:application/octet-stream;base64,/wAC',bytes:3},
+      {path:'assets/image.png',dataUrl:'data:image/png;base64,AQID',bytes:3},
+      {path:'附件/empty.bin',dataUrl:'data:application/octet-stream;base64,',bytes:0},
+    ]
+    data.snapshot.files.push(...attachments)
+    $('project-data').textContent=JSON.stringify(data)
+    if(!editing) history.replaceState(null,'','/')
+    let blob: Blob | undefined
+    const create=vi.spyOn(URL,'createObjectURL').mockImplementation(value=> {blob=value as Blob;return 'blob:attachment'})
+    const save=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
+    try {
+      await projectShareBrowser(new Marked())
+      click('file-toggle')
+      expect(document.querySelector('[data-folder="附件"]')).not.toBeNull()
+      if(editing) { click('edit'); input('未保存的文稿') }
+      const before={hash:location.hash,text:$('document').innerHTML,current:document.querySelector('[aria-current="page"]')?.getAttribute('data-file')}
+      for(const file of attachments) {
+        const row=Array.from(document.querySelectorAll<HTMLButtonElement>('[data-file]')).find(row=>row.dataset.file===file.path)!
+        expect(row?.textContent).toBe(file.path.split('/').pop())
+        row.click()
+        expect((save.mock.instances.at(-1) as HTMLAnchorElement).download).toBe(file.path.split('/').pop())
+        expect(Array.from(new Uint8Array(await blob!.arrayBuffer()))).toEqual(Array.from(atob(file.dataUrl.split(',')[1]),char=>char.charCodeAt(0)))
+        expect(location.hash).toBe(before.hash)
+        expect($('document').innerHTML).toBe(before.text)
+        expect(document.querySelector('[aria-current="page"]')?.getAttribute('data-file')).toBe(before.current)
+        if(editing) { expect($('editor').hidden).toBe(false);expect(($('editor') as HTMLTextAreaElement).value).toBe('未保存的文稿') }
+      }
+      expect(save).toHaveBeenCalledTimes(attachments.length)
+      const row=document.querySelector<HTMLElement>('[data-file="附件/包.zip"]')!
+      row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:35,clientY:50}))
+      expect($('file-menu').hidden).toBe(false)
+      click('download-file')
+      expect((save.mock.instances.at(-1) as HTMLAnchorElement).download).toBe('包.zip')
+      expect(Array.from(new Uint8Array(await blob!.arrayBuffer()))).toEqual([255,0,2])
+    } finally {create.mockRestore();save.mockRestore()}
+  })
+
   it('runs the exact serialized bundle including its embedded ZIP dependency', async () => {
     let blob:Blob|undefined
     vi.spyOn(URL,'createObjectURL').mockImplementation(value=> {blob=value as Blob; return 'blob:test'})
@@ -296,7 +337,7 @@ describe('browser project collaboration', () => {
     $('project-data').textContent=JSON.stringify(data)
     await projectShareBrowser(new Marked())
     click('file-toggle')
-    expect(Array.from($('files').children).map(row=>row.querySelector('button')?.textContent)).toEqual(['alpha','zeta','bad-time','no-time','invalid.md','README.md'])
+    expect(Array.from($('files').children).map(row=>row.querySelector('button')?.textContent)).toEqual(['alpha','zeta','assets','bad-time','no-time','invalid.md','README.md'])
     document.querySelector<HTMLButtonElement>('[data-folder="alpha"]')!.click()
     expect(document.querySelector('[data-folder="alpha"]')!.getAttribute('aria-expanded')).toBe('true')
     document.querySelector<HTMLButtonElement>('[data-file="zeta/same.md"]')!.click()

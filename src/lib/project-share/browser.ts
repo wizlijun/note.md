@@ -446,7 +446,7 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   const treeForDraft = () => {
     const tree: any = {children:new Map<string,any>()}
     const missing=Object.keys(draft.base).filter(filePath=>!files.has(filePath)).map(path=>({path}))
-    for(const file of [...docs,...missing]) {
+    for(const file of [...snapshot.files,...missing]) {
       let parent=tree
       const parts=file.path.split('/')
       for(let index=0;index<parts.length;index++) {
@@ -502,6 +502,8 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
           }
           if(node.path===path) button.setAttribute('aria-current','page')
           button.onclick=()=> {
+            const file=files.get(node.path)
+            if(file?.dataUrl && file.markdown===undefined) { download(fileBytes(file),node.name); return }
             const params=new URLSearchParams(location.hash.slice(1)); params.set('doc',node.path); params.delete('heading')
             history.pushState(null,'','#'+params.toString()); navigate()
             if(mobile()) { setPanel(false); (editing?editor:article).focus() }

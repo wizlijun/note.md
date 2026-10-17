@@ -102,6 +102,66 @@ describe('project references', () => {
     })
     expect(result.issues.map(i=>i.kind).sort()).toEqual(['ambiguous','missing','outside'])
   })
+  it('collects ordinary and reference-style attachments without parsing their binary contents as Markdown', async () => {
+    const raw = '[private](hidden.md) [[Missing]]'
+    const attachments = ['附件/说明.pdf', '附件/包.zip']
+    const readPaths: string[] = []
+    const result = await scanProject('README.md', ['README.md'], async path => {
+      readPaths.push(path)
+      if(path === 'README.md') return file(path, '[说明](附件/说明.pdf#page=2)\n[下载][archive]\n\n[archive]: 附件/包.zip')
+      if(attachments.includes(path)) return {path, hash:path, bytes:raw.length, dataUrl:'data:application/octet-stream;base64,'+btoa(raw)}
+      throw new Error('NOT_FOUND: '+path)
+    })
+    expect(readPaths).toEqual(['README.md', ...attachments])
+    expect(result.files.map(f=>f.path)).toEqual(readPaths)
+    expect(result.issues).toEqual([])
+  })
+  it('keeps explicit Wiki attachment extensions instead of appending a Markdown extension', async () => {
+    const attachments = ['manual.pdf', '附件/包.zip', 'image.png', '附件/encoded.pdf']
+    const readPaths: string[] = []
+    const result = await scanProject('README.md', ['README.md'], async path => {
+      readPaths.push(path)
+      if(path === 'README.md') return file(path, '[[manual.pdf#page=2]]\n[[附件/包.zip|下载]]\n![[image.png]]\n[[附件/encoded%2Epdf]]')
+      if(attachments.includes(path)) return {path, hash:path, bytes:1, dataUrl:'data:application/octet-stream;base64,AA=='}
+      throw new Error('NOT_FOUND: '+path)
+    })
+    expect(readPaths).toEqual(['README.md', ...attachments])
+    expect(result.files.map(f=>f.path)).toEqual(readPaths)
+    expect(result.issues).toEqual([])
+  })
+  it('preserves relative and unique-title Wiki document resolution without explicit extensions', async () => {
+    const candidates = ['docs/entry.md', 'docs/near.md', 'elsewhere/Research.md', 'docs/guide.markdown']
+    const result = await scanProject('docs/entry.md', candidates, async path => {
+      if(path === 'docs/entry.md') return file(path, '[[near#heading]] [[Research]] [[guide.markdown]]')
+      if(candidates.includes(path)) return file(path, 'ok')
+      throw new Error('NOT_FOUND: '+path)
+    })
+    expect(result.files.map(f=>f.path)).toEqual(candidates)
+    expect(result.issues).toEqual([])
+  })
+  it.each(['Release 1.0.md', 'docs/Release 1.0.md'])('resolves dotted Wiki document titles from existing Markdown candidates: %s', async target => {
+    const readPaths: string[] = []
+    const result = await scanProject('README.md', ['README.md', target], async path => {
+      readPaths.push(path)
+      if(path === 'README.md') return file(path, '[[Release 1.0]]')
+      if(path === target) return file(path, '# Release 1.0')
+      throw new Error('NOT_FOUND: '+path)
+    })
+    expect(readPaths).toEqual(['README.md', target])
+    expect(result.files.map(f=>f.path)).toEqual(readPaths)
+    expect(result.issues).toEqual([])
+  })
+  it('keeps privacy and path boundaries for Wiki attachments', async () => {
+    const readPaths: string[] = []
+    const result = await scanProject('entry.md', [], async path => {
+      readPaths.push(path)
+      return file(path, '[[.private/file.pdf]] [[../outside.zip]] [[/Users/me/manual.pdf]] [[%2FUsers/me/manual.pdf]]')
+    })
+    expect(readPaths).toEqual(['entry.md'])
+    expect(result.issues.map(issue=>[issue.kind,issue.severity])).toEqual([
+      ['outside','warning'], ['outside','error'], ['outside','error'], ['private','warning'],
+    ])
+  })
   it('rejects absolute local paths including encoded traversal and ignores web/heading links', () => {
     expect(resolveReference('docs/a.md','%2e%2e/%2e%2e/private.md').kind).toBe('outside')
     for(const path of ['/Users/me/a.md','C:/secret.md','file:///secret.md','//host/path']) {

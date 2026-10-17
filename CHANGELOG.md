@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Project shares list referenced attachments in the folder tree.** Click a file to download it without leaving the current document or interrupting an unsaved draft. Wiki links to attachments such as PDFs and ZIPs are included when sharing.
+
 ## v6.1016.2 — 2026-10-16
 
 - **Adopt answers after returning to a document and reopen Rich without an initialization error.** Answer cards use the current file session, and startup answer refreshes keep the view in sync to prevent `file-view-state-mismatch`.
