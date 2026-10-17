@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1018.1 — 2026-10-18
+
 - **Project shares list referenced attachments in the folder tree.** Click a file to download it without leaving the current document or interrupting an unsaved draft. Wiki links to attachments such as PDFs and ZIPs are included when sharing.
 
 ## v6.1016.2 — 2026-10-16
