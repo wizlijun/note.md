@@ -13,6 +13,7 @@ import { loadDesktopMermaid } from './mermaid-loader'
 const raw = '```mermaid\ngraph TD; A-->B\n```'
 afterEach(() => { document.body.replaceChildren(); vi.clearAllMocks() })
 it.each([false, true])('desktop bridge explicitly injects the stable original capability (file=%s)', async file => {
+  expect((await loadDesktopMermaid()).renderMermaid).toBe(render)
   const root = document.createElement('div'); document.body.append(root)
   const instance = await mountRichEditor(root, raw, () => {}, undefined, new BrowserMediaResolver(), false,
     file ? { tab: { id: 'mermaid-di', filePath: '/vault/a.md', currentContent: raw, mode: 'rich' }, plugins: [] } : undefined)

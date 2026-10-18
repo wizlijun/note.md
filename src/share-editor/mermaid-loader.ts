@@ -16,8 +16,11 @@ export function shareMermaidLoader(host: ShareEditorHost, root: HTMLElement): Me
   return async () => {
     const module = await host.loadMermaid!()
     return {
-      renderMermaid: async (code: string) => {
-        try { return { svg: await module.render(code, mermaidAppearance(root)) } }
+      supportsResponsiveLayout: module.supportsResponsiveLayout,
+      renderMermaid: async (code: string, options?: { maxWidth?: number }) => {
+        try { return { svg: await (module.supportsResponsiveLayout
+          ? module.render(code, mermaidAppearance(root), options)
+          : module.render(code, mermaidAppearance(root))) } }
         catch { return { error: '图表加载失败，源码已保留；请重试预览' } }
       },
       // Every render reads the actual root again; CORE owns theme notifications.

@@ -1,3 +1,4 @@
+import { diagramRendererOption } from './diagram-renderer-option.mjs'
 import { readFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -23,10 +24,19 @@ export async function checkShareEditorBuild(directory, graphPath = resolve('dist
   const modules = graph.modules
   assert(Array.isArray(modules), 'Invalid module graph')
   assert(modules.length && modules.some(id => id.endsWith('src/share-editor/main.ts')), 'Missing actual main module')
-  assert(modules.every(id => !/@tauri-apps|mermaid-renderer|node_modules\/(?:\.pnpm\/)?mermaid(?:[-/@])/.test(id)), 'Forbidden Tauri or Mermaid main dependency')
+  assert(modules.every(id => !/@tauri-apps|mermaid-renderer|src\/lib\/diagrams\/pele-renderer|src\/share-editor\/pele.ts|node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:pele|mermaid)(?:[-/@])/.test(id)), 'Forbidden Tauri or Mermaid main dependency')
   if (manifest.mermaid) {
     assert(graph.mermaid?.jsSha256 === manifest.mermaid.sha256, 'Mermaid graph hash mismatch')
-    assert(Array.isArray(graph.mermaid.modules) && graph.mermaid.modules.some(id => id.endsWith('src/share-editor/mermaid.ts')) && graph.mermaid.modules.some(id => /node_modules\/mermaid\//.test(id)) && Array.isArray(graph.mermaid.inputs) && graph.mermaid.inputs.some(id => /node_modules\/mermaid-mini\//.test(id)), 'Missing actual Mermaid module')
+    const engine = diagramRendererOption(graph.mermaid.engine)
+    const rendererModules = graph.mermaid.modules, inputs = graph.mermaid.inputs
+    if (engine === 'mermaid') {
+      assert(Array.isArray(rendererModules) && rendererModules.some(id => id.endsWith('src/share-editor/mermaid.ts')) && rendererModules.some(id => /node_modules\/mermaid\//.test(id)) && Array.isArray(inputs) && inputs.some(id => /node_modules\/mermaid-mini\//.test(id)), 'Missing actual Mermaid module')
+      assert([...rendererModules, ...inputs].every(id => !/node_modules\/pele\/|src\/share-editor\/pele.ts|src\/lib\/diagrams\/pele-renderer/.test(id)), 'Opposite diagram engine dependency')
+    } else {
+      assert(Array.isArray(rendererModules) && rendererModules.some(id => id.endsWith('src/share-editor/pele.ts')) && rendererModules.some(id => /node_modules\/pele\//.test(id)) && Array.isArray(inputs) && inputs.some(id => /node_modules\/pele\//.test(id)), 'Missing actual Pele module')
+      assert([...rendererModules, ...inputs].every(id => !/node_modules\/mermaid(?:-mini)?\/|src\/share-editor\/mermaid.ts|mermaid-renderer/.test(id)), 'Opposite diagram engine dependency')
+    }
+    if (graph.mermaid.engine !== undefined) assert(inputs.some(id => id.endsWith(`src/share-editor/${engine}.ts`)), 'Missing actual renderer input entry')
     assert(graph.mermaid.modules.every(id => !/@tauri-apps|src\/share-editor\/main.ts/.test(id)), 'Forbidden Mermaid dependency')
   }
   const resources = {}

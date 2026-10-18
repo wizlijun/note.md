@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- Optional build-time Pele renderer for previews, static exports, and share diagrams. Default Mermaid remains available by rebuilding without the switch; see [build and revert instructions](docs/pele-build.md).
+
 ## v6.1018.1 — 2026-10-18
 
 - **Project shares list referenced attachments in the folder tree.** Click a file to download it without leaving the current document or interrupting an unsaved draft. Wiki links to attachments such as PDFs and ZIPs are included when sharing.

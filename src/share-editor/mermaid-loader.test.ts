@@ -17,3 +17,17 @@ it('uses actual root six colors and explicit html/OS appearance, never the froze
   render.mockRejectedValueOnce(Error('load failed')); expect(await api.renderMermaid('source')).toHaveProperty('error')
   root.remove(); delete document.documentElement.dataset.theme
 })
+it('forwards responsive width only to an opted-in renderer', async () => {
+  const root = document.createElement('div')
+  const render = vi.fn(async () => '<svg/>')
+  const api = await shareMermaidLoader({ loadMermaid: async () => ({ render, supportsResponsiveLayout: true }) } as unknown as ShareEditorHost, root)!()
+  expect(api.supportsResponsiveLayout).toBe(true)
+  await api.renderMermaid('graph TD; A-->B', { maxWidth: 321 })
+  expect(render).toHaveBeenCalledWith('graph TD; A-->B', expect.any(Object), { maxWidth: 321 })
+})
+it('keeps legacy render at exactly two arguments even when CORE supplies width', async () => {
+  const root = document.createElement('div'), render = vi.fn(async () => '<svg/>')
+  const api = await shareMermaidLoader({ loadMermaid: async () => ({ render }) } as unknown as ShareEditorHost, root)!()
+  await api.renderMermaid('source', { maxWidth: 300 })
+  expect(render.mock.calls[0]).toHaveLength(2)
+})

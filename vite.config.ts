@@ -1,6 +1,7 @@
 import { projectShareBrowserSource } from './scripts/project-share-browser.mjs'
 import { controlledEnvDir } from './scripts/controlled-env.mjs'
 import { defineConfig } from 'vite'
+import { diagramRendererOption } from './scripts/diagram-renderer-option.mjs'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
 
@@ -9,7 +10,10 @@ import { shareEditorAssets } from './scripts/share-editor-assets.mjs'
 // undefined and Vite binds to localhost as usual.
 const host = process.env.TAURI_DEV_HOST
 
+const diagramRenderer = diagramRendererOption(process.env.VITE_DIAGRAM_RENDERER)
+
 export default defineConfig({
+  define: { 'import.meta.env.VITE_DIAGRAM_RENDERER': JSON.stringify(diagramRenderer) },
   envDir: controlledEnvDir(),
   plugins: [projectShareBrowserSource(), svelte(), shareEditorAssets()],
   clearScreen: false,

@@ -17,7 +17,7 @@ export interface ShareEditorHost {
   openFile(path: string): void
   notify(text: string): void
   setFileBadges?(rows: readonly { path: string; changed: boolean; annotations: number }[]): void
-  loadMermaid?(): Promise<{ render(code: string, appearance: ShareMermaidAppearance): Promise<string> }>
+  loadMermaid?(): Promise<{ supportsResponsiveLayout?: boolean; render(code: string, appearance: ShareMermaidAppearance, options?: { maxWidth?: number }): Promise<string> }>
 }
 export interface ShareEditorHandle {
   switchFile(path: string): Promise<void>

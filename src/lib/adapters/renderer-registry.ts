@@ -116,7 +116,31 @@ export const loadDotRenderer = dotPlugin.load
  *  mermaid blocks as both isMermaid AND isRenderer, which mis-fires the
  *  `pre.style.display` formula in syncMermaidMode and hides the source
  *  pre when the user clicks Edit — leaving a blank area. */
-export const loadMermaidRenderer = mermaidPlugin.load
+const pelePlugin: PluginEntry = {
+  version: '1',
+  load: async () => {
+    const { renderPeleSvg } = await import('../diagrams/pele-renderer')
+    const { mermaidAppearance } = await import('../../share-editor/mermaid-loader')
+    return {
+      async render(source, container) {
+        container.innerHTML = ''
+        if (!source.trim()) {
+          container.innerHTML = '<div class="renderer-empty">Empty diagram</div>'
+          return
+        }
+        try {
+          // Detached export staging has no measurable layout; use a fixed page width.
+          const width = container.getBoundingClientRect().width || container.clientWidth || 800
+          container.innerHTML = renderPeleSvg(source, { maxWidth: width, appearance: mermaidAppearance(container), links: true })
+        } catch (e) {
+          container.innerHTML = `<div class="renderer-error">${escapeRenderError(e)}</div>`
+        }
+      },
+      destroy(container) { container.innerHTML = '' },
+    }
+  },
+}
+export const loadMermaidRenderer = import.meta.env.VITE_DIAGRAM_RENDERER === 'pele' ? pelePlugin.load : mermaidPlugin.load
 
 const PLUGINS: Record<string, PluginEntry> = {
   dot: dotPlugin,
