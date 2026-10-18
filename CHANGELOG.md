@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1019.2 — 2026-10-19
+
 - **Pele diagrams keep readable theme styles.** Fix black blocks and dark-theme black text in titled diagrams, separate neutral node surfaces from chart series colors, and provide light/dark defaults when theme variables are absent. The fix applies to previews, static exports, and newly published shares.
 
 ## v6.1019.1 — 2026-10-19
