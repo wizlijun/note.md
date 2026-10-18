@@ -24,7 +24,7 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 | Linux beta · Debian 12 / Omarchy | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&arch=x86_64) |
 | Linux beta · Debian 12 / Omarchy | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&arch=aarch64) |
 
-**v6.1019.1 更新 macOS Apple Silicon 与 Intel 安装包，图表使用 Pele 渲染。** 原有 `mermaid` 代码块保留源码，但支持的语法有差异。旧 Mermaid 渲染器仍可通过构建开关恢复，没有设置项或自动回退；见 [Pele 兼容性与重新构建](docs/pele-build.md)。本次不替换 Linux v6.1016.2 和 Windows v6.811.1 安装包，上方链接继续提供各平台最后实际可用的版本。
+**v6.1019.2 更新 macOS Apple Silicon 与 Intel 安装包，修复 Pele 图表主题样式。** 解决黑块和深色黑字，普通节点底色与统计分类色分开，缺少主题变量时采用可读的明暗默认配色。 原有 `mermaid` 代码块保留源码，但支持的语法有差异。旧 Mermaid 渲染器仍可通过构建开关恢复，没有设置项或自动回退；见 [Pele 兼容性与重新构建](docs/pele-build.md)。本次不替换 Linux v6.1016.2 和 Windows v6.811.1 安装包，上方链接继续提供各平台最后实际可用的版本。
 
 Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux ARM 不会回退到 x86_64 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
 
