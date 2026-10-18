@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1019.1 — 2026-10-19
+
 - **macOS diagrams now use Pele.** Previews, static exports, and newly published share diagrams use the responsive renderer with the current theme. Existing Mermaid code blocks need no migration; some syntax differs. The original Mermaid implementation remains available through a rebuild; see [compatibility and build instructions](docs/pele-build.md). Linux and Windows downloads remain on their latest available releases.
 
 ## v6.1018.1 — 2026-10-18
