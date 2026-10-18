@@ -31,3 +31,18 @@ it('keeps legacy render at exactly two arguments even when CORE supplies width',
   await api.renderMermaid('source', { maxWidth: 300 })
   expect(render.mock.calls[0]).toHaveLength(2)
 })
+
+it.each(['light', 'dark'])('uses readable Pele defaults without legacy CSS variables in %s mode', async mode => {
+  const root = document.createElement('div')
+  document.documentElement.dataset.theme = mode
+  const render = vi.fn(async () => '<svg/>')
+  try {
+    const api = await shareMermaidLoader({ loadMermaid: async () => ({ render, supportsResponsiveLayout: true }) } as unknown as ShareEditorHost, root)!()
+    await api.renderMermaid('graph TD; A-->B')
+    expect(render).toHaveBeenCalledWith('graph TD; A-->B', expect.objectContaining({ themeVariables: expect.objectContaining(mode === 'dark'
+      ? { primaryColor: '#93c5fd', primaryTextColor: '#eeeeee', secondaryColor: '#303030', tertiaryColor: '#404040', lineColor: '#cccccc' }
+      : { primaryColor: '#2563eb', primaryTextColor: '#1f1f1f', secondaryColor: '#f3f3f3', tertiaryColor: '#e6e6e6' }) }), undefined)
+    // Rebuilding with the original renderer retains its historical defaults.
+    expect(mermaidAppearance(root).themeVariables.primaryTextColor).toBe('#333')
+  } finally { delete document.documentElement.dataset.theme }
+})

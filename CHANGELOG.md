@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Pele diagrams keep readable theme styles.** Fix black blocks and dark-theme black text in titled diagrams, separate neutral node surfaces from chart series colors, and provide light/dark defaults when theme variables are absent. The fix applies to previews, static exports, and newly published shares.
+
 ## v6.1019.1 — 2026-10-19
 
 - **macOS diagrams now use Pele.** Previews, static exports, and newly published share diagrams use the responsive renderer with the current theme. Existing Mermaid code blocks need no migration; some syntax differs. The original Mermaid implementation remains available through a rebuild; see [compatibility and build instructions](docs/pele-build.md). Linux and Windows downloads remain on their latest available releases.

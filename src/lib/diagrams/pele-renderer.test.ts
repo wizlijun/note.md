@@ -45,6 +45,57 @@ describe('shared Pele renderer', () => {
     expect(style).toContain('sans-serif')
     expect(style).not.toMatch(/--pele-bg:\s*#123456/)
   })
+  it.each([false, true])('separates chart series from neutral surfaces (dark=%s)', isDark => {
+    const appearance = { ...dark, theme: isDark ? 'dark' as const : 'default' as const }
+    const root = svg(render('pie title 分类\n "第一" : 60\n "第二" : 40', { appearance })) as unknown as SVGElement
+    expect(root.style.getPropertyValue('--pele-surface')).toBe(dark.themeVariables.secondaryColor)
+    expect(root.style.getPropertyValue('--pele-surface-alt')).toBe(dark.themeVariables.tertiaryColor)
+    const series = Array.from({ length: 8 }, (_, i) => root.style.getPropertyValue(`--pele-series-${i + 1}`))
+    expect(series[0]).toBe(dark.themeVariables.primaryColor)
+    expect(new Set(series).size).toBe(8)
+    expect(series).not.toContain(dark.themeVariables.secondaryColor)
+    expect(series).not.toContain(dark.themeVariables.tertiaryColor)
+  })
+  it.each([
+    ['sequence with frames', 'sequenceDiagram\n participant A as 客户\n participant B as 服务\n alt 已授权\n A->>B: 保存\n else 拒绝\n B-->>A: 提示\n end', '--_hw', '--pele-heading-weight'],
+    ['class', 'classDiagram\n class Note {\n +String title\n +save()\n }', '--_hw', '--pele-heading-weight'],
+    ['titled pie', 'pie title 资源分布\n "文档" : 60\n "附件" : 40', '--_tw', '--pele-title-weight'],
+    ['titled C4', 'C4Context\n title 知识系统\n Person(user, "用户")\n System(app, "笔记")\n Rel(user, app, "编辑")', '--_tw', '--pele-title-weight'],
+    ['bold label', 'flowchart LR\n A["`**强调**文本`"] --> B[完成]', '--_w', '--pele-bold-weight'],
+  ])('preserves root theme aliases for %s in a detached dark SVG', (_name, code, alias, weight) => {
+    const root = svg(render(code, { appearance: dark })) as unknown as SVGElement
+    expect(root.style.getPropertyValue('--_fg')).toContain('--pele-fg')
+    expect(root.style.getPropertyValue('--_s')).toContain('--pele-surface')
+    expect(root.style.getPropertyValue(alias)).toContain(weight)
+    expect(root.style.getPropertyValue(weight)).toBe('bold')
+    expect(root.style.color).toBe('var(--_fg)')
+    expect(root.style.fontFamily).toContain('--pele-font')
+    expect(root.style.getPropertyValue('--pele-fg')).toBe('#eeeeee')
+  })
+  it.each(['title', 'heading', 'bold'])('prevents the %s weight from inheriting a resource paint', name => {
+    const variable = `--pele-${name}-weight`
+    const spy = vi.spyOn(pele, 'render').mockReturnValue({ type: 'flowchart', width: 10, height: 10, links: [],
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" style="${variable}:inherit!important"><rect width="10" height="10" fill="var(${variable})"/></svg>` })
+    try {
+      const root = svg(render(flow)) as unknown as SVGElement
+      expect(root.style.getPropertyValue(variable)).toBe('bold')
+      expect(root.style.getPropertyPriority(variable)).toBe('')
+      expect(root.querySelector('rect:not([aria-hidden])')?.getAttribute('fill')).toBe(`var(${variable})`)
+    } finally { spy.mockRestore() }
+  })
+  it.each([
+    'var(--pele-title-weight,url(https://evil.test/paint))',
+    'var(--pele-heading-weight,var(--hostile-paint))',
+    'var(--pele-bold-weight-resource)',
+  ])('rejects unsafe resources or unknown variables around weight paints: %s', fill => {
+    const spy = vi.spyOn(pele, 'render').mockReturnValue({ type: 'flowchart', width: 10, height: 10, links: [],
+      svg: `<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="${fill}"/></svg>` })
+    try {
+      const result = render(flow), root = svg(result)
+      expect(root.querySelector('rect:not([aria-hidden])')?.hasAttribute('fill')).toBe(false)
+      expect(result).not.toMatch(/evil\.test|hostile-paint|weight-resource/)
+    } finally { spy.mockRestore() }
+  })
   it('renders with unique IDs when Safari 15 has no randomUUID', () => {
     const original = Object.getOwnPropertyDescriptor(crypto, 'randomUUID')
     Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined })

@@ -131,7 +131,7 @@ const pelePlugin: PluginEntry = {
         try {
           // Detached export staging has no measurable layout; use a fixed page width.
           const width = container.getBoundingClientRect().width || container.clientWidth || 800
-          container.innerHTML = renderPeleSvg(source, { maxWidth: width, appearance: mermaidAppearance(container), links: true })
+          container.innerHTML = renderPeleSvg(source, { maxWidth: width, appearance: mermaidAppearance(container, 'pele'), links: true })
         } catch (e) {
           container.innerHTML = `<div class="renderer-error">${escapeRenderError(e)}</div>`
         }

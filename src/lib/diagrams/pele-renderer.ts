@@ -25,7 +25,7 @@ const outputLimit = 4_000_000
 // remain useful for SVG markers and gradients; all other URL paints are removed.
 function safePaint(value: string): boolean {
   const variables = [...value.matchAll(/var\(\s*(--[\w-]+)/g)]
-  if (variables.some(([, name]) => !/^--(?:_(?:a|b|bg|c|fg|fm|hw|l|m|r|s|tw|w)|pele-(?:bg|fg|muted|line|surface|surface-alt|border|accent|critical|error|font|font-mono|radius|series-[1-8]))$/.test(name))) return false
+  if (variables.some(([, name]) => !/^--(?:_(?:a|b|bg|c|fg|fm|hw|l|m|r|s|tw|w)|pele-(?:bg|fg|muted|line|surface|surface-alt|border|accent|critical|error|font|font-mono|(?:title|heading|bold)-weight|radius|series-[1-8]))$/.test(name))) return false
   return !/[\\]|\/\*|@import|(?:image-set|image|src)\s*\(/i.test(value)
     && !/url\s*\(/i.test(value.replace(/url\(\s*["']?#[\w:.-]+["']?\s*\)/gi, ''))
 }
@@ -92,14 +92,16 @@ export function renderPeleSvg(code: string, options: PeleRenderOptions = {}): st
     fg: colors?.primaryTextColor ?? (dark ? '#eeeeee' : '#1f1f1f'),
     muted: dark ? '#aaaaaa' : '#6e6e6e',
     line: colors?.lineColor ?? (dark ? '#cccccc' : '#1f1f1f'),
-    surface: colors?.primaryColor ?? (dark ? '#303030' : '#f3f3f3'),
-    'surface-alt': colors?.secondaryColor ?? (dark ? '#404040' : '#e6e6e6'),
+    surface: colors?.secondaryColor ?? (dark ? '#303030' : '#f3f3f3'),
+    'surface-alt': colors?.tertiaryColor ?? (dark ? '#404040' : '#e6e6e6'),
     border: colors?.primaryBorderColor ?? (dark ? '#888888' : '#8a8a8a'),
-    accent: colors?.primaryColor ?? '#5b7bd5',
+    accent: colors?.primaryColor ?? (dark ? '#93c5fd' : '#2563eb'),
     critical: '#e45756',
     error: '#e45756',
   }
-  const series = [palette.accent, palette['surface-alt'], colors?.tertiaryColor ?? '#d9aa58', '#64a79a', '#b587b5', '#cd7474', '#8a9e63', '#919191']
+  const series = [palette.accent, ...(dark
+    ? ['#2dd4bf', '#fbbf24', '#a78bfa', '#fb7185', '#22d3ee', '#a3e635', '#fb923c']
+    : ['#0f766e', '#b45309', '#7c3aed', '#be123c', '#0e7490', '#4d7c0f', '#c2410c'])]
   series.forEach((color, index) => { palette[`series-${index + 1}`] = color })
   // Use the CSS parser as a color validator; caller-supplied values cannot
   // introduce declarations or inherited custom-property resource loads.
@@ -113,6 +115,8 @@ export function renderPeleSvg(code: string, options: PeleRenderOptions = {}): st
   const style = (root as unknown as SVGElement).style
   style.setProperty('--pele-font', fontFamily)
   style.setProperty('--pele-font-mono', 'ui-monospace, SFMono-Regular, Consolas, monospace')
+  // Keep typography self-contained; these allowed variables cannot inherit resource paints.
+  for (const role of ['title', 'heading', 'bold']) style.setProperty(`--pele-${role}-weight`, 'bold')
   style.setProperty('--pele-radius', '4px')
   style.setProperty('background-color', 'var(--pele-bg)')
   const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect')

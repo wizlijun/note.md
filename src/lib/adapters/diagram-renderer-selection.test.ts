@@ -46,3 +46,20 @@ it('preserves legacy share source and registry renderer verbatim', () => {
   const body = (text: string) => text.slice(text.indexOf('const mermaidPlugin:'), text.indexOf('/** Top-level loader for the dot/graphviz'))
   expect(hash(body(readFileSync(registryPath, 'utf8')))).toBe('12887e312acaecd0f7bf9af7e89620b5cabab70a6653599119f1e325ee2eb8db')
 })
+
+it('uses dark Pele defaults in desktop and detached exports without theme variables', async () => {
+  const root = document.documentElement, previousStyle = root.getAttribute('style'), previousTheme = root.dataset.theme
+  vi.stubEnv('VITE_DIAGRAM_RENDERER', 'pele')
+  root.removeAttribute('style'); root.dataset.theme = 'dark'
+  try {
+    const api = await (await import('./mermaid-loader')).loadDesktopMermaid()
+    await api.renderMermaid('graph TD; A-->B')
+    expect(peleRender).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ appearance: expect.objectContaining({ themeVariables: expect.objectContaining({ primaryTextColor: '#eeeeee', secondaryColor: '#303030' }) }) }))
+    const plugin = await (await import('./renderer-registry')).loadMermaidRenderer()
+    await plugin.render('graph TD; A-->B', document.createElement('div'))
+    expect(peleRender).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ appearance: expect.objectContaining({ themeVariables: expect.objectContaining({ primaryTextColor: '#eeeeee', secondaryColor: '#303030' }) }) }))
+  } finally {
+    if (previousStyle === null) root.removeAttribute('style'); else root.setAttribute('style', previousStyle)
+    if (previousTheme === undefined) delete root.dataset.theme; else root.dataset.theme = previousTheme
+  }
+})

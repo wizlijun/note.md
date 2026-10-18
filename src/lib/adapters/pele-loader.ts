@@ -4,7 +4,7 @@ import { mermaidAppearance } from '../../share-editor/mermaid-loader'
 export const supportsResponsiveLayout = true
 export async function renderMermaid(code: string, options?: { maxWidth?: number }) {
   try {
-    return { svg: renderPeleSvg(code, { ...options, appearance: mermaidAppearance(document.documentElement), links: true }) }
+    return { svg: renderPeleSvg(code, { ...options, appearance: mermaidAppearance(document.documentElement, 'pele'), links: true }) }
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) }
   }
