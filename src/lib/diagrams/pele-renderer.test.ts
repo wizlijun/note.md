@@ -1,0 +1,98 @@
+// @vitest-environment jsdom
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+import * as pele from 'pele'
+import { renderPeleSvg as render } from './pele-renderer'
+
+vi.mock('pele', { spy: true })
+// jsdom has no canvas; exercise Pele's own non-canvas text measurement fallback.
+beforeAll(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null) })
+
+const flow = 'flowchart LR\n A[中文开始] --> B[处理数据] --> C[完成]'
+const dark = { theme: 'dark' as const, themeVariables: { primaryColor: '#123456', primaryTextColor: '#eeeeee', primaryBorderColor: '#abcdef', lineColor: '#fedcba', secondaryColor: '#234567', tertiaryColor: '#345678' } }
+function svg(source: string) { return new DOMParser().parseFromString(source, 'image/svg+xml').documentElement }
+
+describe('shared Pele renderer', () => {
+  it.each([
+    [flow, '中文开始'],
+    ['quadrantChart\n title 中文象限\n x-axis 低 --> 高\n y-axis 少 --> 多\n quadrant-1 优先\n 项目: [0.7, 0.8]', '中文象限'],
+    ['C4Context\n title 中文系统\n Person(user, "用户", "使用者")\n System(system, "笔记系统", "内容")\n Rel(user, system, "使用")', '笔记系统'],
+  ])('renders real supported source %s', (code, label) => {
+    const root = svg(render(code))
+    expect(root.localName).toBe('svg')
+    expect(root.getAttribute('viewBox')).toBeTruthy()
+    expect(root.textContent).toContain(label)
+  })
+  it('uses available width for layout', () => {
+    const wide = svg(render(flow, { maxWidth: 800 }))
+    const narrow = svg(render(flow, { maxWidth: 180 }))
+    expect(narrow.getAttribute('viewBox')).not.toBe(wide.getAttribute('viewBox'))
+  })
+  it('retains safe authored style', () => {
+    expect(render('flowchart TD\n A[Styled]\n style A fill:#ff0000,stroke:#00ff00')).toContain('#ff0000')
+  })
+  it('throws syntax errors and default source and edge limits', () => {
+    expect(() => render('this is not a diagram <script>')).toThrow()
+    expect(() => render(`flowchart TD\n A[${'x'.repeat(50_000)}]`)).toThrow(/limit/i)
+    expect(() => render('flowchart TD\n' + Array.from({length:5001}, (_, i) => `A-->B${i}`).join('\n'))).toThrow(/limit|edges/i)
+  })
+  it('freezes all theme colors and fonts for a detached dark SVG', () => {
+    const root = svg(render(flow, { appearance: dark }))
+    const style = root.getAttribute('style')!
+    for (const color of Object.values(dark.themeVariables)) expect(style).toContain(color)
+    expect(style).toMatch(/--pele-bg:\s*#(?:1e1e1e|18181b)/)
+    expect(style).toContain('--pele-fg:')
+    expect(style).toContain('--pele-font:')
+    expect(style).toContain('sans-serif')
+    expect(style).not.toMatch(/--pele-bg:\s*#123456/)
+  })
+  it('creates unique accessible IDs and preserves local references', () => {
+    const code = flow + '\n accTitle: Accessible title\n accDescr: Diagram description'
+    const one = svg(render(code)), two = svg(render(code))
+    const ids = [...one.querySelectorAll('[id]')].map(el => el.id)
+    expect(ids.length).toBeGreaterThan(0)
+    expect(ids.some(id => [...two.querySelectorAll('[id]')].some(el => el.id === id))).toBe(false)
+    for (const el of one.querySelectorAll('*')) for (const attr of el.attributes) {
+      for (const match of attr.value.matchAll(/url\(#([^)]*)\)/g)) expect(ids).toContain(match[1])
+    }
+    expect(one.textContent).toContain('Accessible title')
+    expect(ids).toContain(one.getAttribute('aria-labelledby'))
+    expect(ids).toContain(one.getAttribute('aria-describedby'))
+  })
+  it('disables links by default and permits safe trusted opt-in', () => {
+    const code = 'flowchart TD\n A[Site]\n click A "https://example.com" "Open"'
+    expect(svg(render(code)).querySelector('a')).toBeNull()
+    expect(svg(render(code, { links: true })).querySelector('a')?.getAttribute('href')).toBe('https://example.com/')
+  })
+  it('filters hostile generated output and preserves local SVG references', () => {
+    const spy = vi.spyOn(pele, 'render').mockReturnValue({type:'flowchart', width:10, height:10, links:[], svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><style>@import 'https://evil.test/a'; .x {fill:url(https://evil.test/b)}</style><script>alert(1)</script><image href="https://evil.test/c"/><foreignObject>bad</foreignObject><defs><marker id="safe"><path d="M0 0"/></marker></defs><path marker-end="url(#safe)" style="fill:url(https://evil.test/d)"/><use href="https://evil.test/e#id"/><a href="javascript:alert(1)">bad</a></svg>`})
+    try {
+      const result = render(flow)
+      const root = svg(result)
+      expect(root.querySelector('style, script, image, foreignObject, a')).toBeNull()
+      expect(result).not.toContain('evil.test')
+      const marker = root.querySelector('marker')!
+      expect(root.querySelector('[marker-end]')?.getAttribute('marker-end')).toBe(`url(#${marker.id})`)
+      expect(spy.mock.calls[0][1]).toMatchObject({images:false, links:false, limit:50000, outputLimit:4000000, maxEdges:5000})
+      expect(spy.mock.calls[0][1]?.icons).toBeUndefined()
+    } finally { spy.mockRestore() }
+  })
+  it('rejects generated output above the output budget', () => {
+    const spy = vi.spyOn(pele, 'render').mockReturnValue({type:'flowchart', width:10, height:10, links:[], svg:`<svg xmlns="http://www.w3.org/2000/svg"><text>${'x'.repeat(4_000_000)}</text></svg>`})
+    try { expect(() => render(flow)).toThrow(/output.*limit/i) } finally { spy.mockRestore() }
+  })
+  it('rejects CSS resource functions even when they omit url()', () => {
+    const spy = vi.spyOn(pele, 'render').mockReturnValue({type:'flowchart', width:10, height:10, links:[], svg:`<svg xmlns="http://www.w3.org/2000/svg"><rect style='background:image-set("relative.png" 1x)'/></svg>`})
+    try { expect(render(flow)).not.toContain('relative.png') } finally { spy.mockRestore() }
+  })
+  it('prevents inherited CSS variables from supplying external resources', () => {
+    const spy = vi.spyOn(pele, 'render').mockReturnValue({type:'flowchart', width:10, height:10, links:[], svg:`<svg xmlns="http://www.w3.org/2000/svg"><rect fill="var(--hostile-paint)"/></svg>`})
+    try { expect(render(flow)).not.toContain('--hostile-paint') } finally { spy.mockRestore() }
+  })
+  it('suppresses external resources, images, scripts and unsafe style', () => {
+    const result = render('flowchart TD\n A["<img src=https://evil.test/a onerror=alert(1)>"]\n B@{ img: "https://evil.test/b", label: "Photo" }\n A-->B\n click A "javascript:alert(1)"', {links:true})
+    const root = svg(result)
+    expect(root.querySelector('image, script, foreignObject, img')).toBeNull()
+    expect(root.querySelector('[href^="javascript:"], [href^="https://evil.test"]')).toBeNull()
+    expect(result).not.toMatch(/url\([^#)]|@import/i)
+  })
+})

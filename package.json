@@ -49,6 +49,7 @@
     "marked-katex-extension": "^5.1.8",
     "mermaid": "11.17.2",
     "mermaid-mini": "github:wizlijun/mermaid-mini#prebuilt-v11.14.0-mdeditor.1",
+    "pele": "1.6.0",
     "svelte-sonner": "^1.1.1",
     "yaml": "^2.8.4"
   },
