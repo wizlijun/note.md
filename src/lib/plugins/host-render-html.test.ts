@@ -1,7 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { afterAll, describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+// These assertions cover retained Mermaid, independent of the release build selector.
+vi.hoisted(() => { vi.stubEnv('VITE_DIAGRAM_RENDERER', 'mermaid') })
+afterAll(() => { vi.unstubAllEnvs() })
+
 import {
   htmlEscape,
   extractH1FromMarkdown,

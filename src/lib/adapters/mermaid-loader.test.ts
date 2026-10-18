@@ -1,5 +1,9 @@
 /** @vitest-environment happy-dom */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, expect, it, vi } from 'vitest'
+// These assertions cover retained Mermaid, independent of the release build selector.
+vi.hoisted(() => { vi.stubEnv('VITE_DIAGRAM_RENDERER', 'mermaid') })
+afterAll(() => { vi.unstubAllEnvs() })
+
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => null), convertFileSrc: (s: string) => s }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'macos', type: () => 'macos' }))

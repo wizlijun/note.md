@@ -1,7 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+// These assertions cover retained Mermaid, independent of the release build selector.
+vi.hoisted(() => { vi.stubEnv('VITE_DIAGRAM_RENDERER', 'mermaid') })
+afterAll(() => { vi.unstubAllEnvs() })
+
 import { renderDiagrams } from './diagram-render'
 
 const CHINESE_QUADRANT = `quadrantChart

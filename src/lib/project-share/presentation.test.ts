@@ -1,5 +1,9 @@
 /** @vitest-environment jsdom */
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+// These assertions cover retained Mermaid, independent of the release build selector.
+vi.hoisted(() => { vi.stubEnv('VITE_DIAGRAM_RENDERER', 'mermaid') })
+afterAll(() => { vi.unstubAllEnvs() })
+
 import type { ProjectSnapshot } from './types'
 
 const mocks = vi.hoisted(() => ({
