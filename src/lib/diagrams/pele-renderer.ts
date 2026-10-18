@@ -32,7 +32,7 @@ function safePaint(value: string): boolean {
 
 /** Browser-only, synchronous rendering; callers own insertion and error UI. */
 export function renderPeleSvg(code: string, options: PeleRenderOptions = {}): string {
-  const prefix = `pele-${crypto.randomUUID()}`
+  const prefix = `pele-${Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')}`
   const result = render(code, {
     idPrefix: prefix,
     maxWidth: Number.isFinite(options.maxWidth) && options.maxWidth! > 0 ? options.maxWidth : undefined,

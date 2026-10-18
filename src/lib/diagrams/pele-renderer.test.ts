@@ -45,6 +45,21 @@ describe('shared Pele renderer', () => {
     expect(style).toContain('sans-serif')
     expect(style).not.toMatch(/--pele-bg:\s*#123456/)
   })
+  it('renders with unique IDs when Safari 15 has no randomUUID', () => {
+    const original = Object.getOwnPropertyDescriptor(crypto, 'randomUUID')
+    Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined })
+    try {
+      const code = flow + '\n accTitle: Accessible title'
+      const one = svg(render(code)), two = svg(render(code))
+      const ids = [...one.querySelectorAll('[id]')].map(el => el.id)
+      expect(one.textContent).toContain('中文开始')
+      expect(ids.length).toBeGreaterThan(0)
+      expect([...two.querySelectorAll('[id]')].every(el => !ids.includes(el.id))).toBe(true)
+    } finally {
+      if (original) Object.defineProperty(crypto, 'randomUUID', original)
+      else Reflect.deleteProperty(crypto, 'randomUUID')
+    }
+  })
   it('creates unique accessible IDs and preserves local references', () => {
     const code = flow + '\n accTitle: Accessible title\n accDescr: Diagram description'
     const one = svg(render(code)), two = svg(render(code))

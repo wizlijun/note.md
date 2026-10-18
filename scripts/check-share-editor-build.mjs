@@ -1,3 +1,4 @@
+import { assertPeleNotice } from './pele-notice.mjs'
 import { diagramRendererOption } from './diagram-renderer-option.mjs'
 import { readFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
@@ -49,6 +50,7 @@ export async function checkShareEditorBuild(directory, graphPath = resolve('dist
     assert(hash === asset.sha256 && asset.name.includes(`.${hash}.`), 'Kit hash mismatch')
     assert(asset.sri === 'sha384-' + createHash('sha384').update(bytes).digest('base64'), 'Kit SRI mismatch')
     const source = bytes.toString('utf8')
+    if (kind === 'mermaid' && graph.mermaid.engine === 'pele') assertPeleNotice(source)
     if (ext === 'js') walk(parseAst(source))
     else {
       assert(!/@import\b/i.test(source), 'External CSS import')

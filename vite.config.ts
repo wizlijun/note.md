@@ -1,3 +1,4 @@
+import { peleNoticeBanner, peleNoticeGuard } from './scripts/pele-notice.mjs'
 import { projectShareBrowserSource } from './scripts/project-share-browser.mjs'
 import { controlledEnvDir } from './scripts/controlled-env.mjs'
 import { defineConfig } from 'vite'
@@ -15,7 +16,7 @@ const diagramRenderer = diagramRendererOption(process.env.VITE_DIAGRAM_RENDERER)
 export default defineConfig({
   define: { 'import.meta.env.VITE_DIAGRAM_RENDERER': JSON.stringify(diagramRenderer) },
   envDir: controlledEnvDir(),
-  plugins: [projectShareBrowserSource(), svelte(), shareEditorAssets()],
+  plugins: [projectShareBrowserSource(), svelte(), shareEditorAssets(), peleNoticeGuard()],
   clearScreen: false,
   server: {
     port: 1420,
@@ -63,6 +64,7 @@ export default defineConfig({
         'editor-kit-v2': 'src/editor-kit-v2/main.ts',
       },
       output: {
+        banner: peleNoticeBanner,
         entryFileNames: (c) => {
           if (c.name === 'editor-kit') return 'assets/editor-kit-v1.js'
           if (c.name === 'editor-kit-v2') return 'assets/editor-kit-v2.js'
