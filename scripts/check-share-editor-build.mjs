@@ -1,5 +1,4 @@
 import { assertPeleNotice } from './pele-notice.mjs'
-import { diagramRendererOption } from './diagram-renderer-option.mjs'
 import { readFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -28,7 +27,9 @@ export async function checkShareEditorBuild(directory, graphPath = resolve('dist
   assert(modules.every(id => !/@tauri-apps|mermaid-renderer|src\/lib\/diagrams\/pele-renderer|src\/share-editor\/pele.ts|node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:pele|mermaid)(?:[-/@])/.test(id)), 'Forbidden Tauri or Mermaid main dependency')
   if (manifest.mermaid) {
     assert(graph.mermaid?.jsSha256 === manifest.mermaid.sha256, 'Mermaid graph hash mismatch')
-    const engine = diagramRendererOption(graph.mermaid.engine)
+    // Older build graphs omitted the engine field and always described Mermaid.
+    const engine = graph.mermaid.engine === undefined ? 'mermaid' : graph.mermaid.engine
+    assert(engine === 'mermaid' || engine === 'pele', 'Invalid diagram engine metadata')
     const rendererModules = graph.mermaid.modules, inputs = graph.mermaid.inputs
     if (engine === 'mermaid') {
       assert(Array.isArray(rendererModules) && rendererModules.some(id => id.endsWith('src/share-editor/mermaid.ts')) && rendererModules.some(id => /node_modules\/mermaid\//.test(id)) && Array.isArray(inputs) && inputs.some(id => /node_modules\/mermaid-mini\//.test(id)), 'Missing actual Mermaid module')

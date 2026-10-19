@@ -87,17 +87,19 @@ describe('share kit artifact gate', () => {
   })
 })
 
-it.each(['pele', 'missing-notice', 'invalid', 'opposite', 'missing-input'])('checks Pele graph evidence: %s', async variant => {
-  const f = fixture(realApi), mermaid = f.asset((variant === 'missing-notice' ? '' : `/*!\n${peleNotice}\n*/\n`) + '(()=>{globalThis.NotemdShareMermaid={supportsResponsiveLayout:true,render(){}}})()', 'js', 'share-editor-mermaid')
+it.each(['pele', 'missing-notice', 'invalid', 'opposite', 'missing-input', 'missing-engine', 'empty-engine', 'null-engine'])('checks Pele graph evidence: %s', async variant => {
+  const f = fixture(realApi), mermaid = f.asset((['missing-notice', 'empty-engine'].includes(variant) ? '' : `/*!\n${peleNotice}\n*/\n`) + '(()=>{globalThis.NotemdShareMermaid={supportsResponsiveLayout:true,render(){}}})()', 'js', 'share-editor-mermaid')
   const manifest = { ...f.manifest, mermaid }
   writeFileSync(join(f.dir, 'share-editor-manifest.json'), JSON.stringify(manifest))
-  const graph = { jsSha256: manifest.js.sha256, modules: ['src/share-editor/main.ts'], mermaid: { engine: variant === 'invalid' ? 'typo' : 'pele', jsSha256: mermaid.sha256, modules: ['src/share-editor/pele.ts', 'node_modules/pele/dist/index.js'], inputs: variant === 'missing-input' ? [] : ['src/share-editor/pele.ts', 'node_modules/pele/dist/index.js'] } }
+  const graph = { jsSha256: manifest.js.sha256, modules: ['src/share-editor/main.ts'], mermaid: { engine: variant === 'missing-engine' ? undefined : variant === 'empty-engine' ? '' : variant === 'null-engine' ? null : variant === 'invalid' ? 'typo' : 'pele', jsSha256: mermaid.sha256, modules: ['src/share-editor/pele.ts', 'node_modules/pele/dist/index.js'], inputs: variant === 'missing-input' ? [] : ['src/share-editor/pele.ts', 'node_modules/pele/dist/index.js'] } }
   if (variant === 'opposite') graph.mermaid.inputs.push('node_modules/mermaid-mini/dist/index.js')
   writeFileSync(join(f.dir, 'share-editor-modules.json'), JSON.stringify(graph))
   try {
     const result = checkShareEditorBuild(f.dir, join(f.dir, 'share-editor-modules.json'))
-    if (variant === 'pele') await expect(result).resolves.toMatchObject({ resources: { mermaid: { sha256: mermaid.sha256 } } })
-    else await expect(result).rejects.toThrow(/VITE_DIAGRAM_RENDERER|Opposite|Missing actual Pele|Missing complete Pele/)
+    if (variant === 'empty-engine' || variant === 'null-engine') await expect(result).rejects.toThrow('Invalid diagram engine metadata')
+    else if (variant === 'missing-engine') await expect(result).rejects.toThrow('Missing actual Mermaid module')
+    else if (variant === 'pele') await expect(result).resolves.toMatchObject({ resources: { mermaid: { sha256: mermaid.sha256 } } })
+    else await expect(result).rejects.toThrow(/VITE_DIAGRAM_RENDERER|Invalid diagram engine metadata|Opposite|Missing actual Pele|Missing complete Pele/)
   } finally { f.dispose() }
 })
 it('rejects Pele in the main share IIFE', async () => {

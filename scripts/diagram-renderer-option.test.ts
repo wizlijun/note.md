@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest'
 import { diagramRendererOption } from './diagram-renderer-option.mjs'
 it('selects only the reversible supported build engines', () => {
-  expect(diagramRendererOption()).toBe('mermaid')
-  expect(diagramRendererOption('')).toBe('mermaid')
+  expect(diagramRendererOption()).toBe('pele')
+  expect(diagramRendererOption('')).toBe('pele')
   expect(diagramRendererOption('mermaid')).toBe('mermaid')
   expect(diagramRendererOption('pele')).toBe('pele')
   expect(() => diagramRendererOption('PELE')).toThrow('VITE_DIAGRAM_RENDERER')

@@ -140,7 +140,7 @@ const pelePlugin: PluginEntry = {
     }
   },
 }
-export const loadMermaidRenderer = import.meta.env.VITE_DIAGRAM_RENDERER === 'pele' ? pelePlugin.load : mermaidPlugin.load
+export const loadMermaidRenderer = import.meta.env.VITE_DIAGRAM_RENDERER === 'mermaid' ? mermaidPlugin.load : pelePlugin.load
 
 const PLUGINS: Record<string, PluginEntry> = {
   dot: dotPlugin,

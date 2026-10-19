@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Pele is the default diagram renderer for builds.** Development and production builds use Pele without an environment flag; explicitly set `VITE_DIAGRAM_RENDERER=mermaid` to rebuild with the retained Mermaid renderer.
+
 ## v6.1019.2 — 2026-10-19
 
 - **Pele diagrams keep readable theme styles.** Fix black blocks and dark-theme black text in titled diagrams, separate neutral node surfaces from chart series colors, and provide light/dark defaults when theme variables are absent. The fix applies to previews, static exports, and newly published shares.

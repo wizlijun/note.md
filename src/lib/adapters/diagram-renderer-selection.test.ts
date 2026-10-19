@@ -9,7 +9,7 @@ const peleRender = vi.hoisted(() => vi.fn(() => '<svg id="pele"/>'))
 vi.mock('@moraya/core/plugins/mermaid-renderer', () => ({ renderMermaid: oldRender, updateMermaidTheme() {} }))
 vi.mock('../diagrams/pele-renderer', () => ({ renderPeleSvg: peleRender }))
 afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); vi.clearAllMocks() })
-it.each([undefined, 'mermaid'])('keeps original API identity with selector %s', async value => {
+it.each(['mermaid'])('keeps original API identity with selector %s', async value => {
   vi.stubEnv('VITE_DIAGRAM_RENDERER', value)
   const { loadDesktopMermaid } = await import('./mermaid-loader')
   expect((await loadDesktopMermaid()).renderMermaid).toBe(oldRender)
@@ -19,8 +19,8 @@ it.each([undefined, 'mermaid'])('keeps original API identity with selector %s', 
   expect(container.querySelector('#old-export')).not.toBeNull()
   expect(peleRender).not.toHaveBeenCalled()
 })
-it('selects Pele for desktop and export with actual width and fresh appearance', async () => {
-  vi.stubEnv('VITE_DIAGRAM_RENDERER', 'pele')
+it.each([undefined, '', 'pele'])('selects Pele for desktop and export with actual width and fresh appearance with selector %s', async value => {
+  vi.stubEnv('VITE_DIAGRAM_RENDERER', value)
   const { loadDesktopMermaid } = await import('./mermaid-loader')
   const api = await loadDesktopMermaid()
   document.documentElement.style.setProperty('--accent-color', '#123456')
