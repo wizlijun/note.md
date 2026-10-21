@@ -30,6 +30,9 @@ export function describeLog(line: string): string {
   }
 
   // ocr/wechat.rs
+  if ((m = line.match(/^page (\d+) retry (\d+)\/(\d+): (.+)$/))) {
+    return t('log.pageRetry', { page: m[1], attempt: m[2], max: m[3], reason: m[4] })
+  }
   if ((m = line.match(/^page (\d+) failed: (.+)$/))) {
     return t('log.pageFailed', { page: m[1], reason: m[2] })
   }

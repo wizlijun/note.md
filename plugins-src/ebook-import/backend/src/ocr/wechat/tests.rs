@@ -38,24 +38,39 @@ impl PageRenderer for FakeRenderer {
 /// HTTP requests were made (the resume test relies on this to prove a
 /// cached page never hits the network).
 fn start_mock_server(responses: Vec<String>) -> (String, Arc<AtomicUsize>) {
+    start_scripted_server(
+        responses
+            .into_iter()
+            .map(|body| Some(http_response(200, &body)))
+            .collect(),
+    )
+}
+
+fn http_response(status: u16, body: &str) -> String {
+    format!(
+        "HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+/// None closes the connection without a response, reproducing the observed
+/// remote disconnect. Some sends raw HTTP, including deliberately truncated bodies.
+fn start_scripted_server(responses: Vec<Option<String>>) -> (String, Arc<AtomicUsize>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock OCR server");
     let addr = listener.local_addr().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_for_thread = counter.clone();
 
     thread::spawn(move || {
-        for body in responses {
+        for response in responses {
             let Ok((mut stream, _)) = listener.accept() else {
                 break;
             };
             counter_for_thread.fetch_add(1, Ordering::SeqCst);
             drain_request(&mut stream);
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(),
-                body
-            );
-            let _ = stream.write_all(response.as_bytes());
+            if let Some(response) = response {
+                let _ = stream.write_all(response.as_bytes());
+            }
         }
     });
 
@@ -161,12 +176,12 @@ fn preexisting_page_md_is_skipped_and_never_requested() {
 }
 
 #[test]
-fn a_failed_page_is_recorded_and_left_out_of_the_merge() {
+fn a_failed_page_prevents_partial_success_and_preserves_completed_pages() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
 
-    let (url, _counter) = start_mock_server(vec![ok_body("# p1"), fail_body(), ok_body("# p3")]);
+    let (url, counter) = start_mock_server(vec![ok_body("# p1"), fail_body()]);
 
     let mut statuses = Vec::new();
     let result = engine(url, 3)
@@ -175,15 +190,26 @@ fn a_failed_page_is_recorded_and_left_out_of_the_merge() {
                 statuses.push(s);
             }
         })
-        .expect("a partial failure must still be Ok");
+        .expect_err("a missing page must not be reported as a complete book");
 
-    assert_eq!(result, "# p1\n\n# p3");
+    assert!(result.starts_with("OCR incomplete:"), "{result}");
+    assert!(result.contains("[2]"), "{result}");
+    assert_eq!(
+        std::fs::read_to_string(work.join("page0001.md")).unwrap(),
+        "# p1"
+    );
+    assert!(!work.join("page0003.md").exists());
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        2,
+        "permanent rejection stops further requests"
+    );
     assert!(
         !work.join("page0002.md").exists(),
         "a failed page must not leave a pageNNNN.md behind"
     );
     assert!(
-        statuses.iter().any(|s| s.contains("[2]")),
+        statuses.iter().any(|s| s.starts_with("page 2 failed:")),
         "expected a failed-pages status naming page 2, got {statuses:?}"
     );
 }
@@ -228,11 +254,10 @@ fn a_precancelled_run_returns_err_without_making_any_request() {
 /// Finding 2 (final review): off-network, the default (intranet) OCR URL
 /// would otherwise hang for the full per-page timeout on every single page.
 /// A bound-then-dropped listener gives us a port nothing is listening on, so
-/// connecting fails immediately with "connection refused" -- fast to test,
-/// and enough to prove the circuit breaker aborts after 3 consecutive
-/// transport failures rather than ploughing through all 10 pages.
+/// connecting fails immediately with "connection refused". The engine must
+/// stop after bounded retries of page 1, not plough through all 10 pages.
 #[test]
-fn three_consecutive_transport_failures_abort_the_whole_book() {
+fn an_unreachable_service_stops_after_bounded_same_page_retries() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
@@ -254,12 +279,12 @@ fn three_consecutive_transport_failures_abort_the_whole_book() {
 
     let err = result.expect_err("an unreachable OCR service must abort with Err");
     assert!(
-        err.contains("ocr service unreachable"),
+        err.starts_with("OCR incomplete:") && err.contains("3 attempts"),
         "expected the circuit-breaker error, got: {err}"
     );
     assert!(
-        pages_seen.len() <= 3,
-        "must abort after at most 3 pages (consecutive transport failures), got {pages_seen:?}"
+        pages_seen.is_empty(),
+        "failed pages must not report completion: {pages_seen:?}"
     );
     assert!(
         start.elapsed() < Duration::from_secs(5),
@@ -293,4 +318,262 @@ fn a_cancel_flag_set_mid_run_stops_before_the_next_page() {
         1,
         "must stop after page 1's request, before page 2's"
     );
+}
+
+#[test]
+fn disconnected_requests_retry_the_same_page_before_advancing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (url, counter) = start_scripted_server(vec![
+        None,
+        None,
+        Some(http_response(200, &ok_body("p1"))),
+        Some(http_response(200, &ok_body("p2"))),
+    ]);
+    let mut statuses = Vec::new();
+    let result = engine(url, 2)
+        .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |p| {
+            if let OcrProgress::Status(s) = p {
+                statuses.push(s);
+            }
+        })
+        .expect("transient disconnects must recover on the same page");
+    assert_eq!(result, "p1\n\np2");
+    assert_eq!(counter.load(Ordering::SeqCst), 4);
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|s| s.starts_with("page 1 retry "))
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn exhausted_retries_stop_requests_and_resume_from_completed_cache() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (url, counter) = start_scripted_server(vec![
+        Some(http_response(200, &ok_body("p1"))),
+        None,
+        None,
+        None,
+        Some(http_response(200, &ok_body("p2"))),
+        Some(http_response(200, &ok_body("p3"))),
+    ]);
+    let e = engine(url, 3);
+    let err = e
+        .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {})
+        .unwrap_err();
+    assert!(err.starts_with("OCR incomplete:"), "{err}");
+    assert!(
+        err.contains("page 2") && err.contains("3 attempts"),
+        "{err}"
+    );
+    assert!(
+        err.contains("source:"),
+        "underlying transport error must be retained: {err}"
+    );
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        4,
+        "stop on the exhausted page"
+    );
+    assert!(!tmp.path().join("page0002.md").exists());
+    assert_eq!(
+        e.ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {})
+            .unwrap(),
+        "p1\n\np2\n\np3"
+    );
+    assert_eq!(counter.load(Ordering::SeqCst), 6, "resume must skip page 1");
+}
+
+#[test]
+fn temporary_http_errors_retry_but_permanent_errors_do_not() {
+    for status in [408, 429, 500, 503] {
+        let tmp = tempfile::tempdir().unwrap();
+        let (url, counter) = start_scripted_server(vec![
+            Some(http_response(status, "busy")),
+            Some(http_response(200, &ok_body("recovered"))),
+        ]);
+        let result = engine(url, 1).ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {});
+        assert_eq!(result, Ok("recovered".to_string()), "HTTP {status}");
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+    for status in [400, 401, 403, 404] {
+        let tmp = tempfile::tempdir().unwrap();
+        // Even an apparently successful JSON body cannot override HTTP failure.
+        let (url, counter) =
+            start_scripted_server(vec![Some(http_response(status, &ok_body("wrong")))]);
+        let err = engine(url, 1)
+            .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {})
+            .unwrap_err();
+        assert!(
+            err.starts_with("OCR incomplete:") && err.contains(&format!("HTTP {status}")),
+            "{err}"
+        );
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert!(!tmp.path().join("page0001.md").exists());
+    }
+}
+
+#[test]
+fn truncated_response_retries_but_invalid_json_does_not() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (url, counter) = start_scripted_server(vec![
+        Some(
+            "HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{\"success\":"
+                .to_string(),
+        ),
+        Some(http_response(200, &ok_body("complete"))),
+    ]);
+    assert_eq!(
+        engine(url, 1).ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {}),
+        Ok("complete".to_string())
+    );
+    assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+    let tmp = tempfile::tempdir().unwrap();
+    let (url, counter) = start_mock_server(vec!["not json".to_string()]);
+    let err = engine(url, 1)
+        .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {})
+        .unwrap_err();
+    assert!(err.contains("parse OCR response json"), "{err}");
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cancellation_during_retry_stops_before_another_request() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (url, counter) =
+        start_scripted_server(vec![None, Some(http_response(200, &ok_body("unused")))]);
+    let e = engine(url, 1);
+    let flag = e.cancelled.clone();
+    let start = Instant::now();
+    let result = e.ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |p| {
+        if let OcrProgress::Status(s) = p {
+            if s.starts_with("page 1 retry ") {
+                let flag = flag.clone();
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(100));
+                    flag.store(true, Ordering::Relaxed);
+                });
+            }
+        }
+    });
+    assert_eq!(result, Err("cancelled".to_string()));
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+    assert!(start.elapsed() < Duration::from_millis(750));
+}
+
+#[test]
+fn merge_uses_only_expected_pages_and_accepts_successful_blank_pages() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(tmp.path().join("page0003.md"), "stale").unwrap();
+    std::fs::write(tmp.path().join("page-not-a-page.md"), "unrelated").unwrap();
+    let (url, _) = start_mock_server(vec![ok_body("p1"), ok_body("")]);
+    assert_eq!(
+        engine(url, 2)
+            .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {})
+            .unwrap(),
+        "p1\n\n"
+    );
+}
+
+#[test]
+fn a_reused_connection_disconnect_recovers_on_a_fresh_connection() {
+    let tmp = tempfile::tempdir().unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let requests = Arc::new(AtomicUsize::new(0));
+    let count = requests.clone();
+    let server = thread::spawn(move || {
+        let (mut reused, _) = listener.accept().unwrap();
+        reused
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        drain_request(&mut reused);
+        count.fetch_add(1, Ordering::SeqCst);
+        reused
+            .write_all(
+                http_response(200, &ok_body("p1"))
+                    .replace("Connection: close", "Connection: keep-alive")
+                    .as_bytes(),
+            )
+            .unwrap();
+        // The next page is fully received on this same connection, then the
+        // peer closes without a response, just as observed on the OCR service.
+        drain_request(&mut reused);
+        count.fetch_add(1, Ordering::SeqCst);
+        drop(reused);
+        let (mut fresh, _) = listener.accept().unwrap();
+        drain_request(&mut fresh);
+        count.fetch_add(1, Ordering::SeqCst);
+        fresh
+            .write_all(http_response(200, &ok_body("p2")).as_bytes())
+            .unwrap();
+    });
+    let mut retries = Vec::new();
+    let result = engine(url, 2)
+        .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |p| {
+            if let OcrProgress::Status(s) = p {
+                retries.push(s);
+            }
+        })
+        .unwrap();
+    server.join().unwrap();
+    assert_eq!(result, "p1\n\np2");
+    assert_eq!(requests.load(Ordering::SeqCst), 3);
+    assert!(
+        retries.iter().any(|s| s.starts_with("page 2 retry 2/3:")),
+        "{retries:?}"
+    );
+}
+
+#[test]
+fn cancellation_while_a_request_fails_is_reported_as_cancelled() {
+    for response in [
+        None,
+        Some(http_response(400, "invalid request")),
+        Some(http_response(200, &ok_body("unused"))),
+    ] {
+        let tmp = tempfile::tempdir().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let e = engine(format!("http://{}", listener.local_addr().unwrap()), 1);
+        let flag = e.cancelled.clone();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            drain_request(&mut stream);
+            flag.store(true, Ordering::Relaxed);
+            if let Some(response) = response {
+                stream.write_all(response.as_bytes()).unwrap();
+            }
+        });
+        let result = e.ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {});
+        server.join().unwrap();
+        assert_eq!(result, Err("cancelled".to_string()));
+        assert!(
+            !tmp.path().join("page0001.md").exists(),
+            "cancelled response must not become a checkpoint"
+        );
+    }
+}
+
+#[test]
+fn sustained_server_errors_exhaust_only_the_current_page() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (url, counter) = start_scripted_server(
+        (0..3)
+            .map(|_| Some(http_response(503, "unavailable")))
+            .collect(),
+    );
+    let err = engine(url, 100)
+        .ocr_pdf(Path::new("fake.pdf"), tmp.path(), &mut |_| {})
+        .unwrap_err();
+    assert!(
+        err.starts_with("OCR incomplete:")
+            && err.contains("HTTP 503")
+            && err.contains("3 attempts"),
+        "{err}"
+    );
+    assert_eq!(counter.load(Ordering::SeqCst), 3);
+    assert!(!tmp.path().join("page0001.md").exists());
 }

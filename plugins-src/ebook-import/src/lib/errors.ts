@@ -26,6 +26,7 @@ const RULES: Array<{ test: (msg: string) => boolean; key: MessageKey }> = [
   { test: (m) => /^OCR only supports PDF input\b/i.test(m), key: 'err.ocrOnlyPdf' },
   { test: (m) => /^OCR produced no content for any of\b/i.test(m), key: 'err.ocrEmpty' },
   { test: (m) => /^ocr service unreachable:/i.test(m), key: 'err.ocrUnreachable' },
+  { test: (m) => /^OCR incomplete:/i.test(m), key: 'err.ocrIncomplete' },
   // Credential rejection gets its own message: it names the exact fix, which
   // the generic "see the log" wording would bury.
   { test: (m) => /^baidu rejected the credentials\b/i.test(m), key: 'err.baiduCredentials' },

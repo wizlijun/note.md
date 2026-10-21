@@ -2,18 +2,11 @@
 //! render every page to a PNG, POST each PNG to a self-hosted WeChat-OCR
 //! HTTP endpoint as multipart `file` data, expect back
 //! `{"success": bool, "content": "<markdown>"}`, write the per-page
-//! markdown to `pageNNNN.md`, then merge every `pageNNNN.md` present (in
-//! filename order) into one document.
+//! markdown to `pageNNNN.md`, then merge the expected pages in order.
 //!
-//! Three things make long OCR runs (hundreds of pages, a flaky OCR box, an
-//! unreachable OCR box) not a disaster: pages whose `pageNNNN.md` already
-//! exists are skipped rather than re-sent (so an interrupted run resumes for
-//! free); a page that fails is merely recorded and left out of the merge
-//! rather than aborting the whole book -- only a *total* wipeout (zero pages
-//! ever produced content) is an error; and 3 *consecutive* transport-level
-//! failures (as opposed to a server-answered rejection) abort the whole book
-//! immediately rather than burning the per-page timeout hundreds of times
-//! over against a service that's simply unreachable.
+//! Completed pages are cached for resume. Transient HTTP/transport errors
+//! retry the same page with a fresh client and bounded, cancellable backoff.
+//! A failed page never produces a successful but incomplete book.
 
 #[cfg(test)]
 mod tests;
@@ -32,12 +25,9 @@ use std::time::Duration;
 /// per-request timeout just failing to connect.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Consecutive transport-level failures (the HTTP request itself erroring —
-/// connect refused/timed out, DNS failure, etc., as opposed to a
-/// server-answered `success:false`) before `ocr_pdf` gives up on the whole
-/// book rather than retrying page after page against an unreachable
-/// service. See the circuit-breaker comment at its call site.
-const MAX_CONSECUTIVE_TRANSPORT_FAILURES: usize = 3;
+/// Includes the initial request. Do not multiply a service outage by the
+/// number of pages in a book: stop on the first exhausted page.
+const MAX_PAGE_ATTEMPTS: usize = 3;
 
 pub struct WeChatOcr {
     pub url: String,
@@ -69,102 +59,98 @@ impl OcrEngine for WeChatOcr {
         let pages = self.renderer.render_pages(pdf, &images_dir)?;
         let total = pages.len();
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(self.timeout)
-            .connect_timeout(CONNECT_TIMEOUT)
-            .build()
-            .map_err(|e| format!("build http client: {e}"))?;
-
-        let mut succeeded = 0usize;
-        let mut failed_pages: Vec<usize> = Vec::new();
-        // Circuit breaker: the default URL is an intranet address, so
-        // off-network every page would otherwise hang for the full
-        // (120s) timeout before failing -- a 300-page book would then take
-        // ~10 hours just to discover the service is unreachable. A
-        // *transport*-level failure (the request itself errored: connect
-        // refused/timed out, DNS failure, etc.) three times in a row means
-        // the service isn't reachable at all, so abort the whole book
-        // rather than repeat that wait per page. A server-answered
-        // `success:false` is a normal per-page OCR failure, not a transport
-        // problem, and resets this counter same as a success.
-        let mut consecutive_transport_failures = 0usize;
+        if total == 0 {
+            return Err("OCR produced no content for any of 0 page(s)".to_string());
+        }
+        let mut client = self.build_client()?;
 
         for (idx, image_path) in pages.iter().enumerate() {
-            if self.cancelled.load(Ordering::Relaxed) {
-                return Err("cancelled".to_string());
-            }
-
+            self.check_cancelled()?;
             let page_no = idx + 1;
             let page_md = work.join(format!("page{page_no:04}.md"));
 
-            if page_md.exists() {
-                // Resume support: a prior run already produced this page.
-                succeeded += 1;
-                consecutive_transport_failures = 0;
-            } else {
-                match ocr_one_page(&client, &self.url, image_path) {
-                    Ok(content) => {
-                        std::fs::write(&page_md, content)
-                            .map_err(|e| format!("write {}: {e}", page_md.display()))?;
-                        succeeded += 1;
-                        consecutive_transport_failures = 0;
-                    }
-                    Err(OcrPageError::Transport(e)) => {
-                        failed_pages.push(page_no);
-                        consecutive_transport_failures += 1;
-                        if consecutive_transport_failures >= MAX_CONSECUTIVE_TRANSPORT_FAILURES {
-                            return Err(format!("ocr service unreachable: {e}"));
+            if !page_md.exists() {
+                for attempt in 1..=MAX_PAGE_ATTEMPTS {
+                    self.check_cancelled()?;
+                    let result = ocr_one_page(&client, &self.url, image_path);
+                    self.check_cancelled()?;
+                    match result {
+                        Ok(content) => {
+                            // Only fully written results may become resume checkpoints.
+                            let pending = page_md.with_extension("md.tmp");
+                            std::fs::write(&pending, content)
+                                .map_err(|e| format!("write {}: {e}", pending.display()))?;
+                            std::fs::rename(&pending, &page_md)
+                                .map_err(|e| format!("save {}: {e}", page_md.display()))?;
+                            break;
                         }
-                    }
-                    Err(OcrPageError::Rejected(reason)) => {
-                        on(OcrProgress::Status(format!("page {page_no} failed: {reason}")));
-                        failed_pages.push(page_no);
-                        consecutive_transport_failures = 0;
+                        Err(error) => {
+                            let reason = match &error {
+                                OcrPageError::Retryable(reason)
+                                | OcrPageError::Rejected(reason) => reason,
+                            };
+                            if matches!(error, OcrPageError::Rejected(_))
+                                || attempt == MAX_PAGE_ATTEMPTS
+                            {
+                                on(OcrProgress::Status(format!(
+                                    "page {page_no} failed: {reason}"
+                                )));
+                                return Err(format!(
+                                    "OCR incomplete: failed pages: [{page_no}]; page {page_no} failed after {attempt} attempts; completed {idx} of {total} pages; {reason}"
+                                ));
+                            }
+                            on(OcrProgress::Status(format!(
+                                "page {page_no} retry {}/{MAX_PAGE_ATTEMPTS}: {reason}",
+                                attempt + 1
+                            )));
+                            // 1s, then 2s; cancellation must not wait out the backoff.
+                            for _ in 0..attempt * 20 {
+                                self.check_cancelled()?;
+                                std::thread::sleep(Duration::from_millis(50));
+                            }
+                            self.check_cancelled()?;
+                            client = self.build_client()?;
+                        }
                     }
                 }
             }
-
             on(OcrProgress::Page {
                 done: page_no,
                 total,
             });
         }
 
-        if succeeded == 0 {
-            return Err(format!("OCR produced no content for any of {total} page(s)"));
-        }
-
-        if !failed_pages.is_empty() {
-            on(OcrProgress::Status(format!(
-                "failed pages: {failed_pages:?}"
-            )));
-        }
-
-        merge_pages(work)
+        merge_pages(work, total)
     }
 }
 
-/// A single page's OCR failure, distinguishing *why* it failed so the
-/// circuit breaker in `ocr_pdf` can tell "the OCR service is unreachable"
-/// (transport) from "this one page's document/image was rejected" (a
-/// server-answered `success:false`, or a body it couldn't parse) apart --
-/// only the former should count toward aborting the whole book.
+impl WeChatOcr {
+    fn check_cancelled(&self) -> Result<(), String> {
+        if self.cancelled.load(Ordering::Relaxed) {
+            Err("cancelled".to_string())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn build_client(&self) -> Result<reqwest::blocking::Client, String> {
+        reqwest::blocking::Client::builder()
+            .timeout(self.timeout)
+            .connect_timeout(CONNECT_TIMEOUT)
+            .build()
+            .map_err(|e| format!("build http client: {e:?}"))
+    }
+}
+
+/// Temporary transport/HTTP errors can be retried; permanent HTTP or
+/// protocol rejections require attention, not another identical request.
 enum OcrPageError {
-    /// The HTTP request itself failed: connect refused/timed out, DNS
-    /// failure, TLS error, etc. -- the server never got a chance to answer.
-    Transport(String),
-    /// The server answered, but rejected the page (`success:false`, an
-    /// unparsable/incomplete JSON body). A per-page problem, not evidence
-    /// the service is down.
+    Retryable(String),
     Rejected(String),
 }
 
-/// POSTs one rendered page image to the WeChat-OCR endpoint and returns its
-/// markdown `content` on `{"success": true, ...}`. Distinguishes a
-/// transport-level failure (see [`OcrPageError`]) from a server-answered
-/// rejection or unparsable body -- callers use that split to drive the
-/// unreachable-service circuit breaker; either way the page itself is
-/// simply not produced.
+/// POST one rendered PNG. Keep transport errors (including interrupted
+/// response bodies) distinct from complete but invalid JSON responses.
 fn ocr_one_page(
     client: &reqwest::blocking::Client,
     url: &str,
@@ -187,12 +173,29 @@ fn ocr_one_page(
         .post(url)
         .multipart(form)
         .send()
-        .map_err(|e| OcrPageError::Transport(format!("POST {url}: {e}")))?;
-    let json: serde_json::Value = resp
-        .json()
+        // Debug retains reqwest's source chain (Display only prints kind + URL).
+        .map_err(|e| OcrPageError::Retryable(format!("POST {url}: {e:?}")))?;
+    let status = resp.status();
+    if !status.is_success() {
+        let reason = format!("POST {url}: HTTP {}", status.as_u16());
+        return Err(
+            if status.as_u16() == 408 || status.as_u16() == 429 || status.is_server_error() {
+                OcrPageError::Retryable(reason)
+            } else {
+                OcrPageError::Rejected(reason)
+            },
+        );
+    }
+    let body = resp
+        .bytes()
+        .map_err(|e| OcrPageError::Retryable(format!("read OCR response: {e:?}")))?;
+    let json: serde_json::Value = serde_json::from_slice(&body)
         .map_err(|e| OcrPageError::Rejected(format!("parse OCR response json: {e}")))?;
 
-    let success = json.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+    let success = json
+        .get("success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if !success {
         return Err(OcrPageError::Rejected(
             "OCR endpoint reported success=false".to_string(),
@@ -204,26 +207,11 @@ fn ocr_one_page(
         .ok_or_else(|| OcrPageError::Rejected("OCR response missing `content`".to_string()))
 }
 
-/// Merges every `pageNNNN.md` present in `work` (freshly OCR'd pages plus
-/// any pre-existing/cached ones from a prior interrupted run), sorted by
-/// file name so page order is preserved regardless of write order, joined
-/// with a blank line -- porting `01_ocr_to_md.py`'s merge step. A page that
-/// never got a `pageNNNN.md` (failed and not cached) is silently absent.
-fn merge_pages(work: &Path) -> Result<String, String> {
-    let mut paths: Vec<_> = std::fs::read_dir(work)
-        .map_err(|e| format!("read {}: {e}", work.display()))?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with("page") && n.ends_with(".md"))
-        })
-        .collect();
-    paths.sort();
-
-    let mut parts = Vec::with_capacity(paths.len());
-    for path in paths {
+/// Read only this PDF's expected pages, never unrelated or stale page files.
+fn merge_pages(work: &Path, total: usize) -> Result<String, String> {
+    let mut parts = Vec::with_capacity(total);
+    for page_no in 1..=total {
+        let path = work.join(format!("page{page_no:04}.md"));
         parts.push(
             std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?,
         );

@@ -88,6 +88,7 @@ export type MessageKey =
   | 'err.ocrOnlyPdf'
   | 'err.ocrEmpty'
   | 'err.ocrUnreachable'
+  | 'err.ocrIncomplete'
   | 'err.baiduFailed'
   | 'err.baiduCredentials'
   | 'err.baiduAuth'
@@ -97,6 +98,7 @@ export type MessageKey =
   | 'log.ocrStart'
   | 'log.converting'
   | 'log.pageFailed'
+  | 'log.pageRetry'
   | 'log.failedPages'
   | 'log.baiduToken'
   | 'log.baiduSubmit'
@@ -260,6 +262,7 @@ const en: Catalog = {
   'err.ocrOnlyPdf': 'OCR only works on PDF files.',
   'err.ocrEmpty': 'OCR produced no text — the scan may be blank or unreadable.',
   'err.ocrUnreachable': "Couldn't reach the OCR service — check your network or Settings.",
+  'err.ocrIncomplete': 'OCR is incomplete. Completed pages are saved; retry to resume. See details for the cause.',
   'err.baiduFailed': 'Baidu OCR failed — see the log for details.',
   'err.baiduCredentials':
     "Baidu didn't recognize the credentials. Use an application's API Key and Secret Key from the OCR console — not an Access Key pair — and check the two fields aren't swapped.",
@@ -268,6 +271,7 @@ const en: Catalog = {
   'log.ocrStart': 'OCR: {file}',
   'log.converting': 'Converting {file} with Calibre…',
   'log.pageFailed': 'Page {page} failed: {reason}',
+  'log.pageRetry': 'Page {page} retrying (attempt {attempt}/{max}): {reason}',
   'log.failedPages': 'Pages that failed OCR: {pages}',
   'log.baiduToken': 'Baidu OCR: requesting an access token…',
   'log.baiduSubmit': 'Baidu OCR: uploading the document…',
@@ -428,6 +432,7 @@ const zh: Catalog = {
   'err.ocrOnlyPdf': 'OCR 仅支持 PDF 文件。',
   'err.ocrEmpty': 'OCR 未识别出任何文字——扫描件可能是空白或无法识别。',
   'err.ocrUnreachable': '无法连接 OCR 服务——请检查网络或设置。',
+  'err.ocrIncomplete': 'OCR 尚未完成，已保留成功页；请重试继续。失败原因见详情。',
   'err.baiduFailed': '百度 OCR 失败——详情见日志。',
   'err.baiduCredentials':
     '百度不认这组凭据。请填 OCR 控制台中「应用」的 API Key 和 Secret Key(不是「安全认证」里的 Access Key),并确认两栏没有填反。',
@@ -436,6 +441,7 @@ const zh: Catalog = {
   'log.ocrStart': 'OCR:{file}',
   'log.converting': '正在用 Calibre 转换 {file}…',
   'log.pageFailed': '第 {page} 页失败:{reason}',
+  'log.pageRetry': '第 {page} 页正在重试（第 {attempt}/{max} 次）:{reason}',
   'log.failedPages': 'OCR 失败的页码:{pages}',
   'log.baiduToken': '百度 OCR:正在获取访问令牌…',
   'log.baiduSubmit': '百度 OCR:正在上传文档…',
@@ -598,6 +604,7 @@ const ja: Catalog = {
   'err.ocrOnlyPdf': 'OCR は PDF ファイルにのみ対応しています。',
   'err.ocrEmpty': 'OCR でテキストを認識できませんでした。スキャンが空白か読み取れない可能性があります。',
   'err.ocrUnreachable': 'OCR サービスに接続できません。ネットワークまたは設定を確認してください。',
+  'err.ocrIncomplete': 'OCR が未完了です。完了したページは保存されています。再試行で再開できます。原因は詳細をご確認ください。',
   'err.baiduFailed': 'Baidu OCR が失敗しました。詳細はログを確認してください。',
   'err.baiduCredentials':
     'Baidu が認証情報を受け付けませんでした。OCR コンソールの「アプリケーション」の API Key と Secret Key(「セキュリティ認証」の Access Key ではありません)を入力し、2 つの欄が入れ替わっていないか確認してください。',
@@ -606,6 +613,7 @@ const ja: Catalog = {
   'log.ocrStart': 'OCR:{file}',
   'log.converting': 'Calibre で {file} を変換中…',
   'log.pageFailed': '{page} ページ目が失敗:{reason}',
+  'log.pageRetry': '{page} ページ目を再試行中（{attempt}/{max} 回目）:{reason}',
   'log.failedPages': 'OCR に失敗したページ:{pages}',
   'log.baiduToken': 'Baidu OCR:アクセストークンを取得中…',
   'log.baiduSubmit': 'Baidu OCR:ドキュメントをアップロード中…',
@@ -768,6 +776,7 @@ const de: Catalog = {
   'err.ocrOnlyPdf': 'OCR funktioniert nur mit PDF-Dateien.',
   'err.ocrEmpty': 'OCR hat keinen Text erkannt — der Scan ist möglicherweise leer oder unlesbar.',
   'err.ocrUnreachable': 'OCR-Dienst nicht erreichbar — Netzwerk oder Einstellungen prüfen.',
+  'err.ocrIncomplete': 'OCR ist unvollständig. Fertige Seiten sind gespeichert; erneut versuchen, um fortzusetzen. Ursache siehe Details.',
   'err.baiduFailed': 'Baidu-OCR fehlgeschlagen — Details im Protokoll.',
   'err.baiduCredentials':
     'Baidu hat die Zugangsdaten nicht erkannt. Verwende API Key und Secret Key einer Anwendung aus der OCR-Konsole — kein Access-Key-Paar — und prüfe, ob die beiden Felder vertauscht sind.',
@@ -776,6 +785,7 @@ const de: Catalog = {
   'log.ocrStart': 'OCR läuft: {file}',
   'log.converting': 'Konvertiere {file} mit Calibre…',
   'log.pageFailed': 'Seite {page} fehlgeschlagen: {reason}',
+  'log.pageRetry': 'Seite {page}: erneuter Versuch ({attempt}/{max}): {reason}',
   'log.failedPages': 'Seiten mit OCR-Fehler: {pages}',
   'log.baiduToken': 'Baidu OCR: Zugriffstoken wird angefordert…',
   'log.baiduSubmit': 'Baidu OCR: Dokument wird hochgeladen…',

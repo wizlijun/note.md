@@ -46,6 +46,16 @@ describe('errorKey', () => {
     expect(errorKey('ocr service unreachable: connection refused')).toBe('err.ocrUnreachable')
   })
 
+  it('explains incomplete OCR without hiding the failed page or HTTP cause', () => {
+    setLocale('zh')
+    const raw = 'OCR incomplete: page 14 failed after 3 attempts; completed 13 of 364 pages; HTTP 503'
+    expect(errorKey(raw)).toBe('err.ocrIncomplete')
+    expect(describeError(raw)).toEqual({
+      text: 'OCR 尚未完成，已保留成功页；请重试继续。失败原因见详情。',
+      detail: raw,
+    })
+  })
+
   it('maps Baidu OCR failures', () => {
     expect(errorKey('Baidu OCR API error 17: Open api daily request limit reached')).toBe('err.baiduFailed')
     expect(errorKey('baidu ocr: task abc123 failed')).toBe('err.baiduFailed')

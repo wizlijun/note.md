@@ -17,6 +17,12 @@ describe('describeLog', () => {
     expect(describeLog('failed pages: [3, 7]')).toBe('OCR 失败的页码:3, 7')
   })
 
+  it('shows which OCR page is retrying and preserves its cause', () => {
+    expect(describeLog('page 14 retry 2/3: POST /ocr: connection reset')).toBe(
+      '第 14 页正在重试（第 2/3 次）:POST /ocr: connection reset',
+    )
+  })
+
   it('localizes the Baidu phases and its status word', () => {
     expect(describeLog('baidu ocr: requesting access token')).toBe('百度 OCR:正在获取访问令牌…')
     expect(describeLog('baidu ocr: submitting document')).toBe('百度 OCR:正在上传文档…')
