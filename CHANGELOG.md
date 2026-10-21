@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Keep large Markdown inputs responsive.** Update the Markdown parser to fix excessive processing time on specially formed quotes and link reference definitions.
+
 - **Edit Timeline cards directly with Timeline 1.2.0.** The macOS host now saves edits to activity names, descriptions, start/end times, and importance from activity or topic details. Conflict checks prevent overwriting changed files, failed saves retain drafts, and manual importance is clearly labeled. Update the Timeline plugin separately from the marketplace.
 
 ## v6.1019.2 — 2026-10-19

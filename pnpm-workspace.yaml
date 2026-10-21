@@ -11,6 +11,8 @@ allowBuilds:
 # it from its own dependency. Keep both product paths on the same audited build.
 overrides:
   mermaid: 11.17.2
+  # GHSA-r7fv-28h4-cvq7 / GHSA-gfr2-rv44-r23c: avoid quadratic Markdown parsing.
+  markdown-it: 14.3.3
   # Svelte's compatible devalue range includes the three GHSA fixes in 5.9.3.
   devalue@<5.9.3: 5.9.3
   # GHSA-c8x8-7fp4-3x9w: validate pasted HTML in every editor dependency path.
