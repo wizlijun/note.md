@@ -10,6 +10,7 @@ import {
   onJobEvent,
   replayPending,
   reserve,
+  retryItem,
   stashOrApply,
   type AiEvent,
   type ItemStatus,
@@ -19,6 +20,68 @@ import {
 } from './queue'
 
 const empty: Queue = { items: [], activeId: null }
+
+describe('retryItem', () => {
+  function failed(): Queue {
+    return {
+      items: [{
+        id: 1, path: '/books/a.pdf', name: 'a.pdf', topicId: 'communication',
+        status: 'failed', jobId: 7, error: 'OCR incomplete', cancelled: true,
+        stage: 'ocr', page: 19, total: 188, logs: ['page 20 failed'],
+        importOptions: { ocr: true, provider: 'wechat' },
+      }],
+      activeId: null,
+    }
+  }
+
+  it('requeues the original row with its inputs, cached progress and logs', () => {
+    const q = failed()
+    const next = retryItem(q, 1)
+    expect(next.items).toHaveLength(1)
+    expect(next.items[0]).toMatchObject({
+      id: 1, path: '/books/a.pdf', topicId: 'communication', status: 'pending',
+      page: 19, total: 188, logs: ['page 20 failed'],
+      importOptions: { ocr: true, provider: 'wechat' },
+    })
+    expect(next.items[0].jobId).toBeUndefined()
+    expect(next.items[0].error).toBeUndefined()
+    expect(next.items[0].cancelled).toBeUndefined()
+    expect(next.items[0].stage).toBeUndefined()
+    expect(q.items[0].status).toBe('failed')
+    expect(onJobEvent(next, 7, { event: 'failed', error: 'late' })).toBe(next)
+    expect(retryItem(next, 1)).toBe(next)
+  })
+
+  it('leaves finished, active and unknown rows untouched', () => {
+    for (const status of ['done', 'running', 'pending'] as const) {
+      const q = failed()
+      q.items[0].status = status
+      expect(retryItem(q, 1)).toBe(q)
+    }
+    const q = failed()
+    expect(retryItem(q, 999)).toBe(q)
+  })
+
+  it('does not add a duplicate pending/running path or disturb another active item', () => {
+    for (const status of ['pending', 'running'] as const) {
+      const q = failed()
+      q.items.push({ ...q.items[0], id: 2, status, jobId: 8 })
+      q.activeId = status === 'running' ? 2 : null
+      expect(retryItem(q, 1)).toBe(q)
+    }
+    const q = failed()
+    q.items.push({ id: 2, path: '/books/b.pdf', name: 'b.pdf', status: 'running', jobId: 8, logs: [] })
+    q.activeId = 2
+    expect(retryItem(q, 1).activeId).toBe(2)
+    expect(nextToStart(retryItem(q, 1))).toBeNull()
+  })
+
+  it('records per-item OCR options when the scheduler reserves a job', () => {
+    const q = addPaths(empty, ['/a.pdf'], 'communication')
+    const options = { ocr: true, provider: 'wechat' as const }
+    expect(reserve(q, 1, options).items[0].importOptions).toEqual(options)
+  })
+})
 
 describe('addPaths', () => {
   it('accepts epub/pdf/docx and filters everything else', () => {

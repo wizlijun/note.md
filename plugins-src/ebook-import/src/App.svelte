@@ -43,6 +43,7 @@
     onAiEvent,
     replayPending,
     reserve,
+    retryItem,
     stashOrApply,
     type PendingJobEvent,
     type Queue,
@@ -113,6 +114,7 @@
   // the template reads it, and App.svelte only ever mutates it from plain
   // (non-reactive-context) functions below.
   let pending: PendingJobEvent[] = []
+  const retiredJobIds = new Set<number>()
   let ocr = $state(false)
   let provider: 'wechat' | 'baidu' = $state('wechat')
   // A run is a batch: pressing Start locks in the OCR choice so every file in
@@ -213,13 +215,18 @@
       if (isRunComplete(q)) running = false
       return
     }
-    q = reserve(q, n.id)
+    if (!n.topicId) {
+      running = false
+      return
+    }
+    const options = n.importOptions ?? { ocr: runOcr, provider: runProvider }
+    q = reserve(q, n.id, options)
     try {
       const res = await bridge().request('plugin.import_start', {
         path: n.path,
         topic_id: n.topicId,
-        ocr: runOcr,
-        ...(runOcr ? { provider: runProvider } : {}),
+        ocr: options.ocr,
+        ...(options.ocr ? { provider: options.provider } : {}),
       })
       q = { ...q, items: q.items.map((i) => (i.id === n.id ? { ...i, jobId: res.job_id } : i)) }
       const replay = replayPending(q, pending, res.job_id)
@@ -261,6 +268,7 @@
       }
     } else if (m.type === 'job') {
       const j = m as JobPush
+      if (retiredJobIds.has(j.job_id)) return
       const result = stashOrApply(q, pending, j.job_id, {
         event: j.event,
         line: j.line,
@@ -392,6 +400,22 @@
     } catch (e) {
       globalError = message(e)
     }
+  }
+
+  function retryImport(item: QueueItem) {
+    const next = retryItem(q, item.id)
+    if (next === q) return
+    if (item.jobId != null) {
+      retiredJobIds.add(item.jobId)
+      pending = pending.filter((event) => event.jobId !== item.jobId)
+    }
+    q = next
+    if (!running) {
+      runOcr = ocr
+      runProvider = provider
+      running = true
+    }
+    void schedule()
   }
 
   async function openInEditor(item: QueueItem) {
@@ -1016,6 +1040,9 @@
             {/if}
             {#if item.status === 'running'}
               <button class="secondary" onclick={() => cancelItem(item)}>{t('action.cancel')}</button>
+            {/if}
+            {#if item.status === 'failed'}
+              <button class="secondary" onclick={() => retryImport(item)}>{t('action.retry')}</button>
             {/if}
             {#if item.status === 'done'}
               <button class="link" onclick={() => openInEditor(item)}>{t('action.openInEditor')}</button>

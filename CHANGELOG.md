@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Retry a failed ebook import from its existing row.** Keep the file, topic, OCR provider and completed pages; prevent duplicate starts and stale job updates. Buffer each OCR upload so an early HTTP response retains its real status instead of an internal body-channel error.
+
 - **Ebook OCR recovers from temporary connection failures.** Retry the same page with a fresh connection after disconnects, throttling, or temporary server errors. Keep completed pages for retry, show the failed page and cause, and never report a book with missing pages as complete.
 
 - **Pele is the default diagram renderer for builds.** Development and production builds use Pele without an environment flag; explicitly set `VITE_DIAGRAM_RENDERER=mermaid` to rebuild with the retained Mermaid renderer.

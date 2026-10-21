@@ -34,6 +34,7 @@ export type MessageKey =
   | 'status.cancelled'
   | 'action.openInEditor'
   | 'action.cancel'
+  | 'action.retry'
   | 'action.clear'
   | 'action.start'
   | 'action.running'
@@ -208,6 +209,7 @@ const en: Catalog = {
   'status.cancelled': 'Cancelled',
   'action.openInEditor': 'Open in editor',
   'action.cancel': 'Cancel',
+  'action.retry': 'Retry',
   'action.clear': 'Clear finished',
   'action.start': 'Start import',
   'action.running': 'Importing…',
@@ -380,6 +382,7 @@ const zh: Catalog = {
   'status.cancelled': '已取消',
   'action.openInEditor': '在编辑器打开',
   'action.cancel': '取消',
+  'action.retry': '重试',
   'action.clear': '清除已完成',
   'action.start': '开始导入',
   'action.running': '导入中…',
@@ -550,6 +553,7 @@ const ja: Catalog = {
   'status.cancelled': 'キャンセル済み',
   'action.openInEditor': 'エディタで開く',
   'action.cancel': 'キャンセル',
+  'action.retry': '再試行',
   'action.clear': '完了分を消去',
   'action.start': '取り込みを開始',
   'action.running': '取り込み中…',
@@ -722,6 +726,7 @@ const de: Catalog = {
   'status.cancelled': 'Abgebrochen',
   'action.openInEditor': 'Im Editor öffnen',
   'action.cancel': 'Abbrechen',
+  'action.retry': 'Erneut versuchen',
   'action.clear': 'Fertige entfernen',
   'action.start': 'Import starten',
   'action.running': 'Importiert…',

@@ -577,3 +577,50 @@ fn sustained_server_errors_exhaust_only_the_current_page() {
     assert_eq!(counter.load(Ordering::SeqCst), 3);
     assert!(!tmp.path().join("page0001.md").exists());
 }
+
+#[test]
+fn early_http_rejection_during_a_large_upload_keeps_the_real_status() {
+    let tmp = tempfile::tempdir().unwrap();
+    let image = tmp.path().join("upload.png");
+    std::fs::write(&image, vec![b'x'; 8 * 1024 * 1024]).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut header = Vec::new();
+        let mut byte = [0u8; 1];
+        while !header.ends_with(b"\r\n\r\n") {
+            stream.read_exact(&mut byte).unwrap();
+            header.push(byte[0]);
+        }
+        let header = String::from_utf8(header).unwrap().to_lowercase();
+        assert!(header.contains("multipart/form-data; boundary="));
+        // Reject before reading the image. A streamed blocking multipart body
+        // can lose this response behind its internal SendError::Disconnected.
+        stream
+            .write_all(
+                b"HTTP/1.1 413 Payload Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            )
+            .unwrap();
+        stream.shutdown(std::net::Shutdown::Write).unwrap();
+        let mut buffer = [0u8; 8192];
+        while let Ok(n) = stream.read(&mut buffer) {
+            if n == 0 {
+                break;
+            }
+        }
+    });
+    let client = engine(url.clone(), 1).build_client().unwrap();
+    let result = ocr_one_page(&client, &url, &image);
+    server.join().unwrap();
+    match result {
+        Err(OcrPageError::Rejected(reason)) => assert!(reason.contains("HTTP 413"), "{reason}"),
+        Err(OcrPageError::Retryable(reason)) => {
+            panic!("permanent HTTP rejection was hidden: {reason}")
+        }
+        Ok(_) => panic!("HTTP 413 must not become successful OCR"),
+    }
+}

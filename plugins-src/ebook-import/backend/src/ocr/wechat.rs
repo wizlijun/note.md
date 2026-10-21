@@ -169,10 +169,21 @@ fn ocr_one_page(
         .map_err(|e| OcrPageError::Rejected(e.to_string()))?;
     let form = reqwest::blocking::multipart::Form::new().part("file", part);
 
-    let resp = client
+    let mut request = client
         .post(url)
         .multipart(form)
-        .send()
+        .build()
+        .map_err(|e| OcrPageError::Rejected(format!("build OCR request: {e:?}")))?;
+    // Blocking multipart uses an internal streaming channel even for in-memory
+    // images. An early HTTP response can close it and hide the real status as
+    // Body/SendError::Disconnected. Buffer one page while retaining reqwest's
+    // multipart boundary, MIME headers and content length.
+    if let Some(body) = request.body_mut() {
+        body.buffer()
+            .map_err(|e| OcrPageError::Rejected(format!("buffer OCR upload: {e:?}")))?;
+    }
+    let resp = client
+        .execute(request)
         // Debug retains reqwest's source chain (Display only prints kind + URL).
         .map_err(|e| OcrPageError::Retryable(format!("POST {url}: {e:?}")))?;
     let status = resp.status();

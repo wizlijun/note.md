@@ -10,6 +10,148 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+describe('import queue retry', () => {
+  let app: ReturnType<typeof mount> | undefined
+
+  afterEach(async () => {
+    if (app) await unmount(app)
+    app = undefined
+    document.body.innerHTML = ''
+    localStorage.clear()
+  })
+
+  async function importFixture(start: (attempt: number, params: any) => Promise<{ job_id: number }>) {
+    let push: ((payload: unknown) => void) | undefined
+    let attempt = 0
+    const request = vi.fn(async (method: string, params?: any) => {
+      if (method === 'plugin.detect_env') return { ready: true, settings: { provider: 'wechat' } }
+      if (method === 'plugin.library_list') return { books: [] }
+      if (method === 'plugin.topic_state') return {
+        revision: 'r1',
+        catalog: { schema_version: 1, topics: [{
+          id: 'communication', label: '沟通与表达', description: 'Communication books',
+          index_file: 'communication.index.md', vocabulary: ['communication'],
+        }] },
+        counts: {}, unclassified_books: [], unknown_topic_books: [],
+      }
+      if (method === 'plugin.import_start') return start(++attempt, params)
+      return {}
+    })
+    window.notemd = {
+      pluginId: 'notemd.ebook-import', locale: 'zh', theme: 'light', request,
+      onMessage: (callback) => { push = callback },
+    } satisfies NotemdBridge
+    app = mount(App, { target: document.body })
+    await vi.waitFor(() => expect(document.querySelector('.topic-bar')?.textContent).toContain('沟通与表达'))
+    return {
+      request,
+      sendEvent: (payload: unknown) => push?.(payload),
+      starts: () => request.mock.calls.filter(([method]) => method === 'plugin.import_start'),
+    }
+  }
+
+  async function addClassifiedBook(sendEvent: (payload: unknown) => void, path: string) {
+    sendEvent({ type: 'drag-drop', phase: 'drop', paths: [path] })
+    await tick()
+    const row = [...document.querySelectorAll<HTMLElement>('.queue .row')].find(
+      (candidate) => candidate.querySelector('.name')?.getAttribute('title') === path,
+    )!
+    const topic = row.querySelector<HTMLSelectElement>('.topic-select')!
+    topic.value = 'communication'
+    topic.dispatchEvent(new Event('change', { bubbles: true }))
+    await tick()
+    return row
+  }
+
+  function retryButton(row: HTMLElement) {
+    const button = [...row.querySelectorAll<HTMLButtonElement>('button')].find(
+      (candidate) => candidate.textContent?.trim() === '重试',
+    )
+    expect(button).toBeDefined()
+    return button!
+  }
+
+  it.each(['OCR incomplete: failed pages: [20]', 'cancelled'])(
+    'retries the existing %s row with its original options and ignores stale job failures',
+    async (error) => {
+      const retryStart = deferred<{ job_id: number }>()
+      const { request, sendEvent, starts } = await importFixture(async (attempt) =>
+        attempt === 1 ? { job_id: 30 } : retryStart.promise,
+      )
+      const path = '/tmp/Truth and Beauty - Aesthetics and Motivations in Science.pdf'
+      const row = await addClassifiedBook(sendEvent, path)
+      const ocr = document.querySelector<HTMLInputElement>('.ocr input[type="checkbox"]')!
+      ocr.click()
+      await tick()
+      document.querySelector<HTMLButtonElement>('.queue button.start')!.click()
+      await vi.waitFor(() => expect(starts()).toHaveLength(1))
+      expect(starts()[0][1]).toEqual({ path, topic_id: 'communication', ocr: true, provider: 'wechat' })
+      await tick()
+      sendEvent({ type: 'job', job_id: 30, event: 'log', line: 'Saved OCR page 19 of 188' })
+      sendEvent({ type: 'job', job_id: 30, event: 'progress', stage: 'ocr', page: 19, total: 188 })
+      sendEvent({ type: 'job', job_id: 30, event: 'failed', error })
+      await tick()
+      expect(row.querySelector('.badge')?.textContent).toContain(error === 'cancelled' ? '已取消' : '失败')
+      row.querySelector<HTMLButtonElement>('.chevron')!.click()
+      await tick()
+      expect(row.querySelector('.log')?.textContent).toContain('Saved OCR page 19 of 188')
+
+      // Preferences can change between attempts; retry must retain this book's original choices.
+      const provider = document.querySelector<HTMLSelectElement>('.ocr select')!
+      provider.value = 'baidu'
+      provider.dispatchEvent(new Event('change', { bubbles: true }))
+      ocr.click()
+      await tick()
+      const retry = retryButton(row)
+      retry.click()
+      retry.click()
+      await vi.waitFor(() => expect(starts()).toHaveLength(2))
+      expect(starts()[1][1]).toEqual(starts()[0][1])
+      expect(request.mock.calls.some(([method]) => method === 'host.dialog.open')).toBe(false)
+      expect(document.querySelectorAll('.queue .row')).toHaveLength(1)
+      expect(document.querySelector('.queue .row')).toBe(row)
+      expect(row.querySelector('.badge')?.classList.contains('running')).toBe(true)
+      expect(row.querySelector('.badge')?.textContent).toContain('19/188')
+      expect(row.querySelector('.log')?.textContent).toContain('Saved OCR page 19 of 188')
+
+      sendEvent({ type: 'job', job_id: 30, event: 'failed', error: 'late failure from old attempt' })
+      await tick()
+      expect(row.querySelector('.badge')?.classList.contains('running')).toBe(true)
+      expect(row.textContent).not.toContain('late failure from old attempt')
+      expect(starts()).toHaveLength(2)
+      retryStart.resolve({ job_id: 31 })
+      await tick()
+      sendEvent({ type: 'job', job_id: 31, event: 'done', dest_rel: 'ebooks/Truth and Beauty' })
+      await vi.waitFor(() => expect(row.querySelector('.badge')?.classList.contains('done')).toBe(true))
+      expect(document.querySelectorAll('.queue .row')).toHaveLength(1)
+      expect(document.querySelector('.queue .row')).toBe(row)
+      expect(row.querySelector('.dest')?.textContent).toBe('ebooks/Truth and Beauty')
+      expect(row.querySelector('.log')?.textContent).toContain('Saved OCR page 19 of 188')
+    },
+  )
+
+  it('queues a retry behind another running import without launching a concurrent job', async () => {
+    const { sendEvent, starts } = await importFixture(async (attempt) => ({ job_id: 29 + attempt }))
+    const first = await addClassifiedBook(sendEvent, '/tmp/First.pdf')
+    await addClassifiedBook(sendEvent, '/tmp/Second.pdf')
+    document.querySelector<HTMLButtonElement>('.queue button.start')!.click()
+    await vi.waitFor(() => expect(starts()).toHaveLength(1))
+    await tick()
+    sendEvent({ type: 'job', job_id: 30, event: 'failed', error: 'OCR incomplete' })
+    await vi.waitFor(() => expect(starts()).toHaveLength(2))
+    await tick()
+    retryButton(first).click()
+    await tick()
+    expect(starts()).toHaveLength(2)
+    expect(first.querySelector('.badge')?.classList.contains('pending')).toBe(true)
+    sendEvent({ type: 'job', job_id: 31, event: 'done', dest_rel: 'ebooks/Second' })
+    await vi.waitFor(() => expect(starts()).toHaveLength(3))
+    expect(starts()[2][1]).toEqual(starts()[0][1])
+    expect(document.querySelectorAll('.queue .row')).toHaveLength(2)
+    expect(first.querySelector('.badge')?.classList.contains('running')).toBe(true)
+  })
+})
+
 describe('topic design Agent picker', () => {
   let app: ReturnType<typeof mount> | undefined
 

@@ -11,6 +11,11 @@ const ACCEPTED_EXTENSIONS = ['epub', 'pdf', 'docx']
 
 export type ItemStatus = 'pending' | 'running' | 'done' | 'failed'
 
+export interface ImportOptions {
+  ocr: boolean
+  provider: 'wechat' | 'baidu'
+}
+
 export interface QueueItem {
   id: number
   path: string
@@ -23,6 +28,8 @@ export interface QueueItem {
   error?: string
   /** Stable id from `<ebooks_root>/topics.yml`; required before import starts. */
   topicId?: string
+  /** Frozen when first started; a retry must keep the original OCR choice. */
+  importOptions?: ImportOptions
   /**
    * Set when this item's job was cancelled by the user (backend
    * `import_cancel`), which surfaces as `event:"failed", error:"cancelled"`.
@@ -139,11 +146,27 @@ export function nextToStart(q: Queue): QueueItem | null {
  * that window: the second call sees the first's `reserve` synchronously and
  * gets `null` from `nextToStart` instead.
  */
-export function reserve(q: Queue, itemId: number): Queue {
+export function reserve(q: Queue, itemId: number, options?: ImportOptions): Queue {
   return {
     ...q,
     activeId: itemId,
-    items: q.items.map((i) => (i.id === itemId ? { ...i, status: 'running' } : i)),
+    items: q.items.map((i) => (i.id === itemId ? {
+      ...i, status: 'running', ...(options ? { importOptions: { ...options } } : {}),
+    } : i)),
+  }
+}
+
+/** Reuse a failed/cancelled row and its inputs, without scheduling a duplicate path. */
+export function retryItem(q: Queue, itemId: number): Queue {
+  const item = q.items.find((i) => i.id === itemId && i.status === 'failed')
+  if (!item || q.items.some((i) => i.id !== itemId && i.path === item.path
+    && (i.status === 'pending' || i.status === 'running'))) return q
+  return {
+    ...q,
+    items: q.items.map((i) => i.id === itemId ? {
+      ...i, status: 'pending', jobId: undefined, error: undefined,
+      cancelled: undefined, stage: undefined, destRel: undefined,
+    } : i),
   }
 }
 
