@@ -1,0 +1,253 @@
+{
+  "plugin": "notemd.timeline",
+  "version": "1.1.0",
+  "status": "published and anonymously verified",
+  "verified_at": "2026-10-21T19:08:10.857548+08:00",
+  "source": {
+    "frozen_tag": "plugin-timeline-v1.1.0",
+    "frozen_commit": "13fdac2331c6675a5bb0b26b68487045795a18d4",
+    "feature_commits": [
+      "3bff9c90",
+      "01f9fded"
+    ],
+    "source_and_tag_pushed": true,
+    "frozen_source_sha256": {
+      "plugins-src/timeline/README.md": "283254f7e73922674e6a1caebcbdd720de856d50ae21b5d222a382c25f2d99df",
+      "plugins-src/timeline/index.html": "78ca6387f68bca69a31d8e1da6f6b7898b50ed7ba992766358fab0931c7cd581",
+      "plugins-src/timeline/manifest.v2.json": "0707341646e097fd00fd2734494cd043c2100082b418869823f3d69a56eca081",
+      "plugins-src/timeline/package.json": "888b9d39078198c53ebe364a1f3e0552a36251c79b45a3c136c9c7e53b403235",
+      "plugins-src/timeline/src/App.svelte": "9d951946c6203708017dce7643ccc51883e3e94bc4474dbfe9fd70d3d13169d3",
+      "plugins-src/timeline/src/App.test.ts": "fb8eab89f77e783fc22ebf44f4389fab62769b93d3d2e07c580e11c647b8ea71",
+      "plugins-src/timeline/src/lib/bridge.test.ts": "8f79dd153db8852c1569c566e6b82afab650edff1dd9f78998d9d572bcbbbe4e",
+      "plugins-src/timeline/src/lib/bridge.ts": "a8995f89d518c46fb8f7ccc2e5e2da6be336b70f1fa83cb54a388c7ac0242827",
+      "plugins-src/timeline/src/lib/classification.test.ts": "17d888accae8884e62ddc800cda0dfd9c14e75bb20ac1747a8c7a8c55f03551d",
+      "plugins-src/timeline/src/lib/classification.ts": "7f7f192232b2c66bb58044d2b1b26f33d49525e48613de98d3cc1f449f21fc8f",
+      "plugins-src/timeline/src/lib/components/ClassificationSettings.svelte": "3c3c1b7710fde73d749a38a4cc81088eb3a0837ae668bd14b1cff827d839b605",
+      "plugins-src/timeline/src/lib/components/EventAssessment.svelte": "897ab9a51266e09027645b4deefb737fa586517267a5cef7c2f40ace139bca8d",
+      "plugins-src/timeline/src/lib/components/ImportanceLabel.svelte": "efd24dfd76837c0484d5537277ce232e9492dba4f84e2ab4f3d796b1a879e5ef",
+      "plugins-src/timeline/src/lib/components/TimelineDetail.svelte": "ce43c5101119fa570b7fc9283d55de049bf5e13bed7698008391ba5f562f7637",
+      "plugins-src/timeline/src/lib/date-navigation.test.ts": "b02908f0ea533e86c1a2dbeb7aaf7412e73bb6b8c0d930f8492eaa8b0eca1fca",
+      "plugins-src/timeline/src/lib/date-navigation.ts": "c444e6d87e1d332f01ab40128871990bc537cdffc0c7a8d4da9e545c87437b95",
+      "plugins-src/timeline/src/lib/fixtures/event-importance.json": "040a62c0fee9775c8e49e3fe595a204232803dd9e4e08b3e86d57be53c443cbc",
+      "plugins-src/timeline/src/lib/importance.ts": "25aad9179babd7e89a76ffcb0b2580bff6bda92de3c88fe408ce9ee0e78464ca",
+      "plugins-src/timeline/src/lib/layout.test.ts": "5fbcf83be9f769def627d7045a1cd7715844d0baa4f809c739811f75b7da120a",
+      "plugins-src/timeline/src/lib/layout.ts": "df13ee36c15bf95af226b820ca74ad3fe5b883afd9f13717502930a3f5fb66a6",
+      "plugins-src/timeline/src/lib/parser.test.ts": "75a560d377ffdb091f460661731bca01463c1c8dc61593d5fa676aa4120e4a06",
+      "plugins-src/timeline/src/lib/parser.ts": "23b432bf147c03ceee1da512bb899ae082feae40f7008dfbb46e89719f39d5cc",
+      "plugins-src/timeline/src/lib/scroll-position.test.ts": "106a23fd89d9e9ef0987b1d59cbcc220c138ce604467ad1d2334720a08d5b58b",
+      "plugins-src/timeline/src/lib/scroll-position.ts": "175c71a79c9bda3776c5ed7eeb88fb3c26f2983926d3871162eec151c1862575",
+      "plugins-src/timeline/src/main.ts": "50b0731bbd20fecdc824c1f858090e7132bd4dc89fce66cff43816bc20c1267d",
+      "plugins-src/timeline/tsconfig.json": "53569c8f5741657c1b1fb48302b01b169d4cf3aeada92339777cb7d2743c51d6",
+      "plugins-src/timeline/vite.config.ts": "068664cc03006faebf704bca1a310636af32daf325d7c091fc8ca2955a473d98",
+      "plugins-src/timeline/vitest.config.ts": "fb9ca4b737d71698f3878f2146aa57ce6af3b56168b2d39280e86b574a076438",
+      "src/styles/popup-menu.css": "3ed6c5f139e2f37304fa714fb32af09f45c3f4f799260c9aa214996c9c909d7e",
+      "src/styles/ui-foundation.css": "23dbc1534091a0a63ad88127889214f696e2d3efaac8a88b74230e170464f0d1"
+    }
+  },
+  "features": [
+    "Strict saved event importance and evidence metadata with stable event IDs",
+    "Independent anomaly badges and per-topic assessment details",
+    "Compact two-row cards with inline status tags and 44px minimum hit area",
+    "Muted semantic light/dark palettes with readable label contrast"
+  ],
+  "scope_audit": {
+    "worktrees": 1,
+    "local_branches": [
+      "main"
+    ],
+    "excluded_existing_untracked": [
+      "?? .pnpm-store/",
+      "?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+      "?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+      "?? docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+      "?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+      "?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+      "?? docs/superpowers/specs/habitat-city.html"
+    ],
+    "excluded_stashes": [
+      "stash@{0}: On feat/plugin-market-catalog-redesign: codex-preserve-before-release-6.831.1",
+      "stash@{1}: On main: stray fix-E/F content left in main's worktree by the roam-inc2 stash incident 2026-08-04; superseded by feat/roam-incremental-2, kept for safety",
+      "stash@{2}: On feat/attention-intervals: attention-intervals wip: plugin_host.rs (decision-log 期间保管)"
+    ],
+    "only_prior_unpushed_commits": "two Timeline spec commits and the two feature/style commits; included before freeze",
+    "unrelated_stale_dist_entries": "not published; candidate takes only new Timeline entry and preserves fresh remote KV index"
+  },
+  "package": {
+    "arch": "universal",
+    "bytes": 76842,
+    "sha256": "ad08e5d2c211e6bb0fe105ce30518334d32b38d8c701fe857fa68ec86e79ab49",
+    "manifest_equal_frozen_tag": true,
+    "all_ui_bytes_equal_formal_build": true,
+    "ui_sha256": {
+      "index.html": "783c153405bc26355747c9939bd217a18453ed2e4c890aaa4fed7281a26a1ebb",
+      "assets/index-B-Es091F.js": "c5832b70bab33e1683e6af634e4022102ca8d97e2d82bbd613df8c48ed34958c",
+      "assets/index-D5mMftNJ.css": "aeafae9ce2dae5bd4f46bd7487d7ac55c0e0a01ef4b77c9f348172112a620b51"
+    },
+    "public_objects": [
+      {
+        "key": "notemd.timeline/1.1.0/universal.notemdpkg",
+        "sha256": "ad08e5d2c211e6bb0fe105ce30518334d32b38d8c701fe857fa68ec86e79ab49",
+        "size": 76842,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.timeline/1.1.0/universal.notemdpkg.minisig",
+        "sha256": "d45524d7770e1642e4b1935968ec6aaf719817d0d08b9b6b2fe18d2309c546be",
+        "size": 314,
+        "public_bytes_equal": true
+      }
+    ],
+    "local_and_anonymous_public_minisign_host_key_valid": true
+  },
+  "host": {
+    "minimum": ">=6.909.4",
+    "update_required_for_existing_compatible_hosts": false,
+    "production_selection_cases": [
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.1019.2",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.909.4",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.909.3",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.1019.2",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.909.4",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.909.3",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "arch": "x86_64-unknown-linux-gnu",
+        "host": "6.1019.2",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "x86_64-unknown-linux-gnu",
+        "host": "6.909.4",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "x86_64-unknown-linux-gnu",
+        "host": "6.909.3",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "arch": "aarch64-unknown-linux-gnu",
+        "host": "6.1019.2",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "aarch64-unknown-linux-gnu",
+        "host": "6.909.4",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "aarch64-unknown-linux-gnu",
+        "host": "6.909.3",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "arch": "x86_64-pc-windows-msvc",
+        "host": "6.1019.2",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "x86_64-pc-windows-msvc",
+        "host": "6.909.4",
+        "expected": "1.1.0",
+        "actual": "1.1.0"
+      },
+      {
+        "arch": "x86_64-pc-windows-msvc",
+        "host": "6.909.3",
+        "expected": null,
+        "actual": null
+      }
+    ]
+  },
+  "validation": {
+    "feature_tests": {
+      "passed": 208,
+      "evidence": "same frozen feature code verified in implementation and palette acceptance"
+    },
+    "release_and_market_contract_tests": 108,
+    "candidate_market_selection_tests": 15,
+    "typecheck": "0 errors, 0 warnings on frozen feature code",
+    "formal_release_build": "scripts/release-plugins.sh timeline passed",
+    "signed_package_browser": {
+      "browser": "140.0.7339.16",
+      "boundary": "Actual production Timeline bundle, browser DOM and file_view messages; isolated host RPC fixture, no native installation or Vault access.",
+      "checks": [
+        "production bundle renders independent importance/anomaly, category and stable IDs",
+        "light/dark and 390px: overlap/zero-duration badges fit; nested details and keyboard focus verified",
+        "keyboard opens details; source uses existing file-only navigation contract",
+        "invalid metadata emits whole-document fallback; legacy remains unknown without normality claim",
+        "English legacy explanation and short Pending review + Anomaly badges fit at 390px"
+      ],
+      "errors": []
+    },
+    "signed_package_browser_uses_extracted_files": true,
+    "signed_package_light_dark_screenshots_visually_checked": true,
+    "independent_review": "frozen source hashes, package bytes, signatures and release flow verified without blockers"
+  },
+  "publishing": {
+    "channel": "existing Wrangler 3.114.17 + Account API Token",
+    "order": [
+      "R2 universal package + signature",
+      "anonymous bytes comparison and host-key signature verification",
+      "fresh KV baseline plus only new Timeline entry",
+      "KV write with pre-write concurrent-change guard",
+      "KV + cache-busted + ordinary public readback"
+    ],
+    "index": {
+      "before": 265,
+      "after": 266,
+      "only_added": "notemd.timeline@1.1.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "1d156e731b743228ae0de9093292e075be6ced192f2bd66c39dd9b837babeeec",
+      "compatible_latest": "1.1.0",
+      "minimum_host": ">=6.909.4"
+    }
+  },
+  "known_boundaries": {
+    "native_app_installation_performed": false,
+    "browser_host_rpc": "isolated fixture, actual signed UI bundle",
+    "external_python_generator": "nine known Markdown scanning differences remain documented; generator not part of this viewer release",
+    "semantic_source_judgements": "viewer displays saved judgements and does not read original sources or infer importance",
+    "user_vault_modified": false,
+    "host_or_worker_released": false
+  },
+  "artifacts_local": "tasks/timeline-release-1.1.0/"
+}
