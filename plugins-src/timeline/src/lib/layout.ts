@@ -9,7 +9,7 @@ export interface TimelineBlock {
 }
 
 export const PIXELS_PER_MINUTE = 1.6
-const MIN_BLOCK_HEIGHT = 38
+const MIN_BLOCK_HEIGHT = 44
 
 /** Lay out visible intervals, including the minimum hit area of short events. */
 export function layoutTimeline(items: TimelineItem[]) {

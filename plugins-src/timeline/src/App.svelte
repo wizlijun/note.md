@@ -9,6 +9,8 @@
   import { scrollTimelineToMinute } from './lib/scroll-position'
   import ClassificationSettings from './lib/components/ClassificationSettings.svelte'
   import TimelineDetail from './lib/components/TimelineDetail.svelte'
+  import ImportanceLabel from './lib/components/ImportanceLabel.svelte'
+  import { assessmentLabel, IMPORTANCE_LEVELS } from './lib/importance'
 
   const zh = locale().startsWith('zh')
   const categoryNames: Record<string, string> = { work: 'Work', interest: 'Interests', life: 'Life', leisure: 'Leisure', other: 'Other' }
@@ -161,6 +163,11 @@
       {#each CATEGORIES as category}<span class="legend-item"><i data-category={category.id}></i>{zh ? category.label : categoryNames[category.id]}</span>{/each}
       <span class="legend-hint">{zh ? '点击时间块查看详情' : 'Select a block for details'}</span>
     </div>
+    <div class="importance-legend" aria-label={zh ? '重要程度图例' : 'Importance legend'}>
+      <span class="legend-title">{zh ? '重要程度' : 'Importance'}</span>
+      {#each IMPORTANCE_LEVELS as importance}<ImportanceLabel {importance} {zh} />{/each}
+      <span class="anomaly-key">{zh ? '反常单独判断' : 'Anomalies assessed separately'}</span>
+    </div>
     {#if doc.title || doc.description || doc.notes.length}
       <details class="document-notes"><summary>{zh ? '时间线说明' : 'Timeline notes'}</summary><div>{#if doc.title}<p class="original-title">{doc.title}</p>{/if}{#if doc.description}<p>{doc.description}</p>{/if}{#each doc.notes as note}<p>{note}</p>{/each}</div></details>
     {/if}
@@ -168,16 +175,17 @@
       <div class="schedule-scroll" bind:this={scheduleScroll} role="region" aria-label={zh ? '日程时间轴' : 'Daily schedule'}>
         {#if !doc.items.length}<div class="empty">{zh ? '暂无带时间的活动记录。可编辑 Markdown 添加日程。' : 'No timed activities yet. Edit Markdown to add a schedule.'}</div>
         {:else}
-          <div class="schedule" bind:this={scheduleElement} style:height={`${layout.height + 30}px`} style:min-width={`${Math.max(290, layout.columns * 140 + 80)}px`}>
+          <div class="schedule" bind:this={scheduleElement} style:height={`${layout.height + 30}px`} style:min-width={`${Math.max(290, layout.columns * 200 + 80)}px`}>
             {#each layout.ticks as minute}<div class="hour" style:top={`${(minute - layout.ticks[0]) * PIXELS_PER_MINUTE + 16}px`}><time>{formatTime(minute)}</time><span></span></div>{/each}
             <div class="events">
               {#each layout.blocks as block (block.item.id)}
                 {@const classification = classifyItem(block.item, rules)}
                 {@const action = classification.action || block.item.action || (zh ? '活动' : 'Activity')}
-                <button class="event" class:compact={block.height < 64} class:selected={selected?.id === block.item.id} data-category={classification.category} data-item-id={block.item.id} style:top={`${block.top + 16}px`} style:height={`${block.height}px`} style:left={`calc(${block.column / block.columns * 100}% + 3px)`} style:width={`calc(${100 / block.columns}% - 6px)`} aria-label={`${formatTime(block.item.start)}–${formatTime(block.item.end)} ${action}：${block.item.text}`} aria-pressed={selected?.id === block.item.id} title={`${formatTime(block.item.start)}–${formatTime(block.item.end)} · ${action}\n${block.item.text}`} onclick={(event) => select(block.item, event)}>
-                  <div class="event-top"><strong>{action}</strong><span>{formatDuration(block.item, zh)}</span></div>
-                  <div class="event-time">{formatTime(block.item.start)}–{formatTime(block.item.end)}{#if block.item.children.length}<span> · {block.item.children.length} {zh ? '个议题' : 'topics'}</span>{/if}</div>
-                  {#if block.height >= 64}<p class="event-text">{block.item.text}</p>{/if}
+                {@const timeLabel = `${formatTime(block.item.start)}–${formatTime(block.item.end)}${block.item.children.length ? ` · ${block.item.children.length} ${zh ? '个议题' : 'topics'}` : ''}`}
+                <button class="event" class:compact={block.height < 64} class:selected={selected?.id === block.item.id} data-category={classification.category} data-item-id={block.item.id} data-importance={block.item.metadata.importance} style:top={`${block.top + 16}px`} style:height={`${block.height}px`} style:left={`calc(${block.column / block.columns * 100}% + 3px)`} style:width={`calc(${100 / block.columns}% - 6px)`} aria-label={`${assessmentLabel(block.item, zh)} · ${timeLabel} · ${formatDuration(block.item, zh)} ${action}：${block.item.text}`} aria-pressed={selected?.id === block.item.id} title={`${timeLabel} · ${formatDuration(block.item, zh)} · ${action}\n${block.item.text}`} onclick={(event) => select(block.item, event)}>
+                  <div class="event-top"><strong>{action}</strong><ImportanceLabel importance={block.item.metadata.importance} flagged={block.item.metadata.anomaly?.status === 'flagged'} {zh} /></div>
+                  <div class="event-time"><span class="event-range">{timeLabel}</span><span class="event-duration">{formatDuration(block.item, zh)}</span></div>
+                  {#if block.height >= 76}<p class="event-text">{block.item.text}</p>{/if}
                 </button>
               {/each}
             </div>
@@ -198,6 +206,9 @@
   :global([data-category='life']) { --category-bg: #fceef2; --category-border: #e5b8c6; }
   :global([data-category='leisure']) { --category-bg: #f0f1f3; --category-border: #c7cbd1; }
   :global([data-category='other']) { --category-bg: #fff; --category-border: #d8dbe0; }
+  :global([data-importance='high']) { --importance-color: var(--ui-warning); }
+  :global([data-importance='normal']) { --importance-color: var(--ui-accent-text); }
+  :global([data-importance='unknown']) { --importance-color: var(--ui-secondary); }
   .app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
   .toolbar { display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 22px 26px 18px; flex-shrink: 0; }
   .heading { min-width: 0; max-width: 100%; }
@@ -221,6 +232,8 @@
   .toolbar-button.active { background: var(--ui-selection); color: var(--ui-accent-text); }
   .toolbar-button:disabled:not(.active) { opacity: .5; }
   .legend { display: flex; align-items: center; gap: 17px; flex-wrap: wrap; padding: 11px 26px; border-top: 1px solid var(--ui-separator); border-bottom: 1px solid var(--ui-separator); flex-shrink: 0; background: var(--ui-bg); }
+  .importance-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 17px; padding: 8px 26px; border-bottom: 1px solid var(--ui-separator); flex-shrink: 0; }
+  .legend-title, .anomaly-key { font-size: 10px; color: var(--ui-secondary); }
   .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ui-secondary); }
   .legend-item i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--category-border); background: var(--category-bg); }
   .legend-hint { margin-left: auto; font-size: 10px; color: var(--ui-tertiary); }
@@ -236,13 +249,14 @@
   .hour time { width: 48px; text-align: right; color: var(--ui-tertiary); font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums; flex-shrink: 0; transform: translateY(-50%); }
   .hour > span { height: 1px; background: var(--ui-separator); width: 100%; transform: translateY(-5px); }
   .events { position: absolute; top: 0; left: 66px; right: 0; bottom: 0; }
-  .event { position: absolute; display: flex; flex-direction: column; text-align: left; padding: 8px 10px; border: 1px solid var(--category-border); border-left-width: 3px; border-radius: 6px; background: var(--category-bg); color: CanvasText; cursor: pointer; box-sizing: border-box; min-width: 0; overflow: hidden; }
-  .event:hover { filter: brightness(.98); border-color: color-mix(in srgb, var(--category-border) 65%, CanvasText); }
+  .event { position: absolute; display: flex; flex-direction: column; text-align: left; padding: 8px 10px; border: 1px solid var(--category-border); border-left: 4px solid var(--importance-color); border-radius: 6px; background: var(--category-bg); color: CanvasText; cursor: pointer; box-sizing: border-box; min-width: 0; overflow: hidden; }
+  .event:hover { filter: brightness(.98); border-color: color-mix(in srgb, var(--category-border) 65%, CanvasText); border-left-color: var(--importance-color); }
   .event.selected { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
   .event-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; width: 100%; }
-  .event-top strong { font-size: 12px; line-height: 16px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .event-top > span { margin-left: auto; color: var(--ui-secondary); font-size: 10px; flex-shrink: 0; }
-  .event-time { color: var(--ui-secondary); font-size: 10px; line-height: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .event-top strong { flex: 1; min-width: 0; font-size: 12px; line-height: 16px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .event-time { display: flex; align-items: baseline; gap: 6px; width: 100%; min-width: 0; color: var(--ui-secondary); font-size: 10px; line-height: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .event-range { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .event-duration { flex-shrink: 0; }
   .event-text { margin: 5px 0 0; font-size: 11px; line-height: 1.65; color: var(--ui-secondary); overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; }
   .event.compact { padding: 3px 8px; }
   .event.compact .event-time { margin-top: 0; }
@@ -260,5 +274,5 @@
     .event:hover { filter: brightness(1.08); }
   }
   @media (max-width: 780px) { .workspace { flex-direction: column; } .detail-container { order: -1; width: 100%; max-width: none; min-width: 0; } .legend-hint { display: none; } }
-  @media (max-width: 560px) { .toolbar { align-items: flex-start; flex-direction: column; gap: 13px; padding: 18px 18px 15px; } h1 { font-size: 22px; } .toolbar-actions { width: 100%; } .toolbar-button { flex: 1; } .legend { padding: 10px 18px; gap: 13px; } .document-notes { padding-inline: 18px; } .schedule-scroll { padding-left: 4px; padding-right: 12px; } }
+  @media (max-width: 560px) { .event { max-width: calc(100vw - 92px); } .toolbar { align-items: flex-start; flex-direction: column; gap: 13px; padding: 18px 18px 15px; } h1 { font-size: 22px; } .toolbar-actions { width: 100%; } .toolbar-button { flex: 1; } .legend { padding: 10px 18px; gap: 13px; } .importance-legend { padding-inline: 18px; gap: 7px 13px; } .document-notes { padding-inline: 18px; } .schedule-scroll { padding-left: 4px; padding-right: 12px; } }
 </style>

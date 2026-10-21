@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatDuration, formatTime, layoutTimeline, PIXELS_PER_MINUTE } from './layout'
 import type { TimelineItem } from './parser'
 
-const item = (id: string, start: number, end: number): TimelineItem => ({ id, start, end, action: '开发', text: id, links: [], children: [] })
+const item = (id: string, start: number, end: number): TimelineItem => ({ id, start, end, action: '开发', text: id, links: [], children: [], metadata: { importance: 'unknown', reason: '尚未评估', evidence: [], signals: { source_chars: null, duration_minutes: null, owner_relation: 'unknown' } } })
 
 describe('timeline layout', () => {
   it('uses the first and last visible hour and positions by elapsed time', () => {
@@ -22,6 +22,10 @@ describe('timeline layout', () => {
     expect(blocks.find((block) => block.item.id === 'reuse')?.column).toBe(1)
     expect(blocks.slice(0, 4).map((block) => block.columns)).toEqual([3, 3, 3, 3])
     expect(blocks[4].columns).toBe(1)
+  })
+
+  it('keeps zero-duration events at a compact 44px hit area with inline labels', () => {
+    expect(layoutTimeline([item('instant', 540, 540)]).blocks[0].height).toBe(44)
   })
 
   it('keeps midnight continuation and second precision visible', () => {

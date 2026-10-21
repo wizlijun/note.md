@@ -1,0 +1,572 @@
+[
+  {
+    "name": "high with missing anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "high with flagged anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: &a1\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: flagged\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: *a1\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "high with none anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: none\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "high with unknown anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: unknown\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "normal with missing anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: normal\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "normal with flagged anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: normal\n    reason: 已核对原文，确认交付安排。\n    evidence: &a1\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: flagged\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: *a1\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "normal with none anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: normal\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: none\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "normal with unknown anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: normal\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: unknown\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "unknown with missing anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: unknown\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "unknown with flagged anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: unknown\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: flagged\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence:\n        - source: s01\n          locator: L12-L18\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "unknown with none anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: unknown\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: none\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "unknown with unknown anomaly",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: unknown\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: unknown\n      reason: 原文明示故障，或判断证据仍不足。\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "invalid importance \"urgent\"",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: urgent\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance false",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: false\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance 1",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: 1\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance null",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: null\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance [\"high\"]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance:\n      - high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid reason \"\"",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: \"\"\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid reason \" \\t\"",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: \" \\t\"\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid reason false",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: false\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid reason 1",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 1\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid reason null",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: null\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing importance",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing reason",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing evidence",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing signals",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing signals.source_chars",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing signals.duration_minutes",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing signals.owner_relation",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid source_chars 260",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: \"260\"\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid source_chars true",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: true\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid source_chars -1",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: -1\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid source_chars 2.5",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 2.5\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid source_chars NaN",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: .nan\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid source_chars Infinity",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: .inf\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid duration_minutes 15",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: \"15\"\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid duration_minutes false",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: false\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid duration_minutes -0.1",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: -0.1\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid duration_minutes NaN",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: .nan\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid duration_minutes Infinity",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: .inf\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid owner_relation \"self\"",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: self\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid owner_relation null",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: null\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid owner_relation true",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: true\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid owner_relation []",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence []",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence null",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: null\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence {}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: {}\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"absent\",\"locator\":\"L1\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: absent\n        locator: L1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"s01\",\"locator\":\"L0\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L0\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"s01\",\"locator\":\"L2-L1\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L2-L1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"s01\",\"locator\":\"L1-2\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L1-2\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"s01\",\"locator\":\"L01\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L01\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"s01\",\"locator\":1}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: 1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"locator\":\"L1\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - locator: L1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid importance evidence [{\"source\":\"s01\"}]",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly null",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly: null\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly {}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly: {}\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly {\"status\":\"invalid\",\"reason\":\"理由\",\"evidence\":[]}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: invalid\n      reason: 理由\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly {\"status\":\"flagged\",\"reason\":\"理由\",\"evidence\":[]}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: flagged\n      reason: 理由\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly {\"status\":\"none\",\"reason\":\"\",\"evidence\":[]}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: none\n      reason: \"\"\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly {\"status\":\"unknown\",\"reason\":\"理由\",\"evidence\":[{\"source\":\"absent\",\"locator\":\"L1\"}]}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: unknown\n      reason: 理由\n      evidence:\n        - source: absent\n          locator: L1\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid anomaly {\"status\":\"flagged\",\"reason\":\"理由\",\"evidence\":[{\"source\":\"s01\",\"locator\":\"L9-L2\"}]}",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: flagged\n      reason: 理由\n      evidence:\n        - source: s01\n          locator: L9-L2\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing anomaly.status",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      reason: 已核对\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing anomaly.reason",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: none\n      evidence: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing anomaly.evidence",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n    anomaly:\n      status: none\n      reason: 已核对\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata ID E01",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  E01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata ID 1e",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  1e:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata ID e.1",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e.1:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata ID e 1",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e 1:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata ID ",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  \"\":\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata map null",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata: null\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata map []",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata: []\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata map true",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata: true\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "invalid metadata map \"bad\"",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata: bad\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "orphan metadata",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: &a1\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n  orphan:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: *a1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing mapping",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata: {}\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "duplicate source ID",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "missing source declaration",
+    "content": "---\ntype: Timeline\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "duplicate event ID",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "duplicate YAML metadata key",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: normal\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "marker without metadata",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "metadata without marker",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12)\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event:E01 -->",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:E01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event:E01 -->",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:E01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event: -->",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event: -->\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event: -->",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event: -->\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event e01 -->",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event e01 -->",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event:e01",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event:e01",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event:e01 -- >",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -- >\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event:e01 -- >",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -- >\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- EVENT:e01 -->",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- EVENT:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- EVENT:e01 -->",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- EVENT:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event:e01 --> after",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 --> after\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event:e01 --> after",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 --> after\n",
+    "valid": false
+  },
+  {
+    "name": "legacy malformed marker <!-- event:e01 --> <!-- event:e01 -->",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 --> <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "upgraded malformed marker <!-- event:e01 --> <!-- event:e01 -->",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 --> <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "marker in prose",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n说明 <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "marker on heading",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n# 说明 <!-- event:e01 -->\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "marker midway through description",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 --> 后续文字\n",
+    "valid": false
+  },
+  {
+    "name": "legacy document",
+    "content": "---\ntype: Timeline\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12)\n",
+    "valid": true
+  },
+  {
+    "name": "fenced legacy marker example",
+    "content": "---\ntype: Timeline\n---\n```markdown\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n```\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12)\n",
+    "valid": true
+  },
+  {
+    "name": "fenced malformed legacy marker example",
+    "content": "---\ntype: Timeline\n---\n~~~\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:INVALID\n~~~\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12)\n",
+    "valid": true
+  },
+  {
+    "name": "fenced upgraded marker example",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n```markdown\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n```\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "unknown null signals",
+    "content": "---\ntype: Timeline\nevent_metadata:\n  e01:\n    importance: unknown\n    reason: 原文不足。\n    evidence: []\n    signals:\n      source_chars: null\n      duration_minutes: null\n      owner_relation: unknown\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "explicit zero signals",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 0\n      duration_minutes: 0\n      owner_relation: background\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "fractional duration and single line evidence",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12\n    signals:\n      source_chars: 260\n      duration_minutes: 0.5\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": true
+  },
+  {
+    "name": "independent nested topics",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: &a1\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n  e02:\n    importance: normal\n    reason: 已核对原文，确认交付安排。\n    evidence: *a1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n  e03:\n    importance: unknown\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n  - 09:10:00–09:20:00 — 议题：例行检查。 <!-- event:e02 -->\n    - 09:12:00–09:12:00 — 核对：待回源。 <!-- event:e03 -->\n",
+    "valid": true
+  },
+  {
+    "name": "nested topic missing marker",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence: &a1\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n  e02:\n    importance: normal\n    reason: 已核对原文，确认交付安排。\n    evidence: *a1\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n  e03:\n    importance: unknown\n    reason: 已核对原文，确认交付安排。\n    evidence: []\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n  - 09:10:00–09:20:00 — 议题：未标注。\n",
+    "valid": false
+  },
+  {
+    "name": "indented fake fence cannot hide duplicate real events",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n    ```markdown\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n    ```\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n",
+    "valid": false
+  },
+  {
+    "name": "indented code after prose is not a topic",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n\n代码示例：\n\n    - 09:10:00–09:20:00 — 示例：不是事件。 <!-- event:INVALID\n",
+    "valid": true
+  },
+  {
+    "name": "indented code inside list is not a topic",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n\n      - 09:10:00–09:20:00 — 示例：不是事件。 <!-- event:INVALID\n",
+    "valid": true
+  },
+  {
+    "name": "fenced code inside list is not a topic",
+    "content": "---\ntype: Timeline\nsources:\n  - id: s01\n    resource: /source.md\nevent_metadata:\n  e01:\n    importance: high\n    reason: 已核对原文，确认交付安排。\n    evidence:\n      - source: s01\n        locator: L12-L18\n    signals:\n      source_chars: 260\n      duration_minutes: null\n      owner_relation: direct\n---\n- 09:00:00–10:00:00 — 会议：确认交付安排。 [来源](../source.md#L12) <!-- event:e01 -->\n\n  ```markdown\n  - 09:10:00–09:20:00 — 示例：不是事件。 <!-- event:INVALID\n  ```\n",
+    "valid": true
+  }
+]

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EventAssessment from './EventAssessment.svelte'
   import type { TimelineItem } from '../parser'
   import { formatDuration, formatTime } from '../layout'
   import { classifyItem, CATEGORIES, type ClassificationRule } from '../classification'
@@ -28,6 +29,7 @@
       <div class="child-heading"><strong>{value.action || (zh ? '活动' : 'Activity')}</strong><span>{formatTime(value.start)}–{formatTime(value.end)}</span></div>
     {/if}
     <p class="entry-text">{value.text}</p>
+    <EventAssessment item={value} {zh} />
     {#if value.links.length}
       <div class="sources" aria-label={zh ? '来源' : 'Sources'}>
         {#each value.links as link}
@@ -46,6 +48,7 @@
   <h2 id="detail-title">{classification.action || item.action || (zh ? '活动' : 'Activity')}</h2>
   {#if classification.action !== item.action && item.action}<p class="original-action">{item.action}</p>{/if}
   <div class="time-range">{formatTime(item.start)} <span>—</span> {formatTime(item.end)}<span class="duration">{formatDuration(item, zh)}</span></div>
+  <p class="source-limit">{zh ? '来源按钮仅打开文件，当前不能定位行号；证据 ID 与行号保留供核对。' : 'Source buttons open files only and cannot navigate to line numbers; evidence IDs and line numbers are retained for review.'}</p>
   {@render entry(item, false)}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 </aside>
@@ -69,6 +72,7 @@
   .child-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; }
   .child-heading span { color: var(--ui-tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
   .child .entry-text { margin-top: 6px; }
+  .source-limit { color: var(--ui-secondary); font-size: 10px; line-height: 1.6; }
   .error { color: var(--ui-danger); overflow-wrap: anywhere; }
   @media (max-width: 780px) { .detail { border-left: 0; border-bottom: 1px solid var(--ui-separator); height: auto; max-height: 42vh; padding: 14px 20px; } h2 { margin-top: 8px; } }
 </style>

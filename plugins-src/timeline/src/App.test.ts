@@ -16,6 +16,22 @@ description: 合成测试日程
 记录仅用于演示。
 `
 
+const assessedFixture = `---
+type: timeline
+sources: [{id: s01, resource: /vault/notes/spec.md, title: 合成证据}]
+event_metadata: ${JSON.stringify({
+  meeting: { importance: 'high', reason: '确认交付日期。', evidence: [{ source: 's01', locator: 'L12-L18' }], signals: { source_chars: 260, duration_minutes: null, owner_relation: 'direct' }, anomaly: { status: 'none', reason: '已核对计划。', evidence: [] } },
+  routine: { importance: 'normal', reason: '例行核对。', evidence: [{ source: 's01', locator: 'L19' }], signals: { source_chars: 20, duration_minutes: 0, owner_relation: 'related' } },
+  pending: { importance: 'unknown', reason: '关系尚未核实。', evidence: [], signals: { source_chars: null, duration_minutes: null, owner_relation: 'unknown' }, anomaly: { status: 'unknown', reason: '缺少常态基线。', evidence: [] } },
+  fault: { importance: 'normal', reason: '例行测试中断。', evidence: [{ source: 's01', locator: 'L20' }], signals: { source_chars: null, duration_minutes: null, owner_relation: 'background' }, anomaly: { status: 'flagged', reason: '原文明示故障。', evidence: [{ source: 's01', locator: 'L21-L22' }] } },
+})}
+---
+- 09:00–10:00 — 研发审阅：确定交付 [方案](../notes/spec.md#L12) <!-- event:meeting -->
+  - 09:15–09:30 — 讨论：例行核对 <!-- event:routine -->
+    - 09:20–09:25 — 议题：关系待核实 <!-- event:pending -->
+- 09:05–09:05 — 家庭安排：合成测试中断 <!-- event:fault -->
+`
+
 const initialRules: ClassificationRule[] = [
   { id: 'review', name: '审阅', keywords: ['审阅'], category: 'work' },
   { id: 'family', name: '家庭', keywords: ['家庭'], category: 'life' },
@@ -102,6 +118,67 @@ describe('Timeline application', () => {
     expect(document.querySelector('.detail')).toBeNull()
     await vi.waitFor(() => expect(document.activeElement).toBe(cards[0]))
     expect(document.querySelector('.toolbar-actions')?.textContent).not.toContain('编辑 Markdown')
+  })
+
+  it('shows independent assessments at every level and preserves source navigation limits', async () => {
+    const mocked = await start()
+    expect([...document.querySelectorAll('.event .importance-label')].map((node) => node.textContent)).toEqual(['待判断', '待判断'])
+    openDocument(assessedFixture, 2); await tick()
+    const cards = [...document.querySelectorAll<HTMLButtonElement>('.event')]
+    expect(cards.map((card) => card.dataset.category)).toEqual(['work', 'life'])
+    expect(cards.map((card) => card.dataset.importance)).toEqual(['high', 'normal'])
+    expect(cards[0].getAttribute('aria-label')).toContain('重要')
+    expect(cards[1].getAttribute('aria-label')).toContain('普通，反常')
+    expect(cards[1].querySelector('.anomaly-label')?.textContent).toBe('反常')
+    expect(parseFloat(cards[1].style.height)).toBe(44)
+    expect(cards[1].querySelector('.event-top .importance-label')?.textContent).toBe('普通')
+    expect(cards[1].querySelector('.event-top .anomaly-label')?.textContent).toBe('反常')
+    expect(cards[1].querySelector('.event-time .event-duration')?.textContent).toBe('0 秒')
+    expect(cards[0].querySelector('.event-text')?.textContent).toBe('确定交付')
+    expect(cards[0].getAttribute('aria-label')).toContain('1 个议题')
+    expect(cards[0].title).toContain('1 小时')
+    expect(field('分类图例').textContent).not.toContain('待判断')
+    expect(field('重要程度图例').textContent).toContain('待判断')
+    cards[0].click(); await tick()
+    const assessments = [...document.querySelectorAll('.assessment')]
+    expect(assessments.map((node) => node.querySelector('.importance-label')?.textContent)).toEqual(['重要', '普通', '待判断'])
+    expect(assessments[0].textContent).toContain('确认交付日期。')
+    expect(assessments[0].textContent).toContain('s01 · L12-L18')
+    expect(assessments[0].textContent).toContain('已核对未发现反常')
+    expect(assessments[1].textContent).toContain('反常尚未判断')
+    expect(assessments[1].textContent).toContain('0 分钟')
+    expect(assessments[2].textContent).toContain('缺少常态基线。')
+    expect([...assessments[2].querySelectorAll('.signals dd')].map((node) => node.textContent)).toEqual(['未知', '未知', '未知'])
+    expect(document.querySelector('.source-limit')?.textContent).toContain('不能定位行号')
+    document.querySelector<HTMLButtonElement>('.source-link')!.click()
+    await vi.waitFor(() => expect(mocked.request).toHaveBeenCalledWith('host.editor.open', { path: 'notes/spec.md' }))
+    expect(document.querySelector('.detail')?.textContent).not.toContain('event:')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await tick()
+    await vi.waitFor(() => expect(document.activeElement).toBe(cards[0]))
+    cards[1].click(); await tick()
+    expect(document.querySelector('.anomaly-assessment')?.textContent).toContain('原文明示故障。')
+    expect(document.querySelector('.anomaly-assessment')?.textContent).toContain('s01 · L21-L22')
+  })
+
+  it('localizes importance, anomaly and unknown signals in English', async () => {
+    await start({ language: 'en' })
+    expect(document.querySelector('.event .importance-label')?.textContent).toBe('Pending review')
+    document.querySelector<HTMLButtonElement>('.event')!.click(); await tick()
+    expect(document.querySelector('.assessment-reason')?.textContent).toBe('This legacy document has not been assessed.')
+    expect(document.querySelector('.anomaly-assessment')?.textContent).toContain('Anomaly not yet assessed')
+    openDocument(assessedFixture, 2); await tick()
+    document.querySelector<HTMLButtonElement>('[data-item-id="fault"]')!.click(); await tick()
+    expect(document.querySelector('.assessment .importance-label')?.textContent).toBe('Normal')
+    expect(document.querySelector('.assessment .anomaly-label')?.textContent).toBe('Anomaly')
+    expect(document.querySelector('.signals')?.textContent).toContain('Unknown')
+    expect(document.querySelector('.source-limit')?.textContent).toContain('cannot navigate to line numbers')
+    openDocument(assessedFixture.replace('"fault":{"importance":"normal"', '"fault":{"importance":"unknown"'), 3); await tick()
+    const top = document.querySelector('[data-item-id="fault"] .event-top')!
+    expect(top.querySelector('.importance-label')?.textContent).toBe('Pending review')
+    expect(top.querySelector('.anomaly-label')?.textContent).toBe('Anomaly')
+    openDocument(assessedFixture.replace('09:00–10:00', '09:00–09:45'), 4); await tick()
+    expect(document.querySelector('[data-item-id="meeting"] .event-text')).toBeNull()
+    expect(document.querySelector('[data-item-id="meeting"] .importance-label')).not.toBeNull()
   })
 
   it('retains failed drafts, prevents concurrent exits and applies classification only after a successful retry', async () => {

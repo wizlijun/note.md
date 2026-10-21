@@ -1,10 +1,54 @@
 import { describe, expect, it } from 'vitest'
 import { parseTimeline } from './parser'
+import importanceFixtures from './fixtures/event-importance.json'
 
 const document = (body: string, metadata = 'type: Timeline') => `---\n${metadata}\n---\n${body}\n`
 const event = '- 09:00:00–10:00:00 — 开发：实现时间轴。 [会话](../agent/example.md#line10)'
 
 describe('timeline parser', () => {
+  it.each(importanceFixtures)('validates shared importance contract: $name', ({ content, valid }) => {
+    expect(parseTimeline(content) !== null).toBe(valid)
+  })
+
+  it('preserves stable IDs, strips markers and keeps independent nested assessments', () => {
+    const source = importanceFixtures.find(fixture => fixture.name === 'independent nested topics')!.content
+    const parsed = parseTimeline(source)!
+    const parent = parsed.items[0]
+    expect(parent).toMatchObject({
+      id: 'e01', text: '确认交付安排。', action: '会议',
+      links: [{ label: '来源', target: '../source.md#L12' }],
+      metadata: { importance: 'high', signals: { source_chars: 260, duration_minutes: null } },
+    })
+    expect(parent.children[0]).toMatchObject({ id: 'e02', metadata: { importance: 'normal' } })
+    expect(parent.children[0].children[0]).toMatchObject({ id: 'e03', metadata: { importance: 'unknown' } })
+    const inserted = parseTimeline(source.replace('- 09:00', '插入一段说明。\n\n- 09:00'))!
+    expect(inserted.items).toEqual(parsed.items)
+    expect(JSON.stringify(parent)).not.toContain('<!--')
+  })
+
+  it('gives legacy events unknown assessments without inventing a normal anomaly', () => {
+    const parsed = parseTimeline(document(event))!
+    expect(parsed.items[0]).toMatchObject({
+      id: 'line-4', metadata: {
+        importance: 'unknown', evidence: [],
+        signals: { source_chars: null, duration_minutes: null, owner_relation: 'unknown' },
+      },
+    })
+    expect(parsed.items[0].metadata.reason).toBe('')
+    expect(parsed.items[0].metadata).not.toHaveProperty('anomaly')
+  })
+
+  it('distinguishes indented code from real nested topics using Markdown block structure', () => {
+    const source = document(`${event}\n\n代码示例：\n\n    - 09:10–09:20 — 示例：不是事件。\n\n- 11:00–12:00 — 会议：真实父项。\n\n      - 11:10–11:20 — 示例：父项内的代码。\n\n  - 11:10–11:20 — 议题：真实子项。\n    - 11:12–11:13 — 核对：真实三级议题。`)
+    const parsed = parseTimeline(source)!
+    expect(parsed.items[0].children).toHaveLength(0)
+    expect(parsed.items[1].children).toHaveLength(1)
+    expect(parsed.items[1].children[0].text).toBe('真实子项。')
+    expect(parsed.items[1].children[0].children[0].text).toBe('真实三级议题。')
+    expect(parsed.notes).toContain('    - 09:10–09:20 — 示例：不是事件。')
+    expect(parsed.notes).toContain('      - 11:10–11:20 — 示例：父项内的代码。')
+  })
+
   it('preserves long activity labels for keyword classification', () => {
     const action = '项目'.repeat(24) + '代码审阅'
     expect(parseTimeline(document(`- 09:00–10:00 — ${action}：检查变更。`))?.items[0].action).toBe(action)
