@@ -49,7 +49,7 @@
   "capabilities": [
     "settings",
     "vault.read",
-    "editor.open"
+    "editor.open", "editor.write"
   ],
   "i18n": {
     "zh": {

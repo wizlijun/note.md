@@ -1,5 +1,6 @@
 import { DEFAULT_RULES, normalizeRules, type ClassificationRule } from './classification'
 import { parseTimeline, type TimelineDocument } from './parser'
+import { editTimelineEvent, type EventEdit } from './edit-document'
 import { timelineDateTarget } from './date-navigation'
 
 export const DEFAULT_START_TIME = '09:00'
@@ -59,7 +60,32 @@ export async function saveSettings(value: TimelineSettings): Promise<void> {
   await host().request('host.settings.set', { key: 'timeline', value: { classification: rules, startTime } })
 }
 
-let opened: { uri: string } | null = null
+interface OpenSnapshot { uri: string; content: string; requestId: number; origin: string; editable: boolean }
+let opened: OpenSnapshot | null = null
+let operationId = 0
+let pendingSave: { origin: string; requestId: number; operationId: number; resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> } | null = null
+export function documentSnapshot(): string | null { return opened?.content ?? null }
+
+export async function saveEvent(id: string, edit: EventEdit, baseline: string, previousAttempt?: string): Promise<string> {
+  if (!opened?.editable) throw new Error('当前宿主不支持编辑，请更新 note.md。')
+  if (pendingSave) throw new Error('正在保存，请稍候。')
+  if (opened.content !== baseline && opened.content !== previousAttempt) throw new Error('文件已发生变化。请取消编辑后重新打开卡片，避免覆盖其他修改。')
+  const snapshot = opened
+  const content = editTimelineEvent(snapshot.content, id, edit)
+  await new Promise<void>((resolve, reject) => {
+    const op = ++operationId
+    const timer = setTimeout(() => {
+      if (pendingSave?.operationId !== op) return
+      pendingSave = null
+      reject(new Error('保存尚未确认，请检查文件后重试。'))
+    }, 30000)
+    pendingSave = { origin: snapshot.origin, requestId: snapshot.requestId, operationId: op, resolve, reject, timer }
+    try { window.parent.postMessage({ type: 'file_view.save', requestId: snapshot.requestId, operationId: op, content }, snapshot.origin) }
+    catch (error) { clearTimeout(timer); pendingSave = null; reject(error) }
+  })
+  return content
+}
+
 
 function absolutePath(value: string): string {
   return '/' + value.replace(/\\/g, '/').replace(/^\/+/, '')
@@ -79,22 +105,38 @@ export function isHostOrigin(origin: string): boolean {
     || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
 }
 
-export function onDocument(callback: (document: TimelineDocument) => void): () => void {
+export function onDocument(callback: (document: TimelineDocument, snapshot: OpenSnapshot) => void): () => void {
   const receive = (event: MessageEvent) => {
     const data = event.data
-    if (event.source !== window.parent || !isHostOrigin(event.origin) || !data || data.type !== 'file_view.open'
+    if (event.source !== window.parent || !isHostOrigin(event.origin) || !data) return
+    if (data.type === 'file_view.save_result') {
+      const pending = pendingSave
+      if (!pending || event.origin !== pending.origin || data.requestId !== pending.requestId || data.operationId !== pending.operationId || typeof data.ok !== 'boolean') return
+      clearTimeout(pending.timer)
+      pendingSave = null
+      if (data.ok) pending.resolve()
+      else pending.reject(new Error(typeof data.error === 'string' ? data.error : '无法保存时间线。'))
+      return
+    }
+    if (data.type !== 'file_view.open'
       || data.viewId !== 'timeline' || !Number.isSafeInteger(data.requestId)
       || typeof data.content !== 'string' || typeof data.uri !== 'string') return
-    opened = { uri: data.uri }
+    if (opened && opened.uri !== data.uri && pendingSave) {
+      clearTimeout(pendingSave.timer); pendingSave.reject(new Error('文件已切换。')); pendingSave = null
+    }
+    opened = { uri: data.uri, content: data.content, requestId: data.requestId, origin: event.origin, editable: data.capabilities?.edit === true }
     let ready = false
     try {
       const document = parseTimeline(data.content, data.uri)
-      if (document) { callback(document); ready = true }
+      if (document) { callback(document, opened); ready = true }
     } catch { /* A failed view is handled by the host's Markdown fallback. */ }
     window.parent.postMessage({ type: ready ? 'file_view.ready' : 'file_view.fallback', requestId: data.requestId }, event.origin)
   }
   window.addEventListener('message', receive)
-  return () => { window.removeEventListener('message', receive); opened = null }
+  return () => {
+    window.removeEventListener('message', receive); opened = null
+    if (pendingSave) { clearTimeout(pendingSave.timer); pendingSave.reject(new Error('时间线已关闭。')); pendingSave = null }
+  }
 }
 
 /** Resolve a source relative to the timeline; the host enforces the Vault fence again. */

@@ -11,6 +11,7 @@ export type Capability =
   | 'toast'
   | 'dialog'
   | 'editor.open'
+  | 'editor.write'
 
 export type SettingsField =
   | { key: string; type: 'string'; label: string; default?: string; placeholder?: string }

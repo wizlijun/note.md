@@ -1,6 +1,6 @@
 # Timeline 按事件证据显示重要程度与反常标识
 
-状态：待实现规格。本轮只交付本文，不实现、安装或发布 note.md 代码。
+状态：基础只读展示已实现并随 Timeline 1.1.0 发布。用户主动编辑及 `importance_origin: manual` 的后续扩展见[交互编辑规格](2026-10-21-timeline-interactive-editing.md)；以下原文证据要求适用于未标记手动来源的判断。
 
 ## 目标与边界
 

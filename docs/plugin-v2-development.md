@@ -101,7 +101,7 @@ plugins-src/<name>/
   "context_menus": [ /* ContextMenuEntry */ ],
   "windows":       [ WindowContribution ],   // 见下
   "custom_editors":[ /* 自定义编辑器 */ ],
-  "file_views":    [ /* 按文件规则选择只读视图，见下；>=6.909.1 */ ],
+  "file_views":    [ /* 按文件规则选择文件视图，默认只读，见下；>=6.909.1 */ ],
   "settings":      { /* 设置面板,语义同 v1 */ },
   "cli":           [ /* CliEntry */ ],
   "tray":          [ TrayContribution ]      // 见下;托盘"插座"
@@ -125,7 +125,7 @@ plugins-src/<name>/
 }
 ```
 
-只读 `file_views[].open_command` 如果需要每次从菜单先选择文件，可将同一菜单项声明为：
+`file_views[].open_command` 如果需要每次从菜单先选择文件，可将同一菜单项声明为：
 
 ```jsonc
 "prompt": { "kind": "open-dialog",
@@ -179,7 +179,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 
 ### 按文件规则打开视图（宿主 >=6.909.1）
 
-`contributes.file_views` 是宿主统一提供的只读文件视图入口。插件声明规则和 UI，宿主负责匹配、加载、发送当前文档及失败回退。它不改变文件类型，也不接管保存。已有 `custom_editors.file_extensions` 和 `custom_editor.*` 编辑协议保持兼容。
+`contributes.file_views` 是宿主统一提供的文件视图入口，默认只读。插件声明规则和 UI，宿主负责匹配、加载、发送当前文档及失败回退。它不改变文件类型；具备 `editor.write` 权限的视图可显式请求保存，文件所有权与持久化仍由宿主负责。已有 `custom_editors.file_extensions` 和 `custom_editor.*` 编辑协议保持兼容。
 
 ```json
 {
@@ -218,7 +218,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 
 ```ts
 // 宿主 → iframe，必须验证 event.source === window.parent 和可信宿主 origin。
-{ type: 'file_view.open', uri: string, content: string, viewId: string, requestId: number }
+{ type: 'file_view.open', uri: string, content: string, viewId: string, requestId: number, capabilities?: { edit: boolean } }
 // iframe → 宿主，解析和渲染成功后发送。
 { type: 'file_view.ready', requestId: number }
 // 不支持内容或用户选择编辑原文时发送；reason 仅在主动编辑时为 'edit'。
@@ -227,11 +227,16 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 { type: 'file_view.open_page', requestId: number, operationId: number, target: string }
 // 宿主 → iframe，页面操作结果；两侧均忽略已过期的快照/操作。
 { type: 'file_view.page_result', requestId: number, operationId: number, ok: boolean, error?: string }
+// 显式编辑请求：仅支持当前 Markdown 文件；需 editor.write，且 open.capabilities.edit 为 true。
+{ type: 'file_view.save', requestId: number, operationId: number, content: string }
+{ type: 'file_view.save_result', requestId: number, operationId: number, ok: boolean, error?: string }
 ```
 
-回复必须使用收到的宿主 origin 作为 `postMessage` 的 `targetOrigin`。宿主同时校验插件 origin、iframe source 与当前 `requestId`，忽略旧请求、伪造消息及写入消息。资源加载或解析在 8 秒内未完成时回退，回退保留同一份文档及原内置视图；编辑期间不反复抢占。显式重试、切换源码/预览或外部文件重载可重新尝试视图。代码参考 `FilePluginView.svelte`、`file-view-msg.ts` 与 `plugins-src/timeline/src/lib/bridge.ts`。
+回复必须使用收到的宿主 origin 作为 `postMessage` 的 `targetOrigin`。宿主同时校验插件 origin、iframe source 与当前 `requestId`，忽略旧请求、伪造消息及未声明的 change 消息。资源加载或解析在 8 秒内未完成时回退，回退保留同一份文档及原内置视图；编辑期间不反复抢占。显式重试、切换源码/预览或外部文件重载可重新尝试视图。代码参考 `FilePluginView.svelte`、`file-view-msg.ts` 与 `plugins-src/timeline/src/lib/bridge.ts`。
 
 页面导航的 `target` 是页面名（不是文件路径或 URL），使用与编辑器 `[[wikilink]]` 相同的 Vault 页面索引、黑名单、日期页及缺失页面创建规则。只有索引来源文件位于当前已打开的 Vault 内时才能导航；宿主等待黑名单和索引加载，异步期间切换 Vault 或文件快照会取消尚未执行的导航。`operationId` 是递增的正安全整数，宿主在同一快照内去重；`target` 必须非空、最多 1024 个 UTF-16 字符且不含控制字符。权限从发起插件当前实际 manifest 的 `host_capabilities` 读取，消息不能自行声明授权。导航由宿主执行，插件无需 `vault.write`，且不会更改来源索引内容。插件应仅在用户点击时发送请求，不得在载入、解析或渲染时自动发送；操作失败通过 `page_result.error` 展示，勿回退或改写原文。`#标签` 与 `[[页面]]` 可发送同一个页面名，以获得完全相同的导航结果。
+
+编辑权限缺省为关闭：旧宿主未返回 `capabilities` 时插件应隐藏编辑入口。`editor.write` 只允许当前 iframe 对当前宿主快照提出保存请求，不提供任意路径写入 RPC。宿主从实际 manifest 校验权限，并在既有 Markdown 保存队列内检查标签身份、快照、只读/外部变更状态、磁盘基线及编辑器 owner 准入；保存使用普通编辑器的 owner 和持久化路径。失败时返回错误；已被 owner 接受但未落盘的内容保留为脏草稿，随后重新发送当前快照。插件应保留失败表单和错误，基于新快照允许重试。结果总在该保存引起的新 `file_view.open` 之前发送；重复 `operationId` 去重，并行保存请求拒绝。保存中的切换文件或窗口失效不允许把旧结果交给新的视图。
 
 **TrayContribution**(`plugin-protocol/src/lib.rs` 的 `TrayContribution`):
 ```jsonc
@@ -283,6 +288,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 | `clipboard.write` | `host.clipboard.write` |
 | `location` | `host.location.get` |
 | `editor.open` | `host.editor.open` |
+| `editor.write` | 当前 Markdown 文件视图的 `file_view.save` 消息（非通用 RPC） |
 | `renderer.html` | 渲染类(md2pdf 用) |
 | `editor.kit` | `host.theme.css` / `host.power_mode.config`(均 UI 桥 only,进程通道 `-32601`);另外解锁一条**保留 URL 路径**(不是 `host.*` 方法)—— `GET plugin://<id>/__host__/assets/...`,见下方说明 |
 | `power-mode` | `host.power_mode.update`(写 Power Mode 配置)。读侧 `host.power_mode.config` 挂在 `editor.kit` 下 —— 需要读它的正是内嵌 Editor Kit 的插件窗口 |

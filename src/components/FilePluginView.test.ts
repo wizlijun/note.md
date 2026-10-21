@@ -9,6 +9,10 @@ import { pluginRuntime } from '../lib/plugins/runtime.svelte'
 import type { PluginManifest } from '../lib/plugins/types'
 
 const openFileViewPage = vi.hoisted(() => vi.fn())
+const saveFileViewEdit = vi.hoisted(() => vi.fn())
+vi.mock('../lib/tabs.svelte', () => ({
+  saveFileViewEdit, isReadOnlyTab: (tab: Tab) => tab.initialContent?.includes('readonly: true') ?? false, isGuestUpdateBusy: () => false,
+}))
 vi.mock('../lib/plugins/file-view-pages', () => ({ openFileViewPage }))
 
 describe('FilePluginView', () => {
@@ -23,12 +27,13 @@ describe('FilePluginView', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     openFileViewPage.mockReset()
+    saveFileViewEdit.mockReset()
     pluginRuntime.manifests = []
   })
 
   async function setup() {
     i18n.locale = 'zh'
-    const store = writable({ id: 'tab-1', title: 'day.timeline.md', filePath: '/diary/day.timeline.md', currentContent: initialContent } as Tab)
+    const store = writable({ id: 'tab-1', title: 'day.timeline.md', filePath: '/diary/day.timeline.md', currentContent: initialContent, initialContent, kind: 'markdown', externalState: 'fresh' } as Tab)
     const tab = fromStore(store)
     component = mount(FilePluginView, {
       target: document.body,
@@ -54,7 +59,7 @@ describe('FilePluginView', () => {
 
   it('hands the current document to the frame and reveals only an acknowledged snapshot', async () => {
     const { frame, postMessage, reply } = await setup()
-    expect(postMessage).toHaveBeenCalledWith({ type: 'file_view.open', uri: '/diary/day.timeline.md', content: initialContent, viewId: 'timeline', requestId: 1 }, 'plugin://notemd.timeline')
+    expect(postMessage).toHaveBeenCalledWith({ type: 'file_view.open', uri: '/diary/day.timeline.md', content: initialContent, viewId: 'timeline', requestId: 1, capabilities: { edit: false } }, 'plugin://notemd.timeline')
     expect(frame.getAttribute('sandbox')?.split(' ')).toContain('allow-forms')
     expect(frame.classList.contains('pending')).toBe(true)
     reply('file_view.ready', 1)
@@ -209,4 +214,88 @@ describe('FilePluginView', () => {
     await tick()
     expect(postMessage.mock.calls.some(([message]) => message.type === 'file_view.page_result')).toBe(false)
   })
+  function saveAction(frame: HTMLIFrameElement, operationId = 1, requestId = 1) {
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: 'plugin://notemd.timeline', source: frame.contentWindow,
+      data: { type: 'file_view.save', requestId, operationId, content: 'edited timeline' },
+    }))
+  }
+
+  function authorizeEdits() {
+    pluginRuntime.manifests = [{ id: view.pluginId, name: 'Test', version: '1.0.0', binary: '', host_capabilities: ['editor.write'] }]
+  }
+
+  it('advertises edit permission and saves only a ready snapshot, deduplicating requests', async () => {
+    authorizeEdits()
+    saveFileViewEdit.mockResolvedValue(undefined)
+    const { frame, reply, postMessage } = await setup()
+    expect(postMessage.mock.lastCall?.[0].capabilities).toEqual({ edit: true })
+    saveAction(frame)
+    expect(saveFileViewEdit).not.toHaveBeenCalled()
+    reply('file_view.ready', 1)
+    saveAction(frame)
+    saveAction(frame)
+    await vi.waitFor(() => expect(saveFileViewEdit).toHaveBeenCalledOnce())
+    expect(saveFileViewEdit).toHaveBeenCalledWith('tab-1', '/diary/day.timeline.md', initialContent, 'edited timeline', expect.any(Function))
+    expect(postMessage).toHaveBeenCalledWith({ type: 'file_view.save_result', requestId: 1, operationId: 1, ok: true }, 'plugin://notemd.timeline')
+  })
+
+  it('requires editor.write from the calling manifest even when the plugin sends a save', async () => {
+    authorizePages()
+    const { frame, reply, postMessage } = await setup()
+    reply('file_view.ready', 1)
+    saveAction(frame)
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalledWith({
+      type: 'file_view.save_result', requestId: 1, operationId: 1, ok: false, error: 'Plugin requires editor.write permission',
+    }, 'plugin://notemd.timeline'))
+    expect(saveFileViewEdit).not.toHaveBeenCalled()
+  })
+
+  it('returns persistence failure before broadcasting the recoverable dirty draft', async () => {
+    authorizeEdits()
+    const { frame, reply, postMessage, store } = await setup()
+    saveFileViewEdit.mockImplementation(async () => {
+      store.update(tab => ({ ...tab, currentContent: 'edited timeline' }))
+      await tick()
+      expect(postMessage.mock.calls.filter(([message]) => message.type === 'file_view.open')).toHaveLength(1)
+      throw new Error('Disk full')
+    })
+    reply('file_view.ready', 1)
+    saveAction(frame)
+    await vi.waitFor(() => expect(postMessage.mock.lastCall?.[0].type).toBe('file_view.open'))
+    await vi.waitFor(() => expect(postMessage.mock.lastCall?.[0].requestId).toBe(2))
+    const messages = postMessage.mock.calls.map(([message]) => message)
+    expect(messages.at(-2)).toEqual({ type: 'file_view.save_result', requestId: 1, operationId: 1, ok: false, error: 'Disk full' })
+    expect(messages.at(-1).content).toBe('edited timeline')
+  })
+
+  it('invalidates a pending save when the source snapshot or tab changes', async () => {
+    authorizeEdits()
+    let complete!: () => void
+    saveFileViewEdit.mockImplementation(() => new Promise<void>(resolve => { complete = resolve }))
+    const { frame, reply, postMessage, store } = await setup()
+    reply('file_view.ready', 1)
+    saveAction(frame)
+    await vi.waitFor(() => expect(saveFileViewEdit).toHaveBeenCalledOnce())
+    const current = saveFileViewEdit.mock.calls[0][4]
+    expect(current()).toBe(true)
+    store.update(tab => ({ ...tab, filePath: '/diary/another.md' }))
+    await tick()
+    expect(current()).toBe(false)
+    complete()
+    await tick()
+    expect(postMessage.mock.calls.some(([message]) => message.type === 'file_view.save_result')).toBe(false)
+  })
+
+  it('turns off editing for a read-only or externally changed document', async () => {
+    authorizeEdits()
+    const { store, postMessage } = await setup()
+    store.update(tab => ({ ...tab, initialContent: '---\nreadonly: true\n---\n' + initialContent }))
+    await tick()
+    expect(postMessage.mock.lastCall?.[0].capabilities).toEqual({ edit: false })
+    store.update(tab => ({ ...tab, initialContent, externalState: 'changed' }))
+    await tick()
+    expect(postMessage.mock.lastCall?.[0].capabilities).toEqual({ edit: false })
+  })
+
 })

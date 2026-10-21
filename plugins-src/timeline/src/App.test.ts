@@ -60,9 +60,9 @@ async function setField(label: string, value: string) {
   await tick()
 }
 
-function openDocument(content = fixture, requestId = 1, uri = '/vault/diary/2026-09-09.timeline.md') {
+function openDocument(content = fixture, requestId = 1, uri = '/vault/diary/2026-09-09.timeline.md', editable = false) {
   window.dispatchEvent(new MessageEvent('message', { origin: 'http://localhost:1420', source: window, data: {
-    type: 'file_view.open', viewId: 'timeline', requestId, uri, content,
+    type: 'file_view.open', viewId: 'timeline', requestId, uri, content, capabilities: { edit: editable },
   } }))
 }
 
@@ -97,6 +97,56 @@ describe('Timeline application', () => {
     await vi.waitFor(() => expect(document.querySelectorAll('.event')).toHaveLength(2))
     return mocked
   }
+
+  it('saves all fields and keeps a failed draft retryable against the host dirty snapshot', async () => {
+    const mocked = await start()
+    openDocument(fixture, 2, undefined, true)
+    await tick()
+    document.querySelector<HTMLButtonElement>('.event')!.click(); await tick()
+    document.querySelector<HTMLButtonElement>('.edit-event')!.click(); await tick()
+    await setField('标题', '研发审阅更新')
+    await setField('事件描述', '确认新的交付安排')
+    await setField('开始时间', '08:45:30')
+    await setField('结束时间', '10:30')
+    await setField('重要程度', 'high')
+    expect(field<HTMLButtonElement>('下一天').disabled).toBe(true)
+    button('保存').click()
+    const saves = () => mocked.posted.mock.calls.filter(([message]) => message.type === 'file_view.save')
+    await vi.waitFor(() => expect(saves()).toHaveLength(1))
+    const request = saves()[0][0]
+    expect(request.content).toContain('[方案](../notes/spec.md#line12)')
+    const reply = (id: number, operationId: number, ok: boolean) => window.dispatchEvent(new MessageEvent('message', { origin: 'http://localhost:1420', source: window, data: { type: 'file_view.save_result', requestId: id, operationId, ok, error: 'disk full' } }))
+    reply(2, request.operationId, false)
+    openDocument(request.content, 3, undefined, true)
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('disk full'))
+    expect(field<HTMLInputElement>('标题').value).toBe('研发审阅更新')
+    button('保存').click()
+    await vi.waitFor(() => expect(saves()).toHaveLength(2))
+    const retry = saves()[1][0]
+    expect(retry.requestId).toBe(3)
+    reply(3, retry.operationId, true)
+    openDocument(retry.content, 4, undefined, true)
+    await vi.waitFor(() => expect(document.querySelector('.event-editor')).toBeNull())
+    expect(document.querySelector('.event strong')?.textContent).toBe('研发审阅更新')
+    expect(document.querySelector('.event')?.getAttribute('data-importance')).toBe('high')
+    expect(document.querySelector('.detail')?.textContent).toContain('确认新的交付安排')
+    expect(document.querySelector('.detail')?.textContent).toContain('手动设置')
+  })
+
+  it('preserves drafts when an external snapshot deletes the selected event and refuses overwrite', async () => {
+    const mocked = await start()
+    openDocument(assessedFixture, 2, undefined, true); await tick()
+    document.querySelector<HTMLButtonElement>('.event')!.click(); await tick()
+    document.querySelector<HTMLButtonElement>('.edit-event')!.click(); await tick()
+    await setField('标题', '我的未保存草稿')
+    openDocument('---\ntype: timeline\n---\n', 3, undefined, true); await tick()
+    expect(field<HTMLInputElement>('标题').value).toBe('我的未保存草稿')
+    button('保存').click()
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('文件已发生变化'))
+    expect(mocked.posted.mock.calls.some(([message]) => message.type === 'file_view.save')).toBe(false)
+    button('取消').click(); await tick()
+    expect(document.querySelector('.detail')).toBeNull()
+  })
 
   it('renders timed blocks, nested detail, notes and sources through the real bridge', async () => {
     const mocked = await start()

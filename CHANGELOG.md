@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Edit Timeline cards directly.** Update activity names, descriptions, start/end times, and importance from parent or topic details. Save through the host with conflict checks; failed saves retain drafts and manual importance is labeled explicitly. Requires a host with file-view editing support.
+
 - **Softer Timeline colors.** Muted category backgrounds and importance accents, with a subtle rose anomaly badge. Separate light and dark palettes retain readable text contrast.
 
 - **Timeline shows event importance and anomalies.** Display saved Important, Normal, and Pending review assessments independently of activity categories, with separate anomaly badges. Details preserve each topic’s reasons, evidence, and unknown signals. Legacy documents remain pending review; invalid metadata or bindings fall back to Markdown.

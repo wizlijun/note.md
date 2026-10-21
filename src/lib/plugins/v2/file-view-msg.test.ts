@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { handleFileViewMessage } from './file-view-msg'
 
-describe('read-only file display channel', () => {
+describe('file display channel', () => {
   const source = {}
   const origin = 'plugin://notemd.timeline'
   const options = () => ({ pluginOrigin: origin, expectedSource: source, requestId: 3, onReady: vi.fn(), onFallback: vi.fn() })
@@ -59,5 +59,26 @@ describe('read-only file display channel', () => {
     const opts = { ...options(), onOpenPage: vi.fn() }
     expect(handleFileViewMessage(event({ type: 'file_view.open_page', requestId: 3, operationId: 1, target: '开发', ...invalid }), opts)).toBe(false)
     expect(opts.onOpenPage).not.toHaveBeenCalled()
+  })
+
+  it('accepts explicit saves only for an authenticated current snapshot with a save handler', () => {
+    const opts = { ...options(), onSave: vi.fn() }
+    const data = { type: 'file_view.save', requestId: 3, operationId: 1, content: 'new document' }
+    expect(handleFileViewMessage(event(data), opts)).toBe(true)
+    expect(opts.onSave).toHaveBeenCalledWith(data)
+    expect(handleFileViewMessage(event(data), options())).toBe(false)
+    expect(handleFileViewMessage({ ...event(data), origin: 'https://untrusted.test' }, opts)).toBe(false)
+    expect(handleFileViewMessage({ ...event(data), source: {} }, opts)).toBe(false)
+    expect(handleFileViewMessage(event({ ...data, requestId: 2 }), opts)).toBe(false)
+    expect(opts.onSave).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    { operationId: 0 }, { operationId: -1 }, { operationId: 1.5 }, { operationId: '1' },
+    { operationId: Number.MAX_SAFE_INTEGER + 1 }, { content: null }, { content: {} }, { content: 42 },
+  ])('rejects malformed save requests: %j', (invalid) => {
+    const opts = { ...options(), onSave: vi.fn() }
+    expect(handleFileViewMessage(event({ type: 'file_view.save', requestId: 3, operationId: 1, content: '', ...invalid }), opts)).toBe(false)
+    expect(opts.onSave).not.toHaveBeenCalled()
   })
 })

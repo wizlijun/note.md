@@ -22,7 +22,7 @@ const server = createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store')
     if (path === '/') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><iframe title="Timeline" src="/plugin/index.html${new URL(req.url, 'http://fixture').search}" style="display:block;width:100vw;height:100vh;border:0"></iframe><script>window.events=[];addEventListener("message",e=>events.push(e.data));window.openTimeline=(content,requestId=1)=>document.querySelector("iframe").contentWindow.postMessage({type:"file_view.open",viewId:"timeline",requestId,uri:"/fixture-vault/diary/2026-10-21.timeline.md",content},location.origin)</script></body></html>`)
+      res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><iframe title="Timeline" src="/plugin/index.html${new URL(req.url, 'http://fixture').search}" style="display:block;width:100vw;height:100vh;border:0"></iframe><script>window.events=[];window.failSave=false;addEventListener("message",e=>{events.push(e.data);if(e.data.type==="file_view.save"){window.savedContent=e.data.content;document.querySelector("iframe").contentWindow.postMessage({type:"file_view.save_result",requestId:e.data.requestId,operationId:e.data.operationId,ok:!window.failSave,error:"disk full"},location.origin);window.openTimeline(e.data.content,e.data.requestId+1,true)}});window.openTimeline=(content,requestId=1,editable=false)=>document.querySelector("iframe").contentWindow.postMessage({type:"file_view.open",viewId:"timeline",requestId,capabilities:{edit:editable},uri:"/fixture-vault/diary/2026-10-21.timeline.md",content},location.origin)</script></body></html>`)
     } else if (path === '/plugin/index.html') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html)
     } else if (path === '/fixture-bridge.js') {
@@ -155,6 +155,46 @@ try {
   assert.ok(textFits, 'Cards around 64px never show half a description line')
   await page.screenshot({ path: join(output, 'importance-description-threshold.png') })
   checks.push('English legacy explanation and short Pending review + Anomaly badges fit at 390px')
+  // Exercise editing against an isolated host protocol fixture, including a dirty failed save.
+  await page.goto(`http://127.0.0.1:${server.address().port}`)
+  await frame.locator('.app').waitFor()
+  await page.evaluate(text => window.openTimeline(text, 10, true), content)
+  await frame.locator('.event[data-item-id="visit"]').click()
+  await frame.locator('.edit-event').first().click()
+  await frame.getByRole('textbox', { name: '标题', exact: true }).fill('探访更新')
+  await frame.getByRole('textbox', { name: '事件描述', exact: true }).fill('确认后续安排')
+  await frame.getByRole('textbox', { name: '开始时间', exact: true }).fill('09:35:15')
+  await frame.getByRole('textbox', { name: '结束时间', exact: true }).fill('10:15')
+  await frame.getByRole('combobox', { name: '重要程度', exact: true }).selectOption('normal')
+  for (const [name, width, scheme] of [['edit-light', 1100, 'light'], ['edit-dark', 1100, 'dark'], ['edit-narrow', 390, 'light']]) {
+    await page.setViewportSize({ width, height: 850 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await frame.locator('.event-editor').scrollIntoViewIfNeeded()
+    assert.ok(await frame.locator('.event-editor input, .event-editor textarea, .event-editor select').evaluateAll(nodes => nodes.every(node => {
+      const r = node.getBoundingClientRect(); return r.width > 40 && r.left >= 0 && r.right <= innerWidth
+    })), `${name}: editing fields fit viewport`)
+    await page.screenshot({ path: join(output, `${name}.png`) })
+  }
+  await page.evaluate(() => { window.failSave = true })
+  await frame.getByRole('button', { name: '保存', exact: true }).click()
+  await frame.locator('.edit-error').waitFor()
+  assert.match(await frame.locator('.edit-error').innerText(), /disk full/)
+  assert.equal(await frame.getByRole('textbox', { name: '标题', exact: true }).inputValue(), '探访更新')
+  await page.evaluate(() => { window.failSave = false })
+  await frame.getByRole('button', { name: '保存', exact: true }).click()
+  await frame.locator('.event-editor').waitFor({ state: 'detached' })
+  const saved = await page.evaluate(() => window.savedContent)
+  assert.match(saved, /09:35:15–10:15 — 探访更新：确认后续安排/)
+  assert.match(saved, /importance_origin: manual/)
+  assert.equal(await frame.locator('.event[data-item-id="visit"] strong').innerText(), '探访更新')
+  assert.equal(await frame.locator('.event[data-item-id="visit"]').getAttribute('data-importance'), 'normal')
+  assert.match(await frame.locator('.detail').innerText(), /手动设置/)
+  await frame.locator('.edit-event').first().click()
+  await frame.getByRole('textbox', { name: '标题', exact: true }).fill('取消的标题')
+  await frame.getByRole('textbox', { name: '标题', exact: true }).press('Escape')
+  await frame.locator('.event-editor').waitFor({ state: 'detached' })
+  assert.equal(await frame.locator('.event[data-item-id="visit"] strong').innerText(), '探访更新')
+  checks.push('edit title, description, second-precision times and importance; light/dark/390px form; failed save retains draft and retries; saved card refreshes; Escape cancels without writing')
   assert.deepEqual(errors, [])
   const report = { browser: browser.version(), boundary: 'Actual production Timeline bundle, browser DOM and file_view messages; isolated host RPC fixture, no native installation or Vault access.', checks, errors }
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n')

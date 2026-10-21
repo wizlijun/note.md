@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_START_TIME, isHostOrigin, loadSettings, normalizeStartTime, onDocument, openLink, openTimelineDate, saveSettings, sourcePath, startTimeMinute, vaultRelativePath } from './bridge'
+import { DEFAULT_START_TIME, documentSnapshot, saveEvent, isHostOrigin, loadSettings, normalizeStartTime, onDocument, openLink, openTimelineDate, saveSettings, sourcePath, startTimeMinute, vaultRelativePath } from './bridge'
 import { DEFAULT_RULES } from './classification'
 
 const request = vi.fn()
@@ -108,5 +108,56 @@ describe('settings and sources', () => {
     request.mockResolvedValue({ root: '/vault' })
     await openLink('../meetings/a.md#line20')
     expect(request).toHaveBeenLastCalledWith('host.editor.open', { path: 'meetings/a.md' })
+  })
+})
+
+
+describe('event save bridge', () => {
+  const edit = { start: '09:00', end: '10:00', title: '审阅', text: '构建页面。', importance: 'unknown' as const }
+  const result = (requestId: number, operationId: number, ok: boolean, origin = 'tauri://localhost') => {
+    window.dispatchEvent(new MessageEvent('message', { origin, source: window, data: { type: 'file_view.save_result', requestId, operationId, ok, error: '磁盘已满' } }))
+  }
+  it('requires advertised support and the original document snapshot', async () => {
+    vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send({})
+    expect(documentSnapshot()).toBe(content)
+    await expect(saveEvent('line-4', edit, content)).rejects.toThrow('不支持编辑')
+    send({ capabilities: { edit: true } })
+    await expect(saveEvent('line-4', edit, content + 'stale')).rejects.toThrow('文件已发生变化')
+  })
+  it('correlates acknowledgments and leaves errors retryable', async () => {
+    const post = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    send({ capabilities: { edit: true } })
+    const saving = saveEvent('line-4', edit, content)
+    const envelope = post.mock.calls.at(-1)![0]
+    expect(envelope).toMatchObject({ type: 'file_view.save', requestId: 3 })
+    expect(envelope.content).toContain('审阅：构建页面。')
+    await expect(saveEvent('line-4', edit, content)).rejects.toThrow('正在保存')
+    result(3, envelope.operationId, true, 'https://attacker.test')
+    result(2, envelope.operationId, true)
+    result(3, envelope.operationId + 1, true)
+    let settled = false
+    void saving.then(() => { settled = true })
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    result(3, envelope.operationId, true)
+    expect(await saving).toBe(envelope.content)
+    const failed = saveEvent('line-4', edit, content)
+    const failure = expect(failed).rejects.toThrow('磁盘已满')
+    result(3, post.mock.calls.at(-1)![0].operationId, false)
+    await failure
+  })
+  it('allows retry only against its own failed write snapshot and rejects closure', async () => {
+    vi.spyOn(window.parent, 'postMessage').mockImplementation(() => {})
+    stop = onDocument(() => {})
+    const changed = content.replace('开发', '审阅')
+    send({ content: changed, capabilities: { edit: true } })
+    await expect(saveEvent('line-4', edit, content)).rejects.toThrow('文件已发生变化')
+    const saving = saveEvent('line-4', edit, content, changed)
+    const failed = expect(saving).rejects.toThrow('已关闭')
+    stop(); stop = undefined
+    await failed
   })
 })

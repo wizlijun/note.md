@@ -1,8 +1,9 @@
 <script lang="ts">
   import '../../../src/styles/ui-foundation.css'
   import { onDestroy, onMount, tick } from 'svelte'
-  import { DEFAULT_START_TIME, InvalidSettingsError, loadSettings, locale, onDocument, openLink, openTimelineDate, saveSettings, startTimeMinute, type TimelineSettings } from './lib/bridge'
+  import { documentSnapshot, saveEvent, DEFAULT_START_TIME, InvalidSettingsError, loadSettings, locale, onDocument, openLink, openTimelineDate, saveSettings, startTimeMinute, type TimelineSettings } from './lib/bridge'
   import { CATEGORIES, classifyItem, DEFAULT_RULES, type ClassificationRule } from './lib/classification'
+  import { editTimelineEvent, type EventEdit } from './lib/edit-document'
   import type { TimelineDocument, TimelineItem } from './lib/parser'
   import { formatDuration, formatTime, layoutTimeline, PIXELS_PER_MINUTE } from './lib/layout'
   import { shiftTimelineDate } from './lib/date-navigation'
@@ -25,6 +26,31 @@
   let navigating = $state(false)
   let navigationError = $state('')
   let selected = $state<TimelineItem | null>(null)
+  let editable = $state(false)
+  let editing = $state(false)
+  let currentUri = ''
+  let editBaseline = ''
+  let attemptedContent: string | undefined
+  function editingChanged(value: boolean) {
+    editing = value
+    if (value) { editBaseline = documentSnapshot() ?? ''; attemptedContent = undefined }
+    else if (selected && doc) selected = findItem(doc.items, selected.id)
+  }
+  async function persistEvent(item: TimelineItem, edit: EventEdit) {
+    const baseline = editBaseline
+    const previousAttempt = attemptedContent
+    const current = documentSnapshot()
+    if (current === baseline || current === previousAttempt) attemptedContent = editTimelineEvent(current, item.id, edit)
+    await saveEvent(item.id, edit, baseline, previousAttempt)
+  }
+  function findItem(items: TimelineItem[], id: string): TimelineItem | null {
+    for (const item of items) {
+      if (item.id === id) return item
+      const child = findItem(item.children, id)
+      if (child) return child
+    }
+    return null
+  }
   let trigger: HTMLButtonElement | null = null
   let settingsOpener: HTMLButtonElement | null = null
   let settingsTrigger: HTMLButtonElement
@@ -34,7 +60,7 @@
   const layout = $derived(layoutTimeline(doc?.items ?? []))
   const previousDate = $derived(doc ? shiftTimelineDate(doc.date, -1) : null)
   const nextDate = $derived(doc ? shiftTimelineDate(doc.date, 1) : null)
-  const dateNavigationDisabled = $derived(navigating || settings || saving)
+  const dateNavigationDisabled = $derived(navigating || settings || saving || editing)
   const dateLabel = $derived.by(() => {
     if (!doc?.date) return doc?.title || (zh ? '时间线' : 'Timeline')
     const date = new Date(`${doc.date}T12:00:00`)
@@ -71,12 +97,21 @@
 
   // Receive the document before deferred mount effects, including a fast
   // parent onload snapshot. Settings do not gate the display handshake.
-  const unsubscribe = onDocument((value) => { doc = value; selected = null; navigationError = ''; void positionSchedule() })
+  const unsubscribe = onDocument((value, snapshot) => {
+    const sameFile = currentUri === snapshot.uri
+    selected = sameFile && selected ? (editing ? selected : findItem(value.items, selected.id)) : null
+    if (!sameFile) editing = false
+    currentUri = snapshot.uri
+    doc = value
+    editable = snapshot.editable
+    navigationError = ''
+    if (!sameFile) void positionSchedule()
+  })
   onDestroy(unsubscribe)
   onMount(() => { void fetchSettings() })
 
   function showSettings(reset = false, event?: MouseEvent) {
-    if (loadingRules || (ruleError && !(reset && invalidRules)) || saving || navigating || settings) return
+    if (loadingRules || (ruleError && !(reset && invalidRules)) || saving || navigating || settings || editing) return
     settingsOpener = event?.currentTarget as HTMLButtonElement | null
     if (reset) { rules = structuredClone(DEFAULT_RULES); startTime = DEFAULT_START_TIME }
     selected = null
@@ -108,6 +143,7 @@
   }
 
   function select(item: TimelineItem, event: MouseEvent) {
+    if (editing) return
     selected = item
     trigger = event.currentTarget as HTMLButtonElement
     void tick().then(() => document.querySelector<HTMLButtonElement>('.detail .close')?.focus({ preventScroll: true }))
@@ -146,7 +182,7 @@
       {#if doc}<div class="subheading">{doc.items.length} {zh ? '段活动' : 'activities'}{#if layout.ticks.length}<span>·</span>{formatTime(Math.min(...doc.items.map((item) => item.start)))} — {formatTime(Math.max(...doc.items.map((item) => item.end)))}{/if}</div>{/if}
     </div>
     <div class="toolbar-actions">
-      <button class="toolbar-button" class:active={settings} bind:this={settingsTrigger} aria-expanded={settings} disabled={loadingRules || !!ruleError || saving || navigating || settings} onclick={(event) => showSettings(false, event)}><span aria-hidden="true">☷</span>{zh ? '时间线设置' : 'Settings'}</button>
+      <button class="toolbar-button" class:active={settings} bind:this={settingsTrigger} aria-expanded={settings} disabled={loadingRules || !!ruleError || saving || navigating || settings || editing} onclick={(event) => showSettings(false, event)}><span aria-hidden="true">☷</span>{zh ? '时间线设置' : 'Settings'}</button>
     </div>
   </header>
 
@@ -180,7 +216,7 @@
             <div class="events">
               {#each layout.blocks as block (block.item.id)}
                 {@const classification = classifyItem(block.item, rules)}
-                {@const action = classification.action || block.item.action || (zh ? '活动' : 'Activity')}
+                {@const action = block.item.action || classification.action || (zh ? '活动' : 'Activity')}
                 {@const timeLabel = `${formatTime(block.item.start)}–${formatTime(block.item.end)}${block.item.children.length ? ` · ${block.item.children.length} ${zh ? '个议题' : 'topics'}` : ''}`}
                 <button class="event" class:compact={block.height < 64} class:selected={selected?.id === block.item.id} data-category={classification.category} data-item-id={block.item.id} data-importance={block.item.metadata.importance} style:top={`${block.top + 16}px`} style:height={`${block.height}px`} style:left={`calc(${block.column / block.columns * 100}% + 3px)`} style:width={`calc(${100 / block.columns}% - 6px)`} aria-label={`${assessmentLabel(block.item, zh)} · ${timeLabel} · ${formatDuration(block.item, zh)} ${action}：${block.item.text}`} aria-pressed={selected?.id === block.item.id} title={`${timeLabel} · ${formatDuration(block.item, zh)} · ${action}\n${block.item.text}`} onclick={(event) => select(block.item, event)}>
                   <div class="event-top"><strong>{action}</strong><ImportanceLabel importance={block.item.metadata.importance} flagged={block.item.metadata.anomaly?.status === 'flagged'} {zh} /></div>
@@ -192,7 +228,7 @@
           </div>
         {/if}
       </div>
-      {#if selected}<div class="detail-container">{#key selected.id}<TimelineDetail item={selected} {rules} {zh} onclose={closeDetail} onlink={openLink} />{/key}</div>{/if}
+      {#if selected}<div class="detail-container">{#key selected.id}<TimelineDetail item={selected} {rules} {zh} {editable} onsave={persistEvent} onediting={editingChanged} onclose={closeDetail} onlink={openLink} />{/key}</div>{/if}
     </main>
   {/if}
 </div>

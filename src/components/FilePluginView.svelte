@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte'
-  import type { Tab } from '../lib/tabs.svelte'
+  import { isReadOnlyTab, isGuestUpdateBusy, type Tab } from '../lib/tabs.svelte'
   import type { FileViewRef } from '../lib/plugins/file-views'
   import { t } from '../lib/i18n/store.svelte'
-  import { handleFileViewMessage, type FileViewOpen, type FileViewOpenPage, type FileViewPageResult } from '../lib/plugins/v2/file-view-msg'
+  import { handleFileViewMessage, type FileViewOpen, type FileViewOpenPage, type FileViewPageResult, type FileViewSave, type FileViewSaveResult } from '../lib/plugins/v2/file-view-msg'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import { displayTitleForDocument } from '../lib/window-title'
 
@@ -26,6 +26,8 @@
   let activeSrc = ''
   let timer: ReturnType<typeof setTimeout> | undefined
   let pageOperations = new Set<number>()
+  let saveOperations = new Set<number>()
+  let saving = $state(false)
   let mounted = true
 
   function clearTimer() {
@@ -50,12 +52,18 @@
     }
   }
 
+  function canEdit() {
+    return pluginRuntime.manifests.find(item => item.id === view.pluginId)?.host_capabilities.includes('editor.write') === true
+      && tab.kind === 'markdown' && !isReadOnlyTab(tab) && !isGuestUpdateBusy(tab.filePath) && tab.externalState === 'fresh'
+  }
+
   function begin(content: string, uri: string, viewId: string, nextSrc: string) {
     clearTimer()
     if (activeSrc !== nextSrc) loaded = false
     activeSrc = nextSrc
-    snapshot = { type: 'file_view.open', uri, content, viewId, requestId: ++requestId }
+    snapshot = { type: 'file_view.open', uri, content, viewId, requestId: ++requestId, capabilities: { edit: canEdit() } }
     pageOperations = new Set()
+    saveOperations = new Set()
     status = 'loading'
     const pendingRequest = requestId
     // Includes asset loading and parsing; onload never extends this deadline.
@@ -91,6 +99,34 @@
     if (current()) frame?.postMessage(result, origin)
   }
 
+  async function save(request: FileViewSave) {
+    if (status !== 'ready' || saveOperations.has(request.operationId)) return
+    saveOperations.add(request.operationId)
+    const frame = iframeEl?.contentWindow, origin = pluginOrigin, sourceTab = tab, sourcePath = tab.filePath
+    const expectedContent = snapshot?.content
+    const currentFrame = () => mounted && status === 'ready' && requestId === request.requestId
+      && iframeEl?.contentWindow === frame && pluginOrigin === origin && tab.id === sourceTab.id && tab.filePath === sourcePath
+    const current = () => currentFrame() && snapshot?.uri === sourcePath && tab.currentContent === expectedContent && canEdit()
+    let result: FileViewSaveResult = { type: 'file_view.save_result', requestId: request.requestId, operationId: request.operationId, ok: true }
+    const alreadySaving = saving
+    if (!alreadySaving) saving = true
+    try {
+      if (alreadySaving) throw new Error('Another save is in progress.')
+      if (!pluginRuntime.manifests.find(item => item.id === view.pluginId)?.host_capabilities.includes('editor.write')) {
+        throw new Error('Plugin requires editor.write permission')
+      }
+      if (expectedContent === undefined || !current()) throw new Error('The document changed. Reopen the event before saving.')
+      const { saveFileViewEdit } = await import('../lib/tabs.svelte')
+      if (!current()) throw new Error('The document changed. Reopen the event before saving.')
+      await saveFileViewEdit(sourceTab.id, sourcePath, expectedContent, request.content, current)
+    } catch (error) {
+      result = { ...result, ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+    // Deliver failure/success before the next snapshot, including a recoverable dirty draft.
+    if (currentFrame()) frame?.postMessage(result, origin)
+    if (!alreadySaving) saving = false
+  }
+
   $effect(() => {
     mounted = true
     return () => { mounted = false }
@@ -101,13 +137,16 @@
     const uri = tab.filePath
     const viewId = view.viewId
     const nextSrc = src
+    const edit = canEdit()
+    const pendingSave = saving
     untrack(() => {
       // After a fallback, typing must remain in the default editor. Explicit
       // retry, source/rich switching and external reloads reopen the view.
       if (status === 'fallback') return
+      if (pendingSave && snapshot?.uri === uri && activeSrc === nextSrc) return
       // The reload event can already have sent this snapshot before Svelte's
       // content effect runs. Do not issue another request or extend its timer.
-      if (snapshot?.content === content && snapshot.uri === uri && snapshot.viewId === viewId && activeSrc === nextSrc) return
+      if (snapshot?.content === content && snapshot.uri === uri && snapshot.viewId === viewId && activeSrc === nextSrc && snapshot.capabilities?.edit === edit) return
       begin(content, uri, viewId, nextSrc)
     })
   })
@@ -122,6 +161,7 @@
         onReady: () => { clearTimer(); status = 'ready' },
         onFallback: (reason) => useDefaultEditor(reason === 'edit' ? 'edit' : 'unsupported'),
         onOpenPage: (request) => { void openPage(request) },
+        onSave: (request) => { void save(request) },
       })
     }
     const onReload = (event: Event) => {

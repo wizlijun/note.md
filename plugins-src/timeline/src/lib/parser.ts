@@ -11,6 +11,7 @@ export interface TimelineAnomaly {
 }
 export interface TimelineEventMetadata {
   importance: TimelineImportance
+  importance_origin?: 'manual'
   reason: string
   evidence: TimelineEvidence[]
   signals: {
@@ -54,7 +55,8 @@ function validEvidence(value: unknown, sources: Set<string>, required: boolean):
 
 function validMetadata(value: unknown, sources: Set<string>): value is TimelineEventMetadata {
   if (!record(value) || !enumeration(value.importance, ['high', 'normal', 'unknown']) || !nonempty(value.reason)) return false
-  if (!validEvidence(value.evidence, sources, value.importance !== 'unknown') || !record(value.signals)) return false
+  if ('importance_origin' in value && value.importance_origin !== 'manual') return false
+  if (!validEvidence(value.evidence, sources, value.importance !== 'unknown' && value.importance_origin !== 'manual') || !record(value.signals)) return false
   const { source_chars, duration_minutes, owner_relation } = value.signals
   if (source_chars !== null && (typeof source_chars !== 'number' || !Number.isInteger(source_chars) || source_chars < 0)) return false
   if (duration_minutes !== null && (typeof duration_minutes !== 'number' || !Number.isFinite(duration_minutes) || duration_minutes < 0)) return false
@@ -124,7 +126,7 @@ function inline(text: string): { text: string; links: TimelineLink[] } {
 }
 
 /** A failed time entry rejects the whole view; no partially parsed day is shown. */
-export function parseTimeline(content: string, uri = ''): TimelineDocument | null {
+export function parseTimeline(content: string, uri = '', sourceLines?: Map<string, number>): TimelineDocument | null {
   try {
     const lines = content.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n')
     if (!/^---\s*$/.test(lines[0] ?? '')) return null
@@ -195,6 +197,7 @@ export function parseTimeline(content: string, uri = ''): TimelineDocument | nul
         links: parsed.links, children: [],
       }
       if (!item.text && !item.action) return null
+      sourceLines?.set(id, i)
       const indent = match[1].replace(/\t/g, '    ').length
       while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop()
       if (indent > 0) {

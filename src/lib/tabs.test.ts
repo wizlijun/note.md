@@ -105,6 +105,8 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 const humanActorNowMock = vi.fn((): string | null => null)
 vi.mock('./okf/identity', () => ({
   humanActorNow: () => humanActorNowMock(),
+  resetHumanActor: vi.fn(),
+  warmHumanActor: vi.fn(async () => null),
 }))
 
 beforeEach(async () => {
@@ -134,6 +136,126 @@ beforeEach(async () => {
 })
 
 afterEach(() => { vi.useRealTimers() })
+
+describe('file-view save admission', () => {
+  it('persists an edit through the tab save boundary and marks the exact draft clean', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/timeline.md')
+    const tab = m.tabs[0], baseline = tab.currentContent
+    await m.saveFileViewEdit(tab.id, tab.filePath, baseline, '# edited timeline', () => true)
+    expect(fs.writeMd).toHaveBeenCalledWith('/tmp/timeline.md', '# edited timeline')
+    expect(tab.currentContent).toBe('# edited timeline')
+    expect(tab.initialContent).toBe('# edited timeline')
+    expect(m.isDirty(tab.id)).toBe(false)
+  })
+
+  it.each([true, false])('respects the real file owner admission (allowed=%s) and preserves native undo', async allowed => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    const { open } = await import('../editor-kit-v2/file-test-utils')
+    const { registerFileEditorSession, savedFileEditor } = await import('./file-editor-sessions')
+    await m.openFile('/tmp/timeline.md')
+    const tab = m.tabs[0], baseline = tab.currentContent
+    const invoke = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((command, ...args) => command === 'sotvault_records' ? Promise.resolve([]) : invoke(command, ...args))
+    const controller = open(baseline, [], undefined, { acceptRawChange: () => allowed })
+    const owner = {
+      snapshot: controller.snapshot,
+      restoreContent: controller.restoreContent,
+      flush: async () => controller.snapshot(),
+    }
+    registerFileEditorSession(tab.id, { baselineIdentity: {}, owner } as unknown as import('../editor-kit-v2/file-main').FileMountSession)
+    const saving = m.saveFileViewEdit(tab.id, tab.filePath, baseline, '# edited timeline', () => true)
+    if (!allowed) {
+      await expect(saving).rejects.toThrow('could not accept')
+      expect(controller.snapshot().raw).toBe(baseline)
+      expect(tab.currentContent).toBe(baseline)
+      expect(fs.writeMd).not.toHaveBeenCalled()
+      return
+    }
+    await saving
+    expect(controller.snapshot().raw).toBe('# edited timeline')
+    expect(savedFileEditor(tab.id)?.value.hash).toBe(controller.snapshot().sourceHash)
+    expect(controller.runHistory('undo', true)).toBe(true)
+    expect(controller.snapshot().raw).toBe(baseline)
+    expect(controller.runHistory('redo', true)).toBe(true)
+    expect(controller.snapshot().raw).toBe('# edited timeline')
+    expect(fs.writeMd).toHaveBeenCalledWith(tab.filePath, '# edited timeline')
+  })
+
+  it.each(['snapshot', 'frame', 'readonly', 'external', 'deleted', 'path', 'closed'] as const)('rejects %s without mutating or persisting', async change => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/timeline.md')
+    const tab = m.tabs[0], baseline = tab.currentContent, path = tab.filePath
+    if (change === 'snapshot') tab.currentContent = 'newer draft'
+    if (change === 'readonly') tab.initialContent = '---\nreadonly: true\n---\n'
+    if (change === 'external' || change === 'deleted') tab.externalState = change === 'external' ? 'changed' : 'deleted'
+    if (change === 'path') tab.filePath = '/tmp/other.md'
+    if (change === 'closed') m.tabs.splice(0)
+    const before = tab.currentContent
+    await expect(m.saveFileViewEdit(tab.id, path, baseline, '# edit', () => change !== 'frame')).rejects.toThrow()
+    expect(fs.writeMd).not.toHaveBeenCalled()
+    expect(tab.currentContent).toBe(before)
+  })
+
+  it('detects an external disk change before the watcher updates the tab', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/timeline.md')
+    const tab = m.tabs[0], baseline = tab.currentContent
+    vi.mocked(fs.readMd).mockResolvedValueOnce('changed on disk')
+    await expect(m.saveFileViewEdit(tab.id, tab.filePath, baseline, '# edit', () => true)).rejects.toThrow('changed on disk')
+    expect(fs.writeMd).not.toHaveBeenCalled()
+    expect(tab.currentContent).toBe(baseline)
+  })
+
+  it('rechecks the live buffer after the asynchronous disk read', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/timeline.md')
+    const tab = m.tabs[0], baseline = tab.currentContent
+    let release!: (value: string) => void
+    vi.mocked(fs.readMd).mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const saving = m.saveFileViewEdit(tab.id, tab.filePath, baseline, '# edit', () => true)
+    await vi.waitFor(() => expect(release).toBeDefined())
+    tab.currentContent = 'newer editor input'
+    release(baseline)
+    await expect(saving).rejects.toThrow('document changed')
+    expect(fs.writeMd).not.toHaveBeenCalled()
+    expect(tab.currentContent).toBe('newer editor input')
+  })
+
+  it('retains a dirty recoverable draft on disk failure and allows retry against it', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/timeline.md')
+    const tab = m.tabs[0], baseline = tab.currentContent
+    vi.mocked(fs.writeMd).mockRejectedValueOnce(new Error('Disk full'))
+    await expect(m.saveFileViewEdit(tab.id, tab.filePath, baseline, '# edit', () => true)).rejects.toThrow('Disk full')
+    expect(tab.currentContent).toBe('# edit')
+    expect(tab.initialContent).toBe(baseline)
+    expect(m.isDirty(tab.id)).toBe(true)
+    await m.saveFileViewEdit(tab.id, tab.filePath, '# edit', '# edit', () => true)
+    expect(tab.initialContent).toBe('# edit')
+    expect(m.isDirty(tab.id)).toBe(false)
+  })
+
+  it('waits behind an ordinary save and rechecks the snapshot inside the same FIFO', async () => {
+    const fs = await import('./fs'), m = await import('./tabs.svelte')
+    await m.openFile('/tmp/timeline.md')
+    await readPersistedMarkdown()
+    const tab = m.tabs[0], baseline = tab.currentContent
+    let release!: () => void
+    vi.mocked(fs.writeMd).mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const earlier = m.persistMarkdownSnapshot(tab, baseline)
+    await vi.waitFor(() => expect(release).toBeDefined())
+    const saving = m.saveFileViewEdit(tab.id, tab.filePath, baseline, '# edit', () => true)
+    const rejected = expect(saving).rejects.toThrow('document changed')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    tab.currentContent = 'newer input while waiting'
+    release()
+    await earlier
+    await rejected
+    expect(fs.writeMd).toHaveBeenCalledTimes(1)
+    expect(tab.currentContent).toBe('newer input while waiting')
+  })
+})
 
 describe('protected disk reload', () => {
   it('keeps edits made during the asynchronous read and raises the external-change banner', async () => {

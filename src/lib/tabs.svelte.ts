@@ -850,22 +850,74 @@ export function persistMarkdownSnapshot(
   expectedEpoch = markdownWriteEpoch(t.filePath),
   guestToken?: symbol,
 ): Promise<string | undefined> {
-  return enqueueMarkdownSave(t, expectedPath ?? t.filePath, async trackTarget => {
-    const path = t.filePath
-    const internal = guestToken !== undefined && guestUpdates[path]?.token === guestToken
-    if (!path || expectedEpoch !== markdownWriteEpoch(path) || (internal ? documentPolicyReadOnly(t) : isReadOnlyTab(t) || isGuestUpdateBusy(path)) || (expectedPath !== undefined && path !== expectedPath)) return
-    trackTarget(path)
-    await writeMd(path, content)
-    if (t.filePath !== path) return
-    t.initialContent = content
-    acknowledgeFileSave(t.id, content, fileSave)
-    await recordOurWrite(t, content)
-    await startWatchingTab(t)
-    if (t.filePath !== path) return
-    await renameAutoQuickNoteIfTitled(t, requireFinishedTitle, content)
-    return t.filePath
-  })
+  return enqueueMarkdownSave(t, expectedPath ?? t.filePath, trackTarget =>
+    persistMarkdownSnapshotNow(t, content, requireFinishedTitle, expectedPath, fileSave, expectedEpoch, guestToken, trackTarget))
 }
+
+async function persistMarkdownSnapshotNow(
+  t: Tab, content: string, requireFinishedTitle: boolean, expectedPath: string | undefined,
+  fileSave: FileSaveRequest | undefined, expectedEpoch: number, guestToken: symbol | undefined,
+  trackTarget: (path: string) => void,
+): Promise<string | undefined> {
+  const path = t.filePath
+  const internal = guestToken !== undefined && guestUpdates[path]?.token === guestToken
+  if (!path || expectedEpoch !== markdownWriteEpoch(path) || (internal ? documentPolicyReadOnly(t) : isReadOnlyTab(t) || isGuestUpdateBusy(path)) || (expectedPath !== undefined && path !== expectedPath)) return
+  trackTarget(path)
+  await writeMd(path, content)
+  if (t.filePath !== path) return
+  t.initialContent = content
+  acknowledgeFileSave(t.id, content, fileSave)
+  await recordOurWrite(t, content)
+  await startWatchingTab(t)
+  if (t.filePath !== path) return
+  await renameAutoQuickNoteIfTitled(t, requireFinishedTitle, content)
+  return t.filePath
+}
+
+/** Apply a file-view edit through the same owner and FIFO as ordinary Markdown saves. */
+export async function saveFileViewEdit(
+  id: string, path: string, expectedContent: string, content: string, isCurrent: () => boolean,
+): Promise<void> {
+  const tab = tabs.find(item => item.id === id)
+  const epoch = markdownWriteEpoch(path)
+  const check = () => {
+    if (!tab || tabs.find(item => item.id === id) !== tab || tab.filePath !== path
+      || tab.currentContent !== expectedContent || !isCurrent() || markdownWriteEpoch(path) !== epoch) {
+      throw new Error('The document changed. Reopen the event before saving.')
+    }
+    if (tab.kind !== 'markdown' || isReadOnlyTab(tab) || isGuestUpdateBusy(path) || fileEditorSessionClosing(id)) {
+      throw new Error('This document is read-only or busy.')
+    }
+    if (tab.externalState !== 'fresh') throw new Error('The file changed on disk. Reload it before saving.')
+    fileSourceGuard(id)?.check()
+  }
+  check()
+  await flushMountedDocument(id)
+  check()
+  const session = fileEditorSession(id), identity = session?.baselineIdentity
+  const saved = await enqueueMarkdownSave(tab!, path, async trackTarget => {
+    check()
+    const baseline = tab!.initialContent
+    const disk = await readMd(path)
+    check()
+    if (fileEditorSession(id) !== session || session && (session.baselineIdentity !== identity || session.owner.snapshot().raw !== expectedContent)) {
+      throw new Error('The editor changed. Reopen the event before saving.')
+    }
+    if (disk !== baseline || tab!.initialContent !== baseline) {
+      throw new Error('The file changed on disk. Reload it before saving.')
+    }
+    setContent(id, content)
+    if (tab!.currentContent !== content) throw new Error('The editor could not accept this change.')
+    // Failed persistence intentionally leaves the accepted draft dirty and recoverable.
+    return persistMarkdownSnapshotNow(tab!, content, false, path, captureFileSave(id, content), epoch, undefined, trackTarget)
+  })
+  if (!saved) throw new Error('The document changed before it could be saved.')
+  if (saved.endsWith('.md')) {
+    const { pushSourceToVaultIfTracked } = await import('./sotvault.svelte')
+    await pushSourceToVaultIfTracked(saved)
+  }
+}
+
 function enqueueMarkdownSave(t: Tab, target: string, write: (trackTarget: (path: string) => void) => Promise<string | undefined>): Promise<string | undefined> {
   const previous=markdownSaveQueues.get(t.id)
   const targets=previous?.targets ?? new Set<string>()

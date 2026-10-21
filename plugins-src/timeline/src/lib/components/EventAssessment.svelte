@@ -9,6 +9,7 @@
 
 <section class="assessment" aria-label={zh ? '事件判断' : 'Event assessment'}>
   <ImportanceLabel importance={metadata.importance} flagged={metadata.anomaly?.status === 'flagged'} {zh} />
+  {#if metadata.importance_origin === 'manual'}<p>{zh ? '手动设置；下方证据为原有记录。' : 'Manually set; evidence below is retained from the original record.'}</p>{/if}
   <p class="assessment-reason">{metadata.reason || (zh ? '旧文档尚未评估。' : 'This legacy document has not been assessed.')}</p>
   <div class="evidence"><strong>{zh ? '重要程度证据' : 'Importance evidence'}</strong>{#each metadata.evidence as evidence}<span>{evidence.source} · {evidence.locator}</span>{:else}<span>{zh ? '暂无证据' : 'No evidence recorded'}</span>{/each}</div>
   <div class="anomaly-assessment">
