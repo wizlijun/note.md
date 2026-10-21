@@ -1,0 +1,291 @@
+{
+  "plugin": "notemd.ebook-import",
+  "version": "1.5.4",
+  "status": "published and anonymously verified",
+  "verified_at": "2026-10-21T16:58:07+08:00",
+  "source": {
+    "frozen_tag": "plugin-ebook-import-v1.5.4",
+    "frozen_commit": "0824e4a4eaddcf1d28249e223da71ebdcc471ecf",
+    "feature_commit": "873c8dd36e9c5798d542d6d2efdb9da2e21b0da4",
+    "source_pushed": true
+  },
+  "diagnosis": {
+    "book": "Truth and Beauty - Aesthetics and Motivations in Science - S. Chandrasekhar.pdf",
+    "pdf_pages": 188,
+    "saved_ocr_pages": 19,
+    "failed_page": 20,
+    "rendered_page_bytes": 2094002,
+    "observed_errors": [
+      "Connection reset by peer on page 16 and page 20",
+      "reqwest blocking multipart Body / SendError Disconnected can hide the underlying HTTP result"
+    ],
+    "mechanism": "Blocking multipart waits for its internal body sender before reading the HTTP result; buffering one page removes that sender channel while preserving the generated multipart metadata.",
+    "early_response_regression": {
+      "image_bytes": 8388608,
+      "server_status": 413,
+      "before": "Body / SendError Disconnected",
+      "after": "HTTP 413 permanent rejection",
+      "repeat_runs_passed": 3
+    },
+    "actual_page_probe": {
+      "curl": {
+        "curl_exit": 0,
+        "timings": "200 0.046917 0.635876 21.925378 2094204",
+        "error": "",
+        "page_size": 2094002,
+        "success": true,
+        "content_chars": 2761
+      },
+      "native_production_source": "first attempt IncompleteMessage, second attempt succeeded",
+      "native_chars": 2761,
+      "native_elapsed_seconds": 52.465,
+      "user_cache_unchanged": true
+    },
+    "unknown": "The owner of the remote connection reset (OCR process or intermediate network path) is not established; the actual service is not proven to have returned HTTP 413."
+  },
+  "ui": {
+    "retry_failed_and_cancelled": true,
+    "same_queue_row": true,
+    "preserved": [
+      "path",
+      "topic",
+      "OCR choice",
+      "provider",
+      "page progress",
+      "logs",
+      "completed OCR cache"
+    ],
+    "guards": [
+      "duplicate click",
+      "pending or running same path",
+      "serial scheduler",
+      "retired job events"
+    ],
+    "native_visual_check": "unavailable: CUA browser inventory empty and native pipe startup failed",
+    "actual_svelte_dom_click_tests": "passed, including failed/cancelled, options changed between attempts, delayed RPC, stale events and serial queue"
+  },
+  "host": {
+    "requires_update": false,
+    "minimum": ">=6.910.1",
+    "verified_installed": "6.1019.2",
+    "production_market_selection": [
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.1019.2",
+        "expected": "1.5.4",
+        "actual": "1.5.4"
+      },
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.910.1",
+        "expected": "1.5.4",
+        "actual": "1.5.4"
+      },
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.910.0",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.1019.2",
+        "expected": "1.5.4",
+        "actual": "1.5.4"
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.910.1",
+        "expected": "1.5.4",
+        "actual": "1.5.4"
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.910.0",
+        "expected": null,
+        "actual": null
+      }
+    ]
+  },
+  "packages": [
+    {
+      "arch": "aarch64-apple-darwin",
+      "native_arch": "arm64",
+      "package_sha256": "b9c265f2bd5ecde87afd158daea45c00e448fb03fdff0baebd2c7c7363b98cf4",
+      "size": 2414245,
+      "binary_sha256": "b9f1ebbcaae32331b30a1743ce04e94c6f18b1bd74221d48db90a69c47142de7",
+      "minisign": "valid production key",
+      "codesign": "valid Developer ID + timestamp",
+      "manifest": "byte equal frozen tag",
+      "ui": "byte equal production build",
+      "packaged_retry_and_frozen_options_present": true,
+      "packaged_buffered_upload_present": true
+    },
+    {
+      "arch": "x86_64-apple-darwin",
+      "native_arch": "x86_64",
+      "package_sha256": "32dfcd79aa56445d5c41b99dbdf4293cdb8cb1980ad5afe2a3140cb2f68f1e20",
+      "size": 2576585,
+      "binary_sha256": "b0c0e961403a1fb460f6180a256acac46ab11da81bfa5d1e8962914931222c0d",
+      "minisign": "valid production key",
+      "codesign": "valid Developer ID + timestamp",
+      "manifest": "byte equal frozen tag",
+      "ui": "byte equal production build",
+      "packaged_retry_and_frozen_options_present": true,
+      "packaged_buffered_upload_present": true
+    }
+  ],
+  "public_objects": [
+    {
+      "key": "notemd.ebook-import/1.5.4/aarch64-apple-darwin.notemdpkg",
+      "sha256": "b9c265f2bd5ecde87afd158daea45c00e448fb03fdff0baebd2c7c7363b98cf4",
+      "size": 2414245,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.ebook-import/1.5.4/aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "2c6ce44fe350af6ca74e449045a0d5289afacbf57ef63eafbecba055fa7b1b8b",
+      "size": 325,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.ebook-import/1.5.4/x86_64-apple-darwin.notemdpkg",
+      "sha256": "32dfcd79aa56445d5c41b99dbdf4293cdb8cb1980ad5afe2a3140cb2f68f1e20",
+      "size": 2576585,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.ebook-import/1.5.4/x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "f9d515e99cd1038c208b0b2e87e1b6a04e4a25570c9a4078ff047477b0142d1d",
+      "size": 324,
+      "public_bytes_equal": true
+    }
+  ],
+  "index": {
+    "before": 264,
+    "after": 265,
+    "only_added": "notemd.ebook-import@1.5.4",
+    "historical_entries_unchanged": true,
+    "normal_and_fresh_public_bytes_equal": true,
+    "kv_content_equal": true,
+    "index_sha256": "b8a0e5141b373ea6b32484c7500286d3e4b0bb36f2f274d657a2536df8af1204",
+    "compatible_latest": "1.5.4",
+    "minimum_host": ">=6.910.1"
+  },
+  "verification": {
+    "backend_tests": {
+      "passed": 252,
+      "failed": 0,
+      "ignored": 1,
+      "ignored_case": "book_assets::tests::live_range"
+    },
+    "plugin_frontend_tests": 143,
+    "actual_app_tests": 17,
+    "svelte_check": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "production_ui_build": "passed",
+    "release_and_index_contract_tests": 108,
+    "production_market_compatibility_tests": 6,
+    "packaged_arm_runtime": {
+      "binary_sha256": "b9f1ebbcaae32331b30a1743ce04e94c6f18b1bd74221d48db90a69c47142de7",
+      "requests": [
+        1,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "first_run": [
+        1,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3
+      ],
+      "resume": [
+        3,
+        3,
+        3
+      ],
+      "completed_cache_pages": 2,
+      "incomplete_book_not_finalized": true,
+      "initialize_activate_deactivate": "ok",
+      "exit_code": 0,
+      "all_fixture_files_isolated": true,
+      "ocr_endpoint": "127.0.0.1 only",
+      "first_error": "OCR incomplete: failed pages: [3]; page 3 failed after 3 attempts; completed 2 of 3 pages; POST http://127.0.0.1:62528/ocr: HTTP 503",
+      "second_error": "OCR incomplete: failed pages: [3]; page 3 failed after 3 attempts; completed 2 of 3 pages; POST http://127.0.0.1:62528/ocr: HTTP 503"
+    },
+    "packaged_intel_runtime": {
+      "runtime": "Intel binary via existing host support",
+      "initialize": "ok",
+      "deactivate": "ok",
+      "exit_code": 0
+    }
+  },
+  "publication": {
+    "tool": "repository Wrangler 3.114.17",
+    "authentication": "existing Account API Token; no credential values recorded",
+    "order": [
+      "R2 packages and signatures",
+      "anonymous byte comparison and production minisign verification",
+      "KV index append",
+      "ordinary and cache-busted anonymous index readback"
+    ],
+    "registry": "https://plugins.notemd.net",
+    "index_url": "https://plugins.notemd.net/api/index.json",
+    "worker_deployed": false,
+    "host_released": false,
+    "user_plugin_installed": false
+  },
+  "scope_audit": {
+    "worktrees": 1,
+    "local_branches": [
+      "main"
+    ],
+    "prior_untracked_roots_preserved": [
+      ".pnpm-store/",
+      "docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+      "docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+      "docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+      "docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+      "docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+      "docs/superpowers/specs/habitat-city.html"
+    ],
+    "prior_stashes_preserved": 3,
+    "other_registry_entries_unchanged": 264,
+    "source_checksums": {
+      "plugins-src/ebook-import/manifest.v2.json": "ef21299f399b77eb365898017d1196fad0d177aa415919172ff7eb93e89583c1",
+      "plugins-src/ebook-import/backend/src/ocr/wechat.rs": "cbf62831234e1d6d4aab7167fd6b76169832d6bd8847ee5eb4a93f6083a6e17d",
+      "plugins-src/ebook-import/backend/src/ocr/wechat/tests.rs": "6f13c6205ab6b877831dcba48bbe4b6aea0ff44afe504dd4b65103adb5c1673d",
+      "plugins-src/ebook-import/src/App.svelte": "f99cff398ab063fbd8e49c96ebe26fddb16de6f8edc434d9dc394942747d1b10",
+      "plugins-src/ebook-import/src/App.test.ts": "a742c80b8744ec1a0416e43ca3a75dd0c57ef6ce7ece6892e09cd48a7664ec73",
+      "plugins-src/ebook-import/src/lib/queue.ts": "2f3c633a9c62ae23bd07616562c1d3b549f7664b3824d42bd94592bae15281c8",
+      "plugins-src/ebook-import/src/lib/queue.test.ts": "ce50018686aa8ccf33fa1173226e0fbedd0188eb4df96e417460a36d8eff9fd3",
+      "plugins-src/ebook-import/src/lib/strings.ts": "935e788483c0cdfcb7b86fb3458caeb90faed23ca797f3c666ef8af90d65a8b6"
+    }
+  },
+  "limitations": [
+    "In-flight blocking OCR requests retain the existing 120 second timeout.",
+    "Resuming skips completed OCR requests but still renders the PDF pages first.",
+    "Queue rows remain window-session state; this patch does not restore rows from a previous plugin window."
+  ],
+  "audit_notes": [
+    "First GitHub source push failed during SSL connect; ls-remote confirmed the old remote head and absent new tag before the same push succeeded.",
+    "A localization edit command initially used the wrong working directory; corrected it and ran all 143 frontend tests and type checks successfully.",
+    "Native browser automation was unavailable; no native visual verification is claimed."
+  ],
+  "local_evidence_directories": [
+    "tasks/ebook-release-154-20261021",
+    "tasks/ocr-retry-ui-20261021"
+  ]
+}
