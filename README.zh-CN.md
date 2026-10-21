@@ -24,7 +24,7 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 | Linux beta · Debian 12 / Omarchy | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&arch=x86_64) |
 | Linux beta · Debian 12 / Omarchy | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&arch=aarch64) |
 
-**v6.1021.1 更新 macOS Apple Silicon 与 Intel 安装包，支持时间线交互编辑，并修复中文行内格式。** 粗体、斜体、删除线和高亮在中文标点及相邻正文间正确渲染，无需补空格；格式边缘的输入、替换、删除、取消格式及撤销重做保留预期文字与样式。同时从插件市场将 Timeline 更新至 1.2.0，即可在活动或子议题详情中修改活动名称、事件描述、开始/结束时间和重要程度。保存失败保留草稿，冲突校验保护已有改动。本次不替换 Linux v6.1016.2 和 Windows v6.811.1 安装包，上方链接继续提供各平台最后实际可用的版本。
+**v6.1022.1 更新 macOS Apple Silicon、Intel，以及 Linux beta 的 x86_64、aarch64 安装包。** Pele 图表背景与对应渲染框一致，支持自定义纸张颜色，并随主题切换自动更新；复制的 PNG 保留相同背景。Linux 同步获得此前的图表、中文行内格式及 Timeline 宿主编辑改进；请从插件市场单独将 Timeline 更新至 1.2.0。Linux 仍为 beta，aarch64 未经桌面实机验证，Omarchy 仓库尚未收录。Windows 继续提供 v6.811.1，上方链接提供各平台最后实际可用的版本。
 
 Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux ARM 不会回退到 x86_64 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
 
