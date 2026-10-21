@@ -31,10 +31,26 @@ sudo apt install ./note.md_<version>_arm64.deb
 ```
 
 Omarchy uses an Arch package generated from these debs; do not use `dpkg` to
-install a deb on Arch. Once a downstream package has been built and reviewed,
-install its matching `.pkg.tar.zst` using `sudo pacman -U ./<package>.pkg.tar.zst`.
-`pacman -S notemd` is only applicable after downstream repository inclusion;
-this work has not submitted or published that entry.
+install a deb on Arch. Release [6.1022.1](https://github.com/wizlijun/note.md/releases/tag/v6.1022.1)
+includes a verified x86_64 Arch package. Download
+[`notemd-6.1022.1-1-x86_64.pkg.tar.zst`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/notemd-6.1022.1-1-x86_64.pkg.tar.zst)
+and [`SHA256SUMS-omarchy.txt`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/SHA256SUMS-omarchy.txt)
+into the same directory, then verify and install:
+
+```bash
+sha256sum -c SHA256SUMS-omarchy.txt
+sudo pacman -U ./notemd-6.1022.1-1-x86_64.pkg.tar.zst
+```
+
+The package was built with the generated recipe and verified through an actual
+Arch container installation, file integrity checks and CLI execution. Omarchy's
+Hyprland/fcitx5/tray/HiDPI desktop acceptance is still pending; there is no
+prebuilt aarch64 Arch package. `pacman -S notemd` is only applicable after
+downstream repository inclusion; this work has not submitted that entry.
+
+Omarchy x86_64 可下载同一发行页的 Arch 包和校验文件，校验后用上面的
+`pacman -U` 命令安装。已验证 Arch 容器实际安装及 CLI，尚未完成 Omarchy
+桌面实机验收，也未收录到下游仓库；目前不能用 `pacman -S notemd` 安装。
 
 Linux bundles are built with `NOTEMD_DIST_CHANNEL=package-manager`. Settings
 show “Updated by your package manager”; the app does not check, download or
