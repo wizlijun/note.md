@@ -2,12 +2,12 @@
   "manifest_version": 2,
   "id": "notemd.timeline",
   "name": "Timeline",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.909.4"
+    "notemd": ">=6.1021.1"
   },
-  "description": "View daily timelines with event importance, anomaly badges, evidence details, and configurable activity categories.",
+  "description": "View and edit daily timeline activities, descriptions, times, and event importance, with preserved source links and configurable categories.",
   "ui": "ui/",
   "activation": {
     "events": []
@@ -49,12 +49,13 @@
   "capabilities": [
     "settings",
     "vault.read",
-    "editor.open", "editor.write"
+    "editor.open",
+    "editor.write"
   ],
   "i18n": {
     "zh": {
       "name": "时间轴",
-      "description": "以竖向日程查看每日时间线，显示事件重要程度、反常标识及判断证据，并可自定义活动分类。",
+      "description": "查看并编辑每日时间线的活动名称、描述、起止时间和重要程度，保留来源链接并支持自定义分类。",
       "menus": {
         "view-timeline": "查看时间轴"
       }
