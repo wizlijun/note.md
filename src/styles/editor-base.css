@@ -588,7 +588,7 @@
   align-items: center;
   min-height: 60px;
   cursor: pointer;
-  background: color-mix(in srgb, CanvasText 3%, Canvas);
+  background: transparent;
   border-radius: 6px;
 }
 .moraya-editor .mermaid-preview svg {

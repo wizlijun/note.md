@@ -63,3 +63,25 @@ it('uses dark Pele defaults in desktop and detached exports without theme variab
     if (previousTheme === undefined) delete root.dataset.theme; else root.dataset.theme = previousTheme
   }
 })
+
+it('uses the actual preview or export container background instead of the global document', async () => {
+  vi.stubEnv('VITE_DIAGRAM_RENDERER', 'pele')
+  const frame = document.createElement('section'), preview = document.createElement('div')
+  frame.style.backgroundColor = 'rgb(232, 240, 234)'
+  frame.style.color = 'rgb(44, 44, 44)'
+  preview.style.backgroundColor = 'transparent'
+  frame.append(preview); document.body.append(frame)
+  try {
+    const api = await (await import('./mermaid-loader')).loadDesktopMermaid()
+    await api.renderMermaid('graph TD; A-->B', { maxWidth: 320, container: preview })
+    expect(peleRender).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      maxWidth: 320, appearance: expect.objectContaining({ themeVariables: expect.objectContaining({ background: 'rgb(232, 240, 234)' }) }),
+    }))
+    frame.style.backgroundColor = 'rgb(30, 32, 36)'; frame.style.color = 'rgb(238, 238, 238)'
+    const plugin = await (await import('./renderer-registry')).loadMermaidRenderer()
+    await plugin.render('graph TD; A-->B', preview)
+    expect(peleRender).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      appearance: expect.objectContaining({ theme: 'dark', themeVariables: expect.objectContaining({ background: 'rgb(30, 32, 36)' }) }),
+    }))
+  } finally { frame.remove() }
+})

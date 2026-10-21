@@ -14,13 +14,13 @@ env VITE_DIAGRAM_RENDERER=mermaid pnpm_config_verify_deps_before_run=false pnpm 
 
 开发服务器的分享资源读取 dist 中已构建的独立资源，因此必须先使用同一选择执行 build，再以同一选择执行 dev。回退也必须先重建；只重启 dev 不能替换旧分享资源。请通过进程环境变量传入开关，三个构建路径共用该值。
 
-Pele 支持的语法与 Mermaid 有差异：任意 HTML 标签、Mermaid themeVariables 自定义颜色语法与 JS callbacks 不受支持。新引擎不会在单图失败时偷偷切回旧引擎；保留源码修正语法或显式重建 Mermaid 版本。图表图片禁用；分享同时禁用链接，不加载外部资源。主题六色在每次渲染时读取，导出 SVG 自带颜色与背景。没有即时性能提升保证；Windows/Linux 原生宿主仍需实机验证。
+Pele 支持的语法与 Mermaid 有差异：任意 HTML 标签、Mermaid themeVariables 自定义颜色语法与 JS callbacks 不受支持。新引擎不会在单图失败时偷偷切回旧引擎；保留源码修正语法或显式重建 Mermaid 版本。图表图片禁用；分享同时禁用链接，不加载外部资源。每次渲染读取当前主题六色和对应渲染框的实际背景，切换主题自动更新；导出 SVG 和复制 PNG 保留该背景，无容器背景上下文时采用安全的明暗默认色。没有即时性能提升保证；Windows/Linux 原生宿主仍需实机验证。
 
 The selector is build-only, with no settings UI or automatic fallback. The same process environment selects the desktop preview, static HTML/PDF export, and independent visitor diagram resource. Existing mermaid Markdown stays unchanged. Pele is the default when the variable is unset or empty. Explicitly set `VITE_DIAGRAM_RENDERER=mermaid` and rebuild to revert. Unknown nonempty values fail the build.
 
 For development, build first and run dev with the same selector: the share asset plugin serves the independent resources already in dist. Reverting also requires rebuilding before dev. Supply the selector through the process environment so every build path uses the same value.
 
-Pele syntax differs from Mermaid: arbitrary HTML labels, Mermaid themeVariables syntax, and JS callbacks are unsupported. A diagram error keeps its source; it does not switch engines. Images are disabled; shares also disable links and external resources. Each render reads the current six theme colors, and exported SVG contains its own palette and background. No immediate performance improvement is promised. Native Windows/Linux verification remains outstanding.
+Pele syntax differs from Mermaid: arbitrary HTML labels, Mermaid themeVariables syntax, and JS callbacks are unsupported. A diagram error keeps its source; it does not switch engines. Images are disabled; shares also disable links and external resources. Each render reads the current six theme colors and the actual rendering frame's background, updating on theme changes. Exported SVGs and copied PNGs retain that background; a missing container backdrop uses safe light/dark defaults. No immediate performance improvement is promised. Native Windows/Linux verification remains outstanding.
 
 ## 定期检查上游更新 / Upstream update checks
 

@@ -6,6 +6,7 @@ export interface PeleRenderOptions {
   appearance?: {
     theme: 'default' | 'dark'
     themeVariables: {
+      background?: string
       primaryColor: string
       primaryTextColor: string
       primaryBorderColor: string
@@ -87,8 +88,9 @@ export function renderPeleSvg(code: string, options: PeleRenderOptions = {}): st
 
   const dark = options.appearance?.theme === 'dark'
   const colors = options.appearance?.themeVariables
+  const defaultBackground = dark ? '#1e1e1e' : '#ffffff'
   const palette: Record<string, string> = {
-    bg: dark ? '#1e1e1e' : '#ffffff',
+    bg: colors?.background ?? defaultBackground,
     fg: colors?.primaryTextColor ?? (dark ? '#eeeeee' : '#1f1f1f'),
     muted: dark ? '#aaaaaa' : '#6e6e6e',
     line: colors?.lineColor ?? (dark ? '#cccccc' : '#1f1f1f'),
@@ -108,8 +110,8 @@ export function renderPeleSvg(code: string, options: PeleRenderOptions = {}): st
   const probe = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGElement
   for (const [name, color] of Object.entries(palette)) {
     probe.style.color = ''
-    if (!/[;{}]|var\(|url\(/i.test(color) && safePaint(color)) probe.style.color = color
-    const fallback = name === 'fg' ? (dark ? '#eeeeee' : '#1f1f1f') : palette.bg
+    if (!/[;{}]|var\(|url\(/i.test(color) && !/^(?:inherit|initial|unset|revert(?:-layer)?)$/i.test(color.trim()) && safePaint(color)) probe.style.color = color
+    const fallback = name === 'fg' ? (dark ? '#eeeeee' : '#1f1f1f') : defaultBackground
     ;(root as unknown as SVGElement).style.setProperty(`--pele-${name}`, probe.style.color ? color : fallback)
   }
   const style = (root as unknown as SVGElement).style

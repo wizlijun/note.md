@@ -27,6 +27,30 @@ describe('shared Pele renderer', () => {
     const narrow = svg(render(flow, { maxWidth: 180 }))
     expect(narrow.getAttribute('viewBox')).not.toBe(wide.getAttribute('viewBox'))
   })
+  describe.each([[false, '#e8f0ea'], [true, '#1e2024']] as const)('frame background (dark=%s)', (isDark, background) => {
+    it.each([
+      ['flowchart', flow],
+      ['sequence', 'sequenceDiagram\n participant A\n participant B\n A->>B: Save'],
+      ['class', 'classDiagram\n class Note {\n +String title\n }'],
+      ['pie', 'pie title Resources\n "Notes" : 60\n "Files" : 40'],
+      ['quadrant', 'quadrantChart\n x-axis Low --> High\n y-axis Low --> High\n Project: [0.7, 0.8]'],
+      ['C4', 'C4Context\n Person(user, "User")\n System(app, "Notes")\n Rel(user, app, "Edit")'],
+    ])('uses the actual frame color for %s and preserves local theme aliases', (_name, code) => {
+      const appearance = { theme: isDark ? 'dark' as const : 'default' as const, themeVariables: { ...dark.themeVariables, background } }
+      const root = svg(render(code, { appearance })) as unknown as SVGElement
+      expect(root.style.getPropertyValue('--pele-bg')).toBe(background)
+      expect(root.style.backgroundColor).toBe('var(--pele-bg)')
+      expect(root.querySelector('rect[width="100%"][height="100%"]')?.getAttribute('fill')).toBe('var(--pele-bg)')
+      expect(root.style.getPropertyValue('--_bg')).toContain('--pele-bg')
+      expect(root.querySelector('text')).not.toBeNull()
+    })
+  })
+  it.each(['url(https://evil.test/background)', 'var(--hostile-paint)', 'inherit'])('rejects unsafe frame background %s', background => {
+    const appearance = { ...dark, themeVariables: { ...dark.themeVariables, background } }
+    const root = svg(render(flow, { appearance })) as unknown as SVGElement
+    expect(root.style.getPropertyValue('--pele-bg')).toBe('#1e1e1e')
+    expect(root.getAttribute('style')).not.toMatch(/evil\.test|hostile-paint|inherit/)
+  })
   it('retains safe authored style', () => {
     expect(render('flowchart TD\n A[Styled]\n style A fill:#ff0000,stroke:#00ff00')).toContain('#ff0000')
   })

@@ -2,7 +2,7 @@ import type { DraftV2, ProjectAnnotationV2, ShareSnapshotInput } from '../lib/pr
 export type RebaseUiResult = { status: 'applied'; draft: DraftV2 } | { status: 'cancelled' }
 export type ShareMermaidAppearance = {
   theme: 'default' | 'dark'
-  themeVariables: { primaryColor: string; primaryTextColor: string; primaryBorderColor: string; lineColor: string; secondaryColor: string; tertiaryColor: string }
+  themeVariables: { primaryColor: string; primaryTextColor: string; primaryBorderColor: string; lineColor: string; secondaryColor: string; tertiaryColor: string; background?: string }
 }
 export interface ShareEditorHost {
   apiVersion: 1

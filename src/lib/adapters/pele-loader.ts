@@ -2,9 +2,9 @@ import { renderPeleSvg } from '../diagrams/pele-renderer'
 import { mermaidAppearance } from '../../share-editor/mermaid-loader'
 
 export const supportsResponsiveLayout = true
-export async function renderMermaid(code: string, options?: { maxWidth?: number }) {
+export async function renderMermaid(code: string, options?: { maxWidth?: number; container?: HTMLElement }) {
   try {
-    return { svg: renderPeleSvg(code, { ...options, appearance: mermaidAppearance(document.documentElement, 'pele'), links: true }) }
+    return { svg: renderPeleSvg(code, { maxWidth: options?.maxWidth, appearance: mermaidAppearance(options?.container ?? document.documentElement, 'pele'), links: true }) }
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) }
   }

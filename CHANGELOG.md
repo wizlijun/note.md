@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Diagram backgrounds follow the current theme.** Pele previews use the actual rendering frame's background, including custom paper colors, and update when its theme changes. Copied PNGs retain the same background.
+
 ## v6.1021.1 — 2026-10-21
 
 - **Rich formatting supports Chinese punctuation.** Bold, italic, strikethrough and highlights render correctly beside Chinese text without added spaces. Typing or exposing spaces at formatting boundaries, removing formatting, and undo/redo preserve the intended text and styles.
