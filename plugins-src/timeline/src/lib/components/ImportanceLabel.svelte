@@ -11,5 +11,5 @@
 <style>
   .assessment-labels { display: flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
   .importance-label { color: var(--importance-color); font-size: 10px; font-weight: 650; line-height: 16px; }
-  .anomaly-label { color: var(--ui-danger); border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 650; line-height: 14px; }
+  .anomaly-label { color: var(--timeline-anomaly-text); background: var(--timeline-anomaly-bg); border: 1px solid transparent; border-radius: 4px; padding: 0 4px; font-size: 9px; font-weight: 650; line-height: 14px; }
 </style>

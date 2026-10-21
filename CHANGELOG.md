@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Softer Timeline colors.** Muted category backgrounds and importance accents, with a subtle rose anomaly badge. Separate light and dark palettes retain readable text contrast.
+
 - **Timeline shows event importance and anomalies.** Display saved Important, Normal, and Pending review assessments independently of activity categories, with separate anomaly badges. Details preserve each topic’s reasons, evidence, and unknown signals. Legacy documents remain pending review; invalid metadata or bindings fall back to Markdown.
 
 - **Retry a failed ebook import from its existing row.** Keep the file, topic, OCR provider and completed pages; prevent duplicate starts and stale job updates. Buffer each OCR upload so an early HTTP response retains its real status instead of an internal body-channel error.

@@ -70,3 +70,16 @@ python3 scripts/check-timeline-importance-contract.py \
 python3 scripts/check-timeline-importance-contract.py \
   --generator-script /path/to/vault-timeline/scripts/timeline.py --select-only
 ```
+
+## 柔和配色补充验收
+
+以上首次实现证据对应提交 `3bff9c90`。本轮按用户要求参考 [Apple HIG Color](https://developer.apple.com/design/human-interface-guidelines/color) 与 [Dark Mode](https://developer.apple.com/design/human-interface-guidelines/dark-mode) 的语义色和明暗适配原则，使用项目自定义低饱和色值，不称为Apple官方色板。五分类背景/边框变浅、变灰；等级文字与装饰色条分离，重要为暖沙色、普通为雾蓝、待判断为中性灰；反常为灰玫瑰色浅底标签。未改变两行44px卡片布局、解析或判断。
+
+浅色反常文字初版对比度不足，已压深为 `#8c5860`。最终按sRGB亮度计算三档文字×五分类底色及反常徽标，包含hover亮度后的最小对比度：浅色等级5.12、反常4.63，深色等级6.41、反常5.17；均超过4.5:1。色条仅作辅助，等级仍有文字。
+
+208项插件测试、check 0错误0警告、生产构建、相同生产浏览器验收全部通过。已实看浅/深/390px/英文长标签截图，颜色柔和且标签未溢出。本机证据：`tasks/timeline-palette-20261021/browser/` 和 `contrast.json`。未安装、未push、未发布。外部Python扫描差异未被本轮配色改动处理。
+
+本轮生产资产SHA-256：
+
+- `index-B-Es091F.js`：`c5832b70bab33e1683e6af634e4022102ca8d97e2d82bbd613df8c48ed34958c`
+- `index-D5mMftNJ.css`：`aeafae9ce2dae5bd4f46bd7487d7ac55c0e0a01ef4b77c9f348172112a620b51`
