@@ -1,0 +1,228 @@
+{
+  "plugin": "notemd.ebook-import",
+  "version": "1.5.3",
+  "status": "published and anonymously verified",
+  "verified_at": "2026-10-21T15:26:20+08:00",
+  "source": {
+    "frozen_tag": "plugin-ebook-import-v1.5.3",
+    "frozen_commit": "978128ab085e2879c2b2f6f4599b7f1bca513d50",
+    "feature_commit": "a654a7c3c572199c19c7c8ed78e1004725902e1b",
+    "source_pushed": true
+  },
+  "host": {
+    "requires_update": false,
+    "minimum": ">=6.910.1",
+    "current_installed": "6.1019.2",
+    "production_market_selection": [
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.1019.2",
+        "expected": "1.5.3",
+        "actual": "1.5.3"
+      },
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.910.1",
+        "expected": "1.5.3",
+        "actual": "1.5.3"
+      },
+      {
+        "arch": "aarch64-apple-darwin",
+        "host": "6.910.0",
+        "expected": null,
+        "actual": null
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.1019.2",
+        "expected": "1.5.3",
+        "actual": "1.5.3"
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.910.1",
+        "expected": "1.5.3",
+        "actual": "1.5.3"
+      },
+      {
+        "arch": "x86_64-apple-darwin",
+        "host": "6.910.0",
+        "expected": null,
+        "actual": null
+      }
+    ]
+  },
+  "packages": [
+    {
+      "arch": "aarch64-apple-darwin",
+      "native_arch": "arm64",
+      "package_sha256": "5c909f9d5e39521c9750573cccb5362b8eec9f9dacbf034d667348941408fa9d",
+      "size": 2413378,
+      "binary_sha256": "a4bdf07fc2f696b0d8b99f477912934de6f7b391971a40c14aa33d1f23b9f1eb",
+      "minisign": "valid production key",
+      "codesign": "valid Developer ID + timestamp",
+      "manifest": "byte equal frozen tag",
+      "ui": "byte equal production build",
+      "ocr_feature_strings_present": true
+    },
+    {
+      "arch": "x86_64-apple-darwin",
+      "native_arch": "x86_64",
+      "package_sha256": "2d84f9e813907958e51740a66d25152602c5c73716f58174a974ef44fe95112c",
+      "size": 2575778,
+      "binary_sha256": "6d3813e153b66bda6a41a5e39d1f908e09538cc742e14d1d489221337b05e56b",
+      "minisign": "valid production key",
+      "codesign": "valid Developer ID + timestamp",
+      "manifest": "byte equal frozen tag",
+      "ui": "byte equal production build",
+      "ocr_feature_strings_present": true
+    }
+  ],
+  "public_objects": [
+    {
+      "key": "notemd.ebook-import/1.5.3/aarch64-apple-darwin.notemdpkg",
+      "sha256": "5c909f9d5e39521c9750573cccb5362b8eec9f9dacbf034d667348941408fa9d",
+      "size": 2413378,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.ebook-import/1.5.3/aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "3e169d601f21453b3a21d8f58e8642ba4199869430463f4e8a15b10255b531d1",
+      "size": 325,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.ebook-import/1.5.3/x86_64-apple-darwin.notemdpkg",
+      "sha256": "2d84f9e813907958e51740a66d25152602c5c73716f58174a974ef44fe95112c",
+      "size": 2575778,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.ebook-import/1.5.3/x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "991c86dcf9e9a60b30cce0452cfb49f78a09c936af4d074e00aba5ec740ab1d5",
+      "size": 324,
+      "public_bytes_equal": true
+    }
+  ],
+  "index": {
+    "before": 263,
+    "after": 264,
+    "only_added": "notemd.ebook-import@1.5.3",
+    "historical_entries_unchanged": true,
+    "normal_and_fresh_public_bytes_equal": true,
+    "kv_content_equal": true,
+    "index_sha256": "6e2e652a7f619a1af6b6dca5742537c1751e362415a445dc741edde5086aa256",
+    "compatible_latest": "1.5.3",
+    "minimum_host": ">=6.910.1"
+  },
+  "verification": {
+    "backend_tests": {
+      "passed": 251,
+      "failed": 0,
+      "ignored": 1,
+      "ignored_case": "book_assets::tests::live_range (explicit live output directory and network required)"
+    },
+    "plugin_frontend_tests": 136,
+    "svelte_check": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "production_ui_build": "passed",
+    "release_and_index_contract_tests": 108,
+    "production_market_compatibility_tests": 6,
+    "packaged_arm_runtime": {
+      "binary_sha256": "a4bdf07fc2f696b0d8b99f477912934de6f7b391971a40c14aa33d1f23b9f1eb",
+      "requests": [
+        1,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "first_run": [
+        1,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3
+      ],
+      "resume": [
+        3,
+        3,
+        3
+      ],
+      "completed_cache_pages": 2,
+      "incomplete_book_not_finalized": true,
+      "initialize_activate_deactivate": "ok",
+      "exit_code": 0,
+      "all_fixture_files_isolated": true,
+      "ocr_endpoint": "127.0.0.1 only",
+      "first_error": "OCR incomplete: failed pages: [3]; page 3 failed after 3 attempts; completed 2 of 3 pages; POST http://127.0.0.1:56226/ocr: HTTP 503",
+      "second_error": "OCR incomplete: failed pages: [3]; page 3 failed after 3 attempts; completed 2 of 3 pages; POST http://127.0.0.1:56226/ocr: HTTP 503"
+    },
+    "packaged_intel_runtime": {
+      "runtime": "Intel binary via existing host support",
+      "initialize": "ok",
+      "deactivate": "ok",
+      "exit_code": 0
+    }
+  },
+  "publication": {
+    "tool": "repository Wrangler 3.114.17",
+    "authentication": "existing Account API Token from project configuration; no credential values recorded",
+    "order": [
+      "R2 packages and signatures",
+      "anonymous byte comparison and production minisign verification",
+      "KV index append",
+      "ordinary and cache-busted anonymous index readback"
+    ],
+    "registry": "https://plugins.notemd.net",
+    "index_url": "https://plugins.notemd.net/api/index.json",
+    "worker_deployed": false,
+    "host_released": false,
+    "user_plugin_installed": false
+  },
+  "scope_audit": {
+    "worktrees": 1,
+    "local_branches": [
+      "main"
+    ],
+    "prior_untracked_roots_preserved": [
+      ".pnpm-store/",
+      "docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+      "docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+      "docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+      "docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+      "docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+      "docs/superpowers/specs/habitat-city.html"
+    ],
+    "prior_stashes_preserved": 3,
+    "other_registry_entries_unchanged": 263,
+    "source_checksums": {
+      "plugins-src/ebook-import/manifest.v2.json": "6c27e963d36b644ac9e8ff00b5dd7324f42f5de14f62b15baf099652399a3062",
+      "plugins-src/ebook-import/backend/src/ocr/wechat.rs": "313eeb15c97c68b614b4b8088ff3fbfd8b95ca5aa46ceca7227cc0ae72454b1a",
+      "plugins-src/ebook-import/backend/src/ocr/wechat/tests.rs": "86e8e1ed1d3618c0b61664305f4018693da6ccbc02606e2f528eb0d4d34e353a",
+      "plugins-src/ebook-import/src/lib/errors.ts": "eaf64e003d7e78e71f7f373edd8ccc7ea7ad6df7294ecf27089a51386bcdf5af",
+      "plugins-src/ebook-import/src/lib/logs.ts": "348bf2bb0a12ee02a6e08337cb1514ce07277190a028deee0f4ac9dab0617446",
+      "plugins-src/ebook-import/src/lib/strings.ts": "cff6dd2d5dc0ddb86c71838bac5e3faea75ce54d67ded908411672b854bf915b"
+    }
+  },
+  "limitations": [
+    "In-flight blocking OCR requests retain the existing 120 second timeout.",
+    "Resuming skips completed OCR requests but still renders the PDF pages first."
+  ],
+  "audit_notes": [
+    "Initial urllib anonymous index request received HTTP403; existing curl release-audit readback succeeded.",
+    "Runtime audit harness first treated JSON-RPC id:null notifications as requests; corrected harness and reran successfully without changing packages.",
+    "Standalone Node selector check lacked the Svelte runtime; reran exact production selector through existing Vite/Vitest transforms, all six compatibility cases passed.",
+    "Initial release-contract command used an unrecognized isolation variable; repeated all 108 checks using the repository NOTEMD_EMPTY_ENV_DIR setting."
+  ],
+  "local_evidence_directory": "tasks/ebook-release-153-20261021"
+}
