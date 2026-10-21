@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1022.1 — 2026-10-22
+
 - **Diagram backgrounds follow the current theme.** Pele previews use the actual rendering frame's background, including custom paper colors, and update when its theme changes. Copied PNGs retain the same background.
 
 - **Refresh Linux beta for Debian and Omarchy packaging.** Both architectures include the recent Pele renderer, shared attachments, Chinese rich-formatting and Markdown parser fixes. Linux remains managed by the package manager; Omarchy repository inclusion and native desktop acceptance are still pending.
