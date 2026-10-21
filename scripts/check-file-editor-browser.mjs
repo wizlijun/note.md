@@ -7,7 +7,7 @@ import {createServer} from 'vite'
 import {svelte} from '@sveltejs/vite-plugin-svelte'
 const own=resolve('.superpowers/sdd/2026-10-14-file-bindings-history')
 const caseName=process.argv[3]
-assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery','image'].includes(caseName),'unknown file editor browser case')
+assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery','image','cjk'].includes(caseName),'unknown file editor browser case')
 for(const name of ['FILE_PLAN_OWN','FILE_EDITOR_OUTPUT_DIR','FILE_EDITOR_CACHE_DIR','PLAYWRIGHT_MODULE'])assert.ok(process.env[name],`${name} required`)
 assert.equal(resolve(process.env.FILE_PLAN_OWN),own)
 const outputDir=resolve(process.env.FILE_EDITOR_OUTPUT_DIR),cacheDir=resolve(process.env.FILE_EDITOR_CACHE_DIR)
@@ -88,7 +88,7 @@ window.test={
  async close(){await session.close()},hold:false
 };await test.open();window.ready=true
 </script></body></html>`
-const fixture=caseName==='recovery'?recoveryFixture:['mount','image'].includes(caseName)?mountFixture:resizeFixture
+const fixture=caseName==='recovery'?recoveryFixture:['mount','image','cjk'].includes(caseName)?mountFixture:resizeFixture
 writeFileSync(resolve(outputDir,`${caseName}-fixture.html`),fixture)
 const output={case:caseName,environment:{node:process.version,playwright:process.env.PLAYWRIGHT_MODULE,core:realpathSync('node_modules/@moraya/core'),coreSha256:createHash('sha256').update(readFileSync('node_modules/@moraya/core/dist/index.js')).digest('hex')},pageErrors:[],console:[],cases:[],platformLimitations:['Synthetic Chromium mouse/pointer tests are not native iOS/Android touch or Safari/IME device acceptance.']}
 const server=await createServer({root:process.cwd(),configFile:false,envDir:resolve(own,'empty-env'),cacheDir,resolve:{dedupe:['prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history']},optimizeDeps:{include:['@moraya/core','@moraya/core/schema','@moraya/core/commands','@moraya/core/source-history','@moraya/core/plugins/session-table-view','prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history','prosemirror-commands','prosemirror-schema-list']},server:{host:'127.0.0.1',port:0,hmr:false,watch:null},plugins:[...(caseName!=='resize'?[svelte()]:[]),{name:'file-resize-fixture',configureServer(vite){vite.middlewares.use('/__file_image.svg',(_req,res)=>{res.setHeader('Content-Type','image/svg+xml');res.end('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" fill="#5370d4"/></svg>')});vite.middlewares.use('/src/editor-kit-v2/editor-kit-v1.css',(_req,res)=>{res.statusCode=302;res.setHeader('Location','/src/editor-kit/kit.css');res.end()});vite.middlewares.use('/__file_resize',async(_req,res,next)=>{try{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await vite.transformIndexHtml('/__file_resize',fixture))}catch(error){next(error)}})}}]})
@@ -97,7 +97,7 @@ try{
  await server.listen();browser=await chromium.launch({headless:true});output.environment.browser=browser.version();page=await browser.newPage({viewport:{width:1000,height:700}})
  page.on('pageerror',e=>output.pageErrors.push(e.stack??String(e)));page.on('console',message=>output.console.push({type:message.type(),text:message.text()}))
  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/__file_resize`);await page.waitForFunction(()=>window.ready)
- if(caseName==='image'){await checkImage(page,output,outputDir);output.status='PASS';console.log('PASS: actual image helper/controller/history browser acceptance')}else if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
+ if(caseName==='cjk'){await checkCjk(page,output,outputDir);output.status='PASS';console.log('PASS: CJK strong rendering, actual keyboard edits, source/save and history')}else if(caseName==='image'){await checkImage(page,output,outputDir);output.status='PASS';console.log('PASS: actual image helper/controller/history browser acceptance')}else if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
  const snapshot=()=>page.evaluate(()=>test.snapshot())
  const drag=async(column,dx,finish=true)=>{
   const box=await page.locator('.column-resize-handle').nth(column).boundingBox();assert.ok(box,'real handle rectangle')
@@ -277,4 +277,83 @@ async function checkImage(page,output,dir){
  }
  assert.deepEqual(output.pageErrors,[])
 
+}
+
+async function checkCjk(page,output,outputDir){
+ const sentence='用户怎么用 Tower.md，我们预测不了；人脑在哪里会出错，我们预测得了。',tail='所以核心不预设任何场景，',raw='**'+sentence+'**'+tail
+ const rich=page.locator('.ProseMirror'),source=page.locator('.kit-source-ta'),snapshot=()=>page.evaluate(()=>test.snapshot())
+ const verifySaved=async expected=>{
+  await page.click('#save');assert.equal(await page.locator('#saved').textContent(),expected)
+  await page.click('#source');assert.equal(await source.inputValue(),expected)
+  await page.click('#rich');await rich.waitFor({state:'visible'});assert.equal((await snapshot()).raw,expected)
+ }
+ await page.evaluate(raw=>test.open(raw),raw)
+ assert.equal(await rich.locator('strong').innerText(),sentence)
+ assert.equal((await snapshot()).pm.content[0].content[1].text,tail)
+ assert.equal((await snapshot()).generation,0)
+ assert.equal(await rich.locator('strong').evaluate(el=>Number(getComputedStyle(el).fontWeight)>=600),true)
+ await page.screenshot({path:resolve(outputDir,'cjk-strong.png')})
+ await verifySaved(raw)
+ for(const operation of ['delete punctuation','insert space','insert bold space','remove strong']){
+  await page.evaluate(raw=>test.open(raw),raw)
+  const end=1+sentence.length
+  if(operation==='remove strong'){
+   await page.evaluate(end=>test.select(1,end),end);await rich.focus();await rich.press('ControlOrMeta+b')
+  }else{
+   await page.evaluate(end=>test.select(end),end);await rich.focus()
+   if(operation==='delete punctuation')await page.keyboard.press('Backspace')
+   else{if(operation==='insert space')await page.evaluate(()=>test.stored(null));await page.keyboard.type(' ')}
+  }
+  const expected=operation==='delete punctuation'?raw.replace('。',''):operation==='insert space'?raw.replace('**所以','** 所以'):operation==='insert bold space'?raw.replace('。**所','。&#32;**&#25152;'):sentence+tail
+  const after=await snapshot();assert.equal(after.raw,expected);assert.ok(after.generation>0);assert.equal(after.changes.at(-1).raw,expected)
+  await verifySaved(expected)
+  await rich.focus();await rich.press('ControlOrMeta+z');assert.equal((await snapshot()).raw,raw)
+  await rich.press('ControlOrMeta+Shift+z');assert.equal((await snapshot()).raw,expected)
+  await page.evaluate(raw=>test.open(raw),expected);assert.equal((await snapshot()).raw,expected)
+  output.cases.push({name:operation,after})
+ }
+ // The same production owner and keyboard path for every supported delimiter.
+ for(const [marker,mark,command,tag] of [['**','strong','bold','strong'],['__','strong','bold','strong'],['*','em','italic','em'],['_','em','italic','em'],['~~','strike_through','strikethrough','del'],['==','highlight','highlight','mark'],['^^','highlight','highlight','mark']]){
+  for(const operation of ['insert inside space','insert outside space','delete punctuation','replace with space','delete first word','delete last word','remove formatting']){
+   const body=operation.includes('word')?'甲 乙':'重点。',raw=marker+body+marker+'后文',end=1+body.length
+   await page.evaluate(raw=>test.open(raw),raw)
+   assert.equal(await rich.locator(tag).innerText(),body)
+   if(mark==='em')assert.equal(await rich.locator(tag).evaluate(el=>getComputedStyle(el).fontStyle),'italic')
+   if(mark==='strike_through')assert.ok((await rich.locator(tag).evaluate(el=>getComputedStyle(el).textDecorationLine)).includes('line-through'))
+   if(mark==='highlight')assert.notEqual(await rich.locator(tag).evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)')
+   let text=body+'后文'
+   if(operation==='remove formatting'){
+    await page.evaluate(end=>test.select(1,end),end);assert.equal(await page.evaluate(kind=>test.command({kind}),command),true)
+   }else if(operation==='delete first word'){
+    await page.evaluate(()=>test.select(1,2));await rich.focus();await page.keyboard.press('Backspace');text=body.slice(1)+'后文'
+   }else if(operation==='delete last word'||operation==='delete punctuation'){
+    await page.evaluate(end=>test.select(end),end);await rich.focus();await page.keyboard.press('Backspace');text=body.slice(0,-1)+'后文'
+   }else{
+    await page.evaluate(({end,replace})=>test.select(replace?end-1:end,end),{end,replace:operation==='replace with space'});await rich.focus()
+    if(operation==='insert outside space')await page.evaluate(()=>test.stored(null))
+    await page.keyboard.type(' ');text=(operation==='replace with space'?body.slice(0,-1):body)+' 后文'
+   }
+   const after=await snapshot();assert.ok(after.generation>0,marker+' '+operation);assert.equal(after.changes.at(-1).raw,after.raw)
+   assert.equal(after.pm.content[0].content.map(n=>n.text??'').join(''),text)
+   if(operation==='remove formatting'){assert.equal(await rich.locator(tag).count(),0);assert.equal(after.raw,body+'后文')}
+   else assert.ok(after.pm.content[0].content.some(n=>n.marks?.some(m=>m.type===mark)))
+   await verifySaved(after.raw);await rich.focus();await rich.press('ControlOrMeta+z');assert.equal((await snapshot()).raw,raw)
+   await rich.press('ControlOrMeta+Shift+z');assert.equal((await snapshot()).raw,after.raw)
+   await page.evaluate(raw=>test.open(raw),after.raw);assert.equal((await snapshot()).raw,after.raw)
+   output.cases.push({name:marker+' '+operation,after})
+  }
+ }
+ await page.evaluate(raw=>test.open(raw),['**','__','*','_','~~','==','^^'].map(marker=>'前'+marker+'“重点。”'+marker+'后').join('\n\n'))
+ await page.screenshot({path:resolve(outputDir,'cjk-all-formats.png')})
+ // Invalid markers remain ordinary editable text; remove each visible star by
+ // a real Backspace, with each case starting from the same untouched source.
+ const literal='**重点。 **后'
+ for(const offset of [0,1,literal.indexOf('**',2),literal.indexOf('**',2)+1]){
+  await page.evaluate(raw=>test.open(raw),literal);assert.equal(await rich.locator('strong').count(),0)
+  await page.evaluate(at=>test.select(at),offset+2);await rich.focus();await page.keyboard.press('Backspace')
+  const after=await snapshot();assert.equal(after.pm.content[0].content.map(n=>n.text??'').join(''),literal.slice(0,offset)+literal.slice(offset+1));assert.ok(after.generation>0)
+  await verifySaved(after.raw);await rich.focus();await rich.press('ControlOrMeta+z');assert.equal((await snapshot()).raw,literal)
+  output.cases.push({name:'delete literal star '+offset,after})
+ }
+ assert.deepEqual(output.pageErrors,[])
 }
