@@ -966,8 +966,6 @@ export const zh: Record<keyof Messages, string> = {
   'folderView.renameConflict': '同名文件已存在',
   'folderView.tabTitle': '文件夹',
 
-  // OpenClaw settings + devices
-
   // Theme import dialog
   'themeImport.title': '导入 Typora 主题',
   'themeImport.noneFound': '此 zip 中未找到 Typora 主题。',

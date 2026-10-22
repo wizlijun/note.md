@@ -226,3 +226,20 @@ describe('Linux beta download links', () => {
     expect(html).not.toMatch(/href="[^"]*releases\/latest\/download\/[^"]*\.deb/)
   })
 })
+
+describe('external agent file collaboration', () => {
+  it.each(locales)('keeps $lang file collaboration without advertising the removed chat plugin', ({ prefix }) => {
+    const html = readFileSync(join(publicDir, prefix.slice(1), 'integrations/openclaw/index.html'), 'utf8')
+    expect(html).toContain('AGENTS.md')
+    expect(html).toContain('research/topic.md')
+    expect(html).not.toMatch(/OpenClaw[ -]Chat/i)
+  })
+
+  it('keeps generators free of the removed plugin installation copy', () => {
+    const generators = [
+      readFileSync(join(__dirname, '..', 'build_pages.py'), 'utf8'),
+      readTextTree(join(__dirname, '..', 'i18n')),
+    ].join('\n')
+    expect(generators).not.toMatch(/OpenClaw[ -]Chat/i)
+  })
+})

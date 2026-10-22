@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "OpenClaw が note.md と連携するのにプラグインは要るか？", "acceptedAnswer": {"@type": "Answer", "text": "ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。任意の公式 OpenClaw Chat プラグインは note.md 内の会話ウィンドウを追加する。"}}, {"@type": "Question", "name": "OpenClaw に Vault へ書き込ませて安全か？", "acceptedAnswer": {"@type": "Answer", "text": "Vault を git に入れれば、コミット済みのエージェント変更は diff と巻き戻しができる。.note.md は原則として人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。この境界を AGENTS.md に明記する。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "OpenClaw が note.md と連携するのにプラグインは要るか？", "acceptedAnswer": {"@type": "Answer", "text": "ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。"}}, {"@type": "Question", "name": "OpenClaw に Vault へ書き込ませて安全か？", "acceptedAnswer": {"@type": "Answer", "text": "Vault を git に入れれば、コミット済みのエージェント変更は diff と巻き戻しができる。.note.md は原則として人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。この境界を AGENTS.md に明記する。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -115,12 +115,11 @@ pre{font-size:12.5px;padding:14px 15px}
 <p>組み合わせれば、双方が欠けていたものを手に入れる。OpenClaw は、その記憶を専用のビューで実際に読み、手入れする人間を。あなたは、24時間働き、すべてを見える場所に書き残すエージェントを。</p><h2>セットアップ</h2><ol>
 <li>Vault のルートに、規約（サイドカーのペアリング、デイリーノートのパス、<code>[[yyyy-MM-dd]]</code> の日付リンク）を書いた <code>AGENTS.md</code> を置く。要約は <a href="/llms-full.txt">llms-full.txt</a> から取れる。</li>
 <li>OpenClaw のワークスペースを Vault に向けるか、専用フォルダへレポートを書かせる。変換なしで <code>memory/</code> を <code>dailynote/</code> に symlink しない。構造とメタデータが異なる。</li>
-<li>必要なら公式 OpenClaw Chat プラグインで note.md 内の会話ウィンドウを追加する。</li>
 <li>OpenClaw にレポートや調査を <code>.md</code> 文書として Vault に書かせる。</li>
 <li>note.md で開き、読み、ハイライトし、疑問を書く — マークはサイドカーの <code>.note.md</code> に落ちる。</li>
 <li>フォローアップ作業の前にサイドカーを読むよう OpenClaw に伝える。あなたの判断がエージェントの操舵信号になる。</li>
 </ol><h2>実際のループ</h2><p>夜：OpenClaw があるトピックを調査し、<code>research/topic.md</code> を Vault に置く。朝：コーヒー片手に note.md で読み、二つの主張をハイライトし、疑問をひとつ書き添える。午後：OpenClaw が <code>research/topic.note.md</code> を拾い、どの主張があなたの注意を引いたかを正確に見て、あなたが疑った場所を掘る。プロンプトエンジニアリングは不要 — ただのファイルだ。</p>
-<section class="faq"><h2>FAQ</h2><h3>OpenClaw が note.md と連携するのにプラグインは要るか？</h3><p>ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。任意の公式 OpenClaw Chat プラグインは note.md 内の会話ウィンドウを追加する。</p><h3>OpenClaw に Vault へ書き込ませて安全か？</h3><p>Vault を git に入れれば、コミット済みのエージェント変更は diff と巻き戻しができる。.note.md は原則として人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。この境界を AGENTS.md に明記する。</p></section>
+<section class="faq"><h2>FAQ</h2><h3>OpenClaw が note.md と連携するのにプラグインは要るか？</h3><p>ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。</p><h3>OpenClaw に Vault へ書き込ませて安全か？</h3><p>Vault を git に入れれば、コミット済みのエージェント変更は diff と巻き戻しができる。.note.md は原則として人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。この境界を AGENTS.md に明記する。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>思考を所有せよ。</h2>

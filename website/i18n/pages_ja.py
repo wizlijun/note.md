@@ -136,7 +136,6 @@ PAGES = [
   ("セットアップ", """<ol>
 <li>Vault のルートに、規約（サイドカーのペアリング、デイリーノートのパス、<code>[[yyyy-MM-dd]]</code> の日付リンク）を書いた <code>AGENTS.md</code> を置く。要約は <a href="/llms-full.txt">llms-full.txt</a> から取れる。</li>
 <li>OpenClaw のワークスペースを Vault に向けるか、専用フォルダへレポートを書かせる。変換なしで <code>memory/</code> を <code>dailynote/</code> に symlink しない。構造とメタデータが異なる。</li>
-<li>必要なら公式 OpenClaw Chat プラグインで note.md 内の会話ウィンドウを追加する。</li>
 <li>OpenClaw にレポートや調査を <code>.md</code> 文書として Vault に書かせる。</li>
 <li>note.md で開き、読み、ハイライトし、疑問を書く — マークはサイドカーの <code>.note.md</code> に落ちる。</li>
 <li>フォローアップ作業の前にサイドカーを読むよう OpenClaw に伝える。あなたの判断がエージェントの操舵信号になる。</li>
@@ -145,7 +144,7 @@ PAGES = [
  ],
  "faq": [
   ("OpenClaw が note.md と連携するのにプラグインは要るか？",
-   "ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。任意の公式 OpenClaw Chat プラグインは note.md 内の会話ウィンドウを追加する。"),
+   "ファイル連携には不要だ。どちらも AGENTS.md の境界に従って markdown を使える。"),
   ("OpenClaw に Vault へ書き込ませて安全か？",
    "Vault を git に入れれば、コミット済みのエージェント変更は diff と巻き戻しができる。.note.md は原則として人間所有で、Smart Lookup の fenced answer だけが狭い例外だ。この境界を AGENTS.md に明記する。"),
  ],

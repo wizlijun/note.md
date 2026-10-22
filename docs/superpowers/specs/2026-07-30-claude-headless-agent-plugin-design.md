@@ -35,12 +35,12 @@
 插件 `notemd.claude-agent`,**后端 + 前端**形态:
 
 - 后端:Rust crate `plugins-src/claude-agent/backend` → `bin/notemd-claude-agent`,依赖 `notemd-plugin-sdk`(工程骨架照 `plugins-src/pos-log/backend/`)
-- 前端:Svelte 独立窗口 `ui/`(流式 UI 照 `plugins-src/openclaw/`)
+- 前端:Svelte 独立窗口 `ui/`(流式 UI 照 `plugins-src/trace-source/`)
 - `capabilities: ["ui", "toast", "vault.read"]` —— spawn `claude`、读写任务目录都是插件进程自己的文件系统能力,不需要宿主授权;`vault.read` 只为 `host.vault.info` 拿 vault 根路径
 - `activation.events: ["onCommand:open", "onCommand:run", "onCli:agent"]`
 - `request_timeout_seconds: 300`(协议上限)
 
-窗口 ↔ 后端双向通道沿用既有机制(`plugins-src/openclaw/src/lib/bridge.ts:1-11`):
+窗口 ↔ 后端双向通道沿用既有机制(`plugins-src/trace-source/src/lib/bridge.ts`):
 
 - 窗口 → 后端:`window.notemd.request('plugin.<method>')` → 宿主转为 `ui.request` → SDK 的 `on_ui_request`
 - 后端 → 窗口:`Host::ui_post(window_id, payload)` → 窗口 `onMessage`

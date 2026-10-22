@@ -929,8 +929,6 @@ export const ja: Record<keyof Messages, string> = {
   'folderView.renameConflict': '同名のファイルが既に存在します',
   'folderView.tabTitle': 'フォルダ',
 
-  // OpenClaw settings + devices
-
   // Theme import dialog
   'themeImport.title': 'Typora テーマをインポート',
   'themeImport.noneFound': 'この zip に Typora テーマが見つかりません。',

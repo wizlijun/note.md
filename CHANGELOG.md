@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Retire the OpenClaw Chat plugin.** Remove its implementation, dedicated relay, and installation entries. It is no longer offered by the plugin marketplace.
+
 ## v6.1022.1 — 2026-10-22
 
 - **Diagram backgrounds follow the current theme.** Pele previews use the actual rendering frame's background, including custom paper colors, and update when its theme changes. Copied PNGs retain the same background.

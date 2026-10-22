@@ -372,7 +372,6 @@ describe('plugin market metadata localization', () => {
     'md2pdf',
     'memory',
     'next',
-    'openclaw',
     'pos-log',
     'power-mode',
     'roam-import',

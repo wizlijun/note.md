@@ -4,7 +4,7 @@
 
 **Goal:** 实现 `notemd.claude-agent` 插件 —— 在 vault 内的任务模板目录里跑 `claude -p`,窗口实时看流、随时中断,CLI 可 detach 触发。
 
-**Architecture:** 后端 + 前端形态。Rust 后端(`notemd-plugin-sdk`)持有任务发现、锁、claude 子进程与 stream-json 解析,经 `host.ui.post` 把事件推给隔离 webview 窗口;同一个二进制带 `--runner` 模式,供 CLI detach 后独立跑完长任务。前端是 Svelte 独立窗口(照 `plugins-src/openclaw`)。
+**Architecture:** 后端 + 前端形态。Rust 后端(`notemd-plugin-sdk`)持有任务发现、锁、claude 子进程与 stream-json 解析,经 `host.ui.post` 把事件推给隔离 webview 窗口;同一个二进制带 `--runner` 模式,供 CLI detach 后独立跑完长任务。前端是 Svelte 独立窗口(照 `plugins-src/trace-source`)。
 
 **Tech Stack:** Rust(tokio / serde_json / libc)、`notemd-plugin-sdk`、Svelte 5 + Vite 6、vitest。
 
@@ -17,8 +17,8 @@
 
 三条你不知道就会踩的约束:
 
-1. **插件 UI 是隔离 webview,没有 Tauri IPC。** 窗口只能用宿主注入的 `window.notemd.request(method, params)`;方法名以 `plugin.` 开头时宿主转发给本插件后端进程的 `ui.request`。反方向是后端 `host.ui_post("main", payload)` → 窗口 `onMessage`。样板:`plugins-src/openclaw/src/lib/bridge.ts:1-11`。
-2. **SDK 的 `on_ui_request` / `execute_command` 是同步的**(`notemd-plugin-sdk/src/lib.rs:17-30`),跑在协议读循环上。长任务必须 `tokio::spawn` 出去,立即返回,否则整个插件协议卡死。openclaw 用 `tokio::task::block_in_place` + `Handle::current().block_on` 处理短异步(`plugins-src/openclaw/backend/src/lib.rs:127-139`),照抄这个模式即可。
+1. **插件 UI 是隔离 webview,没有 Tauri IPC。** 窗口只能用宿主注入的 `window.notemd.request(method, params)`;方法名以 `plugin.` 开头时宿主转发给本插件后端进程的 `ui.request`。反方向是后端 `host.ui_post("main", payload)` → 窗口 `onMessage`。样板:`plugins-src/trace-source/src/lib/bridge.ts`。
+2. **SDK 的 `on_ui_request` / `execute_command` 是同步的**(`notemd-plugin-sdk/src/lib.rs:17-30`),跑在协议读循环上。长任务必须 `tokio::spawn` 出去,立即返回,否则整个插件协议卡死。同步分发与后台任务的现有实现见 `plugins-src/claude-agent/backend/src/plugin.rs`。
 3. **CLI 子命令另起无头 app 实例**(`src-tauri/src/cli/runner.rs:82`),单次 invoke 上限 300 秒,实例退出会收走子进程。所以 CLI 默认 detach 到 `--runner` 模式。
 
 Rust 测试按本仓库惯例**写在同文件的 `#[cfg(test)] mod tests`**(参见 `src-tauri/src/plugin_runtime/host_api.rs`)。
@@ -52,7 +52,7 @@ Rust 测试按本仓库惯例**写在同文件的 `#[cfg(test)] mod tests`**(参
 | `manifest.v2.json` | 插件声明 |
 | `package.json` / `vite.config.ts` / `tsconfig.json` / `vitest.config.ts` / `index.html` | 独立 Vite 工程(照 `plugins-src/weekly-review`) |
 | `src/main.ts` / `src/App.svelte` | 挂载 + 三栏布局 |
-| `src/lib/bridge.ts` | `window.notemd` 类型化封装(照抄 openclaw) |
+| `src/lib/bridge.ts` | `window.notemd` 类型化封装(参考 trace-source) |
 | `src/lib/strings.ts` | 插件自带 i18n(zh/en/ja/de) |
 | `src/lib/events.ts` | 事件流 → 视图模型 reducer(纯函数,vitest 覆盖) |
 | `src/components/TaskList.svelte` | 左栏任务列表 |
@@ -2031,7 +2031,7 @@ export default defineConfig({
 
 `color-scheme: light dark` 是必须的:独立 Tauri 窗口不继承主程序 app.css,不声明会在深色模式下卡成浅色。
 
-- [ ] **Step 3: bridge.ts(照抄 openclaw,改方法前缀注释)**
+- [ ] **Step 3: bridge.ts(参考 trace-source,改方法前缀注释)**
 
 ```ts
 // 宿主注入的 window.notemd 桥。插件窗口没有 Tauri IPC:

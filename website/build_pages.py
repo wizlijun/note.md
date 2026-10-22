@@ -386,7 +386,6 @@ PAGES = [
   ("Setup", """<ol>
 <li>Put an <code>AGENTS.md</code> at your vault root describing the conventions (sidecar pairing, daily-note paths, <code>[[yyyy-MM-dd]]</code> date links). Grab the summary from <a href="/llms-full.txt">llms-full.txt</a>.</li>
 <li>Point OpenClaw's workspace at the vault, or have it write reports to a dedicated vault folder. Do not symlink <code>memory/</code> to <code>dailynote/</code> without a converter: the layouts and metadata differ.</li>
-<li>Optionally install the official OpenClaw Chat plugin for a note.md-native conversation window.</li>
 <li>Have OpenClaw write reports and research as <code>.md</code> documents into the vault.</li>
 <li>Open them in note.md, read, highlight, question — your marks land in sidecar <code>.note.md</code> files.</li>
 <li>Tell OpenClaw to read sidecars before follow-up work. Your judgment becomes its steering signal.</li>
@@ -395,7 +394,7 @@ PAGES = [
  ],
  "faq": [
   ("Does OpenClaw need a plugin to work with note.md?",
-   "No for file-based work: both sides can use plain markdown with an AGENTS.md describing the boundaries. The optional official OpenClaw Chat plugin adds a note.md-native conversation window."),
+   "No for file-based work: both sides can use plain markdown with an AGENTS.md describing the boundaries."),
   ("Is it safe to let OpenClaw write into my vault?",
    "Keep the vault in git (see the GitHub guide) so committed agent writes are diffable and revertible. By convention agents treat .note.md sidecars as human-owned; Smart Lookup's fenced answer writeback is the narrow built-in exception. State the boundary in AGENTS.md."),
  ],

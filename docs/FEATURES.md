@@ -254,7 +254,7 @@ The agent-ready notes system, rolling out incrementally:
   view described above, integrated with Ebook Import 1.5.0.
 - The marketplace also includes **Roam Research Sync**, **Base** (Obsidian
   `.base` tables), **Weekly Review**, **Decision**, Claude / Codex / DeepSeek
-  Agents, **OpenClaw Chat**, md→PDF, and more.
+  Agents, md→PDF, and more.
 
 ## Share & export
 

@@ -523,7 +523,7 @@ export function onJobEvent(q: Queue, jobId: number, ev: JobEvent): Queue; // log
 
 - [ ] **Step 1: queue.test.ts 失败测试**:addPaths 过滤非法后缀+去重;串行调度(nextToStart 在有 active 时返回 null;done/failed 后 activeId 清空);onJobEvent 把 log 追加、done 写 destRel、failed 写 error。
 - [ ] **Step 2: 跑测失败**:`pnpm --filter ebook-import-plugin test` → **Step 3: 实现 queue.ts** → **Step 4: 跑测过**
-- [ ] **Step 5: strings.ts**。照 openclaw 结构(MessageKey 联合 + en/zh/ja/de catalog + `t()`),键至少:`title, drop.hint, drop.pick, ocr.label, ocr.onlyPdf, ocr.provider.wechat, ocr.provider.baidu, settings.toggle, settings.root, settings.wechatUrl, settings.baiduKey, settings.baiduSecret, settings.calibre.found, settings.calibre.missing, settings.calibre.pick, settings.calibre.install, settings.save, queue.empty, status.pending, status.running, status.done, status.failed, action.openInEditor, action.cancel, action.clear, log.toggle`。zh 文案:OCR 复选框 =「OCR(扫描版 PDF)」、provider =「微信OCR」/「百度 Unlimited-OCR」、菜单同 manifest。
+- [ ] **Step 5: strings.ts**。参考 trace-source 结构(MessageKey 联合 + en/zh/ja/de catalog + `t()`),键至少:`title, drop.hint, drop.pick, ocr.label, ocr.onlyPdf, ocr.provider.wechat, ocr.provider.baidu, settings.toggle, settings.root, settings.wechatUrl, settings.baiduKey, settings.baiduSecret, settings.calibre.found, settings.calibre.missing, settings.calibre.pick, settings.calibre.install, settings.save, queue.empty, status.pending, status.running, status.done, status.failed, action.openInEditor, action.cancel, action.clear, log.toggle`。zh 文案:OCR 复选框 =「OCR(扫描版 PDF)」、provider =「微信OCR」/「百度 Unlimited-OCR」、菜单同 manifest。
 - [ ] **Step 6: App.svelte**。结构:
   - onMount:`request("plugin.detect_env")` 填 calibre 状态/设置;`window.notemd.onMessage`:`type=="drag-drop"` → phase enter/leave 切 highlight class,drop → `addPaths`;`type=="job"` → `onJobEvent` 并在 done/failed 后触发调度
   - 调度函数:`const n = nextToStart(q); if (n) { const { job_id } = await request("plugin.import_start", { path: n.path, ocr, provider }); …标记 running }`
@@ -543,7 +543,7 @@ export function onJobEvent(q: Queue, jobId: number, ev: JobEvent): Queue; // log
 - Modify: `scripts/dev-install-plugin.sh`、`scripts/release-plugins.sh`、`.gitignore`(加 `plugins-src/ebook-import/backend/vendor/`)
 
 - [ ] **Step 1: fetch-pdfium.sh**:从 https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-mac-{arm64,x64}.tgz 下载解出 `lib/libpdfium.dylib`,缓存到 `plugins-src/ebook-import/backend/vendor/{aarch64,x86_64}-apple-darwin/libpdfium.dylib`(已存在即跳过;`--force` 重取)。
-- [ ] **Step 2: dev-install-plugin.sh 加分支**(照 openclaw 形状;usage 两处列表加 `ebook-import`):
+- [ ] **Step 2: dev-install-plugin.sh 加分支**(参考 claude-agent 形状;usage 两处列表加 `ebook-import`):
 
 ```bash
 elif [[ "$PLUGIN" == "ebook-import" ]]; then

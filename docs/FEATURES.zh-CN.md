@@ -190,7 +190,7 @@ note.md 今天能做的每一件事。README 讲主张，这里放细节。
 - **排版阅读器 0.1.1**（macOS；需要 note.md 6.921.2+）—— 上述渐进 Typst 视图，
   与电子书导入 1.5.0 联动。
 - 市场还提供 **Roam Research 同步**、**Base**（Obsidian `.base` 表格）、
-  **周检视**、**决策**、Claude / Codex / DeepSeek Agent、**OpenClaw Chat**、
+  **周检视**、**决策**、Claude / Codex / DeepSeek Agent、
   md→PDF 等。
 
 ## 分享与导出

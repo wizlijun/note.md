@@ -16,6 +16,9 @@
 // `/api/index.json`. See src/page.ts.
 
 import { PAGE_HTML } from './page'
+import retiredPluginIds from '../retired-plugins.json'
+
+const RETIRED_PLUGIN_IDS = new Set(retiredPluginIds)
 
 export interface Env {
   /** KV: `index` → the published index.json string; `stats:<id>` → install count. */
@@ -78,7 +81,11 @@ function methodNotAllowed(allow: string): Response {
 /** GET /api/index.json — the published index verbatim, CDN-cached 5 min. */
 async function handleIndex(env: Env): Promise<Response> {
   const body = (await env.INDEX.get('index')) ?? EMPTY_INDEX
-  return json(body, { headers: { 'cache-control': 'public, max-age=300' } })
+  const index = JSON.parse(body) as { plugins: { id: string }[] }
+  const plugins = index.plugins.filter((entry) => !RETIRED_PLUGIN_IDS.has(entry.id))
+  return json(plugins.length === index.plugins.length ? body : { ...index, plugins }, {
+    headers: { 'cache-control': 'public, max-age=300' },
+  })
 }
 
 /**
@@ -95,7 +102,7 @@ async function handleDownload(segments: string[], head: boolean, env: Env): Prom
   const isSig = last.endsWith('.minisig')
   const arch = isSig ? last.slice(0, -'.minisig'.length) : last
 
-  if (!ID_RE.test(id) || !VERSION_RE.test(version) || !ARCH_RE.test(arch)) {
+  if (RETIRED_PLUGIN_IDS.has(id) || !ID_RE.test(id) || !VERSION_RE.test(version) || !ARCH_RE.test(arch)) {
     return notFound()
   }
 
@@ -137,7 +144,7 @@ async function handleStats(req: Request, env: Env): Promise<Response> {
   try {
     const body = (await req.json()) as { id?: unknown }
     const id = typeof body?.id === 'string' ? body.id : ''
-    if (id && ID_RE.test(id)) {
+    if (id && ID_RE.test(id) && !RETIRED_PLUGIN_IDS.has(id)) {
       const key = `stats:${id}`
       const prev = parseInt((await env.INDEX.get(key)) ?? '0', 10)
       const next = Number.isFinite(prev) ? prev + 1 : 1

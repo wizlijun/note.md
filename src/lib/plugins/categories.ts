@@ -39,7 +39,6 @@ export const OFFICIAL_PLUGIN_CATEGORIES: Readonly<Record<string, PluginCategory>
   'notemd.codex-agent': 'ai',
   'notemd.deepseek-agent': 'ai',
   'notemd.conversation-dictionary': 'ai',
-  'notemd.openclaw-chat': 'advance',
   'notemd.decision-log': 'reflect',
   'notemd.weekly-review': 'reflect',
   'notemd.timeline': 'reflect',
@@ -69,7 +68,6 @@ const PLUGIN_AI_ROLES: Readonly<Record<string, PluginAiRole>> = {
   'notemd.claude-agent': 'execute',
   'notemd.codex-agent': 'execute',
   'notemd.deepseek-agent': 'execute',
-  'notemd.openclaw-chat': 'execute',
 }
 
 export function pluginAiRole(pluginId: string): PluginAiRole | null {

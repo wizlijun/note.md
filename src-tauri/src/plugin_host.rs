@@ -248,8 +248,7 @@ pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'s
         "notemd.pos-log" => "record",
         "notemd.ebook-import" | "notemd.trace-source" => "reading",
         "notemd.idea-spark" => "inspiration",
-        "notemd.next"
-        | "notemd.openclaw-chat" => "advance",
+        "notemd.next" => "advance",
         "notemd.claude-agent"
         | "notemd.codex-agent"
         | "notemd.deepseek-agent"
@@ -372,7 +371,7 @@ mod tests {
     #[test]
     fn manifest_parses_builtin_kind() {
         let json = r#"{
-            "id": "openclaw-chat", "name": "OpenClaw Chat", "version": "0.1.0",
+            "id": "builtin-example", "name": "Builtin Example", "version": "0.1.0",
             "kind": "builtin", "host_capabilities": []
         }"#;
         let m: PluginManifest = serde_json::from_str(json).unwrap();
@@ -454,7 +453,6 @@ mod tests {
         assert_eq!(plugin_menu_group_for_plugin("notemd.claude-agent", Some("advance")), "ai");
         assert_eq!(plugin_menu_group_for_plugin("notemd.memory", Some("reflect")), "ai");
         assert_eq!(plugin_menu_group_for_plugin("notemd.conversation-dictionary", Some("editing")), "ai");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.openclaw-chat", Some("agents")), "advance");
         assert_eq!(plugin_menu_group_for_plugin("notemd.idea-spark", Some("thinking")), "inspiration");
         assert_eq!(plugin_menu_group_for_plugin("notemd.trace-source", Some("capture")), "reading");
         assert_eq!(plugin_menu_group_for_plugin("notemd.power-mode", Some("editing")), "experience");
@@ -468,7 +466,6 @@ mod tests {
             menu_item("plugin:notemd.next:open", Some("thinking")),
             menu_item("plugin:notemd.memory:open", Some("reflect")),
             menu_item("plugin:notemd.claude-agent:run", Some("advance")),
-            menu_item("plugin:notemd.openclaw-chat:open", Some("agents")),
         ];
         let groups = group_plugin_menu_items(&items);
 
@@ -481,7 +478,6 @@ mod tests {
         ]);
         assert_eq!(groups[1].items.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), vec![
             "plugin:notemd.next:open",
-            "plugin:notemd.openclaw-chat:open",
         ]);
     }
 }

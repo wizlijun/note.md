@@ -2,7 +2,7 @@
 # Package + sign v2 plugins for the marketplace (子项目③ Task 5).
 #
 #   scripts/release-plugins.sh [--release] <plugin...>
-#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, agency, strata, habitat, conversation-dictionary, openclaw, assistant-mail, pos-log,
+#     plugin ∈ { md2pdf, roam-import, apple-notes, meetings, agency, strata, habitat, conversation-dictionary, assistant-mail, pos-log,
 #                decision-log, weekly-review, memory, claude-agent, codex-agent, deepseek-agent, ebook-import,
 #                idea-spark, next, power-mode, trace-source, timeline, index-viewer, typst-reader,
 #                knowledge-browser }   (add a case below)
@@ -13,7 +13,7 @@
 # For each plugin this script:
 #   1. Builds its artifacts by REUSING the existing build scripts
 #      (md2pdf → scripts/build-md2pdf-v2.sh dual-arch bins;
-#       roam-import/meetings/openclaw/claude-agent/codex-agent/deepseek-agent/ebook-import → dual-arch backend
+#       roam-import/meetings/claude-agent/codex-agent/deepseek-agent/ebook-import → dual-arch backend
 #       crate + pnpm --filter <plugin> build → dist/).
 #   2. Assembles the install-layout tree (manifest.json at root + bin/ and/or
 #      ui/) in a temp staging dir, then ZIPs it into
@@ -44,14 +44,14 @@ PLUGINS=()
 for arg in "$@"; do
   case "$arg" in
     --release) : ;; # reserved; release builds are always release-profile
-    md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser) PLUGINS+=("$arg") ;;
+    md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser) PLUGINS+=("$arg") ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | agency | strata | habitat | conversation-dictionary | openclaw | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | typst-reader | knowledge-browser)" >&2; exit 2 ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | agency | strata | habitat | conversation-dictionary | assistant-mail | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | idea-spark | next | power-mode | trace-source | timeline | index-viewer | typst-reader | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 if [[ ${#PLUGINS[@]} -eq 0 ]]; then
-  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|openclaw|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser>..." >&2
+  echo "usage: scripts/release-plugins.sh [--release] <md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|idea-spark|next|power-mode|trace-source|timeline|index-viewer|typst-reader|knowledge-browser>..." >&2
   exit 2
 fi
 
@@ -485,7 +485,7 @@ release_memory() {
   rm -rf "$stage"; trap - RETURN
 }
 
-# ── openclaw etc.: native backend + ui, per-arch packages ─────────────────────
+# ── Native backend + UI, per-arch packages ─────────────────────
 # Shared shape (mirrors scripts/dev-install-plugin.sh, but dual-arch release):
 # backend crate built per triple (--manifest-path keeps cargo out of the
 # workspace root), bins codesigned like build-md2pdf-v2.sh, one Vite UI bundle,
@@ -553,11 +553,6 @@ release_native_ui() {
     echo "[$id] $triple.notemdpkg  sha256=$sha  → $pkg"
     rm -rf "$stage"; trap - RETURN
   done
-}
-
-release_openclaw() {
-  release_native_ui "notemd.openclaw-chat" "$REPO_ROOT/plugins-src/openclaw" \
-    "notemd-openclaw" "openclaw-plugin"
 }
 
 release_assistant_mail() {
@@ -666,7 +661,6 @@ for plugin in "${PLUGINS[@]}"; do
     strata)      release_strata ;;
     habitat)     release_habitat ;;
     conversation-dictionary) release_conversation_dictionary ;;
-    openclaw)    release_openclaw ;;
     assistant-mail) release_assistant_mail ;;
     pos-log)     release_pos_log ;;
     decision-log) release_decision_log ;;

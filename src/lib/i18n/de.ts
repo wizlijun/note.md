@@ -929,8 +929,6 @@ export const de: Record<keyof Messages, string> = {
   'folderView.renameConflict': 'Eine Datei mit diesem Namen existiert bereits',
   'folderView.tabTitle': 'Ordner',
 
-  // OpenClaw settings + devices
-
   // Theme import dialog
   'themeImport.title': 'Typora-Thema importieren',
   'themeImport.noneFound': 'Keine Typora-Themen in dieser ZIP-Datei gefunden.',

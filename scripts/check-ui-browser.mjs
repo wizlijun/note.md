@@ -14,7 +14,7 @@ const output = process.env.UI_REVIEW_OUTPUT ?? await mkdtemp(join(tmpdir(), 'not
 await mkdir(output, { recursive: true })
 const { chromium } = process.env.PLAYWRIGHT_MODULE
   ? await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href) : await import('playwright')
-const apps = ['settings', 'vault-settings', 'market', 'agent-picker', 'claude-agent', 'codex-agent', 'deepseek-agent', 'openclaw', 'idea-spark', 'trace-source', 'next', 'decision-log', 'weekly-review', 'ebook-import', 'roam-import', 'power-mode', 'meetings', 'memory']
+const apps = ['settings', 'vault-settings', 'market', 'agent-picker', 'claude-agent', 'codex-agent', 'deepseek-agent', 'idea-spark', 'trace-source', 'next', 'decision-log', 'weekly-review', 'ebook-import', 'roam-import', 'power-mode', 'meetings', 'memory']
 const selected = apps.filter((app) => !process.env.UI_REVIEW_FILTER || app.includes(process.env.UI_REVIEW_FILTER))
 const server = await createServer({ root, resolve: { dedupe: ['svelte'] },
   server: { host: '127.0.0.1', port: 0, strictPort: false, hmr: false, watch: null },
@@ -44,7 +44,6 @@ const server = await createServer({ root, resolve: { dedupe: ['svelte'] },
           try {
             const { default: App } = await import(${JSON.stringify(module)});
             const { loadLocale } = await import('/src/lib/i18n/store.svelte.ts'); await loadLocale();
-            ${kind === 'openclaw' ? "const {setLocale} = await import('/plugins-src/openclaw/src/lib/strings.ts'); setLocale(window.notemd.locale);" : ''}
             window.__uiReview.component = mount(App, { target: document.querySelector('#fixture'), props: ${props} });
             flushSync(); window.__uiReview.ready = true;
           } catch (error) { window.__uiReview.error = String(error); document.body.append(String(error)); }

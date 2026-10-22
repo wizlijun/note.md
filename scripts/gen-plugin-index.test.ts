@@ -59,7 +59,6 @@ describe('pluginCategoryFromManifest', () => {
     ]) {
       expect(pluginCategoryFromManifest({ id })).toBe('ai')
     }
-    expect(pluginCategoryFromManifest({ id: 'notemd.openclaw-chat' })).toBe('advance')
     expect(pluginCategoryFromManifest({ id: 'notemd.ebook-import' })).toBe('reading')
   })
 
@@ -110,15 +109,23 @@ describe('applySourceMetadata', () => {
 })
 
 describe('mergeIndexes', () => {
+  it('never restores retired plugins from stale local builds or live indexes', () => {
+    const local = [entry('notemd.openclaw-chat', '1.0.4'), entry('notemd.md2pdf', '1.2.0')]
+    const live = [entry('notemd.openclaw-chat', '1.0.0'), entry('notemd.timeline', '1.2.0')]
+    const result = mergeIndexes(local, live)
+    expect(result.plugins).toEqual([local[1], live[1]])
+    expect(result.dropped).toEqual(['notemd.openclaw-chat@1.0.0', 'notemd.openclaw-chat@1.0.4'])
+  })
+
   it('keeps live entries absent from the local build (the clobber case)', () => {
     const local = [entry('notemd.decision-log', '1.0.1')]
-    const live = [entry('notemd.openclaw-chat', '1.0.0'), entry('notemd.pos-log', '1.0.0')]
+    const live = [entry('notemd.claude-agent', '1.0.0'), entry('notemd.pos-log', '1.0.0')]
     const r = mergeIndexes(local, live, [])
     const keys = r.plugins.map((p: { id: string; version: string }) => `${p.id}@${p.version}`)
-    expect(keys).toContain('notemd.openclaw-chat@1.0.0')
+    expect(keys).toContain('notemd.claude-agent@1.0.0')
     expect(keys).toContain('notemd.pos-log@1.0.0')
     expect(keys).toContain('notemd.decision-log@1.0.1')
-    expect(r.kept).toEqual(['notemd.openclaw-chat@1.0.0', 'notemd.pos-log@1.0.0'])
+    expect(r.kept).toEqual(['notemd.claude-agent@1.0.0', 'notemd.pos-log@1.0.0'])
   })
 
   it('prefers the local entry when the same id@version exists on both sides', () => {

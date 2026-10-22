@@ -978,8 +978,6 @@ export const en = {
   'folderView.renameConflict': 'A file with that name already exists',
   'folderView.tabTitle': 'Folders',
 
-  // OpenClaw settings + devices
-
   // Theme import dialog
   'themeImport.title': 'Import Typora theme',
   'themeImport.noneFound': 'No Typora themes found in this zip.',

@@ -12,6 +12,10 @@ verified **client-side**. Every route here is public — there is nothing secret
 to protect on read, which is why CORS is `*`.
 
 The landing page renders the latest entry for each plugin from the same index.
+`retired-plugins.json` lists permanently withdrawn plugin IDs. The index
+generator drops every version from both local builds and the live index; the
+Worker also filters stale KV entries and returns 404 for their packages and
+signatures, even if an old R2 object remains. Other entries pass through unchanged.
 Each card shows its `min_host` requirement and translates its published
 `archs` into user-facing platform support. `universal` means the package has no
 native binary and can run on both currently supported host platforms; native
@@ -27,7 +31,7 @@ from the registry index and its localized manifest data.
 
 ## Routes
 
-- `GET /api/index.json` — the published index verbatim from KV key `index`
+- `GET /api/index.json` — the published index from KV key `index`, excluding retired IDs
   (`{"plugins":[]}` when unpublished). `content-type: application/json`,
   `cache-control: public, max-age=300`, `access-control-allow-origin: *`.
 - `GET /api/download/<id>/<version>/<arch>` — streams R2 object

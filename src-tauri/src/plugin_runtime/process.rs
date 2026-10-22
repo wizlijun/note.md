@@ -69,8 +69,8 @@ impl PluginProcess {
         // signature, but inheriting the full app environment would needlessly
         // leak host secrets (API keys etc.) into every plugin subprocess —
         // pointless exposure, especially ahead of third-party plugins. Clear
-        // everything, then re-add a minimal safe allowlist. openclaw needs
-        // HOME/PATH to resolve its UDS socket path; these are covered.
+        // everything, then re-add a minimal safe allowlist for user directories
+        // and executable discovery.
         // Do NOT add secret-bearing vars here.
         // The allowlist is per-platform: on Windows a bare `env_clear()` is
         // fatal rather than merely restrictive — without `SystemRoot` the

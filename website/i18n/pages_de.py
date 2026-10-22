@@ -134,7 +134,6 @@ PAGES = [
   ("Setup", """<ol>
 <li>Leg eine <code>AGENTS.md</code> in die Vault-Wurzel, die die Konventionen beschreibt (Sidecar-Pairing, Daily-Note-Pfade, <code>[[yyyy-MM-dd]]</code>-Datumslinks). Die Zusammenfassung gibt's in <a href="/llms-full.txt">llms-full.txt</a>.</li>
 <li>Richte OpenClaws Workspace auf den Vault oder lass Reports in einen eigenen Vault-Ordner schreiben. Verlinke <code>memory/</code> nicht ohne Konverter nach <code>dailynote/</code>: Layout und Metadaten unterscheiden sich.</li>
-<li>Optional bietet das offizielle OpenClaw-Chat-Plugin ein note.md-eigenes Gesprächsfenster.</li>
 <li>Lass OpenClaw Reports und Recherchen als <code>.md</code>-Dokumente in den Vault schreiben.</li>
 <li>Öffne sie in note.md, lies, markiere, hinterfrage — deine Markierungen landen in Sidecar-Dateien (<code>.note.md</code>).</li>
 <li>Sag OpenClaw, es soll die Sidecar-Dateien vor Folgearbeiten lesen. Dein Urteil wird sein Steuersignal.</li>
@@ -143,7 +142,7 @@ PAGES = [
  ],
  "faq": [
   ("Braucht OpenClaw ein Plugin, um mit note.md zu arbeiten?",
-   "Für dateibasierte Arbeit nicht: Beide Seiten können reines Markdown mit den Grenzen aus AGENTS.md nutzen. Das optionale offizielle OpenClaw-Chat-Plugin ergänzt ein note.md-eigenes Gesprächsfenster."),
+   "Für dateibasierte Arbeit nicht: Beide Seiten können reines Markdown mit den Grenzen aus AGENTS.md nutzen."),
   ("Ist es sicher, OpenClaw in meinen Vault schreiben zu lassen?",
    "Halte den Vault in Git, damit committete Agent-Änderungen diffbar und rückgängig sind. .note.md gehört grundsätzlich dem Menschen; Smart Lookups abgegrenzte Antwort ist die enge Ausnahme. Halte die Grenze in AGENTS.md fest."),
  ],

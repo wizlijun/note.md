@@ -168,7 +168,7 @@ pub(crate) fn handle_common(
 /// - `host.toast` → calls `emitter` with the payload JSON; returns `{ok:true}` for requests.
 /// - `host.ui.post` (needs `ui`) → parses [`proto::UiPostParams`] and calls
 ///   `ui_poster(window_id, payload)`; fire-and-forget (returns `{ok:true}` for
-///   requests, but openclaw pushes it as a notification so there is no reply).
+///   requests and no reply for notifications).
 pub fn make_sink(
     plugin_id: String,
     capabilities: Vec<String>,
@@ -762,7 +762,7 @@ mod tests {
         assert_eq!(posted[0].1, serde_json::json!({"kind": "frame", "seq": 3}));
     }
 
-    /// As a notification (openclaw's actual usage: fire-and-forget streaming),
+    /// As a notification (fire-and-forget streaming),
     /// the poster is still called but there is no reply.
     #[test]
     fn ui_post_notification_calls_poster_and_returns_none() {

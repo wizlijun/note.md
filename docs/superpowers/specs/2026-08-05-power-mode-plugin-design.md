@@ -287,7 +287,7 @@ interface KitEditor {
 
 ### 6.3 i18n
 
-插件自带 `src/lib/strings.ts`（en/zh/ja/de 四张 catalog + 本地 `t()`，照抄 `plugins-src/openclaw/src/lib/strings.ts` 的结构），语言从 `bridge().locale` 取。菜单名走 manifest `i18n`。配一份 `strings.test.ts` 断言四语种 key 齐平（见 `docs/` 的插件 i18n 审计结论）。
+插件自带 `src/lib/strings.ts`（en/zh/ja/de 四张 catalog + 本地 `t()`，照抄 `plugins-src/trace-source/src/lib/strings.ts` 的结构），语言从 `bridge().locale` 取。菜单名走 manifest `i18n`。配一份 `strings.test.ts` 断言四语种 key 齐平（见 `docs/` 的插件 i18n 审计结论）。
 
 ---
 

@@ -404,8 +404,7 @@ pub fn open_plugin_window<R: Runtime>(
         WindowEvent::Destroyed => {
             super::ui_rpc::clear_grants(&pid);
             // Tear down the plugin process when its window closes so long-lived
-            // reader tasks / network connections (e.g. openclaw's UDS+relay and
-            // its 8s claim poller) don't outlive the UI. Current plugins are
+            // reader tasks / network connections don't outlive the UI. Current plugins are
             // single-window, so a closed window means "nothing left to serve" —
             // deactivate() aborts the plugin's tasks; it lazily re-activates on
             // the next open. (Multi-window plugins would need a

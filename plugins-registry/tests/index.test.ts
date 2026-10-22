@@ -36,6 +36,18 @@ beforeEach(async () => {
 })
 
 describe('GET /api/index.json', () => {
+  it('hides all retired versions from stale KV without changing other entries', async () => {
+    const current = JSON.parse(SAMPLE_INDEX)
+    await testEnv.INDEX.put('index', JSON.stringify({ plugins: [
+      { id: 'notemd.openclaw-chat', version: '1.0.0' },
+      ...current.plugins,
+      { id: 'notemd.openclaw-chat', version: '1.0.4' },
+    ] }))
+    const response = await SELF.fetch('http://x/api/index.json')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(current)
+  })
+
   it('returns the KV index verbatim with json + cache + CORS headers', async () => {
     await testEnv.INDEX.put('index', SAMPLE_INDEX)
     const r = await SELF.fetch('http://x/api/index.json')
@@ -61,6 +73,24 @@ describe('GET /api/index.json', () => {
 })
 
 describe('GET /api/download/<id>/<version>/<arch>', () => {
+  it('rejects retired packages and signatures even when old R2 objects exist', async () => {
+    for (const version of ['1.0.0', '1.0.4']) {
+      for (const suffix of ['', '.minisig']) {
+        const key = `notemd.openclaw-chat/${version}/aarch64-apple-darwin.notemdpkg${suffix}`
+        await testEnv.PKGS.put(key, 'retired package')
+        try {
+          for (const method of ['GET', 'HEAD']) {
+            const response = await SELF.fetch(`http://x/api/download/notemd.openclaw-chat/${version}/aarch64-apple-darwin${suffix}`, { method })
+            await response.arrayBuffer()
+            expect(response.status).toBe(404)
+          }
+        } finally {
+          await testEnv.PKGS.delete(key)
+        }
+      }
+    }
+  })
+
   it('streams the package with octet-stream content-type', async () => {
     const bytes = new Uint8Array([1, 2, 3, 4, 5])
     await testEnv.PKGS.put('notemd.md2pdf/1.2.0/aarch64-apple-darwin.notemdpkg', bytes)
@@ -99,6 +129,16 @@ describe('GET /api/download/<id>/<version>/<arch>', () => {
 })
 
 describe('POST /api/stats/install', () => {
+  it('does not recreate counters for a retired plugin', async () => {
+    await testEnv.INDEX.delete('stats:notemd.openclaw-chat')
+    const response = await SELF.fetch('http://x/api/stats/install', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'notemd.openclaw-chat', version: '1.0.4' }),
+    })
+    expect(await response.json()).toEqual({ ok: true })
+    expect(await testEnv.INDEX.get('stats:notemd.openclaw-chat')).toBeNull()
+  })
+
   it('increments the per-id counter and returns 200', async () => {
     const r = await SELF.fetch('http://x/api/stats/install', {
       method: 'POST',

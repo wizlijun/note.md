@@ -135,7 +135,6 @@ PAGES = [
   ("配置", """<ol>
 <li>在 vault 根目录放一份 <code>AGENTS.md</code>，写明约定（sidecar 文件配对、每日笔记路径、<code>[[yyyy-MM-dd]]</code> 日期链接）。摘要可从 <a href="/llms-full.txt">llms-full.txt</a> 取。</li>
 <li>把 OpenClaw 的工作区指向 vault，或让它把报告写进专用 vault 目录。没有转换器时不要把 <code>memory/</code> 软链到 <code>dailynote/</code>：目录与元数据不同。</li>
-<li>也可安装官方 OpenClaw Chat 插件，在 note.md 内使用对话窗口。</li>
 <li>让 OpenClaw 把报告和调研写成 <code>.md</code> 文档，放进 vault。</li>
 <li>在 note.md 里打开、阅读、高亮、提问——你的批注落进sidecar <code>.note.md</code> 文件。</li>
 <li>告诉 OpenClaw 做后续工作前先读sidecar 文件。你的判断成了它的方向盘。</li>
@@ -144,7 +143,7 @@ PAGES = [
  ],
  "faq": [
   ("OpenClaw 需要插件才能和 note.md 配合吗？",
-   "文件协作不需要插件：两边都能按 AGENTS.md 的边界使用纯 markdown。可选的官方 OpenClaw Chat 插件会增加 note.md 原生对话窗口。"),
+   "文件协作不需要插件：两边都能按 AGENTS.md 的边界使用纯 markdown。"),
   ("让 OpenClaw 写进我的 vault 安全吗？",
    "把 vault 放进 git（见 GitHub 指南），已提交的 agent 写入就可 diff、可回滚。按约定，.note.md 属于人；Smart Lookup 的 fenced answer 回写是唯一狭窄例外。把边界写进 AGENTS.md。"),
  ],

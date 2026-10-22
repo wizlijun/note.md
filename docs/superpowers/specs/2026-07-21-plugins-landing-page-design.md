@@ -99,7 +99,6 @@
 |---|---|---|
 | `notemd.md2pdf` | 「文件」菜单 → Export to PDF…（也支持 CLI `notemd pdf`） | File menu → Export to PDF… (also CLI `notemd pdf`) |
 | `notemd.roam-import` | 「文件」菜单 → Import from Roam Research… | File menu → Import from Roam Research… |
-| `notemd.openclaw-chat` | 「窗口」菜单 → OpenClaw | Window menu → OpenClaw |
 | `notemd.exlibris` | 「窗口」菜单 → ExLibris | Window menu → ExLibris |
 | `notemd.pos-log` | 「插件」菜单 → Save Location Now（装好后随启动自动记录） | Plugins menu → Save Location Now (auto-logs on startup once installed) |
 | *（兜底）* | 安装后在 note.md 的「插件」菜单中启用 | Enable from the Plugins menu in note.md after install |

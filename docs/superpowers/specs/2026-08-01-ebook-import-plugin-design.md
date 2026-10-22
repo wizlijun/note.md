@@ -19,7 +19,7 @@
 
 ## 2. 形态与 manifest
 
-**后端 + 前端**形态(样板:openclaw / claude-agent)。
+**后端 + 前端**形态(样板:claude-agent / codex-agent)。
 
 - `plugins-src/ebook-import/`:Svelte/Vite 窗口工程;`backend/`:独立 Cargo crate → 二进制 `notemd-ebook-import`(aarch64 + x86_64)
 - id `notemd.ebook-import`;name "Ebook Import";i18n:zh「导入电子书」、ja「電子書籍を取り込む」、de "E-Books importieren"
@@ -173,7 +173,7 @@ notemd ebook <file> [--ocr] [--ocr-provider wechat|baidu] [--root <vault相对�
 
 ## 11. 构建与发布
 
-- `scripts/dev-install-plugin.sh` 加 `ebook-import` 分支(backend cargo + pnpm filter build,照 openclaw 形状;pdfium dylib 随 bin/ 拷贝)
+- `scripts/dev-install-plugin.sh` 加 `ebook-import` 分支(backend cargo + pnpm filter build,参考 claude-agent 形状;pdfium dylib 随 bin/ 拷贝)
 - `scripts/release-plugins.sh` 复用 `release_native_ui` 加 case(注意打包时带 pdfium dylib)
 - 市场上架照既有流程(merge 式 index,勿 clobber)
 

@@ -2685,7 +2685,7 @@ Create `plugins-src/power-mode/src/lib/strings.ts`:
 
 ```ts
 // 插件自带 i18n。隔离 webview 用不了主程序的 t();结构照抄
-// plugins-src/openclaw/src/lib/strings.ts。
+// plugins-src/trace-source/src/lib/strings.ts。
 export type MessageKey =
   | 'title' | 'surfaces.section' | 'surfaces.main' | 'surfaces.hint'
   | 'effects.section'

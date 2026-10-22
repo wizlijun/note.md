@@ -100,8 +100,7 @@ pub fn tokio_command(program: impl AsRef<OsStr>) -> tokio::process::Command {
 /// Environment variables a plugin subprocess may inherit after `env_clear()`.
 ///
 /// The unix set is the original allowlist from `plugin_runtime::process`: enough
-/// for a plugin to find `$HOME`/`$PATH` (openclaw resolves its UDS socket path
-/// from them) and nothing that carries a secret.
+/// for a plugin to find `$HOME`/`$PATH` and nothing that carries a secret.
 ///
 /// The Windows set is the equivalent, and it is not optional the way the unix
 /// one is: `SystemRoot` in particular is required by the loader itself — clear

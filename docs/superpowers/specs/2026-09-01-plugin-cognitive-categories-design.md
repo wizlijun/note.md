@@ -32,7 +32,7 @@
 | 记录 | `notemd.pos-log` |
 | 阅读 | `notemd.ebook-import`、`notemd.trace-source` |
 | 灵感 | `notemd.idea-spark` |
-| 推进 | `notemd.next`、`notemd.claude-agent`、`notemd.codex-agent`、`notemd.deepseek-agent`、`notemd.openclaw-chat` |
+| 推进 | `notemd.next`、`notemd.claude-agent`、`notemd.codex-agent`、`notemd.deepseek-agent` |
 | 回顾 | `notemd.decision-log`、`notemd.weekly-review` |
 | 创作 | — |
 | 导入与导出 | `notemd.roam-import`、`notemd.md2pdf` |
@@ -45,7 +45,7 @@
 | AI 阅读 | `notemd.ebook-import` |
 | AI 启发 | `notemd.idea-spark` |
 | AI 推理 | `notemd.trace-source` |
-| AI 执行 | Claude / Codex / DeepSeek Agent、OpenClaw |
+| AI 执行 | Claude / Codex / DeepSeek Agent |
 
 AI 角色只描述插件当前明确提供的能力；Next 等能与 Agent 协作但自身不执行 AI 的插件不标 AI。
 

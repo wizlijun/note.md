@@ -36,6 +36,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_ROOT = join(REPO_ROOT, 'dist-plugins')
 const REGISTRY_BASE = 'https://plugins.notemd.net'
+const RETIRED_PLUGIN_IDS = new Set(JSON.parse(readFileSync(
+  new URL('../plugins-registry/retired-plugins.json', import.meta.url), 'utf8',
+)))
 const PLUGIN_CATEGORIES = new Set([
   'ai', 'record', 'reading', 'inspiration', 'advance', 'reflect', 'create', 'import-export', 'experience',
 ])
@@ -61,7 +64,6 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
   ['notemd.codex-agent', 'ai'],
   ['notemd.deepseek-agent', 'ai'],
   ['notemd.conversation-dictionary', 'ai'],
-  ['notemd.openclaw-chat', 'advance'],
   ['notemd.decision-log', 'reflect'],
   ['notemd.weekly-review', 'reflect'],
   ['notemd.timeline', 'reflect'],
@@ -192,7 +194,7 @@ export function compareVersions(a, b) {
  * lists are id@version keys for the publish summary.
  */
 export function mergeIndexes(localPlugins, livePlugins, drops = []) {
-  const dropIds = new Set(drops.filter((d) => !d.includes('@')))
+  const dropIds = new Set([...RETIRED_PLUGIN_IDS, ...drops.filter((d) => !d.includes('@'))])
   const dropKeys = new Set(drops.filter((d) => d.includes('@')))
   const isDropped = (e) => dropIds.has(e.id) || dropKeys.has(`${e.id}@${e.version}`)
   const key = (e) => `${e.id}@${e.version}`
@@ -247,6 +249,7 @@ export function mergeIndexes(localPlugins, livePlugins, drops = []) {
 function scanLocal() {
   const plugins = []
   for (const idDirName of dirsIn(OUT_ROOT).sort()) {
+    if (RETIRED_PLUGIN_IDS.has(idDirName)) continue
     const idDir = join(OUT_ROOT, idDirName)
     for (const version of dirsIn(idDir).sort()) {
       const versionDir = join(idDir, version)

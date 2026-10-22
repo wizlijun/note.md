@@ -70,8 +70,6 @@ export function installUiReviewBridge(kind) {
     if (method === 'plugin.library_list') return { books: [], meetings: [{ conversation_id: 'demo', title: '项目设计评审', started_at: '2026-09-05T09:00:00+08:00', duration_ms: 1800000, speaker_count: 3, transcript_path: 'ssot/meetings/demo/transcript.md' }] }
     if (method === 'plugin.topic_state') return { revision: 'absent', catalog: null, counts: {} }
     if (method === 'plugin.save_settings') return { meetings_root: params.meetings_root ?? 'ssot/meetings', ok: true }
-    if (method === 'plugin.connect') return 'host'
-    if (method === 'plugin.send') return {}
     if (method === 'host.cdr.repository.inspect') return { kind: 'empty' }
     if (method === 'host.dialog.open') return { paths: null }
     return {}

@@ -159,11 +159,11 @@ mod tests {
     #[test]
     fn capture_section_is_split_out_from_the_default_group() {
         let spark = manifest("Idea Spark", json!([{ "window": "main", "section": "capture" }]), None);
-        let chat = manifest("OpenClaw Chat", json!([{ "window": "main" }]), None);
+        let chat = manifest("Example Chat", json!([{ "window": "main" }]), None);
         let (capture, rest) =
-            collect_entries([("notemd.idea-spark", &spark), ("notemd.openclaw-chat", &chat)], "en");
+            collect_entries([("notemd.idea-spark", &spark), ("pub.example-chat", &chat)], "en");
         assert_eq!(capture.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["Idea Spark"]);
-        assert_eq!(rest.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["OpenClaw Chat"]);
+        assert_eq!(rest.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["Example Chat"]);
     }
 
     /// An open vocabulary has to degrade, not drop: a `section` from a newer

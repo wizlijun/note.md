@@ -8,7 +8,7 @@
 | 形态 | 例子 | 有 `binary` | 有 `ui` | 典型用途 |
 |---|---|---|---|---|
 | **纯前端** | `roam-import` | ❌ | ✅ | 开一个独立窗口做交互,读写 vault |
-| **后端 + 前端** | `openclaw`、`claude-agent` | ✅ | ✅ | 后台进程(网络/计算)+ 流式 UI |
+| **后端 + 前端** | `claude-agent`、`codex-agent` | ✅ | ✅ | 后台进程(网络/计算)+ 流式 UI |
 | **纯后端** | `pos-log` | ✅ | ❌ | 常驻后台采集,无界面 |
 
 规则(`plugin-protocol/src/lib.rs:183-188`):
@@ -430,7 +430,7 @@ interface SideView {
 ### 插件(隔离 webview,用不了主程序 t)
 两条并存:
 
-1. **UI 内字符串** — 插件自带 `src/lib/strings.ts`,结构照抄 `plugins-src/openclaw/src/lib/strings.ts`:一个 `MessageKey` 联合类型 + 每语言一张 catalog + 本地 `t()`,当前语言从 `bridge().locale`(`'en'|'zh'|'ja'|'de'`)拿。
+1. **UI 内字符串** — 插件自带 `src/lib/strings.ts`,结构照抄 `plugins-src/trace-source/src/lib/strings.ts`:一个 `MessageKey` 联合类型 + 每语言一张 catalog + 本地 `t()`,当前语言从 `bridge().locale`(`'en'|'zh'|'ja'|'de'`)拿。
 2. **菜单/设置标签本地化** — manifest 顶层 `name` 用英文,再用 manifest 的 `i18n` 字段做 per-locale 覆盖(宿主透传,结构同 v1 PluginI18n):
    ```jsonc
    "name": "Decision",
@@ -499,7 +499,7 @@ interface SideView {
 
 ### 本地 dev 安装(`scripts/dev-install-plugin.sh`)
 ```bash
-scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw|cef|pos-log|decision-log|weekly-review|claude-agent]
+scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|cef|pos-log|decision-log|weekly-review|claude-agent]
 ```
 它构建 UI(Vite → `dist/`)和/或后端二进制,拷进安装根,并把 `state.json` 里 `installed[<id>] = {version, enabled:true}` 打开。**新插件需在此脚本加一个分支。**
 
@@ -538,7 +538,7 @@ scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|openclaw|cef|pos-l
 | UI 桥 `window.notemd` | `plugins-src/roam-import/src/lib/bridge.ts` | 全文 |
 | 侧栏模型 / 注册表 | `src/lib/side-panel/model.ts`, `registry.svelte.ts` | 13-26, 141-163 |
 | .note.md 工具 | `src/lib/outline/{frontmatter,markdown,model,slug}.ts` | — |
-| 插件 i18n 样例 | `plugins-src/openclaw/src/lib/strings.ts` | 全文 |
+| 插件 i18n 样例 | `plugins-src/trace-source/src/lib/strings.ts` | 全文 |
 | dev 安装 | `scripts/dev-install-plugin.sh` | 全文 |
 | 发现 / 安装布局 | `src-tauri/src/plugin_runtime/discovery.rs` | 1-72 |
 | 纯前端样板 | `plugins-src/roam-import/` | manifest + src |
