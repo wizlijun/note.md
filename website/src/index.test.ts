@@ -67,7 +67,7 @@ describe('/download worker route', () => {
 const LINUX_AMD64 = 'https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_amd64.deb'
 const LINUX_ARM64 = 'https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_arm64.deb'
 
-async function downloadWith({ url = 'https://notemd.net/download', ua = '', headers = {}, pages = [], cached = {}, unavailable = false }: {
+async function downloadWith({ url = 'https://notemd.net/download?format=deb', ua = '', headers = {}, pages = [], cached = {}, unavailable = false }: {
   url?: string, ua?: string, headers?: Record<string, string>, pages?: unknown[][], cached?: Record<string, string>, unavailable?: boolean
 }) {
   const cache = new Map<string, Response>(Object.entries(cached).map(([key, value]) => [
@@ -104,7 +104,7 @@ describe('Linux /download worker route', () => {
 
   it('requests missing hints and offers an explicit choice instead of cached AMD64', async () => {
     const { response } = await downloadWith({ ua: reducedUa,
-      cached: { 'dl/linux-x86_64': LINUX_AMD64, 'dl-lkg/linux-x86_64': LINUX_AMD64 } })
+      cached: { 'dl/linux-deb-x86_64': LINUX_AMD64, 'dl-lkg/linux-deb-x86_64': LINUX_AMD64 } })
     expect(response.status).toBe(200)
     expect(response.headers.get('Location')).toBeNull()
     expect(response.headers.get('Accept-CH')).toBe('Sec-CH-UA-Arch, Sec-CH-UA-Bitness')
@@ -113,8 +113,8 @@ describe('Linux /download worker route', () => {
     expect(response.headers.get('Vary')).toContain('Sec-CH-UA-Bitness')
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     const html = await response.text()
-    expect(html).toContain('/download?os=linux&amp;arch=aarch64')
-    expect(html).toContain('/download?os=linux&amp;arch=x86_64')
+    expect(html).toContain('/download?os=linux&amp;format=deb&amp;arch=aarch64')
+    expect(html).toContain('/download?os=linux&amp;format=deb&amp;arch=x86_64')
   })
 
   it.each([
@@ -128,7 +128,7 @@ describe('Linux /download worker route', () => {
   })
 
   it('keeps explicit selection ahead of conflicting hints', async () => {
-    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=arm64', ua: reducedUa,
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=deb&arch=arm64', ua: reducedUa,
       headers: { 'Sec-CH-UA-Arch': '"x86"' }, pages: [[linuxRelease]] })
     expect(response.headers.get('Location')).toBe(LINUX_ARM64)
   })
@@ -138,7 +138,7 @@ describe('Linux /download worker route', () => {
       const headers: Record<string, string> = { 'Sec-CH-UA-Arch': arch }
       if (bitness !== null) headers['Sec-CH-UA-Bitness'] = bitness
       const { response } = await downloadWith({ ua: reducedUa, headers,
-        cached: { 'dl/linux-x86_64': LINUX_AMD64, 'dl/linux-aarch64': LINUX_ARM64 } })
+        cached: { 'dl/linux-deb-x86_64': LINUX_AMD64, 'dl/linux-deb-aarch64': LINUX_ARM64 } })
       expect(response.status).toBe(200)
       expect(response.headers.get('Location')).toBeNull()
     }
@@ -167,9 +167,9 @@ describe('Linux /download worker route', () => {
   })
 
   it.each([
-    { url: 'https://notemd.net/download', ua: 'Mozilla/5.0 (X11; Linux x86_64)', want: LINUX_AMD64 },
-    { url: 'https://notemd.net/download', ua: 'Mozilla/5.0 (X11; Linux aarch64)', want: LINUX_ARM64 },
-    { url: 'https://notemd.net/download?os=linux&arch=arm64', ua: 'Macintosh', want: LINUX_ARM64 },
+    { url: 'https://notemd.net/download?format=deb', ua: 'Mozilla/5.0 (X11; Linux x86_64)', want: LINUX_AMD64 },
+    { url: 'https://notemd.net/download?format=deb', ua: 'Mozilla/5.0 (X11; Linux aarch64)', want: LINUX_ARM64 },
+    { url: 'https://notemd.net/download?os=linux&format=deb&arch=arm64', ua: 'Macintosh', want: LINUX_ARM64 },
   ])('finds the actual package despite a newer mac-only release: $url $ua', async ({ url, ua, want }) => {
     const { response } = await downloadWith({ url, ua, pages: [[{ assets: [] }, linuxRelease]] })
     expect(response.status).toBe(302)
@@ -177,14 +177,14 @@ describe('Linux /download worker route', () => {
   })
 
   it('paginates when the Linux package is older than the first 100 releases', async () => {
-    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=amd64', pages: [
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=deb&arch=amd64', pages: [
       Array.from({ length: 100 }, () => ({ assets: [] })), [linuxRelease],
     ] })
     expect(response.headers.get('Location')).toBe(LINUX_AMD64)
   })
 
   it('sends native ARM visitors to releases when only an AMD64 package exists', async () => {
-    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=arm64', pages: [[
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=deb&arch=arm64', pages: [[
       { assets: [linuxRelease.assets[0]] },
     ]] })
     expect(response.headers.get('Location')).toBe('https://github.com/wizlijun/note.md/releases')
@@ -196,15 +196,15 @@ describe('Linux /download worker route', () => {
     { os: 'windows', arch: 'x86_64', want: WINDOWS_INSTALLER },
   ])('uses the $os $arch last-known-good URL when GitHub is unavailable', async ({ os, arch, want }) => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { response } = await downloadWith({ url: `https://notemd.net/download?os=${os}&arch=${arch}`,
-      unavailable: true, cached: { [`dl-lkg/${os}-${arch}`]: want } })
+    const { response } = await downloadWith({ url: `https://notemd.net/download?os=${os}&arch=${arch}&format=deb`,
+      unavailable: true, cached: { [`dl-lkg/${os}${os === 'linux' ? '-deb' : ''}-${arch}`]: want } })
     expect(response.headers.get('Location')).toBe(want)
   })
 
   it('stores each resolved Linux architecture as its own last-known-good download', async () => {
-    const { cache } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=arm64', pages: [[linuxRelease]] })
-    expect(await cache.get('https://notemd.net/__cache/dl-lkg/linux-aarch64')?.json()).toEqual({ url: LINUX_ARM64 })
-    expect(cache.has('https://notemd.net/__cache/dl-lkg/linux-x86_64')).toBe(false)
+    const { cache } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=deb&arch=arm64', pages: [[linuxRelease]] })
+    expect(await cache.get('https://notemd.net/__cache/dl-lkg/linux-deb-aarch64')?.json()).toEqual({ url: LINUX_ARM64 })
+    expect(cache.has('https://notemd.net/__cache/dl-lkg/linux-deb-x86_64')).toBe(false)
   })
 })
 
@@ -236,5 +236,70 @@ describe('macOS /download worker route', () => {
     const { response } = await downloadWith({ url: 'https://notemd.net/download?os=mac&arch=intel',
       unavailable: true, cached: { 'dl-lkg/mac-x86_64': MAC_INTEL } })
     expect(response.headers.get('Location')).toBe(MAC_INTEL)
+  })
+})
+
+
+const ARCH_ARM64 = 'https://github.com/wizlijun/note.md/releases/download/v6.1022.1/notemd-6.1022.1-1-aarch64.pkg.tar.zst'
+const ARCH_AMD64 = 'https://github.com/wizlijun/note.md/releases/download/v6.1022.1/notemd-6.1022.1-1-x86_64.pkg.tar.zst'
+const archRelease = { assets: [
+  { name: 'notemd-6.1022.1-1-aarch64.pkg.tar.zst', browser_download_url: ARCH_ARM64 },
+  { name: 'notemd-6.1022.1-1-x86_64.pkg.tar.zst', browser_download_url: ARCH_AMD64 },
+] }
+
+describe('explicit Linux package format', () => {
+  it.each(['', '&format=rpm', '&format=ARCH', '&format=deb%3Cscript%3E'])('requires a format choice without guessing the distribution: %s', async (suffix) => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=aarch64'+suffix,
+      cached: { 'dl/linux-aarch64': LINUX_ARM64, 'dl/linux-deb-aarch64': LINUX_ARM64 } })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    const html = await response.text()
+    expect(html).toContain('/download?os=linux&amp;format=deb&amp;arch=aarch64')
+    expect(html).toContain('/download?os=linux&amp;format=arch&amp;arch=aarch64')
+    expect(html).toContain('Debian / Ubuntu (.deb)')
+    expect(html).toContain('Omarchy / Arch (.pkg.tar.zst)')
+    expect(html).not.toContain('&lt;script&gt;')
+  })
+
+  it('preserves the negotiated architecture in format choices', async () => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download',
+      ua: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0.0.0',
+      headers: { 'Sec-CH-UA-Arch': '"arm"', 'Sec-CH-UA-Bitness': '"64"' } })
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain('/download?os=linux&amp;format=arch&amp;arch=aarch64')
+  })
+
+  it('keeps the selected format while asking for an unknown architecture', async () => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=arch',
+      ua: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0.0.0' })
+    const html = await response.text()
+    expect(response.status).toBe(200)
+    expect(html).toContain('/download?os=linux&amp;format=arch&amp;arch=aarch64')
+    expect(html).toContain('/download?os=linux&amp;format=arch&amp;arch=x86_64')
+    expect(html).not.toContain('(.deb)')
+  })
+
+  it.each([
+    { arch: 'aarch64', want: ARCH_ARM64 },
+    { arch: 'x86_64', want: ARCH_AMD64 },
+  ])('serves the actual $arch Arch package and caches its format independently', async ({ arch, want }) => {
+    const { response, cache } = await downloadWith({ url: `https://notemd.net/download?os=linux&format=arch&arch=${arch}`,
+      pages: [[linuxRelease, archRelease]], cached: { [`dl/linux-deb-${arch}`]: LINUX_ARM64, [`dl/linux-${arch}`]: LINUX_ARM64 } })
+    expect(response.headers.get('Location')).toBe(want)
+    expect(await cache.get(`https://notemd.net/__cache/dl-lkg/linux-arch-${arch}`)?.json()).toEqual({ url: want })
+  })
+
+  it('does not fall back to Debian or x86_64 when the requested ARM Arch package is missing', async () => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=arch&arch=aarch64',
+      pages: [[linuxRelease, { assets: [archRelease.assets[1]] }]],
+      cached: { 'dl-lkg/linux-aarch64': LINUX_ARM64, 'dl-lkg/linux-deb-aarch64': LINUX_ARM64, 'dl-lkg/linux-arch-x86_64': ARCH_AMD64 } })
+    expect(response.headers.get('Location')).toBe('https://github.com/wizlijun/note.md/releases')
+  })
+
+  it('uses only the matching format and architecture last-known-good package on upstream failure', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&format=arch&arch=aarch64', unavailable: true,
+      cached: { 'dl-lkg/linux-deb-aarch64': LINUX_ARM64, 'dl-lkg/linux-arch-aarch64': ARCH_ARM64 } })
+    expect(response.headers.get('Location')).toBe(ARCH_ARM64)
   })
 })

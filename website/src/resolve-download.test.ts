@@ -350,3 +350,26 @@ describe('macOS release asset fallback', () => {
     expect(requested).toEqual([1, 2])
   })
 })
+
+
+describe('Linux Arch package asset selection', () => {
+  const arm = dl('v6.1022.1', 'notemd-6.1022.1-1-aarch64.pkg.tar.zst')
+  const x64 = dl('v6.1022.1', 'notemd-6.1022.1-1-x86_64.pkg.tar.zst')
+  const releases = [
+    { draft: true, assets: [arm] },
+    { prerelease: true, assets: [arm] },
+    { assets: [dl('v7', 'notemd-7-1-aarch64.pkg.tar.zst.sig'), dl('v7', 'note.md_7_arm64.deb'), x64] },
+    { assets: [arm] },
+  ]
+  it('selects real Arch assets separately from Debian and signatures', () => {
+    expect(linuxUrlFromReleases(releases, 'aarch64', 'arch')).toBe(arm.browser_download_url)
+    expect(linuxUrlFromReleases(releases, 'x86_64', 'arch')).toBe(x64.browser_download_url)
+    expect(linuxUrlFromReleases(releases.slice(0, 3), 'aarch64', 'arch')).toBeNull()
+    expect(linuxUrlFromReleases(releases, 'aarch64', 'rpm')).toBeNull()
+  })
+  it('paginates Arch assets without changing the selected format', async () => {
+    expect(await linuxUrlFromReleasePages(async (page: number) => page === 1
+      ? Array.from({ length: 100 }, () => ({ assets: [dl('v7', 'note.md_7_arm64.deb')] })) : releases,
+    'aarch64', 100, 'arch')).toBe(arm.browser_download_url)
+  })
+})

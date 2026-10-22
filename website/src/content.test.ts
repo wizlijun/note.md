@@ -221,8 +221,11 @@ describe('localized navigation and social metadata', () => {
 describe('Linux beta download links', () => {
   it.each(locales)('offers explicit native package choices on the $lang homepage', ({ home }) => {
     const html = readFileSync(join(publicDir, home), 'utf8')
-    expect(html).toContain('href="/download?os=linux&amp;arch=x86_64"')
-    expect(html).toContain('href="/download?os=linux&amp;arch=aarch64"')
+    expect(html).toContain('href="/download?os=linux&amp;format=deb&amp;arch=x86_64"')
+    expect(html).toContain('href="/download?os=linux&amp;format=deb&amp;arch=aarch64"')
+    expect(html).toContain('href="/download?os=linux&amp;format=arch&amp;arch=x86_64"')
+    expect(html).toContain('href="/download?os=linux&amp;format=arch&amp;arch=aarch64"')
+    expect(html).not.toContain('Debian 12 / Omarchy')
     expect(html).not.toMatch(/href="[^"]*releases\/latest\/download\/[^"]*\.deb/)
   })
 })

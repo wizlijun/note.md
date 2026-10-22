@@ -149,15 +149,19 @@ export function windowsUrlFromReleasePages(loadPage, arch, pageSize) {
 
 // Debian architecture names differ from the canonical download query names.
 // Linux installers come only from actual release assets, never latest.json.
-export function linuxUrlFromReleases(releases, arch) {
+export function linuxUrlFromReleases(releases, arch, format = "deb") {
   const debArch = { aarch64: "arm64", x86_64: "amd64" }[arch];
   if (!debArch) return null;
+  const pattern = format === "deb" ? `^note\\.md_[^_]+_${debArch}\\.deb$`
+    : format === "arch" ? `^notemd-[^-]+-[0-9]+-${arch}\\.pkg\\.tar\\.zst$` : null;
+  if (!pattern) return null;
   return installerUrlFromReleases(releases, arch,
-    (name) => new RegExp(`^note\\.md_[^_]+_${debArch}\\.deb$`).test(name || ""));
+    (name) => new RegExp(pattern).test(name || ""));
 }
 
-export function linuxUrlFromReleasePages(loadPage, arch, pageSize) {
-  return installerUrlFromReleasePages(loadPage, arch, pageSize, linuxUrlFromReleases);
+export function linuxUrlFromReleasePages(loadPage, arch, pageSize, format = "deb") {
+  return installerUrlFromReleasePages(loadPage, arch, pageSize,
+    (releases, releaseArch) => linuxUrlFromReleases(releases, releaseArch, format));
 }
 
 

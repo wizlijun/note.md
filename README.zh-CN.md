@@ -12,7 +12,7 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 
 ---
 
-**Linux beta 包**面向 Debian 12 / Omarchy（x86_64、aarch64 `.deb`）；aarch64 未经实机验证。使用包管理器更新；缺少 Linux 构建的原生插件及应用内 Agent 面板不在 beta 范围，Wayland 快捷键由合成器绑定。见 [Linux 安装、限制与验收](docs/linux-omarchy.md)。
+**Linux beta 包**分别提供 Debian / Ubuntu 的 `.deb` 和 Omarchy / Arch 的 `.pkg.tar.zst`，两种格式均支持 x86_64、aarch64；aarch64 未经实机验证。使用包管理器更新；缺少 Linux 构建的原生插件及应用内 Agent 面板不在 beta 范围，Wayland 快捷键由合成器绑定。见 [Linux 安装、限制与验收](docs/linux-omarchy.md)。
 
 ## 下载安装包
 
@@ -21,12 +21,14 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 | macOS 13+ | Apple Silicon | [`.dmg`](https://notemd.net/download?os=mac&arch=aarch64) |
 | macOS 13+ | Intel | [`.dmg`](https://notemd.net/download?os=mac&arch=x86_64) |
 | Windows 10/11 | x64 | [`.exe`](https://notemd.net/download?os=windows&arch=x86_64) |
-| Linux beta · Debian 12 / Omarchy | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&arch=x86_64) |
-| Linux beta · Debian 12 / Omarchy | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&arch=aarch64) |
+| Linux beta · Debian / Ubuntu | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=x86_64) |
+| Linux beta · Debian / Ubuntu | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=aarch64) |
+| Linux beta · Omarchy / Arch | x86_64 | [`.pkg.tar.zst`](https://notemd.net/download?os=linux&format=arch&arch=x86_64) |
+| Linux beta · Omarchy / Arch | aarch64 | [`.pkg.tar.zst`](https://notemd.net/download?os=linux&format=arch&arch=aarch64) |
 
 **v6.1022.2 更新 macOS Apple Silicon。** 修复 Markdown rich 模式下复选框点击无响应的问题，包括含脚注和引用定义的文档。勾选时保留周围 Markdown 原文，保存、撤销和重做均保持状态一致。Intel Mac 与 Linux beta 继续提供 v6.1022.1，Windows 继续提供 v6.811.1；上方链接提供各平台最后实际可用的安装包。Timeline 请从插件市场单独更新至 1.2.1。Linux 仍为 beta，aarch64 未经桌面实机验证，Omarchy 仓库尚未收录。
 
-Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux ARM 不会回退到 x86_64 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
+Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux 下载未指定包格式时会先让你选择。ARM 不会回退到 x86_64，Arch 包不会回退到 Debian 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
 
 ## 1. 读 agent 写的东西，这里体验最好
 

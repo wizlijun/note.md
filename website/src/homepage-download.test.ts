@@ -21,7 +21,9 @@ describe('localized homepage download actions', () => {
     }
     expect(window.document.querySelector('[data-plat="linux"]')?.hidden).toBe(false)
     for (const arch of ['x86_64', 'aarch64']) {
-      expect(window.document.querySelector(`a[href="/download?os=linux&arch=${arch}"]`)).not.toBeNull()
+      for (const format of ['deb', 'arch']) {
+        expect(window.document.querySelector(`a[href="/download?os=linux&format=${format}&arch=${arch}"]`)).not.toBeNull()
+      }
     }
     window.happyDOM.abort()
   })

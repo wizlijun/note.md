@@ -37,20 +37,25 @@ function withArchitectureHints(response, download = false) {
   return result;
 }
 
-function linuxArchitectureChoice(request) {
+function linuxDownloadChoice(request, arch, format) {
   const language = request.headers.get("Accept-Language")?.match(/^(zh|de|ja)\b/i)?.[1]?.toLowerCase() ?? "en";
-  const [title, explanation] = {
-    en: ["Choose your Linux download", "Your browser did not identify a supported 64-bit architecture. Select the package for your computer."],
-    zh: ["选择 Linux 下载版本", "浏览器未能提供受支持的 64 位架构信息。请选择与你电脑匹配的安装包。"],
-    de: ["Linux-Download auswählen", "Der Browser hat keine unterstützte 64-Bit-Architektur erkannt. Wähle das Paket für deinen Computer."],
-    ja: ["Linux 版を選択", "ブラウザーから対応する 64 ビットのアーキテクチャを確認できませんでした。お使いのコンピューターに合うパッケージを選択してください。"],
+  const [title, architectureExplanation, formatExplanation] = {
+    en: ["Choose your Linux download", "Your browser did not identify a supported 64-bit architecture. Select the package for your computer.", "Choose the package format for your Linux distribution. Debian / Ubuntu use .deb; Omarchy / Arch use .pkg.tar.zst."],
+    zh: ["选择 Linux 下载版本", "浏览器未能提供受支持的 64 位架构信息。请选择与你电脑匹配的安装包。", "请选择 Linux 发行版使用的包格式：Debian / Ubuntu 使用 .deb；Omarchy / Arch 使用 .pkg.tar.zst。"],
+    de: ["Linux-Download auswählen", "Der Browser hat keine unterstützte 64-Bit-Architektur erkannt. Wähle das Paket für deinen Computer.", "Wähle das Paketformat für deine Linux-Distribution: Debian / Ubuntu verwenden .deb, Omarchy / Arch verwenden .pkg.tar.zst."],
+    ja: ["Linux 版を選択", "ブラウザーから対応する 64 ビットのアーキテクチャを確認できませんでした。お使いのコンピューターに合うパッケージを選択してください。", "Linux ディストリビューションの形式を選択してください。Debian / Ubuntu は .deb、Omarchy / Arch は .pkg.tar.zst を使用します。"],
   }[language];
+  const explanation = format ? architectureExplanation : formatExplanation;
+  const choices = format
+    ? [["aarch64", "ARM64 / aarch64"], ["x86_64", "Intel / AMD64 / x86_64"]].map(([value, label]) =>
+      `<a href="/download?os=linux&amp;format=${format}&amp;arch=${value}">${label} (${format === "deb" ? ".deb" : ".pkg.tar.zst"})</a>`)
+    : [["deb", "Debian / Ubuntu (.deb)"], ["arch", "Omarchy / Arch (.pkg.tar.zst)"]].map(([value, label]) =>
+      `<a href="/download?os=linux&amp;format=${value}${arch ? `&amp;arch=${arch}` : ""}">${label}</a>`);
   return new Response(`<!doctype html><html lang="${language}"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — note.md</title>
 <style>:root{color-scheme:light dark}body{font:17px/1.6 system-ui,sans-serif;max-width:36rem;margin:12vh auto;padding:0 1.5rem}h1{font-size:1.8rem}a{display:block;margin:1rem 0;padding:1rem;border:1px solid;border-radius:.6rem;color:inherit;text-decoration:none}a:hover,a:focus-visible{outline:2px solid}</style>
 <main><h1>${title}</h1><p>${explanation}</p>
-<a href="/download?os=linux&amp;arch=aarch64">ARM64 / aarch64 (.deb)</a>
-<a href="/download?os=linux&amp;arch=x86_64">Intel / AMD64 / x86_64 (.deb)</a></main></html>`, {
+${choices.join("\n")}</main></html>`, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -134,9 +139,10 @@ function redirect(location) {
 // latest.json may carry only darwin-* entries for a while — hence the
 // releases-list scan, and hence caring about the last URL that did work.
 async function resolveInstaller(target, ctx) {
-  const { os, arch } = target;
-  const freshKey = `dl/${os}-${arch}`;
-  const lkgKey = `dl-lkg/${os}-${arch}`;
+  const { os, arch, format } = target;
+  const platformKey = `${os}${os === "linux" ? `-${format}` : ""}-${arch}`;
+  const freshKey = `dl/${platformKey}`;
+  const lkgKey = `dl-lkg/${platformKey}`;
 
   const fresh = await cacheReadJson(freshKey).catch(() => null);
   if (fresh?.url) return fresh.url;
@@ -156,7 +162,7 @@ async function resolveInstaller(target, ctx) {
       const select = os === "mac" ? macUrlFromReleasePages
         : os === "linux" ? linuxUrlFromReleasePages : windowsUrlFromReleasePages;
       const findRelease = (releaseArch) =>
-        select((page) => fetchReleasesPage(page, ctx), releaseArch, RELEASES_PER_PAGE);
+        select((page) => fetchReleasesPage(page, ctx), releaseArch, RELEASES_PER_PAGE, format);
       url = await findRelease(arch);
       // Windows on ARM supports x64 emulation. Linux must match native arch.
       if (!url && os === "windows" && arch !== "x86_64") url = await findRelease("x86_64");
@@ -180,7 +186,7 @@ async function resolveInstaller(target, ctx) {
 // GET /download[?os=mac|windows|linux][&arch=aarch64|x86_64] → 302 to the installer.
 //
 // Precedence: explicit ?os=/?arch= > negotiated client hints > trusted UA.
-// Unknown Linux architecture gets a choice instead of a guessed package.
+// Linux requires an explicit package format; unknown architecture also gets a choice.
 // UA strings cannot reliably distinguish Intel
 // from Apple Silicon (Safari reports Intel on both), so the homepage carries
 // an explicit Intel fallback link instead. Visitors we can't serve a binary to
@@ -196,7 +202,12 @@ async function handleDownload(request, ctx) {
     bitnessHint: request.headers.get("Sec-CH-UA-Bitness"),
   });
   if (!target) return redirect(RELEASES_PAGE);
-  if (target.os === "linux" && !target.arch) return linuxArchitectureChoice(request);
+  if (target.os === "linux") {
+    const format = url.searchParams.get("format");
+    target.format = format === "deb" || format === "arch" ? format : null;
+    // Architecture hints do not identify the Linux distribution or its package manager.
+    if (!target.format || !target.arch) return linuxDownloadChoice(request, target.arch, target.format);
+  }
 
   try {
     return redirect((await resolveInstaller(target, ctx)) ?? RELEASES_PAGE);
