@@ -16,10 +16,12 @@ describe('localized homepage download actions', () => {
     const buttons = [...window.document.querySelectorAll('[data-dl]')]
     expect(buttons).toHaveLength(2)
     for (const button of buttons) {
-      expect(button.getAttribute('href')).toBe('/download?os=linux')
-      expect(button.querySelector('.bl')?.textContent).toContain('Linux')
+      expect(button.getAttribute('href')).toBe('/download?os=linux&format=arch')
+      expect(button.querySelector('.bl')?.textContent).toContain('Omarchy')
     }
     expect(window.document.querySelector('[data-plat="linux"]')?.hidden).toBe(false)
+    const firstPackage = window.document.querySelector('.fine a[href*="format="]')
+    expect(firstPackage?.getAttribute('href')).toContain('format=arch')
     for (const arch of ['x86_64', 'aarch64']) {
       for (const format of ['deb', 'arch']) {
         expect(window.document.querySelector(`a[href="/download?os=linux&format=${format}&arch=${arch}"]`)).not.toBeNull()

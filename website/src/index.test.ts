@@ -258,6 +258,8 @@ describe('explicit Linux package format', () => {
     expect(html).toContain('/download?os=linux&amp;format=arch&amp;arch=aarch64')
     expect(html).toContain('Debian / Ubuntu (.deb)')
     expect(html).toContain('Omarchy / Arch (.pkg.tar.zst)')
+    expect(html.indexOf('format=arch')).toBeLessThan(html.indexOf('format=deb'))
+    expect(html).toContain('Recommended')
     expect(html).not.toContain('&lt;script&gt;')
   })
 

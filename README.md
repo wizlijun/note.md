@@ -14,7 +14,7 @@ people and AI agents to work in the same files. Desktop app for macOS 13+
 
 ---
 
-**Linux beta packages** provide `.deb` for Debian / Ubuntu and `.pkg.tar.zst` for Omarchy / Arch, each for x86_64 and aarch64; aarch64 has not been verified on a native desktop machine. Packages update through the package manager. Native plugins without a Linux build and app-internal agent panels are excluded; Wayland shortcuts use compositor bindings. See [Linux installation, limitations and acceptance](docs/linux-omarchy.md).
+**Linux beta packages** provide `.pkg.tar.zst` for Omarchy / Arch and `.deb` for Debian / Ubuntu, each for x86_64 and aarch64; aarch64 has not been verified on a native desktop machine. Packages update through the package manager. Native plugins without a Linux build and app-internal agent panels are excluded; Wayland shortcuts use compositor bindings. See [Linux installation, limitations and acceptance](docs/linux-omarchy.md).
 
 ## Download packages
 
@@ -23,10 +23,10 @@ people and AI agents to work in the same files. Desktop app for macOS 13+
 | macOS 13+ | Apple Silicon | [`.dmg`](https://notemd.net/download?os=mac&arch=aarch64) |
 | macOS 13+ | Intel | [`.dmg`](https://notemd.net/download?os=mac&arch=x86_64) |
 | Windows 10/11 | x64 | [`.exe`](https://notemd.net/download?os=windows&arch=x86_64) |
-| Linux beta · Debian / Ubuntu | x86_64 (amd64) | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=x86_64) |
-| Linux beta · Debian / Ubuntu | aarch64 (arm64) | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=aarch64) |
 | Linux beta · Omarchy / Arch | x86_64 | [`.pkg.tar.zst`](https://notemd.net/download?os=linux&format=arch&arch=x86_64) |
 | Linux beta · Omarchy / Arch | aarch64 | [`.pkg.tar.zst`](https://notemd.net/download?os=linux&format=arch&arch=aarch64) |
+| Linux beta · Debian / Ubuntu | x86_64 (amd64) | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=x86_64) |
+| Linux beta · Debian / Ubuntu | aarch64 (arm64) | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=aarch64) |
 
 **v6.1022.2 updates macOS Apple Silicon.** Checkboxes respond to clicks in Markdown rich mode again, including documents with footnotes and reference definitions. Toggling a checkbox preserves the surrounding Markdown; saving, undo and redo keep its state consistent. Intel Mac and Linux beta remain at v6.1022.1; Windows remains at v6.811.1. The download links serve each platform's latest available package. Update Timeline separately to 1.2.1 in the plugin marketplace. Linux remains beta, aarch64 has not been verified on a native desktop, and Omarchy repository inclusion is still pending.
 

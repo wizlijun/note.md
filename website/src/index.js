@@ -40,16 +40,17 @@ function withArchitectureHints(response, download = false) {
 function linuxDownloadChoice(request, arch, format) {
   const language = request.headers.get("Accept-Language")?.match(/^(zh|de|ja)\b/i)?.[1]?.toLowerCase() ?? "en";
   const [title, architectureExplanation, formatExplanation] = {
-    en: ["Choose your Linux download", "Your browser did not identify a supported 64-bit architecture. Select the package for your computer.", "Choose the package format for your Linux distribution. Debian / Ubuntu use .deb; Omarchy / Arch use .pkg.tar.zst."],
-    zh: ["选择 Linux 下载版本", "浏览器未能提供受支持的 64 位架构信息。请选择与你电脑匹配的安装包。", "请选择 Linux 发行版使用的包格式：Debian / Ubuntu 使用 .deb；Omarchy / Arch 使用 .pkg.tar.zst。"],
-    de: ["Linux-Download auswählen", "Der Browser hat keine unterstützte 64-Bit-Architektur erkannt. Wähle das Paket für deinen Computer.", "Wähle das Paketformat für deine Linux-Distribution: Debian / Ubuntu verwenden .deb, Omarchy / Arch verwenden .pkg.tar.zst."],
-    ja: ["Linux 版を選択", "ブラウザーから対応する 64 ビットのアーキテクチャを確認できませんでした。お使いのコンピューターに合うパッケージを選択してください。", "Linux ディストリビューションの形式を選択してください。Debian / Ubuntu は .deb、Omarchy / Arch は .pkg.tar.zst を使用します。"],
+    en: ["Choose your Linux download", "Your browser did not identify a supported 64-bit architecture. Select the package for your computer.", "Choose the package format for your Linux distribution. Omarchy / Arch use .pkg.tar.zst; Debian / Ubuntu use .deb."],
+    zh: ["选择 Linux 下载版本", "浏览器未能提供受支持的 64 位架构信息。请选择与你电脑匹配的安装包。", "请选择 Linux 发行版使用的包格式：Omarchy / Arch 使用 .pkg.tar.zst；Debian / Ubuntu 使用 .deb。"],
+    de: ["Linux-Download auswählen", "Der Browser hat keine unterstützte 64-Bit-Architektur erkannt. Wähle das Paket für deinen Computer.", "Wähle das Paketformat für deine Linux-Distribution: Omarchy / Arch verwenden .pkg.tar.zst, Debian / Ubuntu verwenden .deb."],
+    ja: ["Linux 版を選択", "ブラウザーから対応する 64 ビットのアーキテクチャを確認できませんでした。お使いのコンピューターに合うパッケージを選択してください。", "Linux ディストリビューションの形式を選択してください。Omarchy / Arch は .pkg.tar.zst、Debian / Ubuntu は .deb を使用します。"],
   }[language];
+  const recommended = { en: "Recommended", zh: "推荐", de: "Empfohlen", ja: "おすすめ" }[language];
   const explanation = format ? architectureExplanation : formatExplanation;
   const choices = format
     ? [["aarch64", "ARM64 / aarch64"], ["x86_64", "Intel / AMD64 / x86_64"]].map(([value, label]) =>
       `<a href="/download?os=linux&amp;format=${format}&amp;arch=${value}">${label} (${format === "deb" ? ".deb" : ".pkg.tar.zst"})</a>`)
-    : [["deb", "Debian / Ubuntu (.deb)"], ["arch", "Omarchy / Arch (.pkg.tar.zst)"]].map(([value, label]) =>
+    : [["arch", `Omarchy / Arch (.pkg.tar.zst) · ${recommended}`], ["deb", "Debian / Ubuntu (.deb)"]].map(([value, label]) =>
       `<a href="/download?os=linux&amp;format=${value}${arch ? `&amp;arch=${arch}` : ""}">${label}</a>`);
   return new Response(`<!doctype html><html lang="${language}"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — note.md</title>
