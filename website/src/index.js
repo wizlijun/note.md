@@ -128,7 +128,8 @@ const fetchManifest = (ctx) => fetchJson(LATEST_JSON_URL, "latest.json", MANIFES
 const fetchReleasesPage = (page, ctx) =>
   fetchJson(
     `${RELEASES_API_URL}?per_page=${RELEASES_PER_PAGE}&page=${page}`,
-    `releases-${page}.json`,
+    // Arch downloads need the asset snapshot refreshed when this format is introduced.
+    `releases-v2-${page}.json`,
     RELEASES_TTL_S,
     ctx,
   );

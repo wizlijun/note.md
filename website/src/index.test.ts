@@ -322,3 +322,22 @@ describe('Omarchy installation instructions', () => {
     expect(html).not.toContain('notemd-6.')
   })
 })
+
+describe('release assets cache migration', () => {
+  it('refreshes release assets after adding Arch support instead of reusing an older asset snapshot', async () => {
+    const match = vi.fn(async (request: Request) => request.url.endsWith('/releases-1.json')
+      ? Response.json([{ assets: [archRelease.assets[1]] }], { headers: { 'Cache-Control': 'public, max-age=1800' } })
+      : undefined)
+    vi.stubGlobal('caches', { default: { match, put: vi.fn(async () => {}) } })
+    const fetchMock = vi.fn(async () => Response.json([archRelease]))
+    vi.stubGlobal('fetch', fetchMock)
+    const worker = (await import('./index.js')).default
+    const pending: Promise<unknown>[] = []
+    const response = await worker.fetch(new Request('https://notemd.net/download?os=linux&format=arch&arch=aarch64'),
+      { ASSETS: { fetch: vi.fn() } }, { waitUntil: (promise: Promise<unknown>) => pending.push(promise) })
+    await Promise.all(pending)
+    expect(response.headers.get('Location')).toBe(ARCH_ARM64)
+    expect(match.mock.calls.some(([request]) => request.url.endsWith('/releases-v2-1.json'))).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
