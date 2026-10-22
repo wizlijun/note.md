@@ -14,7 +14,10 @@
   <div class="evidence"><strong>{zh ? '重要程度证据' : 'Importance evidence'}</strong>{#each metadata.evidence as evidence}<span>{evidence.source} · {evidence.locator}</span>{:else}<span>{zh ? '暂无证据' : 'No evidence recorded'}</span>{/each}</div>
   <div class="anomaly-assessment">
     <strong>{zh ? '反常判断' : 'Anomaly assessment'}</strong>
-    <p>{metadata.anomaly?.status === 'flagged' ? (zh ? '有依据的反常' : 'Evidence-backed anomaly') : metadata.anomaly?.status === 'none' ? (zh ? '已核对未发现反常' : 'Reviewed; no anomaly found') : (zh ? '反常尚未判断' : 'Anomaly not yet assessed')}</p>
+    {#if metadata.anomaly?.origin === 'manual'}
+      <p>{metadata.anomaly.status === 'flagged' ? (zh ? '手动标记为反常' : 'Manually marked as anomalous') : metadata.anomaly.status === 'none' ? (zh ? '手动标记未发现反常' : 'Manually marked as no anomaly found') : (zh ? '手动标记为待判断' : 'Manually marked as pending review')}</p>
+      <p>{zh ? '手动设置；下方证据为原有记录。' : 'Manually set; evidence below is retained from the original record.'}</p>
+    {:else}<p>{metadata.anomaly?.status === 'flagged' ? (zh ? '有依据的反常' : 'Evidence-backed anomaly') : metadata.anomaly?.status === 'none' ? (zh ? '已核对未发现反常' : 'Reviewed; no anomaly found') : (zh ? '反常尚未判断' : 'Anomaly not yet assessed')}</p>{/if}
     {#if metadata.anomaly}<p>{metadata.anomaly.reason}</p>{/if}
     {#if metadata.anomaly?.evidence.length}<div class="evidence" aria-label={zh ? '反常证据' : 'Anomaly evidence'}>{#each metadata.anomaly.evidence as evidence}<span>{evidence.source} · {evidence.locator}</span>{/each}</div>{/if}
   </div>

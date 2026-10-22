@@ -113,6 +113,63 @@ describe('source-preserving Timeline event edits', () => {
     expect(first(edit(upgraded, { title: '新标题' })).metadata).not.toHaveProperty('importance_origin')
   })
 
+  it('marks legacy events manually as anomalous without inventing source evidence, and keeps nested IDs stable', () => {
+    const before = flatten(parseTimeline(legacy)!.items)
+    const result = edit(legacy, { anomaly: 'flagged' })
+    const after = flatten(parseTimeline(result)!.items)
+    expect(after.map(item => item.id)).toEqual(before.map(item => item.id))
+    expect(after[0].metadata).toMatchObject({ importance: 'unknown', anomaly: { status: 'flagged', origin: 'manual', reason: '用户手动设置反常标签。', evidence: [] } })
+    expect(after[0].metadata).not.toHaveProperty('importance_origin')
+    expect(after[1].metadata).not.toHaveProperty('anomaly')
+    expect(result).toContain('# untouched comment\ncustom: {quoted: "keep me"}\n')
+    expect(result).toContain('```md\n- 13:00–14:00 — 示例：不是事件。\n```')
+    expect(edit(legacy, { anomaly: 'unknown' })).toBe(legacy)
+  })
+
+  it('sets and clears nested anomaly independently while preserving evidence, extra fields, parent and sibling metadata', () => {
+    const source = upgraded.replaceAll('    signals:\n', '    anomaly:\n      status: flagged\n      reason: 明显偏离\n      evidence: [{source: s01, locator: L12}]\n      custom: "keep anomaly"\n    custom_metadata: {quoted: "keep metadata"}\n    signals:\n')
+    const originalMetadata = metadata(source).event_metadata
+    const result = edit(source, { anomaly: 'none' }, 'e02')
+    const resultMetadata = metadata(result).event_metadata
+    expect(resultMetadata.e01).toEqual(originalMetadata.e01)
+    expect(resultMetadata.e03).toEqual(originalMetadata.e03)
+    expect(resultMetadata.e02).toEqual({ ...originalMetadata.e02, anomaly: { ...originalMetadata.e02.anomaly, status: 'none', origin: 'manual', reason: '用户手动设置反常标签。' } })
+    const unknown = edit(result, { anomaly: 'unknown' }, 'e02')
+    expect(flatten(parseTimeline(unknown)!.items).find(item => item.id === 'e02')!.metadata.anomaly?.status).toBe('unknown')
+    expect(metadata(unknown).event_metadata.e02.anomaly.evidence).toEqual(originalMetadata.e02.anomaly.evidence)
+    expect(edit(unknown, { anomaly: 'unknown' }, 'e02')).toBe(unknown)
+  })
+
+  it('detaches an aliased anomaly before editing so another event is not changed', () => {
+    const source = upgraded.replace('    signals:\n', '    anomaly: &shared\n      status: none\n      reason: 原判断\n      evidence: []\n      extra: 保留\n    signals:\n').replace('    evidence: *a1\n', '    evidence: *a1\n    anomaly: *shared\n')
+    const result = edit(source, { anomaly: 'flagged' }, 'e02')
+    expect(metadata(result).event_metadata.e01.anomaly).toEqual(metadata(source).event_metadata.e01.anomaly)
+    expect(metadata(result).event_metadata.e02.anomaly).toMatchObject({ status: 'flagged', origin: 'manual', evidence: [], extra: '保留' })
+  })
+
+  it('keeps unchanged explicitly selected anomalies byte identical instead of converting them to manual', () => {
+    const source = fixtures.find(fixture => fixture.name === 'high with flagged anomaly')!.content
+    expect(edit(source, { anomaly: 'flagged' })).toBe(source)
+    expect(edit(source, { anomaly: 'flagged', title: '新标题' })).toBe(source.replace('— 会议：', '— 新标题：'))
+  })
+
+  it('preserves aliased child judgments when editing the anchored parent anomaly', () => {
+    const source = upgraded.replace('    signals:\n', '    anomaly: &shared\n      status: none\n      reason: 原判断\n      evidence: []\n      extra: 保留\n    signals:\n').replace('    evidence: *a1\n', '    evidence: *a1\n    anomaly: *shared # child judgment\n')
+    const result = edit(source, { anomaly: 'flagged' }, 'e01')
+    expect(metadata(result).event_metadata.e01.anomaly).toMatchObject({ status: 'flagged', origin: 'manual', extra: '保留' })
+    expect(metadata(result).event_metadata.e02).toEqual(metadata(source).event_metadata.e02)
+    expect(result).toContain('# child judgment')
+  })
+
+  it('combines manual importance and anomaly changes while preserving BOM and CRLF', () => {
+    const source = '\uFEFF' + legacy.replace(/\n/g, '\r\n')
+    const result = edit(source, { anomaly: 'flagged', importance: 'normal', title: '复盘' })
+    expect(result.startsWith('\uFEFF---\r\n')).toBe(true)
+    expect(result.replace(/\r\n/g, '')).not.toMatch(/[\r\n]/)
+    expect(first(result).metadata).toMatchObject({ importance: 'normal', importance_origin: 'manual', anomaly: { status: 'flagged', origin: 'manual', evidence: [] } })
+    expect(() => edit(legacy, { anomaly: 'invalid' as EventEdit['anomaly'] })).toThrow(/反常/)
+  })
+
   it.each(['09:60', '25:00', '24:00:01', '9', '09:00\n', '09:00:99'])('rejects invalid time %s', start => {
     expect(() => edit(legacy, { start })).toThrow(/时间/)
   })
@@ -156,5 +213,32 @@ describe('manual importance parsing', () => {
   it('still requires evidence for generated high importance and validates manual evidence', () => {
     expect(parseTimeline(manual('manual').replace('    importance_origin: manual\n', ''))).toBeNull()
     expect(parseTimeline(manual('manual').replace('evidence: []', 'evidence: [{source: missing, locator: invalid}]'))).toBeNull()
+  })
+})
+
+describe('manual anomaly parsing', () => {
+  const manual = (origin: string) => `---
+type: timeline
+event_metadata:
+  e1:
+    importance: unknown
+    reason: 待判断
+    evidence: []
+    signals: {source_chars: null, duration_minutes: null, owner_relation: unknown}
+    anomaly:
+      status: flagged
+      origin: ${origin}
+      reason: 用户手动设置反常标签。
+      evidence: []
+---
+- 09:00–10:00 — 活动：内容 <!-- event:e1 -->
+`
+  it('allows explicitly manual flagged anomalies with no evidence and validates all supplied evidence', () => {
+    expect(first(manual('manual')).metadata.anomaly).toMatchObject({ status: 'flagged', origin: 'manual', evidence: [] })
+    expect(parseTimeline(manual('manual').replace('      origin: manual\n', ''))).toBeNull()
+    expect(parseTimeline(manual('manual').replace('      evidence: []', '      evidence: [{source: missing, locator: L1}]'))).toBeNull()
+  })
+  it.each(['automatic', 'null', 'true', '[]', '{}', 'Manual', '""'])('rejects invalid anomaly origin %s', origin => {
+    expect(parseTimeline(manual(origin))).toBeNull()
   })
 })

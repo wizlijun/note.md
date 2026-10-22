@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Edit Timeline anomaly tags.** Activity and topic editors can independently set Anomaly, No anomaly found, or Pending review. Saving updates the card while retaining existing source evidence.
+
 - **Retire the OpenClaw Chat plugin.** Remove its implementation, dedicated relay, and installation entries. It is no longer offered by the plugin marketplace.
 
 ## v6.1022.1 — 2026-10-22

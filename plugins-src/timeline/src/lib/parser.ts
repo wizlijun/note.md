@@ -6,6 +6,7 @@ export type TimelineImportance = 'high' | 'normal' | 'unknown'
 export interface TimelineEvidence { source: string; locator: string }
 export interface TimelineAnomaly {
   status: 'flagged' | 'none' | 'unknown'
+  origin?: 'manual'
   reason: string
   evidence: TimelineEvidence[]
 }
@@ -64,7 +65,8 @@ function validMetadata(value: unknown, sources: Set<string>): value is TimelineE
   if ('anomaly' in value) {
     const anomaly = value.anomaly
     if (!record(anomaly) || !enumeration(anomaly.status, ['flagged', 'none', 'unknown']) || !nonempty(anomaly.reason)) return false
-    if (!validEvidence(anomaly.evidence, sources, anomaly.status === 'flagged')) return false
+    if ('origin' in anomaly && anomaly.origin !== 'manual') return false
+    if (!validEvidence(anomaly.evidence, sources, anomaly.status === 'flagged' && anomaly.origin !== 'manual')) return false
   }
   return true
 }

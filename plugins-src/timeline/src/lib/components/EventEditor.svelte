@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { TimelineItem, TimelineImportance } from '../parser'
+  import type { TimelineItem, TimelineImportance, TimelineAnomaly } from '../parser'
   import type { EventEdit } from '../edit-document'
 
   let { item, zh, onsave, oncancel, onbusy }: {
@@ -24,6 +24,7 @@
   let title = $state(untrack(() => item.action))
   let text = $state(untrack(() => item.text))
   let importance = $state<TimelineImportance>(untrack(() => item.metadata.importance))
+  let anomaly = $state<TimelineAnomaly['status']>(untrack(() => item.metadata.anomaly?.status ?? 'unknown'))
   let busy = $state(false)
   let error = $state('')
 
@@ -58,7 +59,7 @@
     }
     busy = true
     onbusy(true)
-    try { await onsave({ start: start.trim(), end: end.trim(), title: title.trim(), text: text.trim(), importance }) }
+    try { await onsave({ start: start.trim(), end: end.trim(), title: title.trim(), text: text.trim(), importance, anomaly }) }
     catch (cause) { error = `${zh ? '保存失败：' : 'Could not save: '}${cause instanceof Error ? cause.message : String(cause)}` }
     finally { busy = false; onbusy(false) }
   }
@@ -77,7 +78,12 @@
       <option value="normal">{zh ? '普通' : 'Normal'}</option>
       <option value="unknown">{zh ? '待判断' : 'Unknown'}</option>
     </select></label>
-    <p class="edit-hint">{zh ? '标题对应卡片的活动名称，事件描述限单行。手动调整重要程度会保留原有来源证据。' : 'The title is the activity name on the card; the description must be a single line. Manual importance changes preserve existing source evidence.'}</p>
+    <label>{zh ? '反常标签' : 'Anomaly tag'}<select aria-label={zh ? '反常标签' : 'Anomaly tag'} bind:value={anomaly}>
+      <option value="flagged">{zh ? '反常' : 'Anomaly'}</option>
+      <option value="none">{zh ? '未发现反常' : 'No anomaly found'}</option>
+      <option value="unknown">{zh ? '待判断' : 'Pending review'}</option>
+    </select></label>
+    <p class="edit-hint">{zh ? '标题对应卡片的活动名称，事件描述限单行。重要程度与反常标签独立设置，手动调整会保留原有来源证据。' : 'The title is the activity name on the card; the description must be a single line. Importance and anomaly are independent; manual changes preserve existing source evidence.'}</p>
     <div class="actions"><button type="button" onclick={oncancel}>{zh ? '取消' : 'Cancel'}</button><button type="submit" class="save">{busy ? (zh ? '保存中…' : 'Saving…') : (zh ? '保存' : 'Save')}</button></div>
   </fieldset>
   {#if error}<p class="edit-error" role="alert">{error}</p>{/if}

@@ -1,6 +1,6 @@
 import { Lexer, type Token } from 'marked'
-import { isMap, parseDocument, stringify } from 'yaml'
-import { parseTimeline, type TimelineImportance, type TimelineItem } from './parser'
+import { isAlias, isMap, parseDocument, stringify, visit } from 'yaml'
+import { parseTimeline, type TimelineAnomaly, type TimelineImportance, type TimelineItem } from './parser'
 
 export interface EventEdit {
   start: string
@@ -8,6 +8,7 @@ export interface EventEdit {
   title: string
   text: string
   importance: TimelineImportance
+  anomaly?: TimelineAnomaly['status']
 }
 
 const eventLine = /^(\s*[-*+]\s+)(\d{1,2}:\d{2}(?::\d{2})?)(\s*[–—~-]\s*)(\d{1,2}:\d{2}(?::\d{2})?)(\s+[—–-]\s+)(.+)$/
@@ -92,6 +93,9 @@ export function editTimelineEvent(content: string, id: string, edit: EventEdit):
   if (/[：:]/.test(title)) throw new Error('活动名称不能包含冒号，请将详细内容填写在描述中。')
   if (!title && /[：:]/.test(text)) throw new Error('描述含有冒号时，请同时填写活动名称。')
   if (!['high', 'normal', 'unknown'].includes(edit.importance)) throw new Error('请选择有效的重要程度。')
+  if (edit.anomaly !== undefined && !['flagged', 'none', 'unknown'].includes(edit.anomaly)) throw new Error('请选择有效的反常状态。')
+  const importanceChanged = edit.importance !== item.metadata.importance
+  const anomalyChanged = edit.anomaly !== undefined && edit.anomaly !== (item.metadata.anomaly?.status ?? 'unknown')
   const start = time(edit.start), end = time(edit.end)
   if (end < start) throw new Error('结束时间不能早于开始时间。')
 
@@ -104,7 +108,7 @@ export function editTimelineEvent(content: string, id: string, edit: EventEdit):
   const body = editBody(match[6], item, title, text)
   parts[lineIndex * 2] = match[1] + (start === item.start ? match[2] : edit.start) + match[3] + (end === item.end ? match[4] : edit.end) + match[5] + body + marker
 
-  if (edit.importance !== item.metadata.importance) {
+  if (importanceChanged || anomalyChanged) {
     const close = parts.findIndex((value, index) => index > 0 && index % 2 === 0 && /^---\s*$/.test(value))
     const yamlSource = parts.slice(2, close).join('')
     const yaml = parseDocument(yamlSource, { uniqueKeys: true })
@@ -112,19 +116,44 @@ export function editTimelineEvent(content: string, id: string, edit: EventEdit):
     const newline = parts[1] || '\n'
     let nextYaml: string
     if (isMap(originalNode) && originalNode.range) {
-      yaml.setIn(['event_metadata', id, 'importance'], edit.importance)
-      yaml.setIn(['event_metadata', id, 'importance_origin'], 'manual')
-      yaml.setIn(['event_metadata', id, 'reason'], '用户手动设置重要程度。')
+      if (importanceChanged) {
+        yaml.setIn(['event_metadata', id, 'importance'], edit.importance)
+        yaml.setIn(['event_metadata', id, 'importance_origin'], 'manual')
+        yaml.setIn(['event_metadata', id, 'reason'], '用户手动设置重要程度。')
+      }
+      if (anomalyChanged) {
+        const path = ['event_metadata', id, 'anomaly']
+        const node = yaml.getIn(path, true)
+        if (isAlias(node)) {
+          const resolved = node.resolve(yaml)
+          if (!isMap(resolved)) throw new Error('无法更新反常元数据。')
+          const copy = resolved.clone()
+          copy.anchor = undefined
+          yaml.setIn(path, copy)
+        } else if (isMap(node) && node.anchor) {
+          // Retain independent judgments that previously shared this YAML anchor.
+          visit(yaml, { Alias(_key, alias) {
+            if (alias.resolve(yaml) !== node) return
+            const copy = yaml.createNode(item.metadata.anomaly)
+            copy.comment = alias.comment
+            return copy
+          } })
+        } else if (!node) yaml.setIn(path, yaml.createNode({ evidence: [] }))
+        yaml.setIn([...path, 'status'], edit.anomaly)
+        yaml.setIn([...path, 'origin'], 'manual')
+        yaml.setIn([...path, 'reason'], '用户手动设置反常标签。')
+      }
       const serialized = String(yaml)
       const nextNode = parseDocument(serialized).get('event_metadata', true)
-      if (!isMap(nextNode) || !nextNode.range) throw new Error('无法更新重要程度元数据。')
+      if (!isMap(nextNode) || !nextNode.range) throw new Error('无法更新事件判断元数据。')
       const replacement = serialized.slice(nextNode.range[0], nextNode.range[1]).replace(/\n/g, newline)
       nextYaml = yamlSource.slice(0, originalNode.range[0]) + replacement + yamlSource.slice(originalNode.range[1])
     } else {
       const metadata = Object.fromEntries(items.map(value => [value.id, {
         ...value.metadata,
         reason: '此活动尚未评定重要程度。',
-        ...(value.id === id ? { importance: edit.importance, importance_origin: 'manual', reason: '用户手动设置重要程度。' } : {}),
+        ...(value.id === id && importanceChanged ? { importance: edit.importance, importance_origin: 'manual', reason: '用户手动设置重要程度。' } : {}),
+        ...(value.id === id && anomalyChanged ? { anomaly: { status: edit.anomaly, origin: 'manual', reason: '用户手动设置反常标签。', evidence: [] } } : {}),
       }]))
       nextYaml = yamlSource + stringify({ event_metadata: metadata }).replace(/\n/g, newline)
       for (const [eventId, index] of sourceLines) {
@@ -137,7 +166,7 @@ export function editTimelineEvent(content: string, id: string, edit: EventEdit):
   const result = parts.join('')
   const updated = parseTimeline(result)
   const edited = updated && flatten(updated.items).find(candidate => candidate.id === id)
-  if (!updated || !edited || edited.start !== start || edited.end !== end || edited.action !== title || edited.text !== text || edited.metadata.importance !== edit.importance) {
+  if (!updated || !edited || edited.start !== start || edited.end !== end || edited.action !== title || edited.text !== text || edited.metadata.importance !== edit.importance || (edit.anomaly !== undefined && (edited.metadata.anomaly?.status ?? 'unknown') !== edit.anomaly)) {
     throw new Error('修改后的时间轴无效；子活动必须位于父活动的时间范围内，请检查时间和文字。')
   }
   return result
