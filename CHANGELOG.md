@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
+
 ## v6.1022.2 — 2026-10-22
 
 - **Restore task checkbox clicks in rich Markdown.** Checking tasks now changes only the checkbox marker, including documents with reference definitions, footnotes, or nested tables. Original formatting and undo/redo are preserved.

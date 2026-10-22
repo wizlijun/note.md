@@ -67,8 +67,8 @@ describe('/download worker route', () => {
 const LINUX_AMD64 = 'https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_amd64.deb'
 const LINUX_ARM64 = 'https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_arm64.deb'
 
-async function downloadWith({ url = 'https://notemd.net/download', ua = '', pages = [], cached = {}, unavailable = false }: {
-  url?: string, ua?: string, pages?: unknown[][], cached?: Record<string, string>, unavailable?: boolean
+async function downloadWith({ url = 'https://notemd.net/download', ua = '', headers = {}, pages = [], cached = {}, unavailable = false }: {
+  url?: string, ua?: string, headers?: Record<string, string>, pages?: unknown[][], cached?: Record<string, string>, unavailable?: boolean
 }) {
   const cache = new Map<string, Response>(Object.entries(cached).map(([key, value]) => [
     `https://notemd.net/__cache/${key}`, Response.json({ url: value }, { headers: { 'Cache-Control': 'public, max-age=2592000' } }),
@@ -88,7 +88,7 @@ async function downloadWith({ url = 'https://notemd.net/download', ua = '', page
   })
   const worker = (await import('./index.js')).default
   const pending: Promise<unknown>[] = []
-  const response = await worker.fetch(new Request(url, { headers: { 'User-Agent': ua } }),
+  const response = await worker.fetch(new Request(url, { headers: { 'User-Agent': ua, ...headers } }),
     { ASSETS: { fetch: vi.fn() } }, { waitUntil: (p: Promise<unknown>) => pending.push(p) })
   await Promise.all(pending)
   return { response, cache }
@@ -100,6 +100,72 @@ const linuxRelease = { draft: false, prerelease: false, assets: [
 ] }
 
 describe('Linux /download worker route', () => {
+  const reducedUa = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36'
+
+  it('requests missing hints and offers an explicit choice instead of cached AMD64', async () => {
+    const { response } = await downloadWith({ ua: reducedUa,
+      cached: { 'dl/linux-x86_64': LINUX_AMD64, 'dl-lkg/linux-x86_64': LINUX_AMD64 } })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Location')).toBeNull()
+    expect(response.headers.get('Accept-CH')).toBe('Sec-CH-UA-Arch, Sec-CH-UA-Bitness')
+    expect(response.headers.get('Critical-CH')).toBe(response.headers.get('Accept-CH'))
+    expect(response.headers.get('Vary')).toContain('Sec-CH-UA-Arch')
+    expect(response.headers.get('Vary')).toContain('Sec-CH-UA-Bitness')
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    const html = await response.text()
+    expect(html).toContain('/download?os=linux&amp;arch=aarch64')
+    expect(html).toContain('/download?os=linux&amp;arch=x86_64')
+  })
+
+  it.each([
+    { arch: '"arm"', want: LINUX_ARM64 },
+    { arch: '"x86"', want: LINUX_AMD64 },
+  ])('uses browser-negotiated $arch with a reduced UA', async ({ arch, want }) => {
+    const { response } = await downloadWith({ ua: reducedUa,
+      headers: { 'Sec-CH-UA-Arch': arch, 'Sec-CH-UA-Bitness': '"64"' }, pages: [[linuxRelease]] })
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe(want)
+  })
+
+  it('keeps explicit selection ahead of conflicting hints', async () => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=arm64', ua: reducedUa,
+      headers: { 'Sec-CH-UA-Arch': '"x86"' }, pages: [[linuxRelease]] })
+    expect(response.headers.get('Location')).toBe(LINUX_ARM64)
+  })
+
+  it.each(['"arm"', '"x86"'])('does not assume 64 bits from the %s family hint alone', async (arch) => {
+    for (const bitness of [null, '', '""', '"32"']) {
+      const headers: Record<string, string> = { 'Sec-CH-UA-Arch': arch }
+      if (bitness !== null) headers['Sec-CH-UA-Bitness'] = bitness
+      const { response } = await downloadWith({ ua: reducedUa, headers,
+        cached: { 'dl/linux-x86_64': LINUX_AMD64, 'dl/linux-aarch64': LINUX_ARM64 } })
+      expect(response.status).toBe(200)
+      expect(response.headers.get('Location')).toBeNull()
+    }
+  })
+
+  it.each([
+    { language: 'zh-CN,zh;q=0.9', title: '选择 Linux 下载版本' },
+    { language: 'de-DE,de;q=0.9', title: 'Linux-Download auswählen' },
+    { language: 'ja-JP,ja;q=0.9', title: 'Linux 版を選択' },
+    { language: 'en-US,en;q=0.9', title: 'Choose your Linux download' },
+  ])('offers an accessible choice when hints are unavailable: $language', async ({ language, title }) => {
+    const { response } = await downloadWith({ ua: reducedUa, headers: { 'Accept-Language': language }, unavailable: true })
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain(`<h1>${title}</h1>`)
+  })
+
+  it('requests hints on static pages without altering their content or cache policy', async () => {
+    const worker = (await import('./index.js')).default
+    const response = await worker.fetch(new Request('https://notemd.net/zh/'), {
+      ASSETS: { fetch: async () => new Response('homepage', { headers: { 'Cache-Control': 'public, max-age=60', Vary: 'Accept-Encoding' } }) },
+    }, { waitUntil: () => {} })
+    expect(await response.text()).toBe('homepage')
+    expect(response.headers.get('Accept-CH')).toBe('Sec-CH-UA-Arch, Sec-CH-UA-Bitness')
+    expect(response.headers.get('Cache-Control')).toBe('public, max-age=60')
+    expect(response.headers.get('Vary')).toBe('Accept-Encoding')
+  })
+
   it.each([
     { url: 'https://notemd.net/download', ua: 'Mozilla/5.0 (X11; Linux x86_64)', want: LINUX_AMD64 },
     { url: 'https://notemd.net/download', ua: 'Mozilla/5.0 (X11; Linux aarch64)', want: LINUX_ARM64 },

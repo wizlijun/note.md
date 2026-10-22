@@ -123,10 +123,24 @@ describe('osFromUserAgent', () => {
 })
 
 describe('detectTarget', () => {
-  it('defaults mac to Apple Silicon and Windows/Linux to x64', () => {
+  it('defaults mac and Windows but does not guess from reduced Linux UA', () => {
     expect(detectTarget({ ua: MAC_UA })).toEqual({ os: 'mac', arch: 'aarch64' })
     expect(detectTarget({ ua: WIN_UA })).toEqual({ os: 'windows', arch: 'x86_64' })
-    expect(detectTarget({ ua: LINUX_UA })).toEqual({ os: 'linux', arch: 'x86_64' })
+    expect(detectTarget({ ua: LINUX_UA })).toEqual({ os: 'linux', arch: null })
+  })
+
+  it('uses real Linux hints ahead of the frozen x86_64 token', () => {
+    expect(detectTarget({ ua: LINUX_UA, archHint: '"arm"', bitnessHint: '"64"' })).toEqual({ os: 'linux', arch: 'aarch64' })
+    expect(detectTarget({ ua: LINUX_UA, archHint: '"x86"', bitnessHint: '"64"' })).toEqual({ os: 'linux', arch: 'x86_64' })
+    expect(detectTarget({ ua: LINUX_UA, archHint: '"arm"', archParam: 'amd64' })).toEqual({ os: 'linux', arch: 'x86_64' })
+    expect(detectTarget({ osParam: 'linux' })).toEqual({ os: 'linux', arch: null })
+    expect(detectTarget({ ua: LINUX_UA, archHint: '"arm"', bitnessHint: '"32"' })).toEqual({ os: 'linux', arch: null })
+    for (const archHint of ['"arm"', '"x86"']) {
+      for (const bitnessHint of [null, '', '""', '"unknown"']) {
+        expect(detectTarget({ ua: LINUX_UA, archHint, bitnessHint })).toEqual({ os: 'linux', arch: null })
+      }
+    }
+    expect(detectTarget({ ua: 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' })).toEqual({ os: 'linux', arch: 'x86_64' })
   })
 
   it('lets explicit params override the user agent', () => {
@@ -274,7 +288,7 @@ describe('Linux download selection', () => {
     expect(detectTarget({ ua })).toEqual({ os: 'linux', arch: 'aarch64' })
     expect(detectTarget({ ua: 'Mozilla/5.0 (X11; Linux arm64)' })).toEqual({ os: 'linux', arch: 'aarch64' })
     expect(detectTarget({ ua, archParam: 'amd64' })).toEqual({ os: 'linux', arch: 'x86_64' })
-    expect(detectTarget({ ua: LINUX_UA, archHint: '"arm"' })).toEqual({ os: 'linux', arch: 'aarch64' })
+    expect(detectTarget({ ua: LINUX_UA, archHint: '"arm"', bitnessHint: '"64"' })).toEqual({ os: 'linux', arch: 'aarch64' })
     expect(detectTarget({ ua: MAC_UA, osParam: 'linux', archParam: 'arm64' })).toEqual({ os: 'linux', arch: 'aarch64' })
     expect(osFromUserAgent('Mozilla/5.0 (Linux; Android 15; arm64)')).toBeNull()
   })

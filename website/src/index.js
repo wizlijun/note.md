@@ -23,6 +23,37 @@ const MANIFEST_TTL_S = 300; // 5 min — keeps GitHub traffic to ~1 hit per POP 
 const RELEASES_TTL_S = 1800; // 30 min — shared by platform release lookups
 const RESOLVED_TTL_S = 600; // 10 min — a resolved installer URL is stable
 const LKG_TTL_S = 60 * 60 * 24 * 30; // 30 d — last known good, the failure net
+const ARCH_HINTS = "Sec-CH-UA-Arch, Sec-CH-UA-Bitness";
+
+function withArchitectureHints(response, download = false) {
+  const result = new Response(response.body, response);
+  result.headers.set("Accept-CH", ARCH_HINTS);
+  if (download) {
+    // First direct navigation also needs the hints, before any redirect.
+    result.headers.set("Critical-CH", ARCH_HINTS);
+    result.headers.set("Vary", `User-Agent, Accept-Language, ${ARCH_HINTS}`);
+    result.headers.set("Cache-Control", "no-store");
+  }
+  return result;
+}
+
+function linuxArchitectureChoice(request) {
+  const language = request.headers.get("Accept-Language")?.match(/^(zh|de|ja)\b/i)?.[1]?.toLowerCase() ?? "en";
+  const [title, explanation] = {
+    en: ["Choose your Linux download", "Your browser did not identify a supported 64-bit architecture. Select the package for your computer."],
+    zh: ["选择 Linux 下载版本", "浏览器未能提供受支持的 64 位架构信息。请选择与你电脑匹配的安装包。"],
+    de: ["Linux-Download auswählen", "Der Browser hat keine unterstützte 64-Bit-Architektur erkannt. Wähle das Paket für deinen Computer."],
+    ja: ["Linux 版を選択", "ブラウザーから対応する 64 ビットのアーキテクチャを確認できませんでした。お使いのコンピューターに合うパッケージを選択してください。"],
+  }[language];
+  return new Response(`<!doctype html><html lang="${language}"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — note.md</title>
+<style>:root{color-scheme:light dark}body{font:17px/1.6 system-ui,sans-serif;max-width:36rem;margin:12vh auto;padding:0 1.5rem}h1{font-size:1.8rem}a{display:block;margin:1rem 0;padding:1rem;border:1px solid;border-radius:.6rem;color:inherit;text-decoration:none}a:hover,a:focus-visible{outline:2px solid}</style>
+<main><h1>${title}</h1><p>${explanation}</p>
+<a href="/download?os=linux&amp;arch=aarch64">ARM64 / aarch64 (.deb)</a>
+<a href="/download?os=linux&amp;arch=x86_64">Intel / AMD64 / x86_64 (.deb)</a></main></html>`, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
 
 // Per-isolate memory cache in front of the Cache API, so warm isolates skip
 // even the local cache lookup.
@@ -148,8 +179,9 @@ async function resolveInstaller(target, ctx) {
 
 // GET /download[?os=mac|windows|linux][&arch=aarch64|x86_64] → 302 to the installer.
 //
-// Precedence: explicit ?os=/?arch= > User-Agent / Sec-CH-UA-Arch client hint
-// (Chromium only) > per-OS default. Headers cannot reliably distinguish Intel
+// Precedence: explicit ?os=/?arch= > negotiated client hints > trusted UA.
+// Unknown Linux architecture gets a choice instead of a guessed package.
+// UA strings cannot reliably distinguish Intel
 // from Apple Silicon (Safari reports Intel on both), so the homepage carries
 // an explicit Intel fallback link instead. Visitors we can't serve a binary to
 // (mobile, crawlers) get the releases page rather than a download that
@@ -161,8 +193,10 @@ async function handleDownload(request, ctx) {
     osParam: url.searchParams.get("os"),
     archParam: url.searchParams.get("arch"),
     archHint: request.headers.get("Sec-CH-UA-Arch"),
+    bitnessHint: request.headers.get("Sec-CH-UA-Bitness"),
   });
   if (!target) return redirect(RELEASES_PAGE);
+  if (target.os === "linux" && !target.arch) return linuxArchitectureChoice(request);
 
   try {
     return redirect((await resolveInstaller(target, ctx)) ?? RELEASES_PAGE);
@@ -180,12 +214,12 @@ export default {
     // https URL, so redirecting straight there saves a hop (and keeps the
     // route testable under `wrangler dev`, which presents requests as http).
     if (url.pathname === "/download" || url.pathname === "/download/") {
-      return handleDownload(request, ctx);
+      return withArchitectureHints(await handleDownload(request, ctx), true);
     }
     if (url.protocol === "http:") {
       url.protocol = "https:";
       return Response.redirect(url.toString(), 301);
     }
-    return env.ASSETS.fetch(request);
+    return withArchitectureHints(await env.ASSETS.fetch(request));
   },
 };

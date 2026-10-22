@@ -37,18 +37,29 @@ export function osFromUserAgent(ua) {
 
 /**
  * Decide what to hand this visitor.
- * @returns {{os: 'mac'|'windows'|'linux', arch: 'aarch64'|'x86_64'}|null}
+ * @returns {{os: 'mac'|'windows'|'linux', arch: 'aarch64'|'x86_64'|null}|null}
  *
- * Precedence: explicit ?os= / ?arch= > Sec-CH-UA-Arch client hint (Chromium
- * only) > per-OS default. Headers cannot reliably distinguish Intel from Apple
+ * Precedence: explicit ?os= / ?arch= > negotiated client hints > trusted UA.
+ * Linux has no guessed default; unknown architecture needs a user choice.
+ * UA strings cannot reliably distinguish Intel from Apple
  * Silicon (Safari reports Intel on both), so the homepage carries an explicit
  * Intel fallback link instead of us guessing harder.
  */
-export function detectTarget({ ua = "", osParam = null, archParam = null, archHint = null } = {}) {
+export function detectTarget({ ua = "", osParam = null, archParam = null, archHint = null, bitnessHint = null } = {}) {
   const os = normalizeOs(osParam) ?? osFromUserAgent(ua);
   if (!os) return null;
-  const linuxUaArch = os === "linux" && /\b(?:aarch64|arm64)\b/i.test(ua) ? "aarch64" : null;
-  const arch = normalizeArch(archParam) ?? normalizeArch(archHint) ?? linuxUaArch ?? (os === "mac" ? "aarch64" : "x86_64");
+  const explicitArch = normalizeArch(archParam);
+  if (explicitArch) return { os, arch: explicitArch };
+  if (os === "linux") {
+    // Chromium freezes Linux UA to x86_64 even on ARM. Negotiate hints;
+    // missing/denied hints must not silently select the wrong native package.
+    const bitness = bitnessHint?.replace(/"/g, "").trim();
+    if (bitness === "32") return { os, arch: null };
+    const uaArch = /\b(?:aarch64|arm64)\b/i.test(ua) ? "aarch64"
+      : !/(?:Chrome|Chromium)\//i.test(ua) && /\b(?:x86_64|amd64)\b/i.test(ua) ? "x86_64" : null;
+    return { os, arch: (bitness === "64" ? normalizeArch(archHint) : null) ?? uaArch };
+  }
+  const arch = normalizeArch(archHint) ?? (os === "mac" ? "aarch64" : "x86_64");
   return { os, arch };
 }
 
