@@ -305,3 +305,20 @@ describe('explicit Linux package format', () => {
     expect(response.headers.get('Location')).toBe(ARCH_ARM64)
   })
 })
+
+
+describe('Omarchy installation instructions', () => {
+  it.each([
+    { language: 'en', instruction: 'Install in a terminal:' },
+    { language: 'zh', instruction: '终端安装：' },
+    { language: 'de', instruction: 'Im Terminal installieren:' },
+    { language: 'ja', instruction: 'ターミナルでインストール：' },
+  ])('explains terminal installation for $language without hardcoding a package filename', async ({ language, instruction }) => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=linux&arch=aarch64', headers: { 'Accept-Language': language } })
+    const html = await response.text()
+    expect(html).toContain(instruction)
+    expect(html).toContain('sudo pacman -U &lt;')
+    expect(html).not.toContain('*.pkg.tar.zst')
+    expect(html).not.toContain('notemd-6.')
+  })
+})

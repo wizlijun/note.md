@@ -46,16 +46,22 @@ function linuxDownloadChoice(request, arch, format) {
     ja: ["Linux 版を選択", "ブラウザーから対応する 64 ビットのアーキテクチャを確認できませんでした。お使いのコンピューターに合うパッケージを選択してください。", "Linux ディストリビューションの形式を選択してください。Omarchy / Arch は .pkg.tar.zst、Debian / Ubuntu は .deb を使用します。"],
   }[language];
   const recommended = { en: "Recommended", zh: "推荐", de: "Empfohlen", ja: "おすすめ" }[language];
+  const install = {
+    en: "Install in a terminal: <code>sudo pacman -U &lt;downloaded-file&gt;</code>",
+    zh: "终端安装：<code>sudo pacman -U &lt;下载的文件&gt;</code>",
+    de: "Im Terminal installieren: <code>sudo pacman -U &lt;heruntergeladene-Datei&gt;</code>",
+    ja: "ターミナルでインストール：<code>sudo pacman -U &lt;ダウンロードしたファイル&gt;</code>",
+  }[language];
   const explanation = format ? architectureExplanation : formatExplanation;
   const choices = format
     ? [["aarch64", "ARM64 / aarch64"], ["x86_64", "Intel / AMD64 / x86_64"]].map(([value, label]) =>
       `<a href="/download?os=linux&amp;format=${format}&amp;arch=${value}">${label} (${format === "deb" ? ".deb" : ".pkg.tar.zst"})</a>`)
     : [["arch", `Omarchy / Arch (.pkg.tar.zst) · ${recommended}`], ["deb", "Debian / Ubuntu (.deb)"]].map(([value, label]) =>
-      `<a href="/download?os=linux&amp;format=${value}${arch ? `&amp;arch=${arch}` : ""}">${label}</a>`);
+      `<a href="/download?os=linux&amp;format=${value}${arch ? `&amp;arch=${arch}` : ""}">${label}${value === "arch" ? `<br><small>${install}</small>` : ""}</a>`);
   return new Response(`<!doctype html><html lang="${language}"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — note.md</title>
-<style>:root{color-scheme:light dark}body{font:17px/1.6 system-ui,sans-serif;max-width:36rem;margin:12vh auto;padding:0 1.5rem}h1{font-size:1.8rem}a{display:block;margin:1rem 0;padding:1rem;border:1px solid;border-radius:.6rem;color:inherit;text-decoration:none}a:hover,a:focus-visible{outline:2px solid}</style>
-<main><h1>${title}</h1><p>${explanation}</p>
+<style>:root{color-scheme:light dark}body{font:17px/1.6 system-ui,sans-serif;max-width:36rem;margin:12vh auto;padding:0 1.5rem}h1{font-size:1.8rem}code{display:block}a{display:block;margin:1rem 0;padding:1rem;border:1px solid;border-radius:.6rem;color:inherit;text-decoration:none}a:hover,a:focus-visible{outline:2px solid}</style>
+<main><h1>${title}</h1><p>${explanation}</p>${format === "arch" ? `<p>${install}</p>` : ""}
 ${choices.join("\n")}</main></html>`, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });

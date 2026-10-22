@@ -20,6 +20,10 @@ describe('localized homepage download actions', () => {
       expect(button.querySelector('.bl')?.textContent).toContain('Omarchy')
     }
     expect(window.document.querySelector('[data-plat="linux"]')?.hidden).toBe(false)
+    for (const note of window.document.querySelectorAll('[data-plat="linux"]')) {
+      expect(note.textContent).toContain('sudo pacman -U <')
+      expect(note.textContent).not.toContain('*.pkg.tar.zst')
+    }
     const firstPackage = window.document.querySelector('.fine a[href*="format="]')
     expect(firstPackage?.getAttribute('href')).toContain('format=arch')
     for (const arch of ['x86_64', 'aarch64']) {
