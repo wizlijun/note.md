@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1022.2 — 2026-10-22
+
 - **Restore task checkbox clicks in rich Markdown.** Checking tasks now changes only the checkbox marker, including documents with reference definitions, footnotes, or nested tables. Original formatting and undo/redo are preserved.
 
 - **Edit anomaly tags with Timeline 1.2.1 (a separate marketplace update).** Activity and topic editors can independently set Anomaly, No anomaly found, or Pending review. Saving updates the card while retaining existing source evidence.
