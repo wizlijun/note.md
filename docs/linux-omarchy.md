@@ -1,27 +1,73 @@
 # Linux / Omarchy beta
 
-Linux beta targets x86_64 and aarch64 with Debian 12 (bookworm) `.deb` builds
-and WebKitGTK. Download the latest published package for your architecture:
-[amd64](https://notemd.net/download?os=linux&arch=x86_64) ·
-[arm64](https://notemd.net/download?os=linux&arch=aarch64) ·
-[GitHub releases and checksums](https://github.com/wizlijun/note.md/releases).
-Each platform's download entry keeps its most recent available package when a
-newer release omits that platform. Linux packages update through the package
-manager. **aarch64 has not been verified on a native desktop machine.**
-A successful container build is not desktop acceptance.
+Omarchy / Arch uses native `.pkg.tar.zst` packages; Debian / Ubuntu uses `.deb`.
+Both formats have x86_64 and aarch64 downloads. CPU architecture detection does
+not identify your Linux distribution: choose the matching package format.
 
-Linux beta 使用 Debian 12 基线的 x86_64 / aarch64 `.deb`，下载入口分别保留
-对应架构最后一个实际已发布的包，不随缺少 Linux 包的新版本失效。
-**aarch64 未经桌面实机验证。** Omarchy 下游仓库尚未收录；没有 AppImage、rpm、
-Flatpak 或 apt 仓库。
+- **Omarchy / Arch:** [ARM64](https://notemd.net/download?os=linux&format=arch&arch=aarch64) · [x86_64](https://notemd.net/download?os=linux&format=arch&arch=x86_64)
+- **Debian / Ubuntu:** [ARM64](https://notemd.net/download?os=linux&format=deb&arch=aarch64) · [amd64](https://notemd.net/download?os=linux&format=deb&arch=x86_64)
 
-## Install a published Linux package
+The Linux homepage button prioritizes Omarchy. Each explicit format/architecture
+entry keeps its most recent actual published package; missing Arch packages
+never fall back to Debian or another architecture. Linux packages update through
+the package manager. **Native aarch64 desktop GUI acceptance is still pending.**
+A successful ARM container build and installation is not Omarchy desktop acceptance.
 
-Choose an explicitly published release containing both
+Omarchy / Arch 应下载 `.pkg.tar.zst`，不能直接安装 `.deb`。官网 Linux 主按钮优先
+提供 Omarchy 包；Debian / Ubuntu 保留独立入口。架构识别不能可靠区分发行版，
+必须选择正确的包格式。Omarchy 下游仓库尚未收录，没有 AppImage、rpm、Flatpak
+或 apt 仓库。
+
+## Install on Omarchy / Arch
+
+Release [6.1022.1](https://github.com/wizlijun/note.md/releases/tag/v6.1022.1)
+provides native Arch packages made from the same verified Linux binaries.
+This adds package-format coverage, not newer application features.
+Run `uname -m` to confirm your architecture.
+
+For **aarch64 / ARM64**, download
+[`notemd-6.1022.1-1-aarch64.pkg.tar.zst`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/notemd-6.1022.1-1-aarch64.pkg.tar.zst)
+and [`SHA256SUMS-omarchy-aarch64.txt`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/SHA256SUMS-omarchy-aarch64.txt)
+into the same directory. Open a terminal in that directory and run:
+
+```bash
+sha256sum -c SHA256SUMS-omarchy-aarch64.txt
+sudo pacman -U ./notemd-6.1022.1-1-aarch64.pkg.tar.zst
+```
+
+For **x86_64 / AMD64**, use
+[`notemd-6.1022.1-1-x86_64.pkg.tar.zst`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/notemd-6.1022.1-1-x86_64.pkg.tar.zst)
+and [`SHA256SUMS-omarchy.txt`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/SHA256SUMS-omarchy.txt):
+
+```bash
+sha256sum -c SHA256SUMS-omarchy.txt
+sudo pacman -U ./notemd-6.1022.1-1-x86_64.pkg.tar.zst
+```
+
+These commands install local packages and resolve dependencies with pacman.
+Double-clicking an archive is not required. Do not install the x86_64 package on
+ARM64, use `dpkg` on Omarchy, or disable dependency/signature checks.
+The ARM64 checksum file is separate so the previously published x86_64 checksum
+remains unchanged.
+
+Both packages have container installation, file-integrity and CLI checks.
+Omarchy's Hyprland/fcitx5/tray/HiDPI desktop acceptance is still pending.
+`pacman -S notemd` is not available yet: the downstream repository entry has not
+been submitted or included. Download future published Arch packages and use
+`pacman -U` until repository inclusion.
+
+ARM64 Omarchy 请下载上面的 **aarch64 Arch 包和专用校验文件**，在下载目录运行
+`sha256sum -c` 和对应的 `sudo pacman -U`。无需让桌面文件管理器“识别”安装包。
+包格式、CPU 架构和依赖均由 pacman 检查；当前不能使用 `pacman -S notemd`。
+
+## Install on Debian / Ubuntu
+
+Choose an explicitly published release containing
 `note.md_<version>_amd64.deb`, `note.md_<version>_arm64.deb` and
-`SHA256SUMS-linux.txt`. Download the checksum file and both debs from the same
-GitHub release and run `sha256sum -c SHA256SUMS-linux.txt` before installation.
-On Debian 12, install the matching local package:
+`SHA256SUMS-linux.txt`. Download the matching package and checksum file from the
+same release. With only your architecture's deb present, verify it using
+`sha256sum --ignore-missing -c SHA256SUMS-linux.txt` and require its result to be
+`OK` before installing:
 
 ```bash
 # Replace <version> with a release that actually contains Linux packages.
@@ -30,37 +76,10 @@ sudo apt install ./note.md_<version>_amd64.deb
 sudo apt install ./note.md_<version>_arm64.deb
 ```
 
-Omarchy uses an Arch package generated from these debs; do not use `dpkg` to
-install a deb on Arch. Release [6.1022.1](https://github.com/wizlijun/note.md/releases/tag/v6.1022.1)
-includes a verified x86_64 Arch package. Download
-[`notemd-6.1022.1-1-x86_64.pkg.tar.zst`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/notemd-6.1022.1-1-x86_64.pkg.tar.zst)
-and [`SHA256SUMS-omarchy.txt`](https://github.com/wizlijun/note.md/releases/download/v6.1022.1/SHA256SUMS-omarchy.txt)
-into the same directory, then verify and install:
-
-```bash
-sha256sum -c SHA256SUMS-omarchy.txt
-sudo pacman -U ./notemd-6.1022.1-1-x86_64.pkg.tar.zst
-```
-
-The package was built with the generated recipe and verified through an actual
-Arch container installation, file integrity checks and CLI execution. Omarchy's
-Hyprland/fcitx5/tray/HiDPI desktop acceptance is still pending; there is no
-prebuilt aarch64 Arch package. `pacman -S notemd` is only applicable after
-downstream repository inclusion; this work has not submitted that entry.
-
-Omarchy x86_64 可下载同一发行页的 Arch 包和校验文件，校验后用上面的
-`pacman -U` 命令安装。已验证 Arch 容器实际安装及 CLI，尚未完成 Omarchy
-桌面实机验收，也未收录到下游仓库；目前不能用 `pacman -S notemd` 安装。
-
 Linux bundles are built with `NOTEMD_DIST_CHANNEL=package-manager`. Settings
-show “Updated by your package manager”; the app does not check, download or
-install its own updates. Use apt to install a newer downloaded deb or the
-Omarchy package manager once included. Linux is deliberately absent from
-`latest.json`; existing macOS and Windows updater behavior is preserved.
-
-Linux 包由包管理器更新，应用内不检查、下载或安装更新。Debian 用 apt 安装
-后续 deb；Omarchy 收录后使用包管理器。不能把尚未收录的 `pacman -S notemd`
-当作现在可用的安装命令。
+show “Updated by your package manager”; the app does not download or install
+its own updates. Linux is deliberately absent from `latest.json`; macOS and
+Windows updater behavior is unchanged.
 
 ## CLI, desktop and links
 
