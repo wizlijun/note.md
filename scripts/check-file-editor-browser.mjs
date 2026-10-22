@@ -7,7 +7,7 @@ import {createServer} from 'vite'
 import {svelte} from '@sveltejs/vite-plugin-svelte'
 const own=resolve('.superpowers/sdd/2026-10-14-file-bindings-history')
 const caseName=process.argv[3]
-assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery','image','cjk'].includes(caseName),'unknown file editor browser case')
+assert.equal(process.argv[2],'--case');assert.ok(['resize','mount','recovery','image','cjk','checkbox'].includes(caseName),'unknown file editor browser case')
 for(const name of ['FILE_PLAN_OWN','FILE_EDITOR_OUTPUT_DIR','FILE_EDITOR_CACHE_DIR','PLAYWRIGHT_MODULE'])assert.ok(process.env[name],`${name} required`)
 assert.equal(resolve(process.env.FILE_PLAN_OWN),own)
 const outputDir=resolve(process.env.FILE_EDITOR_OUTPUT_DIR),cacheDir=resolve(process.env.FILE_EDITOR_CACHE_DIR)
@@ -88,7 +88,7 @@ window.test={
  async close(){await session.close()},hold:false
 };await test.open();window.ready=true
 </script></body></html>`
-const fixture=caseName==='recovery'?recoveryFixture:['mount','image','cjk'].includes(caseName)?mountFixture:resizeFixture
+const fixture=caseName==='recovery'?recoveryFixture:['mount','image','cjk','checkbox'].includes(caseName)?mountFixture:resizeFixture
 writeFileSync(resolve(outputDir,`${caseName}-fixture.html`),fixture)
 const output={case:caseName,environment:{node:process.version,playwright:process.env.PLAYWRIGHT_MODULE,core:realpathSync('node_modules/@moraya/core'),coreSha256:createHash('sha256').update(readFileSync('node_modules/@moraya/core/dist/index.js')).digest('hex')},pageErrors:[],console:[],cases:[],platformLimitations:['Synthetic Chromium mouse/pointer tests are not native iOS/Android touch or Safari/IME device acceptance.']}
 const server=await createServer({root:process.cwd(),configFile:false,envDir:resolve(own,'empty-env'),cacheDir,resolve:{dedupe:['prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history']},optimizeDeps:{include:['@moraya/core','@moraya/core/schema','@moraya/core/commands','@moraya/core/source-history','@moraya/core/plugins/session-table-view','prosemirror-model','prosemirror-state','prosemirror-transform','prosemirror-view','prosemirror-history','prosemirror-commands','prosemirror-schema-list']},server:{host:'127.0.0.1',port:0,hmr:false,watch:null},plugins:[...(caseName!=='resize'?[svelte()]:[]),{name:'file-resize-fixture',configureServer(vite){vite.middlewares.use('/__file_image.svg',(_req,res)=>{res.setHeader('Content-Type','image/svg+xml');res.end('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" fill="#5370d4"/></svg>')});vite.middlewares.use('/src/editor-kit-v2/editor-kit-v1.css',(_req,res)=>{res.statusCode=302;res.setHeader('Location','/src/editor-kit/kit.css');res.end()});vite.middlewares.use('/__file_resize',async(_req,res,next)=>{try{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await vite.transformIndexHtml('/__file_resize',fixture))}catch(error){next(error)}})}}]})
@@ -97,7 +97,7 @@ try{
  await server.listen();browser=await chromium.launch({headless:true});output.environment.browser=browser.version();page=await browser.newPage({viewport:{width:1000,height:700}})
  page.on('pageerror',e=>output.pageErrors.push(e.stack??String(e)));page.on('console',message=>output.console.push({type:message.type(),text:message.text()}))
  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/__file_resize`);await page.waitForFunction(()=>window.ready)
- if(caseName==='cjk'){await checkCjk(page,output,outputDir);output.status='PASS';console.log('PASS: CJK strong rendering, actual keyboard edits, source/save and history')}else if(caseName==='image'){await checkImage(page,output,outputDir);output.status='PASS';console.log('PASS: actual image helper/controller/history browser acceptance')}else if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
+ if(caseName==='checkbox'){await checkCheckbox(page,output,outputDir);output.status='PASS';console.log('PASS: checkbox actual mouse/source/history')}else if(caseName==='cjk'){await checkCjk(page,output,outputDir);output.status='PASS';console.log('PASS: CJK strong rendering, actual keyboard edits, source/save and history')}else if(caseName==='image'){await checkImage(page,output,outputDir);output.status='PASS';console.log('PASS: actual image helper/controller/history browser acceptance')}else if(caseName==='recovery'){await checkRecovery(page,output);output.status='PASS';console.log('PASS: actual recovery/save/focus browser acceptance')}else if(caseName==='mount'){await checkMount(page,output,outputDir);output.status='PASS';console.log('PASS: actual mount/source/rich browser acceptance')}else{
  const snapshot=()=>page.evaluate(()=>test.snapshot())
  const drag=async(column,dx,finish=true)=>{
   const box=await page.locator('.column-resize-handle').nth(column).boundingBox();assert.ok(box,'real handle rectangle')
@@ -356,4 +356,56 @@ async function checkCjk(page,output,outputDir){
   output.cases.push({name:'delete literal star '+offset,after})
  }
  assert.deepEqual(output.pageErrors,[])
+}
+
+async function checkCheckbox(page,output,outputDir){
+ const snapshot=()=>page.evaluate(()=>test.snapshot())
+ const fixtures=[
+  ['simple','- [ ] buy milk\n',0],
+  ['consecutive-footnotes','- [ ] A\n\n[^a]: note\n[^b]: note\n',0],
+  ['unused-reference','- [ ] task\n\n[id]: /target\n',0],
+  ['reference','- [ ] [reference][id]\n\n[id]: /target "title"\n',0],
+  ['footnote','Summary[^source]\n\n- [ ] __中文任务。__\n  - Detail\n\n[^source]: Evidence.\n',0],
+  ['table','- [ ] task\n\n  | A | B |\n  | - | - |\n  | C | D |\n',0],
+  ['nested','- [ ] parent\n  + [ ] __child__\n  + [X] sibling\n\n[id]: /target\n',1],
+  ['ordered','3) [ ] __ordered__\n4) ordinary\n',0],
+  ['crlf','\uFEFF> + [ ] __中文__ &amp; \\*\r\n>   continuation\r\n\r\n[id]: /target\r\n',0],
+  ['checked','- [X] __already checked__\r\n',0],
+  ['empty','- [ ]\n',0],
+ ]
+ // Use both real bundled themes; keep their font CDN requests outside this test.
+ await page.route('https://**/*',route=>route.request().resourceType()==='stylesheet'?route.fulfill({status:200,contentType:'text/css',body:''}):route.abort())
+ const markerClick=async(index=0,button='left')=>{
+  const li=page.locator('li[data-item-type="task"]').nth(index);await li.scrollIntoViewIfNeeded()
+  const point=await li.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el,'::before');return {x:r.left+parseFloat(s.left)+parseFloat(s.width)/2,y:r.top+parseFloat(s.top)+parseFloat(s.height)/2}})
+  await page.mouse.click(point.x,point.y,{button})
+ }
+ for(const theme of ['default','effie'])for(const scheme of ['light','dark']){
+  await page.emulateMedia({colorScheme:scheme})
+  await page.evaluate(async theme=>{let link=document.querySelector('#checkbox-theme');if(!link){link=document.createElement('link');link.id='checkbox-theme';link.rel='stylesheet';document.head.append(link)}const href='/src-tauri/resources/themes/'+theme+'.css';if(link.getAttribute('href')===href)return;await new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=reject;link.href=href})},theme)
+  for(const [name,raw,index] of fixtures){
+   await page.evaluate(raw=>test.open(raw),raw)
+   const checked=name==='checked',changed=index?raw.replace('[ ] __child__','[x] __child__'):raw.replace(/\[[ xX]\]/,checked?'[ ]':'[x]')
+   await markerClick(index);const after=await snapshot();assert.equal(after.raw,changed,`${theme}/${scheme}/${name}`);assert.equal(after.undoDepth,1);assert.equal(after.changes.length,1)
+   const li=page.locator('li[data-item-type="task"]').nth(index);assert.equal(await li.getAttribute('data-checked'),String(!checked))
+   await page.locator('#source').click();assert.equal(await page.locator('textarea').inputValue(),changed.replace(/\r\n?/g,'\n'))
+   await page.locator('#save').click();await page.waitForFunction(expected=>document.querySelector('#saved').textContent===expected,changed)
+   await page.locator('#rich').click();await page.locator('.ProseMirror').focus();await page.keyboard.press('ControlOrMeta+z');assert.equal((await snapshot()).raw,raw)
+   await page.keyboard.press('ControlOrMeta+Shift+z');assert.equal((await snapshot()).raw,changed)
+   await page.evaluate(()=>test.separate());await markerClick(index);assert.equal((await snapshot()).undoDepth,2)
+   assert.equal(await page.evaluate(()=>test.undo()),true);assert.equal((await snapshot()).raw,changed)
+   await page.evaluate(raw=>test.open(raw),changed);assert.equal(await page.locator('li[data-item-type="task"]').nth(index).getAttribute('data-checked'),String(!checked))
+   output.cases.push({name:`${theme}/${scheme}/${name}`,raw:changed,changes:after.changes,undoDepth:after.undoDepth})
+  }
+  await page.evaluate(()=>test.open('# Task review\n\n- [ ] __中文任务。__\n  + [ ] child\n  + [X] checked sibling\n\n[^a]: First note.\n[^b]: Second note.\n'));await markerClick();assert.equal((await snapshot()).raw.includes('- [x] __中文任务。__'),true)
+  await page.screenshot({path:resolve(outputDir,`checkbox-${theme}-${scheme}.png`)})
+ }
+ const raw='- [ ] __task__\n\n[id]: /target\n';await page.evaluate(raw=>test.open(raw),raw)
+ const textBox=await page.locator('li > p').first().boundingBox();await page.mouse.click(textBox.x+40,textBox.y+10);assert.equal((await snapshot()).raw,raw)
+ await markerClick(0,'right');assert.equal((await snapshot()).raw,raw);await page.keyboard.press('Escape')
+ await page.evaluate(()=>test.readonly(true));await markerClick();assert.equal((await snapshot()).raw,raw)
+ await page.evaluate(()=>{test.readonly(false);test.allow(false)});await markerClick();assert.equal((await snapshot()).raw,raw);assert.equal((await snapshot()).undoDepth,0)
+ await page.evaluate(()=>test.allow(true));await markerClick();assert.equal((await snapshot()).raw,raw.replace('[ ]','[x]'))
+ await page.setViewportSize({width:390,height:700});await page.addStyleTag({content:'#editor{width:auto;margin:12px}'});await page.evaluate(raw=>test.open(raw),raw);await markerClick();assert.equal((await snapshot()).raw,raw.replace('[ ]','[x]'))
+ await page.screenshot({path:resolve(outputDir,'checkbox-narrow.png')});output.cases.push({name:'text/right-click/readonly/policy/retry/narrow',passed:true});assert.deepEqual(output.pageErrors,[])
 }
