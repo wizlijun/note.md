@@ -17,10 +17,11 @@ function versionOf(tag) {
  * and sha256 (debs). This validates evidence; it does not cryptographically verify
  * updater payloads or replace the existing signed macOS/Windows build gates.
  */
-export function validateRelease({ tag, draft, assets, latest, without }) {
+export function validateRelease({ tag, draft, assets, latest, without, macArm64Only = false }) {
   const version = versionOf(tag)
   if (draft !== true) fail('release must be an existing draft')
   if (without !== undefined && !['windows', 'linux'].includes(without)) fail('invalid omitted platform')
+  if (typeof macArm64Only !== 'boolean' || (macArm64Only && without !== undefined)) fail('invalid Apple Silicon-only mode')
   if (!Array.isArray(assets)) fail('missing release assets')
   const byName = new Map()
   for (const asset of assets) {
@@ -39,18 +40,23 @@ export function validateRelease({ tag, draft, assets, latest, without }) {
     if (asset.url !== base + name) fail(`asset URL is not current tag/name: ${name}`)
     return asset
   }
-  for (const arch of ['aarch64', 'x86_64']) requireCurrentAsset(`note.md-${version}-${arch}.dmg`)
+  const macArchitectures = macArm64Only ? ['aarch64'] : ['aarch64', 'x86_64']
+  for (const arch of macArchitectures) requireCurrentAsset(`note.md-${version}-${arch}.dmg`)
   if (!latest || latest.version !== version || !latest.platforms || Array.isArray(latest.platforms) || typeof latest.platforms !== 'object') fail('manifest version/platforms mismatch')
   const expected = {
     'darwin-aarch64': 'note.md-aarch64.app.tar.gz',
-    'darwin-x86_64': 'note.md-x86_64.app.tar.gz',
   }
-  if (without !== 'windows') expected['windows-x86_64'] = `note.md_${version}_x64-setup.exe`
+  if (!macArm64Only) expected['darwin-x86_64'] = 'note.md-x86_64.app.tar.gz'
+  if (!macArm64Only && without !== 'windows') expected['windows-x86_64'] = `note.md_${version}_x64-setup.exe`
+  if (macArm64Only) {
+    const allowed = new Set(['latest.json', `note.md-${version}-aarch64.dmg`, 'note.md-aarch64.app.tar.gz', 'note.md-aarch64.app.tar.gz.sig'])
+    for (const name of byName.keys()) if (!allowed.has(name)) fail(`unexpected Apple Silicon-only asset: ${name}`)
+  }
   for (const key of Object.keys(latest.platforms)) {
     if (key.startsWith('linux-')) fail('Linux package-manager builds must never appear in latest.json')
     if (key.startsWith('windows-') && without === 'windows') fail('stale updater reference to omitted Windows assets')
-    if (key === 'windows-aarch64') expected[key] = `note.md_${version}_arm64-setup.exe`
-    if (key === 'windows-i686') expected[key] = `note.md_${version}_x86-setup.exe`
+    if (!macArm64Only && key === 'windows-aarch64') expected[key] = `note.md_${version}_arm64-setup.exe`
+    if (!macArm64Only && key === 'windows-i686') expected[key] = `note.md_${version}_x86-setup.exe`
     if (!Object.hasOwn(expected, key)) fail(`unsupported updater platform: ${key}`)
   }
   for (const [platform, name] of Object.entries(expected)) {
@@ -60,7 +66,7 @@ export function validateRelease({ tag, draft, assets, latest, without }) {
     if (typeof entry.signature !== 'string' || !entry.signature.trim() ||
         typeof signature.content !== 'string' || entry.signature.trim() !== signature.content.trim()) fail(`updater signature mismatch: ${platform}`)
   }
-  if (without !== 'linux') {
+  if (!macArm64Only && without !== 'linux') {
     const checksum = requireCurrentAsset('SHA256SUMS-linux.txt')
     const lines = typeof checksum.content === 'string' ? checksum.content.trim().split(/\r?\n/) : []
     if (lines.length !== 2) fail('Linux checksums must contain exactly two debs')
@@ -81,11 +87,12 @@ export function validateRelease({ tag, draft, assets, latest, without }) {
 async function main(args) {
   const tag = args.shift()
   versionOf(tag)
-  let without
+  let without, macArm64Only = false
   if (args.length) {
-    if (args.length !== 2 || args[0] !== '--without' || !['windows', 'linux'].includes(args[1])) fail('usage: release-publish.sh <tag> [--without windows|linux]')
-    without = args[1]
-    if (!process.stdin.isTTY || !process.stdout.isTTY) fail('--without requires an interactive terminal; no automatic approval is allowed')
+    if (args.length === 1 && args[0] === '--mac-arm64-only') macArm64Only = true
+    else if (args.length === 2 && args[0] === '--without' && ['windows', 'linux'].includes(args[1])) without = args[1]
+    else fail('usage: release-publish.sh <tag> [--without windows|linux | --mac-arm64-only]')
+    if (!process.stdin.isTTY || !process.stdout.isTTY) fail('platform omission requires an interactive terminal; no automatic approval is allowed')
   }
   const repo = process.env.GH_REPO || 'wizlijun/note.md'
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) fail('invalid GH_REPO')
@@ -123,7 +130,7 @@ async function main(args) {
     for (const asset of assets) {
       if (asset.name.endsWith('.sig')) asset.content = download(asset.name).toString('utf8')
     }
-    if (without !== 'linux') {
+    if (!macArm64Only && without !== 'linux') {
       const checksums = download('SHA256SUMS-linux.txt')
       assets.find(a => a.name === 'SHA256SUMS-linux.txt').content = checksums.toString('utf8')
       for (const arch of ['amd64', 'arm64']) {
@@ -131,9 +138,9 @@ async function main(args) {
         assets.find(a => a.name === name).sha256 = createHash('sha256').update(bytes).digest('hex')
       }
     }
-    validateRelease({ tag, draft: release.isDraft, assets, latest, without })
-    if (without) {
-      const exact = `${tag} without ${without}`
+    validateRelease({ tag, draft: release.isDraft, assets, latest, without, macArm64Only })
+    if (without || macArm64Only) {
+      const exact = macArm64Only ? `${tag} mac-arm64-only` : `${tag} without ${without}`
       const terminal = createInterface({ input: process.stdin, output: process.stdout })
       try {
         const answer = await terminal.question(`Type exactly "${exact}" to publish with this omission: `)

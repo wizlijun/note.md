@@ -31,6 +31,40 @@ function fixture() {
   return { tag, draft: true, url: `https://github.com/wizlijun/note.md/releases/tag/${tag}`, assets, latest, contents }
 }
 
+function armFixture() {
+  const input = fixture()
+  input.assets = input.assets.filter(a => a.name.includes('aarch64') || a.name === 'latest.json')
+  delete input.latest.platforms['darwin-x86_64']
+  delete input.latest.platforms['windows-x86_64']
+  return input
+}
+
+describe('explicit Apple Silicon-only publication', () => {
+  it('requires the explicit mode and accepts only its complete asset set', () => {
+    expect(() => validateRelease(armFixture())).toThrow()
+    expect(() => validateRelease({ ...armFixture(), macArm64Only: true })).not.toThrow()
+    expect(() => validateRelease({ ...fixture(), macArm64Only: true })).toThrow()
+    expect(() => validateRelease({ ...armFixture(), macArm64Only: true, without: 'linux' })).toThrow()
+  })
+  for (const { name } of armFixture().assets) {
+    it(`still requires ${name}`, () => {
+      const input = armFixture(); input.assets = input.assets.filter(a => a.name !== name)
+      expect(() => validateRelease({ ...input, macArm64Only: true })).toThrow()
+    })
+  }
+  it.each(['darwin-x86_64', 'windows-x86_64', 'linux-aarch64'])('rejects omitted platform %s even with an old valid URL', platform => {
+    const input = armFixture()
+    input.latest.platforms[platform] = { url: base.replace(tag, 'v6.1014.1') + 'old.tar.gz', signature: 'old-signature' }
+    expect(() => validateRelease({ ...input, macArm64Only: true })).toThrow()
+  })
+  it.each(['old-tag', 'signature'])('still rejects ARM updater %s drift', kind => {
+    const input = armFixture(), entry = input.latest.platforms['darwin-aarch64']
+    if (kind === 'old-tag') entry.url = entry.url.replace(tag, 'v6.1014.1')
+    else entry.signature = 'stale'
+    expect(() => validateRelease({ ...input, macArm64Only: true })).toThrow()
+  })
+})
+
 describe('draft publication gate', () => {
   it('accepts the exact macOS/Windows/Linux asset set produced by release scripts', () => {
     expect(() => validateRelease(fixture())).not.toThrow()
@@ -151,19 +185,25 @@ describe('publish command boundary (fake network CLI, real gate)', () => {
     expect(result.status).not.toBe(0)
     expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
   })
-  it.each([[tag, '--without', 'windows'], [tag, '--yes'], ['bad-tag'], [tag, '--without', 'macos']])('rejects noninteractive omissions or bad arguments %j before any mutation', (...args) => {
+  it.each([[tag, '--mac-arm64-only'], [tag, '--mac-arm64-only', '--without', 'linux'], [tag, '--without', 'windows'], [tag, '--yes'], ['bad-tag'], [tag, '--without', 'macos']])('rejects noninteractive omissions or bad arguments %j before any mutation', (...args) => {
     const h = harness(), result = h.run(args)
     expect(result.status).not.toBe(0)
     expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
   })
-  it.each(['yes', 'v6.1014.1 without windows', `${tag} without linux`, `${tag} without windows`])('requires exact tag/platform interactive confirmation: %s', answer => {
-    const input = draftFixture(); input.assets = input.assets.filter(a => !a.name.includes('setup.exe'))
-    delete input.latest.platforms['windows-x86_64']
+  it.each([
+    ...['yes', 'v6.1014.1 without windows', `${tag} without linux`, `${tag} without windows`].map(answer => ({ answer, arm: false })),
+    ...['yes', `${tag} without windows`, 'v6.1014.1 mac-arm64-only', `${tag} mac-arm64-only`].map(answer => ({ answer, arm: true })),
+  ])('requires exact tag/platform interactive confirmation: %j', ({ answer, arm }) => {
+    const input = arm ? armFixture() : draftFixture()
+    if (!arm) {
+      input.assets = input.assets.filter(a => !a.name.includes('setup.exe'))
+      delete input.latest.platforms['windows-x86_64']
+    }
     const h = harness(input)
     const result = spawnSync('python3', ['-c', `
 import os, pty, select, subprocess, sys, time
 master, slave = pty.openpty()
-child = subprocess.Popen(['bash', sys.argv[1], sys.argv[2], '--without', 'windows'], stdin=slave, stdout=slave, stderr=slave)
+child = subprocess.Popen(['bash', sys.argv[1], sys.argv[2]] + sys.argv[4:], stdin=slave, stdout=slave, stderr=slave)
 os.close(slave)
 output = b''
 sent = False
@@ -182,10 +222,11 @@ child.wait()
 os.close(master)
 sys.stdout.buffer.write(output)
 sys.exit(child.returncode)
-`, resolve('scripts/release-publish.sh'), tag, answer], { encoding: 'utf8', env: { ...process.env, PATH: h.root + ':' + process.env.PATH } })
-    const accepted = answer === `${tag} without windows`
+`, resolve('scripts/release-publish.sh'), tag, answer, ...(arm ? ['--mac-arm64-only'] : ['--without', 'windows'])], { encoding: 'utf8', env: { ...process.env, PATH: h.root + ':' + process.env.PATH } })
+    const accepted = answer === (arm ? `${tag} mac-arm64-only` : `${tag} without windows`)
     expect(result.status === 0, result.stdout + result.stderr).toBe(accepted)
     expect(calls(h.log).some(c => c.includes('edit'))).toBe(accepted)
+    if (arm) expect(calls(h.log).filter(c => c.includes('download')).map(c => c[c.indexOf('--pattern') + 1])).toEqual(['latest.json', 'note.md-aarch64.app.tar.gz.sig'])
   }, 20_000)
 })
 

@@ -2,7 +2,7 @@
 #
 # One-shot release helper for note.md.
 #
-#   scripts/release.sh [version] [--draft] [--prerelease]
+#   scripts/release.sh [version] [--draft] [--prerelease] [--arm64-only]
 #     [--allow-untracked <exact JSON list>] [--expected-share-manifest <frozen JSON>]
 # Controlled options require NOTEMD_EMPTY_ENV_DIR; they never skip release gates.
 #
@@ -19,7 +19,8 @@
 #   scripts/release.sh 6.715.3         # explicit override (must be x.y.z)
 #
 # Builds produce TWO independent per-arch macOS `.dmg`s: aarch64 (Apple Silicon)
-# and x86_64 (Intel). Each architecture has its own .app bundle, dmg, updater
+# and x86_64 (Intel) by default; --arm64-only builds only Apple Silicon.
+# Each architecture has its own .app bundle, dmg, updater
 # tarball and signature. universal mode has been removed.
 #
 # Steps:
@@ -78,6 +79,7 @@ VERSION=""
 ALLOW_UNTRACKED=""; EXPECTED_SHARE_MANIFEST=""
 ALLOW_UNTRACKED_COPY=""; EXPECTED_SHARE_COPY=""
 PRERELEASE=0
+ARM64_ONLY=0
 while (( $# )); do
   arg="$1"; shift
   case "$arg" in
@@ -93,6 +95,7 @@ while (( $# )); do
       ;;
     --draft)      :            ;; # compatibility alias; every release starts as a draft
     --prerelease) PRERELEASE=1 ;;
+    --arm64-only) ARM64_ONLY=1 ;;
     -*) echo "unknown flag: $arg" >&2; exit 2 ;;
     *)
       [[ -z "$VERSION" ]] || { echo "unexpected extra argument: $arg" >&2; exit 2; }
@@ -298,7 +301,9 @@ grep -q "^## v$VERSION — $RELEASE_DATE$" CHANGELOG.zh-CN.md || die "bump faile
 
 say "building (signed)"
 
-rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null 2>&1 || true
+RUST_TARGETS=(aarch64-apple-darwin)
+if (( ! ARM64_ONLY )); then RUST_TARGETS+=(x86_64-apple-darwin); fi
+rustup target add "${RUST_TARGETS[@]}" >/dev/null 2>&1 || true
 
 # Build each architecture independently. macOS bash 3.2 lacks associative
 # arrays, so we stash results in arch-suffixed variables (e.g. DMG_STAGED_AARCH64).
@@ -524,7 +529,7 @@ build_arch() {
 }
 
 build_arch aarch64-apple-darwin aarch64
-build_arch x86_64-apple-darwin  x86_64
+if (( ! ARM64_ONLY )); then build_arch x86_64-apple-darwin x86_64; fi
 
 # ---------- commit, tag, push ----------
 
@@ -551,16 +556,19 @@ git push origin "$TAG"
 
 say "creating GitHub release"
 
+INSTALLERS="- **Apple Silicon (M1/M2/M3/…):** \`note.md-${VERSION}-aarch64.dmg\`"
+if (( ! ARM64_ONLY )); then
+  INSTALLERS+=$'\n'"- **Intel:** \`note.md-${VERSION}-x86_64.dmg\`"
+fi
 PREAMBLE=$(cat <<EOF
 ## Install
 
 Pick the dmg matching your Mac's chip:
 
-- **Apple Silicon (M1/M2/M3/…):** \`note.md-${VERSION}-aarch64.dmg\`
-- **Intel:** \`note.md-${VERSION}-x86_64.dmg\`
+$INSTALLERS
 
 > Code-signed with Developer ID Application (\`$APPLE_TEAM_ID\`), hardened runtime, notarized.
-> Auto-update from a previous installed version picks the correct architecture automatically.
+> Auto-update is available for architectures included in this release.
 
 EOF
 )
@@ -593,21 +601,24 @@ PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 LATEST_JSON_STAGED="/tmp/latest.json"
 python3 - "$VERSION" "$PUB_DATE" "$TAG" "$GH_REPO" \
     "$TARBALL_URL_AARCH64" "$SIG_CONTENT_AARCH64" \
-    "$TARBALL_URL_X86_64"  "$SIG_CONTENT_X86_64" \
+    "$TARBALL_URL_X86_64"  "${SIG_CONTENT_X86_64:-}" "$ARM64_ONLY" \
     > "$LATEST_JSON_STAGED" <<'PY'
 import json, sys
 (version, pub_date, tag, repo,
  url_aarch64, sig_aarch64,
- url_x86_64,  sig_x86_64) = sys.argv[1:9]
+ url_x86_64,  sig_x86_64, arm64_only) = sys.argv[1:10]
 manifest = {
     "version": version,
     "notes": f"See https://github.com/{repo}/releases/tag/{tag}",
     "pub_date": pub_date,
     "platforms": {
         "darwin-aarch64": {"signature": sig_aarch64, "url": url_aarch64},
-        "darwin-x86_64":  {"signature": sig_x86_64,  "url": url_x86_64},
     },
 }
+# Tauri compares the top-level version; copying an older Intel payload here
+# would repeatedly offer that old binary as this newer release.
+if arm64_only == "0":
+    manifest["platforms"]["darwin-x86_64"] = {"signature": sig_x86_64, "url": url_x86_64}
 print(json.dumps(manifest, indent=2))
 PY
 echo "    manifest: $LATEST_JSON_STAGED"
@@ -621,4 +632,8 @@ gh -R "$GH_REPO" release create "$TAG" \
 
 URL=$(gh -R "$GH_REPO" release view "$TAG" --json url -q .url)
 printf '\033[1;32m✓\033[0m draft ready: %s\n' "$URL"
-echo "Upload Windows/Linux packages, then run scripts/release-publish.sh $TAG"
+if (( ARM64_ONLY )); then
+  echo "Run scripts/release-publish.sh $TAG --mac-arm64-only"
+else
+  echo "Upload Windows/Linux packages, then run scripts/release-publish.sh $TAG"
+fi

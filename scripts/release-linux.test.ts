@@ -121,7 +121,7 @@ describe('macOS draft creation command', () => {
     const source = readFileSync(resolve('scripts/release.sh'), 'utf8')
     // Execute the actual final creation section without running signing/builds.
     const section = source.slice(source.indexOf('EXTRA=()'))
-    const prefix = `set -euo pipefail\nDRAFT=0; PRERELEASE=${prerelease}; GH_REPO=wizlijun/note.md; TAG=${tag}; VERSION=${version}; NOTES=fixture; STAGED_ASSETS=(fixture.dmg); SIG_CONTENT_AARCH64=arm; SIG_CONTENT_X86_64=intel\n`
+    const prefix = `set -euo pipefail\nDRAFT=0; ARM64_ONLY=0; PRERELEASE=${prerelease}; GH_REPO=wizlijun/note.md; TAG=${tag}; VERSION=${version}; NOTES=fixture; STAGED_ASSETS=(fixture.dmg); SIG_CONTENT_AARCH64=arm; SIG_CONTENT_X86_64=intel\n`
     const result = spawnSync('bash', ['-c', prefix + section.replace('LATEST_JSON_STAGED="/tmp/latest.json"', `LATEST_JSON_STAGED="${root}/latest.json"`)], { encoding: 'utf8', env: { ...process.env, PATH: root + ':' + process.env.PATH } })
     expect(result.status, result.stderr).toBe(0)
     const args = calls(log).find(c => c.includes('create'))!
