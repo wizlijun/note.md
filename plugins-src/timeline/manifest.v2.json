@@ -2,12 +2,12 @@
   "manifest_version": 2,
   "id": "notemd.timeline",
   "name": "Timeline",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "kind": "native",
   "engines": {
     "notemd": ">=6.1021.1"
   },
-  "description": "View and edit daily timeline activities, descriptions, times, and event importance, with preserved source links and configurable categories.",
+  "description": "View and edit daily timeline activities, descriptions, times, importance, and anomaly tags, with preserved source links and configurable categories.",
   "ui": "ui/",
   "activation": {
     "events": []
@@ -55,7 +55,7 @@
   "i18n": {
     "zh": {
       "name": "时间轴",
-      "description": "查看并编辑每日时间线的活动名称、描述、起止时间和重要程度，保留来源链接并支持自定义分类。",
+      "description": "查看并编辑每日时间线的活动名称、描述、起止时间、重要程度和反常标签，保留来源链接并支持自定义分类。",
       "menus": {
         "view-timeline": "查看时间轴"
       }
