@@ -9,6 +9,7 @@ import {
   detectTarget,
   linuxUrlFromReleasePages,
   macDownloadUrl,
+  macUrlFromReleasePages,
   windowsUrlFromManifest,
   windowsUrlFromReleasePages,
 } from "./resolve-download.js";
@@ -19,7 +20,7 @@ const UA = "notemd-site-worker";
 const RELEASES_PER_PAGE = 100; // GitHub's maximum; pagination handles older platform builds
 
 const MANIFEST_TTL_S = 300; // 5 min — keeps GitHub traffic to ~1 hit per POP per TTL
-const RELEASES_TTL_S = 1800; // 30 min — shared by Windows and Linux platform lookups
+const RELEASES_TTL_S = 1800; // 30 min — shared by platform release lookups
 const RESOLVED_TTL_S = 600; // 10 min — a resolved installer URL is stable
 const LKG_TTL_S = 60 * 60 * 24 * 30; // 30 d — last known good, the failure net
 
@@ -119,9 +120,10 @@ async function resolveInstaller(target, ctx) {
     }
   }
 
-  if (!url && (os === "windows" || os === "linux")) {
+  if (!url) {
     try {
-      const select = os === "linux" ? linuxUrlFromReleasePages : windowsUrlFromReleasePages;
+      const select = os === "mac" ? macUrlFromReleasePages
+        : os === "linux" ? linuxUrlFromReleasePages : windowsUrlFromReleasePages;
       const findRelease = (releaseArch) =>
         select((page) => fetchReleasesPage(page, ctx), releaseArch, RELEASES_PER_PAGE);
       url = await findRelease(arch);

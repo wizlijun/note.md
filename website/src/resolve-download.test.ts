@@ -5,6 +5,8 @@ import {
   linuxUrlFromReleasePages,
   linuxUrlFromReleases,
   macDownloadUrl,
+  macUrlFromReleases,
+  macUrlFromReleasePages,
   normalizeArch,
   normalizeOs,
   osFromUserAgent,
@@ -159,10 +161,9 @@ describe('macDownloadUrl', () => {
     )
   })
 
-  it('falls back to v<version> when the platform entry is missing', () => {
-    expect(macDownloadUrl({ version: '1.2.3', platforms: {} }, 'aarch64')).toBe(
-      'https://github.com/wizlijun/note.md/releases/download/v1.2.3/note.md-1.2.3-aarch64.dmg',
-    )
+  it('does not invent a dmg for an architecture absent from the manifest', () => {
+    expect(macDownloadUrl({ version: '1.2.3', platforms: {} }, 'aarch64')).toBeNull()
+    expect(macDownloadUrl({ ...FULL_MANIFEST, platforms: { 'darwin-aarch64': FULL_MANIFEST.platforms['darwin-aarch64'] } }, 'x86_64')).toBeNull()
   })
 
   it('gives up without a version', () => {
@@ -306,5 +307,32 @@ describe('Linux download selection', () => {
     }, 'aarch64', 100)).toBe('https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md_6.1015.2_arm64.deb')
     expect(requested).toEqual([1, 2])
     expect(await linuxUrlFromReleasePages(async () => releases.slice(0, 4), 'aarch64', 100)).toBeNull()
+  })
+})
+
+
+describe('macOS release asset fallback', () => {
+  const intel = dl('v6.808.3', 'note.md-6.808.3-x86_64.dmg')
+  const releases = [
+    { draft: true, assets: [dl('v9', 'note.md-9-x86_64.dmg')] },
+    { prerelease: true, assets: [dl('v8', 'note.md-8-x86_64.dmg')] },
+    { assets: [dl('v7', 'note.md-7-aarch64.dmg'), dl('v7', 'note.md-7-x86_64.dmg.sig')] },
+    { assets: [intel] },
+  ]
+
+  it('uses the newest published dmg matching the architecture verbatim', () => {
+    expect(macUrlFromReleases(releases, 'x86_64')).toBe(intel.browser_download_url)
+    expect(macUrlFromReleases(releases, 'aarch64')).toBe(dl('v7', 'note.md-7-aarch64.dmg').browser_download_url)
+    expect(macUrlFromReleases(releases.slice(0, 3), 'x86_64')).toBeNull()
+    expect(macUrlFromReleases([{ assets: [dl('v1', 'unrelated-1-x86_64.dmg')] }], 'x86_64')).toBeNull()
+  })
+
+  it('walks older pages when Intel builds trail Apple Silicon releases', async () => {
+    const requested: number[] = []
+    expect(await macUrlFromReleasePages(async (page: number) => {
+      requested.push(page)
+      return page === 1 ? Array.from({ length: 100 }, () => ({ assets: [] })) : releases
+    }, 'x86_64', 100)).toBe(intel.browser_download_url)
+    expect(requested).toEqual([1, 2])
   })
 })

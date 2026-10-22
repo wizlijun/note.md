@@ -141,3 +141,34 @@ describe('Linux /download worker route', () => {
     expect(cache.has('https://notemd.net/__cache/dl-lkg/linux-x86_64')).toBe(false)
   })
 })
+
+
+const MAC_INTEL = 'https://github.com/wizlijun/note.md/releases/download/v6.1015.2/note.md-6.1015.2-x86_64.dmg'
+
+describe('macOS /download worker route', () => {
+  it('keeps Apple Silicon on the latest manifest version', async () => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=mac' })
+    expect(response.headers.get('Location')).toBe('https://github.com/wizlijun/note.md/releases/download/v6.1015.3/note.md-6.1015.3-aarch64.dmg')
+  })
+
+  it('finds and caches a historical Intel dmg when latest is Apple Silicon only', async () => {
+    const { response, cache } = await downloadWith({ url: 'https://notemd.net/download?os=mac&arch=intel', pages: [
+      Array.from({ length: 100 }, () => ({ assets: [] })),
+      [{ assets: [{ name: 'note.md-6.1015.2-x86_64.dmg', browser_download_url: MAC_INTEL }] }],
+    ] })
+    expect(response.headers.get('Location')).toBe(MAC_INTEL)
+    expect(await cache.get('https://notemd.net/__cache/dl-lkg/mac-x86_64')?.json()).toEqual({ url: MAC_INTEL })
+  })
+
+  it('uses releases instead of inventing an Intel download when none exists', async () => {
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=mac&arch=intel' })
+    expect(response.headers.get('Location')).toBe('https://github.com/wizlijun/note.md/releases')
+  })
+
+  it('uses the Intel last-known-good URL when GitHub is unavailable', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { response } = await downloadWith({ url: 'https://notemd.net/download?os=mac&arch=intel',
+      unavailable: true, cached: { 'dl-lkg/mac-x86_64': MAC_INTEL } })
+    expect(response.headers.get('Location')).toBe(MAC_INTEL)
+  })
+})

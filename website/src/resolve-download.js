@@ -64,8 +64,9 @@ export function tagFromUrl(url) {
  */
 export function macDownloadUrl(manifest, arch) {
   const version = manifest?.version;
-  if (!version) return null;
-  const tag = tagFromUrl(manifest?.platforms?.[`darwin-${arch}`]?.url) ?? `v${version}`;
+  const updaterUrl = manifest?.platforms?.[`darwin-${arch}`]?.url;
+  if (!version || !updaterUrl) return null;
+  const tag = tagFromUrl(updaterUrl) ?? `v${version}`;
   return `https://github.com/${GH_REPO}/releases/download/${tag}/note.md-${version}-${arch}.dmg`;
 }
 
@@ -146,4 +147,17 @@ export function linuxUrlFromReleases(releases, arch) {
 
 export function linuxUrlFromReleasePages(loadPage, arch, pageSize) {
   return installerUrlFromReleasePages(loadPage, arch, pageSize, linuxUrlFromReleases);
+}
+
+
+// Apple Silicon-only releases must leave Intel downloads on the newest
+// release that actually contains an Intel dmg, without inventing its version.
+export function macUrlFromReleases(releases, arch) {
+  if (arch !== "aarch64" && arch !== "x86_64") return null;
+  return installerUrlFromReleases(releases, arch,
+    (name) => new RegExp(`^note\\.md-.+-${arch}\\.dmg$`).test(name || ""));
+}
+
+export function macUrlFromReleasePages(loadPage, arch, pageSize) {
+  return installerUrlFromReleasePages(loadPage, arch, pageSize, macUrlFromReleases);
 }
