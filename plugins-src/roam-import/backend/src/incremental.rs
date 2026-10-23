@@ -522,7 +522,11 @@ where
             }
             Err(e) => {
                 report.failed += 1;
-                report.errors.push(format!("{uid}: {e}"));
+                let context = match ledger.title_of(&uid).filter(|title| !title.is_empty()) {
+                    Some(title) => format!("{title} ({uid})"),
+                    None => uid.clone(),
+                };
+                report.errors.push(format!("{context}: {e}"));
             }
         }
 
@@ -610,6 +614,22 @@ mod tests {
         let l = crate::ledger::Ledger::load(dir.path()).ledger;
         assert_eq!(l.last_synced_at.as_deref(), Some("1970-01-01T00:00:01.000Z"),
                    "the watermark must stay at `a`, so `b` and `c` are retried next run");
+    }
+
+    #[test]
+    fn timeout_report_keeps_page_title_uid_and_seconds() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut ledger = Ledger::default();
+        ledger.claim("04-30-2026", "dailynote/2026/2026-04-30.note.md", "April 30th, 2026");
+        ledger.save(dir.path()).unwrap();
+        let r = sync_since(
+            dir.path(), DIRS, None, None, today(), NOW, false,
+            |_| Ok(vec![Changed { uid: "04-30-2026".into(), edited: 1000 }]),
+            |_| Err("/opt/homebrew/bin/roam timed out after 60s".into()),
+        ).unwrap();
+        assert_eq!(r.failed, 1);
+        assert_eq!(r.errors, vec!["April 30th, 2026 (04-30-2026): /opt/homebrew/bin/roam timed out after 60s"]);
+        assert_eq!(r.to, None);
     }
 
     #[test]

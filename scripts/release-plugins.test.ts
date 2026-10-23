@@ -424,7 +424,7 @@ describe('Roam Research Sync product identity', () => {
     expect(manifest.id).toBe('notemd.roam-import')
     expect(packageJson.name).toBe('roam-import-plugin')
     expect(packageJson.version).toBe(manifest.version)
-    expect(manifest.version).toBe('1.2.6')
+    expect(manifest.version).toBe('1.2.7')
     expect(manifest.name).toBe('Roam Research Sync')
     expect(manifest.description).toContain('Keep using Roam Research')
     expect(manifest.description).toContain('agents')

@@ -6,6 +6,8 @@
 
 ## 未发布
 
+- **Roam Research Sync 1.2.7：修复大页面导致的 stdout 管道死锁。** Roam CLI 运行期间并发读取 stdout/stderr，保留 60 秒超时，并在超时后终止和回收子进程。
+
 - **优先提供 Omarchy 下载，并补齐 ARM64 Arch 包。** 官网 Linux 主按钮直接选择 Omarchy/Arch，Debian/Ubuntu 使用独立入口；通用下载页明确区分格式。6.1022.1 补充 aarch64 `.pkg.tar.zst` 及独立校验文件，应用二进制内容不变。
 
 - **官网 Linux 下载识别正确架构。** 请求浏览器真实 CPU 架构，不再把 Chromium 简化后的 Linux 标识误判为 AMD64；无法识别时提供明确的 ARM64 / AMD64 选择。

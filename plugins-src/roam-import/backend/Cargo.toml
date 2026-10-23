@@ -1,6 +1,6 @@
 [package]
 name = "notemd-roam-import"
-version = "1.1.0"
+version = "1.2.7"
 edition = "2021"
 
 [lib]
@@ -12,6 +12,7 @@ name = "notemd-roam-import"
 path = "src/main.rs"
 
 [dependencies]
+libc = "0.2"
 notemd-plugin-sdk = { path = "../../../notemd-plugin-sdk" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "io-util", "sync"] }
 serde = { version = "1", features = ["derive"] }
