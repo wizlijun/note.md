@@ -1,0 +1,257 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.health-sync",
+  "name": "Health Sync",
+  "version": "0.1.0",
+  "kind": "native",
+  "binary": {
+    "aarch64-apple-darwin": "bin/notemd-health-sync",
+    "x86_64-apple-darwin": "bin/notemd-health-sync"
+  },
+  "engines": {
+    "notemd": ">=6.915.1"
+  },
+  "description": "Collect Apple Health exports and Garmin/Oura API details on Mac into one daily archive, with categories, incremental sync and a CLI.",
+  "ui": "ui/",
+  "activation": {
+    "events": [
+      "onCommand:open",
+      "onCli:health-import",
+      "onCli:health-sync",
+      "onCli:health-status",
+      "onCli:health-query",
+      "onCli:health-catalog",
+      "onCli:health-disconnect"
+    ]
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "import-export",
+        "label": "Import health data…",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Health Sync",
+        "width": 920,
+        "height": 850,
+        "min_width": 480,
+        "min_height": 480,
+        "open_command": "open"
+      }
+    ],
+    "cli": [
+      {
+        "subcommand": "health-import",
+        "command": "import",
+        "summary": "Import a complete Apple Health export into the vault",
+        "args": [
+          {
+            "name": "file",
+            "type": "string",
+            "required": true,
+            "help": "Path to export.zip or export.xml"
+          }
+        ],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--dry-run",
+            "type": "boolean",
+            "help": "Preview changes without modifying the Vault or saved source"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-sync",
+        "command": "sync",
+        "summary": "Collect and resume Apple Health, Garmin and Oura data",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--dry-run",
+            "type": "boolean",
+            "help": "Preview changes without modifying the Vault or saved source"
+          },
+          {
+            "long": "--source",
+            "type": "string",
+            "help": "all, apple-health, garmin or oura"
+          },
+          {
+            "long": "--since",
+            "type": "string",
+            "help": "First date, inclusive (YYYY-MM-DD)"
+          },
+          {
+            "long": "--until",
+            "type": "string",
+            "help": "Last date, inclusive (YYYY-MM-DD)"
+          },
+          {
+            "long": "--max-days",
+            "type": "string",
+            "help": "Maximum days per collection batch (default: 31)"
+          },
+          {
+            "long": "--restart",
+            "type": "boolean",
+            "help": "Restart the requested collection range"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-status",
+        "command": "status",
+        "summary": "Show the active health import and remembered file",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-query",
+        "command": "query",
+        "summary": "Read raw health records by category, source, date and metric",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--since",
+            "type": "string",
+            "help": "First date, inclusive (YYYY-MM-DD)"
+          },
+          {
+            "long": "--until",
+            "type": "string",
+            "help": "Last date, inclusive (YYYY-MM-DD)"
+          },
+          {
+            "long": "--metric",
+            "type": "string",
+            "help": "Exact health metric or provider collection identifier"
+          },
+          {
+            "long": "--limit",
+            "type": "string",
+            "help": "Maximum records to return"
+          },
+          {
+            "long": "--offset",
+            "type": "string",
+            "help": "Number of matching records to skip"
+          },
+          {
+            "long": "--category",
+            "type": "string",
+            "help": "Category slug from health-catalog"
+          },
+          {
+            "long": "--source",
+            "type": "string",
+            "help": "apple-health, garmin or oura"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-catalog",
+        "command": "catalog",
+        "summary": "List health categories, metrics, sources and date coverage",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-disconnect",
+        "command": "disconnect",
+        "summary": "Remove provider credentials while retaining archived records",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--source",
+            "type": "string",
+            "help": "Provider to disconnect: garmin or oura"
+          }
+        ],
+        "requires_tab_context": false
+      }
+    ]
+  },
+  "capabilities": [
+    "vault.read",
+    "vault.write",
+    "dialog",
+    "ui"
+  ],
+  "request_timeout_seconds": 300,
+  "i18n": {
+    "zh": {
+      "name": "健康数据同步",
+      "description": "在 Mac 采集 Apple 健康导出与 Garmin/Oura 详情，按天统一归档，提供分类浏览、增量同步和 CLI。",
+      "menus": {
+        "open": "导入健康数据…"
+      },
+      "windows": {
+        "main": "健康数据同步"
+      }
+    },
+    "ja": {
+      "name": "ヘルスデータ同期",
+      "description": "Appleヘルスケアの書き出しとGarmin/Ouraの詳細データをMacで収集。日別アーカイブ、カテゴリ表示、差分同期、CLIに対応。",
+      "menus": {
+        "open": "ヘルスデータを読み込む…"
+      },
+      "windows": {
+        "main": "ヘルスデータ同期"
+      }
+    },
+    "de": {
+      "name": "Gesundheitsdaten synchronisieren",
+      "description": "Apple-Health-Exporte und Garmin-/Oura-Details auf dem Mac sammeln: ein tägliches Archiv mit Kategorien, inkrementeller Synchronisierung und CLI.",
+      "menus": {
+        "open": "Gesundheitsdaten importieren…"
+      },
+      "windows": {
+        "main": "Gesundheitsdaten synchronisieren"
+      }
+    }
+  },
+  "idle_shutdown_seconds": 600
+}

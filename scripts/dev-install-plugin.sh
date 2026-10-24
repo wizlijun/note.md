@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|health-sync|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build native plugin binaries in release mode
 #                    (ignored for the pure-UI plugins).
@@ -40,8 +40,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|apple-notes|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | meetings | agency | strata | habitat | conversation-dictionary | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | typst-reader | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
+    md2pdf|roam-import|apple-notes|health-sync|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | health-sync | meetings | agency | strata | habitat | conversation-dictionary | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | typst-reader | idea-spark | next | power-mode | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 
@@ -103,6 +103,22 @@ elif [[ "$PLUGIN" == "apple-notes" ]]; then
   ln -sfn "$VERSION" "$ROOT/notemd.apple-notes/current"
   mark_installed "notemd.apple-notes" "$VERSION"
   echo "✓ installed notemd.apple-notes@$VERSION ($PROFILE, $(uname -m), backend + ui) → $DEST"
+
+elif [[ "$PLUGIN" == "health-sync" ]]; then
+  SRC="plugins-src/health-sync"
+  cargo build $([ "$PROFILE" = release ] && echo --release) --locked \
+    --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-health-sync
+  pnpm --filter health-sync-plugin build
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.health-sync/$VERSION"
+  mkdir -p "$DEST/bin" "$DEST/ui"
+  cp "$SRC/backend/target/$PROFILE/notemd-health-sync" "$DEST/bin/"
+  codesign --force --sign - "$DEST/bin/notemd-health-sync"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.health-sync/current"
+  mark_installed "notemd.health-sync" "$VERSION"
+  echo "installed notemd.health-sync@$VERSION ($PROFILE) -> $DEST"
 
 elif [[ "$PLUGIN" == "meetings" ]]; then
   SRC="plugins-src/meetings"
