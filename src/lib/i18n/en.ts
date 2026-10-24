@@ -1145,8 +1145,7 @@ export const en = {
   // ── Editor context menu ──
   'ctxmenu.cut': 'Cut',
   'ctxmenu.copy': 'Copy',
-  'ctxmenu.copyFilePath': 'Copy as Pathname',
-  'ctxmenu.copyResourceLink': 'Copy Link',
+  'ctxmenu.copyFilePath': 'Copy Filename',
   'ctxmenu.saveResourceAs': 'Save As…',
   'ctxmenu.copyImage': 'Copy Image',
   'ctxmenu.paste': 'Paste',

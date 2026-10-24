@@ -106,6 +106,8 @@ it.each(['strong','em'] as const)('actual marked helper and plain image endpoint
 it.each([
   ['![diagram](</vault/a%20b.png>)', 'img', true],
   ['[report](</vault/report%20one.pdf>)', 'a[href], [data-url]', false],
+  ['![remote](https://example.com/image.png)', 'img', true],
+  ['[remote](https://example.com/report.pdf)', 'a[href], [data-url]', false],
 ] as const)('desktop Rich resource menu uses the clicked %s and leaves source intact', async (raw, selector, image) => {
   await desktop(raw, async f => {
     await vi.waitFor(() => expect(f.view.dom.querySelector(selector)).toBeTruthy())
@@ -114,7 +116,7 @@ it.each([
     target!.dispatchEvent(event); await tick()
     expect(event.defaultPrevented).toBe(true)
     const labels = [...document.querySelectorAll('.ctx-menu .ctx-label')].map(el => el.textContent)
-    expect(labels).toEqual(['Copy as Pathname', ...(image ? ['Copy Image'] : []), 'Save As…'])
+    expect(labels).toEqual([...(raw.includes('https://') ? [] : ['Copy Filename']), ...(image ? ['Copy Image'] : []), 'Save As…'])
     expect(document.querySelector('.ctx-menu.menu-panel')).toBeTruthy()
     expect(f.owner.snapshot().raw).toBe(raw)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await tick()

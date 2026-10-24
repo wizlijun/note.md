@@ -81,5 +81,6 @@ it.each([false, true])('resource menus stay non-mutating in readOnly=%s', readOn
   const ids = (image: boolean, resource: 'local' | 'remote') => getMenuModel({ hasSelection: true, image, resource, readOnly }).flatMap(g => g.items.map(i => i.id))
   expect(ids(true, 'local')).toEqual(['copyFilePath', 'copyImage', 'saveResourceAs'])
   expect(ids(false, 'local')).toEqual(['copyFilePath', 'saveResourceAs'])
-  expect(ids(true, 'remote')).toEqual(['copyResourceLink', 'copyImage', 'saveResourceAs'])
+  expect(ids(true, 'remote')).toEqual(['copyImage', 'saveResourceAs'])
+  expect(ids(false, 'remote')).toEqual(['saveResourceAs'])
 })

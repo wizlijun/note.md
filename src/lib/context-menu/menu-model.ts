@@ -44,9 +44,7 @@ export function getMenuModel(ctx: MenuContext): MenuGroup[] {
   // items are meaningless on an image node.
   if (ctx.resource) {
     return [{ id: 'resource', items: [
-      ctx.resource === 'local'
-        ? item('copyFilePath', 'ctxmenu.copyFilePath')
-        : item('copyResourceLink', 'ctxmenu.copyResourceLink'),
+      ...(ctx.resource === 'local' ? [item('copyFilePath', 'ctxmenu.copyFilePath')] : []),
       ...(ctx.image ? [item('copyImage', 'ctxmenu.copyImage')] : []),
       item('saveResourceAs', 'ctxmenu.saveResourceAs'),
     ] }]

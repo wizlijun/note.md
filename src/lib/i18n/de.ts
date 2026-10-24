@@ -1097,7 +1097,6 @@ export const de: Record<keyof Messages, string> = {
   'ctxmenu.cut': 'Ausschneiden',
   'ctxmenu.copy': 'Kopieren',
   'ctxmenu.copyFilePath': 'Absoluten Pfad kopieren',
-  'ctxmenu.copyResourceLink': 'Link kopieren',
   'ctxmenu.saveResourceAs': 'Datei speichern unter…',
   'ctxmenu.copyImage': 'Bild kopieren',
   'ctxmenu.paste': 'Einfügen',
