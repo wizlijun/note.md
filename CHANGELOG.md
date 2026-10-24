@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1024.1 — 2026-10-24
+
 - **Update HTML sanitization protections.** Use the patched DOMPurify release consistently for rendered HTML and diagrams.
 
 - **Rich Markdown resource menus.** Right-click images and attachments to copy their full pathname and save the original file; images also support copying the bitmap. Desktop resource menus omit Copy Link. Suppress browser refresh/navigation context menus across host and plugin windows.
