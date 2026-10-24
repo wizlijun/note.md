@@ -1,6 +1,6 @@
 # 健康数据同步插件设计
 
-日期：2026-10-24。状态：`notemd.health-sync` v0.1 源码实现与验收中。多轮打磨完成后，用户已恢复发布授权；按既有签名与公网验签流程发布。本文件说明当前实现；运行方式见 [插件 README](../../../plugins-src/health-sync/README.md)。
+日期：2026-10-24。状态：`notemd.health-sync` v0.1.0 已发布，详见[发布验收](../reports/2026-10-24-health-sync-0.1.0-release-verification.md)。多轮打磨完成后，用户已恢复发布授权；按既有签名与公网验签流程发布。本文件说明当前实现；运行方式见 [插件 README](../../../plugins-src/health-sync/README.md)。
 
 ## 目标与入口
 
