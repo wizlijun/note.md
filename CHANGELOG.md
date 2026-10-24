@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Update HTML sanitization protections.** Use the patched DOMPurify release consistently for rendered HTML and diagrams.
+
 - **Rich Markdown resource menus.** Right-click images and attachments to copy their full pathname and save the original file; images also support copying the bitmap. Desktop resource menus omit Copy Link. Suppress browser refresh/navigation context menus across host and plugin windows.
 
 - **Intel Mac and Linux catch up on rich task checkboxes.** Include the checkbox/source-preservation fix previously shipped in Apple Silicon 6.1022.2.
