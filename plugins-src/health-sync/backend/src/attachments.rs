@@ -24,7 +24,7 @@ pub struct Attachment {
     pub record: HealthRecord,
     /// Absolute path inside the caller's staging directory.
     pub file: PathBuf,
-    /// Vault-relative destination, including the archive root.
+    /// Destination relative to the external raw-data library.
     pub relative_path: PathBuf,
     pub sha256: String,
 }
@@ -104,7 +104,7 @@ fn destination(name: &str, day: &str, sha256: &str, layout: Layout) -> PathBuf {
 }
 
 pub fn extract_attachments(input: &Path, staging: &Path) -> Result<Vec<Attachment>, String> {
-    extract_for_layout(input, staging, Layout::Daily)
+    extract_for_layout(input, staging, Layout)
 }
 
 pub(crate) fn extract_for_layout(
@@ -128,7 +128,7 @@ fn extract_with_limits(
     per_file_limit: u64,
     total_limit: u64,
 ) -> Result<Vec<Attachment>, String> {
-    extract_with_layout(input, staging, per_file_limit, total_limit, Layout::Daily)
+    extract_with_layout(input, staging, per_file_limit, total_limit, Layout)
 }
 
 fn extract_with_layout(
@@ -537,7 +537,7 @@ mod tests {
             &format!("{}..奇怪/{}.🚀", "x".repeat(1000), "z".repeat(1000)),
             "_undated",
             &"f".repeat(64),
-            Layout::Daily,
+            Layout,
         );
         let filename = path.file_name().unwrap().to_str().unwrap();
         assert!(filename.is_ascii());

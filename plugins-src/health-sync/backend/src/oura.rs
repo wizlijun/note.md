@@ -464,6 +464,9 @@ mod tests {
         let root = temp.path().canonicalize().unwrap();
         let vault = root.join("vault");
         std::fs::create_dir(&vault).unwrap();
+        let library = root.join("raw");
+        std::fs::create_dir(&library).unwrap();
+        crate::library::configure(&vault, &root.join("state"), &library).unwrap();
         let staged = root.join("records.jsonl");
         let lines = rows
             .iter()
@@ -473,7 +476,14 @@ mod tests {
         let store = crate::store::Store::new(&vault, &root.join("state")).unwrap();
         assert!(
             store
-                .apply_provider(&staged, &report, false, &mut |_| {})
+                .apply_provider_for_account(
+                    &staged,
+                    &report,
+                    false,
+                    &crate::store::hash(b"oura:test"),
+                    crate::auth::GarminRegion::Global,
+                    &mut |_| {}
+                )
                 .unwrap()
                 .complete
         );

@@ -1,18 +1,18 @@
 # 健康数据同步 / Health Sync
 
-Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；同一天的有效数据统一由一份清单管理。提供分类浏览、增量同步和 CLI。
+Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；原始记录统一保存在用户选择的 Vault 外 SQLite 资料库。提供分类浏览、增量同步和 CLI。
 
-v0.1.3 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
+面向 Apple Silicon 与 Intel Mac。本文描述开发中的未发布版本。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
 
 ## 开始使用
 
-1. 在 note.md 配置目标 Vault，从插件菜单打开「导入健康数据」。每个 Vault 只保存同一个人的健康档案。
+1. 在 note.md 配置目标 Vault，从插件菜单打开「导入健康数据」。首次使用通过原生文件夹选择器指定健康原始资料库，必须是 Vault 外的空目录或已有 Health Sync 资料库。Vault 本身、其子目录和父目录（包括符号链接别名）都禁止；取消选择不会开始采集。资料库应属于同一个人，不同历史账号分别归档。
 2. 选择 iPhone 健康 App 导出的完整 `export.zip`。iCloud Drive 文件需先下载到 Mac。ZIP 在 `.xml` 文件（扩展名不区分大小写）中按 `HealthData` 根节点识别唯一主文档，不依赖文件名语言或所在目录，也兼容 ZIP 编码标记不正确而显示为乱码的文件名。CDA 按 HL7 `ClinicalDocument` 根节点识别并作为附件保留；多个主文档会明确报错。也支持单独 XML，但只有 ZIP 能带入其中的 ECG、路线和其他附件。
-3. 可先预览，确认后导入。文件旁按钮与主采集按钮都会使用所选文件；预览不要求先正式导入，也不会记忆路径。窗口显示已收集的分类、指标、来源、日期范围和记录数量，可按分类查看原始记录。
-4. 在连接设置中添加 Garmin / Oura 账号，可填写容易辨认的账号名称。每个来源记住多个账号，只有一个“当前账号”用于增量刷新；新增其他账号不会自动切换，可选中后点击“设为当前”。
+3. 可先预览，确认后导入。Apple 仅使用独立文件导入按钮；预览不要求先正式导入，也不会记忆路径。窗口显示已收集的分类、指标、来源、日期范围和记录数量，可按分类查看原始记录。
+4. 窗口按 Apple、Garmin、Oura 分组；Garmin/Oura 各自集中账号、文件导入、API 增量和历史导入。在对应来源区域添加账号，可填写容易辨认的账号名称。每个来源记住多个账号，只有一个“当前账号”用于增量刷新；新增其他账号不会自动切换，可选中后点击“设为当前”。
 5. 使用“导入历史”选择 Garmin / Oura、已保存账号和起止日期。历史导入不会改变当前账号；窗口自动接续批次，“停止”在本批结束后生效，进度保留。当前账号首次默认回查最近 14 天，已有同步任务继续接续；完成后回查近期。
 
-新的 Apple **完整快照**只替换 Apple 来源的有效成员，保留 Garmin/Oura 补充。不要把某段时间或某台设备的局部导出当作完整快照。将新导出替换到原路径后，同步会重读该文件；路径变化时重新选择。相同输入不重复落盘，变化文件仍需完整扫描，只有变化日期生成新分片。
+Apple **仅文件导入**。相同文件重复导入不增加记录；重叠导出按完整记录的最大重复重数合并，保留新文件未包含的旧历史。单份导出中的重复样本不会丢失。更新导出后再次选择并导入；普通同步只访问 Garmin/Oura API，不自动重读 Apple 文件。
 
 ## 连接补充来源
 
@@ -28,7 +28,7 @@ v0.1.3 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac
 
 采集 [Oura V2 API](https://cloud.ouraring.com/v2/docs) 的 19 类集合：活动、心血管年龄、准备度、韧性、睡眠日汇总、血氧、压力、增强标签、心率、个人信息、休息模式、戒指电量、戒指配置、session、睡眠详情、睡眠时间、标签、VO₂ max、运动。逐页保留完整 JSON，包括未知字段和 null；未开放集合显示覆盖缺口，不冒充零数据。
 
-Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户端当作官方 SDK。心率和戒指电量允许末页省略 `next_token`，其余分页集合仍校验该字段。此处“导入”指 API 数据采集并归档，Oura 官网导出文件的本地导入尚未提供。
+Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户端当作官方 SDK。心率和戒指电量允许末页省略 `next_token`，其余分页集合仍校验该字段。本地导入支持按 V2 字段识别的 CSV、JSON 及包含这些文件的 ZIP。导入时显式选择已保存账号，或填写稳定的离线账号名称；同一名称用于以后增量合并。离线身份与 API 身份不自动合并，以免错误归属。未知内容保留原件并注明，完全无法识别健康记录时拒绝导入。真实 Oura 导出包尚待用户下载后的验证，目前仅通过测试样本验收。
 
 两家凭据按账号保存在 **macOS 钥匙串**，不进入 Vault。Oura 自动刷新并保存轮换后的 token。每个账号的授权、历史进度、覆盖和记录独立保存；重新连接同一账号会重新核对指定范围。断开仅移除所选账号凭据，保留账号名称和已归档数据；其他账号不受影响。新增账号授权失败不会破坏当前账号；Oura 按本次授权结果判断完成。
 
@@ -47,38 +47,42 @@ notemd health-garmin-import "/path/to/garmin-export.zip" --region china --vault 
 notemd health-garmin-import "/path/to/garmin-export.zip" --region china --vault "/path/to/vault" --json
 ```
 
-国际区选 `--region global`，区域必须明确指定。此入口与 Apple `health-import` 分开，不改变 `health-sync --file` 的含义。新 ZIP 归档包含 `observed` 覆盖状态，旧 0.1.2 插件会拒绝读取，导入后请保持支持 ZIP 的版本。限制：最多 100,000 个 ZIP 成员、单文件 1 GiB、总解压 64 GiB；超过 64 MiB 的 JSON 仅保留原件并在结果注明。路径穿越、重复成员、符号链接、身份冲突、损坏 ZIP/JSON 均在提交前拒绝。
+国际区选 `--region global`，区域必须明确指定。此入口与 Apple `health-import` 分开，API 同步入口不接受文件参数。ZIP 归档以 `observed` 标注文件中实际观察到的数据。限制：最多 100,000 个 ZIP 成员、单文件 1 GiB、总解压 64 GiB；超过 64 MiB 的 JSON 仅保留原件并在结果注明。路径穿越、重复成员、符号链接、身份冲突、损坏 ZIP/JSON 均在提交前拒绝。
 
 ## 分类与每日档案
 
 分类包括睡眠、心脏、活动、生命体征、身体测量、营养、正念与压力、行动能力、听力、生殖健康、用药、临床、环境、元数据和其他。分类由原始类型推导，未知类型仍保留并可查询；分类不表示跨来源指标在医学上等价。
 
 ```text
-ssot/health/
-  manifest.json
-  2026/2026-10-24/apple-health-heart-rate-<metric-hash>-<content-hash>.jsonl
-  2026/2026-10-24/oura-sleep-<metric-hash>-<content-hash>.jsonl
-  2026/2026-10-24/2026-10-24-health.md
-  2026/2026-10-24/attachments/<readable-slug>-<sha256>.<ext>
-  _undated/<source>-<metric>-<hash>.jsonl
+用户选择的外部资料库/
+  .notemd-health-library
+  health.sqlite
+  attachments/<日期>/<内容摘要附件>
+  write.lock
 ```
 
-- 新归档默认采用上述目录，不创建 `data/` 层。已有 `health/manifest.json` 的旧归档保持原路径读写，不自动搬动数据；旧目录中只有孤儿文件、没有清单时会新建 `ssot/health/` 并保留旧文件。若新旧两处都有清单，插件拒绝操作，避免隐藏任一归档。
-- `manifest.json` 是唯一有效清单：每天下统一列出三源分片、摘要和覆盖情况。查询只读当前成员；旧不可变分片留作历史，不自动清理。
-- 文件名为可读 slug 加摘要，避免不同原始指标规范化后撞名。无日期的个人资料/配置进入 `_undated`，不虚构测量日期。
-- Apple 保留原始属性、嵌套节点、设备/应用及时间偏移。ZIP 内除主 XML 外的附件原字节保存；归档不会把 XML 重新保存为逐字节副本，请保留原始导出。
-- Apple 按原始 `startDate`、`dateComponents`、`creationDate` 的首个可用日期归档。厂商优先采用 API 的归属日，再采用记录时间。跨日记录完整归入来源归属日，不按当前 Mac 时区拆分或改写。
-- 每日摘要以 Apple 为主体，列样本数、来源、单位和数值范围；补充来源单列。不会将三家的步数/睡眠直接相加，也不声称复现 Apple 健康 App 的聚合算法或建立了确定的跨来源事件关联。
-- 手工改过的摘要保留并报告冲突；用户 `.note.md` sidecar 不受影响。机器事实可先提交，摘要问题单独报告。
+SQLite 持久保存三源原始记录、账号、日期、指标、分类、覆盖和附件索引。不会再创建巨型 manifest 或每日 JSONL 分片。原始附件保留为文件；Apple 主 XML 的属性、嵌套内容、设备与时间偏移保存在数据库记录中，建议保留原始导出包作独立备份。无日期记录使用 `_undated`，不虚构时间。
+
+默认窗口和 CLI 只展示数据现状、范围、数量及覆盖缺口，不生成健康结论。Vault 的报告留给后续 Agent skills：
+
+```text
+health/YYYY/YYYYMM/YYYYMMDD-health.md
+health/YYYY/YYYYMM/YYYYMM-health.md
+health/YYYY/YYYY-health.md
+```
+
+本插件本次不生成这些分析报告。不同来源的步数、睡眠等不直接相加，也不声明医学等价。
 
 ## CLI 与定时同步
 
 安装启用后使用宿主命令；`--vault` 可省略，默认使用 note.md 配置。宿主 `--json` 提供结构化结果。
 
 ```sh
+notemd health-init --path "/path/to/health-library" --vault "/path/to/vault" --json
+notemd health-storage --json
 notemd health-import "/path/to/export.zip" --vault "/path/to/vault" --dry-run --json
 notemd health-import "/path/to/export.zip" --vault "/path/to/vault" --json
-notemd health-sync --source apple-health --file "/path/to/export.zip" --dry-run --json
+notemd health-oura-import "/path/to/oura.zip" --profile "historical-account" --dry-run --json
 notemd health-sync --source all --since 2015-01-01 --until 2026-10-24 --max-days 31 --json
 notemd health-status --json
 # 从 connections.garmin.accounts 获取 ACCOUNT_ID
@@ -88,13 +92,13 @@ notemd health-query --category sleep --source oura --since 2026-10-01 --until 20
 notemd health-disconnect --source oura --account ACCOUNT_ID --json
 ```
 
-日期为包含两端的 `YYYY-MM-DD`。`--source` 同步支持 `all`（默认）、`apple-health`、`garmin`、`oura`；查询只接受实际来源。`--metric` 可使用目录返回的原始指标名，例如 `HKQuantityTypeIdentifierHeartRate` 或 `oura.sleep`。查询上限 1000 条，用 `next_offset` / `has_more` 翻页。
+日期为包含两端的 `YYYY-MM-DD`。`--source` 同步支持 `all`（默认）、`garmin`、`oura`；查询只接受实际来源。`--metric` 可使用目录返回的原始指标名，例如 `HKQuantityTypeIdentifierHeartRate` 或 `oura.sleep`。查询上限 1000 条，用 `next_offset` / `has_more` 翻页。
 
 一次 CLI 同步最多处理 `--max-days` 天（默认 31），结果 `pending=true` 时重复调用以续跑。GUI 自动接续；cron 每次调用沿用已保存的进度。未指定起点时沿用该账号的普通同步进度，首次默认最近 14 天。这个默认范围不能证明涵盖设备账号全部历史。
 
-普通同步完成请求范围后，后续调用重查最近 14 天。使用 `--history` 时必须同时指定单个来源、`--account`、`--since` 和 `--until`；历史任务按账号和日期范围独立续传，完成后不回绕，不改变当前增量账号。查询和断开也可用 `--account` 精确选择账号，省略时查询所有账号、断开当前账号。更早的晚到数据或修订需用 `--restart --since … --until …` 发起回查；**只在第一批传 `--restart`**，后续移除该选项继续。普通同步指定不同起点会开始该范围的回填。`--source apple-health` 只处理 Apple 文件，不调用厂商接口。`--file` 显式指定本次导入/预览文件，优先于记忆路径；仅支持 `all` 或 `apple-health`，未提供才重读上次文件。
+普通同步完成请求范围后，后续调用重查最近 14 天。使用 `--history` 时必须同时指定单个来源、`--account`、`--since` 和 `--until`；历史任务按账号和日期范围独立续传，完成后不回绕，不改变当前增量账号。查询和断开也可用 `--account` 精确选择账号，省略时查询所有账号、断开当前账号。更早的晚到数据或修订需用 `--restart --since … --until …` 发起回查；**只在第一批传 `--restart`**，后续移除该选项继续。普通同步指定不同起点会开始该范围的回填。Apple 只能通过 `health-import FILE` 显式增量导入。
 
-失败不推进当前窗口，重试会从已持久化位置继续；权限不足的集合保留旧数据并记录缺口，其他集合继续。成功完成的空集合会替换该窗口旧成员，表示 API 本次返回为空，不证明设备从未测量。`complete` 说明当前批次质量，`pending` 说明是否还有日期待采；两者需一起判断。CLI 完成返回 0，执行失败返回 1，独立后端参数错误返回 2，有缺口/冲突返回 4。
+失败不推进当前窗口，重试会从已持久化位置继续；权限不足的集合保留旧数据并记录缺口，其他集合继续。成功完成的空集合会替换该窗口旧成员，表示 API 本次返回为空，不证明设备从未测量。`complete` 说明当前批次质量，`pending` 说明是否还有日期待采；两者需一起判断。CLI 完成返回 0，执行失败返回 1，独立后端参数错误返回 2，数据覆盖不完整或部分失败返回 4。
 
 预览 Apple 会实际解析临时副本，显示变化而不改写 Vault 或来源记忆；厂商预览仅显示拟采集日期，不发送 API 请求。上游 Apple 文件仍需更新，本插件不触发手机导出。
 
@@ -108,15 +112,15 @@ cargo run --manifest-path plugins-src/health-sync/backend/Cargo.toml -- health-s
 
 ## 存储与恢复
 
-输入先复制到临时文件并校验，流式解析到临时 SQLite，再写不可变分片，最后原子替换清单。API 仅完整成功的集合可替换指定日期窗口；缺页、HTTP 失败、非法数据不激活半份结果。Apple 保留重复样本的重数；厂商按账号/来源/集合/记录 ID 去重，重复 ID 内容冲突则拒绝，无 ID 时按完整内容去重。
+输入先复制到临时文件并校验，流式解析到临时 SQLite，验证完成后在持久 SQLite 事务中更新。失败回滚已提交记录；附件以内容摘要命名。API 仅完整成功的集合替换指定日期窗口，缺页、HTTP 失败、非法数据不激活半份结果。厂商按账号/来源/集合/记录 ID 去重，无 ID 时按完整内容去重。资料库共用写锁，同一台机器上多个 Vault 绑定同一资料库也不会并发写入。
+
+全部入口只使用当前外置 SQLite 资料库，不读取旧 Vault 归档、不推测旧账号归属、不转换旧文件、凭据结构或同步游标。旧格式明确不支持；需要数据时重新选择原始导出文件导入、重新连接账号。升级代码不会删除已有磁盘文件。
 
 验证时可用绝对路径环境变量 `NOTEMD_HEALTH_STATE_DIR` 隔离运行状态，无需修改 `HOME`；它不改变钥匙串凭据的保存位置。
 
-多账号写入使用 schema 3 清单；旧 schema 2 可读取并按已验证的旧身份迁移。无法证实旧数据归属时保留原档并停止覆盖，不将其归给新账号。使用多账号后请勿降级到旧插件写入该归档。
+本机 `~/Library/Application Support/net.notemd.app/health-sync/<vault-hash>/` 保存资料库绑定及操作状态，凭据仍在钥匙串。API 游标按资料库身份隔离，更换库不会沿用上一库的进度。磁盘离线或身份不符会停止，不回退到 Vault、不重建空库。切换路径不自动移动数据；恢复或备份需要保留完整资料库及附件。只让归档机器写入原始库，其他设备通过 Vault 同步最终报告。
 
-本机 `~/Library/Application Support/net.notemd.app/health-sync/<vault-hash>/` 保存文件路径、进度及锁，不保存明文凭据。GUI 与 CLI 共用写锁；只让一台设备负责同一 Vault 的采集，本机锁不协调跨设备写入。插件不改 Vault `.gitignore`，健康文件遵循已有同步规则。
-
-XML/input 上限 64 GiB，单条记录/token 16 MiB；按内容识别的 CDA 文档上限为 64 GiB，其他单个 ZIP 附件 256 MiB，附件总量 64 GiB。XML 根节点探测限于前 1 MiB，支持 Apple 导出中的 DTD 和注释前导；读取大文档时不将整份文件加载到内存。超限明确失败，不静默跳过。解析和预览都需要临时磁盘空间。中断后重新执行；丢失分片可以从相同导出重建，校验损坏则停止并报错。
+XML/input 上限 64 GiB，单条记录/token 16 MiB；按内容识别的 CDA 文档上限为 64 GiB，其他单个 ZIP 附件 256 MiB，附件总量 64 GiB。XML 根节点探测限于前 1 MiB，支持 Apple 导出中的 DTD 和注释前导；读取大文档时不将整份文件加载到内存。超限明确失败，不静默跳过。解析和预览都需要临时磁盘空间。中断后重新执行；数据库是持久事实源，不是可清缓存；损坏应恢复完整备份，不能随意删除。
 
 ## 开发与验证
 
@@ -128,4 +132,6 @@ cargo test --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml
 cargo clippy --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml --all-targets -- -D warnings
 ```
 
-已使用合成导出、协议 fixture、真实宿主 stdio 契约和 DOM 交互测试验证。百万条合成记录覆盖 3650 天，schema 2 导入约 73 秒；这是本机单次测量，不是性能保证。已额外验证完整真实 Apple ZIP（3,699,319 条主记录和 126 个附件）以及中国区 Garmin 只读认证与数据接口；钥匙串授权弹窗、应用内 WebView 和 Intel 实机仍待验收。实际发布状态及包验证见仓库 `docs/superpowers/reports/` 中的 Health Sync 发布记录。
+使用合成导出、协议 fixture、宿主 stdio 契约和 DOM 交互测试验证。SQLite 改造的真实 Apple/Garmin 验证结果见本次任务验收记录；Oura 实际导出包、钥匙串授权弹窗、应用内 WebView 和 Intel 实机仍待验收。发布状态见仓库 `docs/superpowers/reports/`，工作区通过测试不代表已进入市场安装包。
+
+数据结构及扩展约束见 [DATA_MODEL.md](DATA_MODEL.md)。

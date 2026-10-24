@@ -2,18 +2,23 @@ use crate::store::{default_state_base, QueryFilter, Store};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-pub const USAGE: &str = "Health Sync: Apple primary + Garmin/Oura details, one person per vault
+pub const USAGE: &str = "Health Sync: external SQLite health library, with explicit account ownership
 
+notemd-health-sync health-init --path DIR [--vault DIR] [--json]
+notemd-health-sync health-storage [--vault DIR] [--json]
+notemd-health-sync health-oura-import <export.zip|export.json|export.csv> --account ID|--profile NAME [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-import <export.zip|export.xml> [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-garmin-import <export.zip> --region china|global [--vault DIR] [--dry-run] [--json]
-notemd-health-sync health-sync [--file EXPORT] [--source all|apple-health|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--account ID] [--history] [--vault DIR] [--dry-run] [--json]
+notemd-health-sync health-sync [--source all|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--account ID] [--history] [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-status [--vault DIR] [--json]
 notemd-health-sync health-catalog [--vault DIR] [--json]
 notemd-health-sync health-query [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--category sleep] [--source oura] [--account ID] [--metric TYPE] [--limit 100] [--offset 0] [--vault DIR] [--json]
 notemd-health-sync connect --source garmin|oura --credentials-stdin [--vault DIR]
 notemd-health-sync health-disconnect --source garmin|oura [--account ID] [--vault DIR]
 
-Apple import replaces only the Apple complete snapshot; old shards remain.
+Choose an existing empty raw-data directory outside the Vault before importing.
+Apple is file-import only: repeated/overlapping exports merge incrementally.
+Raw records live in health.sqlite; attachments stay in the external library.
 Provider sync resumes a bounded backfill, then revisits the recent fortnight.
 Credentials are read from stdin JSON, never command-line arguments, and stored in Keychain.
 Output is JSON. With no arguments the native plugin stdio protocol starts.";
@@ -22,6 +27,9 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
     let first = args.first().ok_or("Missing command")?;
     let command = first.strip_prefix("health-").unwrap_or(first).to_string();
     if ![
+        "init",
+        "storage",
+        "oura-import",
         "import",
         "garmin-import",
         "sync",
@@ -43,7 +51,10 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
         let token = &args[i];
         match token.as_str() {
             "--json" => {}
-            "--dry-run" if ["import", "garmin-import", "sync"].contains(&command.as_str()) => {
+            "--dry-run"
+                if ["import", "garmin-import", "oura-import", "sync"]
+                    .contains(&command.as_str()) =>
+            {
                 params["dry_run"] = json!(true);
             }
             "--history" if command == "sync" => {
@@ -56,16 +67,25 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
                 params["credentials_stdin"] = json!(true);
             }
             "--vault" | "--since" | "--until" | "--metric" | "--limit" | "--offset"
-            | "--source" | "--category" | "--max-days" | "--file" | "--account" | "--region" => {
+            | "--source" | "--category" | "--max-days" | "--account" | "--region" | "--path"
+            | "--profile" => {
                 let allowed = match token.as_str() {
                     "--vault" => true,
                     "--region" => command == "garmin-import",
+                    "--path" => command == "init",
+                    "--profile" => command == "oura-import",
                     "--since" | "--until" => command == "query" || command == "sync",
                     "--source" => ["sync", "query", "connect", "disconnect", "select-account"]
                         .contains(&command.as_str()),
-                    "--account" => ["sync", "query", "disconnect", "select-account"]
-                        .contains(&command.as_str()),
-                    "--max-days" | "--file" => command == "sync",
+                    "--account" => [
+                        "sync",
+                        "query",
+                        "disconnect",
+                        "select-account",
+                        "oura-import",
+                    ]
+                    .contains(&command.as_str()),
+                    "--max-days" => command == "sync",
                     _ => command == "query",
                 };
                 if !allowed {
@@ -83,7 +103,7 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
                 params[key] = json!(value);
             }
             _ if !token.starts_with('-')
-                && ["import", "garmin-import"].contains(&command.as_str())
+                && ["import", "garmin-import", "oura-import"].contains(&command.as_str())
                 && params["file"].is_null() =>
             {
                 params["file"] = json!(token)
@@ -92,7 +112,9 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
         }
         i += 1;
     }
-    if ["import", "garmin-import"].contains(&command.as_str()) && params["file"].is_null() {
+    if ["import", "garmin-import", "oura-import"].contains(&command.as_str())
+        && params["file"].is_null()
+    {
         return Err(format!("health-{command} requires a complete export file"));
     }
     // Validate numeric and date syntax before doing any I/O.
@@ -142,6 +164,19 @@ fn garmin_export_region(params: &Value) -> Result<crate::auth::GarminRegion, Str
 }
 
 fn validate_query(command: &str, params: &Value) -> Result<(), String> {
+    if matches!(command, "init" | "configure_storage") {
+        string(params, "path").ok_or("Choose a raw-data directory outside the Vault")?;
+    }
+    if command == "oura-import" {
+        string(params, "file").ok_or("Choose an Oura CSV, JSON or ZIP export")?;
+        if account_id(params).is_some() == string(params, "profile").is_some() {
+            return Err(
+                "Oura import requires exactly one saved --account or stable offline --profile name"
+                    .into(),
+            );
+        }
+        boolean(params, "dry_run")?;
+    }
     if command == "garmin-import" {
         garmin_export_region(params)?;
         string(params, "file").ok_or("health-garmin-import requires a complete export ZIP")?;
@@ -190,17 +225,17 @@ fn validate_query(command: &str, params: &Value) -> Result<(), String> {
         {
             return Err("History import requires account, since and until".into());
         }
-        if string(params, "file").is_some()
-            && string(params, "source").is_some_and(|s| s != "all" && s != "apple-health")
+        if field(params, "file").is_some()
+            || string(params, "source").as_deref() == Some("apple-health")
         {
-            return Err("--file applies only to all or apple-health sources".into());
+            return Err("Apple Health is file-import only; use health-import FILE".into());
         }
         let days = number(params, "max_days", 31)?;
         if days == 0 || days > 36600 {
             return Err("max-days must be 1..36600".into());
         }
         if let Some(source) = string(params, "source") {
-            if !["all", "apple-health", "garmin", "oura"].contains(&source.as_str()) {
+            if !["all", "garmin", "oura"].contains(&source.as_str()) {
                 return Err("Unknown health source".into());
             }
         }
@@ -243,7 +278,24 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
         .map(PathBuf::from)
         .map(Ok)
         .unwrap_or_else(default_vault)?;
-    let store = Store::new(&vault, &default_state_base()?)?;
+    let state = default_state_base()?;
+    match command {
+        "init" | "configure_storage" => {
+            return crate::library::configure(
+                &vault,
+                &state,
+                &PathBuf::from(string(params, "path").ok_or("Choose a raw-data directory")?),
+            )
+        }
+        "storage" | "storage_status" => return crate::library::status(&vault, &state),
+        "status" => {
+            let storage = crate::library::status(&vault, &state)?;
+            if storage["available"] != true {
+                return Ok(json!({"imported":false,"storage":storage}));
+            }
+        }
+        _ => {}
+    }
     match command {
         "connect" => {
             let source = string(params, "source").ok_or("Choose garmin or oura")?;
@@ -279,12 +331,30 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
             )
         }
         "status" => {
-            let mut result = store.status()?;
+            let mut result = Store::new(&vault, &state)?.status()?;
+            result["storage"] = crate::library::status(&vault, &state)?;
             match crate::auth::status(&vault) {
                 Ok(connections) => result["connections"] = connections,
                 Err(e) => result["connections_error"] = json!(e),
             }
             return Ok(result);
+        }
+        "oura-import" => {
+            let store = Store::new(&vault, &state)?;
+            let needs_saved_account = match account_id(params) {
+                Some(id) => !store.metadata()?.is_some_and(|m| {
+                    m.sources
+                        .get("oura")
+                        .is_some_and(|s| s.accounts.contains_key(&id))
+                }),
+                None => false,
+            };
+            let connections = if needs_saved_account {
+                Some(crate::auth::status(&vault)?)
+            } else {
+                None
+            };
+            return import_oura(&store, params, connections.as_ref(), progress);
         }
         "sync" => {
             return crate::sync::run(
@@ -293,7 +363,6 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
                     source: string(params, "source").unwrap_or_else(|| "all".into()),
                     account_id: account_id(params),
                     history: boolean(params, "history")?,
-                    file: string(params, "file").map(PathBuf::from),
                     since: string(params, "since"),
                     until: string(params, "until"),
                     max_days: number(params, "max_days", 31)?,
@@ -305,7 +374,7 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
         }
         _ => {}
     }
-    run_with_store(&store, command, params, progress)
+    run_with_store(&Store::new(&vault, &state)?, command, params, progress)
 }
 
 fn boolean(params: &Value, name: &str) -> Result<bool, String> {
@@ -318,6 +387,56 @@ fn boolean(params: &Value, name: &str) -> Result<bool, String> {
     }
 }
 
+fn import_oura(
+    store: &Store,
+    params: &Value,
+    connections: Option<&Value>,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Value, String> {
+    let dry_run = boolean(params, "dry_run")?;
+    let profile = string(params, "profile").map(|s| s.trim().to_string());
+    let id = if let Some(id) = account_id(params) {
+        let archived = store.metadata()?.is_some_and(|m| {
+            m.sources
+                .get("oura")
+                .is_some_and(|s| s.accounts.contains_key(&id))
+        });
+        let saved = connections
+            .and_then(|v| v["oura"]["accounts"].as_array())
+            .is_some_and(|accounts| accounts.iter().any(|a| a["id"] == id));
+        if !archived && !saved {
+            return Err(
+                "Choose a saved Oura account, or use --profile for a new offline identity".into(),
+            );
+        }
+        id
+    } else {
+        crate::store::hash(
+            format!(
+                "oura:offline:{}",
+                profile
+                    .as_deref()
+                    .ok_or("Choose an Oura account or profile")?
+            )
+            .as_bytes(),
+        )
+    };
+    let mut result = crate::oura_export::import(
+        store,
+        &PathBuf::from(string(params, "file").ok_or("Choose an Oura export")?),
+        &id,
+        dry_run,
+        progress,
+    )?;
+    if let Some(label) = profile {
+        if !dry_run {
+            store.set_account_label("oura", &id, &label)?;
+        }
+        result["label"] = json!(label);
+    }
+    Ok(result)
+}
+
 pub fn run_with_store(
     store: &Store,
     command: &str,
@@ -327,6 +446,7 @@ pub fn run_with_store(
     validate_query(command, params)?;
     let dry_run = boolean(params, "dry_run")?;
     match command {
+        "oura-import" => import_oura(store, params, None, progress),
         "garmin-import" => crate::garmin_export::import(
             store,
             &PathBuf::from(string(params, "file").ok_or("Choose a Garmin export ZIP")?),
@@ -340,12 +460,6 @@ pub fn run_with_store(
             serde_json::to_value(store.import(&PathBuf::from(path), dry_run, progress)?)
                 .map_err(|e| e.to_string())
         }
-        "sync" => serde_json::to_value(store.sync(
-            string(params, "file").map(PathBuf::from).as_deref(),
-            dry_run,
-            progress,
-        )?)
-        .map_err(|e| e.to_string()),
         "status" => store.status(),
         "catalog" => store.catalog(),
         "query" => store.query_filtered(

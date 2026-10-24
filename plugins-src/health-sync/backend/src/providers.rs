@@ -1,5 +1,5 @@
 //! Provider adapters retain source documents. Only completed collections can
-//! replace members of a requested daily window in the authoritative manifest.
+//! replace members of a requested daily window in the external SQLite library.
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

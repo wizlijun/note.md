@@ -1,6 +1,5 @@
-//! One active daily index across Apple snapshots and provider supplements.
-//! Immutable shards precede the atomic manifest;
-//! generated Markdown is recoverable and never the source of truth.
+//! External SQLite raw-data library shared by all health providers.
+//! Candidate merges are staged separately and atomically committed; no reports are generated.
 use crate::{
     attachments::{extract_for_layout, Attachment},
     auth::GarminRegion,
@@ -11,13 +10,14 @@ use crate::{
     source::parse_export,
 };
 use fs2::FileExt;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 
@@ -52,36 +52,21 @@ pub struct Shard {
     pub sha256: String,
     pub record_count: u64,
 }
-impl Shard {
-    pub fn filename(&self) -> String {
-        let slug = catalog::metric_slug(&self.metric);
-        let metric = if matches!(self.source.as_str(), "garmin" | "oura") {
-            slug.strip_prefix(&format!("{}-", self.source))
-                .unwrap_or(&slug)
-        } else {
-            &slug
-        };
-        format!("{}-{}-{}.jsonl", self.source, metric, self.sha256)
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct SourceState {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub accounts: BTreeMap<String, AccountState>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub legacy_account_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub garmin_region: Option<GarminRegion>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub export_date: Option<String>,
-    pub collections: BTreeMap<String, BTreeMap<String, Coverage>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub garmin_region: Option<GarminRegion>,
     pub collections: BTreeMap<String, BTreeMap<String, Coverage>>,
@@ -100,13 +85,10 @@ pub struct Day {
     pub sha256: String,
     pub shards: Vec<Shard>,
     pub record_count: u64,
-    pub summary_sha256: String,
-    pub previous_summary_sha256: Option<String>,
-    pub summary: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Manifest {
+pub struct LibraryMetadata {
     pub schema_version: u32,
     pub source: String,
     pub scope: String,
@@ -140,7 +122,6 @@ pub struct Report {
     pub record_count: u64,
     pub changed_days: usize,
     pub unchanged_days: usize,
-    pub summary_conflicts: Vec<String>,
     pub warnings: Vec<String>,
 }
 
@@ -160,6 +141,8 @@ pub struct Store {
     vault: PathBuf,
     local: PathBuf,
     layout: Layout,
+    pending: RefCell<Option<(PathBuf, BTreeSet<String>)>>,
+    identity: String,
 }
 
 #[derive(Default)]
@@ -256,18 +239,7 @@ fn valid_source(source: &str) -> bool {
     matches!(source, "apple-health" | "garmin" | "oura")
 }
 fn attachment_path_parts(value: &str) -> Option<(&str, &str)> {
-    let parts: Vec<_> = value.split('/').collect();
-    let (day, filename) = match parts.as_slice() {
-        ["health", "attachments", day, filename] => (*day, *filename),
-        ["ssot", "health", year, day, "attachments", filename]
-            if valid_day(day) && *year == &day[..4] =>
-        {
-            (*day, *filename)
-        }
-        ["ssot", "health", "_undated", "attachments", filename] => ("_undated", *filename),
-        _ => return None,
-    };
-    Some((day, filename))
+    value.strip_prefix("attachments/")?.split_once('/')
 }
 fn valid_attachment_path(value: &str) -> bool {
     let Some((day, filename)) = attachment_path_parts(value) else {
@@ -343,7 +315,7 @@ fn window_days(since: &str, until: &str) -> Result<Vec<String>> {
 fn stage_provider_attachment(
     record: &mut ProviderRecord,
     staging: &Path,
-    account_id: Option<&str>,
+    account_id: &str,
     layout: Layout,
 ) -> Result<Option<(PathBuf, PathBuf, String)>> {
     let Some(encoded) = record.data.get("content_base64") else {
@@ -400,10 +372,8 @@ fn stage_provider_attachment(
     let sha256 = format!("{:x}", digest.finalize());
     let short_name: String = catalog::metric_slug(stem).chars().take(40).collect();
     let relative = layout.attachments(&record.day).join(format!(
-        "{}-{}-{}-{}.{}",
-        account_id
-            .map(|id| format!("{}-{id}", record.source))
-            .unwrap_or_else(|| record.source.clone()),
+        "{}-{account_id}-{}-{}-{}.{}",
+        record.source,
         catalog::metric_slug(&record.collection),
         short_name.trim_end_matches('-'),
         sha256,
@@ -468,7 +438,8 @@ fn stage_export_attachment(
         .unwrap_or("bin")
         .to_ascii_lowercase();
     let relative = layout.attachments(&record.day).join(format!(
-        "garmin-{account_id}-{}-{checksum}.{extension}",
+        "{}-{account_id}-{}-{checksum}.{extension}",
+        record.source,
         catalog::metric_slug(&record.collection)
     ));
     let payload = record
@@ -500,10 +471,10 @@ fn coverage_summary(collections: &BTreeMap<String, BTreeMap<String, Coverage>>) 
     Value::Object(result)
 }
 
-fn source_summary(manifest: &Manifest) -> Value {
+fn source_summary(metadata: &LibraryMetadata) -> Value {
     let mut sources = serde_json::Map::new();
-    for (source, state) in &manifest.sources {
-        let mut aggregate = state.collections.clone();
+    for (source, state) in &metadata.sources {
+        let mut aggregate: BTreeMap<String, BTreeMap<String, Coverage>> = BTreeMap::new();
         let mut accounts = serde_json::Map::new();
         for (id, account) in &state.accounts {
             let mut count = 0u64;
@@ -529,9 +500,9 @@ fn source_summary(manifest: &Manifest) -> Value {
                     }
                 }
             }
-            accounts.insert(id.clone(),json!({"region":account.garmin_region,"record_count":count,"collections":coverage_summary(&account.collections)}));
+            accounts.insert(id.clone(),json!({"region":account.garmin_region,"label":account.label,"record_count":count,"collections":coverage_summary(&account.collections)}));
         }
-        let record_count: u64 = manifest
+        let record_count: u64 = metadata
             .days
             .values()
             .flat_map(|d| d.shards.iter())
@@ -546,55 +517,50 @@ fn source_summary(manifest: &Manifest) -> Value {
 
 impl Store {
     pub fn new(vault: &Path, state_base: &Path) -> Result<Self> {
-        let vault = vault.canonicalize().map_err(|e| format!("Vault: {e}"))?;
-        if !vault.is_dir() {
-            return Err("Vault must be an existing directory".into());
-        }
-        // Temp paths on macOS commonly begin /var -> /private/var. Canonicalize
-        // an existing base, while never following plugin-owned descendants.
+        let (root, identity) = crate::library::selection(vault, state_base)?;
+        let vault_path = vault.canonicalize().map_err(err)?;
         let base = state_base
             .canonicalize()
             .unwrap_or_else(|_| state_base.to_path_buf());
-        let local = base.join(hash(vault.to_string_lossy().as_bytes()));
-        let current = vault.join(Layout::Daily.root()).join("manifest.json");
-        let legacy = vault.join(Layout::Legacy.root()).join("manifest.json");
-        safe_path(&current)?;
-        let legacy_exists = match fs::symlink_metadata(&legacy) {
-            Ok(_) => true,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
-            Err(e) => return Err(err(e)),
-        };
-        if legacy_exists {
-            safe_path(&legacy)?;
-        }
-        if current.exists() && legacy_exists {
-            return Err("Both ssot/health/manifest.json and health/manifest.json exist; consolidate the archives before importing".into());
-        }
-        let layout = if legacy_exists {
-            Layout::Legacy
-        } else {
-            Layout::Daily
-        };
+        let local = base
+            .join(hash(vault_path.to_string_lossy().as_bytes()))
+            .join("libraries")
+            .join(&identity);
         Ok(Self {
-            vault,
+            vault: root,
             local,
-            layout,
+            layout: Layout,
+            pending: RefCell::new(None),
+            identity,
         })
     }
 
+    pub(crate) fn operational_directory(&self) -> &Path {
+        &self.local
+    }
+
     fn health(&self) -> PathBuf {
-        self.vault.join(self.layout.root())
+        self.vault.clone()
     }
-    fn summary_path(&self, day: &str) -> PathBuf {
-        self.vault.join(self.layout.summary(day))
+    fn database(&self) -> PathBuf {
+        self.health().join("health.sqlite")
     }
-    fn shard_path(&self, day: &str, entry: &Shard) -> PathBuf {
-        self.vault.join(self.layout.day(day)).join(entry.filename())
+    fn database_connection(&self, write: bool) -> Result<Connection> {
+        self.ensure_owned()?;
+        safe_path(&self.database())?;
+        // The selected directory must stay available; never recreate an offline mount.
+        if !self.health().is_dir() {
+            return Err("Health library is unavailable; reconnect its disk".into());
+        }
+        crate::storage::open(&self.database(), write)
     }
 
     fn lock(&self) -> Result<File> {
-        mkdir(&self.local)?;
-        let path = self.local.join("write.lock");
+        self.ensure_owned()?;
+        if !self.health().is_dir() {
+            return Err("Health library is unavailable; reconnect its disk".into());
+        }
+        let path = self.health().join("write.lock");
         safe_path(&path)?;
         let file = OpenOptions::new()
             .create(true)
@@ -608,39 +574,25 @@ impl Store {
         Ok(file)
     }
 
-    pub fn manifest(&self) -> Result<Option<Manifest>> {
-        let path = self.health().join("manifest.json");
-        safe_path(&path)?;
-        let bytes = match fs::read(path) {
-            Ok(v) => v,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(err(e)),
+    pub fn metadata(&self) -> Result<Option<LibraryMetadata>> {
+        let Some(m) = crate::storage::load(&self.database_connection(false)?)? else {
+            return Ok(None);
         };
-        let m: Manifest =
-            serde_json::from_slice(&bytes).map_err(|e| format!("Invalid health manifest: {e}"))?;
-        if !matches!(m.schema_version, 2 | 3)
-            || m.source != "apple-health"
-            || m.scope != "daily-ssot"
+        if m.schema_version != 1
+            || m.source != "health-library"
+            || m.scope != "raw-library"
             || (!m.input_sha256.is_empty() && !valid_hash(&m.input_sha256))
         {
-            return Err("Unsupported health manifest".into());
+            return Err("Unsupported health metadata".into());
         }
         let mut total = 0u64;
         for (day, entry) in &m.days {
-            if !(valid_day(day) || day == "_undated")
-                || !valid_hash(&entry.sha256)
-                || !valid_hash(&entry.summary_sha256)
-                || entry
-                    .previous_summary_sha256
-                    .as_deref()
-                    .is_some_and(|v| !valid_hash(v))
-                || hash(entry.summary.as_bytes()) != entry.summary_sha256
-            {
-                return Err("Invalid day or hash in health manifest".into());
+            if !(valid_day(day) || day == "_undated") || !valid_hash(&entry.sha256) {
+                return Err("Invalid day or hash in health metadata".into());
             }
             total = total
                 .checked_add(entry.record_count)
-                .ok_or("Manifest count overflow")?;
+                .ok_or("LibraryMetadata count overflow")?;
             let mut shard_total = 0u64;
             let mut seen = BTreeSet::new();
             for shard in &entry.shards {
@@ -650,11 +602,11 @@ impl Store {
                     || !valid_category(&shard.category)
                     || !seen.insert((&shard.source, &shard.metric, &shard.category))
                 {
-                    return Err("Invalid shard in health manifest".into());
+                    return Err("Invalid shard in health metadata".into());
                 }
                 shard_total = shard_total
                     .checked_add(shard.record_count)
-                    .ok_or("Manifest count overflow")?;
+                    .ok_or("LibraryMetadata count overflow")?;
             }
             if shard_total != entry.record_count || shard_digest(&entry.shards)? != entry.sha256 {
                 return Err("Health day counts or digest disagree".into());
@@ -663,7 +615,7 @@ impl Store {
         if total != m.record_count
             || m.day_count != m.days.values().filter(|d| d.record_count > 0).count()
         {
-            return Err("Health manifest counts disagree".into());
+            return Err("Health metadata counts disagree".into());
         }
         for (source, state) in &m.sources {
             if !valid_source(source)
@@ -674,23 +626,13 @@ impl Store {
             {
                 return Err("Invalid source metadata".into());
             }
-            if (m.schema_version < 3
-                && (!state.accounts.is_empty() || state.legacy_account_id.is_some()))
-                || state
-                    .legacy_account_id
-                    .as_deref()
-                    .is_some_and(|id| !valid_hash(id) || !state.accounts.contains_key(id))
-                || (source == "apple-health"
-                    && (!state.accounts.is_empty() || state.legacy_account_id.is_some()))
+            if (source == "apple-health" && !state.accounts.is_empty())
+                || (source != "apple-health" && state.accounts.is_empty())
                 || state.accounts.keys().any(|id| !valid_hash(id))
             {
                 return Err("Invalid provider account metadata".into());
             }
-            for dates in state
-                .collections
-                .values()
-                .chain(state.accounts.values().flat_map(|a| a.collections.values()))
-            {
+            for dates in state.accounts.values().flat_map(|a| a.collections.values()) {
                 for (day, coverage) in dates {
                     if !(valid_day(day) || day == "_undated") || !valid_coverage(&coverage.status) {
                         return Err("Invalid source coverage".into());
@@ -710,7 +652,7 @@ impl Store {
                             .is_some_and(|s| s.accounts.contains_key(id))
                 })
             {
-                return Err("Invalid attachment in health manifest".into());
+                return Err("Invalid attachment in health metadata".into());
             }
         }
         if m.sources
@@ -719,7 +661,7 @@ impl Store {
             .unwrap_or("")
             != m.input_sha256
         {
-            return Err("Apple source fingerprint disagrees with manifest".into());
+            return Err("Apple source fingerprint disagrees with metadata".into());
         }
         Ok(Some(m))
     }
@@ -749,29 +691,14 @@ impl Store {
     }
 
     pub fn status(&self) -> Result<Value> {
-        let manifest = self.manifest()?;
-        let summary = manifest.as_ref().map(|m| json!({"schema_version":m.schema_version,"source":m.source,"scope":m.scope,
+        let metadata = self.metadata()?;
+        let summary = metadata.as_ref().map(|m| json!({"schema_version":m.schema_version,"source":m.source,"scope":m.scope,
             "input_sha256":m.input_sha256,"export_date":m.export_date,"record_count":m.record_count,"day_count":m.day_count,
             "ignored_attachments":m.ignored_attachments,"attachment_count":m.attachments.len(),"sources":source_summary(m),"apple_imported":m.sources.contains_key("apple-health"),"first_day":m.days.iter().find(|(d,e)| valid_day(d) && e.record_count > 0).map(|(d,_)|d),
-            "last_day":m.days.iter().rev().find(|(d,e)| valid_day(d) && e.record_count > 0).map(|(d,_)|d),"summary_conflicts":self.reconcile_summaries(m,true)}));
+            "last_day":m.days.iter().rev().find(|(d,e)| valid_day(d) && e.record_count > 0).map(|(d,_)|d)}));
         Ok(
-            json!({"imported":manifest.is_some(), "manifest":summary, "source_file":self.remembered_source()?}),
+            json!({"imported":metadata.is_some(), "summary":summary, "source_file":self.remembered_source()?}),
         )
-    }
-
-    pub fn sync(
-        &self,
-        file: Option<&Path>,
-        dry_run: bool,
-        progress: &mut dyn FnMut(&str),
-    ) -> Result<Report> {
-        let file = match file {
-            Some(file) => file.to_path_buf(),
-            None => self.remembered_source()?.ok_or(
-                "Choose an Apple Health ZIP/XML file first, or pass --file to health-sync",
-            )?,
-        };
-        self.import(&file, dry_run, progress)
     }
 
     pub fn import(
@@ -781,7 +708,7 @@ impl Store {
         progress: &mut dyn FnMut(&str),
     ) -> Result<Report> {
         let _lock = self.lock()?;
-        let old = self.manifest()?;
+        let old = self.metadata()?;
         self.check_owned(&old)?;
         let source = file.canonicalize().map_err(|e| {
             format!("Cannot read export (download iCloud Drive files locally first): {e}")
@@ -821,18 +748,16 @@ impl Store {
         let input_sha256 = format!("{:x}", sha.finalize());
         if let Some(m) = old.as_ref().filter(|m| m.input_sha256 == input_sha256) {
             // Validate the durable facts before an idempotent shortcut. Missing
-            // shards are repaired by reparsing; corrupt immutable files fail.
+            // records must pass their checksums; missing attachments can be restored.
             if self.shards_present(m, progress)? {
-                let conflicts = self.reconcile_summaries(m, dry_run);
                 let mut report = Report {
-                    complete: conflicts.is_empty(),
+                    complete: true,
                     dry_run,
                     data_changed: false,
                     input_sha256,
                     record_count: m.record_count,
                     changed_days: 0,
                     unchanged_days: m.day_count,
-                    summary_conflicts: conflicts,
                     warnings: vec![],
                 };
                 if !dry_run {
@@ -872,24 +797,34 @@ impl Store {
                 touched.insert(attachment.record.day.clone());
                 stage_record(&mut insert, &attachment.record)?;
             }
+            // File imports are additive: preserve absent history and use the
+            // maximum duplicate multiplicity seen in either input, never SUM.
+            tx.execute_batch("CREATE TABLE incoming_counts AS SELECT payload,COUNT(*) AS n FROM records WHERE source='apple-health' GROUP BY payload; CREATE UNIQUE INDEX incoming_payload ON incoming_counts(payload); CREATE TABLE previous_counts(payload TEXT PRIMARY KEY,n INTEGER NOT NULL);").map_err(err)?;
+            let mut prior_count = tx.prepare("INSERT INTO previous_counts VALUES(?1,1) ON CONFLICT(payload) DO UPDATE SET n=n+1 RETURNING n").map_err(err)?;
+            let mut input_count = tx
+                .prepare("SELECT n FROM incoming_counts WHERE payload=?1")
+                .map_err(err)?;
             if let Some(previous) = &old {
                 for (day, entry) in &previous.days {
                     touched.insert(day.clone());
                     for shard in &entry.shards {
-                        if shard.source != "apple-health" {
-                            self.read_shard(day, shard, &mut |mut record| {
-                                if !record.attributes.contains_key("accountId") {
-                                    if let Some(id) = previous
-                                        .sources
-                                        .get(&shard.source)
-                                        .and_then(|s| s.legacy_account_id.as_ref())
-                                    {
-                                        record.attributes.insert("accountId".into(), id.clone());
-                                    }
+                        self.read_shard(day, shard, &mut |record| {
+                            if shard.source == "apple-health" {
+                                let payload = serde_json::to_string(&record).map_err(err)?;
+                                let previous_n: i64 = prior_count
+                                    .query_row([&payload], |r| r.get(0))
+                                    .map_err(err)?;
+                                let incoming_n: i64 = input_count
+                                    .query_row([&payload], |r| r.get(0))
+                                    .optional()
+                                    .map_err(err)?
+                                    .unwrap_or(0);
+                                if previous_n <= incoming_n {
+                                    return Ok(());
                                 }
-                                stage_record(&mut insert, &record)
-                            })?;
-                        }
+                            }
+                            stage_record(&mut insert, &record)
+                        })?;
                     }
                 }
             }
@@ -898,17 +833,14 @@ impl Store {
         let export_date = stats.export_date.ok_or("Missing ExportDate: select a complete Apple Health export, not a filtered XML fragment")?;
         progress("Sorting records and preparing changed days");
         let days = self.prepare_days(&db, staging.path(), &touched, &old, dry_run, progress)?;
-        let mut manifest = old.clone().unwrap_or_else(empty_manifest);
-        manifest.input_sha256 = input_sha256.clone();
-        manifest.export_date = export_date.clone();
-        manifest.root_attributes = stats.root_attributes;
-        manifest.ignored_attachments = 0;
-        manifest
-            .attachments
-            .retain(|_, attachment| attachment.source != "apple-health");
+        let mut metadata = old.clone().unwrap_or_else(empty_metadata);
+        metadata.input_sha256 = input_sha256.clone();
+        metadata.export_date = export_date.clone();
+        metadata.root_attributes = stats.root_attributes;
+        metadata.ignored_attachments = 0;
         for attachment in &attachments {
             self.persist_attachment(attachment, staging.path(), dry_run)?;
-            manifest.attachments.insert(
+            metadata.attachments.insert(
                 attachment.relative_path.to_string_lossy().into_owned(),
                 AttachmentRef {
                     source: "apple-health".into(),
@@ -918,18 +850,16 @@ impl Store {
                 },
             );
         }
-        manifest.days = days;
-        manifest.sources.insert(
+        metadata.days = days;
+        metadata.sources.insert(
             "apple-health".into(),
             SourceState {
-                garmin_region: None,
                 input_sha256: Some(input_sha256),
                 export_date: Some(export_date),
-                collections: BTreeMap::new(),
                 ..Default::default()
             },
         );
-        let mut report = self.commit(manifest, &old, dry_run)?;
+        let mut report = self.commit(metadata, &old, dry_run)?;
         if !dry_run {
             if let Err(e) = self.remember(&source) {
                 report.complete = false;
@@ -941,36 +871,7 @@ impl Store {
         Ok(report)
     }
 
-    pub fn apply_provider(
-        &self,
-        staged_jsonl: &Path,
-        report: &FetchReport,
-        dry_run: bool,
-        progress: &mut dyn FnMut(&str),
-    ) -> Result<Report> {
-        self.apply_provider_with_region(
-            staged_jsonl,
-            report,
-            dry_run,
-            GarminRegion::Global,
-            progress,
-        )
-    }
-
-    pub fn apply_provider_with_region(
-        &self,
-        staged_jsonl: &Path,
-        report: &FetchReport,
-        dry_run: bool,
-        region: GarminRegion,
-        progress: &mut dyn FnMut(&str),
-    ) -> Result<Report> {
-        self.apply_provider_scoped(staged_jsonl, report, dry_run, region, None, None, progress)
-    }
-
-    /// Account identity is verified by auth; legacy identity must never be inferred
-    /// from the newly selected account.
-    #[allow(clippy::too_many_arguments)]
+    /// API records always belong to an explicitly verified provider account.
     pub fn apply_provider_for_account(
         &self,
         staged_jsonl: &Path,
@@ -978,34 +879,11 @@ impl Store {
         dry_run: bool,
         account_id: &str,
         region: GarminRegion,
-        legacy_account_id: Option<&str>,
         progress: &mut dyn FnMut(&str),
     ) -> Result<Report> {
-        if !valid_hash(account_id) || legacy_account_id.is_some_and(|id| !valid_hash(id)) {
+        if !valid_hash(account_id) {
             return Err("Invalid provider account identity".into());
         }
-        self.apply_provider_scoped(
-            staged_jsonl,
-            report,
-            dry_run,
-            region,
-            Some(account_id),
-            legacy_account_id,
-            progress,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn apply_provider_scoped(
-        &self,
-        staged_jsonl: &Path,
-        report: &FetchReport,
-        dry_run: bool,
-        region: GarminRegion,
-        account_id: Option<&str>,
-        legacy_account_id: Option<&str>,
-        progress: &mut dyn FnMut(&str),
-    ) -> Result<Report> {
         if !matches!(report.source.as_str(), "garmin" | "oura") {
             return Err("Only Garmin/Oura supplements are accepted by this operation".into());
         }
@@ -1030,73 +908,17 @@ impl Store {
             .map(|(name, _)| format!("{}.{}", report.source, name))
             .collect();
         let _lock = self.lock()?;
-        let mut old = self.manifest()?;
-        let original = old.clone();
+        let old = self.metadata()?;
         self.check_owned(&old)?;
-        if account_id.is_none()
-            && report.source == "garmin"
+        if report.source == "garmin"
             && old
                 .as_ref()
                 .and_then(|m| m.sources.get("garmin"))
-                .is_some_and(|state| state.garmin_region.unwrap_or_default() != region)
+                .and_then(|s| s.accounts.get(account_id))
+                .is_some_and(|a| a.garmin_region != Some(region))
         {
-            return Err("Garmin region disagrees with this vault's existing provider data".into());
+            return Err("Garmin region disagrees with this account's existing data".into());
         }
-        if let Some(id) = account_id {
-            if let Some(manifest) = old.as_mut() {
-                if let Some(state) = manifest.sources.get_mut(&report.source) {
-                    if state
-                        .legacy_account_id
-                        .as_deref()
-                        .zip(legacy_account_id)
-                        .is_some_and(|(a, b)| a != b)
-                    {
-                        return Err("Legacy account binding disagrees with archive".into());
-                    }
-                    if state.accounts.is_empty() {
-                        let legacy = state.legacy_account_id.as_deref().or(legacy_account_id)
-                            .ok_or("Cannot identify the existing provider archive account; existing data was preserved")?.to_string();
-                        state.legacy_account_id = Some(legacy.clone());
-                        state.accounts.insert(
-                            legacy.clone(),
-                            AccountState {
-                                garmin_region: state.garmin_region,
-                                collections: std::mem::take(&mut state.collections),
-                            },
-                        );
-                        for attachment in manifest
-                            .attachments
-                            .values_mut()
-                            .filter(|a| a.source == report.source)
-                        {
-                            if attachment.account_id.is_none() {
-                                attachment.account_id = Some(legacy.clone());
-                            }
-                        }
-                    }
-                    if report.source == "garmin"
-                        && state
-                            .accounts
-                            .get(id)
-                            .is_some_and(|a| a.garmin_region.unwrap_or_default() != region)
-                    {
-                        return Err(
-                            "Garmin region disagrees with this account's existing data".into()
-                        );
-                    }
-                }
-            }
-        } else if old
-            .as_ref()
-            .and_then(|m| m.sources.get(&report.source))
-            .is_some_and(|s| !s.accounts.is_empty())
-        {
-            return Err("An account identity is required for this archive".into());
-        }
-        let legacy = old
-            .as_ref()
-            .and_then(|m| m.sources.get(&report.source))
-            .and_then(|s| s.legacy_account_id.as_deref());
         let staging = tempfile::tempdir().map_err(err)?;
         let mut db = staging_db(staging.path())?;
         let tx = db.transaction().map_err(err)?;
@@ -1183,9 +1005,7 @@ impl Store {
                 )?;
                 let mut attributes =
                     BTreeMap::from([("sourceName".into(), provider.source.clone())]);
-                if let Some(id) = account_id {
-                    attributes.insert("accountId".into(), id.into());
-                }
+                attributes.insert("accountId".into(), account_id.into());
                 if let Some(id) = provider.id {
                     attributes.insert("providerId".into(), id);
                 }
@@ -1244,25 +1064,10 @@ impl Store {
                         for shard in &entry.shards {
                             let replace_collection =
                                 shard.source == report.source && complete.contains(&shard.metric);
-                            self.read_shard(day, shard, &mut |mut record| {
-                                let owner = record
-                                    .attributes
-                                    .get("accountId")
-                                    .map(String::as_str)
-                                    .or(legacy);
-                                if replace_collection
-                                    && (account_id.is_none() || owner == account_id)
-                                {
+                            self.read_shard(day, shard, &mut |record| {
+                                let owner = record.attributes.get("accountId").map(String::as_str);
+                                if replace_collection && owner == Some(account_id) {
                                     return Ok(());
-                                }
-                                if shard.source == report.source
-                                    && account_id.is_some()
-                                    && !record.attributes.contains_key("accountId")
-                                {
-                                    record.attributes.insert(
-                                        "accountId".into(),
-                                        legacy.ok_or("Unidentified legacy provider record")?.into(),
-                                    );
                                 }
                                 stage_record(&mut insert, &record)
                             })?;
@@ -1272,19 +1077,18 @@ impl Store {
             }
         }
         tx.commit().map_err(err)?;
-        progress("Preparing daily source-of-truth files");
+        progress("Preparing SQLite records and indexes");
         let days = self.prepare_days(&db, staging.path(), &touched, &old, dry_run, progress)?;
-        let mut manifest = old.clone().unwrap_or_else(empty_manifest);
-        manifest.days = days;
-        manifest.attachments.retain(|path, attachment| {
+        let mut metadata = old.clone().unwrap_or_else(empty_metadata);
+        metadata.days = days;
+        metadata.attachments.retain(|path, attachment| {
             let day = attachment_path_parts(path)
                 .map(|(day, _)| day)
                 .unwrap_or("");
             let in_window =
                 day == "_undated" || (day >= report.since.as_str() && day <= report.until.as_str());
             !(attachment.source == report.source
-                && (account_id.is_none()
-                    || attachment.account_id.as_deref().or(legacy) == account_id)
+                && attachment.account_id.as_deref() == Some(account_id)
                 && in_window
                 && attachment
                     .collection
@@ -1293,30 +1097,22 @@ impl Store {
         });
         for (collection, attachment) in &attachments {
             self.persist_attachment(attachment, staging.path(), dry_run)?;
-            manifest.attachments.insert(
+            metadata.attachments.insert(
                 attachment.relative_path.to_string_lossy().into_owned(),
                 AttachmentRef {
                     source: report.source.clone(),
-                    account_id: account_id.map(str::to_string),
+                    account_id: Some(account_id.into()),
                     sha256: attachment.sha256.clone(),
                     collection: Some(collection.clone()),
                 },
             );
         }
-        let state = manifest.sources.entry(report.source.clone()).or_default();
-        let target_collections = if let Some(id) = account_id {
-            manifest.schema_version = 3;
-            let account = state.accounts.entry(id.into()).or_default();
-            if report.source == "garmin" {
-                account.garmin_region = Some(region);
-            }
-            &mut account.collections
-        } else {
-            if report.source == "garmin" {
-                state.garmin_region = Some(region);
-            }
-            &mut state.collections
-        };
+        let state = metadata.sources.entry(report.source.clone()).or_default();
+        let account = state.accounts.entry(account_id.into()).or_default();
+        if report.source == "garmin" {
+            account.garmin_region = Some(region);
+        }
+        let target_collections = &mut account.collections;
         for (name, result) in &collections {
             let coverage = target_collections.entry((*name).to_string()).or_default();
             for day in &dates {
@@ -1351,7 +1147,7 @@ impl Store {
                 );
             }
         }
-        let mut outcome = self.commit(manifest, &original, dry_run)?;
+        let mut outcome = self.commit(metadata, &old, dry_run)?;
         for (name, result) in collections {
             if result.status != "complete" {
                 outcome.complete = false;
@@ -1385,11 +1181,42 @@ impl Store {
         attachments: &BTreeMap<(String, String), ExportAttachment>,
         progress: &mut dyn FnMut(&str),
     ) -> Result<Report> {
-        if !valid_hash(account_id) || report.source != "garmin" {
-            return Err("Invalid Garmin export account or source".into());
+        self.apply_export(
+            staged_jsonl,
+            report,
+            dry_run,
+            account_id,
+            Some(region),
+            attachment_root,
+            attachments,
+            progress,
+        )
+    }
+
+    /// Additive account-scoped import of a provider's exported files.
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_export(
+        &self,
+        staged_jsonl: &Path,
+        report: &FetchReport,
+        dry_run: bool,
+        account_id: &str,
+        region: Option<GarminRegion>,
+        attachment_root: &Path,
+        attachments: &BTreeMap<(String, String), ExportAttachment>,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<Report> {
+        let source = report.source.as_str();
+        if (source == "garmin") != region.is_some() {
+            return Err("Garmin exports require a region; Oura exports do not accept one".into());
+        }
+        let prefix = format!("{source}.");
+        let export_prefix = format!("{source}.export_");
+        if !valid_hash(account_id) || !matches!(report.source.as_str(), "garmin" | "oura") {
+            return Err("Invalid Provider export account or source".into());
         }
         if !valid_day(&report.since) || !valid_day(&report.until) || report.since > report.until {
-            return Err("Invalid Garmin export date bounds".into());
+            return Err("Invalid Provider export date bounds".into());
         }
         let mut expected = BTreeMap::new();
         for collection in &report.collections {
@@ -1401,23 +1228,20 @@ impl Store {
                     .insert(collection.collection.clone(), collection.records)
                     .is_some()
             {
-                return Err("Invalid Garmin export collection report".into());
+                return Err("Invalid Provider export collection report".into());
             }
         }
         if expected.is_empty() {
-            return Err("Garmin export report has no collections".into());
+            return Err("Provider export report has no collections".into());
         }
         let _lock = self.lock()?;
-        let old = self.manifest()?;
+        let old = self.metadata()?;
         self.check_owned(&old)?;
-        if let Some(state) = old.as_ref().and_then(|m| m.sources.get("garmin")) {
-            if state.accounts.is_empty() && !state.collections.is_empty() {
-                return Err("Cannot identify the existing Garmin archive account; existing data was preserved".into());
-            }
+        if let Some(state) = old.as_ref().and_then(|m| m.sources.get(source)) {
             if state
                 .accounts
                 .get(account_id)
-                .is_some_and(|a| a.garmin_region.unwrap_or_default() != region)
+                .is_some_and(|a| source == "garmin" && a.garmin_region != region)
             {
                 return Err("Garmin region disagrees with this account's existing data".into());
             }
@@ -1448,7 +1272,7 @@ impl Store {
                 .prepare("SELECT fingerprint FROM export_seen WHERE identity=?1")
                 .map_err(err)?;
             let mut count_record = |record: &HealthRecord| {
-                let name = record.metric.strip_prefix("garmin.").unwrap().to_string();
+                let name = record.metric.strip_prefix(&prefix).unwrap().to_string();
                 let count = coverage
                     .entry(name)
                     .or_default()
@@ -1464,15 +1288,15 @@ impl Store {
             for line in BufReader::new(File::open(staged_jsonl).map_err(err)?).lines() {
                 let mut provider: ProviderRecord =
                     serde_json::from_str(&line.map_err(err)?).map_err(err)?;
-                if provider.source != "garmin" || !expected.contains_key(&provider.collection) {
-                    return Err("Staged Garmin export record disagrees with report".into());
+                if provider.source != source || !expected.contains_key(&provider.collection) {
+                    return Err("Staged Provider export record disagrees with report".into());
                 }
                 if provider.day != "_undated"
                     && (!valid_day(&provider.day)
                         || provider.day < report.since
                         || provider.day > report.until)
                 {
-                    return Err("Garmin export record is outside its date bounds".into());
+                    return Err("Provider export record is outside its date bounds".into());
                 }
                 *received.get_mut(&provider.collection).unwrap() += 1;
                 let fingerprint = json_hash(&(&provider.day, &provider.data))?;
@@ -1487,7 +1311,7 @@ impl Store {
                 {
                     let prior: String = seen.query_row([&identity], |r| r.get(0)).map_err(err)?;
                     if prior != fingerprint {
-                        return Err("Conflicting Garmin export record identity".into());
+                        return Err("Conflicting Provider export record identity".into());
                     }
                     continue;
                 }
@@ -1496,7 +1320,9 @@ impl Store {
                 if provider.data.get("content_base64").is_some()
                     || provider.data.get("attachment_path").is_some()
                 {
-                    return Err("Garmin export payload contains reserved attachment fields".into());
+                    return Err(
+                        "Provider export payload contains reserved attachment fields".into(),
+                    );
                 }
                 let file_key = provider
                     .id
@@ -1519,7 +1345,7 @@ impl Store {
                     None
                 };
                 let mut attributes = BTreeMap::from([
-                    ("sourceName".into(), "garmin".into()),
+                    ("sourceName".into(), source.into()),
                     ("accountId".into(), account_id.into()),
                     ("exportIdentity".into(), identity),
                 ]);
@@ -1528,10 +1354,10 @@ impl Store {
                 }
                 let record = HealthRecord {
                     schema_version: 1,
-                    ingest_source: "garmin".into(),
+                    ingest_source: source.into(),
                     kind: "Supplement".into(),
                     day: provider.day,
-                    metric: format!("garmin.{}", provider.collection),
+                    metric: format!("{source}.{}", provider.collection),
                     attributes,
                     children: vec![],
                     text: String::new(),
@@ -1553,32 +1379,32 @@ impl Store {
                 count_record(&record);
                 stage_record(&mut insert, &record)?;
                 if last.elapsed().as_secs() >= 10 {
-                    progress("Staging Garmin export records");
+                    progress("Staging Provider export records");
                     last = std::time::Instant::now();
                 }
             }
             if received != expected || used_files.len() != attachments.len() {
                 return Err(
-                    "Garmin export record or attachment count disagrees with report".into(),
+                    "Provider export record or attachment count disagrees with report".into(),
                 );
             }
             // Scan all existing export days, including dates outside this ZIP:
             // a stable ID may have moved to a corrected date in a later export.
-            if let Some(manifest) = &old {
-                for (day, entry) in &manifest.days {
+            if let Some(metadata) = &old {
+                for (day, entry) in &metadata.days {
                     if !touched.contains(day)
                         && !entry
                             .shards
                             .iter()
-                            .any(|s| s.source == "garmin" && s.metric.starts_with("garmin.export_"))
+                            .any(|s| s.source == source && s.metric.starts_with(&export_prefix))
                     {
                         continue;
                     }
                     touched.insert(day.clone());
                     for shard in &entry.shards {
                         self.read_shard(day, shard, &mut |record| {
-                            let target = record.ingest_source == "garmin"
-                                && record.metric.starts_with("garmin.export_")
+                            let target = record.ingest_source == source
+                                && record.metric.starts_with(&export_prefix)
                                 && record
                                     .attributes
                                     .get("accountId")
@@ -1615,45 +1441,75 @@ impl Store {
         }
         tx.commit().map_err(err)?;
         let days = self.prepare_days(&db, staging.path(), &touched, &old, dry_run, progress)?;
-        let mut manifest = old.clone().unwrap_or_else(empty_manifest);
-        manifest.schema_version = 3;
-        manifest.days = days;
+        let mut metadata = old.clone().unwrap_or_else(empty_metadata);
+        metadata.days = days;
         for path in removed_files.difference(&referenced_files) {
-            manifest.attachments.remove(path);
+            metadata.attachments.remove(path);
         }
         for (collection, attachment) in preserved_files {
             self.persist_attachment(&attachment, staging.path(), dry_run)?;
-            manifest.attachments.insert(
+            metadata.attachments.insert(
                 attachment.relative_path.to_string_lossy().into_owned(),
                 AttachmentRef {
                     account_id: Some(account_id.into()),
-                    source: "garmin".into(),
+                    source: source.into(),
                     sha256: attachment.sha256,
                     collection: Some(collection),
                 },
             );
         }
-        let account = manifest
+        let account = metadata
             .sources
-            .entry("garmin".into())
+            .entry(source.into())
             .or_default()
             .accounts
             .entry(account_id.into())
             .or_default();
-        account.garmin_region = Some(region);
+        account.garmin_region = region;
         account
             .collections
             .retain(|name, _| !name.starts_with("export_"));
         account.collections.extend(coverage);
-        self.commit(manifest, &old, dry_run)
+        self.commit(metadata, &old, dry_run)
+    }
+
+    pub fn set_account_label(&self, source: &str, account_id: &str, label: &str) -> Result<()> {
+        if !matches!(source, "garmin" | "oura")
+            || !valid_hash(account_id)
+            || label.trim().is_empty()
+            || label.len() > 512
+        {
+            return Err("Invalid account label".into());
+        }
+        let _lock = self.lock()?;
+        let db = self.database_connection(true)?;
+        let previous: Option<Option<String>> = db
+            .query_row(
+                "SELECT label FROM accounts WHERE source=?1 AND account_id=?2",
+                params![source, account_id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)?;
+        let Some(previous) = previous else {
+            return Err("Account is not present in this health library".into());
+        };
+        if previous.as_deref() != Some(label.trim()) {
+            db.execute(
+                "UPDATE accounts SET label=?1 WHERE source=?2 AND account_id=?3",
+                params![label.trim(), source, account_id],
+            )
+            .map_err(err)?;
+        }
+        Ok(())
     }
 
     pub fn catalog(&self) -> Result<Value> {
-        let Some(manifest) = self.manifest()? else {
+        let Some(metadata) = self.metadata()? else {
             return Ok(json!({"categories":[],"sources":{}}));
         };
         let mut groups: BTreeMap<String, BTreeMap<(String, String), MetricRange>> = BTreeMap::new();
-        for (day, entry) in &manifest.days {
+        for (day, entry) in &metadata.days {
             for shard in &entry.shards {
                 groups
                     .entry(shard.category.clone())
@@ -1682,30 +1538,24 @@ impl Store {
             }
             categories.push(json!({"slug":slug,"record_count":all.record_count,"first_day":all.first_day,"last_day":all.last_day,"metrics":metrics}));
         }
-        Ok(json!({"categories":categories,"sources":source_summary(&manifest)}))
+        Ok(json!({"categories":categories,"sources":source_summary(&metadata)}))
     }
 
     fn ensure_owned(&self) -> Result<()> {
-        let marker = self.health().join(".health-sync-v2");
-        if !marker.exists() {
-            atomic_write(&marker, b"notemd.health-sync\n")?;
+        safe_path(&self.health())?;
+        let marker = self.health().join(".notemd-health-library");
+        safe_path(&marker)?;
+        if fs::read_to_string(&marker).ok().as_deref()
+            != Some(&format!("notemd.health-sync:{}", self.identity))
+        {
+            return Err("Health library is unavailable or its identity marker is missing".into());
         }
+        crate::library::verify_database(&self.health())?;
         Ok(())
     }
 
-    fn check_owned(&self, old: &Option<Manifest>) -> Result<()> {
-        safe_path(&self.health())?;
-        if old.is_none()
-            && self.health().exists()
-            && fs::read_dir(self.health()).map_err(err)?.next().is_some()
-        {
-            let marker = self.health().join(".health-sync-v2");
-            safe_path(&marker)?;
-            if fs::read(&marker).ok().as_deref() != Some(b"notemd.health-sync\n") {
-                return Err(format!("{}/ already contains files without a Health Sync manifest; choose a different vault or move that directory", self.layout.root().display()));
-            }
-        }
-        Ok(())
+    fn check_owned(&self, _old: &Option<LibraryMetadata>) -> Result<()> {
+        self.ensure_owned()
     }
 
     fn persist_attachment(
@@ -1756,71 +1606,44 @@ impl Store {
         shard: &Shard,
         callback: &mut dyn FnMut(HealthRecord) -> Result<()>,
     ) -> Result<()> {
-        let path = self.shard_path(day, shard);
-        if existing_hash(&path)?.as_deref() != Some(&shard.sha256) {
-            return Err(format!(
-                "Missing or corrupt health shard for {day}: {}",
-                shard.filename()
-            ));
-        }
+        let db = self.database_connection(false)?;
+        let mut stmt = db.prepare("SELECT payload FROM records WHERE day=?1 AND source=?2 AND metric=?3 AND category=?4 ORDER BY payload,id").map_err(err)?;
+        let mut rows = stmt
+            .query(params![day, shard.source, shard.metric, shard.category])
+            .map_err(err)?;
         let mut count = 0u64;
-        for line in BufReader::new(File::open(&path).map_err(err)?).lines() {
-            let record: HealthRecord = serde_json::from_str(&line.map_err(err)?).map_err(err)?;
+        let mut sha = Sha256::new();
+        while let Some(row) = rows.next().map_err(err)? {
+            let payload: String = row.get(0).map_err(err)?;
+            sha.update(payload.as_bytes());
+            sha.update(b"\n");
+            let record: HealthRecord = serde_json::from_str(&payload).map_err(err)?;
             if record.day != day
                 || record.ingest_source != shard.source
                 || record.metric != shard.metric
                 || catalog::category(&record.metric, &record.kind) != shard.category
-                || (matches!(record.ingest_source.as_str(), "garmin" | "oura")
-                    && record
-                        .attributes
-                        .get("accountId")
-                        .is_some_and(|id| !valid_hash(id)))
             {
-                return Err(format!(
-                    "Shard membership disagrees with manifest for {day}"
-                ));
+                return Err("Health database record membership is corrupt".into());
             }
             callback(record)?;
             count += 1;
         }
-        if count != shard.record_count {
-            return Err(format!("Shard count disagrees for {day}"));
+        if count != shard.record_count || format!("{:x}", sha.finalize()) != shard.sha256 {
+            return Err(format!(
+                "Health database record count or checksum disagrees for {day}"
+            ));
         }
         Ok(())
     }
 
-    fn finish_shard(&self, mut built: ShardBuilder, dry_run: bool) -> Result<Shard> {
-        built.file.flush().map_err(err)?;
-        let entry = Shard {
+    fn finish_shard(&self, built: ShardBuilder, _dry_run: bool) -> Result<Shard> {
+        Ok(Shard {
             source: built.source,
             metric: built.metric,
             category: built.category,
             sha256: format!("{:x}", built.sha.finalize()),
             record_count: built.count,
-        };
-        if !dry_run {
-            self.ensure_owned()?;
-            let path = self.shard_path(&built.day, &entry);
-            match existing_hash(&path)? {
-                Some(h) if h == entry.sha256 => {}
-                Some(_) => return Err(format!("Corrupt immutable shard: {}", path.display())),
-                None => {
-                    mkdir(path.parent().unwrap())?;
-                    let mut dest = NamedTempFile::new_in(path.parent().unwrap()).map_err(err)?;
-                    std::io::copy(
-                        &mut File::open(built.file.get_ref().path()).map_err(err)?,
-                        &mut dest,
-                    )
-                    .map_err(err)?;
-                    dest.as_file().sync_all().map_err(err)?;
-                    dest.persist_noclobber(&path).map_err(err)?;
-                    File::open(path.parent().unwrap())
-                        .and_then(|f| f.sync_all())
-                        .map_err(err)?;
-                }
-            }
-        }
-        Ok(entry)
+        })
     }
 
     fn prepare_days(
@@ -1828,10 +1651,11 @@ impl Store {
         db: &Connection,
         dir: &Path,
         touched: &BTreeSet<String>,
-        old: &Option<Manifest>,
+        old: &Option<LibraryMetadata>,
         dry_run: bool,
         progress: &mut dyn FnMut(&str),
     ) -> Result<BTreeMap<String, Day>> {
+        *self.pending.borrow_mut() = Some((dir.join("records.sqlite"), touched.clone()));
         db.execute_batch("CREATE INDEX records_by_day ON records(day);")
             .map_err(err)?;
         let mut days = old.as_ref().map(|m| m.days.clone()).unwrap_or_default();
@@ -1867,34 +1691,17 @@ impl Store {
                 built.shards.push(self.finish_shard(shard, dry_run)?);
             }
             let sha256 = shard_digest(&built.shards)?;
-            let summary = render_summary(&built, self.layout);
-            let summary_sha256 = hash(summary.as_bytes());
             let previous = old.as_ref().and_then(|m| m.days.get(day));
-            if let Some(previous) =
-                previous.filter(|p| p.sha256 == sha256 && p.summary_sha256 == summary_sha256)
-            {
+            if let Some(previous) = previous.filter(|p| p.sha256 == sha256) {
                 days.insert(day.clone(), previous.clone());
                 continue;
             }
-            let existing = existing_hash(&self.summary_path(day))?;
-            let previous_summary_sha256 = previous.and_then(|p| {
-                existing
-                    .as_ref()
-                    .filter(|h| {
-                        *h == &p.summary_sha256
-                            || Some(h.as_str()) == p.previous_summary_sha256.as_deref()
-                    })
-                    .cloned()
-            });
             days.insert(
                 day.clone(),
                 Day {
                     sha256,
                     shards: built.shards,
                     record_count: built.count,
-                    summary_sha256,
-                    previous_summary_sha256,
-                    summary,
                 },
             );
         }
@@ -1903,21 +1710,21 @@ impl Store {
 
     fn commit(
         &self,
-        mut manifest: Manifest,
-        old: &Option<Manifest>,
+        mut metadata: LibraryMetadata,
+        old: &Option<LibraryMetadata>,
         dry_run: bool,
     ) -> Result<Report> {
-        manifest.record_count = manifest
+        metadata.record_count = metadata
             .days
             .values()
             .try_fold(0u64, |sum, d| sum.checked_add(d.record_count))
-            .ok_or("Manifest count overflow")?;
-        manifest.day_count = manifest
+            .ok_or("LibraryMetadata count overflow")?;
+        metadata.day_count = metadata
             .days
             .values()
             .filter(|d| d.record_count > 0)
             .count();
-        let changed_days = manifest
+        let changed_days = metadata
             .days
             .iter()
             .filter(|(day, entry)| {
@@ -1927,49 +1734,47 @@ impl Store {
                     != Some(&entry.sha256)
             })
             .count();
-        let data_changed = old.as_ref() != Some(&manifest);
+        let data_changed = old.as_ref() != Some(&metadata);
         if !dry_run && data_changed {
             self.ensure_owned()?;
-            atomic_write(
-                &self.health().join("manifest.json"),
-                &serde_json::to_vec_pretty(&manifest).map_err(err)?,
+            let pending = self.pending.borrow();
+            let (candidate, touched) = pending.as_ref().ok_or("Missing staged health records")?;
+            crate::storage::commit(
+                &mut self.database_connection(true)?,
+                &metadata,
+                candidate,
+                touched,
             )?;
         }
-        let conflicts = self.reconcile_summaries(&manifest, dry_run);
         Ok(Report {
-            complete: conflicts.is_empty(),
+            complete: true,
             dry_run,
             data_changed,
-            input_sha256: manifest.input_sha256,
-            record_count: manifest.record_count,
+            input_sha256: metadata.input_sha256,
+            record_count: metadata.record_count,
             changed_days,
-            unchanged_days: manifest.days.len() - changed_days,
-            summary_conflicts: conflicts,
+            unchanged_days: metadata.days.len() - changed_days,
             warnings: vec![],
         })
     }
 
-    fn shards_present(&self, manifest: &Manifest, progress: &mut dyn FnMut(&str)) -> Result<bool> {
+    fn shards_present(
+        &self,
+        metadata: &LibraryMetadata,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<bool> {
         let mut present = true;
         let mut last = std::time::Instant::now();
-        for (day, entry) in &manifest.days {
+        for (day, entry) in &metadata.days {
             for shard in &entry.shards {
-                match existing_hash(&self.shard_path(day, shard))? {
-                    None => present = false,
-                    Some(hash) if hash == shard.sha256 => {}
-                    Some(_) => {
-                        return Err(format!(
-                        "Corrupt immutable shard for {day}; restore it from backup before importing"
-                    ))
-                    }
-                }
+                self.read_shard(day, shard, &mut |_| Ok(()))?;
             }
             if last.elapsed().as_secs() >= 10 {
-                progress("Verifying existing health shards");
+                progress("Verifying existing SQLite records");
                 last = std::time::Instant::now();
             }
         }
-        for (path, attachment) in &manifest.attachments {
+        for (path, attachment) in &metadata.attachments {
             match existing_hash(&self.vault.join(path))? {
                 None => present = false,
                 Some(h) if h == attachment.sha256 => {}
@@ -1981,32 +1786,6 @@ impl Store {
             }
         }
         Ok(present)
-    }
-
-    fn reconcile_summaries(&self, m: &Manifest, dry_run: bool) -> Vec<String> {
-        let mut conflicts = vec![];
-        for (day, entry) in &m.days {
-            let path = self.summary_path(day);
-            let result = (|| -> Result<()> {
-                let existing = existing_hash(&path)?;
-                if existing.as_deref() == Some(&entry.summary_sha256) {
-                    return Ok(());
-                }
-                if existing.is_some()
-                    && existing.as_deref() != entry.previous_summary_sha256.as_deref()
-                {
-                    return Err("manually edited or unowned summary was preserved".into());
-                }
-                if !dry_run {
-                    atomic_write(&path, entry.summary.as_bytes())?;
-                }
-                Ok(())
-            })();
-            if let Err(e) = result {
-                conflicts.push(format!("{}: {e}", self.layout.summary(day).display()));
-            }
-        }
-        conflicts
     }
 
     pub fn query(
@@ -2061,69 +1840,71 @@ impl Store {
         if limit == 0 || limit > 1000 {
             return Err("--limit must be between 1 and 1000".into());
         }
-        let m = self.manifest()?.ok_or("No imported health snapshot")?;
-        let mut records = vec![];
-        let mut matched = 0usize;
-        for (day, entry) in &m.days {
-            if entry.record_count == 0
-                || (day == "_undated" && (since.is_some() || until.is_some()))
-                || since.is_some_and(|s| day.as_str() < s)
-                || until.is_some_and(|s| day.as_str() > s)
-            {
-                continue;
-            }
-            for shard in &entry.shards {
-                if metric.is_some_and(|v| shard.metric != v)
-                    || category.is_some_and(|v| shard.category != v)
-                    || source.is_some_and(|v| shard.source != v)
-                {
-                    continue;
-                }
-                let mut more = false;
-                self.read_shard(day, shard, &mut |mut record| {
-                    if !record.attributes.contains_key("accountId") {
-                        if let Some(id) = m
-                            .sources
-                            .get(&shard.source)
-                            .and_then(|s| s.legacy_account_id.as_ref())
-                        {
-                            record.attributes.insert("accountId".into(), id.clone());
-                        }
-                    }
-                    if account_id.is_some_and(|id| {
-                        !matches!(record.ingest_source.as_str(), "garmin" | "oura")
-                            || record.attributes.get("accountId").map(String::as_str) != Some(id)
-                    }) {
-                        return Ok(());
-                    }
-                    if matched >= offset {
-                        if records.len() == limit {
-                            more = true;
-                        } else {
-                            records.push(record);
-                        }
-                    }
-                    matched = matched.checked_add(1).ok_or("Query count overflow")?;
-                    Ok(())
-                })?;
-                if more {
-                    return Ok(
-                        json!({"records":records,"has_more":true,"next_offset":offset.checked_add(limit).ok_or("Query offset overflow")?,"input_sha256":m.input_sha256}),
-                    );
-                }
+        let db = self
+            .database_connection(false)
+            .map_err(|e| format!("No readable health library: {e}"))?;
+        let mut predicates = vec![];
+        let mut values: Vec<rusqlite::types::Value> = vec![];
+        for (column, value) in [
+            ("source", source),
+            ("account_id", account_id),
+            ("metric", metric),
+            ("category", category),
+        ] {
+            if let Some(value) = value {
+                predicates.push(format!("{column}=?"));
+                values.push(value.to_string().into());
             }
         }
+        if since.is_some() || until.is_some() {
+            predicates.push("day <> '_undated'".into());
+        }
+        for (operator, value) in [(">=", since), ("<=", until)] {
+            if let Some(value) = value {
+                predicates.push(format!("day {operator} ?"));
+                values.push(value.to_string().into());
+            }
+        }
+        let clause = if predicates.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", predicates.join(" AND "))
+        };
+        values.push(((limit + 1) as i64).into());
+        values.push(i64::try_from(offset).map_err(err)?.into());
+        let sql=format!("SELECT payload FROM records {clause} ORDER BY day,source,metric,category,id LIMIT ? OFFSET ?");
+        let mut stmt = db.prepare(&sql).map_err(err)?;
+        let mut rows = stmt
+            .query(rusqlite::params_from_iter(values))
+            .map_err(err)?;
+        let mut records = vec![];
+        while let Some(row) = rows.next().map_err(err)? {
+            let payload: String = row.get(0).map_err(err)?;
+            let record = serde_json::from_str::<HealthRecord>(&payload).map_err(err)?;
+            records.push(record);
+        }
+        let has_more = records.len() > limit;
+        records.truncate(limit);
+        let input_sha256: Option<String> = db
+            .query_row(
+                "SELECT input_sha256 FROM sources WHERE source='apple-health'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)?
+            .flatten();
         Ok(
-            json!({"records":records,"has_more":false,"next_offset":Value::Null,"input_sha256":m.input_sha256}),
+            json!({"records":records,"has_more":has_more,"next_offset":if has_more{json!(offset.checked_add(limit).ok_or("Query offset overflow")?)}else{Value::Null},"input_sha256":input_sha256.unwrap_or_default()}),
         )
     }
 }
 
-fn empty_manifest() -> Manifest {
-    Manifest {
-        schema_version: 2,
-        source: "apple-health".into(),
-        scope: "daily-ssot".into(),
+fn empty_metadata() -> LibraryMetadata {
+    LibraryMetadata {
+        schema_version: 1,
+        source: "health-library".into(),
+        scope: "raw-library".into(),
         input_sha256: String::new(),
         export_date: String::new(),
         root_attributes: BTreeMap::new(),
@@ -2160,176 +1941,56 @@ impl MetricRange {
     }
 }
 
-#[derive(Default)]
-struct Group {
-    count: u64,
-    numeric_count: u64,
-    min: Option<f64>,
-    max: Option<f64>,
-}
-type GroupKey = (String, String, String, String);
 struct DayBuilder {
-    day: String,
     shards: Vec<Shard>,
     count: u64,
-    groups: BTreeMap<GroupKey, Group>,
-    accounts: BTreeMap<(String, String, String), u64>,
 }
 impl DayBuilder {
-    fn new(day: &str) -> Self {
+    fn new(_day: &str) -> Self {
         Self {
-            day: day.into(),
             shards: vec![],
             count: 0,
-            groups: BTreeMap::new(),
-            accounts: BTreeMap::new(),
         }
     }
     fn add(
         &mut self,
-        payload: &str,
-        sources: Option<&BTreeMap<String, SourceState>>,
+        _payload: &str,
+        _sources: Option<&BTreeMap<String, SourceState>>,
     ) -> Result<()> {
         self.count += 1;
-        let record: HealthRecord = serde_json::from_str(payload).map_err(err)?;
-        if record.ingest_source != "apple-health" || record.kind == "Attachment" {
-            if let Some(account) = matches!(record.ingest_source.as_str(), "garmin" | "oura")
-                .then(|| {
-                    record.attributes.get("accountId").or_else(|| {
-                        sources
-                            .and_then(|s| s.get(&record.ingest_source))
-                            .and_then(|s| s.legacy_account_id.as_ref())
-                    })
-                })
-                .flatten()
-            {
-                *self
-                    .accounts
-                    .entry((
-                        record.ingest_source.clone(),
-                        account.clone(),
-                        record.metric.clone(),
-                    ))
-                    .or_default() += 1;
-            }
-            return Ok(());
-        }
-        let attr = |key: &str| record.attributes.get(key).cloned().unwrap_or_default();
-        let group = self
-            .groups
-            .entry((
-                record.metric.clone(),
-                attr("sourceName"),
-                attr("device"),
-                attr("unit"),
-            ))
-            .or_default();
-        group.count += 1;
-        if let Ok(value) = attr("value").parse::<f64>() {
-            if value.is_finite() {
-                group.numeric_count += 1;
-                group.min = Some(group.min.map_or(value, |v| v.min(value)));
-                group.max = Some(group.max.map_or(value, |v| v.max(value)));
-            }
-        }
         Ok(())
     }
 }
 struct ShardBuilder {
-    day: String,
     source: String,
     metric: String,
     category: String,
-    file: BufWriter<NamedTempFile>,
     sha: Sha256,
     count: u64,
 }
 impl ShardBuilder {
     fn new(
-        day: &str,
+        _day: &str,
         source: String,
         metric: String,
         category: String,
-        dir: &Path,
+        _dir: &Path,
     ) -> Result<Self> {
         Ok(Self {
-            day: day.into(),
             source,
             metric,
             category,
-            file: BufWriter::new(NamedTempFile::new_in(dir).map_err(err)?),
             sha: Sha256::new(),
             count: 0,
         })
     }
     fn add(&mut self, payload: &str) -> Result<()> {
-        self.file
-            .write_all(payload.as_bytes())
-            .and_then(|_| self.file.write_all(b"\n"))
-            .map_err(err)?;
         self.sha.update(payload.as_bytes());
         self.sha.update(b"\n");
         self.count += 1;
         Ok(())
     }
 }
-fn cell(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('|', "&#124;")
-        .replace(['\r', '\n'], " ")
-        .replace('\u{0060}', "&#96;")
-}
-fn render_summary(day: &DayBuilder, layout: Layout) -> String {
-    let mut s = format!("# 健康档案 · {}\n\n当前有效记录数：{}。本日只有一份有效清单，Apple Health 为综合主档案，Garmin/Oura 为来源明确的补充；不猜测跨源关联，不跨来源或设备累加。\n\nApple 日期取原始 startDate（其次 dateComponents / creationDate），保留来源时区；跨日样本完整归起始日。补充记录采用厂商提供的日期，无日期元数据归入 _undated。\n\n此文件由 Health Sync 生成；个人批注请写入同名 .note.md 文件。\n", day.day, day.count);
-    if day.count == 0 {
-        s.push_str("\n当前快照已无该日期记录；历史原始分片仍保留。\n");
-        return s;
-    }
-    s.push_str("\n## 分类与原始记录\n\n| 分类 | 采集来源 | 指标/集合 | 记录数 | 原始数据 |\n| --- | --- | --- | ---: | --- |\n");
-    for shard in &day.shards {
-        s.push_str(&format!(
-            "| {} | {} | {} | {} | [JSONL]({}) |\n",
-            cell(&shard.category),
-            cell(&shard.source),
-            cell(&shard.metric),
-            shard.record_count,
-            layout.shard_link(&day.day, &shard.filename())
-        ));
-    }
-    if !day.accounts.is_empty() {
-        s.push_str("\n## 厂商账号记录\n\n各账号分别保留，不跨账号累加健康指标。账号标识对应归档清单。\n\n| 来源 | 账号标识 | 集合 | 记录数 |\n| --- | --- | --- | ---: |\n");
-        for ((source, account, metric), count) in &day.accounts {
-            s.push_str(&format!(
-                "| {} | {} | {} | {} |\n",
-                cell(source),
-                cell(account),
-                cell(metric),
-                count
-            ));
-        }
-    }
-    if !day.groups.is_empty() {
-        s.push_str("\n## Apple Health 样本\n\n以下是独立样本数量和数值范围，不是健康 App 的每日综合数值。厂商补充记录不参与此表统计。\n\n| 指标 | 写入应用 | 设备 | 单位 | 样本数 | 数值样本数 | 最小值 | 最大值 |\n| --- | --- | --- | --- | ---: | ---: | ---: | ---: |\n");
-        for ((metric, source, device, unit), g) in &day.groups {
-            s.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
-                cell(metric),
-                cell(source),
-                cell(device),
-                cell(unit),
-                g.count,
-                g.numeric_count,
-                g.min.map(|v| v.to_string()).unwrap_or_else(|| "—".into()),
-                g.max.map(|v| v.to_string()).unwrap_or_else(|| "—".into())
-            ));
-        }
-    }
-    s
-}
-
 #[cfg(test)]
 mod account_tests {
     use super::*;
@@ -2344,6 +2005,9 @@ mod account_tests {
             let vault = temp.path().join("vault");
             fs::create_dir(&vault).unwrap();
             fs::create_dir(temp.path().join("state")).unwrap();
+            let library = temp.path().join("library");
+            fs::create_dir(&library).unwrap();
+            crate::library::configure(&vault, &temp.path().join("state"), &library).unwrap();
             let store = Store::new(&vault, &temp.path().join("state")).unwrap();
             Self { temp, store }
         }
@@ -2364,7 +2028,6 @@ mod account_tests {
                     false,
                     account,
                     GarminRegion::Global,
-                    None,
                     &mut |_| {},
                 )
                 .unwrap()
@@ -2417,15 +2080,15 @@ mod account_tests {
         let complete = report(day, &[("sleep", "complete", 1)]);
         f.apply(&a, &[row("sleep", day, 10)], &complete);
         f.apply(&b, &[row("sleep", day, 20)], &complete);
-        assert_eq!(f.store.manifest().unwrap().unwrap().record_count, 2);
+        assert_eq!(f.store.metadata().unwrap().unwrap().record_count, 2);
         f.apply(&a, &[row("sleep", day, 11)], &complete);
         assert_eq!(f.query(&a)["records"][0]["payload"]["value"], 11);
         assert_eq!(f.query(&b)["records"][0]["payload"]["value"], 20);
         let failed = report(day, &[("sleep", "failed", 0)]);
         let outcome = f.apply(&b, &[], &failed);
         assert!(!outcome.complete);
-        let m = f.store.manifest().unwrap().unwrap();
-        assert_eq!(m.schema_version, 3);
+        let m = f.store.metadata().unwrap().unwrap();
+        assert_eq!(m.schema_version, 1);
         assert_eq!(
             m.sources["garmin"].accounts[&a].collections["sleep"][day].status,
             "complete"
@@ -2438,13 +2101,14 @@ mod account_tests {
         let summary = source_summary(&m);
         assert_eq!(summary["garmin"]["accounts"][&a]["record_count"], 1);
         assert_eq!(summary["garmin"]["collections"]["sleep"]["failed_days"], 1);
-        assert!(m.days[day].summary.contains(&a) && m.days[day].summary.contains(&b));
         assert!(f
             .store
-            .apply_provider(
+            .apply_provider_for_account(
                 &f.staged(&[]),
                 &report(day, &[("sleep", "complete", 0)]),
                 false,
+                "invalid",
+                GarminRegion::Global,
                 &mut |_| {}
             )
             .is_err());
@@ -2460,27 +2124,11 @@ mod account_tests {
         f.apply(&a, &[row("sleep", day, 1)], &r);
         let path = f.staged(&[row("sleep", day, 2)]);
         f.store
-            .apply_provider_for_account(
-                &path,
-                &r,
-                false,
-                &b,
-                GarminRegion::China,
-                None,
-                &mut |_| {},
-            )
+            .apply_provider_for_account(&path, &r, false, &b, GarminRegion::China, &mut |_| {})
             .unwrap();
         assert!(f
             .store
-            .apply_provider_for_account(
-                &path,
-                &r,
-                false,
-                &a,
-                GarminRegion::China,
-                None,
-                &mut |_| {}
-            )
+            .apply_provider_for_account(&path, &r, false, &a, GarminRegion::China, &mut |_| {})
             .is_err());
         assert_eq!(f.query(&a)["records"][0]["payload"]["value"], 1);
         assert_eq!(f.query(&b)["records"][0]["payload"]["value"], 2);
@@ -2504,7 +2152,7 @@ mod account_tests {
         );
         f.apply(&a, &[file.clone(), profile.clone()], &r);
         f.apply(&b, &[file, profile], &r);
-        let m = f.store.manifest().unwrap().unwrap();
+        let m = f.store.metadata().unwrap().unwrap();
         assert_eq!(m.attachments.len(), 2);
         let paths: Vec<_> = m.attachments.keys().collect();
         assert_ne!(paths[0], paths[1]);
@@ -2526,7 +2174,7 @@ mod account_tests {
                 ],
             ),
         );
-        let m = f.store.manifest().unwrap().unwrap();
+        let m = f.store.metadata().unwrap().unwrap();
         assert_eq!(m.attachments.len(), 1);
         assert_eq!(
             m.attachments.values().next().unwrap().account_id.as_deref(),
@@ -2534,86 +2182,6 @@ mod account_tests {
         );
         assert!(f.query(&a)["records"].as_array().unwrap().is_empty());
         assert_eq!(f.query(&b)["records"].as_array().unwrap().len(), 2);
-    }
-
-    #[test]
-    fn legacy_identity_is_required_and_migration_does_not_rewrite_untouched_shards() {
-        let f = Fixture::new();
-        let a = hash(b"legacy");
-        let b = hash(b"new");
-        let oldday = "2026-09-01";
-        let newday = "2026-10-01";
-        f.store
-            .apply_provider(
-                &f.staged(&[row("sleep", oldday, 1)]),
-                &report(oldday, &[("sleep", "complete", 1)]),
-                false,
-                &mut |_| {},
-            )
-            .unwrap();
-        let original = f.store.manifest().unwrap().unwrap();
-        let old_shard = original.days[oldday].shards[0].clone();
-        let old_path = f.store.shard_path(oldday, &old_shard);
-        let bytes = fs::read(&old_path).unwrap();
-        let staged = f.staged(&[row("sleep", newday, 2)]);
-        let r = report(newday, &[("sleep", "complete", 1)]);
-        assert!(f
-            .store
-            .apply_provider_for_account(
-                &staged,
-                &r,
-                false,
-                &b,
-                GarminRegion::Global,
-                None,
-                &mut |_| {}
-            )
-            .is_err());
-        assert_eq!(f.store.manifest().unwrap().unwrap(), original);
-        f.store
-            .apply_provider_for_account(
-                &staged,
-                &r,
-                true,
-                &b,
-                GarminRegion::Global,
-                Some(&a),
-                &mut |_| {},
-            )
-            .unwrap();
-        assert_eq!(f.store.manifest().unwrap().unwrap(), original);
-        f.store
-            .apply_provider_for_account(
-                &staged,
-                &r,
-                false,
-                &b,
-                GarminRegion::Global,
-                Some(&a),
-                &mut |_| {},
-            )
-            .unwrap();
-        let m = f.store.manifest().unwrap().unwrap();
-        assert_eq!(
-            m.sources["garmin"].legacy_account_id.as_deref(),
-            Some(a.as_str())
-        );
-        assert_eq!(m.days[oldday].shards[0], old_shard);
-        assert_eq!(fs::read(&old_path).unwrap(), bytes);
-        assert_eq!(f.query(&a)["records"][0]["attributes"]["accountId"], a);
-        assert_eq!(f.query(&b)["records"].as_array().unwrap().len(), 1);
-        assert!(f
-            .store
-            .apply_provider_for_account(
-                &staged,
-                &r,
-                false,
-                &b,
-                GarminRegion::Global,
-                Some(&b),
-                &mut |_| {}
-            )
-            .is_err());
     }
 
     #[test]
@@ -2625,14 +2193,14 @@ mod account_tests {
         let export = f.temp.path().join("apple.xml");
         fs::write(&export,format!("<HealthData><ExportDate value='2026-10-24 09:00:00 +0900'/><Record type='HeartRate' startDate='{day}' value='60' accountId='opaque-apple-attribute'/></HealthData>")).unwrap();
         f.store.import(&export, false, &mut |_| {}).unwrap();
-        let original = f.store.manifest().unwrap().unwrap();
+        let original = f.store.metadata().unwrap().unwrap();
         let apple = original.days[day].shards[0].clone();
         let r = report(day, &[("sleep", "complete", 1)]);
         f.apply(&a, &[row("sleep", day, 1)], &r);
         f.apply(&b, &[row("sleep", day, 2)], &r);
         fs::write(&export,format!("<HealthData><ExportDate value='2026-10-24 10:00:00 +0900'/><Record type='HeartRate' startDate='{day}' value='60' accountId='opaque-apple-attribute'/></HealthData>")).unwrap();
         f.store.import(&export, false, &mut |_| {}).unwrap();
-        let m = f.store.manifest().unwrap().unwrap();
+        let m = f.store.metadata().unwrap().unwrap();
         assert_eq!(m.record_count, 3);
         assert!(m.days[day].shards.contains(&apple));
         let q = f
@@ -2748,13 +2316,13 @@ mod account_tests {
         );
         f.apply(&a, &[row("sleep", day, 200)], &api);
         assert_eq!(f.query(&a)["records"].as_array().unwrap().len(), 3);
-        let manifest = f.store.manifest().unwrap().unwrap();
-        let coverage = &manifest.sources["garmin"].accounts[&a].collections["export_sleep"];
+        let metadata = f.store.metadata().unwrap().unwrap();
+        let coverage = &metadata.sources["garmin"].accounts[&a].collections["export_sleep"];
         assert_eq!(coverage.len(), 2);
         assert!(coverage
             .values()
             .all(|c| c.status == "observed" && c.record_count == 1));
-        let summary = source_summary(&manifest);
+        let summary = source_summary(&metadata);
         assert_eq!(
             summary["garmin"]["collections"]["export_sleep"]["complete_days"],
             0
@@ -2781,8 +2349,7 @@ mod account_tests {
             .unwrap()
             .data_changed
         );
-        assert!(f.store.manifest().unwrap().is_none());
-        assert!(!f.store.health().exists());
+        assert!(f.store.metadata().unwrap().is_none());
         f.export(
             &a,
             &[record.clone(), record.clone()],
@@ -2807,9 +2374,9 @@ mod account_tests {
         let mut files = BTreeMap::from([(key.clone(), f.export_file("empty.fit", b""))]);
         f.export(&a, std::slice::from_ref(&record), &files, false)
             .unwrap();
-        let manifest = f.store.manifest().unwrap().unwrap();
-        let (path, metadata) = manifest.attachments.iter().next().unwrap();
-        assert_eq!(metadata.sha256, hash(b""));
+        let metadata = f.store.metadata().unwrap().unwrap();
+        let (path, attachment) = metadata.attachments.iter().next().unwrap();
+        assert_eq!(attachment.sha256, hash(b""));
         assert_eq!(fs::read(f.store.vault.join(path)).unwrap(), b"");
         assert!(
             !f.export(&a, std::slice::from_ref(&record), &files, false)
@@ -2821,7 +2388,7 @@ mod account_tests {
             .export(&a, std::slice::from_ref(&record), &files, false)
             .unwrap_err()
             .contains("checksum mismatch"));
-        assert_eq!(f.store.manifest().unwrap().unwrap(), manifest);
+        assert_eq!(f.store.metadata().unwrap().unwrap(), metadata);
         let external = tempfile::NamedTempFile::new().unwrap();
         files.get_mut(&key).unwrap().file = external.path().into();
         assert!(f
@@ -2865,7 +2432,7 @@ mod account_tests {
         assert!(f
             .export(&a, &[row("export_sleep", "2026-10-01", 1)], &files, false)
             .is_err());
-        assert!(f.store.manifest().unwrap().is_none());
+        assert!(f.store.metadata().unwrap().is_none());
     }
 
     #[test]
@@ -2893,134 +2460,43 @@ mod account_tests {
             f.export_file("updated.fit", b"updated"),
         );
         f.export(&a, &[first], &files, false).unwrap();
-        let manifest = f.store.manifest().unwrap().unwrap();
-        assert_eq!(manifest.attachments.len(), 2);
-        assert_eq!(manifest.record_count, 2);
-        assert!(manifest
+        let metadata = f.store.metadata().unwrap().unwrap();
+        assert_eq!(metadata.attachments.len(), 2);
+        assert_eq!(metadata.record_count, 2);
+        assert!(metadata
             .attachments
             .values()
             .any(|a| a.sha256 == hash(b"same")));
-        assert!(manifest
+        assert!(metadata
             .attachments
             .values()
             .any(|a| a.sha256 == hash(b"updated")));
     }
     #[test]
-    fn existing_legacy_archive_keeps_paths_queries_and_idempotent_imports() {
-        let mut f = Fixture::new();
-        // Produce a schema-compatible pre-change archive with the legacy writer.
-        f.store.layout = Layout::Legacy;
-        let source = f.temp.path().join("export.xml");
-        let xml = |day: &str| {
-            format!("<HealthData><ExportDate value='2026-10-24 12:00:00 +0800'/><Record type='HKQuantityTypeIdentifierHeartRate' startDate='{day} 12:00:00 +0800' value='60'/></HealthData>")
-        };
-        fs::write(&source, xml("2020-01-01")).unwrap();
-        f.store.import(&source, false, &mut |_| {}).unwrap();
-        let account = hash(b"legacy-path-test");
-        let mut file = row("activity_files", "2020-01-01", 0);
-        file.data = json!({"content_base64":"c2FtZS1ieXRlcw==","filename":"activity.zip"});
+    fn reopened_library_preserves_sources_and_original_attachments() {
+        let f = Fixture::new();
+        let account = hash(b"external-library-account");
+        let mut row = row("activity_files", "2020-01-01", 0);
+        row.data = json!({"content_base64":"c2FtZS1ieXRlcw==","filename":"activity.zip"});
         f.apply(
             &account,
-            &[file],
+            &[row],
             &report("2020-01-01", &[("activity_files", "complete", 1)]),
         );
-        let manifest_path = f.store.vault.join("health/manifest.json");
-        let before = fs::read(&manifest_path).unwrap();
-        let before_mtime = fs::metadata(&manifest_path).unwrap().modified().unwrap();
-        let reopened = Store::new(&f.store.vault, &f.temp.path().join("state")).unwrap();
-        assert!(matches!(reopened.layout, Layout::Legacy));
-        assert_eq!(
-            reopened.query(None, None, None, 100, 0).unwrap()["records"]
-                .as_array()
-                .unwrap()
-                .len(),
-            2
-        );
-        assert!(
-            !reopened
-                .import(&source, false, &mut |_| {})
-                .unwrap()
-                .data_changed
-        );
-        assert_eq!(fs::read(&manifest_path).unwrap(), before);
-        assert_eq!(
-            fs::metadata(&manifest_path).unwrap().modified().unwrap(),
-            before_mtime
-        );
-        fs::write(&source, xml("2021-01-02")).unwrap();
-        assert!(
-            reopened
-                .import(&source, false, &mut |_| {})
-                .unwrap()
-                .complete
-        );
-        let manifest = reopened.manifest().unwrap().unwrap();
-        let new_shard = &manifest.days["2021-01-02"].shards[0];
-        assert!(reopened
-            .vault
-            .join("health/data/2021-01-02")
-            .join(new_shard.filename())
-            .exists());
-        let summary =
-            fs::read_to_string(reopened.vault.join("health/daily/2021-01-02-health.md")).unwrap();
-        assert!(summary.contains(&format!(
-            "[JSONL](../data/2021-01-02/{})",
-            new_shard.filename()
-        )));
-        for path in manifest.attachments.keys() {
-            assert!(path.starts_with("health/attachments/2020-01-01/"));
-            assert!(reopened.vault.join(path).exists());
-        }
-        assert!(!reopened.vault.join("ssot").exists());
-        f.store = reopened;
-        let apple_zip = f.temp.path().join("localized.zip");
-        let mut zip = zip::ZipWriter::new(File::create(&apple_zip).unwrap());
-        zip.start_file("导出.xml", zip::write::SimpleFileOptions::default())
-            .unwrap();
-        zip.write_all(&fs::read(&source).unwrap()).unwrap();
-        zip.start_file(
-            "ecg_2021-01-02.csv",
-            zip::write::SimpleFileOptions::default(),
-        )
-        .unwrap();
-        zip.write_all(b"original ECG").unwrap();
-        zip.finish().unwrap();
-        assert!(
-            f.store
-                .import(&apple_zip, false, &mut |_| {})
-                .unwrap()
-                .complete
-        );
-        let export = row("export_files", "_undated", 1);
-        let files = BTreeMap::from([(
-            (export.collection.clone(), export.id.clone().unwrap()),
-            f.export_file("history.fit", b"original FIT"),
-        )]);
-        assert!(
-            f.export(&account, &[export], &files, false)
-                .unwrap()
-                .complete
-        );
-        let manifest = f.store.manifest().unwrap().unwrap();
-        assert_eq!(manifest.attachments.len(), 3);
-        assert!(manifest
-            .attachments
-            .keys()
-            .all(|path| path.starts_with("health/attachments/")));
-        assert!(manifest
-            .attachments
-            .keys()
-            .any(|path| path.starts_with("health/attachments/2021-01-02/")));
-        assert!(manifest
-            .attachments
-            .keys()
-            .any(|path| path.starts_with("health/attachments/_undated/")));
-        for (path, attachment) in &manifest.attachments {
+        let reopened =
+            Store::new(&f.temp.path().join("vault"), &f.temp.path().join("state")).unwrap();
+        let m = reopened.metadata().unwrap().unwrap();
+        assert_eq!(m.record_count, 1);
+        for (path, a) in &m.attachments {
+            assert!(path.starts_with("attachments/"));
             assert_eq!(
-                hash(&fs::read(f.store.vault.join(path)).unwrap()),
-                attachment.sha256
+                hash(&fs::read(reopened.health().join(path)).unwrap()),
+                a.sha256
             );
         }
-        assert!(!f.store.vault.join("ssot").exists());
+        assert_eq!(
+            fs::read_dir(f.temp.path().join("vault")).unwrap().count(),
+            0
+        );
     }
 }

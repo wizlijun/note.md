@@ -11,7 +11,7 @@
   "engines": {
     "notemd": ">=6.915.1"
   },
-  "description": "Collect Apple Health exports and Garmin/Oura API details on Mac into one daily archive, with categories, incremental sync and a CLI.",
+  "description": "Store Apple, Garmin and Oura health records in an external SQLite library, with incremental imports, API sync and an Agent query CLI.",
   "ui": "ui/",
   "activation": {
     "events": [
@@ -22,7 +22,10 @@
       "onCli:health-status",
       "onCli:health-query",
       "onCli:health-catalog",
-      "onCli:health-disconnect"
+      "onCli:health-disconnect",
+      "onCli:health-init",
+      "onCli:health-storage",
+      "onCli:health-oura-import"
     ]
   },
   "contributes": {
@@ -50,7 +53,7 @@
       {
         "subcommand": "health-import",
         "command": "import",
-        "summary": "Import a complete Apple Health export into the vault",
+        "summary": "Incrementally merge an Apple Health export into the external library",
         "args": [
           {
             "name": "file",
@@ -68,7 +71,7 @@
           {
             "long": "--dry-run",
             "type": "boolean",
-            "help": "Preview changes without modifying the Vault or saved source"
+            "help": "Preview without changing the health library"
           }
         ],
         "requires_tab_context": false
@@ -99,7 +102,7 @@
           {
             "long": "--dry-run",
             "type": "boolean",
-            "help": "Preview without changing the archive or current account"
+            "help": "Preview without changing the health library"
           }
         ],
         "requires_tab_context": false
@@ -107,7 +110,7 @@
       {
         "subcommand": "health-sync",
         "command": "sync",
-        "summary": "Collect and resume Apple Health, Garmin and Oura data",
+        "summary": "Incrementally sync Garmin and Oura APIs",
         "args": [],
         "flags": [
           {
@@ -116,19 +119,14 @@
             "help": "Vault root (default: configured Vault)"
           },
           {
-            "long": "--file",
-            "type": "string",
-            "help": "Apple Health ZIP/XML to import or preview; otherwise reuse the last imported file"
-          },
-          {
             "long": "--dry-run",
             "type": "boolean",
-            "help": "Preview changes without modifying the Vault or saved source"
+            "help": "Preview without changing the health library"
           },
           {
             "long": "--source",
             "type": "string",
-            "help": "all, apple-health, garmin or oura"
+            "help": "all, garmin or oura (Apple uses health-import)"
           },
           {
             "long": "--since",
@@ -166,7 +164,7 @@
       {
         "subcommand": "health-status",
         "command": "status",
-        "summary": "Show the active health import and remembered file",
+        "summary": "Show library availability, imported data and coverage",
         "args": [],
         "flags": [
           {
@@ -268,6 +266,75 @@
           }
         ],
         "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-init",
+        "command": "init",
+        "summary": "Choose a raw-data directory outside the Vault",
+        "args": [],
+        "flags": [
+          {
+            "long": "--path",
+            "type": "string",
+            "help": "Required existing empty directory or Health Sync library outside the Vault"
+          },
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-storage",
+        "command": "storage",
+        "summary": "Inspect external health library configuration",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-oura-import",
+        "command": "oura-import",
+        "summary": "Import Oura CSV, JSON or ZIP for an explicit account",
+        "args": [
+          {
+            "name": "file",
+            "type": "string",
+            "required": true,
+            "help": "Oura export CSV, JSON or ZIP"
+          }
+        ],
+        "flags": [
+          {
+            "long": "--account",
+            "type": "string",
+            "help": "Saved account ID; mutually exclusive with --profile"
+          },
+          {
+            "long": "--profile",
+            "type": "string",
+            "help": "Stable offline account name; mutually exclusive with --account"
+          },
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--dry-run",
+            "type": "boolean",
+            "help": "Preview without changing the health library"
+          }
+        ],
+        "requires_tab_context": false
       }
     ]
   },
@@ -281,7 +348,7 @@
   "i18n": {
     "zh": {
       "name": "健康数据同步",
-      "description": "在 Mac 采集 Apple 健康导出与 Garmin/Oura 详情，按天统一归档，提供分类浏览、增量同步和 CLI。",
+      "description": "原始健康数据保存在 Vault 外的 SQLite 资料库；支持 Apple 文件增量导入、Garmin/Oura 多账号导入与 API 增量，以及 Agent 检索 CLI。",
       "menus": {
         "open": "导入健康数据…"
       },

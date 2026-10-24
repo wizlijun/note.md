@@ -1,5 +1,14 @@
 # Health Sync changelog
 
+## Unreleased
+
+- 首次选择 Vault 外的独立原始资料库，禁止重叠路径；磁盘离线或身份改变时停止，不回退到 Vault。
+- 原始记录、账号、覆盖及索引改为持久 SQLite，附件保留文件；停止生成巨型 manifest、JSONL 分片及每日摘要。统一使用新数据设计，移除旧目录、旧账号格式及旧同步游标的兼容与迁移逻辑。
+- Apple 仅显式文件增量导入，重叠按最大重复重数合并并保留历史；API 同步仅 Garmin/Oura，游标按资料库隔离。
+- Oura 增加 CSV/JSON/ZIP 离线导入与显式账号或稳定离线身份，多账号记录与 API 集合分离；真实导出包验收待用户提供。
+- 窗口按 Apple、Garmin、Oura 分组，Garmin/Oura 的账号、文件导入、API 增量及历史导入各自集中。
+- 增加 health-init、health-storage、health-oura-import CLI；现有 Agent 查询使用 SQLite 筛选分页。默认仅显示数据现状，分析报告由后续 skills 生成。
+
 ## 0.1.4 — 2026-10-24
 
 - 新健康归档默认写入 `ssot/health/YYYY/YYYY-MM-DD/`，移除 `data/` 层；摘要和附件按日期组织，已有旧归档继续沿原路径读写。

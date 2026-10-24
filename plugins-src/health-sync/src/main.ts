@@ -3,9 +3,10 @@ import './style.css'
 interface Bridge { locale?: string; request(method: string, params?: unknown): Promise<unknown> }
 declare global { interface Window { notemd?: Bridge } }
 type Json = Record<string, unknown>
+type StorageStatus = { configured: boolean; path?: string; available: boolean; error?: string }
 type Account = { id: string; label?: string; region?: string; connected?: boolean; active?: boolean; generation?: string }
 type Connection = { connected?: boolean; pending?: boolean; error?: string; region?: string; active_account_id?: string; accounts?: Account[]; authorization_id?: string; completed_account_id?: string }
-type CollectionJob = { source: string; account_id?: string; history?: boolean; since?: string; until?: string; file?: string; restart?: boolean }
+type CollectionJob = { source: string; account_id?: string; history?: boolean; since?: string; until?: string; restart?: boolean }
 type Metric = { metric: string; source: string; record_count: number; first_day?: string; last_day?: string }
 type Coverage = { observed_days?: number; complete_days?: number; unavailable_days?: number; failed_days?: number; first_coverage_day?: string | null; last_coverage_day?: string | null; undated?: { status: string } | null }
 type SourceCoverage = Record<string, { collections?: Record<string, Coverage>; accounts?: Record<string, { collections?: Record<string, Coverage> }> }>
@@ -22,6 +23,7 @@ const categories: Record<string, string> = {
   medications: t('用药', 'Medications'), clinical: t('临床记录', 'Clinical records'),
   metadata: t('个人与设备', 'Personal & device'), other: t('其他记录', 'Other records'),
 }
+const providers = ['garmin', 'oura'] as const
 const sources: Record<string, string> = { all: t('所有来源', 'All sources'), 'apple-health': 'Apple Health', garmin: 'Garmin', oura: 'Oura' }
 document.documentElement.lang = zh ? 'zh-CN' : 'en'
 document.title = title
@@ -29,13 +31,15 @@ document.title = title
 document.querySelector('#app')!.innerHTML = `
 <div id="import-progress" hidden><p id="import-progress-label" role="status"></p><progress aria-labelledby="import-progress-label"></progress></div>
 <header><p class="eyebrow">APPLE HEALTH · GARMIN · OURA</p><h1></h1><p id="intro"></p></header>
-<section class="panel"><label for="vault" id="vault-label"></label><input id="vault" autocomplete="off" spellcheck="false"><div id="overview" class="overview"></div></section>
+<section class="panel" id="storage-panel"><h2 id="storage-title"></h2><p id="storage-help" class="help"></p><label for="storage-path" id="storage-path-label"></label><input id="storage-path" readonly aria-describedby="storage-help storage-state"><p id="storage-state" role="status"></p><div class="actions"><button id="storage-choose"></button><button id="storage-check" class="secondary"></button></div><p id="storage-change-help" class="help"></p><label for="vault" id="vault-label"></label><input id="vault" readonly><div id="overview" class="overview"></div></section>
 <section><div class="section-heading"><h2 id="catalog-title"></h2><button id="status" class="secondary"></button></div><p id="catalog-help" class="help"></p><div id="catalog" class="catalog"></div><details><summary id="coverage-title"></summary><p id="coverage-help" class="help"></p><div id="coverage" class="coverage"></div></details></section>
-<section class="panel"><h2 id="acquire-title"></h2><label for="file" id="file-label"></label><div class="file-row"><input id="file" autocomplete="off" spellcheck="false"><button id="choose" class="secondary"></button><button id="import" class="secondary"></button></div><p id="scope" class="help"></p>
-<label id="sync-source-label" for="sync-source"></label><select id="sync-source"></select>
+<section class="panel" id="apple-panel"><h2 id="acquire-title"></h2><label for="file" id="file-label"></label><div class="file-row"><input id="file" autocomplete="off" spellcheck="false"><button id="choose" class="secondary"></button><button id="import" class="secondary"></button></div><p id="scope" class="help"></p>
+<label class="check"><input id="apple-dry-run" type="checkbox"><span id="apple-dry-run-label"></span></label></section>
+<section id="api-sync-template"><label id="sync-source-label" for="sync-source"></label><select id="sync-source"></select>
 <label class="check"><input id="dry-run" type="checkbox"><span id="dry-run-label"></span></label><div class="actions"><button id="sync"></button><button id="stop" class="secondary" disabled></button></div><p id="sync-help" class="help"></p></section>
 <section class="panel" id="history-panel"><h2 id="history-title"></h2><p id="history-help" class="help"></p><div class="dates"><div><label id="history-source-label" for="history-source"></label><select id="history-source"></select></div><div><label id="history-account-label" for="history-account"></label><select id="history-account"></select></div></div><div class="dates"><div><label id="history-since-label" for="history-since"></label><input id="history-since" type="date" required></div><div><label id="history-until-label" for="history-until"></label><input id="history-until" type="date" required></div></div><label class="check"><input id="restart" type="checkbox"><span id="restart-label"></span></label><div class="actions"><button id="history-import" class="secondary"></button><button id="history-stop" class="secondary" disabled></button></div></section>
 <details class="panel" id="garmin-zip-panel"><summary id="garmin-zip-title"></summary><p id="garmin-zip-help" class="help"></p><label for="garmin-zip-file" id="garmin-zip-file-label"></label><div class="file-row"><input id="garmin-zip-file" autocomplete="off" spellcheck="false"><button id="garmin-zip-choose" class="secondary"></button></div><label for="garmin-zip-region" id="garmin-zip-region-label"></label><select id="garmin-zip-region"></select><div class="actions"><button id="garmin-zip-preview" class="secondary"></button><button id="garmin-zip-import"></button></div></details>
+<details class="panel" id="oura-file-panel"><summary id="oura-file-title"></summary><p id="oura-file-help" class="help"></p><label for="oura-file" id="oura-file-label"></label><div class="file-row"><input id="oura-file" autocomplete="off" spellcheck="false"><button id="oura-file-choose" class="secondary"></button></div><label for="oura-file-account" id="oura-file-account-label"></label><select id="oura-file-account"></select><div id="oura-profile-fields" hidden><label for="oura-profile" id="oura-profile-label"></label><input id="oura-profile" autocomplete="off"><p id="oura-profile-help" class="help"></p></div><div class="actions"><button id="oura-file-preview" class="secondary"></button><button id="oura-file-import"></button></div></details>
 <section class="result"><h2 id="result-title"></h2><p id="message" role="status" aria-live="polite"></p><details id="report-details" hidden><summary id="report-title"></summary><pre id="report" hidden></pre></details></section>
 <details class="panel" id="connections-panel"><summary id="connections-title"></summary>
 <div class="connections"><section><h3>Garmin</h3><p id="garmin-state" role="status"></p><label id="garmin-account-label" for="garmin-account"></label><select id="garmin-account"></select><div class="actions"><button id="garmin-select" class="secondary"></button><button id="garmin-disconnect" class="secondary"></button></div><details class="add-account"><summary id="garmin-add-title"></summary><label id="garmin-label-label" for="garmin-label"></label><input id="garmin-label" autocomplete="off"><label id="garmin-region-label" for="garmin-region"></label><select id="garmin-region"></select><label for="garmin-key">Personal API key</label><input id="garmin-key" type="password" autocomplete="off" aria-describedby="garmin-help"><p id="garmin-help" class="help"><span id="garmin-help-prefix"></span><a id="garmin-key-cn" href="https://connect.garmin.cn/app/settings/personalApiToken" target="_blank" rel="noopener noreferrer"></a> / <a id="garmin-key-global" href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank" rel="noopener noreferrer"></a><span id="garmin-help-suffix"></span></p><div class="actions"><button id="garmin-connect"></button></div></details></section>
@@ -47,16 +51,21 @@ const select = (id: string) => el<HTMLSelectElement>(id)
 // Keep progress announcements outside the busy controls' accessibility subtree.
 el('app').after(el('import-progress'))
 const labels: Record<string, string> = {
-  intro: t('汇集 Apple Health、Garmin 和 Oura，按天归档，保留原始记录。', 'Archive Apple Health, Garmin and Oura by day, preserving original records.'),
-  'vault-label': t('目标 Vault', 'Destination Vault'), 'catalog-title': t('数据分类', 'Data categories'), status: t('刷新状态', 'Refresh status'),
+  intro: t('在独立资料库保存 Apple Health、Garmin 和 Oura，查看当前数据情况。', 'Keep Apple Health, Garmin and Oura in a separate library and review current data coverage.'),
+  'storage-title': t('健康原始资料库', 'Health data library'),
+  'storage-help': t('首次使用请选择 Vault 之外的文件夹。原始明细存入 SQLite，附件保存为文件；禁止使用 Vault 或其子目录，避免大量数据影响笔记同步。Vault 仅存放以后由程序和 Agent 分析完成的报告，此处默认只显示数据情况。', 'Choose a folder outside your Vault on first use. Raw records are stored in SQLite and attachments as files. The Vault and its subfolders are not allowed, to keep bulk data out of note sync. The Vault is reserved for final program and Agent analysis reports; this view only shows current data coverage.'),
+  'storage-path-label': t('资料库位置', 'Library location'), 'storage-choose': t('选择资料库文件夹…', 'Choose library folder…'), 'storage-check': t('重新检查', 'Check again'),
+  'storage-change-help': t('更换仅切换资料库，不移动数据。外接盘离线时请重新连接，不会自动改存到 Vault。', 'Changing location switches libraries without moving data. Reconnect an offline drive; data never falls back to the Vault.'),
+  'vault-label': t('关联 Vault（仅用于分析报告）', 'Associated Vault (analysis reports only)'), 'catalog-title': t('数据分类', 'Data categories'), status: t('刷新状态', 'Refresh status'),
   'catalog-help': t('选择分类或指标查看原始记录。不同设备的数据分别保留，不累加重复读数。', 'Select a category or metric to browse original records. Device data stays separate; overlapping readings are not added together.'),
-  'coverage-title': t('来源覆盖明细', 'Source coverage details'), 'coverage-help': t('已完成表示该日期的采集请求已处理，不代表设备全天佩戴或全天都有读数。无数据返回也可能记为已完成。ZIP 的“导出中有记录”仅表示包中观察到记录，不代表完整日期或 API 覆盖。', 'Completed means collection requests for that date were processed, not continuous wear or all-day readings. An empty response can also count as completed. ZIP observations only indicate records present in the export and do not establish complete dates or API coverage.'), 'acquire-title': t('采集与同步', 'Collect & sync'), 'file-label': t('Apple 健康导出文件', 'Apple Health export file'),
-  choose: t('选择文件…', 'Choose file…'), import: t('导入完整快照', 'Import full snapshot'),
-  scope: t('请选择同一个人的完整 export.zip 或 export.xml。导入后可补充已连接的设备来源。', 'Choose a complete export.zip or export.xml for the same person, then collect connected provider data.'),
+  'coverage-title': t('来源覆盖明细', 'Source coverage details'), 'coverage-help': t('已完成表示该日期的采集请求已处理，不代表设备全天佩戴或全天都有读数。无数据返回也可能记为已完成。ZIP 的“导出中有记录”仅表示包中观察到记录，不代表完整日期或 API 覆盖。', 'Completed means collection requests for that date were processed, not continuous wear or all-day readings. An empty response can also count as completed. ZIP observations only indicate records present in the export and do not establish complete dates or API coverage.'), 'acquire-title': 'Apple Health', 'file-label': t('Apple 健康导出文件', 'Apple Health export file'),
+  choose: t('选择文件…', 'Choose file…'), import: t('增量导入文件', 'Import file incrementally'),
+  scope: t('选择同一个人的 Apple 健康导出 ZIP 或 XML，增量合并记录，保留已有数据。Apple 仅通过文件导入。', 'Choose an Apple Health export ZIP or XML for the same person. Records are merged incrementally and existing data is retained. Apple is imported from files only.'),
   'sync-source-label': t('采集来源', 'Collection source'),
+  'apple-dry-run-label': t('仅预览，不修改资料库', 'Preview without changing the library'),
   'dry-run-label': t('仅预览，不修改归档或采集进度', 'Preview without changing the archive or collection progress'), sync: t('同步当前账号', 'Sync current accounts'), stop: t('完成本批后停止', 'Stop after this batch'),
   'restart-label': t('重新回查起始日（重建所选期间的采集进度）', 'Recheck from the first date (restart collection progress for this range)'),
-  'sync-help': t('同步各来源当前账号，默认最近 14 天；已有同步进度会继续。Apple 读取所选文件或上次文件；其他历史请用下方导入。', 'Sync each current account: start with the last 14 days, or resume existing progress. Apple reads the selected or last file. Use history import below for other dates.'),
+  'sync-help': t('通过 API 同步 Garmin 和 Oura 当前账号，默认最近 14 天；已有同步进度会继续。其他历史请用下方导入。', 'Sync current Garmin and Oura accounts through their APIs: start with the last 14 days, or resume existing progress. Use history import below for other dates.'),
   'connections-title': t('Garmin / Oura 账号', 'Garmin / Oura accounts'), 'garmin-connect': t('保存并连接', 'Save & connect'), 'oura-connect': t('授权连接', 'Authorize connection'),
   'garmin-region-label': t('账号区域', 'Account region'),
   'garmin-help-prefix': t('获取 Key：', 'Get a key: '), 'garmin-key-cn': t('中国区', 'China'), 'garmin-key-global': t('国际区', 'Global'),
@@ -68,6 +77,12 @@ const labels: Record<string, string> = {
   'garmin-zip-help': t('选择官网导出 ZIP 和账号区域，无需 API Key。自动识别文件账号，分别保留数据；不切换当前同步账号。', 'Choose an official export ZIP and its account region. No API key is needed. The file account is identified automatically and archived separately; the current sync account stays unchanged.'),
   'garmin-zip-file-label': t('Garmin 导出 ZIP', 'Garmin export ZIP'), 'garmin-zip-region-label': t('导出账号区域', 'Export account region'),
   'garmin-zip-choose': t('选择文件…', 'Choose file…'), 'garmin-zip-preview': t('预览 ZIP', 'Preview ZIP'), 'garmin-zip-import': t('导入 ZIP', 'Import ZIP'),
+  'oura-file-title': t('导入 Oura 导出文件', 'Import Oura export file'),
+  'oura-file-help': t('支持 CSV、JSON 或包含这些文件的 ZIP，按 Oura 字段识别。请明确选择数据所属账号；不同账号分别保存，不切换当前 API 账号。未识别的文件会说明原因。', 'Supports CSV, JSON, or ZIP containing these files, recognized by Oura fields. Explicitly choose the account this data belongs to. Accounts stay separate and the current API account is unchanged. Unrecognized files report a reason.'),
+  'oura-file-label': t('Oura 导出文件', 'Oura export file'), 'oura-file-choose': t('选择文件…', 'Choose file…'),
+  'oura-file-account-label': t('数据所属账号', 'Data account'), 'oura-profile-label': t('离线账号名称', 'Offline account name'),
+  'oura-profile-help': t('同一账号每次使用相同名称，不同账号使用不同名称。此身份独立于 API 账号。', 'Reuse the same name for exports from the same account, and a different name for each account. This identity is separate from API accounts.'),
+  'oura-file-preview': t('预览文件', 'Preview file'), 'oura-file-import': t('增量导入文件', 'Import file incrementally'),
   'oura-cancel': t('取消授权', 'Cancel authorization'),
   'oura-help': t('使用自己的 Oura OAuth 应用。先在开发者门户登记下方完全相同的 Redirect URI；连接时会打开浏览器授权。', 'Use your own Oura OAuth application. Register the exact Redirect URI below in the developer portal. Connecting opens your browser for authorization.'),
   'authorize-label': t('若浏览器未打开，可复制此授权地址', 'Copy this authorization URL if your browser did not open'),
@@ -79,22 +94,52 @@ const labels: Record<string, string> = {
 }
 for (const provider of ['garmin', 'oura']) Object.assign(labels, { [`${provider}-account-label`]: t('已保存账号', 'Saved accounts'), [`${provider}-select`]: t('设为当前', 'Set as current'), [`${provider}-add-title`]: t('添加 / 重新授权账号', 'Add / reauthorize an account'), [`${provider}-label-label`]: t('账号备注（可选）', 'Account label (optional)') })
 for (const [id, text] of Object.entries(labels)) el(id).textContent = text
+// Build fixed provider sections once; their forms never move during use.
+function sourceForm(template: HTMLElement, source: string) {
+  const form = template.cloneNode(true) as HTMLElement
+  const ids = new Map<string, string>()
+  for (const element of [form, ...form.querySelectorAll<HTMLElement>('[id]')]) if (element.id) {
+    ids.set(element.id, `${source}-${element.id}`); element.id = `${source}-${element.id}`
+  }
+  for (const label of form.querySelectorAll<HTMLLabelElement>('label[for]')) label.htmlFor = ids.get(label.htmlFor) ?? label.htmlFor
+  return form
+}
+const accountSections = [...document.querySelectorAll<HTMLElement>('.connections > section')]
+for (const [index, source] of providers.entries()) {
+  const section = document.createElement('section'); section.id = `${source}-panel`; section.className = 'panel provider-panel'
+  const heading = document.createElement('h2'); heading.textContent = sources[source]; section.append(heading)
+  const accounts = accountSections[index]; accounts.id = `${source}-account-settings`
+  accounts.querySelector('h3')!.textContent = t('账号', 'Accounts')
+  const help = el('disconnect-help').cloneNode(true) as HTMLElement; help.id = `${source}-disconnect-help`; accounts.append(help)
+  section.append(accounts, el(source === 'garmin' ? 'garmin-zip-panel' : 'oura-file-panel'))
+  const sync = sourceForm(el('api-sync-template'), source); sync.id = `${source}-sync-panel`
+  sync.querySelector(`#${source}-sync-source-label`)!.remove(); sync.querySelector(`#${source}-sync-source`)!.remove()
+  const syncTitle = document.createElement('h3'); syncTitle.textContent = t('API 增量同步', 'Incremental API sync'); sync.prepend(syncTitle)
+  sync.querySelector(`#${source}-sync-help`)!.textContent = t('同步本来源的当前账号，默认最近 14 天；已有同步进度会继续。', 'Sync this provider’s current account: start with the last 14 days, or resume existing progress.')
+  const history = sourceForm(el('history-panel'), source); history.classList.remove('panel')
+  history.querySelector(`#${source}-history-source`)!.parentElement!.remove()
+  const historyTitle = document.createElement('h3'); historyTitle.id = `${source}-history-title`; historyTitle.textContent = t('历史导入', 'History import')
+  history.querySelector(`#${source}-history-title`)!.replaceWith(historyTitle)
+  section.append(sync, history)
+  document.querySelector('.result')!.before(section)
+}
+el('api-sync-template').remove(); el('history-panel').remove(); el('connections-panel').remove()
 document.querySelector('h1')!.textContent = title
 document.querySelector('footer')!.textContent = t('ZIP/XML 文件需已下载到 Mac。无法直接读取 iCloud 健康数据库。这里呈现采集数据及覆盖情况，不替代设备应用中的统计算法。', 'ZIP/XML files must be downloaded to your Mac. This cannot read the iCloud Health database directly. Records and coverage shown here do not reproduce each device app’s statistics.')
 function option(value: string, text: string) { const element = document.createElement('option'); element.value = value; element.textContent = text; return element }
-for (const id of ['sync-source', 'query-source']) for (const [value, name] of Object.entries(sources)) select(id).append(option(value, name))
+for (const [value, name] of Object.entries(sources)) select('query-source').append(option(value, name))
 select('category').append(option('', t('所有分类', 'All categories')))
 select('garmin-region').append(option('global', t('国际区', 'Global')), option('china', t('中国区', 'China')))
 select('garmin-zip-region').append(option('', t('请选择区域…', 'Choose a region…')), option('china', t('中国区', 'China')), option('global', t('国际区', 'Global')))
-select('history-source').append(option('garmin', 'Garmin'), option('oura', 'Oura'))
 function localDate(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
-input('history-until').value = localDate(new Date())
+for (const source of providers) input(`${source}-history-until`).value = localDate(new Date())
 input('file').placeholder = t('export.zip / 导出.xml / export.xml', 'export.zip / export.xml')
 let busy = false, collecting = false, stopRequested = false
+let collectingSource: string | null = null
+let storageReady = false, associatedVault = ''
 let nextOffset: number | null = null
 let lastQuery: Json | null = null
-let automaticSince = ''
-let rememberedSource = ''
+let automaticSince: Record<string, string> = {}
 let connections: Record<string, Connection> = {}
 let archiveSources: SourceCoverage = {}
 let authorizationAttempt: { source: string; vault: string; id: string; cancelled: boolean } | null = null
@@ -105,10 +150,12 @@ async function request(method: string, params?: unknown): Promise<unknown> {
 }
 function setBusy(value: boolean) {
   busy = value
-  for (const control of document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input, button, select')) control.disabled = value
-  for (const id of ['stop', 'history-stop']) el<HTMLButtonElement>(id).disabled = !collecting || stopRequested
-  el<HTMLButtonElement>('next-page').disabled = value || nextOffset === null
+  for (const control of document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input, button, select')) control.disabled = value || !storageReady
+  for (const source of providers) for (const action of ['stop', 'history-stop']) el<HTMLButtonElement>(`${source}-${action}`).disabled = !collecting || collectingSource !== source || stopRequested
+  el<HTMLButtonElement>('next-page').disabled = value || !storageReady || nextOffset === null
   syncControls(); accountControls(); queryAccounts(); cancellationControls()
+  for (const id of ['storage-choose', 'storage-check']) el<HTMLButtonElement>(id).disabled = value || !associatedVault
+  input('vault').disabled = false; input('storage-path').disabled = false
   el('app').setAttribute('aria-busy', String(value))
 }
 function message(text: string, error = false) {
@@ -124,8 +171,8 @@ function clearQuery() {
   el('records').textContent = ''; el('records').hidden = true; el('query-count').textContent = ''
 }
 function clearAuthorization() { el('authorization').hidden = true; el<HTMLTextAreaElement>('authorize-url').value = '' }
-async function operation(action: () => Promise<void>, { sensitive = false, progress = false }: { sensitive?: boolean; progress?: boolean } = {}) {
-  if (busy) return
+async function operation(action: () => Promise<void>, { sensitive = false, progress = false, setup = false }: { sensitive?: boolean; progress?: boolean; setup?: boolean } = {}) {
+  if (busy || (!setup && !storageReady)) return
   setBusy(true); clearReport(); message(t('正在处理…', 'Processing…'))
   // One timer spans the whole import, including batches and catalog refreshes.
   const progressTimer = progress ? window.setTimeout(() => { el('import-progress').hidden = false }, 3000) : undefined
@@ -133,10 +180,10 @@ async function operation(action: () => Promise<void>, { sensitive = false, progr
     message(sensitive ? t('连接失败，请检查凭据和授权设置。', 'Connection failed. Check credentials and authorization settings.') : `${t('操作失败', 'Failed')}: ${error instanceof Error ? error.message : String(error)}`, true)
   } finally {
     window.clearTimeout(progressTimer); el('import-progress').hidden = true
-    collecting = false; setBusy(false)
+    collecting = false; collectingSource = null; setBusy(false)
   }
 }
-function vaultParams() { const vault = input('vault').value.trim(); if (!vault) throw new Error(t('请填写目标 Vault。', 'Enter the destination Vault.')); return { vault } }
+function vaultParams() { if (!associatedVault) throw new Error(t('请先在 note.md 打开 Vault。', 'Open a Vault in note.md first.')); return { vault: associatedVault } }
 function accountName(account: Account) {
   const region = account.region === 'china' ? t('中国区', 'China') : account.region === 'global' ? t('国际区', 'Global') : ''
   return `${account.label || `${t('账号', 'Account')} ${account.id.slice(0, 8)}`}${region ? ` · ${region}` : ''}`
@@ -144,17 +191,19 @@ function accountName(account: Account) {
 function accountControls() {
   for (const source of ['garmin', 'oura']) {
     const account = connections[source]?.accounts?.find(item => item.id === select(`${source}-account`).value)
-    el<HTMLButtonElement>(`${source}-select`).disabled = busy || !account?.connected || account.id === connections[source]?.active_account_id
-    el<HTMLButtonElement>(`${source}-disconnect`).disabled = busy || !account?.connected
+    el<HTMLButtonElement>(`${source}-select`).disabled = busy || !storageReady || !account?.connected || account.id === connections[source]?.active_account_id
+    el<HTMLButtonElement>(`${source}-disconnect`).disabled = busy || !storageReady || !account?.connected
   }
-  el<HTMLButtonElement>('history-import').disabled = busy || !select('history-account').value
+  for (const source of providers) el<HTMLButtonElement>(`${source}-history-import`).disabled = busy || !storageReady || !select(`${source}-history-account`).value
 }
 function historyAccounts() {
-  const list = select('history-account'), previous = list.value
-  list.replaceChildren()
-  for (const account of connections[select('history-source').value]?.accounts ?? []) if (account.connected) list.append(option(account.id, accountName(account)))
-  if (!list.options.length) list.append(option('', t('请先连接账号', 'Connect an account first')))
-  else if ([...list.options].some(item => item.value === previous)) list.value = previous
+  for (const source of providers) {
+    const list = select(`${source}-history-account`), previous = list.value
+    list.replaceChildren()
+    for (const account of connections[source]?.accounts ?? []) if (account.connected) list.append(option(account.id, accountName(account)))
+    if (!list.options.length) list.append(option('', t('请先连接账号', 'Connect an account first')))
+    else if ([...list.options].some(item => item.value === previous)) list.value = previous
+  }
   accountControls()
 }
 function connectionStates(value: unknown) {
@@ -168,7 +217,7 @@ function connectionStates(value: unknown) {
     const current = accounts.find(account => account.id === connection.active_account_id)
     el(`${source}-state`).textContent = connection.pending ? t('等待浏览器授权…', 'Waiting for browser authorization…') : connection.error ? t('连接异常，请重新授权。', 'Connection needs attention. Authorize again.') : current ? `${t('当前：', 'Current: ')}${accountName(current)}${!current.connected ? t('（已断开）', ' (disconnected)') : ''}` : t('未设置当前账号', 'No current account')
   }
-  historyAccounts(); queryAccounts(); cancellationControls()
+  historyAccounts(); queryAccounts(); ouraExportAccounts(); cancellationControls()
 }
 function cancellationTarget() {
   if (authorizationAttempt && !authorizationAttempt.cancelled) return authorizationAttempt
@@ -186,16 +235,25 @@ function queryAccounts() {
   list.replaceChildren(option('', t('所有账号', 'All accounts')))
   for (const id of ids) list.append(option(id, accountName(known.find(account => account.id === id) ?? { id })))
   if (ids.has(previous)) list.value = previous
-  list.disabled = busy || ids.size === 0
+  list.disabled = busy || !storageReady || ids.size === 0
+}
+function ouraExportAccounts() {
+  const list = select('oura-file-account'), previous = list.value
+  const known = connections.oura?.accounts ?? []
+  const ids = new Set([...known.map(account => account.id), ...Object.keys(archiveSources.oura?.accounts ?? {})])
+  list.replaceChildren(option('', t('请选择账号…', 'Choose an account…')), option('__offline__', t('独立离线账号…', 'Separate offline account…')))
+  for (const id of ids) list.append(option(id, accountName(known.find(account => account.id === id) ?? { id })))
+  if (previous === '__offline__' || ids.has(previous)) list.value = previous
+  el('oura-profile-fields').hidden = list.value !== '__offline__'
 }
 function range(value: { first_day?: string; last_day?: string }) { return value.first_day ? `${value.first_day} → ${value.last_day ?? value.first_day}` : t('无日期记录', 'Undated records') }
 function syncControls() {
-  const appleOnly = select('sync-source').value === 'apple-health'
-  const preview = input('dry-run').checked
-  el('import').textContent = preview ? t('预览所选文件', 'Preview selected file') : labels.import
-  el('sync').textContent = preview ? (appleOnly ? t('预览 Apple 快照', 'Preview Apple snapshot') : t('预览采集', 'Preview collection')) : appleOnly ? t('导入 Apple 快照', 'Import Apple snapshot') : labels.sync
-  el('history-import').textContent = preview ? t('预览历史导入', 'Preview history import') : labels['history-import']
-  el('sync-help').textContent = appleOnly ? t('读取上方所选完整文件；未选时读取上次文件，不按日期筛选。预览不会保存文件路径。', 'Read the selected complete file, or the last imported file when none is selected, without date filtering. Preview does not save the path.') : labels['sync-help']
+  el('import').textContent = input('apple-dry-run').checked ? t('预览所选文件', 'Preview selected file') : labels.import
+  for (const source of providers) {
+    const preview = input(`${source}-dry-run`).checked
+    el(`${source}-sync`).textContent = preview ? t('预览采集', 'Preview collection') : labels.sync
+    el(`${source}-history-import`).textContent = preview ? t('预览历史导入', 'Preview history import') : labels['history-import']
+  }
 }
 function renderCoverage(value: SourceCoverage = {}) {
   const container = el('coverage'); container.replaceChildren()
@@ -225,7 +283,7 @@ function renderCoverage(value: SourceCoverage = {}) {
   table.append(head, body); container.append(table)
 }
 function renderCatalog(value: { categories?: Category[]; sources?: SourceCoverage }) {
-  archiveSources = value.sources ?? {}; queryAccounts()
+  archiveSources = value.sources ?? {}; queryAccounts(); ouraExportAccounts()
   const container = el('catalog'); container.replaceChildren()
   const selected = select('category').value; select('category').replaceChildren(option('', t('所有分类', 'All categories')))
   for (const category of value.categories ?? []) {
@@ -250,14 +308,17 @@ function renderCatalog(value: { categories?: Category[]; sources?: SourceCoverag
 }
 async function refresh() {
   const params = vaultParams()
-  const status = await request('plugin.status', params) as { imported?: boolean; manifest?: Json; source_file?: string; connections?: unknown; connections_error?: string }
-  const manifest = status.manifest
-  el('overview').textContent = manifest ? `${Number(manifest.record_count ?? 0).toLocaleString()} ${t('条记录', 'records')} · ${manifest.day_count ?? 0} ${t('天', 'days')} · ${manifest.attachment_count ?? 0} ${t('个附件', 'attachments')}\n${manifest.first_day ?? '—'} → ${manifest.last_day ?? '—'}` : t('尚未建立健康档案', 'No health archive yet')
-  if (!input('history-since').value || input('history-since').value === automaticSince) {
-    automaticSince = typeof manifest?.first_day === 'string' ? manifest.first_day : '2010-01-01'
-    input('history-since').value = automaticSince
+  const status = await request('plugin.status', params) as { imported?: boolean; summary?: Json; source_file?: string; connections?: unknown; connections_error?: string }
+  const summary = status.summary
+  el('overview').textContent = summary ? `${Number(summary.record_count ?? 0).toLocaleString()} ${t('条记录', 'records')} · ${summary.day_count ?? 0} ${t('天', 'days')} · ${summary.attachment_count ?? 0} ${t('个附件', 'attachments')}\n${summary.first_day ?? '—'} → ${summary.last_day ?? '—'}` : t('尚未建立健康档案', 'No health archive yet')
+  for (const source of providers) {
+    const since = input(`${source}-history-since`)
+    if (!since.value || since.value === automaticSince[source]) {
+      automaticSince[source] = typeof summary?.first_day === 'string' ? summary.first_day : '2010-01-01'
+      since.value = automaticSince[source]
+    }
   }
-  rememberedSource = status.source_file ?? ''
+  const rememberedSource = status.source_file ?? ''
   if (rememberedSource && !input('file').value) input('file').value = rememberedSource
   connectionStates(status.connections)
   if (status.connections_error) for (const source of ['garmin', 'oura']) el(`${source}-state`).textContent = t('无法读取连接状态', 'Connection status unavailable')
@@ -292,15 +353,48 @@ el('query-form').addEventListener('submit', event => { event.preventDefault(); v
 el('next-page').addEventListener('click', () => { if (nextOffset !== null) void query(nextOffset) })
 for (const id of ['category', 'query-source', 'query-account', 'since', 'until', 'metric', 'limit']) el(id).addEventListener('input', clearQuery)
 el('query-source').addEventListener('change', () => { select('query-account').value = ''; queryAccounts(); clearQuery() })
-el('vault').addEventListener('input', () => {
+function clearLibraryView() {
   clearQuery(); clearReport(); clearAuthorization()
-  for (const id of ['file', 'garmin-zip-file', 'history-since', 'since', 'until', 'metric', 'garmin-key', 'garmin-label', 'oura-label', 'oura-id', 'oura-secret']) input(id).value = ''
-  automaticSince = ''; rememberedSource = ''; select('garmin-zip-region').value = ''; input('restart').checked = false; select('garmin-region').value = 'global'; select('history-source').value = 'garmin'; select('history-account').replaceChildren(); select('query-source').value = 'all'
-  el('overview').textContent = t('请刷新以读取此 Vault。', 'Refresh to load this Vault.')
+  for (const id of ['file', 'garmin-zip-file', 'oura-file', 'oura-profile', 'since', 'until', 'metric', 'garmin-key', 'garmin-label', 'oura-label', 'oura-id', 'oura-secret']) input(id).value = ''
+  select('oura-file-account').value = ''
+  automaticSince = {}; select('garmin-zip-region').value = ''; select('garmin-region').value = 'global'; select('query-source').value = 'all'
+  for (const source of providers) { input(`${source}-history-since`).value = ''; input(`${source}-restart`).checked = false; select(`${source}-history-account`).replaceChildren() }
+  el('overview').textContent = ''
   renderCatalog({}); connectionStates({})
-})
-el('vault').addEventListener('change', () => { void operation(async () => { await refresh(); message(t('已切换目标 Vault。', 'Destination Vault updated.')) }) })
-el('status').addEventListener('click', () => { void operation(async () => { await refresh(); message(t('状态已刷新', 'Status refreshed')) }) })
+}
+async function checkStorage() {
+  storageReady = false; setBusy(busy)
+  let state: StorageStatus
+  try { state = await request('plugin.storage_status', vaultParams()) as StorageStatus }
+  catch (error) {
+    clearLibraryView()
+    el('storage-state').textContent = t('无法访问资料库。请连接原磁盘后重新检查，或选择资料库文件夹。', 'Library unavailable. Reconnect its drive and check again, or choose a library folder.')
+    el('storage-state').classList.add('error')
+    throw error
+  }
+  input('storage-path').value = state.path ?? ''
+  storageReady = state.configured && state.available === true
+  const unavailable = state.configured && !storageReady
+  el('storage-state').classList.toggle('error', unavailable)
+  el('storage-state').textContent = storageReady ? t('资料库已就绪。', 'Library ready.') : unavailable ? `${t('资料库不可用，请连接原磁盘后重新检查。', 'Library unavailable. Reconnect its drive and check again.')}${state.error ? ` ${state.error}` : ''}` : t('请先选择 Vault 之外的健康资料库文件夹。', 'Choose a health library folder outside your Vault to begin.')
+  el('storage-choose').textContent = state.configured ? t('更换资料库文件夹…', 'Change library folder…') : labels['storage-choose']
+  if (!storageReady) clearLibraryView()
+  setBusy(busy)
+  return storageReady
+}
+async function reloadLibrary() {
+  if (await checkStorage()) { await refresh(); message(t('状态已刷新', 'Status refreshed')) }
+  else message(el('storage-state').textContent ?? '', el('storage-state').classList.contains('error'))
+}
+el('storage-choose').addEventListener('click', () => { void operation(async () => {
+  const result = await request('host.dialog.open', { title: labels['storage-choose'], directory: true, multiple: false }) as { paths: string[] | null }
+  if (!result.paths?.[0]) { message(t('已取消选择，资料库保持不变。', 'Selection cancelled; library unchanged.')); return }
+  const state = await request('plugin.configure_storage', { ...vaultParams(), path: result.paths[0] }) as StorageStatus
+  input('storage-path').value = state.path ?? result.paths[0]
+  clearLibraryView()
+  await reloadLibrary()
+}, { setup: true }) })
+for (const id of ['status', 'storage-check']) el(id).addEventListener('click', () => { void operation(reloadLibrary, { setup: true }) })
 el('choose').addEventListener('click', () => { void operation(async () => {
   const result = await request('host.dialog.open', { title: labels['file-label'], multiple: false, filters: [{ name: 'Apple Health', extensions: ['zip', 'xml'] }] }) as { paths: string[] | null }
   if (result.paths?.[0]) input('file').value = result.paths[0]
@@ -308,10 +402,10 @@ el('choose').addEventListener('click', () => { void operation(async () => {
 }) })
 el('import').addEventListener('click', () => { void operation(async () => {
   const file = input('file').value.trim(); if (!file) throw new Error(t('请先选择健康导出文件。', 'Choose a health export file first.'))
-  const preview = input('dry-run').checked
+  const preview = input('apple-dry-run').checked
   const result = await request('plugin.import', { ...vaultParams(), file, dry_run: preview }) as Json
   report(result); if (!preview) await refresh()
-  message(result.complete === false ? t('导入有未完成项，请查看结果。', 'Import has unfinished items. Review the result.') : preview ? t('预览完成，未修改归档。', 'Preview complete; archive unchanged.') : t('Apple 健康快照已导入。', 'Apple Health snapshot imported.'), result.complete === false)
+  message(result.complete === false ? t('导入有未完成项，请查看结果。', 'Import has unfinished items. Review the result.') : preview ? t('预览完成，未修改归档。', 'Preview complete; archive unchanged.') : t('Apple 健康数据已增量导入。', 'Apple Health records imported incrementally.'), result.complete === false)
 }, { progress: true }) })
 el('garmin-zip-choose').addEventListener('click', () => { void operation(async () => {
   const result = await request('host.dialog.open', { title: labels['garmin-zip-file-label'], multiple: false, filters: [{ name: 'Garmin', extensions: ['zip'] }] }) as { paths: string[] | null }
@@ -334,13 +428,28 @@ for (const [id, preview] of [['garmin-zip-preview', true], ['garmin-zip-import',
   const outcome = result.complete === false ? t('Garmin ZIP 有未完成项，请查看操作明细。', 'Garmin ZIP has unfinished items. Review the operation details.') : preview ? t('Garmin ZIP 预览完成，未修改归档。', 'Garmin ZIP preview complete; archive unchanged.') : t('Garmin ZIP 已导入，当前同步账号未改变。', 'Garmin ZIP imported; the current sync account is unchanged.')
   message(`${outcome}${details.length ? ` ${details.join(' · ')}` : ''}`, result.complete === false)
 }, { progress: true }) })
-for (const id of ['stop', 'history-stop']) el(id).addEventListener('click', () => { stopRequested = true; setBusy(busy); message(t('本批完成后停止，进度将保留。', 'Stopping after this batch; progress will be retained.')) })
-el('sync-source').addEventListener('change', syncControls)
-el('dry-run').addEventListener('change', syncControls)
-el('history-source').addEventListener('change', () => { select('history-account').replaceChildren(); historyAccounts() })
+el('oura-file-account').addEventListener('change', () => { el('oura-profile-fields').hidden = select('oura-file-account').value !== '__offline__' })
+el('oura-file-choose').addEventListener('click', () => { void operation(async () => {
+  const result = await request('host.dialog.open', { title: labels['oura-file-label'], multiple: false, filters: [{ name: 'Oura', extensions: ['zip', 'csv', 'json'] }] }) as { paths: string[] | null }
+  if (result.paths?.[0]) input('oura-file').value = result.paths[0]
+  message(t('文件已就绪', 'File selection ready'))
+}) })
+for (const [id, preview] of [['oura-file-preview', true], ['oura-file-import', false]] as const) el(id).addEventListener('click', () => { void operation(async () => {
+  const file = input('oura-file').value.trim(), account = select('oura-file-account').value
+  if (!file) throw new Error(t('请先选择 Oura 导出文件。', 'Choose an Oura export file first.'))
+  if (!account) throw new Error(t('请明确选择数据所属账号。', 'Explicitly choose the account this data belongs to.'))
+  const identity: Json = account === '__offline__' ? { profile: input('oura-profile').value.trim() } : { account_id: account }
+  if (account === '__offline__' && !identity.profile) throw new Error(t('请填写稳定的离线账号名称。', 'Enter a stable offline account name.'))
+  const result = await request('plugin.oura-import', { ...vaultParams(), file, ...identity, dry_run: preview }) as Json
+  const { file_reports: _files, ...summary } = result
+  report(summary); if (!preview) await refresh()
+  message(result.complete === false ? t('Oura 文件有未完成项，请查看操作明细。', 'Oura file has unfinished items. Review the operation details.') : preview ? t('Oura 文件预览完成，未修改资料库。', 'Oura file preview complete; library unchanged.') : t('Oura 文件已增量导入，当前同步账号未改变。', 'Oura file imported incrementally; the current sync account is unchanged.'), result.complete === false)
+}, { progress: true }) })
+for (const source of providers) for (const action of ['stop', 'history-stop']) el(`${source}-${action}`).addEventListener('click', () => { if (collectingSource === source) { stopRequested = true; setBusy(busy); message(t('本批完成后停止，进度将保留。', 'Stopping after this batch; progress will be retained.')) } })
+for (const id of ['apple-dry-run', ...providers.map(source => `${source}-dry-run`)]) el(id).addEventListener('change', syncControls)
 async function collect(jobs: CollectionJob[], preview: boolean) {
-  if (!jobs.length) throw new Error(t('请先选择 Apple 导出或连接当前账号。', 'Choose an Apple export or connect a current account first.'))
-  collecting = true; stopRequested = false; setBusy(true)
+  if (!jobs.length) throw new Error(t('请先连接当前账号。', 'Connect a current account first.'))
+  collecting = true; collectingSource = jobs[0].source; stopRequested = false; setBusy(true)
   const queue = jobs.map(job => ({ ...job })), cursors = new Map<string, string>(), reports: Json[] = []
   const params = { ...vaultParams(), max_days: 31, dry_run: preview }
   let batch = 0, hadWarnings = false
@@ -355,7 +464,7 @@ async function collect(jobs: CollectionJob[], preview: boolean) {
     const items = Array.isArray(result.sources) ? result.sources : []
     if (items.some(item => item.source !== job.source || (item.account_id && item.account_id !== job.account_id))) throw new Error(t('返回的同步账号发生变化，已停止。', 'The returned sync account changed; collection stopped.'))
     hadWarnings ||= (Array.isArray(result.warnings) && result.warnings.length > 0) || (result.complete === false && (!result.pending || preview))
-    if (!preview && job.source !== 'apple-health') {
+    if (!preview) {
       const pending = items.find(item => item.source === job.source && item.pending === true)
       if (pending) {
         const key = `${job.source}:${job.account_id}`, next = String(pending.next_day ?? '')
@@ -366,31 +475,24 @@ async function collect(jobs: CollectionJob[], preview: boolean) {
     if (stopRequested && queue.length) { message(t('已停止后续批次；再次采集将续传。', 'Further batches stopped. Collect again to resume.')); return }
   }
   if (preview) message(hadWarnings ? t('预览有未完成项，请查看操作明细。', 'Preview has unfinished items. Review the operation details.') : t('预览完成，未修改归档或进度。', 'Preview complete; archive and progress unchanged.'), hadWarnings)
-  else if (jobs.length === 1 && jobs[0].source === 'apple-health') message(hadWarnings ? t('Apple 快照仍有未完成项，请查看操作明细。', 'Apple snapshot has unfinished items. Review the operation details.') : t('Apple 完整快照已导入。', 'The complete Apple snapshot has been imported.'), hadWarnings)
   else message(hadWarnings ? t('采集已结束，仍有不可用或未完成项，请查看结果与覆盖明细。', 'Collection finished with unavailable or unfinished items. Review results and coverage.') : jobs[0].history ? t('所选账号的历史导入完成，当前同步账号未改变。', 'History import completed for the selected account; the current sync account is unchanged.') : t('当前账号同步完成。', 'Current account sync completed.'))
 }
-el('sync').addEventListener('click', () => { void operation(async () => {
-  const source = select('sync-source').value, file = input('file').value.trim(), preview = input('dry-run').checked
-  const jobs: CollectionJob[] = []
-  if (source === 'apple-health' || (source === 'all' && (file || rememberedSource))) jobs.push({ source: 'apple-health', ...(file ? { file } : {}) })
-  if (source !== 'apple-health') {
+for (const source of providers) {
+  el(`${source}-sync`).addEventListener('click', () => { void operation(async () => {
     const snapshot = await request('plugin.connections', vaultParams()) as Record<string, Connection>
     connectionStates(snapshot)
-    for (const provider of source === 'all' ? ['garmin', 'oura'] : [source]) {
-      const state = snapshot[provider], id = state?.active_account_id
-      if (id && state.accounts?.some(account => account.id === id && account.connected)) jobs.push({ source: provider, account_id: id })
-      else if (source !== 'all') throw new Error(t('请先连接并设置当前账号。', 'Connect an account and set it as current first.'))
-    }
-  }
-  await collect(jobs, preview)
-}, { progress: true }) })
-el('history-import').addEventListener('click', () => { void operation(async () => {
-  const source = select('history-source').value, account_id = select('history-account').value
-  const since = input('history-since').value, until = input('history-until').value
-  if (!account_id) throw new Error(t('请选择已连接的历史账号。', 'Choose a connected account for history import.'))
-  if (!since || !until || since > until) throw new Error(t('请选择有效的采集日期范围。', 'Choose a valid collection date range.'))
-  await collect([{ source, account_id, history: true, since, until, restart: input('restart').checked }], input('dry-run').checked)
-}, { progress: true }) })
+    const state = snapshot[source], id = state?.active_account_id
+    if (!id || !state.accounts?.some(account => account.id === id && account.connected)) throw new Error(t('请先连接并设置当前账号。', 'Connect an account and set it as current first.'))
+    await collect([{ source, account_id: id }], input(`${source}-dry-run`).checked)
+  }, { progress: true }) })
+  el(`${source}-history-import`).addEventListener('click', () => { void operation(async () => {
+    const account_id = select(`${source}-history-account`).value
+    const since = input(`${source}-history-since`).value, until = input(`${source}-history-until`).value
+    if (!account_id) throw new Error(t('请选择已连接的历史账号。', 'Choose a connected account for history import.'))
+    if (!since || !until || since > until) throw new Error(t('请选择有效的采集日期范围。', 'Choose a valid collection date range.'))
+    await collect([{ source, account_id, history: true, since, until, restart: input(`${source}-restart`).checked }], input(`${source}-dry-run`).checked)
+  }, { progress: true }) })
+}
 el('oura-cancel').addEventListener('click', () => { void (async () => {
   const target = cancellationTarget()
   if (!target || cancellingAuthorization) return
@@ -457,6 +559,7 @@ for (const source of ['garmin', 'oura']) {
 }
 void operation(async () => {
   const info = await request('host.vault.info') as { root?: string }
-  if (info.root) { input('vault').value = info.root; await refresh() }
-  message(labels.message)
-})
+  associatedVault = info.root ?? ''; input('vault').value = associatedVault
+  if (!associatedVault) throw new Error(t('请先在 note.md 打开 Vault。', 'Open a Vault in note.md first.'))
+  await reloadLibrary()
+}, { setup: true })

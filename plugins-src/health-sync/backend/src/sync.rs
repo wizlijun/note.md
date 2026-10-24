@@ -1,5 +1,5 @@
 //! Bounded, resumable provider backfills. The cursor is operational state;
-//! committed facts and per-collection coverage live in the daily manifest.
+//! committed facts and per-collection coverage live in the external SQLite library.
 use crate::{
     auth,
     providers::{FetchReport, ProviderRecord, Transport},
@@ -20,7 +20,6 @@ pub struct Options {
     pub source: String,
     pub account_id: Option<String>,
     pub history: bool,
-    pub file: Option<PathBuf>,
     pub since: Option<String>,
     pub until: Option<String>,
     pub max_days: usize,
@@ -31,7 +30,6 @@ pub struct Options {
 struct Cursor {
     start: String,
     next: String,
-    #[serde(default)]
     generation: String,
 }
 
@@ -40,10 +38,6 @@ fn date(s: &str) -> Result<NaiveDate, String> {
         return Err("Dates must be YYYY-MM-DD".into());
     }
     NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|e| e.to_string())
-}
-fn local(vault: &Path) -> Result<PathBuf, String> {
-    let vault = vault.canonicalize().map_err(|e| e.to_string())?;
-    Ok(default_state_base()?.join(hash(vault.to_string_lossy().as_bytes())))
 }
 fn safe(path: &Path) -> Result<(), String> {
     let mut part = PathBuf::new();
@@ -90,14 +84,11 @@ fn fetch(
 }
 
 pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Result<Value, String> {
-    if !["all", "apple-health", "garmin", "oura"].contains(&opts.source.as_str()) {
-        return Err("source must be all, apple-health, garmin or oura".into());
+    if !["all", "garmin", "oura"].contains(&opts.source.as_str()) {
+        return Err("source must be all, garmin or oura; Apple uses health-import FILE".into());
     }
     if opts.max_days == 0 || opts.max_days > 36600 {
         return Err("max-days must be 1..36600".into());
-    }
-    if opts.file.is_some() && !["all", "apple-health"].contains(&opts.source.as_str()) {
-        return Err("--file applies only to all or apple-health sources".into());
     }
     if opts
         .account_id
@@ -115,10 +106,6 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
         return Err("History import requires account, since and until".into());
     }
     let store = Store::new(vault, &default_state_base()?)?;
-    if opts.source == "apple-health" {
-        return serde_json::to_value(store.sync(opts.file.as_deref(), opts.dry_run, progress)?)
-            .map_err(|e| e.to_string());
-    }
     let mut results = vec![];
     let mut errors = vec![];
     let mut warnings = vec![];
@@ -132,19 +119,6 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
         }
         Err(e) => return Err(e),
     };
-    if opts.source == "all"
-        && (opts.file.is_some() || store.status()?["source_file"].as_str().is_some())
-    {
-        match store.sync(opts.file.as_deref(), opts.dry_run, progress) {
-            Ok(r) => {
-                if !r.complete {
-                    warnings.push("Apple summaries or local state need attention".into());
-                }
-                results.push(json!({"source":"apple-health","import":r}));
-            }
-            Err(e) => errors.push(format!("Apple Health: {e}")),
-        }
-    }
     for source in ["garmin", "oura"] {
         if opts.source != "all" && opts.source != source {
             continue;
@@ -161,10 +135,7 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
             vault,
             source,
             &account_id,
-            (
-                &generation,
-                connections[source]["legacy_account_id"].as_str(),
-            ),
+            &generation,
             opts,
             progress,
         ) {
@@ -173,7 +144,7 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
                 retry_required |= result["retry_required"] == true;
                 if result["complete"] == false {
                     warnings.push(format!(
-                        "{source}: some collections or summaries need attention; inspect coverage"
+                        "{source}: some collections need attention; inspect coverage"
                     ));
                 }
                 results.push(result);
@@ -182,7 +153,7 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
         }
     }
     if results.is_empty() && errors.is_empty() {
-        return Err("Import an Apple export or connect Garmin/Oura first".into());
+        return Err("Connect Garmin/Oura before API sync; Apple exports use health-import".into());
     }
     Ok(
         json!({"complete":errors.is_empty() && warnings.is_empty(),"dry_run":opts.dry_run,"pending":pending,"retry_required":retry_required || !errors.is_empty(),"sources":results,"errors":errors,"warnings":warnings}),
@@ -251,21 +222,6 @@ fn read_cursor(path: &Path) -> Result<Option<Cursor>, String> {
         Err(e) => Err(e.to_string()),
     }
 }
-fn read_progress(
-    path: &Path,
-    legacy_path: &Path,
-    verified_legacy: bool,
-    generation: &str,
-) -> Result<Option<Cursor>, String> {
-    if let Some(cursor) = read_cursor(path)? {
-        return Ok(Some(cursor));
-    }
-    if verified_legacy {
-        return Ok(read_cursor(legacy_path)?.filter(|c| c.generation == generation));
-    }
-    Ok(None)
-}
-
 /// Resume only a cursor for this range and authorization. Reconnection revisits
 /// history because newly granted collections may have been unavailable before.
 fn plan_window(
@@ -310,11 +266,11 @@ fn run_provider(
     vault: &Path,
     source: &str,
     account_id: &str,
-    authorization: (&str, Option<&str>),
+    authorization: &str,
     opts: &Options,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value, String> {
-    let dir = local(vault)?;
+    let dir = store.operational_directory().to_path_buf();
     safe(&dir)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let lock_path = dir.join(format!("{source}-{account_id}-fetch.lock"));
@@ -343,18 +299,9 @@ fn run_provider(
     let generation = http
         .as_ref()
         .map(|client| client.generation())
-        .unwrap_or(authorization.0)
+        .unwrap_or(authorization)
         .to_string();
-    let legacy = http
-        .as_ref()
-        .map(|client| client.legacy_account_id())
-        .unwrap_or(authorization.1);
-    let previous = read_progress(
-        &path,
-        &dir.join(format!("{source}-progress.json")),
-        !opts.history && legacy == Some(account_id),
-        &generation,
-    )?;
+    let previous = read_cursor(&path)?;
     let start = opts
         .since
         .clone()
@@ -398,7 +345,6 @@ fn run_provider(
             false,
             account_id,
             http.garmin_region(),
-            http.legacy_account_id(),
             progress,
         )?;
         let failed = fetched.collections.iter().any(|c| c.status == "failed");
@@ -434,7 +380,6 @@ mod tests {
             source: "oura".into(),
             account_id: None,
             history: false,
-            file: None,
             since: None,
             until: None,
             max_days: 31,
@@ -449,6 +394,39 @@ mod tests {
             generation: "current".into(),
         }
     }
+    #[test]
+    fn switching_libraries_cannot_reuse_another_library_cursor() {
+        let root = tempfile::tempdir().unwrap();
+        let vault = root.path().join("vault");
+        let first = root.path().join("first");
+        let second = root.path().join("second");
+        let state = root.path().join("state");
+        for path in [&vault, &first, &second] {
+            fs::create_dir(path).unwrap();
+        }
+        crate::library::configure(&vault, &state, &first).unwrap();
+        let first_store = Store::new(&vault, &state).unwrap();
+        let first_progress = first_store.operational_directory().to_path_buf();
+        fs::create_dir_all(&first_progress).unwrap();
+        fs::write(first_progress.join("cursor"), "old history").unwrap();
+        crate::library::configure(&vault, &state, &second).unwrap();
+        let second_progress = Store::new(&vault, &state)
+            .unwrap()
+            .operational_directory()
+            .to_path_buf();
+        assert_eq!(first_store.operational_directory(), first_progress);
+        assert_ne!(first_progress, second_progress);
+        assert!(!second_progress.join("cursor").exists());
+        crate::library::configure(&vault, &state, &first).unwrap();
+        assert_eq!(
+            first_progress,
+            Store::new(&vault, &state)
+                .unwrap()
+                .operational_directory()
+                .to_path_buf()
+        );
+    }
+
     #[test]
     fn resume_range_and_reauthorization_do_not_skip_history() {
         let end = date("2026-10-24").unwrap();
@@ -586,38 +564,16 @@ mod tests {
     }
 
     #[test]
-    fn unfinished_legacy_progress_only_resumes_for_verified_original_account() {
+    fn cursor_uses_only_the_exact_library_account_path() {
         let temp = tempfile::tempdir().unwrap();
-        let dir = temp.path().canonicalize().unwrap();
-        let legacy = dir.join("garmin-progress.json");
-        let scoped = dir.join("garmin-account-progress.json");
-        save(&legacy, &cursor("2020-02-01")).unwrap();
-        let before = fs::read(&legacy).unwrap();
-        assert_eq!(
-            read_progress(&scoped, &legacy, true, "current")
-                .unwrap()
-                .unwrap()
-                .next,
-            "2020-02-01"
-        );
-        assert!(read_progress(&scoped, &legacy, false, "current")
-            .unwrap()
-            .is_none());
-        assert!(read_progress(&scoped, &legacy, true, "new-grant")
-            .unwrap()
-            .is_none());
-        assert!(
-            !scoped.exists(),
-            "preview must not migrate or advance progress"
-        );
+        let root = temp.path().canonicalize().unwrap();
+        let unrelated = root.join("garmin-progress.json");
+        let scoped = root.join("garmin-account-progress.json");
+        save(&unrelated, &cursor("2020-02-01")).unwrap();
+        assert!(read_cursor(&scoped).unwrap().is_none());
         save(&scoped, &cursor("2020-03-01")).unwrap();
-        assert_eq!(
-            read_progress(&scoped, &legacy, true, "current")
-                .unwrap()
-                .unwrap()
-                .next,
-            "2020-03-01"
-        );
-        assert_eq!(fs::read(&legacy).unwrap(), before);
+        assert_eq!(read_cursor(&scoped).unwrap().unwrap().next, "2020-03-01");
+        fs::write(&scoped, r#"{"start":"2020-01-01","next":"2020-02-01"}"#).unwrap();
+        assert!(read_cursor(&scoped).is_err());
     }
 }

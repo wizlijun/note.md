@@ -64,6 +64,7 @@ impl Transport for Api {
 struct Archive {
     root: tempfile::TempDir,
     vault: PathBuf,
+    library: PathBuf,
     store: Store,
 }
 impl Archive {
@@ -71,8 +72,17 @@ impl Archive {
         let root = tempfile::tempdir().unwrap();
         let vault = root.path().canonicalize().unwrap().join("vault");
         fs::create_dir(&vault).unwrap();
-        let store = Store::new(&vault, &root.path().canonicalize().unwrap().join("state")).unwrap();
-        Self { root, vault, store }
+        let state = root.path().canonicalize().unwrap().join("state");
+        let library = root.path().canonicalize().unwrap().join("library");
+        fs::create_dir(&library).unwrap();
+        notemd_health_sync::library::configure(&vault, &state, &library).unwrap();
+        let store = Store::new(&vault, &state).unwrap();
+        Self {
+            root,
+            vault,
+            library,
+            store,
+        }
     }
     fn import(&self, source: &str, account: &str, api: &mut Api) -> Result<Report, String> {
         let path = self
@@ -98,7 +108,6 @@ impl Archive {
             false,
             account,
             GarminRegion::Global,
-            None,
             &mut |_| {},
         )
     }
@@ -231,6 +240,7 @@ fn garmin_api(value: u64) -> (Api, Value, Vec<u8>) {
 #[test]
 fn oura_pages_preserve_documents_local_days_and_accounts_without_rewrites() {
     let archive = Archive::new();
+    assert!(tree(&archive.vault).is_empty());
     let a = hash(b"oura:a");
     let b = hash(b"oura:b");
     let (mut api, raw) = oura_api(91);
@@ -254,14 +264,15 @@ fn oura_pages_preserve_documents_local_days_and_accounts_without_rewrites() {
         archive.records(&a, "oura.personal_info")[0]["day"],
         "_undated"
     );
-    let before = tree(&archive.vault);
+    let before = tree(&archive.library);
     assert!(
         !archive
             .import("oura", &a, &mut oura_api(91).0)
             .unwrap()
             .data_changed
     );
-    assert_eq!(tree(&archive.vault), before);
+    assert_eq!(tree(&archive.library), before);
+    assert!(tree(&archive.vault).is_empty());
     archive.import("oura", &b, &mut oura_api(70).0).unwrap();
     let b_before = archive.records(&b, "oura.sleep");
     archive.import("oura", &a, &mut oura_api(99).0).unwrap();
@@ -275,6 +286,7 @@ fn oura_pages_preserve_documents_local_days_and_accounts_without_rewrites() {
 #[test]
 fn garmin_pages_and_zip_bytes_reach_the_archive_and_stay_account_scoped() {
     let archive = Archive::new();
+    assert!(tree(&archive.vault).is_empty());
     let a = hash(b"garmin:a");
     let b = hash(b"garmin:b");
     let (mut api, raw, bytes) = garmin_api(1234);
@@ -335,15 +347,16 @@ fn garmin_pages_and_zip_bytes_reach_the_archive_and_stay_account_scoped() {
     let payload = &attachment[0]["payload"];
     assert!(payload.get("content_base64").is_none());
     let path = payload["attachment_path"].as_str().unwrap();
-    assert_eq!(fs::read(archive.vault.join(path)).unwrap(), bytes);
-    let before = tree(&archive.vault);
+    assert_eq!(fs::read(archive.library.join(path)).unwrap(), bytes);
+    let before = tree(&archive.library);
     assert!(
         !archive
             .import("garmin", &a, &mut garmin_api(1234).0)
             .unwrap()
             .data_changed
     );
-    assert_eq!(tree(&archive.vault), before);
+    assert_eq!(tree(&archive.library), before);
+    assert!(tree(&archive.vault).is_empty());
     archive
         .import("garmin", &b, &mut garmin_api(4321).0)
         .unwrap();
@@ -355,7 +368,7 @@ fn garmin_pages_and_zip_bytes_reach_the_archive_and_stay_account_scoped() {
     let other = archive.records(&b, "garmin.activity_files");
     assert_ne!(other[0]["payload"]["attachment_path"], path);
     assert_eq!(
-        archive.store.manifest().unwrap().unwrap().attachments.len(),
+        archive.store.metadata().unwrap().unwrap().attachments.len(),
         2
     );
 }
@@ -364,6 +377,7 @@ fn garmin_pages_and_zip_bytes_reach_the_archive_and_stay_account_scoped() {
 fn missing_or_failed_later_pages_never_activate_staged_records() {
     for source in ["oura", "garmin"] {
         let archive = Archive::new();
+        assert!(tree(&archive.vault).is_empty());
         let account = hash(source.as_bytes());
         let mut seed = if source == "oura" {
             oura_api(91).0
@@ -371,7 +385,7 @@ fn missing_or_failed_later_pages_never_activate_staged_records() {
             garmin_api(1234).0
         };
         archive.import(source, &account, &mut seed).unwrap();
-        let before = tree(&archive.vault);
+        let before = tree(&archive.library);
         for status in [None, Some(500)] {
             let mut api = Api::default();
             let path = if source == "oura" { SLEEP } else { ACTIVITIES };
@@ -388,7 +402,8 @@ fn missing_or_failed_later_pages_never_activate_staged_records() {
             assert!(!fs::read(archive.root.path().join("staged.ndjson"))
                 .unwrap()
                 .is_empty());
-            assert_eq!(tree(&archive.vault), before);
+            assert_eq!(tree(&archive.library), before);
+            assert!(tree(&archive.vault).is_empty());
         }
     }
 }
@@ -397,6 +412,7 @@ fn missing_or_failed_later_pages_never_activate_staged_records() {
 fn unavailable_or_failed_later_pages_keep_previous_collection_membership() {
     for source in ["oura", "garmin"] {
         let archive = Archive::new();
+        assert!(tree(&archive.vault).is_empty());
         let account = hash(source.as_bytes());
         let mut seed = if source == "oura" {
             oura_api(91).0
@@ -429,7 +445,7 @@ fn unavailable_or_failed_later_pages_keep_previous_collection_membership() {
             assert_eq!(archive.records(&account, metric), old);
             if source == "garmin" {
                 assert_eq!(
-                    archive.store.manifest().unwrap().unwrap().attachments.len(),
+                    archive.store.metadata().unwrap().unwrap().attachments.len(),
                     1
                 );
             }

@@ -509,6 +509,9 @@ mod tests {
         let vault = temp.path().join("vault");
         std::fs::create_dir(&vault).unwrap();
         let state = temp.path().canonicalize().unwrap().join("state");
+        let library = temp.path().join("raw");
+        std::fs::create_dir(&library).unwrap();
+        crate::library::configure(&vault, &state, &library).unwrap();
         let store = Store::new(&vault, &state).unwrap();
         (temp, store)
     }
@@ -574,7 +577,7 @@ mod tests {
             let p = &row["payload"];
             let bytes = std::fs::read(
                 tmp.path()
-                    .join("vault")
+                    .join("raw")
                     .join(p["attachment_path"].as_str().unwrap()),
             )
             .unwrap();

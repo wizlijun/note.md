@@ -23,6 +23,7 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 quick-xml = "0.39"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
 chrono = "0.4"
+csv = "1"
 base64 = "0.22"
 rand = "0.9"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }

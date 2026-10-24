@@ -13,6 +13,7 @@ use std::{
 struct Fixture {
     root: tempfile::TempDir,
     vault: PathBuf,
+    library: PathBuf,
     state: PathBuf,
     file: PathBuf,
     store: Store,
@@ -25,10 +26,14 @@ impl Fixture {
         let file = root.path().join("export.xml");
         fs::create_dir(&vault).unwrap();
         fs::create_dir(&state).unwrap();
+        let library = root.path().join("library");
+        fs::create_dir(&library).unwrap();
+        notemd_health_sync::library::configure(&vault, &state, &library).unwrap();
         let store = Store::new(&vault, &state).unwrap();
         Self {
             root,
             vault,
+            library,
             state,
             file,
             store,
@@ -87,37 +92,31 @@ fn repeated_input_changes_no_bytes_or_mtimes_and_preserves_multiplicity() {
 }
 
 #[test]
-fn revisions_removals_and_order_changes_use_snapshot_membership() {
+fn overlapping_apple_exports_preserve_history_and_maximum_duplicate_multiplicity() {
     let f = Fixture::new();
     let a = record("2020-01-01", "60", "Watch");
     let b = record("2020-01-02", "61", "Watch");
-    f.write(&(a.clone() + &b));
-    f.import();
-    let old = f.store.manifest().unwrap().unwrap();
+    f.write(&(a.clone() + &a + &b));
+    assert_eq!(f.import().record_count, 3);
     f.write(&(b.clone() + &a));
-    let reorder = f.import();
-    assert_eq!(reorder.changed_days, 0);
-    f.write(&record("2020-01-01", "62", "Watch"));
-    let update = f.import();
-    assert_eq!(update.changed_days, 2);
-    assert_eq!(update.record_count, 1);
-    let new = f.store.manifest().unwrap().unwrap();
-    assert_eq!(new.days["2020-01-02"].record_count, 0);
-    let old_path = f.vault.join(format!(
-        "ssot/health/2020/2020-01-01/{}",
-        old.days["2020-01-01"].shards[0].filename()
-    ));
-    assert!(old_path.exists());
+    assert_eq!(f.import().record_count, 3);
+    f.write(&(record("2020-01-01", "62", "Watch") + &a + &a + &a));
+    let result = f.import();
+    assert_eq!(result.record_count, 5);
+    assert_eq!(result.changed_days, 1);
+    f.write("");
+    assert_eq!(f.import().record_count, 5);
+    let q = f.store.query(None, None, None, 100, 0).unwrap();
     assert_eq!(
-        f.store.query(None, None, None, 100, 0).unwrap()["records"][0]["attributes"]["value"],
-        "62"
+        q["records"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| r["attributes"]["value"] == "60")
+            .count(),
+        3
     );
-    assert!(fs::read_to_string(
-        f.vault
-            .join("ssot/health/2020/2020-01-02/2020-01-02-health.md")
-    )
-    .unwrap()
-    .contains("记录数：0"));
+    assert!(tree(&f.vault).is_empty());
 }
 
 #[test]
@@ -125,7 +124,7 @@ fn dry_run_and_bad_exports_never_activate_or_remember() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     assert!(f.store.import(&f.file, true, &mut |_| {}).unwrap().dry_run);
-    assert!(!f.vault.join("ssot/health").exists());
+    assert!(tree(&f.vault).is_empty());
     assert_eq!(f.store.status().unwrap()["source_file"], Value::Null);
     f.import();
     let before = tree(&f.vault);
@@ -135,33 +134,19 @@ fn dry_run_and_bad_exports_never_activate_or_remember() {
 }
 
 #[test]
-fn manual_summaries_survive_and_pending_generation_recovers() {
+fn imports_never_generate_or_overwrite_vault_reports() {
     let f = Fixture::new();
+    let dir = f.vault.join("health/2020/202001");
+    fs::create_dir_all(&dir).unwrap();
+    let report = dir.join("20200101-health.md");
+    fs::write(&report, "Agent analysis and user notes").unwrap();
+    let before = tree(&f.vault);
     f.write(&record("2020-01-01", "60", "Watch"));
-    f.import();
-    let summary = f
-        .vault
-        .join("ssot/health/2020/2020-01-01/2020-01-01-health.md");
-    fs::write(&summary, "my handwritten note").unwrap();
-    let sidecar = f
-        .vault
-        .join("ssot/health/2020/2020-01-01/2020-01-01-health.note.md");
-    fs::write(&sidecar, "annotation").unwrap();
+    assert!(f.import().complete);
     f.write(&record("2020-01-01", "65", "Watch"));
-    let r = f.import();
-    assert!(!r.complete);
-    assert_eq!(r.summary_conflicts.len(), 1);
-    assert_eq!(fs::read_to_string(&summary).unwrap(), "my handwritten note");
-    assert_eq!(fs::read_to_string(sidecar).unwrap(), "annotation");
-    assert_eq!(
-        f.store.query(None, None, None, 10, 0).unwrap()["records"][0]["attributes"]["value"],
-        "65"
-    );
-    fs::remove_file(&summary).unwrap();
-    let retry = f.import();
-    assert!(retry.complete);
-    assert!(!retry.data_changed);
-    assert!(fs::read_to_string(summary).unwrap().contains("65"));
+    assert!(f.import().complete);
+    assert_eq!(tree(&f.vault), before);
+    assert_eq!(f.store.metadata().unwrap().unwrap().record_count, 2);
 }
 
 #[test]
@@ -171,7 +156,7 @@ fn unchanged_days_and_sources_stay_separate() {
     let b = record("2020-01-02", "62", "Oura");
     f.write(&(a.clone() + &b));
     f.import();
-    let first = f.store.manifest().unwrap().unwrap();
+    let first = f.store.metadata().unwrap().unwrap();
     let before = tree(&f.vault);
     f.write(&(a + &record("2020-01-02", "64", "Oura") + &record("2020-01-02", "65", "Watch")));
     let r = f.import();
@@ -184,16 +169,9 @@ fn unchanged_days_and_sources_stay_separate() {
         }
     }
     assert_eq!(
-        f.store.manifest().unwrap().unwrap().days["2020-01-01"].sha256,
+        f.store.metadata().unwrap().unwrap().days["2020-01-01"].sha256,
         first.days["2020-01-01"].sha256
     );
-    let summary = fs::read_to_string(
-        f.vault
-            .join("ssot/health/2020/2020-01-02/2020-01-02-health.md"),
-    )
-    .unwrap();
-    assert!(summary.contains("| Oura |"));
-    assert!(summary.contains("| Watch |"));
     let q = f
         .store
         .query(
@@ -204,85 +182,71 @@ fn unchanged_days_and_sources_stay_separate() {
             0,
         )
         .unwrap();
-    assert_eq!(q["records"].as_array().unwrap().len(), 2);
+    assert_eq!(q["records"].as_array().unwrap().len(), 3);
 }
 
 #[test]
-fn sync_uses_remembered_path_and_rejects_concurrent_writer() {
+fn explicit_apple_import_remembers_path_and_rejects_concurrent_writer() {
     use fs2::FileExt;
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
     f.write(&record("2020-01-02", "61", "Watch"));
     assert_eq!(
-        f.store.sync(None, false, &mut |_| {}).unwrap().record_count,
-        1
+        f.store
+            .import(&f.file, false, &mut |_| {})
+            .unwrap()
+            .record_count,
+        2
     );
-    let key = hash(f.vault.canonicalize().unwrap().to_string_lossy().as_bytes());
     let lock = fs::OpenOptions::new()
         .read(true)
         .write(true)
-        .open(f.state.join(key).join("write.lock"))
+        .open(f.library.join("write.lock"))
         .unwrap();
     lock.try_lock_exclusive().unwrap();
     assert!(f
         .store
-        .sync(None, false, &mut |_| {})
+        .import(&f.file, false, &mut |_| {})
         .unwrap_err()
         .contains("busy"));
 }
 
 #[test]
-fn missing_shards_are_rebuilt_corrupt_shards_fail_closed() {
+fn corrupt_database_records_fail_checksum_verification() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    let m = f.store.manifest().unwrap().unwrap();
-    let path = f.vault.join(format!(
-        "ssot/health/2020/2020-01-01/{}",
-        m.days["2020-01-01"].shards[0].filename()
-    ));
-    fs::remove_file(&path).unwrap();
-    assert!(f.import().complete);
-    assert!(path.exists());
-    fs::write(&path, "corrupt").unwrap();
+    let db = rusqlite::Connection::open(f.library.join("health.sqlite")).unwrap();
+    db.execute("UPDATE records SET payload=replace(payload,'60','61')", [])
+        .unwrap();
     assert!(f
         .store
         .import(&f.file, false, &mut |_| {})
         .unwrap_err()
-        .contains("Corrupt"));
-    assert!(f.store.query(None, None, None, 10, 0).is_err());
+        .contains("checksum"));
 }
 
 #[test]
-fn refuses_unowned_directory_and_symlink_escape() {
+fn refuses_unowned_library_and_database_symlink_escape() {
     let f = Fixture::new();
-    f.write(&record("2020-01-01", "60", "Watch"));
-    fs::create_dir_all(f.vault.join("ssot/health")).unwrap();
-    fs::write(f.vault.join("ssot/health/existing.md"), "mine").unwrap();
-    assert!(f
-        .store
-        .import(&f.file, false, &mut |_| {})
-        .unwrap_err()
-        .contains("already contains"));
-    assert_eq!(
-        fs::read_to_string(f.vault.join("ssot/health/existing.md")).unwrap(),
-        "mine"
-    );
+    let other = f.root.path().join("other");
+    fs::create_dir(&other).unwrap();
+    fs::write(other.join("mine.txt"), "mine").unwrap();
+    assert!(notemd_health_sync::library::configure(&f.vault, &f.state, &other).is_err());
     #[cfg(unix)]
     {
-        let f = Fixture::new();
+        let outside = f.root.path().join("outside.sqlite");
+        fs::write(&outside, "unchanged").unwrap();
+        fs::remove_file(f.library.join("health.sqlite")).unwrap();
+        std::os::unix::fs::symlink(&outside, f.library.join("health.sqlite")).unwrap();
         f.write(&record("2020-01-01", "60", "Watch"));
-        let outside = f.root.path().join("outside");
-        fs::create_dir(&outside).unwrap();
-        fs::create_dir(f.vault.join("ssot")).unwrap();
-        std::os::unix::fs::symlink(&outside, f.vault.join("ssot/health")).unwrap();
         assert!(f
             .store
             .import(&f.file, false, &mut |_| {})
             .unwrap_err()
             .contains("symlink"));
-        assert_eq!(fs::read_dir(outside).unwrap().count(), 0);
+        assert_eq!(fs::read_to_string(outside).unwrap(), "unchanged");
     }
 }
 
@@ -298,40 +262,28 @@ fn host_command_context_calls_same_engine() {
     )
     .unwrap();
     assert_eq!(result["dry_run"], true);
-    assert!(!f.vault.join("ssot/health").exists());
+    assert!(tree(&f.vault).is_empty());
 }
 
 #[test]
-fn failed_shard_publication_leaves_previous_manifest_active() {
+fn transaction_failure_preserves_previous_records_and_indexes() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    let manifest = fs::read(f.vault.join("ssot/health/manifest.json")).unwrap();
-    let blocker = f.vault.join("ssot/health/2020/2020-01-02");
-    fs::write(&blocker, "unrelated file").unwrap();
+    let before = f.store.metadata().unwrap();
+    let rows = f.store.query(None, None, None, 100, 0).unwrap();
+    let db = rusqlite::Connection::open(f.library.join("health.sqlite")).unwrap();
+    db.execute_batch("CREATE TRIGGER reject_new BEFORE INSERT ON records WHEN NEW.day='2020-01-02' BEGIN SELECT RAISE(ABORT,'injected failure'); END;").unwrap();
     f.write(&(record("2020-01-01", "65", "Watch") + &record("2020-01-02", "70", "Watch")));
     assert!(f.store.import(&f.file, false, &mut |_| {}).is_err());
-    assert_eq!(
-        fs::read(f.vault.join("ssot/health/manifest.json")).unwrap(),
-        manifest
-    );
-    assert_eq!(
-        f.store.query(None, None, None, 10, 0).unwrap()["records"][0]["attributes"]["value"],
-        "60"
-    );
-    fs::remove_file(blocker).unwrap();
-    assert!(f.import().complete);
-    assert_eq!(
-        f.store.query(None, None, None, 10, 0).unwrap()["records"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
-    );
+    assert_eq!(f.store.metadata().unwrap(), before);
+    assert_eq!(f.store.query(None, None, None, 100, 0).unwrap(), rows);
+    db.execute_batch("DROP TRIGGER reject_new;").unwrap();
+    assert_eq!(f.import().record_count, 3);
 }
 
 #[test]
-fn equivalent_zip_reuses_xml_shards_and_empty_snapshot_retires_days() {
+fn equivalent_zip_and_empty_export_preserve_apple_history() {
     use std::io::Write;
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
@@ -350,21 +302,22 @@ fn equivalent_zip_reuses_xml_shards_and_empty_snapshot_retires_days() {
     assert_eq!(r.changed_days, 0);
     let after = tree(&f.vault);
     for (p, value) in before {
-        if p != Path::new("ssot/health/manifest.json") {
-            assert_eq!(after.get(&p), Some(&value));
-        }
+        assert_eq!(after.get(&p), Some(&value));
     }
     f.write("");
     let r = f.import();
-    assert_eq!(r.record_count, 0);
+    assert_eq!(r.record_count, 1);
     assert_eq!(
-        f.store.status().unwrap()["manifest"]["first_day"],
-        Value::Null
+        f.store.status().unwrap()["summary"]["first_day"],
+        "2020-01-01"
     );
-    assert!(f.store.query(None, None, None, 10, 0).unwrap()["records"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        f.store.query(None, None, None, 10, 0).unwrap()["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 fn supplement(source: &str, collection: &str, day: &str, value: i64) -> ProviderRecord {
@@ -409,11 +362,18 @@ fn apply(
             })
             .collect(),
     };
-    f.store.apply_provider(&path, &report, dry, &mut |_| {})
+    f.store.apply_provider_for_account(
+        &path,
+        &report,
+        dry,
+        &hash(source.as_bytes()),
+        notemd_health_sync::auth::GarminRegion::Global,
+        &mut |_| {},
+    )
 }
 
 #[test]
-fn one_daily_ssot_preserves_apple_and_both_provider_memberships() {
+fn relational_store_preserves_apple_and_both_provider_memberships() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
@@ -437,65 +397,24 @@ fn one_daily_ssot_preserves_apple_and_both_provider_memberships() {
         false,
     )
     .unwrap();
-    let m = f.store.manifest().unwrap().unwrap();
+    let m = f.store.metadata().unwrap().unwrap();
     assert_eq!(m.record_count, 3);
     assert_eq!(m.days.len(), 1);
     assert_eq!(m.days["2020-01-01"].shards.len(), 3);
-    for shard in &m.days["2020-01-01"].shards {
-        assert!(f
-            .vault
-            .join("ssot/health/2020/2020-01-01")
-            .join(shard.filename())
-            .exists());
-    }
-    assert!(!f.vault.join("health").exists());
-    assert!(!f.vault.join("ssot/health/data").exists());
-    let oura = m.days["2020-01-01"]
-        .shards
-        .iter()
-        .find(|s| s.source == "oura")
-        .unwrap();
-    assert!(oura.filename().starts_with("oura-daily-sleep-"));
-    let slug = notemd_health_sync::catalog::metric_slug(&oura.metric);
-    assert!(oura
-        .filename()
-        .contains(&format!("-{}-", &slug[slug.len() - 12..])));
+    assert!(tree(&f.vault).is_empty());
+    let db = rusqlite::Connection::open(f.library.join("health.sqlite")).unwrap();
     assert_eq!(
-        fs::read_dir(f.vault.join("ssot/health/2020/2020-01-01"))
-            .unwrap()
-            .filter(|entry| entry
-                .as_ref()
-                .unwrap()
-                .path()
-                .extension()
-                .is_some_and(|ext| ext == "md"))
-            .count(),
-        1
+        db.query_row("SELECT count(*) FROM records", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        3
     );
-    let text = fs::read_to_string(
-        f.vault
-            .join("ssot/health/2020/2020-01-01/2020-01-01-health.md"),
-    )
-    .unwrap();
-    assert!(text.contains("oura.daily_sleep"));
-    assert!(text.contains("garmin.hrv"));
-    assert!(!text.contains("987654"));
-    assert!(m.days["2020-01-01"]
-        .shards
-        .iter()
-        .all(|s| s.filename().contains(&s.source) && s.filename().len() < 255));
     // An identical Apple import sees the same Apple fingerprint while retaining supplements.
     assert!(!f.import().data_changed);
     f.write(&record("2020-01-01", "70", "Watch"));
-    assert_eq!(f.import().record_count, 3);
+    assert_eq!(f.import().record_count, 4);
     f.write("");
-    assert_eq!(f.import().record_count, 2);
+    assert_eq!(f.import().record_count, 4);
     let q = f.store.query(None, None, None, 100, 0).unwrap();
-    assert!(q["records"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .all(|r| r["ingest_source"] != "apple-health"));
     assert_eq!(
         q["records"]
             .as_array()
@@ -557,8 +476,8 @@ fn provider_window_revisions_preserve_other_days_and_repeat_without_writes() {
         assert_eq!(after.get(path), Some(value));
     }
     assert_eq!(
-        f.store.manifest().unwrap().unwrap().sources["oura"].collections["daily_sleep"]
-            ["2020-01-02"]
+        f.store.metadata().unwrap().unwrap().sources["oura"].accounts[&hash(b"oura")].collections
+            ["daily_sleep"]["2020-01-02"]
             .record_count,
         0
     );
@@ -608,7 +527,7 @@ fn incomplete_collections_keep_existing_data_and_do_not_activate_partial_pages()
             .unwrap()["records"][0]["payload"]["value"],
         3
     );
-    let old = f.store.manifest().unwrap().unwrap().days["2020-01-01"]
+    let old = f.store.metadata().unwrap().unwrap().days["2020-01-01"]
         .sha256
         .clone();
     apply(
@@ -622,11 +541,12 @@ fn incomplete_collections_keep_existing_data_and_do_not_activate_partial_pages()
     )
     .unwrap();
     assert_eq!(
-        f.store.manifest().unwrap().unwrap().days["2020-01-01"].sha256,
+        f.store.metadata().unwrap().unwrap().days["2020-01-01"].sha256,
         old
     );
     assert_eq!(
-        f.store.manifest().unwrap().unwrap().sources["garmin"].collections["hrv"]["2020-01-01"]
+        f.store.metadata().unwrap().unwrap().sources["garmin"].accounts[&hash(b"garmin")]
+            .collections["hrv"]["2020-01-01"]
             .status,
         "unavailable"
     );
@@ -650,8 +570,8 @@ fn provider_only_start_catalog_and_filters_keep_unknown_records_discoverable() {
     )
     .unwrap();
     let status = f.store.status().unwrap();
-    assert_eq!(status["manifest"]["apple_imported"], false);
-    assert_eq!(status["manifest"]["input_sha256"], "");
+    assert_eq!(status["summary"]["apple_imported"], false);
+    assert_eq!(status["summary"]["input_sha256"], "");
     let filtered = f
         .store
         .query_filtered(
@@ -685,10 +605,7 @@ fn provider_only_start_catalog_and_filters_keep_unknown_records_discoverable() {
         .is_err());
     f.write(&record("2020-01-01", "60", "Watch"));
     assert_eq!(f.import().record_count, 3);
-    assert_eq!(
-        f.store.status().unwrap()["manifest"]["apple_imported"],
-        true
-    );
+    assert_eq!(f.store.status().unwrap()["summary"]["apple_imported"], true);
 }
 
 #[test]
@@ -705,7 +622,7 @@ fn provider_invalid_window_source_or_count_cannot_activate_and_dry_run_is_read_o
         true,
     )
     .unwrap();
-    assert!(!f.vault.join("ssot/health").exists());
+    assert!(tree(&f.vault).is_empty());
     for (source, since, until) in [
         ("garmin", "2020-01-01", "2020-01-01"),
         ("oura", "2020-01-02", "2020-01-02"),
@@ -721,7 +638,7 @@ fn provider_invalid_window_source_or_count_cannot_activate_and_dry_run_is_read_o
             false
         )
         .is_err());
-        assert!(!f.vault.join("ssot/health").exists());
+        assert!(tree(&f.vault).is_empty());
     }
     let file = f.root.path().join("empty.jsonl");
     fs::write(&file, "").unwrap();
@@ -738,9 +655,16 @@ fn provider_invalid_window_source_or_count_cannot_activate_and_dry_run_is_read_o
     };
     assert!(f
         .store
-        .apply_provider(&file, &report, false, &mut |_| {})
+        .apply_provider_for_account(
+            &file,
+            &report,
+            false,
+            &hash(b"oura"),
+            notemd_health_sync::auth::GarminRegion::Global,
+            &mut |_| {}
+        )
         .is_err());
-    assert!(!f.vault.join("ssot/health").exists());
+    assert!(tree(&f.vault).is_empty());
 }
 
 #[test]
@@ -835,9 +759,9 @@ fn localized_apple_zip_preserves_cda_ecg_and_route_originals() {
         let report = f.store.import(&path, false, &mut |_| {}).unwrap();
         assert!(report.complete);
         assert_eq!(report.record_count, 4);
-        let manifest = f.store.manifest().unwrap().unwrap();
-        assert_eq!(manifest.attachments.len(), 3);
-        assert_eq!(manifest.ignored_attachments, 0);
+        let metadata = f.store.metadata().unwrap().unwrap();
+        assert_eq!(metadata.attachments.len(), 3);
+        assert_eq!(metadata.ignored_attachments, 0);
         let records = f.store.query(None, None, None, 100, 0).unwrap();
         let records = records["records"].as_array().unwrap();
         for (original, bytes) in attachments {
@@ -846,11 +770,11 @@ fn localized_apple_zip_preserves_cda_ecg_and_route_originals() {
                 .find(|row| row["attributes"]["original_name"] == original)
                 .unwrap();
             assert_eq!(row["kind"], "Attachment");
-            let saved = manifest
+            let saved = metadata
                 .attachments
                 .iter()
                 .find(|(_, reference)| row["attributes"]["sha256"] == reference.sha256)
-                .map(|(path, _)| f.vault.join(path))
+                .map(|(path, _)| f.library.join(path))
                 .unwrap();
             assert_eq!(fs::read(saved).unwrap(), bytes);
         }
@@ -927,10 +851,10 @@ fn apple_zip_attachments_are_active_original_bytes_and_missing_bytes_recover() {
     zip.finish().unwrap();
     let result = f.store.import(&path, false, &mut |_| {}).unwrap();
     assert_eq!(result.record_count, 2);
-    let m = f.store.manifest().unwrap().unwrap();
+    let m = f.store.metadata().unwrap().unwrap();
     assert_eq!(m.attachments.len(), 1);
     assert_eq!(m.ignored_attachments, 0);
-    let attachment = f.vault.join(m.attachments.keys().next().unwrap());
+    let attachment = f.library.join(m.attachments.keys().next().unwrap());
     assert_eq!(
         fs::read(&attachment).unwrap(),
         b"<gpx>original route bytes</gpx>"
@@ -977,8 +901,8 @@ fn provider_binary_payloads_become_original_attachments_with_window_scoped_membe
     assert_eq!(payload["filename"], "../../activity-1.zip");
     let path = payload["attachment_path"].as_str().unwrap();
     assert!(!path.contains(".."));
-    assert!(path.contains("garmin-activity-files"));
-    let saved = f.vault.join(path);
+    assert!(path.contains(&format!("garmin-{}-activity-files", hash(b"garmin"))));
+    let saved = f.library.join(path);
     assert_eq!(fs::read(&saved).unwrap(), binary);
     let before = tree(&f.vault);
     assert!(
@@ -997,7 +921,7 @@ fn provider_binary_payloads_become_original_attachments_with_window_scoped_membe
     assert_eq!(tree(&f.vault), before);
     f.write(&record("2020-01-01", "70", "Watch"));
     f.import();
-    assert_eq!(f.store.manifest().unwrap().unwrap().attachments.len(), 1);
+    assert_eq!(f.store.metadata().unwrap().unwrap().attachments.len(), 1);
     apply(
         &f,
         "garmin",
@@ -1008,7 +932,7 @@ fn provider_binary_payloads_become_original_attachments_with_window_scoped_membe
         false,
     )
     .unwrap();
-    assert_eq!(f.store.manifest().unwrap().unwrap().attachments.len(), 1);
+    assert_eq!(f.store.metadata().unwrap().unwrap().attachments.len(), 1);
     apply(
         &f,
         "garmin",
@@ -1019,7 +943,7 @@ fn provider_binary_payloads_become_original_attachments_with_window_scoped_membe
         false,
     )
     .unwrap();
-    assert_eq!(f.store.manifest().unwrap().unwrap().attachments.len(), 1);
+    assert_eq!(f.store.metadata().unwrap().unwrap().attachments.len(), 1);
     apply(
         &f,
         "garmin",
@@ -1030,18 +954,18 @@ fn provider_binary_payloads_become_original_attachments_with_window_scoped_membe
         false,
     )
     .unwrap();
-    assert!(f.store.manifest().unwrap().unwrap().attachments.is_empty());
+    assert!(f.store.metadata().unwrap().unwrap().attachments.is_empty());
     assert!(saved.exists());
-    assert_eq!(f.store.manifest().unwrap().unwrap().record_count, 1);
+    assert_eq!(f.store.metadata().unwrap().unwrap().record_count, 2);
 }
 
 #[test]
-fn provider_bad_attachment_or_publication_failure_keeps_previous_manifest() {
+fn provider_bad_attachment_or_publication_failure_keeps_previous_metadata() {
     use base64::Engine;
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    let before = fs::read(f.vault.join("ssot/health/manifest.json")).unwrap();
+    let before = f.store.metadata().unwrap().unwrap();
     let mut raw = supplement("garmin", "activity_files", "2020-01-01", 0);
     raw.data = json!({"filename":"a.zip","content_base64":"invalid base64!"});
     assert!(apply(
@@ -1054,17 +978,10 @@ fn provider_bad_attachment_or_publication_failure_keeps_previous_manifest() {
         false
     )
     .is_err());
-    assert_eq!(
-        fs::read(f.vault.join("ssot/health/manifest.json")).unwrap(),
-        before
-    );
+    assert_eq!(f.store.metadata().unwrap().unwrap(), before);
     raw.data["content_base64"] =
         json!(base64::engine::general_purpose::STANDARD.encode(b"original bytes"));
-    fs::write(
-        f.vault.join("ssot/health/2020/2020-01-01/attachments"),
-        "blocking file",
-    )
-    .unwrap();
+    fs::write(f.library.join("attachments"), "blocking file").unwrap();
     assert!(apply(
         &f,
         "garmin",
@@ -1075,10 +992,7 @@ fn provider_bad_attachment_or_publication_failure_keeps_previous_manifest() {
         false
     )
     .is_err());
-    assert_eq!(
-        fs::read(f.vault.join("ssot/health/manifest.json")).unwrap(),
-        before
-    );
+    assert_eq!(f.store.metadata().unwrap().unwrap(), before);
     assert_eq!(
         f.store.query(None, None, None, 100, 0).unwrap()["records"]
             .as_array()
@@ -1103,9 +1017,10 @@ fn provider_duplicate_pages_use_unique_active_counts_but_validate_raw_report_cou
     )
     .unwrap();
     assert_eq!(result.record_count, 1);
-    let manifest = f.store.manifest().unwrap().unwrap();
+    let metadata = f.store.metadata().unwrap().unwrap();
     assert_eq!(
-        manifest.sources["oura"].collections["daily_sleep"]["2020-01-01"].record_count,
+        metadata.sources["oura"].accounts[&hash(b"oura")].collections["daily_sleep"]["2020-01-01"]
+            .record_count,
         1
     );
     let before = tree(&f.vault);
@@ -1201,7 +1116,7 @@ fn provider_ids_are_scoped_to_source_and_collection() {
         )
         .unwrap();
     }
-    assert_eq!(f.store.manifest().unwrap().unwrap().record_count, 4);
+    assert_eq!(f.store.metadata().unwrap().unwrap().record_count, 4);
     let results = f.store.query(None, None, None, 100, 0).unwrap();
     assert_eq!(results["records"].as_array().unwrap().len(), 4);
 }
@@ -1211,12 +1126,12 @@ fn mixed_xml_changes_have_distinct_daily_membership_and_unknown_fields_survive()
     let f = Fixture::new();
     f.write("<Future startDate='2020-01-01 12:00:00 +0900' vendor='unknown'>a<Child key='new'/>b</Future>");
     f.import();
-    let old = f.store.manifest().unwrap().unwrap();
+    let old = f.store.metadata().unwrap().unwrap();
     f.write("<Future startDate='2020-01-01 12:00:00 +0900' vendor='unknown'>ab<Child key='new'/></Future>");
     assert_eq!(f.import().changed_days, 1);
     assert_ne!(
         old.days["2020-01-01"].sha256,
-        f.store.manifest().unwrap().unwrap().days["2020-01-01"].sha256
+        f.store.metadata().unwrap().unwrap().days["2020-01-01"].sha256
     );
     let query = f
         .store
@@ -1230,7 +1145,12 @@ fn mixed_xml_changes_have_distinct_daily_membership_and_unknown_fields_survive()
             0,
         )
         .unwrap();
-    let row = &query["records"][0];
+    let row = query["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["text_segments"] == json!(["ab", ""]))
+        .unwrap();
     assert_eq!(row["text"], "ab");
     assert_eq!(row["text_segments"], json!(["ab", ""]));
     assert_eq!(row["attributes"]["vendor"], "unknown");
@@ -1276,10 +1196,10 @@ fn zero_length_zip_placeholder_is_an_active_attachment_without_losing_other_data
     let report = f.store.import(&file, false, &mut |_| {}).unwrap();
     assert!(report.complete);
     assert_eq!(report.record_count, 2);
-    let manifest = f.store.manifest().unwrap().unwrap();
-    assert_eq!(manifest.attachments.len(), 1);
-    let path = manifest.attachments.keys().next().unwrap();
-    assert_eq!(fs::metadata(f.vault.join(path)).unwrap().len(), 0);
+    let metadata = f.store.metadata().unwrap().unwrap();
+    assert_eq!(metadata.attachments.len(), 1);
+    let path = metadata.attachments.keys().next().unwrap();
+    assert_eq!(fs::metadata(f.library.join(path)).unwrap().len(), 0);
     let query = f
         .store
         .query(None, None, Some("attachment.other"), 100, 0)
@@ -1293,7 +1213,7 @@ fn zero_length_zip_placeholder_is_an_active_attachment_without_losing_other_data
 
 #[test]
 #[ignore = "requires a synthetic million-record export through HEALTH_SYNC_BENCH_EXPORT"]
-fn million_record_schema2_benchmark() {
+fn million_record_sqlite_benchmark() {
     let file = std::env::var_os("HEALTH_SYNC_BENCH_EXPORT")
         .expect("Set HEALTH_SYNC_BENCH_EXPORT to the synthetic fixture");
     let f = Fixture::new();
@@ -1307,53 +1227,36 @@ fn million_record_schema2_benchmark() {
     let seconds = started.elapsed().as_secs_f64();
     assert!(report.complete);
     assert_eq!(report.record_count, 1_000_000);
-    let manifest = f.store.manifest().unwrap().unwrap();
-    assert_eq!(manifest.schema_version, 2);
-    assert_eq!(manifest.day_count, 3650);
-    let manifest_bytes = fs::metadata(f.vault.join("ssot/health/manifest.json"))
-        .unwrap()
-        .len();
+    let metadata = f.store.metadata().unwrap().unwrap();
+    assert_eq!(metadata.schema_version, 1);
+    assert_eq!(metadata.day_count, 3650);
+    let database_bytes = fs::metadata(f.library.join("health.sqlite")).unwrap().len();
     let root = f.root.keep();
     eprintln!(
         "BENCH_RESULT {}",
-        json!({"import_seconds":seconds,"record_count":report.record_count,"day_count":manifest.day_count,"manifest_bytes":manifest_bytes,"root":root})
+        json!({"import_seconds":seconds,"record_count":report.record_count,"day_count":metadata.day_count,"database_bytes":database_bytes,"root":root})
     );
 }
 
 #[test]
-fn default_archive_uses_year_day_directories_and_preserves_legacy_orphans() {
+fn external_sqlite_is_only_record_store_and_user_notes_are_untouched() {
     let f = Fixture::new();
-    // An old directory alone is not an active archive and must not be reused.
-    fs::create_dir_all(f.vault.join("health/data/2020-01-01")).unwrap();
-    let orphan = f.vault.join("health/data/2020-01-01/orphan.jsonl");
-    fs::write(&orphan, "unowned old bytes").unwrap();
-    let before = tree(&f.vault.join("health"));
-    let store = Store::new(&f.vault, &f.state).unwrap();
+    fs::create_dir_all(f.vault.join("health/2020/202001")).unwrap();
+    fs::write(
+        f.vault.join("health/2020/202001/20200101-health.md"),
+        "existing user report",
+    )
+    .unwrap();
+    let before = tree(&f.vault);
     f.write(&(record("2020-12-31", "60", "Watch") + &record("2021-01-01", "61", "Watch")));
-    store.import(&f.file, false, &mut |_| {}).unwrap();
-    let manifest = store.manifest().unwrap().unwrap();
-    for (day, entry) in &manifest.days {
-        let directory = f.vault.join("ssot/health").join(&day[..4]).join(day);
-        let summary = fs::read_to_string(directory.join(format!("{day}-health.md"))).unwrap();
-        for shard in &entry.shards {
-            assert_eq!(
-                hash(&fs::read(directory.join(shard.filename())).unwrap()),
-                shard.sha256
-            );
-            assert!(summary.contains(&format!("[JSONL]({})", shard.filename())));
-        }
-    }
-    assert!(!f.vault.join("ssot/health/data").exists());
-    assert!(!f.vault.join("ssot/health/daily").exists());
-    assert_eq!(tree(&f.vault.join("health")), before);
-    let current = tree(&f.vault);
-    assert!(
-        !store
-            .import(&f.file, false, &mut |_| {})
-            .unwrap()
-            .data_changed
-    );
-    assert_eq!(tree(&f.vault), current);
+    f.import();
+    assert_eq!(tree(&f.vault), before);
+    let files = tree(&f.library);
+    assert!(files.contains_key(Path::new("health.sqlite")));
+    assert!(files.keys().all(|p| !matches!(
+        p.extension().and_then(|s| s.to_str()),
+        Some("jsonl" | "json" | "md")
+    )));
     let reopened = Store::new(&f.vault, &f.state).unwrap();
     assert_eq!(
         reopened.query(None, None, None, 100, 0).unwrap()["records"]
@@ -1362,23 +1265,222 @@ fn default_archive_uses_year_day_directories_and_preserves_legacy_orphans() {
             .len(),
         2
     );
+    let db = rusqlite::Connection::open(f.library.join("health.sqlite")).unwrap();
+    assert_eq!(
+        db.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))
+            .unwrap(),
+        "ok"
+    );
+    let plan:String=db.query_row("EXPLAIN QUERY PLAN SELECT payload FROM records WHERE account_id=?1 AND day>=?2 ORDER BY day,source,metric,category,id LIMIT 10",["account","2020-01-01"],|r|r.get(3)).unwrap();
+    assert!(plan.contains("records_by_account"));
 }
 
 #[test]
-fn two_active_archive_roots_are_rejected_without_modifying_either() {
+fn incompatible_databases_and_metadata_are_rejected_without_conversion() {
+    for pragma in ["PRAGMA application_id=0", "PRAGMA user_version=2"] {
+        let f = Fixture::new();
+        f.write(&record("2020-01-01", "60", "Watch"));
+        f.import();
+        let path = f.library.join("health.sqlite");
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.execute_batch(pragma).unwrap();
+        drop(db);
+        let before = fs::read(&path).unwrap();
+        assert!(Store::new(&f.vault, &f.state).is_err());
+        assert!(f.store.import(&f.file, false, &mut |_| {}).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    fs::create_dir(f.vault.join("health")).unwrap();
-    fs::copy(
-        f.vault.join("ssot/health/manifest.json"),
-        f.vault.join("health/manifest.json"),
+    let path = f.library.join("health.sqlite");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute(
+        "UPDATE metadata SET value=json_set(value,'$.schema_version',2) WHERE key='header'",
+        [],
     )
     .unwrap();
-    let before = tree(&f.vault);
-    assert!(Store::new(&f.vault, &f.state)
-        .err()
-        .unwrap()
-        .contains("Both ssot/health/manifest.json"));
-    assert_eq!(tree(&f.vault), before);
+    drop(db);
+    let before = fs::read(&path).unwrap();
+    assert!(f.store.metadata().is_err());
+    assert!(f.store.import(&f.file, false, &mut |_| {}).is_err());
+    assert_eq!(fs::read(path).unwrap(), before);
+}
+
+#[test]
+fn library_switch_isolates_source_memory_and_missing_disk_never_creates_storage() {
+    let f = Fixture::new();
+    f.write(&record("2020-01-01", "60", "Watch"));
+    f.import();
+    let second = f.root.path().join("second");
+    fs::create_dir(&second).unwrap();
+    notemd_health_sync::library::configure(&f.vault, &f.state, &second).unwrap();
+    let store = Store::new(&f.vault, &f.state).unwrap();
+    assert_eq!(store.status().unwrap()["source_file"], Value::Null);
+    assert!(store.metadata().unwrap().is_none());
+    // A running Store remains bound to the original library after settings switch.
+    f.write(&record("2020-01-02", "61", "Watch"));
+    assert_eq!(
+        f.store
+            .import(&f.file, false, &mut |_| {})
+            .unwrap()
+            .record_count,
+        2
+    );
+    assert!(store.metadata().unwrap().is_none());
+    assert_eq!(store.status().unwrap()["source_file"], Value::Null);
+    fs::rename(&second, f.root.path().join("unmounted")).unwrap();
+    assert!(store.import(&f.file, false, &mut |_| {}).is_err());
+    assert!(!second.exists());
+    fs::create_dir(&second).unwrap();
+    assert!(store.import(&f.file, false, &mut |_| {}).is_err());
+    assert_eq!(fs::read_dir(&second).unwrap().count(), 0);
+}
+
+#[test]
+fn two_vaults_sharing_library_use_the_same_writer_lock() {
+    use fs2::FileExt;
+    let f = Fixture::new();
+    f.write(&record("2020-01-01", "60", "Watch"));
+    f.import();
+    let other = f.root.path().join("other-vault");
+    fs::create_dir(&other).unwrap();
+    notemd_health_sync::library::configure(&other, &f.state, &f.library).unwrap();
+    let store = Store::new(&other, &f.state).unwrap();
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(f.library.join("write.lock"))
+        .unwrap();
+    lock.try_lock_exclusive().unwrap();
+    assert!(store
+        .import(&f.file, false, &mut |_| {})
+        .unwrap_err()
+        .contains("busy"));
+    assert!(tree(&other).is_empty());
+}
+
+#[test]
+fn external_database_uses_durable_journal_and_small_relational_metadata() {
+    let f = Fixture::new();
+    let mut xml = String::new();
+    for minute in 0..1000 {
+        xml.push_str(&record("2020-01-01", &minute.to_string(), "Watch"));
+    }
+    f.write(&xml);
+    f.import();
+    let db = rusqlite::Connection::open(f.library.join("health.sqlite")).unwrap();
+    assert_eq!(
+        db.query_row("PRAGMA journal_mode", [], |r| r.get::<_, String>(0))
+            .unwrap(),
+        "delete"
+    );
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM records", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        1000
+    );
+    let header: String = db
+        .query_row("SELECT value FROM metadata WHERE key='header'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert!(header.len() < 2048);
+    let value: Value = serde_json::from_str(&header).unwrap();
+    assert_eq!(value["days"], json!({}));
+    assert!(f.store.query(None, None, None, 2, 998).unwrap()["next_offset"].is_null());
+    assert!(tree(&f.vault).is_empty());
+}
+
+#[test]
+fn missing_database_never_recreates_records_under_old_library_identity() {
+    let f = Fixture::new();
+    f.write(&record("2020-01-01", "60", "Watch"));
+    f.import();
+    let id = notemd_health_sync::library::identity(&f.vault, &f.state).unwrap();
+    fs::remove_file(f.library.join("health.sqlite")).unwrap();
+    let status = notemd_health_sync::library::status(&f.vault, &f.state).unwrap();
+    assert_eq!(status["available"], false);
+    assert_eq!(status["library_id"], id);
+    assert!(Store::new(&f.vault, &f.state).is_err());
+    assert!(f.store.import(&f.file, false, &mut |_| {}).is_err());
+    assert!(notemd_health_sync::library::configure(&f.vault, &f.state, &f.library).is_err());
+    assert!(!f.library.join("health.sqlite").exists());
+}
+
+#[test]
+fn killed_sqlite_writer_recovers_hot_journal_without_publishing_partial_records() {
+    const CHILD_DB: &str = "NOTEMD_TEST_HEALTH_CRASH_DATABASE";
+    if let Some(path) = std::env::var_os(CHILD_DB) {
+        let db = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE,
+        )
+        .unwrap();
+        db.execute_batch("PRAGMA cache_size=5; PRAGMA synchronous=FULL; BEGIN IMMEDIATE; UPDATE records SET payload=payload || printf('%4000s','partial');").unwrap();
+        // process::exit does not drop the Connection, matching an interrupted
+        // writer after SQLite has spilled uncommitted pages to the database.
+        std::process::exit(86);
+    }
+    let f = Fixture::new();
+    let mut xml = String::new();
+    for value in 0..1000 {
+        xml.push_str(&record("2020-01-01", &value.to_string(), "Watch"));
+    }
+    f.write(&xml);
+    f.import();
+    let before = f.store.metadata().unwrap();
+    let database = f.library.join("health.sqlite");
+    let bytes = fs::read(&database).unwrap();
+    let result = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "killed_sqlite_writer_recovers_hot_journal_without_publishing_partial_records",
+            "--nocapture",
+        ])
+        .env(CHILD_DB, &database)
+        .output()
+        .unwrap();
+    assert_eq!(
+        result.status.code(),
+        Some(86),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(
+        fs::metadata(f.library.join("health.sqlite-journal"))
+            .unwrap()
+            .len()
+            > 0
+    );
+    // Establish that this fixture really requires write access for recovery.
+    let readonly = rusqlite::Connection::open_with_flags(
+        &database,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let error = readonly
+        .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+        .unwrap_err();
+    assert!(
+        matches!(error,rusqlite::Error::SqliteFailure(code,_) if code.extended_code==rusqlite::ffi::SQLITE_READONLY_ROLLBACK)
+    );
+    drop(readonly);
+    let reopened = Store::new(&f.vault, &f.state).unwrap();
+    assert_eq!(reopened.metadata().unwrap(), before);
+    assert_eq!(fs::read(database).unwrap(), bytes);
+    assert!(!f.library.join("health.sqlite-journal").exists());
+    assert_eq!(
+        reopened.query(None, None, None, 1000, 0).unwrap()["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1000
+    );
+    assert!(
+        !reopened
+            .import(&f.file, false, &mut |_| {})
+            .unwrap()
+            .data_changed
+    );
 }
