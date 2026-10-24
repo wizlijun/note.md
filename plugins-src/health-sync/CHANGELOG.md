@@ -1,6 +1,6 @@
 # Health Sync changelog
 
-## Unreleased
+## 0.1.4 — 2026-10-24
 
 - 新健康归档默认写入 `ssot/health/YYYY/YYYY-MM-DD/`，移除 `data/` 层；摘要和附件按日期组织，已有旧归档继续沿原路径读写。
 - Store new archives under `ssot/health/YYYY/YYYY-MM-DD/` without a `data/` layer; organize summaries and attachments by date and preserve existing legacy archive paths.
