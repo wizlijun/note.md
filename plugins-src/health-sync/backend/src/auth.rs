@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     net::{Ipv4Addr, TcpListener, TcpStream},
@@ -134,7 +134,6 @@ impl SecretStore for Keychain {
 #[derive(Clone)]
 struct Pending {
     state: String,
-    epoch: String,
     pending: bool,
     error: Option<String>,
 }
@@ -251,7 +250,7 @@ fn read_state(path: &Path) -> Result<Option<AuthorizationState>, String> {
     }
     Ok(Some(state))
 }
-fn write_state(path: &Path, state: &AuthorizationState) -> Result<(), String> {
+fn write_state(path: &Path, state: &impl Serialize) -> Result<(), String> {
     safe_state_path(path)?;
     let parent = path.parent().ok_or("Invalid authorization state path")?;
     let mut temp =
@@ -319,7 +318,8 @@ fn archived_subject(vault: &Path, source: &str, required: bool) -> Result<Option
     let Some(manifest) = store.manifest()? else {
         return Ok(None);
     };
-    if !manifest.sources.contains_key(source) {
+    if !manifest.sources.contains_key(source) || !manifest.sources[source].accounts.is_empty() {
+        // Account-scoped archives must never be collapsed into one provider owner.
         return Ok(None);
     }
     let collections: &[&str] = if source == "oura" {
@@ -372,29 +372,323 @@ fn archived_subject(vault: &Path, source: &str, required: bool) -> Result<Option
     }
     Ok(found)
 }
-fn begin_authorization(vault: &Path, hash: &str, source: &str) -> Result<String, String> {
-    let _lock = auth_lock(hash, source)?;
-    let path = state_path(hash, source)?;
-    let previous = read_state(&path)?;
-    let subject = previous.and_then(|s| s.subject);
-    let archived = archived_subject(vault, source, subject.is_none())?;
-    if subject
+/// Non-secret account catalog; credentials remain in separate Keychain slots.
+#[derive(Clone, Serialize, Deserialize)]
+struct AccountCatalog {
+    schema_version: u32,
+    active_account_id: Option<String>,
+    active_epoch: String,
+    accounts: BTreeMap<String, SavedAccount>,
+    authorization_id: Option<String>,
+    #[serde(default)]
+    authorization_deadline: Option<u64>,
+    completed_account_id: Option<String>,
+    pending: bool,
+    error: Option<String>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+struct SavedAccount {
+    subject: String,
+    label: String,
+    #[serde(default)]
+    legacy: bool,
+}
+pub fn account_id_for_subject(subject: &str) -> String {
+    format!("{:x}", Sha256::digest(subject.as_bytes()))
+}
+fn catalog_path(hash: &str, source: &str) -> Result<PathBuf, String> {
+    Ok(state_directory(hash, source)?.join(format!("{source}-accounts.json")))
+}
+fn pending_path(hash: &str, source: &str) -> Result<PathBuf, String> {
+    Ok(state_directory(hash, source)?.join(format!("{source}-pending-authorization.json")))
+}
+fn account_state_path(
+    hash: &str,
+    source: &str,
+    id: &str,
+    entry: &SavedAccount,
+) -> Result<PathBuf, String> {
+    if entry.legacy {
+        state_path(hash, source)
+    } else {
+        Ok(state_directory(hash, source)?.join(format!("{source}-{id}-authorization.json")))
+    }
+}
+fn credential_slot(hash: &str, source: &str, id: &str, entry: &SavedAccount) -> String {
+    if entry.legacy {
+        format!("{hash}-{source}")
+    } else {
+        format!("{hash}-{source}-{id}")
+    }
+}
+fn valid_account_id(id: &str) -> bool {
+    id.len() == 64
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+fn default_label(source: &str, subject: &str, id: &str) -> String {
+    let region = if source == "garmin" {
+        match GarminRegion::from_subject(subject) {
+            GarminRegion::Global => " Global",
+            GarminRegion::China => " China",
+        }
+    } else {
+        ""
+    };
+    format!("{source}{region} · {}", &id[..8])
+}
+fn connection_label(params: &Value) -> Result<Option<String>, String> {
+    match params.get("label") {
+        None => Ok(None),
+        Some(Value::String(label))
+            if !label.trim().is_empty()
+                && label.len() <= 128
+                && !label.chars().any(char::is_control) =>
+        {
+            Ok(Some(label.trim().to_owned()))
+        }
+        _ => Err("Account label must be 1..128 bytes without control characters".into()),
+    }
+}
+fn read_catalog(path: &Path) -> Result<Option<AccountCatalog>, String> {
+    safe_state_path(path)?;
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err("Cannot read provider accounts".into()),
+    };
+    let mut bytes = vec![];
+    file.take(65537)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "Cannot read provider accounts")?;
+    if bytes.len() > 65536 {
+        return Err("Invalid provider accounts size".into());
+    }
+    let mut catalog: AccountCatalog =
+        serde_json::from_slice(&bytes).map_err(|_| "Invalid provider accounts")?;
+    let valid_epoch = |epoch: &str| {
+        epoch.len() == 43
+            && epoch
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    };
+    if catalog.schema_version != 1
+        || !valid_epoch(&catalog.active_epoch)
+        || catalog.accounts.len() > 64
+        || catalog.accounts.values().filter(|a| a.legacy).count() > 1
+        || catalog.accounts.iter().any(|(id, entry)| {
+            !valid_account_id(id)
+                || account_id_for_subject(&entry.subject) != *id
+                || entry.subject.len() > 256
+                || entry.subject.chars().any(char::is_control)
+                || entry.label.is_empty()
+                || entry.label.len() > 128
+                || entry.label.chars().any(char::is_control)
+        })
+        || catalog
+            .active_account_id
+            .as_ref()
+            .is_some_and(|id| !catalog.accounts.contains_key(id))
+        || catalog
+            .completed_account_id
+            .as_ref()
+            .is_some_and(|id| !catalog.accounts.contains_key(id))
+        || catalog
+            .authorization_id
+            .as_ref()
+            .is_some_and(|epoch| !valid_epoch(epoch))
+        || (catalog.pending && catalog.authorization_id.is_none())
+    {
+        return Err("Invalid provider accounts".into());
+    }
+    if catalog.pending
+        && catalog
+            .authorization_deadline
+            .is_none_or(|deadline| now().is_ok_and(|time| time >= deadline))
+    {
+        catalog.pending = false;
+        catalog.error = Some("Provider authorization expired; reconnect".into());
+    }
+    Ok(Some(catalog))
+}
+/// Must hold auth_lock. Migration retains the old Keychain/state slots, avoiding
+/// a copy/delete transaction and never reactivating a disconnected credential.
+fn account_catalog(vault: &Path, hash: &str, source: &str) -> Result<AccountCatalog, String> {
+    let path = catalog_path(hash, source)?;
+    if let Some(catalog) = read_catalog(&path)? {
+        return Ok(catalog);
+    }
+    let old = read_state(&state_path(hash, source)?)?;
+    let old_subject = old.as_ref().and_then(|state| state.subject.clone());
+    // Unknown legacy ownership remains unassigned; the store refuses to replace it.
+    let archived = archived_subject(vault, source, false)?;
+    if old_subject
         .as_ref()
         .zip(archived.as_ref())
         .is_some_and(|(a, b)| a != b)
     {
         return Err("Provider account binding disagrees with existing health data".into());
     }
+    let mut catalog = AccountCatalog {
+        schema_version: 1,
+        active_account_id: None,
+        active_epoch: random_string(32),
+        accounts: BTreeMap::new(),
+        authorization_id: None,
+        authorization_deadline: None,
+        completed_account_id: None,
+        pending: false,
+        error: None,
+    };
+    if let Some(subject) = old_subject.or(archived) {
+        let id = account_id_for_subject(&subject);
+        let entry = SavedAccount {
+            label: default_label(source, &subject, &id),
+            subject: subject.clone(),
+            legacy: true,
+        };
+        if old.is_none() {
+            write_state(
+                &state_path(hash, source)?,
+                &AuthorizationState {
+                    epoch: random_string(32),
+                    subject: Some(subject),
+                    authorized: false,
+                },
+            )?;
+        }
+        catalog.active_account_id = Some(id.clone());
+        catalog.accounts.insert(id, entry);
+    }
+    write_state(&path, &catalog)?;
+    Ok(catalog)
+}
+fn verified_legacy_account_id(
+    vault: &Path,
+    source: &str,
+    catalog: &AccountCatalog,
+) -> Result<Option<String>, String> {
+    let local = catalog
+        .accounts
+        .iter()
+        .find(|(_, entry)| entry.legacy)
+        .map(|(id, _)| id.clone());
+    let archived =
+        archived_subject(vault, source, false)?.map(|subject| account_id_for_subject(&subject));
+    if local
+        .as_ref()
+        .zip(archived.as_ref())
+        .is_some_and(|(a, b)| a != b)
+    {
+        return Err("Legacy provider account binding disagrees with existing health data".into());
+    }
+    Ok(local.or(archived))
+}
+fn begin_connection(vault: &Path, hash: &str, source: &str) -> Result<String, String> {
+    let _lock = auth_lock(hash, source)?;
+    let mut catalog = account_catalog(vault, hash, source)?;
     let epoch = random_string(32);
     write_state(
-        &path,
+        &pending_path(hash, source)?,
         &AuthorizationState {
             epoch: epoch.clone(),
-            subject: subject.or(archived),
+            subject: None,
             authorized: false,
         },
     )?;
+    catalog.authorization_id = Some(epoch.clone());
+    // Include the bounded token/identity exchange after the callback deadline.
+    catalog.authorization_deadline = Some(now()?.saturating_add(CALLBACK_TIMEOUT.as_secs() + 120));
+    catalog.completed_account_id = None;
+    catalog.pending = true;
+    catalog.error = None;
+    write_state(&catalog_path(hash, source)?, &catalog)?;
     Ok(epoch)
+}
+struct VerifiedConnection<'a> {
+    subject: &'a str,
+    credential: &'a Credential,
+    label: Option<&'a str>,
+}
+fn complete_connection(
+    store: &dyn SecretStore,
+    vault: &Path,
+    hash: &str,
+    source: &str,
+    epoch: &str,
+    verified: VerifiedConnection<'_>,
+) -> Result<String, String> {
+    let VerifiedConnection {
+        subject,
+        credential,
+        label,
+    } = verified;
+    // Caller holds the provider auth lock across credential/state/catalog writes.
+    epoch_matches(&pending_path(hash, source)?, epoch)?;
+    let mut catalog = account_catalog(vault, hash, source)?;
+    if !catalog.pending || catalog.authorization_id.as_deref() != Some(epoch) {
+        return Err("Provider authorization was cancelled or replaced; reconnect or retry".into());
+    }
+    let id = account_id_for_subject(subject);
+    if !catalog.accounts.contains_key(&id) && catalog.accounts.len() >= 64 {
+        return Err("At most 64 accounts can be saved per provider".into());
+    }
+    let mut entry = catalog
+        .accounts
+        .get(&id)
+        .cloned()
+        .unwrap_or_else(|| SavedAccount {
+            subject: subject.into(),
+            label: default_label(source, subject, &id),
+            legacy: false,
+        });
+    if let Some(label) = label {
+        entry.label = label.into();
+    }
+    let path = account_state_path(hash, source, &id, &entry)?;
+    write_state(
+        &path,
+        &AuthorizationState {
+            epoch: epoch.into(),
+            subject: Some(subject.into()),
+            authorized: false,
+        },
+    )?;
+    save_authorized(
+        store,
+        &credential_slot(hash, source, &id, &entry),
+        &path,
+        epoch,
+        subject,
+        credential,
+    )?;
+    catalog.accounts.insert(id.clone(), entry);
+    if catalog.active_account_id.is_none() {
+        catalog.active_account_id = Some(id.clone());
+        catalog.active_epoch = random_string(32);
+    }
+    catalog.pending = false;
+    catalog.completed_account_id = Some(id.clone());
+    catalog.error = None;
+    write_state(&catalog_path(hash, source)?, &catalog)?;
+    Ok(id)
+}
+fn connection_failed(hash: &str, source: &str, epoch: &str, error: &str) {
+    let Ok(_lock) = auth_lock(hash, source) else {
+        return;
+    };
+    let Ok(path) = catalog_path(hash, source) else {
+        return;
+    };
+    let Ok(Some(mut catalog)) = read_catalog(&path) else {
+        return;
+    };
+    if catalog.authorization_id.as_deref() == Some(epoch) {
+        catalog.pending = false;
+        catalog.error = Some(error.into());
+        let _ = write_state(&path, &catalog);
+    }
 }
 fn save_authorized(
     store: &dyn SecretStore,
@@ -615,26 +909,39 @@ fn authorize_url(client_id: &str, redirect_uri: &str, state: &str, verifier: &st
 }
 
 pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, String> {
-    let (_, account, hash) = identity(vault, source)?;
+    let (vault, account, hash) = identity(vault, source)?;
+    let label = connection_label(params)?;
     if source == "garmin" {
         let api_key = field(params, "api_key")?;
         let region = GarminRegion::from_params(params)?;
-        let epoch = begin_authorization(vault, &hash, source)?;
-        let http = http_client()?;
-        let token = garmin_token(&http, &api_key, region)?;
-        let subject = verified_subject(&http, &token, source, region)?;
-        let _lock = auth_lock(&hash, source)?;
-        save_authorized(
-            &Keychain,
-            &account,
-            &state_path(&hash, source)?,
-            &epoch,
-            &subject,
-            &Credential::Garmin { api_key, region },
-        )?;
-        return Ok(
-            json!({"source":"garmin","region":region,"connected":true,"pending":false,"generation":epoch}),
-        );
+        let epoch = begin_connection(&vault, &hash, source)?;
+        let result = (|| {
+            let http = http_client()?;
+            let token = garmin_token(&http, &api_key, region)?;
+            let subject = verified_subject(&http, &token, source, region)?;
+            let _lock = auth_lock(&hash, source)?;
+            complete_connection(
+                &Keychain,
+                &vault,
+                &hash,
+                source,
+                &epoch,
+                VerifiedConnection {
+                    subject: &subject,
+                    credential: &Credential::Garmin { api_key, region },
+                    label: label.as_deref(),
+                },
+            )
+        })();
+        return match result {
+            Ok(id) => Ok(
+                json!({"source":"garmin","region":region,"connected":true,"pending":false,"generation":epoch,"authorization_id":epoch,"completed_account_id":id,"account_id":id}),
+            ),
+            Err(error) => {
+                connection_failed(&hash, source, &epoch, &error);
+                Err(error)
+            }
+        };
     }
     let client_id = field(params, "client_id")?;
     let client_secret = field(params, "client_secret")?;
@@ -643,12 +950,13 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
         _ => field(params, "redirect_uri")?,
     };
     let url = redirect(&redirect_uri)?;
-    let epoch = begin_authorization(vault, &hash, source)?;
-    let authorization_path = state_path(&hash, source)?;
+    // Bind before starting an attempt, so a busy port cannot cancel another sign-in.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, url.port_or_known_default().unwrap())).map_err(|_| "Cannot listen on the registered Oura loopback port; close another sign-in attempt or choose another registered port")?;
     listener
         .set_nonblocking(true)
         .map_err(|_| "Cannot configure Oura callback listener")?;
+    let epoch = begin_connection(&vault, &hash, source)?;
+    let authorization_path = pending_path(&hash, source)?;
     let state = random_string(32);
     let verifier = random_string(64);
     let authorize = authorize_url(&client_id, &redirect_uri, &state, &verifier);
@@ -659,11 +967,11 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
             account.clone(),
             Pending {
                 state: state.clone(),
-                epoch: epoch.clone(),
                 pending: true,
                 error: None,
             },
         );
+    let authorization_id = epoch.clone();
     thread::spawn(move || {
         let result = receive_authorization(
             listener,
@@ -703,15 +1011,22 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
             {
                 return Err("Oura authorization was cancelled".into());
             }
-            save_authorized(
+            complete_connection(
                 &Keychain,
-                &account,
-                &authorization_path,
+                &vault,
+                &hash,
+                "oura",
                 &epoch,
-                &subject,
-                &credential,
+                VerifiedConnection {
+                    subject: &subject,
+                    credential: &credential,
+                    label: label.as_deref(),
+                },
             )
         });
+        if let Err(error) = &result {
+            connection_failed(&hash, "oura", &epoch, error);
+        }
         if let Ok(mut states) = pending().lock() {
             if let Some(current) = states.get_mut(&account).filter(|p| p.state == state) {
                 current.pending = false;
@@ -719,7 +1034,9 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
             }
         }
     });
-    Ok(json!({"source":"oura","authorize_url":authorize,"pending":true}))
+    Ok(
+        json!({"source":"oura","authorize_url":authorize,"pending":true,"authorization_id":authorization_id}),
+    )
 }
 
 fn token_request(http: &Client, form: &[(&str, &str)]) -> Result<Value, String> {
@@ -911,6 +1228,7 @@ fn receive_authorization(
     Err("Oura authorization timed out after five minutes".into())
 }
 
+#[cfg(test)]
 fn status_with(
     store: &dyn SecretStore,
     accounts: &[(&str, String)],
@@ -936,109 +1254,293 @@ fn status_with(
     }
     Value::Object(result)
 }
-pub fn status(vault: &Path) -> Result<Value, String> {
-    let accounts = [
-        ("garmin", identity(vault, "garmin")?.1),
-        ("oura", identity(vault, "oura")?.1),
-    ];
-    let states = pending()
-        .lock()
-        .map_err(|_| "Authentication state is unavailable")?
-        .clone();
-    let mut result = status_with(&Keychain, &accounts, &states);
-    for (source, account) in &accounts {
-        let hash = identity(vault, source)?.2;
-        let state = read_state(&state_path(&hash, source)?)?;
-        if *source == "garmin" && result[*source].get("region").is_none() {
-            result[*source]["region"] = json!(state
-                .as_ref()
-                .and_then(|s| s.subject.as_deref())
-                .map(GarminRegion::from_subject)
-                .unwrap_or_default());
+fn account_credential(
+    store: &dyn SecretStore,
+    slot: &str,
+    source: &str,
+    subject: &str,
+) -> Result<Credential, String> {
+    let credential = store
+        .get(slot)?
+        .ok_or("Provider account is not connected")?;
+    match &credential {
+        Credential::Garmin { region, .. }
+            if source == "garmin" && *region == GarminRegion::from_subject(subject) => {}
+        Credential::Oura { .. } if source == "oura" => {}
+        _ => {
+            return Err("Provider credential disagrees with this account's source or region".into())
         }
-        result[*source]["generation"] = json!(state.as_ref().map(|s| s.epoch.as_str()));
-        result[*source]["identity_verified"] =
-            json!(state.as_ref().and_then(|s| s.subject.as_ref()).is_some());
-        if !state
+    }
+    Ok(credential)
+}
+fn catalog_status(
+    store: &dyn SecretStore,
+    hash: &str,
+    source: &str,
+    catalog: &AccountCatalog,
+) -> Result<Value, String> {
+    let mut accounts = vec![];
+    let legacy_account_id = catalog
+        .accounts
+        .iter()
+        .find(|(_, entry)| entry.legacy)
+        .map(|(id, _)| id);
+    let mut result = json!({"legacy_account_id":legacy_account_id,"connected":false,"pending":catalog.pending,"generation":null,"identity_verified":false,"active_account_id":catalog.active_account_id,"authorization_id":catalog.authorization_id,"completed_account_id":catalog.completed_account_id});
+    if let Some(error) = &catalog.error {
+        result["error"] = json!(error);
+    }
+    for (id, entry) in &catalog.accounts {
+        let state = read_state(&account_state_path(hash, source, id, entry)?)?;
+        let slot = credential_slot(hash, source, id, entry);
+        let credentials = account_credential(store, &slot, source, &entry.subject);
+        let authorized = state
             .as_ref()
-            .is_some_and(|s| s.authorized && s.subject.is_some())
-        {
-            result[*source]["connected"] = json!(false);
+            .is_some_and(|s| s.authorized && s.subject.as_deref() == Some(entry.subject.as_str()));
+        let connected = authorized && credentials.is_ok();
+        let mut account = json!({"id":id,"label":entry.label,"connected":connected,"generation":state.as_ref().map(|s| &s.epoch),"active":catalog.active_account_id.as_deref() == Some(id)});
+        if source == "garmin" {
+            account["region"] = json!(GarminRegion::from_subject(&entry.subject));
         }
-        if states
-            .get(account)
-            .is_some_and(|p| state.as_ref().is_none_or(|s| s.epoch != p.epoch))
-        {
-            result[*source]["pending"] = json!(false);
-            result[*source]["error"] = json!("Authorization was cancelled or replaced");
+        if authorized {
+            if let Err(error) = credentials {
+                account["error"] = json!(error);
+            }
         }
+        if catalog.active_account_id.as_deref() == Some(id) {
+            result["connected"] = json!(connected);
+            result["generation"] = account["generation"].clone();
+            result["identity_verified"] = json!(true);
+            if source == "garmin" {
+                result["region"] = account["region"].clone();
+            }
+            if account.get("error").is_some() {
+                result["error"] = account["error"].clone();
+            }
+        }
+        accounts.push(account);
+    }
+    if source == "garmin" && result.get("region").is_none() {
+        result["region"] = json!(GarminRegion::Global);
+    }
+    result["accounts"] = json!(accounts);
+    Ok(result)
+}
+fn vault_catalog_status(
+    store: &dyn SecretStore,
+    vault: &Path,
+    hash: &str,
+    source: &str,
+    catalog: &AccountCatalog,
+) -> Result<Value, String> {
+    let mut status = catalog_status(store, hash, source, catalog)?;
+    status["legacy_account_id"] = json!(verified_legacy_account_id(vault, source, catalog)?);
+    Ok(status)
+}
+pub fn status(vault: &Path) -> Result<Value, String> {
+    let mut result = json!({});
+    for source in ["garmin", "oura"] {
+        let (_, _, hash) = identity(vault, source)?;
+        let _lock = auth_lock(&hash, source)?;
+        let catalog = account_catalog(vault, &hash, source)?;
+        result[source] = vault_catalog_status(&Keychain, vault, &hash, source, &catalog)?;
     }
     Ok(result)
 }
-pub fn disconnect(vault: &Path, source: &str) -> Result<Value, String> {
-    let (_, account, hash) = identity(vault, source)?;
+pub fn select_account(vault: &Path, source: &str, id: &str) -> Result<Value, String> {
+    let (_, _, hash) = identity(vault, source)?;
     let _lock = auth_lock(&hash, source)?;
-    let path = state_path(&hash, source)?;
-    let subject = read_state(&path)?.and_then(|s| s.subject);
-    let epoch = random_string(32);
+    let mut catalog = account_catalog(vault, &hash, source)?;
+    select_saved_account(&Keychain, &hash, source, &mut catalog, id)?;
+    catalog_status(&Keychain, &hash, source, &catalog)
+}
+fn select_saved_account(
+    store: &dyn SecretStore,
+    hash: &str,
+    source: &str,
+    catalog: &mut AccountCatalog,
+    id: &str,
+) -> Result<(), String> {
+    let entry = catalog.accounts.get(id).ok_or("Unknown provider account")?;
+    let state = active_state(&account_state_path(hash, source, id, entry)?)?;
+    if state.subject.as_deref() != Some(entry.subject.as_str()) {
+        return Err("Provider account binding disagrees with saved account".into());
+    }
+    account_credential(
+        store,
+        &credential_slot(hash, source, id, entry),
+        source,
+        &entry.subject,
+    )?;
+    if catalog.active_account_id.as_deref() != Some(id) {
+        catalog.active_account_id = Some(id.into());
+        catalog.active_epoch = random_string(32);
+        write_state(&catalog_path(hash, source)?, catalog)?;
+    }
+    Ok(())
+}
+/// Cancel only the named pending attempt. Selecting or disconnecting accounts
+/// is deliberately separate: cancellation must not revoke an existing session.
+pub fn cancel_authorization(
+    vault: &Path,
+    source: &str,
+    authorization_id: &str,
+) -> Result<Value, String> {
+    let (_, _, hash) = identity(vault, source)?;
+    let _lock = auth_lock(&hash, source)?;
+    let mut catalog = account_catalog(vault, &hash, source)?;
+    let cancelled = cancel_pending_authorization(&hash, source, &mut catalog, authorization_id)?;
+    let mut status = catalog_status(&Keychain, &hash, source, &catalog)?;
+    status["cancelled"] = json!(cancelled);
+    Ok(status)
+}
+fn cancel_pending_authorization(
+    hash: &str,
+    source: &str,
+    catalog: &mut AccountCatalog,
+    authorization_id: &str,
+) -> Result<bool, String> {
+    let cancelled = catalog.pending
+        && catalog.completed_account_id.is_none()
+        && catalog.authorization_id.as_deref() == Some(authorization_id);
+    if cancelled {
+        write_state(
+            &pending_path(hash, source)?,
+            &AuthorizationState {
+                epoch: random_string(32),
+                subject: None,
+                authorized: false,
+            },
+        )?;
+        catalog.pending = false;
+        catalog.authorization_deadline = None;
+        catalog.error = Some("Provider authorization was cancelled".into());
+        write_state(&catalog_path(hash, source)?, catalog)?;
+        pending()
+            .lock()
+            .map_err(|_| "Authentication state is unavailable")?
+            .remove(&format!("{hash}-{source}"));
+    }
+    Ok(cancelled)
+}
+pub fn disconnect(vault: &Path, source: &str) -> Result<Value, String> {
+    disconnect_account(vault, source, None)
+}
+pub fn disconnect_account(vault: &Path, source: &str, id: Option<&str>) -> Result<Value, String> {
+    let (_, _, hash) = identity(vault, source)?;
+    let _lock = auth_lock(&hash, source)?;
+    let mut catalog = account_catalog(vault, &hash, source)?;
+    disconnect_saved_account(&Keychain, &hash, source, &mut catalog, id)?;
+    catalog_status(&Keychain, &hash, source, &catalog)
+}
+fn disconnect_saved_account(
+    store: &dyn SecretStore,
+    hash: &str,
+    source: &str,
+    catalog: &mut AccountCatalog,
+    requested: Option<&str>,
+) -> Result<(), String> {
+    let id = requested
+        .map(str::to_owned)
+        .or_else(|| catalog.active_account_id.clone());
+    let mut slot = None;
+    if let Some(id) = &id {
+        let entry = catalog.accounts.get(id).ok_or("Unknown provider account")?;
+        write_state(
+            &account_state_path(hash, source, id, entry)?,
+            &AuthorizationState {
+                epoch: random_string(32),
+                subject: Some(entry.subject.clone()),
+                authorized: false,
+            },
+        )?;
+        slot = Some(credential_slot(hash, source, id, entry));
+        if catalog.active_account_id.as_ref() == Some(id) {
+            catalog.active_account_id = None;
+            catalog.active_epoch = random_string(32);
+        }
+    }
+    // Cancels an in-flight add/reconnect even if the provider has no active account.
     write_state(
-        &path,
+        &pending_path(hash, source)?,
         &AuthorizationState {
-            epoch: epoch.clone(),
-            subject,
+            epoch: random_string(32),
+            subject: None,
             authorized: false,
         },
     )?;
+    catalog.pending = false;
+    catalog.authorization_id = None;
+    catalog.authorization_deadline = None;
+    catalog.completed_account_id = None;
+    catalog.error = None;
+    write_state(&catalog_path(hash, source)?, catalog)?;
     pending()
         .lock()
         .map_err(|_| "Authentication state is unavailable")?
-        .remove(&account);
-    Keychain.delete(&account)?;
-    Ok(json!({"source":source,"connected":false,"pending":false,"generation":epoch}))
+        .remove(&format!("{hash}-{source}"));
+    if let Some(slot) = slot {
+        store.delete(&slot)?;
+    }
+    Ok(())
 }
 
 pub struct ApiClient {
     source: String,
     region: GarminRegion,
     account: String,
+    account_id: String,
+    legacy_account_id: Option<String>,
+    authorization_path: PathBuf,
+    active_epoch: Option<String>,
     hash: String,
     token: String,
     epoch: String,
     http: Client,
 }
 pub fn client(vault: &Path, source: &str) -> Result<ApiClient, String> {
-    let (_, account, hash) = identity(vault, source)?;
+    client_for_account(vault, source, None)
+}
+pub fn client_for_account(
+    vault: &Path,
+    source: &str,
+    requested: Option<&str>,
+) -> Result<ApiClient, String> {
+    let (_, _, hash) = identity(vault, source)?;
     let http = http_client()?;
-    let (token, epoch, region) = {
-        let _lock = auth_lock(&hash, source)?;
-        let state = active_state(&state_path(&hash, source)?)?;
-        let region = match Keychain.get(&account)?.ok_or("Provider is not connected")? {
-            Credential::Garmin { region, .. } => region,
-            Credential::Oura { .. } => GarminRegion::Global,
-        };
-        if source == "garmin"
-            && state.subject.as_deref().map(GarminRegion::from_subject) != Some(region)
-        {
-            return Err(
-                "Garmin credential region disagrees with this vault's account binding".into(),
-            );
-        }
-        (
-            load_token(&Keychain, &account, &http, None, region)?,
-            state.epoch,
-            region,
-        )
+    let _lock = auth_lock(&hash, source)?;
+    let catalog = account_catalog(vault, &hash, source)?;
+    let id = requested
+        .or(catalog.active_account_id.as_deref())
+        .ok_or("Choose an active provider account before syncing")?;
+    let entry = catalog.accounts.get(id).ok_or("Unknown provider account")?;
+    let authorization_path = account_state_path(&hash, source, id, entry)?;
+    let state = active_state(&authorization_path)?;
+    if state.subject.as_deref() != Some(entry.subject.as_str()) {
+        return Err("Provider account binding disagrees with saved account".into());
+    }
+    let account = credential_slot(&hash, source, id, entry);
+    let credential = account_credential(&Keychain, &account, source, &entry.subject)?;
+    let region = match credential {
+        Credential::Garmin { region, .. } => region,
+        Credential::Oura { .. } => GarminRegion::Global,
     };
+    let legacy_account_id = verified_legacy_account_id(vault, source, &catalog)?;
+    let token = load_token(&Keychain, &account, &http, None, region)?;
     Ok(ApiClient {
         source: source.into(),
         region,
         account,
+        account_id: id.into(),
+        legacy_account_id,
+        authorization_path,
+        active_epoch: requested.is_none().then(|| catalog.active_epoch.clone()),
         hash,
         token,
-        epoch,
+        epoch: state.epoch,
         http,
     })
 }
+
 fn load_token(
     store: &dyn SecretStore,
     account: &str,
@@ -1147,6 +1649,12 @@ fn retry_delay(status: u16, retry_after: Option<&str>, attempt: usize) -> Option
     }
 }
 impl ApiClient {
+    pub fn account_id(&self) -> &str {
+        &self.account_id
+    }
+    pub fn legacy_account_id(&self) -> Option<&str> {
+        self.legacy_account_id.as_deref()
+    }
     pub fn garmin_region(&self) -> GarminRegion {
         self.region
     }
@@ -1155,7 +1663,17 @@ impl ApiClient {
     }
     /// Call again immediately before committing a completed provider window.
     pub fn ensure_current(&self) -> Result<(), String> {
-        let state = epoch_matches(&state_path(&self.hash, &self.source)?, &self.epoch)?;
+        let catalog = read_catalog(&catalog_path(&self.hash, &self.source)?)?
+            .ok_or("Provider accounts are unavailable")?;
+        if !catalog.accounts.contains_key(&self.account_id)
+            || self.active_epoch.as_ref().is_some_and(|epoch| {
+                epoch != &catalog.active_epoch
+                    || catalog.active_account_id.as_deref() != Some(self.account_id.as_str())
+            })
+        {
+            return Err("Active provider account changed; retry the operation".into());
+        }
+        let state = epoch_matches(&self.authorization_path, &self.epoch)?;
         if !state.authorized {
             return Err("Complete provider authorization before syncing".into());
         }
@@ -1198,7 +1716,7 @@ impl ApiClient {
             if status == 401 && !refreshed {
                 drop(response);
                 let _lock = auth_lock(&self.hash, &self.source)?;
-                epoch_matches(&state_path(&self.hash, &self.source)?, &self.epoch)?;
+                self.ensure_current()?;
                 self.token = load_token(
                     &Keychain,
                     &self.account,
@@ -1959,5 +2477,494 @@ mod tests {
             region,
             "Identity region mismatch"
         );
+    }
+
+    struct AccountsFixture {
+        _temp: tempfile::TempDir,
+        vault: PathBuf,
+        hash: String,
+        secrets: Memory,
+    }
+    impl AccountsFixture {
+        fn new() -> Self {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().canonicalize().unwrap();
+            let vault = root.join("vault");
+            fs::create_dir(&vault).unwrap();
+            // Absolute test-only hash confines every state file to this tempdir.
+            let hash = root.join("state").to_string_lossy().into_owned();
+            Self {
+                _temp: temp,
+                vault,
+                hash,
+                secrets: Memory::default(),
+            }
+        }
+        fn catalog(&self, source: &str) -> AccountCatalog {
+            let _lock = auth_lock(&self.hash, source).unwrap();
+            account_catalog(&self.vault, &self.hash, source).unwrap()
+        }
+        fn add(&self, source: &str, subject: &str, key: &str) -> String {
+            let credential = if source == "garmin" {
+                Credential::Garmin {
+                    api_key: key.into(),
+                    region: GarminRegion::from_subject(subject),
+                }
+            } else {
+                Credential::Oura {
+                    client_id: "client".into(),
+                    client_secret: "secret".into(),
+                    redirect_uri: "http://localhost:8765/callback".into(),
+                    access_token: key.into(),
+                    refresh_token: "refresh".into(),
+                    expires_at: now().unwrap() + 3600,
+                }
+            };
+            let epoch = begin_connection(&self.vault, &self.hash, source).unwrap();
+            let _lock = auth_lock(&self.hash, source).unwrap();
+            complete_connection(
+                &self.secrets,
+                &self.vault,
+                &self.hash,
+                source,
+                &epoch,
+                VerifiedConnection {
+                    subject,
+                    credential: &credential,
+                    label: None,
+                },
+            )
+            .unwrap()
+        }
+        fn client(&self, source: &str, id: &str, active: bool) -> ApiClient {
+            let catalog = self.catalog(source);
+            let entry = &catalog.accounts[id];
+            let authorization_path = account_state_path(&self.hash, source, id, entry).unwrap();
+            let state = active_state(&authorization_path).unwrap();
+            ApiClient {
+                source: source.into(),
+                region: GarminRegion::from_subject(&entry.subject),
+                account: credential_slot(&self.hash, source, id, entry),
+                account_id: id.into(),
+                legacy_account_id: catalog
+                    .accounts
+                    .iter()
+                    .find(|(_, e)| e.legacy)
+                    .map(|(id, _)| id.clone()),
+                authorization_path,
+                active_epoch: active.then(|| catalog.active_epoch.clone()),
+                hash: self.hash.clone(),
+                token: "test-token".into(),
+                epoch: state.epoch,
+                http: http_client().unwrap(),
+            }
+        }
+    }
+
+    #[test]
+    fn multiple_saved_accounts_keep_one_active_and_never_expose_subjects_or_keys() {
+        let fixture = AccountsFixture::new();
+        let a = fixture.add("garmin", "garmin:111222333", "SECRET-A");
+        let b = fixture.add("garmin", "garmin:china:111222333", "SECRET-B");
+        assert_ne!(a, b);
+        let mut catalog = fixture.catalog("garmin");
+        assert_eq!(catalog.accounts.len(), 2);
+        assert_eq!(catalog.active_account_id.as_deref(), Some(a.as_str()));
+        let result = catalog_status(&fixture.secrets, &fixture.hash, "garmin", &catalog).unwrap();
+        assert_eq!(result["accounts"].as_array().unwrap().len(), 2);
+        assert_eq!(result["completed_account_id"], b);
+        for secret in [
+            "SECRET-A",
+            "SECRET-B",
+            "garmin:111222333",
+            "garmin:china:111222333",
+            "api_key",
+            "subject",
+        ] {
+            assert!(!result.to_string().contains(secret));
+        }
+        select_saved_account(&fixture.secrets, &fixture.hash, "garmin", &mut catalog, &b).unwrap();
+        assert_eq!(catalog.active_account_id.as_deref(), Some(b.as_str()));
+        assert_eq!(
+            catalog_status(&fixture.secrets, &fixture.hash, "garmin", &catalog).unwrap()["region"],
+            "china"
+        );
+        assert!(select_saved_account(
+            &fixture.secrets,
+            &fixture.hash,
+            "garmin",
+            &mut catalog,
+            "../outside"
+        )
+        .is_err());
+        assert_eq!(fixture.secrets.values.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn switching_active_invalidates_incremental_but_not_explicit_history_client() {
+        let fixture = AccountsFixture::new();
+        let a = fixture.add("garmin", "garmin:123", "KEY-A");
+        let b = fixture.add("garmin", "garmin:456", "KEY-B");
+        let incremental = fixture.client("garmin", &a, true);
+        let history = fixture.client("garmin", &a, false);
+        let mut catalog = fixture.catalog("garmin");
+        select_saved_account(&fixture.secrets, &fixture.hash, "garmin", &mut catalog, &b).unwrap();
+        assert!(incremental.ensure_current().is_err());
+        assert!(history.ensure_current().is_ok());
+        assert!(history.commit_guard().is_ok());
+        disconnect_saved_account(
+            &fixture.secrets,
+            &fixture.hash,
+            "garmin",
+            &mut catalog,
+            Some(&b),
+        )
+        .unwrap();
+        assert!(history.ensure_current().is_ok());
+        assert!(catalog.active_account_id.is_none());
+        assert_eq!(catalog.accounts.len(), 2);
+        disconnect_saved_account(
+            &fixture.secrets,
+            &fixture.hash,
+            "garmin",
+            &mut catalog,
+            Some(&a),
+        )
+        .unwrap();
+        assert!(history.ensure_current().is_err());
+        assert!(fixture.secrets.values.lock().unwrap().is_empty());
+        assert!(
+            select_saved_account(&fixture.secrets, &fixture.hash, "garmin", &mut catalog, &a)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn legacy_account_migration_preserves_slots_epoch_and_disconnected_state() {
+        for authorized in [true, false] {
+            let fixture = AccountsFixture::new();
+            let _lock = auth_lock(&fixture.hash, "garmin").unwrap();
+            let epoch = random_string(32);
+            write_state(
+                &state_path(&fixture.hash, "garmin").unwrap(),
+                &AuthorizationState {
+                    epoch: epoch.clone(),
+                    subject: Some("garmin:123".into()),
+                    authorized,
+                },
+            )
+            .unwrap();
+            let old_slot = format!("{}-garmin", fixture.hash);
+            fixture
+                .secrets
+                .set(
+                    &old_slot,
+                    &Credential::Garmin {
+                        api_key: "LEGACY-SECRET".into(),
+                        region: GarminRegion::Global,
+                    },
+                )
+                .unwrap();
+            let catalog = account_catalog(&fixture.vault, &fixture.hash, "garmin").unwrap();
+            let id = account_id_for_subject("garmin:123");
+            assert_eq!(catalog.active_account_id.as_deref(), Some(id.as_str()));
+            assert!(catalog.accounts[&id].legacy);
+            assert_eq!(
+                credential_slot(&fixture.hash, "garmin", &id, &catalog.accounts[&id]),
+                old_slot
+            );
+            let state = read_state(&state_path(&fixture.hash, "garmin").unwrap())
+                .unwrap()
+                .unwrap();
+            assert_eq!(state.epoch, epoch);
+            assert_eq!(state.authorized, authorized);
+            assert_eq!(
+                catalog_status(&fixture.secrets, &fixture.hash, "garmin", &catalog).unwrap()
+                    ["connected"],
+                authorized
+            );
+            assert_eq!(
+                catalog_status(&fixture.secrets, &fixture.hash, "garmin", &catalog).unwrap()
+                    ["legacy_account_id"],
+                id
+            );
+            let repeated = account_catalog(&fixture.vault, &fixture.hash, "garmin").unwrap();
+            assert_eq!(repeated.accounts.len(), 1);
+            assert_eq!(fixture.secrets.values.lock().unwrap().len(), 1);
+            assert!(
+                !fs::read_to_string(catalog_path(&fixture.hash, "garmin").unwrap())
+                    .unwrap()
+                    .contains("LEGACY-SECRET")
+            );
+        }
+    }
+
+    #[test]
+    fn reconnecting_one_account_rotates_only_its_generation_and_keeps_other_credentials() {
+        let fixture = AccountsFixture::new();
+        let a = fixture.add("oura", "oura:account-a", "TOKEN-A");
+        let b = fixture.add("oura", "oura:account-b", "TOKEN-B");
+        let old_a = fixture.client("oura", &a, false);
+        let old_b = fixture.client("oura", &b, false);
+        assert_eq!(fixture.add("oura", "oura:account-a", "ROTATED-A"), a);
+        assert!(old_a.ensure_current().is_err());
+        assert!(old_b.ensure_current().is_ok());
+        let catalog = fixture.catalog("oura");
+        assert_eq!(catalog.accounts.len(), 2);
+        assert_eq!(catalog.active_account_id.as_deref(), Some(a.as_str()));
+        let slot = credential_slot(&fixture.hash, "oura", &b, &catalog.accounts[&b]);
+        assert!(
+            matches!(fixture.secrets.get(&slot).unwrap(),Some(Credential::Oura{access_token,..}) if access_token == "TOKEN-B")
+        );
+    }
+
+    #[test]
+    fn late_authorization_cannot_add_account_after_replacement_or_disconnect() {
+        let fixture = AccountsFixture::new();
+        let a = fixture.add("oura", "oura:account-a", "TOKEN-A");
+        let running = fixture.client("oura", &a, true);
+        let old = begin_connection(&fixture.vault, &fixture.hash, "oura").unwrap();
+        assert!(running.ensure_current().is_ok());
+        let new = begin_connection(&fixture.vault, &fixture.hash, "oura").unwrap();
+        let credential = Credential::Oura {
+            client_id: "client".into(),
+            client_secret: "secret".into(),
+            redirect_uri: "http://localhost:8765/callback".into(),
+            access_token: "NEW-TOKEN".into(),
+            refresh_token: "refresh".into(),
+            expires_at: now().unwrap() + 3600,
+        };
+        let verified = || VerifiedConnection {
+            subject: "oura:account-b",
+            credential: &credential,
+            label: Some("Old account"),
+        };
+        assert!(complete_connection(
+            &fixture.secrets,
+            &fixture.vault,
+            &fixture.hash,
+            "oura",
+            &old,
+            verified()
+        )
+        .is_err());
+        let mut catalog = fixture.catalog("oura");
+        let status = catalog_status(&fixture.secrets, &fixture.hash, "oura", &catalog).unwrap();
+        assert_eq!(status["connected"], true);
+        assert_eq!(status["pending"], true);
+        assert_eq!(status["authorization_id"], new);
+        assert!(status["completed_account_id"].is_null());
+        disconnect_saved_account(
+            &fixture.secrets,
+            &fixture.hash,
+            "oura",
+            &mut catalog,
+            Some(&a),
+        )
+        .unwrap();
+        assert!(complete_connection(
+            &fixture.secrets,
+            &fixture.vault,
+            &fixture.hash,
+            "oura",
+            &new,
+            verified()
+        )
+        .is_err());
+        assert_eq!(fixture.catalog("oura").accounts.len(), 1);
+        assert!(fixture.secrets.values.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_new_account_storage_preserves_existing_active_account() {
+        let fixture = AccountsFixture::new();
+        let a = fixture.add("garmin", "garmin:123", "TOKEN-A");
+        let client = fixture.client("garmin", &a, true);
+        let epoch = begin_connection(&fixture.vault, &fixture.hash, "garmin").unwrap();
+        let credential = Credential::Garmin {
+            api_key: "FAILED-SECRET".into(),
+            region: GarminRegion::Global,
+        };
+        let rejecting = Memory {
+            fail: true,
+            ..Default::default()
+        };
+        assert!(complete_connection(
+            &rejecting,
+            &fixture.vault,
+            &fixture.hash,
+            "garmin",
+            &epoch,
+            VerifiedConnection {
+                subject: "garmin:456",
+                credential: &credential,
+                label: None
+            }
+        )
+        .is_err());
+        connection_failed(
+            &fixture.hash,
+            "garmin",
+            &epoch,
+            "Cannot save health credentials to macOS Keychain",
+        );
+        assert!(client.ensure_current().is_ok());
+        let catalog = fixture.catalog("garmin");
+        assert_eq!(catalog.accounts.len(), 1);
+        assert_eq!(catalog.active_account_id.as_deref(), Some(a.as_str()));
+        assert_eq!(
+            catalog_status(&fixture.secrets, &fixture.hash, "garmin", &catalog).unwrap()["pending"],
+            false
+        );
+        assert!(connection_label(&json!({"label":"bad\nlabel"})).is_err());
+        assert!(connection_label(&json!({"label":"x".repeat(129)})).is_err());
+    }
+
+    #[test]
+    fn abandoned_authorization_expires_without_revoking_active_account() {
+        let fixture = AccountsFixture::new();
+        let id = fixture.add("garmin", "garmin:123", "KEY-A");
+        let client = fixture.client("garmin", &id, true);
+        let epoch = begin_connection(&fixture.vault, &fixture.hash, "garmin").unwrap();
+        let mut catalog = fixture.catalog("garmin");
+        catalog.authorization_deadline = Some(now().unwrap().saturating_sub(1));
+        write_state(&catalog_path(&fixture.hash, "garmin").unwrap(), &catalog).unwrap();
+        let expired = fixture.catalog("garmin");
+        assert!(!expired.pending);
+        assert!(expired.error.is_some());
+        assert!(client.ensure_current().is_ok());
+        let credential = Credential::Garmin {
+            api_key: "LATE-KEY".into(),
+            region: GarminRegion::Global,
+        };
+        assert!(complete_connection(
+            &fixture.secrets,
+            &fixture.vault,
+            &fixture.hash,
+            "garmin",
+            &epoch,
+            VerifiedConnection {
+                subject: "garmin:456",
+                credential: &credential,
+                label: None
+            }
+        )
+        .is_err());
+        assert_eq!(fixture.secrets.values.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn restored_legacy_archive_ownership_is_verified_even_after_catalog_creation() {
+        use crate::providers::{CollectionResult, FetchReport, ProviderRecord};
+        let fixture = AccountsFixture::new();
+        let mut catalog = fixture.catalog("garmin");
+        assert!(catalog.accounts.is_empty());
+        assert!(vault_catalog_status(
+            &fixture.secrets,
+            &fixture.vault,
+            &fixture.hash,
+            "garmin",
+            &catalog
+        )
+        .unwrap()["legacy_account_id"]
+            .is_null());
+        let store = crate::store::Store::new(&fixture.vault, Path::new(&fixture.hash)).unwrap();
+        let staged = fixture.vault.parent().unwrap().join("legacy.jsonl");
+        let row = ProviderRecord {
+            source: "garmin".into(),
+            collection: "activities".into(),
+            day: "2026-10-24".into(),
+            id: Some("999".into()),
+            data: json!({"ownerId":123,"activityId":999}),
+        };
+        fs::write(
+            &staged,
+            format!("{}\n", serde_json::to_string(&row).unwrap()),
+        )
+        .unwrap();
+        let report = FetchReport {
+            source: "garmin".into(),
+            since: "2026-10-24".into(),
+            until: "2026-10-24".into(),
+            collections: vec![CollectionResult {
+                collection: "activities".into(),
+                status: "complete".into(),
+                records: 1,
+                error: None,
+            }],
+        };
+        store
+            .apply_provider(&staged, &report, false, &mut |_| {})
+            .unwrap();
+        assert_eq!(
+            verified_legacy_account_id(&fixture.vault, "garmin", &catalog).unwrap(),
+            Some(account_id_for_subject("garmin:123"))
+        );
+        let status = vault_catalog_status(
+            &fixture.secrets,
+            &fixture.vault,
+            &fixture.hash,
+            "garmin",
+            &catalog,
+        )
+        .unwrap();
+        assert_eq!(
+            status["legacy_account_id"],
+            account_id_for_subject("garmin:123")
+        );
+        assert!(!status.to_string().contains("garmin:123"));
+        let conflicting = account_id_for_subject("garmin:456");
+        catalog.accounts.insert(
+            conflicting,
+            SavedAccount {
+                subject: "garmin:456".into(),
+                label: "Old account".into(),
+                legacy: true,
+            },
+        );
+        assert!(verified_legacy_account_id(&fixture.vault, "garmin", &catalog).is_err());
+    }
+
+    #[test]
+    fn cancelling_named_authorization_preserves_accounts_and_ignores_stale_or_completed_ids() {
+        let fixture = AccountsFixture::new();
+        let a = fixture.add("oura", "oura:account-a", "TOKEN-A");
+        let active = fixture.client("oura", &a, true);
+        let original = fixture.catalog("oura");
+        let first = begin_connection(&fixture.vault, &fixture.hash, "oura").unwrap();
+        let second = begin_connection(&fixture.vault, &fixture.hash, "oura").unwrap();
+        let mut catalog = fixture.catalog("oura");
+        assert!(
+            !cancel_pending_authorization(&fixture.hash, "oura", &mut catalog, &first).unwrap()
+        );
+        assert!(catalog.pending);
+        assert_eq!(catalog.authorization_id.as_deref(), Some(second.as_str()));
+        assert!(epoch_matches(&pending_path(&fixture.hash, "oura").unwrap(), &second).is_ok());
+        assert!(
+            cancel_pending_authorization(&fixture.hash, "oura", &mut catalog, &second).unwrap()
+        );
+        assert!(!catalog.pending);
+        assert_eq!(
+            catalog.error.as_deref(),
+            Some("Provider authorization was cancelled")
+        );
+        assert!(epoch_matches(&pending_path(&fixture.hash, "oura").unwrap(), &second).is_err());
+        assert_eq!(catalog.active_account_id, original.active_account_id);
+        assert_eq!(catalog.active_epoch, original.active_epoch);
+        assert_eq!(catalog.accounts.len(), 1);
+        assert_eq!(fixture.secrets.values.lock().unwrap().len(), 1);
+        assert!(active.ensure_current().is_ok());
+        let b = fixture.add("oura", "oura:account-b", "TOKEN-B");
+        let mut complete = fixture.catalog("oura");
+        let completed_id = complete.authorization_id.clone().unwrap();
+        let before = serde_json::to_vec(&complete).unwrap();
+        assert!(
+            !cancel_pending_authorization(&fixture.hash, "oura", &mut complete, &completed_id)
+                .unwrap()
+        );
+        assert_eq!(serde_json::to_vec(&complete).unwrap(), before);
+        assert_eq!(complete.completed_account_id.as_deref(), Some(b.as_str()));
+        assert_eq!(fixture.secrets.values.lock().unwrap().len(), 2);
+        assert!(active.ensure_current().is_ok());
     }
 }

@@ -5,12 +5,12 @@ use std::path::PathBuf;
 pub const USAGE: &str = "Health Sync: Apple primary + Garmin/Oura details, one person per vault
 
 notemd-health-sync health-import <export.zip|export.xml> [--vault DIR] [--dry-run] [--json]
-notemd-health-sync health-sync [--file EXPORT] [--source all|apple-health|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--vault DIR] [--dry-run] [--json]
+notemd-health-sync health-sync [--file EXPORT] [--source all|apple-health|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--account ID] [--history] [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-status [--vault DIR] [--json]
 notemd-health-sync health-catalog [--vault DIR] [--json]
-notemd-health-sync health-query [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--category sleep] [--source oura] [--metric TYPE] [--limit 100] [--offset 0] [--vault DIR] [--json]
+notemd-health-sync health-query [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--category sleep] [--source oura] [--account ID] [--metric TYPE] [--limit 100] [--offset 0] [--vault DIR] [--json]
 notemd-health-sync connect --source garmin|oura --credentials-stdin [--vault DIR]
-notemd-health-sync health-disconnect --source garmin|oura [--vault DIR]
+notemd-health-sync health-disconnect --source garmin|oura [--account ID] [--vault DIR]
 
 Apple import replaces only the Apple complete snapshot; old shards remain.
 Provider sync resumes a bounded backfill, then revisits the recent fortnight.
@@ -29,6 +29,7 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
         "connect",
         "disconnect",
         "connections",
+        "select-account",
     ]
     .contains(&command.as_str())
     {
@@ -43,6 +44,9 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
             "--dry-run" if command == "import" || command == "sync" => {
                 params["dry_run"] = json!(true);
             }
+            "--history" if command == "sync" => {
+                params["history"] = json!(true);
+            }
             "--restart" if command == "sync" => {
                 params["restart"] = json!(true);
             }
@@ -50,13 +54,14 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
                 params["credentials_stdin"] = json!(true);
             }
             "--vault" | "--since" | "--until" | "--metric" | "--limit" | "--offset"
-            | "--source" | "--category" | "--max-days" | "--file" => {
+            | "--source" | "--category" | "--max-days" | "--file" | "--account" => {
                 let allowed = match token.as_str() {
                     "--vault" => true,
                     "--since" | "--until" => command == "query" || command == "sync",
-                    "--source" => {
-                        ["sync", "query", "connect", "disconnect"].contains(&command.as_str())
-                    }
+                    "--source" => ["sync", "query", "connect", "disconnect", "select-account"]
+                        .contains(&command.as_str()),
+                    "--account" => ["sync", "query", "disconnect", "select-account"]
+                        .contains(&command.as_str()),
                     "--max-days" | "--file" => command == "sync",
                     _ => command == "query",
                 };
@@ -119,11 +124,40 @@ fn number(params: &Value, name: &str, default: usize) -> Result<usize, String> {
             .ok_or_else(|| format!("--{name} must be a nonnegative integer")),
     }
 }
+fn account_id(params: &Value) -> Option<String> {
+    string(params, "account_id").or_else(|| string(params, "account"))
+}
 fn validate_query(command: &str, params: &Value) -> Result<(), String> {
+    for name in ["account_id", "account"] {
+        if field(params, name)
+            .is_some_and(|v| !v.as_str().is_some_and(crate::sync::valid_account_id))
+        {
+            return Err("account must be a saved account ID".into());
+        }
+    }
+    if string(params, "account_id")
+        .zip(string(params, "account"))
+        .is_some_and(|(a, b)| a != b)
+    {
+        return Err("Conflicting account IDs".into());
+    }
     if command != "query" && command != "sync" {
         return Ok(());
     }
     if command == "sync" {
+        let history = boolean(params, "history")?;
+        if (history || account_id(params).is_some())
+            && !string(params, "source").is_some_and(|s| s == "garmin" || s == "oura")
+        {
+            return Err("account/history requires a single Garmin or Oura source".into());
+        }
+        if history
+            && (account_id(params).is_none()
+                || string(params, "since").is_none()
+                || string(params, "until").is_none())
+        {
+            return Err("History import requires account, since and until".into());
+        }
         if string(params, "file").is_some()
             && string(params, "source").is_some_and(|s| s != "all" && s != "apple-health")
         {
@@ -191,10 +225,25 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
             return Ok(result);
         }
         "connections" => return crate::auth::status(&vault),
-        "disconnect" => {
-            return crate::auth::disconnect(
+        "cancel_authorization" => {
+            return crate::auth::cancel_authorization(
                 &vault,
                 &string(params, "source").ok_or("Choose garmin or oura")?,
+                &string(params, "authorization_id").ok_or("Specify the authorization attempt")?,
+            )
+        }
+        "select_account" | "select-account" => {
+            return crate::auth::select_account(
+                &vault,
+                &string(params, "source").ok_or("Choose garmin or oura")?,
+                &account_id(params).ok_or("Choose a saved account")?,
+            )
+        }
+        "disconnect" => {
+            return crate::auth::disconnect_account(
+                &vault,
+                &string(params, "source").ok_or("Choose garmin or oura")?,
+                account_id(params).as_deref(),
             )
         }
         "status" => {
@@ -210,6 +259,8 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
                 &vault,
                 &crate::sync::Options {
                     source: string(params, "source").unwrap_or_else(|| "all".into()),
+                    account_id: account_id(params),
+                    history: boolean(params, "history")?,
                     file: string(params, "file").map(PathBuf::from),
                     since: string(params, "since"),
                     until: string(params, "until"),
@@ -265,6 +316,7 @@ pub fn run_with_store(
                 metric: string(params, "metric").as_deref(),
                 category: string(params, "category").as_deref(),
                 source: string(params, "source").as_deref(),
+                account_id: account_id(params).as_deref(),
             },
             number(params, "limit", 100)?,
             number(params, "offset", 0)?,
@@ -314,6 +366,46 @@ mod tests {
             vec!["health-sync", "--vault", "a", "--vault", "b"],
         ] {
             assert!(parse(&args.into_iter().map(str::to_string).collect::<Vec<_>>()).is_err());
+        }
+    }
+
+    #[test]
+    fn history_and_account_flags_validate_before_io_and_match_host_context() {
+        let id = crate::store::hash(b"garmin:china:synthetic");
+        let args = [
+            "health-sync",
+            "--source",
+            "garmin",
+            "--account",
+            &id,
+            "--history",
+            "--since",
+            "2020-01-01",
+            "--until",
+            "2020-01-31",
+        ]
+        .map(str::to_string);
+        let (command, params) = parse(&args).unwrap();
+        assert_eq!(command, "sync");
+        assert!(boolean(&params, "history").unwrap());
+        assert_eq!(account_id(&params).as_deref(), Some(id.as_str()));
+        let context = json!({"cli":{"flags":{"source":"garmin","account":id,"history":true,"since":"2020-01-01","until":"2020-01-31"}}});
+        validate_query("sync", &context).unwrap();
+        for invalid in [
+            json!({"source":"all","account_id":id}),
+            json!({"source":"garmin","history":true,"since":"2020-01-01","until":"2020-01-31"}),
+            json!({"source":"garmin","history":true,"account_id":id,"since":"2020-01-01"}),
+            json!({"source":"garmin","account_id":"../../not-an-account"}),
+        ] {
+            assert!(validate_query("sync", &invalid).is_err());
+        }
+        for invalid in [
+            json!({"account_id":""}),
+            json!({"account_id":42}),
+            json!({"account":{}}),
+            json!({"account_id":id,"account":crate::store::hash(b"other")}),
+        ] {
+            assert!(validate_query("disconnect", &invalid).is_err());
         }
     }
 }

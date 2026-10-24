@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.health-sync",
   "name": "Health Sync",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-health-sync",
@@ -117,6 +117,16 @@
             "long": "--restart",
             "type": "boolean",
             "help": "Restart the requested collection range"
+          },
+          {
+            "long": "--account",
+            "type": "string",
+            "help": "Saved account ID (see health-status)"
+          },
+          {
+            "long": "--history",
+            "type": "boolean",
+            "help": "Import a fixed historical range without changing the current account; requires source, account, since and until"
           }
         ],
         "requires_tab_context": false
@@ -180,6 +190,11 @@
             "long": "--source",
             "type": "string",
             "help": "apple-health, garmin or oura"
+          },
+          {
+            "long": "--account",
+            "type": "string",
+            "help": "Saved account ID (see health-status)"
           }
         ],
         "requires_tab_context": false
@@ -213,6 +228,11 @@
             "long": "--source",
             "type": "string",
             "help": "Provider to disconnect: garmin or oura"
+          },
+          {
+            "long": "--account",
+            "type": "string",
+            "help": "Saved account ID (see health-status)"
           }
         ],
         "requires_tab_context": false

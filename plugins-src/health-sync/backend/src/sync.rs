@@ -18,6 +18,8 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct Options {
     pub source: String,
+    pub account_id: Option<String>,
+    pub history: bool,
     pub file: Option<PathBuf>,
     pub since: Option<String>,
     pub until: Option<String>,
@@ -97,6 +99,21 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
     if opts.file.is_some() && !["all", "apple-health"].contains(&opts.source.as_str()) {
         return Err("--file applies only to all or apple-health sources".into());
     }
+    if opts
+        .account_id
+        .as_ref()
+        .is_some_and(|id| !valid_account_id(id))
+    {
+        return Err("account must be a saved account ID".into());
+    }
+    if (opts.history || opts.account_id.is_some())
+        && !["garmin", "oura"].contains(&opts.source.as_str())
+    {
+        return Err("account/history requires a single Garmin or Oura source".into());
+    }
+    if opts.history && (opts.since.is_none() || opts.until.is_none() || opts.account_id.is_none()) {
+        return Err("History import requires account, since and until".into());
+    }
     let store = Store::new(vault, &default_state_base()?)?;
     if opts.source == "apple-health" {
         return serde_json::to_value(store.sync(opts.file.as_deref(), opts.dry_run, progress)?)
@@ -132,14 +149,25 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
         if opts.source != "all" && opts.source != source {
             continue;
         }
-        if connections[source]["connected"] != true {
+        let selected = selected_account(&connections[source], opts)?;
+        let Some((account_id, generation)) = selected else {
             if opts.source == source {
                 return Err(format!("Connect {source} in the Health Sync window first"));
             }
             continue;
-        }
-        let generation = connections[source]["generation"].as_str().unwrap_or("");
-        match run_provider(&store, vault, source, generation, opts, progress) {
+        };
+        match run_provider(
+            &store,
+            vault,
+            source,
+            &account_id,
+            (
+                &generation,
+                connections[source]["legacy_account_id"].as_str(),
+            ),
+            opts,
+            progress,
+        ) {
             Ok(result) => {
                 pending |= result["pending"] == true;
                 retry_required |= result["retry_required"] == true;
@@ -159,6 +187,83 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
     Ok(
         json!({"complete":errors.is_empty() && warnings.is_empty(),"dry_run":opts.dry_run,"pending":pending,"retry_required":retry_required || !errors.is_empty(),"sources":results,"errors":errors,"warnings":warnings}),
     )
+}
+
+pub fn valid_account_id(id: &str) -> bool {
+    id.len() == 64
+        && id
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+}
+
+fn selected_account(
+    connection: &Value,
+    opts: &Options,
+) -> Result<Option<(String, String)>, String> {
+    let active = connection["active_account_id"].as_str();
+    let id = opts.account_id.as_deref().or(active);
+    if !opts.history && opts.account_id.is_some() && opts.account_id.as_deref() != active {
+        return Err("Current account changed; start sync again".into());
+    }
+    let Some(id) = id else { return Ok(None) };
+    if !valid_account_id(id) {
+        return Err("Invalid saved account ID".into());
+    }
+    let account = connection["accounts"]
+        .as_array()
+        .and_then(|accounts| accounts.iter().find(|a| a["id"] == id))
+        .ok_or("Saved account not found")?;
+    if account["connected"] != true {
+        if opts.account_id.is_some() {
+            return Err("Reconnect the selected account first".into());
+        }
+        return Ok(None);
+    }
+    Ok(Some((
+        id.into(),
+        account["generation"].as_str().unwrap_or("").into(),
+    )))
+}
+
+fn cursor_filename(source: &str, account_id: &str, opts: &Options) -> String {
+    if opts.history {
+        let range = hash(
+            format!(
+                "{}:{}",
+                opts.since.as_deref().unwrap_or(""),
+                opts.until.as_deref().unwrap_or("")
+            )
+            .as_bytes(),
+        );
+        format!("{source}-{account_id}-history-{range}-progress.json")
+    } else {
+        format!("{source}-{account_id}-progress.json")
+    }
+}
+
+fn read_cursor(path: &Path) -> Result<Option<Cursor>, String> {
+    safe(path)?;
+    match fs::read(path) {
+        Ok(v) => serde_json::from_slice(&v)
+            .map(Some)
+            .map_err(|_| "Invalid provider progress state".into()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+fn read_progress(
+    path: &Path,
+    legacy_path: &Path,
+    verified_legacy: bool,
+    generation: &str,
+) -> Result<Option<Cursor>, String> {
+    if let Some(cursor) = read_cursor(path)? {
+        return Ok(Some(cursor));
+    }
+    if verified_legacy {
+        return Ok(read_cursor(legacy_path)?.filter(|c| c.generation == generation));
+    }
+    Ok(None)
 }
 
 /// Resume only a cursor for this range and authorization. Reconnection revisits
@@ -187,7 +292,7 @@ fn plan_window(
         return Err("Provider progress precedes its start date".into());
     }
     // After backfill, rotate through the recent fortnight on subsequent runs.
-    if next > end {
+    if next > end && !opts.history {
         next = end
             .checked_sub_days(Days::new(13))
             .unwrap_or(start_day)
@@ -204,14 +309,15 @@ fn run_provider(
     store: &Store,
     vault: &Path,
     source: &str,
-    generation: &str,
+    account_id: &str,
+    authorization: (&str, Option<&str>),
     opts: &Options,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value, String> {
     let dir = local(vault)?;
     safe(&dir)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let lock_path = dir.join(format!("{source}-fetch.lock"));
+    let lock_path = dir.join(format!("{source}-{account_id}-fetch.lock"));
     safe(&lock_path)?;
     let lock = OpenOptions::new()
         .create(true)
@@ -222,27 +328,38 @@ fn run_provider(
         .map_err(|e| e.to_string())?;
     lock.try_lock_exclusive()
         .map_err(|_| format!("{source} sync is busy; retry later"))?;
-    let path = dir.join(format!("{source}-progress.json"));
-    safe(&path)?;
-    let previous: Option<Cursor> = match fs::read(&path) {
-        Ok(v) => Some(serde_json::from_slice(&v).map_err(|_| "Invalid provider progress state")?),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(e) => return Err(e.to_string()),
-    };
-    let start=opts.since.clone().or_else(||previous.as_ref().map(|c|c.start.clone())).or_else(||store.status().ok().and_then(|v|v["manifest"]["first_day"].as_str().map(str::to_string)))
-        .ok_or("Set --since to the first date to collect (or import Apple Health to establish a start date)")?;
+    let path = dir.join(cursor_filename(source, account_id, opts));
     // Use the credential generation actually selected by the client. A
     // connection can change after the outer status snapshot was read.
     let mut http = if opts.dry_run {
         None
     } else {
-        Some(auth::client(vault, source)?)
+        let client = auth::client_for_account(vault, source, opts.history.then_some(account_id))?;
+        if client.account_id() != account_id {
+            return Err("Current account changed; start sync again".into());
+        }
+        Some(client)
     };
     let generation = http
         .as_ref()
         .map(|client| client.generation())
-        .unwrap_or(generation)
+        .unwrap_or(authorization.0)
         .to_string();
+    let legacy = http
+        .as_ref()
+        .map(|client| client.legacy_account_id())
+        .unwrap_or(authorization.1);
+    let previous = read_progress(
+        &path,
+        &dir.join(format!("{source}-progress.json")),
+        !opts.history && legacy == Some(account_id),
+        &generation,
+    )?;
+    let start = opts
+        .since
+        .clone()
+        .or_else(|| previous.as_ref().map(|c| c.start.clone()))
+        .unwrap_or_else(|| (Local::now().date_naive() - Days::new(13)).to_string());
     let until = opts
         .until
         .clone()
@@ -251,7 +368,7 @@ fn run_provider(
     let (mut next, planned_end) = plan_window(&start, end, previous.as_ref(), &generation, opts)?;
     if opts.dry_run {
         return Ok(
-            json!({"source":source,"complete":true,"dry_run":true,"planned_since":next.to_string(),"planned_until":planned_end.to_string(),"pending":planned_end<end}),
+            json!({"source":source,"account_id":account_id,"history":opts.history,"complete":true,"dry_run":true,"planned_since":(next<=end).then(||next.to_string()),"planned_until":planned_end.to_string(),"pending":next<=end && planned_end<end}),
         );
     }
     let http = http.as_mut().ok_or("Missing provider client")?;
@@ -275,11 +392,13 @@ fn run_provider(
         staged.flush().map_err(|e| e.to_string())?;
         // Linearize the commit with disconnect/reconnect in other processes.
         let _authorization = http.commit_guard()?;
-        let applied = store.apply_provider_with_region(
+        let applied = store.apply_provider_for_account(
             staged.path(),
             &fetched,
             false,
+            account_id,
             http.garmin_region(),
+            http.legacy_account_id(),
             progress,
         )?;
         let failed = fetched.collections.iter().any(|c| c.status == "failed");
@@ -303,7 +422,7 @@ fn run_provider(
         )?;
     }
     Ok(
-        json!({"source":source,"complete":complete,"dry_run":false,"pending":next<=end,"retry_required":retry_required,"next_day":next.to_string(),"requested_until":until,"windows":windows}),
+        json!({"source":source,"account_id":account_id,"history":opts.history,"complete":complete,"dry_run":false,"pending":next<=end,"retry_required":retry_required,"next_day":next.to_string(),"requested_until":until,"windows":windows}),
     )
 }
 
@@ -313,6 +432,8 @@ mod tests {
     fn options() -> Options {
         Options {
             source: "oura".into(),
+            account_id: None,
+            history: false,
             file: None,
             since: None,
             until: None,
@@ -395,5 +516,108 @@ mod tests {
         .unwrap();
         let c: Cursor = serde_json::from_slice(&fs::read(file).unwrap()).unwrap();
         assert_eq!(c.next, "2016-02-01");
+    }
+
+    #[test]
+    fn history_stops_at_end_and_cursors_are_account_and_range_specific() {
+        let a = hash(b"oura:account-a");
+        let b = hash(b"oura:account-b");
+        let mut opts = options();
+        let incremental = cursor_filename("oura", &a, &opts);
+        opts.history = true;
+        opts.since = Some("2020-01-01".into());
+        opts.until = Some("2020-01-31".into());
+        let historical = cursor_filename("oura", &a, &opts);
+        assert_ne!(incremental, historical);
+        assert_ne!(historical, cursor_filename("oura", &b, &opts));
+        let c = cursor("2020-02-01");
+        let (next, end) = plan_window(
+            &c.start,
+            date("2020-01-31").unwrap(),
+            Some(&c),
+            "current",
+            &opts,
+        )
+        .unwrap();
+        assert!(
+            next > end,
+            "completed history must not rotate through recent days"
+        );
+        opts.until = Some("2020-02-01".into());
+        assert_ne!(historical, cursor_filename("oura", &a, &opts));
+        opts.restart = true;
+        assert_eq!(
+            plan_window(
+                &c.start,
+                date("2020-02-01").unwrap(),
+                Some(&c),
+                "current",
+                &opts
+            )
+            .unwrap()
+            .0,
+            date("2020-01-01").unwrap()
+        );
+    }
+
+    #[test]
+    fn history_can_use_saved_noncurrent_account_but_incremental_cannot_switch() {
+        let a = hash(b"garmin:china:1");
+        let b = hash(b"garmin:china:2");
+        let connection = json!({"active_account_id":a,"accounts":[
+            {"id":a,"connected":true,"generation":"a"},
+            {"id":b,"connected":true,"generation":"b"}
+        ]});
+        let mut opts = options();
+        assert_eq!(
+            selected_account(&connection, &opts).unwrap(),
+            Some((a.clone(), "a".into()))
+        );
+        opts.account_id = Some(b.clone());
+        assert!(selected_account(&connection, &opts).is_err());
+        opts.history = true;
+        assert_eq!(
+            selected_account(&connection, &opts).unwrap(),
+            Some((b, "b".into()))
+        );
+        assert_eq!(connection["active_account_id"], a);
+        assert!(!valid_account_id("../../secret"));
+        assert!(!valid_account_id(&"A".repeat(64)));
+    }
+
+    #[test]
+    fn unfinished_legacy_progress_only_resumes_for_verified_original_account() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().canonicalize().unwrap();
+        let legacy = dir.join("garmin-progress.json");
+        let scoped = dir.join("garmin-account-progress.json");
+        save(&legacy, &cursor("2020-02-01")).unwrap();
+        let before = fs::read(&legacy).unwrap();
+        assert_eq!(
+            read_progress(&scoped, &legacy, true, "current")
+                .unwrap()
+                .unwrap()
+                .next,
+            "2020-02-01"
+        );
+        assert!(read_progress(&scoped, &legacy, false, "current")
+            .unwrap()
+            .is_none());
+        assert!(read_progress(&scoped, &legacy, true, "new-grant")
+            .unwrap()
+            .is_none());
+        assert!(
+            !scoped.exists(),
+            "preview must not migrate or advance progress"
+        );
+        save(&scoped, &cursor("2020-03-01")).unwrap();
+        assert_eq!(
+            read_progress(&scoped, &legacy, true, "current")
+                .unwrap()
+                .unwrap()
+                .next,
+            "2020-03-01"
+        );
+        assert_eq!(fs::read(&legacy).unwrap(), before);
     }
 }
