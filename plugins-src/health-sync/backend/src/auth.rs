@@ -2205,7 +2205,7 @@ mod tests {
             .apply_provider(&file, &report, false, &mut |_| {})
             .unwrap();
         // Archives produced before regional support have no region field.
-        let manifest_path = vault.join("health/manifest.json");
+        let manifest_path = vault.join("ssot/health/manifest.json");
         let mut legacy: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
         legacy["sources"]["garmin"]
             .as_object_mut()

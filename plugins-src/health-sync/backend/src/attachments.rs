@@ -3,6 +3,7 @@
 //! clinical documents remain original source evidence rather than inferred facts.
 use crate::{
     catalog::metric_slug,
+    layout::Layout,
     model::HealthRecord,
     source::{inspect_apple_zip, XmlKind, MAX_XML_BYTES},
 };
@@ -23,7 +24,7 @@ pub struct Attachment {
     pub record: HealthRecord,
     /// Absolute path inside the caller's staging directory.
     pub file: PathBuf,
-    /// Vault-relative destination, including the health/ prefix.
+    /// Vault-relative destination, including the archive root.
     pub relative_path: PathBuf,
     pub sha256: String,
 }
@@ -86,7 +87,7 @@ fn classify(name: &str, clinical: bool) -> (&'static str, &'static str, &'static
     (metric, category, mime)
 }
 
-fn destination(name: &str, day: &str, sha256: &str) -> PathBuf {
+fn destination(name: &str, day: &str, sha256: &str, layout: Layout) -> PathBuf {
     let basename = name.rsplit('/').next().unwrap_or(name);
     let (stem, extension) = basename.rsplit_once('.').unwrap_or((basename, "bin"));
     let extension = if !extension.is_empty()
@@ -97,21 +98,45 @@ fn destination(name: &str, day: &str, sha256: &str) -> PathBuf {
     } else {
         "bin".into()
     };
-    PathBuf::from("health")
-        .join("attachments")
-        .join(day)
+    layout
+        .attachments(day)
         .join(format!("{}-{sha256}.{extension}", metric_slug(stem)))
 }
 
 pub fn extract_attachments(input: &Path, staging: &Path) -> Result<Vec<Attachment>, String> {
-    extract_with_limits(input, staging, MAX_ATTACHMENT_BYTES, MAX_TOTAL_BYTES)
+    extract_for_layout(input, staging, Layout::Daily)
 }
 
+pub(crate) fn extract_for_layout(
+    input: &Path,
+    staging: &Path,
+    layout: Layout,
+) -> Result<Vec<Attachment>, String> {
+    extract_with_layout(
+        input,
+        staging,
+        MAX_ATTACHMENT_BYTES,
+        MAX_TOTAL_BYTES,
+        layout,
+    )
+}
+
+#[cfg(test)]
 fn extract_with_limits(
     input: &Path,
     staging: &Path,
     per_file_limit: u64,
     total_limit: u64,
+) -> Result<Vec<Attachment>, String> {
+    extract_with_layout(input, staging, per_file_limit, total_limit, Layout::Daily)
+}
+
+fn extract_with_layout(
+    input: &Path,
+    staging: &Path,
+    per_file_limit: u64,
+    total_limit: u64,
+    layout: Layout,
 ) -> Result<Vec<Attachment>, String> {
     let mut input = File::open(input).map_err(error)?;
     let mut magic = [0u8; 4];
@@ -213,7 +238,7 @@ fn extract_with_limits(
         };
         let basename = name.rsplit('/').next().unwrap_or(&name);
         let day = attachment_day(basename);
-        let relative_path = destination(&name, &day, &sha256);
+        let relative_path = destination(&name, &day, &sha256, layout);
         let (metric, category, mime) = classify(&name, clinical);
         let filename = relative_path
             .iter()
@@ -512,6 +537,7 @@ mod tests {
             &format!("{}..奇怪/{}.🚀", "x".repeat(1000), "z".repeat(1000)),
             "_undated",
             &"f".repeat(64),
+            Layout::Daily,
         );
         let filename = path.file_name().unwrap().to_str().unwrap();
         assert!(filename.is_ascii());

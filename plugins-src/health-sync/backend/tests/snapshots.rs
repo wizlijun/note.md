@@ -104,7 +104,7 @@ fn revisions_removals_and_order_changes_use_snapshot_membership() {
     let new = f.store.manifest().unwrap().unwrap();
     assert_eq!(new.days["2020-01-02"].record_count, 0);
     let old_path = f.vault.join(format!(
-        "health/data/2020-01-01/{}",
+        "ssot/health/2020/2020-01-01/{}",
         old.days["2020-01-01"].shards[0].filename()
     ));
     assert!(old_path.exists());
@@ -112,11 +112,12 @@ fn revisions_removals_and_order_changes_use_snapshot_membership() {
         f.store.query(None, None, None, 100, 0).unwrap()["records"][0]["attributes"]["value"],
         "62"
     );
-    assert!(
-        fs::read_to_string(f.vault.join("health/daily/2020-01-02-health.md"))
-            .unwrap()
-            .contains("记录数：0")
-    );
+    assert!(fs::read_to_string(
+        f.vault
+            .join("ssot/health/2020/2020-01-02/2020-01-02-health.md")
+    )
+    .unwrap()
+    .contains("记录数：0"));
 }
 
 #[test]
@@ -124,7 +125,7 @@ fn dry_run_and_bad_exports_never_activate_or_remember() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     assert!(f.store.import(&f.file, true, &mut |_| {}).unwrap().dry_run);
-    assert!(!f.vault.join("health").exists());
+    assert!(!f.vault.join("ssot/health").exists());
     assert_eq!(f.store.status().unwrap()["source_file"], Value::Null);
     f.import();
     let before = tree(&f.vault);
@@ -138,9 +139,13 @@ fn manual_summaries_survive_and_pending_generation_recovers() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    let summary = f.vault.join("health/daily/2020-01-01-health.md");
+    let summary = f
+        .vault
+        .join("ssot/health/2020/2020-01-01/2020-01-01-health.md");
     fs::write(&summary, "my handwritten note").unwrap();
-    let sidecar = f.vault.join("health/daily/2020-01-01-health.note.md");
+    let sidecar = f
+        .vault
+        .join("ssot/health/2020/2020-01-01/2020-01-01-health.note.md");
     fs::write(&sidecar, "annotation").unwrap();
     f.write(&record("2020-01-01", "65", "Watch"));
     let r = f.import();
@@ -182,7 +187,11 @@ fn unchanged_days_and_sources_stay_separate() {
         f.store.manifest().unwrap().unwrap().days["2020-01-01"].sha256,
         first.days["2020-01-01"].sha256
     );
-    let summary = fs::read_to_string(f.vault.join("health/daily/2020-01-02-health.md")).unwrap();
+    let summary = fs::read_to_string(
+        f.vault
+            .join("ssot/health/2020/2020-01-02/2020-01-02-health.md"),
+    )
+    .unwrap();
     assert!(summary.contains("| Oura |"));
     assert!(summary.contains("| Watch |"));
     let q = f
@@ -230,7 +239,7 @@ fn missing_shards_are_rebuilt_corrupt_shards_fail_closed() {
     f.import();
     let m = f.store.manifest().unwrap().unwrap();
     let path = f.vault.join(format!(
-        "health/data/2020-01-01/{}",
+        "ssot/health/2020/2020-01-01/{}",
         m.days["2020-01-01"].shards[0].filename()
     ));
     fs::remove_file(&path).unwrap();
@@ -249,15 +258,15 @@ fn missing_shards_are_rebuilt_corrupt_shards_fail_closed() {
 fn refuses_unowned_directory_and_symlink_escape() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
-    fs::create_dir(f.vault.join("health")).unwrap();
-    fs::write(f.vault.join("health/existing.md"), "mine").unwrap();
+    fs::create_dir_all(f.vault.join("ssot/health")).unwrap();
+    fs::write(f.vault.join("ssot/health/existing.md"), "mine").unwrap();
     assert!(f
         .store
         .import(&f.file, false, &mut |_| {})
         .unwrap_err()
         .contains("already contains"));
     assert_eq!(
-        fs::read_to_string(f.vault.join("health/existing.md")).unwrap(),
+        fs::read_to_string(f.vault.join("ssot/health/existing.md")).unwrap(),
         "mine"
     );
     #[cfg(unix)]
@@ -266,7 +275,8 @@ fn refuses_unowned_directory_and_symlink_escape() {
         f.write(&record("2020-01-01", "60", "Watch"));
         let outside = f.root.path().join("outside");
         fs::create_dir(&outside).unwrap();
-        std::os::unix::fs::symlink(&outside, f.vault.join("health")).unwrap();
+        fs::create_dir(f.vault.join("ssot")).unwrap();
+        std::os::unix::fs::symlink(&outside, f.vault.join("ssot/health")).unwrap();
         assert!(f
             .store
             .import(&f.file, false, &mut |_| {})
@@ -288,7 +298,7 @@ fn host_command_context_calls_same_engine() {
     )
     .unwrap();
     assert_eq!(result["dry_run"], true);
-    assert!(!f.vault.join("health").exists());
+    assert!(!f.vault.join("ssot/health").exists());
 }
 
 #[test]
@@ -296,13 +306,13 @@ fn failed_shard_publication_leaves_previous_manifest_active() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    let manifest = fs::read(f.vault.join("health/manifest.json")).unwrap();
-    let blocker = f.vault.join("health/data/2020-01-02");
+    let manifest = fs::read(f.vault.join("ssot/health/manifest.json")).unwrap();
+    let blocker = f.vault.join("ssot/health/2020/2020-01-02");
     fs::write(&blocker, "unrelated file").unwrap();
     f.write(&(record("2020-01-01", "65", "Watch") + &record("2020-01-02", "70", "Watch")));
     assert!(f.store.import(&f.file, false, &mut |_| {}).is_err());
     assert_eq!(
-        fs::read(f.vault.join("health/manifest.json")).unwrap(),
+        fs::read(f.vault.join("ssot/health/manifest.json")).unwrap(),
         manifest
     );
     assert_eq!(
@@ -340,7 +350,7 @@ fn equivalent_zip_reuses_xml_shards_and_empty_snapshot_retires_days() {
     assert_eq!(r.changed_days, 0);
     let after = tree(&f.vault);
     for (p, value) in before {
-        if p != Path::new("health/manifest.json") {
+        if p != Path::new("ssot/health/manifest.json") {
             assert_eq!(after.get(&p), Some(&value));
         }
     }
@@ -431,6 +441,15 @@ fn one_daily_ssot_preserves_apple_and_both_provider_memberships() {
     assert_eq!(m.record_count, 3);
     assert_eq!(m.days.len(), 1);
     assert_eq!(m.days["2020-01-01"].shards.len(), 3);
+    for shard in &m.days["2020-01-01"].shards {
+        assert!(f
+            .vault
+            .join("ssot/health/2020/2020-01-01")
+            .join(shard.filename())
+            .exists());
+    }
+    assert!(!f.vault.join("health").exists());
+    assert!(!f.vault.join("ssot/health/data").exists());
     let oura = m.days["2020-01-01"]
         .shards
         .iter()
@@ -442,10 +461,22 @@ fn one_daily_ssot_preserves_apple_and_both_provider_memberships() {
         .filename()
         .contains(&format!("-{}-", &slug[slug.len() - 12..])));
     assert_eq!(
-        fs::read_dir(f.vault.join("health/daily")).unwrap().count(),
+        fs::read_dir(f.vault.join("ssot/health/2020/2020-01-01"))
+            .unwrap()
+            .filter(|entry| entry
+                .as_ref()
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|ext| ext == "md"))
+            .count(),
         1
     );
-    let text = fs::read_to_string(f.vault.join("health/daily/2020-01-01-health.md")).unwrap();
+    let text = fs::read_to_string(
+        f.vault
+            .join("ssot/health/2020/2020-01-01/2020-01-01-health.md"),
+    )
+    .unwrap();
     assert!(text.contains("oura.daily_sleep"));
     assert!(text.contains("garmin.hrv"));
     assert!(!text.contains("987654"));
@@ -674,7 +705,7 @@ fn provider_invalid_window_source_or_count_cannot_activate_and_dry_run_is_read_o
         true,
     )
     .unwrap();
-    assert!(!f.vault.join("health").exists());
+    assert!(!f.vault.join("ssot/health").exists());
     for (source, since, until) in [
         ("garmin", "2020-01-01", "2020-01-01"),
         ("oura", "2020-01-02", "2020-01-02"),
@@ -690,7 +721,7 @@ fn provider_invalid_window_source_or_count_cannot_activate_and_dry_run_is_read_o
             false
         )
         .is_err());
-        assert!(!f.vault.join("health").exists());
+        assert!(!f.vault.join("ssot/health").exists());
     }
     let file = f.root.path().join("empty.jsonl");
     fs::write(&file, "").unwrap();
@@ -709,7 +740,7 @@ fn provider_invalid_window_source_or_count_cannot_activate_and_dry_run_is_read_o
         .store
         .apply_provider(&file, &report, false, &mut |_| {})
         .is_err());
-    assert!(!f.vault.join("health").exists());
+    assert!(!f.vault.join("ssot/health").exists());
 }
 
 #[test]
@@ -1010,7 +1041,7 @@ fn provider_bad_attachment_or_publication_failure_keeps_previous_manifest() {
     let f = Fixture::new();
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
-    let before = fs::read(f.vault.join("health/manifest.json")).unwrap();
+    let before = fs::read(f.vault.join("ssot/health/manifest.json")).unwrap();
     let mut raw = supplement("garmin", "activity_files", "2020-01-01", 0);
     raw.data = json!({"filename":"a.zip","content_base64":"invalid base64!"});
     assert!(apply(
@@ -1024,12 +1055,16 @@ fn provider_bad_attachment_or_publication_failure_keeps_previous_manifest() {
     )
     .is_err());
     assert_eq!(
-        fs::read(f.vault.join("health/manifest.json")).unwrap(),
+        fs::read(f.vault.join("ssot/health/manifest.json")).unwrap(),
         before
     );
     raw.data["content_base64"] =
         json!(base64::engine::general_purpose::STANDARD.encode(b"original bytes"));
-    fs::write(f.vault.join("health/attachments"), "blocking file").unwrap();
+    fs::write(
+        f.vault.join("ssot/health/2020/2020-01-01/attachments"),
+        "blocking file",
+    )
+    .unwrap();
     assert!(apply(
         &f,
         "garmin",
@@ -1041,7 +1076,7 @@ fn provider_bad_attachment_or_publication_failure_keeps_previous_manifest() {
     )
     .is_err());
     assert_eq!(
-        fs::read(f.vault.join("health/manifest.json")).unwrap(),
+        fs::read(f.vault.join("ssot/health/manifest.json")).unwrap(),
         before
     );
     assert_eq!(
@@ -1275,7 +1310,7 @@ fn million_record_schema2_benchmark() {
     let manifest = f.store.manifest().unwrap().unwrap();
     assert_eq!(manifest.schema_version, 2);
     assert_eq!(manifest.day_count, 3650);
-    let manifest_bytes = fs::metadata(f.vault.join("health/manifest.json"))
+    let manifest_bytes = fs::metadata(f.vault.join("ssot/health/manifest.json"))
         .unwrap()
         .len();
     let root = f.root.keep();
@@ -1283,4 +1318,67 @@ fn million_record_schema2_benchmark() {
         "BENCH_RESULT {}",
         json!({"import_seconds":seconds,"record_count":report.record_count,"day_count":manifest.day_count,"manifest_bytes":manifest_bytes,"root":root})
     );
+}
+
+#[test]
+fn default_archive_uses_year_day_directories_and_preserves_legacy_orphans() {
+    let f = Fixture::new();
+    // An old directory alone is not an active archive and must not be reused.
+    fs::create_dir_all(f.vault.join("health/data/2020-01-01")).unwrap();
+    let orphan = f.vault.join("health/data/2020-01-01/orphan.jsonl");
+    fs::write(&orphan, "unowned old bytes").unwrap();
+    let before = tree(&f.vault.join("health"));
+    let store = Store::new(&f.vault, &f.state).unwrap();
+    f.write(&(record("2020-12-31", "60", "Watch") + &record("2021-01-01", "61", "Watch")));
+    store.import(&f.file, false, &mut |_| {}).unwrap();
+    let manifest = store.manifest().unwrap().unwrap();
+    for (day, entry) in &manifest.days {
+        let directory = f.vault.join("ssot/health").join(&day[..4]).join(day);
+        let summary = fs::read_to_string(directory.join(format!("{day}-health.md"))).unwrap();
+        for shard in &entry.shards {
+            assert_eq!(
+                hash(&fs::read(directory.join(shard.filename())).unwrap()),
+                shard.sha256
+            );
+            assert!(summary.contains(&format!("[JSONL]({})", shard.filename())));
+        }
+    }
+    assert!(!f.vault.join("ssot/health/data").exists());
+    assert!(!f.vault.join("ssot/health/daily").exists());
+    assert_eq!(tree(&f.vault.join("health")), before);
+    let current = tree(&f.vault);
+    assert!(
+        !store
+            .import(&f.file, false, &mut |_| {})
+            .unwrap()
+            .data_changed
+    );
+    assert_eq!(tree(&f.vault), current);
+    let reopened = Store::new(&f.vault, &f.state).unwrap();
+    assert_eq!(
+        reopened.query(None, None, None, 100, 0).unwrap()["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn two_active_archive_roots_are_rejected_without_modifying_either() {
+    let f = Fixture::new();
+    f.write(&record("2020-01-01", "60", "Watch"));
+    f.import();
+    fs::create_dir(f.vault.join("health")).unwrap();
+    fs::copy(
+        f.vault.join("ssot/health/manifest.json"),
+        f.vault.join("health/manifest.json"),
+    )
+    .unwrap();
+    let before = tree(&f.vault);
+    assert!(Store::new(&f.vault, &f.state)
+        .err()
+        .unwrap()
+        .contains("Both ssot/health/manifest.json"));
+    assert_eq!(tree(&f.vault), before);
 }

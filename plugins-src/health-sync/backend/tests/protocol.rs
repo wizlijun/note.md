@@ -198,8 +198,28 @@ fn garmin_zip_command_preview_and_ui_import_share_identity_payload_and_saved_arc
         1
     );
     let manifest: Value =
-        serde_json::from_slice(&fs::read(vault.join("health/manifest.json")).unwrap()).unwrap();
+        serde_json::from_slice(&fs::read(vault.join("ssot/health/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["schema_version"], 3);
+    let active: notemd_health_sync::store::Manifest =
+        serde_json::from_value(manifest.clone()).unwrap();
+    for (day, entry) in &active.days {
+        let directory = if day == "_undated" {
+            vault.join("ssot/health/_undated")
+        } else {
+            vault.join("ssot/health").join(&day[..4]).join(day)
+        };
+        assert!(directory.join(format!("{day}-health.md")).exists());
+        for shard in &entry.shards {
+            assert!(directory.join(shard.filename()).exists());
+        }
+    }
+    assert!(active
+        .attachments
+        .keys()
+        .all(|path| path.starts_with("ssot/health/_undated/attachments/")));
+    assert!(!vault.join("health").exists());
+    assert!(!vault.join("ssot/health/data").exists());
     assert_eq!(
         manifest["sources"]["garmin"]["accounts"][&account]["garmin_region"],
         "china"
@@ -328,7 +348,11 @@ fn cli_has_nonzero_validation_and_partial_completion_exit_codes() {
         .unwrap()
         .status
         .success());
-    fs::write(vault.join("health/daily/2026-10-01-health.md"), "human").unwrap();
+    fs::write(
+        vault.join("ssot/health/2026/2026-10-01/2026-10-01-health.md"),
+        "human",
+    )
+    .unwrap();
     let partial = binary()
         .env("NOTEMD_HEALTH_STATE_DIR", fixture_root.join("state"))
         .arg("health-sync")
@@ -380,7 +404,7 @@ fn explicit_file_sync_previews_before_first_import_and_preserves_remembered_sour
             "{}",
             String::from_utf8_lossy(&result.stdout)
         );
-        assert!(!vault.join("health/manifest.json").exists());
+        assert!(!vault.join("ssot/health/manifest.json").exists());
         let status: Value = serde_json::from_slice(&run(&["health-status"]).stdout).unwrap();
         assert!(status["data"]["source_file"].is_null());
     }
@@ -393,7 +417,7 @@ fn explicit_file_sync_previews_before_first_import_and_preserves_remembered_sour
     ])
     .status
     .success());
-    let before = fs::read(vault.join("health/manifest.json")).unwrap();
+    let before = fs::read(vault.join("ssot/health/manifest.json")).unwrap();
     let replacement = fixture.join("new.xml");
     fs::write(
         &replacement,
@@ -411,7 +435,7 @@ fn explicit_file_sync_previews_before_first_import_and_preserves_remembered_sour
     .status
     .success());
     assert_eq!(
-        fs::read(vault.join("health/manifest.json")).unwrap(),
+        fs::read(vault.join("ssot/health/manifest.json")).unwrap(),
         before
     );
     let status: Value = serde_json::from_slice(&run(&["health-status"]).stdout).unwrap();

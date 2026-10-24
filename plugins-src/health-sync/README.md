@@ -54,14 +54,16 @@ notemd health-garmin-import "/path/to/garmin-export.zip" --region china --vault 
 分类包括睡眠、心脏、活动、生命体征、身体测量、营养、正念与压力、行动能力、听力、生殖健康、用药、临床、环境、元数据和其他。分类由原始类型推导，未知类型仍保留并可查询；分类不表示跨来源指标在医学上等价。
 
 ```text
-health/
+ssot/health/
   manifest.json
-  data/2026-10-24/apple-health-heart-rate-<metric-hash>-<content-hash>.jsonl
-  data/2026-10-24/oura-sleep-<metric-hash>-<content-hash>.jsonl
-  daily/2026-10-24-health.md
-  attachments/2026-10-24/<readable-slug>-<sha256>.<ext>
+  2026/2026-10-24/apple-health-heart-rate-<metric-hash>-<content-hash>.jsonl
+  2026/2026-10-24/oura-sleep-<metric-hash>-<content-hash>.jsonl
+  2026/2026-10-24/2026-10-24-health.md
+  2026/2026-10-24/attachments/<readable-slug>-<sha256>.<ext>
+  _undated/<source>-<metric>-<hash>.jsonl
 ```
 
+- 新归档默认采用上述目录，不创建 `data/` 层。已有 `health/manifest.json` 的旧归档保持原路径读写，不自动搬动数据；旧目录中只有孤儿文件、没有清单时会新建 `ssot/health/` 并保留旧文件。若新旧两处都有清单，插件拒绝操作，避免隐藏任一归档。
 - `manifest.json` 是唯一有效清单：每天下统一列出三源分片、摘要和覆盖情况。查询只读当前成员；旧不可变分片留作历史，不自动清理。
 - 文件名为可读 slug 加摘要，避免不同原始指标规范化后撞名。无日期的个人资料/配置进入 `_undated`，不虚构测量日期。
 - Apple 保留原始属性、嵌套节点、设备/应用及时间偏移。ZIP 内除主 XML 外的附件原字节保存；归档不会把 XML 重新保存为逐字节副本，请保留原始导出。

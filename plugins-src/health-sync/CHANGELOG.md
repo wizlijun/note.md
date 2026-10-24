@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 新健康归档默认写入 `ssot/health/YYYY/YYYY-MM-DD/`，移除 `data/` 层；摘要和附件按日期组织，已有旧归档继续沿原路径读写。
+- Store new archives under `ssot/health/YYYY/YYYY-MM-DD/` without a `data/` layer; organize summaries and attachments by date and preserve existing legacy archive paths.
 - 所有导入、预览和同步持续超过 3 秒时显示不定进度条及当前批次提示；跨批次持续显示，结束或失败后自动收起。
 - Show an indeterminate progress bar for all imports, previews and syncs lasting over 3 seconds; keep it visible across batches and clear it on completion or failure.
 

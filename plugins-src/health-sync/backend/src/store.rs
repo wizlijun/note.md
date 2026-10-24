@@ -2,9 +2,10 @@
 //! Immutable shards precede the atomic manifest;
 //! generated Markdown is recoverable and never the source of truth.
 use crate::{
-    attachments::{extract_attachments, Attachment},
+    attachments::{extract_for_layout, Attachment},
     auth::GarminRegion,
     catalog,
+    layout::Layout,
     model::HealthRecord,
     providers::{FetchReport, ProviderRecord},
     source::parse_export,
@@ -158,6 +159,7 @@ pub struct ExportAttachment {
 pub struct Store {
     vault: PathBuf,
     local: PathBuf,
+    layout: Layout,
 }
 
 #[derive(Default)]
@@ -253,15 +255,28 @@ pub fn valid_day(value: &str) -> bool {
 fn valid_source(source: &str) -> bool {
     matches!(source, "apple-health" | "garmin" | "oura")
 }
-fn valid_attachment_path(value: &str) -> bool {
+fn attachment_path_parts(value: &str) -> Option<(&str, &str)> {
     let parts: Vec<_> = value.split('/').collect();
-    parts.len() == 4
-        && parts[0] == "health"
-        && parts[1] == "attachments"
-        && (valid_day(parts[2]) || parts[2] == "_undated")
-        && !parts[3].is_empty()
-        && !parts[3].starts_with('.')
-        && parts[3]
+    let (day, filename) = match parts.as_slice() {
+        ["health", "attachments", day, filename] => (*day, *filename),
+        ["ssot", "health", year, day, "attachments", filename]
+            if valid_day(day) && *year == &day[..4] =>
+        {
+            (*day, *filename)
+        }
+        ["ssot", "health", "_undated", "attachments", filename] => ("_undated", *filename),
+        _ => return None,
+    };
+    Some((day, filename))
+}
+fn valid_attachment_path(value: &str) -> bool {
+    let Some((day, filename)) = attachment_path_parts(value) else {
+        return false;
+    };
+    (valid_day(day) || day == "_undated")
+        && !filename.is_empty()
+        && !filename.starts_with('.')
+        && filename
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.'))
 }
@@ -329,6 +344,7 @@ fn stage_provider_attachment(
     record: &mut ProviderRecord,
     staging: &Path,
     account_id: Option<&str>,
+    layout: Layout,
 ) -> Result<Option<(PathBuf, PathBuf, String)>> {
     let Some(encoded) = record.data.get("content_base64") else {
         return Ok(None);
@@ -383,18 +399,16 @@ fn stage_provider_attachment(
     temp.flush().map_err(err)?;
     let sha256 = format!("{:x}", digest.finalize());
     let short_name: String = catalog::metric_slug(stem).chars().take(40).collect();
-    let relative = PathBuf::from("health/attachments")
-        .join(&record.day)
-        .join(format!(
-            "{}-{}-{}-{}.{}",
-            account_id
-                .map(|id| format!("{}-{id}", record.source))
-                .unwrap_or_else(|| record.source.clone()),
-            catalog::metric_slug(&record.collection),
-            short_name.trim_end_matches('-'),
-            sha256,
-            extension
-        ));
+    let relative = layout.attachments(&record.day).join(format!(
+        "{}-{}-{}-{}.{}",
+        account_id
+            .map(|id| format!("{}-{id}", record.source))
+            .unwrap_or_else(|| record.source.clone()),
+        catalog::metric_slug(&record.collection),
+        short_name.trim_end_matches('-'),
+        sha256,
+        extension
+    ));
     let data = record
         .data
         .as_object_mut()
@@ -414,6 +428,7 @@ fn stage_export_attachment(
     root: &Path,
     staging: &Path,
     account_id: &str,
+    layout: Layout,
 ) -> Result<(PathBuf, PathBuf, String)> {
     if !valid_hash(&attachment.sha256) {
         return Err("Invalid Garmin export attachment checksum".into());
@@ -452,12 +467,10 @@ fn stage_export_attachment(
         })
         .unwrap_or("bin")
         .to_ascii_lowercase();
-    let relative = PathBuf::from("health/attachments")
-        .join(&record.day)
-        .join(format!(
-            "garmin-{account_id}-{}-{checksum}.{extension}",
-            catalog::metric_slug(&record.collection)
-        ));
+    let relative = layout.attachments(&record.day).join(format!(
+        "garmin-{account_id}-{}-{checksum}.{extension}",
+        catalog::metric_slug(&record.collection)
+    ));
     let payload = record
         .data
         .as_object_mut()
@@ -543,17 +556,40 @@ impl Store {
             .canonicalize()
             .unwrap_or_else(|_| state_base.to_path_buf());
         let local = base.join(hash(vault.to_string_lossy().as_bytes()));
-        Ok(Self { vault, local })
+        let current = vault.join(Layout::Daily.root()).join("manifest.json");
+        let legacy = vault.join(Layout::Legacy.root()).join("manifest.json");
+        safe_path(&current)?;
+        let legacy_exists = match fs::symlink_metadata(&legacy) {
+            Ok(_) => true,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+            Err(e) => return Err(err(e)),
+        };
+        if legacy_exists {
+            safe_path(&legacy)?;
+        }
+        if current.exists() && legacy_exists {
+            return Err("Both ssot/health/manifest.json and health/manifest.json exist; consolidate the archives before importing".into());
+        }
+        let layout = if legacy_exists {
+            Layout::Legacy
+        } else {
+            Layout::Daily
+        };
+        Ok(Self {
+            vault,
+            local,
+            layout,
+        })
     }
 
     fn health(&self) -> PathBuf {
-        self.vault.join("health")
+        self.vault.join(self.layout.root())
     }
     fn summary_path(&self, day: &str) -> PathBuf {
-        self.health().join("daily").join(format!("{day}-health.md"))
+        self.vault.join(self.layout.summary(day))
     }
     fn shard_path(&self, day: &str, entry: &Shard) -> PathBuf {
-        self.health().join("data").join(day).join(entry.filename())
+        self.vault.join(self.layout.day(day)).join(entry.filename())
     }
 
     fn lock(&self) -> Result<File> {
@@ -831,7 +867,7 @@ impl Store {
                 Ok(())
             })?;
             progress("Preserving original Apple Health attachments");
-            attachments = extract_attachments(snapshot.path(), staging.path())?;
+            attachments = extract_for_layout(snapshot.path(), staging.path(), self.layout)?;
             for attachment in &attachments {
                 touched.insert(attachment.record.day.clone());
                 stage_record(&mut insert, &attachment.record)?;
@@ -1139,7 +1175,12 @@ impl Store {
                     .entry((provider.collection.clone(), provider.day.clone()))
                     .or_default() += 1;
                 touched.insert(provider.day.clone());
-                let bytes = stage_provider_attachment(&mut provider, staging.path(), account_id)?;
+                let bytes = stage_provider_attachment(
+                    &mut provider,
+                    staging.path(),
+                    account_id,
+                    self.layout,
+                )?;
                 let mut attributes =
                     BTreeMap::from([("sourceName".into(), provider.source.clone())]);
                 if let Some(id) = account_id {
@@ -1236,7 +1277,9 @@ impl Store {
         let mut manifest = old.clone().unwrap_or_else(empty_manifest);
         manifest.days = days;
         manifest.attachments.retain(|path, attachment| {
-            let day = path.split('/').nth(2).unwrap_or("");
+            let day = attachment_path_parts(path)
+                .map(|(day, _)| day)
+                .unwrap_or("");
             let in_window =
                 day == "_undated" || (day >= report.since.as_str() && day <= report.until.as_str());
             !(attachment.source == report.source
@@ -1470,6 +1513,7 @@ impl Store {
                         attachment_root,
                         staging.path(),
                         account_id,
+                        self.layout,
                     )?)
                 } else {
                     None
@@ -1658,7 +1702,7 @@ impl Store {
             let marker = self.health().join(".health-sync-v2");
             safe_path(&marker)?;
             if fs::read(&marker).ok().as_deref() != Some(b"notemd.health-sync\n") {
-                return Err("health/ already contains files without a Health Sync manifest; choose a different vault or move that directory".into());
+                return Err(format!("{}/ already contains files without a Health Sync manifest; choose a different vault or move that directory", self.layout.root().display()));
             }
         }
         Ok(())
@@ -1823,7 +1867,7 @@ impl Store {
                 built.shards.push(self.finish_shard(shard, dry_run)?);
             }
             let sha256 = shard_digest(&built.shards)?;
-            let summary = render_summary(&built);
+            let summary = render_summary(&built, self.layout);
             let summary_sha256 = hash(summary.as_bytes());
             let previous = old.as_ref().and_then(|m| m.days.get(day));
             if let Some(previous) =
@@ -1959,7 +2003,7 @@ impl Store {
                 Ok(())
             })();
             if let Err(e) = result {
-                conflicts.push(format!("health/daily/{day}-health.md: {e}"));
+                conflicts.push(format!("{}: {e}", self.layout.summary(day).display()));
             }
         }
         conflicts
@@ -2238,7 +2282,7 @@ fn cell(value: &str) -> String {
         .replace(['\r', '\n'], " ")
         .replace('\u{0060}', "&#96;")
 }
-fn render_summary(day: &DayBuilder) -> String {
+fn render_summary(day: &DayBuilder, layout: Layout) -> String {
     let mut s = format!("# 健康档案 · {}\n\n当前有效记录数：{}。本日只有一份有效清单，Apple Health 为综合主档案，Garmin/Oura 为来源明确的补充；不猜测跨源关联，不跨来源或设备累加。\n\nApple 日期取原始 startDate（其次 dateComponents / creationDate），保留来源时区；跨日样本完整归起始日。补充记录采用厂商提供的日期，无日期元数据归入 _undated。\n\n此文件由 Health Sync 生成；个人批注请写入同名 .note.md 文件。\n", day.day, day.count);
     if day.count == 0 {
         s.push_str("\n当前快照已无该日期记录；历史原始分片仍保留。\n");
@@ -2247,13 +2291,12 @@ fn render_summary(day: &DayBuilder) -> String {
     s.push_str("\n## 分类与原始记录\n\n| 分类 | 采集来源 | 指标/集合 | 记录数 | 原始数据 |\n| --- | --- | --- | ---: | --- |\n");
     for shard in &day.shards {
         s.push_str(&format!(
-            "| {} | {} | {} | {} | [JSONL](../data/{}/{}) |\n",
+            "| {} | {} | {} | {} | [JSONL]({}) |\n",
             cell(&shard.category),
             cell(&shard.source),
             cell(&shard.metric),
             shard.record_count,
-            day.day,
-            shard.filename()
+            layout.shard_link(&day.day, &shard.filename())
         ));
     }
     if !day.accounts.is_empty() {
@@ -2861,5 +2904,123 @@ mod account_tests {
             .attachments
             .values()
             .any(|a| a.sha256 == hash(b"updated")));
+    }
+    #[test]
+    fn existing_legacy_archive_keeps_paths_queries_and_idempotent_imports() {
+        let mut f = Fixture::new();
+        // Produce a schema-compatible pre-change archive with the legacy writer.
+        f.store.layout = Layout::Legacy;
+        let source = f.temp.path().join("export.xml");
+        let xml = |day: &str| {
+            format!("<HealthData><ExportDate value='2026-10-24 12:00:00 +0800'/><Record type='HKQuantityTypeIdentifierHeartRate' startDate='{day} 12:00:00 +0800' value='60'/></HealthData>")
+        };
+        fs::write(&source, xml("2020-01-01")).unwrap();
+        f.store.import(&source, false, &mut |_| {}).unwrap();
+        let account = hash(b"legacy-path-test");
+        let mut file = row("activity_files", "2020-01-01", 0);
+        file.data = json!({"content_base64":"c2FtZS1ieXRlcw==","filename":"activity.zip"});
+        f.apply(
+            &account,
+            &[file],
+            &report("2020-01-01", &[("activity_files", "complete", 1)]),
+        );
+        let manifest_path = f.store.vault.join("health/manifest.json");
+        let before = fs::read(&manifest_path).unwrap();
+        let before_mtime = fs::metadata(&manifest_path).unwrap().modified().unwrap();
+        let reopened = Store::new(&f.store.vault, &f.temp.path().join("state")).unwrap();
+        assert!(matches!(reopened.layout, Layout::Legacy));
+        assert_eq!(
+            reopened.query(None, None, None, 100, 0).unwrap()["records"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            !reopened
+                .import(&source, false, &mut |_| {})
+                .unwrap()
+                .data_changed
+        );
+        assert_eq!(fs::read(&manifest_path).unwrap(), before);
+        assert_eq!(
+            fs::metadata(&manifest_path).unwrap().modified().unwrap(),
+            before_mtime
+        );
+        fs::write(&source, xml("2021-01-02")).unwrap();
+        assert!(
+            reopened
+                .import(&source, false, &mut |_| {})
+                .unwrap()
+                .complete
+        );
+        let manifest = reopened.manifest().unwrap().unwrap();
+        let new_shard = &manifest.days["2021-01-02"].shards[0];
+        assert!(reopened
+            .vault
+            .join("health/data/2021-01-02")
+            .join(new_shard.filename())
+            .exists());
+        let summary =
+            fs::read_to_string(reopened.vault.join("health/daily/2021-01-02-health.md")).unwrap();
+        assert!(summary.contains(&format!(
+            "[JSONL](../data/2021-01-02/{})",
+            new_shard.filename()
+        )));
+        for path in manifest.attachments.keys() {
+            assert!(path.starts_with("health/attachments/2020-01-01/"));
+            assert!(reopened.vault.join(path).exists());
+        }
+        assert!(!reopened.vault.join("ssot").exists());
+        f.store = reopened;
+        let apple_zip = f.temp.path().join("localized.zip");
+        let mut zip = zip::ZipWriter::new(File::create(&apple_zip).unwrap());
+        zip.start_file("导出.xml", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(&fs::read(&source).unwrap()).unwrap();
+        zip.start_file(
+            "ecg_2021-01-02.csv",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        zip.write_all(b"original ECG").unwrap();
+        zip.finish().unwrap();
+        assert!(
+            f.store
+                .import(&apple_zip, false, &mut |_| {})
+                .unwrap()
+                .complete
+        );
+        let export = row("export_files", "_undated", 1);
+        let files = BTreeMap::from([(
+            (export.collection.clone(), export.id.clone().unwrap()),
+            f.export_file("history.fit", b"original FIT"),
+        )]);
+        assert!(
+            f.export(&account, &[export], &files, false)
+                .unwrap()
+                .complete
+        );
+        let manifest = f.store.manifest().unwrap().unwrap();
+        assert_eq!(manifest.attachments.len(), 3);
+        assert!(manifest
+            .attachments
+            .keys()
+            .all(|path| path.starts_with("health/attachments/")));
+        assert!(manifest
+            .attachments
+            .keys()
+            .any(|path| path.starts_with("health/attachments/2021-01-02/")));
+        assert!(manifest
+            .attachments
+            .keys()
+            .any(|path| path.starts_with("health/attachments/_undated/")));
+        for (path, attachment) in &manifest.attachments {
+            assert_eq!(
+                hash(&fs::read(f.store.vault.join(path)).unwrap()),
+                attachment.sha256
+            );
+        }
+        assert!(!f.store.vault.join("ssot").exists());
     }
 }
