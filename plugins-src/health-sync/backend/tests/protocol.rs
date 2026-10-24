@@ -10,6 +10,40 @@ fn binary() -> Command {
 }
 
 #[test]
+fn standalone_credentials_stdin_passes_region_to_validation_before_network() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    fs::create_dir(root.join("vault")).unwrap();
+    let mut child = binary()
+        .env("NOTEMD_HEALTH_STATE_DIR", root.join("state"))
+        .args([
+            "connect",
+            "--source",
+            "garmin",
+            "--credentials-stdin",
+            "--vault",
+        ])
+        .arg(root.join("vault"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(br#"{"api_key":"synthetic","region":"invalid-region","label":"Old watch"}"#)
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(response["error"].as_str().unwrap().contains("region"));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("synthetic"));
+    assert!(fs::read_dir(root.join("vault")).unwrap().next().is_none());
+}
+
+#[test]
 fn manifest_passes_real_host_contract() {
     use notemd_plugin_sdk::plugin_protocol::{validate_manifest, ManifestV2};
     let manifest: ManifestV2 =
