@@ -114,7 +114,7 @@ it.each([
     target!.dispatchEvent(event); await tick()
     expect(event.defaultPrevented).toBe(true)
     const labels = [...document.querySelectorAll('.ctx-menu .ctx-label')].map(el => el.textContent)
-    expect(labels).toEqual(['Copy File Name', 'Copy Absolute Path', ...(image ? ['Copy Image'] : []), 'Save File As…'])
+    expect(labels).toEqual(['Copy as Pathname', ...(image ? ['Copy Image'] : []), 'Save As…'])
     expect(document.querySelector('.ctx-menu.menu-panel')).toBeTruthy()
     expect(f.owner.snapshot().raw).toBe(raw)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await tick()

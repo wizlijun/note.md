@@ -87,7 +87,6 @@ export function createResourceActions(resource: RichResource, context: LocalReso
 
   function canRun(id: string): boolean {
     switch (id) {
-      case 'copyFileName': return !!src
       case 'copyFilePath': return candidates.length > 0
       case 'copyResourceLink': return !!src
       case 'saveResourceAs': return candidates.length > 0 || remote || embedded
@@ -102,7 +101,6 @@ export function createResourceActions(resource: RichResource, context: LocalReso
       if (!canRun(id)) return
       try {
         switch (id) {
-          case 'copyFileName': await writeText(resourceName(src)); return
           case 'copyResourceLink': await writeText(src); return
           case 'copyFilePath': await writeText(await localPath()); return
           case 'copyImage': await copyImageToClipboard(resource.image!); return

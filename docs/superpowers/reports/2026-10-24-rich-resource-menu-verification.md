@@ -24,3 +24,12 @@ Local repeatable browser fixture, screenshots and detailed logs: `tasks/rich-res
 ## Boundaries
 
 Native clipboard, save dialog, file read/write and HTTP boundaries were simulated in frontend verification; no OS clipboard or save-dialog acceptance is claimed. Rust was not rebuilt and native plugin WebViews were not launched for this one-line JS template addition. Public share pages retain their browser-capability menu behavior and do not import desktop file APIs. No installation, release or push was performed. Parallel Health Sync edits and pre-existing untracked files were excluded from this change.
+
+
+## Naming follow-up requested by the user
+
+Removed the basename-only action and all four translation keys. The remaining path action is labeled “复制文件名” in Chinese and still copies the complete absolute path. English uses “Copy as Pathname”, “Copy Image”, “Copy Link” and “Save As…”. Save suggestions still derive the original basename; this is independent of the removed copy action.
+
+Apple's [Finder documentation](https://support.apple.com/en-euro/guide/mac-help/mchlp1774/27/mac/27) uses “Copy ‘folder’ as Pathname”; our compact label follows that terminology without interpolating the name. The [Menus HIG](https://developer.apple.com/design/human-interface-guidelines/menus) recommends title-style capitalization and an ellipsis when more information is needed. The save action needs a destination; copy actions execute immediately. The custom Chinese label is explicitly the user's preference, not a claim to reproduce Finder's Chinese label.
+
+Follow-up validation: 9 test files / 91 tests passed, type checking 0 errors / 31 existing warnings. Real Chrome repeated the resource operations and verified exactly three English image-menu rows: Copy as Pathname, Copy Image, Save As…. Chinese “复制文件名” copied full image/attachment paths. No new native build/install/release was performed for this label/action removal.

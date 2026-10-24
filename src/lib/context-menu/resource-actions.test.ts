@@ -25,11 +25,12 @@ describe('resource actions', () => {
     ['../附件/报告%20副本%2520.pdf', { baseDir: '/资料/100%20/笔记' }, '/资料/100%20/附件/报告 副本%20.pdf', '报告 副本%20.pdf'],
     ['C:\\资料\\报告%20副本.pdf', {}, 'C:/资料/报告 副本.pdf', '报告 副本.pdf'],
     ['file:///C:/资料/报告%2520.pdf', {}, 'C:/资料/报告%20.pdf', '报告%20.pdf'],
-  ])('copies decoded filename and real absolute path: %s', async (src, context, path, name) => {
+  ])('copies the full path and suggests the decoded name when saving: %s', async (src, context, path, name) => {
     mocks.exists.mockResolvedValue(true)
     const actions = createResourceActions({ src }, context)
-    await actions.run('copyFileName')
-    expect(mocks.writeText).toHaveBeenLastCalledWith(name)
+    mocks.save.mockResolvedValue(null)
+    await actions.run('saveResourceAs')
+    expect(mocks.save).toHaveBeenCalledWith({ defaultPath: name })
     await actions.run('copyFilePath')
     expect(mocks.exists).toHaveBeenCalledWith(path)
     expect(mocks.readFile).not.toHaveBeenCalled()
@@ -104,8 +105,6 @@ describe('resource actions', () => {
     expect(actions.canRun('copyFilePath')).toBe(false)
     expect(actions.canRun('copyImage')).toBe(false)
     expect(actions.canRun('bold')).toBe(false)
-    await actions.run('copyFileName')
-    expect(mocks.writeText).toHaveBeenLastCalledWith('报告 v2.pdf')
     await actions.run('copyResourceLink')
     expect(mocks.writeText).toHaveBeenLastCalledWith(src)
     mocks.save.mockResolvedValue('/Downloads/report.pdf')
@@ -150,12 +149,11 @@ describe('resource actions', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('write_file_binary', { path: '/Downloads/' + name, base64Data: 'R0lG' })
   })
 
-  it('unresolved relative files retain the filename but cannot claim an absolute path', async () => {
+  it('unresolved relative files cannot claim an absolute path or expose a short-name action', async () => {
     const actions = createResourceActions({ src: '附件/a.pdf' }, {})
     expect(actions.canRun('copyFilePath')).toBe(false)
     expect(actions.canRun('saveResourceAs')).toBe(false)
-    await actions.run('copyFileName')
-    expect(mocks.writeText).toHaveBeenCalledWith('a.pdf')
+    expect(actions.canRun('copyFileName')).toBe(false)
   })
 })
 
