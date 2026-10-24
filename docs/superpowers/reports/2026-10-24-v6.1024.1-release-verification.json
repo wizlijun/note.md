@@ -1,0 +1,468 @@
+{
+  "release": {
+    "tag": "v6.1024.1",
+    "mode": "public",
+    "sourceCommit": "2ac497ce0cb233987dcf5b1d56d50781097c8ad2",
+    "sourceTree": "63f017b6f133eb8779d2cc29f50ee28a16fcea63",
+    "remoteTagCommit": "2ac497ce0cb233987dcf5b1d56d50781097c8ad2",
+    "remoteTagVerified": true,
+    "coreCommit": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+    "assets": [
+      {
+        "name": "latest.json",
+        "bytes": 1314,
+        "sha256": "9a342faf5497abb70399f8ff4f390b892be73161bafca633fddf037eb03a412e",
+        "id": 671696502
+      },
+      {
+        "name": "note.md-6.1024.1-aarch64.dmg",
+        "bytes": 13446361,
+        "sha256": "b2b32aa80010be0d5b570122e920c8601e6aa2c5c92649ecd95ab97b40060aa6",
+        "id": 671695824
+      },
+      {
+        "name": "note.md-6.1024.1-x86_64.dmg",
+        "bytes": 14094295,
+        "sha256": "9e1cf3b06434ded6f8f1a2aaab00adadf142cb929f2b59aebe668d7d5f66d116",
+        "id": 671695821
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13488347,
+        "sha256": "f285bd41b8ee27aeb299da3e136f78671adf3bd1f60023f18ca6c34831c55650",
+        "id": 671695820
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "8a6eb0335e68e7d2a66cf8cc45542492947d7559a93d917388210c4991043794",
+        "id": 671695819
+      },
+      {
+        "name": "note.md-x86_64.app.tar.gz",
+        "bytes": 14056310,
+        "sha256": "a81bd4ab3098866911df4d87ab07a3aacee2d420d4a54fc7600630af5e449908",
+        "id": 671695807
+      },
+      {
+        "name": "note.md-x86_64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "7cc9bc2c0bbfff50f650455e6a7269e79d8d030a1fbd1b40275e3a272c291293",
+        "id": 671696073
+      },
+      {
+        "name": "note.md_6.1024.1_amd64.deb",
+        "bytes": 14797740,
+        "sha256": "f2ce3fbc2cbe3ccfc00d29072510cfba56126df7bef56d8965eae4551b7ce070",
+        "id": 671705853
+      },
+      {
+        "name": "note.md_6.1024.1_arm64.deb",
+        "bytes": 14785818,
+        "sha256": "f2db449d7af1482b7bd16e4dad1e41131d1c9146f361c2320da509c91547bb8c",
+        "id": 671705852
+      },
+      {
+        "name": "notemd-6.1024.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14625718,
+        "sha256": "26a704446cd2b8d8566f5ae347c040901aa5555257806903186e60dca2fa0ec3",
+        "id": 671732684
+      },
+      {
+        "name": "notemd-6.1024.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14285433,
+        "sha256": "35f4fb23c742252ecad7e50ae9bc0b53314c5bdea1aebe80122c4b906a715741",
+        "id": 671732688
+      },
+      {
+        "name": "SHA256SUMS-linux.txt",
+        "bytes": 186,
+        "sha256": "c31d36f94f036d5dc1a50ebf9677fc9b34ee740c1136604b1f2b1df8f1fa9b38",
+        "id": 671705871
+      },
+      {
+        "name": "SHA256SUMS-omarchy-aarch64.txt",
+        "bytes": 104,
+        "sha256": "7791938461b3ae00479964704373f417af056bcce1cba6d38f264b74e02c0f66",
+        "id": 671732685
+      },
+      {
+        "name": "SHA256SUMS-omarchy.txt",
+        "bytes": 103,
+        "sha256": "c141cb02dce1b372f09296dda3a03ae91e0259195fc1d8f8fb352610eda18340",
+        "id": 671732687
+      }
+    ],
+    "signaturesVerified": true,
+    "notarizationVerified": true,
+    "distributedMacBinariesMatchPayloadProof": true,
+    "distributedLinuxDebBytesMatchFinalPayloadEvidence": true,
+    "payloadProofSha256": {
+      "mac-aarch64": "0a4e6933c5ebddb92dd646bd0d2b160dec409a26444d8d7b12714a75989ecab6",
+      "mac-x86_64": "d9be62f0f327dfae2e94b46316b5d8b81232c110d0b75763f8c7d679fe46a88a",
+      "linux-amd64": "09b52a24e4af09b0a6a31f878b9f539a200e4bd7c2d92c204ee3ce1490977e70",
+      "linux-arm64": "b75412fd50667bbccc76adce8c4b162ab2ac48ed0ba5e7fbdbb07b2a12d783f4"
+    },
+    "exactAssetSetVerified": true,
+    "distributedArchBinariesMatchFinalLinuxPayload": true,
+    "freshAnonymousDownloads": true,
+    "latestVerified": true,
+    "publishedAt": "2026-10-24T08:34:32Z",
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1024.1"
+  },
+  "gates": {
+    "frontendFiles": 408,
+    "frontendTests": 5287,
+    "checkErrors": 0,
+    "checkWarnings": 31,
+    "nativePassed": 30,
+    "nativeFailed": 0,
+    "audit": {
+      "low": 1,
+      "moderate": 4,
+      "high": 0,
+      "critical": 0
+    },
+    "protocolArtifactsCurrent": true,
+    "releaseSource": "2ac497ce0cb233987dcf5b1d56d50781097c8ad2",
+    "log": "mac-release-canonical-target.log",
+    "allGatesPassed": true,
+    "pipelineExit": 1,
+    "pipelineExitReason": "Subsequent GitHub draft POST TLS handshake timeout; exact frozen assets retried and published successfully"
+  },
+  "website": {
+    "status": "complete",
+    "recordedAt": "2026-10-24T08:49:59.962405+00:00",
+    "version": "6.1024.1",
+    "commit": "6f33e90e61a6cc68bc1a0b1965b7ded3849712bf",
+    "baseReleaseCommit": "2ac497ce0cb233987dcf5b1d56d50781097c8ad2",
+    "pushedMain": true,
+    "trackedCloneClean": true,
+    "committedFiles": [
+      "README.md",
+      "README.zh-CN.md",
+      "website/build_i18n.py",
+      "website/public/index.html",
+      "website/public/zh/index.html",
+      "website/public/de/index.html",
+      "website/public/ja/index.html",
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md"
+    ],
+    "websiteTestFiles": 5,
+    "websiteTestsPassed": 128,
+    "beforeAfterHashesVerified": true,
+    "htmlGenerationIdempotent": true,
+    "deferredEntriesRestoredPerLanguage": 5,
+    "releaseHistoryUnchanged": true,
+    "concurrentRootHealthCommitsIncluded": false,
+    "deployment": {
+      "conclusion": "success",
+      "databaseId": 40079406750,
+      "headSha": "6f33e90e61a6cc68bc1a0b1965b7ded3849712bf",
+      "status": "completed",
+      "url": "https://github.com/wizlijun/note.md/actions/runs/40079406750"
+    },
+    "publicVerificationFile": "website-public-verification.json",
+    "publicVerificationSha256": "5c56f1588c58bb6008f936a70919552213579840fc73555b8e99e90bb3ff6d75",
+    "publicVerificationStatus": "passed",
+    "downloadCount": 9,
+    "platformFormatDownloads": 7,
+    "armReducedUaNegotiationDownloads": 2,
+    "selectionPageCount": 4,
+    "localizedPageCount": 4,
+    "allDownloadRedirects302ToExpectedAsset": true,
+    "allDownloadTargetsHttp200": true,
+    "allSelectionPagesHttp200AndArchitectureHintsVerified": true,
+    "allLocalizedPagesMatchCommittedBytes": true,
+    "windowsVersion": "6.811.1",
+    "pages": [
+      {
+        "url": "https://notemd.net/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "25746af9d78d0f4cb67a88dbca54c624ad682727399380dd1d778f38a5af52d9"
+      },
+      {
+        "url": "https://notemd.net/zh/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "25d58490ca36321b63a5cf9f562858ef5e282237f2f2547a1c0d3aa8abec592e"
+      },
+      {
+        "url": "https://notemd.net/de/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "367dd062042e5cc1032c32c51f4901867d125ef37fa66f3da5d1d165150ea47a"
+      },
+      {
+        "url": "https://notemd.net/ja/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "91026e21cb35ba2b2382fde815a9ae21478495eb144d561fbdbda85d3ec37c49"
+      }
+    ],
+    "firstAttemptObservation": {
+      "result": "First anonymous ARM Deb request redirected to generic releases page; five other package checks already passed. Both ARM format routes then resolved correctly on separate anonymous recheck, followed by complete successful rerun without source or cache-policy changes. Cause not established.",
+      "evidence": [
+        "website-public-verification-attempt1.json",
+        "website-public-verification-attempt1.log",
+        "website-arm-recheck.json"
+      ]
+    }
+  },
+  "websitePublicVerification": {
+    "version": "6.1024.1",
+    "status": "passed",
+    "downloads": [
+      {
+        "name": "mac-aarch64",
+        "request": "https://notemd.net/download?os=mac&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/note.md-6.1024.1-aarch64.dmg",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "linux-deb-aarch64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/note.md_6.1024.1_arm64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "linux-arch-aarch64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/notemd-6.1024.1-1-aarch64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "mac-x86_64",
+        "request": "https://notemd.net/download?os=mac&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/note.md-6.1024.1-x86_64.dmg",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "linux-deb-x86_64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/note.md_6.1024.1_amd64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "linux-arch-x86_64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/notemd-6.1024.1-1-x86_64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "windows-x86_64",
+        "request": "https://notemd.net/download?os=windows&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "linux-reduced-ua-arm-deb",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"arm\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/note.md_6.1024.1_arm64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      },
+      {
+        "name": "linux-reduced-ua-arm-arch",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"arm\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1024.1/notemd-6.1024.1-1-aarch64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200
+      }
+    ],
+    "choices": [
+      {
+        "name": "linux-format-choice",
+        "request": "https://notemd.net/download?os=linux&arch=aarch64",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+          "/download?os=linux&amp;format=deb&amp;arch=aarch64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "526cbe6d487a470b003b9e7f97ba27dd43d878b2402de208e00bdf2d06a78189"
+      },
+      {
+        "name": "linux-cold-format-choice",
+        "request": "https://notemd.net/download?os=linux",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch",
+          "/download?os=linux&amp;format=deb"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "cc57e9d072ba1c5013aebeb6bb2434aa4d4e2a1afaf4a68b2f56e12041c4133b"
+      },
+      {
+        "name": "linux-cold-arch-choice",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+          "/download?os=linux&amp;format=arch&amp;arch=x86_64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "4c7ad1183a7dbf2eabacce85ab0c97e51ed222fade65b4b7820c9e470bf44e94"
+      },
+      {
+        "name": "linux-cold-deb-choice",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=deb&amp;arch=aarch64",
+          "/download?os=linux&amp;format=deb&amp;arch=x86_64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "e87e4d3fce87de23f65f256bc262bdd0534111f4c4f0bb8e01088a955edc7d8f"
+      }
+    ],
+    "pages": [
+      {
+        "url": "https://notemd.net/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "25746af9d78d0f4cb67a88dbca54c624ad682727399380dd1d778f38a5af52d9"
+      },
+      {
+        "url": "https://notemd.net/zh/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "25d58490ca36321b63a5cf9f562858ef5e282237f2f2547a1c0d3aa8abec592e"
+      },
+      {
+        "url": "https://notemd.net/de/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "367dd062042e5cc1032c32c51f4901867d125ef37fa66f3da5d1d165150ea47a"
+      },
+      {
+        "url": "https://notemd.net/ja/",
+        "status": 200,
+        "matchesLocalHtml": true,
+        "sha256": "91026e21cb35ba2b2382fde815a9ae21478495eb144d561fbdbda85d3ec37c49"
+      }
+    ]
+  },
+  "linux": {
+    "status": "linux-deb-and-arch-published-verified",
+    "release": "https://github.com/wizlijun/note.md/releases/tag/v6.1024.1",
+    "version": "6.1024.1",
+    "sourceCommit": "2ac497ce0cb233987dcf5b1d56d50781097c8ad2",
+    "sourceTree": "63f017b6f133eb8779d2cc29f50ee28a16fcea63",
+    "coreCommit": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+    "tagAndCandidateTreeExactlyEqual": true,
+    "debAssets": [
+      {
+        "architecture": "amd64",
+        "name": "note.md_6.1024.1_amd64.deb",
+        "bytes": 14797740,
+        "sha256": "f2ce3fbc2cbe3ccfc00d29072510cfba56126df7bef56d8965eae4551b7ce070",
+        "actualEmbeddedResources": 151,
+        "richChecks": 18,
+        "normalAslr": 2,
+        "normalParentPersonality": "00000000",
+        "elfPIE": true,
+        "nativeCliAndLddPassed": true,
+        "desktopGuiVerified": false,
+        "elfEvidenceSha256": "09b52a24e4af09b0a6a31f878b9f539a200e4bd7c2d92c204ee3ce1490977e70"
+      },
+      {
+        "architecture": "arm64",
+        "name": "note.md_6.1024.1_arm64.deb",
+        "bytes": 14785818,
+        "sha256": "f2db449d7af1482b7bd16e4dad1e41131d1c9146f361c2320da509c91547bb8c",
+        "actualEmbeddedResources": 151,
+        "richChecks": 18,
+        "normalAslr": 2,
+        "normalParentPersonality": "00000000",
+        "elfPIE": true,
+        "nativeCliAndLddPassed": true,
+        "desktopGuiVerified": false,
+        "elfEvidenceSha256": "b75412fd50667bbccc76adce8c4b162ab2ac48ed0ba5e7fbdbb07b2a12d783f4"
+      }
+    ],
+    "archAssets": [
+      {
+        "architecture": "amd64",
+        "package": "notemd-6.1024.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14285433,
+        "sha256": "35f4fb23c742252ecad7e50ae9bc0b53314c5bdea1aebe80122c4b906a715741",
+        "checksum": "SHA256SUMS-omarchy.txt",
+        "buildExitCode": 0,
+        "firstInstallVerified": true,
+        "pacmanQkk": "32 total files, 0 altered files",
+        "sourcePayloadEntries": 29,
+        "sourceDebSha256": "f2ce3fbc2cbe3ccfc00d29072510cfba56126df7bef56d8965eae4551b7ce070",
+        "payloadBytesModeOwnershipLinksEqual": true,
+        "normalAslr": 2,
+        "normalPersonality": "00000000",
+        "elfPIE": true,
+        "cliAndLddPassed": true,
+        "defaultDockerSecurity": true,
+        "desktopGuiVerified": false
+      },
+      {
+        "architecture": "arm64",
+        "package": "notemd-6.1024.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14625718,
+        "sha256": "26a704446cd2b8d8566f5ae347c040901aa5555257806903186e60dca2fa0ec3",
+        "checksum": "SHA256SUMS-omarchy-aarch64.txt",
+        "buildExitCode": 0,
+        "firstInstallVerified": true,
+        "pacmanQkk": "32 total files, 0 altered files",
+        "sourcePayloadEntries": 29,
+        "sourceDebSha256": "f2db449d7af1482b7bd16e4dad1e41131d1c9146f361c2320da509c91547bb8c",
+        "payloadBytesModeOwnershipLinksEqual": true,
+        "normalAslr": 2,
+        "normalPersonality": "00000000",
+        "elfPIE": true,
+        "cliAndLddPassed": true,
+        "defaultDockerSecurity": true,
+        "desktopGuiVerified": false
+      }
+    ],
+    "allLinuxAssetAnonymousPublicReadbacksPassed": true,
+    "archFirstInstallAndQkkPassed": true,
+    "desktopGuiVerified": false,
+    "taskContainersStopped": true,
+    "imagesCachesAndEvidencePreserved": true,
+    "at": "2026-10-24T08:44:51.160207+00:00"
+  },
+  "verificationLimits": [
+    "Linux beta；未进行 Linux 桌面 GUI、原生 ARM64 桌面、Wayland/fcitx5/托盘实机验收；Omarchy 仓库尚未收录。",
+    "菜单浏览器验收使用真实 Rich 组件和模拟原生 IPC 边界；未宣称 macOS 原生剪贴板/保存对话框或已安装 WebView 的实机验收。",
+    "实际包资源恢复是静态字节与源码规则核对，不替代运行时 WebView/PHF resolver 交互验证；未安装到用户本机。"
+  ]
+}
