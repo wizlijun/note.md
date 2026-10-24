@@ -3,7 +3,7 @@ import './style.css'
 interface Bridge { locale?: string; request(method: string, params?: unknown): Promise<unknown> }
 declare global { interface Window { notemd?: Bridge } }
 type Json = Record<string, unknown>
-type Connection = { connected?: boolean; pending?: boolean; error?: string }
+type Connection = { connected?: boolean; pending?: boolean; error?: string; region?: string }
 type Metric = { metric: string; source: string; record_count: number; first_day?: string; last_day?: string }
 type Coverage = { complete_days?: number; unavailable_days?: number; failed_days?: number; first_coverage_day?: string | null; last_coverage_day?: string | null; undated?: { status: string } | null }
 type SourceCoverage = Record<string, { collections?: Record<string, Coverage> }>
@@ -33,7 +33,7 @@ document.querySelector('#app')!.innerHTML = `
 <label class="check"><input id="restart" type="checkbox"><span id="restart-label"></span></label><label class="check"><input id="dry-run" type="checkbox"><span id="dry-run-label"></span></label><div class="actions"><button id="sync"></button><button id="stop" class="secondary" disabled></button></div><p id="sync-help" class="help"></p></section>
 <section class="result"><h2 id="result-title"></h2><p id="message" role="status" aria-live="polite"></p><details id="report-details" hidden><summary id="report-title"></summary><pre id="report" hidden></pre></details></section>
 <details class="panel" id="connections-panel"><summary id="connections-title"></summary>
-<div class="connections"><section><h3>Garmin</h3><p id="garmin-state" role="status"></p><label for="garmin-key">Personal API key</label><input id="garmin-key" type="password" autocomplete="off"><div class="actions"><button id="garmin-connect"></button><button id="garmin-disconnect" class="secondary"></button></div></section>
+<div class="connections"><section><h3>Garmin</h3><p id="garmin-state" role="status"></p><label id="garmin-region-label" for="garmin-region"></label><select id="garmin-region"></select><label for="garmin-key">Personal API key</label><input id="garmin-key" type="password" autocomplete="off" aria-describedby="garmin-help"><p id="garmin-help" class="help"><span id="garmin-help-prefix"></span><a id="garmin-key-cn" href="https://connect.garmin.cn/app/settings/personalApiToken" target="_blank" rel="noopener noreferrer"></a> / <a id="garmin-key-global" href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank" rel="noopener noreferrer"></a><span id="garmin-help-suffix"></span></p><div class="actions"><button id="garmin-connect"></button><button id="garmin-disconnect" class="secondary"></button></div></section>
 <section><h3>Oura</h3><p id="oura-state" role="status"></p><p id="oura-help" class="help"></p><label for="oura-id">Client ID</label><input id="oura-id" autocomplete="off" spellcheck="false"><label for="oura-secret">Client secret</label><input id="oura-secret" type="password" autocomplete="off"><label for="oura-redirect">Redirect URI</label><input id="oura-redirect" value="http://127.0.0.1:8765/callback" spellcheck="false"><div class="actions"><button id="oura-connect"></button><button id="oura-disconnect" class="secondary"></button></div><div id="authorization" hidden><label for="authorize-url" id="authorize-label"></label><textarea id="authorize-url" readonly rows="3"></textarea></div></section></div><p id="disconnect-help" class="help"></p></details>
 <section class="panel" id="query-panel"><h2 id="query-title" tabindex="-1"></h2><form id="query-form"><div class="dates"><div><label for="category" id="category-label"></label><select id="category"></select></div><div><label for="query-source" id="query-source-label"></label><select id="query-source"></select></div></div><div class="dates"><div><label for="since" id="since-label"></label><input id="since" type="date"></div><div><label for="until" id="until-label"></label><input id="until" type="date"></div></div><label for="metric" id="metric-label"></label><input id="metric" spellcheck="false"><div class="query-actions"><div><label for="limit" id="limit-label"></label><input id="limit" type="number" min="1" max="1000" value="100" required></div><button id="query" class="secondary" type="submit"></button><button id="next-page" class="secondary" type="button" disabled></button></div></form><p id="query-count" class="help"></p><pre id="records" hidden></pre></section><footer></footer>`
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T
@@ -51,6 +51,9 @@ const labels: Record<string, string> = {
   'restart-label': t('重新回查起始日（重建所选期间的采集进度）', 'Recheck from the first date (restart collection progress for this range)'),
   'sync-help': t('每批最多 31 天，自动继续未完成批次。Apple 优先读取上方所选文件；未选时读取上次文件。不会触发 iPhone 自动导出。', 'Process up to 31 days per batch and continue pending batches. Apple reads the selected file, or the last imported file when none is selected. This does not trigger an iPhone export.'),
   'connections-title': t('连接 Garmin / Oura', 'Connect Garmin / Oura'), 'garmin-connect': t('保存并连接', 'Save & connect'), 'oura-connect': t('授权连接', 'Authorize connection'),
+  'garmin-region-label': t('账号区域', 'Account region'),
+  'garmin-help-prefix': t('获取 Key：', 'Get a key: '), 'garmin-key-cn': t('中国区', 'China'), 'garmin-key-global': t('国际区', 'Global'),
+  'garmin-help-suffix': t(' → Create Key（仅显示一次）。', ' → Create Key (shown only once).'),
   'garmin-disconnect': t('断开连接', 'Disconnect'), 'oura-disconnect': t('断开连接', 'Disconnect'),
   'oura-help': t('使用自己的 Oura OAuth 应用。先在开发者门户登记下方完全相同的 Redirect URI；连接时会打开浏览器授权。', 'Use your own Oura OAuth application. Register the exact Redirect URI below in the developer portal. Connecting opens your browser for authorization.'),
   'authorize-label': t('若浏览器未打开，可复制此授权地址', 'Copy this authorization URL if your browser did not open'),
@@ -66,6 +69,7 @@ document.querySelector('footer')!.textContent = t('ZIP/XML 文件需已下载到
 function option(value: string, text: string) { const element = document.createElement('option'); element.value = value; element.textContent = text; return element }
 for (const id of ['sync-source', 'query-source']) for (const [value, name] of Object.entries(sources)) select(id).append(option(value, name))
 select('category').append(option('', t('所有分类', 'All categories')))
+select('garmin-region').append(option('global', t('国际区', 'Global')), option('china', t('中国区', 'China')))
 const date = new Date()
 input('sync-until').value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 input('file').placeholder = t('export.zip / 导出.xml / export.xml', 'export.zip / export.xml')
@@ -107,6 +111,7 @@ async function operation(action: () => Promise<void>, sensitive = false) {
 function vaultParams() { const vault = input('vault').value.trim(); if (!vault) throw new Error(t('请填写目标 Vault。', 'Enter the destination Vault.')); return { vault } }
 function connectionStates(value: unknown) {
   const connections = (value ?? {}) as Record<string, Connection>
+  select('garmin-region').value = connections.garmin?.region === 'china' ? 'china' : 'global'
   for (const source of ['garmin', 'oura']) {
     const connection = connections[source] ?? {}
     el(`${source}-state`).textContent = connection.pending ? t('等待浏览器授权…', 'Waiting for browser authorization…') : connection.error ? t('连接异常，请重新授权。', 'Connection needs attention. Authorize again.') : connection.connected ? t('已连接', 'Connected') : t('未连接', 'Not connected')
@@ -270,7 +275,7 @@ el('sync').addEventListener('click', () => { void operation(async () => {
 for (const source of ['garmin', 'oura']) {
   el(`${source}-connect`).addEventListener('click', () => { void operation(async () => {
     const params: Json = { ...vaultParams(), source }
-    if (source === 'garmin') { params.api_key = input('garmin-key').value; input('garmin-key').value = '' }
+    if (source === 'garmin') { params.region = select('garmin-region').value; params.api_key = input('garmin-key').value; input('garmin-key').value = '' }
     else { params.client_id = input('oura-id').value.trim(); params.client_secret = input('oura-secret').value; params.redirect_uri = input('oura-redirect').value.trim(); input('oura-secret').value = '' }
     clearAuthorization()
     try {

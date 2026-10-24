@@ -17,7 +17,7 @@ v0.1.1 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac
 
 ### Garmin
 
-登录 [Garmin Connect 的 Personal API Key 页面](https://connect.garmin.com/app/settings/personalApiToken)，选择 Create Key、接受条款、选择有效期并创建。Key 只显示一次，保存后在插件窗口中输入并连接。API 基础地址为 `https://personal.connectapi.garmin.com`，接口见 [官方 Swagger 文档](https://developer.garmin.com/gc-developer-program/personal/swagger-docs/)。插件使用官方令牌交换及 Personal API，不接收 Garmin 密码，也不模拟网页登录。
+按账号数据中心打开 [中国区 Key 页面](https://connect.garmin.cn/app/settings/personalApiToken) 或 [国际区 Key 页面](https://connect.garmin.com/app/settings/personalApiToken)，选择 Create Key、接受条款、选择有效期并创建。Key 只显示一次；在插件窗口选择相同账号区域，输入 Key 后连接。中国区 API 为 `https://personal.connectapi.garmin.cn`，国际区为 `https://personal.connectapi.garmin.com`，接口见 [官方 Swagger 文档](https://developer.garmin.com/gc-developer-program/personal/swagger-docs/)。插件使用官方令牌交换及 Personal API，不接收 Garmin 密码，也不模拟网页登录。
 
 采集协议提供的日统计、详细心率、睡眠、HRV、压力、Body Battery、呼吸、血氧、体重、训练状态、活动列表/详情/训练内容及原始活动 ZIP 等。活动分页读完；原始 ZIP 作为附件保存。账号权限、设备能力和服务保留范围决定实际可获取内容。实现核对了 [官方 Python 客户端](https://github.com/garmin/connect-personal-api-python)及官方 OpenAPI。
 
@@ -80,7 +80,7 @@ notemd health-disconnect --source oura --json
 cargo run --manifest-path plugins-src/health-sync/backend/Cargo.toml -- health-status --vault "/path/to/vault"
 ```
 
-独立后端的 `connect --source garmin|oura --credentials-stdin` 从 stdin JSON 读取 `api_key`，或 `client_id` / `client_secret` / `redirect_uri`。通过安全的凭据工具送入 stdin，避免写入 shell 历史；日常推荐窗口连接。宿主不暴露这个需要 stdin 的命令。
+独立后端的 `connect --source garmin|oura --credentials-stdin` 从 stdin JSON 读取 `api_key` 和 Garmin `region`（`china` / `global`，省略为国际区），或 `client_id` / `client_secret` / `redirect_uri`。通过安全的凭据工具送入 stdin，避免写入 shell 历史；日常推荐窗口连接。宿主不暴露这个需要 stdin 的命令。
 
 ## 存储与恢复
 

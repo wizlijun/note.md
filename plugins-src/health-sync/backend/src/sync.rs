@@ -275,7 +275,13 @@ fn run_provider(
         staged.flush().map_err(|e| e.to_string())?;
         // Linearize the commit with disconnect/reconnect in other processes.
         let _authorization = http.commit_guard()?;
-        let applied = store.apply_provider(staged.path(), &fetched, false, progress)?;
+        let applied = store.apply_provider_with_region(
+            staged.path(),
+            &fetched,
+            false,
+            http.garmin_region(),
+            progress,
+        )?;
         let failed = fetched.collections.iter().any(|c| c.status == "failed");
         complete &= applied.complete && fetched.collections.iter().all(|c| c.status == "complete");
         windows

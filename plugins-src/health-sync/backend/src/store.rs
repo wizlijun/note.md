@@ -3,6 +3,7 @@
 //! generated Markdown is recoverable and never the source of truth.
 use crate::{
     attachments::{extract_attachments, Attachment},
+    auth::GarminRegion,
     catalog,
     model::HealthRecord,
     providers::{FetchReport, ProviderRecord},
@@ -65,6 +66,8 @@ impl Shard {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct SourceState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub garmin_region: Option<GarminRegion>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -733,6 +736,7 @@ impl Store {
         manifest.sources.insert(
             "apple-health".into(),
             SourceState {
+                garmin_region: None,
                 input_sha256: Some(input_sha256),
                 export_date: Some(export_date),
                 collections: BTreeMap::new(),
@@ -755,6 +759,23 @@ impl Store {
         staged_jsonl: &Path,
         report: &FetchReport,
         dry_run: bool,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<Report> {
+        self.apply_provider_with_region(
+            staged_jsonl,
+            report,
+            dry_run,
+            GarminRegion::Global,
+            progress,
+        )
+    }
+
+    pub fn apply_provider_with_region(
+        &self,
+        staged_jsonl: &Path,
+        report: &FetchReport,
+        dry_run: bool,
+        region: GarminRegion,
         progress: &mut dyn FnMut(&str),
     ) -> Result<Report> {
         if !matches!(report.source.as_str(), "garmin" | "oura") {
@@ -783,6 +804,14 @@ impl Store {
         let _lock = self.lock()?;
         let old = self.manifest()?;
         self.check_owned(&old)?;
+        if report.source == "garmin"
+            && old
+                .as_ref()
+                .and_then(|m| m.sources.get("garmin"))
+                .is_some_and(|state| state.garmin_region.unwrap_or_default() != region)
+        {
+            return Err("Garmin region disagrees with this vault's existing provider data".into());
+        }
         let staging = tempfile::tempdir().map_err(err)?;
         let mut db = staging_db(staging.path())?;
         let tx = db.transaction().map_err(err)?;
@@ -959,6 +988,9 @@ impl Store {
             );
         }
         let state = manifest.sources.entry(report.source.clone()).or_default();
+        if report.source == "garmin" {
+            state.garmin_region = Some(region);
+        }
         for (name, result) in &collections {
             let coverage = state.collections.entry((*name).to_string()).or_default();
             for day in &dates {

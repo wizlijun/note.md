@@ -136,9 +136,25 @@ test('Garmin credentials clear immediately and never enter reports', async t => 
   let finish; const pending = new Promise(resolve => { finish = resolve })
   const { el, calls } = await mount(t, method => method === 'plugin.connect' ? pending : undefined)
   el('garmin-key').value = 'synthetic-secret'; el('garmin-connect').click()
-  assert.equal(el('garmin-key').value, ''); assert.equal(calls.at(-1).params.api_key, 'synthetic-secret')
+  assert.equal(el('garmin-key').value, ''); assert.equal(calls.at(-1).params.api_key, 'synthetic-secret'); assert.equal(calls.at(-1).params.region, 'global')
   finish({ connected: true, pending: false }); await tick()
   assert.doesNotMatch(el('report').textContent, /synthetic-secret/); assert.doesNotMatch(el('message').textContent, /synthetic-secret/)
+})
+
+test('Garmin region is explicit, restored from status, and reset for a new Vault', async t => {
+  let connected = false
+  const { el, calls, window } = await mount(t, method => {
+    if (method === 'plugin.connect') { connected = true; return { connected: true } }
+    if (method === 'plugin.status' && connected) return { ...status, connections: { garmin: { connected: true, region: 'china' } } }
+  })
+  assert.equal(el('garmin-region').value, 'global')
+  el('garmin-region').value = 'china'; el('garmin-key').value = 'synthetic-secret'; el('garmin-connect').click(); await tick()
+  assert.equal(calls.find(call => call.method === 'plugin.connect').params.region, 'china')
+  assert.equal(el('garmin-region').value, 'china')
+  el('garmin-region').value = 'global'; el('status').click(); await tick()
+  assert.equal(el('garmin-region').value, 'china')
+  el('vault').value = '/tmp/new-vault'; el('vault').dispatchEvent(new window.Event('input'))
+  assert.equal(el('garmin-region').value, 'global')
 })
 
 test('Oura authorization keeps the page alive and polls connections without storing secrets', async t => {

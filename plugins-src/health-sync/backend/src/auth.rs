@@ -24,18 +24,58 @@ use std::{
 
 const SERVICE: &str = "net.notemd.health-sync";
 const OURA_TOKEN: &str = "https://api.ouraring.com/oauth/token";
-const GARMIN_TOKEN: &str = "https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token";
+const GARMIN_TOKEN_PATH: &str = "/personalapitoken-service/personal-api/personal-api-key/token";
 const JSON_LIMIT: u64 = 64 * 1024 * 1024;
 const ZIP_LIMIT: u64 = 256 * 1024 * 1024;
 const TOKEN_LIMIT: u64 = 128 * 1024;
 const CALLBACK_LIMIT: usize = 8192;
 const CALLBACK_TIMEOUT: Duration = Duration::from_secs(300);
 
+/// Garmin accounts and credentials are isolated between the two official regions.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GarminRegion {
+    #[default]
+    Global,
+    China,
+}
+impl GarminRegion {
+    fn from_params(params: &Value) -> Result<Self, String> {
+        match params.get("region") {
+            None => Ok(Self::Global),
+            Some(value) => serde_json::from_value(value.clone())
+                .map_err(|_| "Garmin region must be global or china".into()),
+        }
+    }
+    fn base_url(self) -> &'static str {
+        match self {
+            Self::Global => "https://personal.connectapi.garmin.com",
+            Self::China => "https://personal.connectapi.garmin.cn",
+        }
+    }
+    fn scope_subject(self, subject: String) -> String {
+        if self == Self::China {
+            subject.replacen("garmin:", "garmin:china:", 1)
+        } else {
+            subject
+        }
+    }
+    fn from_subject(subject: &str) -> Self {
+        if subject.starts_with("garmin:china:") {
+            Self::China
+        } else {
+            Self::Global
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "source", rename_all = "lowercase")]
 enum Credential {
     Garmin {
         api_key: String,
+        #[serde(default)]
+        region: GarminRegion,
     },
     Oura {
         client_id: String,
@@ -295,6 +335,7 @@ fn archived_subject(vault: &Path, source: &str, required: bool) -> Result<Option
             "activity_details",
         ]
     };
+    let region = manifest.sources[source].garmin_region.unwrap_or_default();
     let mut found = None;
     for collection in collections {
         let metric = format!("{source}.{collection}");
@@ -312,6 +353,11 @@ fn archived_subject(vault: &Path, source: &str, required: bool) -> Result<Option
             .and_then(|rows| rows.first())
             .and_then(|record| response_subject(source, collection, &record["payload"]))
         {
+            let subject = if source == "garmin" {
+                region.scope_subject(subject)
+            } else {
+                subject
+            };
             if found.as_ref().is_some_and(|old| old != &subject) {
                 return Err(
                     "Existing health archive contains conflicting provider account identifiers"
@@ -359,6 +405,11 @@ fn save_authorized(
     credential: &Credential,
 ) -> Result<(), String> {
     let mut state = epoch_matches(path, epoch)?;
+    if let Credential::Garmin { region, .. } = credential {
+        if !subject.starts_with("garmin:") || GarminRegion::from_subject(subject) != *region {
+            return Err("Garmin credential region disagrees with the verified account".into());
+        }
+    }
     if state
         .subject
         .as_deref()
@@ -379,11 +430,12 @@ fn identity_json(
     http: &Client,
     token: &str,
     source: &str,
+    region: GarminRegion,
     path: &str,
     query: &[(&str, String)],
 ) -> Result<Value, String> {
     let response = http
-        .get(data_url(source, path)?)
+        .get(data_url(source, region, path)?)
         .query(query)
         .bearer_auth(token)
         .header("Accept", "application/json")
@@ -398,9 +450,21 @@ fn identity_json(
         )),
     }
 }
-fn verified_subject(http: &Client, token: &str, source: &str) -> Result<String, String> {
+fn verified_subject(
+    http: &Client,
+    token: &str,
+    source: &str,
+    region: GarminRegion,
+) -> Result<String, String> {
     if source == "oura" {
-        let body = identity_json(http, token, source, "/v2/usercollection/personal_info", &[])?;
+        let body = identity_json(
+            http,
+            token,
+            source,
+            region,
+            "/v2/usercollection/personal_info",
+            &[],
+        )?;
         return response_subject(source, "personal_info", &body).ok_or_else(|| {
             "Cannot verify Oura account ID; grant personal information access and reconnect".into()
         });
@@ -409,6 +473,7 @@ fn verified_subject(http: &Client, token: &str, source: &str) -> Result<String, 
         http,
         token,
         source,
+        region,
         "/usersummary-service/usersummary/daily",
         &[(
             "calendarDate",
@@ -416,7 +481,7 @@ fn verified_subject(http: &Client, token: &str, source: &str) -> Result<String, 
         )],
     )?;
     if let Some(subject) = response_subject(source, "daily_summary_legacy", &body) {
-        return Ok(subject);
+        return Ok(region.scope_subject(subject));
     }
     // A user may have no data today. An existing activity still identifies its
     // owner, independently of API-key rotation and mutable display names.
@@ -424,10 +489,12 @@ fn verified_subject(http: &Client, token: &str, source: &str) -> Result<String, 
         http,
         token,
         source,
+        region,
         "/activitylist-service/activities/search/activities",
         &[("start", "0".into()), ("limit", "1".into())],
     )?;
     activities.as_array().and_then(|items| items.first()).and_then(|row| response_subject(source, "activities", row))
+        .map(|subject| region.scope_subject(subject))
         .ok_or_else(|| "Cannot verify Garmin account ID from daily data or an existing activity; no credentials were activated".into())
 }
 fn http_client() -> Result<Client, String> {
@@ -471,11 +538,18 @@ fn read_limited(mut response: Response, limit: u64) -> Result<Vec<u8>, String> {
     }
     Ok(bytes)
 }
-fn garmin_token(http: &Client, api_key: &str) -> Result<String, String> {
-    let response = http
-        .post(GARMIN_TOKEN)
+fn garmin_token_request(
+    http: &Client,
+    api_key: &str,
+    region: GarminRegion,
+) -> Result<reqwest::blocking::RequestBuilder, String> {
+    Ok(http
+        .post(data_url("garmin", region, GARMIN_TOKEN_PATH)?)
         .header("Authorization", format!("ApiKey {api_key}"))
-        .header("Accept", "*/*")
+        .header("Accept", "*/*"))
+}
+fn garmin_token(http: &Client, api_key: &str, region: GarminRegion) -> Result<String, String> {
+    let response = garmin_token_request(http, api_key, region)?
         .send()
         .map_err(|_| "Garmin token exchange could not reach the server")?;
     if !response.status().is_success() {
@@ -544,10 +618,11 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
     let (_, account, hash) = identity(vault, source)?;
     if source == "garmin" {
         let api_key = field(params, "api_key")?;
+        let region = GarminRegion::from_params(params)?;
         let epoch = begin_authorization(vault, &hash, source)?;
         let http = http_client()?;
-        let token = garmin_token(&http, &api_key)?;
-        let subject = verified_subject(&http, &token, source)?;
+        let token = garmin_token(&http, &api_key, region)?;
+        let subject = verified_subject(&http, &token, source, region)?;
         let _lock = auth_lock(&hash, source)?;
         save_authorized(
             &Keychain,
@@ -555,9 +630,11 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
             &state_path(&hash, source)?,
             &epoch,
             &subject,
-            &Credential::Garmin { api_key },
+            &Credential::Garmin { api_key, region },
         )?;
-        return Ok(json!({"source":"garmin","connected":true,"pending":false,"generation":epoch}));
+        return Ok(
+            json!({"source":"garmin","region":region,"connected":true,"pending":false,"generation":epoch}),
+        );
     }
     let client_id = field(params, "client_id")?;
     let client_secret = field(params, "client_secret")?;
@@ -610,7 +687,12 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
                 ],
             )?;
             let credential = token_credential(&client_id, &client_secret, &redirect_uri, &tokens)?;
-            let subject = verified_subject(&http, &field(&tokens, "access_token")?, "oura")?;
+            let subject = verified_subject(
+                &http,
+                &field(&tokens, "access_token")?,
+                "oura",
+                GarminRegion::Global,
+            )?;
             let _lock = auth_lock(&hash, "oura")?;
             let states = pending()
                 .lock()
@@ -839,7 +921,12 @@ fn status_with(
         let state = states.get(account);
         let mut entry = json!({"connected":false,"pending":state.is_some_and(|s|s.pending)});
         match store.get(account) {
-            Ok(value) => entry["connected"] = json!(value.is_some()),
+            Ok(value) => {
+                entry["connected"] = json!(value.is_some());
+                if let Some(Credential::Garmin { region, .. }) = value {
+                    entry["region"] = json!(region);
+                }
+            }
             Err(error) => entry["error"] = json!(error),
         }
         if let Some(error) = state.and_then(|p| p.error.as_ref()) {
@@ -862,6 +949,13 @@ pub fn status(vault: &Path) -> Result<Value, String> {
     for (source, account) in &accounts {
         let hash = identity(vault, source)?.2;
         let state = read_state(&state_path(&hash, source)?)?;
+        if *source == "garmin" && result[*source].get("region").is_none() {
+            result[*source]["region"] = json!(state
+                .as_ref()
+                .and_then(|s| s.subject.as_deref())
+                .map(GarminRegion::from_subject)
+                .unwrap_or_default());
+        }
         result[*source]["generation"] = json!(state.as_ref().map(|s| s.epoch.as_str()));
         result[*source]["identity_verified"] =
             json!(state.as_ref().and_then(|s| s.subject.as_ref()).is_some());
@@ -905,6 +999,7 @@ pub fn disconnect(vault: &Path, source: &str) -> Result<Value, String> {
 
 pub struct ApiClient {
     source: String,
+    region: GarminRegion,
     account: String,
     hash: String,
     token: String,
@@ -914,13 +1009,29 @@ pub struct ApiClient {
 pub fn client(vault: &Path, source: &str) -> Result<ApiClient, String> {
     let (_, account, hash) = identity(vault, source)?;
     let http = http_client()?;
-    let (token, epoch) = {
+    let (token, epoch, region) = {
         let _lock = auth_lock(&hash, source)?;
         let state = active_state(&state_path(&hash, source)?)?;
-        (load_token(&Keychain, &account, &http, None)?, state.epoch)
+        let region = match Keychain.get(&account)?.ok_or("Provider is not connected")? {
+            Credential::Garmin { region, .. } => region,
+            Credential::Oura { .. } => GarminRegion::Global,
+        };
+        if source == "garmin"
+            && state.subject.as_deref().map(GarminRegion::from_subject) != Some(region)
+        {
+            return Err(
+                "Garmin credential region disagrees with this vault's account binding".into(),
+            );
+        }
+        (
+            load_token(&Keychain, &account, &http, None, region)?,
+            state.epoch,
+            region,
+        )
     };
     Ok(ApiClient {
         source: source.into(),
+        region,
         account,
         hash,
         token,
@@ -933,10 +1044,16 @@ fn load_token(
     account: &str,
     http: &Client,
     rejected: Option<&str>,
+    expected_region: GarminRegion,
 ) -> Result<String, String> {
     let credential = store.get(account)?.ok_or("Provider is not connected")?;
     match credential {
-        Credential::Garmin { api_key } => garmin_token(http, &api_key),
+        Credential::Garmin { api_key, region } => {
+            if region != expected_region {
+                return Err("Garmin region changed; reconnect before syncing".into());
+            }
+            garmin_token(http, &api_key, region)
+        }
         Credential::Oura {
             client_id,
             client_secret,
@@ -986,7 +1103,7 @@ fn save_rotated(
     }
 }
 
-fn data_url(source: &str, path: &str) -> Result<Url, String> {
+fn data_url(source: &str, region: GarminRegion, path: &str) -> Result<Url, String> {
     source_name(source)?;
     // Accept API paths only, never URLs or encoded traversal / query fragments.
     if !path.starts_with('/')
@@ -1000,7 +1117,7 @@ fn data_url(source: &str, path: &str) -> Result<Url, String> {
     let base = if source == "oura" {
         "https://api.ouraring.com"
     } else {
-        "https://personal.connectapi.garmin.com"
+        region.base_url()
     };
     Url::parse(&format!("{base}{path}")).map_err(|_| "Invalid provider API path".into())
 }
@@ -1030,6 +1147,9 @@ fn retry_delay(status: u16, retry_after: Option<&str>, attempt: usize) -> Option
     }
 }
 impl ApiClient {
+    pub fn garmin_region(&self) -> GarminRegion {
+        self.region
+    }
     pub fn generation(&self) -> &str {
         &self.epoch
     }
@@ -1054,7 +1174,7 @@ impl ApiClient {
         query: &[(&str, String)],
         limit: u64,
     ) -> Result<(u16, Vec<u8>), String> {
-        let url = data_url(&self.source, path)?;
+        let url = data_url(&self.source, self.region, path)?;
         let mut refreshed = false;
         let mut retry = 0;
         loop {
@@ -1079,7 +1199,13 @@ impl ApiClient {
                 drop(response);
                 let _lock = auth_lock(&self.hash, &self.source)?;
                 epoch_matches(&state_path(&self.hash, &self.source)?, &self.epoch)?;
-                self.token = load_token(&Keychain, &self.account, &self.http, Some(&self.token))?;
+                self.token = load_token(
+                    &Keychain,
+                    &self.account,
+                    &self.http,
+                    Some(&self.token),
+                    self.region,
+                )?;
                 refreshed = true;
                 continue;
             }
@@ -1209,15 +1335,15 @@ mod tests {
             "/a?token=x",
             "/a\\b",
         ] {
-            assert!(data_url("oura", path).is_err());
+            assert!(data_url("oura", GarminRegion::Global, path).is_err());
         }
         assert_eq!(
-            data_url("oura", "/v2/usercollection/sleep")
+            data_url("oura", GarminRegion::Global, "/v2/usercollection/sleep")
                 .unwrap()
                 .host_str(),
             Some("api.ouraring.com")
         );
-        assert!(data_url("other", "/x").is_err());
+        assert!(data_url("other", GarminRegion::Global, "/x").is_err());
     }
     #[test]
     fn saves_rotated_tokens_before_returning_access() {
@@ -1266,6 +1392,7 @@ mod tests {
                 "vault-garmin",
                 &Credential::Garmin {
                     api_key: "SUPER-SECRET".into(),
+                    region: GarminRegion::Global,
                 },
             )
             .unwrap();
@@ -1303,7 +1430,8 @@ mod tests {
                 &store,
                 "account",
                 &http_client().unwrap(),
-                Some("old-access")
+                Some("old-access"),
+                GarminRegion::Global,
             )
             .unwrap(),
             "new-access"
@@ -1398,6 +1526,7 @@ mod tests {
         let store = Memory::default();
         let credential = Credential::Garmin {
             api_key: "old-key".into(),
+            region: GarminRegion::Global,
         };
         store.set("account", &credential).unwrap();
         let state = AuthorizationState {
@@ -1473,6 +1602,7 @@ mod tests {
             "garmin:123",
             &Credential::Garmin {
                 api_key: "rotated-key".into(),
+                region: GarminRegion::Global,
             },
         )
         .unwrap();
@@ -1483,12 +1613,13 @@ mod tests {
             &epoch,
             "garmin:456",
             &Credential::Garmin {
-                api_key: "different-person-key".into()
+                api_key: "different-person-key".into(),
+                region: GarminRegion::Global,
             }
         )
         .is_err());
         assert!(
-            matches!(store.get("account").unwrap(),Some(Credential::Garmin{api_key}) if api_key=="rotated-key")
+            matches!(store.get("account").unwrap(),Some(Credential::Garmin{api_key,..}) if api_key=="rotated-key")
         );
         let metadata = fs::read_to_string(&path).unwrap();
         assert!(!metadata.contains("key"));
@@ -1555,10 +1686,25 @@ mod tests {
         store
             .apply_provider(&file, &report, false, &mut |_| {})
             .unwrap();
+        // Archives produced before regional support have no region field.
+        let manifest_path = vault.join("health/manifest.json");
+        let mut legacy: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        legacy["sources"]["garmin"]
+            .as_object_mut()
+            .unwrap()
+            .remove("garmin_region");
+        fs::write(&manifest_path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        assert_eq!(
+            store.manifest().unwrap().unwrap().sources["garmin"].garmin_region,
+            None
+        );
         assert_eq!(
             archived_subject(&vault, "garmin", true).unwrap().as_deref(),
             Some("garmin:123")
         );
+        assert!(store
+            .apply_provider_with_region(&file, &report, false, GarminRegion::China, &mut |_| {})
+            .is_err());
         let mut no_id = row;
         no_id.data = json!({"activityId":777});
         fs::write(
@@ -1571,5 +1717,247 @@ mod tests {
             .unwrap();
         assert!(archived_subject(&vault, "garmin", true).is_err());
         assert!(archived_subject(&vault, "garmin", false).unwrap().is_none());
+    }
+
+    #[test]
+    fn garmin_regions_are_strict_and_legacy_credentials_default_to_global() {
+        let old: Credential =
+            serde_json::from_value(json!({"source":"garmin","api_key":"old-key"})).unwrap();
+        assert!(matches!(
+            old,
+            Credential::Garmin {
+                region: GarminRegion::Global,
+                ..
+            }
+        ));
+        assert_eq!(
+            GarminRegion::from_params(&json!({})).unwrap(),
+            GarminRegion::Global
+        );
+        for region in [GarminRegion::Global, GarminRegion::China] {
+            let params = json!({"region":region});
+            assert_eq!(GarminRegion::from_params(&params).unwrap(), region);
+            let credential = Credential::Garmin {
+                api_key: "test-key".into(),
+                region,
+            };
+            let decoded: Credential =
+                serde_json::from_slice(&serde_json::to_vec(&credential).unwrap()).unwrap();
+            assert!(
+                matches!(decoded, Credential::Garmin { region: actual, .. } if actual == region)
+            );
+        }
+        for invalid in [
+            Value::Null,
+            json!("cn"),
+            json!("China"),
+            json!("https://evil.test"),
+            json!(7),
+            json!({}),
+        ] {
+            let error = GarminRegion::from_params(&json!({"region":invalid})).unwrap_err();
+            assert_eq!(error, "Garmin region must be global or china");
+            assert!(serde_json::from_value::<Credential>(
+                json!({"source":"garmin","api_key":"x","region":invalid})
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn garmin_token_identity_and_data_urls_stay_in_selected_region() {
+        let http = http_client().unwrap();
+        for (region, host) in [
+            (GarminRegion::Global, "personal.connectapi.garmin.com"),
+            (GarminRegion::China, "personal.connectapi.garmin.cn"),
+        ] {
+            let token = garmin_token_request(&http, "test-key", region)
+                .unwrap()
+                .build()
+                .unwrap();
+            assert_eq!(token.method(), reqwest::Method::POST);
+            assert_eq!(token.url().scheme(), "https");
+            assert_eq!(token.url().host_str(), Some(host));
+            assert_eq!(token.url().path(), GARMIN_TOKEN_PATH);
+            assert_eq!(token.headers()["Authorization"], "ApiKey test-key");
+            for path in [
+                "/usersummary-service/usersummary/daily",
+                "/activitylist-service/activities/search/activities",
+                "/wellness-service/wellness/dailySleepData",
+                "/download-service/files/activity/123",
+            ] {
+                let url = data_url("garmin", region, path).unwrap();
+                assert_eq!(url.scheme(), "https");
+                assert_eq!(url.host_str(), Some(host));
+                assert_eq!(url.path(), path);
+            }
+            for path in [
+                "//evil.test/",
+                "https://evil.test",
+                "/%2f%2fevil.test",
+                "/../x",
+                "/a?token=x",
+            ] {
+                assert!(data_url("garmin", region, path).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn garmin_refresh_rejects_a_changed_region_before_exchanging_credentials() {
+        let store = Memory::default();
+        for (stored, expected) in [
+            (GarminRegion::China, GarminRegion::Global),
+            (GarminRegion::Global, GarminRegion::China),
+        ] {
+            store
+                .set(
+                    "account",
+                    &Credential::Garmin {
+                        api_key: "test-key".into(),
+                        region: stored,
+                    },
+                )
+                .unwrap();
+            for rejected in [None, Some("rejected-token")] {
+                let error = load_token(
+                    &store,
+                    "account",
+                    &http_client().unwrap(),
+                    rejected,
+                    expected,
+                )
+                .unwrap_err();
+                assert_eq!(error, "Garmin region changed; reconnect before syncing");
+            }
+        }
+    }
+
+    #[test]
+    fn same_numeric_garmin_id_cannot_cross_regions_or_mismatch_credential() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("authorization.json");
+        let epoch = random_string(32);
+        let store = Memory::default();
+        let global = Credential::Garmin {
+            api_key: "global-key".into(),
+            region: GarminRegion::Global,
+        };
+        let china = Credential::Garmin {
+            api_key: "china-key".into(),
+            region: GarminRegion::China,
+        };
+        write_state(
+            &path,
+            &AuthorizationState {
+                epoch: epoch.clone(),
+                subject: Some("garmin:123".into()),
+                authorized: false,
+            },
+        )
+        .unwrap();
+        save_authorized(&store, "account", &path, &epoch, "garmin:123", &global).unwrap();
+        let china_subject = GarminRegion::China.scope_subject("garmin:123".into());
+        assert_eq!(china_subject, "garmin:china:123");
+        assert!(save_authorized(&store, "account", &path, &epoch, &china_subject, &china).is_err());
+        assert!(save_authorized(&store, "account", &path, &epoch, "garmin:123", &china).is_err());
+        assert!(matches!(
+            store.get("account").unwrap(),
+            Some(Credential::Garmin {
+                region: GarminRegion::Global,
+                ..
+            })
+        ));
+        let status = status_with(&store, &[("garmin", "account".into())], &HashMap::new());
+        assert_eq!(status["garmin"]["region"], "global");
+        store.set("account", &china).unwrap();
+        let status = status_with(&store, &[("garmin", "account".into())], &HashMap::new());
+        assert_eq!(status["garmin"]["region"], "china");
+        assert!(!status.to_string().contains("china-key"));
+    }
+
+    #[test]
+    fn china_archive_restores_region_and_refuses_global_writes() {
+        use crate::providers::{CollectionResult, FetchReport, ProviderRecord};
+        let temp = tempfile::tempdir().unwrap();
+        let vault = temp.path().join("vault");
+        fs::create_dir(&vault).unwrap();
+        let local = temp.path().join("state");
+        fs::create_dir(&local).unwrap();
+        let store = crate::store::Store::new(&vault, &local).unwrap();
+        let staged = temp.path().join("rows.jsonl");
+        let row = ProviderRecord {
+            source: "garmin".into(),
+            collection: "activities".into(),
+            day: "2026-10-24".into(),
+            id: Some("777".into()),
+            data: json!({"activityId":777,"ownerId":123}),
+        };
+        fs::write(
+            &staged,
+            format!("{}\n", serde_json::to_string(&row).unwrap()),
+        )
+        .unwrap();
+        let report = FetchReport {
+            source: "garmin".into(),
+            since: "2026-10-24".into(),
+            until: "2026-10-24".into(),
+            collections: vec![CollectionResult {
+                collection: "activities".into(),
+                status: "complete".into(),
+                records: 1,
+                error: None,
+            }],
+        };
+        store
+            .apply_provider_with_region(&staged, &report, false, GarminRegion::China, &mut |_| {})
+            .unwrap();
+        assert_eq!(
+            store.manifest().unwrap().unwrap().sources["garmin"].garmin_region,
+            Some(GarminRegion::China)
+        );
+        // No local authorization or Keychain data exists: recovery reads only the portable archive.
+        assert_eq!(
+            archived_subject(&vault, "garmin", true).unwrap().as_deref(),
+            Some("garmin:china:123")
+        );
+        let before = serde_json::to_vec(&store.manifest().unwrap()).unwrap();
+        assert!(store
+            .apply_provider(&staged, &report, false, &mut |_| {})
+            .is_err());
+        assert_eq!(
+            before,
+            serde_json::to_vec(&store.manifest().unwrap()).unwrap()
+        );
+    }
+
+    /// Manual only: feed the key through stdin, never command arguments or files.
+    /// This test performs read-only identity validation and never writes Keychain or a vault.
+    #[test]
+    #[ignore = "requires an explicitly supplied Garmin key on stdin and live network"]
+    fn live_garmin_region_authentication_smoke() {
+        let region = std::env::var("NOTEMD_GARMIN_TEST_REGION")
+            .expect("Set NOTEMD_GARMIN_TEST_REGION to global or china");
+        let region =
+            GarminRegion::from_params(&json!({"region":region})).expect("Invalid test region");
+        let mut key = String::new();
+        std::io::stdin()
+            .read_line(&mut key)
+            .expect("Cannot read key from stdin");
+        let key = key.trim();
+        assert!(!key.is_empty(), "Supply a key on stdin");
+        let http = http_client().expect("Cannot build HTTP client");
+        let token = garmin_token(&http, key, region).expect("Garmin token exchange failed");
+        let subject = verified_subject(&http, &token, "garmin", region)
+            .expect("Garmin identity validation failed");
+        assert_eq!(
+            GarminRegion::from_subject(&subject),
+            region,
+            "Identity region mismatch"
+        );
     }
 }
