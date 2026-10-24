@@ -49,7 +49,7 @@ const labels: Record<string, string> = {
   'sync-source-label': t('采集来源', 'Collection source'), 'sync-since-label': t('起始日期', 'First date'), 'sync-until-label': t('结束日期', 'Last date'),
   'dry-run-label': t('仅预览，不修改归档或采集进度', 'Preview without changing the archive or collection progress'), sync: t('采集并续传', 'Collect & resume'), stop: t('完成本批后停止', 'Stop after this batch'),
   'restart-label': t('重新回查起始日（重建所选期间的采集进度）', 'Recheck from the first date (restart collection progress for this range)'),
-  'sync-help': t('每批最多 31 天，自动继续未完成批次。Apple 重新读取上次文件；新导出需替换到该路径。不会触发 iPhone 自动导出。', 'Process up to 31 days per batch and continue pending batches. Apple rereads the saved file; replace it with a newer export first. This does not trigger an iPhone export.'),
+  'sync-help': t('每批最多 31 天，自动继续未完成批次。Apple 优先读取上方所选文件；未选时读取上次文件。不会触发 iPhone 自动导出。', 'Process up to 31 days per batch and continue pending batches. Apple reads the selected file, or the last imported file when none is selected. This does not trigger an iPhone export.'),
   'connections-title': t('连接 Garmin / Oura', 'Connect Garmin / Oura'), 'garmin-connect': t('保存并连接', 'Save & connect'), 'oura-connect': t('授权连接', 'Authorize connection'),
   'garmin-disconnect': t('断开连接', 'Disconnect'), 'oura-disconnect': t('断开连接', 'Disconnect'),
   'oura-help': t('使用自己的 Oura OAuth 应用。先在开发者门户登记下方完全相同的 Redirect URI；连接时会打开浏览器授权。', 'Use your own Oura OAuth application. Register the exact Redirect URI below in the developer portal. Connecting opens your browser for authorization.'),
@@ -68,7 +68,7 @@ for (const id of ['sync-source', 'query-source']) for (const [value, name] of Ob
 select('category').append(option('', t('所有分类', 'All categories')))
 const date = new Date()
 input('sync-until').value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-input('file').placeholder = 'export.zip / export.xml'
+input('file').placeholder = t('export.zip / 导出.xml / export.xml', 'export.zip / export.xml')
 let busy = false, collecting = false, stopRequested = false
 let nextOffset: number | null = null
 let lastQuery: Json | null = null
@@ -117,8 +117,10 @@ function syncControls() {
   const appleOnly = select('sync-source').value === 'apple-health'
   for (const id of ['sync-since', 'sync-until']) { input(id).disabled = busy || appleOnly; input(id).required = !appleOnly }
   input('restart').disabled = busy || appleOnly; input('restart').closest('label')!.hidden = appleOnly
-  el('sync').textContent = appleOnly ? t('重新读取 Apple 快照', 'Reread Apple snapshot') : labels.sync
-  el('sync-help').textContent = appleOnly ? t('重新读取上次导入的完整文件，不按日期筛选。新文件请先点击“导入完整快照”。', 'Reread the last imported file in full, without date filtering. For a new file, choose “Import full snapshot” first.') : labels['sync-help']
+  const preview = input('dry-run').checked
+  el('import').textContent = preview ? t('预览所选文件', 'Preview selected file') : labels.import
+  el('sync').textContent = preview ? (appleOnly ? t('预览 Apple 快照', 'Preview Apple snapshot') : t('预览采集', 'Preview collection')) : appleOnly ? t('导入 Apple 快照', 'Import Apple snapshot') : labels.sync
+  el('sync-help').textContent = appleOnly ? t('读取上方所选完整文件；未选时读取上次文件，不按日期筛选。预览不会保存文件路径。', 'Read the selected complete file, or the last imported file when none is selected, without date filtering. Preview does not save the path.') : labels['sync-help']
 }
 function renderCoverage(value: SourceCoverage = {}) {
   const container = el('coverage'); container.replaceChildren()
@@ -230,6 +232,7 @@ el('import').addEventListener('click', () => { void operation(async () => {
 }) })
 el('stop').addEventListener('click', () => { stopRequested = true; setBusy(busy); message(t('本批完成后停止，进度将保留。', 'Stopping after this batch; progress will be retained.')) })
 el('sync-source').addEventListener('change', syncControls)
+el('dry-run').addEventListener('change', syncControls)
 el('sync').addEventListener('click', () => { void operation(async () => {
   const source = select('sync-source').value, appleOnly = source === 'apple-health'
   const since = input('sync-since').value, until = input('sync-until').value
@@ -242,13 +245,14 @@ el('sync').addEventListener('click', () => { void operation(async () => {
   while (queue.length) {
     const source = queue.shift()!
     message(`${t('正在采集批次', 'Collecting batch')} ${++batch}…`)
-    const result = await request('plugin.sync', { ...params, source, restart: !appleOnly && batch === 1 && input('restart').checked }) as Json
+    const file = (source === 'all' || source === 'apple-health') ? input('file').value.trim() : ''
+    const result = await request('plugin.sync', { ...params, source, ...(file ? { file } : {}), restart: !appleOnly && batch === 1 && input('restart').checked }) as Json
     report(result)
     if (!params.dry_run) await refresh()
     const errors = [result.fatal_errors, result.errors].some(value => Array.isArray(value) && value.length > 0)
     if (errors || result.retry_required) { message(t('本批未完成，已保留进度。请查看结果后重试。', 'This batch is incomplete; progress was retained. Review the result and retry.'), true); break }
-    if (params.dry_run) { message(t('预览完成，未修改归档或进度。', 'Preview complete; archive and progress unchanged.')); break }
-    if (appleOnly) { message(result.complete === false ? t('Apple 快照仍有未完成项，请查看操作明细。', 'Apple snapshot has unfinished items. Review the operation details.') : t('Apple 完整快照已重新读取。', 'The complete Apple snapshot has been reread.'), result.complete === false); break }
+    if (params.dry_run) { message(result.complete === false ? t('预览有未完成项，请查看操作明细。', 'Preview has unfinished items. Review the operation details.') : t('预览完成，未修改归档或进度。', 'Preview complete; archive and progress unchanged.'), result.complete === false); break }
+    if (appleOnly) { message(result.complete === false ? t('Apple 快照仍有未完成项，请查看操作明细。', 'Apple snapshot has unfinished items. Review the operation details.') : t('Apple 完整快照已导入。', 'The complete Apple snapshot has been imported.'), result.complete === false); break }
     hadWarnings ||= (Array.isArray(result.warnings) && result.warnings.length > 0) || (result.complete === false && !result.pending)
     const pendingSources = Array.isArray(result.sources) ? result.sources.filter(item => item.pending === true && (item.source === 'garmin' || item.source === 'oura')) : []
     let stalled = false

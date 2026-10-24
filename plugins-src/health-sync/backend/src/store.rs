@@ -580,8 +580,18 @@ impl Store {
         )
     }
 
-    pub fn sync(&self, dry_run: bool, progress: &mut dyn FnMut(&str)) -> Result<Report> {
-        let file = self.remembered_source()?.ok_or("No remembered export; run health-import with a complete export.zip or export.xml first")?;
+    pub fn sync(
+        &self,
+        file: Option<&Path>,
+        dry_run: bool,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<Report> {
+        let file = match file {
+            Some(file) => file.to_path_buf(),
+            None => self.remembered_source()?.ok_or(
+                "Choose an Apple Health ZIP/XML file first, or pass --file to health-sync",
+            )?,
+        };
         self.import(&file, dry_run, progress)
     }
 

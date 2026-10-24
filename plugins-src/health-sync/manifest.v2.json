@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.health-sync",
   "name": "Health Sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-health-sync",
@@ -82,6 +82,11 @@
             "long": "--vault",
             "type": "string",
             "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--file",
+            "type": "string",
+            "help": "Apple Health ZIP/XML to import or preview; otherwise reuse the last imported file"
           },
           {
             "long": "--dry-run",

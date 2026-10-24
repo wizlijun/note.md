@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Recognize localized `导出.xml` inside the ZIP while retaining CDA, ECG and GPX attachments.
+
 - **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
 
 - **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.

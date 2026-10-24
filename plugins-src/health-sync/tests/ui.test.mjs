@@ -128,6 +128,7 @@ test('automatic continuation visits only pending providers and restarts only the
   const requests = calls.filter(c => c.method === 'plugin.sync')
   assert.deepEqual(requests.map(c => c.params.source), ['all', 'garmin', 'oura', 'garmin'])
   assert.deepEqual(requests.map(c => c.params.restart), [true, false, false, false])
+  assert.deepEqual(requests.map(c => c.params.file), ['/tmp/export.zip', undefined, undefined, undefined])
   assert.match(el('message').textContent, /所选日期范围采集完成/)
 })
 
@@ -259,12 +260,12 @@ test('Apple-only sync ignores date ranges and restart and describes rereading th
   el('sync-source').value = 'apple-health'; el('sync-source').dispatchEvent(new window.Event('change'))
   assert.equal(el('sync-since').disabled, true); assert.equal(el('sync-until').required, false)
   assert.equal(el('restart').closest('label').hidden, true)
-  assert.match(el('sync').textContent, /重新读取 Apple 快照/)
+  assert.match(el('sync').textContent, /导入 Apple 快照/)
   el('sync-since').value = ''; el('sync-until').value = ''; el('restart').checked = true
   el('sync').click(); await tick()
   const call = calls.find(call => call.method === 'plugin.sync')
   assert.equal(call.params.source, 'apple-health'); assert.equal(call.params.since, undefined); assert.equal(call.params.until, undefined); assert.equal(call.params.restart, false)
-  assert.match(el('message').textContent, /Apple 完整快照已重新读取/)
+  assert.match(el('message').textContent, /Apple 完整快照已导入/)
   assert.doesNotMatch(el('message').textContent, /所选日期范围采集完成/)
   assert.equal(el('sync-since').disabled, true)
   el('sync-source').value = 'oura'; el('sync-source').dispatchEvent(new window.Event('change'))
@@ -278,17 +279,41 @@ test('incomplete Apple-only sync and preview never claim complete collection', a
   el('sync').click(); await tick()
   assert.match(el('message').textContent, /Apple 快照仍有未完成项/); assert.equal(el('report-details').open, true)
   el('dry-run').checked = true; el('sync').click(); await tick()
-  assert.match(el('message').textContent, /预览完成，未修改归档或进度/)
-  assert.doesNotMatch(el('message').textContent, /快照已重新读取/)
+  assert.match(el('message').textContent, /预览有未完成项/)
+  assert.doesNotMatch(el('message').textContent, /快照已导入/)
 })
 
 test('manifest exposes catalog, source/date sync filters and credential-free host CLI', () => {
   const manifest = JSON.parse(fs.readFileSync(new URL('../manifest.v2.json', import.meta.url)))
   assert.equal(manifest.idle_shutdown_seconds, 600)
-  assert.equal(manifest.version, '0.1.0')
+  assert.equal(manifest.version, '0.1.1')
   const cli = manifest.contributes.cli
   assert.ok(cli.some(c => c.subcommand === 'health-catalog')); assert.ok(cli.some(c => c.subcommand === 'health-disconnect'))
   assert.ok(!cli.some(c => c.command === 'connect'))
   assert.ok(cli.find(c => c.command === 'sync').flags.some(f => f.long === '--max-days' && f.type === 'string'))
+  assert.ok(cli.find(c => c.command === 'sync').flags.some(f => f.long === '--file' && f.type === 'string'))
   assert.ok(cli.find(c => c.command === 'query').flags.some(f => f.long === '--category'))
+})
+
+test('first-run primary preview consumes the selected file for Apple and all sources', async t => {
+  for (const source of ['apple-health', 'all']) {
+    const { el, calls, window } = await mount(t, (method, params) => {
+      if (method === 'plugin.status') return { imported: false, connections: {} }
+      if (method === 'plugin.catalog') return { categories: [], sources: {} }
+      if (method === 'host.dialog.open') return { paths: ['/tmp/健康导出.zip'] }
+      if (method === 'plugin.sync') {
+        if (!params.file) throw new Error('No remembered export; run health-import first')
+        return { complete: true, dry_run: true }
+      }
+    })
+    el('choose').click(); await tick()
+    el('sync-source').value = source; el('sync-source').dispatchEvent(new window.Event('change'))
+    el('dry-run').checked = true; el('dry-run').dispatchEvent(new window.Event('change'))
+    assert.match(el('sync').textContent, /预览/); assert.equal(el('import').textContent, '预览所选文件')
+    el('sync').click(); await tick()
+    assert.match(el('message').textContent, /预览完成/)
+    const call = calls.find(c => c.method === 'plugin.sync')
+    assert.equal(call.params.file, '/tmp/健康导出.zip'); assert.equal(call.params.dry_run, true)
+    assert.equal(calls.filter(c => c.method === 'plugin.status').length, 1)
+  }
 })

@@ -205,7 +205,10 @@ fn sync_uses_remembered_path_and_rejects_concurrent_writer() {
     f.write(&record("2020-01-01", "60", "Watch"));
     f.import();
     f.write(&record("2020-01-02", "61", "Watch"));
-    assert_eq!(f.store.sync(false, &mut |_| {}).unwrap().record_count, 1);
+    assert_eq!(
+        f.store.sync(None, false, &mut |_| {}).unwrap().record_count,
+        1
+    );
     let key = hash(f.vault.canonicalize().unwrap().to_string_lossy().as_bytes());
     let lock = fs::OpenOptions::new()
         .read(true)
@@ -215,7 +218,7 @@ fn sync_uses_remembered_path_and_rejects_concurrent_writer() {
     lock.try_lock_exclusive().unwrap();
     assert!(f
         .store
-        .sync(false, &mut |_| {})
+        .sync(None, false, &mut |_| {})
         .unwrap_err()
         .contains("busy"));
 }
@@ -757,6 +760,108 @@ fn undated_provider_collection_replaces_itself_without_dated_or_other_source_los
         .as_array()
         .unwrap()
         .is_empty());
+}
+
+#[test]
+fn localized_apple_zip_preserves_cda_ecg_and_route_originals() {
+    use std::io::Write;
+    for primary in ["导出.xml", "apple_health_export/导出.xml"] {
+        let f = Fixture::new();
+        f.write(&record("2026-10-22", "60", "Watch"));
+        let path = f.root.path().join("export.zip");
+        let attachments: [(&str, &[u8]); 3] = [
+            (
+                "apple_health_export/export_cda.xml",
+                b"<?xml version='1.0'?><ClinicalDocument>original clinical bytes</ClinicalDocument>",
+            ),
+            (
+                "apple_health_export/electrocardiograms/ecg_2026-10-22.csv",
+                b"Time,Voltage\r\n0,0.01\r\n",
+            ),
+            (
+                "apple_health_export/workout-routes/route_2026-06-17_9.39am.gpx",
+                b"<gpx>original route bytes</gpx>",
+            ),
+        ];
+        let mut zip = zip::ZipWriter::new(fs::File::create(&path).unwrap());
+        // CDA precedes the primary XML, matching neither a first-XML heuristic
+        // nor the HealthData root. It must survive as attachment evidence.
+        for (name, bytes) in attachments {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        zip.start_file(primary, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(&fs::read(&f.file).unwrap()).unwrap();
+        zip.finish().unwrap();
+
+        let report = f.store.import(&path, false, &mut |_| {}).unwrap();
+        assert!(report.complete);
+        assert_eq!(report.record_count, 4);
+        let manifest = f.store.manifest().unwrap().unwrap();
+        assert_eq!(manifest.attachments.len(), 3);
+        assert_eq!(manifest.ignored_attachments, 0);
+        let records = f.store.query(None, None, None, 100, 0).unwrap();
+        let records = records["records"].as_array().unwrap();
+        for (original, bytes) in attachments {
+            let row = records
+                .iter()
+                .find(|row| row["attributes"]["original_name"] == original)
+                .unwrap();
+            assert_eq!(row["kind"], "Attachment");
+            let saved = manifest
+                .attachments
+                .iter()
+                .find(|(_, reference)| row["attributes"]["sha256"] == reference.sha256)
+                .map(|(path, _)| f.vault.join(path))
+                .unwrap();
+            assert_eq!(fs::read(saved).unwrap(), bytes);
+        }
+        for (metric, day) in [
+            ("attachment.clinical", "_undated"),
+            ("attachment.electrocardiogram", "2026-10-22"),
+            ("attachment.workout-route", "2026-06-17"),
+        ] {
+            let row = records.iter().find(|row| row["metric"] == metric).unwrap();
+            assert_eq!(row["day"], day);
+        }
+        let before = tree(&f.vault);
+        assert!(
+            !f.store
+                .import(&path, false, &mut |_| {})
+                .unwrap()
+                .data_changed
+        );
+        assert_eq!(tree(&f.vault), before);
+    }
+}
+
+#[test]
+fn ambiguous_localized_primary_or_cda_alone_cannot_replace_active_data() {
+    use std::io::Write;
+    let f = Fixture::new();
+    f.write(&record("2026-10-22", "60", "Watch"));
+    f.import();
+    let before = tree(&f.vault);
+    for names in [
+        vec![
+            "apple_health_export/export.xml",
+            "apple_health_export/导出.xml",
+        ],
+        vec!["apple_health_export/export_cda.xml"],
+    ] {
+        let path = f.root.path().join("invalid.zip");
+        let mut zip = zip::ZipWriter::new(fs::File::create(&path).unwrap());
+        for name in names {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(&fs::read(&f.file).unwrap()).unwrap();
+        }
+        zip.finish().unwrap();
+        assert!(f.store.import(&path, false, &mut |_| {}).is_err());
+        assert_eq!(tree(&f.vault), before);
+    }
 }
 
 #[test]

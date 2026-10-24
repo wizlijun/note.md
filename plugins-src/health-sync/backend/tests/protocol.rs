@@ -140,3 +140,86 @@ fn cli_has_nonzero_validation_and_partial_completion_exit_codes() {
         1
     );
 }
+
+#[test]
+fn explicit_file_sync_previews_before_first_import_and_preserves_remembered_source() {
+    let temp = tempfile::tempdir().unwrap();
+    let fixture = temp.path().canonicalize().unwrap();
+    let vault = fixture.join("vault");
+    fs::create_dir(&vault).unwrap();
+    let export = fixture.join("导出.xml");
+    fs::write(&export, r#"<HealthData><ExportDate value="2026-10-24 09:00:00 +0900"/><Record type="HeartRate" startDate="2026-10-01" value="60"/></HealthData>"#).unwrap();
+    let run = |args: &[&str]| {
+        binary()
+            .env("NOTEMD_HEALTH_STATE_DIR", fixture.join("state"))
+            .args(args)
+            .arg("--vault")
+            .arg(&vault)
+            .output()
+            .unwrap()
+    };
+    for source in ["apple-health", "all"] {
+        let result = run(&[
+            "health-sync",
+            "--source",
+            source,
+            "--file",
+            export.to_str().unwrap(),
+            "--dry-run",
+        ]);
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stdout)
+        );
+        assert!(!vault.join("health/manifest.json").exists());
+        let status: Value = serde_json::from_slice(&run(&["health-status"]).stdout).unwrap();
+        assert!(status["data"]["source_file"].is_null());
+    }
+    assert!(run(&[
+        "health-sync",
+        "--source",
+        "apple-health",
+        "--file",
+        export.to_str().unwrap()
+    ])
+    .status
+    .success());
+    let before = fs::read(vault.join("health/manifest.json")).unwrap();
+    let replacement = fixture.join("new.xml");
+    fs::write(
+        &replacement,
+        r#"<HealthData><ExportDate value="2026-10-24 10:00:00 +0900"/></HealthData>"#,
+    )
+    .unwrap();
+    assert!(run(&[
+        "health-sync",
+        "--source",
+        "apple-health",
+        "--file",
+        replacement.to_str().unwrap(),
+        "--dry-run"
+    ])
+    .status
+    .success());
+    assert_eq!(
+        fs::read(vault.join("health/manifest.json")).unwrap(),
+        before
+    );
+    let status: Value = serde_json::from_slice(&run(&["health-status"]).stdout).unwrap();
+    assert_eq!(status["data"]["source_file"], export.to_str().unwrap());
+    assert!(!run(&[
+        "health-sync",
+        "--source",
+        "apple-health",
+        "--file",
+        "/missing/health.xml",
+        "--dry-run"
+    ])
+    .status
+    .success());
+    let resumed = run(&["health-sync", "--source", "apple-health"]);
+    assert!(resumed.status.success());
+    let report: Value = serde_json::from_slice(&resumed.stdout).unwrap();
+    assert_eq!(report["data"]["record_count"], 1);
+}

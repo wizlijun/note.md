@@ -18,6 +18,7 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct Options {
     pub source: String,
+    pub file: Option<PathBuf>,
     pub since: Option<String>,
     pub until: Option<String>,
     pub max_days: usize,
@@ -93,9 +94,12 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
     if opts.max_days == 0 || opts.max_days > 36600 {
         return Err("max-days must be 1..36600".into());
     }
+    if opts.file.is_some() && !["all", "apple-health"].contains(&opts.source.as_str()) {
+        return Err("--file applies only to all or apple-health sources".into());
+    }
     let store = Store::new(vault, &default_state_base()?)?;
     if opts.source == "apple-health" {
-        return serde_json::to_value(store.sync(opts.dry_run, progress)?)
+        return serde_json::to_value(store.sync(opts.file.as_deref(), opts.dry_run, progress)?)
             .map_err(|e| e.to_string());
     }
     let mut results = vec![];
@@ -111,8 +115,10 @@ pub fn run(vault: &Path, opts: &Options, progress: &mut dyn FnMut(&str)) -> Resu
         }
         Err(e) => return Err(e),
     };
-    if opts.source == "all" && store.status()?["source_file"].as_str().is_some() {
-        match store.sync(opts.dry_run, progress) {
+    if opts.source == "all"
+        && (opts.file.is_some() || store.status()?["source_file"].as_str().is_some())
+    {
+        match store.sync(opts.file.as_deref(), opts.dry_run, progress) {
             Ok(r) => {
                 if !r.complete {
                     warnings.push("Apple summaries or local state need attention".into());
@@ -301,6 +307,7 @@ mod tests {
     fn options() -> Options {
         Options {
             source: "oura".into(),
+            file: None,
             since: None,
             until: None,
             max_days: 31,

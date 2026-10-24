@@ -1,7 +1,11 @@
 //! Preserve every regular ZIP attachment as bytes without extracting source paths.
 //! Standalone XML imports never scan neighboring files. Waveforms, routes, and
 //! clinical documents remain original source evidence rather than inferred facts.
-use crate::{catalog::metric_slug, model::HealthRecord};
+use crate::{
+    catalog::metric_slug,
+    model::HealthRecord,
+    source::{is_primary_xml, MISSING_PRIMARY_XML, MULTIPLE_PRIMARY_XML},
+};
 use chrono::NaiveDate;
 use sha2::{Digest, Sha256};
 use std::{
@@ -165,12 +169,9 @@ fn extract_with_limits(
         if directory {
             continue;
         }
-        if matches!(
-            entry.name(),
-            "export.xml" | "apple_health_export/export.xml"
-        ) {
+        if is_primary_xml(entry.name()) {
             if selected.replace(i).is_some() {
-                return Err("ZIP contains multiple export.xml candidates".into());
+                return Err(MULTIPLE_PRIMARY_XML.into());
             }
             continue;
         }
@@ -190,7 +191,7 @@ fn extract_with_limits(
         indices.push(i);
     }
     if selected.is_none() {
-        return Err("ZIP must contain export.xml or apple_health_export/export.xml".into());
+        return Err(MISSING_PRIMARY_XML.into());
     }
     if indices.is_empty() {
         return Ok(vec![]);
@@ -395,14 +396,17 @@ mod tests {
                 "accepted {name:?}"
             );
         }
-        make_zip(
-            &input,
-            &[
-                ("export.xml", b"x"),
-                ("apple_health_export/export.xml", b"x"),
+        for names in [
+            ["export.xml", "apple_health_export/export.xml"],
+            [
+                "apple_health_export/export.xml",
+                "apple_health_export/导出.xml",
             ],
-        );
-        assert!(extract_attachments(&input, temp.path()).is_err());
+            ["导出.xml", "apple_health_export/导出.xml"],
+        ] {
+            make_zip(&input, &[(names[0], b"x"), (names[1], b"x")]);
+            assert!(extract_attachments(&input, temp.path()).is_err());
+        }
         make_zip(&input, &[("export.xml", b"x"), ("a", b"12345")]);
         assert!(extract_with_limits(&input, temp.path(), 4, 100).is_err());
         make_zip(

@@ -2,13 +2,13 @@
 
 Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；同一天的有效数据统一由一份清单管理。提供分类浏览、增量同步和 CLI。
 
-v0.1.0 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
+v0.1.1 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
 
 ## 开始使用
 
 1. 在 note.md 配置目标 Vault，从插件菜单打开「导入健康数据」。每个 Vault 只保存同一个人的健康档案。
-2. 选择 iPhone 健康 App 导出的完整 `export.zip`。iCloud Drive 文件需先下载到 Mac。也支持单独 `export.xml`，但只有 ZIP 能带入其中的 ECG、路线和其他附件。
-3. 可先预览，确认后导入。窗口显示已收集的分类、指标、来源、日期范围和记录数量，可按分类查看原始记录。
+2. 选择 iPhone 健康 App 导出的完整 `export.zip`。iCloud Drive 文件需先下载到 Mac。ZIP 主文档兼容 `apple_health_export/导出.xml` 和 `export.xml`，`export_cda.xml` 作为附件保留。也支持单独 XML，但只有 ZIP 能带入其中的 ECG、路线和其他附件。
+3. 可先预览，确认后导入。文件旁按钮与主采集按钮都会使用所选文件；预览不要求先正式导入，也不会记忆路径。窗口显示已收集的分类、指标、来源、日期范围和记录数量，可按分类查看原始记录。
 4. 需要厂商细节时，在同一窗口连接 Garmin 或 Oura，选择历史起止日期后同步。窗口会自动接续分批采集；「停止」在当前批次结束后生效，已保存的进度保留。
 
 新的 Apple **完整快照**只替换 Apple 来源的有效成员，保留 Garmin/Oura 补充。不要把某段时间或某台设备的局部导出当作完整快照。将新导出替换到原路径后，同步会重读该文件；路径变化时重新选择。相同输入不重复落盘，变化文件仍需完整扫描，只有变化日期生成新分片。
@@ -56,6 +56,7 @@ health/
 ```sh
 notemd health-import "/path/to/export.zip" --vault "/path/to/vault" --dry-run --json
 notemd health-import "/path/to/export.zip" --vault "/path/to/vault" --json
+notemd health-sync --source apple-health --file "/path/to/export.zip" --dry-run --json
 notemd health-sync --source all --since 2015-01-01 --until 2026-10-24 --max-days 31 --json
 notemd health-status --json
 notemd health-catalog --json
@@ -67,7 +68,7 @@ notemd health-disconnect --source oura --json
 
 一次 CLI 同步最多处理 `--max-days` 天（默认 31），结果 `pending=true` 时重复调用以续跑。GUI 自动接续；cron 每次调用沿用已保存的进度。首次建议显式给出历史起点，未指定时采用已有进度起点或当前档案最早日期。这个默认范围不能证明涵盖设备账号全部历史。
 
-完成历史回填后，后续调用重查最近 14 天。更早的晚到数据或修订需用 `--restart --since … --until …` 发起回查；**只在第一批传 `--restart`**，后续移除该选项继续。指定不同起点会开始该范围的回填，不维护多个并行历史任务。`--source apple-health` 只重读记忆的文件，不调用厂商接口。
+完成历史回填后，后续调用重查最近 14 天。更早的晚到数据或修订需用 `--restart --since … --until …` 发起回查；**只在第一批传 `--restart`**，后续移除该选项继续。指定不同起点会开始该范围的回填，不维护多个并行历史任务。`--source apple-health` 只处理 Apple 文件，不调用厂商接口。`--file` 显式指定本次导入/预览文件，优先于记忆路径；仅支持 `all` 或 `apple-health`，未提供才重读上次文件。
 
 失败不推进当前窗口，重试会从已持久化位置继续；权限不足的集合保留旧数据并记录缺口，其他集合继续。成功完成的空集合会替换该窗口旧成员，表示 API 本次返回为空，不证明设备从未测量。`complete` 说明当前批次质量，`pending` 说明是否还有日期待采；两者需一起判断。CLI 完成返回 0，执行失败返回 1，独立后端参数错误返回 2，有缺口/冲突返回 4。
 

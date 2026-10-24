@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub const USAGE: &str = "Health Sync: Apple primary + Garmin/Oura details, one person per vault
 
 notemd-health-sync health-import <export.zip|export.xml> [--vault DIR] [--dry-run] [--json]
-notemd-health-sync health-sync [--source all|apple-health|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--vault DIR] [--dry-run] [--json]
+notemd-health-sync health-sync [--file EXPORT] [--source all|apple-health|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-status [--vault DIR] [--json]
 notemd-health-sync health-catalog [--vault DIR] [--json]
 notemd-health-sync health-query [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--category sleep] [--source oura] [--metric TYPE] [--limit 100] [--offset 0] [--vault DIR] [--json]
@@ -50,14 +50,14 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
                 params["credentials_stdin"] = json!(true);
             }
             "--vault" | "--since" | "--until" | "--metric" | "--limit" | "--offset"
-            | "--source" | "--category" | "--max-days" => {
+            | "--source" | "--category" | "--max-days" | "--file" => {
                 let allowed = match token.as_str() {
                     "--vault" => true,
                     "--since" | "--until" => command == "query" || command == "sync",
                     "--source" => {
                         ["sync", "query", "connect", "disconnect"].contains(&command.as_str())
                     }
-                    "--max-days" => command == "sync",
+                    "--max-days" | "--file" => command == "sync",
                     _ => command == "query",
                 };
                 if !allowed {
@@ -124,6 +124,11 @@ fn validate_query(command: &str, params: &Value) -> Result<(), String> {
         return Ok(());
     }
     if command == "sync" {
+        if string(params, "file").is_some()
+            && string(params, "source").is_some_and(|s| s != "all" && s != "apple-health")
+        {
+            return Err("--file applies only to all or apple-health sources".into());
+        }
         let days = number(params, "max_days", 31)?;
         if days == 0 || days > 36600 {
             return Err("max-days must be 1..36600".into());
@@ -205,6 +210,7 @@ pub fn run(command: &str, params: &Value, progress: &mut dyn FnMut(&str)) -> Res
                 &vault,
                 &crate::sync::Options {
                     source: string(params, "source").unwrap_or_else(|| "all".into()),
+                    file: string(params, "file").map(PathBuf::from),
                     since: string(params, "since"),
                     until: string(params, "until"),
                     max_days: number(params, "max_days", 31)?,
@@ -244,7 +250,12 @@ pub fn run_with_store(
             serde_json::to_value(store.import(&PathBuf::from(path), dry_run, progress)?)
                 .map_err(|e| e.to_string())
         }
-        "sync" => serde_json::to_value(store.sync(dry_run, progress)?).map_err(|e| e.to_string()),
+        "sync" => serde_json::to_value(store.sync(
+            string(params, "file").map(PathBuf::from).as_deref(),
+            dry_run,
+            progress,
+        )?)
+        .map_err(|e| e.to_string()),
         "status" => store.status(),
         "catalog" => store.catalog(),
         "query" => store.query_filtered(
@@ -288,6 +299,7 @@ mod tests {
     fn rejects_bad_args_before_io() {
         for args in [
             vec!["health-import"],
+            vec!["health-sync", "--source", "garmin", "--file", "a.xml"],
             vec!["health-status", "--dry-run"],
             vec!["health-query", "--limit", "0"],
             vec!["health-query", "--offset", "-1"],

@@ -17,6 +17,19 @@ const MAX_XML_BYTES: u64 = 64 * 1024 * 1024 * 1024;
 const MAX_RECORD_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_DEPTH: usize = 128;
 
+// Apple localizes the primary filename. Keep intake and attachment exclusion
+// identical; export_cda.xml is a separate clinical attachment, never the primary.
+pub(crate) fn is_primary_xml(name: &str) -> bool {
+    matches!(
+        name.strip_prefix("apple_health_export/").unwrap_or(name),
+        "export.xml" | "导出.xml"
+    )
+}
+
+pub(crate) const MISSING_PRIMARY_XML: &str =
+    "ZIP must contain export.xml or 导出.xml at its root or under apple_health_export/";
+pub(crate) const MULTIPLE_PRIMARY_XML: &str = "ZIP contains multiple primary Health XML candidates";
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ParseStats {
     pub records: u64,
@@ -57,9 +70,9 @@ pub fn parse_export(
             if entry.is_dir() {
                 continue;
             }
-            if matches!(name, "export.xml" | "apple_health_export/export.xml") {
+            if is_primary_xml(name) {
                 if selected.replace(i).is_some() {
-                    return Err("ZIP contains multiple export.xml candidates".into());
+                    return Err(MULTIPLE_PRIMARY_XML.into());
                 }
                 if entry.size() > MAX_XML_BYTES {
                     return Err("Export XML exceeds the 64 GiB limit".into());
@@ -68,11 +81,10 @@ pub fn parse_export(
                 ignored += 1;
             }
         }
-        let index =
-            selected.ok_or("ZIP must contain export.xml or apple_health_export/export.xml")?;
+        let index = selected.ok_or(MISSING_PRIMARY_XML)?;
         let entry = archive
             .by_index(index)
-            .map_err(|e| format!("Cannot open export.xml: {e}"))?;
+            .map_err(|e| format!("Cannot open primary Health XML: {e}"))?;
         let mut stats = parse_xml(entry, &mut emit, MAX_RECORD_BYTES)?;
         stats.ignored_attachments = ignored;
         Ok(stats)
@@ -616,9 +628,34 @@ mod tests {
     }
 
     #[test]
+    fn primary_xml_names_are_explicit_and_exclude_clinical_documents() {
+        for name in [
+            "export.xml",
+            "导出.xml",
+            "apple_health_export/export.xml",
+            "apple_health_export/导出.xml",
+        ] {
+            assert!(is_primary_xml(name), "rejected {name}");
+        }
+        for name in [
+            "export_cda.xml",
+            "apple_health_export/export_cda.xml",
+            "other/导出.xml",
+            "apple_health_export/nested/export.xml",
+        ] {
+            assert!(!is_primary_xml(name), "accepted {name}");
+        }
+    }
+
+    #[test]
     fn rejects_ambiguous_and_unsafe_archives() {
         for names in [
             ["export.xml", "apple_health_export/export.xml"],
+            [
+                "apple_health_export/export.xml",
+                "apple_health_export/导出.xml",
+            ],
+            ["导出.xml", "apple_health_export/导出.xml"],
             ["export.xml", "../outside"],
         ] {
             let file = tempfile::NamedTempFile::new().unwrap();
