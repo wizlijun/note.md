@@ -102,6 +102,30 @@ export function isGuestUpdateBusy(path: string): boolean { return !!updateForPat
 export function isGuestUpdateFrozen(path: string): boolean { return updateForPath(path)?.frozen ?? false }
 export function markdownWriteEpoch(path: string): number { return guestUpdateEpochs.get(path) ?? 0 }
 
+/** Delete only the confirmed path, keeping open buffers available for recovery. */
+export async function deleteFileFromFolder(path: string): Promise<void> {
+  if (isGuestUpdateBusy(path)) throw new Error(t('folderView.deleteBusy'))
+  const token = Symbol('folder-delete')
+  guestUpdates[path] = { token, frozen: false }
+  guestUpdateEpochs.set(path, markdownWriteEpoch(path) + 1)
+  try {
+    await waitForMarkdownSaveTargets(target => target === path)
+    // Canvas Save As can already be writing this path before rebinding its tab.
+    // Drain existing Canvas operations as well as saves of the current file.
+    await Promise.all([...canvasSaveQueues.values()].map(pending => pending.catch(() => undefined)))
+    const { remove } = await import('@tauri-apps/plugin-fs')
+    await remove(path)
+    for (const tab of tabs) {
+      if (tab.filePath !== path) continue
+      tab.externalState = 'deleted'
+      tab.externalBannerDismissed = false
+      tab.pendingExternal = undefined
+    }
+  } finally {
+    if (guestUpdates[path]?.token === token) delete guestUpdates[path]
+  }
+}
+
 /** Received-only admission, sharing the ordinary save queue and real file owner. */
 export async function withGuestFileUpdate<T>(paths: readonly string[], run: (check: () => Promise<void>) => Promise<{ value: T; writes: Record<string, string | null> }>, scope?: {root:string;managedPaths:readonly string[]}): Promise<T> {
   const unique = [...new Set(paths)], token = Symbol('guest-update')
@@ -793,7 +817,7 @@ let autoRenameQueue: Promise<void> = Promise.resolve()
 function renameAutoNamedTab(t: Tab, target: string, content = t.currentContent): Promise<void> {
   const from = t.filePath
   const operation = autoRenameQueue.then(async () => {
-    if (t.filePath !== from) return
+    if (t.filePath !== from || isGuestUpdateBusy(from)) return
     const dir = from.slice(0, from.length - basename(from).length)
     const { rename, exists } = await import('@tauri-apps/plugin-fs')
     let candidate = target
@@ -802,7 +826,7 @@ function renameAutoNamedTab(t: Tab, target: string, content = t.currentContent):
       candidate = target.replace(/(\.(?:md|canvas))$/i, `-${n}$1`)
     }
     const to = dir + candidate
-    if (t.filePath !== from) return
+    if (t.filePath !== from || isGuestUpdateBusy(from) || isGuestUpdateBusy(to)) return
     try {
       await rename(from, to)
     } catch (error) {
@@ -1109,7 +1133,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
       t.pendingExternal = undefined
       await pushRecentFile(saved.canonicalPath)
       await rebindTabPath(id)
-    })
+    }, newPath)
     return
   }
   const oldPath=t.filePath, epoch=markdownWriteEpoch(oldPath)
@@ -1159,7 +1183,7 @@ export async function exportCanvasCopy(id: string, newPath: string): Promise<voi
     }
     if (probe.kind === 'missing') await canvasDocumentCreate(targetPath, content)
     else await canvasDocumentSave(targetPath, content, probe.revision)
-  })
+  }, newPath)
 }
 
 export type DirtyChoice = 'save' | 'discard' | 'cancel'
@@ -1359,11 +1383,21 @@ function canvasIdentityMatches(t: Tab, identity: CanvasDocumentIdentity): boolea
 function enqueueCanvasOperation<T>(
   t: Tab,
   run: (identity: CanvasDocumentIdentity) => Promise<T>,
+  targetPath = t.filePath,
 ): Promise<T> {
   const queueKey = t.id
+  const sourcePath = t.filePath
+  const sourceEpoch = markdownWriteEpoch(sourcePath), targetEpoch = markdownWriteEpoch(targetPath)
+  const admitted = !isGuestUpdateBusy(sourcePath) && !isGuestUpdateBusy(targetPath)
   const previous = canvasSaveQueues.get(queueKey)
   const ready = previous ? previous.catch(() => undefined) : Promise.resolve()
-  const operation = ready.then(() => run(captureCanvasIdentity(t)))
+  const operation = ready.then(() => {
+    if (!admitted || isGuestUpdateBusy(sourcePath) || isGuestUpdateBusy(targetPath)
+      || sourceEpoch !== markdownWriteEpoch(sourcePath) || targetEpoch !== markdownWriteEpoch(targetPath)) {
+      throw new Error('The file changed before it could be saved')
+    }
+    return run(captureCanvasIdentity(t))
+  })
   const tracked = operation.finally(() => {
     if (canvasSaveQueues.get(queueKey) === tracked) canvasSaveQueues.delete(queueKey)
   })
@@ -1379,7 +1413,7 @@ export function persistCanvasSnapshot(
 ): Promise<CanvasSaveResult | undefined> {
   const immutableExpectedPath = expectedPath
   return enqueueCanvasOperation(t, (identity) => {
-    if (immutableExpectedPath !== undefined && identity.path !== immutableExpectedPath) return Promise.resolve(undefined)
+    if (immutableExpectedPath !== undefined && (identity.path !== immutableExpectedPath || t.externalState !== 'fresh')) return Promise.resolve(undefined)
     return persistCanvasSnapshotNow(t, identity, content, force)
   })
 }
