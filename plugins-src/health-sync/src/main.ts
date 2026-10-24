@@ -27,6 +27,7 @@ document.documentElement.lang = zh ? 'zh-CN' : 'en'
 document.title = title
 // Only static markup enters innerHTML. Provider data always uses textContent.
 document.querySelector('#app')!.innerHTML = `
+<div id="import-progress" hidden><p id="import-progress-label" role="status"></p><progress aria-labelledby="import-progress-label"></progress></div>
 <header><p class="eyebrow">APPLE HEALTH · GARMIN · OURA</p><h1></h1><p id="intro"></p></header>
 <section class="panel"><label for="vault" id="vault-label"></label><input id="vault" autocomplete="off" spellcheck="false"><div id="overview" class="overview"></div></section>
 <section><div class="section-heading"><h2 id="catalog-title"></h2><button id="status" class="secondary"></button></div><p id="catalog-help" class="help"></p><div id="catalog" class="catalog"></div><details><summary id="coverage-title"></summary><p id="coverage-help" class="help"></p><div id="coverage" class="coverage"></div></details></section>
@@ -43,6 +44,8 @@ document.querySelector('#app')!.innerHTML = `
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T
 const input = (id: string) => el<HTMLInputElement>(id)
 const select = (id: string) => el<HTMLSelectElement>(id)
+// Keep progress announcements outside the busy controls' accessibility subtree.
+el('app').after(el('import-progress'))
 const labels: Record<string, string> = {
   intro: t('汇集 Apple Health、Garmin 和 Oura，按天归档，保留原始记录。', 'Archive Apple Health, Garmin and Oura by day, preserving original records.'),
   'vault-label': t('目标 Vault', 'Destination Vault'), 'catalog-title': t('数据分类', 'Data categories'), status: t('刷新状态', 'Refresh status'),
@@ -109,6 +112,7 @@ function setBusy(value: boolean) {
   el('app').setAttribute('aria-busy', String(value))
 }
 function message(text: string, error = false) {
+  el('import-progress-label').textContent = text
   el('message').textContent = text; el('message').classList.toggle('error', error)
   if (error && !el('report-details').hidden) el<HTMLDetailsElement>('report-details').open = true
 }
@@ -120,12 +124,17 @@ function clearQuery() {
   el('records').textContent = ''; el('records').hidden = true; el('query-count').textContent = ''
 }
 function clearAuthorization() { el('authorization').hidden = true; el<HTMLTextAreaElement>('authorize-url').value = '' }
-async function operation(action: () => Promise<void>, sensitive = false) {
+async function operation(action: () => Promise<void>, { sensitive = false, progress = false }: { sensitive?: boolean; progress?: boolean } = {}) {
   if (busy) return
   setBusy(true); clearReport(); message(t('正在处理…', 'Processing…'))
+  // One timer spans the whole import, including batches and catalog refreshes.
+  const progressTimer = progress ? window.setTimeout(() => { el('import-progress').hidden = false }, 3000) : undefined
   try { await action() } catch (error) {
     message(sensitive ? t('连接失败，请检查凭据和授权设置。', 'Connection failed. Check credentials and authorization settings.') : `${t('操作失败', 'Failed')}: ${error instanceof Error ? error.message : String(error)}`, true)
-  } finally { collecting = false; setBusy(false) }
+  } finally {
+    window.clearTimeout(progressTimer); el('import-progress').hidden = true
+    collecting = false; setBusy(false)
+  }
 }
 function vaultParams() { const vault = input('vault').value.trim(); if (!vault) throw new Error(t('请填写目标 Vault。', 'Enter the destination Vault.')); return { vault } }
 function accountName(account: Account) {
@@ -303,7 +312,7 @@ el('import').addEventListener('click', () => { void operation(async () => {
   const result = await request('plugin.import', { ...vaultParams(), file, dry_run: preview }) as Json
   report(result); if (!preview) await refresh()
   message(result.complete === false ? t('导入有未完成项，请查看结果。', 'Import has unfinished items. Review the result.') : preview ? t('预览完成，未修改归档。', 'Preview complete; archive unchanged.') : t('Apple 健康快照已导入。', 'Apple Health snapshot imported.'), result.complete === false)
-}) })
+}, { progress: true }) })
 el('garmin-zip-choose').addEventListener('click', () => { void operation(async () => {
   const result = await request('host.dialog.open', { title: labels['garmin-zip-file-label'], multiple: false, filters: [{ name: 'Garmin', extensions: ['zip'] }] }) as { paths: string[] | null }
   if (result.paths?.[0]) input('garmin-zip-file').value = result.paths[0]
@@ -324,7 +333,7 @@ for (const [id, preview] of [['garmin-zip-preview', true], ['garmin-zip-import',
   if (typeof result.account_id === 'string') details.push(`${t('账号', 'Account')} ${result.account_id.slice(0, 8)}`)
   const outcome = result.complete === false ? t('Garmin ZIP 有未完成项，请查看操作明细。', 'Garmin ZIP has unfinished items. Review the operation details.') : preview ? t('Garmin ZIP 预览完成，未修改归档。', 'Garmin ZIP preview complete; archive unchanged.') : t('Garmin ZIP 已导入，当前同步账号未改变。', 'Garmin ZIP imported; the current sync account is unchanged.')
   message(`${outcome}${details.length ? ` ${details.join(' · ')}` : ''}`, result.complete === false)
-}) })
+}, { progress: true }) })
 for (const id of ['stop', 'history-stop']) el(id).addEventListener('click', () => { stopRequested = true; setBusy(busy); message(t('本批完成后停止，进度将保留。', 'Stopping after this batch; progress will be retained.')) })
 el('sync-source').addEventListener('change', syncControls)
 el('dry-run').addEventListener('change', syncControls)
@@ -374,14 +383,14 @@ el('sync').addEventListener('click', () => { void operation(async () => {
     }
   }
   await collect(jobs, preview)
-}) })
+}, { progress: true }) })
 el('history-import').addEventListener('click', () => { void operation(async () => {
   const source = select('history-source').value, account_id = select('history-account').value
   const since = input('history-since').value, until = input('history-until').value
   if (!account_id) throw new Error(t('请选择已连接的历史账号。', 'Choose a connected account for history import.'))
   if (!since || !until || since > until) throw new Error(t('请选择有效的采集日期范围。', 'Choose a valid collection date range.'))
   await collect([{ source, account_id, history: true, since, until, restart: input('restart').checked }], input('dry-run').checked)
-}) })
+}, { progress: true }) })
 el('oura-cancel').addEventListener('click', () => { void (async () => {
   const target = cancellationTarget()
   if (!target || cancellingAuthorization) return
@@ -441,10 +450,10 @@ for (const source of ['garmin', 'oura']) {
       el(`${source}-state`).textContent = `${t('连接未完成，请检查设置后重试。', 'Connection incomplete. Check settings and retry.')}${current ? ` ${t('当前：', 'Current: ')}${accountName(current)}` : ''}`
       throw error
     } finally { authorizationAttempt = null; clearAuthorization(); cancellationControls() }
-  }, true) })
+  }, { sensitive: true }) })
   el(`${source}-account`).addEventListener('change', accountControls)
   el(`${source}-select`).addEventListener('click', () => { void operation(async () => { await request('plugin.select_account', { ...vaultParams(), source, account_id: select(`${source}-account`).value }); await refresh(); message(t('当前同步账号已切换。', 'Current sync account changed.')) }) })
-  el(`${source}-disconnect`).addEventListener('click', () => { void operation(async () => { await request('plugin.disconnect', { ...vaultParams(), source, account_id: select(`${source}-account`).value }); await refresh(); message(t('已断开所选账号，归档数据保留。', 'Selected account disconnected; archived data retained.')) }, true) })
+  el(`${source}-disconnect`).addEventListener('click', () => { void operation(async () => { await request('plugin.disconnect', { ...vaultParams(), source, account_id: select(`${source}-account`).value }); await refresh(); message(t('已断开所选账号，归档数据保留。', 'Selected account disconnected; archived data retained.')) }, { sensitive: true }) })
 }
 void operation(async () => {
   const info = await request('host.vault.info') as { root?: string }

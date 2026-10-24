@@ -665,3 +665,126 @@ test('export observed coverage labels and caveat are translated', async t => {
   assert.match(el('coverage').querySelector('thead').textContent, /Days observed in export/)
   assert.match(el('coverage-help').textContent, /ZIP.*do not establish complete dates or API coverage/)
 })
+
+// Advance only this window's timers; requests remain explicitly controlled.
+function importClock(window) {
+  let now = 0, next = 0
+  const timers = new Map()
+  window.setTimeout = (callback, delay = 0) => { const id = ++next; timers.set(id, { at: now + delay, callback }); return id }
+  window.clearTimeout = id => timers.delete(id)
+  return {
+    advance(ms) {
+      now += ms
+      for (const [id, timer] of timers) if (timer.at <= now) { timers.delete(id); timer.callback() }
+    },
+    get pending() { return timers.size },
+  }
+}
+function deferred() {
+  let resolve, reject
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+for (const scenario of [
+  { id: 'import', method: 'plugin.import' },
+  { id: 'import', method: 'plugin.import', preview: true },
+  { id: 'garmin-zip-import', method: 'plugin.garmin-import' },
+  { id: 'garmin-zip-preview', method: 'plugin.garmin-import' },
+  ...['apple-health', 'garmin', 'oura', 'all'].flatMap(source => [false, true].map(preview => ({ id: 'sync', method: 'plugin.sync', source, preview }))),
+  ...['garmin', 'oura'].flatMap(source => [false, true].map(preview => ({ id: 'history-import', method: 'plugin.sync', source, preview }))),
+]) test(`delayed import progress: ${scenario.id}/${scenario.source ?? 'file'}/${scenario.preview ? 'preview' : 'write'}`, async t => {
+  const request = deferred()
+  const { el, window } = await mount(t, method => method === scenario.method ? request.promise : undefined)
+  const clock = importClock(window)
+  el('dry-run').checked = Boolean(scenario.preview)
+  el('garmin-zip-file').value = '/tmp/garmin.zip'; el('garmin-zip-region').value = 'china'
+  if (scenario.source) {
+    const source = el(scenario.id === 'sync' ? 'sync-source' : 'history-source')
+    source.value = scenario.source; source.dispatchEvent(new window.Event('change'))
+  }
+  el(scenario.id).click(); await tick()
+  clock.advance(2999); assert.equal(el('import-progress').hidden, true)
+  clock.advance(1); assert.equal(el('import-progress').hidden, false)
+  const bar = el('import-progress').querySelector('progress')
+  assert.equal(bar.hasAttribute('value'), false)
+  assert.equal(bar.hasAttribute('aria-valuenow'), false)
+  assert.equal(bar.getAttribute('aria-labelledby'), 'import-progress-label')
+  assert.equal(bar.closest('[aria-busy="true"]'), null)
+  assert.equal(el('import-progress-label').textContent, el('message').textContent)
+  request.resolve({ complete: true }); await tick()
+  assert.equal(el('import-progress').hidden, true); assert.equal(clock.pending, 0)
+  assert.equal(el(scenario.id).disabled, false)
+})
+
+for (const outcome of ['success', 'error', 'incomplete']) test(`fast import ${outcome} cancels delayed progress and a new import starts a fresh timer`, async t => {
+  let request = deferred()
+  const { el, window } = await mount(t, method => method === 'plugin.import' ? request.promise : undefined)
+  const clock = importClock(window)
+  el('import').click(); clock.advance(2500)
+  if (outcome === 'error') request.reject(new Error('synthetic failure'))
+  else request.resolve({ complete: outcome === 'success' })
+  await tick()
+  assert.equal(el('import-progress').hidden, true); assert.equal(clock.pending, 0)
+  assert.equal(el('message').classList.contains('error'), outcome !== 'success')
+  clock.advance(10000); assert.equal(el('import-progress').hidden, true)
+  request = deferred(); el('import').click()
+  clock.advance(2999); assert.equal(el('import-progress').hidden, true)
+  clock.advance(1); assert.equal(el('import-progress').hidden, false)
+  request.reject(new Error('synthetic failure')); await tick()
+  assert.equal(el('import-progress').hidden, true); assert.equal(clock.pending, 0)
+  assert.equal(el('import').disabled, false)
+})
+
+test('history progress spans short batches and refreshes, and stays visible until a requested stop finishes the active batch', async t => {
+  const batches = [deferred(), deferred()]
+  let batch = 0
+  const { el, window, calls } = await mount(t, method => method === 'plugin.sync' ? batches[batch++].promise : undefined)
+  const clock = importClock(window)
+  el('history-import').click(); clock.advance(2000)
+  const pending = { complete: false, pending: true, sources: [{ source: 'garmin', account_id: 'g-one', pending: true, next_day: '2020-02-01' }] }
+  batches[0].resolve(pending); await tick()
+  assert.equal(batch, 2); assert.equal(calls.filter(c => c.method === 'plugin.status').length, 2)
+  clock.advance(999); assert.equal(el('import-progress').hidden, true)
+  clock.advance(1); assert.equal(el('import-progress').hidden, false)
+  assert.match(el('import-progress-label').textContent, /批次 2.*Garmin/)
+  el('history-stop').click()
+  assert.match(el('import-progress-label').textContent, /本批完成后停止/)
+  assert.equal(el('import-progress').hidden, false)
+  batches[1].resolve({ ...pending, sources: [{ ...pending.sources[0], next_day: '2020-03-01' }] }); await tick()
+  assert.equal(batch, 2); assert.equal(el('import-progress').hidden, true)
+  assert.equal(clock.pending, 0); assert.match(el('message').textContent, /已停止后续批次/)
+})
+
+test('import progress remains visible during the final catalog refresh', async t => {
+  const refresh = deferred()
+  let statuses = 0
+  const { el, window } = await mount(t, method => {
+    if (method === 'plugin.import') return { complete: true }
+    if (method === 'plugin.status' && ++statuses > 1) return refresh.promise
+  })
+  const clock = importClock(window)
+  el('import').click(); await tick(); clock.advance(3000)
+  assert.equal(el('import-progress').hidden, false); assert.equal(el('import').disabled, true)
+  refresh.resolve(status); await tick()
+  assert.equal(el('import-progress').hidden, true); assert.equal(el('import').disabled, false)
+})
+
+for (const id of ['choose', 'garmin-zip-choose', 'status', 'garmin-connect', 'query']) test(`non-import action ${id} does not show import progress`, async t => {
+  const request = deferred()
+  let started = false
+  const { el, window } = await mount(t, () => started ? request.promise : undefined)
+  const clock = importClock(window); started = true
+  el(id).click(); await tick(); clock.advance(10000)
+  assert.equal(el('import-progress').hidden, true); assert.equal(clock.pending, 0)
+  request.reject(new Error('synthetic failure')); await tick()
+})
+
+test('English import progress is localized', async t => {
+  const request = deferred()
+  const { el, window } = await mount(t, method => method === 'plugin.import' ? request.promise : undefined, 'en')
+  const clock = importClock(window)
+  el('import').click(); clock.advance(3000)
+  assert.equal(el('import-progress-label').textContent, 'Processing…')
+  request.resolve({ complete: true }); await tick()
+})

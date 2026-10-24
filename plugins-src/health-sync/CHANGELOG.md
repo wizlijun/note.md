@@ -1,5 +1,10 @@
 # Health Sync changelog
 
+## Unreleased
+
+- 所有导入、预览和同步持续超过 3 秒时显示不定进度条及当前批次提示；跨批次持续显示，结束或失败后自动收起。
+- Show an indeterminate progress bar for all imports, previews and syncs lasting over 3 seconds; keep it visible across batches and clear it on completion or failure.
+
 ## 0.1.3 — 2026-10-24
 
 - 修复真实 Garmin JSON 中部分长小数在解析/再序列化时产生 1 ULP 偏差的问题，启用精确浮点往返解析，并对归档查询值与原始导出逐字段比对。
