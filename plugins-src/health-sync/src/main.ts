@@ -7,7 +7,7 @@ type Account = { id: string; label?: string; region?: string; connected?: boolea
 type Connection = { connected?: boolean; pending?: boolean; error?: string; region?: string; active_account_id?: string; accounts?: Account[]; authorization_id?: string; completed_account_id?: string }
 type CollectionJob = { source: string; account_id?: string; history?: boolean; since?: string; until?: string; file?: string; restart?: boolean }
 type Metric = { metric: string; source: string; record_count: number; first_day?: string; last_day?: string }
-type Coverage = { complete_days?: number; unavailable_days?: number; failed_days?: number; first_coverage_day?: string | null; last_coverage_day?: string | null; undated?: { status: string } | null }
+type Coverage = { observed_days?: number; complete_days?: number; unavailable_days?: number; failed_days?: number; first_coverage_day?: string | null; last_coverage_day?: string | null; undated?: { status: string } | null }
 type SourceCoverage = Record<string, { collections?: Record<string, Coverage>; accounts?: Record<string, { collections?: Record<string, Coverage> }> }>
 type Category = { slug: string; record_count: number; first_day?: string; last_day?: string; metrics: Metric[] }
 const zh = (window.notemd?.locale ?? navigator.language).startsWith('zh')
@@ -34,6 +34,7 @@ document.querySelector('#app')!.innerHTML = `
 <label id="sync-source-label" for="sync-source"></label><select id="sync-source"></select>
 <label class="check"><input id="dry-run" type="checkbox"><span id="dry-run-label"></span></label><div class="actions"><button id="sync"></button><button id="stop" class="secondary" disabled></button></div><p id="sync-help" class="help"></p></section>
 <section class="panel" id="history-panel"><h2 id="history-title"></h2><p id="history-help" class="help"></p><div class="dates"><div><label id="history-source-label" for="history-source"></label><select id="history-source"></select></div><div><label id="history-account-label" for="history-account"></label><select id="history-account"></select></div></div><div class="dates"><div><label id="history-since-label" for="history-since"></label><input id="history-since" type="date" required></div><div><label id="history-until-label" for="history-until"></label><input id="history-until" type="date" required></div></div><label class="check"><input id="restart" type="checkbox"><span id="restart-label"></span></label><div class="actions"><button id="history-import" class="secondary"></button><button id="history-stop" class="secondary" disabled></button></div></section>
+<details class="panel" id="garmin-zip-panel"><summary id="garmin-zip-title"></summary><p id="garmin-zip-help" class="help"></p><label for="garmin-zip-file" id="garmin-zip-file-label"></label><div class="file-row"><input id="garmin-zip-file" autocomplete="off" spellcheck="false"><button id="garmin-zip-choose" class="secondary"></button></div><label for="garmin-zip-region" id="garmin-zip-region-label"></label><select id="garmin-zip-region"></select><div class="actions"><button id="garmin-zip-preview" class="secondary"></button><button id="garmin-zip-import"></button></div></details>
 <section class="result"><h2 id="result-title"></h2><p id="message" role="status" aria-live="polite"></p><details id="report-details" hidden><summary id="report-title"></summary><pre id="report" hidden></pre></details></section>
 <details class="panel" id="connections-panel"><summary id="connections-title"></summary>
 <div class="connections"><section><h3>Garmin</h3><p id="garmin-state" role="status"></p><label id="garmin-account-label" for="garmin-account"></label><select id="garmin-account"></select><div class="actions"><button id="garmin-select" class="secondary"></button><button id="garmin-disconnect" class="secondary"></button></div><details class="add-account"><summary id="garmin-add-title"></summary><label id="garmin-label-label" for="garmin-label"></label><input id="garmin-label" autocomplete="off"><label id="garmin-region-label" for="garmin-region"></label><select id="garmin-region"></select><label for="garmin-key">Personal API key</label><input id="garmin-key" type="password" autocomplete="off" aria-describedby="garmin-help"><p id="garmin-help" class="help"><span id="garmin-help-prefix"></span><a id="garmin-key-cn" href="https://connect.garmin.cn/app/settings/personalApiToken" target="_blank" rel="noopener noreferrer"></a> / <a id="garmin-key-global" href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank" rel="noopener noreferrer"></a><span id="garmin-help-suffix"></span></p><div class="actions"><button id="garmin-connect"></button></div></details></section>
@@ -46,7 +47,7 @@ const labels: Record<string, string> = {
   intro: t('汇集 Apple Health、Garmin 和 Oura，按天归档，保留原始记录。', 'Archive Apple Health, Garmin and Oura by day, preserving original records.'),
   'vault-label': t('目标 Vault', 'Destination Vault'), 'catalog-title': t('数据分类', 'Data categories'), status: t('刷新状态', 'Refresh status'),
   'catalog-help': t('选择分类或指标查看原始记录。不同设备的数据分别保留，不累加重复读数。', 'Select a category or metric to browse original records. Device data stays separate; overlapping readings are not added together.'),
-  'coverage-title': t('来源覆盖明细', 'Source coverage details'), 'coverage-help': t('已完成表示该日期的采集请求已处理，不代表设备全天佩戴或全天都有读数。无数据返回也可能记为已完成。', 'Completed means collection requests for that date were processed, not continuous wear or all-day readings. An empty response can also count as completed.'), 'acquire-title': t('采集与同步', 'Collect & sync'), 'file-label': t('Apple 健康导出文件', 'Apple Health export file'),
+  'coverage-title': t('来源覆盖明细', 'Source coverage details'), 'coverage-help': t('已完成表示该日期的采集请求已处理，不代表设备全天佩戴或全天都有读数。无数据返回也可能记为已完成。ZIP 的“导出中有记录”仅表示包中观察到记录，不代表完整日期或 API 覆盖。', 'Completed means collection requests for that date were processed, not continuous wear or all-day readings. An empty response can also count as completed. ZIP observations only indicate records present in the export and do not establish complete dates or API coverage.'), 'acquire-title': t('采集与同步', 'Collect & sync'), 'file-label': t('Apple 健康导出文件', 'Apple Health export file'),
   choose: t('选择文件…', 'Choose file…'), import: t('导入完整快照', 'Import full snapshot'),
   scope: t('请选择同一个人的完整 export.zip 或 export.xml。导入后可补充已连接的设备来源。', 'Choose a complete export.zip or export.xml for the same person, then collect connected provider data.'),
   'sync-source-label': t('采集来源', 'Collection source'),
@@ -60,6 +61,10 @@ const labels: Record<string, string> = {
   'garmin-disconnect': t('断开所选账号', 'Disconnect selected'), 'oura-disconnect': t('断开所选账号', 'Disconnect selected'),
   'history-title': t('Garmin / Oura 历史导入', 'Garmin / Oura history import'), 'history-help': t('选择已保存账号和日期，补齐历史；不会切换当前同步账号。预览选项同上。', 'Choose a saved account and dates to import history without changing the current sync account. The preview option above also applies.'),
   'history-source-label': t('来源', 'Source'), 'history-account-label': t('历史账号', 'History account'), 'history-since-label': t('起始日期', 'First date'), 'history-until-label': t('结束日期', 'Last date'), 'history-import': t('导入历史并续传', 'Import history & resume'), 'history-stop': t('完成本批后停止', 'Stop after this batch'),
+  'garmin-zip-title': t('导入 Garmin 导出 ZIP', 'Import Garmin export ZIP'),
+  'garmin-zip-help': t('选择官网导出 ZIP 和账号区域，无需 API Key。自动识别文件账号，分别保留数据；不切换当前同步账号。', 'Choose an official export ZIP and its account region. No API key is needed. The file account is identified automatically and archived separately; the current sync account stays unchanged.'),
+  'garmin-zip-file-label': t('Garmin 导出 ZIP', 'Garmin export ZIP'), 'garmin-zip-region-label': t('导出账号区域', 'Export account region'),
+  'garmin-zip-choose': t('选择文件…', 'Choose file…'), 'garmin-zip-preview': t('预览 ZIP', 'Preview ZIP'), 'garmin-zip-import': t('导入 ZIP', 'Import ZIP'),
   'oura-cancel': t('取消授权', 'Cancel authorization'),
   'oura-help': t('使用自己的 Oura OAuth 应用。先在开发者门户登记下方完全相同的 Redirect URI；连接时会打开浏览器授权。', 'Use your own Oura OAuth application. Register the exact Redirect URI below in the developer portal. Connecting opens your browser for authorization.'),
   'authorize-label': t('若浏览器未打开，可复制此授权地址', 'Copy this authorization URL if your browser did not open'),
@@ -77,6 +82,7 @@ function option(value: string, text: string) { const element = document.createEl
 for (const id of ['sync-source', 'query-source']) for (const [value, name] of Object.entries(sources)) select(id).append(option(value, name))
 select('category').append(option('', t('所有分类', 'All categories')))
 select('garmin-region').append(option('global', t('国际区', 'Global')), option('china', t('中国区', 'China')))
+select('garmin-zip-region').append(option('', t('请选择区域…', 'Choose a region…')), option('china', t('中国区', 'China')), option('global', t('国际区', 'Global')))
 select('history-source').append(option('garmin', 'Garmin'), option('oura', 'Oura'))
 function localDate(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 input('history-until').value = localDate(new Date())
@@ -185,18 +191,18 @@ function syncControls() {
 function renderCoverage(value: SourceCoverage = {}) {
   const container = el('coverage'); container.replaceChildren()
   const table = document.createElement('table'), head = document.createElement('thead'), heading = document.createElement('tr'), body = document.createElement('tbody')
-  for (const label of [t('来源', 'Source'), t('集合', 'Collection'), t('日期范围', 'Date range'), t('已完成天数', 'Completed days'), t('不可用天数', 'Unavailable days'), t('失败天数', 'Failed days')]) {
+  for (const label of [t('来源', 'Source'), t('集合', 'Collection'), t('日期范围', 'Date range'), t('已完成天数', 'Completed days'), t('不可用天数', 'Unavailable days'), t('失败天数', 'Failed days'), t('导出中有记录（天）', 'Days observed in export')]) {
     const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; heading.append(cell)
   }
   head.append(heading)
-  const states: Record<string, string> = { complete: t('已完成', 'Completed'), unavailable: t('不可用', 'Unavailable'), failed: t('失败', 'Failed') }
+  const states: Record<string, string> = { complete: t('已完成', 'Completed'), unavailable: t('不可用', 'Unavailable'), failed: t('失败', 'Failed'), observed: t('导出中有记录', 'Observed in export') }
   for (const [source, summary] of Object.entries(value)) {
     const accounts = summary.accounts && Object.keys(summary.accounts).length ? Object.entries(summary.accounts) : [['', summary] as const]
     for (const [id, account] of accounts) for (const [collection, coverage] of Object.entries(account.collections ?? {})) {
       const row = document.createElement('tr')
       const dates = coverage.first_coverage_day ? `${coverage.first_coverage_day} → ${coverage.last_coverage_day ?? coverage.first_coverage_day}` : t('无日期记录', 'Undated records')
       const name = `${sources[source] ?? source}${id ? ` · ${accountName(connections[source]?.accounts?.find(item => item.id === id) ?? { id })}` : ''}`
-      for (const text of [name, collection, dates, ...[coverage.complete_days, coverage.unavailable_days, coverage.failed_days].map(count => (count ?? 0).toLocaleString())]) {
+      for (const text of [name, collection, dates, ...[coverage.complete_days, coverage.unavailable_days, coverage.failed_days, coverage.observed_days].map(count => (count ?? 0).toLocaleString())]) {
         const cell = document.createElement('td'); cell.textContent = text; row.append(cell)
       }
       if (coverage.undated) {
@@ -279,8 +285,8 @@ for (const id of ['category', 'query-source', 'query-account', 'since', 'until',
 el('query-source').addEventListener('change', () => { select('query-account').value = ''; queryAccounts(); clearQuery() })
 el('vault').addEventListener('input', () => {
   clearQuery(); clearReport(); clearAuthorization()
-  for (const id of ['file', 'history-since', 'since', 'until', 'metric', 'garmin-key', 'garmin-label', 'oura-label', 'oura-id', 'oura-secret']) input(id).value = ''
-  automaticSince = ''; rememberedSource = ''; input('restart').checked = false; select('garmin-region').value = 'global'; select('history-source').value = 'garmin'; select('history-account').replaceChildren(); select('query-source').value = 'all'
+  for (const id of ['file', 'garmin-zip-file', 'history-since', 'since', 'until', 'metric', 'garmin-key', 'garmin-label', 'oura-label', 'oura-id', 'oura-secret']) input(id).value = ''
+  automaticSince = ''; rememberedSource = ''; select('garmin-zip-region').value = ''; input('restart').checked = false; select('garmin-region').value = 'global'; select('history-source').value = 'garmin'; select('history-account').replaceChildren(); select('query-source').value = 'all'
   el('overview').textContent = t('请刷新以读取此 Vault。', 'Refresh to load this Vault.')
   renderCatalog({}); connectionStates({})
 })
@@ -297,6 +303,27 @@ el('import').addEventListener('click', () => { void operation(async () => {
   const result = await request('plugin.import', { ...vaultParams(), file, dry_run: preview }) as Json
   report(result); if (!preview) await refresh()
   message(result.complete === false ? t('导入有未完成项，请查看结果。', 'Import has unfinished items. Review the result.') : preview ? t('预览完成，未修改归档。', 'Preview complete; archive unchanged.') : t('Apple 健康快照已导入。', 'Apple Health snapshot imported.'), result.complete === false)
+}) })
+el('garmin-zip-choose').addEventListener('click', () => { void operation(async () => {
+  const result = await request('host.dialog.open', { title: labels['garmin-zip-file-label'], multiple: false, filters: [{ name: 'Garmin', extensions: ['zip'] }] }) as { paths: string[] | null }
+  if (result.paths?.[0]) input('garmin-zip-file').value = result.paths[0]
+  message(t('文件已就绪', 'File selection ready'))
+}) })
+for (const [id, preview] of [['garmin-zip-preview', true], ['garmin-zip-import', false]] as const) el(id).addEventListener('click', () => { void operation(async () => {
+  const file = input('garmin-zip-file').value.trim(), region = select('garmin-zip-region').value
+  if (!file) throw new Error(t('请先选择 Garmin 导出 ZIP。', 'Choose a Garmin export ZIP first.'))
+  if (!['china', 'global'].includes(region)) throw new Error(t('请选择导出账号区域。', 'Choose the export account region.'))
+  const result = await request('plugin.garmin-import', { ...vaultParams(), file, region, dry_run: preview }) as Json
+  // Keep the summary visible without listing every private source filename.
+  const { file_reports: _files, ...summary } = result
+  report(summary); if (!preview) await refresh()
+  const details: string[] = []
+  for (const [key, cn, en] of [['records', '条记录', 'records'], ['files', '个文件', 'files'], ['parsed_files', '个已解析', 'parsed'], ['preserved_only_files', '个仅保留原件', 'preserved as originals only']]) {
+    if (typeof result[key] === 'number') details.push(`${Number(result[key]).toLocaleString()} ${t(cn, en)}`)
+  }
+  if (typeof result.account_id === 'string') details.push(`${t('账号', 'Account')} ${result.account_id.slice(0, 8)}`)
+  const outcome = result.complete === false ? t('Garmin ZIP 有未完成项，请查看操作明细。', 'Garmin ZIP has unfinished items. Review the operation details.') : preview ? t('Garmin ZIP 预览完成，未修改归档。', 'Garmin ZIP preview complete; archive unchanged.') : t('Garmin ZIP 已导入，当前同步账号未改变。', 'Garmin ZIP imported; the current sync account is unchanged.')
+  message(`${outcome}${details.length ? ` ${details.join(' · ')}` : ''}`, result.complete === false)
 }) })
 for (const id of ['stop', 'history-stop']) el(id).addEventListener('click', () => { stopRequested = true; setBusy(busy); message(t('本批完成后停止，进度将保留。', 'Stopping after this batch; progress will be retained.')) })
 el('sync-source').addEventListener('change', syncControls)

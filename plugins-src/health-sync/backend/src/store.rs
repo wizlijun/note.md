@@ -148,6 +148,13 @@ struct SourceConfig {
     file: PathBuf,
 }
 
+/// A file produced by the trusted ZIP parser, never a path taken from JSON.
+pub struct ExportAttachment {
+    pub file: PathBuf,
+    pub filename: String,
+    pub sha256: String,
+}
+
 pub struct Store {
     vault: PathBuf,
     local: PathBuf,
@@ -259,7 +266,7 @@ fn valid_attachment_path(value: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.'))
 }
 fn valid_coverage(status: &str) -> bool {
-    matches!(status, "complete" | "unavailable" | "failed")
+    matches!(status, "complete" | "unavailable" | "failed" | "observed")
 }
 fn valid_category(category: &str) -> bool {
     matches!(
@@ -401,12 +408,76 @@ fn stage_provider_attachment(
     Ok(Some((path, relative, sha256)))
 }
 
+fn stage_export_attachment(
+    record: &mut ProviderRecord,
+    attachment: &ExportAttachment,
+    root: &Path,
+    staging: &Path,
+    account_id: &str,
+) -> Result<(PathBuf, PathBuf, String)> {
+    if !valid_hash(&attachment.sha256) {
+        return Err("Invalid Garmin export attachment checksum".into());
+    }
+    let path = attachment.file.canonicalize().map_err(err)?;
+    if !path.starts_with(root.canonicalize().map_err(err)?) || !path.is_file() {
+        return Err("Garmin export attachment is outside private staging directory".into());
+    }
+    let mut input = File::open(path).map_err(err)?;
+    let mut output = NamedTempFile::new_in(staging).map_err(err)?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0u8; 256 * 1024];
+    let mut size = 0u64;
+    loop {
+        let length = input.read(&mut buffer).map_err(err)?;
+        if length == 0 {
+            break;
+        }
+        output.write_all(&buffer[..length]).map_err(err)?;
+        digest.update(&buffer[..length]);
+        size = size
+            .checked_add(length as u64)
+            .ok_or("Attachment size overflow")?;
+    }
+    let checksum = format!("{:x}", digest.finalize());
+    if checksum != attachment.sha256 {
+        return Err("Garmin export attachment checksum mismatch".into());
+    }
+    output.flush().map_err(err)?;
+    let filename = attachment.filename.rsplit(['/', '\\']).next().unwrap_or("");
+    let extension = filename
+        .rsplit_once('.')
+        .map(|(_, ext)| ext)
+        .filter(|ext| {
+            !ext.is_empty() && ext.len() <= 12 && ext.bytes().all(|c| c.is_ascii_alphanumeric())
+        })
+        .unwrap_or("bin")
+        .to_ascii_lowercase();
+    let relative = PathBuf::from("health/attachments")
+        .join(&record.day)
+        .join(format!(
+            "garmin-{account_id}-{}-{checksum}.{extension}",
+            catalog::metric_slug(&record.collection)
+        ));
+    let payload = record
+        .data
+        .as_object_mut()
+        .ok_or("Garmin export attachment metadata must be an object")?;
+    payload.insert("attachment_path".into(), json!(relative.to_string_lossy()));
+    payload.insert("filename".into(), json!(attachment.filename));
+    payload.insert("sha256".into(), json!(checksum));
+    payload.insert("size".into(), json!(size));
+    let (file, path) = output.keep().map_err(err)?;
+    drop(file);
+    Ok((path, relative, checksum))
+}
+
 fn coverage_summary(collections: &BTreeMap<String, BTreeMap<String, Coverage>>) -> Value {
     let mut result = serde_json::Map::new();
     for (collection, coverage) in collections {
         let dates: Vec<_> = coverage.iter().filter(|(day, _)| valid_day(day)).collect();
         result.insert(collection.clone(), json!({
             "complete_days":dates.iter().filter(|(_,c)|c.status == "complete").count(),
+            "observed_days":dates.iter().filter(|(_,c)|c.status == "observed").count(),
             "unavailable_days":dates.iter().filter(|(_,c)|c.status == "unavailable").count(),
             "failed_days":dates.iter().filter(|(_,c)|c.status == "failed").count(),
             "first_coverage_day":dates.first().map(|(d,_)|d), "last_coverage_day":dates.last().map(|(d,_)|d),
@@ -438,6 +509,7 @@ fn source_summary(manifest: &Manifest) -> Value {
                     merged.record_count += coverage.record_count;
                     if coverage.status == "failed"
                         || (coverage.status == "unavailable" && merged.status != "failed")
+                        || (coverage.status == "observed" && merged.status == "complete")
                     {
                         merged.status = coverage.status.clone();
                         merged.error = coverage.error.clone();
@@ -1254,6 +1326,282 @@ impl Store {
             }
         }
         Ok(outcome)
+    }
+
+    /// Merge only records present in an official export. An export may be one
+    /// part of a split download, so absence never means deletion or API coverage.
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_garmin_export(
+        &self,
+        staged_jsonl: &Path,
+        report: &FetchReport,
+        dry_run: bool,
+        account_id: &str,
+        region: GarminRegion,
+        attachment_root: &Path,
+        attachments: &BTreeMap<(String, String), ExportAttachment>,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<Report> {
+        if !valid_hash(account_id) || report.source != "garmin" {
+            return Err("Invalid Garmin export account or source".into());
+        }
+        if !valid_day(&report.since) || !valid_day(&report.until) || report.since > report.until {
+            return Err("Invalid Garmin export date bounds".into());
+        }
+        let mut expected = BTreeMap::new();
+        for collection in &report.collections {
+            if !collection.collection.starts_with("export_")
+                || collection.collection.len() <= 7
+                || collection.status != "complete"
+                || collection.error.is_some()
+                || expected
+                    .insert(collection.collection.clone(), collection.records)
+                    .is_some()
+            {
+                return Err("Invalid Garmin export collection report".into());
+            }
+        }
+        if expected.is_empty() {
+            return Err("Garmin export report has no collections".into());
+        }
+        let _lock = self.lock()?;
+        let old = self.manifest()?;
+        self.check_owned(&old)?;
+        if let Some(state) = old.as_ref().and_then(|m| m.sources.get("garmin")) {
+            if state.accounts.is_empty() && !state.collections.is_empty() {
+                return Err("Cannot identify the existing Garmin archive account; existing data was preserved".into());
+            }
+            if state
+                .accounts
+                .get(account_id)
+                .is_some_and(|a| a.garmin_region.unwrap_or_default() != region)
+            {
+                return Err("Garmin region disagrees with this account's existing data".into());
+            }
+        }
+        let staging = tempfile::tempdir().map_err(err)?;
+        let mut db = staging_db(staging.path())?;
+        let tx = db.transaction().map_err(err)?;
+        tx.execute_batch(
+            "CREATE TABLE export_seen(identity TEXT PRIMARY KEY, fingerprint TEXT NOT NULL);",
+        )
+        .map_err(err)?;
+        let mut touched = BTreeSet::new();
+        let mut received: BTreeMap<String, u64> =
+            expected.keys().map(|name| (name.clone(), 0)).collect();
+        let mut preserved_files = vec![];
+        let mut used_files = BTreeSet::new();
+        let mut removed_files = BTreeSet::new();
+        let mut referenced_files = BTreeSet::new();
+        let mut coverage: BTreeMap<String, BTreeMap<String, Coverage>> = BTreeMap::new();
+        {
+            let mut insert = tx
+                .prepare("INSERT INTO records VALUES (?1,?2,?3,?4,?5)")
+                .map_err(err)?;
+            let mut remember = tx
+                .prepare("INSERT OR IGNORE INTO export_seen VALUES (?1,?2)")
+                .map_err(err)?;
+            let mut seen = tx
+                .prepare("SELECT fingerprint FROM export_seen WHERE identity=?1")
+                .map_err(err)?;
+            let mut count_record = |record: &HealthRecord| {
+                let name = record.metric.strip_prefix("garmin.").unwrap().to_string();
+                let count = coverage
+                    .entry(name)
+                    .or_default()
+                    .entry(record.day.clone())
+                    .or_insert(Coverage {
+                        status: "observed".into(),
+                        error: None,
+                        record_count: 0,
+                    });
+                count.record_count += 1;
+            };
+            let mut last = std::time::Instant::now();
+            for line in BufReader::new(File::open(staged_jsonl).map_err(err)?).lines() {
+                let mut provider: ProviderRecord =
+                    serde_json::from_str(&line.map_err(err)?).map_err(err)?;
+                if provider.source != "garmin" || !expected.contains_key(&provider.collection) {
+                    return Err("Staged Garmin export record disagrees with report".into());
+                }
+                if provider.day != "_undated"
+                    && (!valid_day(&provider.day)
+                        || provider.day < report.since
+                        || provider.day > report.until)
+                {
+                    return Err("Garmin export record is outside its date bounds".into());
+                }
+                *received.get_mut(&provider.collection).unwrap() += 1;
+                let fingerprint = json_hash(&(&provider.day, &provider.data))?;
+                let identity = match &provider.id {
+                    Some(id) => json_hash(&(&provider.collection, "id", id))?,
+                    None => json_hash(&(&provider.collection, "content", &fingerprint))?,
+                };
+                if remember
+                    .execute(params![identity, fingerprint])
+                    .map_err(err)?
+                    == 0
+                {
+                    let prior: String = seen.query_row([&identity], |r| r.get(0)).map_err(err)?;
+                    if prior != fingerprint {
+                        return Err("Conflicting Garmin export record identity".into());
+                    }
+                    continue;
+                }
+                // Incoming JSON cannot nominate local files, embedded bytes, or
+                // existing vault attachments. Only the private map can do that.
+                if provider.data.get("content_base64").is_some()
+                    || provider.data.get("attachment_path").is_some()
+                {
+                    return Err("Garmin export payload contains reserved attachment fields".into());
+                }
+                let file_key = provider
+                    .id
+                    .as_ref()
+                    .map(|id| (provider.collection.clone(), id.clone()));
+                let file = if let Some((key, file)) = file_key
+                    .as_ref()
+                    .and_then(|key| attachments.get(key).map(|file| (key, file)))
+                {
+                    used_files.insert(key.clone());
+                    Some(stage_export_attachment(
+                        &mut provider,
+                        file,
+                        attachment_root,
+                        staging.path(),
+                        account_id,
+                    )?)
+                } else {
+                    None
+                };
+                let mut attributes = BTreeMap::from([
+                    ("sourceName".into(), "garmin".into()),
+                    ("accountId".into(), account_id.into()),
+                    ("exportIdentity".into(), identity),
+                ]);
+                if let Some(id) = provider.id {
+                    attributes.insert("providerId".into(), id);
+                }
+                let record = HealthRecord {
+                    schema_version: 1,
+                    ingest_source: "garmin".into(),
+                    kind: "Supplement".into(),
+                    day: provider.day,
+                    metric: format!("garmin.{}", provider.collection),
+                    attributes,
+                    children: vec![],
+                    text: String::new(),
+                    text_segments: None,
+                    payload: Some(provider.data),
+                };
+                if let Some((file, relative_path, sha256)) = file {
+                    preserved_files.push((
+                        provider.collection,
+                        Attachment {
+                            record: record.clone(),
+                            file,
+                            relative_path,
+                            sha256,
+                        },
+                    ));
+                }
+                touched.insert(record.day.clone());
+                count_record(&record);
+                stage_record(&mut insert, &record)?;
+                if last.elapsed().as_secs() >= 10 {
+                    progress("Staging Garmin export records");
+                    last = std::time::Instant::now();
+                }
+            }
+            if received != expected || used_files.len() != attachments.len() {
+                return Err(
+                    "Garmin export record or attachment count disagrees with report".into(),
+                );
+            }
+            // Scan all existing export days, including dates outside this ZIP:
+            // a stable ID may have moved to a corrected date in a later export.
+            if let Some(manifest) = &old {
+                for (day, entry) in &manifest.days {
+                    if !touched.contains(day)
+                        && !entry
+                            .shards
+                            .iter()
+                            .any(|s| s.source == "garmin" && s.metric.starts_with("garmin.export_"))
+                    {
+                        continue;
+                    }
+                    touched.insert(day.clone());
+                    for shard in &entry.shards {
+                        self.read_shard(day, shard, &mut |record| {
+                            let target = record.ingest_source == "garmin"
+                                && record.metric.starts_with("garmin.export_")
+                                && record
+                                    .attributes
+                                    .get("accountId")
+                                    .is_some_and(|id| id == account_id);
+                            if target {
+                                let identity = record
+                                    .attributes
+                                    .get("exportIdentity")
+                                    .ok_or("Existing export record has no merge identity")?;
+                                if seen.exists([identity]).map_err(err)? {
+                                    if let Some(path) = record
+                                        .payload
+                                        .as_ref()
+                                        .and_then(|v| v["attachment_path"].as_str())
+                                    {
+                                        removed_files.insert(path.to_string());
+                                    }
+                                    return Ok(());
+                                }
+                                count_record(&record);
+                            }
+                            if let Some(path) = record
+                                .payload
+                                .as_ref()
+                                .and_then(|v| v["attachment_path"].as_str())
+                            {
+                                referenced_files.insert(path.to_string());
+                            }
+                            stage_record(&mut insert, &record)
+                        })?;
+                    }
+                }
+            }
+        }
+        tx.commit().map_err(err)?;
+        let days = self.prepare_days(&db, staging.path(), &touched, &old, dry_run, progress)?;
+        let mut manifest = old.clone().unwrap_or_else(empty_manifest);
+        manifest.schema_version = 3;
+        manifest.days = days;
+        for path in removed_files.difference(&referenced_files) {
+            manifest.attachments.remove(path);
+        }
+        for (collection, attachment) in preserved_files {
+            self.persist_attachment(&attachment, staging.path(), dry_run)?;
+            manifest.attachments.insert(
+                attachment.relative_path.to_string_lossy().into_owned(),
+                AttachmentRef {
+                    account_id: Some(account_id.into()),
+                    source: "garmin".into(),
+                    sha256: attachment.sha256,
+                    collection: Some(collection),
+                },
+            );
+        }
+        let account = manifest
+            .sources
+            .entry("garmin".into())
+            .or_default()
+            .accounts
+            .entry(account_id.into())
+            .or_default();
+        account.garmin_region = Some(region);
+        account
+            .collections
+            .retain(|name, _| !name.starts_with("export_"));
+        account.collections.extend(coverage);
+        self.commit(manifest, &old, dry_run)
     }
 
     pub fn catalog(&self) -> Result<Value> {
@@ -2269,5 +2617,249 @@ mod account_tests {
                 0
             )
             .is_err());
+    }
+    impl Fixture {
+        fn export(
+            &self,
+            account: &str,
+            rows: &[ProviderRecord],
+            files: &BTreeMap<(String, String), ExportAttachment>,
+            dry: bool,
+        ) -> Result<Report> {
+            let mut counts = BTreeMap::new();
+            for row in rows {
+                *counts.entry(row.collection.clone()).or_insert(0) += 1;
+            }
+            let report = FetchReport {
+                source: "garmin".into(),
+                since: "2000-01-01".into(),
+                until: "2099-12-31".into(),
+                collections: counts
+                    .into_iter()
+                    .map(|(collection, records)| crate::providers::CollectionResult {
+                        collection,
+                        records,
+                        status: "complete".into(),
+                        error: None,
+                    })
+                    .collect(),
+            };
+            self.store.apply_garmin_export(
+                &self.staged(rows),
+                &report,
+                dry,
+                account,
+                GarminRegion::Global,
+                self.temp.path(),
+                files,
+                &mut |_| {},
+            )
+        }
+        fn export_file(&self, name: &str, bytes: &[u8]) -> ExportAttachment {
+            let file = self.temp.path().join(name);
+            fs::write(&file, bytes).unwrap();
+            ExportAttachment {
+                file,
+                filename: name.into(),
+                sha256: hash(bytes),
+            }
+        }
+    }
+
+    #[test]
+    fn export_merge_preserves_api_other_accounts_absent_records_and_moves_ids() {
+        let f = Fixture::new();
+        let a = hash(b"a");
+        let b = hash(b"b");
+        let day = "2026-10-01";
+        let api = report(day, &[("sleep", "complete", 1)]);
+        f.apply(&a, &[row("sleep", day, 100)], &api);
+        let mut first = row("export_sleep", day, 1);
+        let mut second = row("export_sleep", day, 2);
+        second.id = Some("second".into());
+        f.export(
+            &a,
+            &[first.clone(), second.clone()],
+            &BTreeMap::new(),
+            false,
+        )
+        .unwrap();
+        f.export(&b, &[first.clone()], &BTreeMap::new(), false)
+            .unwrap();
+        first.day = "2026-10-02".into();
+        first.data = json!({"value":3});
+        f.export(&a, &[first.clone()], &BTreeMap::new(), false)
+            .unwrap();
+        let rows = f.query(&a)["records"].as_array().unwrap().clone();
+        assert_eq!(rows.len(), 3);
+        assert!(rows.iter().any(|r| r["payload"]["value"] == 100));
+        assert!(rows.iter().any(|r| r["payload"]["value"] == 2));
+        assert!(rows
+            .iter()
+            .any(|r| r["payload"]["value"] == 3 && r["day"] == "2026-10-02"));
+        assert_eq!(f.query(&b)["records"][0]["payload"]["value"], 1);
+        assert!(
+            !f.export(&a, &[first], &BTreeMap::new(), false)
+                .unwrap()
+                .data_changed
+        );
+        f.apply(&a, &[row("sleep", day, 200)], &api);
+        assert_eq!(f.query(&a)["records"].as_array().unwrap().len(), 3);
+        let manifest = f.store.manifest().unwrap().unwrap();
+        let coverage = &manifest.sources["garmin"].accounts[&a].collections["export_sleep"];
+        assert_eq!(coverage.len(), 2);
+        assert!(coverage
+            .values()
+            .all(|c| c.status == "observed" && c.record_count == 1));
+        let summary = source_summary(&manifest);
+        assert_eq!(
+            summary["garmin"]["collections"]["export_sleep"]["complete_days"],
+            0
+        );
+        assert_eq!(
+            summary["garmin"]["collections"]["export_sleep"]["observed_days"],
+            2
+        );
+    }
+
+    #[test]
+    fn export_content_records_are_idempotent_and_dry_run_does_not_write_vault() {
+        let f = Fixture::new();
+        let a = hash(b"a");
+        let mut record = row("export_other", "_undated", 1);
+        record.id = None;
+        assert!(
+            f.export(
+                &a,
+                &[record.clone(), record.clone()],
+                &BTreeMap::new(),
+                true
+            )
+            .unwrap()
+            .data_changed
+        );
+        assert!(f.store.manifest().unwrap().is_none());
+        assert!(!f.store.health().exists());
+        f.export(
+            &a,
+            &[record.clone(), record.clone()],
+            &BTreeMap::new(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(f.query(&a)["records"].as_array().unwrap().len(), 1);
+        assert!(
+            !f.export(&a, &[record], &BTreeMap::new(), false)
+                .unwrap()
+                .data_changed
+        );
+    }
+
+    #[test]
+    fn export_private_attachments_preserve_empty_bytes_and_reject_corruption() {
+        let f = Fixture::new();
+        let a = hash(b"a");
+        let record = row("export_files", "_undated", 1);
+        let key = (record.collection.clone(), record.id.clone().unwrap());
+        let mut files = BTreeMap::from([(key.clone(), f.export_file("empty.fit", b""))]);
+        f.export(&a, std::slice::from_ref(&record), &files, false)
+            .unwrap();
+        let manifest = f.store.manifest().unwrap().unwrap();
+        let (path, metadata) = manifest.attachments.iter().next().unwrap();
+        assert_eq!(metadata.sha256, hash(b""));
+        assert_eq!(fs::read(f.store.vault.join(path)).unwrap(), b"");
+        assert!(
+            !f.export(&a, std::slice::from_ref(&record), &files, false)
+                .unwrap()
+                .data_changed
+        );
+        fs::write(&files[&key].file, b"changed").unwrap();
+        assert!(f
+            .export(&a, std::slice::from_ref(&record), &files, false)
+            .unwrap_err()
+            .contains("checksum mismatch"));
+        assert_eq!(f.store.manifest().unwrap().unwrap(), manifest);
+        let external = tempfile::NamedTempFile::new().unwrap();
+        files.get_mut(&key).unwrap().file = external.path().into();
+        assert!(f
+            .export(&a, std::slice::from_ref(&record), &files, false)
+            .unwrap_err()
+            .contains("outside private staging"));
+        let mut unsafe_record = record;
+        unsafe_record.data["content_base64"] = json!("secret");
+        assert!(f
+            .export(&a, &[unsafe_record], &BTreeMap::new(), false)
+            .is_err());
+    }
+
+    #[test]
+    fn export_rejects_api_collections_conflicting_ids_and_orphan_attachments() {
+        let f = Fixture::new();
+        let a = hash(b"a");
+        assert!(f
+            .export(
+                &a,
+                &[row("sleep", "2026-10-01", 1)],
+                &BTreeMap::new(),
+                false
+            )
+            .is_err());
+        assert!(f
+            .export(
+                &a,
+                &[
+                    row("export_sleep", "2026-10-01", 1),
+                    row("export_sleep", "2026-10-02", 2)
+                ],
+                &BTreeMap::new(),
+                false
+            )
+            .is_err());
+        let files = BTreeMap::from([(
+            ("export_files".into(), "orphan".into()),
+            f.export_file("unused.bin", b"x"),
+        )]);
+        assert!(f
+            .export(&a, &[row("export_sleep", "2026-10-01", 1)], &files, false)
+            .is_err());
+        assert!(f.store.manifest().unwrap().is_none());
+    }
+
+    #[test]
+    fn export_updated_attachment_retains_another_records_shared_bytes() {
+        let f = Fixture::new();
+        let a = hash(b"a");
+        let first = row("export_files", "_undated", 1);
+        let mut second = first.clone();
+        second.id = Some("other".into());
+        let mut files = BTreeMap::from([
+            (
+                (first.collection.clone(), first.id.clone().unwrap()),
+                f.export_file("one.fit", b"same"),
+            ),
+            (
+                (second.collection.clone(), second.id.clone().unwrap()),
+                f.export_file("two.fit", b"same"),
+            ),
+        ]);
+        f.export(&a, &[first.clone(), second], &files, false)
+            .unwrap();
+        files.remove(&("export_files".into(), "other".into()));
+        files.insert(
+            (first.collection.clone(), first.id.clone().unwrap()),
+            f.export_file("updated.fit", b"updated"),
+        );
+        f.export(&a, &[first], &files, false).unwrap();
+        let manifest = f.store.manifest().unwrap().unwrap();
+        assert_eq!(manifest.attachments.len(), 2);
+        assert_eq!(manifest.record_count, 2);
+        assert!(manifest
+            .attachments
+            .values()
+            .any(|a| a.sha256 == hash(b"same")));
+        assert!(manifest
+            .attachments
+            .values()
+            .any(|a| a.sha256 == hash(b"updated")));
     }
 }

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub const USAGE: &str = "Health Sync: Apple primary + Garmin/Oura details, one person per vault
 
 notemd-health-sync health-import <export.zip|export.xml> [--vault DIR] [--dry-run] [--json]
+notemd-health-sync health-garmin-import <export.zip> --region china|global [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-sync [--file EXPORT] [--source all|apple-health|garmin|oura] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--max-days 31] [--restart] [--account ID] [--history] [--vault DIR] [--dry-run] [--json]
 notemd-health-sync health-status [--vault DIR] [--json]
 notemd-health-sync health-catalog [--vault DIR] [--json]
@@ -22,6 +23,7 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
     let command = first.strip_prefix("health-").unwrap_or(first).to_string();
     if ![
         "import",
+        "garmin-import",
         "sync",
         "status",
         "query",
@@ -41,7 +43,7 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
         let token = &args[i];
         match token.as_str() {
             "--json" => {}
-            "--dry-run" if command == "import" || command == "sync" => {
+            "--dry-run" if ["import", "garmin-import", "sync"].contains(&command.as_str()) => {
                 params["dry_run"] = json!(true);
             }
             "--history" if command == "sync" => {
@@ -54,9 +56,10 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
                 params["credentials_stdin"] = json!(true);
             }
             "--vault" | "--since" | "--until" | "--metric" | "--limit" | "--offset"
-            | "--source" | "--category" | "--max-days" | "--file" | "--account" => {
+            | "--source" | "--category" | "--max-days" | "--file" | "--account" | "--region" => {
                 let allowed = match token.as_str() {
                     "--vault" => true,
+                    "--region" => command == "garmin-import",
                     "--since" | "--until" => command == "query" || command == "sync",
                     "--source" => ["sync", "query", "connect", "disconnect", "select-account"]
                         .contains(&command.as_str()),
@@ -79,15 +82,18 @@ pub fn parse(args: &[String]) -> Result<(String, Value), String> {
                 }
                 params[key] = json!(value);
             }
-            _ if !token.starts_with('-') && command == "import" && params["file"].is_null() => {
+            _ if !token.starts_with('-')
+                && ["import", "garmin-import"].contains(&command.as_str())
+                && params["file"].is_null() =>
+            {
                 params["file"] = json!(token)
             }
             _ => return Err(format!("Unexpected argument: {token}")),
         }
         i += 1;
     }
-    if command == "import" && params["file"].is_null() {
-        return Err("health-import requires a complete export file".into());
+    if ["import", "garmin-import"].contains(&command.as_str()) && params["file"].is_null() {
+        return Err(format!("health-{command} requires a complete export file"));
     }
     // Validate numeric and date syntax before doing any I/O.
     validate_query(&command, &params)?;
@@ -127,7 +133,33 @@ fn number(params: &Value, name: &str, default: usize) -> Result<usize, String> {
 fn account_id(params: &Value) -> Option<String> {
     string(params, "account_id").or_else(|| string(params, "account"))
 }
+fn garmin_export_region(params: &Value) -> Result<crate::auth::GarminRegion, String> {
+    match field(params, "region").and_then(Value::as_str) {
+        Some("china") => Ok(crate::auth::GarminRegion::China),
+        Some("global") => Ok(crate::auth::GarminRegion::Global),
+        _ => Err("Garmin export region is required: china or global".into()),
+    }
+}
+
 fn validate_query(command: &str, params: &Value) -> Result<(), String> {
+    if command == "garmin-import" {
+        garmin_export_region(params)?;
+        string(params, "file").ok_or("health-garmin-import requires a complete export ZIP")?;
+        boolean(params, "dry_run")?;
+        for name in [
+            "account",
+            "account_id",
+            "source",
+            "history",
+            "since",
+            "until",
+            "restart",
+        ] {
+            if field(params, name).is_some() {
+                return Err(format!("{name} does not apply to Garmin ZIP import"));
+            }
+        }
+    }
     for name in ["account_id", "account"] {
         if field(params, name)
             .is_some_and(|v| !v.as_str().is_some_and(crate::sync::valid_account_id))
@@ -295,6 +327,13 @@ pub fn run_with_store(
     validate_query(command, params)?;
     let dry_run = boolean(params, "dry_run")?;
     match command {
+        "garmin-import" => crate::garmin_export::import(
+            store,
+            &PathBuf::from(string(params, "file").ok_or("Choose a Garmin export ZIP")?),
+            garmin_export_region(params)?,
+            dry_run,
+            progress,
+        ),
         "import" => {
             let path =
                 string(params, "file").ok_or("health-import requires a complete export file")?;
@@ -406,6 +445,67 @@ mod tests {
             json!({"account_id":id,"account":crate::store::hash(b"other")}),
         ] {
             assert!(validate_query("disconnect", &invalid).is_err());
+        }
+    }
+    #[test]
+    fn garmin_zip_import_requires_region_and_keeps_api_sync_arguments_separate() {
+        for region in ["china", "global"] {
+            let args = [
+                "health-garmin-import",
+                "export.zip",
+                "--region",
+                region,
+                "--dry-run",
+            ]
+            .map(str::to_string);
+            let (command, params) = parse(&args).unwrap();
+            assert_eq!(command, "garmin-import");
+            assert_eq!(params["file"], "export.zip");
+            assert_eq!(params["region"], region);
+            assert!(boolean(&params, "dry_run").unwrap());
+            let context = json!({"cli":{"args":{"file":"export.zip"},"flags":{"region":region,"dry-run":true}}});
+            validate_query(&command, &context).unwrap();
+            assert_eq!(
+                garmin_export_region(&params).unwrap(),
+                garmin_export_region(&context).unwrap()
+            );
+        }
+        for args in [
+            vec!["health-garmin-import", "export.zip"],
+            vec!["health-garmin-import", "--region", "china"],
+            vec!["health-garmin-import", "export.zip", "--region", "cn"],
+            vec![
+                "health-garmin-import",
+                "export.zip",
+                "--region",
+                "china",
+                "--account",
+                "ignored",
+            ],
+            vec![
+                "health-garmin-import",
+                "export.zip",
+                "--region",
+                "china",
+                "--since",
+                "2020-01-01",
+            ],
+            vec!["health-import", "export.zip", "--region", "china"],
+            vec!["health-sync", "--source", "garmin", "--file", "export.zip"],
+        ] {
+            assert!(parse(&args.into_iter().map(str::to_string).collect::<Vec<_>>()).is_err());
+        }
+        for params in [
+            json!({"file":"export.zip"}),
+            json!({"file":"export.zip","region":null}),
+            json!({"file":"export.zip","region":true}),
+            json!({"file":"export.zip","region":"China"}),
+            json!({"file":42,"region":"china"}),
+            json!({"file":"export.zip","region":"china","dry_run":{}}),
+            json!({"file":"export.zip","region":"china","account_id":"a".repeat(64)}),
+            json!({"file":"export.zip","region":"china","history":false}),
+        ] {
+            assert!(validate_query("garmin-import", &params).is_err());
         }
     }
 }

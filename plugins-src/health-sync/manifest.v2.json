@@ -17,6 +17,7 @@
     "events": [
       "onCommand:open",
       "onCli:health-import",
+      "onCli:health-garmin-import",
       "onCli:health-sync",
       "onCli:health-status",
       "onCli:health-query",
@@ -68,6 +69,37 @@
             "long": "--dry-run",
             "type": "boolean",
             "help": "Preview changes without modifying the Vault or saved source"
+          }
+        ],
+        "requires_tab_context": false
+      },
+      {
+        "subcommand": "health-garmin-import",
+        "command": "garmin-import",
+        "summary": "Import an official Garmin export ZIP without API credentials",
+        "args": [
+          {
+            "name": "file",
+            "type": "string",
+            "required": true,
+            "help": "Path to the downloaded Garmin export ZIP"
+          }
+        ],
+        "flags": [
+          {
+            "long": "--region",
+            "type": "string",
+            "help": "Required export account region: china or global"
+          },
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--dry-run",
+            "type": "boolean",
+            "help": "Preview without changing the archive or current account"
           }
         ],
         "requires_tab_context": false

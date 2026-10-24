@@ -32,7 +32,22 @@ Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户�
 
 两家凭据按账号保存在 **macOS 钥匙串**，不进入 Vault。Oura 自动刷新并保存轮换后的 token。每个账号的授权、历史进度、覆盖和记录独立保存；重新连接同一账号会重新核对指定范围。断开仅移除所选账号凭据，保留账号名称和已归档数据；其他账号不受影响。新增账号授权失败不会破坏当前账号；Oura 按本次授权结果判断完成。
 
-Garmin 当前历史入口通过 Personal API 回填，实际范围取决于服务器返回。**Garmin 官方导出 ZIP 的本地导入尚未提供**，等待真实导出样本后适配；它与 Apple ZIP 入口不同。中国区导出从 [账户中心](https://www.garmin.cn/zh-CN/account/) 的数据管理进入，国际区从 [数据管理](https://www.garmin.com/en-US/account/datamanagement/) 进入；每个历史账号分别申请。
+Garmin API 历史回填范围取决于服务器返回。开发源码已新增官方导出 ZIP 本地导入（**尚未发布，市场 0.1.2 不包含**）。中国区导出从 [账户中心](https://www.garmin.cn/zh-CN/account/) 的数据管理进入，国际区从 [数据管理](https://www.garmin.com/en-US/account/datamanagement/) 进入；每个历史账号分别申请。
+
+### Garmin ZIP 本地导入（开发版）
+
+在“Garmin 导出 ZIP”中选择已下载的包和账号区域，然后预览或导入。无需 Personal Key；通过包内 profile ID 区分账号，同一身份和区域与 API 账号归档一致，不改变当前增量账号。只导入离线文件的账号会出现在数据查询筛选中；需要 API 同步时再连接该账号。
+
+按 JSON 内容识别活动、每日汇总、睡眠、午睡、饮水、训练指标和身体数据，不依赖导出包名称或目录语言。保留原始字段与日期语义；数值日期按 Garmin 毫秒时间戳处理，不套用本机时区。无可靠日期的个人纪录等进入 `_undated`。每个原始文件都保存并校验 SHA-256；未知 JSON、图片、嵌套 ZIP/FIT/备份文件按原字节保留，**本版不解析 FIT 的逐点读数**。
+
+ZIP 数据使用独立的 `garmin.export_*` 集合，支持分卷累积，不覆盖 API 集合。相同账号和稳定 ID 的记录更新，缺失成员保留；没有稳定 ID 的记录按完整内容去重，修订内容会保留为不同记录。覆盖中的“导出中有记录”只表示包中实际观察到记录，不表示完整日或 API 已采集，不推进 API 游标。重复同包不改写已有文件。预览实际解析文件但不写 Vault、凭据或账号设置。
+
+```sh
+notemd health-garmin-import "/path/to/garmin-export.zip" --region china --vault "/path/to/vault" --dry-run --json
+notemd health-garmin-import "/path/to/garmin-export.zip" --region china --vault "/path/to/vault" --json
+```
+
+国际区选 `--region global`，区域必须明确指定。此入口与 Apple `health-import` 分开，不改变 `health-sync --file` 的含义。新 ZIP 归档包含 `observed` 覆盖状态，旧 0.1.2 插件会拒绝读取，导入后请保持支持 ZIP 的版本。限制：最多 100,000 个 ZIP 成员、单文件 1 GiB、总解压 64 GiB；超过 64 MiB 的 JSON 仅保留原件并在结果注明。路径穿越、重复成员、符号链接、身份冲突、损坏 ZIP/JSON 均在提交前拒绝。
 
 ## 分类与每日档案
 

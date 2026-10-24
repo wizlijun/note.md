@@ -259,8 +259,8 @@ test('successful operation details stay collapsed, incomplete details open, and 
 test('coverage table uses real source_summary fields and distinguishes processing from all-day readings', async t => {
   const { el } = await mount(t)
   const cells = [...el('coverage').querySelectorAll('tbody td')].map(cell => cell.textContent)
-  assert.deepEqual(cells, ['Oura', 'sleep', '2020-01-01 → 2026-10-24', '6', '2', '1'])
-  assert.equal(el('coverage').querySelectorAll('th[scope="col"]').length, 6)
+  assert.deepEqual(cells, ['Oura', 'sleep', '2020-01-01 → 2026-10-24', '6', '2', '1', '0'])
+  assert.equal(el('coverage').querySelectorAll('th[scope="col"]').length, 7)
   assert.match(el('coverage-help').textContent, /不代表设备全天佩戴/)
   assert.match(el('coverage-help').textContent, /无数据返回也可能记为已完成/)
 })
@@ -557,4 +557,111 @@ test('a restored pending authorization without any current account can be cancel
   el('oura-cancel').click(); await tick()
   assert.equal(el('oura-cancel').hidden, true); assert.match(el('message').textContent, /授权已取消/)
   assert.equal(calls.find(call => call.method === 'plugin.cancel_authorization').params.authorization_id, 'restored-auth')
+})
+
+test('Garmin ZIP chooser is separate from Apple and only accepts local ZIP files', async t => {
+  let paths = ['/tmp/佳明历史.zip']
+  const { el, calls } = await mount(t, method => method === 'host.dialog.open' ? { paths } : undefined)
+  el('garmin-zip-choose').click(); await tick()
+  assert.equal(el('garmin-zip-file').value, paths[0])
+  assert.equal(el('file').value, '/tmp/export.zip')
+  assert.deepEqual(calls.at(-1).params.filters[0].extensions, ['zip'])
+  paths = null; el('garmin-zip-choose').click(); await tick()
+  assert.equal(el('garmin-zip-file').value, '/tmp/佳明历史.zip')
+})
+
+test('Garmin ZIP requires a file and explicit region without inheriting API account settings', async t => {
+  const { el, calls } = await mount(t)
+  assert.equal(el('garmin-zip-region').value, '')
+  el('garmin-zip-preview').click(); await tick()
+  assert.match(el('message').textContent, /选择.*ZIP/)
+  el('garmin-zip-file').value = '/tmp/garmin.zip'
+  el('garmin-region').value = 'china'
+  el('garmin-zip-import').click(); await tick()
+  assert.match(el('message').textContent, /选择.*区域/)
+  assert.equal(calls.filter(c => c.method === 'plugin.garmin-import').length, 0)
+})
+
+test('Garmin ZIP preview works without credentials and never switches current account', async t => {
+  const { el, calls } = await mount(t, method => {
+    if (method === 'plugin.status') return { imported: false, connections: {} }
+    if (method === 'plugin.garmin-import') return { complete: true, dry_run: true, account_id: 'offline-account', records: 42, files: 5, parsed_files: 2, preserved_only_files: 3, file_reports: [{ path: 'private/original-health-file.json' }] }
+  })
+  el('garmin-zip-file').value = '/tmp/garmin.zip'; el('garmin-zip-region').value = 'china'
+  el('garmin-zip-preview').click(); await tick()
+  assert.deepEqual(calls.find(c => c.method === 'plugin.garmin-import').params, { vault: '/tmp/test-vault', file: '/tmp/garmin.zip', region: 'china', dry_run: true })
+  assert.equal(calls.filter(c => c.method === 'plugin.status').length, 1)
+  assert.equal(calls.filter(c => /plugin\.(connect|select_account|sync|import)$/.test(c.method)).length, 0)
+  assert.match(el('message').textContent, /预览完成/)
+  assert.match(el('report').textContent, /preserved_only_files/)
+  assert.match(el('message').textContent, /42 条记录.*5 个文件.*2 个已解析.*3 个仅保留原件.*offline-/)
+  assert.doesNotMatch(el('report').textContent, /private\/original-health-file/)
+})
+
+test('Garmin ZIP import has its own action, refreshes offline account catalog and preserves current API account', async t => {
+  let imported = false
+  const { el, calls, window } = await mount(t, method => {
+    if (method === 'plugin.garmin-import') { imported = true; return { complete: true, dry_run: false } }
+    if (method === 'plugin.catalog' && imported) return { categories: [], sources: { garmin: { accounts: { 'offline-account': { collections: {} } } } } }
+  })
+  el('dry-run').checked = true
+  el('garmin-zip-file').value = '/tmp/garmin.zip'; el('garmin-zip-region').value = 'global'
+  el('garmin-zip-import').click(); await tick()
+  assert.equal(calls.find(c => c.method === 'plugin.garmin-import').params.dry_run, false)
+  assert.equal(calls.filter(c => c.method === 'plugin.status').length, 2)
+  assert.match(el('message').textContent, /Garmin.*已导入/)
+  assert.match(el('garmin-state').textContent, /Garmin One/)
+  el('query-source').value = 'garmin'; el('query-source').dispatchEvent(new window.Event('change'))
+  assert.ok([...el('query-account').options].some(item => item.value === 'offline-account'))
+})
+
+test('Garmin ZIP busy and failed operations retain details and avoid duplicate imports', async t => {
+  let finish; const pending = new Promise(resolve => { finish = resolve })
+  const { el, calls } = await mount(t, method => method === 'plugin.garmin-import' ? pending : undefined)
+  el('garmin-zip-file').value = '/tmp/garmin.zip'; el('garmin-zip-region').value = 'china'
+  el('garmin-zip-import').click(); el('garmin-zip-preview').click()
+  assert.equal(el('sync').disabled, true)
+  assert.equal(calls.filter(c => c.method === 'plugin.garmin-import').length, 1)
+  finish({ complete: false, import: { summary_conflicts: ['health/daily/2026-10-01.md'] } }); await tick()
+  assert.equal(el('message').className, 'error'); assert.match(el('report').textContent, /summary_conflicts/)
+  assert.equal(el('garmin-zip-preview').disabled, false)
+})
+
+test('changing Vault clears the Garmin ZIP path and region', async t => {
+  const { el, window } = await mount(t)
+  el('garmin-zip-file').value = '/tmp/garmin.zip'; el('garmin-zip-region').value = 'china'
+  el('vault').value = '/tmp/other'; el('vault').dispatchEvent(new window.Event('input'))
+  assert.equal(el('garmin-zip-file').value, ''); assert.equal(el('garmin-zip-region').value, '')
+})
+
+test('Garmin ZIP controls and independent preview action are translated', async t => {
+  const { el } = await mount(t, undefined, 'en')
+  assert.equal(el('garmin-zip-title').textContent, 'Import Garmin export ZIP')
+  assert.equal(el('garmin-zip-preview').textContent, 'Preview ZIP')
+  assert.match(el('garmin-zip-help').textContent, /No API key/)
+})
+
+test('manifest exposes credential-free Garmin ZIP import with explicit region', () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL('../manifest.v2.json', import.meta.url)))
+  const command = manifest.contributes.cli.find(c => c.subcommand === 'health-garmin-import')
+  assert.equal(command.command, 'garmin-import')
+  assert.deepEqual(command.args.map(a => [a.name, a.required]), [['file', true]])
+  assert.deepEqual(command.flags.map(f => f.long), ['--region', '--vault', '--dry-run'])
+  assert.ok(manifest.activation.events.includes('onCli:health-garmin-import'))
+})
+
+
+test('Garmin ZIP coverage distinguishes observed export days and undated records from API completion', async t => {
+  const { el } = await mount(t, method => method === 'plugin.catalog' ? { categories: [], sources: { garmin: { accounts: { 'offline-account': { collections: { export_sleep: { observed_days: 47, complete_days: 0, unavailable_days: 0, failed_days: 0, first_coverage_day: '2020-01-01', last_coverage_day: '2021-02-01', undated: { status: 'observed' } } } } } } } } : undefined)
+  const cells = [...el('coverage').querySelectorAll('tbody td')].map(cell => cell.textContent)
+  assert.deepEqual(cells.slice(3), ['0', '0', '0', '47'])
+  assert.match(el('coverage').querySelector('thead').textContent, /导出中有记录/)
+  assert.match(cells[1], /无日期记录: 导出中有记录/)
+  assert.match(el('coverage-help').textContent, /ZIP.*不代表完整日期或 API 覆盖/)
+})
+
+test('export observed coverage labels and caveat are translated', async t => {
+  const { el } = await mount(t, undefined, 'en')
+  assert.match(el('coverage').querySelector('thead').textContent, /Days observed in export/)
+  assert.match(el('coverage-help').textContent, /ZIP.*do not establish complete dates or API coverage/)
 })

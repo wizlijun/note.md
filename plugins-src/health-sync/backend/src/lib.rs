@@ -3,6 +3,7 @@ pub mod auth;
 pub mod catalog;
 pub mod cli;
 pub mod garmin;
+pub mod garmin_export;
 pub mod model;
 pub mod oura;
 pub mod plugin;
