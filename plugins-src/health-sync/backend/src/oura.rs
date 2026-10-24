@@ -109,10 +109,12 @@ pub fn collect(
                 .get("data")
                 .and_then(Value::as_array)
                 .ok_or_else(|| format!("Oura {collection}: missing data array"))?;
-            // Validate the envelope before emitting. Missing pagination metadata
-            // must not be mistaken for a complete response.
+            // OpenAPI TimeSeriesResponse permits an omitted terminal cursor;
+            // MultiDocumentResponse requires next_token, including when null.
+            // Validate the envelope before emitting any records.
             let next = match response.body.get("next_token") {
                 Some(Value::Null) => None,
+                None if matches!(collection, "heartrate" | "ring_battery_level") => None,
                 Some(Value::String(token)) if !token.is_empty() => Some(token.clone()),
                 _ => return Err(format!("Oura {collection}: invalid or missing next_token")),
             };
@@ -591,6 +593,62 @@ mod tests {
             .or_default()
             .push_back(Err("connection interrupted".into()));
         assert!(run(&mut http).is_err());
+    }
+
+    #[test]
+    fn time_series_accepts_omitted_terminal_cursor_only() {
+        // OpenAPI 1.42 TimeSeriesResponse requires only data; unlike
+        // MultiDocumentResponse, its nullable next_token is optional.
+        for collection in ["heartrate", "ring_battery_level"] {
+            let mut http = Fake::default();
+            http.reply(
+                collection,
+                200,
+                json!({"data":[{"timestamp":"2026-10-01T12:00:00Z"}],"next_token":"page-2"}),
+            );
+            http.reply(
+                collection,
+                200,
+                json!({"data":[{"timestamp":"2026-10-02T12:00:00Z"}]}),
+            );
+            let (report, rows) = run(&mut http).unwrap();
+            assert_eq!(rows.len(), 2);
+            let result = report
+                .collections
+                .iter()
+                .find(|c| c.collection == collection)
+                .unwrap();
+            assert_eq!(result.status, "complete");
+            assert_eq!(result.records, 2);
+            assert_eq!(
+                http.requests
+                    .iter()
+                    .filter(|(path, _)| path.ends_with(collection))
+                    .count(),
+                2
+            );
+
+            for body in [
+                json!({"data":[],"next_token":42}),
+                json!({"data":[],"next_token":""}),
+                json!({}),
+            ] {
+                let mut malformed = Fake::default();
+                malformed.reply(collection, 200, body);
+                assert!(run(&mut malformed).is_err());
+            }
+        }
+        for &collection in COLLECTIONS
+            .iter()
+            .filter(|&&c| !matches!(c, "heartrate" | "ring_battery_level" | "personal_info"))
+        {
+            let mut http = Fake::default();
+            http.reply(collection, 200, json!({"data":[]}));
+            assert!(
+                run(&mut http).unwrap_err().contains("next_token"),
+                "{collection}"
+            );
+        }
     }
 
     #[test]

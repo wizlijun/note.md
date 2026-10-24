@@ -28,6 +28,8 @@ v0.1.2 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac
 
 采集 [Oura V2 API](https://cloud.ouraring.com/v2/docs) 的 19 类集合：活动、心血管年龄、准备度、韧性、睡眠日汇总、血氧、压力、增强标签、心率、个人信息、休息模式、戒指电量、戒指配置、session、睡眠详情、睡眠时间、标签、VO₂ max、运动。逐页保留完整 JSON，包括未知字段和 null；未开放集合显示覆盖缺口，不冒充零数据。
 
+Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户端当作官方 SDK。心率和戒指电量允许末页省略 `next_token`，其余分页集合仍校验该字段。此处“导入”指 API 数据采集并归档，Oura 官网导出文件的本地导入尚未提供。
+
 两家凭据按账号保存在 **macOS 钥匙串**，不进入 Vault。Oura 自动刷新并保存轮换后的 token。每个账号的授权、历史进度、覆盖和记录独立保存；重新连接同一账号会重新核对指定范围。断开仅移除所选账号凭据，保留账号名称和已归档数据；其他账号不受影响。新增账号授权失败不会破坏当前账号；Oura 按本次授权结果判断完成。
 
 Garmin 当前历史入口通过 Personal API 回填，实际范围取决于服务器返回。**Garmin 官方导出 ZIP 的本地导入尚未提供**，等待真实导出样本后适配；它与 Apple ZIP 入口不同。中国区导出从 [账户中心](https://www.garmin.cn/zh-CN/account/) 的数据管理进入，国际区从 [数据管理](https://www.garmin.com/en-US/account/datamanagement/) 进入；每个历史账号分别申请。

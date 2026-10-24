@@ -15,7 +15,8 @@ use crate::providers::{CollectionResult, FetchReport, ProviderRecord, Transport}
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{Days, NaiveDate};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, HashSet};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 const SOURCE: &str = "garmin";
 const PAGE_SIZE: usize = 99;
@@ -161,7 +162,11 @@ fn parse_day(day: &str) -> Result<NaiveDate, String> {
 }
 
 fn date_prefix(value: &Value) -> Option<String> {
-    let text = value.as_str()?;
+    // Official ConnectDate and ConnectTimestamp wrap the user's calendar day.
+    // Their `date` field is UTC and must not override that local attribution.
+    let text = value
+        .as_str()
+        .or_else(|| value.get("localDate")?.as_str())?;
     if text.len() > 10 && !matches!(text.as_bytes()[10], b'T' | b' ') {
         return None;
     }
@@ -200,6 +205,15 @@ fn record_id(data: &Value) -> Option<String> {
         match &data[key] {
             Value::String(value) if !value.is_empty() => return Some(value.clone()),
             Value::Number(value) => return Some(value.to_string()),
+            Value::Object(value) if matches!(key, "activityUUID" | "activityUuid" | "uuid") => {
+                if let Some(uuid) = value
+                    .get("baseUUID")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    return Some(uuid.into());
+                }
+            }
             _ => {}
         }
     }
@@ -249,6 +263,12 @@ fn emit_record(
 ) -> Result<(), String> {
     let day = if fallback == "_undated" {
         fallback.into()
+    } else if collection == "hrv" {
+        // HrvChartDTO may omit its summary. The overnight start is not the
+        // assigned sleep day; in that case the daily request remains authoritative.
+        data.pointer("/hrvSummary/calendarDate")
+            .and_then(date_prefix)
+            .unwrap_or_else(|| fallback.into())
     } else {
         record_day(&data, fallback)
     };
@@ -318,7 +338,7 @@ fn fetch_activities(
             .entry(collection.into())
             .or_insert_with(|| initial(collection));
     }
-    let mut seen = HashSet::new();
+    let mut seen = BTreeMap::new();
     let mut offset = 0usize;
     for page in 0..MAX_ACTIVITY_PAGES {
         progress(&format!("Garmin activities {day}, page {}", page + 1));
@@ -353,7 +373,15 @@ fn fetch_activities(
         let mut novel = 0;
         for item in items {
             let id = activity_id(item)?;
-            if !seen.insert(id.clone()) {
+            let fingerprint: [u8; 32] =
+                Sha256::digest(serde_json::to_vec(item).map_err(|e| e.to_string())?).into();
+            if let Some(previous) = seen.insert(id.clone(), fingerprint) {
+                if previous != fingerprint {
+                    return Err(
+                        "Conflicting Garmin activity ID across pagination; window is incomplete"
+                            .into(),
+                    );
+                }
                 continue;
             }
             novel += 1;
@@ -735,6 +763,108 @@ mod tests {
             }
             assert!(run(&mut fake).is_err());
         }
+    }
+
+    #[test]
+    fn official_object_dates_and_uuids_preserve_local_identity() {
+        // ConnectDate/ConnectTimestamp expose both UTC date and localDate.
+        let document = json!({
+            "calendarDate":{"date":"2026-10-23T16:00:00Z","localDate":"2026-10-24"},
+            "activityUuid":{"baseUUID":"00000000-0000-0000-0000-000000000001"}
+        });
+        assert_eq!(record_day(&document, "2026-10-23"), "2026-10-24");
+        assert_eq!(
+            record_id(&document).as_deref(),
+            Some("00000000-0000-0000-0000-000000000001")
+        );
+        assert_eq!(
+            record_day(
+                &json!({"startTimestampLocal":{"localDate":"2026-10-24"}}),
+                "2026-10-23"
+            ),
+            "2026-10-24"
+        );
+        // Do not substitute the UTC day when the local date is absent.
+        assert_eq!(
+            record_day(
+                &json!({"calendarDate":{"date":"2026-10-23T16:00:00Z"}}),
+                "2026-10-24"
+            ),
+            "2026-10-24"
+        );
+    }
+
+    #[test]
+    fn hrv_without_summary_keeps_the_requested_sleep_day() {
+        for start in [
+            json!("2026-10-23T22:00:00"),
+            json!({"date":"2026-10-23T14:00:00Z","localDate":"2026-10-23"}),
+        ] {
+            let mut fake = Fake::default();
+            let document = json!({
+                "startTimestampLocal":start,
+                "endTimestampLocal":"2026-10-24T06:00:00",
+                "hrvReadings":[{"hrvValue":42}]
+            });
+            fake.response("/hrv-service/hrv/2026-10-24", 200, document.clone());
+            let (_, records) = run(&mut fake).unwrap();
+            assert_eq!(records[0].day, "2026-10-24");
+            assert_eq!(records[0].data, document);
+        }
+    }
+
+    #[test]
+    fn conflicting_activity_ids_across_pages_abort_the_window() {
+        for changed in [
+            json!({"activityId":1,"startTimeLocal":"2026-10-24 01:00:00","distance":20}),
+            json!({"activityId":1,"startTimeLocal":"2026-10-23 01:00:00","distance":10}),
+        ] {
+            let mut fake = Fake::default();
+            let path = "/activitylist-service/activities/search/activities";
+            fake.response(
+                path,
+                200,
+                json!([
+                    {"activityId":1,"startTimeLocal":"2026-10-24 01:00:00","distance":10}
+                ]),
+            );
+            fake.response(path, 200, json!([changed, {"activityId":2}]));
+            fake.response(path, 200, json!([]));
+            let error = run(&mut fake).expect_err("conflicting activity must fail");
+            assert!(error.contains("Conflicting Garmin activity ID"));
+        }
+    }
+
+    #[test]
+    fn identical_overlapping_activities_are_imported_once() {
+        let mut fake = Fake::default();
+        let path = "/activitylist-service/activities/search/activities";
+        fake.response(path, 200, json!([{"activityId":1,"distance":10}]));
+        fake.response(
+            path,
+            200,
+            json!([{"activityId":1,"distance":10},{"activityId":2}]),
+        );
+        fake.response(path, 200, json!([]));
+        let (report, records) = run(&mut fake).unwrap();
+        assert_eq!(
+            records
+                .iter()
+                .filter(|r| r.collection == "activities")
+                .count(),
+            2
+        );
+        assert_eq!(
+            report
+                .collections
+                .iter()
+                .find(|c| c.collection == "activities")
+                .unwrap()
+                .records,
+            2
+        );
+        let pages: Vec<_> = fake.calls.iter().filter(|(p, _)| p == path).collect();
+        assert!(pages[2].1.contains(&("start".into(), "3".into())));
     }
 
     #[test]
