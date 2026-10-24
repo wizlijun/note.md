@@ -8,15 +8,7 @@
 
 - **Rich Markdown 图片与附件右键菜单。** 支持“复制文件名”（完整路径）和另存原始文件；图片可复制位图，桌面资源菜单不提供复制链接。宿主和插件窗口统一屏蔽浏览器刷新、导航等默认右键菜单。
 
-- **健康数据同步 0.1.1：修复首次选择文件后的导入预览。** 主采集按钮优先读取所选文件，不再要求先有记忆路径；预览保持只读。按 `HealthData` 根节点识别 ZIP 主 XML，兼容不同语言和编码标记错误导致的乱码文件名；大型 CDA 文档按 XML 限额流式保存，保留 CDA、ECG 和 GPX 附件。
-
-- **健康数据同步 0.1.0（独立 Mac 插件）：按天汇集健康档案。** 导入完整 Apple Health ZIP/XML，以 Garmin Personal 和 Oura V2 API 补充详情；提供分类与覆盖浏览、窗口/CLI 历史续采。保留原始字段和附件，使用可读 slug 文件名，厂商凭据存入钥匙串。
-
-- **Roam Research Sync 1.2.7：修复大页面导致的 stdout 管道死锁。** Roam CLI 运行期间并发读取 stdout/stderr，保留 60 秒超时，并在超时后终止和回收子进程。
-
-- **优先提供 Omarchy 下载，并补齐 ARM64 Arch 包。** 官网 Linux 主按钮直接选择 Omarchy/Arch，Debian/Ubuntu 使用独立入口；通用下载页明确区分格式。6.1022.1 补充 aarch64 `.pkg.tar.zst` 及独立校验文件，应用二进制内容不变。
-
-- **官网 Linux 下载识别正确架构。** 请求浏览器真实 CPU 架构，不再把 Chromium 简化后的 Linux 标识误判为 AMD64；无法识别时提供明确的 ARM64 / AMD64 选择。
+- **Intel Mac 与 Linux 补齐 Rich 任务复选框修复。** 纳入此前随 Apple Silicon 6.1022.2 发布的复选框点击与 Markdown 源码保真修复。
 
 ## v6.1022.2 — 2026-10-22
 
