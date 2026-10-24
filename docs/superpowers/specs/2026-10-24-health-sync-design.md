@@ -4,19 +4,27 @@
 
 ## 产品边界
 
-建议实现一个 `notemd.health-sync` 插件，名称 Health Data Sync／健康数据同步，内部提供 Apple Health、Garmin、Oura 三个来源适配器。用户可以只启用其中一个；各来源独立授权、补历史和重试，共用数据格式、日摘要与 CLI。先支持 macOS 桌面，与当前 Roam 插件的发布范围对齐。
+实现一个 `notemd.health-sync` 插件，名称 Health Data Sync／健康数据同步。Apple Health 是用户综合健康档案的主体，包含 Apple 设备及其他应用写入的数据；Garmin、Oura 是该档案的可选细节补充，不构成三套并列产品。一个安装包、一个窗口、一组 CLI、一份健康时间线和每日摘要。内部适配器分别维护授权与进度。优先实现 macOS 端获取、入库和查询能力。
 
-首次连接后先显示能读到的指标、历史范围和数据量，再执行历史回填；日常由同一个同步命令接续。采集过程不调用模型，原始事实和厂商评分保持可追溯。趋势解释、周报及与用户生活记录的关联留给现有 skills，不在采集插件里新增一套 agent 或定时任务系统。
+先接入 Apple Health 综合数据，显示能读到的指标、历史范围和数据量，再执行历史回填。设置页中提供「补充 Garmin 细节」「补充 Oura 细节」，用户无需重新建立档案或给每个基础指标手工选择首选来源。日常由同一个同步命令接续，Apple 获取失败不推进其状态，也不妨碍已经授权的补充任务保存结果。采集过程不调用模型，原始事实和厂商评分保持可追溯。趋势解释、周报及与用户生活记录的关联留给现有 skills，不在采集插件里新增一套 agent 或定时任务系统。
 
 成功标准是「把来源实际提供的数据可靠带回来」，不能把多年全天佩戴解释成所有设备都有每秒连续记录。每类指标明确原始粒度、实际覆盖、最后设备记录时间与最后同步时间；缺测不填成零，空结果不直接代表没有历史。
 
-## 三个来源的接入方式
+## Mac 获取入口
+
+用户的 Mac 已登录 iCloud。登录状态可用于获取已保存到 iCloud Drive 的文件，但不等于能读取 iCloud 健康数据库。当前 Apple 文档说明 macOS 没有 HealthKit store，iCloud.com 也不提供健康数据访问；不能为插件设计虚构的「登录 iCloud → 拉取 Health」接口。[HealthKit 平台说明](https://developer.apple.com/documentation/healthkit/about-the-healthkit-framework)、[iCloud Web 数据范围](https://support.apple.com/en-in/102630)。
+
+Mac 首版有两种可实现入口：读取用户从 iPhone 健康 App 导出到本机/iCloud Drive 的 ZIP/XML；或接收 iPhone HealthKit 采集桥接的批次。前者的 Mac 增量是对新文件做幂等入库，上游导出仍需人工或另行配置的导出工具；后者才是自动持续获取，必须包含手机端实现。当前入口选择待用户确认，不把导出文件读取宣称为直接从 iCloud Health 获取。
+
+本机验证：macOS 27.0.1 上仅调用 `HKHealthStore.isHealthDataAvailable()`，返回 `false`。探测未读取健康样本或私有数据库；SDK 有对应符号并不意味着运行时存在可读 store。
+
+## 主体与补充数据的接入方式
 
 | 来源 | 首次历史 | 后续增量 | 必须明确的边界 |
 | --- | --- | --- | --- |
-| Apple Watch／Apple Health | iPhone 健康 App 导出 ZIP/XML；后续也可从 iPhone HealthKit 分批读取授权范围 | 第一阶段重复导出后在本地增量合并；自动持续采集需要第二阶段 iPhone 原生桥接 | Mac 没有可读的 HealthKit 数据库；桌面 cron 不能自行从 iPhone 取出新样本 |
-| Garmin | 优先官方 Personal API 按日/时间窗回填；超过可读范围时补账号数据导出档案 | 个人版按日轮询，回看近期日期并按记录身份更新 | Personal 面向本人数据；面向多用户的公开商业插件须另走 Business 接入；多年可读范围须用真实账户验收 |
-| Oura | API V2 按集合、日期和分页回填可用历史；导出档案作为补充路径 | API V2 轮询近期日期、分页 upsert，定期重查历史 | 使用 OAuth；公开发布需解决 client secret 的服务端保管和应用审批，不能把公用 secret 放入插件 |
+| Apple Health 主体 | iPhone 健康 App 导出 ZIP/XML；自动入口由 iPhone HealthKit 分批读取授权范围 | Mac 接收新文件/批次，更新同一综合档案 | Mac 没有可读的 HealthKit 数据库；桌面 cron 不能自行从 iPhone 取出新样本 |
+| Garmin 细节补充 | 官方 Personal API 按对应日期/活动回填运动明细、FIT、Body Battery 等 | 只同步已启用的补充数据族，回查修订 | Personal 面向本人数据；公开商业分发另走 Business 接入；实际历史范围需验收 |
+| Oura 细节补充 | API V2 按日期/睡眠记录回填 readiness、评分、细分指标等 | 按补充集合分页更新，并与 Apple 主体关联 | 使用 OAuth；公开发布需解决 client secret 保管、应用审批及用途条件 |
 
 Apple 官方支持导出全部健康数据为 XML；HealthKit 在 macOS 上没有可读写的 store。[导出说明](https://support.apple.com/guide/iphone/share-your-health-data-iph5ede58c3d/ios)、[平台边界](https://developer.apple.com/documentation/healthkit/about-the-healthkit-framework)。
 
@@ -26,13 +34,23 @@ Garmin Personal 官方 Swagger 已列出日心率、HRV、睡眠、Body Battery�
 
 Oura OAuth 支持 PKCE S256，但官方 token exchange 和 refresh 仍要求 client secret；refresh token 为单次使用，必须串行刷新并原子保存。自用验证采用用户自建 OAuth 应用、凭据存本机钥匙串；市场版采用小型 token broker 保管公用 secret，健康数据由客户端直接向 Oura 获取。broker 只承担授权与刷新，仍须将其接触用户令牌的范围纳入上线设计。[认证文档](https://cloud.ouraring.com/docs/authentication)。
 
-Oura 的接入还有产品用途前置条件：2026-06-08 生效的 API/MCP 协议第 2(c)、3(m) 条分别限制 Aggregator 向 AI 提供数据及存储/缓存，其他 API 使用也有保存期限要求。note.md 的具体接入角色、长期归档与用户选择 agent 的用途必须在 P0 向 Oura 核实，必要时取得另行书面授权；不能把 OAuth 成功当成这些用途已获准。以下 Oura API 方案以此前提解决为条件。用户自主导出档案的个人导入单独评估，不把换传输通道当成规避条件。[当前协议](https://cloud.ouraring.com/legal/api-agreement)。
+Oura 的接入还有产品用途前置条件：2026-06-08 生效的 API/MCP 协议第 2(c)、3(m) 条分别限制 Aggregator 向 AI 提供数据及存储/缓存，其他 API 使用也有保存期限要求。note.md 的具体接入角色、长期归档与用户选择 agent 的用途必须在 P3 接入前向 Oura 核实，必要时取得另行书面授权；不能把 OAuth 成功当成这些用途已获准。以下 Oura API 方案以此前提解决为条件。用户自主导出档案的个人导入单独评估，不把换传输通道当成规避条件。[当前协议](https://cloud.ouraring.com/legal/api-agreement)。
 
-**不能仅依靠 Apple Health 聚合另外两家。** Garmin 首次开启同步只回传最多两周，而且运动心率细节和 GPS 有缺失；Oura 的 Apple Health 导出字段也不是其 API 的完整能力。Apple Health 中已存在的副本可导入，但必须标注实际产生数据的应用和设备。[Garmin 同步范围](https://support.garmin.com/en-AU/?faq=lK5FPB9iPF5PXFkIpFlFPA)、[Oura 同步范围](https://support.ouraring.com/hc/en-us/articles/360025438734-Apple-Health-Integration)。
+补充范围从 Apple Health 已有综合数据与厂商接口之间的字段差异出发。Garmin 和 Oura 写入 Health 的字段与原始接口并不完全相同，因此直连用于获取详细运动记录、专有评分等。用户已有多年 Apple 综合数据时直接使用，不强制重新回填三家历史；只有实际发现缺口时才规划相应补充。[Garmin 同步范围](https://support.garmin.com/en-AU/?faq=lK5FPB9iPF5PXFkIpFlFPA)、[Oura 同步范围](https://support.ouraring.com/hc/en-us/articles/360025438734-Apple-Health-Integration)。
 
-## 首版采集范围
+## 统一档案与细节关联
 
-| 数据族 | 首版内容 | 统一规则 |
+Apple Health 提供基础测量、睡眠和运动时间线；厂商记录通过 `enriches` 关系补充既有条目，或作为明确标注来源的专有指标显示在同一天。关联优先使用可验证的源记录标识及外部 ID；无共同 ID 时，设备/应用、类型、时间区间等只生成候选关系，不能仅靠时间接近判定为同一次测量。无法确认的记录保留为未关联补充，不进入同一事件的重复统计。
+
+补充允许增加字段、保留更细粒度序列或补上明确缺失的字段，不能静默覆盖 Apple 的基础记录，也不能把厂商总量再加一次。Apple 后来补到同一记录时重新关联，原先的补缺值退出有效汇总但保留来源证据。Apple 与厂商值不一致时保留两者，默认摘要保持 Apple 基础值，详情显示差异。专有评分使用 `garmin.*`、`oura.*` 命名空间，避免把不同算法视为一个指标。
+
+Apple 导出包含多应用/多设备的原始样本，不代表可以直接把所有样本相加，也不保证导出了健康 App 的来源优先设置。Apple 内部仍需识别镜像与重叠；无法获得系统聚合规则时明示本插件的聚合方法，保留分来源结果，不宣称与健康 App 每个展示数值必然一致。这里的「Apple 为主体」是综合档案的入口，不是只采用 Apple Watch 的数据。
+
+## 完整插件目标采集范围
+
+P1 首版采集 Apple Health 已含的数据；厂商接口的细节和专有字段在 P3 接入后启用，下表不意味着首版就直连三家。
+
+| 数据族 | 目标内容 | 统一规则 |
 | --- | --- | --- |
 | 睡眠 | 起止、总时长、阶段、夜间心率、厂商睡眠评分 | 保留主睡眠与小睡；分来源统计，阶段不能跨设备相加 |
 | 心血管 | 心率时间序列、静息心率、HRV、来源提供的血氧 | HRV 保留 SDNN／RMSSD 等方法信息；方法未知不强行合并 |
@@ -62,9 +80,9 @@ health/
 
 摘要默认随 vault 正常同步。首次设置明确大体积明细的备份选择：本地完整保留，Git 默认排除 `health/data/` 与 `health/attachments/`，需要用户选择的完整备份方式覆盖这些目录；不能让界面声称「vault 已同步」就等同于完整健康档案已备份。文件直接可用，插件卸载后摘要和分片仍属于用户。
 
-每条规范化记录至少有：`schema_version`、`source`、本地稳定 `account_id`、`source_record_id`、`metric`、`value/unit`、`start_at/end_at`、原始 UTC offset、来源日历日期、设备/写入应用、采样方法、原始 payload 或其分片定位、修订关系、质量/覆盖标记。没有 IANA 时区时不凭 offset 猜城市。摄取时间存批次元数据，不进入测量内容 hash。
+每条规范化记录至少有：`schema_version`、`source`、本地稳定 `account_id`、`source_record_id`、`metric`、`value/unit`、`start_at/end_at`、原始 UTC offset、来源日历日期、设备/写入应用、采样方法、原始 payload 或其分片定位、修订关系、`enriches` 关联及其证据/状态、质量/覆盖标记。没有 IANA 时区时不凭 offset 猜城市。摄取时间存批次元数据，不进入测量内容 hash。
 
-日摘要只使用当下有效记录；注明来源、计算规则及缺失项。例如：睡眠 7h12m（Oura），静息心率 54 bpm（Apple），HRV 42 ms（Apple SDNN）。用户批注使用既有 `.note.md` sidecar；首版不向已有 daily note 大段写入，只提供当日摘要链接。摘要被手动改写时，用上次生成 hash 检测并报告冲突，保留现有文件；不能直接覆盖。相同输入必须字节不变，不以当前时间反复刷新摘要。
+日摘要只使用当下有效记录；主体来自 Apple Health，注明原始写入应用、计算规则及缺失项。例如：睡眠 7h12m（Apple Health，原始来源 Oura），静息心率 54 bpm（Apple Health），另列 Oura readiness 与 Garmin Body Battery 补充。一天只生成一份摘要。用户批注使用既有 `.note.md` sidecar；首版不向已有 daily note 大段写入，只提供当日摘要链接。摘要被手动改写时，用上次生成 hash 检测并报告冲突，保留现有文件；不能直接覆盖。相同输入必须字节不变，不以当前时间反复刷新摘要。
 
 ## 增量与重复数据规则
 
@@ -72,7 +90,7 @@ health/
 2. **来源变更与测量时间分开。** HealthKit 用 anchor 获取新增和删除；日期型云 API 默认重查最近 14 天。14 天是初始工程参数，不是厂商保证。每周轮转重查更早的月份，支持显式全历史 reconciliation，覆盖晚到和算法重算。
 3. **有身份就按身份更新。** HealthKit 用 UUID；云 API 用源记录 ID；无 ID 的日报用账户、集合和来源日期。Apple XML 常无可依赖的 UUID，使用来源、设备、类型、时间区间与规范化 payload 指纹，并保留同内容样本的重数及文件位置，避免误删合法重复。每份完整 XML 有独立 snapshot generation，记录输入 hash、账户、类型和声明范围；重复 generation 幂等。因为数值修订会改变指纹，新快照必须在明确且可比较的范围内整体切换有效成员，而非简单追加；旧分片仍保留。解析未完成的快照不得激活，范围不明时不能推出旧记录已删除。
 4. **XML 与 HealthKit 的身份迁移单独处理。** 两种入口可能拿不到共同 ID；默认保存为独立分支，不累加。按类型比较两者覆盖与差异，由用户在来源设置中选择启用 HealthKit 作为有效来源及历史切换范围，XML 分支保留为档案。HealthKit 分页读尽不能证明获得全部读取权限，不能据此自动隐藏 XML 历史；授权改变后也不自行扩大替换范围。
-5. **跨源保留原始值，摘要选来源。** `ingest_source=apple-health` 与 `origin_source=oura/garmin/apple` 分开。只在确证共同身份时标成镜像；不能因时间接近和值相同就销毁另一条记录。每项指标固定一个首选来源，缺失时使用已配置后备并标注，初次设置由用户选择；其他来源仍可查询。
+5. **Apple 主体与厂商补充分工固定。** `ingest_source=apple-health` 与 `origin_source=oura/garmin/apple` 分开，分别记录采集入口和实际写入者。仅确证身份的记录建立镜像/细节关联；基础摘要默认使用 Apple 主体，厂商字段只补细节、专有指标或明确缺项，不引入任意首选来源切换。补充接入或撤销不改变已有 Apple 基础记录，也不能使其重复计数。
 6. **更新只改受影响日期。** 同一睡眠被修订、跨日运动、来源时区改变时，重算所有受影响日期。保留来源睡眠归属日和绝对时间；不按当前电脑时区反复改写历史。
 7. **明确删除与不可见不同。** 有删除事件才写 tombstone，并使旧记录退出当前汇总；完整权威快照完成后才能比较删除。权限收缩、API 暂时空响应、缺页或未完成回填不触发删除。源删除同步与用户要求彻底清除历史档案是两种不同操作。
 8. **先持久化再确认。** 顺序固定为分片临时文件写入/校验/fsync/rename → 发布包含批次身份、分片 hash 和有效版本关系的 commit manifest 并耐久化目录 → 本机 SQLite 事务登记索引与 checkpoint。启动时重放已发布但尚未登记的 manifest；没有 commit manifest 的孤立分片只作待恢复文件，不能直接进入有效集合。完成快照的激活记录也遵循此顺序，使索引重建能区分已提交与尚未完成的快照。摘要失败记为 pending，下一轮恢复。HTTP 分页完整完成后才能标记日期窗已覆盖，覆盖仅指本次查询完整，不证明权限之外没有数据。
@@ -85,26 +103,26 @@ HealthKit 的 anchor 能返回新增和删除；删除记录可能被系统清�
 以下是拟新增接口，并非当前可执行命令。沿用扁平子命令；全部声明 `requires_tab_context:false`。`--vault` 作为插件自己的 flag 显式声明，不假设宿主已有全局 vault 参数。
 
 ```sh
-# 一次连接；密钥通过设置窗口进入系统钥匙串，不写在命令行中
+# 在同一插件中可选开启细节补充；密钥不写在命令行中
 notemd health-connect --source oura --vault /path/to/vault
 
 # 导入全量文件，内部流式解析、分批合并；再次导入幂等
 notemd health-import /path/to/export.zip --source apple-health --vault /path/to/vault --json
 
-# 回填指定范围；第一次创建任务，后续调用按 job 接续
-notemd health-sync --source garmin --since 2019-01-01 --until 2026-10-24 --vault /path/to/vault --json
+# 统一补历史；先处理 Apple 主体，再关联已启用的厂商细节
+notemd health-sync --since 2019-01-01 --until 2026-10-24 --vault /path/to/vault --json
 notemd health-sync --resume <job-id> --vault /path/to/vault --json
 
-# 日常执行，接收待处理的手机批次并同步已连接云来源
+# 日常入口：更新主体与补充，生成同一份档案
 notemd health-sync --vault /path/to/vault --json
-notemd health-sync --source oura --dry-run --vault /path/to/vault --json
+notemd health-sync --dry-run --vault /path/to/vault --json
 
 # 供 cron 和 skills 观察状态及按需读取数据
 notemd health-status --vault /path/to/vault --json
 notemd health-query --metric sleep.duration --since 2026-10-01 --until 2026-10-24 --vault /path/to/vault --json
 ```
 
-`health-query` 默认返回每日摘要；明细查询须显式指定来源、日期窗和分页上限，避免把几年数据一次塞给模型。JSON 输出沿用宿主 `{ok,data}`，成功报告包括 job、各来源新增/修订/跳过数、实际覆盖、pending 摘要、`has_more` 和下次可运行时间。不把请求执行成功等同于已经同步完全部历史。
+`health-query` 默认返回 Apple 主体加已关联补充的统一结果，保留每个字段的来源；明细查询指定日期窗和分页上限，来源过滤仅作追溯/诊断选项。`health-sync --source` 也仅用于单个适配器重试，日常 cron 不需要为三家各配一个任务。JSON 输出沿用宿主 `{ok,data}`，成功报告分别给出主体更新、细节补充、未关联记录数、实际覆盖、pending 摘要、`has_more` 和下次可运行时间。不把请求执行成功等同于已经同步完全部历史。
 
 首版每次命令主动限制为约 180 秒工作预算，manifest 请求静默超时设 240 秒；完成一个安全批次后返回。这是控制定时任务时长和恢复成本的产品选择，并非宿主强制总时限。GUI 可反复调用，cron 每次继续未完成任务。长期回填按数据类型轮转，避免心率大集合饿死睡眠；近期同步也保留执行份额。CLI 不在一个宿主请求里无限循环。预算耗尽并安全落盘属于 `ok=true, has_more=true`；429、失联、授权到期、解析失败属于执行失败，保留可恢复进度。
 
@@ -135,16 +153,16 @@ HealthKit 新增指标、改变授权范围、重装或重置 store 时，重新
 
 | 阶段 | 交付 | 完成条件 |
 | --- | --- | --- |
-| P0 接入验证 | 三源脱敏样本、指标/日期覆盖表；Garmin Personal 和 Oura 接入条件核实 | 每源核对一个旧日期和最近日期，验证记录身份、时区、权限与分页；确认实际最早可读范围；先解决 Oura 长期保存/AI 使用条件，再实测回调与刷新 |
-| P1 历史导入与公共核心 | Apple ZIP/XML 流式导入、分片存储、查询索引、日摘要、import/status/query CLI、最小 GUI | 多年规模合成 fixture 有界内存；重复导入零变化；中途终止后恢复；摘要不覆盖批注 |
-| P2 桌面自动同步 | Garmin Personal、满足 P0 条件后的 Oura API 适配器；sync/connect CLI、历史回填和 cron | 实际账户连续同步；晚到/修订回查；401/429/离线/并发恢复；与来源 App 逐日抽样对照 |
-| P3 Apple 自动增量 | iOS HealthKit collector、outbox、配对接收、补历史与删除传播 | 真机后台、锁屏、断网、电脑关闭、应用重启、权限变更、XML→HealthKit 切换均不漏不重；验证新鲜度显示 |
+| P0 Mac 入口验证 | 核实本机 HealthKit 可用性，确定 Apple 主体文件/桥接入口及样本 | 不将 iCloud 登录状态当成数据库可读；核对旧日期、最近日期、原始写入者和历史覆盖 |
+| P1 Mac 主体获取 | 同一插件中的 Apple 获取入口、分片存储、查询索引、日摘要、统一 CLI、最小 GUI | Mac 成功接收并解析 Apple 综合数据；重复导入零变化；中断恢复；摘要保留批注；若选择全自动入口则包含 P2 必要桥接 |
+| P2 主体持续增量 | iOS HealthKit collector、outbox、Mac 配对接收、补历史与删除传播 | 真机后台、锁屏、断网、电脑关闭、应用重启、权限变更、XML→HealthKit 切换验证；主体单独可用，不依赖 Garmin/Oura |
+| P3 厂商细节补充 | 插件内增加 Garmin、满足接入条件后的 Oura 协议适配器及关联器 | 对比 Apple 已有字段，仅补细节/专有指标/明确缺项；同一事件不重复计数；冲突保留 Apple 主体；补充失败不破坏主体 |
 | P4 市场分发 | Oura 产品授权方案和 Garmin Business 接入、打包与发布验收 | 分别满足厂商分发条件；Business 的 Push/历史差异另做接入验证；按既有插件发布流程执行 |
 
-P1、P2 可先满足个人使用；需要 Apple Watch 自动持续数据时，P3 必须完成。Garmin 官方账号导出和 Oura 导出档案的额外解析器按 P0 的覆盖缺口加入对应阶段，不先泛化所有格式。P4 的商业接入不能包装成个人 API 已经解决。
+先把 Apple 综合档案在 Mac 上获取和使用跑通，再在同一插件内补厂商细节。文件路线的 P1 不等同于自动持续采集；若要求无人值守获取新数据，P2 必须纳入首个可用版本。Garmin/Oura 的授权与用途验证作为 P3 前置条件，不能阻塞 Apple 主体交付；额外档案解析器只按实际缺口增加。P4 的商业接入不能包装成个人 API 已经解决。
 
 重点验收矩阵：同输入幂等；分页边界重复；同时间戳多条合法样本；数据提交/游标推进间断电；跨设备副本；HRV 方法不同；单位换算；跨午夜、夏令时和旅行；旧记录修订/删除；权限下降；令牌轮换并发；损坏分片；状态丢失重建；手动编辑冲突；多个来源中一个失败的独立恢复。
 
 性能验收先固定 fixture 大小与机器，再记录吞吐、峰值内存、磁盘放大和索引时间，不凭「多年」估工期。XML 使用流式解析并在完整记录边界提交；ZIP 先流式解包到可校验的本机暂存，完成后按记录偏移接续，不能假定压缩流任意 seek。首次解包中断可以重做，但已提交分片不能重复进入有效集合。输入路径、ZIP entry 路径、解压大小和 XML 外部实体均需约束。
 
-本轮只完成设计与公开资料/源码核对，未连接个人健康账户、未采集真实样本、未修改产品代码、未发布插件。实际接口可用性和多年数据完整性由 P0 验收确认。
+本轮只完成设计与公开资料/源码核对，未连接个人健康账户、未采集真实样本、未修改产品代码、未发布插件。Apple 获取能力和历史覆盖由 P0 验收确认，厂商补充接口及用途条件由 P3 前置验证确认。
