@@ -22,9 +22,14 @@
   ]
 </script>
 
+<svelte:window
+  onclick={(event) => { if (!(event.target instanceof Element) || !event.target.closest('img')) onClose() }}
+  oncontextmenu={onClose}
+/>
+
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="toolbar-backdrop" onclick={onClose}>
+<div class="toolbar-backdrop">
   <div
     class="image-toolbar"
     style="top: {position.top}px; left: {position.left}px"
@@ -48,6 +53,7 @@
     position: fixed;
     inset: 0;
     z-index: 55;
+    pointer-events: none;
   }
 
   .image-toolbar {
@@ -61,6 +67,7 @@
     border-radius: 6px;
     box-shadow: 0 2px 8px color-mix(in srgb, CanvasText 15%, transparent);
     z-index: 56;
+    pointer-events: auto;
     transform: translateX(-50%);
   }
 

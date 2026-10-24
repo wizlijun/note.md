@@ -170,6 +170,7 @@ pub(crate) fn bridge_script(plugin_id: &str, locale: &str, theme: &str) -> Strin
     format!(
         r#"(function () {{
   if (window.notemd) return;
+  document.addEventListener('contextmenu', (event) => event.preventDefault(), true);
   let __seq = 0;
   const __listeners = [];
   const pluginId = {pid};

@@ -2,6 +2,7 @@
 import {afterEach,expect,it,vi} from 'vitest'
 vi.mock('@tauri-apps/api/core',()=>({invoke:vi.fn(async()=>null),convertFileSrc:(s:string)=>s}))
 vi.mock('@tauri-apps/plugin-dialog',()=>({open:vi.fn()}))
+vi.mock('@tauri-apps/plugin-fs',()=>({readFile:vi.fn(async()=>new Uint8Array([137,80,78,71])),exists:vi.fn(async()=>true)}))
 vi.mock('@tauri-apps/plugin-os',()=>({platform:()=> 'macos',type:()=> 'macos'}))
 const native=vi.hoisted(()=>({drop:null as null|((event:{payload:{type:string;paths:string[];position:{x:number;y:number}}})=>Promise<void>)}))
 vi.mock('@tauri-apps/api/webview',()=>({getCurrentWebview:()=>({onDragDropEvent:async(callback:typeof native.drop)=>{native.drop=callback;return ()=>{native.drop=null}}})}))
@@ -99,4 +100,24 @@ it.each(['strong','em'] as const)('actual marked helper and plain image endpoint
  const wrapper=kind==='strong'?'**':'*', {f}=await fixture('AB');select(f,1);f.view.dispatch(f.view.state.tr.setStoredMarks([f.view.state.schema.marks[kind]!.create()]));insertImageAtCursor(f.view,'/x');const inserted=wrapper+'![](/x)'+wrapper+'&#65;B';expect(f.owner.snapshot().raw).toBe(inserted);expect(undoDepth(f.view.state)).toBe(1)
  separate(f);f.view.dispatch(f.view.state.tr.setStoredMarks([]).insertText('中',2));const typed=wrapper+'![](/x)'+wrapper+'&#20013;&#65;B';expect(f.owner.snapshot().raw).toBe(typed);expect(undoDepth(f.view.state)).toBe(2)
  expect(f.owner.undo()).toBe(true);expect(f.owner.snapshot().raw).toBe(inserted);expect(f.owner.undo()).toBe(true);expect(f.owner.snapshot().raw).toBe('AB');expect(f.owner.redo()).toBe(true);expect(f.owner.snapshot().raw).toBe(inserted);expect(f.owner.redo()).toBe(true);expect(f.owner.snapshot().raw).toBe(typed)
+})
+
+
+it.each([
+  ['![diagram](</vault/a%20b.png>)', 'img', true],
+  ['[report](</vault/report%20one.pdf>)', 'a[href], [data-url]', false],
+] as const)('desktop Rich resource menu uses the clicked %s and leaves source intact', async (raw, selector, image) => {
+  await desktop(raw, async f => {
+    await vi.waitFor(() => expect(f.view.dom.querySelector(selector)).toBeTruthy())
+    const target = f.view.dom.querySelector(selector)
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })
+    target!.dispatchEvent(event); await tick()
+    expect(event.defaultPrevented).toBe(true)
+    const labels = [...document.querySelectorAll('.ctx-menu .ctx-label')].map(el => el.textContent)
+    expect(labels).toEqual(['Copy File Name', 'Copy Absolute Path', ...(image ? ['Copy Image'] : []), 'Save File As…'])
+    expect(document.querySelector('.ctx-menu.menu-panel')).toBeTruthy()
+    expect(f.owner.snapshot().raw).toBe(raw)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await tick()
+    expect(document.querySelector('.ctx-menu')).toBeNull()
+  })
 })

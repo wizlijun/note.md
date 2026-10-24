@@ -29,6 +29,7 @@
   import { getSlashItems, filterSlashItems, type SlashItem } from '../lib/slash-menu/slash-items'
   import EditorContextMenu, { type EditorActions } from '../lib/context-menu/EditorContextMenu.svelte'
   import { createRichActions } from '../lib/context-menu/rich-actions'
+  import { findRichResource, createResourceActions } from '../lib/context-menu/resource-actions'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import { TRACE_PLUGIN_ID } from '../lib/context-menu/trace-action'
   import { noteUi, readThemeStyle } from '../lib/note-anno/note-ui.svelte'
@@ -220,6 +221,8 @@
   let ctxMenuPos    = $state({ x: 0, y: 0 })
   let ctxHasSel     = $state(false)
   let ctxImage      = $state(false)
+  let ctxResource   = $state<'local' | 'remote' | undefined>()
+  let ctxEpoch      = $state(0)
   let ctxActions    = $state<EditorActions | null>(null)
 
   function captureFileInput(view: EditorView) {
@@ -535,7 +538,23 @@
     if (!editor) return
     event.preventDefault()
     noteUi.hover = null
+    showImageToolbar = false
+    ctxEpoch++
+    ctxResource = undefined
     const view = editor.view as unknown as EditorView
+    const resource = findRichResource(event.target, view)
+    if (resource) {
+      ctxActions = createResourceActions(resource, {
+        ...(tab.filePath ? { baseDir: dirname(tab.filePath) } : {}),
+        vaultRoot: sotvaultStore.vaultRoot,
+      })
+      ctxHasSel = false
+      ctxImage = !!resource.image
+      ctxResource = ctxActions.canRun('copyFilePath') ? 'local' : 'remote'
+      ctxMenuPos = { x: event.clientX, y: event.clientY }
+      showCtxMenu = true
+      return
+    }
     const imgEl = (event.target as HTMLElement).closest('img') as HTMLImageElement | null
     ctxHasSel   = !view.state.selection.empty
     ctxImage    = !!imgEl
@@ -1483,15 +1502,18 @@
     />
   {/if}
   {#if showCtxMenu && ctxActions}
+    {#key ctxEpoch}
     <EditorContextMenu
       position={ctxMenuPos}
       hasSelection={ctxHasSel}
       image={ctxImage}
+      resource={ctxResource}
       {readOnly}
       traceInstalled={pluginRuntime.manifests.some(m => m.id === TRACE_PLUGIN_ID)}
       actions={ctxActions}
       onClose={() => { showCtxMenu = false }}
     />
+    {/key}
   {/if}
   <NotePopover />
   {#if noteUi.edit}

@@ -20,6 +20,8 @@ export interface MenuContext {
   table?: boolean
   /** True when the right-click landed on an image — swaps in the image menu. */
   image?: boolean
+  /** Desktop resource actions; absent on hosts without file capabilities. */
+  resource?: 'local' | 'remote'
   /** Read-only surface (mdx): only non-mutating items may be offered. */
   readOnly?: boolean
   /** The `notemd.trace-source` plugin is installed. 「溯源」 is that plugin's
@@ -40,6 +42,16 @@ function item(id: string, key: keyof Messages, extra: Partial<MenuItemSpec> = {}
 export function getMenuModel(ctx: MenuContext): MenuGroup[] {
   // Right-clicking an image shows a dedicated, minimal menu — the text-format
   // items are meaningless on an image node.
+  if (ctx.resource) {
+    return [{ id: 'resource', items: [
+      item('copyFileName', 'ctxmenu.copyFileName'),
+      ctx.resource === 'local'
+        ? item('copyFilePath', 'ctxmenu.copyFilePath')
+        : item('copyResourceLink', 'ctxmenu.copyResourceLink'),
+      ...(ctx.image ? [item('copyImage', 'ctxmenu.copyImage')] : []),
+      item('saveResourceAs', 'ctxmenu.saveResourceAs'),
+    ] }]
+  }
   if (ctx.image) {
     return [
       { id: 'image', items: [ item('copyImage', 'ctxmenu.copyImage') ] },

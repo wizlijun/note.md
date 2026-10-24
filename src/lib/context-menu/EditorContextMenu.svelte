@@ -16,6 +16,7 @@
     actions,
     onClose,
     image = false,
+    resource,
     readOnly = false,
     traceInstalled = false,
     allowImageInsert = true,
@@ -25,6 +26,7 @@
     actions: EditorActions
     onClose: () => void
     image?: boolean
+    resource?: 'local' | 'remote'
     readOnly?: boolean
     traceInstalled?: boolean
     allowImageInsert?: boolean
@@ -35,6 +37,7 @@
     hasSelection,
     table: untrack(() => actions.canRun('table-align-center')),
     image,
+    resource: untrack(() => resource),
     readOnly,
     traceInstalled: untrack(() => traceInstalled),
     allowImageInsert: untrack(() => allowImageInsert),

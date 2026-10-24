@@ -75,3 +75,11 @@ describe('getMenuModel', () => {
       .toEqual(['table', 'image', 'math', 'mermaid', 'date'])
   })
 })
+
+
+it.each([false, true])('resource menus stay non-mutating in readOnly=%s', readOnly => {
+  const ids = (image: boolean, resource: 'local' | 'remote') => getMenuModel({ hasSelection: true, image, resource, readOnly }).flatMap(g => g.items.map(i => i.id))
+  expect(ids(true, 'local')).toEqual(['copyFileName', 'copyFilePath', 'copyImage', 'saveResourceAs'])
+  expect(ids(false, 'local')).toEqual(['copyFileName', 'copyFilePath', 'saveResourceAs'])
+  expect(ids(true, 'remote')).toEqual(['copyFileName', 'copyResourceLink', 'copyImage', 'saveResourceAs'])
+})

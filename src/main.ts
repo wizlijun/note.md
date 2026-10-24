@@ -1,6 +1,9 @@
+import { installBrowserContextMenuGuard } from './lib/context-menu/browser-default'
 import { mount } from 'svelte'
 import { initFormFactor } from './lib/platform.svelte'
 import { installConsoleBridge } from './lib/logs/console-bridge'
+
+installBrowserContextMenuGuard()
 
 installConsoleBridge()
 

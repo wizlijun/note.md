@@ -23,7 +23,10 @@ async function imageToPngBytes(el: HTMLImageElement): Promise<Uint8Array> {
     // SecurityError. Re-fetch the bytes ourselves — the resulting blob is
     // same-origin, so decoding it via createImageBitmap yields a clean canvas.
     const src = el.currentSrc || el.src
-    const blob = await (await fetch(src)).blob()
+    const fetchImage = /^https?:\/\//i.test(src) ? (await import('@tauri-apps/plugin-http')).fetch : fetch
+    const response = await fetchImage(src)
+    if (!response.ok) throw new Error(`Download failed (${response.status})`)
+    const blob = await response.blob()
     const bitmap = await createImageBitmap(blob)
     try {
       return await canvasToPng(bitmap, bitmap.width, bitmap.height)

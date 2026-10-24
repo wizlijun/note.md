@@ -385,6 +385,10 @@ export const zh: Record<keyof Messages, string> = {
   // Editor context menu
   'ctxmenu.cut': '剪切',
   'ctxmenu.copy': '复制',
+  'ctxmenu.copyFileName': '复制文件名',
+  'ctxmenu.copyFilePath': '复制绝对路径',
+  'ctxmenu.copyResourceLink': '复制链接',
+  'ctxmenu.saveResourceAs': '另存为文件…',
   'ctxmenu.copyImage': '复制图片',
   'ctxmenu.paste': '粘贴',
   'ctxmenu.selectAll': '全选',
