@@ -9,7 +9,7 @@ For the full commit history, see the git log.
 
 - **Rich Markdown resource menus.** Right-click images and attachments to copy their full pathname and save the original file; images also support copying the bitmap, while remote resources offer Copy Link. Suppress browser refresh/navigation context menus across host and plugin windows.
 
-- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Recognize localized `导出.xml` inside the ZIP while retaining CDA, ECG and GPX attachments.
+- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
 
 - **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
 

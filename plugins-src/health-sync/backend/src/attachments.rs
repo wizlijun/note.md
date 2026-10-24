@@ -4,12 +4,12 @@
 use crate::{
     catalog::metric_slug,
     model::HealthRecord,
-    source::{is_primary_xml, MISSING_PRIMARY_XML, MULTIPLE_PRIMARY_XML},
+    source::{inspect_apple_zip, XmlKind, MAX_XML_BYTES},
 };
 use chrono::NaiveDate;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
@@ -30,26 +30,6 @@ pub struct Attachment {
 
 fn error(e: impl std::fmt::Display) -> String {
     e.to_string()
-}
-
-fn safe_name(name: &str, directory: bool) -> Result<(), String> {
-    let trimmed = if directory {
-        name.trim_end_matches('/')
-    } else {
-        name
-    };
-    if trimmed.is_empty()
-        || name.starts_with('/')
-        || name.contains('\\')
-        || name.contains(':')
-        || name.chars().any(char::is_control)
-        || trimmed
-            .split('/')
-            .any(|p| p.is_empty() || p == "." || p == "..")
-    {
-        return Err("Unsafe attachment path in Apple Health ZIP".into());
-    }
-    Ok(())
 }
 
 fn attachment_day(basename: &str) -> String {
@@ -78,14 +58,14 @@ fn attachment_day(basename: &str) -> String {
     "_undated".into()
 }
 
-fn classify(name: &str) -> (&'static str, &'static str, &'static str) {
+fn classify(name: &str, clinical: bool) -> (&'static str, &'static str, &'static str) {
     let lower = name.to_ascii_lowercase();
     let basename = lower.rsplit('/').next().unwrap_or(&lower);
     let extension = basename.rsplit_once('.').map(|(_, ext)| ext).unwrap_or("");
-    let (metric, category) = if extension == "gpx" {
-        ("attachment.workout-route", "activity")
-    } else if basename == "export_cda.xml" {
+    let (metric, category) = if clinical {
         ("attachment.clinical", "clinical")
+    } else if extension == "gpx" {
+        ("attachment.workout-route", "activity")
     } else if basename.starts_with("ecg_") || lower.split('/').any(|p| p == "electrocardiograms") {
         ("attachment.electrocardiogram", "heart")
     } else {
@@ -142,42 +122,23 @@ fn extract_with_limits(
     input.seek(SeekFrom::Start(0)).map_err(error)?;
     let mut archive =
         zip::ZipArchive::new(input).map_err(|e| format!("Invalid Apple Health ZIP: {e}"))?;
-    let mut names = HashSet::new();
-    let mut selected = None;
+    let inspected = inspect_apple_zip(&mut archive)?;
     let mut indices = vec![];
     let mut declared_total = 0u64;
-    // Check the whole directory before copying any file. ZIP directory traversal
-    // and special filesystem entries are errors even though we never use names
-    // as extraction destinations.
-    for i in 0..archive.len() {
-        let entry = archive
-            .by_index(i)
-            .map_err(|e| format!("Invalid Apple Health ZIP entry: {e}"))?;
-        let directory = entry.is_dir();
-        safe_name(entry.name(), directory)?;
-        if !names.insert(entry.name().to_string()) {
-            return Err("Duplicate ZIP entry name in Apple Health export".into());
-        }
-        if let Some(mode) = entry.unix_mode() {
-            let kind = mode & 0o170000;
-            if (directory && !matches!(kind, 0 | 0o040000))
-                || (!directory && !matches!(kind, 0 | 0o100000))
-            {
-                return Err("Apple Health ZIP contains a symlink or non-regular entry".into());
-            }
-        }
-        if directory {
+    for (index, kind) in inspected.files {
+        if index == inspected.primary {
             continue;
         }
-        if is_primary_xml(entry.name()) {
-            if selected.replace(i).is_some() {
-                return Err(MULTIPLE_PRIMARY_XML.into());
-            }
-            continue;
-        }
-        if entry.size() > per_file_limit {
+        let entry = archive.by_index(index).map_err(error)?;
+        let clinical = kind == XmlKind::ClinicalDocument;
+        let file_limit = if clinical {
+            MAX_XML_BYTES
+        } else {
+            per_file_limit
+        };
+        if entry.size() > file_limit {
             return Err(format!(
-                "Apple Health attachment exceeds the {per_file_limit}-byte per-file limit"
+                "Apple Health attachment exceeds the {file_limit}-byte per-file limit"
             ));
         }
         declared_total = declared_total
@@ -188,10 +149,7 @@ fn extract_with_limits(
                 "Apple Health attachments exceed the {total_limit}-byte total limit"
             ));
         }
-        indices.push(i);
-    }
-    if selected.is_none() {
-        return Err(MISSING_PRIMARY_XML.into());
+        indices.push((index, clinical, file_limit));
     }
     if indices.is_empty() {
         return Ok(vec![]);
@@ -210,7 +168,7 @@ fn extract_with_limits(
     let mut files: BTreeMap<String, PathBuf> = BTreeMap::new();
     let mut total = 0u64;
     let mut buffer = [0u8; 64 * 1024];
-    for index in indices {
+    for (index, clinical, file_limit) in indices {
         let mut entry = archive
             .by_index(index)
             .map_err(|e| format!("Cannot read ZIP attachment: {e}"))?;
@@ -234,7 +192,7 @@ fn extract_with_limits(
             total = total
                 .checked_add(amount as u64)
                 .ok_or("Attachment total overflow")?;
-            if count > per_file_limit || total > total_limit {
+            if count > file_limit || total > total_limit {
                 return Err("Apple Health attachment uncompressed size limit exceeded".into());
             }
             hasher.update(&buffer[..amount]);
@@ -256,7 +214,7 @@ fn extract_with_limits(
         let basename = name.rsplit('/').next().unwrap_or(&name);
         let day = attachment_day(basename);
         let relative_path = destination(&name, &day, &sha256);
-        let (metric, category, mime) = classify(&name);
+        let (metric, category, mime) = classify(&name, clinical);
         let filename = relative_path
             .iter()
             .map(|p| p.to_string_lossy())
@@ -329,7 +287,10 @@ mod tests {
                     "apple_health_export/workout-routes/route_2026-10-23_08.00.gpx",
                     b"<gpx>route</gpx>",
                 ),
-                ("apple_health_export/export_cda.xml", b"<ClinicalDocument/>"),
+                (
+                    "apple_health_export/export_cda.xml",
+                    b"<ClinicalDocument xmlns='urn:hl7-org:v3'/>",
+                ),
                 (
                     "apple_health_export/unknown/2026-10-22 future data.blob",
                     b"\x00\xffraw",
@@ -373,7 +334,7 @@ mod tests {
         make_zip(
             &zip,
             &[
-                ("export.xml", b"x"),
+                ("export.xml", b"<HealthData/>"),
                 ("one.txt", b"same"),
                 ("two.txt", b"same"),
             ],
@@ -390,7 +351,10 @@ mod tests {
         for name in [
             "../a", "/a", "C:/a", "a\\b", "a/./b", "a//b", "a\0b", "a\nb",
         ] {
-            make_zip(&input, &[("export.xml", b"x"), (name, b"payload")]);
+            make_zip(
+                &input,
+                &[("export.xml", b"<HealthData/>"), (name, b"payload")],
+            );
             assert!(
                 extract_attachments(&input, temp.path()).is_err(),
                 "accepted {name:?}"
@@ -404,14 +368,21 @@ mod tests {
             ],
             ["导出.xml", "apple_health_export/导出.xml"],
         ] {
-            make_zip(&input, &[(names[0], b"x"), (names[1], b"x")]);
+            make_zip(
+                &input,
+                &[(names[0], b"<HealthData/>"), (names[1], b"<HealthData/>")],
+            );
             assert!(extract_attachments(&input, temp.path()).is_err());
         }
-        make_zip(&input, &[("export.xml", b"x"), ("a", b"12345")]);
+        make_zip(&input, &[("export.xml", b"<HealthData/>"), ("a", b"12345")]);
         assert!(extract_with_limits(&input, temp.path(), 4, 100).is_err());
         make_zip(
             &input,
-            &[("export.xml", b"x"), ("a", b"1234"), ("b", b"5678")],
+            &[
+                ("export.xml", b"<HealthData/>"),
+                ("a", b"1234"),
+                ("b", b"5678"),
+            ],
         );
         assert!(extract_with_limits(&input, temp.path(), 4, 7).is_err());
     }
@@ -420,7 +391,10 @@ mod tests {
     fn retains_zero_length_placeholders_as_original_bytes() {
         let temp = tempfile::tempdir().unwrap();
         let input = temp.path().join("export.zip");
-        make_zip(&input, &[("export.xml", b"x"), ("empty.csv", b"")]);
+        make_zip(
+            &input,
+            &[("export.xml", b"<HealthData/>"), ("empty.csv", b"")],
+        );
         let files = extract_attachments(&input, temp.path()).unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].record.attributes["size"], "0");
@@ -432,7 +406,10 @@ mod tests {
     fn rejects_crc_corruption_and_symlink_without_leaving_partial_copies() {
         let temp = tempfile::tempdir().unwrap();
         let input = temp.path().join("export.zip");
-        make_zip(&input, &[("export.xml", b"x"), ("a.txt", b"abcdef")]);
+        make_zip(
+            &input,
+            &[("export.xml", b"<HealthData/>"), ("a.txt", b"abcdef")],
+        );
         let offset = {
             let mut zip = zip::ZipArchive::new(File::open(&input).unwrap()).unwrap();
             let offset = zip.by_index(1).unwrap().data_start();
@@ -449,11 +426,76 @@ mod tests {
         let mut zip = ZipWriter::new(File::create(&input).unwrap());
         zip.start_file("export.xml", SimpleFileOptions::default())
             .unwrap();
-        zip.write_all(b"x").unwrap();
+        zip.write_all(b"<HealthData/>").unwrap();
         zip.add_symlink("link", "/outside", SimpleFileOptions::default())
             .unwrap();
         zip.finish().unwrap();
         assert!(extract_attachments(&input, &staging).is_err());
+    }
+
+    #[test]
+    fn clinical_content_has_xml_limit_and_category_independent_of_filename() {
+        let temp = tempfile::tempdir().unwrap();
+        let input = temp.path().join("export.zip");
+        for clinical in [
+            b"<ClinicalDocument xmlns='urn:hl7-org:v3'>original</ClinicalDocument>".as_slice(),
+            b"<c:ClinicalDocument xmlns:c='urn:hl7-org:v3'>original</c:ClinicalDocument>"
+                .as_slice(),
+        ] {
+            make_zip(
+                &input,
+                &[
+                    ("export.xml", b"<HealthData/>"),
+                    ("資料/臨床.XML", clinical),
+                ],
+            );
+            let files = extract_with_limits(&input, temp.path(), 8, 1024).unwrap();
+            assert_eq!(files.len(), 1);
+            assert_eq!(files[0].record.metric, "attachment.clinical");
+            assert_eq!(files[0].record.attributes["mime"], "application/xml");
+            assert_eq!(fs::read(&files[0].file).unwrap(), clinical);
+            assert!(
+                extract_with_limits(&input, temp.path(), 8, clinical.len() as u64 - 1)
+                    .err()
+                    .unwrap()
+                    .contains("total limit")
+            );
+        }
+        for fake in [
+            b"<Other/>".as_slice(),
+            b"<ClinicalDocument xmlns='urn:other'/>".as_slice(),
+            b"<ClinicalDocument/>".as_slice(),
+            b"<!-- <ClinicalDocument xmlns='urn:hl7-org:v3'/> --><Other/>".as_slice(),
+        ] {
+            make_zip(
+                &input,
+                &[("export.xml", b"<HealthData/>"), ("export_cda.xml", fake)],
+            );
+            assert!(extract_with_limits(&input, temp.path(), 4, 1024)
+                .err()
+                .unwrap()
+                .contains("per-file limit"));
+        }
+    }
+
+    #[test]
+    fn unknown_xml_attachments_remain_opaque_and_names_cannot_claim_clinical_category() {
+        let temp = tempfile::tempdir().unwrap();
+        let input = temp.path().join("export.zip");
+        for bytes in [
+            b"<Other>unfinished attachment".as_slice(),
+            b"<ClinicalDocument xmlns='urn:other'/>".as_slice(),
+            b"not XML".as_slice(),
+        ] {
+            make_zip(
+                &input,
+                &[("export.xml", b"<HealthData/>"), ("export_cda.xml", bytes)],
+            );
+            let files = extract_attachments(&input, temp.path()).unwrap();
+            assert_eq!(files.len(), 1);
+            assert_eq!(files[0].record.metric, "attachment.other");
+            assert_eq!(fs::read(&files[0].file).unwrap(), bytes);
+        }
     }
 
     #[test]

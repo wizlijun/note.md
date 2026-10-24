@@ -765,14 +765,19 @@ fn undated_provider_collection_replaces_itself_without_dated_or_other_source_los
 #[test]
 fn localized_apple_zip_preserves_cda_ecg_and_route_originals() {
     use std::io::Write;
-    for primary in ["导出.xml", "apple_health_export/导出.xml"] {
+    for primary in [
+        "导出.xml",
+        "apple_health_export/导出.xml",
+        "健康/巢狀/匯出.XML",
+        "apple_health_export/σ»╝σç║.xml",
+    ] {
         let f = Fixture::new();
         f.write(&record("2026-10-22", "60", "Watch"));
         let path = f.root.path().join("export.zip");
         let attachments: [(&str, &[u8]); 3] = [
             (
                 "apple_health_export/export_cda.xml",
-                b"<?xml version='1.0'?><ClinicalDocument>original clinical bytes</ClinicalDocument>",
+                b"<?xml version='1.0'?><ClinicalDocument xmlns='urn:hl7-org:v3'>original clinical bytes</ClinicalDocument>",
             ),
             (
                 "apple_health_export/electrocardiograms/ecg_2026-10-22.csv",
@@ -856,7 +861,12 @@ fn ambiguous_localized_primary_or_cda_alone_cannot_replace_active_data() {
         for name in names {
             zip.start_file(name, zip::write::SimpleFileOptions::default())
                 .unwrap();
-            zip.write_all(&fs::read(&f.file).unwrap()).unwrap();
+            if name.ends_with("export_cda.xml") {
+                zip.write_all(b"<ClinicalDocument xmlns='urn:hl7-org:v3'/>")
+                    .unwrap();
+            } else {
+                zip.write_all(&fs::read(&f.file).unwrap()).unwrap();
+            }
         }
         zip.finish().unwrap();
         assert!(f.store.import(&path, false, &mut |_| {}).is_err());

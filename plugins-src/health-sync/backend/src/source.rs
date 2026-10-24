@@ -3,32 +3,153 @@ use crate::model::{HealthRecord, XmlNode};
 use chrono::NaiveDate;
 use quick_xml::{
     events::{BytesStart, Event},
+    name::ResolveResult,
+    reader::NsReader,
     Reader,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     fs::File,
     io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
     path::Path,
 };
 
-const MAX_XML_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+pub(crate) const MAX_XML_BYTES: u64 = 64 * 1024 * 1024 * 1024;
 const MAX_RECORD_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_DEPTH: usize = 128;
+const MAX_XML_PREFIX_BYTES: u64 = 1024 * 1024;
 
-// Apple localizes the primary filename. Keep intake and attachment exclusion
-// identical; export_cda.xml is a separate clinical attachment, never the primary.
-pub(crate) fn is_primary_xml(name: &str) -> bool {
-    matches!(
-        name.strip_prefix("apple_health_export/").unwrap_or(name),
-        "export.xml" | "导出.xml"
-    )
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum XmlKind {
+    HealthData,
+    ClinicalDocument,
+    Other,
 }
 
 pub(crate) const MISSING_PRIMARY_XML: &str =
-    "ZIP must contain export.xml or 导出.xml at its root or under apple_health_export/";
+    "ZIP must contain exactly one XML document with a HealthData root";
 pub(crate) const MULTIPLE_PRIMARY_XML: &str = "ZIP contains multiple primary Health XML candidates";
+
+pub(crate) struct AppleZip {
+    pub primary: usize,
+    pub files: Vec<(usize, XmlKind)>,
+}
+
+// Only inspect the bounded XML prolog and first element. Full primary XML
+// validation happens during parsing; unknown attachments remain opaque bytes.
+fn xml_kind(input: impl Read) -> Result<XmlKind, String> {
+    let mut reader = NsReader::from_reader(BoundedInput {
+        inner: BufReader::new(input.take(MAX_XML_PREFIX_BYTES)),
+        total: 0,
+        event: 0,
+        event_limit: MAX_XML_PREFIX_BYTES,
+    });
+    let mut buffer = Vec::new();
+    loop {
+        if reader.get_ref().total == MAX_XML_PREFIX_BYTES {
+            return Err("XML root exceeds the 1 MiB prefix limit".into());
+        }
+        match reader.read_resolved_event_into(&mut buffer) {
+            Ok((namespace, Event::Start(root) | Event::Empty(root))) => {
+                // Validate attributes before trusting a clinical namespace for
+                // the larger XML limit (including duplicate declarations).
+                if root.attributes().any(|attribute| attribute.is_err()) {
+                    return Ok(XmlKind::Other);
+                }
+                return Ok(match (namespace, root.local_name().as_ref()) {
+                    (ResolveResult::Unbound, b"HealthData") => XmlKind::HealthData,
+                    (ResolveResult::Bound(ns), b"ClinicalDocument")
+                        if ns.as_ref() == b"urn:hl7-org:v3" =>
+                    {
+                        XmlKind::ClinicalDocument
+                    }
+                    _ => XmlKind::Other,
+                });
+            }
+            Ok((_, Event::Decl(_) | Event::DocType(_) | Event::Comment(_) | Event::PI(_))) => {}
+            Ok((_, Event::Text(text))) if text.as_ref().iter().all(u8::is_ascii_whitespace) => {}
+            Err(quick_xml::Error::Io(error)) => {
+                return Err(format!("Cannot read XML root: {error}"));
+            }
+            _ => {
+                if reader.get_ref().total == MAX_XML_PREFIX_BYTES {
+                    return Err("XML root exceeds the 1 MiB prefix limit".into());
+                }
+                return Ok(XmlKind::Other);
+            }
+        }
+        buffer.clear();
+    }
+}
+
+// Both intake and attachment preservation must select the same entry and reject
+// unsafe archives before any records or files are emitted.
+pub(crate) fn inspect_apple_zip<R: Read + Seek>(
+    archive: &mut zip::ZipArchive<R>,
+) -> Result<AppleZip, String> {
+    let mut names = HashSet::new();
+    let mut primary = None;
+    let mut files = vec![];
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|e| format!("Cannot inspect ZIP entry: {e}"))?;
+        let directory = entry.is_dir();
+        let name = entry.name();
+        let trimmed = if directory {
+            name.trim_end_matches('/')
+        } else {
+            name
+        };
+        if trimmed.is_empty()
+            || name.starts_with('/')
+            || name.contains('\\')
+            || name.contains(':')
+            || name.chars().any(char::is_control)
+            || trimmed
+                .split('/')
+                .any(|part| part.is_empty() || part == "." || part == "..")
+        {
+            return Err("Unsafe path in Apple Health ZIP".into());
+        }
+        if !names.insert(name.to_owned()) {
+            return Err("Duplicate ZIP entry name in Apple Health export".into());
+        }
+        if let Some(mode) = entry.unix_mode() {
+            let kind = mode & 0o170000;
+            if (directory && !matches!(kind, 0 | 0o040000))
+                || (!directory && !matches!(kind, 0 | 0o100000))
+            {
+                return Err("Apple Health ZIP contains a symlink or non-regular entry".into());
+            }
+        }
+        if directory {
+            continue;
+        }
+        let kind = if name
+            .rsplit_once('.')
+            .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("xml"))
+        {
+            xml_kind(&mut entry)?
+        } else {
+            XmlKind::Other
+        };
+        if kind == XmlKind::HealthData {
+            if primary.replace(index).is_some() {
+                return Err(MULTIPLE_PRIMARY_XML.into());
+            }
+            if entry.size() > MAX_XML_BYTES {
+                return Err("Export XML exceeds the 64 GiB limit".into());
+            }
+        }
+        files.push((index, kind));
+    }
+    Ok(AppleZip {
+        primary: primary.ok_or(MISSING_PRIMARY_XML)?,
+        files,
+    })
+}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ParseStats {
@@ -51,42 +172,12 @@ pub fn parse_export(
     if n == 4 && matches!(&magic, b"PK\x03\x04" | b"PK\x05\x06" | b"PK\x07\x08") {
         let mut archive =
             zip::ZipArchive::new(file).map_err(|e| format!("Invalid export ZIP: {e}"))?;
-        let mut selected = None;
-        let mut ignored = 0;
-        for i in 0..archive.len() {
-            let entry = archive
-                .by_index(i)
-                .map_err(|e| format!("Cannot inspect ZIP entry: {e}"))?;
-            let name = entry.name();
-            if name.starts_with('/')
-                || name.contains('\\')
-                || name.contains('\0')
-                || name
-                    .split('/')
-                    .any(|part| part == ".." || part.contains(':'))
-            {
-                return Err("Unsafe path in export ZIP".into());
-            }
-            if entry.is_dir() {
-                continue;
-            }
-            if is_primary_xml(name) {
-                if selected.replace(i).is_some() {
-                    return Err(MULTIPLE_PRIMARY_XML.into());
-                }
-                if entry.size() > MAX_XML_BYTES {
-                    return Err("Export XML exceeds the 64 GiB limit".into());
-                }
-            } else {
-                ignored += 1;
-            }
-        }
-        let index = selected.ok_or(MISSING_PRIMARY_XML)?;
+        let inspected = inspect_apple_zip(&mut archive)?;
         let entry = archive
-            .by_index(index)
+            .by_index(inspected.primary)
             .map_err(|e| format!("Cannot open primary Health XML: {e}"))?;
         let mut stats = parse_xml(entry, &mut emit, MAX_RECORD_BYTES)?;
-        stats.ignored_attachments = ignored;
+        stats.ignored_attachments = inspected.files.len() as u64 - 1;
         Ok(stats)
     } else {
         if file.metadata().map_err(|e| e.to_string())?.len() > MAX_XML_BYTES {
@@ -628,23 +719,51 @@ mod tests {
     }
 
     #[test]
-    fn primary_xml_names_are_explicit_and_exclude_clinical_documents() {
-        for name in [
-            "export.xml",
-            "导出.xml",
-            "apple_health_export/export.xml",
-            "apple_health_export/导出.xml",
+    fn root_probe_is_bounded_and_does_not_parse_attachment_bodies() {
+        for xml in [
+            "<HealthData>",
+            "\u{feff}<?xml version='1.0'?><!-- before --><!DOCTYPE HealthData [<!ELEMENT HealthData ANY>]><HealthData>",
         ] {
-            assert!(is_primary_xml(name), "rejected {name}");
+            assert_eq!(xml_kind(xml.as_bytes()).unwrap(), XmlKind::HealthData);
         }
-        for name in [
-            "export_cda.xml",
-            "apple_health_export/export_cda.xml",
-            "other/导出.xml",
-            "apple_health_export/nested/export.xml",
+        for xml in [
+            "<!-- <HealthData/> --><Other/>",
+            "<Other><HealthData/></Other>",
+            "<ClinicalDocument/>",
+            "<ClinicalDocument xmlns='other'/>",
+            "<unknown:ClinicalDocument/>",
+            "<ClinicalDocument xmlns='urn:hl7-org:v3' xmlns='other'/>",
+            "<Other>unfinished attachment",
+            "not XML at all",
         ] {
-            assert!(!is_primary_xml(name), "accepted {name}");
+            assert_eq!(xml_kind(xml.as_bytes()).unwrap(), XmlKind::Other);
         }
+        for prefix in [" ", "<!--", "<!DOCTYPE HealthData ["] {
+            let xml = format!(
+                "{prefix}{}<HealthData/>",
+                " ".repeat(MAX_XML_PREFIX_BYTES as usize)
+            );
+            assert!(xml_kind(xml.as_bytes())
+                .unwrap_err()
+                .contains("prefix limit"));
+        }
+        struct HeaderOnly {
+            header: std::io::Cursor<&'static [u8]>,
+        }
+        impl Read for HeaderOnly {
+            fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+                let count = self.header.read(bytes)?;
+                assert_ne!(count, 0, "probe tried reading the XML body");
+                Ok(count)
+            }
+        }
+        assert_eq!(
+            xml_kind(HeaderOnly {
+                header: std::io::Cursor::new(b"<HealthData>")
+            })
+            .unwrap(),
+            XmlKind::HealthData
+        );
     }
 
     #[test]
@@ -656,6 +775,7 @@ mod tests {
                 "apple_health_export/导出.xml",
             ],
             ["导出.xml", "apple_health_export/导出.xml"],
+            ["健康/資料.xml", "other/Exportieren.XML"],
             ["export.xml", "../outside"],
         ] {
             let file = tempfile::NamedTempFile::new().unwrap();
@@ -667,6 +787,46 @@ mod tests {
             }
             zip.finish().unwrap();
             assert!(parse_export(file.path(), |_| Ok(())).is_err());
+        }
+    }
+
+    #[test]
+    fn localized_zip_primary_is_selected_by_root_not_name() {
+        // Real Apple exports include an approximately 8 KiB internal DTD before
+        // the root. Probe past a similar legal prolog without reading the body.
+        let sample = SAMPLE.replacen(
+            "<!DOCTYPE HealthData",
+            &format!("<!--{}--><!DOCTYPE HealthData", "padding ".repeat(1024)),
+            1,
+        );
+        for primary in [
+            "健康資料/匯出.XML",
+            "Gesundheitsdaten/Exportieren.xml",
+            "arbitrary/nested/σ»╝σç║.xml",
+            "export_cda.xml",
+        ] {
+            let file = tempfile::NamedTempFile::new().unwrap();
+            let mut zip = zip::ZipWriter::new(file.reopen().unwrap());
+            for (name, bytes) in [
+                (
+                    "export.xml",
+                    b"<!-- <HealthData/> --><ClinicalDocument xmlns='urn:hl7-org:v3'/>".as_slice(),
+                ),
+                (primary, sample.as_bytes()),
+            ] {
+                zip.start_file(name, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                zip.write_all(bytes).unwrap();
+            }
+            zip.finish().unwrap();
+            let mut rows = vec![];
+            let stats = parse_export(file.path(), |row| {
+                rows.push(row);
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(rows, parse(SAMPLE).unwrap().0);
+            assert_eq!(stats.ignored_attachments, 1);
         }
     }
 

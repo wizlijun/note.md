@@ -7,7 +7,7 @@ v0.1.1 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac
 ## 开始使用
 
 1. 在 note.md 配置目标 Vault，从插件菜单打开「导入健康数据」。每个 Vault 只保存同一个人的健康档案。
-2. 选择 iPhone 健康 App 导出的完整 `export.zip`。iCloud Drive 文件需先下载到 Mac。ZIP 主文档兼容 `apple_health_export/导出.xml` 和 `export.xml`，`export_cda.xml` 作为附件保留。也支持单独 XML，但只有 ZIP 能带入其中的 ECG、路线和其他附件。
+2. 选择 iPhone 健康 App 导出的完整 `export.zip`。iCloud Drive 文件需先下载到 Mac。ZIP 在 `.xml` 文件（扩展名不区分大小写）中按 `HealthData` 根节点识别唯一主文档，不依赖文件名语言或所在目录，也兼容 ZIP 编码标记不正确而显示为乱码的文件名。CDA 按 HL7 `ClinicalDocument` 根节点识别并作为附件保留；多个主文档会明确报错。也支持单独 XML，但只有 ZIP 能带入其中的 ECG、路线和其他附件。
 3. 可先预览，确认后导入。文件旁按钮与主采集按钮都会使用所选文件；预览不要求先正式导入，也不会记忆路径。窗口显示已收集的分类、指标、来源、日期范围和记录数量，可按分类查看原始记录。
 4. 需要厂商细节时，在同一窗口连接 Garmin 或 Oura，选择历史起止日期后同步。窗口会自动接续分批采集；「停止」在当前批次结束后生效，已保存的进度保留。
 
@@ -17,7 +17,7 @@ v0.1.1 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac
 
 ### Garmin
 
-使用自己账号申请的 [Garmin Connect Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-faq/) API Key，在窗口中输入并连接。插件使用官方令牌交换及 Personal API，不接收 Garmin 密码，也不模拟网页登录。
+登录 [Garmin Connect 的 Personal API Key 页面](https://connect.garmin.com/app/settings/personalApiToken)，选择 Create Key、接受条款、选择有效期并创建。Key 只显示一次，保存后在插件窗口中输入并连接。API 基础地址为 `https://personal.connectapi.garmin.com`，接口见 [官方 Swagger 文档](https://developer.garmin.com/gc-developer-program/personal/swagger-docs/)。插件使用官方令牌交换及 Personal API，不接收 Garmin 密码，也不模拟网页登录。
 
 采集协议提供的日统计、详细心率、睡眠、HRV、压力、Body Battery、呼吸、血氧、体重、训练状态、活动列表/详情/训练内容及原始活动 ZIP 等。活动分页读完；原始 ZIP 作为附件保存。账号权限、设备能力和服务保留范围决定实际可获取内容。实现核对了 [官方 Python 客户端](https://github.com/garmin/connect-personal-api-python)及官方 OpenAPI。
 
@@ -90,7 +90,7 @@ cargo run --manifest-path plugins-src/health-sync/backend/Cargo.toml -- health-s
 
 本机 `~/Library/Application Support/net.notemd.app/health-sync/<vault-hash>/` 保存文件路径、进度及锁，不保存明文凭据。GUI 与 CLI 共用写锁；只让一台设备负责同一 Vault 的采集，本机锁不协调跨设备写入。插件不改 Vault `.gitignore`，健康文件遵循已有同步规则。
 
-XML/input 上限 64 GiB，单条记录/token 16 MiB；单个 ZIP 附件 256 MiB、附件总量 64 GiB。超限明确失败，不静默跳过。解析和预览都需要临时磁盘空间。中断后重新执行；丢失分片可以从相同导出重建，校验损坏则停止并报错。
+XML/input 上限 64 GiB，单条记录/token 16 MiB；按内容识别的 CDA 文档上限为 64 GiB，其他单个 ZIP 附件 256 MiB，附件总量 64 GiB。XML 根节点探测限于前 1 MiB，支持 Apple 导出中的 DTD 和注释前导；读取大文档时不将整份文件加载到内存。超限明确失败，不静默跳过。解析和预览都需要临时磁盘空间。中断后重新执行；丢失分片可以从相同导出重建，校验损坏则停止并报错。
 
 ## 开发与验证
 
