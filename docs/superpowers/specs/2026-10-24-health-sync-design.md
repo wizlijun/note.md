@@ -1,6 +1,6 @@
 # 健康数据同步插件设计
 
-日期：2026-10-24。状态：`notemd.health-sync` v0.1 源码实现与验收中。用户最新指示为**暂不签发和发布，继续打磨交互、质量与代码结构**。本文件说明当前实现；运行方式见 [插件 README](../../../plugins-src/health-sync/README.md)。
+日期：2026-10-24。状态：`notemd.health-sync` v0.1 源码实现与验收中。多轮打磨完成后，用户已恢复发布授权；按既有签名与公网验签流程发布。本文件说明当前实现；运行方式见 [插件 README](../../../plugins-src/health-sync/README.md)。
 
 ## 目标与入口
 
@@ -64,7 +64,7 @@ Garmin 使用官方详细接口覆盖日数据、睡眠/HRV、个人资料、活
 
 ## 凭据与协议边界
 
-Garmin Key、JWT、Oura Client Secret/access token/refresh token 存 macOS 钥匙串，不写 Vault、日志或 argv。独立 CLI 连接使用 stdin JSON；窗口字段提交后清空，不进入 localStorage。Oura 采用 state、PKCE 和已注册的固定 loopback 回调，回调有时间/长度限制；轮换 token 必须先成功保存再用于后续请求。
+Garmin Key 与 Oura Client Secret/access token/refresh token 存 macOS 钥匙串；Garmin 短期 JWT 仅保留在内存中，不写 Vault、日志或 argv。独立 CLI 连接使用 stdin JSON；窗口字段提交后清空，不进入 localStorage。Oura 采用 state、PKCE 和已注册的固定 loopback 回调，回调有时间/长度限制；轮换 token 必须先成功保存再用于后续请求。
 
 HTTP 仅允许已知官方 host/path，不跟随重定向；有连接/请求/体积限制。401 刷新一次，429 尊重 Retry-After 并限制重试，错误不回显凭据。稳定官方用户 ID 绑定来源账号；不依赖名字或猜测 JWT subject。重新授权未完成时不可继续用旧凭据，断开后旧回调和在途请求不能恢复授权。
 
@@ -80,6 +80,6 @@ HTTP 仅允许已知官方 host/path，不跟随重定向；有连接/请求/体
 2. 三源 SSOT：同日成员互不覆盖，失败集合保留旧数据，分页/去重/范围边界正确，预览不改有效状态，手动摘要被保护。
 3. 授权：token 轮换、旧回调、重连代际、账号绑定、敏感字段不泄露；真实账号和钥匙串弹窗另做实机验收。
 4. 交互：切换 Vault 清空旧视图，连接/停止/失败状态一致，分类查询翻页，GUI 自动接续与 CLI 手动续跑一致。
-5. 构建：Rust 测试/Clippy、TypeScript、DOM 测试、Vite、真实宿主协议测试及两种 Mac 架构编译。发布脚本仅检查契约，不执行签发上传。
+5. 构建：Rust 测试/Clippy、TypeScript、DOM 测试、Vite、真实宿主协议测试及两种 Mac 架构编译。发布沿用既有脚本及 Wrangler 3，先公网回读验签，再更新索引。
 
-百万条合成记录覆盖 3650 天，schema 2 单次导入约 73 秒，RSS 途中采样约 28.2 MiB（不是峰值）。真实 Apple 导出、在线个人账户、应用内 WebView 尚未验收。没有已发布安装包；源码验证不能替代包内功能验收。
+百万条合成记录覆盖 3650 天，schema 2 单次导入约 73 秒，RSS 途中采样约 28.2 MiB（不是峰值）。真实 Apple 导出、在线个人账户、应用内 WebView 尚未验收。包内功能与公网发布状态另记发布验收记录；源码验证不能替代包内功能验收。

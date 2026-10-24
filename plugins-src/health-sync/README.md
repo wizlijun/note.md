@@ -2,7 +2,7 @@
 
 Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；同一天的有效数据统一由一份清单管理。提供分类浏览、增量同步和 CLI。
 
-当前为待验收源码，**未签发、未发布**。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
+v0.1.0 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
 
 ## 开始使用
 
@@ -101,4 +101,4 @@ cargo test --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml
 cargo clippy --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml --all-targets -- -D warnings
 ```
 
-已使用合成导出、协议 fixture、真实宿主 stdio 契约和 DOM 交互测试验证。百万条合成记录覆盖 3650 天，schema 2 导入约 73 秒；这是本机单次测量，不是性能保证。真实 Apple 导出、用户账号在线 API、钥匙串授权弹窗及应用内 WebView 仍需实机验收。当前没有签名包或线上发布。
+已使用合成导出、协议 fixture、真实宿主 stdio 契约和 DOM 交互测试验证。百万条合成记录覆盖 3650 天，schema 2 导入约 73 秒；这是本机单次测量，不是性能保证。真实 Apple 导出、用户账号在线 API、钥匙串授权弹窗及应用内 WebView 仍需实机验收。实际发布状态及包验证见仓库 `docs/superpowers/reports/` 中的 Health Sync 发布记录。

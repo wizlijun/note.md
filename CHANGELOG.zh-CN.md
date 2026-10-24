@@ -6,6 +6,8 @@
 
 ## 未发布
 
+- **健康数据同步 0.1.0（独立 Mac 插件）：按天汇集健康档案。** 导入完整 Apple Health ZIP/XML，以 Garmin Personal 和 Oura V2 API 补充详情；提供分类与覆盖浏览、窗口/CLI 历史续采。保留原始字段和附件，使用可读 slug 文件名，厂商凭据存入钥匙串。
+
 - **Roam Research Sync 1.2.7：修复大页面导致的 stdout 管道死锁。** Roam CLI 运行期间并发读取 stdout/stderr，保留 60 秒超时，并在超时后终止和回收子进程。
 
 - **优先提供 Omarchy 下载，并补齐 ARM64 Arch 包。** 官网 Linux 主按钮直接选择 Omarchy/Arch，Debian/Ubuntu 使用独立入口；通用下载页明确区分格式。6.1022.1 补充 aarch64 `.pkg.tar.zst` 及独立校验文件，应用二进制内容不变。
