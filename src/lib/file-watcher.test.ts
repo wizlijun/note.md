@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const canvasRevisionA = { mtimeNs: '1000000000', size: 24, sha256: 'canvas-a' }
 const canvasRevisionB = { mtimeNs: '2000000000', size: 25, sha256: 'canvas-b' }
 const canvasOpen = vi.fn()
+const removeFile = vi.fn(async (_path: string) => {})
 
 vi.mock('./fs', () => ({
   readMd: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock('./settings.svelte', () => ({
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
   watchImmediate: vi.fn(async () => () => {}),
+  remove: (path: string) => removeFile(path),
 }))
 
 vi.mock('./platform.svelte', () => ({
@@ -43,6 +45,7 @@ vi.mock('./platform.svelte', () => ({
 beforeEach(async () => {
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
   vi.clearAllMocks()
+  removeFile.mockReset().mockResolvedValue(undefined)
   vi.resetModules()
 })
 
@@ -351,5 +354,57 @@ describe('installFocusPoll', () => {
     uninstall()
     window.dispatchEvent(new Event('focus'))
     expect(spy).toHaveBeenCalledTimes(1)  // not called after uninstall
+  })
+})
+
+describe('folder deletion invalidates in-flight watcher snapshots', () => {
+  it.each(['during', 'after'] as const)('ignores an old Canvas snapshot %s removal', async phase => {
+    const snapshot = {
+      text: '{"nodes":[],"edges":[]}', revision: canvasRevisionA,
+      requestedPath: '/tmp/delete.canvas', canonicalPath: '/tmp/delete.canvas',
+    }
+    canvasOpen.mockResolvedValueOnce(snapshot)
+    const tabs = await import('./tabs.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    await tabs.openFile(snapshot.canonicalPath)
+    const tab = tabs.tabs[0]
+    tab.currentContent = '{"nodes":[],"edges":[],"draft":true}'
+    tab.externalState = 'changed'
+    let resolveSnapshot!: (value: typeof snapshot) => void
+    canvasOpen.mockImplementationOnce(() => new Promise(resolve => { resolveSnapshot = resolve }))
+    const checking = watcher.verifyAllOpen()
+    await vi.waitFor(() => expect(resolveSnapshot).toBeDefined())
+    let finishRemoval!: () => void
+    removeFile.mockImplementationOnce(() => new Promise(resolve => { finishRemoval = resolve }))
+    const deleting = tabs.deleteFileFromFolder(tab.filePath)
+    await vi.waitFor(() => expect(finishRemoval).toBeDefined())
+    if (phase === 'after') { finishRemoval(); await deleting }
+    // A delayed read must not undo either a pending operation's state or its
+    // completed deletion, even when its bytes match the old accepted revision.
+    resolveSnapshot(snapshot)
+    await checking
+    expect(tab.externalState).toBe(phase === 'after' ? 'deleted' : 'changed')
+    expect(tab.currentContent).toContain('"draft":true')
+    if (phase === 'during') { finishRemoval(); await deleting }
+  })
+
+  it('ignores a Markdown read completed after deletion unlocks the path', async () => {
+    const fs = await import('./fs')
+    vi.mocked(fs.readMd).mockReset().mockResolvedValue('before')
+    vi.mocked(fs.statFile).mockReset().mockResolvedValue({ mtime: 1000, size: 6 })
+    const tabs = await import('./tabs.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    await tabs.openFile('/tmp/delete.md')
+    const tab = tabs.tabs[0]
+    vi.mocked(fs.statFile).mockResolvedValueOnce({ mtime: 2000, size: 6 })
+    let resolveRead!: (value: string) => void
+    vi.mocked(fs.readMd).mockImplementationOnce(() => new Promise(resolve => { resolveRead = resolve }))
+    const checking = watcher.verifyAllOpen()
+    await vi.waitFor(() => expect(resolveRead).toBeDefined())
+    await tabs.deleteFileFromFolder(tab.filePath)
+    resolveRead('before')
+    await checking
+    expect(tab.externalState).toBe('deleted')
+    expect(tab.pendingExternal).toBeUndefined()
   })
 })

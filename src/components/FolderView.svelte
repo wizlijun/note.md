@@ -8,7 +8,8 @@
   import { setSideVisible } from '../lib/side-panel/registry.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { tick } from 'svelte'
-  import { openFile, updateTabPath, type Tab } from '../lib/tabs.svelte'
+  import { openFile, updateTabPath, deleteFileFromFolder, type Tab } from '../lib/tabs.svelte'
+  import { ask } from '@tauri-apps/plugin-dialog'
   import { showError } from '../lib/dialogs'
   import { planRename, executeRename } from '../lib/outline/rename-pair'
   import { pushToast } from '../lib/toast.svelte'
@@ -92,6 +93,27 @@
     closeCtxMenu()
     if (!entry) return
     try { await togglePin(parentDir(entry.path), entry.name) } catch (e) { showError(String(e)) }
+  }
+
+  let deleting = $state(false)
+  async function deleteCtx() {
+    const entry = ctx.entry
+    closeCtxMenu()
+    if (!entry || entry.isDir || deleting) return
+    const { path, name } = entry
+    deleting = true
+    try {
+      const confirmed = await ask(t('folderView.deleteConfirm', { path }), {
+        title: t('folderView.deleteTitle', { name }),
+        kind: 'warning',
+        okLabel: t('folderView.deleteAction'),
+        cancelLabel: t('common.cancel'),
+      })
+      if (!confirmed) return
+      await deleteFileFromFolder(path)
+      await refreshAll()
+    } catch (e) { showError(String(e)) }
+    finally { deleting = false }
   }
 
   // 排序菜单（fixed 定位，锚到按钮左下）
@@ -254,6 +276,9 @@
     {#if ctx.entry && !ctx.entry.isDir}
       <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={renameCtx}>
         {t('folderView.rename')}
+      </button>
+      <button type="button" role="menuitem" class="node-ctx-item menu-row" onclick={deleteCtx} disabled={deleting}>
+        {t('folderView.delete')}
       </button>
     {/if}
   </div>

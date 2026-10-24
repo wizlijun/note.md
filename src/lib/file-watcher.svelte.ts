@@ -1,5 +1,5 @@
 import { watchImmediate } from '@tauri-apps/plugin-fs'
-import { tabs, isGuestUpdateBusy, type Tab } from './tabs.svelte'
+import { tabs, isGuestUpdateBusy, markdownWriteEpoch, type Tab } from './tabs.svelte'
 import { readMd, statFile } from './fs'
 import { sha256Hex } from './hash'
 import { decide, type ExternalEvent } from './external-state'
@@ -22,11 +22,14 @@ export async function verifyAllOpen(): Promise<void> {
 
 async function checkTab(tab: Tab): Promise<void> {
   if (isGuestUpdateBusy(tab.filePath)) return
+  const path = tab.filePath, epoch = markdownWriteEpoch(path)
+  const current = () => tab.filePath === path && markdownWriteEpoch(path) === epoch && !isGuestUpdateBusy(path)
   if (tab.kind === 'canvas') {
-    await checkCanvasTab(tab)
+    await checkCanvasTab(tab, current)
     return
   }
-  const stat = await statFile(tab.filePath)
+  const stat = await statFile(path)
+  if (!current()) return
 
   // Image tabs: just update lastKnownMtime so the <img ?v=mtime> cache-buster
   // picks up external changes. No text to read, no dirty/banner logic needed.
@@ -49,8 +52,9 @@ async function checkTab(tab: Tab): Promise<void> {
     if (stat.mtime === tab.lastKnownMtime) return
     let content: string
     try {
-      content = await readMd(tab.filePath)
+      content = await readMd(path)
     } catch {
+      if (!current()) return
       // Read failure between stat and read → treat as deleted.
       applyDecision(tab, { kind: 'showDeleted' })
       return
@@ -66,7 +70,7 @@ async function checkTab(tab: Tab): Promise<void> {
     : null
   const isOutlineNote = isBuiltinOutlineFileView(activeView)
   const isReadOnlyFileView = !!activeView && !isOutlineNote
-  if (isGuestUpdateBusy(tab.filePath)) return
+  if (!current()) return
   const decision = decide({ ...tab, isOutlineNote, isReadOnlyFileView }, event)
   applyDecision(tab, decision)
 }
@@ -84,7 +88,7 @@ function sameCanvasRevision(
  * content and its exact revision from the same stable read, so this path must
  * never fall back to the generic unbounded readMd/stat pair.
  */
-async function checkCanvasTab(tab: Tab): Promise<void> {
+async function checkCanvasTab(tab: Tab, current: () => boolean): Promise<void> {
   const checkedPath = tab.filePath
   const checkedRevision = tab.canvasRevision ? { ...tab.canvasRevision } : undefined
   const { asCanvasDocumentError, canvasDocumentOpen, canvasMtimeMs } = await import('./canvas/io')
@@ -93,7 +97,7 @@ async function checkCanvasTab(tab: Tab): Promise<void> {
     opened = await canvasDocumentOpen(checkedPath)
   } catch (error) {
     // Do not apply a stale result after Save As/reload changed the identity.
-    if (tab.filePath !== checkedPath || !sameCanvasRevision(tab.canvasRevision, checkedRevision)) return
+    if (!current() || tab.filePath !== checkedPath || !sameCanvasRevision(tab.canvasRevision, checkedRevision)) return
     const detail = asCanvasDocumentError(error)
     if (detail?.kind === 'notFound') applyDecision(tab, { kind: 'showDeleted' })
     else if (detail?.kind === 'tooLarge') {
@@ -108,7 +112,7 @@ async function checkCanvasTab(tab: Tab): Promise<void> {
     }
     return
   }
-  if (tab.filePath !== checkedPath || !sameCanvasRevision(tab.canvasRevision, checkedRevision)) return
+  if (!current() || tab.filePath !== checkedPath || !sameCanvasRevision(tab.canvasRevision, checkedRevision)) return
 
   const revision = { ...opened.revision }
   const mtime = canvasMtimeMs(revision)
@@ -137,6 +141,7 @@ async function checkCanvasTab(tab: Tab): Promise<void> {
   const decoded = await import('./canvas/json-canvas').then(({ decodeJsonCanvas }) => (
     decodeJsonCanvas(opened.text)
   ))
+  if (!current()) return
   if (!decoded.ok) {
     // A clean tab must not silently adopt invalid external bytes as its new
     // baseline. Keep the last editable document and require an explicit reload.

@@ -76,6 +76,7 @@ vi.mock('./i18n/store.svelte', () => ({
 
 vi.mock('./platform.svelte', () => ({ isIOS: vi.fn(async () => false) }))
 
+const fsRemove = vi.fn(async (_path: string) => {})
 const fsRename = vi.fn(async (_from: string, _to: string) => {})
 const fsExists = vi.fn(async (_path: string) => false)
 const fsMkdir = vi.fn(async (_path: string, _options: { recursive: boolean }) => {})
@@ -84,6 +85,7 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (command: string, ...args: unknown[]) => tauriInvoke(command, ...args),
 }))
 vi.mock('@tauri-apps/plugin-fs', () => ({
+  remove: (path: string) => fsRemove(path),
   rename: (from: string, to: string) => fsRename(from, to),
   exists: (path: string) => fsExists(path),
   mkdir: (path: string, options: { recursive: boolean }) => fsMkdir(path, options),
@@ -126,6 +128,7 @@ beforeEach(async () => {
     if (command === 'sotvault_check_update') return { outcome: 'untracked' }
     return null
   })
+  fsRemove.mockReset().mockResolvedValue(undefined)
   fsMkdir.mockReset().mockResolvedValue(undefined)
   fsRename.mockReset().mockResolvedValue(undefined)
   fsExists.mockResolvedValue(false)
@@ -1755,5 +1758,102 @@ describe('shouldSkipEmptySave — 预置 frontmatter 的草稿仍算空', () => 
     const { shouldSkipEmptySave } = await import('./tabs.svelte')
     const tab = { skipEmptySave: true, currentContent: '---\ntype: Note\n---\n# 标题\n' } as never
     expect(shouldSkipEmptySave(tab)).toBe(false)
+  })
+})
+
+
+describe('folder file deletion', () => {
+  it.each(['/tmp/delete.md', '/tmp/delete.txt', '/tmp/delete.png'])('keeps the open buffer and marks only %s deleted', async path => {
+    const m = await import('./tabs.svelte')
+    await m.openFile(path)
+    await m.openFile('/tmp/delete.note.md')
+    const tab = m.tabs[0], companion = m.tabs[1]
+    tab.currentContent = 'unsaved draft'
+    const baseline = tab.initialContent
+    await m.deleteFileFromFolder(path)
+    expect(fsRemove).toHaveBeenCalledExactlyOnceWith(path)
+    expect(m.tabs).toHaveLength(2)
+    expect(tab.currentContent).toBe('unsaved draft')
+    expect(tab.initialContent).toBe(baseline)
+    expect(tab.externalState).toBe('deleted')
+    expect(tab.externalBannerDismissed).toBe(false)
+    expect(companion.externalState).toBe('fresh')
+    expect(m.isGuestUpdateBusy(path)).toBe(false)
+  })
+
+  it('releases admission on removal failure without discarding the draft', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/delete.md')
+    const tab = m.tabs[0]
+    tab.currentContent = 'unsaved draft'
+    fsRemove.mockRejectedValueOnce(new Error('permission denied'))
+    await expect(m.deleteFileFromFolder(tab.filePath)).rejects.toThrow('permission denied')
+    expect(tab.externalState).toBe('fresh')
+    expect(tab.currentContent).toBe('unsaved draft')
+    expect(m.isGuestUpdateBusy(tab.filePath)).toBe(false)
+  })
+
+  it('waits for the running Markdown write and invalidates queued and delayed snapshots', async () => {
+    const m = await import('./tabs.svelte'), fs = await import('./fs')
+    await m.openFile('/tmp/delete.md')
+    const tab = m.tabs[0], epoch = m.markdownWriteEpoch(tab.filePath)
+    let release!: () => void
+    vi.mocked(fs.writeMd).mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const saving = m.persistMarkdownSnapshot(tab, 'in flight')
+    await vi.waitFor(() => expect(release).toBeDefined())
+    const queued = m.persistMarkdownSnapshot(tab, 'queued')
+    const deleting = m.deleteFileFromFolder(tab.filePath)
+    expect(m.isGuestUpdateBusy(tab.filePath)).toBe(true)
+    await expect(m.deleteFileFromFolder(tab.filePath)).rejects.toThrow('folderView.deleteBusy')
+    expect(fsRemove).not.toHaveBeenCalled()
+    release()
+    await Promise.all([saving, queued, deleting])
+    await m.persistMarkdownSnapshot(tab, 'late debounce', true, tab.filePath, undefined, epoch)
+    expect(fs.writeMd).toHaveBeenCalledTimes(1)
+    expect(fsRemove).toHaveBeenCalledOnce()
+    expect(tab.externalState).toBe('deleted')
+  })
+
+  it('waits for Canvas Save As already writing the confirmed destination', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/source.canvas')
+    const tab = m.tabs[0]
+    let release!: () => void
+    canvasSave.mockImplementationOnce(async path => {
+      await new Promise<void>(resolve => { release = resolve })
+      return { canonicalPath: path, revision: canvasRevision }
+    })
+    const saving = m.saveAs(tab.id, '/tmp/destination.canvas')
+    await vi.waitFor(() => expect(release).toBeDefined())
+    const deleting = m.deleteFileFromFolder('/tmp/destination.canvas')
+    expect(fsRemove).not.toHaveBeenCalled()
+    release()
+    await Promise.all([saving, deleting])
+    expect(fsRemove).toHaveBeenCalledExactlyOnceWith('/tmp/destination.canvas')
+    expect(tab.filePath).toBe('/tmp/destination.canvas')
+    expect(tab.externalState).toBe('deleted')
+  })
+
+  it('waits for a Canvas write and blocks queued and delayed autosave recreation', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/tmp/delete.canvas')
+    const tab = m.tabs[0]
+    let release!: () => void
+    canvasSave.mockImplementationOnce(async path => {
+      await new Promise<void>(resolve => { release = resolve })
+      return { canonicalPath: path, revision: canvasRevision }
+    })
+    const saving = m.persistCanvasSnapshot(tab, '{"nodes":[],"edges":[]}')
+    await vi.waitFor(() => expect(release).toBeDefined())
+    const queued = m.persistCanvasSnapshot(tab, '{}')
+    const rejected = expect(queued).rejects.toThrow('changed before')
+    const deleting = m.deleteFileFromFolder(tab.filePath)
+    expect(fsRemove).not.toHaveBeenCalled()
+    release()
+    await Promise.all([saving, rejected, deleting])
+    const creates = canvasCreate.mock.calls.length
+    await m.persistCanvasSnapshot(tab, '{}', false, tab.filePath)
+    expect(canvasCreate).toHaveBeenCalledTimes(creates)
+    expect(tab.externalState).toBe('deleted')
   })
 })
