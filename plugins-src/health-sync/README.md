@@ -102,4 +102,4 @@ cargo test --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml
 cargo clippy --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml --all-targets -- -D warnings
 ```
 
-已使用合成导出、协议 fixture、真实宿主 stdio 契约和 DOM 交互测试验证。百万条合成记录覆盖 3650 天，schema 2 导入约 73 秒；这是本机单次测量，不是性能保证。真实 Apple 导出、用户账号在线 API、钥匙串授权弹窗及应用内 WebView 仍需实机验收。实际发布状态及包验证见仓库 `docs/superpowers/reports/` 中的 Health Sync 发布记录。
+已使用合成导出、协议 fixture、真实宿主 stdio 契约和 DOM 交互测试验证。百万条合成记录覆盖 3650 天，schema 2 导入约 73 秒；这是本机单次测量，不是性能保证。已额外验证完整真实 Apple ZIP（3,699,319 条主记录和 126 个附件）以及中国区 Garmin 只读认证与数据接口；钥匙串授权弹窗、应用内 WebView 和 Intel 实机仍待验收。实际发布状态及包验证见仓库 `docs/superpowers/reports/` 中的 Health Sync 发布记录。
