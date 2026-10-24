@@ -2,7 +2,7 @@
 
 Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；同一天的有效数据统一由一份清单管理。提供分类浏览、增量同步和 CLI。
 
-v0.1.2 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
+v0.1.3 面向 Apple Silicon 与 Intel Mac。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
 
 ## 开始使用
 
@@ -32,9 +32,9 @@ Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户�
 
 两家凭据按账号保存在 **macOS 钥匙串**，不进入 Vault。Oura 自动刷新并保存轮换后的 token。每个账号的授权、历史进度、覆盖和记录独立保存；重新连接同一账号会重新核对指定范围。断开仅移除所选账号凭据，保留账号名称和已归档数据；其他账号不受影响。新增账号授权失败不会破坏当前账号；Oura 按本次授权结果判断完成。
 
-Garmin API 历史回填范围取决于服务器返回。开发源码已新增官方导出 ZIP 本地导入（**尚未发布，市场 0.1.2 不包含**）。中国区导出从 [账户中心](https://www.garmin.cn/zh-CN/account/) 的数据管理进入，国际区从 [数据管理](https://www.garmin.com/en-US/account/datamanagement/) 进入；每个历史账号分别申请。
+Garmin API 历史回填范围取决于服务器返回。0.1.3 新增官方导出 ZIP 本地导入。中国区导出从 [账户中心](https://www.garmin.cn/zh-CN/account/) 的数据管理进入，国际区从 [数据管理](https://www.garmin.com/en-US/account/datamanagement/) 进入；每个历史账号分别申请。
 
-### Garmin ZIP 本地导入（开发版）
+### Garmin ZIP 本地导入
 
 在“Garmin 导出 ZIP”中选择已下载的包和账号区域，然后预览或导入。无需 Personal Key；通过包内 profile ID 区分账号，同一身份和区域与 API 账号归档一致，不改变当前增量账号。只导入离线文件的账号会出现在数据查询筛选中；需要 API 同步时再连接该账号。
 
