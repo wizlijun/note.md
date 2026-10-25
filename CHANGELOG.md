@@ -7,6 +7,16 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
+
+- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
+
+- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.
+
+- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.
+
+- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
+
 ## v6.1025.1 — 2026-10-25
 
 - **Delete files from Folder View.** The file context menu now offers permanent deletion with a confirmation showing the filename and full path. Cancel keeps the file; deletion keeps companion notes and any open editor content.
