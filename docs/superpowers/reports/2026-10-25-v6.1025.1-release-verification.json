@@ -1,0 +1,1169 @@
+{
+  "status": "passed",
+  "generatedAt": "2026-10-25T02:47:45.723669+00:00",
+  "source": {
+    "recordedAt": "2026-10-25T02:23:14.495901+00:00",
+    "tag": "v6.1025.1",
+    "version": "6.1025.1",
+    "commit": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+    "tree": "e867314553bcb51cbf81cf522285ee59b3d2909c",
+    "core": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+    "candidateCommit": "2230fc85d7dcf36712ffae58c3b1c88e15034f7c",
+    "candidateTreeExactlyEqual": true,
+    "tagVerified": true,
+    "remoteTagVerified": true
+  },
+  "feature": {
+    "status": "pass",
+    "originalFeatureCommit": "2dbe13924c4b79b917d4e2c9f540d15be506dc12",
+    "releaseFeatureCommit": "762ceeecc0ccc9e0716f2835b49d6eec037c3002",
+    "finalTag": "v6.1025.1",
+    "allTenSourceFilesByteEqual": true,
+    "exactHostDeltaSincePreviousTag": true,
+    "files": [
+      {
+        "path": "src/components/FolderView.svelte",
+        "sha256": "37ddf1286c35985a69437c27d7eb36d92fdc0fa381e8aba1ffa9252b88c6e0a1"
+      },
+      {
+        "path": "src/components/FolderView.test.ts",
+        "sha256": "762c8bd067dee744e9d8797c0a7eea57219b7067b260e5b1a605fb81e6908702"
+      },
+      {
+        "path": "src/lib/file-watcher.svelte.ts",
+        "sha256": "49a47de0b33f3a690ee6bc71de1cc302767d0a0ac837af6669f72d9f9000ca61"
+      },
+      {
+        "path": "src/lib/file-watcher.test.ts",
+        "sha256": "eb5e3b66f279b6acd6dd0ff65d41c006c3a33c66b798ac73e348347ba8938d40"
+      },
+      {
+        "path": "src/lib/i18n/de.ts",
+        "sha256": "ef1e6172c555d4bb7bcf64527ba162453cc0f71fd54cdd480a9f65c36aa1db00"
+      },
+      {
+        "path": "src/lib/i18n/en.ts",
+        "sha256": "a4bf43ec2442aec25f0b4a00708717ca11a2d1fbb9ef8a3cd49f11e17d5725eb"
+      },
+      {
+        "path": "src/lib/i18n/ja.ts",
+        "sha256": "7679843a858b0bcdf4e545150d5ad8d06ddf68594833ce57ada61183a956ab69"
+      },
+      {
+        "path": "src/lib/i18n/zh.ts",
+        "sha256": "69e37c5294ad67f19709d7c9fbe7167aab1ec294559ac3536f0cd06b376e5f37"
+      },
+      {
+        "path": "src/lib/tabs.svelte.ts",
+        "sha256": "c25719af68b787171fa7280e3cea5784eea1a6bb1fc1033fb67f43c89a27cccf"
+      },
+      {
+        "path": "src/lib/tabs.test.ts",
+        "sha256": "c1593dbd3ed49db9d13c644a51df37339702dbf2f434ea3ab88a09580ba0a6d9"
+      }
+    ]
+  },
+  "releaseGates": {
+    "recordedAt": "2026-10-25T02:13:08.745080+00:00",
+    "frontendFiles": 409,
+    "frontendTests": 5304,
+    "nativePassed": 30,
+    "nativeSuitesPassedCounts": [
+      25,
+      2,
+      3
+    ],
+    "svelteErrors": 0,
+    "existingWarnings": 31,
+    "protocolMatches": true,
+    "prodAudit": {
+      "low": 1,
+      "moderate": 4,
+      "high": 0,
+      "critical": 0
+    },
+    "officialScript": "scripts/release.sh",
+    "source": "6f90003615cde060f69ee2573b718ac276d53b46",
+    "buildReleaseVersion": "6.1025.1"
+  },
+  "publication": {
+    "isDraft": false,
+    "isPrerelease": false,
+    "publishedAt": "2026-10-25T02:37:14Z",
+    "tagName": "v6.1025.1",
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1025.1",
+    "command": [
+      "bash",
+      "scripts/release-publish.sh",
+      "v6.1025.1",
+      "--without",
+      "windows"
+    ],
+    "exitCode": 0,
+    "interactiveConfirmation": "v6.1025.1 without windows",
+    "recordedAt": "2026-10-25T02:37:29.003336+00:00",
+    "initialTeeAttemptRejectedBeforeMutation": true
+  },
+  "publicAssets": [
+    {
+      "name": "SHA256SUMS-linux.txt",
+      "bytes": 186,
+      "sha256": "f01805a538f411eb2c9b6dcbe3b0a7f1be91e26d5ff43da9ac8f3bcb62ff6b60",
+      "id": 673890536
+    },
+    {
+      "name": "SHA256SUMS-omarchy-aarch64.txt",
+      "bytes": 104,
+      "sha256": "0c75f9c53a480bef9242f718c1479d17bace39e3be6f9330c925dae46701909c",
+      "id": 673904518
+    },
+    {
+      "name": "SHA256SUMS-omarchy.txt",
+      "bytes": 103,
+      "sha256": "4a5437750dfa886748d2065a2b39778b99ae14c2be2d7f45981c9b1dc64b706d",
+      "id": 673904519
+    },
+    {
+      "name": "latest.json",
+      "bytes": 1314,
+      "sha256": "7cbbd0bc0eed2597ef43df6d5bb875522ea534b33ec472b279215966dd6ccfdb",
+      "id": 673877645
+    },
+    {
+      "name": "note.md-6.1025.1-aarch64.dmg",
+      "bytes": 13447509,
+      "sha256": "129039c9002df16c0c90820d2ea9fb8b9997e183ac8ac4c0fad6813f6c93de9c",
+      "id": 673877039
+    },
+    {
+      "name": "note.md-6.1025.1-x86_64.dmg",
+      "bytes": 14099455,
+      "sha256": "45ef7bc89267b97a8cefabf6368c0ffc1b01154ab8345dcec663ec8384d83f73",
+      "id": 673877038
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "bytes": 13488456,
+      "sha256": "fd744f08d7b8c1fa46204cffda2ea5e7946f8f10633600b2299a334972c98ad2",
+      "id": 673877035
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "b5bf5741c187da9118b3f7daadb9393a1034d059850bf624db71780a4e1da530",
+      "id": 673877040
+    },
+    {
+      "name": "note.md-x86_64.app.tar.gz",
+      "bytes": 14063000,
+      "sha256": "a79b548dd87eaffa93ebb5e6f00c4735adfae68177658e32508c904c158435f0",
+      "id": 673877037
+    },
+    {
+      "name": "note.md-x86_64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "347066c22e69f7353d118dfac255e575c8b35b6096ec328f1d3772e6a93a033d",
+      "id": 673877251
+    },
+    {
+      "name": "note.md_6.1025.1_amd64.deb",
+      "bytes": 14798706,
+      "sha256": "9323b18fdc98fe0ef1259a3c23947f60e6701a28cb25ccbab73f476a613862d0",
+      "id": 673890529
+    },
+    {
+      "name": "note.md_6.1025.1_arm64.deb",
+      "bytes": 14786790,
+      "sha256": "e8531dacaa1b1d2fdd8ab7916dbb3fba97b7862984092a1aaa767090ae34f3a0",
+      "id": 673890535
+    },
+    {
+      "name": "notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+      "bytes": 14627466,
+      "sha256": "137526969e9d6aabdb21f315c330882b2f878296761da6abe6ef226ef1d141c4",
+      "id": 673904517
+    },
+    {
+      "name": "notemd-6.1025.1-1-x86_64.pkg.tar.zst",
+      "bytes": 14288787,
+      "sha256": "6adcf4bd0013637ffab8098e2132b67ce8195c09a22187cab23ac83957afda44",
+      "id": 673904515
+    }
+  ],
+  "publicVerification": {
+    "tag": "v6.1025.1",
+    "mode": "public",
+    "sourceCommit": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+    "sourceTree": "e867314553bcb51cbf81cf522285ee59b3d2909c",
+    "remoteTagCommit": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+    "remoteTagVerified": true,
+    "coreCommit": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+    "assets": [
+      {
+        "name": "latest.json",
+        "bytes": 1314,
+        "sha256": "7cbbd0bc0eed2597ef43df6d5bb875522ea534b33ec472b279215966dd6ccfdb",
+        "id": 673877645
+      },
+      {
+        "name": "note.md-6.1025.1-aarch64.dmg",
+        "bytes": 13447509,
+        "sha256": "129039c9002df16c0c90820d2ea9fb8b9997e183ac8ac4c0fad6813f6c93de9c",
+        "id": 673877039
+      },
+      {
+        "name": "note.md-6.1025.1-x86_64.dmg",
+        "bytes": 14099455,
+        "sha256": "45ef7bc89267b97a8cefabf6368c0ffc1b01154ab8345dcec663ec8384d83f73",
+        "id": 673877038
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13488456,
+        "sha256": "fd744f08d7b8c1fa46204cffda2ea5e7946f8f10633600b2299a334972c98ad2",
+        "id": 673877035
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "b5bf5741c187da9118b3f7daadb9393a1034d059850bf624db71780a4e1da530",
+        "id": 673877040
+      },
+      {
+        "name": "note.md-x86_64.app.tar.gz",
+        "bytes": 14063000,
+        "sha256": "a79b548dd87eaffa93ebb5e6f00c4735adfae68177658e32508c904c158435f0",
+        "id": 673877037
+      },
+      {
+        "name": "note.md-x86_64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "347066c22e69f7353d118dfac255e575c8b35b6096ec328f1d3772e6a93a033d",
+        "id": 673877251
+      },
+      {
+        "name": "note.md_6.1025.1_amd64.deb",
+        "bytes": 14798706,
+        "sha256": "9323b18fdc98fe0ef1259a3c23947f60e6701a28cb25ccbab73f476a613862d0",
+        "id": 673890529
+      },
+      {
+        "name": "note.md_6.1025.1_arm64.deb",
+        "bytes": 14786790,
+        "sha256": "e8531dacaa1b1d2fdd8ab7916dbb3fba97b7862984092a1aaa767090ae34f3a0",
+        "id": 673890535
+      },
+      {
+        "name": "notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14627466,
+        "sha256": "137526969e9d6aabdb21f315c330882b2f878296761da6abe6ef226ef1d141c4",
+        "id": 673904517
+      },
+      {
+        "name": "notemd-6.1025.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14288787,
+        "sha256": "6adcf4bd0013637ffab8098e2132b67ce8195c09a22187cab23ac83957afda44",
+        "id": 673904515
+      },
+      {
+        "name": "SHA256SUMS-linux.txt",
+        "bytes": 186,
+        "sha256": "f01805a538f411eb2c9b6dcbe3b0a7f1be91e26d5ff43da9ac8f3bcb62ff6b60",
+        "id": 673890536
+      },
+      {
+        "name": "SHA256SUMS-omarchy-aarch64.txt",
+        "bytes": 104,
+        "sha256": "0c75f9c53a480bef9242f718c1479d17bace39e3be6f9330c925dae46701909c",
+        "id": 673904518
+      },
+      {
+        "name": "SHA256SUMS-omarchy.txt",
+        "bytes": 103,
+        "sha256": "4a5437750dfa886748d2065a2b39778b99ae14c2be2d7f45981c9b1dc64b706d",
+        "id": 673904519
+      }
+    ],
+    "signaturesVerified": true,
+    "notarizationVerified": true,
+    "distributedMacBinariesMatchPayloadProof": true,
+    "distributedLinuxDebBytesMatchFinalPayloadEvidence": true,
+    "payloadProofSha256": {
+      "mac-aarch64": "aa549a1d3688e7e640f198de52d85676fadffc0d1fb1777dc752854c2979ba90",
+      "mac-x86_64": "b092b93e0c9ded8e402b946209694b7eb4ea6e499524e5fc5210a84276c61430",
+      "linux-amd64": "571b6c9090256cb950d88584270056b04513af244126bea625743117dc376efa",
+      "linux-arm64": "9ef0930be652eb8a8ad20dda3c9eadcd1f6ef12a10c546d27ea2eb42d5845f5a"
+    },
+    "exactAssetSetVerified": true,
+    "distributedArchBinariesMatchFinalLinuxPayload": true,
+    "freshAnonymousDownloads": true,
+    "latestVerified": true,
+    "publishedAt": "2026-10-25T02:37:14Z",
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1025.1",
+    "distributedLinuxDebBinariesMatchFinalPayload": true,
+    "debPayloadVerification": [
+      {
+        "package": "note.md_6.1025.1_amd64.deb",
+        "dataMember": "data.tar.gz",
+        "elfMember": "usr/bin/notemd",
+        "elfBytes": 27397360,
+        "elfSha256": "3d3c9c9757cebf4879b306a4a79c0210a20db176ef2facebe6cb8cc58a0a6445",
+        "matchesFinalPayloadProof": true,
+        "source": "fresh-in-memory-read-of-downloaded-deb"
+      },
+      {
+        "package": "note.md_6.1025.1_arm64.deb",
+        "dataMember": "data.tar.gz",
+        "elfMember": "usr/bin/notemd",
+        "elfBytes": 23486248,
+        "elfSha256": "aefe281c09da5b590f31af181248ee6b86aa8335eb58e70b4f45dc3af69cbfef",
+        "matchesFinalPayloadProof": true,
+        "source": "fresh-in-memory-read-of-downloaded-deb"
+      }
+    ]
+  },
+  "payloads": {
+    "mac-aarch64": {
+      "arch": "arm64",
+      "binaryFormat": "Mach-O64",
+      "binarySha256": "305310dfdc15b2f799ae6f979e3e5952f4d956f90334bed8d3f09772e7f50713",
+      "frozenSource": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+      "distAssetSetSha256": "f2787c561b5d11c22f189ab65d61fb89aa8c689005340271da408fd41f9b5d01",
+      "manifestSha256": "ee26c677af4f47e6c6017770f5ab46af5998a9e1611674104fb59596a0951ef2",
+      "embeddedResources": 151,
+      "checks": 33,
+      "proofSha256": "aa549a1d3688e7e640f198de52d85676fadffc0d1fb1777dc752854c2979ba90",
+      "runtimeWebViewVerified": false
+    },
+    "mac-x86_64": {
+      "arch": "x86_64",
+      "binaryFormat": "Mach-O64",
+      "binarySha256": "69b0db70678574f237c538405b990c6922bad77a9989512342874360496bca20",
+      "frozenSource": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+      "distAssetSetSha256": "f2787c561b5d11c22f189ab65d61fb89aa8c689005340271da408fd41f9b5d01",
+      "manifestSha256": "ee26c677af4f47e6c6017770f5ab46af5998a9e1611674104fb59596a0951ef2",
+      "embeddedResources": 151,
+      "checks": 33,
+      "proofSha256": "b092b93e0c9ded8e402b946209694b7eb4ea6e499524e5fc5210a84276c61430",
+      "runtimeWebViewVerified": false
+    },
+    "linux-amd64": {
+      "arch": "x86_64",
+      "binaryFormat": "ELF64",
+      "binarySha256": "3d3c9c9757cebf4879b306a4a79c0210a20db176ef2facebe6cb8cc58a0a6445",
+      "frozenSource": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+      "distAssetSetSha256": "f2787c561b5d11c22f189ab65d61fb89aa8c689005340271da408fd41f9b5d01",
+      "manifestSha256": "ee26c677af4f47e6c6017770f5ab46af5998a9e1611674104fb59596a0951ef2",
+      "embeddedResources": 151,
+      "checks": 33,
+      "proofSha256": "571b6c9090256cb950d88584270056b04513af244126bea625743117dc376efa",
+      "runtimeWebViewVerified": false
+    },
+    "linux-arm64": {
+      "arch": "arm64",
+      "binaryFormat": "ELF64",
+      "binarySha256": "aefe281c09da5b590f31af181248ee6b86aa8335eb58e70b4f45dc3af69cbfef",
+      "frozenSource": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+      "distAssetSetSha256": "f2787c561b5d11c22f189ab65d61fb89aa8c689005340271da408fd41f9b5d01",
+      "manifestSha256": "ee26c677af4f47e6c6017770f5ab46af5998a9e1611674104fb59596a0951ef2",
+      "embeddedResources": 151,
+      "checks": 33,
+      "proofSha256": "9ef0930be652eb8a8ad20dda3c9eadcd1f6ef12a10c546d27ea2eb42d5845f5a",
+      "runtimeWebViewVerified": false
+    }
+  },
+  "payloadChecks": [
+    "RichEditorHandlerInstalled",
+    "RichEditorInvokesResourceFactory",
+    "allSevenHostEntriesInstallDefaultGuard",
+    "bitmapPNGConversionPresent",
+    "compiledMenuExactLocalRemoteReadOnlyActions",
+    "compiledWatcherRejectsStaleEpochResults",
+    "copyFilenamePassesResolvedCompletePathToClipboard",
+    "copyPathCallsNativeWriteText",
+    "defaultGuardCaptureAndPreventOnly",
+    "desktopAndShareContainInvokedCheckboxSourcePatch",
+    "desktopAndShareRendererUseDOMPurify3417",
+    "desktopHasNoResourceLinkOrBasenameCopy",
+    "exactChineseFilename",
+    "exactEnglishCopyFilename",
+    "folderCancelReturnsBeforeDelete",
+    "folderDeleteAfterConfirmedAsk",
+    "folderDeleteFileOnlyGuard",
+    "folderDeleteMenuCallbackInstalled",
+    "folderDeleteMenuOnlyForFile",
+    "folderDeletionBumpsEpochAndDrainsBeforeRemove",
+    "folderDeletionOnlyRemovesConfirmedPath",
+    "folderDeletionPreservesOpenBuffers",
+    "folderDeletionReleasesOwnedReservation",
+    "folderDialogCallsNativeAsk",
+    "folderDialogNamesExactPathAndFile",
+    "frozenFolderDeleteQueueEpochAndWatcherProtection",
+    "frozenFolderDeleteWarningAndChangelog",
+    "frozenFolderMenuRequiresConfirmation",
+    "frozenSourceExactRequestedSemanticsAndChangelog",
+    "nativeBridgeDefaultGuardEmbedded",
+    "resourceBitmapCopyActionPresent",
+    "resourceCopyImageCallsBitmapImplementation",
+    "saveAsPreservesRawBytesAndCancelGuard"
+  ],
+  "resourceScope": "151 JavaScript/CSS/top-level HTML/share-editor manifest resources; excludes fonts and other static media",
+  "macNotarization": {
+    "status": "pass",
+    "applications": {
+      "aarch64": "954a09f5-221c-4750-b92d-80923a17d41f",
+      "x86_64": "f2b14ba3-6389-4a91-a64e-2cb9c8f7114f"
+    },
+    "diskImages": {
+      "aarch64": "8a8b3f9b-6a5e-4daf-b78b-62a2c695fc9a",
+      "x86_64": "5db730c4-91cf-40d8-b59a-6ee3c52184c2"
+    }
+  },
+  "linux": {
+    "status": "final-verification-and-draft-upload-pass",
+    "tag": "v6.1025.1",
+    "tagVerified": true,
+    "finalCommit": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+    "finalTree": "e867314553bcb51cbf81cf522285ee59b3d2909c",
+    "candidateTreeExactlyEqual": true,
+    "coreCommit": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+    "uploaded": true,
+    "artifacts": [
+      {
+        "architecture": "amd64",
+        "name": "note.md_6.1025.1_amd64.deb",
+        "bytes": 14798706,
+        "sha256": "9323b18fdc98fe0ef1259a3c23947f60e6701a28cb25ccbab73f476a613862d0",
+        "actualEmbeddedResources": 151,
+        "richChecks": 33,
+        "normalAslr": 2,
+        "normalParentPersonality": "00000000",
+        "elfPIE": true,
+        "nativeCliAndLddPassed": true,
+        "desktopGuiVerified": false,
+        "elfEvidenceSha256": "571b6c9090256cb950d88584270056b04513af244126bea625743117dc376efa"
+      },
+      {
+        "architecture": "arm64",
+        "name": "note.md_6.1025.1_arm64.deb",
+        "bytes": 14786790,
+        "sha256": "e8531dacaa1b1d2fdd8ab7916dbb3fba97b7862984092a1aaa767090ae34f3a0",
+        "actualEmbeddedResources": 151,
+        "richChecks": 33,
+        "normalAslr": 2,
+        "normalParentPersonality": "00000000",
+        "elfPIE": true,
+        "nativeCliAndLddPassed": true,
+        "desktopGuiVerified": false,
+        "elfEvidenceSha256": "9ef0930be652eb8a8ad20dda3c9eadcd1f6ef12a10c546d27ea2eb42d5845f5a"
+      }
+    ],
+    "verifiedAt": "2026-10-25T02:31:58.748000+00:00",
+    "evidenceAssemblyNote": "The verifier resolves SOURCE_REF to finalCommit; runtime checks are bound to byte-identical candidate DEBs and exact final tree.",
+    "uploadVerifiedAt": "2026-10-25T02:31:58.748000+00:00"
+  },
+  "arch": {
+    "status": "dual-arch-published-and-anonymously-verified",
+    "tag": "v6.1025.1",
+    "sourceCommit": "18e38512fc6a6836f7ca1adfc685ecae7a3c0eae",
+    "sourceTree": "e867314553bcb51cbf81cf522285ee59b3d2909c",
+    "originalPrepareScriptUsed": true,
+    "anonymousSourceDebReadbackPassed": true,
+    "candidateRecipeByteIdenticalToOriginalPublicRecipe": true,
+    "uploaded": true,
+    "artifacts": [
+      {
+        "status": "final-source-recipe-and-first-install-pass",
+        "architecture": "amd64",
+        "package": "notemd-6.1025.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14288787,
+        "sha256": "6adcf4bd0013637ffab8098e2132b67ce8195c09a22187cab23ac83957afda44",
+        "checksum": "SHA256SUMS-omarchy.txt",
+        "buildExitCode": 0,
+        "firstInstallVerified": true,
+        "pacmanQkk": "32 total files, 0 altered files",
+        "sourcePayloadEntries": 29,
+        "sourceDebSha256": "9323b18fdc98fe0ef1259a3c23947f60e6701a28cb25ccbab73f476a613862d0",
+        "payloadBytesModeOwnershipLinksEqual": true,
+        "normalAslr": 2,
+        "normalPersonality": "00000000",
+        "elfPIE": true,
+        "cliAndLddPassed": true,
+        "defaultDockerSecurity": true,
+        "desktopGuiVerified": false,
+        "publicRecipeVerified": true,
+        "uploaded": true,
+        "verifiedAt": "2026-10-25T02:31:56.388012+00:00"
+      },
+      {
+        "status": "final-source-recipe-and-first-install-pass",
+        "architecture": "arm64",
+        "package": "notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14627466,
+        "sha256": "137526969e9d6aabdb21f315c330882b2f878296761da6abe6ef226ef1d141c4",
+        "checksum": "SHA256SUMS-omarchy-aarch64.txt",
+        "buildExitCode": 0,
+        "firstInstallVerified": true,
+        "pacmanQkk": "32 total files, 0 altered files",
+        "sourcePayloadEntries": 29,
+        "sourceDebSha256": "e8531dacaa1b1d2fdd8ab7916dbb3fba97b7862984092a1aaa767090ae34f3a0",
+        "payloadBytesModeOwnershipLinksEqual": true,
+        "normalAslr": 2,
+        "normalPersonality": "00000000",
+        "elfPIE": true,
+        "cliAndLddPassed": true,
+        "defaultDockerSecurity": true,
+        "desktopGuiVerified": false,
+        "publicRecipeVerified": true,
+        "uploaded": true,
+        "verifiedAt": "2026-10-25T02:31:20.711764+00:00"
+      }
+    ],
+    "verifiedAt": "2026-10-25T02:40:53.841368+00:00",
+    "publicReadbackVerified": true,
+    "publishedAtVerified": "2026-10-25T02:44:41.085319+00:00"
+  },
+  "archAnonymousReadback": {
+    "status": "anonymous-public-arch-pass",
+    "releaseTag": "v6.1025.1",
+    "totalReleaseAssets": 14,
+    "curlConfigDisabled": true,
+    "authorizationHeaderUsed": false,
+    "checksumManifestsVerified": true,
+    "assets": [
+      {
+        "name": "notemd-6.1025.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14288787,
+        "sha256": "6adcf4bd0013637ffab8098e2132b67ce8195c09a22187cab23ac83957afda44",
+        "url": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/notemd-6.1025.1-1-x86_64.pkg.tar.zst",
+        "apiDigestMatched": true,
+        "anonymousBytesMatched": true
+      },
+      {
+        "name": "notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14627466,
+        "sha256": "137526969e9d6aabdb21f315c330882b2f878296761da6abe6ef226ef1d141c4",
+        "url": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+        "apiDigestMatched": true,
+        "anonymousBytesMatched": true
+      },
+      {
+        "name": "SHA256SUMS-omarchy.txt",
+        "bytes": 103,
+        "sha256": "4a5437750dfa886748d2065a2b39778b99ae14c2be2d7f45981c9b1dc64b706d",
+        "url": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/SHA256SUMS-omarchy.txt",
+        "apiDigestMatched": true,
+        "anonymousBytesMatched": true
+      },
+      {
+        "name": "SHA256SUMS-omarchy-aarch64.txt",
+        "bytes": 104,
+        "sha256": "0c75f9c53a480bef9242f718c1479d17bace39e3be6f9330c925dae46701909c",
+        "url": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/SHA256SUMS-omarchy-aarch64.txt",
+        "apiDigestMatched": true,
+        "anonymousBytesMatched": true
+      }
+    ],
+    "verifiedAt": "2026-10-25T02:44:41.085319+00:00"
+  },
+  "website": {
+    "commit": "f3c7b38a83f064d13c7dcca78f135ed770aa93f0",
+    "validation": {
+      "status": "prepared-only-not-applied-or-published",
+      "rootTrackedFilesUntouched": true,
+      "beforeAfterHashesVerified": true,
+      "generationIdempotent": true,
+      "gitApplyCheck": "passed",
+      "releaseCloneApplyCheck": "passed",
+      "releaseCloneCommit": "6f90003615cde060f69ee2573b718ac276d53b46",
+      "patchSha256": "56548f5e838deb42921ffaf1a7320986c9538e9c20c2b363e320a390996d0ded",
+      "publicVerifierSyntax": "passed",
+      "publicVerifierExecuted": false,
+      "websiteTestFiles": 5,
+      "websiteTestsPassed": 128,
+      "testCommand": "node ../../../node_modules/vitest/vitest.mjs run --config vitest.config.mjs --reporter=json --outputFile=../website-test-results.json"
+    },
+    "deployment": {
+      "status": "passed",
+      "commit": "f3c7b38a83f064d13c7dcca78f135ed770aa93f0",
+      "pushed": true,
+      "deployed": true,
+      "recordedAt": "2026-10-25T02:45:51.808621+00:00",
+      "ci": {
+        "runId": 40155597397,
+        "url": "https://github.com/wizlijun/note.md/actions/runs/40155597397",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    },
+    "public": {
+      "version": "6.1025.1",
+      "status": "passed",
+      "downloads": [
+        {
+          "name": "mac-aarch64",
+          "request": "https://notemd.net/download?os=mac&arch=aarch64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/note.md-6.1025.1-aarch64.dmg",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "linux-deb-aarch64",
+          "request": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/note.md_6.1025.1_arm64.deb",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "linux-arch-aarch64",
+          "request": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "mac-x86_64",
+          "request": "https://notemd.net/download?os=mac&arch=x86_64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/note.md-6.1025.1-x86_64.dmg",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "linux-deb-x86_64",
+          "request": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/note.md_6.1025.1_amd64.deb",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "linux-arch-x86_64",
+          "request": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/notemd-6.1025.1-1-x86_64.pkg.tar.zst",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "windows-x86_64",
+          "request": "https://notemd.net/download?os=windows&arch=x86_64",
+          "requestOptions": [],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "linux-reduced-ua-arm-deb",
+          "request": "https://notemd.net/download?os=linux&format=deb",
+          "requestOptions": [
+            "--user-agent",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+            "--header",
+            "Sec-CH-UA-Arch: \"arm\"",
+            "--header",
+            "Sec-CH-UA-Bitness: \"64\""
+          ],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/note.md_6.1025.1_arm64.deb",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        },
+        {
+          "name": "linux-reduced-ua-arm-arch",
+          "request": "https://notemd.net/download?os=linux&format=arch",
+          "requestOptions": [
+            "--user-agent",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+            "--header",
+            "Sec-CH-UA-Arch: \"arm\"",
+            "--header",
+            "Sec-CH-UA-Bitness: \"64\""
+          ],
+          "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1025.1/notemd-6.1025.1-1-aarch64.pkg.tar.zst",
+          "redirectStatus": 302,
+          "targetStatus": 200
+        }
+      ],
+      "choices": [
+        {
+          "name": "linux-format-choice",
+          "request": "https://notemd.net/download?os=linux&arch=aarch64",
+          "status": 200,
+          "links": [
+            "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+            "/download?os=linux&amp;format=deb&amp;arch=aarch64"
+          ],
+          "architectureNegotiationHeaders": true,
+          "sha256": "526cbe6d487a470b003b9e7f97ba27dd43d878b2402de208e00bdf2d06a78189"
+        },
+        {
+          "name": "linux-cold-format-choice",
+          "request": "https://notemd.net/download?os=linux",
+          "status": 200,
+          "links": [
+            "/download?os=linux&amp;format=arch",
+            "/download?os=linux&amp;format=deb"
+          ],
+          "architectureNegotiationHeaders": true,
+          "sha256": "cc57e9d072ba1c5013aebeb6bb2434aa4d4e2a1afaf4a68b2f56e12041c4133b"
+        },
+        {
+          "name": "linux-cold-arch-choice",
+          "request": "https://notemd.net/download?os=linux&format=arch",
+          "status": 200,
+          "links": [
+            "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+            "/download?os=linux&amp;format=arch&amp;arch=x86_64"
+          ],
+          "architectureNegotiationHeaders": true,
+          "sha256": "4c7ad1183a7dbf2eabacce85ab0c97e51ed222fade65b4b7820c9e470bf44e94"
+        },
+        {
+          "name": "linux-cold-deb-choice",
+          "request": "https://notemd.net/download?os=linux&format=deb",
+          "status": 200,
+          "links": [
+            "/download?os=linux&amp;format=deb&amp;arch=aarch64",
+            "/download?os=linux&amp;format=deb&amp;arch=x86_64"
+          ],
+          "architectureNegotiationHeaders": true,
+          "sha256": "e87e4d3fce87de23f65f256bc262bdd0534111f4c4f0bb8e01088a955edc7d8f"
+        }
+      ],
+      "pages": [
+        {
+          "url": "https://notemd.net/",
+          "status": 200,
+          "matchesLocalHtml": true,
+          "sha256": "f92547566cb86ceef43498398a9b8b5c9881e0976b6fd6755fc750c9d7f6db4d"
+        },
+        {
+          "url": "https://notemd.net/zh/",
+          "status": 200,
+          "matchesLocalHtml": true,
+          "sha256": "087f3bdbbf374c2c4e28b02ad20af4b73360020c82abda2349b4ddd59afc5f9a"
+        },
+        {
+          "url": "https://notemd.net/de/",
+          "status": 200,
+          "matchesLocalHtml": true,
+          "sha256": "64b1113f94887c8f3d8df73bd3d4420dae1c1122194de8c58433a86aff5ef6f7"
+        },
+        {
+          "url": "https://notemd.net/ja/",
+          "status": 200,
+          "matchesLocalHtml": true,
+          "sha256": "331003f40548164279dd8ecca9473f1b4821fc84488cecc3e9227c6018160371"
+        }
+      ]
+    },
+    "deferredEntriesRestoredPerLanguage": 5
+  },
+  "cleanup": {
+    "baselineAvailableKiB": 23939800,
+    "finalAvailableKiB": 31846144,
+    "netAvailableDeltaKiB": 7906344,
+    "measurementNote": "Host df endpoint difference includes concurrent release writes; not sum of du allocations or guest trim.",
+    "removed": [
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/download-cache",
+        "type": "directory",
+        "du_kib_standalone": 812768,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.024
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/complete-cache",
+        "type": "directory",
+        "du_kib_standalone": 688792,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.152
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-amd64-env/download-cache",
+        "type": "directory",
+        "du_kib_standalone": 537156,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.12
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-amd64-env/complete-cache",
+        "type": "directory",
+        "du_kib_standalone": 255568,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.046
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part0",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.011
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part1",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.005
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part2",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.029
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part3",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.011
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part4",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.01
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part5",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.011
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part6",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.016
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/rootfs.part7",
+        "type": "file",
+        "du_kib_standalone": 101244,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.096
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/build-input/mdeditor/node_modules",
+        "type": "directory",
+        "du_kib_standalone": 465428,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 1.414
+      },
+      {
+        "path": "<repo>/tasks/rich-release-20261024/build-input/mdeditor/plugin-protocol/target",
+        "type": "directory",
+        "du_kib_standalone": 57856,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.017
+      },
+      {
+        "path": "<repo>/tasks/health-sqlite-20261024/accepted-real-garmin/library",
+        "type": "directory",
+        "du_kib_standalone": 159052,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.026
+      },
+      {
+        "path": "<repo>/tasks/health-release-020-20261024/accepted-real-garmin/library",
+        "type": "directory",
+        "du_kib_standalone": 158960,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.017
+      },
+      {
+        "path": "/private/tmp/health-report-venv",
+        "type": "directory",
+        "du_kib_standalone": 386868,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.665
+      },
+      {
+        "path": "~/Library/Caches/pip",
+        "type": "directory",
+        "du_kib_standalone": 70648,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.028
+      },
+      {
+        "path": "~/Library/Caches/electron-builder",
+        "type": "directory",
+        "du_kib_standalone": 83856,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.07
+      },
+      {
+        "path": "<repo>/plugins-src/health-sync/backend/target/debug",
+        "authorized_by": "parent explicit follow-up: delete independent health plugin debug only",
+        "started_at": "2026-10-25T10:10:45.624445+08:00",
+        "lsof_exit": 1,
+        "active_pids": [],
+        "du_kib": 4352896,
+        "host_before": {
+          "raw": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s3s1   482797652  13335420  26460260    34%  484019 264602600    0%   /\n",
+          "available_kib": 26460260
+        },
+        "status": "completed",
+        "seconds": 4.952,
+        "deleted": true,
+        "host_after": {
+          "raw": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s3s1   482797652  13335420  30824244    31%  484019 308242440    0%   /\n",
+          "available_kib": 30824244
+        },
+        "available_delta_kib": 4363984,
+        "completed_at": "2026-10-25T10:10:50.934087+08:00",
+        "post_preserved_paths": [
+          {
+            "path": "<repo>/plugins-src/health-sync/backend/target/release",
+            "exists": true
+          },
+          {
+            "path": "<repo>/plugins-src/health-sync/backend/target/aarch64-apple-darwin/release",
+            "exists": true
+          },
+          {
+            "path": "<repo>/plugins-src/health-sync/backend/target/x86_64-apple-darwin/release",
+            "exists": true
+          },
+          {
+            "path": "<repo>/src-tauri/target/debug",
+            "exists": true
+          },
+          {
+            "path": "<repo>/tasks/folder-release-20261025",
+            "exists": true
+          }
+        ]
+      },
+      {
+        "path": "<repo>/src-tauri/target/debug",
+        "du_kib": 3252676,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.861
+      },
+      {
+        "path": "<repo>/plugin-protocol/target",
+        "du_kib": 57856,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.019
+      },
+      {
+        "path": "<repo>/plugins-src/roam-import/backend/target",
+        "du_kib": 3360,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.005
+      },
+      {
+        "path": "~/git/mdeditor-habitat-host-release-20260930/node_modules",
+        "du_kib": 401944,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 1.493
+      },
+      {
+        "path": "~/git/mdeditor-habitat-host-release-20260930/plugins-src/habitat/backend/target",
+        "du_kib": 14268,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.004
+      },
+      {
+        "path": "~/git/mdeditor-habitat-host-release-20260930/habitat-core/target",
+        "du_kib": 1868,
+        "lsof_exit": 1,
+        "active_pids": [],
+        "deleted": true,
+        "seconds": 0.003
+      }
+    ],
+    "finalCompletion": {
+      "status": "completed",
+      "completedAt": "2026-10-25T02:47:37.162372+00:00",
+      "host": {
+        "raw": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s3s1   482797652  13335420  31846144    30%  484019 318461440    0%   /\n",
+        "available_kib": 31846144
+      },
+      "preservedPaths": [
+        {
+          "path": "<repo>/node_modules",
+          "exists": true
+        },
+        {
+          "path": "<repo>/plugins-src/health-sync/backend/target/release",
+          "exists": true
+        },
+        {
+          "path": "<repo>/src-tauri/target",
+          "exists": true
+        },
+        {
+          "path": "<repo>/src-tauri/target/aarch64-apple-darwin/release",
+          "exists": true
+        },
+        {
+          "path": "<repo>/src-tauri/target/release",
+          "exists": true
+        },
+        {
+          "path": "<repo>/src-tauri/target/x86_64-apple-darwin/release",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/cleanup-20261021",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/folder-release-20261025",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/health-garmin-export-20261024/garmin-export.zip",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/health-release-020-20261024/accepted-real-apple/library",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/health-sqlite-20261024/accepted-real-apple/library",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/rich-release-20261024/omarchy-amd64-env/host-download.json",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/ArchLinuxARM-aarch64-latest.tar.gz",
+          "exists": true
+        },
+        {
+          "path": "<repo>/tasks/rich-release-20261024/omarchy-arm-env/host-download.json",
+          "exists": true
+        }
+      ],
+      "gitUntrackedCount": 7,
+      "stashCount": 3,
+      "gitPreserved": true,
+      "cameraPreserved": true,
+      "camera": "running 2026-10-25T02:04:16.799734713Z",
+      "gitStatus": "?? .pnpm-store/\n?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md\n?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md\n?? docs/superpowers/specs/2026-09-23-agency-practical-review.md\n?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md\n?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md\n?? docs/superpowers/specs/habitat-city.html\n",
+      "stashShas": [
+        "7168eb9ab49d429f8e91ebcf2ac1ba9580582402",
+        "240fdc4c69e1b4789ca1166a95c65b1c7c3999b7",
+        "a904adce51b40b26ac46409b232a5ac61ab3216c"
+      ],
+      "availableDeltaKiB": 7906344,
+      "postBuildTrim": {
+        "command": [
+          "colima",
+          "ssh",
+          "--",
+          "sudo",
+          "-n",
+          "fstrim",
+          "-v",
+          "/var/lib/docker"
+        ],
+        "exitCode": 0,
+        "output": "/var/lib/docker: 1.5 GiB (1637138432 bytes) trimmed\n"
+      },
+      "publicAndWebsiteVerificationComplete": true
+    },
+    "originalEvidenceSha256": "083fb18b5ccc1d68137a9c331bfd101ace250083e868c4f9de2db65454402455",
+    "preservedOriginalGarminZip": true,
+    "preservedArchArchiveSha256": "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319"
+  },
+  "boundaries": {
+    "windowsVersion": "6.811.1",
+    "linuxBeta": true,
+    "linuxDesktopGuiVerified": false,
+    "nativeArmDesktopVerified": false,
+    "waylandFcitxTrayVerified": false,
+    "omarchyRepositoryIncluded": false,
+    "nativeDeleteDialogVerified": false,
+    "nativeMenuHoverVerified": false,
+    "installedOnUserMachine": false,
+    "independentPluginsPublished": false,
+    "fullAppBundleTarDmgByteEqualityClaimed": false
+  },
+  "evidenceFiles": {
+    "final-source.json": "fdf1da5337d240e3a022ce4551524f20360724310b3c679337ca6ca62a952379",
+    "release-gates.json": "af97d007924637c424a906289cb93c16671d8de3fc8b06262df0f046795dd469",
+    "feature-source-verification.json": "8b2932271135b002cfced85cb8e8add0bb6fc6efb33a0369620767d5d3af846e",
+    "publication.json": "f2945604315928bde8243826aeded2f5f821e4d251e26ff87d566ddebbdd4a9a",
+    "public-review.json": "8db58ba13633142a90137a1e491e666a3729e4725cab773d92eebb153584e708",
+    "public-release-api.json": "6a04903a6a30146ca1eae3608c324451fb73dd49fd658c1b661b766e6b12bbd4",
+    "mac-notarization.json": "3665f6fbeba3ebeec3caab332e4ad60fda2cc638fce902f634f68f10fa34af14",
+    "final-mac-payload-summary.json": "8907dcede0b73054efe444dd6d7ee2440eebe58d858f29c0d4dfc45689664531",
+    "final-mac-dist-equality.json": "4718c6f50659ce65ce9941e5345c8eecc2426d4ca5ac5ba6a4fa809010ed2a31",
+    "linux-final-verification.json": "f1fe57aa18a1dc052ce9a597521f22b57b63412309f628352d030ce7651c13f8",
+    "omarchy-final-verification.json": "f8cd7ef07c5deb8e59556762702aa823391fbfb576ffe77ccfe9182cb08668ba",
+    "omarchy-public-readback/verification.json": "02a26aa480baa47838b7f07fdd814e7f2ba2e5d7cc4d711cd41dc873c0e59462",
+    "website-commit.json": "4784cdfc93c9211b568d43e7f7875324e563300907fea5921349f934cff62e66",
+    "website-validation.json": "f611ccd4d58cb5a1d05cf766f7d7579c90b0b4e8173bfd2300ba7220c76be66b",
+    "website-deployment.json": "2644a2533b09edf4f98a95dcf51dd6ca1fea5a8a1a00201098d1282dcc7cf2d5",
+    "website-public-verification.json": "4c7a12b4b0bff6391cc5d0bfe5deb48682bf9170987840d32b5c55265e92f4d0",
+    "cleanup-result.json": "083fb18b5ccc1d68137a9c331bfd101ace250083e868c4f9de2db65454402455",
+    "aarch64-embedded-rich.json": "aa549a1d3688e7e640f198de52d85676fadffc0d1fb1777dc752854c2979ba90",
+    "x86_64-embedded-rich.json": "b092b93e0c9ded8e402b946209694b7eb4ea6e499524e5fc5210a84276c61430",
+    "linux-amd64-output/rich-elf-verification.json": "571b6c9090256cb950d88584270056b04513af244126bea625743117dc376efa",
+    "linux-arm64-output/rich-elf-verification.json": "9ef0930be652eb8a8ad20dda3c9eadcd1f6ef12a10c546d27ea2eb42d5845f5a",
+    "omarchy-amd64-output/payload-verification.json": "981c80a7cb5fe05c38489ec2ae2917e2e86f08b7453d66677deda2a8e66b188f",
+    "omarchy-arm64-output/payload-verification.json": "e65af5f6c15d7ebd74e230cadb60d6c0c37efbbc9d7a84cc93074477936dc230"
+  }
+}
