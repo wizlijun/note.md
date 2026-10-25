@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1025.1 — 2026-10-25
+
 - **Delete files from Folder View.** The file context menu now offers permanent deletion with a confirmation showing the filename and full path. Cancel keeps the file; deletion keeps companion notes and any open editor content.
 
 ## v6.1024.1 — 2026-10-24
