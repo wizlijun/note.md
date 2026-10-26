@@ -25,6 +25,28 @@ type ProjectChange = {
   project?: string | null
 }
 
+export type QuickPlaceAction = 'commit' | 'wait' | 'park' | 'done' | 'stopped' | 'transferred'
+
+export type QuickPlaceInput = (
+  | { route: 'commit' | 'wait' | 'park' }
+  | { route: 'settle'; exit: SettlementExit }
+) & { status_only: true } & ProjectChange
+
+export function quickPlaceInput(action: QuickPlaceAction): QuickPlaceInput {
+  switch (action) {
+    case 'commit':
+    case 'wait':
+    case 'park':
+      return { route: action, status_only: true }
+    case 'done':
+      return { route: 'settle', exit: { kind: 'done' }, status_only: true }
+    case 'stopped':
+      return { route: 'settle', exit: { kind: 'stopped', via: 'drop' }, status_only: true }
+    case 'transferred':
+      return { route: 'settle', exit: { kind: 'transferred', via: 'delegate' }, status_only: true }
+  }
+}
+
 export type PlaceInput = (
   | { route: 'commit'; commitment: string; next_action: string; close_condition: string }
   | { route: 'wait'; waiting_for: string; review_at: string }
@@ -36,7 +58,7 @@ export type PlaceInput = (
       target?: string
       result?: string
     }
-) & ProjectChange
+) & ProjectChange & { status_only?: false } | QuickPlaceInput
 
 export interface EventFactory {
   now(): string
@@ -96,6 +118,11 @@ export function placeEvent(
   version: LedgerVersion = 1,
 ): NextEvent {
   const base = { ...envelope(item, factory, version), ...projectChange(input) }
+  if (input.status_only) {
+    return input.route === 'settle'
+      ? { ...base, action: 'settle', status_only: true, exit: input.exit }
+      : { ...base, action: input.route, status_only: true }
+  }
   switch (input.route) {
     case 'commit': {
       const event: CommitEvent = {

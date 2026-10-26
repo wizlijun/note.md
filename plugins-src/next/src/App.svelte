@@ -5,11 +5,13 @@
   import CreateTaskSheet, { type TaskDraft } from './components/CreateTaskSheet.svelte'
   import IdeaCard from './components/IdeaCard.svelte'
   import MetadataSheet from './components/MetadataSheet.svelte'
+  import CompletionConfetti from './components/CompletionConfetti.svelte'
+  import PlaceMenu from './components/PlaceMenu.svelte'
   import PlaceSheet from './components/PlaceSheet.svelte'
   import RelinkSheet from './components/RelinkSheet.svelte'
   import SettingsPage from './components/SettingsPage.svelte'
   import { bridge, toast } from './lib/bridge'
-  import type { PlaceInput } from './lib/events'
+  import { quickPlaceInput, type PlaceInput, type QuickPlaceInput } from './lib/events'
   import { projectTagsOf } from './lib/model'
   import { planningDefaults, type NextSettings } from './lib/settings'
   import { DEFAULT_PRIORITY, type PlanningMetadata } from './lib/metadata'
@@ -49,6 +51,9 @@
   let search = $state('')
   let sortMode = $state<SortMode>('priority')
   let selectedProject = $state('')
+  let placeMenu = $state<{ item: WorkspaceItem; anchor: HTMLButtonElement } | null>(null)
+  let placementSaving = $state(false)
+  let celebration = $state(0)
   let placing = $state<WorkspaceItem | null>(null)
   let placementRoute = $state<Route | undefined>()
   let placementProjects = $state<string[]>([])
@@ -88,7 +93,7 @@
   const activeProject = $derived(projectOptions.includes(selectedProject) ? selectedProject : '')
   const filtering = $derived(Boolean(search.trim() || activeProject))
   const blocked = $derived(Boolean(workspace?.readOnlyError || workspace?.projection.hasBlockingIssues))
-  const interactionDisabled = $derived(store.saving || blocked)
+  const interactionDisabled = $derived(store.saving || placementSaving || blocked)
   const createDefaults = $derived(planningDefaults(store.settings))
   const newIdeaShortcut = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
     ? '⌘N'
@@ -166,6 +171,7 @@
   function openCreation() {
     if (store.loading || store.saving || placing || relinking || editingMetadata || creatingTask) return
     closePreview()
+    placeMenu = null
     settingsOpen = false
     creating = true
   }
@@ -173,6 +179,7 @@
   function openTaskCreation() {
     if (store.loading || store.saving || placing || relinking || editingMetadata || creating) return
     closePreview()
+    placeMenu = null
     settingsOpen = false
     creatingTask = true
   }
@@ -180,6 +187,7 @@
   function toggleSettings() {
     if (store.loading || store.saving || placing || relinking || editingMetadata || creating || creatingTask) return
     closePreview()
+    placeMenu = null
     settingsOpen = !settingsOpen
   }
 
@@ -188,8 +196,32 @@
     settingsOpen = false
   }
 
+  function openPlaceMenu(item: WorkspaceItem, anchor: HTMLButtonElement) {
+    if (interactionDisabled) return
+    closePreview()
+    placeMenu = placeMenu?.item.key === item.key ? null : { item, anchor }
+  }
+
+  async function quickPlace(item: WorkspaceItem, input: QuickPlaceInput) {
+    if (interactionDisabled) return
+    placementSaving = true
+    closePreview()
+    try {
+      await report(async () => {
+        const current = store.workspace?.items.find((value) => value.key === item.key) ?? item
+        if (current.state === 'dormant' || current.state === 'closed') await reopen(current)
+        await place(item, input)
+        if (input.route === 'settle' && input.exit.kind === 'done') celebration += 1
+        placeMenu = null
+      }, 'error.save')
+    } finally {
+      placementSaving = false
+    }
+  }
+
   function openPlacement(item: WorkspaceItem, route?: Route, initialProjects: readonly string[] = []) {
     closePreview()
+    placeMenu = null
     placing = item
     placementRoute = route
     placementProjects = [...initialProjects]
@@ -197,12 +229,14 @@
 
   function openRelink(item: WorkspaceItem) {
     closePreview()
+    placeMenu = null
     relinking = item
   }
 
   function openMetadata(item: WorkspaceItem) {
     if (!item.path || item.orphan || item.repairReason || store.saving) return
     closePreview()
+    placeMenu = null
     editingMetadata = item
   }
 
@@ -263,8 +297,10 @@
     if (!placing) return
     const item = placing
     await report(async () => {
-      if (item.state === 'dormant' || item.state === 'closed') await reopen(item)
+      const current = store.workspace?.items.find((value) => value.key === item.key) ?? item
+      if (current.state === 'dormant' || current.state === 'closed') await reopen(current)
       await place(item, input)
+      if (input.route === 'settle' && input.exit.kind === 'done') celebration += 1
       closePlacement()
     }, 'error.save')
   }
@@ -292,13 +328,6 @@
     if (interactionDisabled || item.state === 'unsupported' || item.state === lane) return false
     if (lane === 'capture') return item.state === 'dormant' || item.state === 'closed'
     return true
-  }
-
-  function routeFor(lane: Exclude<Lane, 'capture'>): Route {
-    if (lane === 'wip') return 'commit'
-    if (lane === 'waiting') return 'wait'
-    if (lane === 'dormant') return 'park'
-    return 'settle'
   }
 
   function dragStart(item: WorkspaceItem, event: PointerEvent) {
@@ -366,7 +395,7 @@
   }
 
   function previewStart(item: WorkspaceItem, anchor: HTMLElement, trigger: 'pointer' | 'focus', tipId: string) {
-    if (!item.body?.trim() || dragPress || dragging) return
+    if (!item.body?.trim() || dragPress || dragging || placeMenu || placing || placementSaving) return
     cancelPreviewClose()
     if (previewAnchor !== anchor) {
       previewPointerActive = false
@@ -434,7 +463,7 @@
       doReopen(item)
       return
     }
-    openPlacement(item, routeFor(lane))
+    void quickPlace(item, quickPlaceInput(lane === 'wip' ? 'commit' : lane === 'waiting' ? 'wait' : lane === 'dormant' ? 'park' : 'done'))
   }
 
   function pointerMove(event: PointerEvent) {
@@ -614,7 +643,9 @@
                 disabled={interactionDisabled}
                 metadataDisabled={store.saving}
                 canPlace={item.state === 'capture'}
-                onPlace={(value) => openPlacement(value)}
+                placeMenuOpen={placeMenu?.item.key === item.key}
+                onPlace={openPlaceMenu}
+                onComplete={(value) => quickPlace(value, quickPlaceInput('done'))}
                 onOpen={doOpen}
                 onReopen={doReopen}
                 onRelink={openRelink}
@@ -670,9 +701,11 @@
                       metadataDisabled={store.saving}
                       canDrag={item.state !== 'unsupported'}
                       dragging={dragging?.key === item.key}
-                      canPlace={item.state === 'capture' || item.state === 'wip' || item.state === 'waiting'}
+                      canPlace={item.state !== 'closed' && item.state !== 'unsupported'}
                       canReopen={item.state === 'dormant' || item.state === 'closed'}
-                      onPlace={(value) => openPlacement(value)}
+                      placeMenuOpen={placeMenu?.item.key === item.key}
+                      onPlace={openPlaceMenu}
+                      onComplete={(value) => quickPlace(value, quickPlaceInput('done'))}
                       onOpen={doOpen}
                       onReopen={doReopen}
                       onRelink={openRelink}
@@ -710,6 +743,21 @@
     onpointerenter={previewTipEnter}
     onpointerleave={previewTipLeave}
   ><pre>{previewing.body}</pre></aside>
+{/if}
+
+{#if celebration}
+  {#key celebration}<CompletionConfetti />{/key}
+{/if}
+
+{#if placeMenu}
+  <PlaceMenu
+    anchor={placeMenu.anchor}
+    itemTitle={placeMenu.item.title}
+    saving={store.saving || placementSaving}
+    onCancel={() => placeMenu = null}
+    onSelect={(input) => placeMenu && quickPlace(placeMenu.item, input)}
+    onMore={() => placeMenu && openPlacement(placeMenu.item)}
+  />
 {/if}
 
 {#if placing}

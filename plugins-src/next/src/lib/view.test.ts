@@ -72,6 +72,13 @@ describe('Next view projection', () => {
     expect(isDormantDue(dormant('when a customer asks again'), today)).toBe(false)
   })
 
+  it('does not invent a review date for a status-only parked item', () => {
+    const item = dormant('quick')
+    if (item.projection?.state !== 'dormant') throw new Error('expected dormant fixture')
+    delete item.projection.wake_trigger
+    expect(isDormantDue(item, new Date('2026-10-26T12:00:00'))).toBe(false)
+  })
+
   it('searches placed states without turning capture into a backlog view', () => {
     const closed: WorkspaceItem = {
       ...dormant('2026-08-28'),

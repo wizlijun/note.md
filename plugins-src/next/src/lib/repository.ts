@@ -422,9 +422,9 @@ function sourceOwners(projection: LedgerProjection, source: IdeaSource): Readonl
 function textOfProjection(projection: IdeaProjection): string {
   const project = projectTagsOf(projection).join(' ')
   switch (projection.state) {
-    case 'wip': return `${project} ${projection.commitment} ${projection.next_action} ${projection.close_condition}`
-    case 'waiting': return `${project} ${projection.waiting_for} ${projection.review_at}`
-    case 'dormant': return `${project} ${projection.wake_trigger} ${projection.next_action ?? ''}`
+    case 'wip': return `${project} ${projection.commitment ?? ''} ${projection.next_action ?? ''} ${projection.close_condition ?? ''}`
+    case 'waiting': return `${project} ${projection.waiting_for ?? ''} ${projection.review_at ?? ''}`
+    case 'dormant': return `${project} ${projection.wake_trigger ?? ''} ${projection.next_action ?? ''}`
     case 'closed': return `${project} ${projection.exit.kind} ${projection.exit.via ?? ''} ${projection.reason ?? ''} ${projection.target ?? ''} ${projection.result ?? ''}`
     case 'unsupported': return `${project} ${projection.unsupported_actions.join(' ')}`
     case 'capture': return project

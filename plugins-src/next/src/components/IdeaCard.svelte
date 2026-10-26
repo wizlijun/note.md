@@ -10,9 +10,11 @@
     metadataDisabled = disabled,
     canPlace = false,
     canReopen = false,
+    placeMenuOpen = false,
     canDrag = false,
     dragging = false,
     onPlace,
+    onComplete,
     onOpen,
     onReopen,
     onRelink,
@@ -27,9 +29,11 @@
     metadataDisabled?: boolean
     canPlace?: boolean
     canReopen?: boolean
+    placeMenuOpen?: boolean
     canDrag?: boolean
     dragging?: boolean
-    onPlace(item: WorkspaceItem): void
+    onPlace(item: WorkspaceItem, anchor: HTMLButtonElement): void
+    onComplete?(item: WorkspaceItem): void
     onOpen(item: WorkspaceItem): void
     onReopen(item: WorkspaceItem): void
     onRelink(item: WorkspaceItem): void
@@ -62,7 +66,7 @@
     if (!projection) return taskDetail
     switch (projection.state) {
       case 'wip': return projection.next_action
-      case 'waiting': return `${projection.waiting_for} · ${projection.review_at}`
+      case 'waiting': return [projection.waiting_for, projection.review_at].filter(Boolean).join(' · ')
       case 'dormant': return projection.wake_trigger
       case 'closed': return projection.target ?? projection.reason ?? projection.result ?? ''
       case 'unsupported': return projection.unsupported_actions.join(', ')
@@ -165,8 +169,11 @@
     {#if canReopen}
       <button class="quiet" disabled={disabled} onclick={() => onReopen(item)}>{t('action.reopen')}</button>
     {/if}
+    {#if canPlace && onComplete}
+      <button class="quiet" data-complete disabled={disabled} onclick={() => onComplete?.(item)}>{t('exit.done')}</button>
+    {/if}
     {#if canPlace}
-      <button class="place" disabled={disabled} onclick={() => onPlace(item)}>{t('action.place')}</button>
+      <button class="place" disabled={disabled} aria-haspopup="menu" aria-expanded={placeMenuOpen} onclick={(event) => onPlace(item, event.currentTarget)}>{t('action.place')}</button>
     {/if}
   </div>
 </article>

@@ -62,6 +62,8 @@ afterEach(() => {
   mocks.createTask.mockResolvedValue({ path: 'inbox/tasks/new-task.md', placedCurrent: false })
   mocks.updateSettings.mockResolvedValue(undefined)
   mocks.updateMetadata.mockResolvedValue({})
+  mocks.place.mockResolvedValue(undefined)
+  mocks.reopen.mockResolvedValue(undefined)
   mocks.state.saving = false
   mocks.state.settings = { wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' }
   vi.useRealTimers()
@@ -191,6 +193,287 @@ function pointerDrag(itemKey: string, lane: string, pointerId = 1): void {
 }
 
 describe('Next window', () => {
+  it.each([
+    ['现在推进', { route: 'commit', status_only: true }],
+    ['等待回收', { route: 'wait', status_only: true }],
+    ['以后再看', { route: 'park', status_only: true }],
+    ['完成', { route: 'settle', exit: { kind: 'done' }, status_only: true }],
+    ['停止', { route: 'settle', exit: { kind: 'stopped', via: 'drop' }, status_only: true }],
+    ['转移他人', { route: 'settle', exit: { kind: 'transferred', via: 'delegate' }, status_only: true }],
+  ])('saves %s from the placement menu with status only', async (label, input) => {
+    const next = workspace()
+    mocks.state.workspace = next
+    component = mount(App, { target: document.body })
+    flushSync()
+
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    const options = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+    expect(options.map((option) => option.textContent)).toEqual([
+      '现在推进', '等待回收', '以后再看', '完成', '停止', '转移他人', '更多…',
+    ])
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.querySelector('[role="menu"] input, [role="menu"] textarea')).toBeNull()
+    options.find((option) => option.textContent === label)!.click()
+
+    await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledWith(next.capture[0], input))
+    await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+    expect(mocks.place).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(Boolean(document.querySelector('[data-completion-confetti]'))).toBe(label === '完成')
+  })
+
+  it.each(['capture', 'wip', 'waiting', 'dormant'])('completes a %s card directly without a menu or form', async (source) => {
+    const next = workspace()
+    mocks.state.workspace = next
+    component = mount(App, { target: document.body })
+    flushSync()
+    const showPlaced = [...document.querySelectorAll('button')].find((node) => node.textContent?.includes('显示已安放'))!
+    showPlaced.click()
+    flushSync()
+
+    document.querySelector<HTMLButtonElement>(`[data-item-key="${source}"] [data-complete]`)!.click()
+    flushSync()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    const completed = next.items.find((entry) => entry.key === source)!
+    await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledWith(completed, {
+      route: 'settle', exit: { kind: 'done' }, status_only: true,
+    }))
+    expect(mocks.place).toHaveBeenCalledTimes(1)
+    if (source === 'dormant') {
+      expect(mocks.reopen).toHaveBeenCalledWith(completed)
+      expect(mocks.reopen.mock.invocationCallOrder[0]).toBeLessThan(mocks.place.mock.invocationCallOrder[0])
+    } else {
+      expect(mocks.reopen).not.toHaveBeenCalled()
+    }
+    await vi.waitFor(() => expect(document.querySelector('[data-completion-confetti]')).toBeTruthy())
+  })
+
+  it('retries placement after reopening without reopening the already active card again', async () => {
+    const next = workspace()
+    mocks.state.workspace = next
+    mocks.reopen.mockImplementationOnce(async () => {
+      const index = next.items.findIndex((entry) => entry.key === 'dormant')
+      next.items[index] = { ...next.items[index], state: 'capture' }
+    })
+    mocks.place.mockRejectedValueOnce(new Error('disk full'))
+    component = mount(App, { target: document.body })
+    flushSync()
+    const showPlaced = [...document.querySelectorAll('button')].find((node) => node.textContent?.includes('显示已安放'))!
+    showPlaced.click()
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="dormant"] .place')!.click()
+    flushSync()
+    const done = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((node) => node.textContent === '完成')!
+    done.click()
+    await vi.waitFor(() => expect(mocks.toast).toHaveBeenCalled())
+    await vi.waitFor(() => expect(done.disabled).toBe(false))
+    done.click()
+    await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+    expect(mocks.reopen).toHaveBeenCalledTimes(1)
+    expect(mocks.place).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders status-only cards without undefined or empty detail text', () => {
+    const next = workspace()
+    for (const card of next.items) {
+      const base = {
+        idea_id: card.key,
+        last_event_id: `e-${card.key}`,
+        last_at: '2026-10-26T00:00:00Z',
+      }
+      if (card.state === 'wip') card.projection = { ...base, state: 'wip' }
+      if (card.state === 'waiting') card.projection = { ...base, state: 'waiting' }
+      if (card.state === 'dormant') card.projection = { ...base, state: 'dormant' }
+      if (card.state === 'closed') card.projection = { ...base, state: 'closed', exit: { kind: 'done' } }
+    }
+    mocks.state.workspace = next
+    component = mount(App, { target: document.body })
+    flushSync()
+    const showPlaced = [...document.querySelectorAll('button')].find((node) => node.textContent?.includes('显示已安放'))!
+    showPlaced.click()
+    flushSync()
+
+    for (const key of ['wip', 'waiting', 'dormant', 'closed']) {
+      const card = document.querySelector(`[data-item-key="${key}"]`)!
+      expect(card.textContent).not.toContain('undefined')
+      expect(card.textContent).not.toContain('null')
+      expect(card.querySelector('.body > p')).toBeNull()
+    }
+    expect(document.querySelector('[data-item-key="dormant"] .place')).toBeTruthy()
+  })
+
+  it('opens the detailed placement form only from More and keeps its validation', () => {
+    mocks.state.workspace = workspace()
+    component = mount(App, { target: document.body })
+    flushSync()
+
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    const more = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((button) => button.textContent === '更多…')!
+    more.click()
+    flushSync()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    expect(document.querySelector('[data-choices-for="commitment"]')).toBeTruthy()
+    document.querySelector('form')!.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }))
+    flushSync()
+    expect(mocks.place).not.toHaveBeenCalled()
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+  })
+
+  it.each([false, true])('celebrates a detailed completion only after a successful save (failure: %s)', async (fails) => {
+    mocks.state.workspace = workspace()
+    let resolveSave!: () => void
+    let rejectSave!: (error: Error) => void
+    mocks.place.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+      resolveSave = resolve
+      rejectSave = reject
+    }))
+    component = mount(App, { target: document.body })
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    const more = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((button) => button.textContent === '更多…')!
+    more.click()
+    flushSync()
+    document.querySelectorAll<HTMLButtonElement>('.routes button')[3]!.click()
+    flushSync()
+    const exitKind = document.querySelector<HTMLSelectElement>('[role="dialog"] select')!
+    exitKind.value = 'done'
+    exitKind.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+    document.querySelector('form')!.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }))
+    expect(mocks.place).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('[data-completion-confetti]')).toBeNull()
+
+    if (fails) {
+      rejectSave(new Error('disk full'))
+      await vi.waitFor(() => expect(mocks.toast).toHaveBeenCalled())
+      expect(document.querySelector('[data-completion-confetti]')).toBeNull()
+      expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    } else {
+      resolveSave()
+      await vi.waitFor(() => expect(document.querySelector('[data-completion-confetti]')).toBeTruthy())
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+    }
+  })
+
+  it('does not celebrate a quick completion before saving or when saving fails', async () => {
+    mocks.state.workspace = workspace()
+    let fail!: (error: Error) => void
+    mocks.place.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject }))
+    component = mount(App, { target: document.body })
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    const done = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((button) => button.textContent === '完成')!
+    done.click()
+    flushSync()
+    expect(document.querySelector('[data-completion-confetti]')).toBeNull()
+    fail(new Error('disk full'))
+    await vi.waitFor(() => expect(mocks.toast).toHaveBeenCalled())
+    expect(document.querySelector('[data-completion-confetti]')).toBeNull()
+    expect(document.querySelector('[role="menu"]')).toBeTruthy()
+  })
+
+  it('keeps a failed placement menu available to retry and prevents duplicate submissions while pending', async () => {
+    mocks.state.workspace = workspace()
+    let fail!: (reason: Error) => void
+    mocks.place.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject }))
+    component = mount(App, { target: document.body })
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    const first = document.querySelector<HTMLButtonElement>('[role="menuitem"]')!
+    first.click()
+    first.click()
+    flushSync()
+
+    expect(mocks.place).toHaveBeenCalledTimes(1)
+    expect([...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].every((button) => button.disabled)).toBe(true)
+    fail(new Error('disk full'))
+    await vi.waitFor(() => expect(mocks.toast).toHaveBeenCalledWith('error', 'Next 无法保存这次安放。', 'Error: disk full'))
+    await vi.waitFor(() => expect(first.disabled).toBe(false))
+    expect(document.querySelector('[role="menu"]')).toBeTruthy()
+    first.click()
+    await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+  })
+
+  it('cancels the placement menu with Escape or an outside pointer without saving', () => {
+    mocks.state.workspace = workspace()
+    component = mount(App, { target: document.body })
+    flushSync()
+    const anchor = document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!
+    anchor.click()
+    flushSync()
+    document.querySelector('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    flushSync()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(document.activeElement).toBe(anchor)
+
+    anchor.click()
+    flushSync()
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(mocks.place).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('closes the placement menu when a creation shortcut opens a sheet (Task: %s)', (task) => {
+    mocks.state.workspace = workspace()
+    component = mount(App, { target: document.body })
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    expect(document.querySelector('[role="menu"]')).toBeTruthy()
+
+    document.querySelector('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'n', metaKey: true, shiftKey: task, bubbles: true, cancelable: true,
+    }))
+    flushSync()
+
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(mocks.place).not.toHaveBeenCalled()
+  })
+
+  it('supports keyboard navigation and selection in the placement menu', async () => {
+    mocks.state.workspace = workspace()
+    component = mount(App, { target: document.body })
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click()
+    flushSync()
+    const menu = document.querySelector('[role="menu"]')!
+    const rows = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+    const key = (value: string) => {
+      menu.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true }))
+      flushSync()
+    }
+    expect(document.activeElement).toBe(menu)
+    key('ArrowUp')
+    expect(document.activeElement).toBe(rows[6])
+    key('ArrowDown')
+    expect(document.activeElement).toBe(rows[0])
+    key('End')
+    expect(document.activeElement).toBe(rows[6])
+    key('ArrowDown')
+    expect(document.activeElement).toBe(rows[0])
+    key('ArrowUp')
+    expect(document.activeElement).toBe(rows[6])
+    key('Home')
+    expect(document.activeElement).toBe(rows[0])
+    key('ArrowDown')
+    expect(document.activeElement).toBe(rows[1])
+    // Native buttons produce a click when activated with Enter or Space.
+    const selected = document.activeElement as HTMLButtonElement
+    selected.click()
+    await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledWith(mocks.state.workspace!.capture[0], { route: 'wait', status_only: true }))
+  })
+
   it('defaults to priority sorting and switches the board to due or newest-first order', () => {
     const next = workspace()
     const cards: WorkspaceItem[] = [
@@ -380,7 +663,7 @@ describe('Next window', () => {
     expect(document.querySelector('[role="tooltip"]')).toBeNull()
   })
 
-  it('closes the tip before opening a card sheet and previews supported repair cards', () => {
+  it('closes the tip before opening a placement menu and previews supported repair cards', () => {
     const next = workspace()
     const unsupported: WorkspaceItem = {
       ...item('unsupported', '需要修复的想法', 'unsupported'),
@@ -410,7 +693,8 @@ describe('Next window', () => {
     expect(document.querySelector('[role="tooltip"]')).toBeTruthy()
     capture.querySelector<HTMLButtonElement>('.place')!.click()
     flushSync()
-    expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+    expect(document.querySelector('[role="menu"]')).toBeTruthy()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
     expect(document.querySelector('[role="tooltip"]')).toBeNull()
   })
 
@@ -442,8 +726,8 @@ describe('Next window', () => {
     }))
     flushSync()
 
-    expect(document.querySelector<HTMLButtonElement>('.routes button[aria-pressed="true"]')?.textContent)
-      .toContain('等待回收')
+    expect(mocks.place).toHaveBeenCalledWith(mocks.state.workspace!.capture[0], { route: 'wait', status_only: true })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
   })
 
   it('restores the focused preview after a click that never becomes a drag', () => {
@@ -993,27 +1277,41 @@ describe('Next window', () => {
     expect(document.body.textContent).toContain('需要修复的 Next 想法')
   })
 
-  it('opens the target placement route on pointer drop and reopens a dormant card dropped into capture', async () => {
+  it.each([
+    ['wip', { route: 'commit', status_only: true }],
+    ['waiting', { route: 'wait', status_only: true }],
+    ['dormant', { route: 'park', status_only: true }],
+    ['closed', { route: 'settle', exit: { kind: 'done' }, status_only: true }],
+  ])('saves the default status directly when dropped into %s', async (lane, input) => {
     const next = workspace()
     mocks.state.workspace = next
     component = mount(App, { target: document.body })
     flushSync()
 
-    pointerDrag('capture', 'waiting')
+    pointerDrag('capture', lane as string)
 
-    const activeRoute = document.querySelector<HTMLButtonElement>('.routes button[aria-pressed="true"]')
-    expect(activeRoute?.textContent).toContain('等待回收')
+    await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledWith(next.capture[0], input))
+    expect(mocks.place).toHaveBeenCalledTimes(1)
+    expect(mocks.reopen).not.toHaveBeenCalled()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+  })
 
-    document.querySelector<HTMLButtonElement>('[aria-label="取消"]')!
-      .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  it.each(['dormant', 'closed'])('reopens a %s card dropped into capture without a form', async (source) => {
+    const next = workspace()
+    mocks.state.workspace = next
+    component = mount(App, { target: document.body })
     flushSync()
     const showPlaced = [...document.querySelectorAll('button')].find((node) => node.textContent?.includes('显示已安放'))!
-    showPlaced.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    showPlaced.click()
     flushSync()
 
-    pointerDrag('dormant', 'capture', 2)
-    await Promise.resolve()
-    expect(mocks.reopen).toHaveBeenCalledWith(next.dormant[0])
+    pointerDrag(source, 'capture')
+
+    await vi.waitFor(() => expect(mocks.reopen).toHaveBeenCalledWith(next.items.find((entry) => entry.key === source)))
+    expect(mocks.place).not.toHaveBeenCalled()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
   })
 
   it('does nothing on a same-lane pointer drop and disables dragging while saving', () => {
@@ -1035,28 +1333,22 @@ describe('Next window', () => {
     expect(document.querySelector<HTMLElement>('[data-item-key="wip"]')!.dataset.draggable).toBe('false')
   })
 
-  it('reopens a closed idea before placing it into a new lane', async () => {
+  it.each(['dormant', 'closed'])('reopens a %s idea before directly placing it into a new lane', async (source) => {
     const next = workspace()
     mocks.state.workspace = next
     component = mount(App, { target: document.body })
     flushSync()
 
     const showPlaced = [...document.querySelectorAll('button')].find((node) => node.textContent?.includes('显示已安放'))!
-    showPlaced.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    showPlaced.click()
     flushSync()
-    pointerDrag('closed', 'wip')
+    pointerDrag(source, 'wip')
 
-    for (const field of ['commitment', 'nextAction', 'closeCondition']) {
-      document.querySelector<HTMLButtonElement>(`[data-choices-for="${field}"] button`)!
-        .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    }
-    document.querySelector('form')!.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }))
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(mocks.reopen).toHaveBeenCalledWith(next.closed[0])
-    expect(mocks.place).toHaveBeenCalledWith(next.closed[0], expect.objectContaining({ route: 'commit' }))
+    const moved = next.items.find((entry) => entry.key === source)!
+    await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledWith(moved, { route: 'commit', status_only: true }))
+    expect(mocks.reopen).toHaveBeenCalledWith(moved)
     expect(mocks.reopen.mock.invocationCallOrder[0]).toBeLessThan(mocks.place.mock.invocationCallOrder[0])
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
   })
 
   it('cancels a pointer drag with Escape and never starts one from a card button', () => {
@@ -1122,10 +1414,10 @@ describe('Next window', () => {
     expect(document.body.textContent).toContain('需要处理')
     expect(document.body.textContent).toContain('找不到原文的想法')
     expect(document.querySelector('[data-item-key="orphan"] [data-card-title]')).toBeNull()
-    const place = [...document.querySelectorAll('button')].find((node) => node.textContent?.trim() === '安放')
+    const place = document.querySelector<HTMLButtonElement>('[data-item-key="orphan"] .place')
     expect(place).toBeTruthy()
     place!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     flushSync()
-    expect(document.body.textContent).toContain('安放“找不到原文的想法”')
+    expect(document.querySelector('[role="menu"]')?.getAttribute('aria-label')).toBe('安放“找不到原文的想法”')
   })
 })

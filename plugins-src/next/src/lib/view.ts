@@ -95,7 +95,7 @@ export function previewPosition(
 
 export function isDormantDue(item: WorkspaceItem, today = new Date()): boolean {
   if (item.projection?.state !== 'dormant') return false
-  const match = item.projection.wake_trigger.match(/^(\d{4}-\d{2}-\d{2})(?:\b|T)/)
+  const match = item.projection.wake_trigger?.match(/^(\d{4}-\d{2}-\d{2})(?:\b|T)/)
   if (!match) return false
   const due = new Date(`${match[1]}T00:00:00`)
   return !Number.isNaN(due.getTime()) && due.getTime() <= today.getTime()

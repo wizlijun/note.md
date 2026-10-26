@@ -176,7 +176,7 @@ function validateExit(record: UnknownRecord, errors: FieldValidationError[]): vo
       if (!['drop', 'disproved', 'ignore'].includes(String(value.via))) {
         errors.push({ field: 'exit.via', message: 'stopped requires drop, disproved, or ignore' })
       }
-      if ((value.via === 'drop' || value.via === 'disproved') && !isNonBlankString(record.reason)) {
+      if ((value.via === 'disproved' || (value.via === 'drop' && record.status_only !== true)) && !isNonBlankString(record.reason)) {
         errors.push({ field: 'reason', message: `${value.via} requires a reason` })
       }
       break
@@ -184,7 +184,7 @@ function validateExit(record: UnknownRecord, errors: FieldValidationError[]): vo
       if (!['merge', 'project', 'delegate', 'buy', 'publish'].includes(String(value.via))) {
         errors.push({ field: 'exit.via', message: 'transferred requires a supported destination kind' })
       }
-      if (!isNonBlankString(record.target)) {
+      if (!(record.status_only === true && value.via === 'delegate') && !isNonBlankString(record.target)) {
         errors.push({ field: 'target', message: 'transferred requires a target' })
       }
       break
@@ -220,18 +220,23 @@ export function validateEvent(value: unknown): EventValidation {
     return { ok: true, known: false, event: normalized as UnsupportedEvent }
   }
 
+  if (value.status_only !== undefined && typeof value.status_only !== 'boolean') {
+    errors.push({ field: 'status_only', message: 'must be a boolean when present' })
+  }
+  const detailString = value.status_only === true ? optionalString : requireString
+
   switch (value.action) {
     case 'commit':
-      requireString(value, 'commitment', errors)
-      requireString(value, 'next_action', errors)
-      requireString(value, 'close_condition', errors)
+      detailString(value, 'commitment', errors)
+      detailString(value, 'next_action', errors)
+      detailString(value, 'close_condition', errors)
       break
     case 'wait':
-      requireString(value, 'waiting_for', errors)
-      requireDate(value, 'review_at', errors)
+      detailString(value, 'waiting_for', errors)
+      if (value.status_only !== true || value.review_at !== undefined) requireDate(value, 'review_at', errors)
       break
     case 'park':
-      requireString(value, 'wake_trigger', errors)
+      detailString(value, 'wake_trigger', errors)
       optionalString(value, 'next_action', errors)
       break
     case 'settle':
@@ -544,24 +549,24 @@ function applyKnownEvent(state: MutableProjection, event: NextEvent, index: numb
       state.items.set(key, {
         ...base,
         state: 'wip',
-        commitment: event.commitment,
-        next_action: event.next_action,
-        close_condition: event.close_condition,
+        ...(event.commitment ? { commitment: event.commitment } : {}),
+        ...(event.next_action ? { next_action: event.next_action } : {}),
+        ...(event.close_condition ? { close_condition: event.close_condition } : {}),
       })
       break
     case 'wait':
       state.items.set(key, {
         ...base,
         state: 'waiting',
-        waiting_for: event.waiting_for,
-        review_at: event.review_at,
+        ...(event.waiting_for ? { waiting_for: event.waiting_for } : {}),
+        ...(event.review_at ? { review_at: event.review_at } : {}),
       })
       break
     case 'park':
       state.items.set(key, {
         ...base,
         state: 'dormant',
-        wake_trigger: event.wake_trigger,
+        ...(event.wake_trigger ? { wake_trigger: event.wake_trigger } : {}),
         ...(event.next_action ? { next_action: event.next_action } : {}),
       })
       break

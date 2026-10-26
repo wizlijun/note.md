@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { reduceEvents } from './domain'
+import { quickPlaceInput } from './events'
 import {
   LedgerFormatError,
   newLedger,
@@ -141,4 +143,22 @@ future_top: keep-me-too
     expect(markdown).toContain('version: 1')
     expect(markdown).not.toContain('task_dirs:')
   })
+})
+
+
+it('round-trips all quick dispositions without adding detailed fields', () => {
+  const events = (['commit', 'wait', 'park', 'done', 'stopped', 'transferred'] as const).map((action) => {
+    const { route, ...payload } = quickPlaceInput(action)
+    return {
+      at: '2026-10-26T00:00:00Z', event_id: `e-${action}`,
+      item_id: action, item_kind: 'idea', source: { path: `${action}.idea.md` },
+      action: route, ...payload,
+    }
+  })
+  const document = { ...newLedger(['inbox/ideas']), version: 2 as const, task_dirs: [], events }
+  const loaded = parseLedger(serializeLedger(document))
+  expect(loaded.events).toEqual(events)
+  expect(reduceEvents(loaded.events).issues).toEqual([])
+  expect([...reduceEvents(loaded.events).items.values()].map((item) => item.state))
+    .toEqual(['wip', 'waiting', 'dormant', 'closed', 'closed', 'closed'])
 })

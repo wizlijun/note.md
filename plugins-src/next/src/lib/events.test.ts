@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placeEvent, relinkEvent, reopenEvent, type EventFactory } from './events'
+import { placeEvent, quickPlaceInput, relinkEvent, reopenEvent, type EventFactory } from './events'
 import type { WorkspaceItem } from './repository'
 
 const ids = ['event-1', 'idea-1']
@@ -138,5 +138,29 @@ describe('event construction', () => {
     }, sequential)
     expect(event).toMatchObject({ item_id: 'task-1', item_kind: 'task', action: 'commit' })
     expect(event).not.toHaveProperty('idea_id')
+  })
+})
+
+
+describe('quick placement', () => {
+  it.each([
+    ['commit', { action: 'commit' }],
+    ['wait', { action: 'wait' }],
+    ['park', { action: 'park' }],
+    ['done', { action: 'settle', exit: { kind: 'done' } }],
+    ['stopped', { action: 'settle', exit: { kind: 'stopped', via: 'drop' } }],
+    ['transferred', { action: 'settle', exit: { kind: 'transferred', via: 'delegate' } }],
+  ] as const)('records %s with only its state and source identity', (action, expected) => {
+    const sequential: EventFactory = { now: factory.now, id: () => 'quick-event' }
+    const event = placeEvent({ ...capture, idea_id: 'existing' }, quickPlaceInput(action), sequential, 2)
+    expect(event).toEqual({
+      at: factory.now(),
+      event_id: 'quick-event',
+      item_id: 'existing',
+      item_kind: 'idea',
+      source: { path: capture.path, created: capture.created },
+      status_only: true,
+      ...expected,
+    })
   })
 })

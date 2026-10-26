@@ -30,6 +30,8 @@ export interface EventBase {
   /** v1 persisted identity. Readers normalize it to item_kind=idea in memory. */
   idea_id?: string
   action: NextAction
+  /** A deliberate quick placement that records state without requiring details. */
+  status_only?: boolean
   source?: SourceRef
   /** Canonical tag set. Omitted inherits, an array replaces, and null clears. */
   projects?: string[] | null
@@ -40,20 +42,20 @@ export interface EventBase {
 
 export interface CommitEvent extends EventBase {
   action: 'commit'
-  commitment: string
-  next_action: string
-  close_condition: string
+  commitment?: string
+  next_action?: string
+  close_condition?: string
 }
 
 export interface WaitEvent extends EventBase {
   action: 'wait'
-  waiting_for: string
-  review_at: string
+  waiting_for?: string
+  review_at?: string
 }
 
 export interface ParkEvent extends EventBase {
   action: 'park'
-  wake_trigger: string
+  wake_trigger?: string
   next_action?: string
 }
 
@@ -140,20 +142,20 @@ export interface CaptureIdea extends IdeaProjectionBase {
 
 export interface WipIdea extends IdeaProjectionBase {
   state: 'wip'
-  commitment: string
-  next_action: string
-  close_condition: string
+  commitment?: string
+  next_action?: string
+  close_condition?: string
 }
 
 export interface WaitingIdea extends IdeaProjectionBase {
   state: 'waiting'
-  waiting_for: string
-  review_at: string
+  waiting_for?: string
+  review_at?: string
 }
 
 export interface DormantIdea extends IdeaProjectionBase {
   state: 'dormant'
-  wake_trigger: string
+  wake_trigger?: string
   next_action?: string
 }
 

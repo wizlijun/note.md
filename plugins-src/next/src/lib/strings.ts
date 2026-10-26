@@ -33,6 +33,8 @@ export type MessageKey =
   | 'action.findPlaced'
   | 'action.hidePlaced'
   | 'action.place'
+  | 'action.placeMore'
+  | 'action.transfer'
   | 'action.reopen'
   | 'action.relink'
   | 'action.openSource'
@@ -254,6 +256,8 @@ const en: Catalog = {
   'action.findPlaced': 'Show placed items',
   'action.hidePlaced': 'Hide placed items',
   'action.place': 'Place',
+  'action.placeMore': 'More…',
+  'action.transfer': 'Transfer to someone else',
   'action.reopen': 'Reopen',
   'action.relink': 'Relink',
   'action.openSource': 'Open source',
@@ -284,7 +288,7 @@ const en: Catalog = {
   'sort.priority': 'Priority first',
   'sort.due': 'Due date first',
   'sort.created': 'Newest added first',
-  'board.dragHelp': 'Drag a card to another lane. Next asks only for the information that state needs.',
+  'board.dragHelp': 'Drag a card to change its status. Choose More… under Place to add details.',
   'create.title': 'New Idea',
   'create.destination': 'Save to {path}',
   'create.field': 'Idea',
@@ -474,6 +478,8 @@ const zh: Catalog = {
   'action.findPlaced': '显示已安放',
   'action.hidePlaced': '收起已安放',
   'action.place': '安放',
+  'action.placeMore': '更多…',
+  'action.transfer': '转移他人',
   'action.reopen': '重新考虑',
   'action.relink': '重新关联',
   'action.openSource': '打开原文',
@@ -504,7 +510,7 @@ const zh: Catalog = {
   'sort.priority': '优先级优先',
   'sort.due': '截止日期优先',
   'sort.created': '最新添加优先',
-  'board.dragHelp': '把卡片拖到另一条泳道；Next 只会询问该状态真正需要的信息。',
+  'board.dragHelp': '拖动卡片即可改变状态；需要补充详情时，选择安放菜单中的“更多…”。',
   'create.title': '新建 Idea',
   'create.destination': '保存到 {path}',
   'create.field': 'Idea',
@@ -694,6 +700,8 @@ const ja: Catalog = {
   'action.findPlaced': '配置済みを表示',
   'action.hidePlaced': '配置済みを隠す',
   'action.place': '置く',
+  'action.placeMore': '詳細…',
+  'action.transfer': '他の人に引き継ぐ',
   'action.reopen': '再検討',
   'action.relink': '再リンク',
   'action.openSource': '原文を開く',
@@ -724,7 +732,7 @@ const ja: Catalog = {
   'sort.priority': '優先度を優先',
   'sort.due': '期限を優先',
   'sort.created': '追加の新しい順',
-  'board.dragHelp': 'カードを別のレーンへドラッグできます。Next はその状態に必要な情報だけを尋ねます。',
+  'board.dragHelp': 'カードをドラッグすると状態が変わります。詳細は「置く」メニューの「詳細…」から入力できます。',
   'create.title': '新規 Idea',
   'create.destination': '{path} に保存',
   'create.field': 'Idea',
@@ -914,6 +922,8 @@ const de: Catalog = {
   'action.findPlaced': 'Abgelegte Einträge anzeigen',
   'action.hidePlaced': 'Abgelegte Einträge ausblenden',
   'action.place': 'Ablegen',
+  'action.placeMore': 'Mehr…',
+  'action.transfer': 'An andere übergeben',
   'action.reopen': 'Neu prüfen',
   'action.relink': 'Neu verknüpfen',
   'action.openSource': 'Quelle öffnen',
@@ -944,7 +954,7 @@ const de: Catalog = {
   'sort.priority': 'Priorität zuerst',
   'sort.due': 'Fälligkeit zuerst',
   'sort.created': 'Neueste zuerst',
-  'board.dragHelp': 'Ziehe eine Karte in eine andere Bahn. Next fragt nur nach den Angaben, die dieser Zustand braucht.',
+  'board.dragHelp': 'Ziehe eine Karte, um ihren Status zu ändern. Details kannst du unter „Ablegen → Mehr…“ ergänzen.',
   'create.title': 'Neue Idee',
   'create.destination': 'Speichern unter {path}',
   'create.field': 'Idee',

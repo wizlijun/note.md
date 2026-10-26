@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { reduceEvents, sourceKey, validateAppend, validateEvent } from './domain'
 import { itemKey } from './model'
+import { quickPlaceInput } from './events'
 
 const at = '2026-08-29T14:10:00Z'
 
@@ -600,5 +601,55 @@ describe('validateAppend', () => {
       ok: false,
       issues: [expect.objectContaining({ code: 'wip_limit_uncertain' })],
     })
+  })
+})
+
+
+describe('status-only events', () => {
+  const envelope = { at, event_id: 'quick-event', idea_id: 'quick-idea', source: source('quick.idea.md') }
+
+  it.each([
+    ['commit', 'wip'], ['wait', 'waiting'], ['park', 'dormant'],
+    ['done', 'closed'], ['stopped', 'closed'], ['transferred', 'closed'],
+  ] as const)('accepts and projects %s without fabricated details', (action, state) => {
+    const { route, ...payload } = quickPlaceInput(action)
+    const event = { ...envelope, action: route, ...payload }
+    expect(validateEvent(event)).toMatchObject({ ok: true, known: true })
+    const projection = reduceEvents([event])
+    expect(projection.issues).toEqual([])
+    expect(projection.ideas.get('quick-idea')).toEqual({
+      idea_id: 'quick-idea', item_id: 'quick-idea', item_kind: 'idea',
+      last_event_id: 'quick-event', last_at: at, source: envelope.source, state,
+      ...('exit' in payload ? { exit: payload.exit } : {}),
+    })
+  })
+
+  it.each([
+    { action: 'commit', commitment: '' },
+    { action: 'commit', next_action: 42 },
+    { action: 'commit', close_condition: null },
+    { action: 'wait', waiting_for: [] },
+    { action: 'wait', review_at: '2026-02-30' },
+    { action: 'park', wake_trigger: false },
+    { action: 'settle', exit: { kind: 'stopped', via: 'drop' }, reason: '' },
+    { action: 'settle', exit: { kind: 'transferred', via: 'delegate' }, target: 42 },
+  ])('still validates supplied details: %j', (payload) => {
+    expect(validateEvent({ ...envelope, status_only: true, ...payload }).ok).toBe(false)
+  })
+
+  it.each([undefined, false, 'true', 1])('does not relax required fields for marker %j', (status_only) => {
+    for (const action of ['commit', 'wait', 'park'] as const) {
+      expect(validateEvent({ ...envelope, action, status_only }).ok).toBe(false)
+    }
+    expect(validateEvent({ ...envelope, action: 'settle', status_only, exit: { kind: 'stopped', via: 'drop' } }).ok).toBe(false)
+    expect(validateEvent({ ...envelope, action: 'settle', status_only, exit: { kind: 'transferred', via: 'delegate' } }).ok).toBe(false)
+  })
+
+  it('inherits existing projects and still enforces transitions', () => {
+    const first = { ...commit('first', 'quick-idea', 'quick.idea.md'), projects: ['Next'] }
+    const parked = { ...envelope, action: 'park', status_only: true }
+    const projection = reduceEvents([first, parked])
+    expect(projection.ideas.get('quick-idea')).toMatchObject({ state: 'dormant', projects: ['Next'] })
+    expect(validateAppend(projection, { ...envelope, event_id: 'again', action: 'commit', status_only: true }).ok).toBe(false)
   })
 })

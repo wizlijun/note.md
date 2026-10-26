@@ -1,5 +1,9 @@
 # Next 插件设计
 
+> 2026-10-26 未发布变更：安放按钮改为状态菜单，前六项立即保存，只有“更多…”打开详细表单。拖拽直接写目标泳道默认状态；Closed 默认 done，Dormant/Closed 转出先 reopen。卡片新增直接完成，保存成功后播放短暂礼花并尊重 reduced-motion。
+> 快捷事件使用 `status_only: true`，允许省略承诺、下一步、关闭条件、等待内容、回收日期和唤醒条件；停止采用 stopped/drop，转移他人采用 transferred/delegate，均无需编造详情。普通详细事件仍遵守原校验，项目标签继承，源文件不变。旧版 reader 不支持缺详情的新事件，降级前需保留新 reader 或从备份恢复完整一致的数据；不宣称向旧版兼容。
+> Cube 提醒消费端位于 Vault `skills/proactive-reminder-push`。它按 Task UUID 只读折叠最新 NEXT 事件，排除 closed/unsupported；reopen 恢复候选资格，独立闭合账本仍生效。发送前重读，新增 Task 消息用稳定 `xiaobu-task-<UUID>` ID；旧 ID 需显式绑定。此集成不修改 Task，也不向 NEXT 写第二份状态。
+
 - 日期：2026-08-29
 - 更新：2026-09-01（1.5.0 加入 Task 卡片）
 - 状态：MVP 已实现，产品效果仍须按 G0–G4 验证

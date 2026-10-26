@@ -34,16 +34,16 @@
     : { title: '', doneWhen: '' })
   const inferredRoute: Route = projection?.state === 'waiting' ? 'wait' : projection?.state === 'dormant' ? 'park' : projection?.state === 'closed' ? 'settle' : 'commit'
   let route = $state<Route>(untrack(() => initialRoute ?? inferredRoute))
-  let commitment = $state(projection?.state === 'wip' ? projection.commitment : taskDefaults.title)
+  let commitment = $state(projection?.state === 'wip' ? projection.commitment ?? '' : taskDefaults.title)
   let nextAction = $state(projection?.state === 'wip' || projection?.state === 'dormant'
     ? projection.next_action ?? ''
     : taskDefaults.title)
   let closeCondition = $state(projection?.state === 'wip'
-    ? projection.close_condition
+    ? projection.close_condition ?? ''
     : taskDefaults.doneWhen)
-  let waitingFor = $state(projection?.state === 'waiting' ? projection.waiting_for : '')
-  let reviewAt = $state(projection?.state === 'waiting' ? projection.review_at.slice(0, 10) : '')
-  let wakeTrigger = $state(projection?.state === 'dormant' ? projection.wake_trigger : '')
+  let waitingFor = $state(projection?.state === 'waiting' ? projection.waiting_for ?? '' : '')
+  let reviewAt = $state(projection?.state === 'waiting' ? projection.review_at?.slice(0, 10) ?? '' : '')
+  let wakeTrigger = $state(projection?.state === 'dormant' ? projection.wake_trigger ?? '' : '')
   let exitKind = $state<ExitKind | ''>('')
   let exitVia = $state('')
   let reason = $state('')
