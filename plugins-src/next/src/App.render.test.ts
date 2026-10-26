@@ -1131,7 +1131,8 @@ describe('Next window', () => {
     expect([...document.querySelectorAll('[data-lane] h2')].map((heading) => heading.textContent)).toEqual([
       '收件箱', '进行中', '等待', '稍后', '已结束',
     ])
-    expect(document.querySelector('.project-filters')).toBeNull()
+    expect([...document.querySelectorAll('[data-kind-filter]')].map((button) => button.textContent)).toEqual(['Idea', 'Task'])
+    expect(document.querySelectorAll('[data-project-filter]')).toHaveLength(0)
     expect(document.body.textContent).toContain('正在验证的想法')
     expect(document.body.textContent).toContain('等待设计稿')
     expect(document.body.textContent).toContain('默认隐藏的想法')
@@ -1244,6 +1245,54 @@ describe('Next window', () => {
     search.dispatchEvent(new InputEvent('input', { bubbles: true }))
     flushSync()
     expect(document.body.textContent).toContain('等待设计稿')
+  })
+
+  it('filters Idea and Task across all lanes and composes with project and search without writes', () => {
+    const next = workspace()
+    next.projectOptions = ['Next']
+    for (const lane of ['capture', 'wip', 'waiting', 'dormant', 'closed'] as const) {
+      const source = next[lane][0]!
+      const task: WorkspaceItem = { ...source, key: `task-${lane}`, kind: 'task', title: `Task ${lane}` }
+      next[lane].push(task)
+      next.items.push(task)
+    }
+    mocks.state.workspace = next
+    component = mount(App, { target: document.body })
+    flushSync()
+    const idea = document.querySelector<HTMLButtonElement>('[data-kind-filter="idea"]')!
+    const task = document.querySelector<HTMLButtonElement>('[data-kind-filter="task"]')!
+    const visible = () => [...document.querySelectorAll('[data-item-key]')].map((card) => card.getAttribute('data-item-key'))
+    task.click()
+    flushSync()
+    expect(visible()).toEqual(['task-capture', 'task-wip', 'task-waiting', 'task-dormant', 'task-closed'])
+    expect(task.getAttribute('aria-pressed')).toBe('true')
+    idea.click()
+    flushSync()
+    expect(visible()).toEqual(['capture', 'wip', 'waiting', 'dormant', 'closed'])
+    expect(task.getAttribute('aria-pressed')).toBe('false')
+    idea.click()
+    flushSync()
+    expect(idea.getAttribute('aria-pressed')).toBe('false')
+    expect(visible()).toContain('capture')
+    expect(visible()).toContain('task-capture')
+    expect(visible()).not.toContain('closed')
+
+    task.click()
+    document.querySelector<HTMLButtonElement>('[data-project-filter="Next"]')!.click()
+    flushSync()
+    expect(visible()).toEqual(['task-wip'])
+    const search = document.querySelector<HTMLInputElement>('input[type="search"]')!
+    search.value = '不存在'
+    search.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    flushSync()
+    expect(visible()).toEqual([])
+    search.value = 'wip'
+    search.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    flushSync()
+    expect(visible()).toEqual(['task-wip'])
+    expect(mocks.place).not.toHaveBeenCalled()
+    expect(mocks.reopen).not.toHaveBeenCalled()
+    expect(mocks.updateMetadata).not.toHaveBeenCalled()
   })
 
   it('applies project and text filters together to repair cards', () => {

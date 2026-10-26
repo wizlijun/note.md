@@ -3,7 +3,7 @@ export type Locale = 'en' | 'zh' | 'ja' | 'de'
 export type MessageKey =
   | 'app.title'
   | 'app.value'
-  | 'filter.projects'
+  | 'filter.items'
   | 'common.loading'
   | 'common.refresh'
   | 'common.open'
@@ -266,7 +266,7 @@ type Catalog = Record<MessageKey, string>
 const en: Catalog = {
   'app.title': 'Next',
   'app.value': 'Give ideas and tasks a clear next step — or a place to rest.',
-  'filter.projects': 'Projects',
+  'filter.items': 'Type and project filters',
   'common.loading': 'Loading…',
   'common.refresh': 'Refresh',
   'common.open': 'Open',
@@ -528,7 +528,7 @@ const en: Catalog = {
 const zh: Catalog = {
   'app.title': '下一步',
   'app.value': '让想法和任务都有明确的下一步，或一个安心的去处。',
-  'filter.projects': '项目',
+  'filter.items': '类型与项目筛选',
   'common.loading': '正在载入…',
   'common.refresh': '刷新',
   'common.open': '打开',
@@ -790,7 +790,7 @@ const zh: Catalog = {
 const ja: Catalog = {
   'app.title': '次の一歩',
   'app.value': 'アイデアとタスクに、明確な次の一歩か安心できる置き場所を。',
-  'filter.projects': 'プロジェクト',
+  'filter.items': '種類とプロジェクトの絞り込み',
   'common.loading': '読み込み中…',
   'common.refresh': '更新',
   'common.open': '開く',
@@ -1052,7 +1052,7 @@ const ja: Catalog = {
 const de: Catalog = {
   'app.title': 'Nächster Schritt',
   'app.value': 'Gib Ideen und Aufgaben einen klaren nächsten Schritt – oder einen ruhigen Ort.',
-  'filter.projects': 'Projekte',
+  'filter.items': 'Typ- und Projektfilter',
   'common.loading': 'Wird geladen…',
   'common.refresh': 'Aktualisieren',
   'common.open': 'Öffnen',

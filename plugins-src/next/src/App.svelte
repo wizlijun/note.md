@@ -55,6 +55,7 @@
   let search = $state('')
   let sortMode = $state<SortMode>('priority')
   let selectedProject = $state('')
+  let selectedKind = $state<'idea' | 'task' | ''>('')
   let placeMenu = $state<{ item: WorkspaceItem; anchor: HTMLButtonElement } | null>(null)
   let placementSaving = $state(false)
   let celebration = $state(0)
@@ -98,7 +99,7 @@
   ))
   const projectOptions = $derived(workspace?.projectOptions ?? [])
   const activeProject = $derived(projectOptions.includes(selectedProject) ? selectedProject : '')
-  const filtering = $derived(Boolean(search.trim() || activeProject))
+  const filtering = $derived(Boolean(search.trim() || activeProject || selectedKind))
   const blocked = $derived(Boolean(workspace?.readOnlyError || workspace?.projection.hasBlockingIssues))
   const interactionDisabled = $derived(store.saving || placementSaving || blocked)
   const createDefaults = $derived(planningDefaults(store.settings))
@@ -127,6 +128,7 @@
   }
 
   function matchesFilters(item: WorkspaceItem): boolean {
+    if (selectedKind && (item.kind ?? 'idea') !== selectedKind) return false
     if (!matchesProject(item)) return false
     const query = search.trim().toLocaleLowerCase()
     return !query || itemSearchText(item).includes(query)
@@ -134,6 +136,11 @@
 
   function filter(items: WorkspaceItem[]): WorkspaceItem[] {
     return items.filter(matchesFilters)
+  }
+
+  function toggleKind(kind: 'idea' | 'task') {
+    closePreview()
+    selectedKind = selectedKind === kind ? '' : kind
   }
 
   function toggleProject(project: string) {
@@ -642,19 +649,26 @@
       <h1>{t('app.title')}</h1>
       <div class="subtitle-row">
         <p>{t('app.value')}</p>
-        {#if projectOptions.length}
-          <div class="project-filters" role="group" aria-label={t('filter.projects')}>
-            {#each projectOptions as project}
-              <button
-                type="button"
-                data-project-filter={project}
-                aria-pressed={activeProject === project}
-                class:active={activeProject === project}
-                onclick={() => toggleProject(project)}
-              >{project}</button>
-            {/each}
-          </div>
-        {/if}
+        <div class="project-filters" role="group" aria-label={t('filter.items')}>
+          {#each ['idea', 'task'] as kind}
+            <button
+              type="button"
+              data-kind-filter={kind}
+              aria-pressed={selectedKind === kind}
+              class:active={selectedKind === kind}
+              onclick={() => toggleKind(kind as 'idea' | 'task')}
+            >{kind === 'idea' ? 'Idea' : 'Task'}</button>
+          {/each}
+          {#each projectOptions as project}
+            <button
+              type="button"
+              data-project-filter={project}
+              aria-pressed={activeProject === project}
+              class:active={activeProject === project}
+              onclick={() => toggleProject(project)}
+            >{project}</button>
+          {/each}
+        </div>
       </div>
     </div>
     <div class="top-actions">
