@@ -1,0 +1,523 @@
+{
+  "host": {
+    "tag": "v6.1027.1",
+    "mode": "public",
+    "sourceCommit": "fbeaf85739b8e2f4eeec2ea55167e543360737c8",
+    "sourceTree": "9c187cc65710648bf96e68f9478f4777759bfc27",
+    "remoteTagCommit": "fbeaf85739b8e2f4eeec2ea55167e543360737c8",
+    "remoteTagVerified": true,
+    "coreCommit": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+    "assets": [
+      {
+        "name": "latest.json",
+        "bytes": 1314,
+        "sha256": "99df650c03b762f6bd4957fd7e04ef4e2eae39e942b1fd39b9dcbb8144124c82",
+        "id": 678929333
+      },
+      {
+        "name": "note.md-6.1027.1-aarch64.dmg",
+        "bytes": 13458885,
+        "sha256": "c35519ed4c2be90675ae438c03dac31df57af1af740724a6fe2eab29f0130208",
+        "id": 678925485
+      },
+      {
+        "name": "note.md-6.1027.1-x86_64.dmg",
+        "bytes": 14106686,
+        "sha256": "520d4ba3dc583377455b1eadb7837a6f074d3b28f04e242ac2a394d26fd0b75b",
+        "id": 678925500
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13504463,
+        "sha256": "a467720659e3268a785040cf1a23578ee7796616788c74a07d6a6fe42bb76782",
+        "id": 678925498
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "bf04a5def3c78170fd4175df63a1f6eb67bc5aed6d71e99939bf5aa51f000a2b",
+        "id": 678925487
+      },
+      {
+        "name": "note.md-x86_64.app.tar.gz",
+        "bytes": 14067697,
+        "sha256": "82d1e68e056af9c01bd95f8506554369393865013d6abca32e1db88499fec5c8",
+        "id": 678925490
+      },
+      {
+        "name": "note.md-x86_64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "14836957d8d9e249eb8e78170c3cc0a52e6bfd158068c38c50eec46afd53d2d4",
+        "id": 678926578
+      },
+      {
+        "name": "note.md_6.1027.1_amd64.deb",
+        "bytes": 14808736,
+        "sha256": "db4fb09cfc3c01df1097567b3c0a2aacd6d1063967f8424483d93792a601ea25",
+        "id": 678963449
+      },
+      {
+        "name": "note.md_6.1027.1_arm64.deb",
+        "bytes": 14791910,
+        "sha256": "6aa47425ef07604e9ab2a103435c489b7b828c0f8d1a61df7c198f55d130e14c",
+        "id": 678963409
+      },
+      {
+        "name": "notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14635935,
+        "sha256": "6a3ee84b0baba45053fc9364e2ef3f04a70ffefa26a890c801a809ad283a21a8",
+        "id": 678991795
+      },
+      {
+        "name": "notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14295522,
+        "sha256": "836bfda45fbd7f6175d940c93147b9edcd89f55a497dc80830d6c3c56becb37e",
+        "id": 678991801
+      },
+      {
+        "name": "SHA256SUMS-linux.txt",
+        "bytes": 186,
+        "sha256": "9ae526b7f60ab560119c405eb4e60077120a7f6314a85010353a2df14143ffa1",
+        "id": 678963447
+      },
+      {
+        "name": "SHA256SUMS-omarchy-aarch64.txt",
+        "bytes": 104,
+        "sha256": "b19df7e55c4d258707af323328450cb12dcfc153d040f94814f38414424bc7f9",
+        "id": 678991802
+      },
+      {
+        "name": "SHA256SUMS-omarchy.txt",
+        "bytes": 103,
+        "sha256": "8b0fb8981fef909f23b7108fd68b44eb07fb44e60c8a74197127083eac8faa13",
+        "id": 678991790
+      }
+    ],
+    "signaturesVerified": true,
+    "notarizationVerified": true,
+    "distributedMacBinariesMatchPayloadProof": true,
+    "distributedLinuxDebBytesMatchFinalPayloadEvidence": true,
+    "payloadProofSha256": {
+      "mac-aarch64": "9b2f7c12307476288d3ab11ade7cb3474f99903cb9fbaa939f2cc393093eaadf",
+      "mac-x86_64": "881e5458d067c093929a4edc7c024f7557f1eb5a9f96a9059a3a633086ac8298",
+      "linux-amd64": "7ab455c0637e8216edb52803ac70cbc9c0422c82e9798a83d42effb4ef1f0ac6",
+      "linux-arm64": "07d58ba034108849a42ae9eaa5ebe58cb035b4ac80a304712866a4b0a722c687"
+    },
+    "exactAssetSetVerified": true,
+    "distributedArchBinariesMatchFinalLinuxPayload": true,
+    "freshAnonymousDownloads": true,
+    "latestVerified": true,
+    "publishedAt": "2026-10-26T17:52:16Z",
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1027.1",
+    "distributedLinuxDebBinariesMatchFinalPayload": true,
+    "debPayloadVerification": [
+      {
+        "package": "note.md_6.1027.1_amd64.deb",
+        "dataMember": "data.tar.gz",
+        "elfMember": "usr/bin/notemd",
+        "elfBytes": 27416304,
+        "elfSha256": "289b0c92bb39a8b76ae7ad714086cb5f9f0b8ef763de0a294e7c0ded772caacc",
+        "matchesFinalPayloadProof": true,
+        "source": "fresh-in-memory-read-of-downloaded-deb"
+      },
+      {
+        "package": "note.md_6.1027.1_arm64.deb",
+        "dataMember": "data.tar.gz",
+        "elfMember": "usr/bin/notemd",
+        "elfBytes": 23551912,
+        "elfSha256": "95d2ee74f38e8ee31b5df2296220924ddfc553c400a1175a42c48d70655cd640",
+        "matchesFinalPayloadProof": true,
+        "source": "fresh-in-memory-read-of-downloaded-deb"
+      }
+    ],
+    "taskHookFrozenSourceAndBinaryMarkers": {
+      "mac-aarch64": {
+        "proofSha256": "8ac9942f763597ac78da7f083fe7d6b15b2e582cb5a2c00cfb7d449d15c7f652",
+        "binarySha256": "41bfadfb5b422bd31e5b3cb3f33b767a89ad23f8218b74bfcab1499d8c3668f4"
+      },
+      "mac-x86_64": {
+        "proofSha256": "c0d187a4aca2df02f6b6c9c0aea3271a7ac75af49c2518ccb6f6717a7246e646",
+        "binarySha256": "cb77af1ca6975bff4103ee1e3a28dc0d1a04b77356bedadc2d85dcaeae8268ab"
+      },
+      "linux-amd64": {
+        "proofSha256": "48087ebf6d2f2813c9b245358f654f0ab998d807ad4365d63bf2fcd75c1276ff",
+        "binarySha256": "289b0c92bb39a8b76ae7ad714086cb5f9f0b8ef763de0a294e7c0ded772caacc"
+      },
+      "linux-arm64": {
+        "proofSha256": "dcd553e3ef33e30e31f4c3e68c8d7d21ccdc7f55c06e59f3294c6929aea9eda4",
+        "binarySha256": "95d2ee74f38e8ee31b5df2296220924ddfc553c400a1175a42c48d70655cd640"
+      }
+    },
+    "taskHookRuntimeWebViewVerified": false
+  },
+  "website": {
+    "version": "6.1027.1",
+    "nextVersion": "1.8.0",
+    "status": "passed",
+    "websiteCommit": "58663aedd833fc384fb1be7bc34cd3d44d87d8ef",
+    "deploymentRunId": "40373673417",
+    "workerSourceSha256": {
+      "website/src/index.js": "6a782d856ef5d4fef277afaa426b160d5e0a8c6d453a249feefc5a58a36f5ddd",
+      "website/src/resolve-download.js": "ae1a90ee16b7cccc66d750d70367b967784404f856aa1a0aa3c501469741658c",
+      "website/wrangler.toml": "a856a9d42591e2f543dc029185ec8175d2e1fd0962479913db287fd15f67c86f"
+    },
+    "verification": "anonymous-read-only-public",
+    "downloads": [
+      {
+        "name": "mac-aarch64",
+        "request": "https://notemd.net/download?os=mac&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-aarch64.dmg",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:01 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-deb-aarch64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:01 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-arch-aarch64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:01 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "mac-x86_64",
+        "request": "https://notemd.net/download?os=mac&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-x86_64.dmg",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:01 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-deb-x86_64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:03 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-arch-x86_64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:03 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "windows-x86_64",
+        "request": "https://notemd.net/download?os=windows&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:03 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-reduced-ua-arm-deb",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"arm\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:04 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-reduced-ua-arm-arch",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"arm\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:05 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      }
+    ],
+    "amdClientHints": [
+      {
+        "name": "linux-reduced-ua-amd-deb",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"x86\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:13 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-reduced-ua-amd-arch",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"x86\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Mon, 26 Oct 2026 18:02:13 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      }
+    ],
+    "choices": [
+      {
+        "name": "linux-format-choice",
+        "request": "https://notemd.net/download?os=linux&arch=aarch64",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+          "/download?os=linux&amp;format=deb&amp;arch=aarch64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "526cbe6d487a470b003b9e7f97ba27dd43d878b2402de208e00bdf2d06a78189"
+      },
+      {
+        "name": "linux-cold-format-choice",
+        "request": "https://notemd.net/download?os=linux",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch",
+          "/download?os=linux&amp;format=deb"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "cc57e9d072ba1c5013aebeb6bb2434aa4d4e2a1afaf4a68b2f56e12041c4133b"
+      },
+      {
+        "name": "linux-cold-arch-choice",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+          "/download?os=linux&amp;format=arch&amp;arch=x86_64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "4c7ad1183a7dbf2eabacce85ab0c97e51ed222fade65b4b7820c9e470bf44e94"
+      },
+      {
+        "name": "linux-cold-deb-choice",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=deb&amp;arch=aarch64",
+          "/download?os=linux&amp;format=deb&amp;arch=x86_64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "e87e4d3fce87de23f65f256bc262bdd0534111f4c4f0bb8e01088a955edc7d8f"
+      }
+    ],
+    "pages": [
+      {
+        "url": "https://notemd.net/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "9d3f138a43719938d674f16f7fb17b7274f76d4de4fa298558b41017d3df1892"
+      },
+      {
+        "url": "https://notemd.net/zh/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "604a4172f6c9d1f7b7c07c947916b42f58b32d2577befde767e602eca84c695a"
+      },
+      {
+        "url": "https://notemd.net/de/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "483ad0b73cdd145d455c16152e5d3e3de97549178ed240a0227091279b94dd74"
+      },
+      {
+        "url": "https://notemd.net/ja/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "38f0c7becc45701ff6f50298ba428b0375b19fb5d222b1cb6c90526b19bd09e1"
+      }
+    ]
+  },
+  "arch": {
+    "status": "dual-arch-published-and-anonymously-verified",
+    "tag": "v6.1027.1",
+    "sourceCommit": "fbeaf85739b8e2f4eeec2ea55167e543360737c8",
+    "sourceTree": "9c187cc65710648bf96e68f9478f4777759bfc27",
+    "originalPrepareScriptUsed": true,
+    "anonymousSourceDebReadbackPassed": true,
+    "candidateRecipeByteIdenticalToOriginalPublicRecipe": true,
+    "uploaded": true,
+    "artifacts": [
+      {
+        "status": "final-source-recipe-and-first-install-pass",
+        "architecture": "amd64",
+        "package": "notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "bytes": 14295522,
+        "sha256": "836bfda45fbd7f6175d940c93147b9edcd89f55a497dc80830d6c3c56becb37e",
+        "checksum": "SHA256SUMS-omarchy.txt",
+        "buildExitCode": 0,
+        "firstInstallVerified": true,
+        "pacmanQkk": "32 total files, 0 altered files",
+        "sourcePayloadEntries": 29,
+        "sourceDebSha256": "db4fb09cfc3c01df1097567b3c0a2aacd6d1063967f8424483d93792a601ea25",
+        "payloadBytesModeOwnershipLinksEqual": true,
+        "normalAslr": 2,
+        "normalPersonality": "00000000",
+        "elfPIE": true,
+        "cliAndLddPassed": true,
+        "defaultDockerSecurity": true,
+        "desktopGuiVerified": false,
+        "publicRecipeVerified": true,
+        "uploaded": true,
+        "verifiedAt": "2026-10-26T17:47:28.824276+00:00"
+      },
+      {
+        "status": "final-source-recipe-and-first-install-pass",
+        "architecture": "arm64",
+        "package": "notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "bytes": 14635935,
+        "sha256": "6a3ee84b0baba45053fc9364e2ef3f04a70ffefa26a890c801a809ad283a21a8",
+        "checksum": "SHA256SUMS-omarchy-aarch64.txt",
+        "buildExitCode": 0,
+        "firstInstallVerified": true,
+        "pacmanQkk": "32 total files, 0 altered files",
+        "sourcePayloadEntries": 29,
+        "sourceDebSha256": "6aa47425ef07604e9ab2a103435c489b7b828c0f8d1a61df7c198f55d130e14c",
+        "payloadBytesModeOwnershipLinksEqual": true,
+        "normalAslr": 2,
+        "normalPersonality": "00000000",
+        "elfPIE": true,
+        "cliAndLddPassed": true,
+        "defaultDockerSecurity": true,
+        "desktopGuiVerified": false,
+        "publicRecipeVerified": true,
+        "uploaded": true,
+        "verifiedAt": "2026-10-26T17:45:57.109537+00:00"
+      }
+    ],
+    "verifiedAt": "2026-10-26T17:57:49.273426+00:00",
+    "publicReadbackVerified": true,
+    "publishedAtVerified": "2026-10-26T18:00:27.215515+00:00"
+  },
+  "plugin": {
+    "status": "published-and-publicly-verified",
+    "version": "1.8.0",
+    "tag": "plugin-next-v1.8.0",
+    "releaseCommit": "714c2372372505c6e5eca39bd334612a5da1143b",
+    "reportCommit": "58663aedd833fc384fb1be7bc34cd3d44d87d8ef",
+    "minimumHost": ">=6.1027.1",
+    "packageSha256": "c306fac4f0a60e35c94f9b2cd10abd5c2409603eb29915da805fc0643b1f319a",
+    "packageBytes": 121799,
+    "index": {
+      "before": 275,
+      "after": 276,
+      "only_added": "notemd.next@1.8.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "045435125576e75ab722441adbc025365b4cb3d7cffd5310832f5e9d9c136cab",
+      "compatible_latest": "1.8.0",
+      "minimum_host": ">=6.1027.1"
+    },
+    "localInstallationPerformed": false,
+    "realVaultWrites": 0,
+    "realCubeCalls": 0,
+    "mainPushed": false,
+    "verifiedAt": "2026-10-26T17:54:07.218066+00:00"
+  },
+  "evidenceSha256": {
+    "public-review.json": "fb67c8f078590525374d2e98aa776ff550d0799f83d907d715db67b6bb651420",
+    "website-public-verification.json": "68b3eb9d07a22da899ec66d0d2d8215eba1681e4557a0082192b9e1e10501fa3",
+    "linux-final-verification.json": "dfcada2707e1e9512e4490d538b03e03eb0e62096495e0d9abd3fb386a825b3f",
+    "omarchy-final-verification.json": "6df4c2f3f46763bf0374b73399c166d67853ec014f9dfb7d1abd68750cbf0ce5",
+    "final-mac-payload-summary.json": "e5048ad3bf6bd1bba3ca6f38983af5f77078d1139025f9d1c7114de9f7d91ca2",
+    "audit.json": "9784974736545bd384112884463bd8b2f64af384b1d377fd8189a5e827a47856"
+  }
+}
