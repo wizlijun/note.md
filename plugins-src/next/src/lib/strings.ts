@@ -1,6 +1,19 @@
 export type Locale = 'en' | 'zh' | 'ja' | 'de'
 
 export type MessageKey =
+  | 'hook.settings.title'
+  | 'hook.settings.help'
+  | 'hook.settings.none'
+  | 'hook.settings.select'
+  | 'hook.settings.clear'
+  | 'hook.settings.local'
+  | 'hook.settings.unavailable'
+  | 'hook.settings.error'
+  | 'hook.status.running'
+  | 'hook.status.synced'
+  | 'hook.status.pending'
+  | 'hook.retry'
+  | 'hook.dismiss'
   | 'app.title'
   | 'app.value'
   | 'filter.items'
@@ -264,6 +277,19 @@ export type MessageKey =
 type Catalog = Record<MessageKey, string>
 
 const en: Catalog = {
+  "hook.settings.title": "Cube sync script",
+  "hook.settings.help": "After a Task status, reminder setting or due date is saved, run a Python script from this Vault’s skills folder. Runs directly without an AI model or tokens.",
+  "hook.settings.none": "No script selected",
+  "hook.settings.select": "Choose Python script…",
+  "hook.settings.clear": "Disable",
+  "hook.settings.local": "Selection takes effect immediately on this device and Vault. Python 3 and the script dependencies must be installed; Cube credentials stay on this device.",
+  "hook.settings.unavailable": "This host does not support script execution. Update note.md to a version with task hook support.",
+  "hook.settings.error": "Could not change the script configuration.",
+  "hook.status.running": "“{title}” saved · Syncing Cube…",
+  "hook.status.synced": "“{title}” saved · Cube synced",
+  "hook.status.pending": "“{title}” saved · Cube sync pending. Check the script, Python dependencies and Cube connection.",
+  "hook.retry": "Retry sync",
+  "hook.dismiss": "Dismiss sync status",
   'app.title': 'Next',
   'app.value': 'Give ideas and tasks a clear next step — or a place to rest.',
   'filter.items': 'Type and project filters',
@@ -526,6 +552,19 @@ const en: Catalog = {
 }
 
 const zh: Catalog = {
+  "hook.settings.title": "Cube 同步脚本",
+  "hook.settings.help": "任务状态、提醒设置或期限保存后，直接运行当前 Vault 的 skills 目录中的 Python 脚本。不调用模型，不消耗 token。",
+  "hook.settings.none": "尚未选择脚本",
+  "hook.settings.select": "选择 Python 脚本…",
+  "hook.settings.clear": "停用",
+  "hook.settings.local": "选择后立即对本机当前 Vault 生效。需要 Python 3 及脚本依赖；Cube 凭据保存在本机。",
+  "hook.settings.unavailable": "当前宿主不支持直接执行脚本，请更新到支持此功能的 note.md。",
+  "hook.settings.error": "无法更改脚本配置。",
+  "hook.status.running": "“{title}”已保存 · 正在同步 Cube…",
+  "hook.status.synced": "“{title}”已保存 · Cube 已同步",
+  "hook.status.pending": "“{title}”已保存 · Cube 待同步。请检查脚本、Python 依赖和 Cube 连接。",
+  "hook.retry": "重试同步",
+  "hook.dismiss": "关闭同步提示",
   'app.title': '下一步',
   'app.value': '让想法和任务都有明确的下一步，或一个安心的去处。',
   'filter.items': '类型与项目筛选',
@@ -788,6 +827,19 @@ const zh: Catalog = {
 }
 
 const ja: Catalog = {
+  "hook.settings.title": "Cube 同期スクリプト",
+  "hook.settings.help": "タスクの状態、通知設定、期限の保存後、この Vault の skills フォルダーにある Python スクリプトを直接実行します。AI モデルやトークンは使用しません。",
+  "hook.settings.none": "スクリプト未選択",
+  "hook.settings.select": "Python スクリプトを選択…",
+  "hook.settings.clear": "無効にする",
+  "hook.settings.local": "選択はこの端末と Vault に即時反映されます。Python 3 と依存ライブラリが必要です。Cube 認証情報は端末に保存します。",
+  "hook.settings.unavailable": "このホストはスクリプト実行に対応していません。対応する note.md に更新してください。",
+  "hook.settings.error": "スクリプト設定を変更できませんでした。",
+  "hook.status.running": "「{title}」を保存済み · Cube と同期中…",
+  "hook.status.synced": "「{title}」を保存済み · Cube と同期済み",
+  "hook.status.pending": "「{title}」を保存済み · Cube 同期待ち。スクリプト、Python の依存関係、接続を確認してください。",
+  "hook.retry": "同期を再試行",
+  "hook.dismiss": "同期表示を閉じる",
   'app.title': '次の一歩',
   'app.value': 'アイデアとタスクに、明確な次の一歩か安心できる置き場所を。',
   'filter.items': '種類とプロジェクトの絞り込み',
@@ -1050,6 +1102,19 @@ const ja: Catalog = {
 }
 
 const de: Catalog = {
+  "hook.settings.title": "Cube-Synchronisierungsskript",
+  "hook.settings.help": "Nach dem Speichern von Aufgabenstatus, Erinnerung oder Frist wird ein Python-Skript im skills-Ordner dieses Vaults direkt ausgeführt. Ohne KI-Modell oder Tokenverbrauch.",
+  "hook.settings.none": "Kein Skript ausgewählt",
+  "hook.settings.select": "Python-Skript auswählen…",
+  "hook.settings.clear": "Deaktivieren",
+  "hook.settings.local": "Die Auswahl gilt sofort für dieses Gerät und diesen Vault. Python 3 und die Skriptabhängigkeiten sind erforderlich. Cube-Zugangsdaten bleiben lokal.",
+  "hook.settings.unavailable": "Dieser Host unterstützt keine Skriptausführung. Aktualisieren Sie note.md auf eine unterstützte Version.",
+  "hook.settings.error": "Die Skriptkonfiguration konnte nicht geändert werden.",
+  "hook.status.running": "„{title}“ gespeichert · Cube wird synchronisiert…",
+  "hook.status.synced": "„{title}“ gespeichert · Cube synchronisiert",
+  "hook.status.pending": "„{title}“ gespeichert · Cube-Synchronisierung ausstehend. Prüfen Sie Skript, Python-Abhängigkeiten und Verbindung.",
+  "hook.retry": "Erneut synchronisieren",
+  "hook.dismiss": "Synchronisierungsstatus schließen",
   'app.title': 'Nächster Schritt',
   'app.value': 'Gib Ideen und Aufgaben einen klaren nächsten Schritt – oder einen ruhigen Ort.',
   'filter.items': 'Typ- und Projektfilter',

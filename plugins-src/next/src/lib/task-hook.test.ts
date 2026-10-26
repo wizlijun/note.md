@@ -1,0 +1,66 @@
+// @vitest-environment happy-dom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const request = vi.hoisted(() => vi.fn())
+vi.mock('./bridge', () => ({ bridge: () => ({ request }) }))
+import { taskHook, loadTaskHook, selectTaskHook, clearTaskHook, syncTaskHook } from './task-hook.svelte'
+
+const id = '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8'
+beforeEach(() => {
+  request.mockReset()
+  taskHook.config = { available: false, configured: false }
+  taskHook.jobs = {}
+})
+
+describe('direct Task script hook', () => {
+  it('uses host-owned selection and disable APIs without writing plugin settings', async () => {
+    request.mockResolvedValueOnce({ configured: true, scriptPath: '/vault/skills/sync.py' })
+    await selectTaskHook()
+    expect(taskHook.config.scriptPath).toBe('/vault/skills/sync.py')
+    request.mockResolvedValueOnce({ configured: false })
+    await clearTaskHook()
+    expect(taskHook.config.configured).toBe(false)
+    expect(request.mock.calls).toEqual([['host.taskHook.select', {}], ['host.taskHook.clear', {}]])
+  })
+
+  it('degrades on older hosts and does not call a model or execute an unconfigured hook', async () => {
+    request.mockRejectedValue(new Error('method unavailable'))
+    await loadTaskHook()
+    await syncTaskHook(id, '合同')
+    expect(taskHook.config.available).toBe(false)
+    expect(taskHook.jobs).toEqual({})
+    expect(request.mock.calls.every(([method]) => method === 'host.taskHook.get')).toBe(true)
+  })
+
+  it('retries only the script after failure and supplies no shell or vault arguments', async () => {
+    let runs = 0
+    request.mockImplementation(async (method) => method === 'host.taskHook.get'
+      ? { configured: true }
+      : (++runs === 1 ? { ok: false, status: 'pending', errorCode: 'timeout' } : { ok: true, status: 'synced' }))
+    await expect(syncTaskHook(id, '合同')).resolves.toBeUndefined()
+    expect(taskHook.jobs[id]).toMatchObject({ status: 'pending', errorCode: 'timeout' })
+    await syncTaskHook(id, '合同')
+    expect(taskHook.jobs[id].status).toBe('synced')
+    expect(request.mock.calls.filter(([method]) => method === 'host.taskHook.run')).toEqual([
+      ['host.taskHook.run', { taskId: id }], ['host.taskHook.run', { taskId: id }],
+    ])
+  })
+
+  it('serializes executions for one task and contains bridge errors', async () => {
+    let finish!: (value: unknown) => void
+    request.mockImplementation((method) => method === 'host.taskHook.get'
+      ? Promise.resolve({ configured: true })
+      : new Promise((resolve) => { finish = resolve }))
+    const first = syncTaskHook(id, '合同')
+    const second = syncTaskHook(id, '合同')
+    await vi.waitFor(() => expect(taskHook.jobs[id]?.status).toBe('running'))
+    expect(request.mock.calls.filter(([method]) => method === 'host.taskHook.run')).toHaveLength(1)
+    request.mockImplementation(async (method) => {
+      if (method === 'host.taskHook.get') return { configured: true }
+      throw new Error('private provider failure')
+    })
+    finish({ ok: true, status: 'synced' })
+    await Promise.all([first, second])
+    expect(taskHook.jobs[id]).toEqual({ taskId: id, title: '合同', status: 'pending', errorCode: 'host_unavailable' })
+  })
+})

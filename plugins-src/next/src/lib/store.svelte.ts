@@ -16,6 +16,11 @@ import type { PlanningMetadata } from './metadata'
 import { loadTaskReminders, saveTaskReminder, type ReminderInput, type ReminderView } from './reminders'
 import { DEFAULT_NEXT_SETTINGS, loadNextSettings, normalizeNextSettings, saveNextSettings, type NextSettings } from './settings'
 import type { IdeaSource } from './source'
+import { syncTaskHook } from './task-hook.svelte'
+
+function notifyTaskChange(item: WorkspaceItem): void {
+  if (item.kind === 'task' && item.task?.id) void syncTaskHook(item.task.id.toLowerCase(), item.title)
+}
 
 export const state = $state<{
   workspace: NextWorkspace | null
@@ -132,6 +137,7 @@ export async function updateMetadata(
     // The source write is the durable commit point. Update the visible card
     // before refreshing so a later scan failure is never reported as a failed save.
     applyPlanningMetadata(item, metadata)
+    notifyTaskChange(item)
     try {
       state.workspace = await loadConfiguredWorkspace()
       return {}
@@ -244,11 +250,13 @@ async function save(event: ReturnType<typeof placeEvent>): Promise<void> {
 export async function place(item: WorkspaceItem, input: PlaceInput): Promise<void> {
   if (!state.workspace) throw new Error('Next is not loaded')
   await save(placeEvent(item, input, undefined, state.workspace.ledger.version))
+  notifyTaskChange(item)
 }
 
 export async function reopen(item: WorkspaceItem): Promise<void> {
   if (!state.workspace) throw new Error('Next is not loaded')
   await save(reopenEvent(item, undefined, state.workspace.ledger.version))
+  notifyTaskChange(item)
 }
 
 export async function relink(item: WorkspaceItem, source: IdeaSource): Promise<void> {
@@ -278,6 +286,7 @@ export async function updateReminder(
     const saved = await saveTaskReminder(current, input, expectedRaw, hostVault)
     // A verified write is already durable, even if the later board scan fails.
     state.reminders = { ...state.reminders, [id]: saved }
+    notifyTaskChange(item)
     try {
       state.workspace = await loadConfiguredWorkspace()
       return {}

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   updateItemPlanningMetadata: vi.fn(),
   loadNextSettings: vi.fn(async () => ({ wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' })),
   saveNextSettings: vi.fn(async (value) => value),
+  syncTaskHook: vi.fn(async () => {}),
 }))
 
 vi.mock('./repository', async (importOriginal) => {
@@ -29,6 +30,7 @@ vi.mock('./repository', async (importOriginal) => {
 })
 
 vi.mock('./reminders', () => ({ loadTaskReminders: mocks.loadTaskReminders, saveTaskReminder: mocks.saveTaskReminder }))
+vi.mock('./task-hook.svelte', () => ({ syncTaskHook: mocks.syncTaskHook }))
 
 vi.mock('./settings', () => ({
   DEFAULT_NEXT_SETTINGS: { wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' },
@@ -87,6 +89,7 @@ beforeEach(() => {
   state.error = null
   state.reminders = {}
   mocks.loadTaskReminders.mockResolvedValue({})
+  mocks.syncTaskHook.mockResolvedValue(undefined)
 })
 
 describe('Next store IO serialization', () => {
@@ -380,6 +383,31 @@ describe('Task reminder store', () => {
     state.workspace = next
     return { task, next }
   }
+  it('runs the script only after completion is saved, without waiting for the channel', async () => {
+    const { task, next } = taskWorkspace()
+    next.ledger.version = 2
+    let finish!: (value: NextWorkspace) => void
+    mocks.appendEvent.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    mocks.syncTaskHook.mockImplementationOnce(() => new Promise(() => {}))
+    const saving = place(task, { route: 'settle', exit: { kind: 'done' }, status_only: true })
+    expect(mocks.syncTaskHook).not.toHaveBeenCalled()
+    finish(next)
+    await expect(saving).resolves.toBeUndefined()
+    expect(mocks.syncTaskHook).toHaveBeenCalledWith(id, task.title)
+    expect(state.saving).toBe(false)
+    expect(state.error).toBeNull()
+  })
+  it('does not run scripts for failed saves or Idea transitions', async () => {
+    const { task, next } = taskWorkspace()
+    next.ledger.version = 2
+    mocks.appendEvent.mockRejectedValueOnce(new Error('disk full'))
+    mocks.loadWorkspace.mockResolvedValueOnce(next)
+    await expect(place(task, { route: 'settle', exit: { kind: 'done' }, status_only: true })).rejects.toThrow('disk full')
+    expect(mocks.syncTaskHook).not.toHaveBeenCalled()
+    mocks.appendEvent.mockResolvedValueOnce(next)
+    await place(capture, { route: 'settle', exit: { kind: 'done' }, status_only: true })
+    expect(mocks.syncTaskHook).not.toHaveBeenCalled()
+  })
   it('serializes reminder writes and changes no lifecycle event', async () => {
     const { task, next } = taskWorkspace()
     let finish!: (value: unknown) => void
@@ -392,6 +420,7 @@ describe('Task reminder store', () => {
     await expect(saving).resolves.toEqual({})
     expect(mocks.saveTaskReminder).toHaveBeenCalledWith(task, { policy: 'muted' }, null, expect.anything())
     expect(mocks.appendEvent).not.toHaveBeenCalled()
+    expect(mocks.syncTaskHook).toHaveBeenCalledWith(id, task.title)
   })
   it('keeps verified preference after a later board refresh fails', async () => {
     const { task } = taskWorkspace()
@@ -409,6 +438,7 @@ describe('Task reminder store', () => {
     mocks.saveTaskReminder.mockRejectedValueOnce(new Error('disk full'))
     await expect(updateReminder(task, { policy: 'muted' }, null)).rejects.toThrow('disk full')
     expect(state.reminders[id]).toEqual(previous)
+    expect(mocks.syncTaskHook).not.toHaveBeenCalled()
     expect(state.saving).toBe(false)
   })
   it('rejects changing reminders for a closed Task', async () => {

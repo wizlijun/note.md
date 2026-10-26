@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NextSettings } from '../lib/settings'
   import { t } from '../lib/strings'
+  import TaskHookSettings from './TaskHookSettings.svelte'
 
   const {
     settings,
@@ -121,6 +122,8 @@
       </span>
       <input name="defaultContext" type="text" bind:value={defaultContext} placeholder="@computer" disabled={busy} />
     </label>
+
+    <TaskHookSettings />
 
     {#if error}<p class="settings-error" role="alert">{error}</p>{/if}
 

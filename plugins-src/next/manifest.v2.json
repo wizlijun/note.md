@@ -48,7 +48,8 @@
     "vault.write",
     "editor.open",
     "toast",
-    "settings"
+    "settings",
+    "task.hook"
   ],
   "i18n": {
     "zh": {

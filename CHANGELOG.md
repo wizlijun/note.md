@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **NEXT can run a selected Cube sync script after saving a Task.** Choose a Python script from the Vault’s skills folder; the host executes it directly without an AI model. Failed syncs retain the saved Task and offer retry. Requires the new host API and separately configured script dependencies and Cube credentials.
+
 - **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
 
 - **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.

@@ -179,7 +179,7 @@ Schema 与本轮验证器检查结构、时间形态和实例身份，**不充�
  reminder_id, trigger_at规范为UTC秒精度Z, channel, endpoint_id]
 ```
 
-它不包含 title、路径、快照 revision 或重试次数。同一触发重试复用 key；重新安排行为改变 trigger_at 或 generation。新 Cube 消息 ID 可用 `xiaobu-reminder-<idempotency_key>`；旧 `xiaobu-task-UUID` 留作 remote_id 别名，通过显式绑定撤回，不用模糊匹配。
+它不包含 title、路径、快照 revision 或重试次数。同一触发重试复用 key；重新安排行为改变 trigger_at 或 generation。Cube 消息 ID 上限为 64 字符。新消息使用 `xiaobu-reminder-` 加完整 SHA256 摘要字节的无填充 base64url（59 字符）；内部 `idempotency_key` 仍为 64 位十六进制。旧长 ID 保留兼容识别，不作为新消息 ID；旧 `xiaobu-task-UUID` 留作 remote_id 别名，通过显式绑定撤回，不用模糊匹配。
 
 发送资格必须在发送前重新计算：
 

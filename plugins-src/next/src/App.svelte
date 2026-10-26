@@ -13,6 +13,7 @@
   import type { ReminderInput, ReminderView } from './lib/reminders'
   import RelinkSheet from './components/RelinkSheet.svelte'
   import SettingsPage from './components/SettingsPage.svelte'
+  import TaskHookStatus from './components/TaskHookStatus.svelte'
   import { bridge, toast } from './lib/bridge'
   import { quickPlaceInput, type PlaceInput, type QuickPlaceInput } from './lib/events'
   import { projectTagsOf } from './lib/model'
@@ -704,6 +705,7 @@
     </div>
   </header>
 
+  <TaskHookStatus />
   {#if settingsOpen}
     <SettingsPage settings={store.settings} saving={store.saving} onCancel={() => settingsOpen = false} onSave={submitSettings} />
   {:else if store.loading && !workspace}
