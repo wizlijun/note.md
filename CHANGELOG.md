@@ -7,19 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **NEXT can run a selected Cube sync script after saving a Task.** Choose a Python script from the Vault’s skills folder; the host executes it directly without an AI model. Failed syncs retain the saved Task and offer retry. Requires the new host API and separately configured script dependencies and Cube credentials.
-
-- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
-
-- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
-
-- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
-
-- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.
-
-- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.
-
-- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
+- **Run NEXT skill scripts directly after saving a Task.** The host can execute a Python script selected from the current Vault’s skills folder without starting an AI agent. NEXT 1.8.0 uses this to sync Cube reminders after status, reminder or due-date changes; script failures preserve the saved Task and can be retried. Each device keeps its own script selection and credentials. Full Cube creation and updates require the separately deployed safe-create server capability.
 
 ## NEXT plugin v1.7.1 — 2026-10-27
 
