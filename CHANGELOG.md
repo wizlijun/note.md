@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1027.1 — 2026-10-27
+
 - **Run NEXT skill scripts directly after saving a Task.** The host can execute a Python script selected from the current Vault’s skills folder without starting an AI agent. NEXT 1.8.0 uses this to sync Cube reminders after status, reminder or due-date changes; script failures preserve the saved Task and can be retried. Each device keeps its own script selection and credentials. Full Cube creation and updates require the separately deployed safe-create server capability.
 
 ## NEXT plugin v1.7.1 — 2026-10-27
