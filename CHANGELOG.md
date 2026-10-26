@@ -9,10 +9,6 @@ For the full commit history, see the git log.
 
 - **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
 
-- **Manage reminders directly from NEXT Task cards.** The bell menu pauses, mutes, or resumes automatic reminders; More… sets a pause deadline. Reminder controls preserve task status and independent closure records. Closed cards distinguish completed, stopped, and transferred outcomes. Requires the updated Vault reminder scripts.
-
-- **NEXT places cards with a single status choice.** The Place menu offers active, waiting, later, done, stopped, transferred, and More…; dragging saves the destination status immediately. More… opens detailed entry. Cards also have a direct Done action with a brief celebration after a successful save, respecting reduced-motion preferences.
-
 - **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
 
 - **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
@@ -22,6 +18,14 @@ For the full commit history, see the git log.
 - **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.
 
 - **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
+
+## NEXT plugin v1.7.0 — 2026-10-26
+
+- **Manage reminders directly from NEXT Task cards.** The bell menu pauses, mutes, or resumes automatic reminders; More… sets a pause deadline. Reminder controls preserve task status and independent closure records. Closed cards distinguish completed, stopped, and transferred outcomes. Requires the updated Vault reminder scripts.
+
+- **NEXT places cards with a single status choice.** The Place menu offers active, waiting, later, done, stopped, transferred, and More…; dragging saves the destination status immediately. More… opens detailed entry. Cards also have a direct Done action with a brief celebration after a successful save, respecting reduced-motion preferences.
+
+- Fix adding the first due date to a Task that previously had none.
 
 ## v6.1025.1 — 2026-10-25
 
