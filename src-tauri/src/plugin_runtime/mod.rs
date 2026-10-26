@@ -20,6 +20,7 @@ pub mod power_mode;
 pub mod process;
 pub mod protocol;
 pub mod state;
+pub mod task_hook;
 pub mod tray;
 pub mod ui_rpc;
 pub mod windows;
