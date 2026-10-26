@@ -4,7 +4,7 @@
 
 | 方法 | 参数 | 返回 |
 |---|---|---|
-| `host.taskHook.get` | `{}` | `{configured:boolean,scriptPath?:string}` |
+| `host.taskHook.get` | `{}` | `{configured:boolean,scriptPath?:string,pythonPath:string}` |
 | `host.taskHook.select` | `{}` | 打开原生 Python 文件选择器，返回同上；取消保留原配置 |
 | `host.taskHook.clear` | `{}` | `{configured:false}` |
 | `host.taskHook.run` | `{taskId:"UUID v4"}` | 下述同步结果 |
@@ -18,6 +18,8 @@ NEXT 保存 Task 生命周期或提醒偏好成功后再调用；调用失败不
 ```text
 python3 -X utf8 -E -s <selected.py> --vault <vault-root> --task-id <uuid> --apply
 ```
+
+macOS 优先使用已存在且可执行的 `/opt/homebrew/bin/python3`，其次 `/usr/local/bin/python3`，最后使用 PATH 中的 `python3`；其他平台使用 PATH 中的 `python3`。`get.pythonPath` 返回选择的程序路径（PATH 后备时为 `python3`）。这样 Finder 启动时仅含系统目录的 PATH 不会误选缺少技能依赖的系统 Python；PyYAML 等依赖仍需预先安装到选中的解释器，不会自动安装或加载 shell 配置。
 
 清空环境后仅恢复宿主现有插件环境白名单（用户目录、PATH、语言及平台运行必需变量），不传递 API Token。stdin 关闭，stderr 丢弃；stdout 最多 16 KiB，最长运行 30 秒，超时终止；Unix 同时终止进程组。脚本需自行限制网络请求、并发幂等及持久状态写入；Windows 终止主进程，不承诺终止其另行启动的子进程。脚本不应启动后台进程。
 

@@ -152,12 +152,46 @@ fn script_result(output: &[u8], success: bool, exit_code: Option<i32>) -> Value 
     result
 }
 
+// Finder-launched macOS apps commonly have a system-only PATH. Prefer an
+// already installed Homebrew Python, where the skill dependencies are installed.
+// Never source a shell profile or install a runtime on behalf of the user.
+fn find_python(candidates: &[&Path]) -> PathBuf {
+    for candidate in candidates {
+        let Ok(metadata) = candidate.metadata() else {
+            continue;
+        };
+        if !metadata.is_file() {
+            continue;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if metadata.permissions().mode() & 0o111 == 0 {
+                continue;
+            }
+        }
+        return candidate.to_path_buf();
+    }
+    PathBuf::from("python3")
+}
+
+fn python_program() -> PathBuf {
+    if cfg!(target_os = "macos") {
+        find_python(&[
+            Path::new("/opt/homebrew/bin/python3"),
+            Path::new("/usr/local/bin/python3"),
+        ])
+    } else {
+        find_python(&[])
+    }
+}
+
 async fn execute(vault: &Path, script: &Path, task_id: &str, timeout: Duration) -> Value {
     let script = match validate_script(vault, script) {
         Ok(script) => script,
         Err(_) => return pending("invalid_script", None),
     };
-    let mut command = crate::platform::tokio_command("python3");
+    let mut command = crate::platform::tokio_command(python_program());
     command.env_clear();
     for name in crate::platform::plugin_env_allowlist() {
         if let Ok(value) = std::env::var(name) {
@@ -288,9 +322,11 @@ pub async fn dispatch<R: tauri::Runtime>(
             Err(_) => return Err("config_unavailable: cannot clear task hook selection".into()),
         }
     }
-    Ok(selection_payload(
-        read_selection(&private_root, &vault)?.as_deref(),
-    ))
+    let mut result = selection_payload(read_selection(&private_root, &vault)?.as_deref());
+    if method == "host.taskHook.get" {
+        result["pythonPath"] = json!(python_program());
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -306,6 +342,26 @@ mod tests {
         std::fs::write(&script, body).unwrap();
         (temp, vault, script)
     }
+    #[test]
+    fn python_discovery_skips_missing_nonfiles_and_nonexecutables() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing = temp.path().join("missing");
+        let script = temp.path().join("python");
+        std::fs::write(&script, "fixture").unwrap();
+        assert_eq!(
+            find_python(&[&missing, temp.path()]),
+            PathBuf::from("python3")
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o600)).unwrap();
+            assert_eq!(find_python(&[&script]), PathBuf::from("python3"));
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        assert_eq!(find_python(&[&missing, &script]), script);
+    }
+
     #[test]
     fn origin_and_parameters_cannot_choose_commands_or_vault() {
         assert!(check_request("notemd.next", "host.taskHook.run", &json!({"taskId":TASK})).is_ok());
