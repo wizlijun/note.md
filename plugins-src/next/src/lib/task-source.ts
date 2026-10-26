@@ -309,9 +309,9 @@ export function updateTaskPlanningDocument(
   const { document } = editable
   document.setIn(['task', 'priority'], normalizePriority(metadata.priority))
   if (metadata.due) {
-    document.setIn(['task', 'due'], metadata.due)
-    const due = document.getIn(['task', 'due'], true)
+    const due = document.createNode(metadata.due)
     if (isScalar(due)) due.type = 'QUOTE_DOUBLE'
+    document.setIn(['task', 'due'], due)
   } else {
     document.deleteIn(['task', 'due'])
   }

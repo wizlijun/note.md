@@ -150,6 +150,14 @@ agent 交互时，使用中文回复。
 
 ## UI / 样式规则
 
+### NEXT 任务与提醒操作
+
+- 修改 NEXT 任务、提醒或 agent 接口前，读 `docs/superpowers/specs/2026-10-26-task-reminder-agent-operations.md` 及 `docs/superpowers/specs/2026-10-26-task-reminder-protocol.md`。
+- Task UUID 是任务唯一身份；Task 源文件保存内容，NEXT 账本保存生命周期，提醒偏好/规则/投递记录独立关联 UUID。完成、停止、转移与关闭提醒不得混为一个状态。
+- Agent 和 UI 共用 NEXT 的解析、事件工厂、状态校验和序列化。后台提取只可新增；明确用户操作才可经统一入口修改或安放。更新保留身份与未修改字段，重开必须显式，且不解除静音或旧关闭记录。
+- Agent CLI 的源码与可分发 bundle 必须一致，复制到 Vault skill 时记录构建来源及哈希。不要让 skill 手写 YAML 或事件作为接口失败的后备方案。能力未实现或未部署时应明确报告，不能将暂停到期说成准点发送。
+- 修改共享契约后，同时验证 NEXT 与 Vault 推送消费者；用实际生产序列化产物做跨语言测试。测试只用隔离 Vault，不修改正式 Task 或发送真实提醒。外部发送、安装和发布沿用各自授权范围。
+
 ### 菜单（弹层菜单 popup menu）必须用全局样式
 
 所有弹层菜单（右键/上下文菜单、slash、下拉、列菜单等）**必须**复用 `src/styles/app.css` 的全局样式，不要各写一套：

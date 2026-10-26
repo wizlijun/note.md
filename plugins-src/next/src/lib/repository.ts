@@ -648,7 +648,7 @@ async function persistSourceDirs(
 
 export async function loadWorkspace(
   port: VaultPort = hostVault,
-  options: { wipLimit?: number } = {},
+  options: { wipLimit?: number; persistSourceDirs?: boolean } = {},
 ): Promise<NextWorkspace> {
   const ideaDir = await currentIdeaDir(port)
   let ledgerRaw: string | null = null
@@ -660,9 +660,11 @@ export async function loadWorkspace(
       ledgerRaw = (await port.read(NEXT_PATH)).content
       ledger = parseLedger(ledgerRaw)
     }
-    const persisted = await persistSourceDirs(ledgerRaw, ledger, [ideaDir], port)
-    ledger = persisted.ledger
-    ledgerRaw = persisted.raw
+    if (options.persistSourceDirs !== false) {
+      const persisted = await persistSourceDirs(ledgerRaw, ledger, [ideaDir], port)
+      ledger = persisted.ledger
+      ledgerRaw = persisted.raw
+    }
   } catch (error) {
     readOnlyError = String(error)
   }

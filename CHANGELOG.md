@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
+
 - **Manage reminders directly from NEXT Task cards.** The bell menu pauses, mutes, or resumes automatic reminders; More… sets a pause deadline. Reminder controls preserve task status and independent closure records. Closed cards distinguish completed, stopped, and transferred outcomes. Requires the updated Vault reminder scripts.
 
 - **NEXT places cards with a single status choice.** The Place menu offers active, waiting, later, done, stopped, transferred, and More…; dragging saves the destination status immediately. More… opens detailed entry. Cards also have a direct Done action with a brief celebration after a successful save, respecting reduced-motion preferences.

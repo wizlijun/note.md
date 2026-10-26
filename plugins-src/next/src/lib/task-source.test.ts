@@ -192,6 +192,12 @@ body`,
     expect(updated).toContain('due: "2026-09-08"')
   })
 
+  it('adds a quoted due date when no due scalar existed', () => {
+    const updated = updateTaskPlanningDocument('inbox/tasks/a-task.md', minimalDocument(), { priority: 'P2', due: '2026-10-30', contexts: [] })
+    expect(updated).toContain('due: "2026-10-30"')
+    expect(parseTaskSource('inbox/tasks/a-task.md', updated).task.due).toBe('2026-10-30')
+  })
+
   it('clears optional Task planning metadata while keeping priority explicit', () => {
     const updated = updateTaskPlanningDocument('inbox/tasks/a-task.md', minimalDocument(
       '  priority: P1\n  due: "2026-09-08"\n  contexts: ["@电脑"]\n',
