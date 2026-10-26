@@ -323,7 +323,7 @@ describe('Next plugin packaging', () => {
       i18n?: Record<string, Record<string, unknown>>
     }
 
-    expect(manifest.version).toBe('1.7.1')
+    expect(manifest.version).toBe('1.8.0')
     expect(manifest.contributes?.settings).toBeUndefined()
     expect(manifest.capabilities).toContain('settings')
     for (const catalog of Object.values(manifest.i18n ?? {})) {

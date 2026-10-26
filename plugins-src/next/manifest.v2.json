@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.next",
   "name": "Next",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.901.1"
+    "notemd": ">=6.1027.1"
   },
   "description": "Give ideas and tasks a clear next step — or a place to rest.",
   "ui": "ui/",
