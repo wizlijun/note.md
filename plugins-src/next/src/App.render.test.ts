@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushSync, mount, unmount } from 'svelte'
 import { reduceEvents } from './lib/domain'
 import type { NextWorkspace, WorkspaceItem } from './lib/repository'
+import type { ReminderView } from './lib/reminders'
 import type { NextSettings } from './lib/settings'
 import type { CreateTaskResult } from './lib/store.svelte'
 
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     loading: false,
     saving: false,
     error: null as string | null,
+    reminders: {} as Record<string, ReminderView>,
     settings: { wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' } as NextSettings,
   },
   refresh: vi.fn(async () => {}),
@@ -23,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   open: vi.fn(async () => {}),
   updateSettings: vi.fn(async () => {}),
   updateMetadata: vi.fn(async () => ({})),
+  updateReminder: vi.fn(async () => ({})),
   toast: vi.fn(async () => {}),
 }))
 
@@ -47,6 +50,7 @@ vi.mock('./lib/store.svelte', () => ({
   open: mocks.open,
   updateSettings: mocks.updateSettings,
   updateMetadata: mocks.updateMetadata,
+  updateReminder: mocks.updateReminder,
 }))
 
 import App from './App.svelte'
@@ -62,6 +66,8 @@ afterEach(() => {
   mocks.createTask.mockResolvedValue({ path: 'inbox/tasks/new-task.md', placedCurrent: false })
   mocks.updateSettings.mockResolvedValue(undefined)
   mocks.updateMetadata.mockResolvedValue({})
+  mocks.updateReminder.mockResolvedValue({})
+  mocks.state.reminders = {}
   mocks.place.mockResolvedValue(undefined)
   mocks.reopen.mockResolvedValue(undefined)
   mocks.state.saving = false
@@ -1123,7 +1129,7 @@ describe('Next window', () => {
       'capture', 'wip', 'waiting', 'dormant', 'closed',
     ])
     expect([...document.querySelectorAll('[data-lane] h2')].map((heading) => heading.textContent)).toEqual([
-      '收件箱', '进行中', '等待', '稍后', '已完成',
+      '收件箱', '进行中', '等待', '稍后', '已结束',
     ])
     expect(document.querySelector('.project-filters')).toBeNull()
     expect(document.body.textContent).toContain('正在验证的想法')
@@ -1419,5 +1425,93 @@ describe('Next window', () => {
     place!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     flushSync()
     expect(document.querySelector('[role="menu"]')?.getAttribute('aria-label')).toBe('安放“找不到原文的想法”')
+  })
+})
+
+
+describe('Task reminders in the board', () => {
+  const id = '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8'
+  function renderTask(status: ReminderView['status'] = 'automatic') {
+    const next = workspace()
+    const task: WorkspaceItem = { ...item('reminder-task', '交付报告', 'capture'), kind: 'task',
+      item_id: id, path: 'inbox/tasks/report-task.md', task: { version: 1, id, due: '2026-10-28' } }
+    next.items.push(task)
+    next.capture.unshift(task)
+    mocks.state.workspace = next
+    mocks.state.reminders[id] = { status, policy: status === 'muted' ? 'muted' : 'enabled', raw: null }
+    component = mount(App, { target: document.body })
+    flushSync()
+    return task
+  }
+  function clickText(text: string, root: ParentNode = document) {
+    const button = [...root.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.includes(text))!
+    expect(button).toBeTruthy()
+    button.click()
+    flushSync()
+  }
+  it('turns off reminders from the card without placing or completing it', async () => {
+    const task = renderTask()
+    document.querySelector<HTMLButtonElement>('[data-reminder="automatic"]')!.click()
+    flushSync()
+    clickText('关闭提醒', document.querySelector('[role="menu"]')!)
+    await vi.waitFor(() => expect(mocks.updateReminder).toHaveBeenCalledWith(task, { policy: 'muted' }, null))
+    expect(mocks.place).not.toHaveBeenCalled()
+    expect(mocks.reopen).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+  })
+  it('keeps the menu and reports a failed preference save', async () => {
+    renderTask()
+    mocks.updateReminder.mockRejectedValueOnce(new Error('disk full'))
+    document.querySelector<HTMLButtonElement>('[data-reminder]')!.click()
+    flushSync()
+    clickText('关闭提醒', document.querySelector('[role="menu"]')!)
+    await vi.waitFor(() => expect(mocks.toast).toHaveBeenCalledWith('error', expect.any(String), 'Error: disk full'))
+    expect(document.querySelector('[role="menu"]')).toBeTruthy()
+    expect(document.querySelector('[data-reminder="automatic"]')).toBeTruthy()
+  })
+  it('keeps metadata edits when opening reminder details and closing with Escape', async () => {
+    renderTask()
+    document.querySelector<HTMLButtonElement>('[data-item-key="reminder-task"] [data-card-title]')!.click()
+    flushSync()
+    const due = document.querySelector<HTMLInputElement>('[name="due"]')!
+    due.value = '2026-11-01'
+    due.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    clickText('管理提醒')
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2)
+    await Promise.resolve()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    flushSync()
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1)
+    expect(document.querySelector<HTMLInputElement>('[name="due"]')?.value).toBe('2026-11-01')
+    expect(mocks.updateMetadata).not.toHaveBeenCalled()
+  })
+  it('updates card and open menu when a pause expires without losing a preference', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T02:00:00Z'))
+    const next = workspace()
+    const task: WorkspaceItem = { ...item('expires', '暂停到期测试', 'capture'), kind: 'task',
+      item_id: id, path: 'inbox/tasks/expire-task.md', task: { version: 1, id } }
+    next.items.push(task)
+    next.capture.unshift(task)
+    mocks.state.workspace = next
+    mocks.state.reminders[id] = { status: 'paused', policy: 'enabled', raw: 'saved', pausedUntil: '2026-10-26T02:00:01Z' }
+    component = mount(App, { target: document.body })
+    flushSync()
+    document.querySelector<HTMLButtonElement>('[data-reminder="paused"]')!.click()
+    flushSync()
+    await vi.advanceTimersByTimeAsync(1002)
+    flushSync()
+    expect(document.querySelector('[data-reminder="automatic"]')).toBeTruthy()
+    expect(document.querySelector('[role="menu"]')?.textContent).not.toContain('恢复自动提醒')
+    expect(mocks.updateReminder).not.toHaveBeenCalled()
+  })
+  it('does not offer recovery that would override a legacy closure', () => {
+    renderTask('legacy')
+    document.querySelector<HTMLButtonElement>('[data-reminder]')!.click()
+    flushSync()
+    const menu = document.querySelector('[role="menu"]')!
+    expect(menu.textContent).not.toContain('恢复自动提醒')
+    expect(mocks.updateReminder).not.toHaveBeenCalled()
   })
 })

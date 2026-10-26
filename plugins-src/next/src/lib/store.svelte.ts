@@ -13,6 +13,7 @@ import {
   type WorkspaceItem,
 } from './repository'
 import type { PlanningMetadata } from './metadata'
+import { loadTaskReminders, saveTaskReminder, type ReminderInput, type ReminderView } from './reminders'
 import { DEFAULT_NEXT_SETTINGS, loadNextSettings, normalizeNextSettings, saveNextSettings, type NextSettings } from './settings'
 import type { IdeaSource } from './source'
 
@@ -22,18 +23,22 @@ export const state = $state<{
   saving: boolean
   error: string | null
   settings: NextSettings
+  reminders: Record<string, ReminderView>
 }>({
   workspace: null,
   loading: true,
   saving: false,
   error: null,
   settings: { ...DEFAULT_NEXT_SETTINGS },
+  reminders: {},
 })
 
 async function loadConfiguredWorkspace(): Promise<NextWorkspace> {
   const settings = await loadNextSettings()
   state.settings = settings
-  return loadWorkspace(hostVault, { wipLimit: settings.wipLimit })
+  const workspace = await loadWorkspace(hostVault, { wipLimit: settings.wipLimit })
+  state.reminders = await loadTaskReminders(workspace.items, hostVault)
+  return workspace
 }
 
 export async function refresh(): Promise<void> {
@@ -253,4 +258,36 @@ export async function relink(item: WorkspaceItem, source: IdeaSource): Promise<v
 
 export async function open(item: WorkspaceItem): Promise<void> {
   await openSource(item)
+}
+
+/** Reminder policy is independent of placement and never edits Task lifecycle. */
+export async function updateReminder(
+  item: WorkspaceItem,
+  input: ReminderInput,
+  expectedRaw: string | null,
+): Promise<UpdateMetadataResult> {
+  if (!state.workspace) throw new Error('Next is not loaded')
+  if (state.saving) throw new Error('Next is already saving')
+  const id = item.task?.id?.toLowerCase()
+  if (!id || item.kind !== 'task' || item.orphan || item.repairReason) throw new Error('Task is not available')
+  const current = state.workspace.items.find((candidate) => candidate.key === item.key)
+  if (!current || current.state === 'closed' || current.state === 'unsupported') throw new Error('Task is not active')
+  state.saving = true
+  state.error = null
+  try {
+    const saved = await saveTaskReminder(current, input, expectedRaw, hostVault)
+    // A verified write is already durable, even if the later board scan fails.
+    state.reminders = { ...state.reminders, [id]: saved }
+    try {
+      state.workspace = await loadConfiguredWorkspace()
+      return {}
+    } catch (error) {
+      return { refreshError: String(error) }
+    }
+  } catch (error) {
+    state.error = String(error)
+    throw error
+  } finally {
+    state.saving = false
+  }
 }

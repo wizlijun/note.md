@@ -8,6 +8,7 @@ export type MessageKey =
   | 'common.refresh'
   | 'common.open'
   | 'common.cancel'
+  | 'common.close'
   | 'common.save'
   | 'common.optional'
   | 'common.error'
@@ -218,6 +219,45 @@ export type MessageKey =
   | 'status.wip'
   | 'status.waiting'
   | 'status.dormant'
+  | 'outcome.done'
+  | 'outcome.stopped'
+  | 'outcome.transferred'
+  | 'outcome.compressed'
+  | 'reminder.open'
+  | 'reminder.title'
+  | 'reminder.status.automatic'
+  | 'reminder.status.paused'
+  | 'reminder.status.muted'
+  | 'reminder.status.legacy'
+  | 'reminder.status.error'
+  | 'reminder.status.closed'
+  | 'reminder.saved'
+  | 'reminder.saveError'
+  | 'reminder.refreshWarning'
+  | 'reminder.loading'
+  | 'reminder.pauseHour'
+  | 'reminder.pauseTomorrow'
+  | 'reminder.resume'
+  | 'reminder.mute'
+  | 'reminder.more'
+  | 'reminder.policy'
+  | 'reminder.pauseUntil'
+  | 'reminder.timeZone'
+  | 'reminder.due'
+  | 'reminder.noDue'
+  | 'reminder.state'
+  | 'reminder.help'
+  | 'reminder.resumeHelp'
+  | 'reminder.syncHelp'
+  | 'reminder.legacyHelp'
+  | 'reminder.errorHelp'
+  | 'reminder.unsupportedHelp'
+  | 'reminder.closedHelp'
+  | 'reminder.save'
+  | 'reminder.validation.invalid'
+  | 'reminder.validation.past'
+  | 'reminder.validation.ambiguous'
+  | 'reminder.validation.nonexistent'
   | 'status.closed'
   | 'status.unsupported'
 
@@ -230,6 +270,7 @@ const en: Catalog = {
   'common.loading': 'Loading…',
   'common.refresh': 'Refresh',
   'common.open': 'Open',
+  'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.save': 'Place item',
   'common.optional': 'Optional',
@@ -238,7 +279,7 @@ const en: Catalog = {
   'empty.waiting': 'Nothing is waiting for review.',
   'empty.capture': 'No recent items need a decision.',
   'empty.dormant': 'Nothing needs to return to view.',
-  'empty.closed': 'Completed items stay out of sight until you show or search them.',
+  'empty.closed': 'Closed items stay out of sight until you show or search them.',
   'empty.search': 'No placed items match.',
   'section.wip': 'In Progress',
   'section.waiting': 'Waiting',
@@ -441,7 +482,46 @@ const en: Catalog = {
   'status.wip': 'In Progress',
   'status.waiting': 'Waiting',
   'status.dormant': 'Someday',
-  'status.closed': 'Done',
+  'outcome.done': 'Completed',
+  'outcome.stopped': 'Stopped',
+  'outcome.transferred': 'Transferred',
+  'outcome.compressed': 'Compressed',
+  'reminder.open': 'Manage reminders',
+  'reminder.title': 'Reminders for “{title}”',
+  'reminder.status.automatic': 'Automatic reminders',
+  'reminder.status.paused': 'Paused until {time}',
+  'reminder.status.muted': 'Reminders off',
+  'reminder.status.legacy': 'Independently closed',
+  'reminder.status.error': 'Reminder status unavailable',
+  'reminder.status.closed': 'No further reminders',
+  'reminder.saved': 'Reminder settings saved',
+  'reminder.saveError': 'Could not save reminder settings. Your edits are preserved.',
+  'reminder.refreshWarning': 'Reminder settings saved; status could not be refreshed yet.',
+  'reminder.loading': 'Reading reminder status…',
+  'reminder.pauseHour': 'Pause for 1 hour',
+  'reminder.pauseTomorrow': 'Pause until tomorrow at 9:00',
+  'reminder.resume': 'Resume automatic reminders',
+  'reminder.mute': 'Turn off reminders',
+  'reminder.more': 'More…',
+  'reminder.policy': 'Reminders',
+  'reminder.pauseUntil': 'Pause until (optional)',
+  'reminder.timeZone': 'Local time zone: {zone}',
+  'reminder.due': 'Due date',
+  'reminder.noDue': 'No due date set',
+  'reminder.state': 'Current reminder status',
+  'reminder.help': 'Turning off reminders does not complete the task.',
+  'reminder.resumeHelp': 'Resuming uses the existing reminder rules; it does not send immediately.',
+  'reminder.syncHelp': 'Changes take effect at the next reminder sync; the current display may still show an earlier message.',
+  'reminder.legacyHelp': 'An independent closure record still applies. Automatic reminders cannot be restored here.',
+  'reminder.errorHelp': 'The existing reminder record could not be read. It will not be overwritten.',
+  'reminder.unsupportedHelp': 'Repair this task before changing its reminders.',
+  'reminder.closedHelp': 'This task has ended and will no longer receive reminders. Reopen the task before changing reminders.',
+  'reminder.save': 'Save reminder settings',
+  'reminder.validation.invalid': 'Enter a valid local date and time.',
+  'reminder.validation.past': 'The pause end must be in the future.',
+  'reminder.validation.ambiguous': 'This local time occurs twice because the clocks change. Choose another time.',
+  'reminder.validation.nonexistent': 'This local time does not exist because the clocks change. Choose another time.',
+  'status.closed': 'Closed',
   'status.unsupported': 'Unsupported',
 }
 
@@ -452,6 +532,7 @@ const zh: Catalog = {
   'common.loading': '正在载入…',
   'common.refresh': '刷新',
   'common.open': '打开',
+  'common.close': '关闭',
   'common.cancel': '取消',
   'common.save': '确认安放',
   'common.optional': '可选',
@@ -460,7 +541,7 @@ const zh: Catalog = {
   'empty.waiting': '没有等待回收的结果。',
   'empty.capture': '最近没有需要安放的事项。',
   'empty.dormant': '没有需要再次浮现的事项。',
-  'empty.closed': '已完成事项默认不常亮；显示或搜索时才会出现。',
+  'empty.closed': '已结束事项默认不常亮；显示或搜索时才会出现。',
   'empty.search': '没有匹配的已安放事项。',
   'section.wip': '进行中',
   'section.waiting': '等待',
@@ -663,7 +744,46 @@ const zh: Catalog = {
   'status.wip': '进行中',
   'status.waiting': '等待',
   'status.dormant': '稍后',
-  'status.closed': '已完成',
+  'outcome.done': '已完成',
+  'outcome.stopped': '已停止',
+  'outcome.transferred': '已转移',
+  'outcome.compressed': '已压缩',
+  'reminder.open': '管理提醒',
+  'reminder.title': '“{title}”的提醒',
+  'reminder.status.automatic': '自动提醒',
+  'reminder.status.paused': '暂停至 {time}',
+  'reminder.status.muted': '提醒已关闭',
+  'reminder.status.legacy': '独立关闭记录生效',
+  'reminder.status.error': '提醒状态无法读取',
+  'reminder.status.closed': '不再提醒',
+  'reminder.saved': '提醒设置已保存',
+  'reminder.saveError': '无法保存提醒设置，当前编辑仍保留',
+  'reminder.refreshWarning': '提醒设置已保存，暂时无法刷新状态',
+  'reminder.loading': '读取提醒状态…',
+  'reminder.pauseHour': '暂停 1 小时',
+  'reminder.pauseTomorrow': '暂停至明早 9 点',
+  'reminder.resume': '恢复自动提醒',
+  'reminder.mute': '关闭提醒',
+  'reminder.more': '更多…',
+  'reminder.policy': '提醒方式',
+  'reminder.pauseUntil': '暂停至（可选）',
+  'reminder.timeZone': '本机时区：{zone}',
+  'reminder.due': '截止日期',
+  'reminder.noDue': '未设置截止日期',
+  'reminder.state': '当前提醒状态',
+  'reminder.help': '关闭提醒不会完成任务。',
+  'reminder.resumeHelp': '恢复后按现有提醒规则筛选，不会立即推送。',
+  'reminder.syncHelp': '设置在下次推送同步时生效，当前屏幕可能仍显示此前的消息。',
+  'reminder.legacyHelp': '独立关闭记录仍生效，不能在此恢复自动提醒。',
+  'reminder.errorHelp': '现有提醒记录无法读取，不会覆盖原记录。',
+  'reminder.unsupportedHelp': '请先修复该任务，再更改提醒。',
+  'reminder.closedHelp': '该任务已结束，不再提醒。重新打开任务后才可更改提醒。',
+  'reminder.save': '保存提醒设置',
+  'reminder.validation.invalid': '请输入有效的本地日期和时间。',
+  'reminder.validation.past': '暂停结束时间必须晚于现在。',
+  'reminder.validation.ambiguous': '该本地时间因时钟调整出现两次，请选择其他时间。',
+  'reminder.validation.nonexistent': '该本地时间因时钟调整不存在，请选择其他时间。',
+  'status.closed': '已结束',
   'status.unsupported': '无法识别',
 }
 
@@ -674,6 +794,7 @@ const ja: Catalog = {
   'common.loading': '読み込み中…',
   'common.refresh': '更新',
   'common.open': '開く',
+  'common.close': '閉じる',
   'common.cancel': 'キャンセル',
   'common.save': '配置を確定',
   'common.optional': '任意',
@@ -682,7 +803,7 @@ const ja: Catalog = {
   'empty.waiting': '確認待ちの項目はありません。',
   'empty.capture': '最近、判断が必要な項目はありません。',
   'empty.dormant': '再表示が必要な項目はありません。',
-  'empty.closed': '完了した項目は、表示または検索するまで隠れます。',
+  'empty.closed': '終了した項目は、表示または検索するまで隠れます。',
   'empty.search': '一致する配置済み項目はありません。',
   'section.wip': '進行中',
   'section.waiting': '待機中',
@@ -885,7 +1006,46 @@ const ja: Catalog = {
   'status.wip': '進行中',
   'status.waiting': '待機中',
   'status.dormant': 'いつか',
-  'status.closed': '完了',
+  'outcome.done': '完了',
+  'outcome.stopped': '中止',
+  'outcome.transferred': '引き継ぎ済み',
+  'outcome.compressed': '要点に集約済み',
+  'reminder.open': 'リマインダーを管理',
+  'reminder.title': '「{title}」のリマインダー',
+  'reminder.status.automatic': '自動リマインダー',
+  'reminder.status.paused': '{time} まで一時停止',
+  'reminder.status.muted': 'リマインダーはオフ',
+  'reminder.status.legacy': '別の停止記録が有効',
+  'reminder.status.error': 'リマインダーの状態を取得できません',
+  'reminder.status.closed': '今後のリマインダーなし',
+  'reminder.saved': 'リマインダー設定を保存しました',
+  'reminder.saveError': 'リマインダー設定を保存できません。編集内容は保持されています。',
+  'reminder.refreshWarning': '設定を保存しましたが、状態を更新できませんでした。',
+  'reminder.loading': 'リマインダーの状態を読み込み中…',
+  'reminder.pauseHour': '1 時間一時停止',
+  'reminder.pauseTomorrow': '明日 9 時まで一時停止',
+  'reminder.resume': '自動リマインダーを再開',
+  'reminder.mute': 'リマインダーをオフ',
+  'reminder.more': '詳細…',
+  'reminder.policy': 'リマインダー',
+  'reminder.pauseUntil': '一時停止の終了日時（任意）',
+  'reminder.timeZone': 'この端末のタイムゾーン：{zone}',
+  'reminder.due': '期限',
+  'reminder.noDue': '期限未設定',
+  'reminder.state': '現在のリマインダー状態',
+  'reminder.help': 'リマインダーをオフにしてもタスクは完了しません。',
+  'reminder.resumeHelp': '再開後も既存の通知ルールが適用され、すぐには送信されません。',
+  'reminder.syncHelp': '変更は次回の通知同期で反映されます。画面には以前のメッセージが残っている場合があります。',
+  'reminder.legacyHelp': '別の停止記録が有効なため、ここでは自動リマインダーを再開できません。',
+  'reminder.errorHelp': '既存のリマインダー記録を読み込めないため、上書きしません。',
+  'reminder.unsupportedHelp': 'リマインダーを変更する前にタスクを修復してください。',
+  'reminder.closedHelp': 'このタスクは終了しているため通知されません。変更するにはタスクを再開してください。',
+  'reminder.save': 'リマインダー設定を保存',
+  'reminder.validation.invalid': '有効な現地日時を入力してください。',
+  'reminder.validation.past': '一時停止の終了日時は現在より後にしてください。',
+  'reminder.validation.ambiguous': '時計の変更により、この現地時刻は 2 回存在します。別の時刻を選んでください。',
+  'reminder.validation.nonexistent': '時計の変更により、この現地時刻は存在しません。別の時刻を選んでください。',
+  'status.closed': '終了',
   'status.unsupported': '未対応',
 }
 
@@ -896,6 +1056,7 @@ const de: Catalog = {
   'common.loading': 'Wird geladen…',
   'common.refresh': 'Aktualisieren',
   'common.open': 'Öffnen',
+  'common.close': 'Schließen',
   'common.cancel': 'Abbrechen',
   'common.save': 'Ablage bestätigen',
   'common.optional': 'Optional',
@@ -904,7 +1065,7 @@ const de: Catalog = {
   'empty.waiting': 'Nichts wartet auf eine Prüfung.',
   'empty.capture': 'Kein neuer Eintrag braucht eine Entscheidung.',
   'empty.dormant': 'Kein Eintrag muss wieder in den Blick kommen.',
-  'empty.closed': 'Erledigte Einträge bleiben verborgen, bis du sie anzeigst oder suchst.',
+  'empty.closed': 'Geschlossene Einträge bleiben verborgen, bis du sie anzeigst oder suchst.',
   'empty.search': 'Kein passender abgelegter Eintrag.',
   'section.wip': 'In Arbeit',
   'section.waiting': 'Warten',
@@ -1107,7 +1268,46 @@ const de: Catalog = {
   'status.wip': 'In Arbeit',
   'status.waiting': 'Warten',
   'status.dormant': 'Irgendwann',
-  'status.closed': 'Erledigt',
+  'outcome.done': 'Erledigt',
+  'outcome.stopped': 'Gestoppt',
+  'outcome.transferred': 'Übergeben',
+  'outcome.compressed': 'Verdichtet',
+  'reminder.open': 'Erinnerungen verwalten',
+  'reminder.title': 'Erinnerungen für „{title}“',
+  'reminder.status.automatic': 'Automatische Erinnerungen',
+  'reminder.status.paused': 'Pausiert bis {time}',
+  'reminder.status.muted': 'Erinnerungen ausgeschaltet',
+  'reminder.status.legacy': 'Separater Abschlussvermerk aktiv',
+  'reminder.status.error': 'Erinnerungsstatus nicht verfügbar',
+  'reminder.status.closed': 'Keine weiteren Erinnerungen',
+  'reminder.saved': 'Erinnerungseinstellungen gespeichert',
+  'reminder.saveError': 'Erinnerungseinstellungen konnten nicht gespeichert werden. Ihre Eingaben bleiben erhalten.',
+  'reminder.refreshWarning': 'Erinnerungseinstellungen gespeichert; der Status konnte noch nicht aktualisiert werden.',
+  'reminder.loading': 'Erinnerungsstatus wird geladen…',
+  'reminder.pauseHour': '1 Stunde pausieren',
+  'reminder.pauseTomorrow': 'Bis morgen um 9 Uhr pausieren',
+  'reminder.resume': 'Automatische Erinnerungen fortsetzen',
+  'reminder.mute': 'Erinnerungen ausschalten',
+  'reminder.more': 'Mehr…',
+  'reminder.policy': 'Erinnerungen',
+  'reminder.pauseUntil': 'Pausieren bis (optional)',
+  'reminder.timeZone': 'Lokale Zeitzone: {zone}',
+  'reminder.due': 'Fälligkeitsdatum',
+  'reminder.noDue': 'Kein Fälligkeitsdatum festgelegt',
+  'reminder.state': 'Aktueller Erinnerungsstatus',
+  'reminder.help': 'Das Ausschalten von Erinnerungen schließt die Aufgabe nicht ab.',
+  'reminder.resumeHelp': 'Nach dem Fortsetzen gelten die bisherigen Regeln; es wird nicht sofort gesendet.',
+  'reminder.syncHelp': 'Änderungen werden bei der nächsten Erinnerungssynchronisierung wirksam; die Anzeige kann noch eine frühere Nachricht enthalten.',
+  'reminder.legacyHelp': 'Ein separater Abschlussvermerk gilt weiterhin. Automatische Erinnerungen können hier nicht wiederhergestellt werden.',
+  'reminder.errorHelp': 'Der vorhandene Erinnerungsdatensatz konnte nicht gelesen werden und wird nicht überschrieben.',
+  'reminder.unsupportedHelp': 'Reparieren Sie diese Aufgabe, bevor Sie ihre Erinnerungen ändern.',
+  'reminder.closedHelp': 'Diese Aufgabe ist geschlossen und erhält keine Erinnerungen mehr. Öffnen Sie die Aufgabe erneut, um Erinnerungen zu ändern.',
+  'reminder.save': 'Erinnerungseinstellungen speichern',
+  'reminder.validation.invalid': 'Geben Sie ein gültiges lokales Datum mit Uhrzeit ein.',
+  'reminder.validation.past': 'Das Ende der Pause muss in der Zukunft liegen.',
+  'reminder.validation.ambiguous': 'Diese Ortszeit kommt wegen der Zeitumstellung zweimal vor. Wählen Sie eine andere Zeit.',
+  'reminder.validation.nonexistent': 'Diese Ortszeit existiert wegen der Zeitumstellung nicht. Wählen Sie eine andere Zeit.',
+  'status.closed': 'Geschlossen',
   'status.unsupported': 'Nicht unterstützt',
 }
 

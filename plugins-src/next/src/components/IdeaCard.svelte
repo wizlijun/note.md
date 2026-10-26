@@ -2,6 +2,8 @@
   import type { WorkspaceItem } from '../lib/repository'
   import { DEFAULT_PRIORITY, localDateAfter } from '../lib/metadata'
   import { projectTagsOf } from '../lib/model'
+  import { localDateTimeValue } from './reminder-time'
+  import type { ReminderView } from '../lib/reminders'
   import { t, type MessageKey } from '../lib/strings'
 
   let {
@@ -11,6 +13,9 @@
     canPlace = false,
     canReopen = false,
     placeMenuOpen = false,
+    reminderView,
+    reminderMenuOpen = false,
+    onReminder,
     canDrag = false,
     dragging = false,
     onPlace,
@@ -30,6 +35,9 @@
     canPlace?: boolean
     canReopen?: boolean
     placeMenuOpen?: boolean
+    reminderView?: ReminderView
+    reminderMenuOpen?: boolean
+    onReminder?(item: WorkspaceItem, anchor: HTMLButtonElement): void
     canDrag?: boolean
     dragging?: boolean
     onPlace(item: WorkspaceItem, anchor: HTMLButtonElement): void
@@ -44,7 +52,14 @@
     onPreviewEnd?(trigger: 'pointer' | 'focus'): void
   } = $props()
 
-  const statusKey = $derived(`status.${item.state}` as MessageKey)
+  const statusKey = $derived((item.projection?.state === 'closed'
+    ? `outcome.${item.projection.exit.kind}`
+    : `status.${item.state}`) as MessageKey)
+  const reminderLabel = $derived(item.state === 'closed'
+    ? t('reminder.status.closed')
+    : reminderView ? t(`reminder.status.${reminderView.status}` as MessageKey, {
+      time: reminderView.pausedUntil ? localDateTimeValue(reminderView.pausedUntil).replace('T', ' ') : '',
+    }) : t('reminder.loading'))
   const hasPreview = $derived(Boolean(item.body?.trim()))
   const domToken = $derived(encodeURIComponent(item.key))
   const titleId = $derived(`idea-card-title-${domToken}`)
@@ -157,6 +172,19 @@
         <span class="badge context missing" data-context="missing">{t('badge.contextMissing')}</span>
       {/if}
     </div>
+    {#if item.kind === 'task' && onReminder}
+      <button type="button" class="reminder-control" data-reminder={item.state === 'closed' ? 'closed' : reminderView?.status ?? 'loading'}
+        class:reminder-muted={reminderView?.status === 'muted' || item.state === 'closed'}
+        disabled={disabled || !reminderView} aria-haspopup={item.state === 'closed' ? 'dialog' : 'menu'}
+        aria-expanded={reminderMenuOpen} title={t('reminder.open')}
+        onclick={(event) => onReminder?.(item, event.currentTarget)}>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M5 8a5 5 0 0 1 10 0c0 5 2 5 2 6H3c0-1 2-1 2-6M8 17h4" />
+          {#if reminderView?.status === 'muted' || item.state === 'closed'}<path d="M3 3l14 14" />{/if}
+        </svg>
+        <span>{reminderLabel}</span>
+      </button>
+    {/if}
     {#if detail}<p>{detail}</p>{/if}
   </div>
   <div class="actions">
@@ -223,6 +251,12 @@
   .project-suggestion { border: 1px dashed var(--accent); background: transparent; color: var(--ui-accent-text); cursor: pointer; }
   .project-suggestion:hover:not(:disabled) { background: var(--accent-soft); }
   .badge.warning { background: var(--warn-bg); color: var(--warn-fg); }
+  .reminder-control { display: flex; align-items: center; gap: 5px; max-width: 100%; margin-top: 10px; padding: 3px 0; border: 0; background: transparent; color: var(--ui-accent-text); text-align: left; font-size: 12px; }
+  .reminder-control svg { width: 15px; height: 15px; flex: none; }
+  .reminder-control span { overflow-wrap: anywhere; }
+  .reminder-control:hover:not(:disabled) { text-decoration: underline; }
+  .reminder-control:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .reminder-control.reminder-muted { color: var(--muted-strong); }
   .actions { display: flex; flex-wrap: wrap; gap: 6px; }
   button { font: inherit; cursor: pointer; }
   button:disabled { cursor: default; opacity: 0.45; }

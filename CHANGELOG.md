@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Manage reminders directly from NEXT Task cards.** The bell menu pauses, mutes, or resumes automatic reminders; More… sets a pause deadline. Reminder controls preserve task status and independent closure records. Closed cards distinguish completed, stopped, and transferred outcomes. Requires the updated Vault reminder scripts.
+
 - **NEXT places cards with a single status choice.** The Place menu offers active, waiting, later, done, stopped, transferred, and More…; dragging saves the destination status immediately. More… opens detailed entry. Cards also have a direct Done action with a brief celebration after a successful save, respecting reduced-motion preferences.
 
 - **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.

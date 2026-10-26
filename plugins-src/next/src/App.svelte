@@ -8,6 +8,9 @@
   import CompletionConfetti from './components/CompletionConfetti.svelte'
   import PlaceMenu from './components/PlaceMenu.svelte'
   import PlaceSheet from './components/PlaceSheet.svelte'
+  import ReminderMenu from './components/ReminderMenu.svelte'
+  import ReminderSheet from './components/ReminderSheet.svelte'
+  import type { ReminderInput, ReminderView } from './lib/reminders'
   import RelinkSheet from './components/RelinkSheet.svelte'
   import SettingsPage from './components/SettingsPage.svelte'
   import { bridge, toast } from './lib/bridge'
@@ -28,6 +31,7 @@
     state as store,
     updateSettings,
     updateMetadata,
+    updateReminder,
   } from './lib/store.svelte'
   import { setLocale, t, type MessageKey } from './lib/strings'
   import { isDormantDue, previewPosition, sortWorkspaceItems, type SortMode } from './lib/view'
@@ -58,6 +62,9 @@
   let placementRoute = $state<Route | undefined>()
   let placementProjects = $state<string[]>([])
   let relinking = $state<WorkspaceItem | null>(null)
+  let reminderMenu = $state<{ item: WorkspaceItem; anchor: HTMLButtonElement; view: ReminderView } | null>(null)
+  let reminderNow = $state(Date.now())
+  let editingReminder = $state<{ item: WorkspaceItem; view: ReminderView } | null>(null)
   let editingMetadata = $state<WorkspaceItem | null>(null)
   let settingsOpen = $state(false)
   let dragging = $state<WorkspaceItem | null>(null)
@@ -169,25 +176,28 @@
   }
 
   function openCreation() {
-    if (store.loading || store.saving || placing || relinking || editingMetadata || creatingTask) return
+    if (store.loading || store.saving || placing || relinking || editingMetadata || editingReminder || creatingTask) return
     closePreview()
     placeMenu = null
+    reminderMenu = null
     settingsOpen = false
     creating = true
   }
 
   function openTaskCreation() {
-    if (store.loading || store.saving || placing || relinking || editingMetadata || creating) return
+    if (store.loading || store.saving || placing || relinking || editingMetadata || editingReminder || creating) return
     closePreview()
     placeMenu = null
+    reminderMenu = null
     settingsOpen = false
     creatingTask = true
   }
 
   function toggleSettings() {
-    if (store.loading || store.saving || placing || relinking || editingMetadata || creating || creatingTask) return
+    if (store.loading || store.saving || placing || relinking || editingMetadata || editingReminder || creating || creatingTask) return
     closePreview()
     placeMenu = null
+    reminderMenu = null
     settingsOpen = !settingsOpen
   }
 
@@ -199,6 +209,7 @@
   function openPlaceMenu(item: WorkspaceItem, anchor: HTMLButtonElement) {
     if (interactionDisabled) return
     closePreview()
+    reminderMenu = null
     placeMenu = placeMenu?.item.key === item.key ? null : { item, anchor }
   }
 
@@ -222,6 +233,7 @@
   function openPlacement(item: WorkspaceItem, route?: Route, initialProjects: readonly string[] = []) {
     closePreview()
     placeMenu = null
+    reminderMenu = null
     placing = item
     placementRoute = route
     placementProjects = [...initialProjects]
@@ -230,6 +242,7 @@
   function openRelink(item: WorkspaceItem) {
     closePreview()
     placeMenu = null
+    reminderMenu = null
     relinking = item
   }
 
@@ -237,7 +250,76 @@
     if (!item.path || item.orphan || item.repairReason || store.saving) return
     closePreview()
     placeMenu = null
+    reminderMenu = null
     editingMetadata = item
+  }
+
+  function effectiveReminderView(view: ReminderView): ReminderView {
+    return view.status === 'paused' && view.pausedUntil && Date.parse(view.pausedUntil) <= reminderNow
+      ? { ...view, status: 'automatic' } : view
+  }
+
+  // Update labels at the pause boundary without reloading or discarding an open draft.
+  $effect(() => {
+    const views = [...Object.values(store.reminders ?? {}), reminderMenu?.view, editingReminder?.view]
+    const deadlines = views.filter((view) => view?.status === 'paused' && view.pausedUntil)
+      .map((view) => Date.parse(view!.pausedUntil!)).filter((time) => time > reminderNow)
+    if (!deadlines.length) return
+    const timer = setTimeout(() => { reminderNow = Date.now() }, Math.min(2_147_483_647, Math.max(0, Math.min(...deadlines) - Date.now()) + 1))
+    return () => clearTimeout(timer)
+  })
+
+  function reminderFor(item: WorkspaceItem): ReminderView | undefined {
+    const view = store.reminders?.[item.task?.id?.toLowerCase() ?? '']
+    return view && effectiveReminderView(view)
+  }
+
+  function openReminderDetails(item: WorkspaceItem, view = reminderFor(item)) {
+    if (!view || store.saving) return
+    closePreview()
+    placeMenu = null
+    reminderMenu = null
+    editingReminder = { item, view }
+  }
+
+  function openReminderMenu(item: WorkspaceItem, anchor: HTMLButtonElement) {
+    const view = reminderFor(item)
+    if (!view || interactionDisabled) return
+    if (item.state === 'closed' || item.state === 'unsupported') {
+      openReminderDetails(item, view)
+      return
+    }
+    closePreview()
+    placeMenu = null
+    reminderMenu = reminderMenu?.item.key === item.key ? null : { item, anchor, view }
+  }
+
+  async function saveReminder(item: WorkspaceItem, view: ReminderView, input: ReminderInput) {
+    const result = await updateReminder(item, input, view.raw)
+    if (result.refreshError) await toast('warn', t('reminder.refreshWarning'), result.refreshError)
+    else await toast('success', t('reminder.saved'))
+  }
+
+  async function quickReminder(input: ReminderInput) {
+    if (!reminderMenu || store.saving) return
+    const { item, view } = reminderMenu
+    try {
+      await saveReminder(item, view, input)
+      reminderMenu = null
+    } catch (error) {
+      await toast('error', t('reminder.saveError'), String(error))
+    }
+  }
+
+  async function submitReminder(input: ReminderInput) {
+    if (!editingReminder) return
+    try {
+      await saveReminder(editingReminder.item, editingReminder.view, input)
+      editingReminder = null
+    } catch (error) {
+      await toast('error', t('reminder.saveError'), String(error))
+      throw error // The sheet retains its draft and displays the failed save.
+    }
   }
 
   function planningMetadataOf(item: WorkspaceItem): PlanningMetadata {
@@ -596,7 +678,7 @@
         aria-label={t('action.settings')}
         aria-pressed={settingsOpen}
         title={t('action.settings')}
-        disabled={store.loading || store.saving || Boolean(placing || relinking || editingMetadata || creating || creatingTask)}
+        disabled={store.loading || store.saving || Boolean(placing || relinking || editingMetadata || editingReminder || creating || creatingTask)}
         onclick={toggleSettings}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -644,6 +726,9 @@
                 metadataDisabled={store.saving}
                 canPlace={item.state === 'capture'}
                 placeMenuOpen={placeMenu?.item.key === item.key}
+                reminderView={reminderFor(item)}
+                reminderMenuOpen={reminderMenu?.item.key === item.key}
+                onReminder={item.kind === 'task' && !item.orphan && !item.repairReason ? openReminderMenu : undefined}
                 onPlace={openPlaceMenu}
                 onComplete={(value) => quickPlace(value, quickPlaceInput('done'))}
                 onOpen={doOpen}
@@ -704,6 +789,9 @@
                       canPlace={item.state !== 'closed' && item.state !== 'unsupported'}
                       canReopen={item.state === 'dormant' || item.state === 'closed'}
                       placeMenuOpen={placeMenu?.item.key === item.key}
+                      reminderView={reminderFor(item)}
+                      reminderMenuOpen={reminderMenu?.item.key === item.key}
+                      onReminder={item.kind === 'task' && !item.orphan && !item.repairReason ? openReminderMenu : undefined}
                       onPlace={openPlaceMenu}
                       onComplete={(value) => quickPlace(value, quickPlaceInput('done'))}
                       onOpen={doOpen}
@@ -760,9 +848,18 @@
   />
 {/if}
 
+{#if reminderMenu}
+  <ReminderMenu anchor={reminderMenu.anchor} itemTitle={reminderMenu.item.title}
+    view={effectiveReminderView(reminderMenu.view)} saving={store.saving}
+    onCancel={() => reminderMenu = null} onSelect={quickReminder}
+    onMore={() => reminderMenu && openReminderDetails(reminderMenu.item, reminderMenu.view)} />
+{/if}
+
 {#if placing}
   <PlaceSheet
     item={placing}
+    suspended={Boolean(editingReminder)}
+    onReminder={placing.kind === 'task' && reminderFor(placing) ? () => openReminderDetails(placing!) : undefined}
     saving={store.saving}
     initialRoute={placementRoute}
     initialProjects={placementProjects}
@@ -779,11 +876,19 @@
 {#if editingMetadata}
   <MetadataSheet
     itemTitle={editingMetadata.title}
+    suspended={Boolean(editingReminder)}
+    onReminder={editingMetadata.kind === 'task' && reminderFor(editingMetadata) ? () => openReminderDetails(editingMetadata!) : undefined}
     metadata={planningMetadataOf(editingMetadata)}
     saving={store.saving}
     onCancel={() => editingMetadata = null}
     onSubmit={submitMetadata}
   />
+{/if}
+
+{#if editingReminder}
+  <ReminderSheet item={workspace?.items.find((value) => value.key === editingReminder!.item.key) ?? editingReminder.item}
+    view={effectiveReminderView(editingReminder.view)} saving={store.saving}
+    onCancel={() => editingReminder = null} onSubmit={submitReminder} />
 {/if}
 
 {#if creating}

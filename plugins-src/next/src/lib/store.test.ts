@@ -4,6 +4,8 @@ import type { NextWorkspace, WorkspaceItem } from './repository'
 
 const mocks = vi.hoisted(() => ({
   loadWorkspace: vi.fn(),
+  loadTaskReminders: vi.fn(async () => ({})),
+  saveTaskReminder: vi.fn(),
   appendEvent: vi.fn(),
   createIdeaSource: vi.fn(),
   createTaskSource: vi.fn(),
@@ -26,6 +28,8 @@ vi.mock('./repository', async (importOriginal) => {
   }
 })
 
+vi.mock('./reminders', () => ({ loadTaskReminders: mocks.loadTaskReminders, saveTaskReminder: mocks.saveTaskReminder }))
+
 vi.mock('./settings', () => ({
   DEFAULT_NEXT_SETTINGS: { wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' },
   loadNextSettings: mocks.loadNextSettings,
@@ -33,7 +37,7 @@ vi.mock('./settings', () => ({
   saveNextSettings: mocks.saveNextSettings,
 }))
 
-import { createIdea, createTask, place, refresh, state, updateMetadata, updateSettings } from './store.svelte'
+import { createIdea, createTask, place, refresh, state, updateMetadata, updateSettings, updateReminder } from './store.svelte'
 
 const capture: WorkspaceItem = {
   key: 'inbox/ideas/a-idea.md',
@@ -81,6 +85,8 @@ beforeEach(() => {
   state.loading = false
   state.saving = false
   state.error = null
+  state.reminders = {}
+  mocks.loadTaskReminders.mockResolvedValue({})
 })
 
 describe('Next store IO serialization', () => {
@@ -360,5 +366,55 @@ describe('Next store IO serialization', () => {
     expect(mocks.saveNextSettings).toHaveBeenCalledWith(settings)
     expect(state.settings).toEqual(settings)
     expect(state.workspace?.projection.wipLimit).toBe(8)
+  })
+})
+
+
+describe('Task reminder store', () => {
+  const id = '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8'
+  function taskWorkspace() {
+    const task: WorkspaceItem = { ...capture, kind: 'task', key: 'task:' + id,
+      item_id: id, path: 'inbox/tasks/test-task.md', task: { version: 1, id } }
+    const next = workspace()
+    next.items = next.capture = [task]
+    state.workspace = next
+    return { task, next }
+  }
+  it('serializes reminder writes and changes no lifecycle event', async () => {
+    const { task, next } = taskWorkspace()
+    let finish!: (value: unknown) => void
+    mocks.saveTaskReminder.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    mocks.loadWorkspace.mockResolvedValueOnce(next)
+    const saving = updateReminder(task, { policy: 'muted' }, null)
+    expect(state.saving).toBe(true)
+    await expect(updateReminder(task, { policy: 'enabled' }, null)).rejects.toThrow('already saving')
+    finish({ policy: 'muted', status: 'muted', raw: 'saved' })
+    await expect(saving).resolves.toEqual({})
+    expect(mocks.saveTaskReminder).toHaveBeenCalledWith(task, { policy: 'muted' }, null, expect.anything())
+    expect(mocks.appendEvent).not.toHaveBeenCalled()
+  })
+  it('keeps verified preference after a later board refresh fails', async () => {
+    const { task } = taskWorkspace()
+    const saved = { policy: 'muted' as const, status: 'muted' as const, raw: 'saved' }
+    mocks.saveTaskReminder.mockResolvedValueOnce(saved)
+    mocks.loadWorkspace.mockRejectedValueOnce(new Error('scan failed'))
+    await expect(updateReminder(task, { policy: 'muted' }, null)).resolves.toEqual({ refreshError: 'Error: scan failed' })
+    expect(state.reminders[id]).toEqual(saved)
+    expect(state.error).toBeNull()
+  })
+  it('does not show a successful policy on failed write', async () => {
+    const { task } = taskWorkspace()
+    const previous = { policy: 'enabled' as const, status: 'automatic' as const, raw: null }
+    state.reminders[id] = previous
+    mocks.saveTaskReminder.mockRejectedValueOnce(new Error('disk full'))
+    await expect(updateReminder(task, { policy: 'muted' }, null)).rejects.toThrow('disk full')
+    expect(state.reminders[id]).toEqual(previous)
+    expect(state.saving).toBe(false)
+  })
+  it('rejects changing reminders for a closed Task', async () => {
+    const { task } = taskWorkspace()
+    task.state = 'closed'
+    await expect(updateReminder(task, { policy: 'enabled' }, null)).rejects.toThrow('not active')
+    expect(mocks.saveTaskReminder).not.toHaveBeenCalled()
   })
 })

@@ -13,6 +13,8 @@
   let {
     item,
     saving,
+    suspended = false,
+    onReminder,
     initialRoute,
     initialProjects = [],
     projectOptions = [],
@@ -21,6 +23,8 @@
   }: {
     item: WorkspaceItem
     saving: boolean
+    suspended?: boolean
+    onReminder?(): void
     initialRoute?: Route
     initialProjects?: readonly string[]
     projectOptions?: readonly string[]
@@ -260,6 +264,7 @@
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     queueMicrotask(() => sheetEl?.focus())
     const onKey = (event: KeyboardEvent) => {
+      if (suspended) return
       if (event.key === 'Escape' && !saving) onCancel()
       if (event.key !== 'Tab' || !sheetEl) return
       const focusable = [...sheetEl.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)')]
@@ -286,7 +291,7 @@
   })
 </script>
 
-<div class="scrim" role="presentation" onclick={(event) => event.target === event.currentTarget && !saving && onCancel()}>
+<div class="scrim" inert={suspended} role="presentation" onclick={(event) => event.target === event.currentTarget && !saving && onCancel()}>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="place-title" tabindex="-1" bind:this={sheetEl}>
     <header>
       <div>
@@ -310,6 +315,9 @@
       {/each}
     </div>
 
+    {#if onReminder}
+      <div class="reminder-entry"><button type="button" disabled={saving} onclick={onReminder}>{t('reminder.open')} →</button></div>
+    {/if}
     <form onsubmit={submit}>
       {#if route === 'commit'}
         <ChoiceField field="commitment" label={t('field.commitment')} bind:value={commitment} options={commitmentOptions} placeholder={t('field.commitment.placeholder')} multiline />
@@ -402,6 +410,10 @@
 </div>
 
 <style>
+  .reminder-entry { padding: 0 24px 14px; }
+  .reminder-entry button { border: 0; background: transparent; color: var(--ui-accent-text); padding: 3px 0; font: inherit; font-size: 12px; cursor: pointer; }
+  .reminder-entry button:hover:not(:disabled) { text-decoration: underline; }
+  .reminder-entry button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .scrim { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, #000 32%, transparent); backdrop-filter: blur(8px); }
   .sheet { width: min(680px, 100%); max-height: calc(100vh - 48px); overflow: auto; box-sizing: border-box; border: 1px solid var(--line); border-radius: 20px; background: var(--sheet); color: var(--fg); box-shadow: 0 24px 80px color-mix(in srgb, #000 30%, transparent); }
   header { display: flex; justify-content: space-between; gap: 16px; padding: 22px 24px 12px; }
