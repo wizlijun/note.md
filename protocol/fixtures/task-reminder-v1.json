@@ -1,0 +1,4569 @@
+[
+  {
+    "name": "single open date with explicit reminder time",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "closed done retains previously queued delivery",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "closed",
+          "outcome": "done",
+          "closed_at": "2026-10-26T10:00:00Z"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "closed stopped retains previously queued delivery",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "closed",
+          "outcome": "stopped",
+          "closed_at": "2026-10-26T10:00:00Z"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "closed transferred retains previously queued delivery",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "closed",
+          "outcome": "transferred",
+          "closed_at": "2026-10-26T10:00:00Z"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "closed compressed retains previously queued delivery",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "closed",
+          "outcome": "compressed",
+          "closed_at": "2026-10-26T10:00:00Z"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "muted task keeps history",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "muted",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reopened task preserves independent mute and historical generation",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "capture"
+        },
+        "reminder_policy": "muted",
+        "occurrence": {
+          "key": "single",
+          "generation": 1
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "dormant and unsynchronized are valid snapshots, not delivery authorization",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "unavailable",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "dormant"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unsupported state can be represented",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "unsupported",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "unsupported"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "minimal external task with no reminders",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "external",
+          "ref": "provider:task:123"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        }
+      },
+      "reminders": [],
+      "deliveries": []
+    }
+  },
+  {
+    "name": "one reminder delivered to two channels",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube",
+            "local",
+            "email"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "email",
+          "endpoint_id": "account-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d8194847be96dada90800e58d89e035d7bdddf857589deb531037e9a238873b0"
+        }
+      ]
+    }
+  },
+  {
+    "name": "date_time anchor has no local_time",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date_time",
+          "value": "2026-10-27T09:00:00+08:00",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "absolute reminder requires no task time anchor",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "absolute",
+            "at": "2026-10-27T00:00:00Z"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "recurrence original key survives reschedule and DST offset change",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "BYDAY=SU;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "all-day recurring occurrence",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "date:2026-10-27",
+          "generation": 0,
+          "original_start": {
+            "kind": "date",
+            "value": "2026-10-27",
+            "time_zone": "Asia/Taipei"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date",
+            "value": "2026-10-27",
+            "time_zone": "Asia/Taipei"
+          },
+          "rrule": "FREQ=MONTHLY",
+          "exdates": [
+            {
+              "kind": "date",
+              "value": "2026-11-27",
+              "time_zone": "Asia/Taipei"
+            }
+          ]
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "cee912edec1265ded7cba8d9a53687f4ce761e26d553e4f75844cc73410401b4"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze creates later delivery with separate idempotency key",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T01:00:00Z",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "77de701811a8159db082567bcffe95b0bd9d02b7f02bea78e75cce80f61e1b30",
+          "acknowledged_at": "2026-10-27T00:05:00Z",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  },
+  {
+    "name": "withdrawn delivery retains acknowledgment history",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "withdrawn",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "protocol field typo",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ],
+      "remainder": []
+    }
+  },
+  {
+    "name": "unknown version",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 2,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "UUID must be v4",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-5111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "title cannot be blank",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "  ",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "floating timestamp",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "fractional timestamp",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00.123Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "leap second outside v1 precision",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:60Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown UTC offset is not an instant",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00-00:00",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid calendar date",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-02-30",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "date requires time zone",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown IANA zone",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Invalid/Zone"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "DST nonexistent wall time",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-03-08T02:30:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "closed requires outcome",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "closed",
+          "closed_at": "2026-10-26T10:00:00Z"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "open state cannot carry close outcome",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip",
+          "outcome": "done"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "future close timestamp",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "closed",
+          "outcome": "done",
+          "closed_at": "2026-10-26T13:00:00Z"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "relative anchor must exist",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "start",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "date anchor requires local time",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "date_time anchor forbids local time",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date_time",
+          "value": "2026-10-27T09:00:00+08:00"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "duplicate reminder UUID",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "duplicate delivery UUID",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "delivery references existing reminder only",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "44444444-4444-4444-8444-444444444444",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b6214c306924c4bf1a8fcf53e46618a44f877a336bad54f9915d2c131b588bc"
+        }
+      ]
+    }
+  },
+  {
+    "name": "delivery uses allowed reminder channel only",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "email",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "16cd09eb0b5323b6810b7e7f9c2d159f6c5cbf697b4674ba1a96fe4bd2b687d5"
+        }
+      ]
+    }
+  },
+  {
+    "name": "expiry must strictly follow trigger",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T08:00:00+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "future generation",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 1,
+          "idempotency_key": "36d0ab67bbbadb3c66c0bcfd7195546df487d4b69f0932017cd457046fb09904"
+        }
+      ]
+    }
+  },
+  {
+    "name": "incorrect idempotency key",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ]
+    }
+  },
+  {
+    "name": "acknowledgment requires timestamp",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze cannot reference itself",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze must reference existing delivery",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "snoozed_from": "55555555-5555-4555-8555-555555555555"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze must be later",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze must share reminder",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        },
+        {
+          "id": "44444444-4444-4444-8444-444444444444",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "44444444-4444-4444-8444-444444444444",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T01:00:00Z",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "be78b09b6efabb545c7523dfbb83760952ace110135529486d20f728b6160840",
+          "acknowledged_at": "2026-10-27T00:05:00Z",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  },
+  {
+    "name": "single occurrence forbids original start",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0,
+          "original_start": {
+            "kind": "date",
+            "value": "2026-10-27",
+            "time_zone": "Asia/Taipei"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "recurrence requires original start",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "BYDAY=SU;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "occurrence key uses original time, not rescheduled time",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-02T14:00:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "BYDAY=SU;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "ec8b0af7b17a72012eac91ee1b0f73c5a442bebc79501f950df3d966c5fb5ddd"
+        }
+      ]
+    }
+  },
+  {
+    "name": "recurrence temporal kind must match dtstart",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "BYDAY=SU;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ],
+          "exdates": [
+            {
+              "kind": "date",
+              "value": "2026-11-01",
+              "time_zone": "America/New_York"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "recurrence zone must match dtstart",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "BYDAY=SU;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ],
+          "exdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-01T05:30:00Z",
+              "time_zone": "UTC"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "RRULE prefix prohibited",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "RRULE:FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "RRULE requires one FREQ",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00",
+            "time_zone": "America/New_York"
+          },
+          "rrule": "FREQ=DAILY;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00",
+              "time_zone": "America/New_York"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timed recurrence requires IANA zone even with explicit offsets",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "instant:2026-11-01T05:30:00Z",
+          "generation": 0,
+          "original_start": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00"
+          }
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        },
+        "recurrence": {
+          "dtstart": {
+            "kind": "date_time",
+            "value": "2026-11-01T01:30:00-04:00"
+          },
+          "rrule": "BYDAY=SU;FREQ=WEEKLY",
+          "rdates": [
+            {
+              "kind": "date_time",
+              "value": "2026-11-08T01:30:00-05:00"
+            }
+          ]
+        },
+        "scheduled": {
+          "kind": "date_time",
+          "value": "2026-11-02T09:00:00-05:00",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "9b152a336a1a45c865929ba011e51779383730e5de9f4cc26b4eea1f28299464"
+        }
+      ]
+    }
+  },
+  {
+    "name": "relative nonexistent DST local time cannot resolve implicitly",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-03-08",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "02:30:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "relative ambiguous DST local time cannot choose a fold implicitly",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-11-01",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "01:30:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "relative valid time after DST gap",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-03-08",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "03:30:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "relative valid time after DST overlap",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-11-01",
+          "time_zone": "America/New_York"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "02:30:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "UUIDs require canonical lowercase identity",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "ABCDEF12-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "retry must not create duplicate idempotency record",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "historical delivery preserves removed reminder channel",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "local"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "historical-revision",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "current revision delivery cannot use removed channel",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "local"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "disabled historical rule preserves absent anchor",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": false,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "disabled historical rule preserves old local time shape",
+    "valid": true,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date_time",
+          "value": "2026-10-27T09:00:00+08:00"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": false,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "disabled rule still requires well-formed local time",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": false,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "25:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze cannot revive previous generation",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 1
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T01:00:00Z",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 1,
+          "idempotency_key": "c9cb8be3763db9ffed894716adece5eb9400c341ca156b9bb6a003bc3b244eaf",
+          "acknowledged_at": "2026-10-27T00:05:00Z",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze cannot cross endpoint",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "other-desk",
+          "trigger_at": "2026-10-27T01:00:00Z",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "e8da4498c7a1b08a74fdf25a3413a15033689c52d0553e0a0efa3054d4e5173e",
+          "acknowledged_at": "2026-10-27T00:05:00Z",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snooze cannot cross channel even when rule permits both",
+    "valid": false,
+    "document": {
+      "protocol": "note.task-reminder",
+      "version": 1,
+      "as_of": "2026-10-26T12:00:00Z",
+      "revision": "task-v1:next-event-1:reminder-1",
+      "sync_status": "verified",
+      "task": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "提交设计稿",
+        "source": {
+          "kind": "task_markdown",
+          "ref": "inbox/tasks/design-task.md"
+        },
+        "state": {
+          "lane": "wip"
+        },
+        "reminder_policy": "enabled",
+        "occurrence": {
+          "key": "single",
+          "generation": 0
+        },
+        "due": {
+          "kind": "date",
+          "value": "2026-10-27",
+          "time_zone": "Asia/Taipei"
+        }
+      },
+      "reminders": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "enabled": true,
+          "trigger": {
+            "kind": "relative",
+            "anchor": "due",
+            "offset_seconds": -3600,
+            "local_time": "09:00:00"
+          },
+          "channels": [
+            "cube",
+            "email"
+          ]
+        }
+      ],
+      "deliveries": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "cube",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T08:00:00+08:00",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "acknowledged",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "d4ff08dc713c4cf4acc12716be7e63e884a7a28f3d621424277ec4813390502b",
+          "acknowledged_at": "2026-10-27T00:05:00Z"
+        },
+        {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "reminder_id": "22222222-2222-4222-8222-222222222222",
+          "channel": "email",
+          "endpoint_id": "desk-demo",
+          "trigger_at": "2026-10-27T01:00:00Z",
+          "expires_at": "2026-10-27T23:59:59+08:00",
+          "state": "queued",
+          "task_revision": "task-v1:next-event-1:reminder-1",
+          "generation": 0,
+          "idempotency_key": "dc36e0f2093ffe1f42c0125d1d78ce99080a4b31c101fa71f951c398de7e1245",
+          "acknowledged_at": "2026-10-27T00:05:00Z",
+          "snoozed_from": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,495 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Task Reminder Protocol v1",
+  "description": "Canonical interchange snapshot. Validate cross-field constraints with scripts/validate-task-reminder-protocol.py; this schema does not implement reminder scheduling or RFC 5545 recurrence expansion.",
+  "type": "object",
+  "required": [
+    "protocol",
+    "version",
+    "as_of",
+    "revision",
+    "sync_status",
+    "task",
+    "reminders",
+    "deliveries"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "note.task-reminder"
+    },
+    "version": {
+      "const": 1
+    },
+    "as_of": {
+      "$ref": "#/definitions/Timestamp"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "sync_status": {
+      "enum": [
+        "verified",
+        "unavailable",
+        "unsupported"
+      ]
+    },
+    "task": {
+      "$ref": "#/definitions/Task"
+    },
+    "reminders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Reminder"
+      }
+    },
+    "deliveries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Delivery"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-5][0-9](?:Z|[+-][0-9]{2}:[0-9]{2})$",
+      "not": {
+        "pattern": "-00:00$"
+      }
+    },
+    "UUID": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "Temporal": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "value",
+            "time_zone"
+          ],
+          "properties": {
+            "kind": {
+              "const": "date"
+            },
+            "value": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "time_zone": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "date_time"
+            },
+            "value": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "time_zone": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "State": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "lane"
+          ],
+          "properties": {
+            "lane": {
+              "enum": [
+                "capture",
+                "wip",
+                "waiting",
+                "dormant",
+                "unsupported"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "lane",
+            "outcome",
+            "closed_at"
+          ],
+          "properties": {
+            "lane": {
+              "const": "closed"
+            },
+            "outcome": {
+              "enum": [
+                "done",
+                "stopped",
+                "transferred",
+                "compressed"
+              ]
+            },
+            "closed_at": {
+              "$ref": "#/definitions/Timestamp"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Occurrence": {
+      "type": "object",
+      "required": [
+        "key",
+        "generation"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "original_start": {
+          "$ref": "#/definitions/Temporal"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Recurrence": {
+      "type": "object",
+      "required": [
+        "dtstart",
+        "rrule"
+      ],
+      "properties": {
+        "dtstart": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Temporal"
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "date_time"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "time_zone"
+                ]
+              }
+            }
+          ]
+        },
+        "rrule": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "rdates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Temporal"
+          }
+        },
+        "exdates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Temporal"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Trigger": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "at"
+          ],
+          "properties": {
+            "kind": {
+              "const": "absolute"
+            },
+            "at": {
+              "$ref": "#/definitions/Timestamp"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "anchor",
+            "offset_seconds"
+          ],
+          "properties": {
+            "kind": {
+              "const": "relative"
+            },
+            "anchor": {
+              "enum": [
+                "start",
+                "scheduled",
+                "due",
+                "review_at"
+              ]
+            },
+            "offset_seconds": {
+              "type": "integer"
+            },
+            "local_time": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+              "maxLength": 8
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Task": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "source",
+        "state",
+        "reminder_policy",
+        "occurrence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/UUID"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "task_markdown",
+                "external"
+              ]
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        },
+        "state": {
+          "$ref": "#/definitions/State"
+        },
+        "reminder_policy": {
+          "enum": [
+            "enabled",
+            "muted"
+          ]
+        },
+        "occurrence": {
+          "$ref": "#/definitions/Occurrence"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "created_at": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "priority": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "dedupe_key": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "done_when": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "start": {
+          "$ref": "#/definitions/Temporal"
+        },
+        "scheduled": {
+          "$ref": "#/definitions/Temporal"
+        },
+        "due": {
+          "$ref": "#/definitions/Temporal"
+        },
+        "review_at": {
+          "$ref": "#/definitions/Temporal"
+        },
+        "recurrence": {
+          "$ref": "#/definitions/Recurrence"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Reminder": {
+      "type": "object",
+      "required": [
+        "id",
+        "enabled",
+        "trigger",
+        "channels"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/UUID"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "trigger": {
+          "$ref": "#/definitions/Trigger"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "cube",
+              "local",
+              "email"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Delivery": {
+      "type": "object",
+      "required": [
+        "id",
+        "reminder_id",
+        "channel",
+        "endpoint_id",
+        "trigger_at",
+        "expires_at",
+        "state",
+        "task_revision",
+        "generation",
+        "idempotency_key"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/UUID"
+        },
+        "reminder_id": {
+          "$ref": "#/definitions/UUID"
+        },
+        "channel": {
+          "enum": [
+            "cube",
+            "local",
+            "email"
+          ]
+        },
+        "endpoint_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trigger_at": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "expires_at": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "state": {
+          "enum": [
+            "queued",
+            "sent",
+            "acknowledged",
+            "dismissed",
+            "withdraw_pending",
+            "withdrawn",
+            "failed"
+          ]
+        },
+        "task_revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "idempotency_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "remote_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "acknowledged_at": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "snoozed_from": {
+          "$ref": "#/definitions/UUID"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
