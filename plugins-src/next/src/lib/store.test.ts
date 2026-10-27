@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   loadNextSettings: vi.fn(async () => ({ wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' })),
   saveNextSettings: vi.fn(async (value) => value),
   syncTaskHook: vi.fn(async () => {}),
+  persistCompletionNote: vi.fn(),
 }))
 
 vi.mock('./repository', async (importOriginal) => {
@@ -31,6 +32,10 @@ vi.mock('./repository', async (importOriginal) => {
 
 vi.mock('./reminders', () => ({ loadTaskReminders: mocks.loadTaskReminders, saveTaskReminder: mocks.saveTaskReminder }))
 vi.mock('./task-hook.svelte', () => ({ syncTaskHook: mocks.syncTaskHook }))
+vi.mock('./completion-note', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./completion-note')>(),
+  persistCompletionNote: mocks.persistCompletionNote,
+}))
 
 vi.mock('./settings', () => ({
   DEFAULT_NEXT_SETTINGS: { wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' },
@@ -39,7 +44,8 @@ vi.mock('./settings', () => ({
   saveNextSettings: mocks.saveNextSettings,
 }))
 
-import { createIdea, createTask, place, refresh, state, updateMetadata, updateSettings, updateReminder } from './store.svelte'
+import { completeWithNote, createIdea, createTask, place, refresh, state, updateMetadata, updateSettings, updateReminder } from './store.svelte'
+import { CompletionNoteError, createCompletionNote } from './completion-note'
 
 const capture: WorkspaceItem = {
   key: 'inbox/ideas/a-idea.md',
@@ -93,6 +99,42 @@ beforeEach(() => {
 })
 
 describe('Next store IO serialization', () => {
+  it('serializes note completion and runs the script only after both durable writes succeed', async () => {
+    const task: WorkspaceItem = { ...capture, kind: 'task', path: 'inbox/tasks/a-task.md',
+      item_id: '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8', task: { version: 1, id: '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8' } }
+    const operation = createCompletionNote(task, '已完成\n多行记录')
+    let finish!: (value: NextWorkspace) => void
+    mocks.persistCompletionNote.mockImplementationOnce(() => new Promise<NextWorkspace>((resolve) => { finish = resolve }))
+    const pending = completeWithNote(task, operation)
+    expect(state.saving).toBe(true)
+    await expect(completeWithNote(task, operation)).rejects.toThrow('already saving')
+    await refresh()
+    expect(mocks.loadWorkspace).not.toHaveBeenCalled()
+    expect(mocks.syncTaskHook).not.toHaveBeenCalled()
+    const saved = workspace()
+    finish(saved); await pending
+    expect(mocks.persistCompletionNote).toHaveBeenCalledExactlyOnceWith(operation, 5)
+    expect(mocks.syncTaskHook).toHaveBeenCalledExactlyOnceWith(task.task!.id, task.title)
+    expect(state.workspace).toBe(saved)
+    expect(state.saving).toBe(false)
+  })
+
+  it('keeps a failed note completion retryable and does not run the script for a partial save', async () => {
+    const task: WorkspaceItem = { ...capture, kind: 'task', path: 'inbox/tasks/a-task.md',
+      item_id: '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8', task: { version: 1, id: '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8' } }
+    const operation = createCompletionNote(task, '保留记录')
+    const error = new CompletionNoteError(true, new Error('ledger write failed'))
+    mocks.persistCompletionNote.mockRejectedValueOnce(error)
+    mocks.loadWorkspace.mockResolvedValueOnce(workspace())
+    await expect(completeWithNote(task, operation)).rejects.toBe(error)
+    expect(state.saving).toBe(false)
+    expect(mocks.syncTaskHook).not.toHaveBeenCalled()
+    mocks.persistCompletionNote.mockResolvedValueOnce(workspace())
+    await completeWithNote(task, operation)
+    expect(mocks.persistCompletionNote.mock.calls.map((call) => call[0])).toEqual([operation, operation])
+    expect(mocks.syncTaskHook).toHaveBeenCalledTimes(1)
+  })
+
   it('updates source metadata, refreshes the workspace, and serializes concurrent actions', async () => {
     const refreshed = workspace()
     refreshed.capture[0] = { ...capture, priority: 'P0', due: '2026-09-08', contexts: ['@电脑'] }

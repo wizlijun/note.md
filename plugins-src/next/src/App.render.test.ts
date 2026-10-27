@@ -6,6 +6,7 @@ import type { NextWorkspace, WorkspaceItem } from './lib/repository'
 import type { ReminderView } from './lib/reminders'
 import type { NextSettings } from './lib/settings'
 import type { CreateTaskResult } from './lib/store.svelte'
+import { CompletionNoteError, type CompletionNoteOperation } from './lib/completion-note'
 
 const mocks = vi.hoisted(() => ({
   state: {
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   createIdea: vi.fn(async () => 'inbox/ideas/new-idea.md'),
   createTask: vi.fn(async (): Promise<CreateTaskResult> => ({ path: 'inbox/tasks/new-task.md', placedCurrent: false })),
   place: vi.fn(async () => {}),
+  completeWithNote: vi.fn(async (_item: WorkspaceItem, _operation: CompletionNoteOperation) => {}),
   reopen: vi.fn(async () => {}),
   relink: vi.fn(async () => {}),
   open: vi.fn(async () => {}),
@@ -45,6 +47,7 @@ vi.mock('./lib/store.svelte', () => ({
   createIdea: mocks.createIdea,
   createTask: mocks.createTask,
   place: mocks.place,
+  completeWithNote: mocks.completeWithNote,
   reopen: mocks.reopen,
   relink: mocks.relink,
   open: mocks.open,
@@ -69,6 +72,7 @@ afterEach(() => {
   mocks.updateReminder.mockResolvedValue({})
   mocks.state.reminders = {}
   mocks.place.mockResolvedValue(undefined)
+  mocks.completeWithNote.mockResolvedValue(undefined)
   mocks.reopen.mockResolvedValue(undefined)
   mocks.state.saving = false
   mocks.state.settings = { wipLimit: 5, defaultPriority: 'P2', defaultDueDays: 0, defaultContext: '' }
@@ -199,6 +203,46 @@ function pointerDrag(itemKey: string, lane: string, pointerId = 1): void {
 }
 
 describe('Next window', () => {
+  it('opens Task completion with a multiline note and preserves one operation through a failed completion retry', async () => {
+    const next = workspace()
+    const task: WorkspaceItem = { ...next.capture[0], kind: 'task',
+      path: 'inbox/tasks/completion-task.md', item_id: '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8',
+      task: { version: 1, id: '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8' } }
+    next.capture = [task]; next.items = [task, ...next.items.filter((entry) => entry.state !== 'capture')]
+    mocks.state.workspace = next
+    let reject!: (error: Error) => void
+    mocks.completeWithNote.mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail }))
+    component = mount(App, { target: document.body }); flushSync()
+    document.querySelector<HTMLButtonElement>('[data-item-key="capture"] .place')!.click(); flushSync()
+    const options = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+    expect(options[0].textContent).toBe('完成并记一笔')
+    expect(options.map((option) => option.textContent)).toContain('完成')
+    options[0].click(); flushSync(); await Promise.resolve()
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea')!
+    expect(document.activeElement).toBe(textarea)
+    const note = '完成第一步\n\n粘贴多行记录\n  保留缩进'
+    textarea.value = note; textarea.dispatchEvent(new InputEvent('input', { bubbles: true })); flushSync()
+    const submit = () => document.querySelector('form')!.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }))
+    submit(); flushSync(); submit(); flushSync()
+    expect(mocks.completeWithNote).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('[data-completion-confetti]')).toBeNull()
+    expect(textarea.readOnly).toBe(true)
+    reject(new CompletionNoteError(true, new Error('ledger write failed')))
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('记录已写入 Task 原文'))
+    expect(textarea.value).toBe(note)
+    expect(textarea.readOnly).toBe(true)
+    const operation = mocks.completeWithNote.mock.calls[0][1]
+    expect(operation.note).toBe(note)
+    expect(operation.event).not.toHaveProperty('result')
+    submit()
+    await vi.waitFor(() => expect(mocks.completeWithNote).toHaveBeenCalledTimes(2))
+    expect(mocks.completeWithNote.mock.calls[1][1]).toBe(operation)
+    await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull())
+    expect(document.querySelector('[data-completion-confetti]')).toBeTruthy()
+    expect(mocks.reopen).not.toHaveBeenCalled()
+    expect(mocks.place).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['现在推进', { route: 'commit', status_only: true }],
     ['等待回收', { route: 'wait', status_only: true }],

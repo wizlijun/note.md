@@ -17,6 +17,7 @@ import { loadTaskReminders, saveTaskReminder, type ReminderInput, type ReminderV
 import { DEFAULT_NEXT_SETTINGS, loadNextSettings, normalizeNextSettings, saveNextSettings, type NextSettings } from './settings'
 import type { IdeaSource } from './source'
 import { syncTaskHook } from './task-hook.svelte'
+import { persistCompletionNote, type CompletionNoteOperation } from './completion-note'
 
 function notifyTaskChange(item: WorkspaceItem): void {
   if (item.kind === 'task' && item.task?.id) void syncTaskHook(item.task.id.toLowerCase(), item.title)
@@ -251,6 +252,24 @@ export async function place(item: WorkspaceItem, input: PlaceInput): Promise<voi
   if (!state.workspace) throw new Error('Next is not loaded')
   await save(placeEvent(item, input, undefined, state.workspace.ledger.version))
   notifyTaskChange(item)
+}
+
+export async function completeWithNote(item: WorkspaceItem, operation: CompletionNoteOperation): Promise<void> {
+  if (!state.workspace) throw new Error('Next is not loaded')
+  if (state.saving) throw new Error('Next is already saving')
+  if (item.task?.id !== operation.taskId) throw new Error('Completion note belongs to another Task')
+  state.saving = true
+  state.error = null
+  try {
+    state.workspace = await persistCompletionNote(operation, state.workspace.projection.wipLimit)
+    notifyTaskChange(item)
+  } catch (error) {
+    state.error = String(error)
+    try { state.workspace = await loadConfiguredWorkspace() } catch { /* Keep the write error and the retained draft. */ }
+    throw error
+  } finally {
+    state.saving = false
+  }
 }
 
 export async function reopen(item: WorkspaceItem): Promise<void> {

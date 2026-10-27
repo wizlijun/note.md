@@ -3,13 +3,14 @@
   import { quickPlaceInput, type QuickPlaceInput } from '../lib/events'
   import { t, type MessageKey } from '../lib/strings'
 
-  let { anchor, itemTitle, saving, onCancel, onSelect, onMore }: {
+  let { anchor, itemTitle, saving, onCancel, onSelect, onMore, onCompleteWithNote }: {
     anchor: HTMLButtonElement
     itemTitle: string
     saving: boolean
     onCancel(): void
     onSelect(input: QuickPlaceInput): void
     onMore(): void
+    onCompleteWithNote?(): void
   } = $props()
 
   const options = [
@@ -20,6 +21,7 @@
     ['stopped', 'exit.stopped'],
     ['transferred', 'action.transfer'],
   ] as const satisfies readonly (readonly [Parameters<typeof quickPlaceInput>[0], MessageKey])[]
+  const optionOffset = $derived(onCompleteWithNote ? 1 : 0)
   let menu: HTMLDivElement
   let x = $state(8)
   let y = $state(8)
@@ -78,14 +80,19 @@
 <div bind:this={menu} class="place-menu menu-panel" role="menu" tabindex="-1"
   aria-label={t('sheet.title', { title: itemTitle })} aria-busy={saving}
   style:left={`${x}px`} style:top={`${y}px`} onkeydown={keydown}>
+  {#if onCompleteWithNote}
+    <button type="button" class="menu-row" class:active={active === 0} role="menuitem"
+      tabindex="-1" disabled={saving} onfocus={() => active = 0} onpointerenter={() => active = -1}
+      onclick={onCompleteWithNote}>{t('action.completeWithNote')}</button>
+  {/if}
   {#each options as [action, label], index}
-    <button type="button" class="menu-row" class:active={active === index} role="menuitem"
-      tabindex="-1" disabled={saving} onfocus={() => active = index} onpointerenter={() => active = -1}
+    <button type="button" class="menu-row" class:active={active === index + optionOffset} role="menuitem"
+      tabindex="-1" disabled={saving} onfocus={() => active = index + optionOffset} onpointerenter={() => active = -1}
       onclick={() => onSelect(quickPlaceInput(action))}>{t(label)}</button>
   {/each}
   <div class="menu-sep" role="separator"></div>
-  <button type="button" class="menu-row" class:active={active === options.length} role="menuitem"
-    tabindex="-1" disabled={saving} onfocus={() => active = options.length} onpointerenter={() => active = -1}
+  <button type="button" class="menu-row" class:active={active === options.length + optionOffset} role="menuitem"
+    tabindex="-1" disabled={saving} onfocus={() => active = options.length + optionOffset} onpointerenter={() => active = -1}
     onclick={onMore}>{t('action.placeMore')}</button>
 </div>
 

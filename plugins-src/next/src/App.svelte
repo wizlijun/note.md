@@ -16,6 +16,7 @@
   import TaskHookStatus from './components/TaskHookStatus.svelte'
   import { bridge, toast } from './lib/bridge'
   import { quickPlaceInput, type PlaceInput, type QuickPlaceInput } from './lib/events'
+  import { canCompleteWithNote, CompletionNoteError, createCompletionNote, type CompletionNoteOperation } from './lib/completion-note'
   import { projectTagsOf } from './lib/model'
   import { planningDefaults, type NextSettings } from './lib/settings'
   import { DEFAULT_PRIORITY, type PlanningMetadata } from './lib/metadata'
@@ -24,6 +25,7 @@
   import {
     createIdea,
     createTask,
+    completeWithNote,
     open as openItem,
     place,
     refresh,
@@ -63,6 +65,9 @@
   let placing = $state<WorkspaceItem | null>(null)
   let placementRoute = $state<Route | undefined>()
   let placementProjects = $state<string[]>([])
+  let completionNote = $state(false)
+  let completionOperation = $state<CompletionNoteOperation | null>(null)
+  let completionNoteError = $state('')
   let relinking = $state<WorkspaceItem | null>(null)
   let reminderMenu = $state<{ item: WorkspaceItem; anchor: HTMLButtonElement; view: ReminderView } | null>(null)
   let reminderNow = $state(Date.now())
@@ -245,6 +250,15 @@
     placing = item
     placementRoute = route
     placementProjects = [...initialProjects]
+    completionNote = false
+    completionOperation = null
+    completionNoteError = ''
+  }
+
+  function openCompletionNote(item: WorkspaceItem) {
+    if (interactionDisabled || !canCompleteWithNote(item)) return
+    openPlacement(item, 'settle')
+    completionNote = true
   }
 
   function openRelink(item: WorkspaceItem) {
@@ -381,11 +395,34 @@
     placing = null
     placementRoute = undefined
     placementProjects = []
+    completionNote = false
+    completionOperation = null
+    completionNoteError = ''
   }
 
   async function submitPlacement(input: PlaceInput) {
-    if (!placing) return
+    if (!placing || store.saving || placementSaving) return
     const item = placing
+    if (completionNote) {
+      if (input.route !== 'settle' || input.status_only || input.exit.kind !== 'done') return
+      placementSaving = true
+      completionNoteError = ''
+      try {
+        // Retain the exact operation on every failure, including an uncertain
+        // write acknowledgement; a retry must not append the same note twice.
+        completionOperation ??= createCompletionNote(item, input.result ?? '')
+        await completeWithNote(item, completionOperation)
+        celebration += 1
+        closePlacement()
+      } catch (error) {
+        completionNoteError = t(error instanceof CompletionNoteError && error.noteSaved
+          ? 'completionNote.savedPending' : 'completionNote.failed')
+        await toast('error', completionNoteError, String(error))
+      } finally {
+        placementSaving = false
+      }
+      return
+    }
     await report(async () => {
       const current = store.workspace?.items.find((value) => value.key === item.key) ?? item
       if (current.state === 'dormant' || current.state === 'closed') await reopen(current)
@@ -859,6 +896,7 @@
     onCancel={() => placeMenu = null}
     onSelect={(input) => placeMenu && quickPlace(placeMenu.item, input)}
     onMore={() => placeMenu && openPlacement(placeMenu.item)}
+    onCompleteWithNote={canCompleteWithNote(placeMenu.item) ? () => placeMenu && openCompletionNote(placeMenu.item) : undefined}
   />
 {/if}
 
@@ -874,7 +912,10 @@
     item={placing}
     suspended={Boolean(editingReminder)}
     onReminder={placing.kind === 'task' && reminderFor(placing) ? () => openReminderDetails(placing!) : undefined}
-    saving={store.saving}
+    saving={store.saving || placementSaving}
+    {completionNote}
+    completionNoteLocked={Boolean(completionOperation)}
+    {completionNoteError}
     initialRoute={placementRoute}
     initialProjects={placementProjects}
     projectOptions={workspace?.projectOptions ?? []}

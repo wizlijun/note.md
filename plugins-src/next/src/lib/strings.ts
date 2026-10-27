@@ -66,6 +66,11 @@ export type MessageKey =
   | 'action.hidePlaced'
   | 'action.place'
   | 'action.placeMore'
+  | 'action.completeWithNote'
+  | 'field.completionNote'
+  | 'field.completionNote.placeholder'
+  | 'completionNote.savedPending'
+  | 'completionNote.failed'
   | 'action.transfer'
   | 'action.reopen'
   | 'action.relink'
@@ -360,6 +365,11 @@ const en: Catalog = {
   'action.hidePlaced': 'Hide placed items',
   'action.place': 'Place',
   'action.placeMore': 'More…',
+  'completionNote.savedPending': 'The note was saved to the Task source, but completion is not confirmed. Retry; the note will not be added twice.',
+  'completionNote.failed': 'Saving is not confirmed. Your content is preserved; retry the same note.',
+  'action.completeWithNote': 'Complete and add a note',
+  'field.completionNote': 'Add a short note',
+  'field.completionNote.placeholder': 'What was completed? You can paste multiple lines.',
   'action.transfer': 'Transfer to someone else',
   'action.reopen': 'Reopen',
   'action.relink': 'Relink',
@@ -653,6 +663,11 @@ const zh: Catalog = {
   'action.hidePlaced': '收起已安放',
   'action.place': '安放',
   'action.placeMore': '更多…',
+  'completionNote.savedPending': '记录已写入 Task 原文，完成状态尚未确认。请重试；不会重复追加记录。',
+  'completionNote.failed': '保存尚未确认。内容已保留，请重试同一笔记录。',
+  'action.completeWithNote': '完成并记一笔',
+  'field.completionNote': '一句话补充',
+  'field.completionNote.placeholder': '补充这次完成的内容，可粘贴多行文字',
   'action.transfer': '转移他人',
   'action.reopen': '重新考虑',
   'action.relink': '重新关联',
@@ -946,6 +961,11 @@ const ja: Catalog = {
   'action.hidePlaced': '配置済みを隠す',
   'action.place': '置く',
   'action.placeMore': '詳細…',
+  'completionNote.savedPending': 'メモは Task の元ファイルに保存されましたが、完了状態はまだ確認できていません。再試行してもメモは重複しません。',
+  'completionNote.failed': '保存はまだ確認できていません。内容は保持されています。同じメモで再試行してください。',
+  'action.completeWithNote': '完了してメモを残す',
+  'field.completionNote': 'ひとことメモ',
+  'field.completionNote.placeholder': '完了した内容を入力してください。複数行の貼り付けもできます。',
   'action.transfer': '他の人に引き継ぐ',
   'action.reopen': '再検討',
   'action.relink': '再リンク',
@@ -1239,6 +1259,11 @@ const de: Catalog = {
   'action.hidePlaced': 'Abgelegte Einträge ausblenden',
   'action.place': 'Ablegen',
   'action.placeMore': 'Mehr…',
+  'completionNote.savedPending': 'Die Notiz wurde in der Task-Quelldatei gespeichert, der Abschluss ist jedoch noch nicht bestätigt. Erneut versuchen; die Notiz wird nicht doppelt hinzugefügt.',
+  'completionNote.failed': 'Das Speichern ist noch nicht bestätigt. Der Inhalt bleibt erhalten. Dieselbe Notiz erneut versuchen.',
+  'action.completeWithNote': 'Abschließen und Notiz hinzufügen',
+  'field.completionNote': 'Kurze Notiz',
+  'field.completionNote.placeholder': 'Was wurde erledigt? Mehrzeiliger Text kann eingefügt werden.',
   'action.transfer': 'An andere übergeben',
   'action.reopen': 'Neu prüfen',
   'action.relink': 'Neu verknüpfen',

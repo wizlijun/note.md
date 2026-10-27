@@ -19,6 +19,10 @@ For the full commit history, see the git log.
 
 - **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
 
+## NEXT plugin v1.10.0 — 2026-10-27
+
+- **Complete a Task with a note.** The first Place menu action opens a focused multiline field. Save the note to the Task Markdown before completing it, celebrating and invoking the configured reminder script. Failed saves retain the current draft for an idempotent retry.
+
 - **NEXT reminder feedback distinguishes checks from changes.** Successful script runs show their reported create/update/remove counts; a no-op says no changes were needed. Saving script environment variables explicitly states that the server connection has not been tested.
 
 ## v6.1027.2 — 2026-10-27

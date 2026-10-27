@@ -14,6 +14,9 @@
     item,
     saving,
     suspended = false,
+    completionNote = false,
+    completionNoteLocked = false,
+    completionNoteError,
     onReminder,
     initialRoute,
     initialProjects = [],
@@ -24,6 +27,9 @@
     item: WorkspaceItem
     saving: boolean
     suspended?: boolean
+    completionNote?: boolean
+    completionNoteLocked?: boolean
+    completionNoteError?: string
     onReminder?(): void
     initialRoute?: Route
     initialProjects?: readonly string[]
@@ -37,7 +43,7 @@
     ? { title: item.title, doneWhen: item.task?.done_when ?? '' }
     : { title: '', doneWhen: '' })
   const inferredRoute: Route = projection?.state === 'waiting' ? 'wait' : projection?.state === 'dormant' ? 'park' : projection?.state === 'closed' ? 'settle' : 'commit'
-  let route = $state<Route>(untrack(() => initialRoute ?? inferredRoute))
+  let route = $state<Route>(untrack(() => completionNote ? 'settle' : initialRoute ?? inferredRoute))
   let commitment = $state(projection?.state === 'wip' ? projection.commitment ?? '' : taskDefaults.title)
   let nextAction = $state(projection?.state === 'wip' || projection?.state === 'dormant'
     ? projection.next_action ?? ''
@@ -48,7 +54,7 @@
   let waitingFor = $state(projection?.state === 'waiting' ? projection.waiting_for ?? '' : '')
   let reviewAt = $state(projection?.state === 'waiting' ? projection.review_at?.slice(0, 10) ?? '' : '')
   let wakeTrigger = $state(projection?.state === 'dormant' ? projection.wake_trigger ?? '' : '')
-  let exitKind = $state<ExitKind | ''>('')
+  let exitKind = $state<ExitKind | ''>(untrack(() => completionNote ? 'done' : ''))
   let exitVia = $state('')
   let reason = $state('')
   let target = $state('')
@@ -62,6 +68,7 @@
   let projectDraft = $state('')
   let projectTarget = $state('')
   let invalid = $state(false)
+  let completionNoteEl: HTMLTextAreaElement | undefined = $state()
   let sheetEl: HTMLDivElement | undefined = $state()
 
   function choice(label: string, value = label): ChoiceOption {
@@ -220,6 +227,7 @@
   }
 
   function isValid(): boolean {
+    if (completionNote) return Boolean(result.trim())
     if (route === 'commit') return Boolean(commitment.trim() && nextAction.trim() && closeCondition.trim())
     if (route === 'wait') return Boolean(waitingFor.trim() && reviewAt.trim())
     if (route === 'park') return Boolean(wakeTrigger.trim())
@@ -234,11 +242,16 @@
 
   async function submit(event: SubmitEvent) {
     event.preventDefault()
+    if (saving) return
     if (!isValid()) {
       invalid = true
       return
     }
     invalid = false
+    if (completionNote) {
+      await onSubmit({ route: 'settle', exit: { kind: 'done' }, result })
+      return
+    }
     const projectField = projectChange()
     if (route === 'commit') {
       await onSubmit({ route, commitment, next_action: nextAction, close_condition: closeCondition, ...projectField })
@@ -262,7 +275,7 @@
 
   onMount(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    queueMicrotask(() => sheetEl?.focus())
+    queueMicrotask(() => (completionNote ? completionNoteEl : sheetEl)?.focus())
     const onKey = (event: KeyboardEvent) => {
       if (suspended) return
       if (event.key === 'Escape' && !saving) onCancel()
@@ -301,6 +314,7 @@
       <button class="close" aria-label={t('common.cancel')} disabled={saving} onclick={onCancel}>×</button>
     </header>
 
+    {#if !completionNote}
     <div class="routes" aria-label={t('sheet.choose')}>
       {#each [
         ['commit', 'route.commit', 'route.commit.detail'],
@@ -315,11 +329,20 @@
       {/each}
     </div>
 
-    {#if onReminder}
+    {/if}
+
+    {#if onReminder && !completionNote}
       <div class="reminder-entry"><button type="button" disabled={saving} onclick={onReminder}>{t('reminder.open')} →</button></div>
     {/if}
     <form onsubmit={submit}>
-      {#if route === 'commit'}
+      {#if completionNote}
+        <label class="completion-note">
+          <span>{t('field.completionNote')}</span>
+          <textarea bind:this={completionNoteEl} bind:value={result} rows="5"
+            readonly={completionNoteLocked || saving} aria-required="true" aria-invalid={invalid}
+            placeholder={t('field.completionNote.placeholder')}></textarea>
+        </label>
+      {:else if route === 'commit'}
         <ChoiceField field="commitment" label={t('field.commitment')} bind:value={commitment} options={commitmentOptions} placeholder={t('field.commitment.placeholder')} multiline />
         <ChoiceField field="nextAction" label={t('field.nextAction')} bind:value={nextAction} options={nextActionOptions} placeholder={t('field.nextAction.placeholder')} multiline />
         <ChoiceField field="closeCondition" label={t('field.closeCondition')} bind:value={closeCondition} options={closeConditionOptions} placeholder={t('field.closeCondition.placeholder')} multiline />
@@ -365,6 +388,7 @@
         {/if}
       {/if}
 
+      {#if !completionNote}
       <fieldset class="project-picker">
         <legend>{t('field.project')}{projectRequired ? '' : ` · ${t('common.optional')}`}</legend>
         {#if projects.length}
@@ -400,10 +424,13 @@
         </label>
       {/if}
 
+      {/if}
+
+      {#if completionNote && completionNoteError}<p class="error" role="alert">{completionNoteError}</p>{/if}
       {#if invalid}<p class="error" role="alert">{t('error.required')}</p>{/if}
       <footer>
         <button type="button" class="cancel" disabled={saving} onclick={onCancel}>{t('common.cancel')}</button>
-        <button type="submit" class="submit" disabled={saving}>{t('common.save')}</button>
+        <button type="submit" class="submit" disabled={saving}>{t(completionNote ? 'exit.done' : 'common.save')}</button>
       </footer>
     </form>
   </div>
@@ -429,8 +456,10 @@
   .routes span { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
   form { display: grid; gap: 13px; padding: 18px 24px 22px; border-top: 1px solid var(--line); }
   label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; }
-  input, select { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--input); color: var(--fg); padding: 9px 10px; font: inherit; outline: none; }
-  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--input); color: var(--fg); padding: 9px 10px; font: inherit; outline: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .completion-note { font-size: 13px; }
+  .completion-note textarea { min-height: 130px; resize: vertical; line-height: 1.6; font-weight: 400; }
   .project-picker { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
   .project-picker legend { margin-bottom: 2px; padding: 0; font-size: 12px; font-weight: 600; }
   .selected-projects, .project-options { display: flex; flex-wrap: wrap; gap: 6px; }
