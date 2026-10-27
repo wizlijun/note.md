@@ -1,0 +1,211 @@
+{
+  "version": "1.11.0",
+  "published_at": "2026-10-27T13:52:48.495488+00:00",
+  "artifact": {
+    "tag": "plugin-next-v1.11.0",
+    "commit": "d6b9a02355c62ed45db885a18487c059fef3f3d1",
+    "package_sha256": "8b61aeb5786d1b6d366e52b9b1d73f51b117e253d2051016af7b8fc594883d1f",
+    "package_size": 157223,
+    "signature_verified": true,
+    "manifest_matches_tag": true,
+    "ui_matches_built_dist": true,
+    "source_files_match_tag": 116,
+    "files": [
+      {
+        "path": "ui/index.html",
+        "sha256": "712574d1cb96394e633e8087048995c8079dc1f65cc552eeb3f16f7b6f5d2f9c",
+        "size": 395
+      },
+      {
+        "path": "ui/assets/index-BFpLHP-8.js",
+        "sha256": "1f0c873bee2fb4f39bcc6ae89f9b2f53332f22e971259ee0e47b5cfb43be8e65",
+        "size": 461553
+      },
+      {
+        "path": "ui/assets/index-CTnAqEKH.css",
+        "sha256": "5bff3632d756e2bc5ea5d6571fa1136130b4f1a7777423a1aaee517f181e1d92",
+        "size": 51064
+      },
+      {
+        "path": "manifest.json",
+        "sha256": "8256785dd9a40a7ba6348a3241e93eeca43320f7397f4a208827d914d16725b5",
+        "size": 1710
+      }
+    ],
+    "minimum_host": ">=6.1027.1",
+    "capabilities": [
+      "vault.read",
+      "vault.write",
+      "editor.open",
+      "toast",
+      "settings",
+      "task.hook",
+      "agent"
+    ]
+  },
+  "public_packages": [
+    {
+      "key": "notemd.next/1.11.0/universal.notemdpkg",
+      "sha256": "8b61aeb5786d1b6d366e52b9b1d73f51b117e253d2051016af7b8fc594883d1f",
+      "size": 157223,
+      "public_bytes_equal": true
+    },
+    {
+      "key": "notemd.next/1.11.0/universal.notemdpkg.minisig",
+      "sha256": "f77c6edf2f08d6521513ed7f4f88612325d51938fed086c1f3fd3e297e624719",
+      "size": 314,
+      "public_bytes_equal": true
+    }
+  ],
+  "normal_public_packages": {
+    "objects": [
+      {
+        "url": "https://plugins.notemd.net/api/download/notemd.next/1.11.0/universal",
+        "sha256": "8b61aeb5786d1b6d366e52b9b1d73f51b117e253d2051016af7b8fc594883d1f",
+        "size": 157223,
+        "bytes_equal": true
+      },
+      {
+        "url": "https://plugins.notemd.net/api/download/notemd.next/1.11.0/universal.minisig",
+        "sha256": "f77c6edf2f08d6521513ed7f4f88612325d51938fed086c1f3fd3e297e624719",
+        "size": 314,
+        "bytes_equal": true
+      }
+    ],
+    "signature_verified": true
+  },
+  "index": {
+    "before": 278,
+    "after": 279,
+    "only_added": "notemd.next@1.11.0",
+    "historical_entries_unchanged": true,
+    "normal_and_fresh_public_bytes_equal": true,
+    "kv_content_equal": true,
+    "index_sha256": "4c0da4381bc13d19143b2bec342f62f6435c1f22a2c4084f266b58fbedd8651a",
+    "compatible_latest": "1.11.0",
+    "minimum_host": ">=6.1027.1"
+  },
+  "tests": {
+    "next_files": 43,
+    "next_passed": 768,
+    "svelte_errors": 0,
+    "svelte_warnings": 0,
+    "actual_package_kickoff": {
+      "passed": true,
+      "mode": "actual-package",
+      "version": "1.11.0",
+      "tag": "plugin-next-v1.11.0",
+      "packageSHA256": "8b61aeb5786d1b6d366e52b9b1d73f51b117e253d2051016af7b8fc594883d1f",
+      "actualJavaScript": "ui/assets/index-BFpLHP-8.js",
+      "members": [
+        {
+          "name": "ui/index.html",
+          "bytes": 395,
+          "sha256": "712574d1cb96394e633e8087048995c8079dc1f65cc552eeb3f16f7b6f5d2f9c"
+        },
+        {
+          "name": "ui/assets/index-BFpLHP-8.js",
+          "bytes": 461553,
+          "sha256": "1f0c873bee2fb4f39bcc6ae89f9b2f53332f22e971259ee0e47b5cfb43be8e65"
+        },
+        {
+          "name": "ui/assets/index-CTnAqEKH.css",
+          "bytes": 51064,
+          "sha256": "5bff3632d756e2bc5ea5d6571fa1136130b4f1a7777423a1aaee517f181e1d92"
+        },
+        {
+          "name": "manifest.json",
+          "bytes": 1710,
+          "sha256": "8256785dd9a40a7ba6348a3241e93eeca43320f7397f4a208827d914d16725b5"
+        }
+      ],
+      "scenarios": [
+        {
+          "name": "all-installed",
+          "providers": [
+            "Claude Code",
+            "Codex",
+            "DeepSeek"
+          ],
+          "checks": [
+            "exact installed-provider list",
+            "production safety gate disables every unverified provider",
+            "no agent run",
+            "no Vault writes"
+          ]
+        },
+        {
+          "name": "codex-only",
+          "providers": [
+            "Codex"
+          ],
+          "checks": [
+            "exact installed-provider list",
+            "production safety gate disables every unverified provider",
+            "no agent run",
+            "no Vault writes"
+          ]
+        },
+        {
+          "name": "deepseek-only",
+          "providers": [
+            "DeepSeek"
+          ],
+          "checks": [
+            "exact installed-provider list",
+            "production safety gate disables every unverified provider",
+            "no agent run",
+            "no Vault writes"
+          ]
+        },
+        {
+          "name": "none",
+          "providers": [],
+          "checks": [
+            "exact installed-provider list",
+            "production safety gate disables every unverified provider",
+            "no agent run",
+            "no Vault writes"
+          ]
+        },
+        {
+          "name": "old-host",
+          "checks": [
+            "unsupported host hides kickoff entry"
+          ]
+        },
+        {
+          "name": "existing-result",
+          "checks": [
+            "production package parses real stored kickoff",
+            "actual model and absolute duration shown",
+            "Close discards draft without writes",
+            "Save only persists choice as human:owner",
+            "saved answers survive reopening",
+            "human answer overrides suggested next action in PlaceSheet",
+            "commitment and close condition prefilled",
+            "placement cancellation preserves Task source and NEXT ledger",
+            "zero actual Agent runs and network calls"
+          ],
+          "writes": [
+            "inbox/tasks/isolated-task.kickoff.md",
+            "inbox/tasks/isolated-task.kickoff.md"
+          ]
+        }
+      ],
+      "realVaultWrites": 0,
+      "realAgentRuns": 0,
+      "networkCalls": 0
+    },
+    "actual_package_existing_regressions": 53
+  },
+  "scope": {
+    "only_published": "notemd.next",
+    "unchanged_untracked_paths": 7,
+    "preserved_stashes": 3,
+    "unmerged_local_branch_commits": 0,
+    "other_agent_plugins_or_host_published": false,
+    "installed_locally": false,
+    "real_model_acceptance": "deferred by user; all production providers gated"
+  }
+}

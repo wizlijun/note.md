@@ -83,3 +83,7 @@ cargo +1.99.0 test --manifest-path plugins-src/deepseek-agent/backend/Cargo.toml
 5. Vault写API无原子compare-and-swap。客户端串行化本实例并写前比较/写后回读，检测已观察到的外部修改；不能保证跨设备并发原子性。
 
 安全研究与后端实现依据见 [Task 0报告](2026-10-27-next-task-kickoff-task0.md)。
+
+## 后续插件发布
+
+实现验收之后，用户授权发布 NEXT 1.11.0；实际包、tag 和公网证据见[发布验收](2026-10-27-next-1.11.0-release.md)。仅 NEXT 插件已发布，真实模型准入仍未完成，本文上面的“未发布/未推送”是实现完成时的历史状态。
