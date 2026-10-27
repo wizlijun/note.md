@@ -1835,6 +1835,7 @@ mod tests {
             ("host.taskHook.select", "task.hook"),
             ("host.taskHook.clear", "task.hook"),
             ("host.taskHook.run", "task.hook"),
+            ("host.taskHook.setEnvironment", "task.hook"),
             ("host.cdr.repository.v1.load", "cdr.repository"),
             ("host.cdr.repository.v1.commit", "cdr.repository"),
             ("host.cdr.repository.v2.inspect", "cdr.repository"),

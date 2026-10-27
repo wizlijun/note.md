@@ -4,6 +4,8 @@ export interface TaskHookConfig {
   available: boolean
   configured: boolean
   scriptPath?: string
+  environmentSupported?: boolean
+  environmentKeys?: string[]
 }
 
 export interface TaskHookJob {
@@ -22,24 +24,48 @@ function configuration(value: unknown): TaskHookConfig {
   if (!value || typeof value !== 'object' || typeof (value as any).configured !== 'boolean') {
     throw new Error('Invalid task hook configuration')
   }
-  const result = value as { configured: boolean; scriptPath?: string }
-  return { available: true, configured: result.configured, ...(result.scriptPath ? { scriptPath: result.scriptPath } : {}) }
-}
-
-export async function loadTaskHook(): Promise<void> {
-  try {
-    taskHook.config = configuration(await bridge().request('host.taskHook.get', {}))
-  } catch {
-    taskHook.config = { available: false, configured: false }
+  const result = value as { configured: boolean; scriptPath?: string; environmentSupported?: boolean; environmentKeys?: unknown }
+  return {
+    available: true, configured: result.configured,
+    ...(result.scriptPath ? { scriptPath: result.scriptPath } : {}),
+    environmentSupported: result.environmentSupported === true,
+    environmentKeys: Array.isArray(result.environmentKeys)
+      ? result.environmentKeys.filter((key): key is string => key === 'DESK_DISPLAY_URL' || key === 'DESK_DISPLAY_TOKEN')
+      : [],
   }
 }
 
+// A settings mutation invalidates reads started both before and during it.
+let configurationEpoch = 0
+
+export async function loadTaskHook(): Promise<TaskHookConfig> {
+  const epoch = configurationEpoch
+  try {
+    const loaded = configuration(await bridge().request('host.taskHook.get', {}))
+    if (epoch === configurationEpoch) taskHook.config = loaded
+    return loaded
+  } catch {
+    if (epoch === configurationEpoch) taskHook.config = { available: false, configured: false }
+    return taskHook.config
+  }
+}
+
+async function changeConfiguration(method: string, params: Record<string, string>): Promise<void> {
+  configurationEpoch++
+  try { taskHook.config = configuration(await bridge().request(method, params)) }
+  finally { configurationEpoch++ }
+}
+
 export async function selectTaskHook(): Promise<void> {
-  taskHook.config = configuration(await bridge().request('host.taskHook.select', {}))
+  await changeConfiguration('host.taskHook.select', {})
 }
 
 export async function clearTaskHook(): Promise<void> {
-  taskHook.config = configuration(await bridge().request('host.taskHook.clear', {}))
+  await changeConfiguration('host.taskHook.clear', {})
+}
+
+export async function setTaskHookEnvironment(text: string): Promise<void> {
+  await changeConfiguration('host.taskHook.setEnvironment', { text })
 }
 
 const pending = new Map<string, Promise<void>>()
@@ -48,8 +74,8 @@ const pending = new Map<string, Promise<void>>()
 export function syncTaskHook(taskId: string, title: string): Promise<void> {
   const previous = pending.get(taskId) ?? Promise.resolve()
   const job = previous.then(async () => {
-    await loadTaskHook()
-    if (!taskHook.config.configured) return
+    const config = await loadTaskHook()
+    if (!config.configured) return
     taskHook.jobs[taskId] = { taskId, title, status: 'running' }
     try {
       const result = await bridge().request('host.taskHook.run', { taskId })

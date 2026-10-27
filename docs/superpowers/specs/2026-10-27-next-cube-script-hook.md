@@ -4,12 +4,19 @@
 
 ## 执行契约
 
-- 宿主提供 `host.taskHook.get/select/clear/run`，仅允许 `notemd.next` 与 `task.hook` 能力。原生文件选择器选择当前 Vault `skills/` 内的 Python 文件；配置绑定本机 canonical Vault，存于宿主私有配置，普通插件设置不能授予执行权限。
+- 宿主提供 `host.taskHook.get/select/clear/run/setEnvironment`，仅允许 `notemd.next` 与 `task.hook` 能力。原生文件选择器选择当前 Vault `skills/` 内的 Python 文件；配置绑定本机 canonical Vault，存于宿主私有配置，普通插件设置不能授予执行权限。
 - NEXT 在 Task 生命周期、提醒偏好、规划元数据保存成功后调用。Idea、保存失败和未配置场景不执行。完成礼花和状态保存不等待外部网络；执行失败单独显示待同步与重试，不回滚任务或重新追加完成事件。
 - 宿主固定执行 `python3 <选定脚本> --vault <当前Vault> --task-id <UUID> --apply`。使用 argv，不拼 shell 字符串；不接收调用者的任意命令、Vault 或参数。宿主 30 秒超时，脚本网络总预算 25 秒、输出限长、丢弃 stderr，返回白名单结果。
 - 成功输出 `{ok:true,status:"synced",created:0,updated:0,deleted:1}`。未完成返回 `pending`；脚本退出、超时或不可用不冒充同步成功。可读统计不等于用户已读回执。
 - 脚本以非零退出码返回合法 `ok:false,status:"pending"` JSON 时，宿主仍校验统计字段并读取固定 `error` 码；仅透传 `missing_cube_config`、`cube_unavailable`、`sync_busy`、`cube_safe_create_unavailable` 到 `errorCode`，NEXT 显示对应原因。其他错误文本和 stderr 不透传，非零退出即使声称 `ok:true` 也不得判成功。
 - 配置区独立保存，选择/停用立即生效，不受普通设置页保存或取消按钮控制。旧宿主显示不支持执行，基础任务功能继续可用。
+
+## 本机脚本环境变量
+
+- NEXT脚本设置提供多行 `KEY=value` 输入，当前仅支持 `DESK_DISPLAY_URL`、`DESK_DISPLAY_TOKEN`。空行和整行 `#` 注释忽略；按第一个 `=` 切分，去除首尾空白及成对单双引号，不执行 shell、变量替换或插值。拒绝重复/未知变量、缺少 `=`、空值、NUL 和超长输入；报错不包含输入值。
+- `host.taskHook.setEnvironment({text})` 替换当前 Vault 全部环境覆盖；空字符串清除覆盖。仍只允许 NEXT + task.hook，不授予或更改脚本执行权限。get/select/clear/setEnvironment 返回 `environmentSupported:true` 和 `environmentKeys`，不返回值；旧宿主未声明支持则提示更新。
+- 配置保存在宿主私有目录，按 canonical Vault 隔离，原子写入、Unix权限0600；不写入Vault/插件普通设置，不回显已保存密钥。选择或停用脚本不删除环境覆盖，界面提供独立清除操作。保存后输入框清空并显示已保存变量名；失败保留草稿供修改。
+- 执行时先保留既有系统环境白名单，再注入用户明确保存的这两个变量，仅作用于本次子进程；优先于脚本原有本机env文件，清除覆盖后恢复脚本原有配置读取方式。保存和清除不会运行脚本或重做任务。
 
 ## 技能脚本
 

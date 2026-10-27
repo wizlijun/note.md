@@ -154,7 +154,7 @@ Crashed(3) → Disabled(crash-loop) + 市场窗口徽标提示
 | `host.toast` | `toast` | 语义同 v1 action |
 | `host.dialog.confirm/message/open/save` | `dialog` | 新增 open/save 文件对话框（roam-import 选文件用） |
 | `host.clipboard.write` | `clipboard.write` | |
-| `host.taskHook.get/select/clear/run` | `task.hook` | 仅 NEXT UI；原生选择当前 Vault skills 内 Python，固定参数执行；不调用模型，详见 [任务脚本 API](../../task-hook-api.md) |
+| `host.taskHook.get/select/clear/run/setEnvironment` | `task.hook` | 仅 NEXT UI；原生选择当前 Vault skills 内 Python，固定参数执行；不调用模型，详见 [任务脚本 API](../../task-hook-api.md) |
 | `host.settings.get/set` | `settings` | 只见 `<id>.*` scope（自己的 scope 天然可写，取代 v1 的 `settings.write:<scope>` 细分） |
 | `host.storage.get/set/delete/list` | `storage` | `<app_data>/plugin_data/<id>/` 下的 KV 与文件（对齐 sidex per-extension storage 一等 API） |
 | `host.secrets.get/set/delete` | `secrets` | macOS Keychain，service 名含插件 id |

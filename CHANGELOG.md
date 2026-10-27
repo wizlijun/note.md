@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Configure Cube script environment in NEXT settings.** Paste DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN as KEY=value lines, save or clear overrides per local Vault, and pass them directly to the selected script without returning saved credentials to the UI. Requires the matching host update.
+
 - **Explain NEXT script synchronization failures.** Preserve recognized pending error codes even when the script exits unsuccessfully, so NEXT can explain missing Cube configuration, connectivity, busy synchronization or unsupported server capabilities without exposing arbitrary script output.
 
 - **NEXT filters preserve the Show placed toggle.** Project tags, Idea / Task and search no longer reveal future parked or closed cards automatically; explicitly show matching placed cards with the toggle.

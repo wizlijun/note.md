@@ -1,6 +1,7 @@
 //! User-selected NEXT reminder script. No shell, agent, or model is involved.
 //! The native picker is the only grant writer; plugin settings cannot grant execution.
 
+use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -13,6 +14,9 @@ use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
 
 const MAX_OUTPUT: u64 = 16 * 1024;
+const MAX_ENVIRONMENT_TEXT: usize = 16 * 1024;
+const MAX_ENVIRONMENT_VALUE: usize = 8 * 1024;
+type Environment = BTreeMap<String, String>;
 const TIMEOUT: Duration = Duration::from_secs(30);
 static CONFIG_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
@@ -28,6 +32,13 @@ fn check_request(plugin: &str, method: &str, params: &Value) -> Result<(), Strin
             if fields.is_empty() =>
         {
             Ok(())
+        }
+        "host.taskHook.setEnvironment" if fields.len() == 1 => {
+            let text = fields
+                .get("text")
+                .and_then(Value::as_str)
+                .ok_or("bad_request: environment text required")?;
+            parse_environment(text).map(|_| ())
         }
         "host.taskHook.run" if fields.len() == 1 => {
             let id = fields
@@ -68,11 +79,111 @@ fn read_selection(private_root: &Path, vault: &Path) -> Result<Option<PathBuf>, 
     Ok(Some(PathBuf::from(script)))
 }
 
-fn selection_payload(script: Option<&Path>) -> Value {
-    match script {
+fn selection_payload(script: Option<&Path>, environment: &Environment) -> Value {
+    let mut result = match script {
         Some(path) => json!({"configured":true,"scriptPath":path}),
         None => json!({"configured":false}),
+    };
+    result["environmentSupported"] = json!(true);
+    result["environmentKeys"] = json!(environment.keys().collect::<Vec<_>>());
+    result
+}
+
+fn valid_environment_entry(key: &str, value: &str) -> bool {
+    matches!(key, "DESK_DISPLAY_URL" | "DESK_DISPLAY_TOKEN")
+        && !value.trim().is_empty()
+        && value.len() <= MAX_ENVIRONMENT_VALUE
+        && !value.contains(['\0', '\n', '\r'])
+}
+
+fn parse_environment(text: &str) -> Result<Environment, String> {
+    let invalid = "bad_request: invalid task hook environment";
+    if text.len() > MAX_ENVIRONMENT_TEXT || text.contains('\0') {
+        return Err(invalid.into());
     }
+    let mut environment = Environment::new();
+    for line in text.lines().map(str::trim) {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let (key, raw_value) = line.split_once('=').ok_or(invalid)?;
+        let key = key.trim();
+        let mut value = raw_value.trim();
+        if value.starts_with(['\'', '"']) || value.ends_with(['\'', '"']) {
+            let quote = value.as_bytes()[0];
+            if value.len() < 2
+                || !matches!(quote, b'\'' | b'"')
+                || value.as_bytes().last() != Some(&quote)
+            {
+                return Err(invalid.into());
+            }
+            value = value[1..value.len() - 1].trim();
+        }
+        if !valid_environment_entry(key, value)
+            || environment
+                .insert(key.to_owned(), value.to_owned())
+                .is_some()
+        {
+            return Err(invalid.into());
+        }
+    }
+    Ok(environment)
+}
+
+fn environment_path(private_root: &Path, vault: &Path) -> PathBuf {
+    config_path(private_root, vault).with_extension("environment.json")
+}
+
+fn read_environment(private_root: &Path, vault: &Path) -> Result<Environment, String> {
+    let invalid = "config_unavailable: cannot read task hook environment";
+    let data = match std::fs::read(environment_path(private_root, vault)) {
+        Ok(data) => data,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Environment::new()),
+        Err(_) => return Err(invalid.into()),
+    };
+    let data: Value = serde_json::from_slice(&data).map_err(|_| invalid)?;
+    if data["vaultRoot"].as_str() != vault.to_str() {
+        return Err(invalid.into());
+    }
+    let environment: Environment =
+        serde_json::from_value(data["environment"].clone()).map_err(|_| invalid)?;
+    if !environment
+        .iter()
+        .all(|(key, value)| valid_environment_entry(key, value))
+    {
+        return Err(invalid.into());
+    }
+    Ok(environment)
+}
+
+fn save_environment(private_root: &Path, vault: &Path, text: &str) -> Result<(), String> {
+    let environment = parse_environment(text)?;
+    let path = environment_path(private_root, vault);
+    let invalid = "config_unavailable: cannot save task hook environment";
+    if environment.is_empty() {
+        return match std::fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(invalid.into()),
+        };
+    }
+    let parent = path.parent().unwrap();
+    std::fs::create_dir_all(parent).map_err(|_| invalid)?;
+    let mut temp = tempfile::NamedTempFile::new_in(parent).map_err(|_| invalid)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        temp.as_file()
+            .set_permissions(std::fs::Permissions::from_mode(0o600))
+            .map_err(|_| invalid)?;
+    }
+    temp.write_all(
+        &serde_json::to_vec(&json!({"vaultRoot":vault,"environment":environment})).unwrap(),
+    )
+    .map_err(|_| invalid)?;
+    temp.as_file().sync_all().map_err(|_| invalid)?;
+    temp.persist(path).map_err(|_| invalid)?;
+    Ok(())
 }
 
 fn validate_script(vault: &Path, script: &Path) -> Result<PathBuf, String> {
@@ -203,7 +314,13 @@ fn python_program() -> PathBuf {
     }
 }
 
-async fn execute(vault: &Path, script: &Path, task_id: &str, timeout: Duration) -> Value {
+async fn execute(
+    vault: &Path,
+    script: &Path,
+    task_id: &str,
+    environment: &Environment,
+    timeout: Duration,
+) -> Value {
     let script = match validate_script(vault, script) {
         Ok(script) => script,
         Err(_) => return pending("invalid_script", None),
@@ -215,6 +332,7 @@ async fn execute(vault: &Path, script: &Path, task_id: &str, timeout: Duration) 
             command.env(name, value);
         }
     }
+    command.envs(environment);
     command
         .args(["-X", "utf8", "-E", "-s"])
         .arg(script)
@@ -291,16 +409,26 @@ pub async fn dispatch<R: tauri::Runtime>(
         .app_data_dir()
         .map_err(|_| "config_unavailable: application data unavailable")?;
     if method == "host.taskHook.run" {
-        let script = {
+        let (script, environment) = {
             let _guard = CONFIG_LOCK
                 .lock()
                 .map_err(|_| "config_unavailable: settings lock failed")?;
-            read_selection(&private_root, &vault)?
+            (
+                read_selection(&private_root, &vault)?,
+                read_environment(&private_root, &vault)?,
+            )
         };
         return Ok(match script {
             None => json!({"ok":true,"status":"disabled","created":0,"updated":0,"deleted":0}),
             Some(script) => {
-                execute(&vault, &script, params["taskId"].as_str().unwrap(), TIMEOUT).await
+                execute(
+                    &vault,
+                    &script,
+                    params["taskId"].as_str().unwrap(),
+                    &environment,
+                    TIMEOUT,
+                )
+                .await
             }
         });
     }
@@ -327,6 +455,7 @@ pub async fn dispatch<R: tauri::Runtime>(
         }
         return Ok(selection_payload(
             read_selection(&private_root, &vault)?.as_deref(),
+            &read_environment(&private_root, &vault)?,
         ));
     }
     let _guard = CONFIG_LOCK
@@ -339,7 +468,13 @@ pub async fn dispatch<R: tauri::Runtime>(
             Err(_) => return Err("config_unavailable: cannot clear task hook selection".into()),
         }
     }
-    let mut result = selection_payload(read_selection(&private_root, &vault)?.as_deref());
+    if method == "host.taskHook.setEnvironment" {
+        save_environment(&private_root, &vault, params["text"].as_str().unwrap())?;
+    }
+    let mut result = selection_payload(
+        read_selection(&private_root, &vault)?.as_deref(),
+        &read_environment(&private_root, &vault)?,
+    );
     if method == "host.taskHook.get" {
         result["pythonPath"] = json!(python_program());
     }
@@ -395,6 +530,156 @@ mod tests {
         assert!(
             check_request("notemd.next", "host.taskHook.select", &json!({"path":"x"})).is_err()
         );
+        assert!(check_request(
+            "notemd.next",
+            "host.taskHook.setEnvironment",
+            &json!({"text":"DESK_DISPLAY_TOKEN=fake"})
+        )
+        .is_ok());
+        for (plugin, params) in [
+            ("other.plugin", json!({"text":"DESK_DISPLAY_TOKEN=fake"})),
+            ("notemd.next", json!({"text":"", "vault":"other"})),
+            ("notemd.next", json!({"text":42})),
+            ("notemd.next", json!({"text":"PYTHONPATH=secret"})),
+        ] {
+            assert!(check_request(plugin, "host.taskHook.setEnvironment", &params).is_err());
+        }
+    }
+
+    #[test]
+    fn environment_parser_accepts_only_literal_allowed_assignments() {
+        let environment = parse_environment("\r\n # ignored\r\n DESK_DISPLAY_URL = \" https://cube.invalid \"\r\nDESK_DISPLAY_TOKEN='fake=a=$HOME$(noop)`noop`#literal'\n").unwrap();
+        assert_eq!(environment["DESK_DISPLAY_URL"], "https://cube.invalid");
+        assert_eq!(
+            environment["DESK_DISPLAY_TOKEN"],
+            "fake=a=$HOME$(noop)`noop`#literal"
+        );
+        assert!(parse_environment(" \n# comment\n").unwrap().is_empty());
+        for text in [
+            "secret-without-equals",
+            "PATH=secret",
+            "export DESK_DISPLAY_TOKEN=secret",
+            "DESK_DISPLAY_TOKEN=",
+            "DESK_DISPLAY_TOKEN=' '",
+            "DESK_DISPLAY_TOKEN='secret\"",
+            "DESK_DISPLAY_TOKEN=secret'",
+            "DESK_DISPLAY_TOKEN=secret\0",
+            "DESK_DISPLAY_TOKEN=secret\nDESK_DISPLAY_TOKEN=other",
+            "DESK_DISPLAY_TOKEN=\"secret\nsecond line\"",
+        ] {
+            let error = parse_environment(text).unwrap_err();
+            assert_eq!(error, "bad_request: invalid task hook environment");
+            assert!(!error.contains("secret"));
+        }
+        assert!(parse_environment(&format!(
+            "DESK_DISPLAY_TOKEN={}",
+            "x".repeat(MAX_ENVIRONMENT_VALUE + 1)
+        ))
+        .is_err());
+        assert!(parse_environment(&" ".repeat(MAX_ENVIRONMENT_TEXT + 1)).is_err());
+    }
+
+    #[test]
+    fn environment_storage_is_private_isolated_and_never_returns_values() {
+        let (_temp, vault, _) = fixture("");
+        let private = tempfile::tempdir().unwrap();
+        save_environment(
+            private.path(),
+            &vault,
+            "DESK_DISPLAY_URL=https://cube.invalid\nDESK_DISPLAY_TOKEN=fake-secret",
+        )
+        .unwrap();
+        let environment = read_environment(private.path(), &vault).unwrap();
+        assert_eq!(environment["DESK_DISPLAY_TOKEN"], "fake-secret");
+        let payload = selection_payload(None, &environment);
+        assert_eq!(
+            payload,
+            json!({"configured":false,"environmentSupported":true,"environmentKeys":["DESK_DISPLAY_TOKEN","DESK_DISPLAY_URL"]})
+        );
+        assert!(!payload.to_string().contains("fake-secret"));
+        assert!(!payload.to_string().contains("cube.invalid"));
+        let path = environment_path(private.path(), &vault);
+        assert!(!path.starts_with(&vault));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+        let other = vault.join("other");
+        assert!(read_environment(private.path(), &other).unwrap().is_empty());
+        std::fs::copy(&path, environment_path(private.path(), &other)).unwrap();
+        assert!(read_environment(private.path(), &other).is_err());
+        assert!(save_environment(private.path(), &vault, "PATH=secret").is_err());
+        assert_eq!(
+            read_environment(private.path(), &vault).unwrap(),
+            environment
+        );
+        save_environment(private.path(), &vault, "DESK_DISPLAY_TOKEN=replacement").unwrap();
+        assert_eq!(read_environment(private.path(), &vault).unwrap().len(), 1);
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&json!({"vaultRoot":vault,"environment":{"PYTHONPATH":"secret"}}))
+                .unwrap(),
+        )
+        .unwrap();
+        let error = read_environment(private.path(), &vault).unwrap_err();
+        assert!(!error.contains("secret"));
+    }
+
+    #[test]
+    fn environment_and_script_selection_clear_independently() {
+        let (_temp, vault, script) = fixture("");
+        let private = tempfile::tempdir().unwrap();
+        save_selection(private.path(), &vault, &script).unwrap();
+        save_environment(private.path(), &vault, "DESK_DISPLAY_TOKEN=fake").unwrap();
+        save_environment(private.path(), &vault, " # clear\n ").unwrap();
+        assert_eq!(
+            read_selection(private.path(), &vault).unwrap(),
+            Some(script.clone())
+        );
+        assert!(read_environment(private.path(), &vault).unwrap().is_empty());
+        assert!(!environment_path(private.path(), &vault).exists());
+        save_environment(private.path(), &vault, "DESK_DISPLAY_TOKEN=fake").unwrap();
+        std::fs::remove_file(config_path(private.path(), &vault)).unwrap();
+        assert_eq!(read_selection(private.path(), &vault).unwrap(), None);
+        assert_eq!(
+            read_environment(private.path(), &vault).unwrap()["DESK_DISPLAY_TOKEN"],
+            "fake"
+        );
+        save_selection(private.path(), &vault, &script).unwrap();
+        assert_eq!(
+            read_environment(private.path(), &vault).unwrap()["DESK_DISPLAY_TOKEN"],
+            "fake"
+        );
+    }
+
+    #[tokio::test]
+    async fn script_receives_saved_environment_snapshot_without_shell_or_output_leaks() {
+        let (_temp, vault, script) = fixture(
+            r#"import json, os, sys
+assert sys.argv[1:] == ['--vault', os.getcwd(), '--task-id', '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8', '--apply']
+assert os.environ['DESK_DISPLAY_URL'] == 'https://cube.invalid'
+assert os.environ['DESK_DISPLAY_TOKEN'] == 'fake=a=$HOME$(noop)`noop`'
+assert 'PYTHONPATH' not in os.environ
+print(json.dumps(dict(ok=True, status='synced', created=0, updated=0, deleted=0, token=os.environ['DESK_DISPLAY_TOKEN'])))
+"#,
+        );
+        let private = tempfile::tempdir().unwrap();
+        save_environment(
+            private.path(),
+            &vault,
+            "DESK_DISPLAY_URL=https://cube.invalid\nDESK_DISPLAY_TOKEN='fake=a=$HOME$(noop)`noop`'",
+        )
+        .unwrap();
+        let environment = read_environment(private.path(), &vault).unwrap();
+        save_environment(private.path(), &vault, "").unwrap();
+        let result = execute(&vault, &script, TASK, &environment, Duration::from_secs(5)).await;
+        assert_eq!(result["status"], "synced", "{result}");
+        assert!(result.get("token").is_none());
+        assert!(!result.to_string().contains("fake="));
     }
     #[test]
     fn configuration_is_bound_to_canonical_vault() {
@@ -449,7 +734,14 @@ mod tests {
         let (_temp, vault, script) = fixture(
             "import json, sys\nprint(json.dumps(dict(ok=False, status='pending', error='missing_cube_config', created=0, updated=0, deleted=0)))\nsys.exit(1)\n",
         );
-        let result = execute(&vault, &script, TASK, Duration::from_secs(5)).await;
+        let result = execute(
+            &vault,
+            &script,
+            TASK,
+            &Environment::new(),
+            Duration::from_secs(5),
+        )
+        .await;
         assert_eq!(
             result,
             json!({"ok":false,"status":"pending","errorCode":"missing_cube_config","created":0,"updated":0,"deleted":0,"exitCode":1})
@@ -504,7 +796,14 @@ assert not any(k in os.environ for k in ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 
 print(json.dumps(dict(ok=True, status='synced', created=0, updated=1, deleted=2, secret='not returned')))
 "#,
         );
-        let result = execute(&vault, &script, TASK, Duration::from_secs(5)).await;
+        let result = execute(
+            &vault,
+            &script,
+            TASK,
+            &Environment::new(),
+            Duration::from_secs(5),
+        )
+        .await;
         assert_eq!(result["status"], "synced", "{result}");
         assert_eq!(result["updated"], 1);
         assert!(result.get("secret").is_none());
@@ -513,12 +812,26 @@ print(json.dumps(dict(ok=True, status='synced', created=0, updated=1, deleted=2,
     async fn oversized_output_is_bounded_and_missing_script_is_pending() {
         let (_temp, vault, script) = fixture("print('x' * 100000)\n");
         assert_eq!(
-            execute(&vault, &script, TASK, Duration::from_secs(5)).await["errorCode"],
+            execute(
+                &vault,
+                &script,
+                TASK,
+                &Environment::new(),
+                Duration::from_secs(5)
+            )
+            .await["errorCode"],
             "output_too_large"
         );
         std::fs::remove_file(&script).unwrap();
         assert_eq!(
-            execute(&vault, &script, TASK, Duration::from_secs(5)).await["errorCode"],
+            execute(
+                &vault,
+                &script,
+                TASK,
+                &Environment::new(),
+                Duration::from_secs(5)
+            )
+            .await["errorCode"],
             "invalid_script"
         );
     }
@@ -526,11 +839,25 @@ print(json.dumps(dict(ok=True, status='synced', created=0, updated=1, deleted=2,
     async fn timeout_and_nonzero_never_claim_success() {
         let (_temp, vault, script) = fixture("import time\ntime.sleep(10)\n");
         assert_eq!(
-            execute(&vault, &script, TASK, Duration::from_millis(100)).await["errorCode"],
+            execute(
+                &vault,
+                &script,
+                TASK,
+                &Environment::new(),
+                Duration::from_millis(100)
+            )
+            .await["errorCode"],
             "timeout"
         );
         std::fs::write(&script, "import sys\nprint('secret')\nsys.exit(7)\n").unwrap();
-        let result = execute(&vault, &script, TASK, Duration::from_secs(5)).await;
+        let result = execute(
+            &vault,
+            &script,
+            TASK,
+            &Environment::new(),
+            Duration::from_secs(5),
+        )
+        .await;
         assert_eq!(result["errorCode"], "script_failed");
         assert_eq!(result["exitCode"], 7);
     }

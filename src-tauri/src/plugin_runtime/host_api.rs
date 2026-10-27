@@ -83,7 +83,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         // and write to the Origin-authenticated plugin id, so holding this
         // token never exposes another plugin's settings scope.
         "host.settings.get" | "host.settings.set" => Some("settings"),
-        "host.taskHook.get" | "host.taskHook.select" | "host.taskHook.clear" | "host.taskHook.run" => Some("task.hook"),
+        "host.taskHook.get" | "host.taskHook.select" | "host.taskHook.clear" | "host.taskHook.run" | "host.taskHook.setEnvironment" => Some("task.hook"),
         // Opaque collaborative-document aggregate repository. The live UI
         // bridge binds storage to the Origin-authenticated plugin id; native
         // plugin processes intentionally do not receive this surface.
@@ -601,7 +601,7 @@ mod tests {
         assert_eq!(method_capability("host.agent.limits"), Some("agent"));
         assert_eq!(method_capability("host.settings.get"), Some("settings"));
         assert_eq!(method_capability("host.settings.set"), Some("settings"));
-        for method in ["host.taskHook.get", "host.taskHook.select", "host.taskHook.clear", "host.taskHook.run"] {
+        for method in ["host.taskHook.get", "host.taskHook.select", "host.taskHook.clear", "host.taskHook.run", "host.taskHook.setEnvironment"] {
             assert_eq!(method_capability(method), Some("task.hook"));
         }
         assert_eq!(
@@ -710,7 +710,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (emitter, _) = recording_emitter();
         let sink = make_sink("notemd.next".into(), vec!["task.hook".into()], dir.path().into(), emitter, noop_poster(), None);
-        for method in ["host.taskHook.get", "host.taskHook.select", "host.taskHook.clear", "host.taskHook.run"] {
+        for method in ["host.taskHook.get", "host.taskHook.select", "host.taskHook.clear", "host.taskHook.run", "host.taskHook.setEnvironment"] {
             let response = sink(req(method, Some(1), serde_json::json!({}))).unwrap();
             assert_eq!(response.error.unwrap().code, proto::ERR_METHOD_NOT_FOUND);
         }

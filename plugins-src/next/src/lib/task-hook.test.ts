@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const request = vi.hoisted(() => vi.fn())
 vi.mock('./bridge', () => ({ bridge: () => ({ request }) }))
-import { taskHook, loadTaskHook, selectTaskHook, clearTaskHook, syncTaskHook } from './task-hook.svelte'
+import { taskHook, loadTaskHook, selectTaskHook, clearTaskHook, syncTaskHook, setTaskHookEnvironment } from './task-hook.svelte'
 
 const id = '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8'
 beforeEach(() => {
@@ -63,4 +63,53 @@ describe('direct Task script hook', () => {
     await Promise.all([first, second])
     expect(taskHook.jobs[id]).toEqual({ taskId: id, title: '合同', status: 'pending', errorCode: 'host_unavailable' })
   })
+
+  it.each([
+    ['before', 'resolve'], ['before', 'reject'], ['during', 'resolve'], ['during', 'reject'],
+  ])('keeps saved environment configuration when a GET started %s a mutation completes with %s later', async (timing, outcome) => {
+    let finishRead!: (value: unknown) => void
+    let failRead!: (error: Error) => void
+    let finishSave!: (value: unknown) => void
+    request.mockImplementation((method) => method === 'host.taskHook.get'
+      ? new Promise((resolve, reject) => { finishRead = resolve; failRead = reject })
+      : new Promise((resolve) => { finishSave = resolve }))
+    let read: Promise<unknown>
+    let save: Promise<void>
+    if (timing === 'before') {
+      read = loadTaskHook()
+      save = setTaskHookEnvironment('DESK_DISPLAY_TOKEN=test-only-token')
+    } else {
+      save = setTaskHookEnvironment('DESK_DISPLAY_TOKEN=test-only-token')
+      read = loadTaskHook()
+    }
+    finishSave({ configured: true, environmentSupported: true, environmentKeys: ['DESK_DISPLAY_TOKEN'] })
+    await save
+    if (outcome === 'resolve') finishRead({ configured: true, environmentSupported: true, environmentKeys: [] })
+    else failRead(new Error('old failed read'))
+    await read
+    expect(taskHook.config).toMatchObject({
+      available: true, configured: true, environmentSupported: true, environmentKeys: ['DESK_DISPLAY_TOKEN'],
+    })
+  })
+
+  it('still runs an already configured hook if its first GET overlaps an environment save', async () => {
+    let finishRead!: (value: unknown) => void
+    let finishSave!: (value: unknown) => void
+    request.mockImplementation((method) => {
+      if (method === 'host.taskHook.get') return new Promise((resolve) => { finishRead = resolve })
+      if (method === 'host.taskHook.setEnvironment') return new Promise((resolve) => { finishSave = resolve })
+      return Promise.resolve({ ok: true, status: 'synced' })
+    })
+    const sync = syncTaskHook(id, '合同')
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('host.taskHook.get', {}))
+    const save = setTaskHookEnvironment('DESK_DISPLAY_TOKEN=test-only-token')
+    finishRead({ configured: true, environmentSupported: true, environmentKeys: [] })
+    await sync
+    expect(request).toHaveBeenCalledWith('host.taskHook.run', { taskId: id })
+    expect(taskHook.jobs[id].status).toBe('synced')
+    finishSave({ configured: true, environmentSupported: true, environmentKeys: ['DESK_DISPLAY_TOKEN'] })
+    await save
+    expect(taskHook.config.environmentKeys).toEqual(['DESK_DISPLAY_TOKEN'])
+  })
+
 })
