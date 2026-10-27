@@ -26,7 +26,7 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 | Linux beta · Debian / Ubuntu | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=x86_64) |
 | Linux beta · Debian / Ubuntu | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=aarch64) |
 
-**v6.1027.1 更新 macOS 与 Linux beta。** 配合 NEXT 1.8.0，可在 NEXT 设置中选择当前 Vault 的 skills 目录内的 Python 脚本。Task 状态或提醒偏好保存成功后，由宿主直接运行所选脚本同步提醒，不调用 AI 模型。脚本及其依赖需要配置，外部提醒服务需另行设置。Apple Silicon、Intel Mac 及 Linux 双架构的两种包格式均更新至此版本，Windows 继续提供 v6.811.1。Linux 仍为 beta，aarch64 未经桌面实机验证，Omarchy 仓库尚未收录。
+**v6.1027.2 仅更新 Apple Silicon Mac。** 配合 NEXT 1.9.0，可在 NEXT 设置中按 `KEY=value` 粘贴脚本环境变量。宿主在本机保存并直接传给所选 Python 脚本；已保存的值不会返回插件，也不写入 Vault。同步失败时会显示具体的配置或连接错误。状态变更仍直接执行脚本，不调用 AI 模型。Intel Mac 与 Linux 保持 v6.1027.1，Windows 保持 v6.811.1。Linux 仍为 beta，aarch64 未经桌面实机验证，Omarchy 仓库尚未收录。
 
 Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux 下载未指定包格式时会先让你选择。ARM 不会回退到 x86_64，Arch 包不会回退到 Debian 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
 
