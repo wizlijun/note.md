@@ -1,0 +1,277 @@
+{
+  "version": "1.10.0",
+  "tag": "plugin-next-v1.10.0",
+  "commit": "f83d42582e88370fa5e22b5b6914f00d16dddbc6",
+  "published": true,
+  "package": {
+    "sha256": "0e36a4e84211fd6d910c70cbee162e62149cfc695104b8dc5982c1b646f9181c",
+    "size": 127199
+  },
+  "tests": {
+    "next": 483,
+    "svelteCheckErrors": 0,
+    "svelteCheckWarnings": 0,
+    "productionPackageChecks": 53
+  },
+  "scope": {
+    "worktrees": 1,
+    "originalUntrackedPreserved": 7,
+    "stashesPreserved": 3,
+    "features": [
+      "f83d4258",
+      "0f6a1401"
+    ],
+    "hostTestExcludedFromPackage": "7de06fd7"
+  },
+  "visual": {
+    "browser": "macOS Safari",
+    "fixture": "isolated in-memory Vault using exact package assets",
+    "verified": [
+      "first menu item",
+      "focused multiline field",
+      "paste two lines",
+      "completion closes sheet",
+      "completed card removed from active view",
+      "script reported counts shown"
+    ],
+    "hover": "not independently confirmed"
+  },
+  "limitations": [
+    "No installed-host plugin validation or real Vault writes/script runs",
+    "Pending note operations survive only in the current open form",
+    "NEXT-opened Markdown editing issue is not fixed by this plugin release"
+  ],
+  "proof": {
+    "public-packages.json": [
+      {
+        "key": "notemd.next/1.10.0/universal.notemdpkg",
+        "sha256": "0e36a4e84211fd6d910c70cbee162e62149cfc695104b8dc5982c1b646f9181c",
+        "size": 127199,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.next/1.10.0/universal.notemdpkg.minisig",
+        "sha256": "0236b038c37087d5747eec78864782bf34ebf35d0dd7395aca6d103f57fd7451",
+        "size": 314,
+        "public_bytes_equal": true
+      }
+    ],
+    "index-verification.json": {
+      "before": 277,
+      "after": 278,
+      "only_added": "notemd.next@1.10.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "1ceeaa22268ef7874dd71a1193ee4815e85cf62f8bf8dde70c36884d16a3dc7c",
+      "compatible_latest": "1.10.0",
+      "minimum_host": ">=6.1027.1"
+    },
+    "package-smoke.json": {
+      "passed": true,
+      "tag": "plugin-next-v1.10.0",
+      "commit": "f83d42582e88370fa5e22b5b6914f00d16dddbc6",
+      "packageSHA256": "0e36a4e84211fd6d910c70cbee162e62149cfc695104b8dc5982c1b646f9181c",
+      "members": [
+        {
+          "name": "ui/index.html",
+          "bytes": 395,
+          "sha256": "4f0ef3d4d4705c37440cfc6a50cea33d897d67bb6d6818b1c2a3099b621bca78"
+        },
+        {
+          "name": "ui/assets/index-Di07lwkB.js",
+          "bytes": 374853,
+          "sha256": "3cb44ae7d5fd52b4f00c63cc861f4f9a698545de812967921ec4b488ff76cc7a"
+        },
+        {
+          "name": "ui/assets/index-D_ZujSCN.css",
+          "bytes": 43205,
+          "sha256": "0b1e85a40a7af5fdace2dc6339374a4fc583459418db031b6a2c53a7add2b206"
+        },
+        {
+          "name": "manifest.json",
+          "bytes": 1697,
+          "sha256": "b524e969a0480d22395dc79fc12d41cccff2f76027b45b9c9942dbdb0ea65f4b"
+        }
+      ],
+      "actualPackageJS": "ui/assets/index-Di07lwkB.js",
+      "checks": [
+        "frozen manifest matches archive",
+        "UI files match built dist",
+        "source and lock match tag",
+        "mixed real-parser fixture loads both Idea and Task",
+        "kind labels exist without projects",
+        "Idea excludes Task",
+        "Task excludes Idea and clears Idea selection",
+        "second click on either kind clears filter",
+        "search intersects selected kind",
+        "clearing kind preserves search",
+        "clearing search restores all cards",
+        "zero writes to Task Idea and NEXT ledger",
+        "network forbidden"
+      ],
+      "bridgeCalls": 19,
+      "networkCalls": 0,
+      "realVaultWrites": 0
+    },
+    "package-completion-smoke.json": {
+      "passed": true,
+      "mode": "actual-package",
+      "version": "1.10.0",
+      "tag": "plugin-next-v1.10.0",
+      "commit": "f83d42582e88370fa5e22b5b6914f00d16dddbc6",
+      "packageSHA256": "0e36a4e84211fd6d910c70cbee162e62149cfc695104b8dc5982c1b646f9181c",
+      "actualJavaScript": "ui/assets/index-Di07lwkB.js",
+      "members": [
+        {
+          "name": "ui/index.html",
+          "bytes": 395,
+          "sha256": "4f0ef3d4d4705c37440cfc6a50cea33d897d67bb6d6818b1c2a3099b621bca78"
+        },
+        {
+          "name": "ui/assets/index-Di07lwkB.js",
+          "bytes": 374853,
+          "sha256": "3cb44ae7d5fd52b4f00c63cc861f4f9a698545de812967921ec4b488ff76cc7a"
+        },
+        {
+          "name": "ui/assets/index-D_ZujSCN.css",
+          "bytes": 43205,
+          "sha256": "0b1e85a40a7af5fdace2dc6339374a4fc583459418db031b6a2c53a7add2b206"
+        },
+        {
+          "name": "manifest.json",
+          "bytes": 1697,
+          "sha256": "b524e969a0480d22395dc79fc12d41cccff2f76027b45b9c9942dbdb0ea65f4b"
+        }
+      ],
+      "checks": [
+        "Idea retains its original menu without Task-only note action",
+        "first Task menu action opens focused multiline completion sheet; Cancel writes nothing",
+        "production completion preserves source prefix and exact multiline text; one settle event without duplicate result; confetti and script occur only after both writes",
+        "ledger failure retains locked draft, reports saved note, does not run script; retry appends neither duplicate note nor duplicate lifecycle event",
+        "existing one-click completion remains status-only and does not append a note",
+        "zero network requests, real Vault writes, or real script executions"
+      ],
+      "sourceWrites": 2,
+      "ledgerEvents": 3,
+      "mockedScriptRuns": 3,
+      "networkCalls": 0,
+      "realVaultWrites": 0,
+      "previewDirectory": "/Users/bruce/git/mdeditor/tasks/next-release-1100-20261027/completion-preview"
+    },
+    "ui-smoke.json": {
+      "passed": true,
+      "artifact": "actual-package/ui/assets/index-Di07lwkB.js",
+      "bundleSHA256": "3cb44ae7d5fd52b4f00c63cc861f4f9a698545de812967921ec4b488ff76cc7a",
+      "checks": [
+        "settings select uses native host.taskHook.select and displays skills Python path",
+        "completion durably writes ledger before host.taskHook.run with taskId only",
+        "unresolved script does not block completed card removal or confetti",
+        "failure leaves completion saved and exposes retry",
+        "retry runs script without extra ledger writes",
+        "success displays Cube synced",
+        "disable clears selected script and next completion does not run it",
+        "old host shows unavailable and still completes task",
+        "Task source files remain unchanged",
+        "no model or network calls; only isolated in-memory Vault"
+      ],
+      "hookCalls": [
+        {
+          "method": "host.taskHook.get",
+          "params": {}
+        },
+        {
+          "method": "host.taskHook.select",
+          "params": {}
+        },
+        {
+          "method": "host.taskHook.get",
+          "params": {}
+        },
+        {
+          "method": "host.taskHook.run",
+          "params": {
+            "taskId": "8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8"
+          }
+        },
+        {
+          "method": "host.taskHook.get",
+          "params": {}
+        },
+        {
+          "method": "host.taskHook.run",
+          "params": {
+            "taskId": "8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8"
+          }
+        },
+        {
+          "method": "host.taskHook.get",
+          "params": {}
+        },
+        {
+          "method": "host.taskHook.clear",
+          "params": {}
+        },
+        {
+          "method": "host.taskHook.get",
+          "params": {}
+        }
+      ],
+      "ledgerWrites": [
+        "thinking/next.note.md",
+        "thinking/next.note.md"
+      ],
+      "realVaultWrites": 0,
+      "networkCalls": 0
+    },
+    "visibility-smoke.json": {
+      "passed": true,
+      "artifact": "actual-package/ui/assets/index-Di07lwkB.js",
+      "bundleSHA256": "3cb44ae7d5fd52b4f00c63cc861f4f9a698545de812967921ec4b488ff76cc7a",
+      "checks": [
+        "default hides future dormant and completed stopped transferred compressed items for both types",
+        "Task filter retains hide-placed default and show-placed control",
+        "show placed reveals every Task lifecycle outcome without clearing type filter",
+        "Idea switch preserves show-placed state and excludes Task",
+        "clearing type preserves show-placed state",
+        "hide placed removes dormant and closed again",
+        "project tag respects hide-placed and retains show-placed control",
+        "project tag and show-placed intersect without resetting project",
+        "project type search and show-placed intersect to one completed card",
+        "hide-placed still suppresses search-matched completed cards without resetting other filters",
+        "clearing search or project preserves independent type and show-placed state",
+        "production parser and UI operate entirely on immutable synthetic in-memory Vault, no network"
+      ],
+      "checkCount": 12,
+      "fixtureCards": 16,
+      "realVaultWrites": 0,
+      "networkCalls": 0
+    },
+    "environment-smoke.json": {
+      "passed": true,
+      "artifact": "actual-package/ui/assets/index-Di07lwkB.js",
+      "bundleSHA256": "3cb44ae7d5fd52b4f00c63cc861f4f9a698545de812967921ec4b488ff76cc7a",
+      "checks": [
+        "released old host shows environment update requirement while retaining native script selection",
+        "supported host saves multiline environment with fixed API, clears draft and displays key names only",
+        "reopened settings preserve names-only saved status without returning secret",
+        "clear only removes environment override, keeps selected script and never runs or writes Vault",
+        "failed save retains retry draft and redacts arbitrary host failure details",
+        "pending save blocks duplicate save/select/clear mutations and clears draft on success",
+        "completion preserves state, safely reports missing_cube_config and retries only hook",
+        "completion preserves state, safely reports cube_unavailable and retries only hook",
+        "completion preserves state, safely reports sync_busy and retries only hook",
+        "completion preserves state, safely reports cube_safe_create_unavailable and retries only hook",
+        "completion preserves state, safely reports unknown error and retries only hook",
+        "all production JS runs use isolated memory Vault, synthetic token, mocked host and forbidden network"
+      ],
+      "checkCount": 12,
+      "realVaultWrites": 0,
+      "networkCalls": 0,
+      "limitations": [
+        "new environment persistence/execution is mocked host contract, not published-host capability",
+        "native script execution and macOS appearance are not evaluated by happy-dom"
+      ]
+    }
+  }
+}
