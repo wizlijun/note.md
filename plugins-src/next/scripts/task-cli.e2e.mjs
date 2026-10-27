@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -25,6 +25,13 @@ test('distributed CLI: create without due, add due, complete, retry safely', asy
   try {
     const created = call({ action: 'create', mode: 'background', evidence: 'synthetic test obligation', authority: { owner_id: 'test-owner', evidence: 'synthetic test authority' }, input: { title: '提交合同', description: '临时Vault测试', dedupe_key: 'obligation:test-contract', producer: 'task-cli-test/1', tags: ['test'], sources: [{ id: 'test', resource: 'synthetic:test' }] } })
     assert.equal(created.task.due, undefined)
+    const beforeKickoff = call({ action: 'list' })
+    await writeFile(path.join(root, created.path.replace(/\.md$/, '.kickoff.md')), [
+      '---', 'type: Task Kickoff', 'title: Synthetic kickoff result',
+      'kickoff:', `  task_id: ${created.task_id}`, '---', '# Synthetic result', '',
+    ].join('\n'))
+    assert.deepEqual(call({ action: 'list' }), beforeKickoff)
+
     const auth = { mode: 'explicit_user', evidence: 'synthetic user request', producer: 'task-cli-test/1' }
     const updated = call({ ...auth, action: 'update', task_id: created.task_id, expected_revision: created.revision, patch: { due: '2026-10-30' } })
     assert.equal(updated.task_id, created.task_id)

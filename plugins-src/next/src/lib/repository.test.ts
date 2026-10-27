@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { appendEvent, createIdeaSource, createTaskSource, itemSearchText, loadWorkspace, updateItemPlanningMetadata, type VaultPort } from './repository'
 import { NEXT_PATH } from './ledger'
+import { buildKickoffDocument } from './kickoff/document'
+import kickoffPayload from './kickoff/__fixtures__/payload.json'
+import type { KickoffPayload } from './kickoff/payload'
 import { placeEvent, relinkEvent, reopenEvent } from './events'
 import type { CommitEvent, NextEvent, SettleEvent } from './model'
 
@@ -91,6 +94,24 @@ const commit = (eventId = 'e1'): CommitEvent => ({
 })
 
 describe('Next repository', () => {
+  it('keeps the Task list unchanged when a generated kickoff result sits beside its source', async () => {
+    const vault = new MemoryVault()
+    const taskPath = 'inbox/tasks/demo-task.md'
+    vault.files.set(taskPath, task())
+    const before = await loadWorkspace(vault, { persistSourceDirs: false })
+    const payload = { ...kickoffPayload, task_id: TASK_ID } as KickoffPayload
+    vault.files.set('inbox/tasks/demo-task.kickoff.md', await buildKickoffDocument({
+      payload, taskPath, taskTitle: '提交 TestFlight 构建', runId: 'isolated-kickoff',
+      endedAt: '2026-10-27T13:05:00Z', durationSeconds: 2, providerId: 'notemd.claude-agent',
+    }))
+    const after = await loadWorkspace(vault, { persistSourceDirs: false })
+    expect(after.taskSources).toEqual(before.taskSources)
+    expect(after.items).toEqual(before.items)
+    expect(vault.writes).toEqual([])
+    expect(vault.files.get(taskPath)).toBe(task())
+    expect(vault.files.has(NEXT_PATH)).toBe(false)
+  })
+
   it('preserves the configured WIP limit across a verified append and reload', async () => {
     const vault = new MemoryVault()
     vault.files.set('inbox/ideas/a-idea.md', idea())
