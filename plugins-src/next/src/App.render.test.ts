@@ -39,6 +39,11 @@ vi.mock('./lib/bridge', () => ({
   vaultRead: vi.fn(),
   vaultWrite: vi.fn(),
   editorOpen: vi.fn(),
+  vaultInfo: vi.fn(),
+  agentProviders: vi.fn(),
+  agentLimits: vi.fn(),
+  agentRun: vi.fn(),
+  agentStatus: vi.fn(),
 }))
 
 vi.mock('./lib/store.svelte', () => ({

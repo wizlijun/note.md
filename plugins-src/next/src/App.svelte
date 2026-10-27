@@ -3,6 +3,17 @@
   import { onMount, tick } from 'svelte'
   import CreateIdeaSheet, { type IdeaDraft } from './components/CreateIdeaSheet.svelte'
   import CreateTaskSheet, { type TaskDraft } from './components/CreateTaskSheet.svelte'
+  import KickoffConsent from './components/KickoffConsent.svelte'
+  import KickoffPicker from './components/KickoffPicker.svelte'
+  import KickoffProgress from './components/KickoffProgress.svelte'
+  import KickoffSheet from './components/KickoffSheet.svelte'
+  import { createKickoffClient, KickoffClientError, type KickoffSnapshot, type KickoffResult } from './lib/kickoff/client'
+  import { kickoffEligible, kickoffButtonState, type ButtonStateInput } from './lib/kickoff/button-state'
+  import { POLL_MS } from './lib/kickoff/status'
+  import type { KickoffAnswer } from './lib/kickoff/document'
+  import type { KickoffFailure } from './lib/kickoff/registry'
+  import { commitPrefill, type InitialCommit, type ExtraOptions } from './lib/kickoff/prefill'
+  import { rememberedProvider, rememberProvider, providerKey } from './lib/agent-picker/types'
   import IdeaCard from './components/IdeaCard.svelte'
   import MetadataSheet from './components/MetadataSheet.svelte'
   import CompletionConfetti from './components/CompletionConfetti.svelte'
@@ -14,7 +25,7 @@
   import RelinkSheet from './components/RelinkSheet.svelte'
   import SettingsPage from './components/SettingsPage.svelte'
   import TaskHookStatus from './components/TaskHookStatus.svelte'
-  import { bridge, toast } from './lib/bridge'
+  import { bridge, toast, vaultRead, vaultWrite, vaultExists, vaultList, vaultInfo, agentProviders, agentLimits, agentRun, agentStatus, editorOpen } from './lib/bridge'
   import { quickPlaceInput, type PlaceInput, type QuickPlaceInput } from './lib/events'
   import { canCompleteWithNote, CompletionNoteError, createCompletionNote, type CompletionNoteOperation } from './lib/completion-note'
   import { projectTagsOf } from './lib/model'
@@ -36,11 +47,12 @@
     updateMetadata,
     updateReminder,
   } from './lib/store.svelte'
-  import { setLocale, t, type MessageKey } from './lib/strings'
+  import { setLocale, t, CATALOGS, type MessageKey } from './lib/strings'
   import { isDormantDue, previewPosition, sortWorkspaceItems, type SortMode } from './lib/view'
 
   type Lane = 'capture' | 'wip' | 'waiting' | 'dormant' | 'closed'
   type Route = PlaceInput['route']
+  type LocalKickoffFailure = KickoffFailure & { runId?: string; previousResultRunId?: string }
 
   interface LaneView {
     id: Lane
@@ -51,6 +63,250 @@
   }
 
   setLocale(bridge().locale)
+
+  // Production deliberately passes no verified-provider override. Admission is
+  // enabled only after the separate real-harness safety verification succeeds.
+  const kickoffClient = createKickoffClient({
+    read: vaultRead, write: vaultWrite, exists: vaultExists, list: vaultList,
+    vaultInfo, agentProviders, agentLimits, agentRun, agentStatus,
+    currentItem: async (taskId) => {
+      await refresh()
+      return store.workspace?.items.find((item) => item.task?.id === taskId) ?? null
+    },
+  }, {
+    notificationTitles: { ok: t('kickoff.readyNotice'), fail: t('kickoff.failedNotice') },
+  })
+  let kickoffSnapshot = $state<KickoffSnapshot>(kickoffClient.snapshot())
+  let kickoffLoaded = $state(false)
+  let kickoffStarting = $state<string[]>([])
+  let kickoffFailures = $state<Record<string, LocalKickoffFailure>>({})
+  let kickoffPicker = $state<WorkspaceItem | null>(null)
+  let kickoffConsent = $state<{ item: WorkspaceItem; providerId: string } | null>(null)
+  let kickoffProgress = $state<WorkspaceItem | null>(null)
+  let kickoffResult = $state<{ item: WorkspaceItem; result: KickoffResult } | null>(null)
+  let kickoffSaving = $state(false)
+  let kickoffSaveError = $state('')
+  let kickoffAnnouncement = $state('')
+  let kickoffReturnFocus = $state<HTMLElement | null>(null)
+  let kickoffActive = false
+  let kickoffPolling = false
+  let kickoffInitializing = false
+  let kickoffWorkspace: typeof store.workspace = null
+  let placementCommit = $state<InitialCommit | undefined>()
+  let placementExtraOptions = $state<ExtraOptions | undefined>()
+
+  function kickoffInput(item: WorkspaceItem): ButtonStateInput {
+    const id = item.task?.id ?? ''
+    const run = kickoffSnapshot.registry.runs[id]
+    const localFailure = kickoffFailures[id]
+    return {
+      starting: kickoffStarting.includes(id),
+      run: localFailure ? {
+        run_id: run?.run_id ?? null, harness: run?.harness ?? '',
+        requested_at: run?.requested_at ?? localFailure.at,
+        task_path: item.path ?? '', based_on: run?.based_on ?? '', state: 'failed', failure: localFailure,
+      } : run,
+      result: kickoffSnapshot.results[id]?.doc.kickoff,
+      status: kickoffSnapshot.statuses[id],
+      taskHash: kickoffSnapshot.hashes[id],
+      unread: kickoffSnapshot.registry.unread.includes(id),
+    }
+  }
+
+  function cardKickoff(item: WorkspaceItem): ButtonStateInput | undefined {
+    return kickoffLoaded && !kickoffSnapshot.unsupported && kickoffEligible(item) ? kickoffInput(item) : undefined
+  }
+
+  function kickoffErrorLabel(error: unknown): string {
+    const key = `kickoff.failure.${error instanceof KickoffClientError ? error.kind : 'io-error'}`
+    return key in CATALOGS.en ? t(key as MessageKey) : t('kickoff.failure.error')
+  }
+
+  function adoptKickoff(snapshot: KickoffSnapshot, announce = false) {
+    const previous = kickoffSnapshot
+    kickoffSnapshot = snapshot
+    for (const [id, failure] of Object.entries(kickoffFailures)) {
+      const run = snapshot.registry.runs[id]
+      const resultRunId = snapshot.results[id]?.doc.kickoff.run_id
+      const recoveredRun = run?.state === 'running' && (!failure.runId || failure.runId === run.run_id)
+      const recoveredResult = resultRunId && (failure.runId
+        ? resultRunId === failure.runId : resultRunId !== failure.previousResultRunId)
+      if (recoveredRun || recoveredResult) delete kickoffFailures[id]
+    }
+    if (kickoffProgress) {
+      const id = kickoffProgress.task!.id
+      if (snapshot.results[id] && !snapshot.registry.runs[id] && !kickoffFailures[id]) {
+        void showKickoffResult(kickoffProgress)
+      }
+    }
+    if (!announce) return
+    const ready = snapshot.registry.unread.some((id) => !previous.registry.unread.includes(id))
+    const failed = Object.entries(snapshot.registry.runs).some(([id, run]) => run.state === 'failed' && previous.registry.runs[id]?.state !== 'failed')
+    if (ready) kickoffAnnouncement = t('kickoff.readyNotice')
+    else if (failed) kickoffAnnouncement = t('kickoff.failed')
+  }
+
+  async function loadKickoff() {
+    if (typeof bridge().request !== 'function' || kickoffInitializing) return
+    kickoffInitializing = true
+    try {
+      const snapshot = await kickoffClient.load(store.workspace?.items ?? [])
+      if (!kickoffActive) return
+      adoptKickoff(snapshot)
+      kickoffWorkspace = store.workspace
+      kickoffLoaded = true
+      const reconciled = await kickoffClient.reconcile()
+      if (kickoffActive) adoptKickoff(reconciled, true)
+    } catch (error) {
+      if (kickoffActive) await toast('error', kickoffErrorLabel(error))
+    } finally {
+      kickoffInitializing = false
+    }
+  }
+
+  async function pollKickoff() {
+    if (!kickoffActive || kickoffPolling) return
+    kickoffPolling = true
+    try {
+      const snapshot = await kickoffClient.reconcile()
+      if (kickoffActive) adoptKickoff(snapshot, true)
+    } catch (error) {
+      if (kickoffActive) await toast('error', kickoffErrorLabel(error))
+    } finally {
+      kickoffPolling = false
+    }
+  }
+
+  $effect(() => {
+    if (!kickoffLoaded || !Object.values(kickoffSnapshot.registry.runs).some((run) => run.state === 'running')) return
+    const timer = setInterval(() => void pollKickoff(), POLL_MS)
+    return () => clearInterval(timer)
+  })
+
+  $effect(() => {
+    const current = store.workspace
+    if (!kickoffLoaded || !current || current === kickoffWorkspace) return
+    kickoffWorkspace = current
+    void kickoffClient.load(current.items).then((snapshot) => {
+      if (kickoffActive) adoptKickoff(snapshot)
+    }).catch((error) => { if (kickoffActive) void toast('error', kickoffErrorLabel(error)) })
+  })
+
+  function rememberedKickoff(): string {
+    return rememberedProvider('next.kickoff', kickoffSnapshot.providers.map((provider) => provider.id), kickoffSnapshot.providerDefault)
+  }
+
+  function rememberKickoffFocus(item: WorkspaceItem) {
+    const card = [...document.querySelectorAll<HTMLElement>('[data-item-key]')]
+      .find((element) => element.dataset.itemKey === item.key)
+    kickoffReturnFocus = card?.querySelector<HTMLButtonElement>('[data-kickoff-state]') ?? null
+  }
+
+  function chooseKickoff(item: WorkspaceItem) {
+    rememberKickoffFocus(item)
+    closePreview()
+    kickoffProgress = null
+    kickoffResult = null
+    kickoffPicker = item
+  }
+
+  async function showKickoffResult(item: WorkspaceItem) {
+    const id = item.task!.id
+    const result = kickoffSnapshot.results[id]
+    if (!result) return
+    kickoffProgress = null
+    kickoffSaveError = ''
+    kickoffResult = { item, result }
+    try { adoptKickoff(await kickoffClient.markRead(id)) }
+    catch (error) { await toast('error', kickoffErrorLabel(error)) }
+  }
+
+  function clickKickoff(item: WorkspaceItem) {
+    rememberKickoffFocus(item)
+    const state = kickoffButtonState(kickoffInput(item))
+    if (state === 'starting') return
+    if (state === 'running' || state === 'failed') {
+      closePreview()
+      kickoffProgress = item
+      return
+    }
+    if (state !== 'idle') { void showKickoffResult(item); return }
+    let saved = false
+    try { saved = Boolean(localStorage.getItem(providerKey('next.kickoff'))) } catch { /* storage is optional */ }
+    const providerId = rememberedKickoff()
+    const provider = kickoffSnapshot.providers.find((option) => option.id === providerId)
+    if (!saved || !provider?.harness?.ok) chooseKickoff(item)
+    else void requestKickoff(item, providerId)
+  }
+
+  async function requestKickoff(item: WorkspaceItem, providerId: string, consent = false) {
+    const id = item.task!.id
+    kickoffPicker = null
+    kickoffProgress = null
+    kickoffResult = null
+    kickoffStarting = [...kickoffStarting, id]
+    delete kickoffFailures[id]
+    try {
+      // A read-only preflight precedes the first-use confirmation; cancellation
+      // never seeds procedures, starts an agent, or changes the Task lifecycle.
+      await kickoffClient.preflight({ item, providerId })
+      if (kickoffSnapshot.needsConsent && !consent) {
+        kickoffConsent = { item, providerId }
+        return
+      }
+      kickoffConsent = null
+      adoptKickoff(await kickoffClient.startKickoff({ item, providerId, consent }), true)
+      kickoffAnnouncement = t('kickoff.starting')
+    } catch (error) {
+      const snapshot = kickoffClient.snapshot()
+      const run = snapshot.registry.runs[id]
+      kickoffFailures[id] = {
+        kind: error instanceof KickoffClientError ? error.kind : 'io-error',
+        message: error instanceof Error ? error.message : String(error),
+        at: new Date().toISOString(),
+        warning: snapshot.providers.find((provider) => provider.id === providerId)?.harness?.warning ?? undefined,
+        runId: run?.state === 'running' ? run.run_id : undefined,
+        previousResultRunId: kickoffSnapshot.results[id]?.doc.kickoff.run_id,
+      }
+      adoptKickoff(snapshot)
+      kickoffProgress = item
+      kickoffAnnouncement = kickoffErrorLabel(error)
+    } finally {
+      kickoffStarting = kickoffStarting.filter((value) => value !== id)
+    }
+  }
+
+  async function saveKickoffAnswers(answers: KickoffAnswer[], placeAfter: boolean) {
+    const opened = kickoffResult
+    if (!opened || kickoffSaving) return
+    kickoffSaving = true
+    kickoffSaveError = ''
+    try {
+      const saved = await kickoffClient.saveAnswers({ taskId: opened.item.task!.id, runId: opened.result.doc.kickoff.run_id, answers })
+      adoptKickoff(saved.snapshot)
+      kickoffResult = { ...opened, result: saved.result }
+      if (!saved.rerendered) await toast('success', t('kickoff.saved'), t('kickoff.bodyPreserved'))
+      if (placeAfter) {
+        await refresh()
+        const current = store.workspace?.items.find((item) => item.task?.id === opened.item.task!.id)
+        if (!current) throw new KickoffClientError('task-changed', '')
+        const prefill = commitPrefill(saved.result.doc.kickoff.payload, saved.result.doc.kickoff.answers)
+        kickoffResult = null
+        openPlacement(current, 'commit')
+        placementCommit = prefill.initialCommit
+        placementExtraOptions = prefill.extraOptions
+      } else if (saved.rerendered) await toast('success', t('kickoff.saved'))
+    } catch (error) {
+      kickoffSaveError = `${t('kickoff.saveError')} ${kickoffErrorLabel(error)}`
+    } finally {
+      kickoffSaving = false
+    }
+  }
+
+  async function openKickoffFile(path: string) {
+    try { await editorOpen(path) }
+    catch (error) { await toast('error', t('error.open'), String(error)) }
+  }
 
   let showPlaced = $state(false)
   let creating = $state(false)
@@ -189,6 +445,7 @@
   }
 
   function openCreation() {
+    if (kickoffPicker || kickoffConsent || kickoffProgress || kickoffResult) return
     if (store.loading || store.saving || placing || relinking || editingMetadata || editingReminder || creatingTask) return
     closePreview()
     placeMenu = null
@@ -198,6 +455,7 @@
   }
 
   function openTaskCreation() {
+    if (kickoffPicker || kickoffConsent || kickoffProgress || kickoffResult) return
     if (store.loading || store.saving || placing || relinking || editingMetadata || editingReminder || creating) return
     closePreview()
     placeMenu = null
@@ -250,6 +508,8 @@
     placing = item
     placementRoute = route
     placementProjects = [...initialProjects]
+    placementCommit = undefined
+    placementExtraOptions = undefined
     completionNote = false
     completionOperation = null
     completionNoteError = ''
@@ -368,6 +628,10 @@
   async function refreshWorkspace() {
     closePreview()
     await refresh()
+    if (kickoffLoaded) {
+      kickoffWorkspace = store.workspace
+      adoptKickoff(await kickoffClient.load(store.workspace?.items ?? []))
+    } else await loadKickoff()
   }
 
   async function submitIdea(input: IdeaDraft) {
@@ -633,6 +897,7 @@
   }
 
   onMount(() => {
+    kickoffActive = true
     void report(refreshWorkspace, 'error.load')
     const onFocus = () => {
       if (!store.saving) void report(refreshWorkspace, 'error.load')
@@ -664,6 +929,7 @@
     window.addEventListener('focus', onFocus)
     window.addEventListener('keydown', onKey)
     return () => {
+      kickoffActive = false
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('keydown', onKey)
       cancelPreviewClose()
@@ -843,6 +1109,9 @@
                       reminderView={reminderFor(item)}
                       reminderMenuOpen={reminderMenu?.item.key === item.key}
                       onReminder={item.kind === 'task' && !item.orphan && !item.repairReason ? openReminderMenu : undefined}
+                      kickoff={cardKickoff(item)}
+                      onKickoff={clickKickoff}
+                      onChooseKickoff={chooseKickoff}
                       onPlace={openPlaceMenu}
                       onComplete={(value) => quickPlace(value, quickPlaceInput('done'))}
                       onOpen={doOpen}
@@ -907,6 +1176,47 @@
     onMore={() => reminderMenu && openReminderDetails(reminderMenu.item, reminderMenu.view)} />
 {/if}
 
+<span class="sr-only" role="status" aria-live="polite">{kickoffAnnouncement}</span>
+
+{#if kickoffPicker}
+  <KickoffPicker returnFocus={kickoffReturnFocus} options={kickoffSnapshot.providers} selected={rememberedKickoff()} dataSources={kickoffSnapshot.dataSources}
+    onSelect={(providerId) => {
+      const item = kickoffPicker!
+      rememberProvider('next.kickoff', providerId)
+      void requestKickoff(item, providerId)
+    }} onClose={() => kickoffPicker = null} />
+{/if}
+
+{#if kickoffConsent}
+  <KickoffConsent returnFocus={kickoffReturnFocus} onConfirm={() => {
+    const pending = kickoffConsent!
+    kickoffConsent = null
+    void requestKickoff(pending.item, pending.providerId, true)
+  }} onCancel={() => kickoffConsent = null} />
+{/if}
+
+{#if kickoffProgress}
+  <KickoffProgress returnFocus={kickoffReturnFocus} title={kickoffProgress.title} input={kickoffInput(kickoffProgress)}
+    hasPrevious={Boolean(kickoffSnapshot.results[kickoffProgress.task!.id])}
+    onClose={() => kickoffProgress = null}
+    onRetry={() => {
+      const item = kickoffProgress!
+      const providerId = kickoffSnapshot.registry.runs[item.task!.id]?.harness || rememberedKickoff()
+      void requestKickoff(item, providerId)
+    }} onChoose={() => chooseKickoff(kickoffProgress!)}
+    onPrevious={() => void showKickoffResult(kickoffProgress!)} />
+{/if}
+
+{#if kickoffResult}
+  {#key kickoffResult.result.doc.kickoff.run_id}
+    <KickoffSheet returnFocus={kickoffReturnFocus} title={kickoffResult.item.title} result={kickoffResult.result}
+      stale={kickoffSnapshot.hashes[kickoffResult.item.task!.id] !== undefined && kickoffResult.result.doc.kickoff.based_on !== kickoffSnapshot.hashes[kickoffResult.item.task!.id]}
+      saving={kickoffSaving} error={kickoffSaveError} onSave={saveKickoffAnswers}
+      onRegenerate={() => chooseKickoff(kickoffResult!.item)} onOpen={(path) => void openKickoffFile(path)}
+      onClose={() => { if (!kickoffSaving) kickoffResult = null }} />
+  {/key}
+{/if}
+
 {#if placing}
   <PlaceSheet
     item={placing}
@@ -918,6 +1228,8 @@
     {completionNoteError}
     initialRoute={placementRoute}
     initialProjects={placementProjects}
+    initialCommit={placementCommit}
+    extraOptions={placementExtraOptions}
     projectOptions={workspace?.projectOptions ?? []}
     onCancel={closePlacement}
     onSubmit={submitPlacement}
@@ -970,6 +1282,7 @@
 </div>
 
 <style>
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
   :global(:root) {
     color-scheme: light dark;
     --bg: #f7f7f8;

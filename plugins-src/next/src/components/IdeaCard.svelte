@@ -1,4 +1,6 @@
 <script lang="ts">
+  import KickoffButton from './KickoffButton.svelte'
+  import type { ButtonStateInput } from '../lib/kickoff/button-state'
   import type { WorkspaceItem } from '../lib/repository'
   import { DEFAULT_PRIORITY, localDateAfter } from '../lib/metadata'
   import { projectTagsOf } from '../lib/model'
@@ -19,6 +21,9 @@
     canDrag = false,
     dragging = false,
     onPlace,
+    kickoff,
+    onKickoff,
+    onChooseKickoff,
     onComplete,
     onOpen,
     onReopen,
@@ -40,6 +45,9 @@
     onReminder?(item: WorkspaceItem, anchor: HTMLButtonElement): void
     canDrag?: boolean
     dragging?: boolean
+    kickoff?: ButtonStateInput
+    onKickoff?(item: WorkspaceItem): void
+    onChooseKickoff?(item: WorkspaceItem): void
     onPlace(item: WorkspaceItem, anchor: HTMLButtonElement): void
     onComplete?(item: WorkspaceItem): void
     onOpen(item: WorkspaceItem): void
@@ -199,6 +207,10 @@
     {/if}
     {#if canPlace && onComplete}
       <button class="quiet" data-complete disabled={disabled} onclick={() => onComplete?.(item)}>{t('exit.done')}</button>
+    {/if}
+    {#if kickoff && onKickoff}
+      <KickoffButton itemTitle={item.title} input={kickoff} {disabled}
+        onClick={() => onKickoff?.(item)} onChoose={onChooseKickoff ? () => onChooseKickoff?.(item) : undefined} />
     {/if}
     {#if canPlace}
       <button class="place" disabled={disabled} aria-haspopup="menu" aria-expanded={placeMenuOpen} onclick={(event) => onPlace(item, event.currentTarget)}>{t('action.place')}</button>

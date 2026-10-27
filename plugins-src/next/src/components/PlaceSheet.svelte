@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
   import ChoiceField, { type ChoiceOption } from './ChoiceField.svelte'
+  import type { InitialCommit, ExtraOptions } from '../lib/kickoff/prefill'
   import type { PlaceInput } from '../lib/events'
   import type { SettlementExit } from '../lib/model'
   import { normalizeProjectTag, projectTagKey, uniqueProjectTags } from '../lib/model'
@@ -19,6 +20,8 @@
     completionNoteError,
     onReminder,
     initialRoute,
+    initialCommit = {},
+    extraOptions = {},
     initialProjects = [],
     projectOptions = [],
     onCancel,
@@ -32,6 +35,8 @@
     completionNoteError?: string
     onReminder?(): void
     initialRoute?: Route
+    initialCommit?: InitialCommit
+    extraOptions?: ExtraOptions
     initialProjects?: readonly string[]
     projectOptions?: readonly string[]
     onCancel(): void
@@ -44,13 +49,14 @@
     : { title: '', doneWhen: '' })
   const inferredRoute: Route = projection?.state === 'waiting' ? 'wait' : projection?.state === 'dormant' ? 'park' : projection?.state === 'closed' ? 'settle' : 'commit'
   let route = $state<Route>(untrack(() => completionNote ? 'settle' : initialRoute ?? inferredRoute))
-  let commitment = $state(projection?.state === 'wip' ? projection.commitment ?? '' : taskDefaults.title)
-  let nextAction = $state(projection?.state === 'wip' || projection?.state === 'dormant'
+  const commitDefaults = untrack(() => initialCommit)
+  let commitment = $state(commitDefaults.commitment?.trim() || (projection?.state === 'wip' ? projection.commitment ?? '' : taskDefaults.title))
+  let nextAction = $state(commitDefaults.next_action?.trim() || (projection?.state === 'wip' || projection?.state === 'dormant'
     ? projection.next_action ?? ''
-    : taskDefaults.title)
-  let closeCondition = $state(projection?.state === 'wip'
+    : taskDefaults.title))
+  let closeCondition = $state(commitDefaults.close_condition?.trim() || (projection?.state === 'wip'
     ? projection.close_condition ?? ''
-    : taskDefaults.doneWhen)
+    : taskDefaults.doneWhen))
   let waitingFor = $state(projection?.state === 'waiting' ? projection.waiting_for ?? '' : '')
   let reviewAt = $state(projection?.state === 'waiting' ? projection.review_at?.slice(0, 10) ?? '' : '')
   let wakeTrigger = $state(projection?.state === 'dormant' ? projection.wake_trigger ?? '' : '')
@@ -84,18 +90,21 @@
   }
 
   const commitmentOptions = $derived([
+    ...(extraOptions.commitment ?? []).map((value) => choice(value)),
     choice(t('preset.commit.verify', { title: item.title })),
     choice(t('preset.commit.prototype', { title: item.title })),
     choice(t('preset.commit.plan', { title: item.title })),
     choice(t('preset.commit.deliver', { title: item.title })),
   ])
   const nextActionOptions = $derived([
+    ...(extraOptions.next_action ?? []).map((value) => choice(value)),
     choice(t('preset.next.evidence')),
     choice(t('preset.next.experiment')),
     choice(t('preset.next.draft')),
     choice(t('preset.next.user')),
   ])
   const closeConditionOptions = $derived([
+    ...(extraOptions.close_condition ?? []).map((value) => choice(value)),
     choice(t('preset.close.decision')),
     choice(t('preset.close.prototype')),
     choice(t('preset.close.used')),

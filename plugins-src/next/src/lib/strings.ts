@@ -1,6 +1,92 @@
 export type Locale = 'en' | 'zh' | 'ja' | 'de'
 
 export type MessageKey =
+  | 'kickoff.bodyPreserved'
+  | 'kickoff.sourceFallback'
+  | 'kickoff.source.taskOnly'
+  | 'kickoff.failedNotice'
+  | 'kickoff.source.task'
+  | 'kickoff.source.marks'
+  | 'kickoff.source.done-tasks'
+  | 'kickoff.source.diary'
+  | 'kickoff.failure.ineligible'
+  | 'kickoff.failure.already-running'
+  | 'kickoff.failure.capacity'
+  | 'kickoff.failure.io-error'
+  | 'kickoff.failure.conflict'
+  | 'kickoff.picker.by'
+  | 'kickoff.picker.title'
+  | 'kickoff.picker.unknown'
+  | 'kickoff.picker.broken'
+  | 'kickoff.picker.notInstalled'
+  | 'kickoff.picker.model'
+  | 'kickoff.picker.empty'
+  | 'kickoff.action'
+  | 'kickoff.accessible'
+  | 'kickoff.starting'
+  | 'kickoff.view'
+  | 'kickoff.stale'
+  | 'kickoff.failed'
+  | 'kickoff.steps'
+  | 'kickoff.duration'
+  | 'kickoff.choose'
+  | 'kickoff.progress'
+  | 'kickoff.continues'
+  | 'kickoff.limit'
+  | 'kickoff.retry'
+  | 'kickoff.oldResult'
+  | 'kickoff.raw'
+  | 'kickoff.market'
+  | 'kickoff.consentTitle'
+  | 'kickoff.consentBody'
+  | 'kickoff.consentStart'
+  | 'kickoff.dataSources'
+  | 'kickoff.sourceDisabled'
+  | 'kickoff.unverifiedProvider'
+  | 'kickoff.result'
+  | 'kickoff.generated'
+  | 'kickoff.staleBanner'
+  | 'kickoff.regenerate'
+  | 'kickoff.summary'
+  | 'kickoff.questions'
+  | 'kickoff.decides'
+  | 'kickoff.recommended'
+  | 'kickoff.other'
+  | 'kickoff.context'
+  | 'kickoff.inference'
+  | 'kickoff.unverified'
+  | 'kickoff.suggestions'
+  | 'kickoff.blockers'
+  | 'kickoff.waiting'
+  | 'kickoff.gaps'
+  | 'kickoff.place'
+  | 'kickoff.save'
+  | 'kickoff.saved'
+  | 'kickoff.saveError'
+  | 'kickoff.readyNotice'
+  | 'kickoff.source'
+  | 'kickoff.field.commitment'
+  | 'kickoff.field.next_action'
+  | 'kickoff.field.close_condition'
+  | 'kickoff.field.owner'
+  | 'kickoff.field.scope'
+  | 'kickoff.field.other'
+  | 'kickoff.failure.agent-missing'
+  | 'kickoff.failure.start-error'
+  | 'kickoff.failure.timeout'
+  | 'kickoff.failure.error'
+  | 'kickoff.failure.cancelled'
+  | 'kickoff.failure.skipped'
+  | 'kickoff.failure.lost'
+  | 'kickoff.failure.missing-result'
+  | 'kickoff.failure.invalid-output'
+  | 'kickoff.failure.task-changed'
+  | 'kickoff.failure.provider-unavailable'
+  | 'kickoff.failure.consent-required'
+  | 'kickoff.failure.result-changed'
+  | 'kickoff.failure.unsupported'
+  | 'kickoff.failure.busy'
+  | 'kickoff.failure.save-error'
   | 'hook.environment.title'
   | 'hook.environment.help'
   | 'hook.environment.configured'
@@ -300,6 +386,92 @@ export type MessageKey =
 type Catalog = Record<MessageKey, string>
 
 const en: Catalog = {
+  "kickoff.bodyPreserved": "The body was edited manually and was not rendered again.",
+  "kickoff.sourceFallback": "The procedure could not be parsed. Only the task file will be read.",
+  "kickoff.source.taskOnly": "Task file",
+  "kickoff.failedNotice": "Kickoff failed",
+  "kickoff.source.task": "Task file and its sources",
+  "kickoff.source.marks": "Annotation notes (your judgments)",
+  "kickoff.source.done-tasks": "Completed tasks and completion notes in the same project",
+  "kickoff.source.diary": "Diary and decision records",
+  "kickoff.failure.ineligible": "This task is no longer in an eligible lane",
+  "kickoff.failure.already-running": "This task already has a running kickoff",
+  "kickoff.failure.capacity": "This agent has reached its run limit",
+  "kickoff.failure.io-error": "Could not read or save kickoff files",
+  "kickoff.failure.conflict": "Conflicting kickoff results were found",
+  "kickoff.picker.by": "by {name}",
+  "kickoff.picker.title": "Choose an agent",
+  "kickoff.picker.unknown": "Status unavailable",
+  "kickoff.picker.broken": "Agent unavailable",
+  "kickoff.picker.notInstalled": "Not installed",
+  "kickoff.picker.model": "Model {model}",
+  "kickoff.picker.empty": "No agents installed",
+  "kickoff.action": "Get me started",
+  "kickoff.accessible": "Get me started: {title}",
+  "kickoff.starting": "Starting…",
+  "kickoff.view": "View kickoff",
+  "kickoff.stale": "Outdated",
+  "kickoff.failed": "Kickoff failed · Retry",
+  "kickoff.steps": "Step {steps} · {last}",
+  "kickoff.duration": "Took {time}",
+  "kickoff.choose": "Choose another agent",
+  "kickoff.progress": "Kickoff in progress",
+  "kickoff.continues": "Closing this window does not stop the run.",
+  "kickoff.limit": "Runs last at most 10 minutes. Stopping midway is not supported yet.",
+  "kickoff.retry": "Retry",
+  "kickoff.oldResult": "View previous kickoff",
+  "kickoff.raw": "Raw output (first 2 KiB)",
+  "kickoff.market": "Install or enable an agent plugin in the plugin marketplace.",
+  "kickoff.consentTitle": "Add the kickoff procedure?",
+  "kickoff.consentBody": "This adds skills/task-kickoff/SKILL.md and .notemd/agent-tasks/next-task-kickoff/ to this vault. The agent can only read this vault and cannot write files.",
+  "kickoff.consentStart": "Add and start",
+  "kickoff.dataSources": "Will read (this vault only, read-only)",
+  "kickoff.sourceDisabled": "Not enabled",
+  "kickoff.unverifiedProvider": "Read-only verification pending",
+  "kickoff.result": "Kickoff",
+  "kickoff.generated": "Generated {time}",
+  "kickoff.staleBanner": "This kickoff is based on an older version of the task.",
+  "kickoff.regenerate": "Generate again",
+  "kickoff.summary": "Summary",
+  "kickoff.questions": "Your answers",
+  "kickoff.decides": "Decides: {field}",
+  "kickoff.recommended": "Recommended",
+  "kickoff.other": "Other",
+  "kickoff.context": "Known context",
+  "kickoff.inference": "Inference",
+  "kickoff.unverified": "Source missing",
+  "kickoff.suggestions": "Suggestions",
+  "kickoff.blockers": "Possible blockers",
+  "kickoff.waiting": "Waiting for",
+  "kickoff.gaps": "Not found",
+  "kickoff.place": "Place with these answers in Now",
+  "kickoff.save": "Save answers only",
+  "kickoff.saved": "Answers saved",
+  "kickoff.saveError": "Could not save answers. Your answers are kept here.",
+  "kickoff.readyNotice": "Kickoff is ready",
+  "kickoff.source": "Open source: {title}",
+  "kickoff.field.commitment": "Commitment",
+  "kickoff.field.next_action": "Next action",
+  "kickoff.field.close_condition": "Closing condition",
+  "kickoff.field.owner": "Owner",
+  "kickoff.field.scope": "Scope",
+  "kickoff.field.other": "Other",
+  "kickoff.failure.agent-missing": "No available agent plugin",
+  "kickoff.failure.start-error": "Could not start the agent",
+  "kickoff.failure.timeout": "The run did not finish within 10 minutes",
+  "kickoff.failure.error": "The agent reported an error",
+  "kickoff.failure.cancelled": "The run was cancelled",
+  "kickoff.failure.skipped": "The agent skipped the run",
+  "kickoff.failure.lost": "The run was interrupted without a result",
+  "kickoff.failure.missing-result": "The agent finished, but its result was too large or was not saved",
+  "kickoff.failure.invalid-output": "The agent output did not match the required format",
+  "kickoff.failure.task-changed": "The task was deleted or its identity changed during the run",
+  "kickoff.failure.provider-unavailable": "This agent is not available for kickoff yet",
+  "kickoff.failure.consent-required": "Confirm adding the kickoff procedure first",
+  "kickoff.failure.result-changed": "The result changed. Reopen it before saving answers.",
+  "kickoff.failure.unsupported": "This host does not support kickoff",
+  "kickoff.failure.busy": "This task already has a running kickoff",
+  "kickoff.failure.save-error": "The result could not be saved",
   "hook.environment.title": "Script environment variables",
   "hook.environment.help": "Enter one KEY=value per line. Only DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN are supported. Saving replaces all saved variables.",
   "hook.environment.configured": "Saved variables: {keys}",
@@ -598,6 +770,92 @@ const en: Catalog = {
 }
 
 const zh: Catalog = {
+  "kickoff.bodyPreserved": "正文有手动修改，未重新渲染。",
+  "kickoff.sourceFallback": "规程无法解析，仅读取任务文件。",
+  "kickoff.source.taskOnly": "任务文件",
+  "kickoff.failedNotice": "开头失败",
+  "kickoff.source.task": "任务文件及其 sources",
+  "kickoff.source.marks": "批注笔记（你的判断）",
+  "kickoff.source.done-tasks": "同项目的已完成任务与完成笔记",
+  "kickoff.source.diary": "日记与决策记录",
+  "kickoff.failure.ineligible": "任务已不在可开头的泳道",
+  "kickoff.failure.already-running": "这个任务已有正在运行的开头",
+  "kickoff.failure.capacity": "此 agent 已达到并发运行上限",
+  "kickoff.failure.io-error": "无法读取或保存开头文件",
+  "kickoff.failure.conflict": "发现冲突的开头结果",
+  "kickoff.picker.by": "由 {name}",
+  "kickoff.picker.title": "选择 agent",
+  "kickoff.picker.unknown": "状态不可用",
+  "kickoff.picker.broken": "agent 不可用",
+  "kickoff.picker.notInstalled": "尚未安装",
+  "kickoff.picker.model": "模型 {model}",
+  "kickoff.picker.empty": "尚未安装 agent",
+  "kickoff.action": "帮我开个头",
+  "kickoff.accessible": "帮我开个头：{title}",
+  "kickoff.starting": "正在启动…",
+  "kickoff.view": "查看开头",
+  "kickoff.stale": "已过期",
+  "kickoff.failed": "开头失败 · 重试",
+  "kickoff.steps": "第 {steps} 步 · {last}",
+  "kickoff.duration": "用时 {time}",
+  "kickoff.choose": "换个 agent",
+  "kickoff.progress": "正在帮你开个头",
+  "kickoff.continues": "运行期间关闭窗口不影响结果。",
+  "kickoff.limit": "运行最长 10 分钟，暂不支持中途停止。",
+  "kickoff.retry": "重试",
+  "kickoff.oldResult": "查看旧结果",
+  "kickoff.raw": "原始输出（前 2 KiB）",
+  "kickoff.market": "请在插件市场安装或启用 agent 插件。",
+  "kickoff.consentTitle": "添加开头规程？",
+  "kickoff.consentBody": "将在 vault 添加 skills/task-kickoff/SKILL.md 与 .notemd/agent-tasks/next-task-kickoff/。agent 只能读取本 vault，不能写入任何文件。",
+  "kickoff.consentStart": "添加并开始",
+  "kickoff.dataSources": "将读取（仅本 vault，只读）",
+  "kickoff.sourceDisabled": "未启用",
+  "kickoff.unverifiedProvider": "只读验证尚未完成",
+  "kickoff.result": "开个头",
+  "kickoff.generated": "生成于 {time}",
+  "kickoff.staleBanner": "结果基于任务的旧版本。",
+  "kickoff.regenerate": "重新生成",
+  "kickoff.summary": "一句话",
+  "kickoff.questions": "需要你回答",
+  "kickoff.decides": "决定：{field}",
+  "kickoff.recommended": "推荐",
+  "kickoff.other": "其他",
+  "kickoff.context": "已知背景",
+  "kickoff.inference": "推断",
+  "kickoff.unverified": "来源缺失",
+  "kickoff.suggestions": "建议",
+  "kickoff.blockers": "可能的卡点",
+  "kickoff.waiting": "要等的人",
+  "kickoff.gaps": "没查到的",
+  "kickoff.place": "用这些答案安放到现在推进",
+  "kickoff.save": "只保存答案",
+  "kickoff.saved": "答案已保存",
+  "kickoff.saveError": "答案未能保存，已保留当前输入。",
+  "kickoff.readyNotice": "开头已就绪",
+  "kickoff.source": "打开来源：{title}",
+  "kickoff.field.commitment": "承担表述",
+  "kickoff.field.next_action": "下一步",
+  "kickoff.field.close_condition": "关闭条件",
+  "kickoff.field.owner": "承担人",
+  "kickoff.field.scope": "范围",
+  "kickoff.field.other": "其他",
+  "kickoff.failure.agent-missing": "没有可用的 agent 插件",
+  "kickoff.failure.start-error": "启动失败",
+  "kickoff.failure.timeout": "超过 10 分钟仍未完成",
+  "kickoff.failure.error": "agent 运行出错",
+  "kickoff.failure.cancelled": "运行已取消",
+  "kickoff.failure.skipped": "agent 跳过了运行",
+  "kickoff.failure.lost": "运行中断，没有留下结果",
+  "kickoff.failure.missing-result": "agent 完成了，但结果过大或没有保存",
+  "kickoff.failure.invalid-output": "agent 的输出不符合格式",
+  "kickoff.failure.task-changed": "任务在运行期间被删除，或换了身份",
+  "kickoff.failure.provider-unavailable": "此 agent 暂不可用于开头功能",
+  "kickoff.failure.consent-required": "请先确认添加开头规程",
+  "kickoff.failure.result-changed": "结果已变化，请重新打开后保存答案。",
+  "kickoff.failure.unsupported": "当前宿主不支持开头功能",
+  "kickoff.failure.busy": "这个任务已有正在运行的开头",
+  "kickoff.failure.save-error": "结果未能保存",
   "hook.environment.title": "脚本环境变量",
   "hook.environment.help": "每行填写 KEY=value，仅支持 DESK_DISPLAY_URL 和 DESK_DISPLAY_TOKEN。保存会替换全部已保存变量。",
   "hook.environment.configured": "已保存变量：{keys}",
@@ -896,6 +1154,92 @@ const zh: Catalog = {
 }
 
 const ja: Catalog = {
+  "kickoff.bodyPreserved": "本文は手動で編集されているため、再描画していません。",
+  "kickoff.sourceFallback": "手順を解析できませんでした。タスクファイルのみ読み取ります。",
+  "kickoff.source.taskOnly": "タスクファイル",
+  "kickoff.failedNotice": "開始に失敗しました",
+  "kickoff.source.task": "タスクファイルと参照先",
+  "kickoff.source.marks": "注釈ノート（あなたの判断）",
+  "kickoff.source.done-tasks": "同じプロジェクトの完了タスクと完了ノート",
+  "kickoff.source.diary": "日記と決定の記録",
+  "kickoff.failure.ineligible": "このタスクは対象のレーンにありません",
+  "kickoff.failure.already-running": "このタスクはすでに実行中です",
+  "kickoff.failure.capacity": "エージェントの同時実行上限に達しました",
+  "kickoff.failure.io-error": "開始用ファイルを読み取りまたは保存できませんでした",
+  "kickoff.failure.conflict": "競合する結果が見つかりました",
+  "kickoff.picker.by": "{name} で実行",
+  "kickoff.picker.title": "エージェントを選ぶ",
+  "kickoff.picker.unknown": "状態不明",
+  "kickoff.picker.broken": "エージェントを利用できません",
+  "kickoff.picker.notInstalled": "未インストール",
+  "kickoff.picker.model": "モデル {model}",
+  "kickoff.picker.empty": "エージェント未インストール",
+  "kickoff.action": "最初の一歩を手伝う",
+  "kickoff.accessible": "最初の一歩を手伝う：{title}",
+  "kickoff.starting": "起動中…",
+  "kickoff.view": "結果を見る",
+  "kickoff.stale": "古い結果",
+  "kickoff.failed": "開始に失敗 · 再試行",
+  "kickoff.steps": "ステップ {steps} · {last}",
+  "kickoff.duration": "所要時間 {time}",
+  "kickoff.choose": "別のエージェントを選ぶ",
+  "kickoff.progress": "開始内容を作成中",
+  "kickoff.continues": "ウィンドウを閉じても実行は継続します。",
+  "kickoff.limit": "実行は最大10分です。途中停止はまだできません。",
+  "kickoff.retry": "再試行",
+  "kickoff.oldResult": "以前の結果を見る",
+  "kickoff.raw": "元の出力（先頭2 KiB）",
+  "kickoff.market": "プラグインマーケットでエージェントをインストールまたは有効にしてください。",
+  "kickoff.consentTitle": "開始用の手順を追加しますか？",
+  "kickoff.consentBody": "このVaultに skills/task-kickoff/SKILL.md と .notemd/agent-tasks/next-task-kickoff/ を追加します。エージェントはこのVaultの読み取りのみ可能で、ファイルを書き込めません。",
+  "kickoff.consentStart": "追加して開始",
+  "kickoff.dataSources": "読み取り対象（このVault内、読み取り専用）",
+  "kickoff.sourceDisabled": "無効",
+  "kickoff.unverifiedProvider": "読み取り専用の検証待ち",
+  "kickoff.result": "最初の一歩",
+  "kickoff.generated": "生成日時 {time}",
+  "kickoff.staleBanner": "この結果はタスクの以前のバージョンに基づいています。",
+  "kickoff.regenerate": "再生成",
+  "kickoff.summary": "要約",
+  "kickoff.questions": "回答してください",
+  "kickoff.decides": "決めること：{field}",
+  "kickoff.recommended": "おすすめ",
+  "kickoff.other": "その他",
+  "kickoff.context": "既知の背景",
+  "kickoff.inference": "推測",
+  "kickoff.unverified": "出典なし",
+  "kickoff.suggestions": "提案",
+  "kickoff.blockers": "障害になりそうな点",
+  "kickoff.waiting": "待っている相手",
+  "kickoff.gaps": "見つからなかったこと",
+  "kickoff.place": "この回答で「今進める」に配置",
+  "kickoff.save": "回答のみ保存",
+  "kickoff.saved": "回答を保存しました",
+  "kickoff.saveError": "回答を保存できませんでした。入力は保持されています。",
+  "kickoff.readyNotice": "結果ができました",
+  "kickoff.source": "出典を開く：{title}",
+  "kickoff.field.commitment": "取り組むこと",
+  "kickoff.field.next_action": "次の行動",
+  "kickoff.field.close_condition": "完了条件",
+  "kickoff.field.owner": "担当者",
+  "kickoff.field.scope": "範囲",
+  "kickoff.field.other": "その他",
+  "kickoff.failure.agent-missing": "利用できるエージェントプラグインがありません",
+  "kickoff.failure.start-error": "エージェントを起動できませんでした",
+  "kickoff.failure.timeout": "10分以内に完了しませんでした",
+  "kickoff.failure.error": "エージェントでエラーが発生しました",
+  "kickoff.failure.cancelled": "実行がキャンセルされました",
+  "kickoff.failure.skipped": "エージェントが実行をスキップしました",
+  "kickoff.failure.lost": "結果を残さず実行が中断しました",
+  "kickoff.failure.missing-result": "エージェントは完了しましたが、結果が大きすぎるか保存されませんでした",
+  "kickoff.failure.invalid-output": "エージェントの出力が指定形式と一致しません",
+  "kickoff.failure.task-changed": "実行中にタスクが削除されたか識別情報が変わりました",
+  "kickoff.failure.provider-unavailable": "このエージェントはまだ利用できません",
+  "kickoff.failure.consent-required": "最初に手順の追加を確認してください",
+  "kickoff.failure.result-changed": "結果が変更されました。再度開いてから回答を保存してください。",
+  "kickoff.failure.unsupported": "このホストは開始機能をサポートしていません",
+  "kickoff.failure.busy": "このタスクはすでに実行中です",
+  "kickoff.failure.save-error": "結果を保存できませんでした",
   "hook.environment.title": "スクリプトの環境変数",
   "hook.environment.help": "1 行に KEY=value を入力してください。DESK_DISPLAY_URL と DESK_DISPLAY_TOKEN のみ対応しています。保存すると保存済みの変数をすべて置き換えます。",
   "hook.environment.configured": "保存済みの変数：{keys}",
@@ -1194,6 +1538,92 @@ const ja: Catalog = {
 }
 
 const de: Catalog = {
+  "kickoff.bodyPreserved": "Der Text wurde manuell bearbeitet und nicht erneut erzeugt.",
+  "kickoff.sourceFallback": "Das Verfahren konnte nicht gelesen werden. Nur die Aufgabendatei wird gelesen.",
+  "kickoff.source.taskOnly": "Aufgabendatei",
+  "kickoff.failedNotice": "Einstieg fehlgeschlagen",
+  "kickoff.source.task": "Aufgabendatei und ihre Quellen",
+  "kickoff.source.marks": "Anmerkungen (Ihre Einschätzungen)",
+  "kickoff.source.done-tasks": "Abgeschlossene Aufgaben und Abschlussnotizen desselben Projekts",
+  "kickoff.source.diary": "Tagebuch und Entscheidungsprotokolle",
+  "kickoff.failure.ineligible": "Diese Aufgabe befindet sich nicht mehr in einer zulässigen Spalte",
+  "kickoff.failure.already-running": "Für diese Aufgabe läuft bereits ein Einstieg",
+  "kickoff.failure.capacity": "Dieser Agent hat sein Ausführungslimit erreicht",
+  "kickoff.failure.io-error": "Einstiegsdateien konnten nicht gelesen oder gespeichert werden",
+  "kickoff.failure.conflict": "Widersprüchliche Einstiegsergebnisse gefunden",
+  "kickoff.picker.by": "mit {name}",
+  "kickoff.picker.title": "Agent wählen",
+  "kickoff.picker.unknown": "Status nicht verfügbar",
+  "kickoff.picker.broken": "Agent nicht verfügbar",
+  "kickoff.picker.notInstalled": "Nicht installiert",
+  "kickoff.picker.model": "Modell {model}",
+  "kickoff.picker.empty": "Keine Agents installiert",
+  "kickoff.action": "Beim Einstieg helfen",
+  "kickoff.accessible": "Beim Einstieg helfen: {title}",
+  "kickoff.starting": "Wird gestartet…",
+  "kickoff.view": "Einstieg ansehen",
+  "kickoff.stale": "Veraltet",
+  "kickoff.failed": "Einstieg fehlgeschlagen · Erneut versuchen",
+  "kickoff.steps": "Schritt {steps} · {last}",
+  "kickoff.duration": "Dauer {time}",
+  "kickoff.choose": "Anderen Agent wählen",
+  "kickoff.progress": "Einstieg wird vorbereitet",
+  "kickoff.continues": "Das Schließen dieses Fensters beendet den Lauf nicht.",
+  "kickoff.limit": "Läufe dauern höchstens 10 Minuten. Ein Abbruch wird noch nicht unterstützt.",
+  "kickoff.retry": "Erneut versuchen",
+  "kickoff.oldResult": "Vorherigen Einstieg ansehen",
+  "kickoff.raw": "Rohausgabe (erste 2 KiB)",
+  "kickoff.market": "Installieren oder aktivieren Sie ein Agent-Plugin im Plugin-Marktplatz.",
+  "kickoff.consentTitle": "Einstiegsverfahren hinzufügen?",
+  "kickoff.consentBody": "Fügt skills/task-kickoff/SKILL.md und .notemd/agent-tasks/next-task-kickoff/ zu diesem Vault hinzu. Der Agent darf diesen Vault nur lesen und keine Dateien schreiben.",
+  "kickoff.consentStart": "Hinzufügen und starten",
+  "kickoff.dataSources": "Liest (nur dieser Vault, schreibgeschützt)",
+  "kickoff.sourceDisabled": "Nicht aktiviert",
+  "kickoff.unverifiedProvider": "Schreibschutz noch nicht verifiziert",
+  "kickoff.result": "Einstieg",
+  "kickoff.generated": "Erstellt {time}",
+  "kickoff.staleBanner": "Dieser Einstieg basiert auf einer älteren Version der Aufgabe.",
+  "kickoff.regenerate": "Neu erstellen",
+  "kickoff.summary": "Zusammenfassung",
+  "kickoff.questions": "Ihre Antworten",
+  "kickoff.decides": "Bestimmt: {field}",
+  "kickoff.recommended": "Empfohlen",
+  "kickoff.other": "Andere Antwort",
+  "kickoff.context": "Bekannter Kontext",
+  "kickoff.inference": "Schlussfolgerung",
+  "kickoff.unverified": "Quelle fehlt",
+  "kickoff.suggestions": "Vorschläge",
+  "kickoff.blockers": "Mögliche Hindernisse",
+  "kickoff.waiting": "Warten auf",
+  "kickoff.gaps": "Nicht gefunden",
+  "kickoff.place": "Mit diesen Antworten in Jetzt einordnen",
+  "kickoff.save": "Nur Antworten speichern",
+  "kickoff.saved": "Antworten gespeichert",
+  "kickoff.saveError": "Antworten konnten nicht gespeichert werden. Ihre Eingaben bleiben erhalten.",
+  "kickoff.readyNotice": "Einstieg ist bereit",
+  "kickoff.source": "Quelle öffnen: {title}",
+  "kickoff.field.commitment": "Vorhaben",
+  "kickoff.field.next_action": "Nächster Schritt",
+  "kickoff.field.close_condition": "Abschlussbedingung",
+  "kickoff.field.owner": "Verantwortlich",
+  "kickoff.field.scope": "Umfang",
+  "kickoff.field.other": "Sonstiges",
+  "kickoff.failure.agent-missing": "Kein Agent-Plugin verfügbar",
+  "kickoff.failure.start-error": "Agent konnte nicht gestartet werden",
+  "kickoff.failure.timeout": "Der Lauf wurde nach 10 Minuten nicht abgeschlossen",
+  "kickoff.failure.error": "Der Agent hat einen Fehler gemeldet",
+  "kickoff.failure.cancelled": "Der Lauf wurde abgebrochen",
+  "kickoff.failure.skipped": "Der Agent hat den Lauf übersprungen",
+  "kickoff.failure.lost": "Der Lauf wurde ohne Ergebnis unterbrochen",
+  "kickoff.failure.missing-result": "Der Agent ist fertig, aber das Ergebnis war zu groß oder wurde nicht gespeichert",
+  "kickoff.failure.invalid-output": "Die Agent-Ausgabe entspricht nicht dem erwarteten Format",
+  "kickoff.failure.task-changed": "Die Aufgabe wurde während des Laufs gelöscht oder ihre Identität wurde geändert",
+  "kickoff.failure.provider-unavailable": "Dieser Agent ist für Einstiege noch nicht verfügbar",
+  "kickoff.failure.consent-required": "Bestätigen Sie zuerst das Hinzufügen des Verfahrens",
+  "kickoff.failure.result-changed": "Das Ergebnis wurde geändert. Öffnen Sie es vor dem Speichern erneut.",
+  "kickoff.failure.unsupported": "Dieser Host unterstützt Einstiege nicht",
+  "kickoff.failure.busy": "Für diese Aufgabe läuft bereits ein Einstieg",
+  "kickoff.failure.save-error": "Das Ergebnis konnte nicht gespeichert werden",
   "hook.environment.title": "Umgebungsvariablen für das Skript",
   "hook.environment.help": "Eine Zeile pro KEY=value. Unterstützt werden nur DESK_DISPLAY_URL und DESK_DISPLAY_TOKEN. Speichern ersetzt alle gespeicherten Variablen.",
   "hook.environment.configured": "Gespeicherte Variablen: {keys}",

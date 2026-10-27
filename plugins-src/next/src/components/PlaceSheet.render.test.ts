@@ -44,6 +44,23 @@ function change(select: HTMLSelectElement, value: string) {
 }
 
 describe('PlaceSheet', () => {
+  it('prefills kickoff answers and includes additional choices without changing defaults', () => {
+    mounted.push(mount(PlaceSheet, {
+      target: document.body,
+      props: {
+        item, saving: false, initialRoute: 'commit',
+        initialCommit: { commitment: 'Chosen commitment', next_action: 'Chosen next', close_condition: 'Chosen close' },
+        extraOptions: { commitment: ['Alternative commitment'], next_action: ['Alternative next'], close_condition: ['Alternative close'] },
+        onCancel: vi.fn(), onSubmit: vi.fn(),
+      },
+    }))
+    flushSync()
+    expect([...document.querySelectorAll('textarea')].map((field) => field.value))
+      .toEqual(['Chosen commitment', 'Chosen next', 'Chosen close'])
+    expect(document.querySelector('[data-choices-for="nextAction"]')?.textContent).toContain('Alternative next')
+    expect(document.querySelectorAll('[data-choices-for="nextAction"] button')).toHaveLength(5)
+  })
+
   it('preselects a drop target route and offers four or five quick answers for each required field', () => {
     setLocale('zh')
     mounted.push(mount(PlaceSheet, {
