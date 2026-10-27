@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1027.3 — 2026-10-27
+
 - **Keep Markdown mode and tab switching responsive after editing metadata with an IME.** Nested metadata fields no longer leave the main rich editor waiting for an input composition that belongs to a replaced field. This can affect Task files reopened from NEXT.
 
 This host release is for macOS Apple Silicon only. Intel Mac and Linux remain on 6.1027.1; Windows remains on 6.811.1.
