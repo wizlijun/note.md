@@ -348,7 +348,7 @@ pub async fn run(
     // keep only a tail for the failure record.
     let err_buf = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let eb = err_buf.clone();
-    let err_task = tokio::spawn(async move {
+    let mut err_task = tokio::spawn(async move {
         let mut el = BufReader::new(stderr).lines();
         while let Ok(Some(l)) = el.next_line().await {
             let mut g = eb.lock().unwrap();
@@ -378,7 +378,7 @@ pub async fn run(
         tokio::time::Instant::now() + quiet_limit
     });
     tokio::pin!(deadline);
-    let forced = loop {
+    let mut forced = loop {
         tokio::select! {
             line = lines.next_line() => match line {
                 Ok(Some(l)) => {
@@ -428,16 +428,50 @@ pub async fn run(
         }
     };
 
-    let exit = child.wait().await.ok().and_then(|s| s.code());
-    let _ = err_task.await;
-    let mut stderr_tail = record::tail(&err_buf.lock().unwrap(), record::STDERR_LIMIT);
-    let mut input_failed = false;
-    if let Some(task) = stdin_task.take() {
-        if forced.is_some() { task.abort(); }
-        if let Ok(Err(e)) = task.await {
-            input_failed = forced.is_none();
-            stderr_tail = record::tail(&format!("{stderr_tail}could not send prompt to Claude: {e}\n"), record::STDERR_LIMIT);
+    // EOF only ends the event stream: the CLI, a descendant holding stderr,
+    // or prompt delivery can still be pending. Keep the same strict deadline
+    // and cancellation active until all three have finished.
+    let completed = {
+        let collect = async {
+            let exit = child.wait().await.ok().and_then(|s| s.code());
+            let _ = (&mut err_task).await;
+            let input_error = match stdin_task.as_mut() {
+                Some(task) => match task.await {
+                    Ok(Ok(())) => None,
+                    Ok(Err(error)) => Some(error.to_string()),
+                    Err(error) => Some(error.to_string()),
+                },
+                None => None,
+            };
+            (exit, input_error)
+        };
+        if spec.task.strict_readonly {
+            if forced.is_some() {
+                None
+            } else {
+                tokio::select! {
+                    completed = collect => Some(completed),
+                    _ = &mut deadline => { forced = Some(record::Status::Timeout); None },
+                    _ = cancel.recv() => { forced = Some(record::Status::Cancelled); None },
+                }
+            }
+        } else {
+            Some(collect.await)
         }
+    };
+    let (exit, input_error) = match completed {
+        Some(completed) => completed,
+        None => {
+            kill_group(pgid);
+            err_task.abort();
+            if let Some(task) = stdin_task.take() { task.abort(); }
+            (child.wait().await.ok().and_then(|s| s.code()), None)
+        }
+    };
+    let mut stderr_tail = record::tail(&err_buf.lock().unwrap(), record::STDERR_LIMIT);
+    let input_failed = input_error.is_some() && forced.is_none();
+    if let Some(error) = input_error {
+        stderr_tail = record::tail(&format!("{stderr_tail}could not send prompt to Claude: {error}\n"), record::STDERR_LIMIT);
     }
     let status = forced.unwrap_or_else(|| match (&final_result, exit) {
         _ if input_failed => record::Status::Error,
@@ -797,6 +831,76 @@ mod tests {
         let (_, rec) = drive(s).await;
         assert_eq!(rec.status, record::Status::Timeout);
         assert!(t0.elapsed() < std::time::Duration::from_secs(4), "{:?}", t0.elapsed());
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_stdout_eof_keeps_the_absolute_timeout() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "closed-stdout", r#"
+        cat > /dev/null
+        exec 1>&-
+        sleep 3
+        "#);
+        let t0 = std::time::Instant::now();
+        let (_, rec) = drive(kickoff_v2(d.path(), c, 1)).await;
+        assert_eq!(rec.status, record::Status::Timeout);
+        assert!(t0.elapsed() < std::time::Duration::from_secs(2), "{:?}", t0.elapsed());
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_stderr_tail_keeps_the_absolute_timeout() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "held-stderr", r#"
+        cat > /dev/null
+        sleep 3 >&2 &
+        exit 0
+        "#);
+        let t0 = std::time::Instant::now();
+        let (_, rec) = drive(kickoff_v2(d.path(), c, 1)).await;
+        assert_eq!(rec.status, record::Status::Timeout);
+        assert!(t0.elapsed() < std::time::Duration::from_secs(2), "{:?}", t0.elapsed());
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_blocked_stdin_keeps_the_absolute_timeout() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "held-stdin", r#"
+        exec 3<&0
+        sleep 3 <&3 >/dev/null 2>&1 &
+        exit 0
+        "#);
+        let mut s = kickoff_v2(d.path(), c, 1);
+        s.prompt.push_str(&"x".repeat(1024 * 1024));
+        let t0 = std::time::Instant::now();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Timeout);
+        assert!(t0.elapsed() < std::time::Duration::from_secs(2), "{:?}", t0.elapsed());
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_cancels_after_stdout_eof_and_while_draining_stderr() {
+        for body in [
+            "exec 1>&-\nsleep 3",
+            "sleep 3 >&2 &\nexit 0",
+            "exec 3<&0\nsleep 3 <&3 >/dev/null 2>&1 &\nexit 0",
+        ] {
+            let d = tempfile::tempdir().unwrap();
+            let c = fake_claude(d.path(), "cancel-after-eof", body);
+            let mut s = kickoff_v2(d.path(), c, 30);
+            s.prompt.push_str(&"x".repeat(1024 * 1024));
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            let (ctx, crx) = mpsc::channel(1);
+            let t0 = std::time::Instant::now();
+            let (result, _) = tokio::join!(run(s, tx, crx), async {
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                ctx.send(()).await.unwrap();
+            });
+            result.unwrap();
+            let rec = std::iter::from_fn(|| rx.try_recv().ok())
+                .find_map(|step| match step { Step::Done(rec) => Some(rec), _ => None }).unwrap();
+            assert_eq!(rec.status, record::Status::Cancelled);
+            assert!(t0.elapsed() < std::time::Duration::from_secs(2), "{:?}", t0.elapsed());
+        }
     }
 
     /// Live acceptance against the installed Claude CLI and its own login.

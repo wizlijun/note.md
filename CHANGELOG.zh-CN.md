@@ -6,7 +6,7 @@
 
 ## 未发布
 
-- **Claude Agent：“帮我开个头”支持 Claude。** 与 Codex、DeepSeek 使用同一份冻结 v2 规程和你确认过的背景快照；在空目录、无工具、无 MCP、不读磁盘指令的模式下运行，按固定总时限收束。只读或预算配置被削弱时，启动 Claude 前即拒绝。更新 Claude Agent 插件后即可在 NEXT 中选择 Claude。
+- **Claude Agent 1.0.34：“帮我开个头”支持 Claude。** 与 Codex、DeepSeek 使用同一份冻结 v2 规程和你确认过的背景快照；在空目录、无工具、无 MCP、不读磁盘指令的模式下运行，按固定总时限收束。只读或预算配置被削弱时，启动 Claude 前即拒绝。更新 Claude Agent 插件后即可在 NEXT 中选择 Claude。
 
 - **NEXT 1.12.1：每次发送前确认背景与接收方。** 显示 Agent 服务商和实际文件清单；修复大 Vault、中文部分词语匹配及大量未完成任务导致的背景遗漏，引用只认可确认快照中的文件。配套 Codex Agent 1.0.22 / DeepSeek Agent 1.1.21 使用单份冻结 v2 规程；Claude 等未支持插件明确暂不支持。锁冲突显示容量限制，时长保存为整数秒。
 
