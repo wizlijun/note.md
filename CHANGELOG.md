@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1027.2 — 2026-10-27
+
 - **Apple Silicon: configure the NEXT reminder script environment.** With NEXT 1.9.0, paste DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN in the plugin settings. The host saves these values privately per local Vault and passes them only to the selected script; saved credentials are not returned to the UI.
 
 - **See why NEXT script synchronization is pending.** Recognized error codes survive unsuccessful script exits, allowing NEXT 1.9.0 to explain missing Cube configuration, connectivity, busy synchronization or unsupported server capabilities without exposing arbitrary output.
