@@ -40,6 +40,8 @@ export interface AgentModelRouting {
 }
 
 export interface AgentHarnessCapabilities {
+  /** Implementation support only; callers still require actual safety evidence. */
+  strict_readonly?: boolean
   tasks: string[]
   search_plan_schemas: number[]
   terminal_result: boolean

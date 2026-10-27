@@ -1,3 +1,5 @@
+import type { AgentProviders } from './agent-picker/types'
+
 export interface NotemdBridge {
   pluginId: string
   locale: string
@@ -61,4 +63,46 @@ export async function toast(
   } catch {
     // A toast must never turn a successful state transition into a failure.
   }
+}
+
+export interface VaultInfo {
+  root: string | null
+  author?: string
+}
+
+export interface AgentLimits {
+  providers: { id: string; max_concurrency: number }[]
+}
+
+export interface AgentRunParams {
+  task: string
+  harness: string
+  note_path: string
+  prompt: string
+  notify: {
+    title_ok: string
+    title_fail: string
+    open_path?: string
+    expect_file?: string
+  }
+}
+
+export function vaultInfo(): Promise<VaultInfo> {
+  return bridge().request('host.vault.info')
+}
+
+export function agentProviders(): Promise<AgentProviders> {
+  return bridge().request('host.agent.providers', {})
+}
+
+export function agentLimits(): Promise<AgentLimits> {
+  return bridge().request('host.agent.limits', {})
+}
+
+export function agentRun(params: AgentRunParams): Promise<{ run_id: string }> {
+  return bridge().request('host.agent.run', params)
+}
+
+export function agentStatus(task: string, runId: string, harness: string): Promise<unknown> {
+  return bridge().request('host.agent.status', { task, run_id: runId, harness })
 }

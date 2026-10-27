@@ -24,3 +24,13 @@ describe('registry', () => {
     expect(JSON.stringify(empty)).toBe(before)
   })
 })
+
+it('roundtrips a real failed start without pretending it has a host run id', () => {
+  const registry = { version: 1, unread: [], runs: { task: { ...run, run_id: null, state: 'failed', failure: { kind: 'start-error', message: 'refused', at: '2026-10-27T01:00:00Z' } } } }
+  expect(parseRegistry(JSON.stringify(registry))).toEqual(registry)
+})
+
+it.each([null, '', '   '])('requires a nonempty host run id for running state: %s', runId => {
+  const raw = JSON.stringify({ version: 1, unread: [], runs: { task: { ...run, run_id: runId } } })
+  expect(parseRegistry(raw).runs).toEqual({})
+})

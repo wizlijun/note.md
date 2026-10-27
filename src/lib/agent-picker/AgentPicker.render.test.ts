@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { flushSync, mount, unmount } from 'svelte'
+import { createRawSnippet, flushSync, mount, unmount } from 'svelte'
 import AgentPicker from './AgentPicker.svelte'
 
 let component: ReturnType<typeof mount> | undefined
@@ -110,4 +110,49 @@ describe('shared agent picker keyboard interaction', () => {
     expect(document.querySelector('[role=menu]')).toBeNull()
     expect(document.activeElement).toBe(next)
   })
+})
+
+it('keeps unavailable providers selectable by default on existing surfaces', async () => {
+  const selected = vi.fn()
+  component = mount(AgentPicker, { target: document.body, props: {
+    options: [{ id: 'claude', name: 'Claude', harness: { harness: 'Claude Code', ok: false, hint: 'credentials missing' } }, { id: 'codex', name: 'Codex' }],
+    selected: 'codex', onselect: selected, label: (key: string) => key,
+  } })
+  flushSync()
+  const rows = await openMenu(document.querySelector<HTMLButtonElement>('[aria-haspopup=menu]')!)
+  expect(rows[0].disabled).toBe(false)
+  rows[0].click()
+  expect(selected).toHaveBeenCalledWith('claude')
+})
+
+it('supports NEXT initial-open picker with disabled providers, hint and warning', async () => {
+  const selected = vi.fn()
+  component = mount(AgentPicker, { target: document.body, props: {
+    options: [{ id: 'claude', name: 'Claude', harness: { harness: 'Claude Code', ok: false, hint: 'safety unverified', warning: 'expired credentials' } }, { id: 'codex', name: 'Codex' }],
+    selected: 'claude', initialOpen: true, disableUnavailable: true, onselect: selected, label: (key: string) => key,
+  } })
+  flushSync()
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  const rows = [...document.querySelectorAll<HTMLButtonElement>('.menu-row')]
+  expect(rows[0].disabled).toBe(true)
+  expect(rows[0].textContent).toContain('safety unverified')
+  expect(rows[0].textContent).toContain('expired credentials')
+  rows[0].click()
+  expect(selected).not.toHaveBeenCalled()
+  expect(document.activeElement).toBe(rows[1])
+})
+
+it('renders the data-source footer for a single unavailable provider', async () => {
+  component = mount(AgentPicker, { target: document.body, props: {
+    options: [{ id: 'claude', name: 'Claude', harness: { harness: 'Claude Code', ok: false, version: '2.1', default_model: 'model', hint: 'unverified' } }],
+    selected: 'claude', initialOpen: true, disableUnavailable: true,
+    footer: createRawSnippet(() => ({ render: () => '<p>Task files, read only</p>' })),
+    onselect: vi.fn(), label: (key: string) => key,
+  } })
+  flushSync()
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  expect(document.querySelector('[role=menu]')).not.toBeNull()
+  expect(document.querySelector('.footer')?.textContent).toContain('Task files, read only')
+  expect(document.querySelector('.dt')?.textContent).toContain('2.1')
+  expect(document.querySelector('.hint')?.textContent).toContain('unverified')
 })

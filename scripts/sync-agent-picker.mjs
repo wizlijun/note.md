@@ -21,6 +21,7 @@ export const FILES = ['AgentPicker.svelte', 'types.ts']
 /** Plugins that render a picker. The agent plugins themselves do NOT: their
  *  window IS one agent, so offering to switch inside it would be a lie. */
 export const TARGETS = [
+  'plugins-src/next/src/lib/agent-picker',
   'plugins-src/idea-spark/src/lib/agent-picker',
   'plugins-src/ebook-import/src/lib/agent-picker',
   'plugins-src/trace-source/src/lib/agent-picker',

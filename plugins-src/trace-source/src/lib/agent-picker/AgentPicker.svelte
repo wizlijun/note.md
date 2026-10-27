@@ -16,20 +16,23 @@
   // CANONICAL COPY: src/lib/agent-picker/AgentPicker.svelte. The plugin copies
   // are kept byte-identical by a test (see agent-picker.copies.test.ts); edit
   // this file and rerun `node scripts/sync-agent-picker.mjs`.
-  import { tick } from 'svelte'
+  import { tick, untrack, type Snippet } from 'svelte'
   import { placeMenu, type AgentOption, type Placement } from './types'
 
-  let { options, selected, disabled = false, onselect, label }: {
+  let { options, selected, disabled = false, initialOpen = false, disableUnavailable = false, footer, onselect, label }: {
     options: AgentOption[]
     /** Currently chosen provider id. */
     selected: string | null
     disabled?: boolean
+    initialOpen?: boolean
+    disableUnavailable?: boolean
+    footer?: Snippet
     onselect: (id: string) => void
     /** `(key, vars?) => string`, from whichever i18n the surface uses. */
     label: (k: string, v?: Record<string, string | number>) => string
   } = $props()
 
-  let open = $state(false)
+  let open = $state(untrack(() => initialOpen))
   let root: HTMLElement | undefined = $state()
   let trigger: HTMLButtonElement | undefined = $state()
   let menuEl: HTMLElement | undefined = $state()
@@ -62,20 +65,22 @@
   /** "2.1.233 · model claude-opus-5" — the line under each menu entry. */
   function detail(o: AgentOption): string {
     if (!o.harness) return label('agentPicker.unknown')
-    if (!o.harness.ok) {
+    if (!o.harness.ok && !disableUnavailable) {
       return o.harness.origin
         ? label('agentPicker.broken')
         : label('agentPicker.notInstalled')
     }
-    return [
+    const metadata = [
       o.harness.version,
       o.harness.default_model && label('agentPicker.model', { model: o.harness.default_model }),
     ]
       .filter(Boolean)
       .join(' · ')
+    return metadata || (!o.harness.ok ? (o.harness.origin ? label('agentPicker.broken') : label('agentPicker.notInstalled')) : '')
   }
 
   function choose(id: string) {
+    if (disableUnavailable && options.find(option => option.id === id)?.harness?.ok === false) return
     onselect(id)
     open = false
     trigger?.focus()
@@ -97,7 +102,7 @@
       // Browsers cannot focus an item while the measured menu is still hidden.
       await tick()
       if (!open || !menuEl?.isConnected) return
-      const items = menuEl?.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]')
+      const items = menuEl?.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]:not(:disabled)')
       const current = Array.from(items ?? []).find((item) => item.getAttribute('aria-checked') === 'true')
       ;(current ?? items?.[0])?.focus({ preventScroll: true })
     })
@@ -115,7 +120,7 @@
       } else if (menuEl?.contains(e.target as Node)) {
         if (e.key === 'Tab') { open = false; trigger?.focus(); return }
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
-        const items = Array.from(menuEl.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]'))
+        const items = Array.from(menuEl.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]:not(:disabled)'))
         if (!items.length) return
         e.preventDefault()
         const current = items.indexOf(document.activeElement as HTMLButtonElement)
@@ -142,7 +147,7 @@
 
 <!-- One installed agent is not a choice; showing a menu that can only confirm
      what is already true is noise. State it and stop. -->
-{#if options.length <= 1}
+{#if options.length <= 1 && !footer && !initialOpen}
   <span class="by one" title={current ? detail(current) : ''}>
     {label('agentPicker.by', { name: shortName(current) })}
   </span>
@@ -182,6 +187,7 @@
             aria-checked={o.id === selected}
             class="item menu-row"
             tabindex="-1"
+            disabled={disableUnavailable && o.harness?.ok === false}
             class:bad={o.harness ? !o.harness.ok : false}
             onclick={() => choose(o.id)}
           >
@@ -189,9 +195,12 @@
             <span class="text">
               <span class="nm">{o.harness?.harness ?? o.name}</span>
               <span class="dt">{detail(o)}</span>
+              {#if o.harness?.hint}<span class="hint">{o.harness.hint}</span>{/if}
+              {#if o.harness?.warning}<span class="warning">{o.harness.warning}</span>{/if}
             </span>
           </button>
         {/each}
+        {#if footer}<div class="footer">{@render footer()}</div>{/if}
       </div>
     {/if}
   </span>
@@ -256,8 +265,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* A harness that cannot run is still selectable — you may be about to fix it
-     — but it must not look like a working one. */
+  .item:disabled { cursor: default; opacity: 0.6; }
+  .hint, .warning { font-size: 12px; white-space: normal; max-width: 320px; }
+  .warning { color: var(--ui-warning, #a15c00); }
+  .footer { padding: 7px; border-top: 1px solid var(--ui-border, #8884); font-size: 12px; color: var(--ui-secondary, CanvasText); }
   .item.bad .dt { color: var(--ui-danger, #b42318); }
   .menu-panel .menu-row:hover .dt { color: inherit; }
 </style>
