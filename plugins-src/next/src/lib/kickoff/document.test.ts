@@ -1,0 +1,118 @@
+import { describe, it, expect } from 'vitest'
+import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import payload from './__fixtures__/payload.json'
+import { buildKickoffDocument, parseKickoffDocument, kickoffPathFor, renderBody, withAnswers, carryPriorAnswers } from './document'
+import type { KickoffPayload } from './payload'
+const p = payload as KickoffPayload
+const input = { payload:p, taskTitle:'发布构建', taskPath:'inbox/tasks/demo-task.md', runId:'run-1', endedAt:'2026-10-27T13:05:00Z', durationSeconds:245, providerId:'claude-agent' }
+const answer = { question_id:'q1', question:p.questions[0].text, decides:p.questions[0].decides, option_id:'a', answer:'检查配置', by:'human:owner', at:'2026-10-27T13:10:00Z' }
+describe('kickoff document', () => {
+  it('passes OKF lint on an isolated generated document', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'next-kickoff-okf-'))
+    try {
+      await mkdir(join(root, 'inbox/tasks'), {recursive:true})
+      await writeFile(join(root, kickoffPathFor(input.taskPath)), await buildKickoffDocument(input))
+      expect(execFileSync('node', ['../../scripts/okf-lint.mjs', root], {encoding:'utf8'})).toContain('全部满足硬约束')
+    } finally { await rm(root, {recursive:true, force:true}) }
+  })
+  it('maps only safe task paths', () => {
+    expect(kickoffPathFor(input.taskPath)).toBe('inbox/tasks/demo-task.kickoff.md')
+    for (const path of ['../task.md','/inbox/tasks/t.md','inbox/tasks/../t.md','inbox/tasks/a\\b.md','inbox/tasks/a.kickoff.md']) expect(() => kickoffPathFor(path)).toThrow()
+  })
+  it('builds complete OKF metadata with actor fallback and quoted dates', async () => {
+    const text = await buildKickoffDocument(input)
+    const d = parseKickoffDocument(text)!
+    expect(d.metadata.type).toBe('Task Kickoff')
+    expect(d.metadata.title).toBe('开个头：发布构建')
+    expect(d.metadata.description).toBe(p.summary)
+    expect(d.metadata.sources).toEqual([{resource:input.taskPath},...p.sources.map(s=>({resource:s.resource}))])
+    expect(d.metadata.generated).toEqual({by:'process:claude-agent',at:input.endedAt})
+    expect(d.kickoff).toMatchObject({version:1,schema:p.schema,task_id:p.task_id,based_on:p.based_on,harness:'claude-agent',run_id:'run-1',duration_seconds:245,repairs:[],payload:p,answers:[],prior_answers:[]})
+    expect(d.kickoff.rendered).toMatch(/^sha256:[a-f0-9]{64}$/)
+    expect(text).toContain('"2026-10-27T13:05:00Z"')
+    expect(parseKickoffDocument(await buildKickoffDocument({...input,harness:'notemd.codex-agent'}))!.metadata.generated).toMatchObject({by:'process:codex-agent'})
+  })
+  it('renders stable agent content and human answers', () => {
+    const before = JSON.stringify(p)
+    expect(renderBody(p,[answer])).toMatchInlineSnapshot(`
+      "# ✦ 开个头
+
+      ✦ 确认发布的第一步
+
+      ## 需要你回答
+
+      ### ● 先检查哪一项？
+
+      - 检查配置（建议）：配置影响发布 [s1]
+      - 检查构建
+
+      ● 检查配置
+
+      ## ✦ 已知背景
+
+      - 上次缺少配置 [s1]
+
+      ## ✦ 建议
+
+      - 承诺：提交构建
+      - 下一步：打开配置文件并核对账号
+      - 结束条件：构建通过
+
+      ## ✦ 没查到的
+
+
+      ## ✦ 来源
+
+      - [s1] [发布记录](diary/release.note.md) · ## 发布
+      "
+    `)
+    expect(JSON.stringify(p)).toBe(before)
+    expect(renderBody(p,[answer])).toContain('●')
+    expect(renderBody(p)).toContain('✦')
+  })
+  it('round trips and preserves unknown metadata when answering', async () => {
+    const initial = await buildKickoffDocument(input)
+    const unknown = initial.replace('---\n','---\ncustom: keep\n').replace('kickoff:\n','kickoff:\n  future: keep\n')
+    const result = await withAnswers(parseKickoffDocument(unknown)!,[answer,{...answer,answer:'new'}],answer.at)
+    expect(result.rerendered).toBe(true)
+    const d = parseKickoffDocument(result.content)!
+    expect(d.metadata.custom).toBe('keep')
+    expect(d.kickoff.future).toBe('keep')
+    expect(d.kickoff.answers).toEqual([{...answer,answer:'new'}])
+    expect(d.kickoff.payload).toEqual(p)
+    expect(d.body).toBe(renderBody(p,d.kickoff.answers).replace('# ✦ 开个头', '# ✦ 开个头：发布构建'))
+    await expect(withAnswers(parseKickoffDocument(initial)!,[{...answer,by:'process:agent'}],answer.at)).rejects.toThrow()
+  })
+  it('protects every manually edited body byte', async () => {
+    const initial = await buildKickoffDocument(input)
+    const edited = initial + '\r\n人工修改\r\n'
+    const result = await withAnswers(parseKickoffDocument(edited)!,[answer],answer.at)
+    expect(result.rerendered).toBe(false)
+    expect(parseKickoffDocument(result.content)!.body).toBe(parseKickoffDocument(edited)!.body)
+  })
+  it('rejects malformed documents and task identity changes', async () => {
+    expect(parseKickoffDocument('no frontmatter')).toBeNull()
+    expect(parseKickoffDocument('---\ntype: Note\n---\n')).toBeNull()
+    const doc = parseKickoffDocument(await buildKickoffDocument(input))!
+    await expect(withAnswers({...doc,kickoff:{...doc.kickoff,task_id:'other'}},[answer],answer.at)).rejects.toThrow('identity')
+  })
+  it('repeated saves overwrite a question and keep a valid render hash', async () => {
+    const first = await withAnswers(parseKickoffDocument(await buildKickoffDocument(input))!,[answer],answer.at)
+    const second = await withAnswers(parseKickoffDocument(first.content)!,[{...answer,answer:'changed'}],'2026-10-27T14:00:00Z')
+    expect(second.rerendered).toBe(true)
+    expect(parseKickoffDocument(second.content)!.kickoff.answers).toEqual([{...answer,answer:'changed',at:'2026-10-27T14:00:00Z'}])
+  })
+  it('carries old answers with their original runs', async () => {
+    const previous = {...answer,run_id:'older'}
+    const initial = await buildKickoffDocument({...input,priorAnswers:[previous]})
+    const saved = await withAnswers(parseKickoffDocument(initial)!,[answer],answer.at)
+    const old = parseKickoffDocument(saved.content)!
+    const before = JSON.stringify(old)
+    expect(carryPriorAnswers(old,'run-1')).toEqual([previous,{...answer,run_id:'run-1'}])
+    expect(JSON.stringify(old)).toBe(before)
+    expect(carryPriorAnswers(null,'run-1')).toEqual([])
+  })
+})
