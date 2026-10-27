@@ -1,11 +1,21 @@
 <script lang="ts">
   import { taskHook, syncTaskHook, dismissTaskHook } from '../lib/task-hook.svelte'
-  import { t } from '../lib/strings'
+  import { t, type MessageKey } from '../lib/strings'
+
+  const reasons: Record<string, MessageKey> = {
+    missing_cube_config: 'hook.error.missingConfig',
+    cube_unavailable: 'hook.error.connection',
+    sync_busy: 'hook.error.busy',
+    cube_safe_create_unavailable: 'hook.error.serverVersion',
+  }
 </script>
 
 {#each Object.values(taskHook.jobs) as job (job.taskId)}
+  {@const reason = job.errorCode && Object.hasOwn(reasons, job.errorCode) ? reasons[job.errorCode] : undefined}
   <div class="hook-status" class:pending={job.status === 'pending'} role="status" aria-live="polite" data-hook-status={job.status}>
-    <span>{t(`hook.status.${job.status}`, { title: job.title })}</span>
+    <span>{job.status === 'pending' && reason
+      ? t('hook.status.pendingReason', { title: job.title, reason: t(reason) })
+      : t(`hook.status.${job.status}`, { title: job.title })}</span>
     {#if job.status === 'pending'}
       <button type="button" onclick={() => syncTaskHook(job.taskId, job.title)}>{t('hook.retry')}</button>
     {/if}

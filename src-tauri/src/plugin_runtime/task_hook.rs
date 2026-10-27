@@ -120,31 +120,48 @@ fn pending(code: &str, exit_code: Option<i32>) -> Value {
 }
 
 fn script_result(output: &[u8], success: bool, exit_code: Option<i32>) -> Value {
-    if !success {
-        return pending("script_failed", exit_code);
-    }
+    let invalid = if success {
+        "invalid_output"
+    } else {
+        "script_failed"
+    };
     let Ok(value) = serde_json::from_slice::<Value>(output) else {
-        return pending("invalid_output", exit_code);
+        return pending(invalid, exit_code);
     };
     let Some(ok) = value["ok"].as_bool() else {
-        return pending("invalid_output", exit_code);
+        return pending(invalid, exit_code);
     };
     let status = value["status"].as_str().unwrap_or("");
     if !matches!(
         (ok, status),
         (true, "synced" | "disabled") | (false, "pending")
     ) {
-        return pending("invalid_output", exit_code);
+        return pending(invalid, exit_code);
+    }
+    if !success && ok {
+        return pending("script_failed", exit_code);
     }
     let mut result = json!({"ok":ok,"status":status});
     for key in ["created", "updated", "deleted"] {
         let Some(count) = value[key].as_u64() else {
-            return pending("invalid_output", exit_code);
+            return pending(invalid, exit_code);
         };
         result[key] = json!(count);
     }
     if !ok {
-        result["errorCode"] = json!("script_pending");
+        // Only these fixed skill error codes may cross the native boundary.
+        // Never expose arbitrary script output, including errors containing secrets.
+        let code = match value["error"].as_str() {
+            Some(
+                code @ ("missing_cube_config"
+                | "cube_unavailable"
+                | "sync_busy"
+                | "cube_safe_create_unavailable"),
+            ) => code,
+            _ if success => "script_pending",
+            _ => "script_failed",
+        };
+        result["errorCode"] = json!(code);
     }
     if let Some(exit_code) = exit_code {
         result["exitCode"] = json!(exit_code);
@@ -427,6 +444,57 @@ mod tests {
             "script_failed"
         );
     }
+    #[tokio::test]
+    async fn nonzero_script_preserves_allowlisted_diagnostic() {
+        let (_temp, vault, script) = fixture(
+            "import json, sys\nprint(json.dumps(dict(ok=False, status='pending', error='missing_cube_config', created=0, updated=0, deleted=0)))\nsys.exit(1)\n",
+        );
+        let result = execute(&vault, &script, TASK, Duration::from_secs(5)).await;
+        assert_eq!(
+            result,
+            json!({"ok":false,"status":"pending","errorCode":"missing_cube_config","created":0,"updated":0,"deleted":0,"exitCode":1})
+        );
+    }
+
+    #[test]
+    fn diagnostics_require_valid_pending_schema_and_allowlisted_code() {
+        for code in [
+            "missing_cube_config",
+            "cube_unavailable",
+            "sync_busy",
+            "cube_safe_create_unavailable",
+        ] {
+            let output = json!({"ok":false,"status":"pending","error":code,"created":0,"updated":1,"deleted":2,"token":"secret"});
+            for success in [true, false] {
+                let result = script_result(
+                    &serde_json::to_vec(&output).unwrap(),
+                    success,
+                    Some(if success { 0 } else { 1 }),
+                );
+                assert_eq!(result["errorCode"], code);
+                assert_eq!(result["updated"], 1);
+                assert!(!result.to_string().contains("secret"));
+            }
+        }
+        for (success, fallback) in [(true, "script_pending"), (false, "script_failed")] {
+            let output = br#"{"ok":false,"status":"pending","error":"secret-token","created":0,"updated":0,"deleted":0}"#;
+            let result = script_result(output, success, None);
+            assert_eq!(result["errorCode"], fallback);
+            assert!(!result.to_string().contains("secret"));
+        }
+        for output in [
+            br#"{"ok":true,"status":"synced","created":0,"updated":0,"deleted":0}"#.as_slice(),
+            br#"{"ok":false,"status":"synced","error":"missing_cube_config","created":0,"updated":0,"deleted":0}"#,
+            br#"{"ok":false,"status":"pending","error":"missing_cube_config","created":-1,"updated":0,"deleted":0}"#,
+            br#"{"ok":false,"status":"pending","error":"missing_cube_config","updated":0,"deleted":0}"#,
+        ] {
+            let result = script_result(output, false, Some(1));
+            assert_eq!(result["ok"], false);
+            assert_eq!(result["status"], "pending");
+            assert_eq!(result["errorCode"], "script_failed");
+        }
+    }
+
     #[tokio::test]
     async fn executes_only_fixed_arguments_in_vault_without_model_or_secrets() {
         let (_temp, vault, script) = fixture(

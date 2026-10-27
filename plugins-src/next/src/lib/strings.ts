@@ -12,6 +12,11 @@ export type MessageKey =
   | 'hook.status.running'
   | 'hook.status.synced'
   | 'hook.status.pending'
+  | 'hook.status.pendingReason'
+  | 'hook.error.missingConfig'
+  | 'hook.error.connection'
+  | 'hook.error.busy'
+  | 'hook.error.serverVersion'
   | 'hook.retry'
   | 'hook.dismiss'
   | 'app.title'
@@ -288,6 +293,11 @@ const en: Catalog = {
   "hook.status.running": "“{title}” saved · Syncing Cube…",
   "hook.status.synced": "“{title}” saved · Cube synced",
   "hook.status.pending": "“{title}” saved · Cube sync pending. Check the script, Python dependencies and Cube connection.",
+  "hook.status.pendingReason": "“{title}” saved · Cube sync pending. {reason}",
+  "hook.error.missingConfig": "Missing Cube configuration. Set DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN in ~/.config/desk-display/env.",
+  "hook.error.connection": "Cannot connect to Cube. Check the server address and network.",
+  "hook.error.busy": "Another sync is running. Try again shortly.",
+  "hook.error.serverVersion": "The Cube server does not support safe creation. Update the Cube service.",
   "hook.retry": "Retry sync",
   "hook.dismiss": "Dismiss sync status",
   'app.title': 'Next',
@@ -563,6 +573,11 @@ const zh: Catalog = {
   "hook.status.running": "“{title}”已保存 · 正在同步 Cube…",
   "hook.status.synced": "“{title}”已保存 · Cube 已同步",
   "hook.status.pending": "“{title}”已保存 · Cube 待同步。请检查脚本、Python 依赖和 Cube 连接。",
+  "hook.status.pendingReason": "“{title}”已保存 · Cube 待同步。{reason}",
+  "hook.error.missingConfig": "缺少 Cube 配置：请在 ~/.config/desk-display/env 中配置 DESK_DISPLAY_URL 和 DESK_DISPLAY_TOKEN。",
+  "hook.error.connection": "无法连接 Cube，请检查服务地址和网络。",
+  "hook.error.busy": "另一个同步正在运行，请稍后重试。",
+  "hook.error.serverVersion": "Cube 服务尚不支持安全创建，请更新 Cube 服务。",
   "hook.retry": "重试同步",
   "hook.dismiss": "关闭同步提示",
   'app.title': '下一步',
@@ -838,6 +853,11 @@ const ja: Catalog = {
   "hook.status.running": "「{title}」を保存済み · Cube と同期中…",
   "hook.status.synced": "「{title}」を保存済み · Cube と同期済み",
   "hook.status.pending": "「{title}」を保存済み · Cube 同期待ち。スクリプト、Python の依存関係、接続を確認してください。",
+  "hook.status.pendingReason": "「{title}」を保存済み · Cube 同期待ち。{reason}",
+  "hook.error.missingConfig": "Cube 設定がありません。~/.config/desk-display/env に DESK_DISPLAY_URL と DESK_DISPLAY_TOKEN を設定してください。",
+  "hook.error.connection": "Cube に接続できません。サーバーアドレスとネットワークを確認してください。",
+  "hook.error.busy": "別の同期が実行中です。しばらくしてから再試行してください。",
+  "hook.error.serverVersion": "Cube サーバーは安全な作成に未対応です。Cube サービスを更新してください。",
   "hook.retry": "同期を再試行",
   "hook.dismiss": "同期表示を閉じる",
   'app.title': '次の一歩',
@@ -1113,6 +1133,11 @@ const de: Catalog = {
   "hook.status.running": "„{title}“ gespeichert · Cube wird synchronisiert…",
   "hook.status.synced": "„{title}“ gespeichert · Cube synchronisiert",
   "hook.status.pending": "„{title}“ gespeichert · Cube-Synchronisierung ausstehend. Prüfen Sie Skript, Python-Abhängigkeiten und Verbindung.",
+  "hook.status.pendingReason": "„{title}“ gespeichert · Cube-Synchronisierung ausstehend. {reason}",
+  "hook.error.missingConfig": "Cube-Konfiguration fehlt. Tragen Sie DESK_DISPLAY_URL und DESK_DISPLAY_TOKEN in ~/.config/desk-display/env ein.",
+  "hook.error.connection": "Cube ist nicht erreichbar. Prüfen Sie Serveradresse und Netzwerk.",
+  "hook.error.busy": "Eine andere Synchronisierung läuft. Versuchen Sie es gleich erneut.",
+  "hook.error.serverVersion": "Der Cube-Server unterstützt noch keine sichere Erstellung. Aktualisieren Sie den Cube-Dienst.",
   "hook.retry": "Erneut synchronisieren",
   "hook.dismiss": "Synchronisierungsstatus schließen",
   'app.title': 'Nächster Schritt',
