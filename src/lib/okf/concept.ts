@@ -48,6 +48,10 @@ export const CONCEPT_TYPE = {
   next: 'Next',
   /** Next:人或 agent 创建的可执行任务,每个任务一份 `inbox/tasks/*-task.md` */
   task: 'Task',
+  /** NEXT「帮我开个头」的结果 inbox/tasks/*-task.kickoff.md（agent 载荷经 NEXT 校验后写入） */
+  taskKickoff: 'Task Kickoff',
+  /** 用户确认过的工作规程 `skills/<name>/SKILL.md` */
+  skill: 'Skill',
   /** 溯源:agent 产出的溯源摘要 `<dir>/<ts>-source-trace.md`(trace-source 插件) */
   traceReport: 'Trace Report',
   /** 溯源:下载的原始材料全文(字幕转写/博客正文/论文节选),报告同名子目录 */

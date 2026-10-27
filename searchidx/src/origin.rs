@@ -89,9 +89,9 @@ impl Origin {
 fn mapped_type_origin(concept_type: &str) -> Option<Origin> {
     match concept_type {
         "Note" | "Outline Note" | "Daily Note" | "Wiki Page" | "Idea" | "Next" | "Task"
-        | "Vault Conventions" | "User Profile" | "Memory" | "Trace Request" => Some(Origin::Human),
+        | "Vault Conventions" | "User Profile" | "Memory" | "Trace Request" | "Skill" => Some(Origin::Human),
         "Book Summary" | "Book Topic Index" | "Answer" | "Idea Proof" | "Reading Report"
-        | "Decision Board" | "Decision Archive" | "Trace Report" => Some(Origin::Derived),
+        | "Decision Board" | "Decision Archive" | "Trace Report" | "Task Kickoff" => Some(Origin::Derived),
         "Book" | "Trace Material" => Some(Origin::Source),
         _ => None,
     }
@@ -279,6 +279,19 @@ mod tests {
         );
         assert_eq!(derive("a.md", Some(&fm("type: Book Summary")), &globs(&[])), Origin::Derived);
         assert_eq!(derive("a.md", Some(&fm("type: Book")), &globs(&[])), Origin::Source);
+    }
+    #[test]
+    fn kickoff_and_skill_have_explicit_origin_tiers() {
+        assert_eq!(mapped_type_origin("Task Kickoff"), Some(Origin::Derived));
+        assert_eq!(mapped_type_origin("Skill"), Some(Origin::Human));
+        assert_eq!(
+            derive("inbox/tasks/example-task.kickoff.md", Some(&fm("type: Task Kickoff")), &globs(&[])),
+            Origin::Derived
+        );
+        assert_eq!(
+            derive("skills/task-kickoff/SKILL.md", Some(&fm("type: Skill")), &globs(&[])),
+            Origin::Human
+        );
     }
     #[test]
     fn next_ledger_is_human_judgment() {
