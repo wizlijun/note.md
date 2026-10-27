@@ -1,0 +1,11 @@
+{
+  "schema": "next-kickoff/v1",
+  "task_id": "task-1",
+  "based_on": "sha256:abc",
+  "summary": "确认发布的第一步",
+  "questions": [{"id":"q1","text":"先检查哪一项？","decides":"next_action","options":[{"id":"a","label":"检查配置","recommended":true,"why":"配置影响发布","source_ids":["s1"]},{"id":"b","label":"检查构建","recommended":false,"why":"","source_ids":[]}],"allow_free_text":true}],
+  "context": [{"claim":"上次缺少配置","kind":"fact","source_ids":["s1"]}],
+  "suggestions": {"commitment":"提交构建","next_action":"打开配置文件并核对账号","close_condition":"构建通过","blockers":[],"waiting_for":[]},
+  "gaps": [],
+  "sources": [{"id":"s1","resource":"diary/release.note.md","title":"发布记录","locator":"## 发布"}]
+}
