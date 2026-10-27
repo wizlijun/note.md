@@ -5,6 +5,8 @@ import EditorPane from './EditorPane.svelte'
 import ModeToggle from './ModeToggle.svelte'
 import { tabs, activeId, activate, isReadOnlyTab, isGuestUpdateBusy } from '../lib/tabs.svelte'
 import { fileEditorSession, closeFileEditorSession } from '../lib/file-editor-sessions'
+import { openPath } from '../lib/open-path'
+import { activeTab, openFile } from '../lib/tabs.svelte'
 import { isApplePlatformSync } from '../lib/platform-sync'
 
 // Run the same platform admission as macOS WKWebView before editor imports.
@@ -28,6 +30,23 @@ afterAll(() => {
 })
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => null), convertFileSrc: (s: string) => s }))
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  stat: vi.fn(async () => ({ isDirectory: false, mtime: new Date(0), size: 100 })),
+  watchImmediate: vi.fn(async () => () => {}),
+  exists: vi.fn(async () => false),
+}))
+vi.mock('../lib/fs', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../lib/fs')>(),
+  readMd: vi.fn(async () => raw),
+  statFile: vi.fn(async () => ({ mtime: 0, size: 100 })),
+}))
+vi.mock('../lib/settings.svelte', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../lib/settings.svelte')>(),
+  getRecentMode: vi.fn(() => 'rich'),
+  setRecentMode: vi.fn(async () => {}),
+  pushRecentFile: vi.fn(async () => {}),
+}))
+vi.mock('../lib/outline/migrate', () => ({ migrateLegacyCompanion: vi.fn(async () => {}) }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'macos', type: () => 'macos' }))
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => vi.fn() }) }))
 vi.mock('../lib/note-anno/answers-store.svelte', () => ({ answersStore: { version: 0 }, loadAnswersFor: vi.fn(), answeredMap: () => new Map() }))
@@ -127,4 +146,34 @@ it('keeps a Task editable across Source/Rich changes and remounts on the Mac pla
   await tick()
   session.view.dispatch(session.view.state.tr.insertText('再测', position))
   expect(session.owner.snapshot().raw).toContain('再测测试')
+})
+
+it('opens and reuses Task tabs through the real external openPath entry', async () => {
+  await openPath('/vault/inbox/tasks/from-next-task.md')
+  expect(tabs).toHaveLength(1)
+  const originalId = tabs[0].id
+  toggle = mount(ModeToggle, { target: document.body, props: { get tab() { return activeTab()! } } })
+  component = mount(EditorPane, { target: document.body, props: { get tab() { return activeTab()! } } })
+  await vi.waitFor(() => expect(fileEditorSession(originalId)).toBeDefined())
+  await openPath('/vault/inbox/tasks/from-next-task.md')
+  expect(tabs).toHaveLength(1)
+  expect(activeId.value).toBe(originalId)
+  document.querySelectorAll<HTMLButtonElement>('[role=tab]')[1].click()
+  await vi.waitFor(() => expect(activeTab()?.mode).toBe('source'))
+  await vi.waitFor(() => expect(document.querySelector('textarea')).not.toBeNull())
+  const source = document.querySelector<HTMLTextAreaElement>('textarea')!
+  source.value += '\n入口编辑。\n'
+  source.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(fileEditorSession(originalId)!.owner.snapshot().raw).toBe(source.value)
+  await openFile('/vault/other-task.md')
+  await vi.waitFor(() => expect(activeTab()?.filePath).toBe('/vault/other-task.md'))
+  await vi.waitFor(() => expect(fileEditorSession(activeTab()!.id)).toBeDefined())
+  await openPath('/vault/inbox/tasks/from-next-task.md')
+  await vi.waitFor(() => expect(activeId.value).toBe(originalId))
+  await vi.waitFor(() => expect(fileEditorSession(originalId)!.view.dom.isConnected).toBe(true))
+  document.querySelectorAll<HTMLButtonElement>('[role=tab]')[0].click()
+  await vi.waitFor(() => expect(activeTab()?.mode).toBe('rich'))
+  const session = fileEditorSession(originalId)!
+  session.view.dispatch(session.view.state.tr.insertText('入口', session.view.state.doc.child(0).nodeSize + 1))
+  expect(session.owner.snapshot().raw).toContain('入口确认审计')
 })
