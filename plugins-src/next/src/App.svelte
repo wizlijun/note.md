@@ -152,10 +152,10 @@
   const lanes = $derived.by<LaneView[]>(() => {
     if (!workspace) return []
     const capture = workspace.capture.filter((item) => !item.orphan)
-    const dormant = filtering || showPlaced
+    const dormant = showPlaced
       ? workspace.dormant
       : workspace.dormant.filter((item) => isDormantDue(item))
-    const closed = filtering || showPlaced ? workspace.closed : []
+    const closed = showPlaced ? workspace.closed : []
     const sortedCapture = sortWorkspaceItems(filter(capture), sortMode)
     const visibleCapture = filtering ? sortedCapture : sortedCapture.slice(0, 10)
     const visibleDormant = sortWorkspaceItems(filter(dormant), sortMode)
@@ -770,11 +770,9 @@
             <option value="created">{t('sort.created')}</option>
           </select>
         </label>
-        {#if !filtering}
-          <button class:active={showPlaced} onclick={() => showPlaced = !showPlaced}>
-            {showPlaced ? t('action.hidePlaced') : t('action.findPlaced')}
-          </button>
-        {/if}
+        <button class:active={showPlaced} aria-pressed={showPlaced} onclick={() => showPlaced = !showPlaced}>
+          {showPlaced ? t('action.hidePlaced') : t('action.findPlaced')}
+        </button>
       </div>
 
         <div class="board-scroll" onscroll={closePreview}>

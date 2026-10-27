@@ -1213,10 +1213,17 @@ describe('Next window', () => {
     flushSync()
     expect(buttons[0].getAttribute('aria-pressed')).toBe('true')
     expect(document.body.textContent).toContain('正在验证的想法')
-    expect(document.body.textContent).toContain('已经关闭的想法')
+    expect(document.body.textContent).not.toContain('已经关闭的想法')
     expect(document.body.textContent).not.toContain('等待设计稿')
     expect(document.body.textContent).not.toContain('默认隐藏的想法')
-    expect([...document.querySelectorAll('button')].some((button) => button.textContent?.includes('显示已安放'))).toBe(false)
+    const showPlaced = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('显示已安放'))!
+    expect(showPlaced).toBeTruthy()
+    showPlaced.click()
+    flushSync()
+    expect(document.body.textContent).toContain('已经关闭的想法')
+    showPlaced.click()
+    flushSync()
+    expect(document.body.textContent).not.toContain('已经关闭的想法')
 
     buttons[0].dispatchEvent(new MouseEvent('click', { bubbles: true }))
     flushSync()
@@ -1227,6 +1234,9 @@ describe('Next window', () => {
     expect([...document.querySelectorAll('button')].some((button) => button.textContent?.includes('显示已安放'))).toBe(true)
 
     buttons[2].dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+    expect(document.body.textContent).not.toContain('已经关闭的想法')
+    showPlaced.click()
     flushSync()
     expect(document.body.textContent).toContain('已经关闭的想法')
     expect(document.body.textContent).not.toContain('正在验证的想法')
@@ -1264,6 +1274,11 @@ describe('Next window', () => {
     const visible = () => [...document.querySelectorAll('[data-item-key]')].map((card) => card.getAttribute('data-item-key'))
     task.click()
     flushSync()
+    expect(visible()).toEqual(['task-capture', 'task-wip', 'task-waiting'])
+    const showPlaced = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('显示已安放'))!
+    expect(showPlaced).toBeTruthy()
+    showPlaced.click()
+    flushSync()
     expect(visible()).toEqual(['task-capture', 'task-wip', 'task-waiting', 'task-dormant', 'task-closed'])
     expect(task.getAttribute('aria-pressed')).toBe('true')
     idea.click()
@@ -1275,7 +1290,14 @@ describe('Next window', () => {
     expect(idea.getAttribute('aria-pressed')).toBe('false')
     expect(visible()).toContain('capture')
     expect(visible()).toContain('task-capture')
+    expect(visible()).toContain('closed')
+    showPlaced.click()
+    flushSync()
+    expect(showPlaced.textContent).toBe('显示已安放')
     expect(visible()).not.toContain('closed')
+    expect(visible()).not.toContain('task-closed')
+    expect(visible()).not.toContain('dormant')
+    expect(visible()).not.toContain('task-dormant')
 
     task.click()
     document.querySelector<HTMLButtonElement>('[data-project-filter="Next"]')!.click()
@@ -1293,6 +1315,52 @@ describe('Next window', () => {
     expect(mocks.place).not.toHaveBeenCalled()
     expect(mocks.reopen).not.toHaveBeenCalled()
     expect(mocks.updateMetadata).not.toHaveBeenCalled()
+  })
+
+  it('keeps placed memories hidden while searching unless explicitly shown, but retains due reviews', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T00:00:00Z'))
+    const next = workspace()
+    const due: WorkspaceItem = {
+      ...next.dormant[0], key: 'due', title: '到期复看的想法',
+      projection: {
+        idea_id: 'due', state: 'dormant', last_event_id: 'e-due',
+        last_at: '2026-08-29T00:00:00Z', wake_trigger: '2026-10-26',
+      },
+    }
+    next.dormant.push(due)
+    next.items.push(due)
+    mocks.state.workspace = next
+    component = mount(App, { target: document.body })
+    flushSync()
+    const search = document.querySelector<HTMLInputElement>('input[type="search"]')!
+    search.value = '想法'
+    search.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    flushSync()
+    const visible = () => [...document.querySelectorAll('[data-item-key]')].map((card) => card.getAttribute('data-item-key'))
+    expect(visible()).toContain('due')
+    expect(visible()).not.toContain('dormant')
+    expect(visible()).not.toContain('closed')
+    const button = [...document.querySelectorAll('button')].find((node) => node.textContent?.includes('显示已安放'))!
+    expect(button).toBeTruthy()
+    button.click()
+    flushSync()
+    expect(visible()).toContain('dormant')
+    expect(visible()).toContain('closed')
+    search.value = '已经关闭'
+    search.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    flushSync()
+    expect(visible()).toEqual(['closed'])
+    button.click()
+    flushSync()
+    expect(visible()).toEqual([])
+    search.value = ''
+    search.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    flushSync()
+    expect(visible()).toContain('due')
+    expect(visible()).not.toContain('closed')
+    expect(mocks.place).not.toHaveBeenCalled()
+    expect(mocks.reopen).not.toHaveBeenCalled()
   })
 
   it('applies project and text filters together to repair cards', () => {
