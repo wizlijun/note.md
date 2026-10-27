@@ -1,0 +1,209 @@
+{
+  "source": {
+    "native_source_files_match_frozen_commit": 172,
+    "next_source_files_match_frozen_commit": 111,
+    "all_five_package_manifests_and_ui_match": true,
+    "source_commit": "6f0bb356503c0ec4d47fb9fa166d35f40bdaf2a6",
+    "tags": [
+      "plugin-next-v1.12.0",
+      "plugin-codex-agent-v1.0.21",
+      "plugin-deepseek-agent-v1.1.20"
+    ]
+  },
+  "packages": [
+    {
+      "plugin": "notemd.next",
+      "version": "1.12.0",
+      "arch": "universal",
+      "sha256": "9ed2c364786317657613764bf6fedbf67608cc1021160f8fda6b2b2cc3e3e23a",
+      "bytes": 160742,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.codex-agent",
+      "version": "1.0.21",
+      "arch": "aarch64-apple-darwin",
+      "sha256": "a6a79394b8c86bea6c625c21e0588f2082447bdb5f4ec744dc93d7cb874ab042",
+      "bytes": 554699,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.codex-agent",
+      "version": "1.0.21",
+      "arch": "x86_64-apple-darwin",
+      "sha256": "ac86d464bed6f349a09654aca8aa4f0b8ca32e7412fa0c64fbb26953e7b7d1e9",
+      "bytes": 588566,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.deepseek-agent",
+      "version": "1.1.20",
+      "arch": "aarch64-apple-darwin",
+      "sha256": "7eb1a09d1d49cfbda86ed4f76824856d892814dccf9cba68cb942474a7e5873b",
+      "bytes": 558007,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.deepseek-agent",
+      "version": "1.1.20",
+      "arch": "x86_64-apple-darwin",
+      "sha256": "6b553f9b5971cb8da966a19be5af42be8e604a60bad0472e097685e591c40500",
+      "bytes": 592877,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    }
+  ],
+  "public_package_proofs": {
+    "notemd.next": [
+      {
+        "key": "notemd.next/1.12.0/universal.notemdpkg",
+        "sha256": "9ed2c364786317657613764bf6fedbf67608cc1021160f8fda6b2b2cc3e3e23a",
+        "size": 160742,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.next/1.12.0/universal.notemdpkg.minisig",
+        "sha256": "99eb5fbe05150ca988142ecaaf4409db8ba72e1f8e13f362efbc91921e80a8ca",
+        "size": 314,
+        "public_bytes_equal": true
+      }
+    ],
+    "notemd.codex-agent": [
+      {
+        "key": "notemd.codex-agent/1.0.21/aarch64-apple-darwin.notemdpkg",
+        "sha256": "a6a79394b8c86bea6c625c21e0588f2082447bdb5f4ec744dc93d7cb874ab042",
+        "size": 554699,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.codex-agent/1.0.21/aarch64-apple-darwin.notemdpkg.minisig",
+        "sha256": "6dea5eafed47ba496f0393510c8c02e24a86d1173b9f64a15ecb8eff06f1c6a6",
+        "size": 325,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.codex-agent/1.0.21/x86_64-apple-darwin.notemdpkg",
+        "sha256": "ac86d464bed6f349a09654aca8aa4f0b8ca32e7412fa0c64fbb26953e7b7d1e9",
+        "size": 588566,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.codex-agent/1.0.21/x86_64-apple-darwin.notemdpkg.minisig",
+        "sha256": "ea53479a0a327af1c5e30ff03d801d17b1d66dce4d2df4a9f714be4df47c2ad3",
+        "size": 324,
+        "public_bytes_equal": true
+      }
+    ],
+    "notemd.deepseek-agent": [
+      {
+        "key": "notemd.deepseek-agent/1.1.20/aarch64-apple-darwin.notemdpkg",
+        "sha256": "7eb1a09d1d49cfbda86ed4f76824856d892814dccf9cba68cb942474a7e5873b",
+        "size": 558007,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.deepseek-agent/1.1.20/aarch64-apple-darwin.notemdpkg.minisig",
+        "sha256": "b9ce2a0ed0484d611941d5f4d3c016a68bae56dcd52bcfecd45b98a0f809098e",
+        "size": 325,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.deepseek-agent/1.1.20/x86_64-apple-darwin.notemdpkg",
+        "sha256": "6b553f9b5971cb8da966a19be5af42be8e604a60bad0472e097685e591c40500",
+        "size": 592877,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.deepseek-agent/1.1.20/x86_64-apple-darwin.notemdpkg.minisig",
+        "sha256": "153110a001599e51e3f25c828f81049ddac42145e10468e71708e94d96191a59",
+        "size": 324,
+        "public_bytes_equal": true
+      }
+    ]
+  },
+  "registry": {
+    "before": 279,
+    "after": 282,
+    "only_added": {
+      "notemd.next": "1.12.0",
+      "notemd.codex-agent": "1.0.21",
+      "notemd.deepseek-agent": "1.1.20"
+    },
+    "all_historical_entries_unchanged": true,
+    "public_normal_fresh_and_kv_equal": true,
+    "final_index_sha256": "8f9eed659ea4a76f18539d64f19589b86cabf6099128eb1bf006aca326bf1f58"
+  },
+  "installed": [
+    {
+      "id": "notemd.next",
+      "version": "1.12.0",
+      "enabled": true,
+      "files_byte_equal_to_public_signed_package": 4,
+      "package_sha256": "9ed2c364786317657613764bf6fedbf67608cc1021160f8fda6b2b2cc3e3e23a"
+    },
+    {
+      "id": "notemd.codex-agent",
+      "version": "1.0.21",
+      "enabled": true,
+      "files_byte_equal_to_public_signed_package": 5,
+      "package_sha256": "a6a79394b8c86bea6c625c21e0588f2082447bdb5f4ec744dc93d7cb874ab042"
+    },
+    {
+      "id": "notemd.deepseek-agent",
+      "version": "1.1.20",
+      "enabled": true,
+      "files_byte_equal_to_public_signed_package": 5,
+      "package_sha256": "7eb1a09d1d49cfbda86ed4f76824856d892814dccf9cba68cb942474a7e5873b"
+    }
+  ],
+  "other_installed_plugins_unchanged": true,
+  "installed_harnesses": [
+    {
+      "harness": "Codex CLI",
+      "ok": true,
+      "readonly_context": true,
+      "terminal_result": true,
+      "default_model": "gpt-6-astra"
+    },
+    {
+      "harness": "DeepSeek Harness",
+      "ok": true,
+      "readonly_context": true,
+      "terminal_result": true,
+      "default_model": "deepseek-v4-pro"
+    }
+  ],
+  "deepseek_default_model_validation": {
+    "plugin": "notemd.deepseek-agent",
+    "modelSelection": "unspecified task.model; production default",
+    "effectiveDefaultModel": "deepseek-v4-pro",
+    "packageSha256": "7eb1a09d1d49cfbda86ed4f76824856d892814dccf9cba68cb942474a7e5873b",
+    "binarySha256": "743ab454af623628f08be8e71b0fe8dc3c3a2eaee60d2513df1c3fc2fad95b81",
+    "sourceInputsSha256": "1c786e104834d5f5c466f2c691c7ebee54108f02aeadb9a5c8f83d4071c29d27",
+    "basedOn": "sha256:27b72c64557c02fccb3ebca7dc6aae7832cf1cb8384f4101742ce0bbebaf070d",
+    "questions": 1,
+    "repairs": [],
+    "taskUnchanged": true,
+    "artifacts": [],
+    "verifiedAt": "2026-10-27T14:41:39.744Z"
+  },
+  "scope": {
+    "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD f9c765d7ed065776087e12f8636ed113eeaf9e0b\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor-next-kickoff\nHEAD 0e7276abd522cf89a3fedabe6129a240aa1a61d7\nbranch refs/heads/feat/next-task-kickoff\n\nworktree /Users/bruce/git/mdeditor-next-ready\nHEAD 6f0bb356503c0ec4d47fb9fa166d35f40bdaf2a6\nbranch refs/heads/fix/next-kickoff-ready\n\n",
+    "branches": "feat/next-task-kickoff 0e7276abd522cf89a3fedabe6129a240aa1a61d7\nfix/next-kickoff-ready 6f0bb356503c0ec4d47fb9fa166d35f40bdaf2a6\nmain f9c765d7ed065776087e12f8636ed113eeaf9e0b\n",
+    "unmerged_origin_main": "",
+    "stashes": "stash@{0}: On feat/plugin-market-catalog-redesign: codex-preserve-before-release-6.831.1\nstash@{1}: On main: stray fix-E/F content left in main's worktree by the roam-inc2 stash incident 2026-08-04; superseded by feat/roam-incremental-2, kept for safety\nstash@{2}: On feat/attention-intervals: attention-intervals wip: plugin_host.rs (decision-log 期间保管)\n",
+    "other_worktree_dirty": {
+      "/Users/bruce/git/mdeditor": " M plugins-src/agent-run-core/src/harness.rs\n M plugins-src/agent-run-core/src/record.rs\n M plugins-src/agent-run-core/src/scaffold.rs\n M plugins-src/claude-agent/backend/src/engine.rs\n M plugins-src/claude-agent/backend/src/plugin.rs\n M plugins-src/codex-agent/backend/src/engine.rs\n M plugins-src/codex-agent/backend/src/plugin.rs\n M plugins-src/codex-agent/backend/src/runner.rs\n M plugins-src/deepseek-agent/backend/src/engine.rs\n M plugins-src/deepseek-agent/backend/src/plugin.rs\n M plugins-src/next/src/App.kickoff.render.test.ts\n M plugins-src/next/src/App.svelte\n M plugins-src/next/src/components/KickoffPicker.render.test.ts\n M plugins-src/next/src/components/KickoffPicker.svelte\n M plugins-src/next/src/lib/kickoff/client.test.ts\n M plugins-src/next/src/lib/kickoff/client.ts\n M plugins-src/next/src/lib/strings.ts\n?? .pnpm-store/\n?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md\n?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md\n?? docs/superpowers/specs/2026-09-23-agency-practical-review.md\n?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md\n?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md\n?? docs/superpowers/specs/habitat-city.html\n?? plugins-src/codex-agent/backend/tests/\n?? plugins-src/next/src/lib/kickoff/__fixtures__/capacity-status.json\n",
+      "/Users/bruce/git/mdeditor-next-kickoff": ""
+    },
+    "scope": "only verified changes in mdeditor-next-ready; other worktrees and all stashes preserved"
+  },
+  "limitations": [
+    "Live visual/hover verification unavailable: CUA cgWindowNotFound.",
+    "CLI installation updates disk. Reopen note.md to reload existing GUI plugin processes. No running app or user tasks were forcibly terminated."
+  ]
+}
