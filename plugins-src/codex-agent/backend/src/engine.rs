@@ -37,6 +37,12 @@ pub async fn run(
     tx: mpsc::UnboundedSender<Step>,
     mut cancel: mpsc::Receiver<()>,
 ) -> Result<(), record::RunRecord> {
+    if spec.meta.task.strict_readonly {
+        let rec = scaffold::finalize_without_run(&spec.meta, chrono::Utc::now(), record::Status::Error,
+            "strict_readonly is not supported by this provider".into());
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
     let started = match scaffold::preflight(&spec.meta).await {
         Ok(s) => s,
         Err(Blocked::Busy(who)) => {
@@ -373,6 +379,7 @@ mod tests {
                     okf_type: None,
                     directive: Vec::new(),
                     source_plugin: None,
+                    strict_readonly: false,
                 },
                 task_dir,
                 task_run_dir: root.join(".notemd/agent-runs/t"),
@@ -389,6 +396,22 @@ mod tests {
             model: "gpt-test".into(),
             api_key: None,
         }
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_is_rejected_before_precheck_or_harness() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake(d.path(), "touch harness-ran");
+        let mut s = spec(d.path(), c, 30);
+        s.meta.task.strict_readonly = true;
+        s.meta.task.precheck = Some("check.sh".into());
+        std::fs::write(s.meta.task_dir.join("check.sh"), "touch precheck-ran").unwrap();
+        let (_tx, rx) = mpsc::channel(1);
+        let rec = record_from(s, rx).await;
+        assert_eq!(rec.status, record::Status::Error);
+        assert!(rec.result.contains("strict_readonly is not supported"));
+        assert!(!d.path().join("harness-ran").exists());
+        assert!(!d.path().join(".notemd/agent-tasks/t/precheck-ran").exists());
     }
 
     async fn record_from(spec: RunSpec, cancel: mpsc::Receiver<()>) -> record::RunRecord {

@@ -98,6 +98,27 @@ pub fn build_input_only_argv(task: &TaskDef, prompt: &str, protocol: &str) -> Ve
     v
 }
 
+/// Safe-mode isolates customizations; restricted confines file tools to the vault.
+/// Settings are built here rather than inherited from the editable task policy.
+pub fn build_strict_readonly_argv(task: &TaskDef, prompt: &str, protocol: &str, vault: &Path) -> Vec<String> {
+    let mut v = build_argv_with_settings(task, prompt, None);
+    let settings = serde_json::json!({"permissions": {
+        "allow": [format!("Read({}/**)", vault.display()), "Glob".to_string(), "Grep".to_string()],
+        "deny": ["mcp__*"], "defaultMode": "dontAsk"
+    }});
+    v.extend([
+        "--safe-mode".into(), "--restricted".into(),
+        "--tools".into(), "Read,Glob,Grep".into(),
+        "--strict-mcp-config".into(), "--mcp-config".into(), r#"{"mcpServers":{}}"#.into(),
+        "--settings".into(), settings.to_string(),
+        "--permission-mode".into(), "dontAsk".into(),
+        "--permission-prompts".into(), "none".into(),
+        "--disable-slash-commands".into(), "--no-session-persistence".into(),
+        "--append-system-prompt".into(), protocol.to_string(),
+    ]);
+    v
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,7 +136,23 @@ mod tests {
             okf_type: None,
             directive: Vec::new(),
             source_plugin: None,
+                strict_readonly: false,
         }
+    }
+
+    #[test]
+    fn strict_readonly_argv_isolates_extensions_and_confines_reads() {
+        let got = build_strict_readonly_argv(&task(), "packet", "TRUSTED PROTOCOL", Path::new("/v"));
+        for flag in ["--safe-mode", "--restricted", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"] {
+            assert!(got.iter().any(|arg| arg == flag));
+        }
+        for pair in [["--tools", "Read,Glob,Grep"], ["--mcp-config", r#"{"mcpServers":{}}"#], ["--permission-prompts", "none"], ["--append-system-prompt", "TRUSTED PROTOCOL"]] {
+            assert!(got.windows(2).any(|w| w == pair));
+        }
+        let settings: serde_json::Value = serde_json::from_str(&got[got.iter().position(|a| a == "--settings").unwrap()+1]).unwrap();
+        assert_eq!(settings["permissions"]["allow"], serde_json::json!(["Read(/v/**)","Glob","Grep"]));
+        assert_eq!(settings["permissions"]["deny"], serde_json::json!(["mcp__*"]));
+        assert!(!got.iter().any(|arg| arg == "--add-dir" || arg == "--setting-sources"));
     }
 
     #[test]

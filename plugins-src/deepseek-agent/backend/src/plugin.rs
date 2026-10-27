@@ -128,6 +128,7 @@ fn harness_capabilities(
         search_plan_schemas: vec![1],
         terminal_result: true,
         input_only_isolation: true,
+        strict_readonly: false,
         model_routing: ModelRoutingCapabilities {
             invocation_override: true,
             profiles: ModelRoutingProfiles {
@@ -1196,6 +1197,7 @@ mod tests {
         assert_eq!(value["search_plan_schemas"], json!([1]));
         assert_eq!(value["terminal_result"], true);
         assert_eq!(value["input_only_isolation"], true);
+        assert_eq!(value["strict_readonly"], false);
         assert_eq!(value["model_routing"]["invocation_override"], true);
         assert_eq!(
             value["model_routing"]["profiles"]["fast"]["model"],

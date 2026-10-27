@@ -47,6 +47,9 @@ pub struct HarnessCapabilities {
     pub search_plan_schemas: Vec<u32>,
     pub terminal_result: bool,
     pub input_only_isolation: bool,
+    /// Implements the opt-in task mode; runtime admission still needs CLI verification.
+    #[serde(default)]
+    pub strict_readonly: bool,
     pub model_routing: ModelRoutingCapabilities,
 }
 
@@ -549,6 +552,7 @@ mod tests {
             search_plan_schemas: vec![1],
             terminal_result: true,
             input_only_isolation: true,
+            strict_readonly: false,
             model_routing: ModelRoutingCapabilities {
                 invocation_override: true,
                 profiles: ModelRoutingProfiles {

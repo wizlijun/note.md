@@ -85,6 +85,13 @@ pub async fn run(
         },
     )?;
 
+    if spec.task.strict_readonly && (spec.task.precheck.is_some() || spec.deliverable.is_some()) {
+        let rec = finish(&spec, started, record::Status::Error, None, None,
+            "strict_readonly forbids precheck scripts and file deliverables".into(), String::new(), Vec::new());
+        let _ = record::write(&spec.task_run_dir, &rec);
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
     // Ask the task, locally, whether this is worth starting at all.
     if let crate::precheck::Outcome::Skip(reason) = crate::precheck::run(
         &spec.task_dir,
@@ -141,6 +148,18 @@ pub async fn run(
         .task_run_dir
         .join("settings")
         .join(format!("{}.json", spec.run_id));
+    let strict_vault = if spec.task.strict_readonly {
+        match spec.vault.canonicalize() {
+            Ok(vault) => Some(vault),
+            Err(e) => {
+                let rec = finish(&spec, started, record::Status::Error, None, None,
+                    format!("strict_readonly cannot resolve vault: {e}"), String::new(), Vec::new());
+                let _ = record::write(&spec.task_run_dir, &rec);
+                let _ = tx.send(Step::Done(rec));
+                return Ok(());
+            }
+        }
+    } else { None };
     let (argv, has_private_settings) = if input_only {
         (
             prompt::build_input_only_argv(
@@ -150,6 +169,27 @@ pub async fn run(
             ),
             false,
         )
+    } else if spec.task.strict_readonly {
+        let vault = strict_vault.as_deref().expect("strict vault");
+        let protocol_path = spec.task_dir.join("CLAUDE.md");
+        let protocol = match protocol_path.canonicalize()
+            .and_then(|path| {
+                if !path.starts_with(vault) {
+                    return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied,
+                        "task instructions escape the vault"));
+                }
+                std::fs::read_to_string(path)
+            }) {
+            Ok(protocol) if !protocol.trim().is_empty() => protocol,
+            _ => {
+                let rec = finish(&spec, started, record::Status::Error, None, None,
+                    "strict_readonly requires explicit nonempty task CLAUDE.md instructions".into(), String::new(), Vec::new());
+                let _ = record::write(&spec.task_run_dir, &rec);
+                let _ = tx.send(Step::Done(rec));
+                return Ok(());
+            }
+        };
+        (prompt::build_strict_readonly_argv(&spec.task, &spec.prompt, &protocol, vault), false)
     } else {
         // A run aimed at one note gets a policy that only lets it touch that
         // note. Mirror and MCP discovery stay exclusive to document tasks.
@@ -212,7 +252,7 @@ pub async fn run(
     let cwd = input_only_dir
         .as_ref()
         .map(|dir| dir.path())
-        .unwrap_or(spec.task_dir.as_path());
+        .unwrap_or(if spec.task.strict_readonly { strict_vault.as_deref().expect("strict vault") } else { spec.task_dir.as_path() });
 
     let mut cmd = tokio::process::Command::new(&spec.claude);
     cmd.args(&argv)
@@ -352,12 +392,12 @@ pub async fn run(
         (_, Some(0)) => record::Status::Success,
         _ => record::Status::Error,
     });
-    let mut found = artifacts::collect(
+    let mut found = if spec.task.strict_readonly { Vec::new() } else { artifacts::collect(
         &spec.vault,
         &spec.task_dir,
         started_at,
         spec.deliverable.as_deref(),
-    );
+    ) };
     if lock::scoped_target(&spec.task.id, &spec.vault, spec.target.as_deref()).is_some() {
         let declared = spec
             .deliverable
@@ -501,6 +541,7 @@ mod tests {
                 okf_type: None,
                 directive: Vec::new(),
                 source_plugin: None,
+                strict_readonly: false,
             },
             task_dir,
             task_run_dir: dir.join("runs-t"),
@@ -528,6 +569,71 @@ mod tests {
             }
         }
         (evs, done.expect("engine must always emit Done"))
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_rejects_precheck_before_running_a_script() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "never-run", "touch harness-ran");
+        let mut s = spec(d.path(), c, 30);
+        s.task.strict_readonly = true;
+        s.task.precheck = Some("check.sh".into());
+        std::fs::write(s.task_dir.join("check.sh"), "touch precheck-ran").unwrap();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Error);
+        assert!(rec.result.contains("forbids precheck"));
+        assert!(!d.path().join("harness-ran").exists());
+        assert!(!d.path().join("task/precheck-ran").exists());
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_rejects_deliverables_and_missing_protocol() {
+        for deliverable in [None, Some("result.md")] {
+            let d = tempfile::tempdir().unwrap();
+            let mut s = spec(d.path(), d.path().join("must-not-launch"), 30);
+            s.task.strict_readonly = true;
+            s.deliverable = deliverable.map(|name| d.path().join(name));
+            let (_, rec) = drive(s).await;
+            assert_eq!(rec.status, record::Status::Error);
+            assert!(rec.result.contains(if deliverable.is_some() { "forbids precheck" } else { "requires explicit" }));
+        }
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_rejects_protocol_symlinks_outside_the_vault() {
+        let d = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let mut s = spec(d.path(), d.path().join("must-not-launch"), 30);
+        s.task.strict_readonly = true;
+        std::fs::write(outside.path().join("CLAUDE.md"), "outside private text").unwrap();
+        std::os::unix::fs::symlink(outside.path().join("CLAUDE.md"), s.task_dir.join("CLAUDE.md")).unwrap();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Error);
+        assert!(rec.result.contains("requires explicit"));
+        assert!(!rec.result.contains("outside private text"));
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_passes_only_explicit_protocol_and_does_not_stamp_vault_files() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "strict-stub", r#"
+        printf '%s\n' "$PWD" "$@" > argv.txt
+        mkdir -p task/output
+        printf '# concurrent note' > task/output/concurrent.md
+        echo '{"type":"result","subtype":"success","result":"{\"ok\":true}","is_error":false}'
+        "#);
+        let mut s = spec(d.path(), c, 30);
+        s.task.strict_readonly = true;
+        std::fs::write(s.task_dir.join("CLAUDE.md"), "EXPLICIT TASK PROTOCOL").unwrap();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Success);
+        let argv = std::fs::read_to_string(d.path().join("argv.txt")).unwrap();
+        assert!(argv.starts_with(&format!("{}\n", d.path().canonicalize().unwrap().display())));
+        assert!(argv.contains("--safe-mode\n--restricted\n--tools\nRead,Glob,Grep"));
+        assert!(argv.contains("EXPLICIT TASK PROTOCOL"));
+        assert!(!argv.contains("本机还接入"));
+        assert!(rec.artifacts.is_empty());
+        assert_eq!(std::fs::read_to_string(d.path().join("task/output/concurrent.md")).unwrap(), "# concurrent note");
     }
 
     #[tokio::test]

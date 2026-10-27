@@ -179,6 +179,12 @@ pub async fn run(
     tx: mpsc::UnboundedSender<Step>,
     mut cancel: mpsc::Receiver<()>,
 ) -> Result<(), record::RunRecord> {
+    if spec.meta.task.strict_readonly {
+        let rec = scaffold::finalize_without_run(&spec.meta, chrono::Utc::now(), record::Status::Error,
+            "strict_readonly is not supported by this provider".into());
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
     let started = match scaffold::preflight(&spec.meta).await {
         Ok(s) => s,
         Err(Blocked::Busy(who)) => {
@@ -782,6 +788,7 @@ mod tests {
                         okf_type: None,
                         directive: Vec::new(),
                         source_plugin: None,
+                        strict_readonly: false,
                     },
                     task_dir: v.join("task"),
                     task_run_dir: v.join("runs-t"),
@@ -805,6 +812,20 @@ mod tests {
                 api_key: None,
             }
         }
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_is_rejected_before_precheck_or_harness() {
+        let f = Fixture::new();
+        let mut s = f.spec(30);
+        s.meta.task.strict_readonly = true;
+        s.meta.task.precheck = Some("check.sh".into());
+        std::fs::write(s.meta.task_dir.join("check.sh"), "touch precheck-ran").unwrap();
+        s.launcher.program = f.dir.path().join("must-not-launch");
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Error);
+        assert!(rec.result.contains("strict_readonly is not supported"));
+        assert!(!f.dir.path().join("task/precheck-ran").exists());
     }
 
     async fn drive(spec: RunSpec) -> (Vec<Event>, record::RunRecord) {

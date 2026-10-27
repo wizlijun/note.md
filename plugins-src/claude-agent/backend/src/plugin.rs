@@ -142,6 +142,7 @@ fn harness_capabilities(
         search_plan_schemas: vec![1],
         terminal_result: true,
         input_only_isolation: true,
+        strict_readonly: true,
         model_routing: agent_run_core::ModelRoutingCapabilities {
             invocation_override: true,
             profiles: agent_run_core::ModelRoutingProfiles {
@@ -602,7 +603,7 @@ impl ClaudeAgentPlugin {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(str::to_string);
-        let ctx = if use_ctx && !task::is_input_only_task(&task_id) {
+        let ctx = if use_ctx && !def.strict_readonly && !task::is_input_only_task(&task_id) {
             self.tab_ctx()
         } else {
             None
@@ -1716,6 +1717,7 @@ mod tests {
         assert_eq!(capabilities.search_plan_schemas, vec![1]);
         assert!(capabilities.terminal_result);
         assert!(capabilities.input_only_isolation);
+        assert_eq!(capabilities.strict_readonly, true);
         assert!(capabilities.model_routing.invocation_override);
         assert_eq!(
             capabilities.model_routing.profiles.fast.model.as_deref(),

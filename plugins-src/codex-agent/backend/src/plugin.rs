@@ -133,6 +133,7 @@ fn harness_capabilities(
         search_plan_schemas: vec![1],
         terminal_result: true,
         input_only_isolation: true,
+        strict_readonly: false,
         model_routing: agent_run_core::ModelRoutingCapabilities {
             invocation_override: true,
             profiles: agent_run_core::ModelRoutingProfiles {
@@ -1505,6 +1506,7 @@ mod tests {
         assert_eq!(capabilities.search_plan_schemas, vec![1]);
         assert!(capabilities.terminal_result);
         assert!(capabilities.input_only_isolation);
+        assert_eq!(capabilities.strict_readonly, false);
         assert!(capabilities.model_routing.invocation_override);
         assert_eq!(
             capabilities.model_routing.profiles.fast.model.as_deref(),

@@ -329,6 +329,7 @@ mod tests {
                 okf_type: None,
                 directive: Vec::new(),
                 source_plugin: None,
+                strict_readonly: false,
             },
             task_dir,
             task_run_dir: dir.join("runs-t"),

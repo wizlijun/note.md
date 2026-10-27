@@ -47,6 +47,9 @@ pub struct TaskDef {
     pub description: String,
     #[serde(default)]
     pub prompt: String,
+    /// Opt in to a provider-enforced tool and configuration isolation boundary.
+    #[serde(default)]
+    pub strict_readonly: bool,
     #[serde(default)]
     pub max_turns: Option<u64>,
     #[serde(default = "default_timeout")]
@@ -272,6 +275,15 @@ mod tests {
         );
         assert_eq!(got[0].name, "A");
         assert_eq!(got[0].prompt, "p");
+    }
+
+    #[test]
+    fn strict_readonly_is_opt_in_and_round_trips() {
+        let old: TaskDef = serde_json::from_str(r#"{"name":"old"}"#).unwrap();
+        assert!(!old.strict_readonly);
+        let strict: TaskDef = serde_json::from_str(r#"{"name":"strict","strict_readonly":true}"#).unwrap();
+        assert!(strict.strict_readonly);
+        assert_eq!(serde_json::to_value(strict).unwrap()["strict_readonly"], true);
     }
 
     #[test]
