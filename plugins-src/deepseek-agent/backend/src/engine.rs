@@ -194,9 +194,16 @@ fn prompt_for_session(spec: &RunSpec, workspace: &Path) -> String {
     parts.join("\n\n")
 }
 
-fn strict_protocol(spec: &RunSpec) -> Result<String, String> {
+fn strict_protocol(spec: &RunSpec) -> Result<Option<String>, String> {
     if spec.meta.task.precheck.is_some() || spec.meta.deliverable.is_some() {
         return Err("strict_readonly forbids precheck scripts and file deliverables".into());
+    }
+    if spec.meta.task.id == agent_run_core::task::NEXT_KICKOFF_V2 {
+        return if spec.prompt.contains(agent_run_core::task::NEXT_KICKOFF_V2_MARKER) {
+            Ok(None)
+        } else {
+            Err("strict_readonly requires the frozen kickoff v2 protocol in the prompt".into())
+        };
     }
     let vault = spec.meta.vault.canonicalize()
         .map_err(|e| format!("resolve strict Vault: {e}"))?;
@@ -209,7 +216,7 @@ fn strict_protocol(spec: &RunSpec) -> Result<String, String> {
     if body.trim().is_empty() {
         return Err("strict_readonly requires nonempty AGENTS.md".into());
     }
-    Ok(body)
+    Ok(Some(body))
 }
 
 /// The actor written into `by::` / `generated.by` (OKF §7). Always the harness
@@ -225,13 +232,19 @@ pub async fn run(
     tx: mpsc::UnboundedSender<Step>,
     mut cancel: mpsc::Receiver<()>,
 ) -> Result<(), record::RunRecord> {
+    if let Err(reason) = agent_run_core::task::validate_next_kickoff_task(&spec.meta.task) {
+        let rec = scaffold::finalize_without_run(&spec.meta, chrono::Utc::now(), record::Status::Error, reason);
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
     let timeout_limit = std::time::Duration::from_secs(spec.meta.task.timeout_seconds);
     let absolute_deadline = tokio::time::Instant::now() + timeout_limit;
     if spec.meta.task.strict_readonly {
         let protocol = strict_protocol(&spec);
         match protocol {
-            Ok(protocol) => spec.prompt = format!(
+            Ok(Some(protocol)) => spec.prompt = format!(
                 "## Explicit task protocol\n{protocol}\n\n## Frozen input packet\n{}\n\nOnly use the supplied packet. No tools are available; return the final JSON directly.", spec.prompt),
+            Ok(None) => {},
             Err(reason) => {
                 let rec = scaffold::finalize_without_run(&spec.meta, chrono::Utc::now(), record::Status::Error, reason);
                 let _ = tx.send(Step::Done(rec));
@@ -242,9 +255,10 @@ pub async fn run(
     let started = match scaffold::preflight(&spec.meta).await {
         Ok(s) => s,
         Err(Blocked::Busy(who)) => {
-            // The caller turns this into the "already running" toast; there is
-            // deliberately no record, because this run never happened.
+            // The caller shows the "already running" toast; scaffold has
+            // already persisted this rejected request separately.
             return Err(record::RunRecord {
+                failure_kind: None,
                 run_id: who.run_id,
                 task: spec.meta.task.id.clone(),
                 trigger: spec.meta.trigger.clone(),
@@ -1097,6 +1111,60 @@ mod tests {
         LOCK.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v2_rejects_weakened_isolation_and_budget_before_spawn() {
+        let _g = env_guard();
+        for (strict, timeout, turns) in [(false, 30, Some(40)), (true, 601, Some(40)), (true, 30, Some(41)), (true, 30, None), (true, 0, Some(40))] {
+            let fixture = Fixture::new();
+            let mut spec = fixture.spec(timeout);
+            spec.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V2.into();
+            spec.meta.task.strict_readonly = strict;
+            spec.meta.task.max_turns = turns;
+            spec.prompt = agent_run_core::task::NEXT_KICKOFF_V2_MARKER.into();
+            spec.launcher.program = fixture.dir.path().join("must-not-start");
+            let (_, rec) = drive(spec).await;
+            assert_eq!(rec.status, record::Status::Error);
+            assert!(rec.result.contains("kickoff v2 requires"), "{rec:?}");
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v2_uses_only_the_frozen_protocol_regardless_of_disk() {
+        let _g = env_guard();
+        for disk in [Some("OLD DISK PROTOCOL"), Some("CHANGED DISK PROTOCOL"), None] {
+            let fixture = Fixture::new();
+            let mut spec = fixture.spec(10);
+            spec.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V2.into();
+            spec.meta.task.max_turns = Some(40);
+            spec.meta.task.strict_readonly = true;
+            let frozen = format!("{}\nFROZEN PROTOCOL", agent_run_core::task::NEXT_KICKOFF_V2_MARKER);
+            spec.meta.task.prompt = "UNCONFIRMED DISK PROTOCOL FROM task.json".into();
+            spec.prompt = agent_run_core::prompt::compose_for_task(&spec.meta.task, &frozen, None);
+            if let Some(disk) = disk { std::fs::write(spec.meta.task_dir.join("AGENTS.md"), disk).unwrap(); }
+            let capture = fixture.dir.path().join("captured-prompt.json");
+            let _capture = EnvVar::set("STUB_PROMPT_FILE", capture.to_str().unwrap());
+            let (_, rec) = drive(spec).await;
+            assert_eq!(rec.status, record::Status::Success, "{rec:?}");
+            let params: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(capture).unwrap()).unwrap();
+            assert_eq!(params["prompt"][0]["text"], frozen);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v2_without_a_frozen_protocol_fails_closed() {
+        let _g = env_guard();
+        let fixture = Fixture::new();
+        let mut spec = fixture.spec(10);
+        spec.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V2.into();
+        spec.meta.task.max_turns = Some(40);
+        spec.meta.task.strict_readonly = true;
+        std::fs::write(spec.meta.task_dir.join("AGENTS.md"), agent_run_core::task::NEXT_KICKOFF_V2_MARKER).unwrap();
+        spec.launcher.program = fixture.dir.path().join("must-not-start");
+        let (_, rec) = drive(spec).await;
+        assert_eq!(rec.status, record::Status::Error);
+        assert!(rec.result.contains("frozen kickoff v2 protocol"), "{rec:?}");
+    }
+
     #[test]
     fn scoped_workspace_stays_inside_the_vault_and_carries_task_instructions() {
         let f = Fixture::new();
@@ -1631,6 +1699,25 @@ mod tests {
         let (_evs, rec) = drive(spec).await;
         assert_eq!(rec.status, record::Status::Error);
         assert!(rec.stderr_tail.contains("spawn failed"), "{rec:?}");
+    }
+
+    #[tokio::test]
+    async fn lock_conflict_persists_capacity_for_the_rejected_request() {
+        let _g = env_guard();
+        let fixture = Fixture::new();
+        let spec = fixture.spec(30);
+        let run_dir = spec.meta.task_run_dir.clone();
+        let run_id = spec.meta.run_id.clone();
+        let _held = agent_run_core::lock::acquire(&run_dir, agent_run_core::lock::LockInfo {
+            pid: std::process::id() as i32, run_id: "holder".into(), started_at: "then".into(),
+        }).unwrap();
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let (_ctx, cancel) = mpsc::channel(1);
+        assert!(run(spec, tx, cancel).await.is_err());
+        let rec = record::find(&run_dir, &run_id).expect("capacity must survive polling");
+        assert_eq!(rec.failure_kind.as_deref(), Some("capacity"));
+        assert_eq!(agent_run_core::lock::current(&run_dir).unwrap().run_id, "holder");
+        assert!(record::find(&run_dir, "holder").is_none());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

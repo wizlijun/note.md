@@ -30,6 +30,17 @@ pub fn compose(task_prompt: &str, user_prompt: &str, ctx: Option<&TabContext>) -
     parts.join("\n\n")
 }
 
+/// Compose one task invocation at both window and detached CLI entry points.
+pub fn compose_for_task(task: &crate::task::TaskDef, user_prompt: &str, ctx: Option<&TabContext>) -> String {
+    // NEXT already froze the template prompt and protocol with the files the
+    // user confirmed. Re-reading task.json here would add unconfirmed text.
+    if task.id == crate::task::NEXT_KICKOFF_V2 {
+        user_prompt.to_string()
+    } else {
+        compose(&task.prompt, user_prompt, ctx)
+    }
+}
+
 /// Tell the run where the document it is about actually lives.
 ///
 /// A mirrored document's original sits outside the vault, in the directory that
@@ -68,6 +79,24 @@ pub fn with_source_context(prompt: &str, vault: &Path, scope: Option<&Scope>) ->
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn kickoff_v2_composition_preserves_only_the_confirmed_input() {
+        let mut task: crate::task::TaskDef = serde_json::from_value(serde_json::json!({
+            "id": crate::task::NEXT_KICKOFF_V2, "name": "kickoff", "strict_readonly": true,
+            "prompt": "DISK TEMPLATE CHANGED AFTER CONFIRMATION",
+        })).unwrap();
+        let ctx = TabContext { path: "private.md".into(), selection: "UNCONFIRMED SELECTION".into() };
+        let frozen = "  <!-- next-task-kickoff template v2 -->\nCONFIRMED TEMPLATE AND PACKET\n";
+        assert_eq!(compose_for_task(&task, frozen, Some(&ctx)), frozen);
+        task.prompt = "ANOTHER UNCONFIRMED CHANGE".into();
+        assert_eq!(compose_for_task(&task, frozen, None), frozen);
+        task.id = "another-strict-task".into();
+        assert_eq!(compose_for_task(&task, frozen, Some(&ctx)), compose(&task.prompt, frozen, Some(&ctx)));
+        task.id = crate::task::NEXT_KICKOFF_V2.into();
+        task.strict_readonly = false;
+        assert_eq!(compose_for_task(&task, frozen, None), frozen);
+    }
 
     #[test]
     fn joins_three_parts_in_fixed_order() {

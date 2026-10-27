@@ -13,6 +13,10 @@ interface KickoffRunBase {
   requested_at: string
   task_path: string
   based_on: string
+  /** Exact files sent with this run; absent on legacy records. */
+  context_paths?: string[]
+  /** Versioned task template, absent means the original v1 task. */
+  task_template?: string
 }
 
 export type KickoffRun = KickoffRunBase & ({
@@ -48,6 +52,9 @@ export function parseRegistry(raw: string | null): Registry {
       if(!object(run) || !['harness', 'requested_at', 'task_path', 'based_on'].every(k => text(run[k])) || !['running', 'failed'].includes(String(run.state)))
         return empty()
       if (run.state === 'running' ? !text(run.run_id) : run.run_id !== null && !text(run.run_id)) return empty()
+      // Invalid evidence must never widen a run's citation scope. Preserve the run itself.
+      if (run.context_paths !== undefined && (!Array.isArray(run.context_paths) || !run.context_paths.every(text))) run.context_paths = []
+      if (run.task_template !== undefined && !['next-task-kickoff', 'next-task-kickoff-v2'].includes(String(run.task_template))) delete run.task_template
       const f = run.failure
       if(run.state === 'running' ? f !== null : !object(f) || !['kind', 'message', 'at'].every(k => typeof f[k] === 'string') || !['warning', 'rawSnippet'].every(k => f[k] === undefined || typeof f[k] === 'string'))
         return empty()

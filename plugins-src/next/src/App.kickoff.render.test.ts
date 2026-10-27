@@ -2,9 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushSync, mount, unmount } from 'svelte'
 import { reduceEvents } from './lib/domain'
+import { providerKey } from './lib/agent-picker/types'
 import { placeEvent } from './lib/events'
 import type { NextWorkspace, WorkspaceItem } from './lib/repository'
-import type { KickoffSnapshot } from './lib/kickoff/client'
+import { KickoffClientError, type KickoffSnapshot } from './lib/kickoff/client'
 import type { KickoffDoc } from './lib/kickoff/document'
 import payload from './lib/kickoff/__fixtures__/payload.json'
 
@@ -13,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   snapshot: null as unknown as KickoffSnapshot,
   createClient: vi.fn(),
   toast: vi.fn(),
-  load: vi.fn(), reconcile: vi.fn(), preflight: vi.fn(), start: vi.fn(), save: vi.fn(), read: vi.fn(), refresh: vi.fn(async () => {}), place: vi.fn(), editorOpen: vi.fn(),
+  load: vi.fn(), reconcile: vi.fn(), preflight: vi.fn(), prepare: vi.fn(), start: vi.fn(), save: vi.fn(), read: vi.fn(), refresh: vi.fn(async () => {}), place: vi.fn(), editorOpen: vi.fn(),
 }))
 vi.mock('./lib/bridge', () => ({ bridge: () => ({ locale: 'en', request: vi.fn() }), toast: mocks.toast, editorOpen: mocks.editorOpen,
   vaultExists: vi.fn(), vaultRead: vi.fn(), vaultWrite: vi.fn(), vaultList: vi.fn(), vaultInfo: vi.fn(), agentProviders: vi.fn(), agentLimits: vi.fn(), agentRun: vi.fn(), agentStatus: vi.fn() }))
@@ -21,7 +22,7 @@ vi.mock('./lib/store.svelte', () => ({ state: mocks.state, refresh: mocks.refres
   createIdea: vi.fn(), createTask: vi.fn(), completeWithNote: vi.fn(), open: vi.fn(), relink: vi.fn(), reopen: vi.fn(), updateSettings: vi.fn(), updateMetadata: vi.fn(), updateReminder: vi.fn() }))
 vi.mock('./lib/kickoff/client', async (original) => ({
   ...await original<typeof import('./lib/kickoff/client')>(),
-  createKickoffClient: (...args: unknown[]) => { mocks.createClient(...args); return { snapshot: () => mocks.snapshot, load: mocks.load, reconcile: mocks.reconcile, preflight: mocks.preflight, startKickoff: mocks.start, saveAnswers: mocks.save, markRead: mocks.read } },
+  createKickoffClient: (...args: unknown[]) => { mocks.createClient(...args); return { snapshot: () => mocks.snapshot, load: mocks.load, reconcile: mocks.reconcile, preflight: mocks.preflight, prepareKickoff: mocks.prepare, startKickoff: mocks.start, saveAnswers: mocks.save, markRead: mocks.read } },
 }))
 import App from './App.svelte'
 const id = '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8'
@@ -38,6 +39,7 @@ beforeEach(() => {
   mocks.read.mockImplementation(async () => mocks.snapshot)
   mocks.start.mockImplementation(async () => mocks.snapshot)
   mocks.preflight.mockResolvedValue({})
+  mocks.prepare.mockImplementation(async ({ providerId }) => ({ id: `preview-${providerId}`, taskId: id, providerId, providerName: providerId === 'codex' ? 'Codex' : 'DeepSeek', recipient: providerId === 'codex' ? 'OpenAI' : 'DeepSeek', files: [{ path: task.path!, bytes: 125 }, { path: 'diary/budget.md', bytes: 345 }], bytes: 700, gaps: ['One source was omitted'], needsConsent: mocks.snapshot.needsConsent, dataSources: mocks.snapshot.dataSources }))
   localStorage.clear()
 })
 afterEach(() => { if (component) unmount(component); component = null; document.body.innerHTML = ''; vi.clearAllMocks(); vi.useRealTimers() })
@@ -115,7 +117,7 @@ describe('App kickoff integration', () => {
   })
   it('keeps a genuine preflight error when refreshing the same previous result', async () => {
     mocks.snapshot.results[id] = result
-    mocks.preflight.mockRejectedValueOnce(new Error('preflight failed'))
+    mocks.prepare.mockRejectedValueOnce(new Error('preflight failed'))
     await render()
     document.querySelector<HTMLButtonElement>('[aria-label="Choose another agent"]')!.click()
     await settle()
@@ -139,6 +141,8 @@ describe('App kickoff integration', () => {
     click('Get me started')
     await settle()
     document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')!.click()
+    await settle()
+    document.querySelector<HTMLButtonElement>('[data-consent-confirm]')!.click()
     await settle()
     expect(document.querySelector('[data-kickoff-state]')?.getAttribute('data-kickoff-state')).toBe('running')
     const recoveredResult = { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff, run_id: 'recovered-run' } } }
@@ -209,8 +213,69 @@ describe('App kickoff integration', () => {
     await settle()
     document.querySelector<HTMLButtonElement>('[data-consent-confirm]')!.click()
     await settle()
-    expect(mocks.start).toHaveBeenCalledWith({ item: task, providerId: 'codex', consent: true })
+    expect(mocks.start).toHaveBeenCalledWith({ item: task, providerId: 'codex', previewId: 'preview-codex', consent: true })
     expect(mocks.place).not.toHaveBeenCalled()
+  })
+  it('requires a fresh external-send preview even after setup and with a remembered provider', async () => {
+    mocks.snapshot.needsConsent = false
+    localStorage.setItem(providerKey('next.kickoff'), 'codex')
+    await render()
+    click('Get me started')
+    await settle()
+    const option = document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')
+    if (option) { option.click(); await settle() }
+    expect(mocks.prepare).toHaveBeenCalledWith({ item: task, providerId: 'codex' })
+    expect(document.body.textContent).toContain('OpenAI')
+    expect(document.body.textContent).toContain('diary/budget.md')
+    expect(document.body.textContent).toContain('345')
+    expect(document.body.textContent).toContain('700')
+    expect(document.body.textContent).toContain('One source was omitted')
+    expect(document.body.textContent).not.toContain('This adds skills/task-kickoff')
+    expect(mocks.start).not.toHaveBeenCalled()
+    document.querySelector<HTMLButtonElement>('[data-consent-cancel]')!.click()
+    await settle()
+    expect(mocks.start).not.toHaveBeenCalled()
+  })
+  it('switches recipients by preparing a new preview without starting either agent', async () => {
+    mocks.snapshot.providers.push({ id: 'deepseek', name: 'DeepSeek', harness: { harness: 'DeepSeek', ok: true } })
+    await render()
+    click('Get me started'); await settle()
+    document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')!.click(); await settle()
+    document.querySelector<HTMLButtonElement>('[data-consent-choose]')!.click(); await settle()
+    document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')[1].click(); await settle()
+    expect(mocks.prepare).toHaveBeenLastCalledWith({ item: task, providerId: 'deepseek' })
+    expect(document.querySelector('[data-recipient]')?.textContent).toContain('DeepSeek')
+    expect(mocks.start).not.toHaveBeenCalled()
+    document.querySelector<HTMLButtonElement>('[data-consent-confirm]')!.click(); await settle()
+    expect(mocks.start).toHaveBeenCalledWith({ item: task, providerId: 'deepseek', previewId: 'preview-deepseek', consent: true })
+  })
+  it.each(['retry', 'regenerate'])('requires a fresh preview before %s', async (mode) => {
+    mocks.snapshot.needsConsent = false
+    if (mode === 'retry') {
+      mocks.snapshot.registry.runs[id] = { run_id: 'r1', harness: 'codex', requested_at: new Date().toISOString(), task_path: task.path!, based_on: 'hash', state: 'failed', failure: { kind: 'error', message: 'failed', at: new Date().toISOString() } }
+    } else mocks.snapshot.results[id] = result
+    await render()
+    document.querySelector<HTMLButtonElement>('[data-kickoff-state]')!.click(); await settle()
+    if (mode === 'retry') [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((button) => button.textContent === 'Retry')!.click()
+    else {
+      click('Generate again'); await settle()
+      document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')!.click()
+    }
+    await settle()
+    expect(mocks.prepare).toHaveBeenCalledWith({ item: task, providerId: 'codex' })
+    expect(document.querySelector('[data-consent-confirm]')).not.toBeNull()
+    expect(mocks.start).not.toHaveBeenCalled()
+  })
+  it('refreshes a changed preview and requires another explicit confirmation', async () => {
+    mocks.start.mockRejectedValueOnce(new KickoffClientError('preview-changed', 'changed'))
+    await render()
+    click('Get me started'); await settle()
+    document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')!.click(); await settle()
+    document.querySelector<HTMLButtonElement>('[data-consent-confirm]')!.click(); await settle()
+    expect(mocks.prepare).toHaveBeenCalledTimes(2)
+    expect(mocks.start).toHaveBeenCalledOnce()
+    expect(document.body.textContent).toContain('Review the updated files and confirm again')
+    expect(document.querySelector('[data-consent-confirm]')).not.toBeNull()
   })
   it('keeps entered answers and prevents placement after a failed save/readback', async () => {
     mocks.snapshot.results[id] = result
@@ -242,7 +307,7 @@ describe('App kickoff integration', () => {
     await settle()
     document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')!.click()
     await settle()
-    expect(document.body.textContent).toContain('Add the kickoff procedure?')
+    expect(document.body.textContent).toContain('Send this context to the agent?')
     document.querySelector<HTMLButtonElement>('[data-consent-cancel]')!.click()
     await settle()
     expect(mocks.start).not.toHaveBeenCalled()

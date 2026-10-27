@@ -1,6 +1,6 @@
 {
   "name": "deepseek-agent",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "type": "module",
   "private": true,
   "scripts": {

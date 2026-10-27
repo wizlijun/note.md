@@ -158,3 +158,14 @@ Task 8 依赖 7
 - [ ] `pnpm okf:lint inbox/tasks`（临时 vault）通过；NEXT 的 Task 数量、task CLI 的 `list` 都不受结果文件影响。
 - [ ] CHANGELOG：根目录中英两份「未发布」区各加一条面向用户的条目，例如英文：**NEXT: "Help me start" on task cards.** Pick an agent to read your vault and come back with up to three questions that decide your next step; answers prefill the commit sheet. Read-only — nothing is committed for you.；同时更新 `plugins-src/next/CHANGELOG.md`。运行 `node scripts/changelog.mjs check`。
 - [ ] 最终报告：逐条对照 spec §13 的验收标准，每条写「通过（证据）」或「待验证（原因）」。
+
+
+## 评审修复补丁 1.12.1
+
+1. 独立worktree保留其他会话改动；记录五项评审与旧低优先项。
+2. 背景分源/分锚点公平预算、中文匹配、已完成任务预过滤 → 大Vault回归。
+3. 每次发送预览并冻结整个输入，v2能力门禁/引擎拒绝降级 → UI/生产client与真实传输回归。
+4. 保存来源集合、旧run兼容、capacity与整数duration → 重启对账和锁并发回归。
+5. 全NEXT/Agent测试与独立复审；正式包大Vault真实默认模型验收；审计全部worktree/分支/stash；冻结tag后按Wrangler3 R2→公网验签→KV→公网复核发布并记录commit/hash。
+
+最终发布和验证结果见对应 `docs/reports` 报告，任务勾选不替代提交或包内证据。

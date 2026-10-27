@@ -73,7 +73,7 @@ describe('KickoffConsent', () => {
     setLocale('en')
     const onConfirm = vi.fn()
     const onCancel = vi.fn()
-    components.push(mount(KickoffConsent, { target: document.body, props: { onConfirm, onCancel } }))
+    components.push(mount(KickoffConsent, { target: document.body, props: { onConfirm, onCancel, onChoose: vi.fn(), preview: { id: 'p1', taskId: 't1', providerId: 'codex', providerName: 'Codex', recipient: 'OpenAI', files: [], bytes: 0, gaps: [], needsConsent: true, dataSources: [] } } }))
     flushSync()
     document.querySelector<HTMLButtonElement>('[data-consent-cancel]')!.click()
     expect(onConfirm).not.toHaveBeenCalled()

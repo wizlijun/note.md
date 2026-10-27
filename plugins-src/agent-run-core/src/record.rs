@@ -33,6 +33,9 @@ pub struct RunRecord {
     pub started_at: String,
     pub ended_at: String,
     pub status: Status,
+    /// Structured failure; keeping `error` preserves older readers of shared runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
     pub exit_code: Option<i32>,
     pub num_turns: Option<u64>,
     pub session_id: Option<String>,
@@ -265,6 +268,29 @@ pub fn write(task_run_dir: &Path, rec: &RunRecord) -> std::io::Result<PathBuf> {
     Ok(p)
 }
 
+/// Persist a rejected request without changing the holder or overwriting an
+/// existing terminal result. A repeated request for the holder's id is still
+/// that live run, not a new capacity failure.
+pub fn write_capacity_rejection(
+    task_run_dir: &Path,
+    mut rec: RunRecord,
+    holder: &crate::lock::LockInfo,
+) -> std::io::Result<()> {
+    if rec.run_id == holder.run_id {
+        return Ok(());
+    }
+    rec.status = Status::Error;
+    rec.failure_kind = Some("capacity".into());
+    rec.result = format!("That task is already running ({})", holder.run_id);
+    rec.stderr_tail = rec.result.clone();
+    let dir = runs_dir(task_run_dir);
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("{}.json", rec.run_id));
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(path)?;
+    use std::io::Write;
+    file.write_all((serde_json::to_string_pretty(&rec)? + "\n").as_bytes())
+}
+
 /// The most recent N, newest first (a run id starts with a UTC timestamp, so
 /// lexical order is chronological order).
 pub fn recent(task_run_dir: &Path, n: usize) -> Vec<RunRecord> {
@@ -322,6 +348,7 @@ mod tests {
 
     fn rec(id: &str) -> RunRecord {
         RunRecord {
+            failure_kind: None,
             run_id: id.into(),
             task: "t".into(),
             trigger: "window".into(),
@@ -337,6 +364,26 @@ mod tests {
             harness: Some("notemd.claude-agent".into()),
             usage: None,
         }
+    }
+
+    #[test]
+    fn capacity_rejection_preserves_holder_and_existing_records() {
+        let dir = tempfile::tempdir().unwrap();
+        let holder = crate::lock::LockInfo {
+            pid: std::process::id() as i32,
+            run_id: "holder".into(),
+            started_at: "then".into(),
+        };
+        write_capacity_rejection(dir.path(), rec("holder"), &holder).unwrap();
+        assert!(find(dir.path(), "holder").is_none());
+        let path = write(dir.path(), &rec("existing")).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        assert_eq!(write_capacity_rejection(dir.path(), rec("existing"), &holder)
+            .unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(std::fs::read(path).unwrap(), before);
+        let serialized = serde_json::to_value(rec("historical")).unwrap();
+        assert!(serialized.get("failure_kind").is_none());
+        assert!(serde_json::from_value::<RunRecord>(serialized).unwrap().failure_kind.is_none());
     }
 
     #[test]

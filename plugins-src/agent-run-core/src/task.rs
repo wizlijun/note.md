@@ -12,6 +12,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+/// NEXT supplies the confirmed v2 protocol and context together in the prompt.
+pub const NEXT_KICKOFF_V2: &str = "next-task-kickoff-v2";
+pub const NEXT_KICKOFF_V2_MARKER: &str = "<!-- next-task-kickoff template v2 -->";
+
 /// Provider-neutral, input-only review task used by governed document surfaces.
 ///
 /// The id and protocol live in the shared crate so every provider enforces the
@@ -73,6 +77,18 @@ pub struct TaskDef {
     /// Optional so hand-written and pre-metadata task.json files keep working.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_plugin: Option<String>,
+}
+
+/// The v2 id cannot be weakened by editing its task.json after confirmation.
+/// Check before provider discovery and again at the engine boundary.
+pub fn validate_next_kickoff_task(task: &TaskDef) -> Result<(), String> {
+    if task.id == NEXT_KICKOFF_V2 && (!task.strict_readonly
+        || !(1..=600).contains(&task.timeout_seconds)
+        || !task.max_turns.is_some_and(|turns| (1..=40).contains(&turns))
+        || task.precheck.is_some()) {
+        return Err("kickoff v2 requires strict_readonly, no precheck, max_turns 1..40 and timeout_seconds 1..600".into());
+    }
+    Ok(())
 }
 
 fn default_timeout() -> u64 {
@@ -245,6 +261,28 @@ pub fn ensure_gitignore(vault: &Path, lines: &[&str]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kickoff_v2_definition_cannot_disable_isolation_or_raise_limits() {
+        let valid: TaskDef = serde_json::from_value(serde_json::json!({
+            "id": NEXT_KICKOFF_V2, "name": "kickoff", "strict_readonly": true,
+            "max_turns": 40, "timeout_seconds": 600,
+        })).unwrap();
+        assert!(validate_next_kickoff_task(&valid).is_ok());
+        for (field, value) in [("strict_readonly", serde_json::json!(false)),
+            ("max_turns", serde_json::json!(41)), ("max_turns", serde_json::json!(null)),
+            ("max_turns", serde_json::json!(0)), ("timeout_seconds", serde_json::json!(601)),
+            ("timeout_seconds", serde_json::json!(0)), ("precheck", serde_json::json!("check.sh"))] {
+            let mut value_map = serde_json::to_value(&valid).unwrap();
+            value_map[field] = value;
+            let invalid: TaskDef = serde_json::from_value(value_map).unwrap();
+            assert!(validate_next_kickoff_task(&invalid).is_err(), "{field}");
+            let mut ordinary = invalid;
+            ordinary.id = "ordinary-task".into();
+            assert!(validate_next_kickoff_task(&ordinary).is_ok());
+        }
+    }
+
 
     const T: &Templates = &[
         (

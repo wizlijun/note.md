@@ -7,7 +7,7 @@
   import KickoffPicker from './components/KickoffPicker.svelte'
   import KickoffProgress from './components/KickoffProgress.svelte'
   import KickoffSheet from './components/KickoffSheet.svelte'
-  import { createKickoffClient, KickoffClientError, type KickoffSnapshot, type KickoffResult } from './lib/kickoff/client'
+  import { createKickoffClient, KickoffClientError, type KickoffSnapshot, type KickoffResult, type KickoffPreview } from './lib/kickoff/client'
   import { kickoffEligible, kickoffButtonState, type ButtonStateInput } from './lib/kickoff/button-state'
   import { POLL_MS } from './lib/kickoff/status'
   import type { KickoffAnswer } from './lib/kickoff/document'
@@ -81,7 +81,7 @@
   let kickoffStarting = $state<string[]>([])
   let kickoffFailures = $state<Record<string, LocalKickoffFailure>>({})
   let kickoffPicker = $state<WorkspaceItem | null>(null)
-  let kickoffConsent = $state<{ item: WorkspaceItem; providerId: string } | null>(null)
+  let kickoffConsent = $state<{ item: WorkspaceItem; preview: KickoffPreview; error: string } | null>(null)
   let kickoffProgress = $state<WorkspaceItem | null>(null)
   let kickoffResult = $state<{ item: WorkspaceItem; result: KickoffResult } | null>(null)
   let kickoffSaving = $state(false)
@@ -207,6 +207,7 @@
     closePreview()
     kickoffProgress = null
     kickoffResult = null
+    kickoffConsent = null
     kickoffPicker = item
   }
 
@@ -239,25 +240,29 @@
     else void requestKickoff(item, providerId)
   }
 
-  async function requestKickoff(item: WorkspaceItem, providerId: string, consent = false) {
+  async function requestKickoff(item: WorkspaceItem, providerId: string, preview?: KickoffPreview, errorMessage = '') {
     const id = item.task!.id
     kickoffPicker = null
     kickoffProgress = null
     kickoffResult = null
+    kickoffConsent = null
     kickoffStarting = [...kickoffStarting, id]
     delete kickoffFailures[id]
     try {
-      // A read-only preflight precedes the first-use confirmation; cancellation
-      // never seeds procedures, starts an agent, or changes the Task lifecycle.
-      await kickoffClient.preflight({ item, providerId })
-      if (kickoffSnapshot.needsConsent && !consent) {
-        kickoffConsent = { item, providerId }
+      // Preparing reads local data only. Every run requires consent to the
+      // selected recipient and this exact snapshot, even after initial setup.
+      if (!preview) {
+        const prepared = await kickoffClient.prepareKickoff({ item, providerId })
+        kickoffConsent = { item, preview: prepared, error: errorMessage }
         return
       }
-      kickoffConsent = null
-      adoptKickoff(await kickoffClient.startKickoff({ item, providerId, consent }), true)
+      adoptKickoff(await kickoffClient.startKickoff({ item, providerId, previewId: preview.id, consent: true }), true)
       kickoffAnnouncement = t('kickoff.starting')
     } catch (error) {
+      if (error instanceof KickoffClientError && error.kind === 'preview-changed') {
+        await requestKickoff(item, providerId, undefined, kickoffErrorLabel(error))
+        return
+      }
       const snapshot = kickoffClient.snapshot()
       const run = snapshot.registry.runs[id]
       kickoffFailures[id] = {
@@ -1197,11 +1202,11 @@
 {/if}
 
 {#if kickoffConsent}
-  <KickoffConsent returnFocus={kickoffReturnFocus} onConfirm={() => {
+  <KickoffConsent returnFocus={kickoffReturnFocus} preview={kickoffConsent.preview} error={kickoffConsent.error} onConfirm={() => {
     const pending = kickoffConsent!
     kickoffConsent = null
-    void requestKickoff(pending.item, pending.providerId, true)
-  }} onCancel={() => kickoffConsent = null} />
+    void requestKickoff(pending.item, pending.preview.providerId, pending.preview)
+  }} onChoose={() => chooseKickoff(kickoffConsent!.item)} onCancel={() => kickoffConsent = null} />
 {/if}
 
 {#if kickoffProgress}

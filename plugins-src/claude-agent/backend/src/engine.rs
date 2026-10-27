@@ -83,7 +83,14 @@ pub async fn run(
             run_id: spec.run_id.clone(),
             started_at: started.to_rfc3339(),
         },
-    )?;
+    ).map_err(|busy| {
+        let rec = finish(&spec, started, record::Status::Error, None, None,
+            String::new(), String::new(), Vec::new());
+        if let Err(error) = record::write_capacity_rejection(&spec.task_run_dir, rec, &busy.0) {
+            eprintln!("[claude-agent] persist capacity rejection: {error}");
+        }
+        busy
+    })?;
 
     if spec.task.strict_readonly && (spec.task.precheck.is_some() || spec.deliverable.is_some()) {
         let rec = finish(&spec, started, record::Status::Error, None, None,
@@ -484,6 +491,7 @@ fn finish(
     });
     let usage = result.as_ref().and_then(|r| r.usage.clone());
     let mut rec = record::RunRecord {
+        failure_kind: None,
         run_id: spec.run_id.clone(),
         task: spec.task.id.clone(),
         trigger: spec.trigger.clone(),
@@ -555,6 +563,25 @@ mod tests {
             target: None,
             deliverable: None,
         }
+    }
+
+    #[tokio::test]
+    async fn lock_conflict_persists_capacity_without_starting_claude() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = spec(dir.path(), PathBuf::from("must-not-start"), 30);
+        let holder = lock::LockInfo {
+            pid: std::process::id() as i32, run_id: "holder".into(), started_at: "then".into(),
+        };
+        let run_dir = s.task_run_dir.clone();
+        let run_id = s.run_id.clone();
+        let _held = lock::acquire(&run_dir, holder).unwrap();
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let (_ctx, cancel) = mpsc::channel(1);
+        assert!(run(s, tx, cancel).await.is_err());
+        let rec = record::find(&run_dir, &run_id).expect("capacity must survive polling");
+        assert_eq!(rec.failure_kind.as_deref(), Some("capacity"));
+        assert_eq!(lock::current(&run_dir).unwrap().run_id, "holder");
+        assert!(record::find(&run_dir, "holder").is_none());
     }
 
     async fn drive(s: RunSpec) -> (Vec<stream::Event>, record::RunRecord) {

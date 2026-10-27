@@ -4,6 +4,7 @@ import { kickoffCardView } from './button-state'
 import { sha256 } from './hash'
 import { REGISTRY_PATH, serializeRegistry } from './registry'
 import payload from './__fixtures__/payload.json'
+import { TEMPLATE_FILES } from './template'
 import type { WorkspaceItem } from '../repository'
 import type { AgentProviders } from '../agent-picker/types'
 
@@ -30,7 +31,7 @@ function fixture(verified = true) {
     currentItem: vi.fn(async () => current),
   }
   const client = createKickoffClient(io, { verifiedProviders: verified ? [providerId] : [], now: () => '2026-10-27T01:00:00Z', notificationTitles: { ok: '开头已就绪', fail: '开头失败' } })
-  const start = () => client.startKickoff({ item, providerId, today: '2026-10-27', consent: true })
+  const start = async () => { const preview = await client.prepareKickoff({ item, providerId, today: '2026-10-27' }); return client.startKickoff({ item, providerId, today: '2026-10-27', previewId: preview.id, consent: true }) }
   const success = async () => io.agentStatus.mockResolvedValue({ state: 'done', record: { status: 'success', harness: providerId, model: 'model', started_at: '2026-10-27T01:00:00Z', ended_at: '2026-10-27T01:00:12Z' }, terminal_result: { content: JSON.stringify({ ...payload, task_id: taskId, based_on: await sha256(raw) }) } })
   return { files, io, writes, client, start, success, setCurrent: (value: WorkspaceItem | null) => { current = value } }
 }
@@ -40,7 +41,7 @@ describe('kickoff client', () => {
     const f = fixture(false)
     const installed = await f.io.agentProviders()
     installed.providers[0].harness!.capabilities = {
-      readonly_context: true, terminal_result: true,
+      readonly_context: true, terminal_result: true, kickoff_protocol_versions: [2],
     } as NonNullable<NonNullable<typeof installed.providers[0]['harness']>['capabilities']>
     f.io.agentProviders.mockResolvedValue(installed)
     expect((await f.client.load()).providers[0].harness?.ok).toBe(true)
@@ -56,12 +57,13 @@ describe('kickoff client', () => {
   it('starts with exact prompt, original UTF-8 hash and notification without paths', async () => {
     const f = fixture()
     const snapshot = await f.start()
-    expect(f.io.agentRun).toHaveBeenCalledWith({ task: 'next-task-kickoff', harness: providerId, note_path: `/vault/${path}`, prompt: expect.stringContaining(['schema: next-kickoff/v1', `task_path: ${path}`, `task_id: ${taskId}`, `based_on: ${await sha256(raw)}`, 'lane: inbox', 'today: 2026-10-27', 'skill: skills/task-kickoff/SKILL.md'].join('\n')), notify: { title_ok: '开头已就绪 · 测试任务', title_fail: '开头失败 · 测试任务' } })
+    expect(f.io.agentRun).toHaveBeenCalledWith({ task: 'next-task-kickoff-v2', harness: providerId, note_path: `/vault/${path}`, prompt: expect.stringContaining(['schema: next-kickoff/v1', `task_path: ${path}`, `task_id: ${taskId}`, `based_on: ${await sha256(raw)}`, 'lane: inbox', 'today: 2026-10-27', 'skill: skills/task-kickoff/SKILL.md'].join('\n')), notify: { title_ok: '开头已就绪 · 测试任务', title_fail: '开头失败 · 测试任务' } })
     const prompt = (f.io.agentRun.mock.calls[0] as unknown as [{ prompt: string }])[0].prompt
     const packet = JSON.parse(prompt.split('BEGIN NEXT CONTEXT JSON\n')[1].split('\nEND NEXT CONTEXT JSON')[0])
     expect(packet.files[0]).toMatchObject({ path, content: raw })
     expect(prompt).toContain('No tools are available or permitted')
-    expect(prompt).toContain('questions 必须 1–3 题')
+    expect(prompt.split('questions 必须 1–3 题')).toHaveLength(2)
+    expect(f.files.get('.notemd/agent-tasks/next-task-kickoff-v2/AGENTS.md')).toContain('questions 必须 1–3 题')
     expect(snapshot.registry.runs[taskId].run_id).toBe('run-1')
   })
   it('starts a task already in progress with its current lane', async () => {
@@ -85,7 +87,7 @@ describe('kickoff client', () => {
   })
   it('disables production providers with reasons', async () => {
     const f = fixture(false)
-    expect((await f.client.load([item])).providers[0].harness?.hint).toContain('kickoff-provider-update-required')
+    expect((await f.client.load([item])).providers[0].harness?.hint).toContain('kickoff-provider-unsupported')
     await expect(f.start()).rejects.toMatchObject({ kind: 'provider-unavailable' })
   })
   it('identifies unsupported hosts', async () => {
@@ -116,7 +118,7 @@ describe('kickoff client', () => {
     f.files.delete(result.path)
     expect((await f.client.load([item])).results[taskId].path).toBe('inbox/tasks/renamed.kickoff.md')
   })
-  it.each(['invalid-output', 'missing-result', 'lost', 'task-changed', 'error', 'timeout', 'cancelled', 'skipped'])('records %s without writing a result', async kind => {
+  it.each(['invalid-output', 'missing-result', 'lost', 'task-changed', 'error', 'timeout', 'cancelled', 'skipped', 'capacity'])('records %s without writing a result', async kind => {
     const f = fixture()
     await f.start()
     if (kind === 'task-changed') { f.files.delete(path); await f.success() }
@@ -207,22 +209,25 @@ describe('kickoff persistence and human answers', () => {
     const other = { ...item, key: otherId, path: 'inbox/tasks/other-task.md', task: { ...item.task!, id: otherId } }
     f.files.set(other.path!, raw.replaceAll(taskId, otherId))
     f.setCurrent(other)
-    await expect(f.client.startKickoff({ item: other, providerId, consent: true })).resolves.toBeDefined()
+    const preview = await f.client.prepareKickoff({ item: other, providerId })
+    await expect(f.client.startKickoff({ item: other, providerId, previewId: preview.id, consent: true })).resolves.toBeDefined()
   })
   it('requires consent before seeding and never overwrites custom templates', async () => {
     const f = fixture()
-    await expect(f.client.startKickoff({ item, providerId })).rejects.toMatchObject({ kind: 'consent-required' })
+    await expect(f.client.startKickoff({ item, providerId })).rejects.toMatchObject({ kind: 'preview-required' })
     expect(f.writes).toEqual([])
-    f.files.set('.notemd/agent-tasks/next-task-kickoff/CLAUDE.md', 'custom instruction')
+    f.files.set('.notemd/agent-tasks/next-task-kickoff-v2/CLAUDE.md', 'custom instruction')
     await f.start()
-    expect(f.files.get('.notemd/agent-tasks/next-task-kickoff/CLAUDE.md')).toBe('custom instruction')
+    expect(f.files.get('.notemd/agent-tasks/next-task-kickoff-v2/CLAUDE.md')).toBe('custom instruction')
   })
   it('does not downgrade source existence IO failures to invalid output', async () => {
     const f = fixture()
     await f.start()
     await f.success()
+    f.io.agentStatus.mockResolvedValue({ state: 'done', record: { status: 'success' }, terminal_result: { content: JSON.stringify({ ...payload, task_id: taskId, based_on: await sha256(raw), sources: [{ ...payload.sources[0], resource: path }] }) } })
+    let checks = 0
     f.io.exists.mockImplementation(async p => {
-      if (p === payload.sources[0].resource) throw Error('source IO unavailable')
+      if (p === path && ++checks > 1) throw Error('source IO unavailable')
       return { exists: f.files.has(p) }
     })
     await expect(f.client.reconcile()).rejects.toMatchObject({ kind: 'io-error' })
@@ -314,12 +319,12 @@ it('routes status back to the exact provider that started the run', async () => 
   const f = fixture()
   await f.start()
   await f.client.reconcile()
-  expect(f.io.agentStatus).toHaveBeenCalledWith('next-task-kickoff', 'run-1', providerId)
+  expect(f.io.agentStatus).toHaveBeenCalledWith('next-task-kickoff-v2', 'run-1', providerId)
 })
 
 it.each([undefined, false, 'true'])('refuses an existing task template with strict_readonly=%s', async strict => {
   const f = fixture()
-  const templatePath = '.notemd/agent-tasks/next-task-kickoff/task.json'
+  const templatePath = '.notemd/agent-tasks/next-task-kickoff-v2/task.json'
   const content = JSON.stringify({ name: 'custom', strict_readonly: strict })
   f.files.set(templatePath, content)
   await expect(f.start()).rejects.toMatchObject({ kind: 'start-error' })
@@ -381,7 +386,7 @@ it.each([
   f.io.agentProviders.mockResolvedValue({ providers: ids.map(id => ({ id, name: id, max_concurrency: 2, harness: { harness: id, ok: true } })), default: ids[0] ?? '' })
   const snapshot = await f.client.load([item])
   expect(snapshot.providers.map(p => p.id)).toEqual(ids)
-  expect(snapshot.providers.every(p => p.harness?.ok === false && p.harness.hint?.includes('kickoff-provider-update-required'))).toBe(true)
+  expect(snapshot.providers.every(p => p.harness?.ok === false && p.harness.hint?.includes('kickoff-provider-unsupported'))).toBe(true)
   expect(snapshot.providerDefault).toBe(ids[0] ?? '')
 })
 
@@ -399,17 +404,26 @@ it.each([
   { max_turns: 0 }, { timeout_seconds: -1 }, { max_turns: 1.5 }, { timeout_seconds: '600' },
 ])('rejects unsafe or missing execution budget %j without overwriting task.json', async patch => {
   const f = fixture()
-  const templatePath = '.notemd/agent-tasks/next-task-kickoff/task.json'
-  const content = JSON.stringify({ strict_readonly: true, max_turns: 40, timeout_seconds: 600, ...patch })
+  const templatePath = '.notemd/agent-tasks/next-task-kickoff-v2/task.json'
+  const content = JSON.stringify({ strict_readonly: true, prompt: 'confirmed instruction', max_turns: 40, timeout_seconds: 600, ...patch })
   f.files.set(templatePath, content)
   await expect(f.start()).rejects.toMatchObject({ kind: 'start-error' })
   expect(f.io.agentRun).not.toHaveBeenCalled()
   expect(f.files.get(templatePath)).toBe(content)
 })
 
+it('rejects a v2 precheck before disclosure or sending', async () => {
+  const f = fixture()
+  const target = '.notemd/agent-tasks/next-task-kickoff-v2/task.json'
+  f.files.set(target, JSON.stringify({ ...JSON.parse(TEMPLATE_FILES[target]), precheck: 'private-script.sh' }))
+  await expect(f.client.prepareKickoff({ item, providerId })).rejects.toMatchObject({ kind: 'start-error' })
+  expect(f.io.agentRun).not.toHaveBeenCalled()
+  expect(f.writes).toEqual([])
+})
+
 it('accepts an existing strict template with lower budgets and preserves its bytes', async () => {
   const f = fixture()
-  const templatePath = '.notemd/agent-tasks/next-task-kickoff/task.json'
+  const templatePath = '.notemd/agent-tasks/next-task-kickoff-v2/task.json'
   const content = '{ "strict_readonly": true, "max_turns": 10, "timeout_seconds": 60, "prompt": "custom" }'
   f.files.set(templatePath, content)
   await f.start()
@@ -434,7 +448,8 @@ it('persists a failed start across client reload while preserving other registry
 it('applies localized notification prefixes supplied by the UI', async () => {
   const f = fixture()
   const client = createKickoffClient(f.io, { verifiedProviders: [providerId], notificationTitles: { ok: '準備完了', fail: '準備失敗' } })
-  await client.startKickoff({ item, providerId, consent: true })
+  const preview = await client.prepareKickoff({ item, providerId })
+  await client.startKickoff({ item, providerId, previewId: preview.id, consent: true })
   expect(f.io.agentRun).toHaveBeenCalledWith(expect.objectContaining({ notify: { title_ok: '準備完了 · 测试任务', title_fail: '準備失敗 · 测试任务' } }))
 })
 
@@ -443,8 +458,8 @@ it('passes the recorded provider through the actual bridge status request', asyn
   const request = vi.fn(async () => ({ state: 'running' }))
   vi.stubGlobal('window', { notemd: { request } })
   try {
-    await agentStatus('next-task-kickoff', 'codex-run', 'notemd.codex-agent')
-    expect(request).toHaveBeenCalledWith('host.agent.status', { task: 'next-task-kickoff', run_id: 'codex-run', harness: 'notemd.codex-agent' })
+    await agentStatus('next-task-kickoff-v2', 'codex-run', 'notemd.codex-agent')
+    expect(request).toHaveBeenCalledWith('host.agent.status', { task: 'next-task-kickoff-v2', run_id: 'codex-run', harness: 'notemd.codex-agent' })
   } finally { vi.unstubAllGlobals() }
 })
 
@@ -453,7 +468,7 @@ it('retains installed agents whose harness probe is unavailable', async () => {
   f.io.agentProviders.mockResolvedValue({ providers: [{ id: 'notemd.deepseek-agent', name: 'DeepSeek', harness: null }], default: 'notemd.deepseek-agent' })
   const loaded = await f.client.load()
   expect(loaded.providers.map(p => p.id)).toEqual(['notemd.deepseek-agent'])
-  expect(loaded.providers[0].harness).toMatchObject({ ok: false, hint: 'kickoff-provider-update-required' })
+  expect(loaded.providers[0].harness).toMatchObject({ ok: false, hint: 'kickoff-provider-unsupported' })
 })
 
 it('queries the recorded provider after default changes and a fresh client reopens', async () => {
@@ -466,8 +481,8 @@ it('queries the recorded provider after default changes and a fresh client reope
   await reopened.load([item])
   await reopened.reconcile()
   expect(f.io.agentStatus.mock.calls).toEqual([
-    ['next-task-kickoff', 'run-1', providerId],
-    ['next-task-kickoff', 'run-1', providerId],
+    ['next-task-kickoff-v2', 'run-1', providerId],
+    ['next-task-kickoff-v2', 'run-1', providerId],
   ])
 })
 
@@ -619,4 +634,112 @@ it('attributes an unreadable known result to its Task without returning stale da
   expect(next.results[taskId]).toBeUndefined()
   expect(next.statuses[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'io-error', message: expect.stringContaining(first.path) } })
   expect(f.files.get(first.path)).toBe(first.doc.raw)
+})
+
+describe('review: explicit frozen disclosure and provenance', () => {
+  it('requires a prepared preview even when old setup consent already exists', async () => {
+    const f = fixture()
+    await expect(f.client.startKickoff({ item, providerId, consent: true })).rejects.toMatchObject({ kind: 'preview-required' })
+    expect(f.io.agentRun).not.toHaveBeenCalled()
+    expect(f.writes).toEqual([])
+  })
+  it('prepares the actual local files without sending or writing, then consumes approval once', async () => {
+    const f = fixture()
+    const preview = await f.client.prepareKickoff({ item, providerId, today: '2026-10-27' })
+    expect(preview.files).toContainEqual({ path, bytes: new TextEncoder().encode(raw).length })
+    expect(preview.recipient).toContain('Anthropic')
+    expect(f.io.agentRun).not.toHaveBeenCalled()
+    expect(f.writes).toEqual([])
+    await f.client.startKickoff({ item, providerId, previewId: preview.id, consent: true })
+    expect(f.io.agentRun).toHaveBeenCalledOnce()
+    expect(JSON.parse(f.files.get(REGISTRY_PATH)!).runs[taskId].context_paths).toEqual([path])
+    await expect(f.client.startKickoff({ item, providerId, previewId: preview.id, consent: true })).rejects.toMatchObject({ kind: 'preview-required' })
+    expect(f.io.agentRun).toHaveBeenCalledOnce()
+  })
+  it('requires a new preview if the Task or selected provider changed', async () => {
+    const f = fixture()
+    const preview = await f.client.prepareKickoff({ item, providerId, today: '2026-10-27' })
+    await expect(f.client.startKickoff({ item, providerId: 'other', previewId: preview.id, consent: true })).rejects.toMatchObject({ kind: 'preview-changed' })
+    const next = await f.client.prepareKickoff({ item, providerId, today: '2026-10-27' })
+    f.files.set(path, raw + '\nnew content')
+    await expect(f.client.startKickoff({ item, providerId, previewId: next.id, consent: true })).rejects.toMatchObject({ kind: 'preview-changed' })
+    expect(f.io.agentRun).not.toHaveBeenCalled()
+  })
+  it('rejects an existing but unsent source and downgrades its unsupported fact after restart', async () => {
+    const f = fixture()
+    await f.start()
+    f.files.set('diary/release.note.md', '# Existing but absent from frozen snapshot')
+    await f.success()
+    const reloaded = createKickoffClient(f.io, { verifiedProviders: [providerId] })
+    const result = (await reloaded.reconcile()).results[taskId].doc.kickoff.payload
+    expect(result.sources).toEqual([])
+    expect(result.context[0].kind).toBe('inference')
+  })
+  it('retains an actually sent source after registry reload and records whole duration seconds', async () => {
+    const f = fixture()
+    await f.start()
+    f.io.agentStatus.mockResolvedValue({ state: 'done', record: { status: 'success', started_at: '2026-10-27T01:00:00Z', ended_at: '2026-10-27T01:00:12.987Z' }, terminal_result: { content: JSON.stringify({ ...payload, task_id: taskId, based_on: await sha256(raw), sources: [{ ...payload.sources[0], resource: path }] }) } })
+    const reloaded = createKickoffClient(f.io, { verifiedProviders: [providerId] })
+    const doc = (await reloaded.reconcile()).results[taskId].doc
+    expect(doc.kickoff.payload.context[0].kind).toBe('fact')
+    expect(doc.kickoff.duration_seconds).toBe(12)
+  })
+})
+
+
+describe('v2 frozen instructions and backwards compatibility', () => {
+  const base = '.notemd/agent-tasks/next-task-kickoff-v2/'
+  it.each(['AGENTS.md', 'task.json', 'skill'])('requires renewed disclosure after %s changes', async name => {
+    const f = fixture()
+    const preview = await f.client.prepareKickoff({ item, providerId })
+    const target = name === 'skill' ? 'skills/task-kickoff/SKILL.md' : base + name
+    f.files.set(target, name === 'task.json' ? TEMPLATE_FILES[target].replace('仅按本任务', 'unreviewed instructions 仅按本任务') : 'changed instructions')
+    await expect(f.client.startKickoff({ item, providerId, previewId: preview.id, consent: true })).rejects.toMatchObject({ kind: 'preview-changed' })
+    expect(f.io.agentRun).not.toHaveBeenCalled()
+  })
+  it('requires the frozen v2 capability even for a formerly supported context provider', async () => {
+    const f = fixture(false)
+    const installed = await f.io.agentProviders()
+    installed.providers[0].harness!.capabilities = { readonly_context: true, terminal_result: true } as NonNullable<NonNullable<typeof installed.providers[0]['harness']>['capabilities']>
+    f.io.agentProviders.mockResolvedValue(installed)
+    await expect(f.start()).rejects.toMatchObject({ kind: 'provider-unavailable' })
+    expect(f.io.agentRun).not.toHaveBeenCalled()
+  })
+  it('preserves v1 templates and sends only the frozen v2 protocol', async () => {
+    const f = fixture()
+    const old = '.notemd/agent-tasks/next-task-kickoff/AGENTS.md'
+    f.files.set(old, 'OLD_PROTOCOL_READ_THE_VAULT')
+    await f.start()
+    const prompt = (f.io.agentRun.mock.calls[0] as unknown as [{ prompt: string }])[0].prompt
+    expect(prompt).not.toContain('OLD_PROTOCOL_READ_THE_VAULT')
+    expect(prompt.split('<!-- next-task-kickoff template v2 -->')).toHaveLength(2)
+    expect(f.files.get(old)).toBe('OLD_PROTOCOL_READ_THE_VAULT')
+  })
+  it('sends the confirmed background bytes even when those files subsequently change', async () => {
+    const f = fixture()
+    const task = raw.replace('---\r\n原始正文', 'sources:\r\n  - resource: diary/2026-10-27.md\r\n---\r\n原始正文')
+    f.files.set(path, task)
+    f.files.set('diary/2026-10-27.md', 'Confirmed background')
+    const preview = await f.client.prepareKickoff({ item, providerId, today: '2026-10-27' })
+    expect(preview.files.map(file => file.path)).toContain('diary/2026-10-27.md')
+    f.files.set('diary/2026-10-27.md', 'UNCONFIRMED_NEW_BYTES')
+    await f.client.startKickoff({ item, providerId, previewId: preview.id, consent: true })
+    const prompt = (f.io.agentRun.mock.calls[0] as unknown as [{ prompt: string }])[0].prompt
+    expect(prompt).toContain('Confirmed background')
+    expect(prompt).not.toContain('UNCONFIRMED_NEW_BYTES')
+  })
+  it('polls legacy runs with their original template and does not invent snapshot provenance', async () => {
+    const f = fixture()
+    await f.start()
+    const registry = JSON.parse(f.files.get(REGISTRY_PATH)!)
+    delete registry.runs[taskId].task_template
+    delete registry.runs[taskId].context_paths
+    f.files.set(REGISTRY_PATH, JSON.stringify(registry))
+    f.io.agentStatus.mockResolvedValue({ state: 'done', record: { status: 'success' }, terminal_result: { content: JSON.stringify({ ...payload, task_id: taskId, based_on: await sha256(raw), sources: [{ ...payload.sources[0], resource: path }] }) } })
+    const reloaded = createKickoffClient(f.io, { verifiedProviders: [providerId] })
+    const result = (await reloaded.reconcile()).results[taskId].doc.kickoff.payload
+    expect(f.io.agentStatus).toHaveBeenLastCalledWith('next-task-kickoff', 'run-1', providerId)
+    expect(result.sources).toEqual([])
+    expect(result.context[0].kind).toBe('inference')
+  })
 })

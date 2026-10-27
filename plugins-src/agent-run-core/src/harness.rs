@@ -53,6 +53,9 @@ pub struct HarnessCapabilities {
     /// Frozen context only: isolated runtime with no tools or user extensions.
     #[serde(default)]
     pub readonly_context: bool,
+    /// Frozen NEXT protocol versions consumed without re-reading Vault instructions.
+    #[serde(default)]
+    pub kickoff_protocol_versions: Vec<u8>,
     pub model_routing: ModelRoutingCapabilities,
 }
 
@@ -419,6 +422,7 @@ mod tests {
         record::write(
             &root.join(task),
             &record::RunRecord {
+                failure_kind: None,
                 run_id: id.into(),
                 task: task.into(),
                 trigger: "relay".into(),
@@ -519,6 +523,7 @@ mod tests {
         record::write(
             &d.path().join("t"),
             &record::RunRecord {
+                failure_kind: None,
                 run_id: "20260818T000001Z-a".into(),
                 task: "t".into(),
                 trigger: "relay".into(),
@@ -557,6 +562,7 @@ mod tests {
             input_only_isolation: true,
             strict_readonly: false,
             readonly_context: false,
+            kickoff_protocol_versions: Vec::new(),
             model_routing: ModelRoutingCapabilities {
                 invocation_override: true,
                 profiles: ModelRoutingProfiles {
@@ -576,6 +582,10 @@ mod tests {
         assert_eq!(value["tasks"], serde_json::json!(["search-plan", "search-answer"]));
         assert_eq!(value["search_plan_schemas"], serde_json::json!([1]));
         assert_eq!(value["terminal_result"], true);
+        assert_eq!(value["kickoff_protocol_versions"], serde_json::json!([]));
+        let mut historical = value.clone();
+        historical.as_object_mut().unwrap().remove("kickoff_protocol_versions");
+        assert!(serde_json::from_value::<HarnessCapabilities>(historical).unwrap().kickoff_protocol_versions.is_empty());
         assert_eq!(value["input_only_isolation"], true);
         assert_eq!(value["model_routing"]["invocation_override"], true);
         assert_eq!(value["model_routing"]["profiles"]["fast"]["model"], "provider-fast");

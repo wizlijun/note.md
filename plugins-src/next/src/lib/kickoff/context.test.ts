@@ -3,6 +3,7 @@ import { buildTaskDocument } from '../task-source'
 import { buildKickoffContext, CONTEXT_LIMITS, kickoffContextPrompt, safeContextPath } from './context'
 import { sha256 } from './hash'
 import { newLedger, serializeLedger } from '../ledger'
+import { SKILL_FILES } from './template'
 const id = '8afad9c5-07ac-4e4d-8d1e-4ed04c06f2d8'
 const path = 'inbox/tasks/example-task.md'
 async function fixture(sources: string[] = [], patterns = ['inbox/tasks/*-task.md', 'diary/**']) {
@@ -120,5 +121,73 @@ describe('kickoff frozen context', () => {
     const packet = await f.run()
     expect(f.io.list.mock.calls.length).toBeLessThanOrEqual(CONTEXT_LIMITS.directories)
     expect(packet.gaps.join('\n')).toContain('scan budget')
+  })
+  it.each([100, 650])('fairly selects diary, marks and completed Tasks with the default skill and %i unfinished Tasks', async unfinishedCount => {
+    const f = await fixture()
+    f.input.skill = Object.values(SKILL_FILES)[0]
+    for (let i = 0; i < 60; i++) f.files.set(`archive-${i}/deep/2026-10-26.note.md`, 'Unrelated groceries')
+    for (let i = 0; i < unfinishedCount; i++) f.files.set(`inbox/tasks/z-${i}-task.md`, 'Unfinished Task should not be read')
+    f.files.set('diary/2026-10-26.md', 'Acme release decision')
+    f.files.set('thinking/2026-10-25.note.md', 'Acme release judgment')
+    const donePath = 'inbox/tasks/prior-task.md', doneId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+    f.files.set(donePath, buildTaskDocument({ title: 'Earlier release', created: '2026-01-01T00:00:00Z', task: { version: 1, id: doneId, project: 'Acme' }, body: 'Prior decision' }))
+    f.files.set('thinking/next.note.md', serializeLedger({ ...newLedger([]), version: 2, task_dirs: ['inbox/tasks'], events: [
+      { at: '2026-10-26T00:00:00Z', event_id: 'done', item_id: doneId, item_kind: 'task', action: 'settle', source: { path: donePath }, exit: { kind: 'done' } },
+    ] }))
+    const packet = await f.run()
+    expect(packet.files.map(file => file.path)).toEqual(expect.arrayContaining(['diary/2026-10-26.md', 'thinking/2026-10-25.note.md', donePath]))
+    expect(f.io.read.mock.calls.some(([p]) => p.startsWith('inbox/tasks/z-'))).toBe(false)
+    const backgroundReads = f.io.read.mock.calls.map(([p]) => p).filter(p => p !== path && p !== 'thinking/next.note.md')
+    expect(backgroundReads.slice(0, 3)).toEqual([donePath, 'thinking/2026-10-25.note.md', 'diary/2026-10-26.md'])
+    expect(backgroundReads.filter(p => p.startsWith('archive-')).length).toBeLessThanOrEqual(CONTEXT_LIMITS.reads - 4)
+    expect(f.io.read.mock.calls.length).toBeLessThanOrEqual(CONTEXT_LIMITS.reads + 2)
+    expect(f.io.list.mock.calls.length).toBeLessThanOrEqual(CONTEXT_LIMITS.totalDirectories)
+  })
+  it('matches a Chinese subject inside a longer Task title without matching a generic action alone', async () => {
+    const f = await fixture()
+    const raw = buildTaskDocument({ title: '整理Q4预算报告', task: { version: 1, id }, created: '2026-10-27T00:00:00Z', body: '' })
+    f.files.set(path, raw); f.input.basedOn = await sha256(raw)
+    f.files.set('diary/2026-10-26.md', 'Q4预算报告需要先核对销售额。')
+    f.files.set('diary/2026-10-25.md', '整理资料，准备周会。')
+    f.files.set('diary/2026-10-24.md', 'Q4准备一次团队聚餐。')
+    const packet = await f.run()
+    expect(packet.files.map(file => file.path)).toEqual([path, 'diary/2026-10-26.md'])
+  })
+  it('does not let many direct references consume the diary read budget', async () => {
+    const f = await fixture(Array.from({ length: 40 }, (_, i) => `notes/missing-${i}.md`))
+    f.files.set('diary/2026-10-26.md', 'Acme latest decision')
+    const packet = await f.run()
+    expect(packet.files.map(file => file.path)).toContain('diary/2026-10-26.md')
+    expect(f.io.read.mock.calls.slice(1, 3).map(([p]) => p)).toEqual(['notes/missing-0.md', 'diary/2026-10-26.md'])
+    expect(f.io.read.mock.calls.length).toBeLessThanOrEqual(CONTEXT_LIMITS.reads + 2)
+  })
+  it('bounds total traversal even with arbitrarily many independently declared sources', async () => {
+    const f = await fixture()
+    f.input.skill = '---\ndata_sources:\n' + Array.from({ length: 200 }, (_, i) => `  - id: source-${i}\n    kind: vault\n    label: source\n    paths: ["area-${i}/**"]`).join('\n') + '\n---\n'
+    for (let i = 0; i < 200; i++) f.files.set(`area-${i}/deep/2026-10-26.md`, 'Acme')
+    const packet = await f.run()
+    expect(f.io.list.mock.calls.length).toBeLessThanOrEqual(CONTEXT_LIMITS.totalDirectories)
+    expect(packet.gaps.join('\n')).toContain('scan budget')
+  })
+  it('uses a large ledger locally while sending only the selected completion event', async () => {
+    const f = await fixture([], ['inbox/tasks/*-task.md', 'thinking/next.note.md'])
+    const doneId = '57691a0e-32ed-48bf-829f-b1377d53db93', donePath = 'inbox/tasks/prior-task.md'
+    f.files.set(donePath, buildTaskDocument({ title: 'Prior launch', created: '2026-01-01T00:00:00Z', task: { version: 1, id: doneId, project: 'Acme' }, body: 'Useful earlier work' }))
+    const ledger = serializeLedger({ ...newLedger([]), version: 2, task_dirs: ['inbox/tasks'], events: [
+      { at: '2026-10-26T00:00:00Z', event_id: 'done', item_id: doneId, item_kind: 'task', action: 'settle', source: { path: donePath }, exit: { kind: 'done' } },
+    ] })
+    f.files.set('thinking/next.note.md', ledger + '\n<!-- ' + 'PRIVATE history '.repeat(4000) + ' -->\n')
+    const packet = await f.run()
+    expect(packet.files.map(file => file.path)).toContain(donePath)
+    expect(packet.files.find(file => file.path === 'thinking/next.note.md')?.content).toContain('done')
+    expect(JSON.stringify(packet)).not.toContain('PRIVATE history')
+    expect(new TextEncoder().encode(JSON.stringify(packet)).length).toBeLessThanOrEqual(CONTEXT_LIMITS.bytes)
+  })
+  it('discloses a ledger exceeding its independent local parsing budget', async () => {
+    const f = await fixture([], ['inbox/tasks/*-task.md', 'thinking/next.note.md'])
+    f.files.set('thinking/next.note.md', 'x'.repeat(1024 * 1024 + 1))
+    const packet = await f.run()
+    expect(packet.gaps.join('\n')).toContain('Oversized lifecycle ledger omitted')
+    expect(packet.files).toHaveLength(1)
   })
 })

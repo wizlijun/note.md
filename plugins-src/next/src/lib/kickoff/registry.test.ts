@@ -34,3 +34,12 @@ it.each([null, '', '   '])('requires a nonempty host run id for running state: %
   const raw = JSON.stringify({ version: 1, unread: [], runs: { task: { ...run, run_id: runId } } })
   expect(parseRegistry(raw).runs).toEqual({})
 })
+
+
+it('preserves frozen provenance across reload and fails closed on malformed evidence scope', () => {
+  const value = { version: 1, unread: [], runs: { t: { ...run, context_paths: ['inbox/tasks/a-task.md'], task_template: 'next-task-kickoff-v2' } } }
+  expect(parseRegistry(JSON.stringify(value))).toEqual(value)
+  const malformed = { ...value, runs: { t: { ...value.runs.t, context_paths: 'all files', task_template: '../other' } } }
+  expect(parseRegistry(JSON.stringify(malformed)).runs.t.context_paths).toEqual([])
+  expect(parseRegistry(JSON.stringify(malformed)).runs.t.task_template).toBeUndefined()
+})

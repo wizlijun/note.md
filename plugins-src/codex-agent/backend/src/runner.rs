@@ -30,6 +30,10 @@ async fn run_inner(run_dir: &std::path::Path) -> i32 {
         return fail(&req, 2, format!("unknown task '{}'", req.task_id));
     };
     def.id = req.task_id.clone();
+    if let Err(error) = agent_run_core::task::validate_next_kickoff_task(&def) {
+        return fail(&req, 6, error);
+    }
+
 
     // The policy gate comes FIRST, before we go looking for a harness: a task
     // whose permissions will not parse must not run, and saying so should not
@@ -60,7 +64,7 @@ async fn run_inner(run_dir: &std::path::Path) -> i32 {
         );
     };
 
-    let mut run_prompt = prompt::compose(&def.prompt, &req.prompt, None);
+    let mut run_prompt = prompt::compose_for_task(&def, &req.prompt, None);
     let codex_rules = if def.strict_readonly { String::new() } else { task::codex_instructions(&task_dir) };
     if !codex_rules.trim().is_empty() {
         run_prompt.push_str("\n\n## 本任务的 Codex 专属约定\n");
@@ -100,11 +104,9 @@ async fn run_inner(run_dir: &std::path::Path) -> i32 {
     let code = match engine::run(spec, tx, cancel_rx).await {
         Ok(()) => 0,
         // The same task was already running.
-        Err(busy) => fail(
-            &req,
-            4,
-            format!("task is already running as {}", busy.run_id),
-        ),
+        // The engine already persisted this request's capacity rejection.
+        // Do not replace it with a generic error or overwrite a duplicate id.
+        Err(_) => 4,
     };
     let _ = drain.await;
     code
@@ -113,6 +115,7 @@ async fn run_inner(run_dir: &std::path::Path) -> i32 {
 fn fail(req: &detach::Request, code: i32, message: String) -> i32 {
     let now = chrono::Utc::now().to_rfc3339();
     let rec = agent_run_core::record::RunRecord {
+        failure_kind: None,
         run_id: req.run_id.clone(),
         task: req.task_id.clone(),
         trigger: "cli".into(),
@@ -146,6 +149,24 @@ mod tests {
             !path.exists(),
             "an unreadable handoff must still be cleaned"
         );
+    }
+
+    #[tokio::test]
+    async fn refuses_weakened_kickoff_before_policy_or_provider_discovery() {
+        let pending = tempfile::tempdir().unwrap();
+        let vault = tempfile::tempdir().unwrap();
+        let id = agent_run_core::task::NEXT_KICKOFF_V2;
+        let template = task::task_dir(vault.path(), id);
+        std::fs::create_dir_all(&template).unwrap();
+        std::fs::write(template.join("task.json"), serde_json::json!({
+            "name": "changed after confirmation", "strict_readonly": false,
+            "max_turns": 40, "timeout_seconds": 600,
+        }).to_string()).unwrap();
+        std::fs::write(template.join("policy.json"), "NOT VALID JSON").unwrap();
+        std::fs::write(pending.path().join("request.json"), serde_json::to_string(&Request {
+            vault: vault.path().into(), task_id: id.into(), prompt: String::new(), run_id: "rejected".into(),
+        }).unwrap()).unwrap();
+        assert_eq!(run(pending.path().into()).await, 6);
     }
 
     #[tokio::test]

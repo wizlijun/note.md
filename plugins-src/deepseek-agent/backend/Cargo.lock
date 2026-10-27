@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "notemd-deepseek-agent"
-version = "1.1.20"
+version = "1.1.21"
 dependencies = [
  "agent-run-core",
  "chrono",

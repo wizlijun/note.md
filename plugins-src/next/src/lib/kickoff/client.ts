@@ -4,16 +4,16 @@ import type { AgentLimits, AgentRunParams, VaultInfo } from '../bridge'
 import type { WorkspaceItem } from '../repository'
 import { parseTaskSource } from '../task-source'
 import { kickoffEligible } from './button-state'
-import { buildKickoffContext, kickoffContextPrompt } from './context'
+import { buildKickoffContext, kickoffContextPrompt, type ContextPacket } from './context'
 import { buildKickoffDocument, carryPriorAnswers, kickoffPathFor, parseKickoffDocument, withAnswers, type KickoffAnswer, type KickoffDoc } from './document'
 import { sha256 } from './hash'
 import { parsePayload } from './payload'
 import { REGISTRY_PATH, clearRun, markFailed, markRead as readRegistry, markRunning, markUnread, parseRegistry, serializeRegistry, type Registry, type KickoffRun, type KickoffFailure } from './registry'
 import { interpretKickoffStatus, type KickoffRunView } from './status'
-import { needsConsent, parseDataSources, seedFiles, SKILL_FILES, TASK_ID, TEMPLATE_FILES, type DataSource } from './template'
+import { needsConsent, parseDataSources, seedFiles, SKILL_FILES, TASK_ID, LEGACY_TASK_ID, TEMPLATE_FILES, type DataSource } from './template'
 
 const SKILL_PATH = 'skills/task-kickoff/SKILL.md'
-export const KICKOFF_SAFETY_REASON = 'kickoff-provider-update-required'
+export const KICKOFF_SAFETY_REASON = 'kickoff-provider-unsupported'
 
 export interface KickoffIo {
   exists(path: string): Promise<{ exists: boolean }>
@@ -51,6 +51,29 @@ export interface KickoffStartInput {
   providerId: string
   today?: string
   consent?: boolean
+  previewId?: string
+}
+
+export interface KickoffPreview {
+  id: string
+  taskId: string
+  providerId: string
+  providerName: string
+  recipient: string
+  files: { path: string; bytes: number }[]
+  bytes: number
+  gaps: string[]
+  needsConsent: boolean
+  dataSources: DataSource[]
+}
+interface PreparedKickoff {
+  preview: KickoffPreview
+  ready: KickoffPreflight
+  context: ContextPacket
+  skill: string
+  protocol: string
+  taskDefinition: string
+  today: string
 }
 
 export interface KickoffPreflight {
@@ -107,6 +130,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
   let discoveryFailures: Record<string, KickoffFailure> = {}
   const taskFailures: Record<string, KickoffFailure> = {}
   const pendingRuns: Record<string, Extract<KickoffRun, { state: 'running' }>> = {}
+  const prepared = new Map<string, PreparedKickoff>()
   let queue: Promise<unknown> = Promise.resolve()
   const snapshot = (): KickoffSnapshot => JSON.parse(JSON.stringify(state)) as KickoffSnapshot
   const serial = <T>(work: () => Promise<T>): Promise<T> => {
@@ -191,7 +215,8 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       state.providerDefault = result.default
       state.providers = result.providers.map(provider => {
         if (options.verifiedProviders?.includes(provider.id)
-          || (provider.harness?.capabilities?.readonly_context === true && provider.harness.capabilities.terminal_result === true)) return provider
+          || (provider.harness?.capabilities?.readonly_context === true && provider.harness.capabilities.terminal_result === true
+            && provider.harness.capabilities.kickoff_protocol_versions?.includes(2))) return provider
         return {
           ...provider,
           harness: {
@@ -281,34 +306,73 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       vaultRoot: root.replace(/[\\/]$/, ''),
     }
   }
-  const startInternal = async (input: KickoffStartInput): Promise<KickoffSnapshot> => {
-    const ready = await preflightInternal(input)
-    if (await needsConsent(io)) {
-      if (!input.consent) throw new KickoffClientError('consent-required', '需要确认添加开头规程与任务模板')
-    }
-    await seedFiles(io, { ...TEMPLATE_FILES, ...SKILL_FILES })
-    state.needsConsent = false
-    const skill = (await io.read(SKILL_PATH)).content
-    state.dataSources = parseDataSources(skill)
-    const taskDefinition = (await io.read(`.notemd/agent-tasks/${TASK_ID}/task.json`)).content
+  const readSkill = async (): Promise<string> => (await io.exists(SKILL_PATH)).exists
+    ? (await io.read(SKILL_PATH)).content : SKILL_FILES[SKILL_PATH]
+  const protocolPath = `.notemd/agent-tasks/${TASK_ID}/AGENTS.md`
+  const readProtocol = async (): Promise<string> => (await io.exists(protocolPath)).exists
+    ? (await io.read(protocolPath)).content : TEMPLATE_FILES[protocolPath]
+  const definitionPath = `.notemd/agent-tasks/${TASK_ID}/task.json`
+  const readDefinition = async (): Promise<string> => (await io.exists(definitionPath)).exists
+    ? (await io.read(definitionPath)).content : TEMPLATE_FILES[definitionPath]
+  const validateDefinition = (raw: string): Record<string, unknown> => {
     let definition: Record<string, unknown>
-    try { definition = JSON.parse(taskDefinition) } catch {
+    try { definition = JSON.parse(raw) } catch {
       throw new KickoffClientError('start-error', 'Existing task.json is not valid JSON; it was preserved')
     }
-    if (definition?.strict_readonly !== true
+    if (definition?.strict_readonly !== true || typeof definition.prompt !== 'string' || definition.precheck != null
       || !Number.isInteger(definition.max_turns) || Number(definition.max_turns) < 1 || Number(definition.max_turns) > 40
       || !Number.isInteger(definition.timeout_seconds) || Number(definition.timeout_seconds) < 1 || Number(definition.timeout_seconds) > 600) {
-      throw new KickoffClientError('start-error', 'Existing task.json must enable strict_readonly and limit max_turns to 40 and timeout_seconds to 600; it was preserved')
+      throw new KickoffClientError('start-error', 'Existing task.json must enable strict_readonly, omit precheck, and limit max_turns to 40 and timeout_seconds to 600; it was preserved')
     }
+    return definition
+  }
+  const prepareInternal = async (input: KickoffStartInput): Promise<KickoffPreview> => {
+    const ready = await preflightInternal(input)
+    const skill = await readSkill()
+    if (new TextEncoder().encode(skill).length > 32 * 1024) throw new KickoffClientError('start-error', 'Skill exceeds 32 KiB protocol budget')
+    const protocol = await readProtocol()
+    if (!protocol.startsWith('<!-- next-task-kickoff template v2 -->')) throw new KickoffClientError('start-error', 'Kickoff requires the v2 AGENTS.md protocol; existing content was preserved')
+    const taskDefinition = await readDefinition()
+    validateDefinition(taskDefinition)
     const today = input.today ?? localDate()
-    let context
+    let context: ContextPacket
     try {
       context = await buildKickoffContext(io, { taskPath: ready.taskPath, taskId: ready.taskId, basedOn: ready.basedOn, today, skill })
     } catch (error) {
       throw new KickoffClientError(/Task.*changed/.test(message(error)) ? 'task-changed' : 'start-error', message(error))
     }
-    if (new TextEncoder().encode(skill).length > 32 * 1024) throw new KickoffClientError('start-error', 'Skill exceeds 32 KiB protocol budget')
-    const protocol = TEMPLATE_FILES[`.notemd/agent-tasks/${TASK_ID}/AGENTS.md`]
+    const provider = state.providers.find(p => p.id === ready.providerId)!
+    const recipient = ready.providerId === 'notemd.codex-agent' ? 'OpenAI (Codex)'
+      : ready.providerId === 'notemd.deepseek-agent' ? 'DeepSeek'
+      : ready.providerId === 'notemd.claude-agent' ? 'Anthropic (Claude)' : provider.name
+    const preview: KickoffPreview = {
+      id: crypto.randomUUID(), taskId: ready.taskId, providerId: ready.providerId,
+      providerName: provider.name, recipient,
+      files: context.files.map(file => ({ path: file.path, bytes: new TextEncoder().encode(file.content).length })),
+      bytes: new TextEncoder().encode(JSON.stringify(context)).length,
+      gaps: [...context.gaps], needsConsent: await needsConsent(io), dataSources: parseDataSources(skill),
+    }
+    // Bound local previews; confirmations refer to an immutable packet, never a fresh scan.
+    if (prepared.size >= 8) prepared.delete(prepared.keys().next().value!)
+    prepared.set(preview.id, { preview, ready, context, skill, protocol, taskDefinition, today })
+    return JSON.parse(JSON.stringify(preview)) as KickoffPreview
+  }
+  const startInternal = async (input: KickoffStartInput): Promise<KickoffSnapshot> => {
+    const cached = input.previewId ? prepared.get(input.previewId) : undefined
+    if (!cached || !input.consent) throw new KickoffClientError('preview-required', 'Review the files and recipient before sending this run')
+    prepared.delete(cached.preview.id)
+    if (input.providerId !== cached.ready.providerId || input.item.task?.id !== cached.ready.taskId) throw new KickoffClientError('preview-changed', 'The selected task or recipient changed; review a new preview')
+    const ready = await preflightInternal(input)
+    if (ready.basedOn !== cached.ready.basedOn || ready.taskPath !== cached.ready.taskPath || ready.lane !== cached.ready.lane
+      || ready.vaultRoot !== cached.ready.vaultRoot || await readSkill() !== cached.skill || await readProtocol() !== cached.protocol
+      || await readDefinition() !== cached.taskDefinition) {
+      throw new KickoffClientError('preview-changed', 'Task or instructions changed; review a new preview before sending')
+    }
+    await seedFiles(io, { ...TEMPLATE_FILES, ...SKILL_FILES })
+    state.needsConsent = false
+    const { skill, context, today } = cached
+    state.dataSources = parseDataSources(skill)
+    const definition = validateDefinition(cached.taskDefinition)
     const requestedAt = now()
     let runId: string
     try {
@@ -317,6 +381,8 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
         harness: ready.providerId,
         note_path: `${ready.vaultRoot}/${ready.taskPath}`,
         prompt: [
+          cached.protocol,
+          String(definition.prompt),
           'schema: next-kickoff/v1',
           `task_path: ${ready.taskPath}`,
           `task_id: ${ready.taskId}`,
@@ -324,9 +390,9 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
           `lane: ${ready.lane}`,
           `today: ${today}`,
           `skill: ${SKILL_PATH}`,
-          protocol,
           'User-selected kickoff Skill (data sources were already collected by NEXT; tool restrictions take precedence):',
-          skill,
+          // Legacy Skills may contain a copied output-schema section. Only AGENTS.md defines that protocol.
+          skill.split('## next-kickoff/v1 输出协议')[0],
           kickoffContextPrompt(context),
         ].join('\n'),
         notify: {
@@ -365,6 +431,8 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       requested_at: requestedAt,
       task_path: ready.taskPath,
       based_on: ready.basedOn,
+      context_paths: context.files.map(file => file.path),
+      task_template: TASK_ID,
       state: 'running',
       failure: null,
     }
@@ -380,7 +448,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       if (run.state !== 'running') continue
       let status: KickoffRunView
       try {
-        status = interpretKickoffStatus(await io.agentStatus(TASK_ID, run.run_id, run.harness))
+        status = interpretKickoffStatus(await io.agentStatus(run.task_template ?? LEGACY_TASK_ID, run.run_id, run.harness))
       } catch (error) {
         status = { state: 'failed', failure: { kind: 'lost', message: message(error), at: now() } }
       }
@@ -447,6 +515,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
         if (old?.doc.kickoff.run_id !== run.run_id) {
           let sourceIoError: unknown
           const parsed = await parsePayload(status.content, { taskId: id, basedOn: run.based_on }, async path => {
+            if (!run.context_paths?.includes(path)) return false
             try {
               return (await io.exists(path)).exists
             } catch (error) {
@@ -472,7 +541,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
             taskTitle: source.title,
             runId: run.run_id,
             endedAt: status.ended_at ?? now(),
-            durationSeconds: Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, (end - start) / 1000) : 0,
+            durationSeconds: Number.isFinite(start) && Number.isFinite(end) ? Math.floor(Math.max(0, (end - start) / 1000)) : 0,
             harness: status.harness,
             model: status.model,
             providerId: run.harness,
@@ -519,6 +588,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
   return {
     snapshot,
     load: (items?: WorkspaceItem[]) => serial(() => loadInternal(items)),
+    prepareKickoff: (input: KickoffStartInput) => serial(() => prepareInternal(input)),
     preflight: (input: KickoffStartInput) => serial(() => preflightInternal(input)),
     startKickoff: (input: KickoffStartInput) => serial(() => startInternal(input)),
     reconcile: () => serial(reconcileInternal),

@@ -6,6 +6,17 @@
 - 执行计划：`docs/superpowers/plans/2026-10-27-next-task-kickoff.md`
 - 来源：用户 2026-10-27 的需求；启发来自「肖弘用智能体预研把待办变成可交接的方案」阅读笔记（能做就先启动，缺背景或负责人才问，交接时需求和调研一起给）
 
+## 2026-10-27 评审修订（1.12.1，优先于下文旧设计）
+
+- 每次发送必须经历 `prepare → 文件/接收方预览 → confirm → start`，包含记忆 Agent、重试、重跑。prepare 只读且不启动模型；当前 Task、背景 packet、Skill、AGENTS v2、task.json 指令保存在内存。确认时重新核对 Task/泳道/服务商/规程，变化拒绝并要求新预览；背景内容不重扫，始终发送已预览字节。说明提供商 OpenAI / DeepSeek，额外发送当前 Skill 与执行规程。
+- 各 data_source 有独立扫描预算；宽泛 glob 先访问已声明锚点、随后受限广度扫描，锚点之间也保留份额。全局最多128目录/4096条目，单源32目录/512条目，24次背景读取/12文件/96KiB快照；本地生命周期账本独立1MiB限额，只将相关已完成事件片段发送。中文采用字bigram与标题/项目匹配；Task候选在读取前用账本已完成路径过滤。预算不足明确gaps，不声称完整检索。
+- registry 的 `context_paths` 保存实际发送路径，对账仅接受此集合里的来源，存在但未发送也不可信；旧记录缺集合时剔除来源，fact降为inference。`task_template`保存运行模板以兼容旧v1轮询。
+- 新模板目录 `.notemd/agent-tasks/next-task-kickoff-v2/`，保留旧v1所有用户文件。唯一输出协议是此目录 AGENTS.md 的冻结文本，NEXT只拼一次；旧Skill复制的输出schema段不再拼入。Codex/DeepSeek声明 `kickoff_protocol_versions:[2]`，前端同时要求readonly_context、terminal_result和健康状态。旧Agent缺此能力不能启动新v2，Claude明确暂不支持。
+- v2 Agent 不读取磁盘 AGENTS.md 或拼磁盘 task.json.prompt；即使配置在确认后改变也不能退回普通工具模式。严格校验strict_readonly、timeout_seconds<=600、max_turns<=40与v2协议标记；空cwd/无工具边界不变。模型输出schema仍为next-kickoff/v1，与模板执行版本无关。
+- 锁占用在磁盘保留兼容的error记录并标failure_kind:capacity，对外映射capacity终态；旧运行不受影响。duration_seconds取非负整数秒。
+
+验证要求：650个未完成Task、40+顶层目录、中文标题部分词语、超32KiB账本、preview后背景/规程变化、重启引用约束、旧模板/旧run兼容；正式包默认模型验收必须使用生产prepare生成的大Vault快照，而非仅Task的手写prompt。
+
 ## 2026-10-27 可用执行补充（用户最新要求）
 
 用户要求真实可用、进行中Task支持及一体复合按钮，覆盖之前真实验收延期。实际安装的是Codex Agent和DeepSeek Agent；未安装Claude Agent不参与本机验收。

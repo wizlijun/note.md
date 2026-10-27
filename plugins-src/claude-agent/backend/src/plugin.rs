@@ -144,6 +144,7 @@ fn harness_capabilities(
         input_only_isolation: true,
         strict_readonly: true,
         readonly_context: false,
+        kickoff_protocol_versions: Vec::new(),
         model_routing: agent_run_core::ModelRoutingCapabilities {
             invocation_override: true,
             profiles: agent_run_core::ModelRoutingProfiles {
@@ -816,6 +817,11 @@ impl ClaudeAgentPlugin {
             let terminal_result = record::read_terminal_result(&run_dir, run_id)
                 .map_err(|error| format!("read complete terminal result: {error}"))?
                 .map(|content| json!({ "content": content, "complete": true }));
+            let capacity = rec.failure_kind.as_deref() == Some("capacity");
+            let mut rec = json!(rec);
+            if capacity {
+                rec["status"] = json!("capacity");
+            }
             return Ok(json!({
                 "state": "done",
                 "record": rec,
@@ -1339,6 +1345,7 @@ mod tests {
         record::write(
             &sweep_runs,
             &record::RunRecord {
+                failure_kind: None,
                 run_id: "20260730T000001Z-a".into(),
                 task: "answer-note-question".into(),
                 trigger: "cli".into(),
@@ -1417,6 +1424,35 @@ mod tests {
     }
 
     #[test]
+    fn run_status_reports_capacity_without_losing_the_holder() {
+        let v = tempfile::tempdir().unwrap();
+        let p = ClaudeAgentPlugin::new();
+        p.inner.lock().unwrap().vault = Some(v.path().to_path_buf());
+        let run_dir = task::runs_root(v.path()).join(NOTE_TASK);
+        let holder = lock::LockInfo {
+            pid: std::process::id() as i32,
+            run_id: "holder".into(), started_at: "then".into(),
+        };
+        let _held = lock::acquire(&run_dir, holder.clone()).unwrap();
+        let rec = record::RunRecord {
+            run_id: "rejected".into(), task: NOTE_TASK.into(), trigger: "cli".into(),
+            started_at: "now".into(), ended_at: "now".into(),
+            status: record::Status::Error, failure_kind: None,
+            exit_code: None, num_turns: None, session_id: None,
+            result: String::new(), stderr_tail: String::new(), artifacts: Vec::new(),
+            harness: Some(SELF_PLUGIN_ID.into()), usage: None,
+        };
+        record::write_capacity_rejection(&run_dir, rec, &holder).unwrap();
+        let rejected = p.run_status(&json!({ "task": NOTE_TASK, "run_id": "rejected" })).unwrap();
+        assert_eq!(rejected["state"], "done");
+        assert_eq!(rejected["record"]["status"], "capacity");
+        assert_eq!(rejected["record"]["failure_kind"], "capacity");
+        assert!(rejected["record"]["result"].as_str().unwrap().contains("holder"));
+        assert_eq!(record::find(&run_dir, "rejected").unwrap().status, record::Status::Error);
+        assert_eq!(p.run_status(&json!({ "task": NOTE_TASK, "run_id": "holder" })).unwrap()["state"], "running");
+    }
+
+    #[test]
     fn run_status_reports_running_then_done() {
         let v = tempfile::tempdir().unwrap();
         let p = ClaudeAgentPlugin::new();
@@ -1456,6 +1492,7 @@ mod tests {
         record::write(
             &run_dir,
             &record::RunRecord {
+                failure_kind: None,
                 run_id: "R1".into(),
                 task: NOTE_TASK.into(),
                 trigger: "note".into(),
@@ -1617,6 +1654,7 @@ mod tests {
 
     fn a_record(status: record::Status) -> record::RunRecord {
         record::RunRecord {
+            failure_kind: None,
             run_id: "R1".into(),
             task: "ai-read-ebook".into(),
             trigger: "relay".into(),
@@ -1719,6 +1757,7 @@ mod tests {
         assert!(capabilities.terminal_result);
         assert!(capabilities.input_only_isolation);
         assert_eq!(capabilities.strict_readonly, true);
+        assert_eq!(capabilities.kickoff_protocol_versions, Vec::<u8>::new());
         assert!(capabilities.model_routing.invocation_override);
         assert_eq!(
             capabilities.model_routing.profiles.fast.model.as_deref(),

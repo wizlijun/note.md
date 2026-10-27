@@ -5,7 +5,7 @@ import { parseTaskSource } from '../task-source'
 import { sha256 } from './hash'
 import { parseDataSources } from './template'
 
-export const CONTEXT_LIMITS = { bytes: 96 * 1024, fileBytes: 32 * 1024, files: 12, reads: 24, directories: 32, entries: 512 } as const
+export const CONTEXT_LIMITS = { bytes: 96 * 1024, fileBytes: 32 * 1024, ledgerBytes: 1024 * 1024, files: 12, reads: 24, directories: 32, entries: 512, totalDirectories: 128, totalEntries: 4096 } as const
 interface ContextIo {
   read(path: string): Promise<{ content: string }>
   list(path: string): Promise<{ entries: { name: string; is_dir: boolean }[] }>
@@ -32,6 +32,27 @@ function pattern(pattern: string): RegExp | null {
     else result += pattern[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
   return new RegExp(result + '$', 'i')
+}
+function concreteRoot(value: string): string {
+  const prefix = value.includes('*') ? value.slice(0, value.indexOf('*')) : value
+  return prefix.endsWith('/') ? prefix.slice(0, -1) : prefix.slice(0, Math.max(0, prefix.lastIndexOf('/')))
+}
+function taskRelevance(title: string, project?: string): (value: string) => boolean {
+  const normalized = title.toLocaleLowerCase()
+  const words = normalized.replace(/\p{Script=Han}/gu, ' ').match(/[\p{L}\p{N}]+/gu)?.filter(word => word.length >= 2) ?? []
+  // Match subjects within Chinese titles, without treating generic actions as subjects.
+  const generic = new Set(['整理', '完成', '准备', '处理', '开始', '进行'])
+  const pairs = [...new Set((normalized.match(/\p{Script=Han}+/gu) ?? []).flatMap(run => {
+    const chars = Array.from(run)
+    return chars.slice(1).map((char, i) => chars[i] + char).filter(pair => !generic.has(pair))
+  }))]
+  return value => {
+    const text = value.toLocaleLowerCase()
+    if (project && text.includes(project.toLocaleLowerCase())) return true
+    const count = pairs.filter(pair => text.includes(pair)).length
+    const word = words.some(value => text.includes(value))
+    return pairs.length ? count >= Math.min(2, pairs.length) || (word && count > 0) : word
+  }
 }
 function dateIn(value: string): string | undefined { return /(?:^|\D)(\d{4}-\d{2}-\d{2})(?:\D|$)/.exec(value)?.[1] }
 function documentDate(path: string, content: string): string | undefined {
@@ -77,50 +98,54 @@ export async function buildKickoffContext(io: ContextIo, input: ContextInput): P
     gap('Skill data_sources could not be parsed; only the current Task was included.')
     return finish()
   }
-  const patterns = sources.filter(source => source.enabled && source.kind === 'vault').flatMap(source => source.paths).flatMap(value => {
-    const compiled = pattern(value)
-    if (!compiled) { gap(`Unsafe or unsupported data source pattern omitted: ${value}`); return [] }
-    return [{ value, compiled }]
-  })
+  const groups = sources.filter(source => source.enabled && source.kind === 'vault').map(source => ({
+    id: source.id,
+    patterns: source.paths.flatMap(value => {
+      const compiled = pattern(value)
+      if (!compiled) { gap(`Unsafe or unsupported data source pattern omitted: ${value}`); return [] }
+      return [{ value, compiled }]
+    }),
+    candidates: new Set<string>(),
+  }))
+  const patterns = groups.flatMap(group => group.patterns)
   for (const source of sources) if (!source.enabled || source.kind !== 'vault') gap(`Disabled data source omitted: ${source.id}`)
   const allowed = (path: string): boolean => safeContextPath(path) && patterns.some(p => p.compiled.test(path))
   let reads = 0
   const attempted = new Set<string>([input.taskPath])
-  const read = async (path: string): Promise<string | null> => {
+  const read = async (path: string, lifecycle = false): Promise<string | null> => {
     if (attempted.has(path)) return null
     attempted.add(path)
     if (reads >= CONTEXT_LIMITS.reads) { gap('Candidate read budget reached; remaining background omitted.'); return null }
     reads++
     try {
       const content = (await io.read(path)).content
-      if (bytes(content) > CONTEXT_LIMITS.fileBytes) { gap(`Oversized background omitted: ${path}`); return null }
+      if (bytes(content) > (lifecycle ? CONTEXT_LIMITS.ledgerBytes : CONTEXT_LIMITS.fileBytes)) {
+        gap(`Oversized ${lifecycle ? 'lifecycle ledger' : 'background'} omitted: ${path}`); return null
+      }
       return content
     } catch { gap(`Could not read background: ${path}`); return null }
   }
-  const add = (path: string, content: string, selection: string): void => {
-    if (packet.files.length >= CONTEXT_LIMITS.files) { gap('File budget reached; remaining background omitted.'); return }
+  const add = (path: string, content: string, selection: string): boolean => {
+    if (packet.files.length >= CONTEXT_LIMITS.files) { gap('File budget reached; remaining background omitted.'); return false }
     const file = { path, content, selection }
-    if (bytes(JSON.stringify({ ...packet, files: [...packet.files, file] })) > budget) { gap(`Context byte budget reached; omitted: ${path}`); return }
+    if (bytes(JSON.stringify({ ...packet, files: [...packet.files, file] })) > budget) { gap(`Context byte budget reached; omitted: ${path}`); return false }
     packet.files.push(file)
+    return true
   }
   // Following Task references requires its own enabled scope; another source cannot override it.
   const followSources = sources.some(source => source.id === 'task' && source.enabled && source.kind === 'vault'
     && source.paths.some(value => pattern(value)?.test(input.taskPath)))
   if (!followSources && task.sources?.length) gap('Direct Task sources were not authorized by an enabled Task data source; references omitted.')
+  const direct = new Set<string>()
   for (const source of followSources ? task.sources ?? [] : []) {
     if (!safeContextPath(source.resource)) { gap(`Unsafe direct source omitted: ${source.resource}`); continue }
-    const content = await read(source.resource)
-    if (content === null) continue
-    const date = documentDate(source.resource, content)
-    if (!date) gap(`Direct source date unknown: ${source.resource}`)
-    else if (date < earliest || date > input.today) gap(`Direct source outside 90-day window; retained because Task explicitly references it: ${source.resource}`)
-    add(source.resource, content, 'explicit Task source')
+    direct.add(source.resource)
   }
-  const keywords = [...new Set([task.task.project ?? '', ...task.title.split(/[^\p{L}\p{N}]+/u)].map(s => s.toLocaleLowerCase()).filter(s => s.length >= 2))]
-  const related = (value: string): boolean => keywords.some(keyword => value.toLocaleLowerCase().includes(keyword))
+  const related = taskRelevance(task.title, task.task.project)
   const completed = new Map<string, { path: string; event: unknown; date: string }>()
   if (task.task.project && allowed(NEXT_PATH)) {
-    const ledger = await read(NEXT_PATH)
+    // The full ledger is local lifecycle evidence; only selected events enter the packet.
+    const ledger = await read(NEXT_PATH, true)
     if (ledger !== null) {
       try {
         const projection = reduceEvents(parseLedger(ledger).events)
@@ -134,54 +159,103 @@ export async function buildKickoffContext(io: ContextIo, input: ContextInput): P
       } catch { gap('NEXT ledger could not be parsed; completed-task lifecycle context omitted.') }
     }
   }
-  const candidates = new Set<string>([...completed.values()].map(item => item.path))
-  const roots = [...new Set(patterns.map(({ value }) => value.includes('*') ? value.slice(0, value.indexOf('*')).replace(/\/[^/]*$/, '') : value.includes('/') ? value.slice(0, value.lastIndexOf('/')) : ''))]
-  const visited = new Set<string>()
-  let entries = 0
-  const scan = async (dir: string): Promise<void> => {
-    if (visited.has(dir)) return
-    if (visited.size >= CONTEXT_LIMITS.directories || entries >= CONTEXT_LIMITS.entries) { gap('Directory scan budget reached; background search is incomplete.'); return }
-    visited.add(dir)
-    try {
-      const listing = await io.list(dir)
-      for (const entry of listing.entries) {
-        if (++entries > CONTEXT_LIMITS.entries) { gap('Directory scan budget reached; background search is incomplete.'); break }
-        if (!safeSegments(entry.name) || entry.name.includes('/')) continue
-        const path = dir ? `${dir}/${entry.name}` : entry.name
-        if (entry.is_dir) {
-          // Only descend where a declared glob can still match, with a fixed global traversal bound.
-          if (patterns.some(({ value }) => value.startsWith(path + '/') || value.startsWith('**/') || path.startsWith(value.split('*')[0]))) await scan(path)
-        } else if (allowed(path) && path !== NEXT_PATH && !attempted.has(path)) {
-          const date = dateIn(path)
-          if (date && (date < earliest || date > input.today)) { gap('Background outside the 90-day window was omitted.'); continue }
-          candidates.add(path)
-        }
+  const completedPaths = new Set([...completed.values()].map(item => item.path))
+  const anchors = [...new Set(patterns.map(({ value }) => concreteRoot(value)).filter(Boolean))]
+  const listings = new Map<string, Awaited<ReturnType<ContextIo['list']>>>()
+  const scanGroups = groups.filter(group => group.patterns.some(p => !p.value.endsWith('-task.md') && p.value !== NEXT_PATH)).length
+  const directoryShare = Math.min(CONTEXT_LIMITS.directories, Math.max(1, Math.floor(CONTEXT_LIMITS.totalDirectories / Math.max(1, scanGroups))))
+  const entryShare = Math.min(CONTEXT_LIMITS.entries, Math.max(1, Math.floor(CONTEXT_LIMITS.totalEntries / Math.max(1, scanGroups))))
+  let totalDirectories = 0, totalEntries = 0
+  for (const group of groups) {
+    for (const path of completedPaths) if (group.patterns.some(p => p.compiled.test(path))) group.candidates.add(path)
+    // Task candidates come from verified completion paths, never a scan of all Task files.
+    const searchable = group.patterns.filter(p => !p.value.endsWith('-task.md') && p.value !== NEXT_PATH)
+    if (!searchable.length) continue
+    const canDescend = (dir: string): boolean => searchable.some(({ value }) => {
+      const root = concreteRoot(value)
+      return !root || dir === root || root.startsWith(dir + '/') || dir.startsWith(root + '/')
+    })
+    // Wide globs first visit explicitly declared roots. Breadth-first fallback cannot steal
+    // another source's directory budget; no root-level depth-first walk is performed.
+    const wide = searchable.some(p => !concreteRoot(p.value))
+    const queue = [...new Set([
+      ...searchable.map(p => concreteRoot(p.value)).filter(Boolean),
+      ...(wide ? anchors.filter(canDescend) : []),
+      ...(wide ? [''] : []),
+    ])]
+    const visited = new Set<string>()
+    let entries = 0
+    while (queue.length) {
+      if (visited.size >= directoryShare || entries >= entryShare || totalDirectories >= CONTEXT_LIMITS.totalDirectories || totalEntries >= CONTEXT_LIMITS.totalEntries) {
+        gap(`Directory scan budget reached for ${group.id}; background search is incomplete.`); break
       }
-    } catch { gap(`Could not list declared background directory: ${dir || '/'}`) }
-  }
-  for (const root of roots) await scan(root)
-  const ordered = [...candidates].sort((a, b) => Number(related(b)) - Number(related(a)) || b.localeCompare(a))
-  const selectedEvents: unknown[] = []
-  for (const path of ordered) {
-    if (attempted.has(path)) continue
-    if (reads >= CONTEXT_LIMITS.reads || packet.files.length >= CONTEXT_LIMITS.files) { gap('Background selection budget reached; remaining candidates omitted.'); break }
-    const content = await read(path)
-    if (content === null) continue
-    let selection = 'declared background; related to Task project/title'
-    let date = documentDate(path, content)
-    if (path.endsWith('-task.md')) {
+      const dir = queue.shift()!
+      if (visited.has(dir)) continue
+      visited.add(dir)
+      totalDirectories++
       try {
-        const other = parseTaskSource(path, content)
-        const done = completed.get(other.task.id)
-        if (!done || !task.task.project || other.task.project !== task.task.project) { gap('Candidate Tasks without verified completion in the same project were omitted.'); continue }
-        date = done.date
-        selection = 'same-project completed Task; lifecycle verified with NEXT ledger'
-        selectedEvents.push(done.event)
-      } catch { gap(`Invalid candidate Task omitted: ${path}`); continue }
-    } else if (!related(path + '\n' + content)) { gap('Declared background without matching Task project/title keywords was omitted.'); continue }
-    if (!date) { gap(`Background date unknown; omitted: ${path}`); continue }
-    if (date < earliest || date > input.today) { gap('Background outside the 90-day window was omitted.'); continue }
-    add(path, content, selection)
+        let listing = listings.get(dir)
+        if (!listing) { listing = await io.list(dir); listings.set(dir, listing) }
+        // Leave an entry share for each pending anchor/directory. A large Task
+        // directory must not exhaust a wide source before its thinking/diary roots.
+        const pending = new Set(queue.filter(path => !visited.has(path))).size
+        const directoryEntries = Math.max(1, Math.floor((entryShare - entries) / (pending + 1)))
+        let examined = 0
+        for (const entry of listing.entries) {
+          if (entries >= entryShare || totalEntries >= CONTEXT_LIMITS.totalEntries) { gap(`Directory scan budget reached for ${group.id}; background search is incomplete.`); break }
+          if (examined >= directoryEntries) { gap(`Directory scan budget share reached for ${group.id} at ${dir || '/'}; remaining entries omitted.`); break }
+          examined++; entries++; totalEntries++
+          if (!safeSegments(entry.name) || entry.name.includes('/')) continue
+          const path = dir ? `${dir}/${entry.name}` : entry.name
+          if (entry.is_dir) {
+            if (canDescend(path) && !visited.has(path)) queue.push(path)
+          } else if (safeContextPath(path) && group.patterns.some(p => p.compiled.test(path)) && path !== NEXT_PATH && !attempted.has(path)) {
+            if (path.endsWith('-task.md') && !completedPaths.has(path)) continue
+            const date = dateIn(path)
+            if (date && (date < earliest || date > input.today)) { gap('Background outside the 90-day window was omitted.'); continue }
+            group.candidates.add(path)
+          }
+        }
+      } catch { gap(`Could not list declared background directory: ${dir || '/'}`) }
+    }
+  }
+  const order = (paths: Set<string>): string[] => [...paths].sort((a, b) => Number(related(b)) - Number(related(a)) || (dateIn(b) ?? '').localeCompare(dateIn(a) ?? '') || b.localeCompare(a))
+  const queues = [ [...direct], ...groups.map(group => order(group.candidates)) ]
+  const selectedEvents: unknown[] = []
+  // Each source gets a turn before any source reads its next candidate. Unrelated
+  // files still need reading to test their contents, but cannot starve other sources.
+  while (queues.some(queue => queue.length)) {
+    if (reads >= CONTEXT_LIMITS.reads || packet.files.length >= CONTEXT_LIMITS.files) { gap('Background selection budget reached; remaining candidates omitted.'); break }
+    for (const queue of queues) {
+      while (queue.length && attempted.has(queue[0])) queue.shift()
+      if (!queue.length) continue
+      if (reads >= CONTEXT_LIMITS.reads || packet.files.length >= CONTEXT_LIMITS.files) break
+      const path = queue.shift()!
+      const content = await read(path)
+      if (content === null) continue
+      let date = documentDate(path, content)
+      if (direct.has(path)) {
+        if (!date) gap(`Direct source date unknown: ${path}`)
+        else if (date < earliest || date > input.today) gap(`Direct source outside 90-day window; retained because Task explicitly references it: ${path}`)
+        add(path, content, 'explicit Task source')
+        continue
+      }
+      let selection = 'declared background; related to Task project/title'
+      let doneEvent: unknown
+      if (path.endsWith('-task.md')) {
+        try {
+          const other = parseTaskSource(path, content)
+          const done = completed.get(other.task.id)
+          if (!done || done.path !== path || !task.task.project || other.task.project !== task.task.project) { gap('Candidate Tasks without verified completion in the same project were omitted.'); continue }
+          date = done.date
+          selection = 'same-project completed Task; lifecycle verified with NEXT ledger'
+          doneEvent = done.event
+        } catch { gap(`Invalid candidate Task omitted: ${path}`); continue }
+      } else if (!related(path + '\n' + content)) { gap('Declared background without matching Task project/title keywords was omitted.'); continue }
+      if (!date) { gap(`Background date unknown; omitted: ${path}`); continue }
+      if (date < earliest || date > input.today) { gap('Background outside the 90-day window was omitted.'); continue }
+      if (add(path, content, selection) && doneEvent) selectedEvents.push(doneEvent)
+    }
   }
   if (selectedEvents.length) add(NEXT_PATH, JSON.stringify({ events: selectedEvents }), 'excerpt: only selected completed-task lifecycle events; other ledger content omitted')
   if (packet.files.length === 1) gap('No related background was selected; reason only from the current Task and disclose missing evidence.')

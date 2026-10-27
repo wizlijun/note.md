@@ -130,6 +130,7 @@ fn harness_capabilities(
         input_only_isolation: true,
         strict_readonly: true,
         readonly_context: true,
+        kickoff_protocol_versions: vec![2],
         model_routing: ModelRoutingCapabilities {
             invocation_override: true,
             profiles: ModelRoutingProfiles {
@@ -544,6 +545,7 @@ impl DeepseekAgentPlugin {
         let task_dir = task::task_dir(&vault, &task_id);
         let mut def = load_task(&vault, &task_id).ok_or(format!("unknown task '{task_id}'"))?;
         def.id = task_id.clone();
+        agent_run_core::task::validate_next_kickoff_task(&def)?;
 
         // The permission gate first: a task whose policy will not parse must not
         // run, whatever else is or isn't installed.
@@ -568,7 +570,7 @@ impl DeepseekAgentPlugin {
         } else {
             None
         };
-        let composed = prompt::compose(&def.prompt, &user_prompt, ctx.as_ref());
+        let composed = prompt::compose_for_task(&def, &user_prompt, ctx.as_ref());
         let full = if def.strict_readonly || task::is_input_only_task(&task_id) {
             composed
         } else {
@@ -781,6 +783,11 @@ impl DeepseekAgentPlugin {
             let terminal_result = record::read_terminal_result(&run_dir, run_id)
                 .map_err(|error| format!("read complete terminal result: {error}"))?
                 .map(|content| json!({ "content": content, "complete": true }));
+            let capacity = rec.failure_kind.as_deref() == Some("capacity");
+            let mut rec = json!(rec);
+            if capacity {
+                rec["status"] = json!("capacity");
+            }
             return Ok(json!({
                 "state": "done",
                 "record": rec,
@@ -1199,6 +1206,7 @@ mod tests {
         assert_eq!(value["terminal_result"], true);
         assert_eq!(value["input_only_isolation"], true);
         assert_eq!(value["strict_readonly"], true);
+        assert_eq!(value["kickoff_protocol_versions"], serde_json::json!([2]));
         assert_eq!(value["readonly_context"], true);
         assert_eq!(value["model_routing"]["invocation_override"], true);
         assert_eq!(
@@ -1279,6 +1287,35 @@ mod tests {
     }
 
     #[test]
+    fn run_status_reports_capacity_without_losing_the_holder() {
+        let v = tempfile::tempdir().unwrap();
+        let p = DeepseekAgentPlugin::new();
+        p.inner.lock().unwrap().vault = Some(v.path().to_path_buf());
+        let run_dir = task::runs_root(v.path()).join(NOTE_TASK);
+        let holder = lock::LockInfo {
+            pid: std::process::id() as i32,
+            run_id: "holder".into(), started_at: "then".into(),
+        };
+        let _held = lock::acquire(&run_dir, holder.clone()).unwrap();
+        let rec = record::RunRecord {
+            run_id: "rejected".into(), task: NOTE_TASK.into(), trigger: "cli".into(),
+            started_at: "now".into(), ended_at: "now".into(),
+            status: record::Status::Error, failure_kind: None,
+            exit_code: None, num_turns: None, session_id: None,
+            result: String::new(), stderr_tail: String::new(), artifacts: Vec::new(),
+            harness: Some(SELF_PLUGIN_ID.into()), usage: None,
+        };
+        record::write_capacity_rejection(&run_dir, rec, &holder).unwrap();
+        let rejected = p.run_status(&json!({ "task": NOTE_TASK, "run_id": "rejected" })).unwrap();
+        assert_eq!(rejected["state"], "done");
+        assert_eq!(rejected["record"]["status"], "capacity");
+        assert_eq!(rejected["record"]["failure_kind"], "capacity");
+        assert!(rejected["record"]["result"].as_str().unwrap().contains("holder"));
+        assert_eq!(record::find(&run_dir, "rejected").unwrap().status, record::Status::Error);
+        assert_eq!(p.run_status(&json!({ "task": NOTE_TASK, "run_id": "holder" })).unwrap()["state"], "running");
+    }
+
+    #[test]
     fn run_status_reports_running_then_done() {
         let v = tempfile::tempdir().unwrap();
         let p = DeepseekAgentPlugin::new();
@@ -1315,6 +1352,7 @@ mod tests {
         record::write(
             &run_dir,
             &record::RunRecord {
+                failure_kind: None,
                 run_id: "R1".into(),
                 task: NOTE_TASK.into(),
                 trigger: "note".into(),
@@ -1468,6 +1506,7 @@ mod tests {
             expect_file: Some(f.to_string_lossy().to_string()),
         };
         let rec = |s| record::RunRecord {
+            failure_kind: None,
             run_id: "R1".into(),
             task: "t".into(),
             trigger: "relay".into(),
@@ -1521,6 +1560,7 @@ mod tests {
     #[test]
     fn tip_mode_always_has_a_completion_message_and_result_mode_stays_silent() {
         let mut rec = record::RunRecord {
+            failure_kind: None,
             run_id: "R1".into(),
             task: "t".into(),
             trigger: "window".into(),

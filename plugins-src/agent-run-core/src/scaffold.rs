@@ -70,7 +70,14 @@ pub async fn preflight(meta: &RunMeta) -> Result<Started, Blocked> {
             started_at: started.to_rfc3339(),
         },
     )
-    .map_err(|b| Blocked::Busy(b.0))?;
+    .map_err(|busy| {
+        let rec = build_record(meta, started, record::Status::Error, None, None,
+            String::new(), String::new(), Vec::new());
+        if let Err(error) = record::write_capacity_rejection(&meta.task_run_dir, rec, &busy.0) {
+            eprintln!("[agent-run-core] persist capacity rejection: {error}");
+        }
+        Blocked::Busy(busy.0)
+    })?;
 
     if let precheck::Outcome::Skip(reason) = precheck::run(
         &meta.task_dir,
@@ -287,6 +294,7 @@ fn build_record(
     };
     let usage = result.as_ref().and_then(|r| r.usage.clone());
     record::RunRecord {
+        failure_kind: None,
         run_id: meta.run_id.clone(),
         task: meta.task.id.clone(),
         trigger: meta.trigger.clone(),
@@ -443,6 +451,28 @@ mod tests {
             Err(Blocked::Busy(who)) => assert_eq!(who.run_id, m.run_id),
             _ => panic!("the second preflight must be refused as busy"),
         }
+    }
+
+    #[tokio::test]
+    async fn lock_conflict_persists_request_failure_without_touching_holder() {
+        let dir = tempfile::tempdir().unwrap();
+        let holder = meta(dir.path());
+        let _started = preflight(&holder).await.ok().expect("first must start");
+        let mut progress = ProgressTracker::start(&holder.task_run_dir, &holder.run_id, chrono::Utc::now());
+        progress.step("working", "working");
+        let mut rejected = meta(dir.path());
+        rejected.run_id = "rejected-run".into();
+        assert!(matches!(preflight(&rejected).await, Err(Blocked::Busy(_))));
+        let record = record::find(&holder.task_run_dir, &rejected.run_id)
+            .expect("a rejected request must have its own terminal record");
+        let value = serde_json::to_value(record).unwrap();
+        assert_eq!(value["status"], "error");
+        assert_eq!(value["failure_kind"], "capacity");
+        assert!(value["result"].as_str().unwrap().contains(&holder.run_id));
+        assert!(!value["ended_at"].as_str().unwrap().is_empty());
+        assert_eq!(lock::current(&holder.task_run_dir).unwrap().run_id, holder.run_id);
+        assert_eq!(record::read_progress_for(&holder.task_run_dir, &holder.run_id).unwrap().steps, 1);
+        assert!(record::find(&holder.task_run_dir, &holder.run_id).is_none());
     }
 
     #[tokio::test]

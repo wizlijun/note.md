@@ -44,6 +44,8 @@ export interface AgentHarnessCapabilities {
   strict_readonly?: boolean
   /** Verified frozen-context execution with no runtime tools or extensions. */
   readonly_context?: boolean
+  /** Frozen kickoff protocol versions consumed without rereading task instructions. */
+  kickoff_protocol_versions?: number[]
   tasks: string[]
   search_plan_schemas: number[]
   terminal_result: boolean

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { TEMPLATE_FILES, SKILL_FILES, parseDataSources, seedFiles, needsConsent } from './template'
 
-const base = '.notemd/agent-tasks/next-task-kickoff'
+const base = '.notemd/agent-tasks/next-task-kickoff-v2'
 describe('kickoff templates', () => {
   it('uses identical instructions and strict read-only configuration', () => {
     expect(TEMPLATE_FILES[`${base}/CLAUDE.md`]).toBe(TEMPLATE_FILES[`${base}/AGENTS.md`])
-    expect(TEMPLATE_FILES[`${base}/CLAUDE.md`]).toMatch(/^<!-- next-task-kickoff template v1 -->/)
+    expect(TEMPLATE_FILES[`${base}/CLAUDE.md`]).toMatch(/^<!-- next-task-kickoff template v2 -->/)
     for (const text of ['next-kickoff/v1', '只读', '不写', '30 分钟', '90 天']) expect(TEMPLATE_FILES[`${base}/CLAUDE.md`] + SKILL_FILES['skills/task-kickoff/SKILL.md']).toContain(text)
     expect(JSON.parse(TEMPLATE_FILES[`${base}/task.json`])).toMatchObject({ strict_readonly: true, max_turns: 40, timeout_seconds: 600 })
     for (const name of ['settings.json', 'settings.scoped.json']) expect(JSON.parse(TEMPLATE_FILES[`${base}/.claude/${name}`]).permissions.deny).toEqual(expect.arrayContaining(['Write', 'Edit', 'Bash', 'WebFetch', 'WebSearch', 'mcp__*']))
@@ -16,7 +16,9 @@ describe('kickoff templates', () => {
     expect(instructions).toContain('{id,resource,title,locator}')
     expect(instructions).toContain('title、locator 必填，均为可空字符串')
     expect(instructions).not.toContain('title?')
-    expect(SKILL_FILES['skills/task-kickoff/SKILL.md']).toContain('{id,resource,title,locator}')
+    expect(SKILL_FILES['skills/task-kickoff/SKILL.md']).not.toContain('{id,resource,title,locator}')
+    expect(instructions).not.toContain('先读 `${VAULT}')
+    expect(instructions).not.toContain('只读 `${VAULT}')
   })
   it('seeds only missing files and consent depends on skill existence', async () => {
     const files = new Map<string, string>([['existing', 'user edited']])

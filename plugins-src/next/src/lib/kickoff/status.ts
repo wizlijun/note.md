@@ -56,7 +56,7 @@ export function interpretKickoffStatus(raw: unknown): KickoffRunView {
       }
     }
   }
-  const kind = r.state === 'done' && ['skipped', 'error', 'timeout', 'cancelled'].includes(String(record.status)) ? String(record.status) : 'lost'
+  const kind = r.state === 'done' && ['skipped', 'error', 'timeout', 'cancelled', 'capacity'].includes(String(record.status)) ? String(record.status) : 'lost'
   return {
     state: 'failed',
     failure: {

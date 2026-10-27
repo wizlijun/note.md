@@ -15,6 +15,7 @@
 //! | `STUB_NO_ALLOW` | offer only a reject-shaped option |
 //! | `STUB_BAD_VERSION` | answer `initialize` with a protocolVersion we do not speak |
 //! | `STUB_NO_SESSION_ID` | answer `session/new` without a session id |
+//! | `STUB_PROMPT_FILE` | capture the session/prompt params for transport assertions |
 //! | `STUB_PROMPT_ERROR` | answer `session/prompt` with a JSON-RPC error |
 //! | `STUB_ECHO_CWD` | stream the process cwd and the announced session cwd instead of the text |
 //! | `STUB_ECHO_ENV` | stream the named variable's value instead of the text |
@@ -136,6 +137,9 @@ fn main() {
                 }
             }
             "session/prompt" => {
+                if let Some(path) = env("STUB_PROMPT_FILE") {
+                    std::fs::write(path, serde_json::to_string(&params).unwrap()).unwrap();
+                }
                 if flag("STUB_PROMPT_ERROR") {
                     send(serde_json::json!({
                         "jsonrpc": "2.0", "id": id,

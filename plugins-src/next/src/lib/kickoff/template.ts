@@ -1,6 +1,7 @@
 import { parse } from 'yaml'
 import { CONCEPT_TYPE, conceptFileText } from '../../../../../src/lib/okf/concept'
-export const TASK_ID = 'next-task-kickoff'
+export const LEGACY_TASK_ID = 'next-task-kickoff'
+export const TASK_ID = 'next-task-kickoff-v2'
 const BASE = `.notemd/agent-tasks/${TASK_ID}`
 const SKILL_PATH = 'skills/task-kickoff/SKILL.md'
 // Line arrays preserve Markdown fences and literal harness placeholders.
@@ -12,15 +13,15 @@ const PROTOCOL = [
   'options 必须 2–4 项；每项为 {id,label,recommended,why,source_ids}。本题内 id 唯一且匹配 ^[a-d]$；label 非空、最多 120 字符；why 字符串最多 300 字符，缺省空字符串；recommended 布尔值，缺省 false，每题最多一个 true，推荐必须说明 why；source_ids 为来源 id 字符串数组。',
   'context 最多 8 项，每项 {claim,kind,source_ids}；claim 非空、最多 300 字符；kind 仅为 fact 或 inference。fact 必须有来源，inference 明示推断；source_ids 为来源 id 数组。',
   'suggestions 为 {commitment?,next_action,close_condition,blockers,waiting_for}；next_action、close_condition 必填非空、各最多 200 字符；commitment 可选、最多 120 字符。blockers、waiting_for、顶层 gaps 均为字符串数组，各最多 5 条，单条最多 200 字符。',
-  'sources 最多 12 项，每项 {id,resource,title,locator}；id 唯一且匹配 ^s\\d{1,2}$；resource 必须是存在的 Vault 相对路径，不以 / 开头，不含 .. 段或 NUL；title、locator 必填，均为可空字符串，用 locator 定位章节或原文。所有 source_ids 必须引用存在的来源。',
+  'sources 最多 12 项，每项 {id,resource,title,locator}；id 唯一且匹配 ^s\\d{1,2}$；resource 必须是本次 context packet 实际包含文件的 Vault 相对路径，不以 / 开头，不含 .. 段或 NUL；title、locator 必填，均为可空字符串，用 locator 定位章节或原文。所有 source_ids 必须引用存在的来源。',
   '未知键会被删除；非法来源及其引用会被删除；失去全部来源的 fact 会降为 inference 并标记 unverified，不得靠修正掩盖无证据判断。',
 ].join('\n')
 const INSTRUCTIONS = [
-  '<!-- next-task-kickoff template v1 -->',
+  '<!-- next-task-kickoff template v2 -->',
   '# 帮我开个头',
-  '以 headless 模式运行，只读 `${VAULT}`；不写、不改、不删任何文件，不调用网络，不执行命令，不调用任何 MCP 工具。',
-  '先读 `${VAULT}/skills/task-kickoff/SKILL.md`，按其数据源和判断方法工作。仅使用 kind: vault 数据源，忽略其他类型。规程不存在时只读 Task 与它 sources 中的文件；无法解析时仅读取 Task。',
-  '读取调用参数 task_path 的 Task，最终 JSON 复述 task_id 与 based_on，不重新计算或改写。today 为调用给定的用户本地 YYYY-MM-DD，不用机器日期替代。',
+  '以 headless 无工具模式运行，只处理 NEXT 已冻结并经用户确认发送的背景快照；不读取、不写入任何文件，不调用网络、命令或 MCP。',
+  '数据源筛选已由 NEXT 在本地完成。prompt 内的 Skill 仅提供判断方法；其中历史检索指示描述本地收集过程，不授权模型打开文件。唯一执行与输出协议为此 AGENTS.md v2，不采用 Skill 内的旧输出协议。',
+  '从 context packet 取得调用参数 task_path 的 Task，最终 JSON 复述 task_id 与 based_on，不重新计算或改写。today 为调用给定的用户本地 YYYY-MM-DD，不用机器日期替代。',
   '背景足够时仍输出 1 个问题，让用户从 2–3 个足够小的第一步中选择，decides: next_action；缺目标、范围、交付对象则问缺失部分；涉及他人只问用户意向，不替用户指派。',
   '每题能用选项回答；最多一个推荐项并给 why；不问 Vault 已有答案的事，不问不影响下一步决定的事。',
   'suggestions.next_action 以动词开头，是 30 分钟内能开始的具体动作，不能是「研究一下」「想想」。',
@@ -37,13 +38,13 @@ const sources = [
 ]
 const body = [
   '# 帮我开个头', '## 判断方法',
-  '1. 先读当前 Task 的目标、project、sources 与泳道；再按 task.project 和标题中的具体对象、交付物关键词在声明的 vault 路径检索。先读直接 sources，再读相关批注、同项目已完成任务和完成笔记、日记与决策记录；不遍历无关资料，不读 Vault 外文件。',
+  '1. NEXT 在本地按声明的数据源收集当前 Task、直接 sources、相关批注、同项目已完成任务、日记与决策记录。模型仅分析已确认发送的 context packet，不自行检索或读取其他文件；使用其中的目标、project、sources 与泳道判断下一步。',
   '2. 默认时间窗口为调用 today（用户本地 YYYY-MM-DD）往前 90 天至 today，含首尾；直接 sources 无日期可读但标明日期未知。必要的更早记录须说明为何仍适用，不拿机器日期替代 today。',
   '3. 优先采信 ● 批注中的本人判断；AI 摘要不等于本人决定。区分事实和推断，保留来源路径与定位。同一事实以最新明确记录为准；没有明确取代关系的冲突两条都列出，标为待你判断，不擅自合并。找不到证据写入 gaps。',
   '4. 判断真正阻碍是目标、范围、交付对象、承诺、负责人意向还是第一步。排除已有答案及不影响行动的问题；背景充分时仍给一道第一步选择题。涉及他人只问用户意向，不指派他人。',
   '5. 提出 1–3 道选项可回答的问题，最多一个推荐项并说明 why；动作以动词开头、30 分钟内能开始，配可核对的 close_condition。证据不足时降低断言强度，不扩大范围。',
   '6. 只读、不写文件、不调用网络、命令或 MCP；仅用 kind: vault。max_turns: 40、timeout_seconds: 600（10 分钟），预算内用已有证据收束并披露 gaps。',
-  PROTOCOL, '',
+  '',
 ].join('\n')
 const settings = (scoped: boolean) => JSON.stringify({
   permissions: {
@@ -55,7 +56,8 @@ export const TEMPLATE_FILES: Record<string, string> = {
   [`${BASE}/task.json`]: JSON.stringify({
     name: 'NEXT kickoff',
     description: '为不知从何开始的任务整理背景并提出问题。只读，不写文件。',
-    prompt: '按 CLAUDE.md / AGENTS.md 协议，为给定 Task 产出 next-kickoff/v1 JSON 最终消息。只读 vault，不写任何文件。',
+    prompt: '仅按本任务 AGENTS.md v2 协议和已确认的 context packet 产出 next-kickoff/v1 JSON；禁止访问文件或工具。',
+    protocol_version: 2,
     max_turns: 40,
     timeout_seconds: 600,
     strict_readonly: true,

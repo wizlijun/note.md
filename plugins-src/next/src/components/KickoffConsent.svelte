@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import type { KickoffPreview } from '../lib/kickoff/client'
   import { t } from '../lib/strings'
 
-  let { onConfirm, onCancel, returnFocus }: { onConfirm(): void; onCancel(): void; returnFocus?: HTMLElement | null } = $props()
+  let { preview, error = '', onConfirm, onCancel, onChoose, returnFocus }: { preview: KickoffPreview; error?: string; onConfirm(): void; onCancel(): void; onChoose(): void; returnFocus?: HTMLElement | null } = $props()
   let dialog: HTMLDivElement
 
   onMount(() => {
@@ -30,7 +31,19 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="kickoff-consent-title" tabindex="-1" bind:this={dialog}>
     <h2 id="kickoff-consent-title">{t('kickoff.consentTitle')}</h2>
     <p>{t('kickoff.consentBody')}</p>
+    <p data-recipient><strong>{t('kickoff.recipient', { agent: preview.providerName, recipient: preview.recipient })}</strong></p>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    <div class="preview">
+      <h3>{t('kickoff.sendFiles', { count: preview.files.length, bytes: preview.bytes })}</h3>
+      <ul class="files">{#each preview.files as file}<li><span>{file.path}</span><small>{file.bytes} B</small></li>{/each}</ul>
+      <p>{t('kickoff.sendProcedure')}</p>
+      <h3>{t('kickoff.dataSources')}</h3>
+      <ul>{#each preview.dataSources as source}<li>{source.label}{#if !source.enabled} · {t('kickoff.sourceDisabled')}{/if}</li>{/each}</ul>
+      {#if preview.gaps.length}<h3>{t('kickoff.gaps')}</h3><ul>{#each preview.gaps as gap}<li>{gap}</li>{/each}</ul>{/if}
+    </div>
+    {#if preview.needsConsent}<p>{t('kickoff.consentSetup')}</p>{/if}
     <footer>
+      <button type="button" data-consent-choose onclick={onChoose}>{t('kickoff.choose')}</button>
       <button type="button" data-consent-cancel onclick={onCancel}>{t('common.cancel')}</button>
       <button type="button" class="primary" data-consent-confirm onclick={onConfirm}>{t('kickoff.consentStart')}</button>
     </footer>
@@ -39,10 +52,17 @@
 
 <style>
   .scrim { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; padding: 20px; background: #0005; }
-  .sheet { width: min(480px, 100%); padding: 24px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 18px; background: var(--sheet); color: var(--fg); box-shadow: 0 24px 80px #0004; }
+  .sheet { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 24px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 18px; background: var(--sheet); color: var(--fg); box-shadow: 0 24px 80px #0004; }
   h2 { margin: 0; font-size: 19px; }
   p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; color: var(--muted-strong); }
-  footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+  h3 { margin: 16px 0 8px; font-size: 13px; }
+  .preview { max-height: 42vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px 12px; font-size: 12px; overflow-wrap: anywhere; }
+  ul { padding-left: 20px; margin: 0; line-height: 1.7; }
+  .files { list-style: none; padding: 0; }
+  .files li { display: flex; justify-content: space-between; gap: 12px; }
+  small { flex: none; color: var(--muted-strong); }
+  .error { color: var(--ui-danger, #b42318); }
+  footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
   button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--fg); font: inherit; cursor: pointer; }
   .primary { background: var(--accent); border-color: var(--accent); color: white; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

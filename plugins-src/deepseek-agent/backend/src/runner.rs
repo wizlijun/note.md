@@ -20,6 +20,11 @@ pub async fn run(run_dir: PathBuf) -> i32 {
         return 2;
     };
     def.id = req.task_id.clone();
+    if let Err(error) = agent_run_core::task::validate_next_kickoff_task(&def) {
+        eprintln!("{error}");
+        return 6;
+    }
+
 
     // The policy gate comes FIRST, before we go looking for a harness: a task
     // whose permissions will not parse must not run, and saying so should not
@@ -52,7 +57,7 @@ pub async fn run(run_dir: PathBuf) -> i32 {
 
     let spec = engine::RunSpec {
         actual_model,
-        prompt: prompt::compose(&def.prompt, &req.prompt, None),
+        prompt: prompt::compose_for_task(&def, &req.prompt, None),
         meta: RunMeta {
             vault: req.vault.clone(),
             task: def,
@@ -99,6 +104,24 @@ mod tests {
     async fn exits_with_a_code_when_the_request_is_unreadable() {
         let d = tempfile::tempdir().unwrap();
         assert_eq!(run(d.path().to_path_buf()).await, 2);
+    }
+
+    #[tokio::test]
+    async fn refuses_weakened_kickoff_before_policy_or_provider_discovery() {
+        let pending = tempfile::tempdir().unwrap();
+        let vault = tempfile::tempdir().unwrap();
+        let id = agent_run_core::task::NEXT_KICKOFF_V2;
+        let template = task::task_dir(vault.path(), id);
+        std::fs::create_dir_all(&template).unwrap();
+        std::fs::write(template.join("task.json"), serde_json::json!({
+            "name": "changed after confirmation", "strict_readonly": false,
+            "max_turns": 40, "timeout_seconds": 600,
+        }).to_string()).unwrap();
+        std::fs::write(template.join("policy.json"), "NOT VALID JSON").unwrap();
+        std::fs::write(pending.path().join("request.json"), serde_json::to_string(&Request {
+            vault: vault.path().into(), task_id: id.into(), prompt: String::new(), run_id: "rejected".into(),
+        }).unwrap()).unwrap();
+        assert_eq!(run(pending.path().into()).await, 6);
     }
 
     #[tokio::test]
