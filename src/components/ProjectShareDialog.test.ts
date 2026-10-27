@@ -616,7 +616,7 @@ it('locks parent close and project selection throughout Git confirmation without
     if (op === 'branch-state') return null as any
     if (op === 'probe') return { git: true, team: true, prefix: '', target: 'branch', remote: 'upstream' } as any
     if (op === 'prepare') {
-      const saved = vi.mocked(projectCommand).mock.calls.findLast(([op]) => op === 'review-save')?.[1] as any
+      const saved = vi.mocked(projectCommand).mock.calls.slice().reverse().find(([op]) => op === 'review-save')?.[1] as any
       return { head: 'H', entry: 'main.md', commitMessage: 'trusted', feedback: { ...feedback, review: { 'main.md': saved.draft } }, files: [{ path: 'main.md', base: 'base', current: h.current, after: 'visitor' }] } as any
     }
     throw new Error(op)

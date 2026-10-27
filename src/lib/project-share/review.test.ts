@@ -174,7 +174,7 @@ it('does not lose a decision made during saving and cannot resurrect a draft aft
   h.session.decide(id, { kind: 'theirs-only', choice: 'reject' }); gate.resolve(h.f); await saving
   expect(h.calls.at(-1)?.args.draft.hunks[id].choice).toBe('reject')
   h.session.acceptAll(); await h.session.writeFile(); await h.session.flush()
-  expect(h.calls.findLastIndex(c => c.op === 'review-save')).toBeLessThan(h.calls.findIndex(c => c.op === 'apply'))
+  expect(h.calls.map(c => c.op).lastIndexOf('review-save')).toBeLessThan(h.calls.findIndex(c => c.op === 'apply'))
   await h.session.destroy()
 })
 
@@ -298,7 +298,7 @@ it('flushes decisions before opening a new file and keeps pending counts in the 
   await h.session.open(h.f, 'a.md'); h.session.acceptAll()
   const next = feedback('next'); h.setFeedback(next)
   await h.session.open(next, 'a.md')
-  expect(h.calls.findIndex(c => c.op === 'review-save')).toBeLessThan(h.calls.findLastIndex(c => c.op === 'review'))
+  expect(h.calls.findIndex(c => c.op === 'review-save')).toBeLessThan(h.calls.map(c => c.op).lastIndexOf('review'))
   h.setFeedback(h.f); await h.session.open(h.f, 'a.md'); await h.session.writeFile()
   expect(h.deps.confirmWrite).toHaveBeenLastCalledWith({ path: 'a.md', current: '甲。乙。丙。', result: '甲。乙。丙。', pendingTheirs: 1, pendingAnnotations: 1 })
   await h.session.destroy()
