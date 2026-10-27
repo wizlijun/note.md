@@ -133,7 +133,8 @@ fn harness_capabilities(
         search_plan_schemas: vec![1],
         terminal_result: true,
         input_only_isolation: true,
-        strict_readonly: false,
+        strict_readonly: true,
+        readonly_context: true,
         model_routing: agent_run_core::ModelRoutingCapabilities {
             invocation_override: true,
             profiles: agent_run_core::ModelRoutingProfiles {
@@ -596,13 +597,13 @@ impl CodexAgentPlugin {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(str::to_string);
-        let ctx = if use_ctx && !task::is_input_only_task(&task_id) {
+        let ctx = if use_ctx && !def.strict_readonly && !task::is_input_only_task(&task_id) {
             self.tab_ctx()
         } else {
             None
         };
         let composed = prompt::compose(&def.prompt, &user_prompt, ctx.as_ref());
-        let mut full = if task::is_input_only_task(&task_id) {
+        let mut full = if def.strict_readonly || task::is_input_only_task(&task_id) {
             composed
         } else {
             // Source-document context is useful for document tasks, but would
@@ -613,7 +614,7 @@ impl CodexAgentPlugin {
                 .map(|t| agent_run_core::Scope::for_note(&vault, Path::new(t), &metas));
             prompt::with_source_context(&composed, &vault, scope.as_ref())
         };
-        let codex_rules = task::codex_instructions(&task_dir);
+        let codex_rules = if def.strict_readonly { String::new() } else { task::codex_instructions(&task_dir) };
         if !codex_rules.trim().is_empty() {
             full.push_str("\n\n## 本任务的 Codex 专属约定\n");
             full.push_str(codex_rules.trim());
@@ -1506,7 +1507,8 @@ mod tests {
         assert_eq!(capabilities.search_plan_schemas, vec![1]);
         assert!(capabilities.terminal_result);
         assert!(capabilities.input_only_isolation);
-        assert_eq!(capabilities.strict_readonly, false);
+        assert_eq!(capabilities.strict_readonly, true);
+        assert!(capabilities.readonly_context);
         assert!(capabilities.model_routing.invocation_override);
         assert_eq!(
             capabilities.model_routing.profiles.fast.model.as_deref(),

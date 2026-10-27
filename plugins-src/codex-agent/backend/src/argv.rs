@@ -56,6 +56,29 @@ pub fn build_input_only(model: Option<&str>, workspace: &Path) -> Vec<String> {
     out
 }
 
+/// A strict task receives a frozen context packet, not access to the Vault.
+/// Disable extension discovery and the code-mode execution host as well as
+/// shell tools: remote models may still advertise code-mode tool schemas, but
+/// the CLI must reject their execution locally.
+pub fn build_strict_readonly(model: Option<&str>, workspace: &Path) -> Vec<String> {
+    let mut out = build_input_only(model, workspace);
+    let stdin_marker = out.pop().expect("input-only argv ends in stdin marker");
+    for feature in [
+        "apps", "plugins", "hooks", "multi_agent", "multi_agent_v2",
+        "code_mode_host", "code_mode", "skill_search", "tool_suggest",
+        "sleep_tool", "goals", "browser_use", "computer_use", "image_generation",
+        "workspace_dependencies", "shell_snapshot",
+    ] {
+        out.extend(["--disable".into(), feature.into()]);
+    }
+    out.extend([
+        "--enable".into(), "skip_host_skill_discovery".into(),
+        "-c".into(), "project_doc_max_bytes=0".into(),
+    ]);
+    out.push(stdin_marker);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,6 +138,19 @@ mod tests {
         assert!(got.iter().any(|arg| arg == "--ignore-rules"));
         assert!(got.iter().any(|arg| arg == "--strict-config"));
         assert!(!got.iter().any(|arg| arg == "tools.view_image=false"));
+        assert_eq!(got.last().map(String::as_str), Some("-"));
+    }
+
+    #[test]
+    fn strict_readonly_disables_extensions_and_code_mode_execution() {
+        let got = build_strict_readonly(Some("gpt-test"), Path::new("/isolated"));
+        for feature in ["shell_tool", "unified_exec", "view_image", "apps", "plugins",
+            "hooks", "multi_agent", "code_mode_host", "browser_use", "computer_use",
+            "image_generation", "workspace_dependencies"] {
+            assert!(got.windows(2).any(|w| w == ["--disable", feature]), "{feature}");
+        }
+        assert!(got.windows(2).any(|w| w == ["-c", "project_doc_max_bytes=0"]));
+        assert!(got.windows(2).any(|w| w == ["--enable", "skip_host_skill_discovery"]));
         assert_eq!(got.last().map(String::as_str), Some("-"));
     }
 }

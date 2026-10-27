@@ -30,6 +30,26 @@ pub fn write_input_only_config(path: &Path, model: &str) -> std::io::Result<()> 
     write_body_with_model(DEFAULT_CONFIG, path, model)
 }
 
+/// Strict packet execution uses an allowlist, never an overlay over dsh-base.
+/// Keep the adapter fixed to the official endpoint; the only user state read
+/// is the existing credential store, inaccessible to the model.
+pub fn write_strict_config(path: &Path, model: &str, credential_home: &Path) -> std::io::Result<()> {
+    use serde_json::json;
+    let mut rows = Vec::new();
+    for name in ["timer", "llm", "session", "agent", "tools", "system-prompt", "agent-loop", "credentials-local", "llm-deepseek", "acp"] {
+        let package = if name == "timer" { "cordis-plugin-timer".to_string() } else { format!("dsh-{name}") };
+        let mut row = json!({"id": name, "name": format!("@deepseek-ai/{package}")});
+        match name {
+            "credentials-local" => row["config"] = json!({"dshHome": credential_home, "watch": false}),
+            "llm-deepseek" => row["config"] = json!({"baseURL": "https://api.deepseek.com"}),
+            "acp" => row["config"] = json!({"provider": "deepseek-official", "model": model}),
+            _ => {},
+        }
+        rows.push(row);
+    }
+    std::fs::write(path, serde_json::to_vec_pretty(&json!([{"insert": rows}]))?)
+}
+
 /// Copy one composition into a per-run overlay and make its ACP model explicit.
 ///
 /// A task/invocation model is a property of this run, not of the shared Vault

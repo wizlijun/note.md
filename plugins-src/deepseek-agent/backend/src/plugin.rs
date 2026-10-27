@@ -128,7 +128,8 @@ fn harness_capabilities(
         search_plan_schemas: vec![1],
         terminal_result: true,
         input_only_isolation: true,
-        strict_readonly: false,
+        strict_readonly: true,
+        readonly_context: true,
         model_routing: ModelRoutingCapabilities {
             invocation_override: true,
             profiles: ModelRoutingProfiles {
@@ -562,13 +563,13 @@ impl DeepseekAgentPlugin {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(str::to_string);
-        let ctx = if use_ctx && !task::is_input_only_task(&task_id) {
+        let ctx = if use_ctx && !def.strict_readonly && !task::is_input_only_task(&task_id) {
             self.tab_ctx()
         } else {
             None
         };
         let composed = prompt::compose(&def.prompt, &user_prompt, ctx.as_ref());
-        let full = if task::is_input_only_task(&task_id) {
+        let full = if def.strict_readonly || task::is_input_only_task(&task_id) {
             composed
         } else {
             // Source-document context is useful for document tasks, but would
@@ -1197,7 +1198,8 @@ mod tests {
         assert_eq!(value["search_plan_schemas"], json!([1]));
         assert_eq!(value["terminal_result"], true);
         assert_eq!(value["input_only_isolation"], true);
-        assert_eq!(value["strict_readonly"], false);
+        assert_eq!(value["strict_readonly"], true);
+        assert_eq!(value["readonly_context"], true);
         assert_eq!(value["model_routing"]["invocation_override"], true);
         assert_eq!(
             value["model_routing"]["profiles"]["fast"]["model"],

@@ -1,17 +1,19 @@
+import { editableFrontmatter } from '../frontmatter-document'
 import type { AgentOption, AgentProviders } from '../agent-picker/types'
 import type { AgentLimits, AgentRunParams, VaultInfo } from '../bridge'
 import type { WorkspaceItem } from '../repository'
 import { parseTaskSource } from '../task-source'
 import { kickoffEligible } from './button-state'
+import { buildKickoffContext, kickoffContextPrompt } from './context'
 import { buildKickoffDocument, carryPriorAnswers, kickoffPathFor, parseKickoffDocument, withAnswers, type KickoffAnswer, type KickoffDoc } from './document'
 import { sha256 } from './hash'
 import { parsePayload } from './payload'
-import { REGISTRY_PATH, clearRun, markFailed, markRead as readRegistry, markRunning, markUnread, parseRegistry, serializeRegistry, type Registry, type KickoffRun } from './registry'
+import { REGISTRY_PATH, clearRun, markFailed, markRead as readRegistry, markRunning, markUnread, parseRegistry, serializeRegistry, type Registry, type KickoffRun, type KickoffFailure } from './registry'
 import { interpretKickoffStatus, type KickoffRunView } from './status'
 import { needsConsent, parseDataSources, seedFiles, SKILL_FILES, TASK_ID, TEMPLATE_FILES, type DataSource } from './template'
 
 const SKILL_PATH = 'skills/task-kickoff/SKILL.md'
-export const KICKOFF_SAFETY_REASON = 'kickoff-safety-unverified'
+export const KICKOFF_SAFETY_REASON = 'kickoff-provider-update-required'
 
 export interface KickoffIo {
   exists(path: string): Promise<{ exists: boolean }>
@@ -56,7 +58,7 @@ export interface KickoffPreflight {
   taskPath: string
   title: string
   basedOn: string
-  lane: 'inbox' | 'waiting' | 'dormant'
+  lane: 'inbox' | 'wip' | 'waiting' | 'dormant'
   providerId: string
   vaultRoot: string
 }
@@ -101,6 +103,9 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     dataSources: [],
     needsConsent: true,
   }
+  const taskPaths = new Map<string, string>()
+  let discoveryFailures: Record<string, KickoffFailure> = {}
+  const taskFailures: Record<string, KickoffFailure> = {}
   const pendingRuns: Record<string, Extract<KickoffRun, { state: 'running' }>> = {}
   let queue: Promise<unknown> = Promise.resolve()
   const snapshot = (): KickoffSnapshot => JSON.parse(JSON.stringify(state)) as KickoffSnapshot
@@ -133,17 +138,49 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
   }
   const discover = async (): Promise<void> => {
     const found: Record<string, KickoffResult> = {}
+    const failures: Record<string, KickoffFailure> = { ...taskFailures }
+    const owners = new Map<string, string>()
+    for (const [id, taskPath] of taskPaths) owners.set(kickoffPathFor(taskPath), id)
+    for (const [id, run] of Object.entries(state.registry.runs)) {
+      try { owners.set(kickoffPathFor(run.task_path), id) } catch { /* Invalid old registry path cannot own a result. */ }
+    }
+    for (const [id, result] of Object.entries(state.results)) owners.set(result.path, id)
+    const conflict = (id: string | undefined, detail: string, kind = 'conflict'): void => {
+      if (id) failures[id] = { kind, message: detail, at: now() }
+    }
     if ((await io.exists('inbox/tasks')).exists) {
       for (const entry of (await io.list('inbox/tasks')).entries) {
         if (entry.is_dir || !/^[^/\\\0]+\.kickoff\.md$/.test(entry.name) || entry.name === '..') continue
         const path = `inbox/tasks/${entry.name}`
-        const doc = parseKickoffDocument((await io.read(path)).content)
-        if (!doc) throw new KickoffClientError('conflict', `开头结果无法解析，已保留原文件：${path}`)
+        let raw: string
+        try { raw = (await io.read(path)).content } catch (error) {
+          conflict(owners.get(path), `开头结果无法读取，已保留原文件：${path} · ${message(error)}`, 'io-error')
+          continue
+        }
+        const doc = parseKickoffDocument(raw)
+        if (!doc) {
+          // Read identity only to attribute an error; never treat partial data as a result.
+          let id = owners.get(path)
+          try {
+            const declared = editableFrontmatter(raw, false).document.getIn(['kickoff', 'task_id'])
+            if (typeof declared === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(declared)) id ??= declared
+          } catch { /* Unidentifiable files are preserved without disabling unrelated Tasks. */ }
+          conflict(id, `开头结果无法解析，已保留原文件：${path}`)
+          continue
+        }
         const id = doc.kickoff.task_id
-        if (found[id]) throw new KickoffClientError('conflict', `同一个 Task 有多份开头结果：${id}`)
-        found[id] = { path, doc }
+        if (found[id]) conflict(id, `同一个 Task 有多份开头结果，已保留原文件：${found[id].path}、${path}`)
+        else found[id] = { path, doc }
       }
     }
+    for (const id of Object.keys(discoveryFailures)) {
+      if (state.statuses[id]?.state === 'failed' && state.registry.runs[id]?.state !== 'failed') delete state.statuses[id]
+    }
+    for (const [id, failure] of Object.entries(failures)) {
+      delete found[id]
+      state.statuses[id] = { state: 'failed', failure }
+    }
+    discoveryFailures = failures
     state.results = found
   }
   const providers = async (): Promise<void> => {
@@ -153,7 +190,8 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       state.unsupported = false
       state.providerDefault = result.default
       state.providers = result.providers.map(provider => {
-        if (options.verifiedProviders?.includes(provider.id)) return provider
+        if (options.verifiedProviders?.includes(provider.id)
+          || (provider.harness?.capabilities?.readonly_context === true && provider.harness.capabilities.terminal_result === true)) return provider
         return {
           ...provider,
           harness: {
@@ -180,10 +218,17 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     state.dataSources = parseDataSources(skill)
     for (const item of items) {
       if (!item.task || !item.path) continue
-      if ((await io.exists(item.path)).exists) {
-        const content = (await io.read(item.path)).content
-        state.hashes[item.task.id] = await sha256(content)
-      } else delete state.hashes[item.task.id]
+      if (kickoffEligible(item)) taskPaths.set(item.task.id, item.path)
+      delete taskFailures[item.task.id]
+      try {
+        if ((await io.exists(item.path)).exists) {
+          const content = (await io.read(item.path)).content
+          state.hashes[item.task.id] = await sha256(content)
+        } else delete state.hashes[item.task.id]
+      } catch (error) {
+        delete state.hashes[item.task.id]
+        taskFailures[item.task.id] = { kind: 'io-error', message: `任务无法读取：${item.path} · ${message(error)}`, at: now() }
+      }
     }
     await discover()
     return snapshot()
@@ -195,6 +240,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     if (!item || item.task?.id !== id || !item.path) throw new KickoffClientError('task-changed', '任务已删除或身份已改变')
     if (!kickoffEligible(item)) throw new KickoffClientError('ineligible', '任务已经不在可开头的泳道')
     kickoffPathFor(item.path)
+    taskPaths.set(id, item.path)
     if (!(await io.exists(item.path)).exists) throw new KickoffClientError('task-changed', '任务文件不存在')
     const content = (await io.read(item.path)).content
     let source
@@ -204,8 +250,12 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       throw new KickoffClientError('task-changed', '任务文件不再是合法 Task')
     }
     if (source.task.id !== id) throw new KickoffClientError('task-changed', '任务身份已改变')
+    delete taskFailures[id]
     state.registry = await registry()
     if (state.registry.runs[id]?.state === 'running') throw new KickoffClientError('already-running', '这个任务已经在开头')
+    await discover()
+    if (discoveryFailures[id]) throw new KickoffClientError(discoveryFailures[id].kind, discoveryFailures[id].message)
+    if (!state.results[id] && (await io.exists(kickoffPathFor(item.path))).exists) throw new KickoffClientError('conflict', `结果路径已存在，未覆盖：${kickoffPathFor(item.path)}`)
     await providers()
     if (state.unsupported) throw new KickoffClientError('unsupported', '宿主不支持 agent 列表，请更新 note.md')
     const provider = state.providers.find(p => p.id === input.providerId)
@@ -226,7 +276,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       taskPath: item.path,
       title: source.title,
       basedOn,
-      lane: item.state === 'capture' ? 'inbox' : item.state as 'waiting' | 'dormant',
+      lane: item.state === 'capture' ? 'inbox' : item.state as 'wip' | 'waiting' | 'dormant',
       providerId: provider.id,
       vaultRoot: root.replace(/[\\/]$/, ''),
     }
@@ -238,7 +288,8 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     }
     await seedFiles(io, { ...TEMPLATE_FILES, ...SKILL_FILES })
     state.needsConsent = false
-    state.dataSources = parseDataSources((await io.read(SKILL_PATH)).content)
+    const skill = (await io.read(SKILL_PATH)).content
+    state.dataSources = parseDataSources(skill)
     const taskDefinition = (await io.read(`.notemd/agent-tasks/${TASK_ID}/task.json`)).content
     let definition: Record<string, unknown>
     try { definition = JSON.parse(taskDefinition) } catch {
@@ -249,6 +300,15 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       || !Number.isInteger(definition.timeout_seconds) || Number(definition.timeout_seconds) < 1 || Number(definition.timeout_seconds) > 600) {
       throw new KickoffClientError('start-error', 'Existing task.json must enable strict_readonly and limit max_turns to 40 and timeout_seconds to 600; it was preserved')
     }
+    const today = input.today ?? localDate()
+    let context
+    try {
+      context = await buildKickoffContext(io, { taskPath: ready.taskPath, taskId: ready.taskId, basedOn: ready.basedOn, today, skill })
+    } catch (error) {
+      throw new KickoffClientError(/Task.*changed/.test(message(error)) ? 'task-changed' : 'start-error', message(error))
+    }
+    if (new TextEncoder().encode(skill).length > 32 * 1024) throw new KickoffClientError('start-error', 'Skill exceeds 32 KiB protocol budget')
+    const protocol = TEMPLATE_FILES[`.notemd/agent-tasks/${TASK_ID}/AGENTS.md`]
     const requestedAt = now()
     let runId: string
     try {
@@ -262,8 +322,12 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
           `task_id: ${ready.taskId}`,
           `based_on: ${ready.basedOn}`,
           `lane: ${ready.lane}`,
-          `today: ${input.today ?? localDate()}`,
+          `today: ${today}`,
           `skill: ${SKILL_PATH}`,
+          protocol,
+          'User-selected kickoff Skill (data sources were already collected by NEXT; tool restrictions take precedence):',
+          skill,
+          kickoffContextPrompt(context),
         ].join('\n'),
         notify: {
           title_ok: `${options.notificationTitles?.ok ?? 'Kickoff ready'} · ${ready.title}`,
@@ -335,95 +399,107 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
             rawSnippet,
           })
           : current)
+        const failure = state.registry.runs[id]?.failure
+        if (failure) state.statuses[id] = { state: 'failed', failure }
       }
       if (status.state === 'failed') {
         await fail(status.failure.kind, status.failure.message, status.failure.rawSnippet)
         continue
       }
-      let source
-      const currentItem = await io.currentItem(id)
-      if (!currentItem?.path || currentItem.task?.id !== id || currentItem.kind !== 'task') {
-        await fail('task-changed', '任务在运行期间被删除或换了身份')
+      if (discoveryFailures[id]) {
+        await fail(discoveryFailures[id].kind, discoveryFailures[id].message)
         continue
       }
-      const currentPath = currentItem.path
-      try { kickoffPathFor(currentPath) } catch {
-        await fail('task-changed', '任务路径不再安全')
-        continue
-      }
-      if (!(await io.exists(currentPath)).exists) {
-        await fail('task-changed', '任务在运行期间被删除或换了身份')
-        continue
-      }
-      const currentTask = (await io.read(currentPath)).content
       try {
-        source = parseTaskSource(currentPath, currentTask)
-      } catch {
-        await fail('task-changed', '任务不再是合法 Task')
-        continue
-      }
-      if (source.task.id !== id) {
-        await fail('task-changed', '任务身份已改变')
-        continue
-      }
-      let old = state.results[id]
-      if (old) {
-        const current = parseKickoffDocument((await io.read(old.path)).content)
-        if (!current || current.kickoff.task_id !== id) throw new KickoffClientError('conflict', '结果文件身份已改变')
-        old = { path: old.path, doc: current }
-      }
-      // A previous result write may have succeeded before a registry IO failure.
-      if (old?.doc.kickoff.run_id !== run.run_id) {
-        let sourceIoError: unknown
-        const parsed = await parsePayload(status.content, { taskId: id, basedOn: run.based_on }, async path => {
-          try {
-            return (await io.exists(path)).exists
-          } catch (error) {
-            sourceIoError = error
-            throw error
-          }
-        })
-        if (sourceIoError) throw sourceIoError
-        if (!parsed.ok) {
-          const snippet = new TextDecoder().decode(new TextEncoder().encode(status.content).slice(0, 2048), { stream: true })
-          await fail('invalid-output', parsed.error, snippet)
+        let source
+        const currentItem = await io.currentItem(id)
+        if (!currentItem?.path || currentItem.task?.id !== id || currentItem.kind !== 'task') {
+          await fail('task-changed', '任务在运行期间被删除或换了身份')
           continue
         }
-        const path = old?.path ?? kickoffPathFor(currentPath)
-        // The fixed conventional path can belong to a malformed or other Task document.
-        if (!old && (await io.exists(path)).exists) throw new KickoffClientError('conflict', `结果路径已存在，未覆盖：${path}`)
-        const reportedStart = Date.parse(status.started_at ?? '')
-        const start = Number.isFinite(reportedStart) ? reportedStart : Date.parse(run.requested_at)
-        const end = Date.parse(status.ended_at ?? now())
-        const content = await buildKickoffDocument({
-          payload: parsed.payload,
-          taskPath: currentPath,
-          taskTitle: source.title,
-          runId: run.run_id,
-          endedAt: status.ended_at ?? now(),
-          durationSeconds: Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, (end - start) / 1000) : 0,
-          harness: status.harness,
-          model: status.model,
-          providerId: run.harness,
-          repairs: parsed.repairs,
-          priorAnswers: carryPriorAnswers(old?.doc ?? null, old?.doc.kickoff.run_id ?? ''),
-        })
-        if (old) {
-          if ((await io.read(path)).content !== old.doc.raw) throw new KickoffClientError('conflict', '结果文件在生成期间已改变，请重试对账')
-        } else if ((await io.exists(path)).exists) {
-          throw new KickoffClientError('conflict', `结果路径已存在，未覆盖：${path}`)
+        const currentPath = currentItem.path
+        try { kickoffPathFor(currentPath) } catch {
+          await fail('task-changed', '任务路径不再安全')
+          continue
         }
-        await writeVerified(path, content)
-        const doc = parseKickoffDocument(content)
-        if (!doc) throw new KickoffClientError('io-error', '结果文件无法回读解析')
-        state.results[id] = { path, doc }
+        if (!(await io.exists(currentPath)).exists) {
+          await fail('task-changed', '任务在运行期间被删除或换了身份')
+          continue
+        }
+        const currentTask = (await io.read(currentPath)).content
+        try {
+          source = parseTaskSource(currentPath, currentTask)
+        } catch {
+          await fail('task-changed', '任务不再是合法 Task')
+          continue
+        }
+        if (source.task.id !== id) {
+          await fail('task-changed', '任务身份已改变')
+          continue
+        }
+        let old = state.results[id]
+        if (old) {
+          const current = parseKickoffDocument((await io.read(old.path)).content)
+          if (!current || current.kickoff.task_id !== id) throw new KickoffClientError('conflict', '结果文件身份已改变')
+          old = { path: old.path, doc: current }
+        }
+        // A previous result write may have succeeded before a registry IO failure.
+        if (old?.doc.kickoff.run_id !== run.run_id) {
+          let sourceIoError: unknown
+          const parsed = await parsePayload(status.content, { taskId: id, basedOn: run.based_on }, async path => {
+            try {
+              return (await io.exists(path)).exists
+            } catch (error) {
+              sourceIoError = error
+              throw error
+            }
+          })
+          if (sourceIoError) throw sourceIoError
+          if (!parsed.ok) {
+            const snippet = new TextDecoder().decode(new TextEncoder().encode(status.content).slice(0, 2048), { stream: true })
+            await fail('invalid-output', parsed.error, snippet)
+            continue
+          }
+          const path = old?.path ?? kickoffPathFor(currentPath)
+          // The fixed conventional path can belong to a malformed or other Task document.
+          if (!old && (await io.exists(path)).exists) throw new KickoffClientError('conflict', `结果路径已存在，未覆盖：${path}`)
+          const reportedStart = Date.parse(status.started_at ?? '')
+          const start = Number.isFinite(reportedStart) ? reportedStart : Date.parse(run.requested_at)
+          const end = Date.parse(status.ended_at ?? now())
+          const content = await buildKickoffDocument({
+            payload: parsed.payload,
+            taskPath: currentPath,
+            taskTitle: source.title,
+            runId: run.run_id,
+            endedAt: status.ended_at ?? now(),
+            durationSeconds: Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, (end - start) / 1000) : 0,
+            harness: status.harness,
+            model: status.model,
+            providerId: run.harness,
+            repairs: parsed.repairs,
+            priorAnswers: carryPriorAnswers(old?.doc ?? null, old?.doc.kickoff.run_id ?? ''),
+          })
+          if (old) {
+            if ((await io.read(path)).content !== old.doc.raw) throw new KickoffClientError('conflict', '结果文件在生成期间已改变，请重试对账')
+          } else if ((await io.exists(path)).exists) {
+            throw new KickoffClientError('conflict', `结果路径已存在，未覆盖：${path}`)
+          }
+          await writeVerified(path, content)
+          const doc = parseKickoffDocument(content)
+          if (!doc) throw new KickoffClientError('io-error', '结果文件无法回读解析')
+          state.results[id] = { path, doc }
+        }
+        await updateRegistry(current => current.runs[id]?.run_id === run.run_id ? markUnread(clearRun(current, id), id) : current)
+      } catch (error) {
+        if (!(error instanceof KickoffClientError) || error.kind !== 'conflict') throw error
+        await fail('conflict', error.message)
       }
-      await updateRegistry(current => current.runs[id]?.run_id === run.run_id ? markUnread(clearRun(current, id), id) : current)
     }
     return snapshot()
   }
   const saveInternal = async (input: SaveAnswersInput): Promise<{ snapshot: KickoffSnapshot; result: KickoffResult; rerendered: boolean }> => {
     await discover()
+    if (discoveryFailures[input.taskId]) throw new KickoffClientError(discoveryFailures[input.taskId].kind, discoveryFailures[input.taskId].message)
     const previous = state.results[input.taskId]
     if (!previous) throw new KickoffClientError('conflict', '开头结果不存在')
     const raw = (await io.read(previous.path)).content

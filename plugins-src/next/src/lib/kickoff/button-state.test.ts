@@ -7,7 +7,7 @@ const item = {
   }
 } as WorkspaceItem
 it('accepts eligible task lanes', () => {
-  for (const state of ['capture', 'waiting', 'dormant'])
+  for (const state of ['capture', 'wip', 'waiting', 'dormant'])
     expect(kickoffEligible({
       ...item, state
     } as WorkspaceItem)).toBe(true)
@@ -26,8 +26,7 @@ it.each([{
     task: {
       id: 'bad'
     }
-  }, {
-    state: 'wip'
+
   }, {
     state: 'closed'
   }, {

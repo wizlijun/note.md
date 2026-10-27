@@ -143,6 +143,7 @@ fn harness_capabilities(
         terminal_result: true,
         input_only_isolation: true,
         strict_readonly: true,
+        readonly_context: false,
         model_routing: agent_run_core::ModelRoutingCapabilities {
             invocation_override: true,
             profiles: agent_run_core::ModelRoutingProfiles {

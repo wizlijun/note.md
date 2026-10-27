@@ -33,6 +33,28 @@ describe('KickoffButton', () => {
     if (input.starting) expect(document.querySelector('button')?.disabled).toBe(true)
     if (input.unread) expect(document.querySelector('[data-unread]')).not.toBeNull()
   })
+  it('groups execution and agent choice in one split control with keyboard access', () => {
+    setLocale('en')
+    const onClick = vi.fn(), onChoose = vi.fn()
+    components.push(mount(KickoffButton, { target: document.body, props: { itemTitle: 'Ship', input: {}, onClick, onChoose } }))
+    flushSync()
+    const group = document.querySelector('[role="group"]')!
+    const buttons = group.querySelectorAll<HTMLButtonElement>('button')
+    expect(buttons).toHaveLength(2)
+    expect(buttons[1].getAttribute('aria-haspopup')).toBe('dialog')
+    buttons[0].click()
+    expect(onClick).toHaveBeenCalledOnce()
+    expect(onChoose).not.toHaveBeenCalled()
+    buttons[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    expect(onChoose).toHaveBeenCalledOnce()
+    buttons[1].click()
+    expect(onChoose).toHaveBeenCalledTimes(2)
+  })
+  it.each([{ starting: true }, { run }])('keeps a single progress action while busy', (input) => {
+    components.push(mount(KickoffButton, { target: document.body, props: { itemTitle: 'Ship', input, onClick: vi.fn(), onChoose: vi.fn() } }))
+    flushSync()
+    expect(document.querySelectorAll('[role="group"] button')).toHaveLength(1)
+  })
   it('restores absolute elapsed time, ticks and stops after unmount', () => {
     vi.useFakeTimers()
     let now = Date.parse('2026-10-27T11:02:03Z')

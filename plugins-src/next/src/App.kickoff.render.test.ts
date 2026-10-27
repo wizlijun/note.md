@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushSync, mount, unmount } from 'svelte'
 import { reduceEvents } from './lib/domain'
+import { placeEvent } from './lib/events'
 import type { NextWorkspace, WorkspaceItem } from './lib/repository'
 import type { KickoffSnapshot } from './lib/kickoff/client'
 import type { KickoffDoc } from './lib/kickoff/document'
@@ -42,6 +43,53 @@ beforeEach(() => {
 afterEach(() => { if (component) unmount(component); component = null; document.body.innerHTML = ''; vi.clearAllMocks(); vi.useRealTimers() })
 async function render() { component = mount(App, { target: document.body }); flushSync(); await settle() }
 describe('App kickoff integration', () => {
+  it('updates an ongoing task from answered fields while preserving its commitment and WIP identity', async () => {
+    const original = placeEvent(task, { route: 'commit', commitment: 'Existing commitment', next_action: 'Previous step', close_condition: 'Existing finish condition', projects: ['Release'] })
+    const projection = reduceEvents([original])
+    const ongoing: WorkspaceItem = { ...task, state: 'wip', projection: [...projection.items.values()][0] }
+    Object.assign(mocks.state.workspace!, { projection, items: [ongoing], capture: [], wip: [ongoing] })
+    mocks.snapshot.results[id] = result
+    mocks.save.mockImplementation(async ({ answers }) => ({ snapshot: mocks.snapshot, result: { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff, answers } } }, rerendered: true }))
+    await render()
+    expect(document.querySelector('[data-kickoff-state]')).not.toBeNull()
+    click('View kickoff')
+    await settle()
+    document.querySelector<HTMLInputElement>('input[value="a"]')!.click()
+    flushSync()
+    click('Place with these answers')
+    await settle()
+    expect(document.querySelector<HTMLTextAreaElement>('#commitment')?.value).toBe('Existing commitment')
+    expect(document.querySelector<HTMLTextAreaElement>('#nextAction')?.value).toBe('检查配置')
+    expect(document.querySelector<HTMLTextAreaElement>('#closeCondition')?.value).toBe('Existing finish condition')
+    expect(mocks.place).not.toHaveBeenCalled()
+    document.querySelector<HTMLButtonElement>('#place-title')!.closest('[role="dialog"]')!.querySelector<HTMLButtonElement>('button[type="submit"]')!.click()
+    await settle()
+    expect(mocks.place).toHaveBeenCalledOnce()
+    const [savedItem, input] = mocks.place.mock.calls[0]
+    expect(savedItem.task.id).toBe(id)
+    expect(input).toMatchObject({ route: 'commit', commitment: 'Existing commitment', next_action: '检查配置', close_condition: 'Existing finish condition' })
+    const updated = reduceEvents([original, placeEvent(savedItem, input)])
+    expect(updated.wipCount).toBe(1)
+    expect(updated.items.size).toBe(1)
+    expect([...updated.items.values()][0]).toMatchObject({ state: 'wip', item_id: id, next_action: '检查配置', projects: ['Release'] })
+  })
+  it('does not reopen a task completed while kickoff answers were being saved', async () => {
+    mocks.snapshot.results[id] = result
+    mocks.save.mockImplementation(async ({ answers }) => {
+      mocks.state.workspace!.items = [{ ...task, state: 'closed' }]
+      return { snapshot: mocks.snapshot, result: { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff, answers } } }, rerendered: true }
+    })
+    await render()
+    click('View kickoff')
+    await settle()
+    document.querySelector<HTMLInputElement>('input[value="a"]')!.click()
+    flushSync()
+    click('Place with these answers')
+    await settle()
+    expect(document.querySelector('#place-title')).toBeNull()
+    expect(mocks.place).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('Could not save answers')
+  })
   it('retries a failed first initialization on explicit refresh', async () => {
     mocks.load.mockRejectedValueOnce(new Error('temporary read error'))
     await render()

@@ -289,8 +289,17 @@
       if (placeAfter) {
         await refresh()
         const current = store.workspace?.items.find((item) => item.task?.id === opened.item.task!.id)
-        if (!current) throw new KickoffClientError('task-changed', '')
+        if (!current || !kickoffEligible(current)) throw new KickoffClientError('task-changed', '')
         const prefill = commitPrefill(saved.result.doc.kickoff.payload, saved.result.doc.kickoff.answers)
+        // An ongoing commitment only changes where the person answered a question.
+        // Keep the agent's other suggestions as choices, preserving existing work.
+        if (current.projection?.state === 'wip') {
+          for (const field of ['commitment', 'next_action', 'close_condition'] as const) {
+            const answered = saved.result.doc.kickoff.payload.questions.some((question) =>
+              question.decides === field && saved.result.doc.kickoff.answers.some((answer) => answer.question_id === question.id))
+            if (!answered) prefill.initialCommit[field] = current.projection[field] ?? ''
+          }
+        }
         kickoffResult = null
         openPlacement(current, 'commit')
         placementCommit = prefill.initialCommit

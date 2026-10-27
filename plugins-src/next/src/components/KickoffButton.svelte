@@ -27,10 +27,15 @@
   })
 </script>
 
-<span class="kickoff-actions">
+<span class="kickoff-actions" role="group" aria-label={t('kickoff.accessible', { title: itemTitle })}>
   <button type="button" class="kickoff" data-kickoff-state={view.state}
     disabled={disabled || view.state === 'starting'}
-    aria-label={t('kickoff.accessible', { title: itemTitle })} title={tooltip} onclick={onClick}>
+    aria-label={t('kickoff.accessible', { title: itemTitle })} title={tooltip} onclick={onClick} onkeydown={(event) => {
+      if (event.key === 'ArrowDown' && onChoose && !disabled && view.state !== 'running' && view.state !== 'starting') {
+        event.preventDefault()
+        onChoose()
+      }
+    }}>
     {#if view.state === 'running'}
       <span aria-live="off">⏱ {formatElapsed(view.elapsedMs ?? 0)}</span>
     {:else if view.state === 'starting'}
@@ -46,16 +51,17 @@
     {/if}
   </button>
   {#if onChoose && view.state !== 'running' && view.state !== 'starting'}
-    <button type="button" class="choose" disabled={disabled} aria-label={t('kickoff.choose')} onclick={onChoose}>▾</button>
+    <button type="button" class="choose" disabled={disabled} aria-label={t('kickoff.choose')} aria-haspopup="dialog" onclick={onChoose}>▾</button>
   {/if}
 </span>
 
 <style>
-  .kickoff-actions { display: inline-flex; gap: 2px; }
-  button { border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted-strong); padding: 6px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+  .kickoff-actions { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  button { border: 0; border-radius: 0; background: transparent; color: var(--muted-strong); padding: 6px 8px; font: inherit; font-size: 12px; cursor: pointer; }
   button:hover:not(:disabled) { background: var(--hover); }
   button:disabled { opacity: 0.5; cursor: default; }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .choose { border-left: 1px solid var(--line); padding-inline: 7px; }
   small { margin-left: 5px; color: var(--muted); }
   [data-unread] { color: var(--accent); margin-left: 4px; font-size: 9px; }
 </style>

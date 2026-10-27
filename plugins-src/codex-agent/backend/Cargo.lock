@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "notemd-codex-agent"
-version = "1.0.20"
+version = "1.0.21"
 dependencies = [
  "agent-run-core",
  "chrono",

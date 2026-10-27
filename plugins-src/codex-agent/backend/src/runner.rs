@@ -61,7 +61,7 @@ async fn run_inner(run_dir: &std::path::Path) -> i32 {
     };
 
     let mut run_prompt = prompt::compose(&def.prompt, &req.prompt, None);
-    let codex_rules = task::codex_instructions(&task_dir);
+    let codex_rules = if def.strict_readonly { String::new() } else { task::codex_instructions(&task_dir) };
     if !codex_rules.trim().is_empty() {
         run_prompt.push_str("\n\n## 本任务的 Codex 专属约定\n");
         run_prompt.push_str(codex_rules.trim());

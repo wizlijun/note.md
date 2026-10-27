@@ -1,10 +1,18 @@
 # NEXT「帮我开个头」设计
 
 - 日期：2026-10-27
-- 状态：设计已定稿，待实现（目标：NEXT 1.11.0）
+- 状态：1.11.0 基础实现已发布；1.12.0 完整可用执行、进行中入口和复合按钮已实现，发布验收见 reports。
 - 影响范围：`notemd.next`（卡片、新面板、安放面板、运行登记）、`.notemd/agent-tasks/next-task-kickoff/`（新任务模板）、Vault `skills/task-kickoff/`（新规程）、`src/lib/okf/concept.ts` 与 `searchidx/src/origin.rs`（新 OKF 类型）、`scripts/sync-agent-picker.mjs`（新增副本）
 - 执行计划：`docs/superpowers/plans/2026-10-27-next-task-kickoff.md`
 - 来源：用户 2026-10-27 的需求；启发来自「肖弘用智能体预研把待办变成可交接的方案」阅读笔记（能做就先启动，缺背景或负责人才问，交接时需求和调研一起给）
+
+## 2026-10-27 可用执行补充（用户最新要求）
+
+用户要求真实可用、进行中Task支持及一体复合按钮，覆盖之前真实验收延期。实际安装的是Codex Agent和DeepSeek Agent；未安装Claude Agent不参与本机验收。
+
+跨harness只读执行统一为**NEXT读取声明范围内的背景并冻结context packet，模型只消费packet**。Codex/DeepSeek 的 `timeout_seconds` 为从执行开始计算的硬性总时限；`max_turns` 是协议收束目标，这两家无工具执行接口不提供通用硬性轮数上限。此处覆盖下文原先让agent自行检索Vault的执行方式：没有Read/命令/写文件/网络/MCP工具，没有用户hooks或扩展；运行在空临时cwd。包内保留文件相对路径、完整当前Task及相关证据，有限预算或读取失败写入gaps；来源内容不是新的指令，agent不得声称检索未包含的文件。背景范围仍由用户规程data_sources声明，未知/不可解析规程只带当前Task。
+
+已真实验证并部署的provider发布`capabilities.readonly_context=true`及完整terminal_result能力，NEXT据此和harness健康状态判断能否执行；移除生产空白名单永久禁用。旧Agent版本显示更新要求，认证问题显示真实harness原因，不以“验证未完成”掩盖所有情况。仅有旧strict_readonly标志不能获得新执行能力。
 
 ## 0. 结论
 
@@ -69,10 +77,10 @@ Task 卡片上新增「帮我开个头」按钮。用户点击并选择一个 ag
 
 - `item.kind === 'task'`；
 - Task 来源有效（不在只读修复区，`task.id` 合法）；
-- 泳道是 **收件箱 / 等待 / 稍后**，不在进行中、不在已完成；
+- 泳道是 **收件箱 / 进行中 / 等待 / 稍后**，不在已完成；（2026-10-27 用户明确修订：进行中的 Task 同样可以开个头。）
 - 当前 NEXT 窗口所在的 host 支持 `host.agent.providers`（老 host 不显示按钮，不报错）。
 
-位置：卡片操作区，排在「安放」旁边，属于次要按钮。可访问名：「帮我开个头：<Task 标题>」。
+位置：卡片操作区，排在「安放」旁边，属于次要按钮。主操作区与右侧下拉箭头共用一个外边框，内部用分隔线区分，无间距、无两个独立圆角按钮；主区执行或查看结果，箭头选择 agent。主区 ArrowDown 也打开选择器。可访问名：「帮我开个头：<Task 标题>」。
 
 ### 4.2 按钮状态
 
@@ -133,6 +141,8 @@ Task 卡片上新增「帮我开个头」按钮。用户点击并选择一个 ag
 1. 回答过的、`decides === F` 的问题：自由输入文本，否则取所选选项的 `label`。多个问题决定同一字段时，取问题顺序靠前的那个；
 2. `payload.suggestions[F]`；
 3. `PlaceSheet` 现有的默认值（Task 标题、`task.done_when`）。
+
+进行中 Task 仍使用同一 UUID 提交 commit 更新，不新增卡片、不增加 WIP 占位。未回答的字段保留当前 commitment / next_action / close_condition，AI 建议只保留为候选；仅明确回答过的字段参与替换。项目与提醒策略保持既有流程。
 
 `extraOptions` 放入 `ChoiceField` 的候选，内容是对应字段问题里没被选中的选项和 `suggestions` 的值，去重后最多 4 个。
 
@@ -198,7 +208,7 @@ host.agent.run({
     'task_path: inbox/tasks/<file>-task.md',   // vault 相对路径
     'task_id: <uuid>',
     'based_on: sha256:<hex>',
-    'lane: inbox | waiting | dormant',
+    'lane: inbox | wip | waiting | dormant',
     'today: YYYY-MM-DD',                        // 用户本地日期
     'skill: skills/task-kickoff/SKILL.md',
   ].join('\n'),
@@ -501,7 +511,7 @@ harness 的 `warning`（凭据过期、限流等）如果存在，附在原因�
 
 ## 13. 验收标准
 
-1. 收件箱、等待、稍后泳道的 Task 卡片显示按钮；进行中、已完成、Idea、修复区的卡片不显示；老 host 不显示按钮也不报错。
+1. 收件箱、进行中、等待、稍后泳道的 Task 卡片显示按钮；已完成、Idea、修复区的卡片不显示；老 host 不显示按钮也不报错。
 2. 首次使用弹出规程确认；确认后模板和 skill 落盘；再次播种不覆盖用户修改（测试：先修改文件，再触发播种，内容保持不变）。
 3. 运行中按钮显示的时长，在窗口关闭再打开后接着计算；悬浮提示显示步数和最后动作。
 4. 用 stub 的 `host.agent.status` 返回合法载荷时，生成的结果文件通过 `pnpm okf:lint inbox/tasks`；`type: Task Kickoff`；正文渲染稳定。

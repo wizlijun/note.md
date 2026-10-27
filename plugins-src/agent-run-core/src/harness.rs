@@ -50,6 +50,9 @@ pub struct HarnessCapabilities {
     /// Implements the opt-in task mode; runtime admission still needs CLI verification.
     #[serde(default)]
     pub strict_readonly: bool,
+    /// Frozen context only: isolated runtime with no tools or user extensions.
+    #[serde(default)]
+    pub readonly_context: bool,
     pub model_routing: ModelRoutingCapabilities,
 }
 
@@ -553,6 +556,7 @@ mod tests {
             terminal_result: true,
             input_only_isolation: true,
             strict_readonly: false,
+            readonly_context: false,
             model_routing: ModelRoutingCapabilities {
                 invocation_override: true,
                 profiles: ModelRoutingProfiles {

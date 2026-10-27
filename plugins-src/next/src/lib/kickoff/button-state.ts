@@ -27,7 +27,7 @@ export interface ButtonStateInput {
 }
 
 export function kickoffEligible(item: WorkspaceItem): boolean {
-  return item.kind === 'task' && !!item.path && !item.orphan && !item.repairReason && /^inbox\/tasks\/[^/]+-task\.md$/.test(item.path) && !/[\\\0]/.test(item.path) && !!item.task && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.task.id) && ['capture', 'waiting', 'dormant'].includes(item.state)
+  return item.kind === 'task' && !!item.path && !item.orphan && !item.repairReason && /^inbox\/tasks\/[^/]+-task\.md$/.test(item.path) && !/[\\\0]/.test(item.path) && !!item.task && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.task.id) && ['capture', 'wip', 'waiting', 'dormant'].includes(item.state)
 }
 
 export function kickoffButtonState(input: ButtonStateInput): ButtonState {
@@ -35,7 +35,7 @@ export function kickoffButtonState(input: ButtonStateInput): ButtonState {
     return 'starting'
   if(input.run?.state === 'running')
     return 'running'
-  if(input.run?.state === 'failed')
+  if(input.run?.state === 'failed' || input.status?.state === 'failed')
     return 'failed'
   if(input.result)
     return input.taskHash !== undefined && input.result.based_on !== input.taskHash ? 'stale' : input.unread ? 'ready-unread' : 'ready'
@@ -53,6 +53,6 @@ export function kickoffCardView(input: ButtonStateInput, now: number): KickoffCa
     harness: input.run?.harness,
     steps: status?.state === 'running' ? status.steps : undefined,
     last: status?.state === 'running' ? status.last : undefined,
-    failure: input.run?.failure ?? undefined
+    failure: input.run?.failure ?? (status?.state === 'failed' ? status.failure : undefined)
   }
 }

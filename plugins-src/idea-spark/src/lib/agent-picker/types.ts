@@ -42,6 +42,8 @@ export interface AgentModelRouting {
 export interface AgentHarnessCapabilities {
   /** Implementation support only; callers still require actual safety evidence. */
   strict_readonly?: boolean
+  /** Verified frozen-context execution with no runtime tools or extensions. */
+  readonly_context?: boolean
   tasks: string[]
   search_plan_schemas: number[]
   terminal_result: boolean

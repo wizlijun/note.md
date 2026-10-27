@@ -18,7 +18,7 @@ it('shows disabled provider reasons and skill-declared data sources in canonical
   const option = document.querySelector<HTMLButtonElement>('.menu-panel .menu-row')!
   expect(option.disabled).toBe(true)
   expect(option.textContent).toContain('Original hint')
-  expect(option.textContent).toContain('Read-only verification pending')
+  expect(option.textContent).toContain('Update this agent plugin to support read-only kickoff')
   expect(option.textContent).toContain('Rate limit')
   expect(document.querySelector('.menu-panel')?.textContent).toContain('Task files')
   expect(document.querySelector('.menu-panel')?.textContent).toContain('Not enabled')

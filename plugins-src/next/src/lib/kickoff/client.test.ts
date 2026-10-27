@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createKickoffClient } from './client'
+import { kickoffCardView } from './button-state'
 import { sha256 } from './hash'
 import { REGISTRY_PATH, serializeRegistry } from './registry'
 import payload from './__fixtures__/payload.json'
@@ -35,24 +36,56 @@ function fixture(verified = true) {
 }
 
 describe('kickoff client', () => {
+  it('admits deployed context-only providers without a production whitelist', async () => {
+    const f = fixture(false)
+    const installed = await f.io.agentProviders()
+    installed.providers[0].harness!.capabilities = {
+      readonly_context: true, terminal_result: true,
+    } as NonNullable<NonNullable<typeof installed.providers[0]['harness']>['capabilities']>
+    f.io.agentProviders.mockResolvedValue(installed)
+    expect((await f.client.load()).providers[0].harness?.ok).toBe(true)
+    await f.start()
+    expect(f.io.agentRun).toHaveBeenCalledOnce()
+    installed.providers[0].harness!.ok = false
+    installed.providers[0].harness!.hint = 'Sign in to this provider'
+    const current = await f.client.load()
+    expect(current.providers[0].harness?.ok).toBe(false)
+    expect(current.providers[0].harness?.hint).toBe('Sign in to this provider')
+  })
+
   it('starts with exact prompt, original UTF-8 hash and notification without paths', async () => {
     const f = fixture()
     const snapshot = await f.start()
-    expect(f.io.agentRun).toHaveBeenCalledWith({ task: 'next-task-kickoff', harness: providerId, note_path: `/vault/${path}`, prompt: ['schema: next-kickoff/v1', `task_path: ${path}`, `task_id: ${taskId}`, `based_on: ${await sha256(raw)}`, 'lane: inbox', 'today: 2026-10-27', 'skill: skills/task-kickoff/SKILL.md'].join('\n'), notify: { title_ok: '开头已就绪 · 测试任务', title_fail: '开头失败 · 测试任务' } })
+    expect(f.io.agentRun).toHaveBeenCalledWith({ task: 'next-task-kickoff', harness: providerId, note_path: `/vault/${path}`, prompt: expect.stringContaining(['schema: next-kickoff/v1', `task_path: ${path}`, `task_id: ${taskId}`, `based_on: ${await sha256(raw)}`, 'lane: inbox', 'today: 2026-10-27', 'skill: skills/task-kickoff/SKILL.md'].join('\n')), notify: { title_ok: '开头已就绪 · 测试任务', title_fail: '开头失败 · 测试任务' } })
+    const prompt = (f.io.agentRun.mock.calls[0] as unknown as [{ prompt: string }])[0].prompt
+    const packet = JSON.parse(prompt.split('BEGIN NEXT CONTEXT JSON\n')[1].split('\nEND NEXT CONTEXT JSON')[0])
+    expect(packet.files[0]).toMatchObject({ path, content: raw })
+    expect(prompt).toContain('No tools are available or permitted')
+    expect(prompt).toContain('questions 必须 1–3 题')
     expect(snapshot.registry.runs[taskId].run_id).toBe('run-1')
+  })
+  it('starts a task already in progress with its current lane', async () => {
+    const f = fixture()
+    f.setCurrent({ ...item, state: 'wip' })
+    await f.start()
+    expect(f.io.agentRun).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: expect.stringContaining('lane: wip'),
+    }))
+    expect(f.writes).not.toContain(path)
+    expect(f.writes).not.toContain('thinking/next.note.md')
   })
   it.each(['missing', 'identity', 'lane', 'running', 'capacity'])('refuses preflight %s', async reason => {
     const f = fixture()
     if (reason === 'missing') f.files.delete(path)
     if (reason === 'identity') f.files.set(path, raw.replace(taskId, '57691a0e-32ed-48bf-829f-b1377d53db93'))
-    if (reason === 'lane') f.setCurrent({ ...item, state: 'wip' })
+    if (reason === 'lane') f.setCurrent({ ...item, state: 'closed' })
     if (reason === 'running' || reason === 'capacity') f.files.set(REGISTRY_PATH, serializeRegistry({ version: 1, unread: [], runs: { [reason === 'running' ? taskId : 'other']: { run_id: 'other', harness: providerId, requested_at: 'now', task_path: path, based_on: 'hash', state: 'running', failure: null } } }))
     await expect(f.start()).rejects.toMatchObject({ kind: reason === 'lane' ? 'ineligible' : reason === 'running' ? 'already-running' : reason === 'capacity' ? 'capacity' : 'task-changed' })
     expect(f.io.agentRun).not.toHaveBeenCalled()
   })
   it('disables production providers with reasons', async () => {
     const f = fixture(false)
-    expect((await f.client.load([item])).providers[0].harness?.hint).toContain('kickoff-safety-unverified')
+    expect((await f.client.load([item])).providers[0].harness?.hint).toContain('kickoff-provider-update-required')
     await expect(f.start()).rejects.toMatchObject({ kind: 'provider-unavailable' })
   })
   it('identifies unsupported hosts', async () => {
@@ -166,8 +199,15 @@ describe('kickoff persistence and human answers', () => {
     await f.success()
     const resultPath = path.replace(/\.md$/, '.kickoff.md')
     f.files.set(resultPath, 'unrelated human file')
-    await expect(f.client.reconcile()).rejects.toMatchObject({ kind: 'conflict' })
+    const failed = await f.client.reconcile()
+    expect(failed.registry.runs[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+    expect(JSON.parse(f.files.get(REGISTRY_PATH)!).runs[taskId].state).toBe('failed')
     expect(f.files.get(resultPath)).toBe('unrelated human file')
+    const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+    const other = { ...item, key: otherId, path: 'inbox/tasks/other-task.md', task: { ...item.task!, id: otherId } }
+    f.files.set(other.path!, raw.replaceAll(taskId, otherId))
+    f.setCurrent(other)
+    await expect(f.client.startKickoff({ item: other, providerId, consent: true })).resolves.toBeDefined()
   })
   it('requires consent before seeding and never overwrites custom templates', async () => {
     const f = fixture()
@@ -238,8 +278,12 @@ it('preserves and reports malformed existing results including renamed files', a
   const f = fixture()
   await f.client.load([item])
   const badPath = 'inbox/tasks/renamed.kickoff.md'
-  f.files.set(badPath, '---\ntype: Task Kickoff\nkickoff: {answers: human-data}\n---\nkeep me')
-  await expect(f.client.load([item])).rejects.toMatchObject({ kind: 'conflict' })
+  f.files.set(badPath, `---\ntype: Task Kickoff\nkickoff: {task_id: ${taskId}, answers: human-data}\n---\nkeep me`)
+  const loaded = await f.client.load([item])
+  expect(loaded.statuses[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict', message: expect.stringContaining(badPath) } })
+  expect(kickoffCardView({ status: loaded.statuses[taskId] }, 0)).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+  await expect(f.start()).rejects.toMatchObject({ kind: 'conflict' })
+  expect(f.io.agentRun).not.toHaveBeenCalled()
   expect(f.files.get(badPath)).toContain('human-data')
   expect(f.writes).toEqual([])
 })
@@ -337,7 +381,7 @@ it.each([
   f.io.agentProviders.mockResolvedValue({ providers: ids.map(id => ({ id, name: id, max_concurrency: 2, harness: { harness: id, ok: true } })), default: ids[0] ?? '' })
   const snapshot = await f.client.load([item])
   expect(snapshot.providers.map(p => p.id)).toEqual(ids)
-  expect(snapshot.providers.every(p => p.harness?.ok === false && p.harness.hint?.includes('kickoff-safety-unverified'))).toBe(true)
+  expect(snapshot.providers.every(p => p.harness?.ok === false && p.harness.hint?.includes('kickoff-provider-update-required'))).toBe(true)
   expect(snapshot.providerDefault).toBe(ids[0] ?? '')
 })
 
@@ -409,7 +453,7 @@ it('retains installed agents whose harness probe is unavailable', async () => {
   f.io.agentProviders.mockResolvedValue({ providers: [{ id: 'notemd.deepseek-agent', name: 'DeepSeek', harness: null }], default: 'notemd.deepseek-agent' })
   const loaded = await f.client.load()
   expect(loaded.providers.map(p => p.id)).toEqual(['notemd.deepseek-agent'])
-  expect(loaded.providers[0].harness).toMatchObject({ ok: false, hint: 'kickoff-safety-unverified' })
+  expect(loaded.providers[0].harness).toMatchObject({ ok: false, hint: 'kickoff-provider-update-required' })
 })
 
 it('queries the recorded provider after default changes and a fresh client reopens', async () => {
@@ -464,4 +508,115 @@ it.each(['', 'invalid'])('falls back to requested_at for invalid terminal starte
   f.io.agentStatus.mockResolvedValue(status)
   const result = (await f.client.reconcile()).results[taskId]
   expect(result.doc.kickoff.duration_seconds).toBe(12)
+})
+
+
+it('isolates unidentifiable malformed and duplicate results from healthy Tasks', async () => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const original = (await f.client.reconcile()).results[taskId]
+  const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+  const otherPath = 'inbox/tasks/other-task.kickoff.md'
+  f.files.set(otherPath, original.doc.raw.replaceAll(taskId, otherId))
+  f.files.set('inbox/tasks/copy.kickoff.md', original.doc.raw)
+  f.files.set('inbox/tasks/unidentifiable.kickoff.md', 'broken human text')
+  const bytes = new Map(f.files)
+  const loaded = await f.client.load([item])
+  expect(loaded.results[otherId].path).toBe(otherPath)
+  expect(loaded.results[taskId]).toBeUndefined()
+  expect(loaded.statuses[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+  await expect(f.client.saveAnswers({ taskId, runId: 'run-1', answers: [] })).rejects.toMatchObject({ kind: 'conflict' })
+  const reconciled = await f.client.reconcile()
+  expect(reconciled.results[otherId].path).toBe(otherPath)
+  expect(f.files).toEqual(bytes)
+})
+
+it('persists terminal conflicts from a result changed during reconciliation', async () => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const first = (await f.client.reconcile()).results[taskId]
+  f.io.agentRun.mockResolvedValue({ run_id: 'run-2' })
+  await f.start()
+  f.io.agentStatus.mockImplementation(async () => {
+    f.files.set(first.path, 'changed human bytes')
+    return { state: 'done', record: { status: 'success' }, terminal_result: { content: JSON.stringify({ ...payload, task_id: taskId, based_on: await sha256(raw) }) } }
+  })
+  const next = await f.client.reconcile()
+  expect(next.registry.runs[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+  expect(f.files.get(first.path)).toBe('changed human bytes')
+})
+
+
+it('finishes a healthy run despite an unrelated malformed result file', async () => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const badPath = 'inbox/tasks/unrelated.kickoff.md'
+  f.files.set(badPath, 'unidentified human content')
+  const next = await f.client.reconcile()
+  expect(next.results[taskId].doc.kickoff.run_id).toBe('run-1')
+  expect(next.registry.runs[taskId]).toBeUndefined()
+  expect(f.files.get(badPath)).toBe('unidentified human content')
+})
+
+it('clears a discovery conflict when its damaged file is removed', async () => {
+  const f = fixture()
+  const badPath = path.replace(/\.md$/, '.kickoff.md')
+  f.files.set(badPath, 'human bytes')
+  expect((await f.client.load([item])).statuses[taskId].state).toBe('failed')
+  f.files.delete(badPath)
+  const next = await f.client.load([item])
+  expect(next.statuses[taskId]).toBeUndefined()
+  await expect(f.start()).resolves.toBeDefined()
+})
+
+it('isolates unreadable or vanished result files while reconciling a healthy Task', async () => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const badPath = 'inbox/tasks/unreadable.kickoff.md'
+  f.files.set(badPath, 'unreadable bytes')
+  const read = f.io.read.getMockImplementation()!
+  f.io.read.mockImplementation(async p => {
+    if (p === badPath) throw Error('file is unavailable')
+    return read(p)
+  })
+  const next = await f.client.reconcile()
+  expect(next.results[taskId].doc.kickoff.run_id).toBe('run-1')
+  expect(f.files.get(badPath)).toBe('unreadable bytes')
+})
+
+it('isolates Task hash read failures and recovers when the file is readable', async () => {
+  const f = fixture()
+  await f.client.load([item])
+  const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+  const other = { ...item, key: otherId, path: 'inbox/tasks/other-task.md', task: { ...item.task!, id: otherId } }
+  f.files.set(other.path!, raw.replaceAll(taskId, otherId))
+  const read = f.io.read.getMockImplementation()!
+  f.io.read.mockImplementation(async p => {
+    if (p === path) throw Error('task is temporarily unreadable')
+    return read(p)
+  })
+  const next = await f.client.load([item, other])
+  expect(next.hashes[taskId]).toBeUndefined()
+  expect(next.hashes[otherId]).toBeDefined()
+  expect(next.statuses[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'io-error', message: expect.stringContaining(path) } })
+  f.io.read.mockImplementation(read)
+  const recovered = await f.client.load([item, other])
+  expect(recovered.hashes[taskId]).toBeDefined()
+  expect(recovered.statuses[taskId]).toBeUndefined()
+})
+
+
+it('attributes an unreadable known result to its Task without returning stale data', async () => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const first = (await f.client.reconcile()).results[taskId]
+  const read = f.io.read.getMockImplementation()!
+  f.io.read.mockImplementation(async p => {
+    if (p === first.path) throw Error('read denied')
+    return read(p)
+  })
+  const next = await f.client.load([item])
+  expect(next.results[taskId]).toBeUndefined()
+  expect(next.statuses[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'io-error', message: expect.stringContaining(first.path) } })
+  expect(f.files.get(first.path)).toBe(first.doc.raw)
 })
