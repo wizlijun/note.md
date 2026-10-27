@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.
+
 - **NEXT 1.12.0: start an in-progress Task with your installed Agent.** The combined kickoff control offers both the main action and Agent selection. NEXT prepares a bounded snapshot of the Task and relevant declared background; Codex Agent 1.0.21 and DeepSeek Agent 1.1.20 return the questions without filesystem, command, network or MCP tools. Answers still require your confirmation before placement. Update the Agent plugin when its installed version does not provide this capability.
 
 - **NEXT 1.11.0: “Help me start” on Task cards.** Review up to three questions grounded in your vault, save your answers, and prefill the placement form for your approval. Existing answers survive regeneration and manually edited result text is preserved. Agent execution stays disabled until its read-only safety checks are verified.
