@@ -24,6 +24,7 @@ export interface KickoffData {
   task_id: string
   based_on: string
   harness: string
+  model?: string
   run_id: string
   duration_seconds: number
   rendered: string
@@ -50,6 +51,7 @@ export interface BuildKickoffInput {
   durationSeconds: number
   harness?: string
   providerId: string
+  model?: string
   repairs?: string[]
   priorAnswers?: PriorAnswer[]
 }
@@ -104,6 +106,7 @@ export async function buildKickoffDocument(input: BuildKickoffInput): Promise<st
     task_id: input.payload.task_id,
     based_on: input.payload.based_on,
     harness,
+    ...(input.model === undefined ? {} : { model: input.model }),
     run_id: input.runId,
     duration_seconds: input.durationSeconds,
     rendered: await sha256(body),
@@ -122,16 +125,147 @@ export async function buildKickoffDocument(input: BuildKickoffInput): Promise<st
   }, body))
 }
 
+type RecordValue = Record<string, unknown>
+
+function record(value: unknown): value is RecordValue {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function text(value: unknown): value is string {
+  return typeof value === 'string'
+}
+
+function nonempty(value: unknown): value is string {
+  return text(value) && value.trim().length > 0
+}
+
+function strings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(text)
+}
+
+const decides: readonly KickoffDecides[] = ['commitment', 'next_action', 'close_condition', 'owner', 'scope', 'other']
+
+function decision(value: unknown): value is KickoffDecides {
+  return decides.some(d => d === value)
+}
+
+function timestamp(value: unknown): value is string {
+  return nonempty(value) && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value))
+}
+
+// Persisted documents must be validated without the async input parser's repairs:
+// source disappearance must never remove an old source or a person's answers.
+function storedPayload(value: unknown): value is KickoffPayload {
+  if (!record(value)
+    || value.schema !== 'next-kickoff/v1'
+    || !nonempty(value.task_id)
+    || !nonempty(value.based_on)
+    || !nonempty(value.summary)) return false
+  if (!Array.isArray(value.sources)
+    || !Array.isArray(value.questions)
+    || value.questions.length < 1
+    || value.questions.length > 3
+    || !Array.isArray(value.context)
+    || !strings(value.gaps)) return false
+  const sourceIds = new Set<string>()
+  for (const source of value.sources) {
+    if (!record(source)
+      || !text(source.id)
+      || !/^s\d{1,2}$/.test(source.id)
+      || sourceIds.has(source.id)
+      || !text(source.resource)
+      || !text(source.title)
+      || !text(source.locator)) return false
+    sourceIds.add(source.id)
+  }
+  const references = (ids: unknown): boolean => strings(ids) && ids.every(id => sourceIds.has(id))
+  const questionIds = new Set<string>()
+  for (const q of value.questions) {
+    if (!record(q)
+      || !text(q.id)
+      || !/^q[1-3]$/.test(q.id)
+      || questionIds.has(q.id)
+      || !nonempty(q.text)
+      || !decision(q.decides)
+      || typeof q.allow_free_text !== 'boolean'
+      || !Array.isArray(q.options)
+      || q.options.length < 2
+      || q.options.length > 4) return false
+    questionIds.add(q.id)
+    const optionIds = new Set<string>()
+    let recommended = 0
+    for (const o of q.options) {
+      if (!record(o)
+        || !text(o.id)
+        || !/^[a-d]$/.test(o.id)
+        || optionIds.has(o.id)
+        || !nonempty(o.label)
+        || typeof o.recommended !== 'boolean'
+        || !text(o.why)
+        || !references(o.source_ids)) return false
+      optionIds.add(o.id)
+      if (o.recommended) recommended++
+    }
+    if (recommended > 1) return false
+  }
+  for (const c of value.context) {
+    if (!record(c)
+      || !nonempty(c.claim)
+      || !['fact', 'inference'].includes(String(c.kind))
+      || !references(c.source_ids)
+      || (c.unverified !== undefined && c.unverified !== true)) return false
+  }
+  const s = value.suggestions
+  return record(s) && (s.commitment === undefined || text(s.commitment)) && nonempty(s.next_action) && nonempty(s.close_condition) && strings(s.blockers) && strings(s.waiting_for)
+}
+
+function storedAnswer(value: unknown): value is KickoffAnswer {
+  return record(value) && text(value.question_id) && /^q[1-3]$/.test(value.question_id) && nonempty(value.question) && decision(value.decides)
+    && (value.option_id === null || (text(value.option_id) && /^[a-d]$/.test(value.option_id)))
+    && text(value.answer) && text(value.by) && /^human:\S+$/.test(value.by) && timestamp(value.at)
+}
+
+function storedKickoff(value: unknown): value is KickoffData {
+  if (!record(value)
+    || value.version !== 1
+    || value.schema !== 'next-kickoff/v1'
+    || !nonempty(value.task_id)
+    || !nonempty(value.based_on)
+    || !nonempty(value.harness)
+    || !nonempty(value.run_id)
+
+    || (value.model !== undefined && !text(value.model))
+    || typeof value.duration_seconds !== 'number'
+    || !Number.isFinite(value.duration_seconds)
+    || value.duration_seconds < 0
+
+    || !text(value.rendered)
+    || !/^sha256:[a-f0-9]{64}$/.test(value.rendered)
+    || !strings(value.repairs)
+    || !storedPayload(value.payload)
+
+    || value.task_id !== value.payload.task_id
+    || value.based_on !== value.payload.based_on
+    || !Array.isArray(value.answers)
+    || !Array.isArray(value.prior_answers)) return false
+  const answered = new Set<string>()
+  for (const a of value.answers) {
+    if (!storedAnswer(a) || answered.has(a.question_id)) return false
+    const q = value.payload.questions.find(q => q.id === a.question_id)
+    if (!q || a.decides !== q.decides || (a.option_id === null ? !q.allow_free_text : !q.options.some(o => o.id === a.option_id))) return false
+    answered.add(a.question_id)
+  }
+  // Historical questions/options belong to their original run, not this payload.
+  return value.prior_answers.every(a => storedAnswer(a) && record(a) && nonempty(a.run_id))
+}
+
 export function parseKickoffDocument(content: string): KickoffDoc | null {
   try {
     const { document, body } = editableFrontmatter(content, false)
-    const metadata = document.toJS() as Record<string, unknown>
-    const k = metadata.kickoff as KickoffData | undefined
-    if (metadata.type !== CONCEPT_TYPE.taskKickoff || !k || k.version !== 1 || k.schema !== 'next-kickoff/v1' || !k.payload || k.task_id !== k.payload.task_id || !Array.isArray(k.answers) || !Array.isArray(k.prior_answers))
-      return null
-    return { raw: content, metadata, kickoff: k, body }
-  }
-  catch {
+    const metadata: unknown = document.toJS()
+    if (!record(metadata) || metadata.type !== CONCEPT_TYPE.taskKickoff || !storedKickoff(metadata.kickoff)) return null
+    return { raw: content, metadata, kickoff: metadata.kickoff, body }
+  } catch {
     return null
   }
 }
@@ -140,14 +274,15 @@ export async function withAnswers(doc: KickoffDoc, answers: KickoffAnswer[], now
   content: string
   rerendered: boolean
 }> {
+  if (!timestamp(now)) throw new Error('Invalid answer timestamp')
   const editable = editableFrontmatter(doc.raw, false)
   const current = parseKickoffDocument(doc.raw)
   if (!current || current.kickoff.task_id !== doc.kickoff.task_id)
     throw new Error('Kickoff task identity mismatch')
   const merged = new Map(current.kickoff.answers.map(a => [a.question_id, a]))
   for (const a of answers) {
-    if (!/^human:.+/.test(a.by))
-      throw new Error('Answer actor must use human: prefix')
+    if (!storedAnswer({ ...a, at: now }))
+      throw new Error('Invalid answer: requires human: actor and valid answer fields')
     const q = current.kickoff.payload.questions.find(q => q.id === a.question_id)
     if (!q)
       throw new Error('Unknown kickoff question')

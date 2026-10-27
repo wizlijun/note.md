@@ -43,8 +43,9 @@ export function kickoffButtonState(input: ButtonStateInput): ButtonState {
 }
 
 export function kickoffCardView(input: ButtonStateInput, now: number): KickoffCardView {
-  const status = input.status, started = status?.state === 'running' ? status.started_at : undefined
-  const start = Date.parse(started ?? input.run?.requested_at ?? '')
+  const status = input.status
+  const started = status?.state === 'running' ? Date.parse(status.started_at ?? '') : NaN
+  const start = Number.isFinite(started) ? started : Date.parse(input.run?.requested_at ?? '')
   return {
     state: kickoffButtonState(input),
     elapsedMs: Number.isFinite(start) ? Math.max(0, now - start) : 0,

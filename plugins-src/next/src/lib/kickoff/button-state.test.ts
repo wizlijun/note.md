@@ -82,3 +82,11 @@ it('restores elapsed time from absolute timestamps', () => {
     elapsedMs: 60000, steps: 3, last: 'read'
   })
 })
+
+it.each(['', 'invalid'])('uses requested time for real host starting response started_at=%j', started_at => {
+  const view = kickoffCardView({
+    run: { state: 'running', requested_at: '2026-10-27T00:00:00Z' } as never,
+    status: { state: 'running', started_at, steps: 0, last: 'starting' },
+  }, Date.parse('2026-10-27T00:02:00Z'))
+  expect(view).toMatchObject({ state: 'running', elapsedMs: 120000, steps: 0, last: 'starting' })
+})

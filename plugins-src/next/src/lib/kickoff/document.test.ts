@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { editableFrontmatter, serializeEditableFrontmatter } from '../frontmatter-document'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -115,4 +116,59 @@ describe('kickoff document', () => {
     expect(JSON.stringify(old)).toBe(before)
     expect(carryPriorAnswers(null,'run-1')).toEqual([])
   })
+})
+
+it.each([
+  ['payload.questions', null], ['payload.questions.0.options', null],
+  ['payload.questions.0.options.0.source_ids', [null]], ['payload.questions.0.options.0.recommended', 'yes'],
+  ['payload.context', [null]], ['payload.context.0.claim', null],
+  ['payload.suggestions', null], ['payload.suggestions.blockers', [null]],
+  ['payload.sources', [null]], ['payload.sources.0.resource', null], ['payload.gaps', [null]],
+  ['task_id', null], ['based_on', 'different'], ['payload.task_id', null],
+  ['answers', [null]], ['prior_answers', [null]], ['run_id', ''], ['rendered', null],
+])('rejects damaged persisted %s without modifying original bytes', async (path, value) => {
+  const text = await buildKickoffDocument(input)
+  const editable = editableFrontmatter(text, false)
+  editable.document.setIn(['kickoff', ...path.split('.').map(p => /^\d+$/.test(p) ? Number(p) : p)], value)
+  const damaged = serializeEditableFrontmatter(editable)
+  expect(parseKickoffDocument(damaged)).toBeNull()
+  await expect(withAnswers({ ...parseKickoffDocument(text)!, raw: damaged }, [answer], answer.at)).rejects.toThrow()
+  expect(serializeEditableFrontmatter(editable)).toBe(damaged)
+})
+
+it.each([
+  { by: 'process:agent' }, { at: 'invalid' }, { question_id: 'q9' },
+  { option_id: 'z' }, { decides: 'wrong' }, { answer: null }, { question: null },
+])('rejects damaged current answer %o', async patch => {
+  const editable = editableFrontmatter(await buildKickoffDocument(input), false)
+  editable.document.setIn(['kickoff', 'answers'], [{ ...answer, ...patch }])
+  expect(parseKickoffDocument(serializeEditableFrontmatter(editable))).toBeNull()
+})
+
+it('preserves historical answers from different questions and valid unverified context', async () => {
+  const old = { ...answer, question_id: 'q3', option_id: 'd', question: '旧问题', run_id: 'old-run' }
+  const text = await buildKickoffDocument({ ...input, model: 'test-model', priorAnswers: [old] })
+  const editable = editableFrontmatter(text, false)
+  editable.document.setIn(['kickoff', 'payload', 'context', 0, 'unverified'], true)
+  const doc = parseKickoffDocument(serializeEditableFrontmatter(editable))!
+  expect(doc.kickoff.model).toBe('test-model')
+  expect(doc.kickoff.prior_answers).toEqual([old])
+  expect(doc.kickoff.payload.context[0].unverified).toBe(true)
+  expect(carryPriorAnswers(doc, 'run-1')).toEqual([old])
+  editable.document.setIn(['kickoff', 'prior_answers', 0, 'run_id'], '')
+  expect(parseKickoffDocument(serializeEditableFrontmatter(editable))).toBeNull()
+})
+
+it.each([
+  { by: 'process:agent' }, { at: 'invalid' }, { run_id: null }, { option_id: 2 }, { question_id: null },
+])('rejects damaged prior answer %o without silently discarding it', async patch => {
+  const editable = editableFrontmatter(await buildKickoffDocument(input), false)
+  editable.document.setIn(['kickoff', 'prior_answers'], [{ ...answer, run_id: 'old', ...patch }])
+  expect(parseKickoffDocument(serializeEditableFrontmatter(editable))).toBeNull()
+})
+
+it('rejects duplicate current answer IDs', async () => {
+  const editable = editableFrontmatter(await buildKickoffDocument(input), false)
+  editable.document.setIn(['kickoff', 'answers'], [answer, answer])
+  expect(parseKickoffDocument(serializeEditableFrontmatter(editable))).toBeNull()
 })
