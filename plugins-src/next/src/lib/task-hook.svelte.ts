@@ -12,6 +12,7 @@ export interface TaskHookJob {
   taskId: string
   title: string
   status: 'running' | 'synced' | 'pending'
+  counts?: { created: number; updated: number; deleted: number }
   errorCode?: string
 }
 
@@ -84,8 +85,13 @@ export function syncTaskHook(taskId: string, title: string): Promise<void> {
         return
       }
       const synced = result?.ok === true && result.status === 'synced'
+      const counts = synced && [result.created, result.updated, result.deleted]
+        .every((count) => Number.isSafeInteger(count) && count >= 0)
+        ? { created: result.created, updated: result.updated, deleted: result.deleted }
+        : undefined
       taskHook.jobs[taskId] = {
         taskId, title, status: synced ? 'synced' : 'pending',
+        ...(counts ? { counts } : {}),
         ...(!synced ? { errorCode: typeof result?.errorCode === 'string' ? result.errorCode : 'script_failed' } : {}),
       }
     } catch {

@@ -22,6 +22,8 @@ export type MessageKey =
   | 'hook.settings.error'
   | 'hook.status.running'
   | 'hook.status.synced'
+  | 'hook.status.noChanges'
+  | 'hook.status.changes'
   | 'hook.status.pending'
   | 'hook.status.pendingReason'
   | 'hook.error.missingConfig'
@@ -300,7 +302,7 @@ const en: Catalog = {
   "hook.environment.save": "Save environment variables",
   "hook.environment.clear": "Clear saved variables",
   "hook.environment.local": "Saved immediately on this device for this Vault. NEXT script runs prioritize these values without changing the existing env file. Scheduled jobs are unaffected. Saving or clearing does not run the script; saved values are not shown again.",
-  "hook.environment.saved": "Environment variables saved. The input has been cleared.",
+  "hook.environment.saved": "Environment variables saved locally only. The connection has not been tested. The input has been cleared.",
   "hook.environment.cleared": "Environment overrides cleared. The script will use its original configuration.",
   "hook.environment.error": "Could not save environment variables. Check the KEY=value format and supported variable names, then try again.",
   "hook.environment.unavailable": "Update note.md to configure script environment variables here.",
@@ -313,7 +315,9 @@ const en: Catalog = {
   "hook.settings.unavailable": "This host does not support script execution. Update note.md to a version with task hook support.",
   "hook.settings.error": "Could not change the script configuration.",
   "hook.status.running": "“{title}” saved · Syncing Cube…",
-  "hook.status.synced": "“{title}” saved · Cube synced",
+  "hook.status.synced": "“{title}” saved · Script finished; no change counts provided.",
+  "hook.status.noChanges": "“{title}” saved · Script reports: check complete, no changes needed this time.",
+  "hook.status.changes": "“{title}” saved · Script reports: {created} created, {updated} updated, {deleted} removed. This does not confirm the device display.",
   "hook.status.pending": "“{title}” saved · Cube sync pending. Check the script, Python dependencies and Cube connection.",
   "hook.status.pendingReason": "“{title}” saved · Cube sync pending. {reason}",
   "hook.error.missingConfig": "Missing Cube configuration. Set DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN in NEXT settings or ~/.config/desk-display/env.",
@@ -591,7 +595,7 @@ const zh: Catalog = {
   "hook.environment.save": "保存环境变量",
   "hook.environment.clear": "清除已保存变量",
   "hook.environment.local": "立即保存到本机当前 Vault 的配置。仅 NEXT 运行脚本时优先使用这里的值，不改写原有 env 文件，不影响定时任务。保存或清除不会运行脚本；已保存的值不再回显。",
-  "hook.environment.saved": "环境变量已保存，输入框已清空。",
+  "hook.environment.saved": "环境变量已保存，仅保存在本机，尚未测试连接。输入框已清空。",
   "hook.environment.cleared": "环境变量覆盖已清除，脚本将恢复读取原有配置。",
   "hook.environment.error": "无法保存环境变量。请检查 KEY=value 格式及支持的变量名后重试。",
   "hook.environment.unavailable": "请更新 note.md 后在这里配置脚本环境变量。",
@@ -604,7 +608,9 @@ const zh: Catalog = {
   "hook.settings.unavailable": "当前宿主不支持直接执行脚本，请更新到支持此功能的 note.md。",
   "hook.settings.error": "无法更改脚本配置。",
   "hook.status.running": "“{title}”已保存 · 正在同步 Cube…",
-  "hook.status.synced": "“{title}”已保存 · Cube 已同步",
+  "hook.status.synced": "“{title}”已保存 · 脚本执行完成，未提供变更统计。",
+  "hook.status.noChanges": "“{title}”已保存 · 脚本报告：检查完成，本次无需变更。",
+  "hook.status.changes": "“{title}”已保存 · 脚本报告：新增 {created} 条、更新 {updated} 条、撤下 {deleted} 条；不代表设备已显示。",
   "hook.status.pending": "“{title}”已保存 · Cube 待同步。请检查脚本、Python 依赖和 Cube 连接。",
   "hook.status.pendingReason": "“{title}”已保存 · Cube 待同步。{reason}",
   "hook.error.missingConfig": "缺少 Cube 配置：请在 NEXT 设置或 ~/.config/desk-display/env 中配置 DESK_DISPLAY_URL 和 DESK_DISPLAY_TOKEN。",
@@ -882,7 +888,7 @@ const ja: Catalog = {
   "hook.environment.save": "環境変数を保存",
   "hook.environment.clear": "保存済みの変数を削除",
   "hook.environment.local": "この端末の現在の Vault に即時保存します。NEXT からの実行時のみこの値が優先され、既存の env ファイルは変更しません。定期ジョブには適用されません。保存・削除してもスクリプトは実行されず、保存済みの値は再表示されません。",
-  "hook.environment.saved": "環境変数を保存し、入力欄をクリアしました。",
+  "hook.environment.saved": "環境変数はこの端末にのみ保存されました。接続はまだテストしていません。入力欄をクリアしました。",
   "hook.environment.cleared": "環境変数の上書きを削除しました。元の設定を使用します。",
   "hook.environment.error": "環境変数を保存できませんでした。KEY=value の形式と対応する変数名を確認して再試行してください。",
   "hook.environment.unavailable": "ここで環境変数を設定するには note.md を更新してください。",
@@ -895,7 +901,9 @@ const ja: Catalog = {
   "hook.settings.unavailable": "このホストはスクリプト実行に対応していません。対応する note.md に更新してください。",
   "hook.settings.error": "スクリプト設定を変更できませんでした。",
   "hook.status.running": "「{title}」を保存済み · Cube と同期中…",
-  "hook.status.synced": "「{title}」を保存済み · Cube と同期済み",
+  "hook.status.synced": "「{title}」を保存済み · スクリプトの実行が完了しました。変更件数は未報告です。",
+  "hook.status.noChanges": "「{title}」を保存済み · スクリプトの報告：確認が完了し、今回は変更不要です。",
+  "hook.status.changes": "「{title}」を保存済み · スクリプトの報告：追加 {created} 件、更新 {updated} 件、取り下げ {deleted} 件。端末での表示を確認したものではありません。",
   "hook.status.pending": "「{title}」を保存済み · Cube 同期待ち。スクリプト、Python の依存関係、接続を確認してください。",
   "hook.status.pendingReason": "「{title}」を保存済み · Cube 同期待ち。{reason}",
   "hook.error.missingConfig": "Cube 設定がありません。NEXT の設定または ~/.config/desk-display/env に DESK_DISPLAY_URL と DESK_DISPLAY_TOKEN を設定してください。",
@@ -1173,7 +1181,7 @@ const de: Catalog = {
   "hook.environment.save": "Umgebungsvariablen speichern",
   "hook.environment.clear": "Gespeicherte Variablen löschen",
   "hook.environment.local": "Gilt sofort auf diesem Gerät für diesen Vault. Nur bei Skriptaufrufen aus NEXT haben diese Werte Vorrang. Die bestehende env-Datei und geplante Jobs bleiben unverändert. Speichern oder Löschen führt das Skript nicht aus. Gespeicherte Werte werden nicht erneut angezeigt.",
-  "hook.environment.saved": "Umgebungsvariablen gespeichert. Das Eingabefeld wurde geleert.",
+  "hook.environment.saved": "Umgebungsvariablen nur auf diesem Gerät gespeichert. Die Verbindung wurde noch nicht getestet. Das Eingabefeld wurde geleert.",
   "hook.environment.cleared": "Umgebungsvariablen gelöscht. Das Skript verwendet wieder seine ursprüngliche Konfiguration.",
   "hook.environment.error": "Umgebungsvariablen konnten nicht gespeichert werden. Prüfen Sie KEY=value und die unterstützten Variablennamen.",
   "hook.environment.unavailable": "Aktualisieren Sie note.md, um hier Umgebungsvariablen einzurichten.",
@@ -1186,7 +1194,9 @@ const de: Catalog = {
   "hook.settings.unavailable": "Dieser Host unterstützt keine Skriptausführung. Aktualisieren Sie note.md auf eine unterstützte Version.",
   "hook.settings.error": "Die Skriptkonfiguration konnte nicht geändert werden.",
   "hook.status.running": "„{title}“ gespeichert · Cube wird synchronisiert…",
-  "hook.status.synced": "„{title}“ gespeichert · Cube synchronisiert",
+  "hook.status.synced": "„{title}“ gespeichert · Skript beendet; keine Änderungszahlen gemeldet.",
+  "hook.status.noChanges": "„{title}“ gespeichert · Skript meldet: Prüfung abgeschlossen, diesmal keine Änderungen erforderlich.",
+  "hook.status.changes": "„{title}“ gespeichert · Skript meldet: {created} erstellt, {updated} aktualisiert, {deleted} entfernt. Dies bestätigt nicht die Anzeige auf dem Gerät.",
   "hook.status.pending": "„{title}“ gespeichert · Cube-Synchronisierung ausstehend. Prüfen Sie Skript, Python-Abhängigkeiten und Verbindung.",
   "hook.status.pendingReason": "„{title}“ gespeichert · Cube-Synchronisierung ausstehend. {reason}",
   "hook.error.missingConfig": "Cube-Konfiguration fehlt. Tragen Sie DESK_DISPLAY_URL und DESK_DISPLAY_TOKEN in den NEXT-Einstellungen oder in ~/.config/desk-display/env ein.",

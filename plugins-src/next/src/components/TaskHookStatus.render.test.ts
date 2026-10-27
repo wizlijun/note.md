@@ -45,7 +45,7 @@ describe('Task hook failure feedback', () => {
       expect(document.body.textContent).toContain('DESK_DISPLAY_TOKEN')
     }
     document.querySelector<HTMLButtonElement>('button')!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Cube 已同步'))
+    await vi.waitFor(() => expect(document.body.textContent).toContain('脚本执行完成，未提供变更统计'))
     expect(request.mock.calls).toEqual([
       ['host.taskHook.get', {}], ['host.taskHook.run', { taskId }],
       ['host.taskHook.get', {}], ['host.taskHook.run', { taskId }],
@@ -60,5 +60,33 @@ describe('Task hook failure feedback', () => {
     flushSync()
     expect(document.body.textContent).toContain('Cube 待同步')
     expect(document.body.textContent).not.toContain('private token=secret')
+  })
+
+  it.each([
+    [{ created: 0, updated: 0, deleted: 0 }, '检查完成，本次无需变更'],
+    [{ created: 1, updated: 2, deleted: 3 }, '新增 1 条、更新 2 条、撤下 3 条；不代表设备已显示'],
+  ])('shows the script report for successful counts %j', async (counts, message) => {
+    request.mockImplementation(async (method) => method === 'host.taskHook.get'
+      ? { configured: true } : { ok: true, status: 'synced', ...counts })
+    component = mount(TaskHookStatus, { target: document.body })
+    await syncTaskHook(taskId, '诊断任务')
+    flushSync()
+    expect(document.body.textContent).toContain(`脚本报告：${message}`)
+    expect(document.body.textContent).not.toContain('Cube 已同步')
+  })
+
+  it.each([
+    {}, { created: 0, updated: 0 }, { created: 0, updated: 0, deleted: -1 },
+    { created: 0, updated: 0.5, deleted: 0 }, { created: '0', updated: 0, deleted: 0 },
+    { created: Number.MAX_SAFE_INTEGER + 1, updated: 0, deleted: 0 },
+  ])('does not invent counts for incomplete or invalid results %j', async (counts) => {
+    request.mockImplementation(async (method) => method === 'host.taskHook.get'
+      ? { configured: true } : { ok: true, status: 'synced', ...counts })
+    component = mount(TaskHookStatus, { target: document.body })
+    await syncTaskHook(taskId, '诊断任务')
+    flushSync()
+    expect(taskHook.jobs[taskId].counts).toBeUndefined()
+    expect(document.body.textContent).toContain('脚本执行完成，未提供变更统计')
+    expect(document.body.textContent).not.toContain('无需变更')
   })
 })

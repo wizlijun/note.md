@@ -13,9 +13,11 @@
 {#each Object.values(taskHook.jobs) as job (job.taskId)}
   {@const reason = job.errorCode && Object.hasOwn(reasons, job.errorCode) ? reasons[job.errorCode] : undefined}
   <div class="hook-status" class:pending={job.status === 'pending'} role="status" aria-live="polite" data-hook-status={job.status}>
-    <span>{job.status === 'pending' && reason
+    <span>{#if job.status === 'synced' && job.counts}
+      {t(Object.values(job.counts).every((count) => count === 0) ? 'hook.status.noChanges' : 'hook.status.changes', { title: job.title, ...job.counts })}
+    {:else}{job.status === 'pending' && reason
       ? t('hook.status.pendingReason', { title: job.title, reason: t(reason) })
-      : t(`hook.status.${job.status}`, { title: job.title })}</span>
+      : t(`hook.status.${job.status}`, { title: job.title })}{/if}</span>
     {#if job.status === 'pending'}
       <button type="button" onclick={() => syncTaskHook(job.taskId, job.title)}>{t('hook.retry')}</button>
     {/if}

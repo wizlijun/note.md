@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **NEXT reminder feedback distinguishes checks from changes.** Successful script runs show their reported create/update/remove counts; a no-op says no changes were needed. Saving script environment variables explicitly states that the server connection has not been tested.
+
 ## v6.1027.2 — 2026-10-27
 
 - **Apple Silicon: configure the NEXT reminder script environment.** With NEXT 1.9.0, paste DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN in the plugin settings. The host saves these values privately per local Vault and passes them only to the selected script; saved credentials are not returned to the UI.

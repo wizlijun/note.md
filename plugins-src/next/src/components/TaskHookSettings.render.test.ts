@@ -56,6 +56,7 @@ describe('Task hook environment settings', () => {
     enter(draft)
     button('保存环境变量').click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('环境变量已保存'))
+    expect(document.body.textContent).toContain('仅保存在本机，尚未测试连接')
     expect(input().value).toBe('')
     expect(document.querySelector('[data-environment-keys]')!.textContent).toContain('DESK_DISPLAY_TOKEN, DESK_DISPLAY_URL')
     expect(taskHook.config.configured).toBe(false)
