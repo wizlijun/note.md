@@ -7,23 +7,15 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Configure Cube script environment in NEXT settings.** Paste DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN as KEY=value lines, save or clear overrides per local Vault, and pass them directly to the selected script without returning saved credentials to the UI. Requires the matching host update.
+- **Apple Silicon: configure the NEXT reminder script environment.** With NEXT 1.9.0, paste DESK_DISPLAY_URL and DESK_DISPLAY_TOKEN in the plugin settings. The host saves these values privately per local Vault and passes them only to the selected script; saved credentials are not returned to the UI.
 
-- **Explain NEXT script synchronization failures.** Preserve recognized pending error codes even when the script exits unsuccessfully, so NEXT can explain missing Cube configuration, connectivity, busy synchronization or unsupported server capabilities without exposing arbitrary script output.
+- **See why NEXT script synchronization is pending.** Recognized error codes survive unsuccessful script exits, allowing NEXT 1.9.0 to explain missing Cube configuration, connectivity, busy synchronization or unsupported server capabilities without exposing arbitrary output.
+
+This host release is for macOS Apple Silicon only. Intel Mac and Linux remain on 6.1027.1; Windows remains on 6.811.1.
+
+## NEXT plugin v1.9.0 — 2026-10-27
 
 - **NEXT filters preserve the Show placed toggle.** Project tags, Idea / Task and search no longer reveal future parked or closed cards automatically; explicitly show matching placed cards with the toggle.
-
-- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
-
-- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
-
-- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
-
-- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.
-
-- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.
-
-- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
 
 ## v6.1027.1 — 2026-10-27
 
