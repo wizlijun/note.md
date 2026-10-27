@@ -92,6 +92,20 @@ pub async fn run(
         busy
     })?;
 
+    // Strict runs have a fixed total budget, including prompt delivery.
+    let timeout_limit = std::time::Duration::from_secs(spec.task.timeout_seconds);
+    let absolute_deadline = tokio::time::Instant::now() + timeout_limit;
+    let kickoff_v2 = spec.task.id == task::NEXT_KICKOFF_V2;
+    let refusal = task::validate_next_kickoff_task(&spec.task).err().or_else(|| {
+        (kickoff_v2 && !spec.prompt.contains(task::NEXT_KICKOFF_V2_MARKER))
+            .then(|| "kickoff v2 requires the frozen protocol in the prompt".to_string())
+    });
+    if let Some(reason) = refusal {
+        let rec = finish(&spec, started, record::Status::Error, None, None, reason, String::new(), Vec::new());
+        let _ = record::write(&spec.task_run_dir, &rec);
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
     if spec.task.strict_readonly && (spec.task.precheck.is_some() || spec.deliverable.is_some()) {
         let rec = finish(&spec, started, record::Status::Error, None, None,
             "strict_readonly forbids precheck scripts and file deliverables".into(), String::new(), Vec::new());
@@ -126,9 +140,11 @@ pub async fn run(
 
     let input_only_protocol = task::input_only_instructions(&spec.task.id);
     let input_only = input_only_protocol.is_some();
-    let input_only_dir = if input_only {
+    // Packet-only runs start in an empty directory so nothing on disk can be
+    // discovered as instructions or context.
+    let input_only_dir = if input_only || kickoff_v2 {
         match tempfile::Builder::new()
-            .prefix("notemd-search-input-only-")
+            .prefix(if kickoff_v2 { "notemd-kickoff-v2-" } else { "notemd-search-input-only-" })
             .tempdir()
         {
             Ok(dir) => Some(dir),
@@ -155,7 +171,7 @@ pub async fn run(
         .task_run_dir
         .join("settings")
         .join(format!("{}.json", spec.run_id));
-    let strict_vault = if spec.task.strict_readonly {
+    let strict_vault = if spec.task.strict_readonly && !kickoff_v2 {
         match spec.vault.canonicalize() {
             Ok(vault) => Some(vault),
             Err(e) => {
@@ -176,6 +192,9 @@ pub async fn run(
             ),
             false,
         )
+    } else if kickoff_v2 {
+        // The protocol is inside the frozen packet; never read it from disk.
+        (prompt::build_readonly_context_argv(&spec.task), false)
     } else if spec.task.strict_readonly {
         let vault = strict_vault.as_deref().expect("strict vault");
         let protocol_path = spec.task_dir.join("CLAUDE.md");
@@ -259,7 +278,7 @@ pub async fn run(
     let cwd = input_only_dir
         .as_ref()
         .map(|dir| dir.path())
-        .unwrap_or(if spec.task.strict_readonly { strict_vault.as_deref().expect("strict vault") } else { spec.task_dir.as_path() });
+        .unwrap_or_else(|| if spec.task.strict_readonly { strict_vault.as_deref().expect("strict vault") } else { spec.task_dir.as_path() });
 
     let mut cmd = tokio::process::Command::new(&spec.claude);
     cmd.args(&argv)
@@ -267,7 +286,7 @@ pub async fn run(
         // both the vault's conventions and the task's instructions load, and
         // .claude/skills + .mcp.json are discovered relative to it.
         .current_dir(cwd)
-        .stdin(Stdio::null())
+        .stdin(if kickoff_v2 { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         // claude spawns stdio MCP servers (`npx …`) itself, and a GUI-launched
@@ -313,6 +332,17 @@ pub async fn run(
     let stdout = child.stdout.take().expect("piped");
     let stderr = child.stderr.take().expect("piped");
     let mut lines = BufReader::new(stdout).lines();
+    // `claude -p` without a prompt argument reads it until EOF. Writing runs
+    // concurrently with the stdout loop below so a full pipe cannot deadlock.
+    let mut stdin_task = child.stdin.take().map(|mut stdin| {
+        let packet = spec.prompt.clone().into_bytes();
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            let result = stdin.write_all(&packet).await;
+            let _ = stdin.shutdown().await;
+            result
+        })
+    });
 
     // stderr is claude's diagnostic noise, not something to show the user —
     // keep only a tail for the failure record.
@@ -340,14 +370,21 @@ pub async fn run(
     // `timeout_seconds` 是**静默上限**,不是总时长上限:每收到一个事件就重新
     // 起算。一本大部头读 40 分钟不是"卡住",而卡住的表现恰恰是不再有输出 ——
     // 拿总时长砍活着的 run,只会在最后一刻把已经快写完的摘要扔掉。
-    let quiet_limit = std::time::Duration::from_secs(spec.task.timeout_seconds);
-    let deadline = tokio::time::sleep(quiet_limit);
+    // strict_readonly 例外:只读包没有长读的理由,预算是从启动算起的总时长。
+    let quiet_limit = timeout_limit;
+    let deadline = tokio::time::sleep_until(if spec.task.strict_readonly {
+        absolute_deadline
+    } else {
+        tokio::time::Instant::now() + quiet_limit
+    });
     tokio::pin!(deadline);
     let forced = loop {
         tokio::select! {
             line = lines.next_line() => match line {
                 Ok(Some(l)) => {
-                    deadline.as_mut().reset(tokio::time::Instant::now() + quiet_limit);
+                    if !spec.task.strict_readonly {
+                        deadline.as_mut().reset(tokio::time::Instant::now() + quiet_limit);
+                    }
                     if let Some(ev) = stream::parse_line(&l) {
                         match &ev {
                             stream::Event::Result(r) => final_result = Some(r.clone()),
@@ -393,8 +430,17 @@ pub async fn run(
 
     let exit = child.wait().await.ok().and_then(|s| s.code());
     let _ = err_task.await;
-    let stderr_tail = record::tail(&err_buf.lock().unwrap(), record::STDERR_LIMIT);
+    let mut stderr_tail = record::tail(&err_buf.lock().unwrap(), record::STDERR_LIMIT);
+    let mut input_failed = false;
+    if let Some(task) = stdin_task.take() {
+        if forced.is_some() { task.abort(); }
+        if let Ok(Err(e)) = task.await {
+            input_failed = forced.is_none();
+            stderr_tail = record::tail(&format!("{stderr_tail}could not send prompt to Claude: {e}\n"), record::STDERR_LIMIT);
+        }
+    }
     let status = forced.unwrap_or_else(|| match (&final_result, exit) {
+        _ if input_failed => record::Status::Error,
         (Some(r), _) if r.is_error => record::Status::Error,
         (_, Some(0)) => record::Status::Success,
         _ => record::Status::Error,
@@ -661,6 +707,117 @@ mod tests {
         assert!(!argv.contains("本机还接入"));
         assert!(rec.artifacts.is_empty());
         assert_eq!(std::fs::read_to_string(d.path().join("task/output/concurrent.md")).unwrap(), "# concurrent note");
+    }
+
+    fn kickoff_v2(dir: &Path, claude: PathBuf, timeout: u64) -> RunSpec {
+        let mut s = spec(dir, claude, timeout);
+        s.task.id = task::NEXT_KICKOFF_V2.into();
+        s.task.strict_readonly = true;
+        s.task.max_turns = Some(40);
+        s.prompt = format!("{}\nPROTOCOL\n\n## Frozen context\nPACKET-BODY", task::NEXT_KICKOFF_V2_MARKER);
+        s
+    }
+
+    #[tokio::test]
+    async fn kickoff_v2_rejects_weakened_isolation_and_budget_before_spawn() {
+        for weaken in [
+            (|s: &mut RunSpec| s.task.strict_readonly = false) as fn(&mut RunSpec),
+            |s| s.task.timeout_seconds = 601,
+            |s| s.task.max_turns = None,
+            |s| s.task.max_turns = Some(41),
+            |s| s.task.precheck = Some("check.sh".into()),
+        ] {
+            let d = tempfile::tempdir().unwrap();
+            let c = fake_claude(d.path(), "never-run", "touch harness-ran");
+            let mut s = kickoff_v2(d.path(), c, 600);
+            weaken(&mut s);
+            let (_, rec) = drive(s).await;
+            assert_eq!(rec.status, record::Status::Error);
+            assert!(rec.result.contains("kickoff v2 requires"), "{}", rec.result);
+            assert!(!d.path().join("harness-ran").exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn kickoff_v2_without_the_frozen_protocol_fails_closed() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "never-run", "touch harness-ran");
+        let mut s = kickoff_v2(d.path(), c, 30);
+        std::fs::write(s.task_dir.join("CLAUDE.md"), task::NEXT_KICKOFF_V2_MARKER).unwrap();
+        s.prompt = "packet without protocol".into();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Error);
+        assert!(rec.result.contains("frozen protocol"), "{}", rec.result);
+        assert!(!d.path().join("harness-ran").exists());
+    }
+
+    #[tokio::test]
+    async fn kickoff_v2_reads_the_packet_from_stdin_in_an_empty_dir_with_no_tools() {
+        let d = tempfile::tempdir().unwrap();
+        let out = d.path().join("probe");
+        let c = fake_claude(d.path(), "v2-stub", &format!(r#"
+        printf '%s\n' "$PWD" > '{o}.cwd'
+        ls -A > '{o}.ls'
+        printf '%s\n' "$@" > '{o}.argv'
+        cat > '{o}.stdin'
+        mkdir -p '{v}/task/output' && printf '# concurrent' > '{v}/task/output/x.md'
+        echo '{{"type":"result","subtype":"success","result":"{{\"ok\":true}}","is_error":false}}'
+        "#, o = out.display(), v = d.path().display()));
+        let s = kickoff_v2(d.path(), c, 30);
+        std::fs::write(s.task_dir.join("CLAUDE.md"), "DISK PROTOCOL MUST NOT LOAD").unwrap();
+        let prompt = s.prompt.clone();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Success, "{}", rec.stderr_tail);
+        assert_eq!(rec.result, r#"{"ok":true}"#);
+        assert!(rec.artifacts.is_empty());
+        assert_eq!(std::fs::read_to_string(out.with_extension("stdin")).unwrap(), prompt);
+        assert_eq!(prompt.matches(task::NEXT_KICKOFF_V2_MARKER).count(), 1);
+        let cwd = std::fs::read_to_string(out.with_extension("cwd")).unwrap();
+        let cwd = Path::new(cwd.trim());
+        assert!(!cwd.starts_with(d.path().canonicalize().unwrap()) && !cwd.starts_with(d.path()));
+        assert!(!cwd.exists(), "the empty workspace is removed after the run");
+        assert_eq!(std::fs::read_to_string(out.with_extension("ls")).unwrap(), "");
+        let argv = std::fs::read_to_string(out.with_extension("argv")).unwrap();
+        assert!(argv.starts_with("-p\n--output-format\n"), "{argv}");
+        assert!(argv.contains("\n--tools\n\n--strict-mcp-config\n"), "{argv}");
+        assert!(argv.contains("--safe-mode\n--restricted\n"));
+        assert!(!argv.contains("PACKET-BODY") && !argv.contains("DISK PROTOCOL") && !argv.contains("--settings"));
+        assert_eq!(std::fs::read_to_string(d.path().join("task/output/x.md")).unwrap(), "# concurrent");
+    }
+
+    #[tokio::test]
+    async fn strict_readonly_streaming_stops_at_the_absolute_timeout() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake_claude(d.path(), "chatty", r#"
+        cat > /dev/null
+        while true; do echo '{"type":"system","subtype":"tick"}'; sleep 0.2; done
+        "#);
+        let s = kickoff_v2(d.path(), c, 1);
+        let t0 = std::time::Instant::now();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Timeout);
+        assert!(t0.elapsed() < std::time::Duration::from_secs(4), "{:?}", t0.elapsed());
+    }
+
+    /// Live acceptance against the installed Claude CLI and its own login.
+    /// `NOTEMD_REAL_CLAUDE_PROMPT` names a file holding a NEXT-built v2 prompt;
+    /// the terminal result is written next to it as `.result.json`.
+    #[tokio::test]
+    #[ignore = "needs an authenticated Claude CLI"]
+    async fn live_kickoff_v2_with_the_installed_claude() {
+        let prompt_path = PathBuf::from(std::env::var("NOTEMD_REAL_CLAUDE_PROMPT").expect("prompt file"));
+        let claude = crate::discover::discover(None).expect("claude installed");
+        let d = tempfile::tempdir().unwrap();
+        let mut s = kickoff_v2(d.path(), claude, 600);
+        s.task.model = std::env::var("NOTEMD_REAL_CLAUDE_MODEL").ok();
+        s.prompt = std::fs::read_to_string(&prompt_path).unwrap();
+        let (events, rec) = drive(s).await;
+        let tools: Vec<_> = events.iter().filter(|e| matches!(e, stream::Event::ToolUse { .. })).collect();
+        eprintln!("status={:?} turns={:?} usage={:?} tools={tools:?}\nstderr={}", rec.status, rec.num_turns, rec.usage, rec.stderr_tail);
+        std::fs::write(prompt_path.with_extension("result.json"), &rec.result).unwrap();
+        assert_eq!(rec.status, record::Status::Success);
+        assert!(tools.is_empty(), "no tool may run: {tools:?}");
+        assert!(rec.artifacts.is_empty());
     }
 
     #[tokio::test]

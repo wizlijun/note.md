@@ -24,6 +24,9 @@ pub async fn run(run_dir: PathBuf) -> i32 {
         return 2;
     };
     def.id = req.task_id.clone();
+    if task::validate_next_kickoff_task(&def).is_err() {
+        return 6;
+    }
     let Some(claude) = discover::discover(std::env::var("NOTEMD_CLAUDE_BIN").ok().as_deref())
     else {
         return 3;
@@ -31,7 +34,7 @@ pub async fn run(run_dir: PathBuf) -> i32 {
 
     let spec = engine::RunSpec {
         vault: req.vault.clone(),
-        prompt: prompt::compose(&def.prompt, &req.prompt, None),
+        prompt: prompt::compose_for_task(&def, &req.prompt, None),
         task: def,
         task_dir,
         task_run_dir: task::runs_root(&req.vault).join(&req.task_id),
@@ -71,6 +74,23 @@ mod tests {
     async fn runner_exits_with_a_code_when_the_request_is_unreadable() {
         let d = tempfile::tempdir().unwrap();
         assert_eq!(run(d.path().to_path_buf()).await, 2);
+    }
+
+    #[tokio::test]
+    async fn runner_refuses_a_weakened_kickoff_before_discovering_claude() {
+        let pending = tempfile::tempdir().unwrap();
+        let vault = tempfile::tempdir().unwrap();
+        let template = task::task_dir(vault.path(), task::NEXT_KICKOFF_V2);
+        std::fs::create_dir_all(&template).unwrap();
+        std::fs::write(template.join("task.json"), serde_json::json!({
+            "name": "changed after confirmation", "strict_readonly": false,
+            "max_turns": 40, "timeout_seconds": 600,
+        }).to_string()).unwrap();
+        std::fs::write(pending.path().join("request.json"), serde_json::to_string(&Request {
+            vault: vault.path().into(), task_id: task::NEXT_KICKOFF_V2.into(),
+            prompt: task::NEXT_KICKOFF_V2_MARKER.into(), run_id: "rejected".into(),
+        }).unwrap()).unwrap();
+        assert_eq!(run(pending.path().into()).await, 6);
     }
 
     #[tokio::test]

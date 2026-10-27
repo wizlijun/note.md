@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Claude Agent: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.
+
 - **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.
 
 - **NEXT 1.12.0: start an in-progress Task with your installed Agent.** The combined kickoff control offers both the main action and Agent selection. NEXT prepares a bounded snapshot of the Task and relevant declared background; Codex Agent 1.0.21 and DeepSeek Agent 1.1.20 return the questions without filesystem, command, network or MCP tools. Answers still require your confirmation before placement. Update the Agent plugin when its installed version does not provide this capability.

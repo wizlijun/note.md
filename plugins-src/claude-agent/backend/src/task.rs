@@ -3,7 +3,10 @@
 //! `agent-run-core`; what stays here is the table of files this plugin compiles
 //! in, plus one claude-only migration (`retire_information_denies`, which edits
 //! `.claude/settings.json` deny lists that no other harness has).
-pub use agent_run_core::task::{runs_root, task_dir, tasks_root, TaskDef};
+pub use agent_run_core::task::{
+    runs_root, task_dir, tasks_root, validate_next_kickoff_task, TaskDef, NEXT_KICKOFF_V2,
+    NEXT_KICKOFF_V2_MARKER,
+};
 use agent_run_core::task::{self as core, Templates};
 use std::path::Path;
 

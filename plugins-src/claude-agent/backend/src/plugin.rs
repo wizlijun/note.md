@@ -143,8 +143,8 @@ fn harness_capabilities(
         terminal_result: true,
         input_only_isolation: true,
         strict_readonly: true,
-        readonly_context: false,
-        kickoff_protocol_versions: Vec::new(),
+        readonly_context: true,
+        kickoff_protocol_versions: vec![2],
         model_routing: agent_run_core::ModelRoutingCapabilities {
             invocation_override: true,
             profiles: agent_run_core::ModelRoutingProfiles {
@@ -590,6 +590,8 @@ impl ClaudeAgentPlugin {
         let mut def = load_task(&vault, &task_id).ok_or(format!("unknown task '{task_id}'"))?;
         def.id = task_id.clone();
         apply_invocation_model(&mut def, &params)?;
+        // Refuse a weakened kickoff before discovery or spawning anything.
+        task::validate_next_kickoff_task(&def)?;
         // Claude Code may resolve its settings-driven default only after it
         // starts. Invocation/task models are exact because this value is also
         // the one passed to `--model` below.
@@ -610,7 +612,7 @@ impl ClaudeAgentPlugin {
         } else {
             None
         };
-        let full = prompt::compose(&def.prompt, &user_prompt, ctx.as_ref());
+        let full = prompt::compose_for_task(&def, &user_prompt, ctx.as_ref());
         let run_id = record::new_run_id(chrono::Utc::now(), std::process::id());
 
         {
@@ -1757,7 +1759,8 @@ mod tests {
         assert!(capabilities.terminal_result);
         assert!(capabilities.input_only_isolation);
         assert_eq!(capabilities.strict_readonly, true);
-        assert_eq!(capabilities.kickoff_protocol_versions, Vec::<u8>::new());
+        assert!(capabilities.readonly_context);
+        assert_eq!(capabilities.kickoff_protocol_versions, vec![2]);
         assert!(capabilities.model_routing.invocation_override);
         assert_eq!(
             capabilities.model_routing.profiles.fast.model.as_deref(),
