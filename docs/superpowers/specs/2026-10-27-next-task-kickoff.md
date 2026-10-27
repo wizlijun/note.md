@@ -6,6 +6,12 @@
 - 执行计划：`docs/superpowers/plans/2026-10-27-next-task-kickoff.md`
 - 来源：用户 2026-10-27 的需求；启发来自「肖弘用智能体预研把待办变成可交接的方案」阅读笔记（能做就先启动，缺背景或负责人才问，交接时需求和调研一起给）
 
+## 2026-10-28 Claude 配套发布
+
+Claude Agent 1.0.34 已实现并声明冻结 v2 协议，NEXT 1.12.1 可按既有能力门禁识别；下文 1.12.1 发布时“Claude 暂不支持”的描述仅针对当时旧插件。Claude 的执行约束与 Codex/DeepSeek 相同：确认后的完整 prompt 经 stdin、空目录、无工具/无 MCP/无磁盘规程，按固定总时限收束（含输出提前关闭后的进程与管道等待）。
+
+本机正式包运行因 OAuth 过期未取得真实模型产物；发布不代表这项验收已通过，具体边界及授权见 [Claude 发布报告](../reports/2026-10-28-claude-kickoff-release.md)。不要求未安装 Claude Agent 的用户为验收安装或登录。
+
 ## 2026-10-27 评审修订（1.12.1，优先于下文旧设计）
 
 - 每次发送必须经历 `prepare → 文件/接收方预览 → confirm → start`，包含记忆 Agent、重试、重跑。prepare 只读且不启动模型；当前 Task、背景 packet、Skill、AGENTS v2、task.json 指令保存在内存。确认时重新核对 Task/泳道/服务商/规程，变化拒绝并要求新预览；背景内容不重扫，始终发送已预览字节。说明提供商 OpenAI / DeepSeek，额外发送当前 Skill 与执行规程。
