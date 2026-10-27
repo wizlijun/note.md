@@ -42,10 +42,12 @@ struct NotifySpec {
     title_fail: String,
     /// ABSOLUTE path the success reminder opens. The host re-checks that it is
     /// inside the vault before accepting it.
-    open_path: String,
+    #[serde(default)]
+    open_path: Option<String>,
     /// ABSOLUTE path that must exist for the run to count as a success — a
     /// `success` record with no file on disk is a failure to the user.
-    expect_file: String,
+    #[serde(default)]
+    expect_file: Option<String>,
 }
 
 /// Where a completed run surfaces its token/cost summary. Usage is always kept
@@ -72,14 +74,15 @@ fn completion_usage_tip(display: UsageDisplay, rec: &record::RunRecord) -> Optio
 }
 
 fn run_delivered(spec: &NotifySpec, rec: Option<&record::RunRecord>) -> bool {
-    rec.map(|r| r.status) == Some(record::Status::Success) && Path::new(&spec.expect_file).is_file()
+    rec.map(|r| r.status) == Some(record::Status::Success) && spec.expect_file.as_deref().is_none_or(|path| std::path::Path::new(path).is_file())
 }
 
 fn notify_params(spec: &NotifySpec, delivered: bool) -> Value {
     if delivered {
         json!({
             "title": spec.title_ok,
-            "action": { "kind": "open_path", "path": spec.open_path },
+            "action": spec.open_path.as_ref().map(|path| json!({"kind":"open_path", "path":path}))
+                .unwrap_or_else(|| json!({"kind":"open_plugin_window", "plugin_id":SELF_PLUGIN_ID, "window":WINDOW})),
         })
     } else {
         json!({
@@ -602,7 +605,7 @@ impl DeepseekAgentPlugin {
                 trigger: trigger.to_string(),
                 harness: SELF_PLUGIN_ID.to_string(),
                 target,
-                deliverable: notify.as_ref().map(|n| PathBuf::from(&n.expect_file)),
+                deliverable: notify.as_ref().and_then(|n| n.expect_file.as_ref()).map(PathBuf::from),
             },
             launcher,
             config,
@@ -1135,6 +1138,23 @@ mod tests {
     }
 
     #[test]
+    fn reminder_paths_are_independently_optional() {
+        for fields in [serde_json::json!({}), serde_json::json!({"open_path":"/v/task.md"}), serde_json::json!({"expect_file":"/missing/result.md"})] {
+            let mut value = serde_json::json!({"title_ok":"ok","title_fail":"fail"});
+            value.as_object_mut().unwrap().extend(fields.as_object().unwrap().clone());
+            let spec: NotifySpec = serde_json::from_value(value).expect("optional paths");
+            let ok = notify_params(&spec, true);
+            assert_eq!(ok["title"], "ok");
+            assert!(ok.get("severity").is_none());
+            if fields.get("open_path").is_none() {
+                assert_eq!(ok["action"]["kind"], "open_plugin_window");
+                assert_eq!(ok["action"]["plugin_id"], SELF_PLUGIN_ID);
+                assert_eq!(ok["action"]["window"], WINDOW);
+            }
+        }
+    }
+
+    #[test]
     fn run_task_relay_preserves_each_invocation_model_selector() {
         let profile = run_task_start_params(
             &json!({ "model_profile": "fast", "notify": { "x": 1 } }),
@@ -1440,8 +1460,8 @@ mod tests {
         let spec = NotifySpec {
             title_ok: "ok".into(),
             title_fail: "fail".into(),
-            open_path: f.to_string_lossy().to_string(),
-            expect_file: f.to_string_lossy().to_string(),
+            open_path: Some(f.to_string_lossy().to_string()),
+            expect_file: Some(f.to_string_lossy().to_string()),
         };
         let rec = |s| record::RunRecord {
             run_id: "R1".into(),
@@ -1460,6 +1480,13 @@ mod tests {
             usage: None,
         };
         assert!(!run_delivered(&spec, Some(&rec(record::Status::Success))));
+        let no_file = NotifySpec { expect_file: None, ..spec.clone() };
+        let record_json = serde_json::json!({"run_id":"r","task":"t","trigger":"relay","started_at":"s","ended_at":"e","status":"success","exit_code":0,"result":"","stderr_tail":""});
+        let mut success: record::RunRecord = serde_json::from_value(record_json).unwrap();
+        assert!(run_delivered(&no_file, Some(&success)));
+        success.status = record::Status::Error;
+        assert!(!run_delivered(&no_file, Some(&success)));
+        assert!(!run_delivered(&no_file, None));
         std::fs::write(&f, "# x").unwrap();
         assert!(run_delivered(&spec, Some(&rec(record::Status::Success))));
         assert!(!run_delivered(&spec, Some(&rec(record::Status::Error))));

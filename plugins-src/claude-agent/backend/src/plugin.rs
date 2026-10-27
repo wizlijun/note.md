@@ -50,10 +50,12 @@ struct NotifySpec {
     title_fail: String,
     /// ABSOLUTE path the success reminder opens. The host re-checks that it is
     /// inside the vault before accepting it (`ui_rpc::notify_push`).
-    open_path: String,
+    #[serde(default)]
+    open_path: Option<String>,
     /// ABSOLUTE path that must exist for the run to count as a success — a
     /// `success` record with no file on disk is a failure to the user.
-    expect_file: String,
+    #[serde(default)]
+    expect_file: Option<String>,
 }
 
 /// Where this invocation wants its terminal usage summary rendered. The
@@ -158,11 +160,10 @@ fn harness_capabilities(
     }
 }
 
-/// A `success` record is not enough: the file the caller expects has to be on
-/// disk, or the reminder would open nothing.
+/// A promised artifact must exist; result-only runs use the record status.
 fn run_delivered(spec: &NotifySpec, rec: Option<&record::RunRecord>) -> bool {
     rec.map(|r| r.status) == Some(record::Status::Success)
-        && std::path::Path::new(&spec.expect_file).is_file()
+        && spec.expect_file.as_deref().is_none_or(|path| std::path::Path::new(path).is_file())
 }
 
 /// `host.notify` params: the file on success, our own run log on failure.
@@ -170,7 +171,8 @@ fn notify_params(spec: &NotifySpec, delivered: bool) -> Value {
     if delivered {
         json!({
             "title": spec.title_ok,
-            "action": { "kind": "open_path", "path": spec.open_path },
+            "action": spec.open_path.as_ref().map(|path| json!({"kind":"open_path", "path":path}))
+                .unwrap_or_else(|| json!({"kind":"open_plugin_window", "plugin_id":SELF_PLUGIN_ID, "window":WINDOW})),
         })
     } else {
         // 失败是需要注意的告警:标为 Warn(托盘黄点)。成功走默认 Info(蓝点)。
@@ -637,7 +639,7 @@ impl ClaudeAgentPlugin {
             // The file the caller says this run must produce. Doubles as the
             // OKF stamp target and an artifact — it usually lives outside
             // output/ and answers/, so nothing else would find it.
-            deliverable: notify.as_ref().map(|n| PathBuf::from(&n.expect_file)),
+            deliverable: notify.as_ref().and_then(|n| n.expect_file.as_ref()).map(PathBuf::from),
         };
 
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -1206,6 +1208,23 @@ mod tests {
     }
 
     #[test]
+    fn reminder_paths_are_independently_optional() {
+        for fields in [serde_json::json!({}), serde_json::json!({"open_path":"/v/task.md"}), serde_json::json!({"expect_file":"/missing/result.md"})] {
+            let mut value = serde_json::json!({"title_ok":"ok","title_fail":"fail"});
+            value.as_object_mut().unwrap().extend(fields.as_object().unwrap().clone());
+            let spec: NotifySpec = serde_json::from_value(value).expect("optional paths");
+            let ok = notify_params(&spec, true);
+            assert_eq!(ok["title"], "ok");
+            assert!(ok.get("severity").is_none());
+            if fields.get("open_path").is_none() {
+                assert_eq!(ok["action"]["kind"], "open_plugin_window");
+                assert_eq!(ok["action"]["plugin_id"], SELF_PLUGIN_ID);
+                assert_eq!(ok["action"]["window"], WINDOW);
+            }
+        }
+    }
+
+    #[test]
     fn a_deleted_builtin_task_rebuilds_itself_on_demand() {
         let v = tempfile::tempdir().unwrap();
         task::seed_builtin_templates(v.path());
@@ -1736,11 +1755,18 @@ mod tests {
         let spec = NotifySpec {
             title_ok: "ok".into(),
             title_fail: "fail".into(),
-            open_path: f.to_string_lossy().to_string(),
-            expect_file: f.to_string_lossy().to_string(),
+            open_path: Some(f.to_string_lossy().to_string()),
+            expect_file: Some(f.to_string_lossy().to_string()),
         };
         // success record, no file yet
         assert!(!run_delivered(&spec, Some(&a_record(record::Status::Success))));
+        let no_file = NotifySpec { expect_file: None, ..spec.clone() };
+        let record_json = serde_json::json!({"run_id":"r","task":"t","trigger":"relay","started_at":"s","ended_at":"e","status":"success","exit_code":0,"result":"","stderr_tail":""});
+        let mut success: record::RunRecord = serde_json::from_value(record_json).unwrap();
+        assert!(run_delivered(&no_file, Some(&success)));
+        success.status = record::Status::Error;
+        assert!(!run_delivered(&no_file, Some(&success)));
+        assert!(!run_delivered(&no_file, None));
         std::fs::write(&f, "# x").unwrap();
         assert!(run_delivered(&spec, Some(&a_record(record::Status::Success))));
         // file there, but the run failed / never produced a record
@@ -1754,8 +1780,8 @@ mod tests {
         let spec = NotifySpec {
             title_ok: "《书》AI 摘要已生成".into(),
             title_fail: "《书》AI 阅读失败".into(),
-            open_path: "/v/ssot/ebooks/b/2026-08-04-summary.md".into(),
-            expect_file: "/v/ssot/ebooks/b/2026-08-04-summary.md".into(),
+            open_path: Some("/v/ssot/ebooks/b/2026-08-04-summary.md".into()),
+            expect_file: Some("/v/ssot/ebooks/b/2026-08-04-summary.md".into()),
         };
         let ok = notify_params(&spec, true);
         assert_eq!(ok["title"], "《书》AI 摘要已生成");
