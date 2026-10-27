@@ -15,7 +15,7 @@ import { noteUi, type NoteEditState } from '../lib/note-anno/note-ui.svelte'
 import { finishNoteEdit, insertNoteRich, openEditForAnchor, openEditForMark, type NoteEditAdmission } from '../lib/note-anno/note-commands'
 import { noteBadgePlugin } from '../lib/note-anno/note-plugin'
 import { placeholderPlugin } from '../lib/placeholder-plugin'
-import { createImeGuard, guardRichEditor, type ImeGuard } from '../lib/ime'
+import { createImeGuard, guardRichEditor, isRichEditorInput, type ImeGuard } from '../lib/ime'
 import { autoPairInsert } from '../lib/autopair'
 import { renderSourceHtml } from '../lib/source-highlight'
 import { bindFileHistoryFocus, refreshFileHistoryRoute } from '../lib/file-history-focus'
@@ -245,11 +245,13 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     for (const listener of richCompositionListeners) listener()
     refreshFileHistoryRoute()
   }
-  rich.addEventListener('compositionstart', () => {
+  rich.addEventListener('compositionstart', event => {
+    if (!isRichEditorInput(event, rich)) return
     if (richFrame !== null) { cancelAnimationFrame(richFrame); richFrame = null }
     setRichComposing(true)
   }, true)
-  rich.addEventListener('compositionend', () => {
+  rich.addEventListener('compositionend', event => {
+    if (!isRichEditorInput(event, rich)) return
     if (richFrame !== null) cancelAnimationFrame(richFrame)
     richFrame = requestAnimationFrame(() => {
       richFrame = null; setRichComposing(false)
@@ -257,7 +259,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     })
   }, true)
   rich.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && ['z', 'y'].includes(event.key.toLowerCase()) && (richComposing || ime.blocks(event))) {
+    if (isRichEditorInput(event, rich) && (event.metaKey || event.ctrlKey) && ['z', 'y'].includes(event.key.toLowerCase()) && (richComposing || ime.blocks(event))) {
       event.preventDefault(); event.stopImmediatePropagation()
     }
   }, true)

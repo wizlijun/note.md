@@ -4,7 +4,7 @@
 // —— 这里要钉住的正是「谁先收到这一下按键」,而那只有在真的 dispatch 一次
 // 事件时才成立。ime.test.ts 那边是纯函数,留在 node 环境里跑。
 import { describe, it, expect } from 'vitest'
-import { attachImeGuard } from './ime'
+import { attachImeGuard, createImeGuard } from './ime'
 
 describe('attachImeGuard — 必须从祖先捕获,才抢得过 ProseMirror', () => {
   /** 模拟 PM:监听器挂在 contenteditable 自己身上,且比我们先注册。 */
@@ -67,4 +67,28 @@ describe('attachImeGuard — 必须从祖先捕获,才抢得过 ProseMirror', ()
     expect(ev.defaultPrevented).toBe(false)
     detach()
   })
+})
+
+it.each(['contenteditable', 'input', 'textarea'])('ignores IME events owned by a nested %s field', kind => {
+  const host = document.createElement('div'), rich = document.createElement('div')
+  rich.contentEditable = 'true'; host.append(rich); document.body.append(host)
+  const atom = document.createElement('div'); atom.contentEditable = 'false'; rich.append(atom)
+  const field = document.createElement(kind === 'contenteditable' ? 'div' : kind)
+  if (kind === 'contenteditable') field.contentEditable = 'true'
+  atom.append(field)
+  const guard = createImeGuard(), detach = attachImeGuard(host, guard)
+  field.dispatchEvent(new Event('compositionstart', { bubbles: true }))
+  field.remove()
+  field.dispatchEvent(new Event('compositionend', { bubbles: true }))
+  expect(guard.blocks(new KeyboardEvent('keydown', { key: 'Enter' }))).toBe(false)
+  atom.append(field)
+  rich.dispatchEvent(new Event('compositionstart', { bubbles: true }))
+  rich.dispatchEvent(new Event('compositionend', { bubbles: true }))
+  const innerKey = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
+  field.dispatchEvent(innerKey)
+  expect(innerKey.defaultPrevented).toBe(false)
+  const richKey = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
+  rich.dispatchEvent(richKey)
+  expect(richKey.defaultPrevented).toBe(true)
+  detach(); host.remove()
 })

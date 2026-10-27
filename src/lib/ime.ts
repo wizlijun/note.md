@@ -88,6 +88,30 @@ export function createImeGuard(now: () => number = () => Date.now()): ImeGuard {
   }
 }
 
+/** Resolve editable ownership without naming specific NodeView components. */
+function richInputOwner(event: Event, host: HTMLElement): { element: Element; outer: boolean } | undefined {
+  let element = event.target instanceof Element ? event.target : (event.target as Node | null)?.parentElement
+  let owner: Element | undefined, outer = true
+  while (element && element !== host) {
+    // Native text controls manage their own composition and trailing key.
+    if (element.matches('input, textarea, select')) return
+    if (element.hasAttribute('contenteditable')) {
+      if (owner) outer = false
+      else {
+        if (element.getAttribute('contenteditable') !== 'true') return
+        owner = element
+      }
+    }
+    element = element.parentElement
+  }
+  if (element === host && owner) return { element: owner, outer }
+}
+
+/** Only the outer rich editable participates in the document owner's IME gate. */
+export function isRichEditorInput(event: Event, host: HTMLElement): boolean {
+  return richInputOwner(event, host)?.outer === true
+}
+
 /**
  * 给一块 contenteditable(ProseMirror)装上收尾守卫,返回卸载函数。
  *
@@ -101,10 +125,21 @@ export function createImeGuard(now: () => number = () => Date.now()): ImeGuard {
  * @param guard 复用调用方已有的守卫(它可能还要用 `blocks`);默认自建一个
  */
 export function attachImeGuard(host: HTMLElement, guard: ImeGuard = createImeGuard()): () => void {
-  const onStart = () => guard.start()
-  const onEnd = () => guard.end()
+  // NodeView rich fields keep their trailing-key protection, but a field
+  // replaced during blur must never leave the document's guard composing.
+  const nested = new WeakMap<Element, ImeGuard>()
+  const guardFor = (event: Event) => {
+    const owner = richInputOwner(event, host)
+    if (!owner) return
+    if (owner.outer) return guard
+    let fieldGuard = nested.get(owner.element)
+    if (!fieldGuard) { fieldGuard = createImeGuard(); nested.set(owner.element, fieldGuard) }
+    return fieldGuard
+  }
+  const onStart = (event: Event) => guardFor(event)?.start()
+  const onEnd = (event: Event) => guardFor(event)?.end()
   const onKeydown = (e: Event) => {
-    if (!guard.consumeTail(e as KeyboardEvent)) return
+    if (!guardFor(e)?.consumeTail(e as KeyboardEvent)) return
     e.preventDefault()
     e.stopImmediatePropagation()
   }
