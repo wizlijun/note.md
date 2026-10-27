@@ -1,0 +1,698 @@
+{
+  "version": "6.1027.3",
+  "tag": "v6.1027.3",
+  "sourceCommit": "0e2227a39592c20c63efa79180cf35d9b5b404b4",
+  "sourceTree": "0cff891b21b47b2cb4b8cac462102cb797a971b5",
+  "scope": "macOS Apple Silicon only",
+  "fixCommit": "393a76ff3feddb1526c7c9aaf710df7497107932",
+  "runtimeDelta": [
+    "src/lib/ime.ts",
+    "src/editor-kit-v2/file-main.ts"
+  ],
+  "distribution": {
+    "status": "pass",
+    "tag": "v6.1027.3",
+    "mode": "public",
+    "isDraft": false,
+    "publishedAt": "2026-10-27T08:24:42Z",
+    "assets": [
+      {
+        "name": "note.md-6.1027.3-aarch64.dmg",
+        "bytes": 13461981,
+        "sha256": "111749cd8852986881c28affb3352d144eeacc3f8c15eec52554c83cf13135fd",
+        "stagedBytesEqual": true
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13506137,
+        "sha256": "8753f5c440a81c07a58c8b96d109c7cef386fb6247eb5ae72360bef39b746c4f",
+        "stagedBytesEqual": true
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "f04ac51a8426dc41e534dcc295fbc529db0cd4964cfa562004777f15d106f6dc",
+        "stagedBytesEqual": true
+      },
+      {
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "ff2a9615d69d95424a946372714084f252ffe34c97c64b7c9f72477b0e2e76b4",
+        "stagedBytesEqual": true
+      }
+    ],
+    "onlyAppleSiliconAssets": true,
+    "latestPlatforms": [
+      "darwin-aarch64"
+    ],
+    "updaterSignatureValid": true,
+    "dmgNotarizationAndGatekeeperValid": true,
+    "publicLatestEntryVerified": true,
+    "verifiedAt": "2026-10-27T08:29:07.378874+00:00"
+  },
+  "nativePayload": {
+    "status": "pass",
+    "tag": "v6.1027.3",
+    "sourceCommit": "0e2227a39592c20c63efa79180cf35d9b5b404b4",
+    "sourceTree": "0cff891b21b47b2cb4b8cac462102cb797a971b5",
+    "remoteTagVerified": true,
+    "architecture": "arm64",
+    "binarySha256": "558e5b580e6a9a6e2727f1da3b5f901c15d0f6582af758e25d00b2902d2bd95e",
+    "archiveSha256": "8753f5c440a81c07a58c8b96d109c7cef386fb6247eb5ae72360bef39b746c4f",
+    "version": "6.1027.3",
+    "frozenSources": [
+      {
+        "path": "src-tauri/src/plugin_runtime/task_hook.rs",
+        "sha256": "c212bc4ea0a6c40f5746ad7d0d6a91aa1d46b5c0a63493a952f35fc140fe177c"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/host_api.rs",
+        "sha256": "b72e820ce10d2a2061438c0b34fc0e8ef2384af02b5a0210468199d3ba5d8447"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/mod.rs",
+        "sha256": "f3710d34400dbb6164a24fc23d886613cca35c38e1852a2295828fbdb9cda4d6"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/ui_rpc.rs",
+        "sha256": "d00c25fdbe861eae2dc38019e2dbd57985b4c6e7122310ad9239d942af3a3129"
+      }
+    ],
+    "sourceExecutionConstraints": [
+      "command.env_clear()",
+      "command.envs(environment)",
+      ".kill_on_drop(true)",
+      "TIMEOUT: Duration = Duration::from_secs(30)",
+      ".arg(\"--vault\")",
+      ".arg(\"--task-id\")",
+      ".arg(\"--apply\")",
+      "script.starts_with(vault.join(\"skills\"))",
+      "from_mode(0o600)",
+      "temp.persist(path)",
+      "result[\"environmentKeys\"]",
+      "line.split_once('=')"
+    ],
+    "markers": [
+      "host.taskHook.get",
+      "host.taskHook.select",
+      "host.taskHook.clear",
+      "host.taskHook.run",
+      "host.taskHook.setEnvironment",
+      "task.hook",
+      "not_granted: task hooks are restricted to NEXT",
+      "invalid_script: select a Python file inside this Vault's skills directory",
+      "--task-id",
+      "--apply",
+      "invalid_output",
+      "script_pending",
+      "environmentSupported",
+      "environmentKeys",
+      "DESK_DISPLAY_URL",
+      "DESK_DISPLAY_TOKEN",
+      "bad_request: invalid task hook environment",
+      "config_unavailable: cannot save task hook environment",
+      "missing_cube_config",
+      "cube_unavailable",
+      "sync_busy",
+      "cube_safe_create_unavailable"
+    ],
+    "resourceProofSha256": "52a11d5d24428d94a756d74088bc04aca84a1c4aad6a219883f326cd26d3f045",
+    "resourceAssets": 151,
+    "resourceChecks": 33,
+    "codeSignatureVerified": true,
+    "notarizationVerified": true,
+    "runtimeWebViewVerified": false,
+    "realTaskExecution": false,
+    "proofScope": "Frozen native sources, required commit ancestry, actual signed arm64 updater Mach-O markers and full embedded JS/CSS/top-level HTML bytes. Unit tests establish native semantics; no production script or dynamic native WebView execution claimed. Public download/DMG equality must be verified separately.",
+    "verifiedAt": "2026-10-27T08:14:37.046447+00:00"
+  },
+  "imeCompiled": {
+    "status": "pass",
+    "frozenSource": "0e2227a39592c20c63efa79180cf35d9b5b404b4",
+    "dist": "/Users/bruce/git/mdeditor/dist",
+    "entry": "assets/index-Cwd7RgP4.js",
+    "checks": {
+      "ownerAndGuardShareSameCompiledModule": true,
+      "compiledNestedGuardUsesWeakMap": true,
+      "imeModuleHasNoImports": true,
+      "bodyOwnedByDocument": true,
+      "nestedOwnedByField": true,
+      "nativeInputsExcluded": true,
+      "textNodeFindsEditableOwner": true,
+      "foreignEditableExcluded": true,
+      "nestedStartCannotBlockDocument": true,
+      "detachedFieldEndCannotPoisonDocumentGuard": true,
+      "nestedTailBackspaceConsumed": true,
+      "nestedTailConsumedOnlyOnce": true,
+      "oneFieldTailDoesNotAffectSibling": true,
+      "oneFieldTailDoesNotAffectBody": true,
+      "ownFieldStillConsumesTail": true,
+      "bodyCompositionStillBlocksDocument": true,
+      "bodyTailStillProtected": true,
+      "bodyTailOnlyConsumedOnce": true,
+      "destroyDetachesGuard": true,
+      "documentStartEndUndoAllUseOwnerClassifier": true,
+      "documentCapture_compositionstart": true,
+      "documentCapture_compositionend": true,
+      "documentCapture_keydown": true,
+      "realCompiledDocumentStartIgnoresReplacedField": true,
+      "nestedUndoNotSuppressedByDocument": true,
+      "realCompiledBodyStartSetsGate": true,
+      "bodyUndoProtectedDuringComposition": true,
+      "nestedUndoIndependentDuringBodyComposition": true,
+      "bodyEndWaitsAnimationFrame": true,
+      "bodyEndClearsGateAndResolvesFlush": true,
+      "documentGateConsumedByComposingStatus": true,
+      "frozenMatchesWorkspace_src/lib/ime.ts": true,
+      "frozenMatchesWorkspace_src/editor-kit-v2/file-main.ts": true,
+      "frozenMatchesWorkspace_src/components/EditorPane.next-task-session.test.ts": true,
+      "frozenMatchesWorkspace_src/lib/ime-attach.test.ts": true
+    },
+    "proofs": [
+      {
+        "label": "compiled editable ownership",
+        "asset": "assets/ime-B_LCJqxN.js",
+        "binding": "l",
+        "functionSha256": "881c53a68aaa2331d4252beafddb9a81c7aaa38c64eca2ac943a37145a314cdc",
+        "assetSha256": "b3b28192b77971655a316909d2870981cd97e8880af330903571f64b23727791",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/ime-B_LCJqxN.js"
+        ]
+      },
+      {
+        "label": "compiled outer-rich predicate",
+        "asset": "assets/ime-B_LCJqxN.js",
+        "binding": "y",
+        "functionSha256": "3cdcc6b9729f47ddded3f507bbc1c9acbfd448f37c1f2e1383924ff8dee0f6cf",
+        "assetSha256": "b3b28192b77971655a316909d2870981cd97e8880af330903571f64b23727791",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/ime-B_LCJqxN.js"
+        ]
+      },
+      {
+        "label": "compiled nested guard attachment",
+        "asset": "assets/ime-B_LCJqxN.js",
+        "binding": "p",
+        "functionSha256": "ab4b6a9e01cb047afb78d44329744765ac69fffc5e501eaa49609a5698743004",
+        "assetSha256": "b3b28192b77971655a316909d2870981cd97e8880af330903571f64b23727791",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/ime-B_LCJqxN.js"
+        ]
+      },
+      {
+        "label": "compiled IME guard",
+        "asset": "assets/ime-B_LCJqxN.js",
+        "binding": "c",
+        "functionSha256": "2925b866c6974606d050a94276ee9624d0a5f1a79850ccae9878b97c24d5d1ce",
+        "assetSha256": "b3b28192b77971655a316909d2870981cd97e8880af330903571f64b23727791",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/ime-B_LCJqxN.js"
+        ]
+      },
+      {
+        "label": "compiled mountFileEditor",
+        "asset": "assets/file-main-CF-RQ-a7.js",
+        "binding": "ro",
+        "functionSha256": "c00a687b3999f67496c0b201d1cfbd8d66c6322fea0daa4c35f216869480aa48",
+        "assetSha256": "623125a72f53f1feaa9016a0669881b2d0d3d50e4e562a1c60614cbd70e9cabc",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/editor-bridge-iVz3HOik.js",
+          "assets/file-main-CF-RQ-a7.js"
+        ]
+      },
+      {
+        "label": "document callback compositionstart",
+        "asset": "assets/file-main-CF-RQ-a7.js",
+        "callbackSha256": "bdacb79a8ae2597b026170e538ef48f48948d10fa29394e14c75efbf29675fa1",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/editor-bridge-iVz3HOik.js",
+          "assets/file-main-CF-RQ-a7.js"
+        ]
+      },
+      {
+        "label": "document callback compositionend",
+        "asset": "assets/file-main-CF-RQ-a7.js",
+        "callbackSha256": "545ab9b8eb696b2de7fda16f22fa3686c06fade7b976fcfaa689c6e94c4ee58b",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/editor-bridge-iVz3HOik.js",
+          "assets/file-main-CF-RQ-a7.js"
+        ]
+      },
+      {
+        "label": "document callback keydown",
+        "asset": "assets/file-main-CF-RQ-a7.js",
+        "callbackSha256": "06b25ac4ad1a09ca52190e837bf43db40cc68c0fedd6dca635c2e466e51d0c81",
+        "entryChain": [
+          "assets/index-Cwd7RgP4.js",
+          "assets/App-DOtnx6XR.js",
+          "assets/editor-bridge-iVz3HOik.js",
+          "assets/file-main-CF-RQ-a7.js"
+        ]
+      }
+    ],
+    "assets": [
+      {
+        "key": "assets/ime-B_LCJqxN.js",
+        "bytes": 1315,
+        "sha256": "b3b28192b77971655a316909d2870981cd97e8880af330903571f64b23727791"
+      },
+      {
+        "key": "assets/file-main-CF-RQ-a7.js",
+        "bytes": 64567,
+        "sha256": "623125a72f53f1feaa9016a0669881b2d0d3d50e4e562a1c60614cbd70e9cabc"
+      },
+      {
+        "key": "assets/index-Cwd7RgP4.js",
+        "bytes": 3130,
+        "sha256": "e1ff5ddd4bb89e1e45a95da659669e9cc27abdab0cbb8df4eb5f88fc7ca73e52"
+      }
+    ],
+    "frozenSources": [
+      {
+        "path": "src/lib/ime.ts",
+        "bytes": 7979,
+        "sha256": "5e3dbc50d5534bc5f054303499d90bbd38ff3ad14bd711e3414b84486660f4ac"
+      },
+      {
+        "path": "src/editor-kit-v2/file-main.ts",
+        "bytes": 23346,
+        "sha256": "9aa91378f23ed59b06af0e0058dd4a1ba75359167d01bb614665c55ba6eb5000"
+      },
+      {
+        "path": "src/components/EditorPane.next-task-session.test.ts",
+        "bytes": 12337,
+        "sha256": "bf76dc31a0422de2d160bb65fb270ac6e99ee3b25eead6924e00bf7428f62fd1"
+      },
+      {
+        "path": "src/lib/ime-attach.test.ts",
+        "bytes": 4281,
+        "sha256": "c8fe0c5b2d814d52cc946f83deda4b8bf1005e41c8455e1cf944967273e48852"
+      }
+    ],
+    "scope": "Exact compiled IME module functions and document composition callbacks executed in happy-dom. Only animation scheduling/document surrounding state mocked. Complete package resource bytes must be independently matched to this dist. No installed app or native IME capture.",
+    "installedWebViewVerified": false,
+    "packageVerified": false
+  },
+  "imeResourcesBoundToMachO": true,
+  "notarization": {
+    "app": {
+      "id": "548892e7-a2d3-4c9e-8c3a-b4101251b920",
+      "status": "Accepted"
+    },
+    "dmg": {
+      "id": "405f238d-909e-47d1-9dce-4c8df99074a5",
+      "status": "Accepted"
+    }
+  },
+  "gates": {
+    "frontendTests": 5310,
+    "frontendFiles": 410,
+    "svelteErrors": 0,
+    "svelteExistingWarnings": 31,
+    "nativeReleaseTests": 30,
+    "protocolConsistent": true,
+    "highOrCriticalDependencyFindings": 0,
+    "websiteTests": 128
+  },
+  "websiteInitialAttempt": "One Linux ARM deb route temporarily fell back to releases page; sequential check and complete rerun passed. Exact upstream cause not captured; no code or deployment changed.",
+  "website": {
+    "version": "6.1027.3",
+    "status": "passed",
+    "websiteCommit": "1e4242a4d8063b771e5a054633f7d09ca22ec2ea",
+    "deploymentRunId": "40473321024",
+    "workerSourceSha256": {
+      "website/src/index.js": "6a782d856ef5d4fef277afaa426b160d5e0a8c6d453a249feefc5a58a36f5ddd",
+      "website/src/resolve-download.js": "ae1a90ee16b7cccc66d750d70367b967784404f856aa1a0aa3c501469741658c",
+      "website/wrangler.toml": "a856a9d42591e2f543dc029185ec8175d2e1fd0962479913db287fd15f67c86f"
+    },
+    "verification": "anonymous-read-only-public",
+    "downloads": [
+      {
+        "name": "mac-aarch64",
+        "request": "https://notemd.net/download?os=mac&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.3/note.md-6.1027.3-aarch64.dmg",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:09 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-deb-aarch64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:10 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-arch-aarch64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:09 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "mac-x86_64",
+        "request": "https://notemd.net/download?os=mac&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-x86_64.dmg",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:10 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-deb-x86_64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:12 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-arch-x86_64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:11 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "windows-x86_64",
+        "request": "https://notemd.net/download?os=windows&arch=x86_64",
+        "requestOptions": [],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:12 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-reduced-ua-arm-deb",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"arm\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:13 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-reduced-ua-arm-arch",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"arm\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:14 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      }
+    ],
+    "amdClientHints": [
+      {
+        "name": "linux-reduced-ua-amd-deb",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"x86\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:16 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      },
+      {
+        "name": "linux-reduced-ua-amd-arch",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "requestOptions": [
+          "--user-agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+          "--header",
+          "Sec-CH-UA-Arch: \"x86\"",
+          "--header",
+          "Sec-CH-UA-Bitness: \"64\""
+        ],
+        "redirect": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "redirectStatus": 302,
+        "targetStatus": 200,
+        "downloadResponseHeaders": [
+          "date: Tue, 27 Oct 2026 08:26:16 GMT",
+          "cache-control: no-store",
+          "vary: User-Agent, Accept-Language, Sec-CH-UA-Arch, Sec-CH-UA-Bitness",
+          "critical-ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness"
+        ]
+      }
+    ],
+    "choices": [
+      {
+        "name": "linux-format-choice",
+        "request": "https://notemd.net/download?os=linux&arch=aarch64",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+          "/download?os=linux&amp;format=deb&amp;arch=aarch64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "526cbe6d487a470b003b9e7f97ba27dd43d878b2402de208e00bdf2d06a78189"
+      },
+      {
+        "name": "linux-cold-format-choice",
+        "request": "https://notemd.net/download?os=linux",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch",
+          "/download?os=linux&amp;format=deb"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "cc57e9d072ba1c5013aebeb6bb2434aa4d4e2a1afaf4a68b2f56e12041c4133b"
+      },
+      {
+        "name": "linux-cold-arch-choice",
+        "request": "https://notemd.net/download?os=linux&format=arch",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=arch&amp;arch=aarch64",
+          "/download?os=linux&amp;format=arch&amp;arch=x86_64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "4c7ad1183a7dbf2eabacce85ab0c97e51ed222fade65b4b7820c9e470bf44e94"
+      },
+      {
+        "name": "linux-cold-deb-choice",
+        "request": "https://notemd.net/download?os=linux&format=deb",
+        "status": 200,
+        "links": [
+          "/download?os=linux&amp;format=deb&amp;arch=aarch64",
+          "/download?os=linux&amp;format=deb&amp;arch=x86_64"
+        ],
+        "architectureNegotiationHeaders": true,
+        "sha256": "e87e4d3fce87de23f65f256bc262bdd0534111f4c4f0bb8e01088a955edc7d8f"
+      }
+    ],
+    "pages": [
+      {
+        "url": "https://notemd.net/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "74778eef42ae463dfadbcdac2eabfdb362e23bd4b218f6221bdc539e895418ce"
+      },
+      {
+        "url": "https://notemd.net/zh/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "33019890aa201e0cb58667de722195a4461297d6eedc15f23b0110bfd9d99ea3"
+      },
+      {
+        "url": "https://notemd.net/de/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "fe25b2cda3b6fd4134a93c47a35040cf6c55125ac44762778620be26f4a2131a"
+      },
+      {
+        "url": "https://notemd.net/ja/",
+        "status": 200,
+        "matchesDeployedCommitHtml": true,
+        "cacheBustedMatches": true,
+        "sha256": "91578cfa6ec9751be35086cc16dd014d7d173398ff61ee13b45049e6083c3a7f"
+      }
+    ],
+    "initialAttempt": {
+      "status": "transient-route-fallback",
+      "route": "linux-deb-aarch64",
+      "observedRedirect": "https://github.com/wizlijun/note.md/releases",
+      "subsequentSequentialRead": "correct 6.1027.1 installer",
+      "completeRerun": "passed",
+      "diagnosis": "Existing worker returns release list when upstream fetch/cache resolution cannot provide installer; exact upstream failure not captured. No code change or redeploy was needed."
+    }
+  },
+  "preservedWork": {
+    "status": "pass",
+    "untracked": [
+      {
+        "path": ".pnpm-store",
+        "directory": true
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+        "sha256": "fed238145a3889925577c10d781786054d8679226daf5e56c0037783a30949e6"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+        "sha256": "10d2b259581df77d319bc0e4694d086d0d32cef78238ebf45922de1fa281d44c"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+        "sha256": "68293464611024829b9e75c41ae9bde4a990cbeaf70e21e4a9829f6ae82c16bf"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+        "sha256": "c31ff58b090fd947976110f08fb67508958ddd44059a7e90620a083b82cdcb90"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+        "sha256": "f7f68b325f1488102fd9f953ed888c06b50aa84a566a5231c0243bbd5fa9807f"
+      },
+      {
+        "path": "docs/superpowers/specs/habitat-city.html",
+        "sha256": "450801173e2fedabf4831d765bef94b6d595a62848f1f81d7723df28740c5152"
+      }
+    ],
+    "stashes": [
+      "7168eb9ab49d429f8e91ebcf2ac1ba9580582402",
+      "240fdc4c69e1b4789ca1166a95c65b1c7c3999b7",
+      "a904adce51b40b26ac46409b232a5ac61ab3216c"
+    ],
+    "pendingChangelogRestored": true,
+    "websiteCherryPickPatchIds": {
+      "4240b475": "e744ffc921d85250bafeb958098ec27a0be678ce",
+      "1e4242a4": "e744ffc921d85250bafeb958098ec27a0be678ce"
+    },
+    "worktrees": [
+      {
+        "path": "/Users/bruce/git/mdeditor",
+        "status": [
+          "?? .pnpm-store/",
+          "?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+          "?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+          "?? docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+          "?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+          "?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+          "?? docs/superpowers/specs/habitat-city.html"
+        ]
+      },
+      {
+        "path": "/private/tmp/mdeditor-ime-website-610273",
+        "status": []
+      }
+    ],
+    "branches": [
+      "* main                         1e4242a4 docs(website): announce Apple Silicon 6.1027.3 IME fix",
+      "+ release/ime-website-6.1027.3 4240b475 docs(website): announce Apple Silicon 6.1027.3 IME fix"
+    ],
+    "excludedUntrackedFilesUntouched": true
+  },
+  "limitations": [
+    "No local installation or production Task editing.",
+    "The historical physical IME sequence on the affected user session is unknown.",
+    "Controlled browser reproduction and compiled callbacks verified, not newly installed native WebView acceptance.",
+    "NEXT plugin remains separately published 1.10.0."
+  ],
+  "recordedAt": "2026-10-27T08:29:23.291281+00:00",
+  "evidenceHashes": {
+    "mac-release.log": "4d720cb256e54e3237aacfada40508f9ee842a631523ced44acac7bd2ead254b",
+    "audit.md": "b1426257b1c778180b92308e90b6648baf64e9f5a357730e0b6d2bb7da3c5efd",
+    "candidate-source.json": "e5222556ea42514398278d6ed85da037e1a17ee4858dc69bd0d76274382fd958",
+    "aarch64-snapshot.json": "d66f39ef3ed941f15b22d0a8645ea99224971e6e5afb1765e33dd45a4da1ce4d",
+    "aarch64-embedded-rich.json": "52a11d5d24428d94a756d74088bc04aca84a1c4aad6a219883f326cd26d3f045",
+    "ime-compiled-final.json": "ff71d74b76e040b77658a04e9a38f53fa18d6151a613bde567471bade2811f33",
+    "draft-distribution.json": "40b8331db54551a1dfeed5f7359a721034686ca107f7617443b4057000fc4727",
+    "public-distribution.json": "e50d9dc318e86ab83d6d749533759e6a5d5fd2b068bd3db81ad845aaaa4450c4",
+    "website-public-verification.json": "ebcab912cbfec2702e3670f04371b063575473f27b2ef828d9bc6950ebeca27e"
+  }
+}
