@@ -1,0 +1,56 @@
+{
+  "status": "published-and-publicly-verified",
+  "version": "1.9.0",
+  "tag": "plugin-next-v1.9.0",
+  "releaseCommit": "6fac107ed86531d050978852c65dd6eafd946b42",
+  "minimumHost": ">=6.1027.1",
+  "packageSha256": "30342ab30974c1a7461d19d3465cc973a5b7f3815d3d64adb0798c7106d76305",
+  "packageBytes": 124531,
+  "productionJsSha256": "4d28fc18e0a02d06cc2037de3857633f960ef15da1a543de7ed970dcf3b04cdc",
+  "sourceFileCount": 79,
+  "tests": {
+    "next": 449,
+    "releaseContracts": 94,
+    "stashSemanticEquivalence": 133,
+    "actualPackage": [
+      {
+        "name": "package-smoke",
+        "count": 13,
+        "evidenceSha256": "a86cbfac8d436745c2dfc1223b0186973b7bb337ccd871d43dd15d51412dacb5"
+      },
+      {
+        "name": "ui-smoke",
+        "count": 10,
+        "evidenceSha256": "809f13391f0ef7bfa3997a7762529e17b4e5e4c840008f56b518bcf18bfad497"
+      },
+      {
+        "name": "environment-smoke",
+        "count": 12,
+        "evidenceSha256": "9f6f87affb1abea0a74d3ece523fe94c6808d92e62dc19f9c0e73544f02d82fe"
+      },
+      {
+        "name": "visibility-smoke",
+        "count": 12,
+        "evidenceSha256": "cbb019bc344de8cda3ce84a5be0db0f886ba040bb4a63a2806ffa2dd98697912"
+      }
+    ]
+  },
+  "index": {
+    "before": 276,
+    "after": 277,
+    "only_added": "notemd.next@1.9.0",
+    "historical_entries_unchanged": true,
+    "normal_and_fresh_public_bytes_equal": true,
+    "kv_content_equal": true,
+    "index_sha256": "44980be3eb9ebcf1e4e39dddaa6779bcd8d2d675b4d1aba9a940aad381206e7c",
+    "compatible_latest": "1.9.0",
+    "minimum_host": ">=6.1027.1"
+  },
+  "hostPublished": false,
+  "environmentSettingsRequireNewHost": true,
+  "currentHostCompatibility": "6.1027.1 retains script selection/execution; environment configuration shows update requirement",
+  "localInstallationPerformed": false,
+  "realVaultWrites": 0,
+  "realCubeCalls": 0,
+  "verifiedAt": "2026-10-27T04:05:30.735173+00:00"
+}
