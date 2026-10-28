@@ -1,0 +1,1189 @@
+{
+  "plugin": "notemd.ebook-import",
+  "version": "1.5.7",
+  "status": "published, installed and verified",
+  "verified_at": "2026-10-28T14:01:23.312903+08:00",
+  "source": {
+    "tag": "plugin-ebook-import-v1.5.7",
+    "commit": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+    "changed_files": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "docs/superpowers/specs/2026-10-28-ebook-reading-reason.md",
+      "plugins-src/ebook-import/CLI.md",
+      "plugins-src/ebook-import/README.md",
+      "plugins-src/ebook-import/backend/src/airead.rs",
+      "plugins-src/ebook-import/backend/src/library.rs",
+      "plugins-src/ebook-import/backend/src/library/tests.rs",
+      "plugins-src/ebook-import/backend/src/library_assets.rs",
+      "plugins-src/ebook-import/backend/src/pipeline.rs",
+      "plugins-src/ebook-import/backend/src/plugin.rs",
+      "plugins-src/ebook-import/backend/src/topics.rs",
+      "plugins-src/ebook-import/backend/tests/cli.rs",
+      "plugins-src/ebook-import/manifest.v2.json",
+      "plugins-src/ebook-import/src/App.svelte",
+      "plugins-src/ebook-import/src/App.test.ts",
+      "plugins-src/ebook-import/src/components/LibraryPanel.svelte",
+      "plugins-src/ebook-import/src/lib/library.test.ts",
+      "plugins-src/ebook-import/src/lib/library.ts",
+      "plugins-src/ebook-import/src/lib/queue.test.ts",
+      "plugins-src/ebook-import/src/lib/queue.ts",
+      "plugins-src/ebook-import/src/lib/strings.ts"
+    ],
+    "scope": "Ebook optional reading reason UI/CLI, metadata and AI context; detailed CLI guide",
+    "github_main_contains_frozen_commit": true,
+    "github_tag_verified": true
+  },
+  "contract": {
+    "cli": "notemd ebook \"/absolute/book.epub\" --topic <topic-id> --reading-reason \"推荐人、推荐理由、当时情景\" --json",
+    "ai_read": "Add --ai-read to use the default Agent; --agent <installed-plugin-id> overrides this run.",
+    "guide": "plugins-src/ebook-import/CLI.md",
+    "guide_url": "https://github.com/wizlijun/note.md/blob/plugin-ebook-import-v1.5.7/plugins-src/ebook-import/CLI.md",
+    "minimum_host": "6.915.3",
+    "behavior": [
+      "Each pending book has an independent optional three-line text input; first start freezes it and retries retain it.",
+      "Nonempty text is trimmed at its boundaries and safely serialized as the top-level reading_reason string in meta.yml before the import commit. Internal Unicode, quotes, colons and newlines round-trip.",
+      "Empty and whitespace-only input is omitted, and legacy books need no migration.",
+      "Library rows with context provide an expandable multiline view; absent context leaves no empty placeholder.",
+      "Topic changes and metadata/cover enrichment preserve the field. Reading reason is excluded from external bibliographic evidence before length limiting.",
+      "AI reading loads the current meta value and quotes it as user background, explicitly distinguishing it from book facts and execution instructions.",
+      "UI and CLI share the import pipeline. --list-topics rejects --reading-reason even when empty.",
+      "AI failure leaves the imported book and reason in place, using the existing structured exit code 4."
+    ]
+  },
+  "validation": {
+    "backend": {
+      "passed": 263,
+      "ignored": 1,
+      "ignored_reason": "existing opt-in live external book asset lookup"
+    },
+    "cli_subprocess": {
+      "passed": 22,
+      "coverage": [
+        "UI import_start and CLI both persist reason",
+        "multiline YAML scalar and empty/whitespace omission",
+        "invalid types and query conflicts rejected before mutation",
+        "library exposes context",
+        "default/explicit Agent and reason in current-meta prompt",
+        "AI partial failure retains imported book and context",
+        "existing import, OCR, recovery and 32-second liveness regression"
+      ]
+    },
+    "frontend": {
+      "passed": 147,
+      "svelte_check": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "production_build": "passed",
+      "final_rows_adjustment": "Default textarea changed from two to three rows; rebuilt production UI and repeated real browser interaction after the adjustment."
+    },
+    "browser_ui": {
+      "at": "2026-10-28T13:50:09.726819+08:00",
+      "browser": "Cached Chromium 1187 headless, real compiled Svelte UI; synthetic host bridge",
+      "native_automation": "CUA browser unavailable; native Chrome/Edge had no controllable window",
+      "checks": [
+        "per-book multiline input and independent values",
+        "900px and 640px layout with inputs within viewport",
+        "frozen after start and retained on retry",
+        "submitted RPC preserves each reason",
+        "library expands multiline context and legacy book has no empty field"
+      ],
+      "page_errors": [],
+      "submitted_reading_reasons": [
+        "推荐人：李老师\n推荐理由：理解“协作与决策”。\n当时情景：周五复盘后讨论了团队沟通。",
+        "王同事在代码评审时推荐，准备重构前阅读。",
+        "推荐人：李老师\n推荐理由：理解“协作与决策”。\n当时情景：周五复盘后讨论了团队沟通。"
+      ],
+      "screenshots": {
+        "ui-filled-desktop.png": "93bf35cf2cb6b544750f220c6c4358f1eed70162eeade200f35cdf0e9af400df",
+        "ui-filled-narrow.png": "c855199412113404154541377729791a2bc576305b9937427b3f8bfef24a7dd9",
+        "ui-imported-library.png": "adc194b3bfc78fd043fc5d96aa4984b48d5e8b86711cc78d029dbe93905f2894"
+      },
+      "passed": true,
+      "signed_package_ui_bytes_equal": [
+        {
+          "path": "ui/index.html",
+          "sha256": "2fd5202d2d84a3894ccb5ecfe996fc8a57fa3adaa937644e6ad7fd42ce7b1214"
+        },
+        {
+          "path": "ui/assets/index-C1jDUmxk.js",
+          "sha256": "b1e712c1007fc062a4498bcf44739ec942fc1b8455c0c0f02f5d3d53f3cb3d8b"
+        },
+        {
+          "path": "ui/assets/index-edOYfiR4.css",
+          "sha256": "b8e5009374d035914a79e767a95ea8f2b0994b3d03b9fc0d3c846d220a1eb39e"
+        }
+      ],
+      "package_sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+      "frozen_tag": "plugin-ebook-import-v1.5.7",
+      "frozen_commit": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+      "human_visual_review": "All three screenshots inspected; three-line reason visible at 640px and 900px, no clipping or horizontal overflow in added fields."
+    },
+    "signed_package_host_cli": {
+      "host_version": "notemd 6.1027.3 (plugin API v1)",
+      "package_sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+      "binary_sha256": "f508bb58e8594a6f49afad0042b22041a6bd9b65f8be2a1fda5c66fbc49d76cc",
+      "cases": [
+        {
+          "name": "list-topics",
+          "exit_code": 0,
+          "seconds": 1.08,
+          "passed": true
+        },
+        {
+          "name": "list-alternate-root",
+          "exit_code": 0,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "missing-file",
+          "exit_code": 4,
+          "seconds": 0.14,
+          "passed": true
+        },
+        {
+          "name": "missing-topic",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "unknown-topic",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "ocr-non-pdf",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "provider-without-ocr",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "unknown-provider",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "list-with-file",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "list-with-ocr",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "list-with-topic",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "missing-reading-reason",
+          "exit_code": 2,
+          "seconds": 0.04,
+          "passed": true
+        },
+        {
+          "name": "list-with-reading-reason",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "list-empty-reading-reason",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "list-whitespace-reading-reason",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "list-with-provider",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "escaping-root",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "empty-root",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "empty-provider",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "empty-topic",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "list-empty-topic",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "agent-without-ai-read",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "list-with-ai-read",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "list-with-agent",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "empty-agent",
+          "exit_code": 4,
+          "seconds": 0.13,
+          "passed": true
+        },
+        {
+          "name": "ai-read-other-vault",
+          "exit_code": 4,
+          "seconds": 0.15,
+          "passed": true
+        },
+        {
+          "name": "empty-vault",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "relative-vault",
+          "exit_code": 4,
+          "seconds": 0.12,
+          "passed": true
+        },
+        {
+          "name": "missing-vault",
+          "exit_code": 4,
+          "seconds": 0.14,
+          "passed": true
+        },
+        {
+          "name": "relative-epub-import",
+          "exit_code": 0,
+          "seconds": 1.67,
+          "passed": true
+        },
+        {
+          "name": "reading-reason-special-characters",
+          "exit_code": 0,
+          "seconds": 1.67,
+          "passed": true
+        },
+        {
+          "name": "empty-reading-reason",
+          "exit_code": 0,
+          "seconds": 1.67,
+          "passed": true
+        },
+        {
+          "name": "whitespace-reading-reason",
+          "exit_code": 0,
+          "seconds": 1.67,
+          "passed": true
+        },
+        {
+          "name": "explicit-pdf-ocr",
+          "exit_code": 0,
+          "seconds": 0.16,
+          "passed": true
+        }
+      ],
+      "ocr_requests": 2,
+      "external_network": "blocked by inherited macOS sandbox; loopback allowed",
+      "passed": true
+    },
+    "signed_package_ai": {
+      "package_sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+      "binary_sha256": "f508bb58e8594a6f49afad0042b22041a6bd9b65f8be2a1fda5c66fbc49d76cc",
+      "network_control": {
+        "profile": "(version 1) (allow default) (deny network*)",
+        "listening_loopback_control_connected": true,
+        "same_connection_under_sandbox_denied": true
+      },
+      "agent_mode": "synthetic host.agent SDK replies; no real LLM or installed Agent invoked",
+      "conversion": "real installed Calibre on synthetic EPUBs",
+      "cases": [
+        {
+          "name": "default-agent",
+          "imported_book_retained": true,
+          "agent": "notemd.mock-default-agent",
+          "summary_created": true,
+          "reading_reason_verified_in_meta_and_prompt": true,
+          "reading_reason_present": false,
+          "partial_failure_exit_code": null,
+          "explicit_vault": true,
+          "passed": true
+        },
+        {
+          "name": "selected-agent",
+          "imported_book_retained": true,
+          "agent": "notemd.mock-selected-agent",
+          "summary_created": true,
+          "reading_reason_verified_in_meta_and_prompt": true,
+          "reading_reason_present": true,
+          "partial_failure_exit_code": null,
+          "explicit_vault": true,
+          "passed": true
+        },
+        {
+          "name": "partial-agent-failure",
+          "imported_book_retained": true,
+          "agent": "notemd.mock-default-agent",
+          "summary_created": false,
+          "reading_reason_verified_in_meta_and_prompt": true,
+          "reading_reason_present": true,
+          "partial_failure_exit_code": 4,
+          "explicit_vault": true,
+          "passed": true
+        },
+        {
+          "name": "partial-missing-summary",
+          "imported_book_retained": true,
+          "agent": "notemd.mock-default-agent",
+          "summary_created": false,
+          "reading_reason_verified_in_meta_and_prompt": true,
+          "reading_reason_present": true,
+          "partial_failure_exit_code": 4,
+          "explicit_vault": true,
+          "passed": true
+        },
+        {
+          "name": "different-vault",
+          "preflight_rejected": true,
+          "vaults_unchanged": true,
+          "agent_not_started": true,
+          "passed": true
+        },
+        {
+          "name": "unknown-agent",
+          "preflight_rejected": true,
+          "vaults_unchanged": true,
+          "agent_not_started": true,
+          "passed": true
+        },
+        {
+          "name": "unavailable-agent",
+          "preflight_rejected": true,
+          "vaults_unchanged": true,
+          "agent_not_started": true,
+          "passed": true
+        },
+        {
+          "name": "agent-without-ai-read",
+          "preflight_rejected": true,
+          "vaults_unchanged": true,
+          "agent_not_started": true,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    "signed_package_ocr": {
+      "at": "2026-10-28T13:54:07.652916+08:00",
+      "version": "1.5.7",
+      "frozen_tag": "plugin-ebook-import-v1.5.7",
+      "frozen_commit": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+      "network_control": {
+        "profile": "(version 1) (allow default) (deny network*)",
+        "listening_loopback_control_connected": true,
+        "same_connection_under_sandbox_denied": true
+      },
+      "packages": [
+        {
+          "arch": "aarch64-apple-darwin",
+          "package_sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+          "minisign_verified": true,
+          "binary_sha256": "f508bb58e8594a6f49afad0042b22041a6bd9b65f8be2a1fda5c66fbc49d76cc",
+          "codesign_verified": true,
+          "binary_architecture": "arm64",
+          "runtime_tested": true,
+          "initialize_activate": true,
+          "cases": [
+            {
+              "fixture": "oversized.pdf",
+              "bytes": 50000001,
+              "error": "PDF is 50000001 bytes, exceeding this plugin's 50 MB (50000000 bytes) local-upload limit for Baidu Unlimited-OCR. Compress or split the PDF before importing; this plugin does not upload files to an external URL automatically.",
+              "oauth_stage_reached": false,
+              "document_submission_stage_reached": false,
+              "passed": true
+            },
+            {
+              "fixture": "501-pages.pdf",
+              "bytes": 49631,
+              "error": "PDF has 501 pages, exceeding Baidu Unlimited-OCR's 500-page limit. Split the PDF into smaller volumes before importing; not submitting.",
+              "oauth_stage_reached": false,
+              "document_submission_stage_reached": false,
+              "passed": true
+            },
+            {
+              "fixture": "invalid.pdf",
+              "bytes": 36,
+              "error": "could not open PDF: <isolated-stage>/inputs/invalid.pdf",
+              "oauth_stage_reached": false,
+              "document_submission_stage_reached": false,
+              "passed": true
+            },
+            {
+              "fixture": "zero-pages.pdf",
+              "bytes": 233,
+              "error": "could not open PDF: <isolated-stage>/inputs/zero-pages.pdf",
+              "oauth_stage_reached": false,
+              "document_submission_stage_reached": false,
+              "passed": true
+            },
+            {
+              "fixture": "500-pages.pdf",
+              "bytes": 49532,
+              "error": "OAuth network request blocked under deny-network sandbox",
+              "oauth_stage_reached": true,
+              "document_submission_stage_reached": false,
+              "passed": true
+            }
+          ],
+          "vault_unchanged": true,
+          "all_runtime_cases_passed": true,
+          "network_denied": true,
+          "credentials": "isolated dummy values only"
+        },
+        {
+          "arch": "x86_64-apple-darwin",
+          "package_sha256": "25afa5e73d64d133c1ff4e9fa0e70e3704528bdb1a474e5d703b87d9ab64679e",
+          "minisign_verified": true,
+          "binary_sha256": "28939e0eddcef87cf63eab5fdee8d6c5c6891b819bd2344b018fc4a2ee8df731",
+          "codesign_verified": true,
+          "binary_architecture": "x86_64",
+          "runtime_tested": false,
+          "runtime_status": "not tested: this machine has no Rosetta; signature and architecture verified"
+        }
+      ],
+      "status": "ARM64 real SDK preflight cases passed; both architectures signed; Intel runtime untested"
+    },
+    "candidate_restore": {
+      "original_link": "1.5.6",
+      "restored_link": "1.5.6",
+      "configuration_before": {
+        "/Users/bruce/Library/Application Support/net.notemd.app/plugins/state.json": "018becbbc0ee4ebe61f6748188d16e9a33650c17a9bfa996c55f53f1663ba0b7",
+        "/Users/bruce/Library/Application Support/net.notemd.app/shared.json": "4e3da87e2e743b8714994476a7754333e07804675e66370f370f62a418230a11"
+      },
+      "configuration_after": {
+        "/Users/bruce/Library/Application Support/net.notemd.app/plugins/state.json": "018becbbc0ee4ebe61f6748188d16e9a33650c17a9bfa996c55f53f1663ba0b7",
+        "/Users/bruce/Library/Application Support/net.notemd.app/shared.json": "4e3da87e2e743b8714994476a7754333e07804675e66370f370f62a418230a11"
+      },
+      "configuration_unchanged": true
+    },
+    "independent_review": {
+      "at": "2026-10-28T13:47:05.482622+08:00",
+      "reviewer": "independent acceptance subagent",
+      "scope": "Ebook Import reading reason source and CLI documentation",
+      "base_commit": "16396a4299055b31c58fb45e330da2ec5fa04fb8",
+      "reviewed_diff_sha256": "4ddefff594a6a0cb574b1d30960fff13bf959efdcd87e7caac968d818dfc3116",
+      "findings": [
+        {
+          "severity": "medium",
+          "status": "fixed",
+          "issue": "Parsing a 64 KiB-truncated YAML metadata document can fail on a long quoted reading reason and block later metadata enrichment",
+          "resolution": "Parse complete local metadata, remove reading_reason, then bound emitted evidence at a UTF-8 boundary",
+          "regression_test": "pipeline::tests::long_reading_reason_does_not_break_metadata_enrichment"
+        }
+      ],
+      "blocking_findings": [],
+      "verified_by_source": [
+        "UI and CLI share normalized optional reason handling and import pipeline",
+        "YAML scalar serialization preserves internal Unicode/newlines/quotes without inserting keys",
+        "Top-level reason is separate from book_metadata and survives classification/enrichment",
+        "Bibliographic evidence excludes reason before external requests",
+        "AI dispatch reads current meta and quotes user context as JSON, labelling it neither book fact nor executable instruction",
+        "Queue reasons are per book, synchronously frozen at start, retained on retry",
+        "Library displays only nonempty reasons with safe text rendering",
+        "No reason produces no field, so old books and imports remain compatible",
+        "CLI documentation explains all flags, multiline/file quoting, active Vault requirements and partial failure recovery"
+      ],
+      "validation_observed": {
+        "backend": "263 passed, 1 existing live-network test ignored; 22 SDK subprocess tests passed",
+        "frontend": "147 tests passed; svelte-check 0 errors and 0 warnings",
+        "diff_check": "passed",
+        "real_ui": "900px and 640px Chromium interaction verified by release owner; ui-acceptance.json",
+        "signed_package_SDK": "AI 8 passed including reason exact JSON prompt/meta/partial-failure preservation; OCR 5 ARM64 preflight passed; both architectures signed, Intel runtime untested"
+      },
+      "passed": true,
+      "frozen_commit": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+      "frozen_tag": "plugin-ebook-import-v1.5.7",
+      "final_review_note": "The final source changes textarea rows from 2 to 3 for the three-part user background; real Chromium evidence is recorded in ui-acceptance.json.",
+      "final_release_status": "All formal CLI, browser UI and SDK package checks complete; no pending validation beyond stated real-model and Intel-runtime limitations."
+    },
+    "harness_correction": "First formal CLI run expected a duplicate import directory suffix in the topic index. The index correctly uses the book title; the harness now reads frontmatter title. The same frozen package passed all 34 cases on rerun; no production code changed.",
+    "limitations": [
+      "Real model and paid Baidu OCR calls were not performed; Agent success tests use synthetic host replies.",
+      "Intel package was built and its architecture/codesign/minisign verified; runtime was not tested because Rosetta is not installed.",
+      "UI was observed in real headless Chromium using the exact signed UI assets and a synthetic host bridge, not in a native plugin window."
+    ]
+  },
+  "packages": [
+    {
+      "plugin": "notemd.ebook-import",
+      "version": "1.5.7",
+      "arch": "aarch64-apple-darwin",
+      "package": "dist-plugins/notemd.ebook-import/1.5.7/aarch64-apple-darwin.notemdpkg",
+      "bytes": 2448704,
+      "sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793166814\tfile:aarch64-apple-darwin.notemdpkg\thashed",
+      "content_markers": [
+        "--list-topics",
+        "--ocr-provider requires --ocr",
+        "--ocr only supports PDF input",
+        "Ebook import is still running",
+        "dest_rel",
+        "topic_id",
+        "--agent requires --ai-read",
+        "reading_reason",
+        "exceeding this plugin's 50 MB"
+      ],
+      "binary_sha256": "f508bb58e8594a6f49afad0042b22041a6bd9b65f8be2a1fda5c66fbc49d76cc",
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ebook-pkg-verify-fh4pp19f/notemd-ebook-import: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ebook-pkg-verify-fh4pp19f/notemd-ebook-import: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ebook-pkg-verify-fh4pp19f/notemd-ebook-import\nIdentifier=notemd-ebook-import\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=9119 flags=0x10000(runtime) hashes=279+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=e39d3ac72cc9de4c10f6c35064197cf95ec5b83d\nCandidateCDHashFull sha256=e39d3ac72cc9de4c10f6c35064197cf95ec5b83d772a693f57eb8f0956916c3b\nHash choices=sha256\nCMSDigest=e39d3ac72cc9de4c10f6c35064197cf95ec5b83d772a693f57eb8f0956916c3b\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=3915776\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=e39d3ac72cc9de4c10f6c35064197cf95ec5b83d\nSignature size=9015\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 1:53:32 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "arm64",
+      "manifest_verified_against_tag": "plugin-ebook-import-v1.5.7",
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.ebook-import",
+      "version": "1.5.7",
+      "arch": "x86_64-apple-darwin",
+      "package": "dist-plugins/notemd.ebook-import/1.5.7/x86_64-apple-darwin.notemdpkg",
+      "bytes": 2610964,
+      "sha256": "25afa5e73d64d133c1ff4e9fa0e70e3704528bdb1a474e5d703b87d9ab64679e",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793166815\tfile:x86_64-apple-darwin.notemdpkg\thashed",
+      "content_markers": [
+        "--list-topics",
+        "--ocr-provider requires --ocr",
+        "--ocr only supports PDF input",
+        "Ebook import is still running",
+        "dest_rel",
+        "topic_id",
+        "--agent requires --ai-read",
+        "reading_reason",
+        "exceeding this plugin's 50 MB"
+      ],
+      "binary_sha256": "28939e0eddcef87cf63eab5fdee8d6c5c6891b819bd2344b018fc4a2ee8df731",
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ebook-pkg-verify-bw146h7g/notemd-ebook-import: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ebook-pkg-verify-bw146h7g/notemd-ebook-import: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ebook-pkg-verify-bw146h7g/notemd-ebook-import\nIdentifier=notemd-ebook-import\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=41567 flags=0x10000(runtime) hashes=1293+2 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=61939e18a703ad257f6b08cfdf2ed2c711d06cd4\nCandidateCDHashFull sha256=61939e18a703ad257f6b08cfdf2ed2c711d06cd4183c81130fd40768a4cba8ac\nHash choices=sha256\nCMSDigest=61939e18a703ad257f6b08cfdf2ed2c711d06cd4183c81130fd40768a4cba8ac\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=4673536\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=61939e18a703ad257f6b08cfdf2ed2c711d06cd4\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 1:53:33 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "x86_64",
+      "manifest_verified_against_tag": "plugin-ebook-import-v1.5.7",
+      "test_fixtures_absent": true
+    }
+  ],
+  "publication": {
+    "channel": "Repository Wrangler 3.114.17 with existing Account API Token; no alternative channel",
+    "order": [
+      "R2 package/signature upload",
+      "anonymous exact-byte readback and minisign verification",
+      "KV append-only index update",
+      "normal and cache-busted public index verification"
+    ],
+    "public_objects": [
+      {
+        "key": "notemd.ebook-import/1.5.7/aarch64-apple-darwin.notemdpkg",
+        "sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+        "size": 2448704,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.ebook-import/1.5.7/aarch64-apple-darwin.notemdpkg.minisig",
+        "sha256": "c4db5e13352e027a09fa4c0667753906f3fbc9cb234066b8bee9e0b4f17a2a0b",
+        "size": 325,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.ebook-import/1.5.7/x86_64-apple-darwin.notemdpkg",
+        "sha256": "25afa5e73d64d133c1ff4e9fa0e70e3704528bdb1a474e5d703b87d9ab64679e",
+        "size": 2610964,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.ebook-import/1.5.7/x86_64-apple-darwin.notemdpkg.minisig",
+        "sha256": "bd4e44115cd09edb0e83b5eacbca642186cf0a91d28bd7a737789965e192c83d",
+        "size": 324,
+        "public_bytes_equal": true
+      }
+    ],
+    "index": {
+      "before": 292,
+      "after": 293,
+      "only_added": "notemd.ebook-import@1.5.7",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "31a4edc82b2ffb1674d06978c816ee7a543664f9682c673dbe8564f10c756443",
+      "compatible_latest": "1.5.7"
+    }
+  },
+  "installation": {
+    "update": {
+      "data": [
+        {
+          "from": "1.5.6",
+          "id": "notemd.ebook-import",
+          "status": "updated",
+          "to": "1.5.7"
+        }
+      ],
+      "ok": true
+    },
+    "verification": {
+      "version": "1.5.7",
+      "info": {
+        "cli": [
+          {
+            "aliases": [],
+            "subcommand": "ebook",
+            "summary": "Import an ebook or list available topic IDs"
+          }
+        ],
+        "description": "Import ebooks as Markdown, enrich book metadata and covers from Open Library and Apple Books, and maintain readable cover-gallery indexes that refresh when book categories change. Includes Calibre conversion, scanned-PDF OCR, and AI-assisted reading and classification.",
+        "id": "notemd.ebook-import",
+        "name": "Ebook Import",
+        "rejected_cli": [],
+        "status": "enabled",
+        "version": "1.5.7"
+      },
+      "all_installed_package_files_match": [
+        "ui/index.html",
+        "ui/assets/index-C1jDUmxk.js",
+        "ui/assets/index-edOYfiR4.css",
+        "bin/notemd-ebook-import",
+        "manifest.json"
+      ],
+      "package_sha256": "0d99b9a15bcfdcdf27f5aa20d1d23f1c2bd484be33a944e12ca09fa8e50a8841",
+      "binary_sha256": "f508bb58e8594a6f49afad0042b22041a6bd9b65f8be2a1fda5c66fbc49d76cc",
+      "installed_current": "/Users/bruce/Library/Application Support/net.notemd.app/plugins/notemd.ebook-import/1.5.7",
+      "explicit_vault_topic_query": true,
+      "default_vault_topic_query": {
+        "exit_code": 0,
+        "ok": true,
+        "topic_count": 7
+      },
+      "codesign_verified": true
+    },
+    "cli_help": "--reading-reason <value>  Optional reading context: who recommended it, why, and the situation; saved in meta.yml"
+  },
+  "release_scope_audit": {
+    "at": "2026-10-28T13:50:36.883935+08:00",
+    "base": "16396a4299055b31c58fb45e330da2ec5fa04fb8",
+    "worktrees": [
+      {
+        "worktree": "/Users/bruce/git/mdeditor",
+        "HEAD": "f9c765d7ed065776087e12f8636ed113eeaf9e0b",
+        "branch": "refs/heads/main",
+        "status": [
+          " M plugins-src/agent-run-core/src/harness.rs",
+          " M plugins-src/agent-run-core/src/record.rs",
+          " M plugins-src/agent-run-core/src/scaffold.rs",
+          " M plugins-src/claude-agent/backend/src/engine.rs",
+          " M plugins-src/claude-agent/backend/src/plugin.rs",
+          " M plugins-src/codex-agent/backend/src/engine.rs",
+          " M plugins-src/codex-agent/backend/src/plugin.rs",
+          " M plugins-src/codex-agent/backend/src/runner.rs",
+          " M plugins-src/deepseek-agent/backend/src/engine.rs",
+          " M plugins-src/deepseek-agent/backend/src/plugin.rs",
+          " M plugins-src/next/src/App.kickoff.render.test.ts",
+          " M plugins-src/next/src/App.svelte",
+          " M plugins-src/next/src/components/KickoffPicker.render.test.ts",
+          " M plugins-src/next/src/components/KickoffPicker.svelte",
+          " M plugins-src/next/src/lib/kickoff/client.test.ts",
+          " M plugins-src/next/src/lib/kickoff/client.ts",
+          " M plugins-src/next/src/lib/strings.ts",
+          "?? .pnpm-store/v11/index.db",
+          "?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+          "?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+          "?? docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+          "?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+          "?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+          "?? docs/superpowers/specs/habitat-city.html",
+          "?? plugins-src/codex-agent/backend/tests/capacity.rs",
+          "?? plugins-src/next/src/lib/kickoff/__fixtures__/capacity-status.json"
+        ],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {
+          "plugins-src/agent-run-core/src/harness.rs": "00950d9dbb883d60f3e859b08dc2f37f8d022814d0f7ab307a511d3217b9f66a",
+          "plugins-src/agent-run-core/src/record.rs": "d6c90c60596f520e63efd2b876d8b705e89ee316e52069aca44747cfccba9584",
+          "plugins-src/agent-run-core/src/scaffold.rs": "6be64828b3ab154e350fd239f50d4b9aff755a9d3f093d839016a90d038f137d",
+          "plugins-src/claude-agent/backend/src/engine.rs": "c12571a0438d1f5bab7abfbdcc6c374cd17de1b37d0689057a6349fd45fcefc3",
+          "plugins-src/claude-agent/backend/src/plugin.rs": "f2908e8d3011b78ad7b16fc376bc7099c91f1acf62fc8b85c24de87468f1646f",
+          "plugins-src/codex-agent/backend/src/engine.rs": "f41fb73bc89d7908bf8feae9d32cc3c4179e061020d1f837ec46d003161adfec",
+          "plugins-src/codex-agent/backend/src/plugin.rs": "6933a5e7384a016616fd8249b1ae1afc668c6dc778330a43588b985f1fcd4b33",
+          "plugins-src/codex-agent/backend/src/runner.rs": "dcf8e73c08866f8ed3b1fd3f1da5f8ac4745578f52c570451828f9c7da2b31f6",
+          "plugins-src/deepseek-agent/backend/src/engine.rs": "f97815305230d6ddffd1618e11f5c0a094a1b1eb10659746edaac04b4af119a0",
+          "plugins-src/deepseek-agent/backend/src/plugin.rs": "dbc54d75af44b8f6963442ef338fb449c0ff6f55cac0a9e22f8b6df2f7f65d49",
+          "plugins-src/next/src/App.kickoff.render.test.ts": "5a1ba64ae93e95071189e03e9fc623f9592635fc0c00904a2cc97660e5d4e158",
+          "plugins-src/next/src/App.svelte": "c6e3bc1b3bd520ef340609d2cdeb85fadd6c160c9d846e0e82608749e6686299",
+          "plugins-src/next/src/components/KickoffPicker.render.test.ts": "0fb03c84d0ff91335daf6b90a6f87753b5a90c4ecc438942690656b6ac396dbd",
+          "plugins-src/next/src/components/KickoffPicker.svelte": "1250817947679fe90742327597e6b83f51f9fda6c341c4aeab2f0bc882e9b80f",
+          "plugins-src/next/src/lib/kickoff/client.test.ts": "e80bc2bd394bfa37340f2332dc74b8df4547696a7d66efed1c0512bac7e8f86c",
+          "plugins-src/next/src/lib/kickoff/client.ts": "a52a807acc0db18ba68b8fe5223e1d8553903265c9441ec46056a43ae41c0e1e",
+          "plugins-src/next/src/lib/strings.ts": "fa9914bd575f19123942bdfc08ae6ba9b521d8417c6285d658e3b45d1630738b",
+          ".pnpm-store/v11/index.db": "31265ad1b3941f31571896b5a9abc7dc6001af9a26837b7b02da8b3913e88842",
+          "docs/superpowers/specs/2026-09-23-agency-batch-cli.md": "fed238145a3889925577c10d781786054d8679226daf5e56c0037783a30949e6",
+          "docs/superpowers/specs/2026-09-23-agency-plugin-design.md": "10d2b259581df77d319bc0e4694d086d0d32cef78238ebf45922de1fa281d44c",
+          "docs/superpowers/specs/2026-09-23-agency-practical-review.md": "68293464611024829b9e75c41ae9bde4a990cbeaf70e21e4a9829f6ae82c16bf",
+          "docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md": "c31ff58b090fd947976110f08fb67508958ddd44059a7e90620a083b82cdcb90",
+          "docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md": "f7f68b325f1488102fd9f953ed888c06b50aa84a566a5231c0243bbd5fa9807f",
+          "docs/superpowers/specs/habitat-city.html": "450801173e2fedabf4831d765bef94b6d595a62848f1f81d7723df28740c5152",
+          "plugins-src/codex-agent/backend/tests/capacity.rs": "de403e4762b35a81e783e8121d2c812fd4ca267a46531ca537e081f0c6af42c5",
+          "plugins-src/next/src/lib/kickoff/__fixtures__/capacity-status.json": "164f644b5f2c3ca03f8f1811fb6f0e68531f85cf9f8fc1275356343a1ccfc459"
+        }
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-claude-kickoff-release",
+        "HEAD": "9b965e3c8ccc997ed108585115a6e790c53503ab",
+        "branch": "refs/heads/release/claude-kickoff-v2",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-ebook-cli",
+        "HEAD": "16396a4299055b31c58fb45e330da2ec5fa04fb8",
+        "branch": "refs/heads/feat/ebook-agent-cli",
+        "status": [
+          " M CHANGELOG.md",
+          " M CHANGELOG.zh-CN.md",
+          " M plugins-src/ebook-import/README.md",
+          " M plugins-src/ebook-import/backend/src/airead.rs",
+          " M plugins-src/ebook-import/backend/src/library.rs",
+          " M plugins-src/ebook-import/backend/src/library/tests.rs",
+          " M plugins-src/ebook-import/backend/src/library_assets.rs",
+          " M plugins-src/ebook-import/backend/src/pipeline.rs",
+          " M plugins-src/ebook-import/backend/src/plugin.rs",
+          " M plugins-src/ebook-import/backend/src/topics.rs",
+          " M plugins-src/ebook-import/backend/tests/cli.rs",
+          " M plugins-src/ebook-import/manifest.v2.json",
+          " M plugins-src/ebook-import/src/App.svelte",
+          " M plugins-src/ebook-import/src/App.test.ts",
+          " M plugins-src/ebook-import/src/components/LibraryPanel.svelte",
+          " M plugins-src/ebook-import/src/lib/library.test.ts",
+          " M plugins-src/ebook-import/src/lib/library.ts",
+          " M plugins-src/ebook-import/src/lib/queue.test.ts",
+          " M plugins-src/ebook-import/src/lib/queue.ts",
+          " M plugins-src/ebook-import/src/lib/strings.ts",
+          "?? docs/superpowers/specs/2026-10-28-ebook-reading-reason.md",
+          "?? plugins-src/ebook-import/CLI.md"
+        ],
+        "scope": "included: verified Ebook 1.5.7 reading reason, exact files only",
+        "preserved_hashes": {
+          "CHANGELOG.md": "d315e13753be9801b01a3b1cc94156e2e0695717df454dbd1f9b2df36ebf90e1",
+          "CHANGELOG.zh-CN.md": "13f75fc6dae1556440d8111d0be0872c8fa5898cee5f3d37827faf74df02cf5a",
+          "plugins-src/ebook-import/README.md": "47049a9a7ef01e1f7b0e67c9d7f19caff062aa7676472bd2f93da03b3d33f565",
+          "plugins-src/ebook-import/backend/src/airead.rs": "50e10d38d1fc42ab6bfbe6934440836f0b5abcdedb85c974f946b27d96e22516",
+          "plugins-src/ebook-import/backend/src/library.rs": "6a70a5fcee74a2fd63df27dd30c70e2613a16046e3edfe2e7dd8b89511446814",
+          "plugins-src/ebook-import/backend/src/library/tests.rs": "485375b1e6d8e2aa67f271f2813cafe6dea0fa3be31d0bc15c583432902c25d9",
+          "plugins-src/ebook-import/backend/src/library_assets.rs": "b7a665322a0640ac0b1fcb577bb38b5ed25589421bec41ac6d4264d4876d2fe4",
+          "plugins-src/ebook-import/backend/src/pipeline.rs": "ca93f081075768bab1b930cc1d44c38d7677e0c4e090fa813bb18fc12b5cfe93",
+          "plugins-src/ebook-import/backend/src/plugin.rs": "4033751eb9c658dc0b536cbe05b3b2d050ab95bdfc70828179a9539137f2d5f2",
+          "plugins-src/ebook-import/backend/src/topics.rs": "3ef2355851d1b78924b35a565af15b913ec425d487722225becd2af53623ab62",
+          "plugins-src/ebook-import/backend/tests/cli.rs": "d7800ee5e2977b698348464f437372aa428135d19ca8f44e110378b6abd2c626",
+          "plugins-src/ebook-import/manifest.v2.json": "af9ce25a31edf784db2b02ac1765ab93d6babff14c4c6397ecb837e4263529c9",
+          "plugins-src/ebook-import/src/App.svelte": "0606ed0527b6c5cc4dfc2cca08daebfe13cc625d48d486aa698a42a6d312e0cf",
+          "plugins-src/ebook-import/src/App.test.ts": "959dcd58455a19636d47a459bd8e206e20a752b483a41f115ba2f63f45c88930",
+          "plugins-src/ebook-import/src/components/LibraryPanel.svelte": "afa34d836dfbed4def050834a7d4f1e438cc745ce6c297724c802a883870cf7e",
+          "plugins-src/ebook-import/src/lib/library.test.ts": "4cfdb5497241596fa7a7414fe3654e9ba714a666e23c9940d8f9a133f65ea0dd",
+          "plugins-src/ebook-import/src/lib/library.ts": "f46c56d610c3499d9409c9b497c7623263932273173b39d21245b7aaeff324be",
+          "plugins-src/ebook-import/src/lib/queue.test.ts": "8c263b176310ffddda56b4e54b378f5a16bbcd5f883821ecbfd859eec83fc565",
+          "plugins-src/ebook-import/src/lib/queue.ts": "6bef6098f4815c5c501003c6c0352c32107395230464b709f2ef82827d0f2c6c",
+          "plugins-src/ebook-import/src/lib/strings.ts": "e16d4cc83821dd9e743d4b4574c4ca4aac8c89fcdda7367e8187e7d5a032f5b2",
+          "docs/superpowers/specs/2026-10-28-ebook-reading-reason.md": "99918f180552f8759c73e2b4d698af7cac9506f724b20070e0a39afc93c6dac4",
+          "plugins-src/ebook-import/CLI.md": "d2a7f4b83652194c6b6f750582762296a55244d424a49bf2ca085f79fed4a74c"
+        }
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-context",
+        "HEAD": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf",
+        "branch": "refs/heads/fix/next-kickoff-context-review",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-kickoff",
+        "HEAD": "0e7276abd522cf89a3fedabe6129a240aa1a61d7",
+        "branch": "refs/heads/feat/next-task-kickoff",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-ready",
+        "HEAD": "e5243f5790dbb062e9ae36a11507e1ce843f6a6d",
+        "branch": "refs/heads/fix/next-kickoff-ready",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-research",
+        "HEAD": "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075",
+        "branch": "refs/heads/fix/next-agent-research",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-research-release",
+        "HEAD": "b8bf61e6f0018f7e5105f9aeefbbdc200bffcec0",
+        "branch": "refs/heads/release/next-agent-research",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-website-610281",
+        "HEAD": "0060082c457b7b01617cc97fb6e2aec9d9356f5a",
+        "branch": "refs/heads/docs/website-6.1028.1",
+        "status": [],
+        "scope": "excluded: independent NEXT/Agent/website or prior work; preserve without commit",
+        "preserved_hashes": {}
+      }
+    ],
+    "branches": [
+      {
+        "branch": "docs/website-6.1028.1",
+        "not_in_origin_main": [
+          "0060082c docs(website): announce Apple Silicon 6.1028.1 agent support"
+        ],
+        "patch_equivalence": [
+          "+ 0060082c457b7b01617cc97fb6e2aec9d9356f5a docs(website): announce Apple Silicon 6.1028.1 agent support"
+        ],
+        "scope": "excluded independent work",
+        "commit_files": {
+          "0060082c": [
+            "website/build_i18n.py",
+            "website/public/de/index.html",
+            "website/public/index.html",
+            "website/public/ja/index.html",
+            "website/public/zh/index.html"
+          ]
+        },
+        "classification": "Unmerged website announcement only; five website files, intentionally excluded from Ebook release."
+      },
+      {
+        "branch": "feat/ebook-agent-cli",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "ebook release"
+      },
+      {
+        "branch": "feat/next-task-kickoff",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "excluded independent work"
+      },
+      {
+        "branch": "fix/next-agent-research",
+        "not_in_origin_main": [
+          "b6857e7d fix(next): delegate kickoff research to agents and default concurrency to three"
+        ],
+        "patch_equivalence": [
+          "+ b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075 fix(next): delegate kickoff research to agents and default concurrency to three"
+        ],
+        "scope": "excluded independent work",
+        "commit_files": {
+          "b6857e7d": [
+            "CHANGELOG.md",
+            "CHANGELOG.zh-CN.md",
+            "docs/plugin-v2-development.md",
+            "docs/superpowers/reports/2026-10-28-next-agent-research.md",
+            "docs/superpowers/specs/2026-10-28-next-agent-research.md",
+            "plugins-src/agent-run-core/src/lock.rs",
+            "plugins-src/agent-run-core/src/prompt.rs",
+            "plugins-src/agent-run-core/src/scaffold.rs",
+            "plugins-src/agent-run-core/src/task.rs",
+            "plugins-src/claude-agent/backend/src/engine.rs",
+            "plugins-src/claude-agent/backend/src/plugin.rs",
+            "plugins-src/claude-agent/backend/src/prompt.rs",
+            "plugins-src/claude-agent/backend/src/task.rs",
+            "plugins-src/claude-agent/src/components/SettingsPage.svelte",
+            "plugins-src/claude-agent/src/lib/settings.test.ts",
+            "plugins-src/claude-agent/src/lib/settings.ts",
+            "plugins-src/claude-agent/src/lib/strings.ts",
+            "plugins-src/claude-agent/src/ui.render.test.ts",
+            "plugins-src/codex-agent/backend/src/argv.rs",
+            "plugins-src/codex-agent/backend/src/engine.rs",
+            "plugins-src/codex-agent/backend/src/plugin.rs",
+            "plugins-src/codex-agent/backend/src/runner.rs",
+            "plugins-src/codex-agent/backend/src/stream.rs",
+            "plugins-src/codex-agent/backend/tests/fixtures/kickoff-v3-progress.jsonl",
+            "plugins-src/codex-agent/src/components/SettingsPage.svelte",
+            "plugins-src/codex-agent/src/lib/settings.test.ts",
+            "plugins-src/codex-agent/src/lib/settings.ts",
+            "plugins-src/codex-agent/src/lib/strings.ts",
+            "plugins-src/codex-agent/src/ui.render.test.ts",
+            "plugins-src/deepseek-agent/backend/src/bin/stub_acp.rs",
+            "plugins-src/deepseek-agent/backend/src/composition.rs",
+            "plugins-src/deepseek-agent/backend/src/engine.rs",
+            "plugins-src/deepseek-agent/backend/src/plugin.rs",
+            "plugins-src/deepseek-agent/src/components/SettingsPage.svelte",
+            "plugins-src/deepseek-agent/src/lib/settings.test.ts",
+            "plugins-src/deepseek-agent/src/lib/settings.ts",
+            "plugins-src/deepseek-agent/src/lib/strings.ts",
+            "plugins-src/deepseek-agent/src/ui.render.test.ts",
+            "plugins-src/next/CHANGELOG.md",
+            "plugins-src/next/manifest.v2.json",
+            "plugins-src/next/src/App.kickoff.render.test.ts",
+            "plugins-src/next/src/App.svelte",
+            "plugins-src/next/src/components/KickoffConsent.render.test.ts",
+            "plugins-src/next/src/components/KickoffConsent.svelte",
+            "plugins-src/next/src/components/KickoffPicker.render.test.ts",
+            "plugins-src/next/src/components/KickoffSheet.render.test.ts",
+            "plugins-src/next/src/components/KickoffSheet.svelte",
+            "plugins-src/next/src/lib/bridge.ts",
+            "plugins-src/next/src/lib/kickoff/client.test.ts",
+            "plugins-src/next/src/lib/kickoff/client.ts",
+            "plugins-src/next/src/lib/kickoff/context.test.ts",
+            "plugins-src/next/src/lib/kickoff/context.ts",
+            "plugins-src/next/src/lib/kickoff/document.test.ts",
+            "plugins-src/next/src/lib/kickoff/payload.test.ts",
+            "plugins-src/next/src/lib/kickoff/payload.ts",
+            "plugins-src/next/src/lib/kickoff/registry.ts",
+            "plugins-src/next/src/lib/kickoff/source.ts",
+            "plugins-src/next/src/lib/kickoff/template.test.ts",
+            "plugins-src/next/src/lib/kickoff/template.ts",
+            "plugins-src/next/src/lib/strings.ts",
+            "scripts/verify-next-dsh-research.mjs",
+            "scripts/verify-next-search-readonly.mjs",
+            "src-tauri/src/plugin_runtime/agent_provider.rs",
+            "src-tauri/src/plugin_runtime/host_api.rs",
+            "src-tauri/src/plugin_runtime/ui_rpc.rs"
+          ]
+        },
+        "rewritten_commit_check": {
+          "integrated_commit": "72302857",
+          "all_feature_files_identical": {
+            "docs/plugin-v2-development.md": true,
+            "docs/superpowers/reports/2026-10-28-next-agent-research.md": true,
+            "docs/superpowers/specs/2026-10-28-next-agent-research.md": true,
+            "plugins-src/agent-run-core/src/lock.rs": true,
+            "plugins-src/agent-run-core/src/prompt.rs": true,
+            "plugins-src/agent-run-core/src/scaffold.rs": true,
+            "plugins-src/agent-run-core/src/task.rs": true,
+            "plugins-src/claude-agent/backend/src/engine.rs": true,
+            "plugins-src/claude-agent/backend/src/plugin.rs": true,
+            "plugins-src/claude-agent/backend/src/prompt.rs": true,
+            "plugins-src/claude-agent/backend/src/task.rs": true,
+            "plugins-src/claude-agent/src/components/SettingsPage.svelte": true,
+            "plugins-src/claude-agent/src/lib/settings.test.ts": true,
+            "plugins-src/claude-agent/src/lib/settings.ts": true,
+            "plugins-src/claude-agent/src/lib/strings.ts": true,
+            "plugins-src/claude-agent/src/ui.render.test.ts": true,
+            "plugins-src/codex-agent/backend/src/argv.rs": true,
+            "plugins-src/codex-agent/backend/src/engine.rs": true,
+            "plugins-src/codex-agent/backend/src/plugin.rs": true,
+            "plugins-src/codex-agent/backend/src/runner.rs": true,
+            "plugins-src/codex-agent/backend/src/stream.rs": true,
+            "plugins-src/codex-agent/backend/tests/fixtures/kickoff-v3-progress.jsonl": true,
+            "plugins-src/codex-agent/src/components/SettingsPage.svelte": true,
+            "plugins-src/codex-agent/src/lib/settings.test.ts": true,
+            "plugins-src/codex-agent/src/lib/settings.ts": true,
+            "plugins-src/codex-agent/src/lib/strings.ts": true,
+            "plugins-src/codex-agent/src/ui.render.test.ts": true,
+            "plugins-src/deepseek-agent/backend/src/bin/stub_acp.rs": true,
+            "plugins-src/deepseek-agent/backend/src/composition.rs": true,
+            "plugins-src/deepseek-agent/backend/src/engine.rs": true,
+            "plugins-src/deepseek-agent/backend/src/plugin.rs": true,
+            "plugins-src/deepseek-agent/src/components/SettingsPage.svelte": true,
+            "plugins-src/deepseek-agent/src/lib/settings.test.ts": true,
+            "plugins-src/deepseek-agent/src/lib/settings.ts": true,
+            "plugins-src/deepseek-agent/src/lib/strings.ts": true,
+            "plugins-src/deepseek-agent/src/ui.render.test.ts": true,
+            "plugins-src/next/CHANGELOG.md": true,
+            "plugins-src/next/manifest.v2.json": true,
+            "plugins-src/next/src/App.kickoff.render.test.ts": true,
+            "plugins-src/next/src/App.svelte": true,
+            "plugins-src/next/src/components/KickoffConsent.render.test.ts": true,
+            "plugins-src/next/src/components/KickoffConsent.svelte": true,
+            "plugins-src/next/src/components/KickoffPicker.render.test.ts": true,
+            "plugins-src/next/src/components/KickoffSheet.render.test.ts": true,
+            "plugins-src/next/src/components/KickoffSheet.svelte": true,
+            "plugins-src/next/src/lib/bridge.ts": true,
+            "plugins-src/next/src/lib/kickoff/client.test.ts": true,
+            "plugins-src/next/src/lib/kickoff/client.ts": true,
+            "plugins-src/next/src/lib/kickoff/context.test.ts": true,
+            "plugins-src/next/src/lib/kickoff/context.ts": true,
+            "plugins-src/next/src/lib/kickoff/document.test.ts": true,
+            "plugins-src/next/src/lib/kickoff/payload.test.ts": true,
+            "plugins-src/next/src/lib/kickoff/payload.ts": true,
+            "plugins-src/next/src/lib/kickoff/registry.ts": true,
+            "plugins-src/next/src/lib/kickoff/source.ts": true,
+            "plugins-src/next/src/lib/kickoff/template.test.ts": true,
+            "plugins-src/next/src/lib/kickoff/template.ts": true,
+            "plugins-src/next/src/lib/strings.ts": true,
+            "scripts/verify-next-dsh-research.mjs": true,
+            "scripts/verify-next-search-readonly.mjs": true,
+            "src-tauri/src/plugin_runtime/agent_provider.rs": true,
+            "src-tauri/src/plugin_runtime/host_api.rs": true,
+            "src-tauri/src/plugin_runtime/ui_rpc.rs": true
+          },
+          "explanation": "Patch IDs differ because the release rebased on earlier Ebook changes; all NEXT/Agent feature files match integrated source. Changelog conflict resolution is independent; no missing Ebook feature belongs in this branch."
+        }
+      },
+      {
+        "branch": "fix/next-kickoff-context-review",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "excluded independent work"
+      },
+      {
+        "branch": "fix/next-kickoff-ready",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "excluded independent work"
+      },
+      {
+        "branch": "main",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "excluded independent work"
+      },
+      {
+        "branch": "release/claude-kickoff-v2",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "excluded independent work"
+      },
+      {
+        "branch": "release/next-agent-research",
+        "not_in_origin_main": [],
+        "patch_equivalence": [],
+        "scope": "excluded independent work"
+      }
+    ],
+    "stashes": [
+      {
+        "entry": "stash@{0}: On feat/plugin-market-catalog-redesign: codex-preserve-before-release-6.831.1",
+        "files": [
+          "docs/superpowers/specs/2026-08-10-windows-download-design.md",
+          "plugins-src/next/src/lib/domain.test.ts",
+          "plugins-src/next/src/lib/domain.ts",
+          "plugins-src/next/src/lib/events.test.ts",
+          "plugins-src/next/src/lib/events.ts",
+          "plugins-src/next/src/lib/model.ts",
+          "plugins-src/next/src/lib/project-match.test.ts",
+          "plugins-src/next/src/lib/project-match.ts",
+          "plugins-src/next/src/lib/repository.ts",
+          "website/src/index.js",
+          "website/src/index.test.ts",
+          "website/src/resolve-download.js",
+          "website/src/resolve-download.test.ts"
+        ],
+        "scope": "excluded old unrelated WIP; no apply/drop"
+      },
+      {
+        "entry": "stash@{1}: On main: stray fix-E/F content left in main's worktree by the roam-inc2 stash incident 2026-08-04; superseded by feat/roam-incremental-2, kept for safety",
+        "files": [
+          "plugins-src/roam-import/backend/src/outline.rs",
+          "plugins-src/roam-import/backend/src/syntax.rs",
+          "plugins-src/roam-import/src/lib/roam-import/syntax.test.ts",
+          "plugins-src/roam-import/src/lib/roam-import/syntax.ts",
+          "src/lib/outline/markdown.test.ts",
+          "src/lib/outline/markdown.ts"
+        ],
+        "scope": "excluded old unrelated WIP; no apply/drop"
+      },
+      {
+        "entry": "stash@{2}: On feat/attention-intervals: attention-intervals wip: plugin_host.rs (decision-log 期间保管)",
+        "files": [
+          "src-tauri/src/plugin_host.rs"
+        ],
+        "scope": "excluded old unrelated WIP; no apply/drop"
+      }
+    ],
+    "exclusions": [
+      "Only Ebook Import reading-reason source, tests, CLI documentation, version and changelog belong in 1.5.7.",
+      "Other worktrees and stashes remain separate tasks and are not staged for this release."
+    ],
+    "freeze": {
+      "tag": "plugin-ebook-import-v1.5.7",
+      "commit": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+      "changed_files": [
+        "CHANGELOG.md",
+        "CHANGELOG.zh-CN.md",
+        "docs/superpowers/specs/2026-10-28-ebook-reading-reason.md",
+        "plugins-src/ebook-import/CLI.md",
+        "plugins-src/ebook-import/README.md",
+        "plugins-src/ebook-import/backend/src/airead.rs",
+        "plugins-src/ebook-import/backend/src/library.rs",
+        "plugins-src/ebook-import/backend/src/library/tests.rs",
+        "plugins-src/ebook-import/backend/src/library_assets.rs",
+        "plugins-src/ebook-import/backend/src/pipeline.rs",
+        "plugins-src/ebook-import/backend/src/plugin.rs",
+        "plugins-src/ebook-import/backend/src/topics.rs",
+        "plugins-src/ebook-import/backend/tests/cli.rs",
+        "plugins-src/ebook-import/manifest.v2.json",
+        "plugins-src/ebook-import/src/App.svelte",
+        "plugins-src/ebook-import/src/App.test.ts",
+        "plugins-src/ebook-import/src/components/LibraryPanel.svelte",
+        "plugins-src/ebook-import/src/lib/library.test.ts",
+        "plugins-src/ebook-import/src/lib/library.ts",
+        "plugins-src/ebook-import/src/lib/queue.test.ts",
+        "plugins-src/ebook-import/src/lib/queue.ts",
+        "plugins-src/ebook-import/src/lib/strings.ts"
+      ],
+      "scope": "Ebook optional reading reason UI/CLI, metadata and AI context; detailed CLI guide"
+    }
+  },
+  "evidence_sha256": {
+    "backend-tests.log": "96c7bc74be60dc49b85f2c0387736f787e11fd837df34c5c9d5f9384346ed987",
+    "frontend-tests.log": "a5073b88834e20b94811bdc213a4d7c8b22ba025b77584568dee5661f60eef6a",
+    "frontend-check.log": "e4a343dd67efce61d688d29f246c8160d3365ccae1b2afa00ccdda33aff2af84",
+    "build.log": "9110a08f8ec8fa9b73f48e721c80bf22905f285a2dd8165901f2f1d4296a0ec7",
+    "package-evidence.json": "5ec47e9e1bee5f837335300aed8d7f7e8e9d597cef4ccb792361c4e995400a85",
+    "package-preflight-smoke.json": "af7042436a6dd6848760cd3b34d2c5b7711ebea980ab393e00b9657e38a196ae",
+    "package-ai-smoke.json": "65deb931cbb641bfc3f7c664f3f6d242a8ab6978d0c9ec121558c7fea53c1f8d",
+    "candidate-cli-acceptance/evidence.json": "76a07d226418aab44a0ef58911a3ed9937c381f0c627284319157f0b2853b205",
+    "candidate-restore.json": "053f76eca6d69521737c63cff1d370d80eaeb4173c316830f4baaa2799d75b08",
+    "ui-acceptance.json": "49b3d315f957dc046935e436de7ddc3b2f1cdf53b82953704c5355b4cb72d84d",
+    "notemd.ebook-import/public-packages.json": "668327f23d8fcf72bb8e871218ea6a106f8846408d2c21f52254c32ddb394c66",
+    "notemd.ebook-import/index-verification.json": "dba9422415be5833ffb8c7b147a2bb56cd2987ccaecc3b4b0ca66d7c9a12381e",
+    "installed-verification.json": "545d0637eecee300e57e4d973106cc362d0d85b5d6b0c998579761734c069c6c"
+  }
+}
