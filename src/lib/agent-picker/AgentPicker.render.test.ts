@@ -155,4 +155,102 @@ it('renders the data-source footer for a single unavailable provider', async () 
   expect(document.querySelector('.footer')?.textContent).toContain('Task files, read only')
   expect(document.querySelector('.dt')?.textContent).toContain('2.1')
   expect(document.querySelector('.hint')?.textContent).toContain('unverified')
+  expect(document.activeElement).toBe(document.querySelector('[role=menu]'))
+})
+
+describe('externally anchored agent menu', () => {
+  async function mountAnchored(options = [{ id: 'claude', name: 'Claude' }, { id: 'codex', name: 'Codex' }]) {
+    const anchor = document.createElement('button')
+    anchor.textContent = '▼'
+    document.body.append(anchor)
+    anchor.focus()
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+      top: 70, left: 100, width: 30, height: 24, right: 130, bottom: 94, x: 100, y: 70, toJSON() {},
+    })
+    const onclose = vi.fn()
+    const onselect = vi.fn()
+    component = mount(AgentPicker, { target: document.body, props: {
+      options, selected: 'claude', anchor, initialOpen: true, disableUnavailable: true,
+      onclose, onselect, label: (key: string) => key,
+    } })
+    flushSync()
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    return { anchor, onclose, onselect, menu: document.querySelector<HTMLElement>('[role=menu]')! }
+  }
+
+  it('opens directly at the external button without another trigger and closes after selection', async () => {
+    const { anchor, menu, onclose, onselect } = await mountAnchored()
+    expect(document.querySelector('.by')).toBeNull()
+    expect(menu.style.top).toBe('98px')
+    expect(menu.style.left).toBe('130px')
+    const rows = [...menu.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]')]
+    expect(document.activeElement).toBe(rows[0])
+    rows[1].click()
+    flushSync()
+    expect(onselect).toHaveBeenCalledExactlyOnceWith('codex')
+    expect(onclose).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(anchor)
+    expect(document.querySelector('[role=menu]')).toBeNull()
+  })
+
+  it('restores the captured anchor when selection clears the parent menu state', async () => {
+    const button = document.createElement('button')
+    document.body.append(button)
+    let menuAnchor: HTMLElement | null = button
+    const calls: string[] = []
+    component = mount(AgentPicker, { target: document.body, props: {
+      options: [{ id: 'claude', name: 'Claude' }], selected: 'claude', initialOpen: true,
+      get anchor() { return menuAnchor },
+      onselect: () => {
+        expect(menuAnchor).toBe(button)
+        calls.push('select')
+        menuAnchor = null
+      },
+      onclose: () => { calls.push('close') },
+      label: (key: string) => key,
+    } })
+    flushSync()
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    document.querySelector<HTMLButtonElement>('[role=menuitemradio]')!.click()
+    flushSync()
+    expect(calls).toEqual(['select', 'close'])
+    expect(document.querySelector('[role=menu]')).toBeNull()
+    expect(document.activeElement).toBe(button)
+  })
+
+  it.each(['Escape', 'Tab'])('notifies the owner and restores anchor focus on %s', async key => {
+    const { anchor, onclose } = await mountAnchored()
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+    flushSync()
+    expect(onclose).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(anchor)
+    expect(document.querySelector('[role=menu]')).toBeNull()
+  })
+
+  it('leaves anchor clicks to the owner and dismisses outside without stealing focus', async () => {
+    const { anchor, menu, onclose } = await mountAnchored()
+    const caret = document.createElement('span')
+    anchor.append(caret)
+    caret.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    flushSync()
+    expect(onclose).not.toHaveBeenCalled()
+    expect(menu.isConnected).toBe(true)
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.focus()
+    outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    flushSync()
+    expect(onclose).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(outside)
+    expect(menu.isConnected).toBe(false)
+  })
+
+  it('focuses an empty menu so Tab and Escape can still dismiss it', async () => {
+    const { menu, anchor, onclose } = await mountAnchored([])
+    expect(document.activeElement).toBe(menu)
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+    flushSync()
+    expect(onclose).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(anchor)
+  })
 })

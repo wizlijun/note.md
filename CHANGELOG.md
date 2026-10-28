@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **NEXT card actions use compact split buttons.** Complete a task from the blue main button or open placement options from its arrow. The kickoff arrow opens the Agent menu beside the button, without an extra dialog.
+
 - **NEXT 1.13.0 with Codex 1.1.0, DeepSeek 1.2.0 and Claude 1.1.0: the Agent retrieves its own kickoff context.** Pass the current Vault and Task identity instead of collecting and sending a background file packet. The Agent uses notemd search and native web search for recent articles, then returns cited questions and suggestions. Per-Agent concurrency is adjustable and defaults to three, with separate runs for different Tasks. NEXT validates and saves the result; placement still requires the user. Update NEXT and the selected Agent together. On older hosts, open each Agent’s settings once to apply the new default when unset; saved limits remain unchanged. Web sources open on supporting hosts and copy their URL on older hosts.
 
 - **Ebook Import 1.5.6: optional AI reading from the import CLI.** Add `--ai-read` to read the imported book with your default installed Agent, or `--agent <plugin-id>` to select one for this run. The command waits for the summary and reports AI failures separately from a completed import. Agent runs require the current Vault; a shared SDK fix lets synchronous commands receive host replies without deadlocking.

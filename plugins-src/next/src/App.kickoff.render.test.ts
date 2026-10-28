@@ -172,7 +172,33 @@ describe('App kickoff integration', () => {
     expect(Boolean(document.querySelector('#place-title'))).toBe(placeAfter)
     if (placeAfter) expect(document.querySelector<HTMLTextAreaElement>('#nextAction')?.value).toBe('检查配置')
   })
-  it.each(['picker', 'consent', 'progress', 'result'])('keeps the %s dialog exclusive under new-item shortcuts', async (mode) => {
+  it('opens the kickoff arrow as an anchored menu, toggles and dismisses without starting an agent', async () => {
+    await render()
+    const arrow = document.querySelector<HTMLButtonElement>('[aria-label="Choose another agent"]')!
+    arrow.focus()
+    arrow.click()
+    await settle()
+    expect(arrow.getAttribute('aria-haspopup')).toBe('menu')
+    expect(arrow.getAttribute('aria-expanded')).toBe('true')
+    expect(document.querySelector('[role="menu"]')).not.toBeNull()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.querySelector('.menu-panel .by')).toBeNull()
+    expect(mocks.start).not.toHaveBeenCalled()
+    arrow.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    arrow.click()
+    await settle()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(arrow.getAttribute('aria-expanded')).toBe('false')
+    arrow.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    await settle()
+    expect(document.querySelector('[role="menu"]')).not.toBeNull()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await settle()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(document.activeElement).toBe(arrow)
+    expect(mocks.start).not.toHaveBeenCalled()
+  })
+  it.each(['consent', 'progress', 'result'])('keeps the %s dialog exclusive under new-item shortcuts', async (mode) => {
     if (mode === 'result') mocks.snapshot.results[id] = result
     if (mode === 'progress') mocks.snapshot.registry.runs[id] = { run_id: 'r1', harness: 'codex', requested_at: new Date().toISOString(), task_path: task.path!, based_on: 'hash', state: 'running', failure: null }
     await render()

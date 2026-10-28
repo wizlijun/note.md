@@ -4,13 +4,14 @@
   import { formatElapsed } from '../lib/kickoff/status'
   import { t } from '../lib/strings'
 
-  let { itemTitle, input, disabled = false, now = Date.now, onClick, onChoose }: {
+  let { itemTitle, input, disabled = false, menuOpen = false, now = Date.now, onClick, onChoose }: {
     itemTitle: string
     input: ButtonStateInput
     disabled?: boolean
+    menuOpen?: boolean
     now?: () => number
     onClick(): void
-    onChoose?(): void
+    onChoose?(anchor: HTMLButtonElement): void
   } = $props()
 
   let currentTime = $state(untrack(() => now()))
@@ -27,13 +28,13 @@
   })
 </script>
 
-<span class="kickoff-actions" role="group" aria-label={t('kickoff.accessible', { title: itemTitle })}>
+<span class="kickoff-actions" role="group" aria-label={t('kickoff.accessible', { title: itemTitle })} class:split={Boolean(onChoose) && view.state !== 'running' && view.state !== 'starting'}>
   <button type="button" class="kickoff" data-kickoff-state={view.state}
     disabled={disabled || view.state === 'starting'}
     aria-label={t('kickoff.accessible', { title: itemTitle })} title={tooltip} onclick={onClick} onkeydown={(event) => {
       if (event.key === 'ArrowDown' && onChoose && !disabled && view.state !== 'running' && view.state !== 'starting') {
         event.preventDefault()
-        onChoose()
+        onChoose(event.currentTarget)
       }
     }}>
     {#if view.state === 'running'}
@@ -51,17 +52,26 @@
     {/if}
   </button>
   {#if onChoose && view.state !== 'running' && view.state !== 'starting'}
-    <button type="button" class="choose" disabled={disabled} aria-label={t('kickoff.choose')} aria-haspopup="dialog" onclick={onChoose}>▾</button>
+    <button type="button" class="choose" disabled={disabled} aria-label={t('kickoff.choose')} title={t('kickoff.choose')}
+      aria-haspopup="menu" aria-expanded={menuOpen}
+      onclick={(event) => onChoose?.(event.currentTarget)}
+      onkeydown={(event) => {
+        if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !menuOpen) {
+          event.preventDefault()
+          onChoose?.(event.currentTarget)
+        }
+      }}><span aria-hidden="true">▾</span></button>
   {/if}
 </span>
 
 <style>
-  .kickoff-actions { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-  button { border: 0; border-radius: 0; background: transparent; color: var(--muted-strong); padding: 6px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+  .kickoff-actions { display: inline-flex; flex: none; }
+  .split .kickoff { border-radius: 7px 0 0 7px; }
+  .split .choose { border-radius: 0 7px 7px 0; border-left: 0; }
+  button { border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted-strong); padding: 6px 8px; font: inherit; font-size: 12px; cursor: pointer; }
   button:hover:not(:disabled) { background: var(--hover); }
   button:disabled { opacity: 0.5; cursor: default; }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .choose { border-left: 1px solid var(--line); padding-inline: 7px; }
+  button:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--accent); outline-offset: 2px; }
   small { margin-left: 5px; color: var(--muted); }
   [data-unread] { color: var(--accent); margin-left: 4px; font-size: 9px; }
 </style>
