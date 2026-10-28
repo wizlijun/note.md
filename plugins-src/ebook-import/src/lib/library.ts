@@ -18,6 +18,7 @@ export interface RawBook {
   month: string
   topic_id?: string | null
   topic_label?: string | null
+  reading_reason?: string | null
   /** `YYYY-MM-DD-summary.md` file names, newest first. */
   summaries: string[]
 }
@@ -52,7 +53,7 @@ export function mergeLibrary(prev: LibraryBook[], incoming: RawBook[]): LibraryB
   const byRel = new Map(prev.map((b) => [b.rel, b]))
   return incoming.map((b) => {
     const old = byRel.get(b.rel)
-    return old ? { ...old, ...b } : { ...b }
+    return old ? { ...old, ...b, reading_reason: b.reading_reason } : { ...b }
   })
 }
 

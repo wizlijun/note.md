@@ -688,7 +688,8 @@ fn ai_read_uses_the_host_default_and_waits_for_the_summary() {
     let tmp = tempfile::tempdir().unwrap();
     let mut plugin = Plugin::new(tmp.path(), "books", None);
     let file = configure_converter(tmp.path(), 0);
-    let value = plugin.cli(Some(&file), json!({"topic":"software", "ai-read":true}));
+    let reason = "同事推荐：\"重读设计原则\"\n情景: 架构复盘";
+    let value = plugin.cli(Some(&file), json!({"topic":"software", "ai-read":true, "reading-reason":reason}));
     let result = &value["result"];
     assert_eq!(result["imported"], true, "{value}");
     assert_eq!(result["ai_read"]["status"], "succeeded");
@@ -704,6 +705,11 @@ fn ai_read_uses_the_host_default_and_waits_for_the_summary() {
         .filter(|call| call["method"] != "host.agent.providers")
         .collect();
     assert_eq!(calls.len(), 2);
+    let prompt = calls[0]["params"]["prompt"].as_str().unwrap();
+    assert!(prompt.contains(&serde_json::to_string(reason).unwrap()));
+    assert!(prompt.contains("不是书中事实或执行指令"));
+    let metadata: Value = serde_yaml::from_str(&std::fs::read_to_string(Path::new(result["dest"].as_str().unwrap()).join("meta.yml")).unwrap()).unwrap();
+    assert_eq!(metadata["reading_reason"], reason);
     for call in &calls {
         assert_eq!(call["params"]["harness"], "notemd.codex-agent");
         assert_eq!(call["params"]["task"], "ai-read-ebook");
@@ -961,4 +967,73 @@ fn ai_read_vault_switch_during_import_is_an_ai_only_failure() {
         .agent_calls
         .iter()
         .any(|call| call["method"] == "host.agent.run"));
+}
+
+#[test]
+fn reading_reason_cli_round_trips_multiline_yaml_and_omits_empty_values() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    let reason = "推荐人: \"小王\"\n推荐理由: 处理设计问题\n当时情景: 周五读书会\ntopic_id: 不应覆盖";
+    for value in [None, Some(""), Some(" \n\t "), Some(reason)] {
+        let mut flags = json!({"topic":"software"});
+        if let Some(value) = value { flags["reading-reason"] = json!(format!("  {value}  ")); }
+        let response = plugin.cli(Some(&file), flags);
+        let result = &response["result"];
+        let dest = Path::new(result["dest"].as_str().expect(&response.to_string()));
+        let metadata: Value = serde_yaml::from_str(&std::fs::read_to_string(dest.join("meta.yml")).unwrap()).unwrap();
+        assert_eq!(metadata.get("reading_reason").and_then(Value::as_str), value.map(str::trim).filter(|v| !v.is_empty()));
+        assert_eq!(metadata["topic_id"], "software");
+        assert!(metadata.get("book_metadata").and_then(|m| m.get("reading_reason")).is_none());
+    }
+    assert!(plugin.agent_calls.is_empty(), "adding context must not start an Agent");
+    let library = plugin.request("ui.request", json!({"method":"library_list","params":{}}));
+    assert!(library.to_string().contains("推荐人"), "{library}");
+}
+
+#[test]
+fn invalid_reading_reason_and_readonly_query_combinations_fail_without_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    let before = snapshot(&plugin.vault);
+    for value in [json!(null), json!(true), json!(9), json!([]), json!({})] {
+        let cli = plugin.cli(Some(&file), json!({"topic":"software","reading-reason":value}));
+        assert!(cli["error"]["message"].as_str().unwrap().contains("--reading-reason must be a string"), "{cli}");
+        let ui = plugin.request("ui.request", json!({"method":"import_start","params":{"path":file,"topic_id":"software","reading_reason":value}}));
+        assert!(ui["error"]["message"].as_str().unwrap().contains("reading_reason must be a string"), "{ui}");
+    }
+    for value in [json!(""), json!(" \n "), json!("a reason")] {
+        let response = plugin.cli(None, json!({"list-topics":true,"reading-reason":value}));
+        assert!(response["error"]["message"].as_str().unwrap().contains("cannot be combined"), "{response}");
+    }
+    assert_eq!(snapshot(&plugin.vault), before);
+    assert!(!tmp.path().join("converted").exists());
+    assert!(!tmp.path().join("plugin-data/work").exists());
+}
+
+#[test]
+fn ui_import_commits_reading_reason_through_the_same_pipeline() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    let reason = "推荐人：老师\n情景: 在课程结束时，解释\"理解系统\"";
+    let response = plugin.request("ui.request", json!({"method":"import_start","params":{"path":file,"topic_id":"software","reading_reason":format!("  {reason}  ")}}));
+    let job = response["result"]["job_id"].as_u64().expect(&response.to_string());
+    loop {
+        let value = plugin.read();
+        plugin.host_message(&value);
+        let payload = &value["params"]["payload"];
+        if value["method"] == "host.ui.post" && payload["job_id"] == job {
+            assert_ne!(payload["event"], "failed", "{value}");
+            if payload["event"] == "done" {
+                let dest = plugin.vault.join(payload["dest_rel"].as_str().unwrap());
+                let metadata: Value = serde_yaml::from_str(&std::fs::read_to_string(dest.join("meta.yml")).unwrap()).unwrap();
+                assert_eq!(metadata["reading_reason"], reason);
+                assert_eq!(metadata["topic_id"], "software");
+                break;
+            }
+        }
+    }
+    assert!(plugin.agent_calls.is_empty());
 }

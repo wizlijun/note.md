@@ -28,6 +28,8 @@ export interface QueueItem {
   error?: string
   /** Stable id from `<ebooks_root>/topics.yml`; required before import starts. */
   topicId?: string
+  /** User context for this book, frozen at first start and retained on retry. */
+  readingReason?: string
   /** Frozen when first started; a retry must keep the original OCR choice. */
   importOptions?: ImportOptions
   /**
@@ -115,6 +117,15 @@ export function assignTopic(q: Queue, itemId: number, topicId: string): Queue {
   if (idx === -1) return q
   const items = [...q.items]
   items[idx] = { ...items[idx], topicId: topicId || undefined }
+  return { ...q, items }
+}
+
+/** Only an unstarted row can change its reading context; retries keep the original. */
+export function setReadingReason(q: Queue, itemId: number, readingReason: string): Queue {
+  const idx = q.items.findIndex((i) => i.id === itemId && i.status === 'pending' && !i.importOptions)
+  if (idx === -1) return q
+  const items = [...q.items]
+  items[idx] = { ...items[idx], readingReason }
   return { ...q, items }
 }
 

@@ -362,7 +362,7 @@ mod tests {
         std::fs::write(cached.join("cover.png"), b"user cover").unwrap();
         let updated = seed(root, "Updated", "");
         std::fs::write(updated.join("cover.jpeg"), b"existing cover").unwrap();
-        let partial = seed(root, "Partial", "book_metadata:\n  authors: [Cached Author]\n  isbn: ['080442957X']\n  user_note: preserve\n");
+        let partial = seed(root, "Partial", "reading_reason: 私人推荐 ISBN 9780132350884\nbook_metadata:\n  authors: [Cached Author]\n  isbn: ['080442957X']\n  user_note: preserve\n");
         seed(root, "Unmatched", "");
         seed(root, "Failed", "");
         let original_book = std::fs::read(partial.join("book.md")).unwrap();
@@ -377,6 +377,8 @@ mod tests {
             fs2::FileExt::unlock(&lock).unwrap();
             requested.push(title.to_string());
             assert!(evidence.len() < 66_000);
+            assert!(!evidence.contains("私人推荐"));
+            assert!(!evidence.contains("9780132350884"));
             match title {
                 "Updated" => Ok(Some(assets(title, true))),
                 "Partial" => {
@@ -417,6 +419,7 @@ mod tests {
         );
         let metadata = read_metadata(&partial.join("meta.yml")).unwrap();
         assert_eq!(metadata["user_key"].as_str(), Some("keep"));
+        assert_eq!(metadata["reading_reason"].as_str(), Some("私人推荐 ISBN 9780132350884"));
         assert_eq!(
             metadata["book_metadata"]["user_note"].as_str(),
             Some("preserve")

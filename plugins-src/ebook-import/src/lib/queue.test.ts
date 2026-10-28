@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   addPaths,
   assignTopic,
+  setReadingReason,
   hasUnclassifiedPending,
   hasPending,
   isRunComplete,
@@ -422,5 +423,28 @@ describe('onAiEvent', () => {
   it('unknown jobId is a no-op', () => {
     const q = doneItem(1, 7)
     expect(onAiEvent(q, 99, { event: 'started' })).toBe(q)
+  })
+})
+
+
+describe('reading reason', () => {
+  it('keeps each book independent and freezes its original context through retries', () => {
+    const initial = addPaths(empty, ['/books/a.pdf', '/books/b.pdf'], 'communication')
+    const first = setReadingReason(initial, 1, '同事推荐：讨论项目时\n希望学会沟通')
+    const both = setReadingReason(first, 2, '朋友推荐第二本')
+    expect(initial.items[0].readingReason).toBeUndefined()
+    expect(both.items.map((item) => item.readingReason)).toEqual([
+      '同事推荐：讨论项目时\n希望学会沟通', '朋友推荐第二本',
+    ])
+    const reserved = reserve(both, 1, { ocr: false, provider: 'wechat' })
+    expect(setReadingReason(reserved, 1, 'changed')).toBe(reserved)
+    const bound = { ...reserved, items: reserved.items.map((item) => item.id === 1 ? { ...item, jobId: 7 } : item) }
+    const failed = onJobEvent(bound, 7, { event: 'failed', error: 'conversion failed' })
+    expect(setReadingReason(failed, 1, 'changed')).toBe(failed)
+    const retry = retryItem(failed, 1)
+    expect(retry.items[0].readingReason).toBe(both.items[0].readingReason)
+    expect(setReadingReason(retry, 1, 'changed')).toBe(retry)
+    expect(setReadingReason(retry, 2, '仍可编辑').items[1].readingReason).toBe('仍可编辑')
+    expect(setReadingReason(retry, 99, 'unknown')).toBe(retry)
   })
 })

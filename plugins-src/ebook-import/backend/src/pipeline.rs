@@ -33,6 +33,8 @@ pub struct PipelineCtx<'a> {
     pub ebooks_root: &'a str,
     /// Stable id from `<ebooks_root>/topics.yml`. Every new book must carry one.
     pub topic_id: &'a str,
+    /// Optional user context, independent of bibliographic metadata.
+    pub reading_reason: Option<&'a str>,
     /// Scratch directory for this run, e.g. `<data_dir>/work/<stem>_temp`.
     /// Reused across retries on purpose: an OCR engine resumes from
     /// whatever `pageNNNN.md` files a prior interrupted run already wrote
@@ -279,6 +281,7 @@ pub fn run_import(
             ctx.topic_id,
             added_at.with_timezone(&chrono::Utc),
             assets.as_ref(),
+            ctx.reading_reason,
         )?;
 
         // Indexes are projections of the committed metadata. Rebuild from the
@@ -340,7 +343,7 @@ pub fn finalize(
     topic_id: &str,
     added_at: chrono::DateTime<chrono::Utc>,
 ) -> Result<(), String> {
-    finalize_with_assets(work, dest, input_file, meta, topic_id, added_at, None)
+    finalize_with_assets(work, dest, input_file, meta, topic_id, added_at, None, None)
 }
 
 fn finalize_with_assets(
@@ -351,6 +354,7 @@ fn finalize_with_assets(
     topic_id: &str,
     added_at: chrono::DateTime<chrono::Utc>,
     assets: Option<&crate::book_assets::BookAssets>,
+    reading_reason: Option<&str>,
 ) -> Result<(), String> {
     std::fs::create_dir_all(dest).map_err(|e| format!("create {}: {e}", dest.display()))?;
 
@@ -381,7 +385,12 @@ fn finalize_with_assets(
     let meta_tmp = dest.join(".meta.yml.tmp");
     let meta_yml = dest.join("meta.yml");
     let timestamp = added_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let mut metadata = format!("added_at: {timestamp}\ntopic_id: {topic_id}\n");
+    let mut metadata = serde_yaml::Mapping::new();
+    metadata.insert("added_at".into(), timestamp.into());
+    metadata.insert("topic_id".into(), topic_id.into());
+    if let Some(reason) = reading_reason.map(str::trim).filter(|s| !s.is_empty()) {
+        metadata.insert("reading_reason".into(), reason.into());
+    }
     if let Some(assets) = assets {
         let cover_saved = persist_cover(dest, assets.cover.as_ref())?;
         let mut downloaded = serde_yaml::to_value(&assets.metadata).map_err(|e| e.to_string())?;
@@ -390,13 +399,12 @@ fn finalize_with_assets(
                 mapping.remove("cover_source_url");
             }
         }
-        let mut extra = serde_yaml::Mapping::new();
-        extra.insert(
+        metadata.insert(
             serde_yaml::Value::String("book_metadata".into()),
             downloaded,
         );
-        metadata.push_str(&serde_yaml::to_string(&extra).map_err(|e| e.to_string())?);
     }
+    let metadata = serde_yaml::to_string(&metadata).map_err(|e| e.to_string())?;
     std::fs::write(&meta_tmp, metadata)
         .map_err(|e| format!("write {}: {e}", meta_tmp.display()))?;
     std::fs::rename(&meta_tmp, &meta_yml).map_err(|e| {
@@ -408,6 +416,28 @@ fn finalize_with_assets(
     })?;
 
     Ok(())
+}
+
+/// Exclude user reading context from bibliographic service evidence.
+pub(crate) fn read_asset_metadata_evidence(path: &Path) -> Result<String, String> {
+    if !crate::library::is_regular_file(path) {
+        return Err("Book metadata must be a regular file".into());
+    }
+    // Parse complete local YAML first: truncating a long user reason can cut
+    // a quoted scalar and prevent unrelated bibliographic enrichment.
+    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut metadata: serde_yaml::Value = serde_yaml::from_str(&text)
+        .map_err(|e| format!("invalid book metadata: {e}"))?;
+    if let Some(mapping) = metadata.as_mapping_mut() {
+        mapping.remove("reading_reason");
+    }
+    let mut evidence = serde_yaml::to_string(&metadata).map_err(|e| e.to_string())?;
+    let mut end = evidence.len().min(64 * 1024);
+    while !evidence.is_char_boundary(end) {
+        end -= 1;
+    }
+    evidence.truncate(end);
+    Ok(evidence)
 }
 
 /// Bounded metadata evidence; never send the source document to a service.
@@ -625,6 +655,7 @@ mod tests {
             vault_root: &vault,
             ebooks_root: "ssot/ebooks",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &work,
             log: &mut log,
             progress: &mut progress,
@@ -688,6 +719,7 @@ mod tests {
             vault_root: &vault,
             ebooks_root: "ssot/ebooks",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,
@@ -736,6 +768,7 @@ mod tests {
             vault_root: &vault,
             ebooks_root: "ssot/ebooks",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,
@@ -847,7 +880,7 @@ mod tests {
         let dir = tmp.path();
         std::fs::write(
             dir.join("meta.yml"),
-            "added_at: 2026-09-01T00:00:00Z\ntopic_id: my-topic\ncustom: keep\nbook_metadata:\n  title: My title\n  custom_note: keep too\n",
+            "added_at: 2026-09-01T00:00:00Z\ntopic_id: my-topic\nreading_reason: 同事推荐：周五读书会\ncustom: keep\nbook_metadata:\n  title: My title\n  custom_note: keep too\n",
         )
         .unwrap();
         std::fs::write(dir.join("cover.png"), "user cover").unwrap();
@@ -856,6 +889,7 @@ mod tests {
             serde_yaml::from_str(&std::fs::read_to_string(dir.join("meta.yml")).unwrap()).unwrap();
         assert_eq!(saved["topic_id"].as_str(), Some("my-topic"));
         assert_eq!(saved["custom"].as_str(), Some("keep"));
+        assert_eq!(saved["reading_reason"].as_str(), Some("同事推荐：周五读书会"));
         assert_eq!(saved["book_metadata"]["title"].as_str(), Some("My title"));
         assert_eq!(
             saved["book_metadata"]["custom_note"].as_str(),
@@ -951,6 +985,48 @@ mod tests {
     }
 
     #[test]
+    fn reading_reason_round_trips_as_one_scalar_and_is_excluded_from_asset_evidence() {
+        let temp = tempfile::tempdir().unwrap();
+        let work = temp.path().join("work");
+        std::fs::create_dir(&work).unwrap();
+        std::fs::write(work.join("input.md"), "Book text").unwrap();
+        for (index, reason) in [None, Some("  \n\t "), Some("  推荐人: \"小王\"\n原因: 团队讨论\nreading_reason: 不应变成字段\nISBN: 9780735214491  ")].into_iter().enumerate() {
+            let dest = temp.path().join(index.to_string());
+            finalize_with_assets(&work, &dest, "book.epub", &BookMeta::default(), TOPIC_ID,
+                chrono::Utc::now(), None, reason).unwrap();
+            let saved: serde_yaml::Value = serde_yaml::from_str(&std::fs::read_to_string(dest.join("meta.yml")).unwrap()).unwrap();
+            let expected = reason.map(str::trim).filter(|reason| !reason.is_empty());
+            assert_eq!(saved.get("reading_reason").and_then(serde_yaml::Value::as_str), expected);
+            assert!(saved.get("ISBN").is_none());
+            assert!(!dest.join(".meta.yml.tmp").exists());
+            let evidence = read_asset_metadata_evidence(&dest.join("meta.yml")).unwrap();
+            assert!(!evidence.contains("9780735214491"));
+            assert!(!evidence.contains("推荐人"));
+        }
+    }
+
+    #[test]
+    fn long_reading_reason_does_not_break_metadata_enrichment() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("meta.yml");
+        let reason = "推荐人: \"朋友\"\nISBN: 9780132350884\n".repeat(4096);
+        let original = serde_json::json!({
+            "reading_reason": reason,
+            "book_metadata": {"isbn": ["9780735214491"]},
+            "other": "长元数据".repeat(16384),
+        });
+        let yaml = serde_yaml::to_string(&original).unwrap();
+        assert!(yaml.len() > 64 * 1024);
+        std::fs::write(&path, &yaml).unwrap();
+        let evidence = read_asset_metadata_evidence(&path).unwrap();
+        assert!(evidence.contains("9780735214491"));
+        assert!(!evidence.contains("9780132350884"));
+        assert!(!evidence.contains("推荐人"));
+        assert!(evidence.len() <= 64 * 1024);
+        assert_eq!(std::fs::read_to_string(path).unwrap(), yaml);
+    }
+
+    #[test]
     fn import_commits_cover_and_remote_metadata_before_becoming_visible() {
         let tmp = tempfile::tempdir().unwrap();
         let work = tmp.path().join("work");
@@ -965,6 +1041,7 @@ mod tests {
             TOPIC_ID,
             chrono::Utc::now(),
             Some(&sample_assets()),
+            None,
         )
         .unwrap();
         let meta: serde_yaml::Value =
@@ -998,6 +1075,7 @@ mod tests {
             vault_root: &vault,
             ebooks_root: "../escape",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,
@@ -1022,6 +1100,7 @@ mod tests {
             vault_root: &vault,
             ebooks_root: "ssot/ebooks",
             topic_id: "unknown-topic",
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,
@@ -1044,6 +1123,7 @@ mod tests {
             vault_root: tmp.path(),
             ebooks_root: "ssot/ebooks",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,
@@ -1066,6 +1146,7 @@ mod tests {
             vault_root: tmp.path(),
             ebooks_root: "ssot/ebooks",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,
@@ -1091,6 +1172,7 @@ mod tests {
             vault_root: tmp.path(),
             ebooks_root: "ssot/ebooks",
             topic_id: TOPIC_ID,
+            reading_reason: None,
             work: &tmp.path().join("work"),
             log: &mut log,
             progress: &mut progress,

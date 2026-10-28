@@ -300,3 +300,29 @@ fn only_the_month_slash_book_nesting_counts() {
 
     assert!(scan(v, "ssot/ebooks").is_empty());
 }
+
+#[test]
+fn reading_reason_is_available_for_people_and_agents_without_breaking_legacy_books() {
+    let temp = tempfile::tempdir().unwrap();
+    for (name, metadata, expected) in [
+        ("With reason", "reading_reason: |\n  老师推荐：\n  项目复盘时建议阅读\n", Some("老师推荐：\n项目复盘时建议阅读")),
+        ("Empty", "reading_reason: '   '\n", None),
+        ("Legacy", "topic_id: old\n", None),
+        ("Invalid", "reading_reason: [one, two]\n", None),
+    ] {
+        book(temp.path(), "books", "2026-10", name, &[BOOK_FILE]);
+        let dir = temp.path().join("books/2026-10").join(name);
+        std::fs::write(dir.join("meta.yml"), metadata).unwrap();
+        assert_eq!(read_reading_reason(&dir).as_deref(), expected);
+    }
+    let entries = scan(temp.path(), "books");
+    assert_eq!(entries.len(), 4);
+    for entry in entries {
+        let serialized = serde_json::to_value(&entry).unwrap();
+        assert_eq!(serialized.get("reading_reason").is_some(), entry.name == "With reason");
+    }
+    let linked = temp.path().join("linked");
+    std::fs::create_dir(&linked).unwrap();
+    std::os::unix::fs::symlink(temp.path().join("books/2026-10/With reason/meta.yml"), linked.join("meta.yml")).unwrap();
+    assert_eq!(read_reading_reason(&linked), None);
+}

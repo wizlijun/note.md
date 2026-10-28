@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.ebook-import",
   "name": "Ebook Import",
-  "version": "1.5.6",
+  "version": "1.5.7",
   "kind": "native",
   "engines": {
     "notemd": ">=6.915.3"
@@ -68,6 +68,11 @@
             "long": "--ocr-provider",
             "type": "string",
             "help": "wechat | baidu; requires --ocr (default: settings)"
+          },
+          {
+            "long": "--reading-reason",
+            "type": "string",
+            "help": "Optional reading context: who recommended it, why, and the situation; saved in meta.yml"
           },
           {
             "long": "--ai-read",

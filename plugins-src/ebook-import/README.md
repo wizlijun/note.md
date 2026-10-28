@@ -4,6 +4,8 @@
 
 Calibre 转换使用 HTMLZ 的语义标签模式。HTML 转 Markdown 时保留 H1–H6、目录列表与链接、引用、粗斜体、上下标、高亮、删除线、定义列表及 figure/caption；脚本、样式、隐藏内容和语义页码被移除。图片继续输出为书籍目录内的 Markdown 相对路径，以便排版阅读器执行路径校验和缓存失效；任意 CSS、字体和原始 Typst 不进入导入结果。
 
+详细命令、完整参数表、多行阅读原因与错误处理见 [CLI 使用指南](CLI.md)。
+
 ## 开始使用
 
 需要 note.md `6.915.3` 或更高版本（支持无窗口 CLI 与长任务进度）。当前原生发布包支持 macOS Apple Silicon
@@ -16,6 +18,9 @@ notemd ebook --list-topics --json
 
 # 将 software-engineering 替换为查询结果中的分类 id
 notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --json
+
+# 可选：记录谁推荐、为什么推荐、当时情景
+notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --reading-reason "张老师在架构评审后推荐，帮助我思考模块边界；准备下周的重构方案时读。" --json
 
 # 导入后自动让默认 Agent 先读，等待生成摘要
 notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --ai-read --json
@@ -33,6 +38,17 @@ notemd ebook "/absolute/path/to/scanned.pdf" --topic software-engineering --ocr 
 可覆盖本次提供方，但必须同时指定 `--ocr`。先在插件设置中配置服务地址或凭证。
 OCR 会把 PDF 页面发送至所选服务，可能产生费用；CLI 中 `--ocr` 即本次显式启用，
 不会再弹确认框。Agent 只在用户授权 OCR 时添加此参数，不因普通转换失败自动开启。
+
+### 阅读原因（可选）
+
+选择文件后，每本待导入书籍下方都有“阅读原因”输入框，可记录推荐人、推荐理由、
+当时情景或自己的阅读目标。各本书分别填写；不填也能导入。导入后可在书库展开查看。
+CLI 使用 `--reading-reason "文本"`，支持多行；空字符串或全空白视为未填。
+
+内容保存在该书 `meta.yml` 顶层的 `reading_reason`，首尾空白去除、内部换行保留；
+未填时不写该字段。分类调整及书目/封面补全会保留它，不把个人背景发送给书目查询服务。
+AI 先读会从元数据读取并参考这段用户背景；它不代表书中事实，也不作为执行指令。
+开启 `--ai-read` 时，阅读原因会与书籍一起提供给所选 Agent，可能发送至其模型服务。
 
 ### 导入后自动 AI 先读
 

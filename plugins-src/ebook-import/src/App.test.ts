@@ -2,6 +2,7 @@ import { mount, tick, unmount } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.svelte'
 import type { NotemdBridge } from './lib/bridge'
+import type { RawBook } from './lib/library'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -20,12 +21,12 @@ describe('import queue retry', () => {
     localStorage.clear()
   })
 
-  async function importFixture(start: (attempt: number, params: any) => Promise<{ job_id: number }>) {
+  async function importFixture(start: (attempt: number, params: any) => Promise<{ job_id: number }>, books: RawBook[] = []) {
     let push: ((payload: unknown) => void) | undefined
     let attempt = 0
     const request = vi.fn(async (method: string, params?: any) => {
       if (method === 'plugin.detect_env') return { ready: true, settings: { provider: 'wechat' } }
-      if (method === 'plugin.library_list') return { books: [] }
+      if (method === 'plugin.library_list') return { books }
       if (method === 'plugin.topic_state') return {
         revision: 'r1',
         catalog: { schema_version: 1, topics: [{
@@ -80,12 +81,17 @@ describe('import queue retry', () => {
       )
       const path = '/tmp/Truth and Beauty - Aesthetics and Motivations in Science.pdf'
       const row = await addClassifiedBook(sendEvent, path)
+      const reason = row.querySelector<HTMLTextAreaElement>('textarea')!
+      reason.value = '张老师推荐：“读读这本”\n当时在讨论科学与美。'
+      reason.dispatchEvent(new Event('input', { bubbles: true }))
+      await tick()
       const ocr = document.querySelector<HTMLInputElement>('.ocr input[type="checkbox"]')!
       ocr.click()
       await tick()
       document.querySelector<HTMLButtonElement>('.queue button.start')!.click()
       await vi.waitFor(() => expect(starts()).toHaveLength(1))
-      expect(starts()[0][1]).toEqual({ path, topic_id: 'communication', ocr: true, provider: 'wechat' })
+      expect(starts()[0][1]).toEqual({ path, topic_id: 'communication', reading_reason: reason.value, ocr: true, provider: 'wechat' })
+      expect(reason.disabled).toBe(true)
       await tick()
       sendEvent({ type: 'job', job_id: 30, event: 'log', line: 'Saved OCR page 19 of 188' })
       sendEvent({ type: 'job', job_id: 30, event: 'progress', stage: 'ocr', page: 19, total: 188 })
@@ -107,6 +113,8 @@ describe('import queue retry', () => {
       retry.click()
       await vi.waitFor(() => expect(starts()).toHaveLength(2))
       expect(starts()[1][1]).toEqual(starts()[0][1])
+      expect(reason.disabled).toBe(true)
+      expect(reason.value).toBe('张老师推荐：“读读这本”\n当时在讨论科学与美。')
       expect(request.mock.calls.some(([method]) => method === 'host.dialog.open')).toBe(false)
       expect(document.querySelectorAll('.queue .row')).toHaveLength(1)
       expect(document.querySelector('.queue .row')).toBe(row)
@@ -129,6 +137,52 @@ describe('import queue retry', () => {
       expect(row.querySelector('.log')?.textContent).toContain('Saved OCR page 19 of 188')
     },
   )
+
+  it('submits separate multiline reading reasons and omits blank optional input', async () => {
+    const { sendEvent, starts } = await importFixture(async (attempt) => ({ job_id: 29 + attempt }))
+    const first = await addClassifiedBook(sendEvent, '/tmp/First.epub')
+    const second = await addClassifiedBook(sendEvent, '/tmp/Second.epub')
+    const third = await addClassifiedBook(sendEvent, '/tmp/Third.epub')
+    const reasons = ['朋友：推荐第一本\n情景：午餐讨论', '读书会推荐第二本', '   \n  ']
+    for (const [index, row] of [first, second, third].entries()) {
+      const textarea = row.querySelector<HTMLTextAreaElement>('textarea')!
+      expect(textarea.getAttribute('placeholder')).toContain('谁推荐')
+      textarea.value = reasons[index]
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    await tick()
+    document.querySelector<HTMLButtonElement>('.queue button.start')!.click()
+    await vi.waitFor(() => expect(starts()).toHaveLength(1))
+    expect(starts()[0][1].reading_reason).toBe(reasons[0])
+    expect(first.querySelector('textarea')!.disabled).toBe(true)
+    expect(second.querySelector('textarea')!.disabled).toBe(false)
+    sendEvent({ type: 'job', job_id: 30, event: 'done', dest_rel: 'ebooks/First' })
+    await vi.waitFor(() => expect(starts()).toHaveLength(2))
+    expect(starts()[1][1].reading_reason).toBe(reasons[1])
+    expect(second.querySelector('textarea')!.disabled).toBe(true)
+    sendEvent({ type: 'job', job_id: 31, event: 'done', dest_rel: 'ebooks/Second' })
+    await vi.waitFor(() => expect(starts()).toHaveLength(3))
+    expect(starts()[2][1]).not.toHaveProperty('reading_reason')
+  })
+
+  it('shows saved reading context as expandable text and leaves old or blank books unchanged', async () => {
+    const reason = '李老师推荐：“理解系统”\n当时讨论设计。<script>unsafe()</script>'
+    await importFixture(async () => ({ job_id: 30 }), [
+      { rel: 'ebooks/New', name: 'New', month: '2026-10', summaries: [], reading_reason: reason },
+      { rel: 'ebooks/Old', name: 'Old', month: '2026-10', summaries: [] },
+      { rel: 'ebooks/Blank', name: 'Blank', month: '2026-10', summaries: [], reading_reason: ' \n ' },
+      { rel: 'ebooks/Null', name: 'Null', month: '2026-10', summaries: [], reading_reason: null },
+    ])
+    await vi.waitFor(() => expect(document.querySelectorAll('.library .row')).toHaveLength(4))
+    const details = document.querySelectorAll<HTMLDetailsElement>('.library details.reading-reason')
+    expect(details).toHaveLength(1)
+    expect(details[0].open).toBe(false)
+    expect(details[0].querySelector('summary')!.textContent).toBe('阅读原因')
+    details[0].querySelector('summary')!.click()
+    expect(details[0].open).toBe(true)
+    expect(details[0].querySelector('p')!.textContent).toBe(reason)
+    expect(details[0].querySelector('script')).toBeNull()
+  })
 
   it('queues a retry behind another running import without launching a concurrent job', async () => {
     const { sendEvent, starts } = await importFixture(async (attempt) => ({ job_id: 29 + attempt }))

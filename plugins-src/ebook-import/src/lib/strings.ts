@@ -27,6 +27,10 @@ export type MessageKey =
   | 'settings.save'
   | 'settings.saved'
   | 'queue.empty'
+  | 'readingReason.title'
+  | 'readingReason.optional'
+  | 'readingReason.forBook'
+  | 'readingReason.placeholder'
   | 'status.pending'
   | 'status.running'
   | 'status.done'
@@ -180,6 +184,11 @@ export type MessageKey =
 type Catalog = Record<MessageKey, string>
 
 const en: Catalog = {
+  'readingReason.title': 'Reason for reading',
+  'readingReason.optional': 'Reason for reading (optional)',
+  'readingReason.forBook': 'Reason for reading {name} (optional)',
+  'readingReason.placeholder': 'Who recommended this book, why, and what was happening at the time?',
+
   title: 'Ebook Import',
   'drop.hint': 'Drag epub / pdf / docx files here',
   'drop.pick': 'Add files…',
@@ -353,6 +362,11 @@ const en: Catalog = {
 }
 
 const zh: Catalog = {
+  'readingReason.title': '阅读原因',
+  'readingReason.optional': '阅读原因（可选）',
+  'readingReason.forBook': '{name} 的阅读原因（可选）',
+  'readingReason.placeholder': '谁推荐了这本书？为什么推荐？当时是什么情景？',
+
   title: '导入电子书',
   'drop.hint': '将 epub / pdf / docx 文件拖到这里',
   'drop.pick': '添加文件…',
@@ -524,6 +538,11 @@ const zh: Catalog = {
 }
 
 const ja: Catalog = {
+  'readingReason.title': '読む理由',
+  'readingReason.optional': '読む理由（任意）',
+  'readingReason.forBook': '{name} を読む理由（任意）',
+  'readingReason.placeholder': '誰が、なぜこの本を勧めましたか？その時はどんな状況でしたか？',
+
   title: '電子書籍を取り込む',
   'drop.hint': 'epub・pdf・docx ファイルをここにドロップ',
   'drop.pick': 'ファイルを追加…',
@@ -697,6 +716,11 @@ const ja: Catalog = {
 }
 
 const de: Catalog = {
+  'readingReason.title': 'Lesegrund',
+  'readingReason.optional': 'Lesegrund (optional)',
+  'readingReason.forBook': 'Lesegrund für {name} (optional)',
+  'readingReason.placeholder': 'Wer hat dieses Buch empfohlen, warum und in welcher Situation?',
+
   title: 'E-Books importieren',
   'drop.hint': 'epub-, pdf- oder docx-Dateien hierher ziehen',
   'drop.pick': 'Dateien hinzufügen…',

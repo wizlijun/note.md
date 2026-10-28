@@ -36,6 +36,7 @@
   import {
     addPaths,
     assignTopic,
+    setReadingReason,
     hasUnclassifiedPending,
     hasPending as queueHasPending,
     isRunComplete,
@@ -225,6 +226,7 @@
       const res = await bridge().request('plugin.import_start', {
         path: n.path,
         topic_id: n.topicId,
+        ...(n.readingReason?.trim() ? { reading_reason: n.readingReason } : {}),
         ocr: options.ocr,
         ...(options.ocr ? { provider: options.provider } : {}),
       })
@@ -1067,6 +1069,21 @@
               {/if}
             {/if}
           </div>
+          {#if item.status === 'pending' || item.readingReason?.trim()}
+            <label class="reading-reason">
+              <span>{t('readingReason.optional')}</span>
+              <textarea
+                rows="3"
+                aria-label={t('readingReason.forBook', { name: item.name })}
+                placeholder={t('readingReason.placeholder')}
+                value={item.readingReason ?? ''}
+                disabled={item.status !== 'pending' || !!item.importOptions}
+                oninput={(event) => {
+                  q = setReadingReason(q, item.id, event.currentTarget.value)
+                }}
+              ></textarea>
+            </label>
+          {/if}
           {#if item.status === 'done' && item.destRel}
             <p class="dest">{item.destRel}</p>
           {/if}
@@ -1406,6 +1423,29 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12px;
+  }
+  .reading-reason {
+    display: grid;
+    gap: 3px;
+    margin: 6px 0 2px 22px;
+    font-size: 12px;
+    color: var(--ui-secondary);
+  }
+  .reading-reason textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    resize: vertical;
+    font: inherit;
+    line-height: 1.5;
+    padding: 5px 7px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--ui-text, inherit);
+  }
+  .reading-reason textarea:disabled {
+    opacity: 0.75;
   }
   .badge {
     font-size: 12px;

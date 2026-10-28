@@ -33,8 +33,24 @@ pub struct BookEntry {
     pub topic_id: Option<String>,
     /// Current user-facing label, absent for legacy/unknown topic ids.
     pub topic_label: Option<String>,
+    /// User-provided recommendation and reading context.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_reason: Option<String>,
     /// `YYYY-MM-DD-summary.md` file names, newest first.
     pub summaries: Vec<String>,
+}
+
+/// Legacy, missing, invalid or symlink metadata does not add user context.
+pub(crate) fn read_reading_reason(dir: &Path) -> Option<String> {
+    let path = dir.join("meta.yml");
+    if !is_regular_file(&path) {
+        return None;
+    }
+    let value: serde_yaml::Value = serde_yaml::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    value.get("reading_reason")?.as_str()
+        .map(str::trim)
+        .filter(|reason| !reason.is_empty())
+        .map(str::to_string)
 }
 
 /// Whether `name` is a `YYYY-MM-DD-summary.md` produced by an AI read. Written
@@ -155,6 +171,7 @@ pub fn scan(vault: &Path, ebooks_root: &str) -> Vec<BookEntry> {
                     month: month_name.clone(),
                     topic_id,
                     topic_label,
+                    reading_reason: read_reading_reason(&dir),
                     summaries,
                 },
             ));

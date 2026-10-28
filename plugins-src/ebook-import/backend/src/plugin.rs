@@ -437,6 +437,18 @@ fn parse_topic_id(params: &Value) -> Result<String, String> {
         .ok_or_else(|| "import needs a 'topic_id'".to_string())
 }
 
+fn parse_reading_reason(value: Option<&Value>, label: &str) -> Result<Option<String>, String> {
+    value
+        .map(|value| {
+            value.as_str()
+                .ok_or_else(|| format!("{label} must be a string"))
+                .map(str::trim)
+                .map(str::to_string)
+        })
+        .transpose()
+        .map(|value| value.filter(|s| !s.is_empty()))
+}
+
 /// Runs one import to completion off the protocol thread, pushing
 /// `log`/`progress`/`done`/`failed` events to the window as it goes. Free
 /// function (not a method) because it runs on its own `std::thread`, well
@@ -448,6 +460,7 @@ fn run_job(
     job_id: u64,
     input: PathBuf,
     topic_id: String,
+    reading_reason: Option<String>,
     ocr: bool,
     provider_override: Option<String>,
     cancelled: Arc<AtomicBool>,
@@ -499,6 +512,7 @@ fn run_job(
         vault_root: &vault,
         ebooks_root: &vault_settings.ebooks_root,
         topic_id: &topic_id,
+        reading_reason: reading_reason.as_deref(),
         work: &work,
         log: &mut log,
         progress: &mut progress,
@@ -1551,13 +1565,14 @@ async fn run_ai_job(
         .strip_prefix(vault)
         .map(|path| path.to_string_lossy().replace('\\', "/"))
         .unwrap_or_else(|_| book_abs.to_string_lossy().into_owned());
+    let reading_reason = book_abs.parent().and_then(crate::library::read_reading_reason);
     let summary_abs = vault.join(&summary_rel).to_string_lossy().to_string();
     let run = host
         .request(
             "host.agent.run",
             json!({
                 "task": airead::TASK_ID,
-                "prompt": airead::run_prompt(&book_rel, &summary_rel, locale),
+                "prompt": airead::run_prompt(&book_rel, &summary_rel, locale, reading_reason.as_deref()),
                 "note_path": book_abs.to_string_lossy(),
                 // The agent chosen in the picker, or the host default that the
                 // scheduler pinned for an older window before dispatch.
@@ -1921,6 +1936,7 @@ impl EbookImportPlugin {
             .to_string();
         let ocr = params.get("ocr").and_then(|v| v.as_bool()).unwrap_or(false);
         let topic_id = parse_topic_id(params)?;
+        let reading_reason = parse_reading_reason(params.get("reading_reason"), "reading_reason")?;
         let provider_override = params
             .get("provider")
             .and_then(|v| v.as_str())
@@ -1950,6 +1966,7 @@ impl EbookImportPlugin {
                 job_id,
                 PathBuf::from(path),
                 topic_id,
+                reading_reason,
                 ocr,
                 provider_override,
                 cancelled,
@@ -2000,7 +2017,7 @@ impl EbookImportPlugin {
             let result = (|| -> Result<Value, String> {
                 let evidence = format!(
                     "{}\n{}",
-                    crate::pipeline::read_asset_evidence(&dir.join("meta.yml"))?,
+                    crate::pipeline::read_asset_metadata_evidence(&dir.join("meta.yml"))?,
                     crate::pipeline::read_asset_evidence(&book_path)?
                 );
                 let assets = crate::book_assets::fetch_assets(
@@ -2469,7 +2486,7 @@ impl EbookImportPlugin {
     /// Synchronous CLI entry point. Blocking conversion/OCR runs outside tokio,
     /// and progress plus liveness logs keep the host's idle timeout informed.
     fn cli_import(&mut self, host: &sdk::Host, context: &Value) -> Result<Value, String> {
-        const USAGE: &str = "usage: notemd ebook <file> --topic TOPIC [--ocr] [--ocr-provider wechat|baidu] [--root ROOT] [--vault VAULT] [--ai-read [--agent PLUGIN_ID]], or notemd ebook --list-topics [--root ROOT] [--vault VAULT]";
+        const USAGE: &str = "usage: notemd ebook <file> --topic TOPIC [--reading-reason TEXT] [--ocr] [--ocr-provider wechat|baidu] [--root ROOT] [--vault VAULT] [--ai-read [--agent PLUGIN_ID]], or notemd ebook --list-topics [--root ROOT] [--vault VAULT]";
         // The explicit target belongs to this command only. Do not update the
         // active Vault or let the asynchronous host lookup replace this value.
         let vault = match cli_value(context, "vault") {
@@ -2496,15 +2513,16 @@ impl EbookImportPlugin {
         let list_topics = cli_flag(context, "list-topics");
         if list_topics
             && (ocr || ai_read
-                || ["file", "topic", "ocr-provider", "agent"]
+                || ["file", "topic", "ocr-provider", "agent", "reading-reason"]
                     .iter()
                     .any(|key| cli_value(context, key).is_some()))
         {
             return Err(
-                "--list-topics cannot be combined with file, --topic, --ocr, --ocr-provider, --ai-read or --agent"
+                "--list-topics cannot be combined with file, --topic, --ocr, --ocr-provider, --ai-read, --agent or --reading-reason"
                     .into(),
             );
         }
+        let reading_reason = parse_reading_reason(cli_value(context, "reading-reason"), "--reading-reason")?;
         let file = cli_option(context, "file")?;
         let topic_id = cli_option(context, "topic")?.map(|s| s.trim().to_string());
         let provider_override = cli_option(context, "ocr-provider")?;
@@ -2637,6 +2655,7 @@ impl EbookImportPlugin {
                     vault_root: &vault,
                     ebooks_root: &vault_settings.ebooks_root,
                     topic_id: &topic_id,
+                    reading_reason: reading_reason.as_deref(),
                     work: &work,
                     log: &mut log,
                     progress: &mut progress,
@@ -2781,6 +2800,18 @@ mod tests {
         let journal = vault.join(crate::topic_agent::CLASSIFY_APPLY_JOURNAL_REL);
         std::fs::write(&journal, serde_json::to_vec(&proposal).unwrap()).unwrap();
         (book, journal, proposal)
+    }
+
+    #[test]
+    fn reading_reason_request_parsing_is_optional_but_strictly_string_typed() {
+        assert_eq!(parse_reading_reason(None, "reading_reason").unwrap(), None);
+        for value in [json!(""), json!(" \n\t ")] {
+            assert_eq!(parse_reading_reason(Some(&value), "reading_reason").unwrap(), None);
+        }
+        assert_eq!(parse_reading_reason(Some(&json!("  推荐人: 小王\n当时在讨论预算  ")), "reading_reason").unwrap().as_deref(), Some("推荐人: 小王\n当时在讨论预算"));
+        for value in [json!(null), json!(true), json!(1), json!([]), json!({})] {
+            assert!(parse_reading_reason(Some(&value), "reading_reason").unwrap_err().contains("must be a string"));
+        }
     }
 
     // ── ai_read_start request parsing ───────────────────────────────────

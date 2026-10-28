@@ -1024,7 +1024,7 @@ mod tests {
         let path = tmp.path().join("meta.yml");
         std::fs::write(
             &path,
-            "added_at: 2026-08-27T06:40:15Z\nfuture:\n  score: 9\ntopic_id: old-topic\n",
+            "added_at: 2026-08-27T06:40:15Z\nreading_reason: 推荐人小李，会议上建议阅读\nfuture:\n  score: 9\ntopic_id: old-topic\n",
         )
         .unwrap();
         write_book_topic(&path, "business-strategy").unwrap();
@@ -1033,6 +1033,7 @@ mod tests {
             Some("business-strategy")
         );
         let value: Value = serde_yaml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(value["reading_reason"].as_str(), Some("推荐人小李，会议上建议阅读"));
         let map = value.as_mapping().unwrap();
         assert_eq!(
             map.get(Value::String("added_at".into()))

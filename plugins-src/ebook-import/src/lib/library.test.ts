@@ -42,6 +42,15 @@ describe('mergeLibrary', () => {
     expect(got[1].aiStatus).toBeUndefined()
   })
 
+  it('refreshes reading context from meta, including removal, while retaining AI state', () => {
+    const prev = [book('Seven Powers', { reading_reason: '旧背景', aiStatus: 'running', aiJobId: 4 })]
+    const updated = mergeLibrary(prev, [{ ...raw('Seven Powers'), reading_reason: '新背景\n推荐人：同事' }])
+    expect(updated[0].reading_reason).toBe('新背景\n推荐人：同事')
+    const removed = mergeLibrary(updated, [raw('Seven Powers')])
+    expect(removed[0].reading_reason).toBeUndefined()
+    expect(removed[0]).toMatchObject({ aiStatus: 'running', aiJobId: 4 })
+  })
+
   it('picks up summaries written since the last refresh', () => {
     const prev = [book('Seven Powers', { aiJobId: 4, aiStatus: 'done' })]
     const got = mergeLibrary(prev, [raw('Seven Powers', ['2026-08-26-summary.md'])])

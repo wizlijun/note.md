@@ -143,6 +143,12 @@
               {/if}
             {/if}
           </div>
+          {#if b.reading_reason?.trim()}
+            <details class="reading-reason">
+              <summary>{t('readingReason.title')}</summary>
+              <p>{b.reading_reason}</p>
+            </details>
+          {/if}
           {#if bookAssets[b.rel]?.status === 'done'}
             <p class="assets-result" role="status">{t(bookAssets[b.rel].matched
               ? (bookAssets[b.rel].cover ? 'assets.done' : 'assets.metadataOnly')
@@ -166,6 +172,21 @@
 </section>
 
 <style>
+  .reading-reason {
+    margin-top: 5px;
+    font-size: 12px;
+  }
+  .reading-reason summary {
+    width: fit-content;
+    cursor: pointer;
+    color: var(--ui-secondary);
+  }
+  .reading-reason p {
+    margin: 5px 0 0;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
   .assets-result {
     margin: 3px 0 0;
     font-size: 12px;
