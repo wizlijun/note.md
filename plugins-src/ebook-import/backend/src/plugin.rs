@@ -384,7 +384,11 @@ fn parse_ai_read(params: &Value) -> Result<AiReadRequest, String> {
 
 fn resolve_ai_book(vault: &Path, dest_rel: &str) -> Result<PathBuf, String> {
     let ebooks_root = settings::load_vault(vault).ebooks_root;
-    let root = settings::checked_vault_dir(vault, &ebooks_root)?;
+    resolve_ai_book_in_library(vault, &ebooks_root, dest_rel)
+}
+
+fn resolve_ai_book_in_library(vault: &Path, ebooks_root: &str, dest_rel: &str) -> Result<PathBuf, String> {
+    let root = settings::checked_vault_dir(vault, ebooks_root)?;
     let relative = Path::new(dest_rel);
     let local = relative
         .strip_prefix(Path::new(&ebooks_root))
@@ -1396,7 +1400,7 @@ fn spawn_ai_worker(
             let job = { inner.lock().unwrap().ai.next(&provider, worker_id) };
             let Some(job) = job else { break };
             let locale = { inner.lock().unwrap().locale.clone() };
-            run_ai_job(&host, &vault, &locale, job).await;
+            let _ = run_ai_job(&host, &vault, &locale, job, None).await;
             inner.lock().unwrap().ai.finish(&provider, worker_id);
         }
     });
@@ -1496,7 +1500,13 @@ fn rebuild_indexes_after_reading(vault: &Path, book: &Path) -> Result<(), String
     })
 }
 
-async fn run_ai_job(host: &sdk::Host, vault: &Path, locale: &str, job: crate::airead::AiJob) {
+async fn run_ai_job(
+    host: &sdk::Host,
+    vault: &Path,
+    locale: &str,
+    job: crate::airead::AiJob,
+    ebooks_root: Option<&str>,
+) -> Result<Value, String> {
     use crate::airead::{self, RunPoll};
     let summary_rel = format!(
         "{}/{}",
@@ -1525,15 +1535,17 @@ async fn run_ai_job(host: &sdk::Host, vault: &Path, locale: &str, job: crate::ai
                 WINDOW,
                 json!({ "type": "ai_read", "job_id": job_id, "event": "failed", "error": err }),
             );
+            Err(err)
         }
     };
 
-    let book_abs = match resolve_ai_book(vault, &job.dest_rel) {
+    let resolved = match ebooks_root {
+        Some(root) => resolve_ai_book_in_library(vault, root, &job.dest_rel),
+        None => resolve_ai_book(vault, &job.dest_rel),
+    };
+    let book_abs = match resolved {
         Ok(book) => book,
-        Err(error) => {
-            fail(error).await;
-            return;
-        }
+        Err(error) => return fail(error).await,
     };
     let book_rel = book_abs
         .strip_prefix(vault)
@@ -1636,10 +1648,87 @@ async fn run_ai_job(host: &sdk::Host, vault: &Path, locale: &str, job: crate::ai
                     json!({ "type": "ai_read", "job_id": job.job_id, "event": "done",
                             "summary_rel": summary_rel, "index_warning": index_warning }),
                 );
-                return;
+                return Ok(json!({
+                    "status": "succeeded", "agent": job.harness,
+                    "run_id": run_id, "summary_rel": summary_rel,
+                    "index_warning": index_warning,
+                }));
             }
         }
     }
+}
+
+/// The SDK keeps host-response routing alive while this synchronous CLI waits.
+/// All calls stay on the runtime; periodic logs keep the host idle timer alive.
+fn wait_for_cli_future<T: Send + 'static>(
+    host: &sdk::Host,
+    future: impl std::future::Future<Output = Result<T, String>> + Send + 'static,
+) -> Result<T, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    tokio::spawn(async move {
+        let _ = tx.send(future.await);
+    });
+    wait_for_cli_worker(rx, Duration::from_secs(30), || {
+        host.log_info("Ebook AI read is still running");
+    })?
+}
+
+async fn cli_ai_vault_check(host: &sdk::Host, vault: &Path) -> Result<(), String> {
+    let current = tokio::time::timeout(
+        Duration::from_secs(60),
+        host.request("host.vault.info", json!({})),
+    )
+    .await
+    .map_err(|_| "AI read Vault check timed out".to_string())??;
+    let current = current
+        .get("root")
+        .and_then(Value::as_str)
+        .ok_or("AI read needs an active host Vault")?;
+    let current = Path::new(current)
+        .canonicalize()
+        .map_err(|e| format!("resolve host Vault: {e}"))?;
+    let target = vault
+        .canonicalize()
+        .map_err(|e| format!("resolve import Vault: {e}"))?;
+    if current != target {
+        return Err("--ai-read requires the import Vault to be the active host Vault; switch Vaults first, or import without --ai-read".into());
+    }
+    Ok(())
+}
+
+async fn cli_ai_preflight(
+    host: &sdk::Host,
+    vault: &Path,
+    requested: Option<&str>,
+) -> Result<String, String> {
+    cli_ai_vault_check(host, vault).await?;
+    let providers = tokio::time::timeout(
+        Duration::from_secs(60),
+        host.request("host.agent.providers", json!({})),
+    )
+    .await
+    .map_err(|_| "AI read Agent discovery timed out".to_string())??;
+    let selected = requested
+        .or_else(|| providers.get("default").and_then(Value::as_str))
+        .filter(|id| !id.trim().is_empty())
+        .ok_or("host did not report a default Agent; use --agent with an installed plugin ID")?;
+    let provider = providers
+        .get("providers")
+        .and_then(Value::as_array)
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item.get("id").and_then(Value::as_str) == Some(selected))
+        })
+        .ok_or_else(|| {
+            format!("AI read Agent {selected:?} is not installed; import has not started")
+        })?;
+    if provider.pointer("/harness/ok").and_then(Value::as_bool) == Some(false) {
+        return Err(format!(
+            "AI read Agent {selected:?} is unavailable; configure it before importing"
+        ));
+    }
+    Ok(selected.to_string())
 }
 
 impl sdk::NotemdPlugin for EbookImportPlugin {
@@ -2380,7 +2469,7 @@ impl EbookImportPlugin {
     /// Synchronous CLI entry point. Blocking conversion/OCR runs outside tokio,
     /// and progress plus liveness logs keep the host's idle timeout informed.
     fn cli_import(&mut self, host: &sdk::Host, context: &Value) -> Result<Value, String> {
-        const USAGE: &str = "usage: notemd ebook <file> --topic TOPIC [--ocr] [--ocr-provider wechat|baidu] [--root ROOT] [--vault VAULT], or notemd ebook --list-topics [--root ROOT] [--vault VAULT]";
+        const USAGE: &str = "usage: notemd ebook <file> --topic TOPIC [--ocr] [--ocr-provider wechat|baidu] [--root ROOT] [--vault VAULT] [--ai-read [--agent PLUGIN_ID]], or notemd ebook --list-topics [--root ROOT] [--vault VAULT]";
         // The explicit target belongs to this command only. Do not update the
         // active Vault or let the asynchronous host lookup replace this value.
         let vault = match cli_value(context, "vault") {
@@ -2399,15 +2488,20 @@ impl EbookImportPlugin {
             }
         };
         let ocr = cli_flag(context, "ocr");
+        let ai_read = cli_flag(context, "ai-read");
+        let agent = cli_option(context, "agent")?.map(|s| s.trim().to_string());
+        if agent.is_some() && !ai_read {
+            return Err("--agent requires --ai-read".into());
+        }
         let list_topics = cli_flag(context, "list-topics");
         if list_topics
-            && (ocr
-                || ["file", "topic", "ocr-provider"]
+            && (ocr || ai_read
+                || ["file", "topic", "ocr-provider", "agent"]
                     .iter()
                     .any(|key| cli_value(context, key).is_some()))
         {
             return Err(
-                "--list-topics cannot be combined with file, --topic, --ocr or --ocr-provider"
+                "--list-topics cannot be combined with file, --topic, --ocr, --ocr-provider, --ai-read or --agent"
                     .into(),
             );
         }
@@ -2462,6 +2556,14 @@ impl EbookImportPlugin {
             return Err("unsupported file extension; expected epub, pdf or docx".into());
         }
 
+        let selected_agent = if ai_read {
+            let check_host = host.clone();
+            let check_vault = vault.clone();
+            Some(wait_for_cli_future(host, async move {
+                cli_ai_preflight(&check_host, &check_vault, agent.as_deref()).await
+            })?)
+        } else { None };
+        let result_root = vault_settings.ebooks_root.clone();
         let result_vault = vault.clone();
         let result_topic = topic_id.clone();
         let result_provider = ocr.then(|| provider.clone());
@@ -2549,14 +2651,42 @@ impl EbookImportPlugin {
         let (dest, lines) = wait_for_cli_worker(rx, Duration::from_secs(30), || {
             host.log_info("Ebook import is still running");
         })??;
-        Ok(json!({
+        let dest_rel = dest_relative(&result_vault, &dest);
+        let mut result = json!({
             "dest": dest.to_string_lossy(),
-            "dest_rel": dest_relative(&result_vault, &dest),
+            "dest_rel": dest_rel,
             "topic_id": result_topic,
             "ocr": ocr,
             "provider": result_provider,
             "log": lines,
-        }))
+        });
+        if let Some(agent) = selected_agent {
+            let ai_host = host.clone();
+            let locale = self.inner.lock().unwrap().locale.clone();
+            let job = crate::airead::AiJob {
+                job_id: 0, dest_rel,
+                name: dest.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+                harness: Some(agent.clone()),
+            };
+            result["imported"] = json!(true);
+            let ai = wait_for_cli_future(host, async move {
+                // A long conversion must not follow a host Vault switch into
+                // another library. Report this as an AI-only failure.
+                cli_ai_vault_check(&ai_host, &result_vault).await?;
+                run_ai_job(&ai_host, &result_vault, &locale, job, Some(&result_root)).await
+            });
+            match ai {
+                Ok(ai) => result["ai_read"] = ai,
+                Err(error) => {
+                    result["ai_read"] = json!({"status":"failed", "agent":agent, "error":error});
+                    return Ok(json!({"__notemd_cli_result": {
+                        "exit_code": 4, "data": result,
+                        "message": format!("Ebook import succeeded but AI read failed: {error}"),
+                    }}));
+                }
+            }
+        }
+        Ok(result)
     }
 }
 

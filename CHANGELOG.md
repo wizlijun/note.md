@@ -7,6 +7,9 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Ebook Import 1.5.6: optional AI reading from the import CLI.** Add `--ai-read` to read the imported book with your default installed Agent, or `--agent <plugin-id>` to select one for this run. The command waits for the summary and reports AI failures separately from a completed import. Agent runs require the current Vault; a shared SDK fix lets synchronous commands receive host replies without deadlocking.
+- **Ebook Import 1.5.6: check Baidu OCR upload limits before sending.** The existing cloud endpoint is documented as using Unlimited OCR 2. Local uploads now stop above 50 MB (50,000,000 bytes) or 500 PDF pages, with guidance to compress or split the file. Invalid PDFs fail before any Baidu request; your selected OCR provider stays unchanged.
+
 - **Ebook Import 1.5.5: import books from an Agent or terminal.** Discover valid topic IDs with `notemd ebook --list-topics --json`, import relative or absolute file paths with `--topic`, and explicitly enable scanned-PDF OCR with `--ocr`. The CLI shares the window import pipeline, reports progress and structured destinations, and rejects conflicting OCR options.
 
 - **Claude Agent 1.0.34: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.

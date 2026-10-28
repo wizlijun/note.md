@@ -61,6 +61,44 @@ const RENDER_SCALE: f64 = 2.0;
 /// there is no `Drop` on the raw pointer type itself.
 struct PdfDocument(CGPDFDocumentRef);
 
+impl PdfDocument {
+    fn open(pdf: &Path) -> Result<Self, String> {
+        let pdf_str = pdf
+            .to_str()
+            .ok_or_else(|| format!("non-utf8 path: {}", pdf.display()))?;
+        let url = CFURL::from_file_system_path(
+            CFString::new(pdf_str),
+            kCFURLPOSIXPathStyle,
+            false,
+        );
+        let doc_ref =
+            unsafe { CGPDFDocumentCreateWithURL(url.as_CFTypeRef() as *const c_void) };
+        if doc_ref.is_null() {
+            return Err(format!("could not open PDF: {}", pdf.display()));
+        }
+        Ok(Self(doc_ref))
+    }
+
+    fn page_count(&self, pdf: &Path) -> Result<usize, String> {
+        let count = unsafe { CGPDFDocumentGetNumberOfPages(self.0) };
+        if count == 0 {
+            Err(format!("PDF has zero pages: {}", pdf.display()))
+        } else {
+            Ok(count)
+        }
+    }
+}
+
+/// Reads the PDF page count without rendering pages or creating output files.
+pub fn pdf_page_count(pdf: &Path) -> Result<usize, String> {
+    PdfDocument::open(pdf)?.page_count(pdf)
+}
+
+#[cfg(test)]
+pub(crate) fn test_pdf_bytes(page_count: usize) -> Vec<u8> {
+    tests::build_pdf(&vec![(10, 10, None); page_count])
+}
+
 impl Drop for PdfDocument {
     fn drop(&mut self) {
         unsafe { CGPDFDocumentRelease(self.0) };
@@ -84,25 +122,8 @@ impl PageRenderer for QuartzRenderer {
         std::fs::create_dir_all(out_dir)
             .map_err(|e| format!("create {}: {e}", out_dir.display()))?;
 
-        let pdf_str = pdf
-            .to_str()
-            .ok_or_else(|| format!("non-utf8 path: {}", pdf.display()))?;
-        let url = CFURL::from_file_system_path(
-            CFString::new(pdf_str),
-            kCFURLPOSIXPathStyle,
-            false,
-        );
-        let doc_ref =
-            unsafe { CGPDFDocumentCreateWithURL(url.as_CFTypeRef() as *const c_void) };
-        if doc_ref.is_null() {
-            return Err(format!("could not open PDF: {}", pdf.display()));
-        }
-        let doc = PdfDocument(doc_ref);
-
-        let page_count = unsafe { CGPDFDocumentGetNumberOfPages(doc.0) };
-        if page_count == 0 {
-            return Err(format!("PDF has zero pages: {}", pdf.display()));
-        }
+        let doc = PdfDocument::open(pdf)?;
+        let page_count = doc.page_count(pdf)?;
 
         let mut out_paths = Vec::with_capacity(page_count);
         for page_no in 1..=page_count {

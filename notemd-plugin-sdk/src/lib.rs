@@ -33,10 +33,16 @@ pub trait NotemdPlugin: Send + 'static {
 pub struct Host {
     tx: mpsc::UnboundedSender<OutMsg>,
     next_id: std::sync::Arc<AtomicU64>,
-    pending: std::sync::Arc<Mutex<std::collections::HashMap<u64, oneshot::Sender<proto::RpcResponse>>>>,
+    pending: std::sync::Arc<Mutex<PendingRequests>>,
 }
 
-enum OutMsg { Line(String) }
+#[derive(Default)]
+struct PendingRequests {
+    closed: bool,
+    requests: std::collections::HashMap<u64, oneshot::Sender<proto::RpcResponse>>,
+}
+
+enum OutMsg { Line(String), Shutdown }
 
 impl Host {
     pub fn log_info(&self, m: &str) { self.notify("host.log.info", json!({"message": m})); }
@@ -58,15 +64,29 @@ impl Host {
     pub async fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().await.insert(id, tx);
+        let mut pending = self.pending.lock().await;
+        if pending.closed {
+            return Err("host connection closed".into());
+        }
+        pending.requests.insert(id, tx);
         let req = proto::RpcRequest { jsonrpc: "2.0".into(), id: Some(id), method: method.into(), params };
-        self.tx.send(OutMsg::Line(serde_json::to_string(&req).unwrap())).map_err(|e| e.to_string())?;
-        let resp = rx.await.map_err(|e| e.to_string())?;
+        if self.tx.send(OutMsg::Line(serde_json::to_string(&req).unwrap())).is_err() {
+            pending.requests.remove(&id);
+            return Err("host connection closed".into());
+        }
+        drop(pending);
+        let resp = rx.await.map_err(|_| "host connection closed".to_string())?;
         match (resp.result, resp.error) {
             (Some(v), _) => Ok(v),
             (_, Some(e)) => Err(format!("{}: {}", e.code, e.message)),
             _ => Err("empty response".into()),
         }
+    }
+
+    async fn close(&self) {
+        let mut pending = self.pending.lock().await;
+        pending.closed = true;
+        pending.requests.clear();
     }
 }
 
@@ -77,78 +97,108 @@ pub async fn serve<P: NotemdPlugin>(plugin: P) {
 }
 
 /// 可注入 IO 的实现，供单元测试用内存管道驱动。
-pub async fn serve_io<P, R, W>(mut plugin: P, reader: R, writer: W)
+pub async fn serve_io<P, R, W>(plugin: P, reader: R, writer: W)
 where P: NotemdPlugin, R: tokio::io::AsyncRead + Unpin + Send + 'static, W: AsyncWrite + Unpin + Send + 'static {
     let (tx, mut rx) = mpsc::unbounded_channel::<OutMsg>();
     let host = Host { tx, next_id: Default::default(), pending: Default::default() };
     // writer task：串行化 stdout 写。
     let writer_task = tokio::spawn(async move {
         let mut w = writer;
-        while let Some(OutMsg::Line(l)) = rx.recv().await {
+        while let Some(message) = rx.recv().await {
+            let OutMsg::Line(l) = message else { break };
             if w.write_all(l.as_bytes()).await.is_err() { break }
             if w.write_all(b"\n").await.is_err() { break }
             let _ = w.flush().await;
         }
     });
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        if line.trim().is_empty() { continue }
-        // 宿主→插件：request；插件 request 的应答：response（路由给 pending）。
-        if let Ok(resp) = serde_json::from_str::<proto::RpcResponse>(&line) {
-            if resp.result.is_some() || resp.error.is_some() {
-                if let Some(tx) = host.pending.lock().await.remove(&resp.id) { let _ = tx.send(resp); }
-                continue;
-            }
-        }
-        let req: proto::RpcRequest = match serde_json::from_str(&line) { Ok(r) => r, Err(_) => continue };
-        let reply = |id: u64, result: Result<Value, String>| {
-            let resp = match result {
-                Ok(v) => proto::RpcResponse { jsonrpc: "2.0".into(), id, result: Some(v), error: None },
-                Err(m) => proto::RpcResponse { jsonrpc: "2.0".into(), id,
-                    result: None, error: Some(proto::RpcError { code: -32000, message: m }) },
+    // Callbacks remain serial, but never occupy the response reader. A sync
+    // command may wait on Host::request via Handle::block_on while replies
+    // continue arriving, including on a single-thread tokio runtime.
+    let (commands, mut incoming) = mpsc::unbounded_channel::<proto::RpcRequest>();
+    let callback_host = host.clone();
+    let mut callbacks = tokio::task::spawn_blocking(move || {
+        let host = callback_host;
+        let mut plugin = plugin;
+        while let Some(req) = incoming.blocking_recv() {
+            let reply = |id: u64, result: Result<Value, String>| {
+                let resp = match result {
+                    Ok(v) => proto::RpcResponse { jsonrpc: "2.0".into(), id, result: Some(v), error: None },
+                    Err(m) => proto::RpcResponse { jsonrpc: "2.0".into(), id,
+                        result: None, error: Some(proto::RpcError { code: -32000, message: m }) },
+                };
+                OutMsg::Line(serde_json::to_string(&resp).unwrap())
             };
-            OutMsg::Line(serde_json::to_string(&resp).unwrap())
-        };
-        match req.method.as_str() {
-            "$initialize" => {
-                if let Ok(p) = serde_json::from_value(req.params) { plugin.initialize(&host, &p); }
-                if let Some(id) = req.id { let _ = host.tx.send(reply(id, Ok(json!({"ok": true})))); }
-            }
-            "$activate" => {
-                let r = serde_json::from_value(req.params).map_err(|e| e.to_string())
-                    .and_then(|p| plugin.activate(&host, &p)).map(|_| json!({"ok": true}));
-                if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
-            }
-            "$deactivate" => {
-                plugin.deactivate(&host);
-                if let Some(id) = req.id { let _ = host.tx.send(reply(id, Ok(json!({"ok": true})))); }
-                break; // 干净退出
-            }
-            "command.execute" => {
-                let r = serde_json::from_value(req.params).map_err(|e| e.to_string())
-                    .and_then(|p| plugin.execute_command(&host, &p));
-                if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
-            }
-            "ui.request" => {
-                let r = serde_json::from_value::<proto::UiRequestParams>(req.params)
-                    .map_err(|e| e.to_string())
-                    .and_then(|p| plugin.on_ui_request(&host, &p.method, p.params));
-                if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
-            }
-            other => {
-                if let Some(id) = req.id {
-                    let resp = proto::RpcResponse { jsonrpc: "2.0".into(), id, result: None,
-                        error: Some(proto::RpcError { code: proto::ERR_METHOD_NOT_FOUND,
-                            message: format!("unknown method {other}") }) };
-                    let _ = host.tx.send(OutMsg::Line(serde_json::to_string(&resp).unwrap()));
+            match req.method.as_str() {
+                "$initialize" => {
+                    if let Ok(p) = serde_json::from_value(req.params) { plugin.initialize(&host, &p); }
+                    if let Some(id) = req.id { let _ = host.tx.send(reply(id, Ok(json!({"ok": true})))); }
+                }
+                "$activate" => {
+                    let r = serde_json::from_value(req.params).map_err(|e| e.to_string())
+                        .and_then(|p| plugin.activate(&host, &p)).map(|_| json!({"ok": true}));
+                    if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
+                }
+                "$deactivate" => {
+                    plugin.deactivate(&host);
+                    if let Some(id) = req.id { let _ = host.tx.send(reply(id, Ok(json!({"ok": true})))); }
+                    break; // 干净退出
+                }
+                "command.execute" => {
+                    let r = serde_json::from_value(req.params).map_err(|e| e.to_string())
+                        .and_then(|p| plugin.execute_command(&host, &p));
+                    if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
+                }
+                "ui.request" => {
+                    let r = serde_json::from_value::<proto::UiRequestParams>(req.params)
+                        .map_err(|e| e.to_string())
+                        .and_then(|p| plugin.on_ui_request(&host, &p.method, p.params));
+                    if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
+                }
+                other => {
+                    if let Some(id) = req.id {
+                        let resp = proto::RpcResponse { jsonrpc: "2.0".into(), id, result: None,
+                            error: Some(proto::RpcError { code: proto::ERR_METHOD_NOT_FOUND,
+                                message: format!("unknown method {other}") }) };
+                        let _ = host.tx.send(OutMsg::Line(serde_json::to_string(&resp).unwrap()));
+                    }
                 }
             }
         }
+    });
+    let mut lines = BufReader::new(reader).lines();
+    let mut callbacks_finished = false;
+    loop {
+        let line = tokio::select! {
+            _ = &mut callbacks => { callbacks_finished = true; break; }
+            line = lines.next_line() => match line {
+                Ok(Some(line)) => line,
+                _ => break,
+            },
+        };
+        if line.trim().is_empty() { continue }
+        if let Ok(resp) = serde_json::from_str::<proto::RpcResponse>(&line) {
+            if resp.result.is_some() || resp.error.is_some() {
+                if let Some(tx) = host.pending.lock().await.requests.remove(&resp.id) {
+                    let _ = tx.send(resp);
+                }
+                continue;
+            }
+        }
+        let req: proto::RpcRequest = match serde_json::from_str(&line) {
+            Ok(req) => req,
+            Err(_) => continue,
+        };
+        let deactivate = req.method == "$deactivate";
+        if commands.send(req).is_err() || deactivate { break }
     }
-    // 插件可能保存了 Host 克隆（Host: Clone）；先 drop 插件再 drop 本地 host，
-    // 保证所有 sender 释放、writer task 排空后退出，serve_io 才能真正完成。
-    drop(plugin);
-    drop(host);
+    // EOF/deactivation must release callbacks already waiting on a host reply.
+    // The closed flag also rejects requests begun after the pending map drains.
+    host.close().await;
+    drop(commands);
+    if !callbacks_finished { let _ = callbacks.await; }
+    // Background tasks can retain Host clones. Explicit shutdown drains all
+    // replies already queued without waiting forever for those clones to drop.
+    let _ = host.tx.send(OutMsg::Shutdown);
     let _ = writer_task.await;
 }
 
@@ -488,4 +538,103 @@ mod tests {
         assert_eq!(err.code, -32000);
         assert_eq!(err.message, "ui handler failed");
     }
+
+    /// This deliberately blocks a synchronous callback on a host response.
+    /// A timeout makes a routing regression fail rather than hang the suite.
+    struct RoundTripPlugin {
+        rec: Recorder,
+        retained: Arc<StdMutex<Option<Host>>>,
+    }
+
+    impl NotemdPlugin for RoundTripPlugin {
+        fn activate(&mut self, _: &Host, _: &proto::ActivateParams) -> Result<(), String> { Ok(()) }
+        fn deactivate(&mut self, _: &Host) { self.rec.push("deactivate"); }
+        fn execute_command(&mut self, host: &Host, params: &proto::ExecuteCommandParams)
+            -> Result<Value, String> {
+            self.rec.push(format!("start:{}", params.command));
+            *self.retained.lock().unwrap() = Some(host.clone());
+            let result = tokio::runtime::Handle::current().block_on(async {
+                timeout(Duration::from_secs(2), host.request("host.echo", json!({})))
+                    .await.map_err(|_| "response routing timed out".to_string())?
+            });
+            self.rec.push(format!("end:{}", params.command));
+            result
+        }
+    }
+
+    fn spawn_round_trip() -> (Harness, Arc<StdMutex<Option<Host>>>) {
+        let (to_plugin, plugin_stdin) = tokio::io::duplex(64 * 1024);
+        let (plugin_stdout, from_plugin) = tokio::io::duplex(64 * 1024);
+        let rec = Recorder::default();
+        let retained = Arc::new(StdMutex::new(None));
+        let plugin = RoundTripPlugin { rec: rec.clone(), retained: retained.clone() };
+        let serve = tokio::spawn(serve_io(plugin, plugin_stdin, plugin_stdout));
+        (Harness { to_plugin, from_plugin: BufReader::new(from_plugin).lines(), serve, rec }, retained)
+    }
+
+    fn command_request(id: u64, command: &str) -> Value {
+        json!({"jsonrpc":"2.0", "id":id, "method":"command.execute",
+               "params":{"command":command,"context":{}}})
+    }
+
+    #[tokio::test]
+    async fn synchronous_host_requests_complete_and_callbacks_remain_serial() {
+        let (mut h, _retained) = spawn_round_trip();
+        h.send(command_request(101, "first")).await;
+        let request: proto::RpcRequest = serde_json::from_str(&h.recv_line().await).unwrap();
+        assert_eq!(request.method, "host.echo");
+        // Queue another callback before replying: its request must not overtake
+        // the first callback's final response.
+        h.send(command_request(102, "second")).await;
+        h.send(json!({"jsonrpc":"2.0","id":request.id,"result":{"answer":1}})).await;
+        let first = h.recv_response().await;
+        assert_eq!(first.id, 101);
+        assert_eq!(first.result, Some(json!({"answer":1})));
+        let request: proto::RpcRequest = serde_json::from_str(&h.recv_line().await).unwrap();
+        assert_eq!(request.method, "host.echo");
+        h.send(json!({"jsonrpc":"2.0","id":request.id,"result":{"answer":2}})).await;
+        let second = h.recv_response().await;
+        assert_eq!(second.id, 102);
+        assert_eq!(second.result, Some(json!({"answer":2})));
+        assert_eq!(h.rec.calls(), vec!["start:first", "end:first", "start:second", "end:second"]);
+        h.to_plugin.shutdown().await.unwrap();
+        timeout(Duration::from_secs(5), h.serve).await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn eof_releases_pending_requests_and_rejects_requests_after_close() {
+        let (mut h, retained) = spawn_round_trip();
+        h.send(command_request(101, "pending")).await;
+        let request: proto::RpcRequest = serde_json::from_str(&h.recv_line().await).unwrap();
+        assert_eq!(request.method, "host.echo");
+        h.to_plugin.shutdown().await.unwrap();
+        let response = h.recv_response().await;
+        assert_eq!(response.id, 101);
+        assert_eq!(response.error.unwrap().message, "host connection closed");
+        timeout(Duration::from_secs(5), h.serve).await.unwrap().unwrap();
+        let host = retained.lock().unwrap().clone().unwrap();
+        let error = timeout(Duration::from_secs(1), host.request("host.echo", json!({})))
+            .await.unwrap().unwrap_err();
+        assert_eq!(error, "host connection closed");
+        assert!(host.pending.lock().await.requests.is_empty());
+        assert_eq!(h.from_plugin.next_line().await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn deactivate_releases_pending_request_and_replies_before_writer_closes() {
+        let (mut h, _retained) = spawn_round_trip();
+        h.send(command_request(101, "pending")).await;
+        let _: proto::RpcRequest = serde_json::from_str(&h.recv_line().await).unwrap();
+        h.send(json!({"jsonrpc":"2.0","id":102,"method":"$deactivate","params":{}})).await;
+        let pending = h.recv_response().await;
+        assert_eq!(pending.id, 101);
+        assert_eq!(pending.error.unwrap().message, "host connection closed");
+        let stopped = h.recv_response().await;
+        assert_eq!(stopped.id, 102);
+        assert_eq!(stopped.result, Some(json!({"ok":true})));
+        assert_eq!(h.rec.calls(), vec!["start:pending", "end:pending", "deactivate"]);
+        timeout(Duration::from_secs(5), h.serve).await.unwrap().unwrap();
+        assert_eq!(h.from_plugin.next_line().await.unwrap(), None);
+    }
+
 }

@@ -14,7 +14,7 @@ use std::path::Path;
 /// object byte offsets are recorded as they're written so the xref table is
 /// accurate -- a PDF with a wrong xref table is exactly the kind of "invalid
 /// PDF" the error-path test below exercises, so this one has to be right.
-fn build_pdf(page_specs: &[(u32, u32, Option<(u32, u32, u32, u32)>)]) -> Vec<u8> {
+pub(super) fn build_pdf(page_specs: &[(u32, u32, Option<(u32, u32, u32, u32)>)]) -> Vec<u8> {
     let n = page_specs.len();
     let total_objs = 2 + 2 * n; // 1 catalog + 1 pages node + n pages + n content streams
     let mut offsets = vec![0usize; total_objs + 1]; // 1-indexed; offsets[0] unused

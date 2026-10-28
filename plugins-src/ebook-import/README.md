@@ -17,6 +17,12 @@ notemd ebook --list-topics --json
 # 将 software-engineering 替换为查询结果中的分类 id
 notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --json
 
+# 导入后自动让默认 Agent 先读，等待生成摘要
+notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --ai-read --json
+
+# 本次指定其他已安装 Agent（完整插件 ID）
+notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --ai-read --agent notemd.codex-agent --json
+
 # 只有需要扫描 PDF OCR 时才加 --ocr
 notemd ebook "/absolute/path/to/scanned.pdf" --topic software-engineering --ocr --json
 ```
@@ -28,23 +34,56 @@ notemd ebook "/absolute/path/to/scanned.pdf" --topic software-engineering --ocr 
 OCR 会把 PDF 页面发送至所选服务，可能产生费用；CLI 中 `--ocr` 即本次显式启用，
 不会再弹确认框。Agent 只在用户授权 OCR 时添加此参数，不因普通转换失败自动开启。
 
+### 导入后自动 AI 先读
+
+加 `--ai-read` 会在导入成功后调用 note.md 当前默认 Agent，等待其生成摘要。
+加 `--agent notemd.codex-agent` 等完整插件 ID 可覆盖本次选择；该 Agent 必须已安装且可用，
+不会改变默认设置或失败后自动换用其他 Agent。`--agent` 必须与 `--ai-read` 同用。
+OCR 与先读独立，可同时加 `--ocr --ai-read`。
+
+AI 先读使用所选 Agent 的模型及登录配置，会读取导入的书籍并可能把正文发送至其模型服务，
+可能产生费用。仅在用户要求 AI 先读时添加此参数。现有 Agent 只支持当前 Vault；
+若 `--vault` 指向其他 Vault，带 `--ai-read` 的命令会在导入前拒绝，请先切换 note.md 的当前 Vault。
+
+成功时返回 `data.ai_read.status: "succeeded"`、`agent`、`run_id` 和 `summary_rel`。
+若导入成功、先读失败，退出码为 `4`，JSON 为 `ok:false`，但
+`data.imported:true`、`data.dest` / `dest_rel` 仍提供已导入书籍位置，
+`data.ai_read.status: "failed"` 和 `error` 说明原因。此时不要重新导入；修复 Agent 后可从插件书库执行 AI 先读。
+摘要已写入而索引更新失败时，`index_warning` 会说明，摘要仍保留。
+
+### 百度 Unlimited-OCR 2
+
+百度[当前接口文档](https://cloud.baidu.com/doc/OCR/s/fmr1p39gb)说明，该云端服务已基于
+Unlimited OCR 2。插件沿用同一提交/查询接口，无需下载本地模型。选择百度时：
+
+```sh
+notemd ebook "/absolute/path/to/scanned.pdf" --topic software-engineering --ocr --ocr-provider baidu --json
+```
+
+需要先配置百度 OCR 应用的 API Key / Secret Key。插件以本地文件 Base64 方式提交，
+采用保守的 **50 MB（50,000,000 字节）、最多 500 页**上限，超限或无效 PDF 会在
+请求百度前拒绝。请先压缩或拆成符合限制的分册。官方的大于 50M 文件 URL 上传方式
+尚未接入；开源模型的长文档能力不等于云端 API 没有文件大小和页数限制。
+默认服务仍沿用用户设置，单独 `--ocr` 不会自动切到百度。
+
 ### Agent 调用约定
 
 - 命令作用于当前 Vault；指定其他书库时使用 `notemd ebook --vault "/absolute/vault" ...`（必须为已存在目录的绝对路径，不改变当前 Vault 设置）。
 - 先运行 `--list-topics --json`，从 `data.topics` 的 `id` / `label` 选择分类。尚未设置主题时，先在插件窗口管理主题，不手写分类或猜测 ID。
-- 文件路径可为绝对路径或相对调用终端工作目录的路径；含空格时加引号。导入必须有文件和 `--topic`，列表模式不接受文件、`--topic` 或 OCR 参数。
+- 文件路径可为绝对路径或相对调用终端工作目录的路径；含空格时加引号。导入必须有文件和 `--topic`，列表模式不接受文件、`--topic`、OCR 或 AI 参数。
 - `--root "ssot/ebooks"` 可指定本次 Vault 内相对书库目录；查询与导入使用同一 root，不改保存的设置。
 - 若导入提示分类事务需要恢复，先在插件窗口处理未完成的分类整理；指定另一书库的 `--root` 不会重放原书库事务。
 - `--ocr` 仅接受 PDF；非 PDF、未知 OCR 提供方、无 `--ocr` 的 `--ocr-provider` 都会失败，不静默换提供方。
-- 命令同步等待完成；进度写到 stderr，`--json` 的 stdout 保持单个 JSON。Agent 应给整本转换/OCR 留足执行时间，不在开始日志后就报告成功。
-- 退出码为 `0` 且 JSON 的 `ok` 为 `true` 才成功。`data.dest` 为绝对书籍目录，`data.dest_rel` 为 Vault 内相对目录，正文在其中的 `book.typeset.md`；结果另含 `topic_id`、`ocr`、`provider`（未启用 OCR 时为 `null`）及 `log`。
+- 命令同步等待导入及所请求的 AI 先读完成；进度写到 stderr，`--json` 的 stdout 保持单个 JSON。Agent 应给整本转换/OCR 留足执行时间，不在开始日志后就报告成功。
+- 退出码为 `0` 且 JSON 的 `ok` 为 `true` 才表示全部请求成功；AI 部分失败按上文处理。`data.dest` 为绝对书籍目录，`data.dest_rel` 为 Vault 内相对目录，正文在其中的 `book.typeset.md`；结果另含 `topic_id`、`ocr`、`provider`（未启用 OCR 时为 `null`）及 `log`。
 - 查询返回 `data.ebooks_root` 与 `data.topics`；不会导入、补模板或重建索引。错误返回非零退出码，读取 `error.message` 修正参数或配置，不绕过接口直接写书籍元数据。
 
 例如，把以下指令交给 Agent：
 
 > 用 `notemd ebook --list-topics --json` 查询分类，再把指定电子书通过
 > `notemd ebook "文件路径" --topic 分类id --json` 导入。只有我要求 OCR 时加
-> `--ocr`；完成后根据 JSON 返回的 `dest_rel` 告诉我书籍位置。
+> `--ocr`；我要求自动先读时加 `--ai-read`，我指定 Agent 时再加 `--agent 插件id`。
+> 完成后根据 JSON 返回的 `dest_rel`、`ai_read` 告诉我导入和先读各自结果。
 
 安装 Typeset Reader `0.1.1` 且宿主达到 `6.921.2` 后，新导入的
 `*.typeset.md` 会以分页排版视图打开；未安装或版本不足时仍可作为普通 Markdown

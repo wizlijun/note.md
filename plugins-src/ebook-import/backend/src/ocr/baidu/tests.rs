@@ -69,10 +69,11 @@ fn localize_images_with_no_remote_links_is_a_no_op_and_creates_no_dir() {
 // ---------------------------------------------------------------------
 
 #[test]
-fn precheck_size_allows_up_to_100mb_and_rejects_above() {
-    assert!(precheck_size(50 * 1024 * 1024).is_ok());
-    assert!(precheck_size(100 * 1024 * 1024).is_ok());
-    assert!(precheck_size(100 * 1024 * 1024 + 1).is_err());
+fn precheck_size_allows_up_to_50mb_and_rejects_above() {
+    assert!(precheck_size(49_999_999).is_ok());
+    assert!(precheck_size(50_000_000).is_ok());
+    assert!(precheck_size(50_000_001).is_err());
+    assert!(precheck_size(50 * 1024 * 1024).is_err());
 }
 
 // ---------------------------------------------------------------------
@@ -163,9 +164,9 @@ fn engine(base_url: &str, poll_interval: Duration) -> BaiduOcr {
     }
 }
 
-fn write_fake_pdf(dir: &Path) -> PathBuf {
+fn write_pdf(dir: &Path) -> PathBuf {
     let path = dir.join("book.pdf");
-    std::fs::write(&path, b"%PDF-1.4 fake pdf contents").unwrap();
+    std::fs::write(&path, crate::ocr::quartz::test_pdf_bytes(1)).unwrap();
     path
 }
 
@@ -174,7 +175,7 @@ fn ocr_pdf_full_flow_oauth_submit_poll_then_downloads_markdown() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
-    let pdf = write_fake_pdf(tmp.path());
+    let pdf = write_pdf(tmp.path());
 
     let (base_url, counter) = start_mock_server(|base| {
         vec![
@@ -209,31 +210,79 @@ fn ocr_pdf_full_flow_oauth_submit_poll_then_downloads_markdown() {
     );
 }
 
-#[test]
-fn ocr_pdf_rejects_a_pdf_over_100mb_without_making_any_request() {
-    let tmp = tempfile::tempdir().unwrap();
-    let work = tmp.path().join("work");
-    std::fs::create_dir_all(&work).unwrap();
-    let pdf = tmp.path().join("huge.pdf");
-
-    // Sparse file: seek past the limit and write one byte, so the test
-    // doesn't actually allocate/write 100+ MB of real data.
-    {
-        use std::io::Seek;
-        let mut f = std::fs::File::create(&pdf).unwrap();
-        f.seek(std::io::SeekFrom::Start(MAX_PDF_BYTES + 1)).unwrap();
-        f.write_all(&[0u8]).unwrap();
-    }
-
-    let (base_url, counter) = start_mock_server(|_| vec![]);
-    let result = engine(&base_url, Duration::from_millis(10)).ocr_pdf(&pdf, &work, &mut |_| {});
-
-    assert!(result.is_err(), "a >100MB PDF must be rejected");
+/// Keep a listening socket alive and check for queued connections after the
+/// engine returns: an empty-response mock would close before any attempt and
+/// its request counter would stay zero even if the engine tried to connect.
+fn assert_rejected_before_network(pdf: &Path, work: &Path, expected: &str) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let base_url = format!("http://{}", listener.local_addr().unwrap());
+    let mut progress = Vec::new();
+    let err = engine(&base_url, Duration::from_millis(10))
+        .ocr_pdf(pdf, work, &mut |p| progress.push(p))
+        .expect_err("precheck must reject the PDF");
+    assert!(err.contains(expected), "got: {err}");
+    assert!(progress.is_empty(), "no network progress may be emitted");
     assert_eq!(
-        counter.load(Ordering::SeqCst),
-        0,
-        "an oversized PDF must not trigger any network request"
+        listener.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock,
+        "precheck must reject before even connecting for OAuth"
     );
+    assert!(!work.exists(), "precheck must not render or write output");
+}
+
+#[test]
+fn ocr_pdf_rejects_a_pdf_one_byte_over_50mb_without_any_request() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pdf = tmp.path().join("huge.pdf");
+    // Sparse file: no allocation or physical write of 50 MB needed.
+    std::fs::File::create(&pdf).unwrap().set_len(MAX_PDF_BYTES + 1).unwrap();
+    assert_rejected_before_network(&pdf, &tmp.path().join("work"), "50 MB (50000000 bytes)");
+}
+
+#[test]
+fn ocr_pdf_rejects_501_pages_without_any_request_or_rendering() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pdf = tmp.path().join("long.pdf");
+    std::fs::write(&pdf, crate::ocr::quartz::test_pdf_bytes(501)).unwrap();
+    assert_rejected_before_network(&pdf, &tmp.path().join("work"), "501 pages");
+}
+
+#[test]
+fn ocr_pdf_rejects_invalid_pdf_without_any_request() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pdf = tmp.path().join("invalid.pdf");
+    std::fs::write(&pdf, b"not a PDF").unwrap();
+    assert_rejected_before_network(&pdf, &tmp.path().join("work"), "could not open PDF");
+}
+
+#[test]
+fn ocr_pdf_rejects_zero_pages_without_any_request() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pdf = tmp.path().join("empty.pdf");
+    std::fs::write(&pdf, crate::ocr::quartz::test_pdf_bytes(0)).unwrap();
+    // CoreGraphics rejects an empty page tree while opening the document.
+    assert_rejected_before_network(&pdf, &tmp.path().join("work"), "could not open PDF");
+}
+
+#[test]
+fn ocr_pdf_accepts_500_pages_and_completes_mock_flow_without_rendering() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pdf = tmp.path().join("max-pages.pdf");
+    let work = tmp.path().join("work");
+    std::fs::write(&pdf, crate::ocr::quartz::test_pdf_bytes(500)).unwrap();
+    let (base_url, counter) = start_mock_server(|base| vec![
+        r#"{"access_token":"T","expires_in":2592000}"#.to_string(),
+        r#"{"error_code":0,"result":{"task_id":"t1"}}"#.to_string(),
+        format!(r#"{{"error_code":0,"result":{{"status":"success","markdown_url":"{base}/md"}}}}"#),
+        "# 500 pages".to_string(),
+    ]);
+    let result = engine(&base_url, Duration::from_millis(10))
+        .ocr_pdf(&pdf, &work, &mut |_| {})
+        .unwrap();
+    assert_eq!(result, "# 500 pages");
+    assert_eq!(counter.load(Ordering::SeqCst), 4);
+    assert!(!work.exists(), "page counting must not create rendered pages");
 }
 
 #[test]
@@ -241,7 +290,7 @@ fn ocr_pdf_surfaces_baidu_error_code_and_message_on_submit_failure() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
-    let pdf = write_fake_pdf(tmp.path());
+    let pdf = write_pdf(tmp.path());
 
     let (base_url, _counter) = start_mock_server(|_| {
         vec![
@@ -268,7 +317,7 @@ fn a_precancelled_run_returns_err_without_making_any_request() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
-    let pdf = write_fake_pdf(tmp.path());
+    let pdf = write_pdf(tmp.path());
 
     // No responses queued -- the assertion on `counter` is what actually
     // pins "no request", not the mock server accepting nothing.
@@ -292,7 +341,7 @@ fn a_cancel_flag_set_mid_poll_stops_before_the_next_query() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
-    let pdf = write_fake_pdf(tmp.path());
+    let pdf = write_pdf(tmp.path());
 
     let (base_url, counter) = start_mock_server(|_| {
         vec![
@@ -329,7 +378,7 @@ fn an_already_elapsed_poll_deadline_times_out_without_polling() {
     let tmp = tempfile::tempdir().unwrap();
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
-    let pdf = write_fake_pdf(tmp.path());
+    let pdf = write_pdf(tmp.path());
 
     let (base_url, counter) = start_mock_server(|_| {
         vec![

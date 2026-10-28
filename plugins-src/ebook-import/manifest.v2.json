@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.ebook-import",
   "name": "Ebook Import",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "kind": "native",
   "engines": {
     "notemd": ">=6.915.3"
@@ -68,6 +68,16 @@
             "long": "--ocr-provider",
             "type": "string",
             "help": "wechat | baidu; requires --ocr (default: settings)"
+          },
+          {
+            "long": "--ai-read",
+            "type": "boolean",
+            "help": "Read the imported book with the default Agent and wait for its summary (current Vault only)"
+          },
+          {
+            "long": "--agent",
+            "type": "string",
+            "help": "Installed Agent plugin ID for this run; requires --ai-read (default: host setting)"
           },
           {
             "long": "--root",

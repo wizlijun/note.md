@@ -21,6 +21,13 @@ struct Plugin {
     vault: PathBuf,
     logs: Vec<String>,
     configured: bool,
+    providers: Value,
+    agent_calls: Vec<Value>,
+    agent_result: Value,
+    agent_writes_summary: bool,
+    agent_run_error: Option<String>,
+    agent_pending_polls: usize,
+    vault_after_agent_discovery: Option<PathBuf>,
 }
 
 impl Plugin {
@@ -81,6 +88,16 @@ impl Plugin {
             vault,
             logs: vec![],
             configured,
+            providers: json!({"default":"notemd.codex-agent", "providers":[
+                {"id":"notemd.codex-agent", "harness":{"ok":true}},
+                {"id":"notemd.deepseek-agent", "harness":{"ok":true}}
+            ]}),
+            agent_calls: vec![],
+            agent_result: json!({"state":"done", "record":{"status":"success"}}),
+            agent_writes_summary: true,
+            agent_run_error: None,
+            agent_pending_polls: 0,
+            vault_after_agent_discovery: None,
         };
         plugin.request(
             "$initialize",
@@ -111,12 +128,51 @@ impl Plugin {
 
     fn host_message(&mut self, value: &Value) {
         if value["method"] == "host.vault.info" {
+            let root = if self.agent_calls.iter().any(|call| call["method"] == "host.agent.providers") {
+                self.vault_after_agent_discovery.as_ref().unwrap_or(&self.vault)
+            } else {
+                &self.vault
+            };
             writeln!(
                 self.input,
                 "{}",
-                json!({"jsonrpc":"2.0", "id":value["id"], "result": if self.configured { json!({"root":self.vault}) } else { json!({}) }})
+                json!({"jsonrpc":"2.0", "id":value["id"], "result": if self.configured { json!({"root":root}) } else { json!({}) }})
             )
             .unwrap();
+            self.input.flush().unwrap();
+        }
+        if let Some(method) = value["method"].as_str().filter(|method| method.starts_with("host.agent.")) {
+            self.agent_calls.push(value.clone());
+            let reply = match method {
+                "host.agent.providers" => json!({"result": self.providers}),
+                "host.agent.run" => {
+                    if let Some(error) = &self.agent_run_error {
+                        json!({"error":{"code":-32000,"message":error}})
+                    } else {
+                        if self.agent_writes_summary {
+                            let target = value["params"]["notify"]["expect_file"].as_str().unwrap();
+                            assert!(Path::new(target).parent().unwrap().canonicalize().unwrap().starts_with(self.vault.canonicalize().unwrap()));
+                            std::fs::write(target, "# AI reading fixture\n").unwrap();
+                        }
+                        // A default change after dispatch must never reroute status.
+                        self.providers["default"] = json!("notemd.deepseek-agent");
+                        json!({"result":{"run_id":"cli-ai-fixture"}})
+                    }
+                }
+                "host.agent.status" => {
+                    if self.agent_pending_polls > 0 {
+                        self.agent_pending_polls -= 1;
+                        json!({"result":{"state":"running","steps":1}})
+                    } else {
+                        json!({"result":self.agent_result})
+                    }
+                }
+                other => panic!("unexpected Agent request {other}"),
+            };
+            let mut reply = reply;
+            reply["jsonrpc"] = json!("2.0");
+            reply["id"] = value["id"].clone();
+            writeln!(self.input, "{reply}").unwrap();
             self.input.flush().unwrap();
         }
         if value["method"] == "host.log.info" {
@@ -624,4 +680,285 @@ fn valid_root_override_does_not_depend_on_an_unused_invalid_saved_root() {
     let result = plugin.cli(Some(&file), json!({"topic":"software","root":"books"}));
     assert!(result.get("result").is_some(), "{result}");
     assert!(tmp.path().join("converted").exists());
+}
+
+
+#[test]
+fn ai_read_uses_the_host_default_and_waits_for_the_summary() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    let value = plugin.cli(Some(&file), json!({"topic":"software", "ai-read":true}));
+    let result = &value["result"];
+    assert_eq!(result["imported"], true, "{value}");
+    assert_eq!(result["ai_read"]["status"], "succeeded");
+    assert_eq!(result["ai_read"]["agent"], "notemd.codex-agent");
+    assert_eq!(result["ai_read"]["run_id"], "cli-ai-fixture");
+    assert!(plugin
+        .vault
+        .join(result["ai_read"]["summary_rel"].as_str().unwrap())
+        .is_file());
+    let calls: Vec<_> = plugin
+        .agent_calls
+        .iter()
+        .filter(|call| call["method"] != "host.agent.providers")
+        .collect();
+    assert_eq!(calls.len(), 2);
+    for call in &calls {
+        assert_eq!(call["params"]["harness"], "notemd.codex-agent");
+        assert_eq!(call["params"]["task"], "ai-read-ebook");
+    }
+    let book = Path::new(calls[0]["params"]["note_path"].as_str().unwrap());
+    assert!(book.starts_with(&plugin.vault));
+    assert!(book.is_file());
+}
+
+#[test]
+fn ai_read_accepts_an_explicit_agent_and_library_in_the_same_vault() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    std::fs::create_dir_all(plugin.vault.join("alternate")).unwrap();
+    std::fs::write(plugin.vault.join("alternate/topics.yml"), CATALOG).unwrap();
+    let before_settings = std::fs::read(plugin.vault.join(".notemd/ebook-import.json")).unwrap();
+    let file = configure_converter(tmp.path(), 0);
+    let value = plugin.cli(
+        Some(&file),
+        json!({
+            "topic":"software", "ai-read":true, "agent":"notemd.deepseek-agent",
+            "root":"alternate", "vault":plugin.vault,
+        }),
+    );
+    let result = &value["result"];
+    assert_eq!(
+        result["ai_read"]["agent"], "notemd.deepseek-agent",
+        "{value}"
+    );
+    assert!(result["ai_read"]["summary_rel"]
+        .as_str()
+        .unwrap()
+        .starts_with("alternate/"));
+    assert_eq!(
+        std::fs::read(plugin.vault.join(".notemd/ebook-import.json")).unwrap(),
+        before_settings
+    );
+    for call in plugin
+        .agent_calls
+        .iter()
+        .filter(|call| call["method"] != "host.agent.providers")
+    {
+        assert_eq!(call["params"]["harness"], "notemd.deepseek-agent");
+    }
+}
+
+#[test]
+fn ai_read_rejects_bad_options_and_unavailable_agents_before_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    for (flags, expected) in [
+        (
+            json!({"topic":"software","agent":"notemd.codex-agent"}),
+            "requires --ai-read",
+        ),
+        (
+            json!({"list-topics":true,"ai-read":true}),
+            "cannot be combined",
+        ),
+        (
+            json!({"topic":"software","ai-read":true,"agent":" "}),
+            "non-empty",
+        ),
+        (
+            json!({"topic":"software","ai-read":true,"agent":"notemd.missing-agent"}),
+            "not installed",
+        ),
+    ] {
+        let before = snapshot(tmp.path());
+        let value = plugin.cli(Some(&file), flags);
+        assert!(
+            value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains(expected),
+            "{value}"
+        );
+        assert_eq!(snapshot(tmp.path()), before);
+    }
+    plugin.providers["providers"][0]["harness"]["ok"] = json!(false);
+    let value = plugin.cli(Some(&file), json!({"topic":"software","ai-read":true}));
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("unavailable"),
+        "{value}"
+    );
+    assert!(!tmp.path().join("converted").exists());
+    assert!(!plugin
+        .agent_calls
+        .iter()
+        .any(|call| call["method"] == "host.agent.run"));
+}
+
+#[test]
+fn ai_read_rejects_a_different_explicit_vault_before_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    let other = tmp.path().join("other-vault");
+    std::fs::create_dir_all(other.join("ssot/ebooks")).unwrap();
+    std::fs::write(other.join("ssot/ebooks/topics.yml"), CATALOG).unwrap();
+    let before = snapshot(tmp.path());
+    let value = plugin.cli(
+        Some(&file),
+        json!({"topic":"software","ai-read":true,"vault":other}),
+    );
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("active host Vault"),
+        "{value}"
+    );
+    assert_eq!(snapshot(tmp.path()), before);
+    assert!(!tmp.path().join("converted").exists());
+}
+
+#[test]
+fn ai_read_failure_preserves_import_success_and_returns_a_nonzero_cli_result() {
+    for outcome in ["failed", "missing-summary", "run-error"] {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut plugin = Plugin::new(tmp.path(), "books", None);
+        let file = configure_converter(tmp.path(), 0);
+        plugin.agent_writes_summary = false;
+        let expected = match outcome {
+            "failed" => {
+                plugin.agent_result =
+                    json!({"state":"done","record":{"status":"error","result":"fixture failure"}});
+                "fixture failure"
+            }
+            "run-error" => {
+                plugin.agent_run_error = Some("fixture unavailable".into());
+                "fixture unavailable"
+            }
+            _ => "is missing",
+        };
+        let value = plugin.cli(Some(&file), json!({"topic":"software","ai-read":true}));
+        let envelope = &value["result"]["__notemd_cli_result"];
+        assert_eq!(envelope["exit_code"], 4, "{value}");
+        let result = &envelope["data"];
+        assert_eq!(result["imported"], true);
+        assert!(Path::new(result["dest"].as_str().unwrap())
+            .join("book.typeset.md")
+            .is_file());
+        assert_eq!(result["ai_read"]["status"], "failed");
+        assert!(
+            result["ai_read"]["error"]
+                .as_str()
+                .unwrap()
+                .contains(expected),
+            "{value}"
+        );
+        assert!(envelope["message"]
+            .as_str()
+            .unwrap()
+            .contains("import succeeded"));
+    }
+}
+
+#[test]
+fn ai_read_keeps_the_cli_alive_until_the_terminal_agent_result() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    plugin.agent_pending_polls = 15;
+    let started = std::time::Instant::now();
+    let value = plugin.cli(Some(&file), json!({"topic":"software","ai-read":true}));
+    assert_eq!(value["result"]["ai_read"]["status"], "succeeded", "{value}");
+    assert!(started.elapsed() >= Duration::from_secs(30));
+    assert!(plugin
+        .logs
+        .iter()
+        .any(|line| line == "Ebook AI read is still running"));
+    assert_eq!(
+        plugin
+            .agent_calls
+            .iter()
+            .filter(|call| call["method"] == "host.agent.status")
+            .count(),
+        16
+    );
+}
+
+#[test]
+fn ai_read_missing_or_uninstalled_default_is_rejected_before_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    for (default, expected) in [
+        (Value::Null, "default Agent"),
+        (json!("notemd.missing-agent"), "not installed"),
+    ] {
+        plugin.providers["default"] = default;
+        let before = snapshot(tmp.path());
+        let value = plugin.cli(Some(&file), json!({"topic":"software","ai-read":true}));
+        assert!(
+            value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains(expected),
+            "{value}"
+        );
+        assert_eq!(snapshot(tmp.path()), before);
+    }
+    assert!(!plugin
+        .agent_calls
+        .iter()
+        .any(|call| call["method"] == "host.agent.run"));
+}
+
+#[test]
+fn ai_read_does_not_start_if_conversion_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    std::fs::write(tmp.path().join("ebook-convert"), "#!/bin/sh\n[ \"$1\" = \"--version\" ] && { echo 'calibre fixture'; exit 0; }\necho 'fixture conversion failed' >&2\nexit 1\n").unwrap();
+    let value = plugin.cli(Some(&file), json!({"topic":"software","ai-read":true}));
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("fixture conversion failed"),
+        "{value}"
+    );
+    assert!(!plugin
+        .agent_calls
+        .iter()
+        .any(|call| call["method"] == "host.agent.run"));
+}
+
+#[test]
+fn ai_read_vault_switch_during_import_is_an_ai_only_failure() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut plugin = Plugin::new(tmp.path(), "books", None);
+    let file = configure_converter(tmp.path(), 0);
+    let other = tmp.path().join("new-current-vault");
+    std::fs::create_dir_all(&other).unwrap();
+    plugin.vault_after_agent_discovery = Some(other.clone());
+    let value = plugin.cli(Some(&file), json!({"topic":"software","ai-read":true}));
+    let envelope = &value["result"]["__notemd_cli_result"];
+    assert_eq!(envelope["exit_code"], 4, "{value}");
+    assert_eq!(envelope["data"]["imported"], true);
+    let dest = Path::new(envelope["data"]["dest"].as_str().unwrap());
+    assert!(dest.join("book.typeset.md").is_file());
+    assert!(dest.starts_with(&plugin.vault));
+    assert!(envelope["data"]["ai_read"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("active host Vault"));
+    assert!(snapshot(&other).is_empty());
+    assert!(!plugin
+        .agent_calls
+        .iter()
+        .any(|call| call["method"] == "host.agent.run"));
 }

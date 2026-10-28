@@ -32,13 +32,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Baidu rejects (or silently truncates) documents above this size; check it
-/// ourselves before spending a network round-trip on a submission Baidu
-/// would refuse anyway. Page-count limits are *not* checked here -- doing so
-/// would mean opening the PDF just to call it, which this path has no other
-/// reason to do -- an over-length PDF is left for Baidu's own
-/// `error_code`/`error_msg` to report.
-const MAX_PDF_BYTES: u64 = 100 * 1024 * 1024;
+/// This plugin uses local `file_data` uploads. Baidu documents a 50M limit
+/// for that route (larger files require `file_url`); use decimal MB so the
+/// local check cannot exceed that documented threshold.
+const MAX_PDF_BYTES: u64 = 50_000_000;
+const MAX_PDF_PAGES: usize = 500;
 
 /// A submitted task with no result yet after an hour is not coming back --
 /// stop polling rather than spinning the OCR thread (and holding its `Host`
@@ -239,12 +237,13 @@ fn check_error_code(json: &serde_json::Value) -> Result<(), String> {
 
 /// Rejects a PDF above [`MAX_PDF_BYTES`] before it's read into memory or
 /// submitted -- factored out from [`BaiduOcr::ocr_pdf`] so the boundary is
-/// unit-testable without writing a 100 MB fixture file.
+/// unit-testable without writing a 50 MB fixture file.
 fn precheck_size(len: u64) -> Result<(), String> {
     if len > MAX_PDF_BYTES {
         Err(format!(
-            "PDF is {len} bytes, exceeding the {MAX_PDF_BYTES}-byte limit Baidu's \
-             Unlimited-OCR task API enforces; not submitting"
+            "PDF is {len} bytes, exceeding this plugin's 50 MB ({MAX_PDF_BYTES} bytes) \
+             local-upload limit for Baidu Unlimited-OCR. Compress or split the PDF before \
+             importing; this plugin does not upload files to an external URL automatically."
         ))
     } else {
         Ok(())
@@ -305,6 +304,13 @@ impl OcrEngine for BaiduOcr {
         let metadata =
             std::fs::metadata(pdf).map_err(|e| format!("stat {}: {e}", pdf.display()))?;
         precheck_size(metadata.len())?;
+        let pages = crate::ocr::quartz::pdf_page_count(pdf)?;
+        if pages > MAX_PDF_PAGES {
+            return Err(format!(
+                "PDF has {pages} pages, exceeding Baidu Unlimited-OCR's {MAX_PDF_PAGES}-page \
+                 limit. Split the PDF into smaller volumes before importing; not submitting."
+            ));
+        }
         let pdf_bytes = std::fs::read(pdf).map_err(|e| format!("read {}: {e}", pdf.display()))?;
         let file_name = pdf
             .file_name()
