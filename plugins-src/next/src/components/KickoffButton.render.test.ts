@@ -41,14 +41,16 @@ describe('KickoffButton', () => {
     const group = document.querySelector('[role="group"]')!
     const buttons = group.querySelectorAll<HTMLButtonElement>('button')
     expect(buttons).toHaveLength(2)
-    expect(buttons[1].getAttribute('aria-haspopup')).toBe('dialog')
+    expect(buttons[1].getAttribute('aria-haspopup')).toBe('menu')
     buttons[0].click()
     expect(onClick).toHaveBeenCalledOnce()
     expect(onChoose).not.toHaveBeenCalled()
     buttons[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
     expect(onChoose).toHaveBeenCalledOnce()
+    expect(onChoose).toHaveBeenLastCalledWith(buttons[0])
     buttons[1].click()
     expect(onChoose).toHaveBeenCalledTimes(2)
+    expect(onChoose).toHaveBeenLastCalledWith(buttons[1])
   })
   it.each([{ starting: true }, { run }])('keeps a single progress action while busy', (input) => {
     components.push(mount(KickoffButton, { target: document.body, props: { itemTitle: 'Ship', input, onClick: vi.fn(), onChoose: vi.fn() } }))
