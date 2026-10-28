@@ -3,10 +3,8 @@
   // agent" button appears: the sidecar note's Answer button, Idea Spark's
   // delegate button, the ebook queue's AI-read button.
   //
-  // Shape: `[ Answer ] by Claude ▾`. The button does the work; the picker only
-  // says who will do it. They are deliberately separate controls — merging them
-  // into a split-button makes "change the agent" and "start a run" one pixel
-  // apart, and starting a run by accident costs real tokens.
+  // By default this renders `by Claude ▾`. Surfaces with an existing dropdown
+  // button can supply that button as `anchor` to render only the menu.
   //
   // The menu carries the details that decide the choice — version, model, and
   // whether the harness can run at all — because "Claude or DeepSeek" is not
@@ -18,12 +16,15 @@
   import { tick, untrack, type Snippet } from 'svelte'
   import { placeMenu, type AgentOption, type Placement } from './types'
 
-  let { options, selected, disabled = false, initialOpen = false, disableUnavailable = false, footer, onselect, label }: {
+  let { options, selected, disabled = false, initialOpen = false, disableUnavailable = false, anchor = null, onclose, footer, onselect, label }: {
     options: AgentOption[]
     /** Currently chosen provider id. */
     selected: string | null
     disabled?: boolean
     initialOpen?: boolean
+    /** External dropdown button; its owner controls opening and expanded state. */
+    anchor?: HTMLElement | null
+    onclose?: () => void
     disableUnavailable?: boolean
     footer?: Snippet
     onselect: (id: string) => void
@@ -46,8 +47,9 @@
    * queue and one at the top need opposite answers, and CSS cannot ask.
    */
   function reposition() {
-    if (!trigger || !menuEl) return
-    const a = trigger.getBoundingClientRect()
+    const button = anchor ?? trigger
+    if (!button || !menuEl) return
+    const a = button.getBoundingClientRect()
     const m = menuEl.getBoundingClientRect()
     at = placeMenu(
       { top: a.top, left: a.left, width: a.width, height: a.height },
@@ -78,11 +80,20 @@
     return metadata || (!o.harness.ok ? (o.harness.origin ? label('agentPicker.broken') : label('agentPicker.notInstalled')) : '')
   }
 
+  function close(restoreFocus = false) {
+    if (!open) return
+    open = false
+    if (restoreFocus) (anchor ?? trigger)?.focus({ preventScroll: true })
+    onclose?.()
+  }
+
   function choose(id: string) {
     if (disableUnavailable && options.find(option => option.id === id)?.harness?.ok === false) return
+    // Selection can clear the owner's menu state (including the anchor prop).
+    const returnFocus = anchor ?? trigger
     onselect(id)
-    open = false
-    trigger?.focus()
+    close()
+    returnFocus?.focus({ preventScroll: true })
   }
 
   // Click-away and Escape. A menu you cannot dismiss without choosing is a
@@ -103,21 +114,20 @@
       if (!open || !menuEl?.isConnected) return
       const items = menuEl?.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]:not(:disabled)')
       const current = Array.from(items ?? []).find((item) => item.getAttribute('aria-checked') === 'true')
-      ;(current ?? items?.[0])?.focus({ preventScroll: true })
+      ;(current ?? items?.[0] ?? menuEl).focus({ preventScroll: true })
     })
     const away = (e: MouseEvent) => {
       const t = e.target as Node
-      if (root && !root.contains(t) && menuEl && !menuEl.contains(t)) open = false
+      if (root && !root.contains(t) && !anchor?.contains(t) && menuEl && !menuEl.contains(t)) close()
     }
     const key = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopPropagation()
-        open = false
-        trigger?.focus()
+        close(true)
       } else if (menuEl?.contains(e.target as Node)) {
-        if (e.key === 'Tab') { open = false; trigger?.focus(); return }
+        if (e.key === 'Tab') { close(true); return }
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
         const items = Array.from(menuEl.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]:not(:disabled)'))
         if (!items.length) return
@@ -146,12 +156,13 @@
 
 <!-- One installed agent is not a choice; showing a menu that can only confirm
      what is already true is noise. State it and stop. -->
-{#if options.length <= 1 && !footer && !initialOpen}
+{#if options.length <= 1 && !footer && !initialOpen && !anchor}
   <span class="by one" title={current ? detail(current) : ''}>
     {label('agentPicker.by', { name: shortName(current) })}
   </span>
 {:else}
   <span class="wrap" bind:this={root}>
+    {#if !anchor}
     <button
       class="by"
       bind:this={trigger}
@@ -159,7 +170,7 @@
       aria-haspopup="menu"
       aria-expanded={open}
       title={current ? detail(current) : ''}
-      onclick={() => (open = !open)}
+      onclick={() => { if (open) close(); else open = true }}
       onkeydown={(event) => {
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); open = true }
       }}
@@ -167,6 +178,7 @@
       {label('agentPicker.by', { name: shortName(current) })}
       <span class="caret" aria-hidden="true">▾</span>
     </button>
+    {/if}
 
     {#if open}
       <!-- `position: fixed`, placed in viewport coordinates. Absolute would be
@@ -177,6 +189,7 @@
         class:up={at?.side === 'up'}
         bind:this={menuEl}
         role="menu"
+        tabindex="-1"
         aria-label={label('agentPicker.by', { name: shortName(current) })}
         style={at ? `top:${at.top}px; left:${at.left}px` : 'top:0; left:0; visibility:hidden'}
       >

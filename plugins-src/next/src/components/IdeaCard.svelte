@@ -15,6 +15,7 @@
     canPlace = false,
     canReopen = false,
     placeMenuOpen = false,
+    kickoffMenuOpen = false,
     reminderView,
     reminderMenuOpen = false,
     onReminder,
@@ -40,6 +41,7 @@
     canPlace?: boolean
     canReopen?: boolean
     placeMenuOpen?: boolean
+    kickoffMenuOpen?: boolean
     reminderView?: ReminderView
     reminderMenuOpen?: boolean
     onReminder?(item: WorkspaceItem, anchor: HTMLButtonElement): void
@@ -47,7 +49,7 @@
     dragging?: boolean
     kickoff?: ButtonStateInput
     onKickoff?(item: WorkspaceItem): void
-    onChooseKickoff?(item: WorkspaceItem): void
+    onChooseKickoff?(item: WorkspaceItem, anchor: HTMLButtonElement): void
     onPlace(item: WorkspaceItem, anchor: HTMLButtonElement): void
     onComplete?(item: WorkspaceItem): void
     onOpen(item: WorkspaceItem): void
@@ -205,15 +207,27 @@
     {#if canReopen}
       <button class="quiet" disabled={disabled} onclick={() => onReopen(item)}>{t('action.reopen')}</button>
     {/if}
-    {#if canPlace && onComplete}
-      <button class="quiet" data-complete disabled={disabled} onclick={() => onComplete?.(item)}>{t('exit.done')}</button>
-    {/if}
     {#if kickoff && onKickoff}
-      <KickoffButton itemTitle={item.title} input={kickoff} {disabled}
-        onClick={() => onKickoff?.(item)} onChoose={onChooseKickoff ? () => onChooseKickoff?.(item) : undefined} />
+      <KickoffButton itemTitle={item.title} input={kickoff} {disabled} menuOpen={kickoffMenuOpen}
+        onClick={() => onKickoff?.(item)} onChoose={onChooseKickoff ? (anchor) => onChooseKickoff?.(item, anchor) : undefined} />
     {/if}
     {#if canPlace}
-      <button class="place" disabled={disabled} aria-haspopup="menu" aria-expanded={placeMenuOpen} onclick={(event) => onPlace(item, event.currentTarget)}>{t('action.place')}</button>
+      <span class="place-actions" class:split={Boolean(onComplete)}>
+        {#if onComplete}
+          <button type="button" class="complete" data-complete {disabled} onclick={() => onComplete?.(item)}>{t('exit.done')}</button>
+        {/if}
+        <button type="button" class="place" {disabled} aria-label={t('action.place')} title={t('action.place')}
+          aria-haspopup="menu" aria-expanded={placeMenuOpen}
+          onclick={(event) => onPlace(item, event.currentTarget)}
+          onkeydown={(event) => {
+            if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !placeMenuOpen) {
+              event.preventDefault()
+              onPlace(item, event.currentTarget)
+            }
+          }}>
+          {#if onComplete}<span aria-hidden="true">▾</span>{:else}{t('action.place')}{/if}
+        </button>
+      </span>
     {/if}
   </div>
 </article>
@@ -272,9 +286,13 @@
   .actions { display: flex; flex-wrap: wrap; gap: 6px; }
   button { font: inherit; cursor: pointer; }
   button:disabled { cursor: default; opacity: 0.45; }
-  .quiet, .place { border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; }
+  .quiet, .place, .complete { border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; }
   .quiet { border: 1px solid var(--line); background: transparent; color: var(--fg); }
   .quiet:hover:not(:disabled) { background: var(--hover); }
-  .place { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
-  .place:hover:not(:disabled) { filter: brightness(1.06); }
+  .place-actions { display: inline-flex; flex: none; }
+  .place, .complete { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+  .split .complete { border-radius: 8px 0 0 8px; }
+  .split .place { border-radius: 0 8px 8px 0; border-left-color: #ffffff55; padding-inline: 8px; }
+  .place:hover:not(:disabled), .complete:hover:not(:disabled) { filter: brightness(1.06); }
+  .place:focus-visible, .complete:focus-visible { position: relative; outline: 2px solid var(--accent); outline-offset: 2px; z-index: 1; }
 </style>

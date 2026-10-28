@@ -81,6 +81,7 @@
   let kickoffStarting = $state<string[]>([])
   let kickoffFailures = $state<Record<string, LocalKickoffFailure>>({})
   let kickoffPicker = $state<WorkspaceItem | null>(null)
+  let kickoffPickerAnchor = $state<HTMLElement | null>(null)
   let kickoffConsent = $state<{ item: WorkspaceItem; providerId: string } | null>(null)
   let kickoffProgress = $state<WorkspaceItem | null>(null)
   let kickoffResult = $state<{ item: WorkspaceItem; result: KickoffResult } | null>(null)
@@ -202,12 +203,17 @@
     kickoffReturnFocus = card?.querySelector<HTMLButtonElement>('[data-kickoff-state]') ?? null
   }
 
-  function chooseKickoff(item: WorkspaceItem) {
+  function chooseKickoff(item: WorkspaceItem, anchor?: HTMLButtonElement) {
+    const wasOpen = kickoffPicker?.key === item.key
     rememberKickoffFocus(item)
+    kickoffPickerAnchor = anchor ?? kickoffReturnFocus
+    if (anchor) kickoffReturnFocus = anchor
     closePreview()
+    placeMenu = null
+    reminderMenu = null
     kickoffProgress = null
     kickoffResult = null
-    kickoffPicker = item
+    kickoffPicker = wasOpen ? null : item
   }
 
   async function showKickoffResult(item: WorkspaceItem) {
@@ -481,6 +487,7 @@
     if (interactionDisabled) return
     closePreview()
     reminderMenu = null
+    kickoffPicker = null
     placeMenu = placeMenu?.item.key === item.key ? null : { item, anchor }
   }
 
@@ -1112,6 +1119,7 @@
                       kickoff={cardKickoff(item)}
                       onKickoff={clickKickoff}
                       onChooseKickoff={chooseKickoff}
+                      kickoffMenuOpen={kickoffPicker?.key === item.key}
                       onPlace={openPlaceMenu}
                       onComplete={(value) => quickPlace(value, quickPlaceInput('done'))}
                       onOpen={doOpen}
@@ -1179,7 +1187,7 @@
 <span class="sr-only" role="status" aria-live="polite">{kickoffAnnouncement}</span>
 
 {#if kickoffPicker}
-  <KickoffPicker returnFocus={kickoffReturnFocus} options={kickoffSnapshot.providers} selected={rememberedKickoff()} dataSources={kickoffSnapshot.dataSources}
+  <KickoffPicker anchor={kickoffPickerAnchor} options={kickoffSnapshot.providers} selected={rememberedKickoff()} dataSources={kickoffSnapshot.dataSources}
     onSelect={(providerId) => {
       const item = kickoffPicker!
       rememberProvider('next.kickoff', providerId)
