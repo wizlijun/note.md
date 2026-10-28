@@ -1,0 +1,2088 @@
+{
+  "status": "published_and_publicly_verified",
+  "generated_at": "2026-10-28T06:17:05.206868+00:00",
+  "tag": "v6.1028.1",
+  "source_commit": "080b734e848bf5b433d0b9c5b92226289a80590c",
+  "release_url": "https://github.com/wizlijun/note.md/releases/tag/v6.1028.1",
+  "plugins_already_published": {
+    "next": "1.13.0",
+    "codex-agent": "1.1.0",
+    "deepseek-agent": "1.2.0",
+    "claude-agent": "1.1.0"
+  },
+  "host_scope": [
+    "default concurrency 3; explicit 1 remains valid; configurable 1–5",
+    "capability-gated HTTP(S) link.open",
+    "shared AgentPicker enhancements",
+    "Task Kickoff/Skill concept and search origin tiers"
+  ],
+  "release_gates": {
+    "status": "build_and_validation_gates_passed",
+    "source_log": "tasks/host-release/release-recovered.log",
+    "source_log_sha256": "a218ea3a57f7dcd8eaf73102e825bbee175e41d64549ce9211c603941fd1a81b",
+    "frontend": {
+      "test_files_passed": 411,
+      "tests_passed": 5321,
+      "failed": 0
+    },
+    "svelte_check": {
+      "errors": 0,
+      "warnings": 31,
+      "warning_files": 15
+    },
+    "protocol_artifacts": {
+      "status": "up_to_date"
+    },
+    "dependency_audit": {
+      "vulnerabilities": 5,
+      "severity": {
+        "low": 1,
+        "moderate": 4,
+        "high": 0,
+        "critical": 0
+      },
+      "high_critical_gate_passed": true
+    },
+    "native_release_gates": {
+      "passed_groups": [
+        25,
+        2,
+        3
+      ],
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0,
+      "separate_from_targeted_353": true
+    },
+    "canonical_script_exit": 1,
+    "canonical_script_result": "interrupted_after_gates_at_git_push_non_fast_forward",
+    "recovery_required": true,
+    "limits": [
+      "The canonical script did not finish with exit 0. Its exit 1 followed the explicit git push non-fast-forward rejection after successful gates.",
+      "31 Svelte warnings and 5 low/moderate audit findings remain disclosed; no high/critical audit findings were reported.",
+      "This safe summary contains only allowlisted metrics and the raw log digest, not private notarization diagnostics."
+    ]
+  },
+  "native_tests": {
+    "verified_at": "2026-10-28T13:07:59.470839+08:00",
+    "source_commit": "b8bf61e6f0018f7e5105f9aeefbbdc200bffcec0",
+    "cargo_version": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "target_isolation": "APFS copy-on-write clone from main cache into /tmp/notemd-host-next-native-target; source/main/release build caches not written",
+    "tests": [
+      {
+        "name": "native-plugin-runtime-tests",
+        "command": "CARGO_TARGET_DIR=/tmp/notemd-host-next-native-target cargo +1.99.0 test --manifest-path src-tauri/Cargo.toml --lib plugin_runtime::",
+        "exit_code": 0,
+        "passed": 317,
+        "failed": 0,
+        "ignored": 0,
+        "log_sha256": "359adcf004cbcd6c59db079907b5a606d0f430d3acd92e768bcb261edb1c5768"
+      },
+      {
+        "name": "native-search-origin-tests",
+        "command": "CARGO_TARGET_DIR=/tmp/notemd-host-next-native-target cargo +1.99.0 test --manifest-path searchidx/Cargo.toml origin",
+        "exit_code": 0,
+        "passed": 36,
+        "failed": 0,
+        "ignored": 0,
+        "log_sha256": "a07fdee6ce6a05eddf2ab89594e7ff3e9248c0d70e39adaa8350a3dc13e25cf5"
+      }
+    ],
+    "tested_host_source_sha256": {
+      "searchidx/src/origin.rs": "f286f09a26372f46e944d0baf9689b6f298029396e2dc32989de4f4e1231fb81",
+      "searchidx/tests/fixtures/origin/concept-types.json": "311520f01caf5dfeff259b20fb7b092d3a7e87e0ecc2ca23413a2400e7c49247",
+      "src-tauri/src/plugin_runtime/agent_provider.rs": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55",
+      "src-tauri/src/plugin_runtime/host_api.rs": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8",
+      "src-tauri/src/plugin_runtime/ui_rpc.rs": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942",
+      "src/lib/agent-picker/AgentPicker.render.test.ts": "76ac75df21b95b4e486b9997e751e9ae54058a379ac4393da1cefc4f444f1151",
+      "src/lib/agent-picker/AgentPicker.svelte": "da8c5d4699a07773b90827c77144c4587b8e1f8c7c68d7a93b98756a83476851",
+      "src/lib/agent-picker/types.ts": "6a49d3d1518bc345380bc5345a1e0ddff218c7d6398a24629a827aca44bb2f6f",
+      "src/lib/okf/concept.ts": "6d03f4379236aae91eac47317c728a7a1ee626da54d721b5192f41fdf9110b7e"
+    },
+    "limitations": [
+      "Native tests use StubServices and prove URL dispatch/validation/capability policy; they do not prove the signed app launches an actual browser. Final host package/tag provenance remains for release workflow.",
+      "No real Vault content, system notifications or external messages were modified."
+    ]
+  },
+  "frozen_source_bindings": {
+    "tag": "v6.1028.1",
+    "commit": "080b734e848bf5b433d0b9c5b92226289a80590c",
+    "sources": [
+      {
+        "path": "searchidx/src/origin.rs",
+        "testedSha256": "f286f09a26372f46e944d0baf9689b6f298029396e2dc32989de4f4e1231fb81",
+        "tagSha256": "f286f09a26372f46e944d0baf9689b6f298029396e2dc32989de4f4e1231fb81",
+        "matches": true
+      },
+      {
+        "path": "searchidx/tests/fixtures/origin/concept-types.json",
+        "testedSha256": "311520f01caf5dfeff259b20fb7b092d3a7e87e0ecc2ca23413a2400e7c49247",
+        "tagSha256": "311520f01caf5dfeff259b20fb7b092d3a7e87e0ecc2ca23413a2400e7c49247",
+        "matches": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/agent_provider.rs",
+        "testedSha256": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55",
+        "tagSha256": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55",
+        "matches": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/host_api.rs",
+        "testedSha256": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8",
+        "tagSha256": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8",
+        "matches": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/ui_rpc.rs",
+        "testedSha256": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942",
+        "tagSha256": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942",
+        "matches": true
+      },
+      {
+        "path": "src/lib/agent-picker/AgentPicker.render.test.ts",
+        "testedSha256": "76ac75df21b95b4e486b9997e751e9ae54058a379ac4393da1cefc4f444f1151",
+        "tagSha256": "76ac75df21b95b4e486b9997e751e9ae54058a379ac4393da1cefc4f444f1151",
+        "matches": true
+      },
+      {
+        "path": "src/lib/agent-picker/AgentPicker.svelte",
+        "testedSha256": "da8c5d4699a07773b90827c77144c4587b8e1f8c7c68d7a93b98756a83476851",
+        "tagSha256": "da8c5d4699a07773b90827c77144c4587b8e1f8c7c68d7a93b98756a83476851",
+        "matches": true
+      },
+      {
+        "path": "src/lib/agent-picker/types.ts",
+        "testedSha256": "6a49d3d1518bc345380bc5345a1e0ddff218c7d6398a24629a827aca44bb2f6f",
+        "tagSha256": "6a49d3d1518bc345380bc5345a1e0ddff218c7d6398a24629a827aca44bb2f6f",
+        "matches": true
+      },
+      {
+        "path": "src/lib/okf/concept.ts",
+        "testedSha256": "6d03f4379236aae91eac47317c728a7a1ee626da54d721b5192f41fdf9110b7e",
+        "tagSha256": "6d03f4379236aae91eac47317c728a7a1ee626da54d721b5192f41fdf9110b7e",
+        "matches": true
+      }
+    ]
+  },
+  "native_payload": {
+    "status": "pass",
+    "tag": "v6.1028.1",
+    "sourceCommit": "080b734e848bf5b433d0b9c5b92226289a80590c",
+    "sourceTree": "a089dd290a78a9eabff29c9bc74bfbf2cc562583",
+    "frozenSources": [
+      {
+        "path": "src-tauri/src/plugin_runtime/agent_provider.rs",
+        "sha256": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/host_api.rs",
+        "sha256": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/ui_rpc.rs",
+        "sha256": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942"
+      },
+      {
+        "path": "src-tauri/tauri.conf.json",
+        "sha256": "b4dfe7e7e215747f749793f7e823f6e1f28b37ed5ebba51dfcb656d3210e6c63"
+      }
+    ],
+    "architecture": "arm64",
+    "binarySha256": "f40c5c650e08c0263ca2045ad651ac4a9ee08baab0266a2be34e7e7efe9978ea",
+    "archiveSha256": "95fdd269e0bf73eff4f2fe20ea13af87718022b14cae4b5fe371ffb6079cc9ed",
+    "markers": [
+      "host.link.open",
+      "io: invalid web link",
+      "io: only HTTP(S) links without credentials are allowed",
+      "max_concurrency"
+    ],
+    "buildUpdaterDmgEqual": true,
+    "resourceProofSha256": "c76bfad667ea408b3c9a6a30a76d575eece598be8dd2a9665d9eb4332eb5d0d6",
+    "resourceAssets": 151,
+    "codeSignatureVerified": true,
+    "notarizationVerified": true,
+    "defaultConcurrencyProof": "Frozen native source says 3; pair this report with targeted native tests and build log. No numeric binary marker or runtime default execution claimed.",
+    "runtimeWebViewVerified": false,
+    "verifiedAt": "2026-10-28T06:08:02.669380+00:00"
+  },
+  "embedded_resources": {
+    "status": "pass",
+    "binarySha256": "f40c5c650e08c0263ca2045ad651ac4a9ee08baab0266a2be34e7e7efe9978ea",
+    "architecture": "arm64",
+    "depfileSha256": "c213aae6d9c961527a1879079bd2d1bf578bebf23a1c3489c39411b8f0ba744f",
+    "proofScope": "Complete JS/CSS/HTML/share manifest bytes recovered from actual arm64 Mach-O using this build depfile; no runtime WebView or PHF resolver execution.",
+    "runtimeResolverVerified": false,
+    "assets": [
+      {
+        "key": "assets/_virtual_share-editor-kit-CGKqpYSo.js",
+        "bytes": 1420,
+        "sha256": "9cdf11bc547cd9eb73ac80a70d139fb569db3207f85fc9ff2fc3bcef1d6c594f"
+      },
+      {
+        "key": "assets/actions-CmT5jmsB.js",
+        "bytes": 260,
+        "sha256": "02716c4d1fa3bd8a39144497953cc3791e71ca6b609773deadcda486444e1025"
+      },
+      {
+        "key": "assets/actor-BcfALfqK.js",
+        "bytes": 514,
+        "sha256": "fb614abb8676106968b3b0cef7b032b3cfbf098c05a7c24c1d7b44b51d0d22dd"
+      },
+      {
+        "key": "assets/adopt-answer-Ccp8qEIK.js",
+        "bytes": 3376,
+        "sha256": "44c8708bf31a0639af4d9910adb4233507ddb9380c462e627069d1658c97edf8"
+      },
+      {
+        "key": "assets/agent-BHBb2Jyw.js",
+        "bytes": 10556,
+        "sha256": "e71f12edbc4d1b75ec4492a6a9504c3b8b9617812c23eba49ca220c0f4520fa6"
+      },
+      {
+        "key": "assets/answer-card-BBniqQK_.js",
+        "bytes": 4899,
+        "sha256": "7fc8c67c9dfca5df9f27db5eee242c3056896515f368666307dad3ca8fb15ceb"
+      },
+      {
+        "key": "assets/app-4JHJtRpQ.css",
+        "bytes": 3947,
+        "sha256": "2b4460378a32ae47497d0608ac39feb0c7075a68d2fb15125690f293cdd31037"
+      },
+      {
+        "key": "assets/App-BXKXyEkM.css",
+        "bytes": 77139,
+        "sha256": "5377cd1fe1f7c3d9267364401c43f7d179fb23750fd761dcc98bd1a3daa1e8a5"
+      },
+      {
+        "key": "assets/App-Ca_IbdXe.js",
+        "bytes": 1035812,
+        "sha256": "7c9b912209b8151ab5ba2ae3e5acfe9d87d266cd80b56ae4efac0193796ab5c8"
+      },
+      {
+        "key": "assets/attributes-BpEnWNUz.js",
+        "bytes": 13583,
+        "sha256": "027cd8e0ef9c91f9b496c6ab35adb9df7bc9364ee50ac2152af9174ab315442e"
+      },
+      {
+        "key": "assets/autopair-C68TMuZr.js",
+        "bytes": 16105,
+        "sha256": "f7e68d721c1ea26e2f9a64df6153de01b7b3592e5cd1aa1849b4a179a2437425"
+      },
+      {
+        "key": "assets/canvas-view-state-B62vBf3P.js",
+        "bytes": 1071,
+        "sha256": "35284d79c6bb99d944e8c6934622a34cf2f471a1328a7afc23ba72ebdda02a68"
+      },
+      {
+        "key": "assets/CanvasView-7YCrSn1v.js",
+        "bytes": 255976,
+        "sha256": "903b4398df7017d950df6acaf14fab69a52e78de9578881a53fcbe90bc1b79b9"
+      },
+      {
+        "key": "assets/CanvasView-Cq2tvu5I.css",
+        "bytes": 36435,
+        "sha256": "7c92db00dde7bd314396e64c5a2e8901bcaf779601bce1900063f73b3cee6516"
+      },
+      {
+        "key": "assets/CliRunner-BpWRZo2i.js",
+        "bytes": 14172,
+        "sha256": "bd576eae48b1f3344e1c2b52cf39cfe7e881628ffa323f3bfebe6bd3e72a848d"
+      },
+      {
+        "key": "assets/config-Dq-jtDT_.js",
+        "bytes": 2184,
+        "sha256": "4e587fb2e8ea90cedbf0f3a505cf46bd4cd18090e8415d0594772b1249707e43"
+      },
+      {
+        "key": "assets/core-D057gNLN.js",
+        "bytes": 295,
+        "sha256": "9f6c02f639dca80d7b3940ea01ecea67b970536a16cc7b5467bbfb59dd8a61c4"
+      },
+      {
+        "key": "assets/core-uMtBA8D0.js",
+        "bytes": 3421,
+        "sha256": "50380b70a850729eadcec6d04298a98a6ca65dd5456cb1e33f1f3437dc594719"
+      },
+      {
+        "key": "assets/daily--tDLRH87.js",
+        "bytes": 3025,
+        "sha256": "5f862181395267d32d23f75ce9329696721c4d3c0b26b279a01bb12bc9da0403"
+      },
+      {
+        "key": "assets/dailyNotes-BtWe2Osi.js",
+        "bytes": 22664,
+        "sha256": "374feb210ea4d2c779626e3d5f5148c2f1b7ddd4debedf34a717a9a9e07a40c1"
+      },
+      {
+        "key": "assets/dailyNotes-KkREOcf2.css",
+        "bytes": 3002,
+        "sha256": "f9294562b7e2ea66736b9aa8ca042e89dfb3e337f90326bf9d0778a60382555b"
+      },
+      {
+        "key": "assets/debounce-BfO9dz9v-BxUvzCXM.js",
+        "bytes": 2340,
+        "sha256": "1ca8aac60883db9994f82cd987806b9a9f184d49ab94ecfdf17e29e124438340"
+      },
+      {
+        "key": "assets/diagram-render-XJj2kdZx.js",
+        "bytes": 1800,
+        "sha256": "32b743dc28e22bc83b866de2d2a526a5c5c8e672c1898e7f3a37d853f76d8c8c"
+      },
+      {
+        "key": "assets/dimension.helpers-DzxqJQqN-CLJzEffQ.js",
+        "bytes": 23375,
+        "sha256": "696aa59d7e3cd029321a7a9661d177c93477ce480bdb0aea198671caa16615af"
+      },
+      {
+        "key": "assets/edit.utils-CzfeG98N-CW6VLglV.js",
+        "bytes": 718,
+        "sha256": "8a8925f62ad59b9dab768ba84c190974a0eb737ae30b436088ca67dcc757907e"
+      },
+      {
+        "key": "assets/editor-bridge-Bt344HgX.js",
+        "bytes": 10780,
+        "sha256": "112f06fcc23753d3712773ad728c012604bed6549682f1ce595cbeca15b8a4ba"
+      },
+      {
+        "key": "assets/editor-bridge-BYZTj3zW.css",
+        "bytes": 29288,
+        "sha256": "21a9594c348e0d3fd81d235323b5b7d5f42b8d3992fac9570715d8306ccf2ef9"
+      },
+      {
+        "key": "assets/editor-kit-v1.css",
+        "bytes": 25686,
+        "sha256": "e8abde4ed7d1b30abf8ef7c557e79d9917c12f9cb074b63f33377599061123d8"
+      },
+      {
+        "key": "assets/editor-kit-v1.js",
+        "bytes": 3424,
+        "sha256": "96b8556fca6f7f4b037c9aec90c1a22df81082ca91f356ae479d230f04ced829"
+      },
+      {
+        "key": "assets/editor-kit-v2.js",
+        "bytes": 27971,
+        "sha256": "889f61423cbc829f5167f58dfd9e74a7969aa2fb52c96af2d0926b421582d2d1"
+      },
+      {
+        "key": "assets/events-BvSmBueA-COmeqBAB.js",
+        "bytes": 4218,
+        "sha256": "4ab96ef688acd2a91dbcfefb4a8acacd1d62ba549b39ecbd0303652a71edd28d"
+      },
+      {
+        "key": "assets/file-history-focus-BDWmGue5.css",
+        "bytes": 1372,
+        "sha256": "f9d568fb89fa26542540f021d04183a308c890e60f03d4a00e202dd67221a52d"
+      },
+      {
+        "key": "assets/file-history-focus-BR6gHP77.js",
+        "bytes": 47290,
+        "sha256": "8a1c39cbca62c7f1f30d2f1f18c49c8b1a1227e23d82c28eb91442e1dc138045"
+      },
+      {
+        "key": "assets/file-main-CF-RQ-a7.js",
+        "bytes": 64567,
+        "sha256": "623125a72f53f1feaa9016a0669881b2d0d3d50e4e562a1c60614cbd70e9cabc"
+      },
+      {
+        "key": "assets/file-view-pages-Bh9Ei2qn.js",
+        "bytes": 2007,
+        "sha256": "5a3b64d3a164afffd87d0dd9d662269081141346f84e07a8effacb41ae160ad5"
+      },
+      {
+        "key": "assets/filter.button-C8XTWPU2-Bk_B1jMQ.js",
+        "bytes": 904,
+        "sha256": "22ff42412fd3d4c73650d3f251030446cdd23c875ac0748f1f9a8f17eb66fc8f"
+      },
+      {
+        "key": "assets/folder-view.svelte-Dz02OtDE.js",
+        "bytes": 11521,
+        "sha256": "520c2dbdad68d393a15328aa89e5ed9b89129405a65a37a25f09d04cb3576900"
+      },
+      {
+        "key": "assets/FolderView-Cw-5CwBQ.js",
+        "bytes": 18420,
+        "sha256": "79f0ad44426306bff9216da2dee1f0272ddd0b597c9cb3ca5602b026e328616c"
+      },
+      {
+        "key": "assets/FolderView-Dd6hCuhw.css",
+        "bytes": 4088,
+        "sha256": "5fec51bb6fd509b23579a2251641f9c91fb9e0ae4e8536d5a5995305acefc459"
+      },
+      {
+        "key": "assets/GuestPanel-Cn_k46G7.css",
+        "bytes": 345,
+        "sha256": "a2b11b00f69e5daa2e3a4115d1419540e902755f2427b1312458160537e6821b"
+      },
+      {
+        "key": "assets/GuestPanel-Dqh1diFZ.js",
+        "bytes": 10455,
+        "sha256": "0f885a5b2942e5d68a9f430cba1a09ce1d4f54ac1aa1fb20a7f37c9953e38f14"
+      },
+      {
+        "key": "assets/header-cell-renderer-DXhxZMly-CMt4Hh6M.js",
+        "bytes": 6632,
+        "sha256": "963d49df6b1ad33495ad665ff4fc55f15f68bc03b67413dccef13cb1fad1b73d"
+      },
+      {
+        "key": "assets/HistoryPanel-B_CTyptF.css",
+        "bytes": 1687,
+        "sha256": "d0c4fc168a33d8f39fa7d4cfdebc9ff1a54e5b1eb55b5034f35fa742e235f52a"
+      },
+      {
+        "key": "assets/HistoryPanel-CddvOrO7.js",
+        "bytes": 7390,
+        "sha256": "0effb23a7cc25bc3ad3d4a0953cb01650f962719d538d182bb7dc8cfb54ef223"
+      },
+      {
+        "key": "assets/host-config.svelte-e5-tlssb.js",
+        "bytes": 662,
+        "sha256": "31fd416227c1569d7bf6f4ce1d5b55a725b8fdf46a8e33eb5385d58dab0d5644"
+      },
+      {
+        "key": "assets/host-settings.svelte-hFx14Mwm.js",
+        "bytes": 583,
+        "sha256": "47ed61d6608685b79de2f2e64ee83e3bc4a6f03ec2681bb0ba65f4fa40cb5502"
+      },
+      {
+        "key": "assets/hover-store.svelte-Dl7Scmku.js",
+        "bytes": 2214,
+        "sha256": "8766a305e096e98b0103b05afbc91d0dc2fd0a130b1b689462bb22bd5e5e80d6"
+      },
+      {
+        "key": "assets/identity-BHuN3Bnj.js",
+        "bytes": 1528,
+        "sha256": "b71855c80b30e67c010fdbcb4ecf303ad972e4621260a913fd6d27fadf661106"
+      },
+      {
+        "key": "assets/identity-Djt4NXze.js",
+        "bytes": 1495,
+        "sha256": "212e7918aa6e558e8dd154dac08788c5625cdfa8399e45e3c1926c5f69e8b9fa"
+      },
+      {
+        "key": "assets/image-vOippt4I.js",
+        "bytes": 3452,
+        "sha256": "4f87faf7fb66d7390d0ea65d751f39477f186f2b6fe674c7e292a67f66c790b8"
+      },
+      {
+        "key": "assets/ime-B_LCJqxN.js",
+        "bytes": 1315,
+        "sha256": "b3b28192b77971655a316909d2870981cd97e8880af330903571f64b23727791"
+      },
+      {
+        "key": "assets/index-BkQFUAv9.js",
+        "bytes": 333,
+        "sha256": "7ed1e449285ae1d455531dd2d87204f1f5a5cb3a09eb8667ce7f6e7e0de68727"
+      },
+      {
+        "key": "assets/index-BnCMjoY0.js",
+        "bytes": 1025279,
+        "sha256": "3ab364b4d5f603ea0a6b55b5d55817a7778c892bccd4370c04150ee918399e34"
+      },
+      {
+        "key": "assets/index-C2Hgd8a0.js",
+        "bytes": 2283,
+        "sha256": "a96e13eab823e11cbbca1ea2e5e91e6558226fb0cdd9b7003bb7c692b1d78784"
+      },
+      {
+        "key": "assets/index-client-tR8H3m56.js",
+        "bytes": 617,
+        "sha256": "9899767f2525f872c4d44edde498649d54164db2c7c0bf2f5ddcee1f97d8e874"
+      },
+      {
+        "key": "assets/index-CmpDyo29.js",
+        "bytes": 667,
+        "sha256": "ae69eeb4d13c30d2c269241ba717e79c2eb78e186d1c3f90f6a2fe34a7add8db"
+      },
+      {
+        "key": "assets/index-D3k_ilCI.js",
+        "bytes": 3130,
+        "sha256": "14802f9541e41b63b4fff3f469913371a6a4f1e4b76d56f4228b62fd97f21363"
+      },
+      {
+        "key": "assets/index-DIaWlqi9.js",
+        "bytes": 3016,
+        "sha256": "f48dd76a456bc5f980605a81b1c70aa64050eae5fd03470971ef8cf4db6b3730"
+      },
+      {
+        "key": "assets/index-FfEKQygO.js",
+        "bytes": 1904,
+        "sha256": "be3e3ef9ab30948e29c90733ca7269a512369ce8b4adc0436e201c565f5b434c"
+      },
+      {
+        "key": "assets/index-kFtAQYqH.js",
+        "bytes": 98221,
+        "sha256": "7d41f66ff82774f38f04014430e577db0f0ba3ea683ed9a5a3b161431e6cb4d1"
+      },
+      {
+        "key": "assets/index-u_8QeU5l.js",
+        "bytes": 4267,
+        "sha256": "675eee10b9ef6515c91eeab588bce6ee7732b6af2af7a572d337c3c3b31acd40"
+      },
+      {
+        "key": "assets/index-Z0hG0CCj.js",
+        "bytes": 89350,
+        "sha256": "28a606c158f0572d5c1f97ba5d92e70fb1c6791091f9c051647869ef386c705c"
+      },
+      {
+        "key": "assets/input-BOpqMS6f.js",
+        "bytes": 923,
+        "sha256": "6d15b14681a6292e65e1efa54f0b25463123768cb2fd99a97b4c5eddbbaa341e"
+      },
+      {
+        "key": "assets/input-trigger-De2pnkDx.js",
+        "bytes": 1381,
+        "sha256": "0e7f02649b6d11d4faa620f94cd3af9136efdc9e2540756e64995406ff854687"
+      },
+      {
+        "key": "assets/insights-7Hw5t_E9.css",
+        "bytes": 5314,
+        "sha256": "272508692ed9e827f076e019ed0e80b6b02c86fa8d211517e4d24f2b524eafc5"
+      },
+      {
+        "key": "assets/insights-CcBpcRId.js",
+        "bytes": 11787,
+        "sha256": "b4f77724289275008488c44944ed639406c0b1ea1503a97627a9f0c6009125e9"
+      },
+      {
+        "key": "assets/io-DSbeH3Iy.js",
+        "bytes": 703,
+        "sha256": "bb5822e13bff9b37c489bc715ae71e6d99af4406e09345213d75bcec486af21a"
+      },
+      {
+        "key": "assets/json-canvas-BhlYtPVl.js",
+        "bytes": 13999,
+        "sha256": "fd61492969c678c97d4a62664cfa9e3a0a1bf29d7f800282503d6ccadcce1c0d"
+      },
+      {
+        "key": "assets/katex-C8yDF-Ck.js",
+        "bytes": 282659,
+        "sha256": "839ba669117baabdb994365b18320f9a8df7b11ba66249f1ab7ecf731410d4ac"
+      },
+      {
+        "key": "assets/logs-CVFEU-1F.css",
+        "bytes": 2014,
+        "sha256": "72cc43999b77daa6d746f939bc1707d8213a80395dd2b2fe1aa183328faf7079"
+      },
+      {
+        "key": "assets/logs-uLvqbP6c.js",
+        "bytes": 6036,
+        "sha256": "3ff86896e34f6681448fc2a3c11b9e96965f80aa5d2ad9ab8a1e93699b1046cb"
+      },
+      {
+        "key": "assets/markdown-security-mmORVuEK.js",
+        "bytes": 27069,
+        "sha256": "35d124324a1bec78955b756411d8c4a549e6d7e7226bad9afab24f932a0251a0"
+      },
+      {
+        "key": "assets/merge-worker-BVp_TSBi.js",
+        "bytes": 15430,
+        "sha256": "7ec8b66f1e11f8a96ebfeb41f7c0f589bf7c6a065e9f0ea7449422d3fd2d9669"
+      },
+      {
+        "key": "assets/mermaid-loader-Bsdtvqcs.js",
+        "bytes": 1748,
+        "sha256": "01f5eb458c1664c87b7a7067dae767ad387dcb58dfd031c7ca643c4005a5864c"
+      },
+      {
+        "key": "assets/migrate-Btq4e2kq.js",
+        "bytes": 1576,
+        "sha256": "41c81cbbb4db5c21924eea0fef76620e2947b1f30de6e217673937bb5f0be1a2"
+      },
+      {
+        "key": "assets/naming-V0AdnBUR.js",
+        "bytes": 956,
+        "sha256": "e49a55db759e8000fee02dfdc6a782685e3f0049b7c17cbfe8cc088e94ca6fd7"
+      },
+      {
+        "key": "assets/note-home-C2QAJJ8W.js",
+        "bytes": 508,
+        "sha256": "66e23b1f953b5f82a33bb5299ecbbfc2ec8554aeee60a02dbc233884f465799a"
+      },
+      {
+        "key": "assets/note-plugin-BpNN4gy6.js",
+        "bytes": 754,
+        "sha256": "d4d80c931d40f0bd30a30a16ef662dabec56597a4d2ef89334b50027602ac25c"
+      },
+      {
+        "key": "assets/observer-CDRYU9MD.js",
+        "bytes": 382,
+        "sha256": "056990cd0cd78eec53e5e287302cbf37d0c16bebff8d787f6fb4dbe7a6caf981"
+      },
+      {
+        "key": "assets/OutlineEditor-4iJ8jAnZ.css",
+        "bytes": 36494,
+        "sha256": "6caafb5e02afe310e914ea77db6bf2de1077d197c178ea2e285f6b4c3596304f"
+      },
+      {
+        "key": "assets/OutlineEditor-CgJnOXr9.js",
+        "bytes": 63158,
+        "sha256": "5b7eae5f0af1df6508ffb2214fb935236d07c4cb2d343c161411c273e583a6db"
+      },
+      {
+        "key": "assets/OutlinePanel-BfPo7npb.js",
+        "bytes": 21328,
+        "sha256": "14989e83c93c556e02b60dbded3f7e4e69f298afd62e2358223b25a59f6d4878"
+      },
+      {
+        "key": "assets/OutlinePanel-CRH0xwpo.css",
+        "bytes": 5154,
+        "sha256": "21d6b78c645ef28399f6a49e45939382dacbf906fb668bf0d11c2f02c40e640b"
+      },
+      {
+        "key": "assets/paths-CQq9AsVa.js",
+        "bytes": 1246,
+        "sha256": "89db1d6ea326d39045b0e41b159ead0b1beec62f85aae47b44208b16703d355d"
+      },
+      {
+        "key": "assets/pele-loader-Bw-eHOVY.js",
+        "bytes": 462,
+        "sha256": "e610e3d803236e787fcdad842f7339f16ddabe25017b27fa268eb51d27c114e2"
+      },
+      {
+        "key": "assets/pele-renderer-CR0M-4HK.js",
+        "bytes": 671113,
+        "sha256": "4d84c81f0c6e5e71d6253d89e5c1e10be81ec0c7ae85b146951d5f7f49ec9b94"
+      },
+      {
+        "key": "assets/placeholder-plugin-BAiX1056.js",
+        "bytes": 437,
+        "sha256": "591e53e9d2612f6bbaa6e652e90cec27a485a206271cf7e8f6ef006eb3a77317"
+      },
+      {
+        "key": "assets/platform-sync-Bf_gpvhP.js",
+        "bytes": 196,
+        "sha256": "8df5392210393d9ec35659b67c582e3777a48c321d5b2b6bc7f3498b3ca1addd"
+      },
+      {
+        "key": "assets/platform.svelte-uXPk7DNE.js",
+        "bytes": 1051,
+        "sha256": "e7bf93f855094c79ce1a48993a48e848abb7fc78b6026e03e991db9a58385e76"
+      },
+      {
+        "key": "assets/plugin-v1-fPSqY.js",
+        "bytes": 4898,
+        "sha256": "aad2ca81a39518ebbe02e2332e778b3156ddacf93f7b1231b54b7724b778f02d"
+      },
+      {
+        "key": "assets/pluginMarket-Cr-5tRbw.css",
+        "bytes": 21340,
+        "sha256": "d9b27c081aeffa2688d22e7d872d7faa4481944ebc535a053acb7512c140c2e1"
+      },
+      {
+        "key": "assets/pluginMarket-Das2QFSN.js",
+        "bytes": 28033,
+        "sha256": "5ad1e62b6b4ca1905f4cda38d3aa3d640e285df3a4339626f1a274e9cfcb3f37"
+      },
+      {
+        "key": "assets/preload-helper-BlTxHScW.js",
+        "bytes": 1110,
+        "sha256": "1a526fef747c3ce4f3c9dd4b3191886606ffb0447dfd46fb875e565f8381108b"
+      },
+      {
+        "key": "assets/preview-_urkL_B-.js",
+        "bytes": 4071,
+        "sha256": "39807aba32d3468338802cbc67b7c35a4537db4721df360abe33d3666e4ae00f"
+      },
+      {
+        "key": "assets/preview-CR-wM4CY.css",
+        "bytes": 2844,
+        "sha256": "b03cac241fc422973c2a2c561762d96079a39f5022104d48992944d2232b0b4c"
+      },
+      {
+        "key": "assets/props-BcXCKh6g.js",
+        "bytes": 2209,
+        "sha256": "2602e660958c9bc67d60d27cab85d2c7164e70b5ea5a286814612338f8e89708"
+      },
+      {
+        "key": "assets/purify.es-DowdsyMd.js",
+        "bytes": 30463,
+        "sha256": "b0b1c3057789cffebf212fa5b8215cc415bd17e0ee6ba417baa68468362cbeb3"
+      },
+      {
+        "key": "assets/question-capture-B88FWS24.js",
+        "bytes": 2496,
+        "sha256": "8d09470bb4b630b63659bb0a1d8bd9f514aa1452556ac7a628f1aa0920b3e27d"
+      },
+      {
+        "key": "assets/quick-note.svelte-BoQn_zjT.js",
+        "bytes": 2418,
+        "sha256": "d5b269396f012888401c9bfcab3c5a3567f096263ab6258a8fa4d413ed3a748a"
+      },
+      {
+        "key": "assets/records-D6Bx0JP9.js",
+        "bytes": 321,
+        "sha256": "9b4457cc52538450d8456f6857b25e846ded212579aae7437bb0a8a4bdace3a8"
+      },
+      {
+        "key": "assets/render-B0K0LQ0p.js",
+        "bytes": 30995,
+        "sha256": "e35a90dfd9aa243c3d1901eae17e1568edd38bbbf4ad08c6a64667c871c81136"
+      },
+      {
+        "key": "assets/renderer-registry-DIDDciAR.js",
+        "bytes": 1875,
+        "sha256": "78c91a48a65a5083f98e687efcca2387e8b284c74c20af84599fab19b9e1c22a"
+      },
+      {
+        "key": "assets/revo-grid.entry-BCUy9rGP.js",
+        "bytes": 96328,
+        "sha256": "6800bdd9452e337a4a11c9dbede15758b0a5838730696055663c0ef661d17219"
+      },
+      {
+        "key": "assets/revogr-attribution_7.entry-DAZfuY7R.js",
+        "bytes": 29283,
+        "sha256": "bfc5c7b225b48f8c8631e5d7da9b9064214b9f8d1983f4ce6ada82e31865daa1"
+      },
+      {
+        "key": "assets/revogr-clipboard_3.entry-CTlzl6_R.js",
+        "bytes": 9349,
+        "sha256": "801038134f5deb9f3ca1dfd93e3a25db642a9b21068f748b27ffc0f3baef1057"
+      },
+      {
+        "key": "assets/revogr-data_4.entry-Cm2fkuNx.js",
+        "bytes": 30750,
+        "sha256": "6f1440eb296185191d0029d05a69c4e33d06a61a2cc645b9ef0a30dbd4161e7f"
+      },
+      {
+        "key": "assets/revogr-filter-panel.entry-BEkTKgKc.js",
+        "bytes": 14056,
+        "sha256": "c38f1c9c802fcfd4661fdb49a2e0b10482da586b0e1fe7f53859c823831c3c53"
+      },
+      {
+        "key": "assets/run-Bfnn8inD.js",
+        "bytes": 7508,
+        "sha256": "f21ce95b8d9c26ebc0abe53917795398b879c40321221abd2984877e5ed4ea5a"
+      },
+      {
+        "key": "assets/runtime.svelte-BDRPsVai.js",
+        "bytes": 250679,
+        "sha256": "c323bfbe89ad7ee0b56c103d6fbaa1840419a4eb6d91c8d9d2afc27adfacc9e2"
+      },
+      {
+        "key": "assets/save-as-BSQr1O7w.js",
+        "bytes": 1208,
+        "sha256": "ec22a2683eacec4f6a950721a416fb8847cf45e102fe58fac099f7a6de54f8fd"
+      },
+      {
+        "key": "assets/SearchPanel-xjGHaSKu.css",
+        "bytes": 5202,
+        "sha256": "6bbaa6cdaa3d13c3afa7adebc73d2167c90c17f8ea3c74d6c28361df7a779812"
+      },
+      {
+        "key": "assets/SearchPanel-zYDQAKCO.js",
+        "bytes": 10995,
+        "sha256": "6a7921f9be6d2a31ce8ff405e725046cf1d82e3b574987b9b5085ad86745cdda"
+      },
+      {
+        "key": "assets/session-lOp9y7nQ.js",
+        "bytes": 1879,
+        "sha256": "1cedbfe948055ff7232b395daada3117b923f8e230e6a93bcac0169f06695041"
+      },
+      {
+        "key": "assets/settings.svelte-BP23iW9L.js",
+        "bytes": 7760,
+        "sha256": "d28f0f3444d1a6547e5255c15b24fb1b3d240cde69b19a2fbff5b133e1f02b0f"
+      },
+      {
+        "key": "assets/share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js",
+        "bytes": 702876,
+        "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd"
+      },
+      {
+        "key": "assets/share-editor.37ff4e39966614aeb775436c4b4b8ec324d9f433af7a0394c2cc51ab4df6f0d8.css",
+        "bytes": 14794,
+        "sha256": "37ff4e39966614aeb775436c4b4b8ec324d9f433af7a0394c2cc51ab4df6f0d8"
+      },
+      {
+        "key": "assets/share-editor.8ea42391fa93d417d7db544bf9034f3241368cce1df9426ee07fe866ca0673ae.js",
+        "bytes": 1956160,
+        "sha256": "8ea42391fa93d417d7db544bf9034f3241368cce1df9426ee07fe866ca0673ae"
+      },
+      {
+        "key": "assets/shared-config-CBzU7n5d.js",
+        "bytes": 355,
+        "sha256": "007aa06ae99a455e88fa9a538d12db3ca6d0f2bf2c2aecf749e6f27f57035fcd"
+      },
+      {
+        "key": "assets/SideViewSwitcher-BMDyZZGQ.js",
+        "bytes": 2060,
+        "sha256": "035e1488ee65c86dcc4621f909071d06af8891044e46183639d92c5434316b26"
+      },
+      {
+        "key": "assets/SideViewSwitcher-CRqzFutO.css",
+        "bytes": 983,
+        "sha256": "8223b1a0ccb8505a1ed1eb11306978a444d6caadb2b5eabe34b8423f681155bd"
+      },
+      {
+        "key": "assets/smartSearch-DEAYJ9MB.js",
+        "bytes": 71988,
+        "sha256": "9a3a8c5ac1b5998199e58707c50a07aa86541d05041ed54d71f4c54d98e3f107"
+      },
+      {
+        "key": "assets/smartSearch-U0N-aBbN.css",
+        "bytes": 17893,
+        "sha256": "f5265ab1c7057bfc5fb314b3e32d963ca94a5522878eedb578ee822a78bc219d"
+      },
+      {
+        "key": "assets/sotvault.svelte-DAew8ZJJ.js",
+        "bytes": 266016,
+        "sha256": "aa2b30535abbc2db6f0eae977987ff28fa60f7d10f0c6b3cc9f9df51a0cd48be"
+      },
+      {
+        "key": "assets/store.svelte-ChF66O2g.js",
+        "bytes": 4693,
+        "sha256": "a8d37f840a9fd00c0fc4852075f8dc57c7be6441dbfcb943d26991fb6bf877cc"
+      },
+      {
+        "key": "assets/store.svelte-CHmqSUVB.js",
+        "bytes": 968,
+        "sha256": "57738cfc20b137d1c9134fbfbd60aec927ec119818fd7416b66edbce4a356026"
+      },
+      {
+        "key": "assets/tauri-media-resolver-hwDybZJ9.js",
+        "bytes": 1555,
+        "sha256": "388827cd176d4730affad53f7812ec02593600202150115ba02a518ab9f0b421"
+      },
+      {
+        "key": "assets/theme-C_3vBKe-.js",
+        "bytes": 3976,
+        "sha256": "6a3be218307a502cdb1121e475fdcfe65309fe989d3e8ba3baee9a5c8774bb3b"
+      },
+      {
+        "key": "assets/theme-controller.svelte-BlYDTNbz.js",
+        "bytes": 1609,
+        "sha256": "9eeb56527801563f896d6e87138751831df77c17ec89e67a97572d604aef4038"
+      },
+      {
+        "key": "assets/theme-loader-DPxgLZai.js",
+        "bytes": 1252,
+        "sha256": "d8dc52dbdaba391d6a6dd4b449d2290ec29131da8cf5f2ca7736989def8801a6"
+      },
+      {
+        "key": "assets/themes.svelte-Bm6EO1Xy.js",
+        "bytes": 395,
+        "sha256": "2cfea085172caf719c6cc5313c425ab1c1d8b1fd6d65027b919299c4cde6ede6"
+      },
+      {
+        "key": "assets/this-BVAHgI4-.js",
+        "bytes": 451,
+        "sha256": "5f0ca43936896c88ca2776ce470d5f2fc48aa1d66452c0cc930b1a91d3120447"
+      },
+      {
+        "key": "assets/throttle-BEjFQa2l-BDAEv2zw.js",
+        "bytes": 3281,
+        "sha256": "5e8f1ba6aae064692d02e6aecde5816c1db4944161bc5a7dc61b9f1cc6a87455"
+      },
+      {
+        "key": "assets/Toast-B0EoG0S9.js",
+        "bytes": 5144,
+        "sha256": "673daa58180a09d4f24b8513793dcf572a7de45dd82ba146f468e7f6d55f9172"
+      },
+      {
+        "key": "assets/Toast-DGPmvHKY.css",
+        "bytes": 1771,
+        "sha256": "0a0ca4610165a50876f47abdd476ff441d6392aacba76e4a343fc8c49abd6e38"
+      },
+      {
+        "key": "assets/TocPanel-CrdDhUXH.js",
+        "bytes": 4488,
+        "sha256": "721a92585a8590cb8e38fea1d33ed7c7aa8dfafa170a37512082d0ced8e370c3"
+      },
+      {
+        "key": "assets/TocPanel-l-ey1YdZ.css",
+        "bytes": 2442,
+        "sha256": "1e96ba61ab8ac64feb6614e3b4b7caa0abbfed8a436e838667751f9ecff96566"
+      },
+      {
+        "key": "assets/tracker.svelte-wFpwlZkY.js",
+        "bytes": 4216,
+        "sha256": "36e2640b25052f0870e0b6a7f3a6550c4a0c865f622277534afdf13cac1aa424"
+      },
+      {
+        "key": "assets/upload-image-DC-jrxeU.js",
+        "bytes": 1012092,
+        "sha256": "a095cbce2bab0f4d179b4b16bb39e396a3c9721b8a2b5c6c614c86156e6d1901"
+      },
+      {
+        "key": "assets/viewport.helpers-VXhsJZtn-JyZS-WFO.js",
+        "bytes": 9919,
+        "sha256": "c73882e284d1971cc8698a3c8d312357b630ea89f763795c048d5be2e0a3062b"
+      },
+      {
+        "key": "assets/viz-thUrI7x4.js",
+        "bytes": 1352509,
+        "sha256": "66d29edf76ec46b1fc0dbe0a3b540a8c26409b1e09953720ad758e347ce3881d"
+      },
+      {
+        "key": "assets/webview-DIdHCaFl.js",
+        "bytes": 3326,
+        "sha256": "ee3687b9194dba0302d8901adecf6f9677050d59d612ab98cd01aff2556339f1"
+      },
+      {
+        "key": "assets/wikilink-plugin-2aI-u_lZ.js",
+        "bytes": 2714,
+        "sha256": "1c9b8e23612024a74023bc6c767f4c95d65c0578db756e033a535ce4e2d79b5d"
+      },
+      {
+        "key": "assets/window-DIeKRY_p.js",
+        "bytes": 12529,
+        "sha256": "12842b9c67e2b6f02f62ca9982a6514bac48f8dd0ca1aad2dbc73c827849c501"
+      },
+      {
+        "key": "daily-notes.html",
+        "bytes": 2495,
+        "sha256": "72dcb48d563e6729e925331354e283c8b87d5064ab0b74fd29a43bf64140e96b"
+      },
+      {
+        "key": "index.html",
+        "bytes": 724,
+        "sha256": "44fafa6d1178553684ab2bc6698bbfc836ae25ed72ca219491e388309e94d82a"
+      },
+      {
+        "key": "insights.html",
+        "bytes": 2182,
+        "sha256": "ec7ab4a2d90648df8de16c9271d78e7addd44eacd7882dd2036fca763875fcf8"
+      },
+      {
+        "key": "logs.html",
+        "bytes": 1377,
+        "sha256": "855f32c066f3242e2fef555bb6cfaa5ba8a77c2aff9fb7211ada743dd2c64a5c"
+      },
+      {
+        "key": "plugin-market.html",
+        "bytes": 1537,
+        "sha256": "0a7404998401568f6ef54fc0edf64353829300a071386b30af773230f32d206a"
+      },
+      {
+        "key": "preview.html",
+        "bytes": 1042,
+        "sha256": "33e1dd82d1a76e8cddc93b3d94aa328cee28b3e03e57b041a35a95f1fa9ea450"
+      },
+      {
+        "key": "share-editor-manifest.json",
+        "bytes": 871,
+        "sha256": "40ebdbad1c9444f19e8f7bea314a76a17d737fad360ae946babeb3494b06dbb8"
+      },
+      {
+        "key": "smart-search.html",
+        "bytes": 1831,
+        "sha256": "3e6f2158400faa915e986068f8cfa3729029c851933052c06de3a9a0b7eafc34"
+      }
+    ]
+  },
+  "final_notarization": [
+    {
+      "id": "5c5ce559-ec15-4860-a464-0ef851d8edbd",
+      "status": "Accepted",
+      "exit": 0,
+      "timeout900": true,
+      "uploadSucceeded": true,
+      "stdoutSha256": "54bf55f6ce17a404a8d1b087633203a2853fde114b7b97ed6314adab7b0a5846"
+    },
+    {
+      "id": "12cfc4f8-d1c1-46fa-8813-27f30ad6d50f",
+      "status": "Accepted",
+      "exit": 0,
+      "timeout900": true,
+      "uploadSucceeded": true,
+      "stdoutSha256": "4f64ea8a7fe63185f7504ba18fc5729c47adfa8f22e351b9641e4bf63b6442bb"
+    }
+  ],
+  "notarization_roles": {
+    "app": "12cfc4f8-d1c1-46fa-8813-27f30ad6d50f",
+    "dmg": "5c5ce559-ec15-4860-a464-0ef851d8edbd"
+  },
+  "recovery": {
+    "transport": "CLT notarytool 1.1.3; timeout 900 seconds; --no-s3-acceleration",
+    "script_interruption": "Canonical release.sh passed build/sign/notarization stages but git push was rejected after concurrent docs commit ef4cd086 advanced origin/main.",
+    "merge_commit": "8343ca91",
+    "tag_moved": false,
+    "resume": "Original release-upload section resumed through resume-draft.sh using the same staged signed artifacts; no replacement rebuild is claimed.",
+    "unreleased_restoration_commit": "b56134c8",
+    "ebook_1_5_7": "Already independently archived by ef4cd086; not restored a second time."
+  },
+  "public_distribution": {
+    "status": "pass",
+    "tag": "v6.1028.1",
+    "mode": "public",
+    "isDraft": false,
+    "publishedAt": "2026-10-28T06:13:44Z",
+    "assets": [
+      {
+        "name": "note.md-6.1028.1-aarch64.dmg",
+        "bytes": 13460600,
+        "sha256": "dee26f4eab964879cb06c0ff6746e96bad2ed955b16eb35f618a592d0de1027e",
+        "stagedBytesEqual": true
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13506047,
+        "sha256": "95fdd269e0bf73eff4f2fe20ea13af87718022b14cae4b5fe371ffb6079cc9ed",
+        "stagedBytesEqual": true
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "03027d1b7d8b32b208f75487f3a25486098b124f16bdf769c02b66f3e4eed8f0",
+        "stagedBytesEqual": true
+      },
+      {
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "4fd3f7e32b8cb691bb234791925a0836f4d54ee0bf47b2e1cd2bf75d5ffff2f7",
+        "stagedBytesEqual": true
+      }
+    ],
+    "onlyAppleSiliconAssets": true,
+    "latestPlatforms": [
+      "darwin-aarch64"
+    ],
+    "updaterSignatureValid": true,
+    "dmgNotarizationAndGatekeeperValid": true,
+    "anonymousPayloadDownloads": true,
+    "publicLatestEntryVerified": true,
+    "verifiedAt": "2026-10-28T06:15:00.600361+00:00"
+  },
+  "website_routes": {
+    "checked_at": "2026-10-28T06:16:40.041746+00:00",
+    "expected_host": "6.1028.1",
+    "passed": true,
+    "routes": [
+      {
+        "platform": "Apple Silicon Mac",
+        "request": "https://notemd.net/download?os=mac&arch=aarch64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.1028.1/note.md-6.1028.1-aarch64.dmg",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1028.1/note.md-6.1028.1-aarch64.dmg",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      },
+      {
+        "platform": "Intel Mac",
+        "request": "https://notemd.net/download?os=mac&arch=x86_64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-x86_64.dmg",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-x86_64.dmg",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      },
+      {
+        "platform": "Linux Arch aarch64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      },
+      {
+        "platform": "Linux Arch x86_64",
+        "request": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      },
+      {
+        "platform": "Linux Debian arm64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      },
+      {
+        "platform": "Linux Debian amd64",
+        "request": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      },
+      {
+        "platform": "Windows x64",
+        "request": "https://notemd.net/download?os=windows&arch=x86_64",
+        "expected": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+        "status": "302",
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+        "ok": true,
+        "curl_exit": 0,
+        "error": ""
+      }
+    ]
+  },
+  "website_deployment": {
+    "status": "pass",
+    "checkedAt": "2026-10-28T06:16:28.334103+00:00",
+    "commit": "5bc301dad1d3eeaf9b94131f7814f3fa7ad0aadc",
+    "runId": 40642730262,
+    "runUrl": "https://github.com/wizlijun/note.md/actions/runs/40642730262",
+    "pages": [
+      {
+        "locale": "en",
+        "url": "https://notemd.net/",
+        "source": "website/public/index.html",
+        "sha256": "1d3fb3408930558334908d8d52d0c997807d55abd1455c1ed1f33a7bfaeca812",
+        "expectedSha256": "1d3fb3408930558334908d8d52d0c997807d55abd1455c1ed1f33a7bfaeca812",
+        "bytes": 32014,
+        "matchesCommit": true,
+        "curlExit": 0,
+        "error": ""
+      },
+      {
+        "locale": "zh",
+        "url": "https://notemd.net/zh/",
+        "source": "website/public/zh/index.html",
+        "sha256": "d671ff943145df7593b810774cbd5840b234edb3900ae2ad4258322bc816a217",
+        "expectedSha256": "d671ff943145df7593b810774cbd5840b234edb3900ae2ad4258322bc816a217",
+        "bytes": 31875,
+        "matchesCommit": true,
+        "curlExit": 0,
+        "error": ""
+      },
+      {
+        "locale": "de",
+        "url": "https://notemd.net/de/",
+        "source": "website/public/de/index.html",
+        "sha256": "a9e03a1c50c3e458286a32cb2c4e0a5dec5bda1565027ff6e951f0ff4336ef53",
+        "expectedSha256": "a9e03a1c50c3e458286a32cb2c4e0a5dec5bda1565027ff6e951f0ff4336ef53",
+        "bytes": 32809,
+        "matchesCommit": true,
+        "curlExit": 0,
+        "error": ""
+      },
+      {
+        "locale": "ja",
+        "url": "https://notemd.net/ja/",
+        "source": "website/public/ja/index.html",
+        "sha256": "9e2bbed8828fbd35b2beee36fba33ec7e674f27d363d4eb4735180195c758dc7",
+        "expectedSha256": "9e2bbed8828fbd35b2beee36fba33ec7e674f27d363d4eb4735180195c758dc7",
+        "bytes": 34394,
+        "matchesCommit": true,
+        "curlExit": 0,
+        "error": ""
+      }
+    ],
+    "errors": [],
+    "actions": {
+      "head_sha": "5bc301dad1d3eeaf9b94131f7814f3fa7ad0aadc",
+      "status": "completed",
+      "conclusion": "success",
+      "path": ".github/workflows/deploy-website.yml",
+      "html_url": "https://github.com/wizlijun/note.md/actions/runs/40642730262"
+    }
+  },
+  "public_verification_passed": true,
+  "website_verification_passed": true,
+  "worktree_audit": {
+    "generated_at": "2026-10-28T06:00:12.635604+00:00",
+    "host_release_base_tag": "v6.1027.3",
+    "live_remote_main": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+    "candidate_head": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+    "tag_not_yet_frozen": true,
+    "repositories": [
+      {
+        "repository": "/Users/bruce/git/mdeditor",
+        "cached_origin_main": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+        "cached_ref_matches_remote": true,
+        "worktrees": [
+          {
+            "worktree": "/Users/bruce/git/mdeditor",
+            "HEAD": "f9c765d7ed065776087e12f8636ed113eeaf9e0b",
+            "branch": "refs/heads/main",
+            "status_porcelain": [
+              "M plugins-src/agent-run-core/src/harness.rs",
+              " M plugins-src/agent-run-core/src/record.rs",
+              " M plugins-src/agent-run-core/src/scaffold.rs",
+              " M plugins-src/claude-agent/backend/src/engine.rs",
+              " M plugins-src/claude-agent/backend/src/plugin.rs",
+              " M plugins-src/codex-agent/backend/src/engine.rs",
+              " M plugins-src/codex-agent/backend/src/plugin.rs",
+              " M plugins-src/codex-agent/backend/src/runner.rs",
+              " M plugins-src/deepseek-agent/backend/src/engine.rs",
+              " M plugins-src/deepseek-agent/backend/src/plugin.rs",
+              " M plugins-src/next/src/App.kickoff.render.test.ts",
+              " M plugins-src/next/src/App.svelte",
+              " M plugins-src/next/src/components/KickoffPicker.render.test.ts",
+              " M plugins-src/next/src/components/KickoffPicker.svelte",
+              " M plugins-src/next/src/lib/kickoff/client.test.ts",
+              " M plugins-src/next/src/lib/kickoff/client.ts",
+              " M plugins-src/next/src/lib/strings.ts",
+              "?? .pnpm-store/v11/index.db",
+              "?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+              "?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+              "?? docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+              "?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+              "?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+              "?? docs/superpowers/specs/habitat-city.html",
+              "?? plugins-src/codex-agent/backend/tests/capacity.rs",
+              "?? plugins-src/next/src/lib/kickoff/__fixtures__/capacity-status.json"
+            ],
+            "tracked_diff_sha256": "0369b4789674d152f3db383675abcbafe0fd5f6bc7ed22e12b5d4f4eba87d20a",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-claude-kickoff-release",
+            "HEAD": "9b965e3c8ccc997ed108585115a6e790c53503ab",
+            "branch": "refs/heads/release/claude-kickoff-v2",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-ebook-cli",
+            "HEAD": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+            "branch": "refs/heads/feat/ebook-agent-cli",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-next-context",
+            "HEAD": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf",
+            "branch": "refs/heads/fix/next-kickoff-context-review",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-next-kickoff",
+            "HEAD": "0e7276abd522cf89a3fedabe6129a240aa1a61d7",
+            "branch": "refs/heads/feat/next-task-kickoff",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-next-ready",
+            "HEAD": "e5243f5790dbb062e9ae36a11507e1ce843f6a6d",
+            "branch": "refs/heads/fix/next-kickoff-ready",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-next-research",
+            "HEAD": "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075",
+            "branch": "refs/heads/fix/next-agent-research",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-next-research-release",
+            "HEAD": "b8bf61e6f0018f7e5105f9aeefbbdc200bffcec0",
+            "branch": "refs/heads/release/next-agent-research",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          },
+          {
+            "worktree": "/Users/bruce/git/mdeditor-website-610281",
+            "HEAD": "0060082c457b7b01617cc97fb6e2aec9d9356f5a",
+            "branch": "refs/heads/docs/website-6.1028.1",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "preserved; no files imported by this audit"
+          }
+        ],
+        "branches": [
+          {
+            "name": "docs/website-6.1028.1",
+            "head": "0060082c457b7b01617cc97fb6e2aec9d9356f5a",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [
+              "0060082c457b7b01617cc97fb6e2aec9d9356f5a docs(website): announce Apple Silicon 6.1028.1 agent support"
+            ],
+            "patch_equivalence_cherry": [
+              "+ 0060082c457b7b01617cc97fb6e2aec9d9356f5a"
+            ]
+          },
+          {
+            "name": "feat/ebook-agent-cli",
+            "head": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "feat/next-task-kickoff",
+            "head": "0e7276abd522cf89a3fedabe6129a240aa1a61d7",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "fix/next-agent-research",
+            "head": "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [
+              "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075 fix(next): delegate kickoff research to agents and default concurrency to three"
+            ],
+            "patch_equivalence_cherry": [
+              "+ b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075"
+            ]
+          },
+          {
+            "name": "fix/next-kickoff-context-review",
+            "head": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "fix/next-kickoff-ready",
+            "head": "e5243f5790dbb062e9ae36a11507e1ce843f6a6d",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "main",
+            "head": "f9c765d7ed065776087e12f8636ed113eeaf9e0b",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "release/claude-kickoff-v2",
+            "head": "9b965e3c8ccc997ed108585115a6e790c53503ab",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "release/next-agent-research",
+            "head": "b8bf61e6f0018f7e5105f9aeefbbdc200bffcec0",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          }
+        ],
+        "stashes": [
+          {
+            "ref": "stash@{0}",
+            "sha": "7168eb9ab49d429f8e91ebcf2ac1ba9580582402",
+            "subject": "On feat/plugin-market-catalog-redesign: codex-preserve-before-release-6.831.1",
+            "files": [
+              "M\tdocs/superpowers/specs/2026-08-10-windows-download-design.md",
+              "M\tplugins-src/next/src/lib/domain.test.ts",
+              "M\tplugins-src/next/src/lib/domain.ts",
+              "M\tplugins-src/next/src/lib/events.test.ts",
+              "M\tplugins-src/next/src/lib/events.ts",
+              "M\tplugins-src/next/src/lib/model.ts",
+              "M\tplugins-src/next/src/lib/repository.ts",
+              "M\twebsite/src/index.js",
+              "M\twebsite/src/resolve-download.js",
+              "M\twebsite/src/resolve-download.test.ts"
+            ],
+            "scope": "preserved, excluded"
+          },
+          {
+            "ref": "stash@{1}",
+            "sha": "240fdc4c69e1b4789ca1166a95c65b1c7c3999b7",
+            "subject": "On main: stray fix-E/F content left in main's worktree by the roam-inc2 stash incident 2026-08-04; superseded by feat/roam-incremental-2, kept for safety",
+            "files": [
+              "M\tplugins-src/roam-import/backend/src/outline.rs",
+              "M\tplugins-src/roam-import/backend/src/syntax.rs",
+              "M\tplugins-src/roam-import/src/lib/roam-import/syntax.test.ts",
+              "M\tplugins-src/roam-import/src/lib/roam-import/syntax.ts",
+              "M\tsrc/lib/outline/markdown.test.ts",
+              "M\tsrc/lib/outline/markdown.ts"
+            ],
+            "scope": "preserved, excluded"
+          },
+          {
+            "ref": "stash@{2}",
+            "sha": "a904adce51b40b26ac46409b232a5ac61ab3216c",
+            "subject": "On feat/attention-intervals: attention-intervals wip: plugin_host.rs (decision-log 期间保管)",
+            "files": [
+              "M\tsrc-tauri/src/plugin_host.rs"
+            ],
+            "scope": "preserved, excluded"
+          }
+        ]
+      },
+      {
+        "repository": "/Users/bruce/git/mdeditor-host-research-release",
+        "cached_origin_main": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+        "cached_ref_matches_remote": true,
+        "worktrees": [
+          {
+            "worktree": "/Users/bruce/git/mdeditor-host-research-release",
+            "HEAD": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "branch": "refs/heads/main",
+            "status_porcelain": [],
+            "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scope": "active isolated host release"
+          }
+        ],
+        "branches": [
+          {
+            "name": "main",
+            "head": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          },
+          {
+            "name": "release/next-agent-research",
+            "head": "b8bf61e6f0018f7e5105f9aeefbbdc200bffcec0",
+            "comparison_ref": "de1d040e996f2885efae6d87f145de8b4c78d3a7",
+            "not_in_cached_origin_main": [],
+            "patch_equivalence_cherry": []
+          }
+        ],
+        "stashes": []
+      }
+    ],
+    "host_source_changed_paths": [
+      "searchidx/src/origin.rs",
+      "searchidx/tests/fixtures/origin/concept-types.json",
+      "src-tauri/src/plugin_runtime/agent_provider.rs",
+      "src-tauri/src/plugin_runtime/host_api.rs",
+      "src-tauri/src/plugin_runtime/ui_rpc.rs",
+      "src/lib/agent-picker/AgentPicker.render.test.ts",
+      "src/lib/agent-picker/AgentPicker.svelte",
+      "src/lib/agent-picker/types.ts",
+      "src/lib/okf/concept.ts"
+    ],
+    "tested_host_source_bindings": [
+      {
+        "path": "searchidx/src/origin.rs",
+        "sha256": "f286f09a26372f46e944d0baf9689b6f298029396e2dc32989de4f4e1231fb81",
+        "matches_tested_source": true
+      },
+      {
+        "path": "searchidx/tests/fixtures/origin/concept-types.json",
+        "sha256": "311520f01caf5dfeff259b20fb7b092d3a7e87e0ecc2ca23413a2400e7c49247",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/agent_provider.rs",
+        "sha256": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/host_api.rs",
+        "sha256": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/ui_rpc.rs",
+        "sha256": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src/lib/agent-picker/AgentPicker.render.test.ts",
+        "sha256": "76ac75df21b95b4e486b9997e751e9ae54058a379ac4393da1cefc4f444f1151",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src/lib/agent-picker/AgentPicker.svelte",
+        "sha256": "da8c5d4699a07773b90827c77144c4587b8e1f8c7c68d7a93b98756a83476851",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src/lib/agent-picker/types.ts",
+        "sha256": "6a49d3d1518bc345380bc5345a1e0ddff218c7d6398a24629a827aca44bb2f6f",
+        "matches_tested_source": true
+      },
+      {
+        "path": "src/lib/okf/concept.ts",
+        "sha256": "6d03f4379236aae91eac47317c728a7a1ee626da54d721b5192f41fdf9110b7e",
+        "matches_tested_source": true
+      }
+    ],
+    "concurrent_commits": {
+      "ebook": "b35686b0",
+      "defer_changelog": "de1d040e",
+      "host_source_delta_since_16396a42": []
+    },
+    "deferred_changelog": [
+      {
+        "path": "/Users/bruce/git/mdeditor-host-research-release/tasks/host-release/CHANGELOG.md.concurrent-unreleased.txt",
+        "sha256": "26d1bcb6bcd2f9141255f401775a57590e634c2b49d3ed8f5db4849c4543bcf3",
+        "removed_changelog_entries_preserved": true
+      },
+      {
+        "path": "/Users/bruce/git/mdeditor-host-research-release/tasks/host-release/CHANGELOG.zh-CN.md.concurrent-unreleased.txt",
+        "sha256": "1efd7b2c75a175e1968ecafb37dc9a738af81cff2633081812485a0d82884e26",
+        "removed_changelog_entries_preserved": true
+      }
+    ],
+    "rewritten_research_commit_content_comparison": [
+      {
+        "path": "CHANGELOG.md",
+        "equal": false,
+        "original": "67fba7ffa35b4640046d306e85a9df3aae7880bd7a85239a2b0ced1e2470e7a6",
+        "cherry_pick": "57eb43ad061ee99363e7419e89dfad95579141632ecb38432454b630a1916c55"
+      },
+      {
+        "path": "CHANGELOG.zh-CN.md",
+        "equal": false,
+        "original": "6672060d8e688b4ccb945eccf8ebbbd9ceb47c1ac5865fb1fcb4fe79485f72ed",
+        "cherry_pick": "4447cb04a50b4db4cebc472d30d1a8b00912d22c90ce4df3eb125df073885f81"
+      },
+      {
+        "path": "docs/plugin-v2-development.md",
+        "equal": true,
+        "original": "d3beab29cbaa7d44ed0ea83cb60dda3ca58e62a7259d9ade7bdc1c7928230660",
+        "cherry_pick": "d3beab29cbaa7d44ed0ea83cb60dda3ca58e62a7259d9ade7bdc1c7928230660"
+      },
+      {
+        "path": "docs/superpowers/reports/2026-10-28-next-agent-research.md",
+        "equal": true,
+        "original": "d0db85897aa642f52fbf3eb75e17c1d5507af7805eda846d980078cd3efa9ae6",
+        "cherry_pick": "d0db85897aa642f52fbf3eb75e17c1d5507af7805eda846d980078cd3efa9ae6"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-10-28-next-agent-research.md",
+        "equal": true,
+        "original": "e27602b0632bc4273413d68d0ec0a2fbc05aa5be8c4bf73d4b106b19298cf009",
+        "cherry_pick": "e27602b0632bc4273413d68d0ec0a2fbc05aa5be8c4bf73d4b106b19298cf009"
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/lock.rs",
+        "equal": true,
+        "original": "31378202098e28bcc9671646e1b5d9f5df9f2f22d7df8b315d89498f9e999f27",
+        "cherry_pick": "31378202098e28bcc9671646e1b5d9f5df9f2f22d7df8b315d89498f9e999f27"
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/prompt.rs",
+        "equal": true,
+        "original": "99e7d54e9c25bebaa5ec52d31ab17f2bd9bbd62787c11eda7ac590fb21fcbebd",
+        "cherry_pick": "99e7d54e9c25bebaa5ec52d31ab17f2bd9bbd62787c11eda7ac590fb21fcbebd"
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/scaffold.rs",
+        "equal": true,
+        "original": "7e568be03e581017374fa6b4efb4474ed1602229f8f5e6bfa370b848610f45cc",
+        "cherry_pick": "7e568be03e581017374fa6b4efb4474ed1602229f8f5e6bfa370b848610f45cc"
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/task.rs",
+        "equal": true,
+        "original": "a5e4b2ec3d8211e25ddabc6f11d5dd0a185b0b6b05c94da604495086141df9ad",
+        "cherry_pick": "a5e4b2ec3d8211e25ddabc6f11d5dd0a185b0b6b05c94da604495086141df9ad"
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/engine.rs",
+        "equal": true,
+        "original": "6c8734889e42c58136d18e1761a0e658bfa622197fa910cc634372e81c93b0af",
+        "cherry_pick": "6c8734889e42c58136d18e1761a0e658bfa622197fa910cc634372e81c93b0af"
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/plugin.rs",
+        "equal": true,
+        "original": "54f677badcaa4bfebb611c66dad8127a3c2eb19f9df0fc84a5fd14517cdbac73",
+        "cherry_pick": "54f677badcaa4bfebb611c66dad8127a3c2eb19f9df0fc84a5fd14517cdbac73"
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/prompt.rs",
+        "equal": true,
+        "original": "ed72c2a857fe18a01afffa7f1b68a215816e73d349dac2465d0973c6f161b4c1",
+        "cherry_pick": "ed72c2a857fe18a01afffa7f1b68a215816e73d349dac2465d0973c6f161b4c1"
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/task.rs",
+        "equal": true,
+        "original": "84e9d03f4dd6bfb8be1149a77c982e42019e58cb65513a9a979f770f93ec6598",
+        "cherry_pick": "84e9d03f4dd6bfb8be1149a77c982e42019e58cb65513a9a979f770f93ec6598"
+      },
+      {
+        "path": "plugins-src/claude-agent/src/components/SettingsPage.svelte",
+        "equal": true,
+        "original": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b",
+        "cherry_pick": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b"
+      },
+      {
+        "path": "plugins-src/claude-agent/src/lib/settings.test.ts",
+        "equal": true,
+        "original": "29820dda22f0f010fbe18defd31c1bdd9dfe2e151a82a3f5654510754818aea4",
+        "cherry_pick": "29820dda22f0f010fbe18defd31c1bdd9dfe2e151a82a3f5654510754818aea4"
+      },
+      {
+        "path": "plugins-src/claude-agent/src/lib/settings.ts",
+        "equal": true,
+        "original": "ae4d7deb110bd5fd0a44f6f21abf7fb38caccb8740a5a6d5884b166cea92307f",
+        "cherry_pick": "ae4d7deb110bd5fd0a44f6f21abf7fb38caccb8740a5a6d5884b166cea92307f"
+      },
+      {
+        "path": "plugins-src/claude-agent/src/lib/strings.ts",
+        "equal": true,
+        "original": "d10fcc3d2a84ec4d4ce6dca5726b99d40f25f35e5394f150c58fbf0cfe4d33ba",
+        "cherry_pick": "d10fcc3d2a84ec4d4ce6dca5726b99d40f25f35e5394f150c58fbf0cfe4d33ba"
+      },
+      {
+        "path": "plugins-src/claude-agent/src/ui.render.test.ts",
+        "equal": true,
+        "original": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68",
+        "cherry_pick": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68"
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/argv.rs",
+        "equal": true,
+        "original": "9e54e3d4c9de56bf20851584c763c298e8bc19a92a400716835f181558ec0ce0",
+        "cherry_pick": "9e54e3d4c9de56bf20851584c763c298e8bc19a92a400716835f181558ec0ce0"
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/engine.rs",
+        "equal": true,
+        "original": "a8f43c505c1d70789c8d559470946f5caf781b90e69274a14093b66c06b8078a",
+        "cherry_pick": "a8f43c505c1d70789c8d559470946f5caf781b90e69274a14093b66c06b8078a"
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/plugin.rs",
+        "equal": true,
+        "original": "45b93847e766f44dc07f9c91cd9845005c4e3fb0467bcadb4133d72bd352a4bc",
+        "cherry_pick": "45b93847e766f44dc07f9c91cd9845005c4e3fb0467bcadb4133d72bd352a4bc"
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/runner.rs",
+        "equal": true,
+        "original": "51a61e8e2d8c960ca60fb67050a8269e07f177338511a9e3a8e93e35b259b277",
+        "cherry_pick": "51a61e8e2d8c960ca60fb67050a8269e07f177338511a9e3a8e93e35b259b277"
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/stream.rs",
+        "equal": true,
+        "original": "56e17a899fbb757e25788c4b06214c7efc8ae7a8dd7f6efade032ad08fa35b56",
+        "cherry_pick": "56e17a899fbb757e25788c4b06214c7efc8ae7a8dd7f6efade032ad08fa35b56"
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/tests/fixtures/kickoff-v3-progress.jsonl",
+        "equal": true,
+        "original": "6d3f7e1e3e605455c5923e8fe5b2a559195c564720d5adcbf9d590e13fce0658",
+        "cherry_pick": "6d3f7e1e3e605455c5923e8fe5b2a559195c564720d5adcbf9d590e13fce0658"
+      },
+      {
+        "path": "plugins-src/codex-agent/src/components/SettingsPage.svelte",
+        "equal": true,
+        "original": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b",
+        "cherry_pick": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b"
+      },
+      {
+        "path": "plugins-src/codex-agent/src/lib/settings.test.ts",
+        "equal": true,
+        "original": "29820dda22f0f010fbe18defd31c1bdd9dfe2e151a82a3f5654510754818aea4",
+        "cherry_pick": "29820dda22f0f010fbe18defd31c1bdd9dfe2e151a82a3f5654510754818aea4"
+      },
+      {
+        "path": "plugins-src/codex-agent/src/lib/settings.ts",
+        "equal": true,
+        "original": "ae4d7deb110bd5fd0a44f6f21abf7fb38caccb8740a5a6d5884b166cea92307f",
+        "cherry_pick": "ae4d7deb110bd5fd0a44f6f21abf7fb38caccb8740a5a6d5884b166cea92307f"
+      },
+      {
+        "path": "plugins-src/codex-agent/src/lib/strings.ts",
+        "equal": true,
+        "original": "a6b582abe371c2dcbdf68b9a6735625b93a014d563d2eda44aa05c6448da5fe5",
+        "cherry_pick": "a6b582abe371c2dcbdf68b9a6735625b93a014d563d2eda44aa05c6448da5fe5"
+      },
+      {
+        "path": "plugins-src/codex-agent/src/ui.render.test.ts",
+        "equal": true,
+        "original": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68",
+        "cherry_pick": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/bin/stub_acp.rs",
+        "equal": true,
+        "original": "fd7c7f4cbf871f90cc8f8953039fbf747e7a2b46b8fe22b8d832cf6f499005da",
+        "cherry_pick": "fd7c7f4cbf871f90cc8f8953039fbf747e7a2b46b8fe22b8d832cf6f499005da"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/composition.rs",
+        "equal": true,
+        "original": "e46f55711c6fea428150f1cead992e7d193ae5a8190223776d054004c48216ba",
+        "cherry_pick": "e46f55711c6fea428150f1cead992e7d193ae5a8190223776d054004c48216ba"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/engine.rs",
+        "equal": true,
+        "original": "09b7e52af7629e368ddac977067b19c3731ea4f10479a1d37e38fdcabc04f09d",
+        "cherry_pick": "09b7e52af7629e368ddac977067b19c3731ea4f10479a1d37e38fdcabc04f09d"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/plugin.rs",
+        "equal": true,
+        "original": "1806276f996927d060b1c05b432bc4a13c2a27cffa1cc377941d8842020ff6fa",
+        "cherry_pick": "1806276f996927d060b1c05b432bc4a13c2a27cffa1cc377941d8842020ff6fa"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/components/SettingsPage.svelte",
+        "equal": true,
+        "original": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b",
+        "cherry_pick": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/lib/settings.test.ts",
+        "equal": true,
+        "original": "29820dda22f0f010fbe18defd31c1bdd9dfe2e151a82a3f5654510754818aea4",
+        "cherry_pick": "29820dda22f0f010fbe18defd31c1bdd9dfe2e151a82a3f5654510754818aea4"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/lib/settings.ts",
+        "equal": true,
+        "original": "ae4d7deb110bd5fd0a44f6f21abf7fb38caccb8740a5a6d5884b166cea92307f",
+        "cherry_pick": "ae4d7deb110bd5fd0a44f6f21abf7fb38caccb8740a5a6d5884b166cea92307f"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/lib/strings.ts",
+        "equal": true,
+        "original": "9c1486ddfec7b3c6793f0038e5da5c101989ee58c4acfa4a24d8dd6686822979",
+        "cherry_pick": "9c1486ddfec7b3c6793f0038e5da5c101989ee58c4acfa4a24d8dd6686822979"
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/ui.render.test.ts",
+        "equal": true,
+        "original": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68",
+        "cherry_pick": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68"
+      },
+      {
+        "path": "plugins-src/next/CHANGELOG.md",
+        "equal": true,
+        "original": "ee3f57b9e61ddc59cd55359f1677f37fda5d957e575eada2f86bf3da564bf1d3",
+        "cherry_pick": "ee3f57b9e61ddc59cd55359f1677f37fda5d957e575eada2f86bf3da564bf1d3"
+      },
+      {
+        "path": "plugins-src/next/manifest.v2.json",
+        "equal": true,
+        "original": "f4130c916907b40b85f09d7f8292df06e3a1200e048034d6071d17153f07bada",
+        "cherry_pick": "f4130c916907b40b85f09d7f8292df06e3a1200e048034d6071d17153f07bada"
+      },
+      {
+        "path": "plugins-src/next/src/App.kickoff.render.test.ts",
+        "equal": true,
+        "original": "efa648a557084ac03db155cdbb4e52a3011ee01704cf0166b816c72d756c757d",
+        "cherry_pick": "efa648a557084ac03db155cdbb4e52a3011ee01704cf0166b816c72d756c757d"
+      },
+      {
+        "path": "plugins-src/next/src/App.svelte",
+        "equal": true,
+        "original": "3864a059afec0d508e08c46e690b815b31b7b20b4070cf54b32864d9626a0583",
+        "cherry_pick": "3864a059afec0d508e08c46e690b815b31b7b20b4070cf54b32864d9626a0583"
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffConsent.render.test.ts",
+        "equal": true,
+        "original": "786b0a7557d9e76c3b8c0f1b622efb25edd9ee7204932f601f700eb0664fe46c",
+        "cherry_pick": "786b0a7557d9e76c3b8c0f1b622efb25edd9ee7204932f601f700eb0664fe46c"
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffConsent.svelte",
+        "equal": true,
+        "original": "114d2d4d294162e8d363d23dfe5211167b6160511eb35ada0a39f7d97effe1cd",
+        "cherry_pick": "114d2d4d294162e8d363d23dfe5211167b6160511eb35ada0a39f7d97effe1cd"
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffPicker.render.test.ts",
+        "equal": true,
+        "original": "89682e16bab88c0b25885a72d56d5a379b8141d6f415c89c9dd47a3bef735987",
+        "cherry_pick": "89682e16bab88c0b25885a72d56d5a379b8141d6f415c89c9dd47a3bef735987"
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffSheet.render.test.ts",
+        "equal": true,
+        "original": "b9e4802335fd9872ca2ff8ecf07b22d3fd60dbb5a8fba12a971704d77770bd28",
+        "cherry_pick": "b9e4802335fd9872ca2ff8ecf07b22d3fd60dbb5a8fba12a971704d77770bd28"
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffSheet.svelte",
+        "equal": true,
+        "original": "df23f508f4b9c9b94a8bbd07fbb40393bcc8e1963839ebf2f4d757fd84b7a9f0",
+        "cherry_pick": "df23f508f4b9c9b94a8bbd07fbb40393bcc8e1963839ebf2f4d757fd84b7a9f0"
+      },
+      {
+        "path": "plugins-src/next/src/lib/bridge.ts",
+        "equal": true,
+        "original": "da1a32537e6bc4eb9d637b3ca348130af682d78c2ddaab1fa037b86dedc31797",
+        "cherry_pick": "da1a32537e6bc4eb9d637b3ca348130af682d78c2ddaab1fa037b86dedc31797"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/client.test.ts",
+        "equal": true,
+        "original": "3cecbe067ba84ea1b38731ad79773185ced40c73f996682f98804c8d2f3ad4df",
+        "cherry_pick": "3cecbe067ba84ea1b38731ad79773185ced40c73f996682f98804c8d2f3ad4df"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/client.ts",
+        "equal": true,
+        "original": "69e8bb7671e9531650778e178172cc3baa1236d1b9f11c8203c4e16189860bb1",
+        "cherry_pick": "69e8bb7671e9531650778e178172cc3baa1236d1b9f11c8203c4e16189860bb1"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/context.test.ts",
+        "equal": true,
+        "original": null,
+        "cherry_pick": null
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/context.ts",
+        "equal": true,
+        "original": null,
+        "cherry_pick": null
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/document.test.ts",
+        "equal": true,
+        "original": "3d6bcfce23f3da81b685cb3df221b5f92130c39e371287a79cd28c6c1fee186a",
+        "cherry_pick": "3d6bcfce23f3da81b685cb3df221b5f92130c39e371287a79cd28c6c1fee186a"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/payload.test.ts",
+        "equal": true,
+        "original": "ad1be73cb6e376f2794f5e2e6a8f21827534bf3aee9afb8ae6b7efd5f9e255b2",
+        "cherry_pick": "ad1be73cb6e376f2794f5e2e6a8f21827534bf3aee9afb8ae6b7efd5f9e255b2"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/payload.ts",
+        "equal": true,
+        "original": "782c71ae071ccf11fa36742e7f69be6e2013b96a32d3683672987315eac60551",
+        "cherry_pick": "782c71ae071ccf11fa36742e7f69be6e2013b96a32d3683672987315eac60551"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/registry.ts",
+        "equal": true,
+        "original": "6c47f397485d2491f43558d6862710129cc400be53f06d5bf9bab32e9fd6da35",
+        "cherry_pick": "6c47f397485d2491f43558d6862710129cc400be53f06d5bf9bab32e9fd6da35"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/source.ts",
+        "equal": true,
+        "original": "8863945f6402e0308b0049201e2beb8dd8c883336654dd6e8f647da561e35419",
+        "cherry_pick": "8863945f6402e0308b0049201e2beb8dd8c883336654dd6e8f647da561e35419"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/template.test.ts",
+        "equal": true,
+        "original": "9c155d6914797a25068e94317d837a15f9f3d16e537efd08130ffcdf87220471",
+        "cherry_pick": "9c155d6914797a25068e94317d837a15f9f3d16e537efd08130ffcdf87220471"
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/template.ts",
+        "equal": true,
+        "original": "b9f6bbdaa4905684551a230d5812f54e3738909439e22bd3bf3a95d1d56c4c4a",
+        "cherry_pick": "b9f6bbdaa4905684551a230d5812f54e3738909439e22bd3bf3a95d1d56c4c4a"
+      },
+      {
+        "path": "plugins-src/next/src/lib/strings.ts",
+        "equal": true,
+        "original": "a70d61b6b798fed2590c5c9337b422ab2d133ecc6b2bfbfd602916be7e654710",
+        "cherry_pick": "a70d61b6b798fed2590c5c9337b422ab2d133ecc6b2bfbfd602916be7e654710"
+      },
+      {
+        "path": "scripts/verify-next-dsh-research.mjs",
+        "equal": true,
+        "original": "3d19ecad8e75f0908dec2eb131431f6774de9a046166038a9527ef6f288d72e1",
+        "cherry_pick": "3d19ecad8e75f0908dec2eb131431f6774de9a046166038a9527ef6f288d72e1"
+      },
+      {
+        "path": "scripts/verify-next-search-readonly.mjs",
+        "equal": true,
+        "original": "c6460a20538b33f3c0cc08bbd72026f77b1bcf5e51d16b8ccf0313ab9c9e5360",
+        "cherry_pick": "c6460a20538b33f3c0cc08bbd72026f77b1bcf5e51d16b8ccf0313ab9c9e5360"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/agent_provider.rs",
+        "equal": true,
+        "original": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55",
+        "cherry_pick": "1fcaa9bf7a7a213e050e0bd9129616a92d627bab658a63356bb11dd124bc7d55"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/host_api.rs",
+        "equal": true,
+        "original": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8",
+        "cherry_pick": "f9c3aec25116627267bbf765d6f315a902cfdba0d7f54366d64df39cc4fce7e8"
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/ui_rpc.rs",
+        "equal": true,
+        "original": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942",
+        "cherry_pick": "15a14461899cb7a48bbbc558bfbb9d516f7025a3dfb6abc7d8b9b975b6434942"
+      }
+    ],
+    "changes_since_prior_audit": [
+      {
+        "worktree": "/Users/bruce/git/mdeditor-ebook-cli",
+        "old_head": "8b60fa06588648abf128e43a3deba2328812a139",
+        "new_head": "b35686b07f314639b93d6280b4462c7b2d51a81c",
+        "status_changed": false
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-website-610281",
+        "old_head": null,
+        "new_head": "0060082c457b7b01617cc97fb6e2aec9d9356f5a",
+        "status_changed": true
+      }
+    ],
+    "verifier_review": {
+      "status": "no release blocker found; final package verification pending",
+      "native_scope_gap": "verify-native.py excludes searchidx from workspace diff and reports only four frozen files; final report must bind all nine tested_host_source_bindings against final tag, which this audit binds only to pre-tag candidate.",
+      "proof_boundary": "No real app/WebView launch. Default3 semantics from native tests plus frozen source/build provenance; link markers alone not behavior evidence.",
+      "remaining_steps": [
+        "Final tag must retain all nine tested host hashes",
+        "Restore both original and concurrent deferred plugin changelog entries after tag freeze",
+        "Native, draft and public artifact verifier results must pass before claiming release completion"
+      ]
+    }
+  },
+  "preservation_verification": {
+    "rootTrackedDiffMatchesOriginal": true,
+    "rootDiffSha256": "0369b4789674d152f3db383675abcbafe0fd5f6bc7ed22e12b5d4f4eba87d20a",
+    "rootStatus": [
+      " M plugins-src/agent-run-core/src/harness.rs",
+      " M plugins-src/agent-run-core/src/record.rs",
+      " M plugins-src/agent-run-core/src/scaffold.rs",
+      " M plugins-src/claude-agent/backend/src/engine.rs",
+      " M plugins-src/claude-agent/backend/src/plugin.rs",
+      " M plugins-src/codex-agent/backend/src/engine.rs",
+      " M plugins-src/codex-agent/backend/src/plugin.rs",
+      " M plugins-src/codex-agent/backend/src/runner.rs",
+      " M plugins-src/deepseek-agent/backend/src/engine.rs",
+      " M plugins-src/deepseek-agent/backend/src/plugin.rs",
+      " M plugins-src/next/src/App.kickoff.render.test.ts",
+      " M plugins-src/next/src/App.svelte",
+      " M plugins-src/next/src/components/KickoffPicker.render.test.ts",
+      " M plugins-src/next/src/components/KickoffPicker.svelte",
+      " M plugins-src/next/src/lib/kickoff/client.test.ts",
+      " M plugins-src/next/src/lib/kickoff/client.ts",
+      " M plugins-src/next/src/lib/strings.ts",
+      "?? .pnpm-store/",
+      "?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+      "?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+      "?? docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+      "?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+      "?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+      "?? docs/superpowers/specs/habitat-city.html",
+      "?? plugins-src/codex-agent/backend/tests/",
+      "?? plugins-src/next/src/lib/kickoff/__fixtures__/capacity-status.json"
+    ],
+    "stashCount": 3,
+    "temporaryNotaryTimeoutPreferenceRestoredAbsent": true,
+    "noApplicationInstall": true,
+    "noRealVaultMutation": true
+  },
+  "evidence_digests": {
+    "preservation": {
+      "file": "tasks/host-release/preservation-verification.json",
+      "sha256": "cb957837e366c7d1faeded5079ccbae5439b6b772ea969a7f1cca95ecedbf27b"
+    },
+    "release_gates": {
+      "file": "tasks/host-release/release-gates.json",
+      "sha256": "43cf26c1d799a53780e1d765b5f836784760ddf4678116d8e9aa0cd56487f3cc"
+    },
+    "native_tests": {
+      "file": "tasks/host-release/native-test-summary.json",
+      "sha256": "548b004cd7cae1c854da055e37b4cbc0955962cbd6198e8ce774000d2ccd418e"
+    },
+    "source_bindings": {
+      "file": "tasks/host-release/frozen-tag-source-bindings.json",
+      "sha256": "0adeeb7df6bf1778199843416eae5c8ea48487af9c20d7cf2ec65911fde9c53a"
+    },
+    "native_payload": {
+      "file": "tasks/host-release/verification/native-payload.json",
+      "sha256": "a8573961b3d4a1b1d5ff07d700f92ccfbef240f6766fffb1d0d665835f989e1a"
+    },
+    "embedded_resources": {
+      "file": "tasks/host-release/verification/embedded-resources.json",
+      "sha256": "c76bfad667ea408b3c9a6a30a76d575eece598be8dd2a9665d9eb4332eb5d0d6"
+    },
+    "notarization": {
+      "file": "tasks/host-release/final-notarization.json",
+      "sha256": "bdb90995e90283b3a571c4ece8378b68369f973c67911795f68bad47dfef5a45"
+    },
+    "audit": {
+      "file": "tasks/host-release/git-audit-refreshed.json",
+      "sha256": "3dfefb6696a007e1639d3f59a2b1ffe5518e3cc93eb99238f69129e865a9f1d9"
+    },
+    "public_distribution": {
+      "file": "tasks/host-release/verification/public-distribution.json",
+      "sha256": "175367280608aca9e9882233898aac53823257de67e17df28fad2b8d02629879"
+    },
+    "website_routes": {
+      "file": "tasks/host-release/website-route-evidence.json",
+      "sha256": "74d1cd80b4fb44f24d3ef96d0f7a8fbac885f221c423f39e3b750109e0fac032"
+    },
+    "website_deployment": {
+      "file": "tasks/host-release/website-deployment.json",
+      "sha256": "e9a6cccd588b14f5fa70188295e6f7a3682950d4c46c49cd457250c92d84d6e1"
+    }
+  },
+  "limits": [
+    "353 targeted native tests prove behavior under StubServices, not a live signed WebView/browser interaction.",
+    "Nine paths bind tested source to frozen tag; embedded resource recovery binds 151 asset byte sequences to the actual Mach-O, not execution of the PHF resolver or WebView.",
+    "Default concurrency 3 is established through frozen native source plus regression/build evidence; no numeric binary marker or actual runtime default execution is claimed.",
+    "Original dirty worktrees/untracked files/stashes remain preserved and excluded; no plugin republishing in this host release."
+  ],
+  "final_plugin_market_verification": {
+    "verifiedAt": "2026-10-28T06:17:39.107977+00:00",
+    "url": "https://plugins.notemd.net/api/index.json",
+    "anonymous": true,
+    "entries": 293,
+    "indexSha256": "31a4edc82b2ffb1674d06978c816ee7a543664f9682c673dbe8564f10c756443",
+    "fourVersionsRemainLatest": true,
+    "plugins": [
+      {
+        "id": "notemd.next",
+        "version": "1.13.0",
+        "min_host": ">=6.1027.1",
+        "sha256": {
+          "universal": "2274d569e72094e6d008bfd9006bd862d639fa6de85d5d611fa6094beadc4e18"
+        },
+        "archs": [
+          "universal"
+        ]
+      },
+      {
+        "id": "notemd.codex-agent",
+        "version": "1.1.0",
+        "min_host": ">=6.905.6",
+        "sha256": {
+          "aarch64-apple-darwin": "5745e35050fba45c327bf10c81c0882193f9ee2080aa3df15203d22d057acdec",
+          "x86_64-apple-darwin": "0f532dc663d4d199c5e934cd237b32717c31b179fdf20511fbbb2ee3830d6821"
+        },
+        "archs": [
+          "aarch64-apple-darwin",
+          "x86_64-apple-darwin"
+        ]
+      },
+      {
+        "id": "notemd.deepseek-agent",
+        "version": "1.2.0",
+        "min_host": ">=6.905.6",
+        "sha256": {
+          "aarch64-apple-darwin": "41015db8f9d53ba3e9ae50438e3579d8fcaf9c9c98f1320b34a2d0c02ea18bd6",
+          "x86_64-apple-darwin": "aeac8cbb192d9cf23a3f1511251743165c00f2827da9eb06ef6074c0bf909a20"
+        },
+        "archs": [
+          "aarch64-apple-darwin",
+          "x86_64-apple-darwin"
+        ]
+      },
+      {
+        "id": "notemd.claude-agent",
+        "version": "1.1.0",
+        "min_host": ">=6.905.6",
+        "sha256": {
+          "aarch64-apple-darwin": "46a10a70207a37cc45ff026cc87dc09add9341d654143ff4bcd97a9af4cc09d3",
+          "x86_64-apple-darwin": "37bb4c5f96f7ae0093f589beab0f9e3b4dc5e2170ed372957e15b092002cbce6"
+        },
+        "archs": [
+          "aarch64-apple-darwin",
+          "x86_64-apple-darwin"
+        ]
+      }
+    ]
+  }
+}
