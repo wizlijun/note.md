@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.next",
   "name": "Next",
-  "version": "1.12.1",
+  "version": "1.13.0",
   "kind": "native",
   "engines": {
     "notemd": ">=6.1027.1"
@@ -48,6 +48,7 @@
     "vault.write",
     "editor.open",
     "link.open",
+    "clipboard.write",
     "toast",
     "settings",
     "task.hook",

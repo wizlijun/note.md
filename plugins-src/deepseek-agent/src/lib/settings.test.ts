@@ -34,6 +34,29 @@ describe('agent concurrency settings', () => {
     expect(hostRequest).toHaveBeenCalledWith('host.settings.get')
   })
 
+  it('persists three when the key is absent so older hosts use the same default', async () => {
+    hostRequest.mockResolvedValueOnce({ settings: { usageDisplay: 'result' } })
+      .mockResolvedValueOnce({ ok: true })
+    await expect(loadMaxConcurrency()).resolves.toBe(3)
+    expect(hostRequest.mock.calls).toEqual([
+      ['host.settings.get'],
+      ['host.settings.set', { key: 'maxConcurrency', value: '3' }],
+    ])
+  })
+
+  it.each(['1', 1, '4', null, '', false, 0, 'nope'])('never overwrites an explicitly stored value: %j', async value => {
+    hostRequest.mockResolvedValue({ settings: { maxConcurrency: value } })
+    await expect(loadMaxConcurrency()).resolves.toBe(normalizeMaxConcurrency(value))
+    expect(hostRequest).toHaveBeenCalledTimes(1)
+    expect(hostRequest).toHaveBeenCalledWith('host.settings.get')
+  })
+
+  it('reports failure when the default cannot be persisted', async () => {
+    hostRequest.mockResolvedValueOnce({ settings: {} })
+      .mockRejectedValueOnce(new Error('store unavailable'))
+    await expect(loadMaxConcurrency()).rejects.toThrow('store unavailable')
+  })
+
   it('persists the normalized value under the local maxConcurrency key', async () => {
     hostRequest.mockResolvedValue({ ok: true })
     await expect(saveMaxConcurrency(9)).resolves.toBe(5)

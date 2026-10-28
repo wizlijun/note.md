@@ -72,6 +72,7 @@ export type MessageKey =
   | 'kickoff.saved'
   | 'kickoff.saveError'
   | 'kickoff.readyNotice'
+  | 'kickoff.sourceCopied'
   | 'kickoff.source'
   | 'kickoff.field.commitment'
   | 'kickoff.field.next_action'
@@ -465,6 +466,7 @@ const en: Catalog = {
   "kickoff.saved": "Answers saved",
   "kickoff.saveError": "Could not save answers. Your answers are kept here.",
   "kickoff.readyNotice": "Kickoff is ready",
+  "kickoff.sourceCopied": "This host cannot open web links directly yet. The source link was copied; paste it into your browser.",
   "kickoff.source": "Open source: {title}",
   "kickoff.field.commitment": "Commitment",
   "kickoff.field.next_action": "Next action",
@@ -857,6 +859,7 @@ const zh: Catalog = {
   "kickoff.saved": "答案已保存",
   "kickoff.saveError": "答案未能保存，已保留当前输入。",
   "kickoff.readyNotice": "开头已就绪",
+  "kickoff.sourceCopied": "此宿主暂不支持直接打开网页。已复制来源链接，请粘贴到浏览器打开。",
   "kickoff.source": "打开来源：{title}",
   "kickoff.field.commitment": "承担表述",
   "kickoff.field.next_action": "下一步",
@@ -1249,6 +1252,7 @@ const ja: Catalog = {
   "kickoff.saved": "回答を保存しました",
   "kickoff.saveError": "回答を保存できませんでした。入力は保持されています。",
   "kickoff.readyNotice": "結果ができました",
+  "kickoff.sourceCopied": "このホストはまだ Web リンクを直接開けません。出典リンクをコピーしました。ブラウザーに貼り付けてください。",
   "kickoff.source": "出典を開く：{title}",
   "kickoff.field.commitment": "取り組むこと",
   "kickoff.field.next_action": "次の行動",
@@ -1641,6 +1645,7 @@ const de: Catalog = {
   "kickoff.saved": "Antworten gespeichert",
   "kickoff.saveError": "Antworten konnten nicht gespeichert werden. Ihre Eingaben bleiben erhalten.",
   "kickoff.readyNotice": "Einstieg ist bereit",
+  "kickoff.sourceCopied": "Dieser Host kann Weblinks noch nicht direkt öffnen. Der Quellenlink wurde kopiert. Fügen Sie ihn in Ihren Browser ein.",
   "kickoff.source": "Quelle öffnen: {title}",
   "kickoff.field.commitment": "Vorhaben",
   "kickoff.field.next_action": "Nächster Schritt",

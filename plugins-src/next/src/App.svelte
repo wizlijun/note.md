@@ -320,8 +320,9 @@
 
   async function openKickoffFile(path: string) {
     try {
-      if (isWebSource(path)) await linkOpen(path)
-      else if (safeVaultSource(path)) await editorOpen(path)
+      if (isWebSource(path)) {
+        if (await linkOpen(path) === 'copied') await toast('info', t('kickoff.sourceCopied'))
+      } else if (safeVaultSource(path)) await editorOpen(path)
       else throw new Error('Invalid source link')
     }
     catch (error) { await toast('error', t('error.open'), String(error)) }

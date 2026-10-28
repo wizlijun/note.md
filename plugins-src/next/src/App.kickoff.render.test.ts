@@ -305,6 +305,18 @@ describe('App kickoff integration', () => {
     expect(mocks.linkOpen).toHaveBeenCalledWith(resource)
     expect(mocks.editorOpen).not.toHaveBeenCalled()
   })
+  it('explains when the source link was copied on an older host', async () => {
+    const resource = 'https://research.example/recent-article'
+    mocks.linkOpen.mockResolvedValueOnce('copied')
+    mocks.snapshot.results[id] = { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff,
+      payload: { ...result.doc.kickoff.payload, sources: [{ ...payload.sources[0], resource }] },
+    } } }
+    await render()
+    click('View kickoff'); await settle()
+    document.querySelector<HTMLButtonElement>('[data-source="s1"]')!.click(); await settle()
+    expect(mocks.toast).toHaveBeenCalledWith('info', 'This host cannot open web links directly yet. The source link was copied; paste it into your browser.')
+    expect(mocks.editorOpen).not.toHaveBeenCalled()
+  })
   it('does not dispatch unsafe persisted web evidence to either bridge', async () => {
     mocks.snapshot.results[id] = { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff,
       payload: { ...result.doc.kickoff.payload, sources: [{ ...payload.sources[0], resource: 'javascript:alert(1)' }] },

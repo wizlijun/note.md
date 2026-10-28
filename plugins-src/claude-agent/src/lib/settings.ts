@@ -14,7 +14,11 @@ export function normalizeMaxConcurrency(value: unknown): number {
 
 export async function loadMaxConcurrency(): Promise<number> {
   const result = await bridge().request('host.settings.get')
-  return normalizeMaxConcurrency(result?.settings?.maxConcurrency)
+  // Persist only an absent key so older hosts also use the new default.
+  if (!Object.prototype.hasOwnProperty.call(result?.settings ?? {}, 'maxConcurrency')) {
+    return saveMaxConcurrency(DEFAULT_MAX_CONCURRENCY)
+  }
+  return normalizeMaxConcurrency(result.settings.maxConcurrency)
 }
 
 export async function saveMaxConcurrency(value: unknown): Promise<number> {

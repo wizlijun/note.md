@@ -1,4 +1,5 @@
 import type { AgentProviders } from './agent-picker/types'
+import { isWebSource } from './kickoff/source'
 
 export interface NotemdBridge {
   pluginId: string
@@ -53,8 +54,18 @@ export function editorOpen(path: string): Promise<{ ok: true }> {
   return bridge().request('host.editor.open', { path })
 }
 
-export function linkOpen(url: string): Promise<{ ok: true }> {
-  return bridge().request('host.link.open', { url })
+export async function linkOpen(url: string): Promise<'opened' | 'copied'> {
+  if (!isWebSource(url)) throw new Error('Invalid source link')
+  try {
+    await bridge().request('host.link.open', { url })
+    return 'opened'
+  } catch (error) {
+    // The host bridge preserves JSON-RPC errors as "code: message".
+    // Only an absent method identifies an older host; other failures must surface.
+    if (!(error instanceof Error) || !/^-32601:/.test(error.message)) throw error
+    await bridge().request('host.clipboard.write', { text: url })
+    return 'copied'
+  }
 }
 
 export async function toast(
