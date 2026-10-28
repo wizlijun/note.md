@@ -180,7 +180,8 @@ pub fn finalize_scoped(
     by: &str,
     include_vault_answers: bool,
 ) -> record::RunRecord {
-    let mut found = if meta.task.strict_readonly { Vec::new() } else { artifacts::collect_with_answers(
+    let message_only = meta.task.strict_readonly || meta.task.id == crate::task::NEXT_KICKOFF_V3;
+    let mut found = if message_only { Vec::new() } else { artifacts::collect_with_answers(
         &meta.vault,
         &meta.task_dir,
         started.started_at,
@@ -205,7 +206,7 @@ pub fn finalize_scoped(
         .as_deref()
         .and_then(|d| artifacts::vault_relative(&meta.vault, d));
     let mut stamped = 0;
-    if let Some(rel) = target_rel.as_ref().filter(|_| !meta.task.strict_readonly) {
+    if let Some(rel) = target_rel.as_ref().filter(|_| !message_only) {
         stamped += okf::stamp_vault_docs(
             &meta.vault,
             std::slice::from_ref(rel),
@@ -359,6 +360,23 @@ mod tests {
         std::fs::write(&output, "Human content").unwrap();
         m.deliverable = Some(output.clone());
         let started = match preflight(&m).await { Ok(value) => value, Err(_) => panic!("preflight blocked") };
+        let rec = finalize_scoped(&m, &started, record::Status::Success, Some(0), None,
+            "done".into(), String::new(), "test/1", true);
+        assert!(rec.artifacts.is_empty());
+        assert_eq!(std::fs::read_to_string(output).unwrap(), "Human content");
+    }
+
+    #[tokio::test]
+    async fn kickoff_v3_result_never_collects_or_stamps_a_declared_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut m = meta(dir.path());
+        m.task.id = crate::task::NEXT_KICKOFF_V3.into();
+        assert!(!m.task.strict_readonly);
+        std::fs::create_dir_all(m.task_dir.join("output")).unwrap();
+        let output = m.task_dir.join("output/note.md");
+        m.deliverable = Some(output.clone());
+        let started = preflight(&m).await.ok().unwrap();
+        std::fs::write(&output, "Human content").unwrap();
         let rec = finalize_scoped(&m, &started, record::Status::Success, Some(0), None,
             "done".into(), String::new(), "test/1", true);
         assert!(rec.artifacts.is_empty());

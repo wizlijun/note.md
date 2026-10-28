@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte'
   import type { KickoffAnswer } from '../lib/kickoff/document'
   import type { KickoffResult } from '../lib/kickoff/client'
+  import { isWebSource, safeVaultSource } from '../lib/kickoff/source'
   import { formatElapsed } from '../lib/kickoff/status'
   import { t, type MessageKey } from '../lib/strings'
 
@@ -65,8 +66,10 @@
   {#each ids as id}
     {@const source = payload.sources.find((source) => source.id === id)}
     {#if source}
-      <button type="button" class="source" data-source={id} title={`${source.title} ${source.locator}`}
-        aria-label={t('kickoff.source', { title: source.title })} onclick={() => onOpen(source.resource)}>[{id}]</button>
+      {@const web = isWebSource(source.resource)}
+      <button type="button" class="source" data-source={id} title={`${source.title} · ${source.resource} · ${source.locator}`}
+        disabled={!web && !safeVaultSource(source.resource)}
+        aria-label={t('kickoff.source', { title: `${source.title} · ${source.resource}` })} onclick={() => onOpen(source.resource)}>[{id}]{#if web} {new URL(source.resource).host}{/if}</button>
     {/if}
   {/each}
 {/snippet}

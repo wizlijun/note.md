@@ -97,6 +97,15 @@ impl InputOnlyRuntime {
         runtime.strict_home = Some(home);
         Ok(runtime)
     }
+
+    fn create_research(model: &str, vault: &Path) -> std::io::Result<Self> {
+        let mut runtime = Self::create_strict(model)?;
+        let user_home = std::env::var("HOME").map(PathBuf::from).unwrap_or_default();
+        let credential_home = crate::discover::dsh_home(&user_home);
+        runtime.workspace = vault.canonicalize()?;
+        composition::write_research_config(&runtime.config, model, &credential_home, &runtime.workspace)?;
+        Ok(runtime)
+    }
 }
 
 /// A normal task inherits the selected Vault composition, but never edits it to
@@ -152,7 +161,7 @@ fn session_workspace(meta: &RunMeta) -> PathBuf {
 /// discovering the task's AGENTS.md/CLAUDE.md. Carry the harness-specific task
 /// protocol into the direct prompt whenever the session leaves task_dir.
 fn prompt_for_session(spec: &RunSpec, workspace: &Path) -> String {
-    if spec.meta.task.strict_readonly {
+    if spec.meta.task.strict_readonly || spec.meta.task.id == agent_run_core::task::NEXT_KICKOFF_V3 {
         return spec.prompt.clone();
     }
     if let Some(instructions) = crate::task::input_only_instructions(&spec.meta.task.id) {
@@ -237,6 +246,17 @@ pub async fn run(
         let _ = tx.send(Step::Done(rec));
         return Ok(());
     }
+    let research = spec.meta.task.id == agent_run_core::task::NEXT_KICKOFF_V3;
+    if let Err(reason) = agent_run_core::task::validate_kickoff_research(&spec.meta.task, &spec.prompt, spec.meta.deliverable.is_some()) {
+        let rec = scaffold::finalize_without_run(&spec.meta, chrono::Utc::now(), record::Status::Error, reason);
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
+    if research {
+        spec.policy.permission_mode = policy::PermissionMode::ReadOnly;
+        spec.policy.on_permission_request = policy::OnRequest::Reject;
+    }
+    let bounded = spec.meta.task.strict_readonly || research;
     let timeout_limit = std::time::Duration::from_secs(spec.meta.task.timeout_seconds);
     let absolute_deadline = tokio::time::Instant::now() + timeout_limit;
     if spec.meta.task.strict_readonly {
@@ -288,8 +308,10 @@ pub async fn run(
     };
 
     let input_only = spec.meta.task.strict_readonly || crate::task::is_input_only_task(&spec.meta.task.id);
-    let input_only_runtime = if input_only {
-        let runtime = if spec.meta.task.strict_readonly {
+    let input_only_runtime = if input_only || research {
+        let runtime = if research {
+            InputOnlyRuntime::create_research(&spec.actual_model, &spec.meta.vault)
+        } else if spec.meta.task.strict_readonly {
             InputOnlyRuntime::create_strict(&spec.actual_model)
         } else {
             InputOnlyRuntime::create(&spec.actual_model)
@@ -330,7 +352,7 @@ pub async fn run(
     let workspace = input_only_runtime
         .as_ref()
         .map(|runtime| runtime.workspace.clone())
-        .unwrap_or_else(|| session_workspace(&spec.meta));
+        .unwrap_or_else(|| if research { spec.meta.vault.clone() } else { session_workspace(&spec.meta) });
     let config = input_only_runtime
         .as_ref()
         .map(|runtime| runtime.config.as_path())
@@ -349,7 +371,7 @@ pub async fn run(
     // `dsh --profile notemd --patch <vault overlay>`: the profile is the
     // composition (the bridge plus dsh-base's rows), the overlay is what note.md
     // changes about it.
-    let args = if spec.meta.task.strict_readonly {
+    let args = if spec.meta.task.strict_readonly || research {
         vec![
             "--profile".into(), "notemd-strict".into(),
             "--patch".into(), config.to_string_lossy().into_owned(),
@@ -443,7 +465,7 @@ pub async fn run(
     let mut state = Dialogue::new();
     // Include the ACP handshake and prompt writes in the strict total budget.
     let initialize = state.begin(acp::METHOD_INITIALIZE, acp::initialize_params());
-    let handshake_timed_out = if spec.meta.task.strict_readonly {
+    let handshake_timed_out = if bounded {
         tokio::time::timeout_at(absolute_deadline, stdin.write_all(initialize.as_bytes())).await.is_err()
     } else {
         let _ = stdin.write_all(initialize.as_bytes()).await;
@@ -453,7 +475,7 @@ pub async fn run(
     // Ordinary runs retain the inactivity timeout; strict packet runs cannot
     // extend their total budget by streaming more frames or launcher noise.
     let quiet_limit = timeout_limit;
-    let deadline = tokio::time::sleep_until(if spec.meta.task.strict_readonly {
+    let deadline = tokio::time::sleep_until(if bounded {
         absolute_deadline
     } else {
         tokio::time::Instant::now() + quiet_limit
@@ -474,7 +496,7 @@ pub async fn run(
         tokio::select! {
             line = lines.next_line() => match line {
                 Ok(Some(l)) => {
-                    if !spec.meta.task.strict_readonly {
+                    if !bounded {
                         deadline.as_mut().reset(tokio::time::Instant::now() + quiet_limit);
                     }
                     let Some(frame) = acp::parse_incoming(&l) else {
@@ -489,7 +511,7 @@ pub async fn run(
                     for act in state.step(frame, &spec, &workspace) {
                         match act {
                             Act::Send(bytes) => {
-                                if spec.meta.task.strict_readonly {
+                                if bounded {
                                     if tokio::time::timeout_at(absolute_deadline, stdin.write_all(bytes.as_bytes())).await.is_err() {
                                         kill_group(pgid);
                                         break 'run Some(record::Status::Timeout);
@@ -501,6 +523,10 @@ pub async fn run(
                             Act::Emit(ev) => {
                                 match &ev {
                                     Event::Text { text } => {
+                                        // The supported DSH ACP bridge emits each committed
+                                        // assistant text block whole (not token deltas). v3's
+                                        // final JSON must exclude earlier retrieval narration.
+                                        if research { collected.clear(); }
                                         collected.push_str(text);
                                         progress.step(text, text);
                                     }
@@ -522,7 +548,7 @@ pub async fn run(
             _ = &mut deadline => {
                 // Strict runs must not wait for a full/non-consuming stdin.
                 // Ordinary agents retain their cooperative persistence flush.
-                if let Some(s) = state.session_id().filter(|_| !spec.meta.task.strict_readonly) {
+                if let Some(s) = state.session_id().filter(|_| !bounded) {
                     let _ = stdin.write_all(
                         acp::notification_frame(acp::METHOD_SESSION_CANCEL, acp::cancel_params(s)).as_bytes()
                     ).await;
@@ -531,7 +557,7 @@ pub async fn run(
                 break Some(record::Status::Timeout);
             }
             _ = cancel.recv() => {
-                if let Some(s) = state.session_id().filter(|_| !spec.meta.task.strict_readonly) {
+                if let Some(s) = state.session_id().filter(|_| !bounded) {
                     let _ = stdin.write_all(
                         acp::notification_frame(acp::METHOD_SESSION_CANCEL, acp::cancel_params(s)).as_bytes()
                     ).await;
@@ -545,7 +571,7 @@ pub async fn run(
     // Closing stdin is the harness's cue to quiesce and flush its session log;
     // the kill below is the backstop for one that will not.
     drop(stdin);
-    if spec.meta.task.strict_readonly && forced.is_some() {
+    if bounded && forced.is_some() {
         // No model-owned output to flush. Kill descendants too, so inherited
         // stderr handles cannot hold a timed-out strict run open indefinitely.
         if pgid > 0 { unsafe { libc::killpg(pgid, libc::SIGKILL); } }
@@ -560,7 +586,7 @@ pub async fn run(
         let _ = child.kill().await;
     }
     let mut err_task = err_task;
-    if spec.meta.task.strict_readonly {
+    if bounded {
         if tokio::time::timeout(std::time::Duration::from_secs(1), &mut err_task).await.is_err() {
             if pgid > 0 { unsafe { libc::killpg(pgid, libc::SIGKILL); } }
             err_task.abort();
@@ -738,7 +764,7 @@ impl Dialogue {
                 let options = acp::permission_options(&params);
                 // `Ask` needs a window and a person; with neither, `decide` has
                 // already folded it to `Reject` (fail-closed).
-                let decision = if spec.meta.task.strict_readonly || crate::task::is_input_only_task(&spec.meta.task.id) {
+                let decision = if spec.meta.task.strict_readonly || spec.meta.task.id == agent_run_core::task::NEXT_KICKOFF_V3 || crate::task::is_input_only_task(&spec.meta.task.id) {
                     acp::Decision::Reject
                 } else {
                     match spec.policy.decide(spec.window_open) {
@@ -1874,4 +1900,116 @@ mod tests {
             other => panic!("expected a stopped outcome, got {other:?}"),
         }
     }
+    fn research_spec(fixture: &Fixture, timeout: u64) -> RunSpec {
+        let mut spec = fixture.spec(timeout);
+        spec.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V3.into();
+        spec.meta.task.max_turns = Some(40);
+        spec.prompt = agent_run_core::task::NEXT_KICKOFF_V3_MARKER.into();
+        spec.policy.permission_mode = policy::PermissionMode::DangerFullAccess;
+        spec.policy.on_permission_request = policy::OnRequest::Allow;
+        spec
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v3_uses_vault_session_and_native_profile_with_forced_read_only() {
+        let _guard = env_guard();
+        let fixture = Fixture::new();
+        let args = fixture.dir.path().join("argv");
+        let config = fixture.dir.path().join("config");
+        let _args = EnvVar::set("STUB_ARGV_FILE", args.to_str().unwrap());
+        let _config = EnvVar::set("STUB_CONFIG_FILE", config.to_str().unwrap());
+        {
+            let _mode = EnvVar::set("STUB_ECHO_ENV", "DSH_PERMISSION_MODE");
+            let (_, record) = drive(research_spec(&fixture, 30)).await;
+            assert_eq!(record.status, record::Status::Success, "{record:?}");
+            assert_eq!(record.result, "read-only");
+        }
+        {
+            let _cwd = EnvVar::set("STUB_ECHO_CWD", "1");
+            let (_, record) = drive(research_spec(&fixture, 30)).await;
+            let paths: Vec<_> = record.result.lines().map(|line| PathBuf::from(line).canonicalize().unwrap()).collect();
+            assert_eq!(paths[1], fixture.dir.path().canonicalize().unwrap());
+            assert!(record.artifacts.is_empty());
+        }
+        assert!(std::fs::read_to_string(args).unwrap().contains("notemd-strict"));
+        let config: Value = serde_json::from_str(&std::fs::read_to_string(config).unwrap()).unwrap();
+        let rows = config[0]["insert"].as_array().unwrap();
+        assert_eq!(rows.len(), 23);
+        let policy = rows.iter().find(|row| row["id"] == "sandbox-policy").unwrap();
+        assert_eq!(policy["config"]["mode"], "read-only");
+        assert!(rows.iter().any(|row| row["id"] == "tool-bash"));
+        assert!(rows.iter().any(|row| row["id"] == "tool-web"));
+        assert!(!rows.iter().any(|row| matches!(row["id"].as_str(), Some("settings" | "mcp" | "hmr" | "skill" | "hooks"))));
+    }
+
+    #[test]
+    #[ignore = "requires installed DSH, Node, and notemd; no model request"]
+    fn kickoff_v3_real_native_graph_runs_search_without_inherited_extensions() {
+        let _guard = env_guard();
+        let fixture = tempfile::tempdir().unwrap();
+        std::fs::write(fixture.path().join("sample.md"), "KickoffNeedleAlpha related context.\n").unwrap();
+        let runtime = InputOnlyRuntime::create_research("deepseek-v4-flash", fixture.path()).unwrap();
+        let launcher = crate::discover::discover(None).expect("installed DSH");
+        let output = std::process::Command::new("node")
+            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../scripts/verify-next-dsh-research.mjs"))
+            .arg(&runtime.config).arg(&runtime.workspace)
+            .arg(std::env::var("NOTEMD_TEST_CLI").expect("absolute test CLI"))
+            .arg(std::env::var("NOTEMD_TEST_DSH_INSTALL").expect("installed DSH package root"))
+            .arg(&launcher.program)
+            .env("DSH_HOME", runtime.strict_home.as_ref().unwrap())
+            .env_remove("NODE_OPTIONS").env_remove("NODE_PATH")
+            .current_dir(&runtime.workspace).output().unwrap();
+        assert!(output.status.success(), "{}\n{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        println!("{}", String::from_utf8_lossy(&output.stdout));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v3_keeps_final_committed_block_without_progress_narration() {
+        let _guard = env_guard();
+        let fixture = Fixture::new();
+        let final_json = r#"{"schema":"next-kickoff/v1","summary":"ready"}"#;
+        let blocks = serde_json::to_string(&["Searching related context now. ", final_json]).unwrap();
+        let _blocks = EnvVar::set("STUB_MESSAGE_BLOCKS", &blocks);
+        let spec = research_spec(&fixture, 30);
+        let run_dir = spec.meta.task_run_dir.clone();
+        let run_id = spec.meta.run_id.clone();
+        let (events, record) = drive(spec).await;
+        assert_eq!(record.result, final_json);
+        assert_eq!(record::read_terminal_result(&run_dir, &run_id).unwrap().unwrap(), final_json);
+        assert_eq!(events.iter().filter(|event| matches!(event, Event::Text { .. })).count(), 2);
+        // Keep the pre-existing streaming contract for ordinary tasks.
+        let (_, ordinary) = drive(fixture.spec(30)).await;
+        assert_eq!(ordinary.result, format!("Searching related context now. {final_json}"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v3_rejects_permission_escalation_even_with_allow_policy() {
+        let _guard = env_guard();
+        let _permission = EnvVar::set("STUB_PERMISSION", "1");
+        let fixture = Fixture::new();
+        let (_, record) = drive(research_spec(&fixture, 30)).await;
+        assert!(record.result.contains("selected:reject-once"), "{record:?}");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn kickoff_v3_streaming_stops_at_the_absolute_timeout() {
+        let _guard = env_guard();
+        let _chunks = EnvVar::set("STUB_CHUNKS", "40");
+        let _text = EnvVar::set("STUB_TEXT", "tick");
+        let fixture = Fixture::new();
+        let (_, record) = tokio::time::timeout(std::time::Duration::from_secs(4), drive(research_spec(&fixture, 1))).await.unwrap();
+        assert_eq!(record.status, record::Status::Timeout);
+    }
+
+    #[tokio::test]
+    async fn kickoff_v3_rejects_file_deliverables_before_launch() {
+        let fixture = Fixture::new();
+        let mut spec = research_spec(&fixture, 30);
+        spec.meta.deliverable = Some(fixture.dir.path().join("forbidden.md"));
+        spec.launcher.program = fixture.dir.path().join("must-not-launch");
+        let (_, record) = drive(spec).await;
+        assert_eq!(record.status, record::Status::Error);
+        assert!(record.result.contains("forbids file deliverables"));
+    }
+
 }

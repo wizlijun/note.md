@@ -13,6 +13,7 @@ pub struct StreamState {
     thread_id: Option<String>,
     turns: u64,
     terminal_text: String,
+    final_message_only: bool,
     emitted_message: bool,
     terminal_result: Option<RunResult>,
 }
@@ -23,6 +24,12 @@ impl StreamState {
             model: model.into(),
             ..Self::default()
         }
+    }
+
+    /// Structured consumers need the final complete message, not commentary
+    /// emitted before native tool calls. Display events still include both.
+    pub fn for_machine_result(model: impl Into<String>) -> Self {
+        Self { final_message_only: true, ..Self::new(model) }
     }
 
     pub fn thread_id(&self) -> Option<&str> {
@@ -109,7 +116,9 @@ impl StreamState {
                 if text.is_empty() {
                     return None;
                 }
-                if !self.terminal_text.is_empty() {
+                if self.final_message_only {
+                    self.terminal_text.clear();
+                } else if !self.terminal_text.is_empty() {
                     self.terminal_text.push_str("\n\n");
                 }
                 self.terminal_text.push_str(&text);
@@ -468,4 +477,20 @@ mod tests {
             Some(Event::Result(RunResult { result, .. })) if result == "first\n\nsecond"
         ));
     }
+    #[test]
+    fn kickoff_machine_result_keeps_final_json_after_retrieval_commentary() {
+        // Shape observed in the installed CLI v3 acceptance: completed
+        // commentary precedes tool calls and a separate final agent_message.
+        let wire = include_str!("../tests/fixtures/kickoff-v3-progress.jsonl");
+        let mut machine = StreamState::for_machine_result("gpt-test");
+        let events: Vec<_> = wire.lines().flat_map(|line| machine.accept(line)).collect();
+        let result = machine.result().unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&result.result).unwrap();
+        assert_eq!(payload["schema"], "next-kickoff/v1");
+        assert!(events.iter().any(|event| matches!(event, Event::Text { text } if text.contains("I’ll run"))));
+        let mut ordinary = StreamState::new("gpt-test");
+        for line in wire.lines() { ordinary.accept(line); }
+        assert!(ordinary.result().unwrap().result.starts_with("I’ll run"));
+    }
+
 }

@@ -35,6 +35,13 @@ beforeEach(() => {
 afterEach(async () => { for (const c of components.splice(0)) await unmount(c); document.body.innerHTML = ''; vi.restoreAllMocks() })
 
 describe('Agent window accessible UI', () => {
+  it('shows the default concurrency of three when no setting was saved', async () => {
+    window.notemd.request = vi.fn(async () => ({ settings: {} }))
+    components.push(mount(SettingsPage, { target: document.body, props: { label } }))
+    flushSync(); await settle()
+    await vi.waitFor(() => expect(document.querySelector<HTMLSelectElement>('#max-concurrency')?.value).toBe('3'))
+  })
+
   it.each([false, true])('restores async field focus without stealing a later selection (%s)', async (moved) => {
     const pending = deferred<unknown>()
     const original = window.notemd.request

@@ -5,7 +5,7 @@
 //! `.claude/settings.json` deny lists that no other harness has).
 pub use agent_run_core::task::{
     runs_root, task_dir, tasks_root, validate_next_kickoff_task, TaskDef, NEXT_KICKOFF_V2,
-    NEXT_KICKOFF_V2_MARKER,
+    NEXT_KICKOFF_V2_MARKER, NEXT_KICKOFF_V3, validate_kickoff_research,
 };
 use agent_run_core::task::{self as core, Templates};
 use std::path::Path;

@@ -172,3 +172,13 @@ it('rejects duplicate current answer IDs', async () => {
   editable.document.setIn(['kickoff', 'answers'], [answer, answer])
   expect(parseKickoffDocument(serializeEditableFrontmatter(editable))).toBeNull()
 })
+
+it('keeps historical citations readable without discarding saved human answers', async () => {
+  const raw = await buildKickoffDocument(input)
+  const editable = editableFrontmatter(raw, false)
+  editable.document.setIn(['kickoff', 'payload', 'sources', 0, 'resource'], 'diary/meeting:notes.md')
+  editable.document.setIn(['kickoff', 'answers'], [answer])
+  const historic = parseKickoffDocument(serializeEditableFrontmatter(editable))
+  expect(historic?.kickoff.payload.sources[0].resource).toBe('diary/meeting:notes.md')
+  expect(historic?.kickoff.answers).toEqual([answer])
+})

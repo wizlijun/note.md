@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 
 /// NEXT supplies the confirmed v2 protocol and context together in the prompt.
 pub const NEXT_KICKOFF_V2: &str = "next-task-kickoff-v2";
+pub const NEXT_KICKOFF_V3: &str = "next-task-kickoff-v3";
+pub const NEXT_KICKOFF_V3_MARKER: &str = "<!-- next-task-kickoff template v3 -->";
 pub const NEXT_KICKOFF_V2_MARKER: &str = "<!-- next-task-kickoff template v2 -->";
 
 /// Provider-neutral, input-only review task used by governed document surfaces.
@@ -79,7 +81,7 @@ pub struct TaskDef {
     pub source_plugin: Option<String>,
 }
 
-/// The v2 id cannot be weakened by editing its task.json after confirmation.
+/// Reserved kickoff IDs cannot be weakened by editing task.json after confirmation.
 /// Check before provider discovery and again at the engine boundary.
 pub fn validate_next_kickoff_task(task: &TaskDef) -> Result<(), String> {
     if task.id == NEXT_KICKOFF_V2 && (!task.strict_readonly
@@ -87,6 +89,20 @@ pub fn validate_next_kickoff_task(task: &TaskDef) -> Result<(), String> {
         || !task.max_turns.is_some_and(|turns| (1..=40).contains(&turns))
         || task.precheck.is_some()) {
         return Err("kickoff v2 requires strict_readonly, no precheck, max_turns 1..40 and timeout_seconds 1..600".into());
+    }
+    if task.id == NEXT_KICKOFF_V3 && (task.strict_readonly
+        || !(1..=600).contains(&task.timeout_seconds)
+        || !task.max_turns.is_some_and(|turns| (1..=40).contains(&turns))
+        || task.precheck.is_some()) {
+        return Err("kickoff v3 requires research mode (strict_readonly=false), no precheck, max_turns 1..40 and timeout_seconds 1..600".into());
+    }
+    Ok(())
+}
+
+/// v3 uses native retrieval tools, but cannot turn into a file-producing job.
+pub fn validate_kickoff_research(task: &TaskDef, prompt: &str, deliverable: bool) -> Result<(), String> {
+    if task.id == NEXT_KICKOFF_V3 && (deliverable || !prompt.contains(NEXT_KICKOFF_V3_MARKER)) {
+        return Err("kickoff v3 requires the research protocol and forbids file deliverables".into());
     }
     Ok(())
 }
@@ -134,6 +150,10 @@ pub fn discover(vault: &Path) -> Vec<TaskDef> {
 
 pub fn read_task(dir: &Path) -> Option<TaskDef> {
     let s = std::fs::read_to_string(dir.join("task.json")).ok()?;
+    if dir.file_name().is_some_and(|name| name == NEXT_KICKOFF_V3) {
+        let value: serde_json::Value = serde_json::from_str(&s).ok()?;
+        if value.get("protocol_version")?.as_u64()? != 3 { return None; }
+    }
     serde_json::from_str(&s).ok()
 }
 
@@ -498,4 +518,40 @@ mod tests {
         }
         assert!(check_task_id("../evil").unwrap_err().contains("invalid task id"));
     }
+    #[test]
+    fn kickoff_v3_requires_research_protocol_and_bounded_nonwriting_task() {
+        let mut task: TaskDef = serde_json::from_value(serde_json::json!({
+            "id": NEXT_KICKOFF_V3, "name": "research", "strict_readonly": false,
+            "max_turns": 40, "timeout_seconds": 600
+        })).unwrap();
+        assert!(validate_next_kickoff_task(&task).is_ok());
+        assert!(validate_kickoff_research(&task, NEXT_KICKOFF_V3_MARKER, false).is_ok());
+        assert!(validate_kickoff_research(&task, NEXT_KICKOFF_V3_MARKER, true).is_err());
+        assert!(validate_kickoff_research(&task, "missing protocol", false).is_err());
+        task.strict_readonly = true;
+        assert!(validate_next_kickoff_task(&task).is_err());
+        task.strict_readonly = false;
+        task.precheck = Some("check.sh".into());
+        assert!(validate_next_kickoff_task(&task).is_err());
+        task.precheck = None;
+        task.timeout_seconds = 601;
+        assert!(validate_next_kickoff_task(&task).is_err());
+        task.timeout_seconds = 600;
+        task.max_turns = Some(41);
+        assert!(validate_next_kickoff_task(&task).is_err());
+    }
+
+    #[test]
+    fn kickoff_v3_disk_definition_requires_protocol_version_three() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join(NEXT_KICKOFF_V3);
+        std::fs::create_dir(&dir).unwrap();
+        for version in [serde_json::Value::Null, serde_json::json!(2), serde_json::json!(3)] {
+            std::fs::write(dir.join("task.json"), serde_json::to_string(&serde_json::json!({
+                "name": "research", "protocol_version": version
+            })).unwrap()).unwrap();
+            assert_eq!(read_task(&dir).is_some(), version == 3);
+        }
+    }
+
 }

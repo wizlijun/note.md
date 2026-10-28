@@ -36,14 +36,14 @@ pub const SETTING_KEY: &str = "agentDefaultProvider";
 /// capacity is device-local (it depends on this machine's credentials and
 /// resources), so it lives in the app's `settings.json`, not in the vault.
 pub const MAX_CONCURRENCY_KEY: &str = "maxConcurrency";
-pub const DEFAULT_MAX_CONCURRENCY: u64 = 1;
+pub const DEFAULT_MAX_CONCURRENCY: u64 = 3;
 pub const MAX_CONCURRENCY: u64 = 5;
 
 /// Read `plugins[provider_id].maxConcurrency` from the app settings store.
 ///
 /// Settings `select` fields persist strings today, while hand-edited or future
 /// settings may contain a JSON number. Accept both, clamp the supported range,
-/// and fail closed to one worker for every malformed shape.
+/// and use the default for malformed shapes. Explicit one-worker settings remain valid.
 pub fn max_concurrency(settings: &serde_json::Value, provider_id: &str) -> u64 {
     let raw = settings
         .get("plugins")
@@ -55,7 +55,7 @@ pub fn max_concurrency(settings: &serde_json::Value, provider_id: &str) -> u64 {
     });
     parsed
         .unwrap_or(DEFAULT_MAX_CONCURRENCY)
-        .clamp(DEFAULT_MAX_CONCURRENCY, MAX_CONCURRENCY)
+        .clamp(1, MAX_CONCURRENCY)
 }
 
 /// Add the current device-local capacity to a cached provider response.
@@ -254,7 +254,11 @@ mod tests {
     #[test]
     fn max_concurrency_defaults_accepts_both_store_shapes_and_clamps() {
         let id = "notemd.claude-agent";
-        assert_eq!(max_concurrency(&serde_json::json!({}), id), 1);
+        assert_eq!(max_concurrency(&serde_json::json!({}), id), 3);
+        assert_eq!(max_concurrency(&serde_json::json!({"plugins": {(id): {"maxConcurrency": "1"}}}), id), 1);
+        for value in [serde_json::Value::Null, serde_json::json!(false), serde_json::json!(""), serde_json::json!(-1), serde_json::json!(1.5)] {
+            assert_eq!(max_concurrency(&serde_json::json!({"plugins": {(id): {"maxConcurrency": value}}}), id), 3);
+        }
         assert_eq!(
             max_concurrency(
                 &serde_json::json!({"plugins": {(id): {"maxConcurrency": "3"}}}),
@@ -288,7 +292,7 @@ mod tests {
                 &serde_json::json!({"plugins": {(id): {"maxConcurrency": "many"}}}),
                 id
             ),
-            1
+            3
         );
     }
 

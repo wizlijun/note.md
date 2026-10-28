@@ -14,9 +14,9 @@ const mocks = vi.hoisted(() => ({
   snapshot: null as unknown as KickoffSnapshot,
   createClient: vi.fn(),
   toast: vi.fn(),
-  load: vi.fn(), reconcile: vi.fn(), preflight: vi.fn(), prepare: vi.fn(), start: vi.fn(), save: vi.fn(), read: vi.fn(), refresh: vi.fn(async () => {}), place: vi.fn(), editorOpen: vi.fn(),
+  load: vi.fn(), reconcile: vi.fn(), preflight: vi.fn(), prepare: vi.fn(), start: vi.fn(), save: vi.fn(), read: vi.fn(), refresh: vi.fn(async () => {}), place: vi.fn(), editorOpen: vi.fn(), linkOpen: vi.fn(),
 }))
-vi.mock('./lib/bridge', () => ({ bridge: () => ({ locale: 'en', request: vi.fn() }), toast: mocks.toast, editorOpen: mocks.editorOpen,
+vi.mock('./lib/bridge', () => ({ bridge: () => ({ locale: 'en', request: vi.fn() }), toast: mocks.toast, editorOpen: mocks.editorOpen, linkOpen: mocks.linkOpen,
   vaultExists: vi.fn(), vaultRead: vi.fn(), vaultWrite: vi.fn(), vaultList: vi.fn(), vaultInfo: vi.fn(), agentProviders: vi.fn(), agentLimits: vi.fn(), agentRun: vi.fn(), agentStatus: vi.fn() }))
 vi.mock('./lib/store.svelte', () => ({ state: mocks.state, refresh: mocks.refresh, place: mocks.place,
   createIdea: vi.fn(), createTask: vi.fn(), completeWithNote: vi.fn(), open: vi.fn(), relink: vi.fn(), reopen: vi.fn(), updateSettings: vi.fn(), updateMetadata: vi.fn(), updateReminder: vi.fn() }))
@@ -39,7 +39,7 @@ beforeEach(() => {
   mocks.read.mockImplementation(async () => mocks.snapshot)
   mocks.start.mockImplementation(async () => mocks.snapshot)
   mocks.preflight.mockResolvedValue({})
-  mocks.prepare.mockImplementation(async ({ providerId }) => ({ id: `preview-${providerId}`, taskId: id, providerId, providerName: providerId === 'codex' ? 'Codex' : 'DeepSeek', recipient: providerId === 'codex' ? 'OpenAI' : 'DeepSeek', files: [{ path: task.path!, bytes: 125 }, { path: 'diary/budget.md', bytes: 345 }], bytes: 700, gaps: ['One source was omitted'], needsConsent: mocks.snapshot.needsConsent, dataSources: mocks.snapshot.dataSources }))
+  mocks.prepare.mockImplementation(async ({ providerId }) => ({ id: `preview-${providerId}`, taskId: id, providerId, providerName: providerId === 'codex' ? 'Codex' : 'DeepSeek', recipient: providerId === 'codex' ? 'OpenAI' : 'DeepSeek', vaultRoot: '/Users/owner/Vault', taskPath: task.path!, needsConsent: mocks.snapshot.needsConsent, dataSources: mocks.snapshot.dataSources }))
   localStorage.clear()
 })
 afterEach(() => { if (component) unmount(component); component = null; document.body.innerHTML = ''; vi.clearAllMocks(); vi.useRealTimers() })
@@ -216,7 +216,7 @@ describe('App kickoff integration', () => {
     expect(mocks.start).toHaveBeenCalledWith({ item: task, providerId: 'codex', previewId: 'preview-codex', consent: true })
     expect(mocks.place).not.toHaveBeenCalled()
   })
-  it('requires a fresh external-send preview even after setup and with a remembered provider', async () => {
+  it('reviews live research scope even after setup and with a remembered provider', async () => {
     mocks.snapshot.needsConsent = false
     localStorage.setItem(providerKey('next.kickoff'), 'codex')
     await render()
@@ -226,10 +226,10 @@ describe('App kickoff integration', () => {
     if (option) { option.click(); await settle() }
     expect(mocks.prepare).toHaveBeenCalledWith({ item: task, providerId: 'codex' })
     expect(document.body.textContent).toContain('OpenAI')
-    expect(document.body.textContent).toContain('diary/budget.md')
-    expect(document.body.textContent).toContain('345')
-    expect(document.body.textContent).toContain('700')
-    expect(document.body.textContent).toContain('One source was omitted')
+    expect(document.body.textContent).toContain('/Users/owner/Vault')
+    expect(document.body.textContent).toContain(task.path!)
+    expect(document.body.textContent).toContain('notemd search CLI')
+    expect(document.body.textContent).toContain('harness web search')
     expect(document.body.textContent).not.toContain('This adds skills/task-kickoff')
     expect(mocks.start).not.toHaveBeenCalled()
     document.querySelector<HTMLButtonElement>('[data-consent-cancel]')!.click()
@@ -274,7 +274,7 @@ describe('App kickoff integration', () => {
     document.querySelector<HTMLButtonElement>('[data-consent-confirm]')!.click(); await settle()
     expect(mocks.prepare).toHaveBeenCalledTimes(2)
     expect(mocks.start).toHaveBeenCalledOnce()
-    expect(document.body.textContent).toContain('Review the updated files and confirm again')
+    expect(document.body.textContent).toContain('Review the updated research scope and confirm again')
     expect(document.querySelector('[data-consent-confirm]')).not.toBeNull()
   })
   it('keeps entered answers and prevents placement after a failed save/readback', async () => {
@@ -294,6 +294,29 @@ describe('App kickoff integration', () => {
     expect(document.querySelector('#place-title')).toBeNull()
     expect(mocks.place).not.toHaveBeenCalled()
   })
+  it('opens research web evidence with the link bridge, never the Vault editor', async () => {
+    const resource = 'https://research.example/recent-article'
+    mocks.snapshot.results[id] = { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff,
+      payload: { ...result.doc.kickoff.payload, sources: [{ ...payload.sources[0], resource }] },
+    } } }
+    await render()
+    click('View kickoff'); await settle()
+    document.querySelector<HTMLButtonElement>('[data-source="s1"]')!.click(); await settle()
+    expect(mocks.linkOpen).toHaveBeenCalledWith(resource)
+    expect(mocks.editorOpen).not.toHaveBeenCalled()
+  })
+  it('does not dispatch unsafe persisted web evidence to either bridge', async () => {
+    mocks.snapshot.results[id] = { ...result, doc: { ...result.doc, kickoff: { ...result.doc.kickoff,
+      payload: { ...result.doc.kickoff.payload, sources: [{ ...payload.sources[0], resource: 'javascript:alert(1)' }] },
+    } } }
+    await render()
+    click('View kickoff'); await settle()
+    const source = document.querySelector<HTMLButtonElement>('[data-source="s1"]')!
+    expect(source.disabled).toBe(true)
+    source.click(); await settle()
+    expect(mocks.linkOpen).not.toHaveBeenCalled()
+    expect(mocks.editorOpen).not.toHaveBeenCalled()
+  })
   it('loads and reconciles on open and hides kickoff for old hosts', async () => {
     mocks.snapshot.unsupported = true
     await render()
@@ -307,7 +330,7 @@ describe('App kickoff integration', () => {
     await settle()
     document.querySelector<HTMLButtonElement>('[role="menuitemradio"]')!.click()
     await settle()
-    expect(document.body.textContent).toContain('Send this context to the agent?')
+    expect(document.body.textContent).toContain('Let the agent research this task?')
     document.querySelector<HTMLButtonElement>('[data-consent-cancel]')!.click()
     await settle()
     expect(mocks.start).not.toHaveBeenCalled()

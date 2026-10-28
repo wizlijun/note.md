@@ -27,24 +27,34 @@ pub fn build(model: Option<&str>, workspace: &Path, sandbox: &str) -> Vec<String
     out
 }
 
+/// Research retains native shell retrieval and live web search, with a fixed
+/// read-only sandbox regardless of the editable task policy.
+pub fn build_research(model: Option<&str>, workspace: &Path) -> Vec<String> {
+    isolate_extensions(build_isolated(model, workspace, true), true)
+}
+
 /// A search protocol run receives its complete packet in stdin. Keep Codex
 /// authenticated, but disable every local/discoverable information path so a
 /// prompt-injected question or source cannot browse beyond that frozen packet.
 pub fn build_input_only(model: Option<&str>, workspace: &Path) -> Vec<String> {
+    build_isolated(model, workspace, false)
+}
+
+fn build_isolated(model: Option<&str>, workspace: &Path, research: bool) -> Vec<String> {
     let mut out = build(model, workspace, "read-only");
     let stdin_marker = out.pop().expect("build always ends in stdin marker");
     out.extend([
         "--strict-config".into(),
         "--ignore-user-config".into(),
         "--ignore-rules".into(),
-        "--disable".into(),
+        if research { "--enable" } else { "--disable" }.into(),
         "shell_tool".into(),
-        "--disable".into(),
+        if research { "--enable" } else { "--disable" }.into(),
         "unified_exec".into(),
         "--disable".into(),
         "view_image".into(),
         "-c".into(),
-        "web_search=\"disabled\"".into(),
+        if research { "web_search=\"live\"" } else { "web_search=\"disabled\"" }.into(),
         "-c".into(),
         "agents.enabled=false".into(),
         "-c".into(),
@@ -61,15 +71,24 @@ pub fn build_input_only(model: Option<&str>, workspace: &Path) -> Vec<String> {
 /// shell tools: remote models may still advertise code-mode tool schemas, but
 /// the CLI must reject their execution locally.
 pub fn build_strict_readonly(model: Option<&str>, workspace: &Path) -> Vec<String> {
-    let mut out = build_input_only(model, workspace);
+    isolate_extensions(build_input_only(model, workspace), false)
+}
+
+fn isolate_extensions(mut out: Vec<String>, research: bool) -> Vec<String> {
     let stdin_marker = out.pop().expect("input-only argv ends in stdin marker");
     for feature in [
         "apps", "plugins", "hooks", "multi_agent", "multi_agent_v2",
-        "code_mode_host", "code_mode", "skill_search", "tool_suggest",
+        "skill_search", "tool_suggest",
         "sleep_tool", "goals", "browser_use", "computer_use", "image_generation",
         "workspace_dependencies", "shell_snapshot",
     ] {
         out.extend(["--disable".into(), feature.into()]);
+    }
+    // Current models dispatch native tools through the code-mode router. The
+    // router uses this same sandbox/permission gate; disabling it would also
+    // disable the permitted shell and web tools during research.
+    for feature in ["code_mode_host", "code_mode"] {
+        out.extend([if research { "--enable" } else { "--disable" }.into(), feature.into()]);
     }
     out.extend([
         "--enable".into(), "skip_host_skill_discovery".into(),
@@ -153,4 +172,20 @@ mod tests {
         assert!(got.windows(2).any(|w| w == ["--enable", "skip_host_skill_discovery"]));
         assert_eq!(got.last().map(String::as_str), Some("-"));
     }
+    #[test]
+    fn research_isolates_extensions_but_retains_native_retrieval() {
+        let args = build_research(Some("gpt-test"), Path::new("/isolated"));
+        for pair in [["--enable", "shell_tool"], ["--enable", "unified_exec"],
+            ["-c", "web_search=\"live\""], ["--sandbox", "read-only"]] {
+            assert!(args.windows(2).any(|window| window == pair), "{pair:?}");
+        }
+        for feature in ["apps", "plugins", "hooks", "multi_agent"] {
+            assert!(args.windows(2).any(|window| window == ["--disable", feature]));
+        }
+        assert!(args.windows(2).any(|window| window == ["--enable", "code_mode_host"]));
+        for flag in ["--strict-config", "--ignore-user-config", "--ignore-rules"] {
+            assert!(args.iter().any(|arg| arg == flag));
+        }
+    }
+
 }

@@ -71,6 +71,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         "host.fs.read_text" | "host.fs.read_bytes" => Some("fs.read:dialog"),
         "host.clipboard.write" => Some("clipboard.write"),
         "host.editor.open" => Some("editor.open"),
+        "host.link.open" => Some("link.open"),
         "host.location.get" => Some("location"),
         // AI agent 中转(转发到 notemd.claude-agent)与托盘全局提醒。
         "host.agent.run" | "host.agent.status" => Some("agent"),
@@ -595,6 +596,7 @@ mod tests {
         assert_eq!(method_capability("host.fs.read_bytes"), Some("fs.read:dialog"));
         assert_eq!(method_capability("host.clipboard.write"), Some("clipboard.write"));
         assert_eq!(method_capability("host.editor.open"), Some("editor.open"));
+        assert_eq!(method_capability("host.link.open"), Some("link.open"));
         assert_eq!(method_capability("host.agent.run"), Some("agent"));
         assert_eq!(method_capability("host.agent.status"), Some("agent"));
         assert_eq!(method_capability("host.agent.providers"), Some("agent"));

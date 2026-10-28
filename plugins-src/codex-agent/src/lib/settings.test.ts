@@ -18,9 +18,11 @@ import {
 describe('agent concurrency settings', () => {
   beforeEach(() => hostRequest.mockReset())
 
-  it('defaults invalid or missing values to one and clamps to 1–5', () => {
-    expect(normalizeMaxConcurrency(undefined)).toBe(1)
-    expect(normalizeMaxConcurrency('nope')).toBe(1)
+  it('defaults invalid or missing values to three and clamps to 1–5', () => {
+    expect(normalizeMaxConcurrency(undefined)).toBe(3)
+    expect(normalizeMaxConcurrency('nope')).toBe(3)
+    for (const value of [null, '', ' ', false, [], {}, -1, 1.5]) expect(normalizeMaxConcurrency(value)).toBe(3)
+    expect(normalizeMaxConcurrency('1')).toBe(1)
     expect(normalizeMaxConcurrency(0)).toBe(1)
     expect(normalizeMaxConcurrency('3')).toBe(3)
     expect(normalizeMaxConcurrency(9)).toBe(5)

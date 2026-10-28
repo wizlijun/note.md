@@ -3,6 +3,7 @@
   import type { MessageKey } from '../lib/strings'
   import {
     CONCURRENCY_OPTIONS,
+    DEFAULT_MAX_CONCURRENCY,
     USAGE_DISPLAY_OPTIONS,
     loadMaxConcurrency,
     loadUsageDisplay,
@@ -12,7 +13,7 @@
   } from '../lib/settings'
 
   const { label }: { label: (key: MessageKey) => string } = $props()
-  let maxConcurrency = $state(1)
+  let maxConcurrency = $state(DEFAULT_MAX_CONCURRENCY)
   let usageDisplay: UsageDisplay = $state('tip')
   let loading = $state(true)
   let saving = $state(false)

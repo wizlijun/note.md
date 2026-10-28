@@ -288,6 +288,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 | `clipboard.write` | `host.clipboard.write` |
 | `location` | `host.location.get` |
 | `editor.open` | `host.editor.open` |
+| `link.open` | `host.link.open`（需支持该接口的宿主） |
 | `editor.write` | 当前 Markdown 文件视图的 `file_view.save` 消息（非通用 RPC） |
 | `renderer.html` | 渲染类(md2pdf 用) |
 | `editor.kit` | `host.theme.css` / `host.power_mode.config`(均 UI 桥 only,进程通道 `-32601`);另外解锁一条**保留 URL 路径**(不是 `host.*` 方法)—— `GET plugin://<id>/__host__/assets/...`,见下方说明 |
@@ -386,6 +387,7 @@ load 的 `representation.status` 为 `in-sync`、`external-drift` 或 `missing`�
 | `host.clipboard.write` | `clipboard.write` | `{ text }` → `{ok}` |
 | `host.location.get` | `location` | — → 位置对象 |
 | `host.editor.open` | `editor.open` | `{ path, fileView?, replaceCurrent?, currentPath? }`（路径均为 vault 相对路径；`fileView` 为调用插件声明的视图 ID）→ `{ ok: true }`；在主编辑器打开文件并聚焦主窗口。指定视图时，宿主会重新校验目标文件规则后选中该视图。文件视图内导航可同时传 `replaceCurrent: true` 和发起导航的 `currentPath`，宿主只会在该来源标签仍使用调用插件的同一视图且没有未保存修改时原位替换；两项必须配对，且不能用于普通打开。仅 UI 桥可用。 |
+| `host.link.open` | `link.open` | `{ url }` → `{ ok: true }`；仅允许不含账号密码、控制字符的 HTTP(S) URL，经系统浏览器打开。只用于用户点击的来源链接，不用于 Vault 文件；仅 UI 桥可用。新增接口尚未发布，插件发布前须与宿主版本配套。 |
 | `host.theme.css` | `editor.kit` | — → `{ light_css, dark_css, follow_system }`;隔离插件窗口没有主程序的 `<style>` 插槽,靠这个方法要到编译好的主题 CSS(已去掉 `[data-theme="…"]` 限定前缀,直接对 `.moraya-editor` 生效)。仅 UI 桥可用(`ui_rpc.rs` 里在 `dispatch_with` 之外单独处理,因为要活的 `AppHandle` 读 app 配置目录 + 已编译主题产物;进程通道回 `-32601`)。 |
 | `host.power_mode.config` | `editor.kit` | — → `{ config: object\|null, surfaces: [{id, name, names}] }`;`config: null` = power-mode 插件没装/停用(整体关闭),`{}` = 装了但没配过(用默认值)。`surfaces` 是已加载且声明了 `editor.kit` 的插件清单(不含 power-mode 自己),`names` 是 manifest `i18n.<locale>.name` 映射。仅 UI 桥可用。 |
 | `host.power_mode.update` | `power-mode` | `{ config }` → `{ ok: true }`;宿主 emit `power-mode://update` 给主窗口前端,由它落进 settings.json 的插件域(store 是前端独家持有的,Rust 不直接写)。仅 UI 桥可用。 |

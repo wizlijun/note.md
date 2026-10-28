@@ -4,7 +4,7 @@ import type { AgentLimits, AgentRunParams, VaultInfo } from '../bridge'
 import type { WorkspaceItem } from '../repository'
 import { parseTaskSource } from '../task-source'
 import { kickoffEligible } from './button-state'
-import { buildKickoffContext, kickoffContextPrompt, type ContextPacket } from './context'
+import { isWebSource, safeVaultSource } from './source'
 import { buildKickoffDocument, carryPriorAnswers, kickoffPathFor, parseKickoffDocument, withAnswers, type KickoffAnswer, type KickoffDoc } from './document'
 import { sha256 } from './hash'
 import { parsePayload } from './payload'
@@ -60,16 +60,14 @@ export interface KickoffPreview {
   providerId: string
   providerName: string
   recipient: string
-  files: { path: string; bytes: number }[]
-  bytes: number
-  gaps: string[]
+  vaultRoot: string
+  taskPath: string
   needsConsent: boolean
   dataSources: DataSource[]
 }
 interface PreparedKickoff {
   preview: KickoffPreview
   ready: KickoffPreflight
-  context: ContextPacket
   skill: string
   protocol: string
   taskDefinition: string
@@ -215,8 +213,8 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       state.providerDefault = result.default
       state.providers = result.providers.map(provider => {
         if (options.verifiedProviders?.includes(provider.id)
-          || (provider.harness?.capabilities?.readonly_context === true && provider.harness.capabilities.terminal_result === true
-            && provider.harness.capabilities.kickoff_protocol_versions?.includes(2))) return provider
+          || (provider.harness?.capabilities?.terminal_result === true
+            && provider.harness.capabilities.kickoff_protocol_versions?.includes(3))) return provider
         return {
           ...provider,
           harness: {
@@ -287,11 +285,9 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     if (!provider) throw new KickoffClientError('agent-missing', '没有可用的 agent 插件')
     if (provider.harness?.ok !== true) throw new KickoffClientError('provider-unavailable', provider.harness?.hint || '这个 agent 当前不可用')
     const limits = await io.agentLimits()
-    const maximum = limits.providers.find(p => p.id === provider.id)?.max_concurrency ?? provider.max_concurrency ?? 1
+    const maximum = limits.providers.find(p => p.id === provider.id)?.max_concurrency ?? provider.max_concurrency ?? 3
     const running = Object.values(state.registry.runs).filter(run => run.state === 'running')
     if (running.filter(run => run.harness === provider.id).length >= maximum) throw new KickoffClientError('capacity', '选中的 agent 已达到并行上限')
-    // Every provider shares this task's host lock, which is not a capacity queue.
-    if (running.length) throw new KickoffClientError('capacity', '已有开头正在运行，请完成后再开始另一个任务')
     const root = (await io.vaultInfo()).root
     if (!root || !/^(?:\/|[a-z]:[\\/])/i.test(root)) throw new KickoffClientError('start-error', '无法获取 Vault 路径')
     const basedOn = await sha256(content)
@@ -319,10 +315,10 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     try { definition = JSON.parse(raw) } catch {
       throw new KickoffClientError('start-error', 'Existing task.json is not valid JSON; it was preserved')
     }
-    if (definition?.strict_readonly !== true || typeof definition.prompt !== 'string' || definition.precheck != null
+    if (definition?.protocol_version !== 3 || definition.strict_readonly !== false || typeof definition.prompt !== 'string' || definition.precheck != null
       || !Number.isInteger(definition.max_turns) || Number(definition.max_turns) < 1 || Number(definition.max_turns) > 40
       || !Number.isInteger(definition.timeout_seconds) || Number(definition.timeout_seconds) < 1 || Number(definition.timeout_seconds) > 600) {
-      throw new KickoffClientError('start-error', 'Existing task.json must enable strict_readonly, omit precheck, and limit max_turns to 40 and timeout_seconds to 600; it was preserved')
+      throw new KickoffClientError('start-error', 'Existing task.json must use protocol_version 3, disable input-only strict_readonly, omit precheck, and limit max_turns to 40 and timeout_seconds to 600; it was preserved')
     }
     return definition
   }
@@ -331,16 +327,10 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     const skill = await readSkill()
     if (new TextEncoder().encode(skill).length > 32 * 1024) throw new KickoffClientError('start-error', 'Skill exceeds 32 KiB protocol budget')
     const protocol = await readProtocol()
-    if (!protocol.startsWith('<!-- next-task-kickoff template v2 -->')) throw new KickoffClientError('start-error', 'Kickoff requires the v2 AGENTS.md protocol; existing content was preserved')
+    if (!protocol.startsWith('<!-- next-task-kickoff template v3 -->')) throw new KickoffClientError('start-error', 'Kickoff requires the v3 AGENTS.md protocol; existing content was preserved')
     const taskDefinition = await readDefinition()
     validateDefinition(taskDefinition)
     const today = input.today ?? localDate()
-    let context: ContextPacket
-    try {
-      context = await buildKickoffContext(io, { taskPath: ready.taskPath, taskId: ready.taskId, basedOn: ready.basedOn, today, skill })
-    } catch (error) {
-      throw new KickoffClientError(/Task.*changed/.test(message(error)) ? 'task-changed' : 'start-error', message(error))
-    }
     const provider = state.providers.find(p => p.id === ready.providerId)!
     const recipient = ready.providerId === 'notemd.codex-agent' ? 'OpenAI (Codex)'
       : ready.providerId === 'notemd.deepseek-agent' ? 'DeepSeek'
@@ -348,18 +338,16 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     const preview: KickoffPreview = {
       id: crypto.randomUUID(), taskId: ready.taskId, providerId: ready.providerId,
       providerName: provider.name, recipient,
-      files: context.files.map(file => ({ path: file.path, bytes: new TextEncoder().encode(file.content).length })),
-      bytes: new TextEncoder().encode(JSON.stringify(context)).length,
-      gaps: [...context.gaps], needsConsent: await needsConsent(io), dataSources: parseDataSources(skill),
+      vaultRoot: ready.vaultRoot, taskPath: ready.taskPath, needsConsent: await needsConsent(io), dataSources: parseDataSources(skill),
     }
-    // Bound local previews; confirmations refer to an immutable packet, never a fresh scan.
+    // Bind confirmation to the task, recipient and instructions; retrieval belongs to the agent.
     if (prepared.size >= 8) prepared.delete(prepared.keys().next().value!)
-    prepared.set(preview.id, { preview, ready, context, skill, protocol, taskDefinition, today })
+    prepared.set(preview.id, { preview, ready, skill, protocol, taskDefinition, today })
     return JSON.parse(JSON.stringify(preview)) as KickoffPreview
   }
   const startInternal = async (input: KickoffStartInput): Promise<KickoffSnapshot> => {
     const cached = input.previewId ? prepared.get(input.previewId) : undefined
-    if (!cached || !input.consent) throw new KickoffClientError('preview-required', 'Review the files and recipient before sending this run')
+    if (!cached || !input.consent) throw new KickoffClientError('preview-required', 'Review the retrieval scope and recipient before starting this run')
     prepared.delete(cached.preview.id)
     if (input.providerId !== cached.ready.providerId || input.item.task?.id !== cached.ready.taskId) throw new KickoffClientError('preview-changed', 'The selected task or recipient changed; review a new preview')
     const ready = await preflightInternal(input)
@@ -370,7 +358,7 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     }
     await seedFiles(io, { ...TEMPLATE_FILES, ...SKILL_FILES })
     state.needsConsent = false
-    const { skill, context, today } = cached
+    const { skill, today } = cached
     state.dataSources = parseDataSources(skill)
     const definition = validateDefinition(cached.taskDefinition)
     const requestedAt = now()
@@ -384,16 +372,13 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
           cached.protocol,
           String(definition.prompt),
           'schema: next-kickoff/v1',
-          `task_path: ${ready.taskPath}`,
+          `vault_root: ${JSON.stringify(ready.vaultRoot)}`,
+          `task_path: ${JSON.stringify(ready.taskPath)}`,
           `task_id: ${ready.taskId}`,
           `based_on: ${ready.basedOn}`,
           `lane: ${ready.lane}`,
           `today: ${today}`,
           `skill: ${SKILL_PATH}`,
-          'User-selected kickoff Skill (data sources were already collected by NEXT; tool restrictions take precedence):',
-          // Legacy Skills may contain a copied output-schema section. Only AGENTS.md defines that protocol.
-          skill.split('## next-kickoff/v1 输出协议')[0],
-          kickoffContextPrompt(context),
         ].join('\n'),
         notify: {
           title_ok: `${options.notificationTitles?.ok ?? 'Kickoff ready'} · ${ready.title}`,
@@ -431,7 +416,6 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       requested_at: requestedAt,
       task_path: ready.taskPath,
       based_on: ready.basedOn,
-      context_paths: context.files.map(file => file.path),
       task_template: TASK_ID,
       state: 'running',
       failure: null,
@@ -515,7 +499,10 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
         if (old?.doc.kickoff.run_id !== run.run_id) {
           let sourceIoError: unknown
           const parsed = await parsePayload(status.content, { taskId: id, basedOn: run.based_on }, async path => {
-            if (!run.context_paths?.includes(path)) return false
+            if (run.task_template === TASK_ID) {
+              if (isWebSource(path)) return true
+              if (!safeVaultSource(path)) return false
+            } else if (!run.context_paths?.includes(path)) return false
             try {
               return (await io.exists(path)).exists
             } catch (error) {

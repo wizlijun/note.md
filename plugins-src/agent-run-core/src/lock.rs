@@ -57,11 +57,11 @@ fn scoped_lock_path(task_run_dir: &Path, scope: &str) -> PathBuf {
     scoped_locks_dir(task_run_dir).join(scope_name(scope))
 }
 
-/// The only task allowed to run concurrently today. The returned key is the
+/// Tasks whose output and progress are isolated per run. The returned key is the
 /// canonical vault-relative source path, so every provider derives the same
-/// lock for the same book without trusting caller-supplied lock metadata.
+/// lock for the same source without trusting caller-supplied lock metadata.
 pub fn scoped_target(task_id: &str, vault: &Path, target: Option<&str>) -> Option<String> {
-    if task_id != "ai-read-ebook" {
+    if !matches!(task_id, "ai-read-ebook" | crate::task::NEXT_KICKOFF_V3) {
         return None;
     }
     let root = vault.canonicalize().ok()?;
@@ -393,6 +393,37 @@ mod tests {
             scoped_target("ai-read-ebook", vault.path(), Some("../outside.md")),
             None
         );
+    }
+
+    #[test]
+    fn kickoff_runs_lock_each_task_file_and_keep_progress_separate() {
+        let vault = tempfile::tempdir().unwrap();
+        let run_dir = vault.path().join("runs");
+        let a = vault.path().join("a-task.md");
+        let b = vault.path().join("b-task.md");
+        std::fs::write(&a, "Task A").unwrap();
+        std::fs::write(&b, "Task B").unwrap();
+        let mut first = info(std::process::id() as i32);
+        first.run_id = "kickoff-a".into();
+        let mut second = first.clone();
+        second.run_id = "kickoff-b".into();
+        let a_guard = acquire_for_run(&run_dir, "next-task-kickoff-v3", vault.path(), a.to_str(), first).unwrap();
+        let b_guard = acquire_for_run(&run_dir, "next-task-kickoff-v3", vault.path(), b.to_str(), second).unwrap();
+        assert_eq!(current_all(&run_dir).len(), 2);
+        assert!(acquire_for_run(&run_dir, "next-task-kickoff-v3", vault.path(), Some("./a-task.md"), info(3)).is_err());
+        // A non-scoped/older provider still blocks against the shared task gate.
+        assert!(acquire(&run_dir, info(3)).is_err());
+        for (run_id, steps) in [("kickoff-a", 1), ("kickoff-b", 7)] {
+            crate::record::write_progress(&run_dir, &crate::record::Progress {
+                run_id: run_id.into(), steps, last: run_id.into(), updated_at: String::new(),
+            });
+        }
+        crate::record::clear_progress_for(&run_dir, "kickoff-a");
+        drop(a_guard);
+        assert!(current_for_run(&run_dir, "kickoff-a").is_none());
+        assert!(current_for_run(&run_dir, "kickoff-b").is_some());
+        assert_eq!(crate::record::read_progress_for(&run_dir, "kickoff-b").unwrap().steps, 7);
+        drop(b_guard);
     }
 
     #[test]

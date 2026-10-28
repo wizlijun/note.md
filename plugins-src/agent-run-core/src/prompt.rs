@@ -32,9 +32,9 @@ pub fn compose(task_prompt: &str, user_prompt: &str, ctx: Option<&TabContext>) -
 
 /// Compose one task invocation at both window and detached CLI entry points.
 pub fn compose_for_task(task: &crate::task::TaskDef, user_prompt: &str, ctx: Option<&TabContext>) -> String {
-    // NEXT already froze the template prompt and protocol with the files the
-    // user confirmed. Re-reading task.json here would add unconfirmed text.
-    if task.id == crate::task::NEXT_KICKOFF_V2 {
+    // NEXT supplies the confirmed protocol and invocation parameters together.
+    // Do not duplicate disk instructions or attach an unrelated editor tab.
+    if matches!(task.id.as_str(), crate::task::NEXT_KICKOFF_V2 | crate::task::NEXT_KICKOFF_V3) {
         user_prompt.to_string()
     } else {
         compose(&task.prompt, user_prompt, ctx)
@@ -164,4 +164,14 @@ mod tests {
         assert!(got.contains("`sources:`"), "{got}");
         assert!(got.contains("绝不修改源文档"), "{got}");
     }
+    #[test]
+    fn kickoff_v3_does_not_duplicate_protocol_or_inject_current_tab() {
+        let task = serde_json::from_value(serde_json::json!({
+            "id": crate::task::NEXT_KICKOFF_V3, "name": "research", "prompt": "disk protocol"
+        })).unwrap();
+        let context = TabContext { path: "unrelated.md".into(), selection: "private selection".into() };
+        let protocol = "<!-- next-task-kickoff template v3 -->\nvault_root: \"/vault\"";
+        assert_eq!(compose_for_task(&task, protocol, Some(&context)), protocol);
+    }
+
 }

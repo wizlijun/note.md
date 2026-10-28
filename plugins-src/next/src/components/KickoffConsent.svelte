@@ -34,12 +34,14 @@
     <p data-recipient><strong>{t('kickoff.recipient', { agent: preview.providerName, recipient: preview.recipient })}</strong></p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="preview">
-      <h3>{t('kickoff.sendFiles', { count: preview.files.length, bytes: preview.bytes })}</h3>
-      <ul class="files">{#each preview.files as file}<li><span>{file.path}</span><small>{file.bytes} B</small></li>{/each}</ul>
-      <p>{t('kickoff.sendProcedure')}</p>
+      <h3>{t('kickoff.vault')}</h3>
+      <p data-vault>{preview.vaultRoot}</p>
+      <h3>{t('kickoff.task')}</h3>
+      <p data-task>{preview.taskPath}</p>
+      <p>{t('kickoff.researchProcedure')}</p>
+      <p>{t('kickoff.researchBoundary')}</p>
       <h3>{t('kickoff.dataSources')}</h3>
       <ul>{#each preview.dataSources as source}<li>{source.label}{#if !source.enabled} · {t('kickoff.sourceDisabled')}{/if}</li>{/each}</ul>
-      {#if preview.gaps.length}<h3>{t('kickoff.gaps')}</h3><ul>{#each preview.gaps as gap}<li>{gap}</li>{/each}</ul>{/if}
     </div>
     {#if preview.needsConsent}<p>{t('kickoff.consentSetup')}</p>{/if}
     <footer>
@@ -58,9 +60,6 @@
   h3 { margin: 16px 0 8px; font-size: 13px; }
   .preview { max-height: 42vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px 12px; font-size: 12px; overflow-wrap: anywhere; }
   ul { padding-left: 20px; margin: 0; line-height: 1.7; }
-  .files { list-style: none; padding: 0; }
-  .files li { display: flex; justify-content: space-between; gap: 12px; }
-  small { flex: none; color: var(--muted-strong); }
   .error { color: var(--ui-danger, #b42318); }
   footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
   button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--fg); font: inherit; cursor: pointer; }

@@ -208,7 +208,10 @@ fn stream(session_cwd: &str, text: &str, chunks: usize, outcome: &Option<String>
     } else {
         text.to_string()
     };
-    for i in 0..chunks {
+    let blocks = env("STUB_MESSAGE_BLOCKS")
+        .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok())
+        .unwrap_or_else(|| vec![body; chunks]);
+    for (i, body) in blocks.iter().enumerate() {
         if i > 0 {
             std::thread::sleep(std::time::Duration::from_millis(60));
         }

@@ -47,6 +47,7 @@
     "vault.read",
     "vault.write",
     "editor.open",
+    "link.open",
     "toast",
     "settings",
     "task.hook",

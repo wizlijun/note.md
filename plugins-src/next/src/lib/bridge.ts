@@ -53,6 +53,10 @@ export function editorOpen(path: string): Promise<{ ok: true }> {
   return bridge().request('host.editor.open', { path })
 }
 
+export function linkOpen(url: string): Promise<{ ok: true }> {
+  return bridge().request('host.link.open', { url })
+}
+
 export async function toast(
   level: 'success' | 'info' | 'warn' | 'error',
   message: string,

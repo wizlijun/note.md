@@ -9,6 +9,7 @@
   import KickoffSheet from './components/KickoffSheet.svelte'
   import { createKickoffClient, KickoffClientError, type KickoffSnapshot, type KickoffResult, type KickoffPreview } from './lib/kickoff/client'
   import { kickoffEligible, kickoffButtonState, type ButtonStateInput } from './lib/kickoff/button-state'
+  import { isWebSource, safeVaultSource } from './lib/kickoff/source'
   import { POLL_MS } from './lib/kickoff/status'
   import type { KickoffAnswer } from './lib/kickoff/document'
   import type { KickoffFailure } from './lib/kickoff/registry'
@@ -25,7 +26,7 @@
   import RelinkSheet from './components/RelinkSheet.svelte'
   import SettingsPage from './components/SettingsPage.svelte'
   import TaskHookStatus from './components/TaskHookStatus.svelte'
-  import { bridge, toast, vaultRead, vaultWrite, vaultExists, vaultList, vaultInfo, agentProviders, agentLimits, agentRun, agentStatus, editorOpen } from './lib/bridge'
+  import { bridge, toast, vaultRead, vaultWrite, vaultExists, vaultList, vaultInfo, agentProviders, agentLimits, agentRun, agentStatus, editorOpen, linkOpen } from './lib/bridge'
   import { quickPlaceInput, type PlaceInput, type QuickPlaceInput } from './lib/events'
   import { canCompleteWithNote, CompletionNoteError, createCompletionNote, type CompletionNoteOperation } from './lib/completion-note'
   import { projectTagsOf } from './lib/model'
@@ -318,7 +319,11 @@
   }
 
   async function openKickoffFile(path: string) {
-    try { await editorOpen(path) }
+    try {
+      if (isWebSource(path)) await linkOpen(path)
+      else if (safeVaultSource(path)) await editorOpen(path)
+      else throw new Error('Invalid source link')
+    }
     catch (error) { await toast('error', t('error.open'), String(error)) }
   }
 

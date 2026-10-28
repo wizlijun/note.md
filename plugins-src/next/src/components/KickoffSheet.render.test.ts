@@ -13,9 +13,9 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 const doc = { metadata: { created: '2026-10-27T10:00:00Z' }, kickoff: { run_id: 'run1', harness: 'Codex', duration_seconds: 62, payload: { ...payload, context: [{ claim: 'A guess', kind: 'inference', unverified: true, source_ids: ['s1'] }] }, answers: [], prior_answers: [] } } as unknown as KickoffDoc
-function render() {
+function render(resultDoc = doc) {
   setLocale('en')
-  const props = { title: 'Ship', result: { path: 'inbox/tasks/test.kickoff.md', doc }, stale: true, saving: false, onSave: vi.fn(async () => {}), onRegenerate: vi.fn(), onOpen: vi.fn(), onClose: vi.fn() }
+  const props = { title: 'Ship', result: { path: 'inbox/tasks/test.kickoff.md', doc: resultDoc }, stale: true, saving: false, onSave: vi.fn(async () => {}), onRegenerate: vi.fn(), onOpen: vi.fn(), onClose: vi.fn() }
   components.push(mount(KickoffSheet, { target: document.body, props }))
   flushSync()
   return props
@@ -51,6 +51,27 @@ describe('KickoffSheet', () => {
     expect(document.body.textContent).toContain('1:02')
     expect(document.querySelector<HTMLButtonElement>('[data-kickoff-place]')?.disabled).toBe(true)
   })
+  it('shows the real web host and complete destination independently of the source title', () => {
+    const resource = 'https://research.example/article?topic=next'
+    const props = render({ ...doc, kickoff: { ...doc.kickoff, payload: { ...doc.kickoff.payload,
+      sources: [{ ...doc.kickoff.payload.sources[0], title: '<b>Official source</b>', resource }],
+    } } })
+    const source = document.querySelector<HTMLButtonElement>('[data-source="s1"]')!
+    expect(source.textContent).toContain('research.example')
+    expect(source.title).toContain(resource)
+    expect(source.querySelector('b')).toBeNull()
+    source.click()
+    expect(props.onOpen).toHaveBeenCalledWith(resource)
+  })
+  it.each(['javascript:alert(1)', 'https://user:secret@example.com/a', '//example.com/a'])('disables an unsafe persisted source: %s', (resource) => {
+    const props = render({ ...doc, kickoff: { ...doc.kickoff, payload: { ...doc.kickoff.payload,
+      sources: [{ ...doc.kickoff.payload.sources[0], resource }],
+    } } })
+    const source = document.querySelector<HTMLButtonElement>('[data-source="s1"]')!
+    expect(source.disabled).toBe(true)
+    source.click()
+    expect(props.onOpen).not.toHaveBeenCalled()
+  })
   it('collects mutually exclusive selected and free text answers and opens sources', async () => {
     const props = render()
     document.querySelector<HTMLInputElement>('input[value="a"]')!.click()
@@ -73,7 +94,7 @@ describe('KickoffConsent', () => {
     setLocale('en')
     const onConfirm = vi.fn()
     const onCancel = vi.fn()
-    components.push(mount(KickoffConsent, { target: document.body, props: { onConfirm, onCancel, onChoose: vi.fn(), preview: { id: 'p1', taskId: 't1', providerId: 'codex', providerName: 'Codex', recipient: 'OpenAI', files: [], bytes: 0, gaps: [], needsConsent: true, dataSources: [] } } }))
+    components.push(mount(KickoffConsent, { target: document.body, props: { onConfirm, onCancel, onChoose: vi.fn(), preview: { id: 'p1', taskId: 't1', providerId: 'codex', providerName: 'Codex', recipient: 'OpenAI', vaultRoot: '/vault', taskPath: 'task.md', needsConsent: true, dataSources: [] } } }))
     flushSync()
     document.querySelector<HTMLButtonElement>('[data-consent-cancel]')!.click()
     expect(onConfirm).not.toHaveBeenCalled()

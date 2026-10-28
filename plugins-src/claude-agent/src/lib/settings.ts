@@ -1,12 +1,14 @@
 import { bridge } from './bridge'
 
+export const DEFAULT_MAX_CONCURRENCY = 3
 export const CONCURRENCY_OPTIONS = [1, 2, 3, 4, 5] as const
 export const USAGE_DISPLAY_OPTIONS = ['tip', 'result'] as const
 export type UsageDisplay = (typeof USAGE_DISPLAY_OPTIONS)[number]
 
 export function normalizeMaxConcurrency(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) return 1
+  const parsed = typeof value === 'number' ? value
+    : typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) return DEFAULT_MAX_CONCURRENCY
   return Math.max(1, Math.min(5, parsed))
 }
 

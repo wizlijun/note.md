@@ -95,8 +95,11 @@ pub async fn run(
     // Strict runs have a fixed total budget, including prompt delivery.
     let timeout_limit = std::time::Duration::from_secs(spec.task.timeout_seconds);
     let absolute_deadline = tokio::time::Instant::now() + timeout_limit;
+    let research = spec.task.id == task::NEXT_KICKOFF_V3;
+    let bounded = spec.task.strict_readonly || research;
     let kickoff_v2 = spec.task.id == task::NEXT_KICKOFF_V2;
-    let refusal = task::validate_next_kickoff_task(&spec.task).err().or_else(|| {
+    let refusal = task::validate_next_kickoff_task(&spec.task).err()
+        .or_else(|| task::validate_kickoff_research(&spec.task, &spec.prompt, spec.deliverable.is_some()).err()).or_else(|| {
         (kickoff_v2 && !spec.prompt.contains(task::NEXT_KICKOFF_V2_MARKER))
             .then(|| "kickoff v2 requires the frozen protocol in the prompt".to_string())
     });
@@ -171,7 +174,7 @@ pub async fn run(
         .task_run_dir
         .join("settings")
         .join(format!("{}.json", spec.run_id));
-    let strict_vault = if spec.task.strict_readonly && !kickoff_v2 {
+    let strict_vault = if (spec.task.strict_readonly && !kickoff_v2) || research {
         match spec.vault.canonicalize() {
             Ok(vault) => Some(vault),
             Err(e) => {
@@ -192,6 +195,8 @@ pub async fn run(
             ),
             false,
         )
+    } else if research {
+        (prompt::build_research_argv(&spec.task, strict_vault.as_deref().expect("research vault")), false)
     } else if kickoff_v2 {
         // The protocol is inside the frozen packet; never read it from disk.
         (prompt::build_readonly_context_argv(&spec.task), false)
@@ -278,7 +283,7 @@ pub async fn run(
     let cwd = input_only_dir
         .as_ref()
         .map(|dir| dir.path())
-        .unwrap_or_else(|| if spec.task.strict_readonly { strict_vault.as_deref().expect("strict vault") } else { spec.task_dir.as_path() });
+        .unwrap_or_else(|| if bounded { strict_vault.as_deref().expect("strict vault") } else { spec.task_dir.as_path() });
 
     let mut cmd = tokio::process::Command::new(&spec.claude);
     cmd.args(&argv)
@@ -286,7 +291,7 @@ pub async fn run(
         // both the vault's conventions and the task's instructions load, and
         // .claude/skills + .mcp.json are discovered relative to it.
         .current_dir(cwd)
-        .stdin(if kickoff_v2 { Stdio::piped() } else { Stdio::null() })
+        .stdin(if kickoff_v2 || research { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         // claude spawns stdio MCP servers (`npx …`) itself, and a GUI-launched
@@ -372,7 +377,7 @@ pub async fn run(
     // 拿总时长砍活着的 run,只会在最后一刻把已经快写完的摘要扔掉。
     // strict_readonly 例外:只读包没有长读的理由,预算是从启动算起的总时长。
     let quiet_limit = timeout_limit;
-    let deadline = tokio::time::sleep_until(if spec.task.strict_readonly {
+    let deadline = tokio::time::sleep_until(if bounded {
         absolute_deadline
     } else {
         tokio::time::Instant::now() + quiet_limit
@@ -382,7 +387,7 @@ pub async fn run(
         tokio::select! {
             line = lines.next_line() => match line {
                 Ok(Some(l)) => {
-                    if !spec.task.strict_readonly {
+                    if !bounded {
                         deadline.as_mut().reset(tokio::time::Instant::now() + quiet_limit);
                     }
                     if let Some(ev) = stream::parse_line(&l) {
@@ -445,7 +450,7 @@ pub async fn run(
             };
             (exit, input_error)
         };
-        if spec.task.strict_readonly {
+        if bounded {
             if forced.is_some() {
                 None
             } else {
@@ -479,7 +484,7 @@ pub async fn run(
         (_, Some(0)) => record::Status::Success,
         _ => record::Status::Error,
     });
-    let mut found = if spec.task.strict_readonly { Vec::new() } else { artifacts::collect(
+    let mut found = if bounded { Vec::new() } else { artifacts::collect(
         &spec.vault,
         &spec.task_dir,
         started_at,
@@ -1437,4 +1442,56 @@ mod tests {
         assert!(run(spec(d.path(), c, 60), tx2, cr2).await.is_err());
         h.abort();
     }
+    #[tokio::test]
+    async fn kickoff_v3_uses_search_only_permissions_and_vault_cwd() {
+        let d = tempfile::tempdir().unwrap();
+        let output = d.path().join("argv");
+        let c = fake_claude(d.path(), "research", &format!(r#"
+printf '%s\n' "$PWD" "$@" > '{}'
+cat >/dev/null
+echo '{{"type":"result","subtype":"success","result":"research","is_error":false}}'
+"#, output.display()));
+        let mut s = spec(d.path(), c, 30);
+        s.task.id = task::NEXT_KICKOFF_V3.into();
+        s.task.max_turns = Some(40);
+        s.prompt = agent_run_core::task::NEXT_KICKOFF_V3_MARKER.into();
+        let (_, rec) = drive(s).await;
+        assert_eq!(rec.status, record::Status::Success, "{rec:?}");
+        let argv = std::fs::read_to_string(output).unwrap();
+        assert!(argv.starts_with(&format!("{}\n", d.path().canonicalize().unwrap().display())));
+        assert!(argv.contains("Read,Glob,Grep,Bash,WebSearch,WebFetch"));
+        assert!(argv.contains("Bash(notemd search:*)"));
+        assert!(argv.contains("--permission-mode\ndontAsk\n"));
+        assert!(argv.contains("--safe-mode\n--restricted\n"));
+        assert!(rec.artifacts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn kickoff_v3_streaming_stops_at_the_absolute_timeout() {
+        let dir = tempfile::tempdir().unwrap();
+        let cli = fake_claude(dir.path(), "chatty-research", r#"
+            cat >/dev/null
+            while true; do echo '{"type":"system","subtype":"tick"}'; sleep 0.2; done
+        "#);
+        let mut spec = spec(dir.path(), cli, 1);
+        spec.task.id = task::NEXT_KICKOFF_V3.into();
+        spec.task.max_turns = Some(40);
+        spec.prompt = agent_run_core::task::NEXT_KICKOFF_V3_MARKER.into();
+        let (_, record) = tokio::time::timeout(std::time::Duration::from_secs(4), drive(spec)).await.unwrap();
+        assert_eq!(record.status, record::Status::Timeout);
+    }
+
+    #[tokio::test]
+    async fn kickoff_v3_rejects_deliverable_before_launch() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut spec = spec(dir.path(), dir.path().join("must-not-launch"), 30);
+        spec.task.id = task::NEXT_KICKOFF_V3.into();
+        spec.task.max_turns = Some(40);
+        spec.prompt = agent_run_core::task::NEXT_KICKOFF_V3_MARKER.into();
+        spec.deliverable = Some(dir.path().join("forbidden.md"));
+        let (_, record) = drive(spec).await;
+        assert_eq!(record.status, record::Status::Error);
+        assert!(record.result.contains("forbids file deliverables"));
+    }
+
 }

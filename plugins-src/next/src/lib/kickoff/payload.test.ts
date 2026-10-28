@@ -133,3 +133,22 @@ describe('payload normalization', () => {
     }
   })
 })
+
+it.each(['https://example.org/article', 'http://example.org/article?q=hello'])('preserves a permitted web citation %s', async resource => {
+  const p = fresh(); p.sources[0].resource = resource
+  const result = await parse(p)
+  expect(result.ok).toBe(true)
+  if (result.ok) expect(result.payload.sources[0].resource).toBe(resource)
+})
+
+it.each(['javascript:alert(1)', 'file:///secret', '//example.org/page', 'https://user:secret@example.org', 'https://example.org/\\evil', 'https://example.org/\nspoof', '.notemd/config.json', 'diary/../secret.md', 'C:\\secret.md', '/vault/note.md'])('removes unsafe research source %s before IO', async resource => {
+  const p = fresh(); p.sources[0].resource = resource
+  const exists = vi.fn(async () => true)
+  const result = await parsePayload(JSON.stringify(p), expected, exists)
+  expect(result.ok).toBe(true)
+  if (result.ok) {
+    expect(result.payload.sources).toEqual([])
+    expect(result.payload.context[0].kind).toBe('inference')
+  }
+  expect(exists).not.toHaveBeenCalled()
+})

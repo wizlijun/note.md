@@ -8,25 +8,28 @@ import { setLocale } from '../lib/strings'
 let component: ReturnType<typeof mount> | null = null
 const preview: KickoffPreview = {
   id: 'preview-1', taskId: 'task-1', providerId: 'codex', providerName: 'Codex', recipient: 'OpenAI',
-  files: [{ path: 'task.md', bytes: 100 }, { path: 'diary/<budget>.md', bytes: 200 }], bytes: 500,
-  gaps: ['A background file was omitted'], needsConsent: true,
+  vaultRoot: '/Users/owner/<vault>', taskPath: 'inbox/tasks/task.md', needsConsent: true,
   dataSources: [{ id: 'diary', kind: 'vault', label: 'Diary notes', paths: ['diary/*.md'], enabled: true }],
 }
 afterEach(() => { if (component) unmount(component); component = null; document.body.innerHTML = '' })
-it('discloses the recipient, files, byte counts, instructions, omissions and first-use setup', () => {
+it('discloses live research scope, recipient, agent boundaries and first-use setup', () => {
   setLocale('en')
   const onConfirm = vi.fn()
   component = mount(KickoffConsent, { target: document.body, props: { preview, onConfirm, onCancel: vi.fn(), onChoose: vi.fn() } })
   flushSync()
   expect(document.body.textContent).toContain('external service')
   expect(document.querySelector('[data-recipient]')?.textContent).toBe('Agent: Codex · Recipient: OpenAI')
-  expect(document.body.textContent).toContain('diary/<budget>.md')
-  expect(document.querySelector('budget')).toBeNull()
-  expect(document.body.textContent).toContain('200 B')
-  expect(document.body.textContent).toContain('Snapshot: 500 bytes')
-  expect(document.body.textContent).toContain('skill instructions are also sent')
-  expect(document.body.textContent).toContain('A background file was omitted')
-  expect(document.body.textContent).toContain('skills/task-kickoff/SKILL.md')
+  expect(document.querySelector('[data-vault]')?.textContent).toBe('/Users/owner/<vault>')
+  expect(document.querySelector('vault')).toBeNull()
+  expect(document.querySelector('[data-task]')?.textContent).toBe('inbox/tasks/task.md')
+  expect(document.body.textContent).toContain('notemd search CLI')
+  expect(document.body.textContent).toContain('harness web search')
+  expect(document.body.textContent).toContain('recent related articles')
+  expect(document.body.textContent).toContain('must not modify Vault content, send messages, or execute the task')
+  expect(document.body.textContent).toContain('NEXT validates the result')
+  expect(document.body.textContent).toContain('not a frozen file snapshot')
+  expect(document.body.textContent).not.toContain('Files included')
+  expect(document.body.textContent).toContain('next-task-kickoff-v3/')
   expect(onConfirm).not.toHaveBeenCalled()
   document.querySelector<HTMLButtonElement>('[data-consent-confirm]')!.click()
   expect(onConfirm).toHaveBeenCalledOnce()

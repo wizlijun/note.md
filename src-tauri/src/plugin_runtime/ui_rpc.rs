@@ -201,6 +201,10 @@ pub trait HostServices: Send + Sync {
     fn location_get(&self) -> Result<serde_json::Value, String> {
         Err("location not supported".into())
     }
+    /// Open a validated HTTP(S) link in the system browser, from plugin UI only.
+    fn open_web_link(&self, _url: &str) -> Result<(), String> {
+        Err("io: link.open is only available from a plugin UI window".into())
+    }
     /// Open a vault file in the main editor window. Default: unavailable
     /// (the process sink has no main-window context). `abs_path` is the
     /// vault-resolved absolute path from `resolve_in_vault`.
@@ -610,6 +614,7 @@ pub async fn dispatch_with(
         "host.vault.remove" => vault_remove(services, &req.params),
         "host.vault.rename" => vault_rename(services, &req.params),
         "host.editor.open" => editor_open(services, plugin_id, &req.params),
+        "host.link.open" => link_open(services, &req.params),
         "host.agent.run"    => services.agent_execute("run-task", req.params.clone()),
         "host.agent.status" => services.agent_execute("run-status", req.params.clone()),
         "host.agent.providers" => services.agent_providers(),
@@ -1255,6 +1260,22 @@ fn plugin_settings_set<R: tauri::Runtime>(
     Ok(serde_json::json!({ "ok": true }))
 }
 
+fn link_open(services: &dyn HostServices, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let raw = params.get("url").and_then(serde_json::Value::as_str)
+        .ok_or("io: missing url")?;
+    if raw.len() > 8192 || raw.chars().any(|ch| ch.is_whitespace() || ch.is_control()
+        || ch == '\\' || matches!(ch, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')) {
+        return Err("io: invalid web link".into());
+    }
+    let url = url::Url::parse(raw).map_err(|_| "io: invalid web link")?;
+    if !matches!(url.scheme(), "http" | "https") || !raw.to_ascii_lowercase().starts_with(&format!("{}://", url.scheme()))
+        || url.host_str().is_none() || !url.username().is_empty() || url.password().is_some() {
+        return Err("io: only HTTP(S) links without credentials are allowed".into());
+    }
+    services.open_web_link(url.as_str())?;
+    Ok(serde_json::json!({ "ok": true }))
+}
+
 pub(crate) fn editor_open(
     services: &dyn HostServices,
     plugin_id: &str,
@@ -1413,6 +1434,11 @@ impl<R: tauri::Runtime> HostServices for TauriServices<R> {
         // (off-main, per-request) thread on a condvar until the delegate/geocode
         // completes. Blocking here is fine.
         super::location::fetch_once(&self.app)
+    }
+
+    fn open_web_link(&self, url: &str) -> Result<(), String> {
+        use tauri_plugin_opener::OpenerExt;
+        self.app.opener().open_url(url, None::<&str>).map_err(|e| format!("io: {e}"))
     }
 
     fn open_in_editor(&self, abs_path: &Path) -> Result<(), String> {
@@ -1651,6 +1677,7 @@ mod tests {
         last_open: Mutex<Option<OpenOptions>>,
         /// recorded clipboard writes
         clipboard: Arc<Mutex<Vec<String>>>,
+        links: Arc<Mutex<Vec<String>>>,
         /// recorded editor.open paths
         opened: Arc<Mutex<Vec<PathBuf>>>,
         /// recorded editor.open requests that select a declared file view
@@ -1679,6 +1706,10 @@ mod tests {
         }
         fn clipboard_write(&self, text: &str) -> Result<(), String> {
             self.clipboard.lock().unwrap().push(text.to_string());
+            Ok(())
+        }
+        fn open_web_link(&self, url: &str) -> Result<(), String> {
+            self.links.lock().unwrap().push(url.to_string());
             Ok(())
         }
         fn open_in_editor(&self, abs_path: &Path) -> Result<(), String> {
@@ -1828,6 +1859,7 @@ mod tests {
             ("host.fs.read_bytes", "fs.read:dialog"),
             ("host.clipboard.write", "clipboard.write"),
             ("host.editor.open", "editor.open"),
+            ("host.link.open", "link.open"),
             ("host.theme.css", "editor.kit"),
             ("host.settings.get", "settings"),
             ("host.settings.set", "settings"),
@@ -2657,6 +2689,30 @@ mod tests {
         let e = r.error.unwrap();
         assert_eq!(e.code, proto::ERR_INTERNAL);
         assert!(e.message.starts_with("io:"), "{}", e.message);
+    }
+
+    #[tokio::test]
+    async fn link_open_uses_browser_without_opening_a_vault_file() {
+        let s = StubServices::default();
+        for url in ["https://example.com/recent?topic=next#source", "http://example.com/article"] {
+            let r = run(&s, &["link.open"], "host.link.open", serde_json::json!({"url": url})).await;
+            assert!(r.error.is_none(), "{r:?}");
+        }
+        assert_eq!(s.links.lock().unwrap().len(), 2);
+        assert!(s.opened.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn link_open_rejects_non_web_urls_credentials_and_parser_ambiguities() {
+        let s = StubServices::default();
+        for url in ["javascript:alert(1)", "file:///tmp/a", "notemd://open/a", "//example.com/a",
+            "https://user:password@example.com/a", "https://user@example.com/a", "https:example.com",
+            "https://example.com/\narticle", "https://example.com/\\evil", "https://example.com/\u{202e}evil", ""] {
+            let r = run(&s, &["link.open"], "host.link.open", serde_json::json!({"url": url})).await;
+            assert!(r.error.is_some(), "accepted {url:?}");
+        }
+        assert!(s.links.lock().unwrap().is_empty());
+        assert!(s.opened.lock().unwrap().is_empty());
     }
 
     // ── editor.open ──────────────────────────────────────────────────────

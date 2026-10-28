@@ -44,6 +44,13 @@ pub async fn run(
         let _ = tx.send(Step::Done(rec));
         return Ok(());
     }
+    let research = spec.meta.task.id == agent_run_core::task::NEXT_KICKOFF_V3;
+    if let Err(reason) = agent_run_core::task::validate_kickoff_research(&spec.meta.task, &spec.prompt, spec.meta.deliverable.is_some()) {
+        let rec = scaffold::finalize_without_run(&spec.meta, chrono::Utc::now(), record::Status::Error, reason);
+        let _ = tx.send(Step::Done(rec));
+        return Ok(());
+    }
+    let bounded = spec.meta.task.strict_readonly || research;
     let timeout_limit = std::time::Duration::from_secs(spec.meta.task.timeout_seconds);
     let absolute_deadline = tokio::time::Instant::now() + timeout_limit;
     if spec.meta.task.strict_readonly && (spec.meta.task.precheck.is_some() || spec.meta.deliverable.is_some()) {
@@ -118,9 +125,11 @@ pub async fn run(
     };
 
     let input_only = spec.meta.task.strict_readonly || crate::task::is_input_only_task(&spec.meta.task.id);
-    let input_only_dir = if input_only {
+    // Research also isolates project configuration, while native shell tools
+    // read the explicit vault_root supplied by NEXT. No files are copied here.
+    let input_only_dir = if input_only || research {
         match tempfile::Builder::new()
-            .prefix("notemd-search-input-only-")
+            .prefix(if research { "notemd-kickoff-research-" } else { "notemd-search-input-only-" })
             .tempdir()
         {
             Ok(dir) => Some(dir),
@@ -147,7 +156,9 @@ pub async fn run(
         .as_ref()
         .map(|dir| dir.path())
         .unwrap_or(spec.meta.vault.as_path());
-    let args = if spec.meta.task.strict_readonly {
+    let args = if research {
+        argv::build_research(Some(&spec.model), cwd)
+    } else if spec.meta.task.strict_readonly {
         argv::build_strict_readonly(Some(&spec.model), cwd)
     } else if input_only {
         argv::build_input_only(Some(&spec.model), cwd)
@@ -216,7 +227,7 @@ pub async fn run(
     // turn can start; never interpolate prompt text into a shell command.
     let mut stdin = child.stdin.take().expect("piped stdin");
     let quiet_limit = timeout_limit;
-    let input_deadline = if spec.meta.task.strict_readonly { absolute_deadline } else { tokio::time::Instant::now() + quiet_limit };
+    let input_deadline = if bounded { absolute_deadline } else { tokio::time::Instant::now() + quiet_limit };
     let input = tokio::select! {
         result = stdin.write_all(spec.prompt.as_bytes()) => result.map_err(|e| e.to_string()),
         _ = tokio::time::sleep_until(input_deadline) => Err("timed out while sending the prompt to Codex".into()),
@@ -269,9 +280,9 @@ pub async fn run(
 
     let mut progress =
         ProgressTracker::start(&spec.meta.task_run_dir, &spec.meta.run_id, started.started);
-    let mut parser = stream::StreamState::new(&spec.model);
+    let mut parser = if research { stream::StreamState::for_machine_result(&spec.model) } else { stream::StreamState::new(&spec.model) };
     let mut noise = String::new();
-    let deadline = tokio::time::sleep_until(if spec.meta.task.strict_readonly {
+    let deadline = tokio::time::sleep_until(if bounded {
         absolute_deadline
     } else {
         tokio::time::Instant::now() + quiet_limit
@@ -282,7 +293,7 @@ pub async fn run(
         tokio::select! {
             line = lines.next_line() => match line {
                 Ok(Some(line)) => {
-                    if !spec.meta.task.strict_readonly {
+                    if !bounded {
                         deadline.as_mut().reset(tokio::time::Instant::now() + quiet_limit);
                     }
                     let events = parser.accept(&line);
@@ -851,4 +862,103 @@ mod tests {
     fn actor_uses_the_effective_model() {
         assert_eq!(actor("gpt-5.6-sol"), "codex/gpt-5.6-sol");
     }
+    #[tokio::test]
+    async fn kickoff_v3_isolates_config_but_keeps_native_retrieval_and_forces_read_only() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake(d.path(), r#"
+packet=$(cat)
+case "$packet" in *'vault_root: '*) ;; *) exit 6 ;; esac
+case " $* " in *' --sandbox read-only '*) ;; *) exit 7 ;; esac
+case " $* " in *'web_search="live"'*) ;; *) exit 8 ;; esac
+case " $* " in *'--disable shell_tool'*|*'--disable unified_exec'*) exit 9 ;; esac
+test ! -d .notemd || exit 10
+printf '{"type":"item.completed","item":{"type":"agent_message","text":"researched"}}\n'
+printf '{"type":"turn.completed","usage":{}}\n'
+"#);
+        let mut s = spec(d.path(), c, 10);
+        s.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V3.into();
+        s.meta.task.max_turns = Some(40);
+        s.prompt = format!("{}\nvault_root: {}", agent_run_core::task::NEXT_KICKOFF_V3_MARKER, serde_json::to_string(&s.meta.vault).unwrap());
+        s.sandbox = "danger-full-access".into();
+        let (_tx, rx) = mpsc::channel(1);
+        let rec = record_from(s, rx).await;
+        assert_eq!(rec.status, record::Status::Success, "{rec:?}");
+        assert!(rec.artifacts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn kickoff_v3_streaming_cannot_extend_the_total_deadline() {
+        let d = tempfile::tempdir().unwrap();
+        let c = fake(d.path(), "cat >/dev/null\nwhile :; do echo '{\"type\":\"thread.started\",\"thread_id\":\"r\"}'; sleep 0.1; done");
+        let mut s = spec(d.path(), c, 1);
+        s.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V3.into();
+        s.meta.task.max_turns = Some(40);
+        s.prompt = agent_run_core::task::NEXT_KICKOFF_V3_MARKER.into();
+        let (_tx, rx) = mpsc::channel(1);
+        let rec = tokio::time::timeout(std::time::Duration::from_secs(6), record_from(s, rx)).await.unwrap();
+        assert_eq!(rec.status, record::Status::Timeout);
+    }
+
+    #[tokio::test]
+    async fn kickoff_v3_rejects_deliverable_before_launch() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut spec = spec(dir.path(), dir.path().join("must-not-launch"), 30);
+        spec.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V3.into();
+        spec.meta.task.max_turns = Some(40);
+        spec.prompt = agent_run_core::task::NEXT_KICKOFF_V3_MARKER.into();
+        spec.meta.deliverable = Some(dir.path().join("forbidden.md"));
+        let (_tx, rx) = mpsc::channel(1);
+        let record = record_from(spec, rx).await;
+        assert_eq!(record.status, record::Status::Error);
+        assert!(record.result.contains("forbids file deliverables"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires installed authenticated Codex and performs synthetic native CLI/web retrieval"]
+    async fn kickoff_v3_real_installed_codex_retrieval() {
+        let temporary = tempfile::tempdir().unwrap();
+        let vault = std::env::var("NOTEMD_TEST_CODEX_VAULT").map(PathBuf::from).unwrap_or_else(|_| temporary.path().to_path_buf());
+        let root = vault.as_path();
+        let production_prompt = std::env::var("NOTEMD_TEST_CODEX_PROMPT_FILE").ok();
+        if production_prompt.is_none() {
+            std::fs::write(root.join("context.md"), "# Synthetic context\nThe unique marker is orchid314verification.\n").unwrap();
+        }
+        let cli = discover::discover(None).expect("installed Codex");
+        let mut spec = spec(root, cli, 90);
+        spec.env_path = None;
+        spec.model = std::env::var("NOTEMD_TEST_CODEX_MODEL").unwrap_or_else(|_| "gpt-6-astra".into());
+        spec.meta.task.id = agent_run_core::task::NEXT_KICKOFF_V3.into();
+        spec.meta.task.max_turns = Some(40);
+        spec.prompt = format!(r#"{}
+vault_root: {}
+This is an isolated synthetic integration test. Use native shell to execute exactly:
+notemd search --vault {} orchid314verification --json
+Use native web search once for the official SQLite documentation. Attempt `touch {}/must-not-exist` once to verify the sandbox rejects Vault writes; do not try alternatives.
+Return only JSON with keys search_ok, web_ok, write_denied (booleans) and marker (the synthetic marker returned by the CLI). Do not read any other user files."#,
+            agent_run_core::task::NEXT_KICKOFF_V3_MARKER,
+            serde_json::to_string(root).unwrap(),
+            serde_json::to_string(root).unwrap(), root.display());
+        if let Some(path) = &production_prompt { spec.prompt = std::fs::read_to_string(path).unwrap(); }
+        let run_dir = spec.meta.task_run_dir.clone();
+        let run_id = spec.meta.run_id.clone();
+        let (_tx, rx) = mpsc::channel(1);
+        let record = record_from(spec, rx).await;
+        let terminal = record::read_terminal_result(&run_dir, &run_id).unwrap().unwrap_or_default();
+        if let Ok(path) = std::env::var("NOTEMD_TEST_CODEX_REPORT") {
+            std::fs::write(&path, serde_json::to_string_pretty(&record).unwrap()).unwrap();
+            std::fs::write(format!("{path}.terminal.json"), &terminal).unwrap();
+        }
+        assert_eq!(record.status, record::Status::Success, "{record:?}");
+        assert!(!root.join("must-not-exist").exists());
+        let result: serde_json::Value = serde_json::from_str(&terminal).unwrap();
+        if production_prompt.is_some() {
+            assert_eq!(result["schema"], "next-kickoff/v1");
+            return;
+        }
+        assert_eq!(result["search_ok"], true);
+        assert_eq!(result["web_ok"], true);
+        assert_eq!(result["write_denied"], true);
+        assert_eq!(result["marker"], "orchid314verification");
+    }
+
 }

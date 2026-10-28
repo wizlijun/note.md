@@ -1,3 +1,4 @@
+import { isWebSource, safeVaultSource } from './source'
 export type KickoffDecides = 'commitment' | 'next_action' | 'close_condition' | 'owner' | 'scope' | 'other'
 export interface KickoffOption { id: string; label: string; recommended: boolean; why: string; source_ids: string[] }
 export interface KickoffQuestion { id: string; text: string; decides: KickoffDecides; options: KickoffOption[]; allow_free_text: boolean }
@@ -104,7 +105,7 @@ export async function parsePayload(
     const sources: KickoffSource[] = []
     for (const [i, source] of candidates.entries()) {
       const rel = source.resource
-      if (rel.startsWith('/') || rel.split('/').includes('..') || rel.includes('\0') || !await exists(rel)) repairs.push(`sources[${i}]: removed invalid resource`)
+      if ((!safeVaultSource(rel) && !isWebSource(rel)) || !await exists(rel)) repairs.push(`sources[${i}]: removed invalid resource`)
       else sources.push(source)
     }
     const validIds = new Set(sources.map(s => s.id))

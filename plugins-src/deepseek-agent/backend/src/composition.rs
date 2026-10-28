@@ -34,6 +34,10 @@ pub fn write_input_only_config(path: &Path, model: &str) -> std::io::Result<()> 
 /// Keep the adapter fixed to the official endpoint; the only user state read
 /// is the existing credential store, inaccessible to the model.
 pub fn write_strict_config(path: &Path, model: &str, credential_home: &Path) -> std::io::Result<()> {
+    std::fs::write(path, serde_json::to_vec_pretty(&serde_json::json!([{ "insert": strict_rows(model, credential_home) }]))?)
+}
+
+fn strict_rows(model: &str, credential_home: &Path) -> Vec<serde_json::Value> {
     use serde_json::json;
     let mut rows = Vec::new();
     for name in ["timer", "llm", "session", "agent", "tools", "system-prompt", "agent-loop", "credentials-local", "llm-deepseek", "acp"] {
@@ -46,6 +50,31 @@ pub fn write_strict_config(path: &Path, model: &str, credential_home: &Path) -> 
             _ => {},
         }
         rows.push(row);
+    }
+    rows
+}
+
+/// Research is a closed official service graph too: native retrieval is kept,
+/// while user profiles, extension discovery, hooks and MCP never mount.
+pub fn write_research_config(path: &Path, model: &str, credential_home: &Path, vault: &Path) -> std::io::Result<()> {
+    use serde_json::json;
+    let mut rows = strict_rows(model, credential_home);
+    for (id, package, config) in [
+        ("subprocess", "subprocess-local", json!({})),
+        ("sandbox", "sandbox-local", json!({})),
+        ("sandbox-policy", "sandbox-policy", json!({"mode": "read-only", "workspaceRoot": vault})),
+        ("bash-sandbox", "bash-sandbox", json!({"timeoutMs": 60000})),
+        ("approval", "user-approval", json!({"policy": "never"})),
+        ("shell-env", "shell-env", json!({})),
+        ("tool-bash", "tool-bash", json!({"enableRunInBackground": false})),
+        ("fs-sandbox", "fs-sandbox", json!({"cwd": vault})),
+        ("fs-observation-policy", "fs-observation-policy", json!({})),
+        ("tool-fs", "tool-fs", json!({})),
+        ("web", "web", json!({"searchProvider": "deepseek-official"})),
+        ("web-search-deepseek", "web-search-deepseek", json!({"apiKeyEnv": "DEEPSEEK_API_KEY", "baseURL": "https://api.deepseek.com/anthropic/v1"})),
+        ("tool-web", "tool-web", json!({"fetch": false, "searchTimeoutMs": 60000})),
+    ] {
+        rows.push(json!({"id": id, "name": format!("@deepseek-ai/dsh-{package}"), "config": config}));
     }
     std::fs::write(path, serde_json::to_vec_pretty(&json!([{"insert": rows}]))?)
 }

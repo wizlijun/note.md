@@ -18,7 +18,7 @@ it('shows disabled provider reasons and skill-declared data sources in canonical
   const option = document.querySelector<HTMLButtonElement>('.menu-panel .menu-row')!
   expect(option.disabled).toBe(true)
   expect(option.textContent).toContain('Original hint')
-  expect(option.textContent).toContain('This agent does not yet support this kickoff mode')
+  expect(option.textContent).toContain('Update this agent plugin to a version supporting kickoff v3 research')
   expect(option.textContent).toContain('Rate limit')
   expect(document.querySelector('.menu-panel')?.textContent).toContain('Task files')
   expect(document.querySelector('.menu-panel')?.textContent).toContain('Not enabled')
@@ -26,13 +26,13 @@ it('shows disabled provider reasons and skill-declared data sources in canonical
   expect(onSelect).not.toHaveBeenCalled()
 })
 
-it('shows the task-only fallback when the skill cannot be parsed', () => {
+it('shows default research guidance when the skill cannot be parsed', () => {
   setLocale('en')
   component = mount(KickoffPicker, { target: document.body, props: {
     options: [], selected: '', dataSources: parseDataSources('---\ndata_sources: invalid\n---\n'), onSelect: vi.fn(), onClose: vi.fn(),
   } })
   flushSync()
-  expect(document.body.textContent).toContain('The procedure could not be parsed. Only the task file will be read.')
+  expect(document.body.textContent).toContain('The procedure could not be read. The agent will use the default research instructions.')
   expect(document.body.textContent).toContain('Task file')
   expect(document.body.textContent).not.toContain('Task file and its sources')
 })
