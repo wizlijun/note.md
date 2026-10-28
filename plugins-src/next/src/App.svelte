@@ -447,7 +447,7 @@
     const visibleCapture = filtering ? sortedCapture : sortedCapture.slice(0, 10)
     const visibleDormant = sortWorkspaceItems(filter(dormant), sortMode)
     const visibleClosed = sortWorkspaceItems(filter(closed), sortMode)
-    return [
+    const allLanes: LaneView[] = [
       { id: 'capture', title: 'section.capture', empty: 'empty.capture', items: visibleCapture, count: String(visibleCapture.length) },
       {
         id: 'wip',
@@ -460,6 +460,7 @@
       { id: 'dormant', title: 'status.dormant', empty: 'empty.dormant', items: visibleDormant, count: String(visibleDormant.length) },
       { id: 'closed', title: 'status.closed', empty: 'empty.closed', items: visibleClosed, count: String(visibleClosed.length) },
     ]
+    return allLanes.filter((lane) => showPlaced || lane.id !== 'dormant' && lane.id !== 'closed' || lane.items.length > 0)
   })
 
   async function report(action: () => Promise<void>, messageKey: 'error.save' | 'error.open' | 'error.load' | 'error.create') {
@@ -1106,7 +1107,7 @@
       </div>
 
         <div class="board-scroll" onscroll={closePreview}>
-        <div class="board">
+        <div class="board" style:--lane-count={lanes.length}>
           {#each lanes as lane (lane.id)}
             <section
               bind:this={laneElements[lane.id]}
@@ -1407,7 +1408,7 @@
   .board-tools button:hover { background: var(--hover); }
   .board-tools button.active { border-color: var(--accent); color: var(--ui-accent-text); background: var(--accent-soft); }
   .board-scroll { overflow-x: auto; padding: 2px 2px 14px; }
-  .board { display: grid; grid-template-columns: repeat(5, minmax(248px, 1fr)); gap: 12px; min-width: 1312px; }
+  .board { display: grid; grid-template-columns: repeat(var(--lane-count), minmax(248px, 1fr)); gap: 12px; min-width: calc(var(--lane-count) * 260px - 12px); }
   .lane { min-width: 0; min-height: 420px; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--chip) 48%, transparent); transition: border-color 120ms ease, background 120ms ease; }
   .lane.available { border-style: dashed; }
   .lane.over { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -1436,6 +1437,6 @@
     .subtitle-row { display: grid; gap: 6px; }
     .project-filters { width: 100%; max-width: 100%; }
     .content { padding: 18px 16px 36px; }
-    .board { grid-template-columns: repeat(5, 248px); }
+    .board { grid-template-columns: repeat(var(--lane-count), 248px); }
   }
 </style>
