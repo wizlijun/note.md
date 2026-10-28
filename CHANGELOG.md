@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1028.1 — 2026-10-28
+
 - **Apple Silicon: Agent concurrency defaults to three.** Keep your saved per-Agent limit unchanged; when unset, NEXT immediately receives the new default without requiring a settings visit. Each Agent still offers limits from 1 to 5.
 
 - **Open NEXT web sources directly in your browser.** NEXT 1.13.0 can use the new host link interface for validated HTTP(S) citations. Update NEXT and your selected Agent separately through the plugin market.
