@@ -7,9 +7,6 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Ebook Import 1.5.7: preserve why you want to read a book.** Each queued book has an optional reading-context field for the recommender, reason and situation. It is saved as `reading_reason` in `meta.yml`, viewable in the library, and provided to AI reading as user context. CLI imports support `--reading-reason`, with a detailed usage guide and multiline examples.
-
-
 - **Apple Silicon: Agent concurrency defaults to three.** Keep your saved per-Agent limit unchanged; when unset, NEXT immediately receives the new default without requiring a settings visit. Each Agent still offers limits from 1 to 5.
 
 - **Open NEXT web sources directly in your browser.** NEXT 1.13.0 can use the new host link interface for validated HTTP(S) citations. Update NEXT and your selected Agent separately through the plugin market.
