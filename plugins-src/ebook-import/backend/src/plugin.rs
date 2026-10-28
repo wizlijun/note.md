@@ -4,7 +4,7 @@
 //! command.
 //!
 //! Vault resolution (`vault_from_host`/`shared_config_vault*`) and the CLI
-//! context-reading helpers (`cli_str`/`cli_flag`) are ported verbatim from
+//! context-reading helpers follow
 //! `plugins-src/claude-agent/backend/src/plugin.rs` — same problem (the SDK
 //! dispatches `$activate` synchronously on the protocol read loop, so
 //! resolving the vault via `host.request` must be spawned, never awaited
@@ -111,25 +111,6 @@ fn shared_config_vault_at(path: &Path) -> Option<PathBuf> {
     (!s.is_empty()).then(|| PathBuf::from(s))
 }
 
-/// The host's frontend parses CLI args and injects them into `context`; the
-/// exact shape has varied, so look in every place it has lived. Ported from
-/// claude-agent/backend/src/plugin.rs.
-fn cli_str(context: &Value, key: &str) -> Option<String> {
-    for ptr in [
-        format!("/cli/args/{key}"),
-        format!("/cli/flags/{key}"),
-        format!("/cli/{key}"),
-        format!("/{key}"),
-    ] {
-        if let Some(s) = context.pointer(&ptr).and_then(|v| v.as_str()) {
-            if !s.is_empty() {
-                return Some(s.to_string());
-            }
-        }
-    }
-    None
-}
-
 fn cli_flag(context: &Value, key: &str) -> bool {
     for ptr in [
         format!("/cli/flags/{key}"),
@@ -143,6 +124,49 @@ fn cli_flag(context: &Value, key: &str) -> bool {
         }
     }
     false
+}
+
+/// CLI validation distinguishes a missing option from an explicitly empty one.
+fn cli_value<'a>(context: &'a Value, key: &str) -> Option<&'a Value> {
+    [
+        format!("/cli/args/{key}"),
+        format!("/cli/flags/{key}"),
+        format!("/cli/{key}"),
+        format!("/{key}"),
+    ]
+    .iter()
+    .find_map(|pointer| context.pointer(pointer))
+}
+
+fn cli_option(context: &Value, key: &str) -> Result<Option<String>, String> {
+    cli_value(context, key)
+        .map(|value| {
+            value
+                .as_str()
+                .filter(|value| !value.trim().is_empty())
+                .map(str::to_string)
+                .ok_or_else(|| format!("{key} must be a non-empty string"))
+        })
+        .transpose()
+}
+
+/// Keep a synchronous CLI request alive while the blocking worker is running.
+/// The host's timeout measures silence, not total import duration. In particular,
+/// Calibre and PDF rendering may legitimately take longer than that timeout.
+fn wait_for_cli_worker<T>(
+    result: std::sync::mpsc::Receiver<T>,
+    interval: Duration,
+    mut still_running: impl FnMut(),
+) -> Result<T, String> {
+    loop {
+        match result.recv_timeout(interval) {
+            Ok(value) => return Ok(value),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => still_running(),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                return Err("ebook-import worker thread panicked".into());
+            }
+        }
+    }
 }
 
 // ── save_settings merge rules (pure, unit-tested without a host) ───────
@@ -1624,9 +1648,12 @@ impl sdk::NotemdPlugin for EbookImportPlugin {
         self.inner.lock().unwrap().locale = params.locale.clone();
     }
 
-    fn activate(&mut self, host: &sdk::Host, _p: &proto::ActivateParams) -> Result<(), String> {
+    fn activate(&mut self, host: &sdk::Host, p: &proto::ActivateParams) -> Result<(), String> {
         let inner = self.inner.clone();
         let host = host.clone();
+        // CLI discovery must not seed Agent templates or repair library indexes.
+        // Import itself commits through the same pipeline as the UI.
+        let cli = p.event == "onCli:ebook";
 
         // Seed the vault SYNCHRONOUSLY from the shared config — a plain file
         // read, no host round-trip — so a command that arrives the instant
@@ -1634,8 +1661,10 @@ impl sdk::NotemdPlugin for EbookImportPlugin {
         let seeded = shared_config_vault();
         if let Some(root) = &seeded {
             inner.lock().unwrap().vault = Some(root.clone());
-            if let Err(error) = crate::topic_agent::seed_task_templates(root) {
-                host.log_warn(&format!("could not seed ebook topic task: {error}"));
+            if !cli {
+                if let Err(error) = crate::topic_agent::seed_task_templates(root) {
+                    host.log_warn(&format!("could not seed ebook topic task: {error}"));
+                }
             }
         }
 
@@ -1646,33 +1675,35 @@ impl sdk::NotemdPlugin for EbookImportPlugin {
             let root = vault_from_host(&host).await.or(seeded);
             if let Some(root) = &root {
                 host.log_info(&format!("ebook-import ready (vault={})", root.display()));
-                if let Err(error) = crate::topic_agent::seed_task_templates(root) {
-                    host.log_warn(&format!("could not seed ebook topic task: {error}"));
-                }
-                let ebooks_root = settings::load_vault(root).ebooks_root;
-                if let Ok(ebooks_dir) = settings::checked_vault_dir(root, &ebooks_root) {
-                    match recover_topic_apply(root, &ebooks_root) {
-                        Ok(true) => host.log_info("recovered interrupted ebook topic apply"),
-                        Ok(false) => {}
-                        Err(error) => host.log_warn(&format!(
-                            "ebook topic apply needs recovery; keep apply-journal.json: {error}"
-                        )),
+                if !cli {
+                    if let Err(error) = crate::topic_agent::seed_task_templates(root) {
+                        host.log_warn(&format!("could not seed ebook topic task: {error}"));
                     }
-                    match recover_topic_classification_apply(root, &ebooks_root) {
-                        Ok(true) => {
-                            host.log_info("recovered interrupted ebook topic classification")
+                    let ebooks_root = settings::load_vault(root).ebooks_root;
+                    if let Ok(ebooks_dir) = settings::checked_vault_dir(root, &ebooks_root) {
+                        match recover_topic_apply(root, &ebooks_root) {
+                            Ok(true) => host.log_info("recovered interrupted ebook topic apply"),
+                            Ok(false) => {}
+                            Err(error) => {
+                                host.log_warn(&format!("ebook topic apply needs recovery; keep apply-journal.json: {error}"));
+                            }
                         }
-                        Ok(false) => {}
-                        Err(error) => host.log_warn(&format!(
-                            "ebook topic classification needs recovery; keep apply-journal.json: {error}"
-                        )),
-                    }
-                    if ebooks_dir.join(crate::topics::TOPICS_FILE).is_file() {
-                        if let Err(error) = crate::topics::with_topic_lock(&ebooks_dir, || {
-                            let catalog = crate::topics::read_catalog(&ebooks_dir)?;
-                            crate::topics::rebuild_indexes(&ebooks_dir, &catalog).map(|_| ())
-                        }) {
-                            host.log_warn(&format!("ebook topic reconcile failed: {error}"));
+                        match recover_topic_classification_apply(root, &ebooks_root) {
+                            Ok(true) => {
+                                host.log_info("recovered interrupted ebook topic classification")
+                            }
+                            Ok(false) => {}
+                            Err(error) => {
+                                host.log_warn(&format!("ebook topic classification needs recovery; keep apply-journal.json: {error}"));
+                            }
+                        }
+                        if ebooks_dir.join(crate::topics::TOPICS_FILE).is_file() {
+                            if let Err(error) = crate::topics::with_topic_lock(&ebooks_dir, || {
+                                let catalog = crate::topics::read_catalog(&ebooks_dir)?;
+                                crate::topics::rebuild_indexes(&ebooks_dir, &catalog).map(|_| ())
+                            }) {
+                                host.log_warn(&format!("ebook topic reconcile failed: {error}"));
+                            }
                         }
                     }
                 }
@@ -2346,85 +2377,186 @@ impl EbookImportPlugin {
         })
     }
 
-    /// CLI entry point: `notemd ebook-import <file> [--ocr] [--ocr-provider p] [--root r]`.
-    /// Blocks until the import finishes (the host budgets 300s for a CLI
-    /// command, and a single-book import fits that) — but runs the actual
-    /// work on a plain `std::thread`, joined here, rather than inline.
-    ///
-    /// `command.execute` is dispatched synchronously ON the tokio protocol
-    /// read loop (see the module doc). Both OCR engines build a
-    /// `reqwest::blocking::Client` inside `ocr_pdf`, and `reqwest::blocking`
-    /// panics if constructed from within a tokio runtime under
-    /// `debug_assertions` — and even without that panic, running the
-    /// pipeline (which can take minutes, e.g. Calibre conversion or OCR)
-    /// inline here would block `$deactivate` and every other host↔plugin
-    /// message for the whole import. Spawning a `std::thread` and `join`ing
-    /// it keeps `cli_import`'s own contract ("blocks until done") while
-    /// keeping the actual blocking I/O off the async runtime.
+    /// Synchronous CLI entry point. Blocking conversion/OCR runs outside tokio,
+    /// and progress plus liveness logs keep the host's idle timeout informed.
     fn cli_import(&mut self, host: &sdk::Host, context: &Value) -> Result<Value, String> {
-        let vault = self.vault()?;
-        let file = cli_str(context, "file")
-            .ok_or("usage: notemd ebook <file> --topic TOPIC [--ocr] [--ocr-provider PROVIDER] [--root ROOT]")?;
-        let topic_id = cli_str(context, "topic")
-            .ok_or("usage: notemd ebook <file> --topic TOPIC [--ocr] [--ocr-provider PROVIDER] [--root ROOT]")?;
-        let ocr = cli_flag(context, "ocr");
-        let provider_override = cli_str(context, "ocr-provider");
-        let root_override = cli_str(context, "root");
-
-        let host = host.clone();
-        let data_dir = self.data_dir.clone();
-
-        let handle = std::thread::spawn(move || -> Result<(PathBuf, Vec<String>), String> {
-            let mut vault_settings = settings::load_vault(&vault);
-            if let Some(root) = root_override {
-                vault_settings.ebooks_root = root;
+        const USAGE: &str = "usage: notemd ebook <file> --topic TOPIC [--ocr] [--ocr-provider wechat|baidu] [--root ROOT] [--vault VAULT], or notemd ebook --list-topics [--root ROOT] [--vault VAULT]";
+        // The explicit target belongs to this command only. Do not update the
+        // active Vault or let the asynchronous host lookup replace this value.
+        let vault = match cli_value(context, "vault") {
+            None => self.vault()?,
+            Some(value) => {
+                let path = value
+                    .as_str()
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or("--vault must be an absolute existing directory")?;
+                let path = Path::new(path);
+                if !path.is_absolute() || !path.is_dir() {
+                    return Err("--vault must be an absolute existing directory".into());
+                }
+                path.canonicalize()
+                    .map_err(|error| format!("resolve --vault: {error}"))?
             }
-            let device = settings::load_device(&data_dir);
-            let provider = provider_override.unwrap_or_else(|| vault_settings.provider.clone());
-            let cancelled = Arc::new(AtomicBool::new(false));
+        };
+        let ocr = cli_flag(context, "ocr");
+        let list_topics = cli_flag(context, "list-topics");
+        if list_topics
+            && (ocr
+                || ["file", "topic", "ocr-provider"]
+                    .iter()
+                    .any(|key| cli_value(context, key).is_some()))
+        {
+            return Err(
+                "--list-topics cannot be combined with file, --topic, --ocr or --ocr-provider"
+                    .into(),
+            );
+        }
+        let file = cli_option(context, "file")?;
+        let topic_id = cli_option(context, "topic")?.map(|s| s.trim().to_string());
+        let provider_override = cli_option(context, "ocr-provider")?;
+        let mut vault_settings = settings::load_vault(&vault);
+        let configured_root = vault_settings.ebooks_root.clone();
+        if let Some(root) = cli_option(context, "root")? {
+            vault_settings.ebooks_root = root;
+        }
+        let ebooks_dir = settings::checked_vault_dir(&vault, &vault_settings.ebooks_root)?;
 
-            let engine: Option<Box<dyn OcrEngine>> = if ocr {
-                Some(build_engine(
-                    &provider,
-                    &vault_settings,
-                    &device,
-                    &cancelled,
-                )?)
-            } else {
-                None
-            };
-            let calibre_bin = calibre::detect(device.calibre_path.as_deref()).map(|d| d.path);
+        if list_topics {
+            let catalog = crate::topics::read_catalog(&ebooks_dir).map_err(|error| {
+                format!("{error}; configure topics in the Ebook Import plugin before importing")
+            })?;
+            return Ok(
+                json!({ "ebooks_root": vault_settings.ebooks_root, "topics": catalog.topics }),
+            );
+        }
 
-            let input = PathBuf::from(&file);
-            let input_abs = absolute_or_given(&input);
-            let work = data_dir.join("work").join(work_dir_name(&input_abs));
+        let file = file.ok_or(USAGE)?;
+        let topic_id = topic_id.filter(|s| !s.is_empty()).ok_or(USAGE)?;
+        if provider_override.is_some() && !ocr {
+            return Err("--ocr-provider requires --ocr".into());
+        }
+        let provider = provider_override.unwrap_or_else(|| vault_settings.provider.clone());
+        if ocr && !matches!(provider.as_str(), "wechat" | "baidu") {
+            return Err(format!(
+                "unsupported OCR provider {provider:?}; expected wechat or baidu"
+            ));
+        }
+        let input = PathBuf::from(&file);
+        if ocr
+            && !input
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
+        {
+            return Err("--ocr only supports PDF input".into());
+        }
+        if !input.is_file() {
+            return Err(format!("input is not a readable file: {}", input.display()));
+        }
+        if !input
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| {
+                pipeline::ACCEPTED_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str())
+            })
+        {
+            return Err("unsupported file extension; expected epub, pdf or docx".into());
+        }
 
-            let mut lines: Vec<String> = Vec::new();
-            let h = host.clone();
-            let mut log = |line: String| {
-                h.log_info(&line);
-                lines.push(line);
-            };
-            let mut progress = |_: &str, _: Option<(usize, usize)>| {};
-
-            let mut ctx = PipelineCtx {
-                vault_root: &vault,
-                ebooks_root: &vault_settings.ebooks_root,
-                topic_id: &topic_id,
-                work: &work,
-                log: &mut log,
-                progress: &mut progress,
-                cancelled: &cancelled,
-            };
-
-            let dest = pipeline::run_import(&mut ctx, &input, ocr, engine, calibre_bin.as_deref())?;
-            Ok((dest, lines))
+        let result_vault = vault.clone();
+        let result_topic = topic_id.clone();
+        let result_provider = ocr.then(|| provider.clone());
+        let worker_host = host.clone();
+        let data_dir = self.data_dir.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = (|| -> Result<(PathBuf, Vec<String>), String> {
+                // Journals describe the configured library. They must never be
+                // replayed into an alternate --root with coincidentally equal books.
+                if [
+                    crate::topic_agent::APPLY_JOURNAL_REL,
+                    crate::topic_agent::CLASSIFY_APPLY_JOURNAL_REL,
+                ]
+                .iter()
+                .any(|relative| vault.join(relative).exists())
+                {
+                    let configured_dir = settings::checked_vault_dir(&vault, &configured_root)?;
+                    if ebooks_dir != configured_dir {
+                        return Err("pending topic recovery belongs to the configured ebook library; restore it in the plugin before importing with --root".into());
+                    }
+                    // Queries remain read-only. Imports finish recovery before
+                    // changing the inventory or calling an external service.
+                    recover_topic_apply(&vault, &vault_settings.ebooks_root).map_err(|error| {
+                        format!("topic recovery required before import: {error}")
+                    })?;
+                    recover_topic_classification_apply(&vault, &vault_settings.ebooks_root)
+                        .map_err(|error| {
+                            format!("classification recovery required before import: {error}")
+                        })?;
+                }
+                let catalog = crate::topics::read_catalog(&ebooks_dir)?;
+                if !catalog.contains_topic(&topic_id) {
+                    return Err(format!(
+                        "unknown ebook topic {topic_id:?}; run notemd ebook --list-topics"
+                    ));
+                }
+                let device = settings::load_device(&data_dir);
+                let cancelled = Arc::new(AtomicBool::new(false));
+                let engine: Option<Box<dyn OcrEngine>> = if ocr {
+                    Some(build_engine(
+                        &provider,
+                        &vault_settings,
+                        &device,
+                        &cancelled,
+                    )?)
+                } else {
+                    None
+                };
+                let calibre_bin = if ocr {
+                    None
+                } else {
+                    calibre::detect(device.calibre_path.as_deref()).map(|d| d.path)
+                };
+                let work = data_dir
+                    .join("work")
+                    .join(work_dir_name(&absolute_or_given(&input)));
+                let mut lines: Vec<String> = Vec::new();
+                let mut log = |line: String| {
+                    worker_host.log_info(&line);
+                    lines.push(line);
+                };
+                let mut progress = |stage: &str, pages: Option<(usize, usize)>| {
+                    let message = match pages {
+                        Some((done, total)) => format!("Import {stage}: {done}/{total} pages"),
+                        None => format!("Import stage: {stage}"),
+                    };
+                    worker_host.log_info(&message);
+                };
+                let mut ctx = PipelineCtx {
+                    vault_root: &vault,
+                    ebooks_root: &vault_settings.ebooks_root,
+                    topic_id: &topic_id,
+                    work: &work,
+                    log: &mut log,
+                    progress: &mut progress,
+                    cancelled: &cancelled,
+                };
+                let dest =
+                    pipeline::run_import(&mut ctx, &input, ocr, engine, calibre_bin.as_deref())?;
+                Ok((dest, lines))
+            })();
+            let _ = tx.send(result);
         });
-
-        let (dest, lines) = handle
-            .join()
-            .map_err(|_| "ebook-import worker thread panicked".to_string())??;
-        Ok(json!({ "dest": dest.to_string_lossy(), "log": lines }))
+        let (dest, lines) = wait_for_cli_worker(rx, Duration::from_secs(30), || {
+            host.log_info("Ebook import is still running");
+        })??;
+        Ok(json!({
+            "dest": dest.to_string_lossy(),
+            "dest_rel": dest_relative(&result_vault, &dest),
+            "topic_id": result_topic,
+            "ocr": ocr,
+            "provider": result_provider,
+            "log": lines,
+        }))
     }
 }
 
@@ -3105,22 +3237,52 @@ mod tests {
     fn reads_cli_args_from_the_nested_shape() {
         let c = json!({ "cli": { "args": { "file": "book.epub" },
                                  "flags": { "ocr": true } } });
-        assert_eq!(cli_str(&c, "file").as_deref(), Some("book.epub"));
+        assert_eq!(
+            cli_option(&c, "file").unwrap().as_deref(),
+            Some("book.epub")
+        );
         assert!(cli_flag(&c, "ocr"));
     }
 
     #[test]
     fn reads_cli_args_from_a_flattened_shape() {
         let c = json!({ "file": "book.pdf", "ocr": false });
-        assert_eq!(cli_str(&c, "file").as_deref(), Some("book.pdf"));
+        assert_eq!(cli_option(&c, "file").unwrap().as_deref(), Some("book.pdf"));
         assert!(!cli_flag(&c, "ocr"));
     }
 
     #[test]
-    fn missing_cli_args_read_as_absent_rather_than_empty_strings() {
+    fn cli_args_distinguish_missing_and_explicitly_empty_values() {
         let c = json!({ "cli": { "args": { "file": "" } } });
-        assert_eq!(cli_str(&c, "file"), None);
+        assert!(cli_option(&c, "file").is_err());
+        assert_eq!(cli_option(&json!({}), "file").unwrap(), None);
         assert!(!cli_flag(&c, "ocr"));
+    }
+
+    #[test]
+    fn cli_wait_emits_liveness_until_the_worker_finishes() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut ticks = 0;
+        let result = wait_for_cli_worker(rx, Duration::from_millis(1), || {
+            ticks += 1;
+            if ticks == 3 {
+                tx.send("finished").unwrap();
+            }
+        })
+        .unwrap();
+        assert_eq!(ticks, 3);
+        assert_eq!(result, "finished");
+    }
+
+    #[test]
+    fn cli_wait_reports_a_worker_that_died_without_a_result() {
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        drop(tx);
+        let error = wait_for_cli_worker(rx, Duration::from_millis(1), || {
+            panic!("a disconnected worker must not keep reporting that it is running")
+        })
+        .unwrap_err();
+        assert!(error.contains("worker thread panicked"));
     }
 
     // ── shared config vault fallback ─────────────────────────────────────

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Ebook Import 1.5.5: import books from an Agent or terminal.** Discover valid topic IDs with `notemd ebook --list-topics --json`, import relative or absolute file paths with `--topic`, and explicitly enable scanned-PDF OCR with `--ocr`. The CLI shares the window import pipeline, reports progress and structured destinations, and rejects conflicting OCR options.
+
 - **Claude Agent 1.0.34: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.
 
 - **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.

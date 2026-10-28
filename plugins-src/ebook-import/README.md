@@ -6,17 +6,45 @@ Calibre 转换使用 HTMLZ 的语义标签模式。HTML 转 Markdown 时保留 H
 
 ## 开始使用
 
-需要 note.md `6.910.1` 或更高版本。当前原生发布包支持 macOS Apple Silicon
+需要 note.md `6.915.3` 或更高版本（支持无窗口 CLI 与长任务进度）。当前原生发布包支持 macOS Apple Silicon
 与 Intel，不提供 Windows 版本。在「插件 → 阅读 → 导入电子书…」中选择
 文件，也可以从命令行导入：
 
 ```sh
-notemd ebook /absolute/path/to/book.epub --topic "待读"
+# 先查询当前 Vault 的分类，使用返回的 id（不是显示名称）
+notemd ebook --list-topics --json
+
+# 将 software-engineering 替换为查询结果中的分类 id
+notemd ebook "/absolute/path/to/book.epub" --topic software-engineering --json
+
+# 只有需要扫描 PDF OCR 时才加 --ocr
+notemd ebook "/absolute/path/to/scanned.pdf" --topic software-engineering --ocr --json
 ```
 
-EPUB、MOBI 等格式依赖本机 [Calibre](https://calibre-ebook.com/) 提供的
-`ebook-convert`；普通 PDF 可直接导入。扫描 PDF 的 OCR 会调用用户所选的第三方
-AI 服务，正文可能离开本机，并产生相应的隐私与费用影响，确认后才会执行。
+普通导入使用本机 [Calibre](https://calibre-ebook.com/) 的 `ebook-convert`，
+与窗口中的选文件导入共用转换、书目补全、分类与索引流水线。扫描 PDF 的 OCR
+使用插件设置中的微信 OCR 服务或百度 OCR；`--ocr-provider wechat` / `baidu`
+可覆盖本次提供方，但必须同时指定 `--ocr`。先在插件设置中配置服务地址或凭证。
+OCR 会把 PDF 页面发送至所选服务，可能产生费用；CLI 中 `--ocr` 即本次显式启用，
+不会再弹确认框。Agent 只在用户授权 OCR 时添加此参数，不因普通转换失败自动开启。
+
+### Agent 调用约定
+
+- 命令作用于当前 Vault；指定其他书库时使用 `notemd ebook --vault "/absolute/vault" ...`（必须为已存在目录的绝对路径，不改变当前 Vault 设置）。
+- 先运行 `--list-topics --json`，从 `data.topics` 的 `id` / `label` 选择分类。尚未设置主题时，先在插件窗口管理主题，不手写分类或猜测 ID。
+- 文件路径可为绝对路径或相对调用终端工作目录的路径；含空格时加引号。导入必须有文件和 `--topic`，列表模式不接受文件、`--topic` 或 OCR 参数。
+- `--root "ssot/ebooks"` 可指定本次 Vault 内相对书库目录；查询与导入使用同一 root，不改保存的设置。
+- 若导入提示分类事务需要恢复，先在插件窗口处理未完成的分类整理；指定另一书库的 `--root` 不会重放原书库事务。
+- `--ocr` 仅接受 PDF；非 PDF、未知 OCR 提供方、无 `--ocr` 的 `--ocr-provider` 都会失败，不静默换提供方。
+- 命令同步等待完成；进度写到 stderr，`--json` 的 stdout 保持单个 JSON。Agent 应给整本转换/OCR 留足执行时间，不在开始日志后就报告成功。
+- 退出码为 `0` 且 JSON 的 `ok` 为 `true` 才成功。`data.dest` 为绝对书籍目录，`data.dest_rel` 为 Vault 内相对目录，正文在其中的 `book.typeset.md`；结果另含 `topic_id`、`ocr`、`provider`（未启用 OCR 时为 `null`）及 `log`。
+- 查询返回 `data.ebooks_root` 与 `data.topics`；不会导入、补模板或重建索引。错误返回非零退出码，读取 `error.message` 修正参数或配置，不绕过接口直接写书籍元数据。
+
+例如，把以下指令交给 Agent：
+
+> 用 `notemd ebook --list-topics --json` 查询分类，再把指定电子书通过
+> `notemd ebook "文件路径" --topic 分类id --json` 导入。只有我要求 OCR 时加
+> `--ocr`；完成后根据 JSON 返回的 `dest_rel` 告诉我书籍位置。
 
 安装 Typeset Reader `0.1.1` 且宿主达到 `6.921.2` 后，新导入的
 `*.typeset.md` 会以分页排版视图打开；未安装或版本不足时仍可作为普通 Markdown

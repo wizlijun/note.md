@@ -21,7 +21,7 @@ static COVER_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Extensions [`run_import`] accepts as input, case-insensitively. OCR
 /// narrows this further to `pdf` only (checked separately).
-const ACCEPTED_EXTENSIONS: &[&str] = &["epub", "pdf", "docx"];
+pub(crate) const ACCEPTED_EXTENSIONS: &[&str] = &["epub", "pdf", "docx"];
 
 /// Everything one [`run_import`] call needs beyond the input file itself.
 /// `log`/`progress` are trait objects (not generics) so the same

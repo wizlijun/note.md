@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.ebook-import",
   "name": "Ebook Import",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.910.1"
+    "notemd": ">=6.915.3"
   },
   "description": "Import ebooks as Markdown, enrich book metadata and covers from Open Library and Apple Books, and maintain readable cover-gallery indexes that refresh when book categories change. Includes Calibre conversion, scanned-PDF OCR, and AI-assisted reading and classification.",
   "binary": {
@@ -44,25 +44,30 @@
       {
         "subcommand": "ebook",
         "command": "import",
-        "summary": "Import an ebook into the vault as markdown",
+        "summary": "Import an ebook or list available topic IDs",
         "args": [
           {
             "name": "file",
-            "type": "string",
-            "required": true,
-            "help": "Path to .epub/.pdf/.docx"
+            "type": "path",
+            "required": false,
+            "help": "Ebook path (required unless --list-topics)"
           }
         ],
         "flags": [
           {
+            "long": "--list-topics",
+            "type": "boolean",
+            "help": "List topic IDs and labels without importing (may use --root)"
+          },
+          {
             "long": "--ocr",
             "type": "boolean",
-            "help": "OCR mode for scanned PDFs"
+            "help": "Explicitly send scanned PDF pages to the configured OCR service"
           },
           {
             "long": "--ocr-provider",
             "type": "string",
-            "help": "wechat | baidu (default: settings)"
+            "help": "wechat | baidu; requires --ocr (default: settings)"
           },
           {
             "long": "--root",
@@ -72,7 +77,12 @@
           {
             "long": "--topic",
             "type": "string",
-            "help": "Required topic id from <ebooks-root>/topics.yml"
+            "help": "Required topic ID for import; discover IDs with --list-topics"
+          },
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Absolute existing Vault directory (default: configured Vault); does not change settings"
           }
         ]
       }
