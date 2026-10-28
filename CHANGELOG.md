@@ -15,6 +15,10 @@ For the full commit history, see the git log.
 
 This host release is for macOS Apple Silicon only. Intel Mac and Linux remain on 6.1027.1; Windows remains on 6.811.1.
 
+## Ebook Import plugin v1.5.7 — 2026-10-28
+
+- **Ebook Import 1.5.7: preserve why you want to read a book.** Each queued book has an optional reading-context field for the recommender, reason and situation. It is saved as `reading_reason` in `meta.yml`, viewable in the library, and provided to AI reading as user context. CLI imports support `--reading-reason`, with a detailed usage guide and multiline examples.
+
 ## v6.1027.3 — 2026-10-27
 
 - **Keep Markdown mode and tab switching responsive after editing metadata with an IME.** Nested metadata fields no longer leave the main rich editor waiting for an input composition that belongs to a replaced field. This can affect Task files reopened from NEXT.
