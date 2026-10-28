@@ -965,7 +965,7 @@ describe('Next window', () => {
     expect(card.textContent).toContain('2026-09-02')
     expect(card.textContent).toContain('P0 · 紧急')
     expect(card.textContent).toContain('@电脑')
-    expect(document.querySelectorAll('[data-lane]')).toHaveLength(5)
+    expect(document.querySelectorAll('[data-lane]')).toHaveLength(3)
     card.querySelector<HTMLButtonElement>('[data-card-title]')!.click()
     flushSync()
     expect(document.querySelector<HTMLSelectElement>('[name="priority"]')?.value).toBe('P0')
@@ -1168,17 +1168,17 @@ describe('Next window', () => {
     expect(document.querySelector<HTMLTextAreaElement>('textarea[name="idea"]')?.value).toBe('不要丢掉我')
   })
 
-  it('renders five equal-width swimlanes while keeping dormant and closed memories folded', () => {
+  it('hides empty placed lanes and restores them when showing placed items', () => {
     mocks.state.workspace = workspace()
     component = mount(App, { target: document.body })
     flushSync()
 
-    expect(document.querySelectorAll('[data-lane]')).toHaveLength(5)
+    expect(document.querySelectorAll('[data-lane]')).toHaveLength(3)
     expect([...document.querySelectorAll('[data-lane]')].map((lane) => lane.getAttribute('data-lane'))).toEqual([
-      'capture', 'wip', 'waiting', 'dormant', 'closed',
+      'capture', 'wip', 'waiting',
     ])
     expect([...document.querySelectorAll('[data-lane] h2')].map((heading) => heading.textContent)).toEqual([
-      '收件箱', '进行中', '等待', '稍后', '已结束',
+      '收件箱', '进行中', '等待',
     ])
     expect([...document.querySelectorAll('[data-kind-filter]')].map((button) => button.textContent)).toEqual(['Idea', 'Task'])
     expect(document.querySelectorAll('[data-project-filter]')).toHaveLength(0)
@@ -1194,6 +1194,12 @@ describe('Next window', () => {
     flushSync()
     expect(document.body.textContent).toContain('以后再看的想法')
     expect(document.body.textContent).toContain('已经关闭的想法')
+    expect(document.querySelectorAll('[data-lane]')).toHaveLength(5)
+    button!.click()
+    flushSync()
+    expect(document.querySelectorAll('[data-lane]')).toHaveLength(3)
+    expect(document.querySelector('[data-lane="dormant"]')).toBeNull()
+    expect(document.querySelector('[data-lane="closed"]')).toBeNull()
   })
 
   it('keeps an emphatic WIP alert visible at the configured limit through unrelated filtering', () => {
@@ -1460,6 +1466,11 @@ describe('Next window', () => {
     component = mount(App, { target: document.body })
     flushSync()
 
+    if (lane === 'dormant' || lane === 'closed') {
+      const showPlaced = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('显示已安放'))!
+      showPlaced.click()
+      flushSync()
+    }
     pointerDrag('capture', lane as string)
 
     await vi.waitFor(() => expect(mocks.place).toHaveBeenCalledWith(next.capture[0], input))

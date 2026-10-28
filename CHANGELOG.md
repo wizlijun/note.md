@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **NEXT hides empty placed lanes.** With Show placed turned off, empty Later and Closed lanes disappear and the board fits its visible columns. Due items in Later remain visible.
+
 - **NEXT card actions use compact split buttons.** Complete a task from the blue main button or open placement options from its arrow. The kickoff arrow opens the Agent menu beside the button, without an extra dialog.
 
 - **NEXT 1.11.0: “Help me start” on Task cards.** Review up to three questions grounded in your vault, save your answers, and prefill the placement form for your approval. Existing answers survive regeneration and manually edited result text is preserved. Agent execution stays disabled until its read-only safety checks are verified.
