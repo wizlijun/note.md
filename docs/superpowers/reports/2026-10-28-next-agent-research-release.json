@@ -1,0 +1,1544 @@
+{
+  "published_at": "2026-10-28T12:47:00.989841+08:00",
+  "versions": {
+    "notemd.codex-agent": "1.1.0",
+    "notemd.deepseek-agent": "1.2.0",
+    "notemd.claude-agent": "1.1.0",
+    "notemd.next": "1.13.0"
+  },
+  "source_commit": "167eb3303d8593653d976a2775083483c5682085",
+  "remote_refs": [
+    "167eb3303d8593653d976a2775083483c5682085\trefs/heads/main",
+    "167eb3303d8593653d976a2775083483c5682085\trefs/tags/plugin-claude-agent-v1.1.0",
+    "167eb3303d8593653d976a2775083483c5682085\trefs/tags/plugin-codex-agent-v1.1.0",
+    "167eb3303d8593653d976a2775083483c5682085\trefs/tags/plugin-deepseek-agent-v1.2.0",
+    "167eb3303d8593653d976a2775083483c5682085\trefs/tags/plugin-next-v1.13.0"
+  ],
+  "scope": "plugin marketplace publication only; no plugin installation or host release",
+  "frozen_source": {
+    "commit": "167eb3303d8593653d976a2775083483c5682085",
+    "inputs": {
+      "notemd-plugin-sdk/Cargo.lock": "7c6460794cd05db5480a824691832bdcc35f56461dc129ddff39f7896d206f79",
+      "notemd-plugin-sdk/Cargo.toml": "85f39062fd09a2f62443b046092a98ba595c861740afbc7f9e26f1f9c7125df8",
+      "notemd-plugin-sdk/src/lib.rs": "5e0f3121c31e8619185c61d144867c54e4359f9e6193c42bcd07339b0bc1661e",
+      "package.json": "acb76a7e7e87f9f853f752c4c3db4856e7575f1d29cefc520c926708c04d7a98",
+      "plugin-protocol/Cargo.lock": "aaa19c84ebb5b1c873365035ffb1de48a3002a654768e077ba6c1ee700fa3aa9",
+      "plugin-protocol/Cargo.toml": "b830917f11c1fa9145deed2359517328291e599fc4db716ed46a9256db8304df",
+      "plugin-protocol/src/bin/gen-schema.rs": "dac30e2c94c10877818f9da5a974e4e376c5e35c37a1ab92ccda00dcd34b59a4",
+      "plugin-protocol/src/file_views.rs": "14bebf40fb1fe46e24ce3bd4dcab26105039826c49419a779a2400ad173cf903",
+      "plugin-protocol/src/index.rs": "20e9b9f2bf74a90e2899e3f5491305f8fd013d7ce193203123ef20af838deba1",
+      "plugin-protocol/src/lib.rs": "91c246211bf30715e19eabc0a64efd081ed0475c480e47264e3a6463b44a055f",
+      "plugins-src/agent-run-core/Cargo.lock": "99c542256719e20c59bde15bc424259833fa7ef987d19a41bc8ed3449e3c032f",
+      "plugins-src/agent-run-core/Cargo.toml": "a499fb22222525c46a4d2b3adba6eb842fe5f7f26b65b1f0a19ad303a0abe835",
+      "plugins-src/agent-run-core/src/artifacts.rs": "3365d05741a16a0afcdaec8fb245d3c82426659389aee5124e6757dfcbf4fe70",
+      "plugins-src/agent-run-core/src/detach.rs": "a00d3a529652dbd73f6d41b7199c6c29f5f999f5b800d2c9a7d304b9197d0ac1",
+      "plugins-src/agent-run-core/src/discover.rs": "6636083f84958d60736699c8490266857ddf7fbc053e2220da45ecdd70694cbe",
+      "plugins-src/agent-run-core/src/event.rs": "ad8e175d14998ae65a30b9a70f17591708639a5e003b5c14dcdbdcff576f77fc",
+      "plugins-src/agent-run-core/src/harness.rs": "2564381344713ebe6ea4a509498aa6991a872deef39ccf49cb3d66b3ff6703e1",
+      "plugins-src/agent-run-core/src/invocation.rs": "bbd6a3dd051b366865cb05d095aec8805dba359c8fc4fa2d0f3f6a9b89f9015c",
+      "plugins-src/agent-run-core/src/lib.rs": "07955129c60c0e0ebb291262fef45d5f08ba9d1ec016515735a8435ab5989a48",
+      "plugins-src/agent-run-core/src/lock.rs": "31378202098e28bcc9671646e1b5d9f5df9f2f22d7df8b315d89498f9e999f27",
+      "plugins-src/agent-run-core/src/mirror.rs": "20a3faa0f980dc8441a06f249f77323c19ce7c70ff955760dcdcfb6c522adade",
+      "plugins-src/agent-run-core/src/model.rs": "4877d2967651f77b2c7305d3fe324681419f3111be59772029fecc35abd46186",
+      "plugins-src/agent-run-core/src/okf.rs": "8c022664822f1159da55aea21eeb7e3633cc750edf3fba85c8b315a2c3cd6091",
+      "plugins-src/agent-run-core/src/precheck.rs": "26b7cb8018dba668cd0d46b05e178c7fe5a840a6d8865f59de5cfd3ac7ea2bf1",
+      "plugins-src/agent-run-core/src/prompt.rs": "99e7d54e9c25bebaa5ec52d31ab17f2bd9bbd62787c11eda7ac590fb21fcbebd",
+      "plugins-src/agent-run-core/src/record.rs": "418d9a6682f2fc5bf62d7cba65e88f2b53a2409fd7531b20781b9f5c5ead266e",
+      "plugins-src/agent-run-core/src/scaffold.rs": "7e568be03e581017374fa6b4efb4474ed1602229f8f5e6bfa370b848610f45cc",
+      "plugins-src/agent-run-core/src/scope.rs": "48446e31f556559ba3c26da1a967cedbe159245d0d256dfc07ecce2f0231bdfc",
+      "plugins-src/agent-run-core/src/task.rs": "a5e4b2ec3d8211e25ddabc6f11d5dd0a185b0b6b05c94da604495086141df9ad",
+      "plugins-src/agent-run-core/src/usage.rs": "127874aa4bb3af14e1e85c39a047128ed4beff98d40a9dd63a18524403c75852",
+      "plugins-src/agent-run-core/templates/governed-document-review/INSTRUCTIONS.md": "b288cc0cbce9fd10a409e247346cd645d57c000bdb16908d1d5652514f94aabc",
+      "plugins-src/agent-run-core/templates/governed-document-review/claude-settings.json": "b9704db74a25efdb0feed230e7c9a62562f612eeea0616ef126fdd3a1e85de0a",
+      "plugins-src/agent-run-core/templates/governed-document-review/policy.json": "c3c462f3f9d51b384d3e4171f311dfdc3553dfb4efbbd4de82ff7847822c7314",
+      "plugins-src/agent-run-core/templates/governed-document-review/task.json": "45a060067699b9f3c7b44379e6295ac09062b3e0dcb0c8f97027d20a1ddbca05",
+      "plugins-src/agent-run-core/templates/strata-extract-v1/INSTRUCTIONS.md": "d79dc18ec712187c713dbdb7016904cf90a2ff55d0e2dad410e1aa4f8ffaa8bc",
+      "plugins-src/agent-run-core/templates/strata-extract-v1/claude-settings.json": "b9704db74a25efdb0feed230e7c9a62562f612eeea0616ef126fdd3a1e85de0a",
+      "plugins-src/agent-run-core/templates/strata-extract-v1/policy.json": "cb4472b3865bae286038e034f5c4b84a133c4b5acfda4c1dddf74347c1f3860d",
+      "plugins-src/agent-run-core/templates/strata-extract-v1/task.json": "ecc62792dc227de5158bd7cb11a94ac93357b2c1ce6fcf3791b2b8baa9da9277",
+      "plugins-src/claude-agent/CHANGELOG.md": "5c64513585a8d654fb6d24703dcb215e874d6fdd90e558d9cd9e34eeb24374f7",
+      "plugins-src/claude-agent/README.md": "8cafd1ff37dc1172ff4d1d1495f2ed336fe4c4e05640a0e055024a9fa19c8811",
+      "plugins-src/claude-agent/backend/Cargo.lock": "42693cf223300cf381041bb1e135313c9b390b28ffdc27b2336d84922c2cedcf",
+      "plugins-src/claude-agent/backend/Cargo.toml": "aab959d5e36e43a79b5dd6abd11ee66ef2abfd5f647fe5557aa34a5ccbf562f4",
+      "plugins-src/claude-agent/backend/src/discover.rs": "c85af094bb38bb1765db39d907a97e221c968e4dbe899fe9ded1145d18d4245d",
+      "plugins-src/claude-agent/backend/src/engine.rs": "6c8734889e42c58136d18e1761a0e658bfa622197fa910cc634372e81c93b0af",
+      "plugins-src/claude-agent/backend/src/main.rs": "a5db3700d18e7e4159669714132caeb00a8d6df24293d7c6836cfcfe3bbbe1f9",
+      "plugins-src/claude-agent/backend/src/plugin.rs": "54f677badcaa4bfebb611c66dad8127a3c2eb19f9df0fc84a5fd14517cdbac73",
+      "plugins-src/claude-agent/backend/src/precheck.rs": "95275877e800dc8e493c17799b565e9d8972e099481d83a181ebef60ccbd78e5",
+      "plugins-src/claude-agent/backend/src/prompt.rs": "ed72c2a857fe18a01afffa7f1b68a215816e73d349dac2465d0973c6f161b4c1",
+      "plugins-src/claude-agent/backend/src/runner.rs": "f8f392ccc1c626ecf6780f5bdbbbf3bded0849dd63b61e0880156b6eba1ee73a",
+      "plugins-src/claude-agent/backend/src/settings.rs": "d31f63fec53ca33f22c09fbe6ec3c730f1be230f33d83d237905e46e3d1cd473",
+      "plugins-src/claude-agent/backend/src/stream.rs": "13351834c7ce7c3f5acaad508d3fad931e7fb66c6ad5eb43c71887ad7aaa82ab",
+      "plugins-src/claude-agent/backend/src/task.rs": "84e9d03f4dd6bfb8be1149a77c982e42019e58cb65513a9a979f770f93ec6598",
+      "plugins-src/claude-agent/backend/templates/agency-observe-v1/INPUT_ONLY.md": "f295f9adf9e61caad6363c7858f5addda8004eeeabe8baed4793fa4beeb384da",
+      "plugins-src/claude-agent/backend/templates/ai-read-ebook/CLAUDE.md": "fe710db94bcee5b31abe62adc330dbd43920752fb7f193f415bea55fb90d3001",
+      "plugins-src/claude-agent/backend/templates/ai-read-ebook/settings.json": "2fbbc51128a8fcc959df332009955984aa02d149abd3dd5ca2ffefcee3380504",
+      "plugins-src/claude-agent/backend/templates/ai-read-ebook/settings.scoped.json": "b670081f041b3130bfad915b098d9df343a6227b6c672e31aa502a3a9d58d735",
+      "plugins-src/claude-agent/backend/templates/ai-read-ebook/task.json": "b13119ca712a0a4e6ca1c126e88feffe6320b26f2178ab9fa9d9a5e3f441a6c6",
+      "plugins-src/claude-agent/backend/templates/answer-note-question/CLAUDE.md": "b887261cb3f4d8a0685e6b16547378e16cc16c139f09006b90f984c1157b1af3",
+      "plugins-src/claude-agent/backend/templates/answer-note-question/precheck.sh": "8a215cfb105ff41a8fb10f28ffbd9e181afcc6ac098b0fa4f128fe2c407eee1b",
+      "plugins-src/claude-agent/backend/templates/answer-note-question/settings.json": "e327e056c9f4ec0b01bce95cf9b245389f628e22eb6b73a96e7589f004139eae",
+      "plugins-src/claude-agent/backend/templates/answer-note-question/settings.scoped.json": "f517ff99777ab91e2f847827902b8a4d326a535b18c4cd734a4dadc105cee600",
+      "plugins-src/claude-agent/backend/templates/answer-note-question/task.json": "1d13d4f5b1efe5dc1eb90c8fa8908ce85d40d6aba8879c4c65fad2cdd3aa6bf4",
+      "plugins-src/claude-agent/backend/templates/search-answer/CLAUDE.md": "c2c9af94403c0c844b8c2539fd7919135a5a8533d2e5035b777e1c52c3752f0d",
+      "plugins-src/claude-agent/backend/templates/search-answer/settings.json": "e1fa89f11256f5ece5e8437dda0987abf3474b418b939c5bd120bc951cce1df7",
+      "plugins-src/claude-agent/backend/templates/search-answer/task.json": "14a92a2d895949131949c297b122c160ca40b0e4814211c24eb923498c04fa79",
+      "plugins-src/claude-agent/backend/templates/search-plan/CLAUDE.md": "3bae59bbdc470d36c59dac5dd0813bf168a8d8be0f68ae56db023308c5427f87",
+      "plugins-src/claude-agent/backend/templates/search-plan/settings.json": "e1fa89f11256f5ece5e8437dda0987abf3474b418b939c5bd120bc951cce1df7",
+      "plugins-src/claude-agent/backend/templates/search-plan/task.json": "adb33bcbac930ad57fbc0b68c5f80a25ba5ec263249cc5f903049961fb313b8f",
+      "plugins-src/claude-agent/backend/templates/search-summary/CLAUDE.md": "d31775393f274f837a3e9a7a5b6107d7ff40204b2ff765c556b9299b2901b91a",
+      "plugins-src/claude-agent/backend/templates/search-summary/settings.json": "e1fa89f11256f5ece5e8437dda0987abf3474b418b939c5bd120bc951cce1df7",
+      "plugins-src/claude-agent/backend/templates/search-summary/task.json": "7318a15423abf91895e03fbf2f4415694aa03624b4daa037d53ade56f13e9df9",
+      "plugins-src/claude-agent/backend/templates/selfcheck/CLAUDE.md": "4ed1b03e2d02a616c0585c01daaa5ea20bf8c0075f7b001819a1a585394cb3f9",
+      "plugins-src/claude-agent/backend/templates/selfcheck/settings.json": "6db34b75faae38b09f105b5166f75e286ef3746754680bee339b3f01bcf0057a",
+      "plugins-src/claude-agent/backend/templates/selfcheck/task.json": "7aa36aa57fb88b792e471da60a6ae8148beccbe00e2e2c995b25fe7670e79f1d",
+      "plugins-src/claude-agent/backend/templates/vault-research/CLAUDE.md": "56234a2e671c71e77902ee91d5ec6c1205f6c60af32a5da37d400e478cf0903b",
+      "plugins-src/claude-agent/backend/templates/vault-research/settings.json": "427023c57a05996cb6facc33ec8e55cda6f50cb7d501d32917286cdb89d1b42f",
+      "plugins-src/claude-agent/backend/templates/vault-research/task.json": "bf96cccfc6812ce32576df92bdbe93a39c9c647faf50ed6a3de79e451838cbe7",
+      "plugins-src/claude-agent/index.html": "f41b0cd7711fb7ffd02e3cf63cf18a33baa6ec061cef0368459c7bd624b5d714",
+      "plugins-src/claude-agent/manifest.v2.json": "ed9bd5c53508a34d1aaf6dd907f5beed760ee03a976506eaa8e9d199158b260a",
+      "plugins-src/claude-agent/package.json": "5777d644afded67fa15fd46408b92409b681230f2d3ea574c7b44075945a0f2e",
+      "plugins-src/claude-agent/src/App.svelte": "3960ee72908501a886f5365e3987dd605fece3464f9491a987c761c66632e654",
+      "plugins-src/claude-agent/src/components/ArtifactLinks.svelte": "310dbb72fcc5c1880391652a8f9d4cc7cff6a6b42f6628269fca9b7c91226df0",
+      "plugins-src/claude-agent/src/components/HarnessBanner.svelte": "04a8e72c6ca8cd952ccc7d59dcb77c87a523726bc4a94bb469c864f0b9a6474f",
+      "plugins-src/claude-agent/src/components/HistoryList.svelte": "433df3ed84e27da2c4e3f6243d2f91cc20684a33123c6140963060407fd0c84c",
+      "plugins-src/claude-agent/src/components/RunLog.svelte": "aed7ed26c56516e13cb16a738ec502d8ce55758dbf4db378a74428cb2de37471",
+      "plugins-src/claude-agent/src/components/RunStream.svelte": "b6b08f597e4e58f4a85b5625706672dccef86261ea844b5caf0e6d5e899f12d8",
+      "plugins-src/claude-agent/src/components/SettingsPage.svelte": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b",
+      "plugins-src/claude-agent/src/components/TaskList.svelte": "75c4760957230093527e14b2405280eb71f89b74bab2f3a058b857a53988d219",
+      "plugins-src/claude-agent/src/components/UsageSummary.svelte": "ca33d4aa1159c92e720f89d9d6a6f01db041b1de0e7ce460ee3eced26b0ab278",
+      "plugins-src/claude-agent/src/layout.test.ts": "fd2236694d8b617a7e637017f053c915620d8a972eb327e85df3c5315d460abf",
+      "plugins-src/claude-agent/src/lib/bridge.ts": "d3d38f27584a544432d741dc71617b9dfdd3628afddfbbc46fce0fa6413ea59d",
+      "plugins-src/claude-agent/src/lib/datetime.test.ts": "47000ab9f024c81900b692232bc78d1db1e87be0bf1446e1a09f4839a6c9084a",
+      "plugins-src/claude-agent/src/lib/datetime.ts": "59ad18cfde08386f5e46331855309223c2edb860364be36bf20de293e3b61024",
+      "plugins-src/claude-agent/src/lib/errors.test.ts": "2d6ae2cc086c9db29916cab4257a0630ffab7e39c914b9672df333f8e995c74d",
+      "plugins-src/claude-agent/src/lib/errors.ts": "001e0172dfb277f29a104c02e08f1b3f389dd8211247900b1893cfe399e318bd",
+      "plugins-src/claude-agent/src/lib/events.test.ts": "5afac3798dade74a1598e357b0739ba4e993a401c5c0db67fad1baa58528944d",
+      "plugins-src/claude-agent/src/lib/events.ts": "fb8b3883f0ffd08134052ce3d80dc4cbfbc22f3ecd43791d69221076797a3a02",
+      "plugins-src/claude-agent/src/lib/history-pagination.test.ts": "7607144ea0efab77dcee69abcf0cc1c21509593d9902dacb71e4523d8d0096f2",
+      "plugins-src/claude-agent/src/lib/history-pagination.ts": "5378c6ffe69816b12a40b5adedf167a90a8639dd87423001faf79d9b9dfd878b",
+      "plugins-src/claude-agent/src/lib/settings.test.ts": "6c97264eff9f42316579700d84d86425f2ce077f0f48112c9a8076774005abba",
+      "plugins-src/claude-agent/src/lib/settings.ts": "7e3467499d53752750f3b2821374302bec750856285071044d0069921a09ad34",
+      "plugins-src/claude-agent/src/lib/strings.test.ts": "9e77d52946d986262143ae4ad05243a9c14e77b5da61fae78d20167855118e67",
+      "plugins-src/claude-agent/src/lib/strings.ts": "d10fcc3d2a84ec4d4ce6dca5726b99d40f25f35e5394f150c58fbf0cfe4d33ba",
+      "plugins-src/claude-agent/src/lib/task-groups.test.ts": "4114175442509caf815c8c444f93078b6e5ab3ef1ad43da1b5a66c4b88dd25ba",
+      "plugins-src/claude-agent/src/lib/task-groups.ts": "299cba73ba1432f25e988efe66e8fcfb5909ddbae32289d287f68d3b647d84fb",
+      "plugins-src/claude-agent/src/main.ts": "1f04461b5cbac824601acbc71cf3e1846acfb177d7dea37bf89ae4a0bea54d84",
+      "plugins-src/claude-agent/src/ui.render.test.ts": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68",
+      "plugins-src/claude-agent/tsconfig.json": "efa298680425ae9c4530e492b5be212c29f7d2884dc0b7f2e93ace9ac3635ad6",
+      "plugins-src/claude-agent/vite.config.ts": "6799dd5a594645c6b1184a6d9ced8c10fec70371eca53df844a41e772715c7f8",
+      "plugins-src/claude-agent/vitest.config.ts": "fb9ca4b737d71698f3878f2146aa57ce6af3b56168b2d39280e86b574a076438",
+      "plugins-src/codex-agent/CHANGELOG.md": "c4a96ba826e99cf50de5a624af7b408b8d10c7cca7269ff71926cd64a06d410a",
+      "plugins-src/codex-agent/README.md": "dbd1abe27296f32a47242436768e82ff606525f154cc7fc62dd7371a1e6f77a1",
+      "plugins-src/codex-agent/backend/Cargo.lock": "8cb31f87519a39ed6d8c7d4571146aa4a16f2bbd075dae259890628ab17d1dd0",
+      "plugins-src/codex-agent/backend/Cargo.toml": "13d2503a3e2dc44d81680f7984aba285ad3db59a39370c2ee3260412e2a8f7a9",
+      "plugins-src/codex-agent/backend/src/argv.rs": "9e54e3d4c9de56bf20851584c763c298e8bc19a92a400716835f181558ec0ce0",
+      "plugins-src/codex-agent/backend/src/discover.rs": "046fcc45136c005aae442b46bfb940cf3fece2caa52d6151c863345c66c93150",
+      "plugins-src/codex-agent/backend/src/engine.rs": "a8f43c505c1d70789c8d559470946f5caf781b90e69274a14093b66c06b8078a",
+      "plugins-src/codex-agent/backend/src/main.rs": "b6f245b90e8a582c03dd5fd521921408a373bf91d16b90b7486e0d6c9629f358",
+      "plugins-src/codex-agent/backend/src/plugin.rs": "45b93847e766f44dc07f9c91cd9845005c4e3fb0467bcadb4133d72bd352a4bc",
+      "plugins-src/codex-agent/backend/src/policy.rs": "f0a6df82c41e38111422b99ed657331dbba3ca0b33e1c82239091aa4fbcae605",
+      "plugins-src/codex-agent/backend/src/runner.rs": "51a61e8e2d8c960ca60fb67050a8269e07f177338511a9e3a8e93e35b259b277",
+      "plugins-src/codex-agent/backend/src/stream.rs": "56e17a899fbb757e25788c4b06214c7efc8ae7a8dd7f6efade032ad08fa35b56",
+      "plugins-src/codex-agent/backend/src/task.rs": "5ba8896e1493501591edacf090853f78bb28b764bfcf2fc3f4f8d831ce4d1402",
+      "plugins-src/codex-agent/backend/templates/answer-note-question/AGENTS.md": "9765c130d751e00bbc215c3365a832f215ad5f1931e2952fc2acae1471284852",
+      "plugins-src/codex-agent/backend/templates/answer-note-question/policy.json": "45e29492c82fced05a02e4f1b19fe8941006636e20a5530b91205d9f7c2533bf",
+      "plugins-src/codex-agent/backend/templates/answer-note-question/precheck.sh": "8a215cfb105ff41a8fb10f28ffbd9e181afcc6ac098b0fa4f128fe2c407eee1b",
+      "plugins-src/codex-agent/backend/templates/answer-note-question/task.json": "a32a7078a36165e2e2913f9acb66cbc33d72de2d8fa7249c3fa447d3953a2972",
+      "plugins-src/codex-agent/backend/templates/search-answer/AGENTS.md": "c2c9af94403c0c844b8c2539fd7919135a5a8533d2e5035b777e1c52c3752f0d",
+      "plugins-src/codex-agent/backend/templates/search-answer/policy.json": "5348fcd17488abd113dccdf7d51c5b991b37722546e5eee1018861100dfd2a57",
+      "plugins-src/codex-agent/backend/templates/search-answer/task.json": "14a92a2d895949131949c297b122c160ca40b0e4814211c24eb923498c04fa79",
+      "plugins-src/codex-agent/backend/templates/search-plan/AGENTS.md": "3bae59bbdc470d36c59dac5dd0813bf168a8d8be0f68ae56db023308c5427f87",
+      "plugins-src/codex-agent/backend/templates/search-plan/policy.json": "daa3a6e720c34d4eec60d560c60a8e318b25ceb14d45c8e2f67c47b13c6bc840",
+      "plugins-src/codex-agent/backend/templates/search-plan/task.json": "adb33bcbac930ad57fbc0b68c5f80a25ba5ec263249cc5f903049961fb313b8f",
+      "plugins-src/codex-agent/backend/templates/search-summary/AGENTS.md": "d31775393f274f837a3e9a7a5b6107d7ff40204b2ff765c556b9299b2901b91a",
+      "plugins-src/codex-agent/backend/templates/search-summary/policy.json": "dc720d06d33b2cdf36946e8368e797f48c96fd3f8ac12eaca4661d159ba0bd0a",
+      "plugins-src/codex-agent/backend/templates/search-summary/task.json": "7318a15423abf91895e03fbf2f4415694aa03624b4daa037d53ade56f13e9df9",
+      "plugins-src/codex-agent/backend/templates/selfcheck/AGENTS.md": "067388b829d718182e237bd5f922e3da85d67c0deaf12986054253c3089ac224",
+      "plugins-src/codex-agent/backend/templates/selfcheck/policy.json": "28877138eb05b613e1f0856334ef761dd0e72b239ef32fa7d3cf471217fc5329",
+      "plugins-src/codex-agent/backend/templates/selfcheck/task.json": "632cb4cc668ff104901179e83b8c23e35ed6a6905483b23901adc22ecb7fac5d",
+      "plugins-src/codex-agent/backend/templates/vault-research/AGENTS.md": "56234a2e671c71e77902ee91d5ec6c1205f6c60af32a5da37d400e478cf0903b",
+      "plugins-src/codex-agent/backend/templates/vault-research/policy.json": "80ab3237a5e16fb8a2c2c3ba9f766116e02f407e18ca1cf74e36ef4e4e965e8d",
+      "plugins-src/codex-agent/backend/templates/vault-research/task.json": "bf96cccfc6812ce32576df92bdbe93a39c9c647faf50ed6a3de79e451838cbe7",
+      "plugins-src/codex-agent/backend/tests/fixtures/kickoff-v3-progress.jsonl": "6d3f7e1e3e605455c5923e8fe5b2a559195c564720d5adcbf9d590e13fce0658",
+      "plugins-src/codex-agent/index.html": "2820e8ca0900e83318acacd870dda834460a34533128219c24bd51b30d94ea30",
+      "plugins-src/codex-agent/manifest.v2.json": "576474f1192c99e488339e484cc9b2f38da7644726a8527e49daf95f8a5948a4",
+      "plugins-src/codex-agent/package.json": "9a6b9a318abca740daee399afd36de3bdd90a78c0effd8b5bf15fd43cc03f741",
+      "plugins-src/codex-agent/src/App.svelte": "1cce5637d4f6cc65c75047ab3047eb3a469443889836995006b1e22a28c8aad8",
+      "plugins-src/codex-agent/src/components/ArtifactLinks.svelte": "310dbb72fcc5c1880391652a8f9d4cc7cff6a6b42f6628269fca9b7c91226df0",
+      "plugins-src/codex-agent/src/components/HarnessBanner.svelte": "c95718e07a709e1a7569fd95ca28cd140a14966c33cc386f4fe16b34146c57e7",
+      "plugins-src/codex-agent/src/components/HistoryList.svelte": "89c41ae309f6094314200be6fba77de105446ee5c87a78f9261bfc3a04ad67fa",
+      "plugins-src/codex-agent/src/components/RunLog.svelte": "aed7ed26c56516e13cb16a738ec502d8ce55758dbf4db378a74428cb2de37471",
+      "plugins-src/codex-agent/src/components/RunStream.svelte": "b577fc164f164323d976231b5f686fea2b29d63e69469c183a7078095e2aed60",
+      "plugins-src/codex-agent/src/components/SettingsPage.svelte": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b",
+      "plugins-src/codex-agent/src/components/TaskList.svelte": "935bb853bf906739776e573c6ee98d7bf2a9a340d8559cb08521d17470e2d2e8",
+      "plugins-src/codex-agent/src/components/UsageSummary.svelte": "ca33d4aa1159c92e720f89d9d6a6f01db041b1de0e7ce460ee3eced26b0ab278",
+      "plugins-src/codex-agent/src/layout.test.ts": "fd2236694d8b617a7e637017f053c915620d8a972eb327e85df3c5315d460abf",
+      "plugins-src/codex-agent/src/lib/bridge.ts": "d3d38f27584a544432d741dc71617b9dfdd3628afddfbbc46fce0fa6413ea59d",
+      "plugins-src/codex-agent/src/lib/datetime.test.ts": "47000ab9f024c81900b692232bc78d1db1e87be0bf1446e1a09f4839a6c9084a",
+      "plugins-src/codex-agent/src/lib/datetime.ts": "59ad18cfde08386f5e46331855309223c2edb860364be36bf20de293e3b61024",
+      "plugins-src/codex-agent/src/lib/errors.test.ts": "7c125dc9dd6a144da730433ce40fd656a04241d993ca9f244a04a2f1ef792690",
+      "plugins-src/codex-agent/src/lib/errors.ts": "157fd308b7739ca891ef5f3ca4158f3ae8d9984ae6aecac1ed0f4b98ef009bcb",
+      "plugins-src/codex-agent/src/lib/events.test.ts": "88a868a62f494c5be0ccb2e5aae012a5d7a5829cb545d4d2f8b61c28d3b7a30c",
+      "plugins-src/codex-agent/src/lib/events.ts": "bb6d21dfbb39b556fe78dcae66ff8607af0bc5b66bd6f77b804f93542f8252d6",
+      "plugins-src/codex-agent/src/lib/history-pagination.test.ts": "7607144ea0efab77dcee69abcf0cc1c21509593d9902dacb71e4523d8d0096f2",
+      "plugins-src/codex-agent/src/lib/history-pagination.ts": "5378c6ffe69816b12a40b5adedf167a90a8639dd87423001faf79d9b9dfd878b",
+      "plugins-src/codex-agent/src/lib/settings.test.ts": "6c97264eff9f42316579700d84d86425f2ce077f0f48112c9a8076774005abba",
+      "plugins-src/codex-agent/src/lib/settings.ts": "7e3467499d53752750f3b2821374302bec750856285071044d0069921a09ad34",
+      "plugins-src/codex-agent/src/lib/strings.test.ts": "9e77d52946d986262143ae4ad05243a9c14e77b5da61fae78d20167855118e67",
+      "plugins-src/codex-agent/src/lib/strings.ts": "a6b582abe371c2dcbdf68b9a6735625b93a014d563d2eda44aa05c6448da5fe5",
+      "plugins-src/codex-agent/src/lib/task-groups.test.ts": "38f97a76c39be78385502cd3d7105c2c33eb2379d4cef44eb2ff063193e6697d",
+      "plugins-src/codex-agent/src/lib/task-groups.ts": "8c5bb6cdbcd0f14b6ea8795ac24f9d2111f464c02a39f59fa5b5f136f81f476d",
+      "plugins-src/codex-agent/src/main.ts": "85cce4d07dab17ed1a58ac4117985f64c64fc37f32d0078cae1e5e3d2ece1a88",
+      "plugins-src/codex-agent/src/ui.render.test.ts": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68",
+      "plugins-src/codex-agent/tsconfig.json": "efa298680425ae9c4530e492b5be212c29f7d2884dc0b7f2e93ace9ac3635ad6",
+      "plugins-src/codex-agent/vite.config.ts": "6799dd5a594645c6b1184a6d9ced8c10fec70371eca53df844a41e772715c7f8",
+      "plugins-src/codex-agent/vitest.config.ts": "fb9ca4b737d71698f3878f2146aa57ce6af3b56168b2d39280e86b574a076438",
+      "plugins-src/deepseek-agent/CHANGELOG.md": "4e9a8442ed1df733458e7a84be4e053fe5543baf43af67b7b5abc5bc3351684e",
+      "plugins-src/deepseek-agent/backend/Cargo.lock": "2f0f9f189d376ceb8b0ab0610e0eb1d005ac770b680af6db07db5429607bdff7",
+      "plugins-src/deepseek-agent/backend/Cargo.toml": "b1b0567e4f59bdd0c59edb954f3e799e542d0677b4942fb5616259fd2e26fbe6",
+      "plugins-src/deepseek-agent/backend/src/acp.rs": "47e202a270dd664eaa7567515ebf03482831977d8de575937e1272fd90574e00",
+      "plugins-src/deepseek-agent/backend/src/bin/stub_acp.rs": "fd7c7f4cbf871f90cc8f8953039fbf747e7a2b46b8fe22b8d832cf6f499005da",
+      "plugins-src/deepseek-agent/backend/src/composition.rs": "e46f55711c6fea428150f1cead992e7d193ae5a8190223776d054004c48216ba",
+      "plugins-src/deepseek-agent/backend/src/discover.rs": "b943f0683ab08e2aaff310becb62f84de8a568612c4eeb6e3dfa890d454f3232",
+      "plugins-src/deepseek-agent/backend/src/engine.rs": "09b7e52af7629e368ddac977067b19c3731ea4f10479a1d37e38fdcabc04f09d",
+      "plugins-src/deepseek-agent/backend/src/main.rs": "cec2815923e60fff085beeddd7f5a993d137cef34c968c85901c10acbf3e301b",
+      "plugins-src/deepseek-agent/backend/src/plugin.rs": "1806276f996927d060b1c05b432bc4a13c2a27cffa1cc377941d8842020ff6fa",
+      "plugins-src/deepseek-agent/backend/src/policy.rs": "5ce5b9e45c17828d9be62fa3f4f95aff472ef54f19d4c0652007e3a3233f0898",
+      "plugins-src/deepseek-agent/backend/src/runner.rs": "904c74d8b29b119a660e41aee7b434c4e0d6fc12a8bde5c6b736c1108b7edcdf",
+      "plugins-src/deepseek-agent/backend/src/task.rs": "091067f70839567cbfa0edc57a78dd21c86a2c169aa0d49ad1b8033e2258ade8",
+      "plugins-src/deepseek-agent/backend/templates/_dsh/cordis.patch.yml": "952d985e842710ed6c328ff42080c1be71161bc07d4079e9f6c5cf0a698ce475",
+      "plugins-src/deepseek-agent/backend/templates/ai-read-ebook/AGENTS.md": "e9dc8d09972347c614750724199551506f8877ea516720ccc191bf751b74ead1",
+      "plugins-src/deepseek-agent/backend/templates/ai-read-ebook/policy.json": "e4fb1682b2d1adfdd468449bc2b6b778d5ad4371e0ac9594c6ff43ae3afc0bec",
+      "plugins-src/deepseek-agent/backend/templates/ai-read-ebook/task.json": "e7537ab1bf914a7a821f28a25b2e1cc3004f09da58c482c62410350acf49d760",
+      "plugins-src/deepseek-agent/backend/templates/answer-note-question/AGENTS.md": "ce84114645ba4cff08379384c397393d398f1711827b98e0c9353ce52a5abb98",
+      "plugins-src/deepseek-agent/backend/templates/answer-note-question/policy.json": "da524363155e949329a6636c2e04757ba37e8652e2f1af1cdc93bbf59f6b1b85",
+      "plugins-src/deepseek-agent/backend/templates/answer-note-question/precheck.sh": "8a215cfb105ff41a8fb10f28ffbd9e181afcc6ac098b0fa4f128fe2c407eee1b",
+      "plugins-src/deepseek-agent/backend/templates/answer-note-question/task.json": "95e097b23f8601f248a4c416889090c9934d20951dd27e6c6c207a6c92182b42",
+      "plugins-src/deepseek-agent/backend/templates/search-answer/AGENTS.md": "c2c9af94403c0c844b8c2539fd7919135a5a8533d2e5035b777e1c52c3752f0d",
+      "plugins-src/deepseek-agent/backend/templates/search-answer/policy.json": "5348fcd17488abd113dccdf7d51c5b991b37722546e5eee1018861100dfd2a57",
+      "plugins-src/deepseek-agent/backend/templates/search-answer/task.json": "14a92a2d895949131949c297b122c160ca40b0e4814211c24eb923498c04fa79",
+      "plugins-src/deepseek-agent/backend/templates/search-plan/AGENTS.md": "3bae59bbdc470d36c59dac5dd0813bf168a8d8be0f68ae56db023308c5427f87",
+      "plugins-src/deepseek-agent/backend/templates/search-plan/policy.json": "daa3a6e720c34d4eec60d560c60a8e318b25ceb14d45c8e2f67c47b13c6bc840",
+      "plugins-src/deepseek-agent/backend/templates/search-plan/task.json": "adb33bcbac930ad57fbc0b68c5f80a25ba5ec263249cc5f903049961fb313b8f",
+      "plugins-src/deepseek-agent/backend/templates/search-summary/AGENTS.md": "d31775393f274f837a3e9a7a5b6107d7ff40204b2ff765c556b9299b2901b91a",
+      "plugins-src/deepseek-agent/backend/templates/search-summary/policy.json": "dc720d06d33b2cdf36946e8368e797f48c96fd3f8ac12eaca4661d159ba0bd0a",
+      "plugins-src/deepseek-agent/backend/templates/search-summary/task.json": "7318a15423abf91895e03fbf2f4415694aa03624b4daa037d53ade56f13e9df9",
+      "plugins-src/deepseek-agent/backend/templates/selfcheck/AGENTS.md": "312198e021cde03b71387d383cf6df91e18fa27e2be1e641c627d446ebaabf03",
+      "plugins-src/deepseek-agent/backend/templates/selfcheck/policy.json": "28877138eb05b613e1f0856334ef761dd0e72b239ef32fa7d3cf471217fc5329",
+      "plugins-src/deepseek-agent/backend/templates/selfcheck/task.json": "ddd5c98dfb9da0ff55ca0ae2b7e177124c1044e55d2f86f4ae0947f5db6f9b8a",
+      "plugins-src/deepseek-agent/backend/templates/vault-research/AGENTS.md": "56234a2e671c71e77902ee91d5ec6c1205f6c60af32a5da37d400e478cf0903b",
+      "plugins-src/deepseek-agent/backend/templates/vault-research/policy.json": "80ab3237a5e16fb8a2c2c3ba9f766116e02f407e18ca1cf74e36ef4e4e965e8d",
+      "plugins-src/deepseek-agent/backend/templates/vault-research/task.json": "bf96cccfc6812ce32576df92bdbe93a39c9c647faf50ed6a3de79e451838cbe7",
+      "plugins-src/deepseek-agent/index.html": "4eceaddcfc0529c87b7b6ff9bd58b3cf3aa18f491bdee1196a84d847fd747617",
+      "plugins-src/deepseek-agent/manifest.v2.json": "f7a98987b5ca03d5b13be082d0532f2ba721264d4bfdce2c404ffc115f23636f",
+      "plugins-src/deepseek-agent/package.json": "627bfa9d2fadf923f542a767f33cdb33f73975992a3ab163a2b52c30ac96699d",
+      "plugins-src/deepseek-agent/src/App.svelte": "3960ee72908501a886f5365e3987dd605fece3464f9491a987c761c66632e654",
+      "plugins-src/deepseek-agent/src/components/ArtifactLinks.svelte": "310dbb72fcc5c1880391652a8f9d4cc7cff6a6b42f6628269fca9b7c91226df0",
+      "plugins-src/deepseek-agent/src/components/HarnessBanner.svelte": "04a8e72c6ca8cd952ccc7d59dcb77c87a523726bc4a94bb469c864f0b9a6474f",
+      "plugins-src/deepseek-agent/src/components/HistoryList.svelte": "67b25591f458191f3d84a8245a3255c71f2fdfd623653c6c2a446101391e87e2",
+      "plugins-src/deepseek-agent/src/components/RunLog.svelte": "aed7ed26c56516e13cb16a738ec502d8ce55758dbf4db378a74428cb2de37471",
+      "plugins-src/deepseek-agent/src/components/RunStream.svelte": "b577fc164f164323d976231b5f686fea2b29d63e69469c183a7078095e2aed60",
+      "plugins-src/deepseek-agent/src/components/SettingsPage.svelte": "627d0886d9da6ab6e7f4f6d961f12fb7f279377b66bbc63ee41a2e663f16bf4b",
+      "plugins-src/deepseek-agent/src/components/TaskList.svelte": "1b8ef748a7951a1506d20bef7ec38028f3dbe6207eb41f2f990b9c3b0574e4ec",
+      "plugins-src/deepseek-agent/src/components/UsageSummary.svelte": "ca33d4aa1159c92e720f89d9d6a6f01db041b1de0e7ce460ee3eced26b0ab278",
+      "plugins-src/deepseek-agent/src/layout.test.ts": "fd2236694d8b617a7e637017f053c915620d8a972eb327e85df3c5315d460abf",
+      "plugins-src/deepseek-agent/src/lib/bridge.ts": "d3d38f27584a544432d741dc71617b9dfdd3628afddfbbc46fce0fa6413ea59d",
+      "plugins-src/deepseek-agent/src/lib/datetime.test.ts": "47000ab9f024c81900b692232bc78d1db1e87be0bf1446e1a09f4839a6c9084a",
+      "plugins-src/deepseek-agent/src/lib/datetime.ts": "59ad18cfde08386f5e46331855309223c2edb860364be36bf20de293e3b61024",
+      "plugins-src/deepseek-agent/src/lib/errors.test.ts": "769b6b5c0725047bcde1ef93ecdf9ff8e089496758ce93b7cb1f3616330a4719",
+      "plugins-src/deepseek-agent/src/lib/errors.ts": "924abf43ee33e7262003673d4b9ecde20d73cbae8add913a7947713db5d8ef9d",
+      "plugins-src/deepseek-agent/src/lib/events.test.ts": "511c0d77366d9af7ff4aeb19ab1f1b2c28717ca4c46a5cbefc5e5030622e62d9",
+      "plugins-src/deepseek-agent/src/lib/events.ts": "572725f68f6fc9b999a7caaa83487be7e035355ad1340cb7e577b424274514c8",
+      "plugins-src/deepseek-agent/src/lib/history-pagination.test.ts": "7607144ea0efab77dcee69abcf0cc1c21509593d9902dacb71e4523d8d0096f2",
+      "plugins-src/deepseek-agent/src/lib/history-pagination.ts": "5378c6ffe69816b12a40b5adedf167a90a8639dd87423001faf79d9b9dfd878b",
+      "plugins-src/deepseek-agent/src/lib/settings.test.ts": "6c97264eff9f42316579700d84d86425f2ce077f0f48112c9a8076774005abba",
+      "plugins-src/deepseek-agent/src/lib/settings.ts": "7e3467499d53752750f3b2821374302bec750856285071044d0069921a09ad34",
+      "plugins-src/deepseek-agent/src/lib/strings.test.ts": "9e77d52946d986262143ae4ad05243a9c14e77b5da61fae78d20167855118e67",
+      "plugins-src/deepseek-agent/src/lib/strings.ts": "9c1486ddfec7b3c6793f0038e5da5c101989ee58c4acfa4a24d8dd6686822979",
+      "plugins-src/deepseek-agent/src/lib/task-groups.test.ts": "38f97a76c39be78385502cd3d7105c2c33eb2379d4cef44eb2ff063193e6697d",
+      "plugins-src/deepseek-agent/src/lib/task-groups.ts": "8c5bb6cdbcd0f14b6ea8795ac24f9d2111f464c02a39f59fa5b5f136f81f476d",
+      "plugins-src/deepseek-agent/src/main.ts": "1f04461b5cbac824601acbc71cf3e1846acfb177d7dea37bf89ae4a0bea54d84",
+      "plugins-src/deepseek-agent/src/ui.render.test.ts": "fb3dade320a54801960950a243cf229507f1fe63ff58a30fe8458b0cb9e18f68",
+      "plugins-src/deepseek-agent/tsconfig.json": "efa298680425ae9c4530e492b5be212c29f7d2884dc0b7f2e93ace9ac3635ad6",
+      "plugins-src/deepseek-agent/vite.config.ts": "6799dd5a594645c6b1184a6d9ced8c10fec70371eca53df844a41e772715c7f8",
+      "plugins-src/deepseek-agent/vitest.config.ts": "fb9ca4b737d71698f3878f2146aa57ce6af3b56168b2d39280e86b574a076438",
+      "plugins-src/next/.gitignore": "1faed47368b89179ae0dc62312a81fa6205a999d3e8df159b529d7f2db1c71ea",
+      "plugins-src/next/CHANGELOG.md": "ee3f57b9e61ddc59cd55359f1677f37fda5d957e575eada2f86bf3da564bf1d3",
+      "plugins-src/next/index.html": "f4115a4a76ebc63a8adb2738f8b5d2bcac75def76b155ceabfbab1dd9fd17d44",
+      "plugins-src/next/manifest.v2.json": "1214caa1a4e92033b2e4cb7741820824b0023099134a2e2ab8d78bed863c5ac6",
+      "plugins-src/next/package.json": "99aa4ff053bdea7c553ee714c0b417e912b09e56abe0371050b46d5f2b167407",
+      "plugins-src/next/scripts/cli-manifest.mjs": "35e3ceafec81c8b162d96bbe99115d13fb49d81ebab65196f78cd2dd888d3b98",
+      "plugins-src/next/scripts/task-api.ts": "a85bed69dee056a3eb3c28358d960b9f4aa358acbcb2fa54e4b250f975d2c5c4",
+      "plugins-src/next/scripts/task-cli.e2e.mjs": "3a4a3e209928a93a489a483206887a41bdc10b03aea457ed02190919739de64a",
+      "plugins-src/next/scripts/task-cli.ts": "b07627667560e202a27bb8bb05c56169b1aefd9aa8ca4c72369aa80499e3cb62",
+      "plugins-src/next/src/App.kickoff.render.test.ts": "56ffcdd73e94cd983cba5b8c80f2823c7696b569fa1100edbdf903f209e6954a",
+      "plugins-src/next/src/App.render.test.ts": "e7a48b38c327594bb167f4cd056119254fa2bded356a85889cbc9758b710b2d5",
+      "plugins-src/next/src/App.svelte": "d58a73736d6c713e384720f3732cb87075f4cbb83ef0f29424c80be04c1e2348",
+      "plugins-src/next/src/components/ChoiceField.svelte": "4b0121c57a76719ae20272c611109cc1203b14a254fffbb2562abb1a5bde3e94",
+      "plugins-src/next/src/components/CompletionConfetti.render.test.ts": "b7e070eaa18920f3829a6c0bf99751dbfe99b60a5efd2bfd18f6ccbaed0de71a",
+      "plugins-src/next/src/components/CompletionConfetti.svelte": "5be7e4722cdf96aaf86d2621b43b3bb14d3bd40bfea508ffbf505624c33c85bf",
+      "plugins-src/next/src/components/CompletionNote.render.test.ts": "3d2774fec6f5d8406a902c4c223c14857e34c81b430d6e2b082b6e167011214e",
+      "plugins-src/next/src/components/CreateIdeaSheet.render.test.ts": "c74929188f4de42717393f5803c74633f5498a45d22a2097dc4477eb58cdaf4d",
+      "plugins-src/next/src/components/CreateIdeaSheet.svelte": "9e3832fe2b7b301026f9a6bcac787a9144ceb27df7ab111c295f3c8c4c049a54",
+      "plugins-src/next/src/components/CreateTaskSheet.render.test.ts": "63f7b896c92b486671e58859c11f55cfd62966a9bfb5c8c931fdcff516999dfd",
+      "plugins-src/next/src/components/CreateTaskSheet.svelte": "58c8777942b575d1d540cbb4f0ceb3d7aad31bf857121b57a1eec1e7f0253c9b",
+      "plugins-src/next/src/components/IdeaCard.svelte": "6085cf5a751e9a66de424326cfd57b9ac67ede5a6239d281aac987419c9ddb80",
+      "plugins-src/next/src/components/KickoffButton.render.test.ts": "e2e1453802e9bb407bff5e6148c17d7aadfba95b268c4a4485142babd0f8ecc2",
+      "plugins-src/next/src/components/KickoffButton.svelte": "180c95caca70c4c2b35fe3a59ebb424276cedd011b5d63800162ce05f476c870",
+      "plugins-src/next/src/components/KickoffConsent.render.test.ts": "786b0a7557d9e76c3b8c0f1b622efb25edd9ee7204932f601f700eb0664fe46c",
+      "plugins-src/next/src/components/KickoffConsent.svelte": "114d2d4d294162e8d363d23dfe5211167b6160511eb35ada0a39f7d97effe1cd",
+      "plugins-src/next/src/components/KickoffPicker.render.test.ts": "89682e16bab88c0b25885a72d56d5a379b8141d6f415c89c9dd47a3bef735987",
+      "plugins-src/next/src/components/KickoffPicker.svelte": "f081e8811d3b22cc5702aad3ebe47db4237c8e471232e7eef1193c5a13c3fbd8",
+      "plugins-src/next/src/components/KickoffProgress.render.test.ts": "2a539a2a0c4c325ce37f90605b8951bb5a08cdf29d33129558c72f093d5fb3e4",
+      "plugins-src/next/src/components/KickoffProgress.svelte": "c90346f75c0cb1508ca5f6bdcd4fa8b2bb842645f7188037d0ecaa8362aecb77",
+      "plugins-src/next/src/components/KickoffSheet.render.test.ts": "b9e4802335fd9872ca2ff8ecf07b22d3fd60dbb5a8fba12a971704d77770bd28",
+      "plugins-src/next/src/components/KickoffSheet.svelte": "df23f508f4b9c9b94a8bbd07fbb40393bcc8e1963839ebf2f4d757fd84b7a9f0",
+      "plugins-src/next/src/components/MetadataSheet.render.test.ts": "31c3ef2784f794725452ff582daee907f0e147e02d8df969711b66dcf5881ef9",
+      "plugins-src/next/src/components/MetadataSheet.svelte": "0e055168c85445149bdbf85a30a13173207a473484270859bc00a5fc6b3e3891",
+      "plugins-src/next/src/components/PlaceMenu.svelte": "0f4251d7bef5ae021421ee8007ef3549245d04826dd39f756c1575e0b8614174",
+      "plugins-src/next/src/components/PlaceSheet.render.test.ts": "0d896af06bd5db2eef2d1e0eed238dd2aee595abad977dd4f7e9cb4c868308d8",
+      "plugins-src/next/src/components/PlaceSheet.svelte": "afef16bfc01134a31999147bb919f3a718ac0b2cabce3fa0afb9fb816af914f4",
+      "plugins-src/next/src/components/RelinkSheet.render.test.ts": "a450c5b38304232834282e11f440be67a22f1938df957ceea3611372bda6f001",
+      "plugins-src/next/src/components/RelinkSheet.svelte": "b46ff14fd08730f8a5295455b65122737c60b189904cefea63937264a027b0eb",
+      "plugins-src/next/src/components/ReminderMenu.render.test.ts": "30c5dcf06acfedead1e40ae1690af6ad5fddbff9f9e4e467ab39fea5bf9d9109",
+      "plugins-src/next/src/components/ReminderMenu.svelte": "ac9ecb1d7eccd38e0bfd7ab25dd47cb422ae43cc2ff49aabdee20d587f197927",
+      "plugins-src/next/src/components/ReminderSheet.render.test.ts": "5106c21a01e47569696891727b34f5f923ff4d79996afbd558b9e964a8286845",
+      "plugins-src/next/src/components/ReminderSheet.svelte": "471c0c2120dfaa36d6cd85613a12aa6b3097cad3a4b285e26b25985554dd29da",
+      "plugins-src/next/src/components/SettingsPage.svelte": "7182cac281aec1f8df0a980baa4ff9a5b41637f45c45600c172ca785627a6587",
+      "plugins-src/next/src/components/TaskHookSettings.render.test.ts": "9b414c4f9703d32cf6adcdc6b712866e384c42449653ef1e907948459407f065",
+      "plugins-src/next/src/components/TaskHookSettings.svelte": "9cda593cca38572f90ae46ad8ef7d3dbbb556af0b50e05b4f3f899c3f6d5dfa8",
+      "plugins-src/next/src/components/TaskHookStatus.render.test.ts": "83cb5b1928eb53da637d844c826c4b8d4958bc9c345677295c9767e3ec322f63",
+      "plugins-src/next/src/components/TaskHookStatus.svelte": "bf0ac5f782946a19de5ef1053e03e72723c343ce7d443d23d4ebedb781a92512",
+      "plugins-src/next/src/components/reminder-time.test.ts": "bd17d18d2b091f9cac158d925afcb966c3a0c434cbe74ade57ec2b85527d199c",
+      "plugins-src/next/src/components/reminder-time.ts": "5e64ff527be59648d59a9d256bf2db5ecda24ac48c93a7d72105314ae1427e53",
+      "plugins-src/next/src/lib/agent-picker/AgentPicker.svelte": "943f4d531fcdcd854876fac182da2b7f8797162d1302d2861cbbad26a262325c",
+      "plugins-src/next/src/lib/agent-picker/types.ts": "9163d98059b5a21da1e5408a95d4b751843ce9fd8060020ec6d5b787ec82078c",
+      "plugins-src/next/src/lib/bridge.link.test.ts": "c231831592a44164eb9384b183dfcf4dd3401018823fce3eca1967dd2c1dd0ce",
+      "plugins-src/next/src/lib/bridge.ts": "735bd3070eae0ec66392fb4453096b7b10742fbe1d2d196996e46081b96f6d33",
+      "plugins-src/next/src/lib/completion-note.test.ts": "2a1ec2a782c5e00ef953177a1c5bd015a1653b9711f93218d1cbb25bdc73ca60",
+      "plugins-src/next/src/lib/completion-note.ts": "678dd3aa4e693ea64fc4e05491b406c3d51c67fc639fafa78d2aeee05104972e",
+      "plugins-src/next/src/lib/domain.test.ts": "f9777a5a7dbc7122caaa9a27c64555ed1dff578eab6cb34481ba72055fc42d50",
+      "plugins-src/next/src/lib/domain.ts": "f858920c98d441edeb15db07ae755d0f6f1cfaae0aa2aba9e24d3b214ad61503",
+      "plugins-src/next/src/lib/events.test.ts": "b0c8479225f94b1a1dd4012de6e65ccce6689eba73eda63d33be3cf451f2f34c",
+      "plugins-src/next/src/lib/events.ts": "630f86115389f9e89cbf8126021f412abf28923dab31827c1dee20643aad04a3",
+      "plugins-src/next/src/lib/frontmatter-document.ts": "8dada9b952dc6b9c3880017bd13e4f4ab3e05c269d78991d9e52fc95990aaf29",
+      "plugins-src/next/src/lib/kickoff/__fixtures__/payload.json": "aa53aa7d306a1162164d407c22da8ed8523c9bc75d503c24d5f3804554e7207f",
+      "plugins-src/next/src/lib/kickoff/button-state.test.ts": "75e117bad23d8bd8f3e6a0fa75ea49bf5f6a49cf94bcc24beb44964c9b68962a",
+      "plugins-src/next/src/lib/kickoff/button-state.ts": "aa03e2a922270ccb2bf9c7a35b4721d0ae3570e37e9c91ebdf6b948baad6d61d",
+      "plugins-src/next/src/lib/kickoff/client.test.ts": "3cecbe067ba84ea1b38731ad79773185ced40c73f996682f98804c8d2f3ad4df",
+      "plugins-src/next/src/lib/kickoff/client.ts": "69e8bb7671e9531650778e178172cc3baa1236d1b9f11c8203c4e16189860bb1",
+      "plugins-src/next/src/lib/kickoff/document.test.ts": "3d6bcfce23f3da81b685cb3df221b5f92130c39e371287a79cd28c6c1fee186a",
+      "plugins-src/next/src/lib/kickoff/document.ts": "3078f848b6e7e6ad395f7730010660f674707f9106df773a6f4f579d5e14694e",
+      "plugins-src/next/src/lib/kickoff/hash.test.ts": "8d0a607ce3dab54f15e81aab5bc6f111740701f8f0d915d737251ce2b8655e6f",
+      "plugins-src/next/src/lib/kickoff/hash.ts": "5f8656abdb914d64a47a0c1af9275cc3179b67de049ebb87cbfd221b779ff2ba",
+      "plugins-src/next/src/lib/kickoff/payload.test.ts": "ad1be73cb6e376f2794f5e2e6a8f21827534bf3aee9afb8ae6b7efd5f9e255b2",
+      "plugins-src/next/src/lib/kickoff/payload.ts": "782c71ae071ccf11fa36742e7f69be6e2013b96a32d3683672987315eac60551",
+      "plugins-src/next/src/lib/kickoff/prefill.test.ts": "45c9b38e16be7ed8a0d8d58d9d59db489792876c332158ebeed3c5bc5d1c6915",
+      "plugins-src/next/src/lib/kickoff/prefill.ts": "75db8d52baf05a304af6d0dbef54b9dc56041a369450cd9db91eb965ca31da87",
+      "plugins-src/next/src/lib/kickoff/registry.test.ts": "f0af0dcc90b19e5b469465aeb07ecb6250d4077321d4306d14c6b0c7e54719fc",
+      "plugins-src/next/src/lib/kickoff/registry.ts": "6c47f397485d2491f43558d6862710129cc400be53f06d5bf9bab32e9fd6da35",
+      "plugins-src/next/src/lib/kickoff/source.ts": "8863945f6402e0308b0049201e2beb8dd8c883336654dd6e8f647da561e35419",
+      "plugins-src/next/src/lib/kickoff/status.test.ts": "f9ab9089d8d09123ddd909cb45cda95c221cf288f7b5a8d04b4b63fa7d86e66e",
+      "plugins-src/next/src/lib/kickoff/status.ts": "870f41692629c4416f3dabfc4c396796d8f76eedf9614aed1f1d84df9a07165c",
+      "plugins-src/next/src/lib/kickoff/template.test.ts": "9c155d6914797a25068e94317d837a15f9f3d16e537efd08130ffcdf87220471",
+      "plugins-src/next/src/lib/kickoff/template.ts": "b9f6bbdaa4905684551a230d5812f54e3738909439e22bd3bf3a95d1d56c4c4a",
+      "plugins-src/next/src/lib/ledger.test.ts": "c4b292068218445b559beb6d263054b7dc96a05eff9d574d0fbdd16a05de4443",
+      "plugins-src/next/src/lib/ledger.ts": "4cd934289619b7dd64a22a9388e5e0e56d443f49207e106a1aeb9c1b976a30be",
+      "plugins-src/next/src/lib/metadata.ts": "35b789e796ec583b1520bdb9393f05e6ad5bca7435eb3333afd0fc8708092274",
+      "plugins-src/next/src/lib/model.test.ts": "21e60c5ba8a2ca82f638d61044ea4abcd9b648cd0a991cbe105866b90f9b9bfa",
+      "plugins-src/next/src/lib/model.ts": "f80270cf5fdbce98d29c23a84d6178349d785d4f46a4fc46e0af740daef8d590",
+      "plugins-src/next/src/lib/project-match.test.ts": "b81022d2f652dd5d91fa67922334a08375c8345e7a9d039178762e54e0b49589",
+      "plugins-src/next/src/lib/project-match.ts": "652b6f667ae232bae9281b8cfa933b34fe667360c851197f7075243e1153da09",
+      "plugins-src/next/src/lib/reminders.test.ts": "7f38a4fafd5e5056a5f0bd61138a24e4fdb4e1c9b842a4e83777749b2c9aca01",
+      "plugins-src/next/src/lib/reminders.ts": "3d476899e96380f8897da29a90c70079a14092885913297b34280e5420bbf84b",
+      "plugins-src/next/src/lib/repository.test.ts": "135c1da712ed7b6afccbaebd7c13b151a8ad971b5ffc9b900d283373da6ce3f6",
+      "plugins-src/next/src/lib/repository.ts": "44f16fd45f7e97e04dc50aa72185be0fcaccbe3a03f01c21b61ff65445efc0eb",
+      "plugins-src/next/src/lib/settings.test.ts": "e6d299ee57e10c6c40782689bd740e34ee62f9c95bab27ff9bbd817867883c3f",
+      "plugins-src/next/src/lib/settings.ts": "402c3f0a9a9a1e507b092192e243ac66d4a9ce8ac7636684c5ed4a7bc721f1c6",
+      "plugins-src/next/src/lib/source.test.ts": "ae2347c267e1c57c553b8171f73de70b078a9a3fef71757c39f149e857f37fbf",
+      "plugins-src/next/src/lib/source.ts": "cefb38bf6ef852a947ed8448a72db36bfbb8806f2d3c5937a0e1e1eacf02588e",
+      "plugins-src/next/src/lib/store.svelte.ts": "09c4b7c8d4287ddcabb3335fe0de04113cd8ea34bb14e755ecbd23f508ae1094",
+      "plugins-src/next/src/lib/store.test.ts": "2233c05c1bbad37efc3ac2810f9e3533a0fd1395215bd742395f5001de13cf5b",
+      "plugins-src/next/src/lib/strings.test.ts": "4d01973a85f0699bb76d9b30288b920fd2673d08fcd2df1bb6bb2d013662790a",
+      "plugins-src/next/src/lib/strings.ts": "095cfa1a1c84e8a43c333937beea276bc8a64baa5e4f61013bcb20b528a7dd59",
+      "plugins-src/next/src/lib/task-api.test.ts": "92717d5912e4b117a38718ebb43a43018099dcef91794ac811a1dbd1e16d455b",
+      "plugins-src/next/src/lib/task-hook.svelte.ts": "804a176aa3161eaac092609d1ad2b8622f350e957cfe8a708c5e82317acbd5fb",
+      "plugins-src/next/src/lib/task-hook.test.ts": "8bc691dd0f6dd79736c9632e7db27e9da47dc0ee294dbbbfe4a8fe95eeeef71c",
+      "plugins-src/next/src/lib/task-source.test.ts": "9abf88921dd528974b867ee775f4329bd743637c980e14e70ba0b4e99d396236",
+      "plugins-src/next/src/lib/task-source.ts": "8c04a37d39aaea8e3022a5965b0a1472e2c74c57e37298d54b013184aa62dc64",
+      "plugins-src/next/src/lib/view.test.ts": "b0db2db716bf2c54d58cbdd3a1ef6ee29fdef098cf6cd739e451fe640b07a32c",
+      "plugins-src/next/src/lib/view.ts": "d96f5ac328ce736bf9d6f6db5725efbaf831b7048f323ee9eaf4918ba2330d1c",
+      "plugins-src/next/src/main.ts": "d1feb6432c8e68200e9f00e27797adcc8ad4f131e2e62d8d3b0739a83a32ed93",
+      "plugins-src/next/src/vite-env.d.ts": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+      "plugins-src/next/tsconfig.json": "bb3c74b33cf474f4eced1847347fbc3f054a66800f100caf16f97aafd7b6c7d1",
+      "plugins-src/next/vite.cli.config.ts": "6753c22f57f4b78b669e75b21f4e6b4cbe92218fbbb972039a0158fe4ddd6720",
+      "plugins-src/next/vite.config.ts": "9cba105bae415d707a83e7184fd2c29662806aac0250a47ece869beeef6da91e",
+      "plugins-src/next/vitest.config.ts": "3e3a470e7d81f79ae85594e31e37cc5fff874b63f5673f4514a99f63aa1ae21b",
+      "pnpm-lock.yaml": "fbc5f4ad90da4b01c252f3ef003e9ca27570d6d684d6195305de5230c4e8894e",
+      "pnpm-workspace.yaml": "ed7dd43eb2252a0c22e2750ab5c4a06855fd1e5346bf6b6c32d75aa043d9e413",
+      "scripts/gen-plugin-index.mjs": "a5d965a003c1c85864a78cc94455b4b2fc300f41c6fd3ab7fb84e1ed6bb5a796",
+      "scripts/release-plugins.sh": "a4400a04e7f55de91bb7076974e258e67d2a11df83710270bc920282c35a72a8"
+    }
+  },
+  "git_audit": {
+    "generated_at": "2026-10-28T12:35:06.538058+08:00",
+    "read_only_git_audit": true,
+    "origin_main": "8b60fa06588648abf128e43a3deba2328812a139",
+    "feature_commit": "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075",
+    "release_cherry_pick": "7230285788c39f5d5e5177ff772cd870b6768d84",
+    "merge_base": "9b965e3c8ccc997ed108585115a6e790c53503ab",
+    "worktrees": [
+      {
+        "worktree": "/Users/bruce/git/mdeditor",
+        "HEAD": "f9c765d7ed065776087e12f8636ed113eeaf9e0b",
+        "branch": "refs/heads/main",
+        "status_porcelain": [
+          "M plugins-src/agent-run-core/src/harness.rs",
+          " M plugins-src/agent-run-core/src/record.rs",
+          " M plugins-src/agent-run-core/src/scaffold.rs",
+          " M plugins-src/claude-agent/backend/src/engine.rs",
+          " M plugins-src/claude-agent/backend/src/plugin.rs",
+          " M plugins-src/codex-agent/backend/src/engine.rs",
+          " M plugins-src/codex-agent/backend/src/plugin.rs",
+          " M plugins-src/codex-agent/backend/src/runner.rs",
+          " M plugins-src/deepseek-agent/backend/src/engine.rs",
+          " M plugins-src/deepseek-agent/backend/src/plugin.rs",
+          " M plugins-src/next/src/App.kickoff.render.test.ts",
+          " M plugins-src/next/src/App.svelte",
+          " M plugins-src/next/src/components/KickoffPicker.render.test.ts",
+          " M plugins-src/next/src/components/KickoffPicker.svelte",
+          " M plugins-src/next/src/lib/kickoff/client.test.ts",
+          " M plugins-src/next/src/lib/kickoff/client.ts",
+          " M plugins-src/next/src/lib/strings.ts",
+          "?? .pnpm-store/v11/index.db",
+          "?? docs/superpowers/specs/2026-09-23-agency-batch-cli.md",
+          "?? docs/superpowers/specs/2026-09-23-agency-plugin-design.md",
+          "?? docs/superpowers/specs/2026-09-23-agency-practical-review.md",
+          "?? docs/superpowers/specs/2026-09-30-habitat-knowledge-city-design.md",
+          "?? docs/superpowers/specs/2026-09-30-vault-knowledge-structure-extraction-design.md",
+          "?? docs/superpowers/specs/habitat-city.html",
+          "?? plugins-src/codex-agent/backend/tests/capacity.rs",
+          "?? plugins-src/next/src/lib/kickoff/__fixtures__/capacity-status.json"
+        ]
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-claude-kickoff-release",
+        "HEAD": "9b965e3c8ccc997ed108585115a6e790c53503ab",
+        "branch": "refs/heads/release/claude-kickoff-v2",
+        "status_porcelain": []
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-ebook-cli",
+        "HEAD": "8b60fa06588648abf128e43a3deba2328812a139",
+        "branch": "refs/heads/feat/ebook-agent-cli",
+        "status_porcelain": []
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-context",
+        "HEAD": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf",
+        "branch": "refs/heads/fix/next-kickoff-context-review",
+        "status_porcelain": []
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-kickoff",
+        "HEAD": "0e7276abd522cf89a3fedabe6129a240aa1a61d7",
+        "branch": "refs/heads/feat/next-task-kickoff",
+        "status_porcelain": []
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-ready",
+        "HEAD": "e5243f5790dbb062e9ae36a11507e1ce843f6a6d",
+        "branch": "refs/heads/fix/next-kickoff-ready",
+        "status_porcelain": []
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-research",
+        "HEAD": "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075",
+        "branch": "refs/heads/fix/next-agent-research",
+        "status_porcelain": []
+      },
+      {
+        "worktree": "/Users/bruce/git/mdeditor-next-research-release",
+        "HEAD": "7230285788c39f5d5e5177ff772cd870b6768d84",
+        "branch": "refs/heads/release/next-agent-research",
+        "status_porcelain": [
+          "M CHANGELOG.md",
+          " M CHANGELOG.zh-CN.md",
+          " M plugins-src/claude-agent/backend/Cargo.lock",
+          " M plugins-src/claude-agent/backend/Cargo.toml",
+          " M plugins-src/claude-agent/manifest.v2.json",
+          " M plugins-src/claude-agent/package.json",
+          " M plugins-src/claude-agent/src/lib/settings.test.ts",
+          " M plugins-src/claude-agent/src/lib/settings.ts",
+          " M plugins-src/codex-agent/backend/Cargo.lock",
+          " M plugins-src/codex-agent/backend/Cargo.toml",
+          " M plugins-src/codex-agent/manifest.v2.json",
+          " M plugins-src/codex-agent/package.json",
+          " M plugins-src/codex-agent/src/lib/settings.test.ts",
+          " M plugins-src/codex-agent/src/lib/settings.ts",
+          " M plugins-src/deepseek-agent/backend/Cargo.lock",
+          " M plugins-src/deepseek-agent/backend/Cargo.toml",
+          " M plugins-src/deepseek-agent/manifest.v2.json",
+          " M plugins-src/deepseek-agent/package.json",
+          " M plugins-src/deepseek-agent/src/lib/settings.test.ts",
+          " M plugins-src/deepseek-agent/src/lib/settings.ts",
+          " M plugins-src/next/manifest.v2.json",
+          " M plugins-src/next/package.json",
+          "?? notemd-plugin-sdk/target",
+          "?? plugins-src/agent-run-core/target"
+        ]
+      }
+    ],
+    "branches": [
+      {
+        "name": "feat/ebook-agent-cli",
+        "head": "8b60fa06588648abf128e43a3deba2328812a139",
+        "commits_not_in_origin_main": []
+      },
+      {
+        "name": "feat/next-task-kickoff",
+        "head": "0e7276abd522cf89a3fedabe6129a240aa1a61d7",
+        "commits_not_in_origin_main": []
+      },
+      {
+        "name": "fix/next-agent-research",
+        "head": "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075",
+        "commits_not_in_origin_main": [
+          "b6857e7d9b6382c026fc5f8e0ff4f5dfdf0e8075 fix(next): delegate kickoff research to agents and default concurrency to three"
+        ]
+      },
+      {
+        "name": "fix/next-kickoff-context-review",
+        "head": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf",
+        "commits_not_in_origin_main": []
+      },
+      {
+        "name": "fix/next-kickoff-ready",
+        "head": "e5243f5790dbb062e9ae36a11507e1ce843f6a6d",
+        "commits_not_in_origin_main": []
+      },
+      {
+        "name": "main",
+        "head": "f9c765d7ed065776087e12f8636ed113eeaf9e0b",
+        "commits_not_in_origin_main": []
+      },
+      {
+        "name": "release/claude-kickoff-v2",
+        "head": "9b965e3c8ccc997ed108585115a6e790c53503ab",
+        "commits_not_in_origin_main": []
+      },
+      {
+        "name": "release/next-agent-research",
+        "head": "7230285788c39f5d5e5177ff772cd870b6768d84",
+        "commits_not_in_origin_main": [
+          "7230285788c39f5d5e5177ff772cd870b6768d84 fix(next): delegate kickoff research to agents and default concurrency to three"
+        ]
+      }
+    ],
+    "stashes": [
+      {
+        "ref": "stash@{0}",
+        "sha": "7168eb9ab49d429f8e91ebcf2ac1ba9580582402",
+        "subject": "On feat/plugin-market-catalog-redesign: codex-preserve-before-release-6.831.1",
+        "files": [
+          "M\tdocs/superpowers/specs/2026-08-10-windows-download-design.md",
+          "M\tplugins-src/next/src/lib/domain.test.ts",
+          "M\tplugins-src/next/src/lib/domain.ts",
+          "M\tplugins-src/next/src/lib/events.test.ts",
+          "M\tplugins-src/next/src/lib/events.ts",
+          "M\tplugins-src/next/src/lib/model.ts",
+          "A\tplugins-src/next/src/lib/project-match.test.ts",
+          "A\tplugins-src/next/src/lib/project-match.ts",
+          "M\tplugins-src/next/src/lib/repository.ts",
+          "M\twebsite/src/index.js",
+          "A\twebsite/src/index.test.ts",
+          "M\twebsite/src/resolve-download.js",
+          "M\twebsite/src/resolve-download.test.ts"
+        ],
+        "release_scope": "excluded; preserved without restoration"
+      },
+      {
+        "ref": "stash@{1}",
+        "sha": "240fdc4c69e1b4789ca1166a95c65b1c7c3999b7",
+        "subject": "On main: stray fix-E/F content left in main's worktree by the roam-inc2 stash incident 2026-08-04; superseded by feat/roam-incremental-2, kept for safety",
+        "files": [
+          "M\tplugins-src/roam-import/backend/src/outline.rs",
+          "M\tplugins-src/roam-import/backend/src/syntax.rs",
+          "M\tplugins-src/roam-import/src/lib/roam-import/syntax.test.ts",
+          "M\tplugins-src/roam-import/src/lib/roam-import/syntax.ts",
+          "M\tsrc/lib/outline/markdown.test.ts",
+          "M\tsrc/lib/outline/markdown.ts"
+        ],
+        "release_scope": "excluded; preserved without restoration"
+      },
+      {
+        "ref": "stash@{2}",
+        "sha": "a904adce51b40b26ac46409b232a5ac61ab3216c",
+        "subject": "On feat/attention-intervals: attention-intervals wip: plugin_host.rs (decision-log 期间保管)",
+        "files": [
+          "M\tsrc-tauri/src/plugin_host.rs"
+        ],
+        "release_scope": "excluded; preserved without restoration"
+      }
+    ],
+    "upstream_commits_since_feature_base": [
+      "8b60fa06588648abf128e43a3deba2328812a139 docs(release): verify Ebook Import 1.5.6 AI CLI and marketplace packages",
+      "cfc00686b57c43a14bf7e774e352e40892d70d4d feat(ebook-import): add CLI AI reading and align Baidu OCR limits",
+      "80426cf1e1bd784b334e5edf8bb447caabdac550 docs(release): record Ebook Import 1.5.5 CLI and market verification",
+      "2985619b61b64269893cd48876bdf5215339dac8 feat(ebook-import): expose validated agent CLI and prepare 1.5.5"
+    ],
+    "feature_upstream_path_intersection": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md"
+    ],
+    "feature_file_comparison": [
+      {
+        "path": "CHANGELOG.md",
+        "b685_and_cherry_pick_blob_equal": false
+      },
+      {
+        "path": "CHANGELOG.zh-CN.md",
+        "b685_and_cherry_pick_blob_equal": false
+      },
+      {
+        "path": "docs/plugin-v2-development.md",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "docs/superpowers/reports/2026-10-28-next-agent-research.md",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "docs/superpowers/specs/2026-10-28-next-agent-research.md",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/lock.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/prompt.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/scaffold.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/agent-run-core/src/task.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/engine.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/plugin.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/prompt.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/backend/src/task.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/src/components/SettingsPage.svelte",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/src/lib/settings.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/src/lib/settings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/src/lib/strings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/claude-agent/src/ui.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/argv.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/engine.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/plugin.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/runner.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/src/stream.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/backend/tests/fixtures/kickoff-v3-progress.jsonl",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/src/components/SettingsPage.svelte",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/src/lib/settings.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/src/lib/settings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/src/lib/strings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/codex-agent/src/ui.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/bin/stub_acp.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/composition.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/engine.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/backend/src/plugin.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/components/SettingsPage.svelte",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/lib/settings.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/lib/settings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/lib/strings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/deepseek-agent/src/ui.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/CHANGELOG.md",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/manifest.v2.json",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/App.kickoff.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/App.svelte",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffConsent.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffConsent.svelte",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffPicker.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffSheet.render.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/components/KickoffSheet.svelte",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/bridge.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/client.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/client.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/context.test.ts",
+        "b685_and_cherry_pick_blob_equal": true,
+        "deleted_in_both": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/context.ts",
+        "b685_and_cherry_pick_blob_equal": true,
+        "deleted_in_both": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/document.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/payload.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/payload.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/registry.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/source.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/template.test.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/kickoff/template.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "plugins-src/next/src/lib/strings.ts",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "scripts/verify-next-dsh-research.mjs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "scripts/verify-next-search-readonly.mjs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/agent_provider.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/host_api.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      },
+      {
+        "path": "src-tauri/src/plugin_runtime/ui_rpc.rs",
+        "b685_and_cherry_pick_blob_equal": true
+      }
+    ],
+    "notes": [
+      "Only CHANGELOG.md and CHANGELOG.zh-CN.md overlap with upstream Ebook/SDK commits; cherry-pick resolved these two documentation conflicts.",
+      "SDK runtime callback scheduling and pending-request shutdown changed upstream; fresh release-tree SDK/core/provider tests required and recorded alongside this audit.",
+      "Main worktree preexisting tracked/untracked work excluded; not copied or committed. Main old capacity fixture and standalone capacity test are not byte-identical release content; current feature inline tests cover current behavior.",
+      "Three historical stashes preserved and excluded from NEXT kickoff/concurrency release scope.",
+      "Release worktree current settings/version/log modifications are active release work owned by parent and recorded, not altered by audit."
+    ]
+  },
+  "backend_tests": {
+    "verified_at": "2026-10-28T12:35:49.171364+08:00",
+    "release_base_commit": "7230285788c39f5d5e5177ff772cd870b6768d84",
+    "rust": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "tests": [
+      {
+        "name": "sdk",
+        "command": "cargo +1.99.0 test --manifest-path notemd-plugin-sdk/Cargo.toml",
+        "exit_code": 0,
+        "passed": 14,
+        "failed": 0,
+        "ignored": 0,
+        "log": "sdk-tests.log"
+      },
+      {
+        "name": "core",
+        "command": "cargo +1.99.0 test --manifest-path plugins-src/agent-run-core/Cargo.toml",
+        "exit_code": 0,
+        "passed": 171,
+        "failed": 0,
+        "ignored": 0,
+        "log": "core-tests.log"
+      },
+      {
+        "name": "codex",
+        "command": "cargo +1.99.0 test --manifest-path plugins-src/codex-agent/backend/Cargo.toml",
+        "exit_code": 0,
+        "passed": 101,
+        "failed": 0,
+        "ignored": 1,
+        "log": "codex-tests.log"
+      },
+      {
+        "name": "claude",
+        "command": "cargo +1.99.0 test --manifest-path plugins-src/claude-agent/backend/Cargo.toml",
+        "exit_code": 0,
+        "passed": 138,
+        "failed": 0,
+        "ignored": 1,
+        "log": "claude-tests.log"
+      },
+      {
+        "name": "deepseek",
+        "command": "cargo +1.99.0 test --manifest-path plugins-src/deepseek-agent/backend/Cargo.toml",
+        "exit_code": 0,
+        "passed": 148,
+        "failed": 0,
+        "ignored": 3,
+        "log": "deepseek-tests.log"
+      }
+    ],
+    "scope": "Release-tree SDK integration and provider unit/regression tests; five environment-dependent acceptance tests (including one local DSH native-graph test without model requests) were not rerun in this release check. Does not prove published package contents.",
+    "source_working_tree_diff_sha256": "04592d9dcb2fe15416fa307e37bff40d0a30707396fb5983d755c96c9f3a129a"
+  },
+  "frontend_tests": {
+    "next": 841,
+    "agent_settings_and_render": 78,
+    "all_four_type_checks": "0 errors, 0 warnings"
+  },
+  "packages": [
+    {
+      "plugin": "notemd.next",
+      "version": "1.13.0",
+      "arch": "universal",
+      "package": "dist-plugins/notemd.next/1.13.0/universal.notemdpkg",
+      "bytes": 162566,
+      "sha256": "2274d569e72094e6d008bfd9006bd862d639fa6de85d5d611fa6094beadc4e18",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162208\tfile:universal.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-BrKEcQSG.css",
+        "ui/assets/index-Dxc8aA-7.js",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "notemd search",
+        "vault_root",
+        "task_path",
+        "harness"
+      ],
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.codex-agent",
+      "version": "1.1.0",
+      "arch": "aarch64-apple-darwin",
+      "package": "dist-plugins/notemd.codex-agent/1.1.0/aarch64-apple-darwin.notemdpkg",
+      "bytes": 561964,
+      "sha256": "5745e35050fba45c327bf10c81c0882193f9ee2080aa3df15203d22d057acdec",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162233\tfile:aarch64-apple-darwin.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-Bo8HmJ8f.css",
+        "ui/assets/index-BWgQvHDi.js",
+        "bin/",
+        "bin/notemd-codex-agent",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "readonly_context",
+        "strict_readonly"
+      ],
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-7k_mziq8/notemd-codex-agent: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-7k_mziq8/notemd-codex-agent: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-7k_mziq8/notemd-codex-agent\nIdentifier=notemd-codex-agent\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=2110 flags=0x10000(runtime) hashes=60+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=3dfbc52ab5f6b7a76a280eb31ebb57607f32d1ff\nCandidateCDHashFull sha256=3dfbc52ab5f6b7a76a280eb31ebb57607f32d1ff4e9eef63304530799f63f7c9\nHash choices=sha256\nCMSDigest=3dfbc52ab5f6b7a76a280eb31ebb57607f32d1ff4e9eef63304530799f63f7c9\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=917504\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=3dfbc52ab5f6b7a76a280eb31ebb57607f32d1ff\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 12:37:11 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "arm64",
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.codex-agent",
+      "version": "1.1.0",
+      "arch": "x86_64-apple-darwin",
+      "package": "dist-plugins/notemd.codex-agent/1.1.0/x86_64-apple-darwin.notemdpkg",
+      "bytes": 597352,
+      "sha256": "0f532dc663d4d199c5e934cd237b32717c31b179fdf20511fbbb2ee3830d6821",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162233\tfile:x86_64-apple-darwin.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-Bo8HmJ8f.css",
+        "ui/assets/index-BWgQvHDi.js",
+        "bin/",
+        "bin/notemd-codex-agent",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "readonly_context",
+        "strict_readonly"
+      ],
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-cdv641kh/notemd-codex-agent: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-cdv641kh/notemd-codex-agent: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-cdv641kh/notemd-codex-agent\nIdentifier=notemd-codex-agent\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=8702 flags=0x10000(runtime) hashes=266+2 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=d43ce2a36b3db6ef7c0bb6bda34691036ae3b05d\nCandidateCDHashFull sha256=d43ce2a36b3db6ef7c0bb6bda34691036ae3b05d084a35bb7b3bbb24577f94c0\nHash choices=sha256\nCMSDigest=d43ce2a36b3db6ef7c0bb6bda34691036ae3b05d084a35bb7b3bbb24577f94c0\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1036288\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=d43ce2a36b3db6ef7c0bb6bda34691036ae3b05d\nSignature size=9015\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 12:37:12 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "x86_64",
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.deepseek-agent",
+      "version": "1.2.0",
+      "arch": "aarch64-apple-darwin",
+      "package": "dist-plugins/notemd.deepseek-agent/1.2.0/aarch64-apple-darwin.notemdpkg",
+      "bytes": 567755,
+      "sha256": "41015db8f9d53ba3e9ae50438e3579d8fcaf9c9c98f1320b34a2d0c02ea18bd6",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162258\tfile:aarch64-apple-darwin.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-CNKg6GOn.css",
+        "ui/assets/index-BVtzFvwu.js",
+        "bin/",
+        "bin/notemd-deepseek-agent",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "readonly_context",
+        "strict_readonly"
+      ],
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-exmwd6eq/notemd-deepseek-agent: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-exmwd6eq/notemd-deepseek-agent: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-exmwd6eq/notemd-deepseek-agent\nIdentifier=notemd-deepseek-agent\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=2145 flags=0x10000(runtime) hashes=61+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=148b468d30756c833ee4787c249fd2bce4bda72e\nCandidateCDHashFull sha256=148b468d30756c833ee4787c249fd2bce4bda72ecba5c4b15765f832045458c3\nHash choices=sha256\nCMSDigest=148b468d30756c833ee4787c249fd2bce4bda72ecba5c4b15765f832045458c3\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=933888\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=148b468d30756c833ee4787c249fd2bce4bda72e\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 12:37:36 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=184\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "arm64",
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.deepseek-agent",
+      "version": "1.2.0",
+      "arch": "x86_64-apple-darwin",
+      "package": "dist-plugins/notemd.deepseek-agent/1.2.0/x86_64-apple-darwin.notemdpkg",
+      "bytes": 602783,
+      "sha256": "aeac8cbb192d9cf23a3f1511251743165c00f2827da9eb06ef6074c0bf909a20",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162258\tfile:x86_64-apple-darwin.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-CNKg6GOn.css",
+        "ui/assets/index-BVtzFvwu.js",
+        "bin/",
+        "bin/notemd-deepseek-agent",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "readonly_context",
+        "strict_readonly"
+      ],
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-39br71we/notemd-deepseek-agent: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-39br71we/notemd-deepseek-agent: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-39br71we/notemd-deepseek-agent\nIdentifier=notemd-deepseek-agent\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=8833 flags=0x10000(runtime) hashes=270+2 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=daa17239a2d91ae03694c33eecb7b95d7dcbbb32\nCandidateCDHashFull sha256=daa17239a2d91ae03694c33eecb7b95d7dcbbb32cff088b456975a3e30d8b352\nHash choices=sha256\nCMSDigest=daa17239a2d91ae03694c33eecb7b95d7dcbbb32cff088b456975a3e30d8b352\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1052672\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=daa17239a2d91ae03694c33eecb7b95d7dcbbb32\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 12:37:37 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=184\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "x86_64",
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.claude-agent",
+      "version": "1.1.0",
+      "arch": "aarch64-apple-darwin",
+      "package": "dist-plugins/notemd.claude-agent/1.1.0/aarch64-apple-darwin.notemdpkg",
+      "bytes": 555849,
+      "sha256": "46a10a70207a37cc45ff026cc87dc09add9341d654143ff4bcd97a9af4cc09d3",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162284\tfile:aarch64-apple-darwin.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-YasE6B-C.css",
+        "ui/assets/index-Drz4NV4L.js",
+        "bin/",
+        "bin/notemd-claude-agent",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "readonly_context",
+        "strict_readonly"
+      ],
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-l_ajpu9y/notemd-claude-agent: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-l_ajpu9y/notemd-claude-agent: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-l_ajpu9y/notemd-claude-agent\nIdentifier=notemd-claude-agent\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=2111 flags=0x10000(runtime) hashes=60+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=4d6e798a74b4de368d486c78842885700afb18c8\nCandidateCDHashFull sha256=4d6e798a74b4de368d486c78842885700afb18c831293bea753f1fe32e515733\nHash choices=sha256\nCMSDigest=4d6e798a74b4de368d486c78842885700afb18c831293bea753f1fe32e515733\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=917504\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=4d6e798a74b4de368d486c78842885700afb18c8\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 12:38:02 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "arm64",
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    },
+    {
+      "plugin": "notemd.claude-agent",
+      "version": "1.1.0",
+      "arch": "x86_64-apple-darwin",
+      "package": "dist-plugins/notemd.claude-agent/1.1.0/x86_64-apple-darwin.notemdpkg",
+      "bytes": 592980,
+      "sha256": "37bb4c5f96f7ae0093f589beab0f9e3b4dc5e2170ed372957e15b092002cbce6",
+      "minisign": "Signature and comment signature verified\nTrusted comment: timestamp:1793162284\tfile:x86_64-apple-darwin.notemdpkg\thashed",
+      "entries": [
+        "ui/",
+        "ui/index.html",
+        "ui/assets/",
+        "ui/assets/index-YasE6B-C.css",
+        "ui/assets/index-Drz4NV4L.js",
+        "bin/",
+        "bin/notemd-claude-agent",
+        "manifest.json"
+      ],
+      "content_markers": [
+        "next-task-kickoff-v3",
+        "kickoff_protocol_versions",
+        "readonly_context",
+        "strict_readonly"
+      ],
+      "codesign_verify": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-tfhy4gat/notemd-claude-agent: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-tfhy4gat/notemd-claude-agent: satisfies its Designated Requirement",
+      "codesign_details": "Executable=/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/ready-pkg-verify-tfhy4gat/notemd-claude-agent\nIdentifier=notemd-claude-agent\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=8671 flags=0x10000(runtime) hashes=265+2 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=24bcaa670538a8a8f8ce72ccca4ba8ffab512c97\nCandidateCDHashFull sha256=24bcaa670538a8a8f8ce72ccca4ba8ffab512c97f8349c56b770000a7373726f\nHash choices=sha256\nCMSDigest=24bcaa670538a8a8f8ce72ccca4ba8ffab512c97f8349c56b770000a7373726f\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1036288\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=24bcaa670538a8a8f8ce72ccca4ba8ffab512c97\nSignature size=9015\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 28, 2026 at 12:38:03 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1",
+      "binary_architecture": "x86_64",
+      "ui_bytes_equal": true,
+      "manifest_verified": true,
+      "test_fixtures_absent": true
+    }
+  ],
+  "packaged_capabilities": [
+    {
+      "plugin": "codex-agent",
+      "version": "1.1.0",
+      "sha256": "5745e35050fba45c327bf10c81c0882193f9ee2080aa3df15203d22d057acdec",
+      "status": {
+        "capabilities": {
+          "input_only_isolation": true,
+          "kickoff_protocol_versions": [
+            2,
+            3
+          ],
+          "model_routing": {
+            "invocation_override": true,
+            "profiles": {
+              "default": {
+                "available": true,
+                "model": "gpt-6-astra"
+              },
+              "fast": {
+                "available": true,
+                "model": "gpt-5.6-luna"
+              }
+            },
+            "selectable_models": []
+          },
+          "readonly_context": true,
+          "search_plan_schemas": [
+            1
+          ],
+          "strict_readonly": true,
+          "tasks": [
+            "agency-observe-v1",
+            "governed-document-review",
+            "strata-extract-v1",
+            "search-plan",
+            "search-answer",
+            "search-summary",
+            "vault-research"
+          ],
+          "terminal_result": true
+        },
+        "default_model": "gpt-6-astra",
+        "harness": "Codex CLI",
+        "hint": null,
+        "ok": true,
+        "origin": "/opt/homebrew/bin/codex",
+        "version": "codex-cli 0.162.1",
+        "warning": null
+      }
+    },
+    {
+      "plugin": "deepseek-agent",
+      "version": "1.2.0",
+      "sha256": "41015db8f9d53ba3e9ae50438e3579d8fcaf9c9c98f1320b34a2d0c02ea18bd6",
+      "status": {
+        "capabilities": {
+          "input_only_isolation": true,
+          "kickoff_protocol_versions": [
+            2,
+            3
+          ],
+          "model_routing": {
+            "invocation_override": true,
+            "profiles": {
+              "default": {
+                "available": true,
+                "model": "deepseek-v4-pro"
+              },
+              "fast": {
+                "available": true,
+                "model": "deepseek-v4-flash"
+              }
+            },
+            "selectable_models": []
+          },
+          "readonly_context": true,
+          "search_plan_schemas": [
+            1
+          ],
+          "strict_readonly": true,
+          "tasks": [
+            "agency-observe-v1",
+            "governed-document-review",
+            "strata-extract-v1",
+            "search-plan",
+            "search-answer",
+            "search-summary",
+            "vault-research"
+          ],
+          "terminal_result": true
+        },
+        "default_model": "deepseek-v4-pro",
+        "harness": "DeepSeek Harness",
+        "hint": null,
+        "ok": true,
+        "origin": "/opt/homebrew/bin/dsh",
+        "version": "0.1.0-rc.7",
+        "warning": null
+      }
+    },
+    {
+      "plugin": "claude-agent",
+      "version": "1.1.0",
+      "sha256": "46a10a70207a37cc45ff026cc87dc09add9341d654143ff4bcd97a9af4cc09d3",
+      "status": {
+        "capabilities": {
+          "input_only_isolation": true,
+          "kickoff_protocol_versions": [
+            2,
+            3
+          ],
+          "model_routing": {
+            "invocation_override": true,
+            "profiles": {
+              "default": {
+                "available": true,
+                "model": null
+              },
+              "fast": {
+                "available": true,
+                "model": "haiku"
+              }
+            },
+            "selectable_models": []
+          },
+          "readonly_context": true,
+          "search_plan_schemas": [
+            1
+          ],
+          "strict_readonly": true,
+          "tasks": [
+            "agency-observe-v1",
+            "governed-document-review",
+            "strata-extract-v1",
+            "search-plan",
+            "search-answer",
+            "search-summary",
+            "vault-research"
+          ],
+          "terminal_result": true
+        },
+        "default_model": null,
+        "harness": "Claude Code",
+        "hint": null,
+        "ok": true,
+        "origin": "/Users/bruce/.local/bin/claude",
+        "version": "2.1.280 (Claude Code)",
+        "warning": null
+      }
+    }
+  ],
+  "codex_packaged_acceptance": {
+    "package_sha256": "5745e35050fba45c327bf10c81c0882193f9ee2080aa3df15203d22d057acdec",
+    "binary_sha256": "4690a3eee9d422f87b6eace4685d2f62dff9b41c055ec001a66a9ab19ec85e23",
+    "run_id": "20261028T043858351634000Z-001451-0000000000000000",
+    "duration_seconds": 74.39,
+    "all_existing_inputs_unchanged": true,
+    "status": "success",
+    "protocol": "next-kickoff/v1",
+    "terminal_bytes": 5388,
+    "sources": 5,
+    "web_sources": 3,
+    "questions": 1,
+    "repairs": [],
+    "task_unchanged": true,
+    "context_unchanged": true,
+    "roundtrip": true,
+    "output": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/next-v3-package-result-SGoRcb",
+    "observed_tool_events": [
+      {
+        "brief": "/bin/zsh -lc \"pwd; rg --files -g AGENTS.md -g SKILL.md . /var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/next-v3-packag",
+        "kind": "tool_use",
+        "name": "Command"
+      },
+      {
+        "brief": "",
+        "kind": "tool_use",
+        "name": "WebSearch"
+      },
+      {
+        "brief": "/bin/zsh -lc \"cat '/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/next-v3-package-cZmUdX/skills/task-kickoff/SKILL.md'",
+        "kind": "tool_use",
+        "name": "Command"
+      },
+      {
+        "brief": "",
+        "kind": "tool_use",
+        "name": "WebSearch"
+      },
+      {
+        "brief": "/bin/zsh -lc \"notemd search SQLite --vault '/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/next-v3-package-cZmUdX' --j",
+        "kind": "tool_use",
+        "name": "Command"
+      }
+    ],
+    "production_client": "createKickoffClient.prepareKickoff + startKickoff from release worktree",
+    "package_entrypoint": "SDK $initialize / $activate / command.execute run-task / command.execute run-status",
+    "latest_template_assertions": {
+      "json_quoted_task_path": true,
+      "curl_fallback": true
+    },
+    "notifications": "Host notification requests acknowledged locally; no system or external notification sent.",
+    "prepare_note": "Vite dependency scan emitted shutdown warnings after prepare/start completed; generated production inputs and package/parse validations succeeded. No model rerun was performed."
+  },
+  "public_packages": {
+    "notemd.codex-agent": [
+      {
+        "key": "notemd.codex-agent/1.1.0/aarch64-apple-darwin.notemdpkg",
+        "sha256": "5745e35050fba45c327bf10c81c0882193f9ee2080aa3df15203d22d057acdec",
+        "size": 561964,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.codex-agent/1.1.0/aarch64-apple-darwin.notemdpkg.minisig",
+        "sha256": "61b991d6166465a3b1da8d054ffc0153be6aafad0ec68b217fc7141a49777f80",
+        "size": 325,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.codex-agent/1.1.0/x86_64-apple-darwin.notemdpkg",
+        "sha256": "0f532dc663d4d199c5e934cd237b32717c31b179fdf20511fbbb2ee3830d6821",
+        "size": 597352,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.codex-agent/1.1.0/x86_64-apple-darwin.notemdpkg.minisig",
+        "sha256": "116d5095850a37fe61d841debc9514cb0d8069664f8c49224ee9b62761dd2ff2",
+        "size": 324,
+        "public_bytes_equal": true
+      }
+    ],
+    "notemd.deepseek-agent": [
+      {
+        "key": "notemd.deepseek-agent/1.2.0/aarch64-apple-darwin.notemdpkg",
+        "sha256": "41015db8f9d53ba3e9ae50438e3579d8fcaf9c9c98f1320b34a2d0c02ea18bd6",
+        "size": 567755,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.deepseek-agent/1.2.0/aarch64-apple-darwin.notemdpkg.minisig",
+        "sha256": "5506a264c41a8a2ba1f3f8a57a99ca273879dde8a40bf5ccf7b0c98c7cfff743",
+        "size": 325,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.deepseek-agent/1.2.0/x86_64-apple-darwin.notemdpkg",
+        "sha256": "aeac8cbb192d9cf23a3f1511251743165c00f2827da9eb06ef6074c0bf909a20",
+        "size": 602783,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.deepseek-agent/1.2.0/x86_64-apple-darwin.notemdpkg.minisig",
+        "sha256": "45756788443a8973a205277f1cb883354aa1f1b15a6883ec12f4902431e0e28a",
+        "size": 324,
+        "public_bytes_equal": true
+      }
+    ],
+    "notemd.claude-agent": [
+      {
+        "key": "notemd.claude-agent/1.1.0/aarch64-apple-darwin.notemdpkg",
+        "sha256": "46a10a70207a37cc45ff026cc87dc09add9341d654143ff4bcd97a9af4cc09d3",
+        "size": 555849,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.claude-agent/1.1.0/aarch64-apple-darwin.notemdpkg.minisig",
+        "sha256": "3d50d5dcbca8f3b037f382de0b8a1fb13e3eabe6c7c3f9d396832f5647152e5b",
+        "size": 325,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.claude-agent/1.1.0/x86_64-apple-darwin.notemdpkg",
+        "sha256": "37bb4c5f96f7ae0093f589beab0f9e3b4dc5e2170ed372957e15b092002cbce6",
+        "size": 592980,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.claude-agent/1.1.0/x86_64-apple-darwin.notemdpkg.minisig",
+        "sha256": "8ca385631ed2947cba72f2cd6dc13ab01026ac330e91f4172b5a75db98e09554",
+        "size": 324,
+        "public_bytes_equal": true
+      }
+    ],
+    "notemd.next": [
+      {
+        "key": "notemd.next/1.13.0/universal.notemdpkg",
+        "sha256": "2274d569e72094e6d008bfd9006bd862d639fa6de85d5d611fa6094beadc4e18",
+        "size": 162566,
+        "public_bytes_equal": true
+      },
+      {
+        "key": "notemd.next/1.13.0/universal.notemdpkg.minisig",
+        "sha256": "23ad41ff5aca56f223884170c1d780747a3ea5a37bfb43bd5de08efb1cf202fb",
+        "size": 314,
+        "public_bytes_equal": true
+      }
+    ]
+  },
+  "index_verifications": {
+    "notemd.codex-agent": {
+      "before": 288,
+      "after": 289,
+      "only_added": "notemd.codex-agent@1.1.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "045ff8aba0ad3a38ee62cc447c233e61d9ff0fb78adce35bf20ea4f1e55c46e5",
+      "compatible_latest": "1.1.0"
+    },
+    "notemd.deepseek-agent": {
+      "before": 289,
+      "after": 290,
+      "only_added": "notemd.deepseek-agent@1.2.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "4c42c642ddd30b8d46bcd58b1d7e864b16fe53fb2cba5fe15cb02790ae6b3152",
+      "compatible_latest": "1.2.0"
+    },
+    "notemd.claude-agent": {
+      "before": 290,
+      "after": 291,
+      "only_added": "notemd.claude-agent@1.1.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "0f04c38be84101fbd8bcbc9a855cd46d553de04c268606906be1b6f94ba47103",
+      "compatible_latest": "1.1.0"
+    },
+    "notemd.next": {
+      "before": 291,
+      "after": 292,
+      "only_added": "notemd.next@1.13.0",
+      "historical_entries_unchanged": true,
+      "normal_and_fresh_public_bytes_equal": true,
+      "kv_content_equal": true,
+      "index_sha256": "363504aed5684a0da3d40328800fc8ec4da5aef2fb07113893c18e264abd04f6",
+      "compatible_latest": "1.13.0"
+    }
+  },
+  "index": {
+    "before": 288,
+    "after": 292,
+    "all_old_entries_unchanged": true,
+    "publish_order": [
+      "notemd.codex-agent",
+      "notemd.deepseek-agent",
+      "notemd.claude-agent",
+      "notemd.next"
+    ]
+  },
+  "local_installed_after": [
+    {
+      "cli": [
+        {
+          "aliases": [],
+          "subcommand": "codex-agent",
+          "summary": "Run a Codex Agent task headlessly"
+        }
+      ],
+      "id": "notemd.codex-agent",
+      "name": "Codex Agent",
+      "status": "enabled",
+      "version": "1.0.22"
+    },
+    {
+      "cli": [
+        {
+          "aliases": [],
+          "subcommand": "dsagent",
+          "summary": "Run a DeepSeek Agent task headlessly"
+        }
+      ],
+      "id": "notemd.deepseek-agent",
+      "name": "DeepSeek Agent",
+      "status": "enabled",
+      "version": "1.1.21"
+    },
+    {
+      "cli": [],
+      "id": "notemd.next",
+      "name": "Next",
+      "status": "enabled",
+      "version": "1.12.1"
+    }
+  ],
+  "old_host_compatibility": {
+    "max_concurrency": "Open each Agent settings once to persist 3 only when key absent; explicit values unchanged. Until then old host still returns 1.",
+    "web_sources": "Only -32601 falls back to clipboard; all other errors surface."
+  },
+  "wrangler": {
+    "version": "3.114.17",
+    "auth": "Account API Token",
+    "channel": "R2 then anonymous byte/signature verification, KV append, public normal/fresh verification",
+    "startup_stall": "Npm informational update check stalled; fetched actual official latest metadata to refresh native update-check cache without replacing executable. Confirmed target 404 before retrying identical immutable object command."
+  },
+  "limitations": [
+    "Claude actual model acceptance not completed because local OAuth expired; capability/protocol and unit tests passed.",
+    "DeepSeek actual native graph was verified during implementation; no real model acceptance rerun during publication.",
+    "Host source changes are not deployed by these plugin packages."
+  ]
+}
