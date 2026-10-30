@@ -169,7 +169,7 @@ test('Oura authorization keeps the page alive and polls connections without stor
   const { el, calls } = await mount(t, method => method === 'plugin.connect' ? { pending: true, authorization_id: 'authorization-new', authorize_url: 'https://cloud.ouraring.com/oauth/authorize?state=synthetic' } : method === 'plugin.connections' ? pending : undefined)
   el('oura-id').value = 'client'; el('oura-secret').value = 'synthetic-secret'; el('oura-connect').click(); await tick()
   assert.equal(el('oura-secret').value, ''); assert.equal(el('authorization').hidden, false)
-  assert.equal(calls.find(c => c.method === 'plugin.connect').params.redirect_uri, 'http://127.0.0.1:8765/callback')
+  assert.equal(calls.find(c => c.method === 'plugin.connect').params.redirect_uri, 'http://localhost:8765/callback')
   finish({ oura: { pending: false, connected: true, authorization_id: 'authorization-new', completed_account_id: 'o-two' } }); await tick()
   assert.equal(el('authorization').hidden, true); assert.match(el('message').textContent, /账号已保存/)
   assert.doesNotMatch(el('report').textContent, /synthetic-secret/)
