@@ -377,6 +377,7 @@ export const en = {
   'capability.index.read': 'Read your Vault index and scoped source evidence',
   'capability.vault.write': 'Create, modify, delete and move files in your Vault',
   'capability.memory.control': 'Review and apply controlled USER/MEMORY changes',
+  'capability.quick-launch': 'Launch configured local apps and shell commands',
   'capability.dialog': 'Show open/save file dialogs',
   'capability.clipboard.write': 'Write to the clipboard',
   'capability.location': 'Read your location',

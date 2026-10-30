@@ -293,6 +293,7 @@ manifest 不写 `Agents`、`智能体` 等显示文本。插件市场索引也�
 | `renderer.html` | 渲染类(md2pdf 用) |
 | `editor.kit` | `host.theme.css` / `host.power_mode.config`(均 UI 桥 only,进程通道 `-32601`);另外解锁一条**保留 URL 路径**(不是 `host.*` 方法)—— `GET plugin://<id>/__host__/assets/...`,见下方说明 |
 | `power-mode` | `host.power_mode.update`(写 Power Mode 配置)。读侧 `host.power_mode.config` 挂在 `editor.kit` 下 —— 需要读它的正是内嵌 Editor Kit 的插件窗口 |
+| `host.quickLaunch.get/save/run` | `quick-launch` | 官方 `notemd.quick-launch` 的 UI-only 本机启动服务。get/save 使用 `{entries:[{id,name,kind:"app"或"cli",target,enabled}]}`；run 仅接受 `{id}` 并从已保存配置解析执行目标。保存刷新托盘，不执行命令；禁用插件时入口和执行均关闭。需配套新宿主（开发门槛 `>=6.1030.1`）。 |
 | `cdr.repository` | `host.cdr.repository.v1.load` / `host.cdr.repository.v1.commit`（UI 桥 only；进程通道 `-32601`） |
 
 **通道差异(重要)**:`dialog.*` / `fs.*` / `clipboard.*` / `cdr.repository` **只在 UI 桥可用**;后台进程通道(纯后端插件)即使声明了对应能力也拿不到,会回 `-32601`(`host_api.rs:165-168`)。`vault.*` 和 `location.get` 两个通道都可用。`editor.kit` 的两个解锁项(`host.theme.css` RPC + `__host__` 资产路径)也都只在 UI 桥可用。

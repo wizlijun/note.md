@@ -370,6 +370,7 @@ export const de: Record<keyof Messages, string> = {
   'capability.index.read': 'Vault-Index und Quellen im ausgewählten Bereich lesen',
   'capability.vault.write': 'Dateien in Ihrem Tresor erstellen, ändern, löschen und verschieben',
   'capability.memory.control': 'Kontrollierte USER/MEMORY-Änderungen prüfen und anwenden',
+  'capability.quick-launch': 'Konfigurierte lokale Apps und Shell-Befehle starten',
   'capability.dialog': 'Datei-Öffnen-/Speichern-Dialoge anzeigen',
   'capability.clipboard.write': 'In die Zwischenablage schreiben',
   'capability.location': 'Deinen Standort lesen',

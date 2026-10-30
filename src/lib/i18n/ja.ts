@@ -372,6 +372,7 @@ export const ja: Record<keyof Messages, string> = {
   'capability.index.read': 'Vault の索引と指定範囲の原文を読み取り',
   'capability.vault.write': 'Vault 内でファイルを作成・変更・削除・移動',
   'capability.memory.control': '管理された USER/MEMORY の変更を確認して適用',
+  'capability.quick-launch': '設定したローカルアプリとシェルコマンドを実行',
   'capability.dialog': 'ファイルの開く/保存ダイアログを表示',
   'capability.clipboard.write': 'クリップボードへ書き込み',
   'capability.location': '位置情報を取得',

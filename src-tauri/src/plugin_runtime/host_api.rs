@@ -84,6 +84,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         // and write to the Origin-authenticated plugin id, so holding this
         // token never exposes another plugin's settings scope.
         "host.settings.get" | "host.settings.set" => Some("settings"),
+        "host.quickLaunch.get" | "host.quickLaunch.save" | "host.quickLaunch.run" => Some("quick-launch"),
         "host.taskHook.get" | "host.taskHook.select" | "host.taskHook.clear" | "host.taskHook.run" | "host.taskHook.setEnvironment" => Some("task.hook"),
         // Opaque collaborative-document aggregate repository. The live UI
         // bridge binds storage to the Origin-authenticated plugin id; native
@@ -684,6 +685,17 @@ mod tests {
         let resp = sink(notification("host.vault.read", serde_json::json!({"path": "a.md"})));
         assert!(resp.is_none());
         assert!(seen.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn quick_launch_is_ui_only_even_with_execution_capability() {
+        let dir = tempfile::tempdir().unwrap();
+        let (emitter, _) = recording_emitter();
+        let sink = make_sink("notemd.quick-launch".into(), vec!["quick-launch".into()], dir.path().into(), emitter, noop_poster(), None);
+        for method in ["host.quickLaunch.get", "host.quickLaunch.save", "host.quickLaunch.run"] {
+            let response = sink(req(method, Some(1), serde_json::json!({}))).unwrap();
+            assert_eq!(response.error.unwrap().code, proto::ERR_METHOD_NOT_FOUND);
+        }
     }
 
     #[test]

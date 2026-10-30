@@ -372,6 +372,7 @@ export const zh: Record<keyof Messages, string> = {
   'capability.index.read': '读取 Vault 索引与指定范围的原文证据',
   'capability.vault.write': '在你的 Vault 中创建、修改、删除和移动文件',
   'capability.memory.control': '审阅并应用受控的 USER/MEMORY 变更',
+  'capability.quick-launch': '启动已配置的本机应用和 Shell 命令',
   'capability.dialog': '显示打开/保存文件对话框',
   'capability.clipboard.write': '写入剪贴板',
   'capability.location': '读取你的位置',
