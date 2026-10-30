@@ -7,6 +7,38 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **NEXT 1.13.2: hide empty placed lanes.** With Show placed turned off, empty Later and Closed lanes disappear and the board fits its visible columns. Due items in Later remain visible.
+
+- **NEXT 1.13.1: card actions use compact split buttons.** Complete a task from the blue main button or open placement options from its arrow. The kickoff arrow opens the Agent menu beside the button, without an extra dialog.
+
+- **NEXT 1.13.0 with Codex 1.1.0, DeepSeek 1.2.0 and Claude 1.1.0: the Agent retrieves its own kickoff context.** Pass the current Vault and Task identity instead of collecting and sending a background file packet. The Agent uses notemd search and native web search for recent articles, then returns cited questions and suggestions. Per-Agent concurrency is adjustable and defaults to three, with separate runs for different Tasks. NEXT validates and saves the result; placement still requires the user. Update NEXT and the selected Agent together. On older hosts, open each Agent’s settings once to apply the new default when unset; saved limits remain unchanged. Web sources open on supporting hosts and copy their URL on older hosts.
+
+- **Ebook Import 1.5.6: optional AI reading from the import CLI.** Add `--ai-read` to read the imported book with your default installed Agent, or `--agent <plugin-id>` to select one for this run. The command waits for the summary and reports AI failures separately from a completed import. Agent runs require the current Vault; a shared SDK fix lets synchronous commands receive host replies without deadlocking.
+- **Ebook Import 1.5.6: check Baidu OCR upload limits before sending.** The existing cloud endpoint is documented as using Unlimited OCR 2. Local uploads now stop above 50 MB (50,000,000 bytes) or 500 PDF pages, with guidance to compress or split the file. Invalid PDFs fail before any Baidu request; your selected OCR provider stays unchanged.
+
+- **Ebook Import 1.5.5: import books from an Agent or terminal.** Discover valid topic IDs with `notemd ebook --list-topics --json`, import relative or absolute file paths with `--topic`, and explicitly enable scanned-PDF OCR with `--ocr`. The CLI shares the window import pipeline, reports progress and structured destinations, and rejects conflicting OCR options.
+
+
+- **Claude Agent 1.0.34: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.
+
+- **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.
+
+- **NEXT 1.12.0: start an in-progress Task with your installed Agent.** The combined kickoff control offers both the main action and Agent selection. NEXT prepares a bounded snapshot of the Task and relevant declared background; Codex Agent 1.0.21 and DeepSeek Agent 1.1.20 return the questions without filesystem, command, network or MCP tools. Answers still require your confirmation before placement. Update the Agent plugin when its installed version does not provide this capability.
+
+- **NEXT 1.11.0: “Help me start” on Task cards.** Review up to three questions grounded in your vault, save your answers, and prefill the placement form for your approval. Existing answers survive regeneration and manually edited result text is preserved. Agent execution stays disabled until its read-only safety checks are verified.
+
+- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
+
+- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
+
+- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
+
+- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.
+
+- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.
+
+- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
+
 ## v6.1030.1 — 2026-10-30
 
 - **Quick Launch enhancement plugin:** configure local apps and CLI commands in the Plugins menu and run them from Tray → Launch. The first item, Screen Reconnect, runs `uc reconnect`; saved changes refresh the tray immediately, with duplicate-run protection and failure feedback. Requires the accompanying host update.
