@@ -1,5 +1,9 @@
 # Health Sync changelog
 
+## Unreleased
+
+- 修复 Oura 新开发者门户拒绝默认 HTTP 回调的问题：界面和后端默认地址统一改为 `http://localhost:8765/callback`，补充门户与插件地址须完全一致的提示；保留授权码、PKCE 及刷新流程。
+
 ## 0.2.1 — 2026-10-30
 
 - 修复 Oura 实际 DSR 导出使用分号 CSV 时导入失败的问题；支持 BOM、引号内分隔符和跨行字段，保留原始字段文本及嵌套 JSON。
