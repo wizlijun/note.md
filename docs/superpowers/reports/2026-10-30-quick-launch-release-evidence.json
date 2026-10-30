@@ -1,0 +1,621 @@
+{
+  "host_public": {
+    "ok": true,
+    "tag": "v6.1030.1",
+    "source_sha": "c16055c394642c8cd93769f829f19428c0a17ff7",
+    "public_tag_source_sha": "c16055c394642c8cd93769f829f19428c0a17ff7",
+    "published_at": "2026-10-30T08:10:33Z",
+    "release_id": 428779589,
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1030.1",
+    "assets": [
+      {
+        "mode": "cache-bypass",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "4facb1b0a64a79c0364a3b341dc9685fe967d4a6f1e3d055345e3b0918db033b",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-6.1030.1-aarch64.dmg",
+        "bytes": 13481644,
+        "sha256": "aeaf61d02e5267716571e0b03a473adac642dc71b289af2b999d3d31f0bd935a",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13526540,
+        "sha256": "9191050909ffc23cd601e83c6bd220cfba99c50865fc07de5e132b8c19de9115",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "f1f5721d56571532b4069eac4a19aa13e7134b0e6f1327ea2d7844a1ff89eb4c",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "4facb1b0a64a79c0364a3b341dc9685fe967d4a6f1e3d055345e3b0918db033b",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-6.1030.1-aarch64.dmg",
+        "bytes": 13481644,
+        "sha256": "aeaf61d02e5267716571e0b03a473adac642dc71b289af2b999d3d31f0bd935a",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13526540,
+        "sha256": "9191050909ffc23cd601e83c6bd220cfba99c50865fc07de5e132b8c19de9115",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "f1f5721d56571532b4069eac4a19aa13e7134b0e6f1327ea2d7844a1ff89eb4c",
+        "byte_equal_staged": true
+      }
+    ],
+    "ordinary_and_cache_bypass_verified": true,
+    "latest_endpoint_verified": true,
+    "updater_minisign_verified": true,
+    "platforms": [
+      "darwin-aarch64"
+    ],
+    "local_signing_notarization": "separate acceptance; not claimed by this verifier",
+    "verified_at_utc": "2026-10-30T08:23:15.049598+00:00"
+  },
+  "plugin_index": {
+    "before": 296,
+    "after": 297,
+    "only_added": "notemd.quick-launch@1.0.0",
+    "already_published": false,
+    "historical_entries_unchanged": true,
+    "normal_and_fresh_public_content_equal": true,
+    "kv_content_equal": true,
+    "index_sha256": "7f0ddcbafe6b94640bb70a51c20315e6fc26219cef516690e660a7a5ef23d025",
+    "minimum_host": ">=6.1030.1",
+    "public_compatible_host_verified": true
+  },
+  "plugin_packages": {
+    "package_sha256": "55a4c4a870c6ce0f5b4d7d1c36257751439ddc85807b736760ca7bc12937d522",
+    "signatures_valid": true,
+    "objects": [
+      {
+        "mode": "normal",
+        "key": "notemd.quick-launch/1.0.0/universal.notemdpkg",
+        "sha256": "55a4c4a870c6ce0f5b4d7d1c36257751439ddc85807b736760ca7bc12937d522",
+        "size": 7076
+      },
+      {
+        "mode": "normal",
+        "key": "notemd.quick-launch/1.0.0/universal.notemdpkg.minisig",
+        "sha256": "90d30f597325c32c4bc0cea36c72d99c598c8e7c0a6b72bd18109c6d6636ebbc",
+        "size": 314
+      },
+      {
+        "mode": "fresh",
+        "key": "notemd.quick-launch/1.0.0/universal.notemdpkg",
+        "sha256": "55a4c4a870c6ce0f5b4d7d1c36257751439ddc85807b736760ca7bc12937d522",
+        "size": 7076
+      },
+      {
+        "mode": "fresh",
+        "key": "notemd.quick-launch/1.0.0/universal.notemdpkg.minisig",
+        "sha256": "90d30f597325c32c4bc0cea36c72d99c598c8e7c0a6b72bd18109c6d6636ebbc",
+        "size": 314
+      }
+    ]
+  },
+  "source_and_preservation": {
+    "audited_at_utc": "2026-10-30T08:13:05.040850+00:00",
+    "ok": true,
+    "blockers": [],
+    "plugin_tag": "plugin-quick-launch-v1.0.0",
+    "plugin_commit": "9a19aee266246a5a5a8874fc6ee90556376fc6c3",
+    "host_tag": "v6.1030.1",
+    "host_commit": "c16055c394642c8cd93769f829f19428c0a17ff7",
+    "checks": [
+      {
+        "check": "original_workspace_file_inventory_and_bytes",
+        "ok": true,
+        "tracked": 17,
+        "untracked": 9
+      },
+      {
+        "check": "original_workspace_tracked_diff",
+        "ok": true
+      },
+      {
+        "check": "original_head",
+        "ok": true,
+        "sha": "9a19aee266246a5a5a8874fc6ee90556376fc6c3"
+      },
+      {
+        "check": "original_stashes",
+        "ok": true,
+        "count": 3
+      },
+      {
+        "check": "plugin_tag_matches_frozen_build_commit",
+        "ok": true,
+        "commit": "9a19aee266246a5a5a8874fc6ee90556376fc6c3"
+      },
+      {
+        "check": "host_tag_matches_verified_source_commit",
+        "ok": true,
+        "commit": "c16055c394642c8cd93769f829f19428c0a17ff7"
+      },
+      {
+        "check": "public_plugin_tag",
+        "ok": true
+      },
+      {
+        "check": "public_host_tag",
+        "ok": true
+      },
+      {
+        "check": "plugin_build_inputs_match_frozen_tag_and_stage",
+        "ok": true,
+        "file_count": 23
+      },
+      {
+        "check": "plugin_directory_matches_host_tag",
+        "ok": true
+      },
+      {
+        "check": "host_launch_engine_matches_tested_original",
+        "ok": true
+      },
+      {
+        "check": "host_tag_source_hashes_match_acceptance_evidence",
+        "ok": true,
+        "file_count": 7
+      },
+      {
+        "check": "plugin_signed_package_hash",
+        "ok": true,
+        "sha256": "55a4c4a870c6ce0f5b4d7d1c36257751439ddc85807b736760ca7bc12937d522",
+        "bytes": 7076
+      },
+      {
+        "check": "package_manifest_equals_plugin_and_host_frozen_source",
+        "ok": true
+      },
+      {
+        "check": "actual_signed_zip_assets_match_package_ui_acceptance",
+        "ok": true,
+        "asset_count": 4,
+        "package_ui_tests": {
+          "passed": 9,
+          "failed": 0,
+          "actual_extracted_bundle": true,
+          "report": "package-ui-results.json"
+        }
+      },
+      {
+        "check": "host_version_satisfies_exact_plugin_gate",
+        "ok": true,
+        "host": "6.1030.1",
+        "plugin_minimum": ">=6.1030.1"
+      },
+      {
+        "check": "updater_archive_contains_one_host_binary",
+        "ok": true
+      },
+      {
+        "check": "staged_updater_binary_matches_verified_host_binary",
+        "ok": true,
+        "sha256": "d070c13533bcc873dab8f9260c5178f65cf11631c19fae8aea43bbda14b7d0a6"
+      },
+      {
+        "check": "actual_host_binary_contains_launch_contract_and_requested_default",
+        "ok": true
+      },
+      {
+        "check": "frozen_tag_feature_bindings",
+        "ok": true
+      }
+    ],
+    "input_hash_validation": [
+      {
+        "path": "pnpm-lock.yaml",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "package.json",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "scripts/gen-plugin-index.mjs",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "scripts/release-plugins.sh",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-registry/retired-plugins.json",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/ui-foundation.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/index.html",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/manifest.v2.json",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/README.md",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/package.json",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/tsconfig.json",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/vite.config.ts",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/src/main.ts",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/src/style.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "plugins-src/quick-launch/src/main.test.ts",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/popup-menu.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/editor-structure.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/app.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/responsive.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/power-mode.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/popup-menu.test.ts",
+        "matches_tag": true,
+        "matches_build_stage": true
+      },
+      {
+        "path": "src/styles/editor-base.css",
+        "matches_tag": true,
+        "matches_build_stage": true
+      }
+    ],
+    "feature_bindings": [
+      {
+        "feature": "屏幕重连→uc reconnect默认",
+        "frozen_source": "src-tauri/src/plugin_runtime/quick_launch.rs",
+        "present": true,
+        "acceptance": "13 backend tests + isolated native window default rendering"
+      },
+      {
+        "feature": "托盘启动及配置入口",
+        "frozen_source": "src-tauri/src/lib.rs",
+        "present": true,
+        "acceptance": "host compile + 9 existing tray tests + production plugin lifecycle integration; no separate full-host tray mouse acceptance"
+      },
+      {
+        "feature": "插件菜单App/CLI配置与保存后执行",
+        "frozen_source": "plugins-src/quick-launch/src/main.ts",
+        "present": true,
+        "acceptance": "actual extracted signed bundle 9 UI tests; earlier real plugin:// native bridge passed CLI0/exit7/Calculator"
+      }
+    ],
+    "limits": [
+      "No duplicate public downloads, tests, publishing, source changes or commits performed.",
+      "Public host byte/minisign readback and final plugin KV/index checks are owned by the active parent processes and are not claimed completed here.",
+      "Actual binary contract string presence supplements frozen-source/build binding; it does not replace end-to-end tray mouse acceptance."
+    ]
+  },
+  "website": {
+    "checkedAt": "2026-10-30T08:14:35.268988+00:00",
+    "commit": "09ba842485bb67cb8160456ff6bc50e075926f07",
+    "websiteActionId": 41024858234,
+    "pages": [
+      {
+        "locale": "en",
+        "url": "https://notemd.net/",
+        "status": 200,
+        "rawBytes": 32346,
+        "rawSha256": "663f6443055f31050a0a33811df4ff702a2e6e06b8211bb6ae55b94688099fb7",
+        "expectedSha256": "f7c72f237ddd1dfdb09c2dde81e901de442c67ba2ea2643eb1aa432226c892b2",
+        "rawBytesMatchCommit": false,
+        "cloudflareBeaconInjectionCount": 1,
+        "cloudflareBeaconInjectionSha256": [
+          "d0c3b4fc191a6fbca8745c8fa58a44bf07d1c49e143c2348d2f216d6ead40224"
+        ],
+        "bytesMatchCommitAfterRemovingOnlyKnownCloudflareBeacon": true,
+        "normalizedSha256": "f7c72f237ddd1dfdb09c2dde81e901de442c67ba2ea2643eb1aa432226c892b2",
+        "pass": true
+      },
+      {
+        "locale": "zh",
+        "url": "https://notemd.net/zh/",
+        "status": 200,
+        "rawBytes": 32231,
+        "rawSha256": "dea6f445219fc07671606aa958b75cc32d6ab282403a47df96ebc88c2571368d",
+        "expectedSha256": "0efcc0e1c14d38aa3b72fbf3038a187b45daad43926e4cc514088ae958c15078",
+        "rawBytesMatchCommit": false,
+        "cloudflareBeaconInjectionCount": 1,
+        "cloudflareBeaconInjectionSha256": [
+          "d0c3b4fc191a6fbca8745c8fa58a44bf07d1c49e143c2348d2f216d6ead40224"
+        ],
+        "bytesMatchCommitAfterRemovingOnlyKnownCloudflareBeacon": true,
+        "normalizedSha256": "0efcc0e1c14d38aa3b72fbf3038a187b45daad43926e4cc514088ae958c15078",
+        "pass": true
+      },
+      {
+        "locale": "de",
+        "url": "https://notemd.net/de/",
+        "status": 200,
+        "rawBytes": 33112,
+        "rawSha256": "ddf799b1c1a904a271057a25a63bec88db206b3a22c946fb20d9d86ede3dfde0",
+        "expectedSha256": "613eb06c5af1862db92c6887f12ff21ad2f9d4d329f5022d11969d4d2a31106a",
+        "rawBytesMatchCommit": false,
+        "cloudflareBeaconInjectionCount": 1,
+        "cloudflareBeaconInjectionSha256": [
+          "d0c3b4fc191a6fbca8745c8fa58a44bf07d1c49e143c2348d2f216d6ead40224"
+        ],
+        "bytesMatchCommitAfterRemovingOnlyKnownCloudflareBeacon": true,
+        "normalizedSha256": "613eb06c5af1862db92c6887f12ff21ad2f9d4d329f5022d11969d4d2a31106a",
+        "pass": true
+      },
+      {
+        "locale": "ja",
+        "url": "https://notemd.net/ja/",
+        "status": 200,
+        "rawBytes": 34745,
+        "rawSha256": "76bc685041d9f212914c60d4487ec6764a0165b8a8e68b6bf312311744579c4e",
+        "expectedSha256": "5f1530478de698ff1697202be8dee00b924f045e5a56bc97485279093a852021",
+        "rawBytesMatchCommit": false,
+        "cloudflareBeaconInjectionCount": 1,
+        "cloudflareBeaconInjectionSha256": [
+          "d0c3b4fc191a6fbca8745c8fa58a44bf07d1c49e143c2348d2f216d6ead40224"
+        ],
+        "bytesMatchCommitAfterRemovingOnlyKnownCloudflareBeacon": true,
+        "normalizedSha256": "5f1530478de698ff1697202be8dee00b924f045e5a56bc97485279093a852021",
+        "pass": true
+      }
+    ],
+    "routes": [
+      {
+        "name": "mac-arm64",
+        "url": "https://notemd.net/download?os=mac&arch=aarch64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1030.1/note.md-6.1030.1-aarch64.dmg",
+        "expectedVersionPath": "/v6.1030.1/note.md-6.1030.1-aarch64.dmg",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1030.1/note.md-6.1030.1-aarch64.dmg"
+      },
+      {
+        "name": "mac-intel",
+        "url": "https://notemd.net/download?os=mac&arch=x86_64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-x86_64.dmg",
+        "expectedVersionPath": "/v6.1027.1/note.md-6.1027.1-x86_64.dmg",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md-6.1027.1-x86_64.dmg"
+      },
+      {
+        "name": "windows",
+        "url": "https://notemd.net/download?os=windows&arch=x86_64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe",
+        "expectedVersionPath": "/v6.811.1/",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.811.1/note.md_6.811.1_x64-setup.exe"
+      },
+      {
+        "name": "linux-deb-arm64",
+        "url": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+        "expectedVersionPath": "/v6.1027.1/",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb"
+      },
+      {
+        "name": "linux-deb-amd64",
+        "url": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "expectedVersionPath": "/v6.1027.1/",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb"
+      },
+      {
+        "name": "linux-arch-arm64",
+        "url": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+        "expectedVersionPath": "/v6.1027.1/",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst"
+      },
+      {
+        "name": "linux-arch-amd64",
+        "url": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst",
+        "expectedVersionPath": "/v6.1027.1/",
+        "pass": true,
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-x86_64.pkg.tar.zst"
+      }
+    ],
+    "pass": true,
+    "initialPageCheck": {
+      "rawBytesMatchedCommit": false,
+      "cause": "Cloudflare automatically injects one analytics beacon script immediately before </body>; this is the only byte difference."
+    },
+    "websiteAction": {
+      "conclusion": "success",
+      "headSha": "09ba842485bb67cb8160456ff6bc50e075926f07",
+      "status": "completed",
+      "updatedAt": "2026-10-30T08:12:32Z",
+      "url": "https://github.com/wizlijun/note.md/actions/runs/41024858234"
+    }
+  },
+  "host_source": {
+    "tag": "v6.1030.1",
+    "commit": "c16055c394642c8cd93769f829f19428c0a17ff7",
+    "source": {
+      "src-tauri/src/plugin_runtime/quick_launch.rs": "33b01e121993ab13b4882fde648ce37da9cd204ab986ef1ccaa3b7fe119801be",
+      "src-tauri/src/plugin_runtime/host_api.rs": "c643ae0b701ed577871246307eb6666fc253b75c0d7d3bd27bb394268f67a19b",
+      "src-tauri/src/plugin_runtime/ui_rpc.rs": "61af6a9c5325ec5192eb948716fe18f9d7d49bce376cc95f5d2c449921f33c99",
+      "src-tauri/src/lib.rs": "b285a0c1d9efe345b9aa7ac6bbe02c50e42964615d64410f914b02e1cad6679e",
+      "plugins-src/quick-launch/manifest.v2.json": "9c117ad58f9b2d7f9da11ea98d89815518711705765894b234a8c50b68048665",
+      "plugins-src/quick-launch/src/main.ts": "bd2c7bc0e7e808bd9b56300433cb8a30b347f33d6e80cdff0ce619daec75740a",
+      "plugins-src/quick-launch/src/style.css": "a3635a38d3c3b2baacecb84242fd69ded4f948ba21abf9896f4160947c6ffbf4"
+    },
+    "binary_sha256": "d070c13533bcc873dab8f9260c5178f65cf11631c19fae8aea43bbda14b7d0a6",
+    "arch": "arm64",
+    "plugin_default": {
+      "name": "屏幕重连",
+      "command": "uc reconnect"
+    }
+  },
+  "plugin_source": {
+    "commit": "9a19aee266246a5a5a8874fc6ee90556376fc6c3",
+    "files": {
+      "pnpm-lock.yaml": "97a1b05fe30a25f383fe9250d9976c6d75941a60563a7387be403f3a4d9e656a",
+      "package.json": "acb76a7e7e87f9f853f752c4c3db4856e7575f1d29cefc520c926708c04d7a98",
+      "pnpm-workspace.yaml": "ed7dd43eb2252a0c22e2750ab5c4a06855fd1e5346bf6b6c32d75aa043d9e413",
+      "scripts/gen-plugin-index.mjs": "a5d965a003c1c85864a78cc94455b4b2fc300f41c6fd3ab7fb84e1ed6bb5a796",
+      "scripts/release-plugins.sh": "bd530078708be40667f1228f2c59dd5562bbe5b54cd90822daee3026ad2282a6",
+      "plugins-registry/retired-plugins.json": "b80ed2feb797c9ae9a3c6730862173d38ad7cfa20b036aa720f2b8656ebcb989",
+      "src/styles/ui-foundation.css": "23dbc1534091a0a63ad88127889214f696e2d3efaac8a88b74230e170464f0d1",
+      "plugins-src/quick-launch/index.html": "afbeaa4a814d8cc3c64ee1e1e7bc5f06e47b6022f9b85a2f64a212fcde9ee952",
+      "plugins-src/quick-launch/manifest.v2.json": "9c117ad58f9b2d7f9da11ea98d89815518711705765894b234a8c50b68048665",
+      "plugins-src/quick-launch/README.md": "46ca822aeb3423fed374fb6f6e7ac375368e5f7fb8d026b8afe3fb021e8f1419",
+      "plugins-src/quick-launch/package.json": "c7ee714e67c1cdf9c78d5f218cf75bdd625d88fb1359a5f8d3bba61b6c7c199a",
+      "plugins-src/quick-launch/tsconfig.json": "76ca8be68a4c3c2584b680ff2400f30a8123b169a19d842bc1ced2a666feacbb",
+      "plugins-src/quick-launch/vite.config.ts": "d11b3655d78410cc3731218c218c8e4c5b816a55ca619253b637cdf77cd623ce",
+      "plugins-src/quick-launch/src/main.ts": "bd2c7bc0e7e808bd9b56300433cb8a30b347f33d6e80cdff0ce619daec75740a",
+      "plugins-src/quick-launch/src/style.css": "a3635a38d3c3b2baacecb84242fd69ded4f948ba21abf9896f4160947c6ffbf4",
+      "plugins-src/quick-launch/src/main.test.ts": "895ed61ee8f65ec32cd3b5ef86660e2af34db572738cbc06841ddbcf13fc9d1e",
+      "src/styles/popup-menu.css": "3ed6c5f139e2f37304fa714fb32af09f45c3f4f799260c9aa214996c9c909d7e",
+      "src/styles/editor-structure.css": "afe79e1bbb4d42e4a5f740b856cf14291daad0128409e42d413e9a11a136cde8",
+      "src/styles/app.css": "6cd1c4fae0278eecaa9471a895a6d749a6eb01d021a2fec4fccd82115e889a8d",
+      "src/styles/responsive.css": "3269147cec05d8e4d223738d7d15183cec5b9776b095781861328f37a1b7219c",
+      "src/styles/power-mode.css": "17c849563c4e444e97a98173494d6bee7b7e87a77d313c1b47b3258595be74c1",
+      "src/styles/popup-menu.test.ts": "801970ba852ec4c9b7cf9237cc5e364c817f13aecc52599d337097ab625c18ce",
+      "src/styles/editor-base.css": "8418ff00f1100bf6ce316c96ef56e8b356bd517a75b1dea7ee87ace4e16853d1"
+    }
+  },
+  "public_verifier_self_test": {
+    "ok": true,
+    "offline": true,
+    "network_requests": 0,
+    "checks": [
+      "manifest",
+      "platform-rejection",
+      "byte-equality",
+      "tamper-detection",
+      "minisign-positive",
+      "minisign-negative",
+      "range-206-and-redirect-headers",
+      "range-seven-negative-cases",
+      "interrupted-range-resume",
+      "chunk-cache-reuse",
+      "ordinary-and-bypass-isolation"
+    ],
+    "verified_at_utc": "2026-10-30T08:20:55.871646+00:00"
+  },
+  "range_probe": {
+    "ok": true,
+    "status": 206,
+    "content_range": "bytes 0-1048575/13526540",
+    "bytes": 1048576,
+    "sha256": "2af5e2e9397a76faa1466f1c3f862e40523f4b74b319219d6b6c09a500d01fc3",
+    "equals_staged_range": true,
+    "elapsed_seconds": 4.87,
+    "offline_range_positive_negative_checks": 4
+  },
+  "publish_receipt": {
+    "tag": "v6.1030.1",
+    "source": "c16055c394642c8cd93769f829f19428c0a17ff7",
+    "canonical_release_exit": 0,
+    "publish_command": "bash scripts/release-publish.sh v6.1030.1 --mac-arm64-only",
+    "confirmation": "v6.1030.1 mac-arm64-only",
+    "publish_exit": 0,
+    "plugin_tag": "plugin-quick-launch-v1.0.0",
+    "plugin_source": "9a19aee266246a5a5a8874fc6ee90556376fc6c3",
+    "unreleased_restored_commit": "564d444e",
+    "website_commit": "09ba8424"
+  },
+  "evidence_file_sha256": {
+    "host-public/public-review.json": "35e06efe895762ffbaa79ddc80d1995a7dd436ff2b948309b195a40136d1b3a0",
+    "plugin-index-verification.json": "21527830cfddfc4f9790965675d4c41ad5a9fa7ae1080ace9a43f7f922608680",
+    "plugin-public-packages.json": "3380a73fa05a3fe5a291793f315dd317e4841b1c21367809c191155adeb132fb",
+    "post-release-scope-and-source-proof.json": "4b840b1712070ae52f9e1f440b4721500fe6187b921999a4383aa9bd2a42802f",
+    "website-verification.json": "19127dd1722b8337ca45ec2537dc9b356f736dc1f1d6d98d659cfde324ac5bf6",
+    "host-source-proof.json": "2ad4866a349a756a0349dbe29bf6900167f5d4a7f3d4fd85539c88b9e192e2a3",
+    "source-freeze.json": "52c4226c34f152a6285227532454b724311db921345f4f03e9da21665e2f3c57",
+    "host-public-verifier-offline.json": "30c7f49065aee97d81ca21990f2b72d259e248c7a632ed634c01ea8d46e2b14e",
+    "range-probe-result.json": "fa6462a5644fc736bb21fb93ea95478e9676a61338c1f64ff2469358ad14c942",
+    "host-publish-result.json": "4cf44518980f16c01694190171a162418dfb5f57a2b2c89aecaacf53ecaf9745"
+  },
+  "canonical_host_release_exit": 0
+}
