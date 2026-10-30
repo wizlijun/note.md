@@ -767,7 +767,7 @@ fn authorize_url(client_id: &str, redirect_uri: &str, state: &str, verifier: &st
         ("redirect_uri", redirect_uri),
         (
             "scope",
-            "personal daily heartrate workout tag session spo2 heart_health",
+            "personal daily heartrate workout tag session spo2 heart_health stress ring_configuration",
         ),
         ("state", state),
         ("code_challenge", challenge.as_str()),
@@ -1628,6 +1628,22 @@ mod tests {
         assert_eq!(args["code_challenge_method"], "S256");
         assert_eq!(args["redirect_uri"], "http://localhost:8765/callback");
         assert_eq!(args["response_type"], "code");
+        let scopes: std::collections::HashSet<_> = args["scope"].split_whitespace().collect();
+        assert_eq!(
+            scopes,
+            std::collections::HashSet::from([
+                "personal",
+                "daily",
+                "heartrate",
+                "workout",
+                "tag",
+                "session",
+                "spo2",
+                "heart_health",
+                "stress",
+                "ring_configuration",
+            ])
+        );
         assert!(!url.contains("client_secret"));
         let redirect = redirect(OURA_DEFAULT_REDIRECT).unwrap();
         assert!(
