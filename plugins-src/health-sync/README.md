@@ -2,7 +2,7 @@
 
 Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；原始记录统一保存在用户选择的 Vault 外 SQLite 资料库。提供分类浏览、增量同步和 CLI。
 
-面向 Apple Silicon 与 Intel Mac。本文描述 0.2.0 的外置 SQLite 资料库设计。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
+面向 Apple Silicon 与 Intel Mac。本文描述 0.2.1 的外置 SQLite 资料库设计。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
 
 ## 开始使用
 

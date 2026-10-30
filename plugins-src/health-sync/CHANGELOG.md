@@ -1,6 +1,6 @@
 # Health Sync changelog
 
-## Unreleased
+## 0.2.1 — 2026-10-30
 
 - 修复 Oura 实际 DSR 导出使用分号 CSV 时导入失败的问题；支持 BOM、引号内分隔符和跨行字段，保留原始字段文本及嵌套 JSON。
 - CSV 改为流式读取，超过 64 MiB 的成员不再阻断整包导入；保留 ZIP 总量、路径、大小和 CRC 校验，JSON 仍限制 64 MiB。
