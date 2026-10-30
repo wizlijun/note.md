@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1030.1 — 2026-10-30
+
 - **Quick Launch enhancement plugin:** configure local apps and CLI commands in the Plugins menu and run them from Tray → Launch. The first item, Screen Reconnect, runs `uc reconnect`; saved changes refresh the tray immediately, with duplicate-run protection and failure feedback. Requires the accompanying host update.
 
 ## v6.1028.1 — 2026-10-28
