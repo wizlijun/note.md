@@ -1893,6 +1893,33 @@ pub fn run() {
                             "tray-new-quick" => trigger_quick_note(app),
                             "tray-show" => show_main_window(app),
                             "tray-daily-notes-open" => show_daily_notes_window(app),
+                            "tray-launch-configure" => {
+                                if plugin_runtime::quick_launch::enabled() {
+                                    activate_plugin_tray_target(app, plugin_runtime::quick_launch::PLUGIN_ID, "main");
+                                }
+                            }
+                            id if id.starts_with("tray-launch:") => {
+                                let entry_id = id["tray-launch:".len()..].to_string();
+                                let handle = app.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    let locale = read_saved_locale(&handle);
+                                    let name = plugin_runtime::quick_launch::load(&handle).ok()
+                                        .and_then(|config| config.entries.into_iter().find(|entry| entry.id == entry_id))
+                                        .map(|entry| entry.name).unwrap_or_else(|| entry_id.clone());
+                                    let result = plugin_runtime::quick_launch::run(&handle, &entry_id).await;
+                                    let (detail, severity) = match result {
+                                        Ok(_) => (menu_label(&locale, "tray.launchCompleted"), notifications::Severity::Info),
+                                        Err(error) => (error, notifications::Severity::Warn),
+                                    };
+                                    notifications::push(
+                                        format!("{name}: {}", detail.split_whitespace().collect::<Vec<_>>().join(" ").chars().filter(|ch| !ch.is_control()).take(240).collect::<String>()),
+                                        notifications::NotificationAction::OpenPluginWindow {
+                                            plugin_id: plugin_runtime::quick_launch::PLUGIN_ID.into(), window: "main".into(),
+                                        },
+                                        None, severity,
+                                    );
+                                });
+                            }
                             id if id.starts_with("tray-plugin:") => {
                                 // tray-plugin:<plugin_id>:<window> — plugin_id may
                                 // contain dots but neither part contains a colon.
@@ -2344,6 +2371,11 @@ fn menu_label(locale: &str, key: &str) -> String {
         "tray.newQuick" => ("New Markdown", "新建 Markdown", "新規 Markdown", "Neues Markdown"),
         "tray.show" => ("Show note.md", "显示 note.md", "note.md を表示", "note.md anzeigen"),
         "tray.dailyNotes" => ("Daily Notes", "每日笔记", "デイリーノート", "Tagesnotizen"),
+        "tray.launch" => ("Launch", "启动", "起動", "Starten"),
+        "tray.launchConfigure" => ("Configure Quick Launch…", "配置快捷启动…", "クイック起動を設定…", "Schnellstart konfigurieren…"),
+        "tray.launchEmpty" => ("No enabled launch items", "没有启用的启动项", "有効な起動項目なし", "Keine aktiven Starteinträge"),
+        "tray.launchInvalid" => ("Cannot read launch items — open configuration", "无法读取启动项，请打开配置", "起動項目を読み込めません", "Starteinträge können nicht gelesen werden"),
+        "tray.launchCompleted" => ("Command completed", "命令执行完成", "コマンド完了", "Befehl abgeschlossen"),
         "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
         "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…", "Protokoll anzeigen…"),
@@ -2629,6 +2661,28 @@ fn build_tray_menu<R: tauri::Runtime>(
     b0 = b0.separator().item(&show_item);
     for it in &plugin_tray_items {
         b0 = b0.item(it);
+    }
+    // Launch configuration belongs to the enabled official enhancement plugin.
+    // Re-read the saved entry on click; menu IDs never carry executable text.
+    if plugin_runtime::quick_launch::enabled() {
+        let launch = Submenu::with_id(app, "tray-launch", menu_label(locale, "tray.launch"), true)?;
+        match plugin_runtime::quick_launch::load(app) {
+            Ok(config) => {
+                let entries: Vec<_> = config.entries.iter().filter(|entry| entry.enabled).collect();
+                if entries.is_empty() {
+                    launch.append(&MenuItem::with_id(app, "tray-launch-empty", menu_label(locale, "tray.launchEmpty"), false, None::<&str>)?)?;
+                }
+                for entry in entries {
+                    launch.append(&MenuItem::with_id(app, format!("tray-launch:{}", entry.id), &entry.name, true, None::<&str>)?)?;
+                }
+            }
+            Err(_) => {
+                launch.append(&MenuItem::with_id(app, "tray-launch-invalid", menu_label(locale, "tray.launchInvalid"), false, None::<&str>)?)?;
+            }
+        }
+        launch.append(&PredefinedMenuItem::separator(app)?)?;
+        launch.append(&MenuItem::with_id(app, "tray-launch-configure", menu_label(locale, "tray.launchConfigure"), true, None::<&str>)?)?;
+        b0 = b0.item(&launch);
     }
     let b = b0.separator();
     let b2 = b

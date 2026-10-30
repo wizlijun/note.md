@@ -374,6 +374,16 @@ pub async fn dispatch<R: tauri::Runtime>(
         };
     }
 
+    if req.method.starts_with("host.quickLaunch.") {
+        if let Some(denial) = capability_denial(&req.method, capabilities, req.id) {
+            return denial;
+        }
+        return match super::quick_launch::dispatch(app, plugin_id, &req.method, &req.params).await {
+            Ok(value) => ok(req.id, value),
+            Err(detail) => err(req.id, proto::ERR_INTERNAL, detail),
+        };
+    }
+
     if req.method.starts_with("host.taskHook.") {
         if let Some(denial) = capability_denial(&req.method, capabilities, req.id) {
             return denial;
@@ -1831,6 +1841,9 @@ mod tests {
             ("host.theme.css", "editor.kit"),
             ("host.settings.get", "settings"),
             ("host.settings.set", "settings"),
+            ("host.quickLaunch.get", "quick-launch"),
+            ("host.quickLaunch.save", "quick-launch"),
+            ("host.quickLaunch.run", "quick-launch"),
             ("host.taskHook.get", "task.hook"),
             ("host.taskHook.select", "task.hook"),
             ("host.taskHook.clear", "task.hook"),

@@ -17,6 +17,7 @@ pub mod lifecycle;
 pub mod location;
 pub mod market;
 pub mod power_mode;
+pub mod quick_launch;
 pub mod process;
 pub mod protocol;
 pub mod state;

@@ -114,6 +114,27 @@ describe('release-plugins.sh packaging shape', () => {
     expect(packagingBody('release_codex_agent')).toContain('cargo build --release --locked')
   })
 
+  it('Quick Launch builds the package-name-matched UI in both release and dev installation', () => {
+    const manifest = JSON.parse(readFileSync(join(ROOT, 'plugins-src/quick-launch/manifest.v2.json'), 'utf8'))
+    const ui = JSON.parse(readFileSync(join(ROOT, 'plugins-src/quick-launch/package.json'), 'utf8'))
+    const accepted = SCRIPT.match(/^    ([a-z0-9|_-]+)\) PLUGINS\+=/m)?.[1].split('|')
+    expect(accepted).toContain('quick-launch')
+    expect(table.get('quick-launch')).toBe('release_quick_launch')
+    const release = functionBody('release_quick_launch')
+    const development = DEV_INSTALL.split('elif [[ "$PLUGIN" == "quick-launch" ]]; then')[1]?.split('\nelif ')[0]
+    expect(development).toBeDefined()
+    for (const body of [release, development]) {
+      expect(body).toMatch(new RegExp(`^  pnpm --filter ${ui.name} build$`, 'm'))
+      expect(body).toContain(manifest.id)
+      expect(body).toContain('plugins-src/quick-launch')
+    }
+    expect(release).toContain('universal.notemdpkg')
+    expect(release).toContain('cp -R "$src/dist/." "$stage/ui/"')
+    expect(release).toContain('sign_pkg "$pkg"')
+    expect(development).toContain('cp -R "$SRC/dist/." "$DEST/ui/"')
+    expect(manifest.binary ?? {}).toEqual({})
+  })
+
   it('accepts HABITAT and builds both manifest targets with its matching backend and UI', () => {
     const manifest = JSON.parse(readFileSync(join(ROOT, 'plugins-src/habitat/manifest.v2.json'), 'utf8'))
     const ui = JSON.parse(readFileSync(join(ROOT, 'plugins-src/habitat/package.json'), 'utf8'))

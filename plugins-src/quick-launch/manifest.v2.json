@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.quick-launch",
+  "name": "Quick Launch",
+  "version": "1.0.0",
+  "kind": "native",
+  "engines": { "notemd": ">=6.1030.1" },
+  "description": "Launch your apps and shell commands from the tray Launch menu. Configure shortcuts on this Mac.",
+  "ui": "ui/",
+  "activation": { "events": ["onCommand:open"] },
+  "contributes": {
+    "menus": [
+      { "location": "plugins", "submenu": "experience", "label": "Configure Quick Launch…", "command": "open" }
+    ],
+    "windows": [
+      { "id": "main", "entry": "index.html", "title": "Quick Launch", "width": 680, "height": 720,
+        "min_width": 480, "min_height": 440, "open_command": "open" }
+    ]
+  },
+  "capabilities": ["quick-launch", "dialog"],
+  "i18n": {
+    "zh": { "name": "快捷启动", "description": "从托盘的「启动」菜单打开应用或执行命令，在本机配置常用启动项。", "menus": { "open": "配置快捷启动…" } },
+    "ja": { "name": "クイック起動", "description": "トレイの起動メニューからアプリやシェルコマンドを実行します。このMacで起動項目を設定できます。", "menus": { "open": "クイック起動を設定…" } },
+    "de": { "name": "Schnellstart", "description": "Apps und Shell-Befehle über das Startmenü in der Menüleiste ausführen. Einträge für diesen Mac konfigurieren.", "menus": { "open": "Schnellstart konfigurieren…" } }
+  }
+}

@@ -1,0 +1,40 @@
+@import '../../../src/styles/ui-foundation.css';
+
+:root { color-scheme: light dark; background: var(--ui-bg); }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 780px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.4px; }
+p { margin: 6px 0; }
+.help, #save-state { color: var(--ui-secondary); font-size: 12px; }
+#entries { display: grid; gap: 14px; margin: 20px 0; }
+.entry { border: 1px solid var(--ui-separator); border-radius: 10px; padding: 16px; background: var(--ui-surface); }
+.entry-head, .actions, .target-row, .footer { display: flex; align-items: center; gap: 8px; }
+.entry-head { justify-content: space-between; margin-bottom: 14px; }
+.entry-head label { display: flex; gap: 6px; align-items: center; }
+.entry-head small { color: var(--ui-tertiary); }
+.fields { display: grid; grid-template-columns: 1fr 130px; gap: 12px; }
+.field { display: grid; gap: 5px; margin-bottom: 12px; }
+.target-row input { flex: 1; min-width: 0; }
+input:not([type='checkbox']), select { width: 100%; background: var(--ui-surface); color: inherit; border: 1px solid var(--ui-control-border); border-radius: 6px; padding: 7px 9px; }
+input[data-field='target'] { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+input[type='checkbox'] { margin: 0; }
+button { padding: 7px 11px; border: 1px solid var(--ui-control-border); border-radius: 6px; background: var(--ui-surface); color: inherit; cursor: pointer; white-space: nowrap; }
+button:hover:not(:disabled) { background: var(--ui-hover); }
+button:disabled { opacity: .45; cursor: default; }
+.danger { color: var(--ui-danger); }
+#save { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-accent-foreground); }
+#save:hover:not(:disabled) { filter: brightness(.94); }
+.footer { justify-content: space-between; border-top: 1px solid var(--ui-separator); padding: 16px 0 8px; }
+#error { color: var(--ui-danger); overflow-wrap: anywhere; }
+#result { border-top: 1px solid var(--ui-separator); margin-top: 18px; padding-top: 12px; }
+#result pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 12px; }
+[hidden] { display: none !important; }
+@media (max-width: 520px) {
+  main { padding: 18px; }
+  .entry { padding: 12px; }
+  .entry-head { align-items: flex-start; }
+  .entry-head .actions { gap: 4px; }
+  .entry-head button { padding: 5px 7px; }
+  .fields { grid-template-columns: 1fr 110px; gap: 8px; }
+}
