@@ -28,7 +28,7 @@ Apple **仅文件导入**。相同文件重复导入不增加记录；重叠导�
 
 采集 [Oura V2 API](https://cloud.ouraring.com/v2/docs) 的 19 类集合：活动、心血管年龄、准备度、韧性、睡眠日汇总、血氧、压力、增强标签、心率、个人信息、休息模式、戒指电量、戒指配置、session、睡眠详情、睡眠时间、标签、VO₂ max、运动。逐页保留完整 JSON，包括未知字段和 null；未开放集合显示覆盖缺口，不冒充零数据。
 
-Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户端当作官方 SDK。心率和戒指电量允许末页省略 `next_token`，其余分页集合仍校验该字段。本地导入支持按 V2 字段识别的 CSV、JSON 及包含这些文件的 ZIP。导入时显式选择已保存账号，或填写稳定的离线账号名称；同一名称用于以后增量合并。离线身份与 API 身份不自动合并，以免错误归属。未知内容保留原件并注明，完全无法识别健康记录时拒绝导入。真实 Oura 导出包尚待用户下载后的验证，目前仅通过测试样本验收。
+Oura 适配以官方 OpenAPI 和 OAuth 示例为依据；未将第三方客户端当作官方 SDK。心率和戒指电量允许末页省略 `next_token`，其余分页集合仍校验该字段。本地导入支持按内容识别的 V2/DSR CSV、JSON 及包含这些文件的 ZIP。CSV 自动识别逗号或分号，流式读取大文件；全部字段保留原始字符串，包括嵌套 JSON 单元格。导入时显式选择已保存账号，或填写稳定的离线账号名称；同一名称用于以后增量合并。离线身份与 API 身份不自动合并，以免错误归属。未知内容保留原件并注明，完全无法识别健康记录时拒绝导入。真实 DSR 包已用于隔离验收：32 类健康/传感器集合，另保留未知内容与位置、订阅账单原件。新增温度、步数、动作、日间压力、外部心率/步数、心血管细节、平滑心血管年龄、VO₂ 估计、运动心率会话、时区及餐食等识别；不会按 ZIP 文件名截断数据日期。返回 `file_reports` 显示各成员的解析数、未知数和状态。原 ZIP 附件可回查未解析内容。
 
 两家凭据按账号保存在 **macOS 钥匙串**，不进入 Vault。Oura 自动刷新并保存轮换后的 token。每个账号的授权、历史进度、覆盖和记录独立保存；重新连接同一账号会重新核对指定范围。断开仅移除所选账号凭据，保留账号名称和已归档数据；其他账号不受影响。新增账号授权失败不会破坏当前账号；Oura 按本次授权结果判断完成。
 
@@ -132,6 +132,6 @@ cargo test --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml
 cargo clippy --locked --manifest-path plugins-src/health-sync/backend/Cargo.toml --all-targets -- -D warnings
 ```
 
-使用合成导出、协议 fixture、宿主 stdio 契约和 DOM 交互测试验证。SQLite 改造的真实 Apple/Garmin 验证结果见本次任务验收记录；Oura 实际导出包、钥匙串授权弹窗、应用内 WebView 和 Intel 实机仍待验收。发布状态见仓库 `docs/superpowers/reports/`，工作区通过测试不代表已进入市场安装包。
+使用合成导出、协议 fixture、宿主 stdio 契约和 DOM 交互测试验证。SQLite 改造的真实 Apple/Garmin 验证结果见本次任务验收记录；Oura 真实导出包的开发验证见 [验收记录](../../docs/superpowers/reports/2026-10-30-health-sync-oura-export-verification.md)；本次不覆盖钥匙串授权弹窗、应用内 WebView 或 Intel 实机。发布状态见仓库 `docs/superpowers/reports/`，工作区通过测试不代表已进入市场安装包。
 
 数据结构及扩展约束见 [DATA_MODEL.md](DATA_MODEL.md)。
