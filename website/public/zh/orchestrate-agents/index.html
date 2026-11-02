@@ -131,7 +131,7 @@ pre{font-size:12.5px;padding:14px 15px}
 <li><b>反锁定，再深一层。</b>file-over-app 把你从应用里解放出来；这一条把你从 agent 和模型里解放出来。今天最强的模型下个月就被换掉——你的知识不该跟着它走。</li>
 <li><b>不靠平台的协作。</b>agent 在磁盘上传递 <code>.md</code>——没有共享内存，没有私有 API，没有插件商店。一个 agent 的产出就是下一个的输入。</li>
 <li><b>你始终在环内,守在检查点。</b>它不是一头跑到尾的黑箱;而是一条有人守在质检口的多工位流水线。agent 写、审、配图——拍板发布的是你。</li>
-<li><b>仍然只是文件。</b>没有编排数据库，没有隐藏状态。规则在 <code>AGENTS.md</code>，产出在 <code>.md</code>，判断在 <code>.note.md</code>——Obsidian、CLI、任何 agent 都能读。换掉 note.md，这个 vault 照样是所有人的公共工作区。</li>
+<li><b>仍然只是文件。</b>共享笔记仍是文件；应用设置、索引和部分插件数据另行保存。规则在 <code>AGENTS.md</code>，产出在 <code>.md</code>，判断在 <code>.note.md</code>——Obsidian、CLI、任何 agent 都能读。换掉 note.md，这个 vault 照样是所有人的公共工作区。</li>
 </ul>
 <p>把 vault 放进 <a href="/zh/guides/vault-on-github/">git</a>，每一次 agent 写入都可 diff、可归属、可回滚——agent 的糟糕一天，是一次 <code>git revert</code>，而不是一场事故。</p><h2>动手搭起来</h2><ol>
 <li>在 vault 根放一个 <code>AGENTS.md</code>——把 <a href="/llms-full.txt">llms-full.txt</a> 的 vault 规则作为参考，再加 house rules。agent 通常把 <code>*.note.md</code> 视为人拥有；Smart Lookup 的 fenced answer 回写是狭窄例外。</li>
@@ -142,7 +142,7 @@ pre{font-size:12.5px;padding:14px 15px}
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>拥有你的思考。</h2>
-<p>免费。开源。你自己电脑上的一个 markdown 文件夹。</p>
+<p>免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。</p>
 <a class="btn" href="/download">下载 note.md</a>
 </div></section>
 <footer><div class="wrap">

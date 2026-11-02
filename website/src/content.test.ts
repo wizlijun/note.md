@@ -1,4 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -146,12 +148,12 @@ describe('Agent-ready and token pricing copy', () => {
   })
 })
 
-describe('v6.904–v6.921 content coverage', () => {
+describe('current workspace content coverage', () => {
   const recentHeadings = [
-    { home: 'index.html', heading: 'New in v6.904–v6.921', view: 'Knowledge Browser' },
-    { home: 'de/index.html', heading: 'Neu in v6.904–v6.921', view: 'Knowledge Browser' },
-    { home: 'ja/index.html', heading: 'v6.904–v6.921 の新機能', view: 'Knowledge Browser' },
-    { home: 'zh/index.html', heading: 'v6.904–v6.921 新功能', view: '知识浏览器' },
+    { home: 'index.html', heading: 'Explore the workspace', view: 'Knowledge Browser' },
+    { home: 'de/index.html', heading: 'Den Arbeitsraum entdecken', view: 'Knowledge Browser' },
+    { home: 'ja/index.html', heading: 'ワークスペースを探索', view: 'Knowledge Browser' },
+    { home: 'zh/index.html', heading: '探索工作空间', view: '知识浏览器' },
   ]
 
   it.each(recentHeadings)('shows current shipped capabilities on $home', ({ home, heading, view }) => {
@@ -214,6 +216,12 @@ describe('localized navigation and social metadata', () => {
       expect(html, page).toContain('<meta property="og:description"')
       expect(html, page).toContain('<meta property="og:url"')
       expect(html, page).toContain('<meta name="twitter:card" content="summary">')
+      const route = page.slice(publicDir.length).replaceAll('\\', '/').replace(/index\.html$/, '')
+      const baseRoute = route.replace(/^\/(de|ja|zh)(?=\/)/, '')
+      expect(html, page).toContain(`rel="canonical" href="https://notemd.net${route}"`)
+      for (const locale of locales) {
+        expect(html, page).toContain(`hreflang="${locale.lang}" href="https://notemd.net${locale.prefix}${baseRoute}"`)
+      }
     }
   })
 })
@@ -244,5 +252,58 @@ describe('external agent file collaboration', () => {
       readTextTree(join(__dirname, '..', 'i18n')),
     ].join('\n')
     expect(generators).not.toMatch(/OpenClaw[ -]Chat/i)
+  })
+})
+
+describe('maintained public copy', () => {
+  it.each([
+    { prefix: '', scope: 'dependencies have their own licenses' },
+    { prefix: 'zh', scope: '依赖项遵循各自许可证' },
+    { prefix: 'de', scope: 'Abhängigkeiten haben eigene Lizenzen' },
+    { prefix: 'ja', scope: '依存関係にはそれぞれのライセンスが適用されます' },
+  ])('scopes Apache-2.0 to repository sources in $prefix public copy', ({ prefix, scope }) => {
+    for (const page of ['index.html', 'compare/roam-research/index.html']) {
+      const html = readFileSync(join(publicDir, prefix, page), 'utf8')
+      expect(html).toContain('Apache-2.0')
+      expect(html).toContain(scope)
+    }
+  })
+
+  it('does not pin stale release, package-size or platform claims in current documentation', () => {
+    const readmes = ['README.md', 'README.zh-CN.md'].map((file) =>
+      readFileSync(join(__dirname, '..', '..', file), 'utf8')).join('\n')
+    const copy = `${readmes}\n${readTextTree(publicDir)}\n${readTextTree(join(__dirname, '..', 'i18n'))}`
+    for (const stale of ['v6.904–v6.921', 'v6.1027.2', 'v6.1030.1 for Apple Silicon', '12 MB', '~19 MB', 'Debian 12 / Omarchy', 'No orchestration database, no hidden state']) {
+      expect(copy).not.toContain(stale)
+    }
+    for (const file of ['llms.txt', 'llms-full.txt']) {
+      const text = readFileSync(join(publicDir, file), 'utf8')
+      expect(text).toContain('.pkg.tar.zst')
+      expect(text).toContain('.deb')
+    }
+  })
+
+  it('reproduces all checked-in pages from the English homepage and translated generators', () => {
+    const temp = mkdtempSync(join(tmpdir(), 'notemd-site-content-'))
+    const website = join(__dirname, '..')
+    try {
+      for (const file of ['build_i18n.py', 'build_pages.py', 'i18n', 'public/index.html']) {
+        cpSync(join(website, file), join(temp, file), { recursive: true })
+      }
+      for (const script of ['build_i18n.py', 'build_pages.py']) {
+        execFileSync('python3', [script], { cwd: temp, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
+      }
+      const compare = (relative = '') => {
+        for (const entry of readdirSync(join(temp, 'public', relative), { withFileTypes: true })) {
+          const path = join(relative, entry.name)
+          if (entry.isDirectory()) compare(path)
+          else expect(readFileSync(join(temp, 'public', path), 'utf8'), path)
+            .toBe(readFileSync(join(publicDir, path), 'utf8'))
+        }
+      }
+      compare()
+    } finally {
+      rmSync(temp, { recursive: true, force: true })
+    }
   })
 })

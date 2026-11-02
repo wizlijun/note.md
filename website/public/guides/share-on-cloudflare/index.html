@@ -119,7 +119,7 @@ openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
 <p>Paste the Worker URL and API key into <b>note.md → Preferences → Share</b> and save. Full details live in the repo's <code>worker/README.md</code>.</p><h2>What you get</h2><ul>
 <li><b>One keystroke:</b> <code>Cmd+Shift+L</code> publishes the current file; the URL lands in your clipboard. Share again to update in place; unshare returns 410.</li>
-<li><b>Faithful rendering:</b> KaTeX math, Mermaid diagrams as SVG, syntax highlighting, light/dark via <code>prefers-color-scheme</code>, mobile-optimized.</li>
+<li><b>Faithful rendering:</b> KaTeX math, Mermaid-syntax diagrams rendered as SVG, syntax highlighting, light/dark via <code>prefers-color-scheme</code>, mobile-optimized.</li>
 <li><b>Images included:</b> image-heavy documents spill to Cloudflare R2 (also free tier) automatically.</li>
 <li><b>Agent-ready:</b> the Worker exposes an MCP endpoint, so your agents can publish on your behalf — <code>notemd share draft.md</code> does it from any script.</li>
 </ul>
@@ -127,7 +127,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>Own your thinking.</h2>
-<p>Free. Open. A folder of markdown on your own computer.</p>
+<p>Free to download. Repository source: Apache-2.0; dependencies have their own licenses.</p>
 <a class="btn" href="/download">Download note.md</a>
 </div></section>
 <footer><div class="wrap">

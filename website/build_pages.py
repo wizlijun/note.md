@@ -87,22 +87,22 @@ LANG_ORDER = ["en", "de", "ja", "zh"]
 LANG_LABEL = {"en": "EN", "de": "DE", "ja": "日本語", "zh": "中文"}
 
 CHROME = {
- "en": {"dl": "Download", "pl": "plugins", "cta_h2": "Own your thinking.", "cta_p": "Free. Open. A folder of markdown on your own computer.",
+ "en": {"dl": "Download", "pl": "plugins", "cta_h2": "Own your thinking.", "cta_p": "Free to download. Repository source: Apache-2.0; dependencies have their own licenses.",
         "cta_btn": "Download note.md", "faq": "FAQ",
         "g_cmp": "Compare", "g_int": "Integrations", "g_gui": "Guides",
         "l_orch": "One vault, many agents", "l_memory": "Personal AI memory you confirm", "l_cf": "Free sharing on Cloudflare", "l_gh": "Vault on GitHub", "l_llm": "llms.txt (for agents)",
         "sig": "Text is forever. So is what you thought about it."},
- "de": {"dl": "Laden", "pl": "plugins", "cta_h2": "Besitze dein Denken.", "cta_p": "Frei. Offen. Ein Ordner voller Markdown auf deinem eigenen Rechner.",
+ "de": {"dl": "Laden", "pl": "plugins", "cta_h2": "Besitze dein Denken.", "cta_p": "Kostenloser Download. Repository-Quellcode: Apache-2.0; Abhängigkeiten haben eigene Lizenzen.",
         "cta_btn": "note.md laden", "faq": "FAQ",
         "g_cmp": "Vergleich", "g_int": "Integrationen", "g_gui": "Anleitungen",
         "l_orch": "Ein Vault, viele Agents", "l_memory": "Persönliches AI-Gedächtnis, von dir bestätigt", "l_cf": "Kostenlos teilen über Cloudflare", "l_gh": "Vault auf GitHub", "l_llm": "llms.txt (für Agents)",
         "sig": "Text ist für immer. Was du darüber dachtest, auch."},
- "ja": {"dl": "ダウンロード", "pl": "プラグイン", "cta_h2": "思考を所有せよ。", "cta_p": "無料。オープン。あなた自身のパソコンにある markdown フォルダ。",
+ "ja": {"dl": "ダウンロード", "pl": "プラグイン", "cta_h2": "思考を所有せよ。", "cta_p": "無料ダウンロード。リポジトリのソースは Apache-2.0、依存関係にはそれぞれのライセンスが適用されます。",
         "cta_btn": "note.md をダウンロード", "faq": "FAQ",
         "g_cmp": "比較", "g_int": "連携", "g_gui": "ガイド",
         "l_orch": "ひとつの Vault、多くのエージェント", "l_memory": "あなたが確認する個人 AI メモリ", "l_cf": "Cloudflare で無料共有", "l_gh": "GitHub で Vault をホスト", "l_llm": "llms.txt（エージェント向け）",
         "sig": "テキストは永遠に残る。あなたがそれについて考えたことも。"},
- "zh": {"dl": "下载", "pl": "插件", "cta_h2": "拥有你的思考。", "cta_p": "免费。开源。你自己电脑上的一个 markdown 文件夹。",
+ "zh": {"dl": "下载", "pl": "插件", "cta_h2": "拥有你的思考。", "cta_p": "免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。",
         "cta_btn": "下载 note.md", "faq": "FAQ",
         "g_cmp": "对比", "g_int": "集成", "g_gui": "指南",
         "l_orch": "一个 vault，多个 agent", "l_memory": "由你确认的个人 AI 记忆", "l_cf": "Cloudflare 免费分享", "l_gh": "GitHub 托管 vault", "l_llm": "llms.txt（给 agent）",
@@ -266,7 +266,7 @@ PAGES = [
   "head": ["", "note.md", "Roam Research"],
   "rows": [
    ["Where your notes live", "Plain markdown files on your disk", "Proprietary graph database in the cloud"],
-   ["Price", "Free, open source", "From $15/month"],
+   ["Price", "Free download, source available", "<a href='https://roamresearch.com/'>See Roam’s official pricing</a>"],
    ["Daily notes &amp; outlines", "Yes — <code>.note.md</code> outline files", "Yes — where the pattern was born"],
    ["[[Wikilinks]] &amp; backlinks", "Yes, one namespace across the vault", "Yes, plus block references and queries"],
    ["Block-level citations", "Yes — <code>((file#b-xxxxxx))</code>, edit-resilient", "Yes — block refs, deeper (embeds, queries)"],
@@ -290,7 +290,7 @@ PAGES = [
   ("Does note.md have block references like Roam?",
    "note.md has stable block IDs: every top-level block gets a b-xxxxxx id you can cite from anywhere as ((file#b-xxxxxx)). It covers citation and navigation; Roam-style transclusion/embeds are not a goal."),
   ("Is note.md free?",
-   "Yes. note.md is free and open source (Apache-2.0). Roam Research starts at $15/month."),
+   "Yes, downloads are free. The repository source is licensed under Apache-2.0; dependencies have their own licenses. See Roam Research’s website for current pricing."),
  ],
 },
 {
@@ -304,13 +304,13 @@ PAGES = [
   "head": ["", "note.md", "Obsidian"],
   "rows": [
    ["Storage", "Plain markdown files, local", "Plain markdown files, local"],
-   ["Price", "Free, open source", "Free (closed source); paid Sync/Publish"],
+   ["Price", "Free download, source available", "Free (closed source); paid Sync/Publish"],
    ["Reading AI documents", "Core workflow: clean reading view, marks kept", "A general editor; possible via setup"],
    ["Annotations", "Sidecar <code>.note.md</code> — source stays clean", "Inline edits, or community plugins"],
    ["Agent support", "Built in: <code>AGENTS.md</code> conventions, block citations, annotations as agent input", "Via plugins and DIY (a popular pattern)"],
    ["Outliner", "Native <code>.note.md</code> outline view", "Via plugins; Obsidian is page-oriented"],
    ["Plugin ecosystem", "Small, out-of-process, capability-gated", "Enormous — thousands of community plugins"],
-   ["Mobile", "Not yet (desktop first: macOS + Windows)", "Excellent iOS/Android apps"],
+   ["Mobile", "Not published (macOS, Windows and Linux beta on desktop)", "Excellent iOS/Android apps"],
    ["Interop", "Vault opens in Obsidian", "Vault opens in note.md"],
   ]},
  "sections": [
@@ -344,11 +344,11 @@ PAGES = [
   "head": ["", "note.md", "Notion"],
   "rows": [
    ["Model", "Local markdown files you own", "Cloud workspace, blocks in their database"],
-   ["Price", "Free, open source", "Free tier; paid plans per seat; AI included or metered by plan"],
+   ["Price", "Free download, source available", "Free tier; paid plans per seat; AI included or metered by plan"],
    ["Offline", "Always — it's your disk", "Selected pages can work offline in desktop and mobile apps"],
    ["AI", "Any agent, via plain files — yours to choose", "Notion AI, multiple supported models, and Notion MCP"],
    ["Team collaboration", "Git-based sharing; single-player first", "Excellent — real-time multiplayer, comments"],
-   ["Databases &amp; project tools", "No — it's a notes tool (CSV grid included)", "Yes — tables, kanban, calendars, forms"],
+   ["Databases &amp; project tools", "Base views over notes, CSV editing, and the NEXT task plugin", "Yes — tables, kanban, calendars, forms"],
    ["Data longevity", "Readable in fifty years, any editor", "Export to markdown/CSV; structure degrades"],
    ["Lock-in", "None — the folder is the product", "The workspace is the product"],
   ]},
@@ -365,7 +365,7 @@ PAGES = [
  ],
  "faq": [
   ("Can note.md replace Notion for a team?",
-   "Mostly no. note.md is single-player first — a personal reading and notes tool over plain files, with git-based sharing. Notion's databases and real-time collaboration are not goals."),
+   "Mostly no. note.md is single-player first — a personal reading and notes tool over plain files, with git-based sharing. Base views and NEXT support personal structured notes and tasks; they do not provide Notion-style team permissions or real-time multiplayer."),
   ("Can I export Notion pages into note.md?",
    "Yes. Notion exports markdown; drop the files into your vault and they become ordinary notes you can read, annotate, and link."),
   ("Why does local-first matter for AI?",
@@ -410,19 +410,19 @@ PAGES = [
   ("Why this pairing works", """<p>Cowork's deliverables are overwhelmingly markdown: research reports, plans, specs, drafts. By default they scatter — a download here, a conversation attachment there. Point Cowork at your note.md vault instead, and its output lands where your reading loop lives: every report gets a home, every read-through leaves a sidecar of judgment, and your next Cowork session can be told to read those sidecars first.</p>"""),
   ("Setup", """<ol>
 <li>In the Claude desktop app, connect your vault folder to the Cowork session ("Add folder").</li>
-<li>Add an <code>AGENTS.md</code> at the vault root (conventions summary: <a href="/llms-full.txt">llms-full.txt</a>) — Claude reads it automatically and follows the house rules.</li>
+<li>Add an <code>AGENTS.md</code> at the vault root (conventions summary: <a href="/llms-full.txt">llms-full.txt</a>) — explicitly ask Claude to read it before working, then review the result against those rules.</li>
 <li>Ask Claude to save deliverables into the vault, e.g. <code>research/2026-07-11-competitor-scan.md</code>.</li>
 <li>Read them in note.md; your highlights and notes save to sidecar <code>.note.md</code> files.</li>
 <li>Next session, one line: "Read the .note.md sidecars for the reports you wrote last week and address my margins." The loop closes.</li>
 </ol>"""),
   ("Tips", """<ul>
 <li>Ask Claude to use <code>[[wikilinks]]</code> and the <code>[[yyyy-MM-dd]]</code> date format so its documents join your vault's link graph instead of floating outside it.</li>
-<li>Keep the vault in git — Cowork writes are then diffable, and its file-versioning plus yours never fight.</li>
+<li>Keep the vault in git — commit reviewed changes so they are diffable and recoverable; coordinate concurrent writers and resolve conflicts.</li>
 </ul>"""),
  ],
  "faq": [
   ("Does Claude respect the vault conventions?",
-   "Yes, if you put them in an AGENTS.md at the folder root — Claude Code and Cowork read agent instruction files as standard practice."),
+   "Put the conventions in AGENTS.md and explicitly ask the session to read them before editing. Instruction loading differs between clients; verify the changes instead of assuming that a file guarantees compliance."),
   ("Can Claude read my annotations?",
    "That's the point. Sidecar .note.md files are plain markdown; ask any session to read them and it will see exactly what you highlighted and questioned."),
  ],
@@ -459,7 +459,7 @@ PAGES = [
  "h1": "note.md + Hermes",
  "lead": "Hermes grows with you — an open agent that remembers. note.md is where a human keeps judgment. Same folder, both jobs.",
  "sections": [
-  ("Why this pairing works", """<p>Hermes (by Nous Research) is built around persistent, file-based memory and reads <code>AGENTS.md</code> conventions — the same open-agent lineage as OpenClaw, with an emphasis on self-hosted sovereignty. That worldview is note.md's worldview: no hidden state, files as truth, everything inspectable.</p>
+  ("Why this pairing works", """<p>Hermes (by Nous Research) is built around persistent, file-based memory and reads <code>AGENTS.md</code> conventions — the same open-agent lineage as OpenClaw, with an emphasis on self-hosted sovereignty. note.md likewise keeps notes and annotations in ordinary files. App settings, indexes and some plugin data live separately; back those up according to the relevant feature’s documentation.</p>
 <p>Run Hermes over a note.md vault and its accumulated memory stops being an opaque agent artifact and becomes part of your knowledge base: readable in the outline view, linkable with <code>[[wikilinks]]</code>, and — crucially — annotatable. You can literally leave margin notes on your agent's memories.</p>"""),
   ("Setup", """<ol>
 <li><code>AGENTS.md</code> at the vault root, as always — conventions from <a href="/llms-full.txt">llms-full.txt</a> plus your house rules.</li>
@@ -495,7 +495,7 @@ PAGES = [
  ],
  "faq": [
   ("Does ChatGPT read AGENTS.md automatically?",
-   "Not the way a CLI agent (Codex, Claude Code) does. Paste your vault conventions into the ChatGPT project or custom instructions, and point it at AGENTS.md. Sidecars are human-owned except for Smart Lookup's fenced answer writeback; new work should follow your naming rules."),
+   "Do not assume automatic discovery in every client. Paste your vault conventions into the ChatGPT project or custom instructions, and point it at AGENTS.md. Sidecars are human-owned except for Smart Lookup's fenced answer writeback; new work should follow your naming rules."),
   ("Can ChatGPT-generated images live in my vault?",
    "Yes. Save them beside the document in a {docname}_files/ folder with relative links — the same convention note.md uses for pasted screenshots. They render in the reading view and travel with the vault in git."),
   ("Do I have to pick one agent?",
@@ -521,7 +521,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
 <p>Paste the Worker URL and API key into <b>note.md → Preferences → Share</b> and save. Full details live in the repo's <code>worker/README.md</code>.</p>"""),
   ("What you get", """<ul>
 <li><b>One keystroke:</b> <code>Cmd+Shift+L</code> publishes the current file; the URL lands in your clipboard. Share again to update in place; unshare returns 410.</li>
-<li><b>Faithful rendering:</b> KaTeX math, Mermaid diagrams as SVG, syntax highlighting, light/dark via <code>prefers-color-scheme</code>, mobile-optimized.</li>
+<li><b>Faithful rendering:</b> KaTeX math, Mermaid-syntax diagrams rendered as SVG, syntax highlighting, light/dark via <code>prefers-color-scheme</code>, mobile-optimized.</li>
 <li><b>Images included:</b> image-heavy documents spill to Cloudflare R2 (also free tier) automatically.</li>
 <li><b>Agent-ready:</b> the Worker exposes an MCP endpoint, so your agents can publish on your behalf — <code>notemd share draft.md</code> does it from any script.</li>
 </ul>"""),
@@ -596,7 +596,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
 <li><b>Anti-lock-in, one layer deeper.</b> Files-over-app frees you from the app; this frees you from the agent and the model. Today's best model is replaced next month — your knowledge shouldn't move with it.</li>
 <li><b>Collaboration without a platform.</b> Agents hand off <code>.md</code> on disk — no shared memory, no private API, no plugin store. One agent's output is the next one's input.</li>
 <li><b>You stay in the loop, at the checkpoint.</b> It's not a black box that runs end to end; it's a line of stations with a human at quality control. Agents write, review, and illustrate — you decide what ships.</li>
-<li><b>Still just files.</b> No orchestration database, no hidden state. Rules in <code>AGENTS.md</code>, output in <code>.md</code>, judgment in <code>.note.md</code> — all readable by Obsidian, a CLI, or any agent. Swap out note.md and the vault is still everyone's shared workspace.</li>
+<li><b>Still just files.</b> The shared notes remain files; app settings, indexes and some plugin data are stored separately. Rules in <code>AGENTS.md</code>, output in <code>.md</code>, judgment in <code>.note.md</code> — all readable by Obsidian, a CLI, or any agent. Swap out note.md and the vault is still everyone's shared workspace.</li>
 </ul>
 <p>Keep the vault in <a href="/guides/vault-on-github/">git</a> and every agent write is diffable, attributable, and revertible — an agent's bad day is a <code>git revert</code>, not a tragedy.</p>"""),
   ("Set it up", """<ol>

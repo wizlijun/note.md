@@ -62,13 +62,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Alles landet im Vault, den deine Agents teilen — pures Markdown. Agents können erkennen, was wichtig ist; nur du bestätigst, was Erinnerung wird.',
   'AI が書く量は、読み切れない。note.md なら読み進められる。ハイライトして、疑問を書いて、その場で直す。'
   'すべては Agent と共有する Vault に、ただの markdown として残る。Agent は大切なことに気づける。何を記憶にするか承認するのは、あなただけ。'),
- ('12 MB<i>·</i>Typora-compatible themes<i>·</i>Mermaid &amp; Graphviz, tuned<i>·</i>outliner, [[wikilinks]], daily notes'
-  '<i>·</i>one vault every agent shares',
-  '12 MB<i>·</i>兼容 Typora 主题<i>·</i>Mermaid、Graphviz 都调过<i>·</i>大纲、[[双链]]、每日笔记<i>·</i>一个 vault，所有 agent 共用',
-  '12 MB<i>·</i>Typora-kompatible Themes<i>·</i>Mermaid &amp; Graphviz, abgestimmt<i>·</i>Outliner, [[Wikilinks]], Tagesnotizen'
-  '<i>·</i>ein Vault für alle Agents',
-  '12 MB<i>·</i>Typora 互換テーマ<i>·</i>Mermaid、Graphviz 調整済み<i>·</i>アウトライン、[[ウィキリンク]]、デイリーノート'
-  '<i>·</i>一つの vault をすべての agent と'),
+ ('Typora-compatible themes<i>·</i>Mermaid syntax &amp; Graphviz<i>·</i>outliner, [[wikilinks]], daily notes<i>·</i>one vault every agent shares',
+  '兼容 Typora 主题<i>·</i>Mermaid 语法与 Graphviz<i>·</i>大纲、[[双链]]、每日笔记<i>·</i>一个 vault，所有 agent 共用',
+  'Typora-kompatible Themes<i>·</i>Mermaid-Syntax &amp; Graphviz<i>·</i>Outliner, [[Wikilinks]], Tagesnotizen<i>·</i>ein Vault für alle Agents',
+  'Typora 互換テーマ<i>·</i>Mermaid 構文と Graphviz<i>·</i>アウトライン、[[ウィキリンク]]、デイリーノート<i>·</i>すべての Agent が共有する Vault'),
  ('<span class="bl">Download for macOS</span>',
   '<span class="bl">下载 macOS 版</span>',
   '<span class="bl">Für macOS laden</span>',
@@ -85,10 +82,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Omarchy / Arch: <a href="/download?os=linux&amp;format=arch&amp;arch=x86_64">x86_64 (.pkg.tar.zst)</a> · <a href="/download?os=linux&amp;format=arch&amp;arch=aarch64">aarch64 (.pkg.tar.zst)</a><br>Debian / Ubuntu: <a href="/download?os=linux&amp;format=deb&amp;arch=x86_64">x86_64 (.deb)</a> · <a href="/download?os=linux&amp;format=deb&amp;arch=aarch64">aarch64 (.deb)</a>',
   'Omarchy / Arch: <a href="/download?os=linux&amp;format=arch&amp;arch=x86_64">x86_64 (.pkg.tar.zst)</a> · <a href="/download?os=linux&amp;format=arch&amp;arch=aarch64">aarch64 (.pkg.tar.zst)</a><br>Debian / Ubuntu: <a href="/download?os=linux&amp;format=deb&amp;arch=x86_64">x86_64 (.deb)</a> · <a href="/download?os=linux&amp;format=deb&amp;arch=aarch64">aarch64 (.deb)</a>',
   'Omarchy / Arch: <a href="/download?os=linux&amp;format=arch&amp;arch=x86_64">x86_64 (.pkg.tar.zst)</a> · <a href="/download?os=linux&amp;format=arch&amp;arch=aarch64">aarch64 (.pkg.tar.zst)</a><br>Debian / Ubuntu: <a href="/download?os=linux&amp;format=deb&amp;arch=x86_64">x86_64 (.deb)</a> · <a href="/download?os=linux&amp;format=deb&amp;arch=aarch64">aarch64 (.deb)</a>'),
- ('v6.1030.1 for Apple Silicon Mac only: install Quick Launch from the plugin marketplace to launch apps and CLI commands from the menu bar. Configure your launch items from the Plugins menu. Intel Mac and Linux remain at v6.1027.1; Windows remains at v6.811.1.',
-  'v6.1030.1 仅更新 Apple Silicon Mac：在插件市场安装“快捷启动”，即可从菜单栏托盘启动应用或执行 CLI 命令。启动项可在“插件”菜单中配置。Intel Mac 与 Linux 保持 v6.1027.1，Windows 保持 v6.811.1。',
-  'v6.1030.1 nur für Apple Silicon Mac: Installiere Quick Launch aus dem Plugin-Marktplatz, um Apps und CLI-Befehle über die Menüleiste zu starten. Konfiguriere die Starteinträge im Menü Plugins. Intel Mac und Linux bleiben bei v6.1027.1, Windows bei v6.811.1.',
-  'v6.1030.1 は Apple Silicon Mac のみの更新です。プラグインマーケットから Quick Launch をインストールすると、メニューバーからアプリや CLI コマンドを起動できます。起動項目は「プラグイン」メニューで設定できます。Intel Mac と Linux は v6.1027.1、Windows は v6.811.1 のままです。'),
+ ('Quick Launch adds a macOS menu-bar launcher for apps and CLI commands. Install it from the plugin marketplace and configure it in the Plugins menu. Platform releases and plugin requirements can differ; check <a href="https://github.com/wizlijun/note.md/releases">release notes</a> for available builds.',
+  '“快捷启动”可在 macOS 菜单栏启动应用或执行 CLI 命令。在插件市场安装后，通过“插件”菜单配置。各平台版本与插件要求可能不同，可用安装包请查看<a href="https://github.com/wizlijun/note.md/releases">发布记录</a>。',
+  'Quick Launch startet Apps und CLI-Befehle über die macOS-Menüleiste. Installiere es aus dem Plugin-Marktplatz und konfiguriere es im Plugins-Menü. Plattformversionen und Plugin-Anforderungen können abweichen; verfügbare Builds stehen in den <a href="https://github.com/wizlijun/note.md/releases">Release-Notizen</a>.',
+  'Quick Launch は macOS のメニューバーからアプリや CLI コマンドを起動します。プラグインマーケットからインストールし、「プラグイン」メニューで設定できます。プラットフォームのバージョンやプラグインの要件は異なる場合があります。利用可能なビルドは<a href="https://github.com/wizlijun/note.md/releases">リリースノート</a>をご確認ください。'),
  # Swapped in by the inline script for desktop visitors; appears twice.
  ('data-dl-win="Download for Windows"',
   'data-dl-win="下载 Windows 版"',
@@ -102,18 +99,18 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<span class="bl">GitHub 加星</span>',
   '<span class="bl">Auf GitHub sternen</span>',
   '<span class="bl">GitHub でスター</span>'),
- ('macOS 13+ · free &amp; open · your files stay on your own Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac?</a>'
+ ('macOS 13+ · free download · source available · your files stay on your own Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac?</a>'
   ' · <a href="/download?os=windows">Windows?</a>',
-  'macOS 13+ · 免费开源 · 文件都在你自己电脑上 · <a href="/download?os=mac&amp;arch=x86_64">Intel 芯片 Mac？</a>'
+  'macOS 13+ · 免费下载 · 源码可见 · 文件都在你自己电脑上 · <a href="/download?os=mac&amp;arch=x86_64">Intel 芯片 Mac？</a>'
   ' · <a href="/download?os=windows">Windows？</a>',
-  'macOS 13+ · frei &amp; offen · deine Dateien bleiben auf deinem Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel-Mac?</a>'
+  'macOS 13+ · kostenlos laden · Quelltext verfügbar · deine Dateien bleiben auf deinem Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel-Mac?</a>'
   ' · <a href="/download?os=windows">Windows?</a>',
-  'macOS 13+ · 無料＆オープン · ファイルはあなたの Mac の中に · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac は？</a>'
+  'macOS 13+ · 無料ダウンロード・ソース公開 · ファイルはあなたの Mac の中に · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac は？</a>'
   ' · <a href="/download?os=windows">Windows は？</a>'),
- ('Windows 10/11 x64 · free &amp; open · Windows releases can trail macOS, and some native plugins are macOS-only · <a href="/download?os=mac">Mac?</a>',
-  'Windows 10/11 x64 · 免费开源 · Windows 发布可能落后于 macOS，部分原生插件仅支持 macOS · <a href="/download?os=mac">Mac？</a>',
-  'Windows 10/11 x64 · frei &amp; offen · Windows-Releases können macOS hinterherhinken; einige native Plugins gibt es nur für macOS · <a href="/download?os=mac">Mac?</a>',
-  'Windows 10/11 x64 · 無料＆オープン · Windows 版は macOS 版より遅れる場合があり、一部のネイティブプラグインは macOS 専用 · <a href="/download?os=mac">Mac は？</a>'),
+ ('Windows 10/11 x64 · free download · source available · Windows releases can trail macOS, and some native plugins are macOS-only · <a href="/download?os=mac">Mac?</a>',
+  'Windows 10/11 x64 · 免费下载 · 源码可见 · Windows 发布可能落后于 macOS，部分原生插件仅支持 macOS · <a href="/download?os=mac">Mac？</a>',
+  'Windows 10/11 x64 · kostenlos laden · Quelltext verfügbar · Windows-Releases können macOS hinterherhinken; einige native Plugins gibt es nur für macOS · <a href="/download?os=mac">Mac?</a>',
+  'Windows 10/11 x64 · 無料ダウンロード・ソース公開 · Windows 版は macOS 版より遅れる場合があり、一部のネイティブプラグインは macOS 専用 · <a href="/download?os=mac">Mac は？</a>'),
  ('Linux beta · Omarchy / Arch .pkg.tar.zst · Debian / Ubuntu .deb · x86_64/aarch64 · package-manager updates; aarch64 has not been verified on a native desktop machine · Install in a terminal: <code>sudo pacman -U &lt;downloaded-file&gt;</code>',
   'Linux beta · Omarchy / Arch .pkg.tar.zst · Debian / Ubuntu .deb · x86_64/aarch64 · 使用包管理器更新；aarch64 未经实机验证 · 终端安装：<code>sudo pacman -U &lt;下载的文件&gt;</code>',
   'Linux-Beta · Omarchy / Arch .pkg.tar.zst · Debian / Ubuntu .deb · x86_64/aarch64 · Updates per Paketmanager; aarch64 nicht auf einem nativen Desktop getestet · Im Terminal installieren: <code>sudo pacman -U &lt;heruntergeladene-Datei&gt;</code>',
@@ -127,12 +124,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<h2>写，交给 AI。<br>读，交给这里。</h2>',
   '<h2>Die KI schreibt.<br>Hier liest du.</h2>',
   '<h2>書くのは AI。<br>読むのは、ここ。</h2>'),
- ('Preview and source, one key apart. Typora-compatible themes work as they are. Mermaid, Graphviz and math, all '
-  'tuned. The whole app installs at ~19 MB, with no browser engine inside.',
-  '预览与源码，一键之隔。兼容 Typora 的主题拿来就用。Mermaid、Graphviz、公式，都调过。整个应用安装后约 19 MB，没有浏览器内核。',
-  'Vorschau und Quelltext, eine Taste auseinander. Typora-kompatible Themes laufen, wie sie sind. Mermaid, '
-  'Graphviz und Formeln — alles abgestimmt. Installiert braucht die ganze App rund 19 MB, ohne Browser-Engine im Bauch.',
-  'プレビューとソースは、キー一つ隣。Typora 互換テーマは、そのまま使える。Mermaid も Graphviz も数式も、調整済み。インストール後も約 19 MB、ブラウザエンジンは入っていない。'),
+ ('Preview and source, one key apart. Use Typora-compatible themes, Mermaid-syntax diagrams rendered by Pele, Graphviz and math. Tauri uses the system webview; download sizes vary by platform and release.',
+  '预览与源码，一键切换。支持 Typora 兼容主题、由 Pele 渲染的 Mermaid 语法图表、Graphviz 和公式。Tauri 使用系统 WebView；下载大小随平台与版本变化。',
+  'Vorschau und Quelltext, eine Taste auseinander. Nutze Typora-kompatible Themes, Mermaid-Syntax mit Pele, Graphviz und Formeln. Tauri verwendet die System-Webview; Downloadgrößen hängen von Plattform und Version ab.',
+  'プレビューとソースはキー一つで切り替え。Typora 互換テーマ、Pele で描画する Mermaid 構文の図、Graphviz、数式に対応。Tauri はシステム WebView を使い、ダウンロードサイズはプラットフォームとバージョンで異なります。'),
  ('A shaky line? Highlight it. A doubt? In the margin. Wrong? Fix it on the spot.',
   '可疑的句子，划出来。疑问，写在旁边。错了，当场改。',
   'Eine wacklige Zeile? Markieren. Ein Zweifel? An den Rand. Falsch? Sofort korrigieren.',
@@ -182,17 +177,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<a href="/orchestrate-agents/">So geht\'s</a>.',
   'あなたのフォルダは、どの AI ツールも共有する作業台。Cowork、Claude Code、Codex、DeepSeek、ChatGPT、OpenClaw、Hermes——同じファイル、'
   '同じルール、すべて git の中。<a href="/orchestrate-agents/">やり方を見る</a>。'),
- ('Every file it writes follows <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
-  'Knowledge Format</a> v0.2, strictly: what a document is, where it came from, who checked it — plain YAML at the top '
-  'of the file. Any tool can read your vault. Not just this one.',
-  '它写出的每一个文件，都严格遵循 <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
-  'Knowledge Format</a> v0.2：这是什么、从哪来、谁确认过——就写在文件开头的 YAML 里。你的 vault，任何工具都读得懂，不止这一个。',
-  'Jede Datei, die es schreibt, folgt strikt dem <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
-  'Knowledge Format</a> v0.2: was ein Dokument ist, woher es kommt, wer es geprüft hat — schlichtes YAML am Anfang der '
-  'Datei. Jedes Werkzeug kann deinen Vault lesen. Nicht nur dieses.',
-  '書き出すファイルはすべて <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open '
-  'Knowledge Format</a> v0.2 に厳密に従う。何の文書か、どこから来たか、誰が確認したか——ファイル冒頭のただの YAML に。'
-  'あなたの vault は、どのツールからでも読める。これだけではなく。'),
+ ('Built-in note creation uses <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 metadata for document type, source and authorship. Existing Markdown files stay readable without conversion; plugins and imported formats may use their own schemas.',
+  '内置笔记创建流程使用 <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 元数据记录类型、来源和作者。已有 Markdown 文件无需转换即可阅读；插件与导入格式可能使用自己的结构。',
+  'Die integrierte Notizerstellung verwendet Metadaten nach <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 für Dokumenttyp, Quelle und Urheberschaft. Bestehende Markdown-Dateien bleiben ohne Konvertierung lesbar; Plugins und Importformate können eigene Schemata verwenden.',
+  '内蔵のノート作成では <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 のメタデータで文書の種類、出典、作成者を記録します。既存の Markdown は変換せずに読めます。プラグインや取り込み形式では独自のスキーマを使う場合があります。'),
  ("Built-in agents, without a second token meter. Change AI tools whenever you want. What's yours stays yours.",
   '内置 Agent，不多一层 Token 账单。换 AI 工具，随时。你的东西，永远是你的。',
   'Integrierte Agents, ohne zweiten Token-Zähler. Wechsle das KI-Tool, wann du willst. Was deins ist, bleibt deins.',
@@ -232,10 +220,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<a href="/blog/personal-ai-memory/">可信的个人记忆，为什么必须由你点头 →</a>',
   '<a href="/blog/personal-ai-memory/">Warum verlässliches persönliches Gedächtnis dein Ja braucht →</a>',
   '<a href="/blog/personal-ai-memory/">信頼できる個人メモリに、なぜあなたの確認が必要なのか →</a>'),
- ('<div class="sec-k">New in v6.904–v6.921</div>',
-  '<div class="sec-k">v6.904–v6.921 新功能</div>',
-  '<div class="sec-k">Neu in v6.904–v6.921</div>',
-  '<div class="sec-k">v6.904–v6.921 の新機能</div>'),
+ ('<div class="sec-k">Explore the workspace</div>',
+  '<div class="sec-k">探索工作空间</div>',
+  '<div class="sec-k">Den Arbeitsraum entdecken</div>',
+  '<div class="sec-k">ワークスペースを探索</div>'),
  ('<h2>Read in the right view.</h2>', '<h2>用合适的视图阅读。</h2>', '<h2>Lies in der passenden Ansicht.</h2>', '<h2>内容に合う表示で読む。</h2>'),
  ('Navigate long files with the table of contents, browse structured notes as Timeline or Index views, explore links '
   'in Knowledge Browser, and page through <code>*.typeset.md</code> books.',
@@ -251,12 +239,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   'Verfügbarkeit hängt von der Plattform ab; Apple Notes und andere native Pakete können derzeit macOS vorbehalten sein.',
   'Apple Notes と Roam Research を同期し、会議をアーカイブし、Assistant Mail をローカル記録として残せる。利用可否はプラットフォーム依存で、Apple Notes など一部のネイティブパッケージは現在 macOS 専用。'),
  ('<h2>Think spatially.</h2>', '<h2>在空间中思考。</h2>', '<h2>Denke räumlich.</h2>', '<h2>空間で考える。</h2>'),
- ('Open JSON Canvas files, format JSON, keep imported sources read-only, and let untitled notes and canvases receive '
-  'stable names when you save.',
-  '打开 JSON Canvas、格式化 JSON、让导入来源保持只读；无标题笔记和画布会在保存时获得稳定文件名。',
-  'Öffne JSON Canvas-Dateien, formatiere JSON, halte importierte Quellen schreibgeschützt und gib unbenannten Notizen '
-  'und Canvases beim Speichern stabile Namen.',
-  'JSON Canvas を開き、JSON を整形し、取り込んだソースを読み取り専用に保てる。無題のノートやキャンバスには保存時に安定した名前が付く。'),
+ ('Open JSON Canvas files, edit CSV, and use Base views over Markdown properties. Add the NEXT plugin for personal tasks and reminders. Imported source protection and plugin availability depend on the workflow and platform.',
+  '打开 JSON Canvas、编辑 CSV，并用 Base 视图浏览 Markdown 属性。安装 NEXT 插件管理个人任务与提醒。导入来源的保护方式与插件可用性取决于具体流程和平台。',
+  'Öffne JSON Canvas-Dateien, bearbeite CSV und nutze Base-Ansichten über Markdown-Eigenschaften. Das NEXT-Plugin ergänzt persönliche Aufgaben und Erinnerungen. Quellschutz und Plugin-Verfügbarkeit hängen vom Workflow und der Plattform ab.',
+  'JSON Canvas、CSV 編集、Markdown のプロパティを使う Base ビューに対応。NEXT プラグインで個人のタスクやリマインダーを管理できます。取り込み元の保護やプラグインの利用可否はワークフローとプラットフォームによって異なります。'),
  ('<h2>Agents propose. You approve.</h2>', '<h2>Agent 提议，由你批准。</h2>', '<h2>Agents schlagen vor. Du bestätigst.</h2>', '<h2>Agent が提案し、あなたが承認する。</h2>'),
  ('Smart Lookup returns governed answers, Memory applies role and scope, Conversation Transcript Corrections keeps human '
   'approval in the loop, and plugin installs hot-reload without restarting the app.',
@@ -281,10 +267,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<span class="ft">文档。AI 写的，明天还能再写一份。</span>',
   '<span class="ft">Das Dokument. Eine KI hat es geschrieben und kann es morgen neu schreiben.</span>',
   '<span class="ft">ドキュメント。AI が書いた。明日また書ける。</span>'),
- ('<span class="ft">Your highlights, doubts and questions. This part, no model can write.</span>',
-  '<span class="ft">你的高亮、疑问和判断。这部分，AI 写不出来。</span>',
-  '<span class="ft">Deine Markierungen, Zweifel und Fragen. Diesen Teil kann kein Modell schreiben.</span>',
-  '<span class="ft">あなたのハイライト、疑問、問い。ここだけは、どのモデルにも書けない。</span>'),
+ ('<span class="ft">Your highlights, doubts and questions. Smart Lookup answers stay in separate fenced blocks.</span>',
+  '<span class="ft">你的高亮、疑问与批注。Smart Lookup 的回答保留在独立的围栏块中。</span>',
+  '<span class="ft">Deine Markierungen, Zweifel und Fragen. Smart-Lookup-Antworten bleiben in eigenen abgegrenzten Blöcken.</span>',
+  '<span class="ft">あなたのハイライト、疑問、注釈。Smart Lookup の回答は独立したフェンスブロックに残ります。</span>'),
  ('Ten thousand words? Anyone can generate those. Your take, nobody can. <b>And it\'s sitting on your '
   'own disk.</b>',
   '一万字，谁都能生成。你的看法，谁也生成不了。<b>而它就在你自己的硬盘里。</b>',
@@ -299,10 +285,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '<span class="pt"></span> was du denkst',
   '<span class="pt"></span> あなたの考え'),
  ('<h2>Own your thinking.</h2>', '<h2>拥有你的思考。</h2>', '<h2>Besitze dein Denken.</h2>', '<h2>思考を所有せよ。</h2>'),
- ("Free. Open. A folder on your own computer. That's it.",
-  '免费。开源。就是你自己电脑上的一个文件夹。',
-  'Kostenlos. Offen. Ein Ordner auf deinem eigenen Rechner. Mehr nicht.',
-  '無料。オープン。あなた自身のパソコンにあるフォルダ一つ。それだけ。'),
+ ("Free to download. Repository source: Apache-2.0; dependencies have their own licenses. Your files stay on your computer.",
+  '免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。文件保存在你自己的电脑上。',
+  'Kostenloser Download. Repository-Quellcode: Apache-2.0; Abhängigkeiten haben eigene Lizenzen. Deine Dateien bleiben auf deinem Rechner.',
+  '無料ダウンロード。リポジトリのソースは Apache-2.0、依存関係にはそれぞれのライセンスが適用されます。ファイルは自分のパソコンに保存されます。'),
  ('macOS 13 or later · Apple Silicon &amp; <a href="/download?os=mac&amp;arch=x86_64">Intel</a>'
   ' · also on <a href="/download?os=windows">Windows</a> · some native plugins are macOS-only · from GitHub Releases',
   'macOS 13 或更高 · Apple Silicon 与 <a href="/download?os=mac&amp;arch=x86_64">Intel</a>'

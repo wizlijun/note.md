@@ -2,9 +2,11 @@
 
 This document tells an LLM agent everything it needs to understand and work
 with note.md and its vaults. It is the authoritative plain-text companion to
-https://notemd.net/. Last reviewed: 2026-09-22 for note.md 6.921.2.
+https://notemd.net/. Reviewed against repository main on 2026-11-02.
+Host and plugin releases are independent; check package availability and minimum
+host requirements before relying on a feature on a particular platform.
 
-Linux beta packages target Debian 12 / Omarchy (x86_64 and aarch64 .deb). The downstream Omarchy package entry has not been submitted. Downloads: https://notemd.net/download?os=linux&arch=x86_64 and https://notemd.net/download?os=linux&arch=aarch64. Linux and Windows downloads select the latest published release that actually provides the requested platform and architecture, even when the newest overall release omits it. Linux ARM never falls back to x86_64; unavailable packages lead to the release list. Linux packages are excluded from the desktop updater manifest. Updates use the package manager. Native plugins need a matching Linux build; app-internal agent panels are excluded. Wayland/fcitx5/tray acceptance is pending. aarch64 has not been verified on a native desktop machine. Installation and acceptance: https://github.com/wizlijun/note.md/blob/main/docs/linux-omarchy.md.
+Linux beta provides .pkg.tar.zst for Omarchy / Arch and .deb for Debian / Ubuntu, each for x86_64 and aarch64. Downloads: https://notemd.net/download?os=linux (choose package format and architecture). Linux and Windows downloads select the latest published release that actually provides the requested package, even when the newest overall release omits it. ARM never falls back to x86_64, and Arch never falls back to Debian packages; unavailable packages lead to the release list. Linux updates use locally downloaded packages and the package manager, outside the desktop updater manifest. The Omarchy repository entry is not yet submitted. Native plugins need a matching Linux build; app-internal agent panels are excluded. Wayland/fcitx5/tray acceptance is pending, and aarch64 has not been verified on a native desktop. Installation and acceptance: https://github.com/wizlijun/note.md/blob/main/docs/linux-omarchy.md.
 
 ## What note.md is
 
@@ -28,28 +30,36 @@ not permission.
 
 - Platform: macOS 13+ (Apple Silicon & Intel), Windows 10/11 x64, and Linux beta — a Tauri
   app rendering in the system WebView. The macOS build is code-signed and
-  notarized (~12 MB download, ~19 MB installed). Windows releases may trail
+  notarized. Mobile builds are not published. Windows releases may trail
   macOS significantly, and some native plugins currently ship only for macOS;
   https://notemd.net/download hands each platform its newest available installer.
 - Website: https://notemd.net/ · Repo: https://github.com/wizlijun/note.md
-- License: Apache-2.0. Product name is all-lowercase "note.md".
+- Repository license: Apache-2.0. Dependencies retain their own licenses;
+  the current `@moraya/core` checkout declares `PolyForm-Internal-Use-1.0.0`.
+  Do not describe every bundled component as Apache-2.0.
+  Product name is all-lowercase "note.md".
+- Languages: the core UI supports English, Chinese, Japanese and German;
+  plugin language coverage varies.
 - Symbol language: `✦` marks what AI writes, `●` marks what the human thinks.
 
 ## The vault
 
-A vault is an ordinary folder of markdown. There is no database and no hidden
-state: **files are the single source of truth; every index is derived and can
-be rebuilt from the files at any time.** Everything below is a file-layout
-convention — any agent (Claude Cowork, Claude Code, Codex, DeepSeek, ChatGPT,
-OpenClaw, Hermes, or you) can honor it with nothing but file reads and writes.
+A vault is a folder containing notes, attachments and supporting files.
+Notes and authoritative Memory revisions remain file-backed; search indexes
+are derived and rebuildable. Settings and application state also exist, and
+some plugins keep durable data elsewhere: Health Sync's external SQLite
+library and attachments require their own backup and are not disposable caches.
+The note conventions below can be used by agents through ordinary file access;
+managed stores and approvals should use their documented interfaces.
 
 ### Sidecar annotation files
 
 - `xxx.note.md` in the same directory as `xxx.md` is the human's annotation
   file ("sidecar") for that document: highlights, comments, questions made
   while reading.
-- The source `xxx.md` stays pristine — often AI-generated and regenerable.
-  The sidecar holds the human judgment, which is NOT regenerable.
+- Inline annotations are encoded in the source Markdown and mirrored into
+  the sidecar outline. The sidecar also holds questions and answers. Preserve
+  both files; do not assume that adding an annotation leaves source bytes unchanged.
 - A `.note.md` with no same-named sibling is a standalone outline note, not
   an annotation.
 - If a source file is renamed, its sidecar must be renamed atomically with it.
@@ -60,8 +70,10 @@ OpenClaw, Hermes, or you) can honor it with nothing but file reads and writes.
 
 ### Document metadata: Open Knowledge Format (OKF) v0.2
 
-note.md follows the Open Knowledge Format v0.2 strictly, and expects agents
-working in a vault to do the same. Spec:
+note.md uses Open Knowledge Format v0.2 for generated knowledge documents.
+Raw source mirrors, attachments, settings and plugin databases use separate
+formats. Agents should follow the knowledge-document contract for their output.
+The repository conformance audit records implementation scope and remaining work. Spec:
 https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md
 
 - **Hard constraints.** Every `.md` you create in a vault opens with a
@@ -102,15 +114,16 @@ https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md
   (e.g. `roam-uid`); keep it.
 - Body: a nested markdown unordered list (`- ` + indentation) — an outline.
   The file stays readable in any plain-text editor.
-- `[[title]]` wikilinks are resolved against frontmatter `title` across the
-  entire vault (filename slug as fallback). One global namespace: daily
-  notes, wiki pages, and annotations all interlink.
+- In the outline editor, `[[title]]` wikilinks resolve against frontmatter
+  `title` across the vault (filename slug as fallback). Ordinary Markdown
+  wikilinks resolve relative to the current document; the two editors do not
+  currently share the same resolution path.
 - Consent-based linking: an agent may *suggest* a `[[link]]`, but only the
   human confirms what actually connects. Do not auto-link documents or
   backfill a graph the human didn't ask for — the graph grows only where the
   human consents.
-- note.md always opens `.note.md` files in an outline view; the extension
-  encodes format, not ownership.
+- `.note.md` files default to an outline view and can also be opened in
+  Source mode; the extension encodes format, not ownership.
 
 ### Daily, monthly, yearly notes
 
@@ -313,8 +326,9 @@ returns every hit with no count cap.
 carries:
 
 - `source_ref` — `path#Lline`, a citation you can hand back to the human or
-  follow yourself. It survives renames and moves: the index recognises those
-  by content hash and updates the path without renumbering the lines.
+  follow yourself. After a rename or move, subsequent queries use the updated
+  indexed path. A previously saved citation is not rewritten automatically;
+  re-resolve it after file moves or edits that change line numbers.
 - `origin` — `human` | `derived` | `source` | `unlabeled`. Provenance tier,
   and the default ranking follows it: what the human wrote or signed off on
   outranks what a model generated.
@@ -351,22 +365,35 @@ general Vault access.
 
 ### Sharing pipeline
 
-`Cmd+Shift+L` (or `notemd share`) publishes a document as a self-contained HTML
-page: KaTeX, Mermaid SVG, syntax highlighting, light/dark, mobile-ready.
-Shares can be updated in place or revoked (410 after unshare).
+`Cmd+Shift+L` (or `notemd share`) publishes a document with math, diagrams,
+syntax highlighting and responsive styling. Mermaid code blocks use Pele by
+default; Graphviz is separate. Pele syntax differs from Mermaid, and selecting
+the original renderer requires a rebuild. See
+https://github.com/wizlijun/note.md/blob/main/docs/pele-build.md.
+Shares can be updated in place or revoked (410 after unshare). Project shares
+support file navigation and referenced attachments. Collaborators can propose
+edits and annotations through Rich or Source mode; owner acceptance controls
+writeback. Desktop received projects support offline drafts and submission.
 
 ## Current agent-relevant capabilities
 
-Shipped through 6.921.2: sidecar annotations and Smart Lookup's governed
-answer writeback; outline, Daily Notes, wiki and JSON Canvas editing; controlled
-Memory with role/scope policy and governed coauthoring; vault-wide full-text
-search plus the read-only local Vault MCP; table of contents, metadata cards,
-JSON formatting, auto naming and read-only imported sources; declarative file
-views (Timeline, Index Viewer, Knowledge Browser and Typeset Reader); Apple
-Notes and Roam Research sync, Meetings and Assistant Mail ingestion; and
-human-approved Conversation Transcript Corrections. Plugin installs and updates
-hot-reload without an app restart. Native plugin availability depends on
-platform and minimum host version.
+The core includes sidecar annotations and Smart Lookup's governed
+answer writeback; outline, Daily Notes, wiki and JSON Canvas editing;
+vault-wide full-text search plus the read-only local Vault MCP; table of
+contents, metadata cards, JSON formatting, Base views and read-only imported
+sources. Optional plugins add controlled Memory with role/scope policy and
+governed coauthoring; Timeline, Index Viewer, Knowledge Browser and Typeset
+Reader views; Apple Notes and Roam Research sync, Meetings, Assistant Mail,
+and human-approved Conversation Transcript Corrections.
+
+Health Sync on macOS imports Apple Health exports and Garmin/Oura file or API
+data into a selected external SQLite library. Mac iCloud sign-in does not give
+the plugin direct access to Apple Health data. NEXT manages tasks, due dates
+and reminder preferences; delivery requires configured scripts/services.
+Quick Launch runs user-configured apps and CLI commands from the macOS tray
+with a compatible host. These workflows require installed, enabled plugins.
+Plugin UI, commands and file views refresh without an app restart. Availability
+depends on platform and minimum host version.
 
 ## Contact
 

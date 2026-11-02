@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Courier+Prime:wght@400;700&family=Noto+Serif+SC:wght@700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "我能把 Roam Research 的图谱导入 note.md 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能——在 Roam 里把图谱导出为 JSON，然后把页面转成 wiki 笔记、每日笔记转成带日期的大纲文件。日期链接会被改写成规范的 [[yyyy-MM-dd]] 形式，失效链接会被报告。"}}, {"@type": "Question", "name": "note.md 有 Roam 那样的块引用吗？", "acceptedAnswer": {"@type": "Answer", "text": "note.md 有稳定的块 ID：每个顶层块都有一个 b-xxxxxx id，可以在任何地方以 ((file#b-xxxxxx)) 引用。它覆盖引用和跳转；Roam 式的转写嵌入（transclusion/embeds）不是目标。"}}, {"@type": "Question", "name": "note.md 免费吗？", "acceptedAnswer": {"@type": "Answer", "text": "免费。note.md 免费且开源（Apache-2.0）。Roam Research 每月 $15 起。"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "我能把 Roam Research 的图谱导入 note.md 吗？", "acceptedAnswer": {"@type": "Answer", "text": "能——在 Roam 里把图谱导出为 JSON，然后把页面转成 wiki 笔记、每日笔记转成带日期的大纲文件。日期链接会被改写成规范的 [[yyyy-MM-dd]] 形式，失效链接会被报告。"}}, {"@type": "Question", "name": "note.md 有 Roam 那样的块引用吗？", "acceptedAnswer": {"@type": "Answer", "text": "note.md 有稳定的块 ID：每个顶层块都有一个 b-xxxxxx id，可以在任何地方以 ((file#b-xxxxxx)) 引用。它覆盖引用和跳转；Roam 式的转写嵌入（transclusion/embeds）不是目标。"}}, {"@type": "Question", "name": "note.md 免费吗？", "acceptedAnswer": {"@type": "Answer", "text": "可免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。Roam Research 的价格请查看官网。"}}]}</script>
 <style>
 :root{--ink:#17181C;--paper:#FAFAF7;--amber:#F59E0B;--gray:#9CA3AF;--line:#E7E5E0;
 --serif:"Playfair Display",Georgia,serif;--body:"EB Garamond",Georgia,serif;
@@ -110,18 +110,18 @@ pre{font-size:12.5px;padding:14px 15px}
 <p class="lead">两者都爱大纲、每日笔记和 [[双方括号]]。Roam 以托管图谱为中心；note.md 以你拥有的文件夹为中心。</p>
 </div></header>
 <main><div class="wrap">
-<table><thead><tr><th></th><th>note.md</th><th>Roam Research</th></tr></thead><tbody><tr><td>笔记住在哪</td><td>磁盘上的纯 markdown 文件</td><td>云端的私有图数据库</td></tr><tr><td>价格</td><td>免费，开源</td><td>每月 $15 起</td></tr><tr><td>每日笔记 &amp; 大纲</td><td>有 —— <code>.note.md</code> 大纲文件</td><td>有 —— 这个模式的诞生地</td></tr><tr><td>[[Wikilinks]] &amp; 反向链接</td><td>有，全 vault 一个命名空间</td><td>有，外加块引用和查询</td></tr><tr><td>块级引用</td><td>有 —— <code>((file#b-xxxxxx))</code>，编辑后依然有效</td><td>有 —— 块引用，走得更深（嵌入、查询）</td></tr><tr><td>AI agent</td><td>一等公民：纯文件 + <code>AGENTS.md</code>，agent 会读你的批注</td><td>文件型 agent 需要集成、导出或 CLI 桥接</td></tr><tr><td>阅读并批注 AI 文档</td><td>核心工作流 —— sidecar 文件<code>.note.md</code></td><td>不是重点</td></tr><tr><td>离线 / 长久性</td><td>任何编辑器都能读，永远</td><td>得先导出；读图谱离不开它的应用</td></tr></tbody></table>
+<table><thead><tr><th></th><th>note.md</th><th>Roam Research</th></tr></thead><tbody><tr><td>笔记住在哪</td><td>磁盘上的纯 markdown 文件</td><td>云端的私有图数据库</td></tr><tr><td>价格</td><td>免费下载，源码可见</td><td><a href='https://roamresearch.com/'>价格请查看 Roam 官网</a></td></tr><tr><td>每日笔记 &amp; 大纲</td><td>有 —— <code>.note.md</code> 大纲文件</td><td>有 —— 这个模式的诞生地</td></tr><tr><td>[[Wikilinks]] &amp; 反向链接</td><td>有，全 vault 一个命名空间</td><td>有，外加块引用和查询</td></tr><tr><td>块级引用</td><td>有 —— <code>((file#b-xxxxxx))</code>，编辑后依然有效</td><td>有 —— 块引用，走得更深（嵌入、查询）</td></tr><tr><td>AI agent</td><td>一等公民：纯文件 + <code>AGENTS.md</code>，agent 会读你的批注</td><td>文件型 agent 需要集成、导出或 CLI 桥接</td></tr><tr><td>阅读并批注 AI 文档</td><td>核心工作流 —— sidecar 文件<code>.note.md</code></td><td>不是重点</td></tr><tr><td>离线 / 长久性</td><td>任何编辑器都能读，永远</td><td>得先导出；读图谱离不开它的应用</td></tr></tbody></table>
 <h2>实话实说</h2><p>Roam 在 2020 年发明了“每日笔记加反向链接”这种思考方式，该给的功劳要给：如果你重度使用块引用、嵌入和 datalog 查询，Roam 在这些方向上仍然比 note.md 走得深。这里不假装不是这样。</p>
 <p>Roam 把在线图谱保存在其服务中；note.md 把普通文件作为第一资料。当 agent 需要直接访问文件系统、你需要 Git 历史，或希望档案脱离原应用也能读取时，这个区别很重要。Roam 提供导出和桌面 CLI 桥接；note.md 可以利用两者，并不要求你离开 Roam。</p>
 <p>note.md 保留了 Roam 的好东西——大纲编辑器、每日笔记、一个大 <code>[[namespace]]</code>、即时搜索——然后在文件之上把它重建了一遍。你的 vault 今天能在任何编辑器里打开，五十年后也能。它还补上了 Roam 从未有过的东西：你的 agent 是一等公民，动笔之前先读你的批注。</p><h2>从 Roam 同步</h2><p>已发布的 <b>Roam Research Sync</b> 插件提供三条路径。完整图谱 JSON 导出会生成 <code>wikipage/</code> 大纲笔记和 <code>dailynote/yyyy/yyyy-MM-dd.note.md</code> 每日笔记，并把 <code>[[July 10th, 2026]]</code> 改写为 <code>[[2026-07-10]]</code>。每日与增量 CLI 同步通过 Roam 桌面应用和 <code>roam</code> CLI 合并后续变化，同时保留本地块。你可以继续使用 Roam，也能让选中的知识成为 agent 可搜索的本地上下文。</p><h2>怎么选</h2><ul>
 <li><b>留在 Roam</b>：如果块引用、嵌入和查询在你的工作流里是承重墙，而且托管图谱适合你的需求。</li>
 <li><b>选 note.md</b>：如果你想要 Roam 的书写手感、但文件归你所有，想让笔记兼任 agent 的记忆，想让阅读 AI 的产出成为一等公民的动作。</li>
 </ul>
-<section class="faq"><h2>FAQ</h2><h3>我能把 Roam Research 的图谱导入 note.md 吗？</h3><p>能——在 Roam 里把图谱导出为 JSON，然后把页面转成 wiki 笔记、每日笔记转成带日期的大纲文件。日期链接会被改写成规范的 [[yyyy-MM-dd]] 形式，失效链接会被报告。</p><h3>note.md 有 Roam 那样的块引用吗？</h3><p>note.md 有稳定的块 ID：每个顶层块都有一个 b-xxxxxx id，可以在任何地方以 ((file#b-xxxxxx)) 引用。它覆盖引用和跳转；Roam 式的转写嵌入（transclusion/embeds）不是目标。</p><h3>note.md 免费吗？</h3><p>免费。note.md 免费且开源（Apache-2.0）。Roam Research 每月 $15 起。</p></section>
+<section class="faq"><h2>FAQ</h2><h3>我能把 Roam Research 的图谱导入 note.md 吗？</h3><p>能——在 Roam 里把图谱导出为 JSON，然后把页面转成 wiki 笔记、每日笔记转成带日期的大纲文件。日期链接会被改写成规范的 [[yyyy-MM-dd]] 形式，失效链接会被报告。</p><h3>note.md 有 Roam 那样的块引用吗？</h3><p>note.md 有稳定的块 ID：每个顶层块都有一个 b-xxxxxx id，可以在任何地方以 ((file#b-xxxxxx)) 引用。它覆盖引用和跳转；Roam 式的转写嵌入（transclusion/embeds）不是目标。</p><h3>note.md 免费吗？</h3><p>可免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。Roam Research 的价格请查看官网。</p></section>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>拥有你的思考。</h2>
-<p>免费。开源。你自己电脑上的一个 markdown 文件夹。</p>
+<p>免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。</p>
 <a class="btn" href="/download">下载 note.md</a>
 </div></section>
 <footer><div class="wrap">

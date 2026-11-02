@@ -119,7 +119,7 @@ openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
 <p>把 Worker URL 和 API key 粘进 <b>note.md → Preferences → Share</b> 并保存。完整细节见仓库里的 <code>worker/README.md</code>。</p><h2>你会得到什么</h2><ul>
 <li><b>一个快捷键：</b><code>Cmd+Shift+L</code> 发布当前文件；URL 直接进剪贴板。再分享一次即原地更新；取消分享后返回 410。</li>
-<li><b>忠实渲染：</b>KaTeX 数学公式、Mermaid 图表转 SVG、语法高亮、跟随 <code>prefers-color-scheme</code> 的明暗模式、移动端优化。</li>
+<li><b>忠实渲染：</b>KaTeX 数学公式、Mermaid 语法图表渲染为 SVG、语法高亮、跟随 <code>prefers-color-scheme</code> 的明暗模式、移动端优化。</li>
 <li><b>图片也带上：</b>图多的文档会自动溢出到 Cloudflare R2（同样有免费档）。</li>
 <li><b>为 agent 就绪：</b>Worker 暴露一个 MCP 端点，你的 agent 可以代你发布——<code>notemd share draft.md</code> 在任何脚本里都能跑。</li>
 </ul>
@@ -127,7 +127,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>拥有你的思考。</h2>
-<p>免费。开源。你自己电脑上的一个 markdown 文件夹。</p>
+<p>免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。</p>
 <a class="btn" href="/download">下载 note.md</a>
 </div></section>
 <footer><div class="wrap">

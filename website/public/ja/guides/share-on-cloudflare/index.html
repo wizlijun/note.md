@@ -119,7 +119,7 @@ openssl rand -hex 32 | wrangler secret put SHARE_API_KEY
 wrangler deploy                          # prints your Worker URL</code></pre>
 <p>Worker の URL と API キーを <b>note.md → Preferences → Share</b> に貼って保存する。詳細はリポジトリの <code>worker/README.md</code> にある。</p><h2>手に入るもの</h2><ul>
 <li><b>キー一発：</b><code>Cmd+Shift+L</code> で現在のファイルを公開。URL はクリップボードに入る。再共有でその場で更新、共有解除で 410 を返す。</li>
-<li><b>忠実なレンダリング：</b>KaTeX の数式、Mermaid 図は SVG に、シンタックスハイライト、<code>prefers-color-scheme</code> によるライト／ダーク、モバイル最適化。</li>
+<li><b>忠実なレンダリング：</b>KaTeX の数式、Mermaid 構文の図は SVG に描画、シンタックスハイライト、<code>prefers-color-scheme</code> によるライト／ダーク、モバイル最適化。</li>
 <li><b>画像も込み：</b>画像の多い文書は、自動的に Cloudflare R2（これも無料枠）にあふれ出す。</li>
 <li><b>エージェント対応：</b>Worker は MCP エンドポイントを公開しているので、エージェントが代理で公開できる — <code>notemd share draft.md</code> はどんなスクリプトからでも動く。</li>
 </ul>
@@ -127,7 +127,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
 </div></main>
 <section class="cta"><div class="wrap">
 <h2>思考を所有せよ。</h2>
-<p>無料。オープン。あなた自身のパソコンにある markdown フォルダ。</p>
+<p>無料ダウンロード。リポジトリのソースは Apache-2.0、依存関係にはそれぞれのライセンスが適用されます。</p>
 <a class="btn" href="/download">note.md をダウンロード</a>
 </div></section>
 <footer><div class="wrap">

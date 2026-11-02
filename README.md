@@ -6,8 +6,7 @@
 
 A markdown reader, editor, and bidirectional-linking notes tool designed for
 people and AI agents to work in the same files. Desktop app for macOS 13+
-(Apple Silicon and Intel), Windows 10/11 x64, and Linux beta. The signed macOS build is
-~12 MB to download and ~19 MB installed. Your notes are a folder of plain
+(Apple Silicon and Intel), Windows 10/11 x64, and Linux beta. Your notes are a folder of plain
 `.md` files on your disk — forever.
 
 [Download](https://notemd.net/download) · [Plugins](https://plugins.notemd.net) · [Full feature list](docs/FEATURES.md)
@@ -28,15 +27,16 @@ people and AI agents to work in the same files. Desktop app for macOS 13+
 | Linux beta · Debian / Ubuntu | x86_64 (amd64) | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=x86_64) |
 | Linux beta · Debian / Ubuntu | aarch64 (arm64) | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=aarch64) |
 
-**v6.1027.2 updates Apple Silicon Mac only.** With NEXT 1.9.0, paste script environment variables as `KEY=value` in NEXT settings. The host stores them on this device and passes them directly to the selected Python script; saved values are not returned to the plugin or written to the Vault. Synchronization failures now show specific configuration or connection errors. Status changes still run the script without calling an AI model. Intel Mac and Linux remain at v6.1027.1; Windows remains at v6.811.1. Linux remains beta, aarch64 has not been verified on a native desktop, and Omarchy repository inclusion is still pending.
+Host and plugin releases are independent. Check the [changelog](CHANGELOG.md) and each plugin's minimum host version before installing; a new Apple Silicon release does not imply an Intel, Windows or Linux update. Mobile builds are not published.
 
 Windows and Linux links select the latest published version that actually has a package for that platform and architecture; it may differ from the newest overall release. Linux downloads ask for the package format when it is not specified. ARM never substitutes x86_64, and Arch packages never fall back to Debian packages. If none is available, the link opens [all releases](https://github.com/wizlijun/note.md/releases). Linux uses package-manager updates, outside the desktop updater manifest. The Omarchy repository entry has not been submitted, and Wayland/fcitx5/tray desktop acceptance is pending.
 
 ## 1. The best place to read what your agents wrote
 
 Rich view and source view, one keystroke apart. Import Typora-compatible
-themes. Mermaid, Graphviz, and KaTeX all tuned and lazily loaded.
-No bundled Chromium — the current macOS app installs at ~19 MB.
+themes. Mermaid code blocks render with Pele by default; Graphviz and KaTeX
+are also supported and loaded on demand. See [diagram compatibility](docs/pele-build.md).
+The app uses the system WebView without bundling Chromium.
 
 Highlight a claim, leave a question in the margin, fix the sentence right
 where it's wrong.
@@ -95,15 +95,18 @@ memory this way](https://notemd.net/blog/personal-ai-memory/).
 
 Write a plugin. Wire an OpenClaw cron job. Hang skills off it.
 
-Put a `?` in an annotation and an agent picks it up: it revises the document
-asynchronously, fills in the context you asked for, and hands it back for you
-to accept — or not.
+Put a `?` in an annotation and a configured Agent can answer it asynchronously
+in the sidecar. You decide whether to adopt the answer into the document.
 
 The rest is yours to discover.
 
 ---
 
-## Recently shipped · v6.904–v6.921
+## Reading and plugin workflows
+
+Install and enable the plugins you need from the [marketplace](https://plugins.notemd.net).
+Availability depends on platform and host version; installing the app alone
+does not enable every workflow below.
 
 - **More ways to read the same files.** A read-only table of contents follows
   your position in long documents. Plugin file views sit beside Rich and
@@ -117,12 +120,16 @@ The rest is yours to discover.
   and Assistant Mail stores admitted messages as raw mail plus integrity
   metadata in a configurable Vault archive. Each workflow keeps its own
   conflict, recovery and deletion boundary.
-- **A better working surface.** Standard `.canvas` files now open as an
-  Obsidian-compatible infinite canvas with lasso selection, snapping,
-  alignment, grouping and multi-selection resize. New notes and canvases open
-  immediately in the Vault and receive a date-and-title filename when saved.
-  Valid JSON is formatted into readable source lines without changing its
-  values, and `readonly: true` is enforced across every editing path.
+- **Health records on Mac.** [Health Sync](plugins-src/health-sync/README.md)
+  imports Apple Health exports and supplements them with Garmin and Oura
+  file/API data. Raw records and attachments live in a selected library
+  outside the Vault, with SQLite storage, incremental import and query CLI.
+  Signing into iCloud on Mac does not provide access to Apple Health data.
+- **Tasks and local shortcuts.** NEXT manages Task status, due dates and
+  reminder preferences. Delivery requires separately configured reminder
+  scripts/services; changing a preference alone does not schedule delivery.
+  [Quick Launch](plugins-src/quick-launch/README.md) configures apps and shell
+  commands in the macOS tray menu with a compatible host.
 - **Smarter retrieval, explicit approval.** Smart Lookup resolves conservative
   time windows before searching and hands results to enabled Agents. Memory
   adds role/scope governance and governed coauthoring where isolated Agents
@@ -139,8 +146,10 @@ The rest is yours to discover.
 
 1. **AI text is infinite; your attention isn't — your judgment is the residue.**
    What you leave in the margins is the one thing no model can generate.
-2. **Files over app.** Every note is a plain `.md`: git-friendly, greppable,
-   readable in fifty years. Indexes are derived; files are the only truth.
+2. **Files over app.** Notes are plain `.md`: git-friendly, greppable,
+   readable without note.md. Search indexes are derived. Some plugins keep
+   other durable data, such as Health Sync's external SQLite library; back
+   up those stores and their attachments too.
 3. **Agents are first-class citizens — they suggest, you confirm.**
    [The graph grows only where you confirm it](docs/product-principle-relationships-only-grow-where-confirmed.md);
    note.md never auto-connects your notes or turns an agent's guess into trusted
@@ -151,19 +160,19 @@ The rest is yours to discover.
 5. **[One vault, many agents — you orchestrate.](docs/product-principle-one-vault-many-agents-you-orchestrate.md)**
    The workers are interchangeable. You hold the pen.
 
-## Strictly OKF v0.2
+## Knowledge documents and OKF v0.2
 
 Conviction 2 needs a format, not just a file extension. note.md follows the
 [Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
-(OKF) v0.2 — Google Cloud's open spec for knowledge that humans and agents
+(OKF) v0.2 for generated knowledge documents — an open spec for knowledge that humans and agents
 exchange: plain Markdown, YAML frontmatter, diffable, portable.
 
-- **Everything it writes conforms.** Every document note.md creates opens
-  with YAML frontmatter carrying the required `type` — ⌘N notes, `.note.md`
+- **Generated knowledge documents carry a type.** New notes, `.note.md`
   sidecars, daily notes, wiki pages, Roam and e-book imports, generated
-  reports. Existing outline notes get their `type` filled in the next time
-  you save one; a plain `.md` you brought from elsewhere is left exactly as
-  it is — no app cruft injected into your files, ever.
+  reports use YAML frontmatter with a `type`. Existing outline notes get their
+  `type` filled in the next time you save one; a plain `.md` you brought from elsewhere is left exactly as
+  it is. Source mirrors, raw attachments and plugin databases have their own
+  formats and are not rewritten as knowledge documents.
 - **Provenance in the spec's vocabulary.** Source, trust and lifecycle use
   OKF's own fields — `sources`, `generated`, `verified`, `status`,
   `stale_after` — and its actor forms, `<producer>/<version>` for a tool,
@@ -174,12 +183,12 @@ exchange: plain Markdown, YAML frontmatter, diffable, portable.
   cause a document to be rejected, and keys note.md doesn't understand
   survive a round trip untouched. That's OKF's tolerant conformance, and the
   spec makes it a MUST.
-- **Checked, not claimed.** `pnpm okf:lint <dir>` audits any folder against
-  the spec's three hard constraints; every path that writes a document is
-  tested against it.
+- **Check your documents.** `pnpm okf:lint <dir>` checks the three hard
+  constraints covered by the repository's linter. See the conformance audit
+  below for scope and remaining work.
 
-Your agents get the same contract: the vault's `AGENTS.md` spells out the OKF
-requirement, so anything working in that folder writes conformant files too.
+The vault's `AGENTS.md` documents the OKF requirement for agents working there;
+external tools are expected to follow it, but the app cannot enforce their writes.
 The app now records human authorship in `generated` / `verified` where it has
 the evidence to do so, and bundle export writes `index.md`, `log.md` and
 portable links. Remaining read-side presentation and attestation work is
@@ -209,7 +218,7 @@ before v4.8.0 shipped as **M↓**.
 ## Develop & build
 
 ```bash
-corepack enable             # project pins pnpm 11.7.0
+corepack enable             # use the pnpm version pinned in package.json
 git clone https://github.com/wizlijun/moraya-core.git ../moraya-core
 pnpm install
 pnpm tauri dev            # develop
@@ -227,7 +236,13 @@ pnpm tauri build --target x86_64-apple-darwin
 Output: `src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`
 (or `src-tauri/target/release/…` for the current arch).
 
-The repository currently depends on a sibling `../moraya-core` checkout.
+The repository depends on a sibling `../moraya-core` checkout. Pulling note.md
+does not update that checkout or the installed copy of its `dist/`. Keep the
+core source and built output in sync, then run `npm run sync:core` here.
+The checkbox and selection regressions require the core revisions documented
+in the [checkbox verification](docs/superpowers/reports/2026-10-22-rich-checkbox-verification.md)
+and [selection verification](docs/superpowers/reports/2026-11-02-rich-select-all-delete.md);
+the `file:` dependency does not pin a Git revision.
 
 On Windows, install Node.js with Corepack, the Rust MSVC toolchain and WebView2, then run
 the same `pnpm install` / `pnpm tauri dev` / `pnpm tauri build` commands. The
@@ -322,4 +337,7 @@ contextual toolbars.
 
 ## License
 
-Apache-2.0 (consistent with `@moraya/core`).
+This repository uses [Apache-2.0](LICENSE). Dependencies retain their own
+licenses: the current `@moraya/core` checkout declares
+`PolyForm-Internal-Use-1.0.0`. Do not assume that every component of a built
+distribution has the same license as this repository.

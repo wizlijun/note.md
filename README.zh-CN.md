@@ -5,8 +5,8 @@
 > **读 AI 写的，留下你想的，留住只有你才写得出的字。**
 
 为人与 AI Agent 在同一批文件中协作而设计的 markdown 阅读器、编辑器、双链笔记工具。
-桌面版支持 macOS 13+（Apple Silicon 与 Intel）、Windows 10/11 x64 和 Linux beta；签名并公证的
-macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `.md` 文件夹——永远属于你。
+桌面版支持 macOS 13+（Apple Silicon 与 Intel）、Windows 10/11 x64 和 Linux beta。
+你的笔记是磁盘上一个纯 `.md` 文件夹——永远属于你。
 
 [下载](https://notemd.net/download) · [插件市场](https://plugins.notemd.net) · [完整功能清单](docs/FEATURES.zh-CN.md)
 
@@ -26,14 +26,15 @@ macOS 版下载约 12 MB，装完约 19 MB。你的笔记是磁盘上一个纯 `
 | Linux beta · Debian / Ubuntu | x86_64（amd64） | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=x86_64) |
 | Linux beta · Debian / Ubuntu | aarch64（arm64） | [`.deb`](https://notemd.net/download?os=linux&format=deb&arch=aarch64) |
 
-**v6.1027.2 仅更新 Apple Silicon Mac。** 配合 NEXT 1.9.0，可在 NEXT 设置中按 `KEY=value` 粘贴脚本环境变量。宿主在本机保存并直接传给所选 Python 脚本；已保存的值不会返回插件，也不写入 Vault。同步失败时会显示具体的配置或连接错误。状态变更仍直接执行脚本，不调用 AI 模型。Intel Mac 与 Linux 保持 v6.1027.1，Windows 保持 v6.811.1。Linux 仍为 beta，aarch64 未经桌面实机验证，Omarchy 仓库尚未收录。
+宿主与插件独立发布。安装前请查看[更新日志](CHANGELOG.zh-CN.md)及插件的最低宿主版本；Apple Silicon 发布新版不代表 Intel、Windows 或 Linux 同时更新。暂不发布移动端版本。
 
 Windows 和 Linux 链接选择实际带有所选平台与架构安装包的最新已发布版本，可能与全平台最新版本不同。Linux 下载未指定包格式时会先让你选择。ARM 不会回退到 x86_64，Arch 包不会回退到 Debian 包；如果没有对应包，则打开[全部发布版本](https://github.com/wizlijun/note.md/releases)。Linux 使用包管理器更新，不进入桌面自动更新清单。Omarchy 仓库条目尚未提交，Wayland/fcitx5/托盘仍待实机验收。
 
 ## 1. 读 agent 写的东西，这里体验最好
 
-富文本与源码双模，一个快捷键之隔。可导入 Typora 兼容主题。Mermaid、Graphviz、
-KaTeX 都专门调过，按需加载。没有捆绑 Chromium——当前 macOS 版装完约 19 MB。
+富文本与源码双模，一个快捷键之隔。可导入 Typora 兼容主题。Mermaid 代码块默认由
+Pele 渲染，也支持 Graphviz 与 KaTeX，按需加载。见[图表兼容说明](docs/pele-build.md)。
+应用使用系统 WebView，不捆绑 Chromium。
 
 高亮一句断言，在旁边留下你的疑问，就地把写错的句子改对。
 
@@ -85,14 +86,16 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 
 写个插件。配一条 OpenClaw 定时任务。挂上 skills。
 
-在批注里打一个 `?`，agent 就会接走：异步改这篇文档、补上你要的上下文，再交  
-回来等你决定采不采纳。
+在批注里打一个 `?`，已配置的 Agent 可以异步在手记中回答。是否采纳进正文，由你决定。
 
 更多等你发掘。
 
 ---
 
-## 最近发布 · v6.904–v6.921
+## 阅读与插件工作流
+
+从[插件市场](https://plugins.notemd.net)安装并启用所需插件。可用性取决于平台与宿主
+版本；安装应用本身不会自动启用下面的全部工作流。
 
 - **同一批文件，更多阅读方式。** 只读目录会跟随长文的当前阅读位置；插件文件视图与
   Rich、Source 并列，失败时安全回退编辑器。时间轴把每日记录排成日程，索引查看器把
@@ -102,10 +105,13 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
   可读、只读的 Markdown；Roam Research 同步持续收取页面与每日笔记；会议插件增量归档
   Hemory 逐字稿；助理邮箱把准入邮件的原始 `.eml` 与完整性元数据归档到可配置的 Vault
   目录。每条流程都有自己的冲突、恢复和删除边界。
-- **更完整的工作台。** 标准 `.canvas` 文件会以兼容 Obsidian 的无限画布打开，支持套索、
-  吸附、对齐、分组和多选缩放。新笔记与画布直接在 Vault 中打开，保存时按日期和标题
-  自动命名。合法 JSON 会排成可读源码行而不改变值；`readonly: true` 会被所有编辑路径
-  一致执行。
+- **Mac 上的健康档案。** [健康数据同步](plugins-src/health-sync/README.md)导入 Apple
+  Health 导出文件，并用 Garmin、Oura 的文件/API 数据补充细节。原始记录与附件保存
+  在指定的 Vault 外资料库，使用 SQLite，支持增量导入与查询 CLI。Mac 登录 iCloud
+  并不能直接读取 Apple Health 数据。
+- **任务与本机快捷入口。** NEXT 管理 Task 状态、截止日期与提醒偏好。提醒投递需要
+  另行配置脚本或服务；修改偏好本身不会安排投递。[快捷启动](plugins-src/quick-launch/README.md)
+  配合兼容宿主，可在 macOS 托盘菜单中配置应用与 shell 命令。
 - **检索更聪明，批准仍由人做。** 智能查找会先解析保守时间窗口，再检索并把结果交给
   已启用的 Agent。Memory 新增角色/场景治理与受控共写，由隔离 Agent 提交可审查改动。
   沟通转写勘误把你亲自参与的沟通证据整理成分场景的人名与 ASR 修正规则；Agent 可以
@@ -119,8 +125,9 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 
 1. **AI 的文字无限，你的注意力有限——你的判断才是残余。**  
    你留在字里行间的东西，是任何模型都生成不出来的。
-2. **文件高于应用（files over app）。** 每篇笔记都是纯 `.md`：对 git 友好、  
-   可 grep、五十年后依然可读。索引是派生数据，文件是唯一事实源。
+2. **文件高于应用（files over app）。** 笔记是纯 `.md`：对 git 友好、可 grep，
+   不依赖 note.md 阅读。搜索索引是派生数据；部分插件另有持久数据，例如健康同步
+   的外置 SQLite 资料库，需要连同附件一起备份。
 3. **agent 是一等公民——它建议，你确认。**  
    [关系只在人确认处生长](docs/product-principle-relationships-only-grow-where-confirmed.md)；  
    note.md 绝不自动串联你的笔记，也绝不把 agent 的猜测直接变成可信记忆。
@@ -130,17 +137,17 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 5. **[一个 vault，多个 agent——你是编排者。](docs/product-principle-one-vault-many-agents-you-orchestrate.md)**  
    工人可替换，握笔的是你。
 
-## 严格遵循 OKF v0.2
+## 知识文档与 OKF v0.2
 
-信念 2 需要的是一套格式，不只是一个后缀。note.md 严格遵循  
+信念 2 需要的是一套格式，不只是一个后缀。note.md 生成的知识文档采用
 [Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
-（OKF）v0.2——Google Cloud 开放的知识文档规范，人与 agent 交换知识用的公共约定：  
+（OKF）v0.2——人与 agent 交换知识用的开放规范：
 纯 Markdown、YAML frontmatter、可 diff、可移植。
 
-- **写出去的每一份都合规。** note.md 新建的每份文档都以 YAML frontmatter 开头、  
-  带上必填的 `type`——⌘N 新建、`.note.md` 手记、每日笔记、wiki 页、Roam 与电子书  
-  导入、生成的报告，一个不落。存量大纲笔记在你下次保存时补上 `type`；从别处带进来  
-  的纯 `.md` 一个字都不动——绝不往你的文件里塞应用私货。
+- **生成的知识文档带有类型。** 新笔记、`.note.md` 手记、每日笔记、wiki 页、Roam
+  与电子书导入、生成的报告使用带 `type` 的 YAML frontmatter。存量大纲笔记在下次
+  保存时补上 `type`；从别处带进来的纯 `.md` 保持原样。源文件镜像、原始附件和插件
+  数据库有各自格式，不改写为知识文档。
 - **来源与信任用规范自己的词汇。** `sources`、`generated`、`verified`、`status`、  
   `stale_after` 全部沿用 OKF 的字段名；actor 用 OKF 的三种形式——工具  
   `<producer>/<version>`、人 `human:<id>`、自动流程 `process:<id>`。于是"这句是人  
@@ -148,11 +155,11 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 - **读进来的一份都不拒绝。** 缺可选字段、不认识的 `type`、多出来的未知键、断掉的  
   链接——任何一条都不会让文档被拒绝，note.md 读不懂的键在往返后原样保留。这是  
   OKF 的宽容一致性，规范把它定为 MUST。
-- **是验过的，不是嘴上的。** `pnpm okf:lint <目录>` 按规范的三条硬约束审计任意  
-  文件夹；每一个写文档的路径都有测试拿它校验产物。
+- **可自行检查。** `pnpm okf:lint <目录>` 检查仓库校验器覆盖的三条硬约束。
+  适用范围与剩余工作见下方一致性审计。
 
-你的 agent 拿到同一份契约：vault 的 `AGENTS.md` 里写明了 OKF 要求，在这个文件夹里  
-干活的 agent 也照此写文件。应用现在会在证据充分时填写人类作者身份的 `generated` /
+vault 的 `AGENTS.md` 写明了 OKF 要求，供在此工作的 Agent 遵循；应用无法强制约束
+外部工具的写入。应用会在证据充分时填写人类作者身份的 `generated` /
 `verified`；bundle 导出也会写出 `index.md`、`log.md` 和可移植链接。剩余的读侧展示与
 attestation 工作见[一致性审计](docs/okf-v0.2-conformance-audit.md)。格式细节见
 [`docs/okf-v0.2-format-constraints.md`](docs/okf-v0.2-format-constraints.md)。
@@ -177,7 +184,7 @@ bundle identifier 为 `notemd` / `net.notemd.app`，旧的 `mdedit` 软链仍可
 ## 开发与构建
 
 ```bash
-corepack enable             # 项目固定 pnpm 11.7.0
+corepack enable             # 使用 package.json 固定的 pnpm 版本
 git clone https://github.com/wizlijun/moraya-core.git ../moraya-core
 pnpm install
 pnpm tauri dev            # 开发
@@ -195,7 +202,10 @@ pnpm tauri build --target x86_64-apple-darwin
 输出：`src-tauri/target/<arch>-apple-darwin/release/bundle/macos/note.md.app`  
 （当前架构则在 `src-tauri/target/release/…`）。
 
-本仓库当前依赖同级目录中的 `../moraya-core` checkout。
+本仓库依赖同级目录中的 `../moraya-core` checkout。拉取 note.md 不会更新这个仓库，
+也不会更新已安装的 `dist/` 副本；请保持核心源码与构建产物一致，再在这里运行
+`npm run sync:core`。复选框与选区回归依赖的核心提交见[复选框验收](docs/superpowers/reports/2026-10-22-rich-checkbox-verification.md)
+和[选区验收](docs/superpowers/reports/2026-11-02-rich-select-all-delete.md)；`file:` 依赖不会锁定 Git 提交。
 
 Windows 需安装带 Corepack 的 Node.js、Rust MSVC 工具链与 WebView2，然后执行同一组
 `pnpm install` / `pnpm tauri dev` / `pnpm tauri build`。NSIS 安装包位于
@@ -280,4 +290,5 @@ scripts/release-publish.sh <tag>
 
 ## 许可证
 
-Apache-2.0（与 `@moraya/core` 一致）。
+本仓库采用 [Apache-2.0](LICENSE)。依赖保留各自许可证：当前 `@moraya/core` checkout
+声明为 `PolyForm-Internal-Use-1.0.0`，不能据此认为构建产物的所有组件都与本仓库同一许可。

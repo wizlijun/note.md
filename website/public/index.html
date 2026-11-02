@@ -251,7 +251,7 @@
       <span class="kicker">For the age of infinite text</span>
       <h1>Read what AI writes.<br>Keep what <em>you</em> think.<span class="cursor"></span></h1>
       <p class="sub">AI writes more than you can read. note.md is where you get through it: highlight, question, fix it on the spot. It all lands in the vault your agents share — plain markdown. Agents can notice what matters; only you approve what becomes memory.</p>
-      <p class="hooks">12 MB<i>·</i>Typora-compatible themes<i>·</i>Mermaid &amp; Graphviz, tuned<i>·</i>outliner, [[wikilinks]], daily notes<i>·</i>one vault every agent shares</p>
+      <p class="hooks">Typora-compatible themes<i>·</i>Mermaid syntax &amp; Graphviz<i>·</i>outliner, [[wikilinks]], daily notes<i>·</i>one vault every agent shares</p>
       <div class="cta-row">
         <a class="btn-primary" href="/download" data-dl data-dl-win="Download for Windows" data-dl-linux="Download for Omarchy" data-dl-other="View desktop releases">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.7 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3.1 2.4 1.2-.1 1.7-.8 3.2-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.7-3.9zM16.3 5.4c.7-.8 1.1-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
@@ -262,9 +262,9 @@
           <span class="bl">Star on GitHub</span>
         </a>
       </div>
-      <p class="plat-note"><span data-plat="mac">macOS 13+ · free &amp; open · your files stay on your own Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac?</a> · <a href="/download?os=windows">Windows?</a></span><span data-plat="win" hidden>Windows 10/11 x64 · free &amp; open · Windows releases can trail macOS, and some native plugins are macOS-only · <a href="/download?os=mac">Mac?</a></span><span data-plat="linux" hidden>Linux beta · Omarchy / Arch .pkg.tar.zst · Debian / Ubuntu .deb · x86_64/aarch64 · package-manager updates; aarch64 has not been verified on a native desktop machine · Install in a terminal: <code>sudo pacman -U &lt;downloaded-file&gt;</code></span><span data-plat="other" hidden>Desktop app for macOS, Windows and Linux beta. Mobile builds are not published.</span></p>
+      <p class="plat-note"><span data-plat="mac">macOS 13+ · free download · source available · your files stay on your own Mac · <a href="/download?os=mac&amp;arch=x86_64">Intel Mac?</a> · <a href="/download?os=windows">Windows?</a></span><span data-plat="win" hidden>Windows 10/11 x64 · free download · source available · Windows releases can trail macOS, and some native plugins are macOS-only · <a href="/download?os=mac">Mac?</a></span><span data-plat="linux" hidden>Linux beta · Omarchy / Arch .pkg.tar.zst · Debian / Ubuntu .deb · x86_64/aarch64 · package-manager updates; aarch64 has not been verified on a native desktop machine · Install in a terminal: <code>sudo pacman -U &lt;downloaded-file&gt;</code></span><span data-plat="other" hidden>Desktop app for macOS, Windows and Linux beta. Mobile builds are not published.</span></p>
       <p class="fine">Omarchy / Arch: <a href="/download?os=linux&amp;format=arch&amp;arch=x86_64">x86_64 (.pkg.tar.zst)</a> · <a href="/download?os=linux&amp;format=arch&amp;arch=aarch64">aarch64 (.pkg.tar.zst)</a><br>Debian / Ubuntu: <a href="/download?os=linux&amp;format=deb&amp;arch=x86_64">x86_64 (.deb)</a> · <a href="/download?os=linux&amp;format=deb&amp;arch=aarch64">aarch64 (.deb)</a></p>
-      <p class="fine">v6.1030.1 for Apple Silicon Mac only: install Quick Launch from the plugin marketplace to launch apps and CLI commands from the menu bar. Configure your launch items from the Plugins menu. Intel Mac and Linux remain at v6.1027.1; Windows remains at v6.811.1.</p>
+      <p class="fine">Quick Launch adds a macOS menu-bar launcher for apps and CLI commands. Install it from the plugin marketplace and configure it in the Plugins menu. Platform releases and plugin requirements can differ; check <a href="https://github.com/wizlijun/note.md/releases">release notes</a> for available builds.</p>
     </div>
 
     <div class="mock" aria-hidden="true">
@@ -295,7 +295,7 @@
       <li>
         <div><span class="n">01</span><h2>AI handles the writing.<br>This handles the reading.</h2></div>
         <div>
-          <p>Preview and source, one key apart. Typora-compatible themes work as they are. Mermaid, Graphviz and math, all tuned. The whole app installs at ~19 MB, with no browser engine inside.</p>
+          <p>Preview and source, one key apart. Use Typora-compatible themes, Mermaid-syntax diagrams rendered by Pele, Graphviz and math. Tauri uses the system webview; download sizes vary by platform and release.</p>
           <p>A shaky line? Highlight it. A doubt? In the margin. Wrong? Fix it on the spot.</p>
           <p class="beat">Claude, Codex and OpenClaw all have a chat window. None of them is made for reading.</p>
         </div>
@@ -313,7 +313,7 @@
           <p>Built-in agent workflows use the agents, AI subscriptions, API accounts, or local runtimes you already have. note.md sells no tokens, adds no token markup, and charges no separate per-token fee.</p>
           <p>Model usage still follows your chosen provider's plan, limits, and billing — or your own local compute.</p>
           <p>Your folder is the workspace every AI tool shares. Cowork, Claude Code, Codex, DeepSeek, ChatGPT, OpenClaw, Hermes — same files, same house rules, all in git. <a href="/orchestrate-agents/">See how</a>.</p>
-          <p>Every file it writes follows <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2, strictly: what a document is, where it came from, who checked it — plain YAML at the top of the file. Any tool can read your vault. Not just this one.</p>
+          <p>Built-in note creation uses <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 metadata for document type, source and authorship. Existing Markdown files stay readable without conversion; plugins and imported formats may use their own schemas.</p>
           <p class="beat">Built-in agents, without a second token meter. Change AI tools whenever you want. What's yours stays yours.</p>
         </div>
       </li>
@@ -340,7 +340,7 @@
 
 <section id="whats-new">
   <div class="wrap">
-    <div class="sec-k">New in v6.904–v6.921</div>
+    <div class="sec-k">Explore the workspace</div>
     <ol class="claims">
       <li>
         <div><span class="n">01</span><h2>Read in the right view.</h2></div>
@@ -352,7 +352,7 @@
       </li>
       <li>
         <div><span class="n">03</span><h2>Think spatially.</h2></div>
-        <div><p>Open JSON Canvas files, format JSON, keep imported sources read-only, and let untitled notes and canvases receive stable names when you save.</p></div>
+        <div><p>Open JSON Canvas files, edit CSV, and use Base views over Markdown properties. Add the NEXT plugin for personal tasks and reminders. Imported source protection and plugin availability depend on the workflow and platform.</p></div>
       </li>
       <li>
         <div><span class="n">04</span><h2>Agents propose. You approve.</h2></div>
@@ -377,7 +377,7 @@
       <div class="pair-plus">&amp;</div>
       <div class="file-card fc-note">
         <div class="fn">● quarterly-analysis.note.md</div>
-        <span class="ft">Your highlights, doubts and questions. This part, no model can write.</span>
+        <span class="ft">Your highlights, doubts and questions. Smart Lookup answers stay in separate fenced blocks.</span>
       </div>
     </div>
     <p class="why">Ten thousand words? Anyone can generate those. Your take, nobody can. <b>And it's sitting on your own disk.</b></p>
@@ -391,7 +391,7 @@
 <section class="dl" id="download">
   <div class="wrap">
     <h2>Own your thinking.</h2>
-    <p class="lead">Free. Open. A folder on your own computer. That's it.</p>
+    <p class="lead">Free to download. Repository source: Apache-2.0; dependencies have their own licenses. Your files stay on your computer.</p>
     <div class="cta-row">
       <a class="btn-primary" href="/download" data-dl data-dl-win="Download for Windows" data-dl-linux="Download for Omarchy" data-dl-other="View desktop releases">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.7 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3.1 2.4 1.2-.1 1.7-.8 3.2-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.7-3.9zM16.3 5.4c.7-.8 1.1-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>

@@ -2,35 +2,39 @@
 
 [English](FEATURES.md) · [简体中文](FEATURES.zh-CN.md) · [← README](../README.md)
 
-Everything note.md does today, in detail. The README keeps the pitch; this file
-keeps the receipts.
+A guide to the features in the current source tree. Optional plugins must be
+installed separately; their manifests and marketplace entries specify compatible
+app versions and platforms. Source changes do not imply a published release.
 
 ## The notes layer
 
-The agent-ready notes system, rolling out incrementally:
+Notes and retrieval for people and agents:
 
 - [x] **Sidecar notes** — highlights and comments made while reading
-      `xxx.md` are saved to a companion `xxx.note.md`. The source stays
-      pristine and regenerable; your judgment becomes permanent, searchable
-      data. A `.note.md` with no sibling source file is a standalone note.
-- [x] **Outline editor** — every `.note.md` opens in a Roam-style outline
-      view (never the plain markdown editor); outlines persist as nested
-      markdown lists, so the files stay readable everywhere.
+      `xxx.md` are mirrored into a companion `xxx.note.md`. Inline annotation
+      markup remains in the source; the sidecar keeps the outline, questions,
+      answers, and your own notes as searchable data. A `.note.md` with no sibling
+      source file is a standalone note.
+- [x] **Outline editor** — `.note.md` opens in a Roam-style outline
+      view, with Source mode available for the underlying Markdown. Outlines
+      persist as nested markdown lists, so the files stay readable everywhere.
 - [x] **Daily notes** — a dedicated Daily Notes window with an infinite
       lazy-loading feed of `dailynote/yyyy/yyyy-MM-dd.note.md`, one keystroke
       or tray click away; `[[yyyy-MM-dd]]` is the canonical date link and
       `[[page]]` links open inline.
 - [x] **Roam Research Sync** — keep using Roam while gathering pages and daily
-      notes into the vault for agent search and computation. The built-in
+      notes into the vault for agent search and computation. The optional
       plugin supports ongoing CLI synchronization plus a whole-graph JSON
       import, with date-page rewriting to `[[yyyy-MM-dd]]` and a broken-link
       report.
-- [x] **Annotation Q&A loop** — an annotation containing `?` becomes a question
+- [x] **Annotation Q&A loop** — an annotation containing `?` or `？` becomes a question
       for your agents; the `.note.md` carries the state machine, an external
       agent sweeps it, and answers come back as `type:: answer` nodes you can
-      accept into the document. Agents never write into the source `.md`.
+      accept into the document. In this workflow, agents write answers to the
+      sidecar; adopting an answer is a user action that changes the source document.
 - [x] **Wiki pages** — standalone outline notes under a configurable
-      `wikipage/` folder, one `[[title]]` namespace across the whole vault.
+      `wikipage/` folder. Outline links resolve through the vault-wide page index;
+      unresolved titles create a Wiki page there.
       Search knows about them: the page a `[[…]]` would create is pinned to
       the top when you type its name exactly.
 - [x] **Global index** — full-vault instant search, ranked by provenance,
@@ -65,7 +69,8 @@ The agent-ready notes system, rolling out incrementally:
 
 ## Reading & annotating
 
-- **Rich reading view** — KaTeX math, Mermaid diagrams, Graphviz (` ```dot ` /
+- **Rich reading view** — KaTeX math, Mermaid code blocks rendered with Pele
+  by default ([compatibility notes](pele-build.md)), Graphviz (` ```dot ` /
   ` ```graphviz `), highlight.js code blocks; HTML files open in a sandboxed
   iframe preview; ~36 code file types render as syntax-highlighted blocks;
   images open as preview tabs. Renderers load on demand, so a document without
@@ -106,8 +111,9 @@ The agent-ready notes system, rolling out incrementally:
 - **Live-preview markers** — typing `**`, `` ` ``, `==`, … stays literal
   until you ask for a mark; existing marks render but reveal their source on
   the caret's line.
-- **Wikilinks** — `[[note]]` renders as a link; click to open (or create)
-  `note.md` beside the current file; `[[note|alias]]` shows the alias.
+- **Wikilinks** — in ordinary Markdown, `[[note]]` opens or creates `note.md`
+  beside the current file; `[[note|alias]]` shows the alias. Outline notes use
+  the vault-wide Wiki page lookup described above.
 - **Task checkboxes**, **bare-URL autolink**, **collapsible + inline-editable
   YAML metadata card**, **line-break fidelity** across export / share. The
   card recognises wikilinks, Markdown links, bare URLs, and scalar lists while
@@ -120,7 +126,7 @@ The agent-ready notes system, rolling out incrementally:
 - **CSV spreadsheet editor** — `.csv` opens as a live grid with formulas
   (`=SUM(A1:A3)`, cross-cell refs), row/column ops, dark-mode themes; a
   `/spreadsheet` slash command embeds a grid inside markdown.
-- **Find & Replace** (`Cmd+F` / `Cmd+H`) with regex, whole-word, and
+- **Find & Replace** (`Cmd+F` / `Cmd+Shift+F`) with regex, whole-word, and
   case-sensitive options, in both modes.
 - **Readable JSON source** — entering Source for a valid `.json` expands
   compact content with two-space indentation while preserving key order,
@@ -140,6 +146,8 @@ The agent-ready notes system, rolling out incrementally:
 - **Folder View** — a live directory tree sidebar with recursive regex
   filtering and *Reveal in Finder*; global sort, per-folder pinning, and view
   modes (all / files / with-notes / markdown-by-H1 / notes).
+- **Base tables** — open Obsidian-compatible `.base` files in the built-in
+  table view, with filters, sorting, grouping, and column controls.
 - **Switchable side panels** — a registry of left/right sidebars with a
   title-bar switcher.
 - **JSON Canvas workspace** — create and edit standard, Obsidian-compatible
@@ -151,8 +159,7 @@ The agent-ready notes system, rolling out incrementally:
   New canvases start as `Vault/canvas/untitled.canvas` and receive a date plus
   title (or time) name on manual save.
 - **External change detection** — clean tabs reload silently; dirty tabs get
-  a conflict banner (reload / overwrite / recreate on delete). Never silent
-  data loss.
+  a conflict banner (reload / overwrite / recreate on delete).
 - **Sync to Vault** — copy any file into your git-synced vault with
   date-prefixed naming, source ↔ copy mapping, and conflict-aware refresh.
   Annotating a file outside the vault mirrors it in, so your marks always have
@@ -211,75 +218,90 @@ The agent-ready notes system, rolling out incrementally:
 
 ## Official plugins & file views
 
-- **Memory 2.5.2** *(note.md 6.906.1+)* — the controlled personal Memory and
+- **Memory** — the controlled personal Memory and
   governed co-writing workspace described above.
-- **Meetings 1.0.3** *(macOS; note.md 6.906.2+)* — safely migrate Hemory
+- **Meetings** *(macOS)* — safely migrate Hemory
   conversations, or incrementally archive new and changed speaker-attributed,
   time-coded transcripts with `notemd meetings-sync`; dry runs, checkpoints,
   journals, and conflict reports protect local edits, and audio is never
   copied.
-- **Timeline 1.0.4** *(note.md 6.909.4+)* — render Markdown with
+- **Timeline** — render Markdown with
   `type: timeline` as a vertical daily schedule with overlapping events,
   configurable categories, date navigation, and a configurable opening time.
-- **Index Viewer 1.0.2** *(note.md 6.910.1+)* — render `*.index.md` as a cover
+  Edit activity descriptions, times, importance, and anomaly tags while
+  preserving source links.
+- **Index Viewer** — render `*.index.md` as a cover
   gallery, multi-column table, grouped list, or swimlane board. Heading
   hierarchy supplies categories; one-line list attributes, tags, wikilinks,
   and relative file links remain portable Markdown.
-- **Ebook Import 1.5.0** *(macOS; note.md 6.910.1+)* — import books with
+- **Ebook Import** *(macOS)* — import books with
   metadata and covers from Open Library plus Apple Books fallback, maintain
   live gallery indexes, AI reading notes, and topic organization, and write
   new book bodies as `book.typeset.md` while retaining compatibility with
   existing `book.md`.
-- **Assistant Mail 0.1.6** *(macOS; note.md 6.912.1+)* — pull approved mail
+- **Assistant Mail** *(macOS)* — pull approved mail
   from a dedicated Worker into a portable Vault archive of paired `.eml` and
   integrity JSON files. The trusted UI provides sanitized, sandboxed HTML
   previews; Agent CLI commands disclose only bounded metadata, and deletion
   requires a reviewed plan.
-- **Apple Notes Sync 1.0.4** *(macOS; note.md 6.915.1+)* — mirror Apple Notes
+- **Apple Notes Sync** *(macOS)* — mirror Apple Notes
   accounts and nested folders into readable, source-controlled Markdown under
   `applenotes/`, with attachments, manual or five-minute automatic sync,
   journal recovery, protected deletions, and stable identities kept centrally
   in `applenotes/id-sync.json`.
-- **Knowledge Browser 3.2.0** *(note.md 6.916.1+)* — open supported extracted
+- **Knowledge Browser** — open supported extracted
   knowledge JSON directly in the editor as an interactive graph, relation
   groups, timeline, reading view, or diagnostics. It preserves multi-party
   relationship roles and source evidence without changing the dataset.
-- **Conversation Transcript Corrections 0.1.9** *(macOS; note.md 6.916.1+)* —
+- **Conversation Transcript Corrections** *(macOS)* —
   review formal names, aliases, and ASR mistakes from conversations in which
   the user participated, merge entries across public contexts, and apply
   approved replacement or preservation rules per context. Agents may query or
   propose drafts, but cannot approve them; an optional
   `build-conversation-dictionary` Skill prepares review datasets.
-- **Typeset Reader 0.1.1** *(macOS; note.md 6.921.2+)* — the progressive Typst
-  view described above, integrated with Ebook Import 1.5.0.
-- The marketplace also includes **Roam Research Sync**, **Base** (Obsidian
-  `.base` tables), **Weekly Review**, **Decision**, Claude / Codex / DeepSeek
+- **Typeset Reader** *(macOS)* — the progressive Typst
+  view described above, integrated with Ebook Import.
+- **Next** — organize ideas and tasks with explicit next actions, waiting,
+  parking, completion, and reopening. Task content, lifecycle records, and
+  reminder preferences remain distinct; optional local script hooks can pass
+  user-triggered actions to external workflows.
+- **[Health Sync](../plugins-src/health-sync/README.md)** *(macOS)* — import
+  Apple Health exports and supplement them with Garmin and Oura files or APIs.
+  Raw records, dates, accounts, categories, and coverage live in a user-selected
+  SQLite library outside the Vault, with attachments preserved separately.
+  The UI and CLI support preview, incremental import, browsing, and queries;
+  this plugin does not generate health-analysis reports.
+- The marketplace also includes **Roam Research Sync**, **Weekly Review**,
+  **Decision**, Claude / Codex / DeepSeek
   Agents, md→PDF, and more.
 
 ## Share & export
 
 - **Share** — `Cmd+Shift+L` publishes the current file as a
-  self-contained page on your own Cloudflare Worker: KaTeX, Mermaid SVG,
+  self-contained page on your own Cloudflare Worker: KaTeX, Pele-rendered diagrams,
   syntax highlighting, light + dark, mobile-ready. Update in place, unshare
   anytime; image-heavy docs spill to R2. See `worker/README.md` for
   deployment.
-- **PDF export** (`Cmd+Shift+E`) — clean A4 PDF with math, diagrams, and
-  highlighted code, rendered by an offscreen WKWebView (no headless
+- **PDF export** *(optional md→PDF plugin, macOS)* — clean A4 PDF with math,
+  diagrams and highlighted code, rendered by an offscreen WKWebView (no headless
   Chromium).
 - **Image upload** — `Cmd+Shift+L` on an image tab uploads to R2 and copies
   the public URL.
 
 ## The app
 
-- **Four-language UI** — English, Deutsch, 简体中文, 日本語 — covering dialogs,
-  native desktop menus, the tray, and plugin strings; switch live in
-  Preferences, no restart.
+- **Four-language UI** — English, Deutsch, 简体中文, 日本語 — for the main app,
+  native desktop menus, and tray; switch live in Preferences, no restart.
+  Plugin translation coverage varies by plugin.
 - **Typora-compatible themes** — import any Typora theme `.zip`; pick
   separate light / dark themes that follow macOS Appearance. Ships with
   **default** (GitHub-style) and **effie** (mint-paper, LXGW WenKai).
 - **Menu-bar tray**, Typora-style notification bar, full-UI zoom
   (`Cmd+=` / `Cmd+-` / `Cmd+0`).
-- **macOS 13+ and Windows 10/11 x64** desktop builds. macOS ships signed and
-  notarized Apple Silicon and Intel `.dmg`s with per-architecture auto-update;
-  Windows uses its own installer and can trail the macOS release while its
-  package is produced.
+- **macOS 13+, Windows 10/11 x64, and Linux beta** desktop builds. macOS
+  ships signed and notarized Apple Silicon and Intel `.dmg`s with
+  per-architecture auto-update. Linux provides `.pkg.tar.zst` for Arch/Omarchy
+  and `.deb` for Debian/Ubuntu on x86_64 and aarch64, updated through the
+  package manager. Platform releases may differ; Linux native desktop
+  acceptance remains incomplete, including aarch64. See
+  [Linux installation and limitations](linux-omarchy.md).

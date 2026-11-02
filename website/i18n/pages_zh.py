@@ -15,7 +15,7 @@ PAGES = [
   "head": ["", "note.md", "Roam Research"],
   "rows": [
    ["笔记住在哪", "磁盘上的纯 markdown 文件", "云端的私有图数据库"],
-   ["价格", "免费，开源", "每月 $15 起"],
+   ["价格", "免费下载，源码可见", "<a href='https://roamresearch.com/'>价格请查看 Roam 官网</a>"],
    ["每日笔记 &amp; 大纲", "有 —— <code>.note.md</code> 大纲文件", "有 —— 这个模式的诞生地"],
    ["[[Wikilinks]] &amp; 反向链接", "有，全 vault 一个命名空间", "有，外加块引用和查询"],
    ["块级引用", "有 —— <code>((file#b-xxxxxx))</code>，编辑后依然有效", "有 —— 块引用，走得更深（嵌入、查询）"],
@@ -39,7 +39,7 @@ PAGES = [
   ("note.md 有 Roam 那样的块引用吗？",
    "note.md 有稳定的块 ID：每个顶层块都有一个 b-xxxxxx id，可以在任何地方以 ((file#b-xxxxxx)) 引用。它覆盖引用和跳转；Roam 式的转写嵌入（transclusion/embeds）不是目标。"),
   ("note.md 免费吗？",
-   "免费。note.md 免费且开源（Apache-2.0）。Roam Research 每月 $15 起。"),
+   "可免费下载。仓库源码采用 Apache-2.0；依赖项遵循各自许可证。Roam Research 的价格请查看官网。"),
  ],
 },
 {
@@ -53,13 +53,13 @@ PAGES = [
   "head": ["", "note.md", "Obsidian"],
   "rows": [
    ["存储", "纯 markdown 文件，本地", "纯 markdown 文件，本地"],
-   ["价格", "免费，开源", "免费（闭源）；Sync/Publish 付费"],
+   ["价格", "免费下载，源码可见", "免费（闭源）；Sync/Publish 付费"],
    ["阅读 AI 文档", "核心工作流：干净的阅读视图，批注保留", "通用编辑器；折腾一番也能做到"],
    ["批注", "sidecar 文件<code>.note.md</code> —— 原文保持干净", "直接改原文，或装社区插件"],
    ["agent 支持", "内置：<code>AGENTS.md</code> 约定、块级引用、批注即 agent 输入", "靠插件和自己动手（一个流行玩法）"],
    ["大纲编辑", "原生 <code>.note.md</code> 大纲视图", "靠插件；Obsidian 以页面为中心"],
    ["插件生态", "小而克制，进程外，按能力授权", "庞大 —— 数千个社区插件"],
-   ["移动端", "还没有（桌面优先：macOS + Windows）", "优秀的 iOS/Android 应用"],
+   ["移动端", "未发布（桌面支持 macOS、Windows 与 Linux beta）", "优秀的 iOS/Android 应用"],
    ["互操作", "vault 可在 Obsidian 打开", "vault 可在 note.md 打开"],
   ]},
  "sections": [
@@ -93,11 +93,11 @@ PAGES = [
   "head": ["", "note.md", "Notion"],
   "rows": [
    ["模式", "归你所有的本地 markdown 文件", "云工作区，块存在他们的数据库里"],
-   ["价格", "免费，开源", "有免费档；付费方案按席位；AI 按方案包含或计量"],
+   ["价格", "免费下载，源码可见", "有免费档；付费方案按席位；AI 按方案包含或计量"],
    ["离线", "永远可用 —— 这是你的磁盘", "桌面和移动应用可离线使用选定页面"],
    ["AI", "任何 agent，经由纯文件 —— 你说了算", "Notion AI、多种受支持模型与 Notion MCP"],
    ["团队协作", "基于 git 的共享；单人优先", "优秀 —— 实时多人、评论"],
-   ["数据库 &amp; 项目工具", "没有 —— 它是笔记工具（自带 CSV 表格）", "有 —— 表格、看板、日历、表单"],
+   ["数据库 &amp; 项目工具", "笔记 Base 视图、CSV 编辑与 NEXT 任务插件", "有 —— 表格、看板、日历、表单"],
    ["数据长久性", "五十年后任何编辑器都能读", "可导出 markdown/CSV；结构会掉"],
    ["锁定", "没有 —— 文件夹就是产品", "工作区才是产品"],
   ]},
@@ -114,7 +114,7 @@ PAGES = [
  ],
  "faq": [
   ("note.md 能替代团队用的 Notion 吗？",
-   "基本不能。note.md 单人优先——建立在纯文件上的个人阅读与笔记工具，共享靠 git。Notion 的数据库和实时协作不是它的目标。"),
+   "基本不能。note.md 单人优先——建立在纯文件上的个人阅读与笔记工具，共享靠 git。Base 视图与 NEXT 支持个人结构化笔记和任务，但不提供 Notion 式团队权限或实时多人编辑。"),
   ("我能把 Notion 页面导出到 note.md 吗？",
    "能。Notion 支持导出 markdown；把文件丢进你的 vault，它们就成了可以阅读、批注、互链的普通笔记。"),
   ("为什么本地优先对 AI 重要？",
@@ -159,19 +159,19 @@ PAGES = [
   ("为什么这对组合成立", """<p>Cowork 的交付物绝大多数是 markdown：调研报告、计划、规格、草稿。默认情况下它们四处散落——这里一个下载，那里一个会话附件。把 Cowork 指向你的 note.md vault，它的产出就落在你阅读循环所在的地方：每份报告有个家，每次通读留下一份写满判断的sidecar 文件，而你的下一个 Cowork 会话可以被要求先读这些sidecar 文件。</p>"""),
   ("配置", """<ol>
 <li>在 Claude 桌面应用里，把 vault 文件夹连进 Cowork 会话（“Add folder”）。</li>
-<li>在 vault 根目录加一份 <code>AGENTS.md</code>（约定摘要见 <a href="/llms-full.txt">llms-full.txt</a>）——Claude 会自动读取并遵守家规。</li>
+<li>在 vault 根目录加一份 <code>AGENTS.md</code>（约定摘要见 <a href="/llms-full.txt">llms-full.txt</a>）——明确要求 Claude 在开始工作前读取，再按这些规则检查结果。</li>
 <li>让 Claude 把交付物存进 vault，例如 <code>research/2026-07-11-competitor-scan.md</code>。</li>
 <li>在 note.md 里读；你的高亮和笔记存进sidecar <code>.note.md</code> 文件。</li>
 <li>下个会话，一句话：“读你上周写的报告对应的 .note.md sidecar 文件，回应我的页边批注。”循环闭合。</li>
 </ol>"""),
   ("小技巧", """<ul>
 <li>让 Claude 使用 <code>[[wikilinks]]</code> 和 <code>[[yyyy-MM-dd]]</code> 日期格式，它的文档就会汇入你 vault 的链接图谱，而不是漂在外面。</li>
-<li>把 vault 放进 git——Cowork 的写入随时可 diff，它的文件版本管理和你的也不会打架。</li>
+<li>把 vault 放进 git——提交审阅后的变化，使其可比较、可恢复；协调同时写入，并处理冲突。</li>
 </ul>"""),
  ],
  "faq": [
   ("Claude 会遵守 vault 的约定吗？",
-   "会，只要你把约定写进文件夹根目录的 AGENTS.md——读取 agent 指令文件是 Claude Code 和 Cowork 的标准做法。"),
+   "把约定写入 AGENTS.md，并明确要求当前会话在编辑前读取。不同客户端加载指令的方式不同；仍需检查改动，不能认为放了文件就一定遵守。"),
   ("Claude 能读我的批注吗？",
    "这正是重点。sidecar .note.md 文件就是纯 markdown；让任何会话去读，它就能看到你到底高亮了什么、质疑了什么。"),
  ],
@@ -208,7 +208,7 @@ PAGES = [
  "h1": "note.md + Hermes",
  "lead": "Hermes 与你一起成长——一个记得住的开放 agent。note.md 是人存放判断的地方。同一个文件夹，两份工作。",
  "sections": [
-  ("为什么这对组合成立", """<p>Hermes（Nous Research 出品）围绕持久的、基于文件的记忆构建，并遵循 <code>AGENTS.md</code> 约定——与 OpenClaw 同属开放 agent 一脉，更强调自托管的主权。这套世界观正是 note.md 的世界观：没有隐藏状态，文件即事实，一切可检视。</p>
+  ("为什么这对组合成立", """<p>Hermes（Nous Research 出品）围绕持久的、基于文件的记忆构建，并遵循 <code>AGENTS.md</code> 约定——与 OpenClaw 同属开放 agent 一脉，更强调自托管的主权。note.md 同样把笔记和批注保存在普通文件中。应用设置、索引和部分插件数据另行保存；请按对应功能文档备份。</p>
 <p>让 Hermes 跑在 note.md 的 vault 上，它积累的记忆就不再是一团不透明的 agent 产物，而成了你知识库的一部分：能在大纲视图里读，能用 <code>[[wikilinks]]</code> 互链，而且——关键在这——能批注。你可以名副其实地在你 agent 的记忆上写页边笔记。</p>"""),
   ("配置", """<ol>
 <li>老规矩，vault 根目录放 <code>AGENTS.md</code>——约定取自 <a href="/llms-full.txt">llms-full.txt</a>，再加你的家规。</li>
@@ -243,7 +243,7 @@ wrangler deploy                          # prints your Worker URL</code></pre>
 <p>把 Worker URL 和 API key 粘进 <b>note.md → Preferences → Share</b> 并保存。完整细节见仓库里的 <code>worker/README.md</code>。</p>"""),
   ("你会得到什么", """<ul>
 <li><b>一个快捷键：</b><code>Cmd+Shift+L</code> 发布当前文件；URL 直接进剪贴板。再分享一次即原地更新；取消分享后返回 410。</li>
-<li><b>忠实渲染：</b>KaTeX 数学公式、Mermaid 图表转 SVG、语法高亮、跟随 <code>prefers-color-scheme</code> 的明暗模式、移动端优化。</li>
+<li><b>忠实渲染：</b>KaTeX 数学公式、Mermaid 语法图表渲染为 SVG、语法高亮、跟随 <code>prefers-color-scheme</code> 的明暗模式、移动端优化。</li>
 <li><b>图片也带上：</b>图多的文档会自动溢出到 Cloudflare R2（同样有免费档）。</li>
 <li><b>为 agent 就绪：</b>Worker 暴露一个 MCP 端点，你的 agent 可以代你发布——<code>notemd share draft.md</code> 在任何脚本里都能跑。</li>
 </ul>"""),
@@ -306,7 +306,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
  ],
  "faq": [
   ("ChatGPT 会自动读 AGENTS.md 吗？",
-   "不像 CLI agent（Codex、Claude Code）那样自动读。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并指向 AGENTS.md。sidecar 由人拥有，Smart Lookup fenced answer 回写除外；新文件遵守你的命名规则。"),
+   "不要假定每个客户端都会自动发现。把 vault 约定贴进 ChatGPT 的项目或自定义指令，并指向 AGENTS.md。sidecar 由人拥有，Smart Lookup fenced answer 回写除外；新文件遵守你的命名规则。"),
   ("ChatGPT 生成的图片能住进我的 vault 吗？",
    "能。把它们和文档并排放进 {docname}_files/ 文件夹、用相对链接——和 note.md 处理粘贴截图是同一套约定。它们会在阅读视图里渲染，并随 vault 一起进 git。"),
   ("我必须只选一个 agent 吗？",
@@ -344,7 +344,7 @@ gh repo create my-vault --private --source=. --push</code></pre>
 <li><b>反锁定，再深一层。</b>file-over-app 把你从应用里解放出来；这一条把你从 agent 和模型里解放出来。今天最强的模型下个月就被换掉——你的知识不该跟着它走。</li>
 <li><b>不靠平台的协作。</b>agent 在磁盘上传递 <code>.md</code>——没有共享内存，没有私有 API，没有插件商店。一个 agent 的产出就是下一个的输入。</li>
 <li><b>你始终在环内,守在检查点。</b>它不是一头跑到尾的黑箱;而是一条有人守在质检口的多工位流水线。agent 写、审、配图——拍板发布的是你。</li>
-<li><b>仍然只是文件。</b>没有编排数据库，没有隐藏状态。规则在 <code>AGENTS.md</code>，产出在 <code>.md</code>，判断在 <code>.note.md</code>——Obsidian、CLI、任何 agent 都能读。换掉 note.md，这个 vault 照样是所有人的公共工作区。</li>
+<li><b>仍然只是文件。</b>共享笔记仍是文件；应用设置、索引和部分插件数据另行保存。规则在 <code>AGENTS.md</code>，产出在 <code>.md</code>，判断在 <code>.note.md</code>——Obsidian、CLI、任何 agent 都能读。换掉 note.md，这个 vault 照样是所有人的公共工作区。</li>
 </ul>
 <p>把 vault 放进 <a href="/guides/vault-on-github/">git</a>，每一次 agent 写入都可 diff、可归属、可回滚——agent 的糟糕一天，是一次 <code>git revert</code>，而不是一场事故。</p>"""),
   ("动手搭起来", """<ol>
