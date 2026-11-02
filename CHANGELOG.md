@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1102.1 — 2026-11-02
+
 - **Fix deleting selected content in Rich mode.** Deletion follows the actual editor selection, preserving unselected metadata and trailing text instead of treating selections over 90% as the entire document.
 
 ## v6.1030.1 — 2026-10-30
