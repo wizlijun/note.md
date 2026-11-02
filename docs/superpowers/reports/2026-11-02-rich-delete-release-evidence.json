@@ -1,0 +1,281 @@
+{
+  "version": "6.1102.1",
+  "scope": "macOS Apple Silicon only",
+  "hostTag": "v6.1102.1",
+  "hostCommit": "db6f23f4a49850f71d7dc2ee77c4b112df60f956",
+  "coreCommit": "061143066af7c220e2799e6c63b6db7f66e4cb31",
+  "websiteCommit": "07171a2e2d460c2d56be5f0c2a19b47ec6454222",
+  "nativeUi": {
+    "ok": true,
+    "at": "2026-11-02T11:51:47.896355+00:00",
+    "runtime": "macOS native WKWebView, actual signed release app",
+    "hostTag": "v6.1102.1",
+    "hostCommit": "db6f23f4a49850f71d7dc2ee77c4b112df60f956",
+    "coreCommit": "061143066af7c220e2799e6c63b6db7f66e4cb31",
+    "launchPath": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app",
+    "processPathVerified": true,
+    "candidateProof": "../candidate-verification.json",
+    "beforeFix": "before-fix.json",
+    "checkpoints": [
+      {
+        "step": "candidate Cmd+A Backspace, Cmd+S, Source inspection",
+        "ok": true,
+        "bytes": 52,
+        "sha256": "62acd0fade0bae1ba88cb35b5c8fc2a0430780fd3f1dc6b1f88a3056315206d6",
+        "exactOriginalMetadata": true
+      },
+      {
+        "step": "Rich Cmd+Z after Source/Rich switch, Cmd+S",
+        "exactOriginalFile": true
+      },
+      {
+        "step": "metadata Cmd+Shift+Z, save, close and reopen in Rich",
+        "metadataOnlyPersisted": true
+      },
+      {
+        "step": "plain Cmd+A Delete Cmd+S",
+        "emptyFile": true
+      },
+      {
+        "step": "plain Cmd+Z Cmd+S",
+        "originalFileRestored": true
+      },
+      {
+        "step": "partial select first 150 of 158 chars, Backspace Cmd+S",
+        "unselectedSuffixPreserved": "保留尾部KEEP\\n"
+      },
+      {
+        "step": "partial Cmd+Z Cmd+S",
+        "exactOriginalFileRestored": true
+      }
+    ],
+    "officialVaultModified": false,
+    "installedAppReplaced": false,
+    "evidence": "cua native UI keyboard/AX/screenshots plus exact saved file bytes",
+    "limitations": "single Apple Silicon macOS device; no Intel/Linux/Windows UI run"
+  },
+  "candidate": {
+    "schema": 1,
+    "checked_at": "2026-11-02T11:46:21.331304+00:00",
+    "ok": true,
+    "source": {
+      "host_tag": "v6.1102.1",
+      "host_commit": "db6f23f4a49850f71d7dc2ee77c4b112df60f956",
+      "core_commit": "061143066af7c220e2799e6c63b6db7f66e4cb31",
+      "regression_sha256": "1d5b5180d7532faf3f093a6afae0179364dc31a59136e5f8bd644d14fff8490c",
+      "CHANGELOG.md": "## v6.1102.1 — 2026-11-02\n\n- **Fix deleting selected content in Rich mode.** Deletion follows the actual editor selection, preserving unselected metadata and trailing text instead of treating selections over 90% as the entire document.",
+      "CHANGELOG.zh-CN.md": "## v6.1102.1 — 2026-11-02\n\n- **修复 Rich 模式全选正文后无法删除。** 删除严格遵循实际选区，保留未选中的元数据与尾部文字，不再将超过九成的文本选区误当作整篇文档。"
+    },
+    "core_dist": {
+      "installed_path": "/Users/bruce/git/mdeditor-rich-release-20261102/node_modules/.pnpm/@moraya+core@file+..+moraya-core_highlight.js@11.11.1_katex@0.16.47_markdown-it-deflist_eb0b82783136ccea7325201865849d6c/node_modules/@moraya/core/dist",
+      "count": 64,
+      "sha256": {
+        "dist/adapters/browser-media-resolver.d.ts": "63eb0f9ac6aff43e1b9e7c903b056d1a326bef69bc5afa8ad6e78c9c05638cde",
+        "dist/adapters/browser-media-resolver.js": "3dbb6eb166bf5f7ff693f87cc3f26d3753455ef17f7817761023e487ebcea3b9",
+        "dist/adapters/browser-media-resolver.js.map": "cca2b7632293c2e2bbbb3648d8af862f562b9d3bf8c5b915b4c245f8a7b767e1",
+        "dist/commands.d.ts": "531b1ff25b0b2489afcc5aabf4345df998d59ca329118f36c3ec10d0686688fa",
+        "dist/commands.js": "88758a3ff1cb63e5cf070fd4a9f433d9018096a3e046e8942b8ed40e41359a3d",
+        "dist/commands.js.map": "41a7d7aaa8f3f4be1290973e1f0985fb87b72f20204f15fccd2a8c2097b84b62",
+        "dist/doc-cache.d.ts": "a000e911d2d8388fae7f1147e72c8d999ea8811b1049efb3439ae9297bbec49f",
+        "dist/doc-cache.js": "9f54ea4135e064939ff59ec18ce82f5136d948d449f615fa5a7031af5643982a",
+        "dist/doc-cache.js.map": "df568ceb6369622c3275169e7e512e342e5ed84d8a33cc0a2458dd8b1a7dde84",
+        "dist/index.d.ts": "f6bc4fe3390ab702d74f77186f64dfc1a4ef87c6f9148d0dec42c34b2ebe5e92",
+        "dist/index.js": "464b3eafa9db040336e53b43946368ce2edfbd9a7931e5a8b9e5eadffa961b1e",
+        "dist/index.js.map": "f50e5605704a0737a811e09de8d7f2a407e8041e827c37818db7c14261a04d23",
+        "dist/markdown-BLkhu8pG.d.ts": "9e4480266ee0a38d8f8fe2745f5f81a311b14506151cfa359806a69094832a75",
+        "dist/markdown.d.ts": "c1be1bc442c5d644cf29d55a8145ddb219006038e9008f7d21bf4aa22dfbeed3",
+        "dist/markdown.js": "59113f9665fbb8b3e48c4d3e0ed7258432d21de9a3d331fa74e6994308e62e22",
+        "dist/markdown.js.map": "3007d54bf9af81601727b5d54a6320ccb1555124578127476eb0ef17e440fbeb",
+        "dist/plugins/code-block-view.d.ts": "5fbd6ca85a89e78ebe25b6b3d940d6e9ebb8c112be6bf3fe0fbcc7b67a234fa1",
+        "dist/plugins/code-block-view.js": "266f9ae3d1695f566700e4cabfc3b20643a3153dce6a324fc80d6d4b7477bcf6",
+        "dist/plugins/code-block-view.js.map": "d3597c940c9b4385ce3232bb07704f6d6b3d98466793b453db399157623f0745",
+        "dist/plugins/cursor-syntax.d.ts": "2de2187dfba300b5dc8e3eb6039ee6f7701be398fc71d2f7ed380185fca88082",
+        "dist/plugins/cursor-syntax.js": "311db2e63a5bae7b34efdafcbba6d3badf24a6df0d6ff0c33029bbd05f4107be",
+        "dist/plugins/cursor-syntax.js.map": "dbde5d9b6857c3b002d664ab7858f953ca0283496de619e99f1374584ba7b908",
+        "dist/plugins/definition-list.d.ts": "9c9b464e62ad1c179dba3df520491733c2a9ce0a12bd0f3f89fe60a1a4bdc75c",
+        "dist/plugins/definition-list.js": "a146169cce865dcaddd1adf0876f01824da84230702a5cd2fd83de2ea388b9ee",
+        "dist/plugins/definition-list.js.map": "2617ec96730078689b90471a951b5bf25e23a09849cf36a8e7698181b2721f02",
+        "dist/plugins/editor-props-plugin.d.ts": "52862d2f0f43a573c857d6a617fcfe9e703b09431caacc517ced7e0d9f108514",
+        "dist/plugins/editor-props-plugin.js": "7c91407432f58d808de878bdf05ffefaef35b5b9547a0c6efe75764088aaab15",
+        "dist/plugins/editor-props-plugin.js.map": "f0084a45cfda193bc8fe57af80600b584d6f9a9b65a6e463a96e03f568c1ff7d",
+        "dist/plugins/emoji.d.ts": "1e7c60e6fcae5cdb0a1cf35e533c0554e8325d5dcf076207ed893da0093ef7e0",
+        "dist/plugins/emoji.js": "74817332616055eebddfa3d15879c69b6fc3304e6e339db97844cef07fc77232",
+        "dist/plugins/emoji.js.map": "e72293d4c75a0a3a131ae904534b2e8bd63794e147473749dadf209ea3f7ebaa",
+        "dist/plugins/enter-handler.d.ts": "866a95c12fbab7bea9624819c24a3aeecdefb938bd40456b30a47424a0ed3438",
+        "dist/plugins/enter-handler.js": "db4ea300aeb691359c1334ab272306d969d3b32ba4cb17a7a3cb72f86dced8f2",
+        "dist/plugins/enter-handler.js.map": "c2f8875da49662a2e8365332659b741e2a6ac503277fe361baae90149be18146",
+        "dist/plugins/footnote-plugin.d.ts": "706a77794c7a2d4bfee1bf5ba19b7b8b69157fd56a24bf7fcf154a9e5a09d212",
+        "dist/plugins/footnote-plugin.js": "9a750f723aea7af66a748fb60d96a52673d1a5ae15c6d16d0f4c9d4f8e99a16a",
+        "dist/plugins/footnote-plugin.js.map": "9950bc26f02cf413dfcfcec59b4e25199e7578e966147b086f06aee0a952a3ee",
+        "dist/plugins/highlight.d.ts": "dfc9ff33005feed7ae39e8e315d22f8b1938f6614a5ff9776a80e8d86b2f7936",
+        "dist/plugins/highlight.js": "aee02cbf4f63b90d9e55c819b43aa3d102e1a53e353c9ed3546d29772b937fb6",
+        "dist/plugins/highlight.js.map": "4902b3e3d0414bf2d67214f9ff0c43d276c89d3d5208f88de2be5f8f2a859ab3",
+        "dist/plugins/inline-code-convert.d.ts": "2f132d6fa6ba36d7617758236d1fcafc1a53bd5505a5c3a2c8f11a8b01601d28",
+        "dist/plugins/inline-code-convert.js": "b98d068bc24bd5300cda34a50101a1db439f157536eed91d0460c0c27b636b7a",
+        "dist/plugins/inline-code-convert.js.map": "714321e1f8149d6e94bb5bdefebe5401a3fe3a5f278ea88d2275e0d1fd3045f7",
+        "dist/plugins/link-text-plugin.d.ts": "210c6d02b9943ee6a0c5363048a269cf7000a82070778d3ef1c8980a615d553a",
+        "dist/plugins/link-text-plugin.js": "943e64584b4d6b8ea520cbfb21cb927aac1c2567352b33e0be8ae645515780cc",
+        "dist/plugins/link-text-plugin.js.map": "bf3c321017e6e8fa317b302f5d3705e816c956b29ce694608fdb7d9e83160a2b",
+        "dist/plugins/mermaid-renderer.d.ts": "44302ed67ad49d039a1bdfbaac9891ba2a967de612fafc36907394605a6ab4f3",
+        "dist/plugins/mermaid-renderer.js": "6edda02f87bd74bf746758f9df2ad439c8ebd88ab142707526c16d14986ab247",
+        "dist/plugins/mermaid-renderer.js.map": "b2639cbe2e4416304b127d7761caa2ad4af1e6dfcff392e745332b4d37706cfd",
+        "dist/plugins/session-table-view.d.ts": "0c6a05bbc374282fa219b06ff496e0b18cb3ee42205e27bab60a381c664558d7",
+        "dist/plugins/session-table-view.js": "d0f7000de5bf75f88e514df88997e15eaa081e942cf2391c78d12eb6f43d5627",
+        "dist/plugins/session-table-view.js.map": "6d9b09a4d99303020733e48a7cc147b55e53316259206eda0b8a9c7ffcae21e4",
+        "dist/schema.d.ts": "69b75feef708f17a01dde7cdbba8e487d655a1e892953df99aa9689f61b4198f",
+        "dist/schema.js": "cd50fe3e50ff6eed65d15e1cb93d88fea23d2d8f6a70c58fc96a4aeb25089fc4",
+        "dist/schema.js.map": "ddee64eff6e807148efb44c674e1a341a1f1b2ec85b49219c07270a6ebb84d48",
+        "dist/setup.d.ts": "61a815f940e38563a0d7c5b5dc408c3cda389823f15414ed9f8c7c5fe5340754",
+        "dist/setup.js": "31bd51fc83412278499810e2d2c52c59f9f157cecde3cd0114d79bc6a1f541ae",
+        "dist/setup.js.map": "40d21ffb8ae01026ac034635076f8a97a57e66d51337282f918d61e26fb6b169",
+        "dist/source-history.d.ts": "da2dc0aa446986487c214a3692dbdfa07e8320aa3fcb848068f1f0edd4d855f1",
+        "dist/source-history.js": "ade8c24859fb687bb164f4aa17509263806762f69ea7df15a60a0622cde9047a",
+        "dist/source-history.js.map": "23c4cf75c69cb301e8e9d3cfa43275f9e9b48b24c1947777acd07850a65be9da",
+        "dist/types.d.ts": "ce7d58448aaf476a2ea0736fb1ee5f172ca823dd027d388264336701855cd222",
+        "dist/types.js": "0e594a46975c734d3e7569b2dd4e3228dcb7d3848a698537471ff133ee55356b",
+        "dist/types.js.map": "da47d7034532657f6b00c43671fc559ff0bfe2b5340e4f990118404183f27ede"
+      },
+      "comparison": "all files byte-identical to frozen core commit"
+    },
+    "app": {
+      "path": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app",
+      "version": "6.1102.1",
+      "build": "6.1102.1",
+      "identifier": "net.notemd.app",
+      "binary": {
+        "path": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+        "bytes": 20308160,
+        "sha256": "a7a08215c67d81812c5c06f476ad54e1ae57c49ef8a056853a778e0e59da74ef"
+      }
+    },
+    "commands": [
+      {
+        "argv": [
+          "/usr/bin/lipo",
+          "-archs",
+          "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd"
+        ],
+        "exit": 0,
+        "stdout": "arm64",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/usr/bin/codesign",
+          "--verify",
+          "--deep",
+          "--strict",
+          "--verbose=2",
+          "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: valid on disk\n/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: satisfies its Designated Requirement"
+      },
+      {
+        "argv": [
+          "/usr/sbin/spctl",
+          "--assess",
+          "--type",
+          "execute",
+          "--verbose=4",
+          "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: accepted\nsource=Notarized Developer ID"
+      }
+    ],
+    "updater": {
+      "path": "/private/tmp/note.md-aarch64.app.tar.gz",
+      "bytes": 13523008,
+      "sha256": "d4e887c2f223973a9e97d435ccf4a2e3f3affc46540dccf4ab3201f977dba4f6",
+      "mach_o_sha256": "a7a08215c67d81812c5c06f476ad54e1ae57c49ef8a056853a778e0e59da74ef",
+      "candidate_byte_identical": true
+    },
+    "limits": "Local candidate/signature/source/dependency checks only; does not prove actual UI behavior, disk-save behavior, public downloads, or runtime core module resolution."
+  },
+  "public": {
+    "ok": true,
+    "tag": "v6.1102.1",
+    "source_sha": "db6f23f4a49850f71d7dc2ee77c4b112df60f956",
+    "public_tag_source_sha": "db6f23f4a49850f71d7dc2ee77c4b112df60f956",
+    "published_at": "2026-11-02T11:52:16Z",
+    "release_id": 431397004,
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1102.1",
+    "assets": [
+      {
+        "mode": "cache-bypass",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "01cbf23b93dd0d5b0390005f149205d80dd73e54e802c59ffdbe21fd593a9a32",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-6.1102.1-aarch64.dmg",
+        "bytes": 13479880,
+        "sha256": "483c7415b4d6adca1960804ecae6b7d0c68e83217facfb3e2f38bef72b9b6827",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13523008,
+        "sha256": "d4e887c2f223973a9e97d435ccf4a2e3f3affc46540dccf4ab3201f977dba4f6",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "3ef11e36f0559de74d4812346fdfd98189c26da9f05ba4f05b474d3ca2c8e030",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "01cbf23b93dd0d5b0390005f149205d80dd73e54e802c59ffdbe21fd593a9a32",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-6.1102.1-aarch64.dmg",
+        "bytes": 13479880,
+        "sha256": "483c7415b4d6adca1960804ecae6b7d0c68e83217facfb3e2f38bef72b9b6827",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13523008,
+        "sha256": "d4e887c2f223973a9e97d435ccf4a2e3f3affc46540dccf4ab3201f977dba4f6",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "3ef11e36f0559de74d4812346fdfd98189c26da9f05ba4f05b474d3ca2c8e030",
+        "byte_equal_staged": true
+      }
+    ],
+    "ordinary_and_cache_bypass_verified": true,
+    "latest_endpoint_verified": true,
+    "updater_minisign_verified": true,
+    "platforms": [
+      "darwin-aarch64"
+    ],
+    "local_signing_notarization": "separate acceptance; not claimed by this verifier",
+    "verified_at_utc": "2026-11-02T12:00:59.704958+00:00"
+  },
+  "installedAppUnchanged": true,
+  "preservedWorkspace": {
+    "ok": true,
+    "head": "041694d5ae245b8fa722aa9620bd35aa559d0ec4",
+    "branch": "feat/quick-launch",
+    "preservedFileCount": 26,
+    "stashUnchanged": true
+  }
+}
