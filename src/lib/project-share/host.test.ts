@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LocalFeedback, ProjectInfo, ProjectSnapshot, ReviewDraft } from './types'
 import { MULTIPART_BYTES, createArtifactPlan } from './multipart'
 import { sha256Hex } from '../hash'
@@ -60,6 +60,9 @@ function seedPending(phase: 'entry' | 'preparing' | 'full' | undefined, extra: a
 const identity = async () => (await projectIdentities())[info.project_id]
 
 beforeEach(() => {
+  // Freeze only Date so publication fixtures do not expire as wall time advances.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-12T08:00:00Z'))
   remote = null; frozen = 0; mocks.data = {}; mocks.events = []; mocks.invoke.mockReset(); mocks.fetch.mockReset().mockImplementation(server); mocks.save.mockReset()
   mocks.kit.mockReset().mockResolvedValue({ warnings: [] })
   mocks.capture.mockReset().mockResolvedValue(frozenTheme)
@@ -79,6 +82,25 @@ beforeEach(() => {
     if (request.op === 'get') return info
     return null
   })
+})
+
+afterEach(() => { vi.useRealTimers() })
+
+it.each(['current', 'legacy'] as const)('preserves an expired %s publication without uploading or extending it', async kind => {
+  vi.setSystemTime(new Date(expires))
+  seedPending(kind === 'current' ? 'full' : undefined)
+  if (kind === 'current') remote = { publicationId: 'p1', active: null, expires_at: expires }
+  else {
+    delete mocks.data.projectShares[info.project_id].pending.publicationId
+    remote = { publicationId: null, active: null, legacy: { bytes: 8, expires_at: expires, project_id: info.project_id } }
+  }
+  await expect(publishProject(info, [])).rejects.toThrow('已到期')
+  expect(mocks.fetch.mock.calls.map(([url]) => operation(url))).toEqual(['status'])
+  expect((await identity()).pending).toBeDefined()
+  expect((await identity()).edit_token).toBe('edit')
+  expect(remote.expires_at ?? remote.legacy.expires_at).toBe(expires)
+  expect(mocks.render).not.toHaveBeenCalled()
+  expect(mocks.archive).not.toHaveBeenCalled()
 })
 
 describe('local review IPC', () => {

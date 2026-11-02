@@ -563,7 +563,7 @@ fi
 PREAMBLE=$(cat <<EOF
 ## Install
 
-Pick the dmg matching your Mac's chip:
+Choose the DMG matching your Mac architecture:
 
 $INSTALLERS
 

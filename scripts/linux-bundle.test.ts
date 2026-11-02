@@ -49,12 +49,15 @@ describe('Linux Debian bundle', () => {
     try {
       const marker = join(fixture, 'runner-called')
       const runner = join(fixture, 'runner')
+      const frontendDist = join(fixture, 'assets')
+      mkdirSync(frontendDist)
+      writeFileSync(join(frontendDist, 'index.html'), '<!doctype html><title>Schema fixture</title>')
       writeFileSync(runner, '#!/bin/sh\nprintf "%s\\n" "$@" > "$NOTEMD_RUNNER_MARKER"\nexit 77\n', { mode: 0o755 })
       const toolchain = process.env.RUSTUP_TOOLCHAIN ?? spawnSync('rustup', ['show', 'active-toolchain'], { cwd: root, encoding: 'utf8' }).stdout.trim().split(/\s+/)[0]
       const result = spawnSync(process.execPath, [
         join(root, 'node_modules/@tauri-apps/cli/tauri.js'), 'build',
         '--config', join(root, 'src-tauri/tauri.linux.conf.json'),
-        '--config', JSON.stringify({ build: { beforeBuildCommand: '' } }),
+        '--config', JSON.stringify({ build: { beforeBuildCommand: '', frontendDist } }),
         '--runner', runner, '--no-bundle',
       ], { cwd: root, encoding: 'utf8', env: { ...process.env, RUSTUP_TOOLCHAIN: toolchain, NOTEMD_RUNNER_MARKER: marker } })
       // The runner stops before compilation. Reaching it proves Tauri accepted
