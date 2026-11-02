@@ -50,8 +50,8 @@ describe('Memory product thesis content', () => {
   it('lists every localized essay URL in the sitemap', () => {
     const sitemap = readFileSync(join(publicDir, 'sitemap.xml'), 'utf8')
     const urls = Array.from(sitemap.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => match[1])
-    expect(urls).toHaveLength(52)
-    expect(new Set(urls).size).toBe(52)
+    expect(urls).toHaveLength(56)
+    expect(new Set(urls).size).toBe(56)
     for (const url of urls) {
       const path = new URL(url).pathname
       const file = path === '/' ? 'index.html' : `${path.slice(1)}index.html`
@@ -198,6 +198,7 @@ describe('current workspace content coverage', () => {
 describe('localized navigation and social metadata', () => {
   it.each(locales.filter(({ lang }) => lang !== 'en'))('keeps $lang internal page links localized', ({ prefix }) => {
     const html = readTextTree(join(publicDir, prefix.slice(1)))
+      .replace(/<div class="lang-sw"[^>]*>[\s\S]*?<\/div>/g, '')
     for (const segment of ['compare', 'integrations', 'guides', 'blog', 'orchestrate-agents']) {
       expect(html).not.toContain(`href="/${segment}/`)
     }
@@ -209,7 +210,7 @@ describe('localized navigation and social metadata', () => {
       return entry.isDirectory() ? visit(path) : entry.name.endsWith('.html') ? [path] : []
     })
     const pages = visit(publicDir)
-    expect(pages).toHaveLength(52)
+    expect(pages).toHaveLength(56)
     for (const page of pages) {
       const html = readFileSync(page, 'utf8')
       expect(html, page).toContain('<meta property="og:title"')
@@ -218,6 +219,10 @@ describe('localized navigation and social metadata', () => {
       expect(html, page).toContain('<meta name="twitter:card" content="summary">')
       const route = page.slice(publicDir.length).replaceAll('\\', '/').replace(/index\.html$/, '')
       const baseRoute = route.replace(/^\/(de|ja|zh)(?=\/)/, '')
+      const switcher = html.match(/<div class="lang-sw"[^>]*>([\s\S]*?)<\/div>/)?.[1]
+      expect(switcher, page).toBeDefined()
+      const languageLinks = Array.from(switcher!.matchAll(/href="([^"]+)"/g), (match) => match[1])
+      expect(languageLinks, page).toEqual(locales.map((locale) => `${locale.prefix}${baseRoute}`))
       expect(html, page).toContain(`rel="canonical" href="https://notemd.net${route}"`)
       for (const locale of locales) {
         expect(html, page).toContain(`hreflang="${locale.lang}" href="https://notemd.net${locale.prefix}${baseRoute}"`)
@@ -304,6 +309,41 @@ describe('maintained public copy', () => {
       compare()
     } finally {
       rmSync(temp, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('Grokbot integration navigation', () => {
+  it.each(locales)('features Grokbot on the $lang homepage', ({ home }) => {
+    const html = readFileSync(join(publicDir, home), 'utf8')
+    const beat = html.match(/<p class="beat">([\s\S]*?)<\/p>/)?.[1]
+    expect(beat).toContain('Grokbot')
+    expect(beat).not.toContain('OpenClaw')
+  })
+
+  it.each(locales)('publishes the $lang Grokbot guide and ordered integration links', ({ lang, prefix }) => {
+    const sitemap = readFileSync(join(publicDir, 'sitemap.xml'), 'utf8')
+    const routes = Array.from(sitemap.matchAll(/<loc>https:\/\/notemd.net([^<]+)<\/loc>/g), (match) => match[1])
+    const guide = readFileSync(join(publicDir, prefix.slice(1), 'integrations/grokbot/index.html'), 'utf8')
+    expect(guide).toContain(`<html lang="${lang}">`)
+    expect(guide).toContain('<h1>note.md + Grokbot</h1>')
+    expect(guide).toContain('AGENTS.md')
+    expect(guide).toContain('research/topic.note.md')
+    expect(guide).toContain('https://docs.x.ai/grok-bot/computer-and-apps')
+    expect(guide).toContain('https://docs.x.ai/grok-bot/approvals-security-and-privacy')
+    expect(routes).toContain(`${prefix}/integrations/grokbot/`)
+    for (const route of routes.filter((route) => prefix ? route.startsWith(`${prefix}/`) : !/^\/(de|ja|zh)\//.test(route))) {
+      const html = readFileSync(join(publicDir, route.slice(1), 'index.html'), 'utf8')
+      const footer = html.match(/<footer>[\s\S]*?<\/footer>/)?.[0] ?? ''
+      const links = Array.from(footer.matchAll(/href="([^"]*\/integrations\/[^"]+)"[^>]*>([^<]+)<\/a>/g), (match) => [match[1], match[2]])
+      expect(links, route).toEqual([
+        [`${prefix}/integrations/cowork/`, 'Claude'],
+        [`${prefix}/integrations/codex/`, 'Codex'],
+        [`${prefix}/integrations/grokbot/`, 'Grokbot'],
+        [`${prefix}/integrations/openclaw/`, 'OpenClaw'],
+        [`${prefix}/integrations/hermes/`, 'Hermes'],
+      ])
+      for (const [href] of links) expect(existsSync(join(publicDir, href.slice(1), 'index.html')), href).toBe(true)
     }
   })
 })

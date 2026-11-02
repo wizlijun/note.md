@@ -130,6 +130,38 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/compare/notion/"/>
   </url>
   <url>
+    <loc>https://notemd.net/integrations/grokbot/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/grokbot/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/de/integrations/grokbot/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/grokbot/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/ja/integrations/grokbot/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/grokbot/"/>
+  </url>
+  <url>
+    <loc>https://notemd.net/zh/integrations/grokbot/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://notemd.net/ja/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://notemd.net/zh/integrations/grokbot/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://notemd.net/integrations/grokbot/"/>
+  </url>
+  <url>
     <loc>https://notemd.net/integrations/openclaw/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://notemd.net/integrations/openclaw/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://notemd.net/de/integrations/openclaw/"/>

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.
+
 - **Refresh product documentation across languages.** Align the English/Chinese README and feature lists with the four-language website and agent reference. Remove stale release snapshots, clarify platform and plugin availability, document the current diagram renderer and external health library, and correct outdated shortcuts and storage claims.
 
 - **Fix deleting selected content in Rich mode.** Deletion follows the actual editor selection, preserving unselected metadata and trailing text instead of treating selections over 90% as the entire document.

@@ -124,6 +124,35 @@ PAGES = [
 },
 # ------------------------------------------------------------ integrations
 {
+ "path": "/integrations/grokbot/",
+ "title": "note.md と Grokbot を使う — レポートとフィードバックを自分の Vault に",
+ "desc": "Grokbot のレポートを Markdown として note.md の Vault に保存し、手元で読んで注釈を付け、次の作業で活用します。ローカルアクセスは明示的に設定します。",
+ "crumb": "連携",
+ "h1": "note.md + Grokbot",
+ "lead": "Grokbot がレポートを作成し、あなたが note.md で読んで重要な箇所をマーク。フィードバックを原文のそばに残し、次の作業へ引き継ぎます。",
+ "sections": [
+  ("ファイルを通じて連携する", """<p>Grokbot の正式名称は Grok Bot です。Markdown 文書を扱えるため、作成したレポートを note.md の Vault に保存できます。レポートは通常のファイルのまま残り、注釈も次の作業で参照できます。</p>
+<p>この連携はファイルへのアクセスを使うため、専用の note.md コネクターは必要ありません。</p>"""),
+  ("Vault を設定する", """<ol>
+<li>Grok Bot のデスクトップアプリで <b>Settings → Computer → Your computer → Execution on this computer</b> を開きます。<b>Ask every time</b> を使い、作業に必要なローカルコマンドをその都度承認します。</li>
+<li>Vault のフルパスを Grokbot に伝え、最初にルートの <code>AGENTS.md</code> を読むよう依頼します。自動で見つけるとは想定しないでください。note.md のファイル規約は <a href="/llms-full.txt">llms-full.txt</a> を参照できます。</li>
+<li>レポートを Vault 内の <code>research/topic.md</code> に保存するよう依頼します。</li>
+<li>note.md でレポートを開き、注釈を付けます。次の作業では、対応する <code>research/topic.note.md</code> を読んでからレポートを修正するよう依頼します。</li>
+</ol>"""),
+  ("ローカルアクセスとクラウドの違い", """<p>Grok Bot のクラウドコンピューターは、手元の Mac や Windows PC とは別の環境です。クラウドの <code>/workspace</code> にあるパスは、ローカルの Vault のパスではありません。ローカルコマンドの実行には個別の許可が必要で、チームのポリシーによって制限される場合もあります。</p>
+<p>ローカルアクセスを使えない場合は、必要な Markdown ファイルを添付し、返された文書を自分で Vault に保存できます。添付はファイルの受け渡しであり、自動同期ではありません。詳しくは公式の<a href="https://docs.x.ai/grok-bot/computer-and-apps">コンピューターとアプリ</a>、<a href="https://docs.x.ai/grok-bot/approvals-security-and-privacy">ローカル権限</a>、<a href="https://docs.x.ai/grok-bot/files-and-results">ファイルと成果物</a>の説明をご覧ください。</p>"""),
+  ("注釈を次の作業に生かす", """<p>レポートを確認したら、次のように依頼できます。</p>
+<blockquote>私の Vault にある AGENTS.md、research/topic.md、research/topic.note.md を読んでください。注釈の質問に対応し、出典を確認して research/topic.md を更新してください。私の注釈は変更せず、修正内容を簡潔に説明してください。</blockquote>
+<p>レポートとフィードバックが一緒に残るため、後のセッションや別のエージェントでも作業を続けられます。</p>"""),
+ ],
+ "faq": [
+  ("Grokbot のプラグインは必要ですか？",
+   "このファイル連携には専用の note.md プラグインは不要です。Grokbot に対象のローカルファイルへのアクセスを許可するか、必要なファイルを添付して受け渡します。"),
+  ("Grokbot は Vault の規則に自動で従いますか？",
+   "作業の最初に AGENTS.md を読むよう明示的に依頼し、変更内容を確認してください。.note.md の注釈はあなたが管理します。この手順では、Grokbot は注釈を読み、レポートを編集します。"),
+ ],
+},
+{
  "path": "/integrations/openclaw/",
  "title": "OpenClaw で note.md を使う — パーソナルエージェントに本物の記憶を",
  "desc": "OpenClaw は記憶を markdown ファイルとして保存する。note.md はリーディング・注釈ループを持つ markdown Vault。同じフォルダに向ければ、エージェントの記憶があなたのノートブックになる。",

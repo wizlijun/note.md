@@ -123,6 +123,35 @@ PAGES = [
 },
 # ------------------------------------------------------------ integrations
 {
+ "path": "/integrations/grokbot/",
+ "title": "note.md 与 Grokbot 集成 — 报告和反馈都留在你的知识库",
+ "desc": "将 Grokbot 的报告以 Markdown 保存到 note.md 知识库，在本地阅读批注，再让下一次任务读取你的反馈。明确设置本机访问权限。",
+ "crumb": "集成",
+ "h1": "note.md + Grokbot",
+ "lead": "Grokbot 产出报告，你在 note.md 阅读、标记重点，把反馈留在原文旁边，供下一次任务继续使用。",
+ "sections": [
+  ("通过文件协作", """<p>Grokbot 的官方名称是 Grok Bot，它可以处理 Markdown 文档。把产出保存到 note.md 知识库，报告仍是普通文件，你的批注也能供后续任务读取。</p>
+<p>这套协作方式依靠文件访问，无需专用的 note.md 连接器。</p>"""),
+  ("设置知识库", """<ol>
+<li>在 Grok Bot 桌面应用中打开 <b>Settings → Computer → Your computer → Execution on this computer</b>，使用 <b>Ask every time</b>，逐次批准任务需要的本机命令。</li>
+<li>告诉 Grokbot 知识库的完整路径，要求它先读根目录的 <code>AGENTS.md</code>，不要假定它会自动发现该文件。note.md 的文件约定可参考 <a href="/llms-full.txt">llms-full.txt</a>。</li>
+<li>让它将报告保存为知识库内的 <code>research/topic.md</code>。</li>
+<li>在 note.md 打开报告并添加批注。下一次任务先让 Grokbot 读取配对的 <code>research/topic.note.md</code>，再修订报告。</li>
+</ol>"""),
+  ("区分本机访问与云端工作", """<p>Grok Bot 的云端计算机与你的 Mac 或 Windows 电脑相互独立。云端 <code>/workspace</code> 下的路径不是本地知识库路径。本机命令执行需要单独授权，也可能受到团队策略限制。</p>
+<p>无法访问本机时，可以附上选定的 Markdown 文件，再手动把返回的文档保存到知识库。附件只是文件交接，不会自动同步。详见官方的<a href="https://docs.x.ai/grok-bot/computer-and-apps">计算机与应用</a>、<a href="https://docs.x.ai/grok-bot/approvals-security-and-privacy">本机权限</a>及<a href="https://docs.x.ai/grok-bot/files-and-results">文件与结果</a>说明。</p>"""),
+  ("让它读取你的批注", """<p>审阅报告后，可以这样发起下一次任务：</p>
+<blockquote>在我的知识库中，读取 AGENTS.md、research/topic.md 和 research/topic.note.md。回应批注里的问题，核查来源，并更新 research/topic.md。保留我的批注不变，简要说明修改了什么。</blockquote>
+<p>报告与反馈放在一起，下一次会话或另一个 agent 都能接着处理。</p>"""),
+ ],
+ "faq": [
+  ("需要安装 Grokbot 插件吗？",
+   "通过文件协作无需专用的 note.md 插件。Grokbot 需要获得相关本地文件的访问授权，也可以由你通过附件交接选定文件。"),
+  ("Grokbot 会自动遵循知识库规则吗？",
+   "请在任务开始时明确要求它读取 AGENTS.md，并审阅修改结果。.note.md 中的批注由你维护；这套流程让 Grokbot 读取批注、修改报告。"),
+ ],
+},
+{
  "path": "/integrations/openclaw/",
  "title": "note.md 搭配 OpenClaw —— 给你的个人 agent 一份真正的记忆",
  "desc": "OpenClaw 把记忆存成 markdown 文件。note.md 是一个带阅读-批注循环的 markdown vault。把两者指向同一个文件夹，agent 的记忆就成了你的笔记本。",

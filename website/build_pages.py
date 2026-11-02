@@ -148,10 +148,10 @@ def foot_links(lang):
 {a('/compare/obsidian/', 'note.md vs Obsidian')}
 {a('/compare/notion/', 'note.md vs Notion')}</div>
 <div><b>{c['g_int']}</b>
-{a('/integrations/openclaw/', 'OpenClaw')}
-{a('/integrations/cowork/', 'Claude Cowork')}
+{a('/integrations/cowork/', 'Claude')}
 {a('/integrations/codex/', 'Codex')}
-{a('/integrations/chatgpt-work/', 'ChatGPT Work')}
+{a('/integrations/grokbot/', 'Grokbot')}
+{a('/integrations/openclaw/', 'OpenClaw')}
 {a('/integrations/hermes/', 'Hermes')}</div>
 <div><b>{c['g_gui']}</b>
 {a('/orchestrate-agents/', c['l_orch'])}
@@ -195,6 +195,9 @@ def render(p, lang):
         rows = "".join("<tr>" + "".join(f"<td>{cell}</td>" for cell in r) + "</tr>" for r in p["table"]["rows"])
         table_html = f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>"
     body_html = "".join(f"<h2>{h}</h2>{html}" for h, html in p["sections"])
+    table_html = localize_internal_links(table_html, lang)
+    body_html = localize_internal_links(body_html, lang)
+    faq_html = localize_internal_links(faq_html, lang)
     rendered = f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
@@ -249,7 +252,7 @@ def render(p, lang):
 </div></footer>
 </body>
 </html>"""
-    return localize_internal_links(rendered, lang)
+    return rendered
 
 DL = '<a href="/download">Download note.md</a>'
 
@@ -373,6 +376,35 @@ PAGES = [
  ],
 },
 # ------------------------------------------------------------ integrations
+{
+ "path": "/integrations/grokbot/",
+ "title": "Using note.md with Grokbot — keep reports and feedback in your vault",
+ "desc": "Save Grokbot reports as Markdown in your note.md vault, review them locally, and let the next task read your annotations. Set up local access explicitly.",
+ "crumb": "Integrations",
+ "h1": "note.md + Grokbot",
+ "lead": "Grokbot produces the report. You read it in note.md, mark what matters, and keep your feedback beside the source for the next task.",
+ "sections": [
+  ("Work through files", """<p>Grokbot — officially named Grok Bot — can work with Markdown documents. Give its outputs a home in your note.md vault: reports remain ordinary files, and your annotations stay available for follow-up work.</p>
+<p>This workflow uses file access. It does not require a dedicated note.md connector.</p>"""),
+  ("Set up your vault", """<ol>
+<li>In the Grok Bot desktop app, review <b>Settings → Computer → Your computer → Execution on this computer</b>. Use <b>Ask every time</b> to approve the local commands needed for your task.</li>
+<li>Give Grokbot the full path to your vault. Ask it to read the root <code>AGENTS.md</code> first; do not assume it discovers that file automatically. Use <a href="/llms-full.txt">llms-full.txt</a> as a reference for note.md conventions.</li>
+<li>Ask it to save a report as <code>research/topic.md</code> inside that vault.</li>
+<li>Open the report in note.md and add annotations. In the next task, ask Grokbot to read the paired <code>research/topic.note.md</code> before revising the report.</li>
+</ol>"""),
+  ("Local access and cloud work", """<p>Grok Bot's cloud computer is separate from your Mac or Windows computer. A path in its cloud <code>/workspace</code> is not a path in your local vault. Local command execution needs its own permission and may be restricted by your team's policy.</p>
+<p>If local access is unavailable, attach selected Markdown files and save returned documents into the vault yourself. Attachments are a file handoff, not automatic synchronization. See the official guides to <a href="https://docs.x.ai/grok-bot/computer-and-apps">computers and apps</a>, <a href="https://docs.x.ai/grok-bot/approvals-security-and-privacy">local permissions</a>, and <a href="https://docs.x.ai/grok-bot/files-and-results">files and results</a>.</p>"""),
+  ("Ask it to read your annotations", """<p>Try this after reviewing a report:</p>
+<blockquote>In my vault, read AGENTS.md, research/topic.md, and research/topic.note.md. Address the questions in my annotations, check the sources, and update research/topic.md. Keep my annotations unchanged and summarize what you changed.</blockquote>
+<p>The report and the feedback stay together, so you can continue the work in a later session or with another agent.</p>"""),
+ ],
+ "faq": [
+  ("Does this need a Grokbot plugin?",
+   "No dedicated note.md plugin is needed for this file workflow. Grokbot needs approved access to the relevant local files, or you can exchange selected files as attachments."),
+  ("Will Grokbot automatically follow my vault rules?",
+   "Ask it to read AGENTS.md at the start of the task and review its changes. Keep your .note.md annotations human-owned; this workflow asks Grokbot to read them and edit the report instead."),
+ ],
+},
 {
  "path": "/integrations/openclaw/",
  "title": "Using note.md with OpenClaw — give your personal agent a real memory",

@@ -132,10 +132,10 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '可疑的句子，划出来。疑问，写在旁边。错了，当场改。',
   'Eine wacklige Zeile? Markieren. Ein Zweifel? An den Rand. Falsch? Sofort korrigieren.',
   '怪しい一文は、ハイライト。疑問は、余白に。間違いは、その場で。'),
- ('Claude, Codex and OpenClaw all have a chat window. None of them is made for reading.',
-  'Claude、Codex、OpenClaw 都有聊天窗口。没有一个是为读而做的。',
-  'Claude, Codex und OpenClaw haben alle ein Chatfenster. Keines davon ist zum Lesen gemacht.',
-  'Claude も Codex も OpenClaw も、チャット窓は持っている。でも、読むためのものではない。'),
+ ('Claude, Codex and Grokbot all have a chat window. None of them is made for reading.',
+  'Claude、Codex、Grokbot 都有聊天窗口。没有一个是为读而做的。',
+  'Claude, Codex und Grokbot haben alle ein Chatfenster. Keines davon ist zum Lesen gemacht.',
+  'Claude も Codex も Grokbot も、チャット窓は持っている。でも、読むためのものではない。'),
  # ---- claim 02 ----
  ('<h2>The best of the last<br>generation. Built in.</h2>',
   '<h2>上一代的精华，<br>全都内置。</h2>',
@@ -167,15 +167,15 @@ STRINGS = [('<title>note.md — The markdown editor for humans and agents</title
   '实际模型用量与限制仍按你所选服务的订阅额度、API 计费执行；本地模型使用你自己的算力。',
   'Für Modellnutzung, Limits und mögliche Kosten gelten weiterhin dein gewählter Anbieter beziehungsweise deine lokale Umgebung.',
   'モデルの利用量・制限・料金は、選択したサービスのプランまたはローカル環境に従います。'),
- ('Your folder is the workspace every AI tool shares. Cowork, Claude Code, Codex, DeepSeek, ChatGPT, OpenClaw, Hermes — same '
+ ('Your folder is the workspace every AI tool shares. Claude, Codex, Grokbot, OpenClaw, Hermes — same '
   'files, same house rules, all in git. '
   '<a href="/orchestrate-agents/">See how</a>.',
-  '你的文件夹，就是所有 AI 工具共用的工作台。Cowork、Claude Code、Codex、DeepSeek、ChatGPT、OpenClaw、Hermes——同一批文件，同一套规矩，'
+  '你的文件夹，就是所有 AI 工具共用的工作台。Claude、Codex、Grokbot、OpenClaw、Hermes——同一批文件，同一套规矩，'
   '全在 git 里。<a href="/orchestrate-agents/">看怎么做</a>。',
-  'Dein Ordner ist der Arbeitsplatz, den alle KI-Tools teilen. Cowork, Claude Code, Codex, DeepSeek, ChatGPT, OpenClaw, Hermes '
+  'Dein Ordner ist der Arbeitsplatz, den alle KI-Tools teilen. Claude, Codex, Grokbot, OpenClaw, Hermes '
   '— dieselben Dateien, dieselben Hausregeln, alles in Git. '
   '<a href="/orchestrate-agents/">So geht\'s</a>.',
-  'あなたのフォルダは、どの AI ツールも共有する作業台。Cowork、Claude Code、Codex、DeepSeek、ChatGPT、OpenClaw、Hermes——同じファイル、'
+  'あなたのフォルダは、どの AI ツールも共有する作業台。Claude、Codex、Grokbot、OpenClaw、Hermes——同じファイル、'
   '同じルール、すべて git の中。<a href="/orchestrate-agents/">やり方を見る</a>。'),
  ('Built-in note creation uses <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 metadata for document type, source and authorship. Existing Markdown files stay readable without conversion; plugins and imported formats may use their own schemas.',
   '内置笔记创建流程使用 <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md">Open Knowledge Format</a> v0.2 元数据记录类型、来源和作者。已有 Markdown 文件无需转换即可阅读；插件与导入格式可能使用自己的结构。',

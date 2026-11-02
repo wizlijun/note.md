@@ -122,6 +122,35 @@ PAGES = [
 },
 # ------------------------------------------------------------ integrations
 {
+ "path": "/integrations/grokbot/",
+ "title": "note.md mit Grokbot nutzen — Berichte und Feedback im eigenen Vault",
+ "desc": "Speichere Grokbot-Berichte als Markdown in deinem note.md-Vault, prüfe sie lokal und lass die nächste Aufgabe deine Anmerkungen lesen. Richte den lokalen Zugriff ausdrücklich ein.",
+ "crumb": "Integrationen",
+ "h1": "note.md + Grokbot",
+ "lead": "Grokbot erstellt den Bericht. Du liest ihn in note.md, markierst wichtige Stellen und bewahrst dein Feedback neben dem Original für die nächste Aufgabe auf.",
+ "sections": [
+  ("Über Dateien zusammenarbeiten", """<p>Grokbot — offiziell Grok Bot — kann mit Markdown-Dokumenten arbeiten. Speichere seine Ergebnisse in deinem note.md-Vault: Berichte bleiben gewöhnliche Dateien, und deine Anmerkungen stehen für spätere Aufgaben bereit.</p>
+<p>Dieser Ablauf nutzt den Dateizugriff. Ein eigener note.md-Connector ist dafür nicht erforderlich.</p>"""),
+  ("Den Vault einrichten", """<ol>
+<li>Öffne in der Grok-Bot-Desktop-App <b>Settings → Computer → Your computer → Execution on this computer</b>. Mit <b>Ask every time</b> bestätigst du die lokalen Befehle, die deine Aufgabe benötigt.</li>
+<li>Nenne Grokbot den vollständigen Pfad zu deinem Vault. Bitte es, zuerst die <code>AGENTS.md</code> im Stammverzeichnis zu lesen; gehe nicht davon aus, dass es die Datei automatisch findet. Die Konventionen von note.md stehen in <a href="/llms-full.txt">llms-full.txt</a>.</li>
+<li>Lass einen Bericht als <code>research/topic.md</code> in diesem Vault speichern.</li>
+<li>Öffne den Bericht in note.md und füge Anmerkungen hinzu. Bitte Grokbot bei der nächsten Aufgabe, vor der Überarbeitung die zugehörige <code>research/topic.note.md</code> zu lesen.</li>
+</ol>"""),
+  ("Lokaler Zugriff und Arbeit in der Cloud", """<p>Der Cloud-Computer von Grok Bot ist von deinem Mac oder Windows-PC getrennt. Ein Pfad unter <code>/workspace</code> in der Cloud ist kein Pfad in deinem lokalen Vault. Lokale Befehle benötigen eine eigene Berechtigung; deine Teamrichtlinie kann sie einschränken.</p>
+<p>Wenn lokaler Zugriff nicht verfügbar ist, hänge ausgewählte Markdown-Dateien an und speichere die zurückgegebenen Dokumente selbst im Vault. Anhänge übertragen Dateien, synchronisieren sie aber nicht automatisch. Weitere Informationen bieten die offiziellen Anleitungen zu <a href="https://docs.x.ai/grok-bot/computer-and-apps">Computern und Apps</a>, <a href="https://docs.x.ai/grok-bot/approvals-security-and-privacy">lokalen Berechtigungen</a> sowie <a href="https://docs.x.ai/grok-bot/files-and-results">Dateien und Ergebnissen</a>.</p>"""),
+  ("Anmerkungen in die nächste Aufgabe einbeziehen", """<p>Nach der Durchsicht eines Berichts kannst du so fortfahren:</p>
+<blockquote>Lies in meinem Vault AGENTS.md, research/topic.md und research/topic.note.md. Beantworte die Fragen in meinen Anmerkungen, prüfe die Quellen und aktualisiere research/topic.md. Lass meine Anmerkungen unverändert und fasse deine Änderungen zusammen.</blockquote>
+<p>Bericht und Feedback bleiben zusammen. So kannst du in einer späteren Sitzung oder mit einem anderen Agenten weiterarbeiten.</p>"""),
+ ],
+ "faq": [
+  ("Brauche ich dafür ein Grokbot-Plugin?",
+   "Für diesen Dateiablauf ist kein eigenes note.md-Plugin nötig. Grokbot benötigt genehmigten Zugriff auf die betreffenden lokalen Dateien. Alternativ kannst du ausgewählte Dateien als Anhänge austauschen."),
+  ("Befolgt Grokbot meine Vault-Regeln automatisch?",
+   "Bitte es zu Beginn der Aufgabe ausdrücklich, AGENTS.md zu lesen, und prüfe seine Änderungen. Deine .note.md-Anmerkungen bleiben unter deiner Kontrolle: In diesem Ablauf liest Grokbot sie und bearbeitet den Bericht."),
+ ],
+},
+{
  "path": "/integrations/openclaw/",
  "title": "note.md mit OpenClaw nutzen — gib deinem persönlichen Agent ein echtes Gedächtnis",
  "desc": "OpenClaw speichert sein Gedächtnis als Markdown-Dateien. note.md ist ein Markdown-Vault mit Lese-Annotations-Loop. Richte beide auf denselben Ordner, und das Gedächtnis deines Agents wird dein Notizbuch.",
