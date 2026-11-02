@@ -7,8 +7,6 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Refresh product documentation across languages.** Align the English/Chinese README and feature lists with the four-language website and agent reference. Remove stale release snapshots, clarify platform and plugin availability, document the current diagram renderer and external health library, and correct outdated shortcuts and storage claims.
-
 - **Fix deleting selected content in Rich mode.** Deletion follows the actual editor selection, preserving unselected metadata and trailing text instead of treating selections over 90% as the entire document.
 
 ## v6.1030.1 — 2026-10-30
