@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Fix deleting selected content in Rich mode.** Deletion follows the actual editor selection, preserving unselected metadata and trailing text instead of treating selections over 90% as the entire document.
+
 - **Quick Launch enhancement plugin:** configure local apps and CLI commands in the Plugins menu and run them from Tray → Launch. The first item, Screen Reconnect, runs `uc reconnect`; saved changes refresh the tray immediately, with duplicate-run protection and failure feedback. Requires the accompanying host update.
 
 - **NEXT hides empty placed lanes.** With Show placed turned off, empty Later and Closed lanes disappear and the board fits its visible columns. Due items in Later remain visible.
