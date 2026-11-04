@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **A typographic welcome screen.** When no document is open, a large gray major version and note.md wordmark give the window a quiet focal point, with New, Canvas and Open still close at hand.
+
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.
 
 - **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.
