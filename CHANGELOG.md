@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1104.1 — 2026-11-04
+
 - **Keep editing responsive while sync status changes.** Avoid a deadlock between background tray updates and rebuilding the native menus when opening a file or switching editor modes.
 
 - **Connect vault search to Claude without guessing at config.** On macOS, Settings → Search & Index → “Copy setup instructions for Claude” (or `notemd mcp setup`) produces text with this Mac’s real path. Paste it into Claude Code, and it registers note.md for Claude Code, Claude Desktop and Cowork after you confirm each change. note.md itself never edits another app’s configuration. If you registered `{"command": "notemd", "args": ["mcp"]}` by hand, replace it: Claude Desktop does not inherit your shell `PATH`, so that entry cannot start. The first search after Claude starts now waits up to 15 seconds for note.md to open, instead of reporting it as not running. Both tools are marked read-only. In new vaults, the AGENTS.md search section tells agents which surface to use, including inside Cowork’s Linux VM. Existing AGENTS.md files are not rewritten; copy the “Which surface to use” section from a new vault if you want it.
