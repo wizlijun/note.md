@@ -2,7 +2,7 @@
 
 Mac 原生插件 `notemd.health-sync`。一个窗口收集 Apple Health 完整导出，并用 Garmin Personal API、Oura V2 API 补充厂商详情；原始记录统一保存在用户选择的 Vault 外 SQLite 资料库。提供分类浏览、增量同步和 CLI。
 
-面向 Apple Silicon 与 Intel Mac。本文描述 0.2.1 的外置 SQLite 资料库设计。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
+面向 Apple Silicon 与 Intel Mac。本文描述 0.2.2 的外置 SQLite 资料库设计。Apple 使用本地文件入口；Mac 登录 iCloud 不等于可直接读取 iCloud 健康数据库。
 
 ## 开始使用
 
@@ -24,7 +24,7 @@ Apple **仅文件导入**。相同文件重复导入不增加记录；重叠导�
 
 ### Oura
 
-本项目按用户已确认的额外授权接入 API。使用自己的 OAuth 应用，填写 Client ID、Client Secret；在应用中注册与窗口一致的回调地址，默认 `http://localhost:8765/callback`。新开发者门户的 HTTP 回调只接受 `localhost`，不要填写 `127.0.0.1`；两处地址必须完全一致。点击连接后浏览器完成授权，再回到插件查看结果；无需在命令行传递 token。端口占用或回调不匹配时，修正设置后重新连接。
+本项目按用户已确认的额外授权接入 API。使用自己的 OAuth 应用，填写 Client ID、Client Secret；在应用中注册与窗口一致的回调地址，默认 `http://localhost:8765/callback`。新开发者门户的 HTTP 回调只接受 `localhost`，不要填写 `127.0.0.1`；两处地址必须完全一致。点击连接后浏览器完成授权，再回到插件查看结果；无需在命令行传递 token。端口占用或回调不匹配时，修正设置后重新连接。授权申请包含新门户的 `stress` 和 `ring_configuration`；更新前已连接的账号须在“添加 / 重新授权账号”中重新授权并允许所需数据权限，普通 token 刷新不会扩大已有授权范围。同步仍返回 401 时保留失败窗口，不推进游标，并提示重新检查授权。
 
 采集 [Oura V2 API](https://cloud.ouraring.com/v2/docs) 的 19 类集合：活动、心血管年龄、准备度、韧性、睡眠日汇总、血氧、压力、增强标签、心率、个人信息、休息模式、戒指电量、戒指配置、session、睡眠详情、睡眠时间、标签、VO₂ max、运动。逐页保留完整 JSON，包括未知字段和 null；未开放集合显示覆盖缺口，不冒充零数据。
 

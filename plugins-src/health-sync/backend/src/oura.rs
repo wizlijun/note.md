@@ -1,4 +1,4 @@
-//! Oura API V2 collection reader, checked against the official OpenAPI 1.42.
+//! Oura API V2 collection reader, checked against the official OpenAPI 1.43.
 //! Authentication and persistence belong to the caller. Only complete collections
 //! may be activated: a later unavailable page invalidates earlier emitted pages.
 use crate::providers::{CollectionResult, FetchReport, ProviderRecord, Transport};
@@ -6,7 +6,7 @@ use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime};
 use serde_json::Value;
 use std::collections::HashSet;
 
-/// All collection routes in https://cloud.ouraring.com/v2/static/json/openapi-1.42.json.
+/// All collection routes in https://cloud.ouraring.com/v2/static/json/openapi-1.43.json.
 /// Keep the unusual vO2_max capitalization: it is part of the public route.
 pub const COLLECTIONS: &[&str] = &[
     "daily_activity",
@@ -66,7 +66,12 @@ pub fn collect(
                 .get_json(&path, &parameters)
                 .map_err(|e| format!("Oura {collection} request failed: {e}"))?;
             match response.status {
-                401 | 429 | 500..=599 => {
+                401 => {
+                    return Err(format!(
+                        "Oura {collection}: HTTP 401; reauthorize Oura and allow the app's requested data permissions; window was not completed"
+                    ))
+                }
+                429 | 500..=599 => {
                     return Err(format!(
                         "Oura {collection}: HTTP {}; window was not completed",
                         response.status
@@ -316,6 +321,28 @@ mod tests {
             &mut |_| {},
         )?;
         Ok((report, rows))
+    }
+
+    #[test]
+    fn unauthorized_resilience_requires_reauthorization_and_stops_window() {
+        let mut http = Fake::default();
+        http.reply(
+            "daily_resilience",
+            401,
+            json!({"detail":"SENSITIVE_SERVER_RESPONSE"}),
+        );
+        let error = run(&mut http).unwrap_err();
+        assert!(error.contains("daily_resilience: HTTP 401"));
+        assert!(error.contains("reauthorize Oura"));
+        assert!(error.contains("requested data permissions"));
+        assert!(error.contains("window was not completed"));
+        assert!(!error.contains("SENSITIVE_SERVER_RESPONSE"));
+        assert!(http
+            .requests
+            .last()
+            .unwrap()
+            .0
+            .ends_with("daily_resilience"));
     }
 
     #[test]
@@ -607,7 +634,7 @@ mod tests {
 
     #[test]
     fn time_series_accepts_omitted_terminal_cursor_only() {
-        // OpenAPI 1.42 TimeSeriesResponse requires only data; unlike
+        // OpenAPI 1.43 TimeSeriesResponse requires only data; unlike
         // MultiDocumentResponse, its nullable next_token is optional.
         for collection in ["heartrate", "ring_battery_level"] {
             let mut http = Fake::default();

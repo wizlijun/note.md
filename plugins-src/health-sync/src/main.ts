@@ -84,7 +84,7 @@ const labels: Record<string, string> = {
   'oura-profile-help': t('同一账号每次使用相同名称，不同账号使用不同名称。此身份独立于 API 账号。', 'Reuse the same name for exports from the same account, and a different name for each account. This identity is separate from API accounts.'),
   'oura-file-preview': t('预览文件', 'Preview file'), 'oura-file-import': t('增量导入文件', 'Import file incrementally'),
   'oura-cancel': t('取消授权', 'Cancel authorization'),
-  'oura-help': t('使用自己的 Oura OAuth 应用。先在开发者门户登记下方完全相同的 Redirect URI；HTTP 回调请用 localhost，不能填 127.0.0.1。', 'Use your own Oura OAuth application. Register the exact Redirect URI below in the developer portal. For HTTP callbacks, use localhost, not 127.0.0.1.'),
+  'oura-help': t('使用自己的 Oura OAuth 应用。先在开发者门户登记下方完全相同的 Redirect URI；HTTP 回调请用 localhost，不能填 127.0.0.1。授权时允许压力和戒指配置等数据权限。', 'Use your own Oura OAuth application. Register the exact Redirect URI below in the developer portal. For HTTP callbacks, use localhost, not 127.0.0.1. Allow data permissions including Stress and Ring Configuration.'),
   'authorize-label': t('若浏览器未打开，可复制此授权地址', 'Copy this authorization URL if your browser did not open'),
   'disconnect-help': t('凭据存入 Mac 钥匙串。每个来源只设一个当前同步账号；其他账号可导入历史。断开只移除凭据，保留归档。', 'Credentials stay in the Mac Keychain. Each provider has one current sync account; other accounts can import history. Disconnecting removes credentials and keeps the archive.'),
   'result-title': t('操作结果', 'Result'), 'report-title': t('查看操作明细', 'View operation details'), message: t('选择健康导出或连接设备来源后开始采集。', 'Choose a health export or connect a provider to begin.'),
