@@ -1015,7 +1015,13 @@ export const zh: Record<keyof Messages, string> = {
   'settings.dailyNotes.label': '每日笔记窗口',
   'settings.mcp.enable': '通过 MCP 向 agent 提供本 vault 检索',
   'settings.mcp.hint':
-    '让 Claude Code、Cowork、Codex 用 note.md 的排序检索 vault,而不是靠 grep。只读;不开网络端口。注册方式:',
+    '让 Claude Code、Cowork、Codex 用 note.md 的排序检索 vault,而不是靠 grep。只读;不开网络端口。',
+  'settings.mcp.copySetup': '复制给 Claude 的设置说明',
+  'settings.mcp.copied': '已复制',
+  'settings.mcp.setupHint':
+    '粘贴到 Claude Code 中:它会逐项展示改动,经你确认后才执行;note.md 自己从不修改 Claude 的设置。',
+  'settings.mcp.preview': '预览',
+  'settings.mcp.registerWith': '注册方式:',
 
   // Settings → Default app
   'settings.defaultApp.heading': '文本与代码文件的默认应用',

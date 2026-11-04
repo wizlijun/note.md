@@ -221,3 +221,96 @@ fn roots_round_trip_completes_without_hanging_when_client_answers() {
     assert!(msgs[2].get("error").is_none(), "{}", msgs[2]);
     assert_eq!(msgs[2]["result"]["isError"], true, "{}", msgs[2]);
 }
+
+/// stdout 纪律(2026-11-04 spec §3.3):`--cli mcp` 写到 stdout 的**每一行**都必须
+/// 是 JSON-RPC —— Desktop 按行解析,混进一行诊断文本就会判这个 server 损坏。
+/// 诊断(例如拉起 GUI 失败的警告)只能去 stderr。
+#[test]
+fn every_stdout_line_is_json() {
+    let home = temp_home();
+    std::fs::create_dir_all(&home).unwrap();
+    let out = Command::new(binary_path())
+        .args(["--cli", "mcp"])
+        .env("HOME", &home)
+        .env_remove("XDG_RUNTIME_DIR")
+        .stdin(Stdio::null())
+        .output()
+        .expect("run binary");
+    let _ = std::fs::remove_dir_all(&home);
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        serde_json::from_str::<serde_json::Value>(line)
+            .unwrap_or_else(|e| panic!("non-JSON stdout line {line:?}: {e}"));
+    }
+}
+
+fn run_setup(args: &[&str], home: &PathBuf) -> (i32, String, String) {
+    std::fs::create_dir_all(home).unwrap();
+    let out = Command::new(binary_path())
+        .arg("--cli")
+        .args(args)
+        .env("HOME", home)
+        .env_remove("XDG_RUNTIME_DIR")
+        .stdin(Stdio::null())
+        .output()
+        .expect("run binary");
+    (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).to_string(),
+        String::from_utf8_lossy(&out.stderr).to_string(),
+    )
+}
+
+/// `mcp setup` 的输出就是 `setup::render` 的输出,路径是这个二进制自己的规范路径。
+#[cfg(target_os = "macos")]
+#[test]
+fn mcp_setup_prints_exactly_the_rendered_instructions() {
+    use notemd_lib::mcp::setup::{render, Lang};
+    let bin = binary_path().canonicalize().unwrap();
+    for (flag, lang) in [(None, Lang::En), (Some("en"), Lang::En), (Some("zh"), Lang::Zh)] {
+        let home = temp_home();
+        let mut args = vec!["mcp", "setup"];
+        if let Some(l) = flag {
+            args.extend(["--lang", l]);
+        }
+        let (code, stdout, stderr) = run_setup(&args, &home);
+        let _ = std::fs::remove_dir_all(&home);
+        assert_eq!(code, 0, "stderr was: {stderr}");
+        assert_eq!(stdout, render(&bin, env!("CARGO_PKG_VERSION"), lang), "{args:?}");
+        assert!(stderr.is_empty(), "setup must not print diagnostics (e.g. GUI launch): {stderr}");
+    }
+}
+
+/// 设置里关了 MCP → 不生成,退出码 2,原因写 stderr。
+#[cfg(target_os = "macos")]
+#[test]
+fn mcp_setup_refuses_when_mcp_is_disabled() {
+    let home = temp_home();
+    let config = home.join("Library/Application Support/net.notemd.app");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(config.join("settings.json"), r#"{"mcpServer":{"enabled":false}}"#).unwrap();
+    let (code, stdout, stderr) = run_setup(&["mcp", "setup"], &home);
+    let _ = std::fs::remove_dir_all(&home);
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty(), "{stdout}");
+    assert!(stderr.contains("turned off"), "{stderr}");
+}
+
+#[test]
+fn mcp_setup_rejects_unknown_language() {
+    let home = temp_home();
+    let (code, stdout, _) = run_setup(&["mcp", "setup", "--lang", "fr"], &home);
+    let _ = std::fs::remove_dir_all(&home);
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty(), "{stdout}");
+}
+
+/// 非 macOS:设置说明不生成(其他平台设置页给一行注册配置)。
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn mcp_setup_is_macos_only() {
+    let home = temp_home();
+    let (code, stdout, _) = run_setup(&["mcp", "setup"], &home);
+    let _ = std::fs::remove_dir_all(&home);
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty());
+}

@@ -251,10 +251,13 @@ note.md 也能以 [MCP](https://modelcontextprotocol.io) 的方式说话（走 s
 于是 agent 可以把 `search` / `vault_info` 当工具调用，而不必去 shell 里执行
 `notemd search`。两个工具都是只读的，查的是 CLI 与应用本来就共用的那份热索引。
 
-在 agent 客户端的配置里注册：
+在 Mac 上接入 Claude Code、Claude Desktop 与 Cowork：打开 设置 →「复制给 Claude
+的设置说明」（或执行 `notemd mcp setup`），把这段文本粘贴到 Claude Code。它会逐项
+展示改动，经你确认后才执行 —— note.md 自己从不修改其他应用的配置。其他客户端
+按绝对路径并带 `--cli` 注册（GUI 应用不继承 shell 的 `PATH`）：
 
 ```json
-{"command": "notemd", "args": ["mcp"]}
+{"command": "/Applications/note.md.app/Contents/MacOS/notemd", "args": ["--cli", "mcp"]}
 ```
 
 不开 TCP 端口：外壳与正在运行的 note.md 进程之间走本机套接字（macOS/Linux 是

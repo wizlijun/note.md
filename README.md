@@ -293,10 +293,15 @@ agent can call `search` / `vault_info` as tools instead of shelling out to
 `notemd search`. Both are read-only, and hit the same warm index the CLI and
 the app already share.
 
-Register it in your agent client's config:
+To connect it to Claude Code, Claude Desktop and Cowork on a Mac, open
+Settings → "Copy setup instructions for Claude" (or run `notemd mcp setup`) and
+paste the text into Claude Code. It shows each change and applies it only after
+you confirm — note.md never edits another app's configuration itself. Any other
+client registers the binary by absolute path, with `--cli`, because GUI apps
+don't inherit your shell `PATH`:
 
 ```json
-{"command": "notemd", "args": ["mcp"]}
+{"command": "/Applications/note.md.app/Contents/MacOS/notemd", "args": ["--cli", "mcp"]}
 ```
 
 No TCP port: the shell talks to the running note.md process over a local

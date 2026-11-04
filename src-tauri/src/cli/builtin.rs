@@ -128,6 +128,7 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
         Builtin::Search(args) => super::search::run(args.with_global_json(parsed.globals.json)),
         Builtin::Doctor(args) => super::doctor::run(args.with_global_json(parsed.globals.json)),
         Builtin::Mcp => crate::mcp::shim::run_shim(),
+        Builtin::McpSetup(lang) => crate::mcp::setup::run_cli(lang),
         Builtin::Memory(args) => super::memory::run(args.with_global_json(parsed.globals.json)),
         Builtin::Open(tokens) => super::open::run(&tokens, parsed),
     }
@@ -298,8 +299,8 @@ pub fn render_help(
     out.push_str(
         "  search        Full-text search over the Vault (--vault, --json, --limit, --stats)\n",
     );
-    out.push_str("  mcp           Serve this vault to agents over MCP (stdio). Register with:\n");
-    out.push_str("                { \"command\": \"notemd\", \"args\": [\"mcp\"] }\n");
+    out.push_str("  mcp           Serve this vault to agents over MCP (stdio); 'mcp setup' prints\n");
+    out.push_str("                setup instructions to paste into Claude\n");
     out.push_str("  memory        Read and propose controlled personal Memory Claims\n");
     out.push_str(
         "  doctor        Self-check every local capability (--offline, --vault, --json)\n",
@@ -704,19 +705,32 @@ notemd mcp — Serve the configured Vault to agents over MCP stdio
 
 USAGE:
   notemd mcp
+  notemd mcp setup [--lang en|zh]
 
 DESCRIPTION:
-  Starts an MCP stdio transport exposing the read-only `search` and
-  `vault_info` tools. The desktop app must be running with MCP enabled when a
-  tool is called; initialize and tools/list remain available before that.
+  `notemd mcp` starts an MCP stdio transport exposing the read-only `search`
+  and `vault_info` tools. Tool calls are answered by the desktop app (started
+  in the background if needed, with MCP enabled in Settings); initialize and
+  tools/list are answered before that. stdout carries JSON-RPC only;
+  diagnostics go to stderr.
+
+  `notemd mcp setup` prints setup instructions for Claude Code, Claude Desktop
+  and Cowork on this Mac. Paste them into Claude Code: the agent shows each
+  change and applies it only after you confirm. note.md itself never edits
+  another app's configuration. macOS only.
 
 CLIENT CONFIGURATION:
-  { \"command\": \"notemd\", \"args\": [\"mcp\"] }
+  Register the absolute path of the binary with `--cli` — Claude Desktop does
+  not inherit your shell PATH:
+    { \"command\": \"/Applications/note.md.app/Contents/MacOS/notemd\",
+      \"args\": [\"--cli\", \"mcp\"] }
+  `notemd mcp setup` prints this with the path of your installation.
 
 EXIT CODES:
-  0    Input stream closed normally
+  0    Input stream closed normally / instructions printed
   1    MCP transport/runtime error
-  2    Argument error
+  2    Argument error, or setup instructions unavailable (MCP turned off,
+       running from a disk image, or not macOS)
 "
         }
         "memory" => {

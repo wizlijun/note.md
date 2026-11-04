@@ -976,7 +976,13 @@ export const de: Record<keyof Messages, string> = {
   'settings.dailyNotes.label': 'Daily Notes window',
   'settings.mcp.enable': 'Dieses Vault Agents über MCP bereitstellen',
   'settings.mcp.hint':
-    'Ermöglicht Claude Code, Cowork und Codex, dein Vault mit dem Ranking von note.md statt mit grep zu durchsuchen. Nur lesend; es wird kein Netzwerkport geöffnet. Registrierung mit:',
+    'Ermöglicht Claude Code, Cowork und Codex, dein Vault mit dem Ranking von note.md statt mit grep zu durchsuchen. Nur lesend; es wird kein Netzwerkport geöffnet.',
+  'settings.mcp.copySetup': 'Einrichtungsanleitung für Claude kopieren',
+  'settings.mcp.copied': 'Kopiert',
+  'settings.mcp.setupHint':
+    'Füge sie in Claude Code ein. Es zeigt jede Änderung und führt sie erst nach deiner Bestätigung aus; note.md ändert Claudes Einstellungen nie selbst.',
+  'settings.mcp.preview': 'Vorschau',
+  'settings.mcp.registerWith': 'Registrierung mit:',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Standard-App für Text- und Codedateien',

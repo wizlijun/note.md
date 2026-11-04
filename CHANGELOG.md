@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Connect vault search to Claude without guessing at config.** On macOS, Settings → “Copy setup instructions for Claude” (or `notemd mcp setup`) produces text with this Mac’s real path. Paste it into Claude Code, and it registers note.md for Claude Code, Claude Desktop and Cowork after you confirm each change. note.md itself never edits another app’s configuration. If you registered `{"command": "notemd", "args": ["mcp"]}` by hand, replace it: Claude Desktop does not inherit your shell `PATH`, so that entry cannot start. The first search after Claude starts now waits up to 15 seconds for note.md to open, instead of reporting it as not running. Both tools are marked read-only. In new vaults, the AGENTS.md search section tells agents which surface to use, including inside Cowork’s Linux VM. Existing AGENTS.md files are not rewritten; copy the “Which surface to use” section from a new vault if you want it.
+
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.
 
 - **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.

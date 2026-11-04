@@ -65,7 +65,12 @@ Notes and retrieval for people and agents:
       exposes the read-only `search` and `vault_info` tools. It uses the same
       warm index as the app and CLI, reaches the running app only through a
       local socket or named pipe, opens no TCP port, and can be disabled in
-      Settings.
+      Settings. On macOS, Settings → "Copy setup instructions for Claude" (or
+      `notemd mcp setup`) produces text to paste into Claude Code, which then
+      registers the server for Claude Code, Claude Desktop and Cowork with your
+      confirmation at each step; note.md itself never edits another app's
+      configuration. Both tools declare read-only annotations, and a tool call
+      made while the app is still starting waits up to 15 seconds for it.
 
 ## Reading & annotating
 

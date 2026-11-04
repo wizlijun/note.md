@@ -68,6 +68,8 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 }))
 // Desktop, not iOS — the tab is `!isIOSPlatform`-gated in the strip.
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos' }))
+const { writeTextMock } = vi.hoisted(() => ({ writeTextMock: vi.fn(async (_text: string) => {}) }))
+vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: writeTextMock }))
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn(async () => null) }))
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn(async () => '6.1015.1') }))
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: vi.fn(async () => {}), exit: vi.fn(async () => {}) }))
@@ -278,6 +280,43 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     expect(save).toHaveBeenCalledTimes(4)
     expect(activate).toHaveBeenCalledTimes(2)
     expect(document.querySelector('.save-feedback')).toBeNull()
+  })
+
+  // 2026-11-04 spec §2.1:note.md 只生成用法说明,复制到剪贴板;不碰 Claude 的配置。
+  it('copies the Claude setup instructions generated for the UI language', async () => {
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) =>
+      cmd === 'mcp_setup_text' ? `setup for ${(args as { locale: string }).locale}` : defaultInvokeImpl(cmd, args))
+    settings.mcpServer.enabled = true
+    await mountDialog()
+    await settle()
+    buttonByText(document, t('settings.mcp.copySetup')).click()
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('mcp_setup_text', { locale: i18n.locale })
+    expect(writeTextMock).toHaveBeenCalledWith(`setup for ${i18n.locale}`)
+    expect(document.body.textContent).toContain(t('settings.mcp.copied'))
+    expect(document.body.textContent).not.toContain('"command": "notemd"')
+  })
+
+  it('shows why setup instructions are unavailable and copies nothing', async () => {
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === 'mcp_setup_text') throw 'note.md is running from a temporary location'
+      return defaultInvokeImpl(cmd, args)
+    })
+    settings.mcpServer.enabled = true
+    await mountDialog()
+    await settle()
+    buttonByText(document, t('settings.mcp.copySetup')).click()
+    await settle()
+    expect(writeTextMock).not.toHaveBeenCalled()
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('temporary location')
+  })
+
+  it('disables the setup-instructions button while MCP is off', async () => {
+    settings.mcpServer.enabled = false
+    await mountDialog()
+    await settle()
+    expect(buttonByText(document, t('settings.mcp.copySetup')).disabled).toBe(true)
+    settings.mcpServer.enabled = true
   })
 
   it('does not dismiss a pending setting write with Escape or the backdrop', async () => {

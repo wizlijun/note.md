@@ -654,15 +654,22 @@ the other, or read the field in `--json` output to weigh a hit accordingly.
 Unlabeled files are ranked lowest by default (×0.3) and can fall out of the
 top results entirely, so `origin:unlabeled` is the way to find them anyway.
 
-### If you can't run `notemd` yourself
+### Which surface to use
 
-Some harnesses can call tools but can't reach a binary on this machine. note.md
-serves the same index over MCP for those — register it once, in the client's
-own config, and `search` / `vault_info` show up as tools:
+Pick by what your environment actually has — the index behind all three is the
+same, and so is the filter grammar:
 
-```json
-{ "mcpServers": { "notemd": { "command": "notemd", "args": ["mcp"] } } }
-```
+1. **notemd MCP tools are available** (`search` / `vault_info` from a server
+   named `notemd`): use them. This is the usual case in Claude Desktop and
+   Cowork, whose sandboxed shell has no `notemd` binary even when the tools
+   work.
+2. **`command -v notemd` succeeds in your shell**: use the CLI above.
+3. **Neither**: use `rg` / `grep`, and tell the user once that they can
+   connect the index in note.md → Settings → "Copy setup instructions for
+   Claude". Do not register the server yourself, and do not edit any client
+   configuration on your own initiative — that change belongs to the user.
+
+### The MCP tools
 
 `search` takes only `query`, `limit` (0 = no cap) and `context`. The filters go
 inside the query string, exactly as above — one grammar, whether you type it in

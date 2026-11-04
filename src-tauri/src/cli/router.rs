@@ -47,6 +47,9 @@ pub enum Builtin {
     /// `mcp` —— MCP server 的 stdio 外壳。Core,never disabled:
     /// agent 的检索入口不能取决于插件状态。
     Mcp,
+    /// `mcp setup [--lang en|zh]` —— 打印「复制给 Claude 的设置说明」。只打印:
+    /// 不拉起 GUI、不碰 IPC、不写任何别的产品的配置(2026-11-04 spec §0)。
+    McpSetup(crate::mcp::setup::Lang),
     /// `memory` — controlled USER/MEMORY proposals, review and integrity.
     Memory(super::memory::MemoryArgs),
     /// `notemd .` / `notemd xxx.md` — open paths in the desktop app. Holds the
@@ -161,10 +164,17 @@ pub fn resolve_with(
     // Core, never disabled: an agent's retrieval path must not depend on
     // plugin state — same reasoning as `search`/`doctor` above.
     if first == "mcp" {
-        return if rest.len() == 1 {
-            Route::Builtin(Builtin::Mcp)
-        } else {
-            argument_error("mcp does not accept arguments")
+        return match &rest[1..] {
+            [] => Route::Builtin(Builtin::Mcp),
+            [setup, tail @ ..] if setup == "setup" => match tail {
+                [] => Route::Builtin(Builtin::McpSetup(crate::mcp::setup::Lang::En)),
+                [flag, value] if flag == "--lang" => match crate::mcp::setup::Lang::parse(value) {
+                    Some(lang) => Route::Builtin(Builtin::McpSetup(lang)),
+                    None => argument_error(format!("mcp setup --lang must be 'en' or 'zh', got '{value}'")),
+                },
+                _ => argument_error("usage: notemd mcp setup [--lang en|zh]"),
+            },
+            _ => argument_error("mcp accepts no arguments other than 'setup' (usage: notemd mcp | notemd mcp setup [--lang en|zh])"),
         };
     }
 
@@ -873,6 +883,31 @@ mod tests {
     fn mcp_routes_as_builtin() {
         let r = route_with(&["mcp"], vec![], Default::default());
         assert!(matches!(r, Route::Builtin(Builtin::Mcp)), "got {r:?}");
+    }
+
+    #[test]
+    fn mcp_setup_routes_with_optional_language() {
+        use crate::mcp::setup::Lang;
+        let r = route_with(&["mcp", "setup"], vec![], Default::default());
+        assert!(matches!(r, Route::Builtin(Builtin::McpSetup(Lang::En))), "got {r:?}");
+        let r = route_with(&["mcp", "setup", "--lang", "zh"], vec![], Default::default());
+        assert!(matches!(r, Route::Builtin(Builtin::McpSetup(Lang::Zh))), "got {r:?}");
+        let r = route_with(&["mcp", "setup", "--lang", "en"], vec![], Default::default());
+        assert!(matches!(r, Route::Builtin(Builtin::McpSetup(Lang::En))), "got {r:?}");
+    }
+
+    #[test]
+    fn mcp_rejects_unknown_arguments() {
+        for argv in [
+            &["mcp", "--bogus"][..],
+            &["mcp", "setup", "--lang", "fr"],
+            &["mcp", "setup", "--lang"],
+            &["mcp", "setup", "extra"],
+            &["mcp", "setup", "--lang", "zh", "extra"],
+        ] {
+            let r = route_with(argv, vec![], Default::default());
+            assert!(matches!(r, Route::Builtin(Builtin::ArgumentError(_))), "{argv:?} → {r:?}");
+        }
     }
 
     #[test]

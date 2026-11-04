@@ -346,6 +346,7 @@ installed and enabled:
     notemd plugin update <id>
     notemd plugin remove <id>
     notemd mcp                       # read-only local Vault MCP over stdio
+    notemd mcp setup                 # macOS: setup text to paste into Claude Code
     notemd meetings-sync --dry-run  # incremental Hemory import, if enabled
     notemd apple-notes-sync --dry-run # Apple Notes sync, macOS, if enabled
     notemd roam-sync --dry-run      # changed Roam pages, if enabled
@@ -404,6 +405,21 @@ with one line of warning on stderr.
 read-only `search` and `vault_info` tools backed by the same index as the app
 and CLI. It opens no TCP port: the shell reaches the running app through a
 local Unix socket or Windows named pipe. It can be disabled in Settings.
+
+Register the binary by absolute path with `--cli` — GUI clients such as Claude
+Desktop don't inherit the shell `PATH`, and an absolute path into the `.app`
+bundle starts the GUI unless `--cli` is given:
+
+    {"command": "/Applications/note.md.app/Contents/MacOS/notemd", "args": ["--cli", "mcp"]}
+
+On macOS, `notemd mcp setup [--lang en|zh]` (or Settings → "Copy setup
+instructions for Claude") prints setup instructions for Claude Code, Claude
+Desktop and Cowork with this machine's real path. They are meant to be pasted
+into Claude Code. An agent following them must show each change and apply it
+only after the user confirms, and must change only the `notemd` entry. Never
+register the server or edit a client's configuration on your own initiative.
+Inside Cowork's Linux VM the `notemd` binary is not available; use the MCP
+tools if they are connected, otherwise fall back to `rg` / `grep`.
 
 The self-hosted Cloudflare share worker has a separate MCP endpoint for
 publishing and revoking shared pages. Its tools and authorization do not grant

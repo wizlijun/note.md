@@ -306,6 +306,10 @@ mod tests {
             all: false,
         })));
         assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::Version)));
+        // 设置说明只打印文本:不拉起 GUI(spec §3.4)。
+        assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::McpSetup(
+            crate::mcp::setup::Lang::En
+        ))));
         assert!(!should_keep_desktop_running(&Route::Builtin(Builtin::ArgumentError(
             "bad input".to_string(),
         ))));

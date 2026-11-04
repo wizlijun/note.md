@@ -6,6 +6,8 @@
 
 ## 未发布
 
+- **接入 Claude 不再靠猜配置。** 在 macOS 上，设置 →「复制给 Claude 的设置说明」（或 `notemd mcp setup`）会生成带本机真实路径的文本；粘贴到 Claude Code，经你逐项确认后，它为 Claude Code、Claude Desktop 与 Cowork 完成注册。note.md 自己从不修改其他应用的配置。若你曾手动注册 `{"command": "notemd", "args": ["mcp"]}`，请替换：Claude Desktop 不继承 shell 的 `PATH`，这个条目无法启动。Claude 启动后的第一次检索，现在会等待 note.md 打开至多 15 秒，不再直接报「未运行」。两个工具都标注为只读。新 vault 的 AGENTS.md 检索段会告诉 agent 按环境选用哪种方式（包括 Cowork 的 Linux 虚拟机内）；已有 AGENTS.md 不会被改写，如需要可从新 vault 复制「Which surface to use」一节。
+
 - **NEXT 开头结果严格关联原任务。** 冲突结果只阻止相关任务，关闭已失效的结果视图并保留用户内容；同一窗口会话中，重复的后台读取错误只提示一次。
 
 - **更新网站 Agent 集成入口。** 首页突出展示 Grokbot，新增四语集成指南；入口统一按 Claude、Codex、Grokbot、OpenClaw、Hermes 排列，并修复翻译内容页切回英文的链接。

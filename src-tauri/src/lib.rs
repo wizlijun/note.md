@@ -1695,6 +1695,8 @@ pub fn run() {
                 smart_lookup::smart_lookup_agent_default,
                 set_daily_notes_enabled,
                 mcp::gate::set_mcp_enabled,
+                mcp::setup::mcp_setup_text,
+                mcp::setup::mcp_register_line,
                 editor_show_and_open_path,
                 editor_show_and_reveal_search_hit,
                 pending_search_reveals,

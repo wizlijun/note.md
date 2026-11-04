@@ -42,7 +42,8 @@ pub fn tool_definitions() -> Value {
                     "context": { "type": "integer", "description": "Lines of surrounding context per hit.", "default": 0 }
                 },
                 "required": ["query"]
-            }
+            },
+            "annotations": read_only_annotations("Search note.md vault")
         },
         {
             "name": "vault_info",
@@ -51,9 +52,21 @@ pub fn tool_definitions() -> Value {
                 "session before relying on `search`: compare `vault_id` against the ",
                 ".notemd/vault-id in your own mounted folder. Zero side effects."
             ),
-            "inputSchema": { "type": "object", "properties": {} }
+            "inputSchema": { "type": "object", "properties": {} },
+            "annotations": read_only_annotations("note.md vault info")
         }
     ]})
+}
+
+/// 两个工具都是纯读:Claude Desktop 按这些标注决定是否弹「可能修改数据」的审批卡。
+fn read_only_annotations(title: &str) -> Value {
+    json!({
+        "title": title,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+    })
 }
 
 pub fn error(id: &Value, code: i64, msg: &str) -> Value {
@@ -103,6 +116,28 @@ mod tests {
         props.sort();
         assert_eq!(props, vec!["context", "limit", "query"]);
         assert_eq!(search["inputSchema"]["required"], serde_json::json!(["query"]));
+    }
+
+    /// Claude Desktop 按工具标注决定审批卡片:只读工具必须如实声明,否则会被当成
+    /// 可能写数据的工具弹警告(2026-11-04 spec §3.2)。
+    #[test]
+    fn every_tool_declares_read_only_annotations() {
+        let v = tool_definitions();
+        let titles = [("search", "Search note.md vault"), ("vault_info", "note.md vault info")];
+        for (tool, (name, title)) in v["tools"].as_array().unwrap().iter().zip(titles) {
+            assert_eq!(tool["name"], name);
+            assert_eq!(
+                tool["annotations"],
+                serde_json::json!({
+                    "title": title,
+                    "readOnlyHint": true,
+                    "destructiveHint": false,
+                    "idempotentHint": true,
+                    "openWorldHint": false
+                }),
+                "annotations for {name}"
+            );
+        }
     }
 
     #[test]

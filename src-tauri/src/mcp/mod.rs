@@ -10,5 +10,6 @@ pub mod gate;
 pub mod protocol;
 pub mod roots;
 pub mod server;
+pub mod setup;
 pub mod shim;
 pub mod tools;

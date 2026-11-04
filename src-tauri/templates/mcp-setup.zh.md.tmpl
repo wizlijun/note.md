@@ -1,0 +1,94 @@
+# 把 note.md vault 检索接入 Claude(设置说明)
+
+这份说明由 note.md {{VERSION}} 为这台 Mac 生成,下面的路径只在本机有效。
+移动过 note.md 后,请在 note.md → 设置 →「复制给 Claude 的设置说明」重新生成。
+
+note.md 通过 MCP(stdio)提供只读的 `search` 与 `vault_info` 两个工具,从不写入
+vault。注册它只需要在各个 Claude 应用自己的配置里各加一项,别的都不用动。
+
+## 1. 给读到这段文字的 agent 的规则
+
+1. 先确认你能否在这台 Mac 本机执行命令:
+
+   ```sh
+   uname -s && test -x {{BIN_SH}} && echo notemd-ok
+   ```
+
+   输出为 `Darwin` 且随后是 `notemd-ok` 才继续。
+2. 如果你不能执行命令,或上面的检查失败(例如你在 Cowork 的 Linux 虚拟机里,或在
+   没有 shell 的对话中):**不要尝试任何步骤**,把第 5 部分原样展示给用户,然后停下。
+3. 每一步改动前,先向用户展示具体改动并等待确认。只改下面指明的那一项,其他配置
+   一律不碰。
+
+## 2. Claude Code
+
+先检查是否已有条目:
+
+```sh
+claude mcp get notemd
+```
+
+- 不存在 → 经用户确认后执行:
+
+  ```sh
+  {{CLAUDE_CODE_CMD}}
+  ```
+
+- 已存在但命令或参数不同 → 展示差异;经确认后先执行
+  `claude mcp remove notemd --scope user`,再执行上面的命令。
+- 已存在且完全一致 → 无需操作。
+
+## 3. Claude Desktop(Chat 与 Cowork)
+
+文件:`~/Library/Application Support/Claude/claude_desktop_config.json`
+
+只设置一个键 `mcpServers.notemd`,值为:
+
+```json
+{{DESKTOP_ENTRY}}
+```
+
+- 文件中其余所有键保持原样。用能解析 JSON 的工具修改,不要用文本替换。
+- 文件不存在时,新建并只写入:
+
+  ```json
+  {{DESKTOP_FILE}}
+  ```
+
+- 写入前,把原文件复制为同目录下的 `claude_desktop_config.json.bak-<YYYYMMDD-HHMMSS>`。
+- 写入后,重新解析一次,确认是合法 JSON。
+- 提示用户用 ⌘Q 完全退出 Claude 再重新打开——Desktop 只在启动时读取这个文件。
+
+## 4. 自检
+
+```sh
+{{CHECK_CMD}}
+```
+
+成功判据:输出两行 JSON,第二行同时包含 `"search"` 与 `"vault_info"`。这一步不需要
+note.md 已打开(执行时可能在后台启动 note.md,属正常现象)。
+
+## 5. 手动设置(给用户)
+
+1. Claude Desktop(Chat 与 Cowork):打开
+   `~/Library/Application Support/Claude/claude_desktop_config.json`(Claude → 设置 →
+   开发者 → 编辑配置),在 `"mcpServers"` 下加入这一项,然后用 ⌘Q 退出 Claude 再打开:
+
+   ```json
+   "notemd": {{DESKTOP_ENTRY}}
+   ```
+
+2. Claude Code:在终端执行:
+
+   ```sh
+   {{CLAUDE_CODE_CMD}}
+   ```
+
+3. 在 Cowork 中验证:新建一个任务,请 Claude 调用 notemd 的 `vault_info`;
+   `mount.status` 为 `matched` 即设置完成。
+
+## 6. 排错
+
+- Claude Desktop 日志:`~/Library/Logs/Claude/mcp-server-notemd.log`
+- 工具提示 note.md 未运行 → 打开 note.md 后重试。
+- note.md 被移动或重装到别处 → 重新生成本说明。

@@ -16,7 +16,18 @@ use crate::mcp::{dispatch, protocol};
 /// (见下面 `forward` 的注释)——roots 只是加固,同样不值得拿可用性换。
 const ROOTS_DEADLINE: Duration = Duration::from_secs(5);
 
+/// 冷启动宽限期(2026-11-04 spec §3.1)。外壳在启动时已在后台拉起 GUI,而 GUI
+/// 建好 IPC 端点要几秒;这段时间里「端点未就绪」不是失败,是还没好。
+const COLD_START_GRACE: Duration = Duration::from_secs(15);
+const COLD_START_RETRY: Duration = Duration::from_millis(250);
+/// 连上之后的往返上限;单次调用总上限 = 剩余宽限期 + 它。
+const ROUND_TRIP_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// 外壳启动时刻。未设置(单测直接调 `answer`)时视为宽限期已过。
+static STARTED_AT: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
 pub fn run_shim() -> ExitCode {
+    let _ = STARTED_AT.set(std::time::Instant::now());
     let rx = spawn_reader();
     let mut stdout = std::io::stdout();
     run_loop(&rx, &mut stdout)
@@ -253,19 +264,30 @@ fn request_roots(
 /// 一次请求一次连接。MCP 的调用频率远低于建连成本,换来的是外壳完全无状态 ——
 /// 主程序中途重启也不需要外壳做任何重连逻辑。
 ///
-/// 5 秒超时覆盖整个「连接 + 写请求 + 等回应」往返:GUI 侧没起来时
+/// 超时覆盖整个「连接 + 写请求 + 等回应」往返:GUI 侧没起来时
 /// `platform::ipc::connect()` 本身可能快速失败,但也可能挂在系统调用上
 /// (例如陈旧 socket 文件);不设上限,agent 的这一次工具调用就会无限期挂起。
+/// 上限 = 剩余冷启动宽限期 + 5 秒;宽限期过后就是原来的 5 秒。
 fn forward(msg: &serde_json::Value, roots: Option<&[String]>) -> Result<serde_json::Value, String> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all().build().map_err(|e| e.to_string())?;
     let preface = roots.map(|r| serde_json::json!({
         "jsonrpc": "2.0", "method": "notemd/roots", "params": { "roots": r }
     }));
+    let now = std::time::Instant::now();
+    let grace_until = STARTED_AT.get().map(|t| *t + COLD_START_GRACE).unwrap_or(now);
+    let budget = grace_until.saturating_duration_since(now) + ROUND_TRIP_TIMEOUT;
     rt.block_on(async {
-        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        tokio::time::timeout(budget, async {
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-            let stream = crate::platform::ipc::connect().await.map_err(|e| e.to_string())?;
+            let stream = connect_with_grace(
+                crate::platform::ipc::connect,
+                grace_until,
+                std::time::Instant::now,
+                tokio::time::sleep,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
             let (r, mut w) = tokio::io::split(stream);
             if let Some(p) = preface {
                 w.write_all(format!("{p}\n").as_bytes()).await.map_err(|e| e.to_string())?;
@@ -282,9 +304,138 @@ fn forward(msg: &serde_json::Value, roots: Option<&[String]>) -> Result<serde_js
     })
 }
 
+/// 端点还没建好:socket 文件/命名管道不存在,或存在但没人在听。
+/// 其他错误(权限等)重试也不会好,立即返回。
+fn endpoint_not_ready(e: &std::io::Error) -> bool {
+    matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused)
+}
+
+/// 宽限期内对「端点未就绪」每 250ms 重连;宽限期后只试一次。时钟与 sleep 注入,
+/// 只为单测不必真等 15 秒。
+async fn connect_with_grace<S, C, CF, N, Z, ZF>(
+    mut connect: C,
+    grace_until: std::time::Instant,
+    now: N,
+    sleep: Z,
+) -> std::io::Result<S>
+where
+    C: FnMut() -> CF,
+    CF: std::future::Future<Output = std::io::Result<S>>,
+    N: Fn() -> std::time::Instant,
+    Z: Fn(Duration) -> ZF,
+    ZF: std::future::Future<Output = ()>,
+{
+    loop {
+        match connect().await {
+            Ok(stream) => return Ok(stream),
+            Err(e) if endpoint_not_ready(&e) && now() + COLD_START_RETRY <= grace_until => {
+                sleep(COLD_START_RETRY).await;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 假时钟:每次 sleep 推进虚拟时间,不真等。
+    struct FakeClock {
+        t0: std::time::Instant,
+        elapsed: std::cell::Cell<Duration>,
+    }
+
+    impl FakeClock {
+        fn new() -> Self {
+            Self { t0: std::time::Instant::now(), elapsed: std::cell::Cell::new(Duration::ZERO) }
+        }
+        fn now(&self) -> std::time::Instant {
+            self.t0 + self.elapsed.get()
+        }
+        fn sleep(&self, d: Duration) -> std::future::Ready<()> {
+            self.elapsed.set(self.elapsed.get() + d);
+            std::future::ready(())
+        }
+    }
+
+    fn block<F: std::future::Future>(f: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(f)
+    }
+
+    fn refused() -> std::io::Error {
+        std::io::Error::from(std::io::ErrorKind::ConnectionRefused)
+    }
+
+    #[test]
+    fn endpoint_that_appears_within_grace_is_reached() {
+        let clock = FakeClock::new();
+        let grace_until = clock.now() + COLD_START_GRACE;
+        let attempts = std::cell::Cell::new(0);
+        let r = block(connect_with_grace(
+            || {
+                attempts.set(attempts.get() + 1);
+                // 3 秒后端点出现。
+                let ready = clock.elapsed.get() >= Duration::from_secs(3);
+                std::future::ready(if ready { Ok("stream") } else { Err(refused()) })
+            },
+            grace_until,
+            || clock.now(),
+            |d| clock.sleep(d),
+        ));
+        assert_eq!(r.unwrap(), "stream");
+        assert_eq!(attempts.get(), 13, "0s,0.25s,…,3s");
+    }
+
+    #[test]
+    fn gives_up_at_end_of_grace() {
+        let clock = FakeClock::new();
+        let grace_until = clock.now() + COLD_START_GRACE;
+        let r: std::io::Result<()> = block(connect_with_grace(
+            || std::future::ready(Err(std::io::Error::from(std::io::ErrorKind::NotFound))),
+            grace_until,
+            || clock.now(),
+            |d| clock.sleep(d),
+        ));
+        assert_eq!(r.unwrap_err().kind(), std::io::ErrorKind::NotFound);
+        assert!(clock.elapsed.get() <= COLD_START_GRACE);
+        assert!(clock.elapsed.get() > COLD_START_GRACE - COLD_START_RETRY * 2);
+    }
+
+    #[test]
+    fn after_grace_a_single_attempt_fails_fast() {
+        let clock = FakeClock::new();
+        let attempts = std::cell::Cell::new(0);
+        let r: std::io::Result<()> = block(connect_with_grace(
+            || {
+                attempts.set(attempts.get() + 1);
+                std::future::ready(Err(refused()))
+            },
+            clock.now(), // 宽限期已过
+            || clock.now(),
+            |d| clock.sleep(d),
+        ));
+        assert!(r.is_err());
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(clock.elapsed.get(), Duration::ZERO);
+    }
+
+    #[test]
+    fn other_errors_are_not_retried_even_within_grace() {
+        let clock = FakeClock::new();
+        let attempts = std::cell::Cell::new(0);
+        let r: std::io::Result<()> = block(connect_with_grace(
+            || {
+                attempts.set(attempts.get() + 1);
+                std::future::ready(Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)))
+            },
+            clock.now() + COLD_START_GRACE,
+            || clock.now(),
+            |d| clock.sleep(d),
+        ));
+        assert_eq!(r.unwrap_err().kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(attempts.get(), 1);
+    }
 
     fn tool_call(id: i64) -> serde_json::Value {
         serde_json::json!({

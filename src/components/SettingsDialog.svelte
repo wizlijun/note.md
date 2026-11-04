@@ -59,11 +59,42 @@
   let linuxPolicyFailures = $state<{ label: string; error: string }[]>([])
   const hyprlandBindings = "bind = SUPER CTRL, M, exec, notemd --gui --action smart-search\nbind = SUPER CTRL, P, exec, notemd --gui --action plugin:PLUGIN_ID:WINDOW_ID"
   let isIOSPlatform = $state(false)
+  let isMacPlatform = $state(false)
   $effect(() => {
     platform().then((p) => {
       isIOSPlatform = p === 'ios'
       isLinuxPlatform = p === 'linux'
+      isMacPlatform = p === 'macos'
     })
+  })
+
+  // MCP 接入:note.md 只给用法说明,不碰任何别的产品的配置(2026-11-04 spec §0)。
+  // macOS 生成整份「给 Claude 的设置说明」;其他桌面平台给一行注册配置。
+  let mcpSetupText = $state<string | null>(null)
+  let mcpSetupError = $state<string | null>(null)
+  let mcpSetupCopied = $state(false)
+  let mcpRegisterLine = $state<string | null>(null)
+  async function loadMcpSetupText(): Promise<string | null> {
+    try {
+      mcpSetupText = await invoke<string>('mcp_setup_text', { locale: i18n.locale })
+      mcpSetupError = null
+    } catch (error) {
+      mcpSetupText = null
+      mcpSetupError = String(error)
+    }
+    return mcpSetupText
+  }
+  async function copyMcpSetupText() {
+    mcpSetupCopied = false
+    const text = await loadMcpSetupText()
+    if (text === null) return
+    try { await writeText(text); mcpSetupCopied = true }
+    catch (error) { mcpSetupError = String(error) }
+  }
+  $effect(() => {
+    if (open && !isIOSPlatform && !isMacPlatform && mcpRegisterLine === null) {
+      invoke<string>('mcp_register_line').then((line) => { mcpRegisterLine = line }).catch(() => {})
+    }
   })
 
   let pluginTabs = $state<SettingsTab[]>([])
@@ -1272,9 +1303,21 @@
               />
               {t('settings.mcp.enable')}
             </label>
-            <p class="desc" style="margin-top: 4px;">
-              {t('settings.mcp.hint')} <code>{'{"command": "notemd", "args": ["mcp"]}'}</code>
-            </p>
+            <p class="desc" style="margin-top: 4px;">{t('settings.mcp.hint')}</p>
+            {#if isMacPlatform}
+              <div class="row" style="margin-top: 4px;">
+                <button onclick={copyMcpSetupText} disabled={!settings.mcpServer.enabled}>{t('settings.mcp.copySetup')}</button>
+                {#if mcpSetupCopied}<span class="desc">{t('settings.mcp.copied')}</span>{/if}
+              </div>
+              <p class="desc">{t('settings.mcp.setupHint')}</p>
+              {#if mcpSetupError}<p class="desc" role="alert" style="color: tomato;">{mcpSetupError}</p>{/if}
+              <details ontoggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) loadMcpSetupText() }}>
+                <summary class="desc">{t('settings.mcp.preview')}</summary>
+                {#if mcpSetupText}<textarea readonly rows="12" aria-label={t('settings.mcp.preview')}>{mcpSetupText}</textarea>{/if}
+              </details>
+            {:else if mcpRegisterLine}
+              <p class="desc">{t('settings.mcp.registerWith')} <code>{mcpRegisterLine}</code></p>
+            {/if}
           {/if}
         </section>
 

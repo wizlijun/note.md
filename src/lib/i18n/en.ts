@@ -1025,7 +1025,13 @@ export const en = {
   'settings.dailyNotes.label': 'Daily Notes window',
   'settings.mcp.enable': 'Serve this vault to agents over MCP',
   'settings.mcp.hint':
-    'Lets Claude Code, Cowork and Codex search your vault with note.md’s ranking instead of grep. Read-only; no network port is opened. Register it with:',
+    'Lets Claude Code, Cowork and Codex search your vault with note.md’s ranking instead of grep. Read-only; no network port is opened.',
+  'settings.mcp.copySetup': 'Copy setup instructions for Claude',
+  'settings.mcp.copied': 'Copied',
+  'settings.mcp.setupHint':
+    'Paste them into Claude Code. It shows each change and applies it only after you confirm; note.md never edits Claude’s settings itself.',
+  'settings.mcp.preview': 'Preview',
+  'settings.mcp.registerWith': 'Register it with:',
 
   // Settings → Default app
   'settings.defaultApp.heading': 'Default app for text & code files',
