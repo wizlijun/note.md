@@ -404,7 +404,7 @@ with one line of warning on stderr.
 `notemd mcp` starts the shipped local Vault MCP server over stdio. It exposes
 read-only `search` and `vault_info` tools backed by the same index as the app
 and CLI. It opens no TCP port: the shell reaches the running app through a
-local Unix socket or Windows named pipe. It can be disabled in Settings.
+local Unix socket or Windows named pipe. It can be disabled in Settings → Search & Index.
 
 Register the binary by absolute path with `--cli` — GUI clients such as Claude
 Desktop don't inherit the shell `PATH`, and an absolute path into the `.app`
@@ -412,7 +412,7 @@ bundle starts the GUI unless `--cli` is given:
 
     {"command": "/Applications/note.md.app/Contents/MacOS/notemd", "args": ["--cli", "mcp"]}
 
-On macOS, `notemd mcp setup [--lang en|zh]` (or Settings → "Copy setup
+On macOS, `notemd mcp setup [--lang en|zh]` (or Settings → Search & Index → "Copy setup
 instructions for Claude") prints setup instructions for Claude Code, Claude
 Desktop and Cowork with this machine's real path. They are meant to be pasted
 into Claude Code. An agent following them must show each change and apply it

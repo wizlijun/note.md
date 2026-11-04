@@ -44,7 +44,7 @@ same, and so is the filter grammar:
    work.
 2. **`command -v notemd` succeeds in your shell**: use the CLI above.
 3. **Neither**: use `rg` / `grep`, and tell the user once that they can
-   connect the index in note.md → Settings → "Copy setup instructions for
+   connect the index in note.md → Settings → Search & Index → "Copy setup instructions for
    Claude". Do not register the server yourself, and do not edit any client
    configuration on your own initiative — that change belongs to the user.
 

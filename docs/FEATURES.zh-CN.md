@@ -50,7 +50,7 @@
 - [x] **本地 Vault MCP server** —— `notemd mcp` 通过 stdio 提供 MCP，暴露只读
       `search` 与 `vault_info` 工具。它与应用和 CLI 共用热索引，只通过本机套接字或
       命名管道连接正在运行的应用，不开放 TCP 端口，并可在设置中关闭。在 macOS 上，
-      设置 →「复制给 Claude 的设置说明」（或 `notemd mcp setup`）生成一段文本，粘贴到
+      设置 → 搜索与索引 →「复制给 Claude 的设置说明」（或 `notemd mcp setup`）生成一段文本，粘贴到
       Claude Code 后由它在你逐项确认下为 Claude Code、Claude Desktop 与 Cowork 完成
       注册；note.md 自己从不修改其他应用的配置。两个工具都声明了只读标注；应用仍在
       启动时发起的工具调用会等待至多 15 秒。
