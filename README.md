@@ -69,6 +69,11 @@ block citations, sidecar `.note.md`). Memory follows the same contract:
 agents can suggest what matters, but only you decide what becomes lasting
 context. The more you leave in the vault, the better every agent knows you.
 
+The vault holds more than what agents write. It also holds how they should
+work: `AGENTS.md`, skills, schedules, MCP connections, memory. That playbook is
+the judgment you left behind after every correction. Kept in the vault, it isn't
+stuck in one harness's private folder.
+
 Switch AI tools whenever you like. The asset stays yours, without adding a
 second token meter from note.md.
 
@@ -142,7 +147,7 @@ does not enable every workflow below.
 
 ---
 
-## Five convictions
+## Six convictions
 
 1. **AI text is infinite; your attention isn't — your judgment is the residue.**
    What you leave in the margins is the one thing no model can generate.
@@ -159,6 +164,10 @@ does not enable every workflow below.
    stable, git-versioned host.
 5. **[One vault, many agents — you orchestrate.](docs/product-principle-one-vault-many-agents-you-orchestrate.md)**
    The workers are interchangeable. You hold the pen.
+6. **[The playbook that runs your agents is yours, too.](docs/product-principle-agent-playbook-belongs-to-the-vault.md)**
+   `AGENTS.md`, skills, schedules, MCP connections, and memory live in the vault,
+   tracked by git. Agents can propose changes; they take effect when you confirm.
+   Whichever agent you hire, it works your way.
 
 ## Knowledge documents and OKF v0.2
 

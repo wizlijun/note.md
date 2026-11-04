@@ -63,6 +63,10 @@ Claude Cowork、Claude Code、Codex、DeepSeek、ChatGPT Work、OpenClaw、Herme
 同一份契约：agent 可以发现并建议，只有你能决定什么成为长期上下文。留得越多，
 agent 越懂你。
 
+vault 不只存 agent 写下的东西，也存它们该怎么干活：`AGENTS.md`、skills、定时任务、
+MCP 连接、记忆。这套规程是你一次次纠正后留下的判断，放在 vault 里，就不会困在
+任何一家 harness 的私有目录中。
+
 你随时可以换 AI 工具。资产始终在你手里，也不会再叠加一层 note.md Token 账单。
 
 用 Claude Code 做产品这条路径——写文档、读文档、审批 AI 生成的文档——是专门  
@@ -121,7 +125,7 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
 
 ---
 
-## 五个信念
+## 六个信念
 
 1. **AI 的文字无限，你的注意力有限——你的判断才是残余。**  
    你留在字里行间的东西，是任何模型都生成不出来的。
@@ -136,6 +140,9 @@ Memory 把分工倒过来：agent 从你带进 vault 的工作与沟通中发现
    在哪儿批注都行，源文件会被镜像进 vault，批注由此获得稳定的、git 版本化的宿主。
 5. **[一个 vault，多个 agent——你是编排者。](docs/product-principle-one-vault-many-agents-you-orchestrate.md)**  
    工人可替换，握笔的是你。
+6. **[让 agent 干活的规程，也是你的资产。](docs/product-principle-agent-playbook-belongs-to-the-vault.md)**  
+   `AGENTS.md`、skills、定时任务、MCP 连接、记忆住在 vault 里、由 git 记录；agent 可以提议修改，  
+   经你确认才生效。换哪家 agent，都按你的方式干活。
 
 ## 知识文档与 OKF v0.2
 

@@ -238,6 +238,52 @@ opening fence on the answer bullet.
 A vault may carry an `AGENTS.md` (or similar) at its root describing these
 conventions plus vault-specific rules. Read it first; it is the contract.
 
+### The agent playbook
+
+A vault shared with agents holds two datasets: content (what agents wrote and
+what the human judged) and the playbook (the rules and descriptions that tell
+agents how to work). Treat the playbook as first-class vault data.
+
+- What belongs to it: `AGENTS.md` / `CLAUDE.md` (house rules), skills
+  (`SKILL.md`), schedules (cron and other unattended jobs), MCP connection
+  definitions, Memory (`USER.md` / `MEMORY.md`), and similar files such as
+  agent identity files (`SOUL.md`), sub-agent definitions, hooks, and prompt
+  templates.
+- The vault copy is the source of truth. Copies in a harness's own folders
+  (for example `~/.claude/`, `~/.codex/`, or a scheduler's job table) are
+  projections of it. When they disagree, report the difference to the human
+  rather than silently overwriting either side.
+- The root `AGENTS.md` is the entry point. It states where the vault keeps its
+  skills, schedules, connections, and memory. Read it before you look for them
+  elsewhere.
+- A playbook change changes what agents will do from then on, so it is a
+  behavioral authorization and needs a higher bar than an ordinary edit. You
+  may propose a new rule, skill, or schedule, for example a lesson learned
+  after a correction. It takes effect only when the human confirms it.
+- Never expand your own reach: adding an MCP connection, widening the tools an
+  agent may call, adding an unattended schedule, or changing who may read which
+  memory all require human confirmation. Never sign a playbook change
+  `human:`.
+- Keep secrets out. The playbook is meant to be committed and pushed, so store
+  only references to credentials (an environment variable name, a keychain
+  entry), never tokens or keys themselves.
+- Grow it from the work, through proposals. When the same request comes up a
+  second time or the same mistake is corrected twice, propose a rule or skill.
+  Post-session reviews and nightly self-improvement passes are welcome, but
+  their output is a pending proposal, never a live change.
+- Hygiene is stricter than for content, because a bad playbook line is
+  executed on every run rather than merely retrieved. Every proposed rule says
+  where it came from (the correction, incident, or document behind it). When a
+  proposal contradicts an existing rule, flag the conflict for the human
+  instead of overwriting the old rule. A rule may carry `stale_after`; surface
+  expired rules and long-unused skills for review rather than deleting them.
+  Keep always-loaded rules short; load task-specific skills on demand.
+- Put each kind of computation in its place: judgment and taste go into
+  Markdown rules and skills; deterministic steps (arithmetic, queries, format
+  conversion, timed triggers) go into scripts and schedules. You may propose
+  parameters for a deterministic step, but changing the computation itself
+  needs human confirmation.
+
 ### Multi-agent orchestration
 
 - The vault is neutral ground: no agent owns it, and neither does note.md.
