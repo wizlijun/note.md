@@ -27,8 +27,8 @@ function fixture(verified = true) {
     agentProviders: vi.fn(async (): Promise<AgentProviders> => ({ providers: [{ id: providerId, name: 'Claude', max_concurrency: 2, harness: { harness: 'Claude Code', ok: true } }], default: providerId })),
     agentLimits: vi.fn(async () => ({ providers: [{ id: providerId, max_concurrency: 2 }] })),
     agentRun: vi.fn(async () => ({ run_id: 'run-1' })),
-    agentStatus: vi.fn(async (): Promise<unknown> => ({ state: 'running', started_at: '2026-10-27T01:00:00Z' })),
-    currentItem: vi.fn(async () => current),
+    agentStatus: vi.fn(async (_task?: string, _run?: string, _harness?: string): Promise<unknown> => ({ state: 'running', started_at: '2026-10-27T01:00:00Z' })),
+    currentItem: vi.fn(async (_id: string) => current),
   }
   const client = createKickoffClient(io, { verifiedProviders: verified ? [providerId] : [], now: () => '2026-10-27T01:00:00Z', notificationTitles: { ok: '开头已就绪', fail: '开头失败' } })
   const start = async () => { const preview = await client.prepareKickoff({ item, providerId, today: '2026-10-27' }); return client.startKickoff({ item, providerId, today: '2026-10-27', previewId: preview.id, consent: true }) }
@@ -834,4 +834,151 @@ it('quotes a Task filename containing newlines without splitting handoff paramet
   expect(sent.note_path).toBe(`/vault/${strangePath}`)
   expect(sent.prompt.split('\n').filter(line => line.startsWith('task_path:'))).toEqual([`task_path: ${JSON.stringify(strangePath)}`])
   expect(sent.prompt.split('\n').filter(line => line.startsWith('task_id:'))).toEqual([`task_id: ${taskId}`])
+})
+
+describe('consolidated per-task conflict regressions', () => {
+  it('isolates malformed UUID-associated results while loading and saving a healthy Task', async () => {
+    const f = fixture()
+    await f.start(); await f.success()
+    const good = (await f.client.reconcile()).results[taskId]
+    const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+    const badPath = 'inbox/tasks/renamed.kickoff.md'
+    const bad = `---\ntype: Task Kickoff\nkickoff: { task_id: ${otherId}, answers: broken }\n---\nhuman data`
+    f.files.set(badPath, bad)
+    const loaded = await f.client.load([item])
+    expect(loaded.results[taskId].path).toBe(good.path)
+    expect((loaded.statuses[otherId] as { failure: { kind: string } }).failure.kind).toBe('conflict')
+    expect((await f.client.saveAnswers({ taskId, runId: 'run-1', answers: [] })).result.path).toBe(good.path)
+    expect(f.files.get(badPath)).toBe(bad)
+    f.files.delete(badPath)
+    expect((await f.client.load([item])).statuses[otherId]).toBeUndefined()
+  })
+  it('associates unparseable conventional paths with only the matching Task and permits explicit retry after repair', async () => {
+    const f = fixture()
+    const badPath = path.replace(/\.md$/, '.kickoff.md')
+    f.files.set(badPath, 'human data without metadata')
+    const loaded = await f.client.load([item])
+    expect((loaded.statuses[taskId] as { failure: { kind: string } }).failure.kind).toBe('conflict')
+    await expect(f.start()).rejects.toMatchObject({ kind: 'conflict' })
+    expect(f.io.agentRun).not.toHaveBeenCalled()
+    f.files.delete(badPath)
+    await f.start()
+    expect(f.io.agentRun).toHaveBeenCalledOnce()
+  })
+  it('isolates duplicate UUID results and refuses answer saves until the duplicate is removed', async () => {
+    const f = fixture()
+    await f.start(); await f.success()
+    const good = (await f.client.reconcile()).results[taskId]
+    const duplicate = 'inbox/tasks/duplicate.kickoff.md'
+    f.files.set(duplicate, good.doc.raw)
+    const loaded = await f.client.load([item])
+    expect(loaded.results[taskId]).toBeUndefined()
+    expect((loaded.statuses[taskId] as { failure: { kind: string } }).failure.kind).toBe('conflict')
+    await expect(f.client.saveAnswers({ taskId, runId: 'run-1', answers: [] })).rejects.toMatchObject({ kind: 'conflict' })
+    expect(f.files.get(good.path)).toBe(good.doc.raw)
+    f.files.delete(duplicate)
+    expect((await f.client.load([item])).results[taskId].path).toBe(good.path)
+    expect(f.client.snapshot().statuses).toEqual({})
+  })
+  it('persists a terminal conflict and continues another run, without polling or rewriting the failure again', async () => {
+    const f = fixture()
+    await f.start(); await f.success()
+    const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+    const otherPath = 'inbox/tasks/other-task.md'
+    const otherRaw = raw.replace(taskId, otherId)
+    f.files.set(otherPath, otherRaw)
+    f.io.currentItem.mockImplementation(async id => id === taskId ? item : { ...item, key: otherId, task: { version: 1, id: otherId }, path: otherPath })
+    const registry = JSON.parse(f.files.get(REGISTRY_PATH)!)
+    registry.runs[otherId] = { ...registry.runs[taskId], run_id: 'run-2', task_path: otherPath, based_on: await sha256(otherRaw) }
+    f.files.set(REGISTRY_PATH, JSON.stringify(registry))
+    const badPath = path.replace(/\.md$/, '.kickoff.md')
+    f.files.set(badPath, 'keep human bytes')
+    f.io.agentStatus.mockImplementation(async (_task, run) => ({ state: 'done', record: { status: 'success' }, terminal_result: { content: JSON.stringify({ ...payload, task_id: run === 'run-1' ? taskId : otherId, based_on: await sha256(run === 'run-1' ? raw : otherRaw) }) } }))
+    const loaded = await f.client.reconcile()
+    expect(loaded.registry.runs[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+    expect(loaded.registry.runs[otherId]).toBeUndefined()
+    expect(loaded.results[otherId].doc.kickoff.run_id).toBe('run-2')
+    expect(f.files.get(badPath)).toBe('keep human bytes')
+    const writes = f.writes.length
+    const polls = f.io.agentStatus.mock.calls.length
+    await f.client.reconcile()
+    expect(f.writes).toHaveLength(writes)
+    expect(f.io.agentStatus).toHaveBeenCalledTimes(polls)
+    f.files.delete(badPath)
+    await f.start()
+    expect(f.io.agentRun).toHaveBeenCalledTimes(2)
+  })
+  it.each([['2026-10-27T01:00:37.482Z', 37], ['2026-10-27T01:00:37.682Z', 37], ['2026-10-27T00:59:59Z', 0]])('stores nonnegative whole duration %s', async (end, seconds) => {
+    const f = fixture()
+    await f.start(); await f.success()
+    const status = await f.io.agentStatus() as { record: Record<string, unknown> }
+    status.record.ended_at = end
+    f.io.agentStatus.mockResolvedValue(status)
+    expect((await f.client.reconcile()).results[taskId].doc.kickoff.duration_seconds).toBe(seconds)
+  })
+})
+
+it.each(['identity-during-status', 'occupied-after-scan', 'edit-during-render', 'occupied-during-render'])('records conflict without throwing for %s races', async race => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const resultPath = path.replace(/\.md$/, '.kickoff.md')
+  if (race === 'identity-during-status' || race === 'edit-during-render') {
+    await f.client.reconcile()
+    f.io.agentRun.mockResolvedValue({ run_id: 'run-2' })
+    await f.start()
+  }
+  const preserved = (f.files.get(resultPath) ?? '') + '\nexternal human change\n'
+  let restore = () => {}
+  if (race.endsWith('during-render')) {
+    const digest = crypto.subtle.digest.bind(crypto.subtle)
+    const spy = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (...args) => {
+      const result = await digest(...args)
+      f.files.set(resultPath, preserved)
+      return result
+    })
+    restore = () => spy.mockRestore()
+  } else {
+    const status = f.io.agentStatus.getMockImplementation()!
+    f.io.agentStatus.mockImplementation(async (...args) => {
+      f.files.set(resultPath, race === 'identity-during-status' ? 'identity no longer readable' : preserved)
+      return status(...args)
+    })
+  }
+  try {
+    const snapshot = await f.client.reconcile()
+    expect(snapshot.registry.runs[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+    expect(f.files.get(resultPath)).toBe(race === 'identity-during-status' ? 'identity no longer readable' : preserved)
+  } finally { restore() }
+})
+
+
+it.each([false, true])('attributes a conflicting result to its path owner and declared UUID (malformed=%s)', async malformed => {
+  const f = fixture()
+  await f.start(); await f.success()
+  const good = (await f.client.reconcile()).results[taskId]
+  const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+  const content = malformed
+    ? `---\ntype: Task Kickoff\nkickoff: { task_id: ${otherId}, answers: broken }\n---\nhuman data`
+    : good.doc.raw.replaceAll(taskId, otherId)
+  f.files.set(good.path, content)
+  const loaded = await f.client.load([item])
+  expect(loaded.statuses[taskId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+  if (malformed) expect(loaded.statuses[otherId]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+  await expect(f.start()).rejects.toMatchObject({ kind: 'conflict' })
+  await expect(f.client.saveAnswers({ taskId, runId: 'run-1', answers: [] })).rejects.toMatchObject({ kind: 'conflict' })
+  expect((await f.client.load([item])).statuses[taskId]).toEqual(loaded.statuses[taskId])
+  expect(f.files.get(good.path)).toBe(content)
+})
+
+it('uses the current Task identity before an old running registry path when attributing damaged results', async () => {
+  const f = fixture()
+  await f.start()
+  const otherId = '57691a0e-32ed-48bf-829f-b1377d53db93'
+  const replacement = { ...item, key: otherId, task: { ...item.task!, id: otherId } }
+  f.files.set(path, raw.replaceAll(taskId, otherId))
+  f.files.set(path.replace(/\.md$/, '.kickoff.md'), `---\ntype: Task Kickoff\nkickoff: { task_id: ${taskId}, answers: broken }\n---\nhuman data`)
+  const loaded = await f.client.load([replacement])
+  for (const id of [taskId, otherId]) {
+    expect(loaded.statuses[id]).toMatchObject({ state: 'failed', failure: { kind: 'conflict' } })
+  }
 })

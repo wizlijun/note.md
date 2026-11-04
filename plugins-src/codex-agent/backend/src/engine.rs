@@ -961,4 +961,36 @@ Return only JSON with keys search_ok, web_ok, write_denied (booleans) and marker
         assert_eq!(result["marker"], "orchid314verification");
     }
 
+
+    #[tokio::test]
+    async fn lock_rejection_persists_capacity_without_touching_the_holder() {
+        let d = tempfile::tempdir().unwrap();
+        let mut s = spec(d.path(), d.path().join("must-not-run"), 30);
+        s.meta.run_id = "rejected-run".into();
+        let run_dir = s.meta.task_run_dir.clone();
+        let holder = agent_run_core::lock::LockInfo {
+            pid: std::process::id() as i32,
+            run_id: "holder-run".into(),
+            started_at: "2026-10-27T00:00:00Z".into(),
+        };
+        let _guard = agent_run_core::lock::acquire(&run_dir, holder).unwrap();
+        record::write_progress(&run_dir, &record::Progress {
+            run_id: "holder-run".into(), steps: 3, last: "Read task".into(),
+            updated_at: "2026-10-27T00:00:01Z".into(),
+        });
+        let lock_before = std::fs::read(agent_run_core::lock::lock_path(&run_dir)).unwrap();
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let (_cx, cr) = mpsc::channel(1);
+        assert!(run(s, tx, cr).await.is_err());
+        let rejected = record::find(&run_dir, "rejected-run").expect("refused run needs a terminal record");
+        let value = serde_json::to_value(&rejected).unwrap();
+        assert_eq!(value["status"], "error");
+        assert_eq!(value["failure_kind"], "capacity");
+        assert!(rejected.result.contains("holder-run"));
+        assert!(rejected.artifacts.is_empty());
+        assert!(record::find(&run_dir, "holder-run").is_none());
+        assert_eq!(std::fs::read(agent_run_core::lock::lock_path(&run_dir)).unwrap(), lock_before);
+        assert_eq!(record::read_progress_for(&run_dir, "holder-run").unwrap().steps, 3);
+        assert_eq!(agent_run_core::lock::current(&run_dir).unwrap().run_id, "holder-run");
+    }
 }

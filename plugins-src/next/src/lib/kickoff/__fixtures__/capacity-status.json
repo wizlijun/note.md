@@ -1,0 +1,20 @@
+{
+  "record": {
+    "artifacts": [],
+    "ended_at": "2026-10-27T00:00:01Z",
+    "exit_code": null,
+    "failure_kind": "capacity",
+    "harness": "notemd.claude-agent",
+    "num_turns": null,
+    "result": "That task is already running (holder-run)",
+    "run_id": "rejected-run",
+    "session_id": null,
+    "started_at": "2026-10-27T00:00:01Z",
+    "status": "capacity",
+    "stderr_tail": "That task is already running (holder-run)",
+    "task": "next-task-kickoff",
+    "trigger": "window"
+  },
+  "state": "done",
+  "terminal_result": null
+}

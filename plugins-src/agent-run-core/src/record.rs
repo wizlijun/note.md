@@ -640,4 +640,27 @@ mod tests {
         std::fs::write(runs_dir(d.path()).join("20260730T000002Z-b.json"), "{oops").unwrap();
         assert_eq!(recent(d.path(), 10).len(), 1);
     }
+
+    #[test]
+    fn capacity_rejection_preserves_holder_and_existing_results() {
+        let d = tempfile::tempdir().unwrap();
+        let holder = crate::lock::LockInfo {
+            pid: std::process::id() as i32, run_id: "holder".into(), started_at: "a".into(),
+        };
+        write_capacity_rejection(d.path(), rec("holder"), &holder).unwrap();
+        assert!(find(d.path(), "holder").is_none());
+        let existing = write(d.path(), &rec("existing")).unwrap();
+        let before = std::fs::read(&existing).unwrap();
+        assert_eq!(write_capacity_rejection(d.path(), rec("existing"), &holder).unwrap_err().kind(),
+            std::io::ErrorKind::AlreadyExists);
+        assert_eq!(std::fs::read(existing).unwrap(), before);
+    }
+
+    #[test]
+    fn historical_records_still_decode_without_failure_kind() {
+        let mut old = serde_json::to_value(rec("old")).unwrap();
+        assert!(old.get("failure_kind").is_none());
+        old.as_object_mut().unwrap().remove("failure_kind");
+        assert!(serde_json::from_value::<RunRecord>(old).unwrap().failure_kind.is_none());
+    }
 }

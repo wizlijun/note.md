@@ -162,13 +162,19 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
     const found: Record<string, KickoffResult> = {}
     const failures: Record<string, KickoffFailure> = { ...taskFailures }
     const owners = new Map<string, string>()
-    for (const [id, taskPath] of taskPaths) owners.set(kickoffPathFor(taskPath), id)
     for (const [id, run] of Object.entries(state.registry.runs)) {
       try { owners.set(kickoffPathFor(run.task_path), id) } catch { /* Invalid old registry path cannot own a result. */ }
     }
-    for (const [id, result] of Object.entries(state.results)) owners.set(result.path, id)
+    for (const [id, taskPath] of taskPaths) owners.set(kickoffPathFor(taskPath), id)
+    for (const [id, result] of Object.entries(state.results)) {
+      if (!owners.has(result.path)) owners.set(result.path, id)
+    }
     const conflict = (id: string | undefined, detail: string, kind = 'conflict'): void => {
-      if (id) failures[id] = { kind, message: detail, at: now() }
+      if (id) {
+        const previous = discoveryFailures[id]
+        failures[id] = previous?.kind === kind && previous.message === detail
+          ? previous : { kind, message: detail, at: now() }
+      }
     }
     if ((await io.exists('inbox/tasks')).exists) {
       for (const entry of (await io.list('inbox/tasks')).entries) {
@@ -182,15 +188,19 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
         const doc = parseKickoffDocument(raw)
         if (!doc) {
           // Read identity only to attribute an error; never treat partial data as a result.
-          let id = owners.get(path)
+          const ids = new Set<string>()
+          const owner = owners.get(path)
+          if (owner) ids.add(owner)
           try {
             const declared = editableFrontmatter(raw, false).document.getIn(['kickoff', 'task_id'])
-            if (typeof declared === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(declared)) id ??= declared
+            if (typeof declared === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(declared)) ids.add(declared)
           } catch { /* Unidentifiable files are preserved without disabling unrelated Tasks. */ }
-          conflict(id, `开头结果无法解析，已保留原文件：${path}`)
+          for (const id of ids) conflict(id, `开头结果无法解析，已保留原文件：${path}`)
           continue
         }
         const id = doc.kickoff.task_id
+        const owner = owners.get(path)
+        if (owner && owner !== id) conflict(owner, `结果路径属于另一个 Task，未覆盖：${path}`)
         if (found[id]) conflict(id, `同一个 Task 有多份开头结果，已保留原文件：${found[id].path}、${path}`)
         else found[id] = { path, doc }
       }
@@ -233,13 +243,17 @@ export function createKickoffClient(io: KickoffIo, options: KickoffClientOptions
       throw error
     }
   }
-  const loadInternal = async (items: WorkspaceItem[] = []): Promise<KickoffSnapshot> => {
+  const loadInternal = async (items?: WorkspaceItem[]): Promise<KickoffSnapshot> => {
     state.registry = await registry()
     await providers()
     state.needsConsent = await needsConsent(io)
     const skill = (await io.exists(SKILL_PATH)).exists ? (await io.read(SKILL_PATH)).content : SKILL_FILES[SKILL_PATH]
     state.dataSources = parseDataSources(skill)
-    for (const item of items) {
+    if (items) {
+      taskPaths.clear()
+      for (const id of Object.keys(taskFailures)) delete taskFailures[id]
+    }
+    for (const item of items ?? []) {
       if (!item.task || !item.path) continue
       if (kickoffEligible(item)) taskPaths.set(item.task.id, item.path)
       delete taskFailures[item.task.id]

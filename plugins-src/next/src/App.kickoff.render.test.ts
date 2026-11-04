@@ -45,6 +45,77 @@ beforeEach(() => {
 afterEach(() => { if (component) unmount(component); component = null; document.body.innerHTML = ''; vi.clearAllMocks(); vi.useRealTimers() })
 async function render() { component = mount(App, { target: document.body }); flushSync(); await settle() }
 describe('App kickoff integration', () => {
+  it('isolates a broken result to its task and recovers after the issue disappears', async () => {
+    const otherId = '3f018ce6-fb5e-4e17-917c-01a497ddbe23'
+    const other = { ...task, key: otherId, item_id: otherId, title: 'Other', path: 'inbox/tasks/other-task.md', task: { version: 1 as const, id: otherId } }
+    mocks.state.workspace!.items.push(other)
+    mocks.state.workspace!.capture.push(other)
+    mocks.snapshot.statuses = { [id]: { state: 'failed', failure: { kind: 'conflict', message: 'Broken kickoff file', at: new Date().toISOString() } } }
+    // Even if a stale cached result survives, a discovery issue takes priority.
+    mocks.snapshot.results[id] = result
+    await render()
+    const card = (key: string) => document.querySelector(`[data-item-key="${key}"] [data-kickoff-state]`)
+    expect(card(id)?.getAttribute('data-kickoff-state')).toBe('failed')
+    expect(card(otherId)?.getAttribute('data-kickoff-state')).toBe('idle')
+    ;(card(id) as HTMLButtonElement).click()
+    await settle()
+    expect(document.body.textContent).toContain('Conflicting kickoff results were found')
+    expect(document.querySelector('#kickoff-result-title')).toBeNull()
+    click('Refresh')
+    await settle()
+    expect(document.querySelector('#kickoff-result-title')).toBeNull()
+    expect(document.body.textContent).not.toContain('View previous kickoff')
+    mocks.snapshot = { ...mocks.snapshot, statuses: {} }
+    click('Refresh')
+    await settle()
+    expect(card(id)?.getAttribute('data-kickoff-state')).toBe('ready')
+    expect(document.querySelector('#kickoff-result-title')).not.toBeNull()
+    expect(mocks.toast).not.toHaveBeenCalled()
+  })
+  it('closes a previously opened result when refresh discovers a conflict', async () => {
+    mocks.snapshot.results[id] = result
+    await render()
+    click('View kickoff')
+    await settle()
+    expect(document.querySelector('#kickoff-result-title')).not.toBeNull()
+    mocks.snapshot = { ...mocks.snapshot, statuses: { [id]: { state: 'failed', failure: { kind: 'conflict', message: 'Duplicate result', at: new Date().toISOString() } } } }
+    click('Refresh')
+    await settle()
+    expect(document.querySelector('#kickoff-result-title')).toBeNull()
+    expect(document.body.textContent).toContain('Conflicting kickoff results were found')
+    expect(document.body.textContent).not.toContain('View previous kickoff')
+  })
+  it('deduplicates global polling failures by kind and message without stopping later reconciliation', async () => {
+    vi.useFakeTimers()
+    mocks.snapshot.registry.runs[id] = { run_id: 'run1', harness: 'codex', requested_at: new Date().toISOString(), task_path: task.path!, based_on: 'hash', state: 'running', failure: null }
+    const ioError = new KickoffClientError('io-error', 'read denied')
+    mocks.reconcile.mockRejectedValueOnce(ioError).mockRejectedValueOnce(ioError)
+      .mockRejectedValueOnce(new KickoffClientError('io-error', 'different read error'))
+      .mockRejectedValueOnce(new KickoffClientError('conflict', 'read denied'))
+    await render()
+    for (let n = 0; n < 3; n++) { vi.advanceTimersByTime(2000); await settle() }
+    expect(mocks.toast).toHaveBeenCalledTimes(3)
+    mocks.snapshot = { ...mocks.snapshot, results: { [id]: result }, registry: { version: 1, runs: {}, unread: [id] } }
+    vi.advanceTimersByTime(2000)
+    await settle()
+    expect(mocks.reconcile).toHaveBeenCalledTimes(5)
+    expect(document.querySelector('[data-kickoff-state]')?.getAttribute('data-kickoff-state')).toBe('ready-unread')
+    expect(mocks.toast).toHaveBeenCalledTimes(3)
+  })
+  it('deduplicates the same load and poll error throughout one mount', async () => {
+    const failure = new Error('shared IO failure')
+    mocks.load.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure)
+    await render()
+    click('Refresh')
+    await settle()
+    expect(mocks.toast).toHaveBeenCalledOnce()
+    mocks.reconcile.mockRejectedValueOnce(failure)
+    click('Refresh')
+    await settle()
+    expect(document.querySelector('[data-kickoff-state]')).not.toBeNull()
+    expect(mocks.toast).toHaveBeenCalledOnce()
+  })
+
   it('updates an ongoing task from answered fields while preserving its commitment and WIP identity', async () => {
     const original = placeEvent(task, { route: 'commit', commitment: 'Existing commitment', next_action: 'Previous step', close_condition: 'Existing finish condition', projects: ['Release'] })
     const projection = reduceEvents([original])

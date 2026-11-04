@@ -1907,4 +1907,46 @@ mod tests {
             })
         );
     }
+
+    /// Regenerate with UPDATE_CAPACITY_STATUS_FIXTURE=1; NEXT consumes this
+    /// actual production run_status serialization, rather than a TS-only mock.
+    #[test]
+    fn capacity_status_contract_fixture() {
+        let vault = tempfile::tempdir().unwrap();
+        let plugin = ClaudeAgentPlugin::new();
+        plugin.inner.lock().unwrap().vault = Some(vault.path().to_path_buf());
+        let run_dir = task::runs_root(vault.path()).join("next-task-kickoff");
+        let holder = lock::LockInfo {
+            pid: std::process::id() as i32,
+            run_id: "holder-run".into(), started_at: "2026-10-27T00:00:00Z".into(),
+        };
+        let _guard = lock::acquire(&run_dir, holder.clone()).unwrap();
+        let mut rejected = a_record(record::Status::Error);
+        rejected.run_id = "rejected-run".into();
+        rejected.task = "next-task-kickoff".into();
+        rejected.trigger = "window".into();
+        rejected.started_at = "2026-10-27T00:00:01Z".into();
+        rejected.ended_at = rejected.started_at.clone();
+        rejected.exit_code = None;
+        rejected.num_turns = None;
+        rejected.harness = Some(SELF_PLUGIN_ID.into());
+        record::write_capacity_rejection(&run_dir, rejected, &holder).unwrap();
+        let status = plugin.run_status(&json!({
+            "task": "next-task-kickoff", "run_id": "rejected-run",
+        })).unwrap();
+        assert_eq!(status["state"], "done");
+        assert_eq!(status["record"]["status"], "capacity");
+        assert_eq!(record::find(&run_dir, "rejected-run").unwrap().status, record::Status::Error);
+        assert_eq!(status["record"]["failure_kind"], "capacity");
+        assert_eq!(plugin.run_status(&json!({
+            "task": "next-task-kickoff", "run_id": "holder-run",
+        })).unwrap()["state"], "running");
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../next/src/lib/kickoff/__fixtures__/capacity-status.json");
+        let serialized = serde_json::to_string_pretty(&status).unwrap() + "\n";
+        if std::env::var_os("UPDATE_CAPACITY_STATUS_FIXTURE").is_some() {
+            std::fs::write(&fixture, &serialized).unwrap();
+        }
+        assert_eq!(serialized, std::fs::read_to_string(fixture).unwrap());
+    }
 }

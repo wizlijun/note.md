@@ -1,0 +1,369 @@
+<div id="habitat-city">
+  <div class="viz-row hc-heading">
+    <h3>HABITAT · 心城</h3>
+    <span class="text-small text-muted">合成城市 · 概念演示</span>
+  </div>
+  <div class="viz-controls" aria-label="观察同一地块的形成过程">
+    <button class="btn" type="button" data-stage="0" aria-pressed="false">① 材料落地</button>
+    <button class="btn" type="button" data-stage="1" aria-pressed="true">② 长成街区</button>
+    <button class="btn" type="button" data-stage="2" aria-pressed="false">③ 用户规划为项目</button>
+  </div>
+  <canvas class="hc-canvas" role="img" aria-label="可旋转的简约三维知识城市。CBD 有 note.md 和 hemory 园区，公园有兴趣帐篷，生长地逐渐形成街区，前沿有探索营地。可使用下方控件获得相同信息。"></canvas>
+  <div class="viz-controls">
+    <label class="form-label">查看
+      <select class="form-select" data-object>
+        <option value="growth">生长地 · 未定材料</option>
+        <option value="notemd">CBD · note.md</option>
+        <option value="hemory">CBD · hemory</option>
+        <option value="park">公园 · 兴趣帐篷</option>
+        <option value="frontier">前沿 · 探索营地</option>
+        <option value="road">交通 · hemory ↔ 生长地</option>
+      </select>
+    </label>
+    <div class="viz-row">
+      <button class="btn btn-ghost" type="button" data-turn="-1" aria-label="向左旋转城市">左转</button>
+      <button class="btn btn-ghost" type="button" data-turn="1" aria-label="向右旋转城市">右转</button>
+    </div>
+  </div>
+  <p class="hc-detail" aria-live="polite"></p>
+  <div class="hc-legend text-small text-muted">
+    <span>建筑形态＝组织阶段</span><span>路宽＝持续联系</span><span>车辆＝近期应用</span><span>虚线＝待确认联系</span>
+  </div>
+  <span class="hc-color-probe" aria-hidden="true"></span>
+</div>
+<style>
+  #habitat-city { width:100%; }
+  #habitat-city .hc-heading { justify-content:space-between; margin-bottom:12px; }
+  #habitat-city h3 { margin:0; }
+  #habitat-city .hc-canvas { display:block; width:100%; height:500px; touch-action:pan-y; cursor:grab; }
+  #habitat-city .hc-canvas:active { cursor:grabbing; }
+  #habitat-city .hc-detail { margin:12px 0; min-height:2.8em; }
+  #habitat-city .hc-legend { display:flex; flex-wrap:wrap; gap:8px 20px; }
+  #habitat-city .hc-color-probe { position:absolute; visibility:hidden; pointer-events:none; }
+  @media (max-width:450px) { #habitat-city .hc-canvas { height:240px; } }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('habitat-city');
+  const canvas = root.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const picker = root.querySelector('[data-object]');
+  const detail = root.querySelector('.hc-detail');
+  const probe = root.querySelector('.hc-color-probe');
+  const stageButtons = [...root.querySelectorAll('[data-stage]')];
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let stage=1, visualStage=1, selected='growth', angle=-0.48, width=736, height=500;
+  let faces=[], ground=[], labels=[], hits=[], animation=0;
+  let palette, scale=1, originX=0, originY=0;
+  const objects={
+    growth:{x:53,z:-34,label:'生长地',color:'growth'},
+    notemd:{x:-78,z:-47,label:'note.md',color:'cbd'},
+    hemory:{x:-34,z:-22,label:'hemory',color:'cbd'},
+    park:{x:-57,z:48,label:'兴趣公园',color:'park'},
+    frontier:{x:66,z:58,label:'探索前沿',color:'frontier'},
+    road:{x:8,z:-8,label:'关联道路',color:'cbd'}
+  };
+  const stageNames=['材料落地','长成街区','用户规划为项目'];
+  const descriptions={
+    growth:[
+      '生长地 · 材料尚未定名，散放在预留地上；系统只提出邻近建议。',
+      '生长地 · “对话如何成为记忆”形成有名字的街区，仍可长期保持研究状态。',
+      '生长地 · 用户决定做“记忆检索实验”，原址改建为园区，保留老街入口与扩建空地。'
+    ],
+    notemd:['note.md · 规划园区：编辑、插件、知识组织各有楼栋，位置不随新材料改变。'],
+    hemory:['hemory · 规划园区：采集、记忆、检索围绕共享庭院生长。'],
+    park:['兴趣公园 · 摄影、天文、散步住在帐篷里；兴趣可以一直是兴趣。'],
+    frontier:['探索前沿 · 已提出的问题形成勘察营地，未探索的土地保持开放。'],
+    road:[
+      '交通快照 · 1 组已确认关联，窄小径；近期 0 次应用。',
+      '交通快照 · 4 组已确认关联，形成支路；近期 2 次应用。',
+      '交通快照 · 10 组已确认关联，拓宽主路；近期 5 次应用。立项本身不增加路宽。'
+    ]
+  };
+  function color(token){
+    probe.style.color=`var(${token})`;
+    return getComputedStyle(probe).color;
+  }
+  function rgb(value){
+    const m=value.match(/[\d.]+/g);
+    return m ? m.slice(0,3).map(Number) : [128,128,128];
+  }
+  function mix(a,b,t){
+    a=rgb(a); b=rgb(b);
+    return `rgb(${a.map((v,i)=>Math.round(v*(1-t)+b[i]*t)).join(' ')})`;
+  }
+  function colors(){
+    const bg=color('--background'), fg=color('--foreground');
+    palette={bg,fg,muted:color('--muted-foreground'),
+      cbd:color('--viz-series-6'),growth:color('--viz-series-2'),
+      park:color('--viz-series-3'),frontier:color('--viz-series-5'),
+      land:mix(bg,fg,.055),edge:mix(bg,fg,.14),road:mix(bg,fg,.37),
+      window:mix(bg,fg,.65),roof:mix(bg,fg,.21)};
+  }
+  function project(x,y,z){
+    const rx=x*Math.cos(angle)-z*Math.sin(angle);
+    const rz=x*Math.sin(angle)+z*Math.cos(angle);
+    return [originX+rx*scale,originY+(rz*.52-y*.86)*scale,rz*.86+y*.52];
+  }
+  function polygon(points,fill,layer='faces'){
+    const projected=points.map(p=>project(...p));
+    (layer==='ground'?ground:faces).push({p:projected,fill,d:projected.reduce((a,p)=>a+p[2],0)/points.length});
+  }
+  function plate(x,z,w,d,y,fill,layer='ground'){
+    polygon([[x,y,z],[x+w,y,z],[x+w,y,z+d],[x,y,z+d]],fill,layer);
+  }
+  function box(x,z,w,d,h,fill,y=0){
+    const shade=mix(fill,palette.fg,.16),lit=mix(fill,palette.bg,.22);
+    polygon([[x,y,z],[x+w,y,z],[x+w,y+h,z],[x,y+h,z]],shade);
+    polygon([[x,y,z+d],[x+w,y,z+d],[x+w,y+h,z+d],[x,y+h,z+d]],fill);
+    polygon([[x,y,z],[x,y,z+d],[x,y+h,z+d],[x,y+h,z]],shade);
+    polygon([[x+w,y,z],[x+w,y,z+d],[x+w,y+h,z+d],[x+w,y+h,z]],mix(fill,palette.fg,.08));
+    plate(x,z,w,d,y+h,lit,'faces');
+  }
+  function shadow(x,z,w,d,h){
+    polygon([[x,0.12,z],[x+w,0.12,z],[x+w+h*.32,0.12,z+d+h*.2],[x+h*.32,0.12,z+d+h*.2]],mix(palette.land,palette.fg,.10),'ground');
+  }
+  function tower(x,z,w,d,h,key){
+    const fill=mix(palette.bg,palette[key],.29);
+    shadow(x,z,w,d,h);
+    box(x,z,w,d,h,fill,.5);
+    box(x+1,z+1,w-2,d-2,1.6,palette[key],h+.5);
+    for(let y=5;y<h-2;y+=5){
+      for(let a=2;a<w-1;a+=4){
+        polygon([[x+a,y,z+d+.02],[x+a+1.6,y,z+d+.02],[x+a+1.6,y+1.6,z+d+.02],[x+a,y+1.6,z+d+.02]],mix(fill,palette.window,.43));
+        polygon([[x+a,y,z-.02],[x+a+1.6,y,z-.02],[x+a+1.6,y+1.6,z-.02],[x+a,y+1.6,z-.02]],mix(fill,palette.window,.43));
+      }
+      for(let b=2;b<d-1;b+=4){
+        polygon([[x+w+.02,y,z+b],[x+w+.02,y,z+b+1.6],[x+w+.02,y+1.6,z+b+1.6],[x+w+.02,y+1.6,z+b]],mix(fill,palette.window,.43));
+      }
+    }
+  }
+  function house(x,z,w,d,h,key){
+    shadow(x,z,w,d,h+3);
+    box(x,z,w,d,h,mix(palette.bg,palette[key],.27),.4);
+    const r=h+4,roof=mix(palette[key],palette.bg,.18);
+    polygon([[x-1,h,z-1],[x+w/2,r,z-1],[x+w/2,r,z+d+1],[x-1,h,z+d+1]],roof);
+    polygon([[x+w/2,r,z-1],[x+w+1,h,z-1],[x+w+1,h,z+d+1],[x+w/2,r,z+d+1]],mix(roof,palette.fg,.1));
+    polygon([[x,h,z+d],[x+w/2,r,z+d],[x+w,h,z+d]],roof);
+    polygon([[x+1.8,.5,z+d+.03],[x+3.7,.5,z+d+.03],[x+3.7,3.2,z+d+.03],[x+1.8,3.2,z+d+.03]],palette.roof);
+  }
+  function tent(x,z,size,key){
+    const c=palette[key],h=size*.8,d=size*1.3;
+    shadow(x,z,size,d,h);
+    polygon([[x,0,z],[x+size/2,h,z],[x+size/2,h,z+d],[x,0,z+d]],mix(c,palette.bg,.2));
+    polygon([[x+size/2,h,z],[x+size,0,z],[x+size,0,z+d],[x+size/2,h,z+d]],c);
+    polygon([[x,0,z+d],[x+size/2,h,z+d],[x+size,0,z+d]],mix(c,palette.fg,.12));
+    polygon([[x+size*.32,.1,z+d+.02],[x+size/2,h*.7,z+d+.02],[x+size*.68,.1,z+d+.02]],palette.roof);
+  }
+  function tree(x,z,s=1){
+    box(x-.6,z-.6,1.2,1.2,3*s,palette.roof);
+    const r=3.2*s,h=10*s,base=2.5*s,c=mix(palette.park,palette.bg,.12);
+    const rim=[[x-r,base,z],[x,base,z-r],[x+r,base,z],[x,base,z+r]];
+    for(let i=0;i<4;i++) polygon([rim[i],rim[(i+1)%4],[x,h,z]],mix(c,palette.fg,i*.045));
+  }
+  function strokeWorld(path,w,c,dash=false){
+    const pts=path.map(p=>project(p[0],.2,p[1]));
+    ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+    ctx.strokeStyle=c;ctx.lineWidth=w*scale;ctx.lineJoin='round';ctx.lineCap='round';
+    ctx.setLineDash(dash?[4*scale,3*scale]:[]);ctx.stroke();ctx.setLineDash([]);
+  }
+  function positionAlong(path,t){
+    const lengths=path.slice(1).map((p,i)=>Math.hypot(p[0]-path[i][0],p[1]-path[i][1]));
+    let remaining=t*lengths.reduce((a,b)=>a+b,0);
+    for(let i=0;i<lengths.length;i++){
+      if(remaining<=lengths[i]||i===lengths.length-1){
+        const f=remaining/lengths[i];return {x:path[i][0]+(path[i+1][0]-path[i][0])*f,z:path[i][1]+(path[i+1][1]-path[i][1])*f,alongX:Math.abs(path[i+1][0]-path[i][0])>Math.abs(path[i+1][1]-path[i][1])};
+      } remaining-=lengths[i];
+    }
+  }
+  function cars(path,n,key){
+    for(let i=0;i<n;i++){
+      const p=positionAlong(path,(i+.65)/(n+.6));
+      box(p.x-1,p.z-.8,p.alongX?3:1.7,p.alongX?1.7:3,1.3,palette[key],.35);
+    }
+  }
+  function drawPoly(face){
+    ctx.beginPath();face.p.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+    ctx.closePath();ctx.fillStyle=face.fill;ctx.fill();
+  }
+  function buildCity(){
+    const {bg,fg,cbd,growth,park,frontier}=palette;
+    box(-119,-86,238,184,3,palette.edge,-3.5);
+    // The land and category plots are fixed across all stages.
+    plate(-119,-86,238,184,0,palette.land);
+    plate(-112,-79,101,77,.05,mix(bg,cbd,.12));
+    plate(2,-79,109,106,.05,mix(bg,growth,.11));
+    plate(-112,11,112,77,.05,mix(bg,park,.15));
+    plate(16,36,95,52,.05,mix(bg,frontier,.09));
+    // Stable project campuses with courtyards and reserved land.
+    plate(-104,-72,47,40,.1,mix(bg,cbd,.19));
+    plate(-52,-43,34,36,.1,mix(bg,cbd,.19));
+    tower(-100,-67,14,13,35,'cbd');
+    tower(-81,-66,18,15,47,'cbd');
+    tower(-99,-45,12,10,18,'cbd');
+    tower(-75,-44,13,10,23,'cbd');
+    tower(-49,-40,12,12,30,'cbd');
+    tower(-32,-38,11,15,38,'cbd');
+    tower(-49,-20,15,10,13,'cbd');
+    tree(-58,-64,.75);tree(-58,-54,.8);tree(-83,-35,.65);
+    // Park tents stay tents even when the research district grows.
+    [[-103,24],[-91,17],[-77,29],[-109,52],[-93,64],[-82,81],[-65,78],[-49,69],[-26,80],[-15,59],[-23,29],[-43,21],[-70,19],[-39,83]].forEach((p,i)=>tree(p[0],p[1],.75+(i%4)*.12));
+    tent(-86,42,10,'park');tent(-51,44,9,'park');tent(-34,63,8,'park');
+    // Frontier: one question camp and a lookout, not arbitrary new concepts.
+    tent(62,55,10,'frontier');tent(84,64,7,'frontier');
+    box(40,51,2,2,18,mix(bg,frontier,.35));
+    box(52,51,2,2,18,mix(bg,frontier,.35));
+    box(40,62,2,2,18,mix(bg,frontier,.35));
+    box(52,62,2,2,18,mix(bg,frontier,.35));
+    box(39,50,16,15,2,frontier,18);
+    tree(100,46,.7);tree(25,79,.7);
+    // The same research plot changes form; material volume alone never projects it.
+    const v=visualStage;
+    const plots=[[18,-65],[42,-59],[69,-67],[89,-50],[23,-34],[47,-32],[73,-25],[91,-7]];
+    if(v<1){
+      plots.forEach(([x,z],i)=>{
+        const tx=18+(i%4)*22,tz=-62+Math.floor(i/4)*28;
+        x=x*(1-v)+tx*v;z=z*(1-v)+tz*v;
+        house(x,z,7+v*2,6+v,1+v*5,'growth');
+      });
+      if(v>.3) for(let i=0;i<8;i++) house(19+(i%4)*22,-7+Math.floor(i/4)*17,8,7,(v-.3)*7,'growth');
+    } else if(v<2){
+      const p=v-1;
+      for(let i=0;i<20;i++){
+        const x=17+(i%5)*17,z=-68+Math.floor(i/5)*22;
+        if(p<.95) house(x,z,8*(1-p)+3,7*(1-p)+2,6*(1-p)+1,'growth');
+      }
+      if(p>0){
+        tower(20,-66,20,18,27*p,'growth');tower(63,-64,23,16,37*p,'growth');tower(29,-28,52,12,14*p,'growth');
+      }
+    } else {
+      plate(12,-74,88,67,.1,mix(bg,growth,.18));
+      tower(20,-66,20,18,27,'growth');tower(63,-64,23,16,37,'growth');tower(29,-28,52,12,14,'growth');
+      house(17,2,8,7,6,'growth');house(34,2,8,7,6,'growth');
+      tree(50,-53,.8);tree(50,-42,.8);tree(91,-23,.75);
+    }
+    if(v<1.9){tree(108,-69,.7);tree(106,18,.75);}
+    const cbdPath=[[-77,-31],[-77,-6],[-12,-6],[-12,-26],[-21,-26]];
+    const growthPath=[[-20,-6],[5,-6],[5,-41],[15,-41]];
+    const parkPath=[[-77,-6],[-77,16],[-77,40]];
+    const explorePath=[[94,5],[104,5],[104,34],[72,34],[72,54]];
+    const suggested=[[-31,68],[3,68],[28,73],[62,68]];
+    const roadDraw=()=>{
+      strokeWorld(cbdPath,7,palette.road);strokeWorld(cbdPath,.45,mix(palette.road,bg,.8),true);
+      strokeWorld(growthPath,1.5+visualStage*2.6,palette.road);
+      if(visualStage>1.2) strokeWorld(growthPath,.4,mix(palette.road,bg,.8),true);
+      strokeWorld(parkPath,1.8,mix(palette.park,fg,.18));
+      strokeWorld(explorePath,1.6,mix(frontier,fg,.1));
+      strokeWorld(suggested,.8,mix(frontier,bg,.2),true);
+      if(selected==='road') strokeWorld(growthPath,.7,palette.growth,true);
+    };
+    cars(cbdPath,5,'cbd');cars(growthPath,[0,2,5][stage],'growth');cars(parkPath,1,'park');
+    return roadDraw;
+  }
+  function fitCamera(){
+    scale=1;originX=0;originY=0;
+    const pts=[];
+    for(const x of [-124,124]) for(const z of [-92,102]) pts.push(project(x,0,z));
+    for(const [x,z,y] of [[-102,-69,52],[-60,-69,52],[-20,-40,43],[20,-66,40],[90,-66,40]]) pts.push(project(x,y,z));
+    const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+    const loX=Math.min(...xs),hiX=Math.max(...xs),loY=Math.min(...ys),hiY=Math.max(...ys);
+    scale=Math.min((width-28)/(hiX-loX),(height-42)/(hiY-loY));
+    originX=(width-(hiX+loX)*scale)/2;
+    originY=(height-(hiY+loY)*scale)/2+7;
+  }
+  function label(text,x,z,y,id){
+    const p=project(x,y,z),font=getComputedStyle(root).font;
+    ctx.font=font;ctx.textAlign='center';ctx.textBaseline='middle';
+    const tw=ctx.measureText(text).width;
+    let lx=Math.min(width-tw/2-6,Math.max(tw/2+6,p[0])),ly=Math.max(15,p[1]);
+    for(let k=0;k<10;k++){
+      const collides=labels.some(r=>Math.abs(r.x-lx)<(r.w+tw)/2+9&&Math.abs(r.y-ly)<25);
+      if(!collides) break;ly+=25;
+    }
+    ly=Math.min(height-15,ly);
+    if(Math.abs(lx-p[0])>4||Math.abs(ly-p[1])>4){
+      ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(lx,ly);ctx.strokeStyle=palette.muted;ctx.lineWidth=.7;ctx.stroke();
+    }
+    ctx.fillStyle=palette.bg;ctx.globalAlpha=.94;ctx.fillRect(lx-tw/2-5,ly-10,tw+10,20);ctx.globalAlpha=1;
+    ctx.fillStyle=palette.fg;ctx.fillText(text,lx,ly);
+    if(selected===id){ctx.fillStyle=palette[objects[id].color];ctx.fillRect(lx-tw/2,ly+12,tw,2);}
+    labels.push({x:lx,y:ly,w:tw});hits.push({x:lx,y:ly,w:Math.max(tw+18,44),h:44,id});
+  }
+  function draw(){
+    width=canvas.clientWidth;height=canvas.clientHeight;
+    const dpr=Math.min(devicePixelRatio||1,2);
+    if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){
+      canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
+    colors();fitCamera();faces=[];ground=[];labels=[];hits=[];
+    const drawRoads=buildCity();
+    // Draw the plinth separately so its broad faces cannot cover buildings.
+    const base=faces.splice(0,5);base.sort((a,b)=>a.d-b.d).forEach(drawPoly);
+    ground.forEach(drawPoly);drawRoads();faces.sort((a,b)=>a.d-b.d).forEach(drawPoly);
+    if(width>=460){
+      label('CBD · note.md',-79,-58,53,'notemd');
+      label('hemory',-32,-22,42,'hemory');
+      label(stage===2?'记忆检索实验园区':stage===1?'生长地 · 记忆街区':'生长地 · 未定材料',54,-54,stage===2?47:18,'growth');
+      label('兴趣公园',-59,60,12,'park');label('探索前沿',68,79,12,'frontier');
+    }else{
+      label('CBD',-65,-54,51,'notemd');label(stage===2?'实验园区':'生长地',57,-43,stage===2?43:15,'growth');
+      label('公园',-64,57,13,'park');label('前沿',69,78,13,'frontier');
+    }
+    canvas.dataset.stage=String(stage);canvas.dataset.faceCount=String(faces.length);
+  }
+  function updateText(){
+    stageButtons.forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.stage)===stage)));
+    picker.value=selected;
+    picker.options[0].text=stage===2?'生长地 · 记忆检索实验':stage===1?'生长地 · 记忆街区':'生长地 · 未定材料';
+    detail.textContent=descriptions[selected][descriptions[selected].length===1?0:stage];
+  }
+  function save(){
+    if(window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{stage:stageNames[stage],selected},privateContent:{stage,selected,angle}}).catch(()=>{});
+  }
+  function restore(state){
+    const s=state?.privateContent;
+    if(!s)return;
+    if([0,1,2].includes(s.stage))stage=s.stage;
+    if(objects[s.selected])selected=s.selected;
+    if(Number.isFinite(s.angle))angle=s.angle;
+    visualStage=stage;updateText();draw();
+  }
+  stageButtons.forEach(b=>b.addEventListener('click',()=>{
+    cancelAnimationFrame(animation);const from=visualStage;stage=Number(b.dataset.stage);
+    updateText();save();
+    if(reduceMotion.matches){visualStage=stage;draw();return;}
+    const start=performance.now();
+    function frame(now){
+      const t=Math.min(1,(now-start)/550),ease=t*t*(3-2*t);
+      visualStage=from+(stage-from)*ease;draw();if(t<1)animation=requestAnimationFrame(frame);
+    }
+    animation=requestAnimationFrame(frame);
+  }));
+  picker.addEventListener('change',()=>{selected=picker.value;updateText();draw();save();});
+  root.querySelectorAll('[data-turn]').forEach(b=>b.addEventListener('click',()=>{angle+=Number(b.dataset.turn)*.3;draw();save();}));
+  let pointer=null;
+  canvas.addEventListener('pointerdown',e=>{pointer={id:e.pointerId,x:e.clientX,y:e.clientY,angle,moved:false};canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener('pointermove',e=>{
+    if(!pointer)return;
+    const dx=e.clientX-pointer.x;
+    if(Math.abs(dx)>5)pointer.moved=true;
+    if(pointer.moved){angle=pointer.angle+dx*.006;draw();}
+  });
+  canvas.addEventListener('pointerup',e=>{
+    if(!pointer)return;
+    if(!pointer.moved){
+      const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+      const hit=hits.find(h=>Math.abs(h.x-x)<h.w/2&&Math.abs(h.y-y)<h.h/2);
+      if(hit){selected=hit.id;updateText();draw();}
+    }
+    pointer=null;save();
+  });
+  canvas.addEventListener('pointercancel',()=>{pointer=null;});
+  new ResizeObserver(()=>draw()).observe(canvas);
+  new MutationObserver(()=>draw()).observe(document.documentElement,{attributes:true,attributeFilter:['class','style','data-theme']});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw());
+  window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState)restore(e.detail.globals.widgetState);});
+  updateText();draw();restore(window.openai?.widgetState);
+})();
+</script>

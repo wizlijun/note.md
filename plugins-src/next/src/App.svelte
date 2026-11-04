@@ -93,6 +93,7 @@
   let kickoffActive = false
   let kickoffPolling = false
   let kickoffInitializing = false
+  const kickoffReportedErrors = new Set<string>()
   let kickoffWorkspace: typeof store.workspace = null
   let placementCommit = $state<InitialCommit | undefined>()
   let placementExtraOptions = $state<ExtraOptions | undefined>()
@@ -124,6 +125,20 @@
     return key in CATALOGS.en ? t(key as MessageKey) : t('kickoff.failure.error')
   }
 
+  function kickoffResultBlocked(snapshot: KickoffSnapshot, id: string): boolean {
+    const status = snapshot.statuses[id]
+    return status?.state === 'failed' && ['conflict', 'io-error'].includes(status.failure.kind)
+  }
+
+  async function reportKickoffError(error: unknown) {
+    const kind = error instanceof KickoffClientError ? error.kind : 'io-error'
+    const message = error instanceof Error ? error.message : String(error)
+    const key = JSON.stringify([kind, message])
+    if (kickoffReportedErrors.has(key)) return
+    kickoffReportedErrors.add(key)
+    await toast('error', kickoffErrorLabel(error))
+  }
+
   function adoptKickoff(snapshot: KickoffSnapshot, announce = false) {
     const previous = kickoffSnapshot
     kickoffSnapshot = snapshot
@@ -135,9 +150,13 @@
         ? resultRunId === failure.runId : resultRunId !== failure.previousResultRunId)
       if (recoveredRun || recoveredResult) delete kickoffFailures[id]
     }
+    if (kickoffResult && kickoffResultBlocked(snapshot, kickoffResult.item.task!.id)) {
+      kickoffProgress = kickoffResult.item
+      kickoffResult = null
+    }
     if (kickoffProgress) {
       const id = kickoffProgress.task!.id
-      if (snapshot.results[id] && !snapshot.registry.runs[id] && !kickoffFailures[id]) {
+      if (snapshot.results[id] && !kickoffResultBlocked(snapshot, id) && !snapshot.registry.runs[id] && !kickoffFailures[id]) {
         void showKickoffResult(kickoffProgress)
       }
     }
@@ -160,7 +179,7 @@
       const reconciled = await kickoffClient.reconcile()
       if (kickoffActive) adoptKickoff(reconciled, true)
     } catch (error) {
-      if (kickoffActive) await toast('error', kickoffErrorLabel(error))
+      if (kickoffActive) await reportKickoffError(error)
     } finally {
       kickoffInitializing = false
     }
@@ -173,7 +192,7 @@
       const snapshot = await kickoffClient.reconcile()
       if (kickoffActive) adoptKickoff(snapshot, true)
     } catch (error) {
-      if (kickoffActive) await toast('error', kickoffErrorLabel(error))
+      if (kickoffActive) await reportKickoffError(error)
     } finally {
       kickoffPolling = false
     }
@@ -191,7 +210,7 @@
     kickoffWorkspace = current
     void kickoffClient.load(current.items).then((snapshot) => {
       if (kickoffActive) adoptKickoff(snapshot)
-    }).catch((error) => { if (kickoffActive) void toast('error', kickoffErrorLabel(error)) })
+    }).catch((error) => { if (kickoffActive) void reportKickoffError(error) })
   })
 
   function rememberedKickoff(): string {
@@ -221,7 +240,7 @@
   async function showKickoffResult(item: WorkspaceItem) {
     const id = item.task!.id
     const result = kickoffSnapshot.results[id]
-    if (!result) return
+    if (!result || kickoffResultBlocked(kickoffSnapshot, id)) return
     kickoffProgress = null
     kickoffSaveError = ''
     kickoffResult = { item, result }
@@ -1226,7 +1245,7 @@
 
 {#if kickoffProgress}
   <KickoffProgress returnFocus={kickoffReturnFocus} title={kickoffProgress.title} input={kickoffInput(kickoffProgress)}
-    hasPrevious={Boolean(kickoffSnapshot.results[kickoffProgress.task!.id])}
+    hasPrevious={Boolean(kickoffSnapshot.results[kickoffProgress.task!.id]) && !kickoffResultBlocked(kickoffSnapshot, kickoffProgress.task!.id)}
     onClose={() => kickoffProgress = null}
     onRetry={() => {
       const item = kickoffProgress!

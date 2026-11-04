@@ -1,3 +1,4 @@
+import capacityStatus from './__fixtures__/capacity-status.json'
 import { expect, it } from 'vitest'
 import { interpretKickoffStatus, formatElapsed } from './status'
 it.each([[0, '0:00'], [599000, '9:59'], [3599000, '59:59'], [3600000, '1:00:00'], [-1, '0:00']])('formats %s', (ms, s) => expect(formatElapsed(ms as number)).toBe(s))
@@ -67,3 +68,9 @@ it('preserves actual successful provider metadata', () => expect(interpretKickof
 })).toMatchObject({
   state: 'success', harness: 'notemd.codex-agent', model: 'model', started_at: 'a', ended_at: 'b'
 }))
+
+it('interprets the capacity response serialized by the Claude backend', () => {
+  expect(interpretKickoffStatus(capacityStatus)).toMatchObject({
+    state: 'failed', failure: { kind: 'capacity', message: 'That task is already running (holder-run)' },
+  })
+})
