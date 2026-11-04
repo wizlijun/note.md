@@ -1313,7 +1313,7 @@
               {#if mcpSetupError}<p class="desc" role="alert" style="color: tomato;">{mcpSetupError}</p>{/if}
               <details ontoggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) loadMcpSetupText() }}>
                 <summary class="desc">{t('settings.mcp.preview')}</summary>
-                {#if mcpSetupText}<textarea readonly rows="12" aria-label={t('settings.mcp.preview')}>{mcpSetupText}</textarea>{/if}
+                {#if mcpSetupText}<textarea class="mcp-setup-preview" readonly rows="12" aria-label={t('settings.mcp.preview')}>{mcpSetupText}</textarea>{/if}
               </details>
             {:else if mcpRegisterLine}
               <p class="desc">{t('settings.mcp.registerWith')} <code>{mcpRegisterLine}</code></p>
@@ -2184,6 +2184,7 @@
     flex: 1;
     max-width: 100%;
   }
+  .mcp-setup-preview { display: block; width: 100%; box-sizing: border-box; resize: vertical; }
   .row input[type="number"] { flex: 0 1 120px; width: 120px; }
   .row input[readonly] { color: var(--ui-secondary); background: var(--ui-bg); }
   .desc {
