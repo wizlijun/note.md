@@ -1,4 +1,4 @@
-//! Offline Oura exports use the public V2 data models linked by Membership Hub.
+//! Offline Oura V2 and Data Subject Request exports, identified by content.
 //! Account binding is explicit; exports never complete an API collection/window.
 use crate::{
     providers::{CollectionResult, FetchReport, ProviderRecord},
@@ -10,11 +10,11 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
-    io::{BufWriter, Read, Seek, SeekFrom, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write},
     path::Path,
 };
 
-const MAX_MEMBER: u64 = 64 * 1024 * 1024;
+const MAX_JSON_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_TOTAL: u64 = 4 * 1024 * 1024 * 1024;
 const MAX_FILES: usize = 100_000;
 fn err(e: impl std::fmt::Display) -> String {
@@ -37,7 +37,49 @@ fn collection(row: &Value) -> Option<&'static str> {
         contributors.as_ref().is_some_and(|v| v.get(key).is_some())
             || has(&format!("contributors.{key}"))
     };
-    if has("bedtime_start") && has("bedtime_end") {
+    if has("timestamp") && has("bpm") && has("imported_from") && has("origin_source") {
+        Some("imported_heartrate")
+    } else if has("timestamp") && has("end_time") && has("steps") {
+        if has("imported_from") && has("origin_source") {
+            Some("imported_step_count")
+        } else {
+            Some("step_count")
+        }
+    } else if has("timestamp") && has("skin_temp") {
+        Some("temperature")
+    } else if has("timestamp")
+        && has("acm_average_x")
+        && has("acm_average_y")
+        && has("acm_average_z")
+        && has("motion_seconds")
+    {
+        Some("motion")
+    } else if has("timestamp") && has("stress_value") && has("recovery_value") {
+        Some("daytime_stress")
+    } else if has("day") && has("average_bp_trend_sleep") && has("bp_change_percentage") {
+        Some("daily_cardiovascular_metrics")
+    } else if has("day") && has("cardiovascular_age") && has("pulse_wave_velocity") {
+        Some("daily_smoothed_cardiovascular_age")
+    } else if has("timestamp") && has("vo2max") && has("workout_identifier") {
+        Some("vo2_max_workout_estimate")
+    } else if has("day") && has("timestamp") && has("vo2max") && has("confidence") {
+        Some("daily_vo2_max_estimate")
+    } else if has("day") && has("start_time") && has("end_time") && has("predicted_activities") {
+        Some("activity_prediction_segment")
+    } else if has("start_time") && has("end_time") && has("selected_activity_id") {
+        Some("workout_heartrate_session")
+    } else if has("timestamp") && has("identifier") && has("offset") {
+        Some("timezone")
+    } else if has("day") && has("food_item_ids") && has("nutrition_details") && has("start_time") {
+        Some("meal")
+    } else if has("day")
+        && has("threshold1")
+        && has("threshold2")
+        && has("threshold3")
+        && has("threshold4")
+    {
+        Some("cardio_effort_baselines")
+    } else if has("bedtime_start") && has("bedtime_end") {
         Some("sleep")
     } else if has("active_calories") && has("steps") {
         Some("daily_activity")
@@ -178,25 +220,73 @@ fn json_rows(
     Ok(())
 }
 
-fn parse(bytes: &[u8], emit: &mut dyn FnMut(Value) -> Result<(), String>) -> Result<(), String> {
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| "Oura export CSV/JSON must be UTF-8")?
-        .trim_start_matches('\u{feff}');
-    let trimmed = text.trim_start();
-    if trimmed.starts_with('[') || trimmed.starts_with('{') {
+// DSR CSVs use semicolons, while V2-shaped CSV exports may use commas.
+// Count separators only outside quoted fields so embedded punctuation is not a delimiter.
+fn csv_delimiter(header: &[u8]) -> u8 {
+    let mut quoted = false;
+    let (mut commas, mut semicolons) = (0, 0);
+    for &byte in header {
+        match byte {
+            b'"' => quoted = !quoted,
+            b'\n' | b'\r' if !quoted => break,
+            b',' if !quoted => commas += 1,
+            b';' if !quoted => semicolons += 1,
+            _ => {}
+        }
+    }
+    if semicolons > commas {
+        b';'
+    } else {
+        b','
+    }
+}
+
+fn parse_reader(
+    input: impl Read,
+    emit: &mut dyn FnMut(Value) -> Result<(), String>,
+) -> Result<(), String> {
+    let mut input = BufReader::new(input);
+    if input
+        .fill_buf()
+        .map_err(err)?
+        .starts_with(&[0xef, 0xbb, 0xbf])
+    {
+        input.consume(3);
+    }
+    let prefix = input.fill_buf().map_err(err)?;
+    if prefix.is_empty() {
+        return Ok(());
+    }
+    let first = prefix.iter().find(|b| !b.is_ascii_whitespace());
+    if matches!(first, Some(b'[' | b'{')) {
+        let mut bytes = Vec::new();
+        input
+            .take(MAX_JSON_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(err)?;
+        if bytes.len() as u64 > MAX_JSON_BYTES {
+            return Err("Oura export JSON exceeds 64 MiB parsing limit".into());
+        }
         json_rows(
-            serde_json::from_str(trimmed).map_err(|_| "Invalid Oura export JSON")?,
+            serde_json::from_slice(&bytes).map_err(|_| "Invalid Oura export JSON")?,
             emit,
         )
     } else {
-        let mut csv = csv::ReaderBuilder::new().from_reader(text.as_bytes());
+        let delimiter = csv_delimiter(prefix);
+        let mut csv = csv::ReaderBuilder::new()
+            .delimiter(delimiter)
+            .from_reader(input);
         let headers = csv
             .headers()
             .map_err(|_| "Invalid Oura export CSV header")?
             .clone();
+        // Completely empty/whitespace files carry no records. Header-only exports
+        // are common in real DSR archives and remain represented in file_reports.
+        if headers.is_empty() {
+            return Ok(());
+        }
         let unique: BTreeSet<_> = headers.iter().collect();
-        if headers.is_empty() || unique.len() != headers.len() || headers.iter().any(str::is_empty)
-        {
+        if unique.len() != headers.len() || headers.iter().any(str::is_empty) {
             return Err("Oura export CSV has empty or duplicate column names".into());
         }
         for row in csv.records() {
@@ -210,6 +300,11 @@ fn parse(bytes: &[u8], emit: &mut dyn FnMut(Value) -> Result<(), String>) -> Res
         }
         Ok(())
     }
+}
+
+#[cfg(test)]
+fn parse(bytes: &[u8], emit: &mut dyn FnMut(Value) -> Result<(), String>) -> Result<(), String> {
+    parse_reader(bytes, emit)
 }
 
 fn safe_name(name: &str) -> bool {
@@ -299,6 +394,8 @@ pub fn import(
     let mut unrecognized = 0u64;
     let mut since: Option<String> = None;
     let mut until: Option<String> = None;
+    let file_parsed = std::cell::Cell::new(0u64);
+    let file_unknown = std::cell::Cell::new(0u64);
     let mut last = std::time::Instant::now();
     let mut emit = |row| -> Result<(), String> {
         if let Some(record) = record(row)? {
@@ -314,12 +411,14 @@ pub fn import(
             serde_json::to_writer(&mut writer, &record).map_err(err)?;
             writer.write_all(b"\n").map_err(err)?;
             records += 1;
-            if last.elapsed().as_secs() >= 3 {
-                progress(&format!("Reading Oura export: {records} records"));
-                last = std::time::Instant::now();
-            }
+            file_parsed.set(file_parsed.get() + 1);
         } else {
             unrecognized += 1;
+            file_unknown.set(file_unknown.get() + 1);
+        }
+        if last.elapsed().as_secs() >= 3 {
+            progress(&format!("Reading Oura export: {records} health records; {unrecognized} other rows preserved"));
+            last = std::time::Instant::now();
         }
         Ok(())
     };
@@ -329,6 +428,7 @@ pub fn import(
     archive.rewind().map_err(err)?;
     let mut preserved_only = Vec::<String>::new();
     let mut files = 0;
+    let mut file_reports = Vec::new();
     if n == 4 && &header[..2] == b"PK" {
         let mut directory = archive.try_clone().map_err(err)?;
         let mut zip = zip::ZipArchive::new(archive).map_err(|_| "Invalid Oura export ZIP")?;
@@ -356,44 +456,51 @@ pub fn import(
             total = total
                 .checked_add(entry.size())
                 .ok_or("Oura ZIP size overflow")?;
-            if total > MAX_TOTAL || entry.size() > MAX_MEMBER {
-                return Err("Oura ZIP exceeds 64 MiB/member or 4 GiB total limit".into());
+            if total > MAX_TOTAL {
+                return Err("Oura ZIP exceeds 4 GiB total limit".into());
             }
-            let mut bytes = Vec::new();
             let expected = entry.size();
-            (&mut entry)
-                .take(MAX_MEMBER + 1)
-                .read_to_end(&mut bytes)
-                .map_err(|_| "Invalid Oura ZIP member data or CRC")?;
-            if bytes.len() as u64 != expected {
-                return Err("Oura ZIP member size disagrees".into());
-            }
             files += 1;
             let ext = Path::new(&name)
                 .extension()
                 .and_then(|v| v.to_str())
                 .unwrap_or("")
                 .to_ascii_lowercase();
-            if matches!(ext.as_str(), "csv" | "json") {
-                parse(&bytes, &mut emit)?;
+            file_parsed.set(0);
+            file_unknown.set(0);
+            let parsed_format = matches!(ext.as_str(), "csv" | "json");
+            let mut reader = (&mut entry).take(MAX_TOTAL + 1);
+            if parsed_format {
+                parse_reader(&mut reader, &mut emit)
+                    .map_err(|e| format!("Oura export {name}: {e}"))?;
+                if file_parsed.get() == 0 && file_unknown.get() > 0 {
+                    preserved_only.push(name.clone());
+                }
             } else {
-                preserved_only.push(name);
+                preserved_only.push(name.clone());
             }
+            // Drain unknown members too: a preserved file must still pass ZIP CRC/size checks.
+            std::io::copy(&mut reader, &mut std::io::sink())
+                .map_err(|_| "Invalid Oura ZIP member data or CRC")?;
+            if MAX_TOTAL + 1 - reader.limit() != expected {
+                return Err("Oura ZIP member size disagrees".into());
+            }
+            file_reports.push(json!({"filename":name,"size":expected,
+                "parsed_records":file_parsed.get(),"unrecognized_records":file_unknown.get(),
+                "status":if !parsed_format {"preserved_only"} else if file_unknown.get()>0 && file_parsed.get()>0 {"partially_parsed"} else if file_unknown.get()>0 {"unrecognized"} else if file_parsed.get()>0 {"parsed"} else {"empty"}}));
         }
     } else {
-        if size > MAX_MEMBER {
-            return Err("Oura standalone CSV/JSON exceeds 64 MiB parsing limit".into());
-        }
-        let mut bytes = Vec::new();
-        archive.read_to_end(&mut bytes).map_err(err)?;
-        parse(&bytes, &mut emit)?;
+        parse_reader(&mut archive, &mut emit)?;
         files = 1;
+        file_reports.push(json!({"filename":filename,"size":size,
+            "parsed_records":file_parsed.get(),"unrecognized_records":file_unknown.get(),
+            "status":if file_unknown.get()>0 && file_parsed.get()>0 {"partially_parsed"} else if file_unknown.get()>0 {"unrecognized"} else if file_parsed.get()>0 {"parsed"} else {"empty"}}));
     }
     drop(emit);
     if records == 0 {
-        return Err("No recognized Oura V2 records found; no data was imported".into());
+        return Err("No recognized Oura health records found; no data was imported".into());
     }
-    let metadata = json!({"filename":filename,"sha256":sha256,"size":size,"parsed_records":records,"unrecognized_records":unrecognized,"preserved_only_members":preserved_only});
+    let metadata = json!({"filename":filename,"sha256":sha256,"size":size,"parsed_records":records,"unrecognized_records":unrecognized,"preserved_only_members":preserved_only,"file_reports":file_reports});
     serde_json::to_writer(
         &mut writer,
         &ProviderRecord {
@@ -442,7 +549,7 @@ pub fn import(
         progress,
     )?;
     Ok(
-        json!({"complete":imported.complete,"dry_run":dry_run,"source":"oura","account_id":account_id,"records":records,"files":files,"unrecognized_records":unrecognized,"preserved_only_members":preserved_only,"date_range":{"since":since,"until":until},"import":imported}),
+        json!({"complete":imported.complete,"dry_run":dry_run,"source":"oura","account_id":account_id,"records":records,"files":files,"unrecognized_records":unrecognized,"preserved_only_members":preserved_only,"file_reports":file_reports,"date_range":{"since":since,"until":until},"import":imported}),
     )
 }
 
@@ -655,5 +762,203 @@ mod tests {
             query(&store, &account, "oura.export_files")["records"][0]["payload"]["sha256"],
             hash(&std::fs::read(&input).unwrap())
         );
+    }
+}
+
+#[cfg(test)]
+mod dsr_collection_tests {
+    use super::*;
+
+    #[test]
+    fn dsr_health_fields_keep_their_distinct_collections_and_raw_values() {
+        let cases = [
+            (
+                json!({"timestamp":"2026-10-24T00:10:00.123Z","bpm":"61.00","imported_from":"synthetic-import","origin_source":"device-a"}),
+                "imported_heartrate",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T00:10:00Z","end_time":"2026-10-24T00:15:00Z","steps":"12","imported_from":"synthetic-import","origin_source":"device-a"}),
+                "imported_step_count",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T00:10:00Z","end_time":"2026-10-24T00:15:00Z","steps":"12"}),
+                "step_count",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T00:10:00Z","skin_temp":"32.010"}),
+                "temperature",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T00:10:00Z","acm_average_x":"0.01","acm_average_y":"0","acm_average_z":"0.02","motion_seconds":"30"}),
+                "motion",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T00:10:00Z","recovery_value":"0.123","stress_value":"0.456"}),
+                "daytime_stress",
+            ),
+            (
+                json!({"day":"2026-10-24","average_bp_trend_sleep":"[]","bp_change_percentage":""}),
+                "daily_cardiovascular_metrics",
+            ),
+            (
+                json!({"day":"2026-10-24","cardiovascular_age":"40","pulse_wave_velocity":"6.010"}),
+                "daily_smoothed_cardiovascular_age",
+            ),
+            (
+                json!({"day":"2026-10-24","timestamp":"2026-10-24T12:00:00+08:00","vo2max":"40.10","confidence":"0.90"}),
+                "daily_vo2_max_estimate",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T12:00:00+08:00","vo2max":"40.10","confidence":"0.90","workout_identifier":"workout-a"}),
+                "vo2_max_workout_estimate",
+            ),
+            (
+                json!({"day":"2026-10-24","start_time":"2026-10-24T12:00:00+08:00","end_time":"2026-10-24T12:30:00+08:00","predicted_activities":"[{\"activity\":\"walking\",\"value\":0.123}]"}),
+                "activity_prediction_segment",
+            ),
+            (
+                json!({"start_time":"2026-10-24T12:00:00+08:00","end_time":"2026-10-24T12:30:00+08:00","selected_activity_id":"walking"}),
+                "workout_heartrate_session",
+            ),
+            (
+                json!({"timestamp":"2026-10-24T00:10:00.000+14:00","identifier":"Pacific/Kiritimati","offset":"50400"}),
+                "timezone",
+            ),
+            (
+                json!({"day":"2026-10-24","food_item_ids":"[\"food-a\"]","nutrition_details":"{\"unknown\":null}","start_time":"2026-10-24T12:00:00+08:00"}),
+                "meal",
+            ),
+            (
+                json!({"day":"2026-10-24","threshold1":"100","threshold2":"120","threshold3":"140","threshold4":"160"}),
+                "cardio_effort_baselines",
+            ),
+        ];
+        for (payload, expected) in cases {
+            let parsed = record(payload.clone()).unwrap().unwrap();
+            assert_eq!(parsed.collection, format!("export_{expected}"));
+            assert_eq!(parsed.day, "2026-10-24");
+            assert_eq!(parsed.data, payload);
+            assert_eq!(record(payload).unwrap().unwrap().id, parsed.id);
+        }
+    }
+
+    #[test]
+    fn dsr_sensor_identity_preserves_simultaneous_sources_and_values() {
+        let original = json!({"timestamp":"2026-10-24T00:10:00Z","bpm":"60","imported_from":"device-a","origin_source":"source-a"});
+        let first = record(original.clone()).unwrap().unwrap();
+        let mut other_source = original.clone();
+        other_source["origin_source"] = json!("source-b");
+        assert_ne!(first.id, record(other_source).unwrap().unwrap().id);
+        let mut other_value = original.clone();
+        other_value["bpm"] = json!("61");
+        assert_ne!(first.id, record(other_value).unwrap().unwrap().id);
+        let mut explicit = original;
+        explicit["id"] = json!("stable-id");
+        assert_eq!(
+            record(explicit).unwrap().unwrap().id.as_deref(),
+            Some("stable-id")
+        );
+        // Existing V2 sample IDs still use timestamp/source identity.
+        let old = json!({"timestamp":"2026-10-24T00:10:00Z","bpm":60,"source":"awake"});
+        let expected =
+            hash(&serde_json::to_vec(&(old.get("timestamp"), old.get("source"))).unwrap());
+        assert_eq!(record(old).unwrap().unwrap().id, Some(expected));
+    }
+
+    #[test]
+    fn dsr_unrelated_rows_stay_raw_and_bad_sensor_dates_are_rejected() {
+        for payload in [
+            json!({"timestamp":"2026-10-24T00:10:00Z","latitude":"0","longitude":"0","altitude":"0"}),
+            json!({"id":"food-a","name":"synthetic-food","weight":"10"}),
+            json!({"id":"setting-a","enabled":"true","next_dose_timestamp":"2026-10-24T00:10:00Z","start_timestamp":"2026-10-23T00:10:00Z"}),
+            json!({"Contact: ID":"synthetic-id","Contact: First Name":"synthetic"}),
+        ] {
+            assert!(record(payload).unwrap().is_none());
+        }
+        for timestamp in ["2026-02-30T12:00:00Z", "", "not-a-date"] {
+            let error = record(json!({"timestamp":timestamp,"skin_temp":"32.01"})).unwrap_err();
+            assert!(error.contains("timestamp"));
+        }
+    }
+}
+
+#[cfg(test)]
+mod dsr_stream_tests {
+    use super::*;
+
+    #[test]
+    fn semicolon_csv_preserves_nested_json_quotes_and_multiline_cells() {
+        let input = "\u{feff}id;day;contributors;score;note\r\ns;2026-10-30;\"{\"\"deep_sleep\"\":80,\"\"rem_sleep\"\":75}\";80.010;\"comma,semicolon;\n第二行\"\r\n";
+        let mut rows = vec![];
+        parse(input.as_bytes(), &mut |row| {
+            rows.push(record(row)?.unwrap());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(rows[0].collection, "export_daily_sleep");
+        assert_eq!(rows[0].day, "2026-10-30");
+        assert_eq!(rows[0].data["score"], "80.010");
+        assert_eq!(
+            rows[0].data["contributors"],
+            r#"{"deep_sleep":80,"rem_sleep":75}"#
+        );
+        assert_eq!(rows[0].data["note"], "comma,semicolon;\n第二行");
+        assert_eq!(csv_delimiter(b"id,\"label;a;b\",day\n"), b',');
+    }
+
+    #[test]
+    fn header_only_empty_and_duplicate_semicolon_headers() {
+        for input in ["", "\u{feff}", "id;day;steps;active_calories\r\n"] {
+            let mut count = 0;
+            parse(input.as_bytes(), &mut |_| {
+                count += 1;
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(count, 0);
+        }
+        assert!(parse(b"id;day;day\nx;2026-10-30;2026-10-30\n", &mut |_| Ok(())).is_err());
+        assert!(parse(b"id;day;steps\nx;2026-10-30\n", &mut |_| Ok(())).is_err());
+    }
+
+    #[test]
+    fn zip_over_64_mib_csv_is_streamed_and_file_coverage_is_reported() {
+        let temp = tempfile::tempdir().unwrap();
+        let vault = temp.path().join("vault");
+        let library = temp.path().join("raw");
+        let state = temp.path().canonicalize().unwrap().join("state");
+        std::fs::create_dir(&vault).unwrap();
+        std::fs::create_dir(&library).unwrap();
+        crate::library::configure(&vault, &state, &library).unwrap();
+        let store = Store::new(&vault, &state).unwrap();
+        let input = temp.path().join("国际化导出.zip");
+        let mut zip = zip::ZipWriter::new(File::create(&input).unwrap());
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        zip.start_file("别名/other.csv", options).unwrap();
+        zip.write_all(b"unrecognized_column\n").unwrap();
+        let row = format!("{}\n", "x".repeat(1023));
+        for _ in 0..65537 {
+            zip.write_all(row.as_bytes()).unwrap();
+        }
+        zip.start_file("更名/睡眠.csv", options).unwrap();
+        zip.write_all(b"id;day;bedtime_start;bedtime_end\ns;2026-10-30;2026-10-29T22:00:00+08:00;2026-10-30T06:00:00+08:00\n").unwrap();
+        zip.start_file("empty.csv", options).unwrap();
+        zip.write_all(b"id;day;steps;active_calories\n").unwrap();
+        zip.start_file("events.ndjson", options).unwrap();
+        zip.finish().unwrap();
+        let before = store.status().unwrap();
+        let account = crate::auth::account_id_for_subject("oura:offline:isolated-test");
+        let result = import(&store, &input, &account, true, &mut |_| {}).unwrap();
+        assert_eq!(store.status().unwrap(), before);
+        assert_eq!(result["records"], 1);
+        assert_eq!(result["unrecognized_records"], 65537);
+        let reports = result["file_reports"].as_array().unwrap();
+        assert_eq!(reports.len(), 4);
+        assert_eq!(reports[0]["status"], "unrecognized");
+        assert_eq!(reports[1]["parsed_records"], 1);
+        assert_eq!(reports[2]["status"], "empty");
+        assert_eq!(reports[3]["status"], "preserved_only");
+        assert!(std::fs::read_dir(&vault).unwrap().next().is_none());
     }
 }

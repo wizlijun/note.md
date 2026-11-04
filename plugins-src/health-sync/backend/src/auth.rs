@@ -23,6 +23,7 @@ use std::{
 };
 
 const SERVICE: &str = "net.notemd.health-sync";
+const OURA_DEFAULT_REDIRECT: &str = "http://localhost:8765/callback";
 const OURA_TOKEN: &str = "https://api.ouraring.com/oauth/token";
 const GARMIN_TOKEN_PATH: &str = "/personalapitoken-service/personal-api/personal-api-key/token";
 const JSON_LIMIT: u64 = 64 * 1024 * 1024;
@@ -812,7 +813,7 @@ pub fn connect(vault: &Path, source: &str, params: &Value) -> Result<Value, Stri
     let client_id = field(params, "client_id")?;
     let client_secret = field(params, "client_secret")?;
     let redirect_uri = match params.get("redirect_uri") {
-        None | Some(Value::Null) => "http://127.0.0.1:8765/callback".into(),
+        None | Some(Value::Null) => OURA_DEFAULT_REDIRECT.into(),
         _ => field(params, "redirect_uri")?,
     };
     let url = redirect(&redirect_uri)?;
@@ -1614,7 +1615,7 @@ mod tests {
     fn pkce_and_callback_validate_exact_state_path_and_parameters() {
         let url = authorize_url(
             "client",
-            "http://127.0.0.1:8765/callback",
+            OURA_DEFAULT_REDIRECT,
             "state",
             "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
         );
@@ -1625,8 +1626,10 @@ mod tests {
             "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
         );
         assert_eq!(args["code_challenge_method"], "S256");
+        assert_eq!(args["redirect_uri"], "http://localhost:8765/callback");
+        assert_eq!(args["response_type"], "code");
         assert!(!url.contains("client_secret"));
-        let redirect = redirect("http://127.0.0.1:8765/callback").unwrap();
+        let redirect = redirect(OURA_DEFAULT_REDIRECT).unwrap();
         assert!(
             matches!(callback("GET /callback?code=abc&state=state HTTP/1.1\r\n\r\n",&redirect,"state"),Ok(Callback::Code(code))if code=="abc")
         );

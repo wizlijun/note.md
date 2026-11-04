@@ -18,6 +18,19 @@ pub fn category(metric: &str, kind: &str) -> &'static str {
         .filter(char::is_ascii_alphanumeric)
         .map(|c| c.to_ascii_lowercase())
         .collect();
+    // Offline Oura collections keep a separate namespace, but the category
+    // must match the underlying data rather than depend on the import route.
+    let name = name
+        .strip_prefix("ouraexport")
+        .map(|suffix| format!("oura{suffix}"))
+        .unwrap_or(name);
+    match name.as_str() {
+        "ouradailycardiovascularmetrics" => return "heart",
+        "ouratemperature" => return "vitals",
+        "ouramotion" | "ouracardioeffortbaselines" => return "activity",
+        "ourameal" => return "nutrition",
+        _ => {}
+    }
     let kind = kind.to_ascii_lowercase();
     let contains = |terms: &[&str]| terms.iter().any(|term| name.contains(term));
 
@@ -30,6 +43,8 @@ pub fn category(metric: &str, kind: &str) -> &'static str {
                 | "ouraringbatterylevel"
                 | "ouratag"
                 | "ouraenhancedtag"
+                | "ouratimezone"
+                | "ourafiles"
         )
     {
         "metadata"
@@ -366,5 +381,36 @@ mod tests {
         assert_ne!(metric_slug("心率"), metric_slug("睡眠"));
         assert!(metric_slug("心率").starts_with("metric-"));
         assert!(metric_slug(&"A".repeat(1000)).len() <= 93);
+    }
+}
+
+#[cfg(test)]
+mod oura_export_category_tests {
+    use super::category;
+
+    #[test]
+    fn dsr_collections_are_discoverable_in_the_right_categories() {
+        for (metric, expected) in [
+            ("oura.export_imported_heartrate", "heart"),
+            ("oura.export_imported_step_count", "activity"),
+            ("oura.export_step_count", "activity"),
+            ("oura.export_temperature", "vitals"),
+            ("oura.export_motion", "activity"),
+            ("oura.export_daytime_stress", "mindfulness"),
+            ("oura.export_daily_cardiovascular_metrics", "heart"),
+            ("oura.export_daily_smoothed_cardiovascular_age", "heart"),
+            ("oura.export_daily_vo2_max_estimate", "activity"),
+            ("oura.export_vo2_max_workout_estimate", "activity"),
+            ("oura.export_activity_prediction_segment", "activity"),
+            ("oura.export_workout_heartrate_session", "heart"),
+            ("oura.export_timezone", "metadata"),
+            ("oura.export_cardio_effort_baselines", "activity"),
+            ("oura.export_meal", "nutrition"),
+            ("oura.export_session", "mindfulness"),
+            ("oura.export_ring_configuration", "metadata"),
+            ("oura.export_files", "metadata"),
+        ] {
+            assert_eq!(category(metric, "Record"), expected, "{metric}");
+        }
     }
 }
