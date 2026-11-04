@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1104.2 — 2026-11-04
+
 - **A typographic welcome screen.** When no document is open, a large gray major version and note.md wordmark give the window a quiet focal point, with New, Canvas and Open still close at hand.
 
 ## v6.1104.1 — 2026-11-04
