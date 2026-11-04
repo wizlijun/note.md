@@ -1295,29 +1295,6 @@
               />
               {t('settings.dailyNotes.label')}
             </label>
-            <label class="row" style="margin-top: 6px;">
-              <input
-                type="checkbox"
-                bind:checked={settings.mcpServer.enabled}
-                onchange={() => saveSettings('mcpServer', () => invoke('set_mcp_enabled', { enabled: settings.mcpServer.enabled }))}
-              />
-              {t('settings.mcp.enable')}
-            </label>
-            <p class="desc" style="margin-top: 4px;">{t('settings.mcp.hint')}</p>
-            {#if isMacPlatform}
-              <div class="row" style="margin-top: 4px;">
-                <button onclick={copyMcpSetupText} disabled={!settings.mcpServer.enabled}>{t('settings.mcp.copySetup')}</button>
-                {#if mcpSetupCopied}<span class="desc">{t('settings.mcp.copied')}</span>{/if}
-              </div>
-              <p class="desc">{t('settings.mcp.setupHint')}</p>
-              {#if mcpSetupError}<p class="desc" role="alert" style="color: tomato;">{mcpSetupError}</p>{/if}
-              <details ontoggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) loadMcpSetupText() }}>
-                <summary class="desc">{t('settings.mcp.preview')}</summary>
-                {#if mcpSetupText}<textarea class="mcp-setup-preview" readonly rows="12" aria-label={t('settings.mcp.preview')}>{mcpSetupText}</textarea>{/if}
-              </details>
-            {:else if mcpRegisterLine}
-              <p class="desc">{t('settings.mcp.registerWith')} <code>{mcpRegisterLine}</code></p>
-            {/if}
           {/if}
         </section>
 
@@ -1628,6 +1605,34 @@
       {:else if selectedTab === 'vault' && isIOSPlatform}
         <VaultSettingsTab onBusyChange={(value) => vaultBusy = value} />
       {:else if selectedTab === 'search'}
+        {#if !isIOSPlatform}
+          <section class="block">
+            <h3>{t('settings.mcp.title')}</h3>
+            <label class="row" style="margin-top: 6px;">
+              <input
+                type="checkbox"
+                bind:checked={settings.mcpServer.enabled}
+                onchange={() => saveSettings('mcpServer', () => invoke('set_mcp_enabled', { enabled: settings.mcpServer.enabled }))}
+              />
+              {t('settings.mcp.enable')}
+            </label>
+            <p class="desc" style="margin-top: 4px;">{t('settings.mcp.hint')}</p>
+            {#if isMacPlatform}
+              <div class="row" style="margin-top: 4px;">
+                <button onclick={copyMcpSetupText} disabled={!settings.mcpServer.enabled}>{t('settings.mcp.copySetup')}</button>
+                {#if mcpSetupCopied}<span class="desc">{t('settings.mcp.copied')}</span>{/if}
+              </div>
+              <p class="desc">{t('settings.mcp.setupHint')}</p>
+              {#if mcpSetupError}<p class="desc" role="alert" style="color: tomato;">{mcpSetupError}</p>{/if}
+              <details ontoggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) loadMcpSetupText() }}>
+                <summary class="desc">{t('settings.mcp.preview')}</summary>
+                {#if mcpSetupText}<textarea class="mcp-setup-preview" readonly rows="12" aria-label={t('settings.mcp.preview')}>{mcpSetupText}</textarea>{/if}
+              </details>
+            {:else if mcpRegisterLine}
+              <p class="desc">{t('settings.mcp.registerWith')} <code>{mcpRegisterLine}</code></p>
+            {/if}
+          </section>
+        {/if}
         <section class="block">
           <h3>{t('smartSearch.windowTitle')}</h3>
           <p class="desc">{t('smartSearch.smartUnderstandingHint')}</p>

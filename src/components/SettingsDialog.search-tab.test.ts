@@ -259,6 +259,7 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     invokeMock.mockImplementation(async (cmd: string, args?: unknown) => cmd === command ? activate(args) : defaultInvokeImpl(cmd, args))
     await mountDialog()
     await settle()
+    if (command === 'set_mcp_enabled') { openSettings('search'); await settle() }
     const label = Array.from(document.querySelectorAll('label')).find((item) => item.textContent?.trim() === t(labelKey))!
     const input = label.querySelector('input')!
     input.checked = !input.checked
@@ -268,6 +269,7 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     expect(activate).not.toHaveBeenCalled()
     expect(document.querySelector('.save-feedback')?.textContent).toContain('disk unavailable')
 
+    if (command === 'set_mcp_enabled') { openSettings('core'); await settle() }
     autoSaveControl().dispatchEvent(new Event('change', { bubbles: true }))
     await settle()
     expect(document.querySelector('.save-feedback')?.textContent).toContain('disk unavailable')
@@ -289,6 +291,10 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     settings.mcpServer.enabled = true
     await mountDialog()
     await settle()
+    expect(document.body.textContent).not.toContain(t('settings.mcp.enable'))
+    openSettings('search')
+    await settle()
+    expect(document.querySelector('.settings-content')?.getAttribute('aria-label')).toBe(t('settings.tab.search'))
     buttonByText(document, t('settings.mcp.copySetup')).click()
     await settle()
     expect(invokeMock).toHaveBeenCalledWith('mcp_setup_text', { locale: i18n.locale })
@@ -305,6 +311,10 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     settings.mcpServer.enabled = true
     await mountDialog()
     await settle()
+    expect(document.body.textContent).not.toContain(t('settings.mcp.enable'))
+    openSettings('search')
+    await settle()
+    expect(document.querySelector('.settings-content')?.getAttribute('aria-label')).toBe(t('settings.tab.search'))
     buttonByText(document, t('settings.mcp.copySetup')).click()
     await settle()
     expect(writeTextMock).not.toHaveBeenCalled()
@@ -315,6 +325,10 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     settings.mcpServer.enabled = false
     await mountDialog()
     await settle()
+    expect(document.body.textContent).not.toContain(t('settings.mcp.enable'))
+    openSettings('search')
+    await settle()
+    expect(document.querySelector('.settings-content')?.getAttribute('aria-label')).toBe(t('settings.tab.search'))
     expect(buttonByText(document, t('settings.mcp.copySetup')).disabled).toBe(true)
     settings.mcpServer.enabled = true
   })

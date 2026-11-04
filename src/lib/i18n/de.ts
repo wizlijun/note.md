@@ -974,6 +974,7 @@ export const de: Record<keyof Messages, string> = {
   'settings.searchExcludeDirsHint': 'Ein Ordner pro Zeile, relativ zum Tresor-Stammverzeichnis. Standardmäßig leer.',
   'settings.autoSaveLabel': 'Automatisches Speichern aktivieren (speichert nach 800 ms Inaktivität)',
   'settings.dailyNotes.label': 'Daily Notes window',
+  'settings.mcp.title': 'Vault-Suche für Agents (MCP)',
   'settings.mcp.enable': 'Dieses Vault Agents über MCP bereitstellen',
   'settings.mcp.hint':
     'Ermöglicht Claude Code, Cowork und Codex, dein Vault mit dem Ranking von note.md statt mit grep zu durchsuchen. Nur lesend; es wird kein Netzwerkport geöffnet.',

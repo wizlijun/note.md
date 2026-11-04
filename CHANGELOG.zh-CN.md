@@ -6,7 +6,7 @@
 
 ## 未发布
 
-- **接入 Claude 不再靠猜配置。** 在 macOS 上，设置 →「复制给 Claude 的设置说明」（或 `notemd mcp setup`）会生成带本机真实路径的文本；粘贴到 Claude Code，经你逐项确认后，它为 Claude Code、Claude Desktop 与 Cowork 完成注册。note.md 自己从不修改其他应用的配置。若你曾手动注册 `{"command": "notemd", "args": ["mcp"]}`，请替换：Claude Desktop 不继承 shell 的 `PATH`，这个条目无法启动。Claude 启动后的第一次检索，现在会等待 note.md 打开至多 15 秒，不再直接报「未运行」。两个工具都标注为只读。新 vault 的 AGENTS.md 检索段会告诉 agent 按环境选用哪种方式（包括 Cowork 的 Linux 虚拟机内）；已有 AGENTS.md 不会被改写，如需要可从新 vault 复制「Which surface to use」一节。
+- **接入 Claude 不再靠猜配置。** 在 macOS 上，设置 → 搜索与索引 →「复制给 Claude 的设置说明」（或 `notemd mcp setup`）会生成带本机真实路径的文本；粘贴到 Claude Code，经你逐项确认后，它为 Claude Code、Claude Desktop 与 Cowork 完成注册。note.md 自己从不修改其他应用的配置。若你曾手动注册 `{"command": "notemd", "args": ["mcp"]}`，请替换：Claude Desktop 不继承 shell 的 `PATH`，这个条目无法启动。Claude 启动后的第一次检索，现在会等待 note.md 打开至多 15 秒，不再直接报「未运行」。两个工具都标注为只读。新 vault 的 AGENTS.md 检索段会告诉 agent 按环境选用哪种方式（包括 Cowork 的 Linux 虚拟机内）；已有 AGENTS.md 不会被改写，如需要可从新 vault 复制「Which surface to use」一节。
 
 ## v6.1102.1 — 2026-11-02
 
