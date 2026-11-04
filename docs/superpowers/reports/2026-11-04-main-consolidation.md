@@ -39,4 +39,4 @@
 
 ## 清理验收
 
-仅在精确提交推送成功、回读GitHub main SHA一致后，移除已合入的本地/远端非main分支、三份已覆盖stash和临时整合worktree。原主目录切回main，保留原缓存、忽略的本地任务记录和备份。最终结果与SHA记录在本机`completion.json`及后续提交说明中。
+整合提交 `b7c5edbb9acfb9af3e74c771bea815cc899d9f1a` 已推送GitHub main并回读一致。随后删除三个本地非main分支、远端release/health-sync-0.2.2（按精确SHA lease删除）、三份已覆盖stash及临时整合worktree。最终本地/远端仅main，唯一主worktree，工作区干净；moraya-core亦仅main、无dirty/stash或额外worktree。原缓存、忽略的任务记录及完整bundle/tar备份均保留。清理机器结果另存本机`completion.json`；此报告的最终清理记录单独提交。
