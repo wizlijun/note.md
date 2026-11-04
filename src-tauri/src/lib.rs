@@ -1093,11 +1093,22 @@ fn report_vault_root_rejected(
 }
 
 #[cfg(not(target_os = "ios"))]
+fn update_tray_item<T: Clone>(state: &Mutex<Option<T>>, update: impl FnOnce(T)) {
+    // Menu APIs can wait for the main thread, which also replaces these
+    // handles when rebuilding menus. Release the lock before that dispatch.
+    // Keep this separate from `if let`, whose temporary guard spans its body.
+    let item = state.lock().unwrap().clone();
+    if let Some(item) = item {
+        update(item);
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
 fn update_tray_repo_label(app: &tauri::AppHandle, path: &str) {
     if let Some(state) = app.try_state::<TrayRepoItem>() {
-        if let Some(item) = state.0.lock().unwrap().as_ref() {
+        update_tray_item(&state.0, |item| {
             let _ = item.set_text(&format!("Vault: {}", abbreviate_path(path)));
-        }
+        });
     }
 }
 
@@ -1335,17 +1346,17 @@ pub fn refresh_tray_status(app: &tauri::AppHandle) {
     }
 
     if let Some(status_state) = app.try_state::<TrayStatusItem>() {
-        if let Some(item) = status_state.0.lock().unwrap().as_ref() {
+        update_tray_item(&status_state.0, |item| {
             let _ = item.set_icon(status_dot_image(state, has_large));
             let _ = item.set_text(&status_text);
-        }
+        });
     }
 
     // Disable "Sync Now" while a sync is in progress.
     if let Some(sn) = app.try_state::<TraySyncNowItem>() {
-        if let Some(item) = sn.0.lock().unwrap().as_ref() {
+        update_tray_item(&sn.0, |item| {
             let _ = item.set_enabled(state != SyncState::Syncing);
-        }
+        });
     }
 }
 
@@ -3114,6 +3125,45 @@ mod menu_label_tests {
     #[test]
     fn unknown_key_falls_back_to_the_key() {
         assert_eq!(menu_label("zh", "file.nosuchitem"), "file.nosuchitem");
+    }
+}
+
+#[cfg(all(test, not(target_os = "ios")))]
+mod tray_item_update_tests {
+    use super::update_tray_item;
+    use std::sync::{mpsc, Arc, Mutex};
+
+    #[test]
+    fn menu_rebuild_can_replace_handle_while_background_update_waits_for_main_thread() {
+        let state = Arc::new(Mutex::new(Some("old menu item")));
+        let worker_state = Arc::clone(&state);
+        let (dispatch, main_thread) = mpsc::channel();
+        let (finish, response) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            update_tray_item(&worker_state, |item| {
+                // A menu API synchronously dispatches to the main thread.
+                dispatch.send(item).unwrap();
+                response.recv().unwrap();
+            });
+        });
+
+        let snapshot = main_thread.recv().unwrap();
+        // The main thread may already be rebuilding the menu. It must be able
+        // to replace the shared handle before servicing the queued update.
+        let rebuilt = match state.try_lock() {
+            Ok(mut guard) => {
+                *guard = Some("new menu item");
+                true
+            }
+            Err(_) => false,
+        };
+        // Always release the simulated dispatch, including in a regression,
+        // so failure is an assertion rather than a hung test process.
+        finish.send(()).unwrap();
+        worker.join().unwrap();
+        assert!(rebuilt, "menu update must not hold the shared handle lock");
+        assert_eq!(snapshot, "old menu item");
+        assert_eq!(*state.lock().unwrap(), Some("new menu item"));
     }
 }
 
