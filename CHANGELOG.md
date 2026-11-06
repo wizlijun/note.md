@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1107.1 — 2026-11-07
+
 - **Fix deleting a Rich selection.** Select All now includes formula and divider blocks after metadata. Clearing text with soft line breaks, footnotes, HTML or reference definitions preserves metadata and hidden definitions, and supports undo and redo.
 
 - **Fix Backspace getting stuck in Rich editing.** Deleting the last character after a space or inside a formatted span now preserves boundary whitespace in Markdown and supports continued deletion, undo and redo.
