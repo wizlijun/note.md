@@ -1,5 +1,5 @@
-import { AllSelection, TextSelection, type Selection, type Transaction } from 'prosemirror-state'
-import type { Node as PmNode } from 'prosemirror-model'
+import { AllSelection, TextSelection, Selection, type Transaction } from 'prosemirror-state'
+import { Slice, type Node as PmNode } from 'prosemirror-model'
 import { isSelectAllShortcut } from './select-all-shortcut'
 
 export { isSelectAllShortcut } from './select-all-shortcut'
@@ -22,10 +22,44 @@ export { isSelectAllShortcut } from './select-all-shortcut'
 export function selectAllSelection(doc: PmNode): Selection {
   const first = doc.firstChild
   if (first?.type.name === 'frontmatter' && first.nodeSize < doc.content.size) {
-    return TextSelection.between(doc.resolve(first.nodeSize), doc.resolve(doc.content.size))
+    const text = TextSelection.between(doc.resolve(first.nodeSize), doc.resolve(doc.content.size))
+    let textBody = true
+    doc.forEach((node, _pos, index) => {
+      if (index > 0 && !['paragraph', 'heading', 'code_block'].includes(node.type.name)) textBody = false
+    })
+    doc.nodesBetween(first.nodeSize, doc.content.size, node => {
+      if (node.isInline && !node.isText && node.type.name !== 'hardbreak') textBody = false
+    })
+    return textBody ? text : new BodySelection(doc)
   }
   return new AllSelection(doc)
 }
+
+/** Include structured block wrappers and atoms that text endpoints would omit. */
+class BodySelection extends Selection {
+  constructor(doc: PmNode) {
+    super(doc.resolve(doc.firstChild!.nodeSize), doc.resolve(doc.content.size))
+  }
+  replace(tr: Transaction, content = Slice.empty) {
+    if (content === Slice.empty) {
+      tr.replaceWith(this.from, this.to, tr.doc.type.schema.nodes.paragraph.create())
+      tr.setSelection(Selection.near(tr.doc.resolve(this.from + 1)))
+    } else {
+      super.replace(tr, content)
+    }
+  }
+  map(doc: PmNode): Selection { return selectAllSelection(doc) }
+  eq(other: Selection): boolean { return other instanceof BodySelection && other.from === this.from && other.to === this.to }
+  toJSON() { return { type: 'notemd-body' } }
+  static fromJSON(doc: PmNode): Selection { return selectAllSelection(doc) }
+  getBookmark() { return bodyBookmark }
+}
+// Like AllSelection, this intent follows the complete body through history.
+const bodyBookmark = {
+  map() { return this },
+  resolve(doc: PmNode): Selection { return selectAllSelection(doc) },
+}
+Selection.jsonID('notemd-body', BodySelection)
 
 /** The slice of EditorView select-all needs — kept structural so it can be stubbed in tests. */
 export interface SelectAllTarget {

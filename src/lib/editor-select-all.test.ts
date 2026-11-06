@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { EditorState, AllSelection, TextSelection, type Transaction } from 'prosemirror-state'
+import { EditorState, AllSelection, TextSelection, Selection, type Transaction } from 'prosemirror-state'
 import { parseMarkdown } from '@moraya/core'
 import {
   selectAllSelection, isSelectAllShortcut, applySelectAll, handleSelectAllKeydown,
@@ -51,6 +51,7 @@ describe('selectAllSelection', () => {
 
     const sel = selectAllSelection(doc)
     expect(sel).not.toBeInstanceOf(AllSelection)
+    expect(sel).toBeInstanceOf(TextSelection)
     // Anything at or before fm.nodeSize - 1 would put the DOM range's start
     // inside the contenteditable=false NodeView, which is what clamps the
     // painted selection to the metadata block.
@@ -200,5 +201,37 @@ describe('the Cmd+A delivery path', () => {
     const item = rust.split('\n').find((l) => l.includes('with_id("select-all"'))
     expect(item, 'select-all menu item should still exist').toBeTruthy()
     expect(item).not.toMatch(/\.accelerator\(/)
+  })
+})
+
+describe('frontmatter body selections', () => {
+  it.each(['$$\nx\n$$', '---', '$$\nx\n$$\n\nparagraph', 'paragraph\n\n$$\nx\n$$', 'A{>>note<<}B'])('covers the entire body without selecting metadata: %s', body => {
+    const doc = parseMarkdown('---\ntitle: t\n---\n\n' + body)
+    const selection = selectAllSelection(doc)
+    expect(selection.from).toBe(doc.firstChild!.nodeSize)
+    expect(selection.to).toBe(doc.content.size)
+    expect(selection.empty).toBe(false)
+    expect(selection.content().content.firstChild!.type.name).not.toBe('frontmatter')
+    expect(Selection.fromJSON(doc, selection.toJSON()).eq(selection)).toBe(true)
+    expect(selection.getBookmark().resolve(doc).eq(selection)).toBe(true)
+    const state = EditorState.create({ doc, selection })
+    const tr = state.tr.deleteSelection()
+    expect(tr.doc.firstChild!.eq(doc.firstChild!)).toBe(true)
+    expect(tr.doc.childCount).toBe(2)
+    expect(tr.doc.lastChild!.type.name).toBe('paragraph')
+    expect(tr.doc.lastChild!.content.size).toBe(0)
+    expect(tr.selection.empty).toBe(true)
+    expect(tr.selection.from).toBe(doc.firstChild!.nodeSize + 1)
+  })
+
+  it('maps the complete body and its history bookmark after metadata changes', () => {
+    const doc = parseMarkdown('---\ntitle: t\n---\n\n$$\nx\n$$')
+    const selection = selectAllSelection(doc)
+    const tr = EditorState.create({ doc, selection }).tr.insertText('updated ', 1)
+    const mapped = selection.map(tr.doc, tr.mapping)
+    expect(mapped.from).toBe(tr.doc.firstChild!.nodeSize)
+    expect(mapped.to).toBe(tr.doc.content.size)
+    expect(selection.getBookmark().map(tr.mapping).resolve(tr.doc).eq(mapped)).toBe(true)
+    expect(Selection.fromJSON(tr.doc, selection.toJSON()).eq(mapped)).toBe(true)
   })
 })

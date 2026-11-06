@@ -96,3 +96,28 @@ it.each(['Backspace','Delete'])('rich %s leaves readonly and composing documents
  }finally{f.view.dom.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))}
  await f.owner.flush();expect(changes).toEqual([])
 })
+
+const complexBodies = ['你好\n世界\n', '[r]: /target\n\n[链接][r]\n', '正文\n\n[r]: /target\n', '正文[^n]\n\n[^n]: 注释\n', '<div>HTML</div>\n', '$$\nx+y\n$$\n', '- 第一项\n  - 嵌套项\n']
+it.each(complexBodies.flatMap(body => ['', metadata].flatMap(prefix => ['Backspace', 'Delete'].map(key => ({body, prefix, key})))))(
+ 'Rich $key clears selected complex body and survives reopen: $body (metadata: $prefix)', async ({body, prefix, key}) => {
+  const raw=prefix+body,{f,changes}=await fixture(raw)
+  applySelectAll(f.view)
+  expect(f.view.state.selection.empty).toBe(false)
+  expect(press(f,key).defaultPrevented).toBe(true)
+  const changed=(await f.owner.flush()).raw
+  expect(changed,String((f.baselineIdentity as {diagnostic:unknown}).diagnostic)).not.toBe(raw)
+  if(prefix)expect(changed.startsWith(prefix.trimEnd()+'\n')).toBe(true)
+  if(body.includes('[r]: /target'))expect(changed).toContain('[r]: /target')
+  expect(f.view.state.doc.childCount).toBe(prefix?2:1)
+  expect(f.view.state.doc.lastChild!.type.name).toBe('paragraph')
+  expect(f.view.state.doc.lastChild!.content.size).toBe(0)
+  await Promise.resolve();expect(changes).toEqual([changed])
+  expect(f.owner.undo()).toBe(true);expect(f.owner.snapshot().raw).toBe(raw)
+  expect(f.owner.redo()).toBe(true);expect((await f.owner.flush()).raw).toBe(changed)
+  expect(await f.setMode('source')).toBe(true);expect(await f.setMode('rich')).toBe(true)
+  const reopened=await fixture(changed)
+  expect(reopened.f.owner.snapshot().raw).toBe(changed)
+  expect(reopened.f.view.state.doc.childCount).toBe(prefix?2:1)
+  expect(reopened.f.view.state.doc.lastChild!.type.name).toBe('paragraph')
+  expect(reopened.f.view.state.doc.lastChild!.content.size).toBe(0)
+ })
