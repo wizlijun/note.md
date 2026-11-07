@@ -12,6 +12,8 @@
 
 不能将 Native 隐藏窗口的布局时长与 Web 的 rAF 机会时长当成同一个指标；可比较同步处理段，同时分别列出两种渲染代理。完整宿主 WAL/投影和实时同步沿用既有 `write-core/examples/candidate_continuous.rs`、`confirmed_benchmark.rs` 及 durability 容量基准证据，不能与本工具混在同一列。
 
+Web 自动轮次直接派发 ProseMirror transaction，会经过真实 editor owner/plugins，但不会模拟键盘事件、DOM beforeinput/IME 或依赖 DOM input 的 slash-menu 监听。Native 自动轮次调用 insertText，也不经过物理键盘事件投递。真实输入记录必须另外运行；不能把自动轮次说成完整打字路径。
+
 ## 构建与隔离宿主入口
 
 ```sh
