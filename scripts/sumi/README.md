@@ -19,10 +19,12 @@ Web 自动轮次直接派发 ProseMirror transaction，会经过真实 editor ow
 ```sh
 node --test scripts/sumi/corpus.test.mjs
 node scripts/sumi/build.mjs
-python3 tasks/sumi-native/host-acceptance/prepare.py
+python3 scripts/sumi/acceptance/prepare.py
 ```
 
 最后一步只生成审阅用 seed；由主代理按既有授权的 Acceptance.app 构建流程统一 `--install`。`prepare.py` 若存在默认临时 benchmark 构建，会验证 JS/CSS bundle hashes，复制 `ui/benchmark/`、语料、字体及许可证，并仅为隔离 seed 增加 `benchmark` 窗口/菜单；**生产插件 manifest 和 Sumi main 窗口条目不变**。可用 `--benchmark-dir PATH` 指定产物。
+
+验收宿主的跟踪脚本位于 `scripts/sumi/acceptance/`。`prepare.py` 从便携模板生成旧位置 `tasks/sumi-native/host-acceptance/tauri.acceptance.json`，其 plist 指向本 checkout 的跟踪文件；Vault、seed、marker 与报告仍使用原目录。显式运行 `bash scripts/sumi/acceptance/build.sh` 才构建宿主，脚本不启动应用。隔离路径与重复安装回归：`python3 -m unittest discover -s scripts/sumi/acceptance -p 'test_*.py'`。
 
 在 **note.md Sumi Acceptance** 现有应用内：插件 → 体验 → **Sumi 同机性能验收**。先点“快速检查”（1 轮、20 次预热、10 次样本），确认编辑器挂载和 `correctness.exact_text=true`。随后分别运行 Rich/最小 PM × 10k/100k 四组“标准 5 轮”。每轮新建编辑会话，1000 次预热编辑之后测 100 次、100ms 间隔；原始样本保留。初始/手动加载单列在 `editor_mounts`，可能包含编辑模块懒加载；标准循环的 `mount_ms` 是同页面缓存内的新编辑会话热挂载，不是 SQLite 历史恢复或整个宿主冷启动时间。
 

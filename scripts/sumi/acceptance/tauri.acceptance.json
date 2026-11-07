@@ -1,0 +1,44 @@
+{
+  "productName": "note.md Sumi Acceptance",
+  "identifier": "net.notemd.sumi.acceptance",
+  "build": {
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "note.md Sumi Acceptance",
+        "width": 1100,
+        "height": 800,
+        "minWidth": 600,
+        "minHeight": 400,
+        "decorations": true,
+        "dragDropEnabled": true
+      }
+    ]
+  },
+  "bundle": {
+    "targets": [
+      "app"
+    ],
+    "createUpdaterArtifacts": false,
+    "fileAssociations": [],
+    "macOS": {
+      "signingIdentity": "-",
+      "infoPlist": "Info.plist"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": []
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "notemd-sumi-acceptance"
+        ]
+      }
+    }
+  }
+}

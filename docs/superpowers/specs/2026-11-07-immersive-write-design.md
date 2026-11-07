@@ -1,6 +1,6 @@
 # Sumi：全平台沉浸式写作与同步设计
 
-日期：2026-11-07。状态：规划稿；未实现、未验证性能、未部署。
+日期：2026-11-07；实施核对：2026-11-08。状态：macOS、内核与同步服务已实现，发布前验收中。本文描述当前协议，不替代实机验收或冻结发布证据；后续平台尚未交付。
 
 配套实施计划：[macOS 首版计划](../plans/2026-11-07-immersive-write-macos.md)。用户已确认产品名为 **Sumi**，用于 note.md 插件与独立客户端。技术组件名及 `.writing.md` / `.writing.meta.json` 文件约定保持不变。
 
@@ -37,7 +37,7 @@
 
 建议默认：22 pt、行距 1.6、左对齐、正文最大宽约 80 个半角列（约 40 个中文全角字）。以实际字体度量约束视觉宽度，窄屏取可用宽度；软折行不插入 Markdown 换行、不产生时间记录。80 不是所有写作软件的强制标准；W3C 的阅读排版指导使用 80 字符／40 CJK，可作默认参考。[W3C](https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html)
 
-预设主题：黑底白字、黑底灰字、白底黑字；整个编辑区、光标、选区、留白同主题。字号与行距只属于显示偏好，不写成正文行内样式。建议同一跨平台字体家族，候选 Noto Sans CJK；实现前核字体授权、中文覆盖和包体。无法加载的设备明确字体回退；ESP32 子集字库不能宣称覆盖完整桌面字库。
+预设主题：黑底白字、黑底灰字、白底黑字；整个编辑区、光标、选区、留白同主题。字号与行距只属于显示偏好，不写成正文行内样式。用户最终确认默认复古中英组合 `Sumi Typewriter`：英文 Special Elite（Google Fonts 固定提交，Apache 2.0），中文朱雀仿宋 v0.212（SIL OFL 1.1），缺字回退思源宋体 SC 2.003（SIL OFL 1.1）。macOS 仅进程内注册固定资源，不安装系统字体；真实 CoreText 字形 run 必须证明英文字形未被朱雀所带的 Alegreya 替代。全部字体与许可证由构建脚本冻结大小和 SHA-256。无法加载的设备明确字体回退；ESP32 子集字库不能宣称覆盖完整桌面字库。
 
 专注窗口默认固定逻辑尺寸 960×720，可在设置选择少量固定规格；小屏限制在可用工作区。全屏切换保留光标与滚动位置，保留标准退出方式。普通 note.md tab 随宿主布局变化是兼容阅读入口；“只全屏/固定尺寸”约束独立专注窗口，不强迫整个 note.md 主窗口固定尺寸。
 
@@ -112,16 +112,16 @@ Omarchy 专项验收：
 - `page_id`：随机 UUID，跨设备稳定，不含日期。
 - `epoch`：CRDT 世代，防止从裸 Markdown 重建后错误混合旧增量。
 - `body`：Y.Text Markdown 正文；`root_line_id` 与换行身份属性共同定义逻辑行。
-- `line_timing`：各行的首次/末次书写信息；不保留逐键回放承诺。
+- `timing`：Y.Map 内的不可变时间事件，经稳定来源归约得到各行首次/末次书写信息；不提供逐键回放产品功能。实际共享根为 `body`（Y.Text）、`page`（Y.Map）、`timing`（Y.Map）。
 - `order`、`deleted`、`delete_generation`：纸页顺序与删除状态，独立于正文。
 - 设备局部状态：光标、滚动、窗口尺寸、键盘高度；不同设备不互相抢光标。
-- 全局显示偏好：主题、字体家族、字号、行距、宽度，可同步；无法支持的字体本机回退。
+- 应用显示偏好：主题、字体家族、字号、行距、宽度；首版保存在本机 SQLite，不宣称已跨设备同步。无法支持的字体本机回退。光标与阅读位置通过绑定 page/epoch/root 的稳定锚点持久化，不随其他设备抢焦点。
 
 ### 5.2 文件格式：正文与伴随元数据分离（用户已确认）
 
-用户已确认采用小 YAML 头 + 标准 Markdown 正文 + 同目录 `.writing.meta.json` 伴随文件，取代原“尾部 HTML 注释内 YAML 行表”草案。逐行时间保存在 meta 中，正文与时间仍共同参与文档事务及同步；完整迁移正文和时间需携带匹配的文件对。存储布局已确定，具体生产 schema 与并发时间归属结构在 P0 验证后冻结。
+用户已确认采用小 YAML 头 + 标准 Markdown 正文 + 同目录 `.writing.meta.json` 伴随文件，取代原“尾部 HTML 注释内 YAML 行表”草案。逐行时间保存在 meta 中，正文与时间仍共同参与文档事务及同步；完整迁移正文和时间需携带匹配的文件对。当前实现固定 `write_schema: 1`、`write_metadata: sidecar-v1` 与紧凑时间事件 v1；codec、恢复及并发回归位于 `write-core/tests/`。
 
-顶层类型拟登记 `Writing Page`。实施时遵循 OKF 类型登记和 origin fixture；人工正文签名复用宿主真实 `human:<id>`，不得编造身份。文件内部允许有时间，用户界面不出现创建日期。
+顶层类型已登记为 `Writing Page`，对应 OKF 类型与 origin fixture；人工正文签名复用宿主真实 `human:<id>`，不得编造身份。文件内部允许有时间，用户界面不出现创建日期。
 
 `2026-11-07-01.writing.md`：
 
@@ -182,25 +182,25 @@ write_metadata: sidecar-v1
 
 #### 5.2.3 持久化、投影与恢复契约
 
-客户端 SQLite/WAL 保存完整 CRDT snapshot、正文与时间事务、未确认 outbox、远端 inbox、去重键和投影基线；这是恢复活文档所需的持久状态，有未确认写入时不是可删除缓存。事务提交后，再从同一 revision 生成 MD 与 sidecar 快照。
+客户端 SQLite/WAL 保存完整 CRDT checkpoint 与按 revision 连续的 `document_deltas`，以及未确认 outbox、远端 inbox、去重键和投影基线；这不是可随意删除的缓存。普通编辑把正文与时间的同一 V1 update、outbox/inbox 应用标记、目录变化及 dirty projection 标记同事务落盘，不每键重写完整状态。重启从 checkpoint 顺序重放增量，校验 page/epoch 与 revision 连续性，失败关闭该页而不跳过日志。后台空闲 250ms 或连续输入约 2 秒触发 checkpoint；同事务保存该 revision 的完整状态与 MD/sidecar 快照，再清理已由 checkpoint 承接的本机 delta。实际文件投影随后执行，切页/关闭 flush 等待最终结果。
 
 两个文件各自可原子替换，**两次 rename 不构成跨文件原子事务**。投影器串行写入、校验匹配关系并记录完成状态；中途崩溃时从已提交数据库恢复，先辨别外部修改，不能直接覆盖用户新稿。UI 区分本地持久化与 Markdown/元数据投影失败；失败保留待重试状态。配对导出必须取同一冻结快照打包，不把复制目录中的两个活动文件当一致性备份。
 
-导入先核对 page/epoch、schema、body hash、行数与行摘要。匹配只表示内容对应；现有数据库 session 的时间状态不能被旧 sidecar 回滚。外部仅改 MD 时按可信上次投影做三方导入；时间不能照抄旧表。无基线时只对可可靠匹配的未变行继承时间，重复内容/复制 ID/拆合歧义标为未知历史并记录导入来源，不伪造原始首次或最后修改时刻。sidecar 缺失/损坏/版本未知时保全文件，正文可恢复，时间进入待恢复或未知状态；不生成看似完整的历史。
+导入先核对 page/epoch、schema、body hash、行数与行摘要。匹配只表示内容对应，不能把旧 sidecar 时间覆盖现有数据库 session。已知页外部正文改动按可信发布基线做三方导入，受控身份与时间字段不可外改；未知扩展字段保留。缺失/损坏/迟到或受控字段被改的 sidecar 要求显式修复，保留原文件与数据库历史。没有活 session 的文件先 probe，再由用户显式恢复为新纸页：只有严格匹配的文件对保留行 ID、first/last 与来源；仅 MD 或不匹配元数据时全部时间记 unknown，不用重复文本猜测历史。恢复提交前重验文件证据和 Vault，重复请求保持幂等，源文件不删除。
 
-迁移能力明确分层：仅 MD 保留正文和页面身份；MD + 匹配 sidecar 保留正文与行时间快照；完整设备备份另含一致性数据库状态，才能恢复完整离线同步上下文。普通 Markdown 导出可以移除内部头部，明确不含行时间。单文件含时间归档不纳入首版范围；当前完整内容迁移采用配对快照打包。
+迁移能力明确分层：仅 MD 可识别原身份并恢复正文，但不能恢复原因果历史；MD + 匹配 sidecar 还可恢复行时间快照；完整设备备份需要一致性数据库状态，才能恢复完整离线同步上下文。普通 Markdown 导出仅含正文，不含内部头部与行时间。首版支持冻结同一 revision 的 MD + sidecar ZIP 归档；不支持把全部时间嵌入单个 Markdown 的另一套格式。
 
 独立同步服务传输文档事务，不依赖 MD/sidecar 到达顺序。Vault 文件同步若传输这对文件，应按 §7 处理迟到配对和外部导入，不将两个文件各自的 LWW/文本合并结果视为已经 CRDT 合并。sidecar 在纸页 UI 不显示；文件树、搜索、索引和分享的 companion 规则必须显式实现，不假定 JSON 扩展名会自动隐藏。
 
 本机使用 WAL 与 `synchronous=FULL` 作为耐久起点，并核实目标文件系统与平台 flush 行为；进程崩溃和断电分别验证。事务成功不自动等于任意硬件断电零损失，不超出实际验证范围承诺。[SQLite synchronous](https://www.sqlite.org/pragma.html#pragma_synchronous)
 
-裸文件恢复先与服务器对齐当前 epoch，再做显式外部改动导入；无法取得可靠基线时恢复为新纸页 UUID，不把新 CRDT 状态套在旧 UUID/epoch 上。重置 epoch 必须有专门协议与旧设备重接处理。
+首版裸文件恢复一律创建新纸页 UUID、epoch 1，不能把快照重建出的 CRDT 混入旧 UUID/epoch。继续原页需要完整有效的数据库因果状态或服务器增量日志；首版没有开放 epoch 重置。
 
 ### 5.3 行身份与时间
 
 “行”是 Markdown body 中明确 LF 划分的逻辑行，包含空行，不是屏幕折行；YAML 头与伴随元数据不计入正文行。首行固定 ID，其余行由前置换行上的非显示 `next_line_id` 属性标识；这些属性不进入可见 Markdown，导出到伴随行表。
 
-这是待 PoC 的 Y.Text 属性方案：必须验证 Yjs/Yrs 格式属性互通、插入时禁止属性错误继承、undo 恢复与并发换行。若不能满足，改用经过验证的相对位置锚点模型再冻结协议，不能在生产中靠行号匹配补洞。
+当前生产实现采用上述 LF 属性，普通字符显式清除 `next_line_id`，并结合稳定字符来源和相对位置记录时间。Yrs/Yjs fixture 验证 V1 属性互通，core 回归覆盖属性继承抑制、Undo、并发换行和重复/乱序更新；不按屏幕行号匹配。
 
 | 操作 | 身份与时间规则 |
 |---|---|
@@ -214,15 +214,16 @@ write_metadata: sidecar-v1
 | 删除/撤销 | 正文恢复通过新事务；恢复身份可追溯，first 不伪造为现在，last 记录本次撤销/重做 |
 | 粘贴/外部导入 | 新行记本次写入/导入时刻及来源；不能当作被粘贴文字的原始创作时间 |
 
-跨设备时间不能只用普通 LWW 覆盖一个 `{first,last}` 对象。候选实现为每行按 actor 保存单写者的时间极值，再合成 min/max；actor 在安装/会话身份上避免并发复用。正文事务与时间属性一次提交。时间有客户端 UTC、逻辑顺序和服务端接收时间：因果顺序不依赖设备墙钟；离线设备时钟错误时保留来源和不确定标记，不宣称毫秒级真实创作时间准确。
+跨设备时间不以每行 `{first,last}` 的普通 LWW 对象合并。`timing` 中每个 UUID 键对应不可变 JSON 字符串；正文、LF 身份与时间事件在同一 Yrs 事务中提交。紧凑 v1 编码为 `[1, at_ms, source, spans]`；每个 span 是 `[start, end, first_ms, touch, origins, carried_last_ms, carried_sources]`：
 
-actor 会话唯一，复制本地数据库后不得并发复用；各 actor 的有效极值单调累计，未知时间不参与 min/max。Undo 只恢复正文/行身份，不把时间摘要回滚到旧值，而是追加本次修改的 last。
+- `start/end` 是 Base64 编码的 Yrs StickyIndex V1；偏移单位统一 UTF-16。
+- `origins` 是 `[client_id, start_clock, end_clock_exclusive]` 列表，指向稳定 CRDT 字符来源，不是可漂移的行号或当前偏移。
+- `at_ms`、非空 `first_ms/carried_last_ms` 是非负、安全整数范围的 UTC 毫秒。`source`：0 unknown、1 device、2 import；0 不可 `touch=true`。`carried_sources` 使用位掩码 1 device / 2 import，组合为 3。
+- reducer 按当前逻辑行、相对锚点及字符来源汇总有效 first 的最小值和 last 的最大值；删除/空行边界及拆合、Undo 携带的时间来源也参与。sidecar 输出来源 `unknown/device/import/mixed` 和毫秒精度 RFC3339 UTC 时间；未知为 null，不伪装成导入时刻。
 
-**每行/actor 极值只适用于行边界未变化的简单情形，不是完整算法。** 例如 A 把一行分裂，B 离线修改右半段；B 的修改合并后归属新右行，不能仍只更新旧行时间。协议必须保留紧凑的文本范围/边界 provenance，以稳定 CRDT 锚点关联时间；收敛后由同一 reducer 按最终行归属汇总 first/last。删除与合并还要记录受影响边界，不能只追踪存活字符。P0 验证后冻结具体结构；不能为节省元数据忽略这种并发情况。它用于正确汇总，不提供逐字历史回放功能。
+例如 A 分裂一行、B 离线修改右半段，B 的时间会归到最终右行；不会只更新旧行 ID 的摘要。对应回归也覆盖合行与右侧编辑、跨行删除、空行、撤销与重做。Undo/Redo 追加本次修改时间，不把已有历史倒退。墙钟可能错误，来源标签不等于校时证明；因果顺序由 CRDT 决定，不用服务端接收时间替代创作时间。
 
-整理增量时，只有已由 checkpoint 的范围摘要承接、仍能正确处理合法离线更新的时间记录才可移除。初版可保留较多紧凑时间事务以保证正确性；报告实际增长量，再决定压缩策略，不能盲删引用中的锚点或因果信息。
-
-不存逐键历史不等于没有恢复日志；增量日志按快照策略整理，首次/末次摘要仍保留。含删除正文的恢复快照与日志属于敏感历史，跟随明确保留/清除策略。
+每个副本使用新的随机 u32 client ID；加载时拒绝复用已有或待处理更新涉及的 ID，复制数据库后也不能并发复用 actor。`skip_gc=true` 保留引用所需因果状态。当前没有删除 CRDT 时间事件或云端历史的压缩协议：本机 checkpoint 清理的是已承接的 SQLite delta tail，不是 Yrs 内部事件/tombstone。长期增长受容量限制约束，超限保留本机草稿并明确报错。虽然 UI 不提供逐笔回放，恢复状态仍可能包含被删除正文及编辑历史，不能宣称底层不存逐键记录。
 
 ## 6. 独立实时同步服务
 
@@ -240,11 +241,11 @@ flowchart LR
   E[ESP32 客户端] <-->|受限设备协议| W
 ```
 
-Worker 处理鉴权、HTTP API 与 WebSocket 升级；首版一个账号的默认空间对应一个 SQLite Durable Object，保证页面目录、删除状态与增量落盘在同一串行协调边界。内容模型候选 Yjs（服务端）与 Yrs（Rust 共享内核），通过固定协议 fixtures 验证互操作，不把库名相同当作 wire 兼容证据。
+Worker 处理鉴权、HTTP API 与 WebSocket 升级；首版一个账号的默认空间对应一个 SQLite Durable Object，保证页面目录、删除状态与增量落盘在同一串行协调边界。客户端内容模型采用 Yrs 0.24.0，使用 Yjs 13.6.33 V1 wire fixtures 验证互操作。P0 容量测试后，服务端改为不可变增量日志中转，不在 DO 内构造整页 Y.Doc；客户端负责完整候选文档语义校验。服务端仍验证鉴权、页身份、世代、包结构、配额和不可变字段的轻量因果索引。
 
 选择依据：Yjs 的 updates 支持重复/乱序应用与 state vector 增量补齐；Yrs 以兼容 Yjs 协议为目标并提供 FFI。能力声明仍需本项目验证。[Yjs updates](https://docs.yjs.dev/api/document-updates)；[Yrs 项目](https://github.com/y-crdt/y-crdt)
 
-DO 保存 pages、updates、checkpoints、去重信息、目录游标；R2 仅做后台恢复快照与大对象备份，不在每键同步路径。KV 不用作实时正文权威库。WebSocket 使用 hibernation；重唤醒必须从持久库恢复，内存广播成功不等于已保存。[Cloudflare DO WebSocket](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)；[SQLite DO](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/)
+DO 保存 pages、不可变增量日志、轻量因果索引、去重信息和目录游标；R2 保存冻结版本的分段增量及 schema-2 校验清单，不在每键同步路径。KV 不用作实时正文权威库。WebSocket 使用 hibernation；重唤醒必须从持久库恢复，内存广播成功不等于已保存。[Cloudflare DO WebSocket](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)；[SQLite DO](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/)
 
 初版按个人空间设计，接受热点边界，不提前拆成每页一组微服务。上线前用真实页数/活跃连接/日志增长压测再定限额；限额必须对 HTTP、WS 和解码后对象同时执行。大量历史页不全量驻留内存，长时间后台连接可断开后基于游标补齐。
 
@@ -254,11 +255,15 @@ DO 的单行/BLOB 大小受限，快照使用分块与内容 hash，不设计成
 
 HTTP：`GET /v1/pages?cursor=…`，`POST /v1/pages`，`GET /v1/pages/:id`，`DELETE /v1/pages/:id`，`POST /v1/pages/:id/restore`。Markdown 导入/导出使用独立端点；修改正文走带基线的事务，不开放无条件覆盖全文的 PUT。
 
-WSS：hello（协议版本、设备、能力）→ 目录增量 → subscribe(page, epoch, stateVector) → missing updates / checkpoint → update → durable ack。消息带 `spaceId/pageId/epoch/deviceId/opId`；元数据、正文与时间摘要有一致的事务标识。重复、乱序、重连重放不重复生效。
+WSS：hello（协议版本、设备、能力）→ 目录增量 → subscribe(page, epoch, stateVector) → 固定版本的分段 journal replay → update → durable ack。消息带 `spaceId/pageId/epoch/deviceId/opId`；元数据、正文与时间摘要有一致的事务标识。重复、乱序、重连重放不重复生效。
 
 离线目录操作也进持久 outbox。新页在本机生成 page/root-line UUID 与初始 epoch，把 create、排序锚点和首次正文原子落盘；重连先幂等确认 create，再发正文，或使用服务端原子 create-with-initial-update。未上云的新页被删除时可折叠为本机废纸篓记录；已上云页离线删除保留 delete 请求，待服务端确认，不以本机隐藏冒充全局已删除。排序锚点指向已删除纸页时使用仍保留的顺序键；并发页以稳定 UUID 排序，不丢失页面。
 
-客户端先本地持久化再发送。服务端鉴权、配额与消息校验后，在持久事务中提交增量/去重信息/版本，提交成功再 ack/broadcast。发送者等待 ack 只影响“已同步”，不阻塞继续打字。连接中断后按 state vector 补差异；大快照分块、有校验及可恢复进度，不能假设一条 WebSocket 装下所有历史。
+客户端先本地持久化再发送。服务端鉴权、配额与消息校验后，在持久事务中提交增量/去重信息/版本，提交成功再 ack/broadcast。发送者等待 ack 只影响“已同步”，不阻塞继续打字。durable ack 表示增量字节已可靠保存，不表示服务器已经物化并验证整页。连接中断后，首版固定 throughVersion、generation、quarantineRevision 分页回放完整日志；state vector 当前是客户端提示，不能宣称服务端已按它裁减历史。每页含长度前缀 V1 记录和 SHA-256，Rust 收齐固定版本后用 Yrs 合并，再进行完整候选校验。不能假设一条 WebSocket 装下所有历史。
+
+实现限额：单增量原始包最多 16 MB，空间增量日志配额 64 MB，客户端一次完整回放最多 65 MB；小增量经 WS，大增量经 HTTP，广播分块。超额明确保留本机待同步内容，不删时间、不自动更换 epoch。P0 实测 10 万次逐键输入产生约 13.26 MB；本地 workerd 的容量通过不替代正式 CF 的内存、CPU 与 RTT 验收。服务端不物化整页的决策来自 DO 内存风险，并非放宽正文一致性要求。
+
+缺失依赖使语义无法立即判定的操作继续耐久保存；依赖到达后确认非法则隔离原操作，接收合法依赖，并发送 resync_required。客户端暂停该页合并、保留草稿与 outbox，显式从已验证日志重建后再重放本地增量；不得以 Markdown 覆盖或忽略错误实现“恢复”。正常合法的乱序/离线并发路径仍须自动收敛。
 
 客户端 UI 区分：正在本地保存 / 已在本机保存待同步 / 已同步 / 同步失败。远端更新只修改必要范围，映射本地选区；用户正在 IME composition 时先进入模型队列，延迟影响该编辑面的应用，commit 后映射再合并，不覆盖 marked text。撤销只撤销本设备本次操作，不能删除远端后来输入。
 
@@ -321,7 +326,7 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 
 隐藏保护只针对专用正文编辑面；Source 是原始文件视图，能看见并选中元数据。保存时若更改/删除 `page_id`、`write_epoch` 或 `type`，暂停同步投影，保留用户草稿并提示身份冲突；不默默补回，也不删除云端页。用户可恢复原身份，或明确另存为普通 Markdown/新纸页后继续。Source 全文清空属于此情况；native 正文清空则保留身份与合法隐藏数据。外部文件同样按身份验证处理。
 
-伴随文件的迟到/缺失/孤儿状态不等于正文或云端页被删除；移动/重命名时通过 page UUID 寻找候选并校验匹配，不自动删除陌生孤儿文件。伴随行表 hash 失配时，未变行可按可靠 diff 继承时间；重复相同行等歧义部分标为未知/外部导入时间，不编造原始创作时间。复制文件携带相同 UUID 时检测别名与内容分叉，不能把复制品自动覆盖成同一页。
+伴随文件的迟到/缺失/孤儿状态不等于正文或云端页被删除；移动/重命名时通过 page UUID 寻找候选并校验匹配，不自动删除陌生孤儿文件。伴随行表 hash 失配时，已知页依据可信数据库基线导入正文并保留原历史；无基线恢复新页时不猜测继承，按 §5.2.3 标记 unknown。复制文件携带相同 UUID 时检测别名与内容分叉，不能把复制品自动覆盖成同一页。
 
 同一目录若又被 Vault Git/iCloud 等传输，不能让两个协议无条件互相覆盖。优先让独立服务承担写作实时同步，Vault 传输只作为文件归档；实现前核已有排除能力。无法排除时必须通过上述三方导入及墓碑测试，外部删文件只视为投影丢失/导入事件，不能立即推导为全平台删页。
 
@@ -352,7 +357,7 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 
 原生 tab 与 WebView 之间必须验证 clipping、DPI、Retina、多显示器、弹层遮挡、焦点、快捷键、VoiceOver 与 IME。原生 NSView 不服从 DOM z-index。Web 弹层继续使用 `.menu-panel/.menu-row`；原生弹层采用系统菜单。若宿主菜单覆盖冲突，需有明确 surface 暂停/恢复与焦点交接，不能用截图冒充可交互 native tab。
 
-项目宿主最低 macOS 当前为 11.0；建议 Sumi 首版要求 macOS 13+ 使用 TextKit 2，不抬高整个 note.md 的系统下限。旧系统保持普通 Markdown 阅读/Source 并明确原生写作不可用；能力与最低宿主版本共同检查。
+项目宿主最低 macOS 当前为 11.0；Sumi 首版要求 macOS 13+ 使用 TextKit 2，不抬高整个 note.md 的系统下限。旧系统保持普通 Markdown 阅读/Source 并明确原生写作不可用；能力与最低宿主版本共同检查。
 
 ## 9. 全平台里程碑
 
@@ -367,8 +372,8 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 
 独立客户端共享协议/测试样本/文本内核，不追求共享所有 UI。首版暂估 5–8 工程周（1 名熟悉 Rust、AppKit、CF 的工程师，不含审批等待）；P0 后再估，其余平台不做未经硬件/桥接验证的日程承诺。
 
-## 10. 实施前保留的决策
+## 10. 已冻结与后续决策
 
-需求已经足够开始原型，无需以这些问题阻塞本次规划：登录/配对供应商；跨平台字体与安装包大小；ESP32 板型与显示/输入硬件；底部输入法未来采用哪些现有项目。原型后必须锁定的技术决策是 Yjs/Yrs 版本与索引单位、行身份属性可行性、原生 tab 布局、最低支持系统和服务限额。
+macOS 实现已固定设备配对协议、打包字体、Yrs/Yjs 版本、UTF-16 索引、行身份与时间编码、TextKit 2 原生 tab、最低系统和服务限额；对应源码、资源摘要和测试记录随各交付单元验证。ESP32 板型与显示/输入硬件、后续平台字体子集、定制输入法项目仍待各阶段验证，不能据此扩大首版支持声明。
 
-本设计中性能数字、排版默认值、工期与备份保留期均为建议目标，不是已实测或已上线能力。
+本设计中的验收门槛、工期与备份保留期是目标；标为“当前实现”的协议与默认值可回源核对。性能实测须注明操作路径、构建、硬件和证据，不以本文目标或程序化时间代替真实输入到呈现帧的结果。

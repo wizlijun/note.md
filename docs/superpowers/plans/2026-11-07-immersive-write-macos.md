@@ -1,6 +1,6 @@
 # Sumi：macOS 首版实施计划
 
-日期：2026-11-07。状态：待实施；本文不是测试报告或发布记录。
+日期：2026-11-07。状态：实施与验收中；本文不是完成证明或发布记录。
 
 需求依据：[全平台设计](../specs/2026-11-07-immersive-write-design.md)。首版必须同时交付原生编辑、本地 Markdown、行首末时间、CF 增量同步及离线并发自动合并；不能把单机原型称为首版完成。
 
@@ -8,15 +8,15 @@
 
 后续平台参考已按用户补充固定：ESP32 优先参考 Draftor 的自研编辑内核/bgIME/显示链路；Linux 以 Omarchy 为主要目标，优先验证 Omawrite 同栈的 Qt 6 富文本方案。它们分别需要 Markdown/同步适配与 Qt/GTK3 原生 tab 可行性验证，不改变本轮 macOS 首版范围；细节与证据见设计 §4.1、§6.4。
 
-## 1. 已核实的起点
+## 1. 原起点与当前落地
 
 - 宿主 Tauri 2 / Svelte 5，现有 Rich 是 @moraya/core + ProseMirror。
-- file_views 可按顶层 frontmatter 选 `.md` 专用视图；有 editor.write 整篇快照保存，实际 UI 仍为 iframe。
-- custom_editors 不允许接管 `.md`；WindowContribution 目前没有原生 surface / 固定尺寸协议。
-- 文件 session 依赖 web editor；必须抽出窄的 owner 交接能力，不能另起一个绕过磁盘基线的写入器。
-- 宿主 macOS 最低 11.0；Sumi 原生功能建议 13+。实施不顺手抬升主应用最低版本。
+- file_views 可按顶层 frontmatter 选 `.md` 专用视图；有 editor.write 整篇快照保存，原 UI 为 iframe；现已扩展 `native-editor` surface，由 `NativeFileView` 挂载原生正文。
+- custom_editors 不允许接管 `.md`；WindowContribution 已增加原生 surface 与 `resizable` 等窗口声明；macOS 后端随宿主编译。
+- 原文件 session 依赖 web editor；现通过 `src-tauri/src/sumi/` 与 `src/lib/sumi/` 交接原生 session、Source、外部文件和持久化，验收仍须核对所有生命周期路径。
+- 宿主 macOS 最低 11.0；Sumi 原生功能要求 13+ 并执行运行时能力检测。实施不顺手抬升主应用最低版本。
 
-## 2. 代码边界（拟新增，尚不存在）
+## 2. 当前代码边界
 
 | 模块 | 职责 |
 |---|---|
@@ -25,13 +25,15 @@
 | `tauri-plugin-native-editor/` | 随宿主编译的 Tauri 插件 crate；统一 surface 接口、平台能力探测及 macOS AppKit 后端，负责生命周期、焦点/IME/外观、主线程边界 |
 | `src-tauri/` | 注册原生编辑插件、检查调用权限、绑定 write-core 文档 session；不另建第二套原生编辑桥 |
 | `write-sync-worker/` | Worker 鉴权、SQLite DO、WebSocket、页面 CRUD、快照与恢复 |
-| `write-protocol/` 或 core 内 schema | 版本化消息、跨语言黄金 fixtures；先按最小模块划分，不为未来拆包 |
+| `write-core/` schema、`write-sync-worker/src/protocol.ts` | 版本化消息、Yrs/Yjs 双向黄金 fixtures；未另建 write-protocol crate |
 | `src/lib/plugins/`、`src/components/EditorPane.svelte` | 原生视图能力探测/选择/几何与 overlay 协调 |
 | `plugin-protocol/` | 窄 capability 和 manifest 扩展，生成 TS/Rust 类型；未知旧宿主明确回退 |
 
-原生桥优先复用现有 objc2；若 AppKit 委托用 Swift 明显更简洁，可编译静态 Swift 模块并通过固定 C ABI 连接 Rust。P0 比较后只保留一种生产桥，不同时维护两个。原生代码随宿主签名发布；插件不动态加载任意可执行库。
+P0 实现选择 Objective-C ARC + 固定 C ABI 薄桥，便于直接实现 NSTextView 委托并避免 Swift 运行时打包约束。只保留这一种 macOS 生产桥，不同时维护 objc2/Swift 替代实现；通用 Rust API 仍由 tauri-plugin-native-editor 提供。原生代码随宿主签名发布；插件不动态加载任意可执行库。
 
 桥接 crate 不承担 Markdown/source map、行时间、CRDT 或文件/网络存储；这些由 `write-core` 负责。首版只实现 macOS 后端，其他平台明确报告能力不可用，不用空后端宣称支持。最小接口沿设计 §8 的 mount/activate/setBounds/setAppearance/applyRemote/flush/detach；正文编辑通过进程内 Rust 接口交接，IME 组字、光标与即时绘制不等待 JS 往返。applyRemote 只应用内核验证后的编辑事务，flush 等待内核持久化结果，不能把控件刷新当保存成功。
+
+实施状态核对（2026-11-08）：内核、原生桥、宿主、插件与 Worker 均已有实现。内核提交 `94fde1d8` 与稳定选区序列化提交 `0925f71d` 有独立测试；`write-core/tests/` 覆盖并发时间、UTF-16、导入、文件对与增量恢复。下面清单保留为整项验收门禁：涉及真实输入、断电、无障碍和完整生命周期的混合条目，不能因单元测试通过直接勾选。冻结发布 tag 与实际包验证由发布记录提供。
 
 ## 3. P0：先验证五个不可绕开的风险（约 1–2 周）
 
@@ -47,7 +49,7 @@
 
 ## 4. P1-A：文档内核与离线持久化（约 1 周）
 
-用户已确认设计 §5.2 的 MD + `.writing.meta.json` 文件布局。serializer 按此方向实现，具体生产 schema 在 P0 验证后冻结；完整内容迁移需同时携带匹配的正文与时间快照。
+用户已确认设计 §5.2 的 MD + `.writing.meta.json` 文件布局。serializer 已实现 schema 1 / sidecar-v1；紧凑时间事件 v1 和 SQLite checkpoint + 连续 delta 协议见设计 §5；完整内容迁移需同时携带匹配的正文与时间快照。
 
 - [ ] 实现 page/epoch/逻辑行身份/时间、局部 Markdown patch 与格式子集；原生富文本不接触隐藏元数据。
 - [ ] 行时间 reducer 对并发、拆合、导入、空行、撤销有确定规则；first/last 不使用一个可被并发覆盖的普通 LWW 对象。
@@ -65,16 +67,16 @@
 ## 5. P1-B：CF 服务与多设备同步（约 1–2 周）
 
 - [ ] 开通隔离开发环境，选择现有身份基础设施或设备配对实现；定义 token 更新/撤销、账号归属和数据限额。
-- [ ] Worker + SQLite DO 的 pages/updates/checkpoints/去重/目录游标；上线 migration 可回滚。
-- [ ] WebSocket hibernation、state vector 补齐、chunked snapshot 与 durable ack；数据落盘成功才确认。
+- [ ] Worker + SQLite DO 的 pages/不可变增量日志/轻量因果校验索引/去重/目录游标；上线 migration 可回滚。
+- [ ] WebSocket hibernation、固定版本分页日志补齐与 durable ack；字节落盘成功才确认。首版完整 replay，state vector 提示不冒充已实现服务端裁剪。
 - [ ] 新建/列表/编辑/删除/恢复 API；page 与 operation UUID 幂等；tombstone 与迟到正文更新隔离。
 - [ ] 离线目录 create/delete 与正文 outbox 原子保存，重连遵守 create→body 依赖；并发新页和被删排序锚点确定收敛。
-- [ ] R2 不可变快照、完整性 hash、恢复演练；增量压缩不破坏旧副本因果状态。
+- [ ] R2 不可变分段日志、schema-2 校验清单与恢复演练；后台网络上传不阻塞编辑，保留旧副本因果状态。
 - [ ] 两台 Mac 或两个隔离实例同时编辑、离线不同位置/同位置输入、断线重试与重新订阅。
 
 验收：同步后两端正文、行身份、时间摘要与页面目录收敛；不存在整页覆盖；持久失败不 ack；设备撤销后连接/HTTP 操作拒绝。服务状态/日志不记录正文、token 或隐藏时间明细。
 
-发布预算用实际请求计数与日志增长估算，列出 1/3/10 活跃设备、每日输入时长、页面大小及备份保留量。部署是后续实施任务，不由本规划自动执行。
+发布预算用实际请求计数与日志增长估算，列出 1/3/10 活跃设备、每日输入时长、页面大小及备份保留量。服务已进入独立部署/云验收流程，具体版本、配额计量与恢复结果见发布记录；不以本文状态代替线上证明。
 
 ## 6. P1-C：macOS 插件与宿主体验（约 1–2 周）
 
@@ -111,6 +113,8 @@
 输入到画面需系统事件与帧呈现标记或高帧率录屏辅助，JS handler 时间不能证明物理输入延迟。用 Instruments/系统 profiler 核主线程、内存、CPU、能耗；真实硬件手动 IME 与辅助功能验收不可由合成事件完全替代。
 
 不预设原生必胜。若原生优势不明显，报告真实数据并检查源映射、全文解析、布局失效与保存开销；不能通过不同字号/字数/关闭同步制造优势。
+
+可复现性能脚本在 `scripts/sumi/`（提交 `d7154956`、`3c1c0136`）。三组共用固定语料和字体；程序化 Web dispatch→rAF 只表示绘制机会，原生 insertText→同步布局只表示程序调用链，不是物理输入到呈现帧。已有自动数据不勾选物理 input-to-frame / 真 IME / VoiceOver 门禁。隔离宿主脚本在 `scripts/sumi/acceptance/`；运行数据仍位于 `tasks/sumi-native/host-acceptance`，配置与 Vault marker 不变。`prepare.py` 仅准备 seed；`build.sh` 显式构建但不启动应用，benchmark 只追加到隔离插件窗口，不改正式插件 manifest。
 
 ## 8. 必过的系统验收矩阵
 
