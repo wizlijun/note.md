@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1107.3 — 2026-11-07
+
 - **Zoom and move diagrams in Rich mode.** Scroll inside Mermaid and Graphviz previews to zoom. A small percentage badge appears at the bottom right only away from 100%; click it to reset. Focus the diagram to move with arrow keys (Shift for larger steps), zoom with +/-, reset with 0, or fit with F. Tall diagrams leave room for page scrolling; copying keeps the complete image, and tab switches retain view state without changing Markdown. Supports trackpad pinch-to-zoom on macOS.
 
 ## v6.1107.2 — 2026-11-07
