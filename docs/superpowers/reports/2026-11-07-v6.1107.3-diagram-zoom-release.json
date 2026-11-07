@@ -1,0 +1,333 @@
+{
+  "version": "6.1107.3",
+  "scope": [
+    "darwin-aarch64"
+  ],
+  "releaseUrl": "https://github.com/wizlijun/note.md/releases/tag/v6.1107.3",
+  "source": "eb743473ce7477eff8c59b68f965b6f13535121b",
+  "core": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "hostFeatureCommits": [
+    "635c74b8f09d79528bfc7a9bde047517b957d75d",
+    "c69c35289919b159e78aa46d9bd3938ad98bf746"
+  ],
+  "canonical": {
+    "exitCode": 0,
+    "frontendTests": 5453,
+    "frontendFiles": 416,
+    "rustTests": 30,
+    "svelteErrors": 0,
+    "svelteExistingWarnings": 31,
+    "coreImplementationTests": 1736,
+    "coreImplementationFiles": 75,
+    "websiteTests": 142
+  },
+  "candidate": {
+    "ok": true,
+    "tag": "v6.1107.3",
+    "frozenSource": "eb743473ce7477eff8c59b68f965b6f13535121b",
+    "core": "f581448bce5e9cf557059f0700297a527069b5ae",
+    "bundleIdentifier": "net.notemd.app",
+    "version": "6.1107.3",
+    "architecture": "arm64",
+    "runtimeVersion": "6.1107.3",
+    "assets": {
+      "machO": {
+        "path": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+        "bytes": 20341056,
+        "sha256": "34bdf5e04c77d34065a79bf7eaa8d2a6abbdd3ed427d8831fa5c52c2a1643e49"
+      },
+      "dmg": {
+        "path": "/tmp/note.md-6.1107.3-aarch64.dmg",
+        "bytes": 13505413,
+        "sha256": "47f5913062c1d1fffb41e3251073058737f586d325ee92e997d96e80b5b23d5f"
+      },
+      "updater": {
+        "path": "/tmp/note.md-aarch64.app.tar.gz",
+        "bytes": 13550762,
+        "sha256": "40263489fc892f9ddbea6bde970771e532e87ca97e3ca79e47afcd02bf6f4510"
+      }
+    },
+    "sameMachOInAppDmgUpdater": true,
+    "coreDistFiles": 67,
+    "embeddedDiagramModules": 9,
+    "embeddedShareMatchesFrozen": true,
+    "notarization": {
+      "sourceLog": "host-release.log",
+      "app": {
+        "id": "3585c2b1-790b-47a1-b7f8-1e21cddfd6f9",
+        "status": "Accepted"
+      },
+      "dmg": {
+        "id": "0098dd25-7c8c-4934-b7fb-8581fbf1ccaf",
+        "status": "Accepted"
+      },
+      "gatekeeper": "App and DMG accepted as Notarized Developer ID",
+      "stapler": "App and DMG validation succeeded"
+    },
+    "nativeAcceptance": {
+      "reported": true,
+      "quote": "测试通过，请发版mac apple版本",
+      "evidence_type": "User report in this conversation, not agent-collected physical input events",
+      "agent_operated_native_ui": false,
+      "physical_event_trace_collected": false
+    },
+    "readonlyDmgDetached": "/dev/disk8s1",
+    "report": "candidate-verification.json"
+  },
+  "public": {
+    "ok": true,
+    "tag": "v6.1107.3",
+    "source_sha": "eb743473ce7477eff8c59b68f965b6f13535121b",
+    "public_tag_source_sha": "eb743473ce7477eff8c59b68f965b6f13535121b",
+    "published_at": "2026-11-07T05:19:12Z",
+    "release_id": 437353578,
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1107.3",
+    "assets": [
+      {
+        "mode": "cache-bypass",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "2ea8e4afd28a8dabce8b36033a787ac97751ad14cf4c5c7fcd17d4b7c3469a80",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-6.1107.3-aarch64.dmg",
+        "bytes": 13505413,
+        "sha256": "47f5913062c1d1fffb41e3251073058737f586d325ee92e997d96e80b5b23d5f",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13550762,
+        "sha256": "40263489fc892f9ddbea6bde970771e532e87ca97e3ca79e47afcd02bf6f4510",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "1dc6c6707d8186fc02e9fdf1375310fb5140dc66b59e8f8516da9346f783d2dc",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "2ea8e4afd28a8dabce8b36033a787ac97751ad14cf4c5c7fcd17d4b7c3469a80",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-6.1107.3-aarch64.dmg",
+        "bytes": 13505413,
+        "sha256": "47f5913062c1d1fffb41e3251073058737f586d325ee92e997d96e80b5b23d5f",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13550762,
+        "sha256": "40263489fc892f9ddbea6bde970771e532e87ca97e3ca79e47afcd02bf6f4510",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "1dc6c6707d8186fc02e9fdf1375310fb5140dc66b59e8f8516da9346f783d2dc",
+        "byte_equal_staged": true
+      }
+    ],
+    "ordinary_and_cache_bypass_verified": true,
+    "latest_endpoint_verified": true,
+    "updater_minisign_verified": true,
+    "platforms": [
+      "darwin-aarch64"
+    ],
+    "actual_app_request_without_query_verified": true,
+    "actual_app_headers": {
+      "Accept": "application/json",
+      "User-Agent": "tauri-plugin-updater/2.10.1"
+    },
+    "local_signing_notarization": "separate acceptance; not claimed by this verifier",
+    "verified_at_utc": "2026-11-07T05:22:34.022052+00:00"
+  },
+  "website": {
+    "websiteCommit": "60d01e4cf6ba035b09574075b0f95513d2cf3252",
+    "workflowRunId": 42342278419,
+    "workflowConclusion": "success",
+    "tests": 142,
+    "allChecksPassedWithReadRetries": true,
+    "singleAttemptFullMatrixStablePass": false,
+    "files": {
+      "website-verification-attempt3.json": "d305606bd0b7cc40f527d320953c0cbbe8c7072125cf17ab1c2aee35f3a068e0",
+      "website-verification-recovery.json": "f620655dad3896b0ab1287f5baf6f0294e8a2422f61a1e9a3c12a7241149c8ad",
+      "website-final-tests.log": "3cf098400e447dc8ad2e27ba302ec69b6b204450ca7d07866b5e53b1e1f09f28",
+      "website-ci-watch.log": "e38b3a7bd94be60d0679b68b63bc50545fdd6991f4780236e8d8851254054c73"
+    }
+  },
+  "websiteRecovery": {
+    "checkedAt": "2026-11-07T05:23:12.399882+00:00",
+    "commit": "60d01e4cf6ba035b09574075b0f95513d2cf3252",
+    "version": "6.1107.3",
+    "originalReport": "website-verification-attempt3.json",
+    "originalReportSha256": "d305606bd0b7cc40f527d320953c0cbbe8c7072125cf17ab1c2aee35f3a068e0",
+    "retries": [
+      {
+        "kind": "page",
+        "name": "de",
+        "mode": "cache-bypass",
+        "url": "https://notemd.net/de/?verify=diagram-611073-1794028942475167000",
+        "pass": true,
+        "priorError": "<urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1082)>",
+        "transport": "curl HTTP/1.1 with bounded retries",
+        "curlExit": 0,
+        "curlStderr": "",
+        "checkedAt": "2026-11-07T05:23:10.023963+00:00",
+        "status": 200,
+        "rawBytes": 33274,
+        "rawSha256": "fe455c8c11ba9d0de700f4e33ad2f1940e62f1d9461dbbd12dfda0b6c4adc9ba",
+        "expectedSha256": "fe455c8c11ba9d0de700f4e33ad2f1940e62f1d9461dbbd12dfda0b6c4adc9ba",
+        "rawBytesMatchCommit": true,
+        "cloudflareBeaconInjectionCount": 0,
+        "knownInjectionRemoved": false,
+        "knownInjectionSha256": null,
+        "normalizedSha256": "fe455c8c11ba9d0de700f4e33ad2f1940e62f1d9461dbbd12dfda0b6c4adc9ba",
+        "bytesMatchCommitAfterRemovingOnlyKnownCloudflareBeacon": true
+      },
+      {
+        "kind": "route",
+        "name": "linux-deb-amd64",
+        "mode": "normal",
+        "url": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+        "pass": true,
+        "priorError": "<urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1082)>",
+        "transport": "curl HTTP/1.1 with bounded retries",
+        "curlExit": 0,
+        "curlStderr": "",
+        "checkedAt": "2026-11-07T05:23:12.399549+00:00",
+        "status": 302,
+        "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb",
+        "expectedUrl": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_amd64.deb"
+      }
+    ],
+    "allFourLanguagesCoveredAfterReadRetries": true,
+    "allSevenDownloadRoutesCoveredAfterReadRetries": true,
+    "historicalAssetsPass": true,
+    "allChecksPassedWithReadRetries": true,
+    "singleAttemptFullMatrixStablePass": false,
+    "limitation": "Original failures remain preserved. Complete read coverage requires these sequential retry results; this is not a claim that every original request succeeded."
+  },
+  "restoredPending": {
+    "CHANGELOG.md": {
+      "pendingSha256": "0a6bcb8cccb47364f9598afe39a658e25f9eb832390dd63c2215cf3150966b5c",
+      "entries": 19
+    },
+    "CHANGELOG.zh-CN.md": {
+      "pendingSha256": "12d137222ae608d57e01dddbb2d6871e46fd62d2255d1b25f7585aa740b4e83c",
+      "entries": 19
+    }
+  },
+  "restoredExternalChanges": [
+    {
+      "path": "searchidx/src/store.rs",
+      "restoredSha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "mode": 420
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "restoredSha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0",
+      "mode": 420
+    }
+  ],
+  "publish": {
+    "tag": "v6.1107.3",
+    "source": "eb743473ce7477eff8c59b68f965b6f13535121b",
+    "command": "bash scripts/release-publish.sh v6.1107.3 --mac-arm64-only",
+    "scope": "darwin-aarch64",
+    "exitCode": 0,
+    "stdout": "Published v6.1107.3",
+    "interactiveConfirmation": "v6.1107.3 mac-arm64-only",
+    "authorization": "用户：测试通过。请发版mac apple版本",
+    "initialAttempt": {
+      "exitCode": 1,
+      "reason": "tee made stdout non-interactive; script rejected before publication"
+    },
+    "successfulSession": 48275
+  },
+  "evidence": [
+    {
+      "path": "tasks/diagram-zoom-release-20261107/audit.json",
+      "sha256": "20d87ec72548a8fd3e7879d497c937197f478a2340c3fad6ff4b819ad9633468",
+      "bytes": 19319
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/user-acceptance.json",
+      "sha256": "2c2c2a590f6277cb911d26d363bce495ef9e87cd912719267d0bd039be3bdc4a",
+      "bytes": 391
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/frozen-share-manifest.json",
+      "sha256": "23f128d241331de9b8b5d662171fea84db4a5c749e099c44bdc8d6d55b0a403a",
+      "bytes": 871
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/frozen-feature-modules.json",
+      "sha256": "4adfd159ea3f4373fd3fd7e0e5c13e6c042e9717421580abffdcdd36a9708af3",
+      "bytes": 2866
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/candidate-verification.json",
+      "sha256": "0b3690a4caf519488ffadc3544db7a619cd6f44eebf30f267eb2d32d7efb7d6f",
+      "bytes": 47503
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/candidate-verification-summary.json",
+      "sha256": "8871e49a63a57cbe7eac6d9b32a29d3dbcbcc80f23e3dd7c4d4ab446849a1005",
+      "bytes": 1803
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/host-public/public-review.json",
+      "sha256": "99a8dac0b3387d01362b494505363537fd99116ef1d2ba4a7c6c4e0147334f00",
+      "bytes": 2568
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/website-delivery.json",
+      "sha256": "f5616aae07775865fdff0db1260a687df3a7b7695a0b1710b6cc88bb1084f8cb",
+      "bytes": 669
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/website-verification-attempt3.json",
+      "sha256": "d305606bd0b7cc40f527d320953c0cbbe8c7072125cf17ab1c2aee35f3a068e0",
+      "bytes": 17034
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/website-verification-recovery.json",
+      "sha256": "f620655dad3896b0ab1287f5baf6f0294e8a2422f61a1e9a3c12a7241149c8ad",
+      "bytes": 2442
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/pending-restored.json",
+      "sha256": "995d0f09b4a635ef3c884623b5b398c2b91c2f9168e10628c45c6a91dc73e35f",
+      "bytes": 273
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/external-restored.json",
+      "sha256": "994ec4196fca5ef671f960b83384f3e3e8444d8eaf77197bb3db7e641e6006b9",
+      "bytes": 316
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/publish-result.json",
+      "sha256": "05d1ae4e914da2e314094bc669eb57889e94a83a391a0420f80d63e1bde57f24",
+      "bytes": 525
+    },
+    {
+      "path": "tasks/diagram-zoom-release-20261107/host-release.log",
+      "sha256": "5c7d9bf1f062f0543e4e6471aa7c5148d42744087fe580af64133d7e40adf27a",
+      "bytes": 142202
+    }
+  ],
+  "installation": "Not installed over the user application; no native UI operated during release verification."
+}
