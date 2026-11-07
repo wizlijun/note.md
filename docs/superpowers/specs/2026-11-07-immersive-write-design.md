@@ -300,7 +300,11 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 | 文档会话 | `src/lib/file-editor-sessions.ts`、`src/editor-kit-v2/file-main.ts` | 新增可适配 native owner 的交接契约 |
 | 原生依赖 | `src-tauri/Cargo.toml:99` | 已有 objc2；没有现成 NSTextView 编辑实现 |
 
-推荐“宿主内编译的受控 macOS 原生 surface + Write 插件产品逻辑 + 共用 Rust 文本同步内核”，不加载任意插件 dylib。原生按键路径直接进入本地内核；JS 只承载菜单/设置/列表与低频状态，不作为每键中转站。
+用户已确认将原生编辑桥封装为 **`tauri-plugin-native-editor`**，不采用 macOS/Windows 或全桌面统一 Qt。各平台独立后端：macOS 使用 NSTextView/TextKit 2，Windows 使用 Win32 Rich Edit；Linux 保留 §4.1 的 Omarchy Qt 6 原型与宿主集成门槛。统一的是编辑接口和文档语义，不要求控件实现一致；Linux 的 Qt 依赖不得进入 macOS/Windows 构建。
+
+采用“宿主内编译的 `tauri-plugin-native-editor` + Write 插件产品逻辑 + 共用 Rust 文本同步内核”。Tauri 插件是随宿主编译、签名的 Cargo crate，与可安装的 note.md Write 插件分开；宿主显式注册并按平台报告能力，不加载任意插件 dylib。原生按键路径直接进入本地内核；JS 只承载菜单/设置/列表与低频状态，不作为每键中转站。
+
+职责边界：原生编辑桥负责控件、布局、样式、焦点、IME、选区与编辑事务交接；`write-core` 负责 Markdown/source map、行时间、CRDT、持久化与同步。桥接层不自行解析隐藏 YAML、不直接写 Markdown 文件或建立同步连接；通过进程内 Rust 接口绑定宿主授权的文档 session。独立移动端和 ESP32 复用内核/协议，不为使用此桌面桥而引入 Tauri。
 
 窄接口包括 mount/activate/setBounds/setAppearance/applyRemote/flush/detach 与事件 revision/selection/saveState。参数绑定插件身份、Vault、page、tab、session generation；窗口销毁、插件卸载或切 Vault 后拒绝旧调用。命名为设计概念，不能直接写入当前 manifest 假装已有 API。
 

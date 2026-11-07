@@ -4,6 +4,8 @@
 
 需求依据：[全平台设计](../specs/2026-11-07-immersive-write-design.md)。首版必须同时交付原生编辑、本地 Markdown、行首末时间、CF 增量同步及离线并发自动合并；不能把单机原型称为首版完成。
 
+选型已确认：原生桥封装为 `tauri-plugin-native-editor`；macOS 使用 NSTextView/TextKit 2，Windows 使用 Win32 Rich Edit，不采用跨桌面统一 Qt。Linux 的 Omarchy Qt 6 路线仍是独立平台原型，不给 macOS/Windows 引入 Qt。
+
 后续平台参考已按用户补充固定：ESP32 优先参考 Draftor 的自研编辑内核/bgIME/显示链路；Linux 以 Omarchy 为主要目标，优先验证 Omawrite 同栈的 Qt 6 富文本方案。它们分别需要 Markdown/同步适配与 Qt/GTK3 原生 tab 可行性验证，不改变本轮 macOS 首版范围；细节与证据见设计 §4.1、§6.4。
 
 ## 1. 已核实的起点
@@ -20,7 +22,8 @@
 |---|---|
 | `plugins-src/write/` | 插件 manifest、纸页入口/概览、设置与状态；不在 iframe 处理正文击键 |
 | `write-core/` | Rust 文本/行时间模型、Yrs adapter、源映射、Markdown 解析序列化、持久 outbox 与投影；与 UI/平台分离 |
-| `src-tauri/src/native_write/` | macOS AppKit 薄桥、surface 生命周期、焦点/IME/外观、主线程边界 |
+| `tauri-plugin-native-editor/` | 随宿主编译的 Tauri 插件 crate；统一 surface 接口、平台能力探测及 macOS AppKit 后端，负责生命周期、焦点/IME/外观、主线程边界 |
+| `src-tauri/` | 注册原生编辑插件、检查调用权限、绑定 write-core 文档 session；不另建第二套原生编辑桥 |
 | `write-sync-worker/` | Worker 鉴权、SQLite DO、WebSocket、页面 CRUD、快照与恢复 |
 | `write-protocol/` 或 core 内 schema | 版本化消息、跨语言黄金 fixtures；先按最小模块划分，不为未来拆包 |
 | `src/lib/plugins/`、`src/components/EditorPane.svelte` | 原生视图能力探测/选择/几何与 overlay 协调 |
@@ -28,9 +31,11 @@
 
 原生桥优先复用现有 objc2；若 AppKit 委托用 Swift 明显更简洁，可编译静态 Swift 模块并通过固定 C ABI 连接 Rust。P0 比较后只保留一种生产桥，不同时维护两个。原生代码随宿主签名发布；插件不动态加载任意可执行库。
 
+桥接 crate 不承担 Markdown/source map、行时间、CRDT 或文件/网络存储；这些由 `write-core` 负责。首版只实现 macOS 后端，其他平台明确报告能力不可用，不用空后端宣称支持。最小接口沿设计 §8 的 mount/activate/setBounds/setAppearance/applyRemote/flush/detach；正文编辑通过进程内 Rust 接口交接，IME 组字、光标与即时绘制不等待 JS 往返。applyRemote 只应用内核验证后的编辑事务，flush 等待内核持久化结果，不能把控件刷新当保存成功。
+
 ## 3. P0：先验证五个不可绕开的风险（约 1–2 周）
 
-- [ ] **原生 surface**：在真实 Tauri 窗口内挂载 NSTextView/TextKit 2，同时验证 tab、独立固定窗口、系统全屏。禁止先用外置独立 App 替代 tab 验收。
+- [ ] **原生 surface**：通过宿主实际注册的 `tauri-plugin-native-editor` 在真实 Tauri 窗口内挂载 NSTextView/TextKit 2，同时验证 tab、独立固定窗口、系统全屏、挂载/销毁与过期 session 拒绝；验证 macOS 构建不引入 Qt。禁止先用外置独立 App 替代 tab 验收。
 - [ ] **真实输入**：中文拼音/注音、长组合串、候选选择、Cmd+A、撤销、剪贴板、VoiceOver。应用菜单与 first responder 正确路由。
 - [ ] **Markdown 最小编辑**：原生可见位置映射到源范围，测试标题/强调/链接/列表/空行/软换行/emoji/未知块，不全篇重序列化。
 - [ ] **跨语言与行身份**：锁定 Yjs/Yrs 版本及 UTF-16 偏移；Y.Text LF 属性、属性继承抑制、并发同处回车、合行、Undo、重复/乱序更新收敛。
