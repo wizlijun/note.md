@@ -472,6 +472,10 @@ function f(name: string, isDir = false): FolderEntry {
 }
 
 describe('pairNoteEntries', () => {
+  it('hides paired writing metadata while retaining orphan files for recovery', () => {
+    const entries = [f('one.writing.md'), f('one.writing.meta.json'), f('orphan.writing.meta.json'), f('other.json')]
+    expect(pairNoteEntries(entries).map(entry => entry.name)).toEqual(['one.writing.md', 'orphan.writing.meta.json', 'other.json'])
+  })
   it('hides companion .note.md and marks its main file', () => {
     const out = pairNoteEntries([f('a.md'), f('a.note.md'), f('b.md')])
     expect(out.map(e => e.name)).toEqual(['a.md', 'b.md'])

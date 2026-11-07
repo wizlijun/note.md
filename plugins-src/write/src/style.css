@@ -1,0 +1,27 @@
+:root { color-scheme: dark; --paper:#111; --ink:#ccc; font:14px system-ui,sans-serif; background:var(--paper); color:var(--ink) }
+:root[data-theme="ink"] { --paper:#080808; --ink:#fff }
+:root[data-theme="paper"] { color-scheme:light; --paper:#fafafa; --ink:#222 }
+* { box-sizing:border-box }
+body { margin:0 }
+[hidden] { display:none !important }
+#app { height:100dvh; display:flex; flex-direction:column }
+#surface { flex:1; min-height:0 }
+#notice { margin:0; padding:8px 24px; text-align:center }
+#tools { display:flex; justify-content:center; gap:16px; padding:8px 20px 14px; opacity:0; transition:opacity .15s }
+#tools:hover,#tools:focus-within { opacity:1 }
+button,input,select,textarea { font:inherit; color:inherit }
+button { border:0; background:transparent; border-radius:6px; padding:7px 12px; cursor:pointer }
+button:focus-visible { outline:2px solid currentColor; outline-offset:2px }
+button:disabled { opacity:.4; cursor:wait }
+#sync[data-pending="true"]::after { content:'·'; margin-left:3px }
+#panel { position:fixed; inset:0; overflow:auto; padding:32px max(24px,calc((100vw - 560px)/2)); background:var(--paper) }
+#panel header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:24px }
+h1 { font-size:20px; font-weight:500; margin:0 }
+h2 { font-size:13px; opacity:.6; font-weight:400; margin:28px 0 10px }
+form { display:grid; gap:18px }
+label { display:grid; gap:7px }
+input,select,textarea { width:100%; padding:9px 12px; border:1px solid color-mix(in srgb,var(--ink) 22%,transparent); border-radius:6px; background:var(--paper) }
+textarea { min-height:100px; margin-top:18px }
+form button { justify-self:end; border:1px solid color-mix(in srgb,var(--ink) 22%,transparent) }
+.page-row { display:flex; align-items:center; border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent) }
+.page-open { flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:16px 4px }

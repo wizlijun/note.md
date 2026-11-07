@@ -14,6 +14,7 @@
   import { planRename, executeRename } from '../lib/outline/rename-pair'
   import { pushToast } from '../lib/toast.svelte'
   import { basename } from '../lib/paths'
+  import { isSumiProjection } from '../lib/sumi/files'
   import FolderTreeNode from './FolderTreeNode.svelte'
   import SideViewSwitcher from './side-panel/SideViewSwitcher.svelte'
 
@@ -150,6 +151,10 @@
 
   async function commitRename(entry: FolderEntry, newName: string) {
     renamingPath = null
+    if (newName !== entry.name && (isSumiProjection(entry.path) || isSumiProjection(newName))) {
+      pushToast({ level: 'warn', message: 'Sumi 纸页和逐行时间需要一起保存。请在 Sumi 中导出，或将已有副本恢复为新的一页。' })
+      return
+    }
     const dir = parentDir(entry.path)
     const cached = folderView.entriesCache.get(dir) ?? []
     const siblings = cached.filter((e) => !e.isDir).map((e) => e.name)

@@ -107,6 +107,8 @@ export function pairNoteEntries(entries: FolderEntry[]): FolderEntry[] {
   }
   const out: FolderEntry[] = []
   for (const e of entries) {
+    if (!e.isDir && /\.writing\.meta\.json$/i.test(e.name)
+      && names.has(e.name.replace(/\.meta\.json$/i, '.md').toLowerCase())) continue
     if (!e.isDir && NOTE_SUFFIX_RE.test(e.name)) {
       const mainName = e.name.replace(NOTE_SUFFIX_RE, '.md').toLowerCase()
       if (names.has(mainName)) continue            // 伴生:行隐藏

@@ -13,7 +13,8 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode } from './lib/tabs.svelte'
+  import { activeTab, tabs, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode, saveTab } from './lib/tabs.svelte'
+  import { sumiOwner } from './lib/sumi/session'
   import { openPath } from './lib/open-path'
   import { createNewBase } from './lib/base/create'
   import { basename } from './lib/paths'
@@ -626,6 +627,20 @@
       void refreshSotvault().then(async () => { await refreshGuests(sotvaultStore.vaultRoot); await refreshRecentMenu() }).catch((e) => console.warn('[App] recents init:', e))
     })()
 
+    const sumiExitListeners = Promise.all([
+      listen('sumi-before-exit', async () => {
+        try {
+          for (const tab of [...tabs]) if (sumiOwner(tab.id)) await saveTab(tab.id)
+          await invoke('finish_sumi_exit', { ready: true })
+        } catch (error) {
+          await invoke('finish_sumi_exit', { ready: false }).catch(() => {})
+          await win.show(); await win.setFocus()
+          await showError(String(error))
+        }
+      }),
+      listen<string>('sumi-lifecycle-error', event => { void showError(event.payload) }),
+    ])
+
     const uninstallFocus = installFocusPoll()
 
     window.addEventListener('keydown', onKeyDown)
@@ -640,7 +655,8 @@
       unlistenClose = await win.onCloseRequested(async (event) => {
         event.preventDefault()
         while (tabs.length > 0) {
-          await closeTab(tabs[0].id, async () => isDirty(tabs[0].id) ? 'save' : 'discard')
+          const id = tabs[0].id
+          if (!await closeTab(id, async () => isDirty(id) ? 'save' : 'discard')) return
         }
         await win.hide()
       })
@@ -845,6 +861,7 @@
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       uninstallFocus()
+      void sumiExitListeners.then(listeners => listeners.forEach(unlisten => unlisten()))
       if (unlistenClose) {
         if (typeof unlistenClose === 'function') unlistenClose()
         else unlistenClose.then((fn) => fn())

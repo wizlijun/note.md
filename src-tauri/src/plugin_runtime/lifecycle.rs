@@ -618,6 +618,8 @@ pub async fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(
         .plugins
         .clone();
     let replaced = replaced_plugin_ids(&old_map, &new_map);
+    #[cfg(not(target_os = "ios"))]
+    if replaced.iter().any(|id|id=="notemd.sumi") { crate::sumi::cleanup_plugin(app).await?; }
     let _window_replacement = super::windows::begin_plugin_window_replacement(&replaced)?;
     let _ = super::windows::destroy_replaced_plugin_windows(app, &old_map, &replaced).await?;
     reconcile_with_map(new_map).await;

@@ -17,6 +17,7 @@ import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 import { formatJsonSource } from './json-format'
 import { fileEditorSessionClosing, fileSourceGuard, fileEditorSession, closeFileEditorSession, captureFileSave, acknowledgeFileSave, type FileSaveRequest } from './file-editor-sessions'
+import { SUMI_PLUGIN_ID, sumiOwner, openSumiOwner, flushSumiNative, saveSumiSource, rebaseSumiDraft, refreshSumiOwner, closeSumiOwner, finishSumiHandoff, type SumiSnapshot, type ProjectionIdentity } from './sumi/session'
 
 export type Mode = 'source' | 'rich'
 
@@ -61,7 +62,80 @@ export function activeTab(): Tab | null {
   return tabs.find((t) => t.id === activeId.value) ?? null
 }
 
+function managedSumiTab(tab: Tab): boolean {
+  return tab.kind === 'markdown' && tab.filePath.endsWith('.writing.md')
+    && pluginRuntime.manifests.some(manifest => manifest.id === SUMI_PLUGIN_ID
+      && manifest.host_capabilities.includes('editor.native') && manifest.host_capabilities.includes('editor.write'))
+}
+
+/** A durable projection ACK names exact bytes, never a later filesystem stat. */
+export function acknowledgeSumiProjection(tab: Tab, revision: number, identity?: ProjectionIdentity | null): void {
+  const owner=sumiOwner(tab.id)
+  if(!owner || !identity || identity.path!==tab.filePath || revision<(owner.projectionRevision ?? 0))return
+  owner.projectionRevision=revision
+  tab.lastKnownHash=identity.sha256
+  // Keep mtime unchanged: the next watcher read must establish its own bytes.
+  // An external edit already observed after our write must keep its banner.
+  if(!tab.pendingExternal || tab.pendingExternal.hash===identity.sha256) {
+    tab.externalState='fresh';tab.externalBannerDismissed=false;tab.pendingExternal=undefined
+  }
+}
+
+export async function acceptSumiSnapshot(tab: Tab, snapshot: SumiSnapshot): Promise<void> {
+  if (!tabs.includes(tab)) return
+  tab.currentContent = snapshot.raw
+  tab.initialContent = snapshot.raw
+  if (snapshot.projected !== false) acknowledgeSumiProjection(tab,snapshot.revision,snapshot.projection_identity)
+  else if (tab.pendingExternal) { tab.externalState='changed'; tab.externalBannerDismissed=false }
+}
+
+/** Explicit reload imports disk bytes through the CRDT owner before changing a projection. */
+async function reloadSumiTab(tab: Tab): Promise<void> {
+  await waitForMarkdownSaves(tab.id)
+  await flushMountedDocument(tab.id, true)
+  await setMode(tab.id, 'source')
+  if (tab.mode !== 'source') throw Error('Sumi 编辑尚未结束，无法重新加载。')
+  fileSourceGuard(tab.id)?.check()
+  const path=tab.filePath, draft=tab.currentContent
+  const existing=sumiOwner(tab.id)
+  const owner=existing ?? await openSumiOwner(tab.id,path)
+  const baseline=owner.sourceBaseRevision ?? owner.revision
+  const snapshot=existing ? await refreshSumiOwner(owner) : owner
+  try {
+    if (!tabs.includes(tab) || tab.filePath !== path || tab.currentContent !== draft) {
+      throw Error('Sumi 重新加载期间正文发生变化，已保留草稿。')
+    }
+    fileSourceGuard(tab.id)?.check()
+    const session=fileEditorSession(tab.id)
+    if (session) {
+      if (session.owner.snapshot().raw !== draft) throw Error('Sumi 重新加载期间正文发生变化，已保留草稿。')
+      const installed=session.owner.installBaseline({ documentId:path, authority:crypto.randomUUID(), raw:snapshot.raw })
+      if (!installed.ok) throw Error(installed.reason)
+    }
+  } catch (error) {
+    owner.sourceBaseRevision=baseline
+    throw error
+  }
+  owner.sourceBaseRevision=undefined
+  await acceptSumiSnapshot(tab,snapshot)
+  if (typeof window !== 'undefined' && tab.currentContent === snapshot.raw) {
+    window.dispatchEvent(new CustomEvent('notemd:auto-reloaded', {
+      detail: { tabId:tab.id, oldContent:draft, newContent:snapshot.raw },
+    }))
+  }
+}
+
 async function flushMountedDocument(tabId: string, leaving = false): Promise<void> {
+  const native = sumiOwner(tabId)
+  if (native?.editor === 'native') {
+    const before=tabs.find(tab=>tab.id===tabId)
+    const snapshot=await flushSumiNative(native,leaving)
+    if (!before || !tabs.includes(before) || before.filePath!==native.path) throw Error('Sumi document changed while flushing')
+    if(snapshot) await acceptSumiSnapshot(before,snapshot)
+    if(leaving || !native.surface)finishSumiHandoff(native)
+    return
+  }
+  fileSourceGuard(tabId)?.check()
   const session = fileEditorSession(tabId)
   if (session) {
     const before = tabs.find(tab=>tab.id===tabId), path=before?.filePath, identity=session.baselineIdentity, epoch=markdownWriteEpoch(path??'')
@@ -261,7 +335,7 @@ export async function activate(id: string): Promise<void> {
   if (tabs.some((t) => t.id === id)) {
     const previous = activeId.value
     if (previous && previous !== id) {
-      if (fileEditorSession(previous)) {
+      if (fileEditorSession(previous) || sumiOwner(previous)) {
         try { await flushMountedDocument(previous, true) } catch { return }
         if (activeId.value !== previous || !tabs.some(tab => tab.id === id)) return
       } else void flushMountedDocument(previous)
@@ -547,7 +621,7 @@ export async function replaceCurrentFile(path: string, currentPath: string): Pro
 
   const originalId = current.id
   const originalPath = current.filePath
-  await flushMountedDocument(originalId)
+  await flushMountedDocument(originalId, !!sumiOwner(originalId))
   if (isDirty(originalId)) {
     throw new Error('当前标签页有未保存的修改，无法替换打开的文件。请先保存或放弃修改。')
   }
@@ -651,6 +725,7 @@ export async function replaceCurrentFile(path: string, currentPath: string): Pro
     const installed = session.owner.installBaseline({ documentId: path, authority: crypto.randomUUID(), raw: content })
     if (!installed.ok) throw new Error(installed.reason)
   }
+  await closeSumiOwner(originalId)
   await stopWatchingTab(originalId)
   resetFileViewSelection(originalId)
   tabs[index] = replacement
@@ -669,6 +744,15 @@ export async function replaceCurrentFile(path: string, currentPath: string): Pro
 export async function reloadTabFromDisk(path: string, options?: { expectedContent: string }): Promise<void> {
   const t = tabs.find((x) => x.filePath === path)
   if (!t) return
+  if (sumiOwner(t.id) || managedSumiTab(t)) {
+    if (options && (t.currentContent !== options.expectedContent || isDirty(t.id))) {
+      t.externalState='changed'
+      t.externalBannerDismissed=false
+      return
+    }
+    await reloadSumiTab(t)
+    return
+  }
   let content: string
   let mtime: number
   let hash: string
@@ -749,6 +833,19 @@ export function setContent(id: string, md: string): void {
 export async function restoreVersion(id: string, content: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || !t.filePath || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath)) return
+  if (sumiOwner(id) || managedSumiTab(t)) {
+    await setMode(id, 'source')
+    if (t.mode !== 'source') throw new Error('Sumi 编辑尚未结束，无法恢复版本。')
+    await prepareFileViewTransition(id)
+    const web=fileEditorSession(id)
+    if (web) {
+      const restored=web.owner.restoreContent(content)
+      if (!restored.ok) throw Error(restored.reason)
+      t.currentContent=restored.snapshot.raw
+    } else setContent(id, content)
+    await saveTab(id)
+    return
+  }
   const session = fileEditorSession(id)
   if (session) {
     await flushMountedDocument(id)
@@ -772,6 +869,20 @@ export function toggleMode(id: string): void {
 export async function setMode(id: string, mode: Mode): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || t.kind === 'canvas' || t.mode === mode || isGuestUpdateBusy(t.filePath)) return
+  const native=sumiOwner(id)
+  if(native?.editor === 'native') {
+    try { await flushMountedDocument(id,true) } catch(error) {
+      const {showError}=await import('./dialogs');void showError(String(error));return
+    }
+    if(!tabs.includes(t) || t.filePath!==native.path)return
+  }
+  if(native && !native.surface && t.mode==='source') {
+    try {
+      fileSourceGuard(id)?.check()
+      if(isDirty(id))await saveTab(id)
+      if(isDirty(id))return
+    } catch(error) { const {showError}=await import('./dialogs');void showError(String(error));return }
+  }
   const session = fileEditorSession(id)
   if (session && !await session.setMode(mode)) return
   if (mode === 'source'
@@ -784,6 +895,25 @@ export async function setMode(id: string, mode: Mode): Promise<void> {
   t.mode = mode
   notifyInsights('onModeChanged')
   setRecentMode(modeKeyFor(t.filePath), mode).catch((e) => console.warn(e))
+}
+
+/** Finish the current editable surface before a native/ordinary file-view switch. */
+export async function prepareFileViewTransition(id: string, closeWebOwner = false): Promise<void> {
+  const tab=tabs.find(item=>item.id===id)
+  if(!tab)throw Error('Document closed')
+  const path=tab.filePath
+  await waitForMarkdownSaves(id)
+  if (sumiOwner(id)?.editor === 'web' && !managedSumiTab(tab)) await closeSumiOwner(id)
+  await flushMountedDocument(id,true)
+  if (sumiOwner(id) && !managedSumiTab(tab)) await closeSumiOwner(id)
+  if(isDirty(id))await saveTab(id)
+  if(!tabs.includes(tab) || tab.filePath!==path || isDirty(id))throw Error('Document changed while switching editors')
+  fileSourceGuard(id)?.check()
+  const session=fileEditorSession(id)
+  // Close only after the replacement native component has mounted. Toolbar
+  // intents may be superseded while saving; closing early leaves the still
+  // displayed Rich component attached to a destroyed owner.
+  if(closeWebOwner && session)await closeFileEditorSession(id,{session,identity:session.baselineIdentity,raw:tab.initialContent})
 }
 
 /**
@@ -887,6 +1017,59 @@ async function persistMarkdownSnapshotNow(
   const internal = guestToken !== undefined && guestUpdates[path]?.token === guestToken
   if (!path || expectedEpoch !== markdownWriteEpoch(path) || (internal ? documentPolicyReadOnly(t) : isReadOnlyTab(t) || isGuestUpdateBusy(path)) || (expectedPath !== undefined && path !== expectedPath)) return
   trackTarget(path)
+  const previousOwner=sumiOwner(t.id)
+  if (previousOwner && !managedSumiTab(t)) {
+    // Revoking a plugin cannot strand accepted native text or force new source
+    // edits through a revoked capability. Cleanup remains bound to its old owner.
+    if (previousOwner.editor === 'native') {
+      await flushMountedDocument(t.id,true)
+      content=t.currentContent
+      if (t.externalState === 'changed') throw Error('外部文件存在未协调的修改，请保留草稿后重新加载。')
+    }
+    await closeSumiOwner(t.id)
+  }
+  if (sumiOwner(t.id) || managedSumiTab(t)) {
+    fileSourceGuard(t.id)?.check()
+    let owner=sumiOwner(t.id)
+    if(!owner) {
+      owner=await openSumiOwner(t.id,path)
+      if(owner.raw!==t.initialContent)throw Error('Sumi source baseline changed; reload or preserve this draft before saving')
+    }
+    if(owner.path!==path)throw Error('Sumi page path changed')
+    const native=owner.editor === 'native'
+    const sourceBaseRevision=owner.sourceBaseRevision ?? owner.revision
+    const snapshot=native ? await flushSumiNative(owner) : await saveSumiSource(owner,content)
+    if(!snapshot)throw Error('Sumi editor detached during save')
+    if(t.filePath!==path)return
+    const webSession=fileEditorSession(t.id)
+    let draft=webSession?.owner.snapshot().raw ?? t.currentContent
+    const keepWebDraft=!native && draft!==content
+    if (!native && snapshot.raw!==content) {
+      try {
+        // Rebase only typing that happened after this submitted snapshot. Using
+        // the pre-save CRDT baseline again would replay our own accepted edits.
+        while (true) {
+          const rebased=draft===content ? snapshot.raw : await rebaseSumiDraft(owner,content,snapshot.raw,draft)
+          if(t.filePath!==path)return
+          const latest=webSession?.owner.snapshot().raw ?? t.currentContent
+          if(latest!==draft){draft=latest;continue}
+          if(webSession) {
+            if(fileEditorSession(t.id)!==webSession)throw Error('Sumi 编辑会话已变化，已保留草稿。')
+            const installed=webSession.owner.installBaseline({documentId:path,authority:crypto.randomUUID(),raw:rebased})
+            if(!installed.ok)throw Error(installed.reason)
+          }
+          t.currentContent=rebased
+          break
+        }
+      } catch(error) { owner.sourceBaseRevision=sourceBaseRevision;throw error }
+    } else if (!keepWebDraft || native) t.currentContent=snapshot.raw
+    owner.sourceBaseRevision=undefined
+    t.initialContent=snapshot.raw
+    if(snapshot.raw===content)acknowledgeFileSave(t.id,content,fileSave)
+    if(snapshot.projected!==false)acknowledgeSumiProjection(t,snapshot.revision,snapshot.projection_identity)
+    await startWatchingTab(t)
+    return path
+  }
   await writeMd(path, content)
   if (t.filePath !== path) return
   t.initialContent = content
@@ -1090,6 +1273,9 @@ async function rewriteOpenCanvasReferences(oldPath: string, newPath: string): Pr
 export async function saveAs(id: string, newPath: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath) || isGuestUpdateBusy(newPath)) return
+  if (sumiOwner(id) || managedSumiTab(t) || newPath.endsWith('.writing.md')) {
+    throw new Error('Sumi 页面包含独立的同步身份与时间记录，请通过 Sumi 新建页面；普通另存为暂不支持复制整页。')
+  }
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return
   const targetIsCanvas = /\.canvas$/i.test(newPath)
@@ -1234,6 +1420,7 @@ export async function closeTab(
   }
   if (isGuestUpdateBusy(tab.filePath)) return false
   await closeFileEditorSession(id, !discard && session && identity ? { session, identity, raw: tab.initialContent } : undefined)
+  await closeSumiOwner(id)
   tabs.splice(idx, 1)
   resetFileViewSelection(id)
   await stopWatchingTab(id)
@@ -1293,6 +1480,10 @@ export async function recordOurWrite(t: Tab, content = t.currentContent): Promis
 export async function reloadFromDisk(id: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || !t.pendingExternal || isGuestUpdateBusy(t.filePath)) return
+  if (sumiOwner(id) || managedSumiTab(t)) {
+    await reloadSumiTab(t)
+    return
+  }
   let p = t.pendingExternal
   if (t.kind === 'canvas') {
     const { canvasDocumentOpen, canvasMtimeMs } = await import('./canvas/io')

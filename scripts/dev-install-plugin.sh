@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dev-install a v2 plugin into the local app-data plugins root.
 #
-# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|health-sync|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|quick-launch|trace-source|timeline|index-viewer|knowledge-browser]
+# Usage: scripts/dev-install-plugin.sh [--release] [md2pdf|roam-import|apple-notes|health-sync|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|quick-launch|sumi|trace-source|timeline|index-viewer|knowledge-browser]
 #   default plugin = md2pdf (preserves the original behavior).
 #   --release      = build native plugin binaries in release mode
 #                    (ignored for the pure-UI plugins).
@@ -40,8 +40,8 @@ PLUGIN=md2pdf
 for arg in "$@"; do
   case "$arg" in
     --release) PROFILE=release ;;
-    md2pdf|roam-import|apple-notes|health-sync|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|quick-launch|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
-    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | health-sync | meetings | agency | strata | habitat | conversation-dictionary | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | typst-reader | idea-spark | next | power-mode | quick-launch | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
+    md2pdf|roam-import|apple-notes|health-sync|meetings|agency|strata|habitat|conversation-dictionary|assistant-mail|cef|pos-log|decision-log|weekly-review|memory|claude-agent|codex-agent|deepseek-agent|ebook-import|typst-reader|idea-spark|next|power-mode|quick-launch|sumi|trace-source|timeline|index-viewer|knowledge-browser) PLUGIN="$arg" ;;
+    *) echo "unknown arg: $arg (expected --release | md2pdf | roam-import | apple-notes | health-sync | meetings | agency | strata | habitat | conversation-dictionary | assistant-mail | cef | pos-log | decision-log | weekly-review | memory | claude-agent | codex-agent | deepseek-agent | ebook-import | typst-reader | idea-spark | next | power-mode | quick-launch | sumi | trace-source | timeline | index-viewer | knowledge-browser)" >&2; exit 2 ;;
   esac
 done
 
@@ -484,6 +484,21 @@ elif [[ "$PLUGIN" == "quick-launch" ]]; then
   mark_installed "notemd.quick-launch" "$VERSION"
   echo "✓ installed notemd.quick-launch@$VERSION (ui-only) → $DEST"
   echo "  open it:                Plugins menu ▸ Experience ▸ Quick Launch"
+
+elif [[ "$PLUGIN" == "sumi" ]]; then
+  SRC="plugins-src/write"
+  # Build the standalone UI bundle (dist/). Pure UI plugin; no native backend.
+  ( cd "$SRC" && node ../../node_modules/typescript/bin/tsc --noEmit && node ../../node_modules/vite/bin/vite.js build )
+  VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
+  DEST="$ROOT/notemd.sumi/$VERSION"
+  rm -rf "$DEST"
+  mkdir -p "$DEST/ui"
+  cp -R "$SRC/dist/." "$DEST/ui/"
+  cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
+  ln -sfn "$VERSION" "$ROOT/notemd.sumi/current"
+  mark_installed "notemd.sumi" "$VERSION"
+  echo "✓ installed notemd.sumi@$VERSION (ui-only) → $DEST"
+  echo "  open it:                Plugins menu ▸ Experience ▸ Sumi"
 
 elif [[ "$PLUGIN" == "power-mode" ]]; then
   SRC="plugins-src/power-mode"

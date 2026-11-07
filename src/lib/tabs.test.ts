@@ -140,6 +140,125 @@ beforeEach(async () => {
 
 afterEach(() => { vi.useRealTimers() })
 
+describe('Sumi tab ownership', () => {
+  async function nativeTab() {
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation(async (command, ...args) => {
+      if (command === 'sumi_open_path') return { page_id: 'page', raw: 'original', revision: 1 }
+      if (command === 'sumi_mount') return { surface_id: 'surface', generation: 1 }
+      if (command === 'sumi_flush' || command === 'sumi_detach') return { raw: 'native accepted', revision: 5 }
+      if (command === 'sumi_source_save') return { raw: (args[0] as { raw: string }).raw, revision: 6 }
+      return previous(command, ...args)
+    })
+    const m = await import('./tabs.svelte'), sumi = await import('./sumi/session')
+    ;(await import('./plugins/runtime.svelte')).pluginRuntime.manifests = [{ id:'notemd.sumi', name:'Sumi', version:'0.1.0', binary:'', host_capabilities:['editor.native','editor.write'] }]
+    await m.openFile('/vault/page.writing.md')
+    const tab = m.tabs[0]
+    const owner = await sumi.openSumiOwner(tab.id, tab.filePath)
+    await sumi.mountSumiOwner(owner, { x: 0, y: 0, width: 600, height: 400 }, () => true)
+    return { m, sumi, tab, owner }
+  }
+
+  it('installs the flushed native baseline before Source can save through core', async () => {
+    const { m, tab, owner } = await nativeTab()
+    await m.setMode(tab.id, 'source')
+    expect(tab.mode).toBe('source')
+    expect(tab.currentContent).toBe('native accepted')
+    expect(tab.initialContent).toBe('native accepted')
+    expect(owner.surface).toBeUndefined()
+    expect(owner.editor).toBe('web')
+    m.setContent(tab.id, 'source edit')
+    await m.saveTab(tab.id)
+    expect(tauriInvoke).toHaveBeenCalledWith('sumi_source_save', expect.objectContaining({ base_revision: 5, raw: 'source edit' }))
+    expect(tab.initialContent).toBe('source edit')
+    expect((await import('./fs')).writeMd).not.toHaveBeenCalled()
+  })
+
+  it('keeps the native tab and draft when composition prevents a mode switch', async () => {
+    const { m, tab, owner } = await nativeTab()
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((command, ...args) => command === 'sumi_detach'
+      ? Promise.reject(new Error('composition active')) : previous(command, ...args))
+    const before = tab.currentContent
+    await m.setMode(tab.id, 'source')
+    expect(tab.mode).toBe('rich')
+    expect(tab.currentContent).toBe(before)
+    expect(owner.editor).toBe('native')
+    expect(owner.surface).toBeDefined()
+    expect(tauriInvoke).toHaveBeenLastCalledWith('sumi_detach', expect.objectContaining({ surface_id: 'surface' }))
+  })
+
+  it('refuses generic Save As instead of copying a page without its sidecar identity', async () => {
+    const { m, tab } = await nativeTab()
+    await expect(m.saveAs(tab.id, '/vault/copy.writing.md')).rejects.toThrow('同步身份')
+    expect((await import('./fs')).writeMd).not.toHaveBeenCalled()
+    expect(tab.filePath).toBe('/vault/page.writing.md')
+  })
+
+  it('reloads external bytes through core only after detaching native ownership', async () => {
+    const { m, tab, owner } = await nativeTab()
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((command, ...args) => command === 'sumi_open_path'
+      ? Promise.resolve({ page_id: 'page', raw: 'core merged external', revision: 8 }) : previous(command, ...args))
+    tab.externalState = 'changed'
+    tab.pendingExternal = { content: 'unverified disk projection', mtime: 2, hash: 'disk' }
+    await m.reloadFromDisk(tab.id)
+    expect(tab.mode).toBe('source')
+    expect(tab.currentContent).toBe('core merged external')
+    expect(tab.initialContent).toBe('core merged external')
+    expect(owner.revision).toBe(8)
+    const commands = tauriInvoke.mock.calls.map(([name]) => name)
+    expect(commands.lastIndexOf('sumi_detach')).toBeLessThan(commands.lastIndexOf('sumi_open_path'))
+    expect((await import('./fs')).writeMd).not.toHaveBeenCalled()
+  })
+
+  it('does not mistake a later external edit for a durable Sumi projection', async () => {
+    const { m, tab, owner } = await nativeTab()
+    const mtime=tab.lastKnownMtime
+    tab.pendingExternal={content:'external',hash:'external-hash',mtime:mtime+10}
+    tab.externalState='changed'
+    m.acknowledgeSumiProjection(tab,6,{path:tab.filePath,sha256:'our-hash'})
+    expect(tab.lastKnownHash).toBe('our-hash')
+    expect(tab.lastKnownMtime).toBe(mtime)
+    expect(tab.pendingExternal?.content).toBe('external')
+    expect(tab.externalState).toBe('changed')
+    m.acknowledgeSumiProjection(tab,5,{path:tab.filePath,sha256:'stale-hash'})
+    expect(tab.lastKnownHash).toBe('our-hash')
+    expect(owner.projectionRevision).toBe(6)
+    m.acknowledgeSumiProjection(tab,7) // Small CRDT commit ACK is not a file projection.
+    expect(tab.externalState).toBe('changed')
+    expect(tab.pendingExternal?.content).toBe('external')
+    expect(owner.projectionRevision).toBe(6)
+    m.acknowledgeSumiProjection(tab,7,{path:'/other/page.writing.md',sha256:'other-hash'})
+    expect(tab.lastKnownHash).toBe('our-hash')
+  })
+
+  it('rebases new typing during a merged save onto the accepted source baseline', async () => {
+    const { m, tab, owner } = await nativeTab()
+    await m.setMode(tab.id, 'source')
+    let complete!: (value: unknown) => void
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((command, ...args) => command === 'sumi_source_save'
+      ? new Promise(resolve => { complete = resolve }) : command === 'sumi_rebase_draft' ? Promise.resolve({ kind: 'merged', text: 'second local draft plus remote' }) : previous(command, ...args))
+    m.setContent(tab.id, 'first local draft')
+    const save = m.persistMarkdownSnapshot(tab, tab.currentContent)
+    await vi.waitFor(() => expect(complete).toBeDefined())
+    m.setContent(tab.id, 'second local draft')
+    complete({ raw: 'first local draft plus remote', revision: 6 })
+    await save
+    expect(tab.currentContent).toBe('second local draft plus remote')
+    expect(tab.initialContent).toBe('first local draft plus remote')
+    expect(owner.revision).toBe(6)
+    expect(owner.sourceBaseRevision).toBeUndefined()
+    const next = m.persistMarkdownSnapshot(tab, tab.currentContent)
+    await vi.waitFor(() => expect(tauriInvoke).toHaveBeenLastCalledWith('sumi_source_save', expect.objectContaining({ base_revision: 6, raw: 'second local draft plus remote' })))
+    complete({ raw: 'second local draft plus remote', revision: 7 })
+    await next
+    expect(tab.currentContent).toBe('second local draft plus remote')
+    expect(owner.sourceBaseRevision).toBeUndefined()
+  })
+})
+
 describe('file-view save admission', () => {
   it('persists an edit through the tab save boundary and marks the exact draft clean', async () => {
     const fs = await import('./fs'), m = await import('./tabs.svelte')

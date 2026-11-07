@@ -255,6 +255,9 @@ pnpm audit --prod --audit-level=high
 cargo test --manifest-path src-tauri/Cargo.toml canvas_
 cargo test --manifest-path src-tauri/Cargo.toml --test mobile_project_config
 
+# Fixed native writing font; the script is idempotent and verifies the pinned hash.
+python3 "$ROOT/scripts/prepare-sumi-font.py"
+
 # ---------- bump versions ----------
 
 say "bumping versions to $VERSION"

@@ -11,7 +11,7 @@ vi.mock('../settings.svelte', () => ({ settings: {}, pushRecentFile: async () =>
 vi.mock('../plugins/custom-editors', () => ({ customEditorFor: () => null }))
 vi.mock('../plugins/runtime.svelte', () => ({ pluginRuntime: { manifests: [] } }))
 vi.mock('../file-watcher.svelte', () => ({ startWatchingTab: async () => {}, stopWatchingTab: async () => {}, rebindTabPath: async () => {} }))
-vi.mock('../file-editor-sessions', () => ({ fileEditorSession: () => undefined, captureFileSave: () => undefined, acknowledgeFileSave: () => {}, closeFileEditorSession: () => {} }))
+vi.mock('../file-editor-sessions', () => ({ fileSourceGuard: () => undefined, fileEditorSession: () => undefined, captureFileSave: () => undefined, acknowledgeFileSave: () => {}, closeFileEditorSession: () => {} }))
 vi.mock('../mdblock/auto-refresh', () => ({ maybeAutoRefresh: async () => {} }))
 vi.mock('../platform.svelte', () => ({ platform: async () => 'macos' }))
 vi.mock('../sotvault.svelte', () => ({ sourceForVaultPath: () => null, maybeCheckVaultUpdate: async () => {}, pushSourceToVaultIfTracked: async () => {} }))

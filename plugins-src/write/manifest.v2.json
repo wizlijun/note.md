@@ -1,0 +1,84 @@
+{
+  "manifest_version": 2,
+  "id": "notemd.sumi",
+  "name": "Sumi",
+  "version": "0.1.0",
+  "kind": "native",
+  "engines": {
+    "notemd": ">=6.1108.1"
+  },
+  "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+  "ui": "ui/",
+  "activation": {
+    "events": [
+      "onCommand:open"
+    ]
+  },
+  "contributes": {
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "experience",
+        "label": "Open Sumi",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Sumi",
+        "width": 960,
+        "height": 720,
+        "resizable": false,
+        "open_command": "open"
+      }
+    ],
+    "file_views": [
+      {
+        "id": "writing",
+        "entry": "index.html",
+        "surface": "native-editor",
+        "icon": "book",
+        "open_command": "read-writing",
+        "priority": 100,
+        "selectors": [
+          {
+            "file_extensions": [
+              "md"
+            ],
+            "frontmatter": {
+              "type": [
+                "Writing Page"
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "tray": [
+      {
+        "window": "main",
+        "label": "Sumi",
+        "section": "capture"
+      }
+    ]
+  },
+  "capabilities": [
+    "editor.native",
+    "editor.write",
+    "editor.open",
+    "vault.read",
+    "vault.write",
+    "editor.kit"
+  ],
+  "i18n": {
+    "zh": {
+      "name": "Sumi",
+      "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+      "menus": {
+        "open": "打开 Sumi"
+      }
+    }
+  }
+}

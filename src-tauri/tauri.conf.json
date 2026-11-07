@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "note.md",
   "mainBinaryName": "notemd",
-  "version": "6.1107.4",
+  "version": "6.1108.1",
   "identifier": "net.notemd.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -43,7 +43,8 @@
       "icons/icon.png"
     ],
     "resources": [
-      "resources/themes/**/*"
+      "resources/themes/**/*",
+      "resources/sumi/*"
     ],
     "category": "DeveloperTool",
     "createUpdaterArtifacts": true,

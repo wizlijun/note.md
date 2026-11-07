@@ -7,6 +7,11 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi: a quiet native writing space for macOS.** Open a fixed writing window or fullscreen, with a retro English/Chinese typewriter font, simple themes, and native writing tabs for dedicated Markdown pages.
+- **Keep writing across devices and offline.** Sumi stores Markdown with companion line-time snapshots, retains first-written and last-edited times, and merges concurrent edits through its dedicated sync service. Pair devices with a short-lived invitation; credentials stay in Keychain.
+- **Recover and export writing without losing the originals.** Restore copied or incomplete writing files as new pages, preserve verified line times, and export plain Markdown or a matched Markdown/metadata archive.
+
+
 
 
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.

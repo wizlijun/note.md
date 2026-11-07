@@ -7,6 +7,9 @@
   import BaseView from './BaseView.svelte'
   import CustomEditorIframe from './CustomEditorIframe.svelte'
   import FilePluginView from './FilePluginView.svelte'
+  import NativeFileView from './NativeFileView.svelte'
+  import { sumiOwner, sumiSurfaceVersion } from '../lib/sumi/session'
+  import { prepareFileViewTransition } from '../lib/tabs.svelte'
   import {
     fallbackFileView,
     fileViewPresentation,
@@ -39,6 +42,17 @@
   let readyFile = $state<{ id: string; session: FileMountSession }>()
   let fileSession = $derived(readyFile?.id === tab.id ? readyFile.session : undefined)
   let useFileOwner = $derived(tab.kind === 'markdown' && !memoryReadOnly && !presentation.active)
+  let nativeHandoff = $derived.by(() => {
+    void $sumiSurfaceVersion
+    return sumiOwner(tab.id)?.editor === 'native' && fileView?.surface !== 'native-editor'
+  })
+  let nativeHandoffError = $state('')
+  $effect(() => {
+    if (!nativeHandoff) { nativeHandoffError = ''; return }
+    let cancelled = false
+    void prepareFileViewTransition(tab.id).catch(error => { if (!cancelled) nativeHandoffError = String(error) })
+    return () => { cancelled = true }
+  })
 
   // A selected file view that became unavailable falls back to Rich and does
   // not silently jump to a different matching plugin.
@@ -202,6 +216,8 @@
     {#key tab.id}
       <CustomEditorIframe {tab} />
     {/key}
+  {:else if nativeHandoff}
+    <div class="native-handoff" role="status">{nativeHandoffError || '正在保存并切换 Sumi 编辑器…'}</div>
   {:else if useFileOwner}
     {#key tab.id}
       <div class="file-rich-container" class:file-hidden={tab.mode !== 'rich'}>
@@ -225,7 +241,11 @@
       />
     {/key}
   {:else if fileView}
-    {#if isBuiltinOutlineFileView(fileView)}
+    {#if fileView.surface === 'native-editor'}
+      {#key `${tab.id}:${tab.filePath}:${fileView.pluginId}:${fileView.viewId}:${presentation.attempt}`}
+        <NativeFileView {tab} view={fileView} />
+      {/key}
+    {:else if isBuiltinOutlineFileView(fileView)}
       {#key tab.id}<OutlineEditor {tab} />{/key}
     {:else}
       {#key `${tab.id}:${fileView.pluginId}:${fileView.viewId}:${fileView.entry}:${presentation.attempt}`}

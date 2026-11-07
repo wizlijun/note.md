@@ -4,6 +4,7 @@ import { sanitizeFileName } from './slug'
 // @tauri-apps/plugin-store at the top level, which would break pure vitest
 // runs. `paths.ts` is dependency-free and re-exports the same `dirname`.
 import { joinPath, dirname as dirOf } from '../paths'
+import { isSumiProjection } from '../sumi/files'
 
 export interface RenameOp { from: string; to: string }
 export interface RenamePlan { ops: RenameOp[] }
@@ -18,6 +19,8 @@ const NOTE_SUFFIX_RE = /\.notes?\.md$/i
  * siblings 为该目录现有文件名列表(含被改文件)。
  */
 export function planRename(oldPath: string, newNameRaw: string, siblings: string[]): RenamePlan | null {
+  // A generic filesystem rename cannot update the Sumi catalog or its live writer.
+  if (isSumiProjection(oldPath) || isSumiProjection(newNameRaw)) return null
   const dir = dirOf(oldPath)
   const oldName = dir === '/' ? oldPath.slice(1) : oldPath.slice(dir.length + 1)
   const newName = sanitizeFileName(newNameRaw)

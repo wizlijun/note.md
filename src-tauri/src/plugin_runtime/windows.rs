@@ -358,7 +358,7 @@ pub fn open_plugin_window<R: Runtime>(
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::CustomProtocol(url))
         .title(title)
         .inner_size(win.width, win.height)
-        .resizable(true)
+        .resizable(win.resizable)
         .decorations(crate::platform::window_decorations())
         // macOS normally spends the first click only activating an inactive
         // window. Plugin controls must respond on that click, like native

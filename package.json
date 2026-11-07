@@ -1,11 +1,11 @@
 {
   "name": "notemd",
-  "version": "6.1107.4",
+  "version": "6.1108.1",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-share-merge-purity.mjs && node scripts/build-share-editor.mjs && vite build && node scripts/check-editor-kit-build.mjs && node scripts/check-share-editor-build.mjs",
+    "build": "python3 scripts/prepare-sumi-font.py && node scripts/check-share-merge-purity.mjs && node scripts/build-share-editor.mjs && vite build && node scripts/check-editor-kit-build.mjs && node scripts/check-share-editor-build.mjs",
     "check:share-merge": "node scripts/check-share-merge-purity.mjs",
     "check:editor-kit": "node scripts/check-editor-kit-build.mjs",
     "preview": "vite preview",

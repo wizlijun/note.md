@@ -8,6 +8,7 @@ import { isIOS } from './platform.svelte'
 import { fileViewPresentation } from './plugins/file-view-presentation.svelte'
 import { isBuiltinOutlineFileView } from './plugins/builtin-file-views'
 import { pluginRuntime } from './plugins/runtime.svelte'
+import { sumiOwner } from './sumi/session'
 
 /**
  * Visit every open tab, compare its known state to disk, and apply the
@@ -177,6 +178,14 @@ function applyDecision(
       return
     case 'autoReload': {
       const s = decision.snapshot
+      // A Sumi tab is only a projection of write-core. Updating these bytes
+      // alone would leave its native/CRDT baseline and line metadata behind.
+      if (sumiOwner(tab.id) || tab.filePath.endsWith('.writing.md')) {
+        tab.pendingExternal = s
+        tab.externalState = 'changed'
+        tab.externalBannerDismissed = false
+        return
+      }
       const wasDeleted = tab.externalState === 'deleted'
       const oldContent = tab.initialContent
       tab.initialContent = s.content

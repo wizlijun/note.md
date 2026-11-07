@@ -441,6 +441,8 @@ async fn prepare_plugin_window_replacement(
     app: &tauri::AppHandle,
     plugin_id: &str,
 ) -> Result<(super::windows::PluginWindowReplacement, usize), String> {
+    #[cfg(not(target_os = "ios"))]
+    if plugin_id == "notemd.sumi" { crate::sumi::cleanup_plugin(app).await?; }
     let old_plugins = super::STATE
         .read()
         .map_err(|_| "plugin state lock poisoned".to_string())?

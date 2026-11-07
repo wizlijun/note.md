@@ -378,6 +378,15 @@ pub async fn dispatch<R: tauri::Runtime>(
         };
     }
 
+    #[cfg(not(target_os = "ios"))]
+    if req.method.starts_with("host.sumi.") {
+        if let Some(denial) = capability_denial(&req.method, capabilities, req.id) { return denial; }
+        return match crate::sumi::dispatch(app, plugin_id, &req.method, &req.params).await {
+            Ok(value) => ok(req.id, value),
+            Err(detail) => err(req.id, proto::ERR_INTERNAL, detail),
+        };
+    }
+
     if req.method.starts_with("host.quickLaunch.") {
         if let Some(denial) = capability_denial(&req.method, capabilities, req.id) {
             return denial;

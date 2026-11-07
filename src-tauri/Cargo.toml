@@ -1,6 +1,6 @@
 [package]
 name = "notemd"
-version = "6.1107.4"
+version = "6.1108.1"
 edition = "2021"
 
 [lib]
@@ -10,6 +10,10 @@ edition = "2021"
 # `gen/apple/build-rust.sh` names the archive, and it moved with this.
 name = "notemd_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+# Isolated macOS GUI acceptance only; app_dirs rejects release builds.
+sumi-acceptance = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -32,6 +36,11 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tokio = { version = "1", features = ["time", "process", "io-util", "macros", "rt-multi-thread", "sync", "net"] }
 plugin-protocol = { path = "../plugin-protocol" }
+write-core = { path = "../write-core" }
+tauri-plugin-native-editor = { path = "../tauri-plugin-native-editor" }
+rusqlite = { version = "0.40", features = ["bundled"] }
+base64 = "0.22.1"
+tokio-tungstenite = { version = "=0.28.0", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 # Platform-independent search core. Everything about *how* the vault is scanned,
 # tokenized, stored and ranked lives there so that this crate's Tauri commands,
 # the CLI and the watcher are three adapters over one algorithm — see
@@ -45,6 +54,7 @@ ignore = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+html5ever = "=0.38.0"
 lightningcss = "1.0.0-alpha.66"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 tempfile = "3.13"
@@ -67,7 +77,7 @@ minisign-verify = "0.2"
 # cli/builtin.rs compare an index version against the installed one.
 semver = "1"
 futures-util = "0.3"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "brotli", "gzip"] }
 url = "2"
 urlencoding = "2"
 rand = "0.8"
@@ -94,6 +104,7 @@ tauri-plugin-window-state = "2"
 tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "=3.7.0"
 core-foundation = "0.10"
 # Host-side CoreLocation for the `host.location.get` plugin API (pos-log etc.).
 objc2 = "0.6"

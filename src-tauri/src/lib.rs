@@ -33,6 +33,8 @@ pub mod plugin_host;
 pub mod knowledge_structure;
 pub mod plugin_runtime;
 #[cfg(not(target_os = "ios"))]
+pub mod sumi;
+#[cfg(not(target_os = "ios"))]
 pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
@@ -377,6 +379,26 @@ fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+// Sumi Source drafts live in the WebView until explicitly flushed. The native
+// exit hook waits for that handoff before draining the durable worker.
+#[cfg(not(target_os = "ios"))]
+static SUMI_EXIT_READY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(not(target_os = "ios"))]
+static SUMI_EXIT_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(not(target_os = "ios"))]
+static SUMI_EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+async fn finish_sumi_exit(app: tauri::AppHandle, window: tauri::WebviewWindow, ready: bool) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+    if window.label() != "main" || !SUMI_EXIT_PENDING.load(Ordering::SeqCst) { return Err("no pending Sumi exit".into()); }
+    if !ready { SUMI_EXIT_PENDING.store(false,Ordering::SeqCst); return Ok(()); }
+    if let Err(error)=sumi::before_exit(&app).await {SUMI_EXIT_PENDING.store(false,Ordering::SeqCst);return Err(error);}
+    SUMI_EXIT_READY.store(true,Ordering::SeqCst);
+    app.exit(SUMI_EXIT_CODE.load(Ordering::SeqCst));
+    Ok(())
 }
 
 /// Whether an `ExitRequested` with this code should be prevented (i.e. the app
@@ -1521,6 +1543,7 @@ pub fn run() {
     #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_deep_link::init());
     let app = builder
+        .plugin(tauri_plugin_native_editor::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1605,8 +1628,14 @@ pub fn run() {
         .invoke_handler({
             #[cfg(not(target_os = "ios"))]
             { tauri::generate_handler![
+                sumi::sumi_state, sumi::sumi_open_path, sumi::sumi_mount,
+                sumi::sumi_restore_projection,
+                sumi::sumi_recovery_probe, sumi::sumi_recover_new,
+                sumi::sumi_flush, sumi::sumi_detach, sumi::sumi_close, sumi::sumi_source_save,
+                sumi::sumi_bounds, sumi::sumi_visible, sumi::sumi_focus, sumi::sumi_rebase_draft,
                 platform::desktop_capabilities,
                 quit_app,
+                finish_sumi_exit,
                 drain_pending_files,
                 canvas_document::canvas_document_open,
                 canvas_document::canvas_document_probe,
@@ -1755,6 +1784,8 @@ pub fn run() {
             ] }
         })
         .setup(|app| {
+            #[cfg(feature = "sumi-acceptance")]
+            app_dirs::validate_acceptance(app.handle())?;
             log_bus::init(app.handle().clone());
 
             #[cfg(not(target_os = "ios"))]
@@ -2100,13 +2131,26 @@ pub fn run() {
                     WindowEvent::Focused(focused) => {
                         let changed = app_handle.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().focus(label, *focused);
                         if changed { rebuild_menu(app_handle); }
+                        if *focused {
+                            let app=app_handle.clone(); let label=label.clone();
+                            tauri::async_runtime::spawn(async move { if let Err(error)=sumi::resume_window(&app,&label).await { let _=app.emit("sumi-lifecycle-error",error); } });
+                        }
                     }
                     WindowEvent::CloseRequested { api, .. } => {
                         dlog(&format!("WindowEvent CloseRequested on {}", label));
                         api.prevent_close();
-                        if let Some(w) = app_handle.get_webview_window(label) {
-                            let _ = w.hide();
+                        #[cfg(not(target_os = "ios"))]
+                        {
+                            let app=app_handle.clone(); let label=label.clone();
+                            tauri::async_runtime::spawn(async move {
+                                match sumi::before_close(&app,&label).await {
+                                    Ok(())=>{if let Some(w)=app.get_webview_window(&label){let _=w.hide();}},
+                                    Err(error)=>{let _=app.emit("sumi-lifecycle-error",error);if let Some(w)=app.get_webview_window(&label){let _=w.show();let _=w.set_focus();}}
+                                }
+                            });
                         }
+                        #[cfg(target_os = "ios")]
+                        if let Some(w)=app_handle.get_webview_window(label){let _=w.hide();}
                     }
                     WindowEvent::Destroyed => {
                         dlog(&format!("WindowEvent Destroyed on {}", label));
@@ -2121,6 +2165,14 @@ pub fn run() {
                 // quit_app → app.exit(0), code Some) must proceed.
                 if should_prevent_exit(code) {
                     api.prevent_exit();
+                } else if sumi::has_sessions() && !SUMI_EXIT_READY.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_exit();
+                    SUMI_EXIT_CODE.store(code.unwrap_or(0),std::sync::atomic::Ordering::SeqCst);
+                    if !SUMI_EXIT_PENDING.swap(true,std::sync::atomic::Ordering::SeqCst) {
+                        if app_handle.emit_to("main","sumi-before-exit",()).is_err() {
+                            SUMI_EXIT_PENDING.store(false,std::sync::atomic::Ordering::SeqCst);
+                        }
+                    }
                 }
             }
             RunEvent::Exit => dlog("RunEvent::Exit"),

@@ -238,6 +238,21 @@ describe('verifyAllOpen', () => {
     expect(t.lastKnownMtime).toBe(2000)
   })
 
+  it('stages external Sumi bytes even when its source projection appears clean', async () => {
+    const fs = await import('./fs')
+    vi.mocked(fs.readMd).mockResolvedValueOnce('A').mockResolvedValueOnce('B')
+    vi.mocked(fs.statFile).mockResolvedValueOnce({ mtime: 1000, size: 1 }).mockResolvedValueOnce({ mtime: 2000, size: 1 })
+    const tabs = await import('./tabs.svelte')
+    const watcher = await import('./file-watcher.svelte')
+    await tabs.openFile('/tmp/page.writing.md')
+    await tabs.setMode(tabs.tabs[0].id, 'source')
+    await watcher.verifyAllOpen()
+    expect(tabs.tabs[0].currentContent).toBe('A')
+    expect(tabs.tabs[0].initialContent).toBe('A')
+    expect(tabs.tabs[0].pendingExternal?.content).toBe('B')
+    expect(tabs.tabs[0].externalState).toBe('changed')
+  })
+
   it('rich-mode clean tab + external modify → changed (banner), no silent reload', async () => {
     // Regression: previously rich-mode tabs hit the autoReload fast-path,
     // which left the ProseMirror view stale while tab.currentContent was

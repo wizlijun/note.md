@@ -45,6 +45,7 @@ vi.mock('./BaseView.svelte', () => editorProbe('base-editor-probe'))
 vi.mock('./HtmlPreview.svelte', () => editorProbe('html-preview-probe'))
 vi.mock('./outline/OutlineEditor.svelte', () => editorProbe('outline-editor-probe'))
 vi.mock('./CustomEditorIframe.svelte', () => editorProbe('custom-editor-probe'))
+vi.mock('./NativeFileView.svelte', () => editorProbe('native-editor-probe'))
 vi.mock('./RichEditor.svelte', async () => {
   const { onDestroy } = await import('svelte')
   return { default: (anchor: Comment, props: { tab: Tab; readOnly?: boolean; wrapAsCodeBlock?: string; onFlush?: (content: string) => void }) => {
@@ -103,6 +104,23 @@ describe('EditorPane file view routing', () => {
     await tick()
     return store
   }
+
+  it('routes a capability-gated native view without mounting a competing Web editor', async () => {
+    pluginRuntime.manifests = [{
+      id: 'notemd.sumi', name: 'Sumi', version: '0.1.0', binary: '', host_capabilities: ['editor.native', 'editor.write'],
+      file_views: [{ id: 'writing', surface: 'native-editor', selectors: [{ file_name_patterns: ['*.writing.md'] }], entry: 'index.html' }],
+    }]
+    const state = writable({ id: 'timeline-tab', filePath: '/vault/page.writing.md', title: 'page.writing.md', currentContent: 'text', initialContent: 'text', kind: 'markdown', mode: 'rich' } as Tab)
+    const tab = fromStore(state)
+    component = mount(EditorPane, { target: document.body, props: { get tab() { return tab.current } } })
+    await tick()
+    expect(document.querySelector('.native-editor-probe')).not.toBeNull()
+    expect(document.querySelector('iframe, .rich-editor-probe, .source-editor-probe')).toBeNull()
+    state.update(value => ({ ...value, mode: 'source' }))
+    await tick()
+    expect(document.querySelector('.native-editor-probe')).toBeNull()
+    expect(document.querySelector('.source-editor-probe')).not.toBeNull()
+  })
 
   it('keeps Timeline a Markdown document and lets source mode take priority', async () => {
     const store = await setup()

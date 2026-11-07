@@ -3,6 +3,11 @@ import { describe, it, expect } from 'vitest'
 import { planRename } from './rename-pair'
 
 describe('planRename', () => {
+  it('does not split a managed writing pair or silently turn an ordinary note into one', () => {
+    expect(planRename('/d/a.writing.md', 'b.writing.md', ['a.writing.md', 'a.writing.meta.json'])).toBeNull()
+    expect(planRename('/d/a.writing.meta.json', 'b.json', ['a.writing.meta.json'])).toBeNull()
+    expect(planRename('/d/a.md', 'b.writing.md', ['a.md'])).toBeNull()
+  })
   it('renaming xxx.md pairs its companion (new suffix)', () => {
     const plan = planRename('/d/a.md', 'b.md', ['a.md', 'a.note.md', 'z.md'])
     expect(plan).toEqual({

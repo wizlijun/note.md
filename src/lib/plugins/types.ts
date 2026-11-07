@@ -12,6 +12,7 @@ export type Capability =
   | 'dialog'
   | 'editor.open'
   | 'editor.write'
+  | 'editor.native'
 
 export type SettingsField =
   | { key: string; type: 'string'; label: string; default?: string; placeholder?: string }

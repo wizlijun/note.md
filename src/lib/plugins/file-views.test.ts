@@ -18,6 +18,17 @@ const expected = { pluginId: 'notemd.timeline', viewId: 'timeline', entry: 'inde
 const matchSelector = (selector: FileViewSelector, document = doc()) => fileViewFor(document, [manifest([view({ selectors: [selector] })])])
 
 describe('fileViewFor matching', () => {
+  it('only selects native surfaces with both permissions and rejects unknown surface declarations', () => {
+    const native = view({ surface: 'native-editor' })
+    for (const capabilities of [[], ['editor.native'], ['editor.write']] as PluginManifest['host_capabilities'][]) {
+      expect(fileViewFor(doc(), [{ ...manifest([native]), host_capabilities: capabilities }])).toBeNull()
+    }
+    expect(fileViewFor(doc(), [{ ...manifest([native]), host_capabilities: ['editor.native', 'editor.write'] }]))
+      .toEqual({ ...expected, surface: 'native-editor' })
+    for (const surface of [null, false, 'qt', 'native']) expect(isValidFileView({ ...native, surface })).toBe(false)
+    expect(isValidFileView({ ...native, surface: 'webview' })).toBe(true)
+  })
+
   it('routes the timeline manifest without changing the host document', () => {
     const document = doc()
     expect(fileViewFor(document, [manifest()])).toEqual(expected)

@@ -212,6 +212,9 @@ pub mod ipc {
     /// 不属于 config 目录),macOS 无此变量,回落 App Support。
     #[cfg(unix)]
     pub fn endpoint() -> io::Result<PathBuf> {
+        #[cfg(feature = "sumi-acceptance")]
+        let base = dirs::config_dir().map(|d|d.join(crate::app_dirs::BUNDLE_ID)).ok_or_else(||io::Error::other("no acceptance config dir"))?;
+        #[cfg(not(feature = "sumi-acceptance"))]
         let base = std::env::var_os("XDG_RUNTIME_DIR")
             .map(PathBuf::from)
             .map(|d| d.join("notemd"))
