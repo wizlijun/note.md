@@ -1,0 +1,25 @@
+[package]
+name = "tauri-plugin-native-editor"
+version = "0.1.0"
+edition = "2021"
+links = "sumi_native_editor"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", default-features = false }
+tokio = { version = "1", features = ["sync"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", default-features = false, features = ["wry"] }
+
+[build-dependencies]
+cc = "1"
+
+[features]
+probe = ["tauri/wry"]
+
+[[example]]
+name = "native-probe"
+path = "examples/probe/main.rs"
+required-features = ["probe"]
