@@ -1,0 +1,32 @@
+[package]
+name = "write-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+yrs = { version = "=0.24.0", features = ["sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+thiserror = "2"
+unicode-segmentation = "1.13"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+pulldown-cmark = "0.13"
+similar = { version = "=2.7.0", features = ["unicode"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false

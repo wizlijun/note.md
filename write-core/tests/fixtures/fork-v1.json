@@ -1,0 +1,27 @@
+{
+  "expected": {
+    "body": "Ioriginal\ntext",
+    "epoch": 1,
+    "lines": [
+      {
+        "first_ms": 10,
+        "id": "eecb454a-84de-473a-a427-144851f52b5f",
+        "last_ms": 20,
+        "text": "Ioriginal",
+        "time_source": "mixed"
+      },
+      {
+        "first_ms": 10,
+        "id": "fb00549b-811d-40f1-98d1-2f9fa4ed8fca",
+        "last_ms": 10,
+        "text": "text",
+        "time_source": "device"
+      }
+    ],
+    "page_id": "80560b45-622d-47e2-a34e-38f9fa0d6b49",
+    "revision": 0,
+    "root_line_id": "eecb454a-84de-473a-a427-144851f52b5f"
+  },
+  "full": "AQoCACgBBHBhZ2UGc2NoZW1hAX0BKAEEcGFnZQdwYWdlX2lkAXckODA1NjBiNDUtNjIyZC00N2UyLWEzNGUtMzhmOWZhMGQ2YjQ5KAEEcGFnZQVlcG9jaAF9ASgBBHBhZ2UMcm9vdF9saW5lX2lkAXckZWVjYjQ1NGEtODRkZS00NzNhLWE0MjctMTQ0ODUxZjUyYjVmBAEEYm9keQlJb3JpZ2luYWyGAgwMbmV4dF9saW5lX2lkJiJmYjAwNTQ5Yi04MTFkLTQwZjEtOThkMS0yZjlmYTRlZDhmY2EihAINAQqGAg4MbmV4dF9saW5lX2lkBG51bGyEAg8EdGV4dCgBBnRpbWluZyQ3NzljMjkzYi04ZDY2LTQxZmYtOGQwNC02M2I4YjQ2NTZiOGIBd3ZbMSwwLDAsW1siQUFJRUFBPT0iLCJBQUlNUVE9PSIsMTAsZmFsc2UsW1syLDQsMTNdXSwyMCwzXSxbIkFBSVFBQT09IiwiQUFJVFFRPT0iLDEwLGZhbHNlLFtbMiwxNiwxOV0sWzIsMTksMjBdXSwxMCwxXV1dAA==",
+  "pageId": "80560b45-622d-47e2-a34e-38f9fa0d6b49"
+}
