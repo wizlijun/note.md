@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Zoom and move diagrams in Rich mode.** Scroll inside Mermaid and Graphviz previews to zoom, then drag or use direction buttons to move; restore 100% or fit the whole diagram. Tall diagrams leave space outside the viewer for page scrolling, and copying keeps the complete image. View state survives tab switches within an open document without changing Markdown. The macOS pinch adapter still requires physical-input verification in the target WKWebView before release.
+
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.
 
 - **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.

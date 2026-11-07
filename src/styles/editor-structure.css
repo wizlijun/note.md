@@ -110,6 +110,79 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* Interactive previews always reserve their toolbar row, even with the
+   visibility preference off. Wrapping is based on the actual editor width. */
+.moraya-editor .diagram-interactive > .code-block-toolbar {
+  position: static;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 28px;
+  box-sizing: border-box;
+}
+.moraya-editor .diagram-interactive .code-toolbar-right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  margin-left: auto;
+}
+.moraya-editor .diagram-interactive:is(:focus-within, .diagram-gesture-active) > .code-block-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+.moraya-editor .diagram-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding-right: 6px;
+  margin-right: 4px;
+  border-right: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+}
+.moraya-editor .diagram-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: GrayText;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.moraya-editor .diagram-control:enabled:hover {
+  background: color-mix(in srgb, CanvasText 12%, transparent);
+  color: CanvasText;
+}
+.moraya-editor .diagram-control:disabled {
+  opacity: .35;
+  cursor: default;
+}
+.moraya-editor .diagram-control[hidden] { display: none; }
+.moraya-editor .diagram-zoom-reset { min-width: 44px; }
+.moraya-editor .diagram-interactive :is(.diagram-control, .code-copy-btn, .mermaid-toggle-btn, .code-lang-label):focus-visible,
+.moraya-editor .diagram-viewport:focus-visible {
+  outline: 2px solid Highlight;
+  outline-offset: 2px;
+}
+.moraya-editor .diagram-viewport {
+  /* An explicit page-scroll lane remains outside each side of the viewport. */
+  width: auto;
+  margin-inline: 24px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+.moraya-editor .diagram-interactive :is(.mermaid-preview, .renderer-preview) {
+  padding: 0;
+  min-height: 0;
+  cursor: inherit;
+}
 .moraya-editor .code-lang-label {
   cursor: pointer;
   padding: 1px 5px;

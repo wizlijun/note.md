@@ -1,0 +1,107 @@
+{
+  "coreCommit": "aac4cde2dc2b98dafa42015b8934c13eb0aa739d",
+  "coreDistFiles": 67,
+  "coreSetupSha256": "6b0dbdd010cba6d55be3aef32669c74cb7efb8cd8e0c32294ca8bd6cbebb9e03",
+  "coreTests": {
+    "files": 75,
+    "tests": 1731
+  },
+  "hostFullTestsBeforeTopAlignment": {
+    "files": 416,
+    "tests": 5453
+  },
+  "hostTargetedAfterTopAlignment": {
+    "files": 5,
+    "tests": 35
+  },
+  "typecheck": {
+    "errors": 0,
+    "existingWarnings": 31
+  },
+  "productionBuild": "PASS: Pele, Editor Kit and share resource checks",
+  "browserBeforeTopAlignment": {
+    "status": "PASS",
+    "cases": [
+      "real file-backed RichEditor: Pele + Graphviz + long diagram opt in; ordinary code unchanged",
+      "plain wheel directly zooms only the hit diagram about pointer center; block and page stay stable",
+      "synthetic wheel transaction boundary: diagram tail consumed outside, page sequence not stolen inside, noncancelable events do not double-transform",
+      "400% endpoint consumes wheel; arrow key, pointer button and drag pan without source toggle",
+      "synthetic native-gesture branch uses relative start scale; zero key restores 100%",
+      "SVG href/xlink single click opens once through host; dragging a link never opens or edits",
+      "code and copy buttons activate with Enter/Space once; unchanged source roundtrip retains scale",
+      "PNG copies full original size at 100% and 400%, including SVG without viewBox",
+      "long graph has bounded viewport and fit shows the whole graph below 50%",
+      "24px outside-diagram gutter allows independent page scrolling after wheel idle",
+      "diagram focus protects document from formatting/deletion/input; Escape returns near diagram",
+      "all viewing gestures preserve raw bytes, source revision, owner generation and history",
+      "unrelated edit/undo, theme rerender and file-backed detach/reattach retain per-block scale",
+      "actual 390px panel, dark theme, wrapped controls and hidden-toolbar focus visibility without layout shifts",
+      "read-only file still supports viewing and rejects editing",
+      "closing and reopening the document starts fresh view state",
+      "compatibility RichEditor mounting path also enables viewing without changing Markdown"
+    ],
+    "errors": [],
+    "screenshotWarnings": [],
+    "nativeHardware": "NOT TESTED — Chromium automation does not establish physical WKWebView input behavior",
+    "browser": "140.0.7339.16",
+    "copy": {
+      "viewBox": {
+        "width": 1024,
+        "height": 88
+      },
+      "withoutViewBox": {
+        "width": 1365,
+        "height": 117
+      }
+    }
+  },
+  "finalVisualChecks": {
+    "status": "PASS",
+    "page": "fresh fixture, original SVG viewBoxes intact",
+    "windowWidth": 1000,
+    "panelWidth": 390,
+    "screenshotRetries": [],
+    "longInitial": {
+      "width": 754,
+      "height": 532,
+      "svgWidth": 109,
+      "svgHeight": 2368,
+      "top": 0,
+      "left": 322.5
+    },
+    "longReset": {
+      "width": 754,
+      "height": 532,
+      "svgWidth": 109,
+      "svgHeight": 2368,
+      "top": 0,
+      "left": 322.5
+    },
+    "longFit": {
+      "width": 754,
+      "height": 532,
+      "svgWidth": 24.4881591796875,
+      "svgHeight": 532,
+      "top": 0,
+      "left": 364.75592041015625
+    },
+    "dotGeometry": {
+      "width": 294,
+      "height": 25.265625,
+      "svgWidth": 294,
+      "svgHeight": 25.265625,
+      "top": 0,
+      "left": 0
+    },
+    "narrowLong": {
+      "width": 294,
+      "height": 513,
+      "svgWidth": 109,
+      "svgHeight": 2368,
+      "top": 0,
+      "left": 92.5
+    }
+  },
+  "releaseStatus": "NOT RELEASED; no installed app replaced",
+  "nativeHardware": "NOT VERIFIED; physical mouse and trackpad in candidate WKWebView remain a release gate"
+}

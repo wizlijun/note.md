@@ -17,6 +17,8 @@
   } from '../lib/mdblock-hover/hover-store.svelte'
   import { settings } from '../lib/settings.svelte'
   import { createImeGuard } from '../lib/ime'
+  import { isDiagramInteractionTarget } from '../lib/diagram-interaction-target'
+  import { diagramViewportFor, followDiagramLink } from '../lib/diagram-links'
   import { t } from '../lib/i18n/store.svelte'
   import { answersStore, loadAnswersFor } from '../lib/note-anno/answers-store.svelte'
   import '../lib/styles/attachment.css'
@@ -423,6 +425,9 @@
    */
   function handleLinkMouseDown(event: MouseEvent) {
     if (event.button !== 0) return
+    // A diagram may be starting a pan. Follow its link only after a completed
+    // click, once the viewer has had a chance to suppress a drag.
+    if (diagramViewportFor(event.target)) return
     const target = event.target as HTMLElement
 
     // 脚注定义前的编号(CSS ::before,画在定义块左侧 padding 里)→ 打开这条来源
@@ -468,6 +473,10 @@
     }
     const href = urlEl ? urlEl.getAttribute('data-url') || '' : anchor!.getAttribute('href') || ''
     void openLink(href, tab.filePath, sotvaultStore.vaultRoot)
+  }
+
+  function handleDiagramLinkClick(event: MouseEvent) {
+    followDiagramLink(event, href => { void openLink(href, tab.filePath, sotvaultStore.vaultRoot) })
   }
 
   /** Open a `[[wikilink]]` target, creating an empty `.md` file if it's missing. */
@@ -670,6 +679,10 @@
     // key that *closes* the composition, which some webviews deliver after
     // `compositionend` with no IME marking left on it. See src/lib/ime.ts.
     if (ime.blocks(event)) return
+
+    // Diagram controls own their keyboard interaction. DOM focus inside a
+    // preview must never run text commands against an earlier body selection.
+    if (isDiagramInteractionTarget(event.target)) return
 
     // ── Slash menu navigation (highest priority) ──
     if (showSlashMenu) {
@@ -1284,7 +1297,7 @@
           const unwrapped = fileBacked ? md : unwrapIfNeeded(md)
           lastSync = unwrapped
           setContent(tabId, unwrapped)
-        }, ime, mediaResolver, readOnly, fileBacked ? { tab, plugins } : undefined)
+        }, ime, mediaResolver, readOnly, fileBacked ? { tab, plugins } : undefined, true)
         if (disposed) { inst.destroy(); return }
         if (fileBacked) {
           fileSession = fileEditorSession(tabId)
@@ -1329,6 +1342,7 @@
         _pmEl?.addEventListener('click', handleNoteClick as EventListener, true)
         _pmEl?.addEventListener('mouseover', handleNoteHover as EventListener)
         _pmEl?.addEventListener('click', handleImageClick as EventListener)
+        _pmEl?.addEventListener('click', handleDiagramLinkClick as EventListener)
         _pmEl?.addEventListener('mousedown', handleLinkMouseDown as EventListener, true)
         _pmEl?.addEventListener('keydown', handleRichKeydown as EventListener, true)
         _pmEl?.addEventListener('input',   checkSlashMenu as EventListener)
@@ -1432,6 +1446,7 @@
     _pmEl?.removeEventListener('click', handleNoteClick as EventListener, true)
     _pmEl?.removeEventListener('mouseover', handleNoteHover as EventListener)
     _pmEl?.removeEventListener('click', handleImageClick as EventListener)
+    _pmEl?.removeEventListener('click', handleDiagramLinkClick as EventListener)
     _pmEl?.removeEventListener('mousedown', handleLinkMouseDown as EventListener, true)
     _pmEl?.removeEventListener('keydown', handleRichKeydown as EventListener, true)
     _pmEl?.removeEventListener('input',   checkSlashMenu as EventListener)

@@ -25,3 +25,24 @@ it('policy rejection retains slash and menu; a stale popup cannot dispatch', asy
   document.querySelectorAll<HTMLElement>('.menu-row')[3].click(); await tick()
   expect(s.owner.snapshot()).toEqual(before)
 })
+
+it('a diagram control keeps Enter when an earlier slash popup is still open', async () => {
+  const s = await open(), before = s.owner.snapshot()
+  const wrapper = document.createElement('div')
+  wrapper.className = 'diagram-interactive'; wrapper.contentEditable = 'false'
+  const toolbar = document.createElement('div'); toolbar.className = 'code-block-toolbar'; toolbar.dataset.diagramInteraction = ''
+  const button = document.createElement('button'); toolbar.append(button); wrapper.append(toolbar)
+  let reachedControl = false
+  button.addEventListener('keydown', event => {
+    reachedControl = !event.defaultPrevented
+    // The real NodeView stops this event before ProseMirror's body keymap.
+    event.stopPropagation()
+  })
+  s.view.dom.append(wrapper)
+  const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+  button.dispatchEvent(event); wrapper.remove()
+  await tick()
+  expect(reachedControl).toBe(true)
+  expect(s.owner.snapshot()).toEqual(before)
+  expect(document.querySelector('.slash-menu')).toBeNull()
+})

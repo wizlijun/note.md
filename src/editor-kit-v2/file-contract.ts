@@ -7,7 +7,7 @@ export type {ObserverDelta} from '../lib/insights/observer'
 
 export type FileAdapters = Pick<CreateEditorOptions,
  'mediaResolver'|'mermaidLoader'|'rendererRegistry'|'linkOpener'|'platform'|'spreadsheetViewFactory'|'frontmatterViewFactory'>
-export type FileRender = Pick<CreateEditorOptions,'enableMath'|'enableMermaid'|'enableImageSelection'>
+export type FileRender = Pick<CreateEditorOptions,'enableMath'|'enableMermaid'|'enableImageSelection'|'diagramInteraction'>
 export type FilePolicy = Readonly<{acceptRawChange(before:string,after:string):boolean}>
 export type FileSlashCommand = 'h1'|'h2'|'h3'|'quote'|'code'|'mermaid'|'math'|'table'|'spreadsheet'|'bullet'|'ordered'|'task'|'hr'|'highlight'|'wikilink'
 export type FileBinding = RootIdRow

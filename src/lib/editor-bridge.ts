@@ -24,6 +24,7 @@ export interface DesktopFileMount {
 import { isApplePlatformSync } from './platform-sync'
 import { guardRichEditor, type ImeGuard } from './ime'
 import { ensureMermaidCssStyleSheetCompatibility } from './mermaid-cssom'
+import { desktopDiagramInteraction } from './diagram-interaction'
 
 const platform = {
   getCurrentFilePath: () => activeTab()?.filePath ?? null,
@@ -83,6 +84,7 @@ export async function mountRichEditor(
   mediaResolver: MediaResolver = tauriMediaResolver,
   readOnly = false,
   file?: DesktopFileMount,
+  enableDiagramInteraction = false,
 ): Promise<MorayaEditorInstance> {
   const capturedBaseDir = requestedDocumentBaseDir
   const previousMount = mountQueue
@@ -106,7 +108,8 @@ export async function mountRichEditor(
             platform: { ...platform, getCurrentFilePath: () => file.tab.filePath || null },
             spreadsheetViewFactory: spreadsheetFactory,
             frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory },
-          render: { enableMath: true, enableMermaid: true, enableImageSelection: true },
+          render: { enableMath: true, enableMermaid: true, enableImageSelection: true,
+            diagramInteraction: enableDiagramInteraction ? desktopDiagramInteraction() : false },
         }, { plugins: file.plugins, onDelta: recordEditorDelta, externalSource: true, imeGuard })
         registerFileEditorSession(file.tab.id, session)
         await session.setMode(file.tab.mode)
@@ -132,6 +135,7 @@ export async function mountRichEditor(
       frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory,
       enableMath: true,
       enableMermaid: true,
+      diagramInteraction: enableDiagramInteraction ? desktopDiagramInteraction() : false,
       mermaidLoader: loadDesktopMermaid,
       enableTableResize: true,
       enableImageSelection: true,

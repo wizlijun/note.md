@@ -5,6 +5,7 @@ import { filterSlashItems, getShareSlashItems, type SlashItem } from '../lib/sla
 import type { FileEditorOwner, FileSlashCommand } from './file-contract'
 import type { ImeGuard } from '../lib/ime'
 import { createFileContextMenu } from './file-context-menu'
+import { isDiagramInteractionTarget } from '../lib/diagram-interaction-target'
 
 /** UI only: every file command is admitted atomically by the existing owner. */
 export function createFileMenus(input: {
@@ -48,6 +49,7 @@ export function createFileMenus(input: {
   }
   function keydown(event: KeyboardEvent) {
     if (!captured || ime.blocks(event) || !current()) return
+    if (isDiagramInteractionTarget(event.target)) { closeSlash(); return }
     if (event.key === 'Escape') { event.preventDefault(); closeSlash(); return }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault(); event.stopImmediatePropagation()
