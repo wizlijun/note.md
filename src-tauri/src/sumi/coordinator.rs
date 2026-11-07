@@ -200,9 +200,10 @@ async fn send_pending<R: Runtime>(
     ws: &Arc<Workspace>,
     client: &mut sync::SyncClient,
     socket: Option<&sync::WsSession>,
+    blocked: &HashMap<String,(u64,u64)>,
 ) -> Result<()> {
     let directory_ops = ws.durable.directory_outbox().await?;
-    for op in directory_ops.iter().filter(|o| o.kind == "create") {
+    for op in directory_ops.iter().filter(|o| o.kind == "create" && !blocked.contains_key(&o.page_id)) {
         if socket.is_some_and(|s| s.is_expired()) { return Ok(()); }
         let page = client
             .create_page(
@@ -220,7 +221,7 @@ async fn send_pending<R: Runtime>(
     // Preserve edits made before delete/restore. Advancing lifecycle first would
     // make their older generation impossible to acknowledge or restore later.
     let mut sent = std::collections::HashSet::new();
-    for op in directory_ops.iter().filter(|o| o.kind != "create") {
+    for op in directory_ops.iter().filter(|o| o.kind != "create" && !blocked.contains_key(&o.page_id)) {
         let generation = op.payload["generation"]
             .as_u64()
             .ok_or("invalid lifecycle generation")?;
@@ -240,7 +241,7 @@ async fn send_pending<R: Runtime>(
         ws.durable.acknowledge_directory(op.op_id.clone()).await?;
         directory(app, ws, page).await?;
     }
-    for update in updates.iter().filter(|u| !sent.contains(&u.update.op_id)) {
+    for update in updates.iter().filter(|u| !sent.contains(&u.update.op_id) && !blocked.contains_key(&u.update.page_id)) {
         if socket.is_some_and(|s| s.is_expired()) { return Ok(()); }
         send_one(app, ws, client, update).await?;
     }
@@ -273,12 +274,9 @@ async fn wanted_pages(ws: &Workspace, handle: &Handle, subscribed: &PageVersions
     priority.extend(owned.into_iter().map(|(_,id)|id));
     Ok(select_pages(&ws.durable.list().await?, &priority, subscribed, completed))
 }
-async fn subscription(ws: &Workspace, page: &Entry) -> Result<sync::Subscription> {
-    let vector = match ws.durable.load(page.id.clone()).await {
-        Ok(l) => write_core::Document::restore(&page.id, page.epoch, super::client(), &l.full_state, l.revision).map_err(super::err)?.state_vector(),
-        Err(_) => vec![0],
-    };
-    Ok(sync::Subscription { page_id: page.id.clone(), epoch: page.epoch as u64, state_vector: vector })
+fn subscription(ws: &Workspace, page: &Entry, after: &sync::JournalWatermark) -> Result<sync::Subscription> {
+    let vector=ws.papers.lock().map_err(super::err)?.get(&page.id).map(|p|p.doc.state_vector()).unwrap_or_else(||vec![0]);
+    Ok(sync::Subscription { page_id: page.id.clone(), epoch: page.epoch as u64, state_vector: vector, after:Some(after.clone()) })
 }
 fn subscription_changes(selected: &[Entry], subscribed: &PageVersions) -> (Vec<String>, Vec<Entry>) {
     let wanted: PageVersions = selected.iter().map(|p|(p.id.clone(),versions(p))).collect();
@@ -286,7 +284,7 @@ fn subscription_changes(selected: &[Entry], subscribed: &PageVersions) -> (Vec<S
     let added = selected.iter().filter(|p| subscribed.get(&p.id) != Some(&versions(p))).cloned().collect();
     (removed, added)
 }
-async fn reconcile_subscriptions(ws: &Workspace, socket: &mut sync::WsSession, selected: &[Entry], subscribed: &mut PageVersions) -> Result<()> {
+async fn reconcile_subscriptions(ws: &Workspace, socket: &mut sync::WsSession, selected: &[Entry], subscribed: &mut PageVersions, prefixes: &AppliedPrefixes) -> Result<()> {
     let (removed, added) = subscription_changes(selected,subscribed);
     // Free slots before adding replacements, including same-ID epoch/generation changes.
     for id in removed {
@@ -295,7 +293,8 @@ async fn reconcile_subscriptions(ws: &Workspace, socket: &mut sync::WsSession, s
     }
     for page in added {
         if socket.is_expired() { return Ok(()); }
-        socket.subscribe(&subscription(ws,&page).await?).await.map_err(super::err)?;
+        let after=prefixes.ready.get(&page.id).ok_or("missing applied journal prefix")?;
+        socket.subscribe(&subscription(ws,&page,after)?).await.map_err(super::err)?;
         subscribed.insert(page.id.clone(),versions(&page));
     }
     Ok(())
@@ -332,12 +331,7 @@ async fn incoming<R: Runtime>(
         sync::ServerEvent::Snapshot(snapshot) => {
             let page = snapshot.page.clone();
             directory(app, ws, page.clone()).await?;
-            let id = format!(
-                "snapshot:{}:{}:{}",
-                page.id,
-                page.generation,
-                storage::sha256(&snapshot.update)
-            );
+            let id = snapshot_op(&snapshot);
             super::integrate_remote(
                 app,
                 ws,
@@ -361,20 +355,95 @@ async fn incoming<R: Runtime>(
         sync::ServerEvent::Hello { .. } | sync::ServerEvent::Pong => Ok(()),
     }
 }
-async fn command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, profile: &str, client: &mut Option<sync::SyncClient>, command: Command) -> bool {
+#[derive(Clone)]
+struct PrefixProof {
+    receipt: durability::IncomingReceipt,
+    watermark: sync::JournalWatermark,
+    // None proves the complete history. Some(N) proves only the suffix after N.
+    after: Option<u64>,
+}
+#[derive(Default)]
+struct AppliedPrefixes {
+    ready: HashMap<String, sync::JournalWatermark>,
+    pending: Vec<PrefixProof>,
+    blocked: HashMap<String, (u64, u64)>,
+}
+fn same_fence(a: &sync::JournalWatermark, b: &sync::JournalWatermark) -> bool {
+    a.space_id == b.space_id && a.page_id == b.page_id && a.epoch == b.epoch
+        && a.generation == b.generation && a.quarantine_revision == b.quarantine_revision
+}
+fn snapshot_op(snapshot: &sync::Snapshot) -> String {
+    format!("snapshot:{}:{}:{}",snapshot.page.id,snapshot.page.generation,storage::sha256(&snapshot.update))
+}
+impl AppliedPrefixes {
+    fn forget(&mut self, page: &str) {
+        self.ready.remove(page);self.pending.retain(|p|p.watermark.page_id!=page);
+    }
+    fn block(&mut self, page: &str, epoch: u64, generation: u64) { self.forget(page);self.blocked.insert(page.into(),(epoch,generation)); }
+    fn prune(&mut self, space: &str, entries: &[Entry]) {
+        let valid=|w:&sync::JournalWatermark|w.space_id==space && entries.iter().any(|p|p.id==w.page_id && !p.deleted && p.epoch as u64==w.epoch && p.generation==w.generation);
+        self.ready.retain(|_,w|valid(w));self.pending.retain(|p|valid(&p.watermark));
+        self.blocked.retain(|id,fence|entries.iter().any(|p|p.id==*id && !p.deleted && (p.epoch as u64,p.generation)==*fence));
+    }
+    fn pending_page(&self, page: &str) -> bool { self.pending.iter().any(|p|p.watermark.page_id==page) }
+    fn observe(&mut self, proof: Option<PrefixProof>) {
+        let Some(proof)=proof else{return};
+        if self.blocked.contains_key(&proof.watermark.page_id) {return;}
+        if proof.after.is_none() {self.pending.retain(|p|p.watermark.page_id!=proof.watermark.page_id);}
+        // Losing a cache hint only makes the next journal resume conservative;
+        // received text remains in the durable inbox. Never grow without bound.
+        if self.pending.len()<4096 && !self.pending.iter().any(|p|p.receipt.op_id==proof.receipt.op_id && p.watermark==proof.watermark) {self.pending.push(proof);}
+    }
+    fn promote(&mut self, applied: &HashSet<String>) {
+        self.pending.sort_by_key(|p|p.watermark.version);
+        let mut kept=Vec::new();
+        for proof in self.pending.drain(..) {
+            if !applied.contains(&proof.receipt.op_id) {kept.push(proof);continue;}
+            let old=self.ready.get(&proof.watermark.page_id);
+            let compatible=old.is_none_or(|old|same_fence(old,&proof.watermark));
+            let extends=match proof.after {None=>true,Some(after)=>old.is_some_and(|old|old.version>=after)};
+            if compatible && extends {
+                if old.is_none_or(|old|old.version<proof.watermark.version) {self.ready.insert(proof.watermark.page_id.clone(),proof.watermark);}
+            } else {kept.push(proof);}
+        }
+        self.pending=kept;
+    }
+    async fn refresh(&mut self, ws: &Workspace) -> Result<()> {
+        if self.pending.is_empty() {return Ok(());}
+        let receipts=self.pending.iter().map(|p|p.receipt.clone()).collect();
+        let applied=ws.durable.applied_incoming(receipts).await?;self.promote(&applied);Ok(())
+    }
+    fn proof(&self, space: &str, event: &sync::ServerEvent) -> Option<PrefixProof> {
+        let (page,epoch,generation,version,op,after,q)=match event {
+            sync::ServerEvent::Snapshot(s)=>{
+                let after=if s.complete_journal {s.journal_after} else {Some(s.page.version.checked_sub(1)?)};
+                let q=if s.complete_journal {s.quarantine_revision} else {self.ready.get(&s.page.id)?.quarantine_revision};
+                (s.page.id.clone(),s.page.epoch,s.page.generation,s.page.version,snapshot_op(s),after,q)
+            }
+            sync::ServerEvent::Update{page_id,epoch,generation,version,op_id,..}=>{
+                let old=self.ready.get(page_id)?;
+                (page_id.clone(),*epoch,*generation,*version,op_id.clone(),Some(version.checked_sub(1)?),old.quarantine_revision)
+            }
+            _=>return None,
+        };
+        Some(PrefixProof {receipt:durability::IncomingReceipt {op_id:op,page_id:page.clone(),epoch:u32::try_from(epoch).ok()?,generation},watermark:sync::JournalWatermark {space_id:space.into(),page_id:page,epoch,generation,version,quarantine_revision:q},after})
+    }
+}
+struct Bootstrap {
+    page: Entry,
+    space: String,
+    server: String,
+    task: tauri::async_runtime::JoinHandle<std::result::Result<sync::Snapshot,sync::SyncError>>,
+}
+impl Drop for Bootstrap {fn drop(&mut self){self.task.abort();}}
+fn recovery_required(error: &sync::SyncError) -> bool {
+    matches!(error,sync::SyncError::Api{code,..} if code=="journal_changed" || code=="invalid_journal_cursor")
+}
+
+async fn command<R: Runtime>(_app: &tauri::AppHandle<R>, _ws: &Arc<Workspace>, profile: &str, client: &mut Option<sync::SyncClient>, command: Command) -> bool {
     match command {
-        Command::Prepare(page, reply) => {
-            if reply.is_closed() { return false; }
-            let result = async {
-                let c = client.as_mut().ok_or("此页尚未下载，请先连接同步服务")?;
-                send_pending(app, ws, c, None).await?;
-                let entry = ws.durable.list().await?.into_iter().find(|p| p.id == page && !p.deleted).ok_or("纸页不存在或已删除")?;
-                let snapshot = c.snapshot(&page, entry.epoch as u64, &[0]).await.map_err(super::err)?;
-                incoming(app, ws, sync::ServerEvent::Snapshot(snapshot)).await?;
-                ws.durable.load(page).await?;
-                Ok(())
-            }.await;
-            let _ = reply.send(result);
+        Command::Prepare(_, reply) => {
+            let _ = reply.send(Err("此页尚未下载，请先连接同步服务".into()));
             false
         }
         Command::Pair(server, invitation, reply) => {
@@ -413,106 +482,294 @@ async fn command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, pro
         }
     }
 }
-async fn run<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    ws: Arc<Workspace>,
-    handle: Handle,
-    mut receiver: mpsc::Receiver<Command>,
-) {
-    let profile = storage::sha256(ws.root.to_string_lossy().as_bytes());
-    let key = profile.clone();
-    let mut client =
-        match tauri::async_runtime::spawn_blocking(move || credentials::load(&key)).await {
-            Ok(Ok(Some(c))) => sync::SyncClient::new(c).ok(),
-            Ok(Ok(None)) => None,
-            _ => {
-                publish_status(&app, &ws, &handle, false, "无法读取同步凭据，文字保存在本机").await;
-                None
-            }
-        };
-    let mut retry = std::time::Duration::from_secs(1);
-    let mut deferred_command = None;
+const RECOVERY_MESSAGE: &str = "远端日志已隔离或重写，已保留本机草稿；请从恢复入口建立已验证的新纸页";
+#[derive(Default)]
+struct Preparations {
+    waiting: HashMap<String, Vec<oneshot::Sender<Result<()>>>>,
+}
+impl Preparations {
+    fn add(&mut self, page: String, reply: oneshot::Sender<Result<()>>) {
+        self.waiting.values_mut().for_each(|v|v.retain(|r|!r.is_closed()));
+        self.waiting.retain(|_,v|!v.is_empty());
+        if !reply.is_closed() { self.waiting.entry(page).or_default().push(reply); }
+    }
+    fn finish(&mut self, page: &str, result: Result<()>) {
+        for reply in self.waiting.remove(page).unwrap_or_default() {let _=reply.send(result.clone());}
+    }
+    fn resolve(&mut self, prefixes: &AppliedPrefixes, entries: &[Entry]) {
+        for page in self.waiting.keys().cloned().collect::<Vec<_>>() {
+            if prefixes.blocked.contains_key(&page) {self.finish(&page,Err(RECOVERY_MESSAGE.into()));}
+            else if !entries.iter().any(|p|p.id==page && !p.deleted) {self.finish(&page,Err("纸页不存在或已删除".into()));}
+            else if prefixes.ready.contains_key(&page) {self.finish(&page,Ok(()));}
+        }
+    }
+}
+fn queue_preparation(preparations: &mut Preparations, bootstrap: &mut Option<Bootstrap>, page: String, reply: oneshot::Sender<Result<()>>) {
+    if reply.is_closed() {return;}
+    // Foreground work joins its existing task. Only an unrelated unobserved
+    // background transfer is cancelled; at most one HTTP transfer can exist.
+    if bootstrap.as_ref().is_some_and(|b|b.page.id!=page && !preparations.waiting.get(&b.page.id).is_some_and(|v|v.iter().any(|r|!r.is_closed()))) {*bootstrap=None;}
+    preparations.add(page,reply);
+}
+fn bootstrap_matches(bootstrap: &Bootstrap, credentials: &credentials::Credentials, entries: &[Entry]) -> bool {
+    bootstrap.space==credentials.space_id && bootstrap.server==credentials.server_url
+        && entries.iter().any(|p|p.id==bootstrap.page.id && !p.deleted && versions(p)==versions(&bootstrap.page))
+}
+async fn accept_event<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, space: &str, prefixes: &mut AppliedPrefixes, event: sync::ServerEvent) -> Result<()> {
+    super::current(app,ws)?;
+    if let sync::ServerEvent::ResyncRequired{page,..}=&event {
+        prefixes.block(&page.id,page.epoch,page.generation);
+    }
+    if let sync::ServerEvent::Snapshot(snapshot)=&event {
+        if prefixes.blocked.contains_key(&snapshot.page.id) {return Err(RECOVERY_MESSAGE.into());}
+        if snapshot.complete_journal {
+            let old=prefixes.ready.get(&snapshot.page.id);
+            let changed=old.is_some_and(|p|p.quarantine_revision!=snapshot.quarantine_revision);
+            // With no in-process proof, an already persisted document may
+            // contain quarantined operations. Never merge a cleaned full into it.
+            let unproven=old.is_none() && snapshot.quarantine_revision>0
+                && ws.durable.has_document(snapshot.page.id.clone()).await?;
+            if changed || unproven {prefixes.block(&snapshot.page.id,snapshot.page.epoch,snapshot.page.generation);return Err(RECOVERY_MESSAGE.into());}
+        }
+    }
+    if let sync::ServerEvent::Update{page_id,..}=&event {
+        if prefixes.blocked.contains_key(page_id) {return Err(RECOVERY_MESSAGE.into());}
+    }
+    let proof=prefixes.proof(space,&event);
+    incoming(app,ws,event).await?;
+    prefixes.observe(proof);
+    Ok(())
+}
+async fn prepare_bootstrap<R: Runtime>(app:&tauri::AppHandle<R>,ws:&Workspace,client:&sync::SyncClient,handle:&Handle,prefixes:&mut AppliedPrefixes,preparations:&mut Preparations,bootstrap:&mut Option<Bootstrap>,subscribed:&PageVersions)->Result<Vec<Entry>> {
+    super::current(app,ws)?;
+    let entries=ws.durable.list().await?;
+    prefixes.prune(&client.credentials().space_id,&entries);
+    prefixes.refresh(ws).await?;
+    preparations.resolve(prefixes,&entries);
+    if bootstrap.as_ref().is_some_and(|b|!bootstrap_matches(b,client.credentials(),&entries)) {*bootstrap=None;}
+    let completed=prefixes.ready.iter().map(|(id,w)|(id.clone(),(w.epoch as u32,w.generation))).collect();
+    let selected=wanted_pages(ws,handle,subscribed,&completed).await?;
+    if bootstrap.is_none() {
+        if let Some(page)=selected.iter().find(|p|!prefixes.ready.contains_key(&p.id) && !prefixes.pending_page(&p.id) && !prefixes.blocked.contains_key(&p.id)) {
+            let credential=client.credentials().clone();
+            let space=credential.space_id.clone();let server=credential.server_url.clone();let page=page.clone();let target=page.clone();
+            let task=tauri::async_runtime::spawn(async move {
+                let mut client=sync::SyncClient::new(credential)?;
+                tokio::time::timeout(std::time::Duration::from_secs(360),client.snapshot(&target.id,target.epoch as u64,&[0])).await.map_err(|_|sync::SyncError::Timeout)?
+            });
+            *bootstrap=Some(Bootstrap{page,space,server,task});
+        }
+    }
+    Ok(selected.into_iter().filter(|p|prefixes.ready.contains_key(&p.id) && !prefixes.blocked.contains_key(&p.id)).collect())
+}
+
+async fn run<R: Runtime>(app: tauri::AppHandle<R>, ws: Arc<Workspace>, handle: Handle, mut receiver: mpsc::Receiver<Command>) {
+    let profile=storage::sha256(ws.root.to_string_lossy().as_bytes());let key=profile.clone();
+    let mut client=match tauri::async_runtime::spawn_blocking(move||credentials::load(&key)).await {
+        Ok(Ok(Some(c)))=>sync::SyncClient::new(c).ok(),Ok(Ok(None))=>None,
+        _=>{publish_status(&app,&ws,&handle,false,"无法读取同步凭据，文字保存在本机").await;None}
+    };
+    let mut retry=std::time::Duration::from_secs(1);
+    let mut deferred_command=None;
+    let mut prefixes=AppliedPrefixes::default();
+    let mut preparations=Preparations::default();
+    let mut bootstrap:Option<Bootstrap>=None;
+    let mut namespace=None;
+    let mut blocked_space=false;
     loop {
-        if let Some(cmd) = deferred_command.take() {
-            if command(&app,&ws,&profile,&mut client,cmd).await {
-                publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;
+        if super::current(&app,&ws).is_err() { return; }
+        if let Some(cmd)=deferred_command.take() {
+            match cmd {
+                Command::Prepare(page,reply) if client.is_some()=>queue_preparation(&mut preparations,&mut bootstrap,page,reply),
+                cmd=>{if command(&app,&ws,&profile,&mut client,cmd).await {publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;}}
             }
         }
         if client.is_none() {
-            match receiver.recv().await {
-                Some(c) => {
-                    if command(&app, &ws, &profile, &mut client, c).await {
-                        publish_status(&app, &ws, &handle, false, "配对完成，正在连接同步服务").await;
-                    }
-                }
-                None => return,
-            }
+            let Some(cmd)=receiver.recv().await else{return};
+            if command(&app,&ws,&profile,&mut client,cmd).await {publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;}
+            continue;
+        }
+        let credentials=client.as_ref().unwrap().credentials();
+        let next_namespace=(credentials.server_url.clone(),credentials.space_id.clone());
+        if namespace.as_ref()!=Some(&next_namespace) {
+            bootstrap=None;prefixes=AppliedPrefixes::default();blocked_space=false;namespace=Some(next_namespace);
+        }
+        if blocked_space {
+            for page in preparations.waiting.keys().cloned().collect::<Vec<_>>() {preparations.finish(&page,Err(RECOVERY_MESSAGE.into()));}
+            publish_status(&app,&ws,&handle,false,RECOVERY_MESSAGE).await;
+            let Some(cmd)=receiver.recv().await else{return};
+            match cmd {Command::Prepare(_,reply)=>{let _=reply.send(Err(RECOVERY_MESSAGE.into()));},cmd=>{command(&app,&ws,&profile,&mut client,cmd).await;}}
             continue;
         }
         let result=async {
+            super::current(&app,&ws)?;
             let c=client.as_mut().unwrap();
-            // Offline creates must exist before pulling their remote directory and subscribing.
-            send_pending(&app,&ws,c,None).await?;pull_directory(&app,&ws,c).await?;
-            let mut completed = PageVersions::new();
-            let selected = wanted_pages(&ws,&handle,&PageVersions::new(),&completed).await?;
-            let mut initial = Vec::new();
-            for page in &selected { initial.push(subscription(&ws,page).await?); }
-            let mut subscribed: PageVersions = selected.iter().map(|p|(p.id.clone(),versions(p))).collect();
+            send_pending(&app,&ws,c,None,&prefixes.blocked).await?;pull_directory(&app,&ws,c).await?;
+            let selected=prepare_bootstrap(&app,&ws,c,&handle,&mut prefixes,&mut preparations,&mut bootstrap,&PageVersions::new()).await?;
+            let initial=selected.iter().map(|p|subscription(&ws,p,&prefixes.ready[&p.id])).collect::<Result<Vec<_>>>()?;
+            let mut subscribed:PageVersions=selected.iter().map(|p|(p.id.clone(),versions(p))).collect();
             let mut socket=c.reconnect(&initial).await.map_err(super::err)?;
-            publish_status(&app,&ws,&handle,true,"").await;retry=std::time::Duration::from_secs(1);
+            publish_status(&app,&ws,&handle,true,if prefixes.blocked.is_empty(){""}else{RECOVERY_MESSAGE}).await;retry=std::time::Duration::from_secs(1);
             let mut tick=tokio::time::interval(std::time::Duration::from_millis(100));tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut heartbeat=tokio::time::interval(std::time::Duration::from_secs(30));
             loop {
-                let active = match socket.phase().map_err(super::err)? {
-                    sync::SocketPhase::Active => true,
-                    sync::SocketPhase::Draining => {
-                        publish_status(&app,&ws,&handle,true,"正在接收完整纸页，新的修改已保存在本机").await;
-                        false
-                    },
-                    sync::SocketPhase::Refresh => {
-                        publish_status(&app,&ws,&handle,false,"正在更新同步连接").await;
-                        let _=tokio::time::timeout(std::time::Duration::from_secs(5),socket.close()).await;
-                        return Ok(());
-                    }
+                let active=match socket.phase().map_err(super::err)? {
+                    sync::SocketPhase::Active=>true,
+                    sync::SocketPhase::Draining=>{publish_status(&app,&ws,&handle,true,"正在接收完整纸页，新的修改已保存在本机").await;false},
+                    sync::SocketPhase::Refresh=>{publish_status(&app,&ws,&handle,false,"正在更新同步连接").await;let _=tokio::time::timeout(std::time::Duration::from_secs(5),socket.close()).await;return Ok(())}
                 };
                 tokio::select! {
-                event=socket.recv()=>{
-                    let event=event.map_err(super::err)?;
-                    let ready=match &event { sync::ServerEvent::Snapshot(s)=>Some((s.page.id.clone(),(u32::try_from(s.page.epoch).map_err(super::err)?,s.page.generation))), _=>None };
-                    incoming(&app,&ws,event).await?;
-                    if let Some((id,version))=ready { completed.insert(id,version); }
-                },
-                _=tick.tick()=>{
-                    // An expired stream is receive-only until every accepted
-                    // transfer is verified (or closed/timed out). Local edits
-                    // remain durable in the outbox; do not provoke server close
-                    // with a fresh ping, subscribe, or HTTP update broadcast.
-                    if socket.phase().map_err(super::err)? != sync::SocketPhase::Active { continue; }
-                    send_pending(&app,&ws,client.as_mut().unwrap(),Some(&socket)).await?;
-                    if socket.phase().map_err(super::err)? != sync::SocketPhase::Active { continue; }
-                    let selected=wanted_pages(&ws,&handle,&subscribed,&completed).await?;
-                    reconcile_subscriptions(&ws,&mut socket,&selected,&mut subscribed).await?;
-                },
-                _=heartbeat.tick(), if active=>{
-                    if socket.phase().map_err(super::err)? != sync::SocketPhase::Active { continue; }
-                    socket.ping().await.map_err(super::err)?;pull_directory(&app,&ws,client.as_mut().unwrap()).await?;
-                },
-                command_input=receiver.recv(), if active=>{let Some(cmd)=command_input else{return Ok::<(),String>(())};if socket.phase().map_err(super::err)? != sync::SocketPhase::Active {deferred_command=Some(cmd);continue;}let changed=command(&app,&ws,&profile,&mut client,cmd).await;if changed{publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;let _=socket.close().await;return Ok(())}},
-            }}
+                    event=socket.recv()=>{
+                        let event=match event {Ok(event)=>event,Err(error)=>{
+                            if recovery_required(&error) {blocked_space=true;bootstrap=None;}
+                            return Err(if blocked_space {RECOVERY_MESSAGE.into()} else {super::err(error)});
+                        }};
+                        let space=client.as_ref().unwrap().credentials().space_id.clone();
+                        accept_event(&app,&ws,&space,&mut prefixes,event).await?;
+                    },
+                    outcome=async {match bootstrap.as_mut(){Some(b)=>(&mut b.task).await,None=>std::future::pending().await}}=>{
+                        let finished=bootstrap.take().unwrap();
+                        super::current(&app,&ws)?;
+                        let entries=ws.durable.list().await?;
+                        if !bootstrap_matches(&finished,client.as_ref().unwrap().credentials(),&entries) {
+                            preparations.finish(&finished.page.id,Err("纸页或写作空间已改变，旧同步结果已丢弃".into()));continue;
+                        }
+                        let outcome=match outcome {
+                            Ok(Ok(snapshot))=>{
+                                if snapshot.page.id!=finished.page.id || snapshot.page.epoch!=finished.page.epoch as u64 || snapshot.page.generation!=finished.page.generation || snapshot.page.deleted!=0 {
+                                    Err("下载期间纸页生命周期已改变，旧同步结果已丢弃".into())
+                                } else {accept_event(&app,&ws,&finished.space,&mut prefixes,sync::ServerEvent::Snapshot(snapshot)).await}
+                            },
+                            Ok(Err(error))=>{if recovery_required(&error){prefixes.block(&finished.page.id,finished.page.epoch as u64,finished.page.generation);}Err(if recovery_required(&error){RECOVERY_MESSAGE.into()}else{super::err(error)})},
+                            Err(error)=>Err(super::err(error)),
+                        };
+                        if let Err(error)=outcome {
+                            preparations.finish(&finished.page.id,Err(error.clone()));return Err(error);
+                        }
+                        prefixes.refresh(&ws).await?;
+                        preparations.resolve(&prefixes,&entries);
+                    },
+                    _=tick.tick()=>{
+                        if socket.phase().map_err(super::err)?!=sync::SocketPhase::Active {continue;}
+                        send_pending(&app,&ws,client.as_mut().unwrap(),Some(&socket),&prefixes.blocked).await?;
+                        if socket.phase().map_err(super::err)?!=sync::SocketPhase::Active {continue;}
+                        let selected=prepare_bootstrap(&app,&ws,client.as_ref().unwrap(),&handle,&mut prefixes,&mut preparations,&mut bootstrap,&subscribed).await?;
+                        reconcile_subscriptions(&ws,&mut socket,&selected,&mut subscribed,&prefixes).await?;
+                    },
+                    _=heartbeat.tick(),if active=>{
+                        if socket.phase().map_err(super::err)?!=sync::SocketPhase::Active {continue;}
+                        socket.ping().await.map_err(super::err)?;pull_directory(&app,&ws,client.as_mut().unwrap()).await?;
+                    },
+                    command_input=receiver.recv(),if active=>{
+                        let Some(cmd)=command_input else{return Ok::<(),String>(())};
+                        if socket.phase().map_err(super::err)?!=sync::SocketPhase::Active {deferred_command=Some(cmd);continue;}
+                        if let Command::Prepare(page,reply)=cmd {
+                            queue_preparation(&mut preparations,&mut bootstrap,page,reply);continue;
+                        }
+                        if command(&app,&ws,&profile,&mut client,cmd).await {
+                            publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;
+                            let _=tokio::time::timeout(std::time::Duration::from_secs(5),socket.close()).await;return Ok(())
+                        }
+                    },
+                }
+            }
         }.await;
-        if result.is_ok() { continue; } // completed drain: refresh immediately, no error backoff
-        if let Err(error) = result {
-            publish_status(&app, &ws, &handle, false, &format!("离线保存中：{error}")).await;
-        }
-        if deferred_command.is_some() { continue; }
-        tokio::select! {_=tokio::time::sleep(retry)=>{},cmd=receiver.recv()=>{let Some(cmd)=cmd else{return};if command(&app,&ws,&profile,&mut client,cmd).await {publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;}}}
-        retry = (retry * 2).min(std::time::Duration::from_secs(30));
+        if result.is_ok(){continue;}
+        if let Err(error)=result {publish_status(&app,&ws,&handle,false,&format!("离线保存中：{error}")).await;}
+        if deferred_command.is_some(){continue;}
+        tokio::select!{_=tokio::time::sleep(retry)=>{},cmd=receiver.recv()=>{
+            let Some(cmd)=cmd else{return};
+            match cmd {Command::Prepare(page,reply)=>queue_preparation(&mut preparations,&mut bootstrap,page,reply),cmd=>{if command(&app,&ws,&profile,&mut client,cmd).await {publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;}}}
+        }}
+        retry=(retry*2).min(std::time::Duration::from_secs(30));
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn proof(version:u64,after:Option<u64>)->PrefixProof {
+        PrefixProof {receipt:durability::IncomingReceipt {op_id:format!("op-{version}"),page_id:"page-0".into(),epoch:1,generation:0},watermark:sync::JournalWatermark {space_id:"space".into(),page_id:"page-0".into(),epoch:1,generation:0,version,quarantine_revision:0},after}
+    }
+    #[test]
+    fn applied_prefix_waits_for_commit_and_does_not_jump_a_gap() {
+        let mut prefixes=AppliedPrefixes::default();
+        prefixes.observe(Some(proof(10,None)));
+        prefixes.promote(&HashSet::new());
+        assert!(prefixes.ready.is_empty());assert!(prefixes.pending_page("page-0"));
+        prefixes.promote(&HashSet::from(["op-10".into()]));
+        assert_eq!(prefixes.ready["page-0"].version,10);
+        prefixes.observe(Some(proof(12,Some(11))));
+        prefixes.promote(&HashSet::from(["op-12".into()]));
+        assert_eq!(prefixes.ready["page-0"].version,10);
+        prefixes.observe(Some(proof(11,Some(10))));
+        prefixes.promote(&HashSet::from(["op-11".into(),"op-12".into()]));
+        assert_eq!(prefixes.ready["page-0"].version,12);assert!(prefixes.pending.is_empty());
+        prefixes.observe(Some(proof(11,Some(10))));prefixes.promote(&HashSet::from(["op-11".into()]));
+        assert_eq!(prefixes.ready["page-0"].version,12);
+    }
+    #[test]
+    fn complete_suffix_requires_its_applied_baseline_and_fence() {
+        let mut prefixes=AppliedPrefixes::default();
+        prefixes.observe(Some(proof(30,Some(10))));prefixes.promote(&HashSet::from(["op-30".into()]));
+        assert!(prefixes.ready.is_empty(),"suffix must not masquerade as complete history");
+        prefixes.observe(Some(proof(10,None)));prefixes.promote(&HashSet::from(["op-10".into()]));
+        for change in 0..4 {
+            let mut foreign=proof(30,Some(10));
+            match change {0=>foreign.watermark.space_id="other".into(),1=>foreign.watermark.epoch=2,2=>foreign.watermark.generation=1,_=>foreign.watermark.quarantine_revision=1}
+            prefixes.observe(Some(foreign));prefixes.promote(&HashSet::from(["op-30".into()]));
+            assert_eq!(prefixes.ready["page-0"].version,10);
+        }
+        prefixes.observe(Some(proof(30,Some(10))));prefixes.promote(&HashSet::from(["op-30".into()]));
+        assert_eq!(prefixes.ready["page-0"].version,30);
+    }
+    #[test]
+    fn lifecycle_and_space_changes_invalidate_cached_prefixes() {
+        let mut prefixes=AppliedPrefixes::default();prefixes.observe(Some(proof(10,None)));
+        prefixes.promote(&HashSet::from(["op-10".into()]));
+        prefixes.prune("other",&pages(1));assert!(prefixes.ready.is_empty());
+        prefixes.observe(Some(proof(11,Some(10))));
+        let mut entries=pages(1);entries[0].generation=1;
+        prefixes.prune("space",&entries);assert!(prefixes.pending.is_empty());
+        prefixes.block("page-0",1,1);prefixes.prune("space",&entries);assert!(prefixes.blocked.contains_key("page-0"));
+        entries[0].generation=2;prefixes.prune("space",&entries);assert!(prefixes.blocked.is_empty());
+    }
+    #[tokio::test]
+    async fn same_page_preparations_share_pending_completion_without_early_success() {
+        let mut preparations=Preparations::default();let mut prefixes=AppliedPrefixes::default();
+        let (a,mut ar)=oneshot::channel();let (b,mut br)=oneshot::channel();
+        let mut bootstrap=Some(Bootstrap {page:pages(1).remove(0),space:"space".into(),server:"https://sync.example.com".into(),task:tauri::async_runtime::spawn(std::future::pending())});
+        queue_preparation(&mut preparations,&mut bootstrap,"page-0".into(),a);
+        queue_preparation(&mut preparations,&mut bootstrap,"page-0".into(),b);
+        assert_eq!(bootstrap.as_ref().unwrap().page.id,"page-0");
+        assert_eq!(preparations.waiting.len(),1);
+        prefixes.observe(Some(proof(10,None)));preparations.resolve(&prefixes,&pages(1));
+        assert!(ar.try_recv().is_err());assert!(br.try_recv().is_err());
+        prefixes.promote(&HashSet::from(["op-10".into()]));preparations.resolve(&prefixes,&pages(1));
+        ar.await.unwrap().unwrap();br.await.unwrap().unwrap();assert!(preparations.waiting.is_empty());
+        let (other,_receive)=oneshot::channel();
+        queue_preparation(&mut preparations,&mut bootstrap,"page-1".into(),other);
+        assert!(bootstrap.is_none(),"unrelated unobserved transfer must yield to a foreground page");
+    }
+    #[tokio::test]
+    async fn completed_bootstrap_must_still_match_space_server_and_page_lifecycle() {
+        let entries=pages(1);
+        let credential=credentials::Credentials::new("https://sync.example.com".into(),uuid::Uuid::new_v4().to_string(),uuid::Uuid::new_v4().to_string(),"x".repeat(88)).unwrap();
+        let b=Bootstrap {page:entries[0].clone(),space:credential.space_id.clone(),server:credential.server_url.clone(),task:tauri::async_runtime::spawn(std::future::pending())};
+        assert!(bootstrap_matches(&b,&credential,&entries));
+        let mut altered=credential.clone();altered.space_id=uuid::Uuid::new_v4().to_string();assert!(!bootstrap_matches(&b,&altered,&entries));
+        let mut altered=credential.clone();altered.server_url="https://different.example.com".into();assert!(!bootstrap_matches(&b,&altered,&entries));
+        let mut changed=entries.clone();changed[0].generation+=1;assert!(!bootstrap_matches(&b,&credential,&changed));
+        let mut changed=entries.clone();changed[0].epoch+=1;assert!(!bootstrap_matches(&b,&credential,&changed));
+        let mut changed=entries.clone();changed[0].deleted=true;assert!(!bootstrap_matches(&b,&credential,&changed));
+    }
+    #[test]
+    fn quarantine_errors_require_recovery_including_unattributed_ws_errors() {
+        for status in [0,409] {assert!(recovery_required(&sync::SyncError::Api{status,code:"journal_changed".into()}));}
+        assert!(recovery_required(&sync::SyncError::Api{status:409,code:"invalid_journal_cursor".into()}));
+        assert!(!recovery_required(&sync::SyncError::Timeout));
+    }
 
     fn handle() -> Handle {
         let (sender, _) = mpsc::channel(1);

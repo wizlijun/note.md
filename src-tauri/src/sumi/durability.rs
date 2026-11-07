@@ -3,7 +3,7 @@
 use rusqlite::{params, OptionalExtension, Transaction};
 use serde_json::Value;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     path::PathBuf,
     sync::{mpsc, Arc},
     time::{Duration, Instant},
@@ -114,6 +114,14 @@ pub enum DurableEvent {
 #[derive(Clone)]
 pub struct RecordedIncoming {
     pub update: PendingUpdate,
+    pub generation: u64,
+}
+/// A bounded identity-only query: never copy a potentially large inbox blob.
+#[derive(Clone)]
+pub struct IncomingReceipt {
+    pub op_id: String,
+    pub page_id: String,
+    pub epoch: u32,
     pub generation: u64,
 }
 struct Queued {
@@ -401,6 +409,23 @@ impl Durability {
     pub async fn record_inbox(&self, incoming: PendingUpdate, generation: u64) -> Result<bool> {
         self.request(move |w| w.record_incoming(&incoming, generation))
             .await
+    }
+    pub async fn has_document(&self, page_id: String) -> Result<bool> {
+        self.request(move |w| w.store.transaction(|tx| {
+            tx.query_row("SELECT EXISTS(SELECT 1 FROM documents WHERE page_id=?1)", params![page_id], |r| r.get(0)).map_err(db)
+        }).map_err(error)).await
+    }
+    pub async fn applied_incoming(&self, receipts: Vec<IncomingReceipt>) -> Result<HashSet<String>> {
+        if receipts.len() > 4096 { return Err("too many incoming receipt queries".into()); }
+        self.request(move |w| w.store.transaction(|tx| {
+            let mut query=tx.prepare("SELECT EXISTS(SELECT 1 FROM inbox i JOIN sumi_inbox_generation g ON g.op_id=i.op_id WHERE i.op_id=?1 AND i.page_id=?2 AND i.epoch=?3 AND g.generation=?4 AND i.applied=1)").map_err(db)?;
+            let mut applied=HashSet::new();
+            for receipt in receipts {
+                let ready:bool=query.query_row(params![receipt.op_id,receipt.page_id,receipt.epoch,sql_u64(receipt.generation)?],|r|r.get(0)).map_err(db)?;
+                if ready { applied.insert(receipt.op_id); }
+            }
+            Ok(applied)
+        }).map_err(error)).await
     }
     pub async fn pending_inbox(&self, page_id: String) -> Result<Vec<RecordedIncoming>> {
         self.request(move |w| w.incoming(&page_id)).await
@@ -2229,9 +2254,13 @@ mod tests {
                 .replace(remote.revision(), 6, 0, " second", 200)
                 .unwrap(),
         };
+        let receipts=vec![first.clone(),second.clone()].into_iter().map(|u|IncomingReceipt {op_id:u.op_id,page_id:u.page_id,epoch:u.epoch,generation:0}).collect::<Vec<_>>();
+        assert!(worker.has_document(id.clone()).await.unwrap());
+        assert!(!worker.has_document(Uuid::new_v4().to_string()).await.unwrap());
         assert!(worker.record_inbox(first.clone(), 0).await.unwrap());
         assert!(worker.record_inbox(second.clone(), 0).await.unwrap());
         assert_eq!(worker.load(id.clone()).await.unwrap().revision, 0);
+        assert!(worker.applied_incoming(receipts.clone()).await.unwrap().is_empty(),"durable inbox alone is not an applied prefix");
         ui.apply_remote(&first.update).unwrap();
         let receipt = worker
             .enqueue_remote(first.clone(), 0, ui.revision())
@@ -2244,6 +2273,13 @@ mod tests {
         let loaded = worker.load(id.clone()).await.unwrap();
         assert_eq!(loaded.revision, 2);
         assert!(loaded.raw_markdown.ends_with("remote local"));
+        assert_eq!(worker.applied_incoming(receipts.clone()).await.unwrap(),HashSet::from([first.op_id.clone()]));
+        let mut wrong=receipts[0].clone();wrong.generation=1;
+        assert!(worker.applied_incoming(vec![wrong]).await.unwrap().is_empty());
+        let mut wrong=receipts[0].clone();wrong.epoch=2;
+        assert!(worker.applied_incoming(vec![wrong]).await.unwrap().is_empty());
+        let mut wrong=receipts[0].clone();wrong.page_id=Uuid::new_v4().to_string();
+        assert!(worker.applied_incoming(vec![wrong]).await.unwrap().is_empty());
         assert!(!worker.record_inbox(first, 0).await.unwrap());
         let pending = worker.pending_inbox(id.clone()).await.unwrap();
         assert_eq!(pending.len(), 1);
@@ -2256,6 +2292,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(result.revision, 3);
+        assert_eq!(worker.applied_incoming(receipts.clone()).await.unwrap().len(),2);
         assert_eq!(
             Document::load(&id, 1, 14, &result.full_state)
                 .unwrap()
