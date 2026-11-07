@@ -1,0 +1,19 @@
+name = "sumi-sync"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+compatibility_flags = ["nodejs_compat"]
+
+# Use the repository's existing Wrangler 3 and Account API Token.
+# SIGNING_KEY and PROVISION_KEY are secrets; never include them in an app bundle.
+[[durable_objects.bindings]]
+name = "SPACES"
+class_name = "SumiSpace"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SumiSpace"]
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "sumi-sync-backups"
+preview_bucket_name = "sumi-sync-backups-preview"

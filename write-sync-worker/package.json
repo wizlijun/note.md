@@ -1,0 +1,17 @@
+{
+  "name": "sumi-sync-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/test.mjs",
+    "check": "../worker/node_modules/.bin/tsc --noEmit",
+    "dev": "../worker/node_modules/.bin/wrangler dev",
+    "deploy": "../worker/node_modules/.bin/wrangler deploy",
+    "pretest": "node scripts/link-toolchain.mjs",
+    "precheck": "node scripts/link-toolchain.mjs"
+  },
+  "dependencies": {
+    "yjs": "13.6.33"
+  }
+}

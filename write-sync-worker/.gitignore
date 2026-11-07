@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
+__pycache__/
+scripts/admin-keychain/target/

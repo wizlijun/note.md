@@ -1,0 +1,9 @@
+[package]
+name = "sumi-admin-keychain"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde_json = "1"
+security-framework = "=3.7.0"
