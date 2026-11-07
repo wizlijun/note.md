@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Diagram zoom areas blend into the document.** Removed the preview surface background and frame in light and dark themes; keyboard focus is indicated by an underline beneath the toolbar's diagram type label.
+
 
 
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.

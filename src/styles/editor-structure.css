@@ -155,12 +155,15 @@
   background: color-mix(in srgb, CanvasText 8%, Canvas);
 }
 .moraya-editor .diagram-zoom-reset[hidden] { display: none; }
-.moraya-editor .diagram-interactive :is(.diagram-zoom-reset, .code-copy-btn, .mermaid-toggle-btn, .code-lang-label):focus-visible,
-.moraya-editor .diagram-viewport:focus-visible {
+.moraya-editor .diagram-interactive :is(.diagram-zoom-reset, .code-copy-btn, .mermaid-toggle-btn, .code-lang-label):focus-visible {
   outline: 2px solid Highlight;
   outline-offset: 2px;
 }
 .moraya-editor .diagram-zoom-reset:focus-visible { outline-offset: -2px; }
+.moraya-editor .diagram-interactive:has(> .diagram-viewport:focus-visible) .code-lang-label {
+  text-decoration: underline 2px Highlight;
+  text-underline-offset: 3px;
+}
 .moraya-editor .diagram-viewport {
   /* An explicit page-scroll lane remains outside each side of the viewport. */
   width: auto;
@@ -171,10 +174,34 @@
   -webkit-user-select: none;
   cursor: default;
 }
-.moraya-editor .diagram-interactive :is(.mermaid-preview, .renderer-preview) {
+:is(.moraya-editor, #write) .diagram-interactive :is(.mermaid-preview, .renderer-preview) {
   padding: 0;
   min-height: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  outline: none;
   cursor: inherit;
+}
+/* Self-contained SVGs include a canvas for exports. Only the live viewing
+   surface is transparent; copied SVGs keep their original appearance. */
+:is(.moraya-editor, #write) .diagram-viewport > .diagram-transform svg {
+  background: transparent !important;
+}
+.moraya-editor .diagram-viewport > .diagram-transform svg > rect:first-child[width="100%"][height="100%"][fill="var(--pele-bg)"][aria-hidden="true"],
+.moraya-editor .diagram-viewport > .diagram-transform svg > g.graph > polygon[fill="white"][stroke="none"] {
+  fill: transparent;
+}
+/* Graphviz's default black ink needs the document foreground once its white
+   canvas is removed. Explicit non-black diagram colors remain unchanged. */
+.moraya-editor .diagram-viewport .diagram-transform svg > g.graph :is(g.node, g.cluster):has(> :is(ellipse, polygon, path, rect)[fill]:not([fill="none"])) {
+  color: black;
+}
+.moraya-editor .diagram-viewport .diagram-transform svg > g.graph [stroke="black"] {
+  stroke: currentColor;
+}
+.moraya-editor .diagram-viewport .diagram-transform svg > g.graph :is([fill="black"], text:not([fill])) {
+  fill: currentColor;
 }
 .moraya-editor .code-lang-label {
   cursor: pointer;
