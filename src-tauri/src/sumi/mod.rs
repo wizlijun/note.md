@@ -1097,12 +1097,27 @@ async fn retry_accepted_remote(ws: &Workspace, page: &str, op: &str) -> Result<b
     }
     Ok(true)
 }
+/// Called under the lifecycle gate. While marked text owns the frozen source
+/// map, incoming packets stay on disk; do not copy the accumulated inbox blobs
+/// into memory merely to discover composition inside the processing loop.
+async fn pending_remote_for_drain(ws: &Workspace, page: &str) -> Result<Vec<durability::RecordedIncoming>> {
+    {
+        let papers = ws.papers.lock().map_err(err)?;
+        let paper = papers.get(page).ok_or("missing page")?;
+        if paper.owner.as_ref().is_some_and(|owner| owner.composing) {
+            return Ok(Vec::new());
+        }
+    }
+    // Composition can start after the small check above. The per-record check
+    // and the main-thread native transaction still guard that race.
+    ws.durable.pending_inbox(page.into()).await
+}
 async fn drain_remote_locked<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Arc<Workspace>,
     page: &str,
 ) -> Result<()> {
-    for recorded in ws.durable.pending_inbox(page.into()).await? {
+    for recorded in pending_remote_for_drain(ws, page).await? {
         if retry_accepted_remote(ws, page, &recorded.update.op_id).await? {
             continue;
         }
@@ -2968,6 +2983,40 @@ mod tests {
             pending_directory: Mutex::new(None),
         });
         (temp, ws, id)
+    }
+    #[tokio::test]
+    async fn composition_defers_inbox_blob_reads_until_commit_and_keeps_fifo() {
+        let (temp, ws, id) = fixture().await;
+        let mut peer = {
+            let papers = ws.papers.lock().unwrap();
+            Document::load(&id, 1, 2, &papers[&id].doc.encode_full()).unwrap()
+        };
+        let mut operations = Vec::new();
+        for (offset, text) in [(0, "远端"), (2, "继续")] {
+            let update = peer.replace(peer.revision(), offset, 0, text, 123).unwrap();
+            let incoming = storage::PendingUpdate {op_id: Uuid::new_v4().to_string(), page_id: id.clone(), epoch: 1, update};
+            ws.durable.record_inbox(incoming.clone(), 0).await.unwrap();
+            operations.push(incoming);
+        }
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().owner.as_mut().unwrap().composing = true;
+        // A real SQLite read fault is a tripwire, not a mock of the helper:
+        // touching pending payloads must fail, while IME deferral must not read.
+        let db = rusqlite::Connection::open(temp.path().join("sumi.sqlite3")).unwrap();
+        db.execute("UPDATE inbox SET update_blob=1234 WHERE page_id=?1", [&id]).unwrap();
+        for _ in 0..3 {
+            assert!(pending_remote_for_drain(&ws, &id).await.unwrap().is_empty());
+        }
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.revision(), 0);
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().owner.as_mut().unwrap().composing = false;
+        assert!(pending_remote_for_drain(&ws, &id).await.is_err(), "fixture tripwire must detect any actual payload read");
+        for op in &operations {
+            db.execute("UPDATE inbox SET update_blob=?1 WHERE op_id=?2", rusqlite::params![op.update, op.op_id]).unwrap();
+        }
+        let pending = pending_remote_for_drain(&ws, &id).await.unwrap();
+        assert_eq!(pending.iter().map(|p|p.update.op_id.as_str()).collect::<Vec<_>>(), operations.iter().map(|p|p.op_id.as_str()).collect::<Vec<_>>());
+        assert_eq!(pending.iter().map(|p|&p.update.update).collect::<Vec<_>>(), operations.iter().map(|p|&p.update).collect::<Vec<_>>());
+        assert!(pending.iter().all(|p|p.generation==0));
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.revision(), 0);
     }
     #[tokio::test]
     async fn creating_page_retry_reuses_its_committed_operation_after_active_page_has_changed() {
