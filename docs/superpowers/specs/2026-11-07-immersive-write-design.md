@@ -1,8 +1,8 @@
-# 沉浸式写作：全平台产品与同步设计
+# Sumi：全平台沉浸式写作与同步设计
 
 日期：2026-11-07。状态：规划稿；未实现、未验证性能、未部署。
 
-配套实施计划：[macOS 首版计划](../plans/2026-11-07-immersive-write-macos.md)。工作名 `Write / 写作`，非最终品牌。
+配套实施计划：[macOS 首版计划](../plans/2026-11-07-immersive-write-macos.md)。用户已确认产品名为 **Sumi**，用于 note.md 插件与独立客户端。技术组件名及 `.writing.md` / `.writing.meta.json` 文件约定保持不变。
 
 ## 1. 需求与成功标准
 
@@ -342,7 +342,7 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 
 用户已确认将原生编辑桥封装为 **`tauri-plugin-native-editor`**，不采用 macOS/Windows 或全桌面统一 Qt。各平台独立后端：macOS 使用 NSTextView/TextKit 2，Windows 使用 Win32 Rich Edit；Linux 保留 §4.1 的 Omarchy Qt 6 原型与宿主集成门槛。统一的是编辑接口和文档语义，不要求控件实现一致；Linux 的 Qt 依赖不得进入 macOS/Windows 构建。
 
-采用“宿主内编译的 `tauri-plugin-native-editor` + Write 插件产品逻辑 + 共用 Rust 文本同步内核”。Tauri 插件是随宿主编译、签名的 Cargo crate，与可安装的 note.md Write 插件分开；宿主显式注册并按平台报告能力，不加载任意插件 dylib。原生按键路径直接进入本地内核；JS 只承载菜单/设置/列表与低频状态，不作为每键中转站。
+采用“宿主内编译的 `tauri-plugin-native-editor` + Sumi 插件产品逻辑 + 共用 Rust 文本同步内核”。Tauri 插件是随宿主编译、签名的 Cargo crate，与可安装的 note.md Sumi 插件分开；宿主显式注册并按平台报告能力，不加载任意插件 dylib。原生按键路径直接进入本地内核；JS 只承载菜单/设置/列表与低频状态，不作为每键中转站。
 
 职责边界：原生编辑桥负责控件、布局、样式、焦点、IME、选区与编辑事务交接；`write-core` 负责 Markdown/source map、行时间、CRDT、持久化与同步。桥接层不自行解析隐藏 YAML、不直接写 Markdown 文件或建立同步连接；通过进程内 Rust 接口绑定宿主授权的文档 session。独立移动端和 ESP32 复用内核/协议，不为使用此桌面桥而引入 Tauri。
 
@@ -352,14 +352,14 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 
 原生 tab 与 WebView 之间必须验证 clipping、DPI、Retina、多显示器、弹层遮挡、焦点、快捷键、VoiceOver 与 IME。原生 NSView 不服从 DOM z-index。Web 弹层继续使用 `.menu-panel/.menu-row`；原生弹层采用系统菜单。若宿主菜单覆盖冲突，需有明确 surface 暂停/恢复与焦点交接，不能用截图冒充可交互 native tab。
 
-项目宿主最低 macOS 当前为 11.0；建议 Write 首版要求 macOS 13+ 使用 TextKit 2，不抬高整个 note.md 的系统下限。旧系统保持普通 Markdown 阅读/Source 并明确原生写作不可用；能力与最低宿主版本共同检查。
+项目宿主最低 macOS 当前为 11.0；建议 Sumi 首版要求 macOS 13+ 使用 TextKit 2，不抬高整个 note.md 的系统下限。旧系统保持普通 Markdown 阅读/Source 并明确原生写作不可用；能力与最低宿主版本共同检查。
 
 ## 9. 全平台里程碑
 
 | 阶段 | 交付物 | 退出条件 |
 |---|---|---|
 | P0 风险验证 | Mac 原生 tab/窗口、源映射、Yjs/Yrs/行时间 PoC | IME、Markdown 往返、并发收敛及焦点通过；方案冻结 |
-| P1 macOS 首版 | 原生 Write 插件 + 宿主扩展 + CF 服务 | 两客户端离线并发、恢复与真实输入性能验收 |
+| P1 macOS 首版 | 原生 Sumi 插件 + 宿主扩展 + CF 服务 | 两客户端离线并发、恢复与真实输入性能验收 |
 | P2 iOS / Android | 独立原生应用、设备配对、键盘布局 | 与 Mac 混合并发/离线 fixture 与移动电量/后台重连通过 |
 | P3 Windows / Linux | Windows 原生适配；Omarchy 优先的 Qt 6 原型与宿主接入 | Windows IME；Omarchy/Hyprland原生Wayland、Qt/GTK3 tab桥接、Fcitx5、分数缩放、Arch包与格式往返验证；XWayland单列 |
 | P4 ESP32 | 以 Draftor 编辑内核/bgIME/绘制链路为参考的固件与协议适配 | UTF-8/UTF-16映射、远端更新/撤销、BLE+Wi-Fi负载、MD样式、内存/字库/掉电/离线合并逐项实测 |
@@ -369,6 +369,6 @@ note.md Source、普通 Rich、外部编辑器与 Vault 同步都可能改文件
 
 ## 10. 实施前保留的决策
 
-需求已经足够开始原型，无需以这些问题阻塞本次规划：最终产品名；登录/配对供应商；跨平台字体与安装包大小；ESP32 板型与显示/输入硬件；底部输入法未来采用哪些现有项目。原型后必须锁定的技术决策是 Yjs/Yrs 版本与索引单位、行身份属性可行性、原生 tab 布局、最低支持系统和服务限额。
+需求已经足够开始原型，无需以这些问题阻塞本次规划：登录/配对供应商；跨平台字体与安装包大小；ESP32 板型与显示/输入硬件；底部输入法未来采用哪些现有项目。原型后必须锁定的技术决策是 Yjs/Yrs 版本与索引单位、行身份属性可行性、原生 tab 布局、最低支持系统和服务限额。
 
 本设计中性能数字、排版默认值、工期与备份保留期均为建议目标，不是已实测或已上线能力。

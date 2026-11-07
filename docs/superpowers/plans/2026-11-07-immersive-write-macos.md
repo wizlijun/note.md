@@ -1,4 +1,4 @@
-# 沉浸式写作 macOS 首版实施计划
+# Sumi：macOS 首版实施计划
 
 日期：2026-11-07。状态：待实施；本文不是测试报告或发布记录。
 
@@ -14,13 +14,13 @@
 - file_views 可按顶层 frontmatter 选 `.md` 专用视图；有 editor.write 整篇快照保存，实际 UI 仍为 iframe。
 - custom_editors 不允许接管 `.md`；WindowContribution 目前没有原生 surface / 固定尺寸协议。
 - 文件 session 依赖 web editor；必须抽出窄的 owner 交接能力，不能另起一个绕过磁盘基线的写入器。
-- 宿主 macOS 最低 11.0；Write 原生功能建议 13+。实施不顺手抬升主应用最低版本。
+- 宿主 macOS 最低 11.0；Sumi 原生功能建议 13+。实施不顺手抬升主应用最低版本。
 
 ## 2. 代码边界（拟新增，尚不存在）
 
 | 模块 | 职责 |
 |---|---|
-| `plugins-src/write/` | 插件 manifest、纸页入口/概览、设置与状态；不在 iframe 处理正文击键 |
+| `plugins-src/write/` | Sumi 插件 manifest（显示名 Sumi）、纸页入口/概览、设置与状态；不在 iframe 处理正文击键 |
 | `write-core/` | Rust 文本/行时间模型、Yrs adapter、源映射、Markdown 解析序列化、持久 outbox 与投影；与 UI/平台分离 |
 | `tauri-plugin-native-editor/` | 随宿主编译的 Tauri 插件 crate；统一 surface 接口、平台能力探测及 macOS AppKit 后端，负责生命周期、焦点/IME/外观、主线程边界 |
 | `src-tauri/` | 注册原生编辑插件、检查调用权限、绑定 write-core 文档 session；不另建第二套原生编辑桥 |
