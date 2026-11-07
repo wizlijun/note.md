@@ -199,9 +199,11 @@ async fn send_pending<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Arc<Workspace>,
     client: &mut sync::SyncClient,
+    socket: Option<&sync::WsSession>,
 ) -> Result<()> {
     let directory_ops = ws.durable.directory_outbox().await?;
     for op in directory_ops.iter().filter(|o| o.kind == "create") {
+        if socket.is_some_and(|s| s.is_expired()) { return Ok(()); }
         let page = client
             .create_page(
                 &op.op_id,
@@ -226,9 +228,11 @@ async fn send_pending<R: Runtime>(
             .iter()
             .filter(|u| u.update.page_id == op.page_id && u.generation == generation)
         {
+            if socket.is_some_and(|s| s.is_expired()) { return Ok(()); }
             send_one(app, ws, client, update).await?;
             sent.insert(update.update.op_id.clone());
         }
+        if socket.is_some_and(|s| s.is_expired()) { return Ok(()); }
         let page = client
             .set_deleted(&op.op_id, &op.page_id, generation, op.kind == "delete")
             .await
@@ -237,6 +241,7 @@ async fn send_pending<R: Runtime>(
         directory(app, ws, page).await?;
     }
     for update in updates.iter().filter(|u| !sent.contains(&u.update.op_id)) {
+        if socket.is_some_and(|s| s.is_expired()) { return Ok(()); }
         send_one(app, ws, client, update).await?;
     }
     Ok(())
@@ -284,8 +289,12 @@ fn subscription_changes(selected: &[Entry], subscribed: &PageVersions) -> (Vec<S
 async fn reconcile_subscriptions(ws: &Workspace, socket: &mut sync::WsSession, selected: &[Entry], subscribed: &mut PageVersions) -> Result<()> {
     let (removed, added) = subscription_changes(selected,subscribed);
     // Free slots before adding replacements, including same-ID epoch/generation changes.
-    for id in removed { socket.unsubscribe(&id).await.map_err(super::err)?; subscribed.remove(&id); }
+    for id in removed {
+        if socket.is_expired() { return Ok(()); }
+        socket.unsubscribe(&id).await.map_err(super::err)?; subscribed.remove(&id);
+    }
     for page in added {
+        if socket.is_expired() { return Ok(()); }
         socket.subscribe(&subscription(ws,&page).await?).await.map_err(super::err)?;
         subscribed.insert(page.id.clone(),versions(&page));
     }
@@ -358,7 +367,7 @@ async fn command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, pro
             if reply.is_closed() { return false; }
             let result = async {
                 let c = client.as_mut().ok_or("此页尚未下载，请先连接同步服务")?;
-                send_pending(app, ws, c).await?;
+                send_pending(app, ws, c, None).await?;
                 let entry = ws.durable.list().await?.into_iter().find(|p| p.id == page && !p.deleted).ok_or("纸页不存在或已删除")?;
                 let snapshot = c.snapshot(&page, entry.epoch as u64, &[0]).await.map_err(super::err)?;
                 incoming(app, ws, sync::ServerEvent::Snapshot(snapshot)).await?;
@@ -422,7 +431,13 @@ async fn run<R: Runtime>(
             }
         };
     let mut retry = std::time::Duration::from_secs(1);
+    let mut deferred_command = None;
     loop {
+        if let Some(cmd) = deferred_command.take() {
+            if command(&app,&ws,&profile,&mut client,cmd).await {
+                publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;
+            }
+        }
         if client.is_none() {
             match receiver.recv().await {
                 Some(c) => {
@@ -437,7 +452,7 @@ async fn run<R: Runtime>(
         let result=async {
             let c=client.as_mut().unwrap();
             // Offline creates must exist before pulling their remote directory and subscribing.
-            send_pending(&app,&ws,c).await?;pull_directory(&app,&ws,c).await?;
+            send_pending(&app,&ws,c,None).await?;pull_directory(&app,&ws,c).await?;
             let mut completed = PageVersions::new();
             let selected = wanted_pages(&ws,&handle,&PageVersions::new(),&completed).await?;
             let mut initial = Vec::new();
@@ -447,7 +462,20 @@ async fn run<R: Runtime>(
             publish_status(&app,&ws,&handle,true,"").await;retry=std::time::Duration::from_secs(1);
             let mut tick=tokio::time::interval(std::time::Duration::from_millis(100));tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut heartbeat=tokio::time::interval(std::time::Duration::from_secs(30));
-            loop {tokio::select! {
+            loop {
+                let active = match socket.phase().map_err(super::err)? {
+                    sync::SocketPhase::Active => true,
+                    sync::SocketPhase::Draining => {
+                        publish_status(&app,&ws,&handle,true,"正在接收完整纸页，新的修改已保存在本机").await;
+                        false
+                    },
+                    sync::SocketPhase::Refresh => {
+                        publish_status(&app,&ws,&handle,false,"正在更新同步连接").await;
+                        let _=tokio::time::timeout(std::time::Duration::from_secs(5),socket.close()).await;
+                        return Ok(());
+                    }
+                };
+                tokio::select! {
                 event=socket.recv()=>{
                     let event=event.map_err(super::err)?;
                     let ready=match &event { sync::ServerEvent::Snapshot(s)=>Some((s.page.id.clone(),(u32::try_from(s.page.epoch).map_err(super::err)?,s.page.generation))), _=>None };
@@ -455,17 +483,28 @@ async fn run<R: Runtime>(
                     if let Some((id,version))=ready { completed.insert(id,version); }
                 },
                 _=tick.tick()=>{
-                    send_pending(&app,&ws,client.as_mut().unwrap()).await?;
+                    // An expired stream is receive-only until every accepted
+                    // transfer is verified (or closed/timed out). Local edits
+                    // remain durable in the outbox; do not provoke server close
+                    // with a fresh ping, subscribe, or HTTP update broadcast.
+                    if socket.phase().map_err(super::err)? != sync::SocketPhase::Active { continue; }
+                    send_pending(&app,&ws,client.as_mut().unwrap(),Some(&socket)).await?;
+                    if socket.phase().map_err(super::err)? != sync::SocketPhase::Active { continue; }
                     let selected=wanted_pages(&ws,&handle,&subscribed,&completed).await?;
                     reconcile_subscriptions(&ws,&mut socket,&selected,&mut subscribed).await?;
                 },
-                _=heartbeat.tick()=>{socket.ping().await.map_err(super::err)?;pull_directory(&app,&ws,client.as_mut().unwrap()).await?;},
-                command_input=receiver.recv()=>{let Some(cmd)=command_input else{return Ok::<(),String>(())};let changed=command(&app,&ws,&profile,&mut client,cmd).await;if changed{publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;let _=socket.close().await;return Ok(())}},
+                _=heartbeat.tick(), if active=>{
+                    if socket.phase().map_err(super::err)? != sync::SocketPhase::Active { continue; }
+                    socket.ping().await.map_err(super::err)?;pull_directory(&app,&ws,client.as_mut().unwrap()).await?;
+                },
+                command_input=receiver.recv(), if active=>{let Some(cmd)=command_input else{return Ok::<(),String>(())};if socket.phase().map_err(super::err)? != sync::SocketPhase::Active {deferred_command=Some(cmd);continue;}let changed=command(&app,&ws,&profile,&mut client,cmd).await;if changed{publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;let _=socket.close().await;return Ok(())}},
             }}
         }.await;
+        if result.is_ok() { continue; } // completed drain: refresh immediately, no error backoff
         if let Err(error) = result {
             publish_status(&app, &ws, &handle, false, &format!("离线保存中：{error}")).await;
         }
+        if deferred_command.is_some() { continue; }
         tokio::select! {_=tokio::time::sleep(retry)=>{},cmd=receiver.recv()=>{let Some(cmd)=cmd else{return};if command(&app,&ws,&profile,&mut client,cmd).await {publish_status(&app,&ws,&handle,false,"配对完成，正在连接同步服务").await;}}}
         retry = (retry * 2).min(std::time::Duration::from_secs(30));
     }

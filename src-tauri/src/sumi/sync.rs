@@ -8,8 +8,8 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    collections::{HashMap, HashSet},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
@@ -623,6 +623,8 @@ impl SyncClient {
         let mut session = WsSession {
             socket,
             transfers: HashMap::new(),
+            pending_sync: HashSet::new(),
+            receive_budget: ReceiveBudget::new(Instant::now()),
             expires_at: self.token.as_ref().unwrap().expires_at,
         };
         session.send(json!({"type":"hello","protocol":1})).await?;
@@ -702,12 +704,52 @@ struct Transfer {
     journal_pages: u64,
     quarantine_revision: u64,
 }
+const RECEIVE_IDLE: Duration = Duration::from_secs(60);
+// Bound only reading a transfer accepted under the old token. This grants no
+// authority to send new requests and does not change server expiry/revocation.
+const EXPIRED_DRAIN_LIMIT: Duration = Duration::from_secs(20 * 60);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SocketPhase { Active, Draining, Refresh }
+struct ReceiveBudget {
+    last_frame: Instant,
+    drain_started: Option<Instant>,
+}
+impl ReceiveBudget {
+    fn new(at: Instant) -> Self { Self { last_frame: at, drain_started: None } }
+    fn idle_deadline(&self) -> Instant { self.last_frame + RECEIVE_IDLE }
+    fn received(&mut self, at: Instant) { self.last_frame = at; }
+    fn phase(&mut self, expired: bool, unfinished: bool, at: Instant) -> Result<SocketPhase> {
+        if !expired && self.drain_started.is_none() { return Ok(SocketPhase::Active); }
+        if !unfinished { return Ok(SocketPhase::Refresh); }
+        let started = *self.drain_started.get_or_insert(at);
+        if at.saturating_duration_since(started) >= EXPIRED_DRAIN_LIMIT { return Err(SyncError::Timeout); }
+        Ok(SocketPhase::Draining)
+    }
+}
+fn complete_subscription(pending: &mut HashSet<String>, event: &ServerEvent) {
+    // Large live updates also use chunked Snapshot events. Only a complete
+    // journal reply satisfies a pending subscribe on the current service.
+    if let ServerEvent::Snapshot(snapshot) = event {
+        if snapshot.complete_journal { pending.remove(&snapshot.page.id); }
+    }
+}
 pub struct WsSession {
     socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
     transfers: HashMap<String, Transfer>,
+    // A subscribe may be queued before sync_begin reaches us. Keep that
+    // accepted request pending until its complete verified snapshot arrives.
+    pending_sync: HashSet<String>,
+    receive_budget: ReceiveBudget,
     pub expires_at: u64,
 }
 impl WsSession {
+    pub fn has_inflight_transfer(&self) -> bool { !self.transfers.is_empty() || !self.pending_sync.is_empty() }
+    pub fn is_expired(&self) -> bool { now() >= self.expires_at || self.receive_budget.drain_started.is_some() }
+    pub fn phase(&mut self) -> Result<SocketPhase> {
+        let unfinished = self.has_inflight_transfer();
+        let expired = self.is_expired();
+        self.receive_budget.phase(expired, unfinished, Instant::now())
+    }
     async fn send(&mut self, value: Value) -> Result<()> {
         let text = serde_json::to_string(&value)
             .map_err(|_| SyncError::Protocol("invalid outgoing message"))?;
@@ -724,12 +766,15 @@ impl WsSession {
         if subscription.state_vector.len() > 32_000 {
             return Err(SyncError::Protocol("state vector exceeds limit"));
         }
-        self.send(json!({"type":"subscribe","pageId":subscription.page_id,"epoch":subscription.epoch,"stateVector":STANDARD.encode(&subscription.state_vector)})).await
+        self.send(json!({"type":"subscribe","pageId":subscription.page_id,"epoch":subscription.epoch,"stateVector":STANDARD.encode(&subscription.state_vector)})).await?;
+        self.pending_sync.insert(subscription.page_id.clone());
+        Ok(())
     }
     pub async fn unsubscribe(&mut self, page_id: &str) -> Result<()> {
         uuid(page_id)?;
-        self.send(json!({"type":"unsubscribe","pageId":page_id}))
-            .await
+        self.send(json!({"type":"unsubscribe","pageId":page_id})).await?;
+        self.pending_sync.remove(page_id);
+        Ok(())
     }
     pub async fn send_update(
         &mut self,
@@ -763,11 +808,17 @@ impl WsSession {
     /// store received updates before applying/advancing state vectors or deleting outbox rows.
     pub async fn recv(&mut self) -> Result<ServerEvent> {
         loop {
-            let message = tokio::time::timeout(Duration::from_secs(60), self.socket.next())
-                .await
-                .map_err(|_| SyncError::Transport)?
-                .ok_or(SyncError::Closed)?
-                .map_err(|_| SyncError::Transport)?;
+            if self.phase()? == SocketPhase::Refresh { return Err(SyncError::Closed); }
+            // The deadline belongs to the session, not this cancellable recv
+            // future. Coordinator ticks must not reset the inactivity budget.
+            // Drain already-buffered frames first, even after a long HTTP task.
+            let deadline = tokio::time::Instant::from_std(self.receive_budget.idle_deadline());
+            let message = tokio::select! {
+                biased;
+                message = self.socket.next() => message,
+                _ = tokio::time::sleep_until(deadline) => return Err(SyncError::Timeout),
+            }.ok_or(SyncError::Closed)?.map_err(|_| SyncError::Transport)?;
+            self.receive_budget.received(Instant::now());
             let text = match message {
                 Message::Text(text) => text,
                 Message::Ping(data) => {
@@ -784,6 +835,7 @@ impl WsSession {
             let value: Value = serde_json::from_str(&text)
                 .map_err(|_| SyncError::Protocol("invalid websocket JSON"))?;
             if let Some(event) = receive(&mut self.transfers, value)? {
+                complete_subscription(&mut self.pending_sync, &event);
                 return Ok(event);
             }
         }
@@ -1032,6 +1084,63 @@ mod tests {
         let mut corrupt = make();
         corrupt.chunks[1] = STANDARD.encode(b"bad");
         assert!(snapshot(corrupt).is_err());
+    }
+    #[test]
+    fn large_live_update_does_not_finish_a_pending_journal_subscription() {
+        let target=page();
+        let mut pending=HashSet::from([target.id.clone()]);
+        let event=|page:RemotePage,journal|ServerEvent::Snapshot(Snapshot {page,state_vector:vec![0],update:vec![0,0],complete_journal:journal,quarantine_revision:0});
+        complete_subscription(&mut pending,&event(target.clone(),false));
+        assert!(pending.contains(&target.id));
+        complete_subscription(&mut pending,&event(page(),true));
+        assert!(pending.contains(&target.id));
+        complete_subscription(&mut pending,&event(target.clone(),true));
+        assert!(pending.is_empty());
+    }
+    #[test]
+    fn idle_deadline_survives_cancelled_polls_and_only_frames_advance_it() {
+        let start=Instant::now();
+        let mut budget=ReceiveBudget::new(start);
+        // Simulate 100ms coordinator polls for 61 seconds without a frame.
+        for tick in 0..610 {
+            assert_eq!(budget.phase(false,false,start+Duration::from_millis(tick*100)).unwrap(),SocketPhase::Active);
+            assert_eq!(budget.idle_deadline(),start+Duration::from_secs(60));
+        }
+        let frame=start+Duration::from_secs(61);
+        budget.received(frame);
+        assert_eq!(budget.idle_deadline(),frame+Duration::from_secs(60));
+    }
+    #[test]
+    fn expired_authorized_transfer_drains_then_refreshes_with_a_fixed_total_bound() {
+        let start=Instant::now();
+        let mut budget=ReceiveBudget::new(start);
+        assert_eq!(budget.phase(false,true,start+Duration::from_secs(899)).unwrap(),SocketPhase::Active);
+        assert_eq!(budget.phase(true,true,start+Duration::from_secs(900)).unwrap(),SocketPhase::Draining);
+        budget.received(start+Duration::from_secs(989));
+        assert_eq!(budget.phase(true,true,start+Duration::from_secs(989)).unwrap(),SocketPhase::Draining);
+        // Wall-clock correction cannot re-authorize an expired connection.
+        assert_eq!(budget.phase(false,true,start+Duration::from_secs(990)).unwrap(),SocketPhase::Draining);
+        assert_eq!(budget.phase(true,false,start+Duration::from_secs(991)).unwrap(),SocketPhase::Refresh);
+        let mut stalled=ReceiveBudget::new(start);
+        stalled.phase(true,true,start).unwrap();
+        stalled.received(start+EXPIRED_DRAIN_LIMIT);
+        assert_eq!(stalled.phase(true,true,start+EXPIRED_DRAIN_LIMIT),Err(SyncError::Timeout));
+    }
+    #[test]
+    fn expired_receive_budget_never_exposes_an_unfinished_snapshot() {
+        let start=Instant::now();
+        let mut budget=ReceiveBudget::new(start);
+        let mut transfers=HashMap::new();
+        let id=uuid::Uuid::new_v4().to_string();
+        let bytes=[0,0];
+        let begin=json!({"type":"sync_begin","transferId":id,"page":page(),"stateVector":"AA==","sha256":format!("{:x}",Sha256::digest(bytes)),"chunks":2});
+        assert!(receive(&mut transfers,begin).unwrap().is_none());
+        assert!(receive(&mut transfers,json!({"type":"sync_chunk","transferId":id,"index":0,"data":"AA=="})).unwrap().is_none());
+        assert_eq!(budget.phase(true,!transfers.is_empty(),start).unwrap(),SocketPhase::Draining);
+        assert!(receive(&mut transfers,json!({"type":"sync_chunk","transferId":id,"index":1,"data":"AA=="})).unwrap().is_none());
+        let completed=receive(&mut transfers,json!({"type":"sync_end","transferId":id})).unwrap();
+        assert!(matches!(completed,Some(ServerEvent::Snapshot(_))));
+        assert_eq!(budget.phase(true,!transfers.is_empty(),start+Duration::from_secs(90)).unwrap(),SocketPhase::Refresh);
     }
     #[test]
     fn websocket_snapshot_is_never_exposed_before_complete_and_verified() {
