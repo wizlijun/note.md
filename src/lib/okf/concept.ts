@@ -21,6 +21,8 @@ import { basename } from '../paths'
 export const CONCEPT_TYPE = {
   /** 普通 markdown 笔记(⌘N 新建、vault 外建页) */
   note: 'Note',
+  /** Sumi 原生写作纸页，正文由人书写。 */
+  writingPage: 'Writing Page',
   /** 伴生/大纲笔记 `.note.md` */
   outlineNote: 'Outline Note',
   /** 日期笔记 `dailynote/yyyy/yyyy-MM-dd.note.md` */

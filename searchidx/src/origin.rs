@@ -88,7 +88,7 @@ impl Origin {
 /// `concept.ts` for the same caveat from the other side.
 fn mapped_type_origin(concept_type: &str) -> Option<Origin> {
     match concept_type {
-        "Note" | "Outline Note" | "Daily Note" | "Wiki Page" | "Idea" | "Next" | "Task"
+        "Note" | "Writing Page" | "Outline Note" | "Daily Note" | "Wiki Page" | "Idea" | "Next" | "Task"
         | "Vault Conventions" | "User Profile" | "Memory" | "Trace Request" | "Skill" => Some(Origin::Human),
         "Book Summary" | "Book Topic Index" | "Answer" | "Idea Proof" | "Reading Report"
         | "Decision Board" | "Decision Archive" | "Trace Report" | "Task Kickoff" => Some(Origin::Derived),
@@ -279,6 +279,17 @@ mod tests {
         );
         assert_eq!(derive("a.md", Some(&fm("type: Book Summary")), &globs(&[])), Origin::Derived);
         assert_eq!(derive("a.md", Some(&fm("type: Book")), &globs(&[])), Origin::Source);
+    }
+    #[test]
+    fn writing_page_is_human_but_does_not_override_explicit_agent_provenance() {
+        let path = "inbox/writings/2026-11-08-01.writing.md";
+        assert_eq!(derive(path, Some(&fm("type: Writing Page")), &globs(&[])), Origin::Human);
+        assert_eq!(
+            derive(path, Some(&fm("type: Writing Page\ngenerated:\n  by: claude/1")), &globs(&[])),
+            Origin::Derived
+        );
+        // The suffix alone cannot certify human authorship.
+        assert_eq!(derive(path, None, &globs(&[])), Origin::Unlabeled);
     }
     #[test]
     fn kickoff_and_skill_have_explicit_origin_tiers() {
