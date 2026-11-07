@@ -13,14 +13,19 @@ describe('desktop diagram context', () => {
       i18n.locale = locale
       const options = desktopDiagramInteraction()
       expect(desktopDiagramInteraction()).toBe(options)
-      expect(Object.values(options.labels!)).toHaveLength(13)
+      expect(Object.values(options.labels!)).toHaveLength(6)
       expect(Object.values(options.labels!).every(label => label && !label.startsWith('diagram.'))).toBe(true)
       values.set(locale, options)
     }
     i18n.locale = 'zh'
     expect(desktopDiagramInteraction()).toBe(values.get('zh'))
-    expect(values.get('zh')?.labels?.zoomIn).toBe('放大')
-    expect(values.get('en')?.labels?.zoomIn).toBe('Zoom in')
+    expect(values.get('zh')?.labels?.reset).toBe('恢复默认大小（100%）')
+    expect(values.get('en')?.labels?.reset).toBe('Reset to default size (100%)')
+    expect(values.get('zh')?.labels?.hint).toContain('点击图表后')
+    for (const value of values.values()) {
+      expect(value.labels?.hint).toContain('Shift')
+      expect(value.labels?.hint).toContain('F')
+    }
   })
 
   it('separates preview and toolbar keys from source text and unrelated controls', () => {

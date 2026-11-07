@@ -9,10 +9,7 @@ export function desktopDiagramInteraction(): DiagramOptions {
   let options = localized.get(i18n.locale)
   if (!options) {
     options = { labels: {
-      zoomIn: t('diagram.zoomIn'), zoomOut: t('diagram.zoomOut'),
-      reset: t('diagram.reset'), fit: t('diagram.fit'),
-      panLeft: t('diagram.panLeft'), panRight: t('diagram.panRight'),
-      panUp: t('diagram.panUp'), panDown: t('diagram.panDown'),
+      reset: t('diagram.reset'),
       region: t('diagram.region'), hint: t('diagram.hint'),
       preview: t('diagram.preview'), edit: t('diagram.edit'), copy: t('diagram.copy'),
     } }

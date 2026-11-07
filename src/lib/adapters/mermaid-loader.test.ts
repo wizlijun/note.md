@@ -35,9 +35,19 @@ it.each([false, true])('Rich explicitly enables diagram interaction through the 
     file ? { tab: { id: 'diagram-di', filePath: '/vault/b.md', currentContent: raw, mode: 'rich' }, plugins: [] } : undefined, true)
   try {
     await vi.waitFor(() => expect(root.querySelector('.diagram-viewport')).not.toBeNull())
-    expect(root.querySelector('.diagram-zoom-in')).not.toBeNull()
-    expect(root.querySelector('.diagram-zoom-fit')).not.toBeNull()
-    expect(root.querySelector('.diagram-zoom-reset')?.getAttribute('aria-label')).toContain('100%')
+    expect(root.querySelector('.diagram-controls, .diagram-zoom-in, .diagram-zoom-fit, .diagram-pan-left')).toBeNull()
+    const viewport = root.querySelector<HTMLElement>('.diagram-viewport')!
+    const badge = root.querySelector<HTMLButtonElement>('.diagram-zoom-reset')!
+    expect(badge.hidden).toBe(true)
+    expect(badge.tabIndex).toBe(-1)
+    expect(viewport.contains(badge)).toBe(true)
+    expect(root.querySelector('.diagram-transform')?.contains(badge)).toBe(false)
+    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true, cancelable: true }))
+    await vi.waitFor(() => expect(badge.hidden).toBe(false))
+    expect(badge.textContent).toBe('125%')
+    expect(badge.tabIndex).toBe(0)
+    badge.click()
+    await vi.waitFor(() => expect(badge.hidden).toBe(true))
     expect(instance.getMarkdown()).toContain('graph TD; A-->B')
   } finally { instance.destroy(); if (file) await closeFileEditorSession('diagram-di') }
 })

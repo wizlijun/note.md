@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Zoom and move diagrams in Rich mode.** Scroll inside Mermaid and Graphviz previews to zoom, then drag or use direction buttons to move; restore 100% or fit the whole diagram. Tall diagrams leave space outside the viewer for page scrolling, and copying keeps the complete image. View state survives tab switches within an open document without changing Markdown. The macOS pinch adapter still requires physical-input verification in the target WKWebView before release.
+- **Zoom and move diagrams in Rich mode.** Scroll inside Mermaid and Graphviz previews to zoom. A small percentage badge appears at the bottom right only away from 100%; click it to reset. Focus the diagram to move with arrow keys (Shift for larger steps), zoom with +/-, reset with 0, or fit with F. Tall diagrams leave room for page scrolling; copying keeps the complete image, and tab switches retain view state without changing Markdown. The macOS pinch adapter still requires physical-input verification in the target WKWebView before release.
 
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.
 

@@ -116,7 +116,6 @@
   position: static;
   flex-wrap: wrap;
   gap: 4px 8px;
-  min-height: 28px;
   box-sizing: border-box;
 }
 .moraya-editor .diagram-interactive .code-toolbar-right {
@@ -129,45 +128,39 @@
   opacity: 1;
   pointer-events: auto;
 }
-.moraya-editor .diagram-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding-right: 6px;
-  margin-right: 4px;
-  border-right: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
-}
-.moraya-editor .diagram-control {
+.moraya-editor .diagram-zoom-reset {
+  /* A viewing-state badge, outside the transformed SVG and inside the viewport. */
+  position: absolute;
+  right: 0;
+  bottom: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 2px 5px;
-  border: 0;
+  box-sizing: border-box;
+  min-width: min(44px, 100%);
+  max-width: 100%;
+  height: 24px;
+  max-height: 100%;
+  padding: 1px 6px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
   border-radius: 4px;
-  background: none;
-  color: GrayText;
-  font: inherit;
+  background: color-mix(in srgb, Canvas 94%, transparent);
+  color: CanvasText;
+  font: 11px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.moraya-editor .diagram-control:enabled:hover {
-  background: color-mix(in srgb, CanvasText 12%, transparent);
-  color: CanvasText;
+.moraya-editor .diagram-zoom-reset:hover {
+  background: color-mix(in srgb, CanvasText 8%, Canvas);
 }
-.moraya-editor .diagram-control:disabled {
-  opacity: .35;
-  cursor: default;
-}
-.moraya-editor .diagram-control[hidden] { display: none; }
-.moraya-editor .diagram-zoom-reset { min-width: 44px; }
-.moraya-editor .diagram-interactive :is(.diagram-control, .code-copy-btn, .mermaid-toggle-btn, .code-lang-label):focus-visible,
+.moraya-editor .diagram-zoom-reset[hidden] { display: none; }
+.moraya-editor .diagram-interactive :is(.diagram-zoom-reset, .code-copy-btn, .mermaid-toggle-btn, .code-lang-label):focus-visible,
 .moraya-editor .diagram-viewport:focus-visible {
   outline: 2px solid Highlight;
   outline-offset: 2px;
 }
+.moraya-editor .diagram-zoom-reset:focus-visible { outline-offset: -2px; }
 .moraya-editor .diagram-viewport {
   /* An explicit page-scroll lane remains outside each side of the viewport. */
   width: auto;
