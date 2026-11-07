@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 mod file_views;
 mod index;
 pub use index::*;
-pub use file_views::{FileViewContribution, FileViewIcon, FileViewScalar, FileViewSelector};
+pub use file_views::{FileViewContribution, FileViewIcon, FileViewScalar, FileViewSelector, FileViewSurface};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -164,10 +164,15 @@ pub struct WindowContribution {
     pub min_height: Option<f64>,
     #[serde(default = "default_true")]
     pub singleton: bool,
+    /// Fixed-size focus windows can still enter system fullscreen.
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub resizable: bool,
     /// contributes.menus 中命中此 command 的菜单项 = 打开本窗口（不走 command.execute）。
     #[serde(default)]
     pub open_command: Option<String>,
 }
+
+fn is_true(value: &bool) -> bool { *value }
 
 fn default_true() -> bool {
     true
@@ -827,6 +832,19 @@ mod tests {
     }
 
     #[test]
+    fn window_resize_defaults_remain_compatible_and_fixed_size_is_explicit() {
+        let raw = json!({ "id":"focus", "entry":"index.html", "width":800, "height":600 });
+        let old: WindowContribution = serde_json::from_value(raw.clone()).unwrap();
+        assert!(old.resizable);
+        assert!(serde_json::to_value(old).unwrap().get("resizable").is_none());
+        let mut fixed = raw;
+        fixed["resizable"] = json!(false);
+        let parsed: WindowContribution = serde_json::from_value(fixed).unwrap();
+        assert!(!parsed.resizable);
+        assert_eq!(serde_json::to_value(parsed).unwrap()["resizable"], json!(false));
+    }
+
+    #[test]
     fn validate_rejects_windows_without_ui() {
         let mut m = sample_manifest();
         // binary is set, ui is None
@@ -840,6 +858,7 @@ mod tests {
             min_width: None,
             min_height: None,
             singleton: true,
+            resizable: true,
             open_command: None,
         }];
         let err = validate_manifest(&m, "7.0.0").unwrap_err();

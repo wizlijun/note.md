@@ -9,6 +9,7 @@
 
 export type FileViewIcon = "generic" | "sparkle" | "clock" | "book";
 export type FileViewScalar = string | number | boolean;
+export type FileViewSurface = "webview" | "native-editor";
 export type PluginKind = "native" | "wasm";
 
 export interface ManifestV2 {
@@ -69,6 +70,10 @@ export interface FileViewContribution {
    * @maxItems 32
    */
   selectors: [FileViewSelector, ...FileViewSelector[]];
+  /**
+   * Host-compiled editor surface; omitted uses the existing iframe view.
+   */
+  surface?: FileViewSurface;
 }
 /**
  * Selectors are ORed; fields within one selector are ANDed. Each value list is ORed; distinct frontmatter keys are ANDed.
@@ -128,6 +133,10 @@ export interface WindowContribution {
    * contributes.menus 中命中此 command 的菜单项 = 打开本窗口（不走 command.execute）。
    */
   open_command?: string | null;
+  /**
+   * Fixed-size focus windows can still enter system fullscreen.
+   */
+  resizable?: boolean;
   singleton?: boolean;
   title?: string | null;
   width: number;

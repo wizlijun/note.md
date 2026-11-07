@@ -224,6 +224,14 @@
           },
           "maxItems": 32,
           "minItems": 1
+        },
+        "surface": {
+          "description": "Host-compiled editor surface; omitted uses the existing iframe view.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/FileViewSurface"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -290,6 +298,13 @@
         }
       },
       "additionalProperties": false
+    },
+    "FileViewSurface": {
+      "type": "string",
+      "enum": [
+        "webview",
+        "native-editor"
+      ]
     },
     "PluginKind": {
       "type": "string",
@@ -378,6 +393,10 @@
             "string",
             "null"
           ]
+        },
+        "resizable": {
+          "description": "Fixed-size focus windows can still enter system fullscreen.",
+          "type": "boolean"
         },
         "singleton": {
           "default": true,

@@ -11,6 +11,9 @@ use crate::ManifestV2;
 pub struct FileViewContribution {
     pub id: String,
     pub entry: String,
+    /// Host-compiled editor surface; omitted uses the existing iframe view.
+    #[serde(default, skip_serializing_if = "FileViewSurface::is_webview")]
+    pub surface: FileViewSurface,
     /// Icon shown in the host's compact file-view switcher.
     #[serde(default, skip_serializing_if = "FileViewIcon::is_generic")]
     pub icon: FileViewIcon,
@@ -32,6 +35,18 @@ pub struct FileViewContribution {
     pub priority: i32,
     #[schemars(length(min = 1, max = 32))]
     pub selectors: Vec<FileViewSelector>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileViewSurface {
+    #[default]
+    Webview,
+    NativeEditor,
+}
+
+impl FileViewSurface {
+    fn is_webview(&self) -> bool { *self == Self::Webview }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -145,6 +160,12 @@ pub fn validate_file_views(manifest: &ManifestV2) -> Result<(), String> {
         .filter_map(|window| window.open_command.as_deref())
         .collect();
     for view in views {
+        if view.surface == FileViewSurface::NativeEditor
+            && ["editor.native", "editor.write"].iter()
+                .any(|required| !manifest.capabilities.iter().any(|cap| cap == required))
+        {
+            return Err(format!("file view '{}': native-editor requires editor.native and editor.write", view.id));
+        }
         let error = || {
             format!(
                 "file view '{}': invalid declaration or empty selector",
@@ -307,6 +328,29 @@ mod tests {
                 .collect()
         ))));
         assert!(valid(manifest(json!([]))));
+    }
+
+    #[test]
+    fn native_surface_requires_both_permissions_and_preserves_old_default() {
+        let view = json!({"id":"writing", "entry":"index.html", "surface":"native-editor",
+            "selectors":[{"frontmatter":{"type":["Writing Page"]}}]});
+        let mut raw = manifest(json!([view]));
+        for caps in [json!([]), json!(["editor.native"]), json!(["editor.write"])] {
+            raw["capabilities"] = caps;
+            assert!(!valid(raw.clone()));
+        }
+        raw["capabilities"] = json!(["editor.native", "editor.write"]);
+        assert!(valid(raw.clone()));
+        for bad in [Value::Null, json!("qt"), json!(false)] {
+            let mut changed = raw.clone();
+            changed["contributes"]["file_views"][0]["surface"] = bad;
+            assert!(!valid(changed));
+        }
+        raw["contributes"]["file_views"][0].as_object_mut().unwrap().remove("surface");
+        raw["capabilities"] = json!([]);
+        let parsed: ManifestV2 = serde_json::from_value(raw).unwrap();
+        assert_eq!(parsed.contributes.file_views[0].surface, FileViewSurface::Webview);
+        assert!(serde_json::to_value(&parsed.contributes.file_views[0]).unwrap().get("surface").is_none());
     }
 
     #[test]
