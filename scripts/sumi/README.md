@@ -39,6 +39,8 @@ node scripts/sumi/serve.mjs
 
 HTTP 报告只写临时 artifacts/reports。Chrome 只能标为额外引擎对照，不能替代同 WKWebView 比较。本次复用已授权的 Acceptance.app，不另外创建 GUI 应用。
 
+只读审计隔离 Vault 内保存的累计 Web 报告：`node scripts/sumi/audit-web-reports.mjs [REPORT_DIR] [INSTALLED_BENCHMARK_DIR]`。脚本核对当前源码、安装产物与字体摘要，按固定语料独立重放正文，复算原始样本分位数；仅纳入 1000 次预热 / 100 次采样的正式轮次，排除 quick，并去重累计报告中的同一记录。每组必须恰好 5 轮，否则明确报告未完整。测试过程中读取完整 AX 树等观察操作须另附记录，不能无依据剔除慢样本；脚本始终将物理输入到呈现帧标为未测。
+
 ## 原生程序化基准
 
 ```sh
