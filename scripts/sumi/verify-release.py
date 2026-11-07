@@ -108,6 +108,11 @@ def native_evidence(libraries, objc):
         require(name in objc, 'Missing linked Objective-C native bridge class '+name)
 
 
+def verify_architecture(actual, expected):
+    require(expected in ('arm64', 'x86_64'), 'Unsupported release architecture')
+    require(actual == expected, 'Expected thin '+expected+' release; lipo reported '+actual)
+
+
 def freeze(args):
     commit = git('rev-parse', args.expected_source+'^{commit}').decode().strip()
     require(commit == args.expected_source, 'Use exact frozen 40-character commit')
@@ -142,7 +147,7 @@ def verify(args, report):
     h.verify_app_identity(plistlib.loads((app/'Contents/Info.plist').read_bytes()), VERSION)
     binary = app/'Contents/MacOS/notemd'
     before = h.file_info(binary)
-    require(h.check_command(report, ['/usr/bin/lipo','-archs',str(binary)]) == 'arm64', 'Expected arm64 release')
+    verify_architecture(h.check_command(report, ['/usr/bin/lipo','-archs',str(binary)]), args.arch)
     h.check_command(report, ['/usr/bin/codesign','--verify','--deep','--strict','--verbose=2',str(app)])
     h.check_command(report, ['/usr/sbin/spctl','--assess','--type','execute','--verbose=4',str(app)])
     require('Notarized Developer ID' in report['commands'][-1]['stderr'], 'App not notarized Developer ID')
@@ -159,7 +164,7 @@ def verify(args, report):
         require((candidate/'Contents/_CodeSignature/CodeResources').read_bytes() == code_resources, 'Distribution signed resource inventory differs from app')
         font_files(candidate/'Contents/Resources/resources/sumi', manifest_raw)
 
-    report['embedded_js'] = json.loads(h.check_command(report, ['node',str(Path(__file__).with_name('verify-embedded.mjs')),str(binary),str(args.depfile),str(args.dist),str(args.inputs),str(ROOT/'src-tauri/target')]))
+    report['embedded_js'] = json.loads(h.check_command(report, ['node',str(Path(__file__).with_name('verify-embedded.mjs')),'--arch',args.arch,str(binary),str(args.depfile),str(args.dist),str(args.inputs),str(ROOT/'src-tauri/target')]))
     report['updater'] = h.file_info(args.updater)
     report['updater']['identity'] = h.verify_archive_identity(args.updater, VERSION)
     updater_signature = args.updater_signature or Path(str(args.updater)+'.sig')
@@ -205,7 +210,7 @@ def verify(args, report):
     require(h.file_info(args.updater)['sha256'] == report['updater']['sha256'], 'Updater changed during verification')
     require(h.file_info(args.dmg)['sha256'] == report['dmg']['sha256'], 'DMG changed during verification')
     require(h.file_info(args.plugin_package)['sha256'] == report['plugin']['sha256'], 'Plugin changed during verification')
-    report.update(source=args.expected_source, tag=args.tag, app_binary=before, inputs=h.file_info(args.inputs), reused_helper=h.file_info(args.candidate_helper), limits='Read-only artifact/source/whole-module proof. No app launch, installation, runtime routing, physical input, IME or UI acceptance claimed.')
+    report.update(source=args.expected_source, tag=args.tag, architecture=args.arch, app_binary=before, inputs=h.file_info(args.inputs), reused_helper=h.file_info(args.candidate_helper), limits='Read-only artifact/source/whole-module proof. No app launch, installation, runtime routing, physical input, IME or UI acceptance claimed.')
 
 
 def self_test():
@@ -218,6 +223,11 @@ def self_test():
             return
         raise RuntimeError('Negative fixture unexpectedly accepted')
     production={'CFBundleIdentifier':'net.notemd.app','CFBundleShortVersionString':VERSION,'CFBundleExecutable':'notemd'}
+    for arch in ('arm64', 'x86_64'):
+        verify_architecture(arch, arch)
+        rejects(lambda: verify_architecture('x86_64' if arch == 'arm64' else 'arm64', arch))
+        rejects(lambda: verify_architecture('arm64 x86_64', arch))
+    rejects(lambda: verify_architecture('i386', 'i386'))
     h.verify_app_identity(production, VERSION)
     rejects(lambda:h.verify_app_identity({**production,'CFBundleIdentifier':'net.notemd.sumi.acceptance'},VERSION))
     rejects(lambda:h.verify_app_identity({**production,'CFBundleShortVersionString':'6.1107.5'},VERSION))
@@ -277,7 +287,7 @@ def self_test():
         rejects(lambda: font_files(directory,encoded))
         rejects(lambda: font_files(directory,encoded+b' '))
     subprocess.run(['node',str(Path(__file__).with_name('verify-embedded.mjs')),'--self-test'],check=True)
-    return {'ok':True,'offline':True,'checks':['plugin-identity','exact-ui-inventory-and-bytes','stale-version-and-capability-rejected','zip-traversal-and-symlink-rejected','six-font-license-hashes','tampered-font-and-manifest-rejected','native-classes-and-no-Qt','whole-JS-module-positive-negative','real-minisign-fixture-and-tamper','production-version-and-identity','updater-plist-duplicate-symlink-isolated-rejected']}
+    return {'ok':True,'offline':True,'checks':['arm64-and-x86_64-positive-wrong-or-universal-CPU-rejected','plugin-identity','exact-ui-inventory-and-bytes','stale-version-and-capability-rejected','zip-traversal-and-symlink-rejected','six-font-license-hashes','tampered-font-and-manifest-rejected','native-classes-and-no-Qt','whole-JS-module-positive-negative','real-minisign-fixture-and-tamper','production-version-and-identity','updater-plist-duplicate-symlink-isolated-rejected']}
 
 
 def main():
@@ -285,6 +295,7 @@ def main():
     p.add_argument('--freeze-inputs',action='store_true')
     p.add_argument('--self-test',action='store_true')
     p.add_argument('--tag',default='v'+VERSION)
+    p.add_argument('--arch',choices=('arm64','x86_64'),default='arm64',help='Expected thin Mach-O CPU; default arm64')
     p.add_argument('--expected-source')
     p.add_argument('--inputs',type=Path)
     p.add_argument('--app',type=Path)
