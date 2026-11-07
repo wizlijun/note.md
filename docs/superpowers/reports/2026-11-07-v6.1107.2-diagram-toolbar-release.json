@@ -1,0 +1,160 @@
+{
+  "version": "6.1107.2",
+  "scope": [
+    "darwin-aarch64"
+  ],
+  "source": {
+    "tag": "v6.1107.2",
+    "host_commit": "dfbba062c8c6a2bddd7df2d962357459f0ce5bbc",
+    "core_commit": "e01e451b7df7dadbd74de1060bd3a5d05cd89e6b",
+    "host_fix_commit": "ef6f546e3dd20f65533fe33c31f8b81107a815fe",
+    "regression_sha256": {
+      "src/components/RichEditor.svelte": "b1ae632f082b5f47cc052cee5061267e022d786a3ec4dbeba6a78960592eda73",
+      "src/components/SettingsDialog.svelte": "afd114fbe56dc937d9ea1c245fa36b764064426ed452f01e84706bd6d833717e",
+      "src/components/SettingsDialog.search-tab.test.ts": "2158d6e05d2a57a715bb91fd5ec510c9d0c846425896e49d3eaf46ef224d8292",
+      "src/lib/settings.svelte.ts": "17192193ba082cffc12b1b52eabac4279b02a4674cbfe199ca04baba9ce3f743",
+      "src/lib/settings.test.ts": "c07afe91edaa85a005191f5d0ed4b920315bd3efa189d2b1f7c5565246969d70",
+      "src/styles/editor-structure.css": "d53c079f708dfe48ccdc73cc91592b0310cc377ec57d5f66463e42a71a97ff22",
+      "src/lib/i18n/zh.ts": "872854a62252174619222e1ddcfbf5a57758aaf28c372bbaeed767219933e508",
+      "src/lib/i18n/en.ts": "333e99bec09e2f68ac4b023d1cc53e5a12f1124e82e726c38cc28dc6f4fe1bfa",
+      "src/lib/i18n/ja.ts": "7f250ed0051fe97d45ac0f6fbd297485e974c6a0ce827509d19ca55f85be8733",
+      "src/lib/i18n/de.ts": "b940aa9e22f6304438e8eee84905f3e4a4e70a9686c95a7ef753270f977e5fa8"
+    }
+  },
+  "canonicalExit": 0,
+  "candidateBinary": {
+    "path": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+    "bytes": 20324656,
+    "sha256": "7360406b59a773875fcdda67f7aec11d453332e2dd52f693291b0a87d76e64a2"
+  },
+  "public": {
+    "ok": true,
+    "tag": "v6.1107.2",
+    "source_sha": "dfbba062c8c6a2bddd7df2d962357459f0ce5bbc",
+    "public_tag_source_sha": "dfbba062c8c6a2bddd7df2d962357459f0ce5bbc",
+    "published_at": "2026-11-07T02:02:46Z",
+    "release_id": 437253594,
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1107.2",
+    "assets": [
+      {
+        "mode": "cache-bypass",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "4e9166b373e256c5cf30278e50a7b1d65981224ddee9d500f4f8e16f99fe03f8",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-6.1107.2-aarch64.dmg",
+        "bytes": 13493949,
+        "sha256": "874d22d360d8c5f4152bda1bd341ad8dbf5893c0b07e83ddb47aadb477a9806e",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13539521,
+        "sha256": "f52602bfe1c6a57d96a37ad76bce02d910a1ca384b3eb4b5c37e60638fdf3a5c",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "646bc9abcbbd694ddcc52045afc08e18a8e988d059513ab795cb70215f4728c7",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "4e9166b373e256c5cf30278e50a7b1d65981224ddee9d500f4f8e16f99fe03f8",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-6.1107.2-aarch64.dmg",
+        "bytes": 13493949,
+        "sha256": "874d22d360d8c5f4152bda1bd341ad8dbf5893c0b07e83ddb47aadb477a9806e",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13539521,
+        "sha256": "f52602bfe1c6a57d96a37ad76bce02d910a1ca384b3eb4b5c37e60638fdf3a5c",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "646bc9abcbbd694ddcc52045afc08e18a8e988d059513ab795cb70215f4728c7",
+        "byte_equal_staged": true
+      }
+    ],
+    "ordinary_and_cache_bypass_verified": true,
+    "latest_endpoint_verified": true,
+    "updater_minisign_verified": true,
+    "platforms": [
+      "darwin-aarch64"
+    ],
+    "actual_app_request_without_query_verified": true,
+    "actual_app_headers": {
+      "Accept": "application/json",
+      "User-Agent": "tauri-plugin-updater/2.10.1"
+    },
+    "local_signing_notarization": "separate acceptance; not claimed by this verifier",
+    "verified_at_utc": "2026-11-07T02:05:26.852915+00:00"
+  },
+  "website": {
+    "commit": "7ee3af909e51023617a16c4923d5df644afab187",
+    "workflowRunId": 42327254427,
+    "fourLanguagesBothRequestModesPass": true,
+    "armRouteBothRequestModesPass": true,
+    "fullMatrixStablePass": true
+  },
+  "notarization": {
+    "app": "3b0fd307-6457-491c-afe3-1a7ee21b469c",
+    "dmg": "09df8a38-5072-4ac7-bd55-5cd7fbe8a89e",
+    "status": "Accepted"
+  },
+  "checks": {
+    "frontendTests": 5439,
+    "frontendFiles": 414,
+    "websiteTests": 142,
+    "typeErrors": 0,
+    "existingWarnings": 31,
+    "rustTests": 30,
+    "protocol": "pass",
+    "audit": "no high/critical; 1 low and 4 moderate"
+  },
+  "nativeUi": {
+    "verified": false,
+    "attempted": true,
+    "inventory": "note.md running was listed",
+    "failure": "CUA getApp(/Applications/note.md.app) returned noWindowsAvailable after about 290 seconds; bundle-id lookup was ambiguous",
+    "product_mutation": false,
+    "fallback": "Use existing real RichEditor/SettingsDialog Chromium evidence plus frozen candidate exact JS/CSS containment; no claim of native WKWebView acceptance",
+    "cli_probe_note": "Initial .app executable --version fell through GUI dispatch and returned core startup logs, not version evidence; no file arguments provided. Correct --cli --json version is recorded separately."
+  },
+  "pendingRestored": {
+    "CHANGELOG.md": {
+      "pendingEntries": 19,
+      "pendingSha256": "f61056e2f9706034f180a04186734aa217ceb07e044a5d7bc300a8d07b816b81",
+      "versionSectionsUnchanged": true
+    },
+    "CHANGELOG.zh-CN.md": {
+      "pendingEntries": 19,
+      "pendingSha256": "7188f8c43dfa1f9bf54d42ceddcedc8a21698520ef711b1e672e7848b6b85e81",
+      "versionSectionsUnchanged": true
+    }
+  },
+  "localEvidence": {
+    "host-release.log": "4a9fade504d6851917c8503e222297b684189610fd39a31caf89b2f800f46339",
+    "candidate-verification.json": "1c03d3e43630cf0eb9be87cb9c673a00ae737b973b68bb1a9cc17c7f8d856b02",
+    "host-public/public-review.json": "288006c20626b65c8c7f0bec27e7573d1b1de39443bdc1881526ee8b507e2c29",
+    "website-verification.json": "5d883abbe1f88d9660ce9c90c52574c81e4287b833890098e845dbba80fb0b77",
+    "frozen-share-manifest.json": "9a10c74d2b6da1a20cc3009a2f0503b0c4c19788f03e36aa1a69a45070791682"
+  }
+}
