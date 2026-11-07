@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1107.2 — 2026-11-07
+
 - **Diagram toolbars are visible by default in Rich mode.** Code and copy buttons stay visible above Mermaid, Graphviz and other diagram previews without covering the diagram. Turn off “Always show diagram toolbars” in Settings → Core → Editor to restore hover behavior.
 
 ## v6.1107.1 — 2026-11-07
