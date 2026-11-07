@@ -41,6 +41,8 @@ HTTP 报告只写临时 artifacts/reports。Chrome 只能标为额外引擎对�
 
 只读审计隔离 Vault 内保存的累计 Web 报告：`node scripts/sumi/audit-web-reports.mjs [REPORT_DIR] [INSTALLED_BENCHMARK_DIR]`。脚本核对当前源码、安装产物与字体摘要，按固定语料独立重放正文，复算原始样本分位数；仅纳入 1000 次预热 / 100 次采样的正式轮次，排除 quick，并去重累计报告中的同一记录。每组必须恰好 5 轮，否则明确报告未完整。测试过程中读取完整 AX 树等观察操作须另附记录，不能无依据剔除慢样本；脚本始终将物理输入到呈现帧标为未测。
 
+系统输入到实际呈现的 Instruments 能力探针：`bash scripts/sumi/probe-input-present.sh plan ACCEPTANCE_PID` 仅验证既有隔离进程并打印命令；显式 `record` 才附加该 PID 录制 30 秒，不启动新应用或录制所有进程。须先结束基准、解锁屏幕并确认目标版本。Frame Lifetimes/Display/HID 的实际关联应从 trace 验证；legacy Hitches 只含慢帧，不能单独计算全输入 p95。无法关联同一输入的 transaction/frame-seed/surface 时保持未测，不取最近一帧猜测。
+
 ## 原生程序化基准
 
 ```sh
