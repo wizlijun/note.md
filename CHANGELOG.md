@@ -51,7 +51,7 @@ For the full commit history, see the git log.
 
 - **Fix Backspace getting stuck in Rich editing.** Deleting the last character after a space or inside a formatted span now preserves boundary whitespace in Markdown and supports continued deletion, undo and redo.
 
-This Apple Silicon prerelease is for testing. A separate terminal soft-line-break deletion issue remains under investigation.
+This Apple Silicon release is available through Check for Updates. A separate terminal soft-line-break deletion issue remains under investigation.
 
 ## v6.1104.2 — 2026-11-04
 

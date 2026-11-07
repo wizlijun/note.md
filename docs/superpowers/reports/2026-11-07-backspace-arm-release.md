@@ -1,5 +1,7 @@
 # 6.1107.1 Apple Silicon 测试版发布证据
 
+后续频道修正：2026-11-07 08:43（Asia/Taipei）已将同一版本提升为正式 latest，接入应用内检查更新。下文保留首次测试版发布时的历史状态；修正证据见 [更新入口报告](2026-11-07-update-channel.md)。
+
 已于 2026-11-07 01:31:54（Asia/Taipei）公开，仅 Apple Silicon，标记 prerelease。稳定 latest 仍为 v6.1104.2，官网稳定入口未修改。本次未替用户覆盖安装。
 
 - 发布页：https://github.com/wizlijun/note.md/releases/tag/v6.1107.1
