@@ -4,6 +4,8 @@
 
 需求依据：[全平台设计](../specs/2026-11-07-immersive-write-design.md)。首版必须同时交付原生编辑、本地 Markdown、行首末时间、CF 增量同步及离线并发自动合并；不能把单机原型称为首版完成。
 
+后续平台参考已按用户补充固定：ESP32 优先参考 Draftor 的自研编辑内核/bgIME/显示链路；Linux 以 Omarchy 为主要目标，优先验证 Omawrite 同栈的 Qt 6 富文本方案。它们分别需要 Markdown/同步适配与 Qt/GTK3 原生 tab 可行性验证，不改变本轮 macOS 首版范围；细节与证据见设计 §4.1、§6.4。
+
 ## 1. 已核实的起点
 
 - 宿主 Tauri 2 / Svelte 5，现有 Rich 是 @moraya/core + ProseMirror。
@@ -44,7 +46,7 @@
 - [ ] 行时间 reducer 对并发、拆合、导入、空行、撤销有确定规则；first/last 不使用一个可被并发覆盖的普通 LWW 对象。
 - [ ] SQLite 原子提交 CRDT 增量、时间属性、outbox、投影需求；已本地保存仅在持久成功后出现。
 - [ ] 固定 WAL/synchronous 耐久配置与平台 flush 策略；远端 inbox 同样持久化，分别验证进程崩溃与断电，不混用结论。
-- [ ] 落盘到 `inbox/writes/YYYY-MM-DD-%2d.write.md`（两位补零日序号）；固定首次有效输入的本地日期，服务端协调正式序号，离线重名安全改名，UUID 身份不变。
+- [ ] 落盘到 `inbox/writings/YYYY-MM-DD-%2d.writing.md`（两位补零日序号）；固定首次有效输入的本地日期，服务端协调正式序号，离线重名安全改名，UUID 身份不变。
 - [ ] 后台原子 Markdown 投影与 body hash；关闭/切页 flush；磁盘满/权限错误时保留可恢复草稿并提示。
 - [ ] MD-only 恢复、未知元数据保留、重复 page UUID、外部改动三方导入与崩溃恢复。
 - [ ] 生产格式黄金样本覆盖空正文、尾部空行/末尾 LF、正文恰好含专用注释、未知 schema 与损坏元数据；正文与时间表逐行对应且不吞正文。
