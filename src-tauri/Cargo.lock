@@ -3161,7 +3161,7 @@ dependencies = [
 
 [[package]]
 name = "notemd"
-version = "6.1107.3"
+version = "6.1107.4"
 dependencies = [
  "block2",
  "chrono",

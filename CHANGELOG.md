@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1107.4 — 2026-11-07
+
 - **Diagram zoom areas blend into the document.** Removed the preview surface background and frame in light and dark themes; keyboard focus is indicated by an underline beneath the toolbar's diagram type label.
 
 ## v6.1107.3 — 2026-11-07
