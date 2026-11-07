@@ -47,7 +47,7 @@
 
 ## 4. P1-A：文档内核与离线持久化（约 1 周）
 
-文件布局按设计 §5.2 修订推荐为 MD + `.writing.meta.json`；单文件自包含与双文件兼容性的取舍尚待用户确认，冻结后再实现 serializer。
+用户已确认设计 §5.2 的 MD + `.writing.meta.json` 文件布局。serializer 按此方向实现，具体生产 schema 在 P0 验证后冻结；完整内容迁移需同时携带匹配的正文与时间快照。
 
 - [ ] 实现 page/epoch/逻辑行身份/时间、局部 Markdown patch 与格式子集；原生富文本不接触隐藏元数据。
 - [ ] 行时间 reducer 对并发、拆合、导入、空行、撤销有确定规则；first/last 不使用一个可被并发覆盖的普通 LWW 对象。
