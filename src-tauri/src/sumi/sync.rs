@@ -241,6 +241,67 @@ pub struct Snapshot {
     pub update: Vec<u8>,
     pub complete_journal: bool,
     pub quarantine_revision: u64,
+    /// For a complete journal response: None is all history; Some(N) is only
+    /// the complete log after N and requires the caller's retained baseline.
+    pub journal_after: Option<u64>,
+}
+/// Caller-owned durable prefix. Never create/advance it merely from a network
+/// receipt: retain the corresponding baseline/inbox before using this fence.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JournalWatermark {
+    pub space_id: String,
+    pub page_id: String,
+    pub epoch: u64,
+    pub generation: u64,
+    pub version: u64,
+    pub quarantine_revision: u64,
+}
+impl JournalWatermark {
+    fn request(&self, space: &str, page: &str, epoch: u64, body: &mut Value) -> Result<()> {
+        const MAX_SAFE: u64 = 9_007_199_254_740_991;
+        if self.space_id != space
+            || self.page_id != page
+            || self.epoch != epoch
+            || epoch == 0
+            || epoch > MAX_SAFE
+            || self.version >= MAX_SAFE
+            || self.generation > MAX_SAFE
+            || self.quarantine_revision > MAX_SAFE
+        {
+            return Err(SyncError::Protocol("invalid journal watermark"));
+        }
+        body["cursor"] = json!({"version":self.version + 1,"offset":0});
+        body["generation"] = json!(self.generation);
+        body["quarantineRevision"] = json!(self.quarantine_revision);
+        // Do not pin throughVersion to the old watermark. The server must fill
+        // the gap up to its current version before subsequent live broadcasts.
+        Ok(())
+    }
+    fn response(&self, page: &RemotePage, quarantine: u64) -> Result<()> {
+        if page.id != self.page_id {
+            return Err(SyncError::Protocol("journal watermark identity mismatch"));
+        }
+        let code = if page.epoch != self.epoch {
+            Some("epoch_mismatch")
+        } else if page.deleted != 0 {
+            Some("page_deleted")
+        } else if page.generation != self.generation {
+            Some("generation_mismatch")
+        } else if quarantine != self.quarantine_revision {
+            Some("journal_changed")
+        } else if page.version < self.version {
+            Some("invalid_journal_cursor")
+        } else {
+            None
+        };
+        if let Some(code) = code {
+            return Err(SyncError::Api {
+                status: 409,
+                code: code.into(),
+            });
+        }
+        Ok(())
+    }
 }
 fn snapshot(wire: SnapshotWire) -> Result<Snapshot> {
     if wire.chunks.len() > 1000 {
@@ -267,6 +328,7 @@ fn snapshot(wire: SnapshotWire) -> Result<Snapshot> {
         },
         complete_journal: wire.format.as_deref() == Some("journal-v1"),
         quarantine_revision: wire.quarantine_revision,
+        journal_after: None,
     })
 }
 fn merge_journal(bytes: &[u8]) -> Result<Vec<u8>> {
@@ -515,13 +577,29 @@ impl SyncClient {
         epoch: u64,
         state_vector: &[u8],
     ) -> Result<Snapshot> {
+        self.snapshot_since(page_id, epoch, state_vector, None)
+            .await
+    }
+    pub async fn snapshot_since(
+        &mut self,
+        page_id: &str,
+        epoch: u64,
+        state_vector: &[u8],
+        after: Option<&JournalWatermark>,
+    ) -> Result<Snapshot> {
         uuid(page_id)?;
         if state_vector.len() > 32_000 {
             return Err(SyncError::Protocol("state vector exceeds limit"));
         }
         let mut request = json!({"epoch":epoch,"stateVector":STANDARD.encode(state_vector)});
+        if let Some(after) = after {
+            after.request(&self.credentials.space_id, page_id, epoch, &mut request)?;
+        }
         let mut packed = Vec::new();
-        let mut prior_cursor = None;
+        let mut prior_cursor = after.map(|a| JournalCursor {
+            version: a.version + 1,
+            offset: 0,
+        });
         let mut through = None;
         let mut generation = None;
         let mut quarantine = None;
@@ -541,8 +619,17 @@ impl SyncClient {
             if wire.page.id != page_id || wire.page.epoch != epoch {
                 return Err(SyncError::Protocol("snapshot identity mismatch"));
             }
+            if let Some(after) = after {
+                after.response(&wire.page, wire.quarantine_revision)?;
+            }
             if wire.format.as_deref() != Some("journal-v1") {
+                if after.is_some() {
+                    return Err(SyncError::Protocol("resume requires journal format"));
+                }
                 return snapshot(wire);
+            }
+            if wire.through_version != Some(wire.page.version) {
+                return Err(SyncError::Protocol("invalid journal through version"));
             }
             if through.is_some_and(|v| wire.through_version != Some(v))
                 || generation.is_some_and(|g| wire.page.generation != g)
@@ -562,6 +649,21 @@ impl SyncClient {
             let revision = wire.quarantine_revision;
             wire.format = None;
             let batch = snapshot(wire)?;
+            if cursor.version > page.version.saturating_add(1)
+                || (cursor.version == page.version.saturating_add(1) && cursor.offset != 0)
+                || (cursor.version == 0 && cursor.offset != 0)
+                || prior_cursor
+                    .as_ref()
+                    .is_some_and(|old| (cursor.version, cursor.offset) < (old.version, old.offset))
+            {
+                return Err(SyncError::Protocol("invalid journal cursor progress"));
+            }
+            if has_more && (batch.update.is_empty() || prior_cursor.as_ref() == Some(&cursor)) {
+                return Err(SyncError::Protocol("journal cursor did not advance"));
+            }
+            if !has_more && (cursor.version != page.version.saturating_add(1) || cursor.offset != 0) {
+                return Err(SyncError::Protocol("incomplete terminal journal cursor"));
+            }
             if packed.len() + batch.update.len() > MAX_SNAPSHOT {
                 return Err(SyncError::Protocol("journal exceeds limit"));
             }
@@ -573,10 +675,8 @@ impl SyncClient {
                     update: merge_journal(&packed)?,
                     complete_journal: true,
                     quarantine_revision: revision,
+                    journal_after: after.map(|a| a.version),
                 });
-            }
-            if prior_cursor.as_ref().is_some_and(|old| old == &cursor) {
-                return Err(SyncError::Protocol("journal cursor did not advance"));
             }
             prior_cursor = Some(cursor.clone());
             request = json!({"epoch":epoch,"stateVector":STANDARD.encode(state_vector),"cursor":cursor,"throughVersion":through,"generation":generation,"quarantineRevision":quarantine});
@@ -624,6 +724,8 @@ impl SyncClient {
             socket,
             transfers: HashMap::new(),
             pending_sync: HashSet::new(),
+            subscriptions: HashMap::new(),
+            space_id: self.credentials.space_id.clone(),
             receive_budget: ReceiveBudget::new(Instant::now()),
             expires_at: self.token.as_ref().unwrap().expires_at,
         };
@@ -647,6 +749,7 @@ pub struct Subscription {
     pub page_id: String,
     pub epoch: u64,
     pub state_vector: Vec<u8>,
+    pub after: Option<JournalWatermark>,
 }
 fn update_body(
     op_id: &str,
@@ -703,6 +806,7 @@ struct Transfer {
     journal: Option<Vec<u8>>,
     journal_pages: u64,
     quarantine_revision: u64,
+    journal_after: Option<u64>,
 }
 const RECEIVE_IDLE: Duration = Duration::from_secs(60);
 // Bound only reading a transfer accepted under the old token. This grants no
@@ -739,6 +843,8 @@ pub struct WsSession {
     // A subscribe may be queued before sync_begin reaches us. Keep that
     // accepted request pending until its complete verified snapshot arrives.
     pending_sync: HashSet<String>,
+    subscriptions: HashMap<String, Subscription>,
+    space_id: String,
     receive_budget: ReceiveBudget,
     pub expires_at: u64,
 }
@@ -766,14 +872,27 @@ impl WsSession {
         if subscription.state_vector.len() > 32_000 {
             return Err(SyncError::Protocol("state vector exceeds limit"));
         }
-        self.send(json!({"type":"subscribe","pageId":subscription.page_id,"epoch":subscription.epoch,"stateVector":STANDARD.encode(&subscription.state_vector)})).await?;
+        let mut body = json!({"type":"subscribe","pageId":subscription.page_id,"epoch":subscription.epoch,"stateVector":STANDARD.encode(&subscription.state_vector)});
+        if let Some(after) = &subscription.after {
+            after.request(
+                &self.space_id,
+                &subscription.page_id,
+                subscription.epoch,
+                &mut body,
+            )?;
+        }
+        self.send(body).await?;
         self.pending_sync.insert(subscription.page_id.clone());
+        self.subscriptions
+            .insert(subscription.page_id.clone(), subscription.clone());
         Ok(())
     }
     pub async fn unsubscribe(&mut self, page_id: &str) -> Result<()> {
         uuid(page_id)?;
-        self.send(json!({"type":"unsubscribe","pageId":page_id})).await?;
+        self.send(json!({"type":"unsubscribe","pageId":page_id}))
+            .await?;
         self.pending_sync.remove(page_id);
+        self.subscriptions.remove(page_id);
         Ok(())
     }
     pub async fn send_update(
@@ -808,7 +927,9 @@ impl WsSession {
     /// store received updates before applying/advancing state vectors or deleting outbox rows.
     pub async fn recv(&mut self) -> Result<ServerEvent> {
         loop {
-            if self.phase()? == SocketPhase::Refresh { return Err(SyncError::Closed); }
+            if self.phase()? == SocketPhase::Refresh {
+                return Err(SyncError::Closed);
+            }
             // The deadline belongs to the session, not this cancellable recv
             // future. Coordinator ticks must not reset the inactivity budget.
             // Drain already-buffered frames first, even after a long HTTP task.
@@ -817,7 +938,9 @@ impl WsSession {
                 biased;
                 message = self.socket.next() => message,
                 _ = tokio::time::sleep_until(deadline) => return Err(SyncError::Timeout),
-            }.ok_or(SyncError::Closed)?.map_err(|_| SyncError::Transport)?;
+            }
+            .ok_or(SyncError::Closed)?
+            .map_err(|_| SyncError::Transport)?;
             self.receive_budget.received(Instant::now());
             let text = match message {
                 Message::Text(text) => text,
@@ -834,7 +957,12 @@ impl WsSession {
             };
             let value: Value = serde_json::from_str(&text)
                 .map_err(|_| SyncError::Protocol("invalid websocket JSON"))?;
-            if let Some(event) = receive(&mut self.transfers, value)? {
+            if let Some(event) = receive_subscribed(
+                &mut self.transfers,
+                &self.subscriptions,
+                &self.pending_sync,
+                value,
+            )? {
                 complete_subscription(&mut self.pending_sync, &event);
                 return Ok(event);
             }
@@ -856,6 +984,36 @@ fn number(value: &Value, key: &str) -> Result<u64> {
 }
 fn parse<T: DeserializeOwned>(value: Value) -> Result<T> {
     serde_json::from_value(value).map_err(|_| SyncError::Protocol("invalid message shape"))
+}
+fn receive_subscribed(
+    transfers: &mut HashMap<String, Transfer>,
+    subscriptions: &HashMap<String, Subscription>,
+    pending: &HashSet<String>,
+    value: Value,
+) -> Result<Option<ServerEvent>> {
+    if value["type"] == "sync_begin" && value["format"] == "journal-v1" {
+        let page: RemotePage = parse(value["page"].clone())?;
+        let requested = subscriptions
+            .get(&page.id)
+            .filter(|_| pending.contains(&page.id))
+            .ok_or(SyncError::Protocol("unsolicited journal response"))?;
+        if requested.epoch != page.epoch || page.deleted != 0 {
+            return Err(SyncError::Protocol(
+                "journal subscription identity mismatch",
+            ));
+        }
+        if let Some(after) = &requested.after {
+            after.response(&page, number(&value, "quarantineRevision")?)?;
+        }
+        let id = string(&value, "transferId")?;
+        let event = receive(transfers, value)?;
+        transfers
+            .get_mut(&id)
+            .ok_or(SyncError::Protocol("missing journal transfer"))?
+            .journal_after = requested.after.as_ref().map(|a| a.version);
+        return Ok(event);
+    }
+    receive(transfers, value)
 }
 fn receive(transfers: &mut HashMap<String, Transfer>, value: Value) -> Result<Option<ServerEvent>> {
     let kind = string(&value, "type")?;
@@ -939,6 +1097,7 @@ fn receive(transfers: &mut HashMap<String, Transfer>, value: Value) -> Result<Op
                         .get("quarantineRevision")
                         .and_then(Value::as_u64)
                         .unwrap_or(0),
+                    journal_after: None,
                 },
             );
             return Ok(None);
@@ -1014,6 +1173,7 @@ fn receive(transfers: &mut HashMap<String, Transfer>, value: Value) -> Result<Op
                     update: merge_journal(&journal)?,
                     complete_journal: true,
                     quarantine_revision: transfer.quarantine_revision,
+                    journal_after: transfer.journal_after,
                 })));
             }
             if transfer.chunks.len() != transfer.count {
@@ -1039,6 +1199,301 @@ fn receive(transfers: &mut HashMap<String, Transfer>, value: Value) -> Result<Op
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn watermark(page: &RemotePage) -> JournalWatermark {
+        JournalWatermark {
+            space_id: uuid::Uuid::new_v4().to_string(),
+            page_id: page.id.clone(),
+            epoch: page.epoch,
+            generation: page.generation,
+            version: page.version,
+            quarantine_revision: 3,
+        }
+    }
+    fn one_http_reply(reply: Value) -> (String, std::thread::JoinHandle<Value>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let task = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let mut buffer = [0; 1024];
+            let body = loop {
+                let n = stream.read(&mut buffer).unwrap();
+                assert!(n > 0);
+                bytes.extend_from_slice(&buffer[..n]);
+                if let Some(end) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let headers = String::from_utf8_lossy(&bytes[..end]).to_lowercase();
+                    let len: usize = headers
+                        .lines()
+                        .find_map(|s| s.strip_prefix("content-length:"))
+                        .unwrap()
+                        .trim()
+                        .parse()
+                        .unwrap();
+                    if bytes.len() >= end + 4 + len {
+                        break serde_json::from_slice(&bytes[end + 4..end + 4 + len]).unwrap();
+                    }
+                }
+            };
+            let response = reply.to_string();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response.len(),
+                response
+            )
+            .unwrap();
+            body
+        });
+        (origin, task)
+    }
+    #[tokio::test]
+    async fn http_cursor_response_is_pinned_and_empty_gap_remains_a_delta() {
+        for failure in [None, Some("quarantine"), Some("terminal")] {
+            let mut page = page();
+            page.version = 7;
+            let mark = watermark(&page);
+            let reply = json!({"page":page,"format":"journal-v1","stateVector":"AA==","chunks":[],"sha256":format!("{:x}",Sha256::digest([])),"cursor":{"version":8,"offset":0},"hasMore":false,"throughVersion":if failure==Some("terminal"){8}else{7},"quarantineRevision":if failure==Some("quarantine"){4}else{3}});
+            let mut reply = reply;
+            if failure == Some("terminal") { reply["page"]["version"] = json!(8); }
+            let (origin, server) = one_http_reply(reply);
+            let credentials = Credentials::new(
+                origin,
+                mark.space_id.clone(),
+                uuid::Uuid::new_v4().to_string(),
+                "x".repeat(88),
+            )
+            .unwrap();
+            let mut client = SyncClient::new_local(credentials).unwrap();
+            client.token = Some(Token {
+                access_token: "test-only".into(),
+                expires_at: now() + 1000,
+            });
+            let result = client
+                .snapshot_since(&page.id, page.epoch, &[0], Some(&mark))
+                .await;
+            if failure == Some("quarantine") {
+                assert_eq!(
+                    result.err(),
+                    Some(SyncError::Api {
+                        status: 409,
+                        code: "journal_changed".into()
+                    })
+                );
+            } else if failure == Some("terminal") {
+                assert_eq!(result.err(), Some(SyncError::Protocol("incomplete terminal journal cursor")));
+            } else {
+                let s = result.unwrap();
+                assert_eq!(s.journal_after, Some(7));
+                assert_eq!(s.update, [0, 0]);
+                assert!(s.complete_journal);
+            }
+            let request = server.join().unwrap();
+            assert_eq!(request["cursor"], json!({"version":8,"offset":0}));
+            assert_eq!(request["generation"], page.generation);
+            assert_eq!(request["quarantineRevision"], 3);
+            assert!(request.get("throughVersion").is_none());
+        }
+    }
+    #[test]
+    fn watermark_requests_fill_the_gap_without_freezing_the_old_upper_bound() {
+        let mut page = page();
+        page.version = 7;
+        let mark = watermark(&page);
+        let mut body = json!({"epoch":page.epoch,"stateVector":"AA=="});
+        mark.request(&mark.space_id, &page.id, page.epoch, &mut body)
+            .unwrap();
+        assert_eq!(body["cursor"], json!({"version":8,"offset":0}));
+        assert_eq!(body["generation"], page.generation);
+        assert_eq!(body["quarantineRevision"], 3);
+        assert!(body.get("throughVersion").is_none());
+        assert!(mark
+            .request(
+                &uuid::Uuid::new_v4().to_string(),
+                &page.id,
+                page.epoch,
+                &mut body
+            )
+            .is_err());
+        assert!(mark
+            .request(
+                &mark.space_id,
+                &uuid::Uuid::new_v4().to_string(),
+                page.epoch,
+                &mut body
+            )
+            .is_err());
+        assert!(mark
+            .request(&mark.space_id, &page.id, page.epoch + 1, &mut body)
+            .is_err());
+        let mut overflow = mark.clone();
+        overflow.version = u64::MAX;
+        assert!(overflow
+            .request(&mark.space_id, &page.id, page.epoch, &mut body)
+            .is_err());
+    }
+    #[test]
+    fn watermark_fences_fail_closed_instead_of_merging_another_history() {
+        let mut page = page();
+        page.version = 7;
+        let mark = watermark(&page);
+        page.version = 9;
+        mark.response(&page, 3).unwrap();
+        for (field, code) in [
+            ("epoch", "epoch_mismatch"),
+            ("generation", "generation_mismatch"),
+            ("deleted", "page_deleted"),
+            ("version", "invalid_journal_cursor"),
+        ] {
+            let mut changed = page.clone();
+            match field {
+                "epoch" => changed.epoch += 1,
+                "generation" => changed.generation += 1,
+                "deleted" => changed.deleted = 1,
+                _ => changed.version = 6,
+            };
+            assert_eq!(
+                mark.response(&changed, 3),
+                Err(SyncError::Api {
+                    status: 409,
+                    code: code.into()
+                })
+            );
+        }
+        assert_eq!(
+            mark.response(&page, 4),
+            Err(SyncError::Api {
+                status: 409,
+                code: "journal_changed".into()
+            })
+        );
+        page.id = uuid::Uuid::new_v4().to_string();
+        assert!(matches!(
+            mark.response(&page, 3),
+            Err(SyncError::Protocol(_))
+        ));
+    }
+    #[test]
+    fn subscribed_empty_delta_is_complete_only_after_the_terminal_frame() {
+        let mut page = page();
+        page.version = 7;
+        let mark = watermark(&page);
+        let subscriptions = HashMap::from([(
+            page.id.clone(),
+            Subscription {
+                page_id: page.id.clone(),
+                epoch: page.epoch,
+                state_vector: vec![0],
+                after: Some(mark),
+            },
+        )]);
+        let pending = HashSet::from([page.id.clone()]);
+        let mut transfers = HashMap::new();
+        let id = uuid::Uuid::new_v4().to_string();
+        let begin = json!({"type":"sync_begin","transferId":id,"page":page,"format":"journal-v1","stateVector":"AA==","sha256":"","quarantineRevision":3});
+        assert!(
+            receive_subscribed(&mut transfers, &subscriptions, &pending, begin.clone())
+                .unwrap()
+                .is_none()
+        );
+        let data = json!({"type":"journal_page","transferId":id,"index":0,"chunks":[],"sha256":format!("{:x}",Sha256::digest([]))});
+        assert!(
+            receive_subscribed(&mut transfers, &subscriptions, &pending, data)
+                .unwrap()
+                .is_none()
+        );
+        match receive_subscribed(
+            &mut transfers,
+            &subscriptions,
+            &pending,
+            json!({"type":"sync_end","transferId":id,"pages":1}),
+        )
+        .unwrap()
+        .unwrap()
+        {
+            ServerEvent::Snapshot(s) => {
+                assert_eq!(s.update, [0, 0]);
+                assert!(s.complete_journal);
+                assert_eq!(s.journal_after, Some(7));
+                assert_eq!(s.quarantine_revision, 3)
+            }
+            _ => panic!("not a complete snapshot"),
+        }
+        assert!(receive_subscribed(
+            &mut transfers,
+            &subscriptions,
+            &HashSet::new(),
+            begin.clone()
+        )
+        .is_err());
+        let mut wrong = begin;
+        wrong["quarantineRevision"] = json!(4);
+        assert_eq!(
+            receive_subscribed(&mut transfers, &subscriptions, &pending, wrong).err(),
+            Some(SyncError::Api {
+                status: 409,
+                code: "journal_changed".into()
+            })
+        );
+        assert!(transfers.is_empty());
+    }
+    #[test]
+    fn cursor_gap_stream_rejects_truncation_and_wrong_subscription_identity() {
+        let mut page = page();
+        page.version = 8;
+        let mut mark = watermark(&page);
+        mark.version = 7;
+        let subscriptions = HashMap::from([(
+            page.id.clone(),
+            Subscription {
+                page_id: page.id.clone(),
+                epoch: page.epoch,
+                state_vector: vec![0],
+                after: Some(mark),
+            },
+        )]);
+        let pending = HashSet::from([page.id.clone()]);
+        let mut transfers = HashMap::new();
+        let id = uuid::Uuid::new_v4().to_string();
+        let begin = json!({"type":"sync_begin","transferId":id,"page":page,"format":"journal-v1","stateVector":"AA==","sha256":"","quarantineRevision":3});
+        let mut wrong = begin.clone();
+        wrong["page"]["epoch"] = json!(2);
+        assert!(receive_subscribed(&mut transfers, &subscriptions, &pending, wrong).is_err());
+        assert!(transfers.is_empty());
+        receive_subscribed(&mut transfers, &subscriptions, &pending, begin.clone()).unwrap();
+        let partial = [2, 0, 0];
+        assert!(receive_subscribed(&mut transfers,&subscriptions,&pending,json!({"type":"journal_page","transferId":id,"index":0,"chunks":[STANDARD.encode(partial)],"sha256":format!("{:x}",Sha256::digest(partial))})).unwrap().is_none());
+        assert!(receive_subscribed(
+            &mut transfers,
+            &subscriptions,
+            &pending,
+            json!({"type":"sync_end","transferId":id,"pages":1})
+        )
+        .is_err());
+        assert!(transfers.is_empty());
+        receive_subscribed(&mut transfers, &subscriptions, &pending, begin).unwrap();
+        let record = [2, 0, 0, 0, 0, 0];
+        receive_subscribed(&mut transfers,&subscriptions,&pending,json!({"type":"journal_page","transferId":id,"index":0,"chunks":[STANDARD.encode(record)],"sha256":format!("{:x}",Sha256::digest(record))})).unwrap();
+        match receive_subscribed(
+            &mut transfers,
+            &subscriptions,
+            &pending,
+            json!({"type":"sync_end","transferId":id,"pages":1}),
+        )
+        .unwrap()
+        .unwrap()
+        {
+            ServerEvent::Snapshot(s) => {
+                assert_eq!(s.journal_after, Some(7));
+                assert_eq!(s.page.version, 8);
+                assert_eq!(s.update, [0, 0])
+            }
+            _ => panic!("missing gap"),
+        };
+    }
     fn page() -> RemotePage {
         RemotePage {
             id: uuid::Uuid::new_v4().to_string(),
@@ -1089,7 +1544,7 @@ mod tests {
     fn large_live_update_does_not_finish_a_pending_journal_subscription() {
         let target=page();
         let mut pending=HashSet::from([target.id.clone()]);
-        let event=|page:RemotePage,journal|ServerEvent::Snapshot(Snapshot {page,state_vector:vec![0],update:vec![0,0],complete_journal:journal,quarantine_revision:0});
+        let event=|page:RemotePage,journal|ServerEvent::Snapshot(Snapshot {page,state_vector:vec![0],update:vec![0,0],complete_journal:journal,quarantine_revision:0,journal_after:None});
         complete_subscription(&mut pending,&event(target.clone(),false));
         assert!(pending.contains(&target.id));
         complete_subscription(&mut pending,&event(page(),true));
@@ -1385,6 +1840,7 @@ mod tests {
         assert!(page.local_date.is_none());
         let mut ws = client
             .reconnect(&[Subscription {
+                after: None,
                 page_id: page_id.into(),
                 epoch: 1,
                 state_vector: vec![0],
