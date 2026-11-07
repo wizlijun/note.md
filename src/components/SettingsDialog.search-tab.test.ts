@@ -157,6 +157,29 @@ afterEach(() => {
 })
 
 describe('SettingsDialog — accessible modal and persistent navigation', () => {
+  it('exposes the diagram toolbar preference in General and saves changes', async () => {
+    settings.showDiagramToolbar = true
+    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
+    await mountDialog()
+    await settle()
+    openSettings('core')
+    await settle()
+    const label = Array.from(document.querySelectorAll('label'))
+      .find(item => item.textContent?.includes(t('settings.showDiagramToolbar')))!
+    const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+    expect(input.checked).toBe(true)
+    expect(document.getElementById(input.getAttribute('aria-describedby')!)?.textContent)
+      .toBe(t('settings.showDiagramToolbarHint'))
+    input.click()
+    await settle()
+    expect(settings.showDiagramToolbar).toBe(false)
+    expect(save).toHaveBeenCalledTimes(1)
+    input.click()
+    await settle()
+    expect(settings.showDiagramToolbar).toBe(true)
+    expect(save).toHaveBeenCalledTimes(2)
+  })
+
   function key(key: string, options: KeyboardEventInit = {}) {
     const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options })
     document.activeElement!.dispatchEvent(event)

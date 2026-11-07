@@ -1478,7 +1478,7 @@
       onmousedown={onScrollMouseDown}
       role="presentation"
     >
-      <div class="host" data-theme={activeThemeId} bind:this={host}></div>
+      <div class="host" class:show-diagram-toolbar={settings.showDiagramToolbar} data-theme={activeThemeId} bind:this={host}></div>
       {#if backlinkPage}
         <LinkedReferences page={backlinkPage} excludeFile={tab.filePath ?? null} />
       {/if}
@@ -1572,6 +1572,10 @@
   .host :global(.moraya-editor) {
     outline: none;
     flex: 1 0 auto;
+  }
+  .host :global(.code-block-wrapper:focus-within > .code-block-toolbar) {
+    opacity: 1;
+    pointer-events: auto;
   }
   /* Blank space below the editor still reads (and behaves) as writing surface. */
   .scroll,

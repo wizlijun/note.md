@@ -78,6 +78,31 @@ describe('settings', () => {
 
 })
 
+describe('diagram toolbar setting', () => {
+  it('defaults to visible before hydration and for an upgrading user', async () => {
+    const { settings, loadSettings } = await import('./settings.svelte')
+    expect(settings.showDiagramToolbar).toBe(true)
+    await loadSettings()
+    expect(settings.showDiagramToolbar).toBe(true)
+  })
+
+  it('persists both choices and restores them after reload', async () => {
+    const stored = new Map<string, unknown>()
+    mockGet.mockImplementation(async (key: string) => stored.get(key))
+    mockSet.mockImplementation(async (key: string, value: unknown) => { stored.set(key, value) })
+    const { settings, loadSettings, saveSettings } = await import('./settings.svelte')
+    await loadSettings()
+    for (const choice of [false, true]) {
+      settings.showDiagramToolbar = choice
+      await saveSettings()
+      expect(stored.get('showDiagramToolbar')).toBe(choice)
+      settings.showDiagramToolbar = !choice
+      await loadSettings()
+      expect(settings.showDiagramToolbar).toBe(choice)
+    }
+  })
+})
+
 describe('mcpServer setting', () => {
   it('defaults to enabled when the key is absent (upgrading user, no settings.json entry)', async () => {
     mockGet.mockResolvedValue(undefined)

@@ -1282,6 +1282,17 @@
         {/if}
 
         <section class="block">
+          <h3>{t('settings.editor')}</h3>
+          <label class="row">
+            <input
+              type="checkbox"
+              bind:checked={settings.showDiagramToolbar}
+              aria-describedby="diagram-toolbar-hint"
+              onchange={() => saveSettings('showDiagramToolbar')}
+            />
+            {t('settings.showDiagramToolbar')}
+          </label>
+          <p class="desc" id="diagram-toolbar-hint">{t('settings.showDiagramToolbarHint')}</p>
           <label class="row">
             <input type="checkbox" checked={settings.autoSave} onchange={onToggle} />
             {t('settings.autoSaveLabel')}

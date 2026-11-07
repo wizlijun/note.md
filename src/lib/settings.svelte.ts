@@ -55,6 +55,7 @@ export const settings = $state<{
   linuxWindowDecorations: boolean | null
   autoSave: boolean
   toastAutoClose: boolean
+  showDiagramToolbar: boolean
   theme: ThemeSettings
   mdblock: MdblockSettings
   dailyNotes: { enabled: boolean }
@@ -64,6 +65,7 @@ export const settings = $state<{
   linuxWindowDecorations: null,
   autoSave: false,
   toastAutoClose: false,
+  showDiagramToolbar: true,
   theme: { ...DEFAULT_THEME },
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
   dailyNotes: { enabled: false },
@@ -155,6 +157,7 @@ export async function loadSettings(): Promise<void> {
   const s = await getStore()
   settings.autoSave = (await s.get<boolean>('autoSave')) ?? false
   settings.toastAutoClose = (await s.get<boolean>('toastAutoClose')) ?? false
+  settings.showDiagramToolbar = (await s.get<boolean>('showDiagramToolbar')) !== false
 
   // Theme migration: prefer new shape; fall back to legacy single skin id.
   const storedTheme = await s.get<ThemeSettings>('theme')
@@ -210,6 +213,7 @@ export async function saveSettings(): Promise<void> {
   const s = await getStore()
   await s.set('autoSave', settings.autoSave)
   await s.set('toastAutoClose', settings.toastAutoClose)
+  await s.set('showDiagramToolbar', settings.showDiagramToolbar)
   await s.set('theme', settings.theme)
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)

@@ -103,6 +103,13 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* Rich host preference: a toolbar row above previews, never over the diagram.
+   Scoped to the host so shared pages and exports keep their own presentation. */
+.show-diagram-toolbar .moraya-editor .code-block-wrapper:is(.mermaid-preview-mode, .renderer-preview-mode) > .code-block-toolbar {
+  position: static;
+  opacity: 1;
+  pointer-events: auto;
+}
 .moraya-editor .code-lang-label {
   cursor: pointer;
   padding: 1px 5px;
