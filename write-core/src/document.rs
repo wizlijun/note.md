@@ -7,6 +7,9 @@ use yrs::{types::EntryChange, Observable};
 #[path = "candidate.rs"]
 mod candidate;
 pub use candidate::{CandidateCommit, CandidateSession};
+#[path = "selection.rs"]
+mod selection;
+pub use selection::SelectionAnchor;
 use yrs::types::Attrs;
 use yrs::updates::{decoder::Decode, encoder::Encode};
 use yrs::{
@@ -90,13 +93,6 @@ struct HistoryTimes {
     after: Vec<LineTime>,
 }
 
-/// Portable CRDT positions; store these across remote updates/undo, never visible offsets.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SelectionAnchor {
-    start: StickyIndex,
-    end: StickyIndex,
-    collapsed: bool,
-}
 /// Validated off-thread, committed only if the live causal baseline still matches.
 pub struct PreparedRemote {
     base_revision: u64,
@@ -389,6 +385,7 @@ impl Document {
         utf16_to_byte(&body, start)?;
         utf16_to_byte(&body, end)?;
         let mut txn = self.doc.transact_mut();
+        let root_line_id = self.selection_root(&txn)?;
         let mut anchor = |at: u32, assoc: Assoc| -> Result<StickyIndex> {
             if at == body.encode_utf16().count() as u32 && assoc == Assoc::After {
                 Ok(StickyIndex::from_type(&txn, &self.body, assoc))
@@ -399,6 +396,9 @@ impl Document {
             }
         };
         Ok(SelectionAnchor {
+            page_id: self.page_id.clone(),
+            epoch: self.epoch,
+            root_line_id,
             start: anchor(start, Assoc::After)?,
             end: anchor(
                 end,
@@ -413,6 +413,7 @@ impl Document {
     }
     pub fn resolve_selection(&self, anchor: &SelectionAnchor) -> Result<(u32, u32)> {
         let txn = self.doc.transact();
+        self.check_selection_identity(anchor, &txn)?;
         let resolve = |a: &StickyIndex| -> Result<u32> {
             let at = a.get_offset(&txn).ok_or(Error::InvalidOffset)?;
             if !std::ptr::eq(&*at.branch, self.body.as_ref()) {
