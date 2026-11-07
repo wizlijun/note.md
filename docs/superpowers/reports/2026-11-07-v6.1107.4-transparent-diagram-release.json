@@ -1,0 +1,356 @@
+{
+  "version": "6.1107.4",
+  "scope": [
+    "darwin-aarch64"
+  ],
+  "releaseUrl": "https://github.com/wizlijun/note.md/releases/tag/v6.1107.4",
+  "sources": {
+    "feature": "492c300bdfbf7dddeb7fab0bb5074cd09498e715",
+    "releasePreparation": "c3301ed4553aae548f7f6dd10a17354c8056553e",
+    "core": "f581448bce5e9cf557059f0700297a527069b5ae",
+    "version": "6.1107.4",
+    "scope": [
+      "darwin-aarch64"
+    ]
+  },
+  "source": "0bca39b5fa3335aae9a73b79926074ea2856bef0",
+  "canonical": {
+    "exitCode": 0,
+    "frontendTests": 5453,
+    "frontendFiles": 416,
+    "rustTests": 30,
+    "svelteErrors": 0,
+    "svelteExistingWarnings": 31,
+    "websiteTests": 142
+  },
+  "featureValidation": {
+    "featureCommit": "492c300bdfbf7dddeb7fab0bb5074cd09498e715",
+    "themeStatePathChecks": 48,
+    "customGraphvizColorChecks": 8,
+    "interactionRegressionGroups": 11,
+    "errors": [],
+    "screenshotsVisuallyReviewed": 4,
+    "scope": "Real isolated RichEditor in Chromium; not native WKWebView or physical input evidence",
+    "files": [
+      {
+        "path": "tasks/diagram-transparent-20261107/browser/evidence.json",
+        "sha256": "e9708ab1938504c9f9de5bae5e1bf617b439ed57969f02a15cbd959b3ab38fa0"
+      },
+      {
+        "path": "tasks/diagram-transparent-20261107/interaction-regression/evidence.json",
+        "sha256": "5a49e2818019b8fd818735acaaf04688487f543f1527a33503cc0f0b113f5f92"
+      },
+      {
+        "path": "tasks/diagram-transparent-20261107/browser/default-light.png",
+        "sha256": "7c41e5acd117a0d4b98ddaf2ad44278c16a1ccdd92c4f555c7dec7d88504d353"
+      },
+      {
+        "path": "tasks/diagram-transparent-20261107/browser/default-dark.png",
+        "sha256": "90818a37bb5909894d77b84af4d53cd02b51af3007ab5d95f5055bc9962a71dc"
+      },
+      {
+        "path": "tasks/diagram-transparent-20261107/browser/effie-light.png",
+        "sha256": "b42b5479b5f63e1975782357f7fc94906434e871da015bd1ec3ed4bb3d5366b4"
+      },
+      {
+        "path": "tasks/diagram-transparent-20261107/browser/effie-dark.png",
+        "sha256": "0d03216bc4704cdcf421eff7aed11df47bbf41593be0abd0b63bd8b99119a2be"
+      }
+    ]
+  },
+  "candidate": {
+    "ok": true,
+    "tag": "v6.1107.4",
+    "source": "0bca39b5fa3335aae9a73b79926074ea2856bef0",
+    "feature": "492c300bdfbf7dddeb7fab0bb5074cd09498e715",
+    "core": "f581448bce5e9cf557059f0700297a527069b5ae",
+    "identity": {
+      "expected_bundle_id": "net.notemd.app",
+      "frozen_config_identifier": "net.notemd.app",
+      "frozen_app_dirs_sha256": "ad6fd8be41a7e749b11fe465f13d9876250e34bc4f60ae99f0d5d9867e46fb5c",
+      "isolated_review_identity_absent_from_binary": true
+    },
+    "app": {
+      "version": "6.1107.4",
+      "identifier": "net.notemd.app",
+      "binary": {
+        "path": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+        "bytes": 20341056,
+        "sha256": "cc759bc841383498bc5b2a2b2521512dbab59a52574c7e7228b7a2d151d2bdca"
+      }
+    },
+    "dmg": {
+      "path": "/tmp/note.md-6.1107.4-aarch64.dmg",
+      "bytes": 13505710,
+      "sha256": "a1d32ce73e312a720b2cd799e85e7ec5b26cebd8a3144cec25e07d4daa5585c6",
+      "mach_o_sha256": "cc759bc841383498bc5b2a2b2521512dbab59a52574c7e7228b7a2d151d2bdca",
+      "mach_o_bytes": 20341056,
+      "app_version": "6.1107.4",
+      "app_identifier": "net.notemd.app",
+      "candidate_and_updater_byte_identical": true,
+      "mount_readonly": true,
+      "detached_device": "/dev/disk8s1"
+    },
+    "updater": {
+      "path": "/tmp/note.md-aarch64.app.tar.gz",
+      "bytes": 13550406,
+      "sha256": "4c6c2ce00a00e461c3a646c5e81ff671a79a06372329c939709ac8edbc809423",
+      "app_identity": {
+        "CFBundleIdentifier": "net.notemd.app",
+        "CFBundleShortVersionString": "6.1107.4",
+        "CFBundleExecutable": "notemd"
+      },
+      "mach_o_sha256": "cc759bc841383498bc5b2a2b2521512dbab59a52574c7e7228b7a2d151d2bdca"
+    },
+    "core_dist_count": 67,
+    "feature_modules": 9,
+    "transparent_css": [
+      {
+        "names": [
+          "share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css"
+        ],
+        "sha256": "a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd",
+        "rawBytes": 17478
+      },
+      {
+        "names": [
+          "OutlineEditor-D6h1wc7k.css"
+        ],
+        "sha256": "5ef9ffbd47f08ba8bb9ac1314c004dad2487d77cd4f52d4ae6472d5c4cbfbbf6",
+        "rawBytes": 39178
+      },
+      {
+        "names": [
+          "editor-kit-v1.css"
+        ],
+        "sha256": "87850c4f3c5ea3b99f653ccdaf85b4112551a3a72bc7cd5f62e57bd576bf3ba1",
+        "rawBytes": 28370
+      }
+    ],
+    "notarization": {
+      "app": {
+        "id": "9d2e0233-fe5d-451d-89de-4f7e3d22324b",
+        "status": "Accepted"
+      },
+      "dmg": {
+        "id": "9727c6b7-8e82-46dc-b4bd-308803471032",
+        "status": "Accepted",
+        "successful_attempt": 2
+      },
+      "evidence_log_sha256": "f620e7b0d86e415a4ca883df26a1f5e3450f89af554501341b232147ddb98855"
+    },
+    "authorization": {
+      "record": {
+        "date": "2026-11-07",
+        "statement": "弄好后更新版本",
+        "source": "本轮用户授权发布；不是用户对6.1107.4的测试报告",
+        "scope": "仅Mac Apple Silicon；本轮CSS经48项真实Rich浏览器状态和11组交互回归，未操作原生UI",
+        "physicalEventCapture": false
+      },
+      "path": "/Users/bruce/git/mdeditor/tasks/diagram-transparent-release-20261107/user-acceptance.json",
+      "bytes": 301,
+      "sha256": "0dd8b69fea86173e0d31522f12f1c02b368bb93760935f2332fd6fc081bcc502"
+    },
+    "native_acceptance": {
+      "user_test_reported_for_this_release": false,
+      "agent_operated_native_ui": false,
+      "physical_event_trace_collected": false,
+      "scope": "This release has user authorization; no user or agent native acceptance is claimed for v6.1107.4"
+    },
+    "limits": "Frozen source and feature manifest, exact core dependency, signed/notarized arm64-only package, CLI runtime version and recovered whole frontend/share modules. Byte containment does not prove runtime PHF lookup. No new native acceptance is claimed; this verifier does not operate UI or install the app."
+  },
+  "public": {
+    "ok": true,
+    "tag": "v6.1107.4",
+    "source_sha": "0bca39b5fa3335aae9a73b79926074ea2856bef0",
+    "public_tag_source_sha": "0bca39b5fa3335aae9a73b79926074ea2856bef0",
+    "published_at": "2026-11-07T07:19:01Z",
+    "release_id": 437409296,
+    "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1107.4",
+    "assets": [
+      {
+        "mode": "cache-bypass",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "3151344285b67e6d87cb37909e66c4355093c82c8426c4ff8b61c2c6014a8a0a",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-6.1107.4-aarch64.dmg",
+        "bytes": 13505710,
+        "sha256": "a1d32ce73e312a720b2cd799e85e7ec5b26cebd8a3144cec25e07d4daa5585c6",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13550406,
+        "sha256": "4c6c2ce00a00e461c3a646c5e81ff671a79a06372329c939709ac8edbc809423",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "cache-bypass",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "f5285d999e64575828c2d36d26834e01a4966bb8f339928a1fe9ee4adee4d6d7",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "latest.json",
+        "bytes": 740,
+        "sha256": "3151344285b67e6d87cb37909e66c4355093c82c8426c4ff8b61c2c6014a8a0a",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-6.1107.4-aarch64.dmg",
+        "bytes": 13505710,
+        "sha256": "a1d32ce73e312a720b2cd799e85e7ec5b26cebd8a3144cec25e07d4daa5585c6",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz",
+        "bytes": 13550406,
+        "sha256": "4c6c2ce00a00e461c3a646c5e81ff671a79a06372329c939709ac8edbc809423",
+        "byte_equal_staged": true
+      },
+      {
+        "mode": "ordinary",
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "f5285d999e64575828c2d36d26834e01a4966bb8f339928a1fe9ee4adee4d6d7",
+        "byte_equal_staged": true
+      }
+    ],
+    "ordinary_and_cache_bypass_verified": true,
+    "latest_endpoint_verified": true,
+    "updater_minisign_verified": true,
+    "platforms": [
+      "darwin-aarch64"
+    ],
+    "actual_app_request_without_query_verified": true,
+    "actual_app_headers": {
+      "Accept": "application/json",
+      "User-Agent": "tauri-plugin-updater/2.10.1"
+    },
+    "local_signing_notarization": "separate acceptance; not claimed by this verifier",
+    "verified_at_utc": "2026-11-07T07:22:05.170499+00:00"
+  },
+  "website": {
+    "websiteCommit": "3a78ec4c17ab9aab96823b89b26a62fc6eaf204a",
+    "workflowRunId": 42350833823,
+    "workflowConclusion": "success",
+    "tests": 142,
+    "releaseScopePass": true,
+    "fullMatrixStablePass": true,
+    "singleAttemptNoRetries": true,
+    "pages": 8,
+    "routes": 14,
+    "historicalAssets": 6,
+    "files": {
+      "website-verification.json": "483c1a97beaae4416c3d0f86ae72b83b3193b3a3b2560f9f601216552652f15c",
+      "website-final-tests.log": "985084da32202b7e2f31bd5747ff04d230ebb98a61025d2b0d3d21d0e8d1a2ae",
+      "website-ci-discovery.json": "a37bde943a9633de8f3945a4423ae1a037554cf2059ee596244a6dbd64093f89"
+    }
+  },
+  "restoredPending": {
+    "CHANGELOG.md": {
+      "pendingSha256": "0a6bcb8cccb47364f9598afe39a658e25f9eb832390dd63c2215cf3150966b5c",
+      "entries": 19
+    },
+    "CHANGELOG.zh-CN.md": {
+      "pendingSha256": "12d137222ae608d57e01dddbb2d6871e46fd62d2255d1b25f7585aa740b4e83c",
+      "entries": 19
+    }
+  },
+  "restoredExternalChanges": [
+    {
+      "path": "searchidx/src/store.rs",
+      "restoredSha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "mode": 420
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "restoredSha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0",
+      "mode": 420
+    }
+  ],
+  "publish": {
+    "tag": "v6.1107.4",
+    "source": "0bca39b5fa3335aae9a73b79926074ea2856bef0",
+    "command": "bash scripts/release-publish.sh v6.1107.4 --mac-arm64-only",
+    "exitCode": 0,
+    "stdout": "Published v6.1107.4",
+    "interactiveConfirmation": "v6.1107.4 mac-arm64-only",
+    "authorization": "用户：弄好后更新版本；延续仅Mac Apple Silicon范围",
+    "session": 2550
+  },
+  "dmgNotarizationRetry": {
+    "first": "abb16035-37ff-4a22-a923-a9e09fc7109d",
+    "firstOutcome": "Multipart upload connection timeout; incomplete upload, not an Apple rejection",
+    "successful": "9727c6b7-8e82-46dc-b4bd-308803471032",
+    "outcome": "Uploaded completely, Accepted; canonical retry 2/3"
+  },
+  "evidence": [
+    {
+      "path": "tasks/diagram-transparent-release-20261107/audit.json",
+      "sha256": "96c1fd3382a9ba8327656b1ff82b9345030b063f13e8af93f03730da7a162f9f"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/prepared-sources.json",
+      "sha256": "e11a09b20677cbbae791bf873d1c9bae1b78deb8a607dedb71555500b3795b31"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/feature-validation.json",
+      "sha256": "d656d7448e49d19b27809e939e35d7fb54ead361aed5fc81c226e9c4deed6014"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/frozen-share-manifest.json",
+      "sha256": "1e07599e6824fb9bbd78b9ffe4c911719388cb75a1166a0fbe713fef3ce82572"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/frozen-feature-modules.json",
+      "sha256": "0005535bc3c33439997513abf6593d1d3ef4d39222da8c0843aea8917b1720c2"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/candidate-verification.json",
+      "sha256": "967f33ec42cbbad7f041c0a289fbfafcaac548824fcf7c3dc02e74c38d72ff51"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/candidate-verification-summary.json",
+      "sha256": "041c857cca9545471bfc058f1557fb16e0eef2c7fa3bf0738d4f1df8f04c9862"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/host-public/public-review.json",
+      "sha256": "171415737eb5cc4c1f51891e9820297a66aac2a67a9ac2728bc66a9c1957f1d7"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/website-verification.json",
+      "sha256": "483c1a97beaae4416c3d0f86ae72b83b3193b3a3b2560f9f601216552652f15c"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/website-delivery.json",
+      "sha256": "215d6306274d9b157eba6861d4fcb77b830e46ee747c01996943cb1200b7f6e9"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/pending-restored.json",
+      "sha256": "995d0f09b4a635ef3c884623b5b398c2b91c2f9168e10628c45c6a91dc73e35f"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/external-restored.json",
+      "sha256": "994ec4196fca5ef671f960b83384f3e3e8444d8eaf77197bb3db7e641e6006b9"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/publish-result.json",
+      "sha256": "9ab129cde81a23c4d088e2f6f5a37bcff824eb7e9ac32c2d52ff79bb221c1b49"
+    },
+    {
+      "path": "tasks/diagram-transparent-release-20261107/host-release.log",
+      "sha256": "f620e7b0d86e415a4ca883df26a1f5e3450f89af554501341b232147ddb98855"
+    }
+  ],
+  "installation": "No native UI operation or installation during this release; prior user acceptance of .3 is not reused as .4 acceptance."
+}
