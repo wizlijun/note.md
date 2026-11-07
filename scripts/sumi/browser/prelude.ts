@@ -2,7 +2,7 @@
 export const hostCalls: { command: string; denied: boolean }[] = []
 let callback = 0
 const callbacks = new Map<number, Function>()
-;(window as any).__TAURI_INTERNALS__ = {
+export const isolatedInternals = {
   metadata: { currentWindow: { label: 'sumi-benchmark' }, currentWebview: { label: 'sumi-benchmark' } },
   transformCallback(fn: Function) { callbacks.set(++callback, fn); return callback },
   unregisterCallback(id: number) { callbacks.delete(id) },
@@ -16,4 +16,8 @@ const callbacks = new Map<number, Function>()
     throw new Error(`Isolated benchmark denies host RPC: ${command}`)
   },
 }
-;(window as any).__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} }
+// Tauri owns non-writable globals in real webviews. The benchmark build rewrites
+// API-module references to this namespace; never replace the host's IPC object.
+;(window as any).__SUMI_BENCH_INTERNALS__ = isolatedInternals
+;(window as any).__SUMI_BENCH_EVENT_INTERNALS__ = { unregisterListener() {} }
+;(window as any).__SUMI_BENCH_OS_INTERNALS__ = { platform: 'macos', family: 'unix', arch: 'aarch64' }

@@ -2,6 +2,14 @@
 // Functional smoke only: jsdom has no real layout, fonts, paint or input latency.
 import { afterEach, expect, it, vi } from 'vitest'
 import { corpus } from './corpus.mjs'
+// Real Tauri globals are read-only. Unit tests use the same isolated adapter as
+// the benchmark-only Vite transform, without mutating the host-owned object.
+vi.mock('@tauri-apps/api/core', async () => {
+ const { isolatedInternals } = await import('./browser/prelude')
+ return { ...isolatedInternals, isTauri: () => true }
+})
+const realInternals={metadata:{currentWindow:{label:'acceptance'},currentWebview:{label:'acceptance'}},invoke(){throw new Error('Real host IPC must never be called')}}
+Object.defineProperty(window,'__TAURI_INTERNALS__',{value:realInternals,writable:false,configurable:true})
 let running=true
 vi.stubGlobal('requestAnimationFrame',(fn:FrameRequestCallback)=>setTimeout(()=>{if(running)fn(performance.now())},5))
 vi.stubGlobal('cancelAnimationFrame',(id:number)=>clearTimeout(id))
@@ -23,6 +31,7 @@ afterEach(()=>{running=false;vi.unstubAllGlobals()})
 it('mounts the actual full Rich frontend and minimal PM, inserts through each owner and never reports physical frame latency',async()=>{
  document.body.innerHTML='<main id="app"></main>'
  await import('./browser/main')
+ expect((window as any).__TAURI_INTERNALS__).toBe(realInternals)
  await vi.waitFor(()=>expect(document.querySelector('#status')?.textContent).toContain('编辑器挂载'),{timeout:15000})
  expect(document.querySelector('.ProseMirror')).not.toBeNull()
  const api=(window as any).sumiBenchmark
