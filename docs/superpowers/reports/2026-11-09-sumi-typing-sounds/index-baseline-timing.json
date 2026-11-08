@@ -1,0 +1,9 @@
+{
+  "at": "2026-11-08T16:59:39.456267+00:00",
+  "timing": "After immutable R2 staging, before any index write",
+  "reason": "Stage did its own exact immutable-object preflight; secondary index verifier required a separate authoritative index baseline, now actually read. This is not a pre-R2 timestamp.",
+  "rows": 302,
+  "matchesEarlierPostR2AuthoritativeRead": true,
+  "newVersionAbsent": true,
+  "kvWrites": false
+}

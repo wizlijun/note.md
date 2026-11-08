@@ -1,0 +1,26 @@
+{
+  "removedGeneratedCaches": [
+    {
+      "path": "tasks/sumi-release-20261108/source/src-tauri/target/debug/deps",
+      "logicalBytes": 9196653916
+    },
+    {
+      "path": "tasks/sumi-release-20261108/source/src-tauri/target/debug/build",
+      "logicalBytes": 1243823705
+    },
+    {
+      "path": "tasks/sumi-release-20261108/source/src-tauri/target/debug/incremental",
+      "logicalBytes": 5757087879
+    },
+    {
+      "path": "tasks/sumi-release-20261108/source/src-tauri/target/debug/.fingerprint",
+      "logicalBytes": 1929316
+    }
+  ],
+  "protectedReleaseFiles": 14,
+  "releaseHashesUnchanged": true,
+  "freeBefore": 12188082176,
+  "freeAfter": 25913024512,
+  "rootAcceptanceUntouched": true,
+  "sourceAndVaultUntouched": true
+}

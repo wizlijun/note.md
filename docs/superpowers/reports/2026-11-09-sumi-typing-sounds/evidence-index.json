@@ -1,12 +1,77 @@
 {
-  "status": "feature_source_committed_release_pending",
+  "status": "published",
   "preparedAtUtc": "2026-11-08T16:33:41.956244+00:00",
   "intendedHostVersion": "6.1108.6",
   "intendedPluginVersion": "0.1.5",
-  "finalSourceCommit": null,
-  "releaseTag": null,
-  "published": false,
+  "finalSourceCommit": "b38dc722e6ab0e455147b07c39a972da297a9242",
+  "releaseTag": "v6.1108.6",
+  "published": true,
   "files": [
+    {
+      "file": "final-host-lockfile-tests.json",
+      "bytes": 488,
+      "sha256": "cd641af0e5a78093878c984678afa2f1e5adb231e7d04f0ae75222d3d15af24a"
+    },
+    {
+      "file": "final-source-tests.json",
+      "bytes": 2676,
+      "sha256": "53803cbf2bd33c6695dff81729b66c20b11fae12a38b08f09f4fbde9d6851e47"
+    },
+    {
+      "file": "final-tag-audit.json",
+      "bytes": 12718,
+      "sha256": "1fe10964f6b355f8a43cddc3828b637d389a987ee4087759ebdd4e955256f2b9"
+    },
+    {
+      "file": "generated-cache-cleanup.json",
+      "bytes": 746,
+      "sha256": "e14a76c24e7a17919e9b86483fc590f4bcf97f521aacb5f5d3ce3c1de3dd5cfd"
+    },
+    {
+      "file": "host-artifacts.json",
+      "bytes": 133520,
+      "sha256": "55a7a15ca0d2aa2e14f6135bfb7d86f4c3cad060ab6d670bbca475783afffedc"
+    },
+    {
+      "file": "host-draft-full-download.json",
+      "bytes": 2370,
+      "sha256": "1bc15a87c398d626ea019e959e2c90f67263f7dff36de4fb07667ca324220ec7"
+    },
+    {
+      "file": "host-public-rest.json",
+      "bytes": 5507,
+      "sha256": "e034bc454776b8448042895eff71f577a3e6629e660827e143047228dca3eab5"
+    },
+    {
+      "file": "host-public.json",
+      "bytes": 4782,
+      "sha256": "e0654ee02c46134f41338ea8b1ff3b1fa6d3c14b6ee42f06773da9d3ec8a38dc"
+    },
+    {
+      "file": "host-publication.json",
+      "bytes": 628,
+      "sha256": "7b6b55aef5725833459d4c5f134925ee6915f625fbb4351dfd244d684aed5902"
+    },
+    {
+      "file": "host-updater-endpoints.json",
+      "bytes": 320,
+      "sha256": "08bc30d4b380cd640717e07fa7003c1bd1e5d4ade2ccd53933aa68c9b80778e7"
+    },
+    {
+      "file": "index-baseline-timing.json",
+      "bytes": 419,
+      "sha256": "5079ea641dd85be65bad8c379995771eb1733d73f8b905051401d7099925f9de"
+    },
+    {
+      "file": "market-final.json",
+      "bytes": 3822,
+      "sha256": "fa9efe1ace103d7435e21d57145018cbfa2272ef63ee0657ac21e0bc5eacc93b"
+    },
+    {
+      "file": "market-publication.json",
+      "bytes": 2137,
+      "sha256": "79645c593c6d8b48afc13eaa0a1b968ecfcb319c2175c7d4e6fbc8d72fa1c4ee"
+    },
     {
       "file": "native-probes.json",
       "bytes": 3166,
@@ -17,6 +82,21 @@
           "sha256": "ea39a3ca14669742b97bb3d40bd81d799db826584f2d823800dbb3f3ed0e8d53"
         }
       ]
+    },
+    {
+      "file": "plugin-package.json",
+      "bytes": 7100,
+      "sha256": "cae25d51dfe118095ec4fa1ef335297ead54c5af6a7c5331a2e09feeaaa06e42"
+    },
+    {
+      "file": "plugin-prepublication-readback.json",
+      "bytes": 1608,
+      "sha256": "ee37652f8137cbc6e01b121cb3c7e690ca5e6a9e1074968efded399ad694069f"
+    },
+    {
+      "file": "r2-independent.json",
+      "bytes": 1608,
+      "sha256": "ee37652f8137cbc6e01b121cb3c7e690ca5e6a9e1074968efded399ad694069f"
     },
     {
       "file": "realtime-silent.json",
@@ -30,15 +110,28 @@
       ]
     },
     {
-      "file": "ui-sound.json",
-      "bytes": 2417,
-      "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a",
+      "file": "release-helper-audit.json",
+      "bytes": 3777,
+      "sha256": "f657110ec495870f2951d7ca0c3ed0ab43f43d0082bd1fd3534da73903a95ae3",
       "sources": [
         {
-          "path": "tasks/sumi-blue-crt-20261108/ui-sound-verification.json",
-          "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a"
+          "path": "tasks/sumi-blue-crt-20261108/pre-freeze-helper-audit.json",
+          "sha256": "9dd9c0e65ef5ec5708678e7c777d9e2c73579fc9ea6f93bf646c18df778d2199"
+        },
+        {
+          "path": "tasks/sumi-blue-crt-20261108/final-source-helper-tests.json",
+          "sha256": "d0c9739bafef8bf1d56aebd45b75480e80fc5eaa313d00ffb7975a4c6036c816"
+        },
+        {
+          "path": "tasks/sumi-blue-crt-20261108/publisher-selftest.json",
+          "sha256": "94ada3bd7d085fc361d59bc9dca45f4264ec5f8a3087a97ac60cde85c1150877"
         }
       ]
+    },
+    {
+      "file": "release-scope.json",
+      "bytes": 19719,
+      "sha256": "29a3cdcaafc6c984edb94e1f3d6058b25b8b1a0478984d55ce914a63815cf8d2"
     },
     {
       "file": "resource-gates.json",
@@ -71,25 +164,6 @@
       ]
     },
     {
-      "file": "release-helper-audit.json",
-      "bytes": 3777,
-      "sha256": "f657110ec495870f2951d7ca0c3ed0ab43f43d0082bd1fd3534da73903a95ae3",
-      "sources": [
-        {
-          "path": "tasks/sumi-blue-crt-20261108/pre-freeze-helper-audit.json",
-          "sha256": "9dd9c0e65ef5ec5708678e7c777d9e2c73579fc9ea6f93bf646c18df778d2199"
-        },
-        {
-          "path": "tasks/sumi-blue-crt-20261108/final-source-helper-tests.json",
-          "sha256": "d0c9739bafef8bf1d56aebd45b75480e80fc5eaa313d00ffb7975a4c6036c816"
-        },
-        {
-          "path": "tasks/sumi-blue-crt-20261108/publisher-selftest.json",
-          "sha256": "94ada3bd7d085fc361d59bc9dca45f4264ec5f8a3087a97ac60cde85c1150877"
-        }
-      ]
-    },
-    {
       "file": "rust-test-summary.json",
       "bytes": 2477,
       "sha256": "0dfbc493057d18078fceebef8949ebd438046934171114ef69159283baa267cd",
@@ -113,9 +187,14 @@
       ]
     },
     {
+      "file": "signed-plugin-process.json",
+      "bytes": 1101,
+      "sha256": "6440bf2a180dcf5ee3a7ce83e4744df7da0c7dd3e63570fb65b5d28924a2b647"
+    },
+    {
       "file": "source-boundary.json",
-      "bytes": 10992,
-      "sha256": "0a5bd9a3af6d52403b864995c056b62a839cad1ec6a5cd24ec56862a32201fdb",
+      "bytes": 11386,
+      "sha256": "dbac9ebe8c4519a86d068439c0ee1d3900ce1562ee89b359bcf18285408571d7",
       "sources": [
         {
           "path": "tasks/sumi-sounds-20261109/native/evidence.json",
@@ -134,9 +213,21 @@
           "sha256": "292dce7add0910d5f706b65026004892357ca02ff93c98a158d952418df32965"
         }
       ]
+    },
+    {
+      "file": "ui-sound.json",
+      "bytes": 2417,
+      "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a",
+      "sources": [
+        {
+          "path": "tasks/sumi-blue-crt-20261108/ui-sound-verification.json",
+          "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a"
+        }
+      ]
     }
   ],
   "scope": "Selected compact receipts and derived summaries only. No audio payloads, binaries, large raw logs, credentials, or global final scope approval are duplicated here.",
   "featureSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
-  "packageBuildStatus": "Started by release owner; no result or publication claim in this evidence snapshot."
+  "packageBuildStatus": "Signed, notarized, verified and published; market authoritative and normal/fresh public indices match.",
+  "verifiedAtUtc": "2026-11-08T17:07:36.417395+00:00"
 }

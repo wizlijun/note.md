@@ -1,0 +1,300 @@
+{
+  "ok": true,
+  "auditedAtUtc": "2026-11-08T16:50:29.986572+00:00",
+  "tag": "v6.1108.6",
+  "source": "b38dc722e6ab0e455147b07c39a972da297a9242",
+  "scope": "Frozen tag/three requirements/changelog and actual local artifact inclusion; not publication or full manual GUI acceptance",
+  "requirements": [
+    {
+      "id": "blue",
+      "requirement": "完整蓝磷配色与保存恢复",
+      "status": "present_in_tag_and_frozen_artifact_inputs",
+      "sources": [
+        {
+          "path": "plugins-src/write/src/contract.ts",
+          "line": 62,
+          "sha256": "b70ec807c9aef0907ea548fc7d8926987ed8a5ff8cd103b1693135c431762c73",
+          "anchor": "theme !== 'crt-blue'"
+        },
+        {
+          "path": "plugins-src/write/src/style.css",
+          "line": 6,
+          "sha256": "a91e4b995db23cc6fba514d83600176768a060ec19069b88325faec2be1131be",
+          "anchor": ":root[data-theme=\"crt-blue\"] { color-scheme:dark; --paper:#000000; --ink:#7fb4ff }"
+        },
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 426,
+          "sha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09",
+          "anchor": "['crt-blue', t("
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 136,
+          "sha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+          "anchor": "\"crt-blue\" => (\"#7fb4ff\", \"#000000\")"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 3662,
+          "sha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+          "anchor": "ws.durable.set_preferences(\"appearance\".into(), serde_json::to_value(&steady).unwrap())"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 3669,
+          "sha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+          "anchor": "assert_eq!(restored.appearance().foreground, \"#7fb4ff\")"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 3670,
+          "sha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+          "anchor": "assert_eq!(restored.appearance().background, \"#000000\")"
+        }
+      ],
+      "boundaries": [
+        "Source/test inclusion and compiled UI binding; no new final-app physical theme-switch acceptance in this audit."
+      ]
+    },
+    {
+      "id": "names_locale",
+      "requirement": "最终三语名称、宿主原生语言更新与reload保留编辑面",
+      "status": "present_in_tag_and_frozen_artifact_inputs",
+      "sources": [
+        {
+          "path": "src/lib/sumi/i18n.ts",
+          "line": 80,
+          "sha256": "54c14059b30770e058308b9c266a26b53ad80ef057911b4ce6ef036c8fb89fe0",
+          "anchor": "const appName = t('玄霜打字机', 'Sumi Typewriter', 'すみ')"
+        },
+        {
+          "path": "src/components/NativeFileView.svelte",
+          "line": 15,
+          "sha256": "e03dca1ffc1972c013e84b42ab185f81be95e92cb74d620c3246ab6ee8fee128",
+          "anchor": "createI18n(i18n.locale)"
+        },
+        {
+          "path": "src/components/SumiRecovery.svelte",
+          "line": 15,
+          "sha256": "b00e3e6bb5a4adbb838d1a73bd294d08e743f383cf505a2be457f52dca99e4cc",
+          "anchor": "kind: 'rewritten'; path: string"
+        },
+        {
+          "path": "src-tauri/src/lib.rs",
+          "line": 2779,
+          "sha256": "25f2784fe1089ae4f65cde8f4abb6067da455c2075a7938f55f1a97d9aa7c584",
+          "anchor": "sumi::refresh_locale(&app, &locale)"
+        },
+        {
+          "path": "src-tauri/src/plugin_runtime/windows.rs",
+          "line": 470,
+          "sha256": "82fee21079d69bb9ae52aa5ff110af30b295f2c9e5e00caca074c66780db9555",
+          "anchor": "localStorage.setItem('__notemd_locale'"
+        },
+        {
+          "path": "src-tauri/src/plugin_runtime/windows.rs",
+          "line": 474,
+          "sha256": "82fee21079d69bb9ae52aa5ff110af30b295f2c9e5e00caca074c66780db9555",
+          "anchor": "win.set_title(&title)"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 1738,
+          "sha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+          "anchor": "native::SurfaceCommand::SetLocale"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 3760,
+          "sha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+          "anchor": "reloaded_mount_recovers_only_the_same_live_authorized_owner"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 97,
+          "sha256": "1d02073035b0bf9be5eeaf4eb603427ef8e0b339bb8f9eb380a3c2cb1db894b1",
+          "anchor": "@\"玄霜打字机…\",@\"すみ…\""
+        }
+      ],
+      "boundaries": [
+        "System-provided Find UI retains OS language behavior. Manual final-host locale/reload GUI acceptance was not performed by this audit."
+      ]
+    },
+    {
+      "id": "sounds",
+      "requirement": "默认两套音效、只监听/焦点/过期门禁、资源只入插件",
+      "status": "present_in_tag_and_frozen_artifact_inputs",
+      "sources": [
+        {
+          "path": "src-tauri/src/sumi/sound.rs",
+          "line": 33,
+          "sha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+          "anchor": "enabled: true"
+        },
+        {
+          "path": "src-tauri/src/sumi/sound.rs",
+          "line": 34,
+          "sha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+          "anchor": "preset: \"typewriter\".into()"
+        },
+        {
+          "path": "src-tauri/src/sumi/sound.rs",
+          "line": 149,
+          "sha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+          "anchor": "window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false)"
+        },
+        {
+          "path": "src-tauri/src/sumi/sound.rs",
+          "line": 134,
+          "sha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+          "anchor": "surface.generation == event.generation"
+        },
+        {
+          "path": "src-tauri/src/sumi/sound.rs",
+          "line": 109,
+          "sha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+          "anchor": "queued.at.elapsed() <= TTL"
+        },
+        {
+          "path": "plugins-src/write/backend/src/sound.rs",
+          "line": 84,
+          "sha256": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+          "anchor": "live_deadline(deadline,5000)"
+        },
+        {
+          "path": "plugins-src/write/backend/src/sound.rs",
+          "line": 98,
+          "sha256": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+          "anchor": "live_deadline(expires_at_ms,200)"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/typing-monitor.h",
+          "line": 86,
+          "sha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+          "anchor": "kCGEventTapOptionListenOnly"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/typing-monitor.h",
+          "line": 12,
+          "sha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+          "anchor": "if(!active || !keyWindow || !keyWindow.isVisible || keyWindow.attachedSheet)return nil;"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/typing-monitor.h",
+          "line": 82,
+          "sha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+          "anchor": "if(request_permission && !permission)permission=CGRequestListenEventAccess();"
+        },
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 406,
+          "sha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09",
+          "anchor": "perform('sound_state'"
+        },
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 407,
+          "sha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09",
+          "anchor": "'sound_set'"
+        }
+      ],
+      "boundaries": [
+        "Real signed backend initialized both banks with zero samples scheduled. This is not audible latency, physical keyboard/IME, TCC grant, or final installed-GUI acceptance.",
+        "Raw CLI spctl may report valid-code-not-an-app; Apple Accepted/CDHash and actual signed process proof are separate and nonzero spctl is not relabeled passing."
+      ]
+    }
+  ],
+  "changelog": [
+    {
+      "path": "CHANGELOG.md",
+      "releaseEntries": 3,
+      "deferredEntries": 20,
+      "priorHistorySha256": "eeb2c6efdbe5e7e99f9c1ae6ec25424c2126e8a155740a03a9c55200ea00d5ef",
+      "deferredSha256": "d3c515006b5f34e80d0b24637419bf9d76d1cb7ac5f3fdfed06222f3f839f28d",
+      "archiveSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157"
+    },
+    {
+      "path": "CHANGELOG.zh-CN.md",
+      "releaseEntries": 3,
+      "deferredEntries": 20,
+      "priorHistorySha256": "2420de982055465d22c85bcdc6305d3e31f13c04063ba5234eb35e081d21d5f3",
+      "deferredSha256": "de24b5f20fd4f3eb7706fbfbee38c7070596dd8fdbc46473c90b67206685a5a8",
+      "archiveSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157"
+    }
+  ],
+  "sourcesChecked": 130,
+  "nativeSourcesChecked": 100,
+  "package": {
+    "bytes": 2459159,
+    "sha256": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3",
+    "sourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+    "minisignVerifiedWithTagKey": true,
+    "soundWavCount": 12,
+    "soundAudioBytes": 133584,
+    "onlyResourcesSoundsCopy": true
+  },
+  "hostSoundExclusion": {
+    "appTreeChecked": true,
+    "updaterTreeChecked": true,
+    "all14SourceResourcesInActualEmbeddedExclusionProof": true,
+    "appBinarySha256": "c4d3cd9ad914d5cb11d1045ac4e2839b65a41d10b1aab98008aaf002fe45cc85"
+  },
+  "signedNative": {
+    "sha256": "c2982ef638ba3999b98589fd2ddfbc9c57b34a4bf12012941c0472a0cf887096",
+    "appleStatus": "Accepted",
+    "submissionId": "6b50cabf-dfaa-4066-bb39-8b088a106b34",
+    "bothBanksInitialized": true,
+    "samplesScheduled": 0,
+    "spctl": {
+      "exit_code": 3,
+      "stdout": "",
+      "stderr": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/sumi-native-verify-xupi3y2f/notemd-sumi: rejected (the code is valid but does not seem to be an app)\n",
+      "notarized_developer_id": false,
+      "scope": "Raw CLI assessment is recorded verbatim; nonzero is not converted to success. Apple Accepted/CDHash binding is independently required; actual isolated process acceptance remains required.",
+      "classification": "valid-code-not-an-app; not a passing spctl assessment"
+    }
+  },
+  "evidence": [
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-blue-crt-20261108/frozen-inputs.json",
+      "bytes": 18599,
+      "sha256": "b529d776a58bf095f198e73027f83ab27ff58a3562873edd202573a4c718b9ba"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-blue-crt-20261108/artifact-verification.json",
+      "bytes": 133520,
+      "sha256": "55a7a15ca0d2aa2e14f6135bfb7d86f4c3cad060ab6d670bbca475783afffedc"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-blue-crt-20261108/frozen-plugin-packages.json",
+      "bytes": 7100,
+      "sha256": "cae25d51dfe118095ec4fa1ef335297ead54c5af6a7c5331a2e09feeaaa06e42"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-blue-crt-20261108/actual-native-process-probe.json",
+      "bytes": 1101,
+      "sha256": "6440bf2a180dcf5ee3a7ce83e4744df7da0c7dd3e63570fb65b5d28924a2b647"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/dist-plugins/notemd.sumi/0.1.5/native-aarch64-apple-darwin/receipt.json",
+      "bytes": 12776,
+      "sha256": "d6553493c4b95507abff62c0623317fe800403bd81475fbea23a4dddb0113bdb"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/dist-plugins/notemd.sumi/0.1.5/native-aarch64-apple-darwin/apple-notary-log.json",
+      "bytes": 564,
+      "sha256": "216a6a0d5b702bc8119f52123648845fb19ae0d43aa3668c653d04d6d209f7d1"
+    }
+  ],
+  "manualGuiPerformed": false,
+  "publishedByAudit": false,
+  "networkUsed": false,
+  "compiled": false,
+  "trackedSourceModified": false,
+  "remainingBoundaries": [
+    "No physical keyboard/real Chinese IME, system TCC grant, audible speaker playback or end-to-end latency acceptance by this audit.",
+    "Actual source/artifact inclusion does not prove public host assets or marketplace index; publication has separate gates.",
+    "Global worktree/branch/stash scope must be audited separately by the release owner."
+  ]
+}

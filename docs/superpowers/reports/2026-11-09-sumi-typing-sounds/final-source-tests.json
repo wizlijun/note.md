@@ -1,0 +1,45 @@
+{
+  "source": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "workingMatchesFrozenSource": true,
+  "source_sha256": {
+    "src-tauri/src/sumi/sound.rs": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+    "src-tauri/src/sumi/mod.rs": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+    "src-tauri/src/sumi/service.rs": "d796903840fbff62064c6bfbaf9ff872ea4f1ef24f41ddb9958fff50cfe71135",
+    "src-tauri/src/plugin_runtime/host_api.rs": "143ae3f1527939fa15925b62623de3c24307513fc3eed021f12ae2ecce6c9fec",
+    "plugins-src/write/backend/src/sound.rs": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+    "plugins-src/write/backend/src/runtime.rs": "b5ef1b50c6e1c2c38d4cd2cf728e55999c473763b46b3f4077f04472a2902a36",
+    "plugins-src/write/backend/native/sound.m": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+    "plugins-src/write/backend/native/sound.h": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+    "plugins-src/write/backend/tests/stdio.rs": "cc03d95ceb3b12ee93e57d13affec55054442fc51b22dd23f188402b74e11b70"
+  },
+  "test_logs": {
+    "host-sound-tests-final.log": {
+      "sha256": "4a6652a3496f79ba63d90e9e7d9c3033f59b67966ea2b173f0ffa81bf8850a88",
+      "summaries": [
+        "test result: ok. 71 passed; 0 failed; 2 ignored; 0 measured; 1384 filtered out; finished in 0.48s"
+      ]
+    },
+    "backend-all-tests-final.log": {
+      "sha256": "887fc455b7dbe87b2949952c6ece62e237171ee3ef7592f7c5d5aaf8c84dc088",
+      "summaries": [
+        "test result: ok. 91 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.47s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "native-rust-tests.log": {
+      "sha256": "f806d01c2493556f54e0314d6e9adc6138c46d726cd0e3a16ae8722e3d19cffc",
+      "summaries": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "host-plugin-runtime-tests.log": {
+      "sha256": "5fccbfd10ef7c625a4f705fa8613cf1f4b8bb73fb7810a2373700080644fd7f6",
+      "summaries": [
+        "test result: ok. 333 passed; 0 failed; 0 ignored; 0 measured; 1123 filtered out; finished in 1.47s"
+      ]
+    }
+  },
+  "note": "Final deadline changes are included; prior intermediate evidence remains unchanged. Host frozen-tag regression will additionally use its final lockfile."
+}

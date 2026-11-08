@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "checkedAt": "2026-11-08T17:00:10.113860+00:00",
+  "publisherSha256": "5aa45f4df34cf096bd75b57b2fc3feff9dd6beffac62079b045485cd31fdf025",
+  "sourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "objects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3",
+      "bytes": 2459159
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "4b52f56b07ceb6304b1932a26372c38ad16f1596447e547128656748abcccba1",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3",
+      "bytes": 2459159
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "4b52f56b07ceb6304b1932a26372c38ad16f1596447e547128656748abcccba1",
+      "bytes": 325
+    }
+  ],
+  "fullObjectBytesEqualFrozen": true,
+  "allTwoPackageReadbacksMinisignValid": true,
+  "packageInventoriesEqualFrozen": true,
+  "newVersionsAbsentFromKvAndNormalFreshIndex": true,
+  "kvNormalFreshIndexEqual": true,
+  "indexEqualReadOnlyBaseline": true,
+  "kvWritesPerformed": false,
+  "hostPublicationPerformed": false,
+  "stageScope": "Immutable R2 objects only; no market listing"
+}

@@ -1,0 +1,9 @@
+{
+  "source": "b38dc722e6ab0e455147b07c39a972da297a9242",
+  "log": "tasks/sumi-sounds-20261109/final-host-lockfile-tests.log",
+  "logSha256": "cecd1a475c2d36e292081fc7ba58a6d569de588044a4496437a0739a205b5c34",
+  "summaries": [
+    "test result: ok. 71 passed; 0 failed; 2 ignored; 0 measured; 1384 filtered out; finished in 0.47s"
+  ],
+  "scope": "Final release clone lockfile includes notemd-sumi-backend0.1.5 and cc; no test source copy remains. Tests complete before cache cleanup."
+}

@@ -1,0 +1,94 @@
+{
+  "sourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "nativeSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "packages": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "arch": "aarch64-apple-darwin",
+      "minimumHost": ">=6.1108.6",
+      "sourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+      "packagePath": "tasks/sumi-blue-crt-20261108/packages/notemd.sumi/0.1.5/aarch64-apple-darwin.notemdpkg",
+      "buildPackagePath": "dist-plugins/notemd.sumi/0.1.5/aarch64-apple-darwin.notemdpkg",
+      "sha256": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3",
+      "bytes": 2459159,
+      "signatureSha256": "4b52f56b07ceb6304b1932a26372c38ad16f1596447e547128656748abcccba1",
+      "files": {
+        "ui/index.html": "4484f442a6a98a02acc63522091105c655d006158f1f43be9a784ef94f67e61c",
+        "ui/sumi/ZhuqueFangsong-LICENSE.txt": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043",
+        "ui/sumi/LXGWWenKaiMonoLite-OFL.txt": "0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e",
+        "ui/sumi/TerryWang-Typewriter-LICENSE.txt": "e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5",
+        "ui/sumi/TerryWang-Official-License.json": "7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e",
+        "ui/sumi/TerryWang-Typewriter-PROVENANCE.json": "b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100",
+        "ui/sumi/Unifont-OFL.txt": "869692af094c57fb7258c57fe26820c759319603321d0ffeb278de3651763ded",
+        "ui/sumi/IBMPlexSansSC-LICENSE.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+        "ui/sumi/manifest.json": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3",
+        "ui/sumi/IBMPlexMono-OFL.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+        "ui/sumi/CRT-PROVENANCE.json": "a467c8a02478b57bc77e565671f2844a9e32dc53c21954d31e03d9f347ddcd7a",
+        "ui/assets/index-DSiiYF4-.js": "7cdf254b93f34fbe4ddd028ca6d41e2c7290e0fd6f4b01d627c8e35354b15708",
+        "ui/assets/index-DOtofLtT.css": "bfc82b740435f824461cd110a88e33ac219f6da8a2dc061a35e9e1591e235f85",
+        "bin/notemd-sumi": "c2982ef638ba3999b98589fd2ddfbc9c57b34a4bf12012941c0472a0cf887096",
+        "resources/sounds/provenance.json": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793",
+        "resources/sounds/manifest.json": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+        "resources/sounds/typewriter/typewriter-enter2-1.wav": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+        "resources/sounds/typewriter/typewriter-space-1.wav": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974",
+        "resources/sounds/typewriter/typewriter-delete-1.wav": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+        "resources/sounds/typewriter/typewriter-keys-1.wav": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+        "resources/sounds/typewriter/typewriter-modifier-1.wav": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+        "resources/sounds/thock/thock-modifier-1.wav": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+        "resources/sounds/thock/thock-enter-1.wav": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+        "resources/sounds/thock/thock-release-1.wav": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+        "resources/sounds/thock/thock-space-1.wav": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+        "resources/sounds/thock/thock-keys-1.wav": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+        "resources/sounds/thock/thock-delete-1.wav": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+        "resources/sounds/thock/thock-click-1.wav": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca",
+        "manifest.json": "a5adb57ba9dfa9b01878b57431d210f8383ab2e0ab5ea7064eb6c6c0b7705f88"
+      },
+      "noBundledFontPayload": true,
+      "verification": {
+        "metadataFiles": 10,
+        "soundFiles": {
+          "provenance.json": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793",
+          "manifest.json": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+          "typewriter/typewriter-enter2-1.wav": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+          "typewriter/typewriter-space-1.wav": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974",
+          "typewriter/typewriter-delete-1.wav": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+          "typewriter/typewriter-keys-1.wav": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+          "typewriter/typewriter-modifier-1.wav": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+          "thock/thock-modifier-1.wav": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+          "thock/thock-enter-1.wav": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+          "thock/thock-release-1.wav": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+          "thock/thock-space-1.wav": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+          "thock/thock-keys-1.wav": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+          "thock/thock-delete-1.wav": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+          "thock/thock-click-1.wav": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca"
+        },
+        "native": {
+          "binary": {
+            "identifier": "net.notemd.sumi.backend",
+            "team": "T5G56DH47L",
+            "cdhash": "cbb1d2ffcb32e49a6b491f4fd3de39b2eae8e302",
+            "runtime": true,
+            "timestamp": true,
+            "sha256": "c2982ef638ba3999b98589fd2ddfbc9c57b34a4bf12012941c0472a0cf887096",
+            "bytes": 3824256,
+            "architecture": "arm64"
+          },
+          "submission_id": "6b50cabf-dfaa-4066-bb39-8b088a106b34",
+          "status": "Accepted",
+          "spctl": {
+            "exit_code": 3,
+            "stdout": "",
+            "stderr": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/sumi-native-verify-ggly5srd/notemd-sumi: rejected (the code is valid but does not seem to be an app)\n",
+            "notarized_developer_id": false,
+            "scope": "Raw CLI assessment is recorded verbatim; nonzero is not converted to success. Apple Accepted/CDHash binding is independently required; actual isolated process acceptance remains required.",
+            "classification": "valid-code-not-an-app; not a passing spctl assessment"
+          },
+          "isolated_process_probe": "6440bf2a180dcf5ee3a7ce83e4744df7da0c7dd3e63570fb65b5d28924a2b647"
+        }
+      }
+    }
+  ],
+  "published": false,
+  "nativeAppleSubmission": "6b50cabf-dfaa-4066-bb39-8b088a106b34"
+}

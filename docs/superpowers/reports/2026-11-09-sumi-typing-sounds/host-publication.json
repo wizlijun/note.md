@@ -1,0 +1,19 @@
+{
+  "at": "2026-11-08T16:53:07.218568+00:00",
+  "command": [
+    "scripts/release-publish.sh",
+    "v6.1108.6",
+    "--mac-arm64-only"
+  ],
+  "scope": "Previously authorized Apple Silicon macOS release; other platforms remain outside this Sumi version",
+  "interactivePlatformScope": "v6.1108.6 mac-arm64-only",
+  "exitCode": 0,
+  "result": "Published v6.1108.6",
+  "tagCommit": "b38dc722e6ab0e455147b07c39a972da297a9242",
+  "publicVerification": {
+    "normal": "public-host-verification.json",
+    "rest": "public-host-api-verification.json",
+    "actualUpdater": "actual-updater-endpoints.json",
+    "status": "passed"
+  }
+}

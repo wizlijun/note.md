@@ -1,0 +1,108 @@
+{
+  "ok": true,
+  "at": "2026-11-08T17:06:09.057934+00:00",
+  "readOnly": true,
+  "sourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "publisherSha256": "5aa45f4df34cf096bd75b57b2fc3feff9dd6beffac62079b045485cd31fdf025",
+  "beforeCount": 302,
+  "afterCount": 303,
+  "onlyAdded": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "min_host": ">=6.1108.6",
+      "archs": [
+        "aarch64-apple-darwin"
+      ],
+      "size": 2459159,
+      "sha256": {
+        "aarch64-apple-darwin": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3"
+      },
+      "name": "Sumi Typewriter",
+      "category": "experience",
+      "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "玄霜打字机",
+          "description": "玄霜打字机，一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "玄霜打字机",
+            "read-writing": "玄霜打字机"
+          },
+          "windows": {
+            "main": "玄霜打字机"
+          }
+        },
+        "en": {
+          "name": "Sumi Typewriter",
+          "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
+          "menus": {
+            "open": "Sumi Typewriter",
+            "read-writing": "Sumi Typewriter"
+          },
+          "windows": {
+            "main": "Sumi Typewriter"
+          }
+        },
+        "ja": {
+          "name": "すみ",
+          "description": "すみは、静かに書くためのタイプライターアプリです。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+          "menus": {
+            "open": "すみ",
+            "read-writing": "すみ"
+          },
+          "windows": {
+            "main": "すみ"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.5/aarch64-apple-darwin"
+      }
+    }
+  ],
+  "historicalEntriesUnchanged": true,
+  "kvNormalFreshExactlyEqualCandidate": true,
+  "newVersionsMatchFrozenPackages": true,
+  "compatibleMinimumHost": ">=6.1108.6",
+  "prePublicationFullPackageEvidence": "r2-parallel-independent-verification.json",
+  "prePublicationFullObjects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3",
+      "bytes": 2459159
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "4b52f56b07ceb6304b1932a26372c38ad16f1596447e547128656748abcccba1",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "aacda8be58893058ec251b6c21d0c24f86c64b75de7cc0a8655a24ac81840ff3",
+      "bytes": 2459159
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.5",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "4b52f56b07ceb6304b1932a26372c38ad16f1596447e547128656748abcccba1",
+      "bytes": 325
+    }
+  ],
+  "prePublicationFullPackageSignaturesRecheckedLocally": true,
+  "postPublicationNetworkPackageDownloadsPerformed": false,
+  "boundary": "Complete normal/fresh package bytes and signatures were verified before index publication; this audit rechecks frozen local bytes and post-publication authoritative/public indices only."
+}

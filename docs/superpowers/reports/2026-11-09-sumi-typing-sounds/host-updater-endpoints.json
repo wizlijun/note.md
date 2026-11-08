@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "endpoints": [
+    {
+      "endpoint": "https://github.com/wizlijun/note.md/releases/latest/download/latest.json",
+      "http": 200,
+      "version": "6.1108.6",
+      "sha256": "9aa8061c43430700ce207f3f6999a3d099eac9e755f1edfe3e919ac46f9fb6b9",
+      "matchesSignedReleaseManifest": true
+    }
+  ]
+}

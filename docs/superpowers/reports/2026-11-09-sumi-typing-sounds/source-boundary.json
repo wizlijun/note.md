@@ -1,8 +1,8 @@
 {
   "observedAtUtc": "2026-11-08T16:33:41.955864+00:00",
-  "finalSourceCommit": null,
-  "finalTag": null,
-  "frozen": false,
+  "finalSourceCommit": "b38dc722e6ab0e455147b07c39a972da297a9242",
+  "finalTag": "v6.1108.6",
+  "frozen": true,
   "comparisons": [
     {
       "evidenceGroup": "native",
@@ -207,7 +207,16 @@
     }
   ],
   "knownDriftExplanation": "Two Rust input snapshots predate Configure deadline additions. Parent reports the later logs rerun with backend 91+stdio1 and host71; final full-source hash binding remains pending. The C audio engine .m/.h bytes still match the real-time probe copies.",
-  "scope": "Read-only working-source comparison at report preparation, not an immutable final-build provenance claim.",
+  "scope": "Historical working-source comparisons retained; final verification below binds the immutable release tag and actual artifacts.",
   "featureSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
-  "featureSourceCommitted": true
+  "featureSourceCommitted": true,
+  "finalVerification": {
+    "atUtc": "2026-11-08T17:07:36.416997+00:00",
+    "audit": "final-tag-audit.json",
+    "sourceTests": "final-source-tests.json",
+    "finalHostLockfileTests": "final-host-lockfile-tests.json",
+    "sourcesChecked": 130,
+    "nativeSourcesChecked": 100,
+    "historicalComparisonsUnchanged": true
+  }
 }
