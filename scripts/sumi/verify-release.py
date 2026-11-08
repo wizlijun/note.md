@@ -84,7 +84,7 @@ def verify_plugin_files(files, frozen):
     manifest_identity(json.loads(files['manifest.json']))
 
 
-FONT_CASCADES = {'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular'], 'Sumi Elite': ['SpecialElite-Regular', 'youyou-yisong']}
+FONT_CASCADES = {'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular'], 'Sumi Zhaohua': ['ZhaohuaTypeWriter-Light'], 'Sumi Youcha': ['YouchaSanz-Light'], 'Sumi Fangsong': ['ZhuqueFangsong-Regular']}
 FONT_ASSETS = {
     'IBMPlexMono-Light.ttf',
     'IBMPlexMono-OFL.txt',
@@ -92,11 +92,13 @@ FONT_ASSETS = {
     'IBMPlexSansSC-Light.otf',
     'LXGWWenKaiMonoLite-OFL.txt',
     'LXGWWenKaiMonoLite-Regular.ttf',
-    'SpecialElite-LICENSE.txt',
-    'SpecialElite-Regular.ttf',
-    'YouyouYisong-NOTICE.txt',
-    'YouyouYisong-PROVENANCE.json',
-    'YouyouYisong.ttf',
+    'TerryWang-Official-License.json',
+    'TerryWang-Typewriter-LICENSE.txt',
+    'TerryWang-Typewriter-PROVENANCE.json',
+    'YouchaSanz.ttf',
+    'ZhaohuaTypeWriter.ttf',
+    'ZhuqueFangsong-LICENSE.txt',
+    'ZhuqueFangsong-Regular.ttf',
 }
 
 def font_files(folder, manifest_raw):
@@ -298,8 +300,9 @@ def self_test():
         encoded=json.dumps(fm).encode();(directory/'manifest.json').write_bytes(encoded)
         for n in names:(directory/n).write_bytes(b'fixture')
         font_files(directory,encoded)
-        obsolete=directory/'SourceHanSerifSC-Regular.otf';obsolete.write_bytes(b'old font')
-        rejects(lambda: font_files(directory,encoded));obsolete.unlink()
+        for retired in ['SourceHanSerifSC-Regular.otf','SpecialElite-Regular.ttf','YouyouYisong-PROVENANCE.json']:
+            obsolete=directory/retired;obsolete.write_bytes(b'old resource')
+            rejects(lambda: font_files(directory,encoded));obsolete.unlink()
         wrong={**fm,'cascades':{**FONT_CASCADES,'Sumi Plex':['IBM Plex Mono','IBM Plex Sans SC']}}
         wrong_encoded=json.dumps(wrong).encode();(directory/'manifest.json').write_bytes(wrong_encoded)
         rejects(lambda: font_files(directory,wrong_encoded))

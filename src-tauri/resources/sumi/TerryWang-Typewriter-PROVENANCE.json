@@ -1,0 +1,391 @@
+{
+  "author": "王廷瑞 (TerryWang / 特里王)",
+  "officialHome": "https://huozi.cool/",
+  "originalPublication": "https://zhuanlan.zhihu.com/p/2016544991133073839",
+  "officialFontCatalog": "https://huozi.cool/api/fonts",
+  "officialAuthorization": "https://huozi.cool/api/license-config",
+  "officialAuthorizationSnapshot": "TerryWang-Official-License.json",
+  "officialAuthorizationSummary": "Both 朝华打字机 and 油茶馓子体 are explicitly listed in the author’s 免商可修改 category: free commercial use, modifications, embedded use and publishing permitted.",
+  "license": "LicenseRef-TerryWang-Typewriter",
+  "licenseCopy": "TerryWang-Typewriter-LICENSE.txt",
+  "licenseCopySource": "https://raw.githubusercontent.com/BH1PHL/ttf-terrywang-typewriter-fonts/0f49da55ecf4c1648d658c17d2e8d2633c385d0f/LICENSE",
+  "mirrorRepository": "https://github.com/BH1PHL/ttf-terrywang-typewriter-fonts",
+  "mirrorCommit": "0f49da55ecf4c1648d658c17d2e8d2633c385d0f",
+  "mirrorStatus": "Unofficial Arch packaging of original font files, with original author attribution and a license copy. Files are not modified or subsetted by note.md.",
+  "officialCatalogEntries": [
+    {
+      "id": "newfonts_ZHAOHUADAZI",
+      "name": "朝华打字机",
+      "description": "华文打字机所用字体",
+      "category": "细明朝体",
+      "relativePath": "newfonts/ZHAOHUADAZI.ttf",
+      "downloadable": true
+    },
+    {
+      "id": "newfonts_æ²¹è¶é¥å­é«",
+      "name": "油茶馓子体",
+      "description": "手写油印字体",
+      "category": "油印字体",
+      "relativePath": "newfonts/æ²¹è¶é¥å­é«.ttf",
+      "downloadable": true
+    }
+  ],
+  "fonts": [
+    {
+      "file": "YouchaSanz.ttf",
+      "size": 31021128,
+      "sha256": "967ce821ca999d04b3150fe18f814e9907b13777fe6749d12fde9abd5b3ad35d",
+      "gitBlobSha1": "1de93295453ed42fe765802dee0c268ac3cad650",
+      "url": "https://raw.githubusercontent.com/BH1PHL/ttf-terrywang-typewriter-fonts/0f49da55ecf4c1648d658c17d2e8d2633c385d0f/YouchaSanz.ttf",
+      "postscript": "YouchaSanz-Light",
+      "nameRecords": [
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 1,
+          "text": "油茶饊子體"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 8,
+          "text": "特里字藝"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 9,
+          "text": "王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 0,
+          "text": "Copyright 2025 TerryWang王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 1,
+          "text": "YouchaSanz Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 2,
+          "text": "Regular"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 4,
+          "text": "YouchaSanz Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 5,
+          "text": "Version 1.001;March 17, 2026;FontCreator 15.0.0.3015 64-bit"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 6,
+          "text": "YouchaSanz-Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 8,
+          "text": "TerryFontArt"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 9,
+          "text": "TerryWang"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 1,
+          "text": "油茶饊子体"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 8,
+          "text": "特里字芸"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 9,
+          "text": "王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 1,
+          "text": "油茶馓子体"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 8,
+          "text": "特里字艺"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 9,
+          "text": "王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 1,
+          "text": "油茶饊子體"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 8,
+          "text": "特里字藝"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 9,
+          "text": "王廷瑞"
+        }
+      ]
+    },
+    {
+      "file": "ZhaohuaTypeWriter.ttf",
+      "size": 27492440,
+      "sha256": "2eca44768cba97110ebc161dbbb60216bcda5e80b7202c5f684bf0f358c34370",
+      "gitBlobSha1": "95cb1f4f713eada6f433287799ce7ab9c79ee201",
+      "url": "https://raw.githubusercontent.com/BH1PHL/ttf-terrywang-typewriter-fonts/0f49da55ecf4c1648d658c17d2e8d2633c385d0f/ZhaohuaTypeWriter.ttf",
+      "postscript": "ZhaohuaTypeWriter-Light",
+      "nameRecords": [
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 1,
+          "text": "朝華打字機"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 8,
+          "text": "特里字藝"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1028,
+          "nameId": 9,
+          "text": "王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 0,
+          "text": "Copyright 2025 TerryWang王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 1,
+          "text": "ZhaohuaTypeWriter Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 2,
+          "text": "Regular"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 4,
+          "text": "ZhaohuaTypeWriter Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 5,
+          "text": "Version 1.001;March 17, 2026;FontCreator 15.0.0.3015 64-bit"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 6,
+          "text": "ZhaohuaTypeWriter-Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 8,
+          "text": "TerryFontArt"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1033,
+          "nameId": 9,
+          "text": "TerryWang"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 1,
+          "text": "朝華タイプライター"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 8,
+          "text": "特里字芸"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 1041,
+          "nameId": 9,
+          "text": "王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 1,
+          "text": "朝华打字机"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 8,
+          "text": "特里字艺"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 2052,
+          "nameId": 9,
+          "text": "王廷瑞"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 1,
+          "text": "朝華打字機"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 2,
+          "text": "Light"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 8,
+          "text": "特里字藝"
+        },
+        {
+          "platform": 3,
+          "encoding": 1,
+          "language": 3076,
+          "nameId": 9,
+          "text": "王廷瑞"
+        }
+      ]
+    }
+  ]
+}

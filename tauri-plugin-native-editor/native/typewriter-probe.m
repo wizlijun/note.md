@@ -53,8 +53,9 @@ int main(int argc,const char **argv){@autoreleasepool{
         @[@"IBMPlexMono-Light.ttf",@"IBMPlexMono-Light"],
         @[@"IBMPlexSansSC-Light.otf",@"IBMPlexSansSC-Light"],
         @[@"LXGWWenKaiMonoLite-Regular.ttf",@"LXGWWenKaiMonoLite-Regular"],
-        @[@"SpecialElite-Regular.ttf",@"SpecialElite-Regular"],
-        @[@"YouyouYisong.ttf",@"youyou-yisong"]];
+        @[@"ZhaohuaTypeWriter.ttf",@"ZhaohuaTypeWriter-Light"],
+        @[@"YouchaSanz.ttf",@"YouchaSanz-Light"],
+        @[@"ZhuqueFangsong-Regular.ttf",@"ZhuqueFangsong-Regular"]];
     for(NSArray *registration in registrations){
         char *error=NULL;
         int code=sumi_editor_register_font([[directory stringByAppendingPathComponent:registration[0]] UTF8String],[registration[1] UTF8String],&error);
@@ -67,22 +68,26 @@ int main(int argc,const char **argv){@autoreleasepool{
     NSDictionary *cascades=@{
         @"Sumi Plex":@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light"],
         @"Sumi WenKai":@[@"LXGWWenKaiMonoLite-Regular"],
-        @"Sumi Elite":@[@"SpecialElite-Regular",@"youyou-yisong"]};
+        @"Sumi Zhaohua":@[@"ZhaohuaTypeWriter-Light"],
+        @"Sumi Youcha":@[@"YouchaSanz-Light"],
+        @"Sumi Fangsong":@[@"ZhuqueFangsong-Regular"]};
     NSDictionary *expected=@{
         @"Sumi Plex":@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light"],
         @"Sumi WenKai":@[@"LXGWWenKaiMonoLite-Regular",@"LXGWWenKaiMonoLite-Regular"],
-        @"Sumi Elite":@[@"SpecialElite-Regular",@"youyou-yisong"]};
+        @"Sumi Zhaohua":@[@"ZhaohuaTypeWriter-Light",@"ZhaohuaTypeWriter-Light"],
+        @"Sumi Youcha":@[@"YouchaSanz-Light",@"YouchaSanz-Light"],
+        @"Sumi Fangsong":@[@"ZhuqueFangsong-Regular",@"ZhuqueFangsong-Regular"]};
     for(NSString *alias in cascades){
         NSData *json=[NSJSONSerialization dataWithJSONObject:@{@"alias":alias,@"families":cascades[alias]} options:0 error:nil];
         char *error=NULL;NSString *config=[[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
         require(sumi_editor_register_cascade(config.UTF8String,&error)==0,@"register explicit ordered cascade");require(error==NULL,@"valid cascade has no error");
         SumiEditor *editor=[SumiEditor new];editor.appearance=@{@"font_family":alias,@"font_size":@22};
-        NSFont *font=[editor baseFont];BOOL light=[alias isEqualToString:@"Sumi Plex"];
+        NSFont *font=[editor baseFont];BOOL light=[@[@"Sumi Plex",@"Sumi Zhaohua",@"Sumi Youcha"] containsObject:alias];
         assertFace(font,@"Typewriter 1932",expected[alias][0],light);
         assertFace(font,@"沉浸式写作中文",expected[alias][1],light);
         require(reportSystemFallback(font,cascades[alias]),@"a representative missing character resolves through actual system fallback");
         printf("PASS cascade %s\n",alias.UTF8String);
     }
-    printf("PASS: only 3 selected cascades; exact PS, Light weight, single-face WenKai, actual system fallback\n");
+    printf("PASS: only 5 selected cascades; exact PS, Light weights, same-face WenKai/Zhaohua/Youcha/Fangsong, actual system fallback\n");
     return 0;
 }}

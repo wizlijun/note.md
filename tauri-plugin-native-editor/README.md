@@ -95,7 +95,7 @@ OTF path. It checks missing/mismatched rejection, repeated process registration,
 and the real family/face attached to NSTextView storage. It does not install fonts.
 
 `native/typewriter-probe.m` takes the absolute `resources/sumi` directory and checks
-actual CoreText glyph-run PostScript faces for the three selected combinations.
+actual CoreText glyph-run PostScript faces for the five selected combinations.
 It verifies both Plex Light weights, rejects a Light file registered as Regular,
 and reports the actual system fallback for a character outside each selected
 combination. It does not claim those characters are covered by the bundled faces.
