@@ -8,10 +8,12 @@ import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
+# Isolated ignored development cache; never included by the host or Vite.
 DEST = ROOT / 'src-tauri/resources/sumi'
+RESOURCE_DIR = ROOT / 'plugins-src/write/resources/sumi'
 # The tracked manifest is the single source for both development preparation and
 # the runtime download catalog; font binaries remain ignored development assets.
-MANIFEST = json.loads((DEST / 'manifest.json').read_text())
+MANIFEST = json.loads((RESOURCE_DIR / 'manifest.json').read_text())
 ASSETS = MANIFEST['assets']
 CASCADES = MANIFEST['cascades']
 
@@ -27,10 +29,10 @@ OBSOLETE = ['CourierPrime-Regular.ttf', 'CourierPrime-OFL.txt', 'SourceHanSerifS
 def prepare():
     pending = {}
     for asset in ASSETS:
-        path = DEST / asset['file']
+        path = (DEST if asset.get('postscript') else RESOURCE_DIR) / asset['file']
         if path.exists() and valid(path.read_bytes(), asset['size'], asset['sha256']):
             continue
-        if asset.get('bundled'):
+        if not asset.get('postscript'):
             raise ValueError(f"{asset['file']}: tracked provenance missing or changed; restore the pinned source document")
         size = asset.get('archive_size', asset['size'])
         sha = asset.get('archive_sha256', asset['sha256'])

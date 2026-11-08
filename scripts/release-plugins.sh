@@ -346,32 +346,62 @@ release_quick_launch() {
   rm -rf "$stage"; trap - RETURN
 }
 
-# Sumi native code is signed inside the host; this package contains only its UI.
+# Sumi alone has a strict native Developer ID + Apple notarization gate.
+# Default scope is Apple Silicon; Intel requires its own explicit build/evidence.
 release_sumi() {
-  local id="notemd.sumi"
-  local src="$REPO_ROOT/plugins-src/write"
-  local manifest="$src/manifest.v2.json"
-  local version; version="$(manifest_field "$manifest" version)"
-  echo "== $id @ $version =="
-
-  echo "[$id] building UI bundle (node ../../node_modules/vite/bin/vite.js build)…"
-  ( cd "$src" && node ../../node_modules/typescript/bin/tsc --noEmit && node ../../node_modules/vite/bin/vite.js build )
-
-  local out_dir="$OUT_ROOT/$id/$version"
+  local id="notemd.sumi" src="$REPO_ROOT/plugins-src/write"
+  local manifest="$src/manifest.v2.json" version source_commit triple
+  version="$(manifest_field "$manifest" version)"
+  source_commit="$(git rev-parse HEAD)"
+  triple="${SUMI_RELEASE_TARGET:-aarch64-apple-darwin}"
+  case "$triple" in aarch64-apple-darwin|x86_64-apple-darwin) ;; *) echo "Unsupported Sumi target" >&2; return 1 ;; esac
+  node -e 'const m=require(process.argv[1]);if(m.binary?.[process.argv[2]]!=="bin/notemd-sumi")throw Error("Sumi native manifest target mismatch")' "$manifest" "$triple"
+  [[ "${APPLE_SIGNING_IDENTITY:-}" == "Developer ID Application:"* ]] || { echo "Sumi requires an explicit Developer ID Application identity" >&2; return 1; }
+  [[ -n "${APPLE_TEAM_ID:-}" ]] || { echo "Sumi requires APPLE_TEAM_ID" >&2; return 1; }
+  if [[ -z "${SUMI_NOTARY_PROFILE:-}" && ( -z "${APPLE_ID:-}" || -z "${APPLE_PASSWORD:-}" ) ]]; then
+    echo "Sumi requires notary credentials or SUMI_NOTARY_PROFILE" >&2; return 1
+  fi
+  export PATH="$HOME/.cargo/bin:$PATH"
+  cargo build --release --locked --manifest-path "$src/backend/Cargo.toml" --bin notemd-sumi --target "$triple"
+  local unsigned="$src/backend/target/$triple/release/notemd-sumi"
+  local out_dir="$OUT_ROOT/$id/$version" native_dir="$OUT_ROOT/$id/$version/native-$triple"
   mkdir -p "$out_dir"
-  cp "$manifest" "$out_dir/manifest.json"   # for gen-plugin-index.mjs
-
+  # This helper persists the submission ID and resumes that same job; no
+  # ambiguous retry ever submits a second archive automatically.
+  python3 scripts/sumi/native-release.py --sign-and-notarize --source "$source_commit" \
+    --target "$triple" --binary "$unsigned" --output-dir "$native_dir"
+  ( cd "$src" && node ../../node_modules/typescript/bin/tsc --noEmit && node ../../node_modules/vite/bin/vite.js build )
   local stage; stage="$(mktemp -d)"
   trap 'rm -rf "$stage"' RETURN
-  mkdir -p "$stage/ui"
+  mkdir -p "$stage/bin" "$stage/ui"
   cp "$manifest" "$stage/manifest.json"
+  cp "$native_dir/notemd-sumi" "$stage/bin/notemd-sumi"
+  chmod +x "$stage/bin/notemd-sumi"
   cp -R "$src/dist/." "$stage/ui/"
-
-  local pkg="$out_dir/universal.notemdpkg"
+  # Exact catalog/license bytes and no font payload anywhere in the plugin.
+  python3 - "$stage" "$src/resources/sumi" <<'PYGATE'
+import hashlib,json,sys
+from pathlib import Path
+stage,source=map(Path,sys.argv[1:])
+manifest=json.loads((source/'manifest.json').read_bytes())
+expected={'manifest.json'}|{a['file'] for a in manifest['assets'] if not a.get('postscript')}
+assert len(expected)==10 and {p.name for p in (stage/'ui/sumi').iterdir()}==expected
+for name in expected:
+    path=stage/'ui/sumi'/name
+    assert path.is_file() and not path.is_symlink() and path.read_bytes()==(source/name).read_bytes()
+for asset in manifest['assets']:
+    if not asset.get('postscript'):
+        raw=(stage/'ui/sumi'/asset['file']).read_bytes()
+        assert len(raw)==asset['size'] and hashlib.sha256(raw).hexdigest()==asset['sha256']
+for path in stage.rglob('*'):
+    assert path.suffix.lower() not in {'.ttf','.otf','.woff','.woff2','.ttc','.otc'}, 'Large font payload in Sumi package'
+PYGATE
+  local pkg="$out_dir/$triple.notemdpkg"
   zip_pkg "$stage" "$pkg"
   sign_pkg "$pkg"
+  cp "$manifest" "$out_dir/manifest.json"
   local sha; sha="$(shasum -a 256 "$pkg" | awk '{print $1}')"
-  echo "[$id] universal.notemdpkg  sha256=$sha  → $pkg"
+  echo "[$id] $triple.notemdpkg sha256=$sha; Apple Accepted proof: $native_dir/receipt.json"
   rm -rf "$stage"; trap - RETURN
 }
 

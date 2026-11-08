@@ -18,8 +18,8 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '6.1108.4'
-PLUGIN_VERSION = '0.1.3'
+VERSION = '6.1108.5'
+PLUGIN_VERSION = '0.1.4'
 SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
            'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/App.svelte',
            'src-tauri/src/sumi/mod.rs', 'src-tauri/src/sumi/export.rs',
@@ -29,7 +29,8 @@ SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.
            'tauri-plugin-native-editor/native/editor.m', 'tauri-plugin-native-editor/src/lib.rs',
            'tauri-plugin-native-editor/Cargo.toml', 'tauri-plugin-native-editor/build.rs',
            'plugins-src/write/src/main.ts', 'plugins-src/write/manifest.v2.json',
-           'src-tauri/resources/sumi/manifest.json']
+           'plugins-src/write/resources/sumi/manifest.json',
+           'sumi-protocol/src/fonts.rs', 'plugins-src/write/vite.config.ts']
 
 
 def require(ok, message):
@@ -60,6 +61,8 @@ def manifest_identity(value):
     require(value.get('id') == 'notemd.sumi' and value.get('version') == PLUGIN_VERSION, 'Wrong plugin identity/version')
     require(value.get('manifest_version') == 2 and value.get('ui') == 'ui/', 'Wrong plugin layout')
     require('editor.native' in value.get('capabilities', []), 'Native capability missing')
+    require(value.get('engines', {}).get('notemd') == '>='+VERSION, 'Wrong minimum host version')
+    require(value.get('binary') == {'aarch64-apple-darwin':'bin/notemd-sumi'}, 'Wrong native backend platform map')
     require(any(v.get('surface') == 'native-editor' for v in value.get('contributes', {}).get('file_views', [])), 'Native file view missing')
 
 
@@ -71,6 +74,8 @@ def zip_files(path):
             name = item.filename
             require(not name.startswith('/') and '\\' not in name and '..' not in PurePosixPath(name).parts, 'Unsafe package path')
             require(not stat.S_ISLNK(item.external_attr >> 16), 'Package symlink rejected')
+            if name == 'bin/notemd-sumi':
+                require((item.external_attr >> 16) & 0o111, 'Native plugin executable permission missing')
             if item.is_dir():
                 continue
             require(name not in result, 'Duplicate package member')
@@ -84,6 +89,7 @@ def verify_plugin_files(files, frozen):
         reject_font_path(name)
         require(sha(raw) == frozen[name], 'Plugin package bytes changed: '+name)
     manifest_identity(json.loads(files['manifest.json']))
+    require('bin/notemd-sumi' in files, 'Native plugin backend missing')
 
 
 FONT_CASCADES = {'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular'], 'Sumi Zhaohua': ['ZhaohuaTypeWriter-Light'], 'Sumi Youcha': ['YouchaSanz-Light'], 'Sumi Fangsong': ['ZhuqueFangsong-Regular'], 'Sumi CRT': ['Unifont']}
@@ -156,7 +162,7 @@ def font_source_files(commit, manifest_raw):
     result = {'frozen_metadata': {}, 'local_development_fonts': {}, 'unavailable_local_fonts': []}
     for asset in font_manifest(manifest_raw)['assets']:
         name = asset['file']
-        relative = 'src-tauri/resources/sumi/'+name
+        relative = ('src-tauri/resources/sumi/' if name in FONT_FACES else 'plugins-src/write/resources/sumi/')+name
         if name in FONT_FACES:
             # Font binaries are intentionally gitignored. The frozen catalog
             # authenticates downloads; a thin release need not retain local fonts.
@@ -192,23 +198,72 @@ def font_files(folder, manifest_raw):
     return result
 
 
+def reject_host_resource(name):
+    reject_font_path(name)
+    parts = PurePosixPath(name).parts
+    require(not any(parts[n:n+2] in [('resources', 'sumi'), ('assets', 'power-mode')] for n in range(len(parts)-1)), 'Plugin resource remains in host: '+name)
+
+
+def host_resources(root):
+    for path in root.rglob('*'):
+        reject_host_resource(path.relative_to(root).as_posix())
+
+
 def updater_resources(archive, expected_resources):
     members = archive.getmembers()
-    prefix = 'note.md.app/Contents/Resources/resources/sumi/'
-    actual = []
     for member in members:
-        name = member.name.removeprefix('./')
-        reject_font_path(name)
-        if name.startswith(prefix) and name != prefix:
-            require(member.isfile(), 'Updater metadata must be a regular file: '+name)
-            actual.append(name.removeprefix('note.md.app/'))
-    expected_names = {n for n in expected_resources if n.startswith('Contents/Resources/resources/sumi/')}
-    require(len(actual) == len(expected_names) and set(actual) == expected_names, 'Updater font metadata inventory differs')
+        reject_host_resource(member.name.removeprefix('./'))
     for relative, expected in expected_resources.items():
         entries = [m for m in members if m.name.removeprefix('./') == 'note.md.app/'+relative]
         require(len(entries) == 1 and entries[0].isfile() and entries[0].size == len(expected), 'Updater resource inventory mismatch: '+relative)
         with archive.extractfile(entries[0]) as stream:
             require(stream.read() == expected, 'Updater resource mismatch: '+relative)
+
+
+def plugin_metadata(files, manifest_raw):
+    manifest = font_manifest(manifest_raw)
+    prefix = 'ui/sumi/'
+    actual = {name[len(prefix):]:raw for name,raw in files.items() if name.startswith(prefix)}
+    require(set(actual) == BUNDLED_FONT_METADATA | {'manifest.json'}, 'Plugin Sumi metadata inventory differs')
+    require(actual['manifest.json'] == manifest_raw, 'Plugin Sumi catalog differs from frozen source')
+    for asset in manifest['assets']:
+        if asset['file'] in BUNDLED_FONT_METADATA:
+            raw = actual[asset['file']]
+            require(len(raw)==asset['size'] and sha(raw)==asset['sha256'], 'Plugin metadata mismatch: '+asset['file'])
+    return {name:sha(raw) for name,raw in actual.items()}
+
+
+def source_inventory(commit):
+    native = helper(Path(__file__).with_name('native-release.py'))
+    return sorted(set(SOURCES) | set(native.frozen_sources(commit)))
+
+
+def native_assessment_gate(assess, probe, digest):
+    require(probe.get('binary_sha256')==digest and probe.get('ok') is True and probe.get('spawned') is True and type(probe.get('exit_code')) is int and probe['exit_code']==0 and probe.get('isolated_vault') is True, 'Actual notarized native process probe required')
+    if not assess['notarized_developer_id']:
+        text=assess['stdout']+assess['stderr']
+        require('the code is valid but does not seem to be an app' in text and 'Unnotarized' not in text, 'Native Gatekeeper rejected or unsupported for an unrecognized reason')
+        assess['classification']='valid-code-not-an-app; not a passing spctl assessment'
+
+
+def native_plugin(files, args):
+    native = helper(Path(__file__).with_name('native-release.py'))
+    receipt = json.loads(args.native_receipt.read_bytes())
+    log_raw = args.native_notary_log.read_bytes()
+    require(receipt.get('status')=='Accepted' and receipt.get('apple_log_sha256')==sha(log_raw), 'Missing/changed Apple receipt')
+    require(receipt.get('source_sha256')==native.frozen_sources(args.expected_source), 'Backend receipt source differs from frozen release')
+    require(receipt.get('team')==args.expected_team_id, 'Backend receipt team mismatch')
+    native.accepted_ticket(json.loads(log_raw),receipt)
+    raw = files['bin/notemd-sumi']
+    require(sha(raw)==receipt['binary']['sha256'], 'Packaged backend differs from notarized backend')
+    with tempfile.TemporaryDirectory(prefix='sumi-native-verify-') as temporary:
+        binary=Path(temporary)/'notemd-sumi';binary.write_bytes(raw);binary.chmod(0o755)
+        inspected=native.inspect_binary(binary,args.arch,args.expected_team_id)
+        require(inspected==receipt['binary'], 'Packaged native identity changed')
+        assess=native.assessment(binary)
+    probe=json.loads(args.native_probe_evidence.read_bytes())
+    native_assessment_gate(assess,probe,sha(raw))
+    return {'binary':inspected,'submission_id':receipt['submission_id'],'status':'Accepted','spctl':assess,'isolated_process_probe':sha(args.native_probe_evidence.read_bytes())}
 
 
 def native_evidence(libraries, objc):
@@ -229,6 +284,7 @@ def freeze(args):
     require(commit == args.expected_source, 'Use exact frozen 40-character commit')
     raw = source(commit, 'plugins-src/write/manifest.v2.json')
     manifest_identity(json.loads(raw))
+    require(args.arch == 'arm64', 'Sumi 0.1.4 currently declares only Apple Silicon; no Intel release evidence')
     files = {'manifest.json': sha(raw)}
     for path in sorted(args.plugin_ui.rglob('*')):
         reject_font_path(path.relative_to(args.plugin_ui).as_posix())
@@ -236,19 +292,23 @@ def freeze(args):
             require(not path.is_symlink(), 'Plugin UI symlink')
             files['ui/'+path.relative_to(args.plugin_ui).as_posix()] = sha(path.read_bytes())
     require('ui/index.html' in files, 'Plugin UI entry missing')
-    font_source_files(commit, source(commit, 'src-tauri/resources/sumi/manifest.json'))
+    require(args.plugin_binary and args.plugin_binary.is_file(), 'Signed native binary required at freeze')
+    files['bin/notemd-sumi'] = sha(args.plugin_binary.read_bytes())
+    font_files(args.plugin_ui/'sumi', source(commit, 'plugins-src/write/resources/sumi/manifest.json'))
+    font_source_files(commit, source(commit, 'plugins-src/write/resources/sumi/manifest.json'))
     modules = json.loads(subprocess.check_output(['node', str(Path(__file__).with_name('verify-embedded.mjs')), '--inspect', str(args.dist)]))
-    return {'schema': 1, 'source': commit, 'version': VERSION, 'plugin_version': PLUGIN_VERSION,
-            'source_sha256': {p: sha(source(commit, p)) for p in SOURCES}, 'host_modules': modules, 'plugin_files': files}
+    return {'schema': 2, 'architecture':args.arch, 'source': commit, 'version': VERSION, 'plugin_version': PLUGIN_VERSION,
+            'source_sha256': {p: sha(source(commit, p)) for p in source_inventory(commit)}, 'host_modules': modules, 'plugin_files': files}
 
 
 def verify(args, report):
     h = helper(args.candidate_helper)
+    require(args.arch == 'arm64', 'Sumi 0.1.4 currently declares only Apple Silicon; no Intel release evidence')
     require(args.tag == 'v'+VERSION and re.fullmatch('[0-9a-f]{40}', args.expected_source or ''), 'Wrong release tag/source')
     require(git('rev-parse', args.tag+'^{commit}').decode().strip() == args.expected_source, 'Tag not at frozen source')
     frozen = json.loads(args.inputs.read_bytes())
-    require(frozen.get('source') == args.expected_source and frozen.get('version') == VERSION and frozen.get('plugin_version') == PLUGIN_VERSION and frozen.get('schema') == 1, 'Wrong frozen inputs')
-    require(set(frozen['source_sha256']) == set(SOURCES), 'Frozen source inventory mismatch')
+    require(frozen.get('source') == args.expected_source and frozen.get('version') == VERSION and frozen.get('plugin_version') == PLUGIN_VERSION and frozen.get('schema') == 2 and frozen.get('architecture') == args.arch, 'Wrong frozen inputs')
+    require(set(frozen['source_sha256']) == set(source_inventory(args.expected_source)), 'Frozen source inventory mismatch')
     for path, digest in frozen['source_sha256'].items():
         require(sha(source(args.expected_source, path)) == digest, 'Frozen source mismatch: '+path)
     for path in ['package.json', 'src-tauri/tauri.conf.json']:
@@ -270,17 +330,16 @@ def verify(args, report):
     objc = subprocess.check_output(['/usr/bin/otool','-ov',str(binary)], text=True, timeout=120)
     native_evidence(libraries, objc)
     report['native_bridge'] = {'classes':['SumiTextView','SumiEditor'], 'qt_dynamic_linkage':False}
-    manifest_raw = source(args.expected_source,'src-tauri/resources/sumi/manifest.json')
+    manifest_raw = source(args.expected_source,'plugins-src/write/resources/sumi/manifest.json')
     report['font_source_assets'] = font_source_files(args.expected_source, manifest_raw)
-    no_bundled_fonts(app)
-    report['fonts'] = font_files(app/'Contents/Resources/resources/sumi', manifest_raw)
+    host_resources(app)
     code_resources = (app/'Contents/_CodeSignature/CodeResources').read_bytes()
     def resource_check(candidate):
-        no_bundled_fonts(candidate.parent)  # Entire readonly DMG, including files outside the app.
+        host_resources(candidate.parent)  # Entire readonly DMG, including files outside the app.
         require((candidate/'Contents/_CodeSignature/CodeResources').read_bytes() == code_resources, 'Distribution signed resource inventory differs from app')
-        font_files(candidate/'Contents/Resources/resources/sumi', manifest_raw)
 
     report['embedded_js'] = json.loads(h.check_command(report, ['node',str(Path(__file__).with_name('verify-embedded.mjs')),'--arch',args.arch,str(binary),str(args.depfile),str(args.dist),str(args.inputs),str(ROOT/'src-tauri/target')]))
+    report['extracted_plugin_assets'] = json.loads(h.check_command(report, ['node',str(Path(__file__).with_name('verify-extracted-assets.mjs')),str(binary),str(args.depfile),str(args.dist),str(ROOT/'src-tauri/target'),str(ROOT),args.expected_source]))
     report['updater'] = h.file_info(args.updater)
     report['updater']['identity'] = h.verify_archive_identity(args.updater, VERSION)
     updater_signature = args.updater_signature or Path(str(args.updater)+'.sig')
@@ -299,12 +358,7 @@ def verify(args, report):
         h.unpack_binary(args.updater,'note.md.app/Contents/MacOS/notemd',extracted)
         require(h.file_info(extracted)['sha256'] == before['sha256'], 'Updater binary mismatch')
     # Read only named bounded resources; never extract the archive tree.
-    expected_resources = {'Contents/_CodeSignature/CodeResources':code_resources,
-                          'Contents/Resources/resources/sumi/manifest.json':manifest_raw}
-    for asset in font_manifest(manifest_raw)['assets']:
-        if asset['file'] not in BUNDLED_FONT_METADATA:
-            continue
-        expected_resources['Contents/Resources/resources/sumi/'+asset['file']] = (app/'Contents/Resources/resources/sumi'/asset['file']).read_bytes()
+    expected_resources = {'Contents/_CodeSignature/CodeResources':code_resources}
     with tarfile.open(args.updater,'r:gz') as archive:
         updater_resources(archive, expected_resources)
     report['dmg'] = h.file_info(args.dmg)
@@ -314,7 +368,10 @@ def verify(args, report):
     require(re.fullmatch('[0-9a-f]{64}', args.expected_plugin_sha256 or ''), 'Expected plugin package SHA-256 required')
     report['plugin'] = h.file_info(args.plugin_package)
     require(report['plugin']['sha256'] == args.expected_plugin_sha256, 'Plugin package SHA mismatch')
-    verify_plugin_files(zip_files(args.plugin_package), frozen['plugin_files'])
+    plugin_files=zip_files(args.plugin_package)
+    verify_plugin_files(plugin_files, frozen['plugin_files'])
+    report['plugin']['font_metadata']=plugin_metadata(plugin_files,manifest_raw)
+    report['plugin']['native']=native_plugin(plugin_files,args)
     key_source = source(args.expected_source,'src-tauri/src/plugin_runtime/market.rs')
     key = re.search(rb'pub const PLUGIN_REGISTRY_PUBKEY:\s*&str\s*=\s*"([^"]+)"',key_source)
     require(key is not None, 'Frozen registry public key missing')
@@ -346,9 +403,10 @@ def self_test():
     rejects(lambda:h.verify_app_identity({**production,'CFBundleIdentifier':'net.notemd.sumi.acceptance'},VERSION))
     rejects(lambda:h.verify_app_identity({**production,'CFBundleShortVersionString':'6.1107.5'},VERSION))
     manifest = {'id':'notemd.sumi','version':PLUGIN_VERSION,'manifest_version':2,'ui':'ui/',
+                'engines':{'notemd':'>='+VERSION},'binary':{'aarch64-apple-darwin':'bin/notemd-sumi'},
                 'capabilities':['editor.native'],'contributes':{'file_views':[{'surface':'native-editor'}]}}
     raw = json.dumps(manifest).encode()
-    files = {'manifest.json':raw,'ui/index.html':b'fixture'}
+    files = {'manifest.json':raw,'ui/index.html':b'fixture','bin/notemd-sumi':b'native fixture'}
     frozen = {n:sha(b) for n,b in files.items()}
     verify_plugin_files(files,frozen)
     rejects(lambda: verify_plugin_files({**files,'ui/index.html':b'tampered'},frozen))
@@ -357,6 +415,17 @@ def self_test():
     rejects(lambda: verify_plugin_files(with_font,{n:sha(b) for n,b in with_font.items()}))
     rejects(lambda: manifest_identity({**manifest,'version':'0.0.0'}))
     rejects(lambda: manifest_identity({**manifest,'capabilities':[]}))
+    rejects(lambda: manifest_identity({**manifest,'engines':{'notemd':'>=6.1108.4'}}))
+    rejects(lambda: manifest_identity({**manifest,'binary':{}}))
+    rejects(lambda: verify_plugin_files({'manifest.json':raw,'ui/index.html':b'fixture'},{'manifest.json':sha(raw),'ui/index.html':sha(b'fixture')}))
+    probe={'binary_sha256':'digest','ok':True,'spawned':True,'exit_code':0,'isolated_vault':True}
+    assessment={'notarized_developer_id':True,'stdout':'','stderr':''}
+    native_assessment_gate(dict(assessment),probe,'digest')
+    native_assessment_gate({**assessment,'notarized_developer_id':False,'stderr':'rejected (the code is valid but does not seem to be an app)'},probe,'digest')
+    rejects(lambda:native_assessment_gate({**assessment,'notarized_developer_id':False,'stderr':'source=Unnotarized Developer ID'},probe,'digest'))
+    rejects(lambda:native_assessment_gate({**assessment,'notarized_developer_id':False,'stderr':'unknown failure'},probe,'digest'))
+    for field,value in [('binary_sha256','changed'),('ok',False),('spawned',False),('exit_code',1),('exit_code',False),('isolated_vault',False)]:
+        rejects(lambda field=field,value=value:native_assessment_gate(dict(assessment),{**probe,field:value},'digest'))
     native_evidence('AppKit.framework CoreText.framework','SumiTextView SumiEditor')
     rejects(lambda: native_evidence('AppKit.framework CoreText.framework Qt6Widgets','SumiTextView SumiEditor'))
     rejects(lambda: native_evidence('AppKit.framework CoreText.framework','NSTextView'))
@@ -365,12 +434,15 @@ def self_test():
         package = directory/'fixture.zip'
         with zipfile.ZipFile(package,'w') as archive:
             for name,data in files.items():
-                archive.writestr(name,data)
+                entry=zipfile.ZipInfo(name);entry.external_attr=(stat.S_IFREG | (0o755 if name=='bin/notemd-sumi' else 0o644))<<16
+                archive.writestr(entry,data)
         verify_plugin_files(zip_files(package),frozen)
         for name,mode in [('../escape',stat.S_IFREG),('/absolute',stat.S_IFREG),('link',stat.S_IFLNK)]:
             with zipfile.ZipFile(package,'w') as archive:
                 entry=zipfile.ZipInfo(name);entry.external_attr=mode<<16;archive.writestr(entry,b'fixture')
             rejects(lambda: zip_files(package))
+        with zipfile.ZipFile(package,'w') as archive: archive.writestr('bin/notemd-sumi',b'no executable bit')
+        rejects(lambda:zip_files(package))
         fixture=ROOT/'src-tauri/tests/fixtures/pkg'
         key=(fixture/'test.pub.b64').read_text().strip()
         check=['minisign','-Vm',str(fixture/'fixture.notemdpkg'),'-x',str(fixture/'fixture.notemdpkg.minisig'),'-P',key]
@@ -395,7 +467,7 @@ def self_test():
             if mode=='valid':h.verify_archive_identity(archive_path,VERSION)
             else:rejects(lambda:h.verify_archive_identity(archive_path,VERSION))
         directory=directory/'fonts';directory.mkdir()
-        fm=json.loads((ROOT/'src-tauri/resources/sumi/manifest.json').read_bytes())
+        fm=json.loads((ROOT/'plugins-src/write/resources/sumi/manifest.json').read_bytes())
         for asset in fm['assets']:
             asset.update(size=7,sha256=sha(b'fixture'))
         encoded=json.dumps(fm).encode();(directory/'manifest.json').write_bytes(encoded)
@@ -448,30 +520,42 @@ def self_test():
             lambda m:next(a for a in m['assets'] if a['file']=='ZhuqueFangsong-Regular.ttf').update(archive_size=0),
         ]:
             rejects(lambda change=change: font_manifest(altered_manifest(change)))
-        resource_prefix='Contents/Resources/resources/sumi/'
-        expected={resource_prefix+p.name:p.read_bytes() for p in directory.iterdir()}
-        expected['Contents/_CodeSignature/CodeResources']=b'signed resources'
+        resource_prefix='Contents/_CodeSignature/'
+        expected={resource_prefix+'CodeResources':b'signed resources'}
         def resource_archive(mode):
             data=dict(expected)
-            if mode=='tampered':data[resource_prefix+name]=b'changed'
-            if mode=='missing':del data[resource_prefix+name]
-            if mode=='obsolete':data[resource_prefix+'old.json']=b'old'
-            if mode=='nested':data[resource_prefix+'nested/metadata.json']=b'old'
+            if mode=='tampered':data[resource_prefix+'CodeResources']=b'changed'
+            if mode=='missing':del data[resource_prefix+'CodeResources']
+            if mode=='sumi':data['Contents/Resources/resources/sumi/manifest.json']=b'old'
+            if mode=='power':data['Contents/Resources/assets/power-mode/coin/1.gif']=b'old'
             if mode=='font':data['Contents/Other/font.WOFF2']=b'font'
             with tarfile.open(archive_path,'w:gz') as archive:
                 for n,raw in data.items():
                     member=tarfile.TarInfo('note.md.app/'+n);member.size=len(raw)
-                    if n==resource_prefix+name and mode in ('directory','symlink'):
+                    if mode in ('directory','symlink'):
                         member.type=tarfile.DIRTYPE if mode=='directory' else tarfile.SYMTYPE
                         member.linkname='elsewhere';archive.addfile(member)
                     else:archive.addfile(member,io.BytesIO(raw))
-                    if n==resource_prefix+name and mode=='duplicate':archive.addfile(member,io.BytesIO(raw))
+                    if mode=='duplicate':archive.addfile(member,io.BytesIO(raw))
             with tarfile.open(archive_path,'r:gz') as archive:updater_resources(archive,expected)
         resource_archive('valid')
-        for mode in ['tampered','missing','obsolete','nested','font','directory','symlink','duplicate']:
+        for mode in ['tampered','missing','sumi','power','font','directory','symlink','duplicate']:
             rejects(lambda mode=mode:resource_archive(mode))
+        plugin={**files,**{'ui/sumi/'+p.name:p.read_bytes() for p in directory.iterdir()}}
+        plugin_metadata(plugin,encoded)
+        for mode in ['missing','extra','tampered','font']:
+            bad=dict(plugin)
+            if mode=='missing':del bad['ui/sumi/'+name]
+            if mode=='extra':bad['ui/sumi/obsolete.txt']=b'old'
+            if mode=='tampered':bad['ui/sumi/'+name]=b'tampered'
+            if mode=='font':bad['ui/sumi/bad.ttf']=b'font'
+            rejects(lambda:plugin_metadata(bad,encoded))
+        for forbidden in ['Contents/Resources/resources/sumi/manifest.json','Contents/Resources/assets/power-mode/a.gif']:
+            rejects(lambda:reject_host_resource(forbidden))
+    require(helper(Path(__file__).with_name('native-release.py')).self_test()['ok'], 'Native signature fixtures failed')
+    subprocess.run(['node',str(Path(__file__).with_name('verify-extracted-assets.mjs')),'--self-test'],check=True)
     subprocess.run(['node',str(Path(__file__).with_name('verify-embedded.mjs')),'--self-test'],check=True)
-    return {'ok':True,'offline':True,'checks':['arm64-and-x86_64-positive-wrong-or-universal-CPU-rejected','plugin-identity','exact-ui-inventory-and-bytes','stale-version-and-capability-rejected','zip-traversal-and-symlink-rejected','thin-metadata-only-app-and-updater-positive','complete-font-catalog-exact-faces-sizes-digests-URLs-and-Zhuque-archive','font-payload-anywhere-in-distribution-or-plugin-rejected','obsolete-missing-tampered-directory-symlink-duplicate-metadata-rejected','native-classes-and-no-Qt','whole-JS-module-positive-negative','real-minisign-fixture-and-tamper','production-version-and-identity','updater-plist-duplicate-symlink-isolated-rejected']}
+    return {'ok':True,'offline':True,'checks':['arm64-and-x86_64-positive-wrong-or-universal-CPU-rejected','plugin-identity','exact-ui-inventory-and-bytes','stale-version-and-capability-rejected','zip-traversal-and-symlink-rejected','host-without-plugin-resources-positive','exact-plugin-metadata-positive','native-receipt-cdhash-CPU-source-binding','complete-font-catalog-exact-faces-sizes-digests-URLs-and-Zhuque-archive','font-payload-anywhere-in-distribution-or-plugin-rejected','obsolete-missing-tampered-directory-symlink-duplicate-metadata-rejected','native-classes-and-no-Qt','whole-JS-module-positive-negative','real-minisign-fixture-and-tamper','production-version-and-identity','updater-plist-duplicate-symlink-isolated-rejected']}
 
 
 def main():
@@ -489,6 +573,11 @@ def main():
     p.add_argument('--updater-signature',type=Path,help='Defaults to <updater>.sig; Tauri base64 signature')
     p.add_argument('--plugin-package',type=Path)
     p.add_argument('--signature',type=Path)
+    p.add_argument('--plugin-binary',type=Path,help='Final signed/notarized backend binary for per-architecture freeze')
+    p.add_argument('--native-receipt',type=Path)
+    p.add_argument('--native-notary-log',type=Path)
+    p.add_argument('--native-probe-evidence',type=Path)
+    p.add_argument('--expected-team-id',default='T5G56DH47L')
     p.add_argument('--expected-plugin-sha256')
     p.add_argument('--dist',type=Path,default=ROOT/'dist')
     p.add_argument('--plugin-ui',type=Path,default=ROOT/'plugins-src/write/dist')
@@ -501,7 +590,7 @@ def main():
             require(args.expected_source and args.output,'Freeze requires source and output')
             report=freeze(args)
         else:
-            require(all([args.inputs,args.expected_source,args.app,args.depfile,args.dmg,args.updater,args.plugin_package,args.signature,args.output]),'Missing release input (see --help)')
+            require(all([args.inputs,args.expected_source,args.app,args.depfile,args.dmg,args.updater,args.plugin_package,args.signature,args.native_receipt,args.native_notary_log,args.native_probe_evidence,args.output]),'Missing release input (see --help)')
             verify(args,report);report['ok']=True
         if args.output:args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
         print(json.dumps({'ok':True,'mode':'self-test' if args.self_test else 'freeze' if args.freeze_inputs else 'verify','output':str(args.output) if args.output else None}))

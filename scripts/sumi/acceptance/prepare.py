@@ -9,6 +9,9 @@ identity='net.notemd.sumi.acceptance'
 vault=work/'vault'
 stage=work/'seed'
 args=argparse.ArgumentParser()
+args.add_argument('--backend-binary',type=Path,help='Explicit isolated native backend build when manifest declares binary')
+args.add_argument('--backend-sha256',help='Expected SHA-256 of the isolated backend')
+args.add_argument('--target',default='aarch64-apple-darwin',choices=['aarch64-apple-darwin','x86_64-apple-darwin'])
 args.add_argument('--install',action='store_true',help='Copy the prepared seed into the unique acceptance App Support directory')
 args.add_argument('--benchmark-dir',default=str(Path(tempfile.gettempdir())/'sumi-editor-benchmark'),help='Optional prebuilt isolated benchmark artifacts; no production plugin source is changed')
 args=args.parse_args()
@@ -45,6 +48,16 @@ current=stage/'plugins/notemd.sumi/current'
 no_symlink(current)
 if (current/'ui').exists():shutil.rmtree(current/'ui')
 shutil.copytree(plugin/'dist',current/'ui')
+if manifest.get('binary'):
+    relative=manifest['binary'].get(args.target)
+    if relative!='bin/notemd-sumi':raise SystemExit('Unexpected Sumi backend layout/target')
+    if not args.backend_binary or not args.backend_sha256:raise SystemExit('Explicit isolated backend and expected SHA-256 required')
+    no_symlink(args.backend_binary)
+    if hashlib.sha256(args.backend_binary.read_bytes()).hexdigest()!=args.backend_sha256:raise SystemExit('Acceptance backend hash mismatch')
+    binary=current/relative;no_symlink(binary);binary.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(args.backend_binary,binary)
+    binary.chmod(0o755)
+
 benchmark=Path(args.benchmark_dir).resolve()
 if (benchmark/'identity.json').is_file():
     no_symlink(benchmark)
@@ -58,12 +71,13 @@ if (benchmark/'identity.json').is_file():
     shutil.copytree(benchmark/'web',target)
     shutil.copytree(benchmark/'corpus',target/'corpus')
     shutil.copy2(benchmark/'identity.json',target/'identity.json')
-    fonts=repo/'src-tauri/resources/sumi'
-    font_manifest=json.loads((fonts/'manifest.json').read_text())
+    fonts=repo/'src-tauri/resources/sumi' # ignored benchmark-only development fonts
+    metadata=plugin/'resources/sumi'
+    font_manifest=json.loads((metadata/'manifest.json').read_text())
     (target/'fonts').mkdir()
-    shutil.copy2(fonts/'manifest.json',target/'fonts/manifest.json')
+    shutil.copy2(metadata/'manifest.json',target/'fonts/manifest.json')
     for asset in font_manifest['assets']:
-        source=fonts/asset['file'];no_symlink(source)
+        source=(fonts if asset.get('postscript') else metadata)/asset['file'];no_symlink(source)
         if hashlib.sha256(source.read_bytes()).hexdigest()!=asset['sha256']:raise SystemExit('Benchmark font hash mismatch')
         shutil.copy2(source,target/'fonts'/asset['file'])
     manifest['contributes']['windows'].append({'id':'benchmark','entry':'benchmark/index.html','title':'Sumi 同机性能验收','width':1100,'height':900,'resizable':True,'open_command':'benchmark'})

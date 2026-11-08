@@ -43,9 +43,7 @@
       "icons/icon.png"
     ],
     "resources": [
-      "resources/themes/**/*",
-      "resources/sumi/*.json",
-      "resources/sumi/*.txt"
+      "resources/themes/**/*"
     ],
     "category": "DeveloperTool",
     "createUpdaterArtifacts": true,

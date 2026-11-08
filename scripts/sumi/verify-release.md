@@ -1,47 +1,60 @@
 # Sumi 发布产物只读验收
 
-当前目标宿主 `6.1108.4`、插件 `0.1.3`（按需字体薄包）。旧发布证据保持原版本范围，不用本脚本的新契约回写历史包。脚本不构建、不启动 App、不安装、不签名、不发布；DMG 使用独立只读挂载点，并只卸载本次挂载返回的设备。`artifact_checks.py` 从既有 diagram-transparent 发布验收器提取通用检查，只增加 DMG 资源回调。
+目标宿主 `6.1108.5`、Sumi `0.1.4`。本轮宿主保留原生编辑桥，字体目录及后台交给插件；旧版本证据不回写。本验证器不构建、不启动、不安装、不签名、不发布；DMG仅使用自己创建的只读挂载点。
 
-先完成源码精确提交，再按同一提交构建宿主与插件 UI。冻结实际输入：
+## 冻结与实际产物
+
+先精确提交源码，再构建宿主、插件UI及当前平台后台。后台必须完成独立Developer ID签名与Apple公证；其签后字节用于冻结和最终插件包。当前manifest只声明arm64，正式冻结和验收明确拒绝Intel。未来若要支持Intel，须先扩展manifest并独立构建、冻结和验收，不能共用包含后台二进制摘要的冻结输入。
 
 ```sh
 python3 scripts/sumi/verify-release.py --self-test
+python3 -m unittest discover -s scripts/sumi -p test_native_release.py
 python3 scripts/sumi/verify-release.py --freeze-inputs \
-  --expected-source FULL_COMMIT_SHA \
+  --arch arm64 --expected-source FULL_COMMIT_SHA \
   --dist dist --plugin-ui plugins-src/write/dist \
+  --plugin-binary /absolute/native-aarch64-apple-darwin/notemd-sumi \
   --output /absolute/release/frozen-sumi-inputs.json
 ```
 
-`--freeze-inputs` 读取指定提交中的 Sumi 源码和字体清单，以及已构建宿主/插件 UI。它本身不证明构建发生于该提交；发布流程必须保存独立的构建日志与冻结输入。禁止用自测 fixture 代替生产输入。
-
-签名、公证、staple 和打包由既有流程完成后：
+冻结schema2记录实际host完整JS模块、plugin manifest/UI/签后backend文件摘要，以及宿主关键源码、后台/protocol/write-core全部受控文件和插件10小资源。它不声称单凭摘要证明构建来源；必须保留同源码构建日志。被迁出的七个字体本体仍是ignored开发缓存，缺少缓存不阻止薄包验收；若缓存存在则严格匹配冻结catalog。
 
 ```sh
 python3 scripts/sumi/verify-release.py \
-  --arch arm64 \
-  --tag v6.1108.4 --expected-source FULL_COMMIT_SHA \
+  --arch arm64 --tag v6.1108.5 --expected-source FULL_COMMIT_SHA \
   --inputs /absolute/release/frozen-sumi-inputs.json \
   --app '/absolute/build/bundle/macos/note.md.app' \
-  --depfile /absolute/build/deps/notemd_lib.d \
-  --dist dist \
-  --dmg /absolute/release/note.md-6.1108.4-aarch64.dmg \
+  --depfile /absolute/build/deps/notemd_lib.d --dist dist \
+  --dmg /absolute/release/note.md-6.1108.5-aarch64.dmg \
   --updater /absolute/release/note.md-aarch64.app.tar.gz \
   --updater-signature /absolute/release/note.md-aarch64.app.tar.gz.sig \
-  --plugin-package /absolute/release/universal.notemdpkg \
-  --signature /absolute/release/universal.notemdpkg.minisig \
+  --plugin-package /absolute/release/aarch64-apple-darwin.notemdpkg \
+  --signature /absolute/release/aarch64-apple-darwin.notemdpkg.minisig \
   --expected-plugin-sha256 EXPECTED_REGISTRY_PACKAGE_SHA256 \
+  --native-receipt /absolute/native-aarch64-apple-darwin/receipt.json \
+  --native-notary-log /absolute/native-aarch64-apple-darwin/apple-notary-log.json \
+  --native-probe-evidence /absolute/release/actual-native-process-probe.json \
+  --expected-team-id T5G56DH47L \
   --output /absolute/release/sumi-verification-arm64.json
 ```
 
-`--arch arm64|x86_64` 显式选择期望的薄 Mach-O CPU，省略时默认 arm64，兼容原命令。两种架构必须分别运行完整验收，不能以 arm64 报告证明 Intel 包通过。x86_64 使用 `--arch x86_64`，并替换为 `src-tauri/target/x86_64-apple-darwin/release/` 下对应 app/depfile、该架构的 DMG/updater/signature，输出独立的 `sumi-verification-x86_64.json`。冻结的宿主/插件 UI 输入可共用，但两次构建的实际 JS 必须与冻结摘要完全一致；不得为放行另一架构重新接受变化的 UI。
+原有App/DMG codesign、spctl、stapler、版本/生产身份、updater minisign、三容器同Mach-O/CodeResources、原生Objective-C类/AppKit/CoreText且无Qt、四类host完整JS恢复检查全部保留。插件包必须与冻结manifest/UI/bin全清单及每个字节一致；minisign公钥取冻结宿主，不信包自带公钥。ZIP路径穿越、重复、软链接、后台缺执行位、错CPU均拒绝。
 
-生产 binary 与 depfile 必须在本仓库 `src-tauri/target` 中。`lipo -archs` 与完整模块验证器的 Mach-O CPU header 双重核对所选架构；错误 CPU、通用 fat binary、截断或无效 header 均拒绝。App/updater/DMG 的 Mach-O 必须字节相同，因此每个分发容器均绑定本次已核对的 CPU。直接调用模块验证器同样支持 `node scripts/sumi/verify-embedded.mjs --arch x86_64 BINARY DEPFILE DIST FROZEN_INPUTS TARGET_ROOT`。
+宿主/App/DMG/updater不得携带Sumi目录或Power素材路径；所有分发容器和插件不得夹带字体本体。`verify-extracted-assets.mjs`从冻结源码取得13GIF和10Sumi metadata，扫描dist和实际Mach-O的原始/完整base64内容及字体下载URL，并逐一读取实际depfile的全部Tauri codegen Brotli资源、证明压缩字节存在于实际Mach-O后解压检查。缓存资源不在binary、解压失败或缺源码都失败。它不是任意编码检测器，不把资源源字节当作DMG可节省大小。
 
-updater 的 `.sig` 默认取归档旁同名文件，按正式脚本解码 Tauri base64 包装并用冻结配置公钥验签。插件公钥从冻结宿主的 `PLUGIN_REGISTRY_PUBKEY` 获取，不接受包自带公钥。插件包必须与冻结的 manifest/UI 文件集合及每一项 SHA 完全一致；附加文件、缺项、路径穿越、软链接均拒绝。
+插件`ui/sumi/`必须精确含manifest和9份许可/来源文件，目录/旧资源/缺失/篡改都拒绝；六组选项、七个字体精确PS、size/SHA/HTTPS和Zhuque ZIP约束继续验证。后台解包后必须与Apple Accepted归档内CDHash/CPU绑定的二进制相同，Developer ID、预期Team/identifier、runtime、secure timestamp和strict签名都必需；公证归档SHA、Apple jobId和最终backend源码摘要同时核对。
 
-验证同时覆盖：正式 bundle/version、显式选择的 arm64 或 x86_64 CPU、codesign/spctl/stapler、App/updater/DMG 的相同 Mach-O 与签名资源清单、六组所选七字体的冻结目录、许可证及原始授权元数据的精确字节；App/DMG/updater/插件任何路径均禁止夹带字体文件，并核对Plex精确Light字型映射、原生 Objective-C bridge class metadata、AppKit/CoreText 动态链接且无 Qt 动态链接、宿主 NativeFileView/Recovery/source/退出契约所处完整 JS 模块从 Mach-O 内 Brotli 片段恢复一致。报告包含 `architecture`。架构选项不会跳过字体目录/薄包、签名、公证或完整模块检查；自测同时覆盖两种 CPU 正例与错 CPU/通用架构负例。不会把 token 检查称为行为测试，也不会把字节包含证明称为 PHF 运行路由验证。
+## Sumi独立后台公证流程
 
-仍需独立保存最终安装包的实机 UI、IME、辅助功能、离线合并和性能验收证据；该脚本不宣称这些已通过。脚本报告只写指定 `--output`，测试文件仅写临时目录。
+`scripts/release-plugins.sh sumi`只改变Sumi分支：默认`SUMI_RELEASE_TARGET=aarch64-apple-darwin`，使用既有Cargo/Vite/zip/minisign流程，但必须显式提供匹配Team的`APPLE_SIGNING_IDENTITY`和公证凭据（`SUMI_NOTARY_PROFILE`，或既有Apple环境变量）。不会打印凭据，也不执行市场上传。其它插件流程不变。
 
+`scripts/sumi/native-release.py --sign-and-notarize`在独立证据目录复制并签名后台，上传包含签后后台的ZIP，保存submission ID后只等待同一个任务。模糊提交失败留attempt标记并停止，禁止自动重提；等待超时保留state可续跑；源/二进制/归档变化拒绝续用。只有Apple log中Accepted、statusCode0、归档SHA和ticket CDHash/CPU全部相符才生成receipt。裸CLI/ZIP没有App式stapling步骤，不伪造通过结果。
 
-按需字体资源门禁：Sumi目录只允许 `manifest.json` 和精确列明的小型许可/来源文件；不得出现.ttf/.otf/.woff/.woff2/.ttc/.otc（含大小写变体）。字体本体在开发目录是gitignored资源，不声称已进入冻结tag；若存在必须与tag中的大小/SHA匹配，缺少开发字体不阻止验证薄包。下载后缓存内容的大小/SHA、原生字体身份、后台生命周期、断网及重试由独立功能验收验证，不能用“包内没有字体”代替。报告同时记录实际宿主/插件包体积，与此前13.5MB宿主基线比较。
+spctl对裸CLI的返回值和输出原样记录。正式验证只允许两种结果：明确`Notarized Developer ID`；或系统明确报告`the code is valid but does not seem to be an app`，且已有Accepted/CDHash证据和真实独立进程探针。后者报告仍标为**spctl未通过（不是App）**。其它拒绝（包括Unnotarized）、未知非零结果全部阻断，不能拿一次成功spawn替代Gatekeeper拒绝。
+
+真实探针文件必须由隔离验收实际生成，不可手填：`ok:true`、`spawned:true`、`exit_code:0`、`isolated_vault:true`、`binary_sha256`匹配本次公证后台。该字段只证明受审计探针的运行结果；保存其原始测试日志和来源。首次离线执行、IME、队列恢复、关闭窗口继续下载等仍须单独功能验收，不由静态验证器宣称通过。
+
+## 隔离宿主
+
+`acceptance/prepare.py`读取插件资源目录；只有显式benchmark窗口才从ignored开发缓存带入大字体，正式插件不带。manifest声明后台时必须提供`--backend-binary`与`--backend-sha256`，否则拒绝准备。`acceptance/build.sh`构建并按隔离身份签名后台，准备专用App Support，再构建隔离宿主；它不会启动App。该隔离签名不等于正式Developer ID/Apple公证证据。
+
+最终市场仍沿用Wrangler3+Account Token：不可变R2包/签名→匿名完整回读重验→兼容宿主公开→KV索引→公网复核。报告分别列宿主、插件和安装后合计的实际体积。

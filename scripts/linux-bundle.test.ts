@@ -86,7 +86,7 @@ describe('Linux Debian bundle', () => {
     const merged = { ...base, app: { ...base.app, ...linux.app }, bundle: { ...base.bundle, ...linux.bundle } }
     expect(merged.bundle.targets).toEqual(['deb'])
     expect(merged.bundle.createUpdaterArtifacts).toBe(false)
-    expect(merged.bundle.resources).toEqual(['resources/themes/**/*', 'resources/sumi/*.json', 'resources/sumi/*.txt'])
+    expect(merged.bundle.resources).toEqual(['resources/themes/**/*'])
     expect(merged.bundle.fileAssociations.map((a: { mimeType: string }) => a.mimeType)).toEqual(['text/markdown', 'text/plain', 'application/json'])
     expect(merged.bundle.fileAssociations.flatMap((a: { ext: string[] }) => a.ext)).toEqual(['md', 'markdown', 'mdown', 'mkd', 'txt', 'text', 'canvas'])
     expect(merged.bundle.linux.deb.depends).toEqual(['libwebkit2gtk-4.1-0', 'libgtk-3-0', 'libayatana-appindicator3-1', 'git', 'xdg-utils'])

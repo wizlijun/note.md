@@ -66,7 +66,9 @@ class PreparationTests(unittest.TestCase):
         fonts = self.root / 'src-tauri/resources/sumi'
         fonts.mkdir(parents=True)
         (fonts / 'font.ttf').write_bytes(b'font fixture')
-        (fonts / 'manifest.json').write_text(json.dumps({'assets': [{'file': 'font.ttf', 'sha256': hashlib.sha256(b'font fixture').hexdigest()}]}))
+        metadata = self.plugin / 'resources/sumi'
+        metadata.mkdir(parents=True)
+        (metadata / 'manifest.json').write_text(json.dumps({'assets': [{'file': 'font.ttf', 'postscript': 'Fixture', 'sha256': hashlib.sha256(b'font fixture').hexdigest()}]}))
         result = self.run_prepare()
         self.assertEqual(result.returncode, 0, result.stderr)
         current = self.work / 'seed/plugins/notemd.sumi/current'
@@ -81,6 +83,25 @@ class PreparationTests(unittest.TestCase):
         rejected = self.run_prepare()
         self.assertNotEqual(rejected.returncode, 0)
         self.assertIn('Benchmark artifact changed', rejected.stderr)
+
+    def test_native_backend_is_explicit_and_hash_bound(self):
+        self.manifest['binary'] = {'aarch64-apple-darwin': 'bin/notemd-sumi'}
+        (self.plugin / 'manifest.v2.json').write_text(json.dumps(self.manifest))
+        result = self.run_prepare()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Explicit isolated backend', result.stderr)
+        binary = self.root / 'isolated-backend'
+        binary.write_bytes(b'isolated native fixture')
+        options = ['--backend-binary', str(binary), '--backend-sha256', hashlib.sha256(binary.read_bytes()).hexdigest()]
+        result = self.run_prepare(*options)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        staged = self.work / 'seed/plugins/notemd.sumi/current/bin/notemd-sumi'
+        self.assertEqual(staged.read_bytes(), binary.read_bytes())
+        self.assertTrue(staged.stat().st_mode & 0o100)
+        binary.write_bytes(b'changed')
+        rejected = self.run_prepare(*options)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn('backend hash mismatch', rejected.stderr)
 
     def test_refuses_symlink_work_directory(self):
         self.work.parent.mkdir(parents=True)
