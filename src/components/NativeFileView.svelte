@@ -6,6 +6,7 @@
   import { acceptSumiSnapshot, acknowledgeSumiProjection, prepareFileViewTransition, setMode, type Tab } from '../lib/tabs.svelte'
   import type { FileViewRef } from '../lib/plugins/file-views'
   import { boundsForNative, nativeSurfaceOccluded } from '../lib/sumi/geometry'
+  import { sumiPageIdentity } from '../lib/sumi/files'
   import { openSumiOwner, closeSumiOwner, SumiExistingOwnerError, focusExistingSumiPage, mountSumiOwner, detachSumiSurface, updateSumiSurface, type SumiOwner, type NativeBinding, type ProjectionIdentity } from '../lib/sumi/session'
   import SumiRecovery from './SumiRecovery.svelte'
 
@@ -100,7 +101,7 @@
     const initialize = async () => {
       await prepareFileViewTransition(tab.id, true)
       if (disposed) return
-      owner = await openSumiOwner(tab.id, tab.filePath, view.pluginId)
+      owner = await openSumiOwner(tab.id, tab.filePath, view.pluginId, sumiPageIdentity(tab.initialContent)?.pageId)
       if (disposed) return
       const stateStop = await listen<{ page_id?: string; tab_id?: string; revision?: number; projection_identity?: ProjectionIdentity; notice?: string; error?: string; durable?: boolean; projected?: boolean }>('sumi-state', event => {
         if (event.payload.page_id && event.payload.page_id !== owner?.pageId || event.payload.tab_id && event.payload.tab_id !== tab.id) return

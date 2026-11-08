@@ -7,6 +7,7 @@
   import BaseView from './BaseView.svelte'
   import CustomEditorIframe from './CustomEditorIframe.svelte'
   import FilePluginView from './FilePluginView.svelte'
+  import { sumiPageIdentity } from '../lib/sumi/files'
   import NativeFileView from './NativeFileView.svelte'
   import { sumiOwner, sumiSurfaceVersion } from '../lib/sumi/session'
   import { prepareFileViewTransition } from '../lib/tabs.svelte'
@@ -242,7 +243,7 @@
     {/key}
   {:else if fileView}
     {#if fileView.surface === 'native-editor'}
-      {#key `${tab.id}:${tab.filePath}:${fileView.pluginId}:${fileView.viewId}:${presentation.attempt}`}
+      {#key `${tab.id}:${sumiPageIdentity(tab.initialContent)?.pageId ?? tab.filePath}:${fileView.pluginId}:${fileView.viewId}:${presentation.attempt}`}
         <NativeFileView {tab} view={fileView} />
       {/key}
     {:else if isBuiltinOutlineFileView(fileView)}

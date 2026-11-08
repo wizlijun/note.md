@@ -22,7 +22,7 @@ export async function focusExistingSumiPage(pageId: string, pluginId = SUMI_PLUG
 export interface NativeBinding { surface_id: string; generation: number }
 export interface SumiOwner extends SumiSnapshot {
   readonly tabId: string
-  readonly path: string
+  path: string
   readonly pluginId: string
   readonly pageId: string
   editor: 'native' | 'web'
@@ -36,6 +36,10 @@ export interface SumiOwner extends SumiSnapshot {
 const owners = new Map<string, SumiOwner>()
 const opening = new Map<string, Promise<SumiOwner>>()
 export function sumiOwner(tabId: string): SumiOwner | undefined { return owners.get(tabId) }
+export async function settleSumiOwner(tabId: string): Promise<void> {
+  await opening.get(tabId)
+  await owners.get(tabId)?.tail
+}
 function identity(owner: SumiOwner) {
   return { page_id: owner.pageId, plugin_id: owner.pluginId, tab_id: owner.tabId }
 }
@@ -55,20 +59,21 @@ function accept(owner: SumiOwner, snapshot: SumiSnapshot): SumiSnapshot {
   owner.projection_identity = snapshot.projection_identity
   return snapshot
 }
-export async function openSumiOwner(tabId: string, path: string, pluginId = SUMI_PLUGIN_ID): Promise<SumiOwner> {
+export async function openSumiOwner(tabId: string, path: string, pluginId = SUMI_PLUGIN_ID, expectedPageId?: string): Promise<SumiOwner> {
   const existing = owners.get(tabId)
   if (existing) {
-    if (existing.path !== path || existing.pluginId !== pluginId) throw new Error('Sumi page path changed; reopen the page')
+    if (existing.path !== path || existing.pluginId !== pluginId || expectedPageId && existing.pageId !== expectedPageId) throw new Error('Sumi page path changed; reopen the page')
     return existing
   }
   const pending = opening.get(tabId)
   if (pending) {
     const owner = await pending
-    if (owner.path !== path || owner.pluginId !== pluginId) throw new Error('Sumi document changed while opening')
+    if (owner.path !== path || owner.pluginId !== pluginId || expectedPageId && owner.pageId !== expectedPageId) throw new Error('Sumi document changed while opening')
     return owner
   }
-  const operation = invoke<SumiOpen | ExistingOwner>('sumi_open_path', { path, plugin_id: pluginId, tab_id: tabId }).then(result => {
+  const operation = invoke<SumiOpen | ExistingOwner>('sumi_open_path', { path, plugin_id: pluginId, tab_id: tabId, ...(expectedPageId ? { expected_page_id: expectedPageId } : {}) }).then(result => {
     const value = opened(result)
+    if (expectedPageId && value.page_id !== expectedPageId) throw new Error('Sumi page identity changed on disk')
     const owner: SumiOwner = { ...value, pageId: value.page_id, tabId, path, pluginId, editor: 'web', tail: Promise.resolve() }
     owners.set(tabId, owner)
     return owner
@@ -130,7 +135,7 @@ export async function rebaseSumiDraft(owner: SumiOwner, submitted: string, accep
 export async function refreshSumiOwner(owner: SumiOwner): Promise<SumiSnapshot> {
   return serial(owner, async () => {
     if (owner.surface || owner.editor === 'native') throw new Error('Detach the native Sumi editor before importing disk changes')
-    const snapshot = opened(await invoke<SumiOpen | ExistingOwner>('sumi_open_path', { path: owner.path, plugin_id: owner.pluginId, tab_id: owner.tabId }))
+    const snapshot = opened(await invoke<SumiOpen | ExistingOwner>('sumi_open_path', { path: owner.path, plugin_id: owner.pluginId, tab_id: owner.tabId, expected_page_id: owner.pageId }))
     if (snapshot.page_id !== owner.pageId) throw new Error('Sumi page identity changed on disk')
     return accept(owner, snapshot)
   })

@@ -1388,6 +1388,22 @@ async fn drain_after_composition<R: Runtime>(
         );
     }
 }
+// Filename allocation may also relocate a different, already-open local page.
+fn renamed_pages(before: &[Entry], applied: &[Entry]) -> Vec<(String, String)> {
+    applied.iter().filter(|entry| before.iter().any(|old| old.id == entry.id
+        && old.epoch == entry.epoch && old.filename() != entry.filename()))
+        .filter_map(|entry| before.iter().find(|old| old.id == entry.id)?.filename().map(|old| (entry.id.clone(), old))).collect()
+}
+fn check_open_identity(papers: &HashMap<String, Paper>, window: &str, tab: &str, page: &str, expected: Option<&str>) -> Result<()> {
+    if expected.is_some_and(|id| id != page) {
+        return Err("写作文件身份已变化；已保留原页和草稿，请刷新目录路径后重试".into());
+    }
+    if papers.iter().any(|(id, p)| id != page && p.owner.as_ref().is_some_and(|o| o.window == window && o.tab == tab)) {
+        return Err("此标签页仍持有另一纸页；已保留原页和草稿".into());
+    }
+    Ok(())
+}
+
 pub(super) async fn directory_changed<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Arc<Workspace>,
@@ -1441,7 +1457,9 @@ pub(super) async fn directory_changed<R: Runtime>(
     }
     let result = async {
         for entry in entries {
+            let before = ws.durable.list().await?;
             let applied = ws.durable.apply_directory(entry).await?;
+            let renamed = renamed_pages(&before, &applied);
             let mut notices = Vec::new();
             let mut papers = ws.papers.lock().map_err(err)?;
             for entry in applied {
@@ -1469,6 +1487,11 @@ pub(super) async fn directory_changed<R: Runtime>(
                 }
             }
             drop(papers);
+            current(app, ws)?;
+            for (page_id, old_filename) in renamed {
+                let (old_path, _) = write_core::projection::paths(&ws.root, &old_filename).map_err(err)?;
+                let _ = app.emit_to("main", "sumi-path-changed", json!({"page_id":page_id,"old_path":old_path}));
+            }
             for (window, payload) in notices {
                 let _ = app.emit_to(&window, "sumi-state", payload);
             }
@@ -1932,6 +1955,7 @@ async fn open_path<R: Runtime>(
     window: &WebviewWindow<R>,
     path: &str,
     tab: &str,
+    expected_page_id: Option<&str>,
 ) -> Result<EditorEntry<Opened>> {
     let ws = workspace(app).await?;
     let _lease = ws.lifecycle.lock().await;
@@ -1951,6 +1975,7 @@ async fn open_path<R: Runtime>(
         .and_then(|v| v.as_str())
         .ok_or("缺少写作页面身份")?
         .to_owned();
+    check_open_identity(&*ws.papers.lock().map_err(err)?, window.label(), tab, &page, expected_page_id)?;
     let entries = ws.durable.list().await?;
     let entry=entries.iter().find(|e|e.id==page).ok_or("本机尚无此页的完整写作状态。请先连接同步服务恢复；仅有 Markdown/时间快照需要显式恢复，不能冒充原 CRDT 历史")?;
     let expected = entry.filename().ok_or("空白页尚未生成文件")?;
@@ -2252,10 +2277,25 @@ pub async fn sumi_open_path(
     plugin_id: String,
     path: String,
     tab_id: String,
+    expected_page_id: Option<String>,
 ) -> Result<EditorEntry<Opened>> {
     host_window(&window)?;
     authorize(&plugin_id)?;
-    open_path(&app, &window, &path, &tab_id).await
+    open_path(&app, &window, &path, &tab_id, expected_page_id.as_deref()).await
+}
+/// Resolve a known identity without acquiring an editor or reading another page's file.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn sumi_page_path(app: tauri::AppHandle, window: WebviewWindow, plugin_id: String, page_id: String) -> Result<Value> {
+    host_window(&window)?;
+    authorize(&plugin_id)?;
+    let ws = workspace(&app).await?;
+    let _lease = ws.lifecycle.lock().await;
+    let entries = ws.durable.list().await?;
+    current(&app, &ws)?;
+    let entry = entries.iter().find(|e| e.id == page_id).ok_or("纸页不在当前 Vault 目录中")?;
+    let filename = entry.filename().ok_or("空白页尚未生成文件")?;
+    let (path, _) = write_core::projection::paths(&ws.root, &filename).map_err(err)?;
+    Ok(json!({"page_id":entry.id,"epoch":entry.epoch,"path":path,"vault_root":ws.root}))
 }
 #[tauri::command(rename_all = "snake_case")]
 pub async fn sumi_mount(
@@ -3030,6 +3070,34 @@ mod tests {
         assert_eq!(adjacent_after_delete(&pages,"b").as_deref(),Some("c"));
         assert_eq!(adjacent_after_delete(&pages,"c").as_deref(),Some("b"));
         assert_eq!(adjacent_after_delete(&[entry("only",false)],"only"),None);
+    }
+    #[tokio::test]
+    async fn filename_reallocation_names_all_relocated_pages_and_cannot_rebind_the_old_tab() {
+        let (_temp, ws, original) = fixture().await;
+        let id = Uuid::new_v4().to_string();
+        let mut local = Document::new(&id, 1, 77).unwrap();
+        local.replace(0, 0, 0, "recovered draft 中文", 100).unwrap();
+        let loaded = ws.durable.create(durability::Create {
+            page_id: id.clone(), epoch: 1, full_state: local.encode_full(), revision: local.revision(),
+            after_id: None, first_write_date: Some("2026-11-08".into()), frontmatter: None, preserved_pair: None,
+        }).await.unwrap();
+        let old = loaded.entry.clone();
+        let before = ws.durable.list().await.unwrap();
+        let remote = Entry {id:Uuid::new_v4().to_string(),epoch:1,generation:0,deleted:false,
+            local_date:old.local_date.clone(),sequence:old.sequence,after_id:None,registered:true};
+        let changed = ws.durable.apply_directory(remote.clone()).await.unwrap();
+        assert_eq!(renamed_pages(&before,&changed),vec![(id.clone(),old.filename().unwrap())]);
+        let reallocated = changed.iter().find(|entry|entry.id==id).unwrap();
+        assert_ne!(reallocated.filename(),old.filename());
+        let (path,_) = write_core::projection::paths(&ws.root,&reallocated.filename().unwrap()).unwrap();
+        assert!(std::fs::read_to_string(path).unwrap().ends_with("recovered draft 中文"));
+        let papers=ws.papers.lock().unwrap();
+        let owner=papers[&original].owner.as_ref().unwrap();
+        assert!(check_open_identity(&papers,"main","test",&remote.id,Some(&original)).is_err());
+        assert!(check_open_identity(&papers,"main","test",&remote.id,None).is_err());
+        assert!(check_open_identity(&papers,"main","other",&remote.id,Some(&original)).is_err());
+        assert!(check_open_identity(&papers,"main","test",&original,Some(&original)).is_ok());
+        assert_eq!(papers.len(),1);assert_eq!(owner.tab,"test");assert!(owner.surface.is_none());
     }
     #[tokio::test]
     async fn focus_owner_rechecks_bound_identity_without_changing_document_or_selection() {

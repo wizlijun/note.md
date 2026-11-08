@@ -1,4 +1,6 @@
 import { tick } from 'svelte'
+import { invoke } from '@tauri-apps/api/core'
+import { sumiPageIdentity } from './sumi/files'
 import {
   readMd, writeMd, basename, classifyPath, isSupportedPath, looksBinary,
   isPermissionError, modeKeyFor, statFile, type FileKind,
@@ -17,7 +19,7 @@ import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 import { formatJsonSource } from './json-format'
 import { fileEditorSessionClosing, fileSourceGuard, fileEditorSession, closeFileEditorSession, captureFileSave, acknowledgeFileSave, type FileSaveRequest } from './file-editor-sessions'
-import { SUMI_PLUGIN_ID, sumiOwner, openSumiOwner, flushSumiNative, saveSumiSource, rebaseSumiDraft, refreshSumiOwner, closeSumiOwner, finishSumiHandoff, type SumiSnapshot, type ProjectionIdentity } from './sumi/session'
+import { SUMI_PLUGIN_ID, sumiOwner, settleSumiOwner, openSumiOwner, flushSumiNative, saveSumiSource, rebaseSumiDraft, refreshSumiOwner, closeSumiOwner, finishSumiHandoff, type SumiSnapshot, type ProjectionIdentity } from './sumi/session'
 
 export type Mode = 'source' | 'rich'
 
@@ -68,6 +70,48 @@ function managedSumiTab(tab: Tab): boolean {
       && manifest.host_capabilities.includes('editor.native') && manifest.host_capabilities.includes('editor.write'))
 }
 
+export interface SumiPathChange { page_id: string; old_path: string }
+const sumiPathRequests = new Map<string, object>()
+/** Path is catalog metadata; never reinstall the editor's document or Source baseline. */
+export async function reconcileSumiPath(change: SumiPathChange): Promise<void> {
+  const matches = (tab: Tab) => {
+    const owner = sumiOwner(tab.id)
+    return owner ? owner.pageId === change.page_id
+      : tab.filePath === change.old_path && sumiPageIdentity(tab.initialContent)?.pageId === change.page_id
+  }
+  if (!tabs.some(matches)) return
+  const request = {}
+  sumiPathRequests.set(change.page_id, request)
+  try {
+    const resolved = await invoke<{page_id: string; epoch: number; path: string; vault_root: string}>('sumi_page_path', { page_id: change.page_id, plugin_id: SUMI_PLUGIN_ID })
+    if (resolved.page_id !== change.page_id) throw Error('Sumi path identity changed')
+    const candidates = tabs.filter(matches)
+    await Promise.all(candidates.map(async tab => {
+      await waitForMarkdownSaves(tab.id)
+      await settleSumiOwner(tab.id)
+      await waitForMarkdownSaves(tab.id)
+    }))
+    if (sumiPathRequests.get(change.page_id) !== request) return
+    const rebound: string[] = []
+    for (const tab of candidates) {
+      if (!tabs.includes(tab) || !matches(tab) || !tab.filePath.startsWith(resolved.vault_root + '/')) continue
+      const accepted = sumiPageIdentity(tab.initialContent)
+      if (accepted && accepted.epoch !== resolved.epoch) continue
+      const owner = sumiOwner(tab.id)
+      if (owner) owner.path = resolved.path
+      if (tab.filePath === resolved.path) continue
+      tab.filePath = resolved.path
+      tab.title = basename(resolved.path)
+      // Preserve unknown external drafts, but invalidate the old path's stat fast path.
+      tab.lastKnownMtime = 0
+      rebound.push(tab.id)
+    }
+    await Promise.all(rebound.map(id => rebindTabPath(id)))
+  } finally {
+    if (sumiPathRequests.get(change.page_id) === request) sumiPathRequests.delete(change.page_id)
+  }
+}
+
 /** A durable projection ACK names exact bytes, never a later filesystem stat. */
 export function acknowledgeSumiProjection(tab: Tab, revision: number, identity?: ProjectionIdentity | null): void {
   const owner=sumiOwner(tab.id)
@@ -91,6 +135,8 @@ export async function acceptSumiSnapshot(tab: Tab, snapshot: SumiSnapshot): Prom
 
 /** Explicit reload imports disk bytes through the CRDT owner before changing a projection. */
 async function reloadSumiTab(tab: Tab): Promise<void> {
+  const bound = sumiOwner(tab.id)
+  if (bound) await reconcileSumiPath({ page_id: bound.pageId, old_path: tab.filePath })
   await waitForMarkdownSaves(tab.id)
   await flushMountedDocument(tab.id, true)
   await setMode(tab.id, 'source')
@@ -98,7 +144,7 @@ async function reloadSumiTab(tab: Tab): Promise<void> {
   fileSourceGuard(tab.id)?.check()
   const path=tab.filePath, draft=tab.currentContent
   const existing=sumiOwner(tab.id)
-  const owner=existing ?? await openSumiOwner(tab.id,path)
+  const owner=existing ?? await openSumiOwner(tab.id,path,SUMI_PLUGIN_ID,sumiPageIdentity(tab.initialContent)?.pageId)
   const baseline=owner.sourceBaseRevision ?? owner.revision
   const snapshot=existing ? await refreshSumiOwner(owner) : owner
   try {
@@ -1032,7 +1078,7 @@ async function persistMarkdownSnapshotNow(
     fileSourceGuard(t.id)?.check()
     let owner=sumiOwner(t.id)
     if(!owner) {
-      owner=await openSumiOwner(t.id,path)
+      owner=await openSumiOwner(t.id,path,SUMI_PLUGIN_ID,sumiPageIdentity(t.initialContent)?.pageId)
       if(owner.raw!==t.initialContent)throw Error('Sumi source baseline changed; reload or preserve this draft before saving')
     }
     if(owner.path!==path)throw Error('Sumi page path changed')

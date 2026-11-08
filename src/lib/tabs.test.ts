@@ -145,6 +145,7 @@ describe('Sumi tab ownership', () => {
     const previous = tauriInvoke.getMockImplementation()!
     tauriInvoke.mockImplementation(async (command, ...args) => {
       if (command === 'sumi_open_path') return { page_id: 'page', raw: 'original', revision: 1 }
+      if (command === 'sumi_page_path') return { page_id: 'page', epoch: 1, path: '/vault/page.writing.md', vault_root: '/vault' }
       if (command === 'sumi_mount') return { surface_id: 'surface', generation: 1 }
       if (command === 'sumi_flush' || command === 'sumi_detach') return { raw: 'native accepted', revision: 5 }
       if (command === 'sumi_source_save') return { raw: (args[0] as { raw: string }).raw, revision: 6 }
@@ -158,6 +159,91 @@ describe('Sumi tab ownership', () => {
     await sumi.mountSumiOwner(owner, { x: 0, y: 0, width: 600, height: 400 }, () => true)
     return { m, sumi, tab, owner }
   }
+
+  it('remaps a native owner by UUID without detaching, focusing or changing its document', async () => {
+    const { m, tab, owner } = await nativeTab()
+    const surface = owner.surface, oldPath = tab.filePath, raw = tab.currentContent
+    owner.sourceBaseRevision = 1
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((method, ...args) => method === 'sumi_page_path'
+      ? Promise.resolve({page_id:'page',epoch:1,path:'/vault/2026-11-08-03.writing.md',vault_root:'/vault'}) : previous(method,...args))
+    tauriInvoke.mockClear()
+    await m.reconcileSumiPath({page_id:'page',old_path:oldPath})
+    expect(tab.filePath).toBe('/vault/2026-11-08-03.writing.md')
+    expect(tab.title).toBe('2026-11-08-03.writing.md')
+    expect(owner.path).toBe(tab.filePath)
+    expect(owner.surface).toBe(surface)
+    expect(owner.sourceBaseRevision).toBe(1)
+    expect(tab.currentContent).toBe(raw)
+    expect(tauriInvoke.mock.calls.map(([name])=>name)).toEqual(['sumi_page_path'])
+    expect((await import('./file-watcher.svelte')).rebindTabPath).toHaveBeenCalledWith(tab.id)
+  })
+
+  it('preserves a dirty Source controller and undo while an old filename is allocated to another UUID', async () => {
+    const { m, tab, owner } = await nativeTab()
+    await m.setMode(tab.id,'source')
+    const { open } = await import('../editor-kit-v2/file-test-utils')
+    const sessions = await import('./file-editor-sessions')
+    const baseline = tab.initialContent, draft = baseline + '\nunsaved 中文'
+    const controller = open(baseline)
+    controller.restoreContent(draft)
+    const session = {baselineIdentity:{},owner:controller} as unknown as import('../editor-kit-v2/file-main').FileMountSession
+    sessions.registerFileEditorSession(tab.id,session)
+    tab.currentContent = draft; owner.sourceBaseRevision = 3
+    const pending = {content:'external draft',mtime:99,hash:'external'}
+    tab.pendingExternal = pending
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((method,...args)=>method==='sumi_page_path'
+      ? Promise.resolve({page_id:'page',epoch:1,path:'/vault/03.writing.md',vault_root:'/vault'}):previous(method,...args))
+    await m.reconcileSumiPath({page_id:'page',old_path:tab.filePath})
+    expect(tab.currentContent).toBe(draft); expect(tab.initialContent).toBe(baseline)
+    expect(tab.pendingExternal).toEqual(pending); expect(owner.sourceBaseRevision).toBe(3)
+    expect(sessions.fileEditorSession(tab.id)).toBe(session)
+    expect(controller.snapshot().raw).toBe(draft)
+    expect(controller.runHistory('undo',true)).toBe(true)
+    expect(controller.snapshot().raw).toBe(baseline)
+  })
+
+  it('waits for an in-flight owner open before updating its path, without recreating that owner', async () => {
+    const m=await import('./tabs.svelte'),sumi=await import('./sumi/session'),fs=await import('./fs')
+    const id='dbe2de72-6ecb-4829-ac36-c74bbbb89c24'
+    const raw=`---\ntype: Writing Page\npage_id: ${id}\nwrite_epoch: 1\n---\nbody`
+    vi.mocked(fs.readMd).mockResolvedValue(raw)
+    await m.openFile('/vault/02.writing.md')
+    const tab=m.tabs[0]
+    let finish!:(value:unknown)=>void
+    tauriInvoke.mockImplementation((method)=>method==='sumi_open_path'
+      ? new Promise(resolve=>{finish=resolve})
+      : Promise.resolve({page_id:id,epoch:1,path:'/vault/03.writing.md',vault_root:'/vault'}))
+    const opening=sumi.openSumiOwner(tab.id,tab.filePath,sumi.SUMI_PLUGIN_ID,id)
+    const moving=m.reconcileSumiPath({page_id:id,old_path:tab.filePath})
+    await vi.waitFor(()=>expect(tauriInvoke).toHaveBeenCalledWith('sumi_page_path',expect.anything()))
+    finish({page_id:id,raw,revision:1})
+    const owner=await opening;await moving
+    expect(sumi.sumiOwner(tab.id)).toBe(owner)
+    expect(owner.path).toBe('/vault/03.writing.md');expect(tab.filePath).toBe(owner.path)
+    expect(tab.currentContent).toBe(raw)
+  })
+
+  it('rejects stale path replies and never remaps a copied file just because its YAML repeats the UUID', async () => {
+    const { m, tab } = await nativeTab()
+    const pageId='dbe2de72-6ecb-4829-ac36-c74bbbb89c24'
+    const header=`---\ntype: Writing Page\npage_id: ${pageId}\nwrite_epoch: 1\n---\nbody`
+    const fs=await import('./fs')
+    vi.mocked(fs.readMd).mockResolvedValue(header)
+    await m.openFile('/vault/02.writing.md')
+    await m.openFile('/vault/copy-good.writing.md')
+    const source=m.tabs[1],copy=m.tabs[2]
+    let first!:(value:unknown)=>void
+    tauriInvoke.mockImplementationOnce(()=>new Promise(resolve=>{first=resolve}))
+    const slow=m.reconcileSumiPath({page_id:pageId,old_path:source.filePath})
+    tauriInvoke.mockResolvedValueOnce({page_id:pageId,epoch:1,path:'/vault/04.writing.md',vault_root:'/vault'})
+    await m.reconcileSumiPath({page_id:pageId,old_path:source.filePath})
+    first({page_id:pageId,epoch:1,path:'/vault/03.writing.md',vault_root:'/vault'});await slow
+    expect(source.filePath).toBe('/vault/04.writing.md')
+    expect(copy.filePath).toBe('/vault/copy-good.writing.md')
+    expect(tab.filePath).toBe('/vault/page.writing.md')
+  })
 
   it('installs the flushed native baseline before Source can save through core', async () => {
     const { m, tab, owner } = await nativeTab()

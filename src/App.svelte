@@ -13,7 +13,7 @@
   import EditorPane from './components/EditorPane.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
-  import { activeTab, tabs, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode, saveTab } from './lib/tabs.svelte'
+  import { activeTab, tabs, reconcileSumiPath, type SumiPathChange, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode, saveTab } from './lib/tabs.svelte'
   import { sumiOwner } from './lib/sumi/session'
   import { focusSumiOwner } from './lib/sumi/focus'
   import { openPath } from './lib/open-path'
@@ -175,6 +175,10 @@
       })
     }).catch(error => console.warn('[file-history] init:', error))
 
+    const unlistenSumiPaths = listen<SumiPathChange>('sumi-path-changed', async event => {
+      try { await reconcileSumiPath(event.payload) }
+      catch (error) { pushToast({ level: 'error', message: String(error) }) }
+    })
     const unlistenSumiFocus = listen<{ page_id: string; tab_id: string }>('sumi-focus-owner', async event => {
       try { await focusSumiOwner(event.payload) }
       catch (error) { pushToast({ level: 'error', message: String(error) }) }
@@ -876,6 +880,7 @@
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
       unlistenSumiFocus.then((fn) => fn())
+      unlistenSumiPaths.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())

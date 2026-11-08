@@ -18,6 +18,14 @@ beforeEach(async () => {
 })
 
 describe('Sumi single writer handoff', () => {
+  it('sends the expected UUID before the host can attach a reused filename', async () => {
+    const owner=await api.openSumiOwner('tab','/vault/02.writing.md',api.SUMI_PLUGIN_ID,'page')
+    expect(call).toHaveBeenLastCalledWith('sumi_open_path',expect.objectContaining({expected_page_id:'page'}))
+    call.mockRejectedValueOnce(new Error('identity changed'))
+    await expect(api.refreshSumiOwner(owner)).rejects.toThrow('identity changed')
+    expect(call).toHaveBeenLastCalledWith('sumi_open_path',expect.objectContaining({path:'/vault/02.writing.md',expected_page_id:'page'}))
+    expect(owner.raw).toBe('original');expect(owner.pageId).toBe('page')
+  })
   it('returns a typed existing-owner outcome without registering a duplicate or focusing implicitly', async () => {
     call.mockResolvedValueOnce({kind:'existing_owner',page_id:'page'})
     await expect(api.openSumiOwner('other-tab','/vault/page.writing.md')).rejects.toBeInstanceOf(api.SumiExistingOwnerError)

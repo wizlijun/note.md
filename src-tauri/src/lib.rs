@@ -1628,7 +1628,7 @@ pub fn run() {
         .invoke_handler({
             #[cfg(not(target_os = "ios"))]
             { tauri::generate_handler![
-                sumi::sumi_state, sumi::sumi_open_path, sumi::sumi_mount, sumi::sumi_focus_existing, sumi::sumi_focus_owner,
+                sumi::sumi_state, sumi::sumi_open_path, sumi::sumi_page_path, sumi::sumi_mount, sumi::sumi_focus_existing, sumi::sumi_focus_owner,
                 sumi::sumi_restore_projection,
                 sumi::sumi_recovery_probe, sumi::sumi_recover_new,
                 sumi::sumi_flush, sumi::sumi_detach, sumi::sumi_close, sumi::sumi_source_save,
