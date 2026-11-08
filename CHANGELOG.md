@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1108.2 — 2026-11-08
+
 - **Sumi breathing follows your choice.** Selecting Gentle breathing now keeps the six-second caret animation even when macOS Reduce Motion is enabled. Steady still disables animation; your system settings stay unchanged.
 
 ## v6.1108.1 — 2026-11-08
