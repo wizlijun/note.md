@@ -84,14 +84,34 @@ def verify_plugin_files(files, frozen):
     manifest_identity(json.loads(files['manifest.json']))
 
 
+FONT_CASCADES = {'Sumi Typewriter': ['Courier Prime', 'Zhuque Fangsong (technical preview)', 'Source Han Serif SC'], 'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light', 'SourceHanSerifSC-Regular'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular', 'SourceHanSerifSC-Regular'], 'Sumi Elite': ['SpecialElite-Regular', 'youyou-yisong', 'SourceHanSerifSC-Regular']}
+FONT_ASSETS = {
+    'CourierPrime-OFL.txt',
+    'CourierPrime-Regular.ttf',
+    'IBMPlexMono-Light.ttf',
+    'IBMPlexMono-OFL.txt',
+    'IBMPlexSansSC-LICENSE.txt',
+    'IBMPlexSansSC-Light.otf',
+    'LXGWWenKaiMonoLite-OFL.txt',
+    'LXGWWenKaiMonoLite-Regular.ttf',
+    'OFL.txt',
+    'SourceHanSerifSC-Regular.otf',
+    'SpecialElite-LICENSE.txt',
+    'SpecialElite-Regular.ttf',
+    'YouyouYisong-NOTICE.txt',
+    'YouyouYisong-PROVENANCE.json',
+    'YouyouYisong.ttf',
+    'ZhuqueFangsong-LICENSE.txt',
+    'ZhuqueFangsong-Regular.ttf',
+}
+
 def font_files(folder, manifest_raw):
     require((folder/'manifest.json').read_bytes() == manifest_raw, 'Bundled font manifest differs from frozen source')
     manifest = json.loads(manifest_raw)
     require(manifest.get('alias') == 'Sumi Typewriter', 'Wrong font alias')
     require(manifest.get('families') == ['Courier Prime','Zhuque Fangsong (technical preview)','Source Han Serif SC'], 'Wrong font cascade')
-    expected = {'CourierPrime-Regular.ttf', 'CourierPrime-OFL.txt', 'ZhuqueFangsong-Regular.ttf',
-                'ZhuqueFangsong-LICENSE.txt', 'SourceHanSerifSC-Regular.otf', 'OFL.txt'}
-    require({a['file'] for a in manifest['assets']} == expected and len(manifest['assets']) == 6, 'Incomplete font/license manifest')
+    require(manifest.get('cascades') == FONT_CASCADES, 'Wrong selected font cascades or exact faces')
+    require({a['file'] for a in manifest['assets']} == FONT_ASSETS and len(manifest['assets']) == len(FONT_ASSETS), 'Incomplete font/license/provenance manifest')
     result = {}
     for asset in manifest['assets']:
         raw = (folder/asset['file']).read_bytes()
@@ -278,16 +298,20 @@ def self_test():
                     else:archive.addfile(member,io.BytesIO(data))
             if mode=='valid':h.verify_archive_identity(archive_path,VERSION)
             else:rejects(lambda:h.verify_archive_identity(archive_path,VERSION))
-        names=['CourierPrime-Regular.ttf','CourierPrime-OFL.txt','ZhuqueFangsong-Regular.ttf','ZhuqueFangsong-LICENSE.txt','SourceHanSerifSC-Regular.otf','OFL.txt']
-        fm={'alias':'Sumi Typewriter','families':['Courier Prime','Zhuque Fangsong (technical preview)','Source Han Serif SC'],'assets':[{'file':n,'size':7,'sha256':sha(b'fixture')} for n in names]}
+        names=sorted(FONT_ASSETS)
+        fm={'alias':'Sumi Typewriter','families':FONT_CASCADES['Sumi Typewriter'],'cascades':FONT_CASCADES,'assets':[{'file':n,'size':7,'sha256':sha(b'fixture')} for n in names]}
         encoded=json.dumps(fm).encode();(directory/'manifest.json').write_bytes(encoded)
         for n in names:(directory/n).write_bytes(b'fixture')
         font_files(directory,encoded)
+        wrong={**fm,'cascades':{**FONT_CASCADES,'Sumi Plex':['IBM Plex Mono','IBM Plex Sans SC']}}
+        wrong_encoded=json.dumps(wrong).encode();(directory/'manifest.json').write_bytes(wrong_encoded)
+        rejects(lambda: font_files(directory,wrong_encoded))
+        (directory/'manifest.json').write_bytes(encoded)
         (directory/names[-1]).write_bytes(b'changed')
         rejects(lambda: font_files(directory,encoded))
         rejects(lambda: font_files(directory,encoded+b' '))
     subprocess.run(['node',str(Path(__file__).with_name('verify-embedded.mjs')),'--self-test'],check=True)
-    return {'ok':True,'offline':True,'checks':['arm64-and-x86_64-positive-wrong-or-universal-CPU-rejected','plugin-identity','exact-ui-inventory-and-bytes','stale-version-and-capability-rejected','zip-traversal-and-symlink-rejected','six-font-license-hashes','tampered-font-and-manifest-rejected','native-classes-and-no-Qt','whole-JS-module-positive-negative','real-minisign-fixture-and-tamper','production-version-and-identity','updater-plist-duplicate-symlink-isolated-rejected']}
+    return {'ok':True,'offline':True,'checks':['arm64-and-x86_64-positive-wrong-or-universal-CPU-rejected','plugin-identity','exact-ui-inventory-and-bytes','stale-version-and-capability-rejected','zip-traversal-and-symlink-rejected','all-font-license-provenance-hashes-and-exact-Light-faces','tampered-font-and-manifest-rejected','native-classes-and-no-Qt','whole-JS-module-positive-negative','real-minisign-fixture-and-tamper','production-version-and-identity','updater-plist-duplicate-symlink-isolated-rejected']}
 
 
 def main():

@@ -50,3 +50,7 @@ searchidx/tests/fixtures/corpus/prose/crlf.md -text
 
 # Source-fidelity corpus pins raw CRLF bytes for installed-core integration.
 src/share-editor/__fixtures__/corpus/source-fidelity/crlf.md -text
+
+# Bundled upstream font licenses are pinned to their original bytes (CRLF).
+src-tauri/resources/sumi/IBMPlexMono-OFL.txt -text
+src-tauri/resources/sumi/IBMPlexSansSC-LICENSE.txt -text

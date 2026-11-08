@@ -1,0 +1,16 @@
+又又意宋 / youyou-yisong
+Author: 未知来信; embedded manufacturer: YANG SHUANG
+
+Original embedded copyright declaration: Public Domain
+License reference: LicenseRef-Embedded-Public-Domain
+
+This unmodified font is distributed with its original embedded name table.
+Both name ID 0 records say "Public Domain". No name ID 13/14 license text
+or URL is present. This notice records that declaration; it does not
+relicense the font as OFL, CC0, or any other standard license.
+See YouyouYisong-PROVENANCE.json for exact metadata, hashes and sources.
+
+Original author publication:
+https://www.zcool.com.cn/work/ZNjc1OTQ3NjQ=.html
+The original web declaration was unavailable to the research fetcher.
+Third-party web summaries disagree and are not reproduced as license terms.
