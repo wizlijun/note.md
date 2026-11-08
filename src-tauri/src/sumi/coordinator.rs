@@ -563,11 +563,42 @@ async fn prepare_bootstrap<R: Runtime>(app:&tauri::AppHandle<R>,ws:&Workspace,cl
     Ok(selected.into_iter().filter(|p|prefixes.ready.contains_key(&p.id) && !prefixes.blocked.contains_key(&p.id)).collect())
 }
 
+const CREDENTIAL_READING: &str = "正在读取系统钥匙串，文字保存在本机";
+const CREDENTIAL_WAITING: &str = "正在等待系统钥匙串授权，请查看系统授权窗口；文字保存在本机";
+
+// A blocking Keychain read may be waiting for system authorization. A status
+// deadline must not cancel/restart it or create additional authorization prompts.
+async fn credential_read_with_status<F, N, S, T>(read: F, delay: std::time::Duration, mut waiting: N) -> T
+where
+    F: std::future::Future<Output = T>,
+    N: FnMut() -> S,
+    S: std::future::Future<Output = ()>,
+{
+    tokio::pin!(read);
+    tokio::select! {
+        biased;
+        result = &mut read => result,
+        _ = tokio::time::sleep(delay) => { waiting().await; read.await }
+    }
+}
+fn stored_client(stored: Result<Option<credentials::Credentials>>) -> Result<Option<sync::SyncClient>> {
+    stored?.map(sync::SyncClient::new).transpose().map_err(super::err)
+}
+
 async fn run<R: Runtime>(app: tauri::AppHandle<R>, ws: Arc<Workspace>, handle: Handle, mut receiver: mpsc::Receiver<Command>) {
     let profile=storage::sha256(ws.root.to_string_lossy().as_bytes());let key=profile.clone();
-    let mut client=match tauri::async_runtime::spawn_blocking(move||credentials::load(&key)).await {
-        Ok(Ok(Some(c)))=>sync::SyncClient::new(c).ok(),Ok(Ok(None))=>None,
-        _=>{publish_status(&app,&ws,&handle,false,"无法读取同步凭据，文字保存在本机").await;None}
+    publish_status(&app,&ws,&handle,false,CREDENTIAL_READING).await;
+    let read = async {
+        tauri::async_runtime::spawn_blocking(move||credentials::load(&key)).await
+            .map_err(|_| "系统钥匙串读取任务失败".to_owned())?
+    };
+    let stored = credential_read_with_status(read,std::time::Duration::from_secs(8),|| {
+        publish_status(&app,&ws,&handle,false,CREDENTIAL_WAITING)
+    }).await;
+    let mut client=match stored_client(stored) {
+        Ok(Some(client))=>Some(client),
+        Ok(None)=>{publish_status(&app,&ws,&handle,false,"尚未连接同步服务").await;None},
+        Err(error)=>{publish_status(&app,&ws,&handle,false,&format!("无法恢复同步连接：{error}；文字保存在本机")).await;None}
     };
     let mut retry=std::time::Duration::from_secs(1);
     let mut deferred_command=None;
@@ -688,6 +719,45 @@ async fn run<R: Runtime>(app: tauri::AppHandle<R>, ws: Arc<Workspace>, handle: H
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn delayed_keychain_read_reports_wait_once_and_keeps_the_same_task() {
+        let (send, receive) = oneshot::channel();
+        let reads = std::sync::atomic::AtomicUsize::new(0);
+        let notices = std::sync::atomic::AtomicUsize::new(0);
+        let read = async {
+            reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            receive.await.unwrap()
+        };
+        let wait = credential_read_with_status(read,std::time::Duration::from_millis(5),|| async {
+            notices.fetch_add(1,std::sync::atomic::Ordering::SeqCst);
+        });
+        tokio::pin!(wait);
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(25),&mut wait).await.is_err());
+        assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst),1);
+        assert_eq!(notices.load(std::sync::atomic::Ordering::SeqCst),1);
+        send.send("original credential result").unwrap();
+        assert_eq!(wait.await,"original credential result");
+        assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst),1);
+        assert_eq!(notices.load(std::sync::atomic::Ordering::SeqCst),1);
+    }
+    #[tokio::test]
+    async fn immediate_keychain_result_does_not_report_an_authorization_wait() {
+        for result in [Ok(Some(1)),Ok(None),Err("read denied")] {
+            let expected=result;
+            let actual=credential_read_with_status(async {result},std::time::Duration::from_secs(1),|| async {
+                panic!("completed read must not report authorization wait");
+            }).await;
+            assert_eq!(actual,expected);
+        }
+    }
+    #[test]
+    fn stored_credentials_keep_absence_read_failure_and_client_failure_distinct() {
+        assert!(stored_client(Ok(None)).unwrap().is_none());
+        assert!(matches!(stored_client(Err("Keychain read failed (-25293)".into())),Err(error) if error.contains("-25293")));
+        let credential=credentials::Credentials::new("http://insecure.example".into(),uuid::Uuid::new_v4().to_string(),uuid::Uuid::new_v4().to_string(),"x".repeat(88)).unwrap();
+        assert!(matches!(stored_client(Ok(Some(credential))),Err(error) if error.contains("HTTPS")));
+    }
 
     fn proof(version:u64,after:Option<u64>)->PrefixProof {
         PrefixProof {receipt:durability::IncomingReceipt {op_id:format!("op-{version}"),page_id:"page-0".into(),epoch:1,generation:0},watermark:sync::JournalWatermark {space_id:"space".into(),page_id:"page-0".into(),epoch:1,generation:0,version,quarantine_revision:0},after}
