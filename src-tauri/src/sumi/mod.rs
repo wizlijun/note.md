@@ -1528,9 +1528,14 @@ fn bundled_fonts(preference: &str) -> &'static [(&'static str, &'static str)] {
         "Sumi WenKai" => &[
             ("LXGWWenKaiMonoLite-Regular.ttf", "LXGWWenKaiMonoLite-Regular"),
         ],
-        "Sumi Elite" => &[
-            ("SpecialElite-Regular.ttf", "SpecialElite-Regular"),
-            ("YouyouYisong.ttf", "youyou-yisong"),
+        "Sumi Zhaohua" => &[
+            ("ZhaohuaTypeWriter.ttf", "ZhaohuaTypeWriter-Light"),
+        ],
+        "Sumi Youcha" => &[
+            ("YouchaSanz.ttf", "YouchaSanz-Light"),
+        ],
+        "Sumi Fangsong" => &[
+            ("ZhuqueFangsong-Regular.ttf", "ZhuqueFangsong-Regular"),
         ],
         _ => &[],
     }
@@ -3059,16 +3064,22 @@ mod tests {
         let (_temp, ws, _page) = fixture().await;
         assert_eq!(Preferences::default().appearance().font_family, "Sumi Plex");
         assert_eq!(load_preferences(&ws.durable).await.unwrap().font_family, "Sumi Plex");
-        for font in ["Sumi Typewriter", "Source Han Serif SC", "Helvetica", "", "Sumi Plex", "Sumi WenKai", "Sumi Elite"] {
+        for (font, expected_font) in [
+            ("Sumi Typewriter", "Sumi Plex"), ("Source Han Serif SC", "Sumi Plex"),
+            ("Helvetica", "Sumi Plex"), ("", "Sumi Plex"), ("Sumi Elite", "Sumi Plex"),
+            ("Sumi Plex", "Sumi Plex"), ("Sumi WenKai", "Sumi WenKai"),
+            ("Sumi Zhaohua", "Sumi Zhaohua"), ("Sumi Youcha", "Sumi Youcha"),
+            ("Sumi Fangsong", "Sumi Fangsong"),
+        ] {
             let saved = json!({"theme":"sepia","fontFamily":font,"fontSize":50.,"lineHeight":1.6,"maxColumns":80,"bottomInset":0.});
             let original: Preferences = serde_json::from_value(saved.clone()).unwrap();
-            let retired = bundled_fonts(font).is_empty();
+            let retired = font != expected_font;
             assert_eq!(original.validate().is_err(), retired);
             ws.durable.set_preferences("appearance".into(), saved.clone()).await.unwrap();
             let preferences = load_preferences(&ws.durable).await.unwrap();
             preferences.validate().unwrap();
             let mut expected = saved;
-            if retired { expected["fontFamily"] = json!("Sumi Plex"); }
+            expected["fontFamily"] = json!(expected_font);
             assert_eq!(serde_json::to_value(preferences).unwrap(), expected);
             assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
             assert_eq!(serde_json::to_value(load_preferences(&ws.durable).await.unwrap()).unwrap(), expected);
@@ -3078,7 +3089,7 @@ mod tests {
     fn font_registration_matches_the_shipped_cascade_manifest() {
         let manifest: Value = serde_json::from_str(include_str!("../../resources/sumi/manifest.json")).unwrap();
         let assets = manifest["assets"].as_array().unwrap();
-        assert_eq!(manifest["cascades"].as_object().unwrap().len(), 3);
+        assert_eq!(manifest["cascades"].as_object().unwrap().len(), 5);
         for (alias, expected) in manifest["cascades"].as_object().unwrap() {
             let fonts = bundled_fonts(alias);
             assert_eq!(json!(fonts.iter().map(|(_, name)| *name).collect::<Vec<_>>()), *expected, "{alias}");
