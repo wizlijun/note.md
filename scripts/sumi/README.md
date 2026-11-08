@@ -26,6 +26,15 @@ python3 scripts/sumi/acceptance/prepare.py
 
 验收宿主的跟踪脚本位于 `scripts/sumi/acceptance/`。`prepare.py` 从便携模板生成旧位置 `tasks/sumi-native/host-acceptance/tauri.acceptance.json`，其 plist 指向本 checkout 的跟踪文件；Vault、seed、marker 与报告仍使用原目录。显式运行 `bash scripts/sumi/acceptance/build.sh` 才构建宿主，脚本不启动应用。隔离路径与重复安装回归：`python3 -m unittest discover -s scripts/sumi/acceptance -p 'test_*.py'`。
 
+验收构建默认仍为 ad-hoc。需要跨重建保持证书身份时，可使用本机已有证书的**完整 common name**（不接受简称或 SHA1）：
+
+```bash
+SUMI_ACCEPTANCE_SIGNING_IDENTITY='Developer ID Application: Your Organization (TEAMID)' \
+  bash scripts/sumi/acceptance/build.sh
+```
+
+此选项在准备 seed 后只覆盖 ignored 的生成配置，并显式传给 Tauri 正常组件签名；跟踪模板保持 `-`，隔离 identifier 和 entitlements 不变。构建报告记录实际 Authority、TeamIdentifier、CDHash 和 designated requirement，严格验证 bundle 签名及请求的证书名称，不匹配则失败。仅有签名不代表完成公证。旧 ad-hoc 凭据首次迁移、签名私钥访问或系统授权仍可能提示；脚本不修改 Keychain ACL、不新建凭据、不承诺零提示。
+
 在 **note.md Sumi Acceptance** 现有应用内：插件 → 体验 → **Sumi 同机性能验收**。先点“快速检查”（1 轮、20 次预热、10 次样本），确认编辑器挂载和 `correctness.exact_text=true`。随后分别运行 Rich/最小 PM × 10k/100k 四组“标准 5 轮”。每轮新建编辑会话，1000 次预热编辑之后测 100 次、100ms 间隔；原始样本保留。初始/手动加载单列在 `editor_mounts`，可能包含编辑模块懒加载；标准循环的 `mount_ms` 是同页面缓存内的新编辑会话热挂载，不是 SQLite 历史恢复或整个宿主冷启动时间。
 
 所有语料用固定中英混合短段、数字、emoji/ZWJ、组合字符。尺寸是 **Markdown UTF-16 units**；JSON 同时记录 Unicode scalar、grapheme、UTF-8 bytes 与 SHA-256。预热后的正文比初始语料更长，此事实记录在 warmup / correctness，不能仍称“恰好 100k”。三个位置交替输入同一字符序列。大段粘贴/删除/撤销、单段超长、极短行、列表/强调、1M压力边界仍需独立场景，不能用当前正常写作集声称覆盖。
