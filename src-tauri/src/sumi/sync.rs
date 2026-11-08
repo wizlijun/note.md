@@ -661,7 +661,10 @@ impl SyncClient {
             if has_more && (batch.update.is_empty() || prior_cursor.as_ref() == Some(&cursor)) {
                 return Err(SyncError::Protocol("journal cursor did not advance"));
             }
-            if !has_more && (cursor.version != page.version.saturating_add(1) || cursor.offset != 0) {
+            // Lifecycle changes advance the page version without journal rows.
+            // hasMore=false covers the pinned throughVersion; the cursor only
+            // names the end of the last body record, which may precede it.
+            if !has_more && cursor.offset != 0 {
                 return Err(SyncError::Protocol("incomplete terminal journal cursor"));
             }
             if packed.len() + batch.update.len() > MAX_SNAPSHOT {
@@ -1258,7 +1261,10 @@ mod tests {
             let mark = watermark(&page);
             let reply = json!({"page":page,"format":"journal-v1","stateVector":"AA==","chunks":[],"sha256":format!("{:x}",Sha256::digest([])),"cursor":{"version":8,"offset":0},"hasMore":false,"throughVersion":if failure==Some("terminal"){8}else{7},"quarantineRevision":if failure==Some("quarantine"){4}else{3}});
             let mut reply = reply;
-            if failure == Some("terminal") { reply["page"]["version"] = json!(8); }
+            if failure == Some("terminal") {
+                reply["page"]["version"] = json!(8);
+                reply["cursor"]["offset"] = json!(1);
+            }
             let (origin, server) = one_http_reply(reply);
             let credentials = Credentials::new(
                 origin,
@@ -1295,6 +1301,42 @@ mod tests {
             assert_eq!(request["cursor"], json!({"version":8,"offset":0}));
             assert_eq!(request["generation"], page.generation);
             assert_eq!(request["quarantineRevision"], 3);
+            assert!(request.get("throughVersion").is_none());
+        }
+    }
+    #[tokio::test]
+    async fn full_journal_accepts_lifecycle_version_gaps_but_rejects_truncated_records() {
+        for truncated in [false, true] {
+            let mut page = page();
+            page.version = 4; // Body entries ended at 2, then delete and restore.
+            page.generation = 2;
+            let mut doc = write_core::Document::new(&page.id, 1, 11).unwrap();
+            doc.replace(0, 0, 0, "restored body", 100).unwrap();
+            let update = doc.encode_full();
+            let mut record = (update.len() as u32).to_le_bytes().to_vec();
+            record.extend(update);
+            if truncated { record.pop(); }
+            // A matching transport hash cannot make a truncated CRDT record complete.
+            let reply = json!({"page":page,"format":"journal-v1","stateVector":"AA==","chunks":[STANDARD.encode(&record)],"sha256":format!("{:x}",Sha256::digest(&record)),"cursor":{"version":3,"offset":0},"hasMore":false,"throughVersion":4,"quarantineRevision":0});
+            let (origin, server) = one_http_reply(reply);
+            let credentials = Credentials::new(origin, uuid::Uuid::new_v4().to_string(), uuid::Uuid::new_v4().to_string(), "x".repeat(88)).unwrap();
+            let mut client = SyncClient::new_local(credentials).unwrap();
+            client.token = Some(Token { access_token: "test-only".into(), expires_at: now() + 1000 });
+            let result = client.snapshot(&page.id, page.epoch, &[0]).await;
+            if truncated {
+                assert!(matches!(result, Err(SyncError::Protocol(_))));
+            } else {
+                let snapshot = result.unwrap();
+                assert!(snapshot.complete_journal);
+                assert_eq!(snapshot.journal_after, None);
+                assert_eq!(snapshot.page.version, 4);
+                assert_eq!(snapshot.page.generation, 2);
+                let restored = write_core::Document::load(&page.id, 1, 12, &snapshot.update).unwrap();
+                assert_eq!(restored.body(), "restored body");
+                restored.snapshot().unwrap();
+            }
+            let request = server.join().unwrap();
+            assert!(request.get("cursor").is_none());
             assert!(request.get("throughVersion").is_none());
         }
     }
