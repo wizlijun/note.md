@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 IDENTIFIER = 'net.notemd.sumi.backend'
 TARGETS = {'aarch64-apple-darwin': 'arm64', 'x86_64-apple-darwin': 'x86_64'}
-SOURCE_DIRS = ['plugins-src/write/backend', 'sumi-protocol', 'write-core', 'plugins-src/write/resources/sumi', 'scripts/sumi/native-release.py', 'scripts/release-plugins.sh', 'plugins-src/write/manifest.v2.json', 'plugins-src/write/vite.config.ts']
+SOURCE_DIRS = ['plugins-src/write/backend', 'sumi-protocol', 'write-core', 'notemd-plugin-sdk', 'plugin-protocol', 'plugins-src/write/resources/sumi', 'scripts/sumi/native-release.py', 'scripts/release-plugins.sh', 'plugins-src/write/manifest.v2.json', 'plugins-src/write/package.json', 'plugins-src/write/vite.config.ts']
 
 
 def require(ok, message):
