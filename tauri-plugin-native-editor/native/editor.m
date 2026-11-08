@@ -262,6 +262,11 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)restoreViewport:(NSDictionary *)viewport {
     NSUInteger index=MIN([viewport[@"start"] unsignedIntegerValue],self.text.string.length);
     double offset=[viewport[@"offset"] doubleValue];if(!isfinite(offset)||fabs(offset)>10000)offset=0;
+    // Resolve TextKit's initial viewport geometry before moving its clip view.
+    // Otherwise the first hit-test/layout can reset the restored origin to zero
+    // for short wrapped documents, even though the selection was restored.
+    // This lays out the viewport, not the entire document.
+    if(@available(macOS 13.0,*)){[self.text.textLayoutManager.textViewportLayoutController layoutViewport];}
     [self.text scrollRangeToVisible:NSMakeRange(index,0)];
     NSRect rect=[self rectForInsertion:index];
     NSPoint origin=self.scroll.contentView.bounds.origin;
