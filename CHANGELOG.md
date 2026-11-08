@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1108.4 — 2026-11-08
+
 - **Sumi lightweight font downloads**: The host and plugin no longer bundle large fonts. Choose a font to download in the background with progress, retry and verified offline caching; keep writing while it downloads. First offline use falls back to system fonts, and only the last font selection applies on completion.
 
 - **Retro Green Phosphor CRT**: Add a black-and-green theme and GNU Unifont for unified English/Chinese pixel glyphs. Fonts download on demand; colors, fonts and size remain independent.
