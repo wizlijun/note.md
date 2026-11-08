@@ -19,9 +19,11 @@ int sumi_editor_register_font(const char *path,const char *expected_family,char 
         NSArray *descriptors=CFBridgingRelease(CTFontManagerCreateFontDescriptorsFromURL((__bridge CFURLRef)url));
         for(NSFontDescriptor *descriptor in descriptors) {
             NSFont *font=[NSFont fontWithDescriptor:descriptor size:22];
-            if([font.familyName isEqualToString:family]){selected=descriptor;break;}
+            // New presets use exact PostScript names to retain Light faces;
+            // family keys remain supported for existing saved preferences.
+            if([font.fontName isEqualToString:family] || [font.familyName isEqualToString:family]){selected=descriptor;break;}
         }
-        if(!selected)failure=@"Bundled writing font family does not match the expected family";
+        if(!selected)failure=@"Bundled writing font does not match the expected family or PostScript name";
     }
     if(!failure) {
         CFErrorRef registrationError=NULL;
@@ -60,7 +62,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
     NSFontDescriptor *cascade=[primary fontDescriptorByAddingAttributes:@{NSFontCascadeListAttribute:fallbacks}];
     NSFont *font=[NSFont fontWithDescriptor:cascade size:22];
     NSFont *expected=[NSFont fontWithDescriptor:primary size:22];
-    if(!font || ![font.familyName isEqualToString:expected.familyName]){
+    if(!font || ![font.fontName isEqualToString:expected.fontName]){
         if(error)*error=strdup("Writing font cascade changed its primary face");return 1;
     }
     SumiRegisteredFonts[alias]=cascade;

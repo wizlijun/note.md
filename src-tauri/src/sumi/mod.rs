@@ -74,7 +74,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             theme: "dim".into(),
-            font_family: "Sumi Typewriter".into(),
+            font_family: "Sumi Plex".into(),
             font_size: 22.,
             line_height: 1.6,
             max_columns: 80,
@@ -1516,26 +1516,40 @@ pub(super) async fn directory_changed<R: Runtime>(
     }
     result
 }
-async fn ensure_font<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    window: &WebviewWindow<R>,
-    appearance: &native::Appearance,
-) -> Result<()> {
-    let typewriter = appearance.font_family == "Sumi Typewriter";
-    let fonts: &[(&str, &str)] = if typewriter {
-        &[
+fn bundled_fonts(preference: &str) -> &'static [(&'static str, &'static str)] {
+    match preference {
+        "Sumi Plex" => &[
+            ("IBMPlexMono-Light.ttf", "IBMPlexMono-Light"),
+            ("IBMPlexSansSC-Light.otf", "IBMPlexSansSC-Light"),
+            ("SourceHanSerifSC-Regular.otf", "SourceHanSerifSC-Regular"),
+        ],
+        "Sumi WenKai" => &[
+            ("LXGWWenKaiMonoLite-Regular.ttf", "LXGWWenKaiMonoLite-Regular"),
+            ("SourceHanSerifSC-Regular.otf", "SourceHanSerifSC-Regular"),
+        ],
+        "Sumi Elite" => &[
+            ("SpecialElite-Regular.ttf", "SpecialElite-Regular"),
+            ("YouyouYisong.ttf", "youyou-yisong"),
+            ("SourceHanSerifSC-Regular.otf", "SourceHanSerifSC-Regular"),
+        ],
+        "Sumi Typewriter" => &[
             ("CourierPrime-Regular.ttf", "Courier Prime"),
             (
                 "ZhuqueFangsong-Regular.ttf",
                 "Zhuque Fangsong (technical preview)",
             ),
             ("SourceHanSerifSC-Regular.otf", "Source Han Serif SC"),
-        ]
-    } else if appearance.font_family == "Source Han Serif SC" {
-        &[("SourceHanSerifSC-Regular.otf", "Source Han Serif SC")]
-    } else {
-        &[]
-    };
+        ],
+        "Source Han Serif SC" => &[("SourceHanSerifSC-Regular.otf", "Source Han Serif SC")],
+        _ => &[],
+    }
+}
+async fn ensure_font<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    window: &WebviewWindow<R>,
+    appearance: &native::Appearance,
+) -> Result<()> {
+    let fonts = bundled_fonts(&appearance.font_family);
     for (file, family) in fonts {
         let path = app
             .path()
@@ -1548,10 +1562,10 @@ async fn ensure_font<R: Runtime>(
             .await
             .map_err(|e| format!("无法加载 Sumi 统一字体：{e}"))?;
     }
-    if typewriter {
+    if fonts.len() > 1 {
         native::register_font_cascade(
             window,
-            "Sumi Typewriter".into(),
+            appearance.font_family.clone(),
             fonts
                 .iter()
                 .map(|(_, family)| (*family).to_string())
@@ -3041,6 +3055,32 @@ pub async fn dispatch<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn new_writers_default_to_plex_without_replacing_saved_font_preferences() {
+        assert_eq!(Preferences::default().appearance().font_family, "Sumi Plex");
+        for font in ["Sumi Typewriter", "Source Han Serif SC", "Helvetica", "Sumi Plex", "Sumi WenKai", "Sumi Elite"] {
+            let saved = json!({"theme":"sepia","fontFamily":font,"fontSize":50.,"lineHeight":1.6,"maxColumns":80,"bottomInset":0.});
+            let preferences: Preferences = serde_json::from_value(saved.clone()).unwrap();
+            preferences.validate().unwrap();
+            assert_eq!(preferences.appearance().font_family, font);
+            assert_eq!(serde_json::to_value(preferences).unwrap(), saved);
+        }
+    }
+    #[test]
+    fn font_registration_matches_the_shipped_cascade_manifest() {
+        let manifest: Value = serde_json::from_str(include_str!("../../resources/sumi/manifest.json")).unwrap();
+        let assets = manifest["assets"].as_array().unwrap();
+        for (alias, expected) in manifest["cascades"].as_object().unwrap() {
+            let fonts = bundled_fonts(alias);
+            assert_eq!(json!(fonts.iter().map(|(_, name)| *name).collect::<Vec<_>>()), *expected, "{alias}");
+            for (file, name) in fonts {
+                let asset = assets.iter().find(|asset| asset["file"] == *file).expect("font missing from resource manifest");
+                if let Some(postscript) = asset.get("postscript") {
+                    assert_eq!(postscript, name, "{alias}: {file}");
+                }
+            }
+        }
+    }
     #[test]
     fn pairing_ui_roundtrips_the_complete_invitation_without_exposing_invalid_input() {
         let invitation = sync::Invitation {
