@@ -3,7 +3,7 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { invoke } from '@tauri-apps/api/core'
-  import { acceptSumiSnapshot, acknowledgeSumiProjection, prepareFileViewTransition, setMode, type Tab } from '../lib/tabs.svelte'
+  import { acceptSumiSnapshot, acknowledgeSumiProjection, prepareFileViewTransition, closeTab, setMode, type Tab } from '../lib/tabs.svelte'
   import type { FileViewRef } from '../lib/plugins/file-views'
   import { boundsForNative, nativeSurfaceOccluded } from '../lib/sumi/geometry'
   import { sumiPageIdentity } from '../lib/sumi/files'
@@ -27,7 +27,7 @@
   let navigating = false
 
   async function focusNavigation(action: string) {
-    if (navigating || !owner || !['new_page', 'previous_page', 'next_page', 'menu'].includes(action)) return
+    if (navigating || !owner || !['new_page', 'previous_page', 'next_page', 'menu', 'settings', 'export'].includes(action)) return
     navigating = true
     const pageId = owner.pageId
     try {
@@ -42,6 +42,12 @@
       const { showError } = await import('../lib/dialogs')
       void showError(String(error))
     } finally { navigating = false }
+  }
+
+  async function closeCurrentTab() {
+    const { confirmDirtyClose, showError } = await import('../lib/dialogs')
+    try { await closeTab(tab.id, confirmDirtyClose) }
+    catch (error) { void showError(String(error)) }
   }
 
   async function focusExisting() {
@@ -114,7 +120,8 @@
       if (disposed) stateStop(); else stops.push(stateStop)
       const actionStop = await listen<{ page_id: string; tab_id?: string; action: string }>('sumi-action', event => {
         if (event.payload.page_id !== owner?.pageId || event.payload.tab_id && event.payload.tab_id !== tab.id) return
-        void focusNavigation(event.payload.action)
+        if (event.payload.action === 'close') void closeCurrentTab()
+        else void focusNavigation(event.payload.action)
       })
       if (disposed) actionStop(); else stops.push(actionStop)
       if (disposed) return

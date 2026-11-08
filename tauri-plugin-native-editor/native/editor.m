@@ -2,6 +2,7 @@
 #import <CoreText/CoreText.h>
 #import <QuartzCore/QuartzCore.h>
 #import "editor.h"
+#import "shortcuts.h"
 
 static NSMutableDictionary<NSString *,NSFontDescriptor *> *SumiRegisteredFonts;
 static NSMutableDictionary<NSString *,NSString *> *SumiRegisteredFontPaths;
@@ -97,6 +98,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 - (void)updateCaretMotion;
 - (void)syncSystemCaretColor;
 - (void)queueCaretRefresh;
+- (BOOL)sumiCommand:(NSString *)command;
 @end
 @interface SumiContainer : NSView
 @end
@@ -327,21 +329,82 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)undo:(id)sender { [self.owner action:@"undo"]; }
 - (void)redo:(id)sender { [self.owner action:@"redo"]; }
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
-    NSEventModifierFlags flags=event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
-    if(flags & NSEventModifierFlagCommand){
-        NSString *key=event.charactersIgnoringModifiers.lowercaseString;
-        if([key isEqualToString:@"f"] && (flags & NSEventModifierFlagControl)){[self.owner action:@"fullscreen"];return YES;}
-        if([key isEqualToString:@"z"]){[self.owner action:(flags & NSEventModifierFlagShift)?@"redo":@"undo"];return YES;}
-        if([key isEqualToString:@"b"]){[self.owner action:@"bold"];return YES;}
-        if([key isEqualToString:@"i"]){[self.owner action:@"italic"];return YES;}
-        if([key isEqualToString:@"x"] && (flags & NSEventModifierFlagShift)){[self.owner action:@"strike"];return YES;}
-        if([key isEqualToString:@"n"]){[self.owner action:@"new_page"];return YES;}
-        if((flags & NSEventModifierFlagOption) && event.keyCode==123){[self.owner action:@"previous_page"];return YES;}
-        if((flags & NSEventModifierFlagOption) && event.keyCode==124){[self.owner action:@"next_page"];return YES;}
+    NSString *command=SumiShortcut(event.charactersIgnoringModifiers,event.keyCode,event.modifierFlags);
+    if(self.window.firstResponder!=self){
+        NSResponder *responder=self.window.firstResponder;
+        BOOL findCommand=[@[@"find",@"find_next",@"find_previous",@"replace"] containsObject:command ?: @""];
+        if(!findCommand || !self.owner.scroll.findBarVisible || ![responder isKindOfClass:NSView.class]
+           || ![(NSView *)responder isDescendantOf:self.owner.scroll.findBarView])return NO;
+        if([responder isKindOfClass:NSTextView.class] && [(NSTextView *)responder hasMarkedText])return NO;
+        return [self sumiCommand:command];
     }
-    if(event.keyCode==53 && !self.owner.composing){[self.owner action:@"menu"];return YES;}
+    // Never consume IME cancellation / marked-text editing as a paper action.
+    if(self.hasMarkedText || self.owner.composing)return [super performKeyEquivalent:event];
+    if(command)return [self sumiCommand:command];
     return [super performKeyEquivalent:event];
 }
+- (BOOL)sumiCommand:(NSString *)command {
+    if(!self.owner || self.owner.detached || self.owner.container.hidden)return NO;
+    if(self.hasMarkedText || self.owner.composing)return YES;
+    if([command isEqualToString:@"select_all"]){[self selectAll:nil];return YES;}
+    if([command isEqualToString:@"copy"]){[self copy:nil];return YES;}
+    if([command isEqualToString:@"cut"]){[self cut:nil];return YES;}
+    if([command isEqualToString:@"paste"]){[self paste:nil];return YES;}
+    if([command isEqualToString:@"paste_plain"]){[self pasteAsPlainText:nil];return YES;}
+    NSDictionary *find=@{@"find":@(NSTextFinderActionShowFindInterface),@"find_next":@(NSTextFinderActionNextMatch),
+      @"find_previous":@(NSTextFinderActionPreviousMatch),@"replace":@(NSTextFinderActionShowReplaceInterface)};
+    if(find[command]){
+        NSMenuItem *sender=[NSMenuItem new];sender.tag=[find[command] integerValue];
+        [self performTextFinderAction:sender];return YES;
+    }
+    if([command isEqualToString:@"escape"]){
+        if(self.owner.scroll.findBarVisible){self.owner.scroll.findBarVisible=NO;return YES;}
+        [self.owner action:@"menu"];return YES;
+    }
+    if([command isEqualToString:@"link"]){
+        if(!self.window)return YES;
+        NSDictionary *projection=nil;
+        int64_t revision=[self.owner emit:@"action" fields:@{@"revision":@(self.owner.revision),@"action":@"link_begin",@"range":SumiRange(self.selectedRange)} projection:&projection];
+        if(revision<0)return YES;
+        if(projection)[self.owner applyProjection:projection revision:(uint64_t)revision];
+        NSAlert *alert=[NSAlert new];alert.messageText=@"链接 / Link";
+        [alert addButtonWithTitle:@"应用 / Apply"];[alert addButtonWithTitle:@"取消 / Cancel"];
+        NSTextField *url=[[NSTextField alloc]initWithFrame:NSMakeRect(0,0,360,24)];url.placeholderString=@"https://";
+        for(NSDictionary *run in self.owner.runs){NSRange range=SumiReadRange(run[@"range"]);if(range.location<=self.selectedRange.location && NSMaxRange(range)>self.selectedRange.location && [run[@"link"] isKindOfClass:NSString.class]){url.stringValue=run[@"link"];break;}}
+        alert.accessoryView=url;
+        __weak SumiTextView *weakSelf=self;
+        [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response){
+            SumiTextView *view=weakSelf;if(!view || view.owner.detached)return;
+            [view.owner action:response==NSAlertFirstButtonReturn?[@"link_set:" stringByAppendingString:url.stringValue]:@"link_cancel"];
+            [view.window makeFirstResponder:view];
+        }];
+        [alert.window makeFirstResponder:url];return YES;
+    }
+    [self.owner action:command];return YES;
+}
+- (void)insertTab:(id)sender { (void)sender;[self sumiCommand:@"indent"]; }
+- (void)insertBacktab:(id)sender { (void)sender;[self sumiCommand:@"outdent"]; }
+- (void)insertLineBreak:(id)sender { (void)sender;[self sumiCommand:@"hard_break"]; }
+- (void)cancelOperation:(id)sender {
+    if(self.hasMarkedText || self.owner.composing){[super cancelOperation:sender];return;}
+    [self sumiCommand:@"escape"];
+}
+- (void)toggleBoldface:(id)sender { (void)sender;[self sumiCommand:@"bold"]; }
+- (void)toggleItalics:(id)sender { (void)sender;[self sumiCommand:@"italic"]; }
+// Display typography belongs to Sumi preferences. Unsupported rich attributes
+// must not mutate NSTextStorage behind the Markdown/source-map transaction.
+- (void)underline:(id)sender { (void)sender;NSBeep(); }
+- (void)changeFont:(id)sender { (void)sender;NSBeep(); }
+- (void)changeAttributes:(id)sender { (void)sender;NSBeep(); }
+- (void)changeColor:(id)sender { (void)sender;NSBeep(); }
+- (void)pasteFont:(id)sender { (void)sender;NSBeep(); }
+- (void)pasteRuler:(id)sender { (void)sender;NSBeep(); }
+- (void)alignLeft:(id)sender { (void)sender;NSBeep(); }
+- (void)alignCenter:(id)sender { (void)sender;NSBeep(); }
+- (void)alignRight:(id)sender { (void)sender;NSBeep(); }
+- (void)alignJustified:(id)sender { (void)sender;NSBeep(); }
+- (void)subscript:(id)sender { (void)sender;NSBeep(); }
+- (void)superscript:(id)sender { (void)sender;NSBeep(); }
 - (BOOL)writeMarkdownToPasteboard:(NSPasteboard *)pasteboard cut:(BOOL)cut {
     if(self.owner.composing || self.hasMarkedText || self.owner.detached)return NO;
     NSMutableArray *ranges=[NSMutableArray new];
@@ -359,7 +422,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)copy:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:NO]; }
 - (void)cut:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:YES]; }
-- (void)pasteFromPasteboard:(NSPasteboard *)pasteboard {
+- (void)pasteFromPasteboard:(NSPasteboard *)pasteboard literal:(BOOL)literal {
     if(self.owner.composing || self.hasMarkedText || self.owner.detached)return;
     // Prefer public plain text, including Markdown emitted by our own copy.
     // Only input formats are decoded; no attributed string enters the editor.
@@ -386,18 +449,12 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         else text=[pasteboard stringForType:NSPasteboardTypeURL];
     }
     if(text || html || rtf){
-        [self.owner transaction:@"paste" fields:@{@"base_revision":@(self.owner.revision),@"range":SumiRange(self.selectedRange),@"text":text ?: NSNull.null,@"html":html ?: NSNull.null,@"rtf":rtf ? [rtf base64EncodedStringWithOptions:0] : NSNull.null}];
+        [self.owner transaction:@"paste" fields:@{@"base_revision":@(self.owner.revision),@"range":SumiRange(self.selectedRange),@"text":text ?: NSNull.null,@"html":html ?: NSNull.null,@"rtf":rtf ? [rtf base64EncodedStringWithOptions:0] : NSNull.null,@"literal":@(literal)}];
     }else [self.owner action:@"unsupported_paste"];
 }
+- (void)pasteFromPasteboard:(NSPasteboard *)pasteboard { [self pasteFromPasteboard:pasteboard literal:NO]; }
 - (void)paste:(id)sender { (void)sender;[self pasteFromPasteboard:NSPasteboard.generalPasteboard]; }
-- (void)pastePlainFromPasteboard:(NSPasteboard *)pasteboard {
-    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return;
-    NSString *text=[pasteboard stringForType:NSPasteboardTypeString];
-    if(text){
-        text=[[text stringByReplacingOccurrencesOfString:@"\r\n" withString:@"\n"] stringByReplacingOccurrencesOfString:@"\r" withString:@"\n"];
-        [self insertText:text replacementRange:self.selectedRange];
-    }else [self.owner action:@"unsupported_paste"];
-}
+- (void)pastePlainFromPasteboard:(NSPasteboard *)pasteboard { [self pasteFromPasteboard:pasteboard literal:YES]; }
 - (void)pasteAsPlainText:(id)sender { (void)sender;[self pastePlainFromPasteboard:NSPasteboard.generalPasteboard]; }
 - (void)pasteAsRichText:(id)sender { [self paste:sender]; }
 - (void)sumiBold:(id)sender { [self.owner action:@"bold"]; }
@@ -406,6 +463,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)sumiRecoverPlain:(id)sender { [self.owner action:@"recover_paste_plain"]; }
 - (void)sumiRecoverOriginal:(id)sender { [self.owner action:@"recover_paste_original"]; }
 - (void)sumiMenu:(id)sender { [self.owner action:@"menu"]; }
+- (void)sumiMenuCommand:(NSMenuItem *)sender { [self sumiCommand:sender.representedObject]; }
 - (NSMenu *)menuForEvent:(NSEvent *)event {
     // The system rich-text font menu mutates attributes without a Markdown edit.
     // Expose only operations routed through the canonical owner.
@@ -415,10 +473,15 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:entry[0] action:NSSelectorFromString(entry[1]) keyEquivalent:@""];
         item.target=self;[menu addItem:item];
     }
+    [menu addItem:NSMenuItem.separatorItem];
+    for(NSArray *entry in @[@[@"Paragraph",@"paragraph"],@[@"Heading 1",@"heading1"],@[@"Heading 2",@"heading2"],@[@"Heading 3",@"heading3"],@[@"Heading 4",@"heading4"],@[@"Heading 5",@"heading5"],@[@"Heading 6",@"heading6"],@[@"Quote",@"quote"],@[@"Bullet List",@"bullet_list"],@[@"Ordered List",@"ordered_list"],@[@"Indent",@"indent"],@[@"Outdent",@"outdent"],@[@"Link…",@"link"],@[@"Find…",@"find"],@[@"Find Next",@"find_next"],@[@"Find Previous",@"find_previous"],@[@"Replace…",@"replace"]]){
+        NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:entry[0] action:@selector(sumiMenuCommand:) keyEquivalent:@""];
+        item.target=self;item.representedObject=entry[1];[menu addItem:item];
+    }
     return menu;
 }
 - (BOOL)validateUserInterfaceItem:(id<NSValidatedUserInterfaceItem>)item {
-    if(item.action==@selector(undo:) || item.action==@selector(redo:))return !self.owner.composing;
+    if(item.action==@selector(undo:) || item.action==@selector(redo:) || item.action==@selector(sumiMenuCommand:))return !self.owner.composing;
     return [super validateUserInterfaceItem:item];
 }
 @end
@@ -670,6 +733,34 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 @end
 
+static SumiTextView *SumiFindBarOwner(NSView *view) {
+    if([view isKindOfClass:SumiTextView.class]) {
+        SumiTextView *text=(SumiTextView *)view;
+        if(text.owner && !text.owner.detached && !text.isHiddenOrHasHiddenAncestor && text.owner.scroll.findBarVisible)return text;
+    }
+    for(NSView *child in view.subviews){SumiTextView *found=SumiFindBarOwner(child);if(found)return found;}
+    return nil;
+}
+int sumi_editor_menu_command(const char *command){
+    if(!NSThread.isMainThread || !command)return 0;
+    NSResponder *responder=NSApp.keyWindow.firstResponder;
+    NSString *name=[NSString stringWithUTF8String:command];
+    if([name hasPrefix:@"input:"]){
+        NSDictionary *selectors=@{@"input:select_all":@"selectAll:",@"input:undo":@"undo:",@"input:redo":@"redo:"};
+        NSString *selector=selectors[name];
+        if(selector)[NSApp sendAction:NSSelectorFromString(selector) to:responder from:nil];
+        return selector?1:0;
+    }
+    if(![responder isKindOfClass:SumiTextView.class]){
+        // Find-bar fields are ordinary AppKit controls. Search and document
+        // menu items still address their visible editor, while Cut/Copy/Select
+        // All/Undo keep operating on the field itself.
+        if(![@[@"find",@"find_next",@"find_previous",@"replace",@"new_page",@"menu",@"save",@"export",@"settings",@"close",@"zoom_in",@"zoom_out",@"zoom_reset"] containsObject:name])return 0;
+        SumiTextView *text=SumiFindBarOwner(NSApp.keyWindow.contentView);
+        return text?[text sumiCommand:name]:0;
+    }
+    return [(SumiTextView *)responder sumiCommand:[NSString stringWithUTF8String:command]]?1:0;
+}
 int sumi_editor_supported(void){if(@available(macOS 13.0,*))return 1;return 0;}
 void *sumi_editor_mount(void *reference_view,int webview_sibling,const char *json,SumiEventCallback callback,SumiReplyFree free_reply,void *context){
     if(!NSThread.isMainThread || !reference_view || !sumi_editor_supported())return NULL;
@@ -688,7 +779,7 @@ void *sumi_editor_mount(void *reference_view,int webview_sibling,const char *jso
         if(!editor.text.textLayoutManager)return NULL;
     } else return NULL;
     editor.text.accessibilityIdentifier=@"sumi-native-editor";editor.text.accessibilityLabel=@"Sumi writing editor";
-    editor.text.owner=editor;editor.text.delegate=editor;editor.text.richText=YES;editor.text.importsGraphics=NO;editor.text.allowsUndo=NO;
+    editor.text.owner=editor;editor.text.delegate=editor;editor.text.richText=YES;editor.text.importsGraphics=NO;editor.text.allowsUndo=NO;editor.text.usesFindBar=YES;editor.text.incrementalSearchingEnabled=YES;
     editor.text.verticallyResizable=YES;editor.text.horizontallyResizable=NO;editor.text.minSize=NSZeroSize;editor.text.maxSize=NSMakeSize(CGFLOAT_MAX,CGFLOAT_MAX);
     editor.text.textContainer.widthTracksTextView=NO;editor.text.textContainer.lineFragmentPadding=0;
     editor.text.automaticQuoteSubstitutionEnabled=NO;editor.text.automaticDashSubstitutionEnabled=NO;editor.text.automaticTextReplacementEnabled=NO;editor.text.automaticLinkDetectionEnabled=NO;

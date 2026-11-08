@@ -168,6 +168,7 @@ struct Owner {
     suspended: bool,
     generation: u64,
     source_baseline: Option<u64>,
+    typing_style: Option<write_core::render::TypingStyle>,
 }
 #[derive(Clone)]
 struct ClipboardDraft {
@@ -222,6 +223,7 @@ struct Paper {
     projection_identity: Option<durability::ProjectionIdentity>,
     remote: RemoteCandidate,
     pending_clipboard: Option<ClipboardDraft>,
+    pending_link: Option<write_core::SelectionAnchor>,
     position: Option<ReadingPosition>,
     position_dirty: bool,
     position_resolved: bool,
@@ -253,6 +255,7 @@ impl Paper {
             projection_identity: None,
             remote: RemoteCandidate::default(),
             pending_clipboard: None,
+            pending_link: None,
             position: None,
             position_dirty: false,
             position_resolved: true,
@@ -638,8 +641,13 @@ async fn activate_page(ws: &Workspace, id: &str) -> Result<()> {
     ws.durable.set_preferences("activePage".into(), json!(id)).await?;
     let mut active = ws.active.lock().map_err(err)?;
     if active.as_deref() != Some(id) {
-        *active = Some(id.into());
+        let previous = active.replace(id.into());
         ws.navigation_version.fetch_add(1, Ordering::Release);
+        drop(active);
+        let mut papers = ws.papers.lock().map_err(err)?;
+        for page in previous.as_deref().into_iter().chain(std::iter::once(id)) {
+            if let Some(owner) = papers.get_mut(page).and_then(|p| p.owner.as_mut()) { owner.typing_style = None; }
+        }
     }
     Ok(())
 }
@@ -766,6 +774,11 @@ fn reply(p: &mut Paper) -> native::EventReply {
         }),
     }
 }
+fn is_editor_action(action: &str) -> bool {
+    matches!(action, "undo"|"redo"|"bold"|"italic"|"strike"|"paragraph"|"quote"|"bullet_list"|"ordered_list"
+        |"heading1"|"heading2"|"heading3"|"heading4"|"heading5"|"heading6"|"indent"|"outdent"
+        |"hard_break"|"link_begin"|"link_cancel"|"recover_paste_plain"|"recover_paste_original") || action.starts_with("link_set:")
+}
 fn apply_action(
     p: &mut Paper,
     action: &str,
@@ -773,8 +786,21 @@ fn apply_action(
     at: i64,
 ) -> Result<Option<Vec<u8>>> {
     let before = p.doc.revision();
+    if action == "hard_break" {
+        let update = apply_input(p, &write_core::render::TextRange { start: range.start, length: range.length }, "  \n", true, at)?;
+        return Ok(Some(update));
+    }
+    if range.length == 0 && matches!(action, "bold" | "italic" | "strike") {
+        let context = p.view.typing_style(&write_core::render::TextRange { start: range.start, length: 0 }).map_err(err)?;
+        let owner = p.owner.as_mut().ok_or("写作会话已关闭")?;
+        if owner.composing { return Err("请先完成输入法组合".into()); }
+        let mut style = owner.typing_style.unwrap_or(context);
+        style.toggle(action); owner.typing_style = Some(style); owner.selection = range;
+        return Ok(None);
+    }
     if let Some(o) = p.owner.as_mut() {
         o.selection = range.clone();
+        if range.length > 0 || matches!(action, "undo" | "redo" | "hard_break" | "paragraph" | "quote" | "bullet_list" | "ordered_list" | "indent" | "outdent") || action.starts_with("heading") || action.starts_with("link_") { o.typing_style = None; }
     }
     let anchor = p
         .view
@@ -790,7 +816,9 @@ fn apply_action(
     let update = match action {
         "undo" => Some(p.doc.undo(at).map_err(err)?),
         "redo" => Some(p.doc.redo(at).map_err(err)?),
-        "bold" | "italic" | "strike" => Some(
+        "bold" | "italic" | "strike" | "paragraph" | "quote" | "bullet_list" | "ordered_list"
+        | "heading1" | "heading2" | "heading3" | "heading4" | "heading5" | "heading6"
+        | "indent" | "outdent" => Some(
             p.view
                 .apply_format(
                     &mut p.doc,
@@ -803,6 +831,20 @@ fn apply_action(
                 )
                 .map_err(err)?,
         ),
+        "link_begin" => {
+            let requested=write_core::render::TextRange{start:range.start,length:range.length};
+            let selection=p.view.link_target(&requested).map_err(err)?.map(|(selection,_)|selection).unwrap_or(requested);
+            if selection.length==0{return Err("请先选择要添加链接的文字".into());}
+            p.pending_link=Some(p.view.anchor_selection(&p.doc,&selection).map_err(err)?);
+            if let Some(owner)=p.owner.as_mut(){owner.selection=native::TextRange{start:selection.start,length:selection.length};}
+            return Ok(None);
+        }
+        "link_cancel" => { p.pending_link = None; return Ok(None); }
+        action if action.starts_with("link_set:") => {
+            let link = p.pending_link.take().ok_or("链接选区已过期，请重新选择")?;
+            let range = p.view.resolve_selection(&p.doc, &link).map_err(err)?;
+            Some(p.view.apply_link(&mut p.doc, &range, &action[9..], at).map_err(err)?)
+        }
         "recover_paste_plain" | "recover_paste_original" => {
             let draft = p.pending_clipboard.clone().ok_or("没有待恢复的粘贴草稿")?;
             let range = p
@@ -860,6 +902,40 @@ fn apply_action(
     }
     Ok(update)
 }
+fn update_input_selection(p: &mut Paper, range: native::TextRange) {
+    let range = bounded_selection(&p.view.document.text, range);
+    if let Some(owner) = p.owner.as_mut() {
+        if !owner.composing && (owner.selection.start != range.start || owner.selection.length != range.length) { owner.typing_style = None; }
+        owner.selection = range;
+    }
+}
+
+fn apply_input(p: &mut Paper, range: &write_core::render::TextRange, text: &str, markdown: bool, at: i64) -> Result<Vec<u8>> {
+    let before = p.doc.revision();
+    let pending = p.owner.as_ref().and_then(|owner| owner.typing_style);
+    let (update, selected) = if let Some(style) = pending {
+        let (update, selection) = p.view.apply_typing_insert(&mut p.doc, range, text, markdown, style, at).map_err(err)?;
+        (update, selection.start)
+    } else if markdown {
+        let source = p.view.source_range(range).map_err(err)?;
+        let end = p.doc.body()[..source.start].encode_utf16().count() as u32 + text.encode_utf16().count() as u32;
+        let update = p.view.apply_markdown_paste(&mut p.doc, range, text, at).map_err(err)?;
+        p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
+        (update, p.view.visible_offset(end).map_err(err)?)
+    } else {
+        (p.view.apply_edit(&mut p.doc, range, text, at).map_err(err)?, range.start.saturating_add(text.encode_utf16().count() as u32))
+    };
+    if p.doc.revision() != before {
+        p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
+        let selection = bounded_selection(&p.view.document.text, native::TextRange { start: selected, length: 0 });
+        if let Some(owner) = p.owner.as_mut() {
+            owner.selection = selection;
+            if text.contains('\n') { owner.typing_style = None; }
+        }
+    }
+    Ok(update)
+}
+
 fn handle_native<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Arc<Workspace>,
@@ -934,36 +1010,14 @@ fn handle_native<R: Runtime>(
         native::NativeEvent::Edit {
             range, replacement, ..
         } => {
-            let update = p
-                .view
-                .apply_edit(
-                    &mut p.doc,
-                    &write_core::render::TextRange {
-                        start: range.start,
-                        length: range.length,
-                    },
-                    &replacement,
-                    now(),
-                )
-                .map_err(err)?;
+            let update = apply_input(p, &write_core::render::TextRange { start: range.start, length: range.length }, &replacement, false, now())?;
             changed = p.doc.revision() != before;
             if changed {
-                p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
-                if let Err(error) = queue(ws, p, update) {
-                    p.error = Some(error);
-                }
-                if let Some(o) = p.owner.as_mut() {
-                    o.selection = native::TextRange {
-                        start: range
-                            .start
-                            .saturating_add(replacement.encode_utf16().count() as u32),
-                        length: 0,
-                    };
-                }
+                if let Err(error) = queue(ws, p, update) { p.error = Some(error); }
             }
         }
         native::NativeEvent::Selection { range, .. } => {
-            p.owner.as_mut().unwrap().selection = bounded_selection(&p.view.document.text, range);
+            update_input_selection(p, range);
             position_changed(p);
         }
         native::NativeEvent::Viewport { viewport, .. } => {
@@ -990,7 +1044,7 @@ fn handle_native<R: Runtime>(
                 if let Err(error) = queue(ws, p, update) { p.error = Some(error); }
             }
         }
-        native::NativeEvent::Paste { range, text, html, rtf, .. } => {
+        native::NativeEvent::Paste { range, text, html, rtf, literal, .. } => {
             if p.owner.as_ref().is_some_and(|o| o.composing) { return Err("请先完成输入法组合".into()); }
             if text.as_ref().map_or(0, String::len) + html.as_ref().map_or(0, String::len) + rtf.as_ref().map_or(0, String::len) > 4 * 1024 * 1024 {
                 return Err("剪贴板超过 4 MiB，请分段粘贴".into());
@@ -1005,13 +1059,10 @@ fn handle_native<R: Runtime>(
                     return Err(error);
                 }
             };
-            let source = p.view.source_range(&range).map_err(err)?;
-            let end = p.doc.body()[..source.start].encode_utf16().count() as u32 + markdown.encode_utf16().count() as u32;
-            let update = p.view.apply_markdown_paste(&mut p.doc, &range, &markdown, now()).map_err(err)?;
+            if markdown.is_empty() { return Ok(p.doc.revision().into()); }
+            let update = apply_input(p, &range, &markdown, !literal, now())?;
             changed = p.doc.revision() != before;
             if changed {
-                p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
-                p.owner.as_mut().unwrap().selection = native::TextRange { start: p.view.visible_offset(end).map_err(err)?, length: 0 };
                 if let Err(error) = queue(ws, p, update) { p.error = Some(error); }
             }
             p.pending_clipboard = None;
@@ -1026,13 +1077,25 @@ fn handle_native<R: Runtime>(
                     .map_err(err)?;
                 return Ok(p.doc.revision().into());
             }
+            if matches!(action.as_str(), "save" | "zoom_in" | "zoom_out" | "zoom_reset") {
+                let owner=p.owner.as_ref().unwrap().clone();
+                let app=app.clone();let ws=ws.clone();let page=page_id.to_owned();let action=action.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error)=document_command(&app,&ws,&page,&owner.window,&owner.tab,&action).await {
+                        let _=app.emit_to(&owner.window,"sumi-state",json!({"page_id":page,"notice":error}));
+                        if is_plugin_window(&owner.window){push(&app,&json!({"type":"sumi-error","message":error}));}
+                    }
+                });
+                return Ok(p.doc.revision().into());
+            }
             let update = apply_action(p, &action, range, now())?;
+            if action=="link_begin" {return Ok(reply(p));}
             changed = p.doc.revision() != before;
             if let Some(update) = update {
                 if let Err(error) = queue(ws, p, update) {
                     p.error = Some(error);
                 }
-            } else if !matches!(
+            } else if !is_editor_action(&action) && !matches!(
                 action.as_str(),
                 "undo"
                     | "redo"
@@ -1638,6 +1701,7 @@ async fn mount<R: Runtime>(
             suspended: false,
             generation: p.entry.generation,
             source_baseline: None,
+            typing_style: None,
         });
         native::SurfaceConfig {
             surface_id: surface.surface_id.clone(),
@@ -2039,6 +2103,7 @@ async fn open_path<R: Runtime>(
             suspended: false,
             generation: p.entry.generation,
             source_baseline: None,
+            typing_style: None,
         });
     }
     Ok(EditorEntry::Opened(p.opened()))
@@ -2817,6 +2882,57 @@ fn invitation_response(invitation: &sync::Invitation) -> Result<Value> {
     Ok(json!({"invitation": serde_json::to_string(invitation).map_err(err)?}))
 }
 
+async fn document_command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, page: &str, window: &str, tab: &str, action: &str) -> Result<()> {
+    authorize(PLUGIN)?;
+    let _lease=ws.lifecycle.lock().await;
+    current(app,ws)?;
+    let surface={
+        let papers=ws.papers.lock().map_err(err)?;
+        let p=papers.get(page).ok_or("纸页已关闭")?;
+        let owner=p.owner.as_ref().filter(|o|o.window==window && o.tab==tab).ok_or("编辑面已切换")?;
+        if owner.composing{return Err("请先完成输入法组合".into());}
+        owner.surface.clone()
+    };
+    if action=="save" {
+        flush(ws,window,tab,page,surface.as_ref().map(|s|(s.surface_id.as_str(),s.generation))).await?;
+    } else {
+        let mut prefs=ws.preferences.lock().map_err(err)?.clone();
+        prefs.font_size=match action {"zoom_in"=>(prefs.font_size+2.).min(96.),"zoom_out"=>(prefs.font_size-2.).max(8.),"zoom_reset"=>Preferences::default().font_size,_=>return Err("不支持的写作命令".into())};
+        prefs.validate()?;
+        ws.durable.set_preferences("appearance".into(),serde_json::to_value(&prefs).map_err(err)?).await?;
+        *ws.preferences.lock().map_err(err)?=prefs;
+        apply_appearance(app,ws,None).await?;
+    }
+    if let Ok(state)=state_value(ws).await {push(app,&json!({"type":"sumi-state","state":state}));}
+    Ok(())
+}
+fn menu_action(id: &str) -> Option<&'static str> {
+    Some(match id {
+        "new"=>"new_page", "open"=>"menu", "save"=>"save", "save-as"=>"export", "close-tab"=>"close",
+        "preferences"=>"settings", "find"=>"find", "find-replace"=>"replace", "open-smart-search"=>"link",
+        "zoom-in"=>"zoom_in", "zoom-out"=>"zoom_out", "zoom-reset"=>"zoom_reset", "select-all"=>"select_all",
+        "file-undo"=>"undo", "file-redo"=>"redo", _=>return None,
+    })
+}
+/// Called synchronously from the native menu event on the main thread. AppKit
+/// first responder is the authority, never a stale DOM "last focused" flag.
+pub fn handle_menu_event<R: Runtime>(app: &tauri::AppHandle<R>, id: &str) -> bool {
+    let Some(action)=menu_action(id) else{return false;};
+    if native::menu_command(action){return true;}
+    let label=crate::plugin_runtime::windows::window_label(PLUGIN,"main");
+    let Some(_window)=app.get_webview_window(&label).filter(|w|w.is_focused().unwrap_or(false)) else{return false;};
+    // With the native surface hidden, ordinary controls retain their text-edit
+    // responders. Document menu commands still belong to this writing window.
+    if matches!(action,"new_page"|"menu"|"save"|"export"|"close"|"settings"|"zoom_in"|"zoom_out"|"zoom_reset") {
+        push(app,&json!({"type":"sumi-action","action":action}));
+    } else if matches!(action,"select_all"|"undo"|"redo") {
+        native::menu_command(&format!("input:{action}"));
+    }
+    // Other host-only commands (such as Smart Search) cannot target the main
+    // document while the Sumi window owns focus.
+    true
+}
+
 pub async fn dispatch<R: Runtime>(
     app: &tauri::AppHandle<R>,
     plugin: &str,
@@ -2845,6 +2961,17 @@ pub async fn dispatch<R: Runtime>(
     let page = || text("pageId");
     match method {
         "host.sumi.state" => state_value(&ws).await,
+        "host.sumi.command" => {
+            let action=text("action")?;
+            if action=="close" {
+                before_close(app,window.label()).await?;
+                window.hide().map_err(err)?;
+            } else {
+                let page=ws.active.lock().map_err(err)?.clone().ok_or("没有当前纸页")?;
+                document_command(app,&ws,&page,window.label(),tab,action).await?;
+            }
+            Ok(Value::Null)
+        }
         "host.sumi.page" => {
             let action = text("action")?;
             // Download the likely surviving page before accepting an active
@@ -3055,6 +3182,38 @@ pub async fn dispatch<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn writing_menu_mapping_and_editor_actions_are_explicit() {
+        for (id,action) in [("new","new_page"),("open","menu"),("preferences","settings"),("close-tab","close"),("save","save"),("save-as","export"),("find-replace","replace"),("open-smart-search","link"),("zoom-in","zoom_in")] {
+            assert_eq!(menu_action(id),Some(action));
+        }
+        assert_eq!(menu_action("tray-quit"),None);
+        for action in ["heading1","heading6","paragraph","quote","bullet_list","ordered_list","indent","outdent","hard_break","link_begin","link_set:https://example.com"] {assert!(is_editor_action(action));}
+        assert!(!is_editor_action("new_page"));
+    }
+    #[tokio::test]
+    async fn keyboard_formats_and_link_sheet_keep_canonical_identity() {
+        let (_temp,ws,page)=fixture().await;
+        let mut papers=ws.papers.lock().unwrap();let p=papers.get_mut(&page).unwrap();
+        p.doc.replace(0,0,0,"word\nother",1).unwrap();p.view=SourceMap::new(&p.doc.body(),p.doc.revision());
+        apply_action(p,"heading2",native::TextRange{start:0,length:0},2).unwrap();
+        assert!(p.doc.body().starts_with("## word"));
+        apply_action(p,"link_begin",native::TextRange{start:0,length:4},3).unwrap();
+        // A remote-equivalent insertion before the captured selection must not
+        // make the later dialog response link the wrong UTF-16 range.
+        p.doc.replace(p.doc.revision(),0,0,"prefix\n",4).unwrap();p.view=SourceMap::new(&p.doc.body(),p.doc.revision());
+        apply_action(p,"link_set:https://example.com",native::TextRange{start:0,length:0},5).unwrap();
+        assert!(p.doc.body().contains("[word](<https://example.com>)"));
+        assert!(p.pending_link.is_none());
+        assert!(apply_action(p,"link_set:https://wrong.example",native::TextRange::default(),6).is_err());
+        let visible=p.view.document.text.encode_utf16().count() as u32;
+        apply_action(p,"hard_break",native::TextRange{start:visible,length:0},7).unwrap();
+        assert!(p.doc.body().ends_with("  \n"));
+        assert_eq!(p.owner.as_ref().unwrap().selection.start,p.view.document.text.encode_utf16().count() as u32);
+        let caret=p.owner.as_ref().unwrap().selection.start;
+        apply_input(p,&write_core::render::TextRange{start:caret,length:0},"next",false,8).unwrap();
+        assert!(p.doc.body().ends_with("  \nnext"));
+    }
     #[tokio::test]
     async fn retired_fonts_migrate_durably_without_resetting_other_preferences() {
         let (_temp, ws, _page) = fixture().await;
@@ -3208,10 +3367,52 @@ mod tests {
     #[tokio::test]
     async fn navigation_versions_change_only_after_durable_active_page_changes() {
         let (_temp,ws,id)=fixture().await;
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().owner.as_mut().unwrap().typing_style=Some(write_core::render::TypingStyle{bold:true,..Default::default()});
         activate_page(&ws,&id).await.unwrap();assert_eq!(ws.navigation_version.load(Ordering::Acquire),1);
+        assert!(ws.papers.lock().unwrap()[&id].owner.as_ref().unwrap().typing_style.is_some(),"same-page refresh preserves input intent");
         activate_page(&ws,"other").await.unwrap();assert_eq!(ws.navigation_version.load(Ordering::Acquire),2);
+        assert!(ws.papers.lock().unwrap()[&id].owner.as_ref().unwrap().typing_style.is_none(),"switching away clears a retained tab owner");
         assert_eq!(ws.durable.preferences("activePage".into()).await.unwrap(),Some(json!("other")));
         activate_page(&ws,"other").await.unwrap();assert_eq!(ws.navigation_version.load(Ordering::Acquire),2);
+    }
+    #[tokio::test]
+    async fn typing_style_is_ephemeral_and_preserved_through_ime_commit() {
+        let (_temp, ws, id) = fixture().await;
+        let mut papers = ws.papers.lock().unwrap(); let paper = papers.get_mut(&id).unwrap();
+        let before = paper.doc.snapshot().unwrap(); let revision = paper.doc.revision();
+        assert!(apply_action(paper, "bold", native::TextRange::default(), 2).unwrap().is_none());
+        assert!(apply_action(paper, "italic", native::TextRange::default(), 3).unwrap().is_none());
+        assert_eq!(paper.doc.snapshot().unwrap(), before); assert_eq!(paper.doc.revision(), revision);
+        paper.owner.as_mut().unwrap().composing = true;
+        update_input_selection(paper, native::TextRange { start: 0, length: 0 });
+        assert!(paper.owner.as_ref().unwrap().typing_style.unwrap().bold);
+        apply_input(paper, &write_core::render::TextRange::default(), "中文😀", false, 4).unwrap();
+        assert_eq!(paper.doc.revision(), revision + 1); assert_eq!(paper.view.document.text, "中文😀");
+        assert!(paper.view.document.runs.iter().any(|r| r.bold && r.italic));
+        paper.owner.as_mut().unwrap().composing = false;
+        let selection = paper.owner.as_ref().unwrap().selection.clone(); update_input_selection(paper, selection.clone());
+        assert!(paper.owner.as_ref().unwrap().typing_style.is_some(), "post-commit selection echo keeps input intent");
+        apply_action(paper, "undo", selection, 5).unwrap(); assert_eq!(paper.doc.body(), "");
+        assert!(paper.owner.as_ref().unwrap().typing_style.is_none());
+    }
+    #[tokio::test]
+    async fn typing_style_clears_on_navigation_and_lf_and_styles_paste_once() {
+        let (_temp, ws, id) = fixture().await;
+        let mut papers = ws.papers.lock().unwrap(); let paper = papers.get_mut(&id).unwrap();
+        apply_action(paper, "bold", native::TextRange::default(), 2).unwrap();
+        apply_input(paper, &write_core::render::TextRange::default(), "*paste*", true, 3).unwrap();
+        assert_eq!(paper.view.document.text, "paste"); assert!(paper.view.document.runs.iter().any(|r| r.bold && r.italic));
+        let selection = paper.owner.as_ref().unwrap().selection.clone();
+        apply_action(paper, "bold", selection.clone(), 4).unwrap();
+        apply_input(paper, &write_core::render::TextRange { start: selection.start, length: 0 }, "plain", false, 5).unwrap();
+        assert!(!paper.view.document.runs.iter().any(|r| r.bold && r.range.start + r.range.length > 5));
+        update_input_selection(paper, native::TextRange { start: 0, length: 0 });
+        assert!(paper.owner.as_ref().unwrap().typing_style.is_none());
+        apply_action(paper, "strike", native::TextRange::default(), 6).unwrap();
+        apply_input(paper, &write_core::render::TextRange::default(), "first\nnext", false, 7).unwrap();
+        assert!(paper.owner.as_ref().unwrap().typing_style.is_none());
+        assert!(paper.view.document.runs.iter().any(|r| r.strike && r.range.start == 0));
+        assert!(!paper.view.document.runs.iter().any(|r| r.strike && r.range.start + r.range.length > 5));
     }
     pub(super) async fn fixture() -> (tempfile::TempDir, Arc<Workspace>, String) {
         let temp = tempfile::tempdir().unwrap();
@@ -3246,6 +3447,7 @@ mod tests {
             suspended: false,
             generation: 0,
             source_baseline: None,
+            typing_style: None,
         });
         paper.opened();
         let ws = Arc::new(Workspace {

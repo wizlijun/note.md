@@ -14,18 +14,20 @@ let state: SumiState | undefined
 let surface: SurfaceHandle | undefined
 let surfacePageId: string | undefined
 let pendingState: SumiState | undefined
-type NavigationSeed = { kind: 'sumi-navigation'; pageId: string; action: 'new_page' | 'previous_page' | 'next_page' | 'menu' | 'open_page' }
+type NavigationSeed = { kind: 'sumi-navigation'; pageId: string; action: 'new_page' | 'previous_page' | 'next_page' | 'menu' | 'open_page' | 'settings' | 'export' }
 let pendingNavigation: NavigationSeed | undefined
 function navigationSeed(value: unknown): NavigationSeed | undefined {
   if (!value || typeof value !== 'object') return
   const seed = value as NavigationSeed
   if (seed.kind === 'sumi-navigation' && typeof seed.pageId === 'string' && seed.pageId.length <= 128
-    && ['new_page', 'previous_page', 'next_page', 'menu', 'open_page'].includes(seed.action)) return seed
+    && ['new_page', 'previous_page', 'next_page', 'menu', 'open_page', 'settings', 'export'].includes(seed.action)) return seed
 }
 async function navigateFromTab(seed: NavigationSeed) {
   await page('open', seed.pageId)
   if (seed.action === 'open_page' || !surface) return
   if (seed.action === 'menu') await showPages()
+  else if (seed.action === 'settings') await showAppearance()
+  else if (seed.action === 'export') await exportSnapshot()
   else await page(seed.action === 'new_page' ? 'create' : seed.action === 'previous_page' ? 'previous' : 'next')
 }
 let busy = false
@@ -194,6 +196,22 @@ async function closePanel(focus = true) {
   panelOpen = false; el('panel').hidden = true
   if (surface && focus) { await request('visible', { surface, visible: true }); await request('focus', { surface }) }
 }
+async function exportSnapshot() {
+  if (!state?.activePageId) return
+  const result = await request<{ saved: boolean }>('export', { pageId: state.activePageId, format: 'archive' })
+  if (result.saved) notice(t('已导出。', 'Exported.'))
+}
+async function writingAction(action?: string) {
+  if (!windowVisible) return
+  if (action === 'new_page') await page('create')
+  else if (action === 'previous_page') await page('previous')
+  else if (action === 'next_page') await page('next')
+  else if (action === 'menu') await showPages()
+  else if (action === 'settings') await showAppearance()
+  else if (action === 'export') await exportSnapshot()
+  else if (action === 'fullscreen') await toggleFullscreen()
+  else if (action && ['save', 'close', 'zoom_in', 'zoom_out', 'zoom_reset'].includes(action)) await request('command', { action })
+}
 async function showPages() {
   await refresh(); await openPanel(t('纸页', 'Pages'))
   if (state!.activePageId) {
@@ -339,13 +357,7 @@ window.notemd?.onMessage?.(event => {
     }
     else void run(() => acceptState(message.state!))
   }
-  if (message.type === 'sumi-action') {
-    if (message.action === 'new_page') void run(() => page('create'))
-    else if (message.action === 'previous_page') void run(() => page('previous'))
-    else if (message.action === 'next_page') void run(() => page('next'))
-    else if (message.action === 'menu') void run(showPages)
-    else if (message.action === 'fullscreen') void run(toggleFullscreen)
-  }
+  if (message.type === 'sumi-action') void run(() => writingAction(message.action))
 })
 void run(async () => {
   await refresh()

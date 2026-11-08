@@ -114,6 +114,8 @@ pub enum NativeEvent {
         text: Option<String>,
         html: Option<String>,
         rtf: Option<String>,
+        #[serde(default)]
+        literal: bool,
     },
     Selection {
         surface_id: String,
@@ -605,4 +607,13 @@ mod tests {
         };
         assert!(validate_document(&doc).is_err());
     }
+}
+
+/// Main-thread native menu dispatch. Only the actual key-window Sumi responder
+/// can consume this command; other text fields retain AppKit behavior.
+pub fn menu_command(command: &str) -> bool {
+    #[cfg(target_os = "macos")]
+    { platform::menu_command(command) }
+    #[cfg(not(target_os = "macos"))]
+    { let _ = command; false }
 }

@@ -19,6 +19,7 @@ unsafe extern "C" {
     fn sumi_editor_free_string(value: *mut c_char);
     fn sumi_editor_detach(editor: *mut c_void);
     fn sumi_editor_supported() -> i32;
+    fn sumi_editor_menu_command(command: *const c_char) -> i32;
     fn sumi_editor_register_cascade(json: *const c_char, error: *mut *mut c_char) -> i32;
     fn sumi_editor_register_font(
         path: *const c_char,
@@ -222,4 +223,8 @@ pub fn detach_window(window: &str) {
 
 pub fn is_supported() -> bool {
     unsafe { sumi_editor_supported() != 0 }
+}
+
+pub fn menu_command(command: &str) -> bool {
+    CString::new(command).is_ok_and(|value| unsafe { sumi_editor_menu_command(value.as_ptr()) != 0 })
 }

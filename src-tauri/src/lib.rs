@@ -1869,6 +1869,7 @@ pub fn run() {
                 *app.state::<LatestMenu>().0.lock().unwrap() = Some(latest_submenu);
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, event| {
+                    if sumi::handle_menu_event(app, event.id().0.as_str()) { return; }
                     if event.id().0.as_str() == "hide-app" {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.hide();

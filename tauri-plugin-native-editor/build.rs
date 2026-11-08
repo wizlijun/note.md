@@ -1,6 +1,7 @@
 fn main() {
     println!("cargo:rerun-if-changed=native/editor.m");
     println!("cargo:rerun-if-changed=native/editor.h");
+    println!("cargo:rerun-if-changed=native/shortcuts.h");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         cc::Build::new()
             .file("native/editor.m")

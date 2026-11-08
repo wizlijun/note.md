@@ -79,6 +79,24 @@ mod tests {
         ] { assert_eq!(markdown(None, Some(input)).unwrap(), expected); }
     }
     #[test]
+    fn explicit_plain_fallback_preserves_markdown_characters_as_literal_text() {
+        for (plain, html) in [
+            (None, Some("<p>**stars** &amp; [link](https://example.com)</p>")),
+            (Some("**RTF text**\r\nnext"), None),
+            (Some("[文件: file:///tmp/**name**]"), None),
+            (Some("[图片]"), None),
+        ] {
+            let text = markdown(plain, html).unwrap();
+            let mut doc = write_core::Document::new("00000000-0000-4000-8000-000000000001", 1, 1).unwrap();
+            let view = write_core::render::SourceMap::new("", 0);
+            view.apply_edit(&mut doc, &write_core::render::TextRange::default(), &text, 1).unwrap();
+            let result = write_core::render::SourceMap::new(&doc.body(), doc.revision());
+            assert_eq!(result.document.text, text);
+            assert!(!result.document.runs.iter().any(|r| r.bold || r.italic || r.link.is_some()));
+            doc.undo(2).unwrap(); assert_eq!(doc.body(), "");
+        }
+    }
+    #[test]
     fn oversized_html_is_rejected_before_tokenization() {
         assert!(markdown(None, Some(&"x".repeat(2 * 1024 * 1024 + 1))).is_err());
     }

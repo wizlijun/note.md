@@ -16,3 +16,6 @@ int sumi_editor_supported(void);
 // Trusted host resource only; process-scoped, never installed in the OS font library.
 int sumi_editor_register_font(const char *path, const char *expected_family, char **error);
 int sumi_editor_register_cascade(const char *json, char **error);
+
+// Only the current key window's actual Sumi text responder; no caller-supplied identity.
+int sumi_editor_menu_command(const char *command);

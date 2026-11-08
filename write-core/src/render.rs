@@ -3,6 +3,8 @@ use crate::{utf16_to_byte, Document, Error, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
+mod typing;
+pub use typing::TypingStyle;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct TextRange {
@@ -585,6 +587,28 @@ impl SourceMap {
             return Err(Error::StaleRevision);
         }
         let mut source = self.source_range(range)?;
+        if matches!(format, "indent" | "outdent") {
+            let start = self.source[..source.start].rfind('\n').map_or(0, |i| i + 1);
+            let end = if source.end > start && self.source[..source.end].ends_with('\n') { source.end - 1 }
+                else { self.source[source.end..].find('\n').map_or(self.source.len(), |i| source.end + i) };
+            let replacement = self.source[start..end].split('\n').map(|line| {
+                if format == "outdent" {
+                    return if let Some(rest) = line.strip_prefix("&#32;&#32;") { rest.to_owned() }
+                        else if let Some(rest) = line.strip_prefix('\t') { rest.to_owned() }
+                        else { line[line.bytes().take_while(|b| *b == b' ').take(2).count()..].to_owned() };
+                }
+                let body = line.trim_start_matches([' ', '\t']);
+                let digits = body.bytes().take_while(u8::is_ascii_digit).count();
+                let list = ["- ", "* ", "+ "].iter().any(|prefix| body.starts_with(prefix))
+                    || ((1..=9).contains(&digits) && (body[digits..].starts_with(". ") || body[digits..].starts_with(") ")));
+                // Character entities preserve ordinary visible indentation without
+                // silently turning a second Tab into an unsupported code block.
+                format!("{}{line}", if list { "  " } else { "&#32;&#32;" })
+            }).collect::<Vec<_>>().join("\n");
+            return doc.replace(self.revision, self.source[..start].encode_utf16().count() as u32,
+                self.source[start..end].encode_utf16().count() as u32, &replacement, at_ms);
+        }
+
         if matches!(
             format,
             "paragraph" | "quote" | "bullet_list" | "ordered_list"
@@ -673,6 +697,21 @@ impl SourceMap {
         let len = self.source[source].encode_utf16().count() as u32;
         doc.replace(self.revision, start, len, &replacement, at_ms)
     }
+    /// Resolve one existing logical link, including split style runs. A caret
+    /// inside a link edits that link; crossing links is never silently merged.
+    pub fn link_target(&self, range: &TextRange) -> Result<Option<(TextRange, String)>> {
+        let source = self.map_range(range, true)?;
+        for (outer, style) in &self.styles {
+            let Some(url) = &style.link else { continue; };
+            if outer.start <= source.start && source.end <= outer.end {
+                let pieces: Vec<_> = self.pieces.iter().filter(|piece| overlap(&piece.source, outer)).collect();
+                if let (Some(first), Some(last)) = (pieces.first(), pieces.last()) {
+                    return Ok(Some((TextRange { start: first.view.start, length: last.view.end-first.view.start }, url.clone())));
+                }
+            }
+        }
+        Ok(None)
+    }
     pub fn apply_link(
         &self,
         doc: &mut Document,
@@ -683,7 +722,7 @@ impl SourceMap {
         if doc.revision() != self.revision {
             return Err(Error::StaleRevision);
         }
-        let source = self.source_range(range)?;
+        let mut source = self.source_range(range)?;
         if source.is_empty() || url.is_empty() || url.chars().any(char::is_control) {
             return Err(Error::Invalid("link text and URL required".into()));
         }
@@ -692,7 +731,27 @@ impl SourceMap {
             .replace(' ', "%20")
             .replace('<', "%3C")
             .replace('>', "%3E");
-        let replacement = format!("[{}](<{dest}>)", &self.source[source.clone()]);
+        let existing_outer = self.styles.iter().find(|(outer,style)| style.link.is_some() && outer.start<=source.start && source.end<=outer.end).map(|(outer,_)|outer.clone());
+        let mut label_source = source.clone();
+        for (outer, style) in &self.styles {
+            if existing_outer.as_ref().is_some_and(|link| outer.start<link.start || outer.end>link.end) {continue;}
+            if !(style.bold || style.italic || style.strike) {continue;}
+            let pieces:Vec<_>=self.pieces.iter().filter(|piece| overlap(&piece.source,outer)).collect();
+            if pieces.first().is_some_and(|p|p.view.start>=range.start) && pieces.last().is_some_and(|p|p.view.end<=range.start+range.length) && overlap(outer,&source) {
+                label_source.start=label_source.start.min(outer.start);label_source.end=label_source.end.max(outer.end);
+            }
+        }
+        let label = self.source[label_source.clone()].to_owned();
+        if let Some((target, _)) = self.link_target(range)? {
+            if target != *range { return Err(Error::Invalid("select the entire existing link to edit its URL".into())); }
+            if let Some((outer, _)) = self.styles.iter().find(|(outer, style)| style.link.is_some() && outer.start <= source.start && source.end <= outer.end) {
+                source = outer.clone();
+            }
+        } else if self.styles.iter().any(|(outer,style)| style.link.is_some() && overlap(outer,&source)) {
+            return Err(Error::Invalid("select one link at a time".into()));
+        }
+        else {source=label_source;}
+        let replacement = format!("[{label}](<{dest}>)");
         doc.replace(
             self.revision,
             self.source[..source.start].encode_utf16().count() as u32,

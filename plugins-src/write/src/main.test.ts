@@ -317,3 +317,33 @@ describe('Sumi native writing shell', () => {
   })
 
 })
+
+describe('Sumi focused document commands', () => {
+  it('routes native save/close/zoom only through writing commands', async () => {
+    const request = await setup()
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    for (const action of ['save', 'zoom_in', 'zoom_out', 'zoom_reset', 'close']) {
+      receive({ type: 'sumi-action', action }); await settle()
+      expect(request).toHaveBeenCalledWith('host.sumi.command', { action })
+    }
+    expect(request.mock.calls.map(call => call[0])).not.toContain('host.file.save')
+  })
+  it('opens appearance from its command and ignores actions after hiding', async () => {
+    const request = await setup()
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-action', action: 'settings' }); await settle()
+    expect(document.querySelector('select[name="fontFamily"]')).not.toBeNull()
+    receive({ type: 'sumi-window-state', visible: false, detached: true }); await settle()
+    request.mockClear()
+    receive({ type: 'sumi-action', action: 'new_page' }); await settle()
+    expect(request).not.toHaveBeenCalled()
+  })
+  it('exports the current page archive without creating another paper', async () => {
+    const request = await setup()
+    request.mockImplementation(async (method: string) => method === 'host.sumi.export' ? { saved: true } : null)
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-action', action: 'export' }); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.export', { pageId: 'page-a', format: 'archive' })
+    expect(request.mock.calls.map(call => call[0])).not.toContain('host.sumi.page')
+  })
+})

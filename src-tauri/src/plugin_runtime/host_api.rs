@@ -87,7 +87,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         "host.sumi.state" | "host.sumi.page" | "host.sumi.mount" | "host.sumi.detach"
         | "host.sumi.bounds" | "host.sumi.visible" | "host.sumi.focus" | "host.sumi.focus_existing" | "host.sumi.preferences"
         | "host.sumi.fullscreen" | "host.sumi.pair" | "host.sumi.invite"
-        | "host.sumi.export" | "host.sumi.restore_projection" => Some("editor.native"),
+        | "host.sumi.command" | "host.sumi.export" | "host.sumi.restore_projection" => Some("editor.native"),
         "host.quickLaunch.get" | "host.quickLaunch.save" | "host.quickLaunch.run" => Some("quick-launch"),
         "host.taskHook.get" | "host.taskHook.select" | "host.taskHook.clear" | "host.taskHook.run" | "host.taskHook.setEnvironment" => Some("task.hook"),
         // Opaque collaborative-document aggregate repository. The live UI
