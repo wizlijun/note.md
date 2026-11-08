@@ -93,25 +93,28 @@ int main(){@autoreleasepool{
     SumiCaretClockProbe *clock=[[SumiCaretClockProbe alloc]initUsingTextLayoutManager:YES];clock.owner=editor;clock.frame=NSMakeRect(0,0,500,400);[window.contentView addSubview:clock];clock.string=@"A";clock.typingAttributes=[editor baseAttributes];clock.simulatedActive=YES;
     [clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden,@"breathing keeps the caret visible");
     CABasicAnimation *breathing=(CABasicAnimation *)[clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"];
-    require([breathing.keyPath isEqualToString:@"opacity"] && [breathing.fromValue doubleValue]==1 && [breathing.toValue doubleValue]==0.25 && breathing.duration==3 && breathing.autoreverses,@"public layer animation breathes 1→0.25→1 over six seconds");
+    require([breathing.keyPath isEqualToString:@"opacity"] && [breathing.fromValue doubleValue]==1 && [breathing.toValue doubleValue]==0.25 && breathing.duration==2 && breathing.autoreverses,@"public layer animation breathes 1→0.25→1 over four seconds");
     require(breathing.preferredFrameRateRange.maximum==30,@"animation requests at most 30fps");
     // Observe the real Core Animation presentation tree for a complete cycle.
     // The window stays unordered: this proves layer animation, not physical
     // display latency or on-screen input-method behavior.
     [CATransaction flush];
     float minimumOpacity=1,maximumOpacity=0;BOOL brightAfterDim=NO;
-    CFTimeInterval observedEpoch=clock.caretBreathingEpoch;
-    for(NSUInteger sample=0;sample<13;sample++){
-        runLoop(0.5);CALayer *presentation=clock.typewriterCaret.layer.presentationLayer;
+    CFTimeInterval observedEpoch=clock.caretBreathingEpoch,firstDimmed=0,firstBrightAgain=0;
+    for(NSUInteger sample=0;sample<18;sample++){
+        runLoop(0.25);CALayer *presentation=clock.typewriterCaret.layer.presentationLayer;
         require(presentation!=nil,@"actual backing layer supplies a presentation tree");
         float opacity=presentation.opacity;minimumOpacity=MIN(minimumOpacity,opacity);maximumOpacity=MAX(maximumOpacity,opacity);
-        if(minimumOpacity<0.4 && opacity>0.9)brightAfterDim=YES;
+        CFTimeInterval elapsed=CACurrentMediaTime()-observedEpoch;
+        if(firstDimmed==0 && opacity<0.4)firstDimmed=elapsed;
+        if(minimumOpacity<0.4 && opacity>0.9){brightAfterDim=YES;if(firstBrightAgain==0)firstBrightAgain=elapsed;}
         require(opacity>=0.24 && opacity<=1.01,@"breathing presentation remains visible throughout the cycle");
-        printf("BREATH sample=%lu elapsed=%.3f opacity=%.4f\n",(unsigned long)sample,CACurrentMediaTime()-observedEpoch,opacity);
+        printf("BREATH sample=%lu elapsed=%.3f opacity=%.4f\n",(unsigned long)sample,elapsed,opacity);
         [clock refreshTypewriterCaret:YES];
         require(clock.caretBreathingEpoch==observedEpoch,@"refreshes during observed animation preserve phase");
     }
-    require(minimumOpacity<0.4 && maximumOpacity>0.9 && brightAfterDim,@"actual presentation dims and returns to bright over the six-second breathing cycle");
+    require(minimumOpacity<0.4 && maximumOpacity>0.9 && brightAfterDim,@"actual presentation dims and returns to bright over the four-second breathing cycle");
+    require(firstDimmed>=1.1 && firstDimmed<=2.4 && firstBrightAgain>=3.0 && firstBrightAgain<=4.6,@"observed dark and returning-bright phases follow the requested four-second rhythm");
     runLoop(0.05); // Finish the initial native view layout before observing animation-only frames.
     CFTimeInterval epoch=clock.caretBreathingEpoch,begin=breathing.beginTime;NSUInteger geometry=clock.geometryCalls;
     runLoop(0.25);require(clock.geometryCalls==geometry,@"animation frames never recompute geometry or text layout");
@@ -157,5 +160,5 @@ int main(){@autoreleasepool{
     sumi_editor_detach(handle);require([editor.text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"detach stops animation");
     require(!window.visible && !window.isKeyWindow && !NSApp.isActive,@"probe never showed or activated a window");
     require(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier==foreground,@"user's foreground application unchanged");
-    printf("PASS: font-height vertical caret, real TextKit2 geometry/theme/IME; six-second phase-stable layer breathing/steady; no UI activation\n");
+    printf("PASS: font-height vertical caret, real TextKit2 geometry/theme/IME; four-second phase-stable layer breathing/steady; no UI activation\n");
 }}

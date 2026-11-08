@@ -7,6 +7,12 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi 0.1.2: open settings reliably during Chinese input.** With note.md 6.1108.3, opening settings or another panel commits the current preedit before switching views. If the handoff fails, your text and editor remain available for retry.
+
+- **Sumi: a four-second breathing caret.** The caret gently dims for two seconds and brightens for two seconds. Typing preserves the rhythm, and steady mode remains continuously visible.
+
+- **Sumi: margins grow with the writing font.** Larger text gains proportionate space around the page. Narrow windows retain room for writing, and the reserved input area keeps its chosen size.
+
 - **Sumi 0.1.1 requires note.md 6.1108.2 or later.** Update the host alongside the marketplace plugin to receive the fix for the gentle breathing caret when macOS Reduce Motion is enabled.
 
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.

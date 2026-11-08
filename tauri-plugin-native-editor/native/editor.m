@@ -88,6 +88,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 @property(nonatomic) CFTimeInterval caretBreathingEpoch;
 @property(nonatomic) BOOL refreshingCaret;
 @property(nonatomic) NSUInteger caretInputDepth;
+@property(nonatomic) NSUInteger compositionMutationDepth;
 @property(nonatomic) BOOL caretRefreshQueued;
 - (NSRect)typewriterCaretRect;
 - (BOOL)usesTypewriterCaret;
@@ -98,6 +99,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 - (void)syncSystemCaretColor;
 - (void)queueCaretRefresh;
 - (BOOL)sumiCommand:(NSString *)command;
+- (BOOL)prepareForPanel;
 @end
 @interface SumiContainer : NSView
 @end
@@ -134,6 +136,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 - (void)beginComposition;
 - (void)finishComposition;
 - (void)acceptChanges;
+- (BOOL)acceptChangesPreservingRejectedText:(BOOL)preserve;
 - (void)action:(NSString *)action;
 - (void)layoutEditor;
 - (void)setBounds:(NSDictionary *)bounds;
@@ -236,7 +239,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     if([layer animationForKey:@"sumi-caret-breathing"])return;
     if(self.caretBreathingEpoch==0)self.caretBreathingEpoch=CACurrentMediaTime();
     CABasicAnimation *breathing=[CABasicAnimation animationWithKeyPath:@"opacity"];
-    breathing.fromValue=@1;breathing.toValue=@0.25;breathing.duration=3;breathing.autoreverses=YES;breathing.repeatCount=HUGE_VALF;
+    breathing.fromValue=@1;breathing.toValue=@0.25;breathing.duration=2;breathing.autoreverses=YES;breathing.repeatCount=HUGE_VALF;
     breathing.timingFunction=[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
     breathing.beginTime=[layer convertTime:self.caretBreathingEpoch fromLayer:nil];
     if(@available(macOS 12.0,*))breathing.preferredFrameRateRange=CAFrameRateRangeMake(15,30,30);
@@ -303,21 +306,54 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selected replacementRange:(NSRange)replacement {
     self.caretInputDepth++;
+    self.compositionMutationDepth++;
     [self.owner beginComposition];
     [self syncSystemCaretColor];
     [super setMarkedText:value selectedRange:selected replacementRange:replacement];
+    self.compositionMutationDepth--;
+    if(!self.compositionMutationDepth && !self.hasMarkedText)[self.owner finishComposition];
     self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 - (void)unmarkText {
-    self.caretInputDepth++;
+    self.caretInputDepth++;self.compositionMutationDepth++;
     [super unmarkText];
-    [self.owner finishComposition];
+    self.compositionMutationDepth--;
+    if(!self.compositionMutationDepth)[self.owner finishComposition];
     self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
-- (void)insertText:(id)value replacementRange:(NSRange)replacement {
+// Only an explicit panel request commits preedit. Background visibility and
+// remote updates must keep their composition barrier.
+- (BOOL)prepareForPanel {
+    if(!self.owner.composing && !self.hasMarkedText)return YES;
+    NSRange marked=self.markedRange,selection=self.selectedRange;
+    NSAttributedString *preedit=self.hasMarkedText?[self.textStorage attributedSubstringFromRange:marked]:nil;
     self.caretInputDepth++;
+    // AppKit may invoke insertText/unmarkText recursively while clearing marks.
+    // Keep that entire change inside the frozen composition until acceptance.
+    self.compositionMutationDepth++;
+    [super unmarkText];
+    self.compositionMutationDepth--;
+    BOOL accepted=[self.owner acceptChangesPreservingRejectedText:YES];
+    if(!accepted){
+        if(preedit){
+            NSUInteger start=MIN(MAX(selection.location,marked.location),NSMaxRange(marked));
+            NSRange clause=NSMakeRange(start-marked.location,MIN(selection.length,NSMaxRange(marked)-start));
+            self.compositionMutationDepth++;
+            [super setMarkedText:preedit selectedRange:clause replacementRange:marked];
+            self.compositionMutationDepth--;
+        }
+    }else{
+        [self.owner finishComposition];
+        [self.inputContext discardMarkedText];
+    }
+    self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    return accepted && !self.hasMarkedText && !self.owner.composing;
+}
+- (void)insertText:(id)value replacementRange:(NSRange)replacement {
+    self.caretInputDepth++;self.compositionMutationDepth++;
     [super insertText:value replacementRange:replacement];
-    if(!self.hasMarkedText)[self.owner finishComposition];
+    self.compositionMutationDepth--;
+    if(!self.compositionMutationDepth && !self.hasMarkedText)[self.owner finishComposition];
     self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 - (void)keyDown:(NSEvent *)event {
@@ -561,9 +597,10 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     [self emit:@"composition" fields:@{@"revision":@(self.revision),@"active":@NO}];
     [self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
 }
-- (void)acceptChanges {
+- (void)acceptChanges { [self acceptChangesPreservingRejectedText:NO]; }
+- (BOOL)acceptChangesPreservingRejectedText:(BOOL)preserve {
     NSString *after=[self.text.string copy];
-    if([self.committed isEqualToString:after]){[self.pending removeAllObjects];return;}
+    if([self.committed isEqualToString:after]){[self.pending removeAllObjects];return YES;}
     NSDictionary *delta;
     if(!self.composing && self.pending.count==1){
         NSDictionary *candidate=self.pending.firstObject;
@@ -574,11 +611,13 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSMutableDictionary *fields=[delta mutableCopy];fields[@"base_revision"]=@(self.revision);
     NSDictionary *projection=nil;
     int64_t accepted=[self emit:@"edit" fields:fields projection:&projection];
-    if(accepted>=0 && (uint64_t)accepted>self.revision){
+    BOOL didAccept=accepted>=0 && (uint64_t)accepted>self.revision;
+    if(didAccept){
         if(projection)[self applyProjection:projection revision:(uint64_t)accepted];
         else {self.revision=(uint64_t)accepted;self.committed=after;}
     }
     else{
+        if(preserve)return NO;
         self.applying=YES;
         self.text.string=self.committed;
         NSUInteger position=MIN([delta[@"range"][@"start"] unsignedIntegerValue],self.committed.length);
@@ -587,6 +626,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     }
     [self.pending removeAllObjects];
     if(!self.composing)[self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
+    return didAccept;
 }
 - (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)replacement {
     if(self.applying)return YES;
@@ -642,14 +682,17 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     [self layoutEditor];
 }
 - (void)layoutEditor {
-    CGFloat w=self.container.bounds.size.width;
+    CGFloat w=self.container.bounds.size.width,h=self.container.bounds.size.height;
     NSFont *font=[self baseFont];
     CGFloat cell=[@"0" sizeWithAttributes:@{NSFontAttributeName:font}].width;
-    CGFloat content=MIN(MAX(0,w-48),cell*[self.appearance[@"max_columns"] doubleValue]);
-    CGFloat margin=MAX(24,(w-content)/2);
+    CGFloat scale=font.pointSize/22.0;
+    CGFloat horizontal=MIN(MAX(16,24*scale),MAX(0,w)/4);
+    CGFloat vertical=MIN(MAX(20,32*scale),MAX(0,h)/4);
+    CGFloat content=MIN(MAX(0,w-2*horizontal),cell*[self.appearance[@"max_columns"] doubleValue]);
+    CGFloat margin=MAX(horizontal,(w-content)/2);
     self.scroll.frame=self.container.bounds;
     self.text.frame=NSMakeRect(0,0,w,MAX(self.scroll.contentSize.height,self.text.frame.size.height));
-    self.text.textContainerInset=NSMakeSize(margin,32);
+    self.text.textContainerInset=NSMakeSize(margin,vertical);
     self.text.textContainer.containerSize=NSMakeSize(MAX(0,w-2*margin),CGFLOAT_MAX);
     self.scroll.contentInsets=NSEdgeInsetsMake(0,0,[self.appearance[@"bottom_inset"] doubleValue],0);
     [self.text refreshTypewriterCaret:NO];
@@ -811,6 +854,11 @@ int sumi_editor_command(void *handle,const char *json){
         editor.applying=YES;editor.appearance=value[@"appearance"];[editor applyStyles];[editor layoutEditor];editor.applying=NO;[editor.text refreshTypewriterCaret:NO];return 0;
     }
     if([command isEqualToString:@"focus"]){BOOL applying=editor.applying;editor.applying=YES;[editor.text.window makeFirstResponder:editor.text];editor.applying=applying;return 0;}
+    if([command isEqualToString:@"prepare_panel"]){
+        if(![editor.text prepareForPanel])return 5;
+        if(editor.text.window.firstResponder==editor.text && ![editor.text.window makeFirstResponder:nil])return 5;
+        editor.container.hidden=YES;return 0;
+    }
     if([command isEqualToString:@"set_visible"]){
         if(editor.composing)return 1;
         BOOL visible=[value[@"visible"] boolValue];editor.container.hidden=!visible;

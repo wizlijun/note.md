@@ -3096,8 +3096,13 @@ pub async fn dispatch<R: Runtime>(
                     "host.sumi.bounds" => native::SurfaceCommand::SetBounds {
                         bounds: serde_json::from_value(params["bounds"].clone()).map_err(err)?,
                     },
-                    "host.sumi.visible" => native::SurfaceCommand::SetVisible {
-                        visible: params["visible"].as_bool().ok_or("缺少可见性")?,
+                    "host.sumi.visible" => {
+                        let visible = params["visible"].as_bool().ok_or("缺少可见性")?;
+                        if !visible && params["preparePanel"].as_bool() == Some(true) {
+                            native::SurfaceCommand::PreparePanel
+                        } else {
+                            native::SurfaceCommand::SetVisible { visible }
+                        }
                     },
                     _ => native::SurfaceCommand::Focus,
                 };

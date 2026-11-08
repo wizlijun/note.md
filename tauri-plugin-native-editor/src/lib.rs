@@ -218,6 +218,7 @@ pub enum SurfaceCommand {
         selection: TextRange,
     },
     Focus,
+    PreparePanel,
     SetVisible {
         visible: bool,
     },

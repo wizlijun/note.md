@@ -53,6 +53,13 @@ Marked text emits no Edit. At IME completion the native surface emits one commit
 Edit, then `Composition(active=false)`. `ApplyDocument` and appearance/visibility
 changes return `composition active` while composing. The host must queue/rebase
 remote operations and render them after that completion event, not drop them.
+An explicit `PreparePanel` command is the deliberate handoff exception: it commits
+the currently visible preedit through the same local transaction, then releases
+composition, clears the input context and hides the native surface. Rejected
+commits preserve the text and marked selection, keep the editor visible and return
+a retryable message. Ordinary background `SetVisible` and remote operations retain
+the composition barrier; they do not force this handoff. Reentrant AppKit unmark
+and insert callbacks finish only the outermost composition mutation.
 `ApplyDocument` also checks the expected native revision; it replaces the minimal
 visible range and updates only changed style spans. Identical text/runs skip
 attribute writes. Runs should be flattened, non-overlapping spans containing all
@@ -114,6 +121,22 @@ an off-screen rectangle. Programmatic bounds updates do not emit user position
 changes. The host converts positions to page/epoch/root-bound CRDT anchors,
 coalesces small preference writes, and forces a final snapshot on detach/close.
 
+## Writing margins
+
+At 22pt, the editor reserves at least 24pt on each side and 32pt above and below
+its text container. These margins scale with the overall font size; small fonts
+retain at least 16pt horizontally and 20pt vertically. Each minimum is capped at
+one quarter of the corresponding viewport dimension. `max_columns` remains the
+font-measured width limit, with extra horizontal space centering the text.
+`bottom_inset` remains an additional absolute input-area reservation; font changes
+do not scale it or modify document text, selection or revision.
+
+`native/padding-probe.m` checks real TextKit line and caret geometry across
+8/22/32/50/96pt and large, narrow and short viewports. It captures unordered AppKit
+rasters at 22pt and 50pt with the bundled Zhaohua font and sepia theme, without
+activating or showing a window. These are native offscreen rendering checks, not
+physical-screen acceptance of a packaged application.
+
 ## Insertion caret
 
 The custom caret replaces the ordinary system line with a slightly heavier
@@ -123,7 +146,7 @@ heading sizes do not change that height. It follows the actual TextKit 2 baselin
 
 `Appearance.caret_motion` defaults to `breathing`; `steady` stays fully opaque.
 Breathing uses a public Core Animation opacity animation from 1 to 0.25 and back
-over six seconds, requesting 30 fps. Input, selection and remote updates preserve
+over four seconds (two seconds each way), requesting 30 fps. Input, selection and remote updates preserve
 the phase. No application timer or animation frame triggers text layout. Hidden,
 inactive, selected-range and offscreen states remove the animation. The explicit
 Sumi choice controls the caret even when macOS Reduce Motion is enabled: choose
@@ -141,7 +164,7 @@ layout completion retry geometry. No private indicator APIs, global defaults or
 input-method geometry are changed.
 
 `native/caret-probe.m` tests geometry, fixed font metrics, animation configuration,
-stable phase and steady mode. `native/caret-render-probe.m` supplies a real
+the actual presentation-layer cycle, stable phase and steady mode. `native/caret-render-probe.m` supplies a real
 TextKit 2 system-caret positive control, captures AppKit bitmap pixels, checks the
 single custom caret through font/theme changes and IME, and verifies a suppression
 mutation exposes a duplicate. Continuous state observations and immediate raster

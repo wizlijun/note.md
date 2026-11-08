@@ -90,6 +90,24 @@ describe('Sumi native writing shell', () => {
     expect(document.getElementById('notice')!.textContent).toContain('保存失败')
     expect(document.getElementById('notice')!.hidden).toBe(false)
   })
+  it('waits for explicit composition handoff before showing appearance, and can retry a rejected handoff', async () => {
+    const request = await setup()
+    let reject!: (reason: Error) => void
+    request.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+    document.getElementById('appearance')!.click(); await settle()
+    expect(request).toHaveBeenLastCalledWith('host.sumi.visible', { surface: { id: 'surface-a', generation: 1 }, visible: false, preparePanel: true })
+    expect(document.getElementById('panel')!.hidden).toBe(true)
+    reject(new Error('暂时无法打开面板，文字已保留，请重试')); await settle()
+    expect(document.getElementById('panel')!.hidden).toBe(true)
+    expect(document.getElementById('notice')!.textContent).toContain('文字已保留')
+    expect((document.getElementById('appearance') as HTMLButtonElement).disabled).toBe(false)
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.getElementById('panel')!.hidden).toBe(false)
+    expect(document.querySelector('#panel-body form')).not.toBeNull()
+    document.getElementById('close')!.click(); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.visible', { surface: { id: 'surface-a', generation: 1 }, visible: true })
+    expect(request).toHaveBeenLastCalledWith('host.sumi.focus', { surface: { id: 'surface-a', generation: 1 } })
+  })
   it.each(['Sumi Plex', 'Sumi WenKai', 'Sumi Zhaohua', 'Sumi Youcha', 'Sumi Fangsong'])('applies the %s font combination without changing other preferences', async (fontFamily) => {
     const preferences = { ...defaultPreferences, theme: 'sepia' as const, fontSize: 32, lineHeight: 1.8 }
     const request = await setup(state({ preferences }))

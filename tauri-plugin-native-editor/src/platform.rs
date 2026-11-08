@@ -180,6 +180,7 @@ pub fn command(
         1 => Err("composition active".into()),
         2 => Err("stale document revision".into()),
         3 => Err("invalid native command".into()),
+        5 => Err("暂时无法打开面板，文字已保留，请重试".into()),
         _ => Err("native editor failure".into()),
     }
 }
