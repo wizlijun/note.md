@@ -8,8 +8,11 @@
   import { boundsForNative, nativeSurfaceOccluded } from '../lib/sumi/geometry'
   import { sumiPageIdentity } from '../lib/sumi/files'
   import { openSumiOwner, closeSumiOwner, SumiExistingOwnerError, focusExistingSumiPage, mountSumiOwner, detachSumiSurface, updateSumiSurface, type SumiOwner, type NativeBinding, type ProjectionIdentity } from '../lib/sumi/session'
+  import { i18n } from '../lib/i18n/runtime.svelte'
+  import { createI18n } from '../lib/sumi/i18n'
   import SumiRecovery from './SumiRecovery.svelte'
 
+  let text = $derived(createI18n(i18n.locale))
   let { tab, view }: { tab: Tab; view: FileViewRef } = $props()
   let element: HTMLDivElement
   let status = $state<'loading' | 'ready' | 'error' | 'existing'>('loading')
@@ -40,14 +43,14 @@
       })
     } catch (error) {
       const { showError } = await import('../lib/dialogs')
-      void showError(String(error))
+      void showError(text.hostMessage(String(error)))
     } finally { navigating = false }
   }
 
   async function closeCurrentTab() {
     const { confirmDirtyClose, showError } = await import('../lib/dialogs')
     try { await closeTab(tab.id, confirmDirtyClose) }
-    catch (error) { void showError(String(error)) }
+    catch (error) { void showError(text.hostMessage(String(error))) }
   }
 
   async function focusExisting() {
@@ -112,7 +115,7 @@
       const stateStop = await listen<{ page_id?: string; tab_id?: string; revision?: number; projection_identity?: ProjectionIdentity; notice?: string; error?: string; durable?: boolean; projected?: boolean }>('sumi-state', event => {
         if (event.payload.page_id && event.payload.page_id !== owner?.pageId || event.payload.tab_id && event.payload.tab_id !== tab.id) return
         if (event.payload.durable && event.payload.revision !== undefined) acknowledgeSumiProjection(tab,event.payload.revision,event.payload.projection_identity)
-        if (event.payload.notice) void import('../lib/dialogs').then(({ showError }) => showError(event.payload.notice!))
+        if (event.payload.notice) void import('../lib/dialogs').then(({ showError }) => showError(text.hostMessage(event.payload.notice!, 'status')))
         if (event.payload.error) saveError = event.payload.error
         else if (event.payload.durable && event.payload.projected === true) saveError = ''
         schedule()
@@ -159,18 +162,18 @@
 </script>
 
 <div class="native-file-view" aria-busy={status === 'loading'}>
-  {#if saveError}<div class="native-save-error" role="status">保存未完成，当前草稿已保留：{saveError}
+  {#if saveError}<div class="native-save-error" role="status">{text.t('保存未完成，当前草稿已保留：', 'Saving is incomplete; your current draft is preserved: ', '保存が完了していません。現在の下書きは保持されています：')}{text.hostMessage(saveError)}
     <SumiRecovery path={tab.filePath} pluginId={view.pluginId} tabId={tab.id} pageId={owner?.pageId} onrestored={reopen} />
   </div>{/if}
   <div class="native-editor-region" bind:this={element}>
   {#if status === 'loading'}
-    <div class="native-status" role="status">正在打开 Sumi…</div>
+    <div class="native-status" role="status">{text.t(`正在打开${text.appName}…`, `Opening ${text.appName}…`, `${text.appName}を開いています…`)}</div>
   {:else if status === 'existing'}
-    <div class="native-status" role="status"><span>{failure}</span><button onclick={focusExisting}>聚焦已有编辑面</button></div>
+    <div class="native-status" role="status"><span>{text.hostMessage(failure)}</span><button onclick={focusExisting}>{text.t('聚焦已有编辑面', 'Focus the existing editor', '開いている編集画面へ移動')}</button></div>
   {:else if status === 'error'}
     <div class="native-status" role="alert">
-      <span>Sumi 暂时无法打开：{failure}</span>
-      <button onclick={() => { void setMode(tab.id, 'source') }}>查看 Markdown 源码</button>
+      <span>{text.t(`${text.appName} 暂时无法打开：`, `${text.appName} cannot open right now: `, `${text.appName}を現在開けません：`)}{text.hostMessage(failure)}</span>
+      <button onclick={() => { void setMode(tab.id, 'source') }}>{text.t('查看 Markdown 源码', 'View Markdown source', 'Markdown ソースを表示')}</button>
       <SumiRecovery path={tab.filePath} pluginId={view.pluginId} tabId={tab.id} pageId={owner?.pageId} onrestored={reopen} />
     </div>
   {/if}

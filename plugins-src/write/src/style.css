@@ -3,6 +3,7 @@
 :root[data-theme="paper"] { color-scheme:light; --paper:#fafafa; --ink:#222 }
 :root[data-theme="sepia"] { color-scheme:light; --paper:#f3ead7; --ink:#44413c }
 :root[data-theme="crt"] { color-scheme:dark; --paper:#000000; --ink:#0ccc68 }
+:root[data-theme="crt-blue"] { color-scheme:dark; --paper:#000000; --ink:#7fb4ff }
 * { box-sizing:border-box }
 body { margin:0 }
 [hidden] { display:none !important }

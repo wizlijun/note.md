@@ -1,4 +1,4 @@
-export type Theme = 'ink' | 'dim' | 'paper' | 'sepia' | 'crt'
+export type Theme = 'ink' | 'dim' | 'paper' | 'sepia' | 'crt' | 'crt-blue'
 export interface Preferences {
   theme: Theme
   fontFamily: string
@@ -52,7 +52,7 @@ export function preferencesFromForm(form: HTMLFormElement, currentFont?: string)
     return value
   }
   const theme = data.get('theme')
-  if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper' && theme !== 'sepia' && theme !== 'crt') throw new Error('Invalid theme')
+  if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper' && theme !== 'sepia' && theme !== 'crt' && theme !== 'crt-blue') throw new Error('Invalid theme')
   const fontFamily = String(currentFont ?? data.get('fontFamily') ?? '').trim()
   if (!fontPresets.some(([value]) => value === fontFamily)) throw new Error('Invalid font')
   const caretMotion = data.get('caretMotion')

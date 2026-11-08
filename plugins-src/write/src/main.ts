@@ -1,4 +1,5 @@
 import './style.css'
+import { createI18n } from '../../../src/lib/sumi/i18n'
 import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds, type FontState } from './contract'
 
 interface Bridge {
@@ -7,8 +8,9 @@ interface Bridge {
   onMessage?(handler: (event: unknown) => void): void
 }
 declare global { interface Window { notemd?: Bridge } }
-const zh = (window.notemd?.locale ?? navigator.language).startsWith('zh')
-const t = (cn: string, en: string) => zh ? cn : en
+const { locale, t, appName, hostMessage, fontName } = createI18n(window.notemd?.locale ?? navigator.language)
+document.documentElement.lang = locale
+document.title = appName
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T
 let state: SumiState | undefined
 let surface: SurfaceHandle | undefined
@@ -42,16 +44,16 @@ let fontPanel: { render(): void; poll(): Promise<void>; pause(): void; dispose()
 function stopFontPanel() { fontPanel?.dispose(); fontPanel = undefined }
 
 // User content is always assigned through textContent, never interpolated into markup.
-el('app').innerHTML = `<main id="surface" aria-label="Sumi"></main>
+el('app').innerHTML = `<main id="surface" aria-label="${appName}"></main>
 <p id="notice" role="status" aria-live="polite"></p>
-<nav id="tools" aria-label="Sumi"><button id="previous">←</button><button id="next">→</button><button id="new">＋</button><button id="pages">☷</button><button id="appearance">Aa</button><button id="sync">⇄</button><button id="fullscreen">⛶</button></nav>
-<section id="panel" hidden aria-modal="true" role="dialog"><header><h1 id="panel-title"></h1><button id="close">×</button></header><div id="panel-body"></div></section>`
-for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page'), next: t('下一页', 'Next page'), new: t('新的一页', 'New page'), pages: t('纸页', 'Pages'), appearance: t('外观', 'Appearance'), sync: t('同步', 'Sync'), fullscreen: t('进入全屏（⌃⌘F）', 'Enter fullscreen (⌃⌘F)'), close: t('返回书写', 'Back to writing') })) {
+<nav id="tools" aria-label="${appName}"><button id="previous">←</button><button id="next">→</button><button id="new">＋</button><button id="pages">☷</button><button id="appearance">Aa</button><button id="sync">⇄</button><button id="fullscreen">⛶</button></nav>
+<section id="panel" hidden aria-modal="true" role="dialog" aria-labelledby="panel-title"><header><h1 id="panel-title"></h1><button id="close">×</button></header><div id="panel-body"></div></section>`
+for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page', '前のページ'), next: t('下一页', 'Next page', '次のページ'), new: t('新的一页', 'New page', '新しいページ'), pages: t('纸页', 'Pages', 'ページ'), appearance: t('外观', 'Appearance', '外観'), sync: t('同步', 'Sync', '同期'), fullscreen: t('进入全屏（⌃⌘F）', 'Enter fullscreen (⌃⌘F)', 'フルスクリーンにする（⌃⌘F）'), close: t('返回书写', 'Back to writing', '執筆に戻る') })) {
   el(id).title = label; el(id).setAttribute('aria-label', label)
 }
 
 async function request<T>(method: string, params?: unknown): Promise<T> {
-  if (!window.notemd) throw new Error(t('请在 note.md 中打开 Sumi。', 'Open Sumi inside note.md.'))
+  if (!window.notemd) throw new Error(t('请在 note.md 中打开墨笺。', 'Open Sumi inside note.md.', 'note.md からすみを開いてください。'))
   return await window.notemd.request(`host.sumi.${method}`, params) as T
 }
 function notice(message = '') { el('notice').textContent = message; el('notice').hidden = !message }
@@ -60,7 +62,7 @@ function bounds(): Bounds {
   return { x: r.x, y: r.y, width: r.width, height: r.height }
 }
 function syncStatusLabel(connected: boolean) {
-  return connected ? t('已连接', 'Connected') : t('离线也可以继续书写。连接后自动合并。', 'Keep writing offline. Changes merge when reconnected.')
+  return connected ? t('已连接', 'Connected', '接続済み') : t('离线也可以继续书写。连接后自动合并。', 'Keep writing offline. Changes merge when reconnected.', 'オフラインでも執筆できます。再接続すると変更が自動的に統合されます。')
 }
 function applyState(next: SumiState) {
   if ((next.navigationVersion ?? 0) < (state?.navigationVersion ?? 0)) return
@@ -72,10 +74,10 @@ function applyState(next: SumiState) {
   if (syncStatus) syncStatus.textContent = syncStatusLabel(next.sync.connected)
   const invite = document.getElementById('sync-invite')
   if (invite) invite.hidden = !next.sync.connected
-  notice(!next.available ? next.reason ?? t('此系统暂不支持原生写作。', 'Native writing is unavailable on this system.')
-    : next.saveState === 'error' ? t('保存失败，文字已保留，请重试。', 'Saving failed. Your draft is retained; retry saving.')
-      : next.saveState === 'projection-pending' ? t('文字已保存在本机，文件仍待写入。', 'Saved locally; file export is pending.')
-        : next.sync.message ?? '')
+  notice(!next.available ? (next.reason ? hostMessage(next.reason) : t('此系统暂不支持原生写作。', 'Native writing is unavailable on this system.', 'このシステムではネイティブ編集を利用できません。'))
+    : next.saveState === 'error' ? t('保存失败，文字已保留，请重试。', 'Saving failed. Your draft is retained; retry saving.', '保存できませんでした。文章は保持されています。再試行してください。')
+      : next.saveState === 'projection-pending' ? t('文字已保存在本机，文件仍待写入。', 'Saved locally; file export is pending.', '文章はこの端末に保存されています。ファイルへの書き出しを待っています。')
+        : hostMessage(next.sync.message ?? '', 'status'))
 }
 async function releaseSurface() {
   if (!surface) return
@@ -106,14 +108,14 @@ async function mountPage(focusExisting = false) {
   await releaseSurface()
   if (!state?.available || !state.activePageId) return
   const pageId = state.activePageId
-  notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…'))
+  notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…', 'ページを開いて同期を準備中…'))
   const handle = await request<SurfaceHandle | { kind: 'existing_owner'; page_id: string }>('mount', { pageId, bounds: bounds() })
   // A successful native close has already flushed and detached every surface.
   if (!windowVisible) return
   if ('kind' in handle) {
     if (mounted && attempt === generation) {
       if (focusExisting) await request('focus_existing', { pageId: handle.page_id })
-      notice(t('此页已在另一个编辑面中打开。', 'This page is open in another editor.'))
+      notice(t('此页已在另一个编辑面中打开。', 'This page is open in another editor.', 'このページは別のエディタで開かれています。'))
     }
     return
   }
@@ -127,7 +129,7 @@ async function run(action: () => Promise<void>) {
   if (busy || !mounted) return
   busy = true
   for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = true
-  try { await action() } catch (error) { notice(error instanceof Error ? error.message : String(error)) }
+  try { await action() } catch (error) { notice(hostMessage(error)) }
   finally {
     busy = false
     for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = false
@@ -174,7 +176,7 @@ function operation(action: string, pageId?: string): PageOperation | undefined {
 async function page(action: string, pageId?: string) {
   await releaseSurface()
   const pending = operation(action, pageId)
-  notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…'))
+  notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…', 'ページを開いて同期を準備中…'))
   try {
     applyState(await request<SumiState>('page', pending ?? { action, pageId, fromPageId: state?.activePageId }))
     if (pending) { pendingOperation = undefined; try { sessionStorage.removeItem(operationKey) } catch { /* optional storage */ } }
@@ -205,7 +207,7 @@ async function closePanel(focus = true) {
 async function exportSnapshot() {
   if (!state?.activePageId) return
   const result = await request<{ saved: boolean }>('export', { pageId: state.activePageId, format: 'archive' })
-  if (result.saved) notice(t('已导出。', 'Exported.'))
+  if (result.saved) notice(t('已导出。', 'Exported.', '書き出しました。'))
 }
 async function writingAction(action?: string) {
   if (!windowVisible) return
@@ -219,18 +221,18 @@ async function writingAction(action?: string) {
   else if (action && ['save', 'close', 'zoom_in', 'zoom_out', 'zoom_reset'].includes(action)) await request('command', { action })
 }
 async function showPages() {
-  await refresh(); await openPanel(t('纸页', 'Pages'))
+  await refresh(); await openPanel(t('纸页', 'Pages', 'ページ'))
   if (state!.activePageId) {
-    for (const [format, title] of [['archive', t('导出正文与逐行时间…', 'Export writing with line times…')], ['markdown', t('仅导出 Markdown 正文…', 'Export Markdown text only…')]]) {
+    for (const [format, title] of [['archive', t('导出正文与逐行时间…', 'Export writing with line times…', '本文と行ごとの日時を書き出す…')], ['markdown', t('仅导出 Markdown 正文…', 'Export Markdown text only…', 'Markdown 本文のみを書き出す…')]]) {
       const button = document.createElement('button'); button.textContent = title
       button.onclick = () => void run(async () => {
         const result = await request<{ saved: boolean }>('export', { pageId: state!.activePageId, format })
-        if (result.saved) notice(t('已导出。', 'Exported.'))
+        if (result.saved) notice(t('已导出。', 'Exported.', '書き出しました。'))
       })
       el('panel-body').append(button)
     }
     if (state!.saveState === 'projection-pending' || state!.saveState === 'error') {
-      const repair = document.createElement('button'); repair.textContent = t('保留外部文件并重新写出此页', 'Preserve external files and restore this page')
+      const repair = document.createElement('button'); repair.textContent = t('保留外部文件并重新写出此页', 'Preserve external files and restore this page', '外部ファイルを保持してこのページを書き出し直す')
       repair.onclick = () => void run(async () => {
         await releaseSurface()
         await request('restore_projection', { pageId: state!.activePageId })
@@ -242,13 +244,13 @@ async function showPages() {
   for (const deleted of [false, true]) {
     const pages = state!.pages.filter(page => page.deleted === deleted)
     if (!pages.length) continue
-    const heading = document.createElement('h2'); heading.textContent = deleted ? t('废纸篓', 'Trash') : t('继续书写', 'Continue writing'); el('panel-body').append(heading)
+    const heading = document.createElement('h2'); heading.textContent = deleted ? t('废纸篓', 'Trash', 'ゴミ箱') : t('继续书写', 'Continue writing', '執筆を続ける'); el('panel-body').append(heading)
     for (const item of pages) {
       const row = document.createElement('div'); row.className = 'page-row'
-      const open = document.createElement('button'); open.textContent = pageLabel(item, t('空白的一页', 'A blank page')); open.className = 'page-open'
+      const open = document.createElement('button'); open.textContent = pageLabel(item, t('空白的一页', 'A blank page', '白紙のページ')); open.className = 'page-open'
       open.onclick = () => void run(() => page(deleted ? 'restore' : 'open', item.id)); row.append(open)
       if (!deleted) {
-        const trash = document.createElement('button'); trash.textContent = '×'; trash.title = t('移到废纸篓', 'Move to trash'); trash.setAttribute('aria-label', trash.title)
+        const trash = document.createElement('button'); trash.textContent = '×'; trash.title = t('移到废纸篓', 'Move to trash', 'ゴミ箱に移動'); trash.setAttribute('aria-label', trash.title)
         trash.onclick = () => void run(async () => { await page('delete', item.id); await showPages() }); row.append(trash)
       }
       el('panel-body').append(row)
@@ -256,15 +258,15 @@ async function showPages() {
   }
 }
 function showFonts(form: HTMLFormElement) {
-  const section = document.createElement('section'); section.className = 'font-list'; section.setAttribute('aria-label', t('字体', 'Fonts'))
-  const heading = document.createElement('h2'); heading.textContent = t('字体', 'Fonts'); section.append(heading)
+  const section = document.createElement('section'); section.className = 'font-list'; section.setAttribute('aria-label', t('字体', 'Fonts', 'フォント'))
+  const heading = document.createElement('h2'); heading.textContent = t('字体', 'Fonts', 'フォント'); section.append(heading)
   const summary = document.createElement('p'); summary.id = 'font-list-status'; summary.setAttribute('role', 'status'); section.append(summary)
   const rows = fontPresets.map(([family, name]) => {
-    const displayName = family === 'Sumi CRT' ? t(name, 'Retro Green Phosphor CRT · GNU Unifont') : name
+    const displayName = fontName(family, name)
     const button = document.createElement('button'); button.type = 'button'; button.className = 'font-option'; button.dataset.font = family
     const title = document.createElement('span'); title.className = 'font-name'; title.textContent = displayName
     const detail = document.createElement('span'); detail.className = 'font-detail'
-    const progress = document.createElement('progress'); progress.hidden = true; progress.setAttribute('aria-label', displayName + t('下载进度', ' download progress'))
+    const progress = document.createElement('progress'); progress.hidden = true; progress.setAttribute('aria-label', displayName + t('下载进度', ' download progress', 'のダウンロード状況'))
     button.append(title, detail, progress); section.append(button)
     button.onclick = () => void select(family)
     return { family, button, detail, progress }
@@ -290,24 +292,24 @@ function showFonts(form: HTMLFormElement) {
     if (!valid()) return
     const selected = state?.preferences.fontFamily
     const current = snapshot?.fonts.find(font => font.family === selected)
-    summary.textContent = statusError || (!snapshot ? t('正在检查本机字体…', 'Checking downloaded fonts…')
-      : current?.status !== 'ready' ? t('当前使用系统字体。点击所需字体后下载，可返回继续书写。', 'Using system fonts for now. Choose a font to download; you can keep writing.')
-        : t('字体下载后保存在本机，可离线使用。', 'Downloaded fonts are saved on this device for offline use.'))
+    summary.textContent = statusError || (!snapshot ? t('正在检查本机字体…', 'Checking downloaded fonts…', 'ダウンロード済みのフォントを確認中…')
+      : current?.status !== 'ready' ? t('当前使用系统字体。点击所需字体后下载，可返回继续书写。', 'Using system fonts for now. Choose a font to download; you can keep writing.', '現在はシステムフォントを使用しています。フォントを選ぶとダウンロードが始まります。執筆に戻って続けられます。')
+        : t('字体下载后保存在本机，可离线使用。', 'Downloaded fonts are saved on this device for offline use.', 'ダウンロードしたフォントはこの端末に保存され、オフラインでも使用できます。'))
     for (const { family, button, detail, progress } of rows) {
       const font = snapshot?.fonts.find(item => item.family === family)
       const pending = selecting.has(family)
       const queued = snapshot?.pendingFont === family
       const downloading = font?.status === 'downloading'
       const selectedHere = family === selected
-      const message = errors.get(family) || font?.error
+      const message = errors.get(family) || (font?.error ? hostMessage(font.error) : '')
       const size = font?.totalBytes ? `${(font.totalBytes / 1_000_000).toFixed(1)} MB` : ''
       const percent = font?.totalBytes ? Math.min(100, Math.floor(font.downloadedBytes / font.totalBytes * 100)) : 0
-      const label = pending ? t('正在开始…', 'Starting…')
-        : downloading ? `${t('下载中', 'Downloading')} ${percent}%${snapshot?.pendingFont === family ? t(' · 完成后使用', ' · Use when ready') : ''}`
-          : message ? `${t('下载失败，点击重试', 'Download failed; click to retry')} · ${message}`
-            : queued ? font?.status === 'ready' ? t('正在应用…', 'Applying…') : t('准备下载…', 'Preparing download…')
-              : font?.status === 'ready' ? selectedHere ? t('使用中', 'In use') : t('已下载，点击使用', 'Downloaded; click to use')
-              : t('未下载，点击下载', 'Not downloaded; click to download')
+      const label = pending ? t('正在开始…', 'Starting…', '開始中…')
+        : downloading ? `${t('下载中', 'Downloading', 'ダウンロード中')} ${percent}%${snapshot?.pendingFont === family ? t(' · 完成后使用', ' · Use when ready', ' · 完了後に使用') : ''}`
+          : message ? `${t('下载失败，点击重试', 'Download failed; click to retry', 'ダウンロード失敗。クリックして再試行')} · ${message}`
+            : queued ? font?.status === 'ready' ? t('正在应用…', 'Applying…', '適用中…') : t('准备下载…', 'Preparing download…', 'ダウンロードを準備中…')
+              : font?.status === 'ready' ? selectedHere ? t('使用中', 'In use', '使用中') : t('已下载，点击使用', 'Downloaded; click to use', 'ダウンロード済み。クリックして使用')
+              : t('未下载，点击下载', 'Not downloaded; click to download', '未ダウンロード。クリックしてダウンロード')
       detail.textContent = [size, label].filter(Boolean).join(' · ')
       button.setAttribute('aria-pressed', String(selectedHere))
       button.setAttribute('aria-busy', String(pending || downloading || queued))
@@ -329,7 +331,7 @@ function showFonts(form: HTMLFormElement) {
       const next = await request<FontState>('fonts')
       if (valid() && revision === attempt) accept(next)
     } catch {
-      if (valid() && revision === attempt) { statusError = t('无法读取字体状态，将自动重试。', 'Unable to read font status. Retrying.'); render() }
+      if (valid() && revision === attempt) { statusError = t('无法读取字体状态，将自动重试。', 'Unable to read font status. Retrying.', 'フォントの状態を取得できません。自動的に再試行します。'); render() }
     } finally { if (valid() && revision === attempt) schedule() }
   }
   async function select(family: string) {
@@ -341,7 +343,7 @@ function showFonts(form: HTMLFormElement) {
       const next = await request<FontState>('font_select', { fontFamily: family })
       if (valid() && selection === attempt) accept(next)
     } catch (error) {
-      if (valid() && selection === attempt) errors.set(family, error instanceof Error ? error.message : String(error))
+      if (valid() && selection === attempt) errors.set(family, hostMessage(error))
     } finally {
       selecting.delete(family)
       if (valid()) { render(); schedule() }
@@ -350,16 +352,16 @@ function showFonts(form: HTMLFormElement) {
   fontPanel = { render, poll, pause, dispose() { active = false; pause() } }
 }
 async function showAppearance() {
-  await openPanel(t('外观', 'Appearance'))
+  await openPanel(t('外观', 'Appearance', '外観'))
   const form = document.createElement('form')
-  const labels = { theme: t('配色', 'Colors'), caretMotion: t('光标效果', 'Caret'), fontSize: t('字号', 'Font size'), lineHeight: t('行距', 'Line height'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)'), bottomInset: t('额外底部留白', 'Extra bottom space') }
+  const labels = { theme: t('配色', 'Colors', '配色'), caretMotion: t('光标效果', 'Caret', 'カーソル'), fontSize: t('字号', 'Font size', '文字サイズ'), lineHeight: t('行距', 'Line height', '行の高さ'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)', '本文の幅（半角文字数）'), bottomInset: t('额外底部留白', 'Extra bottom space', '下部の追加余白') }
   for (const [key, label] of Object.entries(labels)) {
     const wrap = document.createElement('label'); const text = document.createElement('span'); text.textContent = label; wrap.append(text)
     const field = key === 'theme' || key === 'caretMotion' ? document.createElement('select') : document.createElement('input')
     field.name = key
     if (field instanceof HTMLSelectElement) {
-      const choices: readonly (readonly [string, string])[] = key === 'caretMotion' ? [['breathing', t('平缓呼吸', 'Gentle breathing')], ['steady', t('不闪烁（常亮）', 'Steady (no blinking)')]]
-        : [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')], ['crt', t('复古绿磷 CRT', 'Retro Green Phosphor CRT')]]
+      const choices: readonly (readonly [string, string])[] = key === 'caretMotion' ? [['breathing', t('平缓呼吸', 'Gentle breathing', 'ゆっくり明滅')], ['steady', t('不闪烁（常亮）', 'Steady (no blinking)', '点滅なし（常時表示）')]]
+        : [['ink', t('黑底白字', 'White on black', '黒地に白文字')], ['dim', t('黑底灰字', 'Gray on black', '黒地にグレー文字')], ['paper', t('白底黑字', 'Black on white', '白地に黒文字')], ['sepia', t('米色深灰', 'Warm paper', '生成り色に濃いグレー')], ['crt', t('复古绿磷 CRT', 'Retro Green Phosphor CRT', 'レトログリーン蛍光 CRT')], ['crt-blue', t('复古蓝磷 CRT', 'Retro Blue Phosphor CRT', 'レトロブルー蛍光 CRT')]]
       for (const [value, name] of choices) {
         const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
       }
@@ -368,25 +370,25 @@ async function showAppearance() {
     field.value = String(state!.preferences[key as keyof typeof labels]); wrap.append(field); form.append(wrap)
     if (key === 'theme') showFonts(form)
   }
-  const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply'); form.append(submit)
+  const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply', '適用'); form.append(submit)
   form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }
   el('panel-body').append(form)
   fontPanel?.render(); void fontPanel?.poll()
 }
 async function showSync() {
-  await refresh(); await openPanel(t('同步', 'Sync'))
+  await refresh(); await openPanel(t('同步', 'Sync', '同期'))
   const status = document.createElement('p'); status.id = 'sync-status'; status.setAttribute('role', 'status'); status.textContent = syncStatusLabel(state!.sync.connected); el('panel-body').append(status)
   const form = document.createElement('form')
-  for (const [name, title, type] of [['serviceUrl', t('同步服务地址', 'Sync service URL'), 'url'], ['invitation', t('设备配对码', 'Device pairing code'), 'password']]) {
+  for (const [name, title, type] of [['serviceUrl', t('同步服务地址', 'Sync service URL', '同期サービスの URL'), 'url'], ['invitation', t('设备配对码', 'Device pairing code', '端末のペアリングコード'), 'password']]) {
     const label = document.createElement('label'); label.textContent = title
     const input = document.createElement('input'); input.name = name; input.type = type; input.required = true; input.autocomplete = 'off'; label.append(input); form.append(label)
   }
-  const submit = document.createElement('button'); submit.textContent = t('连接', 'Connect'); submit.type = 'submit'; form.append(submit)
+  const submit = document.createElement('button'); submit.textContent = t('连接', 'Connect', '接続'); submit.type = 'submit'; form.append(submit)
   form.onsubmit = event => { event.preventDefault(); void run(async () => { const data = new FormData(form); applyState(await request<SumiState>('pair', { serviceUrl: data.get('serviceUrl'), invitation: data.get('invitation') })); form.reset(); await closePanel() }) }
   el('panel-body').append(form)
   {
-    const invite = document.createElement('button'); invite.id = 'sync-invite'; invite.hidden = !state!.sync.connected; invite.textContent = t('配对另一台设备', 'Pair another device')
-    invite.onclick = () => void run(async () => { const result = await request<{ invitation: string }>('invite'); const output = document.createElement('textarea'); output.readOnly = true; output.value = result.invitation; output.setAttribute('aria-label', t('一次性配对码', 'One-time pairing code')); el('panel-body').append(output); output.select() })
+    const invite = document.createElement('button'); invite.id = 'sync-invite'; invite.hidden = !state!.sync.connected; invite.textContent = t('配对另一台设备', 'Pair another device', '別の端末をペアリング')
+    invite.onclick = () => void run(async () => { const result = await request<{ invitation: string }>('invite'); const output = document.createElement('textarea'); output.readOnly = true; output.value = result.invitation; output.setAttribute('aria-label', t('一次性配对码', 'One-time pairing code', 'ワンタイムペアリングコード')); el('panel-body').append(output); output.select() })
     el('panel-body').append(invite)
   }
 }
@@ -398,7 +400,7 @@ el('appearance').onclick = () => void run(showAppearance)
 el('sync').onclick = () => void run(showSync)
 function fullscreenLabel(active: boolean) {
   const button = el('fullscreen')
-  button.title = active ? t('退出全屏（⌃⌘F）', 'Exit fullscreen (⌃⌘F)') : t('进入全屏（⌃⌘F）', 'Enter fullscreen (⌃⌘F)')
+  button.title = active ? t('退出全屏（⌃⌘F）', 'Exit fullscreen (⌃⌘F)', 'フルスクリーンを解除（⌃⌘F）') : t('进入全屏（⌃⌘F）', 'Enter fullscreen (⌃⌘F)', 'フルスクリーンにする（⌃⌘F）')
   button.setAttribute('aria-label', button.title)
   button.setAttribute('aria-pressed', String(active))
 }
@@ -416,13 +418,13 @@ document.addEventListener('keydown', event => {
 })
 function scheduleBounds() {
   clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(() => { if (surface) void request('bounds', { surface, bounds: bounds() }).catch(error => notice(String(error))) }, 30)
+  resizeTimer = setTimeout(() => { if (surface) void request('bounds', { surface, bounds: bounds() }).catch(error => notice(hostMessage(error))) }, 30)
 }
 new ResizeObserver(() => {
   scheduleBounds()
   // System menus can also enter/leave fullscreen; read native window state.
   if (mounted) void request<{ fullscreen: boolean }>('fullscreen', { queryOnly: true })
-    .then(result => { if (mounted) fullscreenLabel(result.fullscreen) }).catch(error => notice(String(error)))
+    .then(result => { if (mounted) fullscreenLabel(result.fullscreen) }).catch(error => notice(hostMessage(error)))
 }).observe(el('surface'))
 window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer); stopFontPanel() })
 window.notemd?.onMessage?.(event => {
@@ -453,7 +455,7 @@ window.notemd?.onMessage?.(event => {
       else void run(() => navigateFromTab(navigation))
     }
   }
-  if (message.type === 'sumi-error' && message.message) notice(message.message)
+  if (message.type === 'sumi-error' && message.message) notice(hostMessage(message.message))
   if (message.type === 'sumi-state' && message.state) {
     if (busy) {
       if (!pendingState || (message.state.navigationVersion ?? 0) >= (pendingState.navigationVersion ?? 0)) pendingState = message.state

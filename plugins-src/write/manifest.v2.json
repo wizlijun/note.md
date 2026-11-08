@@ -2,13 +2,13 @@
   "manifest_version": 2,
   "id": "notemd.sumi",
   "name": "Sumi",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-sumi"
   },
   "engines": {
-    "notemd": ">=6.1108.5"
+    "notemd": ">=6.1108.6"
   },
   "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
   "ui": "ui/",
@@ -62,7 +62,6 @@
     "tray": [
       {
         "window": "main",
-        "label": "Sumi",
         "section": "capture"
       }
     ]
@@ -77,10 +76,36 @@
   ],
   "i18n": {
     "zh": {
-      "name": "Sumi",
+      "name": "墨笺",
       "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
       "menus": {
-        "open": "打开 Sumi"
+        "open": "打开墨笺",
+        "read-writing": "阅读墨笺纸页"
+      },
+      "windows": {
+        "main": "墨笺"
+      }
+    },
+    "en": {
+      "name": "Sumi",
+      "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+      "menus": {
+        "open": "Open Sumi",
+        "read-writing": "Read Sumi page"
+      },
+      "windows": {
+        "main": "Sumi"
+      }
+    },
+    "ja": {
+      "name": "すみ",
+      "description": "一枚の紙に、静かに書く。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+      "menus": {
+        "open": "すみを開く",
+        "read-writing": "すみのページを読む"
+      },
+      "windows": {
+        "main": "すみ"
       }
     }
   }

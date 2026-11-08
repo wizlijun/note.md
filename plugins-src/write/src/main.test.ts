@@ -379,15 +379,20 @@ describe('Sumi focused document commands', () => {
 })
 
 describe('Sumi on-demand font settings', () => {
-  it('restores and applies the retro green CRT theme without downloading fonts', async () => {
-    const preferences = { ...defaultPreferences, theme: 'crt' as const }
-    const request = await setup(state({ preferences }))
+  it.each([
+    ['crt', 'zh', '复古绿磷 CRT'],
+    ['crt-blue', 'zh', '复古蓝磷 CRT'],
+    ['crt', 'en', 'Retro Green Phosphor CRT'],
+    ['crt-blue', 'en', 'Retro Blue Phosphor CRT'],
+  ] as const)('restores and applies %s in %s without downloading fonts', async (themeId, locale, label) => {
+    const preferences = { ...defaultPreferences, theme: themeId, fontFamily: 'Sumi WenKai', fontSize: 32, caretMotion: 'steady' as const }
+    const request = await setup(state({ preferences }), undefined, locale)
     document.getElementById('appearance')!.click(); await settle()
-    expect(document.documentElement.dataset.theme).toBe('crt')
+    expect(document.documentElement.dataset.theme).toBe(themeId)
     const form = document.querySelector<HTMLFormElement>('#panel-body form')!
     const theme = form.elements.namedItem('theme') as HTMLSelectElement
-    expect(theme.value).toBe('crt')
-    expect([...theme.options].find(option => option.value === 'crt')!.textContent).toBe('复古绿磷 CRT')
+    expect(theme.value).toBe(themeId)
+    expect([...theme.options].find(option => option.value === themeId)!.textContent).toBe(label)
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences, preserveFont: true })
     expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
@@ -608,5 +613,81 @@ describe('Sumi on-demand font settings', () => {
     expect(request).not.toHaveBeenCalled()
     receive({ type: 'sumi-window-state', visible: true }); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.fonts', undefined)
+  })
+})
+
+describe('Sumi complete interface localization', () => {
+  it.each([
+    { locale: 'zh-CN', lang: 'zh', name: '墨笺', appearance: '外观', pages: '纸页', sync: '同步', blue: '复古蓝磷 CRT', plainExport: '仅导出 Markdown 正文…', exported: '已导出。', pairing: '一次性配对码', download: '下载失败，点击重试', fontError: '字体大小或 SHA-256 校验失败。', offline: '离线保存中。', keychain: '正在等待系统钥匙串授权', connection: '连接' },
+    { locale: 'ja-JP', lang: 'ja', name: 'すみ', appearance: '外観', pages: 'ページ', sync: '同期', blue: 'レトロブルー蛍光 CRT', plainExport: 'Markdown 本文のみを書き出す…', exported: '書き出しました。', pairing: 'ワンタイムペアリングコード', download: 'ダウンロード失敗。クリックして再試行', fontError: 'フォントサイズまたは SHA-256 の検証に失敗しました。', offline: 'オフラインで保存中。', keychain: 'キーチェーンへのアクセス許可を待っています', connection: '接続' },
+    { locale: 'en-US', lang: 'en', name: 'Sumi', appearance: 'Appearance', pages: 'Pages', sync: 'Sync', blue: 'Retro Blue Phosphor CRT', plainExport: 'Export Markdown text only…', exported: 'Exported.', pairing: 'One-time pairing code', download: 'Download failed; click to retry', fontError: 'Font size or SHA-256 verification failed.', offline: 'Saving offline.', keychain: 'Waiting for Keychain access', connection: 'Connect' },
+  ])('covers appearance, fonts, pages, export, sync and diagnostics in $locale', async labels => {
+    const userText = '第一行 / ユーザーの文章 / <img src=x>'
+    const preferences = { ...defaultPreferences, theme: 'crt-blue' as const, fontFamily: 'Sumi WenKai', fontSize: 32, caretMotion: 'steady' as const }
+    const current = state({ preferences, pages: [{ id: 'page-a', excerpt: userText, deleted: false }, { id: 'page-trash', excerpt: '原稿', deleted: true }], sync: { connected: true, pending: 0 } })
+    const request = await setup(current, undefined, labels.locale)
+    const base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.export') return { saved: true }
+      if (method === 'host.sumi.fonts') return fontState({ fonts: fontState().fonts.map(font => ({ ...font, status: 'error', error: 'Font size or SHA-256 verification failed' })) })
+      return base(method, params)
+    })
+    expect(document.documentElement.lang).toBe(labels.lang)
+    expect(document.title).toBe(labels.name)
+    expect(document.getElementById('surface')!.getAttribute('aria-label')).toBe(labels.name)
+    expect(document.getElementById('tools')!.getAttribute('aria-label')).toBe(labels.name)
+    expect(document.getElementById('appearance')!.getAttribute('aria-label')).toBe(labels.appearance)
+    expect(document.getElementById('panel')!.getAttribute('aria-labelledby')).toBe('panel-title')
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.getElementById('panel-title')!.textContent).toBe(labels.appearance)
+    const appearanceForm = document.querySelector<HTMLFormElement>('#panel-body form')!
+    expect(appearanceForm.querySelector('option[value="crt-blue"]')!.textContent).toBe(labels.blue)
+    expect(document.querySelector('.font-detail')!.textContent).toContain(labels.download)
+    expect(document.querySelector('.font-detail')!.textContent).toContain(labels.fontError)
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
+    appearanceForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences, preserveFont: true })
+
+    document.getElementById('pages')!.click(); await settle()
+    expect(document.getElementById('panel-title')!.textContent).toBe(labels.pages)
+    expect(document.querySelector('.page-open')!.textContent).toBe(userText)
+    expect(document.querySelector('#panel img')).toBeNull()
+    const exportButton = [...document.querySelectorAll<HTMLButtonElement>('#panel-body button')].find(button => button.textContent === labels.plainExport)!
+    expect(exportButton).toBeDefined(); exportButton.click(); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.export', { pageId: 'page-a', format: 'markdown' })
+    expect(document.getElementById('notice')!.textContent).toBe(labels.exported)
+
+    document.getElementById('sync')!.click(); await settle()
+    expect(document.getElementById('panel-title')!.textContent).toBe(labels.sync)
+    expect(document.querySelector('#panel-body button[type="submit"]')!.textContent).toBe(labels.connection)
+    document.getElementById('sync-invite')!.click(); await settle()
+    expect(document.querySelector('textarea')!.getAttribute('aria-label')).toBe(labels.pairing)
+    const input = document.querySelector<HTMLInputElement>('input[name="serviceUrl"]')!
+    input.value = 'https://user.example/同期'
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-state', state: { ...current, sync: { connected: false, pending: 1, message: '正在等待系统钥匙串授权，请查看系统授权窗口；文字保存在本机' } } }); await settle()
+    expect(document.getElementById('notice')!.textContent).toContain(labels.keychain)
+    expect(input.value).toBe('https://user.example/同期')
+    receive({ type: 'sumi-state', state: { ...current, sync: { connected: false, pending: 1, message: '离线保存中：NET_RESET' } } }); await settle()
+    expect(document.getElementById('notice')!.textContent).toContain(labels.offline)
+    expect(document.getElementById('notice')!.textContent).toContain('NET_RESET')
+    receive({ type: 'sumi-error', message: '-32000: CUSTOM_KEEP_ME' }); await settle()
+    expect(document.getElementById('notice')!.textContent).toContain('-32000: ')
+    expect(document.getElementById('notice')!.textContent).toContain('CUSTOM_KEEP_ME')
+  })
+  it('uses the bridge language, falls back to English, and reloads without changing preferences', async () => {
+    const preferences = { ...defaultPreferences, theme: 'crt-blue' as const, fontFamily: 'Sumi CRT', fontSize: 45 }
+    await setup(state({ preferences }), undefined, 'ja-JP')
+    expect(document.title).toBe('すみ')
+    window.dispatchEvent(new Event('pagehide'))
+    const request = await setup(state({ preferences }), undefined, 'fr-FR')
+    expect(document.documentElement.lang).toBe('en')
+    expect(document.title).toBe('Sumi')
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector<HTMLFormElement>('#panel-body form')!
+    expect(document.getElementById('panel-title')!.textContent).toBe('Appearance')
+    expect((form.elements.namedItem('theme') as HTMLSelectElement).value).toBe('crt-blue')
+    expect((form.elements.namedItem('fontSize') as HTMLInputElement).value).toBe('45')
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
   })
 })

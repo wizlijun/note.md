@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, unmount, tick } from 'svelte'
+import { i18n } from '../lib/i18n/runtime.svelte'
 import SumiRecovery from './SumiRecovery.svelte'
 import type { RecoveryProbe } from '../lib/sumi/recovery'
 const mocks = vi.hoisted(() => ({ probe: vi.fn(), recover: vi.fn(), open: vi.fn(), invoke: vi.fn(), detach: vi.fn(), owner: vi.fn() }))
@@ -17,6 +18,7 @@ async function settled() { await Promise.resolve(); await tick(); await Promise.
 function button(label: string): HTMLButtonElement { const result = Array.from(document.querySelectorAll('button')).find(b => b.textContent === label); if (!result) throw new Error(`missing ${label}`); return result }
 async function click(label: string) { button(label).click(); await settled() }
 beforeEach(() => {
+  i18n.locale = 'zh'
   vi.clearAllMocks()
   mocks.probe.mockReset().mockResolvedValue(evidence())
   mocks.recover.mockReset().mockResolvedValue({ page_id: 'new', path: '/vault/new.writing.md', preserved_line_times: false })
@@ -78,5 +80,57 @@ describe('SumiRecovery rendered controls', () => {
     await unmount(component); component = undefined
     finish({ page_id: 'new', path: '/vault/late.writing.md' }); await settled()
     expect(mocks.open).not.toHaveBeenCalled()
+  })
+})
+
+describe('SumiRecovery localization preserves recovery identity', () => {
+  it.each([
+    ['zh', '重新检查源文件', '无法验证的历史时间将标为未知', '存在多个匹配元数据候选'],
+    ['en', 'Recheck source files', 'Unverifiable historical timestamps', 'Multiple'],
+    ['ja', '元のファイルを再確認', '検証できない過去の時刻', '複数'],
+  ] as const)('renders recovery controls and warnings in %s', async (locale, label, explanation, warning) => {
+    i18n.locale = locale
+    component = mount(SumiRecovery, { target: document.body, props }); await settled()
+    expect(button(label).disabled).toBe(false)
+    expect(document.body.textContent).toContain(explanation)
+    expect(document.body.textContent).toContain(warning)
+    expect(mocks.probe).toHaveBeenCalledTimes(1)
+    expect(mocks.recover).not.toHaveBeenCalled()
+  })
+  it('changes language without probing again, resetting consent or changing a retry operation', async () => {
+    mocks.probe.mockResolvedValue({ ...evidence(), normalize_crlf: true })
+    mocks.recover.mockRejectedValueOnce(new Error('response lost /原文/すみ.md #42'))
+    component = mount(SumiRecovery, { target: document.body, props }); await settled()
+    document.querySelector<HTMLInputElement>('input')!.click(); await settled()
+    await click('恢复为新的一页')
+    const firstId = mocks.recover.mock.calls[0][1]
+    i18n.locale = 'ja'; await settled()
+    expect(document.body.textContent).toContain('response lost /原文/すみ.md #42')
+    expect(document.querySelector<HTMLInputElement>('input')!.checked).toBe(true)
+    expect(mocks.probe).toHaveBeenCalledTimes(1)
+    expect(mocks.recover).toHaveBeenCalledTimes(1)
+    await click('新しいページとして復元')
+    expect(mocks.recover.mock.calls[1][1]).toBe(firstId)
+    expect(document.body.textContent).toContain('新しいページとして復元しました')
+    i18n.locale = 'en'; await settled()
+    expect(document.body.textContent).toContain('Restored as a new page.')
+    expect(mocks.recover).toHaveBeenCalledTimes(2)
+    expect(mocks.probe).toHaveBeenCalledTimes(1)
+  })
+  it('re-renders a completed rewrite message while preserving its exact path and avoiding another IPC', async () => {
+    const recoveryPath = '/vault/原稿/すみ 原本.writing.md'
+    mocks.invoke.mockResolvedValue({ recovery_path: recoveryPath })
+    component = mount(SumiRecovery, { target: document.body, props: { ...props, pageId: 'existing-page' } }); await settled()
+    await click('保留原文件并重新写出此页')
+    expect(document.body.textContent).toContain('已重新保存此页')
+    i18n.locale = 'ja'; await settled()
+    expect(document.body.textContent).toContain('このページを保存し直しました')
+    expect(document.body.textContent).toContain(recoveryPath)
+    i18n.locale = 'de'; await settled()
+    expect(document.body.textContent).toContain('This page has been saved again')
+    expect(document.body.textContent).toContain(recoveryPath)
+    expect(mocks.invoke).toHaveBeenCalledTimes(1)
+    expect(props.onrestored).toHaveBeenCalledTimes(1)
+    expect(mocks.probe).toHaveBeenCalledTimes(1)
   })
 })
