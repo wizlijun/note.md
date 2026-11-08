@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1108.6 — 2026-11-09
+
 - **Sumi typing sounds.** Typewriter and Thock sounds play only while writing in the native editor, including Chinese composition. Enabled by default with a separate switch and sound choice; macOS input-monitoring permission is requested explicitly. Both small sound packs ship in the plugin.
 
 - **Sumi 0.1.5: Retro Blue Phosphor CRT.** Add black with the light blue from cool-retro-term Deep Blue across writing, caret and settings. Font and size remain independent, with no additional font downloads. Requires note.md 6.1108.6.

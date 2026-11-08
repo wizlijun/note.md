@@ -3261,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "notemd"
-version = "6.1108.5"
+version = "6.1108.6"
 dependencies = [
  "base64 0.22.1",
  "block2",
@@ -3347,9 +3347,10 @@ dependencies = [
 
 [[package]]
 name = "notemd-sumi-backend"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "base64 0.22.1",
+ "cc",
  "fs2",
  "futures-util",
  "notemd-plugin-sdk",
