@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "id": "notemd.sumi",
   "name": "Sumi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "native",
   "engines": {
-    "notemd": ">=6.1108.1"
+    "notemd": ">=6.1108.2"
   },
   "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
   "ui": "ui/",
