@@ -37,13 +37,17 @@
 
 建议默认：22 pt、行距 1.6、左对齐、正文最大宽约 80 个半角列（约 40 个中文全角字）。以实际字体度量约束视觉宽度，窄屏取可用宽度；软折行不插入 Markdown 换行、不产生时间记录。80 不是所有写作软件的强制标准；W3C 的阅读排版指导使用 80 字符／40 CJK，可作默认参考。[W3C](https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html)
 
-预设主题：黑底白字、黑底灰字、白底黑字、米色深灰（背景 `#f3ead7`、正文 `#44413c`）；整个编辑区、光标、选区、留白同主题。字号与行距只属于显示偏好，不写成正文行内样式。用户于 2026-11-08 确认三个可选组合，外观面板按顺序提供下拉选择：
+预设主题：黑底白字、黑底灰字、白底黑字、米色深灰（背景 `#f3ead7`、正文 `#44413c`）；整个编辑区、光标、选区、留白同主题。字号与行距只属于显示偏好，不写成正文行内样式。用户于 2026-11-08 最终确认五项字体，外观面板按顺序提供下拉选择：
 
-1. `Sumi Plex`：英文 IBM Plex Mono Light + 中文 IBM Plex Sans SC Light，必须选择实际 Light 字面，不能仅用字族名落到 Regular。
-2. `Sumi WenKai`：LXGW WenKai Mono Lite Regular，中英文都使用同一字体。Lite 指精简字符集，不是 Light 字重；不与其他英文字体混配。
-3. `Sumi Elite`：英文 Special Elite + 中文又又意宋（用户提供 `youyouyisong.ttf`）。
+1. `Sumi Plex`：英文 IBM Plex Mono Light + 中文 IBM Plex Sans SC Light，必须使用实际 Light 字面。
+2. `Sumi WenKai`：LXGW WenKai Mono Lite Regular，中英文同字族；Lite 指精简字符集，不是 Light 字重。
+3. `Sumi Zhaohua`：朝华打字机，中英文同字族，精确字面 `ZhaohuaTypeWriter-Light`。
+4. `Sumi Youcha`：油茶馓子体，中英文同字族，精确字面 `YouchaSanz-Light`。
+5. `Sumi Fangsong`：Zhuque Fangsong / 朱雀仿宋 v0.212，中英文都使用自身字形，不混配其他英文。
 
-新用户默认第一组。用户随后明确只保留这三组，删除之前的旧字体包；旧 `Sumi Typewriter`、思源宋体或其他不再提供的字体设置迁移至 `Sumi Plex`，保留其余主题、字号、行距和正文。组合别名与字号/主题等显示偏好一起持久化，切换不能写正文或行时间。仅打包三组所需的五个字体文件，移除 Courier Prime、朱雀仿宋和思源宋体及旧许可资源。罕见缺字由系统字体回退；正常样本文字须由所选组合提供，不能用系统回退冒充。macOS 仅进程内注册固定资源，不安装系统字体；实际 CoreText run 必须证明每组中英文与字重正确。字体、许可/来源元数据、版本与大小/SHA-256由构建脚本冻结；又又意宋保留原字体内的 Public Domain/作者声明证据，不误标为 OFL。
+仅打包上述六个字体文件及许可/来源。用户已删除 Special Elite + 又又意宋组合；旧 Courier Prime、思源宋体及退出选项的许可/来源文件一并移除。旧 `Sumi Typewriter`、`Sumi Elite`、思源宋体或其他不再提供的设置只将字体字段迁移为第一组 `Sumi Plex`，保留其他外观与正文。新用户默认第一组。中文罕见缺字由系统回退，正常样本不能以系统字形冒充选中字体。macOS仅进程内注册，不安装系统字体；CoreText实际run与字重必须验证。全部资源冻结版本、来源、大小、SHA-256；朝华/油茶保留原作者许可快照，不能标成OFL。
+
+输入光标采用主题色低位短粗横线，宽度依据当前位置字素的实际advance，空行使用当前英文字面宽度；缓慢闪烁，输入后短暂常亮。仅更新可见插入点，不能全篇重排或改写正文。中文markedText时恢复系统插入点与候选定位；失焦、选区或隐藏时不显示自定义光标，并释放/暂停定时更新。实现仅使用公开AppKit/TextKit API，离屏原生验证与真实窗口观察分别留证。
 
 无法加载的设备明确字体回退；ESP32 子集字库不能宣称覆盖完整桌面字库。
 

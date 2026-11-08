@@ -90,14 +90,14 @@ describe('Sumi native writing shell', () => {
     expect(document.getElementById('notice')!.textContent).toContain('保存失败')
     expect(document.getElementById('notice')!.hidden).toBe(false)
   })
-  it.each(['Sumi Plex', 'Sumi WenKai', 'Sumi Elite'])('applies the %s font combination without changing other preferences', async (fontFamily) => {
+  it.each(['Sumi Plex', 'Sumi WenKai', 'Sumi Zhaohua', 'Sumi Youcha', 'Sumi Fangsong'])('applies the %s font combination without changing other preferences', async (fontFamily) => {
     const preferences = { ...defaultPreferences, theme: 'sepia' as const, fontSize: 32, lineHeight: 1.8 }
     const request = await setup(state({ preferences }))
     document.getElementById('appearance')!.click(); await settle()
     const form = document.querySelector('#panel-body form') as HTMLFormElement
     const fonts = form.elements.namedItem('fontFamily') as HTMLSelectElement
     expect(fonts.tagName).toBe('SELECT')
-    expect([...fonts.options].map(option => option.value)).toEqual(['Sumi Plex', 'Sumi WenKai', 'Sumi Elite'])
+    expect([...fonts.options].map(option => option.value)).toEqual(['Sumi Plex', 'Sumi WenKai', 'Sumi Zhaohua', 'Sumi Youcha', 'Sumi Fangsong'])
     fonts.value = fontFamily
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontFamily } })

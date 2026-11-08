@@ -23,7 +23,9 @@ export interface Bounds { x: number; y: number; width: number; height: number }
 export const fontPresets = [
   ['Sumi Plex', 'IBM Plex Mono Light + IBM Plex Sans SC Light'],
   ['Sumi WenKai', 'LXGW WenKai Mono Lite'],
-  ['Sumi Elite', 'Special Elite + 又又意宋'],
+  ['Sumi Zhaohua', '朝华打字机'],
+  ['Sumi Youcha', '油茶馓子体'],
+  ['Sumi Fangsong', 'Zhuque Fangsong · 朱雀仿宋'],
 ] as const
 export const defaultPreferences: Preferences = {
   theme: 'dim', fontFamily: 'Sumi Plex', fontSize: 22,
