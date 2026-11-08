@@ -6,7 +6,12 @@ use sumi_protocol::durability::{Create,LocalEdit,Request,CommitReceipt,Loaded};
 struct Process {child:Child,input:ChildStdin,output:Lines<BufReader<ChildStdout>>,next:u64}
 impl Process {
     async fn start()->Self {
-        let mut child=Command::new(env!("CARGO_BIN_EXE_notemd-sumi"))
+        // Release acceptance can exercise the exact signed artifact without
+        // replacing the development executable or touching a real Vault.
+        let binary=std::env::var_os("SUMI_TEST_BINARY").unwrap_or_else(||env!("CARGO_BIN_EXE_notemd-sumi").into());
+        let mut child=Command::new(binary)
+            .env_clear().env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+            .env("TMPDIR", std::env::temp_dir()).env("LANG", "en_US.UTF-8")
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped()).kill_on_drop(true).spawn().unwrap();
         let input=child.stdin.take().unwrap();let output=BufReader::new(child.stdout.take().unwrap()).lines();
