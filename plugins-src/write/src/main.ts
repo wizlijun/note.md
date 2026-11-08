@@ -1,5 +1,5 @@
 import './style.css'
-import { pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds } from './contract'
+import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds } from './contract'
 
 interface Bridge {
   locale?: string
@@ -237,12 +237,19 @@ async function showAppearance() {
   const labels = { theme: t('配色', 'Colors'), fontFamily: t('字体', 'Font'), fontSize: t('字号', 'Font size'), lineHeight: t('行距', 'Line height'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)'), bottomInset: t('底部留白', 'Bottom space') }
   for (const [key, label] of Object.entries(labels)) {
     const wrap = document.createElement('label'); const text = document.createElement('span'); text.textContent = label; wrap.append(text)
-    const field = key === 'theme' ? document.createElement('select') : document.createElement('input')
+    const field = key === 'theme' || key === 'fontFamily' ? document.createElement('select') : document.createElement('input')
     field.name = key
-    if (field instanceof HTMLSelectElement) for (const [value, name] of [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')]]) {
-      const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
+    if (field instanceof HTMLSelectElement) {
+      const choices: readonly (readonly [string, string])[] = key === 'fontFamily' ? fontPresets : [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')]]
+      for (const [value, name] of choices) {
+        const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
+      }
+      if (key === 'fontFamily' && !choices.some(([value]) => value === state!.preferences.fontFamily)) {
+        const option = document.createElement('option'); option.value = state!.preferences.fontFamily
+        option.textContent = `${t('当前字体', 'Current font')}: ${option.value}`; field.append(option)
+      }
     }
-    else { field.type = key === 'fontFamily' ? 'text' : 'number'; field.step = key === 'lineHeight' ? '0.1' : '1'; field.required = true }
+    else { field.type = 'number'; field.step = key === 'lineHeight' ? '0.1' : '1'; field.required = true }
     field.value = String(state!.preferences[key as keyof typeof labels]); wrap.append(field); form.append(wrap)
   }
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply'); form.append(submit)

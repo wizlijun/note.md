@@ -90,6 +90,28 @@ describe('Sumi native writing shell', () => {
     expect(document.getElementById('notice')!.textContent).toContain('保存失败')
     expect(document.getElementById('notice')!.hidden).toBe(false)
   })
+  it.each(['Sumi Plex', 'Sumi WenKai', 'Sumi Elite'])('applies the %s font combination without changing other preferences', async (fontFamily) => {
+    const preferences = { ...defaultPreferences, theme: 'sepia' as const, fontSize: 32, lineHeight: 1.8 }
+    const request = await setup(state({ preferences }))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector('#panel-body form') as HTMLFormElement
+    const fonts = form.elements.namedItem('fontFamily') as HTMLSelectElement
+    expect(fonts.tagName).toBe('SELECT')
+    expect([...fonts.options].map(option => option.value)).toEqual(['Sumi Plex', 'Sumi WenKai', 'Sumi Elite'])
+    fonts.value = fontFamily
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontFamily } })
+  })
+  it('preserves a saved legacy font when changing other appearance settings', async () => {
+    const preferences = { ...defaultPreferences, fontFamily: 'Sumi Typewriter' }
+    const request = await setup(state({ preferences }))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector('#panel-body form') as HTMLFormElement
+    expect((form.elements.namedItem('fontFamily') as HTMLSelectElement).value).toBe('Sumi Typewriter')
+    ;(form.elements.namedItem('fontSize') as HTMLInputElement).value = '28'
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontSize: 28 } })
+  })
   it('submits the service URL and complete pairing code through the host contract', async () => {
     const request = await setup()
     document.getElementById('sync')!.click(); await settle()
