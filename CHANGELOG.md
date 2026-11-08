@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1108.3 — 2026-11-08
+
 - **Sumi 0.1.2: open settings reliably during Chinese input.** With note.md 6.1108.3, opening settings or another panel commits the current preedit before switching views. If the handoff fails, your text and editor remain available for retry.
 
 - **Sumi: a four-second breathing caret.** The caret gently dims for two seconds and brightens for two seconds. Typing preserves the rhythm, and steady mode remains continuously visible.
