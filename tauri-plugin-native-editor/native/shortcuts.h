@@ -8,6 +8,7 @@ static NSString *SumiShortcut(NSString *characters, unsigned short keyCode, NSEv
     NSEventModifierFlags flags=modifiers & (cmd|shift|alt|ctrl);
     NSString *key=characters.lowercaseString;
     if(flags==cmd){
+        if(keyCode==36 || keyCode==76)return @"fullscreen";
         NSDictionary *keys=@{@"a":@"select_all",@"c":@"copy",@"x":@"cut",@"v":@"paste",
           @"z":@"undo",@"b":@"bold",@"i":@"italic",@"k":@"link",@"f":@"find",@"g":@"find_next",
           @"n":@"new_page",@"o":@"menu",@"s":@"save",@"w":@"close",@",":@"settings",

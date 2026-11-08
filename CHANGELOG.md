@@ -7,6 +7,9 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi fullscreen shortcut:** press Cmd/Win/Super+Enter to enter or leave fullscreen. Command+keypad Enter also works in the macOS native editor; Control-Command-F remains available. Held-key repeats do not retrigger, and composition stays with the input method.
+
+
 - **Sumi 0.1.1 requires note.md 6.1108.2 or later.** Update the host alongside the marketplace plugin to receive the fix for the gentle breathing caret when macOS Reduce Motion is enabled.
 
 - **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.

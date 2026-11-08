@@ -50,7 +50,7 @@ el('app').innerHTML = `<main id="surface" aria-label="${appName}"></main>
 <p id="notice" role="status" aria-live="polite"></p>
 <nav id="tools" aria-label="${appName}"><button id="previous">←</button><button id="next">→</button><button id="new">＋</button><button id="pages">☷</button><button id="appearance">Aa</button><button id="sync">⇄</button><button id="fullscreen">⛶</button></nav>
 <section id="panel" hidden aria-modal="true" role="dialog" aria-labelledby="panel-title"><header><h1 id="panel-title"></h1><button id="close">×</button></header><div id="panel-body"></div></section>`
-for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page', '前のページ'), next: t('下一页', 'Next page', '次のページ'), new: t('新的一页', 'New page', '新しいページ'), pages: t('纸页', 'Pages', 'ページ'), appearance: t('外观', 'Appearance', '外観'), sync: t('同步', 'Sync', '同期'), fullscreen: t('进入全屏（⌃⌘F）', 'Enter fullscreen (⌃⌘F)', 'フルスクリーンにする（⌃⌘F）'), close: t('返回书写', 'Back to writing', '執筆に戻る') })) {
+for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page', '前のページ'), next: t('下一页', 'Next page', '次のページ'), new: t('新的一页', 'New page', '新しいページ'), pages: t('纸页', 'Pages', 'ページ'), appearance: t('外观', 'Appearance', '外観'), sync: t('同步', 'Sync', '同期'), fullscreen: t('进入全屏（Cmd/Win/Super+Enter）', 'Enter fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンにする（Cmd/Win/Super+Enter）'), close: t('返回书写', 'Back to writing', '執筆に戻る') })) {
   el(id).title = label; el(id).setAttribute('aria-label', label)
 }
 
@@ -463,7 +463,7 @@ el('appearance').onclick = () => void run(showAppearance)
 el('sync').onclick = () => void run(showSync)
 function fullscreenLabel(active: boolean) {
   const button = el('fullscreen')
-  button.title = active ? t('退出全屏（⌃⌘F）', 'Exit fullscreen (⌃⌘F)', 'フルスクリーンを解除（⌃⌘F）') : t('进入全屏（⌃⌘F）', 'Enter fullscreen (⌃⌘F)', 'フルスクリーンにする（⌃⌘F）')
+  button.title = active ? t('退出全屏（Cmd/Win/Super+Enter）', 'Exit fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンを解除（Cmd/Win/Super+Enter）') : t('进入全屏（Cmd/Win/Super+Enter）', 'Enter fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンにする（Cmd/Win/Super+Enter）')
   button.setAttribute('aria-label', button.title)
   button.setAttribute('aria-pressed', String(active))
 }
@@ -474,9 +474,14 @@ async function toggleFullscreen() {
 el('fullscreen').onclick = () => void run(toggleFullscreen)
 el('close').onclick = () => void run(() => closePanel())
 document.addEventListener('keydown', event => {
-  if (!mounted) return
-  if (event.metaKey && event.ctrlKey && event.key.toLowerCase() === 'f') {
-    event.preventDefault(); void run(toggleFullscreen)
+  if (!mounted || event.isComposing) return
+  const fullscreen = event.metaKey && !event.altKey && !event.shiftKey && (
+    (!event.ctrlKey && event.key === 'Enter') ||
+    (event.ctrlKey && event.key.toLowerCase() === 'f')
+  )
+  if (fullscreen) {
+    event.preventDefault()
+    if (!event.repeat) void run(toggleFullscreen)
   } else if (event.key === 'Escape' && panelOpen) void run(() => closePanel())
 })
 function scheduleBounds() {

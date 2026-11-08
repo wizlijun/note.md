@@ -109,9 +109,11 @@ combination. It does not claim those characters are covered by the pinned faces.
 It does not show a window or install fonts.
 Descriptor names alone are insufficient.
 
-The standard macOS Control-Command-F shortcut emits `fullscreen`; the host targets
+Command-Return and Command-keypad-Enter, as well as the standard macOS
+Control-Command-F shortcut, emit `fullscreen`; the host targets
 the owning window directly. Fixed normal window dimensions are restored by tao
 after leaving fullscreen. The Web controls query window state for enter/exit labels.
+Held-key repeats do not toggle again; marked-text input retains IME handling.
 
 `SurfaceConfig` includes an initial UTF-16 `selection` and `viewport` (`start`,
 `offset` in logical points). `SurfaceState` and native `viewport` events expose

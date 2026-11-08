@@ -26,6 +26,11 @@ int main(){@autoreleasepool{
     require([SumiShortcut(@"b",11,cmd) isEqual:@"bold"],@"Command B");
     require(SumiShortcut(@"b",11,cmd|shift)==nil && SumiShortcut(@"b",11,cmd|alt)==nil && SumiShortcut(@"n",45,cmd|ctrl)==nil,@"extra modifiers not swallowed");
     require([SumiShortcut(@"f",3,cmd|ctrl) isEqual:@"fullscreen"] && [SumiShortcut(@"f",3,cmd|alt) isEqual:@"replace"],@"exact fullscreen and replace");
+    for(NSNumber *code in @[@36,@76]){
+        require([SumiShortcut(@"",code.unsignedShortValue,cmd) isEqual:@"fullscreen"],@"Command Return and keypad Enter toggle fullscreen by physical key");
+        for(NSNumber *extra in @[@0,@(ctrl),@(cmd|shift),@(cmd|alt),@(cmd|ctrl)])
+            require(SumiShortcut(@"\r",code.unsignedShortValue,extra.unsignedLongLongValue)==nil,@"plain Enter and other modifiers do not toggle fullscreen");
+    }
     require([SumiShortcut(@"8",28,cmd|shift) isEqual:@"bullet_list"] && [SumiShortcut(@"*",28,cmd|shift) isEqual:@"bullet_list"],@"shifted key spellings");
     require([SumiShortcut(@"1",18,cmd|alt) isEqual:@"heading1"] && [SumiShortcut(@"v",9,cmd|alt|shift) isEqual:@"paste_plain"],@"heading and plain paste");
     require([SumiShortcut(@"",123,cmd|alt) isEqual:@"previous_page"] && SumiShortcut(@"",123,cmd|alt|shift)==nil,@"page navigation does not steal selection");
@@ -73,6 +78,23 @@ int main(){@autoreleasepool{
     beforeEdits=events.count;[text deleteBackward:nil];BOOL deleted=NO;
     for(NSUInteger i=beforeEdits;i<events.count;i++)if([events[i][@"kind"] isEqual:@"edit"])deleted=YES;
     require(deleted && ![text.string containsString:@"😀"],@"native deletion is canonical Edit");
+    [window.contentView addSubview:ordinary];
+    [window makeFirstResponder:text];
+    for(NSNumber *code in @[@36,@76]){
+        NSEvent *toggle=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:cmd timestamp:0 windowNumber:window.windowNumber context:nil characters:@"\r" charactersIgnoringModifiers:@"\r" isARepeat:NO keyCode:code.unsignedShortValue];
+        NSString *before=text.string.copy;NSRange selection=text.selectedRange;NSUInteger actions=events.count;
+        require([text performKeyEquivalent:toggle] && events.count==actions+1 && [events.lastObject[@"action"] isEqual:@"fullscreen"],@"Command Enter emits one owner fullscreen action");
+        require([text.string isEqual:before] && NSEqualRanges(selection,text.selectedRange),@"fullscreen does not insert newline or change selection");
+        NSEvent *repeat=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:cmd timestamp:0 windowNumber:window.windowNumber context:nil characters:@"\r" charactersIgnoringModifiers:@"\r" isARepeat:YES keyCode:code.unsignedShortValue];
+        actions=events.count;require([text performKeyEquivalent:repeat] && events.count==actions,@"held fullscreen shortcut is consumed without repeat action");
+        [window makeFirstResponder:ordinary];require(![text performKeyEquivalent:toggle] && events.count==actions,@"non-body responder cannot invoke hidden editor fullscreen");
+        [window makeFirstResponder:text];
+        [text setMarkedText:@"拼" selectedRange:NSMakeRange(1,0) replacementRange:NSMakeRange(NSNotFound,0)];
+        actions=events.count;before=text.string.copy;[text performKeyEquivalent:toggle];
+        require(events.count==actions && text.hasMarkedText && [text.string isEqual:before],@"Command Enter preserves composition and does not emit fullscreen");
+        [text unmarkText];
+    }
+    [ordinary removeFromSuperview];
     require(!window.visible,@"probe did not display a window");
     sumi_editor_detach(handle);printf("PASS: exact shortcuts, native selection/actions, IME gate, Find/Replace/Replace All -> Edit, Escape, emoji movement/deletion\n");
     } @catch(NSException *error){fprintf(stderr,"%s\n",error.reason.UTF8String);return 1;}

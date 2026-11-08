@@ -420,6 +420,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     }
     // Never consume IME cancellation / marked-text editing as a paper action.
     if(self.hasMarkedText || self.owner.composing)return [super performKeyEquivalent:event];
+    if([command isEqualToString:@"fullscreen"] && event.isARepeat)return YES;
     if(command)return [self sumiCommand:command];
     return [super performKeyEquivalent:event];
 }

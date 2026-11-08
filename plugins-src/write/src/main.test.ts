@@ -92,6 +92,52 @@ describe('Sumi native writing shell', () => {
     expect(request.mock.calls.filter(call => call[0] === 'host.sumi.fullscreen')).toHaveLength(2)
     expect(document.getElementById('fullscreen')!.getAttribute('aria-label')).toContain('进入全屏')
   })
+  it.each(['Enter', 'NumpadEnter'])('toggles fullscreen both ways with Meta+%s without submitting the panel', async code => {
+    const request = await setup()
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.getElementById('panel')!.hidden).toBe(false)
+    request.mockClear()
+    for (const fullscreen of [true, false]) {
+      request.mockResolvedValueOnce({ fullscreen } as never)
+      const event = new KeyboardEvent('keydown', { key: 'Enter', code, metaKey: true, bubbles: true, cancelable: true })
+      document.querySelector('#panel-body select')!.dispatchEvent(event)
+      await settle()
+      expect(event.defaultPrevented).toBe(true)
+      expect(document.getElementById('fullscreen')!.getAttribute('aria-pressed')).toBe(String(fullscreen))
+    }
+    expect(request.mock.calls.map(call => call[0])).toEqual(['host.sumi.fullscreen', 'host.sumi.fullscreen'])
+    expect(document.getElementById('panel')!.hidden).toBe(false)
+  })
+  it('does not toggle on repeat, composition or extra modifiers', async () => {
+    const request = await setup()
+    request.mockClear()
+    const repeated = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, repeat: true, cancelable: true })
+    document.dispatchEvent(repeated)
+    expect(repeated.defaultPrevented).toBe(true)
+    for (const init of [
+      { key: 'Enter' }, { key: 'Enter', ctrlKey: true },
+      { key: 'Enter', metaKey: true, ctrlKey: true },
+      { key: 'Enter', metaKey: true, altKey: true },
+      { key: 'Enter', metaKey: true, shiftKey: true },
+      { key: 'Enter', metaKey: true, isComposing: true },
+      { key: 'f', metaKey: true, ctrlKey: true, altKey: true },
+      { key: 'f', metaKey: true, ctrlKey: true, shiftKey: true },
+      { key: 'f', metaKey: true, ctrlKey: true, isComposing: true },
+    ]) {
+      const event = new KeyboardEvent('keydown', { ...init, cancelable: true })
+      document.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+    }
+    await settle()
+    expect(request).not.toHaveBeenCalled()
+  })
+  it.each(['zh', 'en', 'ja'])('advertises Meta+Enter in %s fullscreen labels', async locale => {
+    const request = await setup(state(), undefined, locale)
+    expect(document.getElementById('fullscreen')!.title).toContain('Cmd/Win/Super+Enter')
+    request.mockResolvedValueOnce({ fullscreen: true } as never)
+    document.getElementById('fullscreen')!.click(); await settle()
+    expect(document.getElementById('fullscreen')!.getAttribute('aria-label')).toContain('Cmd/Win/Super+Enter')
+  })
   it('makes an unsuccessful save visible instead of reporting success', async () => {
     await setup(state({ saveState: 'error' }))
     expect(document.getElementById('notice')!.textContent).toContain('保存失败')
