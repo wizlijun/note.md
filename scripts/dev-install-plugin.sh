@@ -487,17 +487,22 @@ elif [[ "$PLUGIN" == "quick-launch" ]]; then
 
 elif [[ "$PLUGIN" == "sumi" ]]; then
   SRC="plugins-src/write"
-  # Build the standalone UI bundle (dist/). Pure UI plugin; no native backend.
+  # The manifest now requires a native backend; never install a UI-only Sumi.
+  SUMI_TRIPLE=$(rustc -vV | sed -n 's/^host: //p')
+  node -e 'const m=require(process.argv[1]);if(m.binary?.[process.argv[2]]!=="bin/notemd-sumi")throw Error("Sumi does not support this native target")' "./$SRC/manifest.v2.json" "$SUMI_TRIPLE"
+  cargo build $([ "$PROFILE" = release ] && echo --release) \
+    --locked --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-sumi
   ( cd "$SRC" && node ../../node_modules/typescript/bin/tsc --noEmit && node ../../node_modules/vite/bin/vite.js build )
   VERSION=$(node -e "console.log(require('./$SRC/manifest.v2.json').version)")
   DEST="$ROOT/notemd.sumi/$VERSION"
   rm -rf "$DEST"
-  mkdir -p "$DEST/ui"
+  mkdir -p "$DEST/ui" "$DEST/bin"
+  cp "$SRC/backend/target/$PROFILE/notemd-sumi" "$DEST/bin/"
   cp -R "$SRC/dist/." "$DEST/ui/"
   cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
   ln -sfn "$VERSION" "$ROOT/notemd.sumi/current"
   mark_installed "notemd.sumi" "$VERSION"
-  echo "✓ installed notemd.sumi@$VERSION (ui-only) → $DEST"
+  echo "✓ installed notemd.sumi@$VERSION (backend + ui) → $DEST"
   echo "  open it:                Plugins menu ▸ Experience ▸ Sumi"
 
 elif [[ "$PLUGIN" == "power-mode" ]]; then

@@ -75,7 +75,7 @@ describe('release-plugins.sh packaging shape', () => {
   it.each(plugins.filter((p) => Object.keys(p.manifest.binary ?? {}).length > 0))(
     '$dir declares a binary, so it must be packaged per triple',
     ({ dir, manifest }) => {
-      const fn = table.get(dir)
+      const fn = table.get(dir === 'write' ? 'sumi' : dir)
       expect(fn, `${dir} declares ${Object.keys(manifest.binary!).length} binary target(s) but release-plugins.sh has no case for it`).toBeDefined()
       const body = packagingBody(fn!)
       expect(body, `${dir} is packaged as universal.notemdpkg`).not.toContain('universal.notemdpkg')
@@ -86,7 +86,7 @@ describe('release-plugins.sh packaging shape', () => {
   it.each(plugins.filter((p) => Object.keys(p.manifest.binary ?? {}).length === 0))(
     '$dir declares no binary, so universal is the right shape',
     ({ dir }) => {
-      const fn = table.get(dir)
+      const fn = table.get(dir === 'write' ? 'sumi' : dir)
       // Fixtures (custom-editor-fixture) are never released; only assert the
       // shape of the ones the script knows about.
       if (!fn) return
@@ -112,6 +112,17 @@ describe('release-plugins.sh packaging shape', () => {
     expect(body).toContain('"codex-agent"')
     expect(packagingBody('release_codex_agent')).toContain('$triple.notemdpkg')
     expect(packagingBody('release_codex_agent')).toContain('cargo build --release --locked')
+  })
+
+  it('Sumi release and development installation both carry the native backend', () => {
+    expect(table.get('sumi')).toBe('release_sumi')
+    const body = functionBody('release_sumi')
+    expect(body).toContain('scripts/sumi/native-release.py --sign-and-notarize')
+    expect(body).toContain('"$native_dir/notemd-sumi" "$stage/bin/notemd-sumi"')
+    const dev = DEV_INSTALL.split('elif [[ "$PLUGIN" == "sumi" ]]; then')[1]?.split('\nelif ')[0]
+    expect(dev).toContain('--locked --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-sumi')
+    expect(dev).toContain('"$SRC/backend/target/$PROFILE/notemd-sumi" "$DEST/bin/"')
+    expect(dev).not.toContain('(ui-only)')
   })
 
   it('Quick Launch builds the package-name-matched UI in both release and dev installation', () => {
