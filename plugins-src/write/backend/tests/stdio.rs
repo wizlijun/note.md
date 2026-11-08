@@ -16,7 +16,7 @@ impl Process {
             .stderr(std::process::Stdio::piped()).kill_on_drop(true).spawn().unwrap();
         let input=child.stdin.take().unwrap();let output=BufReader::new(child.stdout.take().unwrap()).lines();
         let mut proc=Self {child,input,output,next:1000};
-        proc.raw("$initialize",json!({"protocol_version":2,"host_version":"6.1108.5","locale":"zh","theme":"light","plugin_root":"/isolated/plugin","data_dir":"/isolated/data"})).await.unwrap();
+        proc.raw("$initialize",json!({"protocol_version":2,"host_version":"6.1108.6","locale":"zh","theme":"light","plugin_root":"/isolated/plugin","data_dir":"/isolated/data"})).await.unwrap();
         proc.raw("$activate",json!({"event":"onCommand:open"})).await.unwrap();proc
     }
     async fn send(&mut self,value:Value) {
@@ -61,6 +61,21 @@ async fn real_stdio_commit_kill_reopen_replay_and_private_boundary() {
     let fonts=first.service("fonts",json!({"version":1,"cache":temp.path().join("fonts"),"payload":{"operation":"statuses"}})).await.unwrap();
     assert_eq!(fonts["statuses"].as_array().unwrap().len(),6);
     assert!(fonts["statuses"].as_array().unwrap().iter().all(|v|v["status"]=="not_downloaded"));
+    let sound_status=first.service("sound",json!({"instance":instance,"session":session,"payload":{"operation":"status"}})).await.unwrap();
+    assert_eq!(sound_status["ready"],false);
+    assert!(first.service("sound",json!({"instance":instance,"session":"foreign","payload":{"operation":"status"}})).await.is_err());
+    // Release acceptance unpacks the exact signed package. This opens the real
+    // output device but never schedules samples or observes keyboard input.
+    if std::env::var_os("SUMI_TEST_PACKAGED_SOUNDS").is_some() {
+        for preset in ["typewriter","thock"] {
+            let token=uuid::Uuid::new_v4().to_string();
+            let deadline=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64+3000;
+            let configured=first.service("sound",json!({"instance":instance,"session":session,"payload":{"operation":"configure","enabled":true,"preset":preset,"token":token,"expires_at_ms":deadline}})).await.unwrap();
+            assert_eq!(configured["ready"],true);
+            let stopped=first.service("sound",json!({"instance":instance,"session":session,"payload":{"operation":"configure","enabled":false,"preset":preset,"token":token}})).await.unwrap();
+            assert_eq!(stopped["ready"],false);
+        }
+    }
     let mut document=write_core::Document::new(&page,1,19).unwrap();
     first.durable(&instance,&session,Request::Create(Create {page_id:page.clone(),epoch:1,full_state:document.encode_full(),revision:0,after_id:None,first_write_date:None,frontmatter:None,preserved_pair:None})).await.unwrap();
     let update=document.replace(0,0,0,"真实子进程：一次写入",100).unwrap();

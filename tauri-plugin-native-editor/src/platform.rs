@@ -6,6 +6,8 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
 };
 unsafe extern "C" {
+    fn sumi_typing_configure(enabled: i32, callback: Option<extern "C" fn(*const c_char, u64, u32)>) -> u32;
+    fn sumi_typing_status(request: i32) -> u32;
     fn sumi_editor_mount(
         parent: *mut c_void,
         webview_sibling: i32,
@@ -229,3 +231,25 @@ pub fn is_supported() -> bool {
 pub fn menu_command(command: &str) -> bool {
     CString::new(command).is_ok_and(|value| unsafe { sumi_editor_menu_command(value.as_ptr()) != 0 })
 }
+
+thread_local! { static TYPING_HANDLER: RefCell<Option<TypingSoundHandler>> = RefCell::new(None); }
+extern "C" fn typing_event(surface: *const c_char, generation: u64, role: u32) {
+    if surface.is_null() { return; }
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let role = match role { 0 => TypingSoundRole::Key, 1 => TypingSoundRole::Space, 2 => TypingSoundRole::Enter, 3 => TypingSoundRole::Delete, 4 => TypingSoundRole::Modifier, 5 => TypingSoundRole::KeyUp, 6 => TypingSoundRole::SpaceUp, 7 => TypingSoundRole::Stop, _ => return };
+        let surface_id = unsafe { CStr::from_ptr(surface) }.to_string_lossy().into_owned();
+        let handler = TYPING_HANDLER.with(|slot| slot.borrow().clone());
+        if let Some(handler) = handler { handler(TypingSoundEvent { surface_id, generation, role }); }
+    }));
+}
+fn typing_bits(bits: u32) -> TypingMonitorStatus {
+    TypingMonitorStatus { enabled: bits & 1 != 0, permission_granted: bits & 2 != 0, listening: bits & 4 != 0 }
+}
+pub fn configure_typing(enabled: bool, handler: Option<TypingSoundHandler>) -> TypingMonitorStatus {
+    // Stop is delivered to the old handler before replacing it.
+    unsafe { sumi_typing_configure(0, None); }
+    let has_handler = handler.is_some();
+    TYPING_HANDLER.with(|slot| *slot.borrow_mut() = handler);
+    typing_bits(unsafe { sumi_typing_configure(i32::from(enabled), if has_handler { Some(typing_event) } else { None }) })
+}
+pub fn typing_status(request: bool) -> TypingMonitorStatus { typing_bits(unsafe { sumi_typing_status(i32::from(request)) }) }

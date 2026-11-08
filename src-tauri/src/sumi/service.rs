@@ -159,6 +159,12 @@ impl Backend {
     }
     /// A transport failure is deliberately not retried here: only the durable
     /// FIFO may replay operations with proven durable idempotency identities.
+    /// Ephemeral feedback must never activate or rebind a stopped backend.
+    pub async fn call_existing<T: DeserializeOwned>(&self, method: &str, payload: Value) -> Result<T> {
+        let binding = self.inner.binding.lock().await.clone().ok_or("Sumi sound backend is not connected")?;
+        if binding.process.has_exited().await.is_some() { return Err("Sumi sound backend has stopped".into()); }
+        raw(&binding.process, method, json!({"instance":binding.instance,"session":self.inner.session,"payload":payload})).await
+    }
     pub async fn call<T: DeserializeOwned>(&self, method: &str, payload: Value) -> Result<T> {
         let binding = self.binding().await?;
         raw(&binding.process, method, json!({"instance":binding.instance,"session":self.inner.session,"payload":payload})).await
@@ -199,6 +205,22 @@ mod tests {
     use super::*;
     use crate::plugin_runtime::process::{initialize_and_activate, HostSink};
     use super::super::durability::{Durability, Create, LocalEdit};
+    #[tokio::test]
+    async fn feedback_without_a_binding_never_activates_a_backend() {
+        let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let connect: Connector = { let attempts = attempts.clone(); Arc::new(move || {
+            attempts.fetch_add(1, Ordering::SeqCst); Box::pin(async { Err("must not connect".into()) })
+        }) };
+        let backend = Backend { inner: Arc::new(Inner {
+            session: uuid::Uuid::new_v4().to_string(), root: PathBuf::new(), database: PathBuf::new(), fonts: PathBuf::new(), connect,
+            binding: tokio::sync::Mutex::new(None), network_started: AtomicBool::new(false),
+            network_control: tokio::sync::Mutex::new(()), mutations: MutationGate::default(),
+        }) };
+        for operation in ["play", "stop", "status", "configure"] {
+            assert!(backend.call_existing::<Value>("sound", json!({"operation":operation})).await.is_err());
+        }
+        assert_eq!(attempts.load(Ordering::SeqCst), 0);
+    }
     #[tokio::test]
     async fn stopped_mutation_intake_drains_existing_callbacks_before_flush() {
         let gate=Arc::new(MutationGate::default());

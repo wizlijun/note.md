@@ -1,6 +1,6 @@
 import './style.css'
 import { createI18n } from '../../../src/lib/sumi/i18n'
-import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds, type FontState } from './contract'
+import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds, type FontState, type SoundState } from './contract'
 
 interface Bridge {
   locale?: string
@@ -41,6 +41,8 @@ let pendingFocusPage: string | undefined
 let generation = 0
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
 let fontPanel: { render(): void; poll(): Promise<void>; pause(): void; dispose(): void } | undefined
+let soundPanel: { render(): void; read(): Promise<void>; pause(): void; dispose(): void } | undefined
+function stopSoundPanel() { soundPanel?.dispose(); soundPanel = undefined }
 function stopFontPanel() { fontPanel?.dispose(); fontPanel = undefined }
 
 // User content is always assigned through textContent, never interpolated into markup.
@@ -133,7 +135,7 @@ async function run(action: () => Promise<void>) {
   finally {
     busy = false
     for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = false
-    fontPanel?.render()
+    fontPanel?.render(); soundPanel?.render()
     const navigation = pendingNavigation
     if (navigation && mounted && windowVisible) {
       pendingNavigation = undefined
@@ -192,7 +194,7 @@ async function focusOwnedPage(pageId: string) {
 }
 async function openPanel(title: string) {
   if (surface) await request('visible', { surface, visible: false, preparePanel: true })
-  stopFontPanel()
+  stopFontPanel(); stopSoundPanel()
   panelOpen = true
   el('panel-title').textContent = title
   el('panel-body').replaceChildren()
@@ -200,7 +202,7 @@ async function openPanel(title: string) {
   el('close').focus()
 }
 async function closePanel(focus = true) {
-  stopFontPanel()
+  stopFontPanel(); stopSoundPanel()
   panelOpen = false; el('panel').hidden = true
   if (surface && focus) { await request('visible', { surface, visible: true }); await request('focus', { surface }) }
 }
@@ -351,6 +353,66 @@ function showFonts(form: HTMLFormElement) {
   }
   fontPanel = { render, poll, pause, dispose() { active = false; pause() } }
 }
+function showSounds(form: HTMLFormElement) {
+  const section = document.createElement('section'); section.className = 'sound-settings'; section.setAttribute('aria-label', t('键盘音效', 'Typing sounds', '打鍵音'))
+  const heading = document.createElement('h2'); heading.textContent = section.getAttribute('aria-label'); section.append(heading)
+  const toggleLabel = document.createElement('label'); toggleLabel.className = 'sound-toggle'
+  const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.id = 'sound-enabled'
+  toggleLabel.append(toggle, t('启用键盘音效', 'Enable typing sounds', '打鍵音を有効にする')); section.append(toggleLabel)
+  const presetLabel = document.createElement('label'); presetLabel.append(t('音色', 'Sound', '音色'))
+  const preset = document.createElement('select'); preset.id = 'sound-preset'
+  for (const [value, label] of [['typewriter', t('打字机', 'Typewriter', 'タイプライター')], ['thock', t('低沉机械键', 'Thock', '低音メカニカル')]]) {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; preset.append(option)
+  }
+  presetLabel.append(preset); section.append(presetLabel)
+  const hint = document.createElement('p'); hint.textContent = t('仅在此应用的正文编辑器获得焦点时播放，支持中文等输入法。', 'Plays only while this app’s writing editor has focus, including when using an input method.', 'このアプリの本文エディタにフォーカスがある時だけ再生します。日本語や中国語の入力にも対応します。'); section.append(hint)
+  const status = document.createElement('p'); status.id = 'sound-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); section.append(status)
+  const permission = document.createElement('button'); permission.type = 'button'; permission.id = 'sound-permission'; permission.textContent = t('允许输入监控', 'Allow Input Monitoring', '入力監視を許可'); section.append(permission)
+  const retry = document.createElement('button'); retry.type = 'button'; retry.id = 'sound-retry'; retry.textContent = t('重试', 'Retry', '再試行'); section.append(retry)
+  form.append(section)
+  let snapshot: SoundState | undefined
+  let active = true, pending = false, revision = 0, failure = ''
+  let retryAction: (() => Promise<void>) | undefined
+  const valid = () => active && mounted && windowVisible && panelOpen && section.isConnected
+  function render() {
+    if (!valid()) return
+    section.setAttribute('aria-busy', String(pending))
+    toggle.disabled = preset.disabled = busy || pending || !snapshot
+    permission.disabled = retry.disabled = busy || pending
+    toggle.checked = snapshot?.enabled ?? false; preset.value = snapshot?.preset ?? 'typewriter'
+    permission.hidden = snapshot?.permission !== 'required'
+    retry.hidden = !failure && !snapshot?.error
+    status.textContent = failure || (pending ? t('正在更新音效设置…', 'Updating sound settings…', '打鍵音の設定を更新中…')
+      : !snapshot ? t('正在读取音效设置…', 'Loading sound settings…', '打鍵音の設定を読み込み中…')
+      : snapshot.error ? hostMessage(snapshot.error)
+      : snapshot.status === 'off' ? t('音效已关闭。', 'Typing sounds are off.', '打鍵音はオフです。')
+      : snapshot.status === 'permission_required' ? t('需要输入监控权限才能播放音效。', 'Input Monitoring permission is required to play typing sounds.', '打鍵音を再生するには入力監視の許可が必要です。')
+      : snapshot.status === 'unavailable' ? t('此系统暂时无法播放键盘音效。', 'Typing sounds are unavailable on this system.', 'このシステムでは打鍵音を利用できません。')
+      : t('音效已就绪。', 'Typing sounds are ready.', '打鍵音を再生できます。'))
+  }
+  async function perform(method: string, params: object, again: () => Promise<void>) {
+    if (!valid() || pending) return
+    pending = true; failure = ''; const attempt = ++revision; render()
+    try {
+      const next = await request<SoundState>(method, params)
+      if (valid() && revision === attempt) { snapshot = next; retryAction = undefined }
+    } catch (error) {
+      if (valid() && revision === attempt) {
+        failure = t('音效设置操作失败，请重试。', 'Unable to update sound settings. Try again.', '打鍵音の設定を更新できません。再試行してください。') + ' ' + hostMessage(error)
+        retryAction = again
+      }
+    } finally { if (valid() && revision === attempt) { pending = false; render() } }
+  }
+  async function read() { await perform('sound_state', {}, read) }
+  async function save(enabled: boolean, selected: SoundState['preset']) { await perform('sound_set', { enabled, preset: selected }, () => save(enabled, selected)) }
+  async function grant() { await perform('sound_request_permission', {}, grant) }
+  toggle.onchange = () => { if (snapshot && !busy && !pending) void save(toggle.checked, snapshot.preset) }
+  preset.onchange = () => { if (snapshot && !busy && !pending) void save(snapshot.enabled, preset.value as SoundState['preset']) }
+  permission.onclick = () => { if (!busy) void grant() }
+  retry.onclick = () => { if (!busy) void (retryAction ?? read)() }
+  function pause() { revision++; pending = false }
+  soundPanel = { render, read, pause, dispose() { active = false; pause() } }
+}
 async function showAppearance() {
   await openPanel(t('外观', 'Appearance', '外観'))
   const form = document.createElement('form')
@@ -370,10 +432,11 @@ async function showAppearance() {
     field.value = String(state!.preferences[key as keyof typeof labels]); wrap.append(field); form.append(wrap)
     if (key === 'theme') showFonts(form)
   }
+  showSounds(form)
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply', '適用'); form.append(submit)
   form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }
   el('panel-body').append(form)
-  fontPanel?.render(); void fontPanel?.poll()
+  fontPanel?.render(); void fontPanel?.poll(); soundPanel?.render(); void soundPanel?.read()
 }
 async function showSync() {
   await refresh(); await openPanel(t('同步', 'Sync', '同期'))
@@ -426,18 +489,18 @@ new ResizeObserver(() => {
   if (mounted) void request<{ fullscreen: boolean }>('fullscreen', { queryOnly: true })
     .then(result => { if (mounted) fullscreenLabel(result.fullscreen) }).catch(error => notice(hostMessage(error)))
 }).observe(el('surface'))
-window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer); stopFontPanel() })
+window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer); stopFontPanel(); stopSoundPanel() })
 window.notemd?.onMessage?.(event => {
   if (!event || typeof event !== 'object') return
   const message = event as { type?: string; state?: SumiState; action?: string; message?: string; payload?: unknown; visible?: boolean; detached?: boolean; pageId?: string }
   if (message.type === 'sumi-window-state' && typeof message.visible === 'boolean') {
     windowVisible = message.visible
     if (!windowVisible) {
-      fontPanel?.pause()
+      fontPanel?.pause(); soundPanel?.pause()
       generation++; pendingWindowResume = false; pendingFocusPage = undefined
       if (message.detached) { surface = undefined; surfacePageId = undefined }
     } else {
-      void fontPanel?.poll()
+      void fontPanel?.poll(); void soundPanel?.read()
       if (busy) pendingWindowResume = true
       else void run(async () => { await refresh(); await mountPage(true) })
     }

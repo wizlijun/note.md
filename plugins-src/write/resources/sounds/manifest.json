@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "packs": [
+    {
+      "id": "typewriter",
+      "roles": {
+        "key": [
+          "typewriter/typewriter-keys-1.wav"
+        ],
+        "space": [
+          "typewriter/typewriter-space-1.wav"
+        ],
+        "enter": [
+          "typewriter/typewriter-enter2-1.wav"
+        ],
+        "delete": [
+          "typewriter/typewriter-delete-1.wav"
+        ],
+        "modifier": [
+          "typewriter/typewriter-modifier-1.wav"
+        ],
+        "keyUp": [],
+        "spaceUp": [],
+        "click": []
+      }
+    },
+    {
+      "id": "thock",
+      "roles": {
+        "key": [
+          "thock/thock-keys-1.wav"
+        ],
+        "space": [
+          "thock/thock-space-1.wav"
+        ],
+        "enter": [
+          "thock/thock-enter-1.wav"
+        ],
+        "delete": [
+          "thock/thock-delete-1.wav"
+        ],
+        "modifier": [
+          "thock/thock-modifier-1.wav"
+        ],
+        "keyUp": [
+          "thock/thock-release-1.wav"
+        ],
+        "spaceUp": [
+          "thock/thock-release-1.wav"
+        ],
+        "click": [
+          "thock/thock-click-1.wav"
+        ]
+      }
+    }
+  ],
+  "assets": [
+    {
+      "file": "thock/thock-click-1.wav",
+      "size": 3996,
+      "sha256": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 1976
+    },
+    {
+      "file": "thock/thock-delete-1.wav",
+      "size": 4460,
+      "sha256": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 2208
+    },
+    {
+      "file": "thock/thock-enter-1.wav",
+      "size": 6254,
+      "sha256": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 3105
+    },
+    {
+      "file": "thock/thock-keys-1.wav",
+      "size": 8684,
+      "sha256": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 4320
+    },
+    {
+      "file": "thock/thock-modifier-1.wav",
+      "size": 4448,
+      "sha256": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 2202
+    },
+    {
+      "file": "thock/thock-release-1.wav",
+      "size": 6254,
+      "sha256": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 3105
+    },
+    {
+      "file": "thock/thock-space-1.wav",
+      "size": 4900,
+      "sha256": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 2428
+    },
+    {
+      "file": "typewriter/typewriter-delete-1.wav",
+      "size": 6476,
+      "sha256": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 3216
+    },
+    {
+      "file": "typewriter/typewriter-enter2-1.wav",
+      "size": 70604,
+      "sha256": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 35280
+    },
+    {
+      "file": "typewriter/typewriter-keys-1.wav",
+      "size": 6476,
+      "sha256": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 3216
+    },
+    {
+      "file": "typewriter/typewriter-modifier-1.wav",
+      "size": 5708,
+      "sha256": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 2832
+    },
+    {
+      "file": "typewriter/typewriter-space-1.wav",
+      "size": 5324,
+      "sha256": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974",
+      "format": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "frame_count": 2640
+    }
+  ]
+}

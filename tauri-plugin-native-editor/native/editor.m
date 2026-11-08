@@ -192,6 +192,8 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (NSFont *)baseFont;
 @end
 
+#import "typing-monitor.h"
+
 static NSDictionary *SumiJSON(const char *json) {
     if (!json) return nil;
     NSData *data=[NSData dataWithBytes:json length:strlen(json)];
@@ -332,10 +334,10 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (BOOL)becomeFirstResponder { BOOL accepted=[super becomeFirstResponder];[self refreshTypewriterCaret:YES];return accepted; }
 - (BOOL)resignFirstResponder {
     BOOL accepted=[super resignFirstResponder];
-    if(accepted){self.typewriterCaret.hidden=YES;[self.typewriterCaret.layer removeAnimationForKey:@"sumi-caret-breathing"];}
+    if(accepted){if(SumiTypingOwner==self.owner)SumiTypingClear();self.typewriterCaret.hidden=YES;[self.typewriterCaret.layer removeAnimationForKey:@"sumi-caret-breathing"];}
     return accepted;
 }
-- (void)caretWindowChanged:(NSNotification *)notification { (void)notification;[self refreshTypewriterCaret:YES]; }
+- (void)caretWindowChanged:(NSNotification *)notification { (void)notification;SumiTypingRefresh();[self refreshTypewriterCaret:YES]; }
 - (void)viewDidMoveToWindow {
     [super viewDidMoveToWindow];
     NSArray *names=@[NSWindowDidBecomeKeyNotification,NSWindowDidResignKeyNotification,NSApplicationDidBecomeActiveNotification,NSApplicationDidResignActiveNotification];
@@ -907,12 +909,12 @@ int sumi_editor_command(void *handle,const char *json){
     if([command isEqualToString:@"prepare_panel"]){
         if(![editor.text prepareForPanel])return 5;
         if(editor.text.window.firstResponder==editor.text && ![editor.text.window makeFirstResponder:nil])return 5;
-        editor.container.hidden=YES;return 0;
+        editor.container.hidden=YES;SumiTypingRefresh();return 0;
     }
     if([command isEqualToString:@"set_visible"]){
         BOOL visible=[value[@"visible"] boolValue];if(visible==!editor.container.hidden)return 0;
         if(editor.composing)return 1;
-        editor.container.hidden=!visible;
+        editor.container.hidden=!visible;SumiTypingRefresh();
         if(!visible && editor.text.window.firstResponder==editor.text)[editor.text.window makeFirstResponder:nil];return 0;
     }
     return 3;
@@ -930,6 +932,7 @@ void sumi_editor_free_string(char *value){free(value);}
 void sumi_editor_detach(void *handle){
     if(!handle || !NSThread.isMainThread)return;
     SumiEditor *editor=(__bridge_transfer SumiEditor *)handle;
+    if(SumiTypingOwner==editor)SumiTypingClear();
     editor.detached=YES;editor.callback=NULL;editor.text.delegate=nil;editor.text.owner=nil;
     [editor.text refreshTypewriterCaret:NO];
     [NSNotificationCenter.defaultCenter removeObserver:editor];

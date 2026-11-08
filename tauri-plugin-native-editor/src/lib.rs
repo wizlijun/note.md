@@ -158,6 +158,50 @@ pub enum NativeEvent {
         range: TextRange,
     },
 }
+/// Ephemeral sound roles only: never characters or document content.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TypingSoundRole { Key, Space, Enter, Delete, Modifier, KeyUp, SpaceUp, Stop }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TypingSoundEvent {
+    pub surface_id: String,
+    pub generation: u64,
+    pub role: TypingSoundRole,
+}
+/// Runs on the native main thread. Only enqueue with try_send; never block or reenter AppKit.
+pub type TypingSoundHandler = Arc<dyn Fn(TypingSoundEvent) + Send + Sync>;
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct TypingMonitorStatus {
+    pub enabled: bool,
+    pub permission_granted: bool,
+    pub listening: bool,
+}
+
+/// Configure intent without showing a system permission prompt.
+pub async fn configure_typing_monitor<R: Runtime>(app: &tauri::AppHandle<R>, enabled: bool, handler: Option<TypingSoundHandler>) -> Result<TypingMonitorStatus, String> {
+    typing_on_main(app, move || platform_typing_configure(enabled, handler)).await
+}
+pub async fn typing_monitor_status<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<TypingMonitorStatus, String> {
+    typing_on_main(app, || platform_typing_status(false)).await
+}
+/// Call only from the explicit user permission action, never on mount/startup.
+pub async fn request_typing_permission<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<TypingMonitorStatus, String> {
+    typing_on_main(app, || platform_typing_status(true)).await
+}
+async fn typing_on_main<R: Runtime>(app: &tauri::AppHandle<R>, f: impl FnOnce() -> TypingMonitorStatus + Send + 'static) -> Result<TypingMonitorStatus, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.run_on_main_thread(move || { let _ = tx.send(f()); }).map_err(|e| e.to_string())?;
+    rx.await.map_err(|_| "native typing monitor main thread stopped".to_owned())
+}
+fn platform_typing_configure(enabled: bool, handler: Option<TypingSoundHandler>) -> TypingMonitorStatus {
+    #[cfg(target_os = "macos")] { platform::configure_typing(enabled, handler) }
+    #[cfg(not(target_os = "macos"))] { let _ = (enabled, handler); TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
+}
+fn platform_typing_status(request: bool) -> TypingMonitorStatus {
+    #[cfg(target_os = "macos")] { platform::typing_status(request) }
+    #[cfg(not(target_os = "macos"))] { let _ = request; TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
+}
+
 /// Controlled rich projection installed synchronously before the next native input.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Projection {
@@ -573,6 +617,16 @@ mod platform;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn typing_sound_wire_contains_only_surface_identity_and_role() {
+        let roles = [TypingSoundRole::Key, TypingSoundRole::Space, TypingSoundRole::Enter, TypingSoundRole::Delete, TypingSoundRole::Modifier, TypingSoundRole::KeyUp, TypingSoundRole::SpaceUp, TypingSoundRole::Stop];
+        for (role, name) in roles.into_iter().zip(["key", "space", "enter", "delete", "modifier", "key_up", "space_up", "stop"]) {
+            let value = serde_json::to_value(TypingSoundEvent { surface_id: "surface".into(), generation: 9, role }).unwrap();
+            assert_eq!(value, serde_json::json!({"surface_id":"surface", "generation":9, "role":name}));
+            assert_eq!(serde_json::from_value::<TypingSoundEvent>(value).unwrap().role, role);
+        }
+        assert!(serde_json::from_value::<TypingSoundRole>(serde_json::json!("text")).is_err());
+    }
     #[test]
     fn locale_defaults_for_older_appearance_and_normalizes_regions() {
         let mut value = serde_json::to_value(Appearance::default()).unwrap();

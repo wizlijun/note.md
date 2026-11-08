@@ -13,7 +13,8 @@ struct State {
     instance: String,
     sessions: Mutex<HashMap<String, Arc<Session>>>,
     fonts: Mutex<Option<(PathBuf, fonts::Manager)>>,
-    closing: AtomicBool,
+    closing: Arc<AtomicBool>,
+    sound: Arc<std::sync::Mutex<crate::sound::Manager>>,
 }
 struct Session {
     vault: PathBuf,
@@ -80,7 +81,7 @@ fn database_path(path:&Path) -> Result<PathBuf> {
 impl Default for Plugin { fn default()->Self {Self::new()} }
 impl Plugin {
     pub fn new()->Self {
-        Self { state:Arc::new(State { instance:uuid::Uuid::new_v4().to_string(), sessions:Mutex::new(HashMap::new()), fonts:Mutex::new(None), closing:AtomicBool::new(false) }), context:None }
+        Self { state:Arc::new(State { instance:uuid::Uuid::new_v4().to_string(), sessions:Mutex::new(HashMap::new()), fonts:Mutex::new(None), closing:Arc::new(AtomicBool::new(false)), sound:Arc::new(std::sync::Mutex::new(crate::sound::Manager::default())) }), context:None }
     }
 }
 impl NotemdPlugin for Plugin {
@@ -188,17 +189,29 @@ impl State {
             "hello"=>{version(decode::<Hello>(params)?.version)?;Ok(json!({"version":VERSION,"instance":self.instance}))}
             "open"=>self.open(host,decode(params)?).await,
             "fonts"=>self.font_request(decode(params)?).await,
-            "durability"|"network"=>{
+            "durability"|"network"|"sound"=>{
                 let envelope:Envelope=decode(params)?;
                 let session=self.session(&envelope).await?;
                 if method=="durability" {durability_rpc::dispatch(&session.durable,decode::<Request>(envelope.payload)?).await}
-                else {self.network_request(session,decode(envelope.payload)?).await}
+                else if method=="sound" {
+                    let request=decode(envelope.payload)?;
+                    let sound=self.sound.clone();let closing=self.closing.clone();
+                    // Audio device setup/file decoding never occupies a Tokio I/O worker.
+                    tokio::task::spawn_blocking(move || {
+                        let mut sound=sound.lock().map_err(crate::err)?;
+                        // Shutdown may win while session lookup yields; never restart audio afterwards.
+                        if closing.load(Ordering::SeqCst) { return Err("backend is shutting down".into()); }
+                        serde_json::to_value(sound.request(&envelope.session,request)?).map_err(crate::err)
+                    }).await.map_err(crate::err)?
+                } else {self.network_request(session,decode(envelope.payload)?).await}
             }
             _=>Err("unknown private Sumi service".into()),
         }
     }
     async fn shutdown(&self)->Result<()> {
         self.closing.store(true,Ordering::SeqCst);
+        let sound=self.sound.clone();
+        tokio::task::spawn_blocking(move || -> Result<()> {sound.lock().map_err(crate::err)?.shutdown();Ok(())}).await.map_err(crate::err)??;
         let sessions=self.sessions.lock().await.drain().map(|(_,s)|s).collect::<Vec<_>>();
         let mut failure=None;
         for session in sessions {

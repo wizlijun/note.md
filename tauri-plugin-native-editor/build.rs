@@ -1,6 +1,7 @@
 fn main() {
     println!("cargo:rerun-if-changed=native/editor.m");
     println!("cargo:rerun-if-changed=native/editor.h");
+    println!("cargo:rerun-if-changed=native/typing-monitor.h");
     println!("cargo:rerun-if-changed=native/shortcuts.h");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         let mut build = cc::Build::new();
@@ -33,6 +34,7 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=AppKit");
         println!("cargo:rustc-link-lib=framework=Foundation");
         println!("cargo:rustc-link-lib=framework=CoreText");
+        println!("cargo:rustc-link-lib=framework=CoreGraphics");
         println!("cargo:rustc-link-lib=framework=QuartzCore");
     }
 }

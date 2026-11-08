@@ -19,3 +19,8 @@ int sumi_editor_register_cascade(const char *json, char **error);
 
 // Only the current key window's actual Sumi text responder; no caller-supplied identity.
 int sumi_editor_menu_command(const char *command);
+
+// Main-thread-only ephemeral sound bridge; role values are internal ABI, no text.
+typedef void (*SumiTypingCallback)(const char *surface_id, uint64_t generation, uint32_t role);
+uint32_t sumi_typing_configure(int enabled, SumiTypingCallback callback);
+uint32_t sumi_typing_status(int request_permission);

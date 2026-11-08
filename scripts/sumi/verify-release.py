@@ -18,17 +18,19 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '6.1108.5'
-PLUGIN_VERSION = '0.1.4'
+VERSION = '6.1108.6'
+PLUGIN_VERSION = '0.1.5'
 SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
-           'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/App.svelte',
+           'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/lib/sumi/i18n.ts', 'src/App.svelte',
            'src-tauri/src/sumi/mod.rs', 'src-tauri/src/sumi/export.rs',
            'src-tauri/src/sumi/recovery.rs', 'src-tauri/src/sumi/external.rs',
            'src-tauri/src/sumi/fonts.rs',
-           'src-tauri/src/plugin_runtime/market.rs', 'src-tauri/src/app_dirs.rs',
+           'src-tauri/src/plugin_runtime/market.rs', 'src-tauri/src/plugin_runtime/windows.rs',
+           'src-tauri/src/lib.rs', 'src-tauri/src/app_dirs.rs',
            'tauri-plugin-native-editor/native/editor.m', 'tauri-plugin-native-editor/src/lib.rs',
            'tauri-plugin-native-editor/Cargo.toml', 'tauri-plugin-native-editor/build.rs',
-           'plugins-src/write/src/main.ts', 'plugins-src/write/manifest.v2.json',
+           'plugins-src/write/src/main.ts', 'plugins-src/write/src/contract.ts',
+           'plugins-src/write/src/style.css', 'plugins-src/write/manifest.v2.json',
            'plugins-src/write/resources/sumi/manifest.json',
            'sumi-protocol/src/fonts.rs', 'plugins-src/write/vite.config.ts']
 
@@ -235,7 +237,7 @@ def plugin_metadata(files, manifest_raw):
 
 def source_inventory(commit):
     native = helper(Path(__file__).with_name('native-release.py'))
-    return sorted(set(SOURCES) | set(native.frozen_sources(commit)))
+    return sorted(set(SOURCES) | {'plugins-src/write/index.html', 'src-tauri/src/sumi/sound.rs', 'src-tauri/src/sumi/service.rs', 'src-tauri/src/plugin_runtime/host_api.rs', 'tauri-plugin-native-editor/src/platform.rs', 'tauri-plugin-native-editor/native/editor.h', 'tauri-plugin-native-editor/native/typing-monitor.h', 'tauri-plugin-native-editor/native/typing-probe.m'} | set(native.frozen_sources(commit)))
 
 
 def native_assessment_gate(assess, probe, digest):
@@ -284,16 +286,20 @@ def freeze(args):
     require(commit == args.expected_source, 'Use exact frozen 40-character commit')
     raw = source(commit, 'plugins-src/write/manifest.v2.json')
     manifest_identity(json.loads(raw))
-    require(args.arch == 'arm64', 'Sumi 0.1.4 currently declares only Apple Silicon; no Intel release evidence')
+    require(args.arch == 'arm64', 'Sumi 0.1.5 currently declares only Apple Silicon; no Intel release evidence')
     files = {'manifest.json': sha(raw)}
     for path in sorted(args.plugin_ui.rglob('*')):
         reject_font_path(path.relative_to(args.plugin_ui).as_posix())
         if path.is_file():
             require(not path.is_symlink(), 'Plugin UI symlink')
-            files['ui/'+path.relative_to(args.plugin_ui).as_posix()] = sha(path.read_bytes())
+            relative = path.relative_to(args.plugin_ui).as_posix()
+            files[('resources/' if relative.startswith('sounds/') else 'ui/')+relative] = sha(path.read_bytes())
     require('ui/index.html' in files, 'Plugin UI entry missing')
     require(args.plugin_binary and args.plugin_binary.is_file(), 'Signed native binary required at freeze')
     files['bin/notemd-sumi'] = sha(args.plugin_binary.read_bytes())
+    sounds = helper(Path(__file__).with_name('verify-sounds.py')).validate(args.plugin_ui/'sounds')
+    for name in sounds:
+        require((args.plugin_ui/'sounds'/name).read_bytes() == source(commit, 'plugins-src/write/resources/sounds/'+name), 'Sound resource differs from frozen source: '+name)
     font_files(args.plugin_ui/'sumi', source(commit, 'plugins-src/write/resources/sumi/manifest.json'))
     font_source_files(commit, source(commit, 'plugins-src/write/resources/sumi/manifest.json'))
     modules = json.loads(subprocess.check_output(['node', str(Path(__file__).with_name('verify-embedded.mjs')), '--inspect', str(args.dist)]))
@@ -303,7 +309,7 @@ def freeze(args):
 
 def verify(args, report):
     h = helper(args.candidate_helper)
-    require(args.arch == 'arm64', 'Sumi 0.1.4 currently declares only Apple Silicon; no Intel release evidence')
+    require(args.arch == 'arm64', 'Sumi 0.1.5 currently declares only Apple Silicon; no Intel release evidence')
     require(args.tag == 'v'+VERSION and re.fullmatch('[0-9a-f]{40}', args.expected_source or ''), 'Wrong release tag/source')
     require(git('rev-parse', args.tag+'^{commit}').decode().strip() == args.expected_source, 'Tag not at frozen source')
     frozen = json.loads(args.inputs.read_bytes())

@@ -40,9 +40,11 @@ try {
   const git=(...a)=>execFileSync('git',['-C',repo,...a])
   const power='plugins-src/power-mode/public/assets/power-mode/'
   const font='plugins-src/write/resources/sumi/'
-  const paths=git('ls-tree','-r','--name-only',commit,'--',power,font).toString().trim().split('\n').filter(Boolean)
+  const sound='plugins-src/write/resources/sounds/'
+  const paths=git('ls-tree','-r','--name-only',commit,'--',power,font,sound).toString().trim().split('\n').filter(Boolean)
   need(paths.filter(p=>p.startsWith(power)&&p.endsWith('.gif')).length===13,'Frozen 13 Power GIFs required')
   need(paths.filter(p=>p.startsWith(font)).length===10,'Frozen 10 Sumi metadata files required')
+  need(paths.filter(p=>p.startsWith(sound)&&p.endsWith('.wav')).length===12,'Frozen 12 Sumi WAVs required')
   const forbidden=paths.map(name=>({name,raw:git('show',commit+':'+name)}))
   const catalog=JSON.parse(git('show',commit+':'+font+'manifest.json'))
   for(const asset of catalog.assets)if(asset.url)forbidden.push({name:'font-download-url:'+asset.file,raw:Buffer.from(asset.url)})

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defaultPreferences, fontPresets, type SumiState, type FontState } from './contract'
+import { defaultPreferences, fontPresets, type SumiState, type FontState, type SoundState } from './contract'
 
 const state = (overrides: Partial<SumiState> = {}): SumiState => ({
   available: true, pages: [{ id: 'page-a', excerpt: '第一行', deleted: false }], activePageId: 'page-a',
@@ -20,6 +20,7 @@ async function setup(next = state(), mount?: () => Promise<unknown>, locale = 'z
     if (method === 'host.sumi.state' || method === 'host.sumi.page' || method === 'host.sumi.preferences' || method === 'host.sumi.pair') return next
     if (method === 'host.sumi.invite') return { invitation: '{"spaceId":"test-space","code":"test-only","expiresAt":123456}' }
     if (method === 'host.sumi.mount') return mount ? mount() : { id: 'surface-a', generation: 1 }
+    if (method === 'host.sumi.sound_state') return { enabled: true, preset: 'typewriter', permission: 'granted', status: 'ready' }
     if (method === 'host.sumi.fonts') return fontState({ selectedFont: next.preferences.fontFamily })
     return null
   })
@@ -689,5 +690,106 @@ describe('Sumi complete interface localization', () => {
     expect((form.elements.namedItem('theme') as HTMLSelectElement).value).toBe('crt-blue')
     expect((form.elements.namedItem('fontSize') as HTMLInputElement).value).toBe('45')
     expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
+  })
+})
+
+
+describe('Sumi independent typing sound settings', () => {
+  const sound = (overrides: Partial<SoundState> = {}): SoundState => ({ enabled: true, preset: 'typewriter', permission: 'required', status: 'permission_required', ...overrides })
+  const enabled = () => document.querySelector<HTMLInputElement>('#sound-enabled')!
+  const preset = () => document.querySelector<HTMLSelectElement>('#sound-preset')!
+  const change = (element: HTMLElement) => element.dispatchEvent(new Event('change', { bubbles: true }))
+  async function open(locale = 'en', initial = sound()) {
+    const request = await setup(state(), undefined, locale), base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => method === 'host.sumi.sound_state' ? initial : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    return request
+  }
+  it.each([
+    ['zh', '键盘音效', '打字机', '低沉机械键', '允许输入监控'],
+    ['en', 'Typing sounds', 'Typewriter', 'Thock', 'Allow Input Monitoring'],
+    ['ja', '打鍵音', 'タイプライター', '低音メカニカル', '入力監視を許可'],
+  ])('reads defaults and exposes localized controls without requesting permission in %s', async (locale, heading, first, second, permission) => {
+    const request = await open(locale)
+    expect(document.querySelector('.sound-settings')!.getAttribute('aria-label')).toBe(heading)
+    expect(Array.from(preset().options).map(option => option.textContent)).toEqual([first, second])
+    expect(enabled().checked).toBe(true); expect(preset().value).toBe('typewriter')
+    expect(document.getElementById('sound-permission')!.textContent).toBe(permission)
+    expect(document.getElementById('sound-permission')!.hidden).toBe(false)
+    expect(request).toHaveBeenCalledWith('host.sumi.sound_state', {})
+    expect(request.mock.calls.some(([method]) => ['host.sumi.sound_set', 'host.sumi.sound_request_permission', 'host.sumi.font_select'].includes(method))).toBe(false)
+  })
+  it('saves disabling and changing the retained preset without changing appearance or enabling sound', async () => {
+    const request = await open(), base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => method === 'host.sumi.sound_set' ? sound({ ...(params as Partial<SoundState>), status: 'off' }) : base(method, params))
+    enabled().checked = false; change(enabled()); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.sound_set', { enabled: false, preset: 'typewriter' })
+    preset().value = 'thock'; change(preset()); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.sound_set', { enabled: false, preset: 'thock' })
+    expect(enabled().checked).toBe(false); expect(preset().disabled).toBe(false)
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.preferences')).toBe(false)
+    document.querySelector<HTMLFormElement>('#panel-body form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: defaultPreferences, preserveFont: true })
+    expect(request.mock.calls.filter(([method]) => method === 'host.sumi.sound_set')).toHaveLength(2)
+  })
+  it('requests Input Monitoring only after the explicit button and displays the returned status', async () => {
+    const request = await open(), base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => method === 'host.sumi.sound_request_permission' ? sound({ permission: 'granted', status: 'ready' }) : base(method, params))
+    document.getElementById('sound-permission')!.click(); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.sound_request_permission', {})
+    expect(document.getElementById('sound-status')!.textContent).toContain('ready')
+    expect(document.getElementById('sound-permission')!.hidden).toBe(true)
+  })
+  it('keeps controls disabled after a failed read and retries without assuming readiness', async () => {
+    const request = await setup(state(), undefined, 'en'), base = request.getMockImplementation()!
+    let reads = 0
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.sound_state') { if (++reads === 1) throw new Error('-32000: AUDIO_UNAVAILABLE'); return sound({ permission: 'unsupported', status: 'unavailable' }) }
+      return base(method, params)
+    })
+    document.getElementById('appearance')!.click(); await settle()
+    expect(enabled().disabled).toBe(true)
+    expect(document.getElementById('sound-status')!.textContent).toContain('-32000: ')
+    expect(document.getElementById('sound-status')!.textContent).toContain('AUDIO_UNAVAILABLE')
+    expect(document.getElementById('sound-status')!.textContent).not.toContain('ready')
+    document.getElementById('sound-retry')!.click(); await settle()
+    expect(reads).toBe(2); expect(document.getElementById('sound-status')!.textContent).toContain('unavailable')
+    expect(document.getElementById('sound-permission')!.hidden).toBe(true)
+  })
+  it('serializes writes and retries the failed intent without changing unrelated fields', async () => {
+    const request = await open(), base = request.getMockImplementation()!
+    let reject!: (reason: Error) => void, writes = 0
+    request.mockImplementation((method, params) => {
+      if (method === 'host.sumi.sound_set') {
+        if (++writes === 1) return new Promise((_, fail) => { reject = fail })
+        return Promise.resolve(sound({ ...(params as Partial<SoundState>), status: 'off' }))
+      }
+      return base(method, params)
+    })
+    enabled().checked = false; change(enabled()); await settle()
+    expect(enabled().disabled).toBe(true); expect(preset().disabled).toBe(true)
+    preset().value = 'thock'; change(preset()); await settle(); expect(writes).toBe(1)
+    reject(new Error('AUDIO_WRITE_FAILED')); await settle()
+    expect(enabled().checked).toBe(true)
+    expect(document.getElementById('sound-status')!.textContent).toContain('AUDIO_WRITE_FAILED')
+    document.getElementById('sound-retry')!.click(); await settle()
+    expect(writes).toBe(2); expect(enabled().checked).toBe(false); expect(preset().value).toBe('typewriter')
+    expect(request.mock.calls.filter(([method]) => method === 'host.sumi.sound_set').map(([, params]) => params)).toEqual([{ enabled: false, preset: 'typewriter' }, { enabled: false, preset: 'typewriter' }])
+  })
+  it('discards late results after switching panels and refreshes after a hidden window returns', async () => {
+    const request = await open(), base = request.getMockImplementation()!
+    let finish!: (value: SoundState) => void
+    request.mockImplementation((method, params) => method === 'host.sumi.sound_set' ? new Promise(resolve => { finish = resolve as (value: SoundState) => void }) : base(method, params))
+    enabled().checked = false; change(enabled()); await settle()
+    document.getElementById('sync')!.click(); await settle()
+    finish(sound({ enabled: false, status: 'off' })); await settle()
+    expect(document.getElementById('sound-status')).toBeNull()
+    expect(document.querySelector('input[name="serviceUrl"]')).not.toBeNull()
+    document.getElementById('appearance')!.click(); await settle()
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-window-state', visible: false }); await settle()
+    request.mockClear(); receive({ type: 'sumi-window-state', visible: true }); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.sound_state', {})
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.sound_request_permission')).toBe(false)
   })
 })

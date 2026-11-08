@@ -7,6 +7,7 @@ mod export;
 mod external;
 mod fonts;
 mod service;
+mod sound;
 mod paste;
 pub mod recovery;
 pub mod sync;
@@ -324,6 +325,8 @@ pub(super) struct Workspace {
     root: PathBuf,
     selected_root: PathBuf,
     durable: Durability,
+    sound_backend: Option<service::Backend>,
+    sound: sound::Controller,
     papers: Mutex<HashMap<String, Paper>>,
     preferences: Mutex<Preferences>,
     appearance_changes: tokio::sync::Mutex<()>,
@@ -471,6 +474,8 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         root: root.clone(),
         selected_root,
         durable,
+        sound_backend: Some(backend.clone()),
+        sound: sound::Controller::default(),
         papers: Mutex::new(HashMap::new()),
         preferences: Mutex::new(preferences),
         appearance_changes: tokio::sync::Mutex::new(()),
@@ -1901,7 +1906,7 @@ async fn mount<R: Runtime>(
                 current(app, ws)?;
                 require_visible_native_window(window)?;
                 match existing_mount_decision(ws, page_id, window.label(), tab_id)? {
-                    Some(EditorEntry::Opened(rechecked)) if rechecked == surface => Ok(EditorEntry::Opened(surface)),
+                    Some(EditorEntry::Opened(rechecked)) if rechecked == surface => { sound::start(app, ws).await; Ok(EditorEntry::Opened(surface)) },
                     _ => Err("编辑面已改变，请重新选择此页".into()),
                 }
             }
@@ -1993,6 +1998,7 @@ async fn mount<R: Runtime>(
         }
         return Err(error);
     }
+    sound::start(app, ws).await;
     Ok(EditorEntry::Opened(surface))
 }
 fn frozen_cleanup(p: &Paper, window: &str, tab: &str, binding: Option<(&str,u64)>) -> Result<Option<Opened>> {
@@ -3048,6 +3054,7 @@ pub async fn resume_window<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) -
                 }
             }
         }
+        sound::start(app, &ws).await;
     }
     Ok(())
 }
@@ -3095,6 +3102,7 @@ pub async fn before_exit<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
         ws.phase.store(QUIESCING,Ordering::Release);
         for p in papers.values() { if let Some(o)=&p.owner { labels.insert(o.window.clone()); } }
     }
+    for ws in &active { sound::stop(app, ws).await; }
     let result: Result<()> = async {
         for label in &labels { before_close(app,label).await?; }
         // Do not hold the lifecycle lease while callbacks/requests are joined.
@@ -3149,9 +3157,10 @@ pub async fn resume_plugin<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()> 
     if authorize(PLUGIN).is_err() { return Ok(()); }
     let workspaces=WORKSPACES.lock().await.values().cloned().collect::<Vec<_>>();
     let mut labels=std::collections::HashSet::new();
-    for ws in workspaces { labels.extend(resume_workspace(&ws).await?); }
+    for ws in &workspaces { labels.extend(resume_workspace(ws).await?); }
     for label in labels { resume_window(app,&label).await?; }
     PLUGIN_QUIESCING.store(false,Ordering::Release);
+    for ws in workspaces { if current(app, &ws).is_ok() { sound::start(app, &ws).await; } }
     Ok(())
 }
 /// Disable/uninstall must call this before changing plugin permission state.
@@ -3345,6 +3354,7 @@ pub async fn dispatch<R: Runtime>(
     };
     let page = || text("pageId");
     match method {
+        "host.sumi.sound_state" | "host.sumi.sound_set" | "host.sumi.sound_request_permission" => sound::dispatch(app, &ws, method, params).await,
         "host.sumi.state" => state_value(&ws).await,
         "host.sumi.fonts" => font_status(&ws, &font_manager(app)?).await,
         "host.sumi.font_select" => select_font(app, &ws, text("fontFamily")?).await,
@@ -3895,6 +3905,8 @@ mod tests {
             root: root.clone(),
             selected_root: root,
             durable,
+            sound_backend: None,
+            sound: sound::Controller::default(),
             papers: Mutex::new(HashMap::from([(id.clone(), paper)])),
             preferences: Mutex::new(Preferences::default()),
             appearance_changes: tokio::sync::Mutex::new(()),

@@ -37,3 +37,9 @@ form .font-option { display:grid; gap:5px; width:100%; text-align:left; padding:
 .font-name { font-size:13px }
 .font-detail { font-size:12px; opacity:.7; line-height:1.5; overflow-wrap:anywhere }
 .font-option progress { width:100%; height:4px; accent-color:var(--ink) }
+
+.sound-settings { display:grid; gap:10px }
+.sound-settings h2 { margin:0; font-size:14px; opacity:1 }
+.sound-settings p { margin:0; font-size:12px; opacity:.7; line-height:1.5; overflow-wrap:anywhere }
+.sound-toggle { display:flex; align-items:center; gap:8px }
+.sound-toggle input { width:auto; accent-color:var(--ink) }

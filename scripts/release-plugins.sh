@@ -378,6 +378,12 @@ release_sumi() {
   cp "$native_dir/notemd-sumi" "$stage/bin/notemd-sumi"
   chmod +x "$stage/bin/notemd-sumi"
   cp -R "$src/dist/." "$stage/ui/"
+  # Vite copies public resources into dist. Verify sounds before moving only
+  # that exact directory out of UI; ship one native-readable copy per package.
+  python3 scripts/sumi/verify-sounds.py "$stage/ui/sounds" --reference "$src/resources/sounds"
+  mkdir -p "$stage/resources"
+  mv "$stage/ui/sounds" "$stage/resources/sounds"
+  python3 scripts/sumi/verify-sounds.py "$stage/resources/sounds" --reference "$src/resources/sounds"
   # Exact catalog/license bytes and no font payload anywhere in the plugin.
   python3 - "$stage" "$src/resources/sumi" <<'PYGATE'
 import hashlib,json,sys

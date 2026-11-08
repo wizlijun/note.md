@@ -29,6 +29,13 @@ export interface FontStatus {
   error?: string | null
 }
 export interface FontState { fonts: FontStatus[]; selectedFont: string; pendingFont: string | null }
+export interface SoundState {
+  enabled: boolean
+  preset: 'typewriter' | 'thock'
+  permission: 'granted' | 'required' | 'unsupported'
+  status: 'off' | 'ready' | 'permission_required' | 'unavailable'
+  error?: string
+}
 export const fontPresets = [
   ['Sumi Plex', 'IBM Plex Mono Light + IBM Plex Sans SC Light'],
   ['Sumi WenKai', 'LXGW WenKai Mono Lite'],
