@@ -239,7 +239,7 @@ async function showAppearance() {
     const wrap = document.createElement('label'); const text = document.createElement('span'); text.textContent = label; wrap.append(text)
     const field = key === 'theme' ? document.createElement('select') : document.createElement('input')
     field.name = key
-    if (field instanceof HTMLSelectElement) for (const [value, name] of [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')]]) {
+    if (field instanceof HTMLSelectElement) for (const [value, name] of [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')]]) {
       const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
     }
     else { field.type = key === 'fontFamily' ? 'text' : 'number'; field.step = key === 'lineHeight' ? '0.1' : '1'; field.required = true }

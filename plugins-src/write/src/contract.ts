@@ -1,4 +1,4 @@
-export type Theme = 'ink' | 'dim' | 'paper'
+export type Theme = 'ink' | 'dim' | 'paper' | 'sepia'
 export interface Preferences {
   theme: Theme
   fontFamily: string
@@ -35,7 +35,7 @@ export function preferencesFromForm(form: HTMLFormElement): Preferences {
     return value
   }
   const theme = data.get('theme')
-  if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper') throw new Error('Invalid theme')
+  if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper' && theme !== 'sepia') throw new Error('Invalid theme')
   const fontFamily = String(data.get('fontFamily') ?? '').trim()
   if (!fontFamily || fontFamily.length > 128) throw new Error('Invalid font')
   return { theme, fontFamily, fontSize: number('fontSize', 8, 96), lineHeight: number('lineHeight', 1, 3), maxColumns: number('maxColumns', 20, 200), bottomInset: number('bottomInset', 0, 2000) }

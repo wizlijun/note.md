@@ -84,7 +84,7 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
-        if !matches!(self.theme.as_str(), "ink" | "dim" | "paper")
+        if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia")
             || self.font_family.is_empty()
             || self.font_family.len() > 128
             || !self.font_size.is_finite()
@@ -102,6 +102,7 @@ impl Preferences {
     fn appearance(&self) -> native::Appearance {
         let (foreground, background) = match self.theme.as_str() {
             "paper" => ("#111111", "#ffffff"),
+            "sepia" => ("#44413c", "#f3ead7"),
             "ink" => ("#ffffff", "#000000"),
             _ => ("#b8b8b8", "#111111"),
         };
@@ -1523,7 +1524,7 @@ async fn ensure_font<R: Runtime>(
     let typewriter = appearance.font_family == "Sumi Typewriter";
     let fonts: &[(&str, &str)] = if typewriter {
         &[
-            ("SpecialElite-Regular.ttf", "Special Elite"),
+            ("CourierPrime-Regular.ttf", "Courier Prime"),
             (
                 "ZhuqueFangsong-Regular.ttf",
                 "Zhuque Fangsong (technical preview)",

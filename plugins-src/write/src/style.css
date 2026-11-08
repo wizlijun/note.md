@@ -1,6 +1,7 @@
 :root { color-scheme: dark; --paper:#111; --ink:#ccc; font:14px system-ui,sans-serif; background:var(--paper); color:var(--ink) }
 :root[data-theme="ink"] { --paper:#080808; --ink:#fff }
 :root[data-theme="paper"] { color-scheme:light; --paper:#fafafa; --ink:#222 }
+:root[data-theme="sepia"] { color-scheme:light; --paper:#f3ead7; --ink:#44413c }
 * { box-sizing:border-box }
 body { margin:0 }
 [hidden] { display:none !important }
