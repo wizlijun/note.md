@@ -1,0 +1,161 @@
+{
+  "tag": "v6.1107.4",
+  "sourceBytes": 173472,
+  "files": [
+    {
+      "path": "public/assets/power-mode/coin/1.gif",
+      "sourceBytes": 13978,
+      "sourceSHA256": "562aba88ec420071d9fc8f43f913663c9dd4d41edd44e0dce2c430d0e99a3ddd",
+      "reconstructedBrotliBytes": 13025,
+      "reconstructedBrotliSHA256": "c4350c9cb79a99268b3053ac1c9c7049fc43d792abe37ac99bb939e233bf7d11",
+      "exactCompressedOffsets": [
+        13382719
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/confetti/1.gif",
+      "sourceBytes": 3231,
+      "sourceSHA256": "7b48d45511bfa76dbc1a710623d0efdaf5ffd508bb1678b25e9bab0cf60246b5",
+      "reconstructedBrotliBytes": 2398,
+      "reconstructedBrotliSHA256": "8fd323af8b95e50bd1a66656ef27fdc0efe9c39221f71aca24bf8e8c027e178a",
+      "exactCompressedOffsets": [
+        13313078
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/lightning/1.gif",
+      "sourceBytes": 41124,
+      "sourceSHA256": "32f88231c8718e41129829c1a614b2dbbd6fd8966e86f3357d730f10d98bb643",
+      "reconstructedBrotliBytes": 39458,
+      "reconstructedBrotliSHA256": "1374871ad48b5a9bd9745186a8879d97dcda62cde63fa7c91698432fa1334bd9",
+      "exactCompressedOffsets": [],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/lightning/2.gif",
+      "sourceBytes": 27476,
+      "sourceSHA256": "cb4d34619e8b7346aa3baf06269417f154c446ab027bb2f38d7185bfc5f54a8a",
+      "reconstructedBrotliBytes": 26552,
+      "reconstructedBrotliSHA256": "d49988fb642d56f585bce2d0c6f4c6d8647e476b699d653a790ea86ff6748643",
+      "exactCompressedOffsets": [
+        12998699
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/lightning/3.gif",
+      "sourceBytes": 49624,
+      "sourceSHA256": "43c33887e8a90c6f2e0bc78fd8b0116cf3d524f8cb787ae7f6d48010adaace6f",
+      "reconstructedBrotliBytes": 47742,
+      "reconstructedBrotliSHA256": "6a1e26ad164d7d3363c472b3fd6f20b068d282c5faf32eec7fdfd7961a1b99c5",
+      "exactCompressedOffsets": [],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/1.gif",
+      "sourceBytes": 4723,
+      "sourceSHA256": "02076745304df7755a0f1dc5ca6adfd27aee620906a8c8c6a0fcb5e414059557",
+      "reconstructedBrotliBytes": 1800,
+      "reconstructedBrotliSHA256": "07e8c83116489cd62ac0a5c9fcef82f4cd90899324eed7cdbbd0b386bec0e7b0",
+      "exactCompressedOffsets": [
+        12864185
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/2.gif",
+      "sourceBytes": 4774,
+      "sourceSHA256": "b708d863580db612f7a9ed75704daba678df9611c8a55dd84c0eb8067398495f",
+      "reconstructedBrotliBytes": 1862,
+      "reconstructedBrotliSHA256": "99b2a663ff12ba027929ee6fa08583657517be94e90eb2e496a3ab9ea1a0063f",
+      "exactCompressedOffsets": [
+        13025284
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/3.gif",
+      "sourceBytes": 4819,
+      "sourceSHA256": "9306d600372fd6933be7fd73dfe0a17964e661abe826ae0896004786656c60f6",
+      "reconstructedBrotliBytes": 1916,
+      "reconstructedBrotliSHA256": "7c5ed65ad2d0108ab35c61fc5ea478417798f9fa400480d4ec04d70c31e948e7",
+      "exactCompressedOffsets": [
+        13511131
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/4.gif",
+      "sourceBytes": 4663,
+      "sourceSHA256": "84d8d2ff1b694c4c1bff6e5c2e8cf597c91e1d328bdcdd4e32b340d5aeccfb18",
+      "reconstructedBrotliBytes": 1654,
+      "reconstructedBrotliSHA256": "05495cada2553df3b8f5ddc3736be1548aa7bdd397e48a38b366865e6509493a",
+      "exactCompressedOffsets": [
+        13090452
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/5.gif",
+      "sourceBytes": 4707,
+      "sourceSHA256": "d2aee8dbddd0b119e3de5ddc1fa84ea576d0b418b3b32b146b553474699c9e25",
+      "reconstructedBrotliBytes": 1782,
+      "reconstructedBrotliSHA256": "01d609301a2f476cf1b5b4c3fec6436a66c9cf51b14c3467c20bec6de27a458b",
+      "exactCompressedOffsets": [
+        15019924
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/6.gif",
+      "sourceBytes": 4737,
+      "sourceSHA256": "09f2ce6f47781ad7861ed2ebb98874e234170c3c03d31c486190b1f4e2dceb28",
+      "reconstructedBrotliBytes": 1809,
+      "reconstructedBrotliSHA256": "61203e5441f4fd9288e71e308431ed4af55703446f08ced09cbd497bc7952c5c",
+      "exactCompressedOffsets": [
+        14109452
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/7.gif",
+      "sourceBytes": 4755,
+      "sourceSHA256": "dbc4cb17c705b386926111bb6f322cd61b8282acf3434555496e1e78b204d2e8",
+      "reconstructedBrotliBytes": 1853,
+      "reconstructedBrotliSHA256": "e148593a667d7249435dc37d1f22d90e72e6dcb264a2c547900330586ac0a8c0",
+      "exactCompressedOffsets": [
+        16201592
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    },
+    {
+      "path": "public/assets/power-mode/particle/8.gif",
+      "sourceBytes": 4861,
+      "sourceSHA256": "36933c0fafbabdfeaf054cad7e4e8f3e342eae3ffc2fa32832aa39ffb8228d07",
+      "reconstructedBrotliBytes": 1953,
+      "reconstructedBrotliSHA256": "dd5f1b73cdf961950adb7d35e2b2b5da47a46fa3512d813a7563c08e77358bff",
+      "exactCompressedOffsets": [
+        14413944
+      ],
+      "exactRawOffset": -1,
+      "base64FoundInVerifiedModules": []
+    }
+  ],
+  "allThirteenCompressedMatchedExactlyOnce": false,
+  "matchedCompressedBytes": 56604,
+  "boundary": "Exact reconstructed Brotli byte matches are actual executable byte proof only if offsets found. Missing matches do not mean absence. Base64 search only covers earlier verified complete modules, not every possible embedded JS chunk. No DMG savings inference."
+}

@@ -1,0 +1,750 @@
+{
+  "auditedAtUTC": "2026-11-08T13:33:24.904715+00:00",
+  "tag": "v6.1107.4",
+  "commit": "0bca39b5fa3335aae9a73b79926074ea2856bef0",
+  "scope": "Frozen Tauri resources/config, frontend public/source assets, build embedding and exact recovered old-binary Brotli sequences. No source edits, new build, duplicate archive extraction, upload or release.",
+  "findings": [
+    {
+      "classification": "plugin-specific feature hosted in main editor and shared Editor Kit",
+      "name": "Power Mode",
+      "sources": [
+        {
+          "sourcePrefix": "public/assets/power-mode/",
+          "files": [
+            {
+              "path": "public/assets/power-mode/coin/1.gif",
+              "bytes": 13978,
+              "gitBlob": "142d62767c4238dba5d08fe7d8aa9270621f9680"
+            },
+            {
+              "path": "public/assets/power-mode/confetti/1.gif",
+              "bytes": 3231,
+              "gitBlob": "2e2120331eed6f5813f95ea2d73b4f32052ab286"
+            },
+            {
+              "path": "public/assets/power-mode/lightning/1.gif",
+              "bytes": 41124,
+              "gitBlob": "d5eda062f39c5bc9d52b7eb82c654f216f64bbf5"
+            },
+            {
+              "path": "public/assets/power-mode/lightning/2.gif",
+              "bytes": 27476,
+              "gitBlob": "19f87f628a7dea4aeb0591a4e4d0a3847e93e81f"
+            },
+            {
+              "path": "public/assets/power-mode/lightning/3.gif",
+              "bytes": 49624,
+              "gitBlob": "c7145fd5caabd9599d17af110ba2f86d6f6d1bf3"
+            },
+            {
+              "path": "public/assets/power-mode/particle/1.gif",
+              "bytes": 4723,
+              "gitBlob": "59a99d1a56490e1848206e9d1cb9e71def68c33b"
+            },
+            {
+              "path": "public/assets/power-mode/particle/2.gif",
+              "bytes": 4774,
+              "gitBlob": "b731c5fe0306701876e15563e86399c7eb16cd57"
+            },
+            {
+              "path": "public/assets/power-mode/particle/3.gif",
+              "bytes": 4819,
+              "gitBlob": "fb4d2ad6e09b6a1659715cc0e35274ca47e0e35a"
+            },
+            {
+              "path": "public/assets/power-mode/particle/4.gif",
+              "bytes": 4663,
+              "gitBlob": "55abda10c70962b9ec0a78ef9f5acf704bdfeed8"
+            },
+            {
+              "path": "public/assets/power-mode/particle/5.gif",
+              "bytes": 4707,
+              "gitBlob": "e9288281b2f736138d38e90ea3873c201a8d56db"
+            },
+            {
+              "path": "public/assets/power-mode/particle/6.gif",
+              "bytes": 4737,
+              "gitBlob": "cd9875d448e087ee2d3168b281158b0c8b97c076"
+            },
+            {
+              "path": "public/assets/power-mode/particle/7.gif",
+              "bytes": 4755,
+              "gitBlob": "3620669596320355116241e39229e4814df8f384"
+            },
+            {
+              "path": "public/assets/power-mode/particle/8.gif",
+              "bytes": 4861,
+              "gitBlob": "755e05fbbae0669b6d0a54d5fdd5d8321693f123"
+            }
+          ],
+          "fileCount": 13,
+          "rawSourceBytes": 173472,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        },
+        {
+          "sourcePrefix": "src/lib/power-mode/",
+          "files": [
+            {
+              "path": "src/lib/power-mode/combo.ts",
+              "bytes": 4564,
+              "gitBlob": "fa0eb9095190c9527f7fc36e7ed9c6240b52ac17"
+            },
+            {
+              "path": "src/lib/power-mode/config.ts",
+              "bytes": 3580,
+              "gitBlob": "2939142614d45caf9a2a14f6254b1152d127aabb"
+            },
+            {
+              "path": "src/lib/power-mode/explosion.ts",
+              "bytes": 3522,
+              "gitBlob": "11c13c6ce94a6305ec4271852293bcad80d5e1a3"
+            },
+            {
+              "path": "src/lib/power-mode/host-config.svelte.ts",
+              "bytes": 1668,
+              "gitBlob": "b35496ca9afe24555af58565d8ced0668b182e04"
+            },
+            {
+              "path": "src/lib/power-mode/overlay.ts",
+              "bytes": 974,
+              "gitBlob": "33a60a190668cdf395ffff6a26c3999099b7da83"
+            },
+            {
+              "path": "src/lib/power-mode/plugin.ts",
+              "bytes": 3262,
+              "gitBlob": "a51669686f3675bf901b0785db89faf6e64dccc7"
+            },
+            {
+              "path": "src/lib/power-mode/presets.ts",
+              "bytes": 2502,
+              "gitBlob": "10cec5ab2198fb7bba9e2daa26abad5151f77d8f"
+            },
+            {
+              "path": "src/lib/power-mode/shaker.ts",
+              "bytes": 1309,
+              "gitBlob": "84445fd7232e6daf0b2c1be0f45825e255bc6d01"
+            },
+            {
+              "path": "src/lib/power-mode/types.ts",
+              "bytes": 1719,
+              "gitBlob": "eeb4402c7124e827853d75df0b385dd005eff236"
+            }
+          ],
+          "fileCount": 9,
+          "rawSourceBytes": 23100,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        }
+      ],
+      "rustBridge": {
+        "path": "src-tauri/src/plugin_runtime/power_mode.rs",
+        "wholeSourceBytes": 5059,
+        "productionPrefixBytesBeforeCfgTest": 2676,
+        "scope": "source bytes only, not compiled size"
+      },
+      "evidence": [
+        {
+          "path": "src/lib/power-mode/presets.ts",
+          "lines": "30-57",
+          "sourceBytes": 2502,
+          "sourceSHA256": "586be64402c1fd6e677fb45b07c0f478f9faf70b3d4976a33fe2552d65374c50",
+          "reason": "External asset URLs relative to host assets or plugin __host__; no preset GIF base64 construction"
+        },
+        {
+          "path": "src/lib/power-mode/host-config.svelte.ts",
+          "lines": "10-29",
+          "sourceBytes": 1668,
+          "sourceSHA256": "6bc6308898509b30c81b0fa49aac53416f56eaf26bd68c3e12a071b1f24c77be",
+          "reason": "Specific notemd.power-mode ID and null when not installed/disabled"
+        },
+        {
+          "path": "src/components/RichEditor.svelte",
+          "lines": "1254-1255",
+          "sourceBytes": 67970,
+          "sourceSHA256": "a9d6b6be103b4b903393deb804e36fae48b9726aa6ba362e23592bdea4a8ba22",
+          "reason": "Main editor imports Power Mode engine/config"
+        },
+        {
+          "path": "src/editor-kit/rich.ts",
+          "lines": "15,151-154",
+          "sourceBytes": 7375,
+          "sourceSHA256": "25ce9d03962c22c6c1310557840d403531281aa3729963cd7c5689c88f1c230e",
+          "reason": "Kit consumes same engine"
+        },
+        {
+          "path": "src-tauri/src/plugin_runtime/power_mode.rs",
+          "lines": "1-38",
+          "sourceBytes": 5059,
+          "sourceSHA256": "afe089fafeaef81e69ec1563fad99ce36bc10715e5e2348d6d578cc41770507e",
+          "reason": "Dedicated plugin config bridge and absence/disabled gate"
+        }
+      ],
+      "actualEmbeddedEvidence": {
+        "verifiedCompressedFiles": 11,
+        "verifiedCompressedBytes": 56604,
+        "eachVerifiedByteSequenceOccurrences": 1,
+        "totalSourceGifFiles": 13,
+        "totalSourceGifBytes": 173472,
+        "unmatchedFiles": [
+          "public/assets/power-mode/lightning/1.gif",
+          "public/assets/power-mode/lightning/3.gif"
+        ],
+        "base64MatchesInPreviouslyVerifiedCompleteModules": 0,
+        "limit": "Two larger GIFs did not match the reconstructed Brotli output; do not infer absence or all-GIF compressed total. Search covered known verified complete modules, not every binary asset. No exact installer savings claim."
+      },
+      "migration": "Best clear plugin-specific asset candidate. Move preset GIF delivery with plugin/optional cache; host/kit must resolve approved plugin assets. Engine/RPC acts in host surfaces, so relocating only plugin UI code does not preserve functionality."
+    },
+    {
+      "classification": "shared host/plugin platform, not exclusive to a single plugin",
+      "name": "Editor Kit v1/v2",
+      "sources": [
+        {
+          "sourcePrefix": "src/editor-kit/",
+          "files": [
+            {
+              "path": "src/editor-kit/kit.css",
+              "bytes": 3804,
+              "gitBlob": "659a5bb68cef421e657b48ee16e6dadfa869662b"
+            },
+            {
+              "path": "src/editor-kit/main.ts",
+              "bytes": 9833,
+              "gitBlob": "0e8f2bae7dbbb1b08d70127f6450a0d1be5f5ec8"
+            },
+            {
+              "path": "src/editor-kit/media.ts",
+              "bytes": 4985,
+              "gitBlob": "fb25a4522b4137f23a521c401bb76ca7e40d58a7"
+            },
+            {
+              "path": "src/editor-kit/power-mode-config.ts",
+              "bytes": 1684,
+              "gitBlob": "2ce329d3756ebc8950992839a432a4ee50cb75f5"
+            },
+            {
+              "path": "src/editor-kit/rich.ts",
+              "bytes": 7375,
+              "gitBlob": "d1ef71a25f8d98c88baface3dfb604450aafca60"
+            },
+            {
+              "path": "src/editor-kit/source.ts",
+              "bytes": 3340,
+              "gitBlob": "d70c5a6dca7f50cdf99e8ad19062715d784f7c2d"
+            },
+            {
+              "path": "src/editor-kit/theme.ts",
+              "bytes": 3022,
+              "gitBlob": "67496d84e8c68cd1a0c0f92c8ac4410d335b4e3e"
+            }
+          ],
+          "fileCount": 7,
+          "rawSourceBytes": 34043,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        },
+        {
+          "sourcePrefix": "src/editor-kit-v2/",
+          "files": [
+            {
+              "path": "src/editor-kit-v2/block-layout.ts",
+              "bytes": 8649,
+              "gitBlob": "8bdc7c4045fd4caa698dcbae6ffa23de997f79aa"
+            },
+            {
+              "path": "src/editor-kit-v2/commands.ts",
+              "bytes": 6908,
+              "gitBlob": "7b7fa4f02bc73ea7dd46362e6ba1d6524e02e4a0"
+            },
+            {
+              "path": "src/editor-kit-v2/contract.ts",
+              "bytes": 3736,
+              "gitBlob": "3363160cf2a5c533580a5ebff14071d0792fec18"
+            },
+            {
+              "path": "src/editor-kit-v2/document-diff.ts",
+              "bytes": 4901,
+              "gitBlob": "913193b5791a96fb6c7d8ef366357f292c85bd1c"
+            },
+            {
+              "path": "src/editor-kit-v2/file-bindings.ts",
+              "bytes": 6634,
+              "gitBlob": "cc43ad593e26f161c048a380e8946126e5b427aa"
+            },
+            {
+              "path": "src/editor-kit-v2/file-commands.ts",
+              "bytes": 2859,
+              "gitBlob": "7b0fd8b4032a2d9aeef5ae822b83710b47634dbc"
+            },
+            {
+              "path": "src/editor-kit-v2/file-context-menu.ts",
+              "bytes": 5612,
+              "gitBlob": "f1b6ee1ce6c2c06dbcd936de05d92d3e690af321"
+            },
+            {
+              "path": "src/editor-kit-v2/file-contract.ts",
+              "bytes": 2865,
+              "gitBlob": "545b89633f5658650b48feb251de3d79bb5192d0"
+            },
+            {
+              "path": "src/editor-kit-v2/file-controller.ts",
+              "bytes": 26786,
+              "gitBlob": "2a31b1af14c3a40b730dd86a5002b244fe944bdd"
+            },
+            {
+              "path": "src/editor-kit-v2/file-history.ts",
+              "bytes": 1234,
+              "gitBlob": "b35194ab27ee98498d0bb0dc1d667cdb055d0619"
+            },
+            {
+              "path": "src/editor-kit-v2/file-kit-styles.ts",
+              "bytes": 1265,
+              "gitBlob": "68a268d72b891407931af4e653ec97cf9bb3f05d"
+            },
+            {
+              "path": "src/editor-kit-v2/file-layout.ts",
+              "bytes": 6681,
+              "gitBlob": "011334143727eb4cfbead0650fb01747e72ba174"
+            },
+            {
+              "path": "src/editor-kit-v2/file-main.ts",
+              "bytes": 23346,
+              "gitBlob": "7a4169c0e892e6ee5a04fcc1202cccff7ae49f01"
+            },
+            {
+              "path": "src/editor-kit-v2/file-menus.ts",
+              "bytes": 3983,
+              "gitBlob": "2d22325d6fa924cd8af4ffd70fd61c754cf98ff5"
+            },
+            {
+              "path": "src/editor-kit-v2/file-projection.ts",
+              "bytes": 7258,
+              "gitBlob": "2d4b18297566d176e00adf3ecb53d4dedd48a336"
+            },
+            {
+              "path": "src/editor-kit-v2/file-recovery-contract.ts",
+              "bytes": 184,
+              "gitBlob": "30fee55bfa815afcb54f690eafba9f1cf82b6e19"
+            },
+            {
+              "path": "src/editor-kit-v2/file-recovery.ts",
+              "bytes": 760,
+              "gitBlob": "132c060832fb8a3ee9e12bacfac0f25a8e39cda6"
+            },
+            {
+              "path": "src/editor-kit-v2/file-resize.ts",
+              "bytes": 6062,
+              "gitBlob": "bc6b6143baa1670dae428cb6a49d66744e543ce7"
+            },
+            {
+              "path": "src/editor-kit-v2/file-source-input.ts",
+              "bytes": 7242,
+              "gitBlob": "d5edac146f449608925882b97482f878234a0b27"
+            },
+            {
+              "path": "src/editor-kit-v2/file-test-utils.ts",
+              "bytes": 691,
+              "gitBlob": "4e8333412f66a2560d42af5d44f5724771ccddfc"
+            },
+            {
+              "path": "src/editor-kit-v2/governed-history.ts",
+              "bytes": 10053,
+              "gitBlob": "a3cf31de6af08402d027f28da0399e765c4ff797"
+            },
+            {
+              "path": "src/editor-kit-v2/identity.ts",
+              "bytes": 4269,
+              "gitBlob": "113b0b1e8ff21949cb171adce59d9eb3e66fb0e0"
+            },
+            {
+              "path": "src/editor-kit-v2/main.ts",
+              "bytes": 30652,
+              "gitBlob": "2d5c0282f9b5bf5fb7894a066b1f486d90c779e2"
+            },
+            {
+              "path": "src/editor-kit-v2/source-fidelity.ts",
+              "bytes": 2653,
+              "gitBlob": "07a495b63af84f20748cd6c0f30ecb5a382ebfbf"
+            },
+            {
+              "path": "src/editor-kit-v2/source-projection.ts",
+              "bytes": 839,
+              "gitBlob": "e6719062ce502c51bd59aab12313fa60df0022e0"
+            }
+          ],
+          "fileCount": 25,
+          "rawSourceBytes": 176122,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        },
+        {
+          "sourcePrefix": "src/lib/cdr/",
+          "files": [
+            {
+              "path": "src/lib/cdr/core.ts",
+              "bytes": 7877,
+              "gitBlob": "fd3e7fb8a9b0622cf2a0ed2bdbf1b8cc7ab0ef02"
+            },
+            {
+              "path": "src/lib/cdr/governance.ts",
+              "bytes": 3297,
+              "gitBlob": "b9ccccd3083c010ed39f6fb7df89c847e8768dc0"
+            },
+            {
+              "path": "src/lib/cdr/operation.ts",
+              "bytes": 10293,
+              "gitBlob": "3f59a54675430cf3e95d685aa21902b02c547583"
+            }
+          ],
+          "fileCount": 3,
+          "rawSourceBytes": 21467,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        }
+      ],
+      "consumers": [
+        "plugins-src/idea-spark/src/lib/editor-kit.ts",
+        "plugins-src/trace-source/src/lib/editor-kit.ts",
+        "plugins-src/power-mode/src/lib/editor-kit.ts",
+        "plugins-src/memory/src/lib/editor-kit-v2.ts",
+        "src/lib/editor-bridge.ts",
+        "src/share-editor/file-session.ts"
+      ],
+      "evidence": [
+        {
+          "path": "vite.config.ts",
+          "lines": "35-70",
+          "sourceBytes": 3820,
+          "sourceSHA256": "a5da3d674595b1693770f1e94df99a8b5298a185fc70e62ee5db2366e743d0ee",
+          "reason": "Stable separate kit entries share rollup dependencies with host"
+        },
+        {
+          "path": "src/lib/editor-bridge.ts",
+          "lines": "103",
+          "sourceBytes": 6935,
+          "sourceSHA256": "9686580ab82a59916bd8602b64d873a9756b706b998f9bfcf1e0ef29225c955d",
+          "reason": "Host file editor imports v2 file-main"
+        },
+        {
+          "path": "src/share-editor/file-session.ts",
+          "lines": "2,52",
+          "sourceBytes": 6377,
+          "sourceSHA256": "23f62a2ca0aec5d65f139fccb8675515701c76f2670d2ebeed46cae6a931cdb9",
+          "reason": "Shared web editing reuses file-main"
+        },
+        {
+          "path": "src/editor-kit-v2/main.ts",
+          "lines": "1-32",
+          "sourceBytes": 30652,
+          "sourceSHA256": "0e05e7deed97a5bf727effffbd5144eb32b50b4da6ce000412cecf7518303692",
+          "reason": "Governed-document API and file API reuse rich/shared infrastructure"
+        }
+      ],
+      "builtEntryBytes": {
+        "editor-kit-v1.js": 3424,
+        "editor-kit-v2.js": 27971,
+        "editor-kit-v1.css": 28370
+      },
+      "actualCssEmbeddedBytes": 5219,
+      "limit": "Exact JS entry bytes come from old build validation log; complete v1/v2 JS bodies were not independently recovered in this audit. Shared core chunks must not be counted as kit-exclusive. The old source comment installer growth≈0 is a design claim, not a measured removal experiment.",
+      "migration": "Could separate plugin-facing facade delivery or versioned SDK bundles after dependency accounting; cannot move shared editor core wholesale to Memory/Idea Spark."
+    },
+    {
+      "classification": "host sharing/export feature, not an installed-plugin-exclusive payload",
+      "name": "Standalone share-editor IIFE and diagram renderer",
+      "sources": [
+        {
+          "sourcePrefix": "src/share-editor/",
+          "files": [
+            {
+              "path": "src/share-editor/RebasePanel.svelte",
+              "bytes": 3658,
+              "gitBlob": "9692c678bb53689744500ccc93898087263bae48"
+            },
+            {
+              "path": "src/share-editor/ShareEditor.svelte",
+              "bytes": 5914,
+              "gitBlob": "f35b6b0a35121223d7945f6f85910c3887789329"
+            },
+            {
+              "path": "src/share-editor/changes.ts",
+              "bytes": 3239,
+              "gitBlob": "734b65392c9d08bba549d91966c5bc5cbf9f17c5"
+            },
+            {
+              "path": "src/share-editor/contract.ts",
+              "bytes": 2092,
+              "gitBlob": "7264cd2cab894b0f2f37930087dea69795756d4b"
+            },
+            {
+              "path": "src/share-editor/file-session.ts",
+              "bytes": 6377,
+              "gitBlob": "01f0fb4479423e17f46c820e2d5c9a5b6af50a46"
+            },
+            {
+              "path": "src/share-editor/main.ts",
+              "bytes": 18648,
+              "gitBlob": "5fa9f366a72407bc3730799345d7986a74f600d3"
+            },
+            {
+              "path": "src/share-editor/media-policy.ts",
+              "bytes": 1157,
+              "gitBlob": "e498a18f24ddeb818ddde08cc1cd03b1a93c3c2f"
+            },
+            {
+              "path": "src/share-editor/media.ts",
+              "bytes": 2295,
+              "gitBlob": "a29d388877d0ba900b1c72d495c86700c8cac500"
+            },
+            {
+              "path": "src/share-editor/mermaid-loader.ts",
+              "bytes": 4371,
+              "gitBlob": "e9ddd83de604ff6ae7bc31499d51b1fd6499be6f"
+            },
+            {
+              "path": "src/share-editor/mermaid.ts",
+              "bytes": 4101,
+              "gitBlob": "8d98a8bd5602523feac3bedd465f3049031e56a6"
+            },
+            {
+              "path": "src/share-editor/owner-policy.ts",
+              "bytes": 848,
+              "gitBlob": "a4cad8c69eb03615bbfcfc1504bacf7fe146789b"
+            },
+            {
+              "path": "src/share-editor/pele.ts",
+              "bytes": 476,
+              "gitBlob": "181c558914fc059bfc4a4c6007ffd5302d40e755"
+            },
+            {
+              "path": "src/share-editor/rebase.ts",
+              "bytes": 7431,
+              "gitBlob": "fcb8505e60778c4062f99fa7aeaa70071114da68"
+            },
+            {
+              "path": "src/share-editor/share-editor.css",
+              "bytes": 3133,
+              "gitBlob": "34003131f881047826953da1bca5a5a8d91c49ae"
+            }
+          ],
+          "fileCount": 14,
+          "rawSourceBytes": 63740,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "scripts/share-editor-assets.mjs",
+          "lines": "6-45",
+          "sourceBytes": 2686,
+          "sourceSHA256": "bc689d0688e101dc55f492777a4dff98d8f3b36c263b9fc35f02129040dd2359",
+          "reason": "Preserves/freeze-checks three assets and manifest in frontend dist"
+        },
+        {
+          "path": "src/lib/project-share/editor-kit.ts",
+          "lines": "49-62",
+          "sourceBytes": 4183,
+          "sourceSHA256": "7750549d64324b5cc518f84a49aabbb32db70500afc0a3cca392de0f4fc30a85",
+          "reason": "Built-in project sharing reads installed kit to supply share server"
+        },
+        {
+          "path": "scripts/diagram-renderer-option.mjs",
+          "lines": "1-5",
+          "sourceBytes": 257,
+          "sourceSHA256": "5469807008cf5384ba17fa7cb340a492fa048c84d90538d23cf8f358c0475bbc",
+          "reason": "Default renderer is Pele, Mermaid only explicit option"
+        }
+      ],
+      "actualWholeRecoveredResources": [
+        {
+          "name": "/share-editor-manifest.json",
+          "rawBytes": 871,
+          "compressedEmbeddedBytes": 419,
+          "offset": 13312626,
+          "sha256": "1e07599e6824fb9bbd78b9ffe4c911719388cb75a1166a0fbe713fef3ce82572",
+          "compressedSha256": "63aa5c67286dbddc8c7a2c2771db6d3584e934757f4fc3e87b16afb15dffd84b",
+          "wholeBrotliResourceReverified": true
+        },
+        {
+          "name": "/assets/share-editor.8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0.js",
+          "rawBytes": 1976990,
+          "compressedEmbeddedBytes": 488696,
+          "offset": 14462182,
+          "sha256": "8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0",
+          "compressedSha256": "144c4d5eada00a59565d3185c0c69686ed56b8a01a1ba4e77e1d9ca5e330ea00",
+          "wholeBrotliResourceReverified": true
+        },
+        {
+          "name": "/assets/share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css",
+          "rawBytes": 17478,
+          "compressedEmbeddedBytes": 3680,
+          "offset": 12966112,
+          "sha256": "a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd",
+          "compressedSha256": "3458858d040a7a7c754ed57e1757891ce5d932df855412dc2a67afe35862dde9",
+          "wholeBrotliResourceReverified": true
+        },
+        {
+          "name": "/assets/share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js",
+          "rawBytes": 702876,
+          "compressedEmbeddedBytes": 232532,
+          "offset": 16795895,
+          "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd",
+          "compressedSha256": "f50c8a38a32d33ac85a5191ebd142a818d55266218d97d5f7a93b48f533545f8",
+          "wholeBrotliResourceReverified": true,
+          "containsPeleAttribution": true
+        }
+      ],
+      "distinctCompressedEmbeddedBytes": 725327,
+      "limit": "702876-byte filename share-editor-mermaid is a compatibility name; actual recovered resource includes Pele attribution. 725327 embedded compressed bytes for four share resources is not their DMG/tar marginal compression cost.",
+      "migration": "An optional pinned browser asset delivery/cache is possible for share/export ownership, but it is not moving one installed plugin’s private bundle; preserve offline/export semantics and integrity."
+    },
+    {
+      "classification": "shared document rendering capability",
+      "name": "Mermaid-language/Pele, Graphviz and KaTeX",
+      "sources": [
+        {
+          "sourcePrefix": "src/lib/diagrams/",
+          "files": [
+            {
+              "path": "src/lib/diagrams/PELE-NOTICE.txt",
+              "bytes": 1934,
+              "gitBlob": "fd6f9c893d2feb140f6d1e853a8bc0908b3bdf5b"
+            },
+            {
+              "path": "src/lib/diagrams/pele-renderer.ts",
+              "bytes": 6484,
+              "gitBlob": "a3bac7ea1c5c71adf6a38f2edbd79275588db951"
+            }
+          ],
+          "fileCount": 2,
+          "rawSourceBytes": 8418,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "src/lib/adapters/renderer-registry.ts",
+          "lines": "18-22,105-143",
+          "sourceBytes": 6165,
+          "sourceSHA256": "f995c16c6ef31b4c2ca53be94d5d0eb5430fed3b7553fea574c46327fa3e4843",
+          "reason": "Graphviz and selected diagram engine are shared by Rich/PDF/share renderers"
+        },
+        {
+          "path": "src/lib/adapters/mermaid-loader.ts",
+          "lines": "1-5",
+          "sourceBytes": 312,
+          "sourceSHA256": "4074ba34c27ed31e977b31b79542d7360532083b4b268c97a770af09d912dd4f",
+          "reason": "Host rich adapter chooses Pele by default"
+        },
+        {
+          "path": "src/lib/editor-bridge.ts",
+          "lines": "2",
+          "sourceBytes": 6935,
+          "sourceSHA256": "9686580ab82a59916bd8602b64d873a9756b706b998f9bfcf1e0ef29225c955d",
+          "reason": "Host editor imports KaTeX styles/fonts"
+        },
+        {
+          "path": "src/lib/project-share/presentation.ts",
+          "lines": "8,21",
+          "sourceBytes": 21734,
+          "sourceSHA256": "aa16a332a5fb939f149eecdf6006f5328db1654963952e8d17d089264df0ac9c",
+          "reason": "Share presentation embeds KaTeX CSS/woff2 assets"
+        }
+      ],
+      "buildLogKaTeXFontOutputs": 59,
+      "buildLogSelectedChunks": [
+        {
+          "line": 1604,
+          "output": "dist/assets/share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js    702.88 kB"
+        },
+        {
+          "line": 1605,
+          "output": "dist/assets/share-editor.8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0.js          1,976.99 kB"
+        },
+        {
+          "line": 1620,
+          "output": "dist/assets/share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css            17.48 kB │ gzip:   3.96 kB"
+        },
+        {
+          "line": 1623,
+          "output": "dist/assets/editor-kit-v1.css                                                                            28.37 kB │ gzip:   5.62 kB"
+        },
+        {
+          "line": 1638,
+          "output": "dist/assets/pele-loader-Bw-eHOVY.js                                                                       0.46 kB │ gzip:   0.32 kB"
+        },
+        {
+          "line": 1660,
+          "output": "dist/assets/_virtual_share-editor-kit-DFMvgGwv.js                                                         1.42 kB │ gzip:   0.53 kB"
+        },
+        {
+          "line": 1666,
+          "output": "dist/assets/mermaid-loader-Bsdtvqcs.js                                                                    1.75 kB │ gzip:   0.97 kB"
+        },
+        {
+          "line": 1688,
+          "output": "dist/assets/editor-kit-v1.js                                                                              3.42 kB │ gzip:   1.56 kB"
+        },
+        {
+          "line": 1724,
+          "output": "dist/assets/editor-kit-v2.js                                                                             27.97 kB │ gzip:   9.85 kB"
+        },
+        {
+          "line": 1740,
+          "output": "dist/assets/katex-C8yDF-Ck.js                                                                           282.66 kB │ gzip:  85.69 kB"
+        },
+        {
+          "line": 1741,
+          "output": "dist/assets/pele-renderer-CR0M-4HK.js                                                                   671.11 kB │ gzip: 249.09 kB"
+        },
+        {
+          "line": 1745,
+          "output": "dist/assets/viz-thUrI7x4.js                                                                           1,352.51 kB │ gzip: 484.51 kB"
+        }
+      ],
+      "limit": "Build output sizes rounded in kB except the exact kit entries above. Presence of mermaid packages in package.json is not proof the full alternative engine was shipped. Formula font resources are embedded frontend assets, not loose Sumi fonts, and predate Sumi.",
+      "migration": "Retain as shared host features unless product explicitly makes math/diagram/export optional; plugin terminology in renderer interface is not evidence of an installed-plugin-exclusive dependency."
+    },
+    {
+      "classification": "shared built-in host appearance",
+      "name": "Tauri loose resources",
+      "sources": [
+        {
+          "sourcePrefix": "src-tauri/resources/",
+          "files": [
+            {
+              "path": "src-tauri/resources/themes/default.css",
+              "bytes": 1521,
+              "gitBlob": "1614e2e7cd4efb364c7243301e83ea26f0453ca3"
+            },
+            {
+              "path": "src-tauri/resources/themes/effie.css",
+              "bytes": 5412,
+              "gitBlob": "de93845db04849070ee00286d98911946260648e"
+            }
+          ],
+          "fileCount": 2,
+          "rawSourceBytes": 6933,
+          "metric": "exact git source bytes, tests/fixtures excluded; not compiled or compressed installer cost"
+        }
+      ],
+      "configuredGlobs": [
+        "resources/themes/**/*"
+      ],
+      "limit": "Old tag has only default.css1521B and effie.css5412B here. Actual archive icon/resources totals are owned by root audit; no standalone plugin package or large private resource found."
+    }
+  ],
+  "buildEmbeddingChain": [
+    "Tauri frontendDist=../dist",
+    "Vite multi-entry + publicDir assets + shareEditorAssets emitFile",
+    "tauri::generate_context! / tauri_build compress embedded assets into Mach-O",
+    "plugin protocol __host__/assets exposes shared host embedded frontend assets"
+  ],
+  "buildEvidence": {
+    "logPath": "tasks/diagram-transparent-release-20261107/host-release.log",
+    "logSHA256": "f620e7b0d86e415a4ca883df26a1f5e3450f89af554501341b232147ddb98855",
+    "embeddedRecheck": "host-baseline-embedded-recheck.json",
+    "powerGifRecheck": "host-baseline-power-gif-check.json",
+    "actualBundleComparison": "host-cost-audit/actual-bundle-comparison.json"
+  },
+  "boundaries": [
+    "Source bytes are exact Git object lengths, not machine code size or compressed distribution ownership.",
+    "Embedded compressed byte ranges are exact actual old Mach-O bytes; they are not removable installer savings, which requires an isolated equivalent build comparison.",
+    "No duplicate old archive extraction, no build, no source changes or release occurred."
+  ]
+}

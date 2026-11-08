@@ -1,0 +1,762 @@
+{
+  "versions": {
+    "6.1107.4": {
+      "archive": "tasks/diagram-transparent-release-20261107/host-public/cache-bypass/note.md-aarch64.app.tar.gz",
+      "archiveBytes": 13550406,
+      "archiveSha256": "4c6c2ce00a00e461c3a646c5e81ff671a79a06372329c939709ac8edbc809423",
+      "appRegularFileBytes": 20554941,
+      "files": {
+        "Info.plist": {
+          "bytes": 2765,
+          "sha256": "9ac8a951ba5e5029b6b66f27e7aaf1f06f553cec66a79c3bc27c0873d18a500a"
+        },
+        "Resources/resources/themes/default.css": {
+          "bytes": 1521,
+          "sha256": "625e454e75050b488f721571514b062df1b8e6a69dbd8f8d4f935c82cd28bdc3"
+        },
+        "Resources/resources/themes/effie.css": {
+          "bytes": 5412,
+          "sha256": "839f656bf38a413e378e2a7559d1f059284eca6fdd54cf1ab1a536b01761c4fb"
+        },
+        "Resources/icon.icns": {
+          "bytes": 199574,
+          "sha256": "1de53bdd51ec00275e61f858eb8abd340f6f50fdf5f633ba479bff57e3a9a56c"
+        },
+        "MacOS/notemd": {
+          "bytes": 20341056,
+          "sha256": "cc759bc841383498bc5b2a2b2521512dbab59a52574c7e7228b7a2d151d2bdca"
+        },
+        "_CodeSignature/CodeResources": {
+          "bytes": 2960,
+          "sha256": "c4b4a59dbdf0e1453d263f155123dae7eed50309550a6b33f3f3b051373c2a6c"
+        },
+        "CodeResources": {
+          "bytes": 1653,
+          "sha256": "dc274f4e268f10eee637d95b1e2e3510d4d2c53336e6edaf6c31444cf6669fd2"
+        }
+      },
+      "machO": {
+        "segments": [
+          {
+            "name": "__PAGEZERO",
+            "bytes": 0
+          },
+          {
+            "name": "__TEXT",
+            "bytes": 18481152
+          },
+          {
+            "name": "__DATA_CONST",
+            "bytes": 1638400
+          },
+          {
+            "name": "__DATA",
+            "bytes": 32768
+          },
+          {
+            "name": "__LINKEDIT",
+            "bytes": 188736
+          }
+        ],
+        "sections": [
+          {
+            "name": "__TEXT,__text",
+            "bytes": 8479916,
+            "offset": 4032
+          },
+          {
+            "name": "__TEXT,__stubs",
+            "bytes": 4632,
+            "offset": 8483948
+          },
+          {
+            "name": "__TEXT,__stub_helper",
+            "bytes": 4656,
+            "offset": 8488580
+          },
+          {
+            "name": "__TEXT,__gcc_except_tab",
+            "bytes": 10916,
+            "offset": 8493236
+          },
+          {
+            "name": "__TEXT,__const",
+            "bytes": 9570612,
+            "offset": 8507392
+          },
+          {
+            "name": "__TEXT,__cstring",
+            "bytes": 218315,
+            "offset": 18078008
+          },
+          {
+            "name": "__TEXT,__unwind_info",
+            "bytes": 103544,
+            "offset": 18296324
+          },
+          {
+            "name": "__TEXT,__eh_frame",
+            "bytes": 71328,
+            "offset": 18399872
+          },
+          {
+            "name": "__DATA_CONST,__got",
+            "bytes": 832,
+            "offset": 18481152
+          },
+          {
+            "name": "__DATA_CONST,__mod_init_func",
+            "bytes": 8,
+            "offset": 18481984
+          },
+          {
+            "name": "__DATA_CONST,__const",
+            "bytes": 1635912,
+            "offset": 18481992
+          },
+          {
+            "name": "__DATA_CONST,__objc_imageinfo",
+            "bytes": 8,
+            "offset": 20117904
+          },
+          {
+            "name": "__DATA,__la_symbol_ptr",
+            "bytes": 3088,
+            "offset": 20119552
+          },
+          {
+            "name": "__DATA,__data",
+            "bytes": 22232,
+            "offset": 20122640
+          },
+          {
+            "name": "__DATA,__thread_vars",
+            "bytes": 480,
+            "offset": 20144872
+          },
+          {
+            "name": "__DATA,__thread_data",
+            "bytes": 129,
+            "offset": 20145352
+          },
+          {
+            "name": "__DATA,__thread_bss",
+            "bytes": 512,
+            "offset": 0
+          },
+          {
+            "name": "__DATA,__bss",
+            "bytes": 16832,
+            "offset": 0
+          },
+          {
+            "name": "__DATA,__common",
+            "bytes": 288,
+            "offset": 0
+          }
+        ]
+      }
+    },
+    "6.1108.4": {
+      "archive": "tasks/sumi-font-release-20261108/host-draft-download/note.md-aarch64.app.tar.gz",
+      "archiveBytes": 14519026,
+      "archiveSha256": "0135b7afed23e0b5f2eb2cbe9618195d4d1f23256d909fc5d82ed820ca0dbf44",
+      "appRegularFileBytes": 22393444,
+      "files": {
+        "Info.plist": {
+          "bytes": 2765,
+          "sha256": "0d69b5419c224f3132de2ea67b80cf929fbdab51e3ce6ebd8979b137a59c38a7"
+        },
+        "Resources/resources/themes/default.css": {
+          "bytes": 1521,
+          "sha256": "625e454e75050b488f721571514b062df1b8e6a69dbd8f8d4f935c82cd28bdc3"
+        },
+        "Resources/resources/themes/effie.css": {
+          "bytes": 5412,
+          "sha256": "839f656bf38a413e378e2a7559d1f059284eca6fdd54cf1ab1a536b01761c4fb"
+        },
+        "Resources/resources/sumi/CRT-PROVENANCE.json": {
+          "bytes": 2702,
+          "sha256": "a467c8a02478b57bc77e565671f2844a9e32dc53c21954d31e03d9f347ddcd7a"
+        },
+        "Resources/resources/sumi/IBMPlexMono-OFL.txt": {
+          "bytes": 4456,
+          "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+        },
+        "Resources/resources/sumi/manifest.json": {
+          "bytes": 5284,
+          "sha256": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3"
+        },
+        "Resources/resources/sumi/IBMPlexSansSC-LICENSE.txt": {
+          "bytes": 4456,
+          "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+        },
+        "Resources/resources/sumi/Unifont-OFL.txt": {
+          "bytes": 4340,
+          "sha256": "869692af094c57fb7258c57fe26820c759319603321d0ffeb278de3651763ded"
+        },
+        "Resources/resources/sumi/TerryWang-Typewriter-PROVENANCE.json": {
+          "bytes": 10164,
+          "sha256": "b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100"
+        },
+        "Resources/resources/sumi/TerryWang-Official-License.json": {
+          "bytes": 893,
+          "sha256": "7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e"
+        },
+        "Resources/resources/sumi/TerryWang-Typewriter-LICENSE.txt": {
+          "bytes": 711,
+          "sha256": "e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5"
+        },
+        "Resources/resources/sumi/LXGWWenKaiMonoLite-OFL.txt": {
+          "bytes": 5176,
+          "sha256": "0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e"
+        },
+        "Resources/resources/sumi/ZhuqueFangsong-LICENSE.txt": {
+          "bytes": 4389,
+          "sha256": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043"
+        },
+        "Resources/icon.icns": {
+          "bytes": 199574,
+          "sha256": "1de53bdd51ec00275e61f858eb8abd340f6f50fdf5f633ba479bff57e3a9a56c"
+        },
+        "MacOS/notemd": {
+          "bytes": 22134144,
+          "sha256": "f12ce1854624fd4c23c93030db92b609c93bd1a85e360f1f292b89128f6c26ba"
+        },
+        "_CodeSignature/CodeResources": {
+          "bytes": 5804,
+          "sha256": "80a3eee7b40620d290dd98fcdebccd3444afbbf954f1ca1067eb7e1947600a62"
+        },
+        "CodeResources": {
+          "bytes": 1653,
+          "sha256": "81c4fa8a94a8aadcb38e8a8fb25b1d1cea321f3540ccb2b0e604aa0d39b72882"
+        }
+      },
+      "machO": {
+        "segments": [
+          {
+            "name": "__PAGEZERO",
+            "bytes": 0
+          },
+          {
+            "name": "__TEXT",
+            "bytes": 19922944
+          },
+          {
+            "name": "__DATA_CONST",
+            "bytes": 1949696
+          },
+          {
+            "name": "__DATA",
+            "bytes": 49152
+          },
+          {
+            "name": "__LINKEDIT",
+            "bytes": 212352
+          }
+        ],
+        "sections": [
+          {
+            "name": "__TEXT,__text",
+            "bytes": 9576492,
+            "offset": 5824
+          },
+          {
+            "name": "__TEXT,__stubs",
+            "bytes": 5196,
+            "offset": 9582316
+          },
+          {
+            "name": "__TEXT,__stub_helper",
+            "bytes": 5220,
+            "offset": 9587512
+          },
+          {
+            "name": "__TEXT,__objc_stubs",
+            "bytes": 10528,
+            "offset": 9592736
+          },
+          {
+            "name": "__TEXT,__objc_methlist",
+            "bytes": 2616,
+            "offset": 9603264
+          },
+          {
+            "name": "__TEXT,__gcc_except_tab",
+            "bytes": 11184,
+            "offset": 9605880
+          },
+          {
+            "name": "__TEXT,__const",
+            "bytes": 9853236,
+            "offset": 9617408
+          },
+          {
+            "name": "__TEXT,__cstring",
+            "bytes": 234064,
+            "offset": 19470648
+          },
+          {
+            "name": "__TEXT,__objc_classname",
+            "bytes": 106,
+            "offset": 19704712
+          },
+          {
+            "name": "__TEXT,__objc_methname",
+            "bytes": 9847,
+            "offset": 19704818
+          },
+          {
+            "name": "__TEXT,__objc_methtype",
+            "bytes": 3147,
+            "offset": 19714665
+          },
+          {
+            "name": "__TEXT,__ustring",
+            "bytes": 156,
+            "offset": 19717812
+          },
+          {
+            "name": "__TEXT,__unwind_info",
+            "bytes": 116880,
+            "offset": 19717968
+          },
+          {
+            "name": "__TEXT,__eh_frame",
+            "bytes": 73716,
+            "offset": 19834848
+          },
+          {
+            "name": "__DATA_CONST,__got",
+            "bytes": 1136,
+            "offset": 19922944
+          },
+          {
+            "name": "__DATA_CONST,__mod_init_func",
+            "bytes": 8,
+            "offset": 19924080
+          },
+          {
+            "name": "__DATA_CONST,__const",
+            "bytes": 1931760,
+            "offset": 19924088
+          },
+          {
+            "name": "__DATA_CONST,__cfstring",
+            "bytes": 6272,
+            "offset": 21855848
+          },
+          {
+            "name": "__DATA_CONST,__objc_classlist",
+            "bytes": 32,
+            "offset": 21862120
+          },
+          {
+            "name": "__DATA_CONST,__objc_protolist",
+            "bytes": 24,
+            "offset": 21862152
+          },
+          {
+            "name": "__DATA_CONST,__objc_imageinfo",
+            "bytes": 8,
+            "offset": 21862176
+          },
+          {
+            "name": "__DATA_CONST,__objc_intobj",
+            "bytes": 120,
+            "offset": 21862184
+          },
+          {
+            "name": "__DATA_CONST,__objc_doubleobj",
+            "bytes": 48,
+            "offset": 21862304
+          },
+          {
+            "name": "__DATA_CONST,__objc_arraydata",
+            "bytes": 1488,
+            "offset": 21862352
+          },
+          {
+            "name": "__DATA_CONST,__objc_arrayobj",
+            "bytes": 792,
+            "offset": 21863840
+          },
+          {
+            "name": "__DATA_CONST,__objc_dictobj",
+            "bytes": 160,
+            "offset": 21864632
+          },
+          {
+            "name": "__DATA,__la_symbol_ptr",
+            "bytes": 3464,
+            "offset": 21872640
+          },
+          {
+            "name": "__DATA,__objc_const",
+            "bytes": 2696,
+            "offset": 21876104
+          },
+          {
+            "name": "__DATA,__objc_selrefs",
+            "bytes": 3536,
+            "offset": 21878800
+          },
+          {
+            "name": "__DATA,__objc_classrefs",
+            "bytes": 304,
+            "offset": 21882336
+          },
+          {
+            "name": "__DATA,__objc_superrefs",
+            "bytes": 8,
+            "offset": 21882640
+          },
+          {
+            "name": "__DATA,__objc_ivar",
+            "bytes": 116,
+            "offset": 21882648
+          },
+          {
+            "name": "__DATA,__objc_data",
+            "bytes": 320,
+            "offset": 21882768
+          },
+          {
+            "name": "__DATA,__data",
+            "bytes": 22848,
+            "offset": 21883088
+          },
+          {
+            "name": "__DATA,__thread_vars",
+            "bytes": 624,
+            "offset": 21905936
+          },
+          {
+            "name": "__DATA,__thread_data",
+            "bytes": 129,
+            "offset": 21906560
+          },
+          {
+            "name": "__DATA,__thread_bss",
+            "bytes": 976,
+            "offset": 0
+          },
+          {
+            "name": "__DATA,__bss",
+            "bytes": 16904,
+            "offset": 0
+          },
+          {
+            "name": "__DATA,__common",
+            "bytes": 288,
+            "offset": 0
+          }
+        ]
+      }
+    }
+  },
+  "fileChanges": [
+    {
+      "path": "CodeResources",
+      "oldBytes": 1653,
+      "newBytes": 1653,
+      "delta": 0
+    },
+    {
+      "path": "Info.plist",
+      "oldBytes": 2765,
+      "newBytes": 2765,
+      "delta": 0
+    },
+    {
+      "path": "MacOS/notemd",
+      "oldBytes": 20341056,
+      "newBytes": 22134144,
+      "delta": 1793088
+    },
+    {
+      "path": "Resources/resources/sumi/CRT-PROVENANCE.json",
+      "oldBytes": 0,
+      "newBytes": 2702,
+      "delta": 2702
+    },
+    {
+      "path": "Resources/resources/sumi/IBMPlexMono-OFL.txt",
+      "oldBytes": 0,
+      "newBytes": 4456,
+      "delta": 4456
+    },
+    {
+      "path": "Resources/resources/sumi/IBMPlexSansSC-LICENSE.txt",
+      "oldBytes": 0,
+      "newBytes": 4456,
+      "delta": 4456
+    },
+    {
+      "path": "Resources/resources/sumi/LXGWWenKaiMonoLite-OFL.txt",
+      "oldBytes": 0,
+      "newBytes": 5176,
+      "delta": 5176
+    },
+    {
+      "path": "Resources/resources/sumi/TerryWang-Official-License.json",
+      "oldBytes": 0,
+      "newBytes": 893,
+      "delta": 893
+    },
+    {
+      "path": "Resources/resources/sumi/TerryWang-Typewriter-LICENSE.txt",
+      "oldBytes": 0,
+      "newBytes": 711,
+      "delta": 711
+    },
+    {
+      "path": "Resources/resources/sumi/TerryWang-Typewriter-PROVENANCE.json",
+      "oldBytes": 0,
+      "newBytes": 10164,
+      "delta": 10164
+    },
+    {
+      "path": "Resources/resources/sumi/Unifont-OFL.txt",
+      "oldBytes": 0,
+      "newBytes": 4340,
+      "delta": 4340
+    },
+    {
+      "path": "Resources/resources/sumi/ZhuqueFangsong-LICENSE.txt",
+      "oldBytes": 0,
+      "newBytes": 4389,
+      "delta": 4389
+    },
+    {
+      "path": "Resources/resources/sumi/manifest.json",
+      "oldBytes": 0,
+      "newBytes": 5284,
+      "delta": 5284
+    },
+    {
+      "path": "_CodeSignature/CodeResources",
+      "oldBytes": 2960,
+      "newBytes": 5804,
+      "delta": 2844
+    }
+  ],
+  "sectionSizeChanges": [
+    {
+      "name": "__DATA,__bss",
+      "old": 16832,
+      "new": 16904,
+      "delta": 72
+    },
+    {
+      "name": "__DATA,__data",
+      "old": 22232,
+      "new": 22848,
+      "delta": 616
+    },
+    {
+      "name": "__DATA,__la_symbol_ptr",
+      "old": 3088,
+      "new": 3464,
+      "delta": 376
+    },
+    {
+      "name": "__DATA,__objc_classrefs",
+      "old": 0,
+      "new": 304,
+      "delta": 304
+    },
+    {
+      "name": "__DATA,__objc_const",
+      "old": 0,
+      "new": 2696,
+      "delta": 2696
+    },
+    {
+      "name": "__DATA,__objc_data",
+      "old": 0,
+      "new": 320,
+      "delta": 320
+    },
+    {
+      "name": "__DATA,__objc_ivar",
+      "old": 0,
+      "new": 116,
+      "delta": 116
+    },
+    {
+      "name": "__DATA,__objc_selrefs",
+      "old": 0,
+      "new": 3536,
+      "delta": 3536
+    },
+    {
+      "name": "__DATA,__objc_superrefs",
+      "old": 0,
+      "new": 8,
+      "delta": 8
+    },
+    {
+      "name": "__DATA,__thread_bss",
+      "old": 512,
+      "new": 976,
+      "delta": 464
+    },
+    {
+      "name": "__DATA,__thread_vars",
+      "old": 480,
+      "new": 624,
+      "delta": 144
+    },
+    {
+      "name": "__DATA_CONST,__cfstring",
+      "old": 0,
+      "new": 6272,
+      "delta": 6272
+    },
+    {
+      "name": "__DATA_CONST,__const",
+      "old": 1635912,
+      "new": 1931760,
+      "delta": 295848
+    },
+    {
+      "name": "__DATA_CONST,__got",
+      "old": 832,
+      "new": 1136,
+      "delta": 304
+    },
+    {
+      "name": "__DATA_CONST,__objc_arraydata",
+      "old": 0,
+      "new": 1488,
+      "delta": 1488
+    },
+    {
+      "name": "__DATA_CONST,__objc_arrayobj",
+      "old": 0,
+      "new": 792,
+      "delta": 792
+    },
+    {
+      "name": "__DATA_CONST,__objc_classlist",
+      "old": 0,
+      "new": 32,
+      "delta": 32
+    },
+    {
+      "name": "__DATA_CONST,__objc_dictobj",
+      "old": 0,
+      "new": 160,
+      "delta": 160
+    },
+    {
+      "name": "__DATA_CONST,__objc_doubleobj",
+      "old": 0,
+      "new": 48,
+      "delta": 48
+    },
+    {
+      "name": "__DATA_CONST,__objc_intobj",
+      "old": 0,
+      "new": 120,
+      "delta": 120
+    },
+    {
+      "name": "__DATA_CONST,__objc_protolist",
+      "old": 0,
+      "new": 24,
+      "delta": 24
+    },
+    {
+      "name": "__TEXT,__const",
+      "old": 9570612,
+      "new": 9853236,
+      "delta": 282624
+    },
+    {
+      "name": "__TEXT,__cstring",
+      "old": 218315,
+      "new": 234064,
+      "delta": 15749
+    },
+    {
+      "name": "__TEXT,__eh_frame",
+      "old": 71328,
+      "new": 73716,
+      "delta": 2388
+    },
+    {
+      "name": "__TEXT,__gcc_except_tab",
+      "old": 10916,
+      "new": 11184,
+      "delta": 268
+    },
+    {
+      "name": "__TEXT,__objc_classname",
+      "old": 0,
+      "new": 106,
+      "delta": 106
+    },
+    {
+      "name": "__TEXT,__objc_methlist",
+      "old": 0,
+      "new": 2616,
+      "delta": 2616
+    },
+    {
+      "name": "__TEXT,__objc_methname",
+      "old": 0,
+      "new": 9847,
+      "delta": 9847
+    },
+    {
+      "name": "__TEXT,__objc_methtype",
+      "old": 0,
+      "new": 3147,
+      "delta": 3147
+    },
+    {
+      "name": "__TEXT,__objc_stubs",
+      "old": 0,
+      "new": 10528,
+      "delta": 10528
+    },
+    {
+      "name": "__TEXT,__stub_helper",
+      "old": 4656,
+      "new": 5220,
+      "delta": 564
+    },
+    {
+      "name": "__TEXT,__stubs",
+      "old": 4632,
+      "new": 5196,
+      "delta": 564
+    },
+    {
+      "name": "__TEXT,__text",
+      "old": 8479916,
+      "new": 9576492,
+      "delta": 1096576
+    },
+    {
+      "name": "__TEXT,__unwind_info",
+      "old": 103544,
+      "new": 116880,
+      "delta": 13336
+    },
+    {
+      "name": "__TEXT,__ustring",
+      "old": 0,
+      "new": 156,
+      "delta": 156
+    }
+  ],
+  "boundary": "Physical file/section lengths from actual signed tar archives. Section sizes may include zero-fill, and compressed DMG costs cannot be added or attributed per source module from these figures. No builds, app launch or user data touched.",
+  "existingReleaseEvidenceBindings": {
+    "old": "tasks/diagram-transparent-release-20261107/candidate-verification.json",
+    "new": "tasks/sumi-font-release-20261108/artifact-verification.json",
+    "bothArchiveHashesAndLengthsMatched": true
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "tag": "v6.1107.4",
+  "binaryPath": "tasks/sumi-font-release-20261108/host-cost-audit/notemd-6.1107.4",
+  "binaryBytes": 20341056,
+  "binarySHA256": "cc759bc841383498bc5b2a2b2521512dbab59a52574c7e7228b7a2d151d2bdca",
+  "inputProofPath": "tasks/diagram-transparent-release-20261107/candidate-verification.json",
+  "inputProofSHA256": "967f33ec42cbbad7f041c0a289fbfafcaac548824fcf7c3dc02e74c38d72ff51",
+  "resources": [
+    {
+      "name": "share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css",
+      "rawBytes": 17478,
+      "compressedEmbeddedBytes": 3680,
+      "offset": 12966112,
+      "sha256": "a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd",
+      "compressedSha256": "3458858d040a7a7c754ed57e1757891ce5d932df855412dc2a67afe35862dde9",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "editor-bridge-DIAe8kKa.js",
+      "rawBytes": 11102,
+      "compressedEmbeddedBytes": 4090,
+      "offset": 13341732,
+      "sha256": "26fc5050445c59fe762bb0c9352b73f198f1b4946f55be456f7772430656da68",
+      "compressedSha256": "44fabfd8c87ee816d73eb00c5d9a975207f8d6cfa175d98baddd1e477387ddda",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "index-FXJ7SrDQ.js",
+      "rawBytes": 1040537,
+      "compressedEmbeddedBytes": 282901,
+      "offset": 13579620,
+      "sha256": "0f0711efa01ef4c46c2f31e16590b6aba6a1105f8c10730e0be117993d98a5e8",
+      "compressedSha256": "a0f4b7c891cecde2f92f7ec9d99c3049883b7cebef3af15c45237170d6c544a3",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "file-history-focus-CWAHNXIh.js",
+      "rawBytes": 47384,
+      "compressedEmbeddedBytes": 15926,
+      "offset": 14047840,
+      "sha256": "b574b95f9be7956d3f9ef68563d3cba1a49155231e65db6c424d80d6ece04b9c",
+      "compressedSha256": "1b1efa595dba28996c61d2a6e9aae7234b5b5c6182fc5f4d7d20f1ae4a4dcb29",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "share-editor.8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0.js",
+      "rawBytes": 1976990,
+      "compressedEmbeddedBytes": 488696,
+      "offset": 14462182,
+      "sha256": "8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0",
+      "compressedSha256": "144c4d5eada00a59565d3185c0c69686ed56b8a01a1ba4e77e1d9ca5e330ea00",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "App-BNCilQVz.js",
+      "rawBytes": 1039575,
+      "compressedEmbeddedBytes": 466780,
+      "offset": 15460411,
+      "sha256": "fbb402e6c0b76e6dc0ce7194d1d208a5a92f8050ef1d51f283176f5dd2469375",
+      "compressedSha256": "653d5ddf31b3b321a688adf64cac2bc3722380efe2af69aec61f35f3ff4b42b4",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "OutlineEditor-D6h1wc7k.css",
+      "rawBytes": 39178,
+      "compressedEmbeddedBytes": 6958,
+      "offset": 15995511,
+      "sha256": "5ef9ffbd47f08ba8bb9ac1314c004dad2487d77cd4f52d4ae6472d5c4cbfbbf6",
+      "compressedSha256": "eb7c41b55b7eb06eddf2470858e1fa5ec96c9b6f2831c6894a574cf1a7593e9c",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "runtime.svelte-CmoAFYJK.js",
+      "rawBytes": 255418,
+      "compressedEmbeddedBytes": 62995,
+      "offset": 16138564,
+      "sha256": "448876018472a4abfef75a4cf25047e19ae27fb1f435b29448cd1b28c55add9a",
+      "compressedSha256": "1c3851b1a5c466de212d6b07b0badd067e43a03343be22395ef13e2408e7aab2",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "editor-kit-v1.css",
+      "rawBytes": 28370,
+      "compressedEmbeddedBytes": 5219,
+      "offset": 16790580,
+      "sha256": "87850c4f3c5ea3b99f653ccdaf85b4112551a3a72bc7cd5f62e57bd576bf3ba1",
+      "compressedSha256": "8a7855822e199003a7ba5b0dc468c90c55baa32e56bbd31effaa9bdc27886f9a",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "/share-editor-manifest.json",
+      "rawBytes": 871,
+      "compressedEmbeddedBytes": 419,
+      "offset": 13312626,
+      "sha256": "1e07599e6824fb9bbd78b9ffe4c911719388cb75a1166a0fbe713fef3ce82572",
+      "compressedSha256": "63aa5c67286dbddc8c7a2c2771db6d3584e934757f4fc3e87b16afb15dffd84b",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "/assets/share-editor.8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0.js",
+      "rawBytes": 1976990,
+      "compressedEmbeddedBytes": 488696,
+      "offset": 14462182,
+      "sha256": "8dc0147882983c16f738e1cc28cc2b07de78068ae0f53dcd2df973897fbe5fd0",
+      "compressedSha256": "144c4d5eada00a59565d3185c0c69686ed56b8a01a1ba4e77e1d9ca5e330ea00",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "/assets/share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css",
+      "rawBytes": 17478,
+      "compressedEmbeddedBytes": 3680,
+      "offset": 12966112,
+      "sha256": "a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd",
+      "compressedSha256": "3458858d040a7a7c754ed57e1757891ce5d932df855412dc2a67afe35862dde9",
+      "wholeBrotliResourceReverified": true
+    },
+    {
+      "name": "/assets/share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js",
+      "rawBytes": 702876,
+      "compressedEmbeddedBytes": 232532,
+      "offset": 16795895,
+      "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd",
+      "compressedSha256": "f50c8a38a32d33ac85a5191ebd142a818d55266218d97d5f7a93b48f533545f8",
+      "wholeBrotliResourceReverified": true,
+      "containsPeleAttribution": true
+    }
+  ],
+  "distinctByteRanges": 11,
+  "distinctCompressedEmbeddedBytes": 1570196,
+  "boundary": "Verified exact complete Brotli byte sequences at frozen offsets in actual old executable. This is not Mach-O total cost, PHF runtime resolution, or attributable DMG/tar compression savings. Shared/duplicated resource intervals counted once."
+}
