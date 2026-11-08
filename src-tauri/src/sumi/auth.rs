@@ -157,9 +157,16 @@ where
     .await
     .map_err(|_| "Sumi钥匙串保存任务失败")?
 }
+fn same_identity(credential: &Credentials, requested: &Identity) -> Result<bool> {
+    // Existing Keychain entries can omit the root slash; the backend normalizes
+    // its URL before asking for a token. Compare canonical HTTPS origins.
+    Ok(credential.space_id == requested.space_id
+        && credential.device_id == requested.device_id
+        && origin(&credential.server_url)? == origin(&requested.server_url)?)
+}
 pub async fn token(profile: &str, requested: Identity) -> Result<AccessToken> {
     let credential = load(profile).await?.ok_or("请先配对Sumi同步空间")?;
-    if identity(&credential) != requested {
+    if !same_identity(&credential, &requested)? {
         return Err("Sumi后台认证身份已经改变".into());
     }
     let base = origin(&credential.server_url)?;
@@ -177,6 +184,17 @@ pub async fn token(profile: &str, requested: Identity) -> Result<AccessToken> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_origin_spelling_does_not_change_the_paired_identity() {
+        let credential=Credentials::new("https://SYNC.example.com:443".into(), uuid::Uuid::new_v4().to_string(),uuid::Uuid::new_v4().to_string(),"x".repeat(88)).unwrap();
+        let mut requested=identity(&credential);
+        requested.server_url="https://sync.example.com/".into();
+        assert!(same_identity(&credential,&requested).unwrap());
+        requested.server_url="https://other.example.com/".into();
+        assert!(!same_identity(&credential,&requested).unwrap());
+        requested.server_url="https://sync.example.com/path".into();
+        assert!(same_identity(&credential,&requested).is_err());
+    }
     #[test]
     fn auth_origin_disallows_redirect_credentials_and_non_origin_urls() {
         assert!(origin("https://sync.example.com").is_ok());
