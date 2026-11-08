@@ -25,7 +25,6 @@ static void freeReply(char *reply){free(reply);}
 @end
 @implementation CaretSumiControl
 - (BOOL)caretSurfaceActive{return [self usesTypewriterCaret] && self.isEditable && !self.isHiddenOrHasHiddenAncestor;}
-- (BOOL)reduceCaretMotion{return YES;}
 @end
 @interface CaretInputAudit : NSObject
 @property(nonatomic, weak) SumiTextView *text;

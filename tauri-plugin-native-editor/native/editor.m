@@ -93,7 +93,6 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 - (BOOL)usesTypewriterCaret;
 - (BOOL)typewriterCaretEligible;
 - (BOOL)caretSurfaceActive;
-- (BOOL)reduceCaretMotion;
 - (void)refreshTypewriterCaret:(BOOL)restart;
 - (void)updateCaretMotion;
 - (void)syncSystemCaretColor;
@@ -195,7 +194,6 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     return [self caretSurfaceActive] && (preserving || self.hasMarkedText
         || (self.selectedRanges.count==1 && self.selectedRange.length==0));
 }
-- (BOOL)reduceCaretMotion { return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion; }
 - (void)syncSystemCaretColor {
     if(!self.owner)return;
     // Modern TextKit can retain its NSTextInsertionIndicator after IME even
@@ -230,7 +228,9 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)updateCaretMotion {
     CALayer *layer=self.typewriterCaret.layer;
     [CATransaction begin];[CATransaction setDisableActions:YES];layer.opacity=1;[CATransaction commit];
-    if([self reduceCaretMotion] || [self.owner.appearance[@"caret_motion"] isEqualToString:@"steady"]){
+    // The explicit Sumi preference is authoritative; do not silently replace
+    // breathing with steady when macOS Reduce Motion is enabled.
+    if([self.owner.appearance[@"caret_motion"] isEqualToString:@"steady"]){
         [layer removeAnimationForKey:@"sumi-caret-breathing"];self.caretBreathingEpoch=0;return;
     }
     if([layer animationForKey:@"sumi-caret-breathing"])return;
@@ -296,13 +296,11 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         [NSNotificationCenter.defaultCenter removeObserver:self name:name object:nil];
         if(self.window)[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(caretWindowChanged:) name:name object:nil];
     }
-    [NSWorkspace.sharedWorkspace.notificationCenter removeObserver:self name:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:nil];
-    if(self.window)[NSWorkspace.sharedWorkspace.notificationCenter addObserver:self selector:@selector(caretWindowChanged:) name:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:nil];
     [self refreshTypewriterCaret:YES];
 }
 - (void)viewDidHide { [super viewDidHide];[self refreshTypewriterCaret:NO]; }
 - (void)viewDidUnhide { [super viewDidUnhide];[self refreshTypewriterCaret:YES]; }
-- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self];[NSWorkspace.sharedWorkspace.notificationCenter removeObserver:self]; }
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selected replacementRange:(NSRange)replacement {
     self.caretInputDepth++;
     [self.owner beginComposition];

@@ -14,13 +14,11 @@ static int command(void *handle,NSDictionary *value){
 // a window key. Geometry, NSTextView input/selection and drawing remain AppKit.
 @interface SumiCaretClockProbe : SumiTextView
 @property(nonatomic) BOOL simulatedActive;
-@property(nonatomic) BOOL simulatedReducedMotion;
 @property(nonatomic) NSUInteger geometryCalls;
 @property(nonatomic) NSUInteger missingSegments;
 @end
 @implementation SumiCaretClockProbe
 - (BOOL)caretSurfaceActive { return self.simulatedActive && [self usesTypewriterCaret]; }
-- (BOOL)reduceCaretMotion { return self.simulatedReducedMotion; }
 - (NSRect)typewriterCaretRect {self.geometryCalls++;if(self.missingSegments){self.missingSegments--;return NSZeroRect;}return [super typewriterCaretRect];}
 @end
 static void runLoop(NSTimeInterval interval){[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:interval]];}
@@ -48,6 +46,7 @@ static NSRect rect(SumiEditor *editor,NSUInteger index){
 int main(){@autoreleasepool{
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
     pid_t foreground=NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
+    printf("SYSTEM reduce_motion=%s (read-only; explicit caret choice must win)\n",NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion?"true":"false");
     NSWindow *window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,800,600) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
     const char *config="{\"surface_id\":\"caret-probe\",\"generation\":1,\"revision\":0,\"bounds\":{\"x\":0,\"y\":0,\"width\":760,\"height\":540},\"appearance\":{\"font_family\":\"Menlo\",\"font_size\":22,\"line_height\":1.6,\"foreground\":\"#44413c\",\"background\":\"#f3ead7\",\"max_columns\":80,\"bottom_inset\":80},\"document\":{\"text\":\"A中😀\\n\\n\",\"runs\":[]}}";
     void *handle=sumi_editor_mount((__bridge void *)window.contentView,0,config,callback,freeReply,NULL);
@@ -96,6 +95,23 @@ int main(){@autoreleasepool{
     CABasicAnimation *breathing=(CABasicAnimation *)[clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"];
     require([breathing.keyPath isEqualToString:@"opacity"] && [breathing.fromValue doubleValue]==1 && [breathing.toValue doubleValue]==0.25 && breathing.duration==3 && breathing.autoreverses,@"public layer animation breathes 1→0.25→1 over six seconds");
     require(breathing.preferredFrameRateRange.maximum==30,@"animation requests at most 30fps");
+    // Observe the real Core Animation presentation tree for a complete cycle.
+    // The window stays unordered: this proves layer animation, not physical
+    // display latency or on-screen input-method behavior.
+    [CATransaction flush];
+    float minimumOpacity=1,maximumOpacity=0;BOOL brightAfterDim=NO;
+    CFTimeInterval observedEpoch=clock.caretBreathingEpoch;
+    for(NSUInteger sample=0;sample<13;sample++){
+        runLoop(0.5);CALayer *presentation=clock.typewriterCaret.layer.presentationLayer;
+        require(presentation!=nil,@"actual backing layer supplies a presentation tree");
+        float opacity=presentation.opacity;minimumOpacity=MIN(minimumOpacity,opacity);maximumOpacity=MAX(maximumOpacity,opacity);
+        if(minimumOpacity<0.4 && opacity>0.9)brightAfterDim=YES;
+        require(opacity>=0.24 && opacity<=1.01,@"breathing presentation remains visible throughout the cycle");
+        printf("BREATH sample=%lu elapsed=%.3f opacity=%.4f\n",(unsigned long)sample,CACurrentMediaTime()-observedEpoch,opacity);
+        [clock refreshTypewriterCaret:YES];
+        require(clock.caretBreathingEpoch==observedEpoch,@"refreshes during observed animation preserve phase");
+    }
+    require(minimumOpacity<0.4 && maximumOpacity>0.9 && brightAfterDim,@"actual presentation dims and returns to bright over the six-second breathing cycle");
     runLoop(0.05); // Finish the initial native view layout before observing animation-only frames.
     CFTimeInterval epoch=clock.caretBreathingEpoch,begin=breathing.beginTime;NSUInteger geometry=clock.geometryCalls;
     runLoop(0.25);require(clock.geometryCalls==geometry,@"animation frames never recompute geometry or text layout");
@@ -103,12 +119,13 @@ int main(){@autoreleasepool{
     require(clock.caretBreathingEpoch==epoch && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"].beginTime==begin,@"input/selection refreshes preserve stable breathing phase");
     editor.appearance=[editor.appearance mutableCopy];NSMutableDictionary *motion=[editor.appearance mutableCopy];motion[@"caret_motion"]=@"steady";editor.appearance=motion;
     [clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil && clock.typewriterCaret.layer.opacity==1,@"steady mode is immediately fully opaque with no animation");
+    [CATransaction flush];runLoop(0.1);
+    require(clock.typewriterCaret.layer.presentationLayer && clock.typewriterCaret.layer.presentationLayer.opacity>0.99,@"steady mode is fully opaque in the actual presentation tree");
     motion=[editor.appearance mutableCopy];motion[@"caret_motion"]=@"breathing";editor.appearance=motion;
-    clock.simulatedReducedMotion=YES;[clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil && clock.typewriterCaret.layer.opacity==1,@"reduced motion keeps a steady caret without animation");
-    clock.simulatedReducedMotion=NO;
+    [clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]!=nil,@"explicit breathing resumes even when the real system Reduce Motion preference is enabled");
     NSRect lastValid=clock.typewriterCaret.frame;clock.missingSegments=2;
     [clock refreshTypewriterCaret:NO];runLoop(0.02);
-    require(!clock.typewriterCaret.hidden && NSEqualRects(lastValid,clock.typewriterCaret.frame) && clock.missingSegments==0,@"two transient missing segments preserve the valid steady caret through the queued retry");
+    require(!clock.typewriterCaret.hidden && NSEqualRects(lastValid,clock.typewriterCaret.frame) && clock.missingSegments==0,@"two transient missing segments preserve the valid caret through the queued retry");
     [clock layout];require(!clock.typewriterCaret.hidden && NSEqualRects(clock.typewriterCaret.frame,[clock typewriterCaretRect]),@"native layout completion recovers the actual insertion geometry");
     clock.frame=NSMakeRect(0,10000,500,400);[clock refreshTypewriterCaret:NO];require(clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"outside visibleRect stops animation");
     clock.frame=NSMakeRect(0,0,500,400);[clock refreshTypewriterCaret:NO];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]!=nil,@"returning to visibleRect restores the caret");

@@ -125,8 +125,10 @@ heading sizes do not change that height. It follows the actual TextKit 2 baselin
 Breathing uses a public Core Animation opacity animation from 1 to 0.25 and back
 over six seconds, requesting 30 fps. Input, selection and remote updates preserve
 the phase. No application timer or animation frame triggers text layout. Hidden,
-inactive, selected-range and offscreen states remove the animation; Reduce Motion
-uses steady mode. The host persists the preference as `caretMotion`.
+inactive, selected-range and offscreen states remove the animation. The explicit
+Sumi choice controls the caret even when macOS Reduce Motion is enabled: choose
+`steady` to disable motion. No system preference is changed. The host persists
+the preference as `caretMotion`.
 
 Marked text uses the same custom caret, including selected IME clauses.
 `shouldDrawInsertionPoint` suppresses the system caret and the public
