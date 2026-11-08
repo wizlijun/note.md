@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "recordedAtUtc": "2026-11-08T16:20:10.001783+00:00",
+  "scope": "Independent plugin typing sound settings UI. Native playback, resource and permission implementation validated separately by root.",
+  "validation": {
+    "checkExitCode": 0,
+    "testExitCode": 0,
+    "testsPassed": 85,
+    "suitesPassed": 2,
+    "buildExitCode": 0,
+    "diffCheckPassed": true
+  },
+  "contract": {
+    "read": "host.sumi.sound_state {}",
+    "write": "host.sumi.sound_set {enabled,preset}",
+    "permission": "host.sumi.sound_request_permission {}",
+    "presets": [
+      "typewriter",
+      "thock"
+    ]
+  },
+  "behavior": [
+    "Backend owns defaults; load does not request permission or play audio.",
+    "Explicit enabled/preset writes preserve appearance and font preferences.",
+    "Switching preset while off does not turn sound on.",
+    "Writes serialized; hidden/closed panel generations reject late responses.",
+    "RPC failures retain details and code, show retry, never claim ready.",
+    "Localized zh/en/ja labels and permission button."
+  ],
+  "source": {
+    "plugins-src/write/src/main.ts": {
+      "bytes": 36572,
+      "sha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09"
+    },
+    "plugins-src/write/src/contract.ts": {
+      "bytes": 3004,
+      "sha256": "b70ec807c9aef0907ea548fc7d8926987ed8a5ff8cd103b1693135c431762c73"
+    },
+    "plugins-src/write/src/main.test.ts": {
+      "bytes": 57934,
+      "sha256": "2ef16dafe9258778be9f77ea34842215ef9d962882e1c59bdd694d99433029ab"
+    },
+    "plugins-src/write/src/style.css": {
+      "bytes": 3144,
+      "sha256": "a91e4b995db23cc6fba514d83600176768a060ec19069b88325faec2be1131be"
+    },
+    "src/lib/sumi/i18n.ts": {
+      "bytes": 15130,
+      "sha256": "54c14059b30770e058308b9c266a26b53ad80ef057911b4ce6ef036c8fb89fe0"
+    }
+  },
+  "logs": {
+    "ui-sound-check.log": {
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    "ui-sound-test.log": {
+      "bytes": 242,
+      "sha256": "a905b4c511f2c0da7f45cab58eec3103ee5bca16c8e4d05f435bbfccd16e0efe"
+    },
+    "ui-sound-build.log": {
+      "bytes": 336,
+      "sha256": "cd2b1e88d481270c1713b3bda47532f28371488ad2ed6b8027b259add41ec3f7"
+    }
+  },
+  "boundaries": [
+    "Not a native playback/IME/focus/Input Monitoring acceptance result.",
+    "No commit or package publication by this agent."
+  ]
+}

@@ -1,0 +1,213 @@
+{
+  "observedAtUtc": "2026-11-08T16:33:41.955864+00:00",
+  "finalSourceCommit": null,
+  "finalTag": null,
+  "frozen": false,
+  "comparisons": [
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/native/editor.m",
+      "recordedSha256": "1d02073035b0bf9be5eeaf4eb603427ef8e0b339bb8f9eb380a3c2cb1db894b1",
+      "observedWorkingSha256": "1d02073035b0bf9be5eeaf4eb603427ef8e0b339bb8f9eb380a3c2cb1db894b1",
+      "matches": true,
+      "committedFeatureSha256": "1d02073035b0bf9be5eeaf4eb603427ef8e0b339bb8f9eb380a3c2cb1db894b1",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/native/editor.h",
+      "recordedSha256": "235f6bef6e12dd2df375cfa510195ecdaad8899a61dabc2933b9db274c77cd20",
+      "observedWorkingSha256": "235f6bef6e12dd2df375cfa510195ecdaad8899a61dabc2933b9db274c77cd20",
+      "matches": true,
+      "committedFeatureSha256": "235f6bef6e12dd2df375cfa510195ecdaad8899a61dabc2933b9db274c77cd20",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/native/typing-monitor.h",
+      "recordedSha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+      "observedWorkingSha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+      "matches": true,
+      "committedFeatureSha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/native/typing-probe.m",
+      "recordedSha256": "7fb5938652297feb95a81ec3164b6f7fd94838b7894e9f4658220fa3d13f82c7",
+      "observedWorkingSha256": "7fb5938652297feb95a81ec3164b6f7fd94838b7894e9f4658220fa3d13f82c7",
+      "matches": true,
+      "committedFeatureSha256": "7fb5938652297feb95a81ec3164b6f7fd94838b7894e9f4658220fa3d13f82c7",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/src/lib.rs",
+      "recordedSha256": "9a66d206e9056f5fa285a4470a1f8195b09f41537c9b506e1873b471392e9d95",
+      "observedWorkingSha256": "9a66d206e9056f5fa285a4470a1f8195b09f41537c9b506e1873b471392e9d95",
+      "matches": true,
+      "committedFeatureSha256": "9a66d206e9056f5fa285a4470a1f8195b09f41537c9b506e1873b471392e9d95",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/src/platform.rs",
+      "recordedSha256": "2203b880a09b424f883ce0d302dd4ccaf6d81a207655a369cccb555c3c8eca98",
+      "observedWorkingSha256": "2203b880a09b424f883ce0d302dd4ccaf6d81a207655a369cccb555c3c8eca98",
+      "matches": true,
+      "committedFeatureSha256": "2203b880a09b424f883ce0d302dd4ccaf6d81a207655a369cccb555c3c8eca98",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "native",
+      "path": "tauri-plugin-native-editor/build.rs",
+      "recordedSha256": "e6dbe7f4a3f30dcfad7a96f528cbae9a4e7585482941b8cec1c81a4d013fee0e",
+      "observedWorkingSha256": "e6dbe7f4a3f30dcfad7a96f528cbae9a4e7585482941b8cec1c81a4d013fee0e",
+      "matches": true,
+      "committedFeatureSha256": "e6dbe7f4a3f30dcfad7a96f528cbae9a4e7585482941b8cec1c81a4d013fee0e",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "realtime",
+      "path": "tasks/sumi-sounds-20261109/realtime-silent/probe.m",
+      "recordedSha256": "7680e9d4c4b6461993bcb7e0af1800cec8498b1c133011531fad9bee022f29ba",
+      "observedWorkingSha256": "7680e9d4c4b6461993bcb7e0af1800cec8498b1c133011531fad9bee022f29ba",
+      "matches": true
+    },
+    {
+      "evidenceGroup": "realtime",
+      "path": "tasks/sumi-sounds-20261109/realtime-silent/sound.m",
+      "recordedSha256": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+      "observedWorkingSha256": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+      "matches": true
+    },
+    {
+      "evidenceGroup": "realtime",
+      "path": "tasks/sumi-sounds-20261109/realtime-silent/sound.h",
+      "recordedSha256": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+      "observedWorkingSha256": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+      "matches": true
+    },
+    {
+      "evidenceGroup": "realtime",
+      "path": "plugins-src/write/backend/src/runtime.rs",
+      "recordedSha256": "b5ef1b50c6e1c2c38d4cd2cf728e55999c473763b46b3f4077f04472a2902a36",
+      "observedWorkingSha256": "b5ef1b50c6e1c2c38d4cd2cf728e55999c473763b46b3f4077f04472a2902a36",
+      "matches": true,
+      "committedFeatureSha256": "b5ef1b50c6e1c2c38d4cd2cf728e55999c473763b46b3f4077f04472a2902a36",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "realtime",
+      "path": "plugins-src/write/backend/src/sound.rs",
+      "recordedSha256": "7739e3ee7a5a80ce9c9d24b6e48a70373ccbea2b028173d0ba7187c0f8453019",
+      "observedWorkingSha256": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+      "matches": false,
+      "committedFeatureSha256": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "ui",
+      "path": "plugins-src/write/src/main.ts",
+      "recordedSha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09",
+      "observedWorkingSha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09",
+      "matches": true,
+      "committedFeatureSha256": "95328b4dbdeb61562f415468fbdfa1f9af88b5bc86e1caee931a8bfe9e538c09",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "ui",
+      "path": "plugins-src/write/src/contract.ts",
+      "recordedSha256": "b70ec807c9aef0907ea548fc7d8926987ed8a5ff8cd103b1693135c431762c73",
+      "observedWorkingSha256": "b70ec807c9aef0907ea548fc7d8926987ed8a5ff8cd103b1693135c431762c73",
+      "matches": true,
+      "committedFeatureSha256": "b70ec807c9aef0907ea548fc7d8926987ed8a5ff8cd103b1693135c431762c73",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "ui",
+      "path": "plugins-src/write/src/main.test.ts",
+      "recordedSha256": "2ef16dafe9258778be9f77ea34842215ef9d962882e1c59bdd694d99433029ab",
+      "observedWorkingSha256": "2ef16dafe9258778be9f77ea34842215ef9d962882e1c59bdd694d99433029ab",
+      "matches": true,
+      "committedFeatureSha256": "2ef16dafe9258778be9f77ea34842215ef9d962882e1c59bdd694d99433029ab",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "ui",
+      "path": "plugins-src/write/src/style.css",
+      "recordedSha256": "a91e4b995db23cc6fba514d83600176768a060ec19069b88325faec2be1131be",
+      "observedWorkingSha256": "a91e4b995db23cc6fba514d83600176768a060ec19069b88325faec2be1131be",
+      "matches": true,
+      "committedFeatureSha256": "a91e4b995db23cc6fba514d83600176768a060ec19069b88325faec2be1131be",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "ui",
+      "path": "src/lib/sumi/i18n.ts",
+      "recordedSha256": "54c14059b30770e058308b9c266a26b53ad80ef057911b4ce6ef036c8fb89fe0",
+      "observedWorkingSha256": "54c14059b30770e058308b9c266a26b53ad80ef057911b4ce6ef036c8fb89fe0",
+      "matches": true,
+      "committedFeatureSha256": "54c14059b30770e058308b9c266a26b53ad80ef057911b4ce6ef036c8fb89fe0",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "host",
+      "path": "src-tauri/src/sumi/sound.rs",
+      "recordedSha256": "4e7bc4034b3d832b053217040ac5c589cb3f72ad6e26af52a87d4bef6fab1128",
+      "observedWorkingSha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+      "matches": false,
+      "committedFeatureSha256": "3c57d58f791c896e5e4eb3b751977d07afd2c15ed5346d7ca471667f5b555307",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "host",
+      "path": "src-tauri/src/sumi/mod.rs",
+      "recordedSha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+      "observedWorkingSha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+      "matches": true,
+      "committedFeatureSha256": "716b74bd45811cf5c68fd66abaf50a56ff3d8e97b96fa1c91488b7e2f3fa957e",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "host",
+      "path": "src-tauri/src/sumi/service.rs",
+      "recordedSha256": "d796903840fbff62064c6bfbaf9ff872ea4f1ef24f41ddb9958fff50cfe71135",
+      "observedWorkingSha256": "d796903840fbff62064c6bfbaf9ff872ea4f1ef24f41ddb9958fff50cfe71135",
+      "matches": true,
+      "committedFeatureSha256": "d796903840fbff62064c6bfbaf9ff872ea4f1ef24f41ddb9958fff50cfe71135",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "host",
+      "path": "src-tauri/src/plugin_runtime/host_api.rs",
+      "recordedSha256": "143ae3f1527939fa15925b62623de3c24307513fc3eed021f12ae2ecce6c9fec",
+      "observedWorkingSha256": "143ae3f1527939fa15925b62623de3c24307513fc3eed021f12ae2ecce6c9fec",
+      "matches": true,
+      "committedFeatureSha256": "143ae3f1527939fa15925b62623de3c24307513fc3eed021f12ae2ecce6c9fec",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "realtime-native-production-copy",
+      "path": "plugins-src/write/backend/native/sound.m",
+      "recordedSha256": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+      "observedWorkingSha256": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+      "matches": true,
+      "committedFeatureSha256": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+      "featureMatchesObservedWorkingSnapshot": true
+    },
+    {
+      "evidenceGroup": "realtime-native-production-copy",
+      "path": "plugins-src/write/backend/native/sound.h",
+      "recordedSha256": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+      "observedWorkingSha256": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+      "matches": true,
+      "committedFeatureSha256": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+      "featureMatchesObservedWorkingSnapshot": true
+    }
+  ],
+  "knownDriftExplanation": "Two Rust input snapshots predate Configure deadline additions. Parent reports the later logs rerun with backend 91+stdio1 and host71; final full-source hash binding remains pending. The C audio engine .m/.h bytes still match the real-time probe copies.",
+  "scope": "Read-only working-source comparison at report preparation, not an immutable final-build provenance claim.",
+  "featureSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "featureSourceCommitted": true
+}

@@ -1,0 +1,53 @@
+{
+  "mode": "pre_freeze_preparation_only",
+  "sourceFrozen": false,
+  "buildStarted": false,
+  "credentialsRead": false,
+  "remoteReads": false,
+  "remoteWrites": false,
+  "cleanupPerformed": false,
+  "changedOnlyTaskHelpers": true,
+  "files": {
+    "run-package-build.py": "a2d51b74fe96066d032ad02b2395beee64e56d4301e9864aee71328348502a00",
+    "freeze-package.py": "1ace5b1b48a5e31643cc6fd5fac8ea47c48499f0678c6d9bc3d51e66ac0e3574",
+    "publish-plugin.py": "5aa45f4df34cf096bd75b57b2fc3feff9dd6beffac62079b045485cd31fdf025",
+    "verify-r2-stage.py": "e441473df6b7653a60907664837c9127dc21cd2345406c2acfb8df0d13264a35",
+    "verify-market-publication.py": "272154315ecfa0970091d561444bb4d36daf0647eed1cafcdd7f6099bc56a7a4",
+    "read-public-packages-parallel.py": "c1e9bd65f90112a5e608dbda5688f5f66ca92b9cf6f7a18daeca3289b9e741ee",
+    "snapshot-release-scope.py": "a7ab9d783155c824c9840ff5b96f478644b64ef6362be12946a6bf4829da89a6",
+    "test-final-source-helpers.py": "6ed48454f6c274fbc73b670747fd2b66a008852604c287d32f1eb1cd50023f43"
+  },
+  "publisherSha256": "5aa45f4df34cf096bd75b57b2fc3feff9dd6beffac62079b045485cd31fdf025",
+  "fixed": [
+    "run-package-build no longer hardcodes superseded 0d source; --source exact HEAD required; default check avoids signing/build/credentials; --execute explicit and per-source evidence directory",
+    "freeze-package requires real verifier versions, maps dist/sounds to resources/sounds, validates 14 files and frozen source bytes, records sounds evidence",
+    "publisher and plugin-public readback entrypoints bind explicit --source, reject old no-sounds receipt and mismatched source; package manifest including translated names must equal source",
+    "publisher checks sound inventory and tag-source bytes, rejects duplicate ui/sounds; generated market name must equal package manifest",
+    "independent readback scripts publisher SHA pins refreshed to audited implementation"
+  ],
+  "unchangedGates": [
+    "Wrangler repository binary 3.114.17 and existing Account API Token loader; no OAuth/Dashboard/install alternative",
+    "Both immutable R2 keys preflighted before first put; same-key post-timeout read before retry",
+    "Normal/fresh whole package and minisig checks; host public gate before KV index publication",
+    "History-preserving KV append, concurrent-change refusal and ordinary/fresh index verification",
+    "Seven host draft/public/artifact wrappers retain prior checks; dynamic expected commit and exact prior draft asset identity chain"
+  ],
+  "tests": {
+    "publisherOfflineStateMachine": 28,
+    "finalSourceHelperOffline": 10,
+    "hostVerifierEquivalenceAndSyntax": 7
+  },
+  "mustStillDo": [
+    "Root must finish and commit real source, then rerun scope inventory; current root sampling changed concurrently and is not final clearance.",
+    "Refresh exact final source native/preflight/package evidence; old 0d reports and names-superseded archive are historical only, never reuse for publication.",
+    "Run actual signed package freeze with --source final SHA and sound-aware expected inventory; no frozen-plugin-packages.json has been created by this audit.",
+    "Use --source final SHA on publish-plugin.py and all plugin public readback helpers.",
+    "Reconcile six dirty release clone files explicitly before checkout/build; do not discard or clean blindly.",
+    "Actual host accepted artifacts and public independent checks remain prerequisites for publish-index; not proven by helper tests."
+  ],
+  "boundaries": [
+    "No new candidate built, signed, notarized, staged or published.",
+    "Offline simulations do not verify real package signatures, credentials or network.",
+    "Historical evidence mentioning old names/source is preserved, not rewritten as final evidence."
+  ]
+}

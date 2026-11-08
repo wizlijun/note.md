@@ -1,0 +1,21 @@
+{
+  "build_exit": 0,
+  "build_flags": [
+    "-fobjc-arc",
+    "-mmacosx-version-min=13.0",
+    "-Wall",
+    "-Wextra",
+    "-Werror"
+  ],
+  "run_exit": 0,
+  "output": "PASS: bank=1 realtime_output_ready=1 output_rate=48000 output_channels=2 scheduled=0 stop=1 destroyed=1\nPASS: bank=2 realtime_output_ready=1 output_rate=48000 output_channels=2 scheduled=0 stop=1 destroyed=1\n",
+  "scope": "Real output engine started and stopped; no buffers scheduled, no keyboard monitoring, no microphone, no TCC request. Device output format 48 kHz stereo. Each object released after draining its autorelease pool.",
+  "probe_correction": "Initial assertion checked weak object destruction before autorelease pool drainage and failed. Probe corrected to drain per-engine autorelease pool; no production source changed.",
+  "source_sha256": {
+    "tasks/sumi-sounds-20261109/realtime-silent/probe.m": "7680e9d4c4b6461993bcb7e0af1800cec8498b1c133011531fad9bee022f29ba",
+    "tasks/sumi-sounds-20261109/realtime-silent/sound.m": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+    "tasks/sumi-sounds-20261109/realtime-silent/sound.h": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+    "plugins-src/write/backend/src/runtime.rs": "b5ef1b50c6e1c2c38d4cd2cf728e55999c473763b46b3f4077f04472a2902a36",
+    "plugins-src/write/backend/src/sound.rs": "7739e3ee7a5a80ce9c9d24b6e48a70373ccbea2b028173d0ba7187c0f8453019"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "passed": 20,
+  "checks": [
+    "exact twelve PCM16 WAV files and role catalog accepted",
+    "missing sample rejected",
+    "extra sample rejected",
+    "extra directory rejected",
+    "missing provenance rejected",
+    "altered WAV bytes rejected",
+    "declared frame count mismatch rejected",
+    "duplicate asset rejected",
+    "unsafe catalog path rejected",
+    "fabricated typewriter release rejected",
+    "unknown pack role rejected",
+    "provenance digest mismatch rejected",
+    "sample symlink rejected",
+    "pack directory symlink rejected",
+    "wrong WAV sample rate rejected even with matching manifest hashes",
+    "different valid PCM bytes rejected against frozen reference",
+    "exact production sound move and existing font gates pass; no duplicate UI copy",
+    "resource-only ZIP inventory and all bytes match source exactly",
+    "release shell syntax passes",
+    "validator and native freeze helper Python syntax passes"
+  ],
+  "scope": "Offline WAV/resource validation, exact production resource stage fragment, resource-only ZIP; not a signed plugin release or playback/latency test.",
+  "sourceSha256": {
+    "scripts/sumi/verify-sounds.py": "d55290a2fe918479002c28b722ab55453a0daf61a19506a83496b6f0ccf84b24",
+    "scripts/sumi/native-release.py": "4400d7a2b847f0f67b338746a93e23e330967748b603ccda60e725a514851af1",
+    "scripts/release-plugins.sh": "9574ce53e370a782ebeadaac5c5752a5b1e470cd3491869dfc085bcc07a79301"
+  },
+  "sourceFilesUnchanged": true,
+  "externalWrites": false
+}

@@ -1,0 +1,142 @@
+{
+  "status": "feature_source_committed_release_pending",
+  "preparedAtUtc": "2026-11-08T16:33:41.956244+00:00",
+  "intendedHostVersion": "6.1108.6",
+  "intendedPluginVersion": "0.1.5",
+  "finalSourceCommit": null,
+  "releaseTag": null,
+  "published": false,
+  "files": [
+    {
+      "file": "native-probes.json",
+      "bytes": 3166,
+      "sha256": "37d46bec9ecd3a4b4dfb035c714cac5a8a615bbf7cf56d30da46eae41cd9f60f",
+      "sources": [
+        {
+          "path": "tasks/sumi-sounds-20261109/native/evidence.json",
+          "sha256": "ea39a3ca14669742b97bb3d40bd81d799db826584f2d823800dbb3f3ed0e8d53"
+        }
+      ]
+    },
+    {
+      "file": "realtime-silent.json",
+      "bytes": 1444,
+      "sha256": "d722df0fda6aafd8fb6fd6d6f452f9ce5137428997b942701c9dd8d44e5e83bc",
+      "sources": [
+        {
+          "path": "tasks/sumi-sounds-20261109/realtime-silent/evidence.json",
+          "sha256": "2257e1f60923d7caba6187d94e39c664415e2474b3ab2255d8386a2fa7fbc8cb"
+        }
+      ]
+    },
+    {
+      "file": "ui-sound.json",
+      "bytes": 2417,
+      "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a",
+      "sources": [
+        {
+          "path": "tasks/sumi-blue-crt-20261108/ui-sound-verification.json",
+          "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a"
+        }
+      ]
+    },
+    {
+      "file": "resource-gates.json",
+      "bytes": 1519,
+      "sha256": "77d97f382f1340c08e95c664a90d2d5511e8aa1ff3d5ac7f010e2ec33e5fb934",
+      "sources": [
+        {
+          "path": "tasks/sumi-sounds-20261109/resource-gate-tests.json",
+          "sha256": "77d97f382f1340c08e95c664a90d2d5511e8aa1ff3d5ac7f010e2ec33e5fb934"
+        }
+      ]
+    },
+    {
+      "file": "resource-summary.json",
+      "bytes": 5517,
+      "sha256": "fd18f406771b81eaa46c3f1317962866814b330f5408b45a7931817602db26c3",
+      "sources": [
+        {
+          "path": "tasks/sumi-sounds-20261109/resource-preparation.json",
+          "sha256": "e15a8efbc5716152281a3f33dc7e51e457d7b6c64c6e225138a2068323147be7"
+        },
+        {
+          "path": "plugins-src/write/resources/sounds/manifest.json",
+          "sha256": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76"
+        },
+        {
+          "path": "plugins-src/write/resources/sounds/provenance.json",
+          "sha256": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793"
+        }
+      ]
+    },
+    {
+      "file": "release-helper-audit.json",
+      "bytes": 3777,
+      "sha256": "f657110ec495870f2951d7ca0c3ed0ab43f43d0082bd1fd3534da73903a95ae3",
+      "sources": [
+        {
+          "path": "tasks/sumi-blue-crt-20261108/pre-freeze-helper-audit.json",
+          "sha256": "9dd9c0e65ef5ec5708678e7c777d9e2c73579fc9ea6f93bf646c18df778d2199"
+        },
+        {
+          "path": "tasks/sumi-blue-crt-20261108/final-source-helper-tests.json",
+          "sha256": "d0c9739bafef8bf1d56aebd45b75480e80fc5eaa313d00ffb7975a4c6036c816"
+        },
+        {
+          "path": "tasks/sumi-blue-crt-20261108/publisher-selftest.json",
+          "sha256": "94ada3bd7d085fc361d59bc9dca45f4264ec5f8a3087a97ac60cde85c1150877"
+        }
+      ]
+    },
+    {
+      "file": "rust-test-summary.json",
+      "bytes": 2477,
+      "sha256": "0dfbc493057d18078fceebef8949ebd438046934171114ef69159283baa267cd",
+      "sources": [
+        {
+          "path": "tasks/sumi-sounds-20261109/host-sound-tests-final.log",
+          "sha256": "4a6652a3496f79ba63d90e9e7d9c3033f59b67966ea2b173f0ffa81bf8850a88"
+        },
+        {
+          "path": "tasks/sumi-sounds-20261109/backend-all-tests-final.log",
+          "sha256": "887fc455b7dbe87b2949952c6ece62e237171ee3ef7592f7c5d5aaf8c84dc088"
+        },
+        {
+          "path": "tasks/sumi-sounds-20261109/native-rust-tests.log",
+          "sha256": "f806d01c2493556f54e0314d6e9adc6138c46d726cd0e3a16ae8722e3d19cffc"
+        },
+        {
+          "path": "tasks/sumi-sounds-20261109/host-plugin-runtime-tests.log",
+          "sha256": "5fccbfd10ef7c625a4f705fa8613cf1f4b8bb73fb7810a2373700080644fd7f6"
+        }
+      ]
+    },
+    {
+      "file": "source-boundary.json",
+      "bytes": 10992,
+      "sha256": "0a5bd9a3af6d52403b864995c056b62a839cad1ec6a5cd24ec56862a32201fdb",
+      "sources": [
+        {
+          "path": "tasks/sumi-sounds-20261109/native/evidence.json",
+          "sha256": "ea39a3ca14669742b97bb3d40bd81d799db826584f2d823800dbb3f3ed0e8d53"
+        },
+        {
+          "path": "tasks/sumi-sounds-20261109/realtime-silent/evidence.json",
+          "sha256": "2257e1f60923d7caba6187d94e39c664415e2474b3ab2255d8386a2fa7fbc8cb"
+        },
+        {
+          "path": "tasks/sumi-blue-crt-20261108/ui-sound-verification.json",
+          "sha256": "1bc656044889b2642a046138e851634ad6dc6583bde8cbf6c5364e8e25d6592a"
+        },
+        {
+          "path": "tasks/sumi-sounds-20261109/host-sound-inputs-final.json",
+          "sha256": "292dce7add0910d5f706b65026004892357ca02ff93c98a158d952418df32965"
+        }
+      ]
+    }
+  ],
+  "scope": "Selected compact receipts and derived summaries only. No audio payloads, binaries, large raw logs, credentials, or global final scope approval are duplicated here.",
+  "featureSourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
+  "packageBuildStatus": "Started by release owner; no result or publication claim in this evidence snapshot."
+}

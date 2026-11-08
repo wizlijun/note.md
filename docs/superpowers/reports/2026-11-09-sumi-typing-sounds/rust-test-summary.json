@@ -1,0 +1,62 @@
+{
+  "status": "observed_passing_logs",
+  "suites": [
+    {
+      "suite": "host Sumi filtered suite",
+      "passed": 71,
+      "failed": 0,
+      "ignored": 2,
+      "sourceLog": "tasks/sumi-sounds-20261109/host-sound-tests-final.log",
+      "logBytes": 7395,
+      "logSha256": "4a6652a3496f79ba63d90e9e7d9c3033f59b67966ea2b173f0ffa81bf8850a88",
+      "summaryLine": "test result: ok. 71 passed; 0 failed; 2 ignored;"
+    },
+    {
+      "suite": "backend library",
+      "passed": 91,
+      "failed": 0,
+      "ignored": 2,
+      "sourceLog": "tasks/sumi-sounds-20261109/backend-all-tests-final.log",
+      "logBytes": 9865,
+      "logSha256": "887fc455b7dbe87b2949952c6ece62e237171ee3ef7592f7c5d5aaf8c84dc088",
+      "summaryLine": "test result: ok. 91 passed; 0 failed; 2 ignored;"
+    },
+    {
+      "suite": "backend stdio integration",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "sourceLog": "tasks/sumi-sounds-20261109/backend-all-tests-final.log",
+      "logBytes": 9865,
+      "logSha256": "887fc455b7dbe87b2949952c6ece62e237171ee3ef7592f7c5d5aaf8c84dc088",
+      "summaryLine": "test result: ok. 1 passed; 0 failed; 0 ignored;"
+    },
+    {
+      "suite": "native editor Rust",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "sourceLog": "tasks/sumi-sounds-20261109/native-rust-tests.log",
+      "logBytes": 818,
+      "logSha256": "f806d01c2493556f54e0314d6e9adc6138c46d726cd0e3a16ae8722e3d19cffc",
+      "summaryLine": "test result: ok. 5 passed; 0 failed; 0 ignored;"
+    },
+    {
+      "suite": "host plugin runtime filtered suite",
+      "passed": 333,
+      "failed": 0,
+      "ignored": 0,
+      "sourceLog": "tasks/sumi-sounds-20261109/host-plugin-runtime-tests.log",
+      "logBytes": 31115,
+      "logSha256": "5fccbfd10ef7c625a4f705fa8613cf1f4b8bb73fb7810a2373700080644fd7f6",
+      "summaryLine": "test result: ok. 333 passed; 0 failed; 0 ignored;"
+    }
+  ],
+  "sourceCommit": null,
+  "sourceBinding": "Final source-wide freeze is pending. Existing input hash snapshots predate Configure deadline additions; these counts describe the later final logs and do not by themselves prove final-tag inclusion.",
+  "offlineAudioTests": [
+    "real_audio_decodes_renders_overlap_and_stops_without_system_playback",
+    "missing_release_sample_is_silent_and_thock_release_is_a_real_sample"
+  ],
+  "offlineAudioBoundary": "Real AVAudioEngine manual/offline render, not audible physical device output or end-to-end latency."
+}

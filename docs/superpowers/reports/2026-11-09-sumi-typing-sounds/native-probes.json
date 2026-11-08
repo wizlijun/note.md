@@ -1,0 +1,48 @@
+{
+  "results": [
+    {
+      "probe": "typing-probe",
+      "build": 0,
+      "build_output": "",
+      "exit": 0,
+      "output": "PASS: typing roles/repeat/modifiers/IME state, actual hidden AppKit responder tree safety, simulated foreground gate, stop/disable; no tap installed or permission requested\n"
+    },
+    {
+      "probe": "locale-probe",
+      "build": 0,
+      "build_output": "",
+      "exit": 0,
+      "output": "PASS: native zh/ja/en region fallback, actual menus/link dialog/a11y, legacy default, live language during markedText preserves content/selection/steady caret and command identities\n"
+    },
+    {
+      "probe": "shortcuts-probe",
+      "build": 0,
+      "build_output": "",
+      "exit": 0,
+      "output": "PASS: exact shortcuts, native selection/actions, IME gate, Find/Replace/Replace All -> Edit, Escape, emoji movement/deletion\n"
+    },
+    {
+      "probe": "panel-probe",
+      "build": 0,
+      "build_output": "",
+      "exit": 0,
+      "output": "PANEL text=你好😀 committed=你好😀 revision=1 edits=1 events=[{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"composition\",\"revision\":0,\"active\":true},{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"composition\",\"revision\":0,\"active\":false},{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"selection\",\"revision\":0,\"range\":{\"start\":0,\"length\":0}},{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"composition\",\"revision\":0,\"active\":true},{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"edit\",\"range\":{\"start\":0,\"length\":2},\"replacement\":\"你好\",\"base_revision\":0},{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"composition\",\"revision\":1,\"active\":false},{\"surface_id\":\"panel-probe\",\"generation\":1,\"kind\":\"selection\",\"revision\":1,\"range\":{\"start\":2,\"length\":0}}]\nPASS: panel handoff, empty preedit, single commit, background barrier, reject/retry preservation, canonical projection, stale composition; no UI activation\n"
+    },
+    {
+      "probe": "clipboard-probe",
+      "build": 0,
+      "build_output": "",
+      "exit": 0,
+      "output": "PASS: private-pasteboard Markdown copy/cut, write-failure safety, plain/HTML/RTF priority, file/image text, composition gate\n"
+    }
+  ],
+  "source_sha256": {
+    "tauri-plugin-native-editor/native/editor.m": "1d02073035b0bf9be5eeaf4eb603427ef8e0b339bb8f9eb380a3c2cb1db894b1",
+    "tauri-plugin-native-editor/native/editor.h": "235f6bef6e12dd2df375cfa510195ecdaad8899a61dabc2933b9db274c77cd20",
+    "tauri-plugin-native-editor/native/typing-monitor.h": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+    "tauri-plugin-native-editor/native/typing-probe.m": "7fb5938652297feb95a81ec3164b6f7fd94838b7894e9f4658220fa3d13f82c7",
+    "tauri-plugin-native-editor/src/lib.rs": "9a66d206e9056f5fa285a4470a1f8195b09f41537c9b506e1873b471392e9d95",
+    "tauri-plugin-native-editor/src/platform.rs": "2203b880a09b424f883ce0d302dd4ccaf6d81a207655a369cccb555c3c8eca98",
+    "tauri-plugin-native-editor/build.rs": "e6dbe7f4a3f30dcfad7a96f528cbae9a4e7585482941b8cec1c81a4d013fee0e"
+  }
+}
