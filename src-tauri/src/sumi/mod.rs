@@ -69,6 +69,11 @@ struct Preferences {
     line_height: f64,
     max_columns: u32,
     bottom_inset: f64,
+    #[serde(default = "default_caret_motion")]
+    caret_motion: String,
+}
+fn default_caret_motion() -> String {
+    "breathing".into()
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -79,6 +84,7 @@ impl Default for Preferences {
             line_height: 1.6,
             max_columns: 80,
             bottom_inset: 0.,
+            caret_motion: default_caret_motion(),
         }
     }
 }
@@ -94,6 +100,7 @@ impl Preferences {
     fn validate(&self) -> Result<()> {
         if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia")
             || bundled_fonts(&self.font_family).is_empty()
+            || !matches!(self.caret_motion.as_str(), "breathing" | "steady")
             || !self.font_size.is_finite()
             || !(8. ..=96.).contains(&self.font_size)
             || !self.line_height.is_finite()
@@ -121,6 +128,10 @@ impl Preferences {
             bottom_inset: self.bottom_inset,
             foreground: foreground.into(),
             background: background.into(),
+            caret_motion: match self.caret_motion.as_str() {
+                "steady" => native::CaretMotion::Steady,
+                _ => native::CaretMotion::Breathing,
+            },
         }
     }
 }
@@ -1541,10 +1552,12 @@ fn bundled_fonts(preference: &str) -> &'static [(&'static str, &'static str)] {
     }
 }
 async fn load_preferences(durable: &Durability) -> Result<Preferences> {
-    let mut preferences: Preferences = durable.preferences("appearance".into()).await?
+    let stored = durable.preferences("appearance".into()).await?;
+    let missing_caret_motion = stored.as_ref().is_some_and(|value| value.get("caretMotion").is_none());
+    let mut preferences: Preferences = stored
         .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
-    // Migrate only the retired font choice, preserving the user's other fields.
-    if preferences.normalize_stored_font() {
+    // Add the new default and migrate only retired fonts, preserving other fields.
+    if preferences.normalize_stored_font() || missing_caret_motion {
         durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
     }
     Ok(preferences)
@@ -3080,10 +3093,39 @@ mod tests {
             preferences.validate().unwrap();
             let mut expected = saved;
             expected["fontFamily"] = json!(expected_font);
+            expected["caretMotion"] = json!("breathing");
             assert_eq!(serde_json::to_value(preferences).unwrap(), expected);
             assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
             assert_eq!(serde_json::to_value(load_preferences(&ws.durable).await.unwrap()).unwrap(), expected);
         }
+    }
+    #[tokio::test]
+    async fn caret_motion_defaults_and_survives_reopening_without_resetting_appearance() {
+        let (temp, ws, _page) = fixture().await;
+        let legacy = json!({"theme":"sepia","fontFamily":"Sumi Fangsong","fontSize":50.,"lineHeight":1.6,"maxColumns":80,"bottomInset":17.});
+        ws.durable.set_preferences("appearance".into(), legacy.clone()).await.unwrap();
+        let migrated = load_preferences(&ws.durable).await.unwrap();
+        migrated.validate().unwrap();
+        assert!(matches!(migrated.appearance().caret_motion, native::CaretMotion::Breathing));
+        let mut expected = legacy;
+        expected["caretMotion"] = json!("breathing");
+        assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
+        assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
+        for invalid in ["blink", "", "Breathing", "STEADY"] {
+            let mut prefs = migrated.clone();
+            prefs.caret_motion = invalid.into();
+            assert!(prefs.validate().is_err());
+        }
+        let mut steady = migrated;
+        steady.caret_motion = "steady".into();
+        steady.validate().unwrap();
+        expected["caretMotion"] = json!("steady");
+        ws.durable.set_preferences("appearance".into(), serde_json::to_value(&steady).unwrap()).await.unwrap();
+        let reopened = Durability::open(ws.root.clone(), temp.path().join("sumi.sqlite3"), |_| {}).await.unwrap();
+        let restored = load_preferences(&reopened).await.unwrap();
+        assert_eq!(serde_json::to_value(&restored).unwrap(), expected);
+        assert!(matches!(restored.appearance().caret_motion, native::CaretMotion::Steady));
+        assert_eq!(serde_json::to_value(load_preferences(&reopened).await.unwrap()).unwrap(), expected);
     }
     #[test]
     fn font_registration_matches_the_shipped_cascade_manifest() {
