@@ -128,17 +128,23 @@ the phase. No application timer or animation frame triggers text layout. Hidden,
 inactive, selected-range and offscreen states remove the animation; Reduce Motion
 uses steady mode. The host persists the preference as `caretMotion`.
 
-Marked text temporarily restores the system insertion caret. Outside composition,
-`shouldDrawInsertionPoint` suppresses it and the public `insertionPointColor` is
-transparent: modern AppKit can retain an indicator after IME even when the former
-returns false. The custom caret reads the theme foreground independently. No
-private indicator APIs, global defaults or input-method geometry are changed.
+Marked text uses the same custom caret, including selected IME clauses.
+`shouldDrawInsertionPoint` suppresses the system caret and the public
+`insertionPointColor` stays transparent throughout composition: modern AppKit can
+retain an indicator even when the former returns false. The custom caret reads
+the theme foreground independently. Native input and host update transactions
+preserve a visible caret until their final insertion geometry is ready; transient
+missing layout does not clear its frame. A coalesced main-queue refresh and native
+layout completion retry geometry. No private indicator APIs, global defaults or
+input-method geometry are changed.
 
 `native/caret-probe.m` tests geometry, fixed font metrics, animation configuration,
 stable phase and steady mode. `native/caret-render-probe.m` supplies a real
 TextKit 2 system-caret positive control, captures AppKit bitmap pixels, checks the
 single custom caret through font/theme changes and IME, and verifies a suppression
-mutation exposes a duplicate. Use the Clang flags above with deployment target
+mutation exposes a duplicate. Continuous state observations and immediate raster
+samples cover marked-text updates, selected clauses, replacement, newline and
+commit with the bundled 32pt Zhaohua/sepia/steady preferences. Use the Clang flags above with deployment target
 13.0 and run from the repository root. Both keep their windows unordered and use
 an activation-prohibited application; active eligibility is simulated. This
 proves offscreen native rendering, not final-package on-screen/physical IME
