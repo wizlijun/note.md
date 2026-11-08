@@ -1,0 +1,46 @@
+[package]
+name = "notemd-sumi-backend"
+version = "0.1.4"
+edition = "2021"
+
+[[bin]]
+name = "notemd-sumi"
+path = "src/main.rs"
+
+[dependencies]
+notemd-plugin-sdk = { path = "../../../notemd-plugin-sdk" }
+sumi-protocol = { path = "../../../sumi-protocol" }
+write-core = { path = "../../../write-core" }
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip", "brotli"] }
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+serde_json = "1"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time", "net", "io-util"] }
+uuid = { version = "1", features = ["v4"] }
+fs2 = "0.4"
+futures-util = "0.3"
+base64 = "0.22"
+url = "2"
+tokio-tungstenite = { version = "=0.28.0", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util", "process"] }
+tempfile = "3"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

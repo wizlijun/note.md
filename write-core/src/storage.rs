@@ -33,7 +33,7 @@ pub struct Sidecar {
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilePair {
     pub markdown: String,
     pub metadata: String,
@@ -249,7 +249,7 @@ fn validate_projection(snapshot: &Snapshot, pair: &FilePair) -> Result<()> {
 pub struct Store {
     connection: Connection,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingUpdate {
     pub op_id: String,
     pub page_id: String,
