@@ -20,16 +20,36 @@ static void assertFace(NSFont *font,NSString *text,NSString *expected,BOOL light
     }
     CFRelease(line);
 }
+static BOOL reportSystemFallback(NSFont *font,NSArray<NSString *> *selected){
+    for(UniChar character=0x3400;character<0xa000;character++){
+        BOOL covered=NO;
+        for(NSString *key in selected)covered|=covers([NSFont fontWithDescriptor:SumiRegisteredFonts[key] size:22],character);
+        if(covered)continue;
+        NSString *text=[NSString stringWithCharacters:&character length:1];
+        NSAttributedString *value=[[NSAttributedString alloc] initWithString:text attributes:@{NSFontAttributeName:font}];
+        CTLineRef line=CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)value);
+        NSArray *runs=(__bridge NSArray *)CTLineGetGlyphRuns(line);BOOL resolved=runs.count>0;
+        NSMutableArray *faces=[NSMutableArray new];
+        for(id value in runs){
+            CTRunRef run=(__bridge CTRunRef)value;
+            CTFontRef actual=(CTFontRef)CFDictionaryGetValue(CTRunGetAttributes(run),kCTFontAttributeName);
+            NSString *face=CFBridgingRelease(CTFontCopyPostScriptName(actual));
+            resolved&=![selected containsObject:face];[faces addObject:face];
+            CFIndex count=CTRunGetGlyphCount(run);resolved&=count>0;
+            CGGlyph *glyphs=calloc((size_t)count,sizeof(CGGlyph));CTRunGetGlyphs(run,CFRangeMake(0,0),glyphs);
+            for(CFIndex i=0;i<count;i++)resolved&=glyphs[i]!=0;free(glyphs);
+        }
+        CFRelease(line);
+        if(resolved){printf("SYSTEM FALLBACK U+%04X %s => %s (outside selected font coverage)\n",character,text.UTF8String,[[faces componentsJoinedByString:@", "] UTF8String]);return YES;}
+    }
+    return NO;
+}
 int main(int argc,const char **argv){@autoreleasepool{
     require(argc==2,@"pass absolute resources/sumi directory");
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     NSString *directory=[NSString stringWithUTF8String:argv[1]];
     require(directory.isAbsolutePath,@"resource directory is absolute");
     NSArray *registrations=@[
-        @[@"CourierPrime-Regular.ttf",@"Courier Prime"],
-        @[@"ZhuqueFangsong-Regular.ttf",@"Zhuque Fangsong (technical preview)"],
-        @[@"SourceHanSerifSC-Regular.otf",@"Source Han Serif SC"],
-        @[@"SourceHanSerifSC-Regular.otf",@"SourceHanSerifSC-Regular"],
         @[@"IBMPlexMono-Light.ttf",@"IBMPlexMono-Light"],
         @[@"IBMPlexSansSC-Light.otf",@"IBMPlexSansSC-Light"],
         @[@"LXGWWenKaiMonoLite-Regular.ttf",@"LXGWWenKaiMonoLite-Regular"],
@@ -45,12 +65,10 @@ int main(int argc,const char **argv){@autoreleasepool{
     require(sumi_editor_register_font([[directory stringByAppendingPathComponent:@"IBMPlexMono-Light.ttf"] UTF8String],"IBMPlexMono-Regular",&wrongError)!=0,@"Light file cannot register as Regular");
     sumi_editor_free_string(wrongError);
     NSDictionary *cascades=@{
-        @"Sumi Typewriter":@[@"Courier Prime",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"],
-        @"Sumi Plex":@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light",@"SourceHanSerifSC-Regular"],
-        @"Sumi WenKai":@[@"LXGWWenKaiMonoLite-Regular",@"SourceHanSerifSC-Regular"],
-        @"Sumi Elite":@[@"SpecialElite-Regular",@"youyou-yisong",@"SourceHanSerifSC-Regular"]};
+        @"Sumi Plex":@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light"],
+        @"Sumi WenKai":@[@"LXGWWenKaiMonoLite-Regular"],
+        @"Sumi Elite":@[@"SpecialElite-Regular",@"youyou-yisong"]};
     NSDictionary *expected=@{
-        @"Sumi Typewriter":@[@"CourierPrime-Regular",@"ZhuqueFangsong-Regular"],
         @"Sumi Plex":@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light"],
         @"Sumi WenKai":@[@"LXGWWenKaiMonoLite-Regular",@"LXGWWenKaiMonoLite-Regular"],
         @"Sumi Elite":@[@"SpecialElite-Regular",@"youyou-yisong"]};
@@ -62,21 +80,9 @@ int main(int argc,const char **argv){@autoreleasepool{
         NSFont *font=[editor baseFont];BOOL light=[alias isEqualToString:@"Sumi Plex"];
         assertFace(font,@"Typewriter 1932",expected[alias][0],light);
         assertFace(font,@"沉浸式写作中文",expected[alias][1],light);
-        NSFont *sourceHan=[NSFont fontWithDescriptor:SumiRegisteredFonts[@"SourceHanSerifSC-Regular"] size:22];
-        BOOL found=NO;
-        for(UniChar character=0x3400;character<0xa000;character++){
-            BOOL covered=NO;
-            for(NSString *key in cascades[alias]){
-                if([key isEqualToString:@"SourceHanSerifSC-Regular"] || [key isEqualToString:@"Source Han Serif SC"])continue;
-                covered|=covers([NSFont fontWithDescriptor:SumiRegisteredFonts[key] size:22],character);
-            }
-            if(!covered&&covers(sourceHan,character)){
-                NSString *rare=[NSString stringWithCharacters:&character length:1];assertFace(font,rare,@"SourceHanSerifSC-Regular",NO);found=YES;break;
-            }
-        }
-        require(found,@"verified actual rare-character fallback");
+        require(reportSystemFallback(font,cascades[alias]),@"a representative missing character resolves through actual system fallback");
         printf("PASS cascade %s\n",alias.UTF8String);
     }
-    printf("PASS: 3 selected cascades plus legacy Typewriter; exact PS, Light weight, no missing glyph, rare fallback\n");
+    printf("PASS: only 3 selected cascades; exact PS, Light weight, single-face WenKai, actual system fallback\n");
     return 0;
 }}

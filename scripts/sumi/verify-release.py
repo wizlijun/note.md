@@ -84,32 +84,26 @@ def verify_plugin_files(files, frozen):
     manifest_identity(json.loads(files['manifest.json']))
 
 
-FONT_CASCADES = {'Sumi Typewriter': ['Courier Prime', 'Zhuque Fangsong (technical preview)', 'Source Han Serif SC'], 'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light', 'SourceHanSerifSC-Regular'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular', 'SourceHanSerifSC-Regular'], 'Sumi Elite': ['SpecialElite-Regular', 'youyou-yisong', 'SourceHanSerifSC-Regular']}
+FONT_CASCADES = {'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular'], 'Sumi Elite': ['SpecialElite-Regular', 'youyou-yisong']}
 FONT_ASSETS = {
-    'CourierPrime-OFL.txt',
-    'CourierPrime-Regular.ttf',
     'IBMPlexMono-Light.ttf',
     'IBMPlexMono-OFL.txt',
     'IBMPlexSansSC-LICENSE.txt',
     'IBMPlexSansSC-Light.otf',
     'LXGWWenKaiMonoLite-OFL.txt',
     'LXGWWenKaiMonoLite-Regular.ttf',
-    'OFL.txt',
-    'SourceHanSerifSC-Regular.otf',
     'SpecialElite-LICENSE.txt',
     'SpecialElite-Regular.ttf',
     'YouyouYisong-NOTICE.txt',
     'YouyouYisong-PROVENANCE.json',
     'YouyouYisong.ttf',
-    'ZhuqueFangsong-LICENSE.txt',
-    'ZhuqueFangsong-Regular.ttf',
 }
 
 def font_files(folder, manifest_raw):
     require((folder/'manifest.json').read_bytes() == manifest_raw, 'Bundled font manifest differs from frozen source')
     manifest = json.loads(manifest_raw)
-    require(manifest.get('alias') == 'Sumi Typewriter', 'Wrong font alias')
-    require(manifest.get('families') == ['Courier Prime','Zhuque Fangsong (technical preview)','Source Han Serif SC'], 'Wrong font cascade')
+    require(manifest.get('schema') == 2 and manifest.get('default_alias') == 'Sumi Plex', 'Wrong font manifest/default alias')
+    require({p.name for p in folder.iterdir()} == FONT_ASSETS | {'manifest.json'}, 'Unexpected or obsolete bundled font resource')
     require(manifest.get('cascades') == FONT_CASCADES, 'Wrong selected font cascades or exact faces')
     require({a['file'] for a in manifest['assets']} == FONT_ASSETS and len(manifest['assets']) == len(FONT_ASSETS), 'Incomplete font/license/provenance manifest')
     result = {}
@@ -298,11 +292,14 @@ def self_test():
                     else:archive.addfile(member,io.BytesIO(data))
             if mode=='valid':h.verify_archive_identity(archive_path,VERSION)
             else:rejects(lambda:h.verify_archive_identity(archive_path,VERSION))
+        directory=directory/'fonts';directory.mkdir()
         names=sorted(FONT_ASSETS)
-        fm={'alias':'Sumi Typewriter','families':FONT_CASCADES['Sumi Typewriter'],'cascades':FONT_CASCADES,'assets':[{'file':n,'size':7,'sha256':sha(b'fixture')} for n in names]}
+        fm={'schema':2,'default_alias':'Sumi Plex','cascades':FONT_CASCADES,'assets':[{'file':n,'size':7,'sha256':sha(b'fixture')} for n in names]}
         encoded=json.dumps(fm).encode();(directory/'manifest.json').write_bytes(encoded)
         for n in names:(directory/n).write_bytes(b'fixture')
         font_files(directory,encoded)
+        obsolete=directory/'SourceHanSerifSC-Regular.otf';obsolete.write_bytes(b'old font')
+        rejects(lambda: font_files(directory,encoded));obsolete.unlink()
         wrong={**fm,'cascades':{**FONT_CASCADES,'Sumi Plex':['IBM Plex Mono','IBM Plex Sans SC']}}
         wrong_encoded=json.dumps(wrong).encode();(directory/'manifest.json').write_bytes(wrong_encoded)
         rejects(lambda: font_files(directory,wrong_encoded))

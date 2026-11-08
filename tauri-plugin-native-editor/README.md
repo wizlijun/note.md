@@ -95,10 +95,11 @@ OTF path. It checks missing/mismatched rejection, repeated process registration,
 and the real family/face attached to NSTextView storage. It does not install fonts.
 
 `native/typewriter-probe.m` takes the absolute `resources/sumi` directory and checks
-actual CoreText glyph-run PostScript faces for all three selected combinations and
-the legacy Typewriter alias. It verifies both Plex Light weights, rejects a Light
-file registered as Regular, checks missing glyphs, and dynamically selects a rare
-character covered only by Source Han. It does not show a window or install fonts.
+actual CoreText glyph-run PostScript faces for the three selected combinations.
+It verifies both Plex Light weights, rejects a Light file registered as Regular,
+and reports the actual system fallback for a character outside each selected
+combination. It does not claim those characters are covered by the bundled faces.
+It does not show a window or install fonts.
 Descriptor names alone are insufficient.
 
 The standard macOS Control-Command-F shortcut emits `fullscreen`; the host targets

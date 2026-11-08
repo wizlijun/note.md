@@ -130,7 +130,7 @@ fn main() {
         doc.replace(0, 0, 0, markdown, 1).unwrap();
         let map = SourceMap::new(&doc.body(), doc.revision());
         let core_open_ms = open.elapsed().as_secs_f64() * 1000.;
-        let config=CString::new(serde_json::to_vec(&json!({"surface_id":"benchmark","generation":1,"revision":doc.revision(),"bounds":{"x":0,"y":0,"width":900,"height":650},"document":map.document,"selection":{"start":0,"length":0},"appearance":{"font_family":"Sumi Typewriter","font_size":22.,"line_height":1.6,"foreground":"#cccccc","background":"#111111","max_columns":80,"bottom_inset":0}})).unwrap()).unwrap();
+        let config=CString::new(serde_json::to_vec(&json!({"surface_id":"benchmark","generation":1,"revision":doc.revision(),"bounds":{"x":0,"y":0,"width":900,"height":650},"document":map.document,"selection":{"start":0,"length":0},"appearance":{"font_family":"Sumi Plex","font_size":22.,"line_height":1.6,"foreground":"#cccccc","background":"#111111","max_columns":80,"bottom_inset":0}})).unwrap()).unwrap();
         let fixture_c = CString::new(raw.clone()).unwrap();
         let font_c = CString::new(fonts.to_str().unwrap()).unwrap();
         let mut model = Model {

@@ -32,15 +32,15 @@ int main(){@autoreleasepool{
     sumi_editor_detach(handle);
     // Match the production typewriter cascade and large-font wrapped paragraphs.
     NSString *fonts=[NSFileManager.defaultManager.currentDirectoryPath stringByAppendingPathComponent:@"src-tauri/resources/sumi"];
-    NSArray *files=@[@"CourierPrime-Regular.ttf",@"ZhuqueFangsong-Regular.ttf",@"SourceHanSerifSC-Regular.otf"];
-    NSArray *families=@[@"Courier Prime",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
+    NSArray *files=@[@"IBMPlexMono-Light.ttf",@"IBMPlexSansSC-Light.otf"];
+    NSArray *families=@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light"];
     for(NSUInteger i=0;i<files.count;i++){char *error=NULL;require(sumi_editor_register_font([fonts stringByAppendingPathComponent:files[i]].UTF8String,[families[i] UTF8String],&error)==0,@"production font registers");}
-    require(sumi_editor_register_cascade(json(@{@"alias":@"Sumi Typewriter",@"families":families}).UTF8String,NULL)==0,@"production cascade registers");
+    require(sumi_editor_register_cascade(json(@{@"alias":@"Sumi Plex",@"families":families}).UTF8String,NULL)==0,@"production cascade registers");
     for(NSValue *sizeValue in @[[NSValue valueWithSize:NSMakeSize(800,500)],[NSValue valueWithSize:NSMakeSize(800,600)],[NSValue valueWithSize:NSMakeSize(960,720)]]){
     NSSize size=sizeValue.sizeValue;
     [window setContentSize:size];view.frame=window.contentView.bounds;
     NSString *wrapped=@"SYNTHETIC · Sumi page 13 acceptance\n这是明确的合成验收页，仅用于验证超过八页后的远端下载与实时订阅。【restart-anchor】x\nSynthetic acceptance fixture — no personal writing.\nUI-ACCEPT first-open 20261108\n\n";
-    config[@"appearance"]=@{@"font_family":@"Sumi Typewriter",@"font_size":@50,@"line_height":@1.6,@"foreground":@"#cccccc",@"background":@"#111111",@"max_columns":@80,@"bottom_inset":@0};
+    config[@"appearance"]=@{@"font_family":@"Sumi Plex",@"font_size":@50,@"line_height":@1.6,@"foreground":@"#cccccc",@"background":@"#111111",@"max_columns":@80,@"bottom_inset":@0};
     config[@"bounds"]=@{@"x":@0,@"y":@0,@"width":@(size.width),@"height":@(size.height)};
     config[@"document"]=@{@"text":wrapped,@"runs":@[]};config[@"selection"]=@{@"start":@100,@"length":@0};config[@"viewport"]=@{@"start":@0,@"offset":@0};
     handle=sumi_editor_mount((__bridge void *)view,1,json(config).UTF8String,receive,releaseReply,NULL);require(handle!=NULL,@"large font mount");editor=(__bridge SumiEditor *)handle;

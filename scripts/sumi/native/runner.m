@@ -11,13 +11,13 @@ char *sumi_bench_run(const char *config,const char *fixture,const char *fontRoot
 @autoreleasepool {
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
     NSString *root=[NSString stringWithUTF8String:fontRoot];
-    NSArray *files=@[@"CourierPrime-Regular.ttf",@"ZhuqueFangsong-Regular.ttf",@"SourceHanSerifSC-Regular.otf"];
-    NSArray *families=@[@"Courier Prime",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
+    NSArray *files=@[@"IBMPlexMono-Light.ttf",@"IBMPlexSansSC-Light.otf"];
+    NSArray *families=@[@"IBMPlexMono-Light",@"IBMPlexSansSC-Light"];
     for(NSUInteger i=0;i<files.count;i++){
         char *error=NULL;int result=sumi_editor_register_font([[root stringByAppendingPathComponent:files[i]] UTF8String],[families[i] UTF8String],&error);
         if(error){fprintf(stderr,"font: %s\n",error);sumi_editor_free_string(error);}require(result==0,@"font registration");
     }
-    char *error=NULL;require(sumi_editor_register_cascade("{\"alias\":\"Sumi Typewriter\",\"families\":[\"Courier Prime\",\"Zhuque Fangsong (technical preview)\",\"Source Han Serif SC\"]}",&error)==0,@"font cascade");
+    char *error=NULL;require(sumi_editor_register_cascade("{\"alias\":\"Sumi Plex\",\"families\":[\"IBMPlexMono-Light\",\"IBMPlexSansSC-Light\"]}",&error)==0,@"font cascade");
     if(error)sumi_editor_free_string(error);
     NSDictionary *data=SumiJSON(fixture);NSArray *markers=data[@"markers"],*sequence=data[@"input_sequence"];
     NSWindow *window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,900,650) styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
@@ -56,7 +56,7 @@ char *sumi_bench_run(const char *config,const char *fixture,const char *fontRoot
     }}
     require([editor.text.string isEqualToString:expected],@"exact expected text after all inserts");
     struct rusage usage;getrusage(RUSAGE_SELF,&usage);
-    NSDictionary *result=@{@"mount_ms":@(mountMs),@"warmup_ms":@(warmMs),@"raw":results,@"correctness":@{@"exact_text":@YES,@"initial_visible_utf16":@(initial.length),@"final_visible_utf16":@(editor.text.string.length)},@"textkit2":@YES,@"requested_font_family":@"Sumi Typewriter",@"actual_primary_family":[editor baseFont].familyName,@"rss_peak_bytes":@(usage.ru_maxrss),@"final_text":editor.text.string,@"window_visible":@(window.visible)};
+    NSDictionary *result=@{@"mount_ms":@(mountMs),@"warmup_ms":@(warmMs),@"raw":results,@"correctness":@{@"exact_text":@YES,@"initial_visible_utf16":@(initial.length),@"final_visible_utf16":@(editor.text.string.length)},@"textkit2":@YES,@"requested_font_family":@"Sumi Plex",@"actual_primary_family":[editor baseFont].familyName,@"rss_peak_bytes":@(usage.ru_maxrss),@"final_text":editor.text.string,@"window_visible":@(window.visible)};
     NSData *json=[NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
     char *answer=strdup([[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding].UTF8String);
     sumi_editor_detach(handle);[window close];

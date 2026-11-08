@@ -39,6 +39,6 @@ python3 scripts/sumi/verify-release.py \
 
 updater 的 `.sig` 默认取归档旁同名文件，按正式脚本解码 Tauri base64 包装并用冻结配置公钥验签。插件公钥从冻结宿主的 `PLUGIN_REGISTRY_PUBKEY` 获取，不接受包自带公钥。插件包必须与冻结的 manifest/UI 文件集合及每一项 SHA 完全一致；附加文件、缺项、路径穿越、软链接均拒绝。
 
-验证同时覆盖：正式 bundle/version、显式选择的 arm64 或 x86_64 CPU、codesign/spctl/stapler、App/updater/DMG 的相同 Mach-O 与签名资源清单、三组新字体与兼容旧组、许可证及原始授权元数据的精确字节，并核对Plex精确Light字型映射、原生 Objective-C bridge class metadata、AppKit/CoreText 动态链接且无 Qt 动态链接、宿主 NativeFileView/Recovery/source/退出契约所处完整 JS 模块从 Mach-O 内 Brotli 片段恢复一致。报告包含 `architecture`。架构选项不会跳过字体、签名、公证或完整模块检查；自测同时覆盖两种 CPU 正例与错 CPU/通用架构负例。不会把 token 检查称为行为测试，也不会把字节包含证明称为 PHF 运行路由验证。
+验证同时覆盖：正式 bundle/version、显式选择的 arm64 或 x86_64 CPU、codesign/spctl/stapler、App/updater/DMG 的相同 Mach-O 与签名资源清单、仅三组所选五字体、许可证及原始授权元数据的精确字节，并核对Plex精确Light字型映射、原生 Objective-C bridge class metadata、AppKit/CoreText 动态链接且无 Qt 动态链接、宿主 NativeFileView/Recovery/source/退出契约所处完整 JS 模块从 Mach-O 内 Brotli 片段恢复一致。报告包含 `architecture`。架构选项不会跳过字体、签名、公证或完整模块检查；自测同时覆盖两种 CPU 正例与错 CPU/通用架构负例。不会把 token 检查称为行为测试，也不会把字节包含证明称为 PHF 运行路由验证。
 
 仍需独立保存最终安装包的实机 UI、IME、辅助功能、离线合并和性能验收证据；该脚本不宣称这些已通过。脚本报告只写指定 `--output`，测试文件仅写临时目录。
