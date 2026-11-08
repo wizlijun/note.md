@@ -20,9 +20,23 @@ pub struct Appearance {
     pub background: String,
     pub max_columns: u32,
     pub bottom_inset: f64,
+    /// Initial UI language. Live updates use SetLocale without reapplying text styles.
+    #[serde(default = "default_locale")]
+    pub locale: String,
     #[serde(default, alias = "caretMotion")]
     pub caret_motion: CaretMotion,
 }
+fn default_locale() -> String { "en".into() }
+
+/// UI language only; unknown languages use English without changing document data.
+pub fn normalize_locale(locale: &str) -> &'static str {
+    match locale.trim().split(['-', '_']).next().unwrap_or_default().to_ascii_lowercase().as_str() {
+        "zh" => "zh",
+        "ja" => "ja",
+        _ => "en",
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CaretMotion {
@@ -40,6 +54,7 @@ impl Default for Appearance {
             background: "#111111".into(),
             max_columns: 80,
             bottom_inset: 0.0,
+            locale: default_locale(),
             caret_motion: CaretMotion::Breathing,
         }
     }
@@ -210,6 +225,10 @@ pub enum SurfaceCommand {
     },
     SetAppearance {
         appearance: Appearance,
+    },
+    /// Update UI labels without disturbing composition, selection or caret state.
+    SetLocale {
+        locale: String,
     },
     ApplyDocument {
         base_revision: u64,
@@ -554,6 +573,18 @@ mod platform;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn locale_defaults_for_older_appearance_and_normalizes_regions() {
+        let mut value = serde_json::to_value(Appearance::default()).unwrap();
+        value.as_object_mut().unwrap().remove("locale");
+        assert_eq!(serde_json::from_value::<Appearance>(value).unwrap().locale, "en");
+        for (input, expected) in [("zh-CN", "zh"), ("ZH_hant_TW", "zh"), ("ja-JP", "ja"), (" JA_jp ", "ja"), ("en-GB", "en"), ("de", "en"), ("", "en")] {
+            assert_eq!(normalize_locale(input), expected);
+        }
+        let command = SurfaceCommand::SetLocale { locale: "ja-JP".into() };
+        assert!(validate_command(&command).is_ok());
+        assert_eq!(serde_json::to_value(command).unwrap(), serde_json::json!({"command":"set_locale","locale":"ja-JP"}));
+    }
     #[test]
     fn caret_motion_defaults_and_accepts_only_supported_modes() {
         let mut value = serde_json::to_value(Appearance::default()).unwrap();

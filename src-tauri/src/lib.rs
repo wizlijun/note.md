@@ -2776,6 +2776,7 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
     // webviews with a build-time-injected locale). Done at the base so no plugin
     // needs its own locale-refresh code.
     plugin_runtime::windows::refresh_plugin_windows_locale(&app, &locale);
+    sumi::refresh_locale(&app, &locale);
     if let Some(win) = app.get_webview_window(SMART_SEARCH_LABEL) {
         let _ = win.set_title(&menu_label(&locale, "smartSearch.title"));
     }

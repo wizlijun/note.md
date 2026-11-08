@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "id": "notemd.sumi",
-  "name": "Sumi",
+  "name": "Sumi Typewriter",
   "version": "0.1.5",
   "kind": "native",
   "binary": {
@@ -10,7 +10,7 @@
   "engines": {
     "notemd": ">=6.1108.6"
   },
-  "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+  "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
   "ui": "ui/",
   "activation": {
     "events": [
@@ -22,7 +22,7 @@
       {
         "location": "plugins",
         "submenu": "experience",
-        "label": "Open Sumi",
+        "label": "Sumi Typewriter",
         "command": "open"
       }
     ],
@@ -30,7 +30,7 @@
       {
         "id": "main",
         "entry": "index.html",
-        "title": "Sumi",
+        "title": "Sumi Typewriter",
         "width": 960,
         "height": 720,
         "resizable": false,
@@ -76,33 +76,33 @@
   ],
   "i18n": {
     "zh": {
-      "name": "墨笺",
-      "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+      "name": "玄霜打字机",
+      "description": "玄霜打字机，一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
       "menus": {
-        "open": "打开墨笺",
-        "read-writing": "阅读墨笺纸页"
+        "open": "玄霜打字机",
+        "read-writing": "玄霜打字机"
       },
       "windows": {
-        "main": "墨笺"
+        "main": "玄霜打字机"
       }
     },
     "en": {
-      "name": "Sumi",
-      "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+      "name": "Sumi Typewriter",
+      "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
       "menus": {
-        "open": "Open Sumi",
-        "read-writing": "Read Sumi page"
+        "open": "Sumi Typewriter",
+        "read-writing": "Sumi Typewriter"
       },
       "windows": {
-        "main": "Sumi"
+        "main": "Sumi Typewriter"
       }
     },
     "ja": {
       "name": "すみ",
-      "description": "一枚の紙に、静かに書く。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+      "description": "すみは、静かに書くためのタイプライターアプリです。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
       "menus": {
-        "open": "すみを開く",
-        "read-writing": "すみのページを読む"
+        "open": "すみ",
+        "read-writing": "すみ"
       },
       "windows": {
         "main": "すみ"

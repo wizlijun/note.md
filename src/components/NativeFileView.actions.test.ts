@@ -65,12 +65,12 @@ describe('native writing view localization', () => {
   it('updates the loading name without opening or mounting the native editor again', async () => {
     mocks.open.mockImplementationOnce(() => new Promise(() => {}))
     await remount()
-    expect(document.body.textContent).toContain('正在打开墨笺')
+    expect(document.body.textContent).toContain('正在打开玄霜打字机')
     const opens = mocks.open.mock.calls.length, mounts = mocks.mount.mock.calls.length
     i18n.locale = 'ja'; await settle()
     expect(document.body.textContent).toContain('すみを開いています')
     i18n.locale = 'en'; await settle()
-    expect(document.body.textContent).toContain('Opening Sumi')
+    expect(document.body.textContent).toContain('Opening Sumi Typewriter')
     expect(mocks.open).toHaveBeenCalledTimes(opens)
     expect(mocks.mount).toHaveBeenCalledTimes(mounts)
     expect(mocks.invoke).not.toHaveBeenCalled()
@@ -79,7 +79,7 @@ describe('native writing view localization', () => {
     const detail = 'EIO /vault/原稿/すみ.writing.md #93'
     mocks.open.mockRejectedValueOnce(new Error(detail))
     await remount()
-    expect(document.body.textContent).toContain('墨笺 暂时无法打开')
+    expect(document.body.textContent).toContain('玄霜打字机 暂时无法打开')
     expect(document.body.textContent).toContain('查看 Markdown 源码')
     const opens = mocks.open.mock.calls.length
     i18n.locale = 'ja'; await settle()
@@ -87,7 +87,7 @@ describe('native writing view localization', () => {
     expect(document.body.textContent).toContain('Markdown ソースを表示')
     expect(document.body.textContent).toContain(detail)
     i18n.locale = 'de'; await settle()
-    expect(document.body.textContent).toContain('Sumi cannot open right now')
+    expect(document.body.textContent).toContain('Sumi Typewriter cannot open right now')
     expect(document.body.textContent).toContain('View Markdown source')
     expect(document.body.textContent).toContain(detail)
     expect(mocks.open).toHaveBeenCalledTimes(opens)

@@ -53,7 +53,7 @@ for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous pa
 }
 
 async function request<T>(method: string, params?: unknown): Promise<T> {
-  if (!window.notemd) throw new Error(t('请在 note.md 中打开墨笺。', 'Open Sumi inside note.md.', 'note.md からすみを開いてください。'))
+  if (!window.notemd) throw new Error(t('请在 note.md 中打开玄霜打字机。', 'Open Sumi Typewriter inside note.md.', 'note.md からすみを開いてください。'))
   return await window.notemd.request(`host.sumi.${method}`, params) as T
 }
 function notice(message = '') { el('notice').textContent = message; el('notice').hidden = !message }

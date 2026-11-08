@@ -618,9 +618,9 @@ describe('Sumi on-demand font settings', () => {
 
 describe('Sumi complete interface localization', () => {
   it.each([
-    { locale: 'zh-CN', lang: 'zh', name: '墨笺', appearance: '外观', pages: '纸页', sync: '同步', blue: '复古蓝磷 CRT', plainExport: '仅导出 Markdown 正文…', exported: '已导出。', pairing: '一次性配对码', download: '下载失败，点击重试', fontError: '字体大小或 SHA-256 校验失败。', offline: '离线保存中。', keychain: '正在等待系统钥匙串授权', connection: '连接' },
+    { locale: 'zh-CN', lang: 'zh', name: '玄霜打字机', appearance: '外观', pages: '纸页', sync: '同步', blue: '复古蓝磷 CRT', plainExport: '仅导出 Markdown 正文…', exported: '已导出。', pairing: '一次性配对码', download: '下载失败，点击重试', fontError: '字体大小或 SHA-256 校验失败。', offline: '离线保存中。', keychain: '正在等待系统钥匙串授权', connection: '连接' },
     { locale: 'ja-JP', lang: 'ja', name: 'すみ', appearance: '外観', pages: 'ページ', sync: '同期', blue: 'レトロブルー蛍光 CRT', plainExport: 'Markdown 本文のみを書き出す…', exported: '書き出しました。', pairing: 'ワンタイムペアリングコード', download: 'ダウンロード失敗。クリックして再試行', fontError: 'フォントサイズまたは SHA-256 の検証に失敗しました。', offline: 'オフラインで保存中。', keychain: 'キーチェーンへのアクセス許可を待っています', connection: '接続' },
-    { locale: 'en-US', lang: 'en', name: 'Sumi', appearance: 'Appearance', pages: 'Pages', sync: 'Sync', blue: 'Retro Blue Phosphor CRT', plainExport: 'Export Markdown text only…', exported: 'Exported.', pairing: 'One-time pairing code', download: 'Download failed; click to retry', fontError: 'Font size or SHA-256 verification failed.', offline: 'Saving offline.', keychain: 'Waiting for Keychain access', connection: 'Connect' },
+    { locale: 'en-US', lang: 'en', name: 'Sumi Typewriter', appearance: 'Appearance', pages: 'Pages', sync: 'Sync', blue: 'Retro Blue Phosphor CRT', plainExport: 'Export Markdown text only…', exported: 'Exported.', pairing: 'One-time pairing code', download: 'Download failed; click to retry', fontError: 'Font size or SHA-256 verification failed.', offline: 'Saving offline.', keychain: 'Waiting for Keychain access', connection: 'Connect' },
   ])('covers appearance, fonts, pages, export, sync and diagnostics in $locale', async labels => {
     const userText = '第一行 / ユーザーの文章 / <img src=x>'
     const preferences = { ...defaultPreferences, theme: 'crt-blue' as const, fontFamily: 'Sumi WenKai', fontSize: 32, caretMotion: 'steady' as const }
@@ -682,7 +682,7 @@ describe('Sumi complete interface localization', () => {
     window.dispatchEvent(new Event('pagehide'))
     const request = await setup(state({ preferences }), undefined, 'fr-FR')
     expect(document.documentElement.lang).toBe('en')
-    expect(document.title).toBe('Sumi')
+    expect(document.title).toBe('Sumi Typewriter')
     document.getElementById('appearance')!.click(); await settle()
     const form = document.querySelector<HTMLFormElement>('#panel-body form')!
     expect(document.getElementById('panel-title')!.textContent).toBe('Appearance')

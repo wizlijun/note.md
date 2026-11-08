@@ -449,7 +449,7 @@ pub fn push_to_window<R: Runtime>(
 pub fn refresh_plugin_windows_locale<R: Runtime>(app: &tauri::AppHandle<R>, locale: &str) {
     // Exact labels of contributed plugin windows, so we never touch app windows
     // that merely share a "plugin-" label prefix (e.g. the plugin market).
-    let labels: Vec<String> = match super::STATE.read() {
+    let windows: Vec<(String, String)> = match super::STATE.read() {
         Ok(state) => state
             .plugins
             .iter()
@@ -458,7 +458,9 @@ pub fn refresh_plugin_windows_locale<R: Runtime>(app: &tauri::AppHandle<R>, loca
                     .contributes
                     .windows
                     .iter()
-                    .map(move |w| window_label(pid, &w.id))
+                    .map(move |w| (window_label(pid, &w.id), window_title(
+                        manifest.i18n.as_ref(), locale, &w.id, w.title.as_deref(), &manifest.name,
+                    )))
             })
             .collect(),
         Err(_) => return,
@@ -467,8 +469,9 @@ pub fn refresh_plugin_windows_locale<R: Runtime>(app: &tauri::AppHandle<R>, loca
     let js = format!(
         "try{{localStorage.setItem('__notemd_locale',{loc});}}catch(e){{}}location.reload();"
     );
-    for label in labels {
+    for (label, title) in windows {
         if let Some(win) = app.get_webview_window(&label) {
+            let _ = win.set_title(&title);
             let _ = win.eval(&js);
         }
     }
@@ -680,6 +683,10 @@ mod tests {
             window_title(Some(&i18n2), "zh-Hans", "main", None, "Plugin Name"),
             "主窗口"
         );
+        let sumi = serde_json::json!({ "zh": { "name": "玄霜打字机" }, "ja": { "name": "すみ", "windows": { "main": "すみ" } } });
+        for (locale, expected) in [("zh-CN", "玄霜打字机"), ("ja-JP", "すみ"), ("en-US", "Sumi Typewriter"), ("de", "Sumi Typewriter")] {
+            assert_eq!(window_title(Some(&sumi), locale, "main", Some("Sumi Typewriter"), "Sumi Typewriter"), expected);
+        }
     }
 
     #[test]

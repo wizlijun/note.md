@@ -73,6 +73,49 @@ int sumi_editor_register_cascade(const char *json,char **error) {
     return 0;
 }
 
+// App UI language is independent from the keyboard/input source and document text.
+static NSString *SumiLocale(id value) {
+    if(![value isKindOfClass:NSString.class])return @"en";
+    NSString *language=[[[value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] lowercaseString] componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"-_"]].firstObject;
+    return [language isEqualToString:@"zh"] || [language isEqualToString:@"ja"] ? language : @"en";
+}
+static NSString *SumiLabel(NSString *locale,NSString *english) {
+    NSString *language=SumiLocale(locale);
+    if([language isEqualToString:@"en"]){
+        if([english isEqualToString:@"Sumi…"])return @"Sumi Typewriter…";
+        if([english isEqualToString:@"Sumi writing editor"])return @"Sumi Typewriter writing editor";
+        return english;
+    }
+    static NSDictionary<NSString *,NSArray<NSString *> *> *labels;static dispatch_once_t once;
+    dispatch_once(&once, ^{labels=@{
+        @"Undo":@[@"撤销",@"取り消す"], @"Redo":@[@"重做",@"やり直す"],
+        @"Cut":@[@"剪切",@"カット"], @"Copy":@[@"复制",@"コピー"], @"Paste":@[@"粘贴",@"ペースト"],
+        @"Original paste as plain text":@[@"恢复原始粘贴为纯文本",@"元の貼り付けを標準テキストで復元"],
+        @"Recover original paste":@[@"恢复原始粘贴",@"元の貼り付けを復元"],
+        @"Select All":@[@"全选",@"すべてを選択"], @"Bold":@[@"粗体",@"太字"],
+        @"Italic":@[@"斜体",@"斜体"], @"Strikethrough":@[@"删除线",@"取り消し線"],
+        @"Sumi…":@[@"玄霜打字机…",@"すみ…"], @"Paragraph":@[@"正文",@"本文"],
+        @"Heading 1":@[@"一级标题",@"見出し1"], @"Heading 2":@[@"二级标题",@"見出し2"],
+        @"Heading 3":@[@"三级标题",@"見出し3"], @"Heading 4":@[@"四级标题",@"見出し4"],
+        @"Heading 5":@[@"五级标题",@"見出し5"], @"Heading 6":@[@"六级标题",@"見出し6"],
+        @"Quote":@[@"引用",@"引用"], @"Bullet List":@[@"无序列表",@"箇条書き"],
+        @"Ordered List":@[@"有序列表",@"番号付きリスト"], @"Indent":@[@"增加缩进",@"インデントを増やす"],
+        @"Outdent":@[@"减少缩进",@"インデントを減らす"], @"Link…":@[@"链接…",@"リンク…"],
+        @"Find…":@[@"查找…",@"検索…"], @"Find Next":@[@"查找下一个",@"次を検索"],
+        @"Find Previous":@[@"查找上一个",@"前を検索"], @"Replace…":@[@"替换…",@"置換…"],
+        @"Link":@[@"链接",@"リンク"], @"Apply":@[@"应用",@"適用"], @"Cancel":@[@"取消",@"キャンセル"],
+        @"Link URL":@[@"链接地址",@"リンク先URL"],
+        @"Sumi writing editor":@[@"玄霜打字机写作编辑器",@"すみの執筆エディタ"]
+    };});
+    NSArray *translated=labels[english];return translated ? translated[[language isEqualToString:@"zh"]?0:1] : english;
+}
+static NSAlert *SumiLinkAlert(NSString *locale) {
+    NSAlert *alert=[NSAlert new];alert.messageText=SumiLabel(locale,@"Link");
+    [alert addButtonWithTitle:SumiLabel(locale,@"Apply")];[alert addButtonWithTitle:SumiLabel(locale,@"Cancel")];
+    NSTextField *url=[[NSTextField alloc]initWithFrame:NSMakeRect(0,0,360,24)];url.placeholderString=@"https://";
+    url.accessibilityLabel=SumiLabel(locale,@"Link URL");alert.accessoryView=url;return alert;
+}
+
 @class SumiEditor;
 @interface SumiCaretView : NSView
 @property(nonatomic, strong) NSColor *color;
@@ -126,6 +169,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 @property(nonatomic, copy) NSString *compositionBase;
 @property(nonatomic, strong) NSMutableArray<NSDictionary *> *pending;
 @property(nonatomic, copy) NSDictionary *appearance;
+@property(nonatomic, copy) NSString *locale;
 @property(nonatomic, copy) NSArray *runs;
 @property(nonatomic, copy) NSString *styledText;
 @property(nonatomic) NSUInteger lastRestyled;
@@ -401,9 +445,8 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         int64_t revision=[self.owner emit:@"action" fields:@{@"revision":@(self.owner.revision),@"action":@"link_begin",@"range":SumiRange(self.selectedRange)} projection:&projection];
         if(revision<0)return YES;
         if(projection)[self.owner applyProjection:projection revision:(uint64_t)revision];
-        NSAlert *alert=[NSAlert new];alert.messageText=@"链接 / Link";
-        [alert addButtonWithTitle:@"应用 / Apply"];[alert addButtonWithTitle:@"取消 / Cancel"];
-        NSTextField *url=[[NSTextField alloc]initWithFrame:NSMakeRect(0,0,360,24)];url.placeholderString=@"https://";
+        NSAlert *alert=SumiLinkAlert(self.owner.locale);
+        NSTextField *url=(NSTextField *)alert.accessoryView;
         for(NSDictionary *run in self.owner.runs){NSRange range=SumiReadRange(run[@"range"]);if(range.location<=self.selectedRange.location && NSMaxRange(range)>self.selectedRange.location && [run[@"link"] isKindOfClass:NSString.class]){url.stringValue=run[@"link"];break;}}
         alert.accessoryView=url;
         __weak SumiTextView *weakSelf=self;
@@ -504,12 +547,12 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSMenu *menu=[NSMenu new];
     NSArray *entries=@[@[@"Undo",@"undo:"],@[@"Redo",@"redo:"],@[@"Cut",@"cut:"],@[@"Copy",@"copy:"],@[@"Paste",@"paste:"],@[@"Original paste as plain text",@"sumiRecoverPlain:"],@[@"Recover original paste",@"sumiRecoverOriginal:"],@[@"Select All",@"selectAll:"],@[@"Bold",@"sumiBold:"],@[@"Italic",@"sumiItalic:"],@[@"Strikethrough",@"sumiStrike:"],@[@"Sumi…",@"sumiMenu:"]];
     for(NSArray *entry in entries){
-        NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:entry[0] action:NSSelectorFromString(entry[1]) keyEquivalent:@""];
+        NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:SumiLabel(self.owner.locale,entry[0]) action:NSSelectorFromString(entry[1]) keyEquivalent:@""];
         item.target=self;[menu addItem:item];
     }
     [menu addItem:NSMenuItem.separatorItem];
     for(NSArray *entry in @[@[@"Paragraph",@"paragraph"],@[@"Heading 1",@"heading1"],@[@"Heading 2",@"heading2"],@[@"Heading 3",@"heading3"],@[@"Heading 4",@"heading4"],@[@"Heading 5",@"heading5"],@[@"Heading 6",@"heading6"],@[@"Quote",@"quote"],@[@"Bullet List",@"bullet_list"],@[@"Ordered List",@"ordered_list"],@[@"Indent",@"indent"],@[@"Outdent",@"outdent"],@[@"Link…",@"link"],@[@"Find…",@"find"],@[@"Find Next",@"find_next"],@[@"Find Previous",@"find_previous"],@[@"Replace…",@"replace"]]){
-        NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:entry[0] action:@selector(sumiMenuCommand:) keyEquivalent:@""];
+        NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:SumiLabel(self.owner.locale,entry[0]) action:@selector(sumiMenuCommand:) keyEquivalent:@""];
         item.target=self;item.representedObject=entry[1];[menu addItem:item];
     }
     return menu;
@@ -767,6 +810,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSDictionary *base=[self baseAttributes];NSColor *foreground=base[NSForegroundColorAttributeName];
     [self styleRanges:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0,self.text.string.length)]];
     self.styledText=[self.text.string copy];self.text.typingAttributes=base;
+    self.text.accessibilityLabel=SumiLabel(self.locale,@"Sumi writing editor");
     self.text.backgroundColor=SumiColor(self.appearance[@"background"]);
     [self.text syncSystemCaretColor];self.scroll.backgroundColor=self.text.backgroundColor;
     self.container.wantsLayer=YES;self.container.layer.backgroundColor=self.text.backgroundColor.CGColor;
@@ -820,7 +864,8 @@ void *sumi_editor_mount(void *reference_view,int webview_sibling,const char *jso
         editor.text=[[SumiTextView alloc] initUsingTextLayoutManager:YES];
         if(!editor.text.textLayoutManager)return NULL;
     } else return NULL;
-    editor.text.accessibilityIdentifier=@"sumi-native-editor";editor.text.accessibilityLabel=@"Sumi writing editor";
+    editor.locale=SumiLocale(editor.appearance[@"locale"]);
+    editor.text.accessibilityIdentifier=@"sumi-native-editor";
     editor.text.owner=editor;editor.text.delegate=editor;editor.text.richText=YES;editor.text.importsGraphics=NO;editor.text.allowsUndo=NO;editor.text.usesFindBar=YES;editor.text.incrementalSearchingEnabled=YES;
     editor.text.verticallyResizable=YES;editor.text.horizontallyResizable=NO;editor.text.minSize=NSZeroSize;editor.text.maxSize=NSMakeSize(CGFLOAT_MAX,CGFLOAT_MAX);
     editor.text.textContainer.widthTracksTextView=NO;editor.text.textContainer.lineFragmentPadding=0;
@@ -850,6 +895,10 @@ int sumi_editor_command(void *handle,const char *json){
         BOOL applying=editor.applying;editor.applying=YES;
         [editor setBounds:value[@"bounds"]];editor.applying=applying;[editor.text refreshTypewriterCaret:NO];return 0;
     }
+    if([command isEqualToString:@"set_locale"]){
+        editor.locale=SumiLocale(value[@"locale"]);
+        editor.text.accessibilityLabel=SumiLabel(editor.locale,@"Sumi writing editor");return 0;
+    }
     if([command isEqualToString:@"set_appearance"]){
         if(editor.composing)return 1;
         editor.applying=YES;editor.appearance=value[@"appearance"];[editor applyStyles];[editor layoutEditor];editor.applying=NO;[editor.text refreshTypewriterCaret:NO];return 0;
@@ -861,8 +910,9 @@ int sumi_editor_command(void *handle,const char *json){
         editor.container.hidden=YES;return 0;
     }
     if([command isEqualToString:@"set_visible"]){
+        BOOL visible=[value[@"visible"] boolValue];if(visible==!editor.container.hidden)return 0;
         if(editor.composing)return 1;
-        BOOL visible=[value[@"visible"] boolValue];editor.container.hidden=!visible;
+        editor.container.hidden=!visible;
         if(!visible && editor.text.window.firstResponder==editor.text)[editor.text.window makeFirstResponder:nil];return 0;
     }
     return 3;

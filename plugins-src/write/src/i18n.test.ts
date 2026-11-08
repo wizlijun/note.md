@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createI18n, normalizeLocale } from '../../../src/lib/sumi/i18n'
+import manifestSource from '../manifest.v2.json?raw'
+import htmlSource from '../index.html?raw'
 
 describe('Sumi language and host diagnostics', () => {
   it.each([
@@ -7,12 +9,19 @@ describe('Sumi language and host diagnostics', () => {
     ['en-US', 'en'], ['de-DE', 'en'], ['', 'en'],
   ])('normalizes %s to %s', (input, expected) => expect(normalizeLocale(input)).toBe(expected))
   it.each([
-    ['zh-CN', '墨笺', '正在等待系统钥匙串授权', '请先完成输入法组合', '字体大小或 SHA-256 校验失败'],
+    ['zh-CN', '玄霜打字机', '正在等待系统钥匙串授权', '请先完成输入法组合', '字体大小或 SHA-256 校验失败'],
     ['ja-JP', 'すみ', 'キーチェーンへのアクセス許可を待っています', '入力中の変換を確定', 'フォントサイズまたは SHA-256'],
-    ['en-US', 'Sumi', 'Waiting for Keychain access', 'Finish the current text composition', 'Font size or SHA-256 verification failed'],
+    ['en-US', 'Sumi Typewriter', 'Waiting for Keychain access', 'Finish the current text composition', 'Font size or SHA-256 verification failed'],
   ])('localizes known diagnostics and retains the RPC code in %s', (locale, name, keychain, composition, fontFailure) => {
     const i18n = createI18n(locale)
     expect(i18n.appName).toBe(name)
+    for (const source of ['Sumi 原生编辑需要 macOS 13 或更新版本', 'Sumi 窗口已关闭，请重新打开后继续书写', 'Sumi 正在停用或交接，草稿已保留', 'Sumi 正在停止，不能创建新会话']) {
+      const translated = i18n.hostMessage(`-32000: ${source}`)
+      expect(translated).toContain(name)
+      expect(translated).toMatch(/^-32000: /)
+      expect(translated).not.toContain('Details:')
+    }
+    if (i18n.locale === 'zh') expect(i18n.hostMessage('当前系统不支持 Sumi 原生编辑')).toContain(name)
     expect(i18n.hostMessage('正在等待系统钥匙串授权，请查看系统授权窗口；文字保存在本机')).toContain(keychain)
     expect(i18n.hostMessage(new Error('-32000: composition active'))).toContain('-32000: ')
     expect(i18n.hostMessage('-32000: composition active')).toContain(composition)
@@ -50,5 +59,26 @@ describe('Sumi recovery warnings', () => {
     const japanese = createI18n('ja').hostMessage(source)
     expect(japanese).not.toBe(source)
     expect(japanese).not.toContain('操作を完了できませんでした。')
+  })
+})
+
+describe('Sumi display names and stable manifest identity', () => {
+  it('uses localized brand names directly for titles and menus without changing persisted identities', () => {
+    const manifest = JSON.parse(manifestSource)
+    expect(manifest.id).toBe('notemd.sumi')
+    expect(manifest.contributes.file_views[0].selectors[0].frontmatter.type).toEqual(['Writing Page'])
+    for (const locale of ['zh', 'en', 'ja']) {
+      const { appName } = createI18n(locale)
+      const localized = manifest.i18n[locale]
+      expect(localized.name).toBe(appName)
+      expect(localized.windows.main).toBe(appName)
+      expect(Object.values(localized.menus)).toEqual([appName, appName])
+      expect(localized.description).toContain(appName)
+    }
+    expect(manifest.name).toBe(createI18n('en').appName)
+    expect(manifest.contributes.menus[0].label).toBe(manifest.name)
+    expect(manifest.contributes.windows[0].title).toBe(manifest.name)
+    expect(manifest.contributes.tray[0]).not.toHaveProperty('label')
+    expect(htmlSource).toContain(`<title>${manifest.name}</title>`)
   })
 })

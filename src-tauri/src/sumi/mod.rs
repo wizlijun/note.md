@@ -51,6 +51,8 @@ pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
 }
 static WORKSPACES: LazyLock<tokio::sync::Mutex<HashMap<PathBuf, Arc<Workspace>>>> =
     LazyLock::new(Default::default);
+// Explicit UI changes win over the asynchronously persisted settings file.
+static UI_LOCALE: Mutex<Option<String>> = Mutex::new(None);
 static FONT_MANAGERS: LazyLock<Mutex<HashMap<PathBuf, fonts::Manager>>> =
     LazyLock::new(Default::default);
 
@@ -110,7 +112,7 @@ impl Preferences {
         }
     }
     fn validate(&self) -> Result<()> {
-        if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia" | "crt")
+        if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia" | "crt" | "crt-blue")
             || !fonts::known_font(&self.font_family)
             || !matches!(self.caret_motion.as_str(), "breathing" | "steady")
             || !self.font_size.is_finite()
@@ -130,6 +132,7 @@ impl Preferences {
             "paper" => ("#111111", "#ffffff"),
             "sepia" => ("#44413c", "#f3ead7"),
             "crt" => ("#0ccc68", "#000000"),
+            "crt-blue" => ("#7fb4ff", "#000000"),
             "ink" => ("#ffffff", "#000000"),
             _ => ("#b8b8b8", "#111111"),
         };
@@ -139,6 +142,7 @@ impl Preferences {
             line_height: self.line_height,
             max_columns: self.max_columns,
             bottom_inset: self.bottom_inset,
+            locale: "en".into(), // Runtime UI language is injected by ensure_font.
             foreground: foreground.into(),
             background: background.into(),
             caret_motion: match self.caret_motion.as_str() {
@@ -1705,6 +1709,33 @@ async fn load_preferences(durable: &Durability) -> Result<Preferences> {
     }
     Ok(preferences)
 }
+fn current_ui_locale<R: Runtime>(app: &tauri::AppHandle<R>) -> String {
+    let explicit = UI_LOCALE.lock().ok().and_then(|locale| locale.clone());
+    native::normalize_locale(&explicit.unwrap_or_else(|| crate::read_saved_locale(app))).into()
+}
+
+/// Refresh only existing native labels; never opens a workspace or touches its text.
+pub fn refresh_locale<R: Runtime>(app: &tauri::AppHandle<R>, locale: &str) {
+    if let Ok(mut current) = UI_LOCALE.lock() { *current = Some(native::normalize_locale(locale).into()); }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let workspaces = WORKSPACES.lock().await.values().cloned().collect::<Vec<_>>();
+        for ws in workspaces {
+            let _appearance = ws.appearance_changes.lock().await;
+            let owners = match ws.papers.lock() {
+                Ok(papers) => papers.values().filter_map(|paper| paper.owner.clone().filter(|owner| owner.surface.is_some())).collect::<Vec<_>>(),
+                Err(_) => continue,
+            };
+            for owner in owners {
+                let Some(window) = app.get_webview_window(&owner.window) else { continue; };
+                let surface = owner.surface.unwrap();
+                let _ = native::command(&window, surface.surface_id, surface.generation,
+                    native::SurfaceCommand::SetLocale { locale: current_ui_locale(&app) }).await;
+            }
+        }
+    });
+}
+
 // Runtime fallback is not a sixth font choice and never triggers network I/O.
 async fn ensure_font<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -1716,6 +1747,7 @@ async fn ensure_font<R: Runtime>(
     let Some(files) = manager.files(&appearance.font_family).await.unwrap_or(None) else {
         let mut fallback = appearance.clone();
         fallback.font_family = "Sumi System".into();
+        fallback.locale = current_ui_locale(app);
         return Ok(fallback);
     };
     for font in &files {
@@ -1725,7 +1757,9 @@ async fn ensure_font<R: Runtime>(
     native::register_font_cascade(window, appearance.font_family.clone(),
         files.into_iter().map(|font| font.postscript).collect()).await
         .map_err(|e| format!("无法加载 Sumi 打字机组合字体：{e}"))?;
-    Ok(appearance.clone())
+    let mut prepared = appearance.clone();
+    prepared.locale = current_ui_locale(app);
+    Ok(prepared)
 }
 
 async fn font_status(ws: &Workspace, manager: &fonts::Manager) -> Result<Value> {
@@ -1820,6 +1854,24 @@ async fn select_font<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>,
     font_status(ws, &manager).await
 }
 
+/// Read-only decision under lifecycle: a reloaded WebView may recover only its
+/// exact live owner. Other editors receive no native surface capability.
+fn existing_mount_decision(ws: &Workspace, page: &str, window: &str, tab: &str) -> Result<Option<EditorEntry<Surface>>> {
+    ws.writable()?;
+    authorize(PLUGIN)?;
+    if is_plugin_window(window) && ws.active.lock().map_err(err)?.as_deref() != Some(page) {
+        return Err("同步期间纸页已切换，已保留原稿；请重新选择目标页".into());
+    }
+    let papers = ws.papers.lock().map_err(err)?;
+    let paper = papers.get(page).ok_or("写作页面不存在")?;
+    if paper.entry.deleted { return Err("此页已在废纸篓中".into()); }
+    let Some(owner) = paper.owner.as_ref() else { return Ok(None); };
+    focus_owner_identity(paper, None)?;
+    if owner.window != window || owner.tab != tab { return Ok(Some(existing_editor(page))); }
+    let owner = focus_owner_identity(paper, Some((window, tab)))?;
+    Ok(owner.surface.map(EditorEntry::Opened))
+}
+
 async fn mount<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Arc<Workspace>,
@@ -1831,21 +1883,30 @@ async fn mount<R: Runtime>(
     if !native::is_supported() {
         return Err("Sumi 原生编辑需要 macOS 13 或更新版本".into());
     }
+    current(app, ws)?;
     require_visible_native_window(window)?;
     prepare_page(ws, page_id).await?;
     let _lease = ws.lifecycle.lock().await;
-    ws.writable()?;
+    current(app, ws)?;
     require_visible_native_window(window)?;
     ensure(ws, page_id).await?;
-    {
-        let papers = ws.papers.lock().map_err(err)?;
-        if papers
-            .get(page_id)
-            .and_then(|p| p.owner.as_ref())
-            .is_some_and(|o| o.window != window.label() || o.tab != tab_id || o.surface.is_some())
-        {
-            return Ok(existing_editor(page_id));
-        }
+    current(app, ws)?;
+    if let Some(existing) = existing_mount_decision(ws, page_id, window.label(), tab_id)? {
+        return match existing {
+            EditorEntry::Opened(surface) => {
+                // Rebind only the JS handle and geometry; never remount, flush,
+                // replace text, restore old selection or finish marked text.
+                native::command(window, surface.surface_id.clone(), surface.generation,
+                    native::SurfaceCommand::SetBounds { bounds }).await?;
+                current(app, ws)?;
+                require_visible_native_window(window)?;
+                match existing_mount_decision(ws, page_id, window.label(), tab_id)? {
+                    Some(EditorEntry::Opened(rechecked)) if rechecked == surface => Ok(EditorEntry::Opened(surface)),
+                    _ => Err("编辑面已改变，请重新选择此页".into()),
+                }
+            }
+            other => Ok(other),
+        };
     }
     reconcile_known_files(ws, page_id).await?;
     current(app, ws)?;
@@ -1858,6 +1919,7 @@ async fn mount<R: Runtime>(
         surface_id: Uuid::new_v4().to_string(),
         generation: 1,
     };
+    current(app, ws)?;
     require_visible_native_window(window)?;
     let config = {
         let mut papers = ws.papers.lock().map_err(err)?;
@@ -3583,8 +3645,10 @@ mod tests {
         }
         let mut steady = migrated;
         steady.caret_motion = "steady".into();
+        steady.theme = "crt-blue".into();
         steady.validate().unwrap();
         expected["caretMotion"] = json!("steady");
+        expected["theme"] = json!("crt-blue");
         ws.durable.set_preferences("appearance".into(), serde_json::to_value(&steady).unwrap()).await.unwrap();
         let root=ws.root.clone();
         drop(ws);
@@ -3592,6 +3656,8 @@ mod tests {
         let restored = load_preferences(&reopened).await.unwrap();
         assert_eq!(serde_json::to_value(&restored).unwrap(), expected);
         assert!(matches!(restored.appearance().caret_motion, native::CaretMotion::Steady));
+        assert_eq!(restored.appearance().foreground, "#7fb4ff");
+        assert_eq!(restored.appearance().background, "#000000");
         assert_eq!(serde_json::to_value(load_preferences(&reopened).await.unwrap()).unwrap(), expected);
     }
     #[test]
@@ -3679,6 +3745,64 @@ mod tests {
         let wire=serde_json::to_value(existing_editor::<Surface>(&id)).unwrap();
         assert_eq!(wire,json!({"kind":"existing_owner","page_id":id}));
         assert!(wire.get("surface_id").is_none());assert!(wire.get("window").is_none());
+    }
+    #[tokio::test]
+    async fn reloaded_mount_recovers_only_the_same_live_authorized_owner() {
+        let (_temp, ws, id) = fixture().await;
+        let _registry = crate::plugin_runtime::lifecycle::REGISTRY_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        struct RestoreRegistry(Option<(plugin_protocol::ManifestV2, PathBuf)>);
+        impl Drop for RestoreRegistry {
+            fn drop(&mut self) {
+                let mut state = crate::plugin_runtime::STATE.write().unwrap();
+                state.plugins.remove(PLUGIN);
+                if let Some(previous) = self.0.take() { state.plugins.insert(PLUGIN.into(), previous); }
+            }
+        }
+        let manifest = serde_json::from_value(json!({
+            "manifest_version":2,"id":PLUGIN,"name":"Sumi reload fixture","version":"0.1.0",
+            "kind":"native","engines":{"notemd":">=0.0.0"},"activation":{"events":["onCommand:open"]},
+            "capabilities":["editor.native","editor.write","vault.read","vault.write"]
+        })).unwrap();
+        let _restore = RestoreRegistry(crate::plugin_runtime::STATE.write().unwrap().plugins.insert(PLUGIN.into(), (manifest, PathBuf::from("/tmp/sumi-reload-fixture"))));
+        let surface = Surface { surface_id: "existing-native-owner".into(), generation: 7 };
+        let baseline = {
+            let mut papers = ws.papers.lock().unwrap(); let p = papers.get_mut(&id).unwrap();
+            let owner = p.owner.as_mut().unwrap();owner.surface = Some(surface.clone());owner.composing = true;
+            owner.selection = native::TextRange { start:0,length:0 };owner.viewport = native::Viewport { start:0,offset:17. };
+            (p.doc.encode_full(), p.doc.revision())
+        };
+        for _ in 0..2 {
+            let Some(EditorEntry::Opened(recovered)) = existing_mount_decision(&ws,&id,"main","test").unwrap() else { panic!("same owner was not recovered"); };
+            assert!(recovered == surface);
+        }
+        for (window,tab) in [("another-window","test"),("main","another-tab")] {
+            let result = existing_mount_decision(&ws,&id,window,tab).unwrap().unwrap();
+            assert_eq!(serde_json::to_value(result).unwrap(),json!({"kind":"existing_owner","page_id":id}));
+        }
+        {
+            let papers=ws.papers.lock().unwrap();let p=&papers[&id];let owner=p.owner.as_ref().unwrap();
+            assert_eq!(p.doc.encode_full(),baseline.0);assert_eq!(p.doc.revision(),baseline.1);
+            assert!(owner.composing);assert_eq!(owner.selection.start,0);assert_eq!(owner.selection.length,0);assert_eq!(owner.viewport.offset,17.);
+        }
+        {
+            let mut papers=ws.papers.lock().unwrap();let p=papers.get_mut(&id).unwrap();p.entry.generation+=1;
+        }
+        assert!(existing_mount_decision(&ws,&id,"main","test").is_err());
+        {let mut papers=ws.papers.lock().unwrap();let p=papers.get_mut(&id).unwrap();p.entry.generation-=1;p.entry.deleted=true;}
+        assert!(existing_mount_decision(&ws,&id,"main","test").is_err());
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().entry.deleted=false;
+        for phase in [QUIESCING,QUIESCED] {ws.phase.store(phase,Ordering::Release);assert!(existing_mount_decision(&ws,&id,"main","test").is_err());}
+        ws.phase.store(ACTIVE,Ordering::Release);
+        let plugin_window=crate::plugin_runtime::windows::window_label(PLUGIN,"main");
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().owner.as_mut().unwrap().window=plugin_window.clone();
+        assert!(matches!(existing_mount_decision(&ws,&id,&plugin_window,"test").unwrap(),Some(EditorEntry::Opened(_))));
+        *ws.active.lock().unwrap()=Some("another-page".into());
+        assert!(existing_mount_decision(&ws,&id,&plugin_window,"test").is_err());
+        *ws.active.lock().unwrap()=Some(id.clone());
+        crate::plugin_runtime::STATE.write().unwrap().plugins.get_mut(PLUGIN).unwrap().0.capabilities.retain(|cap|cap!="editor.native");
+        assert!(existing_mount_decision(&ws,&id,&plugin_window,"test").is_err());
+        crate::plugin_runtime::STATE.write().unwrap().plugins.remove(PLUGIN);
+        assert!(existing_mount_decision(&ws,&id,&plugin_window,"test").is_err());
     }
     #[tokio::test]
     async fn navigation_versions_change_only_after_durable_active_page_changes() {

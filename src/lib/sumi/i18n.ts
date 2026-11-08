@@ -27,12 +27,12 @@ const hostMessages: readonly (readonly [string, string, string])[] = [
   ['正在读取系统钥匙串，文字保存在本机', 'Reading the system Keychain. Your writing is saved on this device.', 'システムのキーチェーンを読み取り中です。文章はこの端末に保存されています。'],
   ['正在等待系统钥匙串授权，请查看系统授权窗口；文字保存在本机', 'Waiting for Keychain access. Check the system permission dialog; your writing is saved on this device.', 'キーチェーンへのアクセス許可を待っています。システムの許可ダイアログをご確認ください。文章はこの端末に保存されています。'],
   ['远端日志已隔离或重写，已保留本机草稿；请从恢复入口建立已验证的新纸页', 'The remote history was isolated or rewritten. Your local draft is retained; use recovery to create a verified new page.', 'リモートの履歴が隔離または書き換えられました。端末の下書きは保持されています。復元機能から検証済みの新しいページを作成してください。'],
-  ['Sumi 原生编辑需要 macOS 13 或更新版本', 'Sumi native writing requires macOS 13 or later.', 'すみのネイティブ編集には macOS 13 以降が必要です。'],
+  ['Sumi 原生编辑需要 macOS 13 或更新版本', 'Sumi Typewriter native writing requires macOS 13 or later.', 'すみのネイティブ編集には macOS 13 以降が必要です。'],
   ['需要 macOS 13 或更新版本', 'Requires macOS 13 or later.', 'macOS 13 以降が必要です。'],
   ['当前系统不支持 Sumi 原生编辑', 'Native writing is unavailable on this system.', 'このシステムではネイティブ編集を利用できません。'],
-  ['Sumi 窗口已关闭，请重新打开后继续书写', 'The Sumi window is closed. Reopen it to continue writing.', 'すみのウインドウが閉じられています。開き直して執筆を続けてください。'],
-  ['Sumi 正在停用或交接，草稿已保留', 'Sumi is being disabled or handed over. Your draft is retained.', 'すみを無効化または引き継ぎ中です。下書きは保持されています。'],
-  ['Sumi 正在停止，不能创建新会话', 'Sumi is stopping. A new session cannot be opened yet.', 'すみを停止中です。新しいセッションはまだ開けません。'],
+  ['Sumi 窗口已关闭，请重新打开后继续书写', 'The Sumi Typewriter window is closed. Reopen it to continue writing.', 'すみのウインドウが閉じられています。開き直して執筆を続けてください。'],
+  ['Sumi 正在停用或交接，草稿已保留', 'Sumi Typewriter is being disabled or handed over. Your draft is retained.', 'すみを無効化または引き継ぎ中です。下書きは保持されています。'],
+  ['Sumi 正在停止，不能创建新会话', 'Sumi Typewriter is stopping. A new session cannot be opened yet.', 'すみを停止中です。新しいセッションはまだ開けません。'],
   ['Vault 已切换，旧编辑会话已停止', 'The Vault changed. The previous editing session has stopped.', 'Vault が切り替わったため、前の編集セッションを停止しました。'],
   ['写作会话已关闭', 'The writing session is closed.', '執筆セッションが閉じられています。'],
   ['无效的写作外观设置', 'Invalid writing appearance settings.', '執筆画面の外観設定が無効です。'],
@@ -77,7 +77,7 @@ const hostChinese: Readonly<Record<string, string>> = {
 export function createI18n(value: string) {
   const locale = normalizeLocale(value)
   const t = (zh: string, en: string, ja: string) => locale === 'zh' ? zh : locale === 'ja' ? ja : en
-  const appName = t('墨笺', 'Sumi', 'すみ')
+  const appName = t('玄霜打字机', 'Sumi Typewriter', 'すみ')
   function hostMessage(value: unknown, kind: 'error' | 'status' = 'error'): string {
     const raw = value instanceof Error ? value.message : String(value ?? '')
     if (!raw) return ''
@@ -87,7 +87,7 @@ export function createI18n(value: string) {
     if (known) {
       let translated = t(hostChinese[message] ?? known[0], known[1], known[2])
       if (locale === 'zh') {
-        if (message.startsWith('Sumi')) translated = translated.replace(/^Sumi\s*/, '墨笺')
+        translated = translated.replace(/Sumi\s*/g, appName)
       }
       return code + translated
     }
