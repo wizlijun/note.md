@@ -26,6 +26,19 @@ describe('createRuntime', () => {
     expect(d.exploder.fire).toHaveBeenCalledWith(11, 22, expect.objectContaining({ size: 10 }))
   })
 
+  it('keeps combo/shake without image assets and resumes after an update', () => {
+    const d = deps()
+    let base: string | null = null
+    const rt = createRuntime(() => on(), { ...d, assetBase: () => base })
+    rt.tick()
+    expect(d.shaker.shake).toHaveBeenCalledOnce()
+    expect(d.combo.hit).toHaveBeenCalledOnce()
+    expect(d.exploder.fire).not.toHaveBeenCalled()
+    base = '/__power_mode__/'
+    rt.tick()
+    expect(d.exploder.fire).toHaveBeenCalledOnce()
+  })
+
   it('does nothing at all when the config is null', () => {
     const d = deps()
     createRuntime(() => null, d).tick()

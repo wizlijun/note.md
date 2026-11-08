@@ -1169,6 +1169,7 @@ fn power_mode_payload<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> serde_jso
     serde_json::json!({
         "config": power_mode::effective(installed, &settings),
         "surfaces": power_mode::surfaces(&briefs),
+        "assets": power_mode::installed_assets(power_mode::ASSET_PREFIX),
     })
 }
 

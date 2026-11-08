@@ -2,8 +2,7 @@
 // 一次性脚本:把 obsidian-power-mode 的 base64 GIF 解码成静态文件。
 //
 // 源项目把 13 个 GIF 以 base64 内嵌在 TS 源码里(约 233 KB)。note.md 这边要
-// 的是文件:GIF 必须落在 dist/assets/power-mode/ 下,才能同时被主窗口
-// (/assets/…) 和插件窗口的 Editor Kit (plugin://<id>/__host__/assets/…) 取到。
+// 的是插件文件:由宿主受限资源桥提供给主窗口与各 Editor Kit,不再进入宿主 dist。
 //
 // 用法: node scripts/extract-power-mode-assets.mjs [源项目路径]
 //   默认源路径 ~/git/obsidian-power-mode
@@ -12,7 +11,7 @@ import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 
 const SRC = process.argv[2] ?? join(homedir(), 'git/obsidian-power-mode')
-const OUT = resolve('public/assets/power-mode')
+const OUT = resolve('plugins-src/power-mode/public/assets/power-mode')
 const PRESETS = { particle: 8, lightning: 3, coin: 1, confetti: 1 }
 
 let total = 0

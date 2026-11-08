@@ -2,6 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { assetsStatus, assetBase } from '../lib/power-mode/assets'
 import { loadSurfaceConfig, watchSurfaceFocus } from './power-mode-config'
 
 function stubBridge(pluginId: string, result: unknown) {
@@ -27,6 +28,17 @@ describe('loadSurfaceConfig', () => {
     const cfg = await loadSurfaceConfig()
     expect(cfg).not.toBeNull()
     expect(cfg!.explosion.presetId).toBe('particle')
+  })
+
+  it('refreshes resource state even when the surface is disabled for normal editing', async () => {
+    stubBridge('notemd.power-mode', { config: { surfaces: { 'notemd.power-mode': false } },
+      assets: { status: 'ready', base: '/__power_mode__/' } })
+    expect(await loadSurfaceConfig()).toBeNull()
+    expect(assetBase()).toBe('/__power_mode__/')
+    stubBridge('notemd.power-mode', { config: {}, assets: { status: 'missing', base: null } })
+    expect(await loadSurfaceConfig()).not.toBeNull()
+    expect(assetsStatus()).toBe('missing')
+    expect(assetBase()).toBeNull()
   })
 
   it('honours an explicit off flag for this very window', async () => {

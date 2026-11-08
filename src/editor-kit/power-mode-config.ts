@@ -2,6 +2,7 @@
 //
 // 与主窗口的 host-config.svelte.ts 是两条独立通道:插件 webview 没有 Tauri IPC,
 // 只能走 window.notemd 桥。这个文件因此不 import 任何 @tauri-apps/*。
+import { refreshAssets } from '../lib/power-mode/assets'
 import { normalizeConfig, isSurfaceEnabled } from '../lib/power-mode/config'
 import type { PowerModeConfig } from '../lib/power-mode/types'
 
@@ -23,9 +24,13 @@ function bridge(): HostBridge | null {
  */
 export async function loadSurfaceConfig(): Promise<PowerModeConfig | null> {
   const b = bridge()
-  if (!b) return null
+  if (!b) { await refreshAssets(async () => ({ status: 'disabled' })); return null }
+  let res: unknown
   try {
-    const res = await b.request('host.power_mode.config')
+    await refreshAssets(async () => {
+      res = await b.request('host.power_mode.config')
+      return (res as { assets?: unknown } | null)?.assets
+    })
     const raw = (res as { config?: unknown } | null)?.config
     if (raw === null || raw === undefined) return null
     const cfg = normalizeConfig(raw)

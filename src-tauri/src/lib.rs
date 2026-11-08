@@ -1651,6 +1651,7 @@ pub fn run() {
                 plugin_runtime::commands::plugin_v2_execute,
                 plugin_runtime::commands::plugin_v2_open_window,
                 plugin_runtime::commands::plugin_v2_theme_changed,
+                plugin_runtime::power_mode::plugin_v2_power_mode_assets,
                 plugin_runtime::market::plugin_market_host_triple,
                 plugin_runtime::commands::plugin_market_index,
                 plugin_runtime::commands::plugin_market_preview,

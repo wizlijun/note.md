@@ -162,12 +162,16 @@ export async function mountMarkdownEditor(container: HTMLElement, opts: KitOptio
   const selfManaged = 'powerMode' in opts
   let powerMode: PowerModeConfig | null = opts.powerMode ?? null
   let stopFocusWatch: (() => void) | null = null
-  if (!selfManaged) {
-    powerMode = await loadSurfaceConfig()
-    stopFocusWatch = watchSurfaceFocus(() => {
-      void loadSurfaceConfig().then((c) => { powerMode = c })
+  // Resource availability is host-owned even when the caller controls preview preferences.
+  const loadedPowerMode = await loadSurfaceConfig()
+  if (!selfManaged) powerMode = loadedPowerMode
+  let powerModeGeneration = 0
+  stopFocusWatch = watchSurfaceFocus(() => {
+    const request = ++powerModeGeneration
+    void loadSurfaceConfig().then((c) => {
+      if (!selfManaged && request === powerModeGeneration) powerMode = c
     })
-  }
+  })
 
   const host = document.createElement('div')
   host.className = 'kit-host'
@@ -235,6 +239,7 @@ export async function mountMarkdownEditor(container: HTMLElement, opts: KitOptio
     focus: () => { if (mode === 'rich') rich?.view.focus(); else source?.focus() },
     destroy: () => {
       flush()
+      ++powerModeGeneration
       stopFocusWatch?.()
       stopFocusWatch = null
       rich?.destroy(); rich = null

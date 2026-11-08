@@ -63,9 +63,93 @@ pub fn surfaces(plugins: &[PluginBrief]) -> Vec<Value> {
     out
 }
 
+/// Only these inert, signed-package GIFs may cross the plugin resource boundary.
+pub const ASSET_PREFIX: &str = "/__power_mode__/";
+pub fn asset_paths() -> Vec<String> {
+    [("particle", 8), ("lightning", 3), ("coin", 1), ("confetti", 1)]
+        .into_iter().flat_map(|(preset, count)| (1..=count).map(move |n| format!("{preset}/{n}.gif"))).collect()
+}
+
+pub fn read_asset(ui_root: &std::path::Path, relative: &str) -> Option<Vec<u8>> {
+    if !asset_paths().iter().any(|p| p == relative) { return None; }
+    let root = ui_root.canonicalize().ok()?;
+    let path = root.join("assets/power-mode").join(relative).canonicalize().ok()?;
+    if !path.starts_with(&root) { return None; }
+    let size = std::fs::metadata(&path).ok()?.len();
+    if !(6..=1024 * 1024).contains(&size) { return None; }
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.len() as u64 != size || !(bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a")) { return None; }
+    Some(bytes)
+}
+
+pub fn asset_descriptor(ui_root: Option<&std::path::Path>, base: &str) -> Value {
+    let Some(root) = ui_root else { return json!({"status":"disabled", "base":null}); };
+    if asset_paths().iter().all(|p| read_asset(root, p).is_some()) {
+        json!({"status":"ready", "base":base})
+    } else {
+        json!({"status":"missing", "base":null})
+    }
+}
+
+pub fn installed_assets(base: &str) -> Value {
+    let root = super::STATE.read().ok().and_then(|state| {
+        let (manifest, install_dir) = state.plugins.get(PLUGIN_ID)?;
+        Some(install_dir.join(manifest.ui.as_ref()?))
+    });
+    asset_descriptor(root.as_deref(), base)
+}
+
+/// The main WebView can load these inert images through the existing plugin
+/// protocol; no file-system scopes or cross-plugin script origins are opened.
+#[tauri::command]
+pub fn plugin_v2_power_mode_assets(window: tauri::WebviewWindow) -> Result<Value, String> {
+    if window.label() != "main" { return Err("main window required".into()); }
+    Ok(installed_assets("plugin://notemd.power-mode/__power_mode__/"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn asset_fixture() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        for name in asset_paths() {
+            let path = dir.path().join("assets/power-mode").join(name);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"GIF89a-test-fixture").unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn asset_catalog_requires_all_thirteen_gifs_and_never_falls_back_to_host() {
+        let dir = asset_fixture();
+        assert_eq!(asset_paths().len(), 13);
+        assert_eq!(asset_descriptor(None, ASSET_PREFIX)["status"], "disabled");
+        assert_eq!(asset_descriptor(Some(dir.path()), ASSET_PREFIX)["status"], "ready");
+        std::fs::remove_file(dir.path().join("assets/power-mode/coin/1.gif")).unwrap();
+        let missing = asset_descriptor(Some(dir.path()), ASSET_PREFIX);
+        assert_eq!(missing["status"], "missing");
+        assert!(missing["base"].is_null());
+    }
+
+    #[test]
+    fn assets_reject_other_paths_non_gifs_and_symlink_escape() {
+        let dir = asset_fixture();
+        for name in ["../index.html", "%2e%2e/index.html", "particle/9.gif", "coin/1.gif.js", "coin/01.gif", "coin\\1.gif"] {
+            assert!(read_asset(dir.path(), name).is_none(), "{name}");
+        }
+        let path = dir.path().join("assets/power-mode/coin/1.gif");
+        std::fs::write(&path, b"<script>bad()</script>").unwrap();
+        assert!(read_asset(dir.path(), "coin/1.gif").is_none());
+        #[cfg(unix)] {
+            let outside = tempfile::tempdir().unwrap();
+            std::fs::write(outside.path().join("other.gif"), b"GIF89a-outside").unwrap();
+            std::fs::remove_file(&path).unwrap();
+            std::os::unix::fs::symlink(outside.path().join("other.gif"), &path).unwrap();
+            assert!(read_asset(dir.path(), "coin/1.gif").is_none());
+        }
+    }
 
     fn brief(id: &str, caps: &[&str], i18n: Option<Value>) -> PluginBrief {
         PluginBrief {

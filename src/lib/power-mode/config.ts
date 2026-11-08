@@ -79,6 +79,8 @@ export function isSurfaceEnabled(cfg: PowerModeConfig | null, surfaceId: string)
 }
 
 /** 预设 + 用户覆写 = 实际用于渲染的爆炸配置。 */
-export function resolveExplosion(cfg: PowerModeConfig, base: string = assetBase()): ExplosionConfig {
-  return { ...presetConfig(cfg.explosion.presetId, base), ...(cfg.overrides ?? {}) }
+export function resolveExplosion(cfg: PowerModeConfig, base: string | null = assetBase()): ExplosionConfig {
+  const preset = presetConfig(cfg.explosion.presetId, base)
+  // Custom asset paths are not supported; old config must not revive bundled URLs.
+  return { ...preset, ...(cfg.overrides ?? {}), imageList: preset.imageList }
 }

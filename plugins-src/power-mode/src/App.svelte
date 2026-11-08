@@ -15,6 +15,10 @@
   let demoHost = $state<HTMLDivElement | null>(null)
   let kit: KitEditor | null = null
   let kitFailed = $state(false)
+  let assetsMissing = $state(false)
+  let stopAssetWatch: (() => void) | undefined
+  let disposed = false
+  let noticeGeneration = 0
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let error = $state<string | null>(null)
   let saveError = $state(false)
@@ -80,27 +84,43 @@
   onMount(async () => {
     try {
       const payload = await loadPowerMode()
+      if (disposed) return
       cfg = normalizeConfig(payload.config ?? {})
       surfaces = payload.surfaces
+      assetsMissing = payload.assets?.status !== 'ready'
     } catch (e) {
       error = String(e)
     }
+    if (disposed) return
+    const refreshAssetNotice = () => {
+      const request = ++noticeGeneration
+      void loadPowerMode().then((payload) => {
+        if (!disposed && request === noticeGeneration) assetsMissing = payload.assets?.status !== 'ready'
+      }).catch(() => { if (!disposed && request === noticeGeneration) assetsMissing = true })
+    }
+    window.addEventListener('focus', refreshAssetNotice)
+    stopAssetWatch = () => window.removeEventListener('focus', refreshAssetNotice)
     if (!demoHost) return
     try {
       const mount = await loadKit()
+      if (disposed || !demoHost) return
       kit = await mount(demoHost, {
         initialMarkdown: t('demo.sample'),
         mode: 'rich',
         // 显式给值 = 实操区自管,不受上面的生效面开关影响。
         powerMode: $state.snapshot(cfg),
       })
+      if (disposed) { kit.destroy(); kit = null }
     } catch {
       kitFailed = true
     }
   })
 
   onDestroy(() => {
+    disposed = true
+    ++noticeGeneration
     if (saveTimer !== undefined) clearTimeout(saveTimer)
+    stopAssetWatch?.()
     kit?.destroy()
   })
 </script>
@@ -134,6 +154,7 @@
 
   <section>
     <h2>{t('effects.section')}</h2>
+    {#if assetsMissing}<p class="hint" role="status">{t('assets.missing')}</p>{/if}
 
     <label class="row">
       <input type="checkbox" bind:checked={cfg.explosion.enable} onchange={touched} />

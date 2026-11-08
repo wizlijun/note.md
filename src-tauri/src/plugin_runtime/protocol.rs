@@ -240,6 +240,19 @@ pub fn handle_parsed(
                 .body(super::windows::bridge_script(plugin_id, locale, theme).into_bytes())
                 .unwrap(),
         ),
+        "GET" if path.starts_with(super::power_mode::ASSET_PREFIX) => {
+            let bytes = if capabilities.iter().any(|c| c == EDITOR_KIT_CAP) {
+                view.lookup(super::power_mode::PLUGIN_ID).and_then(|(root, _)| {
+                    super::power_mode::read_asset(&root, &path[super::power_mode::ASSET_PREFIX.len()..])
+                })
+            } else { None };
+            Routed::Response(match bytes {
+                Some(bytes) => http::Response::builder().status(http::StatusCode::OK)
+                    .header("content-type", "image/gif").header("cache-control", "no-store")
+                    .header("x-content-type-options", "nosniff").body(bytes).unwrap(),
+                None => plain(http::StatusCode::NOT_FOUND, "not found"),
+            })
+        }
         "GET" => match path.strip_prefix(HOST_PREFIX) {
             Some(rest) => route_host_asset(&capabilities, rest),
             None => Routed::Response(serve_asset(&ui_root, plugin_id, path)),
@@ -545,6 +558,32 @@ mod tests {
         let mut map = HashMap::new();
         map.insert("test.plugin".to_string(), (dir.to_path_buf(), capabilities));
         MapView(map)
+    }
+
+    #[test]
+    fn power_assets_are_same_origin_capability_gated_inert_and_installed_only() {
+        let ui = tempfile::tempdir().unwrap();
+        let asset = ui.path().join("assets/power-mode/coin/1.gif");
+        std::fs::create_dir_all(asset.parent().unwrap()).unwrap();
+        std::fs::write(&asset, b"GIF89a-fixture").unwrap();
+        let mut map = HashMap::new();
+        map.insert("test.plugin".to_string(), (ui.path().to_path_buf(), vec!["editor.kit".into()]));
+        map.insert(super::super::power_mode::PLUGIN_ID.to_string(), (ui.path().to_path_buf(), vec![]));
+        let mut view = MapView(map);
+        let get = |view: &MapView, path| resp(handle_parsed(view, "GET", "test.plugin", path, None, "en", "default"));
+        let result = get(&view, "/__power_mode__/coin/1.gif");
+        assert_eq!(result.status(), 200);
+        assert_eq!(result.headers()["content-type"], "image/gif");
+        assert_eq!(result.headers()["x-content-type-options"], "nosniff");
+        assert_eq!(result.body(), b"GIF89a-fixture");
+        for path in ["/__power_mode__/../index.html", "/__power_mode__/%2e%2e/index.html", "/__power_mode__/coin/1.gif.js"] {
+            assert_eq!(get(&view, path).status(), 404);
+        }
+        view.0.get_mut("test.plugin").unwrap().1.clear();
+        assert_eq!(get(&view, "/__power_mode__/coin/1.gif").status(), 404);
+        view.0.get_mut("test.plugin").unwrap().1.push("editor.kit".into());
+        view.0.remove(super::super::power_mode::PLUGIN_ID);
+        assert_eq!(get(&view, "/__power_mode__/coin/1.gif").status(), 404);
     }
 
     // ── resolve_asset ───────────────────────────────────────────────────

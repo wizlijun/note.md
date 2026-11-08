@@ -2,6 +2,8 @@
 //
 // ⚠️ 这个文件碰 Tauri IPC,Editor Kit **绝不能** import 它 —— 插件 webview 没有
 // IPC,引入即炸掉整个 kit。Kit 侧的配置源是 src/editor-kit/power-mode-config.ts。
+import { invoke } from '@tauri-apps/api/core'
+import { refreshAssets, assetsStatus } from './assets'
 import { listen } from '@tauri-apps/api/event'
 import { getPluginScopedValue, setPluginScopedValue } from '../settings.svelte'
 import { normalizeConfig, isSurfaceEnabled } from './config'
@@ -15,7 +17,7 @@ let cached: PowerModeConfig | null = null
 
 /** 主编辑窗口该用的配置;生效面关着时返回 null。 */
 export function mainWindowConfig(): PowerModeConfig | null {
-  return isSurfaceEnabled(cached, 'main') ? cached : null
+  return assetsStatus() !== 'disabled' && isSurfaceEnabled(cached, 'main') ? cached : null
 }
 
 function hydrate(): void {
@@ -32,6 +34,10 @@ function hydrate(): void {
  */
 export async function initPowerModeHost(): Promise<void> {
   hydrate()
+  const reload = () => refreshAssets(() => invoke('plugin_v2_power_mode_assets'))
+  await reload()
+  window.addEventListener('focus', () => { void reload() })
+  await listen('plugins-changed', () => { void reload() })
   await listen<unknown>('power-mode://update', async (e) => {
     const next = normalizeConfig(e.payload)
     cached = next

@@ -2,7 +2,7 @@
 // plugins-src/trace-source/src/lib/strings.ts。
 export type MessageKey =
   | 'title' | 'surfaces.section' | 'surfaces.main' | 'surfaces.hint'
-  | 'effects.section'
+  | 'effects.section' | 'assets.missing'
   | 'explosion.enable' | 'explosion.preset'
   | 'preset.particle' | 'preset.lightning' | 'preset.coin' | 'preset.confetti'
   | 'shake.enable' | 'shake.intensity'
@@ -16,6 +16,7 @@ export type MessageKey =
 type Catalog = Record<MessageKey, string>
 
 const en: Catalog = {
+  'assets.missing': 'Effect images are unavailable. Update Power Mode to restore explosions; combo and shake remain available.',
   title: 'Power Mode',
   'surfaces.section': 'Where it applies',
   'surfaces.main': 'Main editor window',
@@ -49,6 +50,7 @@ const en: Catalog = {
 }
 
 const zh: Catalog = {
+  'assets.missing': '特效素材尚不可用。请更新狂暴模式插件以恢复光标爆炸；连击计数和震动仍可使用。',
   title: '狂暴模式',
   'surfaces.section': '生效范围',
   'surfaces.main': '主编辑窗口',
@@ -82,6 +84,7 @@ const zh: Catalog = {
 }
 
 const ja: Catalog = {
+  'assets.missing': 'エフェクト素材がありません。Power Mode を更新してください。コンボと画面揺れは引き続き使用できます。',
   title: 'パワーモード',
   'surfaces.section': '適用範囲',
   'surfaces.main': 'メインエディタウィンドウ',
@@ -115,6 +118,7 @@ const ja: Catalog = {
 }
 
 const de: Catalog = {
+  'assets.missing': 'Effektbilder fehlen. Aktualisiere Power Mode, um Explosionen wiederherzustellen. Combo und Bildschirmwackeln bleiben verfügbar.',
   title: 'Power-Modus',
   'surfaces.section': 'Geltungsbereich',
   'surfaces.main': 'Hauptfenster des Editors',

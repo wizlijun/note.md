@@ -37,6 +37,7 @@ export interface PowerModeConfigPayload {
   /** null = 插件没装/停用(理论上打不开本窗口);{} = 装了但没配过。 */
   config: Record<string, unknown> | null
   surfaces: SurfaceEntry[]
+  assets?: { status: 'ready' | 'missing' | 'disabled'; base: string | null }
 }
 
 /** `host.power_mode.config` → 生效配置 + 可配置生效面清单。 */

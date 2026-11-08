@@ -2,7 +2,7 @@ import { Plugin, PluginKey } from 'prosemirror-state'
 import type { EditorView } from 'prosemirror-view'
 import type { PowerModeConfig } from './types'
 import { resolveExplosion } from './config'
-import { assetBase } from './presets'
+import { assetBase, assetsStatus } from './assets'
 import { createShaker, type Shaker } from './shaker'
 import { createCombo, type Combo } from './combo'
 import { createExploder, type Exploder } from './explosion'
@@ -20,7 +20,7 @@ export interface RuntimeDeps {
   coords: () => { left: number; top: number }
   docSize: () => number
   docKey: () => string
-  assetBase: string
+  assetBase: string | null | (() => string | null)
 }
 
 export interface PowerModeRuntime {
@@ -47,8 +47,8 @@ export function createRuntime(getConfig: ConfigGetter, deps: RuntimeDeps): Power
       deps.shaker.shake(cfg)
       deps.combo.hit(cfg, deps.docSize(), deps.docKey())
       if (!cfg.explosion.enable) return
-      const explosion = resolveExplosion(cfg, deps.assetBase)
-      if (count % Math.max(1, explosion.frequency) !== 0) return
+      const explosion = resolveExplosion(cfg, typeof deps.assetBase === 'function' ? deps.assetBase() : deps.assetBase)
+      if (!explosion.imageList.length || count % Math.max(1, explosion.frequency) !== 0) return
       try {
         const { left, top } = deps.coords()
         deps.exploder.fire(left, top, explosion)
@@ -77,7 +77,7 @@ export function powerModePlugin(getConfig: ConfigGetter, docKey: () => string = 
     key: powerModeKey,
     view(view: EditorView) {
       const overlay = acquireOverlay()
-      const rt = createRuntime(getConfig, {
+      const rt = createRuntime(() => assetsStatus() === 'disabled' ? null : getConfig(), {
         shaker: createShaker(view.dom.parentElement ?? view.dom),
         combo: createCombo(document.body),
         exploder: createExploder(overlay),
@@ -87,7 +87,7 @@ export function powerModePlugin(getConfig: ConfigGetter, docKey: () => string = 
         },
         docSize: () => view.state.doc.content.size,
         docKey,
-        assetBase: assetBase(),
+        assetBase,
       })
       return {
         update(v, prevState) {
