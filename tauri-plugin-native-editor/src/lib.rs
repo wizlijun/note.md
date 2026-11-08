@@ -322,17 +322,22 @@ pub async fn register_font<R: Runtime>(
 
 /// Compose already registered trusted faces. The first family remains the
 /// primary face (Latin); later descriptors supply missing glyphs in order.
+fn validate_font_cascade(alias: &str, families: &[String]) -> Result<(), String> {
+    if alias.is_empty()
+        || !(1..=8).contains(&families.len())
+        || families.iter().any(String::is_empty)
+    {
+        return Err("invalid font cascade".into());
+    }
+    Ok(())
+}
+
 pub async fn register_font_cascade<R: Runtime>(
     window: &WebviewWindow<R>,
     alias: String,
     families: Vec<String>,
 ) -> Result<(), String> {
-    if alias.is_empty()
-        || !(2..=8).contains(&families.len())
-        || families.iter().any(String::is_empty)
-    {
-        return Err("invalid font cascade".into());
-    }
+    validate_font_cascade(&alias, &families)?;
     #[cfg(target_os = "macos")]
     {
         on_main(window, move || {
@@ -526,6 +531,14 @@ mod platform;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn single_face_presets_are_valid_but_empty_cascades_are_not() {
+        assert!(validate_font_cascade("Sumi WenKai", &["LXGWWenKaiMonoLite-Regular".into()]).is_ok());
+        assert!(validate_font_cascade("Sumi WenKai", &[]).is_err());
+        assert!(validate_font_cascade("Sumi WenKai", &[String::new()]).is_err());
+        assert!(validate_font_cascade("", &["Font".into()]).is_err());
+        assert!(validate_font_cascade("Too many", &vec!["Font".into(); 9]).is_err());
+    }
     #[test]
     fn reject_invalid_geometry_and_attributes() {
         assert!(validate_bounds(&Bounds {

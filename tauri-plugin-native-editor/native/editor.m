@@ -49,7 +49,7 @@ int sumi_editor_register_cascade(const char *json,char **error) {
     NSString *alias=[config[@"alias"] isKindOfClass:NSString.class]?config[@"alias"]:nil;
     NSArray *families=[config[@"families"] isKindOfClass:NSArray.class]?config[@"families"]:nil;
     NSString *failure=nil;
-    if(!alias.length || families.count<2 || families.count>8)failure=@"Invalid bundled font cascade";
+    if(!alias.length || families.count<1 || families.count>8)failure=@"Invalid bundled font cascade";
     NSMutableArray<NSFontDescriptor *> *descriptors=[NSMutableArray new];
     if(!failure){for(id family in families){
         NSFontDescriptor *descriptor=[family isKindOfClass:NSString.class]?SumiRegisteredFonts[family]:nil;
@@ -59,7 +59,9 @@ int sumi_editor_register_cascade(const char *json,char **error) {
     if(failure){if(error)*error=strdup(failure.UTF8String);return 1;}
     NSFontDescriptor *primary=descriptors.firstObject;
     NSArray *fallbacks=[descriptors subarrayWithRange:NSMakeRange(1,descriptors.count-1)];
-    NSFontDescriptor *cascade=[primary fontDescriptorByAddingAttributes:@{NSFontCascadeListAttribute:fallbacks}];
+    // A one-face preset keeps the normal system fallback; do not install an
+    // empty explicit cascade that could change missing-glyph resolution.
+    NSFontDescriptor *cascade=fallbacks.count?[primary fontDescriptorByAddingAttributes:@{NSFontCascadeListAttribute:fallbacks}]:primary;
     NSFont *font=[NSFont fontWithDescriptor:cascade size:22];
     NSFont *expected=[NSFont fontWithDescriptor:primary size:22];
     if(!font || ![font.fontName isEqualToString:expected.fontName]){

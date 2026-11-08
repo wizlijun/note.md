@@ -83,10 +83,17 @@ impl Default for Preferences {
     }
 }
 impl Preferences {
+    fn normalize_stored_font(&mut self) -> bool {
+        if bundled_fonts(&self.font_family).is_empty() {
+            self.font_family = "Sumi Plex".into();
+            true
+        } else {
+            false
+        }
+    }
     fn validate(&self) -> Result<()> {
         if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia")
-            || self.font_family.is_empty()
-            || self.font_family.len() > 128
+            || bundled_fonts(&self.font_family).is_empty()
             || !self.font_size.is_finite()
             || !(8. ..=96.).contains(&self.font_size)
             || !self.line_height.is_finite()
@@ -388,11 +395,7 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         });
     })
     .await?;
-    let preferences = durable
-        .preferences("appearance".into())
-        .await?
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
+    let preferences = load_preferences(&durable).await?;
     let active = durable
         .preferences("activePage".into())
         .await?
@@ -1521,28 +1524,25 @@ fn bundled_fonts(preference: &str) -> &'static [(&'static str, &'static str)] {
         "Sumi Plex" => &[
             ("IBMPlexMono-Light.ttf", "IBMPlexMono-Light"),
             ("IBMPlexSansSC-Light.otf", "IBMPlexSansSC-Light"),
-            ("SourceHanSerifSC-Regular.otf", "SourceHanSerifSC-Regular"),
         ],
         "Sumi WenKai" => &[
             ("LXGWWenKaiMonoLite-Regular.ttf", "LXGWWenKaiMonoLite-Regular"),
-            ("SourceHanSerifSC-Regular.otf", "SourceHanSerifSC-Regular"),
         ],
         "Sumi Elite" => &[
             ("SpecialElite-Regular.ttf", "SpecialElite-Regular"),
             ("YouyouYisong.ttf", "youyou-yisong"),
-            ("SourceHanSerifSC-Regular.otf", "SourceHanSerifSC-Regular"),
         ],
-        "Sumi Typewriter" => &[
-            ("CourierPrime-Regular.ttf", "Courier Prime"),
-            (
-                "ZhuqueFangsong-Regular.ttf",
-                "Zhuque Fangsong (technical preview)",
-            ),
-            ("SourceHanSerifSC-Regular.otf", "Source Han Serif SC"),
-        ],
-        "Source Han Serif SC" => &[("SourceHanSerifSC-Regular.otf", "Source Han Serif SC")],
         _ => &[],
     }
+}
+async fn load_preferences(durable: &Durability) -> Result<Preferences> {
+    let mut preferences: Preferences = durable.preferences("appearance".into()).await?
+        .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
+    // Migrate only the retired font choice, preserving the user's other fields.
+    if preferences.normalize_stored_font() {
+        durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
+    }
+    Ok(preferences)
 }
 async fn ensure_font<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -1550,6 +1550,7 @@ async fn ensure_font<R: Runtime>(
     appearance: &native::Appearance,
 ) -> Result<()> {
     let fonts = bundled_fonts(&appearance.font_family);
+    if fonts.is_empty() { return Err("无效的写作字体组合".into()); }
     for (file, family) in fonts {
         let path = app
             .path()
@@ -1562,18 +1563,16 @@ async fn ensure_font<R: Runtime>(
             .await
             .map_err(|e| format!("无法加载 Sumi 统一字体：{e}"))?;
     }
-    if fonts.len() > 1 {
-        native::register_font_cascade(
-            window,
-            appearance.font_family.clone(),
-            fonts
-                .iter()
-                .map(|(_, family)| (*family).to_string())
-                .collect(),
-        )
-        .await
-        .map_err(|e| format!("无法加载 Sumi 打字机组合字体：{e}"))?;
-    }
+    native::register_font_cascade(
+        window,
+        appearance.font_family.clone(),
+        fonts
+            .iter()
+            .map(|(_, family)| (*family).to_string())
+            .collect(),
+    )
+    .await
+    .map_err(|e| format!("无法加载 Sumi 打字机组合字体：{e}"))?;
     Ok(())
 }
 
@@ -3055,21 +3054,31 @@ pub async fn dispatch<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn new_writers_default_to_plex_without_replacing_saved_font_preferences() {
+    #[tokio::test]
+    async fn retired_fonts_migrate_durably_without_resetting_other_preferences() {
+        let (_temp, ws, _page) = fixture().await;
         assert_eq!(Preferences::default().appearance().font_family, "Sumi Plex");
-        for font in ["Sumi Typewriter", "Source Han Serif SC", "Helvetica", "Sumi Plex", "Sumi WenKai", "Sumi Elite"] {
+        assert_eq!(load_preferences(&ws.durable).await.unwrap().font_family, "Sumi Plex");
+        for font in ["Sumi Typewriter", "Source Han Serif SC", "Helvetica", "", "Sumi Plex", "Sumi WenKai", "Sumi Elite"] {
             let saved = json!({"theme":"sepia","fontFamily":font,"fontSize":50.,"lineHeight":1.6,"maxColumns":80,"bottomInset":0.});
-            let preferences: Preferences = serde_json::from_value(saved.clone()).unwrap();
+            let original: Preferences = serde_json::from_value(saved.clone()).unwrap();
+            let retired = bundled_fonts(font).is_empty();
+            assert_eq!(original.validate().is_err(), retired);
+            ws.durable.set_preferences("appearance".into(), saved.clone()).await.unwrap();
+            let preferences = load_preferences(&ws.durable).await.unwrap();
             preferences.validate().unwrap();
-            assert_eq!(preferences.appearance().font_family, font);
-            assert_eq!(serde_json::to_value(preferences).unwrap(), saved);
+            let mut expected = saved;
+            if retired { expected["fontFamily"] = json!("Sumi Plex"); }
+            assert_eq!(serde_json::to_value(preferences).unwrap(), expected);
+            assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
+            assert_eq!(serde_json::to_value(load_preferences(&ws.durable).await.unwrap()).unwrap(), expected);
         }
     }
     #[test]
     fn font_registration_matches_the_shipped_cascade_manifest() {
         let manifest: Value = serde_json::from_str(include_str!("../../resources/sumi/manifest.json")).unwrap();
         let assets = manifest["assets"].as_array().unwrap();
+        assert_eq!(manifest["cascades"].as_object().unwrap().len(), 3);
         for (alias, expected) in manifest["cascades"].as_object().unwrap() {
             let fonts = bundled_fonts(alias);
             assert_eq!(json!(fonts.iter().map(|(_, name)| *name).collect::<Vec<_>>()), *expected, "{alias}");
