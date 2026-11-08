@@ -1,0 +1,288 @@
+{
+  "ok": true,
+  "checked_at": "2026-11-08T06:43:54.891357+00:00",
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/lipo",
+        "-archs",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd"
+      ],
+      "exit": 0,
+      "stdout": "arm64",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--deep",
+        "--strict",
+        "--verbose=2",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: valid on disk\n/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: satisfies its Designated Requirement"
+    },
+    {
+      "argv": [
+        "/usr/sbin/spctl",
+        "--assess",
+        "--type",
+        "execute",
+        "--verbose=4",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: accepted\nsource=Notarized Developer ID"
+    },
+    {
+      "argv": [
+        "/usr/bin/xcrun",
+        "stapler",
+        "validate",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app"
+      ],
+      "exit": 0,
+      "stdout": "Processing: /Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app\nThe validate action worked!",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/otool",
+        "-L",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd"
+      ],
+      "exit": 0,
+      "stdout": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd:\n\t/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices (compatibility version 1.0.0, current version 66.0.0)\n\t/System/Library/Frameworks/OSAKit.framework/Versions/A/OSAKit (compatibility version 1.0.0, current version 114.0.0)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 5026.5.4)\n\t/System/Library/Frameworks/Carbon.framework/Versions/A/Carbon (compatibility version 2.0.0, current version 170.0.0)\n\t/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics (compatibility version 64.0.0, current version 1965.5.1)\n\t/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit (compatibility version 45.0.0, current version 2685.60.104)\n\t/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (compatibility version 300.0.0, current version 5026.5.4)\n\t/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText (compatibility version 1.0.0, current version 877.4.0)\n\t/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore (compatibility version 1.2.0, current version 1195.14.4)\n\t/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration (compatibility version 1.0.0, current version 1405.120.5)\n\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61901.120.67)\n\t/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (compatibility version 1.0.0, current version 1226.0.0)\n\t/System/Library/Frameworks/CoreLocation.framework/Versions/A/CoreLocation (compatibility version 1.0.0, current version 3075.0.8)\n\t/System/Library/Frameworks/Contacts.framework/Versions/A/Contacts (compatibility version 0.0.0, current version 3804.255.21)\n\t/System/Library/Frameworks/WebKit.framework/Versions/A/WebKit (compatibility version 1.0.0, current version 624.2.5)\n\t/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo (compatibility version 1.2.0, current version 734.4.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1356.0.0)\n\t/usr/lib/libobjc.A.dylib (compatibility version 1.0.0, current version 228.0.0)\n\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)\n\t/System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync (compatibility version 1.0.0, current version 3813.5.1)",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "node",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/scripts/sumi/verify-embedded.mjs",
+        "--arch",
+        "arm64",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/deps/notemd_lib.d",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/dist",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/frozen-inputs-release-tag.json",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target"
+      ],
+      "exit": 0,
+      "stdout": "{\"ok\":true,\"architecture\":\"arm64\",\"modules\":[{\"name\":\"App-7yW-SFqD.js\",\"sha256\":\"33fa7a1539e599743c6026e15ee1af0c94475f694647ed021f8cf1af2622f864\",\"bytes\":1051210,\"roles\":[\"native\",\"recovery\",\"exit\"]},{\"name\":\"sotvault.svelte-WvVbcJjy.js\",\"sha256\":\"5d049518c2fcb4db3a7ffb09c8fbe22ac6d5931293fa782b58460c0a7110562d\",\"bytes\":277709,\"roles\":[\"source\"]}],\"proof\":[{\"sha256\":\"5d049518c2fcb4db3a7ffb09c8fbe22ac6d5931293fa782b58460c0a7110562d\",\"compressed_sha256\":\"294dd2cfb9fb4fc2a1e01d6c2ddeaabf4d4b870ff58055f02ea49cc3495fbc20\",\"offset\":14734906},{\"sha256\":\"33fa7a1539e599743c6026e15ee1af0c94475f694647ed021f8cf1af2622f864\",\"compressed_sha256\":\"d466908ee9c6b0d01b052a18fb7ba6c90358dc3ea51cd5a1301084d7b07453a6\",\"offset\":17184468}],\"runtimeRoutingVerified\":false,\"physicalInputVerified\":false}",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "minisign",
+        "-V",
+        "-P",
+        "RWRBv8MqRlt3zHncG5oUFC76hsv9pcDqMTxuwlFUb0/FRjPHbOWVrmyR",
+        "-m",
+        "/tmp/note.md-aarch64.app.tar.gz",
+        "-x",
+        "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/sumi-updater-signature-he2hl8y1/updater.minisig"
+      ],
+      "exit": 0,
+      "stdout": "Signature and comment signature verified\nTrusted comment: timestamp:1794120171\tfile:note.md-aarch64.app.tar.gz",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/xcrun",
+        "stapler",
+        "validate",
+        "/tmp/note.md-6.1108.1-aarch64.dmg"
+      ],
+      "exit": 0,
+      "stdout": "Processing: /tmp/note.md-6.1108.1-aarch64.dmg\nThe validate action worked!",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/sbin/spctl",
+        "--assess",
+        "--type",
+        "open",
+        "--context",
+        "context:primary-signature",
+        "--verbose=4",
+        "/tmp/note.md-6.1108.1-aarch64.dmg"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "/tmp/note.md-6.1108.1-aarch64.dmg: accepted\nsource=Notarized Developer ID"
+    },
+    {
+      "argv": [
+        "/usr/bin/hdiutil",
+        "attach",
+        "-readonly",
+        "-nobrowse",
+        "-plist",
+        "-mountpoint",
+        "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-diagram-transparent-dmg-wzr39_qi/mount",
+        "/tmp/note.md-6.1108.1-aarch64.dmg"
+      ],
+      "exit": 0,
+      "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n\t<key>system-entities</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>content-hint</key>\n\t\t\t<string>Apple_HFS</string>\n\t\t\t<key>dev-entry</key>\n\t\t\t<string>/dev/disk8s1</string>\n\t\t\t<key>mount-point</key>\n\t\t\t<string>/private/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-diagram-transparent-dmg-wzr39_qi/mount</string>\n\t\t\t<key>potentially-mountable</key>\n\t\t\t<true/>\n\t\t\t<key>unmapped-content-hint</key>\n\t\t\t<string>48465300-0000-11AA-AA11-00306543ECAC</string>\n\t\t\t<key>volume-kind</key>\n\t\t\t<string>hfs</string>\n\t\t</dict>\n\t\t<dict>\n\t\t\t<key>content-hint</key>\n\t\t\t<string>GUID_partition_scheme</string>\n\t\t\t<key>dev-entry</key>\n\t\t\t<string>/dev/disk8</string>\n\t\t\t<key>potentially-mountable</key>\n\t\t\t<false/>\n\t\t\t<key>unmapped-content-hint</key>\n\t\t\t<string>GUID_partition_scheme</string>\n\t\t</dict>\n\t</array>\n</dict>\n</plist>",
+      "stderr": "hdiutil: WARNING: 'hdiutil attach -readonly -nobrowse -mountpoint ...' is deprecated. Please use 'diskutil image attach --readOnly --mountOptions nobrowse --mountPoint ...' instead."
+    },
+    {
+      "argv": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--deep",
+        "--strict",
+        "--verbose=2",
+        "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-diagram-transparent-dmg-wzr39_qi/mount/note.md.app"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-diagram-transparent-dmg-wzr39_qi/mount/note.md.app: valid on disk\n/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-diagram-transparent-dmg-wzr39_qi/mount/note.md.app: satisfies its Designated Requirement"
+    },
+    {
+      "argv": [
+        "/usr/bin/hdiutil",
+        "detach",
+        "/dev/disk8s1"
+      ],
+      "exit": 0,
+      "stdout": "\"disk8\" ejected.",
+      "stderr": "hdiutil: WARNING: 'hdiutil detach ...' is deprecated. Please use 'diskutil eject ...' instead."
+    },
+    {
+      "argv": [
+        "minisign",
+        "-Vm",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/dist-plugins/notemd.sumi/0.1.0/universal.notemdpkg",
+        "-x",
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/dist-plugins/notemd.sumi/0.1.0/universal.notemdpkg.minisig",
+        "-P",
+        "RWSp4F+TVeWvKxkXXQIfd9pceHoU1UGBbDCC2BYOtOjeUdtf2X+YG2WT"
+      ],
+      "exit": 0,
+      "stdout": "Signature and comment signature verified\nTrusted comment: timestamp:1794116422\tfile:universal.notemdpkg\thashed",
+      "stderr": ""
+    }
+  ],
+  "native_bridge": {
+    "classes": [
+      "SumiTextView",
+      "SumiEditor"
+    ],
+    "qt_dynamic_linkage": false
+  },
+  "fonts": {
+    "IBMPlexMono-Light.ttf": "780bcf65509d72a35ec114b57bcbe220dc6b77d8ea2e9b25e294be3c570c5025",
+    "IBMPlexMono-OFL.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+    "IBMPlexSansSC-Light.otf": "1df4e4de4f669c593c56b6a55e89c451ed2ef64c2669c068ea44ba6f7b24819c",
+    "IBMPlexSansSC-LICENSE.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+    "LXGWWenKaiMonoLite-Regular.ttf": "fcdac2729fab750009af0046b23c5bb6f3a351658adb76ef6f28fdf57037d1c2",
+    "LXGWWenKaiMonoLite-OFL.txt": "0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e",
+    "YouchaSanz.ttf": "967ce821ca999d04b3150fe18f814e9907b13777fe6749d12fde9abd5b3ad35d",
+    "ZhaohuaTypeWriter.ttf": "2eca44768cba97110ebc161dbbb60216bcda5e80b7202c5f684bf0f358c34370",
+    "TerryWang-Typewriter-LICENSE.txt": "e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5",
+    "TerryWang-Official-License.json": "7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e",
+    "TerryWang-Typewriter-PROVENANCE.json": "b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100",
+    "ZhuqueFangsong-Regular.ttf": "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4",
+    "ZhuqueFangsong-LICENSE.txt": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043"
+  },
+  "embedded_js": {
+    "ok": true,
+    "architecture": "arm64",
+    "modules": [
+      {
+        "name": "App-7yW-SFqD.js",
+        "sha256": "33fa7a1539e599743c6026e15ee1af0c94475f694647ed021f8cf1af2622f864",
+        "bytes": 1051210,
+        "roles": [
+          "native",
+          "recovery",
+          "exit"
+        ]
+      },
+      {
+        "name": "sotvault.svelte-WvVbcJjy.js",
+        "sha256": "5d049518c2fcb4db3a7ffb09c8fbe22ac6d5931293fa782b58460c0a7110562d",
+        "bytes": 277709,
+        "roles": [
+          "source"
+        ]
+      }
+    ],
+    "proof": [
+      {
+        "sha256": "5d049518c2fcb4db3a7ffb09c8fbe22ac6d5931293fa782b58460c0a7110562d",
+        "compressed_sha256": "294dd2cfb9fb4fc2a1e01d6c2ddeaabf4d4b870ff58055f02ea49cc3495fbc20",
+        "offset": 14734906
+      },
+      {
+        "sha256": "33fa7a1539e599743c6026e15ee1af0c94475f694647ed021f8cf1af2622f864",
+        "compressed_sha256": "d466908ee9c6b0d01b052a18fb7ba6c90358dc3ea51cd5a1301084d7b07453a6",
+        "offset": 17184468
+      }
+    ],
+    "runtimeRoutingVerified": false,
+    "physicalInputVerified": false
+  },
+  "updater": {
+    "path": "/tmp/note.md-aarch64.app.tar.gz",
+    "bytes": 69979664,
+    "sha256": "b22653055ee7f8c21dd1846988317216028a5972eded6d8a9881f749e1dbe8d3",
+    "identity": {
+      "CFBundleIdentifier": "net.notemd.app",
+      "CFBundleShortVersionString": "6.1108.1",
+      "CFBundleExecutable": "notemd"
+    },
+    "signature": {
+      "path": "/tmp/note.md-aarch64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "1f6e47f2f43d9490f5e0a6a91b7be77dc0a8e8b19cd4731e42cdeac82fbd1a74"
+    }
+  },
+  "dmg": {
+    "path": "/tmp/note.md-6.1108.1-aarch64.dmg",
+    "bytes": 70214922,
+    "sha256": "e3b458dcff3e443fe36f1ec3567e3e7106ea7e3d1969f3df22b1609a558a925c",
+    "mach_o_sha256": "bcbd62cb793a14fd6199925656671cd4db5cccb9db8dc320ea9253b3685db860",
+    "mach_o_bytes": 22068128,
+    "app_version": "6.1108.1",
+    "app_identifier": "net.notemd.app",
+    "candidate_and_updater_byte_identical": true,
+    "mount_readonly": true,
+    "detached_device": "/dev/disk8s1"
+  },
+  "plugin": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/dist-plugins/notemd.sumi/0.1.0/universal.notemdpkg",
+    "bytes": 8080,
+    "sha256": "4d4d0feb5a66eb5b2c8b6a146806676e9900fc23f374f3003d701042e4b62be0",
+    "signature": {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/dist-plugins/notemd.sumi/0.1.0/universal.notemdpkg.minisig",
+      "bytes": 314,
+      "sha256": "c2ec35ed203f9372b204d6f5b0df85fbdadc50b22e69dfc8a6c27df4e51765f1"
+    }
+  },
+  "source": "da7eff9513b758effc1c1231a2509198d43c4b7e",
+  "tag": "v6.1108.1",
+  "architecture": "arm64",
+  "app_binary": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+    "bytes": 22068128,
+    "sha256": "bcbd62cb793a14fd6199925656671cd4db5cccb9db8dc320ea9253b3685db860"
+  },
+  "inputs": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/frozen-inputs-release-tag.json",
+    "bytes": 2952,
+    "sha256": "a493510bc965cf98d98fa7604053f149640ee4ce78c999f13689f44b4ba8a15d"
+  },
+  "reused_helper": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/scripts/sumi/artifact_checks.py",
+    "bytes": 5638,
+    "sha256": "bfe2fed3c75ce95e71095c2d965a094a3733b8fcbcf571755f82c7f8f2ed6c29"
+  },
+  "limits": "Read-only artifact/source/whole-module proof. No app launch, installation, runtime routing, physical input, IME or UI acceptance claimed."
+}

@@ -1,0 +1,12 @@
+{
+  "before": 298,
+  "after": 299,
+  "only_added": "notemd.sumi@0.1.0",
+  "already_published": false,
+  "historical_entries_unchanged": true,
+  "normal_and_fresh_public_content_equal": true,
+  "kv_content_equal": true,
+  "index_sha256": "5e4269db1162f38d86edf746032eb04a9e563fe9a6551e52e6025f999fbdd03c",
+  "minimum_host": ">=6.1108.1",
+  "public_compatible_host_verified": true
+}
