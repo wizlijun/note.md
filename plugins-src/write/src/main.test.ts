@@ -176,6 +176,51 @@ describe('Sumi native writing shell', () => {
     expect(request.mock.calls.filter(call => call[0] === 'host.sumi.mount')).toHaveLength(2)
     expect(request.mock.calls.filter(call => call[0] === 'host.sumi.mount').at(-1)![1]).toEqual(expect.objectContaining({ pageId: 'recovered-page' }))
   })
+  it('does not mount pushed pages while the singleton is hidden and resumes only on explicit show', async () => {
+    const request = await setup(state({ navigationVersion: 1 }))
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-window-state', visible: false, detached: true })
+    receive({ type: 'sumi-state', state: state({ activePageId: 'page-b', navigationVersion: 2 }) })
+    await settle(); await settle()
+    expect(request.mock.calls.filter(call => call[0] === 'host.sumi.mount')).toHaveLength(1)
+    expect(request.mock.calls.filter(call => call[0] === 'host.sumi.detach')).toHaveLength(0)
+    const base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => method === 'host.sumi.state' ? state({ activePageId: 'page-b', navigationVersion: 2 }) : base(method, params))
+    receive({ type: 'sumi-window-state', visible: true }); await settle(); await settle()
+    expect(request.mock.calls.filter(call => call[0] === 'host.sumi.mount')).toHaveLength(2)
+    expect(request).toHaveBeenLastCalledWith('host.sumi.focus', expect.anything())
+    expect(request).toHaveBeenCalledWith('host.sumi.mount', expect.objectContaining({ pageId: 'page-b' }))
+  })
+  it('does not retain a late surface after host close already flushed and detached it', async () => {
+    let finish!: (value: unknown) => void
+    const request = await setup(state(), () => new Promise(resolve => { finish = resolve }))
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-window-state', visible: false, detached: true })
+    finish({ id: 'already-detached', generation: 1 }); await settle()
+    receive({ type: 'sumi-state', state: state({ activePageId: 'recovered', navigationVersion: 2 }) }); await settle()
+    expect(request.mock.calls.map(call => call[0])).not.toContain('host.sumi.focus')
+    expect(request.mock.calls.map(call => call[0])).not.toContain('host.sumi.detach')
+    expect(request.mock.calls.filter(call => call[0] === 'host.sumi.mount')).toHaveLength(1)
+  })
+  it('retries explicit show after an older mount request finishes', async () => {
+    let finish!: (value: unknown) => void
+    let mounts = 0
+    const request = await setup(state(), () => ++mounts === 1 ? new Promise(resolve => { finish = resolve }) : Promise.resolve({ id: 'new-surface', generation: 2 }))
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-window-state', visible: false, detached: true })
+    receive({ type: 'sumi-window-state', visible: true })
+    finish({ id: 'old-surface', generation: 1 }); await settle(); await settle()
+    expect(request.mock.calls.filter(call => call[0] === 'host.sumi.mount')).toHaveLength(2)
+    expect(request).toHaveBeenLastCalledWith('host.sumi.focus', { surface: { id: 'new-surface', generation: 2 } })
+  })
+  it('opens an explicitly recovered empty page without creating another paper or navigating again', async () => {
+    const request = await setup(state({ navigationVersion: 1 }))
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    const base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => method === 'host.sumi.page' ? state({ activePageId: 'recovered', navigationVersion: 2 }) : base(method, params))
+    receive({ type: 'seed', payload: { kind: 'sumi-navigation', pageId: 'recovered', action: 'open_page' } }); await settle(); await settle()
+    expect(request.mock.calls.filter(call => call[0] === 'host.sumi.page').map(call => call[1])).toEqual([{ action: 'open', pageId: 'recovered', fromPageId: 'page-a' }])
+  })
   it('navigates a main-tab request only after successfully releasing the existing writer', async () => {
     const request = await setup(state({ navigationVersion: 1 }))
     const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]

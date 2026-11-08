@@ -49,7 +49,7 @@
         const recovered = await recoverNewPage(probe, requestId, normalize, pluginId)
         if (!alive || current !== generation) return
         if (recovered.path) await openFile(recovered.path)
-        else await invoke('plugin_v2_open_window', { pluginId, windowId: 'main' })
+        else await invoke('plugin_v2_open_window', { pluginId, windowId: 'main', seed: { kind: 'sumi-navigation', pageId: recovered.page_id, action: 'open_page' } })
         message = '已恢复为新的一页，原文件保持不变。'
       } else {
         const owner = sumiOwner(repairTab)

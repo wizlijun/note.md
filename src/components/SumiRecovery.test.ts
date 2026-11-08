@@ -71,7 +71,7 @@ describe('SumiRecovery rendered controls', () => {
     mocks.recover.mockResolvedValueOnce({ page_id: 'new', path: null, preserved_line_times: false })
     component = mount(SumiRecovery, { target: document.body, props }); await settled()
     await click('恢复为新的一页')
-    expect(mocks.invoke).toHaveBeenCalledWith('plugin_v2_open_window', { pluginId: 'notemd.sumi', windowId: 'main' })
+    expect(mocks.invoke).toHaveBeenCalledWith('plugin_v2_open_window', { pluginId: 'notemd.sumi', windowId: 'main', seed: { kind: 'sumi-navigation', pageId: 'new', action: 'open_page' } })
     let finish!: (result: unknown) => void
     mocks.recover.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
     button('恢复为新的一页').click(); await settled()

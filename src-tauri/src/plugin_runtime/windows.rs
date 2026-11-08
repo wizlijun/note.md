@@ -335,6 +335,7 @@ pub fn open_plugin_window<R: Runtime>(
             let _ = existing.show();
             let _ = existing.unminimize();
             let _ = existing.set_focus();
+            crate::sumi::plugin_window_shown(app, &label);
             return Ok(());
         }
     }
@@ -420,6 +421,7 @@ pub fn open_plugin_window<R: Runtime>(
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
+    crate::sumi::plugin_window_shown(app, &label);
     Ok(())
 }
 

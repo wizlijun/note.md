@@ -14,22 +14,25 @@ let state: SumiState | undefined
 let surface: SurfaceHandle | undefined
 let surfacePageId: string | undefined
 let pendingState: SumiState | undefined
-type NavigationSeed = { kind: 'sumi-navigation'; pageId: string; action: 'new_page' | 'previous_page' | 'next_page' | 'menu' }
+type NavigationSeed = { kind: 'sumi-navigation'; pageId: string; action: 'new_page' | 'previous_page' | 'next_page' | 'menu' | 'open_page' }
 let pendingNavigation: NavigationSeed | undefined
 function navigationSeed(value: unknown): NavigationSeed | undefined {
   if (!value || typeof value !== 'object') return
   const seed = value as NavigationSeed
   if (seed.kind === 'sumi-navigation' && typeof seed.pageId === 'string' && seed.pageId.length <= 128
-    && ['new_page', 'previous_page', 'next_page', 'menu'].includes(seed.action)) return seed
+    && ['new_page', 'previous_page', 'next_page', 'menu', 'open_page'].includes(seed.action)) return seed
 }
 async function navigateFromTab(seed: NavigationSeed) {
   await page('open', seed.pageId)
+  if (seed.action === 'open_page') return
   if (seed.action === 'menu') await showPages()
   else await page(seed.action === 'new_page' ? 'create' : seed.action === 'previous_page' ? 'previous' : 'next')
 }
 let busy = false
 let panelOpen = false
 let mounted = true
+let windowVisible = true
+let pendingWindowResume = false
 let generation = 0
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -77,6 +80,7 @@ async function releaseSurface() {
 }
 async function acceptState(next: SumiState) {
   if ((next.navigationVersion ?? 0) < (state?.navigationVersion ?? 0)) return
+  if (!windowVisible) { applyState(next); return }
   const changed = !!state && next.activePageId !== state.activePageId
   if (changed) await releaseSurface()
   if (changed && pendingOperation?.action === 'next' && next.activePageId !== pendingOperation.requestId) {
@@ -90,6 +94,7 @@ async function acceptState(next: SumiState) {
 }
 async function refresh() { const next = await request<SumiState>('state'); if (mounted) await acceptState(next) }
 async function mountPage() {
+  if (!windowVisible) return
   const attempt = ++generation
   if (surface && surfacePageId === state?.activePageId) return
   await releaseSurface()
@@ -97,6 +102,8 @@ async function mountPage() {
   const pageId = state.activePageId
   notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…'))
   const handle = await request<SurfaceHandle>('mount', { pageId, bounds: bounds() })
+  // A successful native close has already flushed and detached every surface.
+  if (!windowVisible) return
   if (!mounted || attempt !== generation) { await request('detach', { surface: handle }); return }
   surface = handle; surfacePageId = pageId
   await request('visible', { surface, visible: !panelOpen })
@@ -111,9 +118,14 @@ async function run(action: () => Promise<void>) {
   finally {
     busy = false
     for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = false
-    const navigation = pendingNavigation; pendingNavigation = undefined
-    if (navigation && mounted) void run(() => navigateFromTab(navigation))
-    else {
+    const navigation = pendingNavigation
+    if (navigation && mounted && windowVisible) {
+      pendingNavigation = undefined
+      void run(() => navigateFromTab(navigation))
+    } else if (pendingWindowResume && mounted && windowVisible) {
+      pendingWindowResume = false
+      void run(async () => { await refresh(); await mountPage() })
+    } else {
       const next = pendingState; pendingState = undefined
       if (next && mounted) void run(() => acceptState(next))
     }
@@ -274,11 +286,22 @@ new ResizeObserver(() => {
 window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer) })
 window.notemd?.onMessage?.(event => {
   if (!event || typeof event !== 'object') return
-  const message = event as { type?: string; state?: SumiState; action?: string; message?: string; payload?: unknown }
+  const message = event as { type?: string; state?: SumiState; action?: string; message?: string; payload?: unknown; visible?: boolean; detached?: boolean }
+  if (message.type === 'sumi-window-state' && typeof message.visible === 'boolean') {
+    windowVisible = message.visible
+    if (!windowVisible) {
+      generation++; pendingWindowResume = false
+      if (message.detached) { surface = undefined; surfacePageId = undefined }
+    } else {
+      if (busy) pendingWindowResume = true
+      else void run(async () => { await refresh(); await mountPage() })
+    }
+    return
+  }
   if (message.type === 'seed') {
     const navigation = navigationSeed(message.payload)
     if (navigation) {
-      if (busy) pendingNavigation = navigation
+      if (busy || !windowVisible) pendingNavigation = navigation
       else void run(() => navigateFromTab(navigation))
     }
   }

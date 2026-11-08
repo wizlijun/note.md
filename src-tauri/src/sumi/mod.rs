@@ -15,7 +15,7 @@ use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, LazyLock, Mutex, OnceLock,
     },
 };
@@ -26,6 +26,25 @@ use write_core::{catalog::Entry, render::SourceMap, storage, Document};
 
 type Result<T> = std::result::Result<T, String>;
 const PLUGIN: &str = "notemd.sumi";
+// A hidden singleton WebView remains alive. Fence new native mounts from the
+// moment closing starts until the explicit plugin-window show path reopens it.
+static PLUGIN_WINDOW_HIDDEN: AtomicBool = AtomicBool::new(false);
+fn is_plugin_window(label: &str) -> bool {
+    label == crate::plugin_runtime::windows::window_label(PLUGIN, "main")
+}
+fn require_visible_native_window<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
+    if is_plugin_window(window.label()) && (PLUGIN_WINDOW_HIDDEN.load(Ordering::Acquire) || !window.is_visible().map_err(err)?) {
+        return Err("Sumi 窗口已关闭，请重新打开后继续书写".into());
+    }
+    Ok(())
+}
+/// Called only after the explicit singleton open/show path, not ordinary focus
+/// events that may have been queued before closing.
+pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
+    if !is_plugin_window(label) || !app.get_webview_window(label).is_some_and(|w|w.is_visible().unwrap_or(false)) {return;}
+    PLUGIN_WINDOW_HIDDEN.store(false, Ordering::Release);
+    push(app, &json!({"type":"sumi-window-state","visible":true}));
+}
 static WORKSPACES: LazyLock<tokio::sync::Mutex<HashMap<PathBuf, Arc<Workspace>>>> =
     LazyLock::new(Default::default);
 fn err(e: impl std::fmt::Display) -> String {
@@ -1522,8 +1541,10 @@ async fn mount<R: Runtime>(
     if !native::is_supported() {
         return Err("Sumi 原生编辑需要 macOS 13 或更新版本".into());
     }
+    require_visible_native_window(window)?;
     prepare_page(ws, page_id).await?;
     let _lease = ws.lifecycle.lock().await;
+    require_visible_native_window(window)?;
     ensure(ws, page_id).await?;
     {
         let papers = ws.papers.lock().map_err(err)?;
@@ -1545,6 +1566,7 @@ async fn mount<R: Runtime>(
         surface_id: Uuid::new_v4().to_string(),
         generation: 1,
     };
+    require_visible_native_window(window)?;
     let config = {
         let mut papers = ws.papers.lock().map_err(err)?;
         let p = papers.get_mut(page_id).unwrap();
@@ -2158,7 +2180,8 @@ pub async fn sumi_recover_new(
             .entry(id.clone())
             .or_insert(paper);
     }
-    activate_page(&ws, &id).await?;
+    // Recovery was requested by the main file tab. Opening its returned path
+    // must not navigate a live (or hidden) independent writing window first.
     current(&app, &ws)?;
     push(&app, &json!({"type":"sumi-state","state":state_value(&ws).await?}));
     Ok(response)
@@ -2408,9 +2431,20 @@ pub fn has_sessions() -> bool {
     })
 }
 
-/// CloseRequested hides host windows, so keep the surface identity for reopening.
+/// Main tabs keep their surface when hidden; the independent singleton releases
+/// its writer after a successful flush so another entry can open that paper.
 /// This admits no new text and is allowed after plugin/Vault revocation.
 pub async fn before_close<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) -> Result<()> {
+    let plugin = is_plugin_window(label);
+    if plugin {PLUGIN_WINDOW_HIDDEN.store(true, Ordering::Release);}
+    let result = before_close_inner(app, label, plugin).await;
+    if plugin {
+        if result.is_ok() {push(app, &json!({"type":"sumi-window-state","visible":false,"detached":true}));}
+        else {plugin_window_shown(app,label);}
+    }
+    result
+}
+async fn before_close_inner<R: Runtime>(app: &tauri::AppHandle<R>, label: &str, release: bool) -> Result<()> {
     let workspaces = WORKSPACES
         .lock()
         .await
@@ -2434,6 +2468,11 @@ pub async fn before_close<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) ->
         for (page, o) in owners {
             if let Some(surface) = &o.surface {
                 let window = app.get_webview_window(label).ok_or("编辑窗口已关闭")?;
+                if release {
+                    detach_locked(&window, &ws, &page, &o.tab, &surface.surface_id, surface.generation).await?;
+                    if let Some(p)=ws.papers.lock().map_err(err)?.get_mut(&page) {p.owner=None;}
+                    continue;
+                }
                 native::command(
                     &window,
                     surface.surface_id.clone(),
@@ -2484,6 +2523,7 @@ pub async fn before_close<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) ->
                 }
             } else {
                 flush(&ws, label, &o.tab, &page, None).await?;
+                if release {if let Some(p)=ws.papers.lock().map_err(err)?.get_mut(&page) {p.owner=None;}}
             }
         }
     }
@@ -2559,6 +2599,7 @@ pub async fn before_exit<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
     for label in &labels {
         if let Err(error) = before_close(app, label).await {
             for label in &labels {
+                plugin_window_shown(app,label);
                 let _ = resume_window(app, label).await;
             }
             return Err(error);
