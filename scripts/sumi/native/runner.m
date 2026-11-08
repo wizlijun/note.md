@@ -11,13 +11,13 @@ char *sumi_bench_run(const char *config,const char *fixture,const char *fontRoot
 @autoreleasepool {
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
     NSString *root=[NSString stringWithUTF8String:fontRoot];
-    NSArray *files=@[@"SpecialElite-Regular.ttf",@"ZhuqueFangsong-Regular.ttf",@"SourceHanSerifSC-Regular.otf"];
-    NSArray *families=@[@"Special Elite",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
+    NSArray *files=@[@"CourierPrime-Regular.ttf",@"ZhuqueFangsong-Regular.ttf",@"SourceHanSerifSC-Regular.otf"];
+    NSArray *families=@[@"Courier Prime",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
     for(NSUInteger i=0;i<files.count;i++){
         char *error=NULL;int result=sumi_editor_register_font([[root stringByAppendingPathComponent:files[i]] UTF8String],[families[i] UTF8String],&error);
         if(error){fprintf(stderr,"font: %s\n",error);sumi_editor_free_string(error);}require(result==0,@"font registration");
     }
-    char *error=NULL;require(sumi_editor_register_cascade("{\"alias\":\"Sumi Typewriter\",\"families\":[\"Special Elite\",\"Zhuque Fangsong (technical preview)\",\"Source Han Serif SC\"]}",&error)==0,@"font cascade");
+    char *error=NULL;require(sumi_editor_register_cascade("{\"alias\":\"Sumi Typewriter\",\"families\":[\"Courier Prime\",\"Zhuque Fangsong (technical preview)\",\"Source Han Serif SC\"]}",&error)==0,@"font cascade");
     if(error)sumi_editor_free_string(error);
     NSDictionary *data=SumiJSON(fixture);NSArray *markers=data[@"markers"],*sequence=data[@"input_sequence"];
     NSWindow *window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,900,650) styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];

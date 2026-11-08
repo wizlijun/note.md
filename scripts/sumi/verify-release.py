@@ -88,8 +88,8 @@ def font_files(folder, manifest_raw):
     require((folder/'manifest.json').read_bytes() == manifest_raw, 'Bundled font manifest differs from frozen source')
     manifest = json.loads(manifest_raw)
     require(manifest.get('alias') == 'Sumi Typewriter', 'Wrong font alias')
-    require(manifest.get('families') == ['Special Elite','Zhuque Fangsong (technical preview)','Source Han Serif SC'], 'Wrong font cascade')
-    expected = {'SpecialElite-Regular.ttf', 'SpecialElite-LICENSE.txt', 'ZhuqueFangsong-Regular.ttf',
+    require(manifest.get('families') == ['Courier Prime','Zhuque Fangsong (technical preview)','Source Han Serif SC'], 'Wrong font cascade')
+    expected = {'CourierPrime-Regular.ttf', 'CourierPrime-OFL.txt', 'ZhuqueFangsong-Regular.ttf',
                 'ZhuqueFangsong-LICENSE.txt', 'SourceHanSerifSC-Regular.otf', 'OFL.txt'}
     require({a['file'] for a in manifest['assets']} == expected and len(manifest['assets']) == 6, 'Incomplete font/license manifest')
     result = {}
@@ -278,8 +278,8 @@ def self_test():
                     else:archive.addfile(member,io.BytesIO(data))
             if mode=='valid':h.verify_archive_identity(archive_path,VERSION)
             else:rejects(lambda:h.verify_archive_identity(archive_path,VERSION))
-        names=['SpecialElite-Regular.ttf','SpecialElite-LICENSE.txt','ZhuqueFangsong-Regular.ttf','ZhuqueFangsong-LICENSE.txt','SourceHanSerifSC-Regular.otf','OFL.txt']
-        fm={'alias':'Sumi Typewriter','families':['Special Elite','Zhuque Fangsong (technical preview)','Source Han Serif SC'],'assets':[{'file':n,'size':7,'sha256':sha(b'fixture')} for n in names]}
+        names=['CourierPrime-Regular.ttf','CourierPrime-OFL.txt','ZhuqueFangsong-Regular.ttf','ZhuqueFangsong-LICENSE.txt','SourceHanSerifSC-Regular.otf','OFL.txt']
+        fm={'alias':'Sumi Typewriter','families':['Courier Prime','Zhuque Fangsong (technical preview)','Source Han Serif SC'],'assets':[{'file':n,'size':7,'sha256':sha(b'fixture')} for n in names]}
         encoded=json.dumps(fm).encode();(directory/'manifest.json').write_bytes(encoded)
         for n in names:(directory/n).write_bytes(b'fixture')
         font_files(directory,encoded)

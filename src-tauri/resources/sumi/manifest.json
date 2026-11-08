@@ -1,22 +1,22 @@
 {
   "alias": "Sumi Typewriter",
   "families": [
-    "Special Elite",
+    "Courier Prime",
     "Zhuque Fangsong (technical preview)",
     "Source Han Serif SC"
   ],
   "assets": [
     {
-      "file": "SpecialElite-Regular.ttf",
-      "url": "https://raw.githubusercontent.com/google/fonts/03c54f8f0fae0c403c43f326068d9060121c9bd1/apache/specialelite/SpecialElite-Regular.ttf",
-      "size": 166180,
-      "sha256": "a776fcb4ceb8bdf03e2967688ebdad42680de5b91a7e62c17e718ae212d14bc4"
+      "file": "CourierPrime-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/03c54f8f0fae0c403c43f326068d9060121c9bd1/ofl/courierprime/CourierPrime-Regular.ttf",
+      "size": 71188,
+      "sha256": "72f793376f8e2841656bf21d77a5de010f2929bd6956a22ee848ad0c7eb978af"
     },
     {
-      "file": "SpecialElite-LICENSE.txt",
-      "url": "https://raw.githubusercontent.com/google/fonts/03c54f8f0fae0c403c43f326068d9060121c9bd1/apache/specialelite/LICENSE.txt",
-      "size": 11358,
-      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      "file": "CourierPrime-OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/03c54f8f0fae0c403c43f326068d9060121c9bd1/ofl/courierprime/OFL.txt",
+      "size": 4403,
+      "sha256": "9a755af092b494944c99f471be6fddd19b006a448fefdc4717e4ee0aa09a97b0"
     },
     {
       "file": "ZhuqueFangsong-Regular.ttf",

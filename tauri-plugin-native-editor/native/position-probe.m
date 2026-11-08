@@ -32,8 +32,8 @@ int main(){@autoreleasepool{
     sumi_editor_detach(handle);
     // Match the production typewriter cascade and large-font wrapped paragraphs.
     NSString *fonts=[NSFileManager.defaultManager.currentDirectoryPath stringByAppendingPathComponent:@"src-tauri/resources/sumi"];
-    NSArray *files=@[@"SpecialElite-Regular.ttf",@"ZhuqueFangsong-Regular.ttf",@"SourceHanSerifSC-Regular.otf"];
-    NSArray *families=@[@"Special Elite",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
+    NSArray *files=@[@"CourierPrime-Regular.ttf",@"ZhuqueFangsong-Regular.ttf",@"SourceHanSerifSC-Regular.otf"];
+    NSArray *families=@[@"Courier Prime",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
     for(NSUInteger i=0;i<files.count;i++){char *error=NULL;require(sumi_editor_register_font([fonts stringByAppendingPathComponent:files[i]].UTF8String,[families[i] UTF8String],&error)==0,@"production font registers");}
     require(sumi_editor_register_cascade(json(@{@"alias":@"Sumi Typewriter",@"families":families}).UTF8String,NULL)==0,@"production cascade registers");
     for(NSValue *sizeValue in @[[NSValue valueWithSize:NSMakeSize(800,500)],[NSValue valueWithSize:NSMakeSize(800,600)],[NSValue valueWithSize:NSMakeSize(960,720)]]){

@@ -16,20 +16,22 @@ static void assertFamily(NSFont *font,NSString *text,NSString *expected){
     CFRelease(line);
 }
 int main(int argc,const char **argv){@autoreleasepool{
-    require(argc==4,@"pass SpecialElite, ZhuqueFangsong and SourceHanSerif file paths");
+    require(argc==4,@"pass CourierPrime, ZhuqueFangsong and SourceHanSerif file paths");
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
-    NSArray *families=@[@"Special Elite",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
+    NSArray *families=@[@"Courier Prime",@"Zhuque Fangsong (technical preview)",@"Source Han Serif SC"];
     for(NSUInteger i=0;i<families.count;i++){
         char *error=NULL;int code=sumi_editor_register_font(argv[i+1],[families[i] UTF8String],&error);
         if(code){fprintf(stderr,"registration: %s\n",error?error:"unknown");sumi_editor_free_string(error);}
         require(code==0,@"register all trusted typewriter faces");
     }
     char *error=NULL;
-    const char *cascade="{\"alias\":\"Sumi Typewriter\",\"families\":[\"Special Elite\",\"Zhuque Fangsong (technical preview)\",\"Source Han Serif SC\"]}";
+    const char *cascade="{\"alias\":\"Sumi Typewriter\",\"families\":[\"Courier Prime\",\"Zhuque Fangsong (technical preview)\",\"Source Han Serif SC\"]}";
     require(sumi_editor_register_cascade(cascade,&error)==0,@"register explicit ordered cascade");require(error==NULL,@"valid cascade has no error");
     SumiEditor *editor=[SumiEditor new];editor.appearance=@{@"font_family":@"Sumi Typewriter",@"font_size":@22};
-    NSFont *font=[editor baseFont];require([font.familyName isEqualToString:@"Special Elite"],@"Latin stays on the typewriter primary face");
-    assertFamily(font,@"Typewriter 1932",@"Special Elite");
+    NSFont *font=[editor baseFont];require([font.familyName isEqualToString:@"Courier Prime"],@"Latin stays on the typewriter primary face");
+    require([font.fontName isEqualToString:@"CourierPrime-Regular"],@"primary face is original Regular, not a synthesized light/bold variant");
+    require(!(CTFontGetSymbolicTraits((__bridge CTFontRef)font)&(kCTFontBoldTrait|kCTFontItalicTrait)),@"default text has no bold or italic trait");
+    assertFamily(font,@"Typewriter 1932",@"Courier Prime");
     assertFamily(font,@"沉浸式写作中文",@"Zhuque Fangsong (technical preview)");
     NSFont *zhuque=[NSFont fontWithDescriptor:SumiRegisteredFonts[@"Zhuque Fangsong (technical preview)"] size:22];
     NSFont *sourceHan=[NSFont fontWithDescriptor:SumiRegisteredFonts[@"Source Han Serif SC"] size:22];
@@ -40,6 +42,6 @@ int main(int argc,const char **argv){@autoreleasepool{
         }
     }
     require(found,@"verified a real Source Han rare-character fallback");
-    printf("PASS: actual CoreText runs use Special Elite Latin, Zhuque Chinese, and Source Han rare glyph fallback\n");
+    printf("PASS: actual CoreText runs use Courier Prime Latin, Zhuque Chinese, and Source Han rare glyph fallback\n");
     return 0;
 }}

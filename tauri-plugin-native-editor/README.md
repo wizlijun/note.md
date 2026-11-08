@@ -28,7 +28,7 @@ a system font. Missing resources and mismatched families fail explicitly.
 `register_font_cascade(window, alias, families)` composes only descriptors already
 registered through trusted resources. The first family is the primary face;
 remaining families supply missing glyphs in order. Sumi's typewriter preset uses
-Special Elite for Latin, Zhuque Fangsong (technical preview) for Chinese, and Source Han Serif SC for
+Courier Prime for Latin, Zhuque Fangsong (technical preview) for Chinese, and Source Han Serif SC for
 rare glyphs. It never promotes the Chinese font's Latin face to the primary.
 
 All APIs dispatch to the main thread. A surface identity is scoped to the host
