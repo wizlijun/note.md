@@ -44,6 +44,27 @@ describe('Sumi native writing shell', () => {
     expect(request.mock.calls.map(call => call[0])).toContain('host.sumi.detach')
     expect(request.mock.calls.map(call => call[0])).not.toContain('host.sumi.focus')
   })
+  it('focuses an existing writer only for an explicit open, without installing its surface', async () => {
+    const request=await setup(state(),async()=>({kind:'existing_owner',page_id:'page-a'}))
+    expect(request).toHaveBeenCalledWith('host.sumi.focus_existing',{pageId:'page-a'})
+    expect(request.mock.calls.map(call=>call[0])).not.toContain('host.sumi.visible')
+    const receive=vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    request.mockClear()
+    receive({type:'sumi-state',state:state({activePageId:'other',navigationVersion:2})});await settle()
+    expect(request.mock.calls.map(call=>call[0])).not.toContain('host.sumi.focus_existing')
+    expect(request.mock.calls.map(call=>call[0])).not.toContain('host.sumi.focus')
+  })
+  it('focuses its current bound writer without remounting or changing pages', async () => {
+    const request=await setup()
+    document.getElementById('pages')!.click();await settle()
+    const receive=vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    request.mockClear()
+    receive({type:'sumi-focus-owner',pageId:'page-a'});await settle()
+    expect(document.getElementById('panel')!.hidden).toBe(true)
+    expect(request.mock.calls.map(call=>call[0])).toEqual(['host.sumi.visible','host.sumi.focus'])
+    request.mockClear();receive({type:'sumi-focus-owner',pageId:'stale-page'});await settle()
+    expect(request).not.toHaveBeenCalled()
+  })
   it('shows page previews as text, and hides the native surface before showing controls', async () => {
     const request = await setup(state({ pages: [{ id: 'page-a', excerpt: '<img src=x onerror=alert(1)>', deleted: false }] }))
     document.getElementById('pages')!.click(); await settle()

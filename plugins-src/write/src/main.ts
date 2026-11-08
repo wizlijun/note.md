@@ -24,7 +24,7 @@ function navigationSeed(value: unknown): NavigationSeed | undefined {
 }
 async function navigateFromTab(seed: NavigationSeed) {
   await page('open', seed.pageId)
-  if (seed.action === 'open_page') return
+  if (seed.action === 'open_page' || !surface) return
   if (seed.action === 'menu') await showPages()
   else await page(seed.action === 'new_page' ? 'create' : seed.action === 'previous_page' ? 'previous' : 'next')
 }
@@ -33,6 +33,7 @@ let panelOpen = false
 let mounted = true
 let windowVisible = true
 let pendingWindowResume = false
+let pendingFocusPage: string | undefined
 let generation = 0
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -93,7 +94,7 @@ async function acceptState(next: SumiState) {
   if (changed) await mountPage()
 }
 async function refresh() { const next = await request<SumiState>('state'); if (mounted) await acceptState(next) }
-async function mountPage() {
+async function mountPage(focusExisting = false) {
   if (!windowVisible) return
   const attempt = ++generation
   if (surface && surfacePageId === state?.activePageId) return
@@ -101,9 +102,16 @@ async function mountPage() {
   if (!state?.available || !state.activePageId) return
   const pageId = state.activePageId
   notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…'))
-  const handle = await request<SurfaceHandle>('mount', { pageId, bounds: bounds() })
+  const handle = await request<SurfaceHandle | { kind: 'existing_owner'; page_id: string }>('mount', { pageId, bounds: bounds() })
   // A successful native close has already flushed and detached every surface.
   if (!windowVisible) return
+  if ('kind' in handle) {
+    if (mounted && attempt === generation) {
+      if (focusExisting) await request('focus_existing', { pageId: handle.page_id })
+      notice(t('此页已在另一个编辑面中打开。', 'This page is open in another editor.'))
+    }
+    return
+  }
   if (!mounted || attempt !== generation) { await request('detach', { surface: handle }); return }
   surface = handle; surfacePageId = pageId
   await request('visible', { surface, visible: !panelOpen })
@@ -122,9 +130,12 @@ async function run(action: () => Promise<void>) {
     if (navigation && mounted && windowVisible) {
       pendingNavigation = undefined
       void run(() => navigateFromTab(navigation))
+    } else if (pendingFocusPage && mounted && windowVisible) {
+      const page = pendingFocusPage; pendingFocusPage = undefined
+      void run(() => focusOwnedPage(page))
     } else if (pendingWindowResume && mounted && windowVisible) {
       pendingWindowResume = false
-      void run(async () => { await refresh(); await mountPage() })
+      void run(async () => { await refresh(); await mountPage(true) })
     } else {
       const next = pendingState; pendingState = undefined
       if (next && mounted) void run(() => acceptState(next))
@@ -163,7 +174,13 @@ async function page(action: string, pageId?: string) {
     if (pending) { pendingOperation = undefined; try { sessionStorage.removeItem(operationKey) } catch { /* optional storage */ } }
   } catch (error) { await mountPage(); throw error }
   await closePanel(false)
-  await mountPage()
+  await mountPage(true)
+}
+async function focusOwnedPage(pageId: string) {
+  if (!windowVisible || !surface || surfacePageId !== pageId) return
+  await closePanel(false)
+  await request('visible', { surface, visible: true })
+  await request('focus', { surface })
 }
 async function openPanel(title: string) {
   if (surface) await request('visible', { surface, visible: false })
@@ -193,7 +210,7 @@ async function showPages() {
       repair.onclick = () => void run(async () => {
         await releaseSurface()
         await request('restore_projection', { pageId: state!.activePageId })
-        await refresh(); await mountPage(); await showPages()
+        await refresh(); await mountPage(true); await showPages()
       })
       el('panel-body').append(repair)
     }
@@ -286,16 +303,21 @@ new ResizeObserver(() => {
 window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer) })
 window.notemd?.onMessage?.(event => {
   if (!event || typeof event !== 'object') return
-  const message = event as { type?: string; state?: SumiState; action?: string; message?: string; payload?: unknown; visible?: boolean; detached?: boolean }
+  const message = event as { type?: string; state?: SumiState; action?: string; message?: string; payload?: unknown; visible?: boolean; detached?: boolean; pageId?: string }
   if (message.type === 'sumi-window-state' && typeof message.visible === 'boolean') {
     windowVisible = message.visible
     if (!windowVisible) {
-      generation++; pendingWindowResume = false
+      generation++; pendingWindowResume = false; pendingFocusPage = undefined
       if (message.detached) { surface = undefined; surfacePageId = undefined }
     } else {
       if (busy) pendingWindowResume = true
-      else void run(async () => { await refresh(); await mountPage() })
+      else void run(async () => { await refresh(); await mountPage(true) })
     }
+    return
+  }
+  if (message.type === 'sumi-focus-owner' && typeof message.pageId === 'string' && windowVisible) {
+    if (busy) pendingFocusPage = message.pageId
+    else void run(() => focusOwnedPage(message.pageId!))
     return
   }
   if (message.type === 'seed') {
@@ -327,6 +349,6 @@ void run(async () => {
   if (seed && state?.available) await navigateFromTab(seed)
   else {
     if (state?.available && !state.activePageId) await page('create')
-    else await mountPage()
+    else await mountPage(true)
   }
 })

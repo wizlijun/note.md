@@ -15,6 +15,7 @@
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode, saveTab } from './lib/tabs.svelte'
   import { sumiOwner } from './lib/sumi/session'
+  import { focusSumiOwner } from './lib/sumi/focus'
   import { openPath } from './lib/open-path'
   import { createNewBase } from './lib/base/create'
   import { basename } from './lib/paths'
@@ -173,6 +174,11 @@
         void invoke('set_file_history_route', { route: { ...route, epoch, routeVersion: ++routeVersion } }).catch(error => console.warn('[file-history] route:', error))
       })
     }).catch(error => console.warn('[file-history] init:', error))
+
+    const unlistenSumiFocus = listen<{ page_id: string; tab_id: string }>('sumi-focus-owner', async event => {
+      try { await focusSumiOwner(event.payload) }
+      catch (error) { pushToast({ level: 'error', message: String(error) }) }
+    })
 
     // Register file-open listeners IMMEDIATELY (before any async work)
     // so we never miss events from Rust side.
@@ -869,6 +875,7 @@
       stopHistoryRoute?.()
       unlistenMenu.then((fn) => fn())
       unlistenDrop.then((fn) => fn())
+      unlistenSumiFocus.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())

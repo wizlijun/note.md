@@ -84,6 +84,22 @@ describe('SourceView select-all integration', () => {
     expect(textarea.selectionEnd).toBe(CONTENT.length)
   })
 
+  it('focuses an existing Source owner without moving its selection or reading position', async () => {
+    const { tabs, activeId } = await import('../lib/tabs.svelte')
+    const prior = activeId.value
+    const tab = { id: 'tab-1', filePath: '/vault/focus.md', title: 'focus', kind: 'markdown', mode: 'source', initialContent: CONTENT, currentContent: CONTENT, externalState: 'fresh' } as import('../lib/tabs.svelte').Tab
+    tabs.push(tab); activeId.value = tab.id
+    cleanups.push(() => { const index = tabs.findIndex(t => t.id === tab.id); if (index >= 0) tabs.splice(index, 1); activeId.value = prior })
+    const target = await mountSourceView()
+    const textarea = target.querySelector('textarea') as HTMLTextAreaElement
+    textarea.setSelectionRange(3, 9); textarea.scrollTop = 12; textarea.blur()
+    window.dispatchEvent(new CustomEvent('notemd:focus-editor', { detail: { path: tab.filePath, preserveSelection: true } }))
+    expect(document.activeElement).toBe(textarea)
+    expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([3, 9])
+    expect(textarea.scrollTop).toBe(12)
+    expect(tab.mode).toBe('source')
+  })
+
   it('selects the entire textarea value on notemd:select-all', async () => {
     const target = await mountSourceView()
     const textarea = target.querySelector('textarea') as HTMLTextAreaElement

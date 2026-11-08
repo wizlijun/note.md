@@ -8,6 +8,17 @@ export interface NativeBounds { x: number; y: number; width: number; height: num
 export interface ProjectionIdentity { path: string; sha256: string }
 export interface SumiSnapshot { raw: string; revision: number; projected?: boolean; projection_identity?: ProjectionIdentity | null }
 export interface SumiOpen extends SumiSnapshot { page_id: string }
+export interface ExistingOwner { kind: 'existing_owner'; page_id: string }
+export class SumiExistingOwnerError extends Error {
+  constructor(readonly pageId: string) { super('此页已在另一个编辑面中打开') }
+}
+function opened<T>(value: T | ExistingOwner): T {
+  if (value && typeof value === 'object' && 'kind' in value && value.kind === 'existing_owner') throw new SumiExistingOwnerError((value as ExistingOwner).page_id)
+  return value as T
+}
+export async function focusExistingSumiPage(pageId: string, pluginId = SUMI_PLUGIN_ID): Promise<void> {
+  await invoke('sumi_focus_existing', { page_id: pageId, plugin_id: pluginId })
+}
 export interface NativeBinding { surface_id: string; generation: number }
 export interface SumiOwner extends SumiSnapshot {
   readonly tabId: string
@@ -56,7 +67,8 @@ export async function openSumiOwner(tabId: string, path: string, pluginId = SUMI
     if (owner.path !== path || owner.pluginId !== pluginId) throw new Error('Sumi document changed while opening')
     return owner
   }
-  const operation = invoke<SumiOpen>('sumi_open_path', { path, plugin_id: pluginId, tab_id: tabId }).then(value => {
+  const operation = invoke<SumiOpen | ExistingOwner>('sumi_open_path', { path, plugin_id: pluginId, tab_id: tabId }).then(result => {
+    const value = opened(result)
     const owner: SumiOwner = { ...value, pageId: value.page_id, tabId, path, pluginId, editor: 'web', tail: Promise.resolve() }
     owners.set(tabId, owner)
     return owner
@@ -68,7 +80,7 @@ export async function mountSumiOwner(owner: SumiOwner, bounds: NativeBounds, ava
   return serial(owner, async () => {
     if (!available()) return
     if (owner.surface) throw new Error('Sumi page already has an active surface')
-    const binding = await invoke<NativeBinding>('sumi_mount', { ...identity(owner), bounds })
+    const binding = opened(await invoke<NativeBinding | ExistingOwner>('sumi_mount', { ...identity(owner), bounds }))
     current(owner)
     owner.surface = binding
     owner.editor = 'native'
@@ -118,7 +130,7 @@ export async function rebaseSumiDraft(owner: SumiOwner, submitted: string, accep
 export async function refreshSumiOwner(owner: SumiOwner): Promise<SumiSnapshot> {
   return serial(owner, async () => {
     if (owner.surface || owner.editor === 'native') throw new Error('Detach the native Sumi editor before importing disk changes')
-    const snapshot = await invoke<SumiOpen>('sumi_open_path', { path: owner.path, plugin_id: owner.pluginId, tab_id: owner.tabId })
+    const snapshot = opened(await invoke<SumiOpen | ExistingOwner>('sumi_open_path', { path: owner.path, plugin_id: owner.pluginId, tab_id: owner.tabId }))
     if (snapshot.page_id !== owner.pageId) throw new Error('Sumi page identity changed on disk')
     return accept(owner, snapshot)
   })

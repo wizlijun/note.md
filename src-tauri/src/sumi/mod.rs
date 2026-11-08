@@ -125,6 +125,15 @@ pub struct Opened {
     projection_identity: Option<durability::ProjectionIdentity>,
 }
 #[derive(Clone, Serialize)]
+#[serde(untagged)]
+pub enum EditorEntry<T> {
+    Opened(T),
+    Existing { kind: &'static str, page_id: String },
+}
+fn existing_editor<T>(page: &str) -> EditorEntry<T> {
+    EditorEntry::Existing {kind:"existing_owner",page_id:page.into()}
+}
+#[derive(Clone, Serialize)]
 pub struct Surface {
     surface_id: String,
     generation: u64,
@@ -1537,7 +1546,7 @@ async fn mount<R: Runtime>(
     page_id: &str,
     tab_id: &str,
     bounds: native::Bounds,
-) -> Result<Surface> {
+) -> Result<EditorEntry<Surface>> {
     if !native::is_supported() {
         return Err("Sumi 原生编辑需要 macOS 13 或更新版本".into());
     }
@@ -1553,7 +1562,7 @@ async fn mount<R: Runtime>(
             .and_then(|p| p.owner.as_ref())
             .is_some_and(|o| o.window != window.label() || o.tab != tab_id || o.surface.is_some())
         {
-            return Err("此页正在另一个编辑面中使用，请先关闭该编辑面".into());
+            return Ok(existing_editor(page_id));
         }
     }
     reconcile_known_files(ws, page_id).await?;
@@ -1575,7 +1584,7 @@ async fn mount<R: Runtime>(
         }
         if let Some(o) = &p.owner {
             if o.window != window.label() || o.tab != tab_id || o.surface.is_some() {
-                return Err("此页正在另一个编辑面中使用，请先关闭该编辑面".into());
+                return Ok(existing_editor(page_id));
             }
         }
         let restored = resolve_reading_position(p);
@@ -1637,7 +1646,7 @@ async fn mount<R: Runtime>(
         }
         return Err(error);
     }
-    Ok(surface)
+    Ok(EditorEntry::Opened(surface))
 }
 async fn flush(
     ws: &Workspace,
@@ -1923,7 +1932,7 @@ async fn open_path<R: Runtime>(
     window: &WebviewWindow<R>,
     path: &str,
     tab: &str,
-) -> Result<Opened> {
+) -> Result<EditorEntry<Opened>> {
     let ws = workspace(app).await?;
     let _lease = ws.lifecycle.lock().await;
     let path = std::fs::canonicalize(path).map_err(err)?;
@@ -1958,7 +1967,7 @@ async fn open_path<R: Runtime>(
         }
         if let Some(o) = &p.owner {
             if o.window != window.label() || o.tab != tab || o.surface.is_some() {
-                return Err("此页仍由另一个编辑面持有，请先完成切换".into());
+                return Ok(existing_editor(&page));
             }
         }
     }
@@ -1976,7 +1985,7 @@ async fn open_path<R: Runtime>(
     let p = papers.get_mut(&page).unwrap();
     if let Some(o) = &mut p.owner {
         if o.window != window.label() || o.tab != tab {
-            return Err("此页正在另一个编辑面中使用".into());
+            return Ok(existing_editor(&page));
         }
         o.generation = p.entry.generation;
     } else {
@@ -1992,7 +2001,7 @@ async fn open_path<R: Runtime>(
             source_baseline: None,
         });
     }
-    Ok(p.opened())
+    Ok(EditorEntry::Opened(p.opened()))
 }
 async fn restore_projection<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -2187,6 +2196,55 @@ pub async fn sumi_recover_new(
     Ok(response)
 }
 
+fn focus_owner_identity(p: &Paper, window: Option<(&str,&str)>) -> Result<Owner> {
+    let owner=p.owner.clone().ok_or("已有编辑面已关闭，请重新打开此页")?;
+    if p.entry.deleted || p.entry.generation!=owner.generation {
+        return Err("纸页生命周期已变化，请重新打开".into());
+    }
+    if window.is_some_and(|(label,tab)|owner.window!=label || owner.tab!=tab) {
+        return Err("编辑面已改变，请重新选择此页".into());
+    }
+    Ok(owner)
+}
+async fn focus_existing<R:Runtime>(app:&tauri::AppHandle<R>,ws:&Workspace,page:&str)->Result<()> {
+    current(app,ws)?;
+    let _lease=ws.lifecycle.lock().await;
+    current(app,ws)?;
+    let owner={let papers=ws.papers.lock().map_err(err)?;focus_owner_identity(papers.get(page).ok_or("写作页面不存在")?,None)?};
+    // No caller-provided window/surface capability crosses this boundary.
+    if owner.window=="main" {
+        app.emit_to("main","sumi-focus-owner",json!({"page_id":page,"tab_id":owner.tab})).map_err(err)?;
+    } else if is_plugin_window(&owner.window) {
+        let window=app.get_webview_window(&owner.window).ok_or("已有编辑窗口已关闭")?;
+        require_visible_native_window(&window)?;
+        window.show().map_err(err)?;window.unminimize().map_err(err)?;window.set_focus().map_err(err)?;
+        push(app,&json!({"type":"sumi-focus-owner","pageId":page}));
+    } else {return Err("未知的写作编辑面".into());}
+    Ok(())
+}
+#[tauri::command(rename_all = "snake_case")]
+pub async fn sumi_focus_existing(app:tauri::AppHandle,window:WebviewWindow,plugin_id:String,page_id:String)->Result<()> {
+    host_window(&window)?;authorize(&plugin_id)?;
+    focus_existing(&app,workspace(&app).await?.as_ref(),&page_id).await
+}
+#[tauri::command(rename_all = "snake_case")]
+pub async fn sumi_focus_owner(app:tauri::AppHandle,window:WebviewWindow,plugin_id:String,page_id:String,tab_id:String)->Result<()> {
+    host_window(&window)?;authorize(&plugin_id)?;
+    let ws=workspace(&app).await?;
+    let _lease=ws.lifecycle.lock().await;
+    current(&app,&ws)?;
+    let owner={let papers=ws.papers.lock().map_err(err)?;focus_owner_identity(papers.get(&page_id).ok_or("写作页面不存在")?,Some((window.label(),&tab_id)))?};
+    window.show().map_err(err)?;window.unminimize().map_err(err)?;window.set_focus().map_err(err)?;
+    if let Some(surface)=owner.surface {
+        if owner.suspended {
+            native::command(&window,surface.surface_id.clone(),surface.generation,native::SurfaceCommand::SetVisible{visible:true}).await?;
+            if let Some(owner)=ws.papers.lock().map_err(err)?.get_mut(&page_id).and_then(|p|p.owner.as_mut()) {owner.suspended=false;}
+        }
+        native::command(&window,surface.surface_id,surface.generation,native::SurfaceCommand::Focus).await?;
+    }
+    Ok(())
+}
+
 #[tauri::command(rename_all = "snake_case")]
 pub async fn sumi_open_path(
     app: tauri::AppHandle,
@@ -2194,7 +2252,7 @@ pub async fn sumi_open_path(
     plugin_id: String,
     path: String,
     tab_id: String,
-) -> Result<Opened> {
+) -> Result<EditorEntry<Opened>> {
     host_window(&window)?;
     authorize(&plugin_id)?;
     open_path(&app, &window, &path, &tab_id).await
@@ -2207,7 +2265,7 @@ pub async fn sumi_mount(
     page_id: String,
     tab_id: String,
     bounds: native::Bounds,
-) -> Result<Surface> {
+) -> Result<EditorEntry<Surface>> {
     host_window(&window)?;
     authorize(&plugin_id)?;
     mount(
@@ -2819,10 +2877,16 @@ pub async fn dispatch<R: Runtime>(
         "host.sumi.restore_projection" => {
             restore_projection(app, &window, &ws, page()?, Some(tab)).await
         }
+        "host.sumi.focus_existing" => {
+            focus_existing(app, &ws, page()?).await?;
+            Ok(json!({"requested":true}))
+        }
         "host.sumi.mount" => {
             let bounds = serde_json::from_value(params["bounds"].clone()).map_err(err)?;
-            let s = mount(app, &ws, &window, page()?, tab, bounds).await?;
-            Ok(json!({"id":s.surface_id,"generation":s.generation}))
+            match mount(app, &ws, &window, page()?, tab, bounds).await? {
+                EditorEntry::Opened(s)=>Ok(json!({"id":s.surface_id,"generation":s.generation})),
+                existing=>serde_json::to_value(existing).map_err(err),
+            }
         }
         "host.sumi.detach" | "host.sumi.bounds" | "host.sumi.visible" | "host.sumi.focus" => {
             let id = params["surface"]["id"].as_str().ok_or("缺少编辑面身份")?;
@@ -2966,6 +3030,26 @@ mod tests {
         assert_eq!(adjacent_after_delete(&pages,"b").as_deref(),Some("c"));
         assert_eq!(adjacent_after_delete(&pages,"c").as_deref(),Some("b"));
         assert_eq!(adjacent_after_delete(&[entry("only",false)],"only"),None);
+    }
+    #[tokio::test]
+    async fn focus_owner_rechecks_bound_identity_without_changing_document_or_selection() {
+        let (_temp,ws,id)=fixture().await;
+        let mut papers=ws.papers.lock().unwrap();
+        let p=papers.get_mut(&id).unwrap();
+        p.owner.as_mut().unwrap().selection=native::TextRange{start:0,length:0};
+        let revision=p.doc.revision();let body=p.doc.body();
+        let owner=focus_owner_identity(p,Some(("main","test"))).unwrap();
+        assert_eq!(owner.tab,"test");assert_eq!(p.doc.revision(),revision);assert_eq!(p.doc.body(),body);
+        assert!(focus_owner_identity(p,Some(("other-window","test"))).is_err());
+        assert!(focus_owner_identity(p,Some(("main","other-tab"))).is_err());
+        p.owner.as_mut().unwrap().composing=true;
+        assert!(focus_owner_identity(p,Some(("main","test"))).unwrap().composing,"focusing the existing IME must not commit or cancel it");
+        p.entry.generation+=1;assert!(focus_owner_identity(p,None).is_err());
+        p.entry.generation-=1;p.entry.deleted=true;assert!(focus_owner_identity(p,None).is_err());
+        assert_eq!(crate::plugin_runtime::host_api::method_capability("host.sumi.focus_existing"),Some("editor.native"));
+        let wire=serde_json::to_value(existing_editor::<Surface>(&id)).unwrap();
+        assert_eq!(wire,json!({"kind":"existing_owner","page_id":id}));
+        assert!(wire.get("surface_id").is_none());assert!(wire.get("window").is_none());
     }
     #[tokio::test]
     async fn navigation_versions_change_only_after_durable_active_page_changes() {

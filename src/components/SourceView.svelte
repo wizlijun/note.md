@@ -671,9 +671,10 @@
 
   $effect(() => {
     function onFocusEditor(ev: Event) {
-      const d = (ev as CustomEvent<{ path: string }>).detail
+      const d = (ev as CustomEvent<{ path: string; preserveSelection?: boolean }>).detail
       const t = activeTab()
       if (!textareaEl || !t || t.filePath !== d.path) return
+      if (d.preserveSelection) { textareaEl.focus({ preventScroll: true }); return }
       setTimeout(() => {
         try {
           const end = textareaEl!.value.length

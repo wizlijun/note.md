@@ -18,6 +18,22 @@ beforeEach(async () => {
 })
 
 describe('Sumi single writer handoff', () => {
+  it('returns a typed existing-owner outcome without registering a duplicate or focusing implicitly', async () => {
+    call.mockResolvedValueOnce({kind:'existing_owner',page_id:'page'})
+    await expect(api.openSumiOwner('other-tab','/vault/page.writing.md')).rejects.toBeInstanceOf(api.SumiExistingOwnerError)
+    expect(api.sumiOwner('other-tab')).toBeUndefined()
+    expect(call.mock.calls.map(([method])=>method)).toEqual(['sumi_open_path'])
+    await api.focusExistingSumiPage('page')
+    expect(call).toHaveBeenLastCalledWith('sumi_focus_existing',{page_id:'page',plugin_id:'notemd.sumi'})
+  })
+  it('does not install or detach a foreign surface after a mount ownership race', async () => {
+    const owner=await api.openSumiOwner('tab','/vault/page.writing.md')
+    call.mockResolvedValueOnce({kind:'existing_owner',page_id:'page'})
+    await expect(api.mountSumiOwner(owner,bounds,()=>true)).rejects.toBeInstanceOf(api.SumiExistingOwnerError)
+    expect(owner.surface).toBeUndefined()
+    expect(owner.editor).toBe('web')
+    expect(call.mock.calls.map(([method])=>method)).toEqual(['sumi_open_path','sumi_mount'])
+  })
   it('releases the backend owner only after flushing and detaching', async () => {
     const owner = await api.openSumiOwner('tab', '/vault/page.writing.md')
     await api.mountSumiOwner(owner, bounds, () => true)

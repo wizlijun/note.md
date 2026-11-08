@@ -1431,8 +1431,12 @@
 
   $effect(() => {
     function onFocusEditor(ev: Event) {
-      const d = (ev as CustomEvent<{ path: string }>).detail
+      const d = (ev as CustomEvent<{ path: string; preserveSelection?: boolean }>).detail
       if (status !== 'mounted' || !editor || tab.filePath !== d.path) return
+      if (d.preserveSelection) {
+        if (fileBacked && (activeTab()?.mode !== 'rich' || activeTab()?.id !== tab.id)) return
+        ;(editor.view as EditorView).focus(); return
+      }
       focusRichEditorAtEnd(editor.view as any)
     }
     window.addEventListener('notemd:focus-editor', onFocusEditor)

@@ -6,13 +6,14 @@
   import { acceptSumiSnapshot, acknowledgeSumiProjection, prepareFileViewTransition, setMode, type Tab } from '../lib/tabs.svelte'
   import type { FileViewRef } from '../lib/plugins/file-views'
   import { boundsForNative, nativeSurfaceOccluded } from '../lib/sumi/geometry'
-  import { openSumiOwner, closeSumiOwner, mountSumiOwner, detachSumiSurface, updateSumiSurface, type SumiOwner, type NativeBinding, type ProjectionIdentity } from '../lib/sumi/session'
+  import { openSumiOwner, closeSumiOwner, SumiExistingOwnerError, focusExistingSumiPage, mountSumiOwner, detachSumiSurface, updateSumiSurface, type SumiOwner, type NativeBinding, type ProjectionIdentity } from '../lib/sumi/session'
   import SumiRecovery from './SumiRecovery.svelte'
 
   let { tab, view }: { tab: Tab; view: FileViewRef } = $props()
   let element: HTMLDivElement
-  let status = $state<'loading' | 'ready' | 'error'>('loading')
+  let status = $state<'loading' | 'ready' | 'error' | 'existing'>('loading')
   let failure = $state('')
+  let existingPage = $state('')
   let saveError = $state('')
   let owner = $state.raw<SumiOwner>()
   let binding: NativeBinding | undefined
@@ -42,8 +43,17 @@
     } finally { navigating = false }
   }
 
+  async function focusExisting() {
+    try { await focusExistingSumiPage(existingPage, view.pluginId) }
+    catch (error) { if (!disposed) failure = String(error) }
+  }
   function failed(error: unknown) {
     if (disposed) return
+    if (error instanceof SumiExistingOwnerError) {
+      existingPage = error.pageId; failure = error.message; status = 'existing'
+      void focusExisting()
+      return
+    }
     failure = String(error)
     status = 'error'
   }
@@ -147,6 +157,8 @@
   <div class="native-editor-region" bind:this={element}>
   {#if status === 'loading'}
     <div class="native-status" role="status">正在打开 Sumi…</div>
+  {:else if status === 'existing'}
+    <div class="native-status" role="status"><span>{failure}</span><button onclick={focusExisting}>聚焦已有编辑面</button></div>
   {:else if status === 'error'}
     <div class="native-status" role="alert">
       <span>Sumi 暂时无法打开：{failure}</span>
