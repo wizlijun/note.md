@@ -1,4 +1,4 @@
-export type Theme = 'ink' | 'dim' | 'paper' | 'sepia'
+export type Theme = 'ink' | 'dim' | 'paper' | 'sepia' | 'crt'
 export interface Preferences {
   theme: Theme
   fontFamily: string
@@ -21,12 +21,21 @@ export interface SumiState {
 }
 export interface SurfaceHandle { id: string; generation: number }
 export interface Bounds { x: number; y: number; width: number; height: number }
+export interface FontStatus {
+  family: string
+  status: 'not_downloaded' | 'downloading' | 'ready' | 'error'
+  downloadedBytes: number
+  totalBytes: number
+  error?: string | null
+}
+export interface FontState { fonts: FontStatus[]; selectedFont: string; pendingFont: string | null }
 export const fontPresets = [
   ['Sumi Plex', 'IBM Plex Mono Light + IBM Plex Sans SC Light'],
   ['Sumi WenKai', 'LXGW WenKai Mono Lite'],
   ['Sumi Zhaohua', '朝华打字机'],
   ['Sumi Youcha', '油茶馓子体'],
   ['Sumi Fangsong', 'Zhuque Fangsong · 朱雀仿宋'],
+  ['Sumi CRT', '复古绿磷 CRT · GNU Unifont'],
 ] as const
 export const defaultPreferences: Preferences = {
   theme: 'dim', fontFamily: 'Sumi Plex', caretMotion: 'breathing', fontSize: 22,
@@ -35,7 +44,7 @@ export const defaultPreferences: Preferences = {
 export function pageLabel(page: Page, fallback: string): string {
   return page.excerpt.trim().slice(0, 80) || fallback
 }
-export function preferencesFromForm(form: HTMLFormElement): Preferences {
+export function preferencesFromForm(form: HTMLFormElement, currentFont?: string): Preferences {
   const data = new FormData(form)
   const number = (key: string, min: number, max: number) => {
     const value = Number(data.get(key))
@@ -43,8 +52,8 @@ export function preferencesFromForm(form: HTMLFormElement): Preferences {
     return value
   }
   const theme = data.get('theme')
-  if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper' && theme !== 'sepia') throw new Error('Invalid theme')
-  const fontFamily = String(data.get('fontFamily') ?? '').trim()
+  if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper' && theme !== 'sepia' && theme !== 'crt') throw new Error('Invalid theme')
+  const fontFamily = String(currentFont ?? data.get('fontFamily') ?? '').trim()
   if (!fontPresets.some(([value]) => value === fontFamily)) throw new Error('Invalid font')
   const caretMotion = data.get('caretMotion')
   if (caretMotion !== 'breathing' && caretMotion !== 'steady') throw new Error('Invalid caret motion')

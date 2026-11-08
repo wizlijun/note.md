@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "name": "复古绿磷 CRT",
+  "alias": "Sumi CRT",
+  "cascades": [
+    "Unifont"
+  ],
+  "selection": "GNU Unifont 18.0.01 alone for both Latin and Chinese; unchanged upstream font, process-local registration. Terminus TTF was compared and not selected.",
+  "cool_retro_term": {
+    "role": "Green palette reference only; its font is not distributed as part of this preset.",
+    "release": "1.2.0",
+    "commit": "74ae511f923a7c42274086f9b9959e2292d74ddc",
+    "profile": "Monochrome Green",
+    "foreground": "#0ccc68",
+    "background": "#000000",
+    "source": "https://raw.githubusercontent.com/Swordfish90/cool-retro-term/74ae511f923a7c42274086f9b9959e2292d74ddc/app/qml/ApplicationSettings.qml",
+    "not_adopted": "Terminus TTF 4.46.0 from this profile was compared against Unifont; it lacks the tested GB2312 Hanzi and relies on system Chinese fallback. It is not in the application font catalog or resources."
+  },
+  "fonts": [
+    {
+      "file": "Unifont-18.0.01.otf",
+      "version": "18.0.01",
+      "postscript": "Unifont",
+      "source": "https://unifoundry.com/pub/unifont/unifont-18.0.01/font-builds/unifont-18.0.01.otf",
+      "size": 5320148,
+      "sha256": "88d0a14d4aa9a96419720b39ba5da921a59560d76d4ec7d523acc06ed85cd3c2",
+      "license": "OFL-1.1",
+      "copyright_names": [
+        "Copyright © 1998-2026 Roman Czyborra, Paul Hardy, Qianqian Fang, Andrew Miller, Johnnie Weaver, David Corbett, Ælla Chiana Moskopp, Rebecca Bettencourt, Ho-Seok Ee, et al."
+      ]
+    }
+  ],
+  "unifont_license": {
+    "source": "https://www.unifoundry.com/unifont/index.html",
+    "available_licenses": [
+      "OFL-1.1",
+      "GPL-2.0-or-later with GNU font embedding exception"
+    ],
+    "chosen_license": "OFL-1.1",
+    "notice": "Unifont has offered both licenses since 13.0.04; retain original font copyright metadata and the bundled OFL text."
+  },
+  "coverage": {
+    "verified": "ASCII 95/95, GB2312 Hanzi 6763/6763, chosen CJK punctuation 34/34, simplified and traditional sample characters 14/14 each. Independent cmap counts match CoreText font character sets.",
+    "boundary": "Some supplementary-plane glyphs exist: U+30EDE 𰻞 is present, U+20BB7 𠮷 and U+20000 𠀀 are absent. No blanket claim that all non-BMP glyphs are absent or all GB18030 characters supported.",
+    "fallback": "Missing glyphs use system fallback when available. On the test Mac U+20000 reaches LastResort; 😀 and 📝 use AppleColorEmoji. These are not counted as Unifont coverage."
+  },
+  "distribution": "Only the catalog, license and provenance are bundled with the host. The single Unifont binary downloads only on explicit user selection into app-private cache."
+}

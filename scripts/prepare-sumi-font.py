@@ -9,28 +9,17 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 DEST = ROOT / 'src-tauri/resources/sumi'
-ASSETS = [
-    {'file': 'IBMPlexMono-Light.ttf', 'size': 135216, 'sha256': '780bcf65509d72a35ec114b57bcbe220dc6b77d8ea2e9b25e294be3c570c5025', 'postscript': 'IBMPlexMono-Light', 'license': 'OFL-1.1', 'url': 'https://raw.githubusercontent.com/google/fonts/03c54f8f0fae0c403c43f326068d9060121c9bd1/ofl/ibmplexmono/IBMPlexMono-Light.ttf'},
-    {'file': 'IBMPlexMono-OFL.txt', 'size': 4456, 'sha256': '7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da', 'url': 'https://raw.githubusercontent.com/google/fonts/03c54f8f0fae0c403c43f326068d9060121c9bd1/ofl/ibmplexmono/OFL.txt'},
-    {'file': 'IBMPlexSansSC-Light.otf', 'size': 7084864, 'sha256': '1df4e4de4f669c593c56b6a55e89c451ed2ef64c2669c068ea44ba6f7b24819c', 'postscript': 'IBMPlexSansSC-Light', 'license': 'OFL-1.1', 'url': 'https://raw.githubusercontent.com/IBM/plex/222657a016f31e6d913ede88520de7dec84dc81b/packages/plex-sans-sc/fonts/complete/otf/hinted/IBMPlexSansSC-Light.otf'},
-    {'file': 'IBMPlexSansSC-LICENSE.txt', 'size': 4456, 'sha256': '7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da', 'url': 'https://raw.githubusercontent.com/IBM/plex/222657a016f31e6d913ede88520de7dec84dc81b/packages/plex-sans-sc/LICENSE.txt'},
-    {'file': 'LXGWWenKaiMonoLite-Regular.ttf', 'size': 13977916, 'sha256': 'fcdac2729fab750009af0046b23c5bb6f3a351658adb76ef6f28fdf57037d1c2', 'postscript': 'LXGWWenKaiMonoLite-Regular', 'license': 'OFL-1.1', 'url': 'https://github.com/lxgw/LxgwWenKai-Lite/releases/download/v1.530/LXGWWenKaiMonoLite-Regular.ttf'},
-    {'file': 'LXGWWenKaiMonoLite-OFL.txt', 'size': 5176, 'sha256': '0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e', 'url': 'https://raw.githubusercontent.com/lxgw/LxgwWenKai-Lite/v1.530/OFL.txt'},
-    {'file': 'YouchaSanz.ttf', 'size': 31021128, 'sha256': '967ce821ca999d04b3150fe18f814e9907b13777fe6749d12fde9abd5b3ad35d', 'url': 'https://raw.githubusercontent.com/BH1PHL/ttf-terrywang-typewriter-fonts/0f49da55ecf4c1648d658c17d2e8d2633c385d0f/YouchaSanz.ttf', 'postscript': 'YouchaSanz-Light', 'license': 'LicenseRef-TerryWang-Typewriter'},
-    {'file': 'ZhaohuaTypeWriter.ttf', 'size': 27492440, 'sha256': '2eca44768cba97110ebc161dbbb60216bcda5e80b7202c5f684bf0f358c34370', 'url': 'https://raw.githubusercontent.com/BH1PHL/ttf-terrywang-typewriter-fonts/0f49da55ecf4c1648d658c17d2e8d2633c385d0f/ZhaohuaTypeWriter.ttf', 'postscript': 'ZhaohuaTypeWriter-Light', 'license': 'LicenseRef-TerryWang-Typewriter'},
-    {'file': 'TerryWang-Typewriter-LICENSE.txt', 'size': 711, 'sha256': 'e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5', 'url': 'https://raw.githubusercontent.com/BH1PHL/ttf-terrywang-typewriter-fonts/0f49da55ecf4c1648d658c17d2e8d2633c385d0f/LICENSE'},
-    {'file': 'TerryWang-Official-License.json', 'size': 893, 'sha256': '7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e', 'bundled': True},
-    {'file': 'TerryWang-Typewriter-PROVENANCE.json', 'size': 10164, 'sha256': 'b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100', 'bundled': True},
-    {'file': 'ZhuqueFangsong-Regular.ttf', 'url': 'https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip', 'size': 8824084, 'sha256': '558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4', 'archive_size': 5743932, 'archive_sha256': 'bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062', 'postscript': 'ZhuqueFangsong-Regular', 'license': 'OFL-1.1'},
-    {'file': 'ZhuqueFangsong-LICENSE.txt', 'url': 'https://raw.githubusercontent.com/TrionesType/zhuque/v0.212/LICENSE.txt', 'size': 4389, 'sha256': '66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043'},
-]
+# The tracked manifest is the single source for both development preparation and
+# the runtime download catalog; font binaries remain ignored development assets.
+MANIFEST = json.loads((DEST / 'manifest.json').read_text())
+ASSETS = MANIFEST['assets']
+CASCADES = MANIFEST['cascades']
 
 
 def valid(data, size, sha256):
     return len(data) == size and hashlib.sha256(data).hexdigest() == sha256
 
 
-CASCADES = {'Sumi Plex': ['IBMPlexMono-Light', 'IBMPlexSansSC-Light'], 'Sumi WenKai': ['LXGWWenKaiMonoLite-Regular'], 'Sumi Zhaohua': ['ZhaohuaTypeWriter-Light'], 'Sumi Youcha': ['YouchaSanz-Light'], 'Sumi Fangsong': ['ZhuqueFangsong-Regular']}
 # Retire only these obsolete bundled files, after every selected asset verifies.
 OBSOLETE = ['CourierPrime-Regular.ttf', 'CourierPrime-OFL.txt', 'SourceHanSerifSC-Regular.otf', 'OFL.txt', 'SpecialElite-Regular.ttf', 'SpecialElite-LICENSE.txt', 'YouyouYisong.ttf', 'YouyouYisong-NOTICE.txt', 'YouyouYisong-PROVENANCE.json']
 
@@ -64,9 +53,8 @@ def prepare():
         temporary.replace(path)
     for obsolete in OBSOLETE:
         (DEST / obsolete).unlink(missing_ok=True)
-    manifest = {'schema': 2, 'default_alias': 'Sumi Plex', 'cascades': CASCADES, 'assets': ASSETS}
-    (DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
-    print('Sumi: five selected cascades, six fonts, licenses and provenance verified; obsolete fonts removed')
+    fonts = sum('postscript' in asset for asset in ASSETS)
+    print(f'Sumi: {len(CASCADES)} selected cascades, {fonts} fonts, licenses and provenance verified; obsolete fonts removed')
 
 
 if __name__ == '__main__':

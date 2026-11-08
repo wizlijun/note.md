@@ -44,7 +44,8 @@
     ],
     "resources": [
       "resources/themes/**/*",
-      "resources/sumi/*"
+      "resources/sumi/*.json",
+      "resources/sumi/*.txt"
     ],
     "category": "DeveloperTool",
     "createUpdaterArtifacts": true,

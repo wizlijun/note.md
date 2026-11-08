@@ -1,5 +1,5 @@
 import './style.css'
-import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds } from './contract'
+import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds, type FontState } from './contract'
 
 interface Bridge {
   locale?: string
@@ -38,6 +38,8 @@ let pendingWindowResume = false
 let pendingFocusPage: string | undefined
 let generation = 0
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
+let fontPanel: { render(): void; poll(): Promise<void>; pause(): void; dispose(): void } | undefined
+function stopFontPanel() { fontPanel?.dispose(); fontPanel = undefined }
 
 // User content is always assigned through textContent, never interpolated into markup.
 el('app').innerHTML = `<main id="surface" aria-label="Sumi"></main>
@@ -63,6 +65,7 @@ function syncStatusLabel(connected: boolean) {
 function applyState(next: SumiState) {
   if ((next.navigationVersion ?? 0) < (state?.navigationVersion ?? 0)) return
   state = next
+  fontPanel?.render()
   document.documentElement.dataset.theme = next.preferences.theme
   el('sync').dataset.pending = String(next.sync.pending > 0)
   const syncStatus = document.getElementById('sync-status')
@@ -128,6 +131,7 @@ async function run(action: () => Promise<void>) {
   finally {
     busy = false
     for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = false
+    fontPanel?.render()
     const navigation = pendingNavigation
     if (navigation && mounted && windowVisible) {
       pendingNavigation = undefined
@@ -186,6 +190,7 @@ async function focusOwnedPage(pageId: string) {
 }
 async function openPanel(title: string) {
   if (surface) await request('visible', { surface, visible: false, preparePanel: true })
+  stopFontPanel()
   panelOpen = true
   el('panel-title').textContent = title
   el('panel-body').replaceChildren()
@@ -193,6 +198,7 @@ async function openPanel(title: string) {
   el('close').focus()
 }
 async function closePanel(focus = true) {
+  stopFontPanel()
   panelOpen = false; el('panel').hidden = true
   if (surface && focus) { await request('visible', { surface, visible: true }); await request('focus', { surface }) }
 }
@@ -249,28 +255,123 @@ async function showPages() {
     }
   }
 }
+function showFonts(form: HTMLFormElement) {
+  const section = document.createElement('section'); section.className = 'font-list'; section.setAttribute('aria-label', t('字体', 'Fonts'))
+  const heading = document.createElement('h2'); heading.textContent = t('字体', 'Fonts'); section.append(heading)
+  const summary = document.createElement('p'); summary.id = 'font-list-status'; summary.setAttribute('role', 'status'); section.append(summary)
+  const rows = fontPresets.map(([family, name]) => {
+    const displayName = family === 'Sumi CRT' ? t(name, 'Retro Green Phosphor CRT · GNU Unifont') : name
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'font-option'; button.dataset.font = family
+    const title = document.createElement('span'); title.className = 'font-name'; title.textContent = displayName
+    const detail = document.createElement('span'); detail.className = 'font-detail'
+    const progress = document.createElement('progress'); progress.hidden = true; progress.setAttribute('aria-label', displayName + t('下载进度', ' download progress'))
+    button.append(title, detail, progress); section.append(button)
+    button.onclick = () => void select(family)
+    return { family, button, detail, progress }
+  })
+  form.append(section)
+  let snapshot: FontState | undefined
+  let statusError = ''
+  let active = true
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let revision = 0
+  let selection = 0
+  const selecting = new Set<string>()
+  const errors = new Map<string, string>()
+  const valid = () => active && mounted && windowVisible && panelOpen && section.isConnected
+  function pause() { clearTimeout(timer); revision++ }
+  function schedule() {
+    clearTimeout(timer)
+    if (valid() && (statusError || selecting.size || snapshot?.pendingFont || snapshot?.fonts.some(font => font.status === 'downloading'))) {
+      timer = setTimeout(() => void poll(), 750)
+    }
+  }
+  function render() {
+    if (!valid()) return
+    const selected = state?.preferences.fontFamily
+    const current = snapshot?.fonts.find(font => font.family === selected)
+    summary.textContent = statusError || (!snapshot ? t('正在检查本机字体…', 'Checking downloaded fonts…')
+      : current?.status !== 'ready' ? t('当前使用系统字体。点击所需字体后下载，可返回继续书写。', 'Using system fonts for now. Choose a font to download; you can keep writing.')
+        : t('字体下载后保存在本机，可离线使用。', 'Downloaded fonts are saved on this device for offline use.'))
+    for (const { family, button, detail, progress } of rows) {
+      const font = snapshot?.fonts.find(item => item.family === family)
+      const pending = selecting.has(family)
+      const queued = snapshot?.pendingFont === family
+      const downloading = font?.status === 'downloading'
+      const selectedHere = family === selected
+      const message = errors.get(family) || font?.error
+      const size = font?.totalBytes ? `${(font.totalBytes / 1_000_000).toFixed(1)} MB` : ''
+      const percent = font?.totalBytes ? Math.min(100, Math.floor(font.downloadedBytes / font.totalBytes * 100)) : 0
+      const label = pending ? t('正在开始…', 'Starting…')
+        : downloading ? `${t('下载中', 'Downloading')} ${percent}%${snapshot?.pendingFont === family ? t(' · 完成后使用', ' · Use when ready') : ''}`
+          : message ? `${t('下载失败，点击重试', 'Download failed; click to retry')} · ${message}`
+            : queued ? font?.status === 'ready' ? t('正在应用…', 'Applying…') : t('准备下载…', 'Preparing download…')
+              : font?.status === 'ready' ? selectedHere ? t('使用中', 'In use') : t('已下载，点击使用', 'Downloaded; click to use')
+              : t('未下载，点击下载', 'Not downloaded; click to download')
+      detail.textContent = [size, label].filter(Boolean).join(' · ')
+      button.setAttribute('aria-pressed', String(selectedHere))
+      button.setAttribute('aria-busy', String(pending || downloading || queued))
+      button.disabled = busy || pending || queued
+      progress.hidden = !downloading
+      progress.max = font?.totalBytes || 1; progress.value = Math.min(font?.downloadedBytes || 0, progress.max)
+    }
+  }
+  function accept(next: FontState) {
+    snapshot = next; statusError = ''
+    for (const font of next.fonts) if (font.status === 'downloading' || font.status === 'ready') errors.delete(font.family)
+    render()
+  }
+  async function poll() {
+    if (!valid()) return
+    if (selecting.size) { schedule(); return }
+    const attempt = ++revision
+    try {
+      const next = await request<FontState>('fonts')
+      if (valid() && revision === attempt) accept(next)
+    } catch {
+      if (valid() && revision === attempt) { statusError = t('无法读取字体状态，将自动重试。', 'Unable to read font status. Retrying.'); render() }
+    } finally { if (valid() && revision === attempt) schedule() }
+  }
+  async function select(family: string) {
+    if (!valid() || busy || selecting.has(family)) return
+    if (snapshot?.pendingFont === family) return
+    pause(); const attempt = ++selection
+    selecting.add(family); errors.delete(family); render()
+    try {
+      const next = await request<FontState>('font_select', { fontFamily: family })
+      if (valid() && selection === attempt) accept(next)
+    } catch (error) {
+      if (valid() && selection === attempt) errors.set(family, error instanceof Error ? error.message : String(error))
+    } finally {
+      selecting.delete(family)
+      if (valid()) { render(); schedule() }
+    }
+  }
+  fontPanel = { render, poll, pause, dispose() { active = false; pause() } }
+}
 async function showAppearance() {
   await openPanel(t('外观', 'Appearance'))
   const form = document.createElement('form')
-  const labels = { theme: t('配色', 'Colors'), fontFamily: t('字体', 'Font'), caretMotion: t('光标效果', 'Caret'), fontSize: t('字号', 'Font size'), lineHeight: t('行距', 'Line height'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)'), bottomInset: t('额外底部留白', 'Extra bottom space') }
+  const labels = { theme: t('配色', 'Colors'), caretMotion: t('光标效果', 'Caret'), fontSize: t('字号', 'Font size'), lineHeight: t('行距', 'Line height'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)'), bottomInset: t('额外底部留白', 'Extra bottom space') }
   for (const [key, label] of Object.entries(labels)) {
     const wrap = document.createElement('label'); const text = document.createElement('span'); text.textContent = label; wrap.append(text)
-    const field = key === 'theme' || key === 'fontFamily' || key === 'caretMotion' ? document.createElement('select') : document.createElement('input')
+    const field = key === 'theme' || key === 'caretMotion' ? document.createElement('select') : document.createElement('input')
     field.name = key
     if (field instanceof HTMLSelectElement) {
-      const choices: readonly (readonly [string, string])[] = key === 'fontFamily' ? fontPresets
-        : key === 'caretMotion' ? [['breathing', t('平缓呼吸', 'Gentle breathing')], ['steady', t('不闪烁（常亮）', 'Steady (no blinking)')]]
-        : [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')]]
+      const choices: readonly (readonly [string, string])[] = key === 'caretMotion' ? [['breathing', t('平缓呼吸', 'Gentle breathing')], ['steady', t('不闪烁（常亮）', 'Steady (no blinking)')]]
+        : [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')], ['crt', t('复古绿磷 CRT', 'Retro Green Phosphor CRT')]]
       for (const [value, name] of choices) {
         const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
       }
     }
     else { field.type = 'number'; field.step = key === 'lineHeight' ? '0.1' : '1'; field.required = true }
     field.value = String(state!.preferences[key as keyof typeof labels]); wrap.append(field); form.append(wrap)
+    if (key === 'theme') showFonts(form)
   }
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply'); form.append(submit)
-  form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form) })); await closePanel() }) }
+  form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }
   el('panel-body').append(form)
+  fontPanel?.render(); void fontPanel?.poll()
 }
 async function showSync() {
   await refresh(); await openPanel(t('同步', 'Sync'))
@@ -323,16 +424,18 @@ new ResizeObserver(() => {
   if (mounted) void request<{ fullscreen: boolean }>('fullscreen', { queryOnly: true })
     .then(result => { if (mounted) fullscreenLabel(result.fullscreen) }).catch(error => notice(String(error)))
 }).observe(el('surface'))
-window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer) })
+window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer); stopFontPanel() })
 window.notemd?.onMessage?.(event => {
   if (!event || typeof event !== 'object') return
   const message = event as { type?: string; state?: SumiState; action?: string; message?: string; payload?: unknown; visible?: boolean; detached?: boolean; pageId?: string }
   if (message.type === 'sumi-window-state' && typeof message.visible === 'boolean') {
     windowVisible = message.visible
     if (!windowVisible) {
+      fontPanel?.pause()
       generation++; pendingWindowResume = false; pendingFocusPage = undefined
       if (message.detached) { surface = undefined; surfacePageId = undefined }
     } else {
+      void fontPanel?.poll()
       if (busy) pendingWindowResume = true
       else void run(async () => { await refresh(); await mountPage(true) })
     }

@@ -1,28 +1,34 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defaultPreferences, type SumiState } from './contract'
+import { defaultPreferences, fontPresets, type SumiState, type FontState } from './contract'
 
 const state = (overrides: Partial<SumiState> = {}): SumiState => ({
   available: true, pages: [{ id: 'page-a', excerpt: '第一行', deleted: false }], activePageId: 'page-a',
   preferences: defaultPreferences, sync: { connected: false, pending: 0 }, saveState: 'saved', ...overrides,
 })
 const settle = async () => { for (let i = 0; i < 40; i++) await Promise.resolve() }
-async function setup(next = state(), mount?: () => Promise<unknown>) {
+const fontState = (overrides: Partial<FontState> = {}): FontState => ({
+  fonts: fontPresets.map(([family]) => ({ family, status: 'not_downloaded', downloadedBytes: 0, totalBytes: 10_000_000 })),
+  selectedFont: 'Sumi Plex', pendingFont: null, ...overrides,
+})
+const fontButton = (family: string) => document.querySelector<HTMLButtonElement>(`button[data-font="${family}"]`)!
+async function setup(next = state(), mount?: () => Promise<unknown>, locale = 'zh') {
   vi.resetModules()
   document.body.innerHTML = '<div id="app"></div>'
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-  const request = vi.fn(async (method: string, _params?: unknown) => {
+  const request = vi.fn(async (method: string, _params?: unknown): Promise<unknown> => {
     if (method === 'host.sumi.state' || method === 'host.sumi.page' || method === 'host.sumi.preferences' || method === 'host.sumi.pair') return next
     if (method === 'host.sumi.invite') return { invitation: '{"spaceId":"test-space","code":"test-only","expiresAt":123456}' }
     if (method === 'host.sumi.mount') return mount ? mount() : { id: 'surface-a', generation: 1 }
+    if (method === 'host.sumi.fonts') return fontState({ selectedFont: next.preferences.fontFamily })
     return null
   })
-  window.notemd = { locale: 'zh', request, onMessage: vi.fn() }
+  window.notemd = { locale, request, onMessage: vi.fn() }
   await import('./main')
   await settle()
   return request
 }
-afterEach(() => { sessionStorage.clear(); window.dispatchEvent(new Event('pagehide')); delete window.notemd; vi.unstubAllGlobals() })
+afterEach(() => { sessionStorage.clear(); window.dispatchEvent(new Event('pagehide')); delete window.notemd; vi.unstubAllGlobals(); vi.useRealTimers() })
 
 describe('Sumi native writing shell', () => {
   it('does not create a page or mount a fake web editor on unsupported systems', async () => {
@@ -108,17 +114,23 @@ describe('Sumi native writing shell', () => {
     expect(request).toHaveBeenCalledWith('host.sumi.visible', { surface: { id: 'surface-a', generation: 1 }, visible: true })
     expect(request).toHaveBeenLastCalledWith('host.sumi.focus', { surface: { id: 'surface-a', generation: 1 } })
   })
-  it.each(['Sumi Plex', 'Sumi WenKai', 'Sumi Zhaohua', 'Sumi Youcha', 'Sumi Fangsong'])('applies the %s font combination without changing other preferences', async (fontFamily) => {
+  it.each(fontPresets.map(([family]) => family))('selects the downloaded %s combination without changing other preferences', async (fontFamily) => {
     const preferences = { ...defaultPreferences, theme: 'sepia' as const, fontSize: 32, lineHeight: 1.8 }
     const request = await setup(state({ preferences }))
+    const base = request.getMockImplementation()!
+    const cached = fontState({ fonts: fontState().fonts.map(font => ({ ...font, status: 'ready', downloadedBytes: font.totalBytes })) })
+    request.mockImplementation(async (method, params) => method === 'host.sumi.fonts' ? cached
+      : method === 'host.sumi.font_select' ? { ...cached, selectedFont: fontFamily } : base(method, params))
     document.getElementById('appearance')!.click(); await settle()
     const form = document.querySelector('#panel-body form') as HTMLFormElement
-    const fonts = form.elements.namedItem('fontFamily') as HTMLSelectElement
-    expect(fonts.tagName).toBe('SELECT')
-    expect([...fonts.options].map(option => option.value)).toEqual(['Sumi Plex', 'Sumi WenKai', 'Sumi Zhaohua', 'Sumi Youcha', 'Sumi Fangsong'])
-    fonts.value = fontFamily
+    expect([...form.querySelectorAll<HTMLButtonElement>('[data-font]')].map(button => button.dataset.font)).toEqual(fontPresets.map(([family]) => family))
+    fontButton(fontFamily).click(); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.font_select', { fontFamily })
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-state', state: state({ preferences: { ...preferences, fontFamily } }) }); await settle()
+    expect(fontButton(fontFamily).getAttribute('aria-pressed')).toBe('true')
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
-    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontFamily } })
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontFamily }, preserveFont: true })
   })
   it.each(['breathing', 'steady'] as const)('restores and applies the %s caret preference', async (caretMotion) => {
     const preferences = { ...defaultPreferences, caretMotion, fontFamily: 'Sumi Youcha', fontSize: 32 }
@@ -130,7 +142,7 @@ describe('Sumi native writing shell', () => {
     expect([...caret.options].map(option => option.value)).toEqual(['breathing', 'steady'])
     expect(caret.options[1].textContent).toBe('不闪烁（常亮）')
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
-    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences })
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences, preserveFont: true })
   })
   it('submits the service URL and complete pairing code through the host contract', async () => {
     const request = await setup()
@@ -350,7 +362,7 @@ describe('Sumi focused document commands', () => {
     const request = await setup()
     const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
     receive({ type: 'sumi-action', action: 'settings' }); await settle()
-    expect(document.querySelector('select[name="fontFamily"]')).not.toBeNull()
+    expect(document.querySelector('button[data-font="Sumi Plex"]')).not.toBeNull()
     receive({ type: 'sumi-window-state', visible: false, detached: true }); await settle()
     request.mockClear()
     receive({ type: 'sumi-action', action: 'new_page' }); await settle()
@@ -363,5 +375,238 @@ describe('Sumi focused document commands', () => {
     receive({ type: 'sumi-action', action: 'export' }); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.export', { pageId: 'page-a', format: 'archive' })
     expect(request.mock.calls.map(call => call[0])).not.toContain('host.sumi.page')
+  })
+})
+
+describe('Sumi on-demand font settings', () => {
+  it('restores and applies the retro green CRT theme without downloading fonts', async () => {
+    const preferences = { ...defaultPreferences, theme: 'crt' as const }
+    const request = await setup(state({ preferences }))
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.documentElement.dataset.theme).toBe('crt')
+    const form = document.querySelector<HTMLFormElement>('#panel-body form')!
+    const theme = form.elements.namedItem('theme') as HTMLSelectElement
+    expect(theme.value).toBe('crt')
+    expect([...theme.options].find(option => option.value === 'crt')!.textContent).toBe('复古绿磷 CRT')
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences, preserveFont: true })
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
+  })
+  it('labels the CRT font and theme in English without coupling either choice or changing font size', async () => {
+    const preferences = { ...defaultPreferences, theme: 'sepia' as const, fontSize: 32 }
+    const request = await setup(state({ preferences }), undefined, 'en')
+    const base = request.getMockImplementation()!
+    request.mockImplementation(async (method, params) => method === 'host.sumi.font_select' ? fontState({ pendingFont: 'Sumi CRT' }) : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector<HTMLFormElement>('#panel-body form')!
+    const theme = form.elements.namedItem('theme') as HTMLSelectElement
+    expect([...theme.options].find(option => option.value === 'crt')!.textContent).toBe('Retro Green Phosphor CRT')
+    expect(fontButton('Sumi CRT').textContent).toContain('Retro Green Phosphor CRT · GNU Unifont')
+    fontButton('Sumi CRT').click(); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.font_select', { fontFamily: 'Sumi CRT' })
+    expect(theme.value).toBe('sepia')
+    expect((form.elements.namedItem('fontSize') as HTMLInputElement).value).toBe('32')
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.preferences')).toBe(false)
+  })
+  it('lists all fonts without downloading on startup or when opening settings', async () => {
+    vi.useFakeTimers()
+    const request = await setup()
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.fonts')).toBe(false)
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.querySelectorAll('.font-option')).toHaveLength(fontPresets.length)
+    expect(document.getElementById('font-list-status')!.textContent).toContain('系统字体')
+    expect(fontButton('Sumi Plex').textContent).toContain('未下载，点击下载')
+    expect(fontButton('Sumi Plex').textContent).toContain('10.0 MB')
+    expect(request.mock.calls.filter(([method]) => method === 'host.sumi.fonts')).toHaveLength(1)
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
+    request.mockClear(); await vi.advanceTimersByTimeAsync(3000)
+    expect(request).not.toHaveBeenCalled()
+  })
+  it('starts the default font only on click and does not duplicate a pending request or block writing', async () => {
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let finish!: (value: FontState) => void
+    request.mockImplementation((method, params) => method === 'host.sumi.font_select'
+      ? new Promise(resolve => { finish = resolve as (value: FontState) => void }) : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    const button = fontButton('Sumi Plex')
+    button.click(); button.click(); await settle()
+    expect(request.mock.calls.filter(([method]) => method === 'host.sumi.font_select')).toHaveLength(1)
+    expect(button.textContent).toContain('正在开始')
+    expect((document.getElementById('close') as HTMLButtonElement).disabled).toBe(false)
+    document.getElementById('close')!.click(); await settle()
+    expect(document.getElementById('panel')!.hidden).toBe(true)
+    expect(request).toHaveBeenLastCalledWith('host.sumi.focus', { surface: { id: 'surface-a', generation: 1 } })
+    finish(fontState({ pendingFont: 'Sumi Plex' })); await settle()
+    expect(document.getElementById('panel')!.hidden).toBe(true)
+  })
+  it.each(['not_downloaded', 'ready'] as const)('keeps a queued %s font nonblocking and prevents duplicate clicks before the download/apply worker runs', async (phase) => {
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    const queued = fontState({ pendingFont: 'Sumi Youcha', fonts: fontState().fonts.map(font => font.family === 'Sumi Youcha' ? { ...font, status: phase } : font) })
+    request.mockImplementation(async (method, params) => method === 'host.sumi.font_select' ? queued : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    fontButton('Sumi Youcha').click(); await settle()
+    expect(fontButton('Sumi Youcha').textContent).toContain(phase === 'ready' ? '正在应用' : '准备下载')
+    expect(fontButton('Sumi Youcha').disabled).toBe(true)
+    fontButton('Sumi Youcha').click(); await settle()
+    expect(request.mock.calls.filter(([method]) => method === 'host.sumi.font_select')).toHaveLength(1)
+    expect((document.getElementById('close') as HTMLButtonElement).disabled).toBe(false)
+  })
+  it('restores background progress on reopen and stops polling when the panel closes', async () => {
+    vi.useFakeTimers()
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let next = fontState()
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.fonts') return next
+      if (method === 'host.sumi.font_select') {
+        next = fontState({ pendingFont: 'Sumi Youcha', fonts: fontState().fonts.map(font => font.family === 'Sumi Youcha' ? { ...font, status: 'downloading', downloadedBytes: 2_500_000 } : font) })
+        return next
+      }
+      return base(method, params)
+    })
+    document.getElementById('appearance')!.click(); await settle()
+    fontButton('Sumi Youcha').click(); await settle()
+    expect(fontButton('Sumi Youcha').textContent).toContain('下载中 25%')
+    expect(fontButton('Sumi Youcha').querySelector('progress')!.value).toBe(2_500_000)
+    document.getElementById('close')!.click(); await settle()
+    request.mockClear(); await vi.advanceTimersByTimeAsync(3000)
+    expect(request).not.toHaveBeenCalled()
+    next = { ...next, fonts: next.fonts.map(font => font.family === 'Sumi Youcha' ? { ...font, downloadedBytes: 7_500_000 } : font) }
+    document.getElementById('appearance')!.click(); await settle()
+    expect(fontButton('Sumi Youcha').textContent).toContain('下载中 75%')
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
+  })
+  it('keeps other appearance drafts while progress and background completion arrive', async () => {
+    vi.useFakeTimers()
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let next = fontState({ pendingFont: 'Sumi WenKai', fonts: fontState().fonts.map(font => font.family === 'Sumi WenKai' ? { ...font, status: 'downloading', downloadedBytes: 1_000_000 } : font) })
+    request.mockImplementation(async (method, params) => method === 'host.sumi.fonts' ? next : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector<HTMLFormElement>('#panel-body form')!
+    const size = form.elements.namedItem('fontSize') as HTMLInputElement
+    const theme = form.elements.namedItem('theme') as HTMLSelectElement
+    size.value = '45'; theme.value = 'sepia'
+    await vi.advanceTimersByTimeAsync(750)
+    expect(form.elements.namedItem('fontSize')).toBe(size)
+    next = fontState({ selectedFont: 'Sumi WenKai', fonts: next.fonts.map(font => font.family === 'Sumi WenKai' ? { ...font, status: 'ready', downloadedBytes: font.totalBytes } : font) })
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-state', state: state({ preferences: { ...defaultPreferences, fontFamily: 'Sumi WenKai' } }) }); await settle()
+    await vi.advanceTimersByTimeAsync(750)
+    expect(size.value).toBe('45'); expect(theme.value).toBe('sepia')
+    expect(fontButton('Sumi WenKai').textContent).toContain('使用中')
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...defaultPreferences, fontFamily: 'Sumi WenKai', fontSize: 45, theme: 'sepia' }, preserveFont: true })
+  })
+  it('retries a failed download without changing the current font or the document notice', async () => {
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let tries = 0
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.font_select') {
+        if (++tries === 1) throw new Error('网络断开')
+        return fontState({ pendingFont: 'Sumi Fangsong', fonts: fontState().fonts.map(font => font.family === 'Sumi Fangsong' ? { ...font, status: 'downloading' } : font) })
+      }
+      return base(method, params)
+    })
+    document.getElementById('appearance')!.click(); await settle()
+    fontButton('Sumi Fangsong').click(); await settle()
+    expect(fontButton('Sumi Fangsong').textContent).toContain('下载失败，点击重试')
+    expect(fontButton('Sumi Fangsong').textContent).toContain('网络断开')
+    expect(fontButton('Sumi Plex').getAttribute('aria-pressed')).toBe('true')
+    expect(document.getElementById('notice')!.textContent).not.toContain('网络断开')
+    fontButton('Sumi Fangsong').click(); await settle()
+    expect(tries).toBe(2)
+    expect(fontButton('Sumi Fangsong').textContent).toContain('下载中')
+  })
+  it('shows background download failures from polling and keeps retry available', async () => {
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    const failed = fontState({ fonts: fontState().fonts.map(font => font.family === 'Sumi Zhaohua' ? { ...font, status: 'error', error: '文件校验失败' } : font) })
+    request.mockImplementation(async (method, params) => method === 'host.sumi.fonts' ? failed : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    expect(fontButton('Sumi Zhaohua').textContent).toContain('文件校验失败')
+    expect(fontButton('Sumi Zhaohua').disabled).toBe(false)
+  })
+  it('retries status reads without downloading or replacing the appearance form', async () => {
+    vi.useFakeTimers()
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let reads = 0
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.fonts' && ++reads === 1) throw new Error('temporary status error')
+      return base(method, params)
+    })
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.getElementById('font-list-status')!.textContent).toContain('将自动重试')
+    const size = document.querySelector<HTMLInputElement>('input[name="fontSize"]')!
+    size.value = '36'
+    await vi.advanceTimersByTimeAsync(750)
+    expect(reads).toBe(2)
+    expect(document.getElementById('font-list-status')!.textContent).toContain('系统字体')
+    expect(document.querySelector('input[name="fontSize"]')).toBe(size)
+    expect(size.value).toBe('36')
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.font_select')).toBe(false)
+  })
+  it('does not let an old status response replace the latest selection result', async () => {
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let finishStatus!: (value: FontState) => void
+    request.mockImplementation((method, params) => method === 'host.sumi.fonts'
+      ? new Promise(resolve => { finishStatus = resolve as (value: FontState) => void })
+      : method === 'host.sumi.font_select' ? Promise.resolve(fontState({ pendingFont: 'Sumi Youcha', fonts: fontState().fonts.map(font => font.family === 'Sumi Youcha' ? { ...font, status: 'downloading' } : font) }))
+        : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    fontButton('Sumi Youcha').click(); await settle()
+    finishStatus(fontState()); await settle()
+    expect(fontButton('Sumi Youcha').textContent).toContain('下载中')
+    expect(fontButton('Sumi Youcha').textContent).toContain('完成后使用')
+  })
+  it('ignores older selection replies when another font was chosen later', async () => {
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    const finishes = new Map<string, (value: FontState) => void>()
+    request.mockImplementation((method, params) => method === 'host.sumi.font_select'
+      ? new Promise(resolve => { finishes.set((params as { fontFamily: string }).fontFamily, resolve as (value: FontState) => void) })
+      : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    fontButton('Sumi WenKai').click(); fontButton('Sumi Youcha').click(); await settle()
+    const downloading = fontState().fonts.map(font => ['Sumi WenKai', 'Sumi Youcha'].includes(font.family) ? { ...font, status: 'downloading' as const } : font)
+    finishes.get('Sumi Youcha')!(fontState({ pendingFont: 'Sumi Youcha', fonts: downloading })); await settle()
+    finishes.get('Sumi WenKai')!(fontState({ pendingFont: 'Sumi WenKai', fonts: downloading })); await settle()
+    expect(fontButton('Sumi Youcha').textContent).toContain('完成后使用')
+    expect(fontButton('Sumi WenKai').textContent).not.toContain('完成后使用')
+  })
+  it('discards late font responses after switching panels or unloading', async () => {
+    vi.useFakeTimers()
+    const request = await setup()
+    const base = request.getMockImplementation()!
+    let finish!: (value: FontState) => void
+    request.mockImplementation((method, params) => method === 'host.sumi.fonts'
+      ? new Promise(resolve => { finish = resolve as (value: FontState) => void }) : base(method, params))
+    document.getElementById('appearance')!.click(); await settle()
+    document.getElementById('sync')!.click(); await settle()
+    finish(fontState()); await settle()
+    expect(document.querySelector('#panel-body .font-list')).toBeNull()
+    expect(document.querySelector('input[name="serviceUrl"]')).not.toBeNull()
+    request.mockClear(); await vi.advanceTimersByTimeAsync(3000)
+    expect(request).not.toHaveBeenCalled()
+    document.getElementById('appearance')!.click(); await settle()
+    window.dispatchEvent(new Event('pagehide'))
+    request.mockClear(); finish(fontState()); await settle(); await vi.advanceTimersByTimeAsync(3000)
+    expect(request).not.toHaveBeenCalled()
+  })
+  it('pauses hidden-window polling and resumes with a fresh local status read', async () => {
+    vi.useFakeTimers()
+    const request = await setup()
+    document.getElementById('appearance')!.click(); await settle()
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-window-state', visible: false }); await settle()
+    request.mockClear(); await vi.advanceTimersByTimeAsync(3000)
+    expect(request).not.toHaveBeenCalled()
+    receive({ type: 'sumi-window-state', visible: true }); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.fonts', undefined)
   })
 })

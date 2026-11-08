@@ -17,6 +17,9 @@
     ],
     "Sumi Fangsong": [
       "ZhuqueFangsong-Regular"
+    ],
+    "Sumi CRT": [
+      "Unifont"
     ]
   },
   "assets": [
@@ -111,6 +114,26 @@
       "url": "https://raw.githubusercontent.com/TrionesType/zhuque/v0.212/LICENSE.txt",
       "size": 4389,
       "sha256": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043"
+    },
+    {
+      "file": "Unifont-18.0.01.otf",
+      "url": "https://unifoundry.com/pub/unifont/unifont-18.0.01/font-builds/unifont-18.0.01.otf",
+      "sha256": "88d0a14d4aa9a96419720b39ba5da921a59560d76d4ec7d523acc06ed85cd3c2",
+      "postscript": "Unifont",
+      "size": 5320148,
+      "license": "OFL-1.1"
+    },
+    {
+      "file": "Unifont-OFL.txt",
+      "size": 4340,
+      "sha256": "869692af094c57fb7258c57fe26820c759319603321d0ffeb278de3651763ded",
+      "url": "https://www.unifoundry.com/OFL-1.1.txt"
+    },
+    {
+      "file": "CRT-PROVENANCE.json",
+      "size": 2702,
+      "sha256": "a467c8a02478b57bc77e565671f2844a9e32dc53c21954d31e03d9f347ddcd7a",
+      "bundled": true
     }
   ]
 }

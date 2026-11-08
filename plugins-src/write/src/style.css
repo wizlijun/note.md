@@ -2,6 +2,7 @@
 :root[data-theme="ink"] { --paper:#080808; --ink:#fff }
 :root[data-theme="paper"] { color-scheme:light; --paper:#fafafa; --ink:#222 }
 :root[data-theme="sepia"] { color-scheme:light; --paper:#f3ead7; --ink:#44413c }
+:root[data-theme="crt"] { color-scheme:dark; --paper:#000000; --ink:#0ccc68 }
 * { box-sizing:border-box }
 body { margin:0 }
 [hidden] { display:none !important }
@@ -26,3 +27,12 @@ textarea { min-height:100px; margin-top:18px }
 form button { justify-self:end; border:1px solid color-mix(in srgb,var(--ink) 22%,transparent) }
 .page-row { display:flex; align-items:center; border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent) }
 .page-open { flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:16px 4px }
+.font-list { display:grid; gap:8px }
+.font-list h2 { margin:0; font-size:14px; opacity:1 }
+#font-list-status { margin:0 0 4px; font-size:12px; opacity:.7; line-height:1.5 }
+form .font-option { display:grid; gap:5px; width:100%; text-align:left; padding:10px 12px; justify-self:stretch }
+.font-option[aria-pressed="true"] { border-color:var(--ink) }
+.font-option[aria-busy="true"]:disabled { opacity:1; cursor:default }
+.font-name { font-size:13px }
+.font-detail { font-size:12px; opacity:.7; line-height:1.5; overflow-wrap:anywhere }
+.font-option progress { width:100%; height:4px; accent-color:var(--ink) }

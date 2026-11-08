@@ -670,6 +670,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (NSFont *)baseFont {
     CGFloat size=[self.appearance[@"font_size"] doubleValue];
     NSString *family=self.appearance[@"font_family"];
+    if([family isEqualToString:@"Sumi System"])return [NSFont monospacedSystemFontOfSize:size weight:NSFontWeightLight];
     NSFontDescriptor *descriptor=SumiRegisteredFonts[family];
     if(descriptor)return [NSFont fontWithDescriptor:descriptor size:size];
     return [NSFont fontWithName:family size:size] ?: [NSFont systemFontOfSize:size];

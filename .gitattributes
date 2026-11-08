@@ -54,3 +54,6 @@ src/share-editor/__fixtures__/corpus/source-fidelity/crlf.md -text
 # Bundled upstream font licenses are pinned to their original bytes (CRLF).
 src-tauri/resources/sumi/IBMPlexMono-OFL.txt -text
 src-tauri/resources/sumi/IBMPlexSansSC-LICENSE.txt -text
+
+# Preserve the upstream Unifont license, including its original trailing space.
+src-tauri/resources/sumi/Unifont-OFL.txt -text whitespace=-blank-at-eol,cr-at-eol

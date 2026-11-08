@@ -1,6 +1,6 @@
 # Sumi 发布产物只读验收
 
-固定首发宿主 `6.1108.1`、插件 `0.1.0`。脚本不构建、不启动 App、不安装、不签名、不发布；DMG 使用独立只读挂载点，并只卸载本次挂载返回的设备。`artifact_checks.py` 从既有 diagram-transparent 发布验收器提取通用检查，只增加 DMG 资源回调。
+当前目标宿主 `6.1108.4`、插件 `0.1.3`（按需字体薄包）。旧发布证据保持原版本范围，不用本脚本的新契约回写历史包。脚本不构建、不启动 App、不安装、不签名、不发布；DMG 使用独立只读挂载点，并只卸载本次挂载返回的设备。`artifact_checks.py` 从既有 diagram-transparent 发布验收器提取通用检查，只增加 DMG 资源回调。
 
 先完成源码精确提交，再按同一提交构建宿主与插件 UI。冻结实际输入：
 
@@ -19,12 +19,12 @@ python3 scripts/sumi/verify-release.py --freeze-inputs \
 ```sh
 python3 scripts/sumi/verify-release.py \
   --arch arm64 \
-  --tag v6.1108.1 --expected-source FULL_COMMIT_SHA \
+  --tag v6.1108.4 --expected-source FULL_COMMIT_SHA \
   --inputs /absolute/release/frozen-sumi-inputs.json \
   --app '/absolute/build/bundle/macos/note.md.app' \
   --depfile /absolute/build/deps/notemd_lib.d \
   --dist dist \
-  --dmg /absolute/release/note.md-6.1108.1-aarch64.dmg \
+  --dmg /absolute/release/note.md-6.1108.4-aarch64.dmg \
   --updater /absolute/release/note.md-aarch64.app.tar.gz \
   --updater-signature /absolute/release/note.md-aarch64.app.tar.gz.sig \
   --plugin-package /absolute/release/universal.notemdpkg \
@@ -39,6 +39,9 @@ python3 scripts/sumi/verify-release.py \
 
 updater 的 `.sig` 默认取归档旁同名文件，按正式脚本解码 Tauri base64 包装并用冻结配置公钥验签。插件公钥从冻结宿主的 `PLUGIN_REGISTRY_PUBKEY` 获取，不接受包自带公钥。插件包必须与冻结的 manifest/UI 文件集合及每一项 SHA 完全一致；附加文件、缺项、路径穿越、软链接均拒绝。
 
-验证同时覆盖：正式 bundle/version、显式选择的 arm64 或 x86_64 CPU、codesign/spctl/stapler、App/updater/DMG 的相同 Mach-O 与签名资源清单、仅五组所选六字体、许可证及原始授权元数据的精确字节，并核对Plex精确Light字型映射、原生 Objective-C bridge class metadata、AppKit/CoreText 动态链接且无 Qt 动态链接、宿主 NativeFileView/Recovery/source/退出契约所处完整 JS 模块从 Mach-O 内 Brotli 片段恢复一致。报告包含 `architecture`。架构选项不会跳过字体、签名、公证或完整模块检查；自测同时覆盖两种 CPU 正例与错 CPU/通用架构负例。不会把 token 检查称为行为测试，也不会把字节包含证明称为 PHF 运行路由验证。
+验证同时覆盖：正式 bundle/version、显式选择的 arm64 或 x86_64 CPU、codesign/spctl/stapler、App/updater/DMG 的相同 Mach-O 与签名资源清单、六组所选七字体的冻结目录、许可证及原始授权元数据的精确字节；App/DMG/updater/插件任何路径均禁止夹带字体文件，并核对Plex精确Light字型映射、原生 Objective-C bridge class metadata、AppKit/CoreText 动态链接且无 Qt 动态链接、宿主 NativeFileView/Recovery/source/退出契约所处完整 JS 模块从 Mach-O 内 Brotli 片段恢复一致。报告包含 `architecture`。架构选项不会跳过字体目录/薄包、签名、公证或完整模块检查；自测同时覆盖两种 CPU 正例与错 CPU/通用架构负例。不会把 token 检查称为行为测试，也不会把字节包含证明称为 PHF 运行路由验证。
 
 仍需独立保存最终安装包的实机 UI、IME、辅助功能、离线合并和性能验收证据；该脚本不宣称这些已通过。脚本报告只写指定 `--output`，测试文件仅写临时目录。
+
+
+按需字体资源门禁：Sumi目录只允许 `manifest.json` 和精确列明的小型许可/来源文件；不得出现.ttf/.otf/.woff/.woff2/.ttc/.otc（含大小写变体）。字体本体在开发目录是gitignored资源，不声称已进入冻结tag；若存在必须与tag中的大小/SHA匹配，缺少开发字体不阻止验证薄包。下载后缓存内容的大小/SHA、原生字体身份、后台生命周期、断网及重试由独立功能验收验证，不能用“包内没有字体”代替。报告同时记录实际宿主/插件包体积，与此前13.5MB宿主基线比较。

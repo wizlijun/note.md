@@ -20,8 +20,8 @@ tab and session generation in the host **before** calling these Rust APIs:
   composition and the actual TextKit 2 state (for acceptance/debugging).
 - `detach(&window, id, generation)` — remove only the matching surface.
 
-`register_font(window, fixed_resource_path, expected_family)` is Rust-only. It
-registers trusted bundled faces with CoreText process scope, checks
+`register_font(window, verified_cache_path, expected_family)` is Rust-only. It
+registers trusted, SHA-verified cached faces with CoreText process scope, checks
 the real family, and retains its actual descriptor for layout. It never installs
 a system font. Missing resources and mismatched families fail explicitly.
 
@@ -97,7 +97,7 @@ next launch restores. It has no production Vault access or real sync transport.
 Undo, format and rich-paste events are diagnostics here, not a replacement for
 the host's write-core implementation.
 
-`native/font-probe.m` uses the same Clang/link flags and takes the absolute bundled
+`native/font-probe.m` uses the same Clang/link flags and takes the absolute pinned
 OTF path. It checks missing/mismatched rejection, repeated process registration,
 and the real family/face attached to NSTextView storage. It does not install fonts.
 
@@ -105,7 +105,7 @@ and the real family/face attached to NSTextView storage. It does not install fon
 actual CoreText glyph-run PostScript faces for the five selected combinations.
 It verifies both Plex Light weights, rejects a Light file registered as Regular,
 and reports the actual system fallback for a character outside each selected
-combination. It does not claim those characters are covered by the bundled faces.
+combination. It does not claim those characters are covered by the pinned faces.
 It does not show a window or install fonts.
 Descriptor names alone are insufficient.
 
@@ -133,7 +133,7 @@ do not scale it or modify document text, selection or revision.
 
 `native/padding-probe.m` checks real TextKit line and caret geometry across
 8/22/32/50/96pt and large, narrow and short viewports. It captures unordered AppKit
-rasters at 22pt and 50pt with the bundled Zhaohua font and sepia theme, without
+rasters at 22pt and 50pt with the pinned Zhaohua font and sepia theme, without
 activating or showing a window. These are native offscreen rendering checks, not
 physical-screen acceptance of a packaged application.
 
@@ -169,8 +169,26 @@ TextKit 2 system-caret positive control, captures AppKit bitmap pixels, checks t
 single custom caret through font/theme changes and IME, and verifies a suppression
 mutation exposes a duplicate. Continuous state observations and immediate raster
 samples cover marked-text updates, selected clauses, replacement, newline and
-commit with the bundled 32pt Zhaohua/sepia/steady preferences. Use the Clang flags above with deployment target
+commit with the pinned 32pt Zhaohua/sepia/steady preferences. Use the Clang flags above with deployment target
 13.0 and run from the repository root. Both keep their windows unordered and use
 an activation-prohibited application; active eligibility is simulated. This
 proves offscreen native rendering, not final-package on-screen/physical IME
 acceptance or measured animation frame rate.
+
+
+## On-demand writing fonts
+
+The host and plugin ship only the pinned catalog, licenses and provenance. Font
+binaries are downloaded only after an explicit font-list click, into the host's
+private application cache. Listing fonts, opening settings and mounting a page
+never start network requests. The host owns progress, duplicate-request handling
+and integrity verification, so closing settings does not stop a download. Only
+the latest explicit selection may apply on completion, preserving all other
+appearance fields; native appearance changes remain deferred through composition.
+
+`Sumi System` is the internal runtime fallback when a selected face is not cached:
+AppKit's monospaced Light with normal system Chinese fallback. It is not an extra
+font preset and does not overwrite the persisted selection. Six downloadable
+presets include the optional GNU Unifont-only `Sumi CRT` selection for unified
+English and Chinese pixel glyphs; rare characters can still use system fallback.
+The CRT theme uses green `#0ccc68` over black `#000000`.

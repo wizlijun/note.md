@@ -4,6 +4,7 @@ pub mod credentials;
 pub mod durability;
 mod export;
 mod external;
+mod fonts;
 mod paste;
 pub mod recovery;
 pub mod sync;
@@ -47,6 +48,14 @@ pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
 }
 static WORKSPACES: LazyLock<tokio::sync::Mutex<HashMap<PathBuf, Arc<Workspace>>>> =
     LazyLock::new(Default::default);
+static FONT_MANAGERS: LazyLock<Mutex<HashMap<PathBuf, fonts::Manager>>> =
+    LazyLock::new(Default::default);
+
+fn font_manager<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<fonts::Manager> {
+    let directory = app.path().app_local_data_dir().map_err(err)?.join("sumi/fonts/v1");
+    Ok(FONT_MANAGERS.lock().map_err(err)?.entry(directory.clone())
+        .or_insert_with(|| fonts::Manager::new(directory)).clone())
+}
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -90,7 +99,7 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn normalize_stored_font(&mut self) -> bool {
-        if bundled_fonts(&self.font_family).is_empty() {
+        if !fonts::known_font(&self.font_family) {
             self.font_family = "Sumi Plex".into();
             true
         } else {
@@ -98,8 +107,8 @@ impl Preferences {
         }
     }
     fn validate(&self) -> Result<()> {
-        if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia")
-            || bundled_fonts(&self.font_family).is_empty()
+        if !matches!(self.theme.as_str(), "ink" | "dim" | "paper" | "sepia" | "crt")
+            || !fonts::known_font(&self.font_family)
             || !matches!(self.caret_motion.as_str(), "breathing" | "steady")
             || !self.font_size.is_finite()
             || !(8. ..=96.).contains(&self.font_size)
@@ -117,6 +126,7 @@ impl Preferences {
         let (foreground, background) = match self.theme.as_str() {
             "paper" => ("#111111", "#ffffff"),
             "sepia" => ("#44413c", "#f3ead7"),
+            "crt" => ("#0ccc68", "#000000"),
             "ink" => ("#ffffff", "#000000"),
             _ => ("#b8b8b8", "#111111"),
         };
@@ -295,12 +305,20 @@ pub(super) struct Workspace {
     durable: Durability,
     papers: Mutex<HashMap<String, Paper>>,
     preferences: Mutex<Preferences>,
+    appearance_changes: tokio::sync::Mutex<()>,
+    font_selection: Mutex<FontSelection>,
     active: Mutex<Option<String>>,
     navigation_version: AtomicU64,
     position_writes: tokio::sync::Mutex<()>,
     lifecycle: tokio::sync::Mutex<()>,
     network: OnceLock<coordinator::Handle>,
     pending_directory: Mutex<Option<Vec<Entry>>>,
+}
+
+#[derive(Default)]
+struct FontSelection {
+    generation: u64,
+    pending: Option<String>,
 }
 
 fn authorize(plugin: &str) -> Result<()> {
@@ -420,6 +438,8 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         durable,
         papers: Mutex::new(HashMap::new()),
         preferences: Mutex::new(preferences),
+        appearance_changes: tokio::sync::Mutex::new(()),
+        font_selection: Mutex::new(FontSelection::default()),
         active: Mutex::new(active),
         navigation_version: AtomicU64::new(1),
         position_writes: tokio::sync::Mutex::new(()),
@@ -1576,27 +1596,6 @@ pub(super) async fn directory_changed<R: Runtime>(
     }
     result
 }
-fn bundled_fonts(preference: &str) -> &'static [(&'static str, &'static str)] {
-    match preference {
-        "Sumi Plex" => &[
-            ("IBMPlexMono-Light.ttf", "IBMPlexMono-Light"),
-            ("IBMPlexSansSC-Light.otf", "IBMPlexSansSC-Light"),
-        ],
-        "Sumi WenKai" => &[
-            ("LXGWWenKaiMonoLite-Regular.ttf", "LXGWWenKaiMonoLite-Regular"),
-        ],
-        "Sumi Zhaohua" => &[
-            ("ZhaohuaTypeWriter.ttf", "ZhaohuaTypeWriter-Light"),
-        ],
-        "Sumi Youcha" => &[
-            ("YouchaSanz.ttf", "YouchaSanz-Light"),
-        ],
-        "Sumi Fangsong" => &[
-            ("ZhuqueFangsong-Regular.ttf", "ZhuqueFangsong-Regular"),
-        ],
-        _ => &[],
-    }
-}
 async fn load_preferences(durable: &Durability) -> Result<Preferences> {
     let stored = durable.preferences("appearance".into()).await?;
     let missing_caret_motion = stored.as_ref().is_some_and(|value| value.get("caretMotion").is_none());
@@ -1608,36 +1607,116 @@ async fn load_preferences(durable: &Durability) -> Result<Preferences> {
     }
     Ok(preferences)
 }
+// Runtime fallback is not a sixth font choice and never triggers network I/O.
 async fn ensure_font<R: Runtime>(
     app: &tauri::AppHandle<R>,
     window: &WebviewWindow<R>,
     appearance: &native::Appearance,
-) -> Result<()> {
-    let fonts = bundled_fonts(&appearance.font_family);
-    if fonts.is_empty() { return Err("无效的写作字体组合".into()); }
-    for (file, family) in fonts {
-        let path = app
-            .path()
-            .resolve(
-                format!("resources/sumi/{file}"),
-                tauri::path::BaseDirectory::Resource,
-            )
-            .map_err(err)?;
-        native::register_font(window, path, (*family).into())
-            .await
+) -> Result<native::Appearance> {
+    if !fonts::known_font(&appearance.font_family) { return Err("无效的写作字体组合".into()); }
+    let manager = font_manager(app)?;
+    let Some(files) = manager.files(&appearance.font_family).await.unwrap_or(None) else {
+        let mut fallback = appearance.clone();
+        fallback.font_family = "Sumi System".into();
+        return Ok(fallback);
+    };
+    for font in &files {
+        native::register_font(window, font.path.clone(), font.postscript.clone()).await
             .map_err(|e| format!("无法加载 Sumi 统一字体：{e}"))?;
     }
-    native::register_font_cascade(
-        window,
-        appearance.font_family.clone(),
-        fonts
-            .iter()
-            .map(|(_, family)| (*family).to_string())
-            .collect(),
-    )
-    .await
-    .map_err(|e| format!("无法加载 Sumi 打字机组合字体：{e}"))?;
+    native::register_font_cascade(window, appearance.font_family.clone(),
+        files.into_iter().map(|font| font.postscript).collect()).await
+        .map_err(|e| format!("无法加载 Sumi 打字机组合字体：{e}"))?;
+    Ok(appearance.clone())
+}
+
+async fn font_status(ws: &Workspace, manager: &fonts::Manager) -> Result<Value> {
+    let fonts = manager.statuses().await?;
+    let selected = ws.preferences.lock().map_err(err)?.font_family.clone();
+    let pending = ws.font_selection.lock().map_err(err)?.pending.clone();
+    Ok(json!({"fonts": fonts, "selectedFont": selected, "pendingFont": pending}))
+}
+
+async fn begin_font_selection(ws: &Workspace, family: &str) -> Result<Option<u64>> {
+    if !fonts::known_font(family) { return Err("无效的写作字体组合".into()); }
+    let _appearance = ws.appearance_changes.lock().await;
+    let mut selection = ws.font_selection.lock().map_err(err)?;
+    if selection.pending.as_deref() == Some(family) { return Ok(None); }
+    selection.generation += 1;
+    selection.pending = Some(family.into());
+    Ok(Some(selection.generation))
+}
+
+async fn complete_font_selection(ws: &Workspace, generation: u64, family: &str) -> Result<bool> {
+    let _appearance = ws.appearance_changes.lock().await;
+    {
+        let selection = ws.font_selection.lock().map_err(err)?;
+        if selection.generation != generation || selection.pending.as_deref() != Some(family) { return Ok(false); }
+    }
+    let mut preferences = ws.preferences.lock().map_err(err)?.clone();
+    preferences.font_family = family.into();
+    preferences.validate()?;
+    ws.durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
+    *ws.preferences.lock().map_err(err)? = preferences;
+    ws.font_selection.lock().map_err(err)?.pending = None;
+    Ok(true)
+}
+
+async fn save_appearance(ws: &Workspace, mut preferences: Preferences, preserve_font: bool) -> Result<()> {
+    let _appearance = ws.appearance_changes.lock().await;
+    let current_font = ws.preferences.lock().map_err(err)?.font_family.clone();
+    if preserve_font { preferences.font_family = current_font.clone(); }
+    preferences.validate()?;
+    let replace_font = !preserve_font && preferences.font_family != current_font;
+    ws.durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
+    *ws.preferences.lock().map_err(err)? = preferences;
+    if replace_font {
+        let mut selection = ws.font_selection.lock().map_err(err)?;
+        selection.generation += 1;
+        selection.pending = None;
+    }
     Ok(())
+}
+
+async fn select_font<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, family: &str) -> Result<Value> {
+    let manager = font_manager(app)?;
+    if let Some(generation) = begin_font_selection(ws, family).await? {
+        let app = app.clone();
+        let ws = ws.clone();
+        let family = family.to_owned();
+        let worker = manager.clone();
+        tauri::async_runtime::spawn(async move {
+            let result = async {
+                worker.download(&family).await?;
+                current(&app, &ws)?;
+                // Register on the UI thread before persisting the new selection.
+                let window = app.get_webview_window(&crate::plugin_runtime::windows::window_label(PLUGIN, "main"))
+                    .or_else(|| app.get_webview_window("main")).ok_or("编辑窗口已关闭")?;
+                let mut appearance = ws.preferences.lock().map_err(err)?.appearance();
+                appearance.font_family = family.clone();
+                let prepared = ensure_font(&app, &window, &appearance).await?;
+                if prepared.font_family != family { return Err("字体缓存不可用，请重试下载".into()); }
+                current(&app, &ws)?;
+                if complete_font_selection(&ws, generation, &family).await? {
+                    current(&app, &ws)?;
+                    apply_appearance(&app, &ws, None).await?;
+                    if let Ok(state) = state_value(&ws).await { push(&app, &json!({"type":"sumi-state","state":state})); }
+                }
+                Ok::<_, String>(())
+            }.await;
+            if let Err(error) = result {
+                let report = ws.font_selection.lock().map(|mut selection| {
+                    if selection.generation != generation { return false; }
+                    selection.pending = None;
+                    true
+                }).unwrap_or(false);
+                if report && current(&app, &ws).is_ok() {
+                    push(&app, &json!({"type":"sumi-error","message":format!("字体下载或应用失败，可在外观设置中重试：{error}")}));
+                }
+            }
+        });
+    }
+    font_status(ws, &manager).await
 }
 
 async fn mount<R: Runtime>(
@@ -1670,8 +1749,9 @@ async fn mount<R: Runtime>(
     current(app, ws)?;
     drain_remote_locked(app, ws, page_id).await?;
     load_position(ws, page_id).await?;
+    let _appearance = ws.appearance_changes.lock().await;
     let appearance = ws.preferences.lock().map_err(err)?.appearance();
-    ensure_font(app, window, &appearance).await?;
+    let appearance = ensure_font(app, window, &appearance).await?;
     let surface = Surface {
         surface_id: Uuid::new_v4().to_string(),
         generation: 1,
@@ -2836,6 +2916,9 @@ async fn apply_appearance<R: Runtime>(
     ws: &Workspace,
     page: Option<&str>,
 ) -> Result<()> {
+    // Serialize the snapshot, asynchronous font preparation and native apply.
+    // A slower old request must never repaint over a later selected font/theme.
+    let _appearance = ws.appearance_changes.lock().await;
     let appearance = ws.preferences.lock().map_err(err)?.appearance();
     let owners = {
         let papers = ws.papers.lock().map_err(err)?;
@@ -2847,7 +2930,7 @@ async fn apply_appearance<R: Runtime>(
     };
     for o in owners {
         let window = app.get_webview_window(&o.window).ok_or("编辑窗口已关闭")?;
-        ensure_font(app, &window, &appearance).await?;
+        let appearance = ensure_font(app, &window, &appearance).await?;
         let surface = o.surface.unwrap();
         if let Err(error) = native::command(
             &window,
@@ -2896,11 +2979,13 @@ async fn document_command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Worksp
     if action=="save" {
         flush(ws,window,tab,page,surface.as_ref().map(|s|(s.surface_id.as_str(),s.generation))).await?;
     } else {
+        let _appearance = ws.appearance_changes.lock().await;
         let mut prefs=ws.preferences.lock().map_err(err)?.clone();
         prefs.font_size=match action {"zoom_in"=>(prefs.font_size+2.).min(96.),"zoom_out"=>(prefs.font_size-2.).max(8.),"zoom_reset"=>Preferences::default().font_size,_=>return Err("不支持的写作命令".into())};
         prefs.validate()?;
         ws.durable.set_preferences("appearance".into(),serde_json::to_value(&prefs).map_err(err)?).await?;
         *ws.preferences.lock().map_err(err)?=prefs;
+        drop(_appearance);
         apply_appearance(app,ws,None).await?;
     }
     if let Ok(state)=state_value(ws).await {push(app,&json!({"type":"sumi-state","state":state}));}
@@ -2961,6 +3046,8 @@ pub async fn dispatch<R: Runtime>(
     let page = || text("pageId");
     match method {
         "host.sumi.state" => state_value(&ws).await,
+        "host.sumi.fonts" => font_status(&ws, &font_manager(app)?).await,
+        "host.sumi.font_select" => select_font(app, &ws, text("fontFamily")?).await,
         "host.sumi.command" => {
             let action=text("action")?;
             if action=="close" {
@@ -3111,16 +3198,8 @@ pub async fn dispatch<R: Runtime>(
             Ok(Value::Null)
         }
         "host.sumi.preferences" => {
-            let prefs: Preferences =
-                serde_json::from_value(params["preferences"].clone()).map_err(err)?;
-            prefs.validate()?;
-            ws.durable
-                .set_preferences(
-                    "appearance".into(),
-                    serde_json::to_value(&prefs).map_err(err)?,
-                )
-                .await?;
-            *ws.preferences.lock().map_err(err)? = prefs;
+            let prefs: Preferences = serde_json::from_value(params["preferences"].clone()).map_err(err)?;
+            save_appearance(&ws, prefs, params["preserveFont"].as_bool() == Some(true)).await?;
             apply_appearance(app, &ws, None).await?;
             state_value(&ws).await
         }
@@ -3275,20 +3354,11 @@ mod tests {
         assert_eq!(serde_json::to_value(load_preferences(&reopened).await.unwrap()).unwrap(), expected);
     }
     #[test]
-    fn font_registration_matches_the_shipped_cascade_manifest() {
+    fn font_catalog_contains_only_selected_presets() {
         let manifest: Value = serde_json::from_str(include_str!("../../resources/sumi/manifest.json")).unwrap();
-        let assets = manifest["assets"].as_array().unwrap();
-        assert_eq!(manifest["cascades"].as_object().unwrap().len(), 5);
-        for (alias, expected) in manifest["cascades"].as_object().unwrap() {
-            let fonts = bundled_fonts(alias);
-            assert_eq!(json!(fonts.iter().map(|(_, name)| *name).collect::<Vec<_>>()), *expected, "{alias}");
-            for (file, name) in fonts {
-                let asset = assets.iter().find(|asset| asset["file"] == *file).expect("font missing from resource manifest");
-                if let Some(postscript) = asset.get("postscript") {
-                    assert_eq!(postscript, name, "{alias}: {file}");
-                }
-            }
-        }
+        for alias in manifest["cascades"].as_object().unwrap().keys() { assert!(fonts::known_font(alias)); }
+        assert!(!fonts::known_font("Sumi Elite"));
+        assert!(!fonts::known_font("../../other-font"));
     }
     #[test]
     fn pairing_ui_roundtrips_the_complete_invitation_without_exposing_invalid_input() {
@@ -3461,6 +3531,8 @@ mod tests {
             durable,
             papers: Mutex::new(HashMap::from([(id.clone(), paper)])),
             preferences: Mutex::new(Preferences::default()),
+            appearance_changes: tokio::sync::Mutex::new(()),
+            font_selection: Mutex::new(FontSelection::default()),
             active: Mutex::new(Some(id.clone())),
             navigation_version: AtomicU64::new(1),
         position_writes: tokio::sync::Mutex::new(()),
@@ -3470,6 +3542,55 @@ mod tests {
         });
         (temp, ws, id)
     }
+    #[tokio::test]
+    async fn font_download_completion_only_applies_the_last_explicit_selection() {
+        let (_temp, ws, id) = fixture().await;
+        let before = ws.papers.lock().unwrap()[&id].doc.encode_full();
+        let first = begin_font_selection(&ws, "Sumi WenKai").await.unwrap().unwrap();
+        assert_eq!(begin_font_selection(&ws, "Sumi WenKai").await.unwrap(), None);
+        let second = begin_font_selection(&ws, "Sumi Youcha").await.unwrap().unwrap();
+        assert!(!complete_font_selection(&ws, first, "Sumi WenKai").await.unwrap());
+        assert_eq!(ws.font_selection.lock().unwrap().pending.as_deref(), Some("Sumi Youcha"));
+        assert!(complete_font_selection(&ws, second, "Sumi Youcha").await.unwrap());
+        assert!(!complete_font_selection(&ws, first, "Sumi WenKai").await.unwrap());
+        assert_eq!(ws.preferences.lock().unwrap().font_family, "Sumi Youcha");
+        assert_eq!(load_preferences(&ws.durable).await.unwrap().font_family, "Sumi Youcha");
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.encode_full(), before);
+    }
+
+    #[tokio::test]
+    async fn background_font_completion_and_appearance_form_preserve_each_others_fields() {
+        let (_temp, ws, id) = fixture().await;
+        let before = ws.papers.lock().unwrap()[&id].doc.encode_full();
+        let generation = begin_font_selection(&ws, "Sumi WenKai").await.unwrap().unwrap();
+        let mut form = Preferences::default();
+        form.font_size = 50.; form.theme = "sepia".into(); form.bottom_inset = 80.;
+        save_appearance(&ws, form.clone(), true).await.unwrap();
+        assert!(complete_font_selection(&ws, generation, "Sumi WenKai").await.unwrap());
+        // A form created before completion must not restore its old Plex value.
+        form.line_height = 2.;
+        save_appearance(&ws, form, true).await.unwrap();
+        let restored = load_preferences(&ws.durable).await.unwrap();
+        assert_eq!(restored.font_family, "Sumi WenKai");
+        assert_eq!((restored.font_size, restored.line_height, restored.bottom_inset), (50., 2., 80.));
+        assert_eq!(restored.theme, "sepia");
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.encode_full(), before);
+    }
+
+    #[tokio::test]
+    async fn invalid_appearance_does_not_cancel_pending_font_and_explicit_old_client_change_does() {
+        let (_temp, ws, _) = fixture().await;
+        let generation = begin_font_selection(&ws, "Sumi Youcha").await.unwrap().unwrap();
+        let mut invalid = Preferences::default(); invalid.font_size = 0.;
+        assert!(save_appearance(&ws, invalid, false).await.is_err());
+        assert_eq!(ws.font_selection.lock().unwrap().pending.as_deref(), Some("Sumi Youcha"));
+        let mut selected = Preferences::default(); selected.font_family = "Sumi Fangsong".into();
+        save_appearance(&ws, selected, false).await.unwrap();
+        assert!(!complete_font_selection(&ws, generation, "Sumi Youcha").await.unwrap());
+        assert_eq!(load_preferences(&ws.durable).await.unwrap().font_family, "Sumi Fangsong");
+        assert!(begin_font_selection(&ws, "https://arbitrary.example/font.ttf").await.is_err());
+    }
+
     #[tokio::test]
     async fn composition_defers_inbox_blob_reads_until_commit_and_keeps_fifo() {
         let (temp, ws, id) = fixture().await;

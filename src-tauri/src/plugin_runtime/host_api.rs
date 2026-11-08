@@ -86,6 +86,7 @@ pub fn method_capability(method: &str) -> Option<&'static str> {
         "host.settings.get" | "host.settings.set" => Some("settings"),
         "host.sumi.state" | "host.sumi.page" | "host.sumi.mount" | "host.sumi.detach"
         | "host.sumi.bounds" | "host.sumi.visible" | "host.sumi.focus" | "host.sumi.focus_existing" | "host.sumi.preferences"
+        | "host.sumi.fonts" | "host.sumi.font_select"
         | "host.sumi.fullscreen" | "host.sumi.pair" | "host.sumi.invite"
         | "host.sumi.command" | "host.sumi.export" | "host.sumi.restore_projection" => Some("editor.native"),
         "host.quickLaunch.get" | "host.quickLaunch.save" | "host.quickLaunch.run" => Some("quick-launch"),

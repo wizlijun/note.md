@@ -11,10 +11,12 @@ static int command(void *handle,NSDictionary *value){
     NSData *data=[NSJSONSerialization dataWithJSONObject:value options:0 error:nil];
     return sumi_editor_command(handle,[[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding] UTF8String]);
 }
-static NSDictionary *check(CGFloat size,CGFloat gutter,CGFloat vertical,NSSize viewport,NSUInteger columns,CGFloat bottom,BOOL raster){
+static NSDictionary *check(NSString *mode,CGFloat size,CGFloat gutter,CGFloat vertical,NSSize viewport,NSUInteger columns,CGFloat bottom,BOOL raster){
     NSWindow *window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,viewport.width,viewport.height) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
     NSString *body=@"Sumi, a quiet page.\n中文写作，留一点呼吸的空间。\nA clear thought begins with a little space.\n字号改变，文字与四周留白保持协调。\nKeep the words; let the page breathe.";
-    NSDictionary *appearance=@{@"font_family":@"Sumi Zhaohua",@"font_size":@22,@"line_height":@1.6,@"foreground":@"#44413c",@"background":@"#f3ead7",@"max_columns":@(columns),@"bottom_inset":@(bottom),@"caret_motion":@"steady"};
+    BOOL crt=[mode isEqualToString:@"crt"],system=[mode isEqualToString:@"system"];
+    NSString *family=crt?@"Sumi CRT":system?@"Sumi System":@"Sumi Zhaohua";
+    NSDictionary *appearance=@{@"font_family":family,@"font_size":@22,@"line_height":@1.6,@"foreground":crt?@"#0ccc68":system?@"#cccccc":@"#44413c",@"background":crt?@"#000000":system?@"#111111":@"#f3ead7",@"max_columns":@(columns),@"bottom_inset":@(bottom),@"caret_motion":@"steady"};
     NSDictionary *config=@{@"surface_id":@"padding-probe",@"generation":@1,@"revision":@7,@"bounds":@{@"x":@0,@"y":@0,@"width":@(viewport.width),@"height":@(viewport.height)},@"appearance":appearance,@"document":@{@"text":body,@"runs":@[]},@"selection":@{@"start":@3,@"length":@0}};
     NSData *data=[NSJSONSerialization dataWithJSONObject:config options:0 error:nil];
     void *handle=sumi_editor_mount((__bridge void *)window.contentView,0,[[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding] UTF8String],receive,freeReply,NULL);
@@ -22,6 +24,8 @@ static NSDictionary *check(CGFloat size,CGFloat gutter,CGFloat vertical,NSSize v
     NSRange selection=editor.text.selectedRange;NSUInteger beforeEdits=edits;
     NSMutableDictionary *changed=[appearance mutableCopy];changed[@"font_size"]=@(size);
     require(command(handle,@{@"command":@"set_appearance",@"appearance":changed})==0,@"font change uses actual native appearance command");
+    NSString *expectedFace=crt?@"Unifont":system?[NSFont monospacedSystemFontOfSize:size weight:NSFontWeightLight].fontName:@"ZhaohuaTypeWriter-Light";
+    require([[editor baseFont].fontName isEqualToString:expectedFace],@"each mode lays out its actual selected primary face");
     [editor.text.textLayoutManager ensureLayoutForRange:editor.text.textLayoutManager.textContentManager.documentRange];
     [editor.text.textLayoutManager.textViewportLayoutController layoutViewport];
     NSSize inset=editor.text.textContainerInset;CGFloat width=editor.text.textContainer.containerSize.width;
@@ -54,17 +58,25 @@ static NSDictionary *check(CGFloat size,CGFloat gutter,CGFloat vertical,NSSize v
         [editor.scroll.contentView scrollToPoint:NSZeroPoint];[editor.scroll reflectScrolledClipView:editor.scroll.contentView];
         [editor.text.textLayoutManager.textViewportLayoutController layoutViewport];[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
         NSBitmapImageRep *bitmap=[editor.container bitmapImageRepForCachingDisplayInRect:editor.container.bounds];[editor.container cacheDisplayInRect:editor.container.bounds toBitmapImageRep:bitmap];
-        NSString *path=[NSString stringWithFormat:@"tasks/sumi-native/padding-%.0f.png",size];
+        NSString *path=[NSString stringWithFormat:@"tasks/sumi-native/padding-%.0f-%@.png",size,mode];
         require([[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}]writeToFile:path atomically:YES],@"save native raster without displaying a window");
     }
-    NSDictionary *result=@{@"fontSize":@(size),@"viewportWidth":@(viewport.width),@"viewportHeight":@(viewport.height),@"columns":@(columns),@"bottomInset":@(bottom),@"horizontalInset":@(inset.width),@"verticalInset":@(inset.height),@"containerWidth":@(width),@"lineCount":@(lines),@"caret":NSStringFromRect(caret),@"visibleRect":NSStringFromRect(editor.text.visibleRect)};
+    NSDictionary *result=@{@"mode":mode,@"fontFamily":family,@"actualBaseFace":[editor baseFont].fontName,@"fontSize":@(size),@"viewportWidth":@(viewport.width),@"viewportHeight":@(viewport.height),@"columns":@(columns),@"bottomInset":@(bottom),@"horizontalInset":@(inset.width),@"verticalInset":@(inset.height),@"containerWidth":@(width),@"lineCount":@(lines),@"caret":NSStringFromRect(caret),@"visibleRect":NSStringFromRect(editor.text.visibleRect)};
     require(!window.visible && !window.isKeyWindow,@"probe window never shown or made key");sumi_editor_detach(handle);return result;
 }
-int main(){@autoreleasepool{
+int main(int argc,const char **argv){@autoreleasepool{
+    require(argc<=2,@"usage: padding-probe [zhaohua|system|crt]");
+    NSString *mode=argc==2?[NSString stringWithUTF8String:argv[1]]:@"zhaohua";
+    require([@[@"zhaohua",@"system",@"crt"]containsObject:mode],@"only the three fixed fixture modes are supported");
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];pid_t foreground=NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
     NSString *fonts=[NSFileManager.defaultManager.currentDirectoryPath stringByAppendingPathComponent:@"src-tauri/resources/sumi"];
-    require(sumi_editor_register_font([[fonts stringByAppendingPathComponent:@"ZhaohuaTypeWriter.ttf"] UTF8String],"ZhaohuaTypeWriter-Light",NULL)==0,@"register real Zhaohua typewriter font");
-    require(sumi_editor_register_cascade("{\"alias\":\"Sumi Zhaohua\",\"families\":[\"ZhaohuaTypeWriter-Light\"]}",NULL)==0,@"register actual Zhaohua preset");
+    if([mode isEqualToString:@"zhaohua"]){
+        require(sumi_editor_register_font([[fonts stringByAppendingPathComponent:@"ZhaohuaTypeWriter.ttf"] UTF8String],"ZhaohuaTypeWriter-Light",NULL)==0,@"register real Zhaohua typewriter font");
+        require(sumi_editor_register_cascade("{\"alias\":\"Sumi Zhaohua\",\"families\":[\"ZhaohuaTypeWriter-Light\"]}",NULL)==0,@"register actual Zhaohua preset");
+    }else if([mode isEqualToString:@"crt"]){
+        require(sumi_editor_register_font([[fonts stringByAppendingPathComponent:@"Unifont-18.0.01.otf"]UTF8String],"Unifont",NULL)==0,@"register the single CRT English and Chinese face");
+        require(sumi_editor_register_cascade("{\"alias\":\"Sumi CRT\",\"families\":[\"Unifont\"]}",NULL)==0,@"register actual single-font CRT preset");
+    }else require(SumiRegisteredFonts.count==0,@"system mode starts with no downloaded or registered Sumi fonts");
     // Golden padding values at selected user sizes, independent of the layout formula.
     const CGFloat sizes[][3]={{8,16,20},{22,24,32},{32,34.9090909,46.5454545},{50,54.5454545,72.7272727},{96,104.7272727,139.6363636}};
     const NSSize viewports[]={{960,720},{1800,900},{320,720},{960,180}};
@@ -72,10 +84,14 @@ int main(){@autoreleasepool{
     for(NSUInteger i=0;i<5;i++)for(NSUInteger v=0;v<4;v++)for(NSUInteger c=0;c<2;c++){
         CGFloat bottom=c?80:0;NSUInteger columns=c?20:80;
         BOOL raster=v==0 && c==0 && (sizes[i][0]==22 || sizes[i][0]==50);
-        NSDictionary *r=check(sizes[i][0],sizes[i][1],sizes[i][2],viewports[v],columns,bottom,raster);[results addObject:r];
-        printf("PADDING font=%.0f viewport=%.0fx%.0f columns=%lu x=%.3f y=%.3f body=%.3f bottom=%.0f\n",sizes[i][0],viewports[v].width,viewports[v].height,(unsigned long)columns,[r[@"horizontalInset"] doubleValue],[r[@"verticalInset"] doubleValue],[r[@"containerWidth"] doubleValue],bottom);
+        NSDictionary *r=check(mode,sizes[i][0],sizes[i][1],sizes[i][2],viewports[v],columns,bottom,raster);[results addObject:r];
+        printf("PADDING mode=%s font=%.0f viewport=%.0fx%.0f columns=%lu x=%.3f y=%.3f body=%.3f bottom=%.0f\n",mode.UTF8String,sizes[i][0],viewports[v].width,viewports[v].height,(unsigned long)columns,[r[@"horizontalInset"] doubleValue],[r[@"verticalInset"] doubleValue],[r[@"containerWidth"] doubleValue],bottom);
     }
-    NSData *json=[NSJSONSerialization dataWithJSONObject:results options:NSJSONWritingPrettyPrinted error:nil];require([json writeToFile:@"tasks/sumi-native/padding-cases.json" atomically:YES],@"save actual geometry matrix");
-    require(!NSApp.isActive && NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier==foreground,@"probe never activates or changes foreground");
+    NSString *output=[NSString stringWithFormat:@"tasks/sumi-native/padding-cases-%@.json",mode];
+    NSData *json=[NSJSONSerialization dataWithJSONObject:results options:NSJSONWritingPrettyPrinted error:nil];require([json writeToFile:output atomically:YES],@"save actual geometry matrix under its mode-specific name");
+    if([mode isEqualToString:@"system"])require(SumiRegisteredFonts.count==0,@"system mode never registers any Sumi font");
+    pid_t afterForeground=NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
+    printf("FOREGROUND mode=%s before=%d after=%d active=%d\n",mode.UTF8String,foreground,afterForeground,NSApp.isActive);
+    require(!NSApp.isActive && afterForeground==foreground,@"probe never activates or changes foreground");
     printf("PASS: 40 real TextKit padding cases, 8/22/32/50/96pt, large/narrow/short viewports, centered columns, unchanged bottom reservation and editor state; native 22/50 rasters, no UI activation\n");
 }}
