@@ -58,8 +58,10 @@ extern "C" fn event(
         let event: NativeEvent = serde_json::from_slice(CStr::from_ptr(json).to_bytes()).ok()?;
         let reply = handler(event).ok()?;
         let revision = i64::try_from(reply.revision).ok()?;
-        if let Some(value) = reply.projection {
-            if !projection.is_null() {
+        if !projection.is_null() {
+            if let Some(text) = reply.clipboard_text {
+                *projection = encode(&serde_json::json!({"clipboard_text": text})).ok()?.into_raw();
+            } else if let Some(value) = reply.projection {
                 *projection = encode(&value).ok()?.into_raw();
             }
         }

@@ -352,6 +352,127 @@ impl SourceMap {
         }
         Ok(mapped)
     }
+    /// Export Markdown rather than platform attributed-text formats. Unsupported
+    /// blocks remain their literal source, exactly as displayed in the rich view.
+    pub fn clipboard_markdown(&self, ranges: &[TextRange]) -> Result<String> {
+        let ranges = self.clipboard_ranges(ranges)?;
+        let mut output = Vec::new();
+        let mut definitions = Vec::new();
+        let parser = Parser::new(&self.source);
+        let references = parser.reference_definitions();
+        for range in ranges {
+            if range.start == 0 && range.length == self.document.text.encode_utf16().count() as u32 {
+                output.push(self.source.clone());
+                continue;
+            }
+            let selected = self.map_range(&range, true)?;
+            for (event, outer) in Parser::new(&self.source).into_offset_iter() {
+                if !overlap(&outer, &selected) { continue; }
+                if let Event::Start(Tag::Link { id, .. } | Tag::Image { id, .. }) = event {
+                    if let Some(definition) = references.get(&id) {
+                        if !(selected.start <= definition.span.start && selected.end >= definition.span.end) {
+                            definitions.push(definition.span.clone());
+                        }
+                    }
+                }
+            }
+            let mut prefix = Vec::new();
+            let mut suffix = Vec::new();
+            for outer in self.clipboard_containers() {
+                let pieces = self.clipboard_container_pieces(&outer);
+                let (Some(first), Some(last)) = (pieces.first(), pieces.last()) else { continue };
+                if first.source.start <= selected.start && selected.start < last.source.end && outer.start < first.source.start {
+                    prefix.push(outer.start..first.source.start);
+                }
+                if first.source.start < selected.end && selected.end <= last.source.end && last.source.end < outer.end {
+                    suffix.push(last.source.end..outer.end);
+                }
+            }
+            let append = |fragment: &mut String, mut ranges: Vec<Range<usize>>| {
+                ranges.sort_by_key(|r| r.start);
+                let mut end = 0;
+                for r in ranges {
+                    let start = r.start.max(end);
+                    if start < r.end { fragment.push_str(&self.source[start..r.end]); }
+                    end = end.max(r.end);
+                }
+            };
+            let mut fragment = String::new();
+            append(&mut fragment, prefix);
+            fragment.push_str(&self.source[selected]);
+            append(&mut fragment, suffix);
+            output.push(fragment);
+        }
+        let mut markdown = output.join("\n");
+        definitions.sort_by_key(|r| r.start); definitions.dedup();
+        for definition in definitions {
+            markdown.push_str("\n\n"); markdown.push_str(&self.source[definition]);
+        }
+        Ok(markdown)
+    }
+    fn clipboard_container_pieces(&self, outer: &Range<usize>) -> &[Piece] {
+        let start = self.pieces.partition_point(|p| p.source.end <= outer.start);
+        let end = self.pieces.partition_point(|p| p.source.start < outer.end);
+        &self.pieces[start..end]
+    }
+    fn clipboard_containers(&self) -> Vec<Range<usize>> {
+        let mut ranges: Vec<_> = self.styles.iter().map(|(r, _)| r.clone()).collect();
+        ranges.extend(Parser::new_ext(&self.source, Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES)
+            .into_offset_iter().filter_map(|(event, range)| matches!(event, Event::Start(Tag::Item)).then_some(range)));
+        ranges.sort_by_key(|r| (r.start, r.end)); ranges.dedup(); ranges
+    }
+    fn clipboard_ranges(&self, ranges: &[TextRange]) -> Result<Vec<TextRange>> {
+        if ranges.len() > 128 { return Err(Error::Invalid("too many clipboard selections".into())); }
+        let mut ranges: Vec<_> = ranges.iter().filter(|r| r.length > 0).cloned().collect();
+        ranges.sort_by_key(|r| r.start);
+        let mut end = 0;
+        for r in &ranges {
+            self.map_range(r, true)?;
+            if r.start < end { return Err(Error::Invalid("overlapping clipboard selections".into())); }
+            end = r.start.checked_add(r.length).ok_or(Error::InvalidOffset)?;
+        }
+        Ok(ranges)
+    }
+    /// Exact Markdown insertion, deliberately distinct from literal typed text.
+    pub fn apply_markdown_paste(&self, doc: &mut Document, range: &TextRange, markdown: &str, at_ms: i64) -> Result<Vec<u8>> {
+        if doc.revision() != self.revision { return Err(Error::StaleRevision); }
+        let source = self.source_range(range)?;
+        doc.replace(self.revision, self.source[..source.start].encode_utf16().count() as u32,
+            self.source[source].encode_utf16().count() as u32, markdown, at_ms)
+    }
+    /// Apply disjoint removals as one local undoable update. A disposable branch
+    /// validates all edits first and preserves CRDT identities between selections.
+    pub fn cut_selections(&self, doc: &mut Document, ranges: &[TextRange], at_ms: i64) -> Result<Vec<u8>> {
+        if doc.revision() != self.revision { return Err(Error::StaleRevision); }
+        let selections = self.clipboard_ranges(ranges)?;
+        let containers = self.clipboard_containers();
+        let mut sources = Vec::new();
+        for selected in selections {
+            let mut source = self.map_range(&selected, true)?;
+            for outer in &containers {
+                let pieces = self.clipboard_container_pieces(outer);
+                if pieces.first().is_some_and(|p| p.view.start >= selected.start)
+                    && pieces.last().is_some_and(|p| p.view.end <= selected.start + selected.length) {
+                    source.start = source.start.min(outer.start); source.end = source.end.max(outer.end);
+                }
+            }
+            sources.push(source);
+        }
+        if sources.is_empty() { return Ok(vec![0, 0]); }
+        sources.sort_by_key(|r| r.start);
+        let mut merged: Vec<Range<usize>> = Vec::new();
+        for r in sources { if let Some(last) = merged.last_mut().filter(|last| r.start <= last.end) { last.end = last.end.max(r.end); } else { merged.push(r); } }
+        let snapshot = doc.snapshot()?;
+        let mut branch = Document::load(&snapshot.page_id, snapshot.epoch, doc.fresh_client_id(), &doc.encode_full())?;
+        let vector = branch.state_vector();
+        for r in merged.into_iter().rev() {
+            branch.replace(branch.revision(), self.source[..r.start].encode_utf16().count() as u32,
+                self.source[r].encode_utf16().count() as u32, "", at_ms)?;
+        }
+        let update = branch.encode_update(&vector)?;
+        doc.apply_source_update(&update)?;
+        Ok(update)
+    }
     pub fn anchor_selection(
         &self,
         doc: &Document,

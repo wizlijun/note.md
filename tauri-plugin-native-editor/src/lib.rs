@@ -99,12 +99,19 @@ pub enum NativeEvent {
         range: TextRange,
         replacement: String,
     },
+    Clipboard {
+        surface_id: String,
+        generation: u64,
+        revision: u64,
+        ranges: Vec<TextRange>,
+        cut: bool,
+    },
     Paste {
         surface_id: String,
         generation: u64,
         base_revision: u64,
         range: TextRange,
-        text: String,
+        text: Option<String>,
         html: Option<String>,
         rtf: Option<String>,
     },
@@ -144,16 +151,18 @@ pub struct Projection {
 pub struct EventReply {
     pub revision: u64,
     pub projection: Option<Projection>,
+    pub clipboard_text: Option<String>,
 }
 impl From<u64> for EventReply {
     fn from(revision: u64) -> Self {
         Self {
             revision,
             projection: None,
+            clipboard_text: None,
         }
     }
 }
-/// Accept Edit/Action/Paste synchronously; return the accepted revision and any
+/// Accept Edit/Action/Paste/Clipboard synchronously; return the accepted revision and any
 /// rich projection in the same reply. Queue persistence; never reenter AppKit or
 /// perform synchronous I/O here. Selection/composition replies do not mutate text.
 pub type EventHandler = Arc<dyn Fn(NativeEvent) -> Result<EventReply, String> + Send + Sync>;
@@ -479,6 +488,7 @@ pub async fn transaction<R: Runtime, T: Send + 'static>(
             if let Some(EventReply {
                 revision,
                 projection: Some(projection),
+                ..
             }) = reply
             {
                 validate_document(&projection.document)?;

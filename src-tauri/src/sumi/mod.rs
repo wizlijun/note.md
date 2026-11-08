@@ -759,6 +759,7 @@ fn reply(p: &mut Paper) -> native::EventReply {
     }
     native::EventReply {
         revision: p.doc.revision(),
+        clipboard_text: None,
         projection: Some(native::Projection {
             document: native_document(&p.view),
             selection,
@@ -899,6 +900,12 @@ fn handle_native<R: Runtime>(
             revision,
             ..
         }
+        | native::NativeEvent::Clipboard {
+            surface_id,
+            generation,
+            revision,
+            ..
+        }
         | native::NativeEvent::Action {
             surface_id,
             generation,
@@ -970,66 +977,42 @@ fn handle_native<R: Runtime>(
             drain = !active;
             let _=app.emit("sumi-state",json!({"page_id":page_id,"tab_id":p.owner.as_ref().map(|o|&o.tab),"revision":revision,"durable":false,"composing":active}));
         }
-        native::NativeEvent::Paste {
-            range,
-            text,
-            html,
-            rtf,
-            ..
-        } => {
-            if text.len()
-                + html.as_ref().map_or(0, String::len)
-                + rtf.as_ref().map_or(0, String::len)
-                > 4 * 1024 * 1024
-            {
-                return Err("剪贴板超过 4 MiB，请分段粘贴".into());
-            }
-            let range = write_core::render::TextRange {
-                start: range.start,
-                length: range.length,
-            };
-            let anchor = p.view.anchor_selection(&p.doc, &range).map_err(err)?;
-            let clip = if let Some(html) = &html {
-                paste::html(html)
-            } else if rtf.is_some() {
-                Err("此 RTF 粘贴需要降为纯文本，原始草稿已保留".into())
-            } else {
-                Ok(write_core::render::RenderDocument {
-                    text: text.replace("\r\n", "\n").replace('\r', "\n"),
-                    runs: vec![],
-                })
-            };
-            let clip = match clip {
-                Ok(clip) => clip,
-                Err(error) => {
-                    p.pending_clipboard = Some(ClipboardDraft {
-                        text,
-                        html,
-                        rtf,
-                        anchor,
-                    });
-                    let message=format!("{error} 右键可选择“Original paste as plain text”或“Recover original paste”。");
-                    let _=app.emit("sumi-state",json!({"page_id":page_id,"revision":revision,"durable":false,"notice":message}));
-                    push(app, &json!({"type":"sumi-notice","message":message}));
-                    return Err(message);
-                }
-            };
-            let update = p
-                .view
-                .apply_rich_paste(&mut p.doc, &range, &clip, now())
-                .map_err(err)?;
+        native::NativeEvent::Clipboard { ranges, cut, .. } => {
+            if p.owner.as_ref().is_some_and(|o| o.composing) { return Err("请先完成输入法组合".into()); }
+            let ranges: Vec<_> = ranges.into_iter().map(|r| write_core::render::TextRange { start: r.start, length: r.length }).collect();
+            let text = p.view.clipboard_markdown(&ranges).map_err(err)?;
+            if !cut { return Ok(native::EventReply { revision, projection: None, clipboard_text: Some(text) }); }
+            let update = p.view.cut_selections(&mut p.doc, &ranges, now()).map_err(err)?;
             changed = p.doc.revision() != before;
             if changed {
                 p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
-                p.owner.as_mut().unwrap().selection = native::TextRange {
-                    start: range
-                        .start
-                        .saturating_add(clip.text.encode_utf16().count() as u32),
-                    length: 0,
-                };
-                if let Err(error) = queue(ws, p, update) {
-                    p.error = Some(error);
+                p.owner.as_mut().unwrap().selection = bounded_selection(&p.view.document.text, native::TextRange { start: ranges.iter().map(|r| r.start).min().unwrap_or(0), length: 0 });
+                if let Err(error) = queue(ws, p, update) { p.error = Some(error); }
+            }
+        }
+        native::NativeEvent::Paste { range, text, html, rtf, .. } => {
+            if p.owner.as_ref().is_some_and(|o| o.composing) { return Err("请先完成输入法组合".into()); }
+            if text.as_ref().map_or(0, String::len) + html.as_ref().map_or(0, String::len) + rtf.as_ref().map_or(0, String::len) > 4 * 1024 * 1024 {
+                return Err("剪贴板超过 4 MiB，请分段粘贴".into());
+            }
+            let range = write_core::render::TextRange { start: range.start, length: range.length };
+            let anchor = p.view.anchor_selection(&p.doc, &range).map_err(err)?;
+            let markdown = match paste::markdown(text.as_deref(), html.as_deref()) {
+                Ok(value) => value,
+                Err(error) => {
+                    p.pending_clipboard = Some(ClipboardDraft { text: text.unwrap_or_default(), html, rtf, anchor });
+                    let _=app.emit("sumi-state",json!({"page_id":page_id,"revision":revision,"durable":false,"notice":error}));
+                    return Err(error);
                 }
+            };
+            let source = p.view.source_range(&range).map_err(err)?;
+            let end = p.doc.body()[..source.start].encode_utf16().count() as u32 + markdown.encode_utf16().count() as u32;
+            let update = p.view.apply_markdown_paste(&mut p.doc, &range, &markdown, now()).map_err(err)?;
+            changed = p.doc.revision() != before;
+            if changed {
+                p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
+                p.owner.as_mut().unwrap().selection = native::TextRange { start: p.view.visible_offset(end).map_err(err)?, length: 0 };
+                if let Err(error) = queue(ws, p, update) { p.error = Some(error); }
             }
             p.pending_clipboard = None;
         }

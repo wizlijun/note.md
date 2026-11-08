@@ -1,253 +1,85 @@
-//! Clipboard HTML is tokenized without a renderer, script engine or network loader.
-//! Unsupported structures require an explicit plain-text fallback; raw input stays recoverable.
+//! Clipboard conversion uses html5ever without a renderer, script engine or network.
+//! Foreign styling is discarded; the canonical result is plain text or Markdown.
 use html5ever::{
     tendril::StrTendril,
     tokenizer::{BufferQueue, TagKind, Token, TokenSink, TokenSinkResult, Tokenizer},
 };
 use std::cell::RefCell;
-use write_core::render::{RenderDocument, StyleRun, TextRange};
 
+/// Plain clipboard data wins over advertised rich alternatives. HTML-only
+/// inputs use the existing tokenizer with no renderer, network or style import.
+pub fn markdown(text: Option<&str>, html: Option<&str>) -> Result<String, String> {
+    if let Some(text) = text { return Ok(text.replace("\r\n", "\n").replace('\r', "\n")); }
+    let Some(input) = html else { return Err("剪贴板没有可用文本".into()); };
+    if input.len() > 2 * 1024 * 1024 { return Err("剪贴板超过 2 MiB，请分段粘贴".into()); }
+    let queue = BufferQueue::default(); queue.push_back(StrTendril::from_slice(input));
+    let tokenizer = Tokenizer::new(PlainSink(RefCell::new(PlainState::default())), Default::default());
+    let _ = tokenizer.feed(&queue); tokenizer.end();
+    Ok(tokenizer.sink.0.into_inner().text.trim_end_matches('\n').to_owned())
+}
 #[derive(Default)]
-struct State {
-    document: RenderDocument,
-    stack: Vec<(String, StyleRun)>,
-    length: u32,
-    unsupported: bool,
-    head: usize,
+struct PlainState { text: String, skip: Vec<String>, pre: usize }
+struct PlainSink(RefCell<PlainState>);
+impl PlainState {
+    fn line(&mut self) { if !self.text.is_empty() && !self.text.ends_with('\n') { self.text.push('\n'); } }
 }
-struct Sink(RefCell<State>);
-impl State {
-    fn append(&mut self, text: &str) {
-        let text = text.replace("\r\n", "\n").replace('\r', "\n");
-        let mut normalized = String::new();
-        let mut last = self.document.text.chars().last();
-        for ch in text.chars() {
-            let ch = if ch.is_ascii_whitespace() { ' ' } else { ch };
-            if ch == ' ' && (last.is_none() || last.is_some_and(char::is_whitespace)) {
-                continue;
-            }
-            normalized.push(ch);
-            last = Some(ch);
-        }
-        if normalized.is_empty() {
-            return;
-        }
-        let length = normalized.encode_utf16().count() as u32;
-        let mut style = self
-            .stack
-            .last()
-            .map(|(_, s)| s.clone())
-            .unwrap_or_default();
-        style.range = TextRange {
-            start: self.length,
-            length,
-        };
-        if style.bold
-            || style.italic
-            || style.strike
-            || style.heading > 0
-            || style.quote
-            || style.link.is_some()
-        {
-            self.document.runs.push(style);
-        }
-        self.document.text.push_str(&normalized);
-        self.length += length;
-    }
-    fn newline(&mut self, count: usize) {
-        if self.document.text.is_empty() {
-            return;
-        }
-        let current = self
-            .document
-            .text
-            .chars()
-            .rev()
-            .take_while(|&c| c == '\n')
-            .count();
-        for _ in current..count {
-            self.document.text.push('\n');
-            self.length += 1;
-        }
-    }
-}
-impl TokenSink for Sink {
+impl TokenSink for PlainSink {
     type Handle = ();
     fn process_token(&self, token: Token, _line: u64) -> TokenSinkResult<()> {
         let mut s = self.0.borrow_mut();
         match token {
             Token::TagToken(tag) => {
-                let name = tag.name.to_string();
-                let start = tag.kind == TagKind::StartTag;
-                if name == "head" {
-                    if start {
-                        s.head += 1
-                    } else {
-                        s.head = s.head.saturating_sub(1)
-                    };
+                let name = tag.name.to_string(); let start = tag.kind == TagKind::StartTag;
+                if matches!(name.as_str(), "head" | "script" | "style" | "template") {
+                    if start { s.skip.push(name); } else if let Some(i) = s.skip.iter().rposition(|n| n == &name) { s.skip.truncate(i); }
                     return TokenSinkResult::Continue;
                 }
-                if s.head > 0 {
-                    return TokenSinkResult::Continue;
-                }
-                if matches!(name.as_str(), "html" | "body" | "meta") {
-                    return TokenSinkResult::Continue;
-                }
-                if name == "br" {
-                    s.newline(1);
-                    return TokenSinkResult::Continue;
-                }
-                let block = matches!(
-                    name.as_str(),
-                    "p" | "div" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
-                );
-                if !matches!(
-                    name.as_str(),
-                    "p" | "div"
-                        | "span"
-                        | "strong"
-                        | "b"
-                        | "em"
-                        | "i"
-                        | "s"
-                        | "del"
-                        | "strike"
-                        | "a"
-                        | "blockquote"
-                        | "h1"
-                        | "h2"
-                        | "h3"
-                        | "h4"
-                        | "h5"
-                        | "h6"
-                ) {
-                    s.unsupported = true;
-                    return TokenSinkResult::Continue;
-                }
-                if start {
-                    if block {
-                        s.newline(2)
-                    }
-                    if s.stack.len() >= 128 {
-                        s.unsupported = true;
-                        return TokenSinkResult::Continue;
-                    }
-                    let mut style = s.stack.last().map(|(_, s)| s.clone()).unwrap_or_default();
-                    match name.as_str() {
-                        "strong" | "b" => style.bold = true,
-                        "em" | "i" => style.italic = true,
-                        "s" | "del" | "strike" => style.strike = true,
-                        "blockquote" => style.quote = true,
-                        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                            style.heading = name.as_bytes()[1] - b'0'
-                        }
-                        _ => {}
-                    }
-                    for attribute in tag.attrs {
-                        let key = attribute.name.local.as_ref();
-                        let value = attribute.value.as_ref();
-                        if key == "href" && name == "a" {
-                            if url::Url::parse(value).ok().is_some_and(|url| {
-                                matches!(url.scheme(), "http" | "https" | "mailto")
-                            }) {
-                                style.link = Some(value.to_owned())
-                            } else {
-                                s.unsupported = true;
-                            }
-                        }
-                        if key == "style" {
-                            for field in value.split(';') {
-                                if let Some((key, value)) = field.split_once(':') {
-                                    match (
-                                        key.trim().to_ascii_lowercase().as_str(),
-                                        value.trim().to_ascii_lowercase().as_str(),
-                                    ) {
-                                        ("font-weight", "bold" | "600" | "700" | "800" | "900") => {
-                                            style.bold = true
-                                        }
-                                        ("font-style", "italic") => style.italic = true,
-                                        (
-                                            "text-decoration" | "text-decoration-line",
-                                            "line-through",
-                                        ) => style.strike = true,
-                                        _ => {}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if !tag.self_closing {
-                        s.stack.push((name, style));
-                    }
-                } else {
-                    if let Some(index) = s.stack.iter().rposition(|(tag, _)| tag == &name) {
-                        s.stack.truncate(index);
-                    } else {
-                        s.unsupported = true;
-                    }
-                    if block {
-                        s.newline(2)
-                    }
+                if !s.skip.is_empty() { return TokenSinkResult::Continue; }
+                if name == "pre" { if start { s.pre += 1; } else { s.pre = s.pre.saturating_sub(1); } }
+                if matches!(name.as_str(), "p"|"div"|"br"|"li"|"tr"|"blockquote"|"pre"|"h1"|"h2"|"h3"|"h4"|"h5"|"h6") { s.line(); }
+                if start && name == "li" { s.text.push_str("- "); }
+                if !start && matches!(name.as_str(), "td"|"th") && !s.text.ends_with('\t') { s.text.push('\t'); }
+                if start && name == "img" {
+                    let alt = tag.attrs.iter().find(|a| a.name.local.as_ref() == "alt").map(|a| a.value.as_ref()).unwrap_or("");
+                    s.text.push_str("[图片"); if !alt.is_empty() { s.text.push_str(": "); s.text.push_str(alt); } s.text.push(']');
                 }
             }
-            Token::CharacterTokens(text) => {
-                if s.head == 0 {
-                    s.append(&text)
-                }
+            Token::CharacterTokens(text) if s.skip.is_empty() => {
+                if s.pre > 0 { s.text.push_str(&text); }
+                else { for c in text.chars() {
+                    if c.is_ascii_whitespace() { if !s.text.is_empty() && !s.text.ends_with(char::is_whitespace) { s.text.push(' '); } }
+                    else { s.text.push(c); }
+                } }
             }
-            Token::NullCharacterToken => s.unsupported = true,
             _ => {}
         }
         TokenSinkResult::Continue
     }
-}
-pub fn html(input: &str) -> Result<RenderDocument, String> {
-    if input.len() > 2 * 1024 * 1024 {
-        return Err("富文本剪贴板超过 2 MiB；请分段粘贴".into());
-    }
-    let queue = BufferQueue::default();
-    queue.push_back(StrTendril::from_slice(input));
-    let tokenizer = Tokenizer::new(Sink(RefCell::new(State::default())), Default::default());
-    let _ = tokenizer.feed(&queue);
-    tokenizer.end();
-    let state = tokenizer.sink.0.into_inner();
-    if state.unsupported || state.document.runs.len() > 10000 {
-        return Err("剪贴板含未支持的结构，原始草稿已保留。可选择粘贴纯文本。".into());
-    }
-    Ok(state.document)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn preserves_supported_styles_and_decodes_entities() {
-        let value = html("<p>Hello <strong>bold &amp; <em>italic</em></strong> 😀</p>").unwrap();
-        assert_eq!(value.text, "Hello bold & italic 😀\n\n");
-        assert!(value.runs.iter().any(|r| r.bold && r.italic));
-        let mut doc =
-            write_core::Document::new("00000000-0000-4000-8000-000000000001", 1, 1).unwrap();
-        let map = write_core::render::SourceMap::new("", 0);
-        map.apply_rich_paste(&mut doc, &TextRange::default(), &value, 1)
-            .unwrap();
-        assert!(doc.body().contains("**"));
-        assert_eq!(
-            write_core::render::SourceMap::new(&doc.body(), doc.revision())
-                .document
-                .text
-                .trim(),
-            value.text.trim()
-        );
+    fn plain_wins_and_html_only_becomes_text_without_external_styles_or_active_content() {
+        assert_eq!(markdown(Some("**source**\r\n"), Some("<b>other</b>")).unwrap(), "**source**\n");
+        assert_eq!(markdown(Some(""), Some("<b>other</b>")).unwrap(), "");
+        let text = markdown(None, Some("<html><head><style>bad</style></head><body><p style='color:red;font-family:Evil'>Hello &amp; <b>world</b></p><script>bad()</script><ul><li>A</li><li>B</li></ul><img src='https://example.invalid/track' alt='diagram'><pre>x  &lt; y\n z</pre></body></html>")).unwrap();
+        assert_eq!(text, "Hello & world\n- A\n- B\n[图片: diagram]\nx  < y\n z");
+        assert!(!text.contains("bad")); assert!(!text.contains("Evil"));
+        assert!(markdown(None, None).is_err());
     }
     #[test]
-    fn never_accepts_active_content_or_complex_structures() {
-        for input in [
-            "<script>alert(1)</script>",
-            "<img src='https://example.invalid/track'>",
-            "<table><tr><td>x</td></tr></table>",
-            "<a href='javascript:alert(1)'>x</a>",
-        ] {
-            assert!(html(input).is_err());
-        }
+    fn active_content_images_and_tables_only_yield_inert_text() {
+        for (input, expected) in [
+            ("<script>alert(1)</script>", ""),
+            ("<img src='https://example.invalid/track'>", "[图片]"),
+            ("<table><tr><td>x</td><td>y</td></tr></table>", "x\ty\t"),
+            ("<a href='javascript:alert(1)'>label</a>", "label"),
+        ] { assert_eq!(markdown(None, Some(input)).unwrap(), expected); }
+    }
+    #[test]
+    fn oversized_html_is_rejected_before_tokenization() {
+        assert!(markdown(None, Some(&"x".repeat(2 * 1024 * 1024 + 1))).is_err());
     }
 }

@@ -342,18 +342,64 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     if(event.keyCode==53 && !self.owner.composing){[self.owner action:@"menu"];return YES;}
     return [super performKeyEquivalent:event];
 }
-- (void)paste:(id)sender {
-    // Native attributed runs are derived from the canonical Markdown document.
-    // Do not let AppKit introduce untracked RTF-only attributes.
-    NSString *value=[NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
-    if(self.owner.composing)return;
-    NSString *html=[NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeHTML];
-    NSData *rtf=[NSPasteboard.generalPasteboard dataForType:NSPasteboardTypeRTF];
-    if(html || rtf){
-        [self.owner transaction:@"paste" fields:@{@"base_revision":@(self.owner.revision),@"range":SumiRange(self.selectedRange),@"text":value ?: @"",@"html":html ?: NSNull.null,@"rtf":rtf ? [rtf base64EncodedStringWithOptions:0] : NSNull.null}];
-    } else if(value) [self insertText:value replacementRange:self.selectedRange];
-    else [self.owner action:@"unsupported_paste"];
+- (BOOL)writeMarkdownToPasteboard:(NSPasteboard *)pasteboard cut:(BOOL)cut {
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return NO;
+    NSMutableArray *ranges=[NSMutableArray new];
+    for(NSValue *value in self.selectedRanges)if(value.rangeValue.length)[ranges addObject:SumiRange(value.rangeValue)];
+    if(ranges.count==0)return NO;
+    uint64_t revision=self.owner.revision;
+    NSDictionary *fields=@{@"revision":@(revision),@"ranges":ranges,@"cut":@NO};
+    NSDictionary *reply=nil;
+    if([self.owner emit:@"clipboard" fields:fields projection:&reply]<0)return NO;
+    NSString *markdown=reply[@"clipboard_text"];if(![markdown isKindOfClass:NSString.class])return NO;
+    [pasteboard clearContents];
+    if(![pasteboard setString:markdown forType:NSPasteboardTypeString])return NO;
+    if(cut)[self.owner transaction:@"clipboard" fields:@{@"revision":@(revision),@"ranges":ranges,@"cut":@YES}];
+    return YES;
 }
+- (void)copy:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:NO]; }
+- (void)cut:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:YES]; }
+- (void)pasteFromPasteboard:(NSPasteboard *)pasteboard {
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return;
+    // Prefer public plain text, including Markdown emitted by our own copy.
+    // Only input formats are decoded; no attributed string enters the editor.
+    NSString *text=[pasteboard stringForType:NSPasteboardTypeString];
+    NSString *html=nil;NSData *rtf=nil;
+    if(!text)html=[pasteboard stringForType:NSPasteboardTypeHTML];
+    if(!text && !html){
+        rtf=[pasteboard dataForType:NSPasteboardTypeRTF];
+        if(rtf.length<=2*1024*1024 && rtf){
+            @try {
+                NSAttributedString *value=[[NSAttributedString alloc]initWithRTF:rtf documentAttributes:NULL];
+                text=[value.string stringByReplacingOccurrencesOfString:@"\uFFFC" withString:@"[附件]"];
+            } @catch(NSException *exception) { (void)exception; }
+        }
+    }
+    if(!text && !html && !rtf){
+        NSMutableArray *files=[NSMutableArray new];
+        for(NSPasteboardItem *item in pasteboard.pasteboardItems){
+            NSString *url=[item stringForType:NSPasteboardTypeFileURL];
+            if(url)[files addObject:[@"[文件: " stringByAppendingFormat:@"%@]",url]];
+        }
+        if(files.count)text=[files componentsJoinedByString:@"\n"];
+        else if([pasteboard availableTypeFromArray:@[NSPasteboardTypePNG,NSPasteboardTypeTIFF]])text=@"[图片]";
+        else text=[pasteboard stringForType:NSPasteboardTypeURL];
+    }
+    if(text || html || rtf){
+        [self.owner transaction:@"paste" fields:@{@"base_revision":@(self.owner.revision),@"range":SumiRange(self.selectedRange),@"text":text ?: NSNull.null,@"html":html ?: NSNull.null,@"rtf":rtf ? [rtf base64EncodedStringWithOptions:0] : NSNull.null}];
+    }else [self.owner action:@"unsupported_paste"];
+}
+- (void)paste:(id)sender { (void)sender;[self pasteFromPasteboard:NSPasteboard.generalPasteboard]; }
+- (void)pastePlainFromPasteboard:(NSPasteboard *)pasteboard {
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return;
+    NSString *text=[pasteboard stringForType:NSPasteboardTypeString];
+    if(text){
+        text=[[text stringByReplacingOccurrencesOfString:@"\r\n" withString:@"\n"] stringByReplacingOccurrencesOfString:@"\r" withString:@"\n"];
+        [self insertText:text replacementRange:self.selectedRange];
+    }else [self.owner action:@"unsupported_paste"];
+}
+- (void)pasteAsPlainText:(id)sender { (void)sender;[self pastePlainFromPasteboard:NSPasteboard.generalPasteboard]; }
+- (void)pasteAsRichText:(id)sender { [self paste:sender]; }
 - (void)sumiBold:(id)sender { [self.owner action:@"bold"]; }
 - (void)sumiItalic:(id)sender { [self.owner action:@"italic"]; }
 - (void)sumiStrike:(id)sender { [self.owner action:@"strike"]; }
