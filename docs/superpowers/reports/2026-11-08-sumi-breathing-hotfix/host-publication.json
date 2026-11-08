@@ -1,0 +1,67 @@
+{
+  "assets": [
+    {
+      "apiUrl": "https://api.github.com/repos/wizlijun/note.md/releases/assets/723531674",
+      "contentType": "application/json",
+      "createdAt": "2026-11-08T09:50:13Z",
+      "digest": "sha256:1d121a6e03c0ae9084a80d1f7d16fcb78bd4435d562382a9072531e7dfdf4691",
+      "downloadCount": 0,
+      "id": "RA_kwDOSW8VZs4rIDea",
+      "label": "",
+      "name": "latest.json",
+      "size": 740,
+      "state": "uploaded",
+      "updatedAt": "2026-11-08T09:50:13Z",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.2/latest.json"
+    },
+    {
+      "apiUrl": "https://api.github.com/repos/wizlijun/note.md/releases/assets/723531664",
+      "contentType": "application/x-apple-diskimage",
+      "createdAt": "2026-11-08T09:50:13Z",
+      "digest": "sha256:fe8f4d90dffed1e2a08f21508ad851be399e2f394bf1e0e81cc454d0e67014b8",
+      "downloadCount": 0,
+      "id": "RA_kwDOSW8VZs4rIDeQ",
+      "label": "",
+      "name": "note.md-6.1108.2-aarch64.dmg",
+      "size": 70215286,
+      "state": "uploaded",
+      "updatedAt": "2026-11-08T10:01:36Z",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.2/note.md-6.1108.2-aarch64.dmg"
+    },
+    {
+      "apiUrl": "https://api.github.com/repos/wizlijun/note.md/releases/assets/723531675",
+      "contentType": "application/x-gtar",
+      "createdAt": "2026-11-08T09:50:13Z",
+      "digest": "sha256:eb34c8687162f0a53601083672ebf9f694cda5904c4cf5335a1f4da7c5ec75ce",
+      "downloadCount": 0,
+      "id": "RA_kwDOSW8VZs4rIDeb",
+      "label": "",
+      "name": "note.md-aarch64.app.tar.gz",
+      "size": 69979878,
+      "state": "uploaded",
+      "updatedAt": "2026-11-08T10:01:44Z",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.2/note.md-aarch64.app.tar.gz"
+    },
+    {
+      "apiUrl": "https://api.github.com/repos/wizlijun/note.md/releases/assets/723531666",
+      "contentType": "application/pgp-signature",
+      "createdAt": "2026-11-08T09:50:13Z",
+      "digest": "sha256:77f04c64ccc80938b175e1fa188911d572f7bb7c0885ce65ccfd74c961eb221d",
+      "downloadCount": 0,
+      "id": "RA_kwDOSW8VZs4rIDeS",
+      "label": "",
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "size": 416,
+      "state": "uploaded",
+      "updatedAt": "2026-11-08T09:50:13Z",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.2/note.md-aarch64.app.tar.gz.sig"
+    }
+  ],
+  "isDraft": false,
+  "isPrerelease": false,
+  "publishedAt": "2026-11-08T10:11:18Z",
+  "tagName": "v6.1108.2",
+  "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1108.2",
+  "publicationCommand": "bash scripts/release-publish.sh v6.1108.2 --mac-arm64-only",
+  "publicationExitCode": 0
+}

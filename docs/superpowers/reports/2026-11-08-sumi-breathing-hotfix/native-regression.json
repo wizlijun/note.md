@@ -1,0 +1,115 @@
+{
+  "verifiedAt": "2026-11-08T09:02:49.988453+00:00",
+  "systemReduceMotion": true,
+  "systemPreferenceModified": false,
+  "scope": "Unordered activation-prohibited real AppKit/TextKit 2 windows; active eligibility simulated. Core Animation presentation layer is observed; no physical display/present or actual system IME claim.",
+  "negative": {
+    "editorSource": "git HEAD before root hotfix commit (v6.1108.1 implementation)",
+    "editorSha256": "54f73bc704b7cd99facc7dcd9f97b82fb974b57890c75f83e74ae9041138f4a0",
+    "sameNewProbeSha256": "091a9fddef3d3b8ec835001b568667c69a1636d80376b82a8ae17ae5364d83f0",
+    "exitCode": 1,
+    "failure": "public layer animation breathes 1→0.25→1 over six seconds",
+    "log": "before-old-source.log"
+  },
+  "positive": {
+    "caretProbeExitCode": 0,
+    "renderProbeExitCode": 0,
+    "strictClangExitCode": 0,
+    "steadyPresentationOpaque": true,
+    "breathingResumesAfterSteady": true,
+    "samples": [
+      {
+        "sample": 0,
+        "elapsedSeconds": 0.516,
+        "opacity": 0.9551
+      },
+      {
+        "sample": 1,
+        "elapsedSeconds": 1.019,
+        "opacity": 0.8195
+      },
+      {
+        "sample": 2,
+        "elapsedSeconds": 1.524,
+        "opacity": 0.6147
+      },
+      {
+        "sample": 3,
+        "elapsedSeconds": 2.029,
+        "opacity": 0.414
+      },
+      {
+        "sample": 4,
+        "elapsedSeconds": 2.532,
+        "opacity": 0.2867
+      },
+      {
+        "sample": 5,
+        "elapsedSeconds": 3.036,
+        "opacity": 0.2502
+      },
+      {
+        "sample": 6,
+        "elapsedSeconds": 3.541,
+        "opacity": 0.2995
+      },
+      {
+        "sample": 7,
+        "elapsedSeconds": 4.046,
+        "opacity": 0.4402
+      },
+      {
+        "sample": 8,
+        "elapsedSeconds": 4.551,
+        "opacity": 0.6469
+      },
+      {
+        "sample": 9,
+        "elapsedSeconds": 5.056,
+        "opacity": 0.8452
+      },
+      {
+        "sample": 10,
+        "elapsedSeconds": 5.561,
+        "opacity": 0.9677
+      },
+      {
+        "sample": 11,
+        "elapsedSeconds": 6.065,
+        "opacity": 0.9993
+      },
+      {
+        "sample": 12,
+        "elapsedSeconds": 6.57,
+        "opacity": 0.9449
+      }
+    ],
+    "phasePreservedAcrossRefreshes": true,
+    "continuousSteadyRaster": {
+      "inputAudit": [
+        "INPUT AUDIT observations=20 gaps=0 visible_system_colors=0",
+        "INPUT AUDIT observations=28 gaps=0 visible_system_colors=0"
+      ],
+      "zhaohuaAudit": [
+        "ZHAOHUA INPUT AUDIT observations=28 gaps=0 visible_system_colors=0"
+      ]
+    },
+    "logs": [
+      "after.log",
+      "render-after.log",
+      "strict-clang.log"
+    ],
+    "pngDirectory": "raster-workspace/tasks/sumi-native"
+  },
+  "sourceSha256": {
+    "tauri-plugin-native-editor/native/editor.m": "9913753c4b270e6706de78ec55ed76692ef5a541c92729e0d4a9668c58dfeca7",
+    "tauri-plugin-native-editor/native/caret-probe.m": "091a9fddef3d3b8ec835001b568667c69a1636d80376b82a8ae17ae5364d83f0",
+    "tauri-plugin-native-editor/native/caret-render-probe.m": "684736928009864d5c8f5930b28aafbfa5e761a900c995eb10eedb1b3fbd0ef5"
+  },
+  "compileCommand": "xcrun clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -fobjc-arc -mmacosx-version-min=13.0 <probe.m> -framework AppKit -framework Foundation -framework CoreText -framework QuartzCore -o <probe>",
+  "strictCommand": "same Clang/SDK/target, with -Wall -Wextra -Werror -fsyntax-only on both probe source files",
+  "appOrVaultModified": false,
+  "probeRunCommitStatus": "uncommitted; root handles precise commit",
+  "testedSourceCommit": "6cf70ac2ca388fbe87c1531421f43082cf0cd15f",
+  "exactCommittedSourceHashesVerified": true
+}

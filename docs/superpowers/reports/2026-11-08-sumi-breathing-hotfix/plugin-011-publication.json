@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+  "sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+  "size": 8080,
+  "version": "0.1.1",
+  "minimumHost": ">=6.1108.2",
+  "status": "published",
+  "verifiedAt": "2026-11-08T10:35:10.374655+00:00",
+  "registry": "https://plugins.notemd.net/api/index.json",
+  "download": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.1/universal",
+  "flow": "existing Wrangler 3.114.17 + Account API Token; R2 package/signature, anonymous full normal/fresh signature verification, KV merge/readback, normal/fresh public index equality",
+  "historicalEntriesUnchanged": true,
+  "priorVersions": 299,
+  "totalVersions": 300,
+  "sourcePushed": true,
+  "hostTagUnchanged": true
+}

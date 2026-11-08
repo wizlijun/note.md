@@ -1,0 +1,86 @@
+{
+  "procName": "notarytool",
+  "captureTime": "2026-11-08 17:14:45.4777 +0800",
+  "exception": {
+    "codes": "0x0000000000000002, 0x000000016f997ebc",
+    "message": "Could not determine thread index for stack guard region",
+    "rawCodes": [
+      2,
+      6167297724
+    ],
+    "type": "EXC_BAD_ACCESS",
+    "signal": "SIGBUS",
+    "subtype": "KERN_PROTECTION_FAILURE at 0x000000016f997ebc"
+  },
+  "termination": {
+    "flags": 0,
+    "code": 10,
+    "namespace": "SIGNAL",
+    "indicator": "Bus error: 10",
+    "byProc": "exc handler",
+    "byPid": 2215
+  },
+  "faultingThread": 6,
+  "faultingFrames": [
+    {
+      "symbol": "__CFStringCreateImmutableFunnel3",
+      "symbolLocation": 120,
+      "imageIndex": 5
+    },
+    {
+      "symbol": "__CFStringFindFormatSpecifiersInString",
+      "symbolLocation": 1676,
+      "imageIndex": 5
+    },
+    {
+      "symbol": "__CFStringValidateFormat",
+      "symbolLocation": 496,
+      "imageIndex": 5
+    },
+    {
+      "symbol": "__CFStringAppendFormatCore",
+      "symbolLocation": 748,
+      "imageIndex": 5
+    },
+    {
+      "symbol": "_CFStringCreateStringWithValidatedFormatAuxWithDesc",
+      "symbolLocation": 160,
+      "imageIndex": 5
+    },
+    {
+      "symbol": "-[NSPlaceholderString initWithValidatedFormat:validFormatSpecifiers:locale:arguments:error:]",
+      "symbolLocation": 104,
+      "imageIndex": 7
+    },
+    {
+      "symbol": "+[NSString _stringWithValidatedFormat:validFormatSpecifiers:locale:arguments:error:]",
+      "symbolLocation": 72,
+      "imageIndex": 7
+    },
+    {
+      "symbol": "closure #1 in String.init(format:locale:arguments:)",
+      "symbolLocation": 1476,
+      "imageIndex": 7
+    },
+    {
+      "symbol": "specialized String.init(format:locale:arguments:)",
+      "symbolLocation": 444,
+      "imageIndex": 7
+    },
+    {
+      "symbol": "String.init(format:_:)",
+      "symbolLocation": 44,
+      "imageIndex": 7
+    },
+    {
+      "symbol": null,
+      "symbolLocation": null,
+      "imageIndex": 0
+    },
+    {
+      "symbol": null,
+      "symbolLocation": null,
+      "imageIndex": 0
+    }
+  ]
+}

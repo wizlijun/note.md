@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-08T09:04:38.691968+00:00",
+  "source": "6cf70ac2ca388fbe87c1531421f43082cf0cd15f",
+  "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD 6cf70ac2ca388fbe87c1531421f43082cf0cd15f\nbranch refs/heads/main\n\n",
+  "branches": "main 6cf70ac2ca388fbe87c1531421f43082cf0cd15f\n",
+  "stash": "",
+  "excludedDiff": "diff --git a/searchidx/src/store.rs b/searchidx/src/store.rs\nindex f5ead7f5..2260d3d8 100644\n--- a/searchidx/src/store.rs\n+++ b/searchidx/src/store.rs\n@@ -1579,4 +1579,4 @@ mod tests {\n         assert_eq!(n, 1, \"只有 kept.md 还在索引里\");\n         assert!(n <= files, \"覆盖率的分子永远不该大于分母\");\n     }\n-}\n+}\n\\ No newline at end of file\ndiff --git a/src-tauri/src/smart_lookup.rs b/src-tauri/src/smart_lookup.rs\nindex 9aa831af..75758c68 100644\n--- a/src-tauri/src/smart_lookup.rs\n+++ b/src-tauri/src/smart_lookup.rs\n@@ -751,4 +751,4 @@ mod tests {\n         )\n         .is_err());\n     }\n-}\n+}\n\\ No newline at end of file\n",
+  "sourceStatus": " M searchidx/src/store.rs\n M src-tauri/src/smart_lookup.rs\n",
+  "releaseCloneStatus": "",
+  "priorFullAudit": "tasks/sumi-release-20261108/final-scope-audit.md",
+  "scope": "Native caret motion priority only; host6.1108.2 arm64; existing Sumi plugin0.1.0 unchanged"
+}

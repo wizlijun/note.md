@@ -1,0 +1,7 @@
+{
+  "sourceCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+  "sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+  "size": 8080,
+  "version": "0.1.1",
+  "minimumHost": ">=6.1108.2"
+}

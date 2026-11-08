@@ -1,0 +1,117 @@
+{
+  "status": "passed",
+  "verifiedAt": "2026-11-08T10:34:47.574871+00:00",
+  "plugin": "notemd.sumi",
+  "version": "0.1.1",
+  "minimumHost": ">=6.1108.2",
+  "sourceCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+  "manifestExactSourceCommit": true,
+  "indexes": [
+    {
+      "mode": "normal",
+      "http": 200,
+      "sha256": "97fe3364c8b6eaf8f8dd1520d41328168eb440d6faf66ba7973e544c2ddd98b9",
+      "beforeEntries": 299,
+      "entries": 300,
+      "entireIndexEqualsCandidate": true,
+      "historicalEntriesUnchanged": true,
+      "retainsSumi010": true,
+      "entry": {
+        "id": "notemd.sumi",
+        "version": "0.1.1",
+        "min_host": ">=6.1108.2",
+        "archs": [
+          "universal"
+        ],
+        "size": 8080,
+        "sha256": {
+          "universal": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54"
+        },
+        "name": "Sumi",
+        "category": "experience",
+        "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+        "i18n": {
+          "zh": {
+            "name": "Sumi",
+            "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+            "menus": {
+              "open": "打开 Sumi"
+            }
+          }
+        },
+        "icon_url": null,
+        "changelog_url": null,
+        "download": {
+          "universal": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.1/universal"
+        }
+      }
+    },
+    {
+      "mode": "fresh",
+      "http": 200,
+      "sha256": "97fe3364c8b6eaf8f8dd1520d41328168eb440d6faf66ba7973e544c2ddd98b9",
+      "beforeEntries": 299,
+      "entries": 300,
+      "entireIndexEqualsCandidate": true,
+      "historicalEntriesUnchanged": true,
+      "retainsSumi010": true,
+      "entry": {
+        "id": "notemd.sumi",
+        "version": "0.1.1",
+        "min_host": ">=6.1108.2",
+        "archs": [
+          "universal"
+        ],
+        "size": 8080,
+        "sha256": {
+          "universal": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54"
+        },
+        "name": "Sumi",
+        "category": "experience",
+        "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+        "i18n": {
+          "zh": {
+            "name": "Sumi",
+            "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+            "menus": {
+              "open": "打开 Sumi"
+            }
+          }
+        },
+        "icon_url": null,
+        "changelog_url": null,
+        "download": {
+          "universal": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.1/universal"
+        }
+      }
+    }
+  ],
+  "assets": [
+    {
+      "url": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.1/universal",
+      "http": 200,
+      "name": "universal.notemdpkg",
+      "bytes": 8080,
+      "sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+      "equalsFrozenLocalFile": true,
+      "anonymousFullFile": true
+    },
+    {
+      "url": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.1/universal.minisig",
+      "http": 200,
+      "name": "universal.notemdpkg.minisig",
+      "bytes": 314,
+      "sha256": "eeb1e5111e15f738f9414a5948e54c8ede3604ecd7a66d880648f5ee032481b3",
+      "equalsFrozenLocalFile": true,
+      "anonymousFullFile": true
+    }
+  ],
+  "signature": {
+    "valid": true,
+    "publicKeySource": "v6.1108.2:src-tauri/src/plugin_runtime/market.rs",
+    "tool": "minisign",
+    "stdout": "Signature and comment signature verified\nTrusted comment: timestamp:1794133528\tfile:universal.notemdpkg\thashed"
+  },
+  "scope": "Independent anonymous full package/signature and normal/fresh complete index readback; no upload, KV writes, host operations or network-setting changes.",
+  "secretsIncluded": false
+}

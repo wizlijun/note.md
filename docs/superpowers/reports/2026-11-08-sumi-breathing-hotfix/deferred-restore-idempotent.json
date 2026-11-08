@@ -1,0 +1,23 @@
+{
+  "releaseTag": "v6.1108.2",
+  "releaseCommit": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "state": "already_restored",
+      "entries": 19,
+      "historySha256": "f2dad6143964d5ed975f0dee52a04228e9951e6946699185696ffe5ffd8a59a8",
+      "targetSha256": "aafa0e05d11f5f99140353d75f7152ffc252682490d70e7d83f2c6389b39e058"
+    },
+    {
+      "path": "CHANGELOG.zh-CN.md",
+      "state": "already_restored",
+      "entries": 19,
+      "historySha256": "3e8d68d8ffc7b2f0877c8af52557a6d4411b929784f48d467c84019421c8f938",
+      "targetSha256": "06d534e3e45845734888d578fbff0c098fc589080df91f1e054b6acda64aaf0a"
+    }
+  ],
+  "mode": "check",
+  "changedFiles": 0,
+  "plannedWrites": 0
+}

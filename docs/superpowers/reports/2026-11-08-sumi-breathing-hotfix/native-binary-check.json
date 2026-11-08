@@ -1,0 +1,9 @@
+{
+  "source": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+  "tag": "v6.1108.2",
+  "binarySha256": "8771a7c2d236f5bbaffcea29402337f7f6d1857c5f7a5b2392efaf0c7291443a",
+  "SumiTextViewPresent": true,
+  "updateCaretMotionPresent": true,
+  "obsoleteReduceCaretMotionSelectorAbsent": true,
+  "boundary": "Actual signed release binary metadata, not physical display measurement"
+}

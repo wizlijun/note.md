@@ -1,0 +1,37 @@
+{
+  "verifiedAt": "2026-11-08T10:25:44.531030+00:00",
+  "hostVersion": "6.1108.2",
+  "hostTag": "v6.1108.2",
+  "hostCommit": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+  "hotfixCommit": "6cf70ac2ca388fbe87c1531421f43082cf0cd15f",
+  "nativeTestSources": [
+    {
+      "path": "tauri-plugin-native-editor/native/editor.m",
+      "sha256": "9913753c4b270e6706de78ec55ed76692ef5a541c92729e0d4a9668c58dfeca7",
+      "tagSourceMatchesTest": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/caret-probe.m",
+      "sha256": "091a9fddef3d3b8ec835001b568667c69a1636d80376b82a8ae17ae5364d83f0",
+      "tagSourceMatchesTest": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/caret-render-probe.m",
+      "sha256": "684736928009864d5c8f5930b28aafbfa5e761a900c995eb10eedb1b3fbd0ef5",
+      "tagSourceMatchesTest": true
+    }
+  ],
+  "restoreCommit": "cda46297988e1cf2c828f29d42151c4ef18be838",
+  "hostTagPluginVersion": "0.1.0",
+  "nextPlugin": {
+    "version": "0.1.1",
+    "minimumHost": ">=6.1108.2",
+    "status": "published",
+    "includedInHostTag": false,
+    "sourceCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+    "packageSha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+    "verifiedAt": "2026-11-08T10:35:10.374655+00:00"
+  },
+  "publicHostBoundary": "Public release and anonymous official REST assets verified; canonical large-file browser download URLs returned 504 and remain unverified. Large assets were fully read while draft; anonymous public REST head/tail sampling is not full-file verification.",
+  "rawLogsCopied": false
+}

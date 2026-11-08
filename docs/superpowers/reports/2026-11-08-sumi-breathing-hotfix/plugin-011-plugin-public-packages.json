@@ -1,0 +1,30 @@
+{
+  "package_sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+  "signatures_valid": true,
+  "objects": [
+    {
+      "mode": "normal",
+      "key": "notemd.sumi/0.1.1/universal.notemdpkg",
+      "sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+      "size": 8080
+    },
+    {
+      "mode": "normal",
+      "key": "notemd.sumi/0.1.1/universal.notemdpkg.minisig",
+      "sha256": "eeb1e5111e15f738f9414a5948e54c8ede3604ecd7a66d880648f5ee032481b3",
+      "size": 314
+    },
+    {
+      "mode": "fresh",
+      "key": "notemd.sumi/0.1.1/universal.notemdpkg",
+      "sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+      "size": 8080
+    },
+    {
+      "mode": "fresh",
+      "key": "notemd.sumi/0.1.1/universal.notemdpkg.minisig",
+      "sha256": "eeb1e5111e15f738f9414a5948e54c8ede3604ecd7a66d880648f5ee032481b3",
+      "size": 314
+    }
+  ]
+}

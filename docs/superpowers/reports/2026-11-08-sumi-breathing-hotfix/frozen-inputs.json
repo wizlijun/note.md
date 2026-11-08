@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "source": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+  "version": "6.1108.2",
+  "plugin_version": "0.1.0",
+  "source_sha256": {
+    "src/components/NativeFileView.svelte": "58ddf3d5deead4c0b5af9e348ef24ef1444f1a635a9e77dd08dcfe76e18042f0",
+    "src/components/SumiRecovery.svelte": "584b7c78bd7e6b8af59cf4cbc0a18544b603d117e69efc844c1c1dc902da4e30",
+    "src/lib/sumi/session.ts": "60382a4c2f3eba3f6f9832b579236297bdf5f3caf10cb89bf28814cf643c3520",
+    "src/lib/sumi/recovery.ts": "ec747d150b19fd4a830a0401cfa0b229fec7b230a479b16de85d9aa212b82a2c",
+    "src/App.svelte": "e367f0e34249702a1a26f54cf2b0a7d72ca30168ea0cefd399780aa1437e4865",
+    "src-tauri/src/sumi/mod.rs": "2b5aabef4d829e4263a36c43fa9dc3bb5497f8996abc6472091f717a6a77063e",
+    "src-tauri/src/sumi/export.rs": "827ed7551278f799a141b1aadb35748ca14c6e0168265cce61a26d89d13e25af",
+    "src-tauri/src/sumi/recovery.rs": "057c93d57b473ad57c1056498f42684762e9f1917f0bc3d8614ef9c227e007f0",
+    "src-tauri/src/sumi/external.rs": "91699eb39d3045c4b13f728a31fd32360d88601481f7ee51766c230562eeba91",
+    "src-tauri/src/plugin_runtime/market.rs": "3992717a1ee2e8226eb8ce613343f7f6316c14d56f1a9427a2fce157730d90f7",
+    "src-tauri/src/app_dirs.rs": "375d5d31868d74d9a93f3f09e9c45ce13b9e05fef358f50eddf811993f318bb8",
+    "tauri-plugin-native-editor/native/editor.m": "9913753c4b270e6706de78ec55ed76692ef5a541c92729e0d4a9668c58dfeca7",
+    "tauri-plugin-native-editor/src/lib.rs": "50404823015b56cf037f022678a74672b4a68d7405997937ffb219d14d542df7",
+    "tauri-plugin-native-editor/Cargo.toml": "bf2efec8a5fd6d95b7ed5e05e94676165cb90f12cb06d15b532958d3c9ff278d",
+    "tauri-plugin-native-editor/build.rs": "a363170ff6632369ed13a06c3da4486837ea041002e981bfef7f25068966d257",
+    "plugins-src/write/src/main.ts": "bbef50a1a787be943c11a985aac43af30c71948804905b08264907757c529ee1",
+    "plugins-src/write/manifest.v2.json": "0f7e1174dda637b3d56bae01ce8420adec3a3d434dfdc7f5f0701b7f89e6ab40",
+    "src-tauri/resources/sumi/manifest.json": "a5429c62d3a769b9b8453bfc8f5bc9861871509f551829159704d73da53c938f"
+  },
+  "host_modules": [
+    {
+      "name": "App-BohgGcJF.js",
+      "sha256": "0cfa930f50b163ce446adb92d66a2ff4f65dc9ff2efb1503ea3e28f64dc73875",
+      "bytes": 1051210,
+      "roles": [
+        "native",
+        "recovery",
+        "exit"
+      ]
+    },
+    {
+      "name": "sotvault.svelte-WvVbcJjy.js",
+      "sha256": "5d049518c2fcb4db3a7ffb09c8fbe22ac6d5931293fa782b58460c0a7110562d",
+      "bytes": 277709,
+      "roles": [
+        "source"
+      ]
+    }
+  ],
+  "plugin_files": {
+    "manifest.json": "0f7e1174dda637b3d56bae01ce8420adec3a3d434dfdc7f5f0701b7f89e6ab40",
+    "ui/assets/index-BW5ZJ84_.js": "42c57f56c1e979d83112b5320d78666764699c95ac99684191252266c36342a4",
+    "ui/assets/index-C-oGl-hw.css": "e6c2ff69cacbb45838b5833ca740e7d25ee0b36fc67f9636f169b30b4836f3c4",
+    "ui/index.html": "41f46b718227c4581fa290529023144c4b2527a1c82bfc0a9c81644fa6e5aa80"
+  }
+}

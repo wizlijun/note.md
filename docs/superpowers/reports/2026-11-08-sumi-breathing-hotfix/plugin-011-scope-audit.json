@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-08T10:25:44.470534+00:00",
+  "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD f1bd9bc5f45c7d0ba218675c52655bd5d591008f\nbranch refs/heads/main\n\n",
+  "status": " M docs/superpowers/plans/2026-11-07-immersive-write-macos.md\n M docs/superpowers/specs/2026-11-07-immersive-write-design.md\n M searchidx/src/store.rs\n M src-tauri/src/smart_lookup.rs\n?? docs/superpowers/reports/2026-11-08-sumi-breathing-hotfix/\n",
+  "branches": "* main f1bd9bc5 [origin/main: ahead 2] chore(sumi): release plugin 0.1.1 for breathing caret host fix\n",
+  "stash": "",
+  "unmerged": "b4d139e0 fix(share): fence multipart registration with direct conditional write\n88428b8b fix(share): verify partial multipart metadata with native HEAD\n3b978a36 perf(share): avoid duplicate commit and legacy metadata reads\n313d965c perf(share): reuse sealed metadata and completed cleanup state\neac27288 perf(share): register multipart artifacts in one state update\nab7b8d6e perf(share): bound cleanup to one artifact per request\n45fdf7ba perf(share): reduce native metadata calls during upload registration\nc8d72ee9 feat(share): stream resumable project uploads on free Workers\nc49b8e66 fix(editor): restore rich Markdown heading anchor navigation\n66c01d65 docs(share): plan free Worker multipart implementation\n292d4a1f docs(share): design resumable uploads for free Workers\n34b43ae6 fix(share): bound native ZIP validation and exclude mirror metadata\n27668a9c feat(share): show live project archive upload progress\nda2535d8 fix(share): tolerate Finder metadata during project deletion\n4c4d6bc8 fix(share): keep sidebar toggle arrows aligned\n00b3a9be feat(share): publish entry first and retain project archives\n9a14dd7c fix(memory): avoid redundant projection rebuilds and writes\n",
+  "scope": "Only Sumi plugin manifest/package version and bilingual changelog; no host rebuild. Other documentation is release evidence; two original Rust EOF diffs excluded.",
+  "prior": "tasks/sumi-caret-breathing-20261108/scope-audit.json"
+}

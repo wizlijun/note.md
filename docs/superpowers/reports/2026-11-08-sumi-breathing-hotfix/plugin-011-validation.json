@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-08T10:27:36.531252+00:00",
+  "sourceCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+  "typescript": "passed",
+  "pluginTests": {
+    "files": 1,
+    "passed": 33
+  },
+  "releaseTests": {
+    "files": 2,
+    "passed": 97
+  },
+  "build": "existing scripts/release-plugins.sh --release sumi passed",
+  "signature": "minisign passed with registry pinned public key",
+  "changelog": "passed",
+  "scope": "Plugin metadata/minimum host only; original native fix tested separately; no new user interface changes"
+}

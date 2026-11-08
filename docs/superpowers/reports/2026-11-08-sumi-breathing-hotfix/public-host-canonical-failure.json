@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-11-08T10:25:21.840795+00:00",
+  "canonicalFinalAttemptExitCode": 1,
+  "canonicalLog": "public-host-verification-final-attempt.log",
+  "checks": [
+    {
+      "name": "note.md-6.1108.2-aarch64.dmg",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.2/note.md-6.1108.2-aarch64.dmg",
+      "method": "HEAD",
+      "rangeHeader": false,
+      "attempts": 1,
+      "timeoutSeconds": 20,
+      "http": 504,
+      "error": "HTTPError"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.2/note.md-aarch64.app.tar.gz",
+      "method": "HEAD",
+      "rangeHeader": false,
+      "attempts": 1,
+      "timeoutSeconds": 20,
+      "http": 504,
+      "error": "HTTPError"
+    }
+  ],
+  "restAssetReport": "public-host-api-verification.json",
+  "limitation": "Canonical browser_download_url GETs failed with 504 or timeout despite anonymous REST asset readback and signature verification passing; no claim that canonical download URLs passed.",
+  "networkSettingsChanged": false,
+  "publishedAssetsModified": false
+}

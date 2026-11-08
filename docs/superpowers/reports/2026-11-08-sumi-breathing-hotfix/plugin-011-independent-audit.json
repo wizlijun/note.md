@@ -1,0 +1,78 @@
+{
+  "auditedAt": "2026-11-08T10:28:31.634762+00:00",
+  "result": "passed",
+  "helperSha256": "0b68d89020f05428f08f969582a9ce0376003736ae2082a6bf20e0f686eaa2b3",
+  "sourceCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+  "package": {
+    "sha256": "0db4eb3494facca5a11df18a3ac00b910fc43220cf94483bd91ac4e56a37ed54",
+    "bytes": 8080,
+    "signatureValid": true,
+    "manifestExactSourceCommit": true,
+    "currentWriteSourceMatchesFrozenCommit": true,
+    "version": "0.1.1",
+    "minimumHost": ">=6.1108.2",
+    "download": {
+      "universal": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.1/universal"
+    }
+  },
+  "append": {
+    "identity": "id@version",
+    "fixtureBefore": 299,
+    "fixtureAfter": 300,
+    "retainsSumi010": true,
+    "historicalEntriesUnmodified": true,
+    "doesNotMutateInput": true,
+    "idempotent": true,
+    "differentImmutableEntryRejected": true,
+    "duplicateHistoricalVersionRejected": true
+  },
+  "hostGateMockTests": [
+    {
+      "case": "canonical",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "rest_fallback",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "canonical_transport_error",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "canonical_timeout",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "canonical_bad_digest",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "rest_bad_digest",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "rest_wrong_version",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "draft_rejected",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "missing_assets",
+      "passed": true,
+      "accepted": false
+    }
+  ],
+  "scope": "Independent offline audit of package, candidate and helper with isolated synthetic IO. No remote calls, R2/KV writes or tracked source changes. Does not replace actual public host/package/KV verification.",
+  "secretsIncluded": false
+}
