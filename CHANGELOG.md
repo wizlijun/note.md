@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1108.5 — 2026-11-08
+
 - **Power Mode 1.0.4: typing animations travel with the plugin.** Animation assets now ship in Power Mode instead of the host. Install and enable the updated plugin to use them in Rich mode and Editor Kit; older plugins without the assets keep other typing feedback available.
 
 - **Sumi 0.1.4: keep the host lightweight.** Local persistence, synchronization and font downloads now run in the plugin’s background service. Native editing and secure credential storage stay in the host; existing writing pages and pairing are retained.
