@@ -813,3 +813,27 @@ async fn stream_fixture_ui_request_round_trip_and_host_ui_post_push() {
 
     assert!(proc.shutdown().await, "expected graceful shutdown");
 }
+
+#[tokio::test]
+async fn sumi_keychain_wait_does_not_block_status_and_null_result_is_success() {
+    let logs = tempfile::tempdir().unwrap();
+    let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+    let (status_tx, mut status_rx) = tokio::sync::mpsc::unbounded_channel();
+    let waiting = gate.clone();
+    let sink: HostSink = Arc::new(move |request| {
+        if request.params["method"] == "auth_load" {
+            let (mutex, wake) = &*waiting;
+            let _ = wake.wait_timeout_while(mutex.lock().unwrap(), Duration::from_secs(2), |ready| !*ready).unwrap();
+        } else {
+            let (mutex, wake) = &*waiting;
+            *mutex.lock().unwrap() = true;
+            wake.notify_all();
+            status_tx.send(()).unwrap();
+        }
+        Some(proto::RpcResponse { jsonrpc:"2.0".into(), id:request.id.unwrap(), result:Some(serde_json::Value::Null), error:None })
+    });
+    let process = PluginProcess::spawn(&fixture("sumi-callbacks.sh"), "notemd.sumi", logs.path(), 30, sink).await.unwrap();
+    assert_eq!(process.request("command.execute", json!({})).await.unwrap(), serde_json::Value::Null);
+    tokio::time::timeout(Duration::from_secs(1), status_rx.recv()).await.expect("status blocked behind Keychain").unwrap();
+    assert!(process.shutdown().await, "void deactivate must be graceful");
+}

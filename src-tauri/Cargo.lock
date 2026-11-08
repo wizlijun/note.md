@@ -3282,6 +3282,7 @@ dependencies = [
  "lightningcss",
  "minisign-verify",
  "notemd-fonts",
+ "notemd-sumi-backend",
  "notify 7.0.0",
  "objc2",
  "objc2-core-location",
@@ -3298,6 +3299,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sha2",
+ "sumi-protocol",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
@@ -3316,7 +3318,6 @@ dependencies = [
  "tauri-plugin-window-state",
  "tempfile",
  "tokio",
- "tokio-tungstenite",
  "unicode-normalization",
  "url",
  "urlencoding",
@@ -3332,6 +3333,39 @@ version = "0.1.0"
 dependencies = [
  "fontdb",
  "sha2",
+]
+
+[[package]]
+name = "notemd-plugin-sdk"
+version = "0.1.0"
+dependencies = [
+ "plugin-protocol",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "notemd-sumi-backend"
+version = "0.1.4"
+dependencies = [
+ "base64 0.22.1",
+ "fs2",
+ "futures-util",
+ "notemd-plugin-sdk",
+ "reqwest 0.12.28",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "sumi-protocol",
+ "tokio",
+ "tokio-tungstenite",
+ "url",
+ "uuid",
+ "write-core",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -5433,6 +5467,16 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "sumi-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "write-core",
+]
 
 [[package]]
 name = "swift-rs"

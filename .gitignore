@@ -64,8 +64,11 @@ location-helper/target/
 # Share editor build evidence (never app resources)
 /dist-share-editor/
 
-# Sumi font is fetched from a pinned source and verified before bundling.
+# Sumi development fonts are verified but never bundled.
 /src-tauri/resources/sumi/*.otf
 /src-tauri/resources/sumi/*.ttf
 /src-tauri/resources/sumi/*.download
 /write-sync-worker/.wrangler/
+
+/sumi-protocol/target/
+/plugins-src/write/backend/target/

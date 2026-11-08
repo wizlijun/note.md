@@ -107,6 +107,12 @@ impl Durability {
         let worker = notemd_sumi_backend::durability::Durability::open(vault, database, move |event| callback(event)).await?;
         Ok(Self { mode: Mode::Local(worker), notify })
     }
+    #[cfg(test)]
+    pub(super) fn disconnected_for_test() -> Self {
+        let (sender, receiver)=mpsc::channel(1);
+        drop(receiver);
+        Self { mode:Mode::Remote { sender, edits:Arc::new(Semaphore::new(1)) }, notify:Arc::new(|_|{}) }
+    }
     pub fn try_reserve_edit(&self) -> Result<Permit> {
         match &self.mode {
             Mode::Remote { sender, edits } => {

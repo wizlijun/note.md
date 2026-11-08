@@ -623,6 +623,8 @@ pub async fn reconcile<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(
     let _window_replacement = super::windows::begin_plugin_window_replacement(&replaced)?;
     let _ = super::windows::destroy_replaced_plugin_windows(app, &old_map, &replaced).await?;
     reconcile_with_map(new_map).await;
+    #[cfg(not(target_os = "ios"))]
+    crate::sumi::resume_plugin(app).await?;
     Ok(())
 }
 
@@ -638,6 +640,8 @@ pub(crate) async fn reconcile_pre_fenced<R: tauri::Runtime>(
     let host_version = app.package_info().version.to_string();
     let new_map = super::discovery::scan(app, &host_version)?;
     reconcile_with_map_forced(new_map, force_replace).await;
+    #[cfg(not(target_os = "ios"))]
+    crate::sumi::resume_plugin(app).await?;
     Ok(())
 }
 

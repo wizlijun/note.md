@@ -2,7 +2,6 @@
 use super::{err, parse_header, Result};
 use std::{fs, path::Path};
 use write_core::{
-    projection::Baseline,
     storage::{self, FilePair, Sidecar},
 };
 
@@ -31,12 +30,6 @@ impl Observed {
             markdown: read(md)?,
             metadata: read(meta)?,
         })
-    }
-    pub fn hashes(&self) -> Baseline {
-        Baseline {
-            markdown_sha256: self.markdown.as_ref().map(|b| storage::sha256(b)),
-            metadata_sha256: self.metadata.as_ref().map(|b| storage::sha256(b)),
-        }
     }
     pub fn pair(&self) -> Result<FilePair> {
         let md = self.markdown.as_ref().ok_or("写作正文文件已被外部移除；纸页仍保存在本机。请使用“修复本机文件”恢复原路径，或通过恢复入口处理移动后的文件")?;

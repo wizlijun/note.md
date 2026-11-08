@@ -329,7 +329,23 @@ pub fn make_sink_for_app<R: tauri::Runtime>(
     };
     let services: Arc<dyn crate::plugin_runtime::ui_rpc::HostServices> =
         Arc::new(crate::plugin_runtime::ui_rpc::TauriServices::new(app.clone()));
-    make_sink(plugin_id, capabilities, log_dir, emitter, ui_poster, Some(services))
+    #[cfg(not(target_os = "ios"))]
+    let service_plugin=plugin_id.clone();
+    let sink=make_sink(plugin_id, capabilities, log_dir, emitter, ui_poster, Some(services));
+    #[cfg(target_os = "ios")]
+    { sink }
+    #[cfg(not(target_os = "ios"))]
+    {
+        Arc::new(move |request| {
+            if request.method != "host.sumi.service" { return sink(request); }
+            let id=request.id?;
+            let result=tauri::async_runtime::block_on(crate::sumi::service_callback(&app,&service_plugin,request.params));
+            Some(match result {
+                Ok(value)=>proto::RpcResponse{jsonrpc:"2.0".into(),id,result:Some(value),error:None},
+                Err(message)=>proto::RpcResponse{jsonrpc:"2.0".into(),id,result:None,error:Some(proto::RpcError{code:proto::ERR_CAPABILITY_DENIED,message})},
+            })
+        })
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────

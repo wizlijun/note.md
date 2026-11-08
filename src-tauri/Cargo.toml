@@ -37,10 +37,10 @@ tauri-plugin-process = "2"
 tokio = { version = "1", features = ["time", "process", "io-util", "macros", "rt-multi-thread", "sync", "net"] }
 plugin-protocol = { path = "../plugin-protocol" }
 write-core = { path = "../write-core" }
+sumi-protocol = { path = "../sumi-protocol" }
 tauri-plugin-native-editor = { path = "../tauri-plugin-native-editor" }
 rusqlite = { version = "0.40", features = ["bundled"] }
 base64 = "0.22.1"
-tokio-tungstenite = { version = "=0.28.0", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 # Platform-independent search core. Everything about *how* the vault is scanned,
 # tokenized, stored and ranked lives there so that this crate's Tauri commands,
 # the CLI and the watcher are three adapters over one algorithm — see
@@ -120,6 +120,7 @@ block2 = "0.6"
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "vendored-openssl"] }
 
 [dev-dependencies]
+notemd-sumi-backend = { path = "../plugins-src/write/backend" }
 tempfile = "3"
 # `vault_ios` is `#![cfg(any(target_os = "ios", test))]` — it compiles on the dev
 # machine so its logic is unit-testable off-device, and it needs git2. Keeping

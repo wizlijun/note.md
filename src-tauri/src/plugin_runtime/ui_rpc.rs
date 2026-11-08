@@ -1981,6 +1981,11 @@ mod tests {
         let denial = capability_denial("host.nope", &caps, Some(1))
             .expect("an unknown method must be denied, not fall through");
         assert_eq!(denial.error.unwrap().code, proto::ERR_METHOD_NOT_FOUND);
+        for method in ["host.sumi.service", "service.request"] {
+            let denied=capability_denial(method, &["editor.native".into(), "vault.read".into(), "vault.write".into()], Some(2))
+                .expect("native backend service must never be accessible from UI");
+            assert_eq!(denied.error.unwrap().code,proto::ERR_METHOD_NOT_FOUND);
+        }
         // Free methods (no capability at all) still pass.
         assert!(capability_denial("host.log.info", &[], Some(1)).is_none());
     }

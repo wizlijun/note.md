@@ -122,8 +122,23 @@ impl PluginProcess {
         // 仍按到达顺序处理。
         let (sink_tx, sink_rx) = std::sync::mpsc::channel::<proto::RpcRequest>();
         let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let runtime = tokio::runtime::Handle::current();
+        let private_sumi = plugin_id == "notemd.sumi";
         std::thread::spawn(move || {
             while let Ok(req) = sink_rx.recv() {
+                // Sumi callbacks may re-enter its durable FIFO or await a
+                // Keychain prompt. Their own lifecycle gates preserve ordering;
+                // serializing here would also block progress/save notifications.
+                if private_sumi && req.method == "host.sumi.service" {
+                    let sink = host_sink.clone();
+                    let replies = reply_tx.clone();
+                    runtime.spawn_blocking(move || {
+                        if let Some(resp) = sink(req) {
+                            let _ = replies.send(serde_json::to_string(&resp).unwrap());
+                        }
+                    });
+                    continue;
+                }
                 if let Some(resp) = host_sink(req) {
                     if reply_tx.send(serde_json::to_string(&resp).unwrap()).is_err() {
                         break;

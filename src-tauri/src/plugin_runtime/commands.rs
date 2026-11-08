@@ -336,6 +336,7 @@ pub async fn plugin_market_install(
     // in the post-install reconcile leaves a gap where old JavaScript can issue
     // an RPC while the install symlink already names the new package.
     let (window_replacement, closed_windows) = prepare_plugin_window_replacement(&app, &id).await?;
+    let result = async {
     installer::commit_install(&root, &id, &version, tmp.path()).map_err(|e| e.to_string())?;
 
     // Record installed + enabled in state.json.
@@ -372,6 +373,8 @@ pub async fn plugin_market_install(
         closed_windows,
         reload_error,
     })
+    }.await;
+    finish_plugin_replacement(&app,&id,result).await
 }
 
 /// Uninstall `id` (optionally keeping its data dir), drop it from state.json,
@@ -389,6 +392,7 @@ pub async fn plugin_market_uninstall(
         .map_err(|e| format!("cannot resolve app data dir: {e}"))?;
 
     let (window_replacement, _) = prepare_plugin_window_replacement(&app, &id).await?;
+    let result = async {
     installer::uninstall(&root, &id, keep_data, &app_data).map_err(|e| e.to_string())?;
 
     let mut install = state::load(&root);
@@ -401,6 +405,8 @@ pub async fn plugin_market_uninstall(
     crate::rebuild_menu(&app);
     notify_plugins_changed(&app, Some(&id), false);
     Ok(())
+    }.await;
+    finish_plugin_replacement(&app,&id,result).await
 }
 
 /// Flip `id`'s `enabled` flag in state.json, reconcile (disabling deactivates
@@ -419,6 +425,7 @@ pub async fn plugin_market_set_enabled(
         None => return Err(format!("plugin '{id}' is not installed")),
     }
     let (window_replacement, _) = prepare_plugin_window_replacement(&app, &id).await?;
+    let result = async {
     state::save(&root, &install)?;
 
     lifecycle::reconcile_pre_fenced(&app, std::slice::from_ref(&id)).await?;
@@ -432,6 +439,20 @@ pub async fn plugin_market_set_enabled(
     crate::rebuild_menu(&app);
     notify_plugins_changed(&app, Some(&id), enabled);
     Ok(())
+    }.await;
+    finish_plugin_replacement(&app,&id,result).await
+}
+
+async fn finish_plugin_replacement<T>(app: &tauri::AppHandle, id: &str, result: Result<T,String>) -> Result<T,String> {
+    #[cfg(not(target_os = "ios"))]
+    if id=="notemd.sumi" && result.is_err() {
+        // The installer may already have changed disk state. Re-scan before
+        // resuming; never authorize the stale in-memory manifest after failure.
+        if let Err(restore)=lifecycle::reconcile(app).await {
+            return result.map_err(|original|format!("{original}；Sumi恢复仍未完成：{restore}"));
+        }
+    }
+    result
 }
 
 /// Fence one marketplace target and remove every webview contributed by its
@@ -443,6 +464,7 @@ async fn prepare_plugin_window_replacement(
 ) -> Result<(super::windows::PluginWindowReplacement, usize), String> {
     #[cfg(not(target_os = "ios"))]
     if plugin_id == "notemd.sumi" { crate::sumi::cleanup_plugin(app).await?; }
+    let result = async {
     let old_plugins = super::STATE
         .read()
         .map_err(|_| "plugin state lock poisoned".to_string())?
@@ -453,6 +475,8 @@ async fn prepare_plugin_window_replacement(
     let closed_windows =
         super::windows::destroy_replaced_plugin_windows(app, &old_plugins, &plugin_ids).await?;
     Ok((replacement, closed_windows))
+    }.await;
+    finish_plugin_replacement(app,plugin_id,result).await
 }
 
 /// List installed plugins from state.json joined with each
