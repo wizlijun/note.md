@@ -1,0 +1,379 @@
+{
+  "schema": 1,
+  "status": "deferred_unreleased_pending_release",
+  "sourceCommit": "8339ec9b1ae799c38c5fee073c5ed06edfb48090",
+  "purpose": "Preserve the 19 non-Sumi Unreleased entries in each language while the existing release script rotates only the four Sumi entries. Deferred does not mean deleted or released.",
+  "restorationRules": [
+    "Do not restore the deferred entries before the Sumi release has successfully completed, otherwise release.sh will rotate them into that release.",
+    "Verify every archived UTF-8 partition and entry SHA-256 before use. releaseBodyUtf8 + deferredBodyUtf8 must reconstruct originalBodySha256; with the unchanged prefix and historical suffix it must reconstruct sourceSha256.",
+    "After successful release, preserve the new Sumi version section and every historical version byte-for-byte. Restore only deferredBodyUtf8 to the new Unreleased section in each language, never to the released Sumi version.",
+    "If the new Unreleased body contains only whitespace or the release script placeholder, replace that empty body with a leading LF followed by the exact deferredBodyUtf8 bytes. Keep all 19 archived entries in their original order and retain each raw entry byte-for-byte.",
+    "If new entries were added after release, preserve them exactly and append the archived deferredBodyUtf8 after a blank-line boundary. Before writing, compare entry content hashes: if all 19 are already present exactly once, treat restoration as complete; if only some are present or any content conflicts, stop and reconcile without silently duplicating, dropping or rewriting entries.",
+    "Validate both languages contain each of the 19 deferred entries exactly once with their original content and ordering; verify the Sumi released section still contains the intended four entries, and check all historical section hashes against the post-release pre-restoration files.",
+    "Run node scripts/changelog.mjs check, inspect the exact diff, then commit restoration separately and record its SHA. Update restoration status only with that evidence; this archive itself is not proof of release or restoration."
+  ],
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "unreleasedHeading": "## Unreleased",
+      "sourceSha256": "284e67bd8eb6cf6181f613b84c1dba37453f2e231ae11538a56841d2b2e37aec",
+      "sourceBytes": 134212,
+      "originalBodySha256": "1140d92545b37bec0c0865650f977ef9dd01b7a9d33a0a20e89f4163f681e308",
+      "originalBodyBytes": 8006,
+      "prefixSha256": "90ffc8e9e901e96d2899b516c4a9f571887574cbc1b4c038f0f7119e4d8363d5",
+      "historicalSuffixSha256": "fd77bb699052968b5dd974e92f8c686c1c6ba78cd8e45e666a6060175aeaa5d4",
+      "historicalSuffixBytes": 126001,
+      "releaseEntryCount": 4,
+      "deferredEntryCount": 19,
+      "releaseBodyUtf8": "\n- **Native editing controls in Sumi.** Add common shortcuts, find and replace, links, paragraph formatting, and typing styles. Copy as Markdown; paste as text or Markdown, including explicit plain-text paste. Keep the steady caret visible during typing and use the custom caret throughout Chinese composition.\n\n- **Sumi: a quiet native writing space for macOS.** Open a fixed writing window or fullscreen, with five font choices—IBM Plex, LXGW WenKai Mono Lite, Zhaohua Typewriter, Youcha Sanz, and Zhuque Fangsong—and a slightly thicker vertical caret with gentle breathing or steady display,plus simple themes including warm beige with dark gray text, and native writing tabs for dedicated Markdown pages.\n- **Keep writing across devices and offline.** Sumi stores Markdown with companion line-time snapshots, retains first-written and last-edited times, and merges concurrent edits through its dedicated sync service. Pair devices with a short-lived invitation; credentials stay in Keychain.\n- **Recover and export writing without losing the originals.** Restore copied or incomplete writing files as new pages, preserve verified line times, and export plain Markdown or a matched Markdown/metadata archive.\n\n\n\n\n",
+      "releaseBodySha256": "32caee479f07c7128d6d659cdf92f1e6de86a67b1b8e6e46a24d369a88b131af",
+      "deferredBodyUtf8": "- **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.\n\n- **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.\n\n- **NEXT 1.13.2: hide empty placed lanes.** With Show placed turned off, empty Later and Closed lanes disappear and the board fits its visible columns. Due items in Later remain visible.\n\n- **NEXT 1.13.1: card actions use compact split buttons.** Complete a task from the blue main button or open placement options from its arrow. The kickoff arrow opens the Agent menu beside the button, without an extra dialog.\n\n- **NEXT 1.13.0 with Codex 1.1.0, DeepSeek 1.2.0 and Claude 1.1.0: the Agent retrieves its own kickoff context.** Pass the current Vault and Task identity instead of collecting and sending a background file packet. The Agent uses notemd search and native web search for recent articles, then returns cited questions and suggestions. Per-Agent concurrency is adjustable and defaults to three, with separate runs for different Tasks. NEXT validates and saves the result; placement still requires the user. Update NEXT and the selected Agent together. On older hosts, open each Agent’s settings once to apply the new default when unset; saved limits remain unchanged. Web sources open on supporting hosts and copy their URL on older hosts.\n\n- **Ebook Import 1.5.6: optional AI reading from the import CLI.** Add `--ai-read` to read the imported book with your default installed Agent, or `--agent <plugin-id>` to select one for this run. The command waits for the summary and reports AI failures separately from a completed import. Agent runs require the current Vault; a shared SDK fix lets synchronous commands receive host replies without deadlocking.\n- **Ebook Import 1.5.6: check Baidu OCR upload limits before sending.** The existing cloud endpoint is documented as using Unlimited OCR 2. Local uploads now stop above 50 MB (50,000,000 bytes) or 500 PDF pages, with guidance to compress or split the file. Invalid PDFs fail before any Baidu request; your selected OCR provider stays unchanged.\n\n- **Ebook Import 1.5.5: import books from an Agent or terminal.** Discover valid topic IDs with `notemd ebook --list-topics --json`, import relative or absolute file paths with `--topic`, and explicitly enable scanned-PDF OCR with `--ocr`. The CLI shares the window import pipeline, reports progress and structured destinations, and rejects conflicting OCR options.\n\n\n- **Claude Agent 1.0.34: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.\n\n- **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.\n\n- **NEXT 1.12.0: start an in-progress Task with your installed Agent.** The combined kickoff control offers both the main action and Agent selection. NEXT prepares a bounded snapshot of the Task and relevant declared background; Codex Agent 1.0.21 and DeepSeek Agent 1.1.20 return the questions without filesystem, command, network or MCP tools. Answers still require your confirmation before placement. Update the Agent plugin when its installed version does not provide this capability.\n\n- **NEXT 1.11.0: “Help me start” on Task cards.** Review up to three questions grounded in your vault, save your answers, and prefill the placement form for your approval. Existing answers survive regeneration and manually edited result text is preserved. Agent execution stays disabled until its read-only safety checks are verified.\n\n- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.\n\n- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.\n\n- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.\n\n- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.\n\n- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.\n\n- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.\n\n- **Refresh product documentation across languages.** Align the English/Chinese README and feature lists with the four-language website and agent reference. Remove stale release snapshots, clarify platform and plugin availability, document the current diagram renderer and external health library, and correct outdated shortcuts and storage claims.\n\n",
+      "deferredBodySha256": "f029a1a30340058d7b5a4ea06db5254fda6625df7803bb24d5030c435b17e844",
+      "preparedFileSha256": "f1144ee17a989c027f13f874c27b83719c8c326a8a1e23a57a57aa29da49efae",
+      "entries": [
+        {
+          "ordinal": 1,
+          "disposition": "release",
+          "originalBodyStartByte": 1,
+          "rawBytes": 311,
+          "rawSha256": "eb66d3a7e894b9447fcf322b91cb07a6501729932c8418fbc03d256eb8b36680"
+        },
+        {
+          "ordinal": 2,
+          "disposition": "release",
+          "originalBodyStartByte": 312,
+          "rawBytes": 401,
+          "rawSha256": "2c9122e4bf138bfe6f3c72acdedd1bee3244688714dc1b9dc3c3b2b72e152f4e"
+        },
+        {
+          "ordinal": 3,
+          "disposition": "release",
+          "originalBodyStartByte": 713,
+          "rawBytes": 287,
+          "rawSha256": "bcc3ecc6a87cd4914b4a4f3dc0aa6f7785aaade7688f753c5f75b9fe5a3355cd"
+        },
+        {
+          "ordinal": 4,
+          "disposition": "release",
+          "originalBodyStartByte": 1000,
+          "rawBytes": 220,
+          "rawSha256": "1ca2ad1de93b948548d7963f0a259a85e8cc8ff361370a05489d86d40d85143a"
+        },
+        {
+          "ordinal": 5,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1220,
+          "rawBytes": 263,
+          "rawSha256": "fb52ed66b044fecc604fe395c12d7fd8112b482f45220060d7be3cbf4735a2e1"
+        },
+        {
+          "ordinal": 6,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1483,
+          "rawBytes": 261,
+          "rawSha256": "b04fac84cd2d12fd9fb49700f24bed40db077e6d32d01a95db0098a395a68da6"
+        },
+        {
+          "ordinal": 7,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1744,
+          "rawBytes": 188,
+          "rawSha256": "9e0f5a2fd8d36afadb88ace20e551ac866550bfeba4446e00511ba0a8469e180"
+        },
+        {
+          "ordinal": 8,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1932,
+          "rawBytes": 227,
+          "rawSha256": "5e2cb30535a82617e84341e020bc8adfbc0bc573ed74eb6849b2e7924ac1d6b3"
+        },
+        {
+          "ordinal": 9,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 2159,
+          "rawBytes": 740,
+          "rawSha256": "b41d2d91920be0cc9fdce61ee611ccd29c09e222d69ebe08b9a592f85a8e7ed3"
+        },
+        {
+          "ordinal": 10,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 2899,
+          "rawBytes": 414,
+          "rawSha256": "a35ccedeb032f6397d5fdf239ed517f364f4b554f7765b52cdc7c4d2ab0f7c7b"
+        },
+        {
+          "ordinal": 11,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 3313,
+          "rawBytes": 346,
+          "rawSha256": "1dae6003338749a9cf7004100965e1c1a630e6bd515a3010b4cbfe2dcb555a34"
+        },
+        {
+          "ordinal": 12,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 3659,
+          "rawBytes": 368,
+          "rawSha256": "aa5d69d3ffbf22a23351ce35cd3928c379ae3fab3caaec2b9dd3a67b755d58b6"
+        },
+        {
+          "ordinal": 13,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 4027,
+          "rawBytes": 403,
+          "rawSha256": "dd7187b3cb89024c714fb533ebe755fc70a52fae9a6fa0a5a19e01c5e69b91ad"
+        },
+        {
+          "ordinal": 14,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 4430,
+          "rawBytes": 478,
+          "rawSha256": "081ebb2f77fbd18e0c5631bd92faafa58379c2d0caa4ecc20e5ef4cd4ba21463"
+        },
+        {
+          "ordinal": 15,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 4908,
+          "rawBytes": 490,
+          "rawSha256": "37781512476e1276a1758ff1087333c04328767e4c8de858e24f1e67ea06b990"
+        },
+        {
+          "ordinal": 16,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 5398,
+          "rawBytes": 340,
+          "rawSha256": "9fb386f9ccbda58b73f6d3cf1c2a95ce55a70fa343277709f52365ae329285cc"
+        },
+        {
+          "ordinal": 17,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 5738,
+          "rawBytes": 384,
+          "rawSha256": "e30271b5f777943b3de315ea8b971e2d334bad3e7cb1b2ebe3cb9728cb48a457"
+        },
+        {
+          "ordinal": 18,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6122,
+          "rawBytes": 409,
+          "rawSha256": "63dfa629e19ab026f84a993e9eeb80b7e0810927eb27118f4467f68e015bdafa"
+        },
+        {
+          "ordinal": 19,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6531,
+          "rawBytes": 361,
+          "rawSha256": "dd839dd9994688e8d89fbf59475fa4ed56178b440310d4a0b30eeaddde1ec89e"
+        },
+        {
+          "ordinal": 20,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6892,
+          "rawBytes": 211,
+          "rawSha256": "1827af6b85e0bacd71a7a6adf6cd5cde7fc4e01acade7165209823265d533a53"
+        },
+        {
+          "ordinal": 21,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 7103,
+          "rawBytes": 309,
+          "rawSha256": "2b04ea6570c750f04278d20970175660e7a29f5843815293b60001090a50bbaf"
+        },
+        {
+          "ordinal": 22,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 7412,
+          "rawBytes": 244,
+          "rawSha256": "426cf5935dea9be3d59a952e2b9f41096674a010cd4369a6e0ede8a19a670d21"
+        },
+        {
+          "ordinal": 23,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 7656,
+          "rawBytes": 350,
+          "rawSha256": "4afea7d33e7a29cb861d2319805a9e07bc3896cd1541129ba8e7dacb58b852c0"
+        }
+      ]
+    },
+    {
+      "path": "CHANGELOG.zh-CN.md",
+      "unreleasedHeading": "## 未发布",
+      "sourceSha256": "8fbf3553dd668a55537fbefe0db3a560b1e14cbf2903d1e3f65d217a79df5a28",
+      "sourceBytes": 120921,
+      "originalBodySha256": "5ae89ed402a96eaeae410358f1dfa32dfb898cfc41191af22bb6b0b256dce276",
+      "originalBodyBytes": 7054,
+      "prefixSha256": "3399ac1fa3c1c0c2d5404be1e7ecb852bb9b51868ef1c7b19c6a23b0c065434d",
+      "historicalSuffixSha256": "6852ffc220f67ff21dc9931e883b6ee1f1d92924442c99d394f0e33d6c2264c3",
+      "historicalSuffixBytes": 113694,
+      "releaseEntryCount": 4,
+      "deferredEntryCount": 19,
+      "releaseBodyUtf8": "\n- **Sumi 编辑操作遵循原生习惯。** 补齐常用快捷键、查找替换、链接与段落格式；复制输出 Markdown，粘贴统一转成文本或 Markdown，并支持显式纯文本粘贴。修复常亮光标输入时消失和中文组字出现系统细线。\n\n- **Sumi：macOS 原生沉浸写作。** 固定大小窗口与全屏自由切换，可选 Plex、独立文楷 Mono Lite、朝华打字机、油茶馓子体、朱雀仿宋五项字体与稍粗竖线光标，可选择平缓呼吸或不闪烁常亮，支持包含米色深灰在内的简洁主题，并可在 note.md 原生写作标签中阅读和续写。\n- **跨设备、离线也能接着写。** Sumi 以 Markdown 与伴随时间文件保存纸页，保留每逻辑行首次书写与最后修改时间，通过独立同步服务自动合并并发编辑；使用短期配对码连接设备，凭据保存在钥匙串。\n- **保留原稿的恢复与导出。** 副本或不完整写作文件可恢复为新的一页，保留可验证的逐行时间；支持导出纯 Markdown，或同一快照的正文与时间归档。\n\n\n\n\n",
+      "releaseBodySha256": "a1d4826cc742a1b64ebe7f86b9e9a7b7011bff19b15f9e508fd1bec970d38746",
+      "deferredBodyUtf8": "- **NEXT 开头结果严格关联原任务。** 冲突结果只阻止相关任务，关闭已失效的结果视图并保留用户内容；同一窗口会话中，重复的后台读取错误只提示一次。\n\n- **更新网站 Agent 集成入口。** 首页突出展示 Grokbot，新增四语集成指南；入口统一按 Claude、Codex、Grokbot、OpenClaw、Hermes 排列，并修复翻译内容页切回英文的链接。\n\n- **NEXT 1.13.2：隐藏已安放的空泳道。** 关闭“显示已安放”时，隐藏空的“稍后／已结束”泳道，布局随可见列数收缩；到期的稍后事项继续显示。\n\n- **NEXT 1.13.1：卡片操作合并为组合按钮。** 蓝色主按钮直接完成任务，旁边箭头展开安放菜单；“帮我开个头”的箭头直接在按钮旁展开 Agent 菜单，无需额外对话框。\n\n- **NEXT 1.13.0 配套 Codex 1.1.0、DeepSeek 1.2.0、Claude 1.1.0：开个头由 Agent 自主检索。** 不再预扫描并发送背景文件包；传入当前 Vault 路径与 Task 身份，由 Agent 调用 notemd search 及 harness 联网搜索近期相关文章，返回带来源的问题与建议。各 Agent 的并发可调、默认 3，不同 Task 可以同时运行。结果仍由 NEXT 校验保存，安放由用户确认。请同时更新 NEXT 与所选 Agent。旧宿主需打开一次各 Agent 设置，未设置并发时会保存默认 3；已有设置保持。网页来源在支持的宿主打开，旧宿主复制网址。\n\n- **导入电子书 1.5.6：CLI 导入后自动 AI 先读。** 加 `--ai-read` 使用默认已安装 Agent，或用 `--agent <插件ID>` 指定本次 Agent；等待摘要生成，先读失败与已完成导入分别报告。Agent 仅在当前 Vault 运行；同步命令通过共享 SDK 修复可正常接收宿主应答，避免死锁。\n- **导入电子书 1.5.6：调用百度 OCR 前检查文件限制。** 沿用官方已声明基于 Unlimited OCR 2 的云端接口；本地文件超过 50 MB（50,000,000 字节）或 500 页时提前拒绝并提示压缩或分册，无效 PDF 也不会提交至百度。保留用户选择的 OCR 服务。\n\n- **导入电子书 1.5.5：Agent 可直接用 CLI 导入。** 先用 `notemd ebook --list-topics --json` 查询分类 ID，再以 `--topic` 导入绝对或相对路径的书籍；扫描 PDF 按需显式加 `--ocr`。命令与窗口共用导入流水线，返回结构化书籍路径并持续报告进度，拒绝冲突的 OCR 参数。\n\n\n- **Claude Agent 1.0.34：“帮我开个头”支持 Claude。** 与 Codex、DeepSeek 使用同一份冻结 v2 规程和你确认过的背景快照；在空目录、无工具、无 MCP、不读磁盘指令的模式下运行，按固定总时限收束。只读或预算配置被削弱时，启动 Claude 前即拒绝。更新 Claude Agent 插件后即可在 NEXT 中选择 Claude。\n\n- **NEXT 1.12.1：每次发送前确认背景与接收方。** 显示 Agent 服务商和实际文件清单；修复大 Vault、中文部分词语匹配及大量未完成任务导致的背景遗漏，引用只认可确认快照中的文件。配套 Codex Agent 1.0.22 / DeepSeek Agent 1.1.21 使用单份冻结 v2 规程；Claude 等未支持插件明确暂不支持。锁冲突显示容量限制，时长保存为整数秒。\n\n- **NEXT 1.12.0：进行中的任务也能“帮我开个头”。** 将主操作与 Agent 选择整合为一个复合控件，使用本机已安装的 Agent。NEXT 先收集任务和规程声明的相关背景快照，再由 Codex Agent 1.0.21 或 DeepSeek Agent 1.1.20 在无文件、命令、网络及 MCP 工具的模式下生成问题；回答仍须你确认后才能安放。已安装 Agent 缺少此能力时明确提示更新插件。\n\n- **NEXT 1.11.0：Task 卡片新增“帮我开个头”。** 查看基于 Vault 背景提出的少量问题，保存回答并预填安放表单，由你确认提交。重新生成保留旧答案，保存答案不覆盖手工编辑的结果正文；agent 通过只读安全验收前保持不可用。\n\n- **Agent 可通过统一入口操作原 NEXT 任务。** 添加、修改、安放、完成与重开保留任务身份，后台提取仍只新增；提醒偏好与卡片共用。Vault skills 新增一次性提醒规则、发送前复核及投递回执，定时发送仍需部署轮询运行器。\n\n- **健康数据同步 0.1.1：修复首次选择文件后的导入预览。** 主采集按钮优先读取所选文件，不再要求先有记忆路径；预览保持只读。按 `HealthData` 根节点识别 ZIP 主 XML，兼容不同语言和编码标记错误导致的乱码文件名；大型 CDA 文档按 XML 限额流式保存，保留 CDA、ECG 和 GPX 附件。\n\n- **健康数据同步 0.1.0（独立 Mac 插件）：按天汇集健康档案。** 导入完整 Apple Health ZIP/XML，以 Garmin Personal 和 Oura V2 API 补充详情；提供分类与覆盖浏览、窗口/CLI 历史续采。保留原始字段和附件，使用可读 slug 文件名，厂商凭据存入钥匙串。\n\n- **Roam Research Sync 1.2.7：修复大页面导致的 stdout 管道死锁。** Roam CLI 运行期间并发读取 stdout/stderr，保留 60 秒超时，并在超时后终止和回收子进程。\n\n- **优先提供 Omarchy 下载，并补齐 ARM64 Arch 包。** 官网 Linux 主按钮直接选择 Omarchy/Arch，Debian/Ubuntu 使用独立入口；通用下载页明确区分格式。6.1022.1 补充 aarch64 `.pkg.tar.zst` 及独立校验文件，应用二进制内容不变。\n\n- **官网 Linux 下载识别正确架构。** 请求浏览器真实 CPU 架构，不再把 Chromium 简化后的 Linux 标识误判为 AMD64；无法识别时提供明确的 ARM64 / AMD64 选择。\n\n- **同步多语言产品文档。** 统一中英文 README、功能清单、四语网站与 Agent 参考文档；清理过期版本快照，说明平台与插件边界、当前图表渲染器和外置健康资料库，并修正过期快捷键及存储描述。\n\n",
+      "deferredBodySha256": "92988ff47447cce640598f5b8c379053c41f91a1677498a010586bf11dc459c5",
+      "preparedFileSha256": "f5259175fb0e98a543e7f33335b882c3f35c5f5d5c04e22cffa6e49662dd7bb5",
+      "entries": [
+        {
+          "ordinal": 1,
+          "disposition": "release",
+          "originalBodyStartByte": 1,
+          "rawBytes": 275,
+          "rawSha256": "2c957aa6f7e67df5f8165a8151d420be65f79112dde683a05c5c69b088ebf519"
+        },
+        {
+          "ordinal": 2,
+          "disposition": "release",
+          "originalBodyStartByte": 276,
+          "rawBytes": 354,
+          "rawSha256": "ae593d478c555d6ec58cc5fb60e382588226f3ece88c4a62e7af1ceb93cc372f"
+        },
+        {
+          "ordinal": 3,
+          "disposition": "release",
+          "originalBodyStartByte": 630,
+          "rawBytes": 266,
+          "rawSha256": "ff34d141894b34905e83f1da949380c68f41b4bacb01d2659c47f94943ada8cc"
+        },
+        {
+          "ordinal": 4,
+          "disposition": "release",
+          "originalBodyStartByte": 896,
+          "rawBytes": 204,
+          "rawSha256": "cc9eed895c01d91d84591fc1c63d6618480c773307b8c9db88677e932a201ecc"
+        },
+        {
+          "ordinal": 5,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1100,
+          "rawBytes": 209,
+          "rawSha256": "e193498c5a7670b173075efd7e66c7d9568d1764e3cfaa70567638bc2bfd78b1"
+        },
+        {
+          "ordinal": 6,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1309,
+          "rawBytes": 217,
+          "rawSha256": "bb1171e2cb9cc02f77c52dfe842b7e191505dfb801e6eb40341f1e9cbab9f16f"
+        },
+        {
+          "ordinal": 7,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1526,
+          "rawBytes": 197,
+          "rawSha256": "f9ab0466751a806325c99c9577ec7ef46b85f1a1e2b58e68620c52cbfa6a2302"
+        },
+        {
+          "ordinal": 8,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1723,
+          "rawBytes": 222,
+          "rawSha256": "ea33a0b138c4de9912177243d6856418bb7975bf28e669efbf26b1ce7a5400d6"
+        },
+        {
+          "ordinal": 9,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 1945,
+          "rawBytes": 638,
+          "rawSha256": "efd8b03c74912c84586aa19eb310beec66eebaa4f9169e7d67c068e2ad31b206"
+        },
+        {
+          "ordinal": 10,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 2583,
+          "rawBytes": 339,
+          "rawSha256": "abf19db3f275f251afe76b2bfa15195027ad8369b90bf83cb7762f33eb61b2ac"
+        },
+        {
+          "ordinal": 11,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 2922,
+          "rawBytes": 309,
+          "rawSha256": "e1445820e1a9acef6cba58ed6011435f7c5df903306f242fa34f7428f02803bc"
+        },
+        {
+          "ordinal": 12,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 3231,
+          "rawBytes": 339,
+          "rawSha256": "c2c7740726a4edba9b3d23e1d6973743fb165b1b5f0bd0954d490c5d250d50a3"
+        },
+        {
+          "ordinal": 13,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 3570,
+          "rawBytes": 384,
+          "rawSha256": "c5426f519feaf79f127ea4de30d78beee4eee166e0e4aeb2225213be02b27ae7"
+        },
+        {
+          "ordinal": 14,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 3954,
+          "rawBytes": 427,
+          "rawSha256": "2d267f5ffe23d0fc4879f26f4d68664d38aa147cb44a2b69e8c0a6c282affa56"
+        },
+        {
+          "ordinal": 15,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 4381,
+          "rawBytes": 444,
+          "rawSha256": "c0a8006163b0f04b9ea691ba9406fad2c41fc76e5bb3f1babe6dc879a2ab3db2"
+        },
+        {
+          "ordinal": 16,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 4825,
+          "rawBytes": 302,
+          "rawSha256": "60c097dcfb4004bfb6db23017aa7d514eab9c34f16b55522412eff4ccb3c840b"
+        },
+        {
+          "ordinal": 17,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 5127,
+          "rawBytes": 298,
+          "rawSha256": "61f0995d249e613fe54233b2cd67084c383f44ea952176b8ac2d8f073ad9c577"
+        },
+        {
+          "ordinal": 18,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 5425,
+          "rawBytes": 370,
+          "rawSha256": "fd01d8d820c0b05a764efb6740a2954fc25b2ebba76170365cd27554cdc2539b"
+        },
+        {
+          "ordinal": 19,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 5795,
+          "rawBytes": 319,
+          "rawSha256": "6abf97f09a4573ceef97fde64efa5a55759a7da7835777c5d8eef00f43711c71"
+        },
+        {
+          "ordinal": 20,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6114,
+          "rawBytes": 197,
+          "rawSha256": "a17fcc8332cec27cd393a292c2fd0eb1c1afee57d388bf70a6c834647fe68745"
+        },
+        {
+          "ordinal": 21,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6311,
+          "rawBytes": 280,
+          "rawSha256": "da7c57a02e5b7fdffd9cb55b0a228091d47f1d78f7f4b6f7f2d1ffa0203340e6"
+        },
+        {
+          "ordinal": 22,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6591,
+          "rawBytes": 200,
+          "rawSha256": "174b4cddf0ad36642af29218189ed89052acbeffe3b8ded64bb36d3719346b53"
+        },
+        {
+          "ordinal": 23,
+          "disposition": "deferred_unreleased",
+          "originalBodyStartByte": 6791,
+          "rawBytes": 263,
+          "rawSha256": "f9ff887f4a083f952bf3bc9678c13f38f10765af2cdbf86a09e0bc9fcc172644"
+        }
+      ]
+    }
+  ]
+}
