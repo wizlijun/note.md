@@ -7,14 +7,13 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1108.1 — 2026-11-08
+
 - **Native editing controls in Sumi.** Add common shortcuts, find and replace, links, paragraph formatting, and typing styles. Copy as Markdown; paste as text or Markdown, including explicit plain-text paste. Keep the steady caret visible during typing and use the custom caret throughout Chinese composition.
 
 - **Sumi: a quiet native writing space for macOS.** Open a fixed writing window or fullscreen, with five font choices—IBM Plex, LXGW WenKai Mono Lite, Zhaohua Typewriter, Youcha Sanz, and Zhuque Fangsong—and a slightly thicker vertical caret with gentle breathing or steady display,plus simple themes including warm beige with dark gray text, and native writing tabs for dedicated Markdown pages.
 - **Keep writing across devices and offline.** Sumi stores Markdown with companion line-time snapshots, retains first-written and last-edited times, and merges concurrent edits through its dedicated sync service. Pair devices with a short-lived invitation; credentials stay in Keychain.
 - **Recover and export writing without losing the originals.** Restore copied or incomplete writing files as new pages, preserve verified line times, and export plain Markdown or a matched Markdown/metadata archive.
-
-
-
 
 ## v6.1107.4 — 2026-11-07
 
