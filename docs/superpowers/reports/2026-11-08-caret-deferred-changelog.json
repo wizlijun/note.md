@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "status": "deferred_unreleased_pending_release",
+  "status": "restored",
   "sourceCommit": "57cdb9ef281f8479498376b3dbf4ccd24ab40021",
   "releaseTag": "v6.1108.2",
   "purpose": "Preserve the exact 19 existing Unreleased entries in each language while publishing only the Sumi caret breathing correction. Source hashes describe the pre-partition files at sourceCommit; the new single release entry is recorded separately.",
@@ -276,5 +276,14 @@
         }
       ]
     }
-  ]
+  ],
+  "restoration": {
+    "releaseTag": "v6.1108.2",
+    "releaseCommit": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+    "preRestoreCommit": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+    "restoredAtUtc": "2026-11-08T10:11:38.313742+00:00",
+    "scope": "changelog content restored; no commit or publication performed by this helper",
+    "restorationCommit": null,
+    "commitRecording": "Record the later restoration commit SHA in the release evidence; a file cannot embed its own final commit SHA."
+  }
 }
