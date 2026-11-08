@@ -72,8 +72,26 @@ int sumi_editor_register_cascade(const char *json,char **error) {
 }
 
 @class SumiEditor;
+@interface SumiCaretView : NSView
+@property(nonatomic, strong) NSColor *color;
+@end
+@implementation SumiCaretView
+- (NSView *)hitTest:(NSPoint)point { (void)point;return nil; }
+- (BOOL)isAccessibilityElement { return NO; }
+- (void)drawRect:(NSRect)dirty { (void)dirty;[self.color setFill];NSRectFill(self.bounds); }
+@end
 @interface SumiTextView : NSTextView
 @property(nonatomic, weak) SumiEditor *owner;
+@property(nonatomic, strong) SumiCaretView *typewriterCaret;
+@property(nonatomic, strong) NSTimer *caretTimer;
+@property(nonatomic) BOOL refreshingCaret;
+- (NSRect)typewriterCaretRect;
+- (BOOL)usesTypewriterCaret;
+- (BOOL)typewriterCaretEligible;
+- (BOOL)caretSelectionInViewport;
+- (BOOL)reduceCaretMotion;
+- (void)refreshTypewriterCaret:(BOOL)restart;
+- (void)scheduleCaretBlink:(NSTimeInterval)delay;
 @end
 @interface SumiContainer : NSView
 @end
@@ -155,17 +173,125 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 
 @implementation SumiTextView
+- (BOOL)usesTypewriterCaret { return self.owner && !self.owner.detached && !self.owner.composing && !self.hasMarkedText; }
+- (BOOL)shouldDrawInsertionPoint { return [self usesTypewriterCaret]?NO:[super shouldDrawInsertionPoint]; }
+- (void)drawInsertionPointInRect:(NSRect)rect color:(NSColor *)color turnedOn:(BOOL)flag {
+    if(![self usesTypewriterCaret])[super drawInsertionPointInRect:rect color:color turnedOn:flag];
+}
+- (BOOL)typewriterCaretEligible {
+    return [self usesTypewriterCaret] && self.isEditable && self.selectedRanges.count==1 && self.selectedRange.length==0
+        && !self.isHiddenOrHasHiddenAncestor && self.window.isKeyWindow && NSApp.isActive && self.window.firstResponder==self && [self caretSelectionInViewport];
+}
+- (BOOL)caretSelectionInViewport {
+    if(@available(macOS 13.0,*)){
+        NSTextLayoutManager *layout=self.textLayoutManager;NSTextContentManager *content=layout.textContentManager;
+        NSTextRange *viewport=layout.textViewportLayoutController.viewportRange;
+        id<NSTextLocation> location=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)MIN(self.selectedRange.location,self.string.length)];
+        if(viewport && location)return [location compare:viewport.location]!=NSOrderedAscending && [location compare:viewport.endLocation]!=NSOrderedDescending;
+    }
+    return YES;
+}
+- (BOOL)reduceCaretMotion { return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion; }
+- (NSRect)typewriterCaretRect {
+    NSUInteger index=MIN(self.selectedRange.location,self.string.length),sample=index;
+    NSString *glyph=@"M";NSDictionary *attributes=self.typingAttributes;
+    // At a line end use that line's preceding grapheme; a truly empty line
+    // keeps the Latin monospace advance rather than borrowing another line.
+    if(sample==self.string.length || [self.string characterAtIndex:sample]=='\n'){
+        if(sample>0 && [self.string characterAtIndex:sample-1]!='\n')sample--;
+        else sample=NSNotFound;
+    }
+    if(sample!=NSNotFound){
+        NSRange range=[self.string rangeOfComposedCharacterSequenceAtIndex:sample];
+        glyph=[self.string substringWithRange:range];attributes=[self.textStorage attributesAtIndex:range.location effectiveRange:NULL];
+    }
+    NSFont *font=attributes[NSFontAttributeName] ?: self.font ?: [NSFont systemFontOfSize:22];
+    // CoreText resolves the registered cascade for CJK/emoji and measures the
+    // entire grapheme; UTF-16 length is never used as a visual width.
+    NSAttributedString *value=[[NSAttributedString alloc]initWithString:glyph attributes:@{NSFontAttributeName:font}];
+    CTLineRef line=CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)value);
+    CGFloat width=(CGFloat)CTLineGetTypographicBounds(line,NULL,NULL,NULL);CFRelease(line);
+    __block NSRect caret=NSZeroRect;__block BOOL found=NO;
+    if(@available(macOS 13.0,*)){
+        NSTextLayoutManager *layout=self.textLayoutManager;NSTextContentManager *content=layout.textContentManager;
+        id<NSTextLocation> location=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)index];
+        if(location){
+            NSTextRange *range=[[NSTextRange alloc]initWithLocation:location];[layout ensureLayoutForRange:range];
+            [layout enumerateTextSegmentsInRange:range type:NSTextLayoutManagerSegmentTypeStandard options:NSTextLayoutManagerSegmentOptionsRangeNotRequired usingBlock:^BOOL(NSTextRange *segment,CGRect frame,CGFloat baseline,NSTextContainer *container){
+                (void)segment;(void)container;
+                caret=NSMakeRect(frame.origin.x+self.textContainerOrigin.x,frame.origin.y+baseline+self.textContainerOrigin.y+MAX(1,-font.descender*0.2),MAX(2,width),MAX(2,MIN(4,font.pointSize*0.11)));found=YES;return NO;
+            }];
+        }
+    }
+    if(!found)return NSZeroRect;
+    CGFloat scale=self.window.backingScaleFactor ?: 1;
+    caret.origin.x=round(caret.origin.x*scale)/scale;caret.origin.y=round(caret.origin.y*scale)/scale;
+    caret.size.width=ceil(caret.size.width*scale)/scale;caret.size.height=ceil(caret.size.height*scale)/scale;
+    return caret;
+}
+- (void)scheduleCaretBlink:(NSTimeInterval)delay {
+    [self.caretTimer invalidate];self.caretTimer=nil;
+    if([self reduceCaretMotion]){self.typewriterCaret.hidden=NO;return;}
+    __weak SumiTextView *weakSelf=self;
+    self.caretTimer=[NSTimer scheduledTimerWithTimeInterval:delay repeats:NO block:^(NSTimer *timer){
+        (void)timer;SumiTextView *view=weakSelf;if(!view)return;view.caretTimer=nil;
+        if(![view typewriterCaretEligible]){[view refreshTypewriterCaret:NO];return;}
+        view.typewriterCaret.hidden=!view.typewriterCaret.hidden;[view scheduleCaretBlink:0.7];
+    }];
+}
+- (void)refreshTypewriterCaret:(BOOL)restart {
+    if(self.refreshingCaret)return;self.refreshingCaret=YES;
+    if(![self typewriterCaretEligible]){
+        self.typewriterCaret.hidden=YES;[self.caretTimer invalidate];self.caretTimer=nil;
+    }else{
+        if(!self.typewriterCaret){self.typewriterCaret=[[SumiCaretView alloc]initWithFrame:NSZeroRect];[self addSubview:self.typewriterCaret];restart=YES;}
+        self.typewriterCaret.frame=[self typewriterCaretRect];self.typewriterCaret.color=self.insertionPointColor;
+        self.typewriterCaret.needsDisplay=YES;
+        if(!NSIntersectsRect(self.typewriterCaret.frame,self.visibleRect)){
+            self.typewriterCaret.hidden=YES;[self.caretTimer invalidate];self.caretTimer=nil;
+        }else if(restart || !self.caretTimer){self.typewriterCaret.hidden=NO;[self scheduleCaretBlink:0.9];}
+    }
+    self.refreshingCaret=NO;
+}
+- (void)updateInsertionPointStateAndRestartTimer:(BOOL)restart {
+    [super updateInsertionPointStateAndRestartTimer:restart];[self refreshTypewriterCaret:restart];
+}
+- (BOOL)becomeFirstResponder { BOOL accepted=[super becomeFirstResponder];[self refreshTypewriterCaret:YES];return accepted; }
+- (BOOL)resignFirstResponder {
+    BOOL accepted=[super resignFirstResponder];
+    if(accepted){self.typewriterCaret.hidden=YES;[self.caretTimer invalidate];self.caretTimer=nil;}
+    return accepted;
+}
+- (void)caretWindowChanged:(NSNotification *)notification { (void)notification;[self refreshTypewriterCaret:YES]; }
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    NSArray *names=@[NSWindowDidBecomeKeyNotification,NSWindowDidResignKeyNotification,NSApplicationDidBecomeActiveNotification,NSApplicationDidResignActiveNotification];
+    for(NSString *name in names){
+        [NSNotificationCenter.defaultCenter removeObserver:self name:name object:nil];
+        if(self.window)[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(caretWindowChanged:) name:name object:nil];
+    }
+    [self refreshTypewriterCaret:YES];
+}
+- (void)viewDidHide { [super viewDidHide];[self refreshTypewriterCaret:NO]; }
+- (void)viewDidUnhide { [super viewDidUnhide];[self refreshTypewriterCaret:YES]; }
+- (void)dealloc { [self.caretTimer invalidate];[NSNotificationCenter.defaultCenter removeObserver:self]; }
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selected replacementRange:(NSRange)replacement {
     [self.owner beginComposition];
+    [self refreshTypewriterCaret:NO];
     [super setMarkedText:value selectedRange:selected replacementRange:replacement];
+    [super updateInsertionPointStateAndRestartTimer:YES];
 }
 - (void)unmarkText {
     [super unmarkText];
     [self.owner finishComposition];
+    [self updateInsertionPointStateAndRestartTimer:YES];
 }
 - (void)insertText:(id)value replacementRange:(NSRange)replacement {
     [super insertText:value replacementRange:replacement];
     if(!self.hasMarkedText)[self.owner finishComposition];
+    // Retire any system insertion indicator left by the final marked-text
+    // transaction before returning to the custom non-composition caret.
+    [self updateInsertionPointStateAndRestartTimer:YES];
 }
 - (void)undo:(id)sender { [self.owner action:@"undo"]; }
 - (void)redo:(id)sender { [self.owner action:@"redo"]; }
@@ -279,6 +405,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)viewportChanged:(NSNotification *)notification {
     (void)notification;
+    [self.text refreshTypewriterCaret:NO];
     if(self.applying || self.composing || self.detached || self.reportingViewport)return;
     self.reportingViewport=YES;
     [self emit:@"viewport" fields:@{@"revision":@(self.revision),@"viewport":[self viewport]}];
@@ -330,10 +457,12 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     return YES;
 }
 - (void)textDidChange:(NSNotification *)notification {
+    [self.text refreshTypewriterCaret:YES];
     if(self.applying || self.composing || self.text.hasMarkedText)return;
     [self acceptChanges];
 }
 - (void)textViewDidChangeSelection:(NSNotification *)notification {
+    [self.text refreshTypewriterCaret:YES];
     if(self.applying || self.composing || self.pending.count>0)return;
     [self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
 }
@@ -358,6 +487,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSRange selection=SumiReadRange(projection[@"selection"]);
     if(NSMaxRange(selection)<=self.text.string.length)self.text.selectedRange=selection;
     self.applying=applying;
+    [self.text refreshTypewriterCaret:YES];
 }
 - (NSFont *)baseFont {
     CGFloat size=[self.appearance[@"font_size"] doubleValue];
@@ -384,6 +514,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     self.text.textContainerInset=NSMakeSize(margin,32);
     self.text.textContainer.containerSize=NSMakeSize(MAX(0,w-2*margin),CGFLOAT_MAX);
     self.scroll.contentInsets=NSEdgeInsetsMake(0,0,[self.appearance[@"bottom_inset"] doubleValue],0);
+    [self.text refreshTypewriterCaret:NO];
 }
 - (NSDictionary *)baseAttributes {
     NSMutableParagraphStyle *paragraph=[NSMutableParagraphStyle new];
@@ -458,6 +589,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     self.text.insertionPointColor=foreground;self.scroll.backgroundColor=self.text.backgroundColor;
     self.container.wantsLayer=YES;self.container.layer.backgroundColor=self.text.backgroundColor.CGColor;
     self.text.selectedTextAttributes=@{NSBackgroundColorAttributeName:[foreground colorWithAlphaComponent:0.22],NSForegroundColorAttributeName:foreground};
+    [self.text refreshTypewriterCaret:NO];
 }
 @end
 
@@ -534,6 +666,7 @@ void sumi_editor_detach(void *handle){
     if(!handle || !NSThread.isMainThread)return;
     SumiEditor *editor=(__bridge_transfer SumiEditor *)handle;
     editor.detached=YES;editor.callback=NULL;editor.text.delegate=nil;editor.text.owner=nil;
+    [editor.text refreshTypewriterCaret:NO];
     [NSNotificationCenter.defaultCenter removeObserver:editor];
     if(editor.text.window.firstResponder==editor.text)[editor.text.window makeFirstResponder:nil];
     [editor.container removeFromSuperview];
