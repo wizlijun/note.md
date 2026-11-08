@@ -102,16 +102,6 @@ describe('Sumi native writing shell', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontFamily } })
   })
-  it('preserves a saved legacy font when changing other appearance settings', async () => {
-    const preferences = { ...defaultPreferences, fontFamily: 'Sumi Typewriter' }
-    const request = await setup(state({ preferences }))
-    document.getElementById('appearance')!.click(); await settle()
-    const form = document.querySelector('#panel-body form') as HTMLFormElement
-    expect((form.elements.namedItem('fontFamily') as HTMLSelectElement).value).toBe('Sumi Typewriter')
-    ;(form.elements.namedItem('fontSize') as HTMLInputElement).value = '28'
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
-    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontSize: 28 } })
-  })
   it('submits the service URL and complete pairing code through the host contract', async () => {
     const request = await setup()
     document.getElementById('sync')!.click(); await settle()

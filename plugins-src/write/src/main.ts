@@ -244,10 +244,6 @@ async function showAppearance() {
       for (const [value, name] of choices) {
         const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
       }
-      if (key === 'fontFamily' && !choices.some(([value]) => value === state!.preferences.fontFamily)) {
-        const option = document.createElement('option'); option.value = state!.preferences.fontFamily
-        option.textContent = `${t('当前字体', 'Current font')}: ${option.value}`; field.append(option)
-      }
     }
     else { field.type = 'number'; field.step = key === 'lineHeight' ? '0.1' : '1'; field.required = true }
     field.value = String(state!.preferences[key as keyof typeof labels]); wrap.append(field); form.append(wrap)

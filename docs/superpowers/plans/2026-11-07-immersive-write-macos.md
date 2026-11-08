@@ -155,4 +155,4 @@ CF 同步服务是独立部署单元，复用仓库既有认证/工具版本约�
 
 ## 2026-11-08 字体选择更新
 
-用户已选三组：Plex Mono Light + Plex Sans SC Light、独立 LXGW WenKai Mono Lite Regular、Special Elite + 又又意宋。外观面板提供下拉并持久化组合别名，旧偏好保持；新用户默认Plex。交付验收包括真实CoreText字面/字重、三组菜单切换、重启恢复和打包资源哈希。工作区测试不等同安装包或发布证明，最终证据另记。
+用户已选三组：Plex Mono Light + Plex Sans SC Light、独立 LXGW WenKai Mono Lite Regular、Special Elite + 又又意宋。外观面板提供下拉并持久化组合别名，只保留三组必需的五个字体文件；旧字体偏好迁移至Plex并保留其余外观设置，新用户默认Plex。交付验收包括真实CoreText字面/字重、三组菜单切换、重启恢复和打包资源哈希。工作区测试不等同安装包或发布证明，最终证据另记。
