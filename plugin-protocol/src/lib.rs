@@ -193,10 +193,33 @@ pub struct RpcRequest {
 pub struct RpcResponse {
     pub jsonrpc: String,
     pub id: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "present_result", skip_serializing_if = "Option::is_none")]
     pub result: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<RpcError>,
+}
+
+// A successful JSON-RPC void result is `null`, distinct from an absent
+// result field. Option<Value>'s default deserializer would erase that fact.
+fn present_result<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<serde_json::Value>, D::Error> {
+    serde_json::Value::deserialize(deserializer).map(Some)
+}
+
+#[cfg(test)]
+mod null_result_tests {
+    use super::*;
+    #[test]
+    fn null_success_round_trips_but_missing_result_stays_absent() {
+        let wire = r#"{"jsonrpc":"2.0","id":7,"result":null}"#;
+        let response: RpcResponse = serde_json::from_str(wire).unwrap();
+        assert_eq!(response.result, Some(serde_json::Value::Null));
+        assert_eq!(serde_json::to_string(&response).unwrap(), wire);
+        let missing: RpcResponse = serde_json::from_str(r#"{"jsonrpc":"2.0","id":7}"#).unwrap();
+        assert_eq!(missing.result, None);
+        let failure: RpcResponse = serde_json::from_str(r#"{"jsonrpc":"2.0","id":7,"error":{"code":-1,"message":"failed"}}"#).unwrap();
+        assert_eq!(failure.result, None);
+        assert!(failure.error.is_some());
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
