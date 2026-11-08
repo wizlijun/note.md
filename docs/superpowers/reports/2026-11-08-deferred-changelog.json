@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "deferred_unreleased_pending_release",
+  "status": "restored",
   "sourceCommit": "8339ec9b1ae799c38c5fee073c5ed06edfb48090",
   "purpose": "Preserve the 19 non-Sumi Unreleased entries in each language while the existing release script rotates only the four Sumi entries. Deferred does not mean deleted or released.",
   "restorationRules": [
@@ -375,5 +375,14 @@
         }
       ]
     }
-  ]
+  ],
+  "restoration": {
+    "releaseTag": "v6.1108.1",
+    "releaseCommit": "da7eff9513b758effc1c1231a2509198d43c4b7e",
+    "preRestoreCommit": "da7eff9513b758effc1c1231a2509198d43c4b7e",
+    "restoredAtUtc": "2026-11-08T07:08:28.554043+00:00",
+    "scope": "changelog content restored; no commit or publication performed by this helper",
+    "restorationCommit": null,
+    "commitRecording": "Record the later restoration commit SHA in the release evidence; a file cannot embed its own final commit SHA."
+  }
 }
