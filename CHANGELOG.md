@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Sumi: a quiet native writing space for macOS.** Open a fixed writing window or fullscreen, with five font choices—IBM Plex, LXGW WenKai Mono Lite, Zhaohua Typewriter, Youcha Sanz, and Zhuque Fangsong—and a typewriter-style underline caret,plus simple themes including warm beige with dark gray text, and native writing tabs for dedicated Markdown pages.
+- **Sumi: a quiet native writing space for macOS.** Open a fixed writing window or fullscreen, with five font choices—IBM Plex, LXGW WenKai Mono Lite, Zhaohua Typewriter, Youcha Sanz, and Zhuque Fangsong—and a slightly thicker vertical caret with gentle breathing or steady display,plus simple themes including warm beige with dark gray text, and native writing tabs for dedicated Markdown pages.
 - **Keep writing across devices and offline.** Sumi stores Markdown with companion line-time snapshots, retains first-written and last-edited times, and merges concurrent edits through its dedicated sync service. Pair devices with a short-lived invitation; credentials stay in Keychain.
 - **Recover and export writing without losing the originals.** Restore copied or incomplete writing files as new pages, preserve verified line times, and export plain Markdown or a matched Markdown/metadata archive.
 

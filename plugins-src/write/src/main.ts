@@ -234,13 +234,15 @@ async function showPages() {
 async function showAppearance() {
   await openPanel(t('外观', 'Appearance'))
   const form = document.createElement('form')
-  const labels = { theme: t('配色', 'Colors'), fontFamily: t('字体', 'Font'), fontSize: t('字号', 'Font size'), lineHeight: t('行距', 'Line height'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)'), bottomInset: t('底部留白', 'Bottom space') }
+  const labels = { theme: t('配色', 'Colors'), fontFamily: t('字体', 'Font'), caretMotion: t('光标效果', 'Caret'), fontSize: t('字号', 'Font size'), lineHeight: t('行距', 'Line height'), maxColumns: t('正文宽度（半角列）', 'Width (half-width columns)'), bottomInset: t('底部留白', 'Bottom space') }
   for (const [key, label] of Object.entries(labels)) {
     const wrap = document.createElement('label'); const text = document.createElement('span'); text.textContent = label; wrap.append(text)
-    const field = key === 'theme' || key === 'fontFamily' ? document.createElement('select') : document.createElement('input')
+    const field = key === 'theme' || key === 'fontFamily' || key === 'caretMotion' ? document.createElement('select') : document.createElement('input')
     field.name = key
     if (field instanceof HTMLSelectElement) {
-      const choices: readonly (readonly [string, string])[] = key === 'fontFamily' ? fontPresets : [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')]]
+      const choices: readonly (readonly [string, string])[] = key === 'fontFamily' ? fontPresets
+        : key === 'caretMotion' ? [['breathing', t('平缓呼吸', 'Gentle breathing')], ['steady', t('不闪烁（常亮）', 'Steady (no blinking)')]]
+        : [['ink', t('黑底白字', 'White on black')], ['dim', t('黑底灰字', 'Gray on black')], ['paper', t('白底黑字', 'Black on white')], ['sepia', t('米色深灰', 'Warm paper')]]
       for (const [value, name] of choices) {
         const option = document.createElement('option'); option.value = value; option.textContent = name; field.append(option)
       }

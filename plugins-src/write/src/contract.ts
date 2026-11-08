@@ -2,6 +2,7 @@ export type Theme = 'ink' | 'dim' | 'paper' | 'sepia'
 export interface Preferences {
   theme: Theme
   fontFamily: string
+  caretMotion: 'breathing' | 'steady'
   fontSize: number
   lineHeight: number
   maxColumns: number
@@ -28,7 +29,7 @@ export const fontPresets = [
   ['Sumi Fangsong', 'Zhuque Fangsong · 朱雀仿宋'],
 ] as const
 export const defaultPreferences: Preferences = {
-  theme: 'dim', fontFamily: 'Sumi Plex', fontSize: 22,
+  theme: 'dim', fontFamily: 'Sumi Plex', caretMotion: 'breathing', fontSize: 22,
   lineHeight: 1.6, maxColumns: 80, bottomInset: 0,
 }
 export function pageLabel(page: Page, fallback: string): string {
@@ -45,5 +46,7 @@ export function preferencesFromForm(form: HTMLFormElement): Preferences {
   if (theme !== 'ink' && theme !== 'dim' && theme !== 'paper' && theme !== 'sepia') throw new Error('Invalid theme')
   const fontFamily = String(data.get('fontFamily') ?? '').trim()
   if (!fontPresets.some(([value]) => value === fontFamily)) throw new Error('Invalid font')
-  return { theme, fontFamily, fontSize: number('fontSize', 8, 96), lineHeight: number('lineHeight', 1, 3), maxColumns: number('maxColumns', 20, 200), bottomInset: number('bottomInset', 0, 2000) }
+  const caretMotion = data.get('caretMotion')
+  if (caretMotion !== 'breathing' && caretMotion !== 'steady') throw new Error('Invalid caret motion')
+  return { theme, fontFamily, caretMotion, fontSize: number('fontSize', 8, 96), lineHeight: number('lineHeight', 1, 3), maxColumns: number('maxColumns', 20, 200), bottomInset: number('bottomInset', 0, 2000) }
 }

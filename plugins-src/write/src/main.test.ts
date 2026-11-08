@@ -102,6 +102,18 @@ describe('Sumi native writing shell', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontFamily } })
   })
+  it.each(['breathing', 'steady'] as const)('restores and applies the %s caret preference', async (caretMotion) => {
+    const preferences = { ...defaultPreferences, caretMotion, fontFamily: 'Sumi Youcha', fontSize: 32 }
+    const request = await setup(state({ preferences }))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector('#panel-body form') as HTMLFormElement
+    const caret = form.elements.namedItem('caretMotion') as HTMLSelectElement
+    expect(caret.value).toBe(caretMotion)
+    expect([...caret.options].map(option => option.value)).toEqual(['breathing', 'steady'])
+    expect(caret.options[1].textContent).toBe('不闪烁（常亮）')
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences })
+  })
   it('submits the service URL and complete pairing code through the host contract', async () => {
     const request = await setup()
     document.getElementById('sync')!.click(); await settle()
