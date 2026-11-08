@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "publisherSha256": "9eeeda37715a829822f1ffe7b78cce6b48b869ada1c4fd31c3e4593728645c08",
+  "frozenMetadataSha256": "ca4cb6b6747aa8d7e0b274346fca525a868e2f5877816d263b65deed3c99da01",
+  "tests": 18,
+  "results": [
+    {
+      "case": "stage_empty",
+      "passed": true
+    },
+    {
+      "case": "stage_all_present",
+      "passed": true
+    },
+    {
+      "case": "stage_one_signature_missing",
+      "passed": true
+    },
+    {
+      "case": "stage_first_conflict",
+      "passed": true
+    },
+    {
+      "case": "stage_later_conflict",
+      "passed": true
+    },
+    {
+      "case": "stage_uncertain_http",
+      "passed": true
+    },
+    {
+      "case": "stage_read_transport_error",
+      "passed": true
+    },
+    {
+      "case": "stage_write_timeout_committed",
+      "passed": true
+    },
+    {
+      "case": "stage_write_failed_committed",
+      "passed": true
+    },
+    {
+      "case": "stage_write_failed_absent",
+      "passed": true
+    },
+    {
+      "case": "index_empty",
+      "passed": true
+    },
+    {
+      "case": "index_already_complete",
+      "passed": true
+    },
+    {
+      "case": "index_first_entry_already_present",
+      "passed": true
+    },
+    {
+      "case": "index_host_not_public",
+      "passed": true
+    },
+    {
+      "case": "index_concurrent_index_change",
+      "passed": true
+    },
+    {
+      "case": "index_timeout_committed",
+      "passed": true
+    },
+    {
+      "case": "index_write_failed_committed",
+      "passed": true
+    },
+    {
+      "case": "index_write_failed_absent",
+      "passed": true
+    }
+  ],
+  "realLocalPackageHashesAndSignatures": true,
+  "remoteWrites": false,
+  "remoteReads": false,
+  "tokenAccess": false,
+  "knownLimits": [
+    "R2 preflight is not a remote reservation; each key is rechecked immediately before writes.",
+    "Host gate validates public release metadata and latest manifest, not host binary download/signature; requires independent final host artifact acceptance.",
+    "KV read-before-write is not CAS; coordinate one registry publisher during index mutation."
+  ]
+}

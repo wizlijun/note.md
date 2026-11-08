@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "actualLoopbackWorker": true,
+  "origin": "http://127.0.0.1:18787",
+  "wrangler": "3.114.17",
+  "testsExecuted": 2,
+  "testsSkipped": 0,
+  "backendSourceUnchanged": true,
+  "workerIndexUnchanged": true,
+  "hostCommitAtVerification": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "source": {
+    "backendSyncSha256": "4de912ee86c4d39732ef172ce707e5e882baa95c68f654661440806890640d9f",
+    "sourceCopyOnlyChange": "include_str fixture path resolved absolute; extra cfg(test) acceptance module appended",
+    "workerSourceSha256": "9a685b94c57bfa1ba3182da9d86aae9c13596565b17136c50a1cef9d226bc835",
+    "wrangler": "3.114.17"
+  },
+  "logs": [
+    "backend-roundtrip.log",
+    "backend-offline-merge.log"
+  ],
+  "checks": [
+    "original ignored backend roundtrip explicitly executed",
+    "real WebSocket incremental update delivered to second write-core document",
+    "both WebSockets closed before concurrent offline edits",
+    "first replica reconnects and commits retained local increment",
+    "second replica reconnects, merges replay and commits its offline increment",
+    "duplicate HTTP resend acknowledged without extra version",
+    "both replicas and clean server replay converge in body and logical-line timestamps",
+    "first write time 100 and last edit time 400 retained",
+    "injected token provider supplies short-lived tokens per identity and refreshes on reconnect"
+  ],
+  "boundaries": [
+    "Loopback only; no cloud deployment, quota upgrade, real account, Keychain or production Vault",
+    "External harness copies frozen sync.rs with only absolute fixture include path adaptation and an appended cfg(test) module",
+    "Local HTTP is enabled only by existing private test endpoint switch; production HTTPS policy unchanged",
+    "This verifies transport plus write-core merge, not native UI or the complete coordinator/host callback lifecycle"
+  ],
+  "harnessSha256": "43a6077e571ce3cc369b2381d8771ca88796b19aca692cd673c09dd6b0b47a7d"
+}

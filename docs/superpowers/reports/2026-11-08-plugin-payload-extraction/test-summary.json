@@ -1,0 +1,60 @@
+{
+  "sourceFeature": "ceac9917369a2e9a91a43ecf5b6f937110f68efd",
+  "releaseTag": "v6.1108.5",
+  "releaseCommit": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+  "logs": {
+    "host-integrated-final.log": {
+      "sha256": "824a89c09c61d16880824bb0e0d8a244cced4bb9771edef579af9a703ff22d6a",
+      "bytes": 6701,
+      "summaries": [
+        "test result: ok. 64 passed; 0 failed; 2 ignored; 0 measured; 1384 filtered out; finished in 0.58s"
+      ]
+    },
+    "host-plugin-runtime-final.log": {
+      "sha256": "bfa700cf4ef33c4acc9a449d1ad9bdcb81b713d3b5ac6c13b5002106d924737a",
+      "bytes": 31149,
+      "summaries": [
+        "test result: ok. 333 passed; 0 failed; 0 ignored; 0 measured; 1117 filtered out; finished in 1.51s"
+      ]
+    },
+    "host-process-final2.log": {
+      "sha256": "a3fe429f8bfa3fded52841a182c6ead113da35a2d1f03d6db6a0c98e89df07be",
+      "bytes": 1414,
+      "summaries": [
+        "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.74s"
+      ]
+    },
+    "host-signed-proxy-final.log": {
+      "sha256": "9ea36444e5b812541ee9327c3e64988764727200b7bb6bcf5ef65b93cdbcfa2d",
+      "bytes": 361,
+      "summaries": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1449 filtered out; finished in 0.06s"
+      ]
+    },
+    "host-auth-origin-test.log": {
+      "sha256": "ce84f74778e860245ca93d886b6a6cd463a8dd1033556c5ef8c0becb0ac9ac8a",
+      "bytes": 1042,
+      "summaries": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1437 filtered out; finished in 0.07s"
+      ]
+    },
+    "host-release.log": {
+      "sha256": "843c8af6f4af9266e51106d66aac24be5a2f25b88a50f3bd97e436468829f018",
+      "bytes": 149773,
+      "summaries": [
+        " Test Files  425 passed (425)",
+        "      Tests  5507 passed (5507)",
+        "svelte-check found 0 errors and 31 warnings in 15 files",
+        "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 1425 filtered out; finished in 0.08s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    }
+  },
+  "boundaries": [
+    "Test counts refer to their exact logged invocation; filtered and ignored tests are not counted as executed.",
+    "Signed backend subprocess and loopback tests have separate explicit execution evidence.",
+    "The release build includes source after feature commit plus changelog partition and version-only release commit.",
+    "These tests do not substitute final installed physical UI or all-platform acceptance."
+  ]
+}

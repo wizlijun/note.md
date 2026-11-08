@@ -1,0 +1,114 @@
+{
+  "status": "passed",
+  "verified_at_utc": "2026-11-08T15:06:36.223057+00:00",
+  "repo": "wizlijun/note.md",
+  "tag": "v6.1108.5",
+  "tag_object": "c2ac5258bf8c8b8ec18d1dc7cd1537ba7f8862be",
+  "commit": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+  "public_release": {
+    "draft": false,
+    "prerelease": false,
+    "release_url": "https://github.com/wizlijun/note.md/releases/tag/v6.1108.5"
+  },
+  "anonymous_metadata": true,
+  "assets": [
+    {
+      "name": "latest.json",
+      "asset_id": "724269155",
+      "bytes": 740,
+      "github_digest": "sha256:2359812d042737f3953294aff65324a56664cc8c7854070ab7e69394dbd27bd5",
+      "identity_unchanged_from_complete_draft": true,
+      "public_url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.5/latest.json",
+      "anonymous_request": true,
+      "verification": "anonymous_full_file",
+      "http_status": 200,
+      "sha256": "2359812d042737f3953294aff65324a56664cc8c7854070ab7e69394dbd27bd5"
+    },
+    {
+      "name": "note.md-6.1108.5-aarch64.dmg",
+      "asset_id": "724269128",
+      "bytes": 14175207,
+      "github_digest": "sha256:c954f952a4fc874d9f5bfe91595b92f899b1b2ca245012c10308d2f3ff8e2576",
+      "identity_unchanged_from_complete_draft": true,
+      "public_url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.5/note.md-6.1108.5-aarch64.dmg",
+      "anonymous_request": true,
+      "verification": "anonymous_head_and_tail_64KiB_only",
+      "anonymous_full_file_download": false,
+      "complete_draft_sha256": "c954f952a4fc874d9f5bfe91595b92f899b1b2ca245012c10308d2f3ff8e2576",
+      "samples": [
+        {
+          "start": 0,
+          "end": 65535,
+          "bytes": 65536,
+          "http_status": 206,
+          "content_range": "bytes 0-65535/14175207",
+          "sha256": "2875dc9c58451ebe8ab61afcb34ad49d4d43798f2766bd0b6440c9cee78c256f",
+          "equals_complete_draft_slice": true
+        },
+        {
+          "start": 14109671,
+          "end": 14175206,
+          "bytes": 65536,
+          "http_status": 206,
+          "content_range": "bytes 14109671-14175206/14175207",
+          "sha256": "ccfd57a7ecfa131c7e86407cab5ef2558cc1a66981bf662ef06adbabe5663d41",
+          "equals_complete_draft_slice": true
+        }
+      ]
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "asset_id": "724269139",
+      "bytes": 14244585,
+      "github_digest": "sha256:1a18ab775af46bf81f9068a0797a0f9cb8f149e3d322004ab89066e56ae2545d",
+      "identity_unchanged_from_complete_draft": true,
+      "public_url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.5/note.md-aarch64.app.tar.gz",
+      "anonymous_request": true,
+      "verification": "anonymous_head_and_tail_64KiB_only",
+      "anonymous_full_file_download": false,
+      "complete_draft_sha256": "1a18ab775af46bf81f9068a0797a0f9cb8f149e3d322004ab89066e56ae2545d",
+      "samples": [
+        {
+          "start": 0,
+          "end": 65535,
+          "bytes": 65536,
+          "http_status": 206,
+          "content_range": "bytes 0-65535/14244585",
+          "sha256": "43dd89e0638e1752078e8f3a378af5d8dd3f02d9b49a64b932763ab5c0871dd1",
+          "equals_complete_draft_slice": true
+        },
+        {
+          "start": 14179049,
+          "end": 14244584,
+          "bytes": 65536,
+          "http_status": 206,
+          "content_range": "bytes 14179049-14244584/14244585",
+          "sha256": "286a1c305875a36581ab467b2525a0a8f90c7e989c92660a16e25ccac7bd6693",
+          "equals_complete_draft_slice": true
+        }
+      ]
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "asset_id": "724269127",
+      "bytes": 416,
+      "github_digest": "sha256:b2c4d22121d8cd6391239ccd3803cf07c5d8ca79cb796e84554f3c03f3ffbd6e",
+      "identity_unchanged_from_complete_draft": true,
+      "public_url": "https://github.com/wizlijun/note.md/releases/download/v6.1108.5/note.md-aarch64.app.tar.gz.sig",
+      "anonymous_request": true,
+      "verification": "anonymous_full_file",
+      "http_status": 200,
+      "sha256": "b2c4d22121d8cd6391239ccd3803cf07c5d8ca79cb796e84554f3c03f3ffbd6e"
+    }
+  ],
+  "updater_signature": {
+    "source": "anonymous full signature file",
+    "message": "previously complete draft updater download",
+    "verified": true,
+    "tool": "minisign",
+    "stdout": "Signature and comment signature verified\nTrusted comment: timestamp:1794150002\tfile:note.md-aarch64.app.tar.gz"
+  },
+  "evidence_boundary": "Large files were fully downloaded and SHA-256 verified while draft. Public access is verified by unchanged exact asset identity plus anonymous 64 KiB head/tail samples, not by anonymous full large-file downloads.",
+  "contains_credentials_or_temporary_signed_urls": false,
+  "mutations": "none: public read-only verification"
+}

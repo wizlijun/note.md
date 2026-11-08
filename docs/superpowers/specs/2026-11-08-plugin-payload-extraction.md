@@ -35,3 +35,8 @@
 - 原生后台发布必须Developer ID签名（缺身份即失败），runtime/timestamp，Apple公证Accepted关联最终二进制；市场minisign不能替代Apple签名。完整包回读后再核后台二进制身份及签名。
 - 冻结新tag实际源码和实际App/DMG/updater/插件包；保全所有worktree/分支/stash及无关改动。当前候选版本目标host6.1108.5、Sumi0.1.4、Power Mode1.0.4，发布前核无冲突。
 - 沿用仓库Wrangler3+Account Token：R2包/签名→匿名普通/fresh全量回读验签→兼容宿主公开→KV追加→公网复核。不得重写旧发布对象。
+
+
+## 实际发布结果（2026-11-08）
+
+本轮已发布宿主6.1108.5、市场Sumi0.1.4与Power Mode1.0.4；冻结源为 `02099d206a583400a89ac360bf8f3c0e61acaf14`。实际DMG14,175,207字节，相较未公开的4候选减少271,468字节；Sumi包2,302,043字节，Power包169,730字节。原通道签名、公证、实际资源迁出、完整草稿SHA、匿名公开下载与市场包/索引门禁均已通过。详细源链、体积、测试和未覆盖的物理UI/其他平台范围见[发布报告](../reports/2026-11-08-plugin-payload-extraction.md)；不把本次发布等同于主spec所有未来平台目标完成。

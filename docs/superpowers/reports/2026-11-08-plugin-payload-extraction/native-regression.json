@@ -1,0 +1,232 @@
+{
+  "verifiedAt": "2026-11-08T14:25:13.966571+00:00",
+  "status": "passed",
+  "nativeSourceSha256": {
+    "editor.m": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+    "editor.h": "2349006f1c6eb0635a3fdc62fa7179d131ac2b9a7ebce724eab6a903401f47b9",
+    "shortcuts.h": "77e1a5754aea2f6cd85556d2c3a23232d72993e9bc8caaafd335c06d98b8c5d8",
+    "caret-probe.m": "a7ecc1a5a4c260d079f0eb5d97c5d77dd3a13b7a8a8e128e1a66198c90403e3c",
+    "caret-render-probe.m": "684736928009864d5c8f5930b28aafbfa5e761a900c995eb10eedb1b3fbd0ef5",
+    "clipboard-probe.m": "c5b3f010234c3c6c0e07d6eb06a3b39324c42e11f676d9e53e08495e0e12c7e4",
+    "shortcuts-probe.m": "e6fb283981afc727e64b94be7b903c7b844773c14a331d05f515c4e03ca6721f",
+    "panel-probe.m": "af41c1210449273f138e387808ac14971e903bef15b2bf1f6c316a2406c74ab5",
+    "padding-probe.m": "5365b6ca0cc1b23d496222d5d0842975ade0fba5c217ebcacd09c7496a9ae479"
+  },
+  "sourcesUnchangedAtEnd": true,
+  "results": [
+    {
+      "probe": "caret-probe.m",
+      "compileExit": 0,
+      "compileCommand": [
+        "xcrun",
+        "clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-fobjc-arc",
+        "-mmacosx-version-min=13.0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/source/caret-probe.m",
+        "-framework",
+        "AppKit",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "CoreText",
+        "-framework",
+        "QuartzCore",
+        "-o",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/caret-probe"
+      ],
+      "runs": [
+        {
+          "mode": null,
+          "exit": 0,
+          "log": "caret-probe.log"
+        }
+      ],
+      "runExit": 0
+    },
+    {
+      "probe": "caret-render-probe.m",
+      "compileExit": 0,
+      "compileCommand": [
+        "xcrun",
+        "clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-fobjc-arc",
+        "-mmacosx-version-min=13.0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/source/caret-render-probe.m",
+        "-framework",
+        "AppKit",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "CoreText",
+        "-framework",
+        "QuartzCore",
+        "-o",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/caret-render-probe"
+      ],
+      "runs": [
+        {
+          "mode": null,
+          "exit": 0,
+          "log": "caret-render-probe.log"
+        }
+      ],
+      "runExit": 0
+    },
+    {
+      "probe": "clipboard-probe.m",
+      "compileExit": 0,
+      "compileCommand": [
+        "xcrun",
+        "clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-fobjc-arc",
+        "-mmacosx-version-min=13.0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/source/clipboard-probe.m",
+        "-framework",
+        "AppKit",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "CoreText",
+        "-framework",
+        "QuartzCore",
+        "-o",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/clipboard-probe"
+      ],
+      "runs": [
+        {
+          "mode": null,
+          "exit": 0,
+          "log": "clipboard-probe.log"
+        }
+      ],
+      "runExit": 0
+    },
+    {
+      "probe": "shortcuts-probe.m",
+      "compileExit": 0,
+      "compileCommand": [
+        "xcrun",
+        "clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-fobjc-arc",
+        "-mmacosx-version-min=13.0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/source/shortcuts-probe.m",
+        "-framework",
+        "AppKit",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "CoreText",
+        "-framework",
+        "QuartzCore",
+        "-o",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/shortcuts-probe"
+      ],
+      "runs": [
+        {
+          "mode": null,
+          "exit": 0,
+          "log": "shortcuts-probe.log"
+        }
+      ],
+      "runExit": 0
+    },
+    {
+      "probe": "panel-probe.m",
+      "compileExit": 0,
+      "compileCommand": [
+        "xcrun",
+        "clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-fobjc-arc",
+        "-mmacosx-version-min=13.0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/source/panel-probe.m",
+        "-framework",
+        "AppKit",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "CoreText",
+        "-framework",
+        "QuartzCore",
+        "-o",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/panel-probe"
+      ],
+      "runs": [
+        {
+          "mode": null,
+          "exit": 0,
+          "log": "panel-probe.log"
+        }
+      ],
+      "runExit": 0
+    },
+    {
+      "probe": "padding-probe.m",
+      "compileExit": 0,
+      "compileCommand": [
+        "xcrun",
+        "clang",
+        "-isysroot",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-fobjc-arc",
+        "-mmacosx-version-min=13.0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/source/padding-probe.m",
+        "-framework",
+        "AppKit",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "CoreText",
+        "-framework",
+        "QuartzCore",
+        "-o",
+        "/Users/bruce/git/mdeditor/tasks/sumi-extraction-20261108/native-regression/padding-probe"
+      ],
+      "runs": [
+        {
+          "mode": "system",
+          "exit": 0,
+          "log": "padding-probe-system.log"
+        },
+        {
+          "mode": "crt",
+          "exit": 0,
+          "log": "padding-probe-crt.log"
+        }
+      ],
+      "runExit": 0
+    }
+  ],
+  "scope": "Frozen copies of current integrated native implementation. Six probes remain unordered; clipboard/shortcuts/panel copies add activation-prohibited and unchanged-foreground guards only. Padding runs 40 system-fallback and 40 single-Unifont CRT cases. Caret/raster already enforce those guards. General pasteboard is not used; shortcut Find pasteboard is saved and restored by the existing probe. No user app/Vault or physical-screen acceptance claim.",
+  "originalFourSecondEvidenceOverwritten": false,
+  "foregroundAppsUntouched": true,
+  "sourceChanges": "none by this runner",
+  "excludedProbe": "native/probe.m orders a window and is deliberately not run"
+}

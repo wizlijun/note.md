@@ -1,0 +1,327 @@
+{
+  "atUtc": "2026-11-08T15:03:55.779511+00:00",
+  "mode": "local_read_only_snapshot_not_final_release_clearance",
+  "root": "/Users/bruce/git/mdeditor",
+  "repos": [
+    {
+      "root": "/Users/bruce/git/mdeditor",
+      "head": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+      "headAfter": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+      "stableHeadAndStatus": true,
+      "registeredWorktrees": "worktree /Users/bruce/git/mdeditor\nHEAD 02099d206a583400a89ac360bf8f3c0e61acaf14\nbranch refs/heads/main\n\n",
+      "changes": [
+        {
+          "status": " M",
+          "path": "searchidx/src/store.rs",
+          "classification": "preexisting_unrelated_eof_change_exclude",
+          "onlyFinalNewlineRemoved": true,
+          "workingSha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+          "headSha256": "25a82158ccdab0aa10b259d23522411da1085b9e036ca598a0031973d0c3de01",
+          "diffSha256": "0920bc3dfc4f2b91c65c469069259052312e8f8ebcaf0f58c92683e7705bf158"
+        },
+        {
+          "status": " M",
+          "path": "src-tauri/src/smart_lookup.rs",
+          "classification": "preexisting_unrelated_eof_change_exclude",
+          "onlyFinalNewlineRemoved": true,
+          "workingSha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0",
+          "headSha256": "e7b39206bcd184150d80f55e75395f8d23b3976d1cced774b7f62f6a05533e34",
+          "diffSha256": "a5a6a475a754da3507362301a8e009978a41acf3049beb275bedfc296d8cfe35"
+        }
+      ],
+      "branches": [
+        {
+          "branch": "main",
+          "commit": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+          "upstream": "origin/main",
+          "comparisonBase": "main",
+          "commitsNotInLocalMain": [],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        }
+      ],
+      "stashes": [],
+      "refsNetworkFresh": false
+    },
+    {
+      "root": "/Users/bruce/git/mdeditor/tasks/folder-release-20261025/build-input/mdeditor",
+      "head": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+      "headAfter": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+      "stableHeadAndStatus": true,
+      "registeredWorktrees": "worktree /Users/bruce/git/mdeditor/tasks/folder-release-20261025/build-input/mdeditor\nHEAD 7df51fa0d35a0cb5638427da3229bc1800f5fd45\nbranch refs/heads/main\n\n",
+      "changes": [],
+      "branches": [
+        {
+          "branch": "main",
+          "commit": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+          "upstream": "origin/main",
+          "comparisonBase": "main",
+          "commitsNotInLocalMain": [],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        }
+      ],
+      "stashes": [],
+      "refsNetworkFresh": false
+    },
+    {
+      "root": "/Users/bruce/git/mdeditor/tasks/omarchy-submission/upstream",
+      "head": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+      "headAfter": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+      "stableHeadAndStatus": true,
+      "registeredWorktrees": "worktree /Users/bruce/git/mdeditor/tasks/omarchy-submission/upstream\nHEAD 0bc6590fc97e869d3fa5d0e329161508333cba6b\nbranch refs/heads/add-notemd\n\n",
+      "changes": [],
+      "branches": [
+        {
+          "branch": "add-notemd",
+          "commit": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+          "upstream": "origin/add-notemd",
+          "comparisonBase": "master",
+          "commitsNotInLocalMain": [
+            "0bc6590fc97e869d3fa5d0e329161508333cba6b\tAdd notemd Markdown editor and CLI"
+          ],
+          "patchEquivalenceToLocalMain": [
+            "+ 0bc6590fc97e869d3fa5d0e329161508333cba6b"
+          ],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        },
+        {
+          "branch": "master",
+          "commit": "12217cedf28713ff0b48f92e8bb6af9a396dfabe",
+          "upstream": "upstream/master",
+          "comparisonBase": "master",
+          "commitsNotInLocalMain": [],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        }
+      ],
+      "stashes": [],
+      "refsNetworkFresh": false
+    },
+    {
+      "root": "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/mdeditor",
+      "head": "7d3d38f51949c3b860f938860bd62152f76862d0",
+      "headAfter": "7d3d38f51949c3b860f938860bd62152f76862d0",
+      "stableHeadAndStatus": true,
+      "registeredWorktrees": "worktree /Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/mdeditor\nHEAD 7d3d38f51949c3b860f938860bd62152f76862d0\nbranch refs/heads/main\n\n",
+      "changes": [],
+      "branches": [
+        {
+          "branch": "main",
+          "commit": "7d3d38f51949c3b860f938860bd62152f76862d0",
+          "upstream": "origin/main",
+          "comparisonBase": "main",
+          "commitsNotInLocalMain": [],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        }
+      ],
+      "stashes": [],
+      "refsNetworkFresh": false
+    },
+    {
+      "root": "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/moraya-core",
+      "head": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+      "headAfter": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+      "stableHeadAndStatus": true,
+      "registeredWorktrees": "worktree /Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/moraya-core\nHEAD c74ab423cacbff18c6283ceb60a98a6eded1f8c3\nbranch refs/heads/main\n\n",
+      "changes": [],
+      "branches": [
+        {
+          "branch": "main",
+          "commit": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+          "upstream": "origin/main",
+          "comparisonBase": "main",
+          "commitsNotInLocalMain": [],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        }
+      ],
+      "stashes": [],
+      "refsNetworkFresh": false
+    },
+    {
+      "root": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source",
+      "head": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+      "headAfter": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+      "stableHeadAndStatus": true,
+      "registeredWorktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source\nHEAD 02099d206a583400a89ac360bf8f3c0e61acaf14\nbranch refs/heads/main\n\n",
+      "changes": [],
+      "branches": [
+        {
+          "branch": "main",
+          "commit": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+          "upstream": "origin/main",
+          "comparisonBase": "main",
+          "commitsNotInLocalMain": [],
+          "commitsNotInCachedUpstream": [],
+          "cachedUpstreamCommitsNotInBranch": []
+        }
+      ],
+      "stashes": [],
+      "refsNetworkFresh": false
+    }
+  ],
+  "historicalReleaseBoundaries": [
+    {
+      "tag": "v6.1108.2",
+      "localTagObject": "00467b15c6bfe589c94fa2062315fcbfc8660ee9",
+      "localTagCommit": "f427d73aa78e54c9af54d9470804e268a4d30e9a",
+      "lastRecordedReleaseStatus": "published",
+      "recordedPublishedAt": "2026-11-08T10:11:18Z",
+      "evidence": "tasks/sumi-caret-breathing-20261108/host-publication.json",
+      "evidenceSha256": "63cd63e323d853502570cfb463316c19d13b70b52ed46bf2e553e0b37b96b726",
+      "remoteStateRechecked": false,
+      "preservePaths": [
+        "tasks/sumi-caret-breathing-20261108/preserved-release-bundle",
+        "tasks/sumi-caret-breathing-20261108/host-draft-download",
+        "tasks/sumi-caret-breathing-20261108/host-draft-ranges"
+      ],
+      "assets": [
+        {
+          "name": "latest.json",
+          "bytes": 740,
+          "digest": "sha256:1d121a6e03c0ae9084a80d1f7d16fcb78bd4435d562382a9072531e7dfdf4691"
+        },
+        {
+          "name": "note.md-6.1108.2-aarch64.dmg",
+          "bytes": 70215286,
+          "digest": "sha256:fe8f4d90dffed1e2a08f21508ad851be399e2f394bf1e0e81cc454d0e67014b8"
+        },
+        {
+          "name": "note.md-aarch64.app.tar.gz",
+          "bytes": 69979878,
+          "digest": "sha256:eb34c8687162f0a53601083672ebf9f694cda5904c4cf5335a1f4da7c5ec75ce"
+        },
+        {
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "bytes": 416,
+          "digest": "sha256:77f04c64ccc80938b175e1fa188911d572f7bb7c0885ce65ccfd74c961eb221d"
+        }
+      ]
+    },
+    {
+      "tag": "v6.1108.3",
+      "localTagObject": "365d635d97f32613f9b940c1c3146f1309e19f98",
+      "localTagCommit": "86d32dd6928dc8817e2d280d8d1c82bcdcad3733",
+      "lastRecordedReleaseStatus": "draft_not_public",
+      "recordedPublishedAt": null,
+      "evidence": "tasks/sumi-panel-release-20261108/draft-assets-before-download.json",
+      "evidenceSha256": "cf618bc5a4d486f786cab0f642f8085eb5a4ad02d998b3a030012751dd10f3e8",
+      "remoteStateRechecked": false,
+      "preservePaths": [
+        "tasks/sumi-panel-release-20261108/preserved-release-bundle",
+        "tasks/sumi-panel-release-20261108/host-draft-download",
+        "tasks/sumi-panel-release-20261108/host-draft-ranges"
+      ],
+      "assets": [
+        {
+          "name": "latest.json",
+          "bytes": 740,
+          "digest": "sha256:15263bccbbc5c289f79d05e46b16949193ca0cdcf95d43bcd53db0cbc37ab17e"
+        },
+        {
+          "name": "note.md-6.1108.3-aarch64.dmg",
+          "bytes": 70220688,
+          "digest": "sha256:b814d8d92d3ac3d7ab21520036c0557cf3cc9c875295ac9ca5841e2288ce571f"
+        },
+        {
+          "name": "note.md-aarch64.app.tar.gz",
+          "bytes": 69980690,
+          "digest": "sha256:513ffd1ca8d164ef75ea3b07491ea46947f408109ba23e2506256102b58d1db0"
+        },
+        {
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "bytes": 416,
+          "digest": "sha256:4aec03e338bd82f7427caa019477a90960e26b27d64d2df2e4781bc08715e85a"
+        }
+      ]
+    },
+    {
+      "tag": "v6.1108.4",
+      "localTagObject": "f709b5da1e04d4a66b995054fa911216b05af76e",
+      "localTagCommit": "53321284f39354c6284b6c5fd8d64b985d130309",
+      "lastRecordedReleaseStatus": "draft_not_public",
+      "recordedPublishedAt": null,
+      "evidence": "tasks/sumi-font-release-20261108/draft-assets-before-download.json",
+      "evidenceSha256": "bc773f455a6407f130c3c5966f8974407a55d2026346d09f8cb587645a71d1bc",
+      "remoteStateRechecked": false,
+      "preservePaths": [
+        "tasks/sumi-font-release-20261108/preserved-release-bundle",
+        "tasks/sumi-font-release-20261108/host-draft-download",
+        "tasks/sumi-font-release-20261108/host-draft-ranges"
+      ],
+      "assets": [
+        {
+          "name": "latest.json",
+          "bytes": 740,
+          "digest": "sha256:0ffa97389be5e1e756f43a4c5e3d059c151a2c9e48092df5945e1bea2c660b84"
+        },
+        {
+          "name": "note.md-6.1108.4-aarch64.dmg",
+          "bytes": 14446675,
+          "digest": "sha256:17e4aadffd8d7906ea274fb490c5e65469aa95a03d99ecb8d500c36e19de27b7"
+        },
+        {
+          "name": "note.md-aarch64.app.tar.gz",
+          "bytes": 14519026,
+          "digest": "sha256:0135b7afed23e0b5f2eb2cbe9618195d4d1f23256d909fc5d82ed820ca0dbf44"
+        },
+        {
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "bytes": 416,
+          "digest": "sha256:918ecec58aaf9b384f0c3ee972cfb1fe63b0485a37169023d5b0b8321cc08e43"
+        }
+      ]
+    }
+  ],
+  "buildDirectories": [
+    {
+      "path": "src-tauri/target/debug",
+      "resolved": "/Users/bruce/git/mdeditor/src-tauri/target/debug",
+      "symlink": false,
+      "allocatedKiB": 255180,
+      "cleanupCandidateOnly": true
+    },
+    {
+      "path": "src-tauri/target/aarch64-apple-darwin/debug",
+      "resolved": "/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/debug",
+      "symlink": false,
+      "allocatedKiB": 587120,
+      "cleanupCandidateOnly": false
+    },
+    {
+      "path": "plugins-src/write/backend/target/release",
+      "resolved": "/Users/bruce/git/mdeditor/plugins-src/write/backend/target/release",
+      "symlink": false,
+      "allocatedKiB": 83732,
+      "cleanupCandidateOnly": false
+    },
+    {
+      "path": "tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle",
+      "resolved": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle",
+      "symlink": false,
+      "allocatedKiB": 50512,
+      "cleanupCandidateOnly": false
+    }
+  ],
+  "mustNotOverwrite": [
+    "all v6.1108.2/3/4 tags and existing release/draft assets",
+    "tasks/sumi-caret-breathing-20261108/preserved-release-bundle",
+    "tasks/sumi-panel-release-20261108/preserved-release-bundle",
+    "tasks/sumi-font-release-20261108/preserved-release-bundle",
+    "tasks/sumi-extraction-20261108/native-release",
+    "tasks/sumi-extraction-20261108/packages",
+    "tasks/sumi-extraction-20261108/frozen-plugin-packages.json",
+    "src-tauri/target/aarch64-apple-darwin/debug",
+    "plugins-src/write/backend/target/release"
+  ],
+  "limitations": [
+    "Branches compared using local refs only; no fetch and no claim of current remote status.",
+    "All linked worktrees plus Git roots found under tasks are enumerated, including foreign evidence repos.",
+    "Ignored build/evidence content is intentionally excluded from Git status; explicit preservation paths and sizes are recorded.",
+    "Rerun after final feature commit and after release before final scope signoff.",
+    "Changes can continue concurrently; stableHeadAndStatus only describes each local sampling interval."
+  ]
+}

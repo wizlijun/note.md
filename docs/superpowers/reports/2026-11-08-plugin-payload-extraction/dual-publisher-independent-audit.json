@@ -1,0 +1,81 @@
+{
+  "ok": true,
+  "at": "2026-11-08T14:36:38.136501+00:00",
+  "publisherSha256": "9eeeda37715a829822f1ffe7b78cce6b48b869ada1c4fd31c3e4593728645c08",
+  "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "packages": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "bytes": 2302043,
+      "minimumHost": ">=6.1108.5"
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "bytes": 169730,
+      "minimumHost": ">=6.1108.5"
+    }
+  ],
+  "mergeTests": {
+    "twoAppends": true,
+    "historicalEntriesUnchanged": true,
+    "idempotent": true,
+    "partialEitherOrder": true,
+    "immutableConflictRejected": true,
+    "duplicateExistingRejected": true,
+    "inputNotMutated": true
+  },
+  "hostGateTests": [
+    {
+      "case": "canonical",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "rest_fallback",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "canonical_transport_error",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "canonical_timeout",
+      "passed": true,
+      "accepted": true
+    },
+    {
+      "case": "canonical_bad_digest",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "rest_bad_digest",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "rest_wrong_version",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "draft_rejected",
+      "passed": true,
+      "accepted": false
+    },
+    {
+      "case": "missing_assets",
+      "passed": true,
+      "accepted": false
+    }
+  ],
+  "remoteMutations": false,
+  "tokenAccess": false,
+  "limitations": "Offline behavior plus real local package signatures. Actual public readback only after future stage."
+}

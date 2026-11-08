@@ -1,0 +1,157 @@
+{
+  "ok": true,
+  "at": "2026-11-08T15:22:32.760491+00:00",
+  "readOnly": true,
+  "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "publisherSha256": "9eeeda37715a829822f1ffe7b78cce6b48b869ada1c4fd31c3e4593728645c08",
+  "beforeCount": 300,
+  "afterCount": 302,
+  "onlyAdded": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "min_host": ">=6.1108.5",
+      "archs": [
+        "aarch64-apple-darwin"
+      ],
+      "size": 2302043,
+      "sha256": {
+        "aarch64-apple-darwin": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1"
+      },
+      "name": "Sumi",
+      "category": "experience",
+      "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "Sumi",
+          "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "打开 Sumi"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.4/aarch64-apple-darwin"
+      }
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "min_host": ">=6.1108.5",
+      "archs": [
+        "universal"
+      ],
+      "size": 169730,
+      "sha256": {
+        "universal": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa"
+      },
+      "name": "Power Mode",
+      "category": "experience",
+      "description": "Cursor explosions, a combo meter and a little screen shake while you type.",
+      "i18n": {
+        "zh": {
+          "name": "狂暴模式",
+          "description": "输入时呈现光标爆炸、连击计数和轻微屏幕震动效果。",
+          "menus": {
+            "open": "狂暴模式"
+          }
+        },
+        "ja": {
+          "name": "パワーモード",
+          "description": "入力に合わせてカーソルの爆発エフェクト、コンボメーター、軽い画面揺れを表示します。",
+          "menus": {
+            "open": "パワーモード"
+          }
+        },
+        "de": {
+          "name": "Power-Modus",
+          "description": "Cursor-Explosionen, Combo-Anzeige und dezentes Bildschirmwackeln beim Tippen.",
+          "menus": {
+            "open": "Power-Modus"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "universal": "https://plugins.notemd.net/api/download/notemd.power-mode/1.0.4/universal"
+      }
+    }
+  ],
+  "historicalEntriesUnchanged": true,
+  "kvNormalFreshExactlyEqualCandidate": true,
+  "newVersionsMatchFrozenPackages": true,
+  "compatibleMinimumHost": ">=6.1108.5",
+  "prePublicationFullPackageEvidence": "r2-parallel-independent-verification.json",
+  "prePublicationFullObjects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "bytes": 2302043
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "2a2d655ff98dc1989bd41a9cd5cf480f46416e0ae74709e4e57e69b1da57e2c0",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "bytes": 2302043
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "2a2d655ff98dc1989bd41a9cd5cf480f46416e0ae74709e4e57e69b1da57e2c0",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "normal",
+      "file": "universal.notemdpkg",
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "bytes": 169730
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "normal",
+      "file": "universal.notemdpkg.minisig",
+      "sha256": "a9602bd41812953ae7acdc66d94384b92fbb2810331fabeda7e758999df4c5dc",
+      "bytes": 314
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "fresh",
+      "file": "universal.notemdpkg",
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "bytes": 169730
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "fresh",
+      "file": "universal.notemdpkg.minisig",
+      "sha256": "a9602bd41812953ae7acdc66d94384b92fbb2810331fabeda7e758999df4c5dc",
+      "bytes": 314
+    }
+  ],
+  "prePublicationFullPackageSignaturesRecheckedLocally": true,
+  "postPublicationNetworkPackageDownloadsPerformed": false,
+  "boundary": "Complete normal/fresh package bytes and signatures were verified before index publication; this audit rechecks frozen local bytes and post-publication authoritative/public indices only."
+}

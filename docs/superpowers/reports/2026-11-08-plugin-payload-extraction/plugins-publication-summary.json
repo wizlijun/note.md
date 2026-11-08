@@ -1,0 +1,99 @@
+{
+  "ok": true,
+  "completedAt": "2026-11-08T15:22:54.392105+00:00",
+  "hostVersion": "6.1108.5",
+  "hostTag": "v6.1108.5",
+  "hostCommit": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+  "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "nativeSourceCommit": "c9e32dad525fa5e4d608cf04877ce4b636a7434a",
+  "packages": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "arch": "aarch64-apple-darwin",
+      "bytes": 2302043,
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "signatureSha256": "2a2d655ff98dc1989bd41a9cd5cf480f46416e0ae74709e4e57e69b1da57e2c0"
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "arch": "universal",
+      "bytes": 169730,
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "signatureSha256": "a9602bd41812953ae7acdc66d94384b92fbb2810331fabeda7e758999df4c5dc"
+    }
+  ],
+  "minimumHost": ">=6.1108.5",
+  "publicationChannel": "Existing Wrangler 3.114.17 and Account API Token: immutable R2 package/signature, anonymous full verification, KV append, public index verification",
+  "originalStageExitCode": 0,
+  "originalPublishIndexExitCode": 0,
+  "independentFinalAuditExitCode": 0,
+  "marketPublished": true,
+  "beforeEntries": 300,
+  "afterEntries": 302,
+  "onlyTwoTargetVersionsAdded": true,
+  "allHistoricalEntriesUnchanged": true,
+  "kvNormalFreshIndicesExactlyEqual": true,
+  "packageEvidence": {
+    "independentNormalFreshCompleteObjects": 8,
+    "independentCompletePackageMinisignChecks": 4,
+    "fullReadbackOccurredBeforeIndexPublication": true,
+    "originalPublisherAlsoRepeatedCompleteReadbackBeforeItsKvWrite": true,
+    "postPublicationExtraNetworkLargePackageDownloads": false,
+    "postPublicationIndependentCheck": "Authoritative KV plus anonymous normal/fresh index, exact frozen version/host/SHA/URL fields, and local pre-publication whole-package proof revalidated."
+  },
+  "recoveryDisclosure": {
+    "firstR2AttemptFailed": true,
+    "failedAutomaticWatcherDisabled": true,
+    "invalidPriorObjectProofExplicitlyMarked": "r2-recovery-correction.json",
+    "powerCliRecovery": "Exact owned process groups manually reviewed and stopped only after each exact object was fully read and matched frozen bytes",
+    "kvPutCount": 1,
+    "kvCliRecovery": "Exact owned put group manually reviewed and stopped only after independent authoritative read proved entire candidate persisted; original publisher then read KV and both public indices itself",
+    "repeatedKvWrite": false
+  },
+  "nativeEvidenceReused": true,
+  "newAppleSubmissionDuringPackaging": false,
+  "evidence": {
+    "frozen-plugin-packages.json": {
+      "bytes": 6481,
+      "sha256": "ca4cb6b6747aa8d7e0b274346fca525a868e2f5877816d263b65deed3c99da01"
+    },
+    "r2-stage-summary.json": {
+      "bytes": 2809,
+      "sha256": "14d4baaab27d76f16e86d25259505fde3f694cf90fbab0aef22ce3104da5338f"
+    },
+    "plugins-parallel-public-packages.json": {
+      "bytes": 2177,
+      "sha256": "b752e64d7e93bc6a5db6c14486bfd522cafa0f0ed41e224587155a39c6146f23"
+    },
+    "r2-parallel-independent-verification.json": {
+      "bytes": 2573,
+      "sha256": "8d73580328efbf3d9bfbe7cfb26f0384ceb367046704724fe770f0495611c81b"
+    },
+    "plugins-index-verification.json": {
+      "bytes": 2538,
+      "sha256": "76d97bd791f52a6f7e58e5ce4a0d45b01f36f42355d66d7fbf3c9049069c3fe3"
+    },
+    "plugins-market-independent-verification.json": {
+      "bytes": 5187,
+      "sha256": "c414a856f654496dc7ca4f6b9f2bd3c342f5602881b158103caab3ec631bc9ee"
+    },
+    "plugins-index-write-observation.json": {
+      "bytes": 154,
+      "sha256": "9bbe483cf9750a8483ed1a72b471fd98993bf400e00bbd5c8a50f77ca7b6ea2d"
+    },
+    "plugins-kv-manual-cli-exit.json": {
+      "bytes": 516,
+      "sha256": "fe4c85935bb0cc6003ee51dc452809a4e78bd6b49a693942325c44122aa32b99"
+    },
+    "plugins-market-publication.log": {
+      "bytes": 16,
+      "sha256": "41e651ab9d2e36d5e1c5c9e6b52778a58edc4a6ff73fd61ffacc0c681204daeb"
+    },
+    "plugins-market-independent-verification.log": {
+      "bytes": 179,
+      "sha256": "fb05796ca2ce3d7d695d2f7514ddd9f5ac924017539943394b4d252ca6ed51c2"
+    }
+  }
+}

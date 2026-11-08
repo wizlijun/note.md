@@ -1,0 +1,33 @@
+{
+  "result": "no blocking issue after approved four-object preflight change, subject to root external host gate",
+  "publisherSha256": "9eeeda37715a829822f1ffe7b78cce6b48b869ada1c4fd31c3e4593728645c08",
+  "frozenMetadataSha256": "ca4cb6b6747aa8d7e0b274346fca525a868e2f5877816d263b65deed3c99da01",
+  "approvedChange": "stage now validates all two packages and two minisig object slots before first R2 put, then retains each-key immediate recheck",
+  "tests": {
+    "retryStateScenarios": 18,
+    "localFrozenPackageAndMinisignVerification": true,
+    "existingAuditAndNineHostGateScenarios": true
+  },
+  "externalPrerequisites": [
+    "Root performs actual host App/DMG/updater signing/notarization and frozen-tag source checks.",
+    "Root reads back all four draft assets by complete SHA before publication; after publication anonymously verifies four asset identities, full small files and large-file ends against those verified digests.",
+    "Only after the above actual host5 public acceptance may publish-index run.",
+    "Use one registry publisher through KV precheck/write/readback because KV operation has no compare-and-swap."
+  ],
+  "approvedOrder": [
+    "stage: R2 upload then ordinary/fresh complete reads of two packages and two signatures with Minisign",
+    "root: complete independent host5 release public acceptance",
+    "publish-index: host metadata gate, full plugin readback, fresh KV read/preserve/append two entries, guarded write, KV+ordinary/fresh public convergence"
+  ],
+  "scope": {
+    "tokensRead": false,
+    "remoteReads": false,
+    "remoteWrites": false,
+    "productionSourceModified": false,
+    "marketplacePublished": false
+  },
+  "evidence": [
+    "dual-publisher-retry-review.json",
+    "dual-publisher-independent-audit.json"
+  ]
+}

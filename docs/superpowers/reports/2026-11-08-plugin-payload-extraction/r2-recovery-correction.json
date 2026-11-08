@@ -1,0 +1,21 @@
+{
+  "at": "2026-11-08T14:54:09.551754+00:00",
+  "failedWatcherSha256": "4728bffe5bae2b9bad4bd49b696b8780b193e1174570ad9b7a8a9e09c8e1ac5c",
+  "stageExit": 1,
+  "rootCause": "Current group was incorrectly associated with the previous object Upload complete record, before the new group emitted its own object log",
+  "invalidRecoveryRecordIndexesZeroBased": [
+    2,
+    3,
+    4
+  ],
+  "preservedRecordsFile": "r2-cli-exit-recovery.json",
+  "doesNotProvePowerUpload": true,
+  "allAutomaticKillWatchersDisabled": true,
+  "publisherSourceUnchanged": true,
+  "kvWrites": false,
+  "nextSteps": [
+    "Read all four exact keys completely before retries",
+    "Original audited stage only, same immutable keys",
+    "No generic watcher; any process intervention requires exact PID and this object full bytes"
+  ]
+}

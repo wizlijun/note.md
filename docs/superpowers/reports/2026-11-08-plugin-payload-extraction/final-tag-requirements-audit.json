@@ -1,0 +1,555 @@
+{
+  "ok": true,
+  "auditAtUtc": "2026-11-08T15:08:43.702907+00:00",
+  "tag": "v6.1108.5",
+  "commit": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+  "scope": "Frozen-source/spec/changelog/package inclusion audit; not publication or full installed-app acceptance",
+  "frozenInputs": {
+    "file": {
+      "path": "tasks/sumi-extraction-20261108/frozen-inputs.json",
+      "sha256": "69eb8bf3976e45cfa2f3ea2ba3e05cc074add3240ce7a28a73127c28fb9e9092"
+    },
+    "sourcesChecked": 98,
+    "allMatchTag": true
+  },
+  "nativeCompileInputs": {
+    "files": 81,
+    "allMatchSignedOriginalSource": true,
+    "binarySha256": "ad383a8c997a03c99644cb5f636a7276428bc5d93e33c41f87e6b50cc650bc19"
+  },
+  "artifactVerification": {
+    "file": {
+      "path": "tasks/sumi-extraction-20261108/artifact-verification.json",
+      "sha256": "03a02bbf2931673f627af63788c5ceaeb11e2af1fa34f42eecf77bb921947689"
+    },
+    "ok": true,
+    "source": "02099d206a583400a89ac360bf8f3c0e61acaf14",
+    "appBinary": {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+      "bytes": 21803536,
+      "sha256": "10ef961cd2b5a31bb2725c0f6af6af52d7b33f6545e3ddc989c8391329c7f14f"
+    },
+    "updater": {
+      "bytes": 14244585,
+      "sha256": "1a18ab775af46bf81f9068a0797a0f9cb8f149e3d322004ab89066e56ae2545d"
+    },
+    "dmg": {
+      "bytes": 14175207,
+      "sha256": "c954f952a4fc874d9f5bfe91595b92f899b1b2ca245012c10308d2f3ff8e2576",
+      "candidate_and_updater_byte_identical": true
+    },
+    "nativeBridge": {
+      "classes": [
+        "SumiTextView",
+        "SumiEditor"
+      ],
+      "qt_dynamic_linkage": false
+    },
+    "embeddedModulesVerified": true,
+    "removedAssetsVerified": true
+  },
+  "packages": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "bytes": 2302043,
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "inventoryMatchesFrozenRecord": true,
+      "manifestMatchesTag": true,
+      "minisignVerifiedWithTagPublicKey": true,
+      "sourceTreeUnchangedFromPackageBuildCommit": true,
+      "noSumiFontBinaries": true
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "bytes": 169730,
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "inventoryMatchesFrozenRecord": true,
+      "manifestMatchesTag": true,
+      "minisignVerifiedWithTagPublicKey": true,
+      "sourceTreeUnchangedFromPackageBuildCommit": true,
+      "noSumiFontBinaries": true
+    }
+  ],
+  "fonts": {
+    "aliases": [
+      "Sumi Plex",
+      "Sumi WenKai",
+      "Sumi Zhaohua",
+      "Sumi Youcha",
+      "Sumi Fangsong",
+      "Sumi CRT"
+    ],
+    "faces": 7,
+    "crt": [
+      "Unifont"
+    ],
+    "noTerminusOrRetiredSpecialEliteAsset": true
+  },
+  "changelog": {
+    "entriesPerLanguage": 7,
+    "oldUnpublishedCandidate4HeadingRemoved": true,
+    "retainedClipboardCoveredByHistoricalEntry": true
+  },
+  "requirements": [
+    {
+      "id": "font_download",
+      "requirement": "按需后台下载；关闭设置继续写；离线缓存/系统回退；最后选择生效",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 341,
+          "sha256": "34762d749d1e3fe9284f8a358f64250a767f28778ec4787b9e67450529e4b34e",
+          "anchor": "request<FontState>('font_select'"
+        },
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 42,
+          "sha256": "34762d749d1e3fe9284f8a358f64250a767f28778ec4787b9e67450529e4b34e",
+          "anchor": "function stopFontPanel()"
+        },
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 372,
+          "sha256": "34762d749d1e3fe9284f8a358f64250a767f28778ec4787b9e67450529e4b34e",
+          "anchor": "preserveFont: true"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 1709,
+          "sha256": "866d0eed623a3b4ec9aa3eb2ee16b7abce6ee22f294ae9a951acb17c4f5d264b",
+          "anchor": "async fn ensure_font"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 1782,
+          "sha256": "866d0eed623a3b4ec9aa3eb2ee16b7abce6ee22f294ae9a951acb17c4f5d264b",
+          "anchor": "async fn select_font"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 1749,
+          "sha256": "866d0eed623a3b4ec9aa3eb2ee16b7abce6ee22f294ae9a951acb17c4f5d264b",
+          "anchor": "async fn complete_font_selection"
+        },
+        {
+          "path": "plugins-src/write/backend/src/fonts.rs",
+          "line": 128,
+          "sha256": "2d013df525f4e07edbdf0de7f1792031345f7d73772f8d6c433bd63729edf145",
+          "anchor": "FontRequest::Download"
+        },
+        {
+          "path": "plugins-src/write/src/main.test.ts",
+          "line": 411,
+          "sha256": "99c3ee622160e9b171a45724f84cdf5dc937a744aa1d753403bbaafee4dc6a24",
+          "anchor": "lists all fonts without downloading on startup"
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 546,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "点击后台下载"
+      },
+      "releaseChangelogEntries": [
+        3
+      ],
+      "verificationEvidence": [
+        "backend-final-test.log",
+        "native-regression/evidence.json",
+        "frozen-inputs.json",
+        "artifact-verification.json"
+      ],
+      "boundaries": [
+        "Final signed-host settings/download interaction was not physically rerun by this audit.",
+        "Earlier explicit real HTTPS font test used an earlier source hash; final backend source has matching automatic tests, not a claimed fresh all-seven-network download."
+      ]
+    },
+    {
+      "id": "font_choices",
+      "requirement": "六组最终字体；CRT仅GNU Unifont；字体与主题独立",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "plugins-src/write/src/contract.ts",
+          "line": 32,
+          "sha256": "7fbd260d512ad50d5e393ec3ab609bf8fba281a3368bfb8453d54c6409cc7f7b",
+          "anchor": "export const fontPresets"
+        },
+        {
+          "path": "plugins-src/write/resources/sumi/manifest.json",
+          "line": 21,
+          "sha256": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3",
+          "anchor": "\"Sumi CRT\""
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 132,
+          "sha256": "866d0eed623a3b4ec9aa3eb2ee16b7abce6ee22f294ae9a951acb17c4f5d264b",
+          "anchor": "\"crt\" => (\"#0ccc68\", \"#000000\")"
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 550,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "最终CRT只分发GNU Unifont"
+      },
+      "releaseChangelogEntries": [
+        4
+      ],
+      "verificationEvidence": [
+        "artifact-verification.json",
+        "native-regression/evidence.json",
+        "font-resource-migration.json"
+      ],
+      "boundaries": [
+        "Six combinations contain seven font faces because Plex is a pair.",
+        "Rare characters/emoji may use system fallback; no claim of complete Unicode/GB18030 coverage."
+      ]
+    },
+    {
+      "id": "caret",
+      "requirement": "四秒竖线呼吸；常亮打字与IME保持；隐藏系统细线",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 242,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "breathing.duration=2;breathing.autoreverses=YES"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 212,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "CGFloat width=MAX(2,MIN(3,font.pointSize/11.0)),height=font.ascender-font.descender;"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 99,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "- (void)syncSystemCaretColor"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 196,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "BOOL preserving=(self.caretInputDepth"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 236,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "isEqualToString:@\"steady\""
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 541,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "用户最终选择4秒完整周期"
+      },
+      "releaseChangelogEntries": [
+        6
+      ],
+      "verificationEvidence": [
+        "native-regression/evidence.json",
+        "native-regression/caret-probe.log",
+        "native-regression/caret-render-probe.log",
+        "artifact-verification.json"
+      ],
+      "boundaries": [
+        "Real AppKit probes are offscreen; no physical-display timing or live input-method candidate-screen acceptance claimed.",
+        "Caret is intentionally hidden for inactive surfaces or noncollapsed selection; steady means no blinking while eligible."
+      ]
+    },
+    {
+      "id": "composition_handoff",
+      "requirement": "打开设置先提交组字；失败保留预编辑并可重试",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "line": 192,
+          "sha256": "34762d749d1e3fe9284f8a358f64250a767f28778ec4787b9e67450529e4b34e",
+          "anchor": "preparePanel: true"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 102,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "- (BOOL)prepareForPanel"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 336,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "acceptChangesPreservingRejectedText:YES"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "line": 3427,
+          "sha256": "866d0eed623a3b4ec9aa3eb2ee16b7abce6ee22f294ae9a951acb17c4f5d264b",
+          "anchor": "params[\"preparePanel\"].as_bool()"
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 77,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "打开设置"
+      },
+      "releaseChangelogEntries": [
+        5
+      ],
+      "verificationEvidence": [
+        "native-regression/evidence.json",
+        "native-regression/panel-probe.log"
+      ],
+      "boundaries": [
+        "Background visibility changes retain their IME barrier; this is only the explicit panel handoff."
+      ]
+    },
+    {
+      "id": "font_padding",
+      "requirement": "字号放大同步调整四周留白；窄矮窗口可用；底部预留独立",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 689,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "CGFloat scale=font.pointSize/22.0;"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 690,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "CGFloat horizontal=MIN(MAX(16,24*scale)"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 691,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "CGFloat vertical=MIN(MAX(20,32*scale)"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 698,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "self.scroll.contentInsets=NSEdgeInsetsMake"
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 23,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "字号"
+      },
+      "releaseChangelogEntries": [
+        7
+      ],
+      "verificationEvidence": [
+        "native-regression/evidence.json"
+      ],
+      "boundaries": [
+        "This round reran 40 system-fallback and 40 single-Unifont CRT cases; historical Zhaohua evidence is separate.",
+        "Does not imply every font, screen scale and physical display was retested in the final packaged app."
+      ]
+    },
+    {
+      "id": "clipboard",
+      "requirement": "复制Markdown；粘贴文本/Markdown且去来源样式；显式纯文本",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 442,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "- (BOOL)writeMarkdownToPasteboard"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "line": 459,
+          "sha256": "7fd7ebf9baa28b73815e9a73629aa16b4ac0f2fe428ca18016a0cdece374a9d7",
+          "anchor": "- (void)pasteFromPasteboard:(NSPasteboard *)pasteboard literal:"
+        },
+        {
+          "path": "write-core/src/render.rs",
+          "line": 439,
+          "sha256": "92bafc83f7cce11e05fb3a617ef31e88f16e7a9bd7ab427e07777b862ffb859d",
+          "anchor": "pub fn apply_markdown_paste"
+        },
+        {
+          "path": "write-core/tests/clipboard.rs",
+          "line": 6,
+          "sha256": "88cf9e346d963a686d314b7bac1ee9d5a54872561289da417d801ce192b46d9c",
+          "anchor": "#[test]"
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 155,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "### 3.1 剪贴板"
+      },
+      "releaseChangelogEntries": [],
+      "verificationEvidence": [
+        "native-regression/evidence.json",
+        "native-regression/clipboard-probe.log"
+      ],
+      "boundaries": [
+        "Retained feature from published 6.1108.1, not a newly invented eighth changelog entry.",
+        "Image-only input uses a readable placeholder; no OCR or arbitrary rich formatting preservation."
+      ]
+    },
+    {
+      "id": "power_assets",
+      "requirement": "Power Mode素材移入插件；主Rich/Editor Kit支持；旧包缺素材降级",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "src-tauri/src/plugin_runtime/power_mode.rs",
+          "line": 67,
+          "sha256": "009d44fbde2365455d801cf544b0f3b2222866985c0265334fef0ed42a26fb21",
+          "anchor": "pub const ASSET_PREFIX"
+        },
+        {
+          "path": "src-tauri/src/plugin_runtime/power_mode.rs",
+          "line": 105,
+          "sha256": "009d44fbde2365455d801cf544b0f3b2222866985c0265334fef0ed42a26fb21",
+          "anchor": "pub fn plugin_v2_power_mode_assets"
+        },
+        {
+          "path": "src/lib/power-mode/assets.ts",
+          "line": 3,
+          "sha256": "65536be93368e3374a07a1fe081e508271da2a46069586ce7142850e9a12e684",
+          "anchor": "status: 'ready' | 'missing' | 'disabled'"
+        },
+        {
+          "path": "plugins-src/power-mode/manifest.v2.json",
+          "line": 5,
+          "sha256": "ba075ee0a7ffba43521100653eca88dea4285740c330985a4b565dcf0a76a8e5",
+          "anchor": "\"1.0.4\""
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-08-plugin-payload-extraction.md",
+        "line": 7,
+        "sha256": "2cd0d87d1efb63ecc52ec7a3753441f2fb884d3f94991970383f51fde19cc12a",
+        "anchor": "Power Mode 的13个GIF"
+      },
+      "releaseChangelogEntries": [
+        1
+      ],
+      "verificationEvidence": [
+        "artifact-verification.json",
+        "frozen-plugin-packages.json",
+        "power-webkit.json"
+      ],
+      "boundaries": [
+        "13 GIF exact bytes present in signed plugin package and absent from frozen host asset tree; actual Mach-O embedded resources audited separately.",
+        "Offscreen WKWebView resource decode proof is not final installed-app menu/typing acceptance."
+      ]
+    },
+    {
+      "id": "plugin_backend",
+      "requirement": "Sumi持久化/投影、同步与下载移出；宿主留即时CRDT/native/钥匙串",
+      "sourceStatus": "present_in_frozen_tag",
+      "sources": [
+        {
+          "path": "plugins-src/write/manifest.v2.json",
+          "line": 6,
+          "sha256": "bee90a73d066d065d068b518eed03e86f78726845bac27d85bec0e146ac346bf",
+          "anchor": "\"kind\": \"native\""
+        },
+        {
+          "path": "plugins-src/write/backend/src/runtime.rs",
+          "line": 191,
+          "sha256": "296de2680eee7d4ee4bd4080ccac952433ece739c6a63801dff1aabe09fd805d",
+          "anchor": "\"durability\"|\"network\""
+        },
+        {
+          "path": "plugins-src/write/backend/src/durability.rs",
+          "line": 81,
+          "sha256": "9a344a786eb094955e20fa5675b6894950b44a6af69107920f683aa3b4ed2fc0",
+          "anchor": "pub async fn open"
+        },
+        {
+          "path": "src-tauri/src/sumi/coordinator.rs",
+          "line": 1,
+          "sha256": "2f6414c91770cf0a9ea2203b0c120d114a7ef052d0abbc838bcdecdd4d092d03",
+          "anchor": "Host UI/session facade"
+        },
+        {
+          "path": "src-tauri/src/sumi/sync.rs",
+          "line": 1,
+          "sha256": "eb78b0e6283bd44f97c35eab71c88b8d97f0ebe835f1b17180cd23d6bcb7cc7b",
+          "anchor": "UI-facing wire type only"
+        },
+        {
+          "path": "src-tauri/src/sumi/auth.rs",
+          "line": 97,
+          "sha256": "420705cc0bf9236d5200a9d783f5915f18093cf3a9813f3616bc74e4a8c7ccfc",
+          "anchor": "pub async fn load_identity"
+        }
+      ],
+      "spec": {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "line": 476,
+        "sha256": "7e5d2e28e8da8987fbd936b0ccd4a9d147615456ceed6a2e961e9a7c1c9139e8",
+        "anchor": "独立Sumi可执行后台"
+      },
+      "releaseChangelogEntries": [
+        2
+      ],
+      "verificationEvidence": [
+        "native-release/actual-native-process-probe.json",
+        "native-final-source-equivalence.json",
+        "backend-verification.json",
+        "loopback/verification.json",
+        "artifact-verification.json"
+      ],
+      "boundaries": [
+        "Signed executable was spawned in isolated stdio crash/replay tests; Apple Accepted and exact binary hash match final package. Raw CLI spctl returns valid-code-not-an-app and is not reported as passing.",
+        "Transport+core loopback verifies online deltas/offline merge, not live production CF quota or all host-native lifecycle UI.",
+        "Host retains write-core in memory and shared SQLite/HTTP dependencies; full backend executable size is not host savings."
+      ]
+    }
+  ],
+  "evidenceRecords": [
+    {
+      "path": "tasks/sumi-extraction-20261108/native-regression/evidence.json",
+      "sha256": "e8173e2e030d833c97aa19e43d420a3cddee3e53c6d5c39a76c388a4f8ba7dee"
+    },
+    {
+      "path": "tasks/sumi-extraction-20261108/backend-verification.json",
+      "sha256": "3257ed9f47b289c48f5109a629186a8ce4da7fab3ff7b9cf0a8d564eefd32b56"
+    },
+    {
+      "path": "tasks/sumi-extraction-20261108/loopback/verification.json",
+      "sha256": "6cb80c4b17910e84d1c3dfc9a6fb4440512af9091c1fa9e9cf0abc33f3eb3842"
+    },
+    {
+      "path": "tasks/sumi-extraction-20261108/native-release/actual-native-process-probe.json",
+      "sha256": "6b200e5a3475c4f04be0fce50c96b56f35f2b9ede41de2a6eeb336b31663fe00"
+    },
+    {
+      "path": "tasks/sumi-extraction-20261108/frozen-plugin-packages.json",
+      "sha256": "ca4cb6b6747aa8d7e0b274346fca525a868e2f5877816d263b65deed3c99da01"
+    }
+  ],
+  "openBoundaries": [
+    "No physical final-DMG installation, final installed plugin update, or live GUI/settings/IME interaction was executed by this audit.",
+    "Other platforms, custom IME, VoiceOver and complete physical input-to-display/performance matrix remain future work as spec states.",
+    "No Cloudflare paid upgrade or new production capacity acceptance; local Worker tests are not production quota proof.",
+    "Earlier host-quiesce/font-engine reports retain intermediate source hashes; do not relabel them as exact final-tag runs. Current artifact/source binding and native input equivalence are separately verified.",
+    "Release source and signed artifacts being correct does not prove host release or marketplace index already public; publication scripts must finish their own public gates."
+  ],
+  "sourceModified": false,
+  "compiled": false,
+  "networkUsed": false
+}

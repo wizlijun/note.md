@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "e77d7f3e9db1e52fc9d1fd39189b5a386bd255ed",
+  "removed": [
+    {
+      "path": "src-tauri/target/debug/deps",
+      "allocatedBytesBefore": 9468506112
+    },
+    {
+      "path": "src-tauri/target/debug/build",
+      "allocatedBytesBefore": 1201176576
+    },
+    {
+      "path": "src-tauri/target/debug/incremental",
+      "allocatedBytesBefore": 5657133056
+    },
+    {
+      "path": "src-tauri/target/debug/.fingerprint",
+      "allocatedBytesBefore": 24088576
+    }
+  ],
+  "freeBefore": 10786275328,
+  "freeAfter": 24929918976,
+  "preservedAcceptanceTree": true,
+  "nativeBinarySha256": "ad383a8c997a03c99644cb5f636a7276428bc5d93e33c41f87e6b50cc650bc19"
+}

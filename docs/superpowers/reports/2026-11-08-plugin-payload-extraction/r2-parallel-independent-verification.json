@@ -1,0 +1,81 @@
+{
+  "ok": true,
+  "checkedAt": "2026-11-08T15:09:46.216262+00:00",
+  "publisherSha256": "9eeeda37715a829822f1ffe7b78cce6b48b869ada1c4fd31c3e4593728645c08",
+  "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "objects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "bytes": 2302043
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "2a2d655ff98dc1989bd41a9cd5cf480f46416e0ae74709e4e57e69b1da57e2c0",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "bytes": 2302043
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "2a2d655ff98dc1989bd41a9cd5cf480f46416e0ae74709e4e57e69b1da57e2c0",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "normal",
+      "file": "universal.notemdpkg",
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "bytes": 169730
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "normal",
+      "file": "universal.notemdpkg.minisig",
+      "sha256": "a9602bd41812953ae7acdc66d94384b92fbb2810331fabeda7e758999df4c5dc",
+      "bytes": 314
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "fresh",
+      "file": "universal.notemdpkg",
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "bytes": 169730
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "mode": "fresh",
+      "file": "universal.notemdpkg.minisig",
+      "sha256": "a9602bd41812953ae7acdc66d94384b92fbb2810331fabeda7e758999df4c5dc",
+      "bytes": 314
+    }
+  ],
+  "fullObjectBytesEqualFrozen": true,
+  "allFourPackageReadbacksMinisignValid": true,
+  "packageInventoriesEqualFrozen": true,
+  "newVersionsAbsentFromKvAndNormalFreshIndex": true,
+  "kvNormalFreshIndexEqual": true,
+  "indexEqualPreStageSnapshot": true,
+  "kvWritesPerformed": false,
+  "hostPublicationPerformed": false,
+  "stageScope": "Immutable R2 objects only; no market listing"
+}

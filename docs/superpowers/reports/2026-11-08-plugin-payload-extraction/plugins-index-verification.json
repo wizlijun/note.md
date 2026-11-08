@@ -1,0 +1,83 @@
+{
+  "ok": true,
+  "before": 300,
+  "after": 302,
+  "onlyAdded": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "min_host": ">=6.1108.5",
+      "archs": [
+        "aarch64-apple-darwin"
+      ],
+      "size": 2302043,
+      "sha256": {
+        "aarch64-apple-darwin": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1"
+      },
+      "name": "Sumi",
+      "category": "experience",
+      "description": "A quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "Sumi",
+          "description": "一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "打开 Sumi"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.4/aarch64-apple-darwin"
+      }
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "min_host": ">=6.1108.5",
+      "archs": [
+        "universal"
+      ],
+      "size": 169730,
+      "sha256": {
+        "universal": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa"
+      },
+      "name": "Power Mode",
+      "category": "experience",
+      "description": "Cursor explosions, a combo meter and a little screen shake while you type.",
+      "i18n": {
+        "zh": {
+          "name": "狂暴模式",
+          "description": "输入时呈现光标爆炸、连击计数和轻微屏幕震动效果。",
+          "menus": {
+            "open": "狂暴模式"
+          }
+        },
+        "ja": {
+          "name": "パワーモード",
+          "description": "入力に合わせてカーソルの爆発エフェクト、コンボメーター、軽い画面揺れを表示します。",
+          "menus": {
+            "open": "パワーモード"
+          }
+        },
+        "de": {
+          "name": "Power-Modus",
+          "description": "Cursor-Explosionen, Combo-Anzeige und dezentes Bildschirmwackeln beim Tippen.",
+          "menus": {
+            "open": "Power-Modus"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "universal": "https://plugins.notemd.net/api/download/notemd.power-mode/1.0.4/universal"
+      }
+    }
+  ],
+  "historicalEntriesUnchanged": true,
+  "publicNormalFreshAndKvEqual": true,
+  "compatibleHostPublic": true,
+  "minimumHost": ">=6.1108.5"
+}

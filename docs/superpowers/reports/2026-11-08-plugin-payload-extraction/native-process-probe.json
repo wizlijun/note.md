@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "at": "2026-11-08T14:21:18.927129+00:00",
+  "source": "c9e32dad525fa5e4d608cf04877ce4b636a7434a",
+  "binary_sha256": "ad383a8c997a03c99644cb5f636a7276428bc5d93e33c41f87e6b50cc650bc19",
+  "binary_bytes": 3788048,
+  "spawned": true,
+  "exit_code": 0,
+  "isolated_vault": true,
+  "network_started": false,
+  "account_access": false,
+  "test_driver_sha256": "e9eb9b94bb92eac8b7f27f179b099cff2e9f5b80c53f7156385f3aa71a78e483",
+  "test_log_sha256": "b6ba2982114754722b71fba9a8292b9ad97064e86c90593da0b9cfa1d2fad84d",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--manifest-path",
+    "plugins-src/write/backend/Cargo.toml",
+    "--test",
+    "stdio",
+    "--",
+    "--nocapture"
+  ],
+  "scope": "Actual signed/notarized binary spawned twice with cleared child environment. Synthetic Vault; first process intentionally killed after SQLite Committed but before reply consumption, restart/replay/read/outbox/idempotency/session/UI barrier assertions, second process clean exit."
+}

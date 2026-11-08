@@ -1,0 +1,100 @@
+{
+  "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "nativeSourceCommit": "c9e32dad525fa5e4d608cf04877ce4b636a7434a",
+  "packages": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.4",
+      "arch": "aarch64-apple-darwin",
+      "minimumHost": ">=6.1108.5",
+      "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+      "packagePath": "tasks/sumi-extraction-20261108/packages/notemd.sumi/0.1.4/aarch64-apple-darwin.notemdpkg",
+      "buildPackagePath": "dist-plugins/notemd.sumi/0.1.4/aarch64-apple-darwin.notemdpkg",
+      "sha256": "84df4e2ef3ee0cdf48ab3d5d1927c0d8134dbd90db868ec56c1e4ebabc025ae1",
+      "bytes": 2302043,
+      "signatureSha256": "2a2d655ff98dc1989bd41a9cd5cf480f46416e0ae74709e4e57e69b1da57e2c0",
+      "files": {
+        "ui/index.html": "10455a9178041ecaaa03c6d6497ff468c0dadabcb55b84f1a5e68828d137bc0c",
+        "ui/sumi/ZhuqueFangsong-LICENSE.txt": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043",
+        "ui/sumi/LXGWWenKaiMonoLite-OFL.txt": "0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e",
+        "ui/sumi/TerryWang-Typewriter-LICENSE.txt": "e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5",
+        "ui/sumi/TerryWang-Official-License.json": "7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e",
+        "ui/sumi/TerryWang-Typewriter-PROVENANCE.json": "b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100",
+        "ui/sumi/Unifont-OFL.txt": "869692af094c57fb7258c57fe26820c759319603321d0ffeb278de3651763ded",
+        "ui/sumi/IBMPlexSansSC-LICENSE.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+        "ui/sumi/manifest.json": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3",
+        "ui/sumi/IBMPlexMono-OFL.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+        "ui/sumi/CRT-PROVENANCE.json": "a467c8a02478b57bc77e565671f2844a9e32dc53c21954d31e03d9f347ddcd7a",
+        "ui/assets/index-D03zZVyg.css": "b6165003a2a34e8e8032e521374e219c9ba10665ca8a180aad9ad8ba45437ddd",
+        "ui/assets/index-BwDdu5G9.js": "c2ff00ae27ea65b7e462e47132190f9d636906c6d24cf6991e858ddc0f5c5eef",
+        "bin/notemd-sumi": "ad383a8c997a03c99644cb5f636a7276428bc5d93e33c41f87e6b50cc650bc19",
+        "manifest.json": "bee90a73d066d065d068b518eed03e86f78726845bac27d85bec0e146ac346bf"
+      },
+      "noBundledFontPayload": true,
+      "verification": {
+        "metadataFiles": 10,
+        "native": {
+          "binary": {
+            "identifier": "net.notemd.sumi.backend",
+            "team": "T5G56DH47L",
+            "cdhash": "fac8ef6e3a9446f4688aebfbf324aa731e3eb1b0",
+            "runtime": true,
+            "timestamp": true,
+            "sha256": "ad383a8c997a03c99644cb5f636a7276428bc5d93e33c41f87e6b50cc650bc19",
+            "bytes": 3788048,
+            "architecture": "arm64"
+          },
+          "submission_id": "7a26a1ae-bbe1-4415-bef2-e10d7e4e61f8",
+          "status": "Accepted",
+          "spctl": {
+            "exit_code": 3,
+            "stdout": "",
+            "stderr": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/sumi-native-verify-8a7ylqat/notemd-sumi: rejected (the code is valid but does not seem to be an app)\n",
+            "notarized_developer_id": false,
+            "scope": "Raw CLI assessment is recorded verbatim; nonzero is not converted to success. Apple Accepted/CDHash binding is independently required; actual isolated process acceptance remains required.",
+            "classification": "valid-code-not-an-app; not a passing spctl assessment"
+          },
+          "isolated_process_probe": "6b200e5a3475c4f04be0fce50c96b56f35f2b9ede41de2a6eeb336b31663fe00"
+        }
+      }
+    },
+    {
+      "id": "notemd.power-mode",
+      "version": "1.0.4",
+      "arch": "universal",
+      "minimumHost": ">=6.1108.5",
+      "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+      "packagePath": "tasks/sumi-extraction-20261108/packages/notemd.power-mode/1.0.4/universal.notemdpkg",
+      "buildPackagePath": "dist-plugins/notemd.power-mode/1.0.4/universal.notemdpkg",
+      "sha256": "2def9dcecbc7e8accf7471f37720d34181aad455341850c6332b4ba8024852aa",
+      "bytes": 169730,
+      "signatureSha256": "a9602bd41812953ae7acdc66d94384b92fbb2810331fabeda7e758999df4c5dc",
+      "files": {
+        "ui/index.html": "7fac7bb9b1345a61924f459d4283a1f1754de680e9ebc0f85df91197ef0fc59b",
+        "ui/assets/power-mode/lightning/2.gif": "cb4d34619e8b7346aa3baf06269417f154c446ab027bb2f38d7185bfc5f54a8a",
+        "ui/assets/power-mode/lightning/3.gif": "43c33887e8a90c6f2e0bc78fd8b0116cf3d524f8cb787ae7f6d48010adaace6f",
+        "ui/assets/power-mode/lightning/1.gif": "32f88231c8718e41129829c1a614b2dbbd6fd8966e86f3357d730f10d98bb643",
+        "ui/assets/power-mode/coin/1.gif": "562aba88ec420071d9fc8f43f913663c9dd4d41edd44e0dce2c430d0e99a3ddd",
+        "ui/assets/power-mode/confetti/1.gif": "7b48d45511bfa76dbc1a710623d0efdaf5ffd508bb1678b25e9bab0cf60246b5",
+        "ui/assets/power-mode/particle/4.gif": "84d8d2ff1b694c4c1bff6e5c2e8cf597c91e1d328bdcdd4e32b340d5aeccfb18",
+        "ui/assets/power-mode/particle/5.gif": "d2aee8dbddd0b119e3de5ddc1fa84ea576d0b418b3b32b146b553474699c9e25",
+        "ui/assets/power-mode/particle/7.gif": "dbc4cb17c705b386926111bb6f322cd61b8282acf3434555496e1e78b204d2e8",
+        "ui/assets/power-mode/particle/6.gif": "09f2ce6f47781ad7861ed2ebb98874e234170c3c03d31c486190b1f4e2dceb28",
+        "ui/assets/power-mode/particle/2.gif": "b708d863580db612f7a9ed75704daba678df9611c8a55dd84c0eb8067398495f",
+        "ui/assets/power-mode/particle/3.gif": "9306d600372fd6933be7fd73dfe0a17964e661abe826ae0896004786656c60f6",
+        "ui/assets/power-mode/particle/1.gif": "02076745304df7755a0f1dc5ca6adfd27aee620906a8c8c6a0fcb5e414059557",
+        "ui/assets/power-mode/particle/8.gif": "36933c0fafbabdfeaf054cad7e4e8f3e342eae3ffc2fa32832aa39ffb8228d07",
+        "ui/assets/index-BFThch9x.js": "54c1ffbfd7b72d42e5d3b2f74f710ecaef924e5ba89ec8ddeb2cdb336ce47074",
+        "ui/assets/index-DSmgdLGX.css": "c0a4126d0715299dd4f6d5e2313dc473c0554dd20dca68004d83cae701cbd18a",
+        "manifest.json": "ba075ee0a7ffba43521100653eca88dea4285740c330985a4b565dcf0a76a8e5"
+      },
+      "noBundledFontPayload": true,
+      "verification": {
+        "gifFiles": 13,
+        "gifSourceBytes": 173472
+      }
+    }
+  ],
+  "published": false,
+  "nativeAppleSubmissionReused": "7a26a1ae-bbe1-4415-bef2-e10d7e4e61f8"
+}

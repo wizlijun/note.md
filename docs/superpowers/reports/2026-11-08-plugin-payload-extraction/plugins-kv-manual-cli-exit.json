@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-08T15:19:41.879683+00:00",
+  "manualOnly": true,
+  "pids": [
+    72462,
+    72468
+  ],
+  "processGroup": 72462,
+  "parentPublisherPid": 63453,
+  "exactLog": "plugins-kv-upload.log",
+  "reason": "Single index put lingered after independent authoritative KV read proved entire 302-entry candidate persisted; exact PIDs/group/log descriptors reviewed manually",
+  "entireKvEqualCandidate": true,
+  "observation": "plugins-index-write-observation.json",
+  "noRepeatedPut": true,
+  "noWatcher": true
+}

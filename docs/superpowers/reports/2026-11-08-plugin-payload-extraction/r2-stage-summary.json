@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "completedAt": "2026-11-08T15:10:59.049704+00:00",
+  "sourceCommit": "08ebf73b0768c1e2154194103576c46b4e4936d0",
+  "publisherSha256": "9eeeda37715a829822f1ffe7b78cce6b48b869ada1c4fd31c3e4593728645c08",
+  "originalStageRetryExitCode": 0,
+  "scope": "Immutable R2 stage completed; index publication is separate and now authorized/in progress",
+  "completeIndependentObjects": 8,
+  "completePackageSignatureVerifications": 4,
+  "normalFreshWholeBytesEqualFrozen": true,
+  "indexUnchangedAtStageEnd": true,
+  "failureAndRecovery": {
+    "firstAttemptExitCode": 1,
+    "cause": "Auxiliary watcher incorrectly associated prior-object completion with new Power process and terminated it. No Power object persistence was inferred from those logs.",
+    "invalidEvidence": "r2-cli-exit-recovery.json rows 2, 3, 4 (zero based), explicitly corrected in r2-recovery-correction.json",
+    "watcherDisabled": true,
+    "allFourObjectsFullyReadBeforeRetry": true,
+    "originalAuditedPublisherUnchanged": true,
+    "retryMode": "CI=true, stdin EOF, same immutable keys",
+    "manualCliRecovery": "Only each precisely inspected owned Power process group was ended, after that exact object was completely downloaded and matched frozen bytes; proof retained."
+  },
+  "evidence": {
+    "r2-four-key-recovery-preflight.json": {
+      "bytes": 1135,
+      "sha256": "16645f0dbcc6f78848865f94b3ea99dfa008a0e332e7cbbb1ad687469140f773"
+    },
+    "r2-power-recovery-full.json": {
+      "bytes": 500,
+      "sha256": "7e74be6caef68f489fa61f9f193757b99c2974bfbe07b2087032b88f8712da69"
+    },
+    "r2-power-signature-recovery-full.json": {
+      "bytes": 271,
+      "sha256": "f1f0a22c18080bdce44931ad65281479b3318224f3e87fafcf164b4c406c9a38"
+    },
+    "r2-power-manual-cli-exit.json": {
+      "bytes": 1000,
+      "sha256": "c5e4dc74d3eb4ff338e3274f846b3117140a734782dbb81df5081185cbfb80bf"
+    },
+    "r2-power-signature-manual-cli-exit.json": {
+      "bytes": 637,
+      "sha256": "338bf4843da7e30c17c9bb89a20e4ed200d495454964d2ee3f517d7872c7fa8f"
+    },
+    "r2-recovery-correction.json": {
+      "bytes": 808,
+      "sha256": "4034f07034649b5f959878bfd9028802b4090745b6e2911706a525cf219f56d1"
+    },
+    "plugins-parallel-public-packages.json": {
+      "bytes": 2177,
+      "sha256": "b752e64d7e93bc6a5db6c14486bfd522cafa0f0ed41e224587155a39c6146f23"
+    },
+    "r2-parallel-independent-verification.json": {
+      "bytes": 2573,
+      "sha256": "8d73580328efbf3d9bfbe7cfb26f0384ceb367046704724fe770f0495611c81b"
+    },
+    "plugins-public-packages.json": {
+      "bytes": 2014,
+      "sha256": "73f01ff0e2394cfbee38c298a2a517c6c0e00bff7f705bbf6b7af84071046d7e"
+    },
+    "r2-stage-retry.log": {
+      "bytes": 203,
+      "sha256": "86c6d7c21a6f79d5b3f70822f0d7ca8cbbc00a5fc7a2de574c6488ca5d1ffc12"
+    }
+  }
+}
