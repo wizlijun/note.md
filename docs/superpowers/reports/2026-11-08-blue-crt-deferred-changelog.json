@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "status": "deferred_unreleased_pending_release",
+  "status": "restored",
   "releaseTag": "v6.1108.6",
   "sourceCommit": "ec4fdcc691223f211249cf685cf3641f6e7bc157",
   "baselineCommit": "c8e19178fee43d0922ed56da111277737281b2c5",
@@ -379,5 +379,14 @@
         }
       ]
     }
-  ]
+  ],
+  "restoration": {
+    "releaseTag": "v6.1108.6",
+    "releaseCommit": "b38dc722e6ab0e455147b07c39a972da297a9242",
+    "preRestoreCommit": "b38dc722e6ab0e455147b07c39a972da297a9242",
+    "restoredAtUtc": "2026-11-08T16:53:27.591567+00:00",
+    "scope": "changelog content restored; no commit or publication performed by this helper",
+    "restorationCommit": null,
+    "commitRecording": "Record the later restoration commit SHA in the release evidence; a file cannot embed its own final commit SHA."
+  }
 }
