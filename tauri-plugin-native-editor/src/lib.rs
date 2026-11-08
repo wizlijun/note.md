@@ -20,6 +20,15 @@ pub struct Appearance {
     pub background: String,
     pub max_columns: u32,
     pub bottom_inset: f64,
+    #[serde(default, alias = "caretMotion")]
+    pub caret_motion: CaretMotion,
+}
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CaretMotion {
+    #[default]
+    Breathing,
+    Steady,
 }
 impl Default for Appearance {
     fn default() -> Self {
@@ -31,6 +40,7 @@ impl Default for Appearance {
             background: "#111111".into(),
             max_columns: 80,
             bottom_inset: 0.0,
+            caret_motion: CaretMotion::Breathing,
         }
     }
 }
@@ -531,6 +541,23 @@ mod platform;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn caret_motion_defaults_and_accepts_only_supported_modes() {
+        let mut value = serde_json::to_value(Appearance::default()).unwrap();
+        value.as_object_mut().unwrap().remove("caret_motion");
+        assert_eq!(
+            serde_json::from_value::<Appearance>(value.clone()).unwrap().caret_motion,
+            CaretMotion::Breathing
+        );
+        value["caretMotion"] = serde_json::json!("steady");
+        assert_eq!(
+            serde_json::from_value::<Appearance>(value.clone()).unwrap().caret_motion,
+            CaretMotion::Steady
+        );
+        value["caretMotion"] = serde_json::json!("blink");
+        assert!(serde_json::from_value::<Appearance>(value).is_err());
+        assert_eq!(serde_json::to_value(CaretMotion::Breathing).unwrap(), "breathing");
+    }
     #[test]
     fn single_face_presets_are_valid_but_empty_cascades_are_not() {
         assert!(validate_font_cascade("Sumi WenKai", &["LXGWWenKaiMonoLite-Regular".into()]).is_ok());

@@ -77,7 +77,7 @@ range editing, rejection, programmatic composition, remote revision gates, rich
 runs, undo routing, hiding and teardown. Build it with a matched Xcode SDK:
 
 ```sh
-xcrun clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -fobjc-arc -mmacosx-version-min=11.0 native/probe.m -framework AppKit -framework Foundation -framework CoreText -o /tmp/sumi-appkit-probe
+xcrun clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -fobjc-arc -mmacosx-version-min=11.0 native/probe.m -framework AppKit -framework Foundation -framework CoreText -framework QuartzCore -o /tmp/sumi-appkit-probe
 ```
 
 Run from the repository root (the probe writes `tasks/sumi-native/appkit-events.json`).
@@ -113,3 +113,33 @@ geometry, preserving a partially visible line without asking IME geometry for
 an off-screen rectangle. Programmatic bounds updates do not emit user position
 changes. The host converts positions to page/epoch/root-bound CRDT anchors,
 coalesces small preference writes, and forces a final snapshot on detach/close.
+
+## Insertion caret
+
+The custom caret replaces the ordinary system line with a slightly heavier
+vertical stroke (2–3 logical points). Its height is the overall writing font's
+ascent minus descent; paragraph line spacing, nearby CJK/Latin characters and
+heading sizes do not change that height. It follows the actual TextKit 2 baseline.
+
+`Appearance.caret_motion` defaults to `breathing`; `steady` stays fully opaque.
+Breathing uses a public Core Animation opacity animation from 1 to 0.25 and back
+over six seconds, requesting 30 fps. Input, selection and remote updates preserve
+the phase. No application timer or animation frame triggers text layout. Hidden,
+inactive, selected-range and offscreen states remove the animation; Reduce Motion
+uses steady mode. The host persists the preference as `caretMotion`.
+
+Marked text temporarily restores the system insertion caret. Outside composition,
+`shouldDrawInsertionPoint` suppresses it and the public `insertionPointColor` is
+transparent: modern AppKit can retain an indicator after IME even when the former
+returns false. The custom caret reads the theme foreground independently. No
+private indicator APIs, global defaults or input-method geometry are changed.
+
+`native/caret-probe.m` tests geometry, fixed font metrics, animation configuration,
+stable phase and steady mode. `native/caret-render-probe.m` supplies a real
+TextKit 2 system-caret positive control, captures AppKit bitmap pixels, checks the
+single custom caret through font/theme changes and IME, and verifies a suppression
+mutation exposes a duplicate. Use the Clang flags above with deployment target
+13.0 and run from the repository root. Both keep their windows unordered and use
+an activation-prohibited application; active eligibility is simulated. This
+proves offscreen native rendering, not final-package on-screen/physical IME
+acceptance or measured animation frame rate.

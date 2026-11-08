@@ -15,17 +15,20 @@ static int command(void *handle,NSDictionary *value){
 @interface SumiCaretClockProbe : SumiTextView
 @property(nonatomic) BOOL simulatedActive;
 @property(nonatomic) BOOL simulatedReducedMotion;
+@property(nonatomic) NSUInteger geometryCalls;
 @end
 @implementation SumiCaretClockProbe
 - (BOOL)typewriterCaretEligible { return self.simulatedActive && [self usesTypewriterCaret] && self.selectedRange.length==0; }
 - (BOOL)reduceCaretMotion { return self.simulatedReducedMotion; }
+- (NSRect)typewriterCaretRect {self.geometryCalls++;return [super typewriterCaretRect];}
 @end
 static void runLoop(NSTimeInterval interval){[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:interval]];}
 static NSRect rect(SumiEditor *editor,NSUInteger index){
     editor.text.selectedRange=NSMakeRange(index,0);NSRect result=[editor.text typewriterCaretRect];
     NSRect insertion=[editor rectForInsertion:index];
     require(!NSIsEmptyRect(result),@"TextKit 2 returns a nonempty caret rectangle");
-    require(result.size.height>=2 && result.size.height<=4,@"underline thickness is 2–4 points");
+    require(result.size.width>=2 && result.size.width<=3,@"vertical stroke thickness is 2–3 points");
+    NSFont *font=[editor baseFont];require(fabs(result.size.height-(font.ascender-font.descender))<1,@"caret height matches overall font metrics, not line spacing");
     require(NSMinY(result)>=NSMinY(insertion) && NSMaxY(result)<=NSMaxY(insertion)+1,@"caret baseline stays inside its current line segment");
     NSTextLayoutManager *layout=editor.text.textLayoutManager;NSTextContentManager *content=layout.textContentManager;
     id<NSTextLocation> location=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)index];
@@ -34,7 +37,7 @@ static NSRect rect(SumiEditor *editor,NSUInteger index){
     for(NSTextLineFragment *line in fragment.textLineFragments){
         if(NSLocationInRange((NSUInteger)local,line.characterRange)){
             CGFloat baseline=fragment.layoutFragmentFrame.origin.y+line.typographicBounds.origin.y+line.glyphOrigin.y+editor.text.textContainerOrigin.y;
-            require(NSMinY(result)>baseline && NSMinY(result)<baseline+5,@"underline is immediately below the independent actual glyph baseline");
+            require(fabs(NSMinY(result)-(baseline-font.ascender))<1,@"vertical top follows the independent actual glyph baseline minus ascent");
             printf("GLYPH baseline=%.2f caret=%.2f\n",baseline,NSMinY(result));break;
         }
     }
@@ -50,17 +53,16 @@ int main(){@autoreleasepool{
     require(handle!=NULL,@"production native editor mounts off-screen");SumiEditor *editor=(__bridge SumiEditor *)handle;
     NSString *original=[editor.text.string copy];uint64_t revision=editor.revision;
     NSRect latin=rect(editor,0),cjk=rect(editor,1),emoji=rect(editor,2),end=rect(editor,4),empty=rect(editor,5);
-    require(cjk.size.width>latin.size.width*1.3,@"CJK uses its actual fallback advance");
-    require(fabs(emoji.size.width-end.size.width)<1,@"line-end follows preceding full emoji grapheme");
-    require(fabs(empty.size.width-latin.size.width)<1,@"empty line uses the Latin monospaced advance");
+    require(NSEqualSizes(cjk.size,latin.size) && NSEqualSizes(emoji.size,latin.size) && NSEqualSizes(end.size,latin.size),@"Latin/CJK/emoji/end retain the same overall-font vertical dimensions");
+    require(NSEqualSizes(empty.size,latin.size),@"empty line retains the same overall-font caret");
     require(empty.origin.y>latin.origin.y,@"caret follows TextKit line geometry");
     require(!editor.text.shouldDrawInsertionPoint,@"ordinary native system caret is suppressed");
     require(![editor.text typewriterCaretEligible],@"hidden inactive window cannot show caret or start a timer");
-    [editor.text refreshTypewriterCaret:YES];require(editor.text.caretTimer==nil,@"off-screen real editor has no timer");
+    [editor.text refreshTypewriterCaret:YES];require([editor.text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"off-screen real editor has no animation");
     require([editor.text.string isEqualToString:original] && editor.revision==revision,@"geometry and drawing do not mutate text/revision");
     [editor.text setMarkedText:@"ni" selectedRange:NSMakeRange(2,0) replacementRange:NSMakeRange(1,0)];
     require(editor.text.hasMarkedText && ![editor.text usesTypewriterCaret],@"marked text restores the system insertion-point path");
-    require(editor.text.caretTimer==nil,@"composition has no custom blink timer");
+    require([editor.text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"composition has no custom animation");
     [editor.text insertText:@"你" replacementRange:NSMakeRange(NSNotFound,0)];
     require(!editor.text.hasMarkedText && [editor.text usesTypewriterCaret],@"committed IME restores typewriter mode");
     require([editor.text.string isEqualToString:@"A你中😀\n\n"] && editor.revision==revision+1,@"IME emits one unchanged canonical transaction");
@@ -73,9 +75,9 @@ int main(){@autoreleasepool{
     NSMutableDictionary *appearance=[editor.appearance mutableCopy];appearance[@"font_size"]=@30;appearance[@"foreground"]=@"#ffffff";
     require(command(handle,@{@"command":@"set_appearance",@"appearance":appearance})==0,@"font/theme update accepted");
     NSRect larger=rect(editor,savedSelection.location);
-    require(larger.size.width>latin.size.width && NSEqualRanges(editor.text.selectedRange,savedSelection),@"font changes update caret width without moving selection");
+    require(larger.size.height>latin.size.height && NSEqualRanges(editor.text.selectedRange,savedSelection),@"font changes update caret height without moving selection");
     require([editor.text.string isEqualToString:wrapped] && editor.revision==savedRevision,@"appearance leaves canonical text/revision unchanged");
-    require([editor.text.insertionPointColor isEqual:SumiColor(@"#ffffff")],@"theme foreground drives both system and custom caret color");
+    require(editor.text.insertionPointColor.alphaComponent==0,@"ordinary system caret has a transparent public color");
     NSMutableString *deep=[NSMutableString new];NSUInteger deepIndex=0;
     for(NSUInteger line=0;line<500;line++){if(line==300)deepIndex=deep.length;[deep appendFormat:@"Line %03lu 中 😀\n",(unsigned long)line];}
     require(command(handle,@{@"command":@"apply_document",@"base_revision":@(editor.revision),@"revision":@(editor.revision+1),@"document":@{@"text":deep,@"runs":@[]},@"selection":@{@"start":@(deepIndex),@"length":@0}})==0,@"deep document projection accepted");
@@ -89,19 +91,27 @@ int main(){@autoreleasepool{
     require(fabs(pixel.redComponent-68.0/255)<0.02 && fabs(pixel.greenComponent-65.0/255)<0.02 && fabs(pixel.blueComponent-60.0/255)<0.02,@"underline pixels use exact theme foreground");
     require([paint hitTest:NSMakePoint(1,1)]==nil && !paint.isAccessibilityElement,@"overlay does not intercept input or accessibility");
     SumiCaretClockProbe *clock=[[SumiCaretClockProbe alloc]initUsingTextLayoutManager:YES];clock.owner=editor;clock.frame=NSMakeRect(0,0,500,400);[window.contentView addSubview:clock];clock.string=@"A";clock.typingAttributes=[editor baseAttributes];clock.simulatedActive=YES;
-    [clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden,@"input starts with steady visible caret");
-    runLoop(0.95);require(clock.typewriterCaret.hidden,@"idle caret turns off after the hold interval");
-    runLoop(0.75);require(!clock.typewriterCaret.hidden,@"idle caret returns on at slow half-period");
-    [clock refreshTypewriterCaret:YES];runLoop(0.5);require(!clock.typewriterCaret.hidden,@"new input restarts the steady hold");
-    clock.simulatedReducedMotion=YES;[clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden && clock.caretTimer==nil,@"reduced motion keeps a steady caret without a timer");
+    [clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden,@"breathing keeps the caret visible");
+    CABasicAnimation *breathing=(CABasicAnimation *)[clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"];
+    require([breathing.keyPath isEqualToString:@"opacity"] && [breathing.fromValue doubleValue]==1 && [breathing.toValue doubleValue]==0.25 && breathing.duration==3 && breathing.autoreverses,@"public layer animation breathes 1→0.25→1 over six seconds");
+    require(breathing.preferredFrameRateRange.maximum==30,@"animation requests at most 30fps");
+    CFTimeInterval epoch=clock.caretBreathingEpoch,begin=breathing.beginTime;NSUInteger geometry=clock.geometryCalls;
+    runLoop(0.25);require(clock.geometryCalls==geometry,@"animation frames never recompute geometry or text layout");
+    [clock refreshTypewriterCaret:YES];[clock refreshTypewriterCaret:YES];
+    require(clock.caretBreathingEpoch==epoch && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"].beginTime==begin,@"input/selection refreshes preserve stable breathing phase");
+    editor.appearance=[editor.appearance mutableCopy];NSMutableDictionary *motion=[editor.appearance mutableCopy];motion[@"caret_motion"]=@"steady";editor.appearance=motion;
+    [clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil && clock.typewriterCaret.layer.opacity==1,@"steady mode is immediately fully opaque with no animation");
+    motion=[editor.appearance mutableCopy];motion[@"caret_motion"]=@"breathing";editor.appearance=motion;
+    clock.simulatedReducedMotion=YES;[clock refreshTypewriterCaret:YES];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil && clock.typewriterCaret.layer.opacity==1,@"reduced motion keeps a steady caret without animation");
     clock.simulatedReducedMotion=NO;
-    clock.frame=NSMakeRect(0,10000,500,400);[clock refreshTypewriterCaret:NO];require(clock.typewriterCaret.hidden && clock.caretTimer==nil,@"outside visibleRect stops the timer");
-    clock.frame=NSMakeRect(0,0,500,400);[clock refreshTypewriterCaret:NO];require(!clock.typewriterCaret.hidden && clock.caretTimer!=nil,@"returning to visibleRect restarts the caret");
-    clock.selectedRange=NSMakeRange(0,1);[clock refreshTypewriterCaret:YES];require(clock.typewriterCaret.hidden && clock.caretTimer==nil,@"selection hides caret and stops timer");
+    clock.frame=NSMakeRect(0,10000,500,400);[clock refreshTypewriterCaret:NO];require(clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"outside visibleRect stops animation");
+    clock.frame=NSMakeRect(0,0,500,400);[clock refreshTypewriterCaret:NO];require(!clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]!=nil,@"returning to visibleRect restores the caret");
+    epoch=clock.caretBreathingEpoch;clock.selectedRange=NSMakeRange(0,1);[clock refreshTypewriterCaret:YES];require(clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"selection hides caret and stops animation");
     clock.selectedRange=NSMakeRange(0,0);[clock refreshTypewriterCaret:YES];clock.simulatedActive=NO;[clock refreshTypewriterCaret:NO];
-    require(clock.typewriterCaret.hidden && clock.caretTimer==nil,@"resign/hidden eligibility stops timer");
-    sumi_editor_detach(handle);require(editor.text.caretTimer==nil,@"detach stops timer");
+    require(clock.caretBreathingEpoch==epoch,@"temporary selection/focus changes retain phase origin");
+    require(clock.typewriterCaret.hidden && [clock.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"resign/hidden eligibility stops animation");
+    sumi_editor_detach(handle);require([editor.text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"]==nil,@"detach stops animation");
     require(!window.visible && !window.isKeyWindow && !NSApp.isActive,@"probe never showed or activated a window");
     require(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier==foreground,@"user's foreground application unchanged");
-    printf("PASS: real TextKit2 glyph geometry, theme pixels, markedText/commit; simulated active clock; no UI activation\n");
+    printf("PASS: font-height vertical caret, real TextKit2 geometry/theme/IME; six-second phase-stable layer breathing/steady; no UI activation\n");
 }}
