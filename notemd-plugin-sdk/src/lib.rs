@@ -12,6 +12,9 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 pub use plugin_protocol;
 pub use plugin_protocol::{ExecuteCommandParams, InitializeParams, ToastParams};
 
+/// A host-only background call. It is never reached through `ui.request`.
+pub type ServiceFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send>>;
+
 /// 插件实现面（①期最小集；后续期次按 spec §4.4 增补方法）。
 pub trait NotemdPlugin: Send + 'static {
     fn activate(&mut self, host: &Host, params: &proto::ActivateParams) -> Result<(), String>;
@@ -25,6 +28,11 @@ pub trait NotemdPlugin: Send + 'static {
     fn on_ui_request(&mut self, _host: &Host, _method: &str, _params: Value)
         -> Result<Value, String> {
         Err("plugin has no ui handler".into())
+    }
+    /// Prepare a concurrent service operation without blocking the protocol reader
+    /// or ordinary callbacks. Implementations serialize their own mutation lanes.
+    fn on_service_request(&mut self, _host: Host, _method: String, _params: Value) -> ServiceFuture {
+        Box::pin(async { Err("plugin has no host service handler".into()) })
     }
 }
 
@@ -116,10 +124,13 @@ where P: NotemdPlugin, R: tokio::io::AsyncRead + Unpin + Send + 'static, W: Asyn
     // continue arriving, including on a single-thread tokio runtime.
     let (commands, mut incoming) = mpsc::unbounded_channel::<proto::RpcRequest>();
     let callback_host = host.clone();
+    let runtime = tokio::runtime::Handle::current();
     let mut callbacks = tokio::task::spawn_blocking(move || {
         let host = callback_host;
         let mut plugin = plugin;
+        let mut services: Vec<tokio::task::JoinHandle<()>> = Vec::new();
         while let Some(req) = incoming.blocking_recv() {
+            services.retain(|task| !task.is_finished());
             let reply = |id: u64, result: Result<Value, String>| {
                 let resp = match result {
                     Ok(v) => proto::RpcResponse { jsonrpc: "2.0".into(), id, result: Some(v), error: None },
@@ -139,6 +150,7 @@ where P: NotemdPlugin, R: tokio::io::AsyncRead + Unpin + Send + 'static, W: Asyn
                     if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
                 }
                 "$deactivate" => {
+                    for task in services.drain(..) { task.abort(); }
                     plugin.deactivate(&host);
                     if let Some(id) = req.id { let _ = host.tx.send(reply(id, Ok(json!({"ok": true})))); }
                     break; // 干净退出
@@ -154,6 +166,24 @@ where P: NotemdPlugin, R: tokio::io::AsyncRead + Unpin + Send + 'static, W: Asyn
                         .and_then(|p| plugin.on_ui_request(&host, &p.method, p.params));
                     if let Some(id) = req.id { let _ = host.tx.send(reply(id, r)); }
                 }
+                "service.request" => {
+                    let Some(id) = req.id else { continue; };
+                    match serde_json::from_value::<proto::UiRequestParams>(req.params) {
+                        Ok(params) => {
+                            let future = plugin.on_service_request(host.clone(), params.method, params.params);
+                            let sender = host.tx.clone();
+                            services.push(runtime.spawn(async move {
+                                let response = match future.await {
+                                    Ok(value) => proto::RpcResponse { jsonrpc: "2.0".into(), id, result: Some(value), error: None },
+                                    Err(message) => proto::RpcResponse { jsonrpc: "2.0".into(), id, result: None,
+                                        error: Some(proto::RpcError { code: -32000, message }) },
+                                };
+                                let _ = sender.send(OutMsg::Line(serde_json::to_string(&response).unwrap()));
+                            }));
+                        }
+                        Err(error) => { let _ = host.tx.send(reply(id, Err(error.to_string()))); }
+                    }
+                }
                 other => {
                     if let Some(id) = req.id {
                         let resp = proto::RpcResponse { jsonrpc: "2.0".into(), id, result: None,
@@ -164,6 +194,7 @@ where P: NotemdPlugin, R: tokio::io::AsyncRead + Unpin + Send + 'static, W: Asyn
                 }
             }
         }
+        for task in services { task.abort(); }
     });
     let mut lines = BufReader::new(reader).lines();
     let mut callbacks_finished = false;
@@ -635,6 +666,70 @@ mod tests {
         assert_eq!(h.rec.calls(), vec!["start:pending", "end:pending", "deactivate"]);
         timeout(Duration::from_secs(5), h.serve).await.unwrap().unwrap();
         assert_eq!(h.from_plugin.next_line().await.unwrap(), None);
+    }
+
+    struct BackgroundPlugin {
+        started: Arc<tokio::sync::Notify>,
+        finish: Arc<tokio::sync::Notify>,
+        dropped: Arc<tokio::sync::Notify>,
+    }
+    impl NotemdPlugin for BackgroundPlugin {
+        fn activate(&mut self, _: &Host, _: &proto::ActivateParams) -> Result<(), String> { Ok(()) }
+        fn deactivate(&mut self, _: &Host) {}
+        fn execute_command(&mut self, _: &Host, _: &proto::ExecuteCommandParams) -> Result<Value, String> { Ok(json!(null)) }
+        fn on_service_request(&mut self, _: Host, method: String, params: Value) -> ServiceFuture {
+            let started = self.started.clone(); let finish = self.finish.clone(); let dropped = self.dropped.clone();
+            Box::pin(async move {
+                if method == "slow" {
+                    struct Guard(Arc<tokio::sync::Notify>);
+                    impl Drop for Guard { fn drop(&mut self) { self.0.notify_one(); } }
+                    let _guard = Guard(dropped);
+                    started.notify_one(); finish.notified().await;
+                }
+                Ok(params)
+            })
+        }
+    }
+    async fn service_send(writer: &mut DuplexStream, id: u64, outer: &str, method: &str) {
+        let mut bytes = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"method":outer,"params":{"method":method,"params":{"id":id}}})).unwrap();
+        bytes.push(b'\n'); writer.write_all(&bytes).await.unwrap();
+    }
+    #[tokio::test]
+    async fn background_services_are_concurrent_and_not_reachable_through_ui_requests() {
+        let started=Arc::new(tokio::sync::Notify::new()); let finish=Arc::new(tokio::sync::Notify::new()); let dropped=Arc::new(tokio::sync::Notify::new());
+        let (mut input,reader)=tokio::io::duplex(4096); let (writer,output)=tokio::io::duplex(4096);
+        let task=tokio::spawn(serve_io(BackgroundPlugin{started:started.clone(),finish:finish.clone(),dropped},reader,writer));
+        let mut output=BufReader::new(output).lines();
+        service_send(&mut input,1,"service.request","slow").await;
+        timeout(Duration::from_secs(1),started.notified()).await.unwrap();
+        service_send(&mut input,2,"ui.request","slow").await;
+        let reply:proto::RpcResponse=serde_json::from_str(&timeout(Duration::from_secs(1),output.next_line()).await.unwrap().unwrap().unwrap()).unwrap();
+        assert_eq!(reply.id,2); assert!(reply.error.is_some());
+        service_send(&mut input,3,"service.request","fast").await;
+        let reply:proto::RpcResponse=serde_json::from_str(&timeout(Duration::from_secs(1),output.next_line()).await.unwrap().unwrap().unwrap()).unwrap();
+        assert_eq!(reply.id,3); assert_eq!(reply.result,Some(json!({"id":3})));
+        finish.notify_one();
+        let reply:proto::RpcResponse=serde_json::from_str(&timeout(Duration::from_secs(1),output.next_line()).await.unwrap().unwrap().unwrap()).unwrap();
+        assert_eq!(reply.id,1);
+        input.shutdown().await.unwrap(); timeout(Duration::from_secs(1),task).await.unwrap().unwrap();
+    }
+    #[tokio::test]
+    async fn eof_cancels_background_service_without_retaining_the_writer() {
+        let started=Arc::new(tokio::sync::Notify::new()); let finish=Arc::new(tokio::sync::Notify::new()); let dropped=Arc::new(tokio::sync::Notify::new());
+        let (mut input,reader)=tokio::io::duplex(4096); let (writer,output)=tokio::io::duplex(4096);
+        let task=tokio::spawn(serve_io(BackgroundPlugin{started:started.clone(),finish,dropped:dropped.clone()},reader,writer));
+        service_send(&mut input,1,"service.request","slow").await;
+        timeout(Duration::from_secs(1),started.notified()).await.unwrap(); input.shutdown().await.unwrap();
+        timeout(Duration::from_secs(1),task).await.unwrap().unwrap();
+        timeout(Duration::from_secs(1),dropped.notified()).await.unwrap();
+        assert_eq!(BufReader::new(output).lines().next_line().await.unwrap(),None);
+    }
+    #[tokio::test]
+    async fn ordinary_plugins_reject_host_service_requests_by_default() {
+        let mut h=spawn_plugin(TestPlugin::new());
+        h.send(json!({"jsonrpc":"2.0","id":1,"method":"service.request","params":{"method":"bind","params":{}}})).await;
+        assert_eq!(h.recv_response().await.error.unwrap().message,"plugin has no host service handler");
+        h.to_plugin.shutdown().await.unwrap(); timeout(Duration::from_secs(1),h.serve).await.unwrap().unwrap();
     }
 
 }
