@@ -1,0 +1,61 @@
+{
+  "status": "superseded_unpublished_candidate",
+  "at": "2026-11-08T12:28:16.745219+00:00",
+  "reason": "User requires a lightweight host and on-demand background font downloads before publication.",
+  "candidateHost": "6.1108.3",
+  "candidatePlugin": "0.1.2",
+  "candidateSource": "86d32dd6928dc8817e2d280d8d1c82bcdcad3733",
+  "githubDraftConfirmed": true,
+  "pluginState": "R2 package/signature staged and verified; no marketplace index publication performed",
+  "nextTarget": {
+    "host": "6.1108.4",
+    "plugin": "0.1.3",
+    "minimumHost": ">=6.1108.4"
+  },
+  "tagAndArtifactsPreserved": true,
+  "changelogs": [
+    {
+      "path": "CHANGELOG.md",
+      "preparedSha256": "9d32a69f47bc287581efc52824b94b4dfd7c2557a4d93485114f9b9ad481050b",
+      "unreleasedEntries": 23,
+      "candidateFixes": 3,
+      "otherPreservedEntries": 20,
+      "historySha256": "f2dad6143964d5ed975f0dee52a04228e9951e6946699185696ffe5ffd8a59a8",
+      "exactOriginalSourceBytes": true
+    },
+    {
+      "path": "CHANGELOG.zh-CN.md",
+      "preparedSha256": "2df5db9444d0751b3085918c1add6ba7e6b80c31aa6bf18f6e378ff1e84b1899",
+      "unreleasedEntries": 23,
+      "candidateFixes": 3,
+      "otherPreservedEntries": 20,
+      "historySha256": "3e8d68d8ffc7b2f0877c8af52557a6d4411b929784f48d467c84019421c8f938",
+      "exactOriginalSourceBytes": true
+    }
+  ],
+  "candidateAssets": [
+    {
+      "name": "latest.json",
+      "bytes": 740,
+      "sha256": "15263bccbbc5c289f79d05e46b16949193ca0cdcf95d43bcd53db0cbc37ab17e"
+    },
+    {
+      "name": "note.md-6.1108.3-aarch64.dmg",
+      "bytes": 70220688,
+      "sha256": "b814d8d92d3ac3d7ab21520036c0557cf3cc9c875295ac9ca5841e2288ce571f"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "bytes": 69980690,
+      "sha256": "513ffd1ca8d164ef75ea3b07491ea46947f408109ba23e2506256102b58d1db0"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "4aec03e338bd82f7427caa019477a90960e26b27d64d2df2e4781bc08715e85a"
+    }
+  ],
+  "draftReadback": "Full four-file bytes verified; unpublished candidate only.",
+  "preservedEvidence": "tasks/sumi-panel-release-20261108",
+  "oldArchiveMeaning": "2026-11-08-panel-deferred-changelog.json is the frozen pending draft partition, not evidence of public publication. Its original 23 entries are returned to Unreleased for the successor."
+}
