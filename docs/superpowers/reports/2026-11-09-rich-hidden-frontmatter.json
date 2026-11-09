@@ -1,0 +1,540 @@
+{
+  "status": "PASS",
+  "date": "2026-11-09",
+  "scope": "desktop Rich YAML frontmatter hiding; not published",
+  "core": {
+    "status": "PASS",
+    "commit": "8bb896a3a56c2184db648e94cc1be26321476134",
+    "source": "/Users/bruce/git/moraya-core/dist",
+    "dest": "/Users/bruce/git/mdeditor/node_modules/.pnpm/@moraya+core@file+..+moraya-core_highlight.js@11.11.1_katex@0.16.47_markdown-it-deflist_eb0b82783136ccea7325201865849d6c/node_modules/@moraya/core/dist",
+    "checks": {
+      "sourceTests": 1745,
+      "sourceSuites": 75,
+      "typecheck": true,
+      "build": true,
+      "installedFileCount": 67
+    },
+    "files": [
+      {
+        "file": "adapters/browser-media-resolver.d.ts",
+        "bytes": 955,
+        "sha256": "63eb0f9ac6aff43e1b9e7c903b056d1a326bef69bc5afa8ad6e78c9c05638cde"
+      },
+      {
+        "file": "adapters/browser-media-resolver.js",
+        "bytes": 981,
+        "sha256": "3dbb6eb166bf5f7ff693f87cc3f26d3753455ef17f7817761023e487ebcea3b9"
+      },
+      {
+        "file": "adapters/browser-media-resolver.js.map",
+        "bytes": 2219,
+        "sha256": "cca2b7632293c2e2bbbb3648d8af862f562b9d3bf8c5b915b4c245f8a7b767e1"
+      },
+      {
+        "file": "commands.d.ts",
+        "bytes": 2021,
+        "sha256": "531b1ff25b0b2489afcc5aabf4345df998d59ca329118f36c3ec10d0686688fa"
+      },
+      {
+        "file": "commands.js",
+        "bytes": 35441,
+        "sha256": "88758a3ff1cb63e5cf070fd4a9f433d9018096a3e046e8942b8ed40e41359a3d"
+      },
+      {
+        "file": "commands.js.map",
+        "bytes": 86015,
+        "sha256": "87eb2445aa23ef837ed95a2d9a297b6660602728813977decef9f4eaa3cfa683"
+      },
+      {
+        "file": "doc-cache.d.ts",
+        "bytes": 1140,
+        "sha256": "a000e911d2d8388fae7f1147e72c8d999ea8811b1049efb3439ae9297bbec49f"
+      },
+      {
+        "file": "doc-cache.js",
+        "bytes": 1097,
+        "sha256": "9f54ea4135e064939ff59ec18ce82f5136d948d449f615fa5a7031af5643982a"
+      },
+      {
+        "file": "doc-cache.js.map",
+        "bytes": 3231,
+        "sha256": "df568ceb6369622c3275169e7e512e342e5ed84d8a33cc0a2458dd8b1a7dde84"
+      },
+      {
+        "file": "index.d.ts",
+        "bytes": 2440,
+        "sha256": "60eef27cdb1c98757f666e9fe4c2a5d09c0bb8cb0b64bc12b7dc9dbbd1f71ccb"
+      },
+      {
+        "file": "index.js",
+        "bytes": 491804,
+        "sha256": "86a430e134b7da051e9c6af4e29817dd72d9269ced56d1caf7509b876162d255"
+      },
+      {
+        "file": "index.js.map",
+        "bytes": 988384,
+        "sha256": "8007657ef3091e3622c7ccb1c272b2f97a0a420d1c3daf6095040e6fb2b7bbe7"
+      },
+      {
+        "file": "markdown-BLkhu8pG.d.ts",
+        "bytes": 16194,
+        "sha256": "9e4480266ee0a38d8f8fe2745f5f81a311b14506151cfa359806a69094832a75"
+      },
+      {
+        "file": "markdown.d.ts",
+        "bytes": 1060,
+        "sha256": "c1be1bc442c5d644cf29d55a8145ddb219006038e9008f7d21bf4aa22dfbeed3"
+      },
+      {
+        "file": "markdown.js",
+        "bytes": 203915,
+        "sha256": "59113f9665fbb8b3e48c4d3e0ed7258432d21de9a3d331fa74e6994308e62e22"
+      },
+      {
+        "file": "markdown.js.map",
+        "bytes": 419115,
+        "sha256": "82905e4d75ea4a90f4e0450f7d4bbbcd7e80298f6feac783bf0fdc92b4f2a2f4"
+      },
+      {
+        "file": "plugins/code-block-view.d.ts",
+        "bytes": 2502,
+        "sha256": "15745908930d438703f83692e9cbc4094cd00fdd04d072d898ce253bff986f18"
+      },
+      {
+        "file": "plugins/code-block-view.js",
+        "bytes": 51933,
+        "sha256": "a2aa17447b2893088644a3d5370f3dade8f35bab4de8ba8168004c24abf932c4"
+      },
+      {
+        "file": "plugins/code-block-view.js.map",
+        "bytes": 95519,
+        "sha256": "fdd3a3bf3538afc349a7dc162f05a03d1ab7b4ff7034720cdf5dffe76087ffae"
+      },
+      {
+        "file": "plugins/cursor-syntax.d.ts",
+        "bytes": 1463,
+        "sha256": "2de2187dfba300b5dc8e3eb6039ee6f7701be398fc71d2f7ed380185fca88082"
+      },
+      {
+        "file": "plugins/cursor-syntax.js",
+        "bytes": 4175,
+        "sha256": "311db2e63a5bae7b34efdafcbba6d3badf24a6df0d6ff0c33029bbd05f4107be"
+      },
+      {
+        "file": "plugins/cursor-syntax.js.map",
+        "bytes": 10818,
+        "sha256": "dbde5d9b6857c3b002d664ab7858f953ca0283496de619e99f1374584ba7b908"
+      },
+      {
+        "file": "plugins/definition-list.d.ts",
+        "bytes": 780,
+        "sha256": "9c9b464e62ad1c179dba3df520491733c2a9ce0a12bd0f3f89fe60a1a4bdc75c"
+      },
+      {
+        "file": "plugins/definition-list.js",
+        "bytes": 303,
+        "sha256": "a146169cce865dcaddd1adf0876f01824da84230702a5cd2fd83de2ea388b9ee"
+      },
+      {
+        "file": "plugins/definition-list.js.map",
+        "bytes": 1095,
+        "sha256": "2617ec96730078689b90471a951b5bf25e23a09849cf36a8e7698181b2721f02"
+      },
+      {
+        "file": "plugins/diagram-interaction.d.ts",
+        "bytes": 1571,
+        "sha256": "4cb075da51902cd34cac8a77f4b55eaa66ebc558065249b3031af7d15a3a442d"
+      },
+      {
+        "file": "plugins/diagram-interaction.js",
+        "bytes": 19243,
+        "sha256": "5ac36fe4e43e8e6f5c98fe053482f9fea1f5e453a9c05c4420d416fd85aaa1cc"
+      },
+      {
+        "file": "plugins/diagram-interaction.js.map",
+        "bytes": 34705,
+        "sha256": "db929874c85c8ddbc1c3288d14e54e1825156fe8a6757d79826a7bfa8577ee88"
+      },
+      {
+        "file": "plugins/editor-props-plugin.d.ts",
+        "bytes": 2577,
+        "sha256": "52862d2f0f43a573c857d6a617fcfe9e703b09431caacc517ced7e0d9f108514"
+      },
+      {
+        "file": "plugins/editor-props-plugin.js",
+        "bytes": 185319,
+        "sha256": "7c91407432f58d808de878bdf05ffefaef35b5b9547a0c6efe75764088aaab15"
+      },
+      {
+        "file": "plugins/editor-props-plugin.js.map",
+        "bytes": 429558,
+        "sha256": "963cbc244bf611af90f9e57cf092bbce27f40e82393ee6806ee48376a2f81d9c"
+      },
+      {
+        "file": "plugins/emoji.d.ts",
+        "bytes": 670,
+        "sha256": "1e7c60e6fcae5cdb0a1cf35e533c0554e8325d5dcf076207ed893da0093ef7e0"
+      },
+      {
+        "file": "plugins/emoji.js",
+        "bytes": 1322,
+        "sha256": "74817332616055eebddfa3d15879c69b6fc3304e6e339db97844cef07fc77232"
+      },
+      {
+        "file": "plugins/emoji.js.map",
+        "bytes": 3221,
+        "sha256": "e72293d4c75a0a3a131ae904534b2e8bd63794e147473749dadf209ea3f7ebaa"
+      },
+      {
+        "file": "plugins/enter-handler.d.ts",
+        "bytes": 1003,
+        "sha256": "866a95c12fbab7bea9624819c24a3aeecdefb938bd40456b30a47424a0ed3438"
+      },
+      {
+        "file": "plugins/enter-handler.js",
+        "bytes": 13493,
+        "sha256": "9eeadd8d3a0091dd1270815b246823f0a861761fdfb4ff05d85bdfa6f4cf3ded"
+      },
+      {
+        "file": "plugins/enter-handler.js.map",
+        "bytes": 26682,
+        "sha256": "ff88bd0187a823efea8d0ec917f44cb272e407714963e183fcaf87d2b3e10e85"
+      },
+      {
+        "file": "plugins/footnote-plugin.d.ts",
+        "bytes": 1215,
+        "sha256": "706a77794c7a2d4bfee1bf5ba19b7b8b69157fd56a24bf7fcf154a9e5a09d212"
+      },
+      {
+        "file": "plugins/footnote-plugin.js",
+        "bytes": 2874,
+        "sha256": "9a750f723aea7af66a748fb60d96a52673d1a5ae15c6d16d0f4c9d4f8e99a16a"
+      },
+      {
+        "file": "plugins/footnote-plugin.js.map",
+        "bytes": 6433,
+        "sha256": "9950bc26f02cf413dfcfcec59b4e25199e7578e966147b086f06aee0a952a3ee"
+      },
+      {
+        "file": "plugins/highlight.d.ts",
+        "bytes": 1833,
+        "sha256": "dfc9ff33005feed7ae39e8e315d22f8b1938f6614a5ff9776a80e8d86b2f7936"
+      },
+      {
+        "file": "plugins/highlight.js",
+        "bytes": 10245,
+        "sha256": "aee02cbf4f63b90d9e55c819b43aa3d102e1a53e353c9ed3546d29772b937fb6"
+      },
+      {
+        "file": "plugins/highlight.js.map",
+        "bytes": 20691,
+        "sha256": "4902b3e3d0414bf2d67214f9ff0c43d276c89d3d5208f88de2be5f8f2a859ab3"
+      },
+      {
+        "file": "plugins/inline-code-convert.d.ts",
+        "bytes": 1928,
+        "sha256": "2f132d6fa6ba36d7617758236d1fcafc1a53bd5505a5c3a2c8f11a8b01601d28"
+      },
+      {
+        "file": "plugins/inline-code-convert.js",
+        "bytes": 6990,
+        "sha256": "b98d068bc24bd5300cda34a50101a1db439f157536eed91d0460c0c27b636b7a"
+      },
+      {
+        "file": "plugins/inline-code-convert.js.map",
+        "bytes": 16611,
+        "sha256": "714321e1f8149d6e94bb5bdefebe5401a3fe3a5f278ea88d2275e0d1fd3045f7"
+      },
+      {
+        "file": "plugins/link-text-plugin.d.ts",
+        "bytes": 844,
+        "sha256": "210c6d02b9943ee6a0c5363048a269cf7000a82070778d3ef1c8980a615d553a"
+      },
+      {
+        "file": "plugins/link-text-plugin.js",
+        "bytes": 6760,
+        "sha256": "943e64584b4d6b8ea520cbfb21cb927aac1c2567352b33e0be8ae645515780cc"
+      },
+      {
+        "file": "plugins/link-text-plugin.js.map",
+        "bytes": 14412,
+        "sha256": "bf3c321017e6e8fa317b302f5d3705e816c956b29ce694608fdb7d9e83160a2b"
+      },
+      {
+        "file": "plugins/mermaid-renderer.d.ts",
+        "bytes": 914,
+        "sha256": "44302ed67ad49d039a1bdfbaac9891ba2a967de612fafc36907394605a6ab4f3"
+      },
+      {
+        "file": "plugins/mermaid-renderer.js",
+        "bytes": 2563,
+        "sha256": "6edda02f87bd74bf746758f9df2ad439c8ebd88ab142707526c16d14986ab247"
+      },
+      {
+        "file": "plugins/mermaid-renderer.js.map",
+        "bytes": 5674,
+        "sha256": "b2639cbe2e4416304b127d7761caa2ad4af1e6dfcff392e745332b4d37706cfd"
+      },
+      {
+        "file": "plugins/session-table-view.d.ts",
+        "bytes": 744,
+        "sha256": "0c6a05bbc374282fa219b06ff496e0b18cb3ee42205e27bab60a381c664558d7"
+      },
+      {
+        "file": "plugins/session-table-view.js",
+        "bytes": 1225,
+        "sha256": "d0f7000de5bf75f88e514df88997e15eaa081e942cf2391c78d12eb6f43d5627"
+      },
+      {
+        "file": "plugins/session-table-view.js.map",
+        "bytes": 2463,
+        "sha256": "6d9b09a4d99303020733e48a7cc147b55e53316259206eda0b8a9c7ffcae21e4"
+      },
+      {
+        "file": "schema.d.ts",
+        "bytes": 2392,
+        "sha256": "69b75feef708f17a01dde7cdbba8e487d655a1e892953df99aa9689f61b4198f"
+      },
+      {
+        "file": "schema.js",
+        "bytes": 25461,
+        "sha256": "cd50fe3e50ff6eed65d15e1cb93d88fea23d2d8f6a70c58fc96a4aeb25089fc4"
+      },
+      {
+        "file": "schema.js.map",
+        "bytes": 64507,
+        "sha256": "7bbde28fff9f2d3fd0d92995dd37a1f106d3075e711f518d73b5f79363104029"
+      },
+      {
+        "file": "setup.d.ts",
+        "bytes": 6571,
+        "sha256": "2d07949440e08629206362b21bf65df2b4272908fdde9a645dafe52c72ca28c1"
+      },
+      {
+        "file": "setup.js",
+        "bytes": 317497,
+        "sha256": "dd6eaf5c0af5b8747b8ae3f9e31481a1da62aacc821db37ffd915d1a5d263db0"
+      },
+      {
+        "file": "setup.js.map",
+        "bytes": 700468,
+        "sha256": "41fef87e83536c5ab6d3028815f0e5c026edbd846d4237c9fd995c95f0cb0557"
+      },
+      {
+        "file": "source-history.d.ts",
+        "bytes": 2866,
+        "sha256": "da2dc0aa446986487c214a3692dbdfa07e8320aa3fcb848068f1f0edd4d855f1"
+      },
+      {
+        "file": "source-history.js",
+        "bytes": 9023,
+        "sha256": "ade8c24859fb687bb164f4aa17509263806762f69ea7df15a60a0622cde9047a"
+      },
+      {
+        "file": "source-history.js.map",
+        "bytes": 16762,
+        "sha256": "23c4cf75c69cb301e8e9d3cfa43275f9e9b48b24c1947777acd07850a65be9da"
+      },
+      {
+        "file": "types.d.ts",
+        "bytes": 6987,
+        "sha256": "df995c423fdb77d201f8bf9a5f8ca282271921c1075e3d0102c0b7ca86ee1611"
+      },
+      {
+        "file": "types.js",
+        "bytes": 297,
+        "sha256": "0e594a46975c734d3e7569b2dd4e3228dcb7d3848a698537471ff133ee55356b"
+      },
+      {
+        "file": "types.js.map",
+        "bytes": 7097,
+        "sha256": "01f87abfcfc873894a4eb00e10c4bf498d07a8703ca0e9267c36301e85ab58ae"
+      }
+    ]
+  },
+  "host": {
+    "command": "RUSTUP_TOOLCHAIN=1.99.0 ./node_modules/.bin/vitest run --maxWorkers=4 --testTimeout=15000",
+    "suites": 426,
+    "tests": 5521,
+    "svelteErrors": 0,
+    "svelteExistingWarnings": 31
+  },
+  "browser": {
+    "status": "PASS",
+    "cases": [
+      {
+        "kind": "generated",
+        "focus": {
+          "raw": "---\ntype: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z\n---\n\n",
+          "metadata": "type: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        },
+        "after": {
+          "raw": "---\ntype: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z\n---\n\n第一段\n\n第二段",
+          "metadata": "type: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "no-final-EOL",
+        "focus": {
+          "raw": "---\ntitle: draft\n---\n\n",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        },
+        "after": {
+          "raw": "---\ntitle: draft\n---\n\n第一段\n\n第二段",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "CRLF",
+        "focus": {
+          "raw": "﻿---\r\ntitle: draft\r\n---\r\n\r\n",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        },
+        "after": {
+          "raw": "﻿---\r\ntitle: draft\r\n---\r\n\n第一段\n\n第二段",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "existing-body",
+        "focus": {
+          "raw": "---\ntitle: existing\n---\n\n正文\n",
+          "metadata": "title: existing",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "正文"
+          ]
+        },
+        "after": {
+          "raw": "---\ntitle: existing\n---\n\n正文第一段\n\n第二段\n",
+          "metadata": "title: existing",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "正文第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "keyboard-boundary-copy-delete",
+        "copied": "New First paragraph.\n\nSecond paragraph.",
+        "after": {
+          "raw": "---\ntitle: private metadata\n---\n\n",
+          "metadata": "title: private metadata",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        }
+      },
+      {
+        "kind": "BOM-CRLF-keyboard-boundary-copy-delete",
+        "copied": "New First paragraph.\n\nSecond paragraph.",
+        "after": {
+          "raw": "﻿---\r\ntitle: private metadata\r\n---\r\n\n",
+          "metadata": "title: private metadata",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        }
+      }
+    ],
+    "errors": [],
+    "browser": "140.0.7339.16"
+  },
+  "sources": {
+    "src/components/RichEditor.svelte": "60c5243c3a6260157eb74bf9aafc0cfba800402b2500915d5f67be829be0750c",
+    "src/components/rich-editor-focus.test.ts": "67b21eac9d8f3950bcad1f9fb18dd5c2761c4b1ba31b88584bc6da0668130647",
+    "src/components/EditorPane.next-task-session.test.ts": "e9729d0e48e15a840b6c9a1522465efa1d481c8322d17ce8dae3460947328965",
+    "src/lib/editor-bridge.ts": "67522ac1c5c330cb83c04db5c734502eb70f84cdfa9d1415b43eb25edcfa8235",
+    "src/lib/editor-bridge.ime.test.ts": "8834208874312ebae7089412dce6fd6783d704ecc4e8b77c5a4c53059552db34",
+    "src/lib/editor-select-all.ts": "8ced70f45d8655b8a040c4cc6d84537acd26e0e75873591da6995cedf8c6da41",
+    "src/lib/frontmatter-html.ts": "f69336c30c6d0227c694b62520ac545e28e7e7618797bb628fcc97bef89d623d",
+    "src/lib/frontmatter-view.ts": "934a0cd64a28f2971950b628264d63e71d43650d31146c617a0c486154ffa253",
+    "src/lib/frontmatter-view.test.ts": "6e4140b21d8af1600b29d4ba88264db59cd74696eb0a3e1352769c1e969ff9e5",
+    "src/lib/hidden-frontmatter-selection.ts": "c98d69698e70e56fd02328805b508a51e10bcf2e768d7e4545a6eaac34f3466b",
+    "src/lib/hidden-frontmatter-selection.test.ts": "afce59256918ca7f8fed79e784b813252c450d76ef08237c359c7d352128f798",
+    "src/styles/editor-base.css": "e6a36afac99618183c852dd350ced9aa35135e89508aa881a3dc50a755c1a61c"
+  },
+  "localArtifacts": {
+    "tasks/rich-hidden-frontmatter-20261109/regression.log": "4de702555f827c26a938dc23da7244f05e53dfa0e21ec1a829dd9c7c2c98d4b6",
+    "tasks/rich-hidden-frontmatter-20261109/browser.log": "3ef797d2455e77e09bfa72d50fa22335a1944b374c092d1b3338289a7ea8ef42",
+    "tasks/rich-hidden-frontmatter-20261109/core-bom-full.log": "511ffd98743244beab0a8b4abeffb63b67bc61a20b4bb90e05e36c0012173d9d",
+    "tasks/rich-hidden-frontmatter-20261109/crlf-original-results.jsonl": "8e2d168d283953ad6b8a7778c1cec92e860bd2d46e6ecf32a528e0f6f485c1eb",
+    "tasks/rich-hidden-frontmatter-20261109/full.log": "4b324a86f25fcdbe9902638c265c5f6ff5411cfd6c1c87b81db5fcbfbd3a2b43",
+    "tasks/rich-hidden-frontmatter-20261109/core-bom-focused.log": "5083ff419462672da022da71822f7b47ef14b2c18b540a82d3bf9e40ecdf6226",
+    "tasks/rich-hidden-frontmatter-20261109/browser.mjs": "b042e07fa254375c7c5b75fc720915acee1de62985e2c3596d6fc79fa50f62f3",
+    "tasks/rich-hidden-frontmatter-20261109/rich.png": "45ac657deca6b7aabf25efd552022c472446678432afe7dc4a42dd491d1cb51f",
+    "tasks/rich-hidden-frontmatter-20261109/crlf-original-diagnosis.log": "8a87059acec6abf4515216d9a8d3a9c9c339626a8597082589202227739a07aa",
+    "tasks/rich-hidden-frontmatter-20261109/core-bom-red.log": "27d328e9f153347f935b4ecc02e18bbac7e9c095deb220039a5fe90912cef49a",
+    "tasks/rich-hidden-frontmatter-20261109/tests.log": "5a79f3cd89f63bfafe2c84226018e815dd3d7cc8262d3932bee81788bec49bf8",
+    "tasks/rich-hidden-frontmatter-20261109/source.png": "cd7d6f4b13c63d16d688cbef2c7be2ae35729872a38e52334df05722f9c9d098",
+    "tasks/rich-hidden-frontmatter-20261109/check.log": "a6729b822be84aadaf5f333d3c7fd33344f594281f5968187474cdd0927cb307",
+    "tasks/rich-hidden-frontmatter-20261109/core-bom-build.log": "9b9b51d1eebd79daad032d0bfec9672e862963b2b2bd05991f7734d055a22494",
+    "tasks/rich-hidden-frontmatter-20261109/full-final.log": "0c5d1350aa1a27719fa80bccad5602e593b6a857193012b3cb53c4da12010ead",
+    "tasks/rich-hidden-frontmatter-20261109/core-bom-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "limits": [
+    "No native macOS WKWebView acceptance",
+    "No installer build, install, push or release",
+    "Static sharing and plugin-defined rich surfaces unchanged"
+  ]
+}

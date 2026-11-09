@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Rich mode keeps YAML metadata out of the writing surface.** Frontmatter is fully hidden; edit it in Source. Body selection, copying and deletion preserve metadata, including UTF-8 BOM files.
+
 - **Sumi fullscreen shortcut:** press Cmd/Win/Super+Enter to enter or leave fullscreen. Command+keypad Enter also works in the macOS native editor; Control-Command-F remains available. Held-key repeats do not retrigger, and composition stays with the input method.
 
 

@@ -364,18 +364,6 @@
   text-decoration: underline;
   text-underline-offset: 0.12em;
 }
-.moraya-editor .frontmatter-properties .fm-inline-link[data-fm-label] > .fm-link-source {
-  display: none;
-}
-.moraya-editor .frontmatter-properties .fm-inline-link[data-fm-label]::after {
-  content: attr(data-fm-label);
-}
-.moraya-editor .frontmatter-properties .fm-val.fm-editable:focus .fm-inline-link[data-fm-label] > .fm-link-source {
-  display: inline;
-}
-.moraya-editor .frontmatter-properties .fm-val.fm-editable:focus .fm-inline-link[data-fm-label]::after {
-  content: none;
-}
 @media (prefers-color-scheme: dark) {
   .moraya-editor .frontmatter-properties .fm-inline-link { color: #79c0ff; }
 }
@@ -388,18 +376,6 @@
 }
 .moraya-editor .frontmatter-segments > * + * {
   margin-top: 0.5em;
-}
-.moraya-editor .frontmatter-properties .fm-val.fm-editable {
-  cursor: text;
-  border-radius: 4px;
-}
-.moraya-editor .frontmatter-properties .fm-val.fm-editable:hover {
-  background: color-mix(in srgb, CanvasText 5%, transparent);
-}
-.moraya-editor .frontmatter-properties .fm-val.fm-editable:focus {
-  outline: 2px solid color-mix(in srgb, AccentColor 60%, transparent);
-  outline-offset: 1px;
-  background: Canvas;
 }
 @media (max-width: 520px) {
   .moraya-editor .frontmatter-properties .fm-property {

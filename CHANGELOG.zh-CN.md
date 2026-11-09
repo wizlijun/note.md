@@ -6,6 +6,8 @@
 
 ## 未发布
 
+- **Rich 模式隐藏 YAML 元数据。** 不再显示元数据折叠面板，需要修改时切换 Source。正文选择、复制和删除保留元数据，含带 UTF-8 BOM 的文件。
+
 - **Sumi 全屏快捷键：**使用 Cmd/Win/Super+Enter 进入或退出全屏，macOS 原生正文也支持 Command+数字小键盘 Enter，并保留 Control-Command-F。长按不会连续切换，组字期间交给输入法处理。
 
 
