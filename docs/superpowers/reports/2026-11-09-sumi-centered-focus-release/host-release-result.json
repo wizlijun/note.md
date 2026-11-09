@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-09T14:28:01.020478+00:00",
+  "sourceBeforeVersionBump": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+  "command": [
+    "scripts/release.sh",
+    "6.1109.3",
+    "--draft",
+    "--arm64-only",
+    "--expected-share-manifest",
+    "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/frozen-share-manifest.json"
+  ],
+  "scope": "Centered focus typing with unchanged typography and viewport fade; preserve published P0; macOS arm64 only",
+  "credentials": "inherited existing release environment; values not recorded",
+  "exitCode": 0
+}

@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "sourceBeforeVersionBump": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+  "finalHostSource": "2654f07802b49df71f66ffd0d674c50d34fb4ddf",
+  "originalLog": "tasks/sumi-centered-focus-20261109/host-release.log",
+  "originalLogSha256": "28d8c5e6536cbb4eecc81e7f087b834355c69b56e74f1e99e134c33bd1b26c39",
+  "originalLogBytes": 160379,
+  "exactSummaryLines": [
+    "Test Files  427 passed (427)",
+    "Tests  5551 passed (5551)",
+    "svelte-check found 0 errors and 31 warnings in 15 files"
+  ],
+  "officialFrontend": {
+    "suites": 427,
+    "passed": 5551,
+    "failed": 0
+  },
+  "initialDevelopmentFrontend": {
+    "passed": 5550,
+    "failed": 1,
+    "isolatedUnchangedBrowserSuiteRerunPassed": 235
+  },
+  "boundary": "Official full release rerun passed independently; earlier failure and isolated rerun retained in development validation."
+}

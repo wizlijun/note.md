@@ -1,5 +1,5 @@
 {
-  "status": "implementation_verified_release_pending",
+  "status": "implementation_verified_macos_release_published",
   "base": "0621430d80840933424a2b3d7cbda85eb631a6c4",
   "targetHost": "6.1109.3",
   "targetPlugin": "0.1.8",
@@ -18,7 +18,12 @@
     },
     "failedSuite": "src/lib/project-share/browser.test.ts (unchanged from base)",
     "isolatedRerunPassed": 235,
-    "fullOfficialReleaseRerun": "pending"
+    "fullOfficialReleaseRerun": {
+      "suites": 427,
+      "passed": 5551,
+      "failed": 0,
+      "evidence": "2026-11-09-sumi-centered-focus-release/official-release-checks.json"
+    }
   },
   "sourceHashes": {
     "focus.h": "08b1e66198be68bc3f2a55db864fbfe17ed9eaa9f106da89c11571d2567a0af2",
@@ -72,5 +77,6 @@
       "bytes": 285422
     }
   },
-  "releasePublished": false
+  "releasePublished": true,
+  "releaseReport": "2026-11-09-sumi-centered-focus-release.json"
 }
