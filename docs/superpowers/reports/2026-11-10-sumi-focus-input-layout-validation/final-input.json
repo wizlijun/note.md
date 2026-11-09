@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "at": "2026-11-09T18:44:42.648631+00:00",
+  "checks": 117,
+  "counts": {
+    "latin": 88,
+    "ime": 29
+  },
+  "sourceHashes": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "editor.h": "13916fb953578eb366fc9f0bdaea68e06c7e52cb707e9ebb49b7e696e3750cb2",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3",
+    "shortcuts.h": "2cbf00c71df9fd13f99c103f1ce71d987d34893e35f832ce9b9fe5e75e3e6e62",
+    "typing-monitor.h": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+    "focus-resume-probe.m": "7fda8a7d82d90c037db70b01572509bdbd5aa7555093ffcebffde9e42d4ae3ec"
+  },
+  "compiledAndRunNow": true,
+  "copiedPriorSuccess": false,
+  "binarySha256": "28d62a282b78fbbd1c64345a1955b2bb5d488347f123fff4df927d6b853bd853",
+  "strictCompileCommand": [
+    "clang",
+    "-fobjc-arc",
+    "-fblocks",
+    "-O2",
+    "-mmacosx-version-min=11.0",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-framework",
+    "Cocoa",
+    "-framework",
+    "QuartzCore",
+    "-framework",
+    "CoreText",
+    "-framework",
+    "ApplicationServices",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source/tauri-plugin-native-editor/native/focus-resume-probe.m",
+    "-o",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/input-final6/input-probe"
+  ],
+  "buildExit": 0,
+  "latinExit": 0,
+  "imeExit": 0,
+  "verified": [
+    "first navigation-following input enters focus immediately",
+    "actual Control/arrow/mouse/scroll navigation does not invent edits",
+    "asynchronous nonempty preedit and commit record once",
+    "real AppKit fresh-currentEvent empty cancellation preserves prior count/idle",
+    "nested keyDown preedit counts once",
+    "unmark/panel cleanup never refreshes activity",
+    "initial nonempty four-input threshold and protected drafts/readonly/hidden remain"
+  ],
+  "physicalImeCandidateCuaCovered": false,
+  "formalVaultAccess": false,
+  "networkStarted": false,
+  "windowShown": false,
+  "evidence": {
+    "build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "latin.log": {
+      "bytes": 43,
+      "sha256": "c699b6edab3f9161a679db0f6bb681fd8c8915859712f742cd57643f55afaf60"
+    },
+    "ime.log": {
+      "bytes": 96,
+      "sha256": "d49d03101e8b72468252b72e0bf78c8d11017b4bcbc2a5375809088ce412f68f"
+    }
+  }
+}

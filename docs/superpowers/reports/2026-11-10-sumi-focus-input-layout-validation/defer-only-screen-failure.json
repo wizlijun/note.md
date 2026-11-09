@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-09T18:38:17.171610+00:00",
+  "releaseReady": false,
+  "editorSha256": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+  "focusSha256": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+  "binarySha256": "39277c0153141d859a231c9c86fc024d99bc627d3fb7dea51b463cd62d5a1b65",
+  "result": "FAIL final screen. After prefix Right/n/Left/ControlSpace then standard14-key sequence, current line retained in AX but central Chinese glyphs missing; only first glyph and na rendered. Deferral alone insufficient.",
+  "quitVerified": true,
+  "formalVaultModified": false
+}

@@ -1,0 +1,72 @@
+{
+  "at": "2026-11-09T18:45:51.419849+00:00",
+  "ok": true,
+  "implementationScreenAcceptance": true,
+  "releaseReady": false,
+  "packageAndPublicationStillPending": true,
+  "engineSourceSha256": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3"
+  },
+  "binarySha256": "d1212d6587ccd8f7669f58ef7e624896cbef16b6329cca4c02e91acf4b606c80",
+  "buildEvidenceSha256": "c725f52b9920988ffc5219c4599fd9e5cc89116202ba7165c27ee3528931c264",
+  "screenResult": "PASS current product engine, three repeated original failure/navigation/first-input/Return sequences, all visible glyphs whole and current line centered. Blank paper caret and ab/Return/c stay center.",
+  "sequences": [
+    [
+      "Right",
+      "n",
+      "Left",
+      "Right",
+      "a",
+      "Return",
+      "Up",
+      "Left",
+      "b",
+      "Return",
+      "d",
+      "Return",
+      "Up",
+      "Down",
+      "Right",
+      "e",
+      "Return"
+    ],
+    [
+      "f",
+      "Return",
+      "Up",
+      "Left",
+      "g",
+      "Return"
+    ],
+    [
+      "Down",
+      "Down",
+      "Right",
+      "h",
+      "Return",
+      "Return",
+      "Up",
+      "Left",
+      "i",
+      "Return"
+    ]
+  ],
+  "blankPage": {
+    "caretCenteredBeforeInput": true,
+    "input": [
+      "a",
+      "b",
+      "Return",
+      "c"
+    ],
+    "exactBody": "ab\nc",
+    "centeredAfterReturn": true
+  },
+  "physicalImeCandidateWindow": false,
+  "imeBoundary": "Real native preedit/commit/cancel/firstRect covered by callback probes; CUA physical input remained literal. Do not claim physical Pinyin candidate UI acceptance.",
+  "quitVerified": true,
+  "formalVaultModified": false,
+  "inputSourceRestoredToOriginalABC": true,
+  "userOwnedPreviousDraftsPreserved": true
+}

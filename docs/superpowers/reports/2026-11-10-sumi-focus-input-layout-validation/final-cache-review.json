@@ -1,0 +1,33 @@
+{
+  "at": "2026-11-09T18:44:53.244825+00:00",
+  "ok": true,
+  "reviewType": "read_only_formal_bounded_raster_cache_source_review",
+  "sourceHashes": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3"
+  },
+  "productsModifiedByReviewer": false,
+  "mustFixRemaining": [],
+  "findings": {
+    "bounded": "Only current viewport dictionary; old rows retained only lookup/swap/draw scope, no global/document LRU",
+    "imageOwnership": "Created CGImage is owned by SumiFocusTile and released in dealloc; row/cache hold tile strongly without backreferences",
+    "key": "Nonretained original paragraph source identity+native characterRange+immutable visible attributed slice+metrics+scale+padding/height",
+    "sourceLifetime": "During lookup current old rows keep old native line/source alive and new rows keep new source alive; pointer identity is never an unowned persistent key across an LRU",
+    "mutableParagraphValues": "Paragraph-style values copied immutable within bounded line key",
+    "contextShaping": "Source identity and native range prevent equal visible text from sharing glyphs across different shaping contexts; parent input agent separately observed NSConcreteAttributedString immutable source replacement on out-of-slice canonical edit",
+    "failure": "Any tile allocation/key failure aborts the whole focus frame and restores native editor; no silently omitted row or stale text fallback",
+    "opacity": "Save original native-scroll opacity on actual first hide; restore exactly only if that focus view owns the hide; no view means no layer mutation",
+    "paint": "Retains one row batch and draws immutable CGImage only; selection highlight geometry reads native line mapping, no text/selection/revision/IME writes",
+    "releaseInstrumentation": "No candidate A/B switches, debug paths or performance globals in formal source"
+  },
+  "nativeRegressions": {
+    "originalFocusChecks": 3932,
+    "groups": 10,
+    "passed": true,
+    "paths": [
+      "focus-regression-evidence-final6/focus-regression-verification.json",
+      "regression-evidence-final6/native-regressions.json"
+    ]
+  },
+  "screenBoundary": "Await root actual final-source CUA report; private RasterV2 screen success alone is not a formal-source publication claim."
+}

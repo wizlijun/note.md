@@ -1,53 +1,166 @@
 {
-  "at": "2026-11-09T18:14:22.473904+00:00",
-  "status": "input_and_layout_subset_verified_screen_paint_unresolved",
+  "at": "2026-11-09T18:49:15.676401+00:00",
+  "status": "implementation_verified_package_and_publication_pending",
   "base": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "implementationCommit": "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+  "implementationCommitPushed": false,
+  "sourceRepository": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source",
   "sourceHashes": {
-    "editor.m": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
-    "focus.h": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
-    "focus-resume-probe.m": "7fda8a7d82d90c037db70b01572509bdbd5aa7555093ffcebffde9e42d4ae3ec",
-    "focus-return-probe.m": "d59cd3d9710d32d48009ff40ff36114c0e457a45b463f6389a90fead3e092754"
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3"
   },
   "validation": {
     "input": 117,
-    "return": 49546,
+    "inputLatinNavigation": 88,
+    "inputImeCallbacks": 29,
+    "return": 49552,
     "canonicalReplies": 560,
     "bitmapChecks": 20,
     "existingFocus": 3932,
+    "originalFocusAssertionsUnmodified": true,
+    "raster": 56,
     "nativeRegressionGroups": 10,
     "uiTests": 101,
     "uiCheck": true,
     "uiBuild": true
   },
-  "screenPaintPassed": false,
+  "implementationVerified": true,
+  "implementationScreenAcceptance": true,
+  "screenPaintPassed": true,
+  "canBeginPackageBuild": true,
   "releaseReady": false,
   "published": false,
-  "remaining": "Real window TextKit line mirroring can clip context glyphs after Return; native scroll+mask prototype and bounded raster fallback are being evaluated. No formal release claimed.",
-  "dataSafety": "65 protected input-journal/CRDT/backend files unchanged; original root19 files preserved; no formal writing body edited. User-taken test drafts stay open and are separately backed up; their contents are not archived here.",
+  "packageAndPublicationStillPending": true,
+  "physicalImeCandidateWindowTested": false,
+  "imeBoundary": "Real native preedit/commit/cancel/firstRect callbacks tested; final CUA literal key input is not physical Pinyin candidate-window acceptance.",
+  "screenBinarySha256": "d1212d6587ccd8f7669f58ef7e624896cbef16b6329cca4c02e91acf4b606c80",
+  "implementation": [
+    "Navigation arms first real input to resume focus, including asynchronous IME; nested keyDown counts once. Empty marked cancellation/unmark/panel cleanup refresh geometry only. Disabled/read-only/hidden/draft-error protections remain.",
+    "Return layout ensures bounded candidate range then commits viewport; fresh available line snapshots replace stale objects. Scoped viewport callback guard prevents presentation-only events. No fabricated row positions or changed fade constants.",
+    "Native layout schedules existing coalesced weak main-queue focus/caret refresh instead of synchronously reentering TextKit; idle queue quiesces. This alone was insufficient in real screens.",
+    "Bounded immutable native glyph tiles isolate live window paint from native text drawing state. Only current viewport cache; original native scroll opacity restored on exit/failure. Any failed capture returns entire frame to native editor.",
+    "Cache key includes strong-lived native source attributed-string identity and local character range, immutable visible attributes, metrics and scale; this preserves contextual shaping without whole-document copies. CGImage ownership releases on tile deallocation; paint does not write body/selection/revision/IME state."
+  ],
+  "history": [
+    {
+      "stage": "input_and_geometry_subset",
+      "sourceEditor": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+      "sourceFocus": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+      "result": "Native geometry/input and offscreen bitmaps passed; actual screen Return clipped glyphs. Historical report and evidence retained unchanged.",
+      "evidence": "historical-stage.json"
+    },
+    {
+      "stage": "deferred_layout_without_raster",
+      "sourceEditor": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+      "sourceFocus": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+      "result": "Short sequences passed but longer actual screen navigation/input sequence lost middle glyphs. Deferral alone did not solve rendering.",
+      "evidence": "defer-only-screen-failure.json"
+    },
+    {
+      "stage": "final_bounded_native_glyph_tiles",
+      "result": "All final native tests freshly rerun on exact final source; three real-screen repeated failure sequences and blank-page caret/ab-Return-c centering passed.",
+      "evidence": "final-screen.json"
+    }
+  ],
+  "dataSafety": {
+    "protectedCoreFiles": 65,
+    "coreUnchangedAgainstBase": true,
+    "rootOriginalFilesPreserved": 19,
+    "formalVaultModified": false,
+    "previousUserOwnedDraftsPreserved": true,
+    "userDraftContentsArchivedHere": false,
+    "scopeAuditBoundary": "precommit-scope-audit.json is a timestamped 15-repository precommit snapshot, not a final package/tag release receipt."
+  },
+  "remaining": "Build, sign and validate actual host/plugin packages, freeze release tags, then publish and publicly verify through existing release workflow. No installation-package inclusion or public release claimed here.",
+  "evidenceDirectory": "2026-11-10-sumi-focus-input-layout-validation",
   "evidence": {
-    "native-input.json": {
-      "bytes": 4234,
-      "sha256": "a588d1b6fe30e97014a6bf529618ec824f0509695433f549126f67dbbdbb4222"
+    "data-preservation.json": {
+      "bytes": 10305,
+      "sha256": "2851c62cba51278570b508d2d2aafc46bef7532845335072524a0fedb6039905"
     },
-    "native-return.json": {
-      "bytes": 3800,
-      "sha256": "9bd8c961e4a9862ed41e476fc22904c738eaeca9fbdc80770d527a1c0896fadb"
+    "defer-only-screen-failure.json": {
+      "bytes": 615,
+      "sha256": "8cc7ff2bd66e96e9fe5eb313d6595d6b2e797face0d95a777d9b6ddb07e954ff"
     },
-    "native-regressions.json": {
+    "final-cache-review.json": {
+      "bytes": 2375,
+      "sha256": "d6dd46251404139ce9737882cd7792aafad919b9d671ddd073e6bf9ede82312c"
+    },
+    "final-focus.json": {
+      "bytes": 1407,
+      "sha256": "a5d1bbae7416e7476bc5e23ddafc7fe90da3fdff5944ec9f2202a40679698414"
+    },
+    "final-font-fixture.json": {
+      "bytes": 845,
+      "sha256": "dd4068d04e5103b1ed67bd4a60b1e7d44f52a7756f2a2f5d5af3d1138c815061"
+    },
+    "final-input.json": {
+      "bytes": 2435,
+      "sha256": "6e6de475cdfabc4467190af34c8371840283ef47a40e614c3e52496b9f1de6e2"
+    },
+    "final-native-regressions.json": {
       "bytes": 1424,
-      "sha256": "bd2461c740f1a6aeb8f08eacd2955ce92293931800328e2e4fc9839403c1f8ac"
+      "sha256": "bc23f283d1f9da9696751da33e588a9a6c315ba016a3bfa9104cea8bcca4bdd1"
+    },
+    "final-raster.json": {
+      "bytes": 2154,
+      "sha256": "631bc6020999b69e1ea64b29b4d1109facb3c1ca53c67776240538dcd1ced36f"
+    },
+    "final-return.json": {
+      "bytes": 5038,
+      "sha256": "3e944f791a3e530a4b27af048d1b3caba27aa6f14a8b663a8195214cbf7ef681"
+    },
+    "final-screen-build.json": {
+      "bytes": 2191,
+      "sha256": "c725f52b9920988ffc5219c4599fd9e5cc89116202ba7165c27ee3528931c264"
+    },
+    "final-screen.json": {
+      "bytes": 1831,
+      "sha256": "ac3aa099a2a4d9be86c50d4b822a7a4620efd1ac4a13b56d2dcf1e39e6e89493"
+    },
+    "historical-stage.json": {
+      "bytes": 2325,
+      "sha256": "0aa38d0feea49cf439f01e7e1231de04a106ef23873cd38e4d53165dddef4411"
+    },
+    "historical-stage.md": {
+      "bytes": 1967,
+      "sha256": "d8df5195869b150f9a4b13e9f9ba149a03e932851cffff84d514c9ecb1c4be47"
     },
     "native-focus.json": {
       "bytes": 1407,
       "sha256": "f6ab83518974a8965f9dbf03728ae35d39e847514742178852ff00763dd50c0b"
     },
-    "data-preservation.json": {
-      "bytes": 10305,
-      "sha256": "2851c62cba51278570b508d2d2aafc46bef7532845335072524a0fedb6039905"
+    "native-input.json": {
+      "bytes": 4234,
+      "sha256": "a588d1b6fe30e97014a6bf529618ec824f0509695433f549126f67dbbdbb4222"
+    },
+    "native-regressions.json": {
+      "bytes": 1424,
+      "sha256": "bd2461c740f1a6aeb8f08eacd2955ce92293931800328e2e4fc9839403c1f8ac"
+    },
+    "native-return.json": {
+      "bytes": 3800,
+      "sha256": "9bd8c961e4a9862ed41e476fc22904c738eaeca9fbdc80770d527a1c0896fadb"
+    },
+    "precommit-scope-audit.json": {
+      "bytes": 25482,
+      "sha256": "162ab395f1216c8b016d813d46b6114f80e297aca25ce0d769a436bdddb96728"
     },
     "screen-failure.json": {
       "bytes": 1290,
       "sha256": "e2c63cb90cf69df0c2985fc02af7e6d43e514d33e1fa85bde8a8d69f71a6e7ab"
+    },
+    "ui-build.log.txt": {
+      "bytes": 336,
+      "sha256": "83f21f5c78e1365f9b9cd4a402114d2be564e0d0c537bc51efe60b227768d75d"
+    },
+    "ui-check.log.txt": {
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    "ui-tests-final.log.txt": {
+      "bytes": 285,
+      "sha256": "c21dd6b69793defe19d8860a66e41b235be5f3fc027186b894e23d8c348cbc9f"
     }
   },
   "targetOnly": {
@@ -55,5 +168,5 @@
     "plugin": "0.1.10",
     "minimumHost": ">=6.1110.1"
   },
-  "commitReference": "git history for this report"
+  "commitReference": "Implementation commit above; report commit recorded by Git history."
 }

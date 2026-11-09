@@ -1,0 +1,53 @@
+{
+  "ok": true,
+  "at": "2026-11-09T18:44:15.820726+00:00",
+  "app": "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/native-interactive-product-final/Sumi Final Native Probe.app",
+  "sourceHashes": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "editor.h": "13916fb953578eb366fc9f0bdaea68e06c7e52cb707e9ebb49b7e696e3750cb2",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3",
+    "shortcuts.h": "2cbf00c71df9fd13f99c103f1ce71d987d34893e35f832ce9b9fe5e75e3e6e62",
+    "typing-monitor.h": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419"
+  },
+  "nativeSourceMatchesProductExactly": true,
+  "import": "direct include of final product editor.m; no candidate-native copy",
+  "probeSourceSha256": "a67a1bd9032eb1bd392342109170f4fc7345d1890b97e84b5291eaf7b5007810",
+  "binarySha256": "d1212d6587ccd8f7669f58ef7e624896cbef16b6329cca4c02e91acf4b606c80",
+  "fontSha256": "2eca44768cba97110ebc161dbbb60216bcda5e80b7202c5f684bf0f358c34370",
+  "appearance": {
+    "preset": "Sumi Zhaohua",
+    "font_size": 50,
+    "line_height": 1.2,
+    "max_columns": 80,
+    "theme": "crt",
+    "surface_height": 620
+  },
+  "strictCompileCommand": [
+    "clang",
+    "-fobjc-arc",
+    "-fblocks",
+    "-O2",
+    "-mmacosx-version-min=11.0",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-framework",
+    "Cocoa",
+    "-framework",
+    "QuartzCore",
+    "-framework",
+    "CoreText",
+    "-framework",
+    "ApplicationServices",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/native-interactive-product-final/product-final-interactive.m",
+    "-o",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/native-interactive-product-final/Sumi Final Native Probe.app/Contents/MacOS/product-final-interactive"
+  ],
+  "signedTeam": "T5G56DH47L",
+  "strictSignatureVerified": true,
+  "started": false,
+  "formalVaultAccess": false,
+  "accountAccess": false,
+  "autosave": "unique UUID Markdown per page in this task recovery; NSDataWritingAtomic succeeds before full projection ACK; NewBlank/Restore never overwrites previous page",
+  "screenAcceptancePending": true
+}

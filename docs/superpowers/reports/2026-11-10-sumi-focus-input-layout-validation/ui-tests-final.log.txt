@@ -1,0 +1,10 @@
+$ vitest run
+
+ RUN  v4.1.5 /Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source/plugins-src/write
+
+
+ Test Files  2 passed (2)
+      Tests  101 passed (101)
+   Start at  01:21:58
+   Duration  648ms (transform 121ms, setup 0ms, import 107ms, tests 344ms, environment 402ms)
+

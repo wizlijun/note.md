@@ -1,0 +1,13 @@
+{
+  "readOnlySource": "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/native-evidence/fonts",
+  "fonts": {
+    "IBMPlexMono-Light.ttf": "780bcf65509d72a35ec114b57bcbe220dc6b77d8ea2e9b25e294be3c570c5025",
+    "IBMPlexSansSC-Light.otf": "1df4e4de4f669c593c56b6a55e89c451ed2ef64c2669c068ea44ba6f7b24819c",
+    "LXGWWenKaiMonoLite-Regular.ttf": "fcdac2729fab750009af0046b23c5bb6f3a351658adb76ef6f28fdf57037d1c2",
+    "YouchaSanz.ttf": "967ce821ca999d04b3150fe18f814e9907b13777fe6749d12fde9abd5b3ad35d",
+    "ZhaohuaTypeWriter.ttf": "2eca44768cba97110ebc161dbbb60216bcda5e80b7202c5f684bf0f358c34370",
+    "ZhuqueFangsong-Regular.ttf": "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4",
+    "Unifont-18.0.01.otf": "88d0a14d4aa9a96419720b39ba5da921a59560d76d4ec7d523acc06ed85cd3c2"
+  },
+  "noFontsAddedToProduct": true
+}
