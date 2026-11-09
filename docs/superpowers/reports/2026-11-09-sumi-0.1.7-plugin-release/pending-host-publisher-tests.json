@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "checks": [
+    "publish-order-pending=False",
+    "publish-order-pending=True",
+    "no-write-on-require_public_host",
+    "no-write-on-require_pending_host_compatibility",
+    "no-write-on-verify_public_packages",
+    "valid",
+    "missing-update-key",
+    "audit-failed",
+    "empty-source-proof",
+    "wrong-source",
+    "wrong-package",
+    "wrong-host",
+    "lowered-engine",
+    "old-host-selected-new",
+    "old-host-update-new",
+    "old-host-not-rejected",
+    "target-already-public",
+    "target-network-unknown",
+    "other-19-functions-unchanged"
+  ],
+  "count": 19,
+  "networkWritesPerformed": false,
+  "publisherSha256": "ac09adc738897c61950e6a09773a98952166a86e0ed2654578e72912489363e9"
+}

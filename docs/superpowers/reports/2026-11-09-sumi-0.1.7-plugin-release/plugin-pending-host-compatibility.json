@@ -1,0 +1,139 @@
+{
+  "ok": true,
+  "checkedAt": "2026-11-09T12:37:48.019992+00:00",
+  "hostTag": "v6.1109.1",
+  "hostCommit": "4b3de21a0afef6c689cecadc9a2dadf0d4d57121",
+  "preparedSource": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+  "pluginVersion": "0.1.7",
+  "pluginSha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+  "minimumHost": ">=6.1109.2",
+  "oldHostSelectedVersion": "0.1.6",
+  "oldHostUpdateTarget": null,
+  "oldHostInstallRejected": true,
+  "hostSourceHashes": {
+    "src/lib/market/select.ts": "34b84a9927044d2243e25eb4dfe99622d7075827b46117c80cabbde454e2bd62",
+    "src/lib/market/select.test.ts": "3c1c2d3bc762f4d443851e111d5f81cb0e2e3bfe5f62af86cfef3d68f8e02dcc",
+    "src/lib/market/types.ts": "8a633af8c2b5eb94a5065169bbf1b49692c89ecc64c554d18e859f3db45f01e5",
+    "src/plugin-market-app.svelte": "126e5b438f3124dde15fdee741d57c11dbf664914f144f07ddf2fda0e29df288",
+    "src/plugin-market-app.test.ts": "f2ec1ac141fa8c9bd3d0b2ebf6b14c1ad58c1beeaa1003a5b103a3fca8bc9557",
+    "src-tauri/src/plugin_runtime/commands.rs": "e6b07b890e06771ecba16b52fbe97772daa3b1e013e369807d817096fab5eadb",
+    "src-tauri/src/plugin_runtime/installer.rs": "ac5a32ae9c37fc171cbaa65df109a92dbb96a5f9fd269176c0e16af859662d10",
+    "plugin-protocol/src/lib.rs": "1d50b13a8221580e0e4bdcb460211ad92d98bacd315fa3aa19dfba21e2c3a249",
+    "plugin-protocol/Cargo.toml": "b830917f11c1fa9145deed2359517328291e599fc4db716ed46a9256db8304df"
+  },
+  "oldHostVersion": "6.1109.1",
+  "oldInstalled015UpdateTarget": "0.1.6",
+  "requiredHostUpdateTarget": "0.1.7",
+  "unknownHostFrontendBoundary": {
+    "hostVersion": null,
+    "offers017": true,
+    "reason": "Published UI fails open if getVersion fails; real preview/install backend still uses app.package_info and rejects incompatible signed manifest before commit"
+  },
+  "actualPackageInstallerValidation": {
+    "actualManifestVersion": "0.1.7",
+    "actualSignedPackageFullInstallerVerifyOldRejectedNewAccepted": true,
+    "error": "requires notemd >=6.1109.2, host is 6.1109.1",
+    "installedAnything": false,
+    "ok": true,
+    "oldHost": "6.1109.1",
+    "oldHostRejected": true,
+    "requiredHost": "6.1109.2",
+    "requiredHostAccepted": true
+  },
+  "validationMechanism": "Exact released installer.rs included in isolated Rust harness, with unchanged released plugin-protocol; actual frozen signed ZIP passes SHA+Minisign then old host fails engines, required host passes. Only unrelated filesystem link helper is a panic guard; commit_install is never called. Temp staging only, no user plugin state changed.",
+  "existingTests": {
+    "files": 2,
+    "testsPassed": 30,
+    "sourceBytesEqualPublishedTag": true
+  },
+  "historyRequirement": "Append only 017, retain every original row including016 and its immutable package/signature; never lower minimumHost or replace historical bytes",
+  "canPublishPluginAheadOfHost": true,
+  "compatibleHostPublic": false,
+  "scopeLimit": "Compatibility of independent immutable plugin publication, not proof host6.1109.2 was published or installable on6.1109.1",
+  "publisherReview": {
+    "ok": true,
+    "publisherSha256": "ac09adc738897c61950e6a09773a98952166a86e0ed2654578e72912489363e9",
+    "allExistingFunctionsExceptPublishIndexAndMainAstUnchanged": [
+      "load_frozen",
+      "require",
+      "digest",
+      "save",
+      "env",
+      "wrangler",
+      "fetch",
+      "fresh",
+      "signature",
+      "read_kv",
+      "require_public_host",
+      "package_path",
+      "download",
+      "check_packages",
+      "merge_entries",
+      "verify_public_packages",
+      "inspect",
+      "stage",
+      "verify_wrangler_installation"
+    ],
+    "explicitOptInRequired": true,
+    "sourceProofRequired": true,
+    "historicalAppendCheckRetained": true,
+    "signaturesR2KvChecksUnchanged": true
+  },
+  "evidence": [
+    {
+      "path": "pending-host-compatibility/source-hashes.json",
+      "bytes": 935,
+      "sha256": "fa0b88a443dcbe3fc71c58d90417f28a5adac4a906836e2cdb43a068ba583914"
+    },
+    {
+      "path": "pending-host-compatibility/selection-result.json",
+      "bytes": 3839,
+      "sha256": "fd2b25e7257e21e2107431daafa9c8d4efba70b42d24e75f236ae4df53fae3a4"
+    },
+    {
+      "path": "pending-host-compatibility/manifest017.json",
+      "bytes": 2649,
+      "sha256": "cb0cf9ae6c93627f4024cd95e2710ef6be31a0aea29988135794e682ef52740d"
+    },
+    {
+      "path": "pending-host-compatibility/manifest-validation.log",
+      "bytes": 1225,
+      "sha256": "c76b22e595ffd12ee37796b172e2be06c71bdff6e1d3a83a02be5093117df9ec"
+    },
+    {
+      "path": "pending-host-compatibility/full-installer-validation-rerun.log",
+      "bytes": 682,
+      "sha256": "60ae125509ca8f691055f763c53321c3c95fa33042e31041d8cff623da5470da"
+    },
+    {
+      "path": "pending-host-compatibility/existing-market-tests-rerun.log",
+      "bytes": 257,
+      "sha256": "a83d31a50e0795c69cb797fdec356e23cb8da3620bd2ef7c3c2a6e76993fb5de"
+    },
+    {
+      "path": "pending-host-compatibility/harness/src/main.rs",
+      "bytes": 1910,
+      "sha256": "68adabd2ad8978ac72d6524bfbc3390facc4ecdccabebf319e6c768627ae69af"
+    },
+    {
+      "path": "pending-host-compatibility/harness/Cargo.toml",
+      "bytes": 334,
+      "sha256": "0624e0c574167b1861a305a5dd30cab0e2394a560b2739068a46eb20d53162d8"
+    },
+    {
+      "path": "pending-host-compatibility/harness/Cargo.lock",
+      "bytes": 12725,
+      "sha256": "b70923238bb4eea6c8ea3b987035c24d907d7c2bc908b5cbf285b9d72049f14f"
+    },
+    {
+      "path": "pending-host-compatibility/exact-selection.ts",
+      "bytes": 4491,
+      "sha256": "6a560cd576e7f0d8fb07482fce682cccb9b3faf88583c22c2148232d6bfdb8ca"
+    },
+    {
+      "path": "pending-host-compatibility/run-selection.mjs",
+      "bytes": 1747,
+      "sha256": "8c152269b84588bcd643feaee0036372166b8e909c3c27b4c8c4a450337a447a"
+    }
+  ]
+}

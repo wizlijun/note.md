@@ -1,0 +1,81 @@
+{
+  "status": "plugin_published_host_pending",
+  "at": "2026-11-09T12:41:27.688410+00:00",
+  "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+  "plugin": {
+    "id": "notemd.sumi",
+    "version": "0.1.7",
+    "arch": "aarch64-apple-darwin",
+    "bytes": 2464889,
+    "sha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+    "minimumHost": ">=6.1109.2",
+    "url": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.7/aarch64-apple-darwin"
+  },
+  "host": {
+    "required": "6.1109.2",
+    "published": false,
+    "currentPublic": "6.1109.1",
+    "blocker": "Apple multipart upload failed with completedParts=[]; no host Accepted receipt"
+  },
+  "registry": {
+    "before": 304,
+    "after": 305,
+    "onlyAdded": "notemd.sumi@0.1.7",
+    "historyUnchanged": true,
+    "authoritativeKvNormalFreshEqual": true,
+    "wranglerVersion": "3.114.17",
+    "accountTokenRoute": true
+  },
+  "publicationScope": "User requested plugin upload after host block was disclosed; explicit pending-host gate preserves engines, signatures, exact package and all previous registry entries. No host release claim.",
+  "compatibility": {
+    "publicHostTag": "v6.1109.1",
+    "selectedOldVersion": "0.1.6",
+    "oldHostUpdateTo017": false,
+    "actualSigned017RejectedBeforeCommitInstall": true,
+    "unknownHostVersionFrontend": "May display latest; backend still refuses incompatible installation"
+  },
+  "evidence": {
+    "plugins-index-verification.json": {
+      "sha256": "34fc58992630c0c8c56bad9078d7e72ad614849a08e748f42cb1212242d2b891",
+      "bytes": 2179
+    },
+    "plugins-market-independent-verification.json": {
+      "sha256": "e6fe1c35dd57107272ff9ffe750f26723a599cb5295106fdaa8a8a4401eae3f4",
+      "bytes": 4533
+    },
+    "plugin-pending-host-compatibility.json": {
+      "sha256": "5c31c41cfefd9ac301752c45ee5a7705c6e1fe0ec220bb6124a6eebfd5996054",
+      "bytes": 5837
+    },
+    "plugin-pending-host-compatibility.md": {
+      "sha256": "5be40fe62a3763c83c728d22dc7011515a8548ee64f69af6f55fbb725438401b",
+      "bytes": 1518
+    },
+    "plugin-pending-host-gate.json": {
+      "sha256": "a4751e9d33e7d79d1b4e550997d63585b3076eeb92ec137477122abf9f4f719b",
+      "bytes": 357
+    },
+    "pending-host-publisher-tests.json": {
+      "sha256": "1a4e63b9cffff4f66a567320754bbe36bd93a983affd10ee6d895292671eec3e",
+      "bytes": 724
+    },
+    "publish-plugin.py": {
+      "sha256": "ac09adc738897c61950e6a09773a98952166a86e0ed2654578e72912489363e9",
+      "bytes": 22123
+    },
+    "publish-plugin-before-pending-host.py": {
+      "sha256": "cc212b5fd23ccd68b7b52db85e3e7cd53c100162a15b67a85722421c52eb7611",
+      "bytes": 19021
+    },
+    "verify-market-publication.py": {
+      "sha256": "98039fde0c7255862581fe02b2b96457b2a147ae9903fd8e350e2cd1405fb04d",
+      "bytes": 4343
+    },
+    "test-pending-host-publisher.py": {
+      "sha256": "d05d457aaab5d81a140bbc23a38ff56c776aa6f22f87743069b3533d064cd110",
+      "bytes": 4976
+    }
+  },
+  "scopeAuditSha256": "3acfb18ff027295d5c51df279c1c8e8901f95f0c805bbfdf8de9af9a9d11a2f6",
+  "privateDataChanged": false
+}
