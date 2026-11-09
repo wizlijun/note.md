@@ -4,3 +4,5 @@ pub mod durability;
 pub mod fonts;
 
 pub mod sync;
+
+pub mod service;

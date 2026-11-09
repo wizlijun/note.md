@@ -43,7 +43,7 @@ fn client_id() -> u64 {
     Uuid::new_v4().as_u128() as u32 as u64
 }
 
-pub use sumi_protocol::durability::{Loaded, Create, LocalEdit, Outgoing, PublishedBaseline, ProjectionIdentity, DurableEvent, RecordedIncoming, IncomingReceipt, CommitReceipt};
+pub use sumi_protocol::durability::{Loaded, Create, LocalEdit, Outgoing, PublishedBaseline, PageObservation, ObservedFiles, ProjectionIdentity, DurableEvent, RecordedIncoming, IncomingReceipt, CommitReceipt};
 
 fn edit_receipt(queued: &Queued) -> Result<CommitReceipt> {
     sumi_protocol::durability::edit_receipt(&queued.edit, queued.remote, queued.imported.as_ref())
@@ -191,6 +191,14 @@ impl Durability {
         })
         .await
     }
+    /// Read the trusted document and portable files without interleaving our own
+    /// checkpoint writer. Foreign files are only observed, never repaired here.
+    pub async fn observe_page(&self, page_id: String) -> Result<PageObservation> {
+        self.request(move |w| {
+            w.drain()?;
+            w.observe_page(&page_id)
+        }).await
+    }
     pub async fn flush(&self) -> Result<()> {
         self.request(|w| {
             w.drain()?;
@@ -292,8 +300,8 @@ impl Durability {
         self.request(move |w| w.accept_imported(&page_id, observed))
             .await
     }
-    /// Commit a resolved three-way import and its observed disk baseline as one operation.
-    /// This can supersede a blocked old projection only after checking the captured disk bytes.
+    /// Commit an already accepted three-way CRDT import, even if disk changes
+    /// again. Exact observed bytes authorize projection replacement separately.
     pub async fn import_local(&self, edit: LocalEdit, observed: FilePair) -> Result<Loaded> {
         self.request(move |w| {
             let id = edit.page_id.clone();
@@ -310,7 +318,8 @@ impl Durability {
             if w.receipt(&queued)?.is_some() { return w.loaded(&id); }
             w.pending.push_back(queued);
             w.drain()?;
-            w.publish_page(&id)?;
+            // persist_edit already attempted projection and reported its status.
+            // A foreign file conflict must not withhold the durable edit receipt.
             w.loaded(&id)
         })
         .await
@@ -765,13 +774,17 @@ impl Worker {
         if self.receipt(queued)?.is_some() { return Ok(()); }
         let receipt = edit_receipt(queued)?;
         let e = &queued.edit;
-        if let Some(observed) = &queued.imported {
-            self.check_observed(&e.page_id, observed)?;
-            let baseline = self
-                .baseline(&e.page_id)?
-                .ok_or("missing published baseline")?;
-            super::external::validate(observed, &baseline.pair, &e.page_id, e.epoch)?;
-        } // Projection failures do not prevent further durable CRDT commits.
+        let (extensions, may_replace_observed) = if let Some(observed) = &queued.imported {
+            let extensions = import_extensions(observed, &e.page_id, e.epoch)?;
+            // The host already accepted/journaled this exact CRDT transaction.
+            // Rechecking disk controls replacement permission, not durability.
+            // Never copy protected sidecar history into the document: only its
+            // extension fields survive serialize_pair below.
+            let protected_matches = self.baseline(&e.page_id)?.is_some_and(|baseline|
+                super::external::validate(observed, &baseline.pair, &e.page_id, e.epoch).is_ok());
+            let may_replace = protected_matches && self.check_observed(&e.page_id, observed).is_ok();
+            (Some(extensions), may_replace)
+        } else { (None, false) };
         let entry = self.entry(&e.page_id)?;
         if entry.deleted || entry.generation != e.generation || entry.epoch != e.epoch {
             return Err("stale/deleted page generation; draft retained".into());
@@ -812,8 +825,7 @@ impl Worker {
             self.committed(&e.page_id, e.revision);
             return Ok(());
         }
-        let pair = if let Some(observed) = &queued.imported {
-            let (header, sidecar) = import_extensions(observed, &e.page_id, e.epoch)?;
+        let pair = if let Some((header, sidecar)) = extensions {
             storage::serialize_pair(&snapshot, Some(&header), Some(&sidecar)).map_err(error)?
         } else {
             self.pair_for(&e.page_id, &snapshot)?
@@ -833,7 +845,7 @@ impl Worker {
                         })?,
                     )?;
                 }
-                if let Some(observed) = &queued.imported {
+                if let Some(observed) = queued.imported.as_ref().filter(|_| may_replace_observed) {
                     record_permission(tx, &e.page_id, observed)?;
                 }
                 record_local(tx, &entry, &e.op_id, &full, e.revision)?;
@@ -905,6 +917,58 @@ impl Worker {
             let markdown:String=r.get(1)?; let metadata:String=r.get(2)?;
             Ok(PublishedBaseline { filename:r.get(0)?,hashes:Baseline{markdown_sha256:Some(storage::sha256(markdown.as_bytes())),metadata_sha256:Some(storage::sha256(metadata.as_bytes()))},pair:FilePair{markdown,metadata},full_state:r.get(3)?,revision:read_u64(r,4)? })
         }).optional().map_err(db)).map_err(error)
+    }
+    fn observe_page(&mut self, id: &str) -> Result<PageObservation> {
+        let loaded = self.loaded(id)?;
+        let baseline = self.baseline(id)?;
+        let files = match loaded.entry.filename() {
+            None => ObservedFiles::Unwritten,
+            Some(filename) => match self.observe_files(id, &filename, baseline.as_ref()) {
+                Ok(files) => files,
+                Err(error) => ObservedFiles::Unavailable { error },
+            },
+        };
+        Ok(PageObservation { loaded, baseline, files })
+    }
+    fn observe_files(&mut self, id: &str, filename: &str, baseline: Option<&PublishedBaseline>) -> Result<ObservedFiles> {
+        let (md, meta) = projection::paths(&self.vault, filename).map_err(error)?;
+        let observed = super::external::Observed::read(&md, &meta)?;
+        // Our publisher cannot run within this job. An uncoordinated external
+        // writer still can; refuse an unstable pair instead of importing it.
+        if observed != super::external::Observed::read(&md, &meta)? {
+            return Err("写作文件正在变化；本机正文已保留，请稍后重试".into());
+        }
+        let hashes = observed.hashes();
+        if baseline.is_some_and(|base| base.filename == filename
+            && hashes.markdown_sha256 == base.hashes.markdown_sha256
+            && hashes.metadata_sha256 == base.hashes.metadata_sha256) {
+            return Ok(ObservedFiles::Published { pair: observed.pair()? });
+        }
+        // Only the durable head can have touched disk. Do not mistake an
+        // unattempted tail, a different filename or arbitrary old metadata for
+        // our own partial write. The same exact hashes gate publish recovery.
+        let pending = self.store.transaction(|tx| {
+            tx.query_row("SELECT filename,baseline,markdown,metadata FROM sumi_projection_queue WHERE page_id=?1 ORDER BY job_id LIMIT 1", [id], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?))
+            }).optional().map_err(db)
+        }).map_err(error)?;
+        if let Some((pending_filename, prior, markdown, metadata)) = pending {
+            let prior: Baseline = serde_json::from_str(&prior).map_err(error)?;
+            if pending_filename == filename
+                && (hashes.markdown_sha256 == prior.markdown_sha256
+                    || hashes.markdown_sha256 == Some(storage::sha256(markdown.as_bytes())))
+                && (hashes.metadata_sha256 == prior.metadata_sha256
+                    || hashes.metadata_sha256 == Some(storage::sha256(metadata.as_bytes()))) {
+                return Ok(ObservedFiles::Pending);
+            }
+        }
+        if baseline.is_none() && observed.markdown.is_none() && observed.metadata.is_none() {
+            let dirty: bool = self.store.transaction(|tx| tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sumi_dirty_projection WHERE page_id=?1)", [id], |r| r.get(0),
+            ).map_err(db)).map_err(error)?;
+            if dirty { return Ok(ObservedFiles::Pending); }
+        }
+        Ok(ObservedFiles::External { pair: observed.pair()? })
     }
     fn publish_page(&mut self, id: &str) -> Result<()> {
         loop {
@@ -1060,15 +1124,8 @@ impl Worker {
             id,
             self.docs[id].revision(),
         )?;
-        // A previously accepted UI import may be retained because disk changed
-        // again before commit. Explicit repair preserves those new disk bytes,
-        // then commits the already accepted CRDT transaction without granting its
-        // obsolete file replacement permission.
-        for queued in &mut self.pending {
-            if queued.edit.page_id == id && queued.imported.is_some() {
-                queued.imported = None;
-            }
-        }
+        // Retained imports keep their exact receipt identity, including observed
+        // bytes. Disk conflicts no longer prevent their CRDT transaction commit.
         self.drain()?;
         let snapshot = self.docs[id].snapshot().map_err(error)?;
         let state = self.docs[id].encode_full();
@@ -1476,10 +1533,9 @@ fn import_extensions(
     if end > 128 * 1024 || pair.metadata.len() > 64 * 1024 * 1024 {
         return Err("import metadata exceeds capacity".into());
     }
-    let header: serde_yaml::Mapping =
-        serde_yaml::from_str(&pair.markdown[4..end]).map_err(error)?;
+    let (header, _) = super::parse_header(&pair.markdown, id, epoch)?;
     let sidecar: storage::Sidecar = serde_json::from_str(&pair.metadata).map_err(error)?;
-    if sidecar.page_id != id
+    if sidecar.schema != 1 || sidecar.page_id != id
         || sidecar.epoch != epoch
         || header
             .get(serde_yaml::Value::String("page_id".into()))
@@ -1588,6 +1644,144 @@ mod tests {
             applied: false,
             imported: None,
         }
+    }
+    #[test]
+    fn observation_keeps_its_baseline_and_files_together_across_own_checkpoint() {
+        let mut f = fixture();
+        let (id, mut ui) = page(&mut f.worker, "old");
+        f.worker.pending.push_back(edit(&id, &mut ui, " locally saved"));
+        f.worker.drain().unwrap();
+        let before = f.worker.observe_page(&id).unwrap();
+        assert_eq!(before.loaded.revision, 2);
+        assert_eq!(before.baseline.as_ref().unwrap().revision, 1);
+        f.worker.checkpoint_dirty().unwrap();
+        let after = f.worker.observe_page(&id).unwrap();
+        assert_eq!(after.loaded.revision, 2);
+        assert_eq!(after.baseline.as_ref().unwrap().revision, 2);
+        let ObservedFiles::Published { pair: before_pair } = before.files else { panic!("old published pair") };
+        let ObservedFiles::Published { pair: after_pair } = after.files else { panic!("new published pair") };
+        // The old split read provably fails on a normal local checkpoint.
+        assert!(super::super::external::validate(&after_pair, &before.baseline.as_ref().unwrap().pair, &id, 1)
+            .unwrap_err().contains("写作时间文件与可信投影基线不同"));
+        // Both atomic observations remain coherent, even after the writer runs.
+        assert_eq!(super::super::external::validate(&before_pair, &before.baseline.unwrap().pair, &id, 1).unwrap(), "old");
+        assert_eq!(super::super::external::validate(&after_pair, &after.baseline.unwrap().pair, &id, 1).unwrap(), ui.body());
+    }
+    #[test]
+    fn observation_identifies_only_exact_own_partial_projection_and_never_repairs_foreign_files() {
+        let mut f = fixture();
+        let (id, mut ui) = page(&mut f.worker, "old");
+        f.worker.pending.push_back(edit(&id, &mut ui, " new"));
+        f.worker.drain().unwrap();
+        let entry = f.worker.entry(&id).unwrap();
+        let pair = f.worker.pair_for(&id, &ui.snapshot().unwrap()).unwrap();
+        f.worker.store.checkpoint_with(&ui, &pair, |tx| {
+            record_projection(tx, &entry, &ui.encode_full(), ui.revision())
+        }).unwrap();
+        let (md, meta) = projection::paths(f.temp.path(), &entry.filename().unwrap()).unwrap();
+        let old_meta = std::fs::read(&meta).unwrap();
+        // Simulate process death after replacing Markdown but before sidecar.
+        std::fs::write(&md, &pair.markdown).unwrap();
+        assert!(matches!(f.worker.observe_page(&id).unwrap().files, ObservedFiles::Pending));
+        assert_eq!(std::fs::read(&meta).unwrap(), old_meta);
+        // Exact next pair is also ours when the baseline transaction did not run.
+        std::fs::write(&meta, &pair.metadata).unwrap();
+        assert!(matches!(f.worker.observe_page(&id).unwrap().files, ObservedFiles::Pending));
+        // Arbitrary externally changed metadata never gets that exemption.
+        std::fs::write(&meta, "{broken").unwrap();
+        let observed = f.worker.observe_page(&id).unwrap();
+        let ObservedFiles::External { pair: foreign } = observed.files else { panic!("foreign pair must remain external") };
+        assert!(super::super::external::validate(&foreign, &observed.baseline.unwrap().pair, &id, 1).is_err());
+        assert_eq!(std::fs::read_to_string(&meta).unwrap(), "{broken");
+        assert_eq!(std::fs::read_to_string(&md).unwrap(), pair.markdown);
+        assert_eq!(observed.loaded.revision, ui.revision());
+        // Missing metadata still returns the trusted body without changing disk.
+        std::fs::remove_file(&meta).unwrap();
+        let missing = f.worker.observe_page(&id).unwrap();
+        assert!(matches!(missing.files, ObservedFiles::Unavailable { .. }));
+        assert_eq!(missing.loaded.revision, ui.revision());
+        assert!(!meta.exists());
+    }
+    #[test]
+    fn observation_first_write_pending_and_protected_metadata_remain_distinct() {
+        let mut f = fixture();
+        let (id, mut ui) = page(&mut f.worker, "");
+        assert!(matches!(f.worker.observe_page(&id).unwrap().files, ObservedFiles::Unwritten));
+        f.worker.pending.push_back(edit(&id, &mut ui, "first"));
+        f.worker.drain().unwrap();
+        let first = f.worker.observe_page(&id).unwrap();
+        assert_eq!(first.loaded.revision, 1);
+        assert!(first.baseline.is_none());
+        assert!(matches!(first.files, ObservedFiles::Pending));
+        f.worker.checkpoint_dirty().unwrap();
+        let baseline = f.worker.baseline(&id).unwrap().unwrap();
+        let (md, meta) = projection::paths(f.temp.path(), &baseline.filename).unwrap();
+        // An ordinary external body change remains importable using its captured baseline.
+        std::fs::write(&md, baseline.pair.markdown.replace("first", "external")).unwrap();
+        let observation = f.worker.observe_page(&id).unwrap();
+        let ObservedFiles::External { pair } = observation.files else { panic!("external body") };
+        assert_eq!(super::super::external::validate(&pair, &observation.baseline.unwrap().pair, &id, 1).unwrap(), "external");
+        let mut sidecar: serde_json::Value = serde_json::from_str(&baseline.pair.metadata).unwrap();
+        sidecar["projection_id"] = serde_json::json!(Uuid::new_v4().to_string());
+        std::fs::write(&meta, sidecar.to_string()).unwrap();
+        let changed = f.worker.observe_page(&id).unwrap();
+        let ObservedFiles::External { pair } = changed.files else { panic!("changed protected metadata") };
+        assert!(super::super::external::validate(&pair, &changed.baseline.unwrap().pair, &id, 1).is_err());
+    }
+    #[test]
+    fn observation_keeps_latest_local_text_readable_beside_coherent_old_foreign_pair_after_restart() {
+        let mut f = fixture();
+        let (id, mut ui) = page(&mut f.worker, "ab");
+        let old = f.worker.baseline(&id).unwrap().unwrap();
+        f.worker.pending.push_back(edit(&id, &mut ui, "c"));
+        f.worker.drain().unwrap();
+        f.worker.checkpoint_dirty().unwrap();
+        let (md, meta) = projection::paths(f.temp.path(), &old.filename).unwrap();
+        // A complete early pair returns from outside; it is neither the current
+        // baseline nor the pending head's prior/next, despite valid body hashes.
+        std::fs::write(&md, &old.pair.markdown).unwrap();
+        std::fs::write(&meta, &old.pair.metadata).unwrap();
+        for addition in ["de", " much more local writing"] {
+            f.worker.pending.push_back(edit(&id, &mut ui, addition));
+            f.worker.drain().unwrap();
+            f.worker.checkpoint_dirty().unwrap();
+        }
+        let pending: i64 = f.worker.store.transaction(|tx| tx.query_row(
+            "SELECT COUNT(*) FROM sumi_projection_queue WHERE page_id=?1", [&id], |row| row.get(0),
+        ).map_err(db)).unwrap();
+        assert_eq!(pending, 2);
+        drop(f.worker);
+        let mut reopened = Worker::open(f.temp.path().into(), f.db, Arc::new(|_| {})).unwrap();
+        let observation = reopened.observe_page(&id).unwrap();
+        assert_eq!(observation.loaded.revision, ui.revision());
+        assert_eq!(reopened.store.load(&id, 91).unwrap().body(), ui.body());
+        let ObservedFiles::External { pair } = observation.files else { panic!("old pair cannot be treated as ours") };
+        assert!(super::super::external::validate(&pair, &observation.baseline.unwrap().pair, &id, 1)
+            .unwrap_err().contains("写作时间文件与可信投影基线不同"));
+        assert_eq!(std::fs::read_to_string(md).unwrap(), old.pair.markdown);
+        assert_eq!(std::fs::read_to_string(meta).unwrap(), old.pair.metadata);
+    }
+    #[tokio::test]
+    async fn observation_rpc_is_typed_and_remains_coherent_after_background_checkpoint() {
+        let temp = tempfile::tempdir().unwrap();
+        let worker = Durability::open(temp.path().into(), temp.path().join("db"), |_| {}).await.unwrap();
+        let id = Uuid::new_v4().to_string();
+        let mut ui = Document::new(&id, 1, 17).unwrap();
+        ui.replace(0, 0, 0, "old", 100).unwrap();
+        worker.create(Create { page_id:id.clone(), epoch:1, full_state:ui.encode_full(), revision:1,
+            after_id:None, first_write_date:Some("2026-11-09".into()), frontmatter:None, preserved_pair:None }).await.unwrap();
+        worker.commit_local(edit(&id, &mut ui, " new").edit).await.unwrap();
+        let value = crate::durability_rpc::dispatch(&worker,
+            sumi_protocol::durability::Request::ObservePage { page_id:id.clone() }).await.unwrap();
+        let observation: PageObservation = serde_json::from_value(value).unwrap();
+        worker.flush().await.unwrap();
+        let ObservedFiles::Published { pair } = observation.files else { panic!("published snapshot") };
+        assert_eq!(observation.loaded.revision, 2);
+        assert!(super::super::external::validate(&pair, &observation.baseline.unwrap().pair, &id, 1).is_ok());
+        let fresh = worker.observe_page(id.clone()).await.unwrap();
+        assert_eq!(fresh.baseline.as_ref().unwrap().revision, 2);
+        let ObservedFiles::Published { pair } = fresh.files else { panic!("latest snapshot") };
+        assert_eq!(super::super::external::validate(&pair, &fresh.baseline.unwrap().pair, &id, 1).unwrap(), "old new");
     }
     #[test]
     fn first_write_date_catalog_outbox_revision_and_unknown_header_are_durable() {
@@ -1990,7 +2184,7 @@ mod tests {
         );
     }
     #[test]
-    fn explicit_repair_recovers_a_retained_import_without_losing_new_external_bytes() {
+    fn explicit_repair_preserves_new_external_bytes_after_import_already_committed() {
         let mut f = fixture();
         let (id, mut doc) = page(&mut f.worker, "old");
         let baseline = f.worker.baseline(&id).unwrap().unwrap();
@@ -2031,8 +2225,16 @@ mod tests {
             applied: false,
             imported: Some(observed),
         });
-        assert!(f.worker.drain().is_err());
-        assert_eq!(f.worker.pending.len(), 1);
+        let expected_receipt = edit_receipt(f.worker.pending.front().unwrap()).unwrap();
+        f.worker.drain().unwrap();
+        assert!(f.worker.pending.is_empty());
+        assert!(f.worker.loaded(&id).unwrap().raw_markdown.ends_with("accepted import"));
+        assert_eq!(std::fs::read_to_string(&md).unwrap(), newer);
+        assert_eq!(std::fs::read(&meta).unwrap(), b"broken newer meta");
+        let recorded: String = f.worker.store.transaction(|tx| tx.query_row(
+            "SELECT digest FROM sumi_edit_receipts WHERE op_id=?1", [&expected_receipt.op_id], |row| row.get(0),
+        ).map_err(db)).unwrap();
+        assert_eq!(recorded, expected_receipt.digest);
         let (loaded, backup) = f.worker.restore_projection(&id, 0).unwrap();
         assert!(f.worker.pending.is_empty());
         assert!(loaded.raw_markdown.ends_with("accepted import"));

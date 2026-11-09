@@ -1,7 +1,8 @@
 #pragma once
 #include <stdint.h>
 // All calls, including callbacks, occur on the application main thread.
-// Edit callback returns the accepted revision (>=0), or -1 to reject and restore.
+// Edit callback returns a durably journaled revision (>=0), -1 to reject and restore,
+// or -2 with {draft_error,projection} to retain a read-only unacknowledged draft.
 // Optional projection is owned by Rust and released with free_reply after parsing.
 // AppKit applies it before returning from the current input event.
 typedef int64_t (*SumiEventCallback)(void *context, const char *json, char **projection);

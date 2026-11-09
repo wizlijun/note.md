@@ -36,18 +36,31 @@ window. Duplicate mounts and stale generations fail. Destroyed Tauri windows
 clean up their surfaces; the host must still explicitly flush and detach on tab,
 Vault and plugin lifecycle transitions. Do not forcibly detach during IME.
 
-`Edit` is a committed UTF-16 replacement against `base_revision`. The in-process
-handler synchronously applies it to the host's in-memory model and returns a
-strictly greater revision. The handler must validate before mutating: an error must not leave a partially
-applied core transaction. Failure restores the pre-edit native display; the host
-owns error/recovery messaging. A later persistence error must preserve the already
-accepted in-memory draft, not reject an already committed edit. Do not perform synchronous disk I/O in this callback
-or reenter native operations. Return `EventReply { revision, projection }` with
-any rich projection and resolved selection; native installs it before another
-input event can run. Action and Paste use the same atomic reply. The host controls
-durable save acknowledgement separately. Remote updates use `transaction`: inspect
-revision and composition, admit the host mutation, and apply its projection in one
-main-thread turn. A rejected composition never invokes the host mutation.
+`Edit` is a UTF-16 replacement against `base_revision`. Before returning a
+strictly greater accepted revision, the handler must synchronously commit the
+exact operation to the host's local crash journal. It must not reenter AppKit.
+The backend later commits the operation and returns an exact durable receipt;
+only that receipt permits journal reclamation. Startup replays pending journal
+operations before allowing document loads.
+
+Validation errors before mutation return an ordinary rejection and restore the
+pre-edit native display. If local journal persistence fails after the host model
+has changed, return `EventReply` with `draft_error: Some(error)` and the current
+rich `projection`. This is a rejected draft (native ABI return code `-2`), never an
+accepted revision. Native retains the visible text and selection, leaves its
+accepted revision and committed text unchanged, and allows selection and Markdown
+copy while disabling changes and unsafe hide/panel transitions. The host retains
+the exact failed operation, pauses remote updates, and permits explicit save retry.
+Only successful persistence followed by `ApplyDocument` against the old native
+revision clears this protected draft and restores editing. Paste, cut, formatting,
+and IME completion use the same failure protocol.
+
+Normal `EventReply` values use `draft_error: None`; rich projections and resolved
+selection are installed before another input event can run. The host tracks
+backend persistence and file projection acknowledgements separately. Remote
+updates use `transaction`: inspect revision and composition, admit the host
+mutation, and apply its projection in one main-thread turn. A rejected composition
+never invokes the host mutation.
 
 Marked text emits no Edit. At IME completion the native surface emits one committed
 Edit, then `Composition(active=false)`. `ApplyDocument` and appearance/visibility

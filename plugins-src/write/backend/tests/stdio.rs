@@ -9,6 +9,9 @@ impl Process {
         // Release acceptance can exercise the exact signed artifact without
         // replacing the development executable or touching a real Vault.
         let binary=std::env::var_os("SUMI_TEST_BINARY").unwrap_or_else(||env!("CARGO_BIN_EXE_notemd-sumi").into());
+        Self::start_path(Path::new(&binary)).await
+    }
+    async fn start_path(binary:&Path)->Self {
         let mut child=Command::new(binary)
             .env_clear().env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
             .env("TMPDIR", std::env::temp_dir()).env("LANG", "en_US.UTF-8")
@@ -45,6 +48,44 @@ impl Process {
         self.service("open",json!({"version":1,"instance":instance,"session":session,"vault":dir.join("vault"),"database":dir.join("private/documents.sqlite3"),"fontCache":dir.join("fonts")})).await.unwrap()
     }
     async fn durable(&mut self,instance:&str,session:&str,request:Request)->Result<Value,Value>{self.service("durability",json!({"instance":instance,"session":session,"payload":request})).await}
+}
+#[tokio::test]
+async fn real_stdio_advertises_and_serves_atomic_observation() {
+    let temp=tempfile::tempdir().unwrap();std::fs::create_dir(temp.path().join("vault")).unwrap();
+    let mut process=Process::start().await;
+    let hello:sumi_protocol::service::Hello=serde_json::from_value(process.service("hello",json!({"version":1})).await.unwrap()).unwrap();
+    let page=uuid::Uuid::new_v4().to_string();let session=uuid::Uuid::new_v4().to_string();
+    process.open(&hello.instance,&session,temp.path()).await;
+    let doc=write_core::Document::new(&page,1,19).unwrap();
+    process.durable(&hello.instance,&session,Request::Create(Create {page_id:page.clone(),epoch:1,full_state:doc.encode_full(),revision:0,after_id:None,first_write_date:None,frontmatter:None,preserved_pair:None})).await.unwrap();
+    let request=Request::ObservePage {page_id:page};
+    hello.check_request("durability",&serde_json::to_value(&request).unwrap()).unwrap();
+    let observed:sumi_protocol::durability::PageObservation=serde_json::from_value(process.durable(&hello.instance,&session,request).await.unwrap()).unwrap();
+    assert_eq!(observed.loaded.revision,0);
+    assert!(matches!(observed.files,sumi_protocol::durability::ObservedFiles::Unwritten));
+    process.raw("$deactivate",Value::Null).await.unwrap();
+    assert!(process.child.wait().await.unwrap().success());
+}
+#[tokio::test]
+#[ignore = "requires explicit SUMI_TEST_LEGACY_BINARY to the previously released executable"]
+async fn real_legacy_hello_requests_plugin_update_without_blocking_fonts_or_sound() {
+    let binary=std::env::var_os("SUMI_TEST_LEGACY_BINARY").expect("explicit released test binary");
+    let mut legacy=Process::start_path(Path::new(&binary)).await;
+    let hello:sumi_protocol::service::Hello=serde_json::from_value(legacy.service("hello",json!({"version":1})).await.unwrap()).unwrap();
+    let observation=json!({"method":"observe_page","params":{"page_id":uuid::Uuid::new_v4().to_string()}});
+    assert!(hello.check_request("durability",&observation).unwrap_err().contains("请更新 Sumi 插件"));
+    // Production guard rejects before sending the unknown Request variant.
+    // Existing service version 1 calls still work against that exact old binary.
+    let temp=tempfile::tempdir().unwrap();std::fs::create_dir(temp.path().join("vault")).unwrap();
+    let session=uuid::Uuid::new_v4().to_string();legacy.open(&hello.instance,&session,temp.path()).await;
+    hello.check_request("fonts",&json!({"operation":"statuses"})).unwrap();
+    let fonts=legacy.service("fonts",json!({"version":1,"cache":temp.path().join("fonts"),"payload":{"operation":"statuses"}})).await.unwrap();
+    assert!(!fonts["statuses"].as_array().unwrap().is_empty());
+    hello.check_request("sound",&json!({"operation":"status"})).unwrap();
+    let sound=legacy.service("sound",json!({"instance":hello.instance,"session":session,"payload":{"operation":"status"}})).await.unwrap();
+    assert_eq!(sound["ready"],false);
+    legacy.raw("$deactivate",Value::Null).await.unwrap();
+    assert!(legacy.child.wait().await.unwrap().success());
 }
 #[tokio::test]
 async fn real_stdio_commit_kill_reopen_replay_and_private_boundary() {

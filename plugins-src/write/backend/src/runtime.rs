@@ -186,7 +186,7 @@ impl State {
     async fn call(&self,host:Host,method:&str,params:Value)->Result<Value> {
         if self.closing.load(Ordering::SeqCst) {return Err("backend is shutting down".into());}
         match method {
-            "hello"=>{version(decode::<Hello>(params)?.version)?;Ok(json!({"version":VERSION,"instance":self.instance}))}
+            "hello"=>{version(decode::<Hello>(params)?.version)?;Ok(json!({"version":VERSION,"instance":self.instance,"capabilities":[sumi_protocol::service::OBSERVE_PAGE]}))}
             "open"=>self.open(host,decode(params)?).await,
             "fonts"=>self.font_request(decode(params)?).await,
             "durability"|"network"|"sound"=>{

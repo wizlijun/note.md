@@ -166,6 +166,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic) BOOL detached;
 @property(nonatomic) BOOL reportingViewport;
 @property(nonatomic, copy) NSString *committed;
+@property(nonatomic, copy) NSString *draftError;
 @property(nonatomic, copy) NSString *compositionBase;
 @property(nonatomic, strong) NSMutableArray<NSDictionary *> *pending;
 @property(nonatomic, copy) NSDictionary *appearance;
@@ -177,6 +178,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (int64_t)emit:(NSString *)kind fields:(NSDictionary *)fields projection:(NSDictionary **)projection;
 - (void)transaction:(NSString *)kind fields:(NSDictionary *)fields;
 - (void)applyProjection:(NSDictionary *)projection revision:(uint64_t)revision;
+- (void)retainDraft:(NSDictionary *)projection error:(NSString *)error;
 - (void)beginComposition;
 - (void)finishComposition;
 - (void)acceptChanges;
@@ -351,6 +353,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)viewDidUnhide { [super viewDidUnhide];[self refreshTypewriterCaret:YES]; }
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selected replacementRange:(NSRange)replacement {
+    if(self.owner.draftError)return;
     self.caretInputDepth++;
     self.compositionMutationDepth++;
     [self.owner beginComposition];
@@ -370,6 +373,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 // Only an explicit panel request commits preedit. Background visibility and
 // remote updates must keep their composition barrier.
 - (BOOL)prepareForPanel {
+    if(self.owner.draftError)return NO;
     if(!self.owner.composing && !self.hasMarkedText)return YES;
     NSRange marked=self.markedRange,selection=self.selectedRange;
     NSAttributedString *preedit=self.hasMarkedText?[self.textStorage attributedSubstringFromRange:marked]:nil;
@@ -381,7 +385,8 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     self.compositionMutationDepth--;
     BOOL accepted=[self.owner acceptChangesPreservingRejectedText:YES];
     if(!accepted){
-        if(preedit){
+        if(self.owner.draftError){[self.owner finishComposition];}
+        else if(preedit){
             NSUInteger start=MIN(MAX(selection.location,marked.location),NSMaxRange(marked));
             NSRange clause=NSMakeRange(start-marked.location,MIN(selection.length,NSMaxRange(marked)-start));
             self.compositionMutationDepth++;
@@ -396,6 +401,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     return accepted && !self.hasMarkedText && !self.owner.composing;
 }
 - (void)insertText:(id)value replacementRange:(NSRange)replacement {
+    if(self.owner.draftError)return;
     self.caretInputDepth++;self.compositionMutationDepth++;
     [super insertText:value replacementRange:replacement];
     self.compositionMutationDepth--;
@@ -427,6 +433,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (BOOL)sumiCommand:(NSString *)command {
     if(!self.owner || self.owner.detached || self.owner.container.hidden)return NO;
     if(self.hasMarkedText || self.owner.composing)return YES;
+    if(self.owner.draftError && ![@[@"select_all",@"copy",@"save",@"find",@"find_next",@"find_previous",@"escape"] containsObject:command])return YES;
     if([command isEqualToString:@"select_all"]){[self selectAll:nil];return YES;}
     if([command isEqualToString:@"copy"]){[self copy:nil];return YES;}
     if([command isEqualToString:@"cut"]){[self cut:nil];return YES;}
@@ -486,7 +493,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)subscript:(id)sender { (void)sender;NSBeep(); }
 - (void)superscript:(id)sender { (void)sender;NSBeep(); }
 - (BOOL)writeMarkdownToPasteboard:(NSPasteboard *)pasteboard cut:(BOOL)cut {
-    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return NO;
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached || (cut && self.owner.draftError))return NO;
     NSMutableArray *ranges=[NSMutableArray new];
     for(NSValue *value in self.selectedRanges)if(value.rangeValue.length)[ranges addObject:SumiRange(value.rangeValue)];
     if(ranges.count==0)return NO;
@@ -503,7 +510,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)copy:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:NO]; }
 - (void)cut:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:YES]; }
 - (void)pasteFromPasteboard:(NSPasteboard *)pasteboard literal:(BOOL)literal {
-    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return;
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached || self.owner.draftError)return;
     // Prefer public plain text, including Markdown emitted by our own copy.
     // Only input formats are decoded; no attributed string enters the editor.
     NSString *text=[pasteboard stringForType:NSPasteboardTypeString];
@@ -578,7 +585,14 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSString *json=[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     char *reply=NULL;
     int64_t revision=self.callback(self.context,json.UTF8String,&reply);
-    if(reply){if(projection)*projection=SumiJSON(reply);if(self.freeReply)self.freeReply(reply);}
+    if(reply){
+        NSDictionary *value=SumiJSON(reply);
+        if(revision==-2){
+            NSDictionary *draft=[value[@"projection"] isKindOfClass:NSDictionary.class]?value[@"projection"]:nil;
+            [self retainDraft:draft error:[value[@"draft_error"] isKindOfClass:NSString.class]?value[@"draft_error"]:@"本机保存失败，草稿尚未安全保存"];
+        }else if(projection)*projection=value;
+        if(self.freeReply)self.freeReply(reply);
+    }
     return revision;
 }
 - (NSRect)rectForInsertion:(NSUInteger)index {
@@ -626,7 +640,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)viewportChanged:(NSNotification *)notification {
     (void)notification;
     [self.text refreshTypewriterCaret:NO];
-    if(self.applying || self.composing || self.detached || self.reportingViewport)return;
+    if(self.applying || self.composing || self.detached || self.reportingViewport || self.draftError)return;
     self.reportingViewport=YES;
     [self emit:@"viewport" fields:@{@"revision":@(self.revision),@"viewport":[self viewport]}];
     self.reportingViewport=NO;
@@ -639,12 +653,13 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)finishComposition {
     if(!self.composing || self.text.hasMarkedText)return;
     // Emit the single committed replacement before releasing remote updates.
-    [self acceptChanges];self.composing=NO;self.compositionBase=nil;
+    if(!self.draftError)[self acceptChanges];self.composing=NO;self.compositionBase=nil;
     [self emit:@"composition" fields:@{@"revision":@(self.revision),@"active":@NO}];
-    [self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
+    if(!self.draftError)[self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
 }
 - (void)acceptChanges { [self acceptChangesPreservingRejectedText:NO]; }
 - (BOOL)acceptChangesPreservingRejectedText:(BOOL)preserve {
+    if(self.draftError)return NO;
     NSString *after=[self.text.string copy];
     if([self.committed isEqualToString:after]){[self.pending removeAllObjects];return YES;}
     NSDictionary *delta;
@@ -663,7 +678,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         else {self.revision=(uint64_t)accepted;self.committed=after;}
     }
     else{
-        if(preserve)return NO;
+        if(preserve || self.draftError)return NO;
         self.applying=YES;
         self.text.string=self.committed;
         NSUInteger position=MIN([delta[@"range"][@"start"] unsignedIntegerValue],self.committed.length);
@@ -676,6 +691,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)replacement {
     if(self.applying)return YES;
+    if(self.draftError)return NO;
     if(!replacement)return NO; // Formatting must be a canonical document transaction.
     [self.pending addObject:@{@"range":SumiRange(range),@"replacement":replacement}];
     return YES;
@@ -687,11 +703,12 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)textViewDidChangeSelection:(NSNotification *)notification {
     [self.text refreshTypewriterCaret:YES];
-    if(self.applying || self.composing || self.pending.count>0)return;
+    if(self.applying || self.composing || self.pending.count>0 || self.draftError)return;
     [self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
 }
 - (void)action:(NSString *)action {
     if(self.composing || self.detached)return;
+    if(self.draftError && ![action isEqualToString:@"save"])return;
     [self transaction:@"action" fields:@{@"revision":@(self.revision),@"action":action,@"range":SumiRange(self.text.selectedRange)}];
 }
 - (void)transaction:(NSString *)kind fields:(NSDictionary *)fields {
@@ -700,6 +717,21 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     if(accepted>=0 && (uint64_t)accepted>=self.revision && projection)
         [self applyProjection:projection revision:(uint64_t)accepted];
 }
+- (void)retainDraft:(NSDictionary *)projection error:(NSString *)error {
+    BOOL applying=self.applying;self.applying=YES;
+    // This is a display-only draft, never a committed revision or undo edit.
+    if([projection[@"document"][@"text"] isKindOfClass:NSString.class]){
+        NSString *next=projection[@"document"][@"text"];
+        NSDictionary *delta=SumiDifference(self.text.string,next);
+        if([delta[@"range"][@"length"] unsignedIntegerValue] || [delta[@"replacement"] length])
+            [self.text.textStorage replaceCharactersInRange:SumiReadRange(delta[@"range"]) withString:delta[@"replacement"]];
+        [self refreshRuns:projection[@"document"][@"runs"] ?: @[]];
+        NSRange selection=SumiReadRange(projection[@"selection"]);
+        if(NSMaxRange(selection)<=self.text.string.length)self.text.selectedRange=selection;
+    }
+    self.draftError=error;self.text.editable=NO;self.text.selectable=YES;
+    self.applying=applying;[self.text refreshTypewriterCaret:NO];
+}
 - (void)applyProjection:(NSDictionary *)projection revision:(uint64_t)revision {
     BOOL applying=self.applying;self.applying=YES;
     NSString *next=projection[@"document"][@"text"] ?: @"";
@@ -707,6 +739,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     if([delta[@"range"][@"length"] unsignedIntegerValue] || [delta[@"replacement"] length])
         [self.text.textStorage replaceCharactersInRange:SumiReadRange(delta[@"range"]) withString:delta[@"replacement"]];
     self.revision=revision;self.committed=[next copy];
+    self.draftError=nil;self.text.editable=YES;[self.pending removeAllObjects];
     [self refreshRuns:projection[@"document"][@"runs"] ?: @[]];
     NSRange selection=SumiReadRange(projection[@"selection"]);
     if(NSMaxRange(selection)<=self.text.string.length)self.text.selectedRange=selection;
@@ -908,12 +941,14 @@ int sumi_editor_command(void *handle,const char *json){
     }
     if([command isEqualToString:@"focus"]){BOOL applying=editor.applying;editor.applying=YES;[editor.text.window makeFirstResponder:editor.text];editor.applying=applying;return 0;}
     if([command isEqualToString:@"prepare_panel"]){
+        if(editor.draftError)return 5;
         if(![editor.text prepareForPanel])return 5;
         if(editor.text.window.firstResponder==editor.text && ![editor.text.window makeFirstResponder:nil])return 5;
         editor.container.hidden=YES;SumiTypingRefresh();return 0;
     }
     if([command isEqualToString:@"set_visible"]){
-        BOOL visible=[value[@"visible"] boolValue];if(visible==!editor.container.hidden)return 0;
+        BOOL visible=[value[@"visible"] boolValue];if(!visible && editor.draftError)return 5;
+        if(visible==!editor.container.hidden)return 0;
         if(editor.composing)return 1;
         editor.container.hidden=!visible;SumiTypingRefresh();
         if(!visible && editor.text.window.firstResponder==editor.text)[editor.text.window makeFirstResponder:nil];return 0;
@@ -925,7 +960,7 @@ char *sumi_editor_inspect(void *handle){
     SumiEditor *editor=(__bridge SumiEditor *)handle;
     BOOL textkit2=NO; if(@available(macOS 12.0,*))textkit2=editor.text.textLayoutManager!=nil;
     BOOL applying=editor.applying;editor.applying=YES;NSDictionary *viewport=[editor viewport];editor.applying=applying;
-    NSDictionary *state=@{@"surface_id":editor.surfaceID,@"generation":@(editor.generation),@"revision":@(editor.revision),@"text":editor.text.string,@"selection":SumiRange(editor.text.selectedRange),@"composing":editor.composing?@YES:@NO,@"textkit2":textkit2?@YES:@NO,@"visible":editor.container.hidden?@NO:@YES,@"viewport":viewport};
+    NSDictionary *state=@{@"surface_id":editor.surfaceID,@"generation":@(editor.generation),@"revision":@(editor.revision),@"text":editor.text.string,@"selection":SumiRange(editor.text.selectedRange),@"composing":editor.composing?@YES:@NO,@"textkit2":textkit2?@YES:@NO,@"visible":editor.container.hidden?@NO:@YES,@"viewport":viewport,@"draft_error":editor.draftError ?: NSNull.null};
     NSData *data=[NSJSONSerialization dataWithJSONObject:state options:0 error:nil];
     NSString *json=[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];return strdup(json.UTF8String);
 }

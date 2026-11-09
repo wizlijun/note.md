@@ -1,4 +1,7 @@
-// Ordered host-side proxy. Native callbacks only reserve/enqueue in memory.
+// Ordered proxy: every accepted edit is journaled locally before plugin IPC.
+#[path = "journal.rs"]
+mod journal;
+use journal::Journal;
 use super::service::Backend;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -6,7 +9,7 @@ use std::{collections::VecDeque, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit, Semaphore};
 use write_core::{catalog::{DirectoryOperation, Entry}, storage::{FilePair, PendingUpdate}};
 pub use sumi_protocol::durability::{Loaded, Create, LocalEdit, Outgoing, PublishedBaseline,
-    ProjectionIdentity, DurableEvent, RecordedIncoming, IncomingReceipt, CommitReceipt};
+    ProjectionIdentity, DurableEvent, RecordedIncoming, IncomingReceipt, CommitReceipt, PageObservation};
 use sumi_protocol::durability::Request;
 type Result<T> = std::result::Result<T, String>;
 const EDIT_CAPACITY: usize = 256;
@@ -21,7 +24,7 @@ pub struct Durability {
 }
 #[derive(Clone)]
 enum Mode {
-    Remote { sender: mpsc::Sender<Job>, edits: Arc<Semaphore> },
+    Remote { sender: mpsc::Sender<Job>, edits: Arc<Semaphore>, journal: Arc<Journal> },
     #[cfg(test)]
     Local(notemd_sumi_backend::durability::Durability),
 }
@@ -48,16 +51,18 @@ impl Reply {
 /// Reserve before mutating the in-memory CRDT. Dropping an unused permit is safe.
 pub struct Permit { mode: PermitMode }
 enum PermitMode {
-    Remote { slot: mpsc::OwnedPermit<Job>, quota: OwnedSemaphorePermit },
+    Remote { slot: mpsc::OwnedPermit<Job>, quota: OwnedSemaphorePermit, journal: Arc<Journal> },
     #[cfg(test)]
     Local(notemd_sumi_backend::durability::Durability),
 }
 impl Permit {
     pub fn enqueue_local(self, edit: LocalEdit) -> Result<()> {
         match self.mode {
-            PermitMode::Remote { slot, quota } => {
-                slot.send(Job { request: Request::CommitLocal(edit), reply: None, _reservation: Some(quota) });
-                Ok(())
+            PermitMode::Remote { slot, quota, journal } => {
+                let request = Request::CommitLocal(edit);
+                journal.append_then(&request.clone(), || {
+                    slot.send(Job { request, reply: None, _reservation: Some(quota) });
+                })
             }
             #[cfg(test)]
             PermitMode::Local(worker) => worker.enqueue_local(edit),
@@ -65,10 +70,13 @@ impl Permit {
     }
     pub fn enqueue_import(self, edit: LocalEdit, observed: FilePair) -> Result<oneshot::Receiver<Result<Loaded>>> {
         match self.mode {
-            PermitMode::Remote { slot, quota } => {
+            PermitMode::Remote { slot, quota, journal } => {
                 let (sender, receiver) = oneshot::channel();
-                slot.send(Job { request:Request::ImportLocal { edit, observed }, reply:Some(Reply::Loaded(sender)), _reservation:Some(quota) });
-                Ok(receiver)
+                let request = Request::ImportLocal { edit, observed };
+                journal.append_then(&request.clone(), || {
+                    slot.send(Job { request, reply:Some(Reply::Loaded(sender)), _reservation:Some(quota) });
+                    receiver
+                })
             }
             #[cfg(test)]
             PermitMode::Local(worker) => {
@@ -80,10 +88,13 @@ impl Permit {
     }
     pub fn enqueue_remote(self, incoming: PendingUpdate, generation: u64, revision: u64) -> Result<oneshot::Receiver<Result<Loaded>>> {
         match self.mode {
-            PermitMode::Remote { slot, quota } => {
+            PermitMode::Remote { slot, quota, journal } => {
                 let (sender, receiver) = oneshot::channel();
-                slot.send(Job { request: Request::CommitRemote { incoming, generation, revision }, reply: Some(Reply::Loaded(sender)), _reservation: Some(quota) });
-                Ok(receiver)
+                let request = Request::CommitRemote { incoming, generation, revision };
+                journal.append_then(&request.clone(), || {
+                    slot.send(Job { request, reply: Some(Reply::Loaded(sender)), _reservation: Some(quota) });
+                    receiver
+                })
             }
             #[cfg(test)]
             PermitMode::Local(worker) => worker.enqueue_remote(incoming, generation, revision),
@@ -91,11 +102,17 @@ impl Permit {
     }
 }
 impl Durability {
-    pub fn from_backend(backend: Backend, notify: impl Fn(DurableEvent) + Send + Sync + 'static) -> Self {
+    pub fn from_backend(backend: Backend, journal_path: PathBuf, notify: impl Fn(DurableEvent) + Send + Sync + 'static) -> Result<Self> {
+        let journal = Arc::new(Journal::open(&journal_path)?);
+        // Recovery precedes every newly queued request, including Load/ObservePage.
+        // Failure leaves the journal intact and makes barriers fail closed.
+        let pending = journal.pending()?.into_iter().map(|request| Job {
+            request, reply: None, _reservation: None,
+        }).collect();
         let notify: Notify = Arc::new(notify);
         let (sender, receiver) = mpsc::channel(EDIT_CAPACITY);
-        tokio::spawn(run(backend, receiver, notify.clone()));
-        Self { mode: Mode::Remote { sender, edits: Arc::new(Semaphore::new(EDIT_CAPACITY)) }, notify }
+        tokio::spawn(run(backend, receiver, notify.clone(), journal.clone(), pending));
+        Ok(Self { mode: Mode::Remote { sender, edits: Arc::new(Semaphore::new(EDIT_CAPACITY)), journal }, notify })
     }
     /// Backend event ingress; caller authenticates workspace/session/instance first.
     /// No queue or document lock is held while invoking the callback.
@@ -111,14 +128,16 @@ impl Durability {
     pub(super) fn disconnected_for_test() -> Self {
         let (sender, receiver)=mpsc::channel(1);
         drop(receiver);
-        Self { mode:Mode::Remote { sender, edits:Arc::new(Semaphore::new(1)) }, notify:Arc::new(|_|{}) }
+        let directory = tempfile::tempdir().unwrap();
+        let journal = Arc::new(Journal::open(&directory.path().join("input.sqlite3")).unwrap());
+        Self { mode:Mode::Remote { sender, edits:Arc::new(Semaphore::new(1)), journal }, notify:Arc::new(|_|{}) }
     }
     pub fn try_reserve_edit(&self) -> Result<Permit> {
         match &self.mode {
-            Mode::Remote { sender, edits } => {
+            Mode::Remote { sender, edits, journal } => {
                 let quota = edits.clone().try_acquire_owned().map_err(|_| "后台保存队列已满，请等待保存恢复后继续输入".to_owned())?;
                 let slot = sender.clone().try_reserve_owned().map_err(|_| "后台保存队列繁忙或已停止，请稍后重试".to_owned())?;
-                Ok(Permit { mode: PermitMode::Remote { slot, quota } })
+                Ok(Permit { mode: PermitMode::Remote { slot, quota, journal: journal.clone() } })
             }
             #[cfg(test)]
             Mode::Local(worker) => Ok(Permit { mode: PermitMode::Local(worker.clone()) }),
@@ -130,10 +149,14 @@ impl Durability {
     }
     async fn request<T: DeserializeOwned>(&self, request: Request) -> Result<T> {
         let value = match &self.mode {
-            Mode::Remote { sender, edits } => {
+            Mode::Remote { sender, edits, journal } => {
                 let reservation = if replayable(&request) { Some(edits.clone().acquire_owned().await.map_err(|_| "保存队列已关闭".to_owned())?) } else { None };
                 let (reply, receive) = oneshot::channel();
-                sender.send(Job { request, reply: Some(Reply::Value(reply)), _reservation: reservation }).await.map_err(|_| "保存后台已停止".to_owned())?;
+                let slot = sender.reserve().await.map_err(|_| "保存后台已停止".to_owned())?;
+                let job = Job { request, reply: Some(Reply::Value(reply)), _reservation: reservation };
+                if replayable(&job.request) {
+                    journal.append_then(&job.request.clone(), || { slot.send(job); })?;
+                } else { slot.send(job); }
                 receive.await.map_err(|_| "保存后台已停止".to_owned())??
             }
             #[cfg(test)]
@@ -146,6 +169,7 @@ impl Durability {
     }
     pub async fn create(&self, request: Create) -> Result<Loaded> { self.request(Request::Create(request)).await }
     pub async fn load(&self, page_id: String) -> Result<Loaded> { self.request(Request::Load { page_id }).await }
+    pub async fn observe_page(&self, page_id: String) -> Result<PageObservation> { self.request(Request::ObservePage { page_id }).await }
     pub async fn flush(&self) -> Result<()> { self.request(Request::Flush).await }
     pub async fn list(&self) -> Result<Vec<Entry>> { self.request(Request::List).await }
     pub async fn excerpts(&self) -> Result<std::collections::HashMap<String, String>> { self.request(Request::Excerpts).await }
@@ -187,31 +211,23 @@ async fn call<T: DeserializeOwned>(backend: &Backend, request: &Request) -> Resu
         .map_err(|_| "后台保存超时，未确认修改仍保留待重试".to_owned())?
 }
 fn validate_receipt(request: &Request, receipt: &CommitReceipt) -> Result<()> {
-    let (remote, edit) = match request {
-        Request::CommitLocal(edit) | Request::ImportLocal { edit, .. } => (false, edit.clone()),
-        Request::CommitRemote { incoming, generation, revision } => (true, LocalEdit {
-            page_id:incoming.page_id.clone(), epoch:incoming.epoch, generation:*generation,
-            revision:*revision, op_id:incoming.op_id.clone(), update:incoming.update.clone(), first_write_date:None,
-        }),
-        _ => return Err("unexpected commit receipt".into()),
-    };
-    let observed = match request { Request::ImportLocal { observed, .. } => Some(observed), _=>None };
-    let expected = sumi_protocol::durability::edit_receipt(&edit, remote, observed)?;
-    if receipt != &expected { return Err("后台保存回执与待确认修改不一致".into()); }
+    if journal::receipt(request)? != *receipt { return Err("后台保存回执与待确认修改不一致".into()); }
     Ok(())
 }
-async fn execute(backend: &Backend, request: &Request, notify: &Notify) -> Result<Value> {
+async fn execute(backend: &Backend, request: &Request, notify: &Notify, journal: &Journal) -> Result<Value> {
     if matches!(request, Request::ImportLocal { .. }) {
         let imported: sumi_protocol::durability::CommittedImport = call(backend,request).await?;
         validate_receipt(request,&imported.receipt)?;
         if imported.loaded.entry.id != imported.receipt.page_id || imported.loaded.entry.epoch != imported.receipt.epoch
             || imported.loaded.revision < imported.receipt.revision { return Err("导入回执与持久快照不一致".into()); }
+        journal.acknowledge(request, &imported.receipt)?;
         notify(DurableEvent::Committed { page_id:imported.receipt.page_id, revision:imported.receipt.revision });
         return serde_json::to_value(imported.loaded).map_err(|e|e.to_string());
     }
     if matches!(request, Request::CommitLocal(_) | Request::CommitRemote { .. }) {
         let receipt: CommitReceipt = call(backend, request).await?;
         validate_receipt(request, &receipt)?;
+        journal.acknowledge(request, &receipt)?;
         notify(DurableEvent::Committed { page_id:receipt.page_id.clone(), revision:receipt.revision });
         if matches!(request, Request::CommitRemote { .. }) {
             return call(backend, &Request::Load { page_id:receipt.page_id }).await;
@@ -220,8 +236,7 @@ async fn execute(backend: &Backend, request: &Request, notify: &Notify) -> Resul
     }
     call(backend, request).await
 }
-async fn run(backend: Backend, mut receiver: mpsc::Receiver<Job>, notify: Notify) {
-    let mut pending = VecDeque::<Job>::new();
+async fn run(backend: Backend, mut receiver: mpsc::Receiver<Job>, notify: Notify, journal: Arc<Journal>, mut pending: VecDeque<Job>) {
     let mut failure: Option<(String,tokio::time::Instant)> = None;
     loop {
         if let Some((error,retry_at)) = &failure {
@@ -236,7 +251,8 @@ async fn run(backend: Backend, mut receiver: mpsc::Receiver<Job>, notify: Notify
                     Some(job) => { pending.push_back(job); }
                     None => {
                         // All owners released the proxy. Normal close must have
-                        // completed its barrier; do not leak an eternal retry task.
+                        // completed its barrier. Unacknowledged edits remain on disk
+                        // for the next host even when this retry task is released.
                         for job in &pending { if let Some((page_id,revision))=edit_identity(&job.request) {
                             notify(DurableEvent::Failed {page_id:page_id.into(),revision,error:"保存代理已关闭，未确认修改未获持久回执".into()});
                         }}
@@ -249,7 +265,7 @@ async fn run(backend: Backend, mut receiver: mpsc::Receiver<Job>, notify: Notify
         let Some(mut job) = pending.pop_front().or_else(|| receiver.try_recv().ok()) else {
             match receiver.recv().await { Some(job) => { pending.push_back(job); continue; }, None => break }
         };
-        match execute(&backend, &job.request, &notify).await {
+        match execute(&backend, &job.request, &notify, &journal).await {
             Ok(value) => { if let Some(reply) = job.reply.take() { reply.send(Ok(value)); } }
             Err(error) => {
                 if let Some((page_id, revision)) = edit_identity(&job.request) {

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi local writing safety.** Reopen and continue locally saved drafts when Markdown or line-time files are missing, stale or conflicting. Confirmed input now has a durable local replay journal; failed writes retain a copyable draft for retry, and changed external files remain protected.
+
 - **Sumi fullscreen shortcut:** press Cmd/Win/Super+Enter to enter or leave fullscreen. Command+keypad Enter also works in the macOS native editor; Control-Command-F remains available. Held-key repeats do not retrigger, and composition stays with the input method.
 
 

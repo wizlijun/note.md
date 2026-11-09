@@ -1,0 +1,111 @@
+{
+  "scope": "isolated synthetic Vault only; no recovery prose or production database included",
+  "base": "b38dc722e6ab0e455147b07c39a972da297a9242",
+  "status": "working tree validation, not release proof",
+  "source_sha256": {
+    "plugins-src/write/backend/src/durability.rs": "3504160555422e7baf99cfa831eaf7ac092d32ffe008d03b2d5d89468de74113",
+    "plugins-src/write/backend/src/durability_rpc.rs": "09242c7a04a78ced9091367cfac81c0bbc637652a1759c1417cccdaed129505b",
+    "plugins-src/write/backend/src/lib.rs": "9c49d90f1a7f5c8d8cb2a4cc0bdacd306474aa841014ff45d37be0568076ace8",
+    "plugins-src/write/backend/src/runtime.rs": "a910dc997c15b8300e4649cdfa993ba34e445d2fae8faa366bab9a3765b74c95",
+    "plugins-src/write/backend/tests/stdio.rs": "2ca17a299f601becea34db0a8fea9e36458653efac9008098d9fcc89d9b35a2a",
+    "scripts/sumi/verify-release.py": "2393f4276d286f0cf2e76995824cdd40c630c5e34d750997a16ee3362ab83856",
+    "src-tauri/src/sumi/durability.rs": "32aceeff6116521014259a555d5e20684679978612a5eaa8c66af55c5075d52b",
+    "src-tauri/src/sumi/journal.rs": "0614aec536096377d02983de9954b2778bf78de86a087c8c8d746309fde3b54c",
+    "src-tauri/src/sumi/mod.rs": "2a321f62f40a7360a64772533d9376ef94436a7f2ac1bf1cb454b097ee8c71c7",
+    "src-tauri/src/sumi/service.rs": "d58c67c7e7ff3b92926c02b1a8a0ea7d280b649b81a502f1e05e85a4d9620643",
+    "sumi-protocol/src/durability.rs": "25f381fdbb78a6616dc488793fb82f56674e112b1bec47b9a1c10e0882a4d50d",
+    "sumi-protocol/src/lib.rs": "ec60bb0294480049fc78b6970bd72a762d7384a37991bd5696d0d6a4b31ba653",
+    "sumi-protocol/src/service.rs": "daf5492bacfae6964d3c448d78b71409b53f1d80501ae68737cda8985a99a065",
+    "tauri-plugin-native-editor/native/draft-probe.m": "21259fa670a81f33a126f9e03d0d32ca4ec5f958986de4e292a3e624419fd3d4",
+    "tauri-plugin-native-editor/native/editor.h": "13916fb953578eb366fc9f0bdaea68e06c7e52cb707e9ebb49b7e696e3750cb2",
+    "tauri-plugin-native-editor/native/editor.m": "914bb7b498c6dfb55ccfe6073be5eefe46b029f2f093ecb90e3cf725deb05461",
+    "tauri-plugin-native-editor/src/lib.rs": "affeeade8cc750699c0b3625cac209ead022fbfd840742f30c9ab8a11734d360",
+    "tauri-plugin-native-editor/src/platform.rs": "d98b76b29ae9e23d76fdab77d44fd66583809aabc7283d24bc857dc2e1b38ccc",
+    "write-core/src/storage.rs": "f3e17d1cca22f84ffd8f2555559799df6ad80df0be2b2118b58123c39fd4cc4b"
+  },
+  "host_tests": {
+    "command": "CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 cargo +1.99.0 test --manifest-path src-tauri/Cargo.toml --lib sumi:: -- --test-threads=1",
+    "passed": 78,
+    "failed": 0,
+    "ignored": 4,
+    "log_sha256": "11ccac8b8e9def9c14cfb6a623f704b1e1ee9b8f424657cd06964bb5b7859bb1"
+  },
+  "limits": [
+    "SIGKILL recovery is not a physical power-cut experiment",
+    "Native AppKit probes are isolated; signed full app not yet accepted",
+    "Input journal latency excludes rendering, IPC, log deletion, and lock contention"
+  ],
+  "backend_and_core_checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "plugins-src/write/backend/Cargo.toml",
+        "--lib",
+        "--test",
+        "stdio"
+      ],
+      "log": "final-backend-review.log",
+      "exitCode": 0,
+      "sha256": "48859ec6d2b4f3807ab5e8c5ee86f86eca49c9fe7d6ce10b2dddeebab06e9262",
+      "results": [
+        "test result: ok. 104 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 3.84s",
+        "test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.74s"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "plugins-src/write/backend/Cargo.toml",
+        "--test",
+        "stdio",
+        "real_legacy_hello",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "log": "final-legacy-capability-review.log",
+      "exitCode": 0,
+      "sha256": "c179b551627a1077093c3b82da5350d6622a681b1470fe41987137bac2b0da82",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.01s"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "write-core/Cargo.toml"
+      ],
+      "log": "final-write-core-review.log",
+      "exitCode": 0,
+      "sha256": "2e630bbc2dfe14f3bedcab66a013761e4431c10778da5f1e6e1c2e4a9574a976",
+      "results": [
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    }
+  ],
+  "backend_and_core_sources_stable_during_tests": true,
+  "actual_host_process": {
+    "passed": 1,
+    "failed": 0,
+    "isolated_vault": true,
+    "signed_release_binary": false,
+    "log_sha256": "b7f8e76ca6f2081417b486cb46eb135d8c91154ab4da40ebd97ee63ad199eaaa"
+  }
+}

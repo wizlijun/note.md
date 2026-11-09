@@ -265,6 +265,10 @@ impl Store {
         connection
             .pragma_update(None, "synchronous", "FULL")
             .map_err(db)?;
+        // A backend receipt lets the host retire its input journal. On macOS,
+        // flush the device cache too, not only the OS buffers, before that ACK.
+        connection.pragma_update(None, "fullfsync", true).map_err(db)?;
+        connection.pragma_update(None, "checkpoint_fullfsync", true).map_err(db)?;
         connection.execute_batch("CREATE TABLE IF NOT EXISTS documents(page_id TEXT PRIMARY KEY,epoch INTEGER NOT NULL,state BLOB NOT NULL,revision INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS outbox(op_id TEXT PRIMARY KEY,page_id TEXT NOT NULL,epoch INTEGER NOT NULL,update_blob BLOB NOT NULL); CREATE TABLE IF NOT EXISTS inbox(op_id TEXT PRIMARY KEY,page_id TEXT NOT NULL,epoch INTEGER NOT NULL,update_blob BLOB NOT NULL,applied INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS projections(page_id TEXT PRIMARY KEY,markdown TEXT NOT NULL,metadata TEXT NOT NULL,complete INTEGER NOT NULL DEFAULT 0);").map_err(db)?;
         connection.execute_batch("CREATE TABLE IF NOT EXISTS document_deltas(page_id TEXT NOT NULL,epoch INTEGER NOT NULL,revision INTEGER NOT NULL,op_id TEXT NOT NULL UNIQUE,update_blob BLOB NOT NULL,PRIMARY KEY(page_id,revision)) WITHOUT ROWID;").map_err(db)?;
         Ok(Self { connection })

@@ -213,6 +213,8 @@ pub struct EventReply {
     pub revision: u64,
     pub projection: Option<Projection>,
     pub clipboard_text: Option<String>,
+    /// Retain the supplied draft without acknowledging its revision.
+    pub draft_error: Option<String>,
 }
 impl From<u64> for EventReply {
     fn from(revision: u64) -> Self {
@@ -220,12 +222,16 @@ impl From<u64> for EventReply {
             revision,
             projection: None,
             clipboard_text: None,
+            draft_error: None,
         }
     }
 }
 /// Accept Edit/Action/Paste/Clipboard synchronously; return the accepted revision and any
-/// rich projection in the same reply. Queue persistence; never reenter AppKit or
-/// perform synchronous I/O here. Selection/composition replies do not mutate text.
+/// rich projection in the same reply. A positive edit ACK requires a synchronous
+/// durable host-journal commit; never reenter AppKit here. On journal failure,
+/// return draft_error plus the current projection to retain a read-only draft
+/// without advancing the native accepted revision. Selection/composition replies
+/// do not mutate text.
 pub type EventHandler = Arc<dyn Fn(NativeEvent) -> Result<EventReply, String> + Send + Sync>;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SurfaceState {
@@ -498,20 +504,36 @@ pub async fn command<R: Runtime>(
     generation: u64,
     command: SurfaceCommand,
 ) -> Result<(), String> {
+    command_and_then(window, surface_id, generation, command, || Ok(())).await
+}
+/// Complete host state reconciliation in the same main-thread turn as the native
+/// command. No input can enter between successful ApplyDocument and `complete`.
+/// On validation or native command failure, `complete` is never invoked.
+pub async fn command_and_then<R: Runtime, T: Send + 'static>(
+    window: &WebviewWindow<R>,
+    surface_id: String,
+    generation: u64,
+    command: SurfaceCommand,
+    complete: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
     validate_command(&command)?;
     #[cfg(target_os = "macos")]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
-            platform::command(&label, &surface_id, generation, command)
-        })
-        .await
+            complete_command(platform::command(&label, &surface_id, generation, command), complete)
+        }).await
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (window, surface_id, generation, command);
+        let _ = (window, surface_id, generation, command, complete);
         Err("native editor is not supported on this platform".into())
     }
+}
+#[cfg(any(target_os = "macos", test))]
+fn complete_command<T>(result: Result<(), String>, complete: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    result?;
+    complete()
 }
 pub async fn inspect<R: Runtime>(
     window: &WebviewWindow<R>,
@@ -617,6 +639,19 @@ mod platform;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn draft_reconciliation_runs_only_after_command_success_before_next_input() {
+        let protected = std::cell::Cell::new(true);
+        assert!(complete_command(Err("stale native revision".into()), || { protected.set(false); Ok(()) }).is_err());
+        assert!(protected.get(), "failed native apply must retain host protection");
+        let order = std::cell::RefCell::new(Vec::new());
+        let command_result = { order.borrow_mut().push("native applied"); Ok(()) };
+        complete_command(command_result, || { order.borrow_mut().push("host reconciled"); protected.set(false); Ok(()) }).unwrap();
+        order.borrow_mut().push("next input");
+        assert!(!protected.get());
+        assert_eq!(*order.borrow(), ["native applied", "host reconciled", "next input"]);
+    }
+
     #[test]
     fn typing_sound_wire_contains_only_surface_identity_and_role() {
         let roles = [TypingSoundRole::Key, TypingSoundRole::Space, TypingSoundRole::Enter, TypingSoundRole::Delete, TypingSoundRole::Modifier, TypingSoundRole::KeyUp, TypingSoundRole::SpaceUp, TypingSoundRole::Stop];
