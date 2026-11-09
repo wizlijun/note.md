@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "at": "2026-11-09T19:08:44.751738+00:00",
+  "readOnly": true,
+  "sourceCommit": "183b636b05bcf1440e2b8626f28629ce44b78863",
+  "publisherSha256": "417954433b7aed3bdeb929cf2cf42f803634a05980744cc37d69e45a00e86226",
+  "beforeCount": 307,
+  "afterCount": 308,
+  "onlyAdded": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "min_host": ">=6.1110.1",
+      "archs": [
+        "aarch64-apple-darwin"
+      ],
+      "size": 2465981,
+      "sha256": {
+        "aarch64-apple-darwin": "b4a1614ef3c934ba8842ab94f69369102b7f0cb33eab2eec89084de5746fcf3a"
+      },
+      "name": "Sumi Typewriter",
+      "category": "experience",
+      "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "玄霜打字机",
+          "description": "玄霜打字机，一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "玄霜打字机",
+            "read-writing": "玄霜打字机"
+          },
+          "windows": {
+            "main": "玄霜打字机"
+          }
+        },
+        "en": {
+          "name": "Sumi Typewriter",
+          "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
+          "menus": {
+            "open": "Sumi Typewriter",
+            "read-writing": "Sumi Typewriter"
+          },
+          "windows": {
+            "main": "Sumi Typewriter"
+          }
+        },
+        "ja": {
+          "name": "すみ",
+          "description": "すみは、静かに書くためのタイプライターアプリです。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+          "menus": {
+            "open": "すみ",
+            "read-writing": "すみ"
+          },
+          "windows": {
+            "main": "すみ"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.10/aarch64-apple-darwin"
+      }
+    }
+  ],
+  "historicalEntriesUnchanged": true,
+  "kvNormalFreshExactlyEqualCandidate": true,
+  "newVersionsMatchFrozenPackages": true,
+  "compatibleMinimumHost": ">=6.1110.1",
+  "publisherFullPackageEvidence": "plugins-public-packages.json",
+  "preservedFullObjects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "b4a1614ef3c934ba8842ab94f69369102b7f0cb33eab2eec89084de5746fcf3a",
+      "bytes": 2465981,
+      "preservedPath": "plugins-public/notemd.sumi/normal/aarch64-apple-darwin.notemdpkg"
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "54842fb645357e98d4507e6e32fcbcad9c6c24ad10e1afbe656c545bfa5045af",
+      "bytes": 325,
+      "preservedPath": "plugins-public/notemd.sumi/normal/aarch64-apple-darwin.notemdpkg.minisig"
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "b4a1614ef3c934ba8842ab94f69369102b7f0cb33eab2eec89084de5746fcf3a",
+      "bytes": 2465981,
+      "preservedPath": "plugins-public/notemd.sumi/fresh/aarch64-apple-darwin.notemdpkg"
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "54842fb645357e98d4507e6e32fcbcad9c6c24ad10e1afbe656c545bfa5045af",
+      "bytes": 325,
+      "preservedPath": "plugins-public/notemd.sumi/fresh/aarch64-apple-darwin.notemdpkg.minisig"
+    }
+  ],
+  "preservedFullPackageSignaturesAndZipInventoriesRecheckedLocally": true,
+  "postPublicationNetworkPackageDownloadsPerformed": false,
+  "boundary": "Original publisher performed complete normal/fresh package and signature readback before index publication. This independent post-publication audit rechecks all four preserved objects against frozen bytes, hashes, signatures and ZIP inventory, then reads authoritative KV and normal/fresh public indices. No independent pre-publication readback is claimed."
+}

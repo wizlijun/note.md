@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "signatures_valid": true,
+  "objects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "b4a1614ef3c934ba8842ab94f69369102b7f0cb33eab2eec89084de5746fcf3a",
+      "bytes": 2465981
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "54842fb645357e98d4507e6e32fcbcad9c6c24ad10e1afbe656c545bfa5045af",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "b4a1614ef3c934ba8842ab94f69369102b7f0cb33eab2eec89084de5746fcf3a",
+      "bytes": 2465981
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.10",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "54842fb645357e98d4507e6e32fcbcad9c6c24ad10e1afbe656c545bfa5045af",
+      "bytes": 325
+    }
+  ]
+}

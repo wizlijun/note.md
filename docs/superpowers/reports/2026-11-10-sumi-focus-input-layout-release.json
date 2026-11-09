@@ -1,0 +1,138 @@
+{
+  "at": "2026-11-09T19:09:01.490608+00:00",
+  "ok": true,
+  "published": true,
+  "scope": "macOS Apple Silicon host and matching Sumi package only",
+  "preparedSource": "183b636b05bcf1440e2b8626f28629ce44b78863",
+  "implementationCommits": [
+    "232dbe14628f3b94c6d6b69e7687399a93c7c3a2",
+    "f20d5797f7b87591b9e8c78abeaffa7348c85370"
+  ],
+  "releaseTag": "v6.1110.1",
+  "releaseCommit": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+  "host": {
+    "version": "6.1110.1",
+    "architecture": "arm64",
+    "releaseUrl": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.1",
+    "dmgBytes": 14299539,
+    "dmgSha256": "c4ef1c0979c931d3693f9a74e2620702416da5bf8404e2ec2d6116d366f1dc14",
+    "appleAppJob": "38fed954-d556-4cf8-9a90-dbca4c64d6b1",
+    "appleDmgJob": "f9a8e71a-b7c1-4369-9de4-42545379a42b",
+    "wholeDraftAndAnonymousPublicAssetsVerified": 4,
+    "actualConfiguredUpdaterVerified": true,
+    "newNativeClassesAndInputSelectorVerifiedInActualMachO": true
+  },
+  "plugin": {
+    "id": "notemd.sumi",
+    "version": "0.1.10",
+    "architecture": "aarch64-apple-darwin",
+    "minimumHost": ">=6.1110.1",
+    "bytes": 2465981,
+    "sha256": "b4a1614ef3c934ba8842ab94f69369102b7f0cb33eab2eec89084de5746fcf3a",
+    "appleBackendJob": "ec8acd1d-ed95-4d93-9b07-873762a8ef9e",
+    "marketBefore": 307,
+    "marketAfter": 308,
+    "historyPreserved": true,
+    "fullPublicPackageAndSignatureVerifiedNormalAndFresh": true,
+    "independentKvNormalFreshRechecked": true,
+    "noBundledLargeFonts": true
+  },
+  "validation": {
+    "input": 117,
+    "returnLayout": 49552,
+    "canonicalProjectionReplies": 560,
+    "bitmapInkChecks": 20,
+    "existingFocus": 3932,
+    "nativeRegressionGroups": 10,
+    "raster": 56,
+    "pluginUi": 101,
+    "hostFrontendSuites": 427,
+    "hostFrontendTests": 5551,
+    "signedPackageStdio": 2,
+    "journalCrashReplay": 13,
+    "signedHostProxy": 1,
+    "actualFinalEngineScreen": true,
+    "physicalImeCandidateWindow": false
+  },
+  "boundaries": {
+    "formalVaultEdited": false,
+    "localInstallationOrUpgradeClaimed": false,
+    "physicalImeCandidateWindowNotVerified": true,
+    "callbackPreeditCommitCancelAndCandidateRectVerified": true,
+    "otherPlatformsReleased": false,
+    "appTemporaryArchiveHashIndependentlyVerified": false,
+    "appIdentityIndependentlyBoundByAppleCdHash": true
+  },
+  "dataSafety": {
+    "protectedFilesUnchanged": 65,
+    "rootOriginalFilesPreserved": 19,
+    "repositoryAndWorktreeInventory": 15
+  },
+  "implementationEvidence": "2026-11-10-sumi-focus-input-layout-validation.json",
+  "evidence": {
+    "artifact-verification.json": {
+      "sha256": "a7158575072ee9d14af11b6e47c1d562ff5ff3d5ba9c9c5c566d90a81aca0148",
+      "bytes": 135520
+    },
+    "frozen-inputs.json": {
+      "sha256": "1354eaf91aa2b978936fbf036b85f4cc3afc90fb97af2db6b0f2b0172f065d56",
+      "bytes": 20847
+    },
+    "frozen-plugin-packages.json": {
+      "sha256": "e905fed8d5886c744b373c4853f1fbada13c20af3e3fc66e44f7689e961965bc",
+      "bytes": 7269
+    },
+    "actual-native-process-probe.json": {
+      "sha256": "9566e21673e569cf6583cd2a9c2537360e4688d4d497d7ead432d68cecb150b2",
+      "bytes": 4956
+    },
+    "scope-audit-final-tag.json": {
+      "sha256": "06d8c9ff58167f14fc08f9b9b008f763d245cfdd4963ac01bad141d0851c231d",
+      "bytes": 28638
+    },
+    "host-apple-notary-binding.json": {
+      "sha256": "ebfe523d4bd8f9833bffe52f244b62bcc02c671f4e3907423724efeb6ed6a988",
+      "bytes": 2610
+    },
+    "host-app-apple-notary-log.json": {
+      "sha256": "5dba905d6a8dda24b1170e91671a671321c21d672de1f6567f2e63cab057d771",
+      "bytes": 736
+    },
+    "host-dmg-apple-notary-log.json": {
+      "sha256": "92aa5edb4df8f4b55d3f9b549acfe1bec21138de14678c64d95ad832e362e2f8",
+      "bytes": 941
+    },
+    "draft-assets-verification.json": {
+      "sha256": "62ebe392f084adb0fb204814c1824d1fc48fed2079e2dc3b1300e94b63c16075",
+      "bytes": 2370
+    },
+    "public-host-full-rest-verification.json": {
+      "sha256": "e40f7ab919da4337a7199078666e9c33217e2de6cb5857fff236048c79a93310",
+      "bytes": 10953
+    },
+    "actual-updater-endpoints.json": {
+      "sha256": "3ad01fb420d108d8b727926bce6c9936756e2b2c8343b18ee5e0ebce18fbab8c",
+      "bytes": 838
+    },
+    "plugins-public-packages.json": {
+      "sha256": "f4bf5e2920055cc24099b2bc36e0ae5ca486f345db09005b5326c697d055631f",
+      "bytes": 1054
+    },
+    "plugins-index-verification.json": {
+      "sha256": "cd484298c06601d5df444fcb3ab3e5c214cc5c870f8b62831654133e1adab88a",
+      "bytes": 2139
+    },
+    "plugins-market-independent-verification.json": {
+      "sha256": "5d96c16f54ff39460d7c675b092803b3ab1f5afa1b8538f9d845a078296bd2ff",
+      "bytes": 4366
+    },
+    "actual-host-native-feature-markers.json": {
+      "sha256": "29b31d513030ad3fa6ef7a48b9098728bff3e6baf93c2070882e109b62052b07",
+      "bytes": 931
+    },
+    "host-release-result.json": {
+      "sha256": "6a28e19da61f813640a5bca3a3e571e8d7f03d65d889ac85a076b7aa5feaf3cb",
+      "bytes": 621
+    }
+  }
+}

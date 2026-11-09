@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "at": "2026-11-09T18:58:48.145457+00:00",
+  "hostVersion": "6.1110.1",
+  "currentBinarySha256": "46ea1426755dd517c9424835b516cd663a65b684598e6aac5de2eb13c4dc3da9",
+  "baselineBinarySha256": "b67f8d77d8f515ab318471cb97ff0f7ea00707e141d65d9025fea658f8cb98fe",
+  "markers": {
+    "SumiFocusTile": {
+      "current": true,
+      "baseline": false
+    },
+    "finishFocusInputMutation:": {
+      "current": true,
+      "baseline": false
+    }
+  },
+  "engineSourceSha256": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3"
+  },
+  "scope": "Actual signed release Mach-O contains the new focus tile class and first input mutation selector absent from preserved6.1109.4. Complements source/build and true-screen semantic acceptance; not by itself runtime behavior proof.",
+  "publicationPending": true
+}
