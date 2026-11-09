@@ -305,12 +305,18 @@ describe('Sumi native writing shell', () => {
     expect(request).toHaveBeenCalledWith('host.sumi.pair', { serviceUrl: 'https://sumi.example.test', invitation })
     expect(document.getElementById('panel')!.hidden).toBe(true)
   })
-  it.each([['zh', '聚焦打字'], ['en', 'Focused typing'], ['ja', '集中タイピング']])('enables focused typing by default with a %s label', async (locale, label) => {
+  it.each([
+    ['zh', '聚焦打字', '连续打字时当前行居中，上下文字渐隐；停笔10秒后全文逐渐显现，再次打字快速恢复聚焦。字号与行距不变。'],
+    ['en', 'Focused typing', 'While typing continuously, the current line stays centered and surrounding text fades. After 10 seconds without typing, all text gradually reappears. Resuming typing quickly restores focus. Font size and line spacing stay unchanged.'],
+    ['ja', '集中タイピング', '続けて入力すると現在の行が中央に固定され、上下の文字が薄くなります。10秒入力しないと全文がゆっくり表示され、入力を再開すると素早く集中表示に戻ります。文字サイズと行間は変わりません。'],
+  ])('enables focused typing by default with a %s label and centered fading description', async (locale, label, hint) => {
     await setup(state(), undefined, locale)
     document.getElementById('appearance')!.click(); await settle()
     const input = document.querySelector<HTMLInputElement>('input[name="focusTyping"]')!
     expect(input.checked).toBe(true)
     expect(input.closest('label')!.textContent).toBe(label)
+    expect(input.getAttribute('aria-describedby')).toBe('focus-typing-hint')
+    expect(document.getElementById('focus-typing-hint')!.textContent).toBe(hint)
   })
   it.each([true, false])('restores focused typing %s and saves its opposite without resetting appearance or sounds', async focusTyping => {
     const preferences = { ...defaultPreferences, focusTyping, theme: 'sepia' as const, fontFamily: 'Sumi Youcha', fontSize: 32, lineHeight: 1.8, maxColumns: 64, bottomInset: 40, caretMotion: 'steady' as const }

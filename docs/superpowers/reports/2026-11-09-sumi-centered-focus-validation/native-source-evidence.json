@@ -1,0 +1,99 @@
+{
+  "ok": true,
+  "at": "2026-11-09T14:05:09.058045+00:00",
+  "sourceHashes": {
+    "focus.h": "08b1e66198be68bc3f2a55db864fbfe17ed9eaa9f106da89c11571d2567a0af2",
+    "editor.m": "ce2d2a028cb533ca3873abe5ea0e0ac50970136de06c1c8a78597a6a6874efa7",
+    "focus-probe.m": "38b28192508cfc7eab935370bb6bc666402438b3419d9041fb41af4696cce714",
+    "focus-interactive-probe.m": "eb71cc1655843bd13c873b02a06dfb140f2ee008e176120426cd0c2d4c53d42f"
+  },
+  "checks": 1930,
+  "fontPresets": 6,
+  "themes": 6,
+  "sizes": [
+    14,
+    22,
+    46
+  ],
+  "regressions": [
+    {
+      "probe": "focus",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "caret",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "draft",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "panel",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "clipboard",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "shortcuts",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "unicode",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "position",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "locale",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "padding",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "typewriter",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    }
+  ],
+  "interactiveApp": "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/native-evidence/idle-final-repeat/Sumi Native Probe.app",
+  "interactiveBinarySha256": "742e3568cbc79ac736ea718cb49d1ca5cf9e8715f338ff30cdb3e0fc9f79aaca",
+  "interactiveStarted": false,
+  "noFormalVaultAccess": true,
+  "timings": {
+    "idleSeconds": 10,
+    "idleFadeSeconds": 1.2,
+    "entryAndResumeSeconds": 0.2
+  },
+  "timers": "Real NSTimer callbacks; only probe view lastActivity/fireDate moved, production threshold unchanged",
+  "reduceMotion": "Spatial progress jumps to1; actual alpha intermediate states measured with query returning true",
+  "caret": "Breathing phase, opacity and frame independent of alpha strength",
+  "repeat": "Six actual keyDown repeats in reading never enter focus; actual focused repeat refreshes activity/refocus and inserts exactly one character; unmodified repeat observation cannot refresh"
+}

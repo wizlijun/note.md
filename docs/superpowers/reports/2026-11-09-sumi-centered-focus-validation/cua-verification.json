@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "at": "2026-11-09T14:15:05.115024+00:00",
+  "binarySha256": "742e3568cbc79ac736ea718cb49d1ca5cf9e8715f338ff30cdb3e0fc9f79aaca",
+  "sourceHashes": {
+    "focus.h": "08b1e66198be68bc3f2a55db864fbfe17ed9eaa9f106da89c11571d2567a0af2",
+    "editor.m": "ce2d2a028cb533ca3873abe5ea0e0ac50970136de06c1c8a78597a6a6874efa7",
+    "focus-probe.m": "38b28192508cfc7eab935370bb6bc666402438b3419d9041fb41af4696cce714",
+    "focus-interactive-probe.m": "eb71cc1655843bd13c873b02a06dfb140f2ee008e176120426cd0c2d4c53d42f"
+  },
+  "syntheticParagraphs": 3,
+  "checks": [
+    "four actual keys enter centered fading",
+    "real 12s pause reaches full opacity without moving current line",
+    "one actual key restores fading within completed 200ms target",
+    "click current drawn row then x preserves all paragraphs",
+    "Return+abcdefgh keeps current row centered",
+    "short physical drag selects exactly ab as observed AX selection",
+    "z replaces only selected ab -> zcdefghcdeof; paragraph count remains3 and prior abx retained",
+    "CmdQ and CUA process inventory confirm probe exit"
+  ],
+  "systemReduceMotion": true,
+  "formalVaultAccess": false,
+  "boundary": "CUA observed actual end states; actual 1.2s/200ms intermediate states and caret pixel invariance separately verified by native timer/raster probe. No physical IME or full host GUI acceptance claimed."
+}

@@ -152,6 +152,8 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (BOOL)focusEnabled;
 - (void)stopFocusTyping;
 - (void)recordFocusInputAt:(CFTimeInterval)time;
+- (void)animateFocusStrength:(CGFloat)strength duration:(NSTimeInterval)duration;
+- (void)scheduleFocusIdle;
 - (void)updateFocusRows;
 - (NSRect)focusRect:(NSRect)rect;
 - (NSPoint)focusOriginalPoint:(NSPoint)point;
@@ -442,7 +444,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)keyDown:(NSEvent *)event {
     BOOL navigation=event.keyCode==123 || event.keyCode==124 || event.keyCode==125 || event.keyCode==126 || event.keyCode==115 || event.keyCode==119 || event.keyCode==116 || event.keyCode==121 || event.keyCode==53;
-    BOOL typing=!navigation && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) && !event.isARepeat;
+    BOOL typing=!navigation && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) && (!event.isARepeat || self.focusView!=nil);
     if((navigation && !self.hasMarkedText) || (event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) || (!self.hasMarkedText && self.selectedRange.length))[self stopFocusTyping];
     self.focusInputChanged=NO;self.focusKeyDepth++;self.caretInputDepth++;[super keyDown:event];self.caretInputDepth--;self.focusKeyDepth--;
     if(typing && self.focusInputChanged)[self recordFocusEvent:event];
@@ -471,7 +473,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     // Keep both the paper and its hit coordinates fixed for the entire gesture.
     // Exiting on mouseDown would interpret the next dragged event in a different
     // layout and can select whole paragraphs instead of the visible few letters.
-    self.focusTracking=YES;[self.focusView.timer invalidate];self.focusView.timer=nil;
+    self.focusTracking=YES;[self.focusView.timer invalidate];self.focusView.timer=nil;[self.focusView.idleTimer invalidate];self.focusView.idleTimer=nil;
     NSRange selection=extending?NSMakeRange(MIN(anchor,index),MAX(anchor,index)-MIN(anchor,index)):hit;
     [self setSelectedRange:selection affinity:NSSelectionAffinityDownstream stillSelecting:YES];
     self.focusView.needsDisplay=YES;

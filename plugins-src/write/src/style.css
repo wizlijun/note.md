@@ -51,3 +51,4 @@ form .font-option { display:grid; gap:5px; width:100%; text-align:left; padding:
 .sound-settings p { margin:0; font-size:12px; opacity:.7; line-height:1.5; overflow-wrap:anywhere }
 .sound-toggle,.focus-toggle { display:flex; align-items:center; gap:8px }
 .sound-toggle input,.focus-toggle input { width:auto; accent-color:var(--ink) }
+#focus-typing-hint { margin:0; font-size:12px; opacity:.7; line-height:1.5 }

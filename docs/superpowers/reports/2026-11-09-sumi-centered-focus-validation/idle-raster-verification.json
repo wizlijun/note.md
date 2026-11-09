@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "method": "Actual unedited AppKit PNG pixel comparison",
+  "rows": [
+    {
+      "heightFraction": 0.15,
+      "opaqueMaxChannel": 213,
+      "focusedMaxChannel": 21,
+      "identicalPixels": false
+    },
+    {
+      "heightFraction": 0.3,
+      "opaqueMaxChannel": 213,
+      "focusedMaxChannel": 41,
+      "identicalPixels": false
+    },
+    {
+      "heightFraction": 0.5,
+      "opaqueMaxChannel": 213,
+      "focusedMaxChannel": 213,
+      "identicalPixels": true
+    },
+    {
+      "heightFraction": 0.7,
+      "opaqueMaxChannel": 213,
+      "focusedMaxChannel": 46,
+      "identicalPixels": false
+    },
+    {
+      "heightFraction": 0.85,
+      "opaqueMaxChannel": 213,
+      "focusedMaxChannel": 21,
+      "identicalPixels": false
+    }
+  ],
+  "centerBandPixelIdentical": true
+}

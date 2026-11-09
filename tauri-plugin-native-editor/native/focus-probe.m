@@ -10,12 +10,13 @@ static NSMutableArray *events;
 static NSUInteger checks;
 static NSInteger rejectEdit;
 static BOOL probeMotionEnabled(id receiver,SEL selector){(void)receiver;(void)selector;return NO;}
+static BOOL probeMotionReduced(id receiver,SEL selector){(void)receiver;(void)selector;return YES;}
 static void require(BOOL ok,NSString *message){checks++;if(!ok){fprintf(stderr,"FAIL: %s\n",message.UTF8String);exit(1);}}
 static int64_t receive(void *ctx,const char *json,char **reply){(void)ctx;(void)reply;NSDictionary *event=SumiJSON(json);[events addObject:event];if(rejectEdit && [event[@"kind"] isEqual:@"edit"]){NSInteger code=rejectEdit;rejectEdit=0;if(code==-2)*reply=strdup("{\"draft_error\":\"synthetic journal failure\"}");return code;}return [event[@"kind"] isEqual:@"edit"]?[event[@"base_revision"] longLongValue]+1:[event[@"revision"] longLongValue];}
 static void replyFree(char *value){free(value);}
 static NSEvent *key(NSWindow *window,NSString *text,unsigned short code){return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:text charactersIgnoringModifiers:text isARepeat:NO keyCode:code];}
 static void capture(NSView *view,NSString *path){[view layoutSubtreeIfNeeded];NSBitmapImageRep *bitmap=[view bitmapImageRepForCachingDisplayInRect:view.bounds];[view cacheDisplayInRect:view.bounds toBitmapImageRep:bitmap];[[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:path atomically:YES];}
-int main(int argc,const char **argv){@autoreleasepool{
+int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*)){
     [NSApplication sharedApplication];events=[NSMutableArray new];
     BOOL systemReduceMotion=NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion;
     Method motionMethod=class_getInstanceMethod(NSWorkspace.class,@selector(accessibilityDisplayShouldReduceMotion));
@@ -32,16 +33,17 @@ int main(int argc,const char **argv){@autoreleasepool{
     for(int n=0;n<3;n++)[text keyDown:key(window,@"a",0)];require(!text.focusView,@"first three inputs remain reading");
     [text keyDown:key(window,@"b",11)];require(text.focusView!=nil,@"four continuous native input events enter focus");
     require(text.focusView.progress<1 && text.focusView.timer!=nil,@"entry starts the real native transition timer with motion enabled");
-    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.20]];
-    require(text.focusView.progress>.1 && text.focusView.progress<.9,@"actual animation is between endpoints near half the420ms duration");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.10]];
+    require(text.focusView.progress>.1 && text.focusView.progress<.9,@"actual animation is between endpoints near half the200ms duration");
     [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.5]];
-    require(text.focusView.rows.count==5,@"exactly current plus four visual lines");require(text.focusView.progress==1,@"420ms transition completes");
-    SumiFocusRow *current=text.focusView.rows.firstObject;require(fabs(current.origin.y+current.baseline*current.scale-720*.57)<.01,@"current baseline at57 percent");
-    CGFloat width=text.textContainer.size.width;CGFloat midpoint=480;
+    require(text.focusView.rows.count>5,@"viewport shows more than five actual visual lines");require(text.focusView.progress==1,@"200ms transition completes");
+    SumiFocusRow *current=text.focusView.rows.firstObject;
+    require(fabs(current.origin.y+current.height*.5-NSMidY(text.focusView.bounds))<.01,@"current visual line center at50 percent");
     for(SumiFocusRow *row in text.focusView.rows){
-        CGFloat left=row.origin.x-(row.rawOrigin.x-text.textContainerOrigin.x)*row.scale;
-        CGFloat right=left+width*row.scale;require(fabs((left+right)/2-midpoint)<.01,@"each row uses one common page center");require(left>=0 && right<=960,@"projected full column stays inside viewport");
-        NSPoint probe=NSMakePoint(row.rawOrigin.x+12,row.rawOrigin.y+row.height/2);NSRect projected=[text focusRect:NSMakeRect(probe.x,probe.y,1,1)];NSPoint recovered=[text focusOriginalPoint:projected.origin];require(fabs(probe.x-recovered.x)<.01 && fabs(probe.y-recovered.y)<.01,@"click inverse maps projected line to original TextKit coordinates");
+        require(fabs(row.origin.x-row.rawOrigin.x)<.01,@"focus keeps the exact original x origin and indentation");
+        require(fabs((row.origin.y-current.origin.y)-(row.rawOrigin.y-current.rawOrigin.y))<.01,@"focus preserves exact TextKit line spacing");
+        NSPoint probe=NSMakePoint(row.rawOrigin.x+12,row.rawOrigin.y+row.height/2);NSRect projected=[text focusRect:NSMakeRect(probe.x,probe.y,1,1)];NSPoint recovered=[text focusOriginalPoint:projected.origin];require(fabs(probe.x-recovered.x)<.01 && fabs(probe.y-recovered.y)<.01,@"click inverse maps translated line to original TextKit coordinates");
+        require(fabs(projected.size.width-1)<.01 && fabs(projected.size.height-1)<.01,@"focus projection never changes glyph or caret dimensions");
     }
     NSString *before=text.string.copy;NSUInteger revision=owner.revision;NSRange selection=text.selectedRange;
     [text updateFocusRows];require([text.string isEqual:before] && owner.revision==revision && NSEqualRanges(text.selectedRange,selection),@"presentation does not mutate text revision or selection");
@@ -59,7 +61,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     [owner applyProjection:@{@"document":@{@"text":paragraph,@"runs":@[]},@"selection":SumiRange(NSMakeRange(paragraph.length,0))} revision:owner.revision+1];[owner layoutEditor];
     for(int n=0;n<4;n++)[text keyDown:key(window,@"风",3)];
     [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.45]];
-    require(text.focusView.rows.count==5 && text.focusView.rows.firstObject.range.location<text.selectedRange.location,@"one long paragraph includes actual current fragment and previous wrapped rows");
+    require(text.focusView.rows.count>5 && text.focusView.rows.firstObject.range.location<text.selectedRange.location,@"one long paragraph includes actual current fragment and previous wrapped rows");
     if(argc>1){NSString *path=[NSString stringWithUTF8String:argv[1]];capture(owner.container,[path stringByAppendingString:@".sepia.png"]);}
     // Exactly on a visual wrap boundary, current row must be the downstream row.
     NSUInteger boundary=text.focusView.rows[2].range.location;[text stopFocusTyping];[text setSelectedRange:NSMakeRange(boundary,0)];
@@ -89,7 +91,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     NSEvent *down=[NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:windowPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:1 clickCount:1 pressure:1];
     [text mouseDown:down];require(!text.focusView && NSEqualRanges(text.selectedRange,NSMakeRange(expected,0)),@"click in transformed previous line selects the correct original character");
     // Native selection ranges with explicit focus-to-reading mouse tracking.
-    [text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:250+n*.1];text.focusView.progress=1;
+    [text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:250+n*.1];text.focusView.progress=1;text.focusView.strength=1;
     clicked=text.focusView.rows[1];sourcePoint=NSMakePoint(clicked.rawOrigin.x+25,clicked.rawOrigin.y+clicked.height*.5);
     NSPoint targetPoint=NSMakePoint(sourcePoint.x+140,sourcePoint.y);
     drawn=[text focusRect:NSMakeRect(sourcePoint.x,sourcePoint.y,1,1)];windowPoint=[text.focusView convertPoint:drawn.origin toView:nil];
@@ -116,8 +118,8 @@ int main(int argc,const char **argv){@autoreleasepool{
     require(text.editable && !owner.draftError,@"explicit successful projection alone unfreezes draft");
     [text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:300+n*.1];
     [owner setBounds:@{@"x":@0,@"y":@0,@"width":@320,@"height":@180}];
-    require(text.focusView.rows.count>=1 && text.focusView.rows.count<=5,@"short viewport keeps current row and only fitting previous rows");
-    current=text.focusView.rows.firstObject;require(current.origin.y>=0 && current.origin.y+current.height*current.scale<=180,@"current line fits short viewport");
+    require(text.focusView.rows.count>=1 && text.focusView.rows.count<20,@"short viewport draws only physically visible rows");
+    current=text.focusView.rows.firstObject;require(current.origin.y>=0 && current.origin.y+current.height<=180,@"current line fits short viewport");
     [text stopFocusTyping];
     [owner setBounds:@{@"x":@0,@"y":@0,@"width":@960,@"height":@720}];
     [owner applyProjection:@{@"document":@{@"text":@"",@"runs":@[]},@"selection":SumiRange(NSMakeRange(0,0))} revision:owner.revision+1];
@@ -129,13 +131,13 @@ int main(int argc,const char **argv){@autoreleasepool{
     before=text.string.copy;revision=owner.revision;count=events.count;
     for(int n=0;n<4;n++)[text recordFocusInputAt:320+n*.1];
     for(int n=0;n<20;n++)[text updateFocusRows];
-    require(text.focusView.rows.count>=1 && text.focusView.rows.count<=5 && [text.string isEqual:before] && owner.revision==revision && events.count==count,@"100k paragraph near start draws bounded rows without edit events");
+    require(text.focusView.rows.count>5 && text.focusView.rows.count<100 && [text.string isEqual:before] && owner.revision==revision && events.count==count,@"100k paragraph near start draws bounded rows without edit events");
     [text stopFocusTyping];
     // Regression for a physical click after reading scroll + reentry: a raw
     // mouseUp at the displayed location must never extend a synthetic selection.
     NSMutableString *scrolling=[NSMutableString new];for(int n=0;n<8;n++)[scrolling appendFormat:@"%@\n",paragraph];[scrolling appendString:@"abcdefghi"];
     [owner applyProjection:@{@"document":@{@"text":scrolling,@"runs":@[]},@"selection":SumiRange(NSMakeRange(scrolling.length,0))} revision:owner.revision+1];[text scrollRangeToVisible:text.selectedRange];
-    for(int n=0;n<4;n++)[text recordFocusInputAt:350+n*.1];text.focusView.progress=1;
+    for(int n=0;n<4;n++)[text recordFocusInputAt:350+n*.1];text.focusView.progress=1;text.focusView.strength=1;
     clicked=text.focusView.rows.firstObject;sourcePoint=NSMakePoint(clicked.rawOrigin.x+30,clicked.rawOrigin.y+clicked.height*.5);drawn=[text focusRect:NSMakeRect(sourcePoint.x,sourcePoint.y,1,1)];expected=[text focusCharacterIndexAtPoint:drawn.origin];windowPoint=[text.focusView convertPoint:drawn.origin toView:nil];
     [NSApp postEvent:[NSEvent mouseEventWithType:NSEventTypeLeftMouseUp location:windowPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:3 clickCount:1 pressure:0] atStart:YES];
     [text mouseDown:[NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:windowPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:3 clickCount:1 pressure:1]];
@@ -144,7 +146,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     require([text.string isEqual:[scrolling stringByReplacingCharactersInRange:NSMakeRange(expected,0) withString:@"x"]],@"typing after long-page focus click cannot replace a previous paragraph");
     for(NSNumber *progress in @[@.5,@1])for(NSNumber *rowNumber in @[@0,@1]){
         [text stopFocusTyping];[owner applyProjection:@{@"document":@{@"text":scrolling,@"runs":@[]},@"selection":SumiRange(NSMakeRange(scrolling.length,0))} revision:owner.revision+1];[text scrollRangeToVisible:text.selectedRange];
-        for(int n=0;n<4;n++)[text recordFocusInputAt:355+n*.1];text.focusView.progress=progress.doubleValue;
+        for(int n=0;n<4;n++)[text recordFocusInputAt:355+n*.1];text.focusView.progress=progress.doubleValue;text.focusView.strength=progress.doubleValue;
         clicked=text.focusView.rows[rowNumber.unsignedIntegerValue];NSUInteger offset=MIN((NSUInteger)3,clicked.range.length);
         NSPoint glyph=[clicked.line locationForCharacterAtIndex:clicked.line.characterRange.location+offset];
         sourcePoint=NSMakePoint(clicked.rawOrigin.x+glyph.x+.01,clicked.rawOrigin.y+clicked.height*.5);expected=clicked.range.location+offset;
@@ -159,7 +161,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     }
     for(NSNumber *progress in @[@.5,@1])for(NSNumber *reverse in @[@NO,@YES]){
         [text stopFocusTyping];[owner applyProjection:@{@"document":@{@"text":scrolling,@"runs":@[]},@"selection":SumiRange(NSMakeRange(scrolling.length,0))} revision:owner.revision+1];[text scrollRangeToVisible:text.selectedRange];
-        for(int n=0;n<4;n++)[text recordFocusInputAt:357+n*.1];text.focusView.progress=progress.doubleValue;clicked=text.focusView.rows.firstObject;
+        for(int n=0;n<4;n++)[text recordFocusInputAt:357+n*.1];text.focusView.progress=progress.doubleValue;text.focusView.strength=progress.doubleValue;clicked=text.focusView.rows.firstObject;
         require(clicked.range.location==scrolling.length-9,@"known abcdefghi fixture is the current actual visual line");
         NSPoint glyphA=[clicked.line locationForCharacterAtIndex:clicked.line.characterRange.location],glyphD=[clicked.line locationForCharacterAtIndex:clicked.line.characterRange.location+3];
         NSRect rectA=[text focusRect:NSMakeRect(clicked.rawOrigin.x+glyphA.x+.01,clicked.rawOrigin.y+clicked.height*.5,0,0)],rectD=[text focusRect:NSMakeRect(clicked.rawOrigin.x+glyphD.x+.01,clicked.rawOrigin.y+clicked.height*.5,0,0)];
@@ -173,7 +175,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     }
     // Word and shift-click use NSTextView's selection granularity but no text edit.
     for(NSNumber *clicks in @[@2,@1]){
-        [text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:360+n*.1];text.focusView.progress=1;
+        [text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:360+n*.1];text.focusView.progress=1;text.focusView.strength=1;
         clicked=text.focusView.rows.firstObject;sourcePoint=NSMakePoint(clicked.rawOrigin.x+30,clicked.rawOrigin.y+clicked.height*.5);drawn=[text focusRect:NSMakeRect(sourcePoint.x,sourcePoint.y,1,1)];expected=[text focusCharacterIndexAtPoint:drawn.origin];
         NSRange expectedSelection=clicks.intValue==2?[text selectionRangeForProposedRange:NSMakeRange(expected,0) granularity:NSSelectByWord]:NSMakeRange(expected,text.string.length-expected);
         NSEventModifierFlags flags=clicks.intValue==1?NSEventModifierFlagShift:0;
@@ -186,7 +188,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     for(NSNumber *outcome in @[@0,@-1,@-2]){
         [text stopFocusTyping];[owner applyProjection:@{@"document":@{@"text":scrolling,@"runs":@[]},@"selection":SumiRange(NSMakeRange(scrolling.length,0))} revision:owner.revision+1];[text scrollRangeToVisible:text.selectedRange];
         [text setMarkedText:@"nihao" selectedRange:NSMakeRange(5,0) replacementRange:NSMakeRange(NSNotFound,0)];
-        for(int n=0;n<4;n++)[text recordFocusInputAt:370+n*.1];text.focusView.progress=1;clicked=text.focusView.rows[1];
+        for(int n=0;n<4;n++)[text recordFocusInputAt:370+n*.1];text.focusView.progress=1;text.focusView.strength=1;clicked=text.focusView.rows[1];
         NSPoint glyph=[clicked.line locationForCharacterAtIndex:clicked.line.characterRange.location+2];sourcePoint=NSMakePoint(clicked.rawOrigin.x+glyph.x+.01,clicked.rawOrigin.y+clicked.height*.5);expected=clicked.range.location+2;
         drawn=[text focusRect:NSMakeRect(sourcePoint.x,sourcePoint.y,0,0)];windowPoint=[text.focusView convertPoint:drawn.origin toView:nil];before=text.string.copy;selection=text.selectedRange;revision=owner.revision;rejectEdit=outcome.integerValue;
         [NSApp postEvent:[NSEvent mouseEventWithType:NSEventTypeLeftMouseUp location:windowPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:7 clickCount:1 pressure:0] atStart:YES];
@@ -203,7 +205,7 @@ int main(int argc,const char **argv){@autoreleasepool{
     }
     [owner applyProjection:@{@"document":@{@"text":scrolling,@"runs":@[]},@"selection":SumiRange(NSMakeRange(scrolling.length,0))} revision:owner.revision+1];
     for(NSString *interruption in @[@"remote",@"hidden",@"inactive"]){
-        owner.container.hidden=NO;[window makeFirstResponder:text];[text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:380+n*.1];text.focusView.progress=1;
+        owner.container.hidden=NO;[window makeFirstResponder:text];[text setSelectedRange:NSMakeRange(text.string.length,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:380+n*.1];text.focusView.progress=1;text.focusView.strength=1;
         clicked=text.focusView.rows.firstObject;drawn=[text focusRect:NSMakeRect(clicked.rawOrigin.x+1,clicked.rawOrigin.y+clicked.height*.5,0,0)];windowPoint=[text.focusView convertPoint:drawn.origin toView:nil];before=text.string.copy;revision=owner.revision;
         NSTimer *interrupt=[NSTimer timerWithTimeInterval:.01 repeats:NO block:^(NSTimer *timer){(void)timer;
             if([interruption isEqual:@"remote"])[owner applyProjection:@{@"document":@{@"text":@"remote paragraph change",@"runs":@[]},@"selection":SumiRange(NSMakeRange(5,0))} revision:owner.revision+1];
@@ -216,6 +218,190 @@ int main(int argc,const char **argv){@autoreleasepool{
         else require([text.string isEqual:before] && owner.revision==revision,@"hide/inactive tracking exit preserves exact text and accepted revision");
     }
     owner.container.hidden=NO;[window makeFirstResponder:text];
+    // Following text remains genuinely interactive, not just a faded picture.
+    NSString *future=@"earlier one\nearlier two\nearlier three\ncurrent input row\nabcdefghi\nlater one\nlater two\nlater three";
+    NSUInteger currentEnd=[future rangeOfString:@"current input row"].location+[@"current input row" length];
+    NSUInteger nextStart=[future rangeOfString:@"abcdefghi"].location;
+    for(NSNumber *progress in @[@.5,@1])for(NSNumber *drag in @[@NO,@YES]){
+        [owner applyProjection:@{@"document":@{@"text":future,@"runs":@[]},@"selection":SumiRange(NSMakeRange(currentEnd,0))} revision:owner.revision+1];
+        for(int n=0;n<4;n++)[text recordFocusInputAt:385+n*.1];text.focusView.progress=progress.doubleValue;text.focusView.strength=progress.doubleValue;
+        SumiFocusRow *following=nil;for(SumiFocusRow *row in text.focusView.rows)if(row.range.location==nextStart)following=row;
+        require(following!=nil && following.origin.y>text.focusView.rows.firstObject.origin.y,@"actual next paragraph is visible below focused current line");
+        NSPoint glyph0=[following.line locationForCharacterAtIndex:following.line.characterRange.location];
+        NSPoint glyph3=[following.line locationForCharacterAtIndex:following.line.characterRange.location+3];
+        NSRect first=[text focusRect:NSMakeRect(following.rawOrigin.x+glyph0.x+.01,following.rawOrigin.y+following.height*.5,0,0)];
+        NSRect last=[text focusRect:NSMakeRect(following.rawOrigin.x+glyph3.x+.01,following.rawOrigin.y+following.height*.5,0,0)];
+        NSPoint point0=[text.focusView convertPoint:first.origin toView:nil],point3=[text.focusView convertPoint:last.origin toView:nil];
+        [NSApp postEvent:[NSEvent mouseEventWithType:NSEventTypeLeftMouseUp location:point3 modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:9 clickCount:1 pressure:0] atStart:YES];
+        if(drag.boolValue)[NSApp postEvent:[NSEvent mouseEventWithType:NSEventTypeLeftMouseDragged location:point3 modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:9 clickCount:1 pressure:1] atStart:YES];
+        [text mouseDown:[NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:drag.boolValue?point0:point3 modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil eventNumber:9 clickCount:1 pressure:1]];
+        NSRange expectedRange=drag.boolValue?NSMakeRange(nextStart,3):NSMakeRange(nextStart+3,0);
+        require(NSEqualRanges(text.selectedRange,expectedRange),@"click/short-drag on following row has exact native character selection during and after transition");
+        [text insertText:@"X" replacementRange:NSMakeRange(NSNotFound,0)];
+        require([text.string isEqual:[future stringByReplacingCharactersInRange:expectedRange withString:@"X"]],@"editing faded following row preserves every other paragraph");
+    }
+    // New contract: translate the actual page, preserving all glyph geometry;
+    // keep BOTH sides of the active row, with no magic row-count cutoff.
+    NSMutableString *context=[NSMutableString new];
+    for(int n=0;n<24;n++)[context appendFormat:@"%02d %@\n",n,paragraph];
+    NSUInteger middle=context.length/2;
+    [owner applyProjection:@{@"document":@{@"text":context,@"runs":@[]},@"selection":SumiRange(NSMakeRange(middle,0))} revision:owner.revision+1];
+    appearance[@"font_family"]=@"Sumi System";appearance[@"font_size"]=@22;appearance[@"line_height"]=@1.6;owner.appearance=appearance;[owner applyStyles];[owner layoutEditor];
+    NSAttributedString *stablePage=[text.textStorage copy];NSUInteger stableRevision=owner.revision,stableEvents=events.count;NSRange stableSelection=text.selectedRange;
+    NSUInteger smallViewportRows=0;
+    for(NSNumber *height in @[@480,@960]){
+        [text stopFocusTyping];[owner setBounds:@{@"x":@0,@"y":@0,@"width":@960,@"height":height}];
+        for(int n=0;n<4;n++)[text recordFocusInputAt:390+n*.1];text.focusView.progress=1;text.focusView.strength=1;
+        require(text.focusView.rows.count>5,@"context includes more than five rows in each viewport");
+        if(height.intValue==480)smallViewportRows=text.focusView.rows.count;
+        else require(text.focusView.rows.count>smallViewportRows,@"larger viewport displays more actual rows instead of a fixed row count");
+        current=text.focusView.rows.firstObject;
+        require(fabs(NSMidY(text.focusView.bounds)-(current.origin.y+current.height*.5))<.01,@"active line remains exactly centered after resize");
+        require(fabs(current.alpha-1)<.001,@"current line is fully opaque");
+        NSUInteger above=0,below=0;NSMutableSet *seen=[NSMutableSet new];CGFloat farthest=0,farAlpha=1;
+        for(SumiFocusRow *row in text.focusView.rows){
+            NSString *identity=NSStringFromRange(row.range);require(![seen containsObject:identity],@"visual line appears only once");[seen addObject:identity];
+            CGFloat delta=row.origin.y-current.origin.y;
+            if(delta<-.1)above++;if(delta>.1)below++;
+            require(fabs(row.origin.x-row.rawOrigin.x)<.01 && fabs(delta-(row.rawOrigin.y-current.rawOrigin.y))<.01,@"context preserves all x positions and actual line gaps");
+            require(row.alpha>=0 && row.alpha<=1,@"row opacity stays within valid range");
+            if(fabs(delta)>farthest){farthest=fabs(delta);farAlpha=row.alpha;}
+            for(SumiFocusRow *other in text.focusView.rows){
+                CGFloat otherDistance=fabs(other.origin.y-current.origin.y);
+                if(otherDistance>fabs(delta)+1)require(other.alpha<=row.alpha+.001,@"opacity decreases monotonically with distance on both sides");
+                if(fabs(otherDistance-fabs(delta))<.01)require(fabs(other.alpha-row.alpha)<.001,@"equal-distance upper and lower rows have equal opacity");
+            }
+        }
+        require(above>2 && below>2,@"several real preceding and following lines are retained");
+        require(farthest>height.doubleValue*.4 && farAlpha<.05,@"edge rows approach zero opacity at both viewport ends");
+        BOOL onlyViewport=YES;for(NSUInteger e=stableEvents;e<events.count;e++)onlyViewport&=[events[e][@"kind"] isEqual:@"viewport"];
+        require([stablePage isEqualToAttributedString:text.textStorage] && owner.revision==stableRevision && onlyViewport && NSEqualRanges(stableSelection,text.selectedRange),@"focus and resize preserve exact styled body, accepted revision and selection; resizing may report only viewport geometry");
+    }
+    [owner setBounds:@{@"x":@0,@"y":@0,@"width":@960,@"height":@720}];
+    for(NSString *theme in @[@"light",@"dark"]){
+        appearance[@"foreground"]=[theme isEqual:@"light"]?@"#3D3A35":@"#D6D2CB";
+        appearance[@"background"]=[theme isEqual:@"light"]?@"#F2EBDD":@"#121212";owner.appearance=appearance;[owner applyStyles];[owner layoutEditor];
+        if(!text.focusView)for(int n=0;n<4;n++)[text recordFocusInputAt:395+n*.1];text.focusView.progress=1;text.focusView.strength=1;
+        if(argc>1){NSString *path=[NSString stringWithUTF8String:argv[1]];capture(owner.container,[path stringByAppendingFormat:@".centered-%@.png",theme]);}
+    }
+    [text stopFocusTyping];
+    // Idle affects opacity only: deadline and both transitions use real timers,
+    // with just this hidden probe view's timestamps/deadline moved for speed.
+    [owner applyProjection:@{@"document":@{@"text":context,@"runs":@[]},@"selection":SumiRange(NSMakeRange(middle,0))} revision:owner.revision+1];
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.3]];
+    SumiFocusView *idle=text.focusView;require(idle && idle.progress==1 && idle.strength==1,@"quick entry settles into centered full focus strength");
+    require(idle.idleTimer.valid && idle.idleTimer.fireDate.timeIntervalSinceNow>9.3 && idle.idleTimer.fireDate.timeIntervalSinceNow<=10,@"production idle deadline remains ten seconds");
+    NSAttributedString *idleBody=[text.textStorage copy];NSRange idleSelection=text.selectedRange;NSUInteger idleRevision=owner.revision,idleEventCount=events.count;
+    BOOL couldUndo=text.undoManager.canUndo,couldRedo=text.undoManager.canRedo;NSInteger undoLevel=text.undoManager.groupingLevel;
+    SumiFocusRow *idleCurrent=idle.rows.firstObject;CGFloat fixedY=idleCurrent.origin.y;
+    idle.lastActivity=CACurrentMediaTime()-9;idle.idleTimer.fireDate=[NSDate dateWithTimeIntervalSinceNow:.005];
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
+    require(idle.strength==1 && idle.idleTimer.valid && !idle.timer,@"before ten seconds early timer callback reschedules without restoring opacity");
+    idle.lastActivity=CACurrentMediaTime()-10.1;idle.idleTimer.fireDate=[NSDate dateWithTimeIntervalSinceNow:.005];
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.4]];
+    require(idle.timer && idle.strength>0 && idle.strength<1 && idle.progress==1,@"after ten seconds the real1.2s timer is between focus and opaque endpoints");
+    require(fabs(idle.rows.firstObject.origin.y-fixedY)<.01,@"idle opacity transition never moves the centered row");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.95]];
+    require(idle.strength==0 && !idle.timer && text.focusView==idle,@"idle timer completes with all rows fully opaque while focus geometry remains mounted");
+    if(argc>1)capture(owner.container,[[NSString stringWithUTF8String:argv[1]] stringByAppendingString:@".idle-full.png"]);
+    require([idleBody isEqualToAttributedString:text.textStorage] && NSEqualRanges(idleSelection,text.selectedRange) && owner.revision==idleRevision && events.count==idleEventCount && text.undoManager.canUndo==couldUndo && text.undoManager.canRedo==couldRedo && text.undoManager.groupingLevel==undoLevel,@"idle wait and fade preserve exact text, styles, revision, selection and undo state");
+    [text recordFocusEvent:key(window,@"x",7)];
+    require(idle.timer && idle.idleTimer.valid,@"first valid input activity starts fast refocus without another four-key threshold");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.08]];
+    require(idle.strength>0 && idle.strength<1 && idle.progress==1,@"fast refocus has a real intermediate opacity with no recenter animation");
+    NSTimer *resumingTimer=idle.timer;CFTimeInterval resumingStarted=idle.started;
+    [text recordFocusEvent:key(window,@"y",16)];
+    require(idle.timer==resumingTimer && idle.started==resumingStarted,@"continuous valid typing does not restart an in-flight refocus transition");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.2]];
+    require(idle.strength==1 && !idle.timer && fabs(idle.rows.firstObject.origin.y-fixedY)<.01,@"fast refocus reaches original opacity gradient within0.2s with fixed center");
+    if(argc>1)capture(owner.container,[[NSString stringWithUTF8String:argv[1]] stringByAppendingString:@".idle-refocused.png"]);
+    require([idleBody isEqualToAttributedString:text.textStorage] && owner.revision==idleRevision && NSEqualRanges(idleSelection,text.selectedRange) && events.count==idleEventCount,@"presentation-only activity does not synthesize a document edit");
+    idle.lastActivity=CACurrentMediaTime()-10.1;idle.idleTimer.fireDate=[NSDate dateWithTimeIntervalSinceNow:.005];
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.35]];
+    CGFloat interruptedStrength=idle.strength;NSTimer *oldFade=idle.timer;
+    require(interruptedStrength>0 && interruptedStrength<1 && oldFade.valid,@"partial idle fade can be interrupted before reaching opaque state");
+    [text recordFocusEvent:key(window,@"z",6)];
+    require(!oldFade.valid && idle.timer!=oldFade && fabs(idle.fromStrength-interruptedStrength)<.001 && idle.progress==1,@"typing reverses partial opacity from its actual presentation state without moving text");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.25]];
+    require(idle.strength==1 && !idle.timer,@"interrupted idle fade quickly returns to focused gradient");
+    CFTimeInterval genuineActivity=idle.lastActivity;
+    [text recordFocusEvent:key(window,@"\uf703",124)];
+    require(idle.lastActivity==genuineActivity,@"arrow activity does not reset the typing idle timestamp");
+    NSEvent *repeat=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:@"x" charactersIgnoringModifiers:@"x" isARepeat:YES keyCode:7];text.focusInputChanged=NO;[text recordFocusEvent:repeat];
+    require(idle.lastActivity==genuineActivity,@"repeat-only event cannot keep an idle focus session alive");
+    // Autorepeat is input activity only after a typing session already exists;
+    // observing a repeat flag without an actual text mutation must do nothing.
+    NSString *repeatBefore=text.string.copy;NSRange repeatRange=text.selectedRange;NSUInteger repeatRevision=owner.revision;
+    idle.lastActivity=CACurrentMediaTime()-5;CFTimeInterval repeatActivity=idle.lastActivity;
+    idle.strength=0;idle.targetStrength=0;
+    NSEvent *typedRepeat=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:@"x" charactersIgnoringModifiers:@"x" isARepeat:YES keyCode:7];
+    [text keyDown:typedRepeat];
+    require(text.focusView==idle && idle.lastActivity>repeatActivity && idle.targetStrength==1 && idle.timer,@"actual repeat text insertion refreshes an existing session and resumes its gradient");
+    require([text.string isEqual:[repeatBefore stringByReplacingCharactersInRange:repeatRange withString:@"x"]] && owner.revision==repeatRevision+1,@"focused repeat performs exactly its native document insertion");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.25]];
+    require(idle.strength==1 && !idle.timer,@"repeat-triggered refocus completes with normal fast opacity easing");
+    genuineActivity=idle.lastActivity;
+    NSString *remoteBody=[text.string stringByAppendingString:@"\nremote-only content"];
+    [owner applyProjection:@{@"document":@{@"text":remoteBody,@"runs":@[]},@"selection":SumiRange(text.selectedRange)} revision:owner.revision+1];
+    require(text.focusView==idle && idle.lastActivity==genuineActivity,@"remote projection refreshes visible context without pretending to be new typing");
+    [text keyDown:key(window,@"\uf703",124)];
+    require(!text.focusView && !idle.timer && !idle.idleTimer,@"actual direction navigation exits focus and cancels rather than rescheduling idle");
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];idle=text.focusView;
+    NSPasteboard *idlePaste=[NSPasteboard pasteboardWithName:@"net.notemd.sumi.idle-probe"];
+    [idlePaste clearContents];[idlePaste setString:@"isolated paste" forType:NSPasteboardTypeString];[text pasteFromPasteboard:idlePaste];
+    require(!text.focusView && !idle.timer && !idle.idleTimer && text.focusInputCount==0,@"paste remains a reading operation and cannot restart the typing deadline");
+    NSString *readingBefore=text.string.copy;NSRange readingStart=text.selectedRange;NSUInteger readingRevision=owner.revision;
+    for(int n=0;n<6;n++){
+        NSEvent *readingRepeat=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:@"x" charactersIgnoringModifiers:@"x" isARepeat:YES keyCode:7];
+        [text keyDown:readingRepeat];require(!text.focusView && text.focusInputCount==0,@"reading-stage autorepeat does not satisfy the four-key focus-entry threshold");
+    }
+    require([text.string isEqual:[readingBefore stringByReplacingCharactersInRange:readingStart withString:@"xxxxxx"]] && owner.revision==readingRevision+6,@"reading-stage repeat preserves normal native text insertion behavior");
+    // An exiting surface must cancel both timer paths, even during transitions.
+    for(NSString *reason in @[@"hide",@"draft",@"stop"]){
+        [owner applyProjection:@{@"document":@{@"text":context,@"runs":@[]},@"selection":SumiRange(NSMakeRange(middle,0))} revision:owner.revision+1];
+        [window makeFirstResponder:text];
+        for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];idle=text.focusView;
+        require(idle!=nil,@"lifecycle fixture enters focus");
+        if([reason isEqual:@"hide"])sumi_editor_command(handle,"{\"command\":\"set_visible\",\"visible\":false}");
+        else if([reason isEqual:@"draft"])[owner retainDraft:@{@"document":@{@"text":text.string,@"runs":@[]},@"selection":SumiRange(text.selectedRange)} error:@"synthetic idle journal failure"];
+        else {[text stopFocusTyping];}
+        require(!text.focusView && !idle.timer && !idle.idleTimer,@"hide/draft/stop cancel idle and animation timers before removing the surface");
+        before=text.string.copy;revision=owner.revision;[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.06]];
+        require(!text.focusView && [text.string isEqual:before] && owner.revision==revision,@"cancelled timer cannot reattach or change protected text");
+        if(owner.container.hidden)sumi_editor_command(handle,"{\"command\":\"set_visible\",\"visible\":true}");
+    }
+    [owner applyProjection:@{@"document":@{@"text":context,@"runs":@[]},@"selection":SumiRange(NSMakeRange(middle,0))} revision:owner.revision+1];
+    // Reduced motion skips spatial movement, while the explicitly requested
+    // opacity easing and independent caret breathing remain observable.
+    [text stopFocusTyping];[window makeFirstResponder:text];
+    IMP allowedMotion=method_setImplementation(motionMethod,(IMP)probeMotionReduced);
+    [owner applyProjection:@{@"document":@{@"text":context,@"runs":@[]},@"selection":SumiRange(NSMakeRange(middle,0))} revision:owner.revision+1];
+    appearance[@"caret_motion"]=@"breathing";owner.appearance=appearance;
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    SumiFocusView *reduced=text.focusView;
+    require(NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion && reduced.progress==1 && reduced.timer,@"ReduceMotion places the line directly in center but retains pure-opacity entry easing");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.08]];
+    require(reduced.progress==1 && reduced.strength>0 && reduced.strength<1,@"ReduceMotion true still has a visible entry alpha intermediate");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.2]];
+    [text refreshTypewriterCaret:YES];
+    CAAnimation *caretBreath=[text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"];
+    require(caretBreath!=nil,@"caret retains its explicit breathing animation during reduced motion");
+    CFTimeInterval caretPhase=caretBreath.beginTime;NSRect steadyCaret=text.typewriterCaret.frame;
+    CGFloat caretOpacity=text.typewriterCaret.layer.opacity;
+    reduced.lastActivity=CACurrentMediaTime()-10.1;reduced.idleTimer.fireDate=[NSDate dateWithTimeIntervalSinceNow:.005];
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.4]];
+    require(reduced.progress==1 && reduced.strength>0 && reduced.strength<1 && reduced.timer,@"ReduceMotion true still slowly restores text opacity after idle deadline");
+    require(text.typewriterCaret.layer.opacity==caretOpacity && text.typewriterCaret.alphaValue==1 && reduced.alphaValue==1 && NSEqualRects(steadyCaret,text.typewriterCaret.frame) && [text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"].beginTime==caretPhase,@"opacity strength applies only to text drawing and never fades, moves or restarts the breathing caret");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.95]];
+    require(reduced.strength==0 && reduced.progress==1,@"ReduceMotion true reaches fully opaque text while center remains unchanged");
+    [text recordFocusEvent:key(window,@"q",12)];
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.08]];
+    require(reduced.strength>0 && reduced.strength<1 && reduced.progress==1,@"ReduceMotion true fast refocus uses alpha without spatial movement");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.2]];
+    require(reduced.strength==1 && text.typewriterCaret.layer.opacity==caretOpacity && [text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"].beginTime==caretPhase,@"fast focus completes without coupling to caret breathing phase");
+    [text stopFocusTyping];appearance[@"caret_motion"]=@"steady";owner.appearance=appearance;
+    method_setImplementation(motionMethod,allowedMotion);
     if(argc>2){
         NSString *fontRoot=[NSString stringWithUTF8String:argv[2]];
         NSData *manifestData=[NSData dataWithContentsOfFile:@"plugins-src/write/resources/sumi/manifest.json"];
@@ -234,20 +420,25 @@ int main(int argc,const char **argv){@autoreleasepool{
                 NSString *mixed=[paragraph stringByAppendingString:@" The quiet rhythm of the keys carries every thought onto the page. 一字一句，写下此刻。"];
                 [owner applyProjection:@{@"document":@{@"text":mixed,@"runs":@[]},@"selection":SumiRange(NSMakeRange(mixed.length,0))} revision:owner.revision+1];[owner applyStyles];[owner layoutEditor];
                 NSUInteger stableRevision=owner.revision;NSAttributedString *styled=[text.textStorage copy];NSRange stableSelection=text.selectedRange;NSUInteger stableEvents=events.count;
-                for(int n=0;n<4;n++)[text recordFocusInputAt:400+n*.1];text.focusView.progress=1;[text refreshTypewriterCaret:NO];
-                require(text.focusView.rows.count>=1 && text.focusView.rows.count<=5,@"all six font presets and sizes have visible real visual rows");
-                CGFloat priorScale=CGFLOAT_MAX;
-                for(SumiFocusRow *row in text.focusView.rows){CGFloat left=row.origin.x-(row.rawOrigin.x-text.textContainerOrigin.x)*row.scale,right=left+text.textContainer.size.width*row.scale;
-                    require(left>=0 && right<=960 && fabs((left+right)*.5-480)<.01 && row.scale<priorScale,@"font/theme matrix preserves centered paper and shrinking rows");priorScale=row.scale;
+                for(int n=0;n<4;n++)[text recordFocusInputAt:400+n*.1];text.focusView.progress=1;text.focusView.strength=1;[text refreshTypewriterCaret:NO];
+                require(text.focusView.rows.count>=1 && text.focusView.rows.count<100,@"all six font presets and sizes have viewport-bounded real visual rows");
+                SumiFocusRow *active=text.focusView.rows.firstObject;
+                require(fabs(active.origin.y+active.height*.5-360)<.01,@"font/theme matrix keeps active glyph row at viewport center");
+                for(SumiFocusRow *row in text.focusView.rows){
+                    require(fabs(row.origin.x-row.rawOrigin.x)<.01 && fabs((row.origin.y-active.origin.y)-(row.rawOrigin.y-active.rawOrigin.y))<.01,@"font/theme matrix keeps original x and line spacing without font scaling");
                 }
                 require([styled isEqualToAttributedString:text.textStorage] && NSEqualRanges(stableSelection,text.selectedRange) && owner.revision==stableRevision && stableEvents==events.count,@"font/theme presentation preserves exact attributed body, selection and revision");
                 if(fontSize.intValue==22 && argc>1){NSString *suffix=[NSString stringWithFormat:@".%@.%@.png",[alias stringByReplacingOccurrencesOfString:@" " withString:@"-"],theme];capture(owner.container,[[NSString stringWithUTF8String:argv[1]] stringByAppendingString:suffix]);}
             }
         }
     }
-    [text stopFocusTyping];
+    [text stopFocusTyping];[window makeFirstResponder:text];
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    SumiFocusView *detachedView=text.focusView;require(detachedView!=nil,@"detach fixture has live animation and idle ownership");
     require(!window.visible,@"probe never displayed window");sumi_editor_detach(handle);
+    require(!detachedView.timer && !detachedView.idleTimer,@"detach cancels both timers before editor removal");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.06]];
     method_setImplementation(motionMethod,originalMotion);
     require(NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion==systemReduceMotion,@"process-only motion override restored");
     printf("PASS: %lu checks; native focus input/geometry/selection/drag/IME callback/lifecycle/P0 draft safety. Physical IME requires manual acceptance.\n",(unsigned long)checks);
-}}
+}else{fprintf(stderr,"SKIP: focus typing requires macOS 13 or newer\n");return 77;}}}

@@ -450,7 +450,11 @@ async function showAppearance() {
   const focusLabel = document.createElement('label'); focusLabel.className = 'focus-toggle'
   const focusText = document.createElement('span'); focusText.textContent = t('聚焦打字', 'Focused typing', '集中タイピング')
   const focus = document.createElement('input'); focus.type = 'checkbox'; focus.name = 'focusTyping'; focus.checked = state!.preferences.focusTyping ?? true
+  focus.setAttribute('aria-describedby', 'focus-typing-hint')
   focusLabel.append(focusText, focus); form.append(focusLabel)
+  const focusHint = document.createElement('p'); focusHint.id = 'focus-typing-hint'
+  focusHint.textContent = t('连续打字时当前行居中，上下文字渐隐；停笔10秒后全文逐渐显现，再次打字快速恢复聚焦。字号与行距不变。', 'While typing continuously, the current line stays centered and surrounding text fades. After 10 seconds without typing, all text gradually reappears. Resuming typing quickly restores focus. Font size and line spacing stay unchanged.', '続けて入力すると現在の行が中央に固定され、上下の文字が薄くなります。10秒入力しないと全文がゆっくり表示され、入力を再開すると素早く集中表示に戻ります。文字サイズと行間は変わりません。')
+  form.append(focusHint)
   showSounds(form)
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply', '適用'); form.append(submit)
   form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }
