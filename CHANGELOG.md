@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1109.3 — 2026-11-09
+
 - **Sumi centered focus:** continuous typing keeps the active line at the center of the editor, with the original font size, line spacing and horizontal layout. Context above and below fades more strongly toward the edges, without a five-line limit. After ten seconds without typing, context gently becomes fully visible; the first new input quickly restores the fade. Reading navigation restores the normal page.
 
 - **Sumi 0.1.8 requires note.md 6.1109.3 or later.** Update both for the revised native focus presentation; existing local writing-safety protections and visible save errors remain in place.
