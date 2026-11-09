@@ -9,7 +9,7 @@ export { isSelectAllShortcut } from './select-all-shortcut'
  *
  * A doc that opens with `frontmatter` cannot use a plain AllSelection. That
  * node renders through a NodeView whose container is `contentEditable=false`
- * (a collapsible <details>, see lib/frontmatter-view.ts), and WebKit clamps the
+ * (hidden, see lib/frontmatter-view.ts), and WebKit clamps the
  * *painted* selection to that non-editable subtree when the DOM range starts
  * inside it: state is correct — Backspace wipes the whole document — but the
  * user only sees the metadata block highlighted, which reads as "Cmd+A only
@@ -17,7 +17,7 @@ export { isSelectAllShortcut } from './select-all-shortcut'
  *
  * Starting after the frontmatter keeps the range entirely inside editable
  * content so it paints, and is the better semantic anyway: Cmd+A should grab
- * the prose, not the metadata table rendered above it.
+ * the prose, not the hidden metadata.
  */
 export function selectAllSelection(doc: PmNode): Selection {
   const first = doc.firstChild

@@ -178,29 +178,29 @@ it('opens and reuses Task tabs through the real external openPath entry', async 
   expect(session.owner.snapshot().raw).toContain('入口确认审计')
 })
 
-it('does not trap host mode and tab changes after a frontmatter IME target is replaced on blur', async () => {
+it('edits hidden metadata in Source without trapping host mode, tab changes or body IME', async () => {
   await openPath('/vault/inbox/tasks/from-next-task.md')
   const id = activeId.value!
   toggle = mount(ModeToggle, { target: document.body, props: { get tab() { return activeTab()! } } })
   component = mount(EditorPane, { target: document.body, props: { get tab() { return activeTab()! } } })
   await vi.waitFor(() => expect(fileEditorSession(id)).toBeDefined())
   const session = fileEditorSession(id)!
-  const cell = [...session.view.dom.querySelectorAll<HTMLElement>('.fm-property')]
-    .find(row => row.querySelector('.fm-key')?.textContent === 'title')!.querySelector<HTMLElement>('.fm-editable')!
-  cell.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
-  expect(session.view.composing).toBe(false)
-  cell.textContent = '匿名更新标题'
-  cell.dispatchEvent(new FocusEvent('blur'))
-  expect(session.owner.snapshot().raw).toContain('匿名更新标题')
-  expect(cell.isConnected).toBe(false)
-  // WKWebView can deliver the final IME event to the old nested editable.
-  cell.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+  const metadataView = session.view.dom.querySelector<HTMLElement>('.frontmatter-node-view')!
+  expect(metadataView.hidden).toBe(true)
+  expect(metadataView.childElementCount).toBe(0)
+  expect(session.owner.snapshot().raw).toBe(raw)
   try {
     document.querySelectorAll<HTMLButtonElement>('[role=tab]')[1].click()
     await vi.waitFor(() => expect(activeTab()?.mode).toBe('source'))
     await tick()
     const source = document.querySelector<HTMLTextAreaElement>('textarea')!
-    expect(source.value).toContain('匿名更新标题')
+    expect(source.value).toContain('title: 确认审计时间线')
+    source.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    source.value = source.value.replace('title: 确认审计时间线', 'title: 匿名更新标题')
+    source.dispatchEvent(new Event('input', { bubbles: true }))
+    source.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+    await session.owner.flush()
+    expect(session.owner.snapshot().raw).toContain('匿名更新标题')
     source.value += '\n切换后可以继续编辑。\n'
     source.dispatchEvent(new Event('input', { bubbles: true }))
     expect(session.owner.snapshot().raw).toBe(source.value)
@@ -225,7 +225,7 @@ it('does not trap host mode and tab changes after a frontmatter IME target is re
     expect(session.owner.snapshot().raw).toContain('正文确认审计')
     expect(session.owner.snapshot().raw).toContain('切换后可以继续编辑。')
   } finally {
-    // Release the pre-fix stranded owner so teardown does not itself hang.
+    // Release an interrupted body composition if an assertion fails.
     session.view.dom.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
     await new Promise(resolve => setTimeout(resolve, 30))
   }

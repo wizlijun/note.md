@@ -10,7 +10,9 @@ import { tauriMediaResolver } from './adapters/tauri-media-resolver'
 import { tauriLinkOpener } from './adapters/tauri-link-opener'
 import { rendererRegistry } from './adapters/renderer-registry'
 import { spreadsheetFactory } from './adapters/spreadsheet-factory'
-import { frontmatterFactory, readonlyFrontmatterFactory } from './frontmatter-view'
+import { frontmatterFactory } from './frontmatter-view'
+import { hiddenFrontmatterSelectionPlugin } from './hidden-frontmatter-selection'
+import { focusRichBodyEnd } from './rich-editor-focus'
 import { activeTab } from './tabs.svelte'
 import { analyticsPluginForEditor, recordEditorDelta } from './insights/tracker.svelte'
 import type { Plugin } from 'prosemirror-state'
@@ -107,10 +109,13 @@ export async function mountRichEditor(
           adapters: { mediaResolver, rendererRegistry, mermaidLoader: loadDesktopMermaid, linkOpener: tauriLinkOpener,
             platform: { ...platform, getCurrentFilePath: () => file.tab.filePath || null },
             spreadsheetViewFactory: spreadsheetFactory,
-            frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory },
+            frontmatterViewFactory: frontmatterFactory },
           render: { enableMath: true, enableMermaid: true, enableImageSelection: true,
             diagramInteraction: enableDiagramInteraction ? desktopDiagramInteraction() : false },
-        }, { plugins: file.plugins, onDelta: recordEditorDelta, externalSource: true, imeGuard })
+        }, { plugins: [hiddenFrontmatterSelectionPlugin({ ensureBody(view) {
+          const owner = fileEditorSession(file.tab.id)?.owner
+          if (owner) focusRichBodyEnd(view, owner)
+        } }), ...file.plugins], onDelta: recordEditorDelta, externalSource: true, imeGuard })
         registerFileEditorSession(file.tab.id, session)
         await session.setMode(file.tab.mode)
       }
@@ -132,7 +137,7 @@ export async function mountRichEditor(
       linkOpener: tauriLinkOpener,
       platform,
       spreadsheetViewFactory: spreadsheetFactory,
-      frontmatterViewFactory: readOnly ? readonlyFrontmatterFactory : frontmatterFactory,
+      frontmatterViewFactory: frontmatterFactory,
       enableMath: true,
       enableMermaid: true,
       diagramInteraction: enableDiagramInteraction ? desktopDiagramInteraction() : false,
@@ -157,7 +162,7 @@ export async function mountRichEditor(
   const plugin = analyticsPluginForEditor()
   instance.view.updateState(
     instance.view.state.reconfigure({
-      plugins: instance.view.state.plugins.concat(plugin),
+      plugins: [hiddenFrontmatterSelectionPlugin({ ensureBody: view => { focusRichBodyEnd(view) } }), ...instance.view.state.plugins, plugin],
     }),
   )
   return guardRichEditor(root, instance, imeGuard)
