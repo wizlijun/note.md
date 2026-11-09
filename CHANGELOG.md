@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1110.1 — 2026-11-10
+
 - **Sumi 0.1.10 requires note.md 6.1110.1 or later.** Update both for the native input-resume and viewport-geometry fixes.
 
 - **Sumi resumes focus on the first input after reading navigation, including IME preedit.** Editing no longer waits for four new keystrokes after moving the caret. Focus geometry is refreshed from the current TextKit viewport so paragraph changes do not overlap or hide preceding lines.
