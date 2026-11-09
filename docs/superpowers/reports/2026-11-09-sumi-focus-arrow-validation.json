@@ -1,0 +1,38 @@
+{
+  "status": "verified_implementation_release_pending",
+  "base": "0e72197d",
+  "hostTarget": "6.1109.4",
+  "pluginTarget": "0.1.9",
+  "checks": {
+    "native": 3654,
+    "nativeRegressionGroups": 10,
+    "ui": 101,
+    "rootBuild": true
+  },
+  "sourceHashes": {
+    "editor.m": "4cdafe8902f28447e7b9c6323729bd5eb355b0d3e1fca90e8e46b6d8daa9769a",
+    "focus.h": "63a5efa0751fa2d703ad22f5b75870c3ee90f2ec352d3d8893246ba81cb72518",
+    "focus-probe.m": "567a57d741241c7794cd9f14212fdb8f5be5dab3cf5070faf1a18a991d5f54a0",
+    "focus-interactive-probe.m": "3fd21dea440dca8852d54919de14a26269d21b0e7598c39d4b690d04b50625c5"
+  },
+  "evidence": {
+    "native-verification.json": {
+      "sha256": "7843233c1baca516def6619451de4d40d008c6b89b33794387dcc9c410aaf2a9",
+      "bytes": 3567
+    },
+    "cua-verification.json": {
+      "sha256": "a8dfd5b31627bcf1a5cf993e958c304e1af9c5efdd3fcf733e620d03ad0068b2",
+      "bytes": 1478
+    },
+    "ui-verification.json": {
+      "sha256": "ff83df644459e65551404797c24c68304236cb4ba0b4b89ce8cfa09246fd50d0",
+      "bytes": 3757
+    },
+    "vertical-focus.png": {
+      "sha256": "db94b283f15b981f12bb9575c52f0f7da51cdab8b38831b4514cbf9dc36abed2",
+      "bytes": 204677
+    }
+  },
+  "published": false,
+  "omarchy": "Independent retained task, user prioritizes this plugin update"
+}

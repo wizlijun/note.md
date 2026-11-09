@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "at": "2026-11-09T15:24:53.591354+00:00",
+  "binarySha256": "cead3106712606797b044578706ee6b7b7b8c374fb5c90dda207c12043702b0a",
+  "sourceHashes": {
+    "editor.m": "4cdafe8902f28447e7b9c6323729bd5eb355b0d3e1fca90e8e46b6d8daa9769a",
+    "focus.h": "63a5efa0751fa2d703ad22f5b75870c3ee90f2ec352d3d8893246ba81cb72518",
+    "focus-probe.m": "567a57d741241c7794cd9f14212fdb8f5be5dab3cf5070faf1a18a991d5f54a0",
+    "focus-interactive-probe.m": "3fd21dea440dca8852d54919de14a26269d21b0e7598c39d4b690d04b50625c5"
+  },
+  "checks": [
+    "four actual keys enter focus in three-paragraph fixture",
+    "Up moves previous visual row into center, whole page moves down, text unchanged",
+    "Down returns next row to center without leaving focus",
+    "New Blank Page menu clears synthetic fixture and shows caret on center immediately",
+    "first a remains at center without waiting four inputs",
+    "abc + Return + d then Up keeps abc active on center and d below",
+    "Down then x preserves exact abc/newline/dx with active dx centered",
+    "CmdQ exits probe, inventory confirms zero running probes"
+  ],
+  "fixture": "Only synthetic memory text; no production Vault/account",
+  "boundary": "Probe Cmd+N did not clear fixture; used explicit New Blank Page menu item instead. No production shortcut failure is claimed; final proof is explicit projection of a new empty document. Native probe independently verifies true mount, layout and repeated keyDown geometry."
+}

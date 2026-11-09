@@ -1,0 +1,120 @@
+{
+  "ok": true,
+  "at": "2026-11-09T15:09:14.661026+00:00",
+  "sourceHashes": {
+    "editor.m": "4cdafe8902f28447e7b9c6323729bd5eb355b0d3e1fca90e8e46b6d8daa9769a",
+    "focus.h": "63a5efa0751fa2d703ad22f5b75870c3ee90f2ec352d3d8893246ba81cb72518",
+    "focus-probe.m": "567a57d741241c7794cd9f14212fdb8f5be5dab3cf5070faf1a18a991d5f54a0",
+    "focus-interactive-probe.m": "3fd21dea440dca8852d54919de14a26269d21b0e7598c39d4b690d04b50625c5"
+  },
+  "checks": 3654,
+  "regressions": [
+    {
+      "probe": "caret",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "draft",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "panel",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "clipboard",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "shortcuts",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "unicode",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "position",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "locale",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "padding",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0,
+      "extra_system": 0,
+      "extra_crt": 0
+    },
+    {
+      "probe": "typewriter",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    }
+  ],
+  "interactiveApp": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/native-evidence/Sumi Native Probe.app",
+  "interactiveBinarySha256": "cead3106712606797b044578706ee6b7b7b8c374fb5c90dda207c12043702b0a",
+  "interactiveStarted": false,
+  "fontPresets": 6,
+  "themes": 6,
+  "sizes": [
+    14,
+    22,
+    46
+  ],
+  "noFormalVaultAccess": true,
+  "newCoverage": [
+    "actual repeated Up/Down preserves focus, center, inverse scroll direction and native visual-line step",
+    "soft wraps, paragraph gaps, blank lines, beginning/end boundaries",
+    "idle deadline/strength/timer identities unchanged by vertical navigation",
+    "in-flight entry alpha not restarted and position never moves back off center",
+    "Shift-selection/Command-jump/IME interpreter delegated safely",
+    "ready empty mount prepares centered row without claiming input/focus",
+    "first three characters and Return remain centered",
+    "empty preference toggles, bounds, authoritative projection, draft protection, hidden/visible and detach"
+  ],
+  "physicalChineseImeTested": false,
+  "probeReadonlyNote": "Native mount second argument is webview-sibling mode, not readonly; readonly case sets actual NSTextView.editable false and verifies prepared focus is removed.",
+  "evidence": {
+    "focus.log": {
+      "sha256": "0cafb8c5fcf0f4c901f774cd7df9ad4798f104e43da8e216e4ead18a1658dba4",
+      "bytes": 244
+    },
+    "focus-build.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "native-regressions.json": {
+      "sha256": "a55bad7c6ade33003fc9791acdf00d655fb99c908ec3aee724f8dba3ca6375dd",
+      "bytes": 1424
+    },
+    "font-fixture-verification.json": {
+      "sha256": "dd4068d04e5103b1ed67bd4a60b1e7d44f52a7756f2a2f5d5af3d1138c815061",
+      "bytes": 845
+    },
+    "focus.png.vertical-focus.png": {
+      "sha256": "db94b283f15b981f12bb9575c52f0f7da51cdab8b38831b4514cbf9dc36abed2",
+      "bytes": 204677
+    }
+  }
+}

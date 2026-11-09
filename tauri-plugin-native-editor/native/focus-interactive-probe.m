@@ -14,6 +14,11 @@ static void releaseReply(char *reply){free(reply);}
 @end
 @implementation FocusProbeDelegate
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender{(void)sender;return YES;}
+- (void)newBlankPage:(id)sender {
+    (void)sender;if(!probeHandle)return;SumiEditor *editor=(__bridge SumiEditor *)probeHandle;
+    [editor applyProjection:@{@"document":@{@"text":@"",@"runs":@[]},@"selection":SumiRange(NSMakeRange(0,0))} revision:editor.revision+1];
+    [probeWindow makeFirstResponder:editor.text];
+}
 - (void)windowDidResize:(NSNotification *)notification {
     (void)notification;if(!probeHandle)return;SumiEditor *editor=(__bridge SumiEditor *)probeHandle;
     [editor setBounds:@{@"x":@0,@"y":@0,@"width":@(probeWindow.contentView.bounds.size.width),@"height":@(probeWindow.contentView.bounds.size.height)}];
@@ -23,9 +28,9 @@ static void releaseReply(char *reply){free(reply);}
 int main(void){@autoreleasepool{
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     FocusProbeDelegate *delegate=[FocusProbeDelegate new];NSApp.delegate=delegate;
-    NSMenu *menu=[NSMenu new];NSMenuItem *application=[NSMenuItem new];[menu addItem:application];NSMenu *appMenu=[NSMenu new];[appMenu addItemWithTitle:@"Quit Sumi Native Probe" action:@selector(terminate:) keyEquivalent:@"q"];application.submenu=appMenu;NSApp.mainMenu=menu;
+    NSMenu *menu=[NSMenu new];NSMenuItem *application=[NSMenuItem new];[menu addItem:application];NSMenu *appMenu=[NSMenu new];[appMenu addItemWithTitle:@"Quit Sumi Native Probe" action:@selector(terminate:) keyEquivalent:@"q"];NSMenuItem *blankPage=[appMenu addItemWithTitle:@"New Blank Page — synthetic only" action:@selector(newBlankPage:) keyEquivalent:@"n"];blankPage.target=delegate;application.submenu=appMenu;NSApp.mainMenu=menu;
     probeWindow=[[NSWindow alloc]initWithContentRect:NSMakeRect(100,100,960,720) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
-    probeWindow.title=@"Sumi Native Probe — 合成草稿 · 等字号居中渐隐 / 连打聚焦 / 方向键与拖选阅读";probeWindow.delegate=delegate;
+    probeWindow.title=@"Sumi Native Probe — 合成草稿 · 等字号居中渐隐 / 连打聚焦 / 上下保持中线 / ⌘N空白页 / 左右与拖选阅读";probeWindow.delegate=delegate;
     probeWindow.collectionBehavior=NSWindowCollectionBehaviorFullScreenPrimary;
     NSString *paragraph=@"雨停以后，我把窗推开了一些，街道上的灯光映在湿润的石板上，像一封还没有写完的信。我坐回桌前，听见远处偶尔传来车轮经过的声音。白天那些纷乱的念头终于慢了下来，不再催促我立刻找到答案。The quiet rhythm of the keys carries each thought onto the page. 我只是沿着刚才的句子继续往下写，想起一个很久没有见面的人，也想起曾经走过的那条小路。夜色渐深，我仍想把这一刻认真写下。";
     NSString *body=[NSString stringWithFormat:@"%@\n\n%@\n\n%@",paragraph,paragraph,paragraph];

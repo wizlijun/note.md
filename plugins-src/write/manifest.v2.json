@@ -2,13 +2,13 @@
   "manifest_version": 2,
   "id": "notemd.sumi",
   "name": "Sumi Typewriter",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-sumi"
   },
   "engines": {
-    "notemd": ">=6.1109.3"
+    "notemd": ">=6.1109.4"
   },
   "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
   "ui": "ui/",

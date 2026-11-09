@@ -1,10 +1,13 @@
 // Offscreen, real TextKit line rendering and input mapping. Never requests TCC.
 #import "editor.m"
 #import <objc/runtime.h>
+static BOOL interpretedMarked,interpretedFocus;
+static unsigned short interpretedCode;
 @interface FocusProbeText : SumiTextView
 @end
 @implementation FocusProbeText
 - (BOOL)caretSurfaceActive {return self.window.firstResponder==self && !self.isHiddenOrHasHiddenAncestor;}
+- (void)interpretKeyEvents:(NSArray<NSEvent *> *)input {if(input.count){interpretedMarked=self.hasMarkedText;interpretedFocus=self.focusView!=nil;interpretedCode=input.firstObject.keyCode;}[super interpretKeyEvents:input];}
 @end
 static NSMutableArray *events;
 static NSUInteger checks;
@@ -15,6 +18,27 @@ static void require(BOOL ok,NSString *message){checks++;if(!ok){fprintf(stderr,"
 static int64_t receive(void *ctx,const char *json,char **reply){(void)ctx;(void)reply;NSDictionary *event=SumiJSON(json);[events addObject:event];if(rejectEdit && [event[@"kind"] isEqual:@"edit"]){NSInteger code=rejectEdit;rejectEdit=0;if(code==-2)*reply=strdup("{\"draft_error\":\"synthetic journal failure\"}");return code;}return [event[@"kind"] isEqual:@"edit"]?[event[@"base_revision"] longLongValue]+1:[event[@"revision"] longLongValue];}
 static void replyFree(char *value){free(value);}
 static NSEvent *key(NSWindow *window,NSString *text,unsigned short code){return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:text charactersIgnoringModifiers:text isARepeat:NO keyCode:code];}
+static NSEvent *modifiedKey(NSWindow *window,NSString *value,unsigned short code,NSEventModifierFlags flags){return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:flags timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:value charactersIgnoringModifiers:value isARepeat:NO keyCode:code];}
+static void checkVerticalStep(SumiTextView *text,NSWindow *window,BOOL up){
+    SumiFocusView *view=text.focusView;require(view!=nil,@"navigation fixture has focused presentation");
+    SumiFocusRow *active=view.rows.firstObject,*neighbor=nil;CGFloat distance=CGFLOAT_MAX;
+    for(SumiFocusRow *row in view.rows){CGFloat d=NSMidY(NSMakeRect(0,row.rawOrigin.y,1,row.height))-NSMidY(NSMakeRect(0,active.rawOrigin.y,1,active.height));if((up?d<-.1:d>.1)&&fabs(d)<distance){distance=fabs(d);neighbor=row;}}
+    NSRange expected=neighbor?neighbor.range:active.range;CGFloat shift=neighbor?(active.rawOrigin.y+active.height*.5)-(neighbor.rawOrigin.y+neighbor.height*.5):0;
+    NSMutableDictionary *points=[NSMutableDictionary new];for(SumiFocusRow *row in view.rows)points[NSStringFromRange(row.range)]=[NSValue valueWithPoint:row.origin];
+    NSAttributedString *body=[text.textStorage copy];NSUInteger revision=text.owner.revision;CFTimeInterval activity=view.lastActivity;NSTimer *idle=view.idleTimer;CGFloat strength=view.strength;BOOL undo=text.undoManager.canUndo,redo=text.undoManager.canRedo;NSInteger grouping=text.undoManager.groupingLevel;
+    NSUInteger edits=0;for(NSDictionary *event in events)edits+=[event[@"kind"] isEqual:@"edit"];
+    [text keyDown:key(window,up?@"\uf700":@"\uf701",up?126:125)];
+    require(text.focusView==view,@"plain vertical key retains the same focus view");
+    require(NSEqualRanges(view.rows.firstObject.range,expected),@"native Up/Down moves to the adjacent real visual row or stays at document boundary");
+    active=view.rows.firstObject;require(fabs(active.origin.y+active.height*.5-NSMidY(view.bounds))<.01,@"new active row stays on the exact viewport center");
+    NSUInteger common=0;for(SumiFocusRow *row in view.rows){NSValue *point=points[NSStringFromRange(row.range)];if(!point)continue;NSPoint old=point.pointValue;require(fabs(row.origin.x-old.x)<.01 && fabs(row.origin.y-old.y-shift)<.05,@"every shared row scrolls by one identical native line distance with the inverse direction");common++;}
+    require(common>0,@"vertical movement retains overlapping visible document rows");
+    require(view.lastActivity==activity && view.idleTimer==idle && view.strength==strength,@"vertical reading preserves typing deadline and current fade strength");
+    NSUInteger afterEdits=0;for(NSDictionary *event in events)afterEdits+=[event[@"kind"] isEqual:@"edit"];
+    require([body isEqualToAttributedString:text.textStorage] && text.owner.revision==revision && afterEdits==edits && text.undoManager.canUndo==undo && text.undoManager.canRedo==redo && text.undoManager.groupingLevel==grouping,@"vertical focus scrolling preserves full attributed text revision and undo state");
+    NSRect raw=[text.owner rectForInsertion:text.selectedRange.location],projected=[text focusRect:raw];require(fabs(NSMidY(projected)-NSMidY(view.bounds))<=active.height && projected.size.height==raw.size.height,@"caret projection follows the centered native row without scaling");
+    NSRange actual;NSRect candidate=[text firstRectForCharacterRange:text.selectedRange actualRange:&actual];require(!NSIsEmptyRect(candidate),@"vertical movement keeps native candidate geometry available");
+}
 static void capture(NSView *view,NSString *path){[view layoutSubtreeIfNeeded];NSBitmapImageRep *bitmap=[view bitmapImageRepForCachingDisplayInRect:view.bounds];[view cacheDisplayInRect:view.bounds toBitmapImageRep:bitmap];[[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:path atomically:YES];}
 int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*)){
     [NSApplication sharedApplication];events=[NSMutableArray new];
@@ -52,7 +76,7 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     NSRange actual;NSRect candidate=[text firstRectForCharacterRange:text.selectedRange actualRange:&actual];require(!NSIsEmptyRect(candidate),@"IME receives projected screen geometry");[text unmarkText];
     [text updateFocusRows];
     if(argc>1){NSView *view=owner.container;[view layoutSubtreeIfNeeded];NSBitmapImageRep *bitmap=[view bitmapImageRepForCachingDisplayInRect:view.bounds];[view cacheDisplayInRect:view.bounds toBitmapImageRep:bitmap];[[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:[NSString stringWithUTF8String:argv[1]] atomically:YES];}
-    [text keyDown:key(window,@"\uf703",124)];require(!text.focusView,@"arrow returns to reading");
+    [text keyDown:key(window,@"\uf703",124)];require(!text.focusView,@"horizontal arrow returns to reading");
     NSMutableDictionary *appearance=[owner.appearance mutableCopy];appearance[@"focus_typing"]=@NO;owner.appearance=appearance;
     for(int n=0;n<5;n++)[text keyDown:key(window,@"c",8)];require(!text.focusView,@"disabled preference remains reading");
     // Reuse one continuous paragraph in both renderings, with real native caret.
@@ -218,6 +242,52 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
         else require([text.string isEqual:before] && owner.revision==revision,@"hide/inactive tracking exit preserves exact text and accepted revision");
     }
     owner.container.hidden=NO;[window makeFirstResponder:text];
+    // Real Up/Down scrolls the page around a fixed active row. This fixture
+    // mixes soft wrapping, paragraph boundaries and blank physical lines.
+    NSMutableString *navigation=[NSMutableString new];
+    for(int n=0;n<6;n++)[navigation appendFormat:@"%@\n\nshort row %d\nnext row %d\n",paragraph,n,n];
+    NSUInteger navMiddle=navigation.length/2;
+    [owner applyProjection:@{@"document":@{@"text":navigation,@"runs":@[]},@"selection":SumiRange(NSMakeRange(navMiddle,0))} revision:owner.revision+1];
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];text.focusView.progress=1;text.focusView.strength=1;
+    [text.focusView.timer invalidate];text.focusView.timer=nil;
+    SumiFocusView *navigationView=text.focusView;
+    for(int n=0;n<14;n++)checkVerticalStep(text,window,YES);
+    for(int n=0;n<28;n++)checkVerticalStep(text,window,NO);
+    for(int n=0;n<14;n++)checkVerticalStep(text,window,YES);
+    require(text.focusView==navigationView,@"many consecutive arrows never replace or exit the focused surface");
+    navigationView.strength=0;navigationView.targetStrength=0;checkVerticalStep(text,window,YES);checkVerticalStep(text,window,NO);
+    require(navigationView.strength==0,@"idle fully-visible context stays fully visible while navigating");
+    navigationView.strength=1;navigationView.targetStrength=1;
+    if(argc>1)capture(owner.container,[[NSString stringWithUTF8String:argv[1]] stringByAppendingString:@".vertical-focus.png"]);
+    // Boundaries must not invent a row or modify text.
+    for(NSNumber *end in @[@NO,@YES]){
+        [text stopFocusTyping];[text setSelectedRange:NSMakeRange(end.boolValue?text.string.length:0,0)];
+        for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];text.focusView.progress=1;text.focusView.strength=1;[text.focusView.timer invalidate];text.focusView.timer=nil;
+        checkVerticalStep(text,window,!end.boolValue);checkVerticalStep(text,window,!end.boolValue);
+    }
+    [text stopFocusTyping];[text setSelectedRange:NSMakeRange(navMiddle,0)];
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    SumiFocusView *enteringNavigation=text.focusView;NSTimer *entryTimer=enteringNavigation.timer;CFTimeInterval entryStart=enteringNavigation.started;
+    require(enteringNavigation.progress<1 && entryTimer.valid,@"entry-navigation fixture has actual in-flight spatial and alpha animation");
+    CGFloat entryStrength=enteringNavigation.strength;CFTimeInterval entryActivity=enteringNavigation.lastActivity;
+    [text keyDown:key(window,@"\uf700",126)];
+    require(text.focusView==enteringNavigation && enteringNavigation.progress==1 && enteringNavigation.fromProgress==1 && enteringNavigation.timer==entryTimer && enteringNavigation.started==entryStart && enteringNavigation.strength==entryStrength && enteringNavigation.lastActivity==entryActivity,@"Up finishes only spatial entry while keeping alpha timer and typing deadline");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.08]];
+    require(enteringNavigation.progress==1 && enteringNavigation.strength>entryStrength && enteringNavigation.strength<1,@"subsequent animation ticks cannot pull centered navigation back toward old viewport");
+    [text keyDown:key(window,@"\uf701",125)];
+    require(text.focusView==enteringNavigation && enteringNavigation.progress==1 && enteringNavigation.lastActivity==entryActivity,@"Down during opacity easing retains focus and original typing activity");
+    [text stopFocusTyping];[text setSelectedRange:NSMakeRange(navMiddle,0)];
+    [text keyDown:key(window,@"\uf700",126)];[text keyDown:key(window,@"\uf701",125)];require(!text.focusView,@"vertical navigation from ordinary reading never activates focus");
+    for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    [text keyDown:modifiedKey(window,@"\uf700",126,NSEventModifierFlagShift)];require(!text.focusView && text.selectedRange.length>0,@"Shift-Up uses visible native selection in reading layout");
+    [text setSelectedRange:NSMakeRange(navMiddle,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    [text keyDown:modifiedKey(window,@"\uf701",125,NSEventModifierFlagCommand)];require(!text.focusView,@"Command-Down keeps its document-jump reading behavior");
+    [text stopFocusTyping];[text setSelectedRange:NSMakeRange(navMiddle,0)];for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];
+    [text setMarkedText:@"nihao" selectedRange:NSMakeRange(5,0) replacementRange:NSMakeRange(NSNotFound,0)];
+    interpretedMarked=NO;interpretedFocus=NO;interpretedCode=0;
+    [text keyDown:key(window,@"\uf700",126)];
+    require(interpretedMarked && interpretedFocus && interpretedCode==126,@"native key interpreter receives marked-text Up before any forced focus exit or preedit commit");
+    [text unmarkText];[text stopFocusTyping];
     // Following text remains genuinely interactive, not just a faded picture.
     NSString *future=@"earlier one\nearlier two\nearlier three\ncurrent input row\nabcdefghi\nlater one\nlater two\nlater three";
     NSUInteger currentEnd=[future rangeOfString:@"current input row"].location+[@"current input row" length];
@@ -346,7 +416,7 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     [owner applyProjection:@{@"document":@{@"text":remoteBody,@"runs":@[]},@"selection":SumiRange(text.selectedRange)} revision:owner.revision+1];
     require(text.focusView==idle && idle.lastActivity==genuineActivity,@"remote projection refreshes visible context without pretending to be new typing");
     [text keyDown:key(window,@"\uf703",124)];
-    require(!text.focusView && !idle.timer && !idle.idleTimer,@"actual direction navigation exits focus and cancels rather than rescheduling idle");
+    require(!text.focusView && !idle.timer && !idle.idleTimer,@"actual horizontal navigation exits focus and cancels rather than rescheduling idle");
     for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.05];idle=text.focusView;
     NSPasteboard *idlePaste=[NSPasteboard pasteboardWithName:@"net.notemd.sumi.idle-probe"];
     [idlePaste clearContents];[idlePaste setString:@"isolated paste" forType:NSPasteboardTypeString];[text pasteFromPasteboard:idlePaste];
@@ -402,6 +472,58 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     require(reduced.strength==1 && text.typewriterCaret.layer.opacity==caretOpacity && [text.typewriterCaret.layer animationForKey:@"sumi-caret-breathing"].beginTime==caretPhase,@"fast focus completes without coupling to caret breathing phase");
     [text stopFocusTyping];appearance[@"caret_motion"]=@"steady";owner.appearance=appearance;
     method_setImplementation(motionMethod,allowedMotion);
+    // A truly new empty page prepares its first line at center immediately;
+    // this is real mount/focus behavior, not simulated continuous typing.
+    [text stopFocusTyping];
+    for(NSString *variant in @[@"editable",@"disabled",@"readonly",@"hidden",@"placeholder",@"nonempty"]){
+        NSWindow *blankWindow=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,800,600) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+        NSView *blankHost=[[NSView alloc]initWithFrame:NSMakeRect(0,0,800,600)];[blankWindow.contentView addSubview:blankHost];
+        NSTextField *other=[[NSTextField alloc]initWithFrame:NSMakeRect(0,0,120,24)];[blankWindow.contentView addSubview:other];[blankWindow makeFirstResponder:other];NSResponder *priorResponder=blankWindow.firstResponder;
+        BOOL editable=[variant isEqual:@"editable"],hidden=[variant isEqual:@"hidden"];
+        NSMutableDictionary *blankAppearance=[appearance mutableCopy];blankAppearance[@"focus_typing"]=@(![variant isEqual:@"disabled"]);blankAppearance[@"font_size"]=@22;blankAppearance[@"caret_motion"]=@"steady";
+        NSMutableDictionary *blankConfig=[@{@"surface_id":@"empty-page-probe",@"generation":@1,@"revision":@7,@"bounds":@{@"x":@0,@"y":@0,@"width":@800,@"height":@600},@"appearance":blankAppearance,@"document":@{@"text":[variant isEqual:@"nonempty"]?@"existing saved text":@"",@"runs":@[]}} mutableCopy];
+        if([variant isEqual:@"placeholder"])blankConfig[@"document"]=@{@"runs":@[]};
+        blankHost.hidden=hidden;NSData *blankData=[NSJSONSerialization dataWithJSONObject:blankConfig options:0 error:nil];
+        NSUInteger beforeMountEvents=events.count;
+        void *blankHandle=sumi_editor_mount((__bridge void *)blankHost,0,[[[NSString alloc]initWithData:blankData encoding:NSUTF8StringEncoding]UTF8String],receive,replyFree,NULL);
+        require(blankHandle!=NULL,@"empty-page variant mounts with normal owner lifecycle");SumiEditor *blankOwner=(__bridge SumiEditor *)blankHandle;SumiTextView *blankText=blankOwner.text;object_setClass(blankText,FocusProbeText.class);
+        if([variant isEqual:@"readonly"]){blankText.editable=NO;[blankText updateFocusRows];}
+        require(blankWindow.firstResponder==priorResponder,@"empty preparation never steals another control's first responder");
+        require(blankOwner.revision==7 && events.count==beforeMountEvents && !blankText.undoManager.canUndo,@"empty preparation does not edit revision history or emit typing");
+        if(editable){
+            require(blankText.focusView!=nil && blankText.string.length==0,@"editable empty page has centered focus before the first keystroke");
+            SumiFocusView *prepared=blankText.focusView;SumiFocusRow *empty=prepared.rows.firstObject;
+            require(prepared.rows.count==1 && fabs(empty.origin.y+empty.height*.5-300)<.01 && prepared.progress==1,@"initial empty visual row is centered before typing begins");
+            require(!prepared.timer && !prepared.idleTimer && prepared.strength==1 && prepared.targetStrength==1,@"empty preparation does not start a fake typing idle deadline or entry animation");
+            [blankText refreshTypewriterCaret:NO];require(![blankText typewriterCaretEligible] && (!blankText.typewriterCaret || blankText.typewriterCaret.hidden),@"prepared empty page cannot display an active caret while another control owns focus");
+            [blankWindow makeFirstResponder:blankText];[blankText refreshTypewriterCaret:NO];
+            NSRect raw=[blankOwner rectForInsertion:0],drawn=[blankText focusRect:raw];
+            require(!blankText.typewriterCaret.hidden && fabs(NSMidY(drawn)-300)<=empty.height,@"real empty-page caret uses centered geometry on first responder entry");
+            NSString *typed=@"";
+            for(NSString *character in @[@"a",@"b",@"c"]){[blankText keyDown:key(blankWindow,character,0)];typed=[typed stringByAppendingString:character];
+                require(blankText.focusView==prepared && [blankText.string isEqual:typed] && blankOwner.revision==7+typed.length,@"each of first three real characters stays focused and inserts exactly once");
+                empty=prepared.rows.firstObject;require(fabs(empty.origin.y+empty.height*.5-300)<.01,@"first three characters never wait for four-key threshold to become centered");}
+            [blankText keyDown:key(blankWindow,@"\r",36)];require([blankText.string isEqual:@"abc\n"] && blankText.focusView==prepared,@"first Return creates the next real line without leaving centered typing");
+            checkVerticalStep(blankText,blankWindow,YES);checkVerticalStep(blankText,blankWindow,NO);
+            [blankOwner applyProjection:@{@"document":@{@"text":@"",@"runs":@[]},@"selection":SumiRange(NSMakeRange(0,0))} revision:blankOwner.revision+1];
+            require(blankText.focusView && blankText.string.length==0 && fabs(blankText.focusView.rows.firstObject.origin.y+blankText.focusView.rows.firstObject.height*.5-300)<.01,@"authoritative empty projection keeps a correctly centered first line");
+            NSMutableDictionary *offAppearance=[blankOwner.appearance mutableCopy];offAppearance[@"focus_typing"]=@NO;
+            NSData *offData=[NSJSONSerialization dataWithJSONObject:@{@"command":@"set_appearance",@"appearance":offAppearance} options:0 error:nil];NSUInteger emptyRevision=blankOwner.revision;
+            require(sumi_editor_command(blankHandle,[[[NSString alloc]initWithData:offData encoding:NSUTF8StringEncoding]UTF8String])==0 && !blankText.focusView,@"disabling the preference removes prepared empty centering through the real appearance command");
+            offAppearance[@"focus_typing"]=@YES;offData=[NSJSONSerialization dataWithJSONObject:@{@"command":@"set_appearance",@"appearance":offAppearance} options:0 error:nil];
+            require(sumi_editor_command(blankHandle,[[[NSString alloc]initWithData:offData encoding:NSUTF8StringEncoding]UTF8String])==0 && blankText.focusView && blankOwner.revision==emptyRevision,@"reenabling preference prepares empty centering without a document edit");
+            require(sumi_editor_command(blankHandle,"{\"command\":\"set_bounds\",\"bounds\":{\"x\":0,\"y\":0,\"width\":640,\"height\":480}}") ==0 && fabs(blankText.focusView.rows.firstObject.origin.y+blankText.focusView.rows.firstObject.height*.5-240)<.01,@"empty page follows the actual resized viewport center");
+            require(sumi_editor_command(blankHandle,"{\"command\":\"set_bounds\",\"bounds\":{\"x\":0,\"y\":0,\"width\":800,\"height\":600}}") ==0 && fabs(blankText.focusView.rows.firstObject.origin.y+blankText.focusView.rows.firstObject.height*.5-300)<.01 && blankOwner.revision==emptyRevision,@"restoring empty viewport bounds keeps exact center and revision");
+            [blankOwner retainDraft:@{@"document":@{@"text":@"",@"runs":@[]},@"selection":SumiRange(NSMakeRange(0,0))} error:@"synthetic empty journal failure"];
+            [blankText updateFocusRows];require(!blankText.focusView && !blankText.editable,@"empty-page convenience cannot bypass a protected read-only draft");
+            [blankOwner applyProjection:@{@"document":@{@"text":@"",@"runs":@[]},@"selection":SumiRange(NSMakeRange(0,0))} revision:blankOwner.revision+1];
+            require(blankText.focusView && blankText.editable,@"successful explicit empty projection may restore centered editable page after draft protection");
+            sumi_editor_command(blankHandle,"{\"command\":\"set_visible\",\"visible\":false}");[blankText updateFocusRows];require(!blankText.focusView,@"hidden empty page cancels focus and does not recreate it from a layout callback");
+            NSResponder *hiddenResponder=blankWindow.firstResponder;sumi_editor_command(blankHandle,"{\"command\":\"set_visible\",\"visible\":true}");require(blankText.focusView!=nil && blankWindow.firstResponder==hiddenResponder,@"showing a ready empty page prepares its centered line again without taking focus");
+        }else require(!blankText.focusView,@"disabled readonly hidden placeholder and nonempty reading mounts do not create empty focus");
+        SumiFocusView *prepared=blankText.focusView;sumi_editor_detach(blankHandle);require(!prepared.timer && !prepared.idleTimer,@"empty page detach cannot leave timers or recreate the old surface");[blankWindow orderOut:nil];
+    }
+    [window makeFirstResponder:text];
     if(argc>2){
         NSString *fontRoot=[NSString stringWithUTF8String:argv[2]];
         NSData *manifestData=[NSData dataWithContentsOfFile:@"plugins-src/write/resources/sumi/manifest.json"];

@@ -306,9 +306,9 @@ describe('Sumi native writing shell', () => {
     expect(document.getElementById('panel')!.hidden).toBe(true)
   })
   it.each([
-    ['zh', '聚焦打字', '连续打字时当前行居中，上下文字渐隐；停笔10秒后全文逐渐显现，再次打字快速恢复聚焦。字号与行距不变。'],
-    ['en', 'Focused typing', 'While typing continuously, the current line stays centered and surrounding text fades. After 10 seconds without typing, all text gradually reappears. Resuming typing quickly restores focus. Font size and line spacing stay unchanged.'],
-    ['ja', '集中タイピング', '続けて入力すると現在の行が中央に固定され、上下の文字が薄くなります。10秒入力しないと全文がゆっくり表示され、入力を再開すると素早く集中表示に戻ります。文字サイズと行間は変わりません。'],
+    ['zh', '聚焦打字', '空白页从中线开始；聚焦时上下移动光标，当前行仍居中。停笔10秒后上下文逐渐显现，重新打字快速恢复渐隐。字号与行距不变。'],
+    ['en', 'Focused typing', 'Blank pages start at the center. Up/Down keeps the active line centered while focused. After 10 seconds without typing, context gradually reappears; typing restores the fade. Font size and line spacing stay unchanged.'],
+    ['ja', '集中タイピング', '空白のページは中央から書き始めます。集中表示中は上下キーで移動しても現在の行を中央に保ちます。10秒入力しないと前後の文章がゆっくり現れ、入力を再開すると素早く薄くなります。文字サイズと行間は変わりません。'],
   ])('enables focused typing by default with a %s label and centered fading description', async (locale, label, hint) => {
     await setup(state(), undefined, locale)
     document.getElementById('appearance')!.click(); await settle()

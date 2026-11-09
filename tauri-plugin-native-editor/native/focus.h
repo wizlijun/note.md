@@ -43,6 +43,17 @@
 
 @implementation SumiTextView (FocusTyping)
 - (BOOL)focusEnabled {if(@available(macOS 13.0,*)){}else{return NO;}id value=self.owner.appearance[@"focus_typing"];return value ? [value boolValue] : YES;}
+- (void)ensureEmptyFocus {
+    if(self.focusView || !self.owner || self.owner.applying || !self.owner.focusDocumentReady
+        || ![self focusEnabled] || self.string.length || !self.isEditable || self.owner.draftError || self.owner.detached
+        || self.owner.container.hidden || self.isHiddenOrHasHiddenAncestor || self.owner.container.bounds.size.width<=0 || self.owner.container.bounds.size.height<=0)return;
+    // A loaded blank page is already a writing surface. Prepare its line in
+    // place without editing the document, taking focus, or fabricating input.
+    SumiFocusView *view=[[SumiFocusView alloc]initWithFrame:self.owner.container.bounds];view.text=self;view.wantsLayer=YES;
+    view.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
+    view.progress=1;view.strength=1;view.targetStrength=1;self.focusView=view;
+    [self.owner.container addSubview:view positioned:NSWindowAbove relativeTo:self.owner.scroll];
+}
 - (void)stopFocusTyping {
     self.focusInputCount=0;self.focusLastInput=0;self.focusFirstInput=0;
     SumiFocusView *view=self.focusView;if(!view)return;
@@ -116,11 +127,13 @@
     if(entering || view.targetStrength!=1)[self animateFocusStrength:1 duration:.2];
 }
 - (void)updateFocusRows {
-    SumiFocusView *view=self.focusView;if(!view || self.focusUpdating || self.focusTracking)return;
+    if(self.focusUpdating || self.focusTracking)return;
+    SumiFocusView *view=self.focusView;if(!view)return;
     if(![self focusEnabled] || self.owner.draftError || !self.isEditable || self.owner.detached || self.owner.container.hidden){[self stopFocusTyping];return;}
     self.focusUpdating=YES;
     if(@available(macOS 13.0,*)){
         NSTextLayoutManager *layout=self.textLayoutManager;NSTextContentManager *content=layout.textContentManager;
+        if(!self.string.length)[layout.textViewportLayoutController layoutViewport];
         NSUInteger index=MIN(self.selectedRange.location,self.string.length);
         id<NSTextLocation> location=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)index];
         NSMutableArray<SumiFocusRow *> *rows=[NSMutableArray new];

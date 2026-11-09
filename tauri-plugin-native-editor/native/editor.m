@@ -150,6 +150,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @end
 @interface SumiTextView (FocusTyping)
 - (BOOL)focusEnabled;
+- (void)ensureEmptyFocus;
 - (void)stopFocusTyping;
 - (void)recordFocusInputAt:(CFTimeInterval)time;
 - (void)animateFocusStrength:(CGFloat)strength duration:(NSTimeInterval)duration;
@@ -187,6 +188,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic) SumiReplyFree freeReply;
 @property(nonatomic) void *context;
 @property(nonatomic) BOOL applying;
+@property(nonatomic) BOOL focusDocumentReady;
 @property(nonatomic) BOOL composing;
 @property(nonatomic) BOOL detached;
 @property(nonatomic) BOOL reportingViewport;
@@ -364,7 +366,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     [self syncSystemCaretColor];
     [super updateInsertionPointStateAndRestartTimer:restart];[self refreshTypewriterCaret:restart];
 }
-- (BOOL)becomeFirstResponder { BOOL accepted=[super becomeFirstResponder];[self refreshTypewriterCaret:YES];return accepted; }
+- (BOOL)becomeFirstResponder { BOOL accepted=[super becomeFirstResponder];if(accepted){[self ensureEmptyFocus];[self updateFocusRows];}[self refreshTypewriterCaret:YES];return accepted; }
 - (BOOL)resignFirstResponder {
     BOOL accepted=[super resignFirstResponder];
     if(accepted){[self stopFocusTyping];if(SumiTypingOwner==self.owner)SumiTypingClear();self.typewriterCaret.hidden=YES;[self.typewriterCaret.layer removeAnimationForKey:@"sumi-caret-breathing"];}
@@ -444,8 +446,16 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)keyDown:(NSEvent *)event {
     BOOL navigation=event.keyCode==123 || event.keyCode==124 || event.keyCode==125 || event.keyCode==126 || event.keyCode==115 || event.keyCode==119 || event.keyCode==116 || event.keyCode==121 || event.keyCode==53;
+    BOOL focusLineNavigation=self.focusView && !self.hasMarkedText && !self.owner.composing && !self.selectedRange.length
+        && (event.keyCode==125 || event.keyCode==126)
+        && !(event.modifierFlags&(NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption));
     BOOL typing=!navigation && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) && (!event.isARepeat || self.focusView!=nil);
-    if((navigation && !self.hasMarkedText) || (event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) || (!self.hasMarkedText && self.selectedRange.length))[self stopFocusTyping];
+    if((navigation && !self.hasMarkedText && !focusLineNavigation) || (event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) || (!self.hasMarkedText && self.selectedRange.length))[self stopFocusTyping];
+    if(focusLineNavigation){
+        // AppKit owns visual-line movement and its preferred column. Recenter
+        // the same presentation without restarting typing or its idle clock.
+        self.focusView.progress=1;self.focusView.fromProgress=1;
+    }
     self.focusInputChanged=NO;self.focusKeyDepth++;self.caretInputDepth++;[super keyDown:event];self.caretInputDepth--;self.focusKeyDepth--;
     if(typing && self.focusInputChanged)[self recordFocusEvent:event];
     [self updateFocusRows];[self refreshTypewriterCaret:NO];[self queueCaretRefresh];
@@ -830,6 +840,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     if(self.text.focusTracking)[self.text stopFocusTyping];
     BOOL applying=self.applying;self.applying=YES;
     NSString *next=projection[@"document"][@"text"] ?: @"";
+    self.focusDocumentReady=[projection[@"document"][@"text"] isKindOfClass:NSString.class];
     NSDictionary *delta=SumiDifference(self.text.string,next);
     if([delta[@"range"][@"length"] unsignedIntegerValue] || [delta[@"replacement"] length])
         [self.text.textStorage replaceCharactersInRange:SumiReadRange(delta[@"range"]) withString:delta[@"replacement"]];
@@ -839,7 +850,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSRange selection=SumiReadRange(projection[@"selection"]);
     if(NSMaxRange(selection)<=self.text.string.length)self.text.selectedRange=selection;
     self.applying=applying;
-    [self.text updateFocusRows];
+    [self.text ensureEmptyFocus];[self.text updateFocusRows];
     [self.text refreshTypewriterCaret:YES];
 }
 - (NSFont *)baseFont {
@@ -1004,16 +1015,17 @@ void *sumi_editor_mount(void *reference_view,int webview_sibling,const char *jso
     editor.text.textContainer.widthTracksTextView=NO;editor.text.textContainer.lineFragmentPadding=0;
     editor.text.automaticQuoteSubstitutionEnabled=NO;editor.text.automaticDashSubstitutionEnabled=NO;editor.text.automaticTextReplacementEnabled=NO;editor.text.automaticLinkDetectionEnabled=NO;
     editor.applying=YES;editor.text.string=config[@"document"][@"text"] ?: @"";editor.committed=[editor.text.string copy];
+    editor.focusDocumentReady=[config[@"document"][@"text"] isKindOfClass:NSString.class];
     editor.scroll.documentView=editor.text;[editor.container addSubview:editor.scroll];
     [parent addSubview:editor.container positioned:NSWindowAbove relativeTo:webview_sibling?reference:nil];
     [editor applyStyles];[editor setBounds:config[@"bounds"]];
     NSRange selection=SumiReadRange(config[@"selection"] ?: @{});
     if(NSMaxRange(selection)<=editor.text.string.length)editor.text.selectedRange=selection;
     if(config[@"viewport"])[editor restoreViewport:config[@"viewport"]];
+    editor.applying=NO;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];
     editor.scroll.contentView.postsBoundsChangedNotifications=YES;
     [NSNotificationCenter.defaultCenter addObserver:editor.text selector:@selector(focusScrollNotification:) name:NSScrollViewWillStartLiveScrollNotification object:editor.scroll];
     [NSNotificationCenter.defaultCenter addObserver:editor selector:@selector(viewportChanged:) name:NSViewBoundsDidChangeNotification object:editor.scroll.contentView];
-    editor.applying=NO;
     return (__bridge_retained void *)editor;
 }
 int sumi_editor_command(void *handle,const char *json){
@@ -1027,7 +1039,7 @@ int sumi_editor_command(void *handle,const char *json){
     }
     if([command isEqualToString:@"set_bounds"]){
         BOOL applying=editor.applying;editor.applying=YES;
-        [editor setBounds:value[@"bounds"]];editor.applying=applying;[editor.text refreshTypewriterCaret:NO];return 0;
+        [editor setBounds:value[@"bounds"]];editor.applying=applying;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];[editor.text refreshTypewriterCaret:NO];return 0;
     }
     if([command isEqualToString:@"set_locale"]){
         editor.locale=SumiLocale(value[@"locale"]);
@@ -1035,9 +1047,9 @@ int sumi_editor_command(void *handle,const char *json){
     }
     if([command isEqualToString:@"set_appearance"]){
         if(editor.composing)return 1;
-        editor.applying=YES;editor.appearance=value[@"appearance"];[editor applyStyles];[editor layoutEditor];editor.applying=NO;[editor.text refreshTypewriterCaret:NO];return 0;
+        editor.applying=YES;editor.appearance=value[@"appearance"];[editor applyStyles];[editor layoutEditor];editor.applying=NO;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];[editor.text refreshTypewriterCaret:NO];return 0;
     }
-    if([command isEqualToString:@"focus"]){BOOL applying=editor.applying;editor.applying=YES;[editor.text.window makeFirstResponder:editor.text];editor.applying=applying;return 0;}
+    if([command isEqualToString:@"focus"]){BOOL applying=editor.applying;editor.applying=YES;[editor.text.window makeFirstResponder:editor.text];editor.applying=applying;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];return 0;}
     if([command isEqualToString:@"prepare_panel"]){
         if(editor.draftError)return 5;
         if(![editor.text prepareForPanel])return 5;
@@ -1049,6 +1061,7 @@ int sumi_editor_command(void *handle,const char *json){
         if(visible==!editor.container.hidden)return 0;
         if(editor.composing)return 1;
         editor.container.hidden=!visible;SumiTypingRefresh();
+        if(visible){[editor.text ensureEmptyFocus];[editor.text updateFocusRows];}
         if(!visible && editor.text.window.firstResponder==editor.text)[editor.text.window makeFirstResponder:nil];return 0;
     }
     return 3;

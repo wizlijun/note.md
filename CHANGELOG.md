@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi focus follows vertical navigation.** Up/Down moves the caret through the real visual lines while keeping the active line centered and scrolling the page in the opposite direction. New blank pages start at the center immediately; their first characters and line breaks remain centered. Idle fading and local writing-safety protections remain intact.
+
+- **Sumi 0.1.9 requires note.md 6.1109.4 or later.** Update the host and plugin together for the revised native navigation and blank-page placement.
+
 ## v6.1109.3 — 2026-11-09
 
 - **Sumi centered focus:** continuous typing keeps the active line at the center of the editor, with the original font size, line spacing and horizontal layout. Context above and below fades more strongly toward the edges, without a five-line limit. After ten seconds without typing, context gently becomes fully visible; the first new input quickly restores the fade. Reading navigation restores the normal page.
