@@ -1,16 +1,60 @@
-// Viewport-sized, already-laid-out visual lines. This layer never owns or edits document text.
+// Immutable native glyph tiles, bounded to the current viewport.
+@interface SumiFocusTile : NSObject
+@property(nonatomic) CGImageRef image;
+@property(nonatomic) NSRect bounds;
+@end
+@implementation SumiFocusTile
+- (void)dealloc {if(_image)CGImageRelease(_image);}
+@end
 @interface SumiFocusRow : NSObject
 @property(nonatomic,strong) NSTextLineFragment *line API_AVAILABLE(macos(12.0));
 @property(nonatomic,strong) NSTextLayoutFragment *fragment API_AVAILABLE(macos(12.0));
 @property(nonatomic) NSRange range;
 @property(nonatomic) NSPoint rawOrigin, origin, startOrigin;
 @property(nonatomic) CGFloat alpha, height;
+@property(nonatomic,strong) SumiFocusTile *rasterTile;
+@property(nonatomic,readonly) CGImageRef rasterImage;
+@property(nonatomic,readonly) NSRect rasterBounds;
 @end
 @implementation SumiFocusRow
+- (CGImageRef)rasterImage{return self.rasterTile.image;}
+- (NSRect)rasterBounds{return self.rasterTile.bounds;}
 @end
+static NSArray *SumiFocusTileKey(SumiFocusRow *row,CGFloat scale,CGFloat padding) API_AVAILABLE(macos(13.0));
+static NSArray *SumiFocusTileKey(SumiFocusRow *row,CGFloat scale,CGFloat padding){
+    NSAttributedString *source=row.line.attributedString;NSRange range=row.line.characterRange;
+    if(range.location>source.length || range.length>source.length-range.location)return nil;
+    // Copy only this bounded visual line, never its parent paragraph/document.
+    NSMutableAttributedString *slice=[[source attributedSubstringFromRange:range]mutableCopy];
+    NSAttributedString *attributes=[slice copy];
+    [attributes enumerateAttribute:NSParagraphStyleAttributeName inRange:NSMakeRange(0,attributes.length) options:0 usingBlock:^(id value,NSRange part,BOOL *stop){(void)stop;if(value)[slice addAttribute:NSParagraphStyleAttributeName value:[value copy] range:part];}];
+    // The native shaped paragraph snapshot and its local range are part of
+    // the key: equal visible text alone does not imply equal contextual shaping.
+    // Current/next rows retain their original native line through cache lookup.
+    return @[[NSValue valueWithNonretainedObject:source],[NSValue valueWithRange:range],[slice copy],[NSValue valueWithRect:row.line.typographicBounds],[NSValue valueWithPoint:row.line.glyphOrigin],@(scale),@(padding),@(row.height)];
+}
+static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloat padding) API_AVAILABLE(macos(13.0));
+static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloat padding){
+    scale=MAX(1,scale);padding=MAX(4,ceil(padding));
+    NSRect bounds=NSMakeRect(-padding,-padding,ceil(MAX(1,row.line.typographicBounds.size.width)+2*padding),ceil(MAX(1,row.height)+2*padding));
+    size_t width=(size_t)ceil(bounds.size.width*scale),height=(size_t)ceil(bounds.size.height*scale);
+    if(!width || !height || width>32768 || height>32768)return nil;
+    CGColorSpaceRef color=CGColorSpaceCreateDeviceRGB();CGContextRef bitmap=CGBitmapContextCreate(NULL,width,height,8,0,color,kCGImageAlphaPremultipliedLast|kCGBitmapByteOrder32Big);CGColorSpaceRelease(color);if(!bitmap)return nil;
+    CGContextClearRect(bitmap,CGRectMake(0,0,width,height));
+    CGContextTranslateCTM(bitmap,-bounds.origin.x*scale,(CGFloat)height+bounds.origin.y*scale);CGContextScaleCTM(bitmap,scale,-scale);
+    CGContextSetTextMatrix(bitmap,CGAffineTransformIdentity);CGContextSetShouldAntialias(bitmap,YES);
+    NSGraphicsContext *graphics=[NSGraphicsContext graphicsContextWithCGContext:bitmap flipped:YES];
+    [NSGraphicsContext saveGraphicsState];[NSGraphicsContext setCurrentContext:graphics];[row.line drawAtPoint:NSZeroPoint inContext:bitmap];[NSGraphicsContext restoreGraphicsState];
+    CGImageRef image=CGBitmapContextCreateImage(bitmap);CGContextRelease(bitmap);if(!image)return nil;
+    SumiFocusTile *tile=[SumiFocusTile new];tile.image=image;tile.bounds=bounds;
+    return tile;
+}
 @interface SumiFocusView : NSView
 @property(nonatomic,weak) SumiTextView *text;
 @property(nonatomic,copy) NSArray<SumiFocusRow *> *rows;
+@property(nonatomic,copy) NSDictionary<NSArray *,SumiFocusTile *> *rasterCache;
+@property(nonatomic) float nativeScrollOpacity;
+@property(nonatomic) BOOL nativeScrollHidden;
 @property(nonatomic) CGFloat progress, strength, fromProgress, fromStrength, targetStrength;
 @property(nonatomic) CFTimeInterval started, lastActivity;
 @property(nonatomic) NSTimeInterval duration;
@@ -23,7 +67,8 @@
 - (void)drawRect:(NSRect)dirty {
     (void)dirty;[self.text.backgroundColor setFill];NSRectFillUsingOperation(self.bounds,NSCompositingOperationSourceOver);
     CGContextRef ctx=NSGraphicsContext.currentContext.CGContext;
-    if(@available(macOS 13.0,*))for(SumiFocusRow *row in self.rows){
+    NSArray<SumiFocusRow *> *frameRows=self.rows;
+    if(@available(macOS 13.0,*))for(SumiFocusRow *row in frameRows){
         CGFloat p=self.progress;
         NSPoint origin=NSMakePoint(row.startOrigin.x+(row.origin.x-row.startOrigin.x)*p,row.startOrigin.y+(row.origin.y-row.startOrigin.y)*p);
         CGContextSaveGState(ctx);CGContextSetAlpha(ctx,1+(row.alpha-1)*self.strength);
@@ -35,7 +80,11 @@
             NSPoint right=[row.line locationForCharacterAtIndex:base+NSMaxRange(selected)-row.range.location];
             [NSColor.selectedTextBackgroundColor setFill];NSRectFill(NSMakeRect(MIN(left.x,right.x),0,MAX(1,fabs(right.x-left.x)),row.height));
         }
-        [row.line drawAtPoint:NSZeroPoint inContext:ctx];CGContextRestoreGState(ctx);
+        if(row.rasterImage){
+            NSRect bounds=row.rasterBounds;CGContextTranslateCTM(ctx,bounds.origin.x,bounds.origin.y+bounds.size.height);CGContextScaleCTM(ctx,1,-1);
+            CGContextDrawImage(ctx,CGRectMake(0,0,bounds.size.width,bounds.size.height),row.rasterImage);
+        }
+        CGContextRestoreGState(ctx);
     }
 }
 - (void)dealloc {[self.timer invalidate];[self.idleTimer invalidate];}
@@ -57,6 +106,7 @@
 - (void)stopFocusTyping {
     self.focusInputCount=0;self.focusLastInput=0;self.focusFirstInput=0;self.focusResumeOnInput=NO;
     SumiFocusView *view=self.focusView;if(!view)return;
+    if(view.nativeScrollHidden){[CATransaction begin];[CATransaction setDisableActions:YES];self.owner.scroll.layer.opacity=view.nativeScrollOpacity;view.nativeScrollHidden=NO;[CATransaction commit];}
     [view.timer invalidate];view.timer=nil;[view.idleTimer invalidate];view.idleTimer=nil;
     if(self.typewriterCaret.superview==view){[self.typewriterCaret removeFromSuperview];[self addSubview:self.typewriterCaret];}
     [view removeFromSuperview];self.focusView=nil;[self scrollRangeToVisible:self.selectedRange];[self.inputContext invalidateCharacterCoordinates];[self refreshTypewriterCaret:NO];
@@ -238,15 +288,31 @@
                 CGFloat pitch=CGFLOAT_MAX;
                 for(SumiFocusRow *row in rows){CGFloat distance=fabs(row.rawOrigin.y+row.height/2-activeMid);if(distance>.1)pitch=MIN(pitch,distance);}
                 if(pitch==CGFLOAT_MAX)pitch=MAX(1,active.height);
+                NSMutableDictionary<NSArray *,SumiFocusTile *> *nextRasterCache=[NSMutableDictionary new];BOOL rasterFailed=NO;
                 for(SumiFocusRow *row in rows){
                     row.origin=NSMakePoint(row.startOrigin.x,half+row.rawOrigin.y-activeMid);
                     CGFloat distance=fabs(row.rawOrigin.y+row.height/2-activeMid),edge=distance/MAX(1,half);
                     row.alpha=pow(.55,distance/pitch)*MAX(0,1-edge*edge);
                     if(row!=active && (row.origin.y<=0 || row.origin.y+row.height>=view.bounds.size.height))row.alpha=0;
+                    CGFloat scale=MAX(1,self.window.backingScaleFactor),padding=MAX(1,[self.owner.appearance[@"font_size"] doubleValue]);
+                    NSArray *key=SumiFocusTileKey(row,scale,padding);
+                    SumiFocusTile *tile=key?(nextRasterCache[key] ?: view.rasterCache[key]):nil;
+                    if(!tile && key)tile=SumiCreateFocusTile(row,scale,padding);
+                    if(!tile){rasterFailed=YES;break;}
+                    row.rasterTile=tile;nextRasterCache[key]=tile;
                 }
+                if(rasterFailed){view.rasterCache=nil;view.rows=nil;self.focusUpdating=NO;[self stopFocusTyping];return;}
+                // Retain only the just-visible viewport keys. No document-wide LRU.
+                view.rasterCache=nextRasterCache;
             }
         }
-        view.rows=rows;view.needsDisplay=YES;
+        // Main-thread complete row batch; paint retains one batch reference.
+        view.rows=rows;
+        if(rows.count){
+            if(!view.nativeScrollHidden){CALayer *native=self.owner.scroll.layer;view.nativeScrollOpacity=native?native.opacity:1;view.nativeScrollHidden=YES;}
+            [CATransaction begin];[CATransaction setDisableActions:YES];self.owner.scroll.wantsLayer=YES;self.owner.scroll.layer.opacity=0;[CATransaction commit];
+        }
+        view.needsDisplay=YES;
     }
     self.focusUpdating=NO;
     if(view.rows.count==0){[self stopFocusTyping];return;}

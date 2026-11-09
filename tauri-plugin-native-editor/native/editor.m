@@ -361,10 +361,15 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     __weak SumiTextView *weakSelf=self;
     dispatch_async(dispatch_get_main_queue(), ^{
         SumiTextView *view=weakSelf;if(!view)return;
-        [view refreshTypewriterCaret:NO];view.caretRefreshQueued=NO;
+        [view updateFocusRows];[view refreshTypewriterCaret:NO];view.caretRefreshQueued=NO;
     });
 }
-- (void)layout { [super layout];[self updateFocusRows];[self refreshTypewriterCaret:NO]; }
+- (void)layout {
+    [super layout];
+    // AppKit is still committing fragment rendering state during layout.
+    // Resolve focus/caret geometry after that transaction, not reentrantly.
+    [self queueCaretRefresh];
+}
 - (void)updateInsertionPointStateAndRestartTimer:(BOOL)restart {
     [self syncSystemCaretColor];
     [super updateInsertionPointStateAndRestartTimer:restart];[self refreshTypewriterCaret:restart];

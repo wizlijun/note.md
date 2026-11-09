@@ -1,10 +1,13 @@
 // Real TextKit paragraph edits with canonical host projections. Synthetic text only.
 #import "editor.m"
 #import <objc/runtime.h>
+static NSUInteger layoutDepth,layoutCallbacks,focusUpdateCalls,focusDuringLayout;
 @interface ReturnProbeText : SumiTextView
 @end
 @implementation ReturnProbeText
 - (BOOL)caretSurfaceActive {return self.window.firstResponder==self && !self.isHiddenOrHasHiddenAncestor;}
+- (void)layout {layoutCallbacks++;layoutDepth++;[super layout];layoutDepth--;}
+- (void)updateFocusRows {focusUpdateCalls++;if(layoutDepth)focusDuringLayout++;[super updateFocusRows];}
 @end
 static NSUInteger checks,projectionReplies,events,bitmapRows;
 static SumiEditor *probeEditor;
@@ -82,6 +85,22 @@ static void checkRows(SumiTextView *text){
     require([body isEqualToAttributedString:text.textStorage] && NSEqualRanges(selection,text.selectedRange) && revision==text.owner.revision && oldEvents==events,@"repeat focus layout neither edits data nor emits internal viewport changes");
 }
 static void capture(NSView *view,NSString *path){[view layoutSubtreeIfNeeded];NSBitmapImageRep *bitmap=[view bitmapImageRepForCachingDisplayInRect:view.bounds];[view cacheDisplayInRect:view.bounds toBitmapImageRep:bitmap];[[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:path atomically:YES];}
+static void checkLayoutQueue(SumiTextView *text){
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.3]];
+    NSUInteger beforeLayout=layoutCallbacks,beforeUpdates=focusUpdateCalls;focusDuringLayout=0;
+    NSAttributedString *body=[text.textStorage copy];NSRange selection=text.selectedRange;uint64_t revision=text.owner.revision;
+    [text setNeedsLayout:YES];[text layoutSubtreeIfNeeded];
+    require(layoutCallbacks>beforeLayout,@"regression executes the actual native layout callback");
+    require(!focusDuringLayout,@"native layout never reenters TextKit focus geometry synchronously");
+    require(text.caretRefreshQueued,@"layout coalesces one deferred focus/caret refresh");
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.3]];
+    require(!text.caretRefreshQueued && focusUpdateCalls>beforeUpdates,@"queued geometry refresh runs after the native layout transaction");
+    beforeLayout=layoutCallbacks;beforeUpdates=focusUpdateCalls;
+    [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.4]];
+    require(layoutCallbacks-beforeLayout<=1 && focusUpdateCalls-beforeUpdates<=1 && !text.caretRefreshQueued,@"idle native layout queue quiesces instead of scheduling itself indefinitely");
+    require([body isEqualToAttributedString:text.textStorage] && NSEqualRanges(selection,text.selectedRange) && revision==text.owner.revision,@"deferred presentation preserves the full attributed body, selection and revision");
+    printf("QUIET native-layout delta=%lu focus-update delta=%lu\n",(unsigned long)(layoutCallbacks-beforeLayout),(unsigned long)(focusUpdateCalls-beforeUpdates));
+}
 int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*)){
     [NSApplication sharedApplication];setvbuf(stdout,NULL,_IONBF,0);
     NSString *fontRoot=argc>1?[NSString stringWithUTF8String:argv[1]]:nil;
@@ -93,6 +112,7 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     }
     NSString *sentence=@"雨停以后，我把窗推开了一些，街道上的灯光映在湿润的石板上，像一封还没有写完的信。我坐回桌前，听见远处偶尔传来车轮经过的声音。白天那些纷乱的念头终于慢了下来，不再催促我立刻找到答案。";
     NSMutableString *body=[NSMutableString new];for(int n=0;n<8;n++)[body appendFormat:@"%@\n\nshort row %d\n下一行文字 %d\n",sentence,n,n];
+    BOOL queueChecked=NO;
     for(NSString *family in families)for(NSNumber *size in @[@22,@50])for(NSNumber *height in @[@620,@1080])for(NSNumber *styled in @[@NO,@YES]){
         mixedStyles=styled.boolValue;
         NSWindow *window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,960,height.doubleValue) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];window.releasedWhenClosed=NO;
@@ -103,7 +123,9 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
         for(NSNumber *middle in @[@NO,@YES]){
             [text stopFocusTyping];NSUInteger location=middle.boolValue?body.length/2:body.length;
             [probeEditor applyProjection:@{@"document":@{@"text":body,@"runs":styles(body)},@"selection":SumiRange(NSMakeRange(location,0))} revision:probeEditor.revision+1];
-            for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.01];text.focusView.progress=1;text.focusView.strength=1;[text.focusView.timer invalidate];text.focusView.timer=nil;checkRows(text);
+            for(int n=0;n<4;n++)[text recordFocusInputAt:CACurrentMediaTime()+n*.01];text.focusView.progress=1;text.focusView.strength=1;[text.focusView.timer invalidate];text.focusView.timer=nil;
+            if(!queueChecked){queueChecked=YES;checkLayoutQueue(text);}
+            checkRows(text);
             for(int n=0;n<3;n++){
                 NSString *before=text.string.copy;NSRange selection=text.selectedRange;uint64_t revision=probeEditor.revision;NSUInteger replies=projectionReplies;
                 [text keyDown:key(window,@"\r",36)];
