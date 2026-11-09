@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-09T12:56:16.558496+00:00",
+  "sourceBeforeVersionBump": "848eb1aec7bad0eeb22f2c01ae21f73a649b7ca7",
+  "command": [
+    "scripts/release.sh",
+    "6.1109.2",
+    "--draft",
+    "--arm64-only",
+    "--expected-share-manifest",
+    "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/frozen-share-manifest.json"
+  ],
+  "scope": "Rich YAML preference, Sumi focus typing and quiet routine notices; preserve published P0; macOS arm64 only",
+  "credentials": "inherited existing release environment; values not recorded",
+  "exitCode": 0
+}

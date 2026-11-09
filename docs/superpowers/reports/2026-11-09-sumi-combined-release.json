@@ -1,0 +1,105 @@
+{
+  "ok": true,
+  "status": "host_and_plugin_published",
+  "at": "2026-11-09T13:16:16.007722+00:00",
+  "hostTag": "v6.1109.2",
+  "hostCommit": "94ec8e3984212942f46f1fe7006122272fd6ee62",
+  "featureCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+  "preparedCommit": "848eb1aec7bad0eeb22f2c01ae21f73a649b7ca7",
+  "pluginVersion": "0.1.7",
+  "pluginMinimumHost": ">=6.1109.2",
+  "pluginSha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+  "dmg": {
+    "path": "/tmp/note.md-6.1109.2-aarch64.dmg",
+    "bytes": 14293962,
+    "sha256": "4f13836a00c3f78a3b341f974720b79091f08baee0b67dacde37eb0db6b452d1",
+    "mach_o_sha256": "40ef1058e7b32d8e44ac1d4880f138013dcc4d8d2afa99b076c078de9c20be7e",
+    "mach_o_bytes": 22004368,
+    "app_version": "6.1109.2",
+    "app_identifier": "net.notemd.app",
+    "candidate_and_updater_byte_identical": true,
+    "mount_readonly": true,
+    "detached_device": "/dev/disk8s1"
+  },
+  "updater": {
+    "path": "/tmp/note.md-aarch64.app.tar.gz",
+    "bytes": 14369186,
+    "sha256": "e546c2de00797bb6184209c2e3dcb98b12b206e7919ef1655d13bd460e508be4",
+    "identity": {
+      "CFBundleIdentifier": "net.notemd.app",
+      "CFBundleShortVersionString": "6.1109.2",
+      "CFBundleExecutable": "notemd"
+    },
+    "signature": {
+      "path": "/tmp/note.md-aarch64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "c8a104733875efadf471720a5f280d22217fc932063752683d979581b14d3790"
+    }
+  },
+  "scope": [
+    "macOS arm64 host",
+    "default five-line focus typing",
+    "quiet routine notices with visible persistence errors",
+    "Rich YAML visibility preference",
+    "preserved P0 local journal and crash recovery"
+  ],
+  "publicVerification": {
+    "restFourFullAssets": true,
+    "updaterSignature": true,
+    "actualConfiguredUpdaterEndpoints": true,
+    "extraBrowserFullDownloadPerformed": false,
+    "pluginRegistryUnchanged": true
+  },
+  "evidence": {
+    "artifact-verification.json": {
+      "sha256": "722c615a12fcfa073717504bce6207aca2c787ec5dca9eb2b390ffc078076e0e",
+      "bytes": 135557
+    },
+    "draft-assets-verification.json": {
+      "sha256": "823f67f7df597524f92762cd1ce912183ea11983b1c687769b7c49ffa6c4d3c1",
+      "bytes": 2370
+    },
+    "draft-updater-signature-verification.json": {
+      "sha256": "470c0367db2c7d4f376b4b63b18c5b9c665f6f61dd179ab9dce478c62aeb1de3",
+      "bytes": 692
+    },
+    "public-host-full-rest-verification.json": {
+      "sha256": "91fc5da6c84b23e2ef53c9b643b09ff763b332a92d0a6884bb5629c9cb0eecdb",
+      "bytes": 10953
+    },
+    "actual-updater-endpoints.json": {
+      "sha256": "a07865d9a1d9755a72e46a15bfd4207b5d5f4473d5c6f16562f2ca50127cd7a1",
+      "bytes": 835
+    },
+    "host-apple-notary-binding.json": {
+      "sha256": "be6a6c58b7510d648e47d6b2014de201d3ee9bb2231ff779851922573ab338e1",
+      "bytes": 2607
+    },
+    "host-app-apple-notary-log.json": {
+      "sha256": "a71c136ae255bfea30116a0230095129b9f941a6a94f6d94850dabb2b0766552",
+      "bytes": 736
+    },
+    "host-dmg-apple-notary-log.json": {
+      "sha256": "f11089a3c374aac7abe2dafbb72fc7a837bb6a863a5d650ee2bf93f43edd547a",
+      "bytes": 941
+    },
+    "plugin-host-compatibility-resolved.json": {
+      "sha256": "10d41812b045c8aeb13f38beb5408ec794f10fa3080d258888d7eb9eb22249ee",
+      "bytes": 699
+    },
+    "combined-requirements-release-audit.json": {
+      "sha256": "4da71ba029074192d3f73095ddc74aa7dad6c8faf9d8cb5e0488db868198dc69",
+      "bytes": 22476
+    },
+    "host-release-result.json": {
+      "sha256": "22b9aad37d69470d632aef62b205b80177d92ca519e5ef9b04177e870e027bab",
+      "bytes": 564
+    }
+  },
+  "boundaries": [
+    "No physical Chinese IME candidate-window test; markedText callbacks tested",
+    "No newly claimed Windows/Linux/iOS/Android/ESP32 implementation",
+    "Formal App notarization bound by Apple ticket CDHash; its cleaned temporary ZIP cannot be independently rehashed",
+    "No formal writing documents edited for release validation"
+  ]
+}

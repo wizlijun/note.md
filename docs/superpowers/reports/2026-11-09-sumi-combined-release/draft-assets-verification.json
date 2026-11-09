@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "verified_at_utc": "2026-11-09T13:04:58.794744+00:00",
+  "repo": "wizlijun/note.md",
+  "tag": "v6.1109.2",
+  "tag_object": "40d6ea9900e4310ff2daf45fec2cee6d045f0cba",
+  "commit": "94ec8e3984212942f46f1fe7006122272fd6ee62",
+  "draft_before": true,
+  "draft_after": true,
+  "asset_set_unchanged": true,
+  "assets": [
+    {
+      "name": "latest.json",
+      "asset_id": "727515974",
+      "bytes": 740,
+      "sha256": "97d749e96819800281e07604a15eca8f26ae6c781a2460ef6364b4bdd0f8ca08",
+      "github_digest": "sha256:97d749e96819800281e07604a15eca8f26ae6c781a2460ef6364b4bdd0f8ca08",
+      "local_tmp_equal": true,
+      "download_path": "host-draft-download/latest.json",
+      "transport": "gh release download exact tag"
+    },
+    {
+      "name": "note.md-6.1109.2-aarch64.dmg",
+      "asset_id": "727515972",
+      "bytes": 14293962,
+      "sha256": "4f13836a00c3f78a3b341f974720b79091f08baee0b67dacde37eb0db6b452d1",
+      "github_digest": "sha256:4f13836a00c3f78a3b341f974720b79091f08baee0b67dacde37eb0db6b452d1",
+      "local_tmp_equal": true,
+      "download_path": "host-draft-download/note.md-6.1109.2-aarch64.dmg",
+      "transport": "gh api exact asset ID, verified HTTP 206 ranges"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "asset_id": "727515958",
+      "bytes": 14369186,
+      "sha256": "e546c2de00797bb6184209c2e3dcb98b12b206e7919ef1655d13bd460e508be4",
+      "github_digest": "sha256:e546c2de00797bb6184209c2e3dcb98b12b206e7919ef1655d13bd460e508be4",
+      "local_tmp_equal": true,
+      "download_path": "host-draft-download/note.md-aarch64.app.tar.gz",
+      "transport": "gh api exact asset ID, verified HTTP 206 ranges"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "asset_id": "727515975",
+      "bytes": 416,
+      "sha256": "c8a104733875efadf471720a5f280d22217fc932063752683d979581b14d3790",
+      "github_digest": "sha256:c8a104733875efadf471720a5f280d22217fc932063752683d979581b14d3790",
+      "local_tmp_equal": true,
+      "download_path": "host-draft-download/note.md-aarch64.app.tar.gz.sig",
+      "transport": "gh release download exact tag"
+    }
+  ],
+  "range_record": "host-draft-ranges/ranges-verification.json",
+  "contains_credentials_or_temporary_signed_urls": false,
+  "mutations": "none: download/verify only; no publication, release notes, or index changes"
+}
