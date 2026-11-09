@@ -1,0 +1,157 @@
+{
+  "ok": true,
+  "at": "2026-11-09T17:41:52.167084+00:00",
+  "readOnly": true,
+  "base": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "dataCoreFiles": 65,
+  "dataCoreUnchanged": true,
+  "sha256": {
+    "plugins-src/write/backend/Cargo.lock": "e9789dac5ac8e9eebb1fc58549517d11c3b056f45321d88b811284cab1405060",
+    "plugins-src/write/backend/Cargo.toml": "ec08c1e99666aa338453c60ca3e014534ebbbf4c935e58da3745075ad6457e1a",
+    "plugins-src/write/backend/build.rs": "437648cf94e219170e21d2404b127ae27cb2223123f106190b93869cc4f20598",
+    "plugins-src/write/backend/native/sound.h": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+    "plugins-src/write/backend/native/sound.m": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+    "plugins-src/write/backend/src/coordinator.rs": "a03d88f09cb15f69febf1b612fb415fa2d9c91353c0caeff71ed6a426849571a",
+    "plugins-src/write/backend/src/durability.rs": "3504160555422e7baf99cfa831eaf7ac092d32ffe008d03b2d5d89468de74113",
+    "plugins-src/write/backend/src/durability_rpc.rs": "09242c7a04a78ced9091367cfac81c0bbc637652a1759c1417cccdaed129505b",
+    "plugins-src/write/backend/src/fonts.rs": "2d013df525f4e07edbdf0de7f1792031345f7d73772f8d6c433bd63729edf145",
+    "plugins-src/write/backend/src/lib.rs": "9c49d90f1a7f5c8d8cb2a4cc0bdacd306474aa841014ff45d37be0568076ace8",
+    "plugins-src/write/backend/src/main.rs": "219e58e5392f27e94616298e71aec1248f69d6fae6960640e847334216ad20be",
+    "plugins-src/write/backend/src/network.rs": "b18f37e7f78db37555dad954178a580212462b561763119c85e11282b886bbc3",
+    "plugins-src/write/backend/src/runtime.rs": "a910dc997c15b8300e4649cdfa993ba34e445d2fae8faa366bab9a3765b74c95",
+    "plugins-src/write/backend/src/sound.rs": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+    "plugins-src/write/backend/src/sync.rs": "4de912ee86c4d39732ef172ce707e5e882baa95c68f654661440806890640d9f",
+    "plugins-src/write/backend/tests/stdio.rs": "2ca17a299f601becea34db0a8fea9e36458653efac9008098d9fcc89d9b35a2a",
+    "src-tauri/src/sumi/durability.rs": "32aceeff6116521014259a555d5e20684679978612a5eaa8c66af55c5075d52b",
+    "src-tauri/src/sumi/journal.rs": "0614aec536096377d02983de9954b2778bf78de86a087c8c8d746309fde3b54c",
+    "src-tauri/src/sumi/service.rs": "d58c67c7e7ff3b92926c02b1a8a0ea7d280b649b81a502f1e05e85a4d9620643",
+    "sumi-protocol/Cargo.lock": "19abfafe39f181c15a62d3d57381956ff701f40d560350eed8b78b6b7b412439",
+    "sumi-protocol/Cargo.toml": "f97dfe39cac213fe631a73396d6b34cf804908179888afd5b59c88e5c0126521",
+    "sumi-protocol/src/durability.rs": "25f381fdbb78a6616dc488793fb82f56674e112b1bec47b9a1c10e0882a4d50d",
+    "sumi-protocol/src/fonts.rs": "cc9924a0ba05062517afa3ca06a6e70de9651494c2ed9520ccc2522d579f9788",
+    "sumi-protocol/src/lib.rs": "ec60bb0294480049fc78b6970bd72a762d7384a37991bd5696d0d6a4b31ba653",
+    "sumi-protocol/src/service.rs": "daf5492bacfae6964d3c448d78b71409b53f1d80501ae68737cda8985a99a065",
+    "sumi-protocol/src/sync.rs": "19aee783b94afcfadd74049269e4a50aa26b8356fe7a80a98cc56837477376ec",
+    "write-core/.gitignore": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368",
+    "write-core/Cargo.lock": "7d0e841861355ad159658070de21999df73e58022aad92842a560fc6b38aacce",
+    "write-core/Cargo.toml": "fc4b37333856fc80f079fd5d5b0457794a23322ba69889964606c93489703a46",
+    "write-core/README.md": "1044100e59c4f5b4a4a6516c22fa83ba672eb80c587aba2cb37f86081d30d50c",
+    "write-core/WIRE.md": "a8b985c5f2c47e7cacc5c90f4b96c0168fc09dd406d47fb267e4c1831b47fda8",
+    "write-core/examples/candidate_benchmark.rs": "cc22802e1ef28fb36a971c9b5bf653929362ab02d9dee35fb9fbaebd047db532",
+    "write-core/examples/candidate_continuous.rs": "2c093e2f671237db2595ce176fad4b4513f6895fbea692b7b95ca7198ca3e576",
+    "write-core/examples/capacity_benchmark.rs": "6a8cbafdd2f78f2eec948ad7230bdcc0f5242bae1ad59c94bfd313ee3baf829c",
+    "write-core/examples/confirmed_benchmark.rs": "4a97db1d6cf6c29d27b6c0d1dc7bb8ce43dfdd24c78c358749ebe45c8a396fe1",
+    "write-core/examples/core_benchmark.rs": "5ef4e1fe86fa6a47da4b31e9a58fe7ad39b3db530feecd1d6810c3c1e400e67b",
+    "write-core/examples/fork_fixture.rs": "f8ca463731389c28e73150cc826fb91e4f08a4954b9bcccbd51a23de829fc82c",
+    "write-core/examples/full_path_benchmark.rs": "e0c722ab275af9b2d82f37aeac27f067c11ecf6fee3a1abb443e290c64a0fe9b",
+    "write-core/examples/pending_invalid_fixture.rs": "d67f52e545039ca2c6cfda273e62c5aa86255bfb07cc8bbb1f069429fae19804",
+    "write-core/examples/prepared_remote_benchmark.rs": "89a6e448d201c438dea7ef8b7cf397926a634fae149d5735ab4765c2ac645274",
+    "write-core/examples/replay_benchmark.rs": "3999a8782b31e2d01a8d7aa225e5826a8011081ade9dbe5a17bc2e9fd52aade7",
+    "write-core/examples/wire_fixture.rs": "0a2d0503610dd2e9ab213d0baa5b1efd0f3e45e7366eeb2a97a193ed56b3afb2",
+    "write-core/src/candidate.rs": "bcedfb4f1820a0a37b9c9e9c0dff2f9b14da15700bf6c6cf4e98023966ec28d3",
+    "write-core/src/catalog.rs": "80976542c0a38022d4f09d7b5e9b2c7e2fc24af7ee78cd1299c65291de17ae57",
+    "write-core/src/document.rs": "a02264611c9e9b9fd37c1e07cded3ab3d02c718ac9a00d449a7e6ac31d0e59d7",
+    "write-core/src/import.rs": "83d873679e2e8bd14705bc6b08e4528bbb771e418ffc991df8fb7a93495459c9",
+    "write-core/src/lib.rs": "0b86185a5f2f5b4fbcdd39ff4cb4c41fc8e3a36d02d9f50d1d759ca01994cd9d",
+    "write-core/src/projection.rs": "f629053372307959a6212ebef2c2228624d1feb6c83f7098723046ed8b39c0e7",
+    "write-core/src/render.rs": "92bafc83f7cce11e05fb3a617ef31e88f16e7a9bd7ab427e07777b862ffb859d",
+    "write-core/src/render/typing.rs": "2c66f0ed1aba32dffa3edf9ee5d028c00ab5d4022769c5e435cb6973b7da7498",
+    "write-core/src/selection.rs": "f1fdf8abec73e8f06b7f5c8bd625c739b65688413972e2c522dbffefbd742f17",
+    "write-core/src/storage.rs": "f3e17d1cca22f84ffd8f2555559799df6ad80df0be2b2118b58123c39fd4cc4b",
+    "write-core/tests/candidate.rs": "840d92e8e8d669913fdd7619d33c6ef7a0c0e1c2357a56f418cd4245d5237118",
+    "write-core/tests/catalog_projection.rs": "b61c75b7943b70a287e0f2d075ccdc479849f12ff2be3ca505e17def552d5a28",
+    "write-core/tests/clipboard.rs": "88cf9e346d963a686d314b7bac1ee9d5a54872561289da417d801ce192b46d9c",
+    "write-core/tests/document.rs": "1c37f751d1b1f306030b0a43f0b982bbc3a02119c2766bd2b9f2190549f57a91",
+    "write-core/tests/fixtures/fork-v1.json": "68b5ed61a4112e6e7daa20a075eceeca4177f3cff2b573d9f0f957ca97321f15",
+    "write-core/tests/fixtures/pending-invalid-v1.json": "cae148d33a98e58eb7641b302ac6575e3032cba23d4aa4ed24253d5b5201279d",
+    "write-core/tests/fixtures/yrs-v1.json": "82adac4b9a5eec66444e4edcbb100c3418d4a4c37ee67fe09040ac3e983f99d4",
+    "write-core/tests/import.rs": "47cacedf94097bbf43ec188cd0098b2ac04507adae190f223dd8dfd075f2a3cd",
+    "write-core/tests/render.rs": "25ab0661c800f9df51568b3db816fc393d44312f7cebc1e75a9017a38e286506",
+    "write-core/tests/selection.rs": "9bd841147b214a6ba37659c8f7cf3be9245d895c3dde2d5ba809448d8c73e4e6",
+    "write-core/tests/shortcuts.rs": "728ae3e22e201855c0c70e095f5b03e5b61665268a457384b7155b0bab5b7d3c",
+    "write-core/tests/storage.rs": "9ba5354e74fbc0dd5a95b0607e5ba0ff2945f5a50ee28d2bff2f898327081ea6",
+    "write-core/tests/typing.rs": "19c9d1caf4bd061b9940cc9c8a6590b0ce5169b54bfdd231db52f68dbe780ca7"
+  },
+  "rootOriginalFiles": 19,
+  "root19Preserved": true,
+  "rootDirty": [
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "9c8f21eea77ab0e83010153a86d201300839f179a9faaa50cf615c53d41cb6a9"
+    },
+    {
+      "path": "CHANGELOG.zh-CN.md",
+      "sha256": "b48a020a496cd3d8702ba1317104d51a04ada36482db93334c4f120a31013112"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+      "sha256": "74fc432eb6ba2475103fd84bebf722640a0b5814325e1bacd79102b7dc39a65a"
+    },
+    {
+      "path": "plugins-src/write/src/contract.ts",
+      "sha256": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2"
+    },
+    {
+      "path": "plugins-src/write/src/main.test.ts",
+      "sha256": "bb2af06130631fc802b95b4c45444e6f2fd0c9e093b789568e5f1c132f270f6a"
+    },
+    {
+      "path": "plugins-src/write/src/main.ts",
+      "sha256": "67a20ac06bb16c6f02788c4f52eba0e31d4f9bc6112a44840350a11833f3e708"
+    },
+    {
+      "path": "plugins-src/write/src/style.css",
+      "sha256": "d412a6f8ecf6d3f88ca08cc14b96674b2ef175ecba52d62a1d4682500835ea19"
+    },
+    {
+      "path": "scripts/sumi/build.mjs",
+      "sha256": "0c08a5653770b1afbc3dffa658ec52057f05002b54b782b1e9bdbbf6e8e6dfc2"
+    },
+    {
+      "path": "scripts/sumi/native/build.rs",
+      "sha256": "8b666790ec393c8b860ad49ab1efd78a1e1181c5d10eafa96306b2dfd225f8f1"
+    },
+    {
+      "path": "scripts/sumi/run-native.mjs",
+      "sha256": "10acce3427c6bc39b31b3a5dadc1910f1f56ca6820236270490220cbef177fd3"
+    },
+    {
+      "path": "scripts/sumi/verify-release.py",
+      "sha256": "e47247eb7fcdd0e14ff61663059f62da4bb8ed3965720c59fb9bd4b6e6236c7f"
+    },
+    {
+      "path": "searchidx/src/store.rs",
+      "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4"
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "sha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0"
+    },
+    {
+      "path": "src-tauri/src/sumi/mod.rs",
+      "sha256": "13b7cc752cef8970f2d007d85658e1ad9b89e084c4375485a92d1ea41906655d"
+    },
+    {
+      "path": "tauri-plugin-native-editor/build.rs",
+      "sha256": "acca2d55035cd7995c56af402eae12ee14f568a53bcd09595f34e903a7516ac4"
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/editor.m",
+      "sha256": "ff33a80a13f468b6290e13626ad8cfe943ec5d0d2d6dbb5d0de4286294ace4cb"
+    },
+    {
+      "path": "tauri-plugin-native-editor/src/lib.rs",
+      "sha256": "45c8e5bf94ab858e8fade895e8cf393227b13dec98564d63a34ae4cd46f808bd"
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/focus-probe.m",
+      "sha256": "3fb4c76816015e6c42595900694001f92b446e72552ad919fd2145583b7f8303"
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/focus.h",
+      "sha256": "f4eba56e6b01a4b29a6e21356b2f30db118ec0ce12c34721ba3065b5ddd6f1f5"
+    }
+  ],
+  "formalVaultAccess": false,
+  "boundary": "Byte-only scoped preservation check, not a replacement for full prepublication worktree/branches/stash audit or final tagged-source artifact acceptance."
+}

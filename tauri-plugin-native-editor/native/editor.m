@@ -135,6 +135,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic) BOOL caretRefreshQueued;
 @property(nonatomic,strong) SumiFocusView *focusView;
 @property(nonatomic) BOOL focusUpdating, focusInputChanged, focusTracking;
+@property(nonatomic) BOOL focusResumeOnInput;
 @property(nonatomic) NSUInteger focusInputCount, focusKeyDepth;
 @property(nonatomic) CFTimeInterval focusLastInput, focusFirstInput, focusLastEvent;
 - (NSRect)typewriterCaretRect;
@@ -147,6 +148,8 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (void)queueCaretRefresh;
 - (BOOL)sumiCommand:(NSString *)command;
 - (BOOL)prepareForPanel;
+- (void)finishFocusInputMutation:(BOOL)imeActivity;
+- (void)prepareFocusResumeAfterReading;
 @end
 @interface SumiTextView (FocusTyping)
 - (BOOL)focusEnabled;
@@ -173,7 +176,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic,weak) SumiTextView *focusText;
 @end
 @implementation SumiScrollView
-- (void)scrollWheel:(NSEvent *)event { [self.focusText stopFocusTyping];[super scrollWheel:event]; }
+- (void)scrollWheel:(NSEvent *)event { [self.focusText stopFocusTyping];[super scrollWheel:event];[self.focusText prepareFocusResumeAfterReading]; }
 @end
 
 @interface SumiEditor : NSObject <NSTextViewDelegate>
@@ -385,8 +388,26 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)viewDidHide { [self stopFocusTyping];[super viewDidHide];[self refreshTypewriterCaret:NO]; }
 - (void)viewDidUnhide { [super viewDidUnhide];[self refreshTypewriterCaret:YES]; }
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)prepareFocusResumeAfterReading {
+    if([self focusEnabled] && self.isEditable && self.owner && !self.owner.applying && !self.owner.draftError
+        && !self.owner.detached && !self.owner.container.hidden && !self.isHiddenOrHasHiddenAncestor)self.focusResumeOnInput=YES;
+}
+- (void)finishFocusInputMutation:(BOOL)imeActivity {
+    if(!self.caretInputDepth && !self.focusKeyDepth && !self.owner.applying){
+        // An input method may deliver preedit/commit after the key event has
+        // returned. Its actual text callback is activity; unmark/panel cleanup
+        // is not. Nested keyDown owns its one activity record at the outer end.
+        if(imeActivity)[self recordFocusInputAt:CACurrentMediaTime()];
+        else{
+            NSEvent *event=NSApp.currentEvent;
+            if(event && fabs(NSProcessInfo.processInfo.systemUptime-event.timestamp)<.5)[self recordFocusEvent:event];
+        }
+    }
+    [self focusMutationFinished];
+}
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selected replacementRange:(NSRange)replacement {
     if(self.owner.draftError)return;
+    BOOL imeActivity=([value isKindOfClass:NSString.class] || [value isKindOfClass:NSAttributedString.class]) && [value length]>0;
     self.focusInputChanged=YES;
     self.caretInputDepth++;
     self.compositionMutationDepth++;
@@ -395,7 +416,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     [super setMarkedText:value selectedRange:selected replacementRange:replacement];
     self.compositionMutationDepth--;
     if(!self.compositionMutationDepth && !self.hasMarkedText)[self.owner finishComposition];
-    self.caretInputDepth--;[self focusMutationFinished];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    self.caretInputDepth--;if(imeActivity)[self finishFocusInputMutation:YES];else [self focusMutationFinished];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 - (void)unmarkText {
     self.caretInputDepth++;self.compositionMutationDepth++;
@@ -437,32 +458,42 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)insertText:(id)value replacementRange:(NSRange)replacement {
     if(self.owner.draftError)return;
+    BOOL imeActivity=(self.hasMarkedText || self.owner.composing)
+        && ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSAttributedString.class]) && [value length]>0;
     self.focusInputChanged=YES;
     self.caretInputDepth++;self.compositionMutationDepth++;
     [super insertText:value replacementRange:replacement];
     self.compositionMutationDepth--;
     if(!self.compositionMutationDepth && !self.hasMarkedText)[self.owner finishComposition];
-    self.caretInputDepth--;[self focusMutationFinished];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    self.caretInputDepth--;[self finishFocusInputMutation:imeActivity];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 - (void)keyDown:(NSEvent *)event {
-    BOOL navigation=event.keyCode==123 || event.keyCode==124 || event.keyCode==125 || event.keyCode==126 || event.keyCode==115 || event.keyCode==119 || event.keyCode==116 || event.keyCode==121 || event.keyCode==53;
+    BOOL controlNavigation=(event.modifierFlags&NSEventModifierFlagControl)
+        && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagOption))
+        && [@[@"a",@"b",@"e",@"f",@"n",@"p"] containsObject:event.charactersIgnoringModifiers.lowercaseString];
+    BOOL navigation=controlNavigation || event.keyCode==123 || event.keyCode==124 || event.keyCode==125 || event.keyCode==126 || event.keyCode==115 || event.keyCode==119 || event.keyCode==116 || event.keyCode==121 || event.keyCode==53;
     BOOL focusLineNavigation=self.focusView && !self.hasMarkedText && !self.owner.composing && !self.selectedRange.length
         && (event.keyCode==125 || event.keyCode==126)
         && !(event.modifierFlags&(NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption));
     BOOL typing=!navigation && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) && (!event.isARepeat || self.focusView!=nil);
+    BOOL resumeOnInput=typing && self.focusResumeOnInput;
+    BOOL readingNavigation=navigation && event.keyCode!=53 && !self.hasMarkedText && !self.owner.composing;
     if((navigation && !self.hasMarkedText && !focusLineNavigation) || (event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) || (!self.hasMarkedText && self.selectedRange.length))[self stopFocusTyping];
+    if(resumeOnInput)self.focusResumeOnInput=YES;
     if(focusLineNavigation){
         // AppKit owns visual-line movement and its preferred column. Recenter
         // the same presentation without restarting typing or its idle clock.
         self.focusView.progress=1;self.focusView.fromProgress=1;
     }
     self.focusInputChanged=NO;self.focusKeyDepth++;self.caretInputDepth++;[super keyDown:event];self.caretInputDepth--;self.focusKeyDepth--;
-    if(typing && self.focusInputChanged)[self recordFocusEvent:event];
+    if(readingNavigation && !self.focusView)[self prepareFocusResumeAfterReading];
+    BOOL editIntent=event.keyCode==51 || event.keyCode==117 || event.keyCode==36 || event.keyCode==76;
+    if(typing && (self.focusInputChanged || (self.focusResumeOnInput && editIntent)))[self recordFocusEvent:event];
     [self updateFocusRows];[self refreshTypewriterCaret:NO];[self queueCaretRefresh];
 }
-- (void)scrollWheel:(NSEvent *)event { [self stopFocusTyping];[super scrollWheel:event]; }
+- (void)scrollWheel:(NSEvent *)event { [self stopFocusTyping];[super scrollWheel:event];[self prepareFocusResumeAfterReading]; }
 - (void)mouseDown:(NSEvent *)event {
-    if(!self.focusView){self.focusInputCount=0;[super mouseDown:event];return;}
+    if(!self.focusView){self.focusInputCount=0;[super mouseDown:event];[self prepareFocusResumeAfterReading];return;}
     if(self.hasMarkedText || self.owner.composing){
         SumiFocusView *view=self.focusView;
         // Use the existing safe commit barrier. A rejected composition retains
@@ -502,6 +533,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     self.focusTracking=NO;[self stopFocusTyping];
     [self setSelectedRange:self.selectedRange affinity:NSSelectionAffinityDownstream stillSelecting:NO];
     [self scrollRangeToVisible:self.selectedRange];
+    [self prepareFocusResumeAfterReading];
 }
 - (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actual {
     NSRect result=[super firstRectForCharacterRange:range actualRange:actual];

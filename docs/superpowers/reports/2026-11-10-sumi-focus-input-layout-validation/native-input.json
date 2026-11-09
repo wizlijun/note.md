@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "at": "2026-11-09T17:43:51.198223+00:00",
+  "baseSource": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "sourceUncommitted": true,
+  "nativeEditorSha256": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+  "probeSha256": "7fda8a7d82d90c037db70b01572509bdbd5aa7555093ffcebffde9e42d4ae3ec",
+  "focusHeaderAtInputProbeSha256": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+  "baseline": {
+    "strictCompileExit": 0,
+    "latinExit": 1,
+    "asyncPinyinExit": 1,
+    "failure": "first actual input immediately creates focus after reading navigation"
+  },
+  "fixed": {
+    "strictCompileExit": 0,
+    "latinExit": 0,
+    "latinChecks": 88,
+    "asyncPinyinExit": 0,
+    "asyncPinyinChecks": 29,
+    "totalChecks": 117,
+    "minimumMacOS": "11.0 compile, runtime13+",
+    "warningFlags": [
+      "-Wall",
+      "-Wextra",
+      "-Werror"
+    ]
+  },
+  "covers": [
+    "four-input initial threshold retained",
+    "first key after actual Left/Right, Shift selection, mouseDown/up and scroll reading",
+    "Return, Backspace and forward Delete at unchanged document boundaries",
+    "Control-F/B/A/E/N/P and Shift selection via actual AppKit control key events",
+    "non-navigation Control and Command shortcuts do not arm focus",
+    "asynchronous first setMarkedText without a fresh current key event",
+    "nested keyDown marked callback records once",
+    "asynchronous preedit/commit record once; unmark and panel cleanup never refresh typing",
+    "disabled, readonly, hidden and persistent-draft guards",
+    "empty setMarkedText cancellation with genuine fresh NSApp.currentEvent obtained through postEvent/nextEvent does not recount prior key or refresh idle"
+  ],
+  "boundaries": [
+    "Final combined native editor and viewport-layout fix compiled and tested together",
+    "Synthetic offscreen AppKit text and native input callbacks; no physical IME candidate panel claim",
+    "No production Vault, account, TCC, network or visible application in these117checks"
+  ],
+  "evidence": {
+    "input-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "latin.log": {
+      "bytes": 43,
+      "sha256": "c699b6edab3f9161a679db0f6bb681fd8c8915859712f742cd57643f55afaf60"
+    },
+    "ime.log": {
+      "bytes": 96,
+      "sha256": "d6410259c33fc41193d0a86753a92ccbae25408353800d86f2b70de56d81d9ae"
+    }
+  },
+  "finalCombinedSourceHashes": {
+    "editor.m": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+    "editor.h": "13916fb953578eb366fc9f0bdaea68e06c7e52cb707e9ebb49b7e696e3750cb2",
+    "focus.h": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+    "shortcuts.h": "2cbf00c71df9fd13f99c103f1ce71d987d34893e35f832ce9b9fe5e75e3e6e62",
+    "typing-monitor.h": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419"
+  },
+  "binarySha256": "274f3ef31e84166d4f2b189f6eb050ca7edf9cebd791238da01f92df150ad3a8",
+  "priorInputReport": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/input-resume-verification.json",
+    "sha256": "69129e862c70faeea1fd54adac5d44fe586e27bd35353d7ede87bf0b3af16ebb"
+  },
+  "emptyMarkedCancellationBaseline": {
+    "strictCompileExit": 0,
+    "runExit": 1,
+    "sourceHashes": {
+      "editor.m": "28a88d6586a7454d3eb4985d894a3b5a98f0903b86b599a2039b8240fc98fdde",
+      "focus.h": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+      "focus-resume-probe.m": "7fda8a7d82d90c037db70b01572509bdbd5aa7555093ffcebffde9e42d4ae3ec"
+    },
+    "failedAssertion": "empty preedit cancellation never recounts the fresh earlier key or refreshes idle",
+    "log": {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/empty-cancel-before-fix/ime.log",
+      "bytes": 143,
+      "sha256": "2d84ba9bdf3f9793aa6fcb2650194430d84baaac3fd4e2299fb57cd0b0386a2d"
+    },
+    "currentEventSource": "real AppKit postEvent/nextEvent queue, not mocked",
+    "reproduction": "asynchronous nonempty preedit records activity directly without marking focusLastEvent; empty cancellation then reuses still-fresh earlier key through fallback and records a duplicate"
+  }
+}

@@ -55,13 +55,13 @@
     [self.owner.container addSubview:view positioned:NSWindowAbove relativeTo:self.owner.scroll];
 }
 - (void)stopFocusTyping {
-    self.focusInputCount=0;self.focusLastInput=0;self.focusFirstInput=0;
+    self.focusInputCount=0;self.focusLastInput=0;self.focusFirstInput=0;self.focusResumeOnInput=NO;
     SumiFocusView *view=self.focusView;if(!view)return;
     [view.timer invalidate];view.timer=nil;[view.idleTimer invalidate];view.idleTimer=nil;
     if(self.typewriterCaret.superview==view){[self.typewriterCaret removeFromSuperview];[self addSubview:self.typewriterCaret];}
     [view removeFromSuperview];self.focusView=nil;[self scrollRangeToVisible:self.selectedRange];[self.inputContext invalidateCharacterCoordinates];[self refreshTypewriterCaret:NO];
 }
-- (void)focusScrollNotification:(NSNotification *)notification {(void)notification;[self stopFocusTyping];}
+- (void)focusScrollNotification:(NSNotification *)notification {(void)notification;[self stopFocusTyping];[self prepareFocusResumeAfterReading];}
 - (void)recordFocusEvent:(NSEvent *)event {
     if(event.type!=NSEventTypeKeyDown || event.windowNumber!=self.window.windowNumber || event.timestamp==self.focusLastEvent)return;
     if(event.isARepeat && (!self.focusView || !self.focusInputChanged))return;
@@ -71,8 +71,6 @@
 }
 - (void)focusMutationFinished {
     if(self.caretInputDepth || self.focusKeyDepth || self.owner.applying)return;
-    NSEvent *event=NSApp.currentEvent;
-    if(event && fabs(NSProcessInfo.processInfo.systemUptime-event.timestamp)<.5)[self recordFocusEvent:event];
     [self updateFocusRows];
 }
 - (void)animateFocusStrength:(CGFloat)strength duration:(NSTimeInterval)duration {
@@ -113,7 +111,7 @@
     if(time-self.focusFirstInput>2 || time<self.focusLastInput)self.focusInputCount=0;
     if(!self.focusInputCount)self.focusFirstInput=time;
     self.focusLastInput=time;self.focusInputCount++;
-    if(!self.focusView && self.focusInputCount<4)return;
+    if(!self.focusView && self.focusInputCount<4 && !self.focusResumeOnInput)return;
     BOOL entering=self.focusView==nil;
     if(entering){
         SumiFocusView *view=[[SumiFocusView alloc]initWithFrame:self.owner.container.bounds];view.text=self;view.wantsLayer=YES;
@@ -123,6 +121,7 @@
     }
     [self updateFocusRows];
     SumiFocusView *view=self.focusView;if(!view)return;
+    self.focusResumeOnInput=NO;
     view.lastActivity=CACurrentMediaTime();[self scheduleFocusIdle];
     if(entering || view.targetStrength!=1)[self animateFocusStrength:1 duration:.2];
 }
@@ -133,7 +132,13 @@
     self.focusUpdating=YES;
     if(@available(macOS 13.0,*)){
         NSTextLayoutManager *layout=self.textLayoutManager;NSTextContentManager *content=layout.textContentManager;
-        if(!self.string.length)[layout.textViewportLayoutController layoutViewport];
+        // Commit the bounded native viewport before reading fragment frames.
+        // After edits or projection restyling, neighboring paragraphs can
+        // otherwise retain incompatible estimated frames and overlap here.
+        BOOL reportingViewport=self.owner.reportingViewport;
+        self.owner.reportingViewport=YES;
+        [layout.textViewportLayoutController layoutViewport];
+        self.owner.reportingViewport=reportingViewport;
         NSUInteger index=MIN(self.selectedRange.location,self.string.length);
         id<NSTextLocation> location=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)index];
         NSMutableArray<SumiFocusRow *> *rows=[NSMutableArray new];
@@ -189,6 +194,40 @@
                     for(NSTextLineFragment *line in fragment.textLineFragments)if(!append(fragment,line,NO))return NO;
                     return YES;
                 }];
+                // Candidate traversal can refine estimated paragraph frames.
+                // Lay out its bounded range, commit the viewport, then discard
+                // those objects and read one fresh snapshot without EnsuresLayout.
+                NSUInteger first=self.string.length,last=0;
+                for(SumiFocusRow *row in rows){first=MIN(first,row.range.location);last=MAX(last,NSMaxRange(row.range));}
+                id<NSTextLocation> firstLocation=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)first];
+                id<NSTextLocation> lastLocation=[content locationFromLocation:content.documentRange.location withOffset:(NSInteger)last];
+                if(!firstLocation || !lastLocation){self.focusUpdating=NO;[self stopFocusTyping];return;}
+                [layout ensureLayoutForRange:[[NSTextRange alloc]initWithLocation:firstLocation endLocation:lastLocation]];
+                BOOL finalReporting=self.owner.reportingViewport;self.owner.reportingViewport=YES;
+                [layout.textViewportLayoutController layoutViewport];self.owner.reportingViewport=finalReporting;
+                NSMutableArray<SumiFocusRow *> *snapshot=[NSMutableArray new];
+                __block BOOL available=YES;
+                // Keep the prepared insertion line even when the document is empty.
+                [layout enumerateTextLayoutFragmentsFromLocation:firstLocation options:NSTextLayoutFragmentEnumerationOptionsEnsuresExtraLineFragment usingBlock:^BOOL(NSTextLayoutFragment *fragment){
+                    NSInteger offset=[content offsetFromLocation:content.documentRange.location toLocation:fragment.rangeInElement.location];
+                    if((NSUInteger)MAX(0,offset)>last)return NO;
+                    if(fragment.state!=NSTextLayoutFragmentStateLayoutAvailable){available=NO;return NO;}
+                    NSArray<NSTextLineFragment *> *freshLines=fragment.textLineFragments;
+                    NSUInteger low=0,high=freshLines.count;
+                    while(low<high){NSUInteger mid=low+(high-low)/2;NSUInteger begin=(NSUInteger)MAX(0,offset)+freshLines[mid].characterRange.location;if(begin<=first)low=mid+1;else high=mid;}
+                    for(NSUInteger n=low?low-1:0;n<freshLines.count;n++){
+                        NSUInteger begin=(NSUInteger)MAX(0,offset)+freshLines[n].characterRange.location;
+                        if(begin>last)break;
+                        [snapshot addObject:makeRow(fragment,freshLines[n])];
+                    }
+                    return YES;
+                }];
+                SumiFocusRow *resolved=nil;
+                for(SumiFocusRow *row in snapshot)if(row.range.location<=index)resolved=row;else break;
+                if(!available || !resolved){self.focusUpdating=NO;[self stopFocusTyping];return;}
+                rows=[NSMutableArray arrayWithObject:resolved];active=resolved;
+                for(SumiFocusRow *row in snapshot.reverseObjectEnumerator)if(row.range.location<active.range.location)[rows addObject:row];
+                for(SumiFocusRow *row in snapshot)if(row.range.location>active.range.location)[rows addObject:row];
                 // Keep native glyphs, left edge and all native line spacing;
                 // focus is one common vertical translation, never a font change.
                 // Laying out a neighboring paragraph may refine earlier
