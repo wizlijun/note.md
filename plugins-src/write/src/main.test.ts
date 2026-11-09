@@ -1,6 +1,9 @@
+/// <reference types="node" />
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defaultPreferences, fontPresets, type SumiState, type FontState, type SoundState } from './contract'
+import { readFileSync } from 'node:fs'
+const styles = readFileSync(`${__dirname}/style.css`, 'utf8')
 
 const state = (overrides: Partial<SumiState> = {}): SumiState => ({
   available: true, pages: [{ id: 'page-a', excerpt: '第一行', deleted: false }], activePageId: 'page-a',
@@ -29,7 +32,7 @@ async function setup(next = state(), mount?: () => Promise<unknown>, locale = 'z
   await settle()
   return request
 }
-afterEach(() => { sessionStorage.clear(); window.dispatchEvent(new Event('pagehide')); delete window.notemd; vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(() => { document.querySelector('[data-sumi-test-style]')?.remove(); sessionStorage.clear(); window.dispatchEvent(new Event('pagehide')); delete window.notemd; vi.unstubAllGlobals(); vi.useRealTimers() })
 
 describe('Sumi native writing shell', () => {
   it('does not create a page or mount a fake web editor on unsupported systems', async () => {
@@ -138,10 +141,110 @@ describe('Sumi native writing shell', () => {
     document.getElementById('fullscreen')!.click(); await settle()
     expect(document.getElementById('fullscreen')!.getAttribute('aria-label')).toContain('Cmd/Win/Super+Enter')
   })
-  it('makes an unsuccessful save visible instead of reporting success', async () => {
+  it('retains an unsuccessful save status instead of reporting success', async () => {
+    const style = document.createElement('style'); style.dataset.sumiTestStyle = ''; style.textContent = styles; document.head.append(style)
     await setup(state({ saveState: 'error' }))
     expect(document.getElementById('notice')!.textContent).toContain('保存失败')
     expect(document.getElementById('notice')!.hidden).toBe(false)
+    expect(getComputedStyle(document.getElementById('notice')!).opacity).toBe('1')
+    expect(document.getElementById('notice')!.getAttribute('role')).toBe('alert')
+    expect(document.getElementById('retry-save')!.hidden).toBe(false)
+  })
+  it('keeps an unsaved draft warning visible and copyable through sync messages, and retries only through save', async () => {
+    const style = document.createElement('style'); style.dataset.sumiTestStyle = ''; style.textContent = styles; document.head.append(style)
+    const failed = state({ saveState: 'error', sync: { connected: true, pending: 0, message: 'Connected' } })
+    const request = await setup(failed), base = request.getMockImplementation()!
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    const output = document.getElementById('notice')!, retry = document.getElementById('retry-save')!
+    receive({ type: 'sumi-state', state: failed }); await settle()
+    expect(getComputedStyle(output).opacity).toBe('1')
+    expect(output.textContent).toContain('保存失败')
+    const selection = window.getSelection()!, range = document.createRange(); range.selectNodeContents(output); selection.removeAllRanges(); selection.addRange(range)
+    expect(selection.toString()).toContain('可复制或重试保存')
+    const copy = new Event('copy', { bubbles: true, cancelable: true }); output.dispatchEvent(copy)
+    expect(copy.defaultPrevented).toBe(false)
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.command') throw new Error('DISK_STILL_FULL')
+      return base(method, params)
+    })
+    retry.click(); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.command', { action: 'save' })
+    expect(getComputedStyle(output).opacity).toBe('1')
+    expect(retry.hidden).toBe(false)
+    expect((retry as HTMLButtonElement).disabled).toBe(false)
+    request.mockImplementation(async (method, params) => method === 'host.sumi.state' ? state() : base(method, params))
+    retry.click(); await settle()
+    expect(output.hidden).toBe(true)
+    expect(retry.hidden).toBe(true)
+    expect(output.tabIndex).toBe(-1)
+    expect(request.mock.calls.some(([method]) => method === 'host.sumi.restore_projection')).toBe(false)
+  })
+  it('shows asynchronous errors without hover and preserves their literal text', async () => {
+    const style = document.createElement('style'); style.dataset.sumiTestStyle = ''; style.textContent = styles; document.head.append(style)
+    await setup()
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-error', message: 'DRAFT_DISK_FAILURE <raw>' }); await settle()
+    const output = document.getElementById('notice')!
+    expect(getComputedStyle(output).opacity).toBe('1')
+    expect(output.textContent).toContain('DRAFT_DISK_FAILURE <raw>')
+    expect(output.children).toHaveLength(0)
+    expect(output.getAttribute('role')).toBe('alert')
+  })
+  it('keeps an empty status slot outside the native surface without adding a tab stop', async () => {
+    await setup()
+    const slot = document.getElementById('notice-slot')!, notice = document.getElementById('notice')!
+    expect(document.getElementById('surface')!.nextElementSibling).toBe(slot)
+    expect(slot.nextElementSibling).toBe(document.getElementById('tools'))
+    expect(slot.contains(notice)).toBe(true)
+    expect(notice.hidden).toBe(true)
+    expect(notice.tabIndex).toBe(-1)
+  })
+  it('hides populated bottom status only visually and preserves focus, selection and native copy', async () => {
+    const style = document.createElement('style'); style.dataset.sumiTestStyle = ''; style.textContent = styles; document.head.append(style)
+    await setup(state({ sync: { connected: false, pending: 0, message: 'offline detail <keep-as-text>' } }))
+    const notice = document.getElementById('notice')!, slot = document.getElementById('notice-slot')!
+    expect(getComputedStyle(slot).height).toBe('36px')
+    expect(getComputedStyle(notice).opacity).toBe('0')
+    expect(getComputedStyle(notice).display).not.toBe('none')
+    expect(notice.getAttribute('aria-hidden')).toBeNull()
+    expect(notice.getAttribute('role')).toBe('status')
+    expect(notice.getAttribute('aria-live')).toBe('polite')
+    expect(notice.tabIndex).toBe(0)
+    notice.focus()
+    expect(document.activeElement).toBe(notice)
+    expect(styles).toContain('#notice-slot:hover > #notice,#notice-slot > #notice:focus,#notice-slot > #notice[data-critical="true"] { opacity:1 }')
+    const range = document.createRange(); range.selectNodeContents(notice)
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range)
+    expect(selection.toString()).toContain('offline detail <keep-as-text>')
+    expect(notice.children).toHaveLength(0)
+    const copy = new Event('copy', { bubbles: true, cancelable: true }); notice.dispatchEvent(copy)
+    expect(copy.defaultPrevented).toBe(false)
+    const receive = vi.mocked(window.notemd!.onMessage!).mock.calls[0][0]
+    receive({ type: 'sumi-state', state: state() }); await settle()
+    expect(notice.hidden).toBe(true)
+    expect(notice.tabIndex).toBe(-1)
+    expect(document.activeElement).not.toBe(notice)
+    expect(document.getElementById('notice-slot')).toBe(slot)
+  })
+  it('shows setting errors inside the panel and returns the same live region to the bottom slot', async () => {
+    const request = await setup(), base = request.getMockImplementation()!
+    document.getElementById('appearance')!.click(); await settle()
+    const notice = document.getElementById('notice')!, slot = document.getElementById('notice-slot')!
+    expect(notice.parentElement).toBe(document.getElementById('panel'))
+    expect(slot.contains(notice)).toBe(false)
+    expect(slot.querySelector('#retry-save')).not.toBeNull()
+    request.mockImplementation(async (method, params) => {
+      if (method === 'host.sumi.preferences') throw new Error('SETTINGS_SAVE_FAILED')
+      return base(method, params)
+    })
+    document.querySelector('#panel-body form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(notice.hidden).toBe(false)
+    expect(notice.textContent).toContain('SETTINGS_SAVE_FAILED')
+    expect(document.getElementById('panel')!.hidden).toBe(false)
+    expect(document.getElementById('sound-status')!.closest('#panel')).not.toBeNull()
+    document.getElementById('close')!.click(); await settle()
+    expect(notice.parentElement).toBe(slot)
+    expect(notice.textContent).toContain('SETTINGS_SAVE_FAILED')
   })
   it('waits for explicit composition handoff before showing appearance, and can retry a rejected handoff', async () => {
     const request = await setup()
@@ -201,6 +304,26 @@ describe('Sumi native writing shell', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
     expect(request).toHaveBeenCalledWith('host.sumi.pair', { serviceUrl: 'https://sumi.example.test', invitation })
     expect(document.getElementById('panel')!.hidden).toBe(true)
+  })
+  it.each([['zh', '聚焦打字'], ['en', 'Focused typing'], ['ja', '集中タイピング']])('enables focused typing by default with a %s label', async (locale, label) => {
+    await setup(state(), undefined, locale)
+    document.getElementById('appearance')!.click(); await settle()
+    const input = document.querySelector<HTMLInputElement>('input[name="focusTyping"]')!
+    expect(input.checked).toBe(true)
+    expect(input.closest('label')!.textContent).toBe(label)
+  })
+  it.each([true, false])('restores focused typing %s and saves its opposite without resetting appearance or sounds', async focusTyping => {
+    const preferences = { ...defaultPreferences, focusTyping, theme: 'sepia' as const, fontFamily: 'Sumi Youcha', fontSize: 32, lineHeight: 1.8, maxColumns: 64, bottomInset: 40, caretMotion: 'steady' as const }
+    const request = await setup(state({ preferences }))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector('#panel-body form') as HTMLFormElement
+    const input = form.elements.namedItem('focusTyping') as HTMLInputElement
+    expect(input.checked).toBe(focusTyping)
+    input.checked = !focusTyping
+    request.mockClear()
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, focusTyping: !focusTyping }, preserveFont: true })
+    expect(request.mock.calls.some(call => call[0] === 'host.sumi.sound_set')).toBe(false)
   })
   it('displays the complete one-time invitation for another device', async () => {
     const request = await setup(state({ sync: { connected: true, pending: 0 } }))

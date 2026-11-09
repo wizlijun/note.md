@@ -86,7 +86,10 @@ struct Preferences {
     bottom_inset: f64,
     #[serde(default = "default_caret_motion")]
     caret_motion: String,
+    #[serde(default = "default_focus_typing")]
+    focus_typing: bool,
 }
+fn default_focus_typing() -> bool { true }
 fn default_caret_motion() -> String {
     "breathing".into()
 }
@@ -100,6 +103,7 @@ impl Default for Preferences {
             max_columns: 80,
             bottom_inset: 0.,
             caret_motion: default_caret_motion(),
+            focus_typing: default_focus_typing(),
         }
     }
 }
@@ -150,6 +154,7 @@ impl Preferences {
                 "steady" => native::CaretMotion::Steady,
                 _ => native::CaretMotion::Breathing,
             },
+            focus_typing: self.focus_typing,
         }
     }
 }
@@ -1743,10 +1748,11 @@ pub(super) async fn directory_changed<R: Runtime>(
 async fn load_preferences(durable: &Durability) -> Result<Preferences> {
     let stored = durable.preferences("appearance".into()).await?;
     let missing_caret_motion = stored.as_ref().is_some_and(|value| value.get("caretMotion").is_none());
+    let missing_focus_typing = stored.as_ref().is_some_and(|value| value.get("focusTyping").is_none());
     let mut preferences: Preferences = stored
         .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
     // Add the new default and migrate only retired fonts, preserving other fields.
-    if preferences.normalize_stored_font() || missing_caret_motion {
+    if preferences.normalize_stored_font() || missing_caret_motion || missing_focus_typing {
         durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
     }
     Ok(preferences)
@@ -3755,6 +3761,7 @@ mod tests {
             let mut expected = saved;
             expected["fontFamily"] = json!(expected_font);
             expected["caretMotion"] = json!("breathing");
+            expected["focusTyping"] = json!(true);
             assert_eq!(serde_json::to_value(preferences).unwrap(), expected);
             assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
             assert_eq!(serde_json::to_value(load_preferences(&ws.durable).await.unwrap()).unwrap(), expected);
@@ -3770,6 +3777,7 @@ mod tests {
         assert!(matches!(migrated.appearance().caret_motion, native::CaretMotion::Breathing));
         let mut expected = legacy;
         expected["caretMotion"] = json!("breathing");
+        expected["focusTyping"] = json!(true);
         assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
         assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
         for invalid in ["blink", "", "Breathing", "STEADY"] {
@@ -3800,6 +3808,31 @@ mod tests {
         for alias in manifest["cascades"].as_object().unwrap().keys() { assert!(fonts::known_font(alias)); }
         assert!(!fonts::known_font("Sumi Elite"));
         assert!(!fonts::known_font("../../other-font"));
+    }
+    #[tokio::test]
+    async fn focus_typing_migrates_on_and_persists_off_without_changing_document_or_sound() {
+        let (temp, ws, id) = fixture().await;
+        let before = ws.papers.lock().unwrap()[&id].doc.encode_full();
+        let legacy = json!({"theme":"sepia","fontFamily":"Sumi Fangsong","fontSize":32.,"lineHeight":1.8,"maxColumns":64,"bottomInset":40.,"caretMotion":"steady"});
+        let sound = json!({"enabled":false,"preset":"thock"});
+        ws.durable.set_preferences("appearance".into(), legacy.clone()).await.unwrap();
+        ws.durable.set_preferences("typingSound".into(), sound.clone()).await.unwrap();
+        let mut migrated = load_preferences(&ws.durable).await.unwrap();
+        assert!(migrated.focus_typing && migrated.appearance().focus_typing);
+        let mut expected = legacy;
+        expected["focusTyping"] = json!(true);
+        assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
+        assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
+        migrated.focus_typing = false;
+        save_appearance(&ws, migrated, false).await.unwrap();
+        expected["focusTyping"] = json!(false);
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.encode_full(), before);
+        let root = ws.root.clone(); drop(ws);
+        let reopened = Durability::open(root, temp.path().join("sumi.sqlite3"), |_| {}).await.unwrap();
+        let restored = load_preferences(&reopened).await.unwrap();
+        assert!(!restored.focus_typing && !restored.appearance().focus_typing);
+        assert_eq!(serde_json::to_value(restored).unwrap(), expected);
+        assert_eq!(reopened.preferences("typingSound".into()).await.unwrap(), Some(sound));
     }
     #[test]
     fn pairing_ui_roundtrips_the_complete_invitation_without_exposing_invalid_input() {
@@ -4066,7 +4099,7 @@ mod tests {
         let before = ws.papers.lock().unwrap()[&id].doc.encode_full();
         let generation = begin_font_selection(&ws, "Sumi WenKai").await.unwrap().unwrap();
         let mut form = Preferences::default();
-        form.font_size = 50.; form.theme = "sepia".into(); form.bottom_inset = 80.;
+        form.font_size = 50.; form.theme = "sepia".into(); form.bottom_inset = 80.; form.focus_typing = false;
         save_appearance(&ws, form.clone(), true).await.unwrap();
         assert!(complete_font_selection(&ws, generation, "Sumi WenKai").await.unwrap());
         // A form created before completion must not restore its old Plex value.
@@ -4076,6 +4109,7 @@ mod tests {
         assert_eq!(restored.font_family, "Sumi WenKai");
         assert_eq!((restored.font_size, restored.line_height, restored.bottom_inset), (50., 2., 80.));
         assert_eq!(restored.theme, "sepia");
+        assert!(!restored.focus_typing);
         assert_eq!(ws.papers.lock().unwrap()[&id].doc.encode_full(), before);
     }
 

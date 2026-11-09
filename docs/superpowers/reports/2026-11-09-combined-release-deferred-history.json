@@ -1,0 +1,370 @@
+{
+  "status": "archived-existing-delivery-history-not-new-release-features",
+  "sourceBaseline": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+  "scope": "Exact twenty deferred bilingual entries retained. All originating commits are ancestral to the published6.1109.1 source. Published marketplace snapshot confirms specified old versions where listed; old approaches may be superseded. Website deployment is not reverified. Health0.1.1 has no separate index entry; source fix and later Health releases exist.",
+  "marketSnapshotSha256": "a74c9ffae8e9a883596009f1e16b2368b382cdab046823cca6dfe47359bc5850",
+  "entries": [
+    {
+      "number": 1,
+      "english": "- **Sumi 0.1.1 requires note.md 6.1108.2 or later.** Update the host alongside the marketplace plugin to receive the fix for the gentle breathing caret when macOS Reduce Motion is enabled.",
+      "chinese": "- **Sumi 0.1.1 要求 note.md 6.1108.2 或更新版本。** 插件市场更新需配套升级宿主，获得 macOS 开启“减少动态效果”时平缓呼吸光标不生效的修复。",
+      "originCommit": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f",
+      "originSubject": "f1bd9bc5f45c7d0ba218675c52655bd5d591008f chore(sumi): release plugin 0.1.1 for breathing caret host fix",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1108.3",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.sumi",
+          "version": "0.1.1"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 2,
+      "english": "- **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.",
+      "chinese": "- **NEXT 开头结果严格关联原任务。** 冲突结果只阻止相关任务，关闭已失效的结果视图并保留用户内容；同一窗口会话中，重复的后台读取错误只提示一次。",
+      "originCommit": "b7c5edbb9acfb9af3e74c771bea815cc899d9f1a",
+      "originSubject": "b7c5edbb9acfb9af3e74c771bea815cc899d9f1a fix(next): integrate pending kickoff safeguards and agent regressions",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1104.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 3,
+      "english": "- **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.",
+      "chinese": "- **更新网站 Agent 集成入口。** 首页突出展示 Grokbot，新增四语集成指南；入口统一按 Claude、Codex、Grokbot、OpenClaw、Hermes 排列，并修复翻译内容页切回英文的链接。",
+      "originCommit": "36adf8ff8ddf2668c7ab61ebac740db04053d0e3",
+      "originSubject": "36adf8ff8ddf2668c7ab61ebac740db04053d0e3 feat(website): add Grokbot guides and reorder agent integrations",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1104.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Website/documentation/packaging source was already ancestral; this audit does not redeploy website or re-publish Linux artifacts."
+    },
+    {
+      "number": 4,
+      "english": "- **NEXT 1.13.2: hide empty placed lanes.** With Show placed turned off, empty Later and Closed lanes disappear and the board fits its visible columns. Due items in Later remain visible.",
+      "chinese": "- **NEXT 1.13.2：隐藏已安放的空泳道。** 关闭“显示已安放”时，隐藏空的“稍后／已结束”泳道，布局随可见列数收缩；到期的稍后事项继续显示。",
+      "originCommit": "1baf721289e849bfe1bf4bf8d17b2bf7fc0945fd",
+      "originSubject": "1baf721289e849bfe1bf4bf8d17b2bf7fc0945fd release(next): prepare 1.13.2 collapsed placed lanes",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1030.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.next",
+          "version": "1.13.2"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 5,
+      "english": "- **NEXT 1.13.1: card actions use compact split buttons.** Complete a task from the blue main button or open placement options from its arrow. The kickoff arrow opens the Agent menu beside the button, without an extra dialog.",
+      "chinese": "- **NEXT 1.13.1：卡片操作合并为组合按钮。** 蓝色主按钮直接完成任务，旁边箭头展开安放菜单；“帮我开个头”的箭头直接在按钮旁展开 Agent 菜单，无需额外对话框。",
+      "originCommit": "f7dd2b8b28bd9b19d04ecc7c3269d2b5c902016e",
+      "originSubject": "f7dd2b8b28bd9b19d04ecc7c3269d2b5c902016e release(next): prepare 1.13.1 direct action menus",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1030.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.next",
+          "version": "1.13.1"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 6,
+      "english": "- **NEXT 1.13.0 with Codex 1.1.0, DeepSeek 1.2.0 and Claude 1.1.0: the Agent retrieves its own kickoff context.** Pass the current Vault and Task identity instead of collecting and sending a background file packet. The Agent uses notemd search and native web search for recent articles, then returns cited questions and suggestions. Per-Agent concurrency is adjustable and defaults to three, with separate runs for different Tasks. NEXT validates and saves the result; placement still requires the user. Update NEXT and the selected Agent together. On older hosts, open each Agent’s settings once to apply the new default when unset; saved limits remain unchanged. Web sources open on supporting hosts and copy their URL on older hosts.",
+      "chinese": "- **NEXT 1.13.0 配套 Codex 1.1.0、DeepSeek 1.2.0、Claude 1.1.0：开个头由 Agent 自主检索。** 不再预扫描并发送背景文件包；传入当前 Vault 路径与 Task 身份，由 Agent 调用 notemd search 及 harness 联网搜索近期相关文章，返回带来源的问题与建议。各 Agent 的并发可调、默认 3，不同 Task 可以同时运行。结果仍由 NEXT 校验保存，安放由用户确认。请同时更新 NEXT 与所选 Agent。旧宿主需打开一次各 Agent 设置，未设置并发时会保存默认 3；已有设置保持。网页来源在支持的宿主打开，旧宿主复制网址。",
+      "originCommit": "167eb3303d8593653d976a2775083483c5682085",
+      "originSubject": "167eb3303d8593653d976a2775083483c5682085 release(plugins): prepare kickoff research with older-host compatibility",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.next",
+          "version": "1.1.0"
+        },
+        {
+          "id": "notemd.next",
+          "version": "1.2.0"
+        },
+        {
+          "id": "notemd.next",
+          "version": "1.13.0"
+        },
+        {
+          "id": "notemd.codex-agent",
+          "version": "1.1.0"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.1.0"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.2.0"
+        },
+        {
+          "id": "notemd.claude-agent",
+          "version": "1.1.0"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 7,
+      "english": "- **Ebook Import 1.5.6: optional AI reading from the import CLI.** Add `--ai-read` to read the imported book with your default installed Agent, or `--agent <plugin-id>` to select one for this run. The command waits for the summary and reports AI failures separately from a completed import. Agent runs require the current Vault; a shared SDK fix lets synchronous commands receive host replies without deadlocking.",
+      "chinese": "- **导入电子书 1.5.6：CLI 导入后自动 AI 先读。** 加 `--ai-read` 使用默认已安装 Agent，或用 `--agent <插件ID>` 指定本次 Agent；等待摘要生成，先读失败与已完成导入分别报告。Agent 仅在当前 Vault 运行；同步命令通过共享 SDK 修复可正常接收宿主应答，避免死锁。",
+      "originCommit": "cfc00686b57c43a14bf7e774e352e40892d70d4d",
+      "originSubject": "cfc00686b57c43a14bf7e774e352e40892d70d4d feat(ebook-import): add CLI AI reading and align Baidu OCR limits",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.ebook-import",
+          "version": "1.5.6"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 8,
+      "english": "- **Ebook Import 1.5.6: check Baidu OCR upload limits before sending.** The existing cloud endpoint is documented as using Unlimited OCR 2. Local uploads now stop above 50 MB (50,000,000 bytes) or 500 PDF pages, with guidance to compress or split the file. Invalid PDFs fail before any Baidu request; your selected OCR provider stays unchanged.",
+      "chinese": "- **导入电子书 1.5.6：调用百度 OCR 前检查文件限制。** 沿用官方已声明基于 Unlimited OCR 2 的云端接口；本地文件超过 50 MB（50,000,000 字节）或 500 页时提前拒绝并提示压缩或分册，无效 PDF 也不会提交至百度。保留用户选择的 OCR 服务。",
+      "originCommit": "cfc00686b57c43a14bf7e774e352e40892d70d4d",
+      "originSubject": "cfc00686b57c43a14bf7e774e352e40892d70d4d feat(ebook-import): add CLI AI reading and align Baidu OCR limits",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.ebook-import",
+          "version": "1.5.6"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 9,
+      "english": "- **Ebook Import 1.5.5: import books from an Agent or terminal.** Discover valid topic IDs with `notemd ebook --list-topics --json`, import relative or absolute file paths with `--topic`, and explicitly enable scanned-PDF OCR with `--ocr`. The CLI shares the window import pipeline, reports progress and structured destinations, and rejects conflicting OCR options.",
+      "chinese": "- **导入电子书 1.5.5：Agent 可直接用 CLI 导入。** 先用 `notemd ebook --list-topics --json` 查询分类 ID，再以 `--topic` 导入绝对或相对路径的书籍；扫描 PDF 按需显式加 `--ocr`。命令与窗口共用导入流水线，返回结构化书籍路径并持续报告进度，拒绝冲突的 OCR 参数。",
+      "originCommit": "2985619b61b64269893cd48876bdf5215339dac8",
+      "originSubject": "2985619b61b64269893cd48876bdf5215339dac8 feat(ebook-import): expose validated agent CLI and prepare 1.5.5",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.ebook-import",
+          "version": "1.5.5"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 10,
+      "english": "- **Claude Agent 1.0.34: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.",
+      "chinese": "- **Claude Agent 1.0.34：“帮我开个头”支持 Claude。** 与 Codex、DeepSeek 使用同一份冻结 v2 规程和你确认过的背景快照；在空目录、无工具、无 MCP、不读磁盘指令的模式下运行，按固定总时限收束。只读或预算配置被削弱时，启动 Claude 前即拒绝。更新 Claude Agent 插件后即可在 NEXT 中选择 Claude。",
+      "originCommit": "9ece513d9a5c435d5e8549f24358012db1a8f806",
+      "originSubject": "9ece513d9a5c435d5e8549f24358012db1a8f806 fix(claude-agent): enforce kickoff deadlines through EOF and prepare 1.0.34",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.claude-agent",
+          "version": "1.0.3"
+        },
+        {
+          "id": "notemd.claude-agent",
+          "version": "1.0.34"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Earlier kickoff architecture/version is superseded by later Agent self-retrieval; do not restate old safety model as current."
+    },
+    {
+      "number": 11,
+      "english": "- **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.",
+      "chinese": "- **NEXT 1.12.1：每次发送前确认背景与接收方。** 显示 Agent 服务商和实际文件清单；修复大 Vault、中文部分词语匹配及大量未完成任务导致的背景遗漏，引用只认可确认快照中的文件。配套 Codex Agent 1.0.22 / DeepSeek Agent 1.1.21 使用单份冻结 v2 规程；Claude 等未支持插件明确暂不支持。锁冲突显示容量限制，时长保存为整数秒。",
+      "originCommit": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf",
+      "originSubject": "f97f5b17bd9c0a9a664895d8646e4edfac6d6bdf docs: record kickoff context release and signed-package acceptance",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.next",
+          "version": "1.12.1"
+        },
+        {
+          "id": "notemd.codex-agent",
+          "version": "1.0.2"
+        },
+        {
+          "id": "notemd.codex-agent",
+          "version": "1.0.22"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.0.2"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.1.2"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.1.21"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Earlier kickoff architecture/version is superseded by later Agent self-retrieval; do not restate old safety model as current."
+    },
+    {
+      "number": 12,
+      "english": "- **NEXT 1.12.0: start an in-progress Task with your installed Agent.** The combined kickoff control offers both the main action and Agent selection. NEXT prepares a bounded snapshot of the Task and relevant declared background; Codex Agent 1.0.21 and DeepSeek Agent 1.1.20 return the questions without filesystem, command, network or MCP tools. Answers still require your confirmation before placement. Update the Agent plugin when its installed version does not provide this capability.",
+      "chinese": "- **NEXT 1.12.0：进行中的任务也能“帮我开个头”。** 将主操作与 Agent 选择整合为一个复合控件，使用本机已安装的 Agent。NEXT 先收集任务和规程声明的相关背景快照，再由 Codex Agent 1.0.21 或 DeepSeek Agent 1.1.20 在无文件、命令、网络及 MCP 工具的模式下生成问题；回答仍须你确认后才能安放。已安装 Agent 缺少此能力时明确提示更新插件。",
+      "originCommit": "6f0bb356503c0ec4d47fb9fa166d35f40bdaf2a6",
+      "originSubject": "6f0bb356503c0ec4d47fb9fa166d35f40bdaf2a6 feat(next): enable verified kickoff with installed agents and ongoing tasks",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.next",
+          "version": "1.12.0"
+        },
+        {
+          "id": "notemd.codex-agent",
+          "version": "1.0.2"
+        },
+        {
+          "id": "notemd.codex-agent",
+          "version": "1.0.21"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.0.2"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.1.2"
+        },
+        {
+          "id": "notemd.deepseek-agent",
+          "version": "1.1.20"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Earlier kickoff architecture/version is superseded by later Agent self-retrieval; do not restate old safety model as current."
+    },
+    {
+      "number": 13,
+      "english": "- **NEXT 1.11.0: “Help me start” on Task cards.** Review up to three questions grounded in your vault, save your answers, and prefill the placement form for your approval. Existing answers survive regeneration and manually edited result text is preserved. Agent execution stays disabled until its read-only safety checks are verified.",
+      "chinese": "- **NEXT 1.11.0：Task 卡片新增“帮我开个头”。** 查看基于 Vault 背景提出的少量问题，保存回答并预填安放表单，由你确认提交。重新生成保留旧答案，保存答案不覆盖手工编辑的结果正文；agent 通过只读安全验收前保持不可用。",
+      "originCommit": "d6b9a02355c62ed45db885a18487c059fef3f3d1",
+      "originSubject": "d6b9a02355c62ed45db885a18487c059fef3f3d1 release(next): prepare 1.11.0 kickoff workflow",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1028.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.next",
+          "version": "1.11.0"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Earlier kickoff architecture/version is superseded by later Agent self-retrieval; do not restate old safety model as current."
+    },
+    {
+      "number": 14,
+      "english": "- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.",
+      "chinese": "- **Agent 可通过统一入口操作原 NEXT 任务。** 添加、修改、安放、完成与重开保留任务身份，后台提取仍只新增；提醒偏好与卡片共用。Vault skills 新增一次性提醒规则、发送前复核及投递回执，定时发送仍需部署轮询运行器。",
+      "originCommit": "0a77ef371de4127fd86a00514b8d8fb69821a950",
+      "originSubject": "0a77ef371de4127fd86a00514b8d8fb69821a950 feat(next): unify agent task and reminder operations",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1027.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 15,
+      "english": "- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.",
+      "chinese": "- **健康数据同步 0.1.1：修复首次选择文件后的导入预览。** 主采集按钮优先读取所选文件，不再要求先有记忆路径；预览保持只读。按 `HealthData` 根节点识别 ZIP 主 XML，兼容不同语言和编码标记错误导致的乱码文件名；大型 CDA 文档按 XML 限额流式保存，保留 CDA、ECG 和 GPX 附件。",
+      "originCommit": "7d1aa68cbec5d0193f2103b85d650b20403d3c9b",
+      "originSubject": "7d1aa68cbec5d0193f2103b85d650b20403d3c9b fix: identify Apple Health exports by XML content",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1024.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Market has Health0.1.0,0.1.2 and successors through0.2.2, no exact0.1.1 entry; source fix is ancestral and successor listing exists. Do not claim0.1.1 separately published."
+    },
+    {
+      "number": 16,
+      "english": "- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.",
+      "chinese": "- **健康数据同步 0.1.0（独立 Mac 插件）：按天汇集健康档案。** 导入完整 Apple Health ZIP/XML，以 Garmin Personal 和 Oura V2 API 补充详情；提供分类与覆盖浏览、窗口/CLI 历史续采。保留原始字段和附件，使用可读 slug 文件名，厂商凭据存入钥匙串。",
+      "originCommit": "dfc64b6f3ca6a269d2009bcdf70f41f9c8299dcc",
+      "originSubject": "dfc64b6f3ca6a269d2009bcdf70f41f9c8299dcc docs: prepare Health Sync 0.1.0 marketplace release",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1024.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.health-sync",
+          "version": "0.1.0"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 17,
+      "english": "- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.",
+      "chinese": "- **Roam Research Sync 1.2.7：修复大页面导致的 stdout 管道死锁。** Roam CLI 运行期间并发读取 stdout/stderr，保留 60 秒超时，并在超时后终止和回收子进程。",
+      "originCommit": "0841b18f57f4b65dbe30edb6c7a7fd9bd0cf2ad5",
+      "originSubject": "0841b18f57f4b65dbe30edb6c7a7fd9bd0cf2ad5 fix(roam-import): drain CLI pipes within timeout for 1.2.7",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1024.1",
+      "marketVersionsPresent": [
+        {
+          "id": "notemd.roam-import",
+          "version": "1.2.7"
+        }
+      ],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release"
+    },
+    {
+      "number": 18,
+      "english": "- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.",
+      "chinese": "- **优先提供 Omarchy 下载，并补齐 ARM64 Arch 包。** 官网 Linux 主按钮直接选择 Omarchy/Arch，Debian/Ubuntu 使用独立入口；通用下载页明确区分格式。6.1022.1 补充 aarch64 `.pkg.tar.zst` 及独立校验文件，应用二进制内容不变。",
+      "originCommit": "bf643f50af22bd1a2dd131a0f7f63c2d50c191fb",
+      "originSubject": "bf643f50af22bd1a2dd131a0f7f63c2d50c191fb docs(linux): provide ARM64 Omarchy package installation steps",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1024.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Website/documentation/packaging source was already ancestral; this audit does not redeploy website or re-publish Linux artifacts."
+    },
+    {
+      "number": 19,
+      "english": "- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.",
+      "chinese": "- **官网 Linux 下载识别正确架构。** 请求浏览器真实 CPU 架构，不再把 Chromium 简化后的 Linux 标识误判为 AMD64；无法识别时提供明确的 ARM64 / AMD64 选择。",
+      "originCommit": "e81bd593b80e3b431fb4c2b7d7bab11a8837d7b6",
+      "originSubject": "e81bd593b80e3b431fb4c2b7d7bab11a8837d7b6 fix(website): negotiate Linux download architecture before redirecting",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1024.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Website/documentation/packaging source was already ancestral; this audit does not redeploy website or re-publish Linux artifacts."
+    },
+    {
+      "number": 20,
+      "english": "- **Refresh product documentation across languages.** Align the English/Chinese README and feature lists with the four-language website and agent reference. Remove stale release snapshots, clarify platform and plugin availability, document the current diagram renderer and external health library, and correct outdated shortcuts and storage claims.",
+      "chinese": "- **同步多语言产品文档。** 统一中英文 README、功能清单、四语网站与 Agent 参考文档；清理过期版本快照，说明平台与插件边界、当前图表渲染器和外置健康资料库，并修正过期快捷键及存储描述。",
+      "originCommit": "dd56ba032ceda6881995909e848e18d6ded6ea05",
+      "originSubject": "dd56ba032ceda6881995909e848e18d6ded6ea05 docs: reconcile product capabilities and localized website content",
+      "originAncestorOfPublishedBase": true,
+      "earliestContainingHostSourceTag": "v6.1102.1",
+      "marketVersionsPresent": [],
+      "disposition": "archive_as_already_delivered_history_not_new_combined_release",
+      "note": "Website/documentation/packaging source was already ancestral; this audit does not redeploy website or re-publish Linux artifacts."
+    }
+  ]
+}

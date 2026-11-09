@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "checkedAt": "2026-11-09T07:32:19.360511+00:00",
+  "checks": [
+    {
+      "command": [
+        "node",
+        "scripts/sumi/verify-embedded.mjs",
+        "--self-test"
+      ],
+      "exitCode": 0,
+      "output": "rich-embedded-selftest.log",
+      "sha256": "7c108dd65f0b64f90df3ebe3c1eab0025d489b7854ac66f5aafb3604826fa739"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/sumi/verify-embedded.mjs",
+        "--inspect",
+        "dist"
+      ],
+      "exitCode": 0,
+      "output": "rich-embedded-dist-inspect.json",
+      "sha256": "f513aa8719f66af63f91ea72b38e37cbd803c43439bba6804b9b270334d30c23"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/sumi/verify-release.py",
+        "--self-test"
+      ],
+      "exitCode": 0,
+      "output": "rich-release-selftest.log",
+      "sha256": "4816a14b8d00f2630e2183914cc2ae4000e59faf6ccdc74893da804d01606cf6"
+    }
+  ],
+  "sourceSha256": "a447943483cd46e7973181ba7fa4056bd0773085996f9ef74b20bf555f4b73ed",
+  "realDistRoles": [
+    "native",
+    "recovery",
+    "exit",
+    "source",
+    "richFrontmatter",
+    "richPreferences"
+  ],
+  "actualNewReleaseBinaryVerified": false,
+  "boundary": "Actual current Vite dist inspection plus synthetic real Brotli/Mach-O-header/depfile tests; formal signed host binary gate remains for final artifact phase."
+}

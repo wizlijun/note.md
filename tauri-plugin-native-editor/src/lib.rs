@@ -25,8 +25,11 @@ pub struct Appearance {
     pub locale: String,
     #[serde(default, alias = "caretMotion")]
     pub caret_motion: CaretMotion,
+    #[serde(default = "default_focus_typing", alias = "focusTyping")]
+    pub focus_typing: bool,
 }
 fn default_locale() -> String { "en".into() }
+fn default_focus_typing() -> bool { true }
 
 /// UI language only; unknown languages use English without changing document data.
 pub fn normalize_locale(locale: &str) -> &'static str {
@@ -56,6 +59,7 @@ impl Default for Appearance {
             bottom_inset: 0.0,
             locale: default_locale(),
             caret_motion: CaretMotion::Breathing,
+            focus_typing: default_focus_typing(),
         }
     }
 }
@@ -673,6 +677,19 @@ mod tests {
         let command = SurfaceCommand::SetLocale { locale: "ja-JP".into() };
         assert!(validate_command(&command).is_ok());
         assert_eq!(serde_json::to_value(command).unwrap(), serde_json::json!({"command":"set_locale","locale":"ja-JP"}));
+    }
+    #[test]
+    fn focus_typing_defaults_on_and_preserves_explicit_off() {
+        let mut value = serde_json::to_value(Appearance::default()).unwrap();
+        assert_eq!(value["focus_typing"], true);
+        value.as_object_mut().unwrap().remove("focus_typing");
+        assert!(serde_json::from_value::<Appearance>(value.clone()).unwrap().focus_typing);
+        value["focusTyping"] = serde_json::json!(false);
+        let disabled = serde_json::from_value::<Appearance>(value.clone()).unwrap();
+        assert!(!disabled.focus_typing);
+        assert_eq!(serde_json::to_value(disabled).unwrap()["focus_typing"], false);
+        value["focusTyping"] = serde_json::json!("false");
+        assert!(serde_json::from_value::<Appearance>(value).is_err());
     }
     #[test]
     fn caret_motion_defaults_and_accepts_only_supported_modes() {

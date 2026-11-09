@@ -1,0 +1,43 @@
+{
+  "at": "2026-11-09T07:29:19.126359+00:00",
+  "mode": "read-only stable portion review; native final pending",
+  "base": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+  "checks": {
+    "hostModProductionDiff": "Only focus preference/default/native mapping/migration; no durability/pending-draft logic removed",
+    "p0OtherFiles": "journal,durability,service,backend owner/RPC,protocol,write-core storage byte-identical to published base",
+    "preferences": "default true; missing old field migration; explicit false persists; native serde alias matches frontend camelCase; existing preference and sound values preserved",
+    "criticalNotice": "critical CSS bypasses hover; saveState error remains critical over routine state; retry delegates to existing host.sumi.command save and refresh; no restore_projection shortcut",
+    "packageIdentity": "Sumi manifest/UI0.1.7; min host>=6.1109.2; final host versions still must be bumped by original release script",
+    "coreDistribution": {
+      "commit": "8bb896a3a56c2184db648e94cc1be26321476134",
+      "files": 67,
+      "allCurrentHashesMatch": true
+    }
+  },
+  "findings": [
+    {
+      "severity": "release-evidence",
+      "status": "resolved-in-working-tree-awaiting-final-binary",
+      "detail": "verify-embedded.mjs currently proves only App/sotvault roles. Actual Rich functionality in editor-bridge and persisted default in settings.svelte chunks need explicit whole-module witnesses; source inventory alone is not package proof.",
+      "resolution": "verify-embedded.mjs now requires actual editor-bridge and settings.svelte whole-module witnesses; original roles and binary gates retained. Missing/tampered module and missing frozen inventory negative tests pass; real current dist yields six roles. No new signed release binary tested yet.",
+      "evidence": "rich-embedded-gate-review.json"
+    }
+  ],
+  "notYetReviewed": [
+    "final native mouse/selection/IME mapping",
+    "final native draft-protection overlap after click fix",
+    "final frozen tag/install artifacts"
+  ],
+  "sourceSha256": {
+    "src-tauri/src/sumi/mod.rs": "985dcb70783ef6bc61909ac8f851da6121d33adc7660c5c1f6980d094a63df54",
+    "tauri-plugin-native-editor/src/lib.rs": "c3338efd7886765a6e7b0459c6d73ea23324b941408d3ce330cfd0221e5decff",
+    "plugins-src/write/src/contract.ts": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2",
+    "plugins-src/write/src/main.ts": "39377f0ba94e858af251e5669b16b36914f36fc5d08ecc53bfb9bdd8f24ba7c4",
+    "plugins-src/write/src/style.css": "9a54149542d7c2c6c2133c5f2d34f97299d492e94bd6c88ed7e4578a7b47cbee",
+    "plugins-src/write/src/main.test.ts": "25ea3f9db6e9a556995fa973e1d683eaa750e441d635d82806a7e923df85e79e",
+    "plugins-src/write/manifest.v2.json": "cb0cf9ae6c93627f4024cd95e2710ef6be31a0aea29988135794e682ef52740d",
+    "plugins-src/write/package.json": "4b9485b02a1eae7ed948f9435f6ff30cad036df193561e31bba4d00d72acfa1b",
+    "scripts/sumi/verify-release.py": "b8f149207af666beb8d0e44a180a1780637763a19badcacbd4a518a26998d836",
+    "scripts/sumi/verify-embedded.mjs": "aaed7bc077cfcaabceba874e6f00d66c4f4cb954da3410d2a2c76d59d66c0039"
+  }
+}

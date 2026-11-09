@@ -1,0 +1,99 @@
+{
+  "created_utc": "2026-11-09T07:56:35.124700+00:00",
+  "source": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+  "source_hashes": {
+    "tauri-plugin-native-editor/native/editor.m": "6f6adfa260b56191d19dfb9f7d7fce97f2f2ef664449a3488bcae90fa30a0d9b",
+    "tauri-plugin-native-editor/native/focus.h": "a8db2af6989ca6cd0f9a42bcee7661b8775b700bb9d0d77e3ef9c6ccfb791b52",
+    "tauri-plugin-native-editor/native/focus-probe.m": "777217d5038137c86d71f3fd0475d9d9f7edc3e7bbb37ac95cd0d6aa23abdc72",
+    "tauri-plugin-native-editor/native/focus-interactive-probe.m": "72f7f59dbba01f7ca756258c02caa67ebac1b7ba8757228114f0592cbfc204ca",
+    "tauri-plugin-native-editor/native/editor.h": "13916fb953578eb366fc9f0bdaea68e06c7e52cb707e9ebb49b7e696e3750cb2",
+    "tauri-plugin-native-editor/native/shortcuts.h": "2cbf00c71df9fd13f99c103f1ce71d987d34893e35f832ce9b9fe5e75e3e6e62",
+    "tauri-plugin-native-editor/native/typing-monitor.h": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419"
+  },
+  "focus_probe_checks": 829,
+  "focus_probe_log": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/native-evidence/focus.log",
+  "native_regressions": [
+    {
+      "probe": "draft",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "11.0"
+    },
+    {
+      "probe": "panel",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "11.0"
+    },
+    {
+      "probe": "clipboard",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "11.0"
+    },
+    {
+      "probe": "caret",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "13.0",
+      "prior_attempt": "caret.concurrent-cua.log: final foreground-PID invariant only; isolated rerun passed"
+    },
+    {
+      "probe": "shortcuts",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "13.0"
+    },
+    {
+      "probe": "unicode",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "13.0"
+    },
+    {
+      "probe": "position",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "13.0"
+    },
+    {
+      "probe": "locale",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "11.0"
+    },
+    {
+      "probe": "padding",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "13.0"
+    },
+    {
+      "probe": "typewriter",
+      "build_exit": 0,
+      "run_exit": 0,
+      "minimum": "13.0"
+    }
+  ],
+  "interactive_app": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/native-evidence/candidate4/Sumi Native Probe.app",
+  "interactive_binary_sha256": "3d976ecbbc29340783fc7db986640d8e5eacc4b4c543ed091d887143cf7324e0",
+  "isolated_synthetic_text": true,
+  "reads_vault_or_accounts": false,
+  "audio_configured": false,
+  "physical_ime_accepted": false,
+  "manual_acceptance_owner": "parent CUA; record separately",
+  "focus_minimum_runtime_macos": "13 (same as preexisting Sumi native mount; host minimum unchanged)",
+  "font_theme_matrix": {
+    "font_presets": 6,
+    "themes": 6,
+    "sizes": [
+      14,
+      22,
+      46
+    ]
+  },
+  "production_dirty_uncommitted": true,
+  "candidate3_real_pointer_acceptance": "Parent CUA: 3 paragraphs preserved after click+x; same visible row drag selected exactly abc and z replaced only abc. Candidate4 lifecycle/IME guards added afterward; parent performs short recheck.",
+  "candidate4_real_pointer_acceptance": "Parent CUA confirmed click+x preserves all 3 paragraphs; short same-line drag selects exactly abc; z replaces only abc, result zxdefghijklm.",
+  "entry_animation_test": "Actual 420ms native timer observed with process-local read-only ReduceMotion query overridden false and restored; real system ReduceMotion=true, no system preference writes."
+}

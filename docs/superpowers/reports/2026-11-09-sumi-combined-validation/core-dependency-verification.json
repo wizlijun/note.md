@@ -1,0 +1,274 @@
+{
+  "coreSource": "8bb896a3a56c2184db648e94cc1be26321476134",
+  "installed": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source/node_modules/.pnpm/@moraya+core@file+..+moraya-core_highlight.js@11.11.1_katex@0.16.47_markdown-it-deflist_eb0b82783136ccea7325201865849d6c/node_modules/@moraya/core",
+  "files": [
+    {
+      "path": "adapters/browser-media-resolver.d.ts",
+      "sha256": "63eb0f9ac6aff43e1b9e7c903b056d1a326bef69bc5afa8ad6e78c9c05638cde"
+    },
+    {
+      "path": "adapters/browser-media-resolver.js",
+      "sha256": "3dbb6eb166bf5f7ff693f87cc3f26d3753455ef17f7817761023e487ebcea3b9"
+    },
+    {
+      "path": "adapters/browser-media-resolver.js.map",
+      "sha256": "cca2b7632293c2e2bbbb3648d8af862f562b9d3bf8c5b915b4c245f8a7b767e1"
+    },
+    {
+      "path": "commands.d.ts",
+      "sha256": "531b1ff25b0b2489afcc5aabf4345df998d59ca329118f36c3ec10d0686688fa"
+    },
+    {
+      "path": "commands.js",
+      "sha256": "88758a3ff1cb63e5cf070fd4a9f433d9018096a3e046e8942b8ed40e41359a3d"
+    },
+    {
+      "path": "commands.js.map",
+      "sha256": "87eb2445aa23ef837ed95a2d9a297b6660602728813977decef9f4eaa3cfa683"
+    },
+    {
+      "path": "doc-cache.d.ts",
+      "sha256": "a000e911d2d8388fae7f1147e72c8d999ea8811b1049efb3439ae9297bbec49f"
+    },
+    {
+      "path": "doc-cache.js",
+      "sha256": "9f54ea4135e064939ff59ec18ce82f5136d948d449f615fa5a7031af5643982a"
+    },
+    {
+      "path": "doc-cache.js.map",
+      "sha256": "df568ceb6369622c3275169e7e512e342e5ed84d8a33cc0a2458dd8b1a7dde84"
+    },
+    {
+      "path": "index.d.ts",
+      "sha256": "60eef27cdb1c98757f666e9fe4c2a5d09c0bb8cb0b64bc12b7dc9dbbd1f71ccb"
+    },
+    {
+      "path": "index.js",
+      "sha256": "86a430e134b7da051e9c6af4e29817dd72d9269ced56d1caf7509b876162d255"
+    },
+    {
+      "path": "index.js.map",
+      "sha256": "8007657ef3091e3622c7ccb1c272b2f97a0a420d1c3daf6095040e6fb2b7bbe7"
+    },
+    {
+      "path": "markdown-BLkhu8pG.d.ts",
+      "sha256": "9e4480266ee0a38d8f8fe2745f5f81a311b14506151cfa359806a69094832a75"
+    },
+    {
+      "path": "markdown.d.ts",
+      "sha256": "c1be1bc442c5d644cf29d55a8145ddb219006038e9008f7d21bf4aa22dfbeed3"
+    },
+    {
+      "path": "markdown.js",
+      "sha256": "59113f9665fbb8b3e48c4d3e0ed7258432d21de9a3d331fa74e6994308e62e22"
+    },
+    {
+      "path": "markdown.js.map",
+      "sha256": "82905e4d75ea4a90f4e0450f7d4bbbcd7e80298f6feac783bf0fdc92b4f2a2f4"
+    },
+    {
+      "path": "plugins/code-block-view.d.ts",
+      "sha256": "15745908930d438703f83692e9cbc4094cd00fdd04d072d898ce253bff986f18"
+    },
+    {
+      "path": "plugins/code-block-view.js",
+      "sha256": "a2aa17447b2893088644a3d5370f3dade8f35bab4de8ba8168004c24abf932c4"
+    },
+    {
+      "path": "plugins/code-block-view.js.map",
+      "sha256": "fdd3a3bf3538afc349a7dc162f05a03d1ab7b4ff7034720cdf5dffe76087ffae"
+    },
+    {
+      "path": "plugins/cursor-syntax.d.ts",
+      "sha256": "2de2187dfba300b5dc8e3eb6039ee6f7701be398fc71d2f7ed380185fca88082"
+    },
+    {
+      "path": "plugins/cursor-syntax.js",
+      "sha256": "311db2e63a5bae7b34efdafcbba6d3badf24a6df0d6ff0c33029bbd05f4107be"
+    },
+    {
+      "path": "plugins/cursor-syntax.js.map",
+      "sha256": "dbde5d9b6857c3b002d664ab7858f953ca0283496de619e99f1374584ba7b908"
+    },
+    {
+      "path": "plugins/definition-list.d.ts",
+      "sha256": "9c9b464e62ad1c179dba3df520491733c2a9ce0a12bd0f3f89fe60a1a4bdc75c"
+    },
+    {
+      "path": "plugins/definition-list.js",
+      "sha256": "a146169cce865dcaddd1adf0876f01824da84230702a5cd2fd83de2ea388b9ee"
+    },
+    {
+      "path": "plugins/definition-list.js.map",
+      "sha256": "2617ec96730078689b90471a951b5bf25e23a09849cf36a8e7698181b2721f02"
+    },
+    {
+      "path": "plugins/diagram-interaction.d.ts",
+      "sha256": "4cb075da51902cd34cac8a77f4b55eaa66ebc558065249b3031af7d15a3a442d"
+    },
+    {
+      "path": "plugins/diagram-interaction.js",
+      "sha256": "5ac36fe4e43e8e6f5c98fe053482f9fea1f5e453a9c05c4420d416fd85aaa1cc"
+    },
+    {
+      "path": "plugins/diagram-interaction.js.map",
+      "sha256": "db929874c85c8ddbc1c3288d14e54e1825156fe8a6757d79826a7bfa8577ee88"
+    },
+    {
+      "path": "plugins/editor-props-plugin.d.ts",
+      "sha256": "52862d2f0f43a573c857d6a617fcfe9e703b09431caacc517ced7e0d9f108514"
+    },
+    {
+      "path": "plugins/editor-props-plugin.js",
+      "sha256": "7c91407432f58d808de878bdf05ffefaef35b5b9547a0c6efe75764088aaab15"
+    },
+    {
+      "path": "plugins/editor-props-plugin.js.map",
+      "sha256": "963cbc244bf611af90f9e57cf092bbce27f40e82393ee6806ee48376a2f81d9c"
+    },
+    {
+      "path": "plugins/emoji.d.ts",
+      "sha256": "1e7c60e6fcae5cdb0a1cf35e533c0554e8325d5dcf076207ed893da0093ef7e0"
+    },
+    {
+      "path": "plugins/emoji.js",
+      "sha256": "74817332616055eebddfa3d15879c69b6fc3304e6e339db97844cef07fc77232"
+    },
+    {
+      "path": "plugins/emoji.js.map",
+      "sha256": "e72293d4c75a0a3a131ae904534b2e8bd63794e147473749dadf209ea3f7ebaa"
+    },
+    {
+      "path": "plugins/enter-handler.d.ts",
+      "sha256": "866a95c12fbab7bea9624819c24a3aeecdefb938bd40456b30a47424a0ed3438"
+    },
+    {
+      "path": "plugins/enter-handler.js",
+      "sha256": "9eeadd8d3a0091dd1270815b246823f0a861761fdfb4ff05d85bdfa6f4cf3ded"
+    },
+    {
+      "path": "plugins/enter-handler.js.map",
+      "sha256": "ff88bd0187a823efea8d0ec917f44cb272e407714963e183fcaf87d2b3e10e85"
+    },
+    {
+      "path": "plugins/footnote-plugin.d.ts",
+      "sha256": "706a77794c7a2d4bfee1bf5ba19b7b8b69157fd56a24bf7fcf154a9e5a09d212"
+    },
+    {
+      "path": "plugins/footnote-plugin.js",
+      "sha256": "9a750f723aea7af66a748fb60d96a52673d1a5ae15c6d16d0f4c9d4f8e99a16a"
+    },
+    {
+      "path": "plugins/footnote-plugin.js.map",
+      "sha256": "9950bc26f02cf413dfcfcec59b4e25199e7578e966147b086f06aee0a952a3ee"
+    },
+    {
+      "path": "plugins/highlight.d.ts",
+      "sha256": "dfc9ff33005feed7ae39e8e315d22f8b1938f6614a5ff9776a80e8d86b2f7936"
+    },
+    {
+      "path": "plugins/highlight.js",
+      "sha256": "aee02cbf4f63b90d9e55c819b43aa3d102e1a53e353c9ed3546d29772b937fb6"
+    },
+    {
+      "path": "plugins/highlight.js.map",
+      "sha256": "4902b3e3d0414bf2d67214f9ff0c43d276c89d3d5208f88de2be5f8f2a859ab3"
+    },
+    {
+      "path": "plugins/inline-code-convert.d.ts",
+      "sha256": "2f132d6fa6ba36d7617758236d1fcafc1a53bd5505a5c3a2c8f11a8b01601d28"
+    },
+    {
+      "path": "plugins/inline-code-convert.js",
+      "sha256": "b98d068bc24bd5300cda34a50101a1db439f157536eed91d0460c0c27b636b7a"
+    },
+    {
+      "path": "plugins/inline-code-convert.js.map",
+      "sha256": "714321e1f8149d6e94bb5bdefebe5401a3fe3a5f278ea88d2275e0d1fd3045f7"
+    },
+    {
+      "path": "plugins/link-text-plugin.d.ts",
+      "sha256": "210c6d02b9943ee6a0c5363048a269cf7000a82070778d3ef1c8980a615d553a"
+    },
+    {
+      "path": "plugins/link-text-plugin.js",
+      "sha256": "943e64584b4d6b8ea520cbfb21cb927aac1c2567352b33e0be8ae645515780cc"
+    },
+    {
+      "path": "plugins/link-text-plugin.js.map",
+      "sha256": "bf3c321017e6e8fa317b302f5d3705e816c956b29ce694608fdb7d9e83160a2b"
+    },
+    {
+      "path": "plugins/mermaid-renderer.d.ts",
+      "sha256": "44302ed67ad49d039a1bdfbaac9891ba2a967de612fafc36907394605a6ab4f3"
+    },
+    {
+      "path": "plugins/mermaid-renderer.js",
+      "sha256": "6edda02f87bd74bf746758f9df2ad439c8ebd88ab142707526c16d14986ab247"
+    },
+    {
+      "path": "plugins/mermaid-renderer.js.map",
+      "sha256": "b2639cbe2e4416304b127d7761caa2ad4af1e6dfcff392e745332b4d37706cfd"
+    },
+    {
+      "path": "plugins/session-table-view.d.ts",
+      "sha256": "0c6a05bbc374282fa219b06ff496e0b18cb3ee42205e27bab60a381c664558d7"
+    },
+    {
+      "path": "plugins/session-table-view.js",
+      "sha256": "d0f7000de5bf75f88e514df88997e15eaa081e942cf2391c78d12eb6f43d5627"
+    },
+    {
+      "path": "plugins/session-table-view.js.map",
+      "sha256": "6d9b09a4d99303020733e48a7cc147b55e53316259206eda0b8a9c7ffcae21e4"
+    },
+    {
+      "path": "schema.d.ts",
+      "sha256": "69b75feef708f17a01dde7cdbba8e487d655a1e892953df99aa9689f61b4198f"
+    },
+    {
+      "path": "schema.js",
+      "sha256": "cd50fe3e50ff6eed65d15e1cb93d88fea23d2d8f6a70c58fc96a4aeb25089fc4"
+    },
+    {
+      "path": "schema.js.map",
+      "sha256": "7bbde28fff9f2d3fd0d92995dd37a1f106d3075e711f518d73b5f79363104029"
+    },
+    {
+      "path": "setup.d.ts",
+      "sha256": "2d07949440e08629206362b21bf65df2b4272908fdde9a645dafe52c72ca28c1"
+    },
+    {
+      "path": "setup.js",
+      "sha256": "dd6eaf5c0af5b8747b8ae3f9e31481a1da62aacc821db37ffd915d1a5d263db0"
+    },
+    {
+      "path": "setup.js.map",
+      "sha256": "41fef87e83536c5ab6d3028815f0e5c026edbd846d4237c9fd995c95f0cb0557"
+    },
+    {
+      "path": "source-history.d.ts",
+      "sha256": "da2dc0aa446986487c214a3692dbdfa07e8320aa3fcb848068f1f0edd4d855f1"
+    },
+    {
+      "path": "source-history.js",
+      "sha256": "ade8c24859fb687bb164f4aa17509263806762f69ea7df15a60a0622cde9047a"
+    },
+    {
+      "path": "source-history.js.map",
+      "sha256": "23c4cf75c69cb301e8e9d3cfa43275f9e9b48b24c1947777acd07850a65be9da"
+    },
+    {
+      "path": "types.d.ts",
+      "sha256": "df995c423fdb77d201f8bf9a5f8ca282271921c1075e3d0102c0b7ca86ee1611"
+    },
+    {
+      "path": "types.js",
+      "sha256": "0e594a46975c734d3e7569b2dd4e3228dcb7d3848a698537471ff133ee55356b"
+    },
+    {
+      "path": "types.js.map",
+      "sha256": "01f87abfcfc873894a4eb00e10c4bf498d07a8703ca0e9267c36301e85ab58ae"
+    }
+  ]
+}

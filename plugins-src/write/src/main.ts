@@ -47,7 +47,7 @@ function stopFontPanel() { fontPanel?.dispose(); fontPanel = undefined }
 
 // User content is always assigned through textContent, never interpolated into markup.
 el('app').innerHTML = `<main id="surface" aria-label="${appName}"></main>
-<p id="notice" role="status" aria-live="polite"></p>
+<div id="notice-slot"><p id="notice" role="status" aria-live="polite" tabindex="-1" hidden></p><button id="retry-save" hidden></button></div>
 <nav id="tools" aria-label="${appName}"><button id="previous">←</button><button id="next">→</button><button id="new">＋</button><button id="pages">☷</button><button id="appearance">Aa</button><button id="sync">⇄</button><button id="fullscreen">⛶</button></nav>
 <section id="panel" hidden aria-modal="true" role="dialog" aria-labelledby="panel-title"><header><h1 id="panel-title"></h1><button id="close">×</button></header><div id="panel-body"></div></section>`
 for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page', '前のページ'), next: t('下一页', 'Next page', '次のページ'), new: t('新的一页', 'New page', '新しいページ'), pages: t('纸页', 'Pages', 'ページ'), appearance: t('外观', 'Appearance', '外観'), sync: t('同步', 'Sync', '同期'), fullscreen: t('进入全屏（Cmd/Win/Super+Enter）', 'Enter fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンにする（Cmd/Win/Super+Enter）'), close: t('返回书写', 'Back to writing', '執筆に戻る') })) {
@@ -58,7 +58,20 @@ async function request<T>(method: string, params?: unknown): Promise<T> {
   if (!window.notemd) throw new Error(t('请在 note.md 中打开玄霜打字机。', 'Open Sumi Typewriter inside note.md.', 'note.md からすみを開いてください。'))
   return await window.notemd.request(`host.sumi.${method}`, params) as T
 }
-function notice(message = '') { el('notice').textContent = message; el('notice').hidden = !message }
+function saveFailure() {
+  return t('保存失败，文字已保留，可复制或重试保存。', 'Saving failed. Your draft is retained; copy it or retry saving.', '保存できませんでした。文章は保持されています。コピーするか保存を再試行してください。')
+}
+function notice(message = '', critical = false) {
+  // Routine sync/export updates must not conceal a draft that is not safely saved.
+  if (state?.saveState === 'error') { message = saveFailure(); critical = true }
+  const output = el('notice')
+  output.dataset.critical = String(critical)
+  output.setAttribute('role', critical ? 'alert' : 'status')
+  output.setAttribute('aria-live', critical ? 'assertive' : 'polite')
+  output.textContent = message; output.hidden = !message; output.tabIndex = message ? 0 : -1
+  el('retry-save').hidden = state?.saveState !== 'error'
+  if (!message && document.activeElement === output) output.blur()
+}
 function bounds(): Bounds {
   const r = el('surface').getBoundingClientRect()
   return { x: r.x, y: r.y, width: r.width, height: r.height }
@@ -77,9 +90,9 @@ function applyState(next: SumiState) {
   const invite = document.getElementById('sync-invite')
   if (invite) invite.hidden = !next.sync.connected
   notice(!next.available ? (next.reason ? hostMessage(next.reason) : t('此系统暂不支持原生写作。', 'Native writing is unavailable on this system.', 'このシステムではネイティブ編集を利用できません。'))
-    : next.saveState === 'error' ? t('保存失败，文字已保留，请重试。', 'Saving failed. Your draft is retained; retry saving.', '保存できませんでした。文章は保持されています。再試行してください。')
+    : next.saveState === 'error' ? saveFailure()
       : next.saveState === 'projection-pending' ? t('文字已保存在本机，文件仍待写入。', 'Saved locally; file export is pending.', '文章はこの端末に保存されています。ファイルへの書き出しを待っています。')
-        : hostMessage(next.sync.message ?? '', 'status'))
+        : hostMessage(next.sync.message ?? '', 'status'), !next.available || next.saveState === 'error')
 }
 async function releaseSurface() {
   if (!surface) return
@@ -131,7 +144,7 @@ async function run(action: () => Promise<void>) {
   if (busy || !mounted) return
   busy = true
   for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = true
-  try { await action() } catch (error) { notice(hostMessage(error)) }
+  try { await action() } catch (error) { notice(hostMessage(error), true) }
   finally {
     busy = false
     for (const button of document.querySelectorAll<HTMLButtonElement>('button')) button.disabled = false
@@ -198,12 +211,14 @@ async function openPanel(title: string) {
   panelOpen = true
   el('panel-title').textContent = title
   el('panel-body').replaceChildren()
+  el('panel').insertBefore(el('notice'), el('panel-body'))
   el('panel').hidden = false
   el('close').focus()
 }
 async function closePanel(focus = true) {
   stopFontPanel(); stopSoundPanel()
   panelOpen = false; el('panel').hidden = true
+  el('notice-slot').append(el('notice'))
   if (surface && focus) { await request('visible', { surface, visible: true }); await request('focus', { surface }) }
 }
 async function exportSnapshot() {
@@ -432,6 +447,10 @@ async function showAppearance() {
     field.value = String(state!.preferences[key as keyof typeof labels]); wrap.append(field); form.append(wrap)
     if (key === 'theme') showFonts(form)
   }
+  const focusLabel = document.createElement('label'); focusLabel.className = 'focus-toggle'
+  const focusText = document.createElement('span'); focusText.textContent = t('聚焦打字', 'Focused typing', '集中タイピング')
+  const focus = document.createElement('input'); focus.type = 'checkbox'; focus.name = 'focusTyping'; focus.checked = state!.preferences.focusTyping ?? true
+  focusLabel.append(focusText, focus); form.append(focusLabel)
   showSounds(form)
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply', '適用'); form.append(submit)
   form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }
@@ -473,6 +492,8 @@ async function toggleFullscreen() {
 }
 el('fullscreen').onclick = () => void run(toggleFullscreen)
 el('close').onclick = () => void run(() => closePanel())
+el('retry-save').textContent = t('重试保存', 'Retry saving', '保存を再試行')
+el('retry-save').onclick = () => void run(async () => { await request('command', { action: 'save' }); await refresh() })
 document.addEventListener('keydown', event => {
   if (!mounted || event.isComposing) return
   const fullscreen = event.metaKey && !event.altKey && !event.shiftKey && (
@@ -486,13 +507,13 @@ document.addEventListener('keydown', event => {
 })
 function scheduleBounds() {
   clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(() => { if (surface) void request('bounds', { surface, bounds: bounds() }).catch(error => notice(hostMessage(error))) }, 30)
+  resizeTimer = setTimeout(() => { if (surface) void request('bounds', { surface, bounds: bounds() }).catch(error => notice(hostMessage(error), true)) }, 30)
 }
 new ResizeObserver(() => {
   scheduleBounds()
   // System menus can also enter/leave fullscreen; read native window state.
   if (mounted) void request<{ fullscreen: boolean }>('fullscreen', { queryOnly: true })
-    .then(result => { if (mounted) fullscreenLabel(result.fullscreen) }).catch(error => notice(hostMessage(error)))
+    .then(result => { if (mounted) fullscreenLabel(result.fullscreen) }).catch(error => notice(hostMessage(error), true))
 }).observe(el('surface'))
 window.addEventListener('pagehide', () => { mounted = false; generation++; clearTimeout(resizeTimer); stopFontPanel(); stopSoundPanel() })
 window.notemd?.onMessage?.(event => {
@@ -523,7 +544,7 @@ window.notemd?.onMessage?.(event => {
       else void run(() => navigateFromTab(navigation))
     }
   }
-  if (message.type === 'sumi-error' && message.message) notice(hostMessage(message.message))
+  if (message.type === 'sumi-error' && message.message) notice(hostMessage(message.message), true)
   if (message.type === 'sumi-state' && message.state) {
     if (busy) {
       if (!pendingState || (message.state.navigationVersion ?? 0) >= (pendingState.navigationVersion ?? 0)) pendingState = message.state

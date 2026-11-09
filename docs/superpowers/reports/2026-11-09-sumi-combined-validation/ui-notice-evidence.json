@@ -1,0 +1,236 @@
+{
+  "testedAtUtc": "2026-11-09T07:17:07.231237+00:00",
+  "sourceRoot": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+  "head": "862a467379016a108c9e5a7d330a8004a839e8ca",
+  "sourceSha256": {
+    "plugins-src/write/src/contract.ts": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2",
+    "plugins-src/write/src/main.ts": "39377f0ba94e858af251e5669b16b36914f36fc5d08ecc53bfb9bdd8f24ba7c4",
+    "plugins-src/write/src/main.test.ts": "25ea3f9db6e9a556995fa973e1d683eaa750e441d635d82806a7e923df85e79e",
+    "plugins-src/write/src/style.css": "9a54149542d7c2c6c2133c5f2d34f97299d492e94bd6c88ed7e4578a7b47cbee"
+  },
+  "ui": {
+    "tests": 101,
+    "testFiles": 2,
+    "failed": 0,
+    "check": true,
+    "build": true,
+    "logs": [
+      "ui-notice-check.log",
+      "ui-notice-test.log",
+      "ui-notice-build.log"
+    ]
+  },
+  "browser": {
+    "mechanism": "cua_repl Google Chrome native accessibility and screenshots; dedicated browser host unavailable",
+    "fixture": "notice-browser/index.html",
+    "url": "http://127.0.0.1:48763",
+    "assets": {
+      "notice-browser/assets/index-CYMziSzd.css": "bcc3f9ee78f93d644f12c57415c672398d3610822167dbd86e8b9559c554cb59",
+      "notice-browser/assets/index-B0VnyVQ1.js": "29fe4eaf633b036cfdffaa5848c36983b88dfd8e05e5710d4ee1ac543f3bf310"
+    },
+    "observations": [
+      {
+        "case": "offline_default",
+        "opacity": 0,
+        "focused": false,
+        "hidden": false,
+        "parent": "notice-slot",
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "pointer_hover",
+        "opacity": 1,
+        "focused": false,
+        "hidden": false,
+        "parent": "notice-slot",
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "keyboard_tab_focus_pointer_over_surface",
+        "opacity": 1,
+        "focused": true,
+        "hidden": false,
+        "parent": "notice-slot",
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "unsaved_pointer_over_top_controls",
+        "opacity": 1,
+        "focused": false,
+        "critical": true,
+        "retryVisible": true,
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "retry_saved",
+        "critical": false,
+        "retryVisible": false,
+        "text": "同步状态。 详细信息：保存成功",
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "empty",
+        "opacity": 0,
+        "hidden": true,
+        "hitAtSlot": "notice-slot",
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "long_status",
+        "opacity": 0,
+        "hidden": false,
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      },
+      {
+        "case": "settings",
+        "opacity": 1,
+        "parent": "panel",
+        "focusTypingChecked": true,
+        "surface": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        },
+        "slot": {
+          "x": 0,
+          "y": 595,
+          "width": 1375,
+          "height": 36
+        },
+        "lastNativeBoundsRequest": {
+          "x": 0,
+          "y": 0,
+          "width": 1375,
+          "height": 595
+        }
+      }
+    ],
+    "syntheticOnly": true,
+    "limitations": [
+      "Native editor not mounted in browser fixture; confirmed exact host.sumi.mount/bounds geometry and non-overlapping footer, not final native compositing.",
+      "Screenshots and accessibility observations are in tool transcript; JSON transcribes observed diagnostic values."
+    ]
+  },
+  "hostPreferencesTest": "Parent runs focus_typing_migrates_on_and_persists_off_without_changing_document_or_sound in shared host suite; not claimed separately run here.",
+  "scope": "No production App/Vault access, no commit; only allowed UI files changed by this task."
+}
