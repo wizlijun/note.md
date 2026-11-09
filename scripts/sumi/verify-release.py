@@ -18,8 +18,8 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '6.1108.6'
-PLUGIN_VERSION = '0.1.5'
+VERSION = '6.1109.1'
+PLUGIN_VERSION = '0.1.6'
 SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
            'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/lib/sumi/i18n.ts', 'src/App.svelte',
            'src-tauri/src/sumi/mod.rs', 'src-tauri/src/sumi/export.rs',
@@ -287,7 +287,7 @@ def freeze(args):
     require(commit == args.expected_source, 'Use exact frozen 40-character commit')
     raw = source(commit, 'plugins-src/write/manifest.v2.json')
     manifest_identity(json.loads(raw))
-    require(args.arch == 'arm64', 'Sumi 0.1.5 currently declares only Apple Silicon; no Intel release evidence')
+    require(args.arch == 'arm64', 'Sumi 0.1.6 currently declares only Apple Silicon; no Intel release evidence')
     files = {'manifest.json': sha(raw)}
     for path in sorted(args.plugin_ui.rglob('*')):
         reject_font_path(path.relative_to(args.plugin_ui).as_posix())
@@ -310,7 +310,7 @@ def freeze(args):
 
 def verify(args, report):
     h = helper(args.candidate_helper)
-    require(args.arch == 'arm64', 'Sumi 0.1.5 currently declares only Apple Silicon; no Intel release evidence')
+    require(args.arch == 'arm64', 'Sumi 0.1.6 currently declares only Apple Silicon; no Intel release evidence')
     require(args.tag == 'v'+VERSION and re.fullmatch('[0-9a-f]{40}', args.expected_source or ''), 'Wrong release tag/source')
     require(git('rev-parse', args.tag+'^{commit}').decode().strip() == args.expected_source, 'Tag not at frozen source')
     frozen = json.loads(args.inputs.read_bytes())
