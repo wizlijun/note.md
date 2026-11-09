@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1109.2 — 2026-11-09
+
 - **Hide YAML metadata in Rich mode by default.** Turn off “Hide YAML metadata in Rich mode” in Settings → General → Editor to restore the metadata panel immediately. The preference is saved; Source editing and undo history remain available. Body selection, copying and deletion preserve hidden metadata, including UTF-8 BOM files.
 
 - **Quiet Sumi status:** routine bottom writing-status and offline messages stay hidden until hovered or keyboard-focused; unsaved-draft and save failures, and messages inside opened settings, remain visible.
