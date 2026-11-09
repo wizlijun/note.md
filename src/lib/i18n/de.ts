@@ -980,6 +980,8 @@ export const de: Record<keyof Messages, string> = {
   'diagram.edit': 'Code',
   'diagram.copy': 'Kopieren',
 
+  'settings.hideRichFrontmatter': 'YAML-Metadaten im Rich-Modus ausblenden',
+  'settings.hideRichFrontmatterHint': 'Blendet das Metadatenfeld am Dokumentanfang aus. Im Source-Modus können Sie das vollständige YAML weiterhin anzeigen und bearbeiten.',
   'settings.showDiagramToolbar': 'Diagramm-Werkzeugleisten immer anzeigen',
   'settings.showDiagramToolbarHint': 'Code-Umschaltung und Kopieren bei Mermaid, Graphviz und anderen Diagrammvorschauen im Rich-Modus immer anzeigen. Ausgeschaltet erscheinen sie beim Darüberfahren oder Auswählen.',
   'settings.autoSaveLabel': 'Automatisches Speichern aktivieren (speichert nach 800 ms Inaktivität)',

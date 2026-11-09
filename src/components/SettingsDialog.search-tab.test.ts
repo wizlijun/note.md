@@ -180,6 +180,29 @@ describe('SettingsDialog — accessible modal and persistent navigation', () => 
     expect(save).toHaveBeenCalledTimes(2)
   })
 
+  it('exposes the Rich metadata visibility preference in General and saves changes', async () => {
+    settings.hideRichFrontmatter = true
+    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
+    await mountDialog()
+    await settle()
+    openSettings('core')
+    await settle()
+    const label = Array.from(document.querySelectorAll('label'))
+      .find(item => item.textContent?.includes(t('settings.hideRichFrontmatter')))!
+    const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+    expect(input.checked).toBe(true)
+    expect(document.getElementById(input.getAttribute('aria-describedby')!)?.textContent)
+      .toBe(t('settings.hideRichFrontmatterHint'))
+    input.click()
+    await settle()
+    expect(settings.hideRichFrontmatter).toBe(false)
+    expect(save).toHaveBeenCalledTimes(1)
+    input.click()
+    await settle()
+    expect(settings.hideRichFrontmatter).toBe(true)
+    expect(save).toHaveBeenCalledTimes(2)
+  })
+
   function key(key: string, options: KeyboardEventInit = {}) {
     const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options })
     document.activeElement!.dispatchEvent(event)

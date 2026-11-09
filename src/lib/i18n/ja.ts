@@ -980,6 +980,8 @@ export const ja: Record<keyof Messages, string> = {
   'diagram.edit': 'コード',
   'diagram.copy': 'コピー',
 
+  'settings.hideRichFrontmatter': 'Rich モードで YAML メタデータを非表示',
+  'settings.hideRichFrontmatterHint': '文書上部のメタデータパネルを非表示にします。Source モードでは引き続き YAML 全体を表示・編集できます。',
   'settings.showDiagramToolbar': '図のツールバーを常に表示',
   'settings.showDiagramToolbarHint': 'Rich モードで Mermaid、Graphviz などの図のプレビューでコード切替・コピーボタンを常に表示します。オフの場合は、ホバー時または選択時に表示します。',
   'settings.autoSaveLabel': '自動保存を有効化（800ms アイドル後に書き込み）',

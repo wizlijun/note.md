@@ -8,6 +8,7 @@ import { fileEditorSession, closeFileEditorSession } from '../lib/file-editor-se
 import { openPath } from '../lib/open-path'
 import { activeTab, openFile } from '../lib/tabs.svelte'
 import { isApplePlatformSync } from '../lib/platform-sync'
+import { settings } from '../lib/settings.svelte'
 
 // Run the same platform admission as macOS WKWebView before editor imports.
 // happy-dom still supplies the DOM; this does not emulate WebKit itself.
@@ -100,6 +101,7 @@ afterEach(async () => {
   activeId.value = null
   document.body.replaceChildren()
   vi.restoreAllMocks()
+  settings.hideRichFrontmatter = true
 })
 it('keeps a Task editable across Source/Rich changes and remounts on the Mac platform branch', async () => {
   expect(isApplePlatformSync()).toBe(true)
@@ -226,6 +228,60 @@ it('edits hidden metadata in Source without trapping host mode, tab changes or b
     expect(session.owner.snapshot().raw).toContain('切换后可以继续编辑。')
   } finally {
     // Release an interrupted body composition if an assertion fails.
+    session.view.dom.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+    await new Promise(resolve => setTimeout(resolve, 30))
+  }
+})
+
+it('does not trap host mode and tab changes after a frontmatter IME target is replaced on blur', async () => {
+  settings.hideRichFrontmatter = false
+  await openPath('/vault/inbox/tasks/from-next-task.md')
+  const id = activeId.value!
+  toggle = mount(ModeToggle, { target: document.body, props: { get tab() { return activeTab()! } } })
+  component = mount(EditorPane, { target: document.body, props: { get tab() { return activeTab()! } } })
+  await vi.waitFor(() => expect(fileEditorSession(id)).toBeDefined())
+  const session = fileEditorSession(id)!
+  const cell = [...session.view.dom.querySelectorAll<HTMLElement>('.fm-property')]
+    .find(row => row.querySelector('.fm-key')?.textContent === 'title')!.querySelector<HTMLElement>('.fm-editable')!
+  cell.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+  expect(session.view.composing).toBe(false)
+  cell.textContent = '匿名更新标题'
+  cell.dispatchEvent(new FocusEvent('blur'))
+  expect(session.owner.snapshot().raw).toContain('匿名更新标题')
+  expect(cell.isConnected).toBe(false)
+  // WKWebView can deliver the final IME event to the old nested editable.
+  cell.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+  try {
+    document.querySelectorAll<HTMLButtonElement>('[role=tab]')[1].click()
+    await vi.waitFor(() => expect(activeTab()?.mode).toBe('source'))
+    await tick()
+    const source = document.querySelector<HTMLTextAreaElement>('textarea')!
+    expect(source.value).toContain('匿名更新标题')
+    source.value += '\n切换后可以继续编辑。\n'
+    source.dispatchEvent(new Event('input', { bubbles: true }))
+    expect(session.owner.snapshot().raw).toBe(source.value)
+    await openFile('/vault/after-metadata-edit.md')
+    await vi.waitFor(() => expect(activeTab()?.filePath).toBe('/vault/after-metadata-edit.md'))
+    await vi.waitFor(() => expect(fileEditorSession(activeTab()!.id)).toBeDefined())
+    await activate(id)
+    await vi.waitFor(() => expect(activeId.value).toBe(id))
+    expect(session.owner.snapshot().raw).toContain('匿名更新标题')
+    expect(tabs.find(tab => tab.id === id)!.currentContent).toBe(session.owner.snapshot().raw)
+    document.querySelectorAll<HTMLButtonElement>('[role=tab]')[0].click()
+    await vi.waitFor(() => expect(activeTab()?.mode).toBe('rich'))
+    await tick()
+    session.view.dom.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    let flushed = false
+    const flush = session.owner.flush().then(() => { flushed = true })
+    await Promise.resolve()
+    expect(flushed).toBe(false)
+    session.view.dispatch(session.view.state.tr.insertText('正文', session.view.state.doc.child(0).nodeSize + 1))
+    session.view.dom.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+    await flush
+    expect(session.owner.snapshot().raw).toContain('正文确认审计')
+    expect(session.owner.snapshot().raw).toContain('切换后可以继续编辑。')
+  } finally {
+    // Release the pre-fix stranded owner so teardown does not itself hang.
     session.view.dom.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
     await new Promise(resolve => setTimeout(resolve, 30))
   }
