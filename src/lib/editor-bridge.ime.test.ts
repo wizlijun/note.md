@@ -15,7 +15,10 @@ vi.mock('./adapters/tauri-media-resolver', () => ({ tauriMediaResolver: {} }))
 vi.mock('./adapters/tauri-link-opener', () => ({ tauriLinkOpener: {} }))
 vi.mock('./adapters/renderer-registry', () => ({ rendererRegistry: {} }))
 vi.mock('./adapters/spreadsheet-factory', () => ({ spreadsheetFactory: {} }))
-vi.mock('./frontmatter-view', () => ({ frontmatterFactory: { hidden: true } }))
+vi.mock('./frontmatter-preference.svelte', () => ({
+  desktopFrontmatterFactory: { hidden: true }, readonlyDesktopFrontmatterFactory: { hidden: true, readonly: true },
+  desktopFrontmatterSelectionPlugin: () => ({}),
+}))
 vi.mock('./tabs.svelte', () => ({ activeTab: vi.fn(() => null) }))
 vi.mock('./platform-sync', () => ({ isApplePlatformSync: vi.fn(() => true) }))
 vi.mock('./insights/tracker.svelte', () => ({ analyticsPluginForEditor: vi.fn(() => ({})) }))
@@ -61,7 +64,7 @@ describe('mountRichEditor — 主 Rich 工厂自带同一套 IME 保护', () => 
     const host = document.createElement('div')
     const editor = await mountRichEditor(host, '---\nreadonly: true\n---', vi.fn(), undefined, undefined, true)
     expect(h.createEditor).toHaveBeenCalledWith(expect.objectContaining({
-      frontmatterViewFactory: { hidden: true },
+      frontmatterViewFactory: { hidden: true, readonly: true },
     }))
     editor.destroy()
   })

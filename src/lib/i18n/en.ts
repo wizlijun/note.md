@@ -1029,6 +1029,8 @@ export const en = {
   'diagram.edit': 'Code',
   'diagram.copy': 'Copy',
 
+  'settings.hideRichFrontmatter': 'Hide YAML metadata in Rich mode',
+  'settings.hideRichFrontmatterHint': 'Hide the metadata panel at the top of the document. You can still view and edit the full YAML in Source mode.',
   'settings.showDiagramToolbar': 'Always show diagram toolbars',
   'settings.showDiagramToolbarHint': 'Keep code toggle and copy buttons visible on Mermaid, Graphviz and other diagram previews in Rich mode. When off, show them on hover or selection.',
   'settings.autoSaveLabel': 'Enable auto-save (writes after 800 ms idle)',

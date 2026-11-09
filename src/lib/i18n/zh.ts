@@ -1019,6 +1019,8 @@ export const zh: Record<keyof Messages, string> = {
   'diagram.edit': '代码',
   'diagram.copy': '复制',
 
+  'settings.hideRichFrontmatter': 'Rich 模式隐藏 YAML 元数据',
+  'settings.hideRichFrontmatterHint': '隐藏文档顶部的元数据面板，仍可在 Source 模式查看和编辑完整 YAML。',
   'settings.showDiagramToolbar': '始终显示图表工具栏',
   'settings.showDiagramToolbarHint': '在 Rich 模式中始终显示 Mermaid、Graphviz 等图表预览的代码切换和复制按钮。关闭后，悬停或选中图表时显示。',
   'settings.autoSaveLabel': '启用自动保存（空闲 800 毫秒后写入）',

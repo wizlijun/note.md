@@ -1286,6 +1286,16 @@
           <label class="row">
             <input
               type="checkbox"
+              bind:checked={settings.hideRichFrontmatter}
+              aria-describedby="rich-frontmatter-hint"
+              onchange={() => saveSettings('hideRichFrontmatter')}
+            />
+            {t('settings.hideRichFrontmatter')}
+          </label>
+          <p class="desc" id="rich-frontmatter-hint">{t('settings.hideRichFrontmatterHint')}</p>
+          <label class="row">
+            <input
+              type="checkbox"
               bind:checked={settings.showDiagramToolbar}
               aria-describedby="diagram-toolbar-hint"
               onchange={() => saveSettings('showDiagramToolbar')}

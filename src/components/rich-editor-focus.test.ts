@@ -6,6 +6,9 @@ import { tabs, activeId } from '../lib/tabs.svelte'
 import { fileEditorSession, closeFileEditorSession } from '../lib/file-editor-sessions'
 import { requestEditorFocus } from '../lib/editor-focus.svelte'
 import { newFileText } from '../lib/new-file'
+import { settings } from '../lib/settings.svelte'
+import { tick } from 'svelte'
+import { TextSelection } from 'prosemirror-state'
 
 vi.mock('../lib/platform-sync', () => ({ isApplePlatformSync: () => true }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => null), convertFileSrc: (s: string) => s }))
@@ -16,7 +19,7 @@ const components: ReturnType<typeof mount>[] = []
 afterEach(async () => {
   for (const component of components.splice(0)) await unmount(component)
   for (const tab of tabs) await closeFileEditorSession(tab.id)
-  tabs.splice(0); activeId.value = null; document.body.replaceChildren(); vi.restoreAllMocks()
+  tabs.splice(0); activeId.value = null; document.body.replaceChildren(); vi.restoreAllMocks(); settings.hideRichFrontmatter = true
 })
 async function editor(raw: string, focus = true, readOnly = false) {
   const tab = { id: `focus-${tabs.length}`, filePath: `/vault/focus-${tabs.length}.md`, title: 'focus.md', kind: 'markdown' as const, mode: 'rich' as const, currentContent: raw, initialContent: raw, externalState: 'fresh' as const, externalBannerDismissed: false, lastKnownMtime: 0, lastKnownHash: '' }
@@ -186,4 +189,60 @@ it('BOM and CRLF survive Source metadata edits and unedited mode cycles', async 
     expect(f.owner.undo()).toBe(true); expect(f.owner.snapshot().raw).toBe(raw)
     expect(f.owner.redo()).toBe(true); expect((await f.owner.flush()).raw).toBe(changed)
   } finally { input.detach() }
+})
+
+
+it('applies the metadata preference live without replacing the file owner, document or history', async () => {
+  const raw = '---\ntitle: draft\n---\n\n正文\n'
+  const { session: f } = await editor(raw, false)
+  const view = f.view, identity = f.baselineIdentity
+  view.dispatch(view.state.tr.insertText('新'))
+  const changed = f.owner.snapshot(), doc = view.state.doc
+  settings.hideRichFrontmatter = false; await tick()
+  const metadata = view.dom.querySelector<HTMLElement>('.frontmatter-node-view')!
+  expect(metadata.hidden).toBe(false)
+  expect(metadata.querySelector('details')).toBeTruthy()
+  expect(metadata.querySelector('.fm-editable')).toBeTruthy()
+  expect(f.view).toBe(view); expect(f.baselineIdentity).toBe(identity)
+  expect(view.state.doc).toBe(doc)
+  expect(f.owner.snapshot()).toEqual(changed)
+  // Visible metadata may own a model selection; hiding clamps it without edits.
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+  expect(view.state.selection.$from.parent.type.name).toBe('frontmatter')
+  settings.hideRichFrontmatter = true; await tick()
+  expect(metadata.hidden).toBe(true)
+  expect(view.state.selection.$from.parent.type.name).toBe('paragraph')
+  expect(f.owner.snapshot()).toEqual(changed)
+  expect(f.owner.undo()).toBe(true); expect(f.owner.snapshot().raw).toBe(raw)
+  expect(f.owner.redo()).toBe(true); expect((await f.owner.flush()).raw).toBe(changed.raw)
+})
+
+it('restores metadata editing when shown and keeps its changes through hiding and Source mode', async () => {
+  settings.hideRichFrontmatter = false
+  const raw = '---\ntitle: draft # keep\n---\n\n正文\n'
+  const { session: f } = await editor(raw, false)
+  const metadata = f.view.dom.querySelector<HTMLElement>('.frontmatter-node-view')!
+  const cell = metadata.querySelector<HTMLElement>('.fm-editable')!
+  cell.textContent = 'changed'; cell.dispatchEvent(new FocusEvent('blur'))
+  const saved = (await f.owner.flush()).raw
+  expect(saved).toContain('title: changed # keep')
+  expect(saved).toContain('正文')
+  settings.hideRichFrontmatter = true; await tick()
+  expect(f.view.dom.querySelector<HTMLElement>('.frontmatter-node-view')!.hidden).toBe(true)
+  await f.setMode('source'); expect((await f.owner.flush()).raw).toBe(saved)
+  await f.setMode('rich'); expect((await f.owner.flush()).raw).toBe(saved)
+  expect(f.owner.undo()).toBe(true); expect(f.owner.snapshot().raw).toBe(raw)
+})
+
+it.each([false, true])('preference toggles never modify metadata-only notes (readonly: %s)', async readOnly => {
+  const raw = '---\ntitle: draft\n---'
+  const { session: f } = await editor(raw, false, readOnly)
+  for (const hidden of [false, true, false, true]) {
+    settings.hideRichFrontmatter = hidden; await tick()
+    const node = f.view.dom.querySelector<HTMLElement>('.frontmatter-node-view')!
+    expect(node.hidden).toBe(hidden)
+    if (readOnly) expect(node.querySelector('.fm-editable')).toBeNull()
+    expect((await f.owner.flush()).raw).toBe(raw)
+    expect(f.owner.canUndo()).toBe(false)
+  }
 })

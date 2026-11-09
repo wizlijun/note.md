@@ -103,6 +103,31 @@ describe('diagram toolbar setting', () => {
   })
 })
 
+describe('Rich frontmatter setting', () => {
+  it('defaults to hidden before hydration and for an upgrading user', async () => {
+    const { settings, loadSettings } = await import('./settings.svelte')
+    expect(settings.hideRichFrontmatter).toBe(true)
+    await loadSettings()
+    expect(settings.hideRichFrontmatter).toBe(true)
+  })
+
+  it('persists both choices and restores them after reload', async () => {
+    const stored = new Map<string, unknown>()
+    mockGet.mockImplementation(async (key: string) => stored.get(key))
+    mockSet.mockImplementation(async (key: string, value: unknown) => { stored.set(key, value) })
+    const { settings, loadSettings, saveSettings } = await import('./settings.svelte')
+    await loadSettings()
+    for (const choice of [false, true]) {
+      settings.hideRichFrontmatter = choice
+      await saveSettings()
+      expect(stored.get('hideRichFrontmatter')).toBe(choice)
+      settings.hideRichFrontmatter = !choice
+      await loadSettings()
+      expect(settings.hideRichFrontmatter).toBe(choice)
+    }
+  })
+})
+
 describe('mcpServer setting', () => {
   it('defaults to enabled when the key is absent (upgrading user, no settings.json entry)', async () => {
     mockGet.mockResolvedValue(undefined)

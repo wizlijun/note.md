@@ -56,6 +56,7 @@ export const settings = $state<{
   autoSave: boolean
   toastAutoClose: boolean
   showDiagramToolbar: boolean
+  hideRichFrontmatter: boolean
   theme: ThemeSettings
   mdblock: MdblockSettings
   dailyNotes: { enabled: boolean }
@@ -66,6 +67,7 @@ export const settings = $state<{
   autoSave: false,
   toastAutoClose: false,
   showDiagramToolbar: true,
+  hideRichFrontmatter: true,
   theme: { ...DEFAULT_THEME },
   mdblock: structuredClone(DEFAULT_MDBLOCK_SETTINGS),
   dailyNotes: { enabled: false },
@@ -158,6 +160,7 @@ export async function loadSettings(): Promise<void> {
   settings.autoSave = (await s.get<boolean>('autoSave')) ?? false
   settings.toastAutoClose = (await s.get<boolean>('toastAutoClose')) ?? false
   settings.showDiagramToolbar = (await s.get<boolean>('showDiagramToolbar')) !== false
+  settings.hideRichFrontmatter = (await s.get<boolean>('hideRichFrontmatter')) !== false
 
   // Theme migration: prefer new shape; fall back to legacy single skin id.
   const storedTheme = await s.get<ThemeSettings>('theme')
@@ -214,6 +217,7 @@ export async function saveSettings(): Promise<void> {
   await s.set('autoSave', settings.autoSave)
   await s.set('toastAutoClose', settings.toastAutoClose)
   await s.set('showDiagramToolbar', settings.showDiagramToolbar)
+  await s.set('hideRichFrontmatter', settings.hideRichFrontmatter)
   await s.set('theme', settings.theme)
   await s.set('recentFiles', recentFiles)
   await s.set('recentModesByExt', recentModesByExt)

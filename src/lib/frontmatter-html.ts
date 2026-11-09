@@ -11,7 +11,7 @@ const ANY_SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
 /**
  * Static (string-only) frontmatter renderer for baked HTML output — the shared
  * page. The shared page retains a collapsed property view even though desktop
- * Rich hides metadata. Plain HTML has no contenteditable cells or event wiring,
+ * Rich hides metadata by default. Plain HTML has no contenteditable cells or event wiring,
  * so it needs no DOM and survives being posted to the share Worker.
  *
  * Without this the raw `---` block leaks into the shared page: marked has no

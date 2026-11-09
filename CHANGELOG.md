@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Rich mode keeps YAML metadata out of the writing surface.** Frontmatter is fully hidden; edit it in Source. Body selection, copying and deletion preserve metadata, including UTF-8 BOM files.
+- **Hide YAML metadata in Rich mode by default.** Turn off “Hide YAML metadata in Rich mode” in Settings → General → Editor to restore the metadata panel immediately. The preference is saved; Source editing and undo history remain available. Body selection, copying and deletion preserve hidden metadata, including UTF-8 BOM files.
 
 - **Sumi 0.1.1 requires note.md 6.1108.2 or later.** Update the host alongside the marketplace plugin to receive the fix for the gentle breathing caret when macOS Reduce Motion is enabled.
 

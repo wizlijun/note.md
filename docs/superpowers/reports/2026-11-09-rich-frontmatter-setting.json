@@ -1,0 +1,232 @@
+{
+  "status": "PASS",
+  "date": "2026-11-09",
+  "baseCommit": "ffb2623363602255bda14e2f9ed790f95b93aba6",
+  "preference": {
+    "key": "hideRichFrontmatter",
+    "default": true,
+    "location": "Settings > General > Editor"
+  },
+  "host": {
+    "command": "RUSTUP_TOOLCHAIN=1.99.0 ./node_modules/.bin/vitest run --maxWorkers=4 --testTimeout=15000",
+    "suites": 427,
+    "tests": 5551,
+    "svelteErrors": 0,
+    "svelteWarnings": 31
+  },
+  "browser": {
+    "status": "PASS",
+    "cases": [
+      {
+        "kind": "generated",
+        "focus": {
+          "raw": "---\ntype: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z\n---\n\n",
+          "metadata": "type: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        },
+        "after": {
+          "raw": "---\ntype: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z\n---\n\n第一段\n\n第二段",
+          "metadata": "type: Note\ngenerated:\n  by: human:test\n  at: 2026-10-16T04:00:00Z",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "no-final-EOL",
+        "focus": {
+          "raw": "---\ntitle: draft\n---\n\n",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        },
+        "after": {
+          "raw": "---\ntitle: draft\n---\n\n第一段\n\n第二段",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "CRLF",
+        "focus": {
+          "raw": "﻿---\r\ntitle: draft\r\n---\r\n\r\n",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        },
+        "after": {
+          "raw": "﻿---\r\ntitle: draft\r\n---\r\n\n第一段\n\n第二段",
+          "metadata": "title: draft",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "existing-body",
+        "focus": {
+          "raw": "---\ntitle: existing\n---\n\n正文\n",
+          "metadata": "title: existing",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "正文"
+          ]
+        },
+        "after": {
+          "raw": "---\ntitle: existing\n---\n\n正文第一段\n\n第二段\n",
+          "metadata": "title: existing",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            "正文第一段",
+            "第二段"
+          ]
+        }
+      },
+      {
+        "kind": "keyboard-boundary-copy-delete",
+        "copied": "New First paragraph.\n\nSecond paragraph.",
+        "after": {
+          "raw": "---\ntitle: private metadata\n---\n\n",
+          "metadata": "title: private metadata",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        }
+      },
+      {
+        "kind": "BOM-CRLF-keyboard-boundary-copy-delete",
+        "copied": "New First paragraph.\n\nSecond paragraph.",
+        "after": {
+          "raw": "﻿---\r\ntitle: private metadata\r\n---\r\n\n",
+          "metadata": "title: private metadata",
+          "parent": "paragraph",
+          "active": true,
+          "domBody": true,
+          "hidden": true,
+          "text": [
+            ""
+          ]
+        }
+      },
+      {
+        "kind": "live-preference-panel-edit-history",
+        "baseline": {
+          "raw": "---\ntitle: draft # keep\n---\n\nEditable body.\n",
+          "metadata": "title: draft # keep",
+          "parent": "paragraph",
+          "active": false,
+          "domBody": false,
+          "hidden": true,
+          "text": [
+            "Editable body."
+          ]
+        },
+        "shown": {
+          "raw": "---\ntitle: draft # keep\n---\n\nEditable body.\n",
+          "metadata": "title: draft # keep",
+          "parent": "paragraph",
+          "active": false,
+          "domBody": false,
+          "hidden": false,
+          "text": [
+            "Editable body."
+          ]
+        },
+        "edited": {
+          "raw": "---\ntitle: Updated title # keep\n\n---\n\nEditable body.\n",
+          "metadata": "title: Updated title # keep\n",
+          "parent": "paragraph",
+          "active": false,
+          "domBody": false,
+          "hidden": false,
+          "text": [
+            "Editable body."
+          ]
+        }
+      }
+    ],
+    "errors": [],
+    "browser": "140.0.7339.16"
+  },
+  "sources": {
+    "src/components/EditorPane.next-task-session.test.ts": "5fba2b32dc561637cf7ee008d1b9902b4a4392ee1df9f1647ae624163bb5cec9",
+    "src/components/RichEditor.svelte": "9eb3cbc5a17b679fdc586445fc99dc14bf3cd7c911df03e6a9f3b32723defba2",
+    "src/components/SettingsDialog.search-tab.test.ts": "c6192b81788234792be5d7d609b0bbf7cfcaae5e874ec0924d3741d524588a0d",
+    "src/components/SettingsDialog.svelte": "23f6f28b7608c6ee8ff4f481edfca2c54b5efc6b8e98712a0a28c82b387160fe",
+    "src/components/rich-editor-focus.test.ts": "f176707a0b08d27dad5d6d174feaa234aa1070e9f39013d7d546a1f86bf2c5c1",
+    "src/lib/editor-bridge.ime.test.ts": "498b86a460ad10cb0ac63719633abfac0f4b6c87894362c7a92c57b0b3a81c88",
+    "src/lib/editor-bridge.ts": "4ef672005b6b4cd238893bc48018a0cefe570daf037f2f594191176b2297fa1f",
+    "src/lib/editor-select-all.ts": "ad362a3f795447eb19554945aed7f89ed03da94befdad64993fc0f1eab1fbaf8",
+    "src/lib/frontmatter-html.ts": "be9e3e1eff8df7b049c6d0e5f1683e2418a5482d8c79f6835cb9ebc481039b96",
+    "src/lib/frontmatter-view.test.ts": "6b49fab2f80d3e32753f5a4d9cf6dd1f86a11006444d3c37a6df4c678fe2164e",
+    "src/lib/frontmatter-view.ts": "e9aa85cd244689d9ed74638afde0b74e87badb95031daf99bfcdcbf1f4110708",
+    "src/lib/frontmatter-preference.svelte.ts": "fc69aec7bf42774f42157546ba4af96d74312e7192579853ec1fbc5057f3c82b",
+    "src/lib/frontmatter-preference.test.ts": "9fc8d58650d329ccdca921a3c32eb9781cf7cd083f61f9a81eb9da2e2a22a408",
+    "src/lib/hidden-frontmatter-selection.ts": "e92716731f15c8b8860ec07b318d9ada4381c6317b65dfc50959f1f5ede194c2",
+    "src/lib/i18n/de.ts": "8ebc5a3b34cfce92a889d12cdcc42bf32666aa6270395f1c1bd0e6d3f2045c42",
+    "src/lib/i18n/en.ts": "169937258ab574fcee50f4045b533363faae65b81f46f0babb4fbbcd58bc977e",
+    "src/lib/i18n/ja.ts": "5f6a3a2bf375ff54ea82f7c378307bdb47191495a6f9cb8e1e538cf8edf8fc6e",
+    "src/lib/i18n/zh.ts": "d9dfc0bdef07d563a070b21a06b35bbb6e7e8c94ab4e4661e311d6374d733cce",
+    "src/lib/settings.svelte.ts": "cbb84f1ba38d2c0721a91c397b4396cfbc0f893feba97224a131e8ed32bb0831",
+    "src/lib/settings.test.ts": "eb10ebc6681c8f258f51b88b1c61f5e0d467e256b3af8e8a24036ca178be3518",
+    "src/styles/editor-base.css": "8418ff00f1100bf6ce316c96ef56e8b356bd517a75b1dea7ee87ace4e16853d1"
+  },
+  "localArtifacts": {
+    "tasks/rich-yaml-option-20261109/browser.log": "d5a70021320b7f3c414d5e88b808ef179f69eab848f0cd45831c9fc9b1abf119",
+    "tasks/rich-yaml-option-20261109/shown.png": "2150685d01ff32f8313928f22674b1d19aebd4578a2cc6edd851684827e33f05",
+    "tasks/rich-yaml-option-20261109/full.log": "85e6a142136a516b44fca2abaeefe222e8d06aecba39167ef1a35b9c50e1c2f2",
+    "tasks/rich-yaml-option-20261109/browser.mjs": "dd93b6af3639ea434e828244e2fbe0bca6cff1027449752c9927b6d3bc5af4f5",
+    "tasks/rich-yaml-option-20261109/hidden.png": "a6350aa1abb8e9bb02c5b5d00275fd481025867758cedc232141b36cbacb5912",
+    "tasks/rich-yaml-option-20261109/rich.png": "45ac657deca6b7aabf25efd552022c472446678432afe7dc4a42dd491d1cb51f",
+    "tasks/rich-yaml-option-20261109/source.png": "cd7d6f4b13c63d16d688cbef2c7be2ae35729872a38e52334df05722f9c9d098",
+    "tasks/rich-yaml-option-20261109/check.log": "a6729b822be84aadaf5f333d3c7fd33344f594281f5968187474cdd0927cb307",
+    "tasks/rich-yaml-option-20261109/focused.log": "0f9f12020fbadea016a525393cf2ff464c1fdd6fa4d1b72257910819e4109f7b"
+  },
+  "limits": [
+    "No native WKWebView/system IME acceptance",
+    "No installer build, install, push or release"
+  ]
+}

@@ -42,26 +42,30 @@ function correctedSelection(doc: PMNode, selection: Selection): Selection | null
   )
 }
 
-/** Only desktop rich mounts that hide metadata install this plugin. */
+/** Desktop Rich keeps this plugin installed while the display preference changes. */
 export function hiddenFrontmatterSelectionPlugin(options: {
   ensureBody?: (view: EditorView) => void
+  isHidden?: () => boolean
+  observeVisibility?: (update: () => void) => () => void
 } = {}): Plugin {
+  const isHidden = options.isHidden ?? (() => true)
   return new Plugin({
     key,
     appendTransaction(_transactions, _oldState, state) {
+      if (!isHidden()) return null
       const selection = correctedSelection(state.doc, state.selection)
       return selection ? state.tr.setSelection(selection).setMeta('addToHistory', false) : null
     },
     props: {
       handleDOMEvents: {
         focus(view) {
-          if (view.editable && view.state.doc.firstChild?.type.name === 'frontmatter' && !richBodySelection(view.state.doc)) {
+          if (isHidden() && view.editable && view.state.doc.firstChild?.type.name === 'frontmatter' && !richBodySelection(view.state.doc)) {
             options.ensureBody?.(view)
           }
           return false
         },
         keydown(view, event) {
-          if (event.isComposing || event.keyCode === 229 || view.composing || event.key !== 'Backspace') return false
+          if (!isHidden() || event.isComposing || event.keyCode === 229 || view.composing || event.key !== 'Backspace') return false
           const { doc, selection } = view.state
           const first = doc.firstChild
           if (first?.type.name !== 'frontmatter' || !selection.empty) return false
@@ -81,12 +85,14 @@ export function hiddenFrontmatterSelectionPlugin(options: {
       let destroyed = false
       // A file owner binds the view after createEditor returns. Defer the
       // initial selection-only correction until that binding is available.
-      queueMicrotask(() => {
-        if (destroyed || view.isDestroyed) return
+      const update = () => {
+        if (destroyed || view.isDestroyed || !isHidden()) return
         const selection = correctedSelection(view.state.doc, view.state.selection)
         if (selection) view.dispatch(view.state.tr.setSelection(selection).setMeta('addToHistory', false))
-      })
-      return { destroy() { destroyed = true } }
+      }
+      queueMicrotask(update)
+      const stop = options.observeVisibility?.(update)
+      return { destroy() { destroyed = true; stop?.() } }
     },
   })
 }
