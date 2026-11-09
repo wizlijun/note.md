@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "tag": "v6.1109.4",
+  "source": "b55a6d0f42b4e948db3d22810be632249668d573",
+  "checkedAt": "2026-11-09T15:46:43.320001+00:00",
+  "endpoints": [
+    {
+      "endpoint": "https://github.com/wizlijun/note.md/releases/latest/download/latest.json",
+      "http": 200,
+      "version": "6.1109.4",
+      "sha256": "bf98211f7d3fff815a07ffe03ba0531b062a2900b8ce8add4d0e430e9754df5d",
+      "matchesSignedReleaseManifest": true,
+      "anonymous": true
+    }
+  ],
+  "signatureVerified": true,
+  "signatureKeySource": "frozen tag tauri.conf.json",
+  "messageSource": "entire hash-verified anonymous public updater download",
+  "fullPublicReport": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/public-host-full-rest-verification.json",
+  "mutations": "none: anonymous read-only",
+  "restFallbackUsed": false
+}

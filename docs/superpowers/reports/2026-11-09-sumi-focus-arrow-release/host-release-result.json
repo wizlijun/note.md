@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-09T15:32:18.155760+00:00",
+  "sourceBeforeVersionBump": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+  "command": [
+    "scripts/release.sh",
+    "6.1109.4",
+    "--draft",
+    "--arm64-only",
+    "--expected-share-manifest",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/frozen-share-manifest.json"
+  ],
+  "scope": "Centered arrow navigation and first-line blank-page focus; preserve published P0 and idle transitions; macOS arm64 only",
+  "credentials": "inherited existing release environment; values not recorded",
+  "exitCode": 0
+}

@@ -1,0 +1,66 @@
+{
+  "ok": true,
+  "before": 306,
+  "after": 307,
+  "onlyAdded": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.9",
+      "min_host": ">=6.1109.4",
+      "archs": [
+        "aarch64-apple-darwin"
+      ],
+      "size": 2465880,
+      "sha256": {
+        "aarch64-apple-darwin": "db732283cb0e51994e9f03b5b38892a751f464e8929dc86df3e67484167950af"
+      },
+      "name": "Sumi Typewriter",
+      "category": "experience",
+      "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "玄霜打字机",
+          "description": "玄霜打字机，一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "玄霜打字机",
+            "read-writing": "玄霜打字机"
+          },
+          "windows": {
+            "main": "玄霜打字机"
+          }
+        },
+        "en": {
+          "name": "Sumi Typewriter",
+          "description": "Sumi Typewriter is a quiet page for native writing, with offline collaboration and seamless continuation.",
+          "menus": {
+            "open": "Sumi Typewriter",
+            "read-writing": "Sumi Typewriter"
+          },
+          "windows": {
+            "main": "Sumi Typewriter"
+          }
+        },
+        "ja": {
+          "name": "すみ",
+          "description": "すみは、静かに書くためのタイプライターアプリです。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+          "menus": {
+            "open": "すみ",
+            "read-writing": "すみ"
+          },
+          "windows": {
+            "main": "すみ"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.9/aarch64-apple-darwin"
+      }
+    }
+  ],
+  "historicalEntriesUnchanged": true,
+  "publicNormalFreshAndKvEqual": true,
+  "compatibleHostPublic": true,
+  "minimumHost": ">=6.1109.4"
+}

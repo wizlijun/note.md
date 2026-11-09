@@ -1,0 +1,14 @@
+{
+  "at": "2026-11-09T15:34:45.716487+00:00",
+  "source": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+  "packageSha256": "db732283cb0e51994e9f03b5b38892a751f464e8929dc86df3e67484167950af",
+  "packageBytes": 2465880,
+  "signatureSha256": "e168418091534054c5a1e429609dacb754c41f2b80a064554342259adc4b8259",
+  "r2ObjectsFullyReadBack": true,
+  "normalAndFreshMinisignValid": true,
+  "kvWritten": false,
+  "route": "existing Wrangler3.114.17 + Account API Token; original publisher check/inspect/stage",
+  "readbackEvidenceSha256": "ceb733dc88bd1fc1b2dc616fc2f49bbbb44d67ae085d567d00f7c3390641243a",
+  "uploadLogSha256": "a3a978eba3e17f1908d68f5f22880dc742d0fb93b080553180698ad8ad29b65f",
+  "generatorRecovery": "Initial read-only live-index TLS ECONNRESET preserved; exact original gen-plugin-index command retried successfully before any remote write; no local-only override."
+}
