@@ -56,6 +56,21 @@ pub(crate) fn sag_tokens(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// The FTS5 phrase body for `surface`: the index tokenizer's tokens with stop
+/// words kept, joined by single spaces. `blocks_fts.tok_text` keeps every token,
+/// so a phrase built from `sag_tokens` (stops dropped) is not adjacent in the
+/// index and misses: "lord rings" does not match "lord of the rings". SAG2's
+/// index drops the same stops as its queries, so its `tokens(x).join(" ")`
+/// phrases stay adjacent (spec H.5 FTS 短语 row). Every phrase sent to FTS5 is
+/// built here from the surface text; the caller still applies [`quote`]. The
+/// term's identity and scoring string stays `sag_tokens(..).join(" ")`.
+///
+/// jieba may cut a surface on its own differently from the same text inside a
+/// longer line, so a phrase can still miss in rare cases.
+pub(crate) fn fts_phrase(surface: &str) -> String {
+    tokens(surface).join(" ")
+}
+
 /// An FTS5 string literal (`text.rs:quote`).
 pub(crate) fn quote(text: &str) -> String {
     format!("\"{}\"", text.replace('"', "\"\""))
@@ -107,13 +122,15 @@ pub(crate) fn sentences(text: &str) -> Vec<&str> {
 }
 
 /// A name found in a sentence: byte range in the sentence, the term (tokens
-/// joined by single spaces) and the spelling to show.
+/// joined by single spaces), the spelling to show and the FTS phrase body
+/// ([`fts_phrase`] of the label).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NameSpan {
     pub start: usize,
     pub end: usize,
     pub term: String,
     pub label: String,
+    pub phrase: String,
 }
 
 /// The sources of H.3.4's table, in tie-break order (wiki < tag < alias <
@@ -128,9 +145,16 @@ enum Source {
 }
 
 /// The term of a name: `sag_tokens(text).join(" ")` for every source (P11; SAG2
-/// uses `tokenize(..).join(" ")` in `retrieval.rs:name_phrases`).
+/// uses `tokenize(..).join(" ")` in `retrieval.rs:name_phrases`); its phrase is
+/// `fts_phrase(label)`, stop words kept (spec H.3.4).
 fn span(start: usize, end: usize, label: &str) -> NameSpan {
-    NameSpan { start, end, term: sag_tokens(label).join(" "), label: label.to_owned() }
+    NameSpan {
+        start,
+        end,
+        term: sag_tokens(label).join(" "),
+        label: label.to_owned(),
+        phrase: fts_phrase(label),
+    }
 }
 
 /// Collects every match of `re` as `(start, end, label)`, where the label is
@@ -381,7 +405,16 @@ mod tests {
     fn alias_matches_become_name_spans_with_their_source_spelling() {
         let re = alias_pattern(&["rene descartes".into()]).unwrap();
         let n = name_spans("I read rene descartes today", Some(&re));
-        assert_eq!(n, vec![NameSpan { start: 7, end: 21, term: "rene descartes".into(), label: "rene descartes".into() }]);
+        assert_eq!(
+            n,
+            vec![NameSpan {
+                start: 7,
+                end: 21,
+                term: "rene descartes".into(),
+                label: "rene descartes".into(),
+                phrase: "rene descartes".into(),
+            }]
+        );
     }
 
     #[test]
@@ -417,6 +450,25 @@ mod tests {
             fancy_regex::ParseError::InvalidEscape("vault title".into()),
         ));
         assert!(!kind.contains("vault title"), "{kind}");
+    }
+
+    #[test]
+    fn fts_phrases_keep_the_stop_words_the_index_keeps() {
+        assert_eq!(fts_phrase("Lord of the Rings"), "lord of the rings");
+        assert_eq!(sag_tokens("Lord of the Rings").join(" "), "lord rings");
+        assert_eq!(fts_phrase("我的世界"), "我 的 世界");
+        assert_eq!(sag_tokens("我的世界").join(" "), "世界");
+        // The index stores exactly `tokens`, so the phrase is its own text.
+        assert_eq!(fts_phrase("增量索引与全文检索"), searchidx::tokenize::tokenize("增量索引与全文检索"));
+    }
+
+    #[test]
+    fn name_spans_carry_the_phrase_of_their_label() {
+        let n = name_spans("I loved [[The Lord of the Rings]] and [[我的世界]]", None);
+        assert_eq!(
+            n.iter().map(|x| (x.term.as_str(), x.phrase.as_str())).collect::<Vec<_>>(),
+            vec![("lord rings", "the lord of the rings"), ("世界", "我 的 世界")]
+        );
     }
 
     #[test]

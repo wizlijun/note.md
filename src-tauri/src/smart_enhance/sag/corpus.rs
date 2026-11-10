@@ -6,7 +6,7 @@
 //! SAG2 corpus steps: the alias table and lexical repair (spec H.3.1, H.3.2,
 //! H.3.5) and the DPP diversification of the final ranking (spec H.3.9).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::LazyLock;
 
 use fancy_regex::Regex;
@@ -14,7 +14,7 @@ use indexmap::IndexMap;
 use unicode_normalization::char::canonical_combining_class;
 use unicode_normalization::UnicodeNormalization;
 
-use super::text::{alias_pattern, quote, sag_tokens};
+use super::text::{alias_pattern, fts_phrase, quote, sag_tokens};
 use super::{SagCandidate, Term, TermKind};
 
 /// `sag2_v10.rs:folded`, verbatim: NFKD, drop the combining marks that follow a
@@ -81,8 +81,10 @@ pub(crate) struct AliasMap {
     aliases: HashMap<String, String>,
     /// [`alias_pattern`] over the keys of `aliases`; `None` when there are none.
     pattern: Option<Regex>,
-    /// Lowercased file titles of at least two tokens, tokens joined by spaces.
-    titles: HashSet<String>,
+    /// Lowercased file titles of at least two tokens: `sag_tokens` joined by
+    /// spaces (SAG2's `titles`) → the [`fts_phrase`] of every title with those
+    /// tokens. Several titles can share the tokens and differ in stop words.
+    titles: HashMap<String, BTreeSet<String>>,
 }
 
 impl AliasMap {
@@ -101,12 +103,12 @@ impl AliasMap {
     /// "only one value" rule). `titles` holds the file titles only.
     pub(crate) fn build(titles: &[String], aliases: &[(String, String)], wiki_targets: &[String]) -> Self {
         let mut names: HashMap<String, HashSet<String>> = HashMap::new();
-        let mut title_terms = HashSet::new();
+        let mut title_terms: HashMap<String, BTreeSet<String>> = HashMap::new();
         for title in titles {
             let name = source_name(title);
             let terms = sag_tokens(&name);
             if terms.len() >= 2 {
-                title_terms.insert(terms.join(" "));
+                title_terms.entry(terms.join(" ")).or_default().insert(fts_phrase(&name));
             }
             names.entry(folded(&name)).or_default().insert(name);
         }
@@ -141,9 +143,10 @@ impl AliasMap {
 
     /// `sag2_v10.rs:Corpus::repair`: each alias match `source` is replaced by its
     /// value `target` when `source` has no hits and `target` has. `has_hits`
-    /// gets the FTS expression `quote(sag_tokens(x).join(" "))` (SAG2 quotes in
-    /// the callback; ours takes the expression, P4). Without a pattern the text
-    /// comes back unchanged.
+    /// gets the FTS expression `quote(fts_phrase(x))` (SAG2 quotes in the
+    /// callback; ours takes the expression, P4): stop words kept, because our
+    /// index keeps them (spec H.3.2, H.5 FTS 短语 row). Without a pattern the
+    /// text comes back unchanged.
     ///
     /// SAG2 indexes `aliases[casefold(source)]`; this looks up
     /// `lower(source)` and keeps `source` when it is not a key, which can happen
@@ -166,8 +169,8 @@ impl AliasMap {
             let source = matched.as_str();
             match self.aliases.get(&source.to_lowercase()) {
                 Some(target)
-                    if !has_hits(&quote(&sag_tokens(source).join(" ")))?
-                        && has_hits(&quote(&sag_tokens(target).join(" ")))? =>
+                    if !has_hits(&quote(&fts_phrase(source)))?
+                        && has_hits(&quote(&fts_phrase(target)))? =>
                 {
                     result.push_str(target)
                 }
@@ -183,35 +186,45 @@ impl AliasMap {
     /// (and re-tokenised when the repair changed it); a name phrase still
     /// without hits falls back to its longest title sub-phrase of at least two
     /// tokens (ties: bytewise smallest) when that one has hits. `has_hits` gets
-    /// `quote(term)`. `label` is left as it was: it is the spelling the user saw.
+    /// `quote(term.phrase)`; a rewrite sets `term` to the `sag_tokens` of the new
+    /// text and `phrase` to its [`fts_phrase`]. The title fallback probes the
+    /// phrases of the titles with that sub-phrase's tokens in byte order and
+    /// takes the first with hits (SAG2 probes one string; ours can differ in
+    /// stop words, spec H.3.5). `label` is left as it was: it is the spelling
+    /// the user saw.
     pub(crate) fn resolve_terms(
         &self,
         terms: &mut [Term],
         has_hits: &mut dyn FnMut(&str) -> Result<bool, String>,
     ) -> Result<(), String> {
         for term in terms {
-            if has_hits(&quote(&term.term))? {
+            if has_hits(&quote(&term.phrase))? {
                 continue;
             }
             let repaired = self.repair(&term.term, &mut *has_hits)?;
             if repaired != term.term {
                 term.term = sag_tokens(&repaired).join(" ");
+                term.phrase = fts_phrase(&repaired);
             }
-            if term.kind == TermKind::NamePhrase && !has_hits(&quote(&term.term))? {
+            if term.kind == TermKind::NamePhrase && !has_hits(&quote(&term.phrase))? {
                 let parts: Vec<_> = term.term.split_whitespace().collect();
                 let mut matches = vec![];
                 for start in 0..parts.len() {
                     for end in start + 2..=parts.len() {
                         let name = parts[start..end].join(" ");
-                        if self.titles.contains(&name) {
+                        if self.titles.contains_key(&name) {
                             matches.push((end - start, name));
                         }
                     }
                 }
                 matches.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
                 if let Some((_, name)) = matches.first() {
-                    if has_hits(&quote(name))? {
-                        term.term = name.clone();
+                    for phrase in &self.titles[name] {
+                        if has_hits(&quote(phrase))? {
+                            term.term = name.clone();
+                            term.phrase = phrase.clone();
+                            break;
+                        }
                     }
                 }
             }
@@ -327,7 +340,7 @@ mod tests {
     use TermKind::*;
 
     fn term(text: &str, kind: TermKind) -> Term {
-        Term { term: text.into(), kind, score: 1.0, label: text.into() }
+        Term { term: text.into(), kind, score: 1.0, label: text.into(), phrase: text.into() }
     }
 
     fn candidate(id: i64, content: &str, score: f64) -> SagCandidate {
@@ -463,7 +476,7 @@ mod tests {
         let m = AliasMap::build(&["Rene\u{301} Descartes".into(), "René Descartes".into()], &[], &[]);
         let mut target = |t: &str| Ok(t == "\"rené descartes\"");
         assert_eq!(m.repair("rene descartes", &mut target).unwrap(), "rené descartes");
-        assert!(m.titles.contains("rené descartes"));
+        assert!(m.titles.contains_key("rené descartes"));
         // A full-width title, alias and wiki target fold to an identity: no alias.
         let m = AliasMap::build(&["ＡＢＣ".into()], &[("Ｘ".into(), "x".into())], &["ＤＥＦ".into()]);
         assert!(m.pattern().is_none());
@@ -525,12 +538,117 @@ mod tests {
         let found = |t: &str| re.find_iter(t).map(|m| m.unwrap().as_str().to_owned()).collect::<Vec<_>>();
         assert_eq!(found("cafe society meets zoe in 清华 plain"), vec!["cafe society", "zoe", "清华"]);
         // jieba cuts 清华大学 for search into more than one token.
-        let qinghua = quote(&sag_tokens("清华大学").join(" "));
+        let qinghua = quote(&fts_phrase("清华大学"));
         let mut target_only = |t: &str| Ok(t == "\"café society\"" || t == "\"zoë\"" || t == qinghua);
         assert_eq!(
             m.repair("Cafe Society, ZOE, 我在清华读书", &mut target_only).unwrap(),
             "café society, zoë, 我在清华大学读书"
         );
+    }
+
+    /// A stub of our index, which keeps stop words: the stop-word phrases of
+    /// "Lord of the Rings", 我的世界 and 傲慢与偏见 have hits. Their
+    /// `sag_tokens` strings "lord rings" and "傲慢 偏见" are not adjacent in
+    /// such an index, so they have none ("世界" alone would hit a real index,
+    /// but it is a different, broader phrase).
+    fn stop_word_index(asked: &mut Vec<String>) -> impl FnMut(&str) -> Result<bool, String> + '_ {
+        |q: &str| {
+            asked.push(q.to_owned());
+            Ok(matches!(q, "\"lord of the rings\"" | "\"我 的 世界\"" | "\"傲慢 与 偏见\""))
+        }
+    }
+
+    fn stop_word_aliases() -> AliasMap {
+        AliasMap::build(
+            &["Lord of the Rings".into(), "我的世界".into(), "傲慢与偏见".into()],
+            &[
+                ("LOTR".into(), "Lord of the Rings".into()),
+                ("MC".into(), "我的世界".into()),
+                ("PnP".into(), "傲慢与偏见".into()),
+            ],
+            &[],
+        )
+    }
+
+    #[test]
+    fn repair_finds_stop_word_alias_targets_by_their_phrase() {
+        let m = stop_word_aliases();
+        let mut asked = vec![];
+        {
+            let mut index = stop_word_index(&mut asked);
+            assert_eq!(m.repair("who wrote LOTR", &mut index).unwrap(), "who wrote lord of the rings");
+            assert_eq!(m.repair("MC 好玩吗", &mut index).unwrap(), "我的世界 好玩吗");
+            assert_eq!(m.repair("谁写了 PnP", &mut index).unwrap(), "谁写了 傲慢与偏见");
+        }
+        assert_eq!(
+            asked,
+            vec!["\"lotr\"", "\"lord of the rings\"", "\"mc\"", "\"我 的 世界\"", "\"pnp\"", "\"傲慢 与 偏见\""]
+        );
+    }
+
+    #[test]
+    fn a_source_with_stop_words_that_has_hits_is_kept() {
+        // The index has "bank of america" and "bofa"; "bank america" is not
+        // adjacent anywhere, so probing it would wrongly report no hits.
+        let m = AliasMap::build(&["BofA".into()], &[("Bank of America".into(), "BofA".into())], &[]);
+        let mut asked = vec![];
+        let mut index = |q: &str| {
+            asked.push(q.to_owned());
+            Ok(matches!(q, "\"bank of america\"" | "\"bofa\""))
+        };
+        assert_eq!(m.repair("work at Bank of America", &mut index).unwrap(), "work at Bank of America");
+        assert_eq!(asked, vec!["\"bank of america\""]);
+    }
+
+    #[test]
+    fn resolve_terms_probe_and_rewrite_by_phrase() {
+        let m = stop_word_aliases();
+        let mut world = term("世界", NamePhrase);
+        world.phrase = "我 的 世界".into();
+        let mut frodo = term("frodo lord rings", NamePhrase);
+        frodo.phrase = "frodo lord of the rings".into();
+        let mut austen = term("奥斯汀 傲慢 偏见", NamePhrase);
+        austen.phrase = "奥斯汀 的 傲慢 与 偏见".into();
+        let mut t = vec![term("lotr", Word), world, frodo, austen];
+        let mut asked = vec![];
+        m.resolve_terms(&mut t, &mut stop_word_index(&mut asked)).unwrap();
+        assert_eq!(
+            t.iter().map(|t| (t.term.as_str(), t.phrase.as_str())).collect::<Vec<_>>(),
+            vec![
+                // Repaired: the term is re-tokenised, the phrase is the target's.
+                ("lord rings", "lord of the rings"),
+                // Probed by its phrase, which has hits: unchanged.
+                ("世界", "我 的 世界"),
+                // Title fallback: the title's phrase is probed and taken.
+                ("lord rings", "lord of the rings"),
+                ("傲慢 偏见", "傲慢 与 偏见"),
+            ]
+        );
+        assert_eq!(t[0].label, "lotr");
+        assert_eq!(
+            asked,
+            vec![
+                "\"lotr\"", "\"lotr\"", "\"lord of the rings\"",
+                "\"我 的 世界\"",
+                "\"frodo lord of the rings\"", "\"frodo lord of the rings\"", "\"lord of the rings\"",
+                "\"奥斯汀 的 傲慢 与 偏见\"", "\"奥斯汀 的 傲慢 与 偏见\"", "\"傲慢 与 偏见\"",
+            ]
+        );
+    }
+
+    #[test]
+    fn title_fallback_tries_every_title_of_the_sub_phrase_in_byte_order() {
+        // Both titles tokenise to "lord rings"; their phrases differ.
+        let m = AliasMap::build(&["Lord Rings".into(), "Lord of the Rings".into()], &[], &[]);
+        let mut asked = vec![];
+        let mut hits = |q: &str| {
+            asked.push(q.to_owned());
+            Ok(q == "\"lord rings\"")
+        };
+        let mut t = vec![term("bob lord rings", NamePhrase)];
+        m.resolve_terms(&mut t, &mut hits).unwrap();
+        assert_eq!((t[0].term.as_str(), t[0].phrase.as_str()), ("lord rings", "lord rings"));
+        assert_eq!(asked, vec!["\"bob lord rings\"", "\"bob lord rings\"", "\"lord of the rings\"", "\"lord rings\""]);
     }
 
     // Ported from sag2_v10.rs:tests::unresolved_expansion_terms_preserve_connected_tokens.
