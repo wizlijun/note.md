@@ -799,6 +799,9 @@ impl Surface {
 #[allow(non_upper_case_globals)] // GDK keys use their canonical XKB names.
 fn shortcut(key: gdk::keys::Key, mask: gdk::ModifierType) -> Option<&'static str> {
     use gdk::keys::constants::*;
+    // Caps Lock changes keyvals but is not a shortcut modifier. Shift remains
+    // explicit in mask, so Ctrl+Shift+V still differs from Ctrl+V.
+    let key = key.to_lower();
     let ctrl = gdk::ModifierType::CONTROL_MASK;
     let shift = gdk::ModifierType::SHIFT_MASK;
     let alt = gdk::ModifierType::MOD1_MASK;
@@ -830,11 +833,11 @@ fn shortcut(key: gdk::keys::Key, mask: gdk::ModifierType) -> Option<&'static str
     }
     if mask == ctrl | shift {
         return match key {
-            Z => Some("redo"),
-            X => Some("strike"),
-            V => Some("paste_plain"),
-            G => Some("find_previous"),
-            S => Some("export"),
+            z => Some("redo"),
+            x => Some("strike"),
+            v => Some("paste_plain"),
+            g => Some("find_previous"),
+            s => Some("export"),
             plus | equal => Some("zoom_in"),
             _9 | parenleft => Some("quote"),
             _8 | asterisk => Some("bullet_list"),
@@ -857,11 +860,9 @@ fn shortcut(key: gdk::keys::Key, mask: gdk::ModifierType) -> Option<&'static str
             _ => None,
         };
     }
-    if mask == gdk::ModifierType::SUPER_MASK && matches!(key, Return | KP_Enter) {
-        return Some("fullscreen");
-    }
     if mask.is_empty() {
         return match key {
+            F11 => Some("fullscreen"),
             Escape => Some("menu"),
             Tab => Some("indent"),
             _ => None,
@@ -1252,6 +1253,8 @@ pub fn mount(
     let weak = Rc::downgrade(&s);
     s.view.connect_focus_out_event(move |_, _| {
         if let Some(s) = weak.upgrade() {
+            // A key released in another window never reaches this TextView.
+            s.fullscreen_down.set(false);
             stop_typing(&s);
             s.reset_focus();
             if let Some(p) = s.candidates.borrow().as_ref() {
@@ -1265,10 +1268,7 @@ pub fn mount(
     s.view.connect_key_release_event(move |_, e| {
         if let Some(s) = weak.upgrade() {
             emit_typing(&s, e, true);
-            if matches!(
-                e.keyval(),
-                gdk::keys::constants::Return | gdk::keys::constants::KP_Enter
-            ) {
+            if e.keyval() == gdk::keys::constants::F11 {
                 s.fullscreen_down.set(false);
             }
             if s.focused.get()
@@ -1810,12 +1810,26 @@ mod tests {
             shortcut(V, M::CONTROL_MASK | M::SHIFT_MASK),
             Some("paste_plain")
         );
-        assert_eq!(shortcut(Return, M::SUPER_MASK), Some("fullscreen"));
+        assert_eq!(shortcut(F11, M::empty()), Some("fullscreen"));
+        for mask in [M::CONTROL_MASK, M::SHIFT_MASK, M::MOD1_MASK, M::SUPER_MASK, M::META_MASK] {
+            assert_eq!(shortcut(F11, mask), None);
+        }
+        assert_eq!(shortcut(Return, M::SUPER_MASK), None);
+        assert_eq!(shortcut(KP_Enter, M::SUPER_MASK), None);
         assert_eq!(shortcut(Return, M::CONTROL_MASK), None);
         assert_eq!(
             shortcut(b, M::CONTROL_MASK | M::MOD1_MASK | M::SHIFT_MASK),
             None
         );
+    }
+    #[test]
+    fn linux_shortcuts_ignore_caps_lock_letter_case_without_ignoring_shift() {
+        use gdk::{keys::constants::*, ModifierType as M};
+        assert_eq!(shortcut(B, M::CONTROL_MASK), Some("bold"));
+        assert_eq!(shortcut(v, M::CONTROL_MASK | M::SHIFT_MASK), Some("paste_plain"));
+        assert_eq!(shortcut(z, M::CONTROL_MASK | M::SHIFT_MASK), Some("redo"));
+        assert_eq!(shortcut(I, M::SUPER_MASK), None);
+        assert_eq!(shortcut(b, M::CONTROL_MASK | M::SHIFT_MASK), None);
     }
     #[test]
     #[ignore = "requires isolated Wayland compositor, grim, magick and SUMI_NATIVE_DAMAGE_DIR"]
