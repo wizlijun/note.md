@@ -1,5 +1,5 @@
 {
-  "README.md": "34509eedeff1fedcdc0123ea671fa4c2e21af5d0235ae15ffba483b81a5dd60a",
+  "README.md": "33c5b316c22adc3863795ed4171d500bad04e6888a90443a88fec4d51bce09f6",
   "addon-source-publication.json": "a03ef2dfd907a3a1c785592f939ff8c0a279b7946a4080197a11dcb6050aa489",
   "amd64-live-source-check.json": "7cb34e807b8135c5ad52d110c29acd053d032925bfa134cea59dab264d927521",
   "amd64-preservation.json": "4e964b707e1f613e0e30ea4358db4e6f2293930daabd8a8a16284df1e23044c4",
@@ -17,5 +17,6 @@
   "status.json": "fe9c8ea4992122b84bc33d3bfea5a5efa77a5809c6d75cb0de0d4424331bcfe5",
   "website-assets.json": "1ebb991bf3bfdb6b64a4fd2a64bbf80bbeb2fd1a63e0fdda78c54a46d792abb3",
   "website-diagnosis.json": "50e47a51d20235b37d2df31b6aff96d9dc1351027bf7fde2441b6309779a38ca",
+  "website-post-push-ci.json": "6b2876ed1b5d67a703a1f3fa50520e09dc10d7ea98ea7f36272c5e1e049c8c5d",
   "website-redirects.json": "12f6600521b754c3511ddc527f62576b4bc71f0641ea4c09d42f9b505a391e07"
 }

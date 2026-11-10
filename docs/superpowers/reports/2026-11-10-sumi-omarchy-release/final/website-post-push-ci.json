@@ -1,0 +1,30 @@
+{
+  "run": {
+    "conclusion": "success",
+    "databaseId": 42767874360,
+    "headSha": "b7949a7a3d1b8c8472afede13eadd680795bb922",
+    "status": "completed",
+    "url": "https://github.com/wizlijun/note.md/actions/runs/42767874360",
+    "workflowName": "Deploy website"
+  },
+  "trigger": "Existing website/** push workflow, including new architecture regression tests",
+  "productionRouteCodeChanged": false,
+  "publicRedirectsAfterCi": [
+    {
+      "url": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+      "location": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/notemd-6.1110.2-1-x86_64.pkg.tar.zst"
+    },
+    {
+      "url": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+      "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst"
+    },
+    {
+      "url": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+      "location": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/note.md_6.1110.2_amd64.deb"
+    },
+    {
+      "url": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+      "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb"
+    }
+  ]
+}

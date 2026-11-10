@@ -31,6 +31,6 @@
 - 单架构发布器与构建器190项测试通过；Arch配方9项、下载选择33项通过。4个既有 Mac 公证测试依赖 BSD mktemp，在 GNU 环境的限制单独记载，未修改 Mac 生产脚本。
 - 宿主由现有 GitHub publisher 的显式 `--linux-amd64-only` 模式公开，实际下载包核对 checksum 后才发布，`latest=false`。公网全部10个 release 资产与本地已验收字节一致，见 [host-public-verification.json](host-public-verification.json)。
 - 插件使用仓库既有 Wrangler 3.114.17 + Account Token，按 R2包/签名上传、普通/无缓存匿名回读验签、KV写入、KV及两种公网索引一致的顺序完成。仅新增1条；原308条逐字段保持，最终309条，Mac Sumi0.1.10不变。见 [plugin-publication.json](plugin-publication.json) 和 [index-preservation.json](index-preservation.json)。
-- 官网普通请求已确认 x86_64 Arch/Deb 指向6.1110.2，ARM64 Arch/Deb保留6.1027.1；GitHub latest仍为Mac6.1110.1。短暂旧跳转与fallback已自然恢复，未为此修改或部署网站。见 [website-redirects.json](website-redirects.json)。
+- 官网普通请求已确认 x86_64 Arch/Deb 指向6.1110.2，ARM64 Arch/Deb保留6.1027.1；GitHub latest仍为Mac6.1110.1。短暂旧跳转与fallback在未部署、未清缓存时已自然恢复。随后回退测试随main推送触发既有网站CI，并成功重新部署相同生产路由源码；部署后四条公网跳转再次通过，见 [CI记录](website-post-push-ci.json)。见 [website-redirects.json](website-redirects.json)。
 
 临时GUI进程与rootless Docker已停止；用户原上传密钥保留，任务中的密钥/Token工作副本已删除。构建缓存、产物及验证证据保留。所有发布资产清单、签名证明和来源详见本目录JSON记录。
