@@ -53,6 +53,7 @@
   import { pluginMenuLabel, pluginName } from './lib/plugins/plugin-i18n'
   import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
   import { uiState, openSettings } from './lib/ui-state.svelte'
+  import { OPEN_SETTINGS_TAB_EVENT, settingsTabFromEvent } from './lib/smart-search/settings'
   import MobileToolbar from './components/MobileToolbar.svelte'
   import DrawerNav from './components/DrawerNav.svelte'
   import SidePanel from './components/side-panel/SidePanel.svelte'
@@ -220,6 +221,21 @@
         win.show()
         win.setFocus()
       } catch (err) { console.warn('[App] editor://open-path:', err); showError(String(err)) }
+    })
+
+    // The lookup window has no Settings of its own: it emits
+    // `emitTo('main', OPEN_SETTINGS_TAB_EVENT, { tab: 'enhance' })` and the main
+    // window opens Settings on that tab. Unknown tabs are ignored; the dialog
+    // itself drops desktop-only tabs on iOS.
+    const unlistenOpenSettingsTab = listen<unknown>(OPEN_SETTINGS_TAB_EVENT, async (e) => {
+      if (win.label !== 'main') return
+      const tab = settingsTabFromEvent(e.payload)
+      if (!tab) return
+      openSettings(tab)
+      try {
+        await win.show()
+        await win.setFocus()
+      } catch (err) { console.warn(`[App] ${OPEN_SETTINGS_TAB_EVENT}:`, err) }
     })
 
     // File-view plugins can navigate to another matching file and retain their
@@ -885,6 +901,7 @@
       unlistenOpenFile.then((fn) => fn())
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
+      unlistenOpenSettingsTab.then((fn) => fn())
       unlistenOpenFileView.then((fn) => fn())
       unlistenSearchReveal.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())

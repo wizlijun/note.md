@@ -91,6 +91,7 @@ import { sidePanels } from '../lib/side-panel/registry.svelte'
 import { toasts } from '../lib/toast.svelte'
 import { getPluginScopedAll, settings } from '../lib/settings.svelte'
 import { DEFAULT_SMART_LOOKUP_SETTINGS } from '../lib/smart-search/settings'
+import { JEV_REQUEST_EXAMPLE } from '../lib/smart-search/api'
 import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
 import * as settingsModule from '../lib/settings.svelte'
 import * as toastModule from '../lib/toast.svelte'
@@ -634,6 +635,267 @@ describe('SettingsDialog — Search & Index tab entry', () => {
     checkbox!.dispatchEvent(new Event('change', { bubbles: true }))
     await settle()
     expect(settings.smartLookup.results.autoDeepOnZero).toBe(true)
+  })
+})
+
+// Task 8: the Lookup enhancement tab. Keys go to the host once and are never
+// kept in `settings`; consent is bound to the host parsed from the URL shown.
+describe('SettingsDialog — Lookup enhancement tab', () => {
+  // Answers the key/test commands on top of the file's default host stub.
+  function hostWith(answers: Record<string, (args: any) => unknown>) {
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd in answers) return answers[cmd](args)
+      return defaultInvokeImpl(cmd, args)
+    })
+  }
+
+  async function openEnhanceTab() {
+    await mountDialog()
+    await settle()
+    openSettings('enhance')
+    await settle()
+  }
+
+  function section(title: string): Element {
+    const found = Array.from(document.body.querySelectorAll('section.block')).find(
+      (candidate) => candidate.querySelector('h3')?.textContent?.trim() === title,
+    )
+    if (!found) throw new Error(`section "${title}" not found`)
+    return found
+  }
+  const jevSection = () => section('Lookup enhancement')
+  const chatSection = () => section('Query repair model')
+
+  function field<T extends HTMLElement>(root: Element, label: string, selector: string): T {
+    const row = Array.from(root.querySelectorAll('label.row')).find(
+      (candidate) => candidate.querySelector('.lbl')?.textContent?.trim() === label,
+    )
+    const control = row?.querySelector<T>(selector)
+    if (!control) throw new Error(`no ${selector} labelled "${label}"`)
+    return control
+  }
+  function button(root: Element, text: string): HTMLButtonElement {
+    const found = Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text)
+    if (!found) throw new Error(`no button "${text}"`)
+    return found as HTMLButtonElement
+  }
+  function consentCheckbox(): HTMLInputElement {
+    return jevSection().querySelector<HTMLInputElement>('[data-consent] input[type="checkbox"]')!
+  }
+  const consentLabel = () => jevSection().querySelector('[data-consent]')?.textContent ?? ''
+  const keyRow = (kind: 'jev' | 'chat') => document.body.querySelector(`[data-key-row="${kind}"]`)!
+  const testButton = () => button(jevSection(), 'Test connection')
+
+  async function typeInto(input: HTMLInputElement, value: string) {
+    input.value = value
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+  }
+  const typeUrl = (value: string) => typeInto(field<HTMLInputElement>(jevSection(), 'Endpoint URL', 'input'), value)
+  async function choosePreset(value: 'official' | 'openrouter' | 'custom') {
+    const select = field<HTMLSelectElement>(jevSection(), 'Service', 'select')
+    select.value = value
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+  }
+  async function checkConsent() {
+    consentCheckbox().click()
+    await settle()
+  }
+  async function saveKey(kind: 'jev' | 'chat', key: string) {
+    const row = keyRow(kind)
+    const input = row.querySelector<HTMLInputElement>('input[type="password"]')!
+    input.value = key
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await settle()
+    const save = Array.from(row.querySelectorAll('button')).find((b) => ['Save', 'Replace'].includes(b.textContent?.trim() ?? ''))!
+    save.click()
+    await settle()
+  }
+
+  it('is a desktop tab next to Search & Index, labelled in the header', async () => {
+    await mountDialog()
+    await settle()
+    const labels = Array.from(document.body.querySelectorAll('nav.tab-strip button')).map((b) => b.textContent?.trim())
+    expect(labels.indexOf('Lookup enhancement')).toBe(labels.indexOf('Search & Index') + 1)
+    openSettings('enhance')
+    await settle()
+    expect(document.body.querySelector('.current-page')?.textContent).toBe('Lookup enhancement')
+    expect(jevSection().textContent).toContain('Enable lookup enhancement')
+  })
+
+  it('is hidden on iOS and a request for it is dropped', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('ios')
+    _resetCacheForTests()
+    await mountDialog()
+    await settle()
+    const labels = Array.from(document.body.querySelectorAll('nav.tab-strip button')).map((b) => b.textContent?.trim())
+    expect(labels).not.toContain('Lookup enhancement')
+    openSettings('enhance')
+    await settle()
+    expect(document.body.querySelector('.current-page')?.textContent).not.toBe('Lookup enhancement')
+    expect(document.body.textContent).not.toContain('Enable lookup enhancement')
+  })
+
+  it('choosing OpenRouter fills the URL and consent is bound to the shown host', async () => {
+    settings.smartLookup.enhance.jev.model = 'my-model'
+    await openEnhanceTab()
+    await choosePreset('openrouter')
+    expect(settings.smartLookup.enhance.jev.url).toBe('https://openrouter.ai/api/alpha/decisions')
+    expect(settings.smartLookup.enhance.jev.model).toBe('my-model')
+    expect(consentLabel()).toContain('openrouter.ai')
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('openrouter.ai')
+    expect(consentCheckbox().checked).toBe(true)
+    await typeUrl('https://api.typesafe.ai/v1')
+    expect(settings.smartLookup.enhance.jev.preset).toBe('custom')
+    expect(consentLabel()).toContain('api.typesafe.ai')
+    expect(consentCheckbox().checked).toBe(false)
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('api.typesafe.ai')
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+  })
+
+  it('choosing Official Jev fills its URL; an explicit port is part of the host', async () => {
+    await openEnhanceTab()
+    await choosePreset('official')
+    expect(settings.smartLookup.enhance.jev).toMatchObject({ preset: 'official', url: 'https://api.typesafe.ai/v1' })
+    await typeUrl('http://LOCALHOST:8000/v1')
+    expect(consentLabel()).toContain('localhost:8000')
+  })
+
+  it('an unparseable URL disables the consent checkbox', async () => {
+    await openEnhanceTab()
+    await typeUrl('not a url')
+    expect(consentCheckbox().disabled).toBe(true)
+    await typeUrl('https://jev.example/v1')
+    expect(consentCheckbox().disabled).toBe(false)
+  })
+
+  it('a key is sent once, never stored in settings, and only its status is shown', async () => {
+    hostWith({ smart_lookup_key_status: () => ({ jev: false, chat: false }), smart_lookup_key_set: () => undefined })
+    await openEnhanceTab()
+    expect(keyRow('jev').textContent).toContain('Not saved')
+    await saveKey('jev', 'sk-test-123')
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_key_set', { kind: 'jev', key: 'sk-test-123' })
+    expect(invokeMock.mock.calls.filter(([cmd]) => cmd === 'smart_lookup_key_set')).toHaveLength(1)
+    expect(JSON.stringify(settings.smartLookup)).not.toContain('sk-test-123')
+    expect(document.body.textContent).not.toContain('sk-test-123')
+    expect(keyRow('jev').querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('')
+    expect(keyRow('jev').textContent).toContain('Saved')
+    expect(keyRow('jev').textContent).not.toContain('Not saved')
+    expect(keyRow('chat').textContent).toContain('Not saved')
+  })
+
+  it('a stored key can be replaced or cleared; a failed save keeps the status', async () => {
+    let fail = true
+    hostWith({
+      smart_lookup_key_status: () => ({ jev: false, chat: true }),
+      smart_lookup_key_set: () => { if (fail) throw new Error('store locked') },
+      smart_lookup_key_clear: () => undefined,
+    })
+    await openEnhanceTab()
+    expect(keyRow('chat').textContent).toContain('Saved')
+    expect(button(keyRow('chat'), 'Replace')).toBeTruthy()
+    await saveKey('chat', 'sk-new')
+    expect(keyRow('chat').textContent).toContain('store locked')
+    fail = false
+    await saveKey('chat', 'sk-new')
+    expect(invokeMock).toHaveBeenLastCalledWith('smart_lookup_key_set', { kind: 'chat', key: 'sk-new' })
+    button(keyRow('chat'), 'Clear').click()
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_key_clear', { kind: 'chat' })
+    expect(keyRow('chat').textContent).toContain('Not saved')
+  })
+
+  it('plain http with a key to a remote host warns and disables the test', async () => {
+    await openEnhanceTab()
+    await typeUrl('http://jev.example/v1')
+    expect(document.body.textContent).toContain('would send the key in clear text')
+    expect(testButton().disabled).toBe(true)
+    expect(consentCheckbox().disabled).toBe(true)
+    const auth = field<HTMLSelectElement>(jevSection(), 'Authentication', 'select')
+    auth.value = 'none'
+    auth.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(settings.smartLookup.enhance.jev.authMode).toBe('none')
+    expect(jevSection().textContent).not.toContain('would send the key in clear text')
+    expect(testButton().disabled).toBe(false)
+  })
+
+  it('tests the connection with exactly url, model and authMode and shows the outcome', async () => {
+    const results = [
+      { status: 'ok', missing: null, endpointHost: 'jev.example', statusClass: null, elapsedMs: 412 },
+      { status: 'keyInvalid', missing: null, endpointHost: 'jev.example', statusClass: '4xx', elapsedMs: 80 },
+      { status: 'unreachable', missing: null, endpointHost: 'jev.example', statusClass: '5xx', elapsedMs: 90 },
+    ]
+    hostWith({ smart_lookup_test_jev: () => results.shift() })
+    settings.smartLookup.enhance.jev = { preset: 'custom', url: 'https://jev.example/v1', model: 'm1', authMode: 'bearer', consentHost: '' }
+    await openEnhanceTab()
+    testButton().click()
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_test_jev', { config: { url: 'https://jev.example/v1', model: 'm1', authMode: 'bearer' } })
+    expect(jevSection().textContent).toContain('Connected (412 ms)')
+    testButton().click()
+    await settle()
+    expect(jevSection().textContent).toContain('jev.example rejected the key (4xx)')
+    testButton().click()
+    await settle()
+    expect(jevSection().textContent).toContain("Couldn't reach jev.example · 5xx")
+  })
+
+  it('the repair model has its own URL, model, key and test, and says what it sends', async () => {
+    hostWith({
+      smart_lookup_key_status: () => ({ jev: false, chat: false }),
+      smart_lookup_test_chat: () => ({ status: 'ok', missing: null, endpointHost: 'chat.example', statusClass: null, elapsedMs: 200 }),
+    })
+    await openEnhanceTab()
+    const chat = chatSection()
+    expect(chat.textContent).toContain('only the question and search terms are sent, never note content')
+    await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
+    await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
+    expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x' })
+    expect(settings.smartLookup.enhance.jev.url).toBe('')
+    button(chat, 'Test connection').click()
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_test_chat', { chat: { url: 'https://chat.example/v1', model: 'gpt-x' } })
+    expect(chatSection().textContent).toContain('Connected (200 ms)')
+    await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'http://chat.example/v1')
+    expect(chatSection().textContent).toContain('would send the key in clear text')
+    expect(button(chatSection(), 'Test connection').disabled).toBe(true)
+  })
+
+  it('the enable switch, budget and request example are on the page', async () => {
+    await openEnhanceTab()
+    const enabled = field<HTMLInputElement>(jevSection(), 'Enable lookup enhancement', 'input[type="checkbox"]')
+    expect(enabled.checked).toBe(true)
+    enabled.click()
+    await settle()
+    expect(settings.smartLookup.enhance.enabled).toBe(false)
+    expect(jevSection().textContent).toContain('At most 1 request per Return')
+    expect(jevSection().querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
+  })
+
+  it('gives every enhance form field a real accessible name', async () => {
+    await openEnhanceTab()
+    for (const control of document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.settings-content input, .settings-content select')) {
+      const label = control.getAttribute('aria-label') || control.getAttribute('aria-labelledby')
+        || Array.from(control.labels ?? []).map((item) => item.textContent?.trim()).join('')
+      expect(label, `missing field name: ${control.outerHTML}`).toBeTruthy()
+    }
+  })
+
+  it('the request example has the score_noul field structure', () => {
+    expect(Object.keys(JEV_REQUEST_EXAMPLE)).toEqual(['model', 'state', 'questions'])
+    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1)).toEqual(['type', 'instructions', 'criteria'])
+    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1.instructions)).toEqual(['title', 'breadcrumb', 'passage'])
+    expect((JEV_REQUEST_EXAMPLE as any).questions.c1.criteria).toEqual({
+      true: '候选直接符合用户这次要找的对象或内容。',
+      false: '候选不符合用户这次要找的对象或内容，或只是主题相近。',
+    })
+    expect((JEV_REQUEST_EXAMPLE as any).state).toMatch(/^用户要找的内容：<问题>\n判断准则：/)
   })
 })
 
