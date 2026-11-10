@@ -229,7 +229,7 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
 /// each item as the local hit with the same path and line range (or built
 /// from the item when the local lookup did not return it), then the other
 /// local hits in their order.
-fn evidence_first(evidence: &[EvidenceItemDto], local: &[SmartHitDto], vault_root: &Path) -> Vec<SmartHitDto> {
+pub(crate) fn evidence_first(evidence: &[EvidenceItemDto], local: &[SmartHitDto], vault_root: &Path) -> Vec<SmartHitDto> {
     let mut used = HashSet::new();
     let mut hits = Vec::with_capacity(evidence.len() + local.len());
     for item in evidence {
