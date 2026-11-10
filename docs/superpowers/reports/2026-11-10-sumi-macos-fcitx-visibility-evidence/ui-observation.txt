@@ -1,0 +1,4 @@
+2026-11-10 System Settings → Keyboard → Text Input → Edit
+Before: Chinese, Simplified add sheet first row selectable but no cell/text/icon; enabled sidebar only ABC and 微信输入法.
+After root TISRegisterInputSource and user interaction: enabled sidebar AX row: Fcitx5, Fcitx5.
+Fresh TIS confirms Fcitx5 parent enabled and zhHans enabled/selected. No agent selection call.
