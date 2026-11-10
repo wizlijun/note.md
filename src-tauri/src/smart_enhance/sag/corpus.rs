@@ -144,8 +144,8 @@ impl AliasMap {
     /// `sag2_v10.rs:Corpus::repair`: each alias match `source` is replaced by its
     /// value `target` when `source` has no hits and `target` has. `has_hits`
     /// gets the FTS expression `quote(fts_phrase(x))` (SAG2 quotes in the
-    /// callback; ours takes the expression, P4): stop words kept, because our
-    /// index keeps them (spec H.3.2, H.5 FTS 短语 row). Without a pattern the
+    /// callback; ours takes the expression, P4): inner stop words kept, because
+    /// our index keeps them (spec H.3.2, H.5 FTS 短语 row). Without a pattern the
     /// text comes back unchanged.
     ///
     /// SAG2 indexes `aliases[casefold(source)]`; this looks up
@@ -187,7 +187,9 @@ impl AliasMap {
     /// without hits falls back to its longest title sub-phrase of at least two
     /// tokens (ties: bytewise smallest) when that one has hits. `has_hits` gets
     /// `quote(term.phrase)`; a rewrite sets `term` to the `sag_tokens` of the new
-    /// text and `phrase` to its [`fts_phrase`]. The title fallback probes the
+    /// text and `phrase` to its [`fts_phrase`]. Repair runs on `term`, which has
+    /// no stop words (as in SAG2), so the rebuilt phrase keeps only the target's
+    /// inner stop words, not those once between the term's other tokens. The title fallback probes the
     /// phrases of the titles with that sub-phrase's tokens in byte order and
     /// takes the first with hits (SAG2 probes one string; ours can differ in
     /// stop words, spec H.3.5). `label` is left as it was: it is the spelling
@@ -546,15 +548,15 @@ mod tests {
         );
     }
 
-    /// A stub of our index, which keeps stop words: the stop-word phrases of
-    /// "Lord of the Rings", 我的世界 and 傲慢与偏见 have hits. Their
-    /// `sag_tokens` strings "lord rings" and "傲慢 偏见" are not adjacent in
-    /// such an index, so they have none ("世界" alone would hit a real index,
-    /// but it is a different, broader phrase).
+    /// A stub of our index, which keeps stop words: the inner-stop phrases of
+    /// "Lord of the Rings" and 傲慢与偏见 have hits, and so does "世界" (the
+    /// phrase of 我的世界, whose stops are at the edge). The `sag_tokens`
+    /// strings "lord rings" and "傲慢 偏见" are not adjacent in such an index,
+    /// so they have none.
     fn stop_word_index(asked: &mut Vec<String>) -> impl FnMut(&str) -> Result<bool, String> + '_ {
         |q: &str| {
             asked.push(q.to_owned());
-            Ok(matches!(q, "\"lord of the rings\"" | "\"我 的 世界\"" | "\"傲慢 与 偏见\""))
+            Ok(matches!(q, "\"lord of the rings\"" | "\"世界\"" | "\"傲慢 与 偏见\""))
         }
     }
 
@@ -582,7 +584,7 @@ mod tests {
         }
         assert_eq!(
             asked,
-            vec!["\"lotr\"", "\"lord of the rings\"", "\"mc\"", "\"我 的 世界\"", "\"pnp\"", "\"傲慢 与 偏见\""]
+            vec!["\"lotr\"", "\"lord of the rings\"", "\"mc\"", "\"世界\"", "\"pnp\"", "\"傲慢 与 偏见\""]
         );
     }
 
@@ -603,13 +605,13 @@ mod tests {
     #[test]
     fn resolve_terms_probe_and_rewrite_by_phrase() {
         let m = stop_word_aliases();
-        let mut world = term("世界", NamePhrase);
-        world.phrase = "我 的 世界".into();
+        let mut pride = term("傲慢 偏见", NamePhrase);
+        pride.phrase = "傲慢 与 偏见".into();
         let mut frodo = term("frodo lord rings", NamePhrase);
         frodo.phrase = "frodo lord of the rings".into();
         let mut austen = term("奥斯汀 傲慢 偏见", NamePhrase);
         austen.phrase = "奥斯汀 的 傲慢 与 偏见".into();
-        let mut t = vec![term("lotr", Word), world, frodo, austen];
+        let mut t = vec![term("lotr", Word), pride, frodo, austen];
         let mut asked = vec![];
         m.resolve_terms(&mut t, &mut stop_word_index(&mut asked)).unwrap();
         assert_eq!(
@@ -618,7 +620,7 @@ mod tests {
                 // Repaired: the term is re-tokenised, the phrase is the target's.
                 ("lord rings", "lord of the rings"),
                 // Probed by its phrase, which has hits: unchanged.
-                ("世界", "我 的 世界"),
+                ("傲慢 偏见", "傲慢 与 偏见"),
                 // Title fallback: the title's phrase is probed and taken.
                 ("lord rings", "lord of the rings"),
                 ("傲慢 偏见", "傲慢 与 偏见"),
@@ -629,7 +631,7 @@ mod tests {
             asked,
             vec![
                 "\"lotr\"", "\"lotr\"", "\"lord of the rings\"",
-                "\"我 的 世界\"",
+                "\"傲慢 与 偏见\"",
                 "\"frodo lord of the rings\"", "\"frodo lord of the rings\"", "\"lord of the rings\"",
                 "\"奥斯汀 的 傲慢 与 偏见\"", "\"奥斯汀 的 傲慢 与 偏见\"", "\"傲慢 与 偏见\"",
             ]

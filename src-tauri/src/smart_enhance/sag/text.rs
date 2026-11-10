@@ -50,25 +50,36 @@ const RIGHT: &str = r"(?![\p{L}\p{N}])";
 /// `searchidx::tokenize::tokens` (the query side must cut exactly like the index
 /// does), then SAG2's `WORD` and `STOPS` filters (spec H.2#1, H.5 分词/停用词).
 pub(crate) fn sag_tokens(text: &str) -> Vec<String> {
-    tokens(text)
-        .into_iter()
-        .filter(|t| WORD.is_match(t) && !STOP_SET.contains(t.as_str()))
-        .collect()
+    tokens(text).into_iter().filter(|t| is_sag_token(t)).collect()
 }
 
-/// The FTS5 phrase body for `surface`: the index tokenizer's tokens with stop
-/// words kept, joined by single spaces. `blocks_fts.tok_text` keeps every token,
-/// so a phrase built from `sag_tokens` (stops dropped) is not adjacent in the
-/// index and misses: "lord rings" does not match "lord of the rings". SAG2's
-/// index drops the same stops as its queries, so its `tokens(x).join(" ")`
-/// phrases stay adjacent (spec H.5 FTS 短语 row). Every phrase sent to FTS5 is
-/// built here from the surface text; the caller still applies [`quote`]. The
-/// term's identity and scoring string stays `sag_tokens(..).join(" ")`.
+/// Whether `sag_tokens` keeps the index token `t` (SAG2's `WORD` and `STOPS`).
+fn is_sag_token(t: &str) -> bool {
+    WORD.is_match(t) && !STOP_SET.contains(t)
+}
+
+/// The FTS5 phrase body for `surface`: the index tokenizer's tokens from the
+/// first to the last one `sag_tokens` keeps, inner stop words kept, joined by
+/// single spaces. `blocks_fts.tok_text` keeps every token, so a phrase built
+/// from `sag_tokens` (stops dropped) is not adjacent in the index and misses:
+/// "lord rings" does not match "lord of the rings". SAG2's index drops the same
+/// stops as its queries, so its `tokens(x).join(" ")` phrases stay adjacent
+/// (spec H.5 FTS 短语 row). Leading and trailing stops are dropped, because
+/// SAG2's phrase never requires them: "In Paris" gives "paris" and 我的世界
+/// gives "世界". So the phrase equals `sag_tokens(surface).join(" ")` whenever
+/// the surface has no inner stop word, and it is empty exactly when that is.
 ///
-/// jieba may cut a surface on its own differently from the same text inside a
-/// longer line, so a phrase can still miss in rare cases.
+/// Every phrase sent to FTS5 is built here from the surface text; the caller
+/// still applies [`quote`]. The term's identity and scoring string stays
+/// `sag_tokens(..).join(" ")`. jieba may cut a surface on its own differently
+/// from the same text inside a longer line, so a phrase can still miss in rare
+/// cases.
 pub(crate) fn fts_phrase(surface: &str) -> String {
-    tokens(surface).join(" ")
+    let all = tokens(surface);
+    match (all.iter().position(|t| is_sag_token(t)), all.iter().rposition(|t| is_sag_token(t))) {
+        (Some(first), Some(last)) => all[first..=last].join(" "),
+        _ => String::new(),
+    }
 }
 
 /// An FTS5 string literal (`text.rs:quote`).
@@ -123,7 +134,7 @@ pub(crate) fn sentences(text: &str) -> Vec<&str> {
 
 /// A name found in a sentence: byte range in the sentence, the term (tokens
 /// joined by single spaces), the spelling to show and the FTS phrase body
-/// ([`fts_phrase`] of the label).
+/// ([`fts_phrase`] of the label: inner stop words kept).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NameSpan {
     pub start: usize,
@@ -146,7 +157,7 @@ enum Source {
 
 /// The term of a name: `sag_tokens(text).join(" ")` for every source (P11; SAG2
 /// uses `tokenize(..).join(" ")` in `retrieval.rs:name_phrases`); its phrase is
-/// `fts_phrase(label)`, stop words kept (spec H.3.4).
+/// `fts_phrase(label)`, inner stop words kept (spec H.3.4).
 fn span(start: usize, end: usize, label: &str) -> NameSpan {
     NameSpan {
         start,
@@ -453,21 +464,39 @@ mod tests {
     }
 
     #[test]
-    fn fts_phrases_keep_the_stop_words_the_index_keeps() {
+    fn fts_phrases_keep_inner_stop_words() {
         assert_eq!(fts_phrase("Lord of the Rings"), "lord of the rings");
         assert_eq!(sag_tokens("Lord of the Rings").join(" "), "lord rings");
-        assert_eq!(fts_phrase("我的世界"), "我 的 世界");
-        assert_eq!(sag_tokens("我的世界").join(" "), "世界");
-        // The index stores exactly `tokens`, so the phrase is its own text.
+        assert_eq!(fts_phrase("傲慢与偏见"), "傲慢 与 偏见");
+        assert_eq!(fts_phrase("Bank of America"), "bank of america");
+        // Inside the edges the phrase is the index's own text.
         assert_eq!(fts_phrase("增量索引与全文检索"), searchidx::tokenize::tokenize("增量索引与全文检索"));
     }
 
     #[test]
+    fn fts_phrases_trim_edge_stop_words_so_the_phrase_is_the_term() {
+        // No inner stop word: phrase == term, exactly as at base and in SAG2.
+        for surface in ["In Paris", "我的世界", "The Beatles", "Paris of the", "the 的 Alice"] {
+            assert_eq!(fts_phrase(surface), sag_tokens(surface).join(" "), "{surface}");
+        }
+        assert_eq!(fts_phrase("In Paris"), "paris");
+        assert_eq!(fts_phrase("我的世界"), "世界");
+        // Edges trimmed, inner stop words kept.
+        assert_eq!(fts_phrase("The Lord of the Rings of"), "lord of the rings");
+        assert_eq!(fts_phrase("钢铁是怎样炼成的"), "钢铁 是 怎样 炼成");
+        // Only stop words, or no words: the phrase is empty, like the term.
+        for surface in ["The A", "的 我", "___", ""] {
+            assert_eq!(fts_phrase(surface), "", "{surface}");
+            assert!(sag_tokens(surface).is_empty(), "{surface}");
+        }
+    }
+
+    #[test]
     fn name_spans_carry_the_phrase_of_their_label() {
-        let n = name_spans("I loved [[The Lord of the Rings]] and [[我的世界]]", None);
+        let n = name_spans("I loved [[The Lord of the Rings]] and [[我的世界]] in [[傲慢与偏见]]", None);
         assert_eq!(
             n.iter().map(|x| (x.term.as_str(), x.phrase.as_str())).collect::<Vec<_>>(),
-            vec![("lord rings", "the lord of the rings"), ("世界", "我 的 世界")]
+            vec![("lord rings", "lord of the rings"), ("世界", "世界"), ("傲慢 偏见", "傲慢 与 偏见")]
         );
     }
 

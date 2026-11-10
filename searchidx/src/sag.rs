@@ -728,10 +728,11 @@ mod tests {
         assert_eq!(crate::query::free_text("tag: \"\" ext:md \"unclosed"), "tag: unclosed");
     }
 
-    /// Why the host builds every FTS phrase with stop words kept (spec H.5 FTS
-    /// 短语 row): `tok_text` stores every token, so a phrase with the stop
-    /// words dropped is not adjacent and misses. The host's `fts_phrase` is
-    /// `tokens(..).join(" ")`; its `sag_tokens` drops SAG2's stop words.
+    /// Why the host builds every FTS phrase with its inner stop words kept
+    /// (spec H.5 FTS 短语 row): `tok_text` stores every token, so a phrase with
+    /// an inner stop word dropped is not adjacent and misses. Inside its edges
+    /// the host's `fts_phrase` is `tokens(..).join(" ")`; its `sag_tokens`
+    /// drops SAG2's stop words.
     #[test]
     fn phrases_match_only_with_the_stop_words_the_index_keeps() {
         let dir = tempfile::tempdir().unwrap();
