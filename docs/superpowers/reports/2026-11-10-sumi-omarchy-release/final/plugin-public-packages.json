@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "signaturesValid": true,
+  "objects": [
+    {
+      "mode": "normal",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg",
+      "sha256": "b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8"
+    },
+    {
+      "mode": "normal",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "sha256": "7c5e0ad6e533a9b4c674ff961c974996fa5ae085f5393519700b4ac8d5a2665a"
+    },
+    {
+      "mode": "fresh",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg",
+      "sha256": "b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8"
+    },
+    {
+      "mode": "fresh",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "sha256": "7c5e0ad6e533a9b4c674ff961c974996fa5ae085f5393519700b4ac8d5a2665a"
+    }
+  ]
+}

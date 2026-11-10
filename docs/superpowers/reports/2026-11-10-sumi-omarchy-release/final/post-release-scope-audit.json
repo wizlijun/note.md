@@ -1,0 +1,47 @@
+{
+  "sourceTag": "v6.1110.2",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "sourceTagUnmoved": true,
+  "worktrees": [
+    {
+      "path": "/home/bruce/git/note.md",
+      "status": [
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/addon-source-publication.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/amd64-live-source-check.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/amd64-preservation.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/frozen-plugin.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/host-public-verification.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/index-preservation.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/plugin-entry.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/plugin-host-gate.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/plugin-index-write.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/plugin-public-packages.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/plugin-publication.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/website-assets.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/website-diagnosis.json",
+        "?? docs/superpowers/reports/2026-11-10-sumi-omarchy-release/final/website-redirects.json"
+      ]
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-candidates",
+      "status": []
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+      "status": [
+        "?? node_modules"
+      ]
+    }
+  ],
+  "candidateBranchPatchEquivalence": [
+    "- cf000db2d324a836a14cc4e05a6da584ec7531ba"
+  ],
+  "candidateFormalEvidenceAppliedAs": "2bbd9191",
+  "stash": [],
+  "scopeNotes": [
+    "New final/ evidence files belong to this release and will be committed precisely.",
+    "Old detached preview source/node_modules remains excluded.",
+    "Candidate documentation cf000db2 is patch-equivalent to applied 2bbd9191; production source already merged before the frozen tag.",
+    "Ignored build/test artifacts are excluded from frozen source; private credential copies are removed during final cleanup."
+  ]
+}

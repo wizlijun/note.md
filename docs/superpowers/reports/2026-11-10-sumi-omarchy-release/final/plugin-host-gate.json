@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "tag": "v6.1110.2",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "assets": [
+    {
+      "name": "note.md_6.1110.2_amd64.deb",
+      "bytes": 15848512,
+      "sha256": "0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976"
+    },
+    {
+      "name": "notemd-6.1110.2-1-x86_64.pkg.tar.zst",
+      "bytes": 15228959,
+      "sha256": "81dc102b1118fb8bcc1c33434923c59a65c96c58b2d2571cc03eaede3106ae2c"
+    },
+    {
+      "name": "fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+      "bytes": 58229,
+      "sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314"
+    }
+  ]
+}

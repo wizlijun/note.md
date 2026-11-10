@@ -1,0 +1,2873 @@
+Frozen Linux source: tag=v6.1110.2 commit=1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4 core=f581448bce5e9cf557059f0700297a527069b5ae jobs=2
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from linux-build.Dockerfile
+#1 transferring dockerfile: 1.70kB done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/debian:12
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.1s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [1/7] FROM docker.io/library/debian:12@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8
+#5 resolve docker.io/library/debian:12@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8 0.1s done
+#5 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 2.96kB 0.0s done
+#4 DONE 0.2s
+
+#6 [2/7] RUN apt-get update && apt-get install -y --no-install-recommends     build-essential pkg-config curl ca-certificates file git rsync xz-utils     libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev     libxdo-dev libssl-dev libsecret-1-dev libpulse-dev libfontconfig1-dev patchelf     && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [3/7] RUN curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/node-setup.sh     && bash /tmp/node-setup.sh     && rm /tmp/node-setup.sh     && apt-get install -y --no-install-recommends nodejs     && corepack enable     && rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [4/7] COPY src-tauri/rust-toolchain.toml /opt/notemd/rust-toolchain.toml
+#8 CACHED
+
+#9 [5/7] RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup.sh     && sh /tmp/rustup.sh -y --profile minimal --default-toolchain none     && channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' /opt/notemd/rust-toolchain.toml)     && profile=$(sed -n 's/^profile = "\(.*\)"/\1/p' /opt/notemd/rust-toolchain.toml)     && rustup toolchain install "$channel" --profile "$profile"     && rustup default "$channel"     && rm /tmp/rustup.sh
+#9 CACHED
+
+#10 [6/7] COPY scripts/docker/linux-build.sh /usr/local/bin/notemd-linux-build
+#10 CACHED
+
+#11 [7/7] WORKDIR /build
+#11 CACHED
+
+#12 exporting to image
+#12 exporting layers 0.0s done
+#12 exporting manifest sha256:744b8698a20ebd7e578f42c45ba156083ee4ffb895b542377ba676143dd4cbce 0.0s done
+#12 exporting config sha256:4a60011f006091113eeb246f414a8b8252c4ad714a518198f3ac475efcef6434 0.0s done
+#12 exporting attestation manifest sha256:5399af917023a71506f9ae710e499814600ba80f138c615134d4138f4871b3b1
+#12 exporting attestation manifest sha256:5399af917023a71506f9ae710e499814600ba80f138c615134d4138f4871b3b1 0.1s done
+#12 exporting manifest list sha256:00648c891a54487bdad7c135d2848f30eaa6894b1d8e64b8c00031a098c4b214 0.1s done
+#12 naming to docker.io/library/notemd-linux-build:amd64
+#12 naming to docker.io/library/notemd-linux-build:amd64 0.0s done
+#12 unpacking to docker.io/library/notemd-linux-build:amd64 0.1s done
+#12 DONE 0.4s
+info: component rust-std is up to date
+Scope: all 28 workspace projects
+? Verifying lockfile against supply-chain policies (406 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +354
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 354, reused 0, downloaded 0, added 0
+Progress: resolved 354, reused 0, downloaded 1, added 0
+Progress: resolved 354, reused 0, downloaded 6, added 6
+Progress: resolved 354, reused 1, downloaded 11, added 12
+Progress: resolved 354, reused 1, downloaded 14, added 14
+Progress: resolved 354, reused 1, downloaded 18, added 18
+Progress: resolved 354, reused 1, downloaded 26, added 24
+[WARN] Request took 10177ms: https://registry.npmjs.org/@esbuild%2Fandroid-arm
+Progress: resolved 354, reused 1, downloaded 31, added 31
+[WARN] Request took 10434ms: https://registry.npmjs.org/@esbuild%2Fwin32-ia32
+[WARN] Request took 10544ms: https://registry.npmjs.org/@esbuild%2Flinux-s390x
+[WARN] Request took 10552ms: https://registry.npmjs.org/@esbuild%2Flinux-x64
+[WARN] Request took 10574ms: https://registry.npmjs.org/@esbuild%2Fopenbsd-x64
+[WARN] Request took 10566ms: https://registry.npmjs.org/@esbuild%2Fsunos-x64
+[WARN] Request took 10627ms: https://registry.npmjs.org/@esbuild%2Fnetbsd-x64
+[WARN] Request took 10757ms: https://registry.npmjs.org/@esbuild%2Fwin32-arm64
+Progress: resolved 354, reused 1, downloaded 39, added 40
+[WARN] Request took 11905ms: https://registry.npmjs.org/@esbuild%2Ffreebsd-x64
+[WARN] Request took 11872ms: https://registry.npmjs.org/@esbuild%2Flinux-mips64el
+[WARN] Request took 11906ms: https://registry.npmjs.org/@esbuild%2Flinux-arm
+[WARN] Request took 11924ms: https://registry.npmjs.org/@esbuild%2Flinux-arm64
+[WARN] Request took 11914ms: https://registry.npmjs.org/@esbuild%2Flinux-ia32
+[WARN] Request took 11889ms: https://registry.npmjs.org/@esbuild%2Flinux-riscv64
+[WARN] Request took 12002ms: https://registry.npmjs.org/@esbuild%2Flinux-ppc64
+Progress: resolved 354, reused 1, downloaded 45, added 46
+Progress: resolved 354, reused 1, downloaded 47, added 47
+[WARN] Request took 13359ms: https://registry.npmjs.org/@esbuild%2Flinux-loong64
+Progress: resolved 354, reused 1, downloaded 54, added 55
+Progress: resolved 354, reused 1, downloaded 62, added 63
+[WARN] Request took 16177ms: https://registry.npmjs.org/@revolist%2Frevogrid
+Progress: resolved 354, reused 1, downloaded 68, added 69
+[WARN] Request took 18588ms: https://registry.npmjs.org/pnpm
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │      Update available! 11.7.0 → 12.18.0.      │
+   │     Changelog: https://pnpm.io/v/12.18.0      │
+   │   To update, run: corepack use pnpm@12.18.0   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+Progress: resolved 354, reused 1, downloaded 78, added 79
+Progress: resolved 354, reused 1, downloaded 89, added 90
+Progress: resolved 354, reused 1, downloaded 98, added 98
+Progress: resolved 354, reused 1, downloaded 107, added 106
+✓ Lockfile passes supply-chain policies (406 entries in 23s)
+Progress: resolved 354, reused 1, downloaded 114, added 115
+Progress: resolved 354, reused 1, downloaded 126, added 124
+Progress: resolved 354, reused 1, downloaded 138, added 138
+Progress: resolved 354, reused 1, downloaded 147, added 150
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /cache/pnpm/v11
+  Virtual store is at:             node_modules/.pnpm
+Progress: resolved 354, reused 1, downloaded 152, added 156
+Progress: resolved 354, reused 1, downloaded 157, added 162
+Progress: resolved 354, reused 1, downloaded 167, added 171
+Progress: resolved 354, reused 1, downloaded 174, added 179
+Progress: resolved 354, reused 1, downloaded 185, added 191
+Progress: resolved 354, reused 1, downloaded 199, added 205
+Progress: resolved 354, reused 1, downloaded 208, added 213
+Progress: resolved 354, reused 1, downloaded 225, added 231
+Progress: resolved 354, reused 1, downloaded 240, added 246
+Progress: resolved 354, reused 1, downloaded 247, added 253
+Progress: resolved 354, reused 1, downloaded 251, added 256
+Progress: resolved 354, reused 1, downloaded 255, added 261
+Progress: resolved 354, reused 1, downloaded 261, added 267
+Progress: resolved 354, reused 1, downloaded 271, added 276
+Progress: resolved 354, reused 1, downloaded 279, added 284
+Progress: resolved 354, reused 1, downloaded 280, added 284
+Progress: resolved 354, reused 1, downloaded 284, added 290
+Progress: resolved 354, reused 1, downloaded 287, added 293
+Progress: resolved 354, reused 1, downloaded 290, added 295
+Progress: resolved 354, reused 1, downloaded 293, added 298
+Progress: resolved 354, reused 1, downloaded 298, added 304
+Progress: resolved 354, reused 1, downloaded 300, added 305
+Progress: resolved 354, reused 1, downloaded 306, added 310
+Progress: resolved 354, reused 1, downloaded 308, added 312
+Progress: resolved 354, reused 1, downloaded 314, added 319
+Progress: resolved 354, reused 1, downloaded 318, added 324
+Progress: resolved 354, reused 1, downloaded 321, added 327
+Progress: resolved 354, reused 1, downloaded 323, added 329
+Progress: resolved 354, reused 1, downloaded 327, added 333
+Progress: resolved 354, reused 1, downloaded 337, added 344
+Progress: resolved 354, reused 1, downloaded 340, added 346
+Progress: resolved 354, reused 1, downloaded 341, added 347
+Progress: resolved 354, reused 1, downloaded 343, added 349
+Progress: resolved 354, reused 1, downloaded 344, added 350
+Progress: resolved 354, reused 1, downloaded 345, added 352
+Progress: resolved 354, reused 1, downloaded 345, added 353
+Progress: resolved 354, reused 1, downloaded 346, added 353
+Progress: resolved 354, reused 1, downloaded 346, added 354, done
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+
+dependencies:
++ @moraya/core @moraya/core@file:../moraya-core(highlight.js@11.11.1)(katex@0.16.47)(markdown-it-deflist@3.0.0)(markdown-it-texmath@1.0.0)(markdown-it@14.3.3)(mermaid@11.17.2)(node-emoji@2.2.0)(prosemirror-commands@1.7.1)(prosemirror-dropcursor@1.8.2)(prosemirror-history@1.5.0)(prosemirror-inputrules@1.5.1)(prosemirror-keymap@1.2.3)(prosemirror-markdown@1.13.4)(prosemirror-model@1.25.11)(prosemirror-schema-list@1.5.1)(prosemirror-state@1.4.4)(prosemirror-tables@1.8.5)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.3)
++ @revolist/svelte-datagrid 4.21.8
++ @tauri-apps/api 2.11.0
++ @tauri-apps/plugin-clipboard-manager 2.3.2
++ @tauri-apps/plugin-deep-link 2.4.9
++ @tauri-apps/plugin-dialog 2.7.1
++ @tauri-apps/plugin-fs 2.5.1
++ @tauri-apps/plugin-http 2.5.9
++ @tauri-apps/plugin-opener 2.5.4
++ @tauri-apps/plugin-os 2.3.2
++ @tauri-apps/plugin-process 2.3.1
++ @tauri-apps/plugin-store 2.4.3
++ @tauri-apps/plugin-updater 2.10.1
++ @viz-js/viz 3.26.0
++ @xyflow/svelte 1.6.6
++ dompurify 3.4.17
++ fflate 0.8.3
++ highlight.js 11.11.1
++ katex 0.16.47
++ marked 18.0.3
++ marked-highlight 2.2.4
++ marked-katex-extension 5.1.8
++ mermaid 11.17.2
++ mermaid-mini 11.14.0-mdeditor.1
++ pele 1.6.0
++ svelte-sonner 1.1.1
++ yaml 2.9.0
+
+devDependencies:
++ @sveltejs/vite-plugin-svelte 5.1.1
++ @tauri-apps/cli 2.11.1
++ @testing-library/svelte 5.4.2
++ @types/node 22.20.1
++ fake-indexeddb 6.2.5
++ happy-dom 20.9.0
++ jsdom 25.0.1
++ json-schema-to-typescript 15.0.4
++ prosemirror-commands 1.7.1
++ prosemirror-history 1.5.0
++ prosemirror-model 1.25.11
++ prosemirror-schema-basic 1.2.4
++ prosemirror-schema-list 1.5.1
++ prosemirror-state 1.4.4
++ prosemirror-transform 1.12.0
++ prosemirror-view 1.42.3
++ svelte 5.55.5
++ svelte-check 4.4.8
++ typescript 5.9.3
++ vite 6.4.2
++ vitest 4.1.5
+
+Done in 1m 18.1s using pnpm v11.7.0
+$ tauri build --target x86_64-unknown-linux-gnu --bundles deb
+        Info Looking up installed tauri packages to check mismatched versions...
+        Warn The bundle identifier "net.notemd.app" set in `"tauri.conf.json" identifier` ends with `.app`. This is not recommended because it conflicts with the application bundle extension on macOS.
+     Running beforeBuildCommand `pnpm build`
+$ python3 scripts/prepare-sumi-font.py && node scripts/check-share-merge-purity.mjs && node scripts/build-share-editor.mjs && vite build && node scripts/check-editor-kit-build.mjs && node scripts/check-share-editor-build.mjs
+Sumi: 6 selected cascades, 7 fonts, licenses and provenance verified; obsolete fonts removed
+Share merge purity OK (14 production TypeScript files)
+vite v6.4.2 building for production...
+transforming...
+5:12:21 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+35:   // Host capabilities are supplied by the caller; the menu also runs on shared pages.
+36:   const groups = getMenuModel({
+37:     hasSelection,
+                    ^
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+5:12:21 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+37:     hasSelection,
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+             ^
+40:     resource: untrack(() => resource),
+41:     readOnly,
+5:12:21 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+39:     image,
+40:     resource: untrack(() => resource),
+41:     readOnly,
+                ^
+42:     traceInstalled: untrack(() => traceInstalled),
+43:     allowImageInsert: untrack(() => allowImageInsert),
+5:12:21 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+45: 
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+                               ^
+48:   let left = $state(position.x)
+49:   let openSubId = $state<string | null>(null)
+5:12:21 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+48:   let left = $state(position.x)
+                                ^
+49:   let openSubId = $state<string | null>(null)
+50:   let subMenuEl: HTMLDivElement | undefined = $state()
+✓ 347 modules transformed.
+rendering chunks...
+✓ built in 52.34s
+vite v6.4.2 building for production...
+transforming...
+✓ 4 modules transformed.
+rendering chunks...
+✓ built in 16.23s
+{
+  "apiVersion": 1,
+  "js": {
+    "name": "share-editor.763977012f186597ff7f55b645d49d9bd0724925509aedbc6d84ba23fd71947a.js",
+    "sha256": "763977012f186597ff7f55b645d49d9bd0724925509aedbc6d84ba23fd71947a",
+    "sri": "sha384-/JDr9k+GakQ3GKl0/rNVadup4mkq1wkIk4Z9E9ezV/WBIMCGIIFPzRjl/rgzdTht"
+  },
+  "css": {
+    "name": "share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css",
+    "sha256": "a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd",
+    "sri": "sha384-z/4e310TbTzfT4wXIvVYb2Bhzdv60WjXCfS4m8a27mc1jqQ6RZomgzvJSV0OkLfl"
+  },
+  "mermaid": {
+    "name": "share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js",
+    "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd",
+    "sri": "sha384-CrfNyKRTuv4LBgSqm/JweJ+SZEkdWFH73Wl6y7Kkqy0FJYXgE5/arv43M2ZDfI/Y"
+  }
+}
+vite v6.4.2 building for production...
+transforming...
+5:13:19 AM [vite-plugin-svelte] src/daily-notes-app.svelte:252:31 `<h1>` element should contain text
+https://svelte.dev/e/a11y_missing_content
+250:        its computed font/color to drive the read-only outline typography above. -->
+251:   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+252:     <div class="moraya-editor"><h1></h1><hr /></div>
+                                             ^
+253:   </div>
+254:   {#if !ready}
+5:13:24 AM [vite-plugin-svelte] src/components/TabBar.svelte:177:12 Elements with the 'button' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+175:             <span class="title">{displayTitleForDocument(tab)}</span>
+176:             {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
+177:             <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+                                                                                               ^
+178:           </button>
+179:         {/each}
+5:13:24 AM [vite-plugin-svelte] src/components/TabBar.svelte:177:12 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+175:             <span class="title">{displayTitleForDocument(tab)}</span>
+176:             {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
+177:             <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+                                                                                               ^
+178:           </button>
+179:         {/each}
+5:13:24 AM [vite-plugin-svelte] src/components/EmptyState.svelte:29:0 `<div>` with a dblclick handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+27: </script>
+28: 
+29: <div class="empty" ondblclick={onDblClick}>
+          ^
+30:   <div class="welcome">
+31:     <div class="artwork">
+5:13:29 AM [vite-plugin-svelte] src/components/UpdateDialog.svelte:46:4 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+44: {#if open}
+45:   <div class="overlay" role="presentation" onclick={close}>
+46:     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
+              ^
+47:          onclick={(e) => e.stopPropagation()}>
+48: 
+5:13:29 AM [vite-plugin-svelte] src/components/UpdateDialog.svelte:46:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+44: {#if open}
+45:   <div class="overlay" role="presentation" onclick={close}>
+46:     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
+              ^
+47:          onclick={(e) => e.stopPropagation()}>
+48: 
+5:13:29 AM [vite-plugin-svelte] src/components/FindReplace.svelte:77:2 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+https://svelte.dev/e/a11y_no_noninteractive_element_interactions
+75: 
+76: {#if findState.open}
+77:   <div class="find-bar" role="search" onkeydown={onKeyDown}>
+            ^
+78:     <div class="find-row">
+79:       <div class="input-wrap">
+5:13:36 AM [vite-plugin-svelte] src/components/daily/DailyDay.svelte:356:2 Unused CSS selector ".empty-day"
+https://svelte.dev/e/css_unused_selector
+354:     margin: 0;
+355:   }
+356:   .empty-day {
+                 ^
+357:     opacity: 0.45;
+358:     cursor: text;
+5:13:37 AM [vite-plugin-svelte] src/components/outline/OutlineEditor.svelte:921:0 `<div>` with a contextmenu handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+919: </script>
+920: 
+921: <div class="outline-editor" class:embedded oncontextmenu={(e) => { if (!embedded) e.preventDefault() }}
+           ^
+922:   style={embedded ? '' : `--outline-font-family: ${typo.family}; --outline-font-size: ${typo.size}; --outline-line-height: ${typo.line};${typo.fg ? ` color: ${typo.fg};` : ''}${typo.bg ? ` background: ${typo.bg};` : ''}`}>
+923:   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+5:13:37 AM [vite-plugin-svelte] src/components/outline/OutlineEditor.svelte:983:2 Elements with the 'tree' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+981:   {/if}
+982:   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+983:   <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
+             ^
+984:     onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
+985:     {#each visibleRoots as node (node.id)}
+5:13:38 AM [vite-plugin-svelte] src/components/BaseView.svelte:174:14 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+172:               ondrop={() => editable && onDrop(col)}
+173:             >
+174:               <span class="th-label" onclick={() => toggleSort(col)}>
+                          ^
+175:                 {label(col)}
+176:                 {#if clickSort?.property === col}<span class="sort-arrow">{clickSort.direction === 'ASC' ? '▲' : '▼'}</span>{/if}
+5:13:38 AM [vite-plugin-svelte] src/components/BaseView.svelte:174:14 `<span>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+172:               ondrop={() => editable && onDrop(col)}
+173:             >
+174:               <span class="th-label" onclick={() => toggleSort(col)}>
+                          ^
+175:                 {label(col)}
+176:                 {#if clickSort?.property === col}<span class="sort-arrow">{clickSort.direction === 'ASC' ? '▲' : '▼'}</span>{/if}
+5:13:52 AM [vite-plugin-svelte] src/components/BaseColumnMenu.svelte:24:27 This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+22: 
+23:   let el = $state<HTMLDivElement | null>(null)
+24:   let pos = $state({ left: x, top: y })
+                                ^
+25:   // Keep the panel fully on screen — shifts left so the right edge stays inside
+26:   // the viewport (right-aligns the rightmost column's menu instead of clipping).
+5:13:52 AM [vite-plugin-svelte] src/components/BaseColumnMenu.svelte:24:35 This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+22: 
+23:   let el = $state<HTMLDivElement | null>(null)
+24:   let pos = $state({ left: x, top: y })
+                                        ^
+25:   // Keep the panel fully on screen — shifts left so the right edge stays inside
+26:   // the viewport (right-aligns the rightmost column's menu instead of clipping).
+5:13:52 AM [vite-plugin-svelte] src/components/BaseAddColumnMenu.svelte:16:27 This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+14: 
+15:   let el = $state<HTMLDivElement | null>(null)
+16:   let pos = $state({ left: x, top: y })
+                                ^
+17:   // Keep the panel fully on screen (right-aligns near the viewport's right edge).
+18:   $effect(() => {
+5:13:52 AM [vite-plugin-svelte] src/components/BaseAddColumnMenu.svelte:16:35 This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+14: 
+15:   let el = $state<HTMLDivElement | null>(null)
+16:   let pos = $state({ left: x, top: y })
+                                        ^
+17:   // Keep the panel fully on screen (right-aligns near the viewport's right edge).
+18:   $effect(() => {
+5:13:53 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+35:   // Host capabilities are supplied by the caller; the menu also runs on shared pages.
+36:   const groups = getMenuModel({
+37:     hasSelection,
+                    ^
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+5:13:53 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+37:     hasSelection,
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+             ^
+40:     resource: untrack(() => resource),
+41:     readOnly,
+5:13:53 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+39:     image,
+40:     resource: untrack(() => resource),
+41:     readOnly,
+                ^
+42:     traceInstalled: untrack(() => traceInstalled),
+43:     allowImageInsert: untrack(() => allowImageInsert),
+5:13:53 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+45: 
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+                               ^
+48:   let left = $state(position.x)
+49:   let openSubId = $state<string | null>(null)
+5:13:53 AM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+48:   let left = $state(position.x)
+                                ^
+49:   let openSubId = $state<string | null>(null)
+50:   let subMenuEl: HTMLDivElement | undefined = $state()
+5:13:54 AM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:311:2 Elements with the 'treeitem' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+309: 
+310: <div class="node" class:has-guide={showChildren && kids.length > 0} style="--depth: {depth}">
+311:   <div
+           ^
+312:     class="row"
+313:     class:auto={node.source !== 'manual'}
+5:13:54 AM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:336:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+334:         }}>▾</button>
+335:     {/if}
+336:     <span
+              ^
+337:       class="bullet"
+338:       class:has-kids={kids.length > 0}
+5:13:54 AM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:336:4 `<span>` with a dragstart or click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+334:         }}>▾</button>
+335:     {/if}
+336:     <span
+              ^
+337:       class="bullet"
+338:       class:has-kids={kids.length > 0}
+5:14:04 AM [vite-plugin-svelte] src/components/outline/RefTreeNode.svelte:23:25 This reference only captures the initial value of `defaultCollapsed`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+21:   } = $props()
+22: 
+23:   let collapsed = $state(defaultCollapsed)
+                                             ^
+24:   const hasChildren = $derived(node.children.length > 0)
+25: 
+5:14:04 AM [vite-plugin-svelte] src/components/outline/RefTreeNode.svelte:80:6 noninteractive element cannot have nonnegative tabIndex value
+https://svelte.dev/e/a11y_no_noninteractive_tabindex
+78:     {:else}
+79:       <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
+80:       <span
+               ^
+81:         class="text" class:editable
+82:         role={editable ? 'button' : undefined}
+src/lib/project-share/review.svelte.ts (147:64): A comment
+
+"/* @__PURE__ */"
+
+in "src/lib/project-share/review.svelte.ts" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+5:14:07 AM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:273:2 Unused CSS selector ".harness"
+https://svelte.dev/e/css_unused_selector
+271:   }
+272:   .copy-context:disabled { opacity: 0.3; cursor: default; }
+273:   .harness { display: flex; margin: 0 0 4px; }
+               ^
+274:   /* select inherits neither font-size nor family — declare both, or the row
+275:      drifts at larger UI font sizes. */
+5:14:07 AM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:276:2 Unused CSS selector ".pick"
+https://svelte.dev/e/css_unused_selector
+274:   /* select inherits neither font-size nor family — declare both, or the row
+275:      drifts at larger UI font sizes. */
+276:   .pick {
+            ^
+277:     font: inherit;
+278:     font-size: 11px;
+5:14:07 AM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:288:2 Unused CSS selector ".pick:disabled"
+https://svelte.dev/e/css_unused_selector
+286:     cursor: pointer;
+287:   }
+288:   .pick:disabled { cursor: default; opacity: 0.45; }
+                     ^
+289:   .one {
+290:     font-size: 11px;
+5:14:07 AM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:289:2 Unused CSS selector ".one"
+https://svelte.dev/e/css_unused_selector
+287:   }
+288:   .pick:disabled { cursor: default; opacity: 0.45; }
+289:   .one {
+           ^
+290:     font-size: 11px;
+291:     opacity: 0.55;
+✓ 3389 modules transformed.
+rendering chunks...
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/daily/folds.ts is dynamically imported by /build/mdeditor/src/daily-notes-app.svelte but also statically imported by /build/mdeditor/src/components/daily/DailyDay.svelte, /build/mdeditor/src/components/daily/DailyFocus.svelte, /build/mdeditor/src/components/daily/DailyPage.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/note-anno/note-commands.ts is dynamically imported by /build/mdeditor/src/lib/context-menu/rich-actions.ts, /build/mdeditor/src/lib/context-menu/rich-actions.ts, /build/mdeditor/src/lib/slash-menu/slash-items-common.ts but also statically imported by /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/editor-kit-v2/file-main.ts, /build/mdeditor/src/lib/project-share/review.svelte.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/node_modules/.pnpm/@tauri-apps+api@2.11.0/node_modules/@tauri-apps/api/path.js is dynamically imported by /build/mdeditor/src/components/VaultBrowser.svelte, /build/mdeditor/src/lib/cli/share-cli.ts, /build/mdeditor/src/lib/dialogs.ts, /build/mdeditor/src/lib/dialogs.ts, /build/mdeditor/src/lib/editor-bridge.ts, /build/mdeditor/src/lib/mdblock/path.ts, /build/mdeditor/src/lib/paste-resources.ts, /build/mdeditor/src/lib/vault.svelte.ts but also statically imported by /build/mdeditor/node_modules/.pnpm/@tauri-apps+plugin-fs@2.5.1/node_modules/@tauri-apps/plugin-fs/dist-js/index.js, /build/mdeditor/src/lib/latest-menu.ts, /build/mdeditor/src/lib/recent-sync.svelte.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/node_modules/.pnpm/@tauri-apps+plugin-fs@2.5.1/node_modules/@tauri-apps/plugin-fs/dist-js/index.js is dynamically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/SyncOriginBanner.svelte, /build/mdeditor/src/components/daily/DailyDay.svelte, /build/mdeditor/src/components/daily/DailyDay.svelte, /build/mdeditor/src/components/daily/DailyDay.svelte, /build/mdeditor/src/components/daily/DailyFocus.svelte, /build/mdeditor/src/components/daily/DailyFocus.svelte, /build/mdeditor/src/components/daily/DailyPage.svelte, /build/mdeditor/src/components/daily/DailyPage.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/lib/blockio/yaml-rw.ts, /build/mdeditor/src/lib/blockio/yaml-rw.ts, /build/mdeditor/src/lib/cli/share-cli.ts, /build/mdeditor/src/lib/daily/folds.ts, /build/mdeditor/src/lib/daily/folds.ts, /build/mdeditor/src/lib/mdblock/auto-refresh.ts, /build/mdeditor/src/lib/mdblock/commands.ts, /build/mdeditor/src/lib/mdblock/commands.ts, /build/mdeditor/src/lib/mdblock/path.ts, /build/mdeditor/src/lib/note-anno/adopt-answer.ts, /build/mdeditor/src/lib/note-anno/answers-store.svelte.ts, /build/mdeditor/src/lib/note-anno/answers-store.svelte.ts, /build/mdeditor/src/lib/open-path.ts, /build/mdeditor/src/lib/outline/backlinks-io.svelte.ts, /build/mdeditor/src/lib/outline/backlinks-io.svelte.ts, /build/mdeditor/src/lib/outline/backlinks.ts, /build/mdeditor/src/lib/outline/backlinks.ts, /build/mdeditor/src/lib/outline/create.ts, /build/mdeditor/src/lib/outline/daily.ts, /build/mdeditor/src/lib/outline/migrate.ts, /build/mdeditor/src/lib/outline/note-writeback-io.ts, /build/mdeditor/src/lib/outline/question-capture.ts, /build/mdeditor/src/lib/outline/recall-writeback-io.ts, /build/mdeditor/src/lib/outline/rename-pair.ts, /build/mdeditor/src/lib/outline/store.svelte.ts, /build/mdeditor/src/lib/plugins/host-render-html.ts, /build/mdeditor/src/lib/sotvault.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/wikilink/blocklist-io.svelte.ts, /build/mdeditor/src/lib/wikilink/blocklist-io.svelte.ts, /build/mdeditor/src/lib/wikilink/blocklist-io.svelte.ts but also statically imported by /build/mdeditor/src/components/BaseView.svelte, /build/mdeditor/src/components/InsightsPanel.svelte, /build/mdeditor/src/components/project-review/ProjectReview.svelte, /build/mdeditor/src/components/share-guest/GuestPanel.svelte, /build/mdeditor/src/lib/adapters/tauri-media-resolver.ts, /build/mdeditor/src/lib/base/create.ts, /build/mdeditor/src/lib/cli/CliRunner.svelte, /build/mdeditor/src/lib/cli/share-cli.ts, /build/mdeditor/src/lib/context-menu/resource-actions.ts, /build/mdeditor/src/lib/file-watcher.svelte.ts, /build/mdeditor/src/lib/folder-view.svelte.ts, /build/mdeditor/src/lib/fs.ts, /build/mdeditor/src/lib/insights/run.ts, /build/mdeditor/src/lib/insights/tracker.svelte.ts, /build/mdeditor/src/lib/latest-menu.ts, /build/mdeditor/src/lib/outline/backlinks-io.svelte.ts, /build/mdeditor/src/lib/quick-note.svelte.ts, /build/mdeditor/src/lib/recent-sync.svelte.ts, /build/mdeditor/src/lib/share/upload-image.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/dialogs.ts is dynamically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/NativeFileView.svelte, /build/mdeditor/src/components/NativeFileView.svelte, /build/mdeditor/src/components/NativeFileView.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/lib/plugins/file-view-presentation.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts but also statically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/DrawerNav.svelte, /build/mdeditor/src/components/EmptyState.svelte, /build/mdeditor/src/components/ExternalChangeBanner.svelte, /build/mdeditor/src/components/FolderView.svelte, /build/mdeditor/src/components/ProjectShareDialog.svelte, /build/mdeditor/src/components/TabBar.svelte, /build/mdeditor/src/components/VaultBrowser.svelte, /build/mdeditor/src/components/canvas/CanvasView.svelte, /build/mdeditor/src/components/project-review/ProjectReview.svelte, /build/mdeditor/src/components/side-panel/SearchPanel.svelte, /build/mdeditor/src/lib/base/create.ts, /build/mdeditor/src/lib/commands.ts, /build/mdeditor/src/lib/context-menu/resource-actions.ts, /build/mdeditor/src/lib/mdblock/commands.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/mdblock/path.ts is dynamically imported by /build/mdeditor/src/lib/blockio/citation.ts but also statically imported by /build/mdeditor/src/lib/mdblock-hover/hover-store.svelte.ts, /build/mdeditor/src/lib/mdblock/auto-refresh.ts, /build/mdeditor/src/lib/mdblock/commands.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/tabs.svelte.ts is dynamically imported by /build/mdeditor/src/components/FilePluginView.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/lib/mdblock/commands.ts, /build/mdeditor/src/lib/plugins/file-view-presentation.svelte.ts, /build/mdeditor/src/lib/share-guest/host.ts, /build/mdeditor/src/lib/share-guest/host.ts, /build/mdeditor/src/lib/share-guest/host.ts, /build/mdeditor/src/lib/sotvault.svelte.ts but also statically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/BaseView.svelte, /build/mdeditor/src/components/CsvEditor.svelte, /build/mdeditor/src/components/CustomEditorIframe.svelte, /build/mdeditor/src/components/DrawerNav.svelte, /build/mdeditor/src/components/EditorPane.svelte, /build/mdeditor/src/components/EmptyState.svelte, /build/mdeditor/src/components/ExternalChangeBanner.svelte, /build/mdeditor/src/components/FilePluginView.svelte, /build/mdeditor/src/components/FolderView.svelte, /build/mdeditor/src/components/InsightsPanel.svelte, /build/mdeditor/src/components/MirrorSiblingsBanner.svelte, /build/mdeditor/src/components/MobileToolbar.svelte, /build/mdeditor/src/components/NativeFileView.svelte, /build/mdeditor/src/components/ProjectShareDialog.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/SourceView.svelte, /build/mdeditor/src/components/SumiRecovery.svelte, /build/mdeditor/src/components/SyncOriginBanner.svelte, /build/mdeditor/src/components/TabBar.svelte, /build/mdeditor/src/components/VaultBrowser.svelte, /build/mdeditor/src/components/canvas/CanvasView.svelte, /build/mdeditor/src/components/daily/DailyDay.svelte, /build/mdeditor/src/components/daily/DailyFocus.svelte, /build/mdeditor/src/components/daily/DailyPage.svelte, /build/mdeditor/src/components/history/HistoryPanel.svelte, /build/mdeditor/src/components/outline/LinkedReferences.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/components/share-guest/GuestPanel.svelte, /build/mdeditor/src/components/share-guest/OpenShareDialog.svelte, /build/mdeditor/src/components/side-panel/SearchPanel.svelte, /build/mdeditor/src/lib/autosave.svelte.ts, /build/mdeditor/src/lib/base/create.ts, /build/mdeditor/src/lib/commands.ts, /build/mdeditor/src/lib/context-menu/source-actions.ts, /build/mdeditor/src/lib/context-menu/trace-action.ts, /build/mdeditor/src/lib/editor-bridge.ts, /build/mdeditor/src/lib/file-watcher.svelte.ts, /build/mdeditor/src/lib/insights/tracker.svelte.ts, /build/mdeditor/src/lib/mdblock/commands.ts, /build/mdeditor/src/lib/open-path.ts, /build/mdeditor/src/lib/outline/backlinks-io.svelte.ts, /build/mdeditor/src/lib/outline/note-writeback-io.ts, /build/mdeditor/src/lib/outline/recall-writeback-io.ts, /build/mdeditor/src/lib/plugins/file-view-commands.ts, /build/mdeditor/src/lib/plugins/file-view-presentation.svelte.ts, /build/mdeditor/src/lib/print.ts, /build/mdeditor/src/lib/quick-note.svelte.ts, /build/mdeditor/src/lib/share/index.ts, /build/mdeditor/src/lib/sotvault.svelte.ts, /build/mdeditor/src/lib/sumi/focus.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/sotvault.svelte.ts is dynamically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/VaultSettingsTab.svelte, /build/mdeditor/src/lib/autosave.svelte.ts, /build/mdeditor/src/lib/cli/share-cli.ts, /build/mdeditor/src/lib/cli/share-cli.ts, /build/mdeditor/src/lib/folder-view.svelte.ts, /build/mdeditor/src/lib/note-anno/answers-store.svelte.ts, /build/mdeditor/src/lib/okf/identity.ts, /build/mdeditor/src/lib/outline/daily.ts, /build/mdeditor/src/lib/outline/question-capture.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/tabs.svelte.ts, /build/mdeditor/src/lib/vault-settings.svelte.ts but also statically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/InsightsPanel.svelte, /build/mdeditor/src/components/MirrorSiblingsBanner.svelte, /build/mdeditor/src/components/ProjectShareDialog.svelte, /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/SettingsDialog.svelte, /build/mdeditor/src/components/SyncOriginBanner.svelte, /build/mdeditor/src/components/SyncToVaultBanner.svelte, /build/mdeditor/src/components/TabBar.svelte, /build/mdeditor/src/components/canvas/CanvasView.svelte, /build/mdeditor/src/components/daily/DailyDay.svelte, /build/mdeditor/src/components/daily/DailyFeed.svelte, /build/mdeditor/src/components/daily/DailyFocus.svelte, /build/mdeditor/src/components/daily/DailyPage.svelte, /build/mdeditor/src/components/history/HistoryPanel.svelte, /build/mdeditor/src/components/outline/OutlineEditor.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/daily-notes-app.svelte, /build/mdeditor/src/insights-app.svelte, /build/mdeditor/src/lib/canvas/save-as.ts, /build/mdeditor/src/lib/commands.ts, /build/mdeditor/src/lib/context-menu/trace-action.ts, /build/mdeditor/src/lib/insights/run.ts, /build/mdeditor/src/lib/insights/tracker.svelte.ts, /build/mdeditor/src/lib/outline/backlinks-io.svelte.ts, /build/mdeditor/src/lib/plugins/file-view-pages.ts, /build/mdeditor/src/lib/recent-sync.svelte.ts, /build/mdeditor/src/lib/share/index.ts, /build/mdeditor/src/lib/side-panel/registry.svelte.ts, /build/mdeditor/src/lib/wikilink/blocklist-io.svelte.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/link-open.ts is dynamically imported by /build/mdeditor/src/components/RichEditor.svelte but also statically imported by /build/mdeditor/src/components/RichEditor.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/copy-image.ts is dynamically imported by /build/mdeditor/src/components/RichEditor.svelte but also statically imported by /build/mdeditor/src/lib/context-menu/resource-actions.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/context-menu/trace-action.ts is dynamically imported by /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/lib/context-menu/source-actions.ts but also statically imported by /build/mdeditor/src/components/RichEditor.svelte, /build/mdeditor/src/components/SourceView.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/node_modules/.pnpm/@tauri-apps+api@2.11.0/node_modules/@tauri-apps/api/webview.js is dynamically imported by /build/mdeditor/src/components/RichEditor.svelte but also statically imported by /build/mdeditor/src/components/NativeFileView.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/side-panel/registry.svelte.ts is dynamically imported by /build/mdeditor/src/lib/open-path.ts but also statically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/FolderView.svelte, /build/mdeditor/src/components/SettingsDialog.svelte, /build/mdeditor/src/components/history/HistoryPanel.svelte, /build/mdeditor/src/components/outline/OutlinePanel.svelte, /build/mdeditor/src/components/share-guest/OpenShareDialog.svelte, /build/mdeditor/src/components/side-panel/SearchPanel.svelte, /build/mdeditor/src/components/side-panel/SidePanel.svelte, /build/mdeditor/src/components/side-panel/SideViewSwitcher.svelte, /build/mdeditor/src/components/toc/TocPanel.svelte, /build/mdeditor/src/lib/commands.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/commands.ts is dynamically imported by /build/mdeditor/src/components/TabBar.svelte but also statically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/DrawerNav.svelte, /build/mdeditor/src/components/MobileToolbar.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/updater.svelte.ts is dynamically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/App.svelte but also statically imported by /build/mdeditor/src/components/SettingsDialog.svelte, /build/mdeditor/src/components/UpdateBanner.svelte, /build/mdeditor/src/components/UpdateDialog.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/theme-import-bus.svelte.ts is dynamically imported by /build/mdeditor/src/App.svelte but also statically imported by /build/mdeditor/src/components/SettingsDialog.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /build/mdeditor/src/lib/recent-sync.svelte.ts is dynamically imported by /build/mdeditor/src/App.svelte but also statically imported by /build/mdeditor/src/App.svelte, /build/mdeditor/src/components/DrawerNav.svelte, dynamic import will not move module into another chunk.
+
+computing gzip size...
+dist/index.html                                                                                           0.72 kB │ gzip:   0.33 kB
+dist/share-editor-manifest.json                                                                           0.87 kB │ gzip:   0.45 kB
+dist/preview.html                                                                                         1.04 kB │ gzip:   0.40 kB
+dist/logs.html                                                                                            1.38 kB │ gzip:   0.51 kB
+dist/plugin-market.html                                                                                   1.54 kB │ gzip:   0.49 kB
+dist/smart-search.html                                                                                    1.83 kB │ gzip:   0.60 kB
+dist/insights.html                                                                                        2.26 kB │ gzip:   0.61 kB
+dist/daily-notes.html                                                                                     2.57 kB │ gzip:   0.67 kB
+dist/assets/KaTeX_Size3-Regular-CTq5MqoE.woff                                                             4.42 kB
+dist/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2                                                            4.93 kB
+dist/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2                                                            5.21 kB
+dist/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2                                                            5.47 kB
+dist/assets/KaTeX_Size4-Regular-BF-4gkZK.woff                                                             5.98 kB
+dist/assets/KaTeX_Size2-Regular-oD1tc_U0.woff                                                             6.19 kB
+dist/assets/KaTeX_Size1-Regular-C195tn64.woff                                                             6.50 kB
+dist/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2                                                      6.91 kB
+dist/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2                                                         6.91 kB
+dist/assets/KaTeX_Size3-Regular-DgpXs0kz.ttf                                                              7.59 kB
+dist/assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff                                                       7.66 kB
+dist/assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff                                                          7.72 kB
+dist/assets/KaTeX_Script-Regular-D3wIWfF6.woff2                                                           9.64 kB
+dist/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2                                                       10.34 kB
+dist/assets/KaTeX_Size4-Regular-DWFBv043.ttf                                                             10.36 kB
+dist/assets/KaTeX_Script-Regular-D5yQViql.woff                                                           10.59 kB
+dist/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2                                                         11.32 kB
+dist/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2                                                            11.35 kB
+dist/assets/KaTeX_Size2-Regular-B7gKUWhC.ttf                                                             11.51 kB
+dist/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2                                                        12.03 kB
+dist/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2                                                          12.22 kB
+dist/assets/KaTeX_Size1-Regular-Dbsnue_I.ttf                                                             12.23 kB
+dist/assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff                                                        12.32 kB
+dist/assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf                                                       12.34 kB
+dist/assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf                                                          12.37 kB
+dist/assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff                                                          13.21 kB
+dist/assets/KaTeX_Fraktur-Bold-BsDP51OF.woff                                                             13.30 kB
+dist/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2                                                      13.57 kB
+dist/assets/KaTeX_SansSerif-Italic-DN2j7dab.woff                                                         14.11 kB
+dist/assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff                                                           14.41 kB
+dist/assets/merge-worker-BVp_TSBi.js                                                                     15.43 kB
+dist/assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff                                                       16.03 kB
+dist/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2                                                         16.40 kB
+dist/assets/KaTeX_Math-Italic-t53AETM-.woff2                                                             16.44 kB
+dist/assets/KaTeX_Script-Regular-C5JkGWo-.ttf                                                            16.65 kB
+dist/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2                                                         16.78 kB
+dist/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2                                                             16.99 kB
+dist/assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff                                                          18.67 kB
+dist/assets/KaTeX_Math-Italic-DA0__PXp.woff                                                              18.75 kB
+dist/assets/KaTeX_Main-BoldItalic-SpSLRI95.woff                                                          19.41 kB
+dist/assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf                                                         19.44 kB
+dist/assets/KaTeX_Fraktur-Regular-CB_wures.ttf                                                           19.57 kB
+dist/assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf                                                              19.58 kB
+dist/assets/KaTeX_Main-Italic-BMLOBm91.woff                                                              19.68 kB
+dist/assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf                                                          22.36 kB
+dist/assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf                                                            24.50 kB
+dist/assets/KaTeX_Main-Bold-Cx986IdX.woff2                                                               25.32 kB
+dist/assets/KaTeX_Main-Regular-B22Nviop.woff2                                                            26.27 kB
+dist/assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf                                                        27.56 kB
+dist/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2                                                             28.08 kB
+dist/assets/KaTeX_Main-Bold-Jm3AIy58.woff                                                                29.91 kB
+dist/assets/KaTeX_Main-Regular-Dr94JaBh.woff                                                             30.77 kB
+dist/assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf                                                           31.20 kB
+dist/assets/KaTeX_Math-Italic-flOr_0UB.ttf                                                               31.31 kB
+dist/assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf                                                           32.97 kB
+dist/assets/KaTeX_AMS-Regular-DMm9YOAa.woff                                                              33.52 kB
+dist/assets/KaTeX_Main-Italic-3WenGoN9.ttf                                                               33.58 kB
+dist/assets/KaTeX_Main-Bold-waoOVXN0.ttf                                                                 51.34 kB
+dist/assets/KaTeX_Main-Regular-ypZvNtVU.ttf                                                              53.58 kB
+dist/assets/KaTeX_AMS-Regular-DRggAlZN.ttf                                                               63.63 kB
+dist/assets/share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js    702.88 kB
+dist/assets/share-editor.763977012f186597ff7f55b645d49d9bd0724925509aedbc6d84ba23fd71947a.js          1,977.91 kB
+dist/assets/GuestPanel-Cn_k46G7.css                                                                       0.35 kB │ gzip:   0.21 kB
+dist/assets/SideViewSwitcher-CRqzFutO.css                                                                 0.98 kB │ gzip:   0.43 kB
+dist/assets/file-history-focus-BDWmGue5.css                                                               1.37 kB │ gzip:   0.52 kB
+dist/assets/HistoryPanel-B_CTyptF.css                                                                     1.69 kB │ gzip:   0.59 kB
+dist/assets/Toast-DGPmvHKY.css                                                                            1.77 kB │ gzip:   0.64 kB
+dist/assets/logs-CVFEU-1F.css                                                                             2.01 kB │ gzip:   0.73 kB
+dist/assets/TocPanel-l-ey1YdZ.css                                                                         2.44 kB │ gzip:   0.78 kB
+dist/assets/preview-CR-wM4CY.css                                                                          2.84 kB │ gzip:   0.98 kB
+dist/assets/dailyNotes-KkREOcf2.css                                                                       3.00 kB │ gzip:   0.95 kB
+dist/assets/app-4JHJtRpQ.css                                                                              3.95 kB │ gzip:   1.40 kB
+dist/assets/FolderView-Dd6hCuhw.css                                                                       4.09 kB │ gzip:   1.18 kB
+dist/assets/OutlinePanel-CRH0xwpo.css                                                                     5.15 kB │ gzip:   1.47 kB
+dist/assets/SearchPanel-xjGHaSKu.css                                                                      5.20 kB │ gzip:   1.35 kB
+dist/assets/insights-7Hw5t_E9.css                                                                         5.31 kB │ gzip:   1.20 kB
+dist/assets/share-editor.a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd.css            17.48 kB │ gzip:   3.97 kB
+dist/assets/smartSearch-U0N-aBbN.css                                                                     17.89 kB │ gzip:   3.57 kB
+dist/assets/pluginMarket-Cr-5tRbw.css                                                                    21.34 kB │ gzip:   4.52 kB
+dist/assets/editor-kit-v1.css                                                                            28.37 kB │ gzip:   5.62 kB
+dist/assets/editor-bridge-BYZTj3zW.css                                                                   29.29 kB │ gzip:   8.05 kB
+dist/assets/CanvasView-Cq2tvu5I.css                                                                      36.44 kB │ gzip:   6.39 kB
+dist/assets/OutlineEditor-D6h1wc7k.css                                                                   39.18 kB │ gzip:   7.43 kB
+dist/assets/App-D5dGBt3A.css                                                                             79.43 kB │ gzip:  14.44 kB
+dist/assets/platform-sync-Bf_gpvhP.js                                                                     0.20 kB │ gzip:   0.16 kB
+dist/assets/actions-BZQyhBdW.js                                                                           0.26 kB │ gzip:   0.21 kB
+dist/assets/core-jQ2mpuW3.js                                                                              0.30 kB │ gzip:   0.21 kB
+dist/assets/records-CY6DpCij.js                                                                           0.32 kB │ gzip:   0.23 kB
+dist/assets/index-BkQFUAv9.js                                                                             0.33 kB │ gzip:   0.22 kB
+dist/assets/shared-config-CBzU7n5d.js                                                                     0.36 kB │ gzip:   0.21 kB
+dist/assets/observer-CDRYU9MD.js                                                                          0.38 kB │ gzip:   0.27 kB
+dist/assets/themes.svelte-DEWbrmjc.js                                                                     0.40 kB │ gzip:   0.27 kB
+dist/assets/placeholder-plugin-BAiX1056.js                                                                0.44 kB │ gzip:   0.31 kB
+dist/assets/this-BFPL_KXw.js                                                                              0.45 kB │ gzip:   0.29 kB
+dist/assets/pele-loader-Bw-eHOVY.js                                                                       0.46 kB │ gzip:   0.32 kB
+dist/assets/note-home-UOkZZkVH.js                                                                         0.51 kB │ gzip:   0.29 kB
+dist/assets/actor-DgSxhyTp.js                                                                             0.51 kB │ gzip:   0.35 kB
+dist/assets/host-settings.svelte-B5t0BhDP.js                                                              0.58 kB │ gzip:   0.37 kB
+dist/assets/index-client-BwlX2OuV.js                                                                      0.62 kB │ gzip:   0.38 kB
+dist/assets/index-DsdEYO0D.js                                                                             0.64 kB │ gzip:   0.39 kB
+dist/assets/index-CmpDyo29.js                                                                             0.67 kB │ gzip:   0.29 kB
+dist/assets/io-DSbeH3Iy.js                                                                                0.70 kB │ gzip:   0.36 kB
+dist/assets/edit.utils-CzfeG98N-m5VxBQAs.js                                                               0.72 kB │ gzip:   0.35 kB
+dist/assets/note-plugin-BpNN4gy6.js                                                                       0.75 kB │ gzip:   0.48 kB
+dist/assets/host-config.svelte-DUO06mCu.js                                                                0.85 kB │ gzip:   0.53 kB
+dist/assets/filter.button-C8XTWPU2-BSQtcVit.js                                                            0.90 kB │ gzip:   0.59 kB
+dist/assets/input-D908YTXX.js                                                                             0.92 kB │ gzip:   0.49 kB
+dist/assets/store.svelte-DduJQB1K.js                                                                      0.97 kB │ gzip:   0.48 kB
+dist/assets/naming-HNlJdXbS.js                                                                            0.98 kB │ gzip:   0.63 kB
+dist/assets/platform.svelte-CuBF31fl.js                                                                   1.05 kB │ gzip:   0.62 kB
+dist/assets/canvas-view-state-B62vBf3P.js                                                                 1.07 kB │ gzip:   0.49 kB
+dist/assets/preload-helper-BlTxHScW.js                                                                    1.11 kB │ gzip:   0.65 kB
+dist/assets/save-as-C_1r8ISm.js                                                                           1.24 kB │ gzip:   0.83 kB
+dist/assets/paths-CQq9AsVa.js                                                                             1.25 kB │ gzip:   0.55 kB
+dist/assets/theme-loader-DPxgLZai.js                                                                      1.25 kB │ gzip:   0.65 kB
+dist/assets/ime-B_LCJqxN.js                                                                               1.32 kB │ gzip:   0.65 kB
+dist/assets/input-trigger-De2pnkDx.js                                                                     1.38 kB │ gzip:   0.68 kB
+dist/assets/_virtual_share-editor-kit-ZOOEjM74.js                                                         1.42 kB │ gzip:   0.53 kB
+dist/assets/identity-Djt4NXze.js                                                                          1.50 kB │ gzip:   0.81 kB
+dist/assets/tauri-media-resolver-DH0vq1ET.js                                                              1.58 kB │ gzip:   0.82 kB
+dist/assets/identity-C3o1jLMy.js                                                                          1.59 kB │ gzip:   0.71 kB
+dist/assets/migrate-BGYkqRQT.js                                                                           1.63 kB │ gzip:   0.69 kB
+dist/assets/theme-controller.svelte-Dzi9vjL6.js                                                           1.64 kB │ gzip:   0.85 kB
+dist/assets/mermaid-loader-Bsdtvqcs.js                                                                    1.75 kB │ gzip:   0.97 kB
+dist/assets/diagram-render-DG-C5MX0.js                                                                    1.83 kB │ gzip:   0.93 kB
+dist/assets/renderer-registry-DIDDciAR.js                                                                 1.88 kB │ gzip:   0.90 kB
+dist/assets/session-lOp9y7nQ.js                                                                           1.88 kB │ gzip:   0.85 kB
+dist/assets/index-FfEKQygO.js                                                                             1.90 kB │ gzip:   0.86 kB
+dist/assets/file-view-pages-B_RnEbBD.js                                                                   2.04 kB │ gzip:   0.99 kB
+dist/assets/SideViewSwitcher-IWDSL_jh.js                                                                  2.06 kB │ gzip:   1.09 kB
+dist/assets/hover-store.svelte-Ct60MlaK.js                                                                2.27 kB │ gzip:   0.96 kB
+dist/assets/index-EGCDQmmi.js                                                                             2.28 kB │ gzip:   0.97 kB
+dist/assets/debounce-BfO9dz9v-BxUvzCXM.js                                                                 2.34 kB │ gzip:   1.16 kB
+dist/assets/quick-note.svelte-6dM97qhv.js                                                                 2.45 kB │ gzip:   1.25 kB
+dist/assets/question-capture-27HNoYm0.js                                                                  2.56 kB │ gzip:   1.13 kB
+dist/assets/config-LgPStiNz.js                                                                            2.65 kB │ gzip:   1.10 kB
+dist/assets/props-DI192RS5.js                                                                             2.72 kB │ gzip:   1.24 kB
+dist/assets/wikilink-plugin-wBY4yks3.js                                                                   2.74 kB │ gzip:   1.35 kB
+dist/assets/index-DIaWlqi9.js                                                                             3.02 kB │ gzip:   1.24 kB
+dist/assets/daily-DjsLqN0O.js                                                                             3.10 kB │ gzip:   1.16 kB
+dist/assets/index-BpOTJTtw.js                                                                             3.16 kB │ gzip:   1.53 kB
+dist/assets/throttle-BEjFQa2l-uapdboBy.js                                                                 3.28 kB │ gzip:   1.28 kB
+dist/assets/core-uMtBA8D0.js                                                                              3.42 kB │ gzip:   1.45 kB
+dist/assets/adopt-answer-BEeag-Vz.js                                                                      3.44 kB │ gzip:   1.50 kB
+dist/assets/image-vOippt4I.js                                                                             3.45 kB │ gzip:   1.28 kB
+dist/assets/editor-kit-v1.js                                                                              3.56 kB │ gzip:   1.63 kB
+dist/assets/theme-BlUb-C-C.js                                                                             3.98 kB │ gzip:   1.93 kB
+dist/assets/preview-Bt8G_OEl.js                                                                           4.07 kB │ gzip:   1.89 kB
+dist/assets/events-BvSmBueA-DNF4zp5P.js                                                                   4.22 kB │ gzip:   1.78 kB
+dist/assets/tracker.svelte-YHqewFy3.js                                                                    4.24 kB │ gzip:   1.83 kB
+dist/assets/index-D2nJbUXk.js                                                                             4.30 kB │ gzip:   1.56 kB
+dist/assets/TocPanel-GU1Ib1rA.js                                                                          4.52 kB │ gzip:   2.09 kB
+dist/assets/store.svelte-ChF66O2g.js                                                                      4.69 kB │ gzip:   1.72 kB
+dist/assets/answer-card-MDSRqDkW.js                                                                       4.93 kB │ gzip:   2.11 kB
+dist/assets/plugin-D4IAz-Km.js                                                                            5.00 kB │ gzip:   2.28 kB
+dist/assets/Toast-B_SjM3pq.js                                                                             5.14 kB │ gzip:   2.54 kB
+dist/assets/logs-iQr444BB.js                                                                              6.04 kB │ gzip:   2.47 kB
+dist/assets/header-cell-renderer-DXhxZMly-QPwXEckq.js                                                     6.63 kB │ gzip:   2.17 kB
+dist/assets/HistoryPanel-Y9-9MAYK.js                                                                      7.42 kB │ gzip:   2.71 kB
+dist/assets/run-DopEco_k.js                                                                               7.51 kB │ gzip:   3.37 kB
+dist/assets/settings.svelte-CHsnS00h.js                                                                   8.04 kB │ gzip:   2.98 kB
+dist/assets/revogr-clipboard_3.entry-BQx9YHVz.js                                                          9.38 kB │ gzip:   3.33 kB
+dist/assets/viewport.helpers-VXhsJZtn-B3RD0lZ6.js                                                         9.92 kB │ gzip:   3.96 kB
+dist/assets/GuestPanel-_OQzdLRX.js                                                                       10.48 kB │ gzip:   4.05 kB
+dist/assets/agent-BBLMt0Cw.js                                                                            10.56 kB │ gzip:   4.18 kB
+dist/assets/SearchPanel-B5jEjiQZ.js                                                                      11.03 kB │ gzip:   4.33 kB
+dist/assets/folder-view.svelte-Cvri6LOS.js                                                               11.67 kB │ gzip:   4.42 kB
+dist/assets/insights-okU17vgY.js                                                                         11.82 kB │ gzip:   4.28 kB
+dist/assets/window-DIeKRY_p.js                                                                           12.53 kB │ gzip:   3.02 kB
+dist/assets/attributes-DruaxsGT.js                                                                       13.58 kB │ gzip:   5.82 kB
+dist/assets/editor-bridge-CsGODfQF.js                                                                    13.60 kB │ gzip:   5.28 kB
+dist/assets/json-canvas-BhlYtPVl.js                                                                      14.00 kB │ gzip:   4.74 kB
+dist/assets/revogr-filter-panel.entry-B3ffod0_.js                                                        14.08 kB │ gzip:   4.82 kB
+dist/assets/CliRunner-vb0vzbr9.js                                                                        14.25 kB │ gzip:   5.01 kB
+dist/assets/autopair-CwWIP2rN.js                                                                         16.89 kB │ gzip:   6.23 kB
+dist/assets/FolderView-Djeur8Vr.js                                                                       18.71 kB │ gzip:   6.45 kB
+dist/assets/OutlinePanel-DdoOqW7-.js                                                                     21.66 kB │ gzip:   8.08 kB
+dist/assets/dailyNotes-Bwa_6bNm.js                                                                       22.76 kB │ gzip:   8.08 kB
+dist/assets/dimension.helpers-DzxqJQqN-0D-Xunr7.js                                                       23.38 kB │ gzip:   9.29 kB
+dist/assets/markdown-security-mmORVuEK.js                                                                27.07 kB │ gzip:  10.35 kB
+dist/assets/editor-kit-v2.js                                                                             28.00 kB │ gzip:   9.93 kB
+dist/assets/pluginMarket-C1K_cPWj.js                                                                     28.09 kB │ gzip:   9.53 kB
+dist/assets/revogr-attribution_7.entry-DmBfeHth.js                                                       29.31 kB │ gzip:   8.89 kB
+dist/assets/purify.es-DowdsyMd.js                                                                        30.46 kB │ gzip:  11.72 kB
+dist/assets/revogr-data_4.entry-3QI9VR2E.js                                                              30.78 kB │ gzip:   9.81 kB
+dist/assets/render-Baji1dVs.js                                                                           31.00 kB │ gzip:  11.99 kB
+dist/assets/file-history-focus-Ch6DTVCb.js                                                               47.39 kB │ gzip:  16.84 kB
+dist/assets/OutlineEditor-B0zkgquB.js                                                                    63.27 kB │ gzip:  21.36 kB
+dist/assets/file-main-Br9uU__Z.js                                                                        64.60 kB │ gzip:  23.08 kB
+dist/assets/smartSearch-DoBMxA1F.js                                                                      71.99 kB │ gzip:  22.88 kB
+dist/assets/index-Z0hG0CCj.js                                                                            89.35 kB │ gzip:  27.00 kB
+dist/assets/revo-grid.entry-Ber-P5CK.js                                                                  96.36 kB │ gzip:  26.05 kB
+dist/assets/index-kFtAQYqH.js                                                                            98.22 kB │ gzip:  31.30 kB
+dist/assets/CanvasView-DVAiSW-E.js                                                                      256.03 kB │ gzip:  84.73 kB
+dist/assets/runtime.svelte-BZruLYtt.js                                                                  256.34 kB │ gzip:  81.93 kB
+dist/assets/sotvault.svelte-D72koaCT.js                                                                 277.71 kB │ gzip:  87.42 kB
+dist/assets/katex-C8yDF-Ck.js                                                                           282.66 kB │ gzip:  86.29 kB
+dist/assets/pele-renderer-CR0M-4HK.js                                                                   671.11 kB │ gzip: 251.23 kB
+dist/assets/upload-image-DU745V8R.js                                                                  1,012.13 kB │ gzip: 321.13 kB
+dist/assets/index-CyDr03QG.js                                                                         1,040.54 kB │ gzip: 314.00 kB
+dist/assets/App-B_0TIjqq.js                                                                           1,071.38 kB │ gzip: 503.64 kB
+dist/assets/viz-thUrI7x4.js                                                                           1,352.51 kB │ gzip: 485.30 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2m 40s
+Editor Kit build OK (/build/mdeditor/dist/assets/editor-kit-v1.js 3558 B, /build/mdeditor/dist/assets/editor-kit-v2.js 27999 B, /build/mdeditor/dist/assets/editor-kit-v1.css 28370 B)
+{
+  "apiVersion": 1,
+  "mount": "function",
+  "resources": {
+    "js": {
+      "bytes": 1977909,
+      "gzip": 613286,
+      "sha256": "763977012f186597ff7f55b645d49d9bd0724925509aedbc6d84ba23fd71947a",
+      "sri": "sha384-/JDr9k+GakQ3GKl0/rNVadup4mkq1wkIk4Z9E9ezV/WBIMCGIIFPzRjl/rgzdTht"
+    },
+    "css": {
+      "bytes": 17478,
+      "gzip": 3968,
+      "sha256": "a823d93010255a67e0b708afb0f1bd6009bedcf19f7f435a567fc275bacb4cfd",
+      "sri": "sha384-z/4e310TbTzfT4wXIvVYb2Bhzdv60WjXCfS4m8a27mc1jqQ6RZomgzvJSV0OkLfl"
+    },
+    "mermaid": {
+      "bytes": 702876,
+      "gzip": 263101,
+      "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd",
+      "sri": "sha384-CrfNyKRTuv4LBgSqm/JweJ+SZEkdWFH73Wl6y7Kkqy0FJYXgE5/arv43M2ZDfI/Y"
+    }
+  },
+  "modules": 278
+}
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded adler2 v2.0.1
+  Downloaded raw-window-handle v0.6.2
+  Downloaded ref-cast-impl v1.0.25
+  Downloaded ref-cast v1.0.25
+  Downloaded rand_chacha v0.3.1
+  Downloaded rand_chacha v0.9.0
+  Downloaded rand_core v0.6.4
+  Downloaded rand_core v0.9.5
+  Downloaded cfg-if v1.0.4
+  Downloaded rayon-core v1.13.0
+  Downloaded rust-ini v0.21.3
+  Downloaded clap_lex v1.1.0
+  Downloaded const-str-proc-macro v0.3.2
+  Downloaded rustc_version v0.4.1
+  Downloaded rfd v0.16.0
+  Downloaded rclip-rtf v0.1.0
+  Downloaded rend v0.4.2
+  Downloaded regex v1.12.3
+  Downloaded scopeguard v1.2.0
+  Downloaded same-file v1.0.6
+  Downloaded serde_repr v0.1.20
+  Downloaded serialize-to-javascript v0.1.2
+  Downloaded compression-core v0.4.34
+  Downloaded cfg_aliases v0.2.1
+  Downloaded serde_urlencoded v0.7.1
+  Downloaded siphasher v1.0.3
+  Downloaded smallstr v0.3.1
+  Downloaded string_cache_codegen v0.6.1
+  Downloaded simd-abstraction v0.7.1
+  Downloaded serde_spanned v1.1.1
+  Downloaded subtle v2.6.1
+  Downloaded serialize-to-javascript-impl v0.1.2
+  Downloaded strsim v0.11.1
+  Downloaded serde_spanned v0.6.9
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded rustversion v1.0.23
+  Downloaded rustc-hash v2.1.2
+  Downloaded seahash v4.1.0
+  Downloaded serde-content v0.1.2
+  Downloaded serde_derive_internals v0.29.1
+  Downloaded servo_arc v0.4.3
+  Downloaded sync_wrapper v1.0.2
+  Downloaded signal-hook-registry v1.4.8
+  Downloaded rustls-native-certs v0.8.5
+  Downloaded shlex v1.3.0
+  Downloaded simd-adler32 v0.3.9
+  Downloaded slab v0.4.12
+  Downloaded string_cache v0.9.0
+  Downloaded sys-locale v0.3.2
+  Downloaded tap v1.0.1
+  Downloaded const-random v0.1.18
+  Downloaded const-random-macro v0.1.16
+  Downloaded core_maths v0.1.1
+  Downloaded cssparser-macros v0.6.1
+  Downloaded darling_macro v0.23.0
+  Downloaded sha2 v0.10.9
+  Downloaded rclip-core v0.1.0
+  Downloaded rkyv_derive v0.7.46
+  Downloaded semver v1.0.28
+  Downloaded serde-untagged v0.1.9
+  Downloaded rustls-pki-types v1.14.1
+  Downloaded schemars_derive v0.8.22
+  Downloaded simdutf8 v0.1.5
+  Downloaded serde_with_macros v3.19.0
+  Downloaded soup3 v0.5.0
+  Downloaded soup3-sys v0.5.0
+  Downloaded target-lexicon v0.12.16
+  Downloaded synstructure v0.13.2
+  Downloaded system-deps v6.2.2
+  Downloaded roxmltree v0.20.0
+  Downloaded tauri-plugin v2.6.1
+  Downloaded dirs v6.0.0
+  Downloaded rle-decode-fast v1.0.3
+  Downloaded serde_core v1.0.228
+  Downloaded slotmap v1.1.1
+  Downloaded smallvec v1.15.1
+  Downloaded dirs-sys v0.5.0
+  Downloaded rustls-platform-verifier v0.7.0
+  Downloaded ryu v1.0.23
+  Downloaded serde_derive v1.0.228
+  Downloaded tauri-build v2.6.1
+  Downloaded tauri-macros v2.6.1
+  Downloaded schemars v0.9.0
+  Downloaded tauri-codegen v2.6.1
+  Downloaded dirs-sys v0.4.1
+  Downloaded serde_yaml v0.9.34+deprecated
+  Downloaded schemars v0.8.22
+  Downloaded socket2 v0.6.3
+  Downloaded cpufeatures v0.2.17
+  Downloaded selectors v0.36.1
+  Downloaded similar v2.7.0
+  Downloaded ctor v0.8.0
+  Downloaded concurrent-queue v2.5.0
+  Downloaded dirs v5.0.1
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded funty v2.0.0
+  Downloaded lru-slab v0.1.2
+  Downloaded markup5ever v0.38.0
+  Downloaded serde v1.0.228
+  Downloaded fnv v1.0.7
+  Downloaded crunchy v0.2.4
+  Downloaded crypto-common v0.1.7
+  Downloaded dlopen2_derive v0.4.3
+  Downloaded lock_api v0.4.14
+  Downloaded cssparser-color v0.1.0
+  Downloaded rustls-webpki v0.103.13
+  Downloaded schemars v1.2.1
+  Downloaded tar v0.4.45
+  Downloaded notify-types v1.0.1
+  Downloaded enumflags2_derive v0.7.12
+  Downloaded fs2 v0.4.3
+  Downloaded bytemuck v1.25.0
+  Downloaded field-offset v0.3.6
+  Downloaded file-id v0.2.3
+  Downloaded event-listener-strategy v0.5.4
+  Downloaded rkyv v0.7.46
+  Downloaded document-features v0.2.12
+  Downloaded endi v1.1.1
+  Downloaded equivalent v1.0.2
+  Downloaded form_urlencoded v1.2.2
+  Downloaded futures-core v0.3.34
+  Downloaded log v0.4.29
+  Downloaded notify-types v2.1.0
+  Downloaded tauri-plugin-deep-link v2.4.9
+  Downloaded dtoa-short v0.3.5
+  Downloaded dyn-clone v1.0.20
+  Downloaded dpi v0.1.2
+  Downloaded dtor v0.3.0
+  Downloaded dunce v1.0.5
+  Downloaded downcast-rs v1.2.1
+  Downloaded bytes v1.11.1
+  Downloaded cairo-rs v0.18.5
+  Downloaded const-str v0.3.2
+  Downloaded dtor-proc-macro v0.0.6
+  Downloaded convert_case v0.6.0
+  Downloaded crossbeam-deque v0.8.6
+  Downloaded ctor-proc-macro v0.0.7
+  Downloaded dary_heap v0.3.9
+  Downloaded dashmap v6.2.1
+  Downloaded displaydoc v0.2.5
+  Downloaded crossbeam-utils v0.8.21
+  Downloaded digest v0.10.7
+  Downloaded dlv-list v0.5.2
+  Downloaded either v1.15.0
+  Downloaded foldhash v0.1.5
+  Downloaded tauri-plugin-clipboard-manager v2.3.2
+  Downloaded reqwest v0.13.3
+  Downloaded filetime v0.2.29
+  Downloaded reqwest v0.12.28
+  Downloaded dashmap v5.5.3
+  Downloaded dlopen2 v0.8.2
+  Downloaded data-url v0.3.2
+  Downloaded data-encoding v2.11.0
+  Downloaded embed-resource v3.0.9
+  Downloaded serde_json v1.0.149
+  Downloaded fax v0.2.7
+  Downloaded fixedbitset v0.5.7
+  Downloaded foldhash v0.2.0
+  Downloaded futures-executor v0.3.34
+  Downloaded erased-serde v0.4.10
+  Downloaded rusqlite v0.40.2
+  Downloaded errno v0.3.14
+  Downloaded enumflags2 v0.7.12
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded dtoa v1.0.11
+  Downloaded cfg-expr v0.15.8
+  Downloaded cookie_store v0.22.1
+  Downloaded crc32fast v1.5.0
+  Downloaded darling v0.23.0
+  Downloaded serde_with v3.19.0
+  Downloaded data-url v0.1.1
+  Downloaded rayon v1.12.0
+  Downloaded regex-syntax v0.8.10
+  Downloaded cookie v0.18.1
+  Downloaded fastrand v2.4.1
+  Downloaded crossbeam-epoch v0.9.18
+  Downloaded fontconfig-parser v0.5.8
+  Downloaded futures-channel v0.3.32
+  Downloaded syn v1.0.109
+  Downloaded fallible-iterator v0.3.0
+  Downloaded fdeflate v0.3.7
+  Downloaded cfb v0.7.3
+  Downloaded clap v4.6.1
+  Downloaded event-listener v5.4.2
+  Downloaded cssparser v0.33.0
+  Downloaded deranged v0.5.8
+  Downloaded compression-codecs v0.4.47
+  Downloaded darling_core v0.23.0
+  Downloaded cssparser v0.36.0
+  Downloaded derive_more v2.1.1
+  Downloaded crossbeam-channel v0.5.15
+  Downloaded syn v2.0.117
+  Downloaded tao v0.35.2
+  Downloaded tauri v2.11.1
+  Downloaded derive_more-impl v2.1.1
+  Downloaded dom_query v0.27.0
+  Downloaded flate2 v1.1.9
+  Downloaded rustls v0.23.40
+  Downloaded syn v3.0.3
+  Downloaded dbus v0.9.11
+  Downloaded tauri-plugin-dialog v2.7.1
+  Downloaded fontdb v0.23.0
+  Downloaded rustix v1.1.4
+  Downloaded nom v8.0.0
+  Downloaded parcel_sourcemap v2.1.1
+  Downloaded parking_lot_core v0.9.12
+  Downloaded regex-automata v0.4.14
+  Downloaded clap_builder v4.6.0
+  Downloaded chrono v0.4.44
+  Downloaded phf_codegen v0.11.3
+  Downloaded phf_macros v0.11.3
+  Downloaded phf v0.11.3
+  Downloaded ordered-stream v0.2.0
+  Downloaded ordered-multimap v0.7.3
+  Downloaded psl-types v2.0.11
+  Downloaded time-core v0.1.8
+  Downloaded proc-macro-error-attr3 v3.1.0
+  Downloaded tinystr v0.8.3
+  Downloaded time-macros v0.2.27
+  Downloaded tiny-keccak v2.0.2
+  Downloaded pin-project-lite v0.2.17
+  Downloaded tinyvec v1.11.0
+  Downloaded chrono-tz v0.10.4
+  Downloaded futures-io v0.3.34
+  Downloaded plist v1.9.0
+  Downloaded potential_utf v0.1.5
+  Downloaded cc v1.2.61
+  Downloaded ring v0.17.14
+  Downloaded powerfmt v0.2.0
+  Downloaded encoding_rs v0.8.35
+  Downloaded http v1.4.0
+  Downloaded itoa v1.0.18
+  Downloaded itertools v0.10.5
+  Downloaded inotify v0.11.2
+  Downloaded is-wsl v0.4.0
+  Downloaded icu_properties_data v2.2.0
+  Downloaded leiden-rs v0.8.1
+  Downloaded pulldown-cmark-escape v0.11.0
+  Downloaded memmap2 v0.9.11
+  Downloaded quick-error v2.0.1
+  Downloaded unic-common v0.9.0
+  Downloaded unsafe-libyaml v0.2.11
+  Downloaded miniz_oxide v0.8.9
+  Downloaded moxcms v0.8.1
+  Downloaded mio v1.2.0
+  Downloaded os_info v3.14.0
+  Downloaded phf_shared v0.13.1
+  Downloaded png v0.17.16
+  Downloaded proc-macro-crate v1.3.1
+  Downloaded version-compare v0.2.1
+  Downloaded proc-macro-crate v2.0.2
+  Downloaded quinn-proto v0.11.14
+  Downloaded unic-ucd-version v0.9.0
+  Downloaded unic-char-range v0.9.0
+  Downloaded unic-ucd-ident v0.9.0
+  Downloaded unicode-ident v1.0.24
+  Downloaded unicase v2.9.0
+  Downloaded zerofrom v0.1.7
+  Downloaded writeable v0.6.3
+  Downloaded zune-core v0.5.1
+  Downloaded unicode-width v0.2.3
+  Downloaded zstd-safe v7.2.4
+  Downloaded webkit2gtk v2.0.2
+  Downloaded wyz v0.5.1
+  Downloaded zstd v0.13.3
+  Downloaded weezl v0.1.12
+  Downloaded zerocopy v0.8.48
+  Downloaded webkit2gtk-sys v2.0.2
+  Downloaded wl-clipboard-rs v0.9.3
+  Downloaded zvariant_derive v5.11.0
+  Downloaded wayland-backend v0.3.15
+  Downloaded zerofrom-derive v0.1.7
+  Downloaded tauri-plugin-os v2.3.2
+  Downloaded quick-xml v0.39.3
+  Downloaded x11 v2.21.0
+  Downloaded zerocopy-derive v0.8.48
+  Downloaded thiserror-impl v1.0.69
+  Downloaded zune-jpeg v0.5.15
+  Downloaded thiserror v2.0.18
+  Downloaded wayland-client v0.31.14
+  Downloaded zvariant v5.11.0
+  Downloaded toml v0.8.2
+  Downloaded tower v0.5.3
+  Downloaded tower-layer v0.3.3
+  Downloaded tower-service v0.3.3
+  Downloaded try-lock v0.2.5
+  Downloaded adler32 v1.2.0
+  Downloaded alloc-no-stdlib v3.0.0
+  Downloaded base64-simd v0.7.0
+  Downloaded tokio-rustls v0.26.4
+  Downloaded tracing-core v0.1.36
+  Downloaded tokio-util v0.7.18
+  Downloaded bit-set v0.8.0
+  Downloaded ahash v0.8.12
+  Downloaded alloc-no-stdlib v2.0.4
+  Downloaded tray-icon v0.23.1
+  Downloaded async-broadcast v0.7.2
+  Downloaded toml_writer v1.1.1+spec-1.1.0
+  Downloaded generic-array v0.14.7
+  Downloaded cargo-platform v0.1.9
+  Downloaded gtk3-macros v0.18.2
+  Downloaded aho-corasick v1.1.4
+  Downloaded async-process v2.5.0
+  Downloaded arc-swap v1.9.3
+  Downloaded async-trait v0.1.92
+  Downloaded async-task v4.7.1
+  Downloaded async-executor v1.14.0
+  Downloaded bumpalo v3.20.2
+  Downloaded futures-lite v2.6.1
+  Downloaded half v2.7.1
+  Downloaded cargo_metadata v0.19.2
+  Downloaded async-lock v3.5.0
+  Downloaded camino v1.2.2
+  Downloaded gdk-pixbuf-sys v0.18.0
+  Downloaded gdkx11 v0.18.2
+  Downloaded gdkx11-sys v0.18.2
+  Downloaded hashbrown v0.12.3
+  Downloaded hashbrown v0.14.5
+  Downloaded futures-macro v0.3.34
+  Downloaded gobject-sys v0.18.0
+  Downloaded http-body v1.0.1
+  Downloaded icu_provider v2.2.0
+  Downloaded idna_adapter v1.2.2
+  Downloaded instant v0.1.13
+  Downloaded javascriptcore-rs-sys v1.1.1
+  Downloaded cargo_toml v0.22.3
+  Downloaded winnow v1.0.2
+  Downloaded async-io v2.6.0
+  Downloaded glib-macros v0.18.5
+  Downloaded jieba-macros v0.10.3
+  Downloaded image v0.25.10
+  Downloaded libappindicator-sys v0.9.0
+  Downloaded memoffset v0.9.1
+  Downloaded vcpkg v0.2.15
+  Downloaded libappindicator v0.9.0
+  Downloaded open v5.3.4
+  Downloaded outref v0.1.0
+  Downloaded phf v0.13.1
+  Downloaded parking_lot v0.12.5
+  Downloaded phf_codegen v0.13.1
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded wry v0.55.1
+  Downloaded polling v3.11.0
+  Downloaded ptr_meta_derive v0.1.4
+  Downloaded publicsuffix v2.3.0
+  Downloaded pulldown-cmark v0.13.4
+  Downloaded wayland-sys v0.31.11
+  Downloaded wayland-scanner v0.31.10
+  Downloaded utf8_iter v1.0.4
+  Downloaded yoke v0.8.2
+  Downloaded utf-8 v0.7.6
+  Downloaded zbus_macros v5.15.0
+  Downloaded zerotrie v0.2.4
+  Downloaded tempfile v3.27.0
+  Downloaded icu_properties v2.2.0
+  Downloaded hashbrown v0.16.1
+  Downloaded hashbrown v0.17.0
+  Downloaded hyper v1.9.0
+  Downloaded ico v0.5.0
+  Downloaded ignore v0.4.32
+  Downloaded libflate_lz77 v2.3.0
+  Downloaded tendril v0.5.0
+  Downloaded thiserror v1.0.69
+  Downloaded tracing-attributes v0.1.31
+  Downloaded brotli-decompressor v5.0.0
+  Downloaded typenum v1.20.0
+  Downloaded alloc-stdlib v0.3.0
+  Downloaded h2 v0.4.14
+  Downloaded libflate v2.3.1
+  Downloaded atomic-waker v1.1.2
+  Downloaded byteorder-lite v0.1.0
+  Downloaded futures-task v0.3.34
+  Downloaded heck v0.4.1
+  Downloaded indexmap v2.14.0
+  Downloaded brotli-decompressor v6.0.1
+  Downloaded gtk v0.18.2
+  Downloaded hyper-rustls v0.27.9
+  Downloaded html5ever v0.38.0
+  Downloaded glib v0.18.5
+  Downloaded icu_normalizer v2.2.0
+  Downloaded include-flate v0.3.4
+  Downloaded once_cell v1.21.4
+  Downloaded pango-sys v0.18.0
+  Downloaded infer v0.19.0
+  Downloaded inotify v0.10.2
+  Downloaded parcel_selectors v0.28.2
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded percent-encoding v2.3.2
+  Downloaded phf_generator v0.13.1
+  Downloaded pxfm v0.1.29
+  Downloaded libc v0.2.186
+  Downloaded lightningcss-derive v1.0.0-alpha.43
+  Downloaded memchr v2.8.0
+  Downloaded zstd-sys v2.0.16+zstd.1.5.7
+  Downloaded num-traits v0.2.19
+  Downloaded pkg-config v0.3.33
+  Downloaded proc-macro-error3 v3.1.0
+  Downloaded untrusted v0.9.0
+  Downloaded quinn-udp v0.5.14
+  Downloaded version_check v0.9.5
+  Downloaded radium v0.7.0
+  Downloaded uuid v1.23.1
+  Downloaded precomputed-hash v0.1.1
+  Downloaded rand v0.8.6
+  Downloaded winnow v0.5.40
+  Downloaded rand v0.9.4
+  Downloaded libdbus-sys v0.2.7
+  Downloaded web_atoms v0.2.4
+  Downloaded tauri-winres v0.3.6
+  Downloaded tauri-plugin-updater v2.10.1
+  Downloaded async-signal v0.2.14
+  Downloaded block-buffer v0.10.4
+  Downloaded x11rb-protocol v0.13.2
+  Downloaded zeroize v1.8.2
+  Downloaded tinyvec_macros v0.1.1
+  Downloaded toml v1.1.2+spec-1.1.0
+  Downloaded tree_magic_mini v3.2.2
+  Downloaded toml_edit v0.25.17+spec-1.1.0
+  Downloaded ahash v0.7.8
+  Downloaded bstr v1.13.0
+  Downloaded allocator-api2 v0.2.21
+  Downloaded anstyle v1.0.14
+  Downloaded bytecheck_derive v0.6.12
+  Downloaded gio v0.18.4
+  Downloaded gdk v0.18.2
+  Downloaded iana-time-zone v0.1.65
+  Downloaded new_debug_unreachable v1.0.6
+  Downloaded notify v7.0.0
+  Downloaded brotli v9.0.0
+  Downloaded getrandom v0.3.4
+  Downloaded getopts v0.2.24
+  Downloaded getrandom v0.4.2
+  Downloaded hmac v0.12.1
+  Downloaded png v0.18.1
+  Downloaded libsqlite3-sys v0.38.2
+  Downloaded pango v0.18.3
+  Downloaded proc-macro-crate v3.5.0
+  Downloaded urlpattern v0.3.0
+  Downloaded x11-dl v2.21.0
+  Downloaded tauri-plugin-fs v2.5.1
+  Downloaded tauri-plugin-window-state v2.4.1
+  Downloaded lightningcss v1.0.0-alpha.71
+  Downloaded zopfli v0.8.3
+  Downloaded tauri-plugin-http v2.5.9
+  Downloaded tauri-plugin-opener v2.5.4
+  Downloaded toml_datetime v1.1.2+spec-1.1.0
+  Downloaded alloc-stdlib v0.2.2
+  Downloaded atk-sys v0.18.2
+  Downloaded bytecheck v0.6.12
+  Downloaded toml_datetime v0.7.5+spec-1.1.0
+  Downloaded atk v0.18.2
+  Downloaded gdk-sys v0.18.2
+  Downloaded getrandom v0.2.17
+  Downloaded glib-sys v0.18.1
+  Downloaded tokio v1.52.2
+  Downloaded json-patch v3.0.1
+  Downloaded async-compression v0.4.52
+  Downloaded async-recursion v1.1.1
+  Downloaded idna v1.1.0
+  Downloaded icu_normalizer_data v2.2.0
+  Downloaded is-docker v0.2.0
+  Downloaded matches v0.1.10
+  Downloaded nix v0.30.1
+  Downloaded num-conv v0.2.1
+  Downloaded pastey v0.1.1
+  Downloaded pathdiff v0.2.3
+  Downloaded phf_generator v0.11.3
+  Downloaded yoke-derive v0.8.2
+  Downloaded zmij v1.0.21
+  Downloaded thiserror-impl v2.0.18
+  Downloaded toml_datetime v0.6.3
+  Downloaded ttf-parser v0.25.1
+  Downloaded tauri-plugin-single-instance v2.4.2
+  Downloaded bit-vec v0.8.0
+  Downloaded bytecount v0.6.9
+  Downloaded gethostname v1.1.0
+  Downloaded phf v0.12.1
+  Downloaded proc-macro-error v1.0.4
+  Downloaded inotify-sys v0.1.5
+  Downloaded phf_macros v0.13.1
+  Downloaded yrs v0.24.0
+  Downloaded tauri-utils v2.9.1
+  Downloaded ipnet v2.12.0
+  Downloaded jobserver v0.1.34
+  Downloaded jsonptr v0.6.3
+  Downloaded bitflags v2.11.1
+  Downloaded hyper-util v0.1.20
+  Downloaded ident_case v1.0.1
+  Downloaded indexmap v1.9.3
+  Downloaded javascriptcore-rs v1.1.2
+  Downloaded keyboard-types v0.7.0
+  Downloaded mime v0.3.17
+  Downloaded notify v8.2.0
+  Downloaded phf_shared v0.12.1
+  Downloaded os_pipe v1.2.3
+  Downloaded piper v0.2.5
+  Downloaded urlencoding v2.1.3
+  Downloaded zerovec v0.11.6
+  Downloaded winnow v0.7.15
+  Downloaded petgraph v0.8.3
+  Downloaded time v0.3.47
+  Downloaded tower-http v0.6.10
+  Downloaded tracing v0.1.44
+  Downloaded cairo-sys-rs v0.18.2
+  Downloaded cedarwood v0.5.0
+  Downloaded futures-sink v0.3.34
+  Downloaded globset v0.4.19
+  Downloaded http-body-util v0.1.3
+  Downloaded brotli v8.0.2
+  Downloaded libloading v0.7.4
+  Downloaded openssl-probe v0.2.1
+  Downloaded phf_shared v0.11.3
+  Downloaded ptr_meta v0.1.4
+  Downloaded url v2.5.8
+  Downloaded tauri-plugin-global-shortcut v2.3.2
+  Downloaded wayland-protocols v0.32.12
+  Downloaded wayland-protocols-wlr v0.3.12
+  Downloaded arboard v3.6.1
+  Downloaded gdkwayland-sys v0.18.2
+  Downloaded heck v0.5.0
+  Downloaded hex v0.4.3
+  Downloaded anyhow v1.0.102
+  Downloaded bitflags v1.3.2
+  Downloaded glob v0.3.3
+  Downloaded bitvec v1.0.1
+  Downloaded proc-macro-error-attr v1.0.4
+  Downloaded gdk-pixbuf v0.18.5
+  Downloaded include-flate-compress v0.3.4
+  Downloaded walkdir v2.5.0
+  Downloaded xattr v1.6.1
+  Downloaded xkeysym v0.2.1
+  Downloaded want v0.3.1
+  Downloaded x11rb v0.13.2
+  Downloaded zip v2.4.2
+  Downloaded tauri-runtime v2.11.1
+  Downloaded autocfg v1.5.0
+  Downloaded litemap v0.8.2
+  Downloaded tauri-plugin-store v2.4.3
+  Downloaded tiff v0.11.3
+  Downloaded muda v0.19.1
+  Downloaded tokio-macros v2.7.0
+  Downloaded unicode-segmentation v1.13.2
+  Downloaded zerovec-derive v0.11.3
+  Downloaded zbus_names v4.3.2
+  Downloaded zbus v5.15.0
+  Downloaded http-range v0.1.5
+  Downloaded include-flate-codegen v0.3.4
+  Downloaded jieba-rs v0.10.3
+  Downloaded minisign-verify v0.2.5
+  Downloaded libm v0.2.16
+  Downloaded quinn v0.11.9
+  Downloaded quote v1.0.45
+  Downloaded toml_edit v0.19.15
+  Downloaded toml v0.9.12+spec-1.1.0
+  Downloaded proc-macro2 v1.0.106
+  Downloaded unicode-normalization v0.1.25
+  Downloaded base64 v0.22.1
+  Downloaded hashbrown v0.15.5
+  Downloaded hashlink v0.12.1
+  Downloaded litrs v1.0.0
+  Downloaded option-ext v0.2.0
+  Downloaded parking v2.2.1
+  Downloaded webpki-roots v1.0.7
+  Downloaded tauri-plugin-process v2.3.1
+  Downloaded zvariant_utils v3.3.1
+  Downloaded unic-char-property v0.9.0
+  Downloaded byteorder v1.5.0
+  Downloaded gtk-sys v0.18.2
+  Downloaded lazy_static v1.5.0
+  Downloaded gio-sys v0.18.1
+  Downloaded httparse v1.10.1
+  Downloaded notify-debouncer-full v0.6.0
+  Downloaded toml_edit v0.20.2
+  Downloaded global-hotkey v0.8.0
+  Downloaded icu_collections v2.2.0
+  Downloaded blocking v1.6.2
+  Downloaded futures-util v0.3.34
+  Downloaded no_std_io2 v0.9.4
+  Downloaded async-channel v2.5.0
+  Downloaded vlq v0.5.1
+  Downloaded icu_locale_core v2.2.0
+  Downloaded toml_parser v1.1.5+spec-1.1.0
+  Downloaded typeid v1.0.3
+   Compiling quote v1.0.45
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.228
+   Compiling syn v2.0.117
+   Compiling serde v1.0.228
+   Compiling equivalent v1.0.2
+   Compiling libc v0.2.186
+   Compiling hashbrown v0.17.0
+   Compiling indexmap v2.14.0
+   Compiling smallvec v1.15.1
+   Compiling pkg-config v0.3.33
+   Compiling serde_derive v1.0.228
+   Compiling heck v0.5.0
+   Compiling cfg-if v1.0.4
+   Compiling synstructure v0.13.2
+   Compiling siphasher v1.0.3
+   Compiling toml_datetime v0.6.3
+   Compiling winnow v0.5.40
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling serde_spanned v0.6.9
+   Compiling toml_edit v0.20.2
+   Compiling zerovec-derive v0.11.3
+   Compiling target-lexicon v0.12.16
+   Compiling autocfg v1.5.0
+   Compiling displaydoc v0.2.5
+   Compiling version_check v0.9.5
+   Compiling cfg-expr v0.15.8
+   Compiling toml v0.8.2
+   Compiling jobserver v0.1.34
+   Compiling find-msvc-tools v0.1.9
+   Compiling version-compare v0.2.1
+   Compiling shlex v1.3.0
+   Compiling system-deps v6.2.2
+   Compiling cc v1.2.61
+   Compiling phf_shared v0.13.1
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling fastrand v2.4.1
+   Compiling phf_generator v0.13.1
+   Compiling thiserror v1.0.69
+   Compiling thiserror-impl v1.0.69
+   Compiling parking_lot_core v0.9.12
+   Compiling icu_properties_data v2.2.0
+   Compiling icu_normalizer_data v2.2.0
+   Compiling bitflags v2.11.1
+   Compiling thiserror v2.0.18
+   Compiling thiserror-impl v2.0.18
+   Compiling stable_deref_trait v1.2.1
+   Compiling getrandom v0.4.2
+   Compiling phf_macros v0.13.1
+   Compiling phf_codegen v0.13.1
+   Compiling pin-project-lite v0.2.17
+   Compiling semver v1.0.28
+   Compiling once_cell v1.21.4
+   Compiling winnow v1.0.2
+   Compiling zerofrom v0.1.7
+   Compiling yoke v0.8.2
+   Compiling zerovec v0.11.6
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling num-conv v0.2.1
+   Compiling time-core v0.1.8
+   Compiling typeid v1.0.3
+   Compiling itoa v1.0.18
+   Compiling string_cache_codegen v0.6.1
+   Compiling foldhash v0.2.0
+   Compiling web_atoms v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling litemap v0.8.2
+   Compiling futures-core v0.3.34
+   Compiling writeable v0.6.3
+   Compiling ident_case v1.0.1
+   Compiling erased-serde v0.4.10
+   Compiling strsim v0.11.1
+   Compiling icu_locale_core v2.2.0
+   Compiling darling_core v0.23.0
+   Compiling potential_utf v0.1.5
+   Compiling zerotrie v0.2.4
+   Compiling utf8_iter v1.0.4
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling quick-xml v0.39.3
+   Compiling darling_macro v0.23.0
+   Compiling cssparser-macros v0.6.1
+   Compiling scopeguard v1.2.0
+   Compiling new_debug_unreachable v1.0.6
+   Compiling anyhow v1.0.102
+   Compiling lock_api v0.4.14
+   Compiling darling v0.23.0
+   Compiling phf v0.13.1
+   Compiling serde_json v1.0.149
+   Compiling precomputed-hash v0.1.1
+   Compiling parking_lot v0.12.5
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling serde_with_macros v3.19.0
+   Compiling serde_spanned v1.1.1
+   Compiling syn v3.0.3
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling log v0.4.29
+   Compiling ctor-proc-macro v0.0.7
+   Compiling idna_adapter v1.2.2
+   Compiling string_cache v0.9.0
+   Compiling serde_derive_internals v0.29.1
+   Compiling percent-encoding v2.3.2
+   Compiling utf-8 v0.7.6
+   Compiling dtoa v1.0.11
+   Compiling dtoa-short v0.3.5
+   Compiling tendril v0.5.0
+   Compiling form_urlencoded v1.2.2
+   Compiling schemars_derive v0.8.22
+   Compiling idna v1.1.0
+   Compiling uuid v1.23.1
+   Compiling selectors v0.36.1
+   Compiling aho-corasick v1.1.4
+   Compiling indexmap v1.9.3
+   Compiling derive_more-impl v2.1.1
+   Compiling unic-common v0.9.0
+   Compiling powerfmt v0.2.0
+   Compiling alloc-no-stdlib v2.0.4
+   Compiling camino v1.2.2
+   Compiling byteorder v1.5.0
+   Compiling regex-syntax v0.8.10
+   Compiling unic-char-range v0.9.0
+   Compiling unic-char-property v0.9.0
+   Compiling alloc-stdlib v0.2.2
+   Compiling deranged v0.5.8
+   Compiling unic-ucd-version v0.9.0
+   Compiling regex-automata v0.4.14
+   Compiling derive_more v2.1.1
+   Compiling url v2.5.8
+   Compiling markup5ever v0.38.0
+   Compiling cssparser v0.36.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling servo_arc v0.4.3
+   Compiling glib-sys v0.18.1
+   Compiling rustc-hash v2.1.2
+   Compiling bit-vec v0.8.0
+   Compiling schemars v0.8.22
+   Compiling hashbrown v0.12.3
+   Compiling fnv v1.0.7
+   Compiling cfb v0.7.3
+   Compiling bit-set v0.8.0
+   Compiling html5ever v0.38.0
+   Compiling regex v1.12.3
+   Compiling unic-ucd-ident v0.9.0
+   Compiling time v0.3.47
+   Compiling brotli-decompressor v5.0.0
+   Compiling jsonptr v0.6.3
+   Compiling cargo-platform v0.1.9
+   Compiling base64 v0.22.1
+   Compiling dyn-clone v1.0.20
+   Compiling bytes v1.11.1
+   Compiling same-file v1.0.6
+   Compiling dunce v1.0.5
+   Compiling walkdir v2.5.0
+   Compiling http v1.4.0
+   Compiling plist v1.9.0
+   Compiling cargo_metadata v0.19.2
+   Compiling json-patch v3.0.1
+   Compiling brotli v8.0.2
+   Compiling dom_query v0.27.0
+   Compiling urlpattern v0.3.0
+   Compiling serde-untagged v0.1.9
+   Compiling infer v0.19.0
+   Compiling ctor v0.8.0
+   Compiling serde_with v3.19.0
+   Compiling gobject-sys v0.18.0
+   Compiling glob v0.3.3
+   Compiling slab v0.4.12
+   Compiling syn v1.0.109
+   Compiling rustc_version v0.4.1
+   Compiling tauri-utils v2.9.1
+   Compiling gio-sys v0.18.1
+   Compiling crc32fast v1.5.0
+   Compiling futures-macro v0.3.34
+   Compiling futures-task v0.3.34
+   Compiling crossbeam-utils v0.8.21
+   Compiling futures-util v0.3.34
+   Compiling gdk-sys v0.18.2
+   Compiling futures-channel v0.3.32
+   Compiling proc-macro-error-attr v1.0.4
+   Compiling proc-macro-error v1.0.4
+   Compiling futures-io v0.3.34
+   Compiling tauri-plugin v2.6.1
+   Compiling gdk-pixbuf-sys v0.18.0
+   Compiling pango-sys v0.18.0
+   Compiling atk-sys v0.18.2
+   Compiling cairo-sys-rs v0.18.2
+   Compiling generic-array v0.14.7
+   Compiling proc-macro-crate v2.0.2
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+   Compiling heck v0.4.1
+   Compiling winnow v0.7.15
+   Compiling option-ext v0.2.0
+   Compiling dirs-sys v0.5.0
+   Compiling glib-macros v0.18.5
+   Compiling toml v0.9.12+spec-1.1.0
+   Compiling futures-executor v0.3.34
+   Compiling embed-resource v3.0.9
+   Compiling tauri-winres v0.3.6
+   Compiling glib v0.18.5
+   Compiling cargo_toml v0.22.3
+   Compiling dirs v6.0.0
+   Compiling gtk-sys v0.18.2
+   Compiling tauri-build v2.6.1
+   Compiling errno v0.3.14
+   Compiling gio v0.18.4
+   Compiling signal-hook-registry v1.4.8
+   Compiling tauri v2.11.1
+   Compiling mio v1.2.0
+   Compiling simd-adler32 v0.3.9
+   Compiling memoffset v0.9.1
+   Compiling tokio-macros v2.7.0
+   Compiling socket2 v0.6.3
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling tokio v1.52.2
+   Compiling gdk-pixbuf v0.18.5
+   Compiling pango v0.18.3
+   Compiling cairo-rs v0.18.5
+   Compiling field-offset v0.3.6
+   Compiling toml_edit v0.19.15
+   Compiling proc-macro-crate v1.3.1
+   Compiling gdk v0.18.2
+   Compiling flate2 v1.1.9
+   Compiling num-traits v0.2.19
+   Compiling gtk v0.18.2
+   Compiling rustix v1.1.4
+   Compiling gtk3-macros v0.18.2
+   Compiling atk v0.18.2
+   Compiling time-macros v0.2.27
+   Compiling getrandom v0.3.4
+   Compiling linux-raw-sys v0.12.1
+   Compiling javascriptcore-rs-sys v1.1.1
+   Compiling soup3-sys v0.5.0
+   Compiling bitflags v1.3.2
+   Compiling webkit2gtk-sys v2.0.2
+   Compiling cookie v0.18.1
+   Compiling x11 v2.21.0
+   Compiling unicode-segmentation v1.13.2
+   Compiling typenum v1.20.0
+   Compiling dpi v0.1.2
+   Compiling gdkx11-sys v0.18.2
+   Compiling crossbeam-channel v0.5.15
+   Compiling libdbus-sys v0.2.7
+   Compiling x11-dl v2.21.0
+   Compiling raw-window-handle v0.6.2
+   Compiling soup3 v0.5.0
+   Compiling javascriptcore-rs v1.1.2
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling fdeflate v0.3.7
+   Compiling png v0.17.16
+   Compiling png v0.18.1
+   Compiling digest v0.10.7
+   Compiling webkit2gtk v2.0.2
+   Compiling keyboard-types v0.7.0
+   Compiling libloading v0.7.4
+   Compiling getrandom v0.2.17
+   Compiling dlopen2_derive v0.4.3
+   Compiling wry v0.55.1
+   Compiling pxfm v0.1.29
+   Compiling cpufeatures v0.2.17
+   Compiling tauri-runtime v2.11.1
+   Compiling moxcms v0.8.1
+   Compiling sha2 v0.10.9
+   Compiling dlopen2 v0.8.2
+   Compiling libappindicator-sys v0.9.0
+   Compiling dbus v0.9.11
+   Compiling ico v0.5.0
+   Compiling gdkx11 v0.18.2
+   Compiling gdkwayland-sys v0.18.2
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling parking v2.2.1
+   Compiling bytemuck v1.25.0
+   Compiling tauri-runtime-wry v2.11.1 (/build/mdeditor/vendor/tauri-runtime-wry)
+   Compiling byteorder-lite v0.1.0
+   Compiling image v0.25.10
+   Compiling tao v0.35.2
+   Compiling tauri-codegen v2.6.1
+   Compiling libappindicator v0.9.0
+   Compiling muda v0.19.1
+   Compiling serialize-to-javascript-impl v0.1.2
+   Compiling serde_repr v0.1.20
+   Compiling mime v0.3.17
+   Compiling subtle v2.6.1
+   Compiling tray-icon v0.23.1
+   Compiling serialize-to-javascript v0.1.2
+warning: unused variable: `err`
+ --> /build/mdeditor/vendor/tauri-runtime-wry/src/dialog/mod.rs:8:29
+  |
+8 | pub fn error<S: AsRef<str>>(err: S) {
+  |                             ^^^ help: if this is intentional, prefix it with an underscore: `_err`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling tauri-macros v2.6.1
+warning: function `error` is never used
+ --> /build/mdeditor/vendor/tauri-runtime-wry/src/dialog/mod.rs:8:8
+  |
+8 | pub fn error<S: AsRef<str>>(err: S) {
+  |        ^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tauri-runtime-wry` (lib) generated 2 warnings (run `cargo fix --lib -p tauri-runtime-wry` to apply 1 suggestion)
+   Compiling http-range v0.1.5
+   Compiling tracing-core v0.1.36
+   Compiling tracing-attributes v0.1.31
+   Compiling tracing v0.1.44
+   Compiling zstd-safe v7.2.4
+   Compiling atomic-waker v1.1.2
+   Compiling event-listener v5.4.2
+   Compiling ring v0.17.14
+   Compiling zeroize v1.8.2
+   Compiling rustls-pki-types v1.14.1
+   Compiling event-listener-strategy v0.5.4
+   Compiling zerocopy v0.8.48
+   Compiling rand_core v0.6.4
+   Compiling rand v0.8.6
+   Compiling toml_edit v0.25.17+spec-1.1.0
+   Compiling phf_shared v0.11.3
+   Compiling enumflags2_derive v0.7.12
+   Compiling alloc-no-stdlib v3.0.0
+   Compiling futures-sink v0.3.34
+   Compiling untrusted v0.9.0
+   Compiling tokio-util v0.7.18
+   Compiling alloc-stdlib v0.3.0
+   Compiling phf_generator v0.11.3
+   Compiling proc-macro-crate v3.5.0
+   Compiling http-body v1.0.1
+   Compiling concurrent-queue v2.5.0
+   Compiling zvariant_utils v3.3.1
+   Compiling wayland-sys v0.31.11
+   Compiling crunchy v0.2.4
+   Compiling allocator-api2 v0.2.21
+   Compiling httparse v1.10.1
+   Compiling hashbrown v0.14.5
+   Compiling rustls v0.23.40
+   Compiling hashbrown v0.16.1
+   Compiling zvariant_derive v5.11.0
+   Compiling brotli-decompressor v6.0.1
+   Compiling rustls-webpki v0.103.13
+   Compiling futures-lite v2.6.1
+   Compiling wayland-backend v0.3.15
+   Compiling no_std_io2 v0.9.4
+   Compiling inotify-sys v0.1.5
+   Compiling try-lock v0.2.5
+   Compiling rle-decode-fast v1.0.3
+   Compiling tiny-keccak v2.0.2
+   Compiling tower-service v0.3.3
+   Compiling libflate_lz77 v2.3.0
+   Compiling want v0.3.1
+   Compiling brotli v9.0.0
+   Compiling h2 v0.4.14
+   Compiling async-lock v3.5.0
+   Compiling tauri-plugin-fs v2.5.1
+   Compiling async-io v2.6.0
+   Compiling downcast-rs v1.2.1
+   Compiling dary_heap v0.3.9
+   Compiling ryu v1.0.23
+   Compiling compression-core v0.4.34
+   Compiling wayland-client v0.31.14
+   Compiling vcpkg v0.2.15
+   Compiling adler32 v1.2.0
+   Compiling libflate v2.3.1
+   Compiling libsqlite3-sys v0.38.2
+   Compiling compression-codecs v0.4.47
+   Compiling hyper v1.9.0
+   Compiling zstd v0.13.3
+   Compiling ppv-lite86 v0.2.21
+   Compiling enumflags2 v0.7.12
+   Compiling polling v3.11.0
+   Compiling gethostname v1.1.0
+   Compiling crossbeam-epoch v0.9.18
+   Compiling async-trait v0.1.92
+   Compiling wayland-scanner v0.31.10
+   Compiling sync_wrapper v1.0.2
+   Compiling ahash v0.7.8
+   Compiling proc-macro-error-attr3 v3.1.0
+   Compiling hex v0.4.3
+   Compiling unicode-width v0.2.3
+   Compiling tower-layer v0.3.3
+   Compiling async-task v4.7.1
+   Compiling libm v0.2.16
+   Compiling rustversion v1.0.23
+   Compiling pulldown-cmark v0.13.4
+   Compiling ipnet v2.12.0
+   Compiling foldhash v0.1.5
+   Compiling endi v1.1.1
+   Compiling zvariant v5.11.0
+   Compiling hashbrown v0.15.5
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling getopts v0.2.24
+   Compiling proc-macro-error3 v3.1.0
+   Compiling const-random-macro v0.1.16
+   Compiling crossbeam-deque v0.8.6
+   Compiling include-flate-compress v0.3.4
+   Compiling async-compression v0.4.52
+   Compiling tokio-rustls v0.26.4
+   Compiling inotify v0.11.2
+   Compiling async-channel v2.5.0
+   Compiling http-body-util v0.1.3
+   Compiling phf_macros v0.11.3
+   Compiling webpki-roots v1.0.7
+   Compiling notify-types v2.1.0
+   Compiling pulldown-cmark-escape v0.11.0
+   Compiling cfg_aliases v0.2.1
+   Compiling tinyvec_macros v0.1.1
+   Compiling fixedbitset v0.5.7
+   Compiling iana-time-zone v0.1.65
+   Compiling x11rb-protocol v0.13.2
+   Compiling unicase v2.9.0
+   Compiling x11rb v0.13.2
+   Compiling chrono v0.4.44
+   Compiling petgraph v0.8.3
+   Compiling tinyvec v1.11.0
+   Compiling nix v0.30.1
+   Compiling notify v8.2.0
+   Compiling phf v0.11.3
+   Compiling hyper-rustls v0.27.9
+   Compiling tower-http v0.6.10
+   Compiling include-flate-codegen v0.3.4
+   Compiling async-signal v0.2.14
+   Compiling wayland-protocols v0.32.12
+   Compiling const-random v0.1.18
+   Compiling zbus_names v4.3.2
+   Compiling phf_codegen v0.11.3
+   Compiling piper v0.2.5
+   Compiling rand_core v0.9.5
+   Compiling hashlink v0.12.1
+   Compiling ptr_meta_derive v0.1.4
+   Compiling nom v8.0.0
+   Compiling slotmap v1.1.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling rayon-core v1.13.0
+   Compiling fallible-iterator v0.3.0
+   Compiling outref v0.1.0
+   Compiling unsafe-libyaml v0.2.11
+   Compiling psl-types v2.0.11
+   Compiling openssl-probe v0.2.1
+   Compiling file-id v0.2.3
+   Compiling rkyv v0.7.46
+   Compiling litrs v1.0.0
+   Compiling notify-debouncer-full v0.6.0
+   Compiling document-features v0.2.12
+   Compiling tree_magic_mini v3.2.2
+   Compiling rustls-native-certs v0.8.5
+   Compiling publicsuffix v2.3.0
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling simd-abstraction v0.7.1
+   Compiling rusqlite v0.40.2
+   Compiling ptr_meta v0.1.4
+   Compiling rand_chacha v0.9.0
+   Compiling zbus_macros v5.15.0
+   Compiling blocking v1.6.2
+   Compiling parcel_selectors v0.28.2
+   Compiling arc-swap v1.9.3
+   Compiling core_maths v0.1.1
+   Compiling dlv-list v0.5.2
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling async-process v2.5.0
+   Compiling include-flate v0.3.4
+   Compiling cssparser v0.33.0
+   Compiling async-executor v1.14.0
+   Compiling dashmap v6.2.1
+   Compiling async-broadcast v0.7.2
+   Compiling tauri-plugin-dialog v2.7.1
+   Compiling tauri-plugin-deep-link v2.4.9
+   Compiling tauri-plugin-store v2.4.3
+   Compiling tauri-plugin-process v2.3.1
+   Compiling tauri-plugin-os v2.3.2
+   Compiling tauri-plugin-http v2.5.9
+   Compiling tauri-plugin-opener v2.5.4
+   Compiling tauri-plugin-updater v2.10.1
+   Compiling tauri-plugin-global-shortcut v2.3.2
+   Compiling tauri-plugin-clipboard-manager v2.3.2
+   Compiling tauri-plugin-window-state v2.4.1
+   Compiling rkyv_derive v0.7.46
+   Compiling ordered-stream v0.2.0
+   Compiling is-docker v0.2.0
+   Compiling jieba-macros v0.10.3
+   Compiling bstr v1.13.0
+   Compiling smallstr v0.3.1
+   Compiling cedarwood v0.5.0
+   Compiling tauri-plugin-native-editor v0.1.0 (/build/mdeditor/tauri-plugin-native-editor)
+   Compiling ahash v0.8.12
+   Compiling filetime v0.2.29
+   Compiling async-recursion v1.1.1
+   Compiling os_pipe v1.2.3
+   Compiling roxmltree v0.20.0
+   Compiling seahash v4.1.0
+   Compiling pathdiff v0.2.3
+   Compiling either v1.15.0
+   Compiling matches v0.1.10
+   Compiling rfd v0.16.0
+   Compiling bytecount v0.6.9
+   Compiling jieba-rs v0.10.3
+   Compiling data-url v0.1.1
+   Compiling convert_case v0.6.0
+   Compiling fontconfig-parser v0.5.8
+   Compiling zbus v5.15.0
+   Compiling wl-clipboard-rs v0.9.3
+   Compiling globset v0.4.19
+   Compiling yrs v0.24.0
+   Compiling is-wsl v0.4.0
+   Compiling ordered-multimap v0.7.3
+   Compiling ttf-parser v0.25.1
+   Compiling rand v0.9.4
+   Compiling base64-simd v0.7.0
+   Compiling cookie_store v0.22.1
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling serde_urlencoded v0.7.1
+   Compiling similar v2.7.0
+   Compiling dirs-sys v0.4.1
+   Compiling xattr v1.6.1
+   Compiling phf_shared v0.12.1
+   Compiling const-str-proc-macro v0.3.2
+   Compiling instant v0.1.13
+   Compiling encoding_rs v0.8.35
+   Compiling memmap2 v0.9.11
+   Compiling rclip-core v0.1.0
+   Compiling clap_lex v1.1.0
+   Compiling zip v2.4.2
+   Compiling vlq v0.5.1
+   Compiling bumpalo v3.20.2
+   Compiling chrono-tz v0.10.4
+   Compiling xkeysym v0.2.1
+   Compiling anstyle v1.0.14
+   Compiling clap_builder v4.6.0
+   Compiling global-hotkey v0.8.0
+   Compiling zopfli v0.8.3
+   Compiling reqwest v0.12.28
+   Compiling parcel_sourcemap v2.1.1
+   Compiling rclip-rtf v0.1.0
+   Compiling fontdb v0.23.0
+   Compiling notify-types v1.0.1
+   Compiling const-str v0.3.2
+   Compiling phf v0.12.1
+   Compiling tar v0.4.45
+   Compiling dirs v5.0.1
+   Compiling write-core v0.1.0 (/build/mdeditor/write-core)
+   Compiling rand_chacha v0.3.1
+   Compiling reqwest v0.13.3
+   Compiling rayon v1.12.0
+   Compiling leiden-rs v0.8.1
+   Compiling rust-ini v0.21.3
+   Compiling os_info v3.14.0
+   Compiling open v5.3.4
+   Compiling ignore v0.4.32
+   Compiling arboard v3.6.1
+   Compiling lightningcss-derive v1.0.0-alpha.43
+   Compiling itertools v0.10.5
+   Compiling cssparser-color v0.1.0
+   Compiling unicode-normalization v0.1.25
+   Compiling inotify v0.10.2
+   Compiling dashmap v5.5.3
+   Compiling tempfile v3.27.0
+   Compiling notemd v6.1110.2 (/build/mdeditor/src-tauri)
+   Compiling serde-content v0.1.2
+   Compiling sys-locale v0.3.2
+   Compiling minisign-verify v0.2.5
+   Compiling data-encoding v2.11.0
+   Compiling pastey v0.1.1
+   Compiling data-url v0.3.2
+   Compiling lazy_static v1.5.0
+   Compiling lightningcss v1.0.0-alpha.71
+   Compiling notify v7.0.0
+   Compiling habitat-core v0.1.0 (/build/mdeditor/habitat-core)
+   Compiling searchidx v0.1.0 (/build/mdeditor/searchidx)
+   Compiling sumi-protocol v0.1.0 (/build/mdeditor/sumi-protocol)
+   Compiling notemd-fonts v0.1.0 (/build/mdeditor/notemd-fonts)
+   Compiling plugin-protocol v0.1.0 (/build/mdeditor/plugin-protocol)
+   Compiling clap v4.6.1
+   Compiling tauri-plugin-single-instance v2.4.2
+   Compiling hmac v0.12.1
+   Compiling fs2 v0.4.3
+   Compiling urlencoding v2.1.3
+warning: unused variable: `background`
+   --> src/cli/open.rs:172:35
+    |
+172 | fn spawn_gui(args: Vec<OsString>, background: bool) -> Result<(), String> {
+    |                                   ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_background`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `CL_ERROR_DENIED_CODE` is never used
+  --> src/plugin_runtime/location.rs:22:7
+   |
+22 | const CL_ERROR_DENIED_CODE: isize = 1;
+   |       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LOCATION_DENIED_ERROR` is never used
+  --> src/plugin_runtime/location.rs:23:7
+   |
+23 | const LOCATION_DENIED_ERROR: &str =
+   |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `core_location_failure` is never used
+  --> src/plugin_runtime/location.rs:26:4
+   |
+26 | fn core_location_failure(code: isize, description: &str) -> String {
+   |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `Observed` is never constructed
+ --> src/sumi/external.rs:9:19
+  |
+9 | pub(super) struct Observed {
+  |                   ^^^^^^^^
+
+warning: associated items `read` and `pair` are never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated items in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+...
+34 |     pub fn pair(&self) -> Result<FilePair> {
+   |            ^^^^
+
+warning: `notemd` (lib) generated 6 warnings (run `cargo fix --lib -p notemd` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 41m 04s
+       Built application at: /cache/target/x86_64-unknown-linux-gnu/release/notemd
+        Info Patching /cache/target/x86_64-unknown-linux-gnu/release/notemd with bundle type information: deb
+    Bundling note.md_6.1110.2_amd64.deb (/cache/target/x86_64-unknown-linux-gnu/release/bundle/deb/note.md_6.1110.2_amd64.deb)
+    Finished 1 bundle at:
+        /cache/target/x86_64-unknown-linux-gnu/release/bundle/deb/note.md_6.1110.2_amd64.deb
+
+Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [366 kB]
+Fetched 9404 kB in 12s (796 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+dpkg is already the newest version (1.21.23).
+dpkg set to manually installed.
+The following additional packages will be installed:
+  binutils-common binutils-x86-64-linux-gnu libbinutils libctf-nobfd0 libctf0
+  libgprofng0 libjansson4
+Suggested packages:
+  binutils-doc
+The following NEW packages will be installed:
+  binutils binutils-common binutils-x86-64-linux-gnu libbinutils libctf-nobfd0
+  libctf0 libgprofng0 libjansson4
+0 upgraded, 8 newly installed, 0 to remove and 0 not upgraded.
+Need to get 6466 kB of archives.
+After this operation, 34.4 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian bookworm/main amd64 binutils-common amd64 2.40-2 [2487 kB]
+Get:2 http://deb.debian.org/debian bookworm/main amd64 libbinutils amd64 2.40-2 [572 kB]
+Get:3 http://deb.debian.org/debian bookworm/main amd64 libctf-nobfd0 amd64 2.40-2 [153 kB]
+Get:4 http://deb.debian.org/debian bookworm/main amd64 libctf0 amd64 2.40-2 [89.8 kB]
+Get:5 http://deb.debian.org/debian bookworm/main amd64 libgprofng0 amd64 2.40-2 [812 kB]
+Get:6 http://deb.debian.org/debian bookworm/main amd64 libjansson4 amd64 2.14-2 [40.8 kB]
+Get:7 http://deb.debian.org/debian bookworm/main amd64 binutils-x86-64-linux-gnu amd64 2.40-2 [2246 kB]
+Get:8 http://deb.debian.org/debian bookworm/main amd64 binutils amd64 2.40-2 [65.0 kB]
+debconf: delaying package configuration, since apt-utils is not installed
+Fetched 6466 kB in 4s (1822 kB/s)
+Selecting previously unselected package binutils-common:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6096 files and directories currently installed.)
+Preparing to unpack .../0-binutils-common_2.40-2_amd64.deb ...
+Unpacking binutils-common:amd64 (2.40-2) ...
+Selecting previously unselected package libbinutils:amd64.
+Preparing to unpack .../1-libbinutils_2.40-2_amd64.deb ...
+Unpacking libbinutils:amd64 (2.40-2) ...
+Selecting previously unselected package libctf-nobfd0:amd64.
+Preparing to unpack .../2-libctf-nobfd0_2.40-2_amd64.deb ...
+Unpacking libctf-nobfd0:amd64 (2.40-2) ...
+Selecting previously unselected package libctf0:amd64.
+Preparing to unpack .../3-libctf0_2.40-2_amd64.deb ...
+Unpacking libctf0:amd64 (2.40-2) ...
+Selecting previously unselected package libgprofng0:amd64.
+Preparing to unpack .../4-libgprofng0_2.40-2_amd64.deb ...
+Unpacking libgprofng0:amd64 (2.40-2) ...
+Selecting previously unselected package libjansson4:amd64.
+Preparing to unpack .../5-libjansson4_2.14-2_amd64.deb ...
+Unpacking libjansson4:amd64 (2.14-2) ...
+Selecting previously unselected package binutils-x86-64-linux-gnu.
+Preparing to unpack .../6-binutils-x86-64-linux-gnu_2.40-2_amd64.deb ...
+Unpacking binutils-x86-64-linux-gnu (2.40-2) ...
+Selecting previously unselected package binutils.
+Preparing to unpack .../7-binutils_2.40-2_amd64.deb ...
+Unpacking binutils (2.40-2) ...
+Setting up binutils-common:amd64 (2.40-2) ...
+Setting up libctf-nobfd0:amd64 (2.40-2) ...
+Setting up libjansson4:amd64 (2.14-2) ...
+Setting up libbinutils:amd64 (2.40-2) ...
+Setting up libctf0:amd64 (2.40-2) ...
+Setting up libgprofng0:amd64 (2.40-2) ...
+Setting up binutils-x86-64-linux-gnu (2.40-2) ...
+Setting up binutils (2.40-2) ...
+Processing triggers for libc-bin (2.36-9+deb12u14) ...
+Verified amd64 package/ELF/layout; maximum GLIBC=2.35 (runtime compatibility still requires symbol/dependency checks)
+Unable to find image 'archlinux:latest' locally
+latest: Pulling from library/archlinux
+4a46ee1b22da: Pulling fs layer
+129cf42f7a5d: Pulling fs layer
+f75f61ace235: Download complete
+4a46ee1b22da: Download complete
+98c97a538fd5: Download complete
+129cf42f7a5d: Download complete
+129cf42f7a5d: Pull complete
+4a46ee1b22da: Pull complete
+Digest: sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
+Status: Downloaded newer image for archlinux:latest
+:: Synchronizing package databases...
+ core downloading...
+ extra downloading...
+warning: binutils-2.47-4 is up to date -- skipping
+warning: libsecret-0.21.8.2-1 is up to date -- skipping
+:: Starting full system upgrade...
+resolving dependencies...
+:: There are 11 providers available for ttf-font:
+:: Repository extra
+   1) gnu-free-fonts  2) noto-fonts  3) ttf-bitstream-vera  4) ttf-croscore  5) ttf-dejavu  6) ttf-droid  7) ttf-ibm-plex  8) ttf-input  9) ttf-input-nerd  10) ttf-liberation  11) ttf-roboto
+
+Enter a number (default=1): 
+looking for conflicting packages...
+
+Package (146)                    New Version             Net Change  Download Size
+
+extra/adwaita-cursors            51.0-1                   11.41 MiB       0.35 MiB
+extra/adwaita-fonts              51.0-2                    7.27 MiB       2.17 MiB
+extra/adwaita-icon-theme         51.0-1                    0.92 MiB       0.19 MiB
+extra/adwaita-icon-theme-legacy  46.2-3                    2.23 MiB       2.17 MiB
+extra/alsa-lib                   1.2.16.1-1                1.75 MiB       0.52 MiB
+extra/alsa-topology-conf         1.2.5.1-4                 0.33 MiB       0.01 MiB
+extra/alsa-ucm-conf              1.2.16.1-1                0.68 MiB       0.13 MiB
+extra/aom                        3.15.3-1                  9.50 MiB       2.97 MiB
+extra/at-spi2-core               2.62.1-1                  4.04 MiB       0.58 MiB
+extra/avahi                      1:0.9rc5-2                1.88 MiB       0.42 MiB
+extra/bubblewrap                 0.13.1-1                  0.10 MiB       0.04 MiB
+extra/cairo                      1.18.6-1                  1.77 MiB       0.68 MiB
+extra/dav1d                      1.5.4-1                   1.85 MiB       0.66 MiB
+core/db5.3                       5.3.28-7                  6.48 MiB       1.26 MiB
+extra/dconf                      51.0-1                    0.46 MiB       0.11 MiB
+extra/default-cursors            3-1                       0.00 MiB       0.00 MiB
+extra/desktop-file-utils         0.29-1                    0.18 MiB       0.05 MiB
+extra/duktape                    2.7.0-7                   0.78 MiB       0.17 MiB
+extra/enchant                    2.8.21-1                  0.32 MiB       0.09 MiB
+extra/flac                       1.5.0-1                   1.14 MiB       0.33 MiB
+extra/freetype2                  2.15.0-1                  1.74 MiB       0.57 MiB
+extra/fribidi                    1.0.18-1                  0.26 MiB       0.07 MiB
+extra/gdk-pixbuf2                2.44.8-1                  3.01 MiB       0.49 MiB
+extra/giflib                     6.1.3-2                   0.34 MiB       0.10 MiB
+extra/glib-networking            1:2.90.1-1                0.71 MiB       0.15 MiB
+extra/glycin                     2.2.6-1                  19.11 MiB       4.06 MiB
+extra/gnu-free-fonts             20120503-9                6.65 MiB       3.19 MiB
+extra/gperftools                 2.19.2-1                  2.27 MiB       0.55 MiB
+extra/graphene                   1.10.8-2                  0.98 MiB       0.10 MiB
+extra/graphite                   1:1.3.15-1                0.20 MiB       0.08 MiB
+extra/gsettings-desktop-schemas  51.0-1                    6.65 MiB       0.87 MiB
+extra/gsettings-system-schemas   51.0-1                    0.02 MiB       0.01 MiB
+extra/gssdp                      1.6.6-1                   0.24 MiB       0.06 MiB
+extra/gst-plugins-bad-libs       1.28.8-1                 14.73 MiB       3.19 MiB
+extra/gst-plugins-base-libs      1.28.8-1                 12.85 MiB       2.46 MiB
+extra/gstreamer                  1.28.8-1                 11.91 MiB       2.11 MiB
+extra/gtest                      1.18.0-1                  1.67 MiB       0.39 MiB
+extra/gtk-update-icon-cache      1:4.24.1-1                0.04 MiB       0.02 MiB
+extra/gupnp                      1:1.6.10-1                0.70 MiB       0.13 MiB
+extra/gupnp-igd                  1.6.0-2                   0.11 MiB       0.03 MiB
+extra/harfbuzz                   15.1.0-1                  5.59 MiB       1.51 MiB
+extra/harfbuzz-icu               15.1.0-1                  0.02 MiB       0.01 MiB
+extra/hicolor-icon-theme         0.18-1                    0.05 MiB       0.01 MiB
+extra/hidapi                     0.15.0-1                  0.13 MiB       0.04 MiB
+extra/highway                    1.4.0-1                  10.04 MiB       1.19 MiB
+extra/hyphen                     2.8.10-1                  0.04 MiB       0.02 MiB
+extra/iso-codes                  4.20.1-1                 22.30 MiB       3.60 MiB
+extra/jbigkit                    2.2-1                     0.17 MiB       0.05 MiB
+extra/json-glib                  1.10.8-1                  1.01 MiB       0.17 MiB
+extra/lame                       4.0-1                     1.10 MiB       0.30 MiB
+extra/lcms2                      2.20-1                    0.70 MiB       0.23 MiB
+extra/libasyncns                 1:0.8+r3+g68cd5af-3       0.05 MiB       0.02 MiB
+extra/libavif                    1.4.2-1                   0.87 MiB       0.31 MiB
+extra/libcloudproviders          0.4.2-1                   0.32 MiB       0.05 MiB
+extra/libcolord                  1.4.8-2                   1.24 MiB       0.18 MiB
+extra/libcups                    2:2.4.20-1                0.79 MiB       0.28 MiB
+extra/libdaemon                  0.14-6                    0.06 MiB       0.02 MiB
+extra/libdatrie                  0.2.14-1                  0.49 MiB       0.11 MiB
+extra/libdbusmenu-glib           18.10.20180917-2          0.67 MiB       0.09 MiB
+extra/libdbusmenu-gtk3           18.10.20180917-2          0.22 MiB       0.05 MiB
+extra/libdeflate                 1.26-1                    0.14 MiB       0.06 MiB
+extra/libdrm                     2.4.134-1                 1.28 MiB       0.35 MiB
+core/libedit                     20260512_3.1-1            0.27 MiB       0.11 MiB
+extra/libepoxy                   1.5.10-3                  2.64 MiB       0.30 MiB
+extra/libevdev                   1.14.0-1                  0.22 MiB       0.06 MiB
+extra/libglvnd                   1.7.0-3                   3.34 MiB       0.32 MiB
+extra/libgudev                   238-4                     0.17 MiB       0.03 MiB
+extra/libjpeg-turbo              3.2.1-1                   2.66 MiB       0.59 MiB
+extra/libjxl                     0.12.0-1                  6.78 MiB       1.86 MiB
+extra/libmanette                 0.2.13-2                  0.40 MiB       0.05 MiB
+extra/libmd                      1.3.0-1                   0.13 MiB       0.06 MiB
+extra/libnice                    0.1.24-1                  1.86 MiB       0.31 MiB
+extra/libogg                     1.3.6-1                   0.44 MiB       0.19 MiB
+extra/libpciaccess               0.19-1                    0.06 MiB       0.02 MiB
+extra/libpng                     1.6.59-1                  0.58 MiB       0.25 MiB
+extra/libproxy                   0.5.12-1                  0.10 MiB       0.03 MiB
+extra/librsvg                    2:2.63.4-1               10.28 MiB       2.35 MiB
+extra/libsndfile                 1.2.2-4                   0.93 MiB       0.31 MiB
+extra/libsoup3                   3.8.1-1                   2.06 MiB       0.42 MiB
+extra/libstemmer                 3.2.0-1                   0.44 MiB       0.14 MiB
+extra/libthai                    0.1.30-1                  1.24 MiB       0.26 MiB
+extra/libtiff                    4.7.2-2                   1.32 MiB       0.40 MiB
+extra/libunwind                  1.8.3-1                   0.30 MiB       0.13 MiB
+extra/libva                      2.24.1-1                  1.00 MiB       0.20 MiB
+extra/libvorbis                  1.3.7-4                   0.83 MiB       0.18 MiB
+extra/libwebp                    1.6.0-2                   1.04 MiB       0.32 MiB
+extra/libx11                     1.8.14-1                  9.84 MiB       2.02 MiB
+extra/libxau                     1.0.12-1                  0.02 MiB       0.01 MiB
+extra/libxcb                     1.17.0-1                  3.87 MiB       0.97 MiB
+extra/libxcomposite              0.4.7-1                   0.02 MiB       0.01 MiB
+extra/libxcursor                 1.2.3-1                   0.07 MiB       0.03 MiB
+extra/libxdamage                 1.1.7-1                   0.02 MiB       0.01 MiB
+extra/libxdmcp                   1.1.5-2                   0.13 MiB       0.03 MiB
+extra/libxext                    1.3.7-1                   0.30 MiB       0.10 MiB
+extra/libxfixes                  6.0.2-1                   0.04 MiB       0.01 MiB
+extra/libxft                     2.3.9-1                   0.13 MiB       0.06 MiB
+extra/libxi                      1.8.4-1                   0.41 MiB       0.07 MiB
+extra/libxinerama                1.1.6-1                   0.02 MiB       0.01 MiB
+extra/libxkbcommon               1.13.2-1                  1.05 MiB       0.27 MiB
+extra/libxkbcommon-x11           1.13.2-1                  0.10 MiB       0.03 MiB
+extra/libxrandr                  1.5.5-1                   0.07 MiB       0.03 MiB
+extra/libxrender                 0.9.13-1                  0.10 MiB       0.03 MiB
+extra/libxshmfence               1.3.3-1                   0.02 MiB       0.01 MiB
+extra/libxslt                    1.1.45-2                  0.78 MiB       0.20 MiB
+extra/libxtst                    1.2.6-1                   0.11 MiB       0.03 MiB
+extra/libxv                      1.0.13-1                  0.06 MiB       0.03 MiB
+extra/libxxf86vm                 1.1.7-1                   0.03 MiB       0.02 MiB
+extra/libyuv                     r2921+644251f25-1         1.50 MiB       0.26 MiB
+extra/llvm-libs                  23.1.4-1                164.88 MiB      41.44 MiB
+extra/lm_sensors                 1:3.6.2-1                 0.48 MiB       0.13 MiB
+core/lzo                         2.10-5                    0.38 MiB       0.09 MiB
+extra/mesa                       1:26.2.6-1               53.90 MiB      13.51 MiB
+extra/mpg123                     1.33.7-1                  1.20 MiB       0.45 MiB
+extra/openjpeg2                  2.5.4-1                  13.37 MiB       0.87 MiB
+extra/opus                       1.6.1-1                   4.16 MiB       3.29 MiB
+extra/orc                        0.4.44-1                  1.45 MiB       0.34 MiB
+extra/pango                      1:1.58.2-1                2.38 MiB       0.43 MiB
+core/perl                        5.44.0-1                 72.30 MiB      20.98 MiB
+extra/perl-error                 0.17031-1                 0.04 MiB       0.02 MiB
+extra/perl-mailtools             2.22-3                    0.10 MiB       0.06 MiB
+extra/perl-timedate              2.35-1                    0.15 MiB       0.06 MiB
+extra/pixman                     0.46.4-1                  0.74 MiB       0.28 MiB
+extra/rav1e                      0.8.1-3                   7.49 MiB       1.58 MiB
+extra/shared-mime-info           2.5.1-2                   5.83 MiB       0.75 MiB
+extra/spirv-tools                1:1.4.363.0-1             8.16 MiB       2.12 MiB
+extra/svt-av1                    4.2.0-1                   5.36 MiB       1.98 MiB
+extra/tinysparql                 3.12.0-1                  3.92 MiB       1.06 MiB
+extra/vmaf                       3.2.1-1                   7.11 MiB       0.48 MiB
+extra/vulkan-icd-loader          1.4.363.0-1               0.67 MiB       0.18 MiB
+extra/wayland                    1.26.0-1                  0.86 MiB       0.15 MiB
+extra/woff2                      1.0.2-7                   0.19 MiB       0.06 MiB
+extra/xcb-proto                  1.17.0-4                  1.03 MiB       0.13 MiB
+extra/xdg-dbus-proxy             0.1.9-1                   0.06 MiB       0.03 MiB
+extra/xkeyboard-config           2.49-1                   10.37 MiB       0.88 MiB
+extra/xorg-xprop                 1.2.8-1                   0.05 MiB       0.03 MiB
+extra/xorgproto                  2026.1-1                  1.47 MiB       0.24 MiB
+extra/zlib-ng                    2.3.3-1                   0.28 MiB       0.11 MiB
+extra/dpkg                       1.23.11-1                 7.27 MiB       1.67 MiB
+extra/fontconfig                 2:2.18.3-2                1.33 MiB       0.40 MiB
+extra/git                        2.56.0-1                 33.54 MiB       7.43 MiB
+extra/gtk3                       1:3.24.52-2              53.22 MiB       8.93 MiB
+extra/libayatana-appindicator    0.6.1-1                   0.37 MiB       0.05 MiB
+extra/libpulse                   17.0+r134+g77d25a1e6-1    1.49 MiB       0.40 MiB
+extra/webkit2gtk-4.1             2.54.2-1                141.22 MiB      38.39 MiB
+extra/xdg-utils                  1.2.1-2                   0.30 MiB       0.06 MiB
+extra/xdotool                    4.20260303.1-1            0.18 MiB       0.07 MiB
+
+Total Download Size:   202.38 MiB
+Total Installed Size:  849.64 MiB
+
+:: Proceed with installation? [Y/n] 
+:: Retrieving packages...
+ llvm-libs-23.1.4-1-x86_64 downloading...
+ webkit2gtk-4.1-2.54.2-1-x86_64 downloading...
+ perl-5.44.0-1-x86_64 downloading...
+ mesa-1:26.2.6-1-x86_64 downloading...
+ gtk3-1:3.24.52-2-x86_64 downloading...
+ git-2.56.0-1-x86_64 downloading...
+ glycin-2.2.6-1-x86_64 downloading...
+ iso-codes-4.20.1-1-any downloading...
+ opus-1.6.1-1-x86_64 downloading...
+ gnu-free-fonts-20120503-9-any downloading...
+ gst-plugins-bad-libs-1.28.8-1-x86_64 downloading...
+ aom-3.15.3-1-x86_64 downloading...
+ gst-plugins-base-libs-1.28.8-1-x86_64 downloading...
+ librsvg-2:2.63.4-1-x86_64 downloading...
+ adwaita-fonts-51.0-2-any downloading...
+ adwaita-icon-theme-legacy-46.2-3-any downloading...
+ spirv-tools-1:1.4.363.0-1-x86_64 downloading...
+ gstreamer-1.28.8-1-x86_64 downloading...
+ libx11-1.8.14-1-x86_64 downloading...
+ svt-av1-4.2.0-1-x86_64 downloading...
+ libjxl-0.12.0-1-x86_64 downloading...
+ dpkg-1.23.11-1-x86_64 downloading...
+ rav1e-0.8.1-3-x86_64 downloading...
+ harfbuzz-15.1.0-1-x86_64 downloading...
+ db5.3-5.3.28-7-x86_64 downloading...
+ highway-1.4.0-1-x86_64 downloading...
+ tinysparql-3.12.0-1-x86_64 downloading...
+ libxcb-1.17.0-1-x86_64 downloading...
+ xkeyboard-config-2.49-1-any downloading...
+ openjpeg2-2.5.4-1-x86_64 downloading...
+ gsettings-desktop-schemas-51.0-1-any downloading...
+ shared-mime-info-2.5.1-2-x86_64 downloading...
+ cairo-1.18.6-1-x86_64 downloading...
+ dav1d-1.5.4-1-x86_64 downloading...
+ libjpeg-turbo-3.2.1-1-x86_64 downloading...
+ at-spi2-core-2.62.1-1-x86_64 downloading...
+ freetype2-2.15.0-1-x86_64 downloading...
+ gperftools-2.19.2-1-x86_64 downloading...
+ alsa-lib-1.2.16.1-1-x86_64 downloading...
+ gdk-pixbuf2-2.44.8-1-x86_64 downloading...
+ vmaf-3.2.1-1-x86_64 downloading...
+ mpg123-1.33.7-1-x86_64 downloading...
+ pango-1:1.58.2-1-x86_64 downloading...
+ libsoup3-3.8.1-1-x86_64 downloading...
+ avahi-1:0.9rc5-2-x86_64 downloading...
+ libpulse-17.0+r134+g77d25a1e6-1-x86_64 downloading...
+ libtiff-4.7.2-2-x86_64 downloading...
+ fontconfig-2:2.18.3-2-x86_64 downloading...
+ gtest-1.18.0-1-x86_64 downloading...
+ adwaita-cursors-51.0-1-any downloading...
+ libdrm-2.4.134-1-x86_64 downloading...
+ orc-0.4.44-1-x86_64 downloading...
+ flac-1.5.0-1-x86_64 downloading...
+ libwebp-1.6.0-2-x86_64 downloading...
+ libglvnd-1.7.0-3-x86_64 downloading...
+ libnice-0.1.24-1-x86_64 downloading...
+ libavif-1.4.2-1-x86_64 downloading...
+ libsndfile-1.2.2-4-x86_64 downloading...
+ lame-4.0-1-x86_64 downloading...
+ libepoxy-1.5.10-3-x86_64 downloading...
+ pixman-0.46.4-1-x86_64 downloading...
+ libcups-2:2.4.20-1-x86_64 downloading...
+ libxkbcommon-1.13.2-1-x86_64 downloading...
+ libthai-0.1.30-1-x86_64 downloading...
+ libyuv-r2921+644251f25-1-x86_64 downloading...
+ libpng-1.6.59-1-x86_64 downloading...
+ xorgproto-2026.1-1-any downloading...
+ lcms2-2.20-1-x86_64 downloading...
+ libva-2.24.1-1-x86_64 downloading...
+ libxslt-1.1.45-2-x86_64 downloading...
+ adwaita-icon-theme-51.0-1-any downloading...
+ libogg-1.3.6-1-x86_64 downloading...
+ vulkan-icd-loader-1.4.363.0-1-x86_64 downloading...
+ libcolord-1.4.8-2-x86_64 downloading...
+ libvorbis-1.3.7-4-x86_64 downloading...
+ duktape-2.7.0-7-x86_64 downloading...
+ json-glib-1.10.8-1-x86_64 downloading...
+ glib-networking-1:2.90.1-1-x86_64 downloading...
+ wayland-1.26.0-1-x86_64 downloading...
+ libstemmer-3.2.0-1-x86_64 downloading...
+ lm_sensors-1:3.6.2-1-x86_64 downloading...
+ libunwind-1.8.3-1-x86_64 downloading...
+ alsa-ucm-conf-1.2.16.1-1-any downloading...
+ xcb-proto-1.17.0-4-any downloading...
+ gupnp-1:1.6.10-1-x86_64 downloading...
+ libedit-20260512_3.1-1-x86_64 downloading...
+ zlib-ng-2.3.3-1-x86_64 downloading...
+ dconf-51.0-1-x86_64 downloading...
+ libdatrie-0.2.14-1-x86_64 downloading...
+ graphene-1.10.8-2-x86_64 downloading...
+ libxext-1.3.7-1-x86_64 downloading...
+ giflib-6.1.3-2-x86_64 downloading...
+ libdbusmenu-glib-18.10.20180917-2-x86_64 downloading...
+ lzo-2.10-5-x86_64 downloading...
+ enchant-2.8.21-1-x86_64 downloading...
+ graphite-1:1.3.15-1-x86_64 downloading...
+ fribidi-1.0.18-1-x86_64 downloading...
+ libxi-1.8.4-1-x86_64 downloading...
+ xdotool-4.20260303.1-1-x86_64 downloading...
+ libdeflate-1.26-1-x86_64 downloading...
+ perl-timedate-2.35-1-any downloading...
+ woff2-1.0.2-7-x86_64 downloading...
+ gssdp-1.6.6-1-x86_64 downloading...
+ libxft-2.3.9-1-x86_64 downloading...
+ libmd-1.3.0-1-x86_64 downloading...
+ libevdev-1.14.0-1-x86_64 downloading...
+ xdg-utils-1.2.1-2-any downloading...
+ perl-mailtools-2.22-3-any downloading...
+ libayatana-appindicator-0.6.1-1-x86_64 downloading...
+ libmanette-0.2.13-2-x86_64 downloading...
+ jbigkit-2.2-1-x86_64 downloading...
+ libdbusmenu-gtk3-18.10.20180917-2-x86_64 downloading...
+ desktop-file-utils-0.29-1-x86_64 downloading...
+ libcloudproviders-0.4.2-1-x86_64 downloading...
+ hidapi-0.15.0-1-x86_64 downloading...
+ bubblewrap-0.13.1-1-x86_64 downloading...
+ libxv-1.0.13-1-x86_64 downloading...
+ libxcursor-1.2.3-1-x86_64 downloading...
+ libxkbcommon-x11-1.13.2-1-x86_64 downloading...
+ libxrender-0.9.13-1-x86_64 downloading...
+ libproxy-0.5.12-1-x86_64 downloading...
+ libgudev-238-4-x86_64 downloading...
+ gupnp-igd-1.6.0-2-x86_64 downloading...
+ libxrandr-1.5.5-1-x86_64 downloading...
+ libxdmcp-1.1.5-2-x86_64 downloading...
+ xdg-dbus-proxy-0.1.9-1-x86_64 downloading...
+ libxtst-1.2.6-1-x86_64 downloading...
+ xorg-xprop-1.2.8-1-x86_64 downloading...
+ libpciaccess-0.19-1-x86_64 downloading...
+ perl-error-0.17031-1-any downloading...
+ libdaemon-0.14-6-x86_64 downloading...
+ hyphen-2.8.10-1-x86_64 downloading...
+ gtk-update-icon-cache-1:4.24.1-1-x86_64 downloading...
+ libasyncns-1:0.8+r3+g68cd5af-3-x86_64 downloading...
+ libxxf86vm-1.1.7-1-x86_64 downloading...
+ libxfixes-6.0.2-1-x86_64 downloading...
+ alsa-topology-conf-1.2.5.1-4-any downloading...
+ hicolor-icon-theme-0.18-1-any downloading...
+ libxcomposite-0.4.7-1-x86_64 downloading...
+ libxau-1.0.12-1-x86_64 downloading...
+ libxinerama-1.1.6-1-x86_64 downloading...
+ harfbuzz-icu-15.1.0-1-x86_64 downloading...
+ libxdamage-1.1.7-1-x86_64 downloading...
+ gsettings-system-schemas-51.0-1-any downloading...
+ libxshmfence-1.3.3-1-x86_64 downloading...
+ default-cursors-3-1-any downloading...
+checking keyring...
+checking package integrity...
+loading package files...
+checking for file conflicts...
+:: Processing package changes...
+installing libmd...
+installing db5.3...
+installing perl...
+installing zlib-ng...
+installing dpkg...
+    dpkg installs Debian package manager.
+    This is useful for those who want to create/modify DEB files.
+    However, *do not* use dpkg to install Debian packages in your ArchLinux machine.
+    This will break your system!
+    You will need to go back to Arch wiki and read the installation guide again.
+    You've been warned!
+installing dconf...
+installing gsettings-system-schemas...
+installing adwaita-fonts...
+installing gsettings-desktop-schemas...
+installing xcb-proto...
+installing xorgproto...
+installing libxdmcp...
+installing libxau...
+installing libxcb...
+installing libx11...
+installing libxext...
+installing libxfixes...
+installing libxi...
+installing libxtst...
+installing xorg-xprop...
+installing at-spi2-core...
+installing bubblewrap...
+installing libpng...
+installing freetype2...
+Optional dependencies for freetype2
+    harfbuzz: Improved autohinting [pending]
+installing fontconfig...
+Creating fontconfig configuration...
+Rebuilding fontconfig cache...
+installing libxrender...
+installing lzo...
+installing pixman...
+installing cairo...
+installing enchant...
+Optional dependencies for enchant
+    aspell: for aspell based spell checking support
+    hspell: for hspell based spell checking support
+    hunspell: for hunspell based spell checking support
+    libvoikko: for libvoikko based spell checking support
+    nuspell: for nuspell based spell checking support
+installing libjpeg-turbo...
+installing jbigkit...
+installing libdeflate...
+installing libwebp...
+Optional dependencies for libwebp
+    libwebp-utils: WebP conversion and inspection tools
+installing libtiff...
+Optional dependencies for libtiff
+    freeglut: for using tiffgt
+installing lcms2...
+installing giflib...
+installing libunwind...
+installing gperftools...
+installing gtest...
+Optional dependencies for gtest
+    python: gmock generator
+installing highway...
+installing libjxl...
+Optional dependencies for libjxl
+    java-runtime: for JNI bindings
+installing dav1d...
+Optional dependencies for dav1d
+    dav1d-doc: HTML documentation
+installing graphite...
+Optional dependencies for graphite
+    graphite-docs: Documentation
+installing harfbuzz...
+Optional dependencies for harfbuzz
+    harfbuzz-utils: utilities
+installing fribidi...
+installing libdatrie...
+installing libthai...
+installing libxft...
+installing pango...
+installing librsvg...
+installing glycin...
+Optional dependencies for glycin
+    libheif: Load .avif, .heic and .heif
+installing shared-mime-info...
+installing gdk-pixbuf2...
+Optional dependencies for gdk-pixbuf2
+    libheif: Load .avif, .heic and .heif
+    libopenraw: Load .arw, .cr2, .crw, .dng, .erf, .mrw, .nef, .orf, .pef and .raf
+    libwmf: Load .apm and .wmf
+installing gstreamer...
+Optional dependencies for gstreamer
+    python: gst-plugins-doc-cache-generator
+installing graphene...
+installing iso-codes...
+installing libpciaccess...
+installing libdrm...
+Optional dependencies for libdrm
+    cairo: needed for modetest tool [installed]
+installing libxshmfence...
+installing libxxf86vm...
+installing libedit...
+installing llvm-libs...
+installing lm_sensors...
+Optional dependencies for lm_sensors
+    rrdtool: for logging with sensord
+    perl: for sensor detection and configuration convert [installed]
+installing spirv-tools...
+installing default-cursors...
+Optional dependencies for default-cursors
+    adwaita-cursors: default cursor theme [pending]
+installing wayland...
+installing mesa...
+Optional dependencies for mesa
+    opengl-man-pages: for the OpenGL API man pages
+installing libglvnd...
+installing libgudev...
+installing libxv...
+installing orc...
+installing gst-plugins-base-libs...
+installing duktape...
+installing libproxy...
+installing glib-networking...
+installing libsoup3...
+Optional dependencies for libsoup3
+    samba: Windows Domain SSO
+installing gssdp...
+Optional dependencies for gssdp
+    gtk4: gssdp-device-sniffer
+installing gupnp...
+Optional dependencies for gupnp
+    python: gupnp-binding-tool
+installing gupnp-igd...
+installing libnice...
+Optional dependencies for libnice
+    gstreamer: "nice" GStreamer plugin [installed]
+installing libva...
+Optional dependencies for libva
+    intel-media-driver: backend for Intel GPUs (>= Broadwell)
+    libva-intel-driver: backend for Intel GPUs (<= Haswell)
+    libva-mesa-driver: backend for AMD and NVIDIA GPUs [installed]
+installing xkeyboard-config...
+installing libxkbcommon...
+Optional dependencies for libxkbcommon
+    libxkbcommon-x11: xkbcli interactive-x11 [pending]
+    wayland: xkbcli interactive-wayland [installed]
+installing libxkbcommon-x11...
+installing vulkan-icd-loader...
+Optional dependencies for vulkan-icd-loader
+    vulkan-driver: packaged vulkan driver
+installing vmaf...
+installing gst-plugins-bad-libs...
+installing hicolor-icon-theme...
+installing adwaita-icon-theme-legacy...
+installing adwaita-cursors...
+installing adwaita-icon-theme...
+installing desktop-file-utils...
+installing libcloudproviders...
+installing libcolord...
+installing libdaemon...
+installing avahi...
+Optional dependencies for avahi
+    avahi-bookmarks: avahi-bookmarks
+    avahi-gtk: avahi-discover, avahi-discover-standalone, bshell, bssh, bvnc
+    nss-mdns: NSS support for mDNS
+    python-dbus: Python bindings
+installing libcups...
+installing libepoxy...
+installing libxcomposite...
+installing libxcursor...
+installing libxdamage...
+installing libxinerama...
+installing libxrandr...
+installing json-glib...
+installing libstemmer...
+installing tinysparql...
+installing gtk-update-icon-cache...
+installing gtk3...
+Optional dependencies for gtk3
+    papers: default print previewer
+    evince: legacy print previewer
+installing harfbuzz-icu...
+installing hyphen...
+installing aom...
+installing libyuv...
+installing rav1e...
+installing svt-av1...
+installing libavif...
+installing hidapi...
+Optional dependencies for hidapi
+    libusb: for hidapi-libusb [installed]
+installing libevdev...
+installing libmanette...
+installing libxslt...
+Optional dependencies for libxslt
+    python: Python bindings
+installing openjpeg2...
+installing gnu-free-fonts...
+installing woff2...
+installing xdg-dbus-proxy...
+installing webkit2gtk-4.1...
+Optional dependencies for webkit2gtk-4.1
+    geoclue: Geolocation support
+    gst-libav: nonfree media decoding
+    gst-plugins-bad: media decoding
+    gst-plugins-good: media decoding
+installing libdbusmenu-glib...
+installing libdbusmenu-gtk3...
+installing libayatana-appindicator...
+installing libasyncns...
+installing libogg...
+installing flac...
+installing alsa-topology-conf...
+installing alsa-ucm-conf...
+installing alsa-lib...
+installing mpg123...
+Optional dependencies for mpg123
+    sdl2-compat: for sdl audio support
+    jack: for jack audio support
+    libpulse: for pulse audio support [pending]
+    perl: for conplay [installed]
+installing lame...
+installing libvorbis...
+installing opus...
+installing libsndfile...
+Optional dependencies for libsndfile
+    alsa-lib: for sndfile-play [installed]
+installing libpulse...
+Optional dependencies for libpulse
+    pulse-native-provider: PulseAudio backend
+installing xdotool...
+installing perl-error...
+installing perl-timedate...
+installing perl-mailtools...
+installing git...
+Optional dependencies for git
+    git-zsh-completion: upstream zsh completion
+    tk: gitk and git gui
+    openssh: ssh transport and crypto
+    man: show help with `git command --help`
+    perl-libwww: git svn
+    perl-term-readkey: git svn and interactive.singlekey setting
+    perl-io-socket-ssl: git send-email TLS support
+    perl-authen-sasl: git send-email TLS support
+    perl-cgi: gitweb (web interface) support
+    python: git svn & git p4
+    subversion: git svn
+    org.freedesktop.secrets: keyring credential helper
+    libsecret: libsecret credential helper [installed]
+    less: the default pager for git
+installing xdg-utils...
+Optional dependencies for xdg-utils
+    kde-cli-tools: for KDE Plasma5 support in xdg-open
+    exo: for Xfce support in xdg-open
+    pcmanfm: for LXDE support in xdg-open
+    perl-file-mimeinfo: for generic support in xdg-open
+    perl-net-dbus: Perl extension to dbus used in xdg-screensaver
+    perl-x11-protocol: Perl X11 protocol used in xdg-screensaver
+    xorg-xset: for X11 support in xdg-screensaver
+    xorg-xprop: for X11 support in xdg-screensaver [installed]
+:: Running post-transaction hooks...
+( 1/13) Creating system user accounts...
+Creating group 'avahi' with GID 969.
+Creating user 'avahi' (Avahi mDNS/DNS-SD daemon) with UID 969 and GID 969.
+Creating group 'git' with GID 968.
+Creating user 'git' (git daemon user) with UID 968 and GID 968.
+( 2/13) Reloading system manager configuration...
+  Skipped: Current root is not booted.
+( 3/13) Reloading user manager configuration...
+  Skipped: Current root is not booted.
+( 4/13) Updating the MIME type database...
+( 5/13) Arming ConditionNeedsUpdate...
+( 6/13) Updating fontconfig configuration...
+( 7/13) Reloading system bus configuration...
+  Skipped: Current root is not booted.
+( 8/13) Checking for old perl modules...
+( 9/13) Updating fontconfig cache...
+(10/13) Updating GIO module cache...
+(11/13) Compiling GSettings XML schema files...
+(12/13) Updating GTK 3 input method module cache...
+(13/13) Updating icon theme caches...
+Verified amd64 package/ELF/layout; maximum GLIBC=2.35 (runtime compatibility still requires symbol/dependency checks)
+	linux-vdso.so.1 (0x00007ff2a2c6e000)
+	libsecret-1.so.0 => /usr/lib/libsecret-1.so.0 (0x00007ff2a0f4e000)
+	libglib-2.0.so.0 => /usr/lib/libglib-2.0.so.0 (0x00007ff2a0de9000)
+	libgobject-2.0.so.0 => /usr/lib/libgobject-2.0.so.0 (0x00007ff2a0d86000)
+	libpangocairo-1.0.so.0 => /usr/lib/libpangocairo-1.0.so.0 (0x00007ff2a0d74000)
+	libfontconfig.so.1 => /usr/lib/libfontconfig.so.1 (0x00007ff2a0cf7000)
+	libpangoft2-1.0.so.0 => /usr/lib/libpangoft2-1.0.so.0 (0x00007ff2a0cd8000)
+	libgdk-3.so.0 => /usr/lib/libgdk-3.so.0 (0x00007ff2a0be4000)
+	libpango-1.0.so.0 => /usr/lib/libpango-1.0.so.0 (0x00007ff2a0b75000)
+	libgdk_pixbuf-2.0.so.0 => /usr/lib/libgdk_pixbuf-2.0.so.0 (0x00007ff2a0b39000)
+	libcairo.so.2 => /usr/lib/libcairo.so.2 (0x00007ff2a09f0000)
+	libdbus-1.so.3 => /usr/lib/libdbus-1.so.3 (0x00007ff2a0998000)
+	libwebkit2gtk-4.1.so.0 => /usr/lib/libwebkit2gtk-4.1.so.0 (0x00007ff29ab65000)
+	libgtk-3.so.0 => /usr/lib/libgtk-3.so.0 (0x00007ff29a42d000)
+	libsoup-3.0.so.0 => /usr/lib/libsoup-3.0.so.0 (0x00007ff29a38a000)
+	libgio-2.0.so.0 => /usr/lib/libgio-2.0.so.0 (0x00007ff29a1a7000)
+	libjavascriptcoregtk-4.1.so.0 => /usr/lib/libjavascriptcoregtk-4.1.so.0 (0x00007ff297ade000)
+	libgcc_s.so.1 => /usr/lib/libgcc_s.so.1 (0x00007ff297aaf000)
+	libm.so.6 => /usr/lib/libm.so.6 (0x00007ff297978000)
+	libc.so.6 => /usr/lib/libc.so.6 (0x00007ff297755000)
+	libgcrypt.so.20 => /usr/lib/libgcrypt.so.20 (0x00007ff2975a4000)
+	libtss2-esys.so.0 => /usr/lib/libtss2-esys.so.0 (0x00007ff297512000)
+	libtss2-mu.so.0 => /usr/lib/libtss2-mu.so.0 (0x00007ff2974c8000)
+	libtss2-rc.so.0 => /usr/lib/libtss2-rc.so.0 (0x00007ff2974bd000)
+	libtss2-tctildr.so.0 => /usr/lib/libtss2-tctildr.so.0 (0x00007ff2974b5000)
+	libpcre2-8.so.0 => /usr/lib/libpcre2-8.so.0 (0x00007ff297402000)
+	libffi.so.8 => /usr/lib/libffi.so.8 (0x00007ff2973f4000)
+	libharfbuzz.so.0 => /usr/lib/libharfbuzz.so.0 (0x00007ff297284000)
+	libfreetype.so.6 => /usr/lib/libfreetype.so.6 (0x00007ff29719d000)
+	libexpat.so.1 => /usr/lib/libexpat.so.1 (0x00007ff29716e000)
+	libfribidi.so.0 => /usr/lib/libfribidi.so.0 (0x00007ff29714c000)
+	libcairo-gobject.so.2 => /usr/lib/libcairo-gobject.so.2 (0x00007ff297143000)
+	libepoxy.so.0 => /usr/lib/libepoxy.so.0 (0x00007ff297036000)
+	libxkbcommon.so.0 => /usr/lib/libxkbcommon.so.0 (0x00007ff296fd7000)
+	libwayland-client.so.0 => /usr/lib/libwayland-client.so.0 (0x00007ff296fc5000)
+	libwayland-cursor.so.0 => /usr/lib/libwayland-cursor.so.0 (0x00007ff296fbc000)
+	libwayland-egl.so.1 => /usr/lib/libwayland-egl.so.1 (0x00007ff296fb7000)
+	libX11.so.6 => /usr/lib/libX11.so.6 (0x00007ff296e65000)
+	libXi.so.6 => /usr/lib/libXi.so.6 (0x00007ff296e50000)
+	libXext.so.6 => /usr/lib/libXext.so.6 (0x00007ff296e3c000)
+	libXcursor.so.1 => /usr/lib/libXcursor.so.1 (0x00007ff296e2d000)
+	libXdamage.so.1 => /usr/lib/libXdamage.so.1 (0x00007ff296e28000)
+	libXfixes.so.3 => /usr/lib/libXfixes.so.3 (0x00007ff296e20000)
+	libXcomposite.so.1 => /usr/lib/libXcomposite.so.1 (0x00007ff296e1b000)
+	libXrandr.so.2 => /usr/lib/libXrandr.so.2 (0x00007ff296e0e000)
+	libXinerama.so.1 => /usr/lib/libXinerama.so.1 (0x00007ff296e09000)
+	libthai.so.0 => /usr/lib/libthai.so.0 (0x00007ff296dfc000)
+	libgmodule-2.0.so.0 => /usr/lib/libgmodule-2.0.so.0 (0x00007ff296df5000)
+	libglycin-2.so.0 => /usr/lib/libglycin-2.so.0 (0x00007ff296987000)
+	libz.so.1 => /usr/lib/libz.so.1 (0x00007ff29696c000)
+	libpng16.so.16 => /usr/lib/libpng16.so.16 (0x00007ff29692f000)
+	libXrender.so.1 => /usr/lib/libXrender.so.1 (0x00007ff296921000)
+	libxcb.so.1 => /usr/lib/libxcb.so.1 (0x00007ff2968f6000)
+	libxcb-render.so.0 => /usr/lib/libxcb-render.so.0 (0x00007ff2968e7000)
+	libxcb-shm.so.0 => /usr/lib/libxcb-shm.so.0 (0x00007ff2968e2000)
+	libpixman-1.so.0 => /usr/lib/libpixman-1.so.0 (0x00007ff296833000)
+	libsystemd.so.0 => /usr/lib/libsystemd.so.0 (0x00007ff2966e9000)
+	libatk-1.0.so.0 => /usr/lib/libatk-1.0.so.0 (0x00007ff2966c0000)
+	libwebpmux.so.3 => /usr/lib/libwebpmux.so.3 (0x00007ff2966b4000)
+	libicui18n.so.78 => /usr/lib/libicui18n.so.78 (0x00007ff296326000)
+	libjpeg.so.8 => /usr/lib/libjpeg.so.8 (0x00007ff29627e000)
+	libicuuc.so.78 => /usr/lib/libicuuc.so.78 (0x00007ff296070000)
+	libxml2.so.16 => /usr/lib/libxml2.so.16 (0x00007ff295f2b000)
+	libsqlite3.so.0 => /usr/lib/libsqlite3.so.0 (0x00007ff295d8a000)
+	libxslt.so.1 => /usr/lib/libxslt.so.1 (0x00007ff295d4d000)
+	liblcms2.so.2 => /usr/lib/liblcms2.so.2 (0x00007ff295ce0000)
+	libgstallocators-1.0.so.0 => /usr/lib/libgstallocators-1.0.so.0 (0x00007ff295cd6000)
+	libgstapp-1.0.so.0 => /usr/lib/libgstapp-1.0.so.0 (0x00007ff295cbd000)
+	libgstbase-1.0.so.0 => /usr/lib/libgstbase-1.0.so.0 (0x00007ff295c35000)
+	libgstreamer-1.0.so.0 => /usr/lib/libgstreamer-1.0.so.0 (0x00007ff295ac0000)
+	libgstpbutils-1.0.so.0 => /usr/lib/libgstpbutils-1.0.so.0 (0x00007ff295a7b000)
+	libgstaudio-1.0.so.0 => /usr/lib/libgstaudio-1.0.so.0 (0x00007ff2959f0000)
+	libgsttag-1.0.so.0 => /usr/lib/libgsttag-1.0.so.0 (0x00007ff2959b1000)
+	libgstvideo-1.0.so.0 => /usr/lib/libgstvideo-1.0.so.0 (0x00007ff2958d2000)
+	libgstgl-1.0.so.0 => /usr/lib/libgstgl-1.0.so.0 (0x00007ff29583c000)
+	libgstfft-1.0.so.0 => /usr/lib/libgstfft-1.0.so.0 (0x00007ff29582f000)
+	libwebpdemux.so.2 => /usr/lib/libwebpdemux.so.2 (0x00007ff295828000)
+	libwebp.so.7 => /usr/lib/libwebp.so.7 (0x00007ff2957a1000)
+	libjxl.so.0.12 => /usr/lib/libjxl.so.0.12 (0x00007ff29536b000)
+	libavif.so.16 => /usr/lib/libavif.so.16 (0x00007ff295323000)
+	libharfbuzz-icu.so.0 => /usr/lib/libharfbuzz-icu.so.0 (0x00007ff29531e000)
+	libwayland-server.so.0 => /usr/lib/libwayland-server.so.0 (0x00007ff295307000)
+	libmanette-0.2.so.0 => /usr/lib/libmanette-0.2.so.0 (0x00007ff2952b5000)
+	libseccomp.so.2 => /usr/lib/libseccomp.so.2 (0x00007ff295288000)
+	libenchant-2.so.2 => /usr/lib/libenchant-2.so.2 (0x00007ff295276000)
+	libgbm.so.1 => /usr/lib/libgbm.so.1 (0x00007ff295270000)
+	libdrm.so.2 => /usr/lib/libdrm.so.2 (0x00007ff295259000)
+	libtasn1.so.6 => /usr/lib/libtasn1.so.6 (0x00007ff295241000)
+	libhyphen.so.0 => /usr/lib/libhyphen.so.0 (0x00007ff295239000)
+	libstdc++.so.6 => /usr/lib/libstdc++.so.6 (0x00007ff294f66000)
+	/lib64/ld-linux-x86-64.so.2 => /usr/lib64/ld-linux-x86-64.so.2 (0x00007ff2a2c70000)
+	libatk-bridge-2.0.so.0 => /usr/lib/libatk-bridge-2.0.so.0 (0x00007ff294f2a000)
+	libcloudproviders.so.0 => /usr/lib/libcloudproviders.so.0 (0x00007ff294f12000)
+	libtinysparql-3.0.so.0 => /usr/lib/libtinysparql-3.0.so.0 (0x00007ff294e39000)
+	libpsl.so.5 => /usr/lib/libpsl.so.5 (0x00007ff294e25000)
+	libbrotlidec.so.1 => /usr/lib/libbrotlidec.so.1 (0x00007ff294e15000)
+	libzstd.so.1 => /usr/lib/libzstd.so.1 (0x00007ff294d2f000)
+	libgssapi_krb5.so.2 => /usr/lib/libgssapi_krb5.so.2 (0x00007ff294cd7000)
+	libnghttp2.so.14 => /usr/lib/libnghttp2.so.14 (0x00007ff294cab000)
+	libmount.so.1 => /usr/lib/libmount.so.1 (0x00007ff294c4e000)
+	libatomic.so.1 => /usr/lib/libatomic.so.1 (0x00007ff294c43000)
+	libgpg-error.so.0 => /usr/lib/libgpg-error.so.0 (0x00007ff294c16000)
+	libcrypto.so.3 => /usr/lib/libcrypto.so.3 (0x00007ff29466c000)
+	libtss2-sys.so.1 => /usr/lib/libtss2-sys.so.1 (0x00007ff294648000)
+	libgraphite2.so.3 => /usr/lib/libgraphite2.so.3 (0x00007ff294625000)
+	libbz2.so.1.0 => /usr/lib/libbz2.so.1.0 (0x00007ff294612000)
+	libdatrie.so.1 => /usr/lib/libdatrie.so.1 (0x00007ff294609000)
+	libXau.so.6 => /usr/lib/libXau.so.6 (0x00007ff294602000)
+	libXdmcp.so.6 => /usr/lib/libXdmcp.so.6 (0x00007ff2945fa000)
+	libicudata.so.78 => /usr/lib/libicudata.so.78 (0x00007ff292665000)
+	libunwind.so.8 => /usr/lib/libunwind.so.8 (0x00007ff292649000)
+	libdw.so.1 => /usr/lib/libdw.so.1 (0x00007ff2925a7000)
+	liborc-0.4.so.0 => /usr/lib/liborc-0.4.so.0 (0x00007ff292493000)
+	libEGL.so.1 => /usr/lib/libEGL.so.1 (0x00007ff292481000)
+	libGLX.so.0 => /usr/lib/libGLX.so.0 (0x00007ff292450000)
+	libX11-xcb.so.1 => /usr/lib/libX11-xcb.so.1 (0x00007ff29244b000)
+	libgudev-1.0.so.0 => /usr/lib/libgudev-1.0.so.0 (0x00007ff29243e000)
+	libsharpyuv.so.0 => /usr/lib/libsharpyuv.so.0 (0x00007ff292433000)
+	libjxl_cms.so.0.12 => /usr/lib/libjxl_cms.so.0.12 (0x00007ff29240a000)
+	libhwy.so.1 => /usr/lib/libhwy.so.1 (0x00007ff2923fb000)
+	libbrotlienc.so.1 => /usr/lib/libbrotlienc.so.1 (0x00007ff292336000)
+	libyuv.so => /usr/lib/libyuv.so (0x00007ff29228f000)
+	libdav1d.so.7 => /usr/lib/libdav1d.so.7 (0x00007ff2920ae000)
+	librav1e.so.0.8 => /usr/lib/librav1e.so.0.8 (0x00007ff291d88000)
+	libSvtAv1Enc.so.4 => /usr/lib/libSvtAv1Enc.so.4 (0x00007ff28981a000)
+	libaom.so.3 => /usr/lib/libaom.so.3 (0x00007ff288f3a000)
+	libhidapi-hidraw.so.0 => /usr/lib/libhidapi-hidraw.so.0 (0x00007ff288f32000)
+	libevdev.so.2 => /usr/lib/libevdev.so.2 (0x00007ff288f1c000)
+	libatspi.so.0 => /usr/lib/libatspi.so.0 (0x00007ff288edd000)
+	libjson-glib-1.0.so.0 => /usr/lib/libjson-glib-1.0.so.0 (0x00007ff288eb3000)
+	libunistring.so.5 => /usr/lib/libunistring.so.5 (0x00007ff288ccc000)
+	libidn2.so.0 => /usr/lib/libidn2.so.0 (0x00007ff288caa000)
+	libbrotlicommon.so.1 => /usr/lib/libbrotlicommon.so.1 (0x00007ff288c87000)
+	libkrb5.so.3 => /usr/lib/libkrb5.so.3 (0x00007ff288bb6000)
+	libk5crypto.so.3 => /usr/lib/libk5crypto.so.3 (0x00007ff288b88000)
+	libcom_err.so.2 => /usr/lib/libcom_err.so.2 (0x00007ff288b82000)
+	libkrb5support.so.0 => /usr/lib/libkrb5support.so.0 (0x00007ff288b73000)
+	libkeyutils.so.1 => /usr/lib/libkeyutils.so.1 (0x00007ff288b6c000)
+	libresolv.so.2 => /usr/lib/libresolv.so.2 (0x00007ff288b59000)
+	libblkid.so.1 => /usr/lib/libblkid.so.1 (0x00007ff288b17000)
+	liblzma.so.5 => /usr/lib/liblzma.so.5 (0x00007ff288ae1000)
+	libelf.so.1 => /usr/lib/libelf.so.1 (0x00007ff288ac2000)
+	libGLdispatch.so.0 => /usr/lib/libGLdispatch.so.0 (0x00007ff288a49000)
+	libudev.so.1 => /usr/lib/libudev.so.1 (0x00007ff2889f9000)
+Verified Arch amd64 CLI: notemd 6.1110.2 (plugin API v1)
