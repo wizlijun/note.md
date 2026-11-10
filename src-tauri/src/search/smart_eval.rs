@@ -13,6 +13,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::NaiveDate;
+use searchidx::query::{Conventions, Weights};
+use searchidx::{Limits, Query};
 use serde::{Deserialize, Serialize};
 
 use super::smart::{smart_search_locked, SmartHitDto};
@@ -68,21 +70,23 @@ pub(super) struct EvalTask {
 /// Every error names the offending task id. Rejected: an empty list, a
 /// duplicate id, an empty question, an `absent` task that lists targets, any
 /// other task without targets, and a target path that is empty, absolute or
-/// contains `..`.
+/// contains `..`. Accepted target paths are normalised to the index's
+/// spelling: forward slashes only, no `.` or empty segments (`./a//b.md` →
+/// `a/b.md`).
 pub(super) fn load_tasks(json: &str) -> Result<Vec<EvalTask>, String> {
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct TaskFile {
         tasks: Vec<EvalTask>,
     }
-    let file: TaskFile = serde_json::from_str(json).map_err(|e| format!("task file: {e}"))?;
+    let mut file: TaskFile = serde_json::from_str(json).map_err(|e| format!("task file: {e}"))?;
     if file.tasks.is_empty() {
         return Err("task file: no tasks".to_string());
     }
     let mut seen = std::collections::HashSet::new();
-    for task in &file.tasks {
+    for task in &mut file.tasks {
         let id = &task.id;
-        if !seen.insert(id.as_str()) {
+        if !seen.insert(id.clone()) {
             return Err(format!("task {id}: duplicate id"));
         }
         if task.question.trim().is_empty() {
@@ -93,14 +97,12 @@ pub(super) fn load_tasks(json: &str) -> Result<Vec<EvalTask>, String> {
             (false, true) => return Err(format!("task {id}: no targets")),
             _ => {}
         }
-        for target in &task.targets {
-            let path = Path::new(&target.path);
-            let escapes = path
-                .components()
-                .any(|c| matches!(c, std::path::Component::ParentDir));
-            if target.path.trim().is_empty()
+        for target in &mut task.targets {
+            let normalised = normalise_target_path(&target.path);
+            let escapes = normalised.split('/').any(|segment| segment == "..");
+            if normalised.trim().is_empty()
                 || target.path.starts_with(['/', '\\'])
-                || path.is_absolute()
+                || Path::new(&target.path).is_absolute()
                 || escapes
             {
                 return Err(format!(
@@ -108,9 +110,21 @@ pub(super) fn load_tasks(json: &str) -> Result<Vec<EvalTask>, String> {
                     target.path
                 ));
             }
+            target.path = normalised;
         }
     }
     Ok(file.tasks)
+}
+
+/// `./notes//a.md` and `notes\\a.md` → `notes/a.md`: the vault-relative,
+/// `/`-separated spelling the index stores. Case and Unicode form are kept
+/// as written; a mismatch there is reported by `run_e1` as not indexed.
+fn normalise_target_path(path: &str) -> String {
+    path.replace('\\', "/")
+        .split('/')
+        .filter(|segment| !segment.is_empty() && *segment != ".")
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 /// The best 1-based rank among `targets`, with the level of the block that
@@ -135,9 +149,10 @@ pub(super) struct E1Row {
     pub id: String,
     pub category: Category,
     pub split: Split,
-    /// False when a target path is not a file in the vault — a typo in the
-    /// task file. Such rows are excluded from every gate instead of being
-    /// counted as "not recalled".
+    /// False when a target path is not a file in the index exactly as
+    /// written (a typo, wrong case, another Unicode form, or a file the
+    /// index excludes): such a target can never match a hit. These rows are
+    /// excluded from every gate instead of being counted as "not recalled".
     pub target_indexed: bool,
     pub rank: Option<usize>,
     pub level: Option<String>,
@@ -226,6 +241,24 @@ pub(super) fn pre_gates(rows: &[E1Row]) -> PreGates {
     }
 }
 
+/// Whether `path` is a file of the index behind `handle`, spelled exactly as
+/// indexed — the same comparison `target_rank` makes. Read-only: a `path:`
+/// filter-only query (a substring `LIKE`), then an exact match on the
+/// returned paths.
+fn indexed_file(handle: &IndexHandle, path: &str) -> Result<bool, String> {
+    let guard = handle.lock().map_err(|_| "search index lock poisoned".to_string())?;
+    let idx = guard.as_ref().ok_or_else(|| "search index not ready".to_string())?;
+    let query = Query { paths: vec![path.to_string()], ..Default::default() };
+    let answer = idx.search_query_ranked(
+        &query,
+        searchidx::NO_LIMIT,
+        &Limits { deep: false, abort: None },
+        &Weights::default(),
+        &Conventions::default(),
+    )?;
+    Ok(answer.hits.iter().any(|hit| hit.path == path))
+}
+
 /// Score every task against the index behind `handle`.
 ///
 /// Per task (plan Task 4): a shallow smart search with limit 50; a deep scan
@@ -234,7 +267,6 @@ pub(super) fn pre_gates(rows: &[E1Row]) -> PreGates {
 /// `time_scoped_query` grouped by `group_by_time`.
 pub(super) fn run_e1(
     handle: &IndexHandle,
-    vault_root: &Path,
     tasks: &[EvalTask],
     today: NaiveDate,
 ) -> Result<Vec<E1Row>, String> {
@@ -254,8 +286,12 @@ pub(super) fn run_e1(
     let mut rows = Vec::with_capacity(tasks.len());
     for task in tasks {
         let absent = task.category == Category::Absent;
-        let target_indexed =
-            absent || task.targets.iter().all(|t| vault_root.join(&t.path).is_file());
+        let mut target_indexed = true;
+        if !absent {
+            for target in &task.targets {
+                target_indexed &= indexed_file(handle, &target.path)?;
+            }
+        }
 
         let shallow = search(&task.question, false)?;
         let found = target_rank(&shallow.hits, &task.targets);
@@ -425,7 +461,6 @@ mod tests {
 
         let rows = run_e1(
             &handle,
-            vault.path(),
             &tasks,
             NaiveDate::from_ymd_opt(2026, 11, 10).unwrap(),
         )
@@ -439,6 +474,62 @@ mod tests {
         assert_eq!((rows[1].rank, rows[1].target_indexed), (None, true));
         assert!(!rows[2].target_indexed);
         assert_eq!(pre_gates(&rows).scored_tasks, 2);
+    }
+
+    #[test]
+    fn load_tasks_normalises_target_paths() {
+        let tasks = load_tasks(
+            r#"{"tasks":[{"id":"t01","question":"q","targets":[
+              {"path":"./notes//a.md"},{"path":"notes\\b.md"},{"path":"././c.md"},{"path":"notes/./d.md"}
+            ],"category":"exact","split":"dev"}]}"#,
+        )
+        .unwrap();
+        let paths: Vec<&str> = tasks[0].targets.iter().map(|t| t.path.as_str()).collect();
+        assert_eq!(paths, ["notes/a.md", "notes/b.md", "c.md", "notes/d.md"]);
+        for bad in [r#""./""#, r#""/abs.md""#, r#""\\abs.md""#, r#""a/../../x.md""#] {
+            let json = format!(
+                r#"{{"tasks":[{{"id":"t09","question":"q","targets":[{{"path":{bad}}}],"category":"exact","split":"dev"}}]}}"#
+            );
+            assert!(load_tasks(&json).unwrap_err().contains("t09"), "{bad}");
+        }
+    }
+
+    #[test]
+    fn e1_decides_target_indexed_from_the_index_not_the_disk() {
+        let vault = tempfile::tempdir().unwrap();
+        std::fs::write(
+            vault.path().join("launch.md"),
+            "# Launch\nQ3Budget launch budget release risk details\n",
+        )
+        .unwrap();
+        std::fs::create_dir(vault.path().join("private")).unwrap();
+        std::fs::write(
+            vault.path().join("private/hidden.md"),
+            "# Hidden\nQ3Budget release risk hidden copy\n",
+        )
+        .unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let mut idx = SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
+        let opts = searchidx::ScanOptions { exclude_dirs: vec!["private".into()], ..Default::default() };
+        idx.sweep(&opts, None).unwrap();
+        let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
+        let tasks = load_tasks(
+            r#"{"tasks":[
+              {"id":"dot","question":"Q3Budget release risk","targets":[{"path":"./launch.md","line":2}],"category":"exact","split":"dev"},
+              {"id":"excluded","question":"Q3Budget release risk","targets":[{"path":"private/hidden.md"}],"category":"exact","split":"dev"},
+              {"id":"case","question":"Q3Budget release risk","targets":[{"path":"Launch.md"}],"category":"exact","split":"dev"}
+            ]}"#,
+        )
+        .unwrap();
+
+        let rows = run_e1(&handle, &tasks, NaiveDate::from_ymd_opt(2026, 11, 10).unwrap()).unwrap();
+
+        assert_eq!((rows[0].target_indexed, rows[0].rank), (true, Some(1)), "{:?}", rows[0]);
+        assert!(vault.path().join("private/hidden.md").is_file());
+        assert!(!rows[1].target_indexed, "{:?}", rows[1]);
+        assert!(!rows[2].target_indexed, "{:?}", rows[2]);
+        let gates = pre_gates(&rows);
+        assert_eq!((gates.scored_tasks, gates.unrecalled_after_deep), (1, 0));
     }
 
     /// The real run. Quit note.md first so the index copy is consistent.
@@ -491,7 +582,7 @@ mod tests {
         }
         let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
 
-        let rows = run_e1(&handle, &vault, &tasks, chrono::Local::now().date_naive())
+        let rows = run_e1(&handle, &tasks, chrono::Local::now().date_naive())
             .expect("run E1");
         let gates = pre_gates(&rows);
         let report = serde_json::json!({
