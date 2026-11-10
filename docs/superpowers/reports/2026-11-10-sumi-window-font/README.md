@@ -3,10 +3,11 @@
 2026-11-10，在私有 Wayland/Sway、独立 D-Bus 下执行真实 GTK 测试，未操作用户桌面窗口。
 
 - 原生快捷键测试及普通 crate 测试：27 passed，4 需要显示的测试 ignored；快捷键提交 ecfb6e09。
+- 合入正文静止候选修复 bb5e7e2b 后，普通 crate 回归仍为27 passed、5 display tests ignored；本目录JSON已更新为合并后的真实测量。
 - `native_fullscreen_font_geometry`：1 passed。3840×2400 输出、scale 2，逻辑全屏 1920×1200，普通窗口 960×720。
 - 固定有效字号 22 和 27.5 各自执行普通→全屏→退出。每种字号的 `M`、`Ag中` Pango logical/ink 尺寸在三个阶段严格相等；光标均落在该文本行内，正文保持一致。原始数据见 `gtk-scale2.json`。
 - 不同字号之间存在正常的 hinting/fallback 指标差异，不能用单字宽高缩放比完全相等作为断言。
-- 宿主生产纯函数抽取测试：全屏比例、字号上限、小视口、非法尺寸和往返恢复；菜单平台修饰键边界，共2项通过。宿主完整编译由并行窗口任务执行。
+- 宿主生产纯函数抽取测试：全屏比例、字号上限、小视口、非法尺寸和往返恢复；菜单平台修饰键边界，共2项通过。宿主 `cargo check --manifest-path src-tauri/Cargo.toml --lib` 已由并行窗口任务执行并exit0，6项既有警告，日志tasks/plugin-window-fix/host-check.log。
 
 ## 重跑原生测试
 

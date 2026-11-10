@@ -110,6 +110,12 @@ Sumi does not claim those combinations. Caps Lock does not change letter
 shortcuts, and fullscreen does not repeat while F11 is held or interrupt IME
 composition.
 
+Sumi fullscreen derives its effective font size from the logical viewport,
+using one scale for the whole font, capped at 1.25× and 96 px. The saved font
+size stays unchanged; leaving fullscreen restores it. A 1920×1200 logical
+viewport (for example, 3840×2400 at scale 2) displays a saved 22 px font at
+27.5 px. Ordinary windows keep the saved size.
+
 Wayland global shortcuts are owned by the compositor. Plugin tray actions
 remain clickable, but do not show unavailable system-wide shortcut hints.
 To opt into a global action, first inspect `hyprctl binds -j` or

@@ -376,6 +376,8 @@ pub(super) struct Workspace {
     papers: Mutex<HashMap<String, Paper>>,
     preferences: Mutex<Preferences>,
     appearance_changes: tokio::sync::Mutex<()>,
+    #[cfg(target_os = "linux")]
+    surface_appearances: Mutex<HashMap<String, (Surface, native::Appearance)>>,
     font_selection: Mutex<FontSelection>,
     active: Mutex<Option<String>>,
     navigation_version: AtomicU64,
@@ -526,6 +528,8 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         papers: Mutex::new(HashMap::new()),
         preferences: Mutex::new(preferences),
         appearance_changes: tokio::sync::Mutex::new(()),
+        #[cfg(target_os = "linux")]
+        surface_appearances: Mutex::new(HashMap::new()),
         font_selection: Mutex::new(FontSelection::default()),
         active: Mutex::new(active),
         navigation_version: AtomicU64::new(1),
@@ -1978,6 +1982,8 @@ async fn mount<R: Runtime>(
                 // replace text, restore old selection or finish marked text.
                 native::command(window, surface.surface_id.clone(), surface.generation,
                     native::SurfaceCommand::SetBounds { bounds }).await?;
+                #[cfg(target_os = "linux")]
+                refresh_surface_font_size(window, ws, page_id, &surface.surface_id, surface.generation).await?;
                 current(app, ws)?;
                 require_visible_native_window(window)?;
                 match existing_mount_decision(ws, page_id, window.label(), tab_id)? {
@@ -1995,6 +2001,7 @@ async fn mount<R: Runtime>(
     let _appearance = ws.appearance_changes.lock().await;
     let appearance = ws.preferences.lock().map_err(err)?.appearance();
     let appearance = ensure_font(app, window, &appearance).await?;
+    let appearance = effective_appearance(window, appearance)?;
     let surface = Surface {
         surface_id: Uuid::new_v4().to_string(),
         generation: 1,
@@ -2033,7 +2040,7 @@ async fn mount<R: Runtime>(
             generation: surface.generation,
             revision: p.doc.revision(),
             bounds,
-            appearance,
+            appearance: appearance.clone(),
             document: native_document(&p.view),
             selection,
             viewport,
@@ -2074,6 +2081,8 @@ async fn mount<R: Runtime>(
         }
         return Err(error);
     }
+    #[cfg(target_os = "linux")]
+    ws.surface_appearances.lock().map_err(err)?.insert(page_id.into(), (surface.clone(), appearance));
     sound::start(app, ws).await;
     Ok(EditorEntry::Opened(surface))
 }
@@ -2940,7 +2949,12 @@ async fn surface_command<R: Runtime>(
         let p = papers.get_mut(page).ok_or("missing page")?;
         owner(p, window.label(), tab, Some((id, generation)))?;
     }
-    native::command(window, id.to_owned(), generation, command).await
+    #[cfg(target_os = "linux")]
+    let resized = matches!(&command, native::SurfaceCommand::SetBounds { .. });
+    native::command(window, id.to_owned(), generation, command).await?;
+    #[cfg(target_os = "linux")]
+    if resized { refresh_surface_font_size(window, ws, page, id, generation).await?; }
+    Ok(())
 }
 #[tauri::command(rename_all = "snake_case")]
 pub async fn sumi_bounds(
@@ -3335,6 +3349,50 @@ pub async fn cleanup_plugin<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()>
     }
     Ok(())
 }
+#[cfg(any(target_os = "linux", test))]
+fn fullscreen_font_size(base: f64, fullscreen: bool, width: f64, height: f64) -> f64 {
+    if !fullscreen || !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+        return base;
+    }
+    (base * (width / 960.0).min(height / 720.0).sqrt().clamp(1.0, 1.25)).min(96.0)
+}
+
+fn effective_appearance<R: Runtime>(window: &WebviewWindow<R>, appearance: native::Appearance) -> Result<native::Appearance> {
+    #[cfg(target_os = "linux")]
+    let mut appearance = appearance;
+    #[cfg(target_os = "linux")]
+    if is_plugin_window(window.label()) {
+        let size = window.as_ref().size().map_err(err)?;
+        let scale = window.scale_factor().map_err(err)?;
+        appearance.font_size = fullscreen_font_size(appearance.font_size, window.is_fullscreen().map_err(err)?, size.width as f64 / scale, size.height as f64 / scale);
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = window;
+    Ok(appearance)
+}
+
+#[cfg(target_os = "linux")]
+async fn refresh_surface_font_size<R: Runtime>(window: &WebviewWindow<R>, ws: &Workspace, page: &str, id: &str, generation: u64) -> Result<()> {
+    if !is_plugin_window(window.label()) { return Ok(()); }
+    let _appearance = ws.appearance_changes.lock().await;
+    let cached = ws.surface_appearances.lock().map_err(err)?.get(page).cloned();
+    let Some((surface, mut appearance)) = cached.filter(|(surface, _)| surface.surface_id == id && surface.generation == generation) else { return Ok(()); };
+    let previous = appearance.font_size;
+    // Start from the saved value every time; never multiply an already scaled font.
+    appearance.font_size = ws.preferences.lock().map_err(err)?.font_size;
+    appearance.locale = current_ui_locale(window.app_handle());
+    let appearance = effective_appearance(window, appearance)?;
+    if (appearance.font_size - previous).abs() < 0.01 { return Ok(()); }
+    // Reuse the prepared font cascade. Geometry updates do not register fonts,
+    // replace text or alter the user's stored appearance preferences.
+    match native::command(window, id.into(), generation, native::SurfaceCommand::SetAppearance { appearance: appearance.clone() }).await {
+        Ok(()) => { ws.surface_appearances.lock().map_err(err)?.insert(page.into(), (surface, appearance)); }
+        Err(error) if error == "composition active" => {} // drain_after_composition retries.
+        Err(error) => return Err(error),
+    }
+    Ok(())
+}
+
 async fn apply_appearance<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Workspace,
@@ -3349,16 +3407,17 @@ async fn apply_appearance<R: Runtime>(
         papers
             .iter()
             .filter(|(id, _)| page.is_none_or(|page| page == id.as_str()))
-            .filter_map(|(_, p)| p.owner.clone().filter(|o| o.surface.is_some()))
+            .filter_map(|(id, p)| p.owner.clone().filter(|o| o.surface.is_some()).map(|o| (id.clone(), o)))
             .collect::<Vec<_>>()
     };
-    for o in owners {
+    for (_page_id, o) in owners {
         let window = app.get_webview_window(&o.window).ok_or("编辑窗口已关闭")?;
         let appearance = ensure_font(app, &window, &appearance).await?;
+        let appearance = effective_appearance(&window, appearance)?;
         let surface = o.surface.unwrap();
         if let Err(error) = native::command(
             &window,
-            surface.surface_id,
+            surface.surface_id.clone(),
             surface.generation,
             native::SurfaceCommand::SetAppearance {
                 appearance: appearance.clone(),
@@ -3369,6 +3428,9 @@ async fn apply_appearance<R: Runtime>(
             if error != "composition active" {
                 return Err(error);
             }
+        } else {
+            #[cfg(target_os = "linux")]
+            ws.surface_appearances.lock().map_err(err)?.insert(_page_id, (surface, appearance));
         }
     }
     Ok(())
@@ -3764,6 +3826,24 @@ pub async fn dispatch<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn fullscreen_font_tracks_logical_viewport_without_changing_saved_size() {
+        let base = 22.0;
+        assert_eq!(super::fullscreen_font_size(base, false, 1920.0, 1200.0), base);
+        assert_eq!(super::fullscreen_font_size(base, true, 1920.0, 1200.0), 27.5);
+        assert_eq!(super::fullscreen_font_size(base, true, 800.0, 600.0), base);
+        let middle = super::fullscreen_font_size(base, true, 1200.0, 900.0);
+        assert!((middle - base * 1.25_f64.sqrt()).abs() < 0.0001);
+        assert_eq!(super::fullscreen_font_size(base, true, 3840.0, 2400.0), 27.5);
+        assert_eq!(super::fullscreen_font_size(90.0, true, 1920.0, 1200.0), 96.0);
+        for (width, height) in [(0.0, 1200.0), (1920.0, f64::NAN), (f64::INFINITY, 1200.0)] {
+            assert_eq!(super::fullscreen_font_size(base, true, width, height), base);
+        }
+        // Repeated resize/exit starts with the preference, never the effective value.
+        for fullscreen in [true, true, false, true, false] {
+            assert_eq!(super::fullscreen_font_size(base, fullscreen, 1920.0, 1200.0), if fullscreen { 27.5 } else { base });
+        }
+    }
     use super::*;
     #[test]
     fn deferred_show_cannot_reopen_a_later_close() {
@@ -4147,6 +4227,8 @@ mod tests {
             papers: Mutex::new(HashMap::from([(id.clone(), paper)])),
             preferences: Mutex::new(Preferences::default()),
             appearance_changes: tokio::sync::Mutex::new(()),
+            #[cfg(target_os = "linux")]
+            surface_appearances: Mutex::new(HashMap::new()),
             font_selection: Mutex::new(FontSelection::default()),
             active: Mutex::new(Some(id.clone())),
             navigation_version: AtomicU64::new(1),
