@@ -57,9 +57,10 @@ pub(crate) fn append_feedback(path: &Path, row: &FeedbackRow) -> Result<(), Stri
 }
 
 /// Build the row from the retained run. `result_id` is a local result id
-/// (tiered by the one-round judge or by the evidence rounds) or an evidence
-/// id; the tier is the one last reported for it (spec H.8). A result the
-/// model did not judge has no tier to correct.
+/// (tiered by the evidence rounds or by the one-round judge) or an evidence
+/// id; the tier is the one last reported for it, and the evidence rounds,
+/// being the newer scores, win over the judge's record (spec H.8). A result
+/// the model did not judge has no tier to correct.
 pub(crate) fn feedback_row(
     run: &LookupRun,
     result_id: &str,
@@ -68,7 +69,7 @@ pub(crate) fn feedback_row(
 ) -> Result<FeedbackRow, String> {
     let not_judged = || "result was not judged".to_string();
     let local = |id: &str| run.hits.iter().find(|h| h.result_id == id).map(|h| (h.path.clone(), h.line, h.line_end));
-    let judged = run
+    let judged = || run
         .judgement
         .as_ref()
         .and_then(|j| Some((*j.tiers.get(result_id)?, j.endpoint_host.clone(), j.model.clone(), local(result_id)?)));
@@ -85,7 +86,7 @@ pub(crate) fn feedback_row(
         Some((tier, e.endpoint_host.clone(), e.model.clone(), place))
     };
     let (model_tier, endpoint_host, model, (path, line, line_end)) =
-        judged.or_else(evidence).ok_or_else(not_judged)?;
+        evidence().or_else(judged).ok_or_else(not_judged)?;
     Ok(FeedbackRow {
         ts: now.to_rfc3339_opts(SecondsFormat::Secs, true),
         question: run.question.clone(),
@@ -153,6 +154,7 @@ mod tests {
                 tiers: HashMap::from([("r1".to_string(), Tier::Fit)]),
             }),
             evidence: None,
+            evidence_busy: false,
         }
     }
 
@@ -226,6 +228,7 @@ mod tests {
             endpoint_host: "jev.example".into(),
             model: "jev-m".into(),
             auto_claimed: true,
+            auto_ended: false,
             tiers: HashMap::from([("e1".to_string(), Tier::Fit), ("r1".to_string(), Tier::Unfit)]),
             shown: None,
         }
@@ -243,12 +246,15 @@ mod tests {
         assert_eq!((local.path.as_str(), local.line, local.model_tier), ("a.md", 3, Tier::Unfit));
         assert_eq!(local.endpoint_host, "jev.example");
         assert_eq!(feedback_row(&r, "e9", UserVerdict::Fit, fixed_now()).unwrap_err(), "result was not judged");
-        // The one-round judge's record still answers for its own results.
+        // Both tiered r1: the evidence rounds' newer score wins.
         let mut both = run(true);
         both.evidence = Some(evidence_run());
-        let judged = feedback_row(&both, "r1", UserVerdict::Fit, fixed_now()).unwrap();
-        assert_eq!((judged.model_tier, judged.endpoint_host.as_str()), (Tier::Fit, "api.typesafe.ai"));
+        let newer = feedback_row(&both, "r1", UserVerdict::Fit, fixed_now()).unwrap();
+        assert_eq!((newer.model_tier, newer.endpoint_host.as_str()), (Tier::Unfit, "jev.example"));
         assert_eq!(feedback_row(&both, "e1", UserVerdict::Fit, fixed_now()).unwrap().model_tier, Tier::Fit);
+        // The judge's record still answers for a result only it tiered.
+        let judged = feedback_row(&run(true), "r1", UserVerdict::Fit, fixed_now()).unwrap();
+        assert_eq!((judged.model_tier, judged.endpoint_host.as_str()), (Tier::Fit, "api.typesafe.ai"));
     }
 
     #[test]

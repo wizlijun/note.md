@@ -855,10 +855,14 @@ mod tests {
         assert_eq!(json_objects(&out)[1]["result"]["status"], "noConsent");
         assert_eq!(server.accepted.load(SeqCst), 0);
         let (code, out) = query(&argv(&host(&base)), &v, &[]).await;
-        let evidence = &json_objects(&out)[1];
+        let objects = json_objects(&out);
+        let evidence = &objects[1];
         assert_eq!(evidence["result"]["status"], "ok", "{evidence}");
         assert_eq!(code, 0);
-        assert!(server.accepted.load(SeqCst) >= 1);
+        // Exactly the requests the rounds report, round 0's among them.
+        let requests: u64 = objects.iter().filter(|o| o["kind"] == "evidence").map(|o| o["result"]["requestCount"].as_u64().unwrap()).sum();
+        assert_eq!(evidence["result"]["requestCount"], 1);
+        assert_eq!(server.accepted.load(SeqCst) as u64, requests);
     }
 
     #[tokio::test]

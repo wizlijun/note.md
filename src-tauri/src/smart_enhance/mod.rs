@@ -52,6 +52,9 @@ pub enum SkipReason {
     /// The index was busy (a rebuild), missing or for another vault, so
     /// confidentiality could not be read and nothing was judged.
     IndexUnavailable,
+    /// Another evidence round is already running on the lookup run; nothing
+    /// was sent.
+    RoundRunning,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

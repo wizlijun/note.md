@@ -86,6 +86,8 @@ pub(crate) struct LookupRun {
     /// The SAG2 evidence rounds of this run (spec H.3.8), written back by
     /// `smart_enhance::evidence::evidence_step` after each round.
     pub(crate) evidence: Option<crate::smart_enhance::evidence::EvidenceRun>,
+    /// An evidence round is running on this run (`evidence::begin_step`).
+    pub(crate) evidence_busy: bool,
 }
 
 #[derive(Default)]
@@ -197,6 +199,7 @@ pub(crate) fn retain_search_in(
         auto_claim: None,
         judgement: None,
         evidence: None,
+        evidence_busy: false,
     };
     let mut registry = LOOKUP_RUNS
         .get_or_init(|| Mutex::new(LookupRuns::default()))
@@ -385,6 +388,7 @@ mod tests {
             auto_claim: None,
             judgement: None,
             evidence: None,
+            evidence_busy: false,
         }
     }
 

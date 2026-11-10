@@ -337,6 +337,12 @@ impl SearchIndex {
     /// The `source_globs` stamp stored in `meta`: the stamp this index was
     /// opened (and, after a change, rebuilt in place) with, which a
     /// [`sag::SagReader`] on the same file must present. `None` when unreadable.
+    ///
+    /// Read from the same `meta` the reader then checks it against, so on this
+    /// path that check cannot fail: what makes the stamp current is that this
+    /// index was opened with the configured stamp (and rebuilt in place when it
+    /// differed). A caller that needs the configured stamp compared must pass
+    /// `opts.source_globs.stamp()` instead.
     pub fn globs_stamp(&self) -> Option<String> {
         store::meta_get(&self.conn, "source_globs")
     }

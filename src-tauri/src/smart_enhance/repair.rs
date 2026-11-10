@@ -589,6 +589,7 @@ mod tests {
             auto_claim: None,
             judgement: None,
             evidence: None,
+            evidence_busy: false,
         }
     }
 

@@ -126,6 +126,10 @@ pub(crate) struct EvidenceRun {
     pub model: String,
     /// The run's automatic slot belongs to these rounds.
     pub auto_claimed: bool,
+    /// An automatic call sent requests and its round did not finish (a
+    /// failure, a cancel, an index change). The automatic rounds of this run
+    /// are over; the user can still continue (`Trigger::User`).
+    pub auto_ended: bool,
     /// The tier last reported per evidence id and per local result id, for
     /// the user's corrections (F.4).
     pub tiers: HashMap<String, Tier>,
@@ -150,23 +154,62 @@ pub(crate) struct EvidenceRequest<'a> {
 
 // ---- readers ---------------------------------------------------------------
 
-type Readers = HashMap<PathBuf, (PathBuf, String, Arc<SagReader>)>;
+/// What a cached reader was opened on: the vault root, the globs stamp and
+/// the database file's identity.
+#[derive(PartialEq)]
+struct ReaderKey {
+    root: PathBuf,
+    stamp: String,
+    file: Option<(u64, u64)>,
+}
+
+type Readers = HashMap<PathBuf, (ReaderKey, Arc<SagReader>)>;
 
 static READERS: OnceLock<Mutex<Readers>> = OnceLock::new();
 
+fn readers() -> std::sync::MutexGuard<'static, Readers> {
+    READERS.get_or_init(Mutex::default).lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// `(dev, ino)` of the database file: a file wiped and recreated at the same
+/// path (a corrupt or outdated index, possibly by another process) is
+/// another file, and a reader on the old one would never see a commit.
+#[cfg(unix)]
+fn file_identity(db: &Path) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata(db).ok().map(|m| (m.dev(), m.ino()))
+}
+
+/// No cheap file identity here: [`forget_readers`] on every reopen is the
+/// only defence.
+#[cfg(not(unix))]
+fn file_identity(_db: &Path) -> Option<(u64, u64)> {
+    None
+}
+
 /// One [`SagReader`] per index database for the process, reopened when the
-/// vault root or the globs stamp it was opened with changes. Kept so the
+/// vault root, the globs stamp or the database file changes. Kept so the
 /// per-reader caches (document frequencies, the alias table) outlive a lookup.
 pub(crate) fn reader_for(root: &Path, db: &Path, globs_stamp: &str) -> Result<Arc<SagReader>, String> {
-    let mut readers = READERS.get_or_init(Mutex::default).lock().unwrap_or_else(|e| e.into_inner());
-    if let Some((r, s, reader)) = readers.get(db) {
-        if r == root && s == globs_stamp {
+    let key = ReaderKey { root: root.to_path_buf(), stamp: globs_stamp.to_string(), file: file_identity(db) };
+    let mut readers = readers();
+    if let Some((cached, reader)) = readers.get(db) {
+        if *cached == key {
             return Ok(reader.clone());
         }
     }
+    readers.remove(db);
     let reader = Arc::new(SagReader::open_existing_at(root, db, globs_stamp, READER_WORKERS)?);
-    readers.insert(db.to_path_buf(), (root.to_path_buf(), globs_stamp.to_string(), reader.clone()));
+    readers.insert(db.to_path_buf(), (key, reader.clone()));
     Ok(reader)
+}
+
+/// Drops every cached reader, so their connections close: called wherever
+/// the host reopens its index (`search::open_vault`, a settings change),
+/// before the open may wipe the file. A round in flight keeps its own
+/// reader and stops on its next generation check.
+pub(crate) fn forget_readers() {
+    readers().clear();
 }
 
 /// The reader for `vault_root`'s index when that index is ready, with the
@@ -433,15 +476,64 @@ fn report_shown(result: &mut EvidenceStepResult, record: &EvidenceRun) {
     }
 }
 
+/// Holds a lookup run's `evidence_busy` flag: one evidence round per run at
+/// a time. Dropping it clears the flag, so every exit path does.
+pub(crate) struct StepGuard {
+    run_id: String,
+    window_label: String,
+}
+
+impl Drop for StepGuard {
+    fn drop(&mut self) {
+        // A run that expired meanwhile has no flag left to clear.
+        let _ = update_run(&self.run_id, &self.window_label, |run| run.evidence_busy = false);
+    }
+}
+
+/// Check-and-set of the run's `evidence_busy` flag (the shape of
+/// `claim_auto_request`). `None`: a round is already running on the run.
+pub(crate) fn begin_step(run_id: &str, window_label: &str) -> Result<Option<StepGuard>, String> {
+    let mut taken = false;
+    update_run(run_id, window_label, |run| {
+        if !run.evidence_busy {
+            run.evidence_busy = true;
+            taken = true;
+        }
+    })?;
+    Ok(taken.then(|| StepGuard { run_id: run_id.to_string(), window_label: window_label.to_string() }))
+}
+
+/// `skipped`/`roundRunning`: another round holds the run; nothing was sent.
+fn round_running() -> EvidenceStepResult {
+    EvidenceStepResult { skip_reason: Some(SkipReason::RoundRunning), done: true, ..EvidenceStepResult::default() }
+}
+
 /// Run one round on the run (see the module docs for the checks before
-/// anything is sent), write the state back and report it.
+/// anything is sent), write the state back and report it. A second call
+/// while a round runs on the same run returns `skipped`/`roundRunning`.
 pub(crate) async fn evidence_step(
     req: EvidenceRequest<'_>,
     client: &reqwest::Client,
     cancel: &CancelFlag,
 ) -> Result<EvidenceStepResult, String> {
+    let Some(guard) = begin_step(req.run_id, req.window_label)? else {
+        return Ok(round_running());
+    };
+    evidence_step_held(req, guard, client, cancel).await
+}
+
+/// [`evidence_step`] for a caller that already holds the run's guard (the
+/// command takes it before it replaces the run's cancel flag).
+async fn evidence_step_held(
+    req: EvidenceRequest<'_>,
+    guard: StepGuard,
+    client: &reqwest::Client,
+    cancel: &CancelFlag,
+) -> Result<EvidenceStepResult, String> {
     let started = Instant::now();
-    let mut result = evidence_steps(req, client, cancel).await?;
+    let result = evidence_steps(req, client, cancel).await;
+    drop(guard);
+    let mut result = result?;
     result.elapsed_ms = started.elapsed().as_millis() as u64;
     Ok(result)
 }
@@ -491,20 +583,25 @@ async fn evidence_steps(
     let previous = run.evidence.clone();
     // The first round sent automatically takes the run's one automatic slot;
     // the later rounds of the same evidence run belong to it (H.6).
+    // An automatic call is refused when the rounds it would continue do not
+    // hold the claim (the user started them) or already ended after sending.
     let first = previous.as_ref().map_or(true, |e| e.state.next_hop == 0 && !e.auto_claimed);
-    let claim = if req.trigger == Trigger::Auto && first {
-        match claim_auto_request(&run.id, req.window_label)? {
+    let auto_budget_used = || {
+        ended(EvidenceStepResult {
+            endpoint_host: Some(host.clone()),
+            skip_reason: Some(SkipReason::AutoBudgetUsed),
+            ..EvidenceStepResult::default()
+        })
+    };
+    let claim = match req.trigger {
+        Trigger::Auto if first => match claim_auto_request(&run.id, req.window_label)? {
             Some(claim) => Some(claim),
-            None => {
-                return ended(EvidenceStepResult {
-                    endpoint_host: Some(host),
-                    skip_reason: Some(SkipReason::AutoBudgetUsed),
-                    ..EvidenceStepResult::default()
-                })
-            }
+            None => return auto_budget_used(),
+        },
+        Trigger::Auto if previous.as_ref().is_some_and(|e| !e.auto_claimed || e.auto_ended) => {
+            return auto_budget_used()
         }
-    } else {
-        None
+        Trigger::Auto | Trigger::User => None,
     };
 
     let (free_text, filters) = lookup_query(&run);
@@ -536,7 +633,15 @@ async fn evidence_steps(
         },
     };
     let done = off_workers(round, cancel).await;
-    let sent = done.as_ref().is_ok_and(|d| d.scorer.requests > 0);
+    // A failed join (a panic in the round) may have sent: keep the claim.
+    let sent = done.as_ref().map_or(true, |d| d.scorer.requests > 0);
+    if done.is_err() && req.trigger == Trigger::Auto {
+        let _ = update_run(&run.id, req.window_label, |r| {
+            if let Some(e) = r.evidence.as_mut() {
+                e.auto_ended = true;
+            }
+        });
+    }
     let auto_claimed = match claim {
         Some(claim) if !sent => {
             release_auto_request(claim);
@@ -575,11 +680,16 @@ async fn evidence_steps(
         endpoint_host: host.clone(),
         model: jev.model.clone(),
         auto_claimed,
+        auto_ended: false,
         tiers: HashMap::new(),
         shown: None,
     });
     record.state = state;
     record.auto_claimed = auto_claimed;
+    let scored = matches!((&outcome, &evidence), (Ok(StepOutcome::Scored { .. }), Some(Ok(_))));
+    if req.trigger == Trigger::Auto && scorer.requests > 0 && !scored {
+        record.auto_ended = true;
+    }
     if scorer.requests > 0 {
         record.endpoint_host = host.clone();
         record.model = jev.model.clone();
@@ -655,6 +765,11 @@ pub async fn smart_lookup_evidence_step(
     // An invalid parameter file is an error before anything else: no request.
     let params = lookup_params::for_app(&app)?;
     let vault_root = active_root(&app)?;
+    // Before `cancel_flag_for` may replace the run's flag: a round already
+    // running keeps the flag a stop reaches.
+    let Some(guard) = begin_step(&lookup_run_id, window.label())? else {
+        return Ok(round_running());
+    };
     let cancel = cancel_flag_for(trigger, &lookup_run_id);
     let key = match jev.auth_mode {
         AuthMode::Bearer => read_key(&app, KeyKind::Jev),
@@ -675,7 +790,7 @@ pub async fn smart_lookup_evidence_step(
         params: &params,
         reader,
     };
-    evidence_step(request, &client, &cancel).await
+    evidence_step_held(request, guard, &client, &cancel).await
 }
 
 #[cfg(test)]
@@ -824,7 +939,8 @@ pub(crate) mod tests {
         assert_eq!(r.endpoint_host, endpoint_host(&s.base).ok());
         assert!(r.done && r.request_count == 0 && r.evidence.is_empty());
         assert_eq!(c.slot(), (false, None), "the automatic slot was not taken");
-        assert!(run_for_window(&c.run, &c.window).unwrap().evidence.is_none());
+        let run = run_for_window(&c.run, &c.window).unwrap();
+        assert!(run.evidence.is_none() && !run.evidence_busy, "an early return clears the busy flag");
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(s.accepted.load(SeqCst), 0);
     }
@@ -866,10 +982,11 @@ pub(crate) mod tests {
         assert_eq!((r1.status, r1.done, r1.request_count), (EnhanceStatus::Cancelled, true, 1), "{r1:?}");
         assert_eq!(r1.evidence, r0.evidence);
         assert_eq!(c.evidence().state.next_hop, 1, "the cancelled round left the state as it was");
-        // An automatic call keeps the run's cancelled flag: nothing more goes out.
+        // The automatic rounds ended with the sent, cancelled round: nothing more goes out.
+        assert!(c.evidence().auto_ended);
         let again = c.step_with(&cfg, Trigger::Auto, &cancel_flag_for(Trigger::Auto, &c.run)).await;
         assert!(again.done && again.request_count == 0, "{again:?}");
-        assert_eq!(again.evidence, r0.evidence);
+        assert_eq!(again.skip_reason, Some(SkipReason::AutoBudgetUsed));
         assert_eq!(s.accepted.load(SeqCst), 2);
     }
 
@@ -900,8 +1017,7 @@ pub(crate) mod tests {
         let held = f.index.lock().unwrap();
         assert!(ready_reader(&f.index, &f.root).await.unwrap().is_none(), "a busy index is not waited for");
         drop(held);
-        let first = ready_reader(&f.index, &f.root).await.unwrap().unwrap();
-        assert!(Arc::ptr_eq(&first, &ready_reader(&f.index, &f.root).await.unwrap().unwrap()), "one reader per index");
+        assert!(ready_reader(&f.index, &f.root).await.unwrap().is_some());
         assert_eq!(serde_json::to_value(unavailable()).unwrap()["skipReason"], "indexUnavailable");
 
         // A user's step on a run whose automatic slot is used still runs.
@@ -913,6 +1029,127 @@ pub(crate) mod tests {
         let user = c.step_with(&config(&s.base), Trigger::User, &CancelFlag::new()).await;
         assert_eq!((user.status, user.request_count), (EnhanceStatus::Ok, 1), "{user:?}");
         assert!(!c.evidence().auto_claimed);
+    }
+
+    #[test]
+    fn a_recreated_database_gets_a_fresh_reader_and_forget_drops_them() {
+        use searchidx::sag::Level;
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("vault");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.md"), "alpha\n").unwrap();
+        let db = dir.path().join("i.db");
+        let build = || {
+            let mut idx = searchidx::SearchIndex::open_at(&root, &db, "s").unwrap();
+            idx.sweep(&searchidx::ScanOptions::default(), None).unwrap();
+        };
+        build();
+        let first = reader_for(&root, &db, "s").unwrap();
+        assert!(Arc::ptr_eq(&first, &reader_for(&root, &db, "s").unwrap()), "one reader per index");
+        let before = first.block_count(Level::Line).unwrap();
+        // A wipe: the old file leaves the path (still open by the reader, as
+        // an unlinked file would be) and a new index is built there.
+        for suffix in ["", "-wal", "-shm"] {
+            let from = dir.path().join(format!("i.db{suffix}"));
+            if from.exists() {
+                std::fs::rename(&from, dir.path().join(format!("old.db{suffix}"))).unwrap();
+            }
+        }
+        std::fs::write(root.join("b.md"), "beta\n").unwrap();
+        build();
+        let fresh = reader_for(&root, &db, "s").unwrap();
+        assert!(!Arc::ptr_eq(&first, &fresh), "a recreated file gets a new reader");
+        assert!(fresh.block_count(Level::Line).unwrap() > before, "the new reader sees the new file");
+        forget_readers();
+        assert!(!Arc::ptr_eq(&fresh, &reader_for(&root, &db, "s").unwrap()), "forgotten readers are reopened");
+    }
+
+    #[tokio::test]
+    async fn user_started_rounds_do_not_continue_automatically() {
+        let c = ctx("test-evidence-user-started").await;
+        let s = server(|_| Duration::ZERO).await;
+        let cfg = config(&s.base);
+        let r0 = c.step_with(&cfg, Trigger::User, &CancelFlag::new()).await;
+        assert_eq!((r0.status, r0.request_count), (EnhanceStatus::Ok, 1), "{r0:?}");
+        let auto = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((auto.skip_reason, auto.request_count, auto.done), (Some(SkipReason::AutoBudgetUsed), 0, true), "{auto:?}");
+        assert_eq!(s.accepted.load(SeqCst), 1);
+        assert_eq!(c.slot(), (false, None), "the refused call took no slot");
+        let user = c.step_with(&cfg, Trigger::User, &CancelFlag::new()).await;
+        assert_eq!((user.status, user.hop, user.request_count), (EnhanceStatus::Ok, 1, 1), "{user:?}");
+    }
+
+    #[tokio::test]
+    async fn an_automatic_round_that_failed_after_sending_ends_the_automatic_rounds() {
+        let mut c = ctx("test-evidence-auto-ended").await;
+        c.params.retrieval.round_timeout_ms = 300;
+        let s = server(|n| if n == 1 { Duration::from_secs(2) } else { Duration::ZERO }).await;
+        let cfg = config(&s.base);
+        let r0 = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!(r0.status, EnhanceStatus::Ok, "{r0:?}");
+        let r1 = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((r1.status, r1.request_count), (EnhanceStatus::Timeout, 1), "{r1:?}");
+        assert!(c.evidence().auto_ended);
+        let retry = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((retry.skip_reason, retry.request_count), (Some(SkipReason::AutoBudgetUsed), 0), "{retry:?}");
+        assert_eq!(s.accepted.load(SeqCst), 2);
+        let user = c.step_with(&cfg, Trigger::User, &CancelFlag::new()).await;
+        assert_eq!((user.status, user.hop, user.request_count), (EnhanceStatus::Ok, 1, 1), "{user:?}");
+        assert_eq!(s.accepted.load(SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn a_second_step_while_one_runs_sends_nothing() {
+        let c = ctx("test-evidence-busy").await;
+        let s = server(|n| if n == 0 { Duration::from_millis(300) } else { Duration::ZERO }).await;
+        let cfg = config(&s.base);
+        let (one, two) = (CancelFlag::new(), CancelFlag::new());
+        let (first, second) =
+            tokio::join!(c.step_with(&cfg, Trigger::Auto, &one), c.step_with(&cfg, Trigger::User, &two));
+        assert_eq!((first.status, first.request_count), (EnhanceStatus::Ok, 1), "{first:?}");
+        assert_eq!((second.status, second.skip_reason, second.request_count), (EnhanceStatus::Skipped, Some(SkipReason::RoundRunning), 0));
+        assert_eq!(serde_json::to_value(&second).unwrap()["skipReason"], "roundRunning");
+        assert_eq!(s.accepted.load(SeqCst), 1);
+        assert!(!run_for_window(&c.run, &c.window).unwrap().evidence_busy, "the guard is cleared");
+        let next = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((next.hop, next.request_count), (1, 1), "{next:?}");
+    }
+
+    #[tokio::test]
+    async fn max_hops_zero_ends_after_round_zero() {
+        let mut c = ctx("test-evidence-hops0").await;
+        c.params.retrieval.max_hops = 0;
+        let s = server(|_| Duration::ZERO).await;
+        let r = c.step_with(&config(&s.base), Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((r.status, r.hop, r.done, r.stop, r.request_count), (EnhanceStatus::Ok, 0, true, Some(EvidenceStop::MaxHops), 1));
+        let again = c.step_with(&config(&s.base), Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((again.request_count, again.stop), (0, Some(EvidenceStop::MaxHops)));
+        assert_eq!(s.accepted.load(SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn the_direct_match_preset_asks_the_criterion_with_the_judge_criteria() {
+        let mut c = ctx("test-evidence-direct").await;
+        c.params.judge.preset = Preset::DirectMatch;
+        c.params.judge.criterion = "只看决定。".into();
+        let s = server(|_| Duration::ZERO).await;
+        let r = c.step_with(&config(&s.base), Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!(r.status, EnhanceStatus::Ok, "{r:?}");
+        let body = s.bodies.lock().unwrap()[0].clone();
+        assert!(body.contains("只看决定。") && body.contains(super::super::judge::CRITERIA_TRUE), "{body}");
+        assert!(!body.contains(super::super::sag::CRITERION), "{body}");
+    }
+
+    #[tokio::test]
+    async fn evidence_too_large_sends_nothing_and_gives_the_slot_back() {
+        let mut c = ctx("test-evidence-too-large").await;
+        c.params.retrieval.jev_context_tokens = 100;
+        let s = server(|_| Duration::ZERO).await;
+        let r = c.step_with(&config(&s.base), Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((r.status, r.stop, r.request_count, r.done), (EnhanceStatus::Skipped, Some(EvidenceStop::EvidenceTooLarge), 0, true), "{r:?}");
+        assert_eq!(c.slot(), (false, None));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(s.accepted.load(SeqCst), 0);
     }
 
     #[tokio::test]
