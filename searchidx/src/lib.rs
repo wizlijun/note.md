@@ -23,6 +23,7 @@ pub mod paths;
 pub mod plain;
 pub mod prose;
 pub mod query;
+pub mod sag;
 /// Rename/move detection's pure pairing half. `pub(crate)` throughout: the
 /// two call sites (the sweep and the watcher batch) are both inside this
 /// crate, and the decision is not something a caller should be able to
