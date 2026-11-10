@@ -6,8 +6,6 @@
 //! inside the window first, every other hit after them. Feasibility spec
 //! §5.2; plan Task 2. Only the evaluation calls this until the grouping
 //! pre-gate (spec §9.3) passes.
-//!
-//! SKELETON: signatures and tests are final; the bodies are not written yet.
 
 use super::smart::SmartHitDto;
 use super::time_phrase::DetectedTime;
@@ -16,8 +14,14 @@ use super::time_phrase::DetectedTime;
 /// collapsed and trimmed, and ` after:YYYY-MM-DD before:YYYY-MM-DD` appended.
 /// `smart::compile_query` already carries both filters into every arm.
 pub(super) fn time_scoped_query(question: &str, time: &DetectedTime) -> String {
-    let _ = (question, time);
-    todo!("plan Task 2 Step 6")
+    let stripped = question.replacen(&time.source_text, "", 1);
+    let rest = stripped.split_whitespace().collect::<Vec<_>>().join(" ");
+    let range = format!("after:{} before:{}", time.after, time.before);
+    if rest.is_empty() {
+        range
+    } else {
+        format!("{rest} {range}")
+    }
 }
 
 /// The grouped answer and how many of its leading hits are inside the window.
@@ -35,8 +39,22 @@ pub(super) fn group_by_time(
     unfiltered: Vec<SmartHitDto>,
     limit: usize,
 ) -> TimeGrouped {
-    let _ = (in_window, unfiltered, limit);
-    todo!("plan Task 2 Step 6")
+    let mut hits = in_window;
+    hits.truncate(limit);
+    let in_window = hits.len();
+    let mut seen: std::collections::HashSet<(String, u32, u32)> = hits
+        .iter()
+        .map(|h| (h.hit.path.clone(), h.hit.line, h.hit.line_end))
+        .collect();
+    for hit in unfiltered {
+        if hits.len() >= limit {
+            break;
+        }
+        if seen.insert((hit.hit.path.clone(), hit.hit.line, hit.hit.line_end)) {
+            hits.push(hit);
+        }
+    }
+    TimeGrouped { hits, in_window }
 }
 
 #[cfg(test)]
