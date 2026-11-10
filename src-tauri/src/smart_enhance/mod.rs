@@ -2,13 +2,17 @@
 //! pure routing/selection/rerank functions in [`candidates`].
 #![allow(dead_code)]
 
-use std::time::Duration;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use crate::smart_model::{AuthMode, ModelError};
+use crate::smart_model::{consent_matches, endpoint_host, jev_endpoint, validate_jev_config, AuthMode, JevConfig, ModelError};
 
 pub(crate) mod candidates;
+pub(crate) mod keys;
 
 pub(crate) const ENHANCE_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -84,6 +88,110 @@ pub struct UsageDto {
     pub output_tokens: u64,
 }
 
+/// Why a Jev call may not go ahead.
+pub(crate) enum Gate {
+    NotConfigured(Missing),
+    NoConsent { endpoint_host: String },
+}
+
+/// Configuration check shared by the gate and the connection test (no
+/// consent). Returns a config ready for `score_noul`.
+pub(crate) fn check_config(
+    url: &str,
+    model: &str,
+    auth_mode: AuthMode,
+    key: Option<&str>,
+) -> Result<JevConfig, Missing> {
+    if url.trim().is_empty() {
+        return Err(Missing::Url);
+    }
+    if model.trim().is_empty() {
+        return Err(Missing::Model);
+    }
+    let config = JevConfig { url: url.to_string(), model: model.to_string(), auth_mode };
+    if validate_jev_config(&config).is_err() {
+        // A usable URL with a validation error can only be the clear-text rule.
+        return Err(if jev_endpoint(url).is_ok() { Missing::Insecure } else { Missing::Url });
+    }
+    if auth_mode == AuthMode::Bearer && key.map_or(true, str::is_empty) {
+        return Err(Missing::Key);
+    }
+    Ok(config)
+}
+
+/// url empty -> Url; model empty -> Model; plain http + bearer -> Insecure;
+/// other validation errors -> Url; bearer without key -> Key; consent for a
+/// different host -> NoConsent.
+pub(crate) fn gate_jev(config: &JevRequestConfig, key: Option<&str>) -> Result<JevConfig, Gate> {
+    let jev = check_config(&config.url, &config.model, config.auth_mode, key).map_err(Gate::NotConfigured)?;
+    if !consent_matches(&config.url, &config.consent_host) {
+        let host = jev_endpoint(&config.url)
+            .and_then(|e| endpoint_host(&e))
+            .unwrap_or_default();
+        return Err(Gate::NoConsent { endpoint_host: host });
+    }
+    Ok(jev)
+}
+
+/// Wakes waiters when a lookup run is cancelled, also if the cancel came first.
+pub(crate) struct CancelFlag {
+    cancelled: AtomicBool,
+    notify: tokio::sync::Notify,
+}
+
+impl CancelFlag {
+    fn new() -> Self {
+        Self { cancelled: AtomicBool::new(false), notify: tokio::sync::Notify::new() }
+    }
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+        self.notify.notify_waiters();
+    }
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+    pub async fn cancelled(&self) {
+        // Created before the check so a cancel in between is not missed.
+        let notified = self.notify.notified();
+        if self.is_cancelled() {
+            return;
+        }
+        notified.await;
+    }
+}
+
+const FLAG_TTL: Duration = Duration::from_secs(10 * 60);
+static CANCEL_FLAGS: OnceLock<Mutex<HashMap<String, (Instant, Arc<CancelFlag>)>>> = OnceLock::new();
+
+/// One per lookup run; swept with the runs after ten minutes.
+pub(crate) fn cancel_flag(run_id: &str) -> Arc<CancelFlag> {
+    let mut flags = CANCEL_FLAGS
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let now = Instant::now();
+    flags.retain(|_, (created, _)| now.duration_since(*created) <= FLAG_TTL);
+    flags
+        .entry(run_id.to_string())
+        .or_insert_with(|| (now, Arc::new(CancelFlag::new())))
+        .1
+        .clone()
+}
+
+#[tauri::command]
+pub fn smart_lookup_cancel(lookup_run_id: String) {
+    cancel_flag(&lookup_run_id).cancel();
+}
+
+/// No redirects (a redirect could carry the key elsewhere); no global
+/// timeout: callers bound the wait with `ENHANCE_TIMEOUT`.
+pub(crate) fn enhance_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| "network unavailable".to_string())
+}
+
 /// Map a model error to a status and a coarse status class. Never carries
 /// error detail (it may contain secrets).
 pub(crate) fn status_for(error: &ModelError) -> (EnhanceStatus, Option<String>) {
@@ -101,6 +209,26 @@ pub(crate) fn status_for(error: &ModelError) -> (EnhanceStatus, Option<String>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_gate_names_what_is_missing_and_binds_consent_to_the_host() {
+        let c = |url: &str, model: &str, auth: AuthMode, host: &str| JevRequestConfig { url: url.into(), model: model.into(), auth_mode: auth, consent_host: host.into() };
+        assert!(matches!(gate_jev(&c("", "m", AuthMode::Bearer, ""), Some("k")), Err(Gate::NotConfigured(Missing::Url))));
+        assert!(matches!(gate_jev(&c("https://a.example/v1", "", AuthMode::Bearer, "a.example"), Some("k")), Err(Gate::NotConfigured(Missing::Model))));
+        assert!(matches!(gate_jev(&c("http://a.example/v1", "m", AuthMode::Bearer, "a.example"), Some("k")), Err(Gate::NotConfigured(Missing::Insecure))));
+        assert!(matches!(gate_jev(&c("https://a.example/v1", "m", AuthMode::Bearer, "a.example"), None), Err(Gate::NotConfigured(Missing::Key))));
+        assert!(matches!(gate_jev(&c("https://b.example/v1", "m", AuthMode::Bearer, "a.example"), Some("k")),
+            Err(Gate::NoConsent { endpoint_host }) if endpoint_host == "b.example"));
+        assert!(gate_jev(&c("http://localhost:8000/v1", "m", AuthMode::None, "localhost:8000"), None).is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_cancel_before_waiting_still_wakes_the_waiter() {
+        let flag = cancel_flag("run-a");
+        flag.cancel();
+        tokio::time::timeout(Duration::from_millis(100), flag.cancelled()).await.unwrap();
+        assert!(!cancel_flag("run-b").is_cancelled());
+    }
 
     #[test]
     fn model_errors_map_to_statuses_without_detail() {

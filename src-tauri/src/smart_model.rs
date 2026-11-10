@@ -94,6 +94,30 @@ pub fn validate_jev_config(config: &JevConfig) -> Result<(), String> {
     Ok(())
 }
 
+
+/// Lower-case host of the resolved endpoint; an explicit non-default port is
+/// kept (`host:port`), IPv6 keeps its brackets.
+pub fn endpoint_host(url: &str) -> Result<String, String> {
+    let parsed = reqwest::Url::parse(url.trim()).map_err(|e| format!("invalid url: {e}"))?;
+    let host = parsed.host_str().ok_or("url has no host")?.to_lowercase();
+    Ok(match parsed.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host,
+    })
+}
+
+/// Whether the stored consent names exactly the host this URL resolves to.
+pub fn consent_matches(jev_url: &str, consent_host: &str) -> bool {
+    let consent = consent_host.trim().to_lowercase();
+    if consent.is_empty() {
+        return false;
+    }
+    jev_endpoint(jev_url)
+        .and_then(|endpoint| endpoint_host(&endpoint))
+        .map(|host| host == consent)
+        .unwrap_or(false)
+}
+
 /// One yes/no question. All questions of a request share one `state` and are
 /// answered independently.
 #[derive(Debug, Clone, PartialEq)]
@@ -238,23 +262,22 @@ pub async fn score_noul(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) mod test_support {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-    const OK_BODY: &str = r#"{"answers":{"c1":{"type":"noul","noul":0.93}}}"#;
 
     /// A local stand-in for the service. Every connection gets the same
     /// canned reply after `delay`. Returns the base URL (`…/v1`), the first
     /// request as received (lower-cased, headers and body) and the number of
     /// connections accepted so far.
-    async fn serve_once(
+    pub(crate) async fn serve_once(
         status: u16,
-        body: &'static str,
+        body: impl Into<String>,
         delay: Duration,
     ) -> (String, tokio::sync::oneshot::Receiver<String>, Arc<AtomicUsize>) {
+        let body: String = body.into();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}/v1", listener.local_addr().unwrap());
         let (request_tx, request_rx) = tokio::sync::oneshot::channel();
@@ -302,6 +325,15 @@ mod tests {
         });
         (base, request_rx, accepted)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::test_support::serve_once;
+    use std::sync::atomic::Ordering;
+
+    const OK_BODY: &str = r#"{"answers":{"c1":{"type":"noul","noul":0.93}}}"#;
 
     fn config(url: &str, auth_mode: AuthMode) -> JevConfig {
         JevConfig {
@@ -321,6 +353,23 @@ mod tests {
     }
 
     const LIMIT: Duration = Duration::from_secs(3);
+
+    #[test]
+    fn endpoint_host_keeps_explicit_ports_only() {
+        assert_eq!(endpoint_host("https://API.typesafe.ai/v1/systemone").unwrap(), "api.typesafe.ai");
+        assert_eq!(endpoint_host("http://localhost:8000/v1/systemone").unwrap(), "localhost:8000");
+        assert_eq!(endpoint_host("https://openrouter.ai:443/api/alpha/decisions").unwrap(), "openrouter.ai");
+        assert_eq!(endpoint_host("http://[::1]:9000/v1").unwrap(), "[::1]:9000");
+    }
+
+    #[test]
+    fn consent_is_bound_to_the_resolved_host() {
+        assert!(consent_matches("https://api.typesafe.ai/v1", "api.typesafe.ai"));
+        assert!(consent_matches("https://api.typesafe.ai/v1", " API.typesafe.ai "));
+        assert!(!consent_matches("https://openrouter.ai/api/alpha/decisions", "api.typesafe.ai"));
+        assert!(!consent_matches("http://localhost:8001/v1", "localhost:8000"));
+        assert!(!consent_matches("https://api.typesafe.ai/v1", ""));
+    }
 
     #[test]
     fn endpoint_follows_the_documented_rule() {
