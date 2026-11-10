@@ -11,7 +11,7 @@
 - 文件无效时，下列命令都返回带配置键的错误，不退回默认值：`notemd_smart_search`（输入预览）、`smart_lookup_local`、`smart_lookup_diagnose`、`smart_lookup_search_groups`、`smart_lookup_judge`、`smart_lookup_repair_suggest`、`smart_lookup_test_jev`、`smart_lookup_test_chat`。
 - 重复的键不报错，后出现的值生效（先解析成 `serde_json::Value` 再取值）。
 
-**应用窗口里的两个例外（Task 12 裁定）。** 智能查找窗口每次回车都把用户设置里的 `smartLookup.results.limit`（可选 20、50、100，默认 50）作为 `limit` 传给 `smart_lookup_local`，deep 检索时还把 `smartLookup.results.deepTimeoutMs`（1000–5000，默认 4000）作为 `timeoutMs` 传入。调用方给了值，就用调用方的值（`search/mod.rs:local_lookup_budget`），所以 `local.limit` 和 `local.deepTimeoutMs` 在应用窗口里不起作用，只在调用方不给值时生效，也就是 CLI【待核对：Task 13】。这两项要在 CLI 上调；应用里改的是设置对话框里的那两项。另外，应用默认 50 条、CLI 默认 `local.limit` 100 条，两者的本地结果条数不同；要让 CLI 评测与应用一致，在参数文件里写 `"local":{"limit":50}`。
+**应用窗口里的两个例外（Task 12 裁定）。** 智能查找窗口每次回车都把用户设置里的 `smartLookup.results.limit`（可选 20、50、100，默认 50）作为 `limit` 传给 `smart_lookup_local`，deep 检索时还把 `smartLookup.results.deepTimeoutMs`（1000–5000，默认 4000）作为 `timeoutMs` 传入。调用方给了值，就用调用方的值（`search/mod.rs:local_lookup_budget`），所以 `local.limit` 和 `local.deepTimeoutMs` 在应用窗口里不起作用，只在调用方不给值时生效，也就是 CLI：`notemd lookup` 与 `notemd lookup eval` 经 `src-tauri/src/smart_enhance/pipeline.rs:run_pipeline` 调用 `src-tauri/src/search/mod.rs:lookup_local_in` 时，条数与 deep 时限都传 `None`。CLI 修复后的按说法重搜也用 `local.limit` 作条数（`run_pipeline` 传 `Some(params.local.limit)`），应用里则是用户的结果条数。这两项要在 CLI 上调；应用里改的是设置对话框里的那两项。另外，应用默认 50 条、CLI 默认 `local.limit` 100 条，两者的本地结果条数不同；要让 CLI 评测与应用一致，在参数文件里写 `"local":{"limit":50}`。
 
 **各命令读取哪些组。** 「读取位置」一行写的是参数值实际起作用的函数；命令入口经 `for_app` 读整个文件，再把需要的组传下去：
 
@@ -25,8 +25,9 @@
 | `smart_lookup_repair_suggest`（`src-tauri/src/smart_enhance/repair.rs:smart_lookup_repair_suggest`） | `repair.*`、`enhance.timeoutMs` |
 | `smart_lookup_test_jev`（`src-tauri/src/smart_enhance/keys.rs:smart_lookup_test_jev`） | `enhance.timeoutMs` |
 | `smart_lookup_test_chat`（`src-tauri/src/smart_enhance/repair.rs:smart_lookup_test_chat`） | `enhance.timeoutMs` |
+| `notemd lookup`、`notemd lookup eval`（`src-tauri/src/cli/lookup.rs:run_with`，经 `lookup_params.rs:load` 读取，不经 `for_app`、不缓存） | 全部参数；见「## 调参流程」 |
 
-「决定它的指标」里的 `top5Local`、`top50Coverage`、`windowCoverage`、`netGain`、`pushedOut`、`absentFalseFitRate`、`timeoutRate`、`enhanceP95Ms`、`localP95Ms`、`inputTokens`、`estimatedTokens` 是 `notemd lookup eval` 输出的指标名（Task 13 的 `LookupMetrics`，按 serde camelCase 输出）【待核对：Task 13】。`deep_ms`、`grouped_rank` 是 E1 本地基线（`src-tauri/src/search/smart_eval.rs:run_e1`）的 `E1Row` 字段，报告 JSON 里写作 `deepMs`、`groupedRank`。E1 固定用 50 条、deep 时限 4000 毫秒和默认融合常数，不读参数文件。
+「决定它的指标」里的 `top5Local`、`top50Coverage`、`windowCoverage`、`netGain`、`pushedOut`、`mismatches`、`demoted`、`absentFalseFitRate`、`judgeTimeoutRate`、`repairTimeoutRate`、`judgeP95Ms`、`repairP95Ms`、`localP95Ms`、`inputTokens`、`estimatedTokens` 是 `notemd lookup eval` 输出的指标名（`src-tauri/src/search/smart_eval.rs` 的 `LookupMetrics`，按 serde camelCase 输出；定义见「## 调参流程」的指标表）。`deep_ms`、`grouped_rank` 是 E1 本地基线（`src-tauri/src/search/smart_eval.rs:run_e1`）的 `E1Row` 字段，报告 JSON 里写作 `deepMs`、`groupedRank`。E1 固定用 50 条、deep 时限 4000 毫秒和默认融合常数，不读参数文件。
 
 ## 参数
 
@@ -50,7 +51,7 @@
 - 来源：spec §2.1、附录 G.1
 - 调高：准确：只在要求 deep 且调用方没有给时限（或给 0）时使用；时限从拿到索引锁后起算，覆盖整批 FTS 臂和 deep 扫描（`search/smart.rs:execute_smart_plan_locked`），调高后扫描更可能在截止前完成，零命中问题被 deep 找回的机会增加。等待：零命中的 deep 检索最长多等这么久；`time.mode` 为 `group` 且识别到时间短语时，两次检索各有一份时限，最长约两倍。费用：本地扫描，不调用模型。上界 5000 就是调用方时限的封顶常量 `DEEP_TIMEOUT_CAP_MS`。
 - 调低：准确：扫描更早被截断，结果标为 `truncated`，deep 召回变少；时限也约束 FTS 臂，太低时放宽梯可能没跑完。等待：最坏等待变短。费用：不变。
-- 决定它的指标：E1 的 deep 召回题数（浅层未召回、`deep_rank` 非空的题）与 `deep_ms`（spec §9.2）。E1 固定用 4000 毫秒，换值要用 CLI 的 deep 检索测量。只在 CLI 上生效（见文首「应用窗口里的两个例外」）。
+- 决定它的指标：E1 的 deep 召回题数（浅层未召回、`deep_rank` 非空的题）与 `deep_ms`（spec §9.2）。E1 固定用 4000 毫秒，不读本参数；换值时看 `notemd lookup eval` 的本地 deep 补测：正常本地检索没找到目标的评分题会再跑一次本地 deep（`src-tauri/src/search/smart_eval.rs:deep_pass`，用 `local.limit`、`local.deepTimeoutMs`、`time.mode`，不调用模型），结果写进 `--out` 每行的 `deepRank`、`deepMs`，并决定 holdout `gates` 的 `c4Tasks`。只在 CLI 上生效（见文首「应用窗口里的两个例外」）。
 
 ### `local.rrfK`
 
@@ -94,7 +95,7 @@
 - 来源：spec §5.2、附录 G.1
 - 调高：本项是枚举，没有高低，三种取值的效果写在这一行和下一行。`group`：识别到时间短语时检索两次（去掉短语并附加 `after:`/`before:` 的一次，原问题一次），范围内的命中在前、其余去重在后，两部分合计截到 `limit` 条（`search/time_group.rs:group_by_time`），范围外的命中只下沉、不过滤；判断时上下两组各自重排（分组边界由调用方作为 `section_breaks` 传入）。等待：多一次本地检索。费用：判断请求带「时间范围」一行。
 - 调低：`window`：只检索范围内一次，范围外的命中不出现（硬过滤），宿主分不清文档日期与事件日期时目标可能被挡掉；等待比 `group` 少一次检索；判断请求同样带「时间范围」一行。`ignore`：原问题原样检索一次，不分组；判断请求仍带「时间范围」一行（`smart_enhance/judge.rs:build_state` 只看运行是否识别到时间，不看模式），修复请求写「时间：无」（`smart_enhance/repair.rs:repair_prompt`）。只在调用方不传 `timeMode` 时使用：窗口第一次回车不传，用户点了时间条之后才传。没有识别到时间短语时三者没有区别。修复后的重搜沿用原运行的模式（`search/repair_search.rs:search_groups_locked`），不再读本参数。
-- 决定它的指标：E1 的 `grouped_rank` 与 C2 门槛（spec §9.3）。C2 不通过时改为 `ignore`。
+- 决定它的指标：E1 的 `grouped_rank` 与 C2 门槛（spec §9.3）。C2 不通过时改为 `ignore`。`notemd lookup eval` 不接受 `--time-mode`，按参数文件的 `time.mode` 跑。
 
 ### `routing.fewTermsMax`
 
@@ -127,7 +128,7 @@
 - 来源：spec §5.4、附录 G.1
 - 调高：准确：一次判断覆盖更多候选，`windowCoverage` 可能上升；K 是上限，不是保证：还受 `candidates.pool`、`candidates.perFile` 和 `candidates.tokenBudget` 约束。默认预算 4000 下，中日韩文字为主、接近 1200 字的块最多放下 3 块，K 再大也取不满；spec 附录 A 的 K=30 档配 12000 token 预算。等待：模型要判断的问题变多，请求变慢，超时率可能上升。费用：输入 token 随实际送出的块数增长；每块还带固定的 `CRITERIA_TRUE`、`CRITERIA_FALSE` 两句。改变 K 会改变请求内容，缓存不再复用。
 - 调低：准确：只判断最前面的少数块，被判断范围外的命中位置不变，提升空间变小。等待：请求更快。费用：输入 token 下降。必须不大于 `candidates.pool`。
-- 决定它的指标：`windowCoverage`、`netGain`、`enhanceP95Ms`、`inputTokens`。
+- 决定它的指标：`windowCoverage`、`netGain`、`judgeP95Ms`、`inputTokens`。
 
 ### `candidates.perFile`
 
@@ -138,7 +139,7 @@
 - 来源：spec §5.4、附录 G.1
 - 调高：准确：同一文件可以占更多窗口位置；一个文件命中很多时，窗口里的文件更少、更集中。超出本限制的块直接跳过，不计入任何 `skipped_*` 计数。等待：不变（块数仍受 K 和预算限制）。费用：不变或略增（少一些块因本限制被跳过）。
 - 调低：准确：取 1 时每个文件只送一块，窗口里文件更分散；目标块若排在同文件另一块之后就送不进去。等待：要往下多看几条才能取满 K，读原文略多。费用：不变或略降。
-- 决定它的指标：`windowCoverage`、`netGain`、`enhanceP95Ms`、`inputTokens`。
+- 决定它的指标：`windowCoverage`、`netGain`、`judgeP95Ms`、`inputTokens`。
 
 ### `candidates.maxBlockChars`
 
@@ -149,7 +150,7 @@
 - 来源：spec 附录 A、附录 G.1
 - 调高：准确：更长的行级块可以送出，`skipped_long` 变少；超过 3000 字符的块在登记查找运行时就不保留原文（`smart_lookup.rs` 的 `MAX_SOURCE_CHARS`），无论本参数多大都不会送出。等待：长块让请求变大、变慢。费用：单块最多多出几千 token；整体仍受 `candidates.tokenBudget` 限制，长块会更早用完预算，取到的块数更少。见下方「已知陷阱」。
 - 调低：准确：长块被跳过（不截断），目标是长段落时永远进不了窗口。等待：请求更小、更快。费用：下降。
-- 决定它的指标：`windowCoverage`、`netGain`、`enhanceP95Ms`、`inputTokens`。
+- 决定它的指标：`windowCoverage`、`netGain`、`judgeP95Ms`、`inputTokens`。
 
 ### `candidates.tokenBudget`
 
@@ -160,7 +161,7 @@
 - 来源：spec 附录 A、附录 G.1
 - 调高：准确：能放下更多、更长的块，K 更容易取满。预算只计每个候选的标题、面包屑和原文（`estimate_tokens(标题 + 面包屑 + 原文)`），不计共享的问题、时间、过滤与判断准则，也不计每个候选的 `CRITERIA_TRUE`、`CRITERIA_FALSE` 和 JSON 外壳，所以服务端实际的输入 token 高于本值。等待：请求更大、更慢。费用：输入 token 上升，上限大致随本值增长。
 - 调低：准确：取到的块变少；遇到第一块放不下就停止选择（`break`），后面更短的块也不再取。等待：请求更快。费用：下降。低于一个允许的最长块时会悄悄什么都不发，见下方「已知陷阱」。
-- 决定它的指标：`windowCoverage`、`netGain`、`enhanceP95Ms`、`inputTokens`。
+- 决定它的指标：`windowCoverage`、`netGain`、`judgeP95Ms`、`inputTokens`。
 
 **已知陷阱（修复中）。** 现在的校验没有要求 `tokenBudget` 至少放得下一个允许的最长块。例如 `tokenBudget` 500、`maxBlockChars` 3000、`cjkCharsPerToken` 1：任何约 500 字以上的中文块都会在选择时触发 `break`。如果第一块就是这样，判断结果是「跳过 / `noCandidates`」，`skippedLong` 仍为 0，状态没有说出真实原因；如果是中途遇到，后面更短的块也不再取。默认值下（1200 字、4000 token）不会出现。已裁定在最终修复轮加一条跨字段规则：`tokenBudget ≥ ceil(maxBlockChars × max(1 / cjkCharsPerToken, 1 / otherCharsPerToken))`，即 `ceil(maxBlockChars / min(cjkCharsPerToken, otherCharsPerToken))`。这条规则落地之前，调 `maxBlockChars`、`tokenBudget` 或两个字符率时请自己保证这个不等式成立。规则只算原文，标题和面包屑也计入估算，所以接近边界的块仍可能放不下。最终规则以合入的代码为准。
 
@@ -173,7 +174,7 @@
 - 来源：spec 附录 A、附录 G.1
 - 调高：准确：估算每个中日韩字符的 token 更少，同样的预算能放下更多块；只改变估算，不改变每块送出的内容。计为中日韩的字符：CJK 统一汉字及扩展 A–F 与兼容汉字、平假名、片假名（不含半角片假名）、谚文（`candidates.rs:is_cjk`）。等待：送出的块更多时请求更慢。费用：实际 token 可能超出预算；估得越偏低，超出越多。
 - 调低：准确：估算更保守，块数更少。等待：请求更快。费用：实际 token 更可能低于预算。
-- 决定它的指标：`estimatedTokens` 与 `inputTokens` 之比。
+- 决定它的指标：`estimatedTokens` 与 `inputTokens` 之比。`estimatedTokens` 只累加判断请求的估算，`inputTokens` 累加判断与修复请求中服务返回了用量的那些；不配修复模型（不给 `--chat-url`、`--chat-model`）且 `usageUnknown` 为 0 时，两者才可直接相除。
 
 ### `candidates.otherCharsPerToken`
 
@@ -184,7 +185,7 @@
 - 来源：spec 附录 A、附录 G.1
 - 调高：准确：英文、代码和数字估算的 token 更少，能放下更多块；只改变估算。等待：送出的块更多时请求更慢。费用：实际 token 可能超出预算。
 - 调低：准确：估算更保守，块数更少。等待：请求更快。费用：实际 token 更可能低于预算。
-- 决定它的指标：`estimatedTokens` 与 `inputTokens` 之比。
+- 决定它的指标：`estimatedTokens` 与 `inputTokens` 之比。`estimatedTokens` 只累加判断请求的估算，`inputTokens` 累加判断与修复请求中服务返回了用量的那些；不配修复模型（不给 `--chat-url`、`--chat-model`）且 `usageUnknown` 为 0 时，两者才可直接相除。
 
 ### `tiers.fit`
 
@@ -195,7 +196,7 @@
 - 来源：spec §5.4、F.3、附录 G.1
 - 调高：准确：`noul ≥ fit` 才标「符合」并排在被判断位置的最前；调高后误判为符合的变少（`absentFalseFitRate` 下降），真正的目标也可能落到「不确定」而不上移。取 1.0 时只有恰好 1.0 才算符合。等待：不变。费用：不变。分档不改变请求，判断缓存保存的是分数、每次重新分档（`smart_enhance/judge.rs:judge_steps`），所以改分档后同一请求仍会复用缓存。
 - 调低：准确：更多候选标为符合并上移，提升与误判一起增加；必须大于 `tiers.unfit`。等待：不变。费用：不变。
-- 决定它的指标：`netGain`、`pushedOut`、`absentFalseFitRate`，以及纠正一致率（Task 7）。
+- 决定它的指标：`netGain`、`pushedOut`、`mismatches`、`demoted`、`absentFalseFitRate`，以及纠正一致率（Task 7）。
 
 ### `tiers.unfit`
 
@@ -206,7 +207,7 @@
 - 来源：spec §5.4、F.3、附录 G.1
 - 调高：准确：`noul ≤ unfit` 标「可能不相关」并下沉到被判断位置的最后；调高后更多候选下沉，原本在 Top 5 的目标更可能被挤出（`pushedOut`）。前 10 个位置全部被判为不相关时显示「前 10 条都不相关」并提供「换个说法」（`candidates.rs:top_ten_unfit`），调高后这种情况更常见。等待：不变。费用：判断本身不变；「换个说法」由用户点按，每点一次是一次修复请求。必须小于 `tiers.fit`。
 - 调低：准确：下沉的候选变少，挤出风险下降，不相关的命中留在原位。取 0.0 时只有恰好 0 分才算不相关。等待：不变。费用：不变。
-- 决定它的指标：`netGain`、`pushedOut`、`absentFalseFitRate`，以及纠正一致率（Task 7）。
+- 决定它的指标：`netGain`、`pushedOut`、`mismatches`、`demoted`、`absentFalseFitRate`，以及纠正一致率（Task 7）。
 
 ### `enhance.timeoutMs`
 
@@ -217,7 +218,7 @@
 - 来源：spec §5.6、附录 G.1
 - 调高：准确：一个时限覆盖发送、等待和读取响应体（`smart_model.rs:post_once`），超时的请求变少，判断与修复更常生效。等待：最坏情况下用户多等这么久才知道失败；本地结果始终先显示，不受影响。费用：请求次数不变（每次回车至多一个自动请求，不重试）；超时的请求服务端仍可能计费，调高后这类白花的请求变少。连接测试也用这个时限。
 - 调低：准确：慢的服务更常超时，结果保持本地顺序。等待：失败更早结束。费用：超时的请求照样算一次请求，且可能被计费。
-- 决定它的指标：`timeoutRate`、`enhanceP95Ms`。
+- 决定它的指标：`judgeTimeoutRate`、`repairTimeoutRate`、`judgeP95Ms`、`repairP95Ms`。holdout 的 C3、C4 门槛只在 `enhance.timeoutMs` 为 3000 时评定，其他值下两项都显示 `n/a (timeout ≠ 3 s)`，所以本参数只能在 dev 组上比较，定 holdout 前要改回 3000（spec §9.3「3 秒时限下」）。
 
 ### `repair.maxGroups`
 
@@ -228,7 +229,7 @@
 - 来源：spec §5.5、F.7、附录 G.1
 - 调高：准确：提示词写「至多 N 组」，模型可给更多说法，零命中被救回的机会增加。每个说法在本地各检索一次（`group` 模式且有时间时各两次）。窗口的编辑条目前只有 2 个说法栏（`feat/sle-t10` 分支 `src/SmartLookupApp.svelte` 的 `WORDING_SLOTS = 2`）：自动重搜用模型给的全部说法，但用户只能看到和编辑前两个。等待：每多一组多一到两次本地检索。费用：修复请求的输出 token 略增；请求里不含笔记正文。
 - 调低：准确：模型返回的组数超过上限时整次修复作废（`invalid`），不会截取前几组；用户提交的说法超过上限时 `smart_lookup_search_groups` 返回错误 `invalid term groups`。取 1 而窗口有两个说法栏时，用户填满两栏会报错。等待：本地重搜变少。费用：输出 token 略降。
-- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例。
+- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例，即 `gates` 的 `c4Rescued / c4Tasks`（正常本地检索与本地 deep 都未召回的评分题），以及 `repairTimeoutRate`、`repairP95Ms`。
 
 ### `repair.maxTerms`
 
@@ -239,7 +240,7 @@
 - 来源：spec §5.5、F.7、附录 G.1
 - 调高：准确：每个说法可以带更多词，本地检索按 smart 路径处理（strict 臂加放宽梯，最多取 12 个提取词），词多时 strict 臂更难命中、主要靠放宽臂。等待：略增。费用：输出 token 略增。
 - 调低：准确：说法更精简；模型或用户给的词数超过上限时整次作废或报错（同 `repair.maxGroups`）。等待：略减。费用：略降。
-- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例。
+- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例，即 `gates` 的 `c4Rescued / c4Tasks`（正常本地检索与本地 deep 都未召回的评分题），以及 `repairTimeoutRate`、`repairP95Ms`。
 
 ### `repair.maxPhrases`
 
@@ -250,7 +251,7 @@
 - 来源：F.7、附录 G.1
 - 调高：准确：允许更多带引号的短语（整体匹配），对固定说法更准，也更容易一个都匹配不上。等待：略增。费用：输出 token 略增。
 - 调低：准确：取 0 时任何短语都会让整次修复作废、让用户提交的说法报错，提示词也写「0 个短语」。等待：略减。费用：略降。
-- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例。
+- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例，即 `gates` 的 `c4Rescued / c4Tasks`（正常本地检索与本地 deep 都未召回的评分题），以及 `repairTimeoutRate`、`repairP95Ms`。
 
 ### `repair.itemMaxChars`
 
@@ -261,7 +262,7 @@
 - 来源：F.7、附录 G.1
 - 调高：准确：允许更长的词和短语。等待：不变。费用：输出 token 略增。
 - 调低：准确：任何一项超长都会让整次修复作废（模型输出）或报错（用户编辑）；模型输出的每一项还必须至少 1 个字符。等待：不变。费用：略降。
-- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例。
+- 决定它的指标：C4：本地未召回题中 `finalRank ≤ 50` 的比例，即 `gates` 的 `c4Rescued / c4Tasks`（正常本地检索与本地 deep 都未召回的评分题），以及 `repairTimeoutRate`、`repairP95Ms`。
 
 ### `judge.criterion`
 
@@ -272,7 +273,7 @@
 - 来源：spec §5.4、附录 G.1
 - 调高：本项是文本，没有高低，改写的效果写在这一行和下一行。准确：准则写进共享的 `state`（「判断准则：」一行），决定模型按什么标准判断；每个候选另带固定的 `CRITERIA_TRUE`、`CRITERIA_FALSE`（不可配置，见「其他固定常量」），改准则时要与这两句保持一致。窗口里的标准文案「判断标准：是否直接符合要找的内容」是固定的，不随本参数变化。等待：准则更长，请求略慢。费用：准则每次请求发送一次，按字计入输入 token，不计入 `candidates.tokenBudget`。
 - 调低：准则缩短或放宽时，误判为符合可能上升。改准则会改变请求内容，缓存不再复用。只有空白字符的准则目前也能通过校验，会发出「判断准则： 」，请避免。
-- 决定它的指标：`netGain`、`absentFalseFitRate`、纠正一致率。
+- 决定它的指标：`netGain`、`mismatches`、`absentFalseFitRate`、纠正一致率。
 
 默认原文（`lookup_params.rs` 的 `DEFAULT_CRITERION`，与 spec §5.4 相同）：
 
@@ -285,12 +286,12 @@
 | 规则 | 执行位置 | 理由 |
 | --- | --- | --- |
 | confidential 文件与不在索引中的文件一律不发送；保密性读不到（索引忙、缺失或属于另一个 vault）时整次不判断 | `src-tauri/src/smart_enhance/candidates.rs:select_candidates`、`src-tauri/src/smart_enhance/judge.rs:pool_confidentiality`、`src-tauri/src/smart_enhance/judge.rs:scoped_confidentiality` | 隐私：标为 confidential 的内容对任何接入点（包括本机自建服务）都不外发；不确定就不发（spec §5.7、F.11）。修复请求本来就不含笔记正文（`src-tauri/src/smart_enhance/repair.rs:repair_prompt`） |
-| 判断请求只发往已同意的主机；接入点主机一变，同意即失效 | `src-tauri/src/smart_enhance/mod.rs:gate_jev`、`src-tauri/src/smart_model.rs:consent_matches` | 隐私：发送笔记片段是数据流的变化，必须对实际发往的主机单独同意（spec F.2、F.11） |
+| 判断请求只发往已同意的主机；接入点主机一变，同意即失效 | `src-tauri/src/smart_enhance/mod.rs:gate_jev`、`src-tauri/src/smart_model.rs:consent_matches`；CLI 的 `--allow-send` 填作 `consentHost`（`src-tauri/src/cli/lookup.rs:enhance_setup`），同样经 `gate_jev` | 隐私：发送笔记片段是数据流的变化，必须对实际发往的主机单独同意（spec F.2、F.11） |
 | 只发送行级块，并逐块回源核对，文本与索引不一致的跳过 | `src-tauri/src/smart_enhance/candidates.rs:select_candidates`、`src-tauri/src/smart_lookup.rs:current_block` | 可信：汇总块无法核对，送出的内容必须就是磁盘上的原文（spec §5.4） |
 | 每次回车至多一个自动请求（判断与修复共用一个名额） | `src-tauri/src/smart_enhance/mod.rs:claim_auto_request`、`src-tauri/src/smart_enhance/judge.rs:judge_run`、`src-tauri/src/smart_enhance/repair.rs:repair_steps` | 费用：一次回车的费用上限固定为一次请求（spec F.6） |
 | 不自动重试；超时、网络错误、429 都按失败处理 | `src-tauri/src/smart_model.rs:post_once`、`src-tauri/src/smart_model.rs:score_noul`、`src-tauri/src/smart_model.rs:chat_complete` | 费用与等待：重试会让费用和最坏等待成倍增加（spec §5.6） |
 | 远端返回的文字不展示、不写日志；状态里只有主机名和状态码类别 | `src-tauri/src/smart_enhance/mod.rs:status_for`、`src-tauri/src/smart_model.rs:post_once`、`src-tauri/src/smart_enhance/repair.rs:parse_repair_groups` | 可信：远端文字可能夹带指令或回显密钥，只接受严格校验过的分数和检索词（spec F.3） |
-| 密钥不进参数文件，只存在 app-data Store 的独立键里（CLI 只从环境变量读取【待核对：Task 13】） | `src-tauri/src/smart_enhance/keys.rs:read_key`、`src-tauri/src/lookup_params.rs:parse_params` | 安全：参数文件会被复制、分享和提交，不能放秘密（spec F.8、G.5） |
+| 密钥不进参数文件，只存在 app-data Store 的独立键里（CLI 只从环境变量 `NOTEMD_JEV_KEY`、`NOTEMD_CHAT_KEY` 读取，不接受命令行参数） | `src-tauri/src/smart_enhance/keys.rs:read_key`、`src-tauri/src/cli/lookup.rs:env_key`、`src-tauri/src/lookup_params.rs:parse_params` | 安全：参数文件会被复制、分享和提交，不能放秘密（spec F.8、G.5） |
 
 ## 其他固定常量
 
@@ -372,40 +373,126 @@
 
 ## 调参流程
 
-`notemd lookup eval` 由 Task 13 实现，与本文同时编写；下面凡标【待核对：Task 13】的选项与输出，都还没有对照合入的代码核对过。
+调参用无界面 CLI `notemd lookup eval`（`src-tauri/src/cli/lookup.rs`，评测逻辑在 `src-tauri/src/search/smart_eval.rs:run_lookup_eval`）。它对每题跑一遍与窗口相同的链路（`src-tauri/src/smart_enhance/pipeline.rs:run_pipeline`：本地检索 → 路由 → 判断或修复），隐私、同意、行级块、每次至多一个自动请求、不重试这些规则都由同一批宿主函数执行。本节的选项、输出和命令已对照提交 e003fe7 的代码核对，并在临时 vault 上用构建出的 `notemd` 跑过（不联网，`--no-enhance` 与连不上的接入点）。
 
-任务文件沿用 E1 的格式（`src-tauri/src/search/smart_eval.rs:load_tasks`，已核对）：`{"tasks":[…]}`，每题有 `id`、`question`、`targets`（`[{"path":"相对路径","line":可选的行号}]`）、`category`（`exact`、`colloquial`、`synonym`、`time`、`homonym`、`bridge`、`absent`）、`split`（`dev` 或 `holdout`），可选 `needsInferredConstraint`。`absent` 题不能列目标，其他题必须列目标；路径必须是 vault 内的相对路径。任务文件含私人查询，放在仓库之外（spec §9.1）。
+### 任务文件
 
-| 选项或输出 | 用途 | 状态 |
-| --- | --- | --- |
-| `notemd lookup eval --tasks <文件>` | 对每题跑一遍完整链路（本地检索 → 路由 → 判断或修复） | 【待核对：Task 13】 |
-| `--params <文件>` | 本次使用的参数文件；不存在时报错，参数文件无效时退出码 2 | 【待核对：Task 13】 |
-| `--out <jsonl>` | 每题写一行 `LookupEvalRow` | 【待核对：Task 13】 |
-| `--compare <jsonl>` | 以上一次 `--out` 的文件为基线，输出 `{"kind":"compare","deltas":[…]}` | 【待核对：Task 13】 |
-| `--today YYYY-MM-DD` | 固定「今天」，让时间短语的解析可复现；缺省取本地日期 | 【待核对：Task 13】 |
-| `--vault <路径>` | 指定 vault | 【待核对：Task 13】 |
-| `--jev-url`、`--jev-model`、`--jev-auth bearer\|none` | 判断接入点；前两项都给出才判断，`--jev-auth` 缺省 `bearer` | 【待核对：Task 13】 |
-| `--allow-send <主机>` | CLI 上的按主机同意；必须等于判断接入点的主机，否则不发请求（`noConsent`） | 【待核对：Task 13】 |
-| `--chat-url`、`--chat-model` | 修复模型；两项都给出才修复 | 【待核对：Task 13】 |
-| `--no-enhance` | 只跑本地检索，不发任何请求 | 【待核对：Task 13】 |
-| `--deep`、`--time-mode group\|window\|ignore` | deep 检索与时间模式；不给 `--time-mode` 时用 `time.mode`；评测模式是否使用这两项未定 | 【待核对：Task 13】 |
-| `--json` | 每行一个 JSON 对象 | 【待核对：Task 13】 |
-| 环境变量 `NOTEMD_JEV_KEY`、`NOTEMD_CHAT_KEY` | 密钥只从这里读，不接受命令行参数，从不回显 | 【待核对：Task 13】 |
-| 输出 `{"kind":"metrics",…}`（`all`、`dev`、`holdout` 各一个）与 `{"kind":"gates",…}`（holdout 的 C3、C4） | 指标与门槛 | 【待核对：Task 13】 |
-| CLI 不给条数与 deep 时限，`local.limit` 与 `local.deepTimeoutMs` 因此生效 | 见文首「应用窗口里的两个例外」 | 【待核对：Task 13】 |
+沿用 E1 的格式（`src-tauri/src/search/smart_eval.rs:load_tasks`）：`{"tasks":[…]}`，每题有 `id`、`question`、`targets`（`[{"path":"相对路径","line":可选的行号}]`）、`category`（`exact`、`colloquial`、`synonym`、`time`、`homonym`、`bridge`、`absent`）、`split`（`dev` 或 `holdout`），可选 `needsInferredConstraint`。`absent` 题不能列目标，其他题必须列目标；路径必须是 vault 内的相对路径；`id` 不能重复。任务文件含私人查询，放在仓库之外（spec §9.1）。评测每次都跑文件里的全部题目，没有按组筛选的选项；调参时只想跑 dev 组，就另存一份只含 dev 题的文件（见下方步骤 1）。
 
-步骤：
+### 选项与环境变量
 
-1. 在 dev 组上跑基线：`notemd lookup eval --tasks <文件> --out base.jsonl`【待核对：Task 13】。要与应用的默认条数一致，基线也用一个写了 `{"local":{"limit":50}}` 的参数文件，之后每次对比都在它的基础上改。
-2. 一次只改一个参数，写进 `--params` 文件（例如 `p.json`）。跨字段规则要一起满足：`candidates.k` ≤ `candidates.pool`、`tiers.unfit` < `tiers.fit`，以及「已知陷阱」里的预算不等式。
-3. 跑 `notemd lookup eval --tasks <文件> --params p.json --out next.jsonl --compare base.jsonl`【待核对：Task 13】，看 `compare` 的差值，对照本文每个参数的「决定它的指标」。
-4. 只在 dev 组上做选择：看 `dev` 一组的指标，不看 `holdout`。
-5. 选定后在 holdout 上跑一次，看 `gates`【待核对：Task 13】：C3 要求 `netGain ≥ 3`、`pushedOut ≤ 1`、`timeoutRate ≤ 0.05`、`absentFalseFitRate ≤ 1/3`；C4 要求本地未召回的评分题中至少三分之一 `finalRank ≤ 50`，且 `timeoutRate ≤ 0.05`（spec §9.3、附录 G.6）。
+`notemd lookup [选项] <问题…>` 是查询模式，`notemd lookup eval --tasks <文件> [选项]` 是评测模式（`eval` 必须是第一个参数）。`--` 之后的全部参数都算问题。每个选项只能出现一次，重复即报错；未知选项报错，且只回显 `=` 之前的部分（防止误把 `--key=…` 打印出来）。
+
+| 选项或变量 | 缺省 | 查询模式 | 评测模式 | 说明 |
+| --- | --- | --- | --- | --- |
+| `--vault <路径>` | 已配置的 vault | 可用 | 可用 | 没有配置 vault：退出码 2（`vault_not_configured`）；路径不是目录：退出码 2（`vault_not_found`） |
+| `--params <文件>` | 依次取 `NOTEMD_LOOKUP_PARAMS`、`<数据目录>/net.notemd.app/smart-lookup/params.json`、默认值 | 可用 | 可用 | 经 `lookup_params.rs:load` 读取，每次运行读一次。文件不存在或无效：退出码 2（`invalid_params`），错误带配置键 |
+| `--deep` | 关 | 可用 | 拒绝 | 对本地检索做 deep，时限取 `local.deepTimeoutMs`。评测模式报错 `eval runs without --deep or --time-mode; set time.mode in --params`，退出码 2 |
+| `--time-mode group\|window\|ignore` | 参数文件的 `time.mode` | 可用 | 拒绝 | 其他取值报错。评测模式同上，按参数文件的 `time.mode` 跑 |
+| `--no-enhance` | 关 | 可用 | 可用 | 只做本地检索，路由记为 `local`，不发任何请求 |
+| `--jev-url <地址>`、`--jev-model <模型>` | 无 | 可用 | 可用 | 两项都给出才组成判断配置；只给一项时视为没有配置，走判断路由的题报告 `notConfigured`（`missing url`），不发请求 |
+| `--jev-auth bearer\|none` | `bearer` | 可用 | 可用 | `bearer` 时从 `NOTEMD_JEV_KEY` 读密钥；`none` 不发送密钥 |
+| `--allow-send <主机>` | 空串 | 可用 | 可用 | CLI 上的按主机同意，必须等于判断接入点的主机（小写；非默认端口要写成 `主机:端口`，例如 `127.0.0.1:8000`）。不给或不等时报告 `noConsent`，不发请求 |
+| `--chat-url <地址>`、`--chat-model <模型>` | 无 | 可用 | 可用 | 两项都给出才组成修复配置；没有时零命中题只做本机诊断，文字输出 `repair off (needs --chat-url and --chat-model)`。有配置但没有密钥时由宿主报告 `notConfigured`（`missing key`），不发请求 |
+| `--today YYYY-MM-DD` | 本地日期 | 可用 | 可用 | 解析时间短语用的「今天」；评测时固定它，结果才能复现 |
+| `--tasks <文件>` | 无 | 拒绝 | 必需 | 查询模式报错 `--tasks, --out and --compare belong to 'notemd lookup eval'` |
+| `--out <jsonl>` | 无 | 拒绝 | 可用 | 第一题之前创建（已有文件会被覆盖），每题完成后立即追加一行 `LookupEvalRow` 并刷新；中途中断时已完成（已付费）的行都在 |
+| `--compare <jsonl>` | 无 | 拒绝 | 可用 | 上一次 `--out` 的文件。在发出任何请求之前读取，坏行报错（指出行号），退出码 2 |
+| `--json` | 关 | 可用 | 可用 | 每行一个 JSON 对象；全局 `notemd --json lookup …` 同样生效 |
+| `NOTEMD_JEV_KEY` | 未设置 | 可用 | 可用 | 只在有判断配置且 `--jev-auth` 为 `bearer` 时读取 |
+| `NOTEMD_CHAT_KEY` | 未设置 | 可用 | 可用 | 只在有修复配置时读取 |
+| `NOTEMD_LOOKUP_PARAMS` | 未设置 | 可用 | 可用 | 见 `--params`；空字符串视为未设置 |
+
+密钥只从这两个环境变量读，不接受命令行参数，从不回显；格式不合法的密钥按「没有密钥」处理，stderr 只提示变量名（`notemd: NOTEMD_JEV_KEY ignored (…)`）。`notemd lookup` 需要可用的搜索索引（与 `notemd search` 一样打开并做 2 秒的新鲜度扫描），打不开时退出码 2（`invalid_index`），不退回逐文件扫描。
+
+退出码：查询模式有最终命中为 0、没有为 1；评测跑完为 0（含出错的题）；参数、参数文件、vault、索引、任务文件、`--compare` 文件、`--out` 写入或运行时出错为 2。`--json` 时错误写成 stdout 上的 `{"ok":false,"error":{"code":…,"message":…}}`，否则写到 stderr（`notemd: …`）。判断或修复失败（超时、连不上、未同意等）不是错误，查询照常按命中数退出。
+
+### 评测输出
+
+文字模式先输出一张对齐的指标表（行是指标，列是 `all`、`dev`、`holdout`），空一行后是门槛行，有 `--compare` 时再空一行输出差值表（`metric`、`current`、`baseline`、`delta`）。`--json` 时依次输出三个 `{"kind":"metrics","split":"all"|"dev"|"holdout",…}`、一个 `{"kind":"gates",…}`，有 `--compare` 时最后一个 `{"kind":"compare","deltas":[{"metric":…,"current":…,"baseline":…,"delta":…},…]}`。差值是本次 `all` 减去基线 `all`，任一侧为空时为 `null`。某题出错时，stderr 输出 `notemd: task <id>: <错误>`，该题记为错误行，评测继续。
+
+指标（`LookupMetrics`，每组各算一次；错误行只计入 `tasks` 和 `errors`）：
+
+| 指标 | 定义 |
+| --- | --- |
+| `tasks`、`errors` | 本组题数；其中出错的题数 |
+| `scored` | 评分题：不是 `absent`、目标在索引里、没有出错 |
+| `top5Local`、`top5Final` | 评分题中本地名次、最终名次 ≤ 5 的题数 |
+| `netGain` | 最终进 Top 5 而本地不在 Top 5 的题数，减去 `pushedOut` |
+| `pushedOut` | 本地在 Top 5、最终不在 Top 5（或不在列表里）的评分题数 |
+| `mismatches` | 误匹配（spec §9.3）：评分题中，最终列表里有一条非目标命中被判为符合，且排在目标之前；目标不在最终列表里时，只要有非目标被判为符合就算 |
+| `demoted` | 目标被下沉（spec §9.3）：判断成功（`ok`）且最终名次大于本地名次的评分题数 |
+| `absentTasks`、`absentJudged`、`absentFalseFit`、`absentFalseFitRate` | `absent` 题数；其中真正得到判断（发出请求或复用缓存）的题数；至少一个候选被判为符合的题数；后者除以 `absentTasks`（不是除以 `absentJudged`，附录 G.6） |
+| `top50Coverage` | 评分题中本地名次 ≤ 50 的比例 |
+| `windowCoverage` | 评分题中，走判断路由且发出或复用了判断的那些里，目标块在发送的候选里的比例（Task 13 裁定：只数判断路由） |
+| `requests`、`timeouts`、`timeoutRate` | 发出了请求的题数（`requestCount` 为 1，复用缓存不算）；其中超时的题数；两者之比。判断与修复合计 |
+| `judgeRequests`、`judgeTimeouts`、`judgeTimeoutRate` | 同上，只数判断请求；C3 用它 |
+| `repairRequests`、`repairTimeouts`、`repairTimeoutRate` | 同上，只数修复请求；C4 用它 |
+| `localP50Ms`、`localP95Ms` | 全部非错误行的本地阶段耗时（含登记查找运行），最近秩 |
+| `judgeP50Ms`、`judgeP95Ms`、`repairP50Ms`、`repairP95Ms` | 发出了判断（或修复）请求的题的增强耗时，最近秩 |
+| `inputTokens`、`usageUnknown` | 发出请求的题中，服务返回的输入 token 合计；没有返回用量的题数 |
+| `estimatedTokens` | 发出请求的题中，宿主估算的判断输入 token 合计（修复请求不估算，计 0） |
+| `timeoutMs` | 本组各行共同的 `enhance.timeoutMs`；各行不一致或没有行时为空 |
+
+费用（每次调用、每次成功找回）与冷启动、热索引分开报告这两项没有计算，只报告 token（Task 13 裁定）。
+
+`--out` 每行的字段（`LookupEvalRow`）：`id`、`category`、`split`、`targetIndexed`、`localRank`、`finalRank`、`route`（`local`、`judge`、`repair`、`skip`，错误行为 `null`）、`status`、`requestCount`、`reused`、`targetInWindow`、`anyFit`、`mismatch`、`demoted`、`deepRank`、`deepMs`、`localMs`、`enhanceMs`、`estimatedTokens`、`inputTokens`、`timeoutMs`、`error`。后加的字段读回时取缺省值，所以较早的 `--out` 仍可作 `--compare` 的基线。
+
+门槛（`gates`，只看 holdout 组的行，`src-tauri/src/search/smart_eval.rs:gate_verdicts`）：
+
+| 字段 | 含义 |
+| --- | --- |
+| `c3` | C3 候选判断（spec §9.3）：`netGain ≥ 3`、`pushedOut ≤ 1`、`judgeTimeouts × 20 ≤ judgeRequests`（≤ 5%）、`absentFalseFit × 3 ≤ absentTasks`（≤ 1/3）全部成立为 `true`；没有评分题为 `null` |
+| `c4` | C4 查询修复：C4 人群中至少三分之一最终名次 ≤ 50（`c4Rescued × 3 ≥ c4Tasks`），且 `repairTimeouts × 20 ≤ repairRequests`；人群为空时为 `null` |
+| `c4Tasks`、`c4Rescued` | C4 人群：正常本地检索和本地 deep 补测都没找到目标的评分题（spec §9.3「FTS 和 deep 都未召回」）；其中最终名次 ≤ 50 的题数 |
+| `timeoutMs` | holdout 各行共同的 `enhance.timeoutMs` |
+| `note` | 时限不是 3000 毫秒时为 `"timeout ≠ 3 s"` |
+
+门槛只在 `enhance.timeoutMs` 为 3000 时评定（spec §9.3 写的是「3 秒时限下」，Task 13 裁定）。其他时限下 `c3`、`c4` 都为 `null`，文字模式显示 `C3 n/a (timeout ≠ 3 s) · C4 n/a (timeout ≠ 3 s)`。文字模式的门槛行形如 `gates (holdout, timeout 3000 ms) · C3 pass · C4 fail (1 of 4 rescued)`。任务文件里没有 holdout 题时显示 `timeout mixed`，两项为 `n/a`。没有发出请求或没有 `absent` 题时，相应的比率条件不算失败。
+
+本地 deep 补测（`src-tauri/src/search/smart_eval.rs:deep_pass`）：评测的正常本地检索不做 deep；本地没找到目标的评分题会再跑一次本地 deep，用 `local.limit`、`local.deepTimeoutMs` 和 `time.mode`，不调用模型、不登记查找运行，结果写进该行的 `deepRank`、`deepMs`。**已知问题（修复中）**：补测本身出错时，现在整题会变成错误行，这一题已经付费的判断或修复结果不会出现在 `--out` 里；已裁定在最终修复轮改为保留该行、记下补测错误并把它排除在 C4 之外。
+
+### 步骤
+
+先设置一次（换成自己的接入点、模型、主机和文件路径；`--allow-send` 填的是 `--jev-url` 的主机，带非默认端口时写成 `主机:端口`）：
+
+```sh
+export NOTEMD_JEV_KEY='…'            # --jev-auth bearer 时需要
+export NOTEMD_CHAT_KEY='…'           # 要测查询修复时需要
+JEV=(--jev-url https://api.typesafe.ai/v1 --jev-model <模型> --allow-send api.typesafe.ai)
+CHAT=(--chat-url <修复模型地址> --chat-model <模型>)
+TODAY=2026-11-10                      # 固定一个日期，所有轮次用同一个
+```
+
+1. 准备 dev 题文件和基线参数（与应用默认的 50 条一致），在 dev 组上跑基线：
+
+   ```sh
+   jq '{tasks: [.tasks[] | select(.split == "dev")]}' tasks.json > dev.json
+   printf '{"local":{"limit":50}}\n' > base.json
+   notemd lookup eval --tasks dev.json --params base.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out base.jsonl
+   ```
+
+2. 一次只改一个参数，写进新的参数文件，其余保持与 `base.json` 相同，例如 `printf '{"local":{"limit":50},"candidates":{"k":12}}\n' > p.json`。跨字段规则要一起满足：`candidates.k` ≤ `candidates.pool`、`tiers.unfit` < `tiers.fit`，以及「已知陷阱」里的预算不等式。
+3. 跑同一批题，与基线比较：
+
+   ```sh
+   notemd lookup eval --tasks dev.json --params p.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out next.jsonl --compare base.jsonl
+   ```
+
+   看差值表，对照本文每个参数的「决定它的指标」。采纳后把 `p.json` 当作新的基线参数、`next.jsonl` 当作新的 `base.jsonl`。
+4. 只在 dev 组上做选择：调参期间只跑 `dev.json`，不跑含 holdout 题的文件。
+5. 选定后，确认参数文件里的 `enhance.timeoutMs` 是 3000（或不写），在完整任务文件上跑一次，看 holdout 的 `gates`：
+
+   ```sh
+   notemd lookup eval --tasks tasks.json --params p.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out final.jsonl
+   ```
+
+   C3 要求 `netGain ≥ 3`、`pushedOut ≤ 1`、判断超时率 ≤ 5%、`absentFalseFitRate ≤ 1/3`；C4 要求 `c4Rescued / c4Tasks ≥ 1/3` 且修复超时率 ≤ 5%（spec §9.3、附录 G.6）。只想测本地、不发任何请求时，把 `"${JEV[@]}" "${CHAT[@]}"` 换成 `--no-enhance`。
 6. holdout 的结果不再用于回头调整（spec §9.3「实验后不回头调整」）。要改门槛或参数，须在看到 holdout 结果之前改。
 7. 采用后把文件放到 `app_data_dir()/smart-lookup/params.json`（macOS：`~/Library/Application Support/net.notemd.app/smart-lookup/params.json`），只写与默认值不同的键。下一次命令调用即生效。`local.limit` 与 `local.deepTimeoutMs` 在应用里不起作用，改用设置对话框里的结果条数和 deep 时限。
 
 注意事项：
 
-- 判断缓存在进程内存里，按请求内容做键；一次评测进程内，同一问题、同一候选集合会复用分数。只改 `tiers.*` 时不会重新请求，这正是预期：分档只改变对同一分数的解释。
-- 超时的请求服务端仍可能计费，`inputTokens` 只累加服务返回了用量的请求，没有返回的计入 `usageUnknown`【待核对：Task 13】。
+- 判断缓存在进程内存里，按请求内容做键；一次评测进程内，同一问题、同一候选集合、同一接入点和模型会复用分数，该行记为 `reused`、`requestCount` 为 0，不计入 `requests`。只改 `tiers.*` 不会重新请求：分档只改变对同一分数的解释。不同进程之间不共享缓存。
+- 超时的请求服务端仍可能计费；`inputTokens` 只累加服务返回了用量的请求，没有返回的计入 `usageUnknown`。
 - 40 题的统计效力有限，足以做去留判断，不足以报告精确的百分比（spec §9.1）。
