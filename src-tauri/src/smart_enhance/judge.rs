@@ -27,8 +27,9 @@ use crate::smart_lookup::{
 };
 use crate::smart_model::{endpoint_host, jev_endpoint, score_noul, AuthMode, NoulQuestion};
 
-const CRITERIA_TRUE: &str = "候选直接符合用户这次要找的对象或内容。";
-const CRITERIA_FALSE: &str = "候选不符合用户这次要找的对象或内容，或只是主题相近。";
+/// Also the `directMatch` preset's true/false criteria for SAG2 rounds (spec H.3.7).
+pub(crate) const CRITERIA_TRUE: &str = "候选直接符合用户这次要找的对象或内容。";
+pub(crate) const CRITERIA_FALSE: &str = "候选不符合用户这次要找的对象或内容，或只是主题相近。";
 
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 const CACHE_CAPACITY: usize = 100;
