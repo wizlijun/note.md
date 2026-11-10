@@ -50,11 +50,18 @@ pub(crate) fn active_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     fs::canonicalize(root).map_err(|error| format!("resolve vault: {error}"))
 }
 
-fn prune(runs: &mut LookupRuns, window_label: &str) {
+/// Drops runs older than the TTL. Reads use only this.
+fn prune_expired(runs: &mut LookupRuns) {
     let now = Instant::now();
     runs.runs
         .retain(|_, run| now.duration_since(run.created_at) <= RUN_TTL);
     runs.order.retain(|id| runs.runs.contains_key(id));
+}
+
+/// TTL pruning plus per-window capacity eviction. Insert-only: a read must
+/// never evict the run it asks for.
+fn prune(runs: &mut LookupRuns, window_label: &str) {
+    prune_expired(runs);
     while runs
         .order
         .iter()
@@ -140,7 +147,7 @@ pub(crate) fn run_for_window(run_id: &str, window_label: &str) -> Result<LookupR
         .get_or_init(|| Mutex::new(LookupRuns::default()))
         .lock()
         .map_err(|_| "lookup run registry is unavailable".to_string())?;
-    prune(&mut registry, window_label);
+    prune_expired(&mut registry);
     let run = registry
         .runs
         .get(run_id)
@@ -261,5 +268,50 @@ mod tests {
         assert!(current_block(&root, &hit("line", 2, 3, "two\nTHREE")).is_err());
         assert!(current_block(&root, &hit("section", 1, 3, "one")).is_err());
         assert!(current_block(&root, &hit("line", 3, 5, "three")).is_err());
+    }
+
+    fn test_run(id: &str, window: &str, created_at: Instant) -> LookupRun {
+        LookupRun {
+            id: id.into(),
+            created_at,
+            window_label: window.into(),
+            root: PathBuf::new(),
+            question: String::new(),
+            hits: Vec::new(),
+        }
+    }
+
+    fn insert_run(run: LookupRun) {
+        let mut registry = LOOKUP_RUNS
+            .get_or_init(|| Mutex::new(LookupRuns::default()))
+            .lock()
+            .unwrap();
+        registry.order.push_back(run.id.clone());
+        registry.runs.insert(run.id.clone(), run);
+    }
+
+    #[test]
+    fn reading_the_oldest_run_of_a_full_window_returns_it() {
+        let window = "test-full-window";
+        for i in 0..MAX_RUNS_PER_WINDOW {
+            insert_run(test_run(&format!("full-{i}"), window, Instant::now()));
+        }
+        let run = run_for_window("full-0", window).expect("oldest run must not be evicted by a read");
+        assert_eq!(run.id, "full-0");
+        // all 20 are still readable
+        for i in 0..MAX_RUNS_PER_WINDOW {
+            assert!(run_for_window(&format!("full-{i}"), window).is_ok());
+        }
+    }
+
+    #[test]
+    fn a_run_older_than_the_ttl_is_reported_expired_on_read() {
+        let window = "test-ttl-window";
+        let old = Instant::now()
+            .checked_sub(RUN_TTL + Duration::from_secs(5))
+            .expect("monotonic clock is old enough");
+        insert_run(test_run("ttl-old", window, old));
+        let error = run_for_window("ttl-old", window).err().expect("expired");
+        assert_eq!(error, "lookup run expired; run Smart Lookup again");
     }
 }
