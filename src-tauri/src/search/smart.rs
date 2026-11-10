@@ -79,7 +79,6 @@ struct QueryArm {
     id: String,
     kind: &'static str,
     query: String,
-    typed_query: Option<Query>,
     terms: Vec<String>,
     weight: f64,
 }
@@ -89,16 +88,6 @@ struct SmartPlan {
     extracted: Vec<Candidate>,
     arms: Vec<QueryArm>,
     sort: SortMode,
-}
-
-/// One host-validated physical arm. Unlike the legacy smart preview, this
-/// carries a typed query and is never reparsed from its display string.
-pub(super) struct PlannedQueryArm {
-    pub id: String,
-    pub kind: &'static str,
-    pub query: Query,
-    pub terms: Vec<String>,
-    pub weight: f64,
 }
 
 /// One executed (or deadline-skipped) arm in the deterministic query plan.
@@ -214,58 +203,6 @@ pub(super) fn smart_search_locked(
         started,
         compile_query(raw_query),
         raw_query,
-        limit,
-        deep,
-        timeout_ms,
-        counter,
-        ticket,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(super) fn planned_search_locked(
-    idx_handle: &IndexHandle,
-    started: Instant,
-    arms: Vec<PlannedQueryArm>,
-    limit: Option<usize>,
-    deep: Option<bool>,
-    timeout_ms: Option<u64>,
-    counter: &Arc<AtomicU64>,
-    ticket: u64,
-    sort: SortMode,
-) -> Result<SmartSearchResponse, String> {
-    let mut extracted = Vec::new();
-    let mut positions = HashMap::new();
-    let mut order = 0;
-    let arms = arms
-        .into_iter()
-        .map(|mut arm| {
-            arm.query.sort = sort;
-            for candidate in collect_candidates(&arm.query) {
-                add_candidate(
-                    &mut extracted,
-                    &mut positions,
-                    &candidate.text,
-                    candidate.kind,
-                    &mut order,
-                );
-            }
-            QueryArm {
-                id: arm.id,
-                kind: arm.kind,
-                query: render_typed_query(&arm.query),
-                typed_query: Some(arm.query),
-                terms: arm.terms,
-                weight: arm.weight,
-            }
-        })
-        .collect();
-    let plan = SmartPlan { extracted, arms, sort };
-    execute_smart_plan_locked(
-        idx_handle,
-        started,
-        plan,
-        "<validated SearchPlanV1>",
         limit,
         deep,
         timeout_ms,
@@ -418,37 +355,7 @@ fn search_arm(
     weights: &searchidx::query::Weights,
     conventions: &searchidx::query::Conventions,
 ) -> Result<searchidx::Answer, String> {
-    match &arm.typed_query {
-        Some(query) => idx.search_query_ranked(query, limit, limits, weights, conventions),
-        None => idx.search_ranked(&arm.query, limit, limits, weights, conventions),
-    }
-}
-
-fn render_typed_query(query: &Query) -> String {
-    let mut parts = query.terms.iter().map(|value| json_string(value)).collect::<Vec<_>>();
-    parts.extend(query.phrases.iter().map(|value| format!("phrase={}", json_string(value))));
-    for (name, values) in [
-        ("tag", &query.tags),
-        ("type", &query.types),
-        ("path", &query.paths),
-        ("page", &query.pages),
-        ("ext", &query.exts),
-        ("origin", &query.origins),
-    ] {
-        parts.extend(values.iter().map(|value| format!("{name}={}", json_string(value))));
-    }
-    if let Some(value) = &query.after {
-        parts.push(format!("after={}", json_string(value)));
-    }
-    if let Some(value) = &query.before {
-        parts.push(format!("before={}", json_string(value)));
-    }
-    parts.push(format!("sort={}", query.sort.as_str()));
-    parts.join(" ")
-}
-
-fn json_string(value: &str) -> String {
-    serde_json::to_string(value).expect("serializing a Rust string cannot fail")
+    idx.search_ranked(&arm.query, limit, limits, weights, conventions)
 }
 
 fn deadline_reached(deadline: Option<Instant>) -> bool {
@@ -626,7 +533,6 @@ fn compile_query(raw: &str) -> SmartPlan {
         id: "strict".to_string(),
         kind: "strict",
         query: strict,
-        typed_query: None,
         terms: strict_terms,
         weight: STRICT_WEIGHT,
     }];
@@ -646,7 +552,6 @@ fn compile_query(raw: &str) -> SmartPlan {
             id: format!("relaxed-{number}"),
             kind: "relaxed",
             query,
-            typed_query: None,
             terms: selected.iter().map(|term| term.text.clone()).collect(),
             weight: RELAXED_WEIGHT,
         });
@@ -1072,7 +977,6 @@ mod tests {
                     id: "strict".into(),
                     kind: "strict",
                     query: "strict".into(),
-                    typed_query: None,
                     terms: vec![],
                     weight: STRICT_WEIGHT,
                 },
@@ -1080,7 +984,6 @@ mod tests {
                     id: "relaxed-1".into(),
                     kind: "relaxed",
                     query: "relaxed".into(),
-                    typed_query: None,
                     terms: vec![],
                     weight: RELAXED_WEIGHT,
                 },
@@ -1122,7 +1025,6 @@ mod tests {
                     id: "strict".into(),
                     kind: "strict",
                     query: "strict".into(),
-                    typed_query: None,
                     terms: vec![],
                     weight: STRICT_WEIGHT,
                 },
@@ -1130,7 +1032,6 @@ mod tests {
                     id: "relaxed-1".into(),
                     kind: "relaxed",
                     query: "one".into(),
-                    typed_query: None,
                     terms: vec![],
                     weight: RELAXED_WEIGHT,
                 },
@@ -1138,7 +1039,6 @@ mod tests {
                     id: "relaxed-2".into(),
                     kind: "relaxed",
                     query: "two".into(),
-                    typed_query: None,
                     terms: vec![],
                     weight: RELAXED_WEIGHT,
                 },
@@ -1167,7 +1067,6 @@ mod tests {
                 id: "q1".into(),
                 kind: "precision",
                 query: "typed".into(),
-                typed_query: None,
                 terms: vec![],
                 weight: 1.0,
             }],
@@ -1223,48 +1122,6 @@ mod tests {
         let prompt = crate::smart_lookup::summary_prompt_for_run(&run_id, "smart-search").unwrap();
         assert!(prompt.contains("release risk details"));
         assert!(crate::smart_lookup::summary_prompt_for_run(&run_id, "another-window").is_err());
-    }
-
-    #[test]
-    fn planned_executor_uses_typed_multiword_filters() {
-        let vault = tempfile::tempdir().unwrap();
-        std::fs::write(
-            vault.path().join("book.md"),
-            "---\ntype: Book Summary\n---\n# Book\nrelease risk\n",
-        )
-        .unwrap();
-        std::fs::write(
-            vault.path().join("decision.md"),
-            "---\ntype: Decision\n---\n# Decision\nrelease risk\n",
-        )
-        .unwrap();
-        let data = tempfile::tempdir().unwrap();
-        let mut idx = SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
-        idx.sweep(&searchidx::ScanOptions::default(), None).unwrap();
-        let handle: IndexHandle = Arc::new(std::sync::Mutex::new(Some(idx)));
-        let counter = Arc::new(AtomicU64::new(1));
-        let response = planned_search_locked(
-            &handle,
-            Instant::now(),
-            vec![PlannedQueryArm {
-                id: "q1".into(),
-                kind: "precision",
-                query: Query { types: vec!["Book Summary".into()], ..Default::default() },
-                terms: vec![],
-                weight: 1.0,
-            }],
-            Some(20),
-            Some(false),
-            None,
-            &counter,
-            1,
-            SortMode::Relevance,
-        )
-        .unwrap();
-
-        assert!(!response.hits.is_empty());
-        assert!(response.hits.iter().all(|hit| hit.hit.path == "book.md"));
-        assert!(response.subqueries[0].query.contains("type=\"Book Summary\""));
     }
 
     #[test]

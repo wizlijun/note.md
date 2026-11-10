@@ -5,7 +5,6 @@
 
 mod attention_links;
 pub mod options;
-pub(crate) mod plan;
 pub(crate) mod smart;
 // E1 evaluation of the local lookup baseline; test builds only.
 #[cfg(test)]
@@ -1009,64 +1008,6 @@ pub fn smart_lookup_local(
     )?;
     let lookup_run_id = crate::smart_lookup::retain_local_search(&window, &question, &mut search)?;
     Ok(LocalLookupResponse { search, lookup_run_id })
-}
-
-/// Extract the authoritative filters and compute trusted local-date anchors
-/// for the isolated planner. This never opens the Vault or the index.
-#[tauri::command]
-pub fn notemd_search_plan_context(
-    original_query: String,
-    reference_time: String,
-    timezone: String,
-) -> Result<plan::SearchPlanContext, String> {
-    plan::search_plan_context(&original_query, &reference_time, &timezone)
-}
-
-/// Validate and execute a bounded `SearchPlanV1` without accepting a command
-/// or raw query DSL from the planner.
-#[tauri::command(async)]
-pub fn notemd_planned_search(
-    app: AppHandle,
-    window: tauri::Window,
-    original_query: String,
-    plan: serde_json::Value,
-    baseline_plan: Option<serde_json::Value>,
-    reference_time: String,
-    timezone: String,
-    limit: Option<usize>,
-    deep: Option<bool>,
-    timeout_ms: Option<u64>,
-    retain_run: Option<bool>,
-) -> Result<plan::PlannedSearchResponse, String> {
-    let limit = Some(match limit {
-        Some(value @ 1..=100) => value,
-        _ => 100,
-    });
-    let timeout_ms = Some(match timeout_ms {
-        None | Some(0) => 2_000,
-        Some(value) => value.min(5_000),
-    });
-    let mut response = plan::run_planned_search_command(
-        app,
-        window.clone(),
-        original_query.clone(),
-        plan,
-        baseline_plan,
-        reference_time,
-        timezone,
-        limit,
-        deep,
-        timeout_ms,
-    )?;
-    #[cfg(not(target_os = "ios"))]
-    if retain_run.unwrap_or(false) {
-        crate::smart_lookup::retain_planned_search(&window, &original_query, &mut response)?;
-    }
-    #[cfg(target_os = "ios")]
-    if retain_run.unwrap_or(false) {
-        return Err("retained Smart Lookup runs are unavailable on iOS".to_string());
-    }
-    Ok(response)
 }
 
 /// `(async)` is load-bearing, not decoration. A plain `#[tauri::command]` is

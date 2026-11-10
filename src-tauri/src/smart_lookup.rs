@@ -202,27 +202,6 @@ fn prune(runs: &mut LookupRuns, window_label: &str) {
     }
 }
 
-pub(crate) fn retain_planned_search(
-    window: &tauri::Window,
-    original_query: &str,
-    response: &mut crate::search::plan::PlannedSearchResponse,
-) -> Result<(), String> {
-    let root = crate::sotvault::resolve_vault_root(window.app_handle())
-        .ok_or_else(|| "Vault not configured".to_string())?;
-    retain_in(window.label(), &root, original_query, response)
-}
-
-fn retain_in(
-    window_label: &str,
-    root: &Path,
-    original_query: &str,
-    response: &mut crate::search::plan::PlannedSearchResponse,
-) -> Result<(), String> {
-    let run_id = retain_search_in(window_label, root, original_query, &mut response.search)?;
-    response.lookup_run_id = Some(run_id);
-    Ok(())
-}
-
 /// Registers a local smart search as a lookup run for the window, writing a
 /// `result_id` onto every hit. Returns the run id.
 pub(crate) fn retain_local_search(
