@@ -1,0 +1,6 @@
+PASS: real pinyin candidates, underline-only inline preedit preserved
+PASS: owner validation, stale serial rejection, real candidate commit
+PASS: callback reattached after panel reset and candidate paging
+PASS: focus loss revokes exact IC and does not capture sibling editor
+PASS: destroyed IC and disconnected owner release the lease
+PASS: existing GTK client-side popup preserved, retry after reset accepted

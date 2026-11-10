@@ -5938,6 +5938,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tokio",
+ "unicode-segmentation",
  "webkit2gtk",
 ]
 

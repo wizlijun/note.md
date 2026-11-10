@@ -1,0 +1,9 @@
+
+running 1 test
+test platform::candidates::tests::native_candidate_roundtrip ... candidate diagnostics focus=true accepted=true desired=true serial=7 programs=["net.notemd.sumi.candidate-test", "tauri_plugin_native_editor-518d6e65c6801a8c"] preedit="ni hao" text="" candidates=[Candidate { index: 0, label: "1. ", text: "你好" }, Candidate { index: 1, label: "2. ", text: "👋" }, Candidate { index: 2, label: "3. ", text: "拟好" }, Candidate { index: 3, label: "4. ", text: "你" }, Candidate { index: 4, label: "5. ", text: "拟" }, Candidate { index: 5, label: "6. ", text: "泥" }, Candidate { index: 6, label: "7. ", text: "逆" }]
+after select text="你好" composing=false preedit="" rows=0 serial=9
+rich projection text="你好", replacements=["你好"]
+draft failure text="你好" replacements=["你好"]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 11.39s

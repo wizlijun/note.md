@@ -8,6 +8,8 @@ use std::{
     rc::Rc,
 };
 
+#[path = "linux_candidates.rs"]
+mod candidates;
 #[path = "linux_caret.rs"]
 mod caret;
 #[path = "linux_focus.rs"]
@@ -30,6 +32,8 @@ struct Surface {
     css: gtk::CssProvider,
     decoration: gtk::DrawingArea,
     caret: gtk::DrawingArea,
+    candidates: RefCell<Option<Rc<candidates::Panel>>>,
+    line_pitch: Cell<f64>,
     caret_metrics: RefCell<Option<focus::CaretMetrics>>,
     focused: Cell<bool>,
     resume_focus: Cell<bool>,
@@ -123,7 +127,10 @@ impl Surface {
             if let Some(surface) = weak.upgrade() {
                 surface.layout_pending.set(false);
                 surface.position();
-                if surface.visible.get() && surface.focused.get() && !surface.failed.get() {
+                if surface.visible.get()
+                    && (surface.focused.get() || surface.bottom_anchor())
+                    && !surface.failed.get()
+                {
                     surface.center();
                     surface.decoration.queue_draw();
                 }
@@ -139,9 +146,12 @@ impl Surface {
             .unwrap_or((0, 0));
         let x = bounds.x.max(0.0) as i32 + origin_x;
         let y = bounds.y.max(0.0) as i32 + origin_y;
-        for widget in [
-            self.scroll.upcast_ref::<gtk::Widget>(),
-            self.decoration.upcast_ref::<gtk::Widget>(),
+        for (widget, height) in [
+            (
+                self.scroll.upcast_ref::<gtk::Widget>(),
+                self.editor_height(),
+            ),
+            (self.decoration.upcast_ref::<gtk::Widget>(), bounds.height),
         ] {
             if widget.margin_start() != x {
                 widget.set_margin_start(x);
@@ -149,10 +159,30 @@ impl Surface {
             if widget.margin_top() != y {
                 widget.set_margin_top(y);
             }
-            if widget.size_request() != (bounds.width as i32, bounds.height as i32) {
-                widget.set_size_request(bounds.width as i32, bounds.height as i32);
+            if widget.size_request() != (bounds.width as i32, height as i32) {
+                widget.set_size_request(bounds.width as i32, height as i32);
             }
         }
+    }
+    fn editor_height(&self) -> f64 {
+        let height = self.config.borrow().bounds.height;
+        if self.focused.get() {
+            height
+        } else {
+            (height - self.candidate_height()).max(1.0)
+        }
+    }
+    fn bottom_anchor(&self) -> bool {
+        self.candidates
+            .borrow()
+            .as_ref()
+            .is_some_and(|p| p.bottom_anchor.get())
+    }
+    fn candidate_height(&self) -> f64 {
+        self.candidates
+            .borrow()
+            .as_ref()
+            .map_or(0.0, |p| p.height.get())
     }
     fn buffer(&self) -> gtk::TextBuffer {
         self.view.buffer().expect("text buffer")
@@ -733,6 +763,13 @@ impl Surface {
         self.view.set_right_margin(margin);
         let pad = if self.focused.get() {
             (c.bounds.height - a.bottom_inset - a.font_size * a.line_height).max(0.0) / 2.0
+        } else if self.bottom_anchor() {
+            (c.bounds.height
+                - a.bottom_inset
+                - self.candidate_height()
+                - glyph_height
+                - (line_extra / 2.0).floor() * 2.0)
+                .max(0.0)
         } else {
             vertical
         };
@@ -740,7 +777,11 @@ impl Surface {
         self.view.set_bottom_margin((pad + a.bottom_inset) as i32);
         self.view.set_pixels_above_lines((line_extra / 2.0) as i32);
         self.view.set_pixels_below_lines((line_extra / 2.0) as i32);
-        self.view.set_pixels_inside_wrap(line_extra as i32);
+        // Wrapped and paragraph lines share the candidate row pitch.
+        self.view
+            .set_pixels_inside_wrap((line_extra / 2.0) as i32 * 2);
+        self.line_pitch
+            .set(glyph_height + (line_extra / 2.0).floor() * 2.0);
         // GTK's margin changes may scroll cached text pixels without damaging
         // their old location. Repaint the text widget once after layout changes.
         self.view.queue_draw();
@@ -889,6 +930,8 @@ pub fn mount(
         css: gtk::CssProvider::new(),
         decoration,
         caret,
+        candidates: RefCell::new(None),
+        line_pitch: Cell::new(35.0),
         caret_metrics: RefCell::new(None),
         focused: Cell::new(blank),
         resume_focus: Cell::new(false),
@@ -910,6 +953,7 @@ pub fn mount(
         search: RefCell::new(String::new()),
         visible: Cell::new(true),
     });
+    *s.candidates.borrow_mut() = Some(candidates::Panel::attach(&s));
     let weak = Rc::downgrade(&s);
     let allocation_handler = s.overlay.connect_get_child_position(move |_, child| {
         let s = weak.upgrade()?;
@@ -918,6 +962,11 @@ pub fn mount(
         {
             return None;
         }
+        let height = if child == s.scroll.upcast_ref::<gtk::Widget>() {
+            s.editor_height()
+        } else {
+            s.config.borrow().bounds.height
+        };
         let config = s.config.borrow();
         // size_request is only a minimum. The host bounds are the actual native
         // allocation; GTK removes these margins when allocating the child.
@@ -925,7 +974,7 @@ pub fn mount(
             0,
             0,
             (config.bounds.width as i32).max(1) + child.margin_start() + child.margin_end(),
-            (config.bounds.height as i32).max(1) + child.margin_top() + child.margin_bottom(),
+            (height as i32).max(1) + child.margin_top() + child.margin_bottom(),
         ))
     });
     *s.allocation_handler.borrow_mut() = Some(allocation_handler);
@@ -1189,10 +1238,25 @@ pub fn mount(
         glib::Propagation::Proceed
     });
     let weak = Rc::downgrade(&s);
+    s.view.connect_focus_in_event(move |_, _| {
+        let weak = weak.clone();
+        glib::idle_add_local_once(move || {
+            if let Some(s) = weak.upgrade() {
+                if let Some(p) = s.candidates.borrow().as_ref() {
+                    p.sync_active();
+                }
+            }
+        });
+        glib::Propagation::Proceed
+    });
+    let weak = Rc::downgrade(&s);
     s.view.connect_focus_out_event(move |_, _| {
         if let Some(s) = weak.upgrade() {
             stop_typing(&s);
             s.reset_focus();
+            if let Some(p) = s.candidates.borrow().as_ref() {
+                p.release();
+            }
             s.caret.hide();
         }
         glib::Propagation::Proceed
@@ -1249,6 +1313,10 @@ pub fn mount(
         let Some(s) = weak.upgrade() else {
             return glib::ControlFlow::Break;
         };
+        if let Some(p) = s.candidates.borrow().as_ref() {
+            p.sync_active();
+            p.arrange();
+        }
         if s.visible.get() && s.view.has_focus() {
             s.tick_focus();
         }
@@ -1310,6 +1378,9 @@ pub fn command(
             s.config.borrow_mut().bounds = bounds;
             s.position();
             s.appearance();
+            if let Some(p) = s.candidates.borrow().as_ref() {
+                p.refresh();
+            }
             s.defer_center();
         }
         SurfaceCommand::SetAppearance { appearance } => {
@@ -1322,6 +1393,9 @@ pub fn command(
             }
             s.appearance();
             s.prepare_blank();
+            if let Some(p) = s.candidates.borrow().as_ref() {
+                p.refresh();
+            }
             s.defer_center();
         }
         SurfaceCommand::SetLocale { locale } => s.config.borrow_mut().appearance.locale = locale,
@@ -1344,6 +1418,9 @@ pub fn command(
         }
         SurfaceCommand::Focus => {
             s.view.grab_focus();
+            if let Some(p) = s.candidates.borrow().as_ref() {
+                p.sync_active();
+            }
             s.prepare_blank();
         }
         SurfaceCommand::PreparePanel => {
@@ -1377,6 +1454,9 @@ pub fn command(
             s.scroll.set_visible(visible);
             s.decoration.set_visible(visible);
             if !visible {
+                if let Some(p) = s.candidates.borrow().as_ref() {
+                    p.release();
+                }
                 s.caret.hide();
                 stop_typing(&s);
                 s.reset_focus();
@@ -1416,6 +1496,11 @@ pub fn detach(window: &str, id: &str, generation: u64) -> Result<(), String> {
     }
     SURFACES.with(|all| all.borrow_mut().remove(&(window.into(), id.into())));
     stop_typing(&s);
+    let panel = s.candidates.borrow_mut().take();
+    if let Some(p) = panel {
+        p.release();
+        s.overlay.remove(&p.widget);
+    }
     if let Some(handler) = s.allocation_handler.borrow_mut().take() {
         s.overlay.disconnect(handler);
     }
@@ -1434,6 +1519,11 @@ pub fn detach_window(window: &str) {
     });
     for s in removed {
         stop_typing(&s);
+        let panel = s.candidates.borrow_mut().take();
+        if let Some(p) = panel {
+            p.release();
+            s.overlay.remove(&p.widget);
+        }
         if let Some(handler) = s.allocation_handler.borrow_mut().take() {
             s.overlay.disconnect(handler);
         }

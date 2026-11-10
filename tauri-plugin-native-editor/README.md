@@ -269,3 +269,7 @@ font preset and does not overwrite the persisted selection. Six downloadable
 presets include the optional GNU Unifont-only `Sumi CRT` selection for unified
 English and Chinese pixel glyphs; rare characters can still use system fallback.
 The CRT theme uses green `#0ccc68` over black `#000000`.
+
+### Linux 内嵌 Fcitx 候选
+
+Sumi 原生正文可使用 `sumicandidates` addon 展示与正文排版一致的候选区。专注时在输入行下方展开，非专注打字时正文输入行与候选固定底部，最多四行；其他输入框保持普通输入法界面。缺少 addon 时自动保留原候选窗。详见 [规格](../docs/superpowers/specs/2026-11-10-sumi-fcitx-candidates.md) 与 [隔离验收](../scripts/sumi/fcitx-candidates/README.md)。此功能需要更新宿主和 Fcitx 模块，单独更新 Sumi 前端插件不能生效。

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Inline Fcitx candidates for Sumi on Linux.** Focus mode places candidates below the active line; outside focus mode, typing anchors the body line at the bottom and candidate expansion pushes it upward. Candidates inherit text typography with no separate background or border, up to four rows. Inline preedit has no selection fill; preedit and the current candidate use subtle underlines. Scoped to the native Sumi editor; requires the matching host and Fcitx sumicandidates addon. Not installed or released yet.
+
 - **Sumi native editing on Linux/Omarchy.** Adds the GTK editor for standalone windows and writing tabs, Secret Service device credentials, PulseAudio/PipeWire typing audio and Linux plugin packaging. Verified local x86_64 previews are documented separately; this is not a Linux marketplace release.
 
 ## v6.1110.1 — 2026-11-10
