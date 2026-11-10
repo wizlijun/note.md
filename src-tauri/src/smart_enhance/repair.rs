@@ -14,21 +14,23 @@ use serde::{Deserialize, Serialize};
 use super::keys::{read_key, ConnectionTest, KeyKind};
 use super::{
     claim_auto_request, enhance_client, fresh_cancel_flag, release_auto_request, status_for, CancelFlag,
-    ChatRequestConfig, EnhanceStatus, Missing, SkipReason, Trigger, UsageDto, ENHANCE_TIMEOUT,
+    ChatRequestConfig, EnhanceStatus, Missing, SkipReason, Trigger, UsageDto,
 };
+use crate::lookup_params::RepairParams;
 use crate::search::time_group::TimeMode;
 use crate::smart_lookup::{run_for_window, LookupRun};
 use crate::smart_model::{
     chat_complete, chat_endpoint, endpoint_host, sends_key_in_clear_text, validate_chat_config, AuthMode, ChatConfig,
 };
 
-const MAX_GROUPS: usize = 2;
-const MAX_TERMS: usize = 6;
-const MAX_PHRASES: usize = 2;
-const MAX_ITEM_CHARS: usize = 40;
-
-/// Fixed system prompt (plan Task 6), sent verbatim.
-const REPAIR_SYSTEM: &str = "你为个人笔记检索提供替代检索词。只输出 JSON：{\"groups\":[{\"terms\":[…],\"phrases\":[…]}]}。至多 2 组；每组至多 6 个词、2 个短语；每项不超过 40 个字符。不要输出答案、过滤条件、时间、解释或代码围栏。";
+/// The system prompt (plan Task 6) with the limits from `repair.*`; at the
+/// defaults it is Task 6's fixed text, character for character.
+fn repair_system(limits: &RepairParams) -> String {
+    format!(
+        "你为个人笔记检索提供替代检索词。只输出 JSON：{{\"groups\":[{{\"terms\":[…],\"phrases\":[…]}}]}}。至多 {} 组；每组至多 {} 个词、{} 个短语；每项不超过 {} 个字符。不要输出答案、过滤条件、时间、解释或代码围栏。",
+        limits.max_groups, limits.max_terms, limits.max_phrases, limits.item_max_chars
+    )
+}
 const TEST_SYSTEM: &str = "只输出 JSON：{\"ok\":true}";
 const TEST_USER: &str = "连接测试";
 const INVALID_GROUPS: &str = "invalid term groups";
@@ -58,11 +60,13 @@ pub struct RepairSuggestion {
 }
 
 /// Strict: after trimming, `content` must be a JSON object whose only key is
-/// `"groups"`; 1..=2 groups; each group has only `terms` (required) and
-/// `phrases`, at most 6 terms and 2 phrases; each item is 1..=40 characters
-/// after trimming. Anything else (a code fence, prose, a third group, an
-/// extra key) is an error. The groups then go through [`sanitize_groups`].
-pub(crate) fn parse_repair_groups(content: &str) -> Result<Vec<TermGroup>, String> {
+/// `"groups"`; `1..=max_groups` groups; each group has only `terms`
+/// (required) and `phrases`, at most `max_terms` terms and `max_phrases`
+/// phrases; each item is `1..=item_max_chars` characters after trimming
+/// (defaults 2 / 6 / 2 / 40). Anything else (a code fence, prose, a group too
+/// many, an extra key) is an error. The groups then go through
+/// [`sanitize_groups`].
+pub(crate) fn parse_repair_groups(content: &str, limits: &RepairParams) -> Result<Vec<TermGroup>, String> {
     let invalid = || "invalid repair output".to_string();
     let value: serde_json::Value = serde_json::from_str(content.trim()).map_err(|_| invalid())?;
     let object = value.as_object().ok_or_else(invalid)?;
@@ -70,7 +74,7 @@ pub(crate) fn parse_repair_groups(content: &str) -> Result<Vec<TermGroup>, Strin
         return Err(invalid());
     }
     let raw = object.get("groups").and_then(|g| g.as_array()).ok_or_else(invalid)?;
-    if !(1..=MAX_GROUPS).contains(&raw.len()) {
+    if !(1..=limits.max_groups).contains(&raw.len()) {
         return Err(invalid());
     }
     let groups = raw
@@ -79,32 +83,33 @@ pub(crate) fn parse_repair_groups(content: &str) -> Result<Vec<TermGroup>, Strin
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| invalid())?;
     for group in &groups {
-        if group.terms.len() > MAX_TERMS || group.phrases.len() > MAX_PHRASES {
+        if group.terms.len() > limits.max_terms || group.phrases.len() > limits.max_phrases {
             return Err(invalid());
         }
-        let in_bounds = |item: &String| (1..=MAX_ITEM_CHARS).contains(&item.trim().chars().count());
+        let in_bounds = |item: &String| (1..=limits.item_max_chars).contains(&item.trim().chars().count());
         if !group.terms.iter().chain(&group.phrases).all(in_bounds) {
             return Err(invalid());
         }
     }
-    sanitize_groups(groups)
+    sanitize_groups(groups, limits)
 }
 
 /// The same count and length limits, for model output and user edits alike
-/// (more than 2 groups, 6 terms, 2 phrases, or an item over 40 characters is
-/// an error); then every item through [`sanitize_item`]. Items that clean to
-/// nothing and groups left empty are dropped; no group left is an error.
-pub(crate) fn sanitize_groups(groups: Vec<TermGroup>) -> Result<Vec<TermGroup>, String> {
+/// (more than `max_groups` groups, `max_terms` terms, `max_phrases` phrases,
+/// or an item over `item_max_chars` characters is an error); then every item
+/// through [`sanitize_item`]. Items that clean to nothing and groups left
+/// empty are dropped; no group left is an error.
+pub(crate) fn sanitize_groups(groups: Vec<TermGroup>, limits: &RepairParams) -> Result<Vec<TermGroup>, String> {
     let invalid = || INVALID_GROUPS.to_string();
-    if groups.len() > MAX_GROUPS {
+    if groups.len() > limits.max_groups {
         return Err(invalid());
     }
     let mut out = Vec::with_capacity(groups.len());
     for group in groups {
-        if group.terms.len() > MAX_TERMS || group.phrases.len() > MAX_PHRASES {
+        if group.terms.len() > limits.max_terms || group.phrases.len() > limits.max_phrases {
             return Err(invalid());
         }
-        if group.terms.iter().chain(&group.phrases).any(|item| item.trim().chars().count() > MAX_ITEM_CHARS) {
+        if group.terms.iter().chain(&group.phrases).any(|item| item.trim().chars().count() > limits.item_max_chars) {
             return Err(invalid());
         }
         let terms: Vec<String> = group.terms.iter().filter_map(|t| sanitize_item(t, false)).collect();
@@ -149,7 +154,7 @@ pub(crate) fn sanitize_item(raw: &str, phrase: bool) -> Option<String> {
 /// explicit filters, the resolved time range (none when the lookup ignored
 /// it) and each arm's kind, terms and hit count — never a hit's text,
 /// heading or path.
-pub(crate) fn repair_prompt(run: &LookupRun) -> (String, String) {
+pub(crate) fn repair_prompt(run: &LookupRun, limits: &RepairParams) -> (String, String) {
     let filters = crate::search::explicit_filters(&run.question);
     let filters = if filters.is_empty() { "无".to_string() } else { filters.join(" ") };
     let time = match &run.time {
@@ -170,7 +175,7 @@ pub(crate) fn repair_prompt(run: &LookupRun) -> (String, String) {
     for arm in &run.facts.arms {
         lines.push(format!("- {} [{}] 命中 {}", arm.kind, arm.terms.join("、"), arm.hit_count));
     }
-    (REPAIR_SYSTEM.to_string(), lines.join("\n"))
+    (repair_system(limits), lines.join("\n"))
 }
 
 /// Terms joined by spaces, phrases in double quotes, then the filters.
@@ -228,6 +233,8 @@ pub(crate) struct RepairRequest<'a> {
     pub chat: &'a ChatRequestConfig,
     pub key: Option<&'a str>,
     pub trigger: Trigger,
+    /// `repair.*`: the prompt's limits and the reply's.
+    pub limits: &'a RepairParams,
     pub timeout: Duration,
 }
 
@@ -309,7 +316,7 @@ async fn repair_steps(
     }
     // Sent from here on: a held claim is kept, never released.
 
-    let (system, user) = repair_prompt(&run);
+    let (system, user) = repair_prompt(&run, request.limits);
     result.request_count = 1;
     let answer = tokio::select! {
         biased;
@@ -330,7 +337,7 @@ async fn repair_steps(
         Some(Ok(outcome)) => outcome,
     };
     result.usage = outcome.usage.map(|u| UsageDto { input_tokens: u.input_tokens, output_tokens: u.output_tokens });
-    match parse_repair_groups(&outcome.content) {
+    match parse_repair_groups(&outcome.content, request.limits) {
         Ok(groups) => {
             result.status = EnhanceStatus::Ok;
             result.groups = groups;
@@ -341,11 +348,13 @@ async fn repair_steps(
 }
 
 /// Testable core of `smart_lookup_test_chat`: synthetic text only, no Vault
-/// access. `ok` when the reply's content parses as JSON.
+/// access. `ok` when the reply's content parses as JSON. Waits at most
+/// `timeout` (`enhance.timeoutMs` in the app).
 pub(crate) async fn run_chat_test(
     client: &reqwest::Client,
     config: &ChatRequestConfig,
     key: Option<&str>,
+    timeout: Duration,
 ) -> ConnectionTest {
     let started = Instant::now();
     let done = |status, missing, host, class| ConnectionTest {
@@ -361,7 +370,7 @@ pub(crate) async fn run_chat_test(
     };
     let host = chat_host(&chat);
     let key = key.unwrap_or_default();
-    match chat_complete(client, &chat, key, TEST_SYSTEM, TEST_USER, ENHANCE_TIMEOUT).await {
+    match chat_complete(client, &chat, key, TEST_SYSTEM, TEST_USER, timeout).await {
         Ok(outcome) if serde_json::from_str::<serde_json::Value>(outcome.content.trim()).is_ok() => {
             done(EnhanceStatus::Ok, None, host, None)
         }
@@ -381,6 +390,8 @@ pub async fn smart_lookup_repair_suggest(
     chat: ChatRequestConfig,
     trigger: Trigger,
 ) -> Result<RepairSuggestion, String> {
+    // An invalid parameter file is an error before anything else: no request.
+    let params = crate::lookup_params::for_app(&app)?;
     let cancel = fresh_cancel_flag(&lookup_run_id);
     let key = read_key(&app, KeyKind::Chat);
     let client = enhance_client()?;
@@ -390,16 +401,18 @@ pub async fn smart_lookup_repair_suggest(
         chat: &chat,
         key: key.as_deref(),
         trigger,
-        timeout: ENHANCE_TIMEOUT,
+        limits: &params.repair,
+        timeout: params.enhance.timeout(),
     };
     repair_run(request, &client, &cancel).await
 }
 
 #[tauri::command]
 pub async fn smart_lookup_test_chat(app: tauri::AppHandle, chat: ChatRequestConfig) -> Result<ConnectionTest, String> {
+    let timeout = crate::lookup_params::for_app(&app)?.enhance.timeout();
     let key = read_key(&app, KeyKind::Chat);
     let client = enhance_client()?;
-    Ok(run_chat_test(&client, &chat, key.as_deref()).await)
+    Ok(run_chat_test(&client, &chat, key.as_deref(), timeout).await)
 }
 
 #[cfg(test)]
@@ -411,9 +424,54 @@ mod tests {
     use std::sync::atomic::Ordering::SeqCst;
     use std::time::{Duration, Instant};
 
+    fn parse(content: &str) -> Result<Vec<TermGroup>, String> {
+        parse_repair_groups(content, &RepairParams::default())
+    }
+
+    fn sanitize(groups: Vec<TermGroup>) -> Result<Vec<TermGroup>, String> {
+        sanitize_groups(groups, &RepairParams::default())
+    }
+
+    /// Task 6's fixed system prompt, verbatim.
+    const TASK_6_SYSTEM: &str = "你为个人笔记检索提供替代检索词。只输出 JSON：{\"groups\":[{\"terms\":[…],\"phrases\":[…]}]}。至多 2 组；每组至多 6 个词、2 个短语；每项不超过 40 个字符。不要输出答案、过滤条件、时间、解释或代码围栏。";
+
+    #[test]
+    fn repair_prompt_with_default_params_matches_the_fixed_text() {
+        let (system, _) = repair_prompt(&run_for("发布 风险"), &RepairParams::default());
+        assert_eq!(system, TASK_6_SYSTEM);
+        let custom = RepairParams { max_groups: 1, max_terms: 3, max_phrases: 0, item_max_chars: 20 };
+        let (system, _) = repair_prompt(&run_for("发布 风险"), &custom);
+        assert!(system.contains("至多 1 组；每组至多 3 个词、0 个短语；每项不超过 20 个字符。"), "{system}");
+    }
+
+    #[test]
+    fn repair_limits_follow_the_params() {
+        let one = RepairParams { max_groups: 1, ..RepairParams::default() };
+        let two = r#"{"groups":[{"terms":["a"]},{"terms":["b"]}]}"#;
+        assert_eq!(parse(two).unwrap().len(), 2);
+        assert!(parse_repair_groups(two, &one).is_err());
+        assert!(parse_repair_groups(r#"{"groups":[{"terms":["a"]}]}"#, &one).is_ok());
+        let g = |terms: &[&str], phrases: &[&str]| TermGroup {
+            terms: terms.iter().map(|s| s.to_string()).collect(),
+            phrases: phrases.iter().map(|s| s.to_string()).collect(),
+        };
+        assert!(sanitize_groups(vec![g(&["a"], &[]), g(&["b"], &[])], &one).is_err());
+        let few = RepairParams { max_terms: 2, max_phrases: 0, item_max_chars: 8, ..RepairParams::default() };
+        assert!(sanitize_groups(vec![g(&["a", "b", "c"], &[])], &few).is_err());
+        assert!(sanitize_groups(vec![g(&["a"], &["x y"])], &few).is_err());
+        assert!(sanitize_groups(vec![g(&["123456789"], &[])], &few).is_err());
+        assert!(parse_repair_groups(r#"{"groups":[{"terms":["123456789"]}]}"#, &few).is_err());
+        assert_eq!(sanitize_groups(vec![g(&["12345678", "b"], &[])], &few).unwrap(), vec![g(&["12345678", "b"], &[])]);
+        let wide = RepairParams { max_groups: 4, max_terms: 12, max_phrases: 4, item_max_chars: 80 };
+        let long = "长".repeat(80);
+        let four = format!(r#"{{"groups":[{{"terms":["{long}"]}},{{"terms":["b"]}},{{"terms":["c"]}},{{"terms":["d"]}}]}}"#);
+        assert_eq!(parse_repair_groups(&four, &wide).unwrap().len(), 4);
+        assert!(parse(&four).is_err());
+    }
+
     #[test]
     fn repair_accepts_two_clean_groups() {
-        let groups = parse_repair_groups(
+        let groups = parse(
             r#" {"groups":[{"terms":["预算","-延期","tag:x"],"phrases":["发布 计划"]},{"terms":["OR","上线"]}]} "#,
         )
         .unwrap();
@@ -438,7 +496,7 @@ mod tests {
             r#"{"groups":[]}"#,
             r#"{"groups":[{"terms":["AND"]}]}"#,
         ] {
-            assert!(parse_repair_groups(bad).is_err(), "{bad}");
+            assert!(parse(bad).is_err(), "{bad}");
         }
         // Extra keys inside a group, an empty item and a non-object are refused too.
         for bad in [
@@ -446,11 +504,11 @@ mod tests {
             r#"{"groups":[{"terms":["a","  "]}]}"#,
             r#"[{"terms":["a"]}]"#,
         ] {
-            assert!(parse_repair_groups(bad).is_err(), "{bad}");
+            assert!(parse(bad).is_err(), "{bad}");
         }
         // Exactly at the limits is fine.
         let edge = format!(r#"{{"groups":[{{"terms":["1","2","3","4","5","{}"],"phrases":["x y","z"]}}]}}"#, "长".repeat(40));
-        assert_eq!(parse_repair_groups(&edge).unwrap()[0].terms.len(), 6);
+        assert_eq!(parse(&edge).unwrap()[0].terms.len(), 6);
     }
 
     #[test]
@@ -476,13 +534,13 @@ mod tests {
             terms: terms.iter().map(|s| s.to_string()).collect(),
             phrases: phrases.iter().map(|s| s.to_string()).collect(),
         };
-        assert_eq!(sanitize_groups(vec![g(&["AND"], &[]), g(&["上线", ""], &[])]).unwrap(), vec![g(&["上线"], &[])]);
-        assert_eq!(sanitize_groups(vec![g(&["OR"], &["  "])]).unwrap_err(), "invalid term groups");
-        assert!(sanitize_groups(vec![]).is_err());
-        assert!(sanitize_groups(vec![g(&["a"], &[]), g(&["b"], &[]), g(&["c"], &[])]).is_err());
-        assert!(sanitize_groups(vec![g(&["1", "2", "3", "4", "5", "6", "7"], &[])]).is_err());
-        assert!(sanitize_groups(vec![g(&["a"], &["x", "y", "z"])]).is_err());
-        assert!(sanitize_groups(vec![g(&[&"长".repeat(41)], &[])]).is_err());
+        assert_eq!(sanitize(vec![g(&["AND"], &[]), g(&["上线", ""], &[])]).unwrap(), vec![g(&["上线"], &[])]);
+        assert_eq!(sanitize(vec![g(&["OR"], &["  "])]).unwrap_err(), "invalid term groups");
+        assert!(sanitize(vec![]).is_err());
+        assert!(sanitize(vec![g(&["a"], &[]), g(&["b"], &[]), g(&["c"], &[])]).is_err());
+        assert!(sanitize(vec![g(&["1", "2", "3", "4", "5", "6", "7"], &[])]).is_err());
+        assert!(sanitize(vec![g(&["a"], &["x", "y", "z"])]).is_err());
+        assert!(sanitize(vec![g(&[&"长".repeat(41)], &[])]).is_err());
     }
 
     #[test]
@@ -536,7 +594,7 @@ mod tests {
             mode: TimeMode::Group,
             in_window: 0,
         });
-        let (system, user) = repair_prompt(&run);
+        let (system, user) = repair_prompt(&run, &RepairParams::default());
         assert!(system.contains("至多 2 组"));
         assert!(user.contains("问题：上周 发布 风险 tag:work") && user.contains("命中 0"));
         assert!(!user.contains("NOTE_BODY") && !user.contains("NOTE_HEADING") && !user.contains(".md"));
@@ -552,16 +610,17 @@ mod tests {
                 "- relaxed [发布] 命中 0",
             ]
         );
-        let (_, plain) = repair_prompt(&run_for("发布 风险"));
+        let (_, plain) = repair_prompt(&run_for("发布 风险"), &RepairParams::default());
         assert!(plain.contains("过滤：无\n时间：无\n"), "{plain}");
         // A lookup told to ignore the phrase searched without the range.
         run.time.as_mut().unwrap().mode = TimeMode::Ignore;
-        assert!(repair_prompt(&run).1.contains("\n时间：无\n"));
+        assert!(repair_prompt(&run, &RepairParams::default()).1.contains("\n时间：无\n"));
     }
 
     // ---- the command core -------------------------------------------------
 
     const TIMEOUT: Duration = Duration::from_millis(500);
+    const WAIT: Duration = Duration::from_secs(3);
 
     fn chat(base: &str) -> ChatRequestConfig {
         ChatRequestConfig { url: base.into(), model: "m".into() }
@@ -592,6 +651,7 @@ mod tests {
             chat: cfg,
             key,
             trigger,
+            limits: &RepairParams::default(),
             timeout: TIMEOUT,
         };
         repair_run(request, &enhance_client().unwrap(), cancel).await
@@ -722,16 +782,16 @@ mod tests {
     async fn the_chat_connection_test_sends_synthetic_text_only() {
         let client = enhance_client().unwrap();
         let (base, request, _) = serve_once(200, reply(r#"{"ok":true}"#), Duration::ZERO).await;
-        let ok = run_chat_test(&client, &chat(&base), Some("ck")).await;
+        let ok = run_chat_test(&client, &chat(&base), Some("ck"), WAIT).await;
         assert_eq!(ok.status, EnhanceStatus::Ok);
         let request = request.await.unwrap();
         assert!(request.contains("连接测试") && request.contains("authorization: bearer ck"), "{request}");
 
         let (base, _request, _) = serve_once(200, reply("hello"), Duration::ZERO).await;
-        assert_eq!(run_chat_test(&client, &chat(&base), Some("ck")).await.status, EnhanceStatus::Invalid);
-        let none = run_chat_test(&client, &chat("https://a.example/v1"), None).await;
+        assert_eq!(run_chat_test(&client, &chat(&base), Some("ck"), WAIT).await.status, EnhanceStatus::Invalid);
+        let none = run_chat_test(&client, &chat("https://a.example/v1"), None, WAIT).await;
         assert_eq!((none.status, none.missing), (EnhanceStatus::NotConfigured, Some(Missing::Key)));
-        let insecure = run_chat_test(&client, &chat("http://a.example/v1"), Some("ck")).await;
+        let insecure = run_chat_test(&client, &chat("http://a.example/v1"), Some("ck"), WAIT).await;
         assert_eq!(insecure.missing, Some(Missing::Insecure));
     }
 }

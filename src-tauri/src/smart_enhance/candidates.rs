@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 
 use super::{SkipReason, Tier};
+use crate::lookup_params::TierParams;
 use crate::smart_lookup::{CanonicalHit, RouteFacts};
 
 pub(crate) enum Route {
@@ -13,16 +14,17 @@ pub(crate) enum Route {
 }
 
 /// Spec §5.3. Zero hits is decided on the merged `hit_count`, never by summing
-/// arm counts. "Few terms" means 1..=2 extracted terms (0 terms is not it) with
-/// a strict arm that found something.
-pub(crate) fn route(facts: &RouteFacts) -> Route {
+/// arm counts. "Few terms" means `1..=few_terms_max` extracted terms (0 terms
+/// is not it; `few_terms_max` 0 turns the rule off) with a strict arm that
+/// found something.
+pub(crate) fn route(facts: &RouteFacts, few_terms_max: usize) -> Route {
     if facts.hit_count == 0 {
         return Route::Repair;
     }
     if facts.pinned {
         return Route::Skip(SkipReason::Pinned);
     }
-    let few = (1..=2).contains(&facts.extracted_terms.len());
+    let few = (1..=few_terms_max).contains(&facts.extracted_terms.len());
     if few && facts.arms.iter().any(|a| a.kind == "strict" && a.hit_count > 0) {
         return Route::Skip(SkipReason::FewTerms);
     }
@@ -35,15 +37,9 @@ pub(crate) struct CandidateLimits {
     pub per_file: usize,
     pub max_block_chars: usize,
     pub token_budget: u64,
+    pub cjk_chars_per_token: u32,
+    pub other_chars_per_token: u32,
 }
-
-pub(crate) const DEFAULT_LIMITS: CandidateLimits = CandidateLimits {
-    pool: 50,
-    k: 10,
-    per_file: 2,
-    max_block_chars: 1_200,
-    token_budget: 4_000,
-};
 
 pub(crate) struct Candidate {
     pub position: usize,
@@ -73,7 +69,9 @@ fn is_cjk(c: char) -> bool {
         | 0x1100..=0x11FF | 0x3130..=0x318F | 0xAC00..=0xD7AF)
 }
 
-pub(crate) fn estimate_tokens(text: &str) -> u64 {
+/// CJK characters per `cjk_chars_per_token`, everything else per
+/// `other_chars_per_token`, each rounded up. Rates below 1 count as 1.
+pub(crate) fn estimate_tokens(text: &str, cjk_chars_per_token: u32, other_chars_per_token: u32) -> u64 {
     let mut cjk = 0u64;
     let mut other = 0u64;
     for c in text.chars() {
@@ -83,7 +81,7 @@ pub(crate) fn estimate_tokens(text: &str) -> u64 {
             other += 1;
         }
     }
-    cjk + other.div_ceil(4)
+    cjk.div_ceil(u64::from(cjk_chars_per_token.max(1))) + other.div_ceil(u64::from(other_chars_per_token.max(1)))
 }
 
 fn title_of(path: &str) -> String {
@@ -145,7 +143,11 @@ pub(crate) fn select_candidates(
             continue;
         }
         let title = title_of(&hit.path);
-        let tokens = estimate_tokens(&format!("{}{}{}", title, hit.breadcrumb, passage));
+        let tokens = estimate_tokens(
+            &format!("{}{}{}", title, hit.breadcrumb, passage),
+            limits.cjk_chars_per_token,
+            limits.other_chars_per_token,
+        );
         if sel.estimated_tokens + tokens > limits.token_budget {
             break;
         }
@@ -162,10 +164,11 @@ pub(crate) fn select_candidates(
     sel
 }
 
-pub(crate) fn tier(noul: f64) -> Tier {
-    if noul >= 0.7 {
+/// `noul >= fit` is Fit, `noul <= unfit` is Unfit, between is Unsure.
+pub(crate) fn tier(noul: f64, tiers: &TierParams) -> Tier {
+    if noul >= tiers.fit {
         Tier::Fit
-    } else if noul <= 0.3 {
+    } else if noul <= tiers.unfit {
         Tier::Unfit
     } else {
         Tier::Unsure
@@ -214,7 +217,12 @@ pub(crate) fn top_ten_unfit(len: usize, judged: &[(usize, Tier)]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lookup_params::CandidateParams;
     use crate::smart_lookup::ArmFact;
+
+    fn limits() -> CandidateLimits {
+        CandidateParams::default().limits()
+    }
 
     fn facts(hit_count: usize, pinned: bool, terms: &[&str], strict_hits: usize) -> RouteFacts {
         RouteFacts {
@@ -240,15 +248,15 @@ mod tests {
 
     #[test]
     fn route_follows_spec_5_3() {
-        assert!(matches!(route(&facts(0, false, &["a", "b", "c"], 0)), Route::Repair));
-        assert!(matches!(route(&facts(5, true, &["a", "b", "c"], 5)), Route::Skip(SkipReason::Pinned)));
-        assert!(matches!(route(&facts(5, false, &["a", "b"], 3)), Route::Skip(SkipReason::FewTerms)));
-        assert!(matches!(route(&facts(5, false, &["a", "b"], 0)), Route::Judge));
-        assert!(matches!(route(&facts(5, false, &["a", "b", "c"], 3)), Route::Judge));
+        assert!(matches!(route(&facts(0, false, &["a", "b", "c"], 0), 2), Route::Repair));
+        assert!(matches!(route(&facts(5, true, &["a", "b", "c"], 5), 2), Route::Skip(SkipReason::Pinned)));
+        assert!(matches!(route(&facts(5, false, &["a", "b"], 3), 2), Route::Skip(SkipReason::FewTerms)));
+        assert!(matches!(route(&facts(5, false, &["a", "b"], 0), 2), Route::Judge));
+        assert!(matches!(route(&facts(5, false, &["a", "b", "c"], 3), 2), Route::Judge));
         // 0 terms is not the few-terms route; zero hits is read from hit_count, not arms.
-        assert!(matches!(route(&facts(5, false, &[], 3)), Route::Judge));
-        assert!(matches!(route(&facts(0, false, &["a"], 3)), Route::Repair));
-        assert!(matches!(route(&facts(5, false, &["a"], 0)), Route::Judge));
+        assert!(matches!(route(&facts(5, false, &[], 3), 2), Route::Judge));
+        assert!(matches!(route(&facts(0, false, &["a"], 3), 2), Route::Repair));
+        assert!(matches!(route(&facts(5, false, &["a"], 0), 2), Route::Judge));
     }
 
     #[test]
@@ -277,7 +285,7 @@ mod tests {
             "f.md" => Ok("字".repeat(1_201)),
             _ => Ok("passage".to_string()),
         };
-        let s = select_candidates(&refs, &conf, read, &DEFAULT_LIMITS);
+        let s = select_candidates(&refs, &conf, read, &limits());
         // a.md, a.md, h.md
         assert_eq!(s.picked.iter().map(|c| c.result_id.as_str()).collect::<Vec<_>>(), ["1", "2", "10"]);
         assert_eq!(
@@ -296,8 +304,8 @@ mod tests {
         let refs: Vec<&CanonicalHit> = hits.iter().collect();
         let conf: HashMap<String, String> =
             hits.iter().map(|h| (h.path.clone(), "unknown".to_string())).collect();
-        let small = select_candidates(&refs, &conf, |_| Ok("字".repeat(100)), &DEFAULT_LIMITS);
-        let large = select_candidates(&refs, &conf, |_| Ok("字".repeat(1_000)), &DEFAULT_LIMITS);
+        let small = select_candidates(&refs, &conf, |_| Ok("字".repeat(100)), &limits());
+        let large = select_candidates(&refs, &conf, |_| Ok("字".repeat(1_000)), &limits());
         assert_eq!((small.picked.len(), small.pool_size), (10, 50));
         assert_eq!(large.picked.len(), 3);
         assert!(large.estimated_tokens <= 4_000);
@@ -305,15 +313,53 @@ mod tests {
 
     #[test]
     fn estimate_counts_cjk_per_char_and_other_text_per_four() {
-        assert_eq!(estimate_tokens("发布风险"), 4);
-        assert_eq!(estimate_tokens("abcdefgh"), 2);
-        assert_eq!(estimate_tokens("发布 risk"), 2 + 2);
-        assert_eq!(estimate_tokens(""), 0);
+        assert_eq!(estimate_tokens("发布风险", 1, 4), 4);
+        assert_eq!(estimate_tokens("abcdefgh", 1, 4), 2);
+        assert_eq!(estimate_tokens("发布 risk", 1, 4), 2 + 2);
+        assert_eq!(estimate_tokens("", 1, 4), 0);
     }
 
     #[test]
     fn tiers_use_the_spec_thresholds() {
-        assert_eq!([tier(0.7), tier(0.69), tier(0.31), tier(0.3)], [Tier::Fit, Tier::Unsure, Tier::Unsure, Tier::Unfit]);
+        let t = TierParams::default();
+        assert_eq!(
+            [tier(0.7, &t), tier(0.69, &t), tier(0.31, &t), tier(0.3, &t)],
+            [Tier::Fit, Tier::Unsure, Tier::Unsure, Tier::Unfit]
+        );
+    }
+
+    #[test]
+    fn routing_tokens_and_tiers_follow_the_params() {
+        assert!(matches!(route(&facts(5, false, &["a", "b"], 3), 0), Route::Judge));
+        assert!(matches!(route(&facts(5, false, &["a", "b", "c"], 3), 3), Route::Skip(SkipReason::FewTerms)));
+        assert!(matches!(route(&facts(5, false, &["a", "b", "c", "d"], 3), 3), Route::Judge));
+        assert_eq!(estimate_tokens("发布风险", 2, 4), 2);
+        assert_eq!(estimate_tokens("abcdefgh", 1, 8), 1);
+        assert_eq!(tier(0.65, &TierParams { fit: 0.6, unfit: 0.2 }), Tier::Fit);
+        assert_eq!(tier(0.25, &TierParams { fit: 0.6, unfit: 0.2 }), Tier::Unsure);
+        assert_eq!(tier(0.2, &TierParams { fit: 0.6, unfit: 0.2 }), Tier::Unfit);
+    }
+
+    #[test]
+    fn selection_follows_the_candidate_params() {
+        let hits: Vec<CanonicalHit> = (0..20)
+            .map(|i| hit(&format!("r{i}"), &format!("f{}.md", i / 4), "line", "x", false))
+            .collect();
+        let refs: Vec<&CanonicalHit> = hits.iter().collect();
+        let conf: HashMap<String, String> =
+            hits.iter().map(|h| (h.path.clone(), "unknown".to_string())).collect();
+        let narrow = CandidateParams { pool: 8, k: 3, per_file: 1, ..CandidateParams::default() }.limits();
+        let s = select_candidates(&refs, &conf, |_| Ok("p".to_string()), &narrow);
+        assert_eq!(s.pool_size, 8);
+        assert_eq!(s.picked.iter().map(|c| c.result_id.as_str()).collect::<Vec<_>>(), ["r0", "r4"]);
+        let wide = CandidateParams { k: 3, per_file: 4, ..CandidateParams::default() }.limits();
+        assert_eq!(select_candidates(&refs, &conf, |_| Ok("p".to_string()), &wide).picked.len(), 3);
+        // Two CJK characters per token halve the estimate; a tighter block limit refuses the block.
+        let half = CandidateParams { cjk_chars_per_token: 2, ..CandidateParams::default() }.limits();
+        let s = select_candidates(&refs[..1], &conf, |_| Ok("字".repeat(100)), &half);
+        assert_eq!(s.estimated_tokens, estimate_tokens("f0F", 1, 4) + 50);
+        let short = CandidateParams { max_block_chars: 100, ..CandidateParams::default() }.limits();
+        assert_eq!(select_candidates(&refs[..1], &conf, |_| Ok("字".repeat(101)), &short).skipped_long, 1);
     }
 
     #[test]

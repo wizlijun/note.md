@@ -14,14 +14,13 @@ use super::smart::{self, SmartHitDto};
 use super::time_group::{self, TimeMode};
 use super::time_phrase::DetectedTime;
 use super::{IndexHandle, TimeWindowDto};
+use crate::lookup_params::{FusionParams, LookupParams};
 use crate::smart_enhance::repair::{group_query, sanitize_groups};
 use crate::smart_enhance::TermGroup;
 use crate::smart_lookup::{LookupRun, RunTime};
 
 /// Per-term hit counts stop here; `capped` says the real count may be higher.
 pub(super) const TERM_COUNT_CAP: usize = 100;
-/// Reciprocal-rank constant for merging wordings; mirrors `smart::RRF_K`.
-const RRF_K: f64 = 60.0;
 /// Hits per wording, and in the merged answer, when the caller names none.
 const DEFAULT_GROUP_LIMIT: usize = 100;
 
@@ -62,10 +61,11 @@ fn shallow(
     handle: &IndexHandle,
     query: &str,
     limit: usize,
+    fusion: &FusionParams,
     counter: &Arc<AtomicU64>,
     ticket: u64,
 ) -> Result<smart::SmartSearchResponse, String> {
-    smart::smart_search_locked(handle, Instant::now(), query, Some(limit), Some(false), None, counter, ticket)
+    smart::smart_search_locked(handle, Instant::now(), query, Some(limit), Some(false), None, counter, ticket, fusion)
 }
 
 /// For each of the run's extracted terms (quoted when it has whitespace),
@@ -74,6 +74,7 @@ fn shallow(
 pub(super) fn diagnose_locked(
     handle: &IndexHandle,
     run: &LookupRun,
+    fusion: &FusionParams,
     counter: &Arc<AtomicU64>,
     ticket: u64,
 ) -> Result<Diagnosis, String> {
@@ -84,19 +85,24 @@ pub(super) fn diagnose_locked(
         let bare = bare.trim();
         let word = if bare.chars().any(char::is_whitespace) { format!("\"{bare}\"") } else { bare.to_string() };
         let query = std::iter::once(word).chain(filters.iter().cloned()).collect::<Vec<_>>().join(" ");
-        let hits = shallow(handle, &query, TERM_COUNT_CAP, counter, ticket)?.hits.len();
+        let hits = shallow(handle, &query, TERM_COUNT_CAP, fusion, counter, ticket)?.hits.len();
         terms.push(TermCount { term: term.clone(), hits, capped: hits == TERM_COUNT_CAP });
     }
     Ok(Diagnosis { terms })
 }
 
 /// Reciprocal-rank fusion of one hit list per wording: each list adds
-/// `1 / (60 + rank)` (rank from 1) to every hit it holds, keyed by
+/// `1 / (rrf_k + rank)` (rank from 1; `local.rrfK`, the constant the arms
+/// of one search fuse with) to every hit it holds, keyed by
 /// `(path, line, line_end)`. Higher sums first; equal sums keep the order of
 /// first appearance (wording, then rank). Returns at most `limit` hits, each
 /// with its sum as `fused_score`, and per hit the wordings (from 1) that
 /// found it.
-pub(super) fn merge_groups(results: Vec<Vec<SmartHitDto>>, limit: usize) -> (Vec<SmartHitDto>, Vec<Vec<u8>>) {
+pub(super) fn merge_groups(
+    results: Vec<Vec<SmartHitDto>>,
+    limit: usize,
+    rrf_k: f64,
+) -> (Vec<SmartHitDto>, Vec<Vec<u8>>) {
     struct Merged {
         hit: SmartHitDto,
         score: f64,
@@ -109,7 +115,7 @@ pub(super) fn merge_groups(results: Vec<Vec<SmartHitDto>>, limit: usize) -> (Vec
         let label = u8::try_from(group + 1).unwrap_or(u8::MAX);
         for (offset, hit) in hits.into_iter().enumerate() {
             let rank = offset + 1;
-            let contribution = 1.0 / (RRF_K + rank as f64);
+            let contribution = 1.0 / (rrf_k + rank as f64);
             match at.get(&hit_key(&hit)) {
                 Some(&i) => {
                     let entry = &mut merged[i];
@@ -173,7 +179,8 @@ fn combine(parts: Vec<smart::SmartSearchResponse>, hits: Vec<SmartHitDto>, start
     }
 }
 
-/// Search each wording locally and merge. Every wording is
+/// Search each wording locally and merge, with `repair.*` limits and
+/// `local.*` fusion from `params`. Every wording is
 /// `sanitize_groups`-ed and searched as `group_query(group, explicit filters
 /// of the question)` (shallow). Time follows the base run's `run.time`:
 /// `Group` searches each wording with and without the range, merges each
@@ -192,9 +199,11 @@ pub(super) fn search_groups_locked(
     _today: NaiveDate,
     counter: &Arc<AtomicU64>,
     ticket: u64,
+    params: &LookupParams,
 ) -> Result<(smart::SmartSearchResponse, Vec<usize>, Vec<Vec<u8>>, Option<(DetectedTime, usize)>), String> {
     let started = Instant::now();
-    let groups = sanitize_groups(groups.to_vec())?;
+    let groups = sanitize_groups(groups.to_vec(), &params.repair)?;
+    let fusion = params.local.fusion();
     let filters = super::explicit_filters(&run.question);
     let queries: Vec<String> = groups.iter().map(|g| group_query(g, &filters)).collect();
     let detected = run
@@ -211,7 +220,7 @@ pub(super) fn search_groups_locked(
                 (Some(t), true) => format!("{query} after:{} before:{}", t.after, t.before),
                 _ => query.clone(),
             };
-            parts.push(label_wording(shallow(handle, &query, limit, counter, ticket)?, i + 1));
+            parts.push(label_wording(shallow(handle, &query, limit, &fusion, counter, ticket)?, i + 1));
         }
         let hits = parts.iter_mut().map(|p| std::mem::take(&mut p.hits)).collect();
         Ok((parts, hits))
@@ -221,8 +230,8 @@ pub(super) fn search_groups_locked(
         Some(TimeMode::Group) => {
             let (_, scoped_hits) = search_all(true)?;
             let (parts, unscoped_hits) = search_all(false)?;
-            let (scoped, scoped_labels) = merge_groups(scoped_hits, limit);
-            let (unscoped, unscoped_labels) = merge_groups(unscoped_hits, limit);
+            let (scoped, scoped_labels) = merge_groups(scoped_hits, limit, fusion.rrf_k);
+            let (unscoped, unscoped_labels) = merge_groups(unscoped_hits, limit, fusion.rrf_k);
             let mut found_by: HashMap<HitKey, Vec<u8>> = HashMap::new();
             for (hit, labels) in scoped.iter().zip(&scoped_labels).chain(unscoped.iter().zip(&unscoped_labels)) {
                 let entry = found_by.entry(hit_key(hit)).or_default();
@@ -236,13 +245,13 @@ pub(super) fn search_groups_locked(
         }
         Some(TimeMode::Window) => {
             let (parts, scoped_hits) = search_all(true)?;
-            let (hits, labels) = merge_groups(scoped_hits, limit);
+            let (hits, labels) = merge_groups(scoped_hits, limit, fusion.rrf_k);
             let in_window = hits.len();
             (parts, hits, labels, in_window)
         }
         Some(TimeMode::Ignore) | None => {
             let (parts, unscoped_hits) = search_all(false)?;
-            let (hits, labels) = merge_groups(unscoped_hits, limit);
+            let (hits, labels) = merge_groups(unscoped_hits, limit, fusion.rrf_k);
             (parts, hits, labels, 0)
         }
     };
@@ -268,6 +277,7 @@ pub(super) fn search_groups_in(
     today: NaiveDate,
     counter: &Arc<AtomicU64>,
     ticket: u64,
+    params: &LookupParams,
 ) -> Result<GroupLookupResponse, String> {
     let canonical = std::fs::canonicalize(root).map_err(|error| format!("resolve vault: {error}"))?;
     if canonical != run.root {
@@ -275,7 +285,7 @@ pub(super) fn search_groups_in(
     }
     let limit = limit.filter(|n| (1..=DEFAULT_GROUP_LIMIT).contains(n)).unwrap_or(DEFAULT_GROUP_LIMIT);
     let (mut search, group_counts, hit_groups, detected) =
-        search_groups_locked(handle, run, groups, limit, today, counter, ticket)?;
+        search_groups_locked(handle, run, groups, limit, today, counter, ticket, params)?;
     let run_time = run.time.as_ref().zip(detected).map(|(base, (time, in_window))| RunTime {
         source_text: time.source_text,
         after: time.after,
@@ -325,6 +335,7 @@ mod tests {
             today(),
             &counter,
             1,
+            &FusionParams::default(),
         )
         .unwrap();
         let time = detected.map(|(t, n)| RunTime {
@@ -346,7 +357,7 @@ mod tests {
     fn diagnosis_counts_each_extracted_term_and_marks_misses() {
         let (vault, handle) = fixture(&[("a.md", "# A\n预算 记录\n")]);
         let run = base_run(vault.path(), &handle, "预算 火星", "test-diagnose");
-        let d = diagnose_locked(&handle, &run, &Arc::new(AtomicU64::new(1)), 1).unwrap();
+        let d = diagnose_locked(&handle, &run, &FusionParams::default(), &Arc::new(AtomicU64::new(1)), 1).unwrap();
         assert_eq!(counts(&d), [("预算", 1, false), ("火星", 0, false)]);
     }
 
@@ -358,10 +369,10 @@ mod tests {
         let refs: Vec<(&str, &str)> = files.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
         let (vault, handle) = fixture(&refs);
         let run = base_run(vault.path(), &handle, "预算 火星", "test-diagnose-cap");
-        let d = diagnose_locked(&handle, &run, &Arc::new(AtomicU64::new(1)), 1).unwrap();
+        let d = diagnose_locked(&handle, &run, &FusionParams::default(), &Arc::new(AtomicU64::new(1)), 1).unwrap();
         assert_eq!(counts(&d), [("预算", TERM_COUNT_CAP, true), ("火星", 1, false)]);
         let tagged = base_run(vault.path(), &handle, "预算 火星 tag:work", "test-diagnose-cap");
-        let d = diagnose_locked(&handle, &tagged, &Arc::new(AtomicU64::new(1)), 1).unwrap();
+        let d = diagnose_locked(&handle, &tagged, &FusionParams::default(), &Arc::new(AtomicU64::new(1)), 1).unwrap();
         assert_eq!(counts(&d), [("预算", 0, false), ("火星", 1, false)]);
     }
 
@@ -391,6 +402,9 @@ mod tests {
         }
     }
 
+    /// The default `local.rrfK`.
+    const K: f64 = 60.0;
+
     fn a() -> SmartHitDto {
         dto("a.md")
     }
@@ -407,26 +421,46 @@ mod tests {
 
     #[test]
     fn merge_groups_fuses_by_rrf_and_labels_groups() {
-        let (hits, groups) = merge_groups(vec![vec![a(), b()], vec![b(), c()]], 10);
+        let (hits, groups) = merge_groups(vec![vec![a(), b()], vec![b(), c()]], 10, K);
         assert_eq!(paths(&hits), ["b.md", "a.md", "c.md"]);
         assert_eq!(groups, [vec![1, 2], vec![1], vec![2]]);
         assert!((hits[0].fused_score - (1.0 / 62.0 + 1.0 / 61.0)).abs() < 1e-12);
+        assert_eq!(K, LookupParams::default().local.rrf_k);
+    }
+
+    #[test]
+    fn merge_groups_uses_the_rrf_k_it_is_given() {
+        let (hits, _) = merge_groups(vec![vec![a(), b()], vec![b(), c()]], 10, 1.0);
+        assert!((hits[0].fused_score - (1.0 / 3.0 + 1.0 / 2.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn group_search_follows_the_repair_params() {
+        let (vault, handle) = fixture(&[("a.md", "# A\n预算 记录\n")]);
+        let base = base_run(vault.path(), &handle, "火星", "test-groups-params");
+        let counter = Arc::new(AtomicU64::new(1));
+        let repair = crate::lookup_params::RepairParams { max_groups: 1, ..Default::default() };
+        let one = LookupParams { repair, ..Default::default() };
+        let two = groups(&[&["预算"], &["记录"]]);
+        let err = search_groups_locked(&handle, &base, &two, 20, today(), &counter, 1, &one).err().unwrap();
+        assert_eq!(err, "invalid term groups");
+        assert!(search_groups_locked(&handle, &base, &two, 20, today(), &counter, 1, &LookupParams::default()).is_ok());
     }
 
     #[test]
     fn merge_groups_breaks_ties_by_first_appearance_and_respects_the_limit() {
         // a and c both rank 1 in their group: a (group 1) comes first.
-        let (hits, groups) = merge_groups(vec![vec![a()], vec![c()]], 10);
+        let (hits, groups) = merge_groups(vec![vec![a()], vec![c()]], 10, K);
         assert_eq!(paths(&hits), ["a.md", "c.md"]);
         assert_eq!(groups, [vec![1], vec![2]]);
-        let (hits, groups) = merge_groups(vec![vec![a(), b()], vec![b(), c()]], 2);
+        let (hits, groups) = merge_groups(vec![vec![a(), b()], vec![b(), c()]], 2, K);
         assert_eq!(paths(&hits), ["b.md", "a.md"]);
         assert_eq!(groups.len(), 2);
         // A different line of the same file is a different hit.
         let mut other_line = a();
         other_line.hit.line = 5;
         other_line.hit.line_end = 5;
-        let (hits, _) = merge_groups(vec![vec![a(), other_line]], 10);
+        let (hits, _) = merge_groups(vec![vec![a(), other_line]], 10, K);
         assert_eq!(hits.len(), 2);
     }
 
@@ -451,6 +485,7 @@ mod tests {
             today(),
             &Arc::new(AtomicU64::new(1)),
             1,
+            &LookupParams::default(),
         )
         .unwrap();
         let run_id = response.lookup_run_id.clone();
@@ -470,12 +505,12 @@ mod tests {
         let (vault, handle) = fixture(&[("a.md", "# A\n预算 记录\n")]);
         let base = base_run(vault.path(), &handle, "火星", "test-groups-dsl");
         let counter = Arc::new(AtomicU64::new(1));
-        let err = search_groups_locked(&handle, &base, &groups(&[&["AND", "tag:x"]]), 20, today(), &counter, 1)
+        let err = search_groups_locked(&handle, &base, &groups(&[&["AND", "tag:x"]]), 20, today(), &counter, 1, &LookupParams::default())
             .err()
             .unwrap();
         assert_eq!(err, "invalid term groups");
         let (search, counts, labels, time) =
-            search_groups_locked(&handle, &base, &groups(&[&["-预算", "OR"]]), 20, today(), &counter, 1).unwrap();
+            search_groups_locked(&handle, &base, &groups(&[&["-预算", "OR"]]), 20, today(), &counter, 1, &LookupParams::default()).unwrap();
         assert_eq!((paths(&search.hits), counts, labels), (vec!["a.md"], vec![1], vec![vec![1]]));
         assert!(time.is_none());
         assert!(search.subqueries.iter().all(|q| q.id.starts_with("g1:")), "arm ids carry their wording");
@@ -493,19 +528,19 @@ mod tests {
         assert_eq!(time.mode, TimeMode::Group);
 
         let (search, _, _, detected) =
-            search_groups_locked(&handle, &base, &groups(&[&["预算"]]), 20, today(), &counter, 1).unwrap();
+            search_groups_locked(&handle, &base, &groups(&[&["预算"]]), 20, today(), &counter, 1, &LookupParams::default()).unwrap();
         assert_eq!(paths(&search.hits), ["2026-11-03-a.md", "2026-10-01-b.md"]);
         assert_eq!(detected.map(|(t, n)| (t.source_text, n)), Some(("上周".to_string(), 1)));
 
         base.time = Some(RunTime { mode: TimeMode::Window, ..time.clone() });
         let (search, counts, _, detected) =
-            search_groups_locked(&handle, &base, &groups(&[&["预算"]]), 20, today(), &counter, 1).unwrap();
+            search_groups_locked(&handle, &base, &groups(&[&["预算"]]), 20, today(), &counter, 1, &LookupParams::default()).unwrap();
         assert_eq!((paths(&search.hits), counts), (vec!["2026-11-03-a.md"], vec![1]));
         assert_eq!(detected.map(|(_, n)| n), Some(1));
 
         base.time = Some(RunTime { mode: TimeMode::Ignore, ..time });
         let (search, _, _, detected) =
-            search_groups_locked(&handle, &base, &groups(&[&["预算"]]), 20, today(), &counter, 1).unwrap();
+            search_groups_locked(&handle, &base, &groups(&[&["预算"]]), 20, today(), &counter, 1, &LookupParams::default()).unwrap();
         assert_eq!(search.hits.len(), 2);
         assert_eq!(detected.map(|(_, n)| n), Some(0));
 
@@ -521,6 +556,7 @@ mod tests {
             today(),
             &counter,
             1,
+            &LookupParams::default(),
         )
         .unwrap();
         let dto = response.time.expect("time dto");

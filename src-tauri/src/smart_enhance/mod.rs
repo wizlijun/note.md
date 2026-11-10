@@ -22,8 +22,6 @@ pub(crate) mod repair;
 /// Named by `search::smart_lookup_search_groups`.
 pub use repair::TermGroup;
 
-pub(crate) const ENHANCE_TIMEOUT: Duration = Duration::from_secs(3);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum EnhanceStatus {
@@ -264,7 +262,7 @@ pub fn smart_lookup_cancel(lookup_run_id: String) {
 }
 
 /// No redirects (a redirect could carry the key elsewhere); no global
-/// timeout: callers bound the wait with `ENHANCE_TIMEOUT`.
+/// timeout: callers bound the wait with `enhance.timeoutMs` (`LookupParams`).
 pub(crate) fn enhance_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())

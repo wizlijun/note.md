@@ -18,6 +18,7 @@ use searchidx::{Limits, Query};
 use serde::{Deserialize, Serialize};
 
 use super::smart::{smart_search_locked, SmartHitDto};
+use crate::lookup_params::FusionParams;
 use super::time_group::{group_by_time, time_scoped_query};
 use super::time_phrase::detect_time_phrase;
 use super::IndexHandle;
@@ -271,6 +272,8 @@ pub(super) fn run_e1(
     today: NaiveDate,
 ) -> Result<Vec<E1Row>, String> {
     let counter = Arc::new(AtomicU64::new(1));
+    // E1 measures the local baseline at the default fusion constants.
+    let fusion = FusionParams::default();
     let search = |question: &str, deep: bool| {
         smart_search_locked(
             handle,
@@ -281,6 +284,7 @@ pub(super) fn run_e1(
             deep.then_some(4_000),
             &counter,
             1,
+            &fusion,
         )
     };
     let mut rows = Vec::with_capacity(tasks.len());

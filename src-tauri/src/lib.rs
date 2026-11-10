@@ -67,6 +67,8 @@ pub mod smart_model;
 #[cfg(not(target_os = "ios"))]
 pub mod smart_enhance;
 #[cfg(not(target_os = "ios"))]
+pub mod lookup_params;
+#[cfg(not(target_os = "ios"))]
 pub mod mcp;
 #[cfg(not(target_os = "ios"))]
 pub mod memory_control;

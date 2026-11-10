@@ -982,17 +982,23 @@ pub struct TimeWindowDto {
     pub in_window: usize,
 }
 
+/// `(limit, deep, timeout)` for one lookup. A caller's limit outside
+/// `1..=LOCAL_LIMIT_MAX` falls back to `local.limit`; a deep search without a
+/// budget gets `local.deepTimeoutMs`, a caller's own is capped at
+/// `DEEP_TIMEOUT_CAP_MS`.
 fn local_lookup_budget(
     limit: Option<usize>,
     deep: Option<bool>,
     timeout_ms: Option<u64>,
+    params: &crate::lookup_params::LocalParams,
 ) -> (usize, bool, Option<u64>) {
-    let limit = limit.filter(|n| (1..=100).contains(n)).unwrap_or(100);
+    use crate::lookup_params::{DEEP_TIMEOUT_CAP_MS, LOCAL_LIMIT_MAX};
+    let limit = limit.filter(|n| (1..=LOCAL_LIMIT_MAX).contains(n)).unwrap_or(params.limit);
     let deep = deep.unwrap_or(false);
     let timeout = if deep {
         match timeout_ms {
-            None | Some(0) => Some(4_000),
-            Some(ms) => Some(ms.min(5_000)),
+            None | Some(0) => Some(params.deep_timeout_ms),
+            Some(ms) => Some(ms.min(DEEP_TIMEOUT_CAP_MS)),
         }
     } else {
         timeout_ms
@@ -1016,6 +1022,7 @@ pub(super) fn local_lookup_locked(
     today: chrono::NaiveDate,
     counter: &Arc<AtomicU64>,
     ticket: u64,
+    fusion: &crate::lookup_params::FusionParams,
 ) -> Result<(smart::SmartSearchResponse, Option<(time_phrase::DetectedTime, usize)>), String> {
     use time_group::TimeMode;
     let search = |query: &str, deep: bool| {
@@ -1028,6 +1035,7 @@ pub(super) fn local_lookup_locked(
             timeout_ms,
             counter,
             ticket,
+            fusion,
         )
     };
     let Some(time) = time_phrase::detect_time_phrase(question, today)? else {
@@ -1053,6 +1061,8 @@ pub(super) fn local_lookup_locked(
 
 /// Local-first Smart Lookup: runs the deterministic smart search (with soft
 /// time grouping) and registers the result as a lookup run for later actions.
+/// Budget, fusion and the time mode the caller leaves out come from the
+/// parameter file; an invalid file is an error.
 #[tauri::command(async)]
 pub fn smart_lookup_local(
     app: AppHandle,
@@ -1066,10 +1076,11 @@ pub fn smart_lookup_local(
     if question.trim().is_empty() {
         return Err("empty question".to_string());
     }
-    let (limit, deep, timeout) = local_lookup_budget(limit, deep, timeout_ms);
+    let params = crate::lookup_params::for_app(&app)?;
+    let (limit, deep, timeout) = local_lookup_budget(limit, deep, timeout_ms, &params.local);
     let (ticket, counter) = app.state::<SearchGen>().next(window.label());
     let idx_handle = handle(&app);
-    let mode = time_mode.unwrap_or(time_group::TimeMode::Group);
+    let mode = time_mode.unwrap_or(params.time.mode);
     let (mut search, detected) = local_lookup_locked(
         &idx_handle,
         &question,
@@ -1080,6 +1091,7 @@ pub fn smart_lookup_local(
         chrono::Local::now().date_naive(),
         &counter,
         ticket,
+        &params.local.fusion(),
     )?;
     let run_time = detected.map(|(time, in_window)| crate::smart_lookup::RunTime {
         source_text: time.source_text,
@@ -1112,9 +1124,10 @@ pub fn smart_lookup_diagnose(
     window: tauri::Window,
     lookup_run_id: String,
 ) -> Result<Diagnosis, String> {
+    let fusion = crate::lookup_params::for_app(&app)?.local.fusion();
     let run = crate::smart_lookup::run_for_window(&lookup_run_id, window.label())?;
     let (ticket, counter) = app.state::<SearchGen>().next(window.label());
-    repair_search::diagnose_locked(&handle(&app), &run, &counter, ticket)
+    repair_search::diagnose_locked(&handle(&app), &run, &fusion, &counter, ticket)
 }
 
 /// Re-searches a retained lookup run locally by up to two wordings (from the
@@ -1128,6 +1141,7 @@ pub fn smart_lookup_search_groups(
     groups: Vec<crate::smart_enhance::TermGroup>,
     limit: Option<usize>,
 ) -> Result<GroupLookupResponse, String> {
+    let params = crate::lookup_params::for_app(&app)?;
     let run = crate::smart_lookup::run_for_window(&lookup_run_id, window.label())?;
     let root = crate::smart_lookup::active_root(&app)?;
     let (ticket, counter) = app.state::<SearchGen>().next(window.label());
@@ -1141,6 +1155,7 @@ pub fn smart_lookup_search_groups(
         chrono::Local::now().date_naive(),
         &counter,
         ticket,
+        &params,
     )
 }
 
@@ -1566,6 +1581,7 @@ mod command_tests {
             chrono::NaiveDate::from_ymd_opt(2026, 11, 10).unwrap(),
             &counter,
             1,
+            &crate::lookup_params::FusionParams::default(),
         )
         .unwrap()
     }
@@ -1614,10 +1630,20 @@ mod command_tests {
 
     #[test]
     fn local_lookup_budget_bounds_limit_and_deep_timeout() {
-        assert_eq!(local_lookup_budget(None, None, None), (100, false, None));
-        assert_eq!(local_lookup_budget(Some(50), Some(false), Some(900)), (50, false, Some(900)));
-        assert_eq!(local_lookup_budget(Some(0), Some(true), None), (100, true, Some(4_000)));
-        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000)), (100, true, Some(5_000)));
+        let p = crate::lookup_params::LocalParams::default();
+        assert_eq!(local_lookup_budget(None, None, None, &p), (100, false, None));
+        assert_eq!(local_lookup_budget(Some(50), Some(false), Some(900), &p), (50, false, Some(900)));
+        assert_eq!(local_lookup_budget(Some(0), Some(true), None, &p), (100, true, Some(4_000)));
+        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000), &p), (100, true, Some(5_000)));
+    }
+
+    #[test]
+    fn local_lookup_budget_defaults_come_from_the_params() {
+        let p = crate::lookup_params::LocalParams { limit: 30, deep_timeout_ms: 2_500, ..Default::default() };
+        assert_eq!(local_lookup_budget(None, None, None, &p), (30, false, None));
+        assert_eq!(local_lookup_budget(Some(0), Some(true), Some(0), &p), (30, true, Some(2_500)));
+        // A caller's own values still win, within the fixed caps.
+        assert_eq!(local_lookup_budget(Some(80), Some(true), Some(9_000), &p), (80, true, Some(5_000)));
     }
 
     fn sample_hit() -> Hit {

@@ -4,14 +4,12 @@
 //! vault or in settings. No command here returns a key; errors are fixed
 //! strings and nothing logs one.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri_plugin_store::StoreExt;
 
-use super::{
-    check_config, enhance_client, EnhanceStatus, Missing, ENHANCE_TIMEOUT,
-};
+use super::{check_config, enhance_client, EnhanceStatus, Missing};
 use crate::smart_model::{
     endpoint_host, score_noul, AuthMode, JevConfig, NoulQuestion,
 };
@@ -119,10 +117,12 @@ fn synthetic_question() -> NoulQuestion {
 }
 
 /// Testable core: synthetic text only, no consent needed, no Vault access.
+/// Waits at most `timeout` (`enhance.timeoutMs` in the app).
 pub(crate) async fn run_jev_test(
     client: &reqwest::Client,
     config: &JevTestConfig,
     key: Option<&str>,
+    timeout: Duration,
 ) -> ConnectionTest {
     let started = Instant::now();
     let done = |status, missing, host, class| ConnectionTest {
@@ -140,7 +140,7 @@ pub(crate) async fn run_jev_test(
         .and_then(|e| endpoint_host(&e))
         .ok();
     let jev: JevConfig = jev;
-    match score_noul(client, &jev, key, "连接测试", &[synthetic_question()], ENHANCE_TIMEOUT).await {
+    match score_noul(client, &jev, key, "连接测试", &[synthetic_question()], timeout).await {
         Ok(_) => done(EnhanceStatus::Ok, None, host, None),
         Err(e) => {
             let (status, class) = super::status_for(&e);
@@ -154,19 +154,21 @@ pub async fn smart_lookup_test_jev(
     app: tauri::AppHandle,
     config: JevTestConfig,
 ) -> Result<ConnectionTest, String> {
+    let timeout = crate::lookup_params::for_app(&app)?.enhance.timeout();
     let key = match config.auth_mode {
         AuthMode::Bearer => read_key(&app, KeyKind::Jev),
         AuthMode::None => None,
     };
     let client = enhance_client()?;
-    Ok(run_jev_test(&client, &config, key.as_deref()).await)
+    Ok(run_jev_test(&client, &config, key.as_deref(), timeout).await)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::smart_model::test_support::serve_once;
-    use std::time::Duration;
+
+    const WAIT: Duration = Duration::from_secs(3);
 
     #[test]
     fn keys_are_trimmed_bounded_and_errors_never_echo_them() {
@@ -188,7 +190,7 @@ mod tests {
         let body = r#"{"answers":{"c1":{"type":"noul","noul":0.9}}}"#;
 
         let (base, request, _) = serve_once(200, body, Duration::ZERO).await;
-        let ok = run_jev_test(&client, &cfg(&base, AuthMode::Bearer), Some("sk-secret")).await;
+        let ok = run_jev_test(&client, &cfg(&base, AuthMode::Bearer), Some("sk-secret"), WAIT).await;
         assert_eq!(ok.status, EnhanceStatus::Ok);
         assert!(ok.endpoint_host.unwrap().starts_with("127.0.0.1:"));
         let request = request.await.unwrap();
@@ -197,18 +199,18 @@ mod tests {
 
         // authMode none never sends a stored key
         let (base, request, _) = serve_once(200, body, Duration::ZERO).await;
-        run_jev_test(&client, &cfg(&base, AuthMode::None), Some("sk-secret")).await;
+        run_jev_test(&client, &cfg(&base, AuthMode::None), Some("sk-secret"), WAIT).await;
         assert!(!request.await.unwrap().contains("sk-secret"));
 
         let (base, _r, _) = serve_once(401, "{}", Duration::ZERO).await;
-        let denied = run_jev_test(&client, &cfg(&base, AuthMode::Bearer), Some("sk-secret")).await;
+        let denied = run_jev_test(&client, &cfg(&base, AuthMode::Bearer), Some("sk-secret"), WAIT).await;
         assert_eq!(denied.status, EnhanceStatus::KeyInvalid);
         assert_eq!(denied.status_class.as_deref(), Some("4xx"));
         assert!(!format!("{denied:?}").contains("sk-secret"));
 
-        let none = run_jev_test(&client, &cfg("https://a.example/v1", AuthMode::Bearer), None).await;
+        let none = run_jev_test(&client, &cfg("https://a.example/v1", AuthMode::Bearer), None, WAIT).await;
         assert_eq!((none.status, none.missing), (EnhanceStatus::NotConfigured, Some(Missing::Key)));
-        let insecure = run_jev_test(&client, &cfg("http://a.example/v1", AuthMode::Bearer), Some("k")).await;
+        let insecure = run_jev_test(&client, &cfg("http://a.example/v1", AuthMode::Bearer), Some("k"), WAIT).await;
         assert_eq!(insecure.missing, Some(Missing::Insecure));
     }
 }
