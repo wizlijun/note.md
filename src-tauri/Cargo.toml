@@ -135,3 +135,7 @@ codegen-units = 1     # one unit → better whole-program optimization
 panic = "abort"       # no unwinding tables
 strip = true          # strip debug symbols
 incremental = false
+
+# Keep GTK native overlays compatible with the runtime resize event handlers.
+[patch.crates-io]
+tauri-runtime-wry = { path = "../vendor/tauri-runtime-wry" }

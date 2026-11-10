@@ -1,0 +1,12 @@
+{
+  "scope": "Independent isolated GTK + Fcitx candidate harness supplied the real IME evidence. Only the base-editor projection and failed-draft fixes were integrated; candidate addon/modules are excluded from this delivery. These are inspected artifact hashes, not a claim of physical-keyboard IME acceptance of the final host package.",
+  "inspected_at": "2026-11-10T04:45:53.380244+08:00",
+  "sha256": {
+    "tasks/sumi-fcitx/isolation/ime-projection-fix.patch": "6cad2e8ac8e5cd3ba2cd52f7336e1b82f6ee3582ce33c7488e46d10e3d7b20bb",
+    "tasks/sumi-fcitx/isolation/ime-failed-draft.patch": "5dea6a69106863e161ce3948570fa97916dab1d59272fcb618800465d49b3ce8",
+    "tasks/sumi-fcitx/isolation/ime-patch.py": "beb7f531a0919fd74484aaf6cb20a1e5eaf5967bae841d43bcc434586d51e5ef",
+    "tasks/sumi-fcitx/isolation/ime-full-regression.log": "6d14fce1889fc17c916d50734324f5b8db41840cd064df5b454a8203ca312193",
+    "tasks/sumi-fcitx/source/tauri-plugin-native-editor/src/linux_candidates.rs": "808cfc58d149a8b473c51b37f037aeafd4fed8192e08d2430747284b40e74c4d",
+    "tasks/sumi-fcitx/source/tauri-plugin-native-editor/src/linux.rs": "c29e77958998324fe32c808343d85ac723d7ed1db9e849187b90ae8d7f3e5c66"
+  }
+}

@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "identifier": "dev.notemd.sumi-native-probe",
   "build": { "frontendDist": "assets" },
-  "app": { "windows": [{"label":"main","title":"Sumi Native Probe — isolated","width":960,"height":720,"resizable":false}], "security": {"csp":null} },
+  "app": { "windows": [{"label":"main","title":"Sumi Native Probe — isolated","width":760,"height":460,"resizable":false}], "security": {"csp":null} },
   "bundle": {"active":false}
 }

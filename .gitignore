@@ -71,4 +71,5 @@ location-helper/target/
 /write-sync-worker/.wrangler/
 
 /sumi-protocol/target/
+/tauri-plugin-native-editor/target/
 /plugins-src/write/backend/target/

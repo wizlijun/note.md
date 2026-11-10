@@ -198,12 +198,12 @@ async fn typing_on_main<R: Runtime>(app: &tauri::AppHandle<R>, f: impl FnOnce() 
     rx.await.map_err(|_| "native typing monitor main thread stopped".to_owned())
 }
 fn platform_typing_configure(enabled: bool, handler: Option<TypingSoundHandler>) -> TypingMonitorStatus {
-    #[cfg(target_os = "macos")] { platform::configure_typing(enabled, handler) }
-    #[cfg(not(target_os = "macos"))] { let _ = (enabled, handler); TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
+    #[cfg(any(target_os = "macos", target_os = "linux"))] { platform::configure_typing(enabled, handler) }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))] { let _ = (enabled, handler); TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
 }
 fn platform_typing_status(request: bool) -> TypingMonitorStatus {
-    #[cfg(target_os = "macos")] { platform::typing_status(request) }
-    #[cfg(not(target_os = "macos"))] { let _ = request; TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
+    #[cfg(any(target_os = "macos", target_os = "linux"))] { platform::typing_status(request) }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))] { let _ = request; TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
 }
 
 /// Controlled rich projection installed synchronously before the next native input.
@@ -253,7 +253,7 @@ pub struct SurfaceState {
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("native-editor")
         .on_window_ready(|window| {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
             {
                 use tauri::Manager;
                 let label = window.label().to_owned();
@@ -265,7 +265,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                     }
                 });
             }
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
             let _ = window;
         })
         .build()
@@ -381,11 +381,11 @@ fn validate_document(d: &RenderDocument) -> Result<(), String> {
 }
 
 pub fn is_supported() -> bool {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         platform::is_supported()
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         false
     }
@@ -401,14 +401,14 @@ pub async fn register_font<R: Runtime>(
     if !path.is_absolute() || expected_family.is_empty() {
         return Err("invalid bundled font identity".into());
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         on_main(window, move || {
             platform::register_font(&path, &expected_family)
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = window;
         Err("native font registration is not supported on this platform".into())
@@ -433,14 +433,14 @@ pub async fn register_font_cascade<R: Runtime>(
     families: Vec<String>,
 ) -> Result<(), String> {
     validate_font_cascade(&alias, &families)?;
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         on_main(window, move || {
             platform::register_font_cascade(&alias, &families)
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = window;
         Err("native font registration is not supported on this platform".into())
@@ -467,7 +467,20 @@ pub async fn mount<R: Runtime>(
         rx.await
             .map_err(|_| "native mount callback cancelled".to_owned())?
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::*;
+        let label=window.label().to_owned();
+        let target=window.clone();
+        let (tx,rx)=tokio::sync::oneshot::channel();
+        window.with_webview(move |webview| {
+            let result=target.gtk_window().map_err(|e|e.to_string()).and_then(|parent|
+                platform::mount(&parent,&label,config,handler,Some(webview.inner().upcast::<gtk::Widget>())));
+            let _=tx.send(result);
+        }).map_err(|e|e.to_string())?;
+        rx.await.map_err(|_|"native mount callback cancelled".to_owned())?
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, config, handler);
         Err("native editor is not supported on this platform".into())
@@ -521,20 +534,20 @@ pub async fn command_and_then<R: Runtime, T: Send + 'static>(
     complete: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
     validate_command(&command)?;
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
             complete_command(platform::command(&label, &surface_id, generation, command), complete)
         }).await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation, command, complete);
         Err("native editor is not supported on this platform".into())
     }
 }
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "macos", target_os = "linux", test))]
 fn complete_command<T>(result: Result<(), String>, complete: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     result?;
     complete()
@@ -544,7 +557,7 @@ pub async fn inspect<R: Runtime>(
     surface_id: String,
     generation: u64,
 ) -> Result<SurfaceState, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
@@ -552,7 +565,7 @@ pub async fn inspect<R: Runtime>(
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation);
         Err("native editor is not supported on this platform".into())
@@ -568,7 +581,7 @@ pub async fn transaction<R: Runtime, T: Send + 'static>(
     generation: u64,
     prepare: impl FnOnce(&SurfaceState) -> Result<(T, Option<EventReply>), String> + Send + 'static,
 ) -> Result<T, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
@@ -597,7 +610,7 @@ pub async fn transaction<R: Runtime, T: Send + 'static>(
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation, prepare);
         Err("native editor is not supported on this platform".into())
@@ -608,7 +621,7 @@ pub async fn detach<R: Runtime>(
     surface_id: String,
     generation: u64,
 ) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
@@ -616,13 +629,13 @@ pub async fn detach<R: Runtime>(
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation);
         Ok(())
     }
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn on_main<R: Runtime, T: Send + 'static>(
     window: &WebviewWindow<R>,
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
@@ -638,6 +651,9 @@ async fn on_main<R: Runtime, T: Send + 'static>(
 }
 
 #[cfg(target_os = "macos")]
+mod platform;
+#[cfg(target_os = "linux")]
+#[path = "linux.rs"]
 mod platform;
 
 #[cfg(test)]
@@ -750,8 +766,8 @@ mod tests {
 /// Main-thread native menu dispatch. Only the actual key-window Sumi responder
 /// can consume this command; other text fields retain AppKit behavior.
 pub fn menu_command(command: &str) -> bool {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     { platform::menu_command(command) }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     { let _ = command; false }
 }

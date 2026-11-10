@@ -2,8 +2,59 @@
 
 Host-controlled native rich-text surfaces for Sumi. The macOS backend uses an
 ARC Objective-C AppKit bridge and `NSTextView(initUsingTextLayoutManager:YES)`.
-Other platforms return unavailable; macOS requires 13+. There are no public JS
+The Linux backend uses GTK3 TextView in the host's GTK overlay and event loop,
+including native Wayland input. Other platforms return unavailable; macOS requires
+13+. There are no public JS
 mount commands and no Markdown, disk, credential, or sync implementation here.
+
+## Linux / Omarchy
+
+`src/linux.rs` implements the same host-owned transaction and UTF-16 protocol;
+`src/linux_focus.rs` handles presentation using GTK's real display lines and
+insertion cursor. Fonts register only in the process through Fontconfig. The
+host stores device credentials through libsecret and the plugin plays sound
+through PulseAudio (including PipeWire's Pulse server).
+
+Both Cargo entry points share the pinned
+[Tauri runtime GTK compatibility patch](../vendor/tauri-runtime-wry/NOTEMD_PATCH.md).
+It makes mouse and touch resizing resolve the actual toplevel window when the
+native overlay adds a container, while retaining the original WebKit/menu box.
+
+The Linux caret has its own small drawing area, so breathing does not invalidate
+an editor-sized translucent layer. Its fixed height uses the base font metrics;
+public Pango itemization and shaped glyph extents recover the native run baseline
+(including bitmap emoji scaling). The cache includes the context and font-map
+serials, font, language, complete cursor cluster and style. GTK supplies preedit
+text without its cursor offset: matching native run height resolves ordinary
+mixed preedit runs; if equally tall runs have different baselines, the bridge
+keeps GTK's exact caret rectangle instead of guessing. Physical IME candidate
+placement requires separate desktop acceptance.
+
+RTF-only clipboard data is converted to plain text by
+[`rclip-rtf` 0.1.0](https://docs.rs/rclip-rtf/0.1.0/rclip_rtf/), from
+[rich-clipboard](https://github.com/fschutt/rich-clipboard), licensed MIT OR
+Apache-2.0. Its default parser and `rclip-core` have no I/O, network or rendering
+capabilities and bound nesting to 64 groups. `src/linux_rtf.rs` caps both input
+and decoded text at 2 MiB, discards formatting/embedded objects, and rejects
+malformed input or replacement characters rather than saving undecodable text.
+Unicode RTF (including CJK and surrogate-pair emoji), Windows-1252 and Latin-1
+are supported; legacy CJK code-page bytes are rejected with a plain-text-copy
+instruction. No document converter process or system package is required.
+Run the module tests with `cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml rtf::`.
+
+
+Run `cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml` for unit
+tests. The opt-in GTK transaction test needs an available desktop:
+
+```sh
+GDK_BACKEND=wayland cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml \
+  native_wayland_transactions -- --ignored --test-threads=1
+```
+
+This is an isolated synthetic native test, not evidence of physical IME or
+full-host acceptance. See the [Omarchy implementation and acceptance specification](../docs/superpowers/specs/2026-11-10-sumi-omarchy-native.md)
+for architecture decisions and outstanding acceptance boundaries. The AppKit
+implementation details and Objective-C probes below apply to macOS only.
 
 ## Host contract
 
