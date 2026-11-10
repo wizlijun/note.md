@@ -1,13 +1,14 @@
 //! The whole smart-lookup pipeline in one call, for `notemd lookup` and its
-//! eval mode (spec Appendix G.5 / G.6): local lookup → route → judge, or
+//! eval mode (spec Appendix G.5 / G.6, H.1): local lookup → route → evidence rounds, or
 //! diagnosis → repair → regrouped search.
 //!
 //! Orchestration only. Every decision is made by the functions the window's
-//! commands call — `lookup_local_in`, `route`, `judge_run`,
+//! commands call — `lookup_local_in`, `route`, `evidence_step`,
 //! `diagnose_locked`, `repair_run`, `search_groups_in` — so confidentiality,
 //! re-reading blocks, consent, error-to-status mapping and the one-automatic-
 //! request budget are the same code here as in the app.
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
@@ -17,11 +18,12 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 use super::candidates::{route, Route};
-use super::judge::{judge_run, JudgeRequest, JudgeResult};
+use super::evidence::{evidence_step, ready_reader, unavailable, EvidenceItemDto, EvidenceRequest, EvidenceStepResult};
 use super::repair::{repair_run, RepairRequest, RepairSuggestion};
 use super::{cancel_flag_for, ChatRequestConfig, EnhanceStatus, JevRequestConfig, SkipReason, Trigger};
 use crate::lookup_params::LookupParams;
 use crate::search::smart::SmartHitDto;
+use crate::search::HitDto;
 use crate::search::time_group::TimeMode;
 use crate::search::{
     diagnose_locked, lookup_local_in, search_groups_in, Diagnosis, GroupLookupResponse, IndexHandle,
@@ -68,11 +70,12 @@ pub(crate) struct PipelineOutput {
     pub local_ms: u64,
     pub route: PipelineRoute,
     pub skip_reason: Option<SkipReason>,
-    pub judge: Option<JudgeResult>,
+    /// The judge route's evidence rounds, one per `evidence_step` call.
+    pub evidence_rounds: Vec<EvidenceStepResult>,
     pub diagnosis: Option<Diagnosis>,
     pub repair: Option<RepairSuggestion>,
     pub regrouped: Option<GroupLookupResponse>,
-    /// 最终展示顺序：判断成功时按 JudgeResult.order，修复成功时是按说法重搜的结果，否则是本地顺序。
+    /// 最终展示顺序：有证据时先证据、再其余本地命中（spec H.10），修复成功时是按说法重搜的结果，否则是本地顺序。
     pub hits: Vec<SmartHitDto>,
     /// Per hit of `hits`, the wordings (from 1) that found it; empty unless
     /// the hits come from the regrouped search.
@@ -89,9 +92,9 @@ pub(crate) struct PipelineOutput {
 ///    - `Repair`: `diagnose_locked`; with a chat config, `repair_run`
 ///      (automatic; without a key the host answers `notConfigured`), and on
 ///      `ok` `search_groups_in`;
-///    - `Judge`: `judge_run` (automatic) on the host display order, with
-///      the in-range count as the only section break in `Group` time mode;
-///      on `ok` the hits follow `JudgeResult.order`;
+///    - `Judge`: `evidence_step` (automatic) until it reports `done`, one
+///      round per call as the window runs them (spec H.1); the hits are the
+///      latest `ok` round's evidence, then the other local hits;
 ///    - `Skip`: done, with the reason.
 pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Client) -> Result<PipelineOutput, String> {
     let started = Instant::now();
@@ -119,7 +122,7 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
         local_ms,
         route: PipelineRoute::Local,
         skip_reason: None,
-        judge: None,
+        evidence_rounds: Vec::new(),
         diagnosis: None,
         repair: None,
         regrouped: None,
@@ -176,13 +179,6 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
         }
         Route::Judge => {
             out.route = PipelineRoute::Judge;
-            let display_order: Vec<String> = out.local.search.hits.iter().filter_map(|h| h.result_id.clone()).collect();
-            let section_breaks = match &out.local.time {
-                Some(t) if t.mode == TimeMode::Group && 0 < t.in_window && t.in_window < display_order.len() => {
-                    vec![t.in_window]
-                }
-                _ => Vec::new(),
-            };
             // No Jev config: the host's gate reports what is missing.
             let unconfigured = JevRequestConfig {
                 url: String::new(),
@@ -194,27 +190,135 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
             let vault_root =
                 std::fs::canonicalize(input.vault_root).map_err(|error| format!("resolve vault: {error}"))?;
             let cancel = cancel_flag_for(Trigger::Auto, &run.id);
-            let request = JudgeRequest {
-                run_id: &run.id,
-                window_label: input.window_label,
-                vault_root: &vault_root,
-                display_order: &display_order,
-                section_breaks: &section_breaks,
-                config,
-                key: enhance.jev_key.as_deref(),
-                trigger: Trigger::Auto,
-                params,
-                timeout: params.enhance.timeout(),
-            };
-            let judge = judge_run(request, input.index, client, &cancel).await?;
-            if judge.status == EnhanceStatus::Ok {
-                let by_id: std::collections::HashMap<&str, &SmartHitDto> =
-                    out.local.search.hits.iter().filter_map(|h| Some((h.result_id.as_deref()?, h))).collect();
-                out.hits = judge.order.iter().filter_map(|id| by_id.get(id.as_str()).map(|h| (*h).clone())).collect();
+            let reader = ready_reader(input.index, &vault_root).await?;
+            // `done` ends the loop; the bound (one round more than the
+            // rounds there can be) only guards against a host bug.
+            for _ in 0..params.retrieval.max_hops + 2 {
+                let Some(reader) = reader.clone() else {
+                    out.evidence_rounds.push(unavailable());
+                    break;
+                };
+                let request = EvidenceRequest {
+                    run_id: &run.id,
+                    window_label: input.window_label,
+                    vault_root: &vault_root,
+                    config,
+                    key: enhance.jev_key.as_deref(),
+                    trigger: Trigger::Auto,
+                    deep: input.deep,
+                    params,
+                    reader,
+                };
+                let round = evidence_step(request, client, &cancel).await?;
+                let done = round.done;
+                out.evidence_rounds.push(round);
+                if done {
+                    break;
+                }
             }
-            out.judge = Some(judge);
+            if let Some(latest) = out.evidence_rounds.iter().rev().find(|r| r.status == EnhanceStatus::Ok) {
+                out.hits = evidence_first(&latest.evidence, &out.local.search.hits, input.vault_root);
+            }
         }
     }
     out.total_ms = started.elapsed().as_millis() as u64;
     Ok(out)
+}
+
+/// What the window shows top to bottom (spec H.8, H.10): the evidence list,
+/// each item as the local hit with the same path and line range (or built
+/// from the item when the local lookup did not return it), then the other
+/// local hits in their order.
+fn evidence_first(evidence: &[EvidenceItemDto], local: &[SmartHitDto], vault_root: &Path) -> Vec<SmartHitDto> {
+    let mut used = HashSet::new();
+    let mut hits = Vec::with_capacity(evidence.len() + local.len());
+    for item in evidence {
+        let same = |h: &SmartHitDto| (h.hit.path.as_str(), h.hit.line, h.hit.line_end) == (item.path.as_str(), item.line, item.line_end);
+        match local.iter().position(same) {
+            Some(i) => {
+                used.insert(i);
+                hits.push(local[i].clone());
+            }
+            None => hits.push(hit_from_evidence(item, vault_root)),
+        }
+    }
+    hits.extend(local.iter().enumerate().filter(|(i, _)| !used.contains(i)).map(|(_, h)| h.clone()));
+    hits
+}
+
+/// A line-level hit for an evidence item the local lookup did not return.
+/// Only what the item knows is filled in; it has no result id.
+fn hit_from_evidence(item: &EvidenceItemDto, vault_root: &Path) -> SmartHitDto {
+    SmartHitDto {
+        hit: HitDto {
+            path: item.path.clone(),
+            abs_path: vault_root.join(&item.path).to_string_lossy().to_string(),
+            line: item.line,
+            line_end: item.line_end,
+            text: item.text.clone(),
+            breadcrumb: item.breadcrumb.clone(),
+            level: "line".to_string(),
+            score: 0.0,
+            doc_date: None,
+            source_ref: format!("{}#L{}", item.path, item.line),
+            agent_by: None,
+            human_verified: false,
+            origin: String::new(),
+            concept_type: None,
+            pinned: false,
+        },
+        fused_score: 0.0,
+        relevance_reasons: Vec::new(),
+        matched_queries: Vec::new(),
+        result_id: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::smart_enhance::enhance_client;
+    use crate::smart_enhance::evidence::tests::{config, fixture, server, QUESTION};
+    use std::sync::atomic::Ordering::SeqCst;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn pipeline_judge_route_runs_evidence_rounds() {
+        let f = fixture();
+        let s = server(|_| Duration::ZERO).await;
+        let setup = EnhanceSetup { jev: Some(config(&s.base)), jev_key: None, chat: None, chat_key: None };
+        let params = LookupParams::default();
+        let input = PipelineInput {
+            question: QUESTION,
+            vault_root: &f.root,
+            index: &f.index,
+            window_label: "test-pipeline-evidence",
+            params: &params,
+            deep: false,
+            time_mode: None,
+            today: NaiveDate::from_ymd_opt(2026, 11, 11).unwrap(),
+            enhance: Some(&setup),
+        };
+        let out = run_pipeline(input, &enhance_client().unwrap()).await.unwrap();
+        assert_eq!(out.route, PipelineRoute::Judge);
+        assert_eq!(out.evidence_rounds.len(), 2); // maxHops 1: rounds 0 and 1
+        assert_eq!(out.evidence_rounds.iter().map(|r| (r.hop, r.done)).collect::<Vec<_>>(), [(0, false), (1, true)]);
+        assert_eq!(s.accepted.load(SeqCst), 2);
+        let evidence = &out.evidence_rounds[1].evidence;
+        let key = |path: &str, line: u32, end: u32| (path.to_string(), line, end);
+        let shown: Vec<_> = out.hits.iter().map(|h| key(&h.hit.path, h.hit.line, h.hit.line_end)).collect();
+        let want: Vec<_> = evidence.iter().map(|i| key(&i.path, i.line, i.line_end)).collect();
+        assert_eq!(shown[..want.len()], want[..], "the hits begin with the evidence");
+        // An item the local lookup did not return is built from the item;
+        // one it did return is that local hit.
+        let p = out.hits.iter().find(|h| h.hit.path == "p.md").expect("p.md came from round 1");
+        assert!(p.result_id.is_none() && p.hit.text.contains("Alice Paul"));
+        let q = &out.hits[shown.iter().position(|k| k.0 == "q.md").unwrap()];
+        assert!(q.result_id.is_some());
+        // Every local hit is still there, once.
+        for local in &out.local.search.hits {
+            let k = key(&local.hit.path, local.hit.line, local.hit.line_end);
+            assert_eq!(shown.iter().filter(|s| **s == k).count(), 1, "{k:?}");
+        }
+    }
 }

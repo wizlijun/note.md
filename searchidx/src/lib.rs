@@ -328,6 +328,25 @@ impl SearchIndex {
         &self.vault_root
     }
 
+    /// The database file this index lives in, for opening a read-only
+    /// [`sag::SagReader`] on the same index.
+    pub fn db_path(&self) -> &Path {
+        &self.db_path
+    }
+
+    /// The `source_globs` stamp stored in `meta`: the stamp this index was
+    /// opened (and, after a change, rebuilt in place) with, which a
+    /// [`sag::SagReader`] on the same file must present. `None` when unreadable.
+    ///
+    /// Read from the same `meta` the reader then checks it against, so on this
+    /// path that check cannot fail: what makes the stamp current is that this
+    /// index was opened with the configured stamp (and rebuilt in place when it
+    /// differed). A caller that needs the configured stamp compared must pass
+    /// `opts.source_globs.stamp()` instead.
+    pub fn globs_stamp(&self) -> Option<String> {
+        store::meta_get(&self.conn, "source_globs")
+    }
+
     /// 重新摄取 vault 的注意力数据,返回写入的文件数。
     ///
     /// **全量重算**,不是增量:当天的 analytics 文件整天都在被重写,任何

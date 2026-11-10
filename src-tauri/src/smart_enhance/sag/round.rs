@@ -621,7 +621,6 @@ mod tests {
     #[derive(Clone, Debug)]
     struct Call {
         pool: Vec<SagCandidate>,
-        evidence: Vec<String>,
         state: String,
     }
 
@@ -666,7 +665,7 @@ mod tests {
         ) -> impl Future<Output = Result<Vec<SagCandidate>, RoundError>> + Send {
             let titles: Vec<String> = evidence.iter().map(|c| c.title.clone()).collect();
             let fail = self.fail_on == Some(self.calls.len());
-            self.calls.push(Call { pool: pool.clone(), evidence: titles.clone(), state });
+            self.calls.push(Call { pool: pool.clone(), state });
             let scored: Vec<SagCandidate> = pool
                 .into_iter()
                 .map(|mut c| {

@@ -4,7 +4,7 @@ import type { SmartSearchResponse } from '../search/api'
 export type TimeMode = 'group' | 'window' | 'ignore'
 export type EnhanceStatus = 'ok' | 'skipped' | 'notConfigured' | 'noConsent' | 'timeout' | 'keyInvalid' | 'unreachable' | 'invalid' | 'cancelled'
 /** `indexUnavailable`: the index was busy, missing or another vault's, so nothing could be checked for confidentiality and nothing was sent. */
-export type SkipReason = 'zeroHits' | 'pinned' | 'fewTerms' | 'repaired' | 'noCandidates' | 'autoBudgetUsed' | 'indexUnavailable'
+export type SkipReason = 'zeroHits' | 'pinned' | 'fewTerms' | 'repaired' | 'noCandidates' | 'autoBudgetUsed' | 'indexUnavailable' | 'roundRunning'
 export type Missing = 'url' | 'model' | 'key' | 'insecure'
 export type Tier = 'fit' | 'unsure' | 'unfit'
 export type Trigger = 'auto' | 'user'

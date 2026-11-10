@@ -56,31 +56,47 @@ pub(crate) fn append_feedback(path: &Path, row: &FeedbackRow) -> Result<(), Stri
     file.write_all(line.as_bytes()).map_err(|e| format!("write feedback log: {e}"))
 }
 
-/// Build the row from the retained run. A result the model did not judge has
-/// no tier to correct.
+/// Build the row from the retained run. `result_id` is a local result id
+/// (tiered by the evidence rounds or by the one-round judge) or an evidence
+/// id; the tier is the one last reported for it, and the evidence rounds,
+/// being the newer scores, win over the judge's record (spec H.8). A result
+/// the model did not judge has no tier to correct.
 pub(crate) fn feedback_row(
     run: &LookupRun,
     result_id: &str,
     verdict: UserVerdict,
     now: DateTime<Utc>,
 ) -> Result<FeedbackRow, String> {
-    let judgement = run.judgement.as_ref().ok_or("result was not judged")?;
-    let model_tier = *judgement.tiers.get(result_id).ok_or("result was not judged")?;
-    let hit = run
-        .hits
-        .iter()
-        .find(|h| h.result_id == result_id)
-        .ok_or("result was not judged")?;
+    let not_judged = || "result was not judged".to_string();
+    let local = |id: &str| run.hits.iter().find(|h| h.result_id == id).map(|h| (h.path.clone(), h.line, h.line_end));
+    let judged = || run
+        .judgement
+        .as_ref()
+        .and_then(|j| Some((*j.tiers.get(result_id)?, j.endpoint_host.clone(), j.model.clone(), local(result_id)?)));
+    let evidence = || {
+        let e = run.evidence.as_ref()?;
+        let tier = *e.tiers.get(result_id)?;
+        let place = match e.items.iter().find(|(id, _)| id == result_id) {
+            Some((_, block)) => {
+                let c = e.state.latest.get(block)?;
+                (c.path.clone(), c.line, c.line_end)
+            }
+            None => local(result_id)?,
+        };
+        Some((tier, e.endpoint_host.clone(), e.model.clone(), place))
+    };
+    let (model_tier, endpoint_host, model, (path, line, line_end)) =
+        evidence().or_else(judged).ok_or_else(not_judged)?;
     Ok(FeedbackRow {
         ts: now.to_rfc3339_opts(SecondsFormat::Secs, true),
         question: run.question.clone(),
-        path: hit.path.clone(),
-        line: hit.line,
-        line_end: hit.line_end,
+        path,
+        line,
+        line_end,
         model_tier,
         user_verdict: verdict,
-        endpoint_host: judgement.endpoint_host.clone(),
-        model: judgement.model.clone(),
+        endpoint_host,
+        model,
     })
 }
 
@@ -137,6 +153,8 @@ mod tests {
                 model: "m".into(),
                 tiers: HashMap::from([("r1".to_string(), Tier::Fit)]),
             }),
+            evidence: None,
+            evidence_busy: false,
         }
     }
 
@@ -166,6 +184,77 @@ mod tests {
             feedback_row(&run(true), "nope", UserVerdict::Fit, fixed_now()).unwrap_err(),
             "result was not judged"
         );
+    }
+
+    /// An evidence run that scored block 7 (b.md:4, evidence id `e1`, fit)
+    /// and tiered the local hit `r1` unfit.
+    fn evidence_run() -> crate::smart_enhance::evidence::EvidenceRun {
+        use crate::smart_enhance::sag::round::{EvidenceState, RoundSettings};
+        use crate::smart_enhance::sag::SagCandidate;
+        let block = SagCandidate {
+            id: 7,
+            path: "b.md".into(),
+            line: 4,
+            line_end: 4,
+            title: "b".into(),
+            heading: String::new(),
+            content: "found text".into(),
+            bm25: -1.0,
+            score: 0.9,
+            previous_score: None,
+            order: 0,
+        };
+        let state = EvidenceState {
+            generation: 1,
+            query: "where is the plan".into(),
+            expression: "\"plan\"".into(),
+            next_hop: 1,
+            retained: vec![block.clone()],
+            frontier: vec![],
+            expanded: Default::default(),
+            seen: Default::default(),
+            carried: Default::default(),
+            protected: Default::default(),
+            latest: [(7, block)].into_iter().collect(),
+            trace: vec![],
+            found_round: Default::default(),
+            stop: None,
+            tokens_used: 0,
+            settings: RoundSettings { candidate_k: 50, seed_k: 10, term_limit: 20, max_hops: 1, top_k: 10, protected_k: 5 },
+        };
+        crate::smart_enhance::evidence::EvidenceRun {
+            state,
+            items: vec![("e1".into(), 7)],
+            endpoint_host: "jev.example".into(),
+            model: "jev-m".into(),
+            auto_claimed: true,
+            auto_ended: false,
+            tiers: HashMap::from([("e1".to_string(), Tier::Fit), ("r1".to_string(), Tier::Unfit)]),
+            shown: None,
+        }
+    }
+
+    #[test]
+    fn feedback_accepts_evidence_ids() {
+        let mut r = run(false);
+        r.evidence = Some(evidence_run());
+        let row = feedback_row(&r, "e1", UserVerdict::Unfit, fixed_now()).unwrap();
+        assert_eq!((row.path.as_str(), row.line, row.line_end), ("b.md", 4, 4));
+        assert_eq!((row.model_tier, row.endpoint_host.as_str(), row.model.as_str()), (Tier::Fit, "jev.example", "jev-m"));
+        // A local row tiered by the evidence rounds.
+        let local = feedback_row(&r, "r1", UserVerdict::Fit, fixed_now()).unwrap();
+        assert_eq!((local.path.as_str(), local.line, local.model_tier), ("a.md", 3, Tier::Unfit));
+        assert_eq!(local.endpoint_host, "jev.example");
+        assert_eq!(feedback_row(&r, "e9", UserVerdict::Fit, fixed_now()).unwrap_err(), "result was not judged");
+        // Both tiered r1: the evidence rounds' newer score wins.
+        let mut both = run(true);
+        both.evidence = Some(evidence_run());
+        let newer = feedback_row(&both, "r1", UserVerdict::Fit, fixed_now()).unwrap();
+        assert_eq!((newer.model_tier, newer.endpoint_host.as_str()), (Tier::Unfit, "jev.example"));
+        assert_eq!(feedback_row(&both, "e1", UserVerdict::Fit, fixed_now()).unwrap().model_tier, Tier::Fit);
+        // The judge's record still answers for a result only it tiered.
+        let judged = feedback_row(&run(true), "r1", UserVerdict::Fit, fixed_now()).unwrap();
+        assert_eq!((judged.model_tier, judged.endpoint_host.as_str()), (Tier::Fit, "api.typesafe.ai"));
     }
 
     #[test]

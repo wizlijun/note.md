@@ -381,6 +381,10 @@ fn install_if_current(
 /// and the watcher must be governed by the same counter.
 pub fn open_vault(app: &AppHandle, vault_root: &Path) {
     crate::plugin_runtime::index_api::invalidate_all();
+    // The SAG2 readers too: the open below may wipe and recreate the file
+    // (a corrupt or outdated index), and a cached reader would keep reading
+    // the old one (and on Windows keep it from being removed).
+    crate::smart_enhance::evidence::forget_readers();
     let my_gen = watch::reserve_generation(app);
     let idx_handle = handle(app);
     let open_state = app.state::<OpenState>().inner().clone();

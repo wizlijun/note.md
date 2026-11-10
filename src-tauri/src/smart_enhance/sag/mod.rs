@@ -8,11 +8,6 @@
 //! the shared types and the verbatim SAG2 constants. The steps live in the
 //! submodules, one per H.3 subsection group.
 
-// The consumers of these items (the round state machine and the host command)
-// land in later tasks of the same plan; until then most items are unused in the
-// lib build.
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod corpus;
