@@ -18,8 +18,8 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '6.1110.1'
-PLUGIN_VERSION = '0.1.10'
+VERSION = '6.1110.8'
+PLUGIN_VERSION = '0.1.13'
 SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
            'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/lib/sumi/i18n.ts', 'src/App.svelte',
            'src-tauri/src/sumi/mod.rs', 'src-tauri/src/sumi/export.rs',
@@ -28,7 +28,11 @@ SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.
            'src-tauri/src/sumi/journal.rs',
            'src-tauri/src/plugin_runtime/market.rs', 'src-tauri/src/plugin_runtime/windows.rs',
            'src-tauri/src/lib.rs', 'src-tauri/src/app_dirs.rs',
-           'tauri-plugin-native-editor/native/editor.m', 'tauri-plugin-native-editor/src/lib.rs',
+           'tauri-plugin-native-editor/native/editor.m',
+           'tauri-plugin-native-editor/native/candidates-view.h',
+           'tauri-plugin-native-editor/native/candidates-host.h',
+           'tauri-plugin-native-editor/native/candidates-bridge.h',
+           'tauri-plugin-native-editor/src/lib.rs',
            'tauri-plugin-native-editor/Cargo.toml', 'tauri-plugin-native-editor/build.rs',
            'plugins-src/write/src/main.ts', 'plugins-src/write/src/contract.ts',
            'plugins-src/write/src/style.css', 'plugins-src/write/manifest.v2.json',
