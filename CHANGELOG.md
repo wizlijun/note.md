@@ -7,6 +7,12 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1110.4 — 2026-11-10
+
+- **Omarchy plugin windows and shortcuts.** Linux plugin windows open with a movable title bar, resize controls and an initial size fitted to the available desktop. App commands use Ctrl; Sumi uses F11 for fullscreen and keeps its controls reachable above the desktop dock. Fullscreen writing uses one proportional font scale and restores the saved size on exit.
+
+- **Matching plugin updates:** Sumi 0.1.12, NEXT 1.13.3 and Idea Spark 1.3.8 require host 6.1110.4 or later, including the Linux menu isolation that keeps plugin shortcuts from editing the main window.
+
 - **Keep the input line in place outside Sumi focus mode.** Fcitx candidates stay at the bottom and expand independently; displaying or paging candidates no longer anchors the body to the bottom or changes its viewport. Focus mode continues to show candidates below the active line.
 
 ## v6.1110.3 — 2026-11-10
