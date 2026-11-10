@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "tag": "v6.1110.3",
+  "tag_commit": "a64353c72ffe930de5ff90923b457e1d15360bef",
+  "source_sha256": {
+    "src/components/SettingsDialog.svelte": "6b8dbd12aacdd51ac284c1f334e15a460a6ca719848df223252a9d1d5ac3ddaf",
+    "src/components/UpdateDialog.svelte": "7065cbf2159e6c15aa97c29d5bc8d02ca08b6e8c33b73c2357bdac37df4ce064",
+    "src/lib/updater.svelte.ts": "c40ec9e7d606f4de41abcb2e50b730e7adc58f0ff3a32271497c3929102de869",
+    "src/lib/linux-updates.ts": "430a0eb2ebbc6127297b2faeef2c00c2ebbde0a73d80b9d6e2c4a617ce048597",
+    "src/lib/i18n/en.ts": "adc558b9b10b6ba05ffb81e4c60ce4bcb331f7292a027a7f80fe28c577a37902",
+    "src/styles/app.css": "6cd1c4fae0278eecaa9471a895a6d749a6eb01d021a2fec4fccd82115e889a8d"
+  },
+  "webkit": "2.54.1",
+  "checks": [
+    "Idle text says not checked, never up to date",
+    "Actual DOM manual check handler finds matching Linux version and release notes",
+    "Available dialog says View downloads and provides package manager guidance",
+    "Download click invokes only canonical release opener, never Tauri updater/install/restart",
+    "Settings renders automatic preference, manual check and versioned download action",
+    "Preference checkbox persists enabled state",
+    "HTTP 503 shown as error, never up to date",
+    "Successful check and failed check persisted evidence are distinct immutable argument snapshots"
+  ],
+  "store_check_success_sequence": [
+    true,
+    true,
+    false
+  ],
+  "evidence_sha256": {
+    "dialog-idle.json": "85a0e683eef393ef93149c6c22efc8f88cb9a9c6e32071940aa98ad07cd3f6e5",
+    "dialog-idle.png": "c229d36a27a0b5f62d30fc69416098ffe04aa3fcbde587221a428b4e2df59564",
+    "dialog-available.json": "5e9aa93566de469415ff16d637a95f513cf59f8bde0def458207a163f1476e65",
+    "dialog-available.png": "4b39740e3beb2fa7457d9d1a97f3e9e4157b50d1cb4dde1e32eee543ecc9a6e1",
+    "settings-available.json": "c21b31f52bce8e43ac7d33ceb75950d7c691ae862c51f5116164c5e29a4727ad",
+    "settings-available.png": "d642b2e2241fa99e6d4c9492919933f803f3282e9f89a9c002e8591b045e359a",
+    "settings-network-error.json": "27635fb0d5596675ff0a618089f385d58b0a2e71a133d04abe286bfe3f7262e3",
+    "settings-network-error.png": "270d522611b1e8a9ce4b2abc5b1a41206b098f40c2d08a07e8fc9c44486bfafb",
+    "complete.json": "1b22e1b3c30c5710cfdf95cc3f87305454fcb9c6fa354d91f6825af2adf49e8c",
+    "result.json": "cc1ba7871a8fe46226e5384f41fc37dfc898accccf958be7583359637b381820"
+  },
+  "screenshot_visual_review": "All four screenshots inspected: text readable, buttons visible, no clipping",
+  "scope": "Production Svelte components and updater/Linux checker in real WebKitGTK; mocked Tauri IPC identity/store/native HTTP and opener. DOM click handlers, private compositor. No installation or physical desktop interaction.",
+  "production_config_modified": false,
+  "installed": false,
+  "committed": false
+}

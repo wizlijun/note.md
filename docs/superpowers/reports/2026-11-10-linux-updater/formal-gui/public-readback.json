@@ -1,0 +1,7 @@
+{
+  "url": "https://api.github.com/repos/wizlijun/note.md/releases?per_page=100&page=1",
+  "time": "2026-11-10T07:03:45.940299+00:00",
+  "status": 200,
+  "sha256": "393448bed567bf009a63a7f633f11f9bffb2deaab13fdfc3ebee1b31cde4aeca",
+  "purpose": "independent public inventory; not an injected native response"
+}

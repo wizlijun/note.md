@@ -1,0 +1,235 @@
+{
+  "status": "passed",
+  "id": "complete",
+  "state": {
+    "state": "error",
+    "currentVersion": "6.1109.4",
+    "latestVersion": "6.1110.2",
+    "notes": "Verified Linux package-manager release fixture.",
+    "downloaded": 0,
+    "contentLength": null,
+    "error": "Linux update check failed: GitHub releases request failed: HTTP 503",
+    "lastCheckedAt": "2026-11-10T06:52:14.411Z",
+    "checkOnStartup": true
+  },
+  "calls": [
+    {
+      "cmd": "plugin:app|version",
+      "args": {}
+    },
+    {
+      "cmd": "desktop_capabilities",
+      "args": {}
+    },
+    {
+      "cmd": "plugin_market_host_triple",
+      "args": {}
+    },
+    {
+      "cmd": "plugin:store|load",
+      "args": {
+        "path": "linux-updater-x86_64-unknown-linux-gnu.json"
+      }
+    },
+    {
+      "cmd": "plugin:store|get",
+      "args": {
+        "rid": 10,
+        "key": "state"
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch",
+      "args": {
+        "clientConfig": {
+          "method": "GET",
+          "url": "https://api.github.com/repos/wizlijun/note.md/releases?per_page=100&page=1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.github+json"
+            ],
+            [
+              "user-agent",
+              "note.md-linux-updates"
+            ]
+          ],
+          "data": null,
+          "maxRedirections": 0,
+          "connectTimeout": 19999
+        }
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch_send",
+      "args": {
+        "rid": 900
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch_read_body",
+      "args": {
+        "rid": 901
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch_read_body",
+      "args": {
+        "rid": 901
+      }
+    },
+    {
+      "cmd": "plugin:store|set",
+      "args": {
+        "rid": 10,
+        "key": "state",
+        "value": {
+          "last_checked_at": "2026-11-10T06:52:12.533Z",
+          "latest_version_seen": "6.1110.2",
+          "dismissed_version": null,
+          "check_on_startup": false,
+          "last_check_succeeded": true
+        }
+      }
+    },
+    {
+      "cmd": "plugin:store|save",
+      "args": {
+        "rid": 10
+      }
+    },
+    {
+      "cmd": "plugin:opener|open_url",
+      "args": {
+        "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.2"
+      }
+    },
+    {
+      "cmd": "mcp_register_line",
+      "args": {}
+    },
+    {
+      "cmd": "sotvault_vault_root",
+      "args": {}
+    },
+    {
+      "cmd": "get_plugin_manifests",
+      "args": {}
+    },
+    {
+      "cmd": "theme_list",
+      "args": {}
+    },
+    {
+      "cmd": "get_plugin_manifests",
+      "args": {}
+    },
+    {
+      "cmd": "notemd_vault_settings_get",
+      "args": {}
+    },
+    {
+      "cmd": "notemd_agents_search_section_missing",
+      "args": {}
+    },
+    {
+      "cmd": "git_proxy_get",
+      "args": {}
+    },
+    {
+      "cmd": "shared_config_read",
+      "args": {}
+    },
+    {
+      "cmd": "plugin:store|set",
+      "args": {
+        "rid": 10,
+        "key": "state",
+        "value": {
+          "last_checked_at": "2026-11-10T06:52:12.533Z",
+          "latest_version_seen": "6.1110.2",
+          "dismissed_version": null,
+          "check_on_startup": true,
+          "last_check_succeeded": true
+        }
+      }
+    },
+    {
+      "cmd": "plugin:store|save",
+      "args": {
+        "rid": 10
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch",
+      "args": {
+        "clientConfig": {
+          "method": "GET",
+          "url": "https://api.github.com/repos/wizlijun/note.md/releases?per_page=100&page=1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.github+json"
+            ],
+            [
+              "user-agent",
+              "note.md-linux-updates"
+            ]
+          ],
+          "data": null,
+          "maxRedirections": 0,
+          "connectTimeout": 20000
+        }
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch_send",
+      "args": {
+        "rid": 900
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch_read_body",
+      "args": {
+        "rid": 901
+      }
+    },
+    {
+      "cmd": "plugin:http|fetch_cancel_body",
+      "args": {
+        "rid": 901
+      }
+    },
+    {
+      "cmd": "plugin:store|set",
+      "args": {
+        "rid": 10,
+        "key": "state",
+        "value": {
+          "last_checked_at": "2026-11-10T06:52:14.411Z",
+          "latest_version_seen": "6.1110.2",
+          "dismissed_version": null,
+          "check_on_startup": true,
+          "last_check_succeeded": false
+        }
+      }
+    },
+    {
+      "cmd": "plugin:store|save",
+      "args": {
+        "rid": 10
+      }
+    }
+  ],
+  "storePaths": [
+    "linux-updater-x86_64-unknown-linux-gnu.json"
+  ],
+  "scope": "Production Svelte components and updater/Linux checker in real WebKitGTK; mocked Tauri IPC identity/store/native HTTP and opener. DOM click handlers, private compositor. No installation or physical desktop interaction.",
+  "snapshots": [
+    "dialog-idle.png",
+    "dialog-available.png",
+    "settings-available.png",
+    "settings-network-error.png"
+  ],
+  "webkit_version": "2.54.1"
+}

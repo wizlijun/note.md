@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "notemd-6.1110.3-1-x86_64.pkg.tar.zst": {
+      "sha256": "a35f34144d6ca483839d6ae23d2a63a65d376ff630ff1e0d3ea1a50dadb4fa4f",
+      "size": 15228721
+    },
+    "notemd-6.1110.3-1-omarchy-recipe.tar.gz": {
+      "sha256": "517f4ef4b9d87a1cdf44c2703e467a8ff8eb15b5a6e3161b9d9f02b52a2730ad",
+      "size": 1094
+    }
+  },
+  "verification": "/home/bruce/git/note.md/tasks/linux-updater-fix/assets/omarchy-6.1110.3-verification.json",
+  "checksums": "/home/bruce/git/note.md/tasks/linux-updater-fix/assets/SHA256SUMS-omarchy.txt",
+  "binary_sha256": "194c15a9b78f0524a2bebc341be97a83455028d3d14b64740a22931c421022c6",
+  "preserved_payload_files": 9,
+  "cli": "notemd 6.1110.3 (plugin API v1)"
+}

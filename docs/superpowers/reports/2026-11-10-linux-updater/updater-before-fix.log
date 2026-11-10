@@ -1,0 +1,103 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md
+
+ ❯ src/lib/updater.test.ts (8 tests | 6 failed) 1004ms
+     × package-manager checks Linux releases with an isolated cache and opens downloads without self-install 869ms
+     × automatically detects a Linux update after startup delay 32ms
+     × a recent failed check is retried on startup instead of becoming up-to-date 15ms
+     × fresh manual checks bypass successful cached results and clear a stale version when none is newer 21ms
+     × failed Linux checks stay errors, persist failure, and never open a stale download target 20ms
+     × failed identity blocks startup/cache and manual checks, then retries successfully 16ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > package-manager checks Linux releases with an isolated cache and opens downloads without self-install
+AssertionError: expected 'idle' to be 'available' // Object.is equality
+
+Expected: "available"
+Received: "idle"
+
+ ❯ src/lib/updater.test.ts:50:31
+     48|     expect(api.updater.latestVersion).toBe(null) // The direct-channel…
+     49|     await api.runCheck({ forceFresh: true })
+     50|     expect(api.updater.state).toBe('available')
+       |                               ^
+     51|     expect(api.updater.latestVersion).toBe('6.1110.2')
+     52|     expect(api.shouldShowBanner()).toBe(true)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > automatically detects a Linux update after startup delay
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ src/lib/updater.test.ts:75:18
+     73|     await vi.advanceTimersByTimeAsync(1500)
+     74|     await initializing
+     75|     expect(http).toHaveBeenCalledTimes(1)
+       |                  ^
+     76|     expect(api.updater.state).toBe('available')
+     77|     expect(api.shouldShowBanner()).toBe(true)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > a recent failed check is retried on startup instead of becoming up-to-date
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ src/lib/updater.test.ts:87:18
+     85|     await vi.advanceTimersByTimeAsync(1500)
+     86|     await initializing
+     87|     expect(http).toHaveBeenCalledTimes(1)
+       |                  ^
+     88|     expect(api.updater.state).toBe('available')
+     89|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > fresh manual checks bypass successful cached results and clear a stale version when none is newer
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ src/lib/updater.test.ts:97:18
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > failed Linux checks stay errors, persist failure, and never open a stale download target
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+undefined
+
+ ❯ src/lib/updater.test.ts:111:32
+    109|     await api.runCheck()
+    110|     http.mockRejectedValue(new Error('network unavailable'))
+    111|     await expect(api.runCheck()).rejects.toThrow('network unavailable')
+       |                                ^
+    112|     expect(api.updater.state).toBe('error')
+    113|     const [, args] = invoke.mock.calls.filter(([cmd]) => cmd === 'plug…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > failed identity blocks startup/cache and manual checks, then retries successfully
+AssertionError: expected 'idle' to be 'available' // Object.is equality
+
+Expected: "available"
+Received: "idle"
+
+ ❯ src/lib/updater.test.ts:163:31
+    161|     expect(invoke.mock.calls.some(([cmd]) => cmd.startsWith('plugin:st…
+    162|     await api.runCheck({ forceFresh: true })
+    163|     expect(api.updater.state).toBe('available')
+       |                               ^
+    164|     expect(api.updater.error).toBe(null)
+    165|     expect(invoke.mock.calls.some(([cmd]) => cmd.startsWith('plugin:up…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 2 passed (8)
+   Start at  14:38:16
+   Duration  1.50s (transform 693ms, setup 0ms, import 87ms, tests 1.00s, environment 226ms)
+

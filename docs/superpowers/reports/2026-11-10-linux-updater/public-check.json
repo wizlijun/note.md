@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-11-10T06:44:39.970Z",
+  "source": "src/lib/linux-updates.ts",
+  "sourceSha256": "430a0eb2ebbc6127297b2faeef2c00c2ebbde0a73d80b9d6e2c4a617ce048597",
+  "execution": "Production TypeScript transpiled with only @tauri-apps/plugin-http fetch replaced by Node native fetch; native options translated without changing selection logic.",
+  "tokenUsed": false,
+  "binaryDownloaded": false,
+  "installedVersion": "6.1109.4",
+  "x64UpdateIsNewer": true,
+  "checks": [
+    {
+      "triple": "x86_64-unknown-linux-gnu",
+      "expectedVersion": "6.1110.2",
+      "release": {
+        "version": "6.1110.2",
+        "body": "Linux x86_64 / Omarchy release. Existing macOS releases and updater channels remain unchanged.\n\n## Sumi on Omarchy\n\n- Native GTK editing in standalone windows and writing tabs, rich text projection, clipboard, Secret Service credentials, and PulseAudio/PipeWire typing sounds.\n- Sumi 0.1.11 for Linux x86_64 requires host 6.1110.2. Install it from Plugins → Experience → Sumi after updating the host. Mac keeps Sumi 0.1.10.\n- Inline Fcitx candidates follow the active line in focus mode. Outside focus mode, the body line stays at the bottom and candidate expansion pushes it upward. Preedit and the current candidate use underlines, without a blue composition background.\n\n## Linux packages\n\nDebian 12-based amd64 build and Omarchy/Arch package for x86_64. The Sumi native plugin and interactive desktop acceptance are verified on x86_64. ARM64 keeps its existing stable downloads; this release does not introduce an ARM64 host or Sumi package.\n\nInline candidates require the separate `fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst` addon on Arch x86_64 with Fcitx >=5.1.23 and <5.2. The addon preserves the stock ClassicUI module. Without a compatible addon, Sumi uses the system candidate UI; Debian 12's older Fcitx is not claimed to support inline candidates.\n\nInstall the host Arch package with `sudo pacman -U ./notemd-6.1110.2-1-x86_64.pkg.tar.zst`. Install the optional candidate addon with `sudo pacman -U ./fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst`, then restart Fcitx normally. Remove `fcitx5-sumi-candidates` to return to system candidates.\n\nSource and verification: [Sumi implementation](https://github.com/wizlijun/note.md/tree/v6.1110.2/tauri-plugin-native-editor), [candidate installation and fallback](https://github.com/wizlijun/note.md/blob/v6.1110.2/docs/superpowers/reports/2026-11-10-sumi-fcitx-candidates/INSTALL.md). The addon corresponds to Fcitx commit `d2c1442957f695b3a3bbd9c2aaec0f753c50a591`; its matching source archive and build recipe accompany the binary.\n",
+        "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.2"
+      },
+      "matchesExpected": true,
+      "requests": [
+        {
+          "url": "https://api.github.com/repos/wizlijun/note.md/releases?per_page=100&page=1",
+          "status": 200,
+          "rateLimitRemaining": "52",
+          "date": "Tue, 10 Nov 2026 06:44:38 GMT"
+        }
+      ],
+      "cacheFile": "linux-updater-x86_64-unknown-linux-gnu.json"
+    },
+    {
+      "triple": "aarch64-unknown-linux-gnu",
+      "expectedVersion": "6.1027.1",
+      "release": {
+        "version": "6.1027.1",
+        "body": "## Install\n\nPick the dmg matching your Mac's chip:\n\n- **Apple Silicon (M1/M2/M3/…):** `note.md-6.1027.1-aarch64.dmg`\n- **Intel:** `note.md-6.1027.1-x86_64.dmg`\n\n> Code-signed with Developer ID Application (`T5G56DH47L`), hardened runtime, notarized.\n> Auto-update is available for architectures included in this release.\n\n## What's Changed\n\n- **Run NEXT skill scripts directly after saving a Task.** The host can execute a Python script selected from the current Vault’s skills folder without starting an AI agent. NEXT 1.8.0 uses this to sync Cube reminders after status, reminder or due-date changes; script failures preserve the saved Task and can be retried. Each device keeps its own script selection and credentials. Full Cube creation and updates require the separately deployed safe-create server capability.",
+        "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1027.1"
+      },
+      "matchesExpected": true,
+      "requests": [
+        {
+          "url": "https://api.github.com/repos/wizlijun/note.md/releases?per_page=100&page=1",
+          "status": 200,
+          "rateLimitRemaining": "51",
+          "date": "Tue, 10 Nov 2026 06:44:38 GMT"
+        }
+      ],
+      "cacheFile": "linux-updater-aarch64-unknown-linux-gnu.json"
+    }
+  ]
+}

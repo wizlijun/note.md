@@ -1,0 +1,13 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md
+
+2:45:44 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+2:45:44 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+
+ Test Files  4 passed (4)
+      Tests  114 passed (114)
+   Start at  14:45:38
+   Duration  16.06s (transform 12.28s, setup 0ms, import 11.56s, tests 10.47s, environment 5.54s)
+
