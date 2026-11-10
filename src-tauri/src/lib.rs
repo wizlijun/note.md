@@ -22,6 +22,7 @@ pub mod platform;
 pub mod shared_config;
 pub mod linux_env;
 pub mod desktop_policy;
+mod menu_scope;
 #[cfg(not(target_os = "ios"))]
 pub mod launch_actions;
 
@@ -975,7 +976,9 @@ fn linux_window_decorations_set(app: tauri::AppHandle, value: Option<bool>) -> R
         shared_config::write(&path, &cfg).map_err(|e| e.to_string())?;
         Ok(platform::desktop_capabilities())
     }, app.webview_windows(), |window, capabilities| {
-        window.set_decorations(capabilities.window_decorations).map_err(|e| e.to_string())
+        let decorated = desktop_policy::decorations_for_window(std::env::consts::OS,
+            window.label(), capabilities.window_decorations);
+        window.set_decorations(decorated).map_err(|e| e.to_string())
     })?;
     Ok(LinuxWindowDecorationsUpdate {
         value,
@@ -1556,7 +1559,11 @@ pub fn run() {
         .plugin({
             let argv = std::env::args().collect::<Vec<_>>();
             let builder = tauri_plugin_window_state::Builder::default()
-                .with_state_flags(window_state_flags(std::env::consts::OS));
+                .with_state_flags(window_state_flags(std::env::consts::OS))
+                // Linux plugins open within the current work area. Restoring
+                // old size/position/fullscreen/visibility would race that
+                // initial layout and can hide the titlebar off screen.
+                .with_filter(|label| desktop_policy::track_window_state(std::env::consts::OS, label));
             // Restoring VISIBLE would show and focus main despite the hidden
             // initial config, stealing focus from the requested action window.
             let builder = if launch_actions::parse(&argv).has_action || argv_requests_cli_background(&argv) {
@@ -1901,6 +1908,11 @@ pub fn run() {
                     // produces a harmless "unknown command id" WARN (e.g. the
                     // tray-sync-log click surfacing it right into the log window).
                     if event.id().0.as_str().starts_with("tray-") {
+                        return;
+                    }
+                    let focused = app.webview_windows().into_iter()
+                        .find_map(|(label, window)| window.is_focused().unwrap_or(false).then_some(label));
+                    if !menu_scope::forward_to_main(std::env::consts::OS, focused.as_deref(), event.id().0.as_str()) {
                         return;
                     }
                     if matches!(event.id().0.as_str(), "file-undo" | "file-redo") {
@@ -2620,7 +2632,8 @@ fn build_tray_menu<R: tauri::Runtime>(
         entries
             .into_iter()
             .filter_map(|e| {
-                MenuItem::with_id(app, e.menu_id(), &e.label, true, e.accelerator.as_deref()).ok()
+                let accelerator = if platform::global_shortcuts_supported() { e.accelerator.as_deref() } else { None };
+                MenuItem::with_id(app, e.menu_id(), &e.label, true, accelerator).ok()
             })
             .collect()
     };
