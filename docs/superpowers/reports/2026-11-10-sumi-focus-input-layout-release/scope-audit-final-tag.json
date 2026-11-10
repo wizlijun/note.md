@@ -1,0 +1,515 @@
+{
+  "ok": true,
+  "at": "2026-11-09T19:05:36.473535+00:00",
+  "sourceHead": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+  "base": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "repositoryCount": 15,
+  "repositories": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "head": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+      "status": "M CHANGELOG.md\n M CHANGELOG.zh-CN.md\n M docs/superpowers/specs/2026-11-07-immersive-write-design.md\n M plugins-src/write/src/contract.ts\n M plugins-src/write/src/main.test.ts\n M plugins-src/write/src/main.ts\n M plugins-src/write/src/style.css\n M scripts/sumi/build.mjs\n M scripts/sumi/native/build.rs\n M scripts/sumi/run-native.mjs\n M scripts/sumi/verify-release.py\n M searchidx/src/store.rs\n M src-tauri/src/smart_lookup.rs\n M src-tauri/src/sumi/mod.rs\n M tauri-plugin-native-editor/build.rs\n M tauri-plugin-native-editor/native/editor.m\n M tauri-plugin-native-editor/src/lib.rs\n?? tauri-plugin-native-editor/native/focus-probe.m\n?? tauri-plugin-native-editor/native/focus.h",
+      "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD 2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-data-safety-20261109/worktree\nHEAD 85d2b490802a58f9021fa68ed2e146097bdc4caa\nbranch refs/heads/fix/sumi-local-safety-release-20261109",
+      "branches": [
+        {
+          "name": "fix/sumi-local-safety-20261109",
+          "head": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "notInBase": [
+            "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+            "ffb2623363602255bda14e2f9ed790f95b93aba6"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-local-safety-release-20261109",
+          "head": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+          "notInBase": [
+            "85d2b490802a58f9021fa68ed2e146097bdc4caa"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "notInBase": [
+            "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+            "ffb2623363602255bda14e2f9ed790f95b93aba6"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/folder-release-20261025/build-input/mdeditor",
+      "head": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/folder-release-20261025/build-input/mdeditor\nHEAD 7df51fa0d35a0cb5638427da3229bc1800f5fd45\nbranch refs/heads/main",
+      "branches": [
+        {
+          "name": "main",
+          "head": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/omarchy-submission/upstream",
+      "head": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/omarchy-submission/upstream\nHEAD 0bc6590fc97e869d3fa5d0e329161508333cba6b\nbranch refs/heads/add-notemd",
+      "branches": [
+        {
+          "name": "add-notemd",
+          "head": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+          "notInBase": "separate project/object database",
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "master",
+          "head": "12217cedf28713ff0b48f92e8bb6af9a396dfabe",
+          "notInBase": "separate project/object database",
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/moraya-core",
+      "head": "8bb896a3a56c2184db648e94cc1be26321476134",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/moraya-core\nHEAD 8bb896a3a56c2184db648e94cc1be26321476134\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/moraya-core\nHEAD 8bb896a3a56c2184db648e94cc1be26321476134\ndetached",
+      "branches": [
+        {
+          "name": "main",
+          "head": "8bb896a3a56c2184db648e94cc1be26321476134",
+          "notInBase": "separate project/object database",
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source",
+      "head": "2654f07802b49df71f66ffd0d674c50d34fb4ddf",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source\nHEAD 0621430d80840933424a2b3d7cbda85eb631a6c4\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source\nHEAD 2654f07802b49df71f66ffd0d674c50d34fb4ddf\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source\nHEAD 0e72197d9ed1f602b324cbec0be55d3fb549fb40\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source\nHEAD ecc9fb4298c2c271601fd345e15f17c1410aa56c\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-return-fade-20261110/source\nHEAD 4a3cc2a3a1b029367c2a22b06f698ab838f58738\nbranch refs/heads/fix/sumi-return-fade-20261110",
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "head": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "head": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-resume-return-20261110",
+          "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+          "notInBase": [
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-return-fade-20261110",
+          "head": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+          "notInBase": [
+            "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/mdeditor",
+      "head": "7d3d38f51949c3b860f938860bd62152f76862d0",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/mdeditor\nHEAD 7d3d38f51949c3b860f938860bd62152f76862d0\nbranch refs/heads/main",
+      "branches": [
+        {
+          "name": "main",
+          "head": "7d3d38f51949c3b860f938860bd62152f76862d0",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/moraya-core",
+      "head": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/moraya-core\nHEAD c74ab423cacbff18c6283ceb60a98a6eded1f8c3\nbranch refs/heads/main",
+      "branches": [
+        {
+          "name": "main",
+          "head": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+          "notInBase": "separate project/object database",
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source",
+      "head": "0e72197d9ed1f602b324cbec0be55d3fb549fb40",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source\nHEAD 0621430d80840933424a2b3d7cbda85eb631a6c4\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source\nHEAD 2654f07802b49df71f66ffd0d674c50d34fb4ddf\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source\nHEAD 0e72197d9ed1f602b324cbec0be55d3fb549fb40\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source\nHEAD ecc9fb4298c2c271601fd345e15f17c1410aa56c\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-return-fade-20261110/source\nHEAD 4a3cc2a3a1b029367c2a22b06f698ab838f58738\nbranch refs/heads/fix/sumi-return-fade-20261110",
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "head": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "head": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-resume-return-20261110",
+          "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+          "notInBase": [
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-return-fade-20261110",
+          "head": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+          "notInBase": [
+            "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+      "head": "0621430d80840933424a2b3d7cbda85eb631a6c4",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source\nHEAD 0621430d80840933424a2b3d7cbda85eb631a6c4\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source\nHEAD 2654f07802b49df71f66ffd0d674c50d34fb4ddf\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source\nHEAD 0e72197d9ed1f602b324cbec0be55d3fb549fb40\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source\nHEAD ecc9fb4298c2c271601fd345e15f17c1410aa56c\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-return-fade-20261110/source\nHEAD 4a3cc2a3a1b029367c2a22b06f698ab838f58738\nbranch refs/heads/fix/sumi-return-fade-20261110",
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "head": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "head": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-resume-return-20261110",
+          "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+          "notInBase": [
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-return-fade-20261110",
+          "head": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+          "notInBase": [
+            "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-data-safety-20261109/worktree",
+      "head": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD 2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-data-safety-20261109/worktree\nHEAD 85d2b490802a58f9021fa68ed2e146097bdc4caa\nbranch refs/heads/fix/sumi-local-safety-release-20261109",
+      "branches": [
+        {
+          "name": "fix/sumi-local-safety-20261109",
+          "head": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "notInBase": [
+            "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+            "ffb2623363602255bda14e2f9ed790f95b93aba6"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-local-safety-release-20261109",
+          "head": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+          "notInBase": [
+            "85d2b490802a58f9021fa68ed2e146097bdc4caa"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "notInBase": [
+            "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+            "ffb2623363602255bda14e2f9ed790f95b93aba6"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source",
+      "head": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source\nHEAD 0621430d80840933424a2b3d7cbda85eb631a6c4\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source\nHEAD 2654f07802b49df71f66ffd0d674c50d34fb4ddf\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source\nHEAD 0e72197d9ed1f602b324cbec0be55d3fb549fb40\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source\nHEAD ecc9fb4298c2c271601fd345e15f17c1410aa56c\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-return-fade-20261110/source\nHEAD 4a3cc2a3a1b029367c2a22b06f698ab838f58738\nbranch refs/heads/fix/sumi-return-fade-20261110",
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "head": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "head": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-resume-return-20261110",
+          "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+          "notInBase": [
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-return-fade-20261110",
+          "head": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+          "notInBase": [
+            "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "current feature included"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "current verified release files only"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-local-safety-release-20261109/source",
+      "head": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-local-safety-release-20261109/source\nHEAD a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95\nbranch refs/heads/main",
+      "branches": [
+        {
+          "name": "main",
+          "head": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+          "notInBase": "separate project/object database",
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source",
+      "head": "b38dc722e6ab0e455147b07c39a972da297a9242",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source\nHEAD b38dc722e6ab0e455147b07c39a972da297a9242\nbranch refs/heads/main",
+      "branches": [
+        {
+          "name": "main",
+          "head": "b38dc722e6ab0e455147b07c39a972da297a9242",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-return-fade-20261110/source",
+      "head": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+      "status": "M plugins-src/write/src/main.test.ts\n M plugins-src/write/src/main.ts\n M tauri-plugin-native-editor/native/editor.m\n M tauri-plugin-native-editor/native/focus-interactive-probe.m\n M tauri-plugin-native-editor/native/focus-probe.m\n M tauri-plugin-native-editor/native/focus.h",
+      "worktrees": "worktree /Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source\nHEAD 0621430d80840933424a2b3d7cbda85eb631a6c4\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source\nHEAD 2654f07802b49df71f66ffd0d674c50d34fb4ddf\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source\nHEAD 0e72197d9ed1f602b324cbec0be55d3fb549fb40\ndetached\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source\nHEAD ecc9fb4298c2c271601fd345e15f17c1410aa56c\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/sumi-return-fade-20261110/source\nHEAD 4a3cc2a3a1b029367c2a22b06f698ab838f58738\nbranch refs/heads/fix/sumi-return-fade-20261110",
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "head": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "head": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-focus-resume-return-20261110",
+          "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+          "notInBase": [
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "fix/sumi-return-fade-20261110",
+          "head": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+          "notInBase": [],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        },
+        {
+          "name": "main",
+          "head": "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+          "notInBase": [
+            "ecc9fb4298c2c271601fd345e15f17c1410aa56c",
+            "183b636b05bcf1440e2b8626f28629ce44b78863",
+            "f20d5797f7b87591b9e8c78abeaffa7348c85370",
+            "232dbe14628f3b94c6d6b69e7687399a93c7c3a2"
+          ],
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    },
+    {
+      "path": "/Users/bruce/git/moraya-core",
+      "head": "8bb896a3a56c2184db648e94cc1be26321476134",
+      "status": "",
+      "worktrees": "worktree /Users/bruce/git/moraya-core\nHEAD 8bb896a3a56c2184db648e94cc1be26321476134\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/moraya-core\nHEAD 8bb896a3a56c2184db648e94cc1be26321476134\ndetached",
+      "branches": [
+        {
+          "name": "main",
+          "head": "8bb896a3a56c2184db648e94cc1be26321476134",
+          "notInBase": "separate project/object database",
+          "classification": "historical/preserved; current patch-equivalence and safety chain audited below"
+        }
+      ],
+      "stash": [],
+      "uncommittedScope": "preserved; excluded from this release"
+    }
+  ],
+  "committedReleasePaths": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation.md",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/data-preservation.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/defer-only-screen-failure.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-cache-review.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-focus.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-font-fixture.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-input.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-native-regressions.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-raster.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-return.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-screen-build.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/final-screen.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/historical-stage.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/historical-stage.md",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/native-focus.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/native-input.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/native-regressions.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/native-return.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/precommit-scope-audit.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/screen-failure.json",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/ui-build.log.txt",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/ui-check.log.txt",
+    "docs/superpowers/reports/2026-11-10-sumi-focus-input-layout-validation/ui-tests-final.log.txt",
+    "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+    "package.json",
+    "plugins-src/write/manifest.v2.json",
+    "plugins-src/write/package.json",
+    "plugins-src/write/src/main.test.ts",
+    "plugins-src/write/src/main.ts",
+    "scripts/sumi/verify-release.py",
+    "src-tauri/Cargo.lock",
+    "src-tauri/Cargo.toml",
+    "src-tauri/tauri.conf.json",
+    "tauri-plugin-native-editor/native/editor.m",
+    "tauri-plugin-native-editor/native/focus-raster-probe.m",
+    "tauri-plugin-native-editor/native/focus-resume-probe.m",
+    "tauri-plugin-native-editor/native/focus-return-probe.m",
+    "tauri-plugin-native-editor/native/focus.h"
+  ],
+  "allStashesEmpty": true,
+  "rootOriginal19Preserved": true,
+  "dataCoreFiles": 65,
+  "dataCoreUnchanged": true,
+  "priorPatchEquivalenceEvidence": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/postcommit-scope-audit.json",
+    "sha256": "a6a93422e33217993528cc96b16590b94e7c6a6e07a9bab63dc101bd5c19e7d3",
+    "sourceBaselineStillAncestor": true,
+    "note": "Prior safety/Rich changes are integrated by recorded per-file patch IDs, not re-cherry-picked. This release leaves all 65 safety/backend files byte-identical to the previously audited published baseline."
+  },
+  "scope": "Input resume, bounded TextKit snapshot, deferred layout and current-viewport immutable glyph cache; UI hints, metadata, specs/tests/evidence. Task-only A/B/debug/mask/native-scroll prototypes, Omarchy build and root dirty files excluded.",
+  "cleanRequired": true
+}

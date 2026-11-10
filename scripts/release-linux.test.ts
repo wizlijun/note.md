@@ -43,6 +43,13 @@ else if(a[0]==='run') {if(${JSON.stringify(options.fail)}==='build')process.exit
 }
 function calls(log: string): string[][] { return existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [] }
 describe('Linux release orchestration (fake remote/build boundary)', () => {
+  it('installs the Sumi native link dependencies in the Debian build image', () => {
+    const dockerfile = readFileSync(resolve('scripts/docker/linux-build.Dockerfile'), 'utf8')
+    const install = dockerfile.match(/apt-get install -y --no-install-recommends ([\s\S]*?)&&/)?.[1] || ''
+    for (const dependency of ['libsecret-1-dev', 'libpulse-dev', 'libfontconfig1-dev']) {
+      expect(install.split(/\s+/)).toContain(dependency)
+    }
+  })
   it('builds immutable read-only sources with per-architecture caches and uploads only after both verifiers', () => {
     const h = linuxHarness(), result = h.run()
     expect(result.status, result.stdout + result.stderr).toBe(0)
@@ -92,7 +99,10 @@ else process.exit(4);
     executable(join(bin, 'readelf'), `#!/usr/bin/env node
 const a=process.argv.slice(2),v=${JSON.stringify(values)};if(a[0]==='-h')console.log('  Class: ELF64\\n  Type: DYN (Position-Independent Executable file)\\n  Machine: '+v.Machine);else if(a[0]==='-l')console.log('[Requesting program interpreter: '+v.Interpreter+']');else if(a[0]==='--version-info')console.log('Name: GLIBC_'+v.GLIBC);else if(a[0]==='-d')console.log(' 0x0000000000000001 (NEEDED) Shared library: ['+v.Needed+']');else process.exit(4);
 `)
-    executable(join(bin, 'pacman'), '#!/bin/sh\n[ "$1" = -Syu ] || exit 5\n')
+    executable(join(bin, 'pacman'), `#!/usr/bin/env node
+const args=process.argv.slice(2);
+if(args[0]!=='-Syu'||!['libsecret','libpulse','fontconfig'].every(dep=>args.includes(dep)))process.exit(5);
+`)
     executable(join(bin, 'ldd'), `#!/usr/bin/env node\nconsole.log(${JSON.stringify(values.Ldd)});\n`)
     const deb = join(root, `note.md_${version}_amd64.deb`); writeFileSync(deb, 'fixture')
     return spawnSync('bash', [resolve('scripts/release-linux-verify.sh'), mode, deb, version, 'amd64'], { encoding: 'utf8', env: { ...process.env, PATH: bin + ':' + process.env.PATH } })

@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential pkg-config curl ca-certificates file git rsync xz-utils \
     libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-    libxdo-dev libssl-dev patchelf \
+    libxdo-dev libssl-dev libsecret-1-dev libpulse-dev libfontconfig1-dev patchelf \
     && rm -rf /var/lib/apt/lists/*
 
 # Node 22 supplies Corepack; it selects package.json's exact packageManager.

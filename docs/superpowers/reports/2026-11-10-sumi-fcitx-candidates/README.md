@@ -43,3 +43,5 @@ Fcitx fork：`https://github.com/wizlijun/fcitx5`，分支 `typewriter-candidate
 从合并源码构建的 deb 内提取宿主程序，与 `d2c14429` 实际 Arch 包内模块在独立 Sway/D-Bus 中联合验收：[非专注底部](integration/host-bottom.png)、[专注下一行与无蓝底](integration/host-focus.png)。鼠标选词、Appearance 切换并 Apply、保存、关闭 Sumi、菜单重开、继续拼音输入及保存全部通过；正文由既有四次“你好”精确增加至七次，没有原始拼音或重复提交。[源码/包/模块哈希和步骤](integration/verification.json) 记录这轮证据。此轮是未安装的 6.1110.1 整合预览，最终版本、冻结 tag、签名及公网发布由发布任务另行执行；不把该包称为正式发布。无头环境未提供音频输出，本轮不复验打字音效。
 
 [安装依赖及回退说明](INSTALL.md) 随候选模块交付。正式安装/发布均未由本验收执行。
+
+整合提交 `c0465b16` 随后合入发布任务 `673a9230`（含 `150db985` 构建依赖补全），保留既有 Mac 6.1110.1 发布记录及 Linux 未发布分界。此次合并未改变上面验收的宿主/原生源码哈希；[26 项 Linux 发布编排/依赖测试](integration/release-dependencies.log) 通过。最终正式版本仍由发布任务统一冻结。
