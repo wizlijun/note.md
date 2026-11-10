@@ -341,7 +341,7 @@ mod tests {
         if std::env::var_os(CHILD).is_none() {
             // Isolate the fixture environment from every other test thread.
             let runtime = tempfile::tempdir().unwrap();
-            let output = std::process::Command::new(std::env::current_exe().unwrap())
+            let output = crate::platform::command(std::env::current_exe().unwrap())
                 .args(["--exact", "plugin_runtime::process::tests::linux_plugin_spawn_preserves_runtime_without_secrets", "--nocapture"])
                 .env(CHILD, "1")
                 .env(SECRET, "not-a-real-secret")
