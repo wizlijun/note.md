@@ -565,7 +565,7 @@
 
 调参用无界面 CLI `notemd lookup eval`（`src-tauri/src/cli/lookup.rs`，评测逻辑在 `src-tauri/src/search/smart_eval.rs:run_lookup_eval`）。它对每题跑一遍与窗口相同的链路（`src-tauri/src/smart_enhance/pipeline.rs:run_pipeline`：本地检索 → 路由 → 证据轮次或修复）。判断路由的题逐轮调用窗口所用的 `src-tauri/src/smart_enhance/evidence.rs:evidence_step`（自动触发），直到宿主报告 `done`：第 0 轮，再至多 `retrieval.maxHops` 个扩展轮（spec 附录 H.1）；零命中的题走修复。隐私、同意、行级块、每次回车至多 `1 + maxHops` 轮且受 `budget.maxTokensPerLookup` 限制、不重试这些规则都由同一批宿主函数执行。本节的选项、输出和命令已对照提交 e003fe7 的代码核对，并在临时 vault 上用构建出的 `notemd` 跑过（不联网，`--no-enhance` 与连不上的接入点）；最终修复轮的改动（`local.limit` 默认 50、预算规则、`deepError`）、证据轮次与逐轮指标（spec 附录 H.10）已同步到本节。
 
-**评测的展示顺序。** 证据轮次的候选由宿主从索引召回（`SagReader`，spec 附录 H.3），与本地结果的展示顺序无关，所以 CLI、评测与窗口发出的请求相同。`finalRank` 是窗口自上而下看到的名次（spec H.10）：先最新一轮 `ok` 的证据列表，再排除已在证据中（同一路径与行范围）的本地结果，本地结果按宿主的融合顺序（`src-tauri/src/search/smart_eval.rs:window_rank`）。应用窗口按结果的默认分组（`results.groupBy` 为 `auto` 时按来源分组）展示其余本地结果（`src/SmartLookupApp.svelte` 的 `buildSections`），评测不模拟这一分组；C3 的结论按宿主顺序得出。只在旧的单轮重排 `smart_lookup_judge` 里，候选池取自窗口分组展开后的前 `candidates.pool` 条，CLI 与窗口都不再调用它。
+**评测的展示顺序。** 证据轮次的候选由宿主从索引召回（`SagReader`，spec 附录 H.3），与本地结果的展示顺序无关，所以 CLI、评测与窗口发出的请求相同。`finalRank` 是窗口自上而下看到的名次（spec H.10）：先最新一轮 `ok` 的证据列表，再排除已在证据中（同一路径与行范围）的本地结果，本地结果按宿主的融合顺序。这就是 CLI 打印的命中顺序（`src-tauri/src/smart_enhance/pipeline.rs:evidence_first`），评测直接在这份顺序上取名次（`src-tauri/src/search/smart_eval.rs:score`）。应用窗口按结果的默认分组（`results.groupBy` 为 `auto` 时按来源分组）展示其余本地结果（`src/SmartLookupApp.svelte` 的 `buildSections`），评测不模拟这一分组；C3 的结论按宿主顺序得出。只在旧的单轮重排 `smart_lookup_judge` 里，候选池取自窗口分组展开后的前 `candidates.pool` 条，CLI 与窗口都不再调用它。
 
 ### 任务文件
 
@@ -624,7 +624,7 @@
 | `pushedOut` | 本地在 Top 5、最终不在 Top 5（或不在列表里）的评分题数 |
 | `mismatches` | 误匹配（spec §9.3）：评分题中，最终列表里有一条非目标命中被判为符合，且排在目标之前；目标不在最终列表里时，只要有非目标被判为符合就算 |
 | `demoted` | 目标被下沉（spec §9.3）：判断成功（`ok`）且最终名次大于本地名次的评分题数 |
-| `absentTasks`、`absentJudged`、`absentFalseFit`、`absentFalseFitRate` | `absent` 题数；其中真正得到判断（发出请求或复用缓存）的题数；至少一个候选被判为符合的题数；后者除以 `absentTasks`（不是除以 `absentJudged`，附录 G.6） |
+| `absentTasks`、`absentJudged`、`absentFalseFit`、`absentFalseFitRate` | `absent` 题数；其中真正得到判断（发出请求或复用缓存）的题数；最新一轮 `ok` 的证据列表里至少一项为「符合」（分数 ≥ `tiers.fit`）的题数（`anyFit`；证据列表之外被打成符合的本地结果不算，spec H.10「证据」）；后者除以 `absentTasks`（不是除以 `absentJudged`，附录 G.6） |
 | `top50Coverage` | 评分题中本地名次 ≤ 50 的比例 |
 | `windowCoverage` | 评分题中，走判断路由且发出了请求的那些里，目标块在某一轮发送的候选里的比例（Task 13 裁定：只数判断路由） |
 | `requests`、`timeouts`、`timeoutRate` | 发出了请求的题数（`requestCount` 大于 0；证据轮次的题按各轮合计，一题可能有多个请求）；其中最后一轮（或修复）超时的题数；两者之比。判断与修复合计 |
@@ -636,13 +636,13 @@
 | `estimatedTokens` | 发出请求的题中，宿主估算的判断输入 token 合计（修复请求不估算，计 0） |
 | `timeoutMs` | 本组各行共同的 `enhance.timeoutMs`；各行不一致或没有行时为空 |
 | `maxHops`、`roundTimeoutMs` | 本组各行共同的 `retrieval.maxHops`、`retrieval.roundTimeoutMs`；各行不一致、没有行或行早于这两个字段时为空 |
-| `evidenceRecall10` | 评分题中 `evidenceRank` 非空的比例（spec H.10；名称里的 10 是默认的 `retrieval.topK`） |
+| `evidenceRecall10` | 评分题中 `evidenceRank` 非空的比例（spec H.10；名称里的 10 是默认的 `retrieval.topK`）。没有一道评分题带 spec H.10 的字段（早于它们的 `--out`，行里没有 `maxHops`）时，它与 `evidenceRecall10Round0`、`expansionOnly`、`lostByExpansion` 都为空而不是 0，所以拿旧文件作基线时差值为 `null`，不会显示虚假的增益 |
 | `evidenceRecall10Round0` | 第 0 轮结束时的同一指标：评分题中第 0 轮的 `rounds[].evidenceRank` 非空的比例 |
 | `expansionOnly` | `evidenceRank` 非空且 `foundRound ≥ 1` 的评分题数 |
 | `lostByExpansion` | 第 0 轮结束时在证据中、最终不在的评分题数 |
 | `roundTokens`、`roundInputTokens` | 逐轮（下标是轮次 `hop`）：发出了请求的轮次的宿主估算 token 合计；服务返回的输入 token 合计 |
 | `roundP50Ms`、`roundP95Ms` | 逐轮：发出了请求的轮次的耗时，最近秩；该轮没有发出时为空 |
-| `roundRequests`、`roundTimeouts`、`roundTimeoutRate` | 发出了至少一个请求的轮次数；其中超时的轮次数；两者之比。C3、C5 用它（「轮超时率」） |
+| `roundRequests`、`roundTimeouts`、`roundTimeoutRate` | 发出了至少一个请求的轮次数；其中超时的轮次数；两者之比。C3、C5 用它（「轮超时率」）。按轮计数、不按请求：一轮的各批共用一个截止时间，整轮超时作废，这与 G.6 按请求计的 `timeoutRate` 不同 |
 
 逐轮的指标只数发出了请求的轮次：没有发出的轮次（停止、预算不足）报告的 `hop` 是最近一轮已打分的轮次，不能用来分轮。逐轮指标在指标表和差值表里每轮一行，写作 `roundTokens[0]`、`roundTokens[1]`…；`--json` 时是数组。差值表按指标名对齐，只有一侧有的轮次（例如 `maxHops` 1 对 0 的 `roundTokens[1]`）照常列出，另一侧为空、差值为 `null`。
 
@@ -658,7 +658,7 @@
 | `c4` | C4 查询修复（不变）：只在 `enhance.timeoutMs` 为 3000 时评定；C4 人群中至少三分之一最终名次 ≤ 50（`c4Rescued × 3 ≥ c4Tasks`），且 `repairTimeouts × 20 ≤ repairRequests`；人群为空时为 `null` |
 | `c5` | C5 扩展召回（spec H.10，2026-11-11 定下，任何运行之前固定）：只在 `maxHops ≥ 1` 的运行上评定，holdout 里评分的 `bridge` 题少于 4 道时为 `null`（题量不足，不算通过）；holdout 组同时满足 `expansionOnly ≥ 2`、最终在证据中的评分题比第 0 轮结束时至少多 2 道（`c5RecallGain ≥ 2`）、`lostByExpansion ≤ 1`、`roundTimeouts × 20 ≤ roundRequests` 为 `true` |
 | `c4Tasks`、`c4Rescued` | C4 人群：正常本地检索和本地 deep 补测都没找到目标的评分题（spec §9.3「FTS 和 deep 都未召回」），补测出错（`deepError` 非空）的题不算；其中最终名次 ≤ 50 的题数 |
-| `c5BridgeTasks`、`c5ExpansionOnly`、`c5RecallGain`、`c5Lost` | holdout 里评分的 `bridge` 题数；holdout 组的 `expansionOnly`；最终在证据中的评分题数减去第 0 轮结束时在证据中的题数；holdout 组的 `lostByExpansion` |
+| `c5BridgeTasks`、`c5ExpansionOnly`、`c5RecallGain`、`c5Lost` | holdout 里评分的 `bridge` 题数（只数评分题：目标不在索引里或出错的桥接题不算，所以比 H.10 的「bridge 类题少于 4 题」更严，可能因此为 `n/a`）；holdout 组的 `expansionOnly`；最终在证据中的评分题数减去第 0 轮结束时在证据中的题数；holdout 组的 `lostByExpansion` |
 | `timeoutMs`、`roundTimeoutMs`、`maxHops` | holdout 各行共同的 `enhance.timeoutMs`、`retrieval.roundTimeoutMs`、`retrieval.maxHops` |
 | `note` | `retrieval.roundTimeoutMs` 不是 10000 时为 `"round timeout ≠ 10 s"`，三项门槛都为 `null` |
 | `c3Note`、`c4Note`、`c5Note` | 单项门槛为 `null` 的规则：`"maxHops ≠ 0"`（C3）、`"timeout ≠ 3 s"`（C4）、`"maxHops = 0"` 或 `"bridge tasks < 4"`（C5）；各行的 `maxHops` 不一致时为 `"maxHops mixed"` |
@@ -695,19 +695,18 @@ TODAY=2026-11-10                      # 固定一个日期，所有轮次用同�
    ```
 
    看差值表，对照本文每个参数的「决定它的指标」。采纳后把 `p.json` 当作新的基线参数、`next.jsonl` 当作新的 `base.jsonl`。
-4. 比较 `retrieval.maxHops`：用三份参数文件 `{"retrieval":{"maxHops":0}}`、`{"retrieval":{"maxHops":1}}`、`{"retrieval":{"maxHops":2}}`（其余键相同）分别跑同一批 dev 题，各写一个 `--out`，再两两用 `--compare` 比较，差值表照常输出（每行记录自己的 `maxHops`）：
+4. 比较 `retrieval.maxHops`：用三份参数文件 `{"retrieval":{"maxHops":0}}`、`{"retrieval":{"maxHops":1}}`、`{"retrieval":{"maxHops":2}}`（其余键相同）依次跑同一批 dev 题，各写一个 `--out`，后一次用 `--compare` 以前一次的 `--out` 为基线，差值表照常输出（每行记录自己的 `maxHops`）：
 
    ```sh
    printf '{"retrieval":{"maxHops":0}}\n' > hops0.json
    printf '{"retrieval":{"maxHops":1}}\n' > hops1.json
    printf '{"retrieval":{"maxHops":2}}\n' > hops2.json
-   for h in 0 1 2; do
-     notemd lookup eval --tasks dev.json --params hops$h.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out hops$h.jsonl
-   done
-   notemd lookup eval --tasks dev.json --params hops1.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out hops1b.jsonl --compare hops0.jsonl
+   notemd lookup eval --tasks dev.json --params hops0.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out hops0.jsonl
+   notemd lookup eval --tasks dev.json --params hops1.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out hops1.jsonl --compare hops0.jsonl
+   notemd lookup eval --tasks dev.json --params hops2.json --today "$TODAY" "${JEV[@]}" "${CHAT[@]}" --out hops2.jsonl --compare hops1.jsonl
    ```
 
-   最后一条重跑 `maxHops` 1 并以 0 为基线；1 对 2 同理（`--compare hops1.jsonl`）。看 `evidenceRecall10`、`evidenceRecall10Round0`、`expansionOnly`、`lostByExpansion` 与 `roundTokens[0]`、`roundTokens[1]`…：扩展带来的召回增益是否抵得过多出的轮次和 token（spec H.10）。基线没有的轮次在差值表里另一侧为空。也可以不重跑，直接读 `hops*.jsonl` 逐行比较 `evidenceRank`、`foundRound` 与 `rounds`。
+   每种取值只跑（只付费）一次：第二条以 `maxHops` 0 为基线，第三条以 1 为基线。看 `evidenceRecall10`、`evidenceRecall10Round0`、`expansionOnly`、`lostByExpansion` 与 `roundTokens[0]`、`roundTokens[1]`…：扩展带来的召回增益是否抵得过多出的轮次和 token（spec H.10）。基线没有的轮次在差值表里另一侧为空。也可以不重跑，直接读 `hops*.jsonl` 逐行比较 `evidenceRank`、`foundRound` 与 `rounds`。
 5. 只在 dev 组上做选择：调参期间只跑 `dev.json`，不跑含 holdout 题的文件。
 6. 选定后，确认参数文件里的 `enhance.timeoutMs` 是 3000、`retrieval.roundTimeoutMs` 是 10000（或都不写），在完整任务文件上跑两次，看 holdout 的 `gates`：一次 `maxHops` 为 0（评定 C3），一次用选定的 `maxHops`（≥ 1，评定 C5）。C4 两次都评定（同一批零命中题，结果应相同）。
 
