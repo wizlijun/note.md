@@ -1,0 +1,65 @@
+{
+  "installedBinary": "/home/bruce/.local/share/net.notemd.app/plugins/notemd.sumi/0.1.12/bin/notemd-sumi",
+  "binarySha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "results": [
+    {
+      "case": "restore_volume",
+      "pid": 126137,
+      "environmentKeys": [
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "TERM",
+        "USER",
+        "XDG_RUNTIME_DIR"
+      ],
+      "configure": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "ready": true
+        }
+      },
+      "configureSeconds": 0.010922030000074301,
+      "stream": [
+        {
+          "index": 712,
+          "application": "Sumi",
+          "media": "Typing feedback",
+          "processId": "126137",
+          "restoredVolume": {
+            "mono": {
+              "value": 65536,
+              "value_percent": "100%",
+              "db": "0.00 dB"
+            }
+          },
+          "restoredMute": false
+        }
+      ],
+      "status": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "ready": true
+        }
+      },
+      "stop": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "ready": true
+        }
+      },
+      "disable": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "result": {
+          "ready": false
+        }
+      },
+      "samplesPlayed": 0
+    }
+  ]
+}

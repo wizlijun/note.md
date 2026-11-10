@@ -1,0 +1,28 @@
+{
+  "passed": false,
+  "release_blocked": true,
+  "reason": "Actual native editor body pointer click/wheel events hit only GtkApplicationWindow, not GtkTextView/ScrolledWindow; selection and scroll unchanged at mid-document.",
+  "tag": "v6.1110.5",
+  "commit": "b039352262fb86086434b6ab54de9584a8471085",
+  "deb_sha256": "631c6f02fb62c6b2afe166bc8572a513c111938af6e4b9b151c0e3d80e4b17e6",
+  "host_pid": 86458,
+  "scale": 3,
+  "input_tool": "wheel sends real wl_pointer axis/discrete and frame; both Down and smooth delta1.5 observed",
+  "event_log": "evidence/input-events.jsonl",
+  "input_observer_sha256": "7a5dc1fd163ef7df8d41d39e7f781247746e37cf4c6dfd69de6c45d9c876bcd8",
+  "production_source_modified": false,
+  "fixture_left_running_for_diagnosis": false,
+  "limited_successes": [
+    "Long-document midscroll fixed-layout half-pixel and odd-caret cases stable",
+    "Three timed fullscreen roundtrips converge",
+    "Native scrolled window scrollbar unmapped and None shadow"
+  ],
+  "finite_transition_boundary_seconds": 5.153,
+  "all_private_hosts_and_fixture_stopped": true,
+  "actual_fresh_mid_scroll": {
+    "value": 3487,
+    "upper": 8168,
+    "page_size": 628
+  },
+  "diagnosis": "Full-size decoration GtkDrawingArea own GdkWindow lacks pass-through; diagnostic-only A/B proves root cause"
+}

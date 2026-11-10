@@ -1,0 +1,21 @@
+{
+  "host": {
+    "pid": 131347,
+    "ppid": 904,
+    "start_time": "1746481",
+    "exe_sha256": "efd58b8a0b3e523b3499a2eba8ead39ba018b0ae69695a21456ae180758504bb"
+  },
+  "backend": {
+    "pid": 132219,
+    "ppid": 131347,
+    "start_time": "1749271",
+    "exe_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb"
+  },
+  "backend_environment": {
+    "XDG_RUNTIME_DIR": "",
+    "PULSE_SERVER_present": false,
+    "private_runtime_expected": "/tmp/sumi-host-1keui9qx"
+  },
+  "streams": [],
+  "monotonic_ns": 17534857929905
+}

@@ -1,0 +1,7 @@
+{"phase":"start","serverCreated":1,"pid":14248,"time":1794316882.3592811}
+{"pid":14248,"phase":"activate","time":1794316882.3755488,"clientBundle":"com.notemd.SumiMarkerProbeHost","expectedMarker":true,"key":"","attributeCount":14,"markerCount":1,"clientClass":"_IPMDServerClientWrapperLegacy"}
+{"pid":14248,"phase":"deactivate","time":1794316882.7997799,"clientBundle":"com.notemd.SumiMarkerProbeHost","expectedMarker":true,"key":"","attributeCount":14,"markerCount":1,"clientClass":"_IPMDServerClientWrapperLegacy"}
+{"pid":14248,"phase":"activate","time":1794316882.8062801,"clientBundle":"com.notemd.SumiMarkerProbeHost","expectedMarker":false,"key":"","attributeCount":13,"markerCount":0,"clientClass":"_IPMDServerClientWrapperLegacy"}
+{"pid":14248,"phase":"deactivate","time":1794316883.5352221,"clientBundle":"com.notemd.SumiMarkerProbeHost","expectedMarker":false,"key":"","attributeCount":13,"markerCount":0,"clientClass":"_IPMDServerClientWrapperLegacy"}
+{"pid":14248,"phase":"activate","time":1794316883.536902,"clientBundle":"com.notemd.SumiMarkerProbeHost","expectedMarker":true,"key":"","attributeCount":14,"markerCount":1,"clientClass":"_IPMDServerClientWrapperLegacy"}
+{"pid":14248,"phase":"deactivate","time":1794316884.2845302,"clientBundle":"com.notemd.SumiMarkerProbeHost","expectedMarker":true,"key":"","attributeCount":14,"markerCount":1,"clientClass":"_IPMDServerClientWrapperLegacy"}

@@ -1,0 +1,11 @@
+{
+  "version": "0.1.13",
+  "engines": {
+    "notemd": ">=6.1110.8"
+  },
+  "current_target": "0.1.13",
+  "files_matched": 29,
+  "package_sha256": "4d66c9d753997cbe6cd7e666d229f6bbb518fa0fe6840c003a496063df1353a9",
+  "gui": "official market reports v0.1.13 enabled and reloaded; user acted concurrently, agent click returned user-changed",
+  "host_version": "6.1110.8"
+}

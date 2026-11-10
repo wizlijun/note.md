@@ -1,0 +1,15 @@
+{
+  "binary": "/Users/bruce/git/mdeditor-sumi-ime-host/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+  "binary_sha256": "69c499d031f8688688f295182b225867f62d018dc51ae8a13bc81ace6cf50edf",
+  "objc_metadata_classes": {
+    "SumiTextView": true,
+    "SumiEditor": true,
+    "SumiCandidatesBridge": true,
+    "SumiCandidatesView": true,
+    "SumiCandidateAccessibilityElement": true
+  },
+  "actual_compilation_source": "436a7ed72471e7b3a40679b87b61c40d0a3029d0",
+  "selected_release_source": "0b5c3c7ba1b6f3f0923c71041315ae73142faa3b",
+  "runtime_source_equivalence": "compiled-runtime-source-equivalence.json",
+  "physical_input_claim": false
+}

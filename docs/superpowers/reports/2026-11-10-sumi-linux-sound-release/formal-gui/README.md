@@ -1,0 +1,13 @@
+# 正式 6.1110.7 音效 GUI 验收
+
+来源：tag fbb9186259773a77f84a3ac69918e9f2f9df341f，Deb SHA 886379f3f52c768790ce4a9113f56b4c243033d6362a2afbfca36fbc6bdcbe23，正式binary 213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467。原三签包及d2 addon不变。
+
+verification.json为发布门禁：同私有bridge下旧正式6无法发现音频（child无runtime），新7真实UI就绪、真实按键通过原签后台产生typewriter/thock非零PCM；两者前置300ms/停笔后500ms为零。F11往返、编辑持久化及中文候选真实鼠标提交通过。
+
+音频桥仅私有fixture runtime/pulse/native symlink到真实同UID Pulse socket；未给host/backend注入PULSE_SERVER，未操作用户桌面、配置、文档或backend stdio。所有parec均同时指定自有backend精确PID对应stream index与--monitor-stream，从不录混音或麦克风。每次仅自有stream降至10%，finally用官方pactl逐声道恢复原65536/100%和unmuted后读回，再关窗/进程。最终WirePlumber Sumi持久条目也为1.0/unmuted，未直接编辑state。
+
+CtrlW关窗后backend保持静音流；专门3秒录制peak为0，不宣称此时stream已销毁。停止正式host后后台和自有stream均消失，所有fixture已停止。
+
+原始float32LE单声道48000Hz录音以确定性gzip存储；解压后的SHA/采样100ms窗口在waveform.json，可验证真实非零输出与静音尾段。不是人的听感评价；截图证明UI状态，PCM证明声音数据。私有输入法采用隔离默认设置，不改用户emoji偏好。
+
+此集合为待主代理归档提交证据，不含正式包或密钥。inventory.json逐文件hash。

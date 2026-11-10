@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "notemd-6.1110.7-1-x86_64.pkg.tar.zst": {
+      "sha256": "8c1755a55db1d66777df9a174c9a63c59ae5f82e6bface18bf0805dc1c5508bc",
+      "size": 15238236
+    },
+    "notemd-6.1110.7-1-omarchy-recipe.tar.gz": {
+      "sha256": "548c2231a870500ac63e1e87015072694830a604f1f0d72891c7a9775844cbbb",
+      "size": 1093
+    }
+  },
+  "verification": "/home/bruce/git/note.md/tasks/sumi-sound-release-6.1110.7/assets/omarchy-6.1110.7-verification.json",
+  "checksums": "/home/bruce/git/note.md/tasks/sumi-sound-release-6.1110.7/assets/SHA256SUMS-omarchy.txt",
+  "binary_sha256": "213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467",
+  "preserved_payload_files": 9,
+  "cli": "notemd 6.1110.7 (plugin API v1)"
+}

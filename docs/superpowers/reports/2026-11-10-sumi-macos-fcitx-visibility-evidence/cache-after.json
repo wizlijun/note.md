@@ -1,0 +1,16 @@
+[
+  {
+    "path": "/System/Library/Caches/com.apple.IntlDataCache.le",
+    "mtime": 1794320984.7298794,
+    "sha256": "fd97041475b790136f6586eaf65dd4e2cb0c9ab46c276b39a0e7c0f7fd07a95c",
+    "fcitx": false,
+    "wetype": false
+  },
+  {
+    "path": "/System/Library/Caches/com.apple.IntlDataCache.le.kbdx",
+    "mtime": 1794320984.7298455,
+    "sha256": "9641b364dc76441437360c56037ab64e256b11dc84b5b99d0b976af8302f2c17",
+    "fcitx": true,
+    "wetype": true
+  }
+]

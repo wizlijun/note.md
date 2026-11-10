@@ -1,0 +1,2 @@
+QUIET native-layout delta=0 focus-update delta=0
+PASS: 7191 checks; production-projection Return/blank/middle/IME/style/actual-50pt-native geometry; 80 canonical edit replies; 0 bitmap ink-span checks

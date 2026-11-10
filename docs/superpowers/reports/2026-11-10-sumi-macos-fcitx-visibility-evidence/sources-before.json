@@ -1,0 +1,268 @@
+[
+  {
+    "enabled" : true,
+    "id" : "com.apple.keylayout.ABC",
+    "enableCapable" : true,
+    "iconURL" : "",
+    "mode" : "",
+    "selected" : true,
+    "selectCapable" : true,
+    "name" : "ABC",
+    "languages" : [
+      "en",
+      "acf",
+      "af",
+      "asa",
+      "bem",
+      "bez",
+      "ca",
+      "ceb",
+      "cgg",
+      "co",
+      "da",
+      "dav",
+      "de",
+      "es",
+      "eu",
+      "fil",
+      "fr",
+      "fur",
+      "ga",
+      "gcf",
+      "gd",
+      "gl",
+      "gsw",
+      "guz",
+      "gv",
+      "hi_Latn",
+      "ht",
+      "ia",
+      "id",
+      "ie",
+      "io",
+      "isc",
+      "it",
+      "jbo",
+      "jmc",
+      "jv",
+      "kaj",
+      "kde",
+      "kea",
+      "kl",
+      "kln",
+      "ksb",
+      "kw",
+      "lb",
+      "lij",
+      "lmo",
+      "luo",
+      "luy",
+      "mfe",
+      "mgh",
+      "ms",
+      "nb",
+      "nd",
+      "nds",
+      "nl",
+      "nn",
+      "no",
+      "nr",
+      "nyn",
+      "oc",
+      "om",
+      "pms",
+      "pqm",
+      "pt",
+      "rej",
+      "rm",
+      "rn",
+      "rof",
+      "rw",
+      "rwk",
+      "saq",
+      "sbp",
+      "sc",
+      "seh",
+      "sg",
+      "shp",
+      "sn",
+      "so",
+      "sq",
+      "ss",
+      "st",
+      "su",
+      "su_Latn",
+      "sv",
+      "sw",
+      "teo",
+      "tn",
+      "tok",
+      "trv",
+      "ts",
+      "vec",
+      "vmw",
+      "vun",
+      "wa",
+      "xh",
+      "xog",
+      "za",
+      "zu"
+    ]
+  },
+  {
+    "enabled" : true,
+    "id" : "com.apple.PressAndHold",
+    "enableCapable" : true,
+    "iconURL" : "",
+    "mode" : "",
+    "selected" : true,
+    "selectCapable" : true,
+    "name" : "com.apple.PressAndHold",
+    "languages" : [
+      "en"
+    ]
+  },
+  {
+    "enabled" : true,
+    "id" : "com.tencent.inputmethod.wetype.pinyin",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/Library\/Input%20Methods\/WeType.app\/Contents\/Resources\/menu_icon.pdf",
+    "mode" : "com.tencent.inputmethod.wetype.pinyin",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "微信输入法",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : true,
+    "id" : "com.tencent.inputmethod.wetype",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/Library\/Input%20Methods\/WeType.app\/Contents\/Resources\/menu_icon.pdf",
+    "mode" : "",
+    "selected" : false,
+    "selectCapable" : false,
+    "name" : "微信输入法",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "com.apple.inputmethod.SCIM",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/System\/Library\/Input%20Methods\/SCIM.app\/Contents\/PlugIns\/SCIM_Extension.appex\/Contents\/Resources\/SCIM.tiff",
+    "mode" : "",
+    "selected" : false,
+    "selectCapable" : false,
+    "name" : "Chinese, Simplified",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : true,
+    "id" : "com.apple.inputmethod.SCIM.ITABC",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/System\/Library\/Input%20Methods\/SCIM.app\/Contents\/PlugIns\/SCIM_Extension.appex\/Contents\/Resources\/pinyin.tiff",
+    "mode" : "com.apple.inputmethod.SCIM.ITABC",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Pinyin – Simplified",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "com.apple.inputmethod.SCIM.Shuangpin",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/System\/Library\/Input%20Methods\/SCIM.app\/Contents\/PlugIns\/SCIM_Extension.appex\/Contents\/Resources\/shuangpinSC.tiff",
+    "mode" : "com.apple.inputmethod.SCIM.Shuangpin",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Shuangpin – Simplified",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "com.apple.inputmethod.SCIM.WBX",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/System\/Library\/Input%20Methods\/SCIM.app\/Contents\/PlugIns\/SCIM_Extension.appex\/Contents\/Resources\/wubixing.tiff",
+    "mode" : "com.apple.inputmethod.SCIM.WBX",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Wubi – Simplified",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "com.apple.inputmethod.SCIM.WBH",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/System\/Library\/Input%20Methods\/SCIM.app\/Contents\/PlugIns\/SCIM_Extension.appex\/Contents\/Resources\/strokeSC.tiff",
+    "mode" : "com.apple.inputmethod.SCIM.WBH",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Stroke – Simplified",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "org.fcitx.inputmethod.Fcitx5",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/Library\/Input%20Methods\/Fcitx5.app\/Contents\/Resources\/menu_icon.pdf",
+    "mode" : "",
+    "selected" : false,
+    "selectCapable" : false,
+    "name" : "Fcitx5",
+    "languages" : [
+      "en"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "org.fcitx.inputmethod.Fcitx5.zhHans",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/Library\/Input%20Methods\/Fcitx5.app\/Contents\/Resources\/menu_icon.pdf",
+    "mode" : "org.fcitx.inputmethod.zhHans",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Fcitx5",
+    "languages" : [
+      "zh-Hans"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "org.fcitx.inputmethod.Fcitx5.fcitx5",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/Library\/Input%20Methods\/Fcitx5.app\/Contents\/Resources\/menu_icon.pdf",
+    "mode" : "org.fcitx.inputmethod.fcitx5",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Fcitx5",
+    "languages" : [
+      "en"
+    ]
+  },
+  {
+    "enabled" : false,
+    "id" : "org.fcitx.inputmethod.Fcitx5.zhHant",
+    "enableCapable" : true,
+    "iconURL" : "file:\/\/\/Library\/Input%20Methods\/Fcitx5.app\/Contents\/Resources\/menu_icon.pdf",
+    "mode" : "org.fcitx.inputmethod.zhHant",
+    "selected" : false,
+    "selectCapable" : true,
+    "name" : "Fcitx5",
+    "languages" : [
+      "zh-Hant"
+    ]
+  }
+]

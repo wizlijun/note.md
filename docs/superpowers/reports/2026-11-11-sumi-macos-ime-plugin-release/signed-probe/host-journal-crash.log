@@ -1,0 +1,22 @@
+
+running 17 tests
+test host_proxy_harness::durability::journal::tests::crash_child ... ignored, only executed by the isolated crash test parent
+test host_proxy_harness::durability::journal::tests::measure_synchronous_crdt_journal_latency ... ignored, explicit isolated synchronous durability latency measurement
+test host_proxy_harness::durable_proxy_crash_child ... ignored, only launched by isolated host crash recovery tests
+test host_proxy_harness::journaled_import_crash_child ... ignored, only launched by the isolated journaled-import crash test
+test host_proxy_harness::durability::journal::tests::failed_write_never_publishes_or_acknowledges ... ok
+test host_proxy_harness::durability::journal::tests::corruption_and_second_host_fail_closed_without_deleting_log ... ok
+test host_proxy_harness::durability::journal::tests::kill_after_accepted_before_ipc_recovers_both_edits ... ok
+test host_proxy_harness::durability::journal::tests::fifo_reopen_and_exact_receipt_reclamation ... ok
+test host_proxy_harness::durability::journal::tests::kill_after_receipt_reclamation_preserves_only_unacknowledged_input ... ok
+test host_proxy_harness::permits_bound_pending_edits_and_reserve_before_native_mutation ... ok
+test host_proxy_harness::host_sigkill_after_backend_commit_before_ack_replays_exactly_once ... ok
+test host_proxy_harness::host_sigkill_before_backend_commit_recovers_accepted_input_on_first_load ... ok
+test host_proxy_harness::journaled_import_survives_host_crash_and_new_external_files_without_blocking_load ... ok
+test host_proxy_harness::continuous_polling_does_not_postpone_the_retry_deadline ... ok
+test host_proxy_harness::lost_commit_reply_fails_barrier_then_replays_same_operation ... ok
+test host_proxy_harness::unavailable_worker_retains_local_remote_order_and_flush_is_prompt ... ok
+test host_proxy_harness::reserved_import_rejects_wrong_receipt_and_replays_without_duplicate_apply ... ok
+
+test result: ok. 13 passed; 0 failed; 4 ignored; 0 measured; 93 filtered out; finished in 1.20s
+

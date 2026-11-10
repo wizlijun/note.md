@@ -1,0 +1,8 @@
+
+running 3 tests
+test real_legacy_hello_requests_plugin_update_without_blocking_fonts_or_sound ... ignored, requires explicit SUMI_TEST_LEGACY_BINARY to the previously released executable
+test real_stdio_advertises_and_serves_atomic_observation ... ok
+test real_stdio_commit_kill_reopen_replay_and_private_boundary ... ok
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.68s
+

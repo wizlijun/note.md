@@ -458,6 +458,13 @@ async function showAppearance() {
   const focusHint = document.createElement('p'); focusHint.id = 'focus-typing-hint'
   focusHint.textContent = t('空白页从中线开始；聚焦时上下移动光标，当前行仍居中。阅读导航后首个按键或拼音输入即恢复聚焦。停笔10秒后上下文逐渐显现，重新打字快速恢复渐隐。字号与行距不变。', 'Blank pages start at the center. Up/Down keeps the active line centered while focused. After reading navigation, the first input, including IME preedit, restores focus. After 10 seconds without typing, context gradually reappears; typing restores the fade. Font size and line spacing stay unchanged.', '空白のページは中央から書き始めます。集中表示中は上下キーで移動しても現在の行を中央に保ちます。移動後は、変換中の文字を含め最初の入力で集中表示に戻ります。10秒入力しないと前後の文章がゆっくり現れ、入力を再開すると素早く薄くなります。文字サイズと行間は変わりません。')
   form.append(focusHint)
+  if (isApplePlatformSync()) {
+    const section = document.createElement('section'); section.id = 'input-method-guidance'
+    const title = document.createElement('h3'); title.textContent = t('输入法联动', 'Input Method Integration', '入力メソッドとの連携')
+    const hint = document.createElement('p')
+    hint.textContent = t('在 macOS 输入菜单中选择 Faitc5 for Sumi。正文获得输入焦点时，候选字会自动沿用正文排版；搜索框和其他应用继续使用输入法候选窗口。联动不可用时自动恢复输入法候选窗口。', 'Choose Faitc5 for Sumi in the macOS Input menu. While the writing editor has focus, candidates automatically use the text’s layout. Search fields and other apps use the input method’s candidate window. If integration is unavailable, the candidate window is restored automatically.', 'macOS の入力メニューで Faitc5 for Sumi を選択してください。本文にフォーカスがある間、変換候補は本文のレイアウトで表示されます。検索欄やほかのアプリでは入力メソッドの候補ウインドウを使います。連携できない場合は候補ウインドウに自動で戻ります。')
+    section.append(title, hint); form.append(section)
+  }
   showSounds(form)
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply', '適用'); form.append(submit)
   form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }

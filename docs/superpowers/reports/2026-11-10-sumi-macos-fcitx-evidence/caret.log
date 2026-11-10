@@ -1,0 +1,43 @@
+SYSTEM reduce_motion=true (read-only; explicit caret choice must win)
+GLYPH baseline=67.00 caret=46.50
+CARET 0 x=24.00 y=46.50 w=2.00 h=26.00
+GLYPH baseline=67.00 caret=46.50
+CARET 1 x=37.00 y=46.50 w=2.00 h=26.00
+GLYPH baseline=67.00 caret=46.50
+CARET 2 x=59.00 y=46.50 w=2.00 h=26.00
+GLYPH baseline=67.00 caret=46.50
+CARET 4 x=83.00 y=46.50 w=2.00 h=26.00
+GLYPH baseline=107.00 caret=86.50
+CARET 5 x=24.00 y=86.50 w=2.00 h=26.00
+GLYPH baseline=67.00 caret=46.50
+CARET 0 x=24.00 y=46.50 w=2.00 h=26.00
+GLYPH baseline=107.00 caret=86.50
+CARET 60 x=116.50 y=86.50 w=2.00 h=26.00
+GLYPH baseline=147.00 caret=126.50
+CARET 120 x=209.50 y=126.50 w=2.00 h=26.00
+GLYPH baseline=260.00 caret=232.00
+CARET 120 x=140.50 y=232.00 w=3.00 h=35.00
+GLYPH baseline=16892.00 caret=16864.00
+CARET 4200 x=32.00 y=16864.00 w=3.00 h=35.00
+GLYPH baseline=16892.00 caret=16864.00
+CARET 4200 x=32.00 y=16864.00 w=3.00 h=35.00
+BREATH sample=0 elapsed=0.274 opacity=0.9718
+BREATH sample=1 elapsed=0.532 opacity=0.8898
+BREATH sample=2 elapsed=0.790 opacity=0.7569
+BREATH sample=3 elapsed=1.049 opacity=0.5933
+BREATH sample=4 elapsed=1.307 opacity=0.4376
+BREATH sample=5 elapsed=1.566 opacity=0.3224
+BREATH sample=6 elapsed=1.824 opacity=0.2614
+BREATH sample=7 elapsed=2.084 opacity=0.2526
+BREATH sample=8 elapsed=2.344 opacity=0.2949
+BREATH sample=9 elapsed=2.599 opacity=0.3902
+BREATH sample=10 elapsed=2.857 opacity=0.5339
+BREATH sample=11 elapsed=3.118 opacity=0.7004
+BREATH sample=12 elapsed=3.375 opacity=0.8471
+BREATH sample=13 elapsed=3.634 opacity=0.9489
+BREATH sample=14 elapsed=3.894 opacity=0.9959
+BREATH sample=15 elapsed=4.151 opacity=0.9917
+BREATH sample=16 elapsed=4.407 opacity=0.9364
+BREATH sample=17 elapsed=4.666 opacity=0.8265
+LONG DOCUMENT scrolls=12 elapsed=0.0060s geometry_calls=14
+PASS: font-height vertical caret, real TextKit2 geometry/theme/IME; four-second phase-stable layer breathing/steady; no UI activation

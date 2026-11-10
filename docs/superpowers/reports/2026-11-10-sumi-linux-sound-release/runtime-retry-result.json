@@ -1,0 +1,12 @@
+{
+  "completedAt": "2026-11-10T12:41:02.585201+00:00",
+  "command": "scripts/release-linux-verify.sh <preserved-deb> 6.1110.7 amd64",
+  "exitCode": 0,
+  "retryAttempts": 1,
+  "debSha256": "886379f3f52c768790ce4a9113f56b4c243033d6362a2afbfca36fbc6bdcbe23",
+  "binarySha256": "213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467",
+  "cli": "notemd 6.1110.7 (plugin API v1)",
+  "sourceCommit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "log": "runtime-retry.log",
+  "uploaded": false
+}

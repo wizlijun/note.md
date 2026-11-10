@@ -1,0 +1,3 @@
+CONTEXT old=NSConcreteAttributedString new=NSConcreteAttributedString same=0 oldMutable=0 newMutable=0 captures=16
+KEYS [{"input":"a","milliseconds":24.31470833835192,"captures":16},{"input":"b","milliseconds":7.436833344399929,"captures":16},{"input":"Return","milliseconds":11.388500017346814,"captures":16},{"input":"d","milliseconds":3.0404166609514505,"captures":9},{"input":"Return","milliseconds":2.7950000076089054,"captures":10}]
+PASS: 56 real native glyph cache checks

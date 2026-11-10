@@ -1,0 +1,10 @@
+{
+  "native_receipt_source": "2ddc823d68267e375023f072c60ea6a53c7fddcf",
+  "actual_host_build_source": "436a7ed72471e7b3a40679b87b61c40d0a3029d0",
+  "release_source": "0b5c3c7ba1b6f3f0923c71041315ae73142faa3b",
+  "native_frozen_sources_exactly_equal": true,
+  "native_input_files": 102,
+  "plugin_tracked_files_equal": 52,
+  "receipt_unchanged": true,
+  "package_sha256": "4d66c9d753997cbe6cd7e666d229f6bbb518fa0fe6840c003a496063df1353a9"
+}

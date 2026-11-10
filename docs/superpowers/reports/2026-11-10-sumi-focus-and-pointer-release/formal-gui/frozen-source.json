@@ -1,0 +1,36 @@
+{
+  "tag": "v6.1110.6",
+  "commit": "024d81814b4076def2456428150a4a2cd84095de",
+  "source_taken_from_exact_tag": true,
+  "main_unreleased_features_not_used": true,
+  "native_linux_sha256": "7627ed3bd242e85eb8725fdb2046c2bb6deeac17c9e7f7f8d446bccf09913eed",
+  "decoration_realize_fix_present": true,
+  "plugins": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.12",
+      "manifest_sha256": "1aeec40f1af0d7e1f25ddc7e5e26f832a8dde374960a3a25b86c60ebee273157",
+      "signed_package_sha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb"
+    },
+    {
+      "id": "notemd.next",
+      "version": "1.13.3",
+      "manifest_sha256": "eb665bd54de1cbc6e84fc3c923a05a6913070d8d1962296f92dfe62b7fc88963",
+      "signed_package_sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2"
+    },
+    {
+      "id": "notemd.idea-spark",
+      "version": "1.3.8",
+      "manifest_sha256": "ddaa1f1f065764d4da44e5aab985e1ad0befbfe4924580745cda46b5393fa376",
+      "signed_package_sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5"
+    }
+  ],
+  "read_only_modules_sha256": {
+    "tasks/plugin-window-release/observer.so": "b108c91d69650cb31692f068e3658f9e7d4c4e03f8dd9571f9a70a759c604529",
+    "tasks/sumi-focus-v5/frame-observer.so": "677e8e38e904b2d4c3e4702c43bc06a241bb04d5bcc2be4dc6fd30f853141e90",
+    "tasks/sumi-focus-v6/input-observer.so": "92bcae4973495a4355adb5944dfe912c44cab6a5c72f8b7d39d68e32aba62ecc"
+  },
+  "diagnostic_mutation_module_allowed": false,
+  "formal_deb_pending": true,
+  "gui_started": false
+}

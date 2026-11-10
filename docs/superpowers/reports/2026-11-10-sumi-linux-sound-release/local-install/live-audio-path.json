@@ -1,0 +1,23 @@
+{
+  "hostPid": 142195,
+  "backend": {
+    "pid": 142526,
+    "parentPid": 142195,
+    "binarySha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+    "runtime": "/run/user/1000"
+  },
+  "stream": {
+    "index": 822,
+    "sink": 61,
+    "mute": false,
+    "volume": {
+      "mono": {
+        "value": 65536,
+        "value_percent": "100%",
+        "db": "0.00 dB"
+      }
+    },
+    "application": "Sumi",
+    "media": "Typing feedback"
+  }
+}

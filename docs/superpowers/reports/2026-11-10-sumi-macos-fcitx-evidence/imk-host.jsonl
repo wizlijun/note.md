@@ -1,0 +1,5 @@
+{"phase":"start","previousSource":"com.tencent.inputmethod.wetype.pinyin","previousApp":"com.apple.systempreferences","pid":14234,"time":1794316880.9207079}
+{"source":"com.notemd.inputmethod.SumiMarkerProbe.Hans","phase":"key","handled":true,"time":1794316882.4298182,"key":"a","step":0,"clientMatches":1,"pid":14234}
+{"source":"com.notemd.inputmethod.SumiMarkerProbe.Hans","phase":"key","handled":true,"time":1794316883.1664629,"key":"b","step":1,"clientMatches":1,"pid":14234}
+{"source":"com.notemd.inputmethod.SumiMarkerProbe.Hans","phase":"key","handled":true,"time":1794316883.9031811,"key":"c","step":2,"clientMatches":1,"pid":14234}
+{"reason":"three IMK insertText callbacks","phase":"finish","search":"b","time":1794316884.2935119,"success":false,"restoreStatus":0,"body":"ac","pid":14234}

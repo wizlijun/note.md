@@ -1,0 +1,30 @@
+{
+  "edition": "Fcitx5 Sumi modified build",
+  "source_commit": "6de7f31242ee66030b5e22190720459629a8fbbc",
+  "implementation_commit": "0b4b866fb0449ea6cd0abf8eef3ef0cfeeae416a",
+  "package_version": "0.4.3.3",
+  "bundle_build": "2026111003",
+  "architecture": "arm64",
+  "submodule_revisions": [
+    "6e902e1b1589a3bbe75a9f78e24f82224b3ba483 deps/AlertToast (heads/master)",
+    " 01f5255fbdcd01b56cbc6587cc6e04771e910c2e deps/url-filter (heads/master)",
+    " 11086f40512774dcadef54079f1ba023bfacf940 deps/url-filter/Rules (11086f4)",
+    " 5ffd9e5f905078880f1e21752e10b63490734809 fcitx5 (heads/master)",
+    " 042f5013152eb81c1552dec945b88f7b95ca350f fcitx5/third_party/yoga (042f501)",
+    " 66ef1cec0984030fbcfd20c28de1fbe94399fee4 fcitx5-beast (heads/master)",
+    " c534328c61b12ed0b7644b07a0c72841050394e0 fcitx5-webview (heads/master)",
+    " cbbdee44afff22867de9fd88a9fc8350d9bdd399 fcitx5-webview/webview (cbbdee4)"
+  ],
+  "plugin_sha256": {
+    "chinese-addons-arm64.tar.bz2": "5419b071edb5a04144d5c857c016074ac602b9f1292e17f8a4733bfbdc690dbf",
+    "chinese-addons-any.tar.bz2": "059a8bc3f667fd137368c4cca6cdd8172ff51a7ec5417dfb76f1b2972e92180e"
+  },
+  "core_filter_patch_sha256": "b76ef356015a046312e6a14e42ef01521799517c1fd47d4996a8dfe63b9a9b77",
+  "input_source_helper_source_sha256": "33e312e72a585e399f77791ac68660299f044196d2eaaae5ad931419e5430e21",
+  "key_logging": false,
+  "notarized": false,
+  "package": "/Users/bruce/git/fcitx5-macos-sumi/build/sumi-package-0.4.3.3/Fcitx5-Sumi-0.4.3.3-arm64.pkg",
+  "package_sha256": "9c95cf2b18d62ca0f4301acdc8bee25d44963ec07c2c03a2187f9cbcd2db0c62",
+  "installed_binary_sha256": "4a8959f6efcdb2ad65a01e66978919695b47e582c842515309f17de86b7b5f53",
+  "input_source_helper_sha256": "166d7b98262805fa88175465023ae23805d483f321f4e8507ffae6a1774e28af"
+}

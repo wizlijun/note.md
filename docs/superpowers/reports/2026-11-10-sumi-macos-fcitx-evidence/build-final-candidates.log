@@ -1,0 +1,6 @@
+[0/2] Re-checking globbed directories...
+[1/5] Building CXX object macosfrontend/CMakeFiles/macosfrontend.dir/macosfrontend.cpp.o
+[2/5] Linking CXX static library macosfrontend/libmacosfrontend.a
+[3/5] Linking Swift executable tests/sumi-candidates-cpp
+[4/5] Linking Swift executable tests/sumi-pinyin-cpp
+[5/5] Linking Swift executable src/Fcitx5.app/Contents/MacOS/Fcitx5

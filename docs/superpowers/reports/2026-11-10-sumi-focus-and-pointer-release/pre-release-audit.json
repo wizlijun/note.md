@@ -1,0 +1,1046 @@
+{
+  "timestamp_utc": "2026-11-10T10:49:25.993661+00:00",
+  "target_version": "6.1110.6",
+  "snapshot_main_head": "024d81814b4076def2456428150a4a2cd84095de",
+  "scope": "host-only focus scroll feedback, scrollbar/frame and native decoration pointer passthrough; three published plugins unchanged",
+  "worktrees": [
+    {
+      "worktree": "/home/bruce/git/note.md",
+      "HEAD": "024d81814b4076def2456428150a4a2cd84095de",
+      "branch": "refs/heads/main",
+      "changes": [],
+      "ignored_roots": [
+        {
+          "path": "dist-share-editor/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "dist/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/host.log",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-events.log",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "docs/superpowers/reports/2026-11-10-sumi-omarchy-release/__pycache__/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "packaging/omarchy/__pycache__/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-registry/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/agency/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/apple-notes/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/assistant-mail/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/claude-agent/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/codex-agent/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/conversation-dictionary/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/decision-log/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/deepseek-agent/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/ebook-import/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/habitat/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/health-sync/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/idea-spark/dist/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/idea-spark/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/index-viewer/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/knowledge-browser/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/meetings/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/memory/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/next/dist/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/next/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/power-mode/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/quick-launch/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/roam-import/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/strata/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/timeline/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/trace-source/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/typst-reader/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/weekly-review/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/write/backend/target/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/write/dist/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/write/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "scripts/sumi/__pycache__/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/gen/schemas/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/IBMPlexMono-Light.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/IBMPlexSansSC-Light.otf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/LXGWWenKaiMonoLite-Regular.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/Unifont-18.0.01.otf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/YouchaSanz.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/ZhaohuaTypeWriter.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/ZhuqueFangsong-Regular.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/target/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "tasks/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "tauri-plugin-native-editor/target/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "write-core/target/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        }
+      ],
+      "head_commits_not_main": []
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-candidate-position",
+      "HEAD": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "branch": "refs/heads/fix/sumi-candidate-position",
+      "changes": [],
+      "ignored_roots": [],
+      "head_commits_not_main": [
+        "5fd8c46160e386cbbbaf110f062a02799bf71809"
+      ]
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-candidates",
+      "HEAD": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "branch": "refs/heads/sumi-fcitx-candidates",
+      "changes": [],
+      "ignored_roots": [
+        {
+          "path": "dist-share-editor/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "dist/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/agency/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/apple-notes/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/assistant-mail/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/claude-agent/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/codex-agent/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/conversation-dictionary/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/decision-log/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/deepseek-agent/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/ebook-import/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/habitat/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/health-sync/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/idea-spark/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/index-viewer/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/knowledge-browser/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/meetings/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/memory/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/next/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/power-mode/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/quick-launch/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/roam-import/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/strata/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/timeline/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/trace-source/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/typst-reader/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/weekly-review/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "plugins-src/write/node_modules/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/gen/schemas/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/IBMPlexMono-Light.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/IBMPlexSansSC-Light.otf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/LXGWWenKaiMonoLite-Regular.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/Unifont-18.0.01.otf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/YouchaSanz.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/ZhaohuaTypeWriter.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/resources/sumi/ZhuqueFangsong-Regular.ttf",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/target/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        }
+      ],
+      "head_commits_not_main": [
+        "cf000db2d324a836a14cc4e05a6da584ec7531ba"
+      ]
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-focus-stability",
+      "HEAD": "690154c8d98c0c8caf2906615561b2e2e6235589",
+      "branch": "refs/heads/fix/sumi-focus-stability",
+      "changes": [],
+      "ignored_roots": [
+        {
+          "path": "tasks/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        }
+      ],
+      "head_commits_not_main": [
+        "690154c8d98c0c8caf2906615561b2e2e6235589"
+      ]
+    },
+    {
+      "worktree": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+      "HEAD": "183b636b05bcf1440e2b8626f28629ce44b78863",
+      "detached": true,
+      "changes": [
+        {
+          "status": "??",
+          "path": "node_modules",
+          "scope": "excluded dependency symlink",
+          "symlink_target": "/home/bruce/git/note.md/node_modules"
+        }
+      ],
+      "ignored_roots": [
+        {
+          "path": "dist/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/gen/schemas/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        },
+        {
+          "path": "src-tauri/target/",
+          "scope": "excluded ignored build/cache/task/dependency root; descendants not read"
+        }
+      ],
+      "head_commits_not_main": []
+    }
+  ],
+  "branches": [
+    {
+      "branch": "fix/sumi-candidate-position",
+      "head": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "unmerged_commits": [
+        {
+          "commit": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+          "subject": "fix(sumi): keep nonfocus input stationary above bottom candidates",
+          "equivalent_main_commit": "bb5e7e2bfadfbb336289563f609a745f547040de",
+          "stable_patch_id": "a6908754d6ad9be019b2a553dbd0dd552a6c1df3",
+          "patch_equivalent": true,
+          "scope": "already integrated by cherry-pick; no new inclusion"
+        }
+      ],
+      "git_cherry": [
+        "- 5fd8c46160e386cbbbaf110f062a02799bf71809"
+      ]
+    },
+    {
+      "branch": "fix/sumi-focus-stability",
+      "head": "690154c8d98c0c8caf2906615561b2e2e6235589",
+      "unmerged_commits": [
+        {
+          "commit": "690154c8d98c0c8caf2906615561b2e2e6235589",
+          "subject": "fix(sumi): stabilize focus scrolling and hide native scrollbar",
+          "equivalent_main_commit": "e8e8e26a55ecebde9fe8846f4b887d9de96c152e",
+          "stable_patch_id": "54dbcd57a3ed06badec49f41b45359b3d865c358",
+          "patch_equivalent": true,
+          "scope": "already integrated by cherry-pick; no new inclusion"
+        }
+      ],
+      "git_cherry": [
+        "- 690154c8d98c0c8caf2906615561b2e2e6235589"
+      ]
+    },
+    {
+      "branch": "main",
+      "head": "024d81814b4076def2456428150a4a2cd84095de",
+      "unmerged_commits": [],
+      "git_cherry": []
+    },
+    {
+      "branch": "sumi-fcitx-candidates",
+      "head": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "unmerged_commits": [
+        {
+          "commit": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+          "subject": "docs(sumi): verify frozen release host plugin and Fcitx integration",
+          "equivalent_main_commit": "2bbd9191983eebf5d5237cefa6e5ad8aa49696ba",
+          "stable_patch_id": "3902cb7b0db2e80c99b1d1a37337e3d4b19f3ea5",
+          "patch_equivalent": true,
+          "scope": "already integrated by cherry-pick; no new inclusion"
+        }
+      ],
+      "git_cherry": [
+        "- cf000db2d324a836a14cc4e05a6da584ec7531ba"
+      ]
+    }
+  ],
+  "stashes": [],
+  "focus_cherry_pick": {
+    "source": "690154c8d98c0c8caf2906615561b2e2e6235589",
+    "main": "e8e8e26a55ecebde9fe8846f4b887d9de96c152e",
+    "patch_equal": true,
+    "all_changed_file_blobs_equal": {
+      "CHANGELOG.md": true,
+      "CHANGELOG.zh-CN.md": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/README.md": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/build.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale1.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale3.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro-result.json": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro.py": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/ime-scale3.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/red.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/scrollbar.png": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/transactions.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/unit.log": true,
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/verification.json": true,
+      "docs/superpowers/specs/2026-11-10-sumi-focus-stability.md": true,
+      "tauri-plugin-native-editor/src/linux.rs": true,
+      "tauri-plugin-native-editor/src/linux_focus.rs": true
+    }
+  },
+  "decoration_fix": {
+    "commit": "693e5feb9d9ffb15c84e8cbc84e06cb480c7a77e",
+    "runtime_diff": "diff --git a/tauri-plugin-native-editor/src/linux.rs b/tauri-plugin-native-editor/src/linux.rs\nindex 5516f325..5125a627 100644\n--- a/tauri-plugin-native-editor/src/linux.rs\n+++ b/tauri-plugin-native-editor/src/linux.rs\n@@ -880,6 +880,13 @@ pub fn mount(\n     scroll.add(&view);\n     overlay.add_overlay(&scroll);\n     let decoration = gtk::DrawingArea::new();\n+    decoration.connect_realize(|area| {\n+        // Overlay pass-through covers its wrapper, not this area's own window.\n+        if let Some(window) = area.window() {\n+            window.set_pass_through(true);\n+            window.input_shape_combine_region(&gtk::cairo::Region::create(), 0, 0);\n+        }\n+    });\n     decoration.set_halign(gtk::Align::Start);\n     decoration.set_valign(gtk::Align::Start);\n     overlay.add_overlay(&decoration);\n",
+    "scope": "seven-line realize handler sets descendant GdkWindow pass-through and empty input region; native regressions and blocked-v5 evidence in same commit"
+  },
+  "independent_user_documentation": {
+    "commit": "54d2c56724ca1f91fdb8f2d79b8a74d0a0e6b009",
+    "files": [
+      "docs/superpowers/specs/sumi-ime-cross-platform.md"
+    ],
+    "scope": "allowed independently committed specification only; no runtime/build effect; does not claim planned IME features are implemented"
+  },
+  "version_commit": {
+    "sha": "024d81814b4076def2456428150a4a2cd84095de",
+    "files": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "package.json",
+      "src-tauri/Cargo.lock",
+      "src-tauri/Cargo.toml",
+      "src-tauri/tauri.conf.json"
+    ],
+    "diff": "diff --git a/CHANGELOG.md b/CHANGELOG.md\nindex b651f66b..70122071 100644\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -7,10 +7,16 @@ For the full commit history, see the git log.\n \n ## Unreleased\n \n-## v6.1110.5 — 2026-11-10\n+## v6.1110.6 — 2026-11-10\n \n - **Stabilize Sumi focus writing on Linux.** Fix fractional scroll feedback that made the text jump between adjacent pixels. Hide the native editor scrollbar and frame while preserving scrolling and the input position outside focus mode.\n \n+- **Restore mouse input in the Sumi Linux editor.** Make the focus decoration’s own GTK window transparent to input so clicks, text selection and mouse-wheel scrolling reach the native body.\n+\n+## v6.1110.5 — 2026-11-10\n+\n+Unpublished validation build. Its focus-writing fix is included in v6.1110.6; this build failed the native mouse-input release gate.\n+\n ## v6.1110.4 — 2026-11-10\n \n - **Omarchy plugin windows and shortcuts.** Linux plugin windows open with a movable title bar, resize controls and an initial size fitted to the available desktop. App commands use Ctrl; Sumi uses F11 for fullscreen and keeps its controls reachable above the desktop dock. Fullscreen writing uses one proportional font scale and restores the saved size on exit.\ndiff --git a/CHANGELOG.zh-CN.md b/CHANGELOG.zh-CN.md\nindex d587ef63..742bea48 100644\n--- a/CHANGELOG.zh-CN.md\n+++ b/CHANGELOG.zh-CN.md\n@@ -6,10 +6,16 @@\n \n ## 未发布\n \n-## v6.1110.5 — 2026-11-10\n+## v6.1110.6 — 2026-11-10\n \n - **修复 Sumi Linux 聚焦书写抖动。** 消除居中计算的半像素滚动回授，让正文和候选保持稳定；隐藏原生正文滚动条及边框，保留正常滚动和非聚焦原位输入。\n \n+- **恢复 Sumi Linux 原生正文鼠标操作。** 让焦点装饰层自身的 GTK 窗口穿透输入，正文点击定位、拖选和滚轮不再被装饰层截获。\n+\n+## v6.1110.5 — 2026-11-10\n+\n+未公开的验收构建。聚焦修复随 v6.1110.6 交付；此构建未通过原生正文鼠标输入发布门禁。\n+\n ## v6.1110.4 — 2026-11-10\n \n - **调整 Omarchy 插件窗口与快捷键。** Linux 插件窗口恢复可拖动标题栏和缩放，启动尺寸适配可用桌面。应用命令统一使用 Ctrl，Sumi 以 F11 切换全屏，工具区避开桌面 Dock；全屏书写按单一比例调整字号，退出后恢复保存的字号。\ndiff --git a/package.json b/package.json\nindex 13184682..0d14d798 100644\n--- a/package.json\n+++ b/package.json\n@@ -1,6 +1,6 @@\n {\n   \"name\": \"notemd\",\n-  \"version\": \"6.1110.5\",\n+  \"version\": \"6.1110.6\",\n   \"type\": \"module\",\n   \"private\": true,\n   \"scripts\": {\ndiff --git a/src-tauri/Cargo.lock b/src-tauri/Cargo.lock\nindex 40062214..bef63a43 100644\n--- a/src-tauri/Cargo.lock\n+++ b/src-tauri/Cargo.lock\n@@ -3261,7 +3261,7 @@ dependencies = [\n \n [[package]]\n name = \"notemd\"\n-version = \"6.1110.5\"\n+version = \"6.1110.6\"\n dependencies = [\n  \"base64 0.22.1\",\n  \"block2\",\ndiff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml\nindex 2f84821e..5ce979ff 100644\n--- a/src-tauri/Cargo.toml\n+++ b/src-tauri/Cargo.toml\n@@ -1,6 +1,6 @@\n [package]\n name = \"notemd\"\n-version = \"6.1110.5\"\n+version = \"6.1110.6\"\n edition = \"2021\"\n \n [lib]\ndiff --git a/src-tauri/tauri.conf.json b/src-tauri/tauri.conf.json\nindex cae0088f..fc0e1d25 100644\n--- a/src-tauri/tauri.conf.json\n+++ b/src-tauri/tauri.conf.json\n@@ -2,7 +2,7 @@\n   \"$schema\": \"https://schema.tauri.app/config/2\",\n   \"productName\": \"note.md\",\n   \"mainBinaryName\": \"notemd\",\n-  \"version\": \"6.1110.5\",\n+  \"version\": \"6.1110.6\",\n   \"identifier\": \"net.notemd.app\",\n   \"build\": {\n     \"beforeDevCommand\": \"pnpm dev\",\n",
+    "scope": "four host version metadata files and bilingual release headings"
+  },
+  "changes_since_v6_1110_4": {
+    "runtime_files": [
+      "tauri-plugin-native-editor/src/linux.rs",
+      "tauri-plugin-native-editor/src/linux_focus.rs"
+    ],
+    "metadata_files": [
+      "package.json",
+      "src-tauri/Cargo.lock",
+      "src-tauri/Cargo.toml",
+      "src-tauri/tauri.conf.json"
+    ],
+    "all_paths": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/README.md",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/SHA256SUMS-linux.txt",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/SHA256SUMS-omarchy.txt",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/arch-makepkg.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/arch-prepare.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/arch-verify.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/build-cleanup.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/build-inputs.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/core-ime.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/core-regression.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/final-core-tests.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/check-gui.py",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/fixture-ready-final.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w-observer/dom-0x560201acf3b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-ctrl-w.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial-observer/dom-0x560201acf3b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-initial.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-resize-confirmed-observer/dom-0x5582156b1370.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-resize-confirmed-observer/dom-0x5582167a4f90.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-resize-confirmed-observer/dom-0x558216e54a40.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-resize-confirmed-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-resize-confirmed.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-resize-confirmed.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste-observer/dom-0x560201acf3b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-copy-paste.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save-observer/dom-0x560201acf3b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-single-save.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-idea-observer/dom-0x5586bb56c410.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-idea-observer/dom-0x5586bbad9c80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-idea-observer/dom-0x5586bbdae160.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-idea-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-idea.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-idea.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-left-resize-observer/dom-0x55e3d46cf550.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-left-resize-observer/dom-0x55e3d4a749d0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-left-resize-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-left-resize.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-left-resize.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-observer/dom-0x55e3d46cf550.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-observer/dom-0x55e3d4a749d0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-next.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-startup-observer/dom-0x55e3d4a749d0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-startup-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-startup.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-startup.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-sumi-observer/dom-0x5586bb56c410.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-sumi-observer/dom-0x5586bbdae160.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-sumi-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-sumi.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/low-sumi.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/main-plugins-menu.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/main-plugins-menu.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s-observer/dom-0x560201acf3b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-after-rebuild-ctrl-n-s.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-n.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-n.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-s-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-s-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-s-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-s.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-s.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-w-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-w-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-w-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-w.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-ctrl-w.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-edge-resize-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-edge-resize-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-edge-resize-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-edge-resize.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-edge-resize.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-focused-ctrl-w-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-focused-ctrl-w-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-focused-ctrl-w-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-focused-ctrl-w.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-focused-ctrl-w.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-initial.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-initial.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-confirmed-observer/dom-0x5582167a4f90.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-confirmed-observer/dom-0x558216e54a40.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-confirmed-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-confirmed.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-confirmed.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-final-observer/dom-0x5582167a4f90.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-final-observer/dom-0x558216e54a40.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-final-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-final.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-final.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-focused-observer/dom-0x5582167a4f90.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-focused-observer/dom-0x558216e54a40.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-focused-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-focused.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-resize-focused.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-title-drag-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-title-drag-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-title-drag-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-title-drag.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/next-title-drag.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/observer/dom-0x5582156b1370.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/observer/dom-0x5582167a4f90.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/observer/dom-0x558216e54a40.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/observer/gtk-tree.jsonl.2U1IY3",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag-observer/dom-0x55a2a04f5bb0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-drag.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-observer/dom-0x55a2a04f5bb0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize-observer/dom-0x55a2a04f5bb0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea-resize.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-idea.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-keyboard-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-keyboard-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-keyboard-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-keyboard-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-keyboard.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-keyboard.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize-observer/dom-0x55a2a04f5bb0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next-resize.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-next.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-fullscreen-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-fullscreen-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-fullscreen-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-fullscreen.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-fullscreen.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-restored-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-restored-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-restored-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-restored.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-panel-restored.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-startup-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-startup-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-startup.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-startup.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag-observer/dom-0x55a29f8d1360.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag-observer/dom-0x55a2a04f5bb0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-drag.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-fullscreen-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-fullscreen-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-fullscreen-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-fullscreen.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-fullscreen.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-observer/dom-0x55a29ee383b0.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-observer/dom-0x55a2a0907330.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/scale3-sumi.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/startup.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/startup.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-1-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-1-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-1-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-1-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-1.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-1.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-2-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-2-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-2-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-2-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-2.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-fullscreen-2.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-normal-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-normal-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-normal-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-normal-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-normal.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-normal.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-1-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-1-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-1-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-1-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-1.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-1.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-2-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-2-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-2-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-2-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-2.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-body-restored-2.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-initial-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-initial-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-initial-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-initial.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-initial.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-open-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-open-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-open-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-open-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-open.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-open.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-1-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-1-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-1-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-1-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-1.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-1.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-2-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-2-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-2-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-2-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-2.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-fullscreen-2.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-1-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-1-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-1-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-1-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-1.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-1.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-2-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-2-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-2-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-2-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-2.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-panel-restored-2.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-real-resize-observer/dom-0x5586bb56c410.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-real-resize-observer/dom-0x5586bbdae160.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-real-resize-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-real-resize.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-real-resize.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-outer-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-outer-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-outer-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-outer-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-outer.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-outer.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-shadow-observer/dom-0x560201a35b50.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-shadow-observer/dom-0x56020261b050.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-shadow-observer/dom-0x560203208f80.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-shadow-observer/gtk-tree.jsonl",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-shadow.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize-shadow.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/sumi-resize.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/formal-font-measurements.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/canonical-download-handoff.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/canonical-download-handoff.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/fixture-ready.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/host-process.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/manual-cache.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/manual-discovered4.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/manual-discovered4.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/native-menu.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/native-menu.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/startup-cache.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/startup-discovered4.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/startup-discovered4.png",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/old-client/verification.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/payload-integrity.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/verification.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/generated-index.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/host-artifact.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/host-public-verification.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/index-preservation.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/local-install/actual-f11-roundtrip.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/local-install/plugins.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/local-install/running.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/local-install/sumi-window.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/menu-scope.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/mode-shortcuts.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/omarchy-6.1110.4-verification.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/package.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/corner-after.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/height-after.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/height-grow-after.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/next-result.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/next-top-after.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/result.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/top-after.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/plugin-window-fix/resize-diagnosis/width-after.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/pre-release-audit.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/prepare-mounts.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/prepare-result.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/README.md",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/plugin-frozen-entry.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/plugin-host-gate.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/plugin-index-write.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/plugin-offline-check.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/plugin-public-packages.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/plugin-publication.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/receipt.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/plugin-frozen-entry.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/plugin-host-gate.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/plugin-index-write.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/plugin-offline-check.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/plugin-public-packages.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/plugin-publication.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/receipt.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/publish-plugin.py",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/source-check.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/plugin-frozen-entry.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/plugin-host-gate.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/plugin-index-write.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/plugin-offline-check.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/plugin-public-packages.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/plugin-publication.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/receipt.json",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/test-results.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/test_publish_plugin.py",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/release-build.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/source-regression.log",
+      "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/typecheck.log",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/README.md",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/README.md",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/analyze.py",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/artifacts.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/baseline-last.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/input-events.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/mutated-last.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/mutation.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/probe.c",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/result.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s2-normal-odd-stable.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-exit-input-timed.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-fullscreen-latin-stable.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-normal-odd-input.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-normal-odd-settled-stable.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-normal-odd-stable.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/input-events.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/native-pointer-blocked.png",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/s3-exit-input-timed-events.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/frame-observer.c",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/frozen-source.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/input-observer.c",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/inventory.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/matrix.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/verification-blocked.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/gtk-source-review.md",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/host-check.log",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/binary-path",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/binary.json",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/build.jsonl",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/build.log",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/focus-scale3.log",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/transactions-scale3.log",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/unit.log",
+      "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/verification.json",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/README.md",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/build.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale1.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale3.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro-result.json",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro.py",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/ime-scale3.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/red.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/scrollbar.png",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/transactions.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/unit.log",
+      "docs/superpowers/reports/2026-11-10-sumi-focus-stability/verification.json",
+      "docs/superpowers/specs/2026-11-10-sumi-decoration-input.md",
+      "docs/superpowers/specs/2026-11-10-sumi-focus-stability.md",
+      "docs/superpowers/specs/sumi-ime-cross-platform.md",
+      "package.json",
+      "src-tauri/Cargo.lock",
+      "src-tauri/Cargo.toml",
+      "src-tauri/tauri.conf.json",
+      "tauri-plugin-native-editor/src/linux.rs",
+      "tauri-plugin-native-editor/src/linux_focus.rs"
+    ]
+  },
+  "plugins": [
+    {
+      "profile": "sumi",
+      "id": "notemd.sumi",
+      "version": "0.1.12",
+      "arch": "x86_64-unknown-linux-gnu",
+      "package": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.sumi/0.1.12/x86_64-unknown-linux-gnu.notemdpkg",
+      "receipt": "/home/bruce/git/note.md/docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/sumi/receipt.json",
+      "sha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb",
+      "signature_sha256": "2835fe3ed2afe712d50eb02b4569a2b5590bea171204b54be47998bf7d8b6b52",
+      "package_signature_manifest_and_inventory_unchanged": true,
+      "source_changes_since_v6_1110_4": [],
+      "scope": "unchanged; no republishing"
+    },
+    {
+      "profile": "next",
+      "id": "notemd.next",
+      "version": "1.13.3",
+      "arch": "universal",
+      "package": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.next/1.13.3/universal.notemdpkg",
+      "receipt": "/home/bruce/git/note.md/docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/next/receipt.json",
+      "sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+      "signature_sha256": "5d118a761200acf8edfdabdb644c3394744e0988bbbf677b43af8f691c1ca0ff",
+      "package_signature_manifest_and_inventory_unchanged": true,
+      "source_changes_since_v6_1110_4": [],
+      "scope": "unchanged; no republishing"
+    },
+    {
+      "profile": "idea",
+      "id": "notemd.idea-spark",
+      "version": "1.3.8",
+      "arch": "universal",
+      "package": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.idea-spark/1.3.8/universal.notemdpkg",
+      "receipt": "/home/bruce/git/note.md/docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/publication/idea/receipt.json",
+      "sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5",
+      "signature_sha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799",
+      "package_signature_manifest_and_inventory_unchanged": true,
+      "source_changes_since_v6_1110_4": [],
+      "scope": "unchanged; no republishing"
+    }
+  ],
+  "ignored_scope_note": "Complete nonignored untracked paths and ignored directory/file roots are enumerated per worktree. Ignored directory descendants are collapsed and not read. They are excluded from git-archive release source. Signed plugin artifacts separately hashed against committed receipts; no credential/key content read. Detached historical builder checkout contains no commits absent from main.",
+  "v5_status": "Previous v6.1110.5 tag and draft intentionally unchanged; GUI pointer interception blocked publication. This new version includes the seven-line fix.",
+  "blockers": [],
+  "conclusion": "PASS: no freeze blocker; create v6.1110.6 at audited 024d81814b4076def2456428150a4a2cd84095de, then verify tag before build",
+  "production_source_modified": false,
+  "commits_created": false,
+  "post_freeze_tag_check": {
+    "tag": "v6.1110.6",
+    "sourceCommit": "024d81814b4076def2456428150a4a2cd84095de",
+    "matches_audited_head": true
+  },
+  "subsequent_remote_divergence": {
+    "audit": "remote-divergence-audit.json",
+    "remote_main": "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+    "remote_only_commits": 19,
+    "excluded_from_frozen_release": true,
+    "release_scope_blocker": false
+  }
+}

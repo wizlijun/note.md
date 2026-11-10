@@ -1,0 +1,101 @@
+{
+  "installedBinary": "/home/bruce/.local/share/net.notemd.app/plugins/notemd.sumi/0.1.12/bin/notemd-sumi",
+  "binarySha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "results": [
+    {
+      "case": "sanitized",
+      "pid": 116889,
+      "environmentKeys": [
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "TERM",
+        "USER"
+      ],
+      "configure": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "error": {
+          "code": -32000,
+          "message": "Typing audio output unavailable (6)"
+        }
+      },
+      "configureSeconds": 0.0009264450000046054,
+      "stream": [],
+      "status": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "ready": false
+        }
+      },
+      "stop": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "ready": false
+        }
+      },
+      "disable": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "result": {
+          "ready": false
+        }
+      },
+      "samplesPlayed": 0
+    },
+    {
+      "case": "with_runtime",
+      "pid": 116904,
+      "environmentKeys": [
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "TERM",
+        "USER",
+        "XDG_RUNTIME_DIR"
+      ],
+      "configure": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "ready": true
+        }
+      },
+      "configureSeconds": 0.010145173000637442,
+      "stream": [
+        {
+          "index": 582,
+          "application": "Sumi",
+          "media": "Typing feedback",
+          "processId": "116904"
+        }
+      ],
+      "status": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "ready": true
+        }
+      },
+      "stop": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "ready": true
+        }
+      },
+      "disable": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "result": {
+          "ready": false
+        }
+      },
+      "samplesPlayed": 0
+    }
+  ]
+}

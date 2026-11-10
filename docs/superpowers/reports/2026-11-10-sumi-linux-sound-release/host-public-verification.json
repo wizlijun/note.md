@@ -1,0 +1,59 @@
+{
+  "tag": "v6.1110.7",
+  "sourceCommit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "publicStableRelease": true,
+  "checkedAtEpoch": 1794314798.8531277,
+  "assets": [
+    {
+      "name": "note.md_6.1110.7_amd64.deb",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.7/note.md_6.1110.7_amd64.deb",
+      "bytes": 15859550,
+      "sha256": "886379f3f52c768790ce4a9113f56b4c243033d6362a2afbfca36fbc6bdcbe23",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "SHA256SUMS-linux.txt",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.7/SHA256SUMS-linux.txt",
+      "bytes": 93,
+      "sha256": "f4dfc8db19412a8917008b526fe7a69c4c2f3c886069aaf26727b6aeb85f8780",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "notemd-6.1110.7-1-x86_64.pkg.tar.zst",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.7/notemd-6.1110.7-1-x86_64.pkg.tar.zst",
+      "bytes": 15238236,
+      "sha256": "8c1755a55db1d66777df9a174c9a63c59ae5f82e6bface18bf0805dc1c5508bc",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "notemd-6.1110.7-1-omarchy-recipe.tar.gz",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.7/notemd-6.1110.7-1-omarchy-recipe.tar.gz",
+      "bytes": 1093,
+      "sha256": "548c2231a870500ac63e1e87015072694830a604f1f0d72891c7a9775844cbbb",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "omarchy-6.1110.7-verification.json",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.7/omarchy-6.1110.7-verification.json",
+      "bytes": 4856,
+      "sha256": "971359016173c16b8e49852be85fe97e4b301c495cd8ef7c2c5ff58e6047f5c2",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "SHA256SUMS-omarchy.txt",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.7/SHA256SUMS-omarchy.txt",
+      "bytes": 310,
+      "sha256": "0e2ef616276636f7072f497ecd6401882e08c8778c8200511b9c49082c9e3a4c",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    }
+  ],
+  "githubLatestTag": "v6.1110.1",
+  "macLatestUnchanged": true,
+  "installed": false
+}

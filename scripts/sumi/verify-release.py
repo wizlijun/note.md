@@ -18,8 +18,9 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '6.1110.1'
-PLUGIN_VERSION = '0.1.10'
+VERSION = '6.1110.8'
+PLUGIN_VERSION = '0.1.13'
+EXPECTED_BINARY_MAP = {'aarch64-apple-darwin':'bin/notemd-sumi', 'x86_64-unknown-linux-gnu':'bin/notemd-sumi'}
 SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
            'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/lib/sumi/i18n.ts', 'src/App.svelte',
            'src-tauri/src/sumi/mod.rs', 'src-tauri/src/sumi/export.rs',
@@ -28,7 +29,11 @@ SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.
            'src-tauri/src/sumi/journal.rs',
            'src-tauri/src/plugin_runtime/market.rs', 'src-tauri/src/plugin_runtime/windows.rs',
            'src-tauri/src/lib.rs', 'src-tauri/src/app_dirs.rs',
-           'tauri-plugin-native-editor/native/editor.m', 'tauri-plugin-native-editor/src/lib.rs',
+           'tauri-plugin-native-editor/native/editor.m',
+           'tauri-plugin-native-editor/native/candidates-view.h',
+           'tauri-plugin-native-editor/native/candidates-host.h',
+           'tauri-plugin-native-editor/native/candidates-bridge.h',
+           'tauri-plugin-native-editor/src/lib.rs',
            'tauri-plugin-native-editor/Cargo.toml', 'tauri-plugin-native-editor/build.rs',
            'plugins-src/write/src/main.ts', 'plugins-src/write/src/contract.ts',
            'plugins-src/write/src/style.css', 'plugins-src/write/manifest.v2.json',
@@ -70,7 +75,7 @@ def manifest_identity(value):
     require(value.get('manifest_version') == 2 and value.get('ui') == 'ui/', 'Wrong plugin layout')
     require('editor.native' in value.get('capabilities', []), 'Native capability missing')
     require(value.get('engines', {}).get('notemd') == '>='+VERSION, 'Wrong minimum host version')
-    require(value.get('binary') == {'aarch64-apple-darwin':'bin/notemd-sumi'}, 'Wrong native backend platform map')
+    require(value.get('binary') == EXPECTED_BINARY_MAP, 'Wrong native backend platform map')
     require(any(v.get('surface') == 'native-editor' for v in value.get('contributes', {}).get('file_views', [])), 'Native file view missing')
 
 
@@ -415,7 +420,7 @@ def self_test():
     rejects(lambda:h.verify_app_identity({**production,'CFBundleIdentifier':'net.notemd.sumi.acceptance'},VERSION))
     rejects(lambda:h.verify_app_identity({**production,'CFBundleShortVersionString':'6.1107.5'},VERSION))
     manifest = {'id':'notemd.sumi','version':PLUGIN_VERSION,'manifest_version':2,'ui':'ui/',
-                'engines':{'notemd':'>='+VERSION},'binary':{'aarch64-apple-darwin':'bin/notemd-sumi'},
+                'engines':{'notemd':'>='+VERSION},'binary':dict(EXPECTED_BINARY_MAP),
                 'capabilities':['editor.native'],'contributes':{'file_views':[{'surface':'native-editor'}]}}
     raw = json.dumps(manifest).encode()
     files = {'manifest.json':raw,'ui/index.html':b'fixture','bin/notemd-sumi':b'native fixture'}
@@ -426,6 +431,8 @@ def self_test():
     with_font={**files,'ui/fonts/embedded.ttf':b'font'}
     rejects(lambda: verify_plugin_files(with_font,{n:sha(b) for n,b in with_font.items()}))
     rejects(lambda: manifest_identity({**manifest,'version':'0.0.0'}))
+    rejects(lambda: manifest_identity({**manifest,'binary':{'aarch64-apple-darwin':'bin/notemd-sumi'}}))
+    rejects(lambda: manifest_identity({**manifest,'binary':{**EXPECTED_BINARY_MAP,'x86_64-apple-darwin':'bin/notemd-sumi'}}))
     rejects(lambda: manifest_identity({**manifest,'capabilities':[]}))
     rejects(lambda: manifest_identity({**manifest,'engines':{'notemd':'>=6.1108.4'}}))
     rejects(lambda: manifest_identity({**manifest,'binary':{}}))

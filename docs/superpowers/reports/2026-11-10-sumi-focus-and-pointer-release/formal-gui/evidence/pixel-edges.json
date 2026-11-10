@@ -1,0 +1,30 @@
+[
+  {
+    "scale": 2,
+    "edge": "right",
+    "geometry": "10x2000+3830+300",
+    "histogram": "7760: (16,16,16) #101010 gray(16)\n         12240: (17,17,17) #111111 gray(17)",
+    "sha256": "714140b1effa0b32cb360bb4f6be09f006d3cceb26f22441314ca6e510311901"
+  },
+  {
+    "scale": 2,
+    "edge": "left",
+    "geometry": "10x2000+0+300",
+    "histogram": "7760: (16,16,16) #101010 gray(16)\n         12240: (17,17,17) #111111 gray(17)",
+    "sha256": "e1d286fea9c2f643afbd5d313310bdb7d83f41e2ffed805feb98f69dfc3ca5cd"
+  },
+  {
+    "scale": 3,
+    "edge": "right",
+    "geometry": "10x2000+3830+300",
+    "histogram": "7800: (16,16,16) #101010 gray(16)\n         12200: (17,17,17) #111111 gray(17)",
+    "sha256": "d54e09f3729ee9d259281d5ccfb23e9ea5e22f9e5fad9bd75f38e66de949bf29"
+  },
+  {
+    "scale": 3,
+    "edge": "left",
+    "geometry": "10x2000+0+300",
+    "histogram": "7800: (16,16,16) #101010 gray(16)\n         12200: (17,17,17) #111111 gray(17)",
+    "sha256": "216652ab3421915611041f08da6e7c9a2a36df8c66edd88017bfb3d777d07807"
+  }
+]

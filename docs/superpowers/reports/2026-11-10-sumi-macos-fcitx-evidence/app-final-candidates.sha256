@@ -1,0 +1,5 @@
+86c6764b221de7757d3a134b4d24e6fdc0f92543479ef3aa3d1838c6b749aa5d  build/arm64/src/Fcitx5.app/Contents/MacOS/Fcitx5
+96c444502e6ea1b8a597014d04017e067992d4f03cdddceac866f2cb14ee97a6  build/arm64/tests/sumi-candidates-cpp
+f25aec9e6af53dc82818e3ab02150878975804d1c1296ee63b13d65874c97cbb  build/arm64/tests/sumi-bridge-swift
+b4a61acecbb58ce6ca033cc6edb576f5f16ca968ec7a49973a6d3d6631ec6278  build/arm64/tests/sumi-core-filter-cpp
+0ef03b967838eea538b7bca4b8f362abb0acf68ed1fd4237cd81889f21b01aca  build/arm64/tests/sumi-pinyin-cpp

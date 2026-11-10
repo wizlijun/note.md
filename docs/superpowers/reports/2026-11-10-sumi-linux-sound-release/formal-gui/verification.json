@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "release_gate_passed": true,
+  "tag": "v6.1110.7",
+  "commit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "deb_sha256": "886379f3f52c768790ce4a9113f56b4c243033d6362a2afbfca36fbc6bdcbe23",
+  "host_binary_sha256": "213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467",
+  "plugin_version": "0.1.12",
+  "original_three_signed_payloads_unchanged": true,
+  "native_runtime_inherited": true,
+  "host_or_backend_PULSE_SERVER_injected": false,
+  "old6_negative_control": {
+    "runtime_missing": true,
+    "audio_unavailable_ui": true,
+    "owned_streams": 0
+  },
+  "new7_actual_key_audio": {
+    "typewriter": {
+      "peak": 0.000489340047352016,
+      "baseline_300ms_peak": 0.0,
+      "tail_500ms_peak": 0.0,
+      "sha256": "3069647f94cd4a9b30ef5999f2f5ff2fe146e9252002b0d3244b46ea2984065b",
+      "bytes": 2296320,
+      "stream_id": 732,
+      "volume_restored": {
+        "volume": [
+          65536
+        ],
+        "mute": false
+      }
+    },
+    "thock": {
+      "peak": 0.0004368674417492002,
+      "baseline_300ms_peak": 0.0,
+      "tail_500ms_peak": 0.0,
+      "sha256": "44c96419d79a66921e9bbb23691e7f194a301ab736922e2b83e7a6675d78d220",
+      "bytes": 2296320,
+      "stream_id": 758,
+      "volume_restored": {
+        "volume": [
+          65536
+        ],
+        "mute": false
+      }
+    },
+    "ime": {
+      "peak": 0.0,
+      "baseline_300ms_peak": 0.0,
+      "tail_500ms_peak": 0.0,
+      "sha256": "c2752544b49fe5baab4b759a1ec84b05e025e0ca3bb65ab52f0317e62193c544",
+      "bytes": 3836160,
+      "stream_id": 758,
+      "volume_restored": {
+        "volume": [
+          65536
+        ],
+        "mute": false
+      }
+    },
+    "closed-silence": {
+      "peak": 0.0,
+      "baseline_300ms_peak": 0.0,
+      "tail_500ms_peak": 0.0,
+      "sha256": "667a8a2eeef5374074ea92b48b2bbb5fc6a6bdd65164cc222575b73c321e9be5",
+      "bytes": 572160,
+      "stream_id": 758,
+      "volume_restored": {
+        "volume": [
+          65536
+        ],
+        "mute": false
+      }
+    }
+  },
+  "actual_key_sequences": {
+    "typewriter": "a b c d e Space f g",
+    "thock": "h i j k l Space m n",
+    "ime": "n i h a o then actual candidate mouse click"
+  },
+  "f11_enter_exit_dom_state_and_geometry_restored": true,
+  "ime_mouse_committed_exact_nihao": true,
+  "saved_document_sha256": "a89f3bcc4eaf67c9740d11751ec772e37f95e6014d871e34a5bfc5250fd0086a",
+  "close_window_verified": true,
+  "close_semantics": "Plugin backend retains a silent stream after closing its window; a dedicated 3-second own-stream recording has peak exactly zero. Stream removal is checked after private host shutdown.",
+  "volume_restored_before_close": true,
+  "final_stream_volume_percent": 100,
+  "final_stream_mute": false,
+  "only_own_stream_recorded": true,
+  "user_configuration_or_documents_modified": false,
+  "fixture_bridge": "Private runtime/pulse/native symlink to real same-UID /run/user/1000/pulse/native; fixture-only, separately recorded. Native production spawn and HTTP are unmodified.",
+  "diagnostic_runtime_mutation": false,
+  "private_fixture_stopped": true,
+  "own_stream_removed_after_host_shutdown": true,
+  "wireplumber_sumi_restore_entry": "Output/Audio:application.name:Sumi={\"volume\":1.000000, \"mute\":false, \"channelVolumes\":[1.000000], \"channelMap\":[\"MONO\"]}",
+  "wireplumber_state_directly_edited": false
+}
