@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 - **Sumi native editing on Linux/Omarchy.** Adds the GTK editor for standalone windows and writing tabs, Secret Service device credentials, PulseAudio/PipeWire typing audio and Linux plugin packaging. Verified local x86_64 previews are documented separately; this is not a Linux marketplace release.
 
+## v6.1110.1 — 2026-11-10
+
 - **Sumi 0.1.10 requires note.md 6.1110.1 or later.** Update both for the native input-resume and viewport-geometry fixes.
 
 - **Sumi resumes focus on the first input after reading navigation, including IME preedit.** Editing no longer waits for four new keystrokes after moving the caret. Focus geometry is refreshed from the current TextKit viewport so paragraph changes do not overlap or hide preceding lines.
