@@ -1,0 +1,57 @@
+{
+  "status": "passed",
+  "packageSha256": "0a2dc482493b2776889798a9c609bd64d817741fcc47f6b1e7094eab696deced",
+  "binarySha256": "fb0b789b88797aeadd1707a3eb9014baff2a10e3e322584bee0d58a63cf6760c",
+  "sourceHashes": "source-hashes.json",
+  "sourceDrift": [],
+  "environment": {
+    "compositor": "private Sway",
+    "logicalSize": [
+      960,
+      600
+    ],
+    "scale": 4,
+    "gtkImModule": "gtk-im-context-simple",
+    "productionVaultTouched": false,
+    "diagnosticGtkModuleLoaded": false,
+    "originalPluginUi": true
+  },
+  "checks": {
+    "nativeTabLongParagraphWraps": true,
+    "nativeTabUtf8ClipboardMarkdownExactlyMatchesProjection": true,
+    "nativeTabUnderscoresSpacesAndUnicodePreserved": true,
+    "ownerReleasedByClosingNativeTab": true,
+    "standaloneOpenedExistingPage": true,
+    "windowFits": true,
+    "windowRect": {
+      "x": 16,
+      "y": 16,
+      "width": 928,
+      "height": 568
+    },
+    "firstSaveExact": true,
+    "normalCloseUnmappedWindow": true,
+    "reopenRestoredSavedText": true,
+    "continuedSaveExact": true,
+    "appearanceHidesNativeTextAndCaret": true,
+    "appearanceCloseRestoresSingleNativeSurface": true,
+    "finalScreenshotReviewed": true
+  },
+  "projectionSha256": "ecbb22639a42259e4fda60e50fe44fb9f916c75a590e4743a142c0b45f06a0bb",
+  "projectionChange": "Exactly append WEBVIEW_FINAL_OK then REOPEN_WEBVIEW_OK to the prior isolated document; no other byte changes.",
+  "evidence": [
+    "tab-normal.png",
+    "tab-text-verification.json",
+    "sumi-open.png",
+    "tree-hidden.json",
+    "reopened.png",
+    "appearance.png",
+    "final-clean.png",
+    "projection-final.md"
+  ],
+  "limits": [
+    "This is the requested final package smoke after Webview sizing/exact GTK allocation changes, not a repeat of the earlier full breathing/CPU/16-round concurrency suites.",
+    "Physical IME validation is separate; this run uses simple GTK IM context.",
+    "Startup Gtk accelerator/scale-factor warnings are retained in process.log; no crash observed."
+  ]
+}

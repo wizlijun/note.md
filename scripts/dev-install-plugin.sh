@@ -45,7 +45,11 @@ for arg in "$@"; do
   esac
 done
 
-ROOT="$HOME/Library/Application Support/net.notemd.app/plugins"
+case "$(uname -s)" in
+  Darwin) ROOT="$HOME/Library/Application Support/net.notemd.app/plugins" ;;
+  Linux) ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/net.notemd.app/plugins" ;;
+  *) echo "Unsupported development install platform" >&2; exit 2 ;;
+esac
 
 # Update state.json: mark <id>@<version> installed + enabled.
 mark_installed() {
@@ -499,6 +503,9 @@ elif [[ "$PLUGIN" == "sumi" ]]; then
   mkdir -p "$DEST/ui" "$DEST/bin"
   cp "$SRC/backend/target/$PROFILE/notemd-sumi" "$DEST/bin/"
   cp -R "$SRC/dist/." "$DEST/ui/"
+  python3 scripts/sumi/verify-sounds.py "$DEST/ui/sounds" --reference "$SRC/resources/sounds"
+  mkdir -p "$DEST/resources"
+  mv "$DEST/ui/sounds" "$DEST/resources/sounds"
   cp "$SRC/manifest.v2.json" "$DEST/manifest.json"
   ln -sfn "$VERSION" "$ROOT/notemd.sumi/current"
   mark_installed "notemd.sumi" "$VERSION"

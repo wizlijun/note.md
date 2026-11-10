@@ -125,6 +125,31 @@ describe('release-plugins.sh packaging shape', () => {
     expect(dev).not.toContain('(ui-only)')
   })
 
+  it('Sumi Linux reaches the native build without Apple credentials', () => {
+    const result = spawnSync('bash', ['-c', `set -e
+REPO_ROOT="$1"
+manifest_field() { echo 0.1.10; }
+cargo() { exit 91; }
+${functionBody('release_sumi')}
+release_sumi`, 'test', ROOT], {
+      encoding: 'utf8',
+      env: { ...process.env, SUMI_RELEASE_TARGET: 'x86_64-unknown-linux-gnu', APPLE_SIGNING_IDENTITY: '', APPLE_TEAM_ID: '' },
+    })
+    expect(result.status, result.stderr).toBe(91)
+  })
+
+  it('development installation resolves Linux XDG paths including spaces', () => {
+    const start = DEV_INSTALL.indexOf('case "$(uname -s)" in')
+    const end = DEV_INSTALL.indexOf('\nesac', start) + 6
+    const result = spawnSync('bash', ['-c', `uname() { echo Linux; }
+${DEV_INSTALL.slice(start, end)}
+printf '%s' "$ROOT"`], {
+      encoding: 'utf8', env: { ...process.env, XDG_DATA_HOME: '/tmp/isolated Sumi data' },
+    })
+    expect(result.status, result.stderr).toBe(0)
+    expect(result.stdout).toBe('/tmp/isolated Sumi data/net.notemd.app/plugins')
+  })
+
   it('Quick Launch builds the package-name-matched UI in both release and dev installation', () => {
     const manifest = JSON.parse(readFileSync(join(ROOT, 'plugins-src/quick-launch/manifest.v2.json'), 'utf8'))
     const ui = JSON.parse(readFileSync(join(ROOT, 'plugins-src/quick-launch/package.json'), 'utf8'))

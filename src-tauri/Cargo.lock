@@ -3261,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "notemd"
-version = "6.1109.4"
+version = "6.1110.1"
 dependencies = [
  "base64 0.22.1",
  "block2",
@@ -3273,6 +3273,8 @@ dependencies = [
  "fs2",
  "futures-util",
  "git2",
+ "glib",
+ "gtk",
  "habitat-core",
  "hex",
  "hmac",

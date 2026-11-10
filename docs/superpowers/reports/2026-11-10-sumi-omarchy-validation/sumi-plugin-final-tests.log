@@ -1,0 +1,8 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md/plugins-src/write
+
+
+ Test Files  2 passed (2)
+      Tests  101 passed (101)
+   Start at  03:41:18
+   Duration  11.54s (transform 1.90s, setup 0ms, import 1.95s, tests 5.59s, environment 7.09s)

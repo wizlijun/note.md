@@ -351,6 +351,15 @@ impl Surface {
         } else {
             0.625 + 0.375 * (self.phase.elapsed().as_secs_f64() * std::f64::consts::TAU / 4.0).cos()
         };
+        // Replace independent subsurface pixels, including their previous alpha.
+        // Shared GTK backing surfaces retain ordinary alpha compositing.
+        if self
+            .caret
+            .window()
+            .is_some_and(|window| window.window_type() == gdk::WindowType::Subsurface)
+        {
+            cr.set_operator(gtk::cairo::Operator::Source);
+        }
         cr.set_source_rgba(r, g, b, alpha);
         let _ = cr.paint();
     }

@@ -1,0 +1,560 @@
+{
+  "sampleSeconds": 2,
+  "startAfterGeometrySeconds": 45,
+  "widgets": [
+    {
+      "allocation": [
+        0,
+        0,
+        812,
+        512
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": null,
+      "type": "GtkApplicationWindow",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        47,
+        812,
+        465
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": false,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      },
+      "type": "GtkOverlay",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        47,
+        812,
+        465
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": false,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      },
+      "type": "GtkBox",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        47,
+        812,
+        24
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      },
+      "type": "GtkMenuBar",
+      "window": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        49,
+        24
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": false,
+      "parentWindow": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      },
+      "type": "GtkMenuItem",
+      "window": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      }
+    },
+    {
+      "allocation": [
+        8,
+        4,
+        33,
+        16
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": false,
+      "parentWindow": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      },
+      "type": "GtkBox",
+      "window": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      }
+    },
+    {
+      "allocation": [
+        8,
+        4,
+        33,
+        16
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": false,
+      "parentWindow": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      },
+      "type": "GtkAccelLabel",
+      "window": {
+        "geometry": [
+          0,
+          47,
+          812,
+          24
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          47
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        71,
+        812,
+        441
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      },
+      "type": "WebKitWebView",
+      "window": {
+        "geometry": [
+          0,
+          71,
+          812,
+          441
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          71
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        812,
+        293
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          0,
+          116,
+          812,
+          293
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          116
+        ]
+      },
+      "type": "GtkScrolledWindow",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          293
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          116
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        812,
+        293
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          293
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          116
+        ]
+      },
+      "type": "GtkTextView",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          293
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          116
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        812,
+        293
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          0,
+          116,
+          812,
+          293
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          116
+        ]
+      },
+      "type": "GtkDrawingArea",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          293
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          116
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        2,
+        33
+      ],
+      "clips": [
+        [
+          0.0,
+          0.0,
+          2.0,
+          33.0
+        ]
+      ],
+      "draws": 60,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          288,
+          289,
+          2,
+          33
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          288,
+          289
+        ]
+      },
+      "type": "SumiCaretArea",
+      "window": {
+        "geometry": [
+          288,
+          289,
+          2,
+          33
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          288,
+          289
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        812,
+        47
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": true,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          512
+        ],
+        "hasNative": true,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      },
+      "type": "GtkEventBox",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          47
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "allocation": [
+        0,
+        0,
+        812,
+        47
+      ],
+      "clips": [],
+      "draws": 0,
+      "hasWindow": false,
+      "parentWindow": {
+        "geometry": [
+          0,
+          0,
+          812,
+          47
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      },
+      "type": "GtkHeaderBar",
+      "window": {
+        "geometry": [
+          0,
+          0,
+          812,
+          47
+        ],
+        "hasNative": false,
+        "origin": [
+          1,
+          0,
+          0
+        ]
+      }
+    }
+  ]
+}

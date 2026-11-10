@@ -11,7 +11,7 @@ pkgdesc="Markdown reader and editor for people and AI agents working on the same
 arch=('x86_64' 'aarch64')
 url="https://notemd.net"
 license=('Apache-2.0')
-depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'git' 'xdg-utils' 'hicolor-icon-theme')
+depends=('webkit2gtk-4.1' 'gtk3' 'libsecret' 'libpulse' 'fontconfig' 'libayatana-appindicator' 'git' 'xdg-utils' 'hicolor-icon-theme')
 makedepends=('libarchive')
 options=('!debug' '!strip')
 

@@ -1,0 +1,24 @@
+   Compiling tauri-plugin-native-editor v0.1.0 (/home/bruce/git/note.md/tauri-plugin-native-editor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s
+     Running unittests src/lib.rs (tauri-plugin-native-editor/target/debug/deps/tauri_plugin_native_editor-5d351a11bdcbcbdd)
+
+running 1 test
+test platform::tests::native_wayland_damage ... MESA-EGL: warning: failed to get driver name for fd -1
+MESA-EGL: warning: MESA-LOADER: failed to retrieve device information
+MESA-EGL: warning: failed to get driver name for fd -1
+
+thread 'platform::tests::native_wayland_damage' (21155) panicked at src/linux.rs:1847:9:
+assertion `left == right` failed: CSS must suppress every system caret pixel while preserving navigation
+  left: 3.73406e-6
+ right: 0.0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    platform::tests::native_wayland_damage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out; finished in 10.84s
+
+error: test failed, to rerun pass `--lib`

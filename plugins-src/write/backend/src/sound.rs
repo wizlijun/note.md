@@ -144,12 +144,15 @@ mod platform {
     }
     impl Drop for Engine {fn drop(&mut self){unsafe{sumi_sound_destroy(self.0)}}}
 }
-#[cfg(not(target_os="macos"))]
+#[cfg(target_os="linux")]
+#[path = "sound_linux.rs"]
+mod platform;
+#[cfg(not(any(target_os="macos",target_os="linux")))]
 mod platform {
     use super::*;
     pub struct Engine;
     impl Engine {
-        pub fn new(_:&str,_:bool)->Result<Self>{Err("typing sounds require macOS".into())}
+        pub fn new(_:&str,_:bool)->Result<Self>{Err("typing sounds are unavailable on this platform".into())}
         pub fn ready(&self)->bool{false}
         pub fn play(&self,_:Role){}
         pub fn stop(&self){}
@@ -182,7 +185,7 @@ mod tests {
         assert!(manager.request("s",Request::Configure{enabled:true,preset:"typewriter".into(),token:uuid::Uuid::new_v4().to_string(),expires_at_ms:Some(0)}).is_err());
         assert!(manager.request("s",Request::Play{token:"t".into(),roles:vec![Role::Key;33],expires_at_ms:deadline()}).is_err());
     }
-    #[cfg(target_os="macos")]
+    #[cfg(any(target_os="macos",target_os="linux"))]
     #[test]
     fn sessions_tokens_disable_and_stop_fence_audio_without_touching_documents() {
         let token=uuid::Uuid::new_v4().to_string();
@@ -219,7 +222,15 @@ mod tests {
         let mut raw=std::fs::read(&path).unwrap();raw[50]^=1;std::fs::write(path,raw).unwrap();
         assert!(bank(temp.path(),"typewriter").unwrap_err().contains("checksum"));
     }
-    #[cfg(target_os="macos")]
+    #[cfg(target_os="linux")]
+    #[test]
+    #[ignore = "requires local PulseAudio/PipeWire Pulse; opens a silent stream only"]
+    fn linux_output_opens_and_stops_without_playing_samples() {
+        let engine=Engine::new(&bank(&resources(),"typewriter").unwrap(),false).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(40));
+        assert!(engine.ready());engine.stop();assert!(engine.ready());
+    }
+    #[cfg(any(target_os="macos",target_os="linux"))]
     #[test]
     fn real_audio_decodes_renders_overlap_and_stops_without_system_playback() {
         for preset in ["typewriter","thock"] {
@@ -232,7 +243,7 @@ mod tests {
             engine.stop();let (peak,_)=engine.render();assert!(peak<0.0001,"stop retained voices");
         }
     }
-    #[cfg(target_os="macos")]
+    #[cfg(any(target_os="macos",target_os="linux"))]
     #[test]
     fn missing_release_sample_is_silent_and_thock_release_is_a_real_sample() {
         for (preset,expected) in [("typewriter",0),("thock",2)] {

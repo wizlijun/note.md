@@ -33,22 +33,54 @@ const PLUGIN: &str = "notemd.sumi";
 // A hidden singleton WebView remains alive. Fence new native mounts from the
 // moment closing starts until the explicit plugin-window show path reopens it.
 static PLUGIN_QUIESCING: AtomicBool = AtomicBool::new(false);
-static PLUGIN_WINDOW_HIDDEN: AtomicBool = AtomicBool::new(false);
+#[derive(Default)]
+struct WindowVisibility { epoch: u64, hidden: bool }
+impl WindowVisibility {
+    fn showing(&mut self) -> u64 { self.epoch = self.epoch.wrapping_add(1); self.epoch }
+    fn closing(&mut self) { self.showing(); self.hidden = true; }
+    fn shown(&mut self, epoch: u64) -> bool {
+        if self.epoch != epoch { return false; }
+        self.hidden = false;
+        true
+    }
+}
+static PLUGIN_WINDOW_VISIBILITY: Mutex<WindowVisibility> = Mutex::new(WindowVisibility { epoch: 0, hidden: false });
 fn is_plugin_window(label: &str) -> bool {
     label == crate::plugin_runtime::windows::window_label(PLUGIN, "main")
 }
 fn require_visible_native_window<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
-    if is_plugin_window(window.label()) && (PLUGIN_WINDOW_HIDDEN.load(Ordering::Acquire) || !window.is_visible().map_err(err)?) {
-        return Err("Sumi 窗口已关闭，请重新打开后继续书写".into());
+    if is_plugin_window(window.label()) {
+        let hidden = PLUGIN_WINDOW_VISIBILITY.lock().map_err(err)?.hidden;
+        if hidden || !window.is_visible().map_err(err)? {
+            return Err("Sumi 窗口已关闭，请重新打开后继续书写".into());
+        }
     }
     Ok(())
 }
 /// Called only after the explicit singleton open/show path, not ordinary focus
 /// events that may have been queued before closing.
 pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
-    if !is_plugin_window(label) || !app.get_webview_window(label).is_some_and(|w|w.is_visible().unwrap_or(false)) {return;}
-    PLUGIN_WINDOW_HIDDEN.store(false, Ordering::Release);
-    push(app, &json!({"type":"sumi-window-state","visible":true}));
+    if !is_plugin_window(label) { return; }
+    let epoch = match PLUGIN_WINDOW_VISIBILITY.lock() {
+        Ok(mut visibility) => visibility.showing(),
+        Err(_) => return,
+    };
+    #[cfg(target_os = "linux")]
+    let scheduler = app.clone();
+    let app = app.clone();
+    let label = label.to_owned();
+    let confirm = move || {
+        if !app.get_webview_window(&label).is_some_and(|w| w.is_visible().unwrap_or(false)) { return; }
+        let current = PLUGIN_WINDOW_VISIBILITY.lock().is_ok_and(|mut state| state.shown(epoch));
+        if current { push(&app, &json!({"type":"sumi-window-state","visible":true})); }
+    };
+    // Tao's Linux show() enqueues a second GTK request. A synchronous visibility
+    // query can still see the hidden window and permanently miss the resume.
+    // A later close invalidates this explicit-show ticket before it can reopen.
+    #[cfg(target_os = "linux")]
+    { let _ = scheduler.run_on_main_thread(move || { glib::idle_add_local_once(confirm); }); }
+    #[cfg(not(target_os = "linux"))]
+    confirm();
 }
 static WORKSPACES: LazyLock<tokio::sync::Mutex<HashMap<PathBuf, Arc<Workspace>>>> =
     LazyLock::new(Default::default);
@@ -759,7 +791,7 @@ async fn state_value(ws: &Workspace) -> Result<Value> {
     let active = ws.active.lock().map_err(err)?;
     let navigation_version = ws.navigation_version.load(Ordering::Acquire);
     Ok(
-        json!({"available":native::is_supported(),"reason":if native::is_supported(){""}else{"Sumi 原生编辑需要 macOS 13 或更新版本"},"pages":pages,"activePageId":*active,"navigationVersion":navigation_version,"preferences":*ws.preferences.lock().map_err(err)?,"sync":sync,"saveState":save}),
+        json!({"available":native::is_supported(),"reason":if native::is_supported(){""}else{"当前系统尚不支持 Sumi 原生编辑（支持 macOS 13+ 与 Linux）"},"pages":pages,"activePageId":*active,"navigationVersion":navigation_version,"preferences":*ws.preferences.lock().map_err(err)?,"sync":sync,"saveState":save}),
     )
 }
 async fn activate_page(ws: &Workspace, id: &str) -> Result<()> {
@@ -1929,7 +1961,7 @@ async fn mount<R: Runtime>(
     bounds: native::Bounds,
 ) -> Result<EditorEntry<Surface>> {
     if !native::is_supported() {
-        return Err("Sumi 原生编辑需要 macOS 13 或更新版本".into());
+        return Err("当前系统尚不支持 Sumi 原生编辑（支持 macOS 13+ 与 Linux）".into());
     }
     current(app, ws)?;
     require_visible_native_window(window)?;
@@ -2997,7 +3029,7 @@ pub fn has_sessions() -> bool {
 /// This admits no new text and is allowed after plugin/Vault revocation.
 pub async fn before_close<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) -> Result<()> {
     let plugin = is_plugin_window(label);
-    if plugin {PLUGIN_WINDOW_HIDDEN.store(true, Ordering::Release);}
+    if plugin {PLUGIN_WINDOW_VISIBILITY.lock().map_err(err)?.closing();}
     let result = before_close_inner(app, label, plugin).await;
     if plugin {
         if result.is_ok() {push(app, &json!({"type":"sumi-window-state","visible":false,"detached":true}));}
@@ -3457,6 +3489,29 @@ pub fn handle_menu_event<R: Runtime>(app: &tauri::AppHandle<R>, id: &str) -> boo
     true
 }
 
+// Plugin windows send DOM coordinates; file-view callers already send native units.
+fn plugin_bounds<R: Runtime>(window: &WebviewWindow<R>, params: &Value) -> Result<native::Bounds> {
+    let bounds: native::Bounds = serde_json::from_value(params["bounds"].clone()).map_err(err)?;
+    #[cfg(target_os = "linux")]
+    if let Some(width) = params.get("viewportWidth") {
+        let width = width.as_f64().ok_or("invalid writing viewport width")?;
+        // The GTK toplevel can include CSD shadows outside the WebView viewport.
+        let logical_width = f64::from(window.as_ref().size().map_err(err)?.width) / window.scale_factor().map_err(err)?;
+        return scale_plugin_bounds(bounds, logical_width, width);
+    }
+    let _ = window;
+    Ok(bounds)
+}
+#[cfg(any(target_os = "linux", test))]
+fn scale_plugin_bounds(mut bounds: native::Bounds, logical_width: f64, viewport_width: f64) -> Result<native::Bounds> {
+    if !viewport_width.is_finite() || viewport_width <= 0.0 || !logical_width.is_finite() || logical_width <= 0.0 {
+        return Err("invalid writing viewport width".into());
+    }
+    let scale = logical_width / viewport_width;
+    bounds.x *= scale; bounds.y *= scale; bounds.width *= scale; bounds.height *= scale;
+    Ok(bounds)
+}
+
 pub async fn dispatch<R: Runtime>(
     app: &tauri::AppHandle<R>,
     plugin: &str,
@@ -3466,7 +3521,7 @@ pub async fn dispatch<R: Runtime>(
     authorize(plugin)?;
     if method == "host.sumi.state" && !native::is_supported() {
         return Ok(
-            json!({"available":false,"reason":"Sumi 原生编辑需要 macOS 13 或更新版本","pages":[],"activePageId":null,"preferences":Preferences::default(),"sync":{"connected":false,"pending":0},"saveState":"saved"}),
+            json!({"available":false,"reason":"当前系统尚不支持 Sumi 原生编辑（支持 macOS 13+ 与 Linux）","pages":[],"activePageId":null,"preferences":Preferences::default(),"sync":{"connected":false,"pending":0},"saveState":"saved"}),
         );
     }
     let ws = workspace(app).await?;
@@ -3592,7 +3647,7 @@ pub async fn dispatch<R: Runtime>(
             Ok(json!({"requested":true}))
         }
         "host.sumi.mount" => {
-            let bounds = serde_json::from_value(params["bounds"].clone()).map_err(err)?;
+            let bounds = plugin_bounds(&window, params)?;
             match mount(app, &ws, &window, page()?, tab, bounds).await? {
                 EditorEntry::Opened(s)=>Ok(json!({"id":s.surface_id,"generation":s.generation})),
                 existing=>serde_json::to_value(existing).map_err(err),
@@ -3617,12 +3672,15 @@ pub async fn dispatch<R: Runtime>(
                     .ok_or("编辑面已过期")?
             };
             if method == "host.sumi.detach" {
-                detach(&window, &ws, &page, tab, id, generation).await?;
+                // Keep owner release in the same lease as native detach. A
+                // concurrent mount must not lose its newly installed owner.
+                let _lease = ws.lifecycle.lock().await;
+                detach_locked(&window, &ws, &page, tab, id, generation).await?;
                 ws.papers.lock().map_err(err)?.get_mut(&page).unwrap().owner = None;
             } else {
                 let command = match method {
                     "host.sumi.bounds" => native::SurfaceCommand::SetBounds {
-                        bounds: serde_json::from_value(params["bounds"].clone()).map_err(err)?,
+                        bounds: plugin_bounds(&window, params)?,
                     },
                     "host.sumi.visible" => {
                         let visible = params["visible"].as_bool().ok_or("缺少可见性")?;
@@ -3707,6 +3765,28 @@ pub async fn dispatch<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn deferred_show_cannot_reopen_a_later_close() {
+        let mut state = WindowVisibility::default();
+        state.closing();
+        let old_show = state.showing();
+        assert!(state.hidden);
+        state.closing();
+        assert!(!state.shown(old_show));
+        assert!(state.hidden);
+        let new_show = state.showing();
+        assert!(state.shown(new_show));
+        assert!(!state.hidden);
+    }
+    #[test]
+    fn plugin_bounds_correct_font_dpi_without_rescaling_native_tabs() {
+        let b = native::Bounds { x: 11.0, y: 55.0, width: 880.0, height: 330.0 };
+        let scaled = scale_plugin_bounds(b.clone(), 800.0, 880.0).unwrap();
+        assert!((scaled.y - 50.0).abs() < 0.001);
+        assert!((scaled.width - 800.0).abs() < 0.001);
+        assert!((scaled.height - 300.0).abs() < 0.001);
+        assert!(scale_plugin_bounds(b, 800.0, 0.0).is_err());
+    }
     #[test]
     fn writing_menu_mapping_and_editor_actions_are_explicit() {
         for (id,action) in [("new","new_page"),("open","menu"),("preferences","settings"),("close-tab","close"),("save","save"),("save-as","export"),("find-replace","replace"),("open-smart-search","link"),("zoom-in","zoom_in")] {

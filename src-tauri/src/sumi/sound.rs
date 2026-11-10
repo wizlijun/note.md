@@ -255,7 +255,7 @@ async fn configure<R: Runtime>(
     stop_locked(app, ws, false).await;
     current(app, ws)?;
     *ws.sound.error.lock().map_err(err)? = None;
-    if !settings.enabled || !cfg!(target_os = "macos") {
+    if !settings.enabled || !cfg!(any(target_os = "macos", target_os = "linux")) {
         return Ok(());
     }
     let monitor = native::typing_monitor_status(app).await?;
@@ -349,7 +349,7 @@ async fn state_locked<R: Runtime>(
             None
         }
     };
-    let permission = if !cfg!(target_os = "macos") {
+    let permission = if !cfg!(any(target_os = "macos", target_os = "linux")) {
         "unsupported"
     } else if monitor.is_some_and(|status| status.permission_granted) {
         "granted"

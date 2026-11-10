@@ -178,7 +178,7 @@ fn schedule_draw_diagnostics(root: gtk::Widget) {
     use gtk::prelude::*;
     use std::{cell::RefCell, rc::Rc};
     if std::env::var("SUMI_PROBE_DRAW_DIAGNOSTICS").as_deref() != Ok("1") { return; }
-    gtk::glib::timeout_add_local_once(std::time::Duration::from_secs(25), move || {
+    gtk::glib::timeout_add_local_once(std::time::Duration::from_secs(45), move || {
         fn collect(widget: &gtk::Widget, items: &mut Vec<gtk::Widget>) {
             items.push(widget.clone());
             if let Some(container) = widget.downcast_ref::<gtk::Container>() {
@@ -217,7 +217,7 @@ fn schedule_draw_diagnostics(root: gtk::Widget) {
         }
         gtk::glib::timeout_add_local_once(std::time::Duration::from_secs(2),move || {
             for (widget,id) in handlers {widget.disconnect(id);}
-            let result=serde_json::json!({"sampleSeconds":2,"startAfterGeometrySeconds":25,"widgets":*data.borrow()});
+            let result=serde_json::json!({"sampleSeconds":2,"startAfterGeometrySeconds":45,"widgets":*data.borrow()});
             let _=std::fs::write(probe_dir().join("draw-diagnostics.json"),serde_json::to_vec_pretty(&result).unwrap());
         });
     });

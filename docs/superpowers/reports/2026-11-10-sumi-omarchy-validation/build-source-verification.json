@@ -1,0 +1,7 @@
+{
+  "builtSourceMap": "build-source-sha256.json",
+  "differencesAfterBuild": [],
+  "allRecordedSourcesAndFrontendAssetsMatch": true,
+  "includesFinalWebviewSizeFix": true,
+  "includesFinalNativeBoundsFix": true
+}

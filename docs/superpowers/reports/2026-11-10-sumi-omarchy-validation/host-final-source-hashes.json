@@ -1,0 +1,10 @@
+{
+  "src/components/NativeFileView.svelte": "884e4c1ad519d019467f23d152af19b61546b339c6b2a9b3aebf037897e6f500",
+  "src/lib/sumi/geometry.ts": "cfbf008943193a00a4bac60b6f92dd51471d00918769f743acfdc1248015aba2",
+  "tauri-plugin-native-editor/src/linux.rs": "f7a0c4116538455913f08a9a42803a84b63a4ed592eb79af03e0fc5165d17744",
+  "tauri-plugin-native-editor/src/linux_caret.rs": "b3222fd3031b135327798a080d69c1641fcfa6f01b0fb2d8856f9936988f330e",
+  "tauri-plugin-native-editor/src/linux_focus.rs": "8003f56c46905b2335e841c4b397541ac85aaa5ddcea033e30ff84d2238a152b",
+  "src-tauri/src/sumi/mod.rs": "0200b075ae72df046937309e23b301d1c02d16d772bdd149e2e9d92086766a78",
+  "src-tauri/src/plugin_runtime/windows.rs": "7c94c1384c56bf5cbe23288caf4071199836259fad7fc373267c69e465bbd15d",
+  "vendor/tauri-runtime-wry/src/lib.rs": "e2db83734018dcf5958e57b52ed5d8757961b6f1546207e1b49a88c06937f687"
+}

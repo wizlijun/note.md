@@ -346,30 +346,41 @@ release_quick_launch() {
   rm -rf "$stage"; trap - RETURN
 }
 
-# Sumi alone has a strict native Developer ID + Apple notarization gate.
-# Default scope is Apple Silicon; Intel requires its own explicit build/evidence.
+# Sumi macOS builds retain the Developer ID + Apple notarization gate.
+# Linux packages validate the native ELF and use the same mandatory minisign gate.
 release_sumi() {
   local id="notemd.sumi" src="$REPO_ROOT/plugins-src/write"
   local manifest="$src/manifest.v2.json" version source_commit triple
   version="$(manifest_field "$manifest" version)"
   source_commit="$(git rev-parse HEAD)"
-  triple="${SUMI_RELEASE_TARGET:-aarch64-apple-darwin}"
-  case "$triple" in aarch64-apple-darwin|x86_64-apple-darwin) ;; *) echo "Unsupported Sumi target" >&2; return 1 ;; esac
-  node -e 'const m=require(process.argv[1]);if(m.binary?.[process.argv[2]]!=="bin/notemd-sumi")throw Error("Sumi native manifest target mismatch")' "$manifest" "$triple"
-  [[ "${APPLE_SIGNING_IDENTITY:-}" == "Developer ID Application:"* ]] || { echo "Sumi requires an explicit Developer ID Application identity" >&2; return 1; }
-  [[ -n "${APPLE_TEAM_ID:-}" ]] || { echo "Sumi requires APPLE_TEAM_ID" >&2; return 1; }
-  if [[ -z "${SUMI_NOTARY_PROFILE:-}" && ( -z "${APPLE_ID:-}" || -z "${APPLE_PASSWORD:-}" ) ]]; then
-    echo "Sumi requires notary credentials or SUMI_NOTARY_PROFILE" >&2; return 1
-  fi
   export PATH="$HOME/.cargo/bin:$PATH"
+  triple="${SUMI_RELEASE_TARGET:-aarch64-apple-darwin}"
+  if [[ -z "${SUMI_RELEASE_TARGET:-}" && "$(uname -s)" == Linux ]]; then
+    triple="$(rustc -vV | sed -n 's/^host: //p')"
+  fi
+  case "$triple" in aarch64-apple-darwin|x86_64-apple-darwin|x86_64-unknown-linux-gnu) ;; *) echo "Unsupported Sumi target" >&2; return 1 ;; esac
+  node -e 'const m=require(process.argv[1]);if(m.binary?.[process.argv[2]]!=="bin/notemd-sumi")throw Error("Sumi native manifest target mismatch")' "$manifest" "$triple"
+  if [[ "$triple" == *-apple-darwin ]]; then
+    [[ "${APPLE_SIGNING_IDENTITY:-}" == "Developer ID Application:"* ]] || { echo "Sumi requires an explicit Developer ID Application identity" >&2; return 1; }
+    [[ -n "${APPLE_TEAM_ID:-}" ]] || { echo "Sumi requires APPLE_TEAM_ID" >&2; return 1; }
+    if [[ -z "${SUMI_NOTARY_PROFILE:-}" && ( -z "${APPLE_ID:-}" || -z "${APPLE_PASSWORD:-}" ) ]]; then
+      echo "Sumi requires notary credentials or SUMI_NOTARY_PROFILE" >&2; return 1
+    fi
+  fi
   cargo build --release --locked --manifest-path "$src/backend/Cargo.toml" --bin notemd-sumi --target "$triple"
   local unsigned="$src/backend/target/$triple/release/notemd-sumi"
   local out_dir="$OUT_ROOT/$id/$version" native_dir="$OUT_ROOT/$id/$version/native-$triple"
   mkdir -p "$out_dir"
   # This helper persists the submission ID and resumes that same job; no
   # ambiguous retry ever submits a second archive automatically.
-  python3 scripts/sumi/native-release.py --sign-and-notarize --source "$source_commit" \
-    --target "$triple" --binary "$unsigned" --output-dir "$native_dir"
+  if [[ "$triple" == *-apple-darwin ]]; then
+    python3 scripts/sumi/native-release.py --sign-and-notarize --source "$source_commit" \
+      --target "$triple" --binary "$unsigned" --output-dir "$native_dir"
+  else
+    python3 scripts/sumi/verify-linux-binary.py "$unsigned" --target "$triple"
+    mkdir -p "$native_dir"
+    cp "$unsigned" "$native_dir/notemd-sumi"
+  fi
   ( cd "$src" && node ../../node_modules/typescript/bin/tsc --noEmit && node ../../node_modules/vite/bin/vite.js build )
   local stage; stage="$(mktemp -d)"
   trap 'rm -rf "$stage"' RETURN
@@ -407,7 +418,10 @@ PYGATE
   sign_pkg "$pkg"
   cp "$manifest" "$out_dir/manifest.json"
   local sha; sha="$(shasum -a 256 "$pkg" | awk '{print $1}')"
-  echo "[$id] $triple.notemdpkg sha256=$sha; Apple Accepted proof: $native_dir/receipt.json"
+  echo "[$id] $triple.notemdpkg sha256=$sha"
+  if [[ "$triple" == *-apple-darwin ]]; then
+    echo "Apple Accepted proof: $native_dir/receipt.json"
+  fi
   rm -rf "$stage"; trap - RETURN
 }
 

@@ -124,7 +124,7 @@ async function mountPage(focusExisting = false) {
   if (!state?.available || !state.activePageId) return
   const pageId = state.activePageId
   notice(t('正在打开纸页并准备同步…', 'Opening the page and preparing sync…', 'ページを開いて同期を準備中…'))
-  const handle = await request<SurfaceHandle | { kind: 'existing_owner'; page_id: string }>('mount', { pageId, bounds: bounds() })
+  const handle = await request<SurfaceHandle | { kind: 'existing_owner'; page_id: string }>('mount', { pageId, bounds: bounds(), viewportWidth: window.innerWidth })
   // A successful native close has already flushed and detached every surface.
   if (!windowVisible) return
   if ('kind' in handle) {
@@ -511,7 +511,7 @@ document.addEventListener('keydown', event => {
 })
 function scheduleBounds() {
   clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(() => { if (surface) void request('bounds', { surface, bounds: bounds() }).catch(error => notice(hostMessage(error), true)) }, 30)
+  resizeTimer = setTimeout(() => { if (surface) void request('bounds', { surface, bounds: bounds(), viewportWidth: window.innerWidth }).catch(error => notice(hostMessage(error), true)) }, 30)
 }
 new ResizeObserver(() => {
   scheduleBounds()

@@ -1,0 +1,51 @@
+{
+  "status": "standalone_and_race_passed_tab_rendering_review_pending",
+  "packageSha256": "d2c6c4617b94285ad1b68b6c9a35a133a614673b4051633ec4839468a3d0b8f0",
+  "binarySha256": "f9c2c5305211eaee622d6d8101f502968fef535611685719d19955bc2bcc03d1",
+  "projectionSha256": "94884ce06e76ba3861273424d6d48ce06db5f3c9c7a9f06a350b48794920e86f",
+  "environment": "private Sway 3840x2400 scale4 Pixman; isolated config/data/Vault; simple IM context",
+  "checks": {
+    "windowFullyFits960x600": true,
+    "windowRect": {
+      "x": 16,
+      "y": 16,
+      "width": 928,
+      "height": 568
+    },
+    "closeReopenTextRestored": true,
+    "continuedInputSaved": true,
+    "appearanceHidesNativeCleanly": true,
+    "stableKeymapActualLeftAndBackspace": true,
+    "exactNavigationProjectionSuffix": "NAVIGATION\\_Y",
+    "noStaleTextAfterLayoutNavigation": true,
+    "onlyOneVisibleCaret": true,
+    "breathingPresented": true,
+    "breathingDifferences": [
+      "8x120+732+1156",
+      "8x120+732+1156",
+      "8x120+732+1156",
+      "8x120+732+1156",
+      "8x120+732+1156"
+    ],
+    "detachMountRaceRoundsPassed": 16,
+    "newSurfaceSurvivalRounds": 16,
+    "raceProjectionUnchanged": true,
+    "uiHashesRestored": 13,
+    "dedicatedTabOpenedAfterOwnerRelease": true
+  },
+  "limits": [
+    "Final Tab long line is clipped at right edge rather than visibly wrapped; some underscores/spaces visually absent; raised to host owner for review, not accepted as perfect rendering.",
+    "Logs retain Gtk accelerator warnings and gtk_widget_get_scale_factor critical originating before Sumi opened; no crash observed.",
+    "Physical IME is a separate task and not claimed by this simple-context GUI run."
+  ],
+  "evidence": [
+    "reopened-save.png",
+    "appearance-clean.png",
+    "navigation-stable-before.png",
+    "navigation-stable-after.png",
+    "final-phase-0.png",
+    "tab-smoke-settled.png",
+    "../sumi-detach-mount-run1/result.json",
+    "../sumi-detach-mount-run1/ui-restored.json"
+  ]
+}

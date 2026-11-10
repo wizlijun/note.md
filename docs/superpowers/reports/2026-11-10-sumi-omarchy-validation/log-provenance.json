@@ -1,0 +1,218 @@
+{
+  "sumi-frontend-tests.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "706130b810e2c39560540a04bffe34d7f47d942277d3126e80f98127dd8d6fde",
+    "localOriginal": "tasks/omarchy-build/sumi-frontend-tests.log",
+    "originalSha256": "986b5cf4801dbbf7796e340eb2d15d13aea2c069fc3ce7dc5c6bfa9e35f25c02"
+  },
+  "sumi-plugin-final-tests.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "1c9e75a0500f534f8333225c6c153ab9e7c23cf196bdcd1c58bc2ef21a41f284",
+    "localOriginal": "tasks/omarchy-build/sumi-plugin-final-tests.log",
+    "originalSha256": "5e410d20609cf6d3e6a5ed1165e2d09d4f1c1ac1980727c4d2f9bb013601b030"
+  },
+  "sumi-core-tests.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "a154aa3ba6e1bbbef69592be8bcc04d336390b8986798e6750d52012493d2cc0",
+    "localOriginal": "tasks/omarchy-build/sumi-core-tests.log",
+    "originalSha256": "804824fa6f7cbd40cb112ae2f913dcc2be432fd33f8907da334b1ae4229425f6"
+  },
+  "sumi-sound-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "a988c5e8fc8fe9f53ba8451ddc2900b3d2870b77b9b067133dfe4e7b4e174ebc",
+    "localOriginal": "tasks/omarchy-build/sumi-sound-final.log",
+    "originalSha256": "ea5af81208bf582eb2bb9fc47a1aaf09944311258f3ce012cf41d2c32024c943"
+  },
+  "sumi-pulse-silent-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "b8cb5f640e890cf91db1da83237139c27cbec52d2a913e18f1a63fc67a956ea3",
+    "localOriginal": "tasks/omarchy-build/sumi-pulse-silent-final.log",
+    "originalSha256": "e0225075ecedda0adf5a9a35d2c2804bcfc2b3b1c38cc8aafed6c226ae5a8be8"
+  },
+  "sumi-credentials-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "ff0187d1504b4da34cd76da138dd21a9fbd8762ee6913f2322ba5d971cbb3b93",
+    "localOriginal": "tasks/omarchy-build/sumi-credentials-final.log",
+    "originalSha256": "fd5fcea05729078d86a69eac05912690c55fe7bb7611d48d74faf21222c5a974"
+  },
+  "sumi-packaging-tests-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "ab191dddd483a4927450071cf4ef8560bf7a6d88909b3e1a85e67f0761d04332",
+    "localOriginal": "tasks/omarchy-build/sumi-packaging-tests-final.log",
+    "originalSha256": "d89626a4a3aa2d6c89c17f1419fc4076424cf3a30dede42cbdd69ea4db43c110"
+  },
+  "sumi-elf-validator-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "2299339565fdc7c4fedeb54e99b181ba53b821f77194926422cc7df3301ba0ee",
+    "localOriginal": "tasks/omarchy-build/sumi-elf-validator-final.log",
+    "originalSha256": "2299339565fdc7c4fedeb54e99b181ba53b821f77194926422cc7df3301ba0ee"
+  },
+  "sumi-host-tests-reopen.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "edb86da620e15dee0ef67508c5774d3bb562033c492e652a88a6d4623c5cf043",
+    "localOriginal": "tasks/omarchy-build/sumi-host-tests-reopen.log",
+    "originalSha256": "f5c5f1d617353fda0cd1befa51d8332b05a1ef63a86befdecbe089f701361495"
+  },
+  "sumi-native-subsurface-tests.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "9f0185c94895212ff22cbef2605e7dcc9b10a12f332aeb21ed5fdc5af19be9a4",
+    "localOriginal": "tasks/omarchy-build/sumi-native-subsurface-tests.log",
+    "originalSha256": "def273321f52a7c907bd737cba6e2468bbed4400cbffe16efaa531f3a0f07bfb"
+  },
+  "sumi-native-subsurface-offscreen.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "fee9dad90847d999ee0201fd74baae44b4f2f2571fb93b1112ed5e55f2dbcd22",
+    "localOriginal": "tasks/omarchy-build/sumi-native-subsurface-offscreen.log",
+    "originalSha256": "1194a0ddbec36f6c534fd9f61dff6b8d38dee3acc51bd7557ee9446c887c6088"
+  },
+  "sumi-native-subsurface-wayland.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "06265369fe6ff788973429114b3589cd5734101955650da38a6d5b5362c2774a",
+    "localOriginal": "tasks/omarchy-build/sumi-native-subsurface-wayland.log",
+    "originalSha256": "f96583cd6bfad32a9d22934879be1d620d1b94dfc86025d17a29360da2aa3dc8"
+  },
+  "sumi-host-tests-titlebar.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "de3f377681f6f97abbd02cb3eb0329d84fcac6fa3ed786e2a9e884737c4fe607",
+    "localOriginal": "tasks/omarchy-build/sumi-host-tests-titlebar.log",
+    "originalSha256": "ccfd26730b51771400c95910c3d8532748981e73ab506b45c111c3c1f8b4fe6e"
+  },
+  "sumi-native-subsurface-wayland-1x.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "dff8ef5c718236e6b0b3b9f52461ad41d80e20eb964c1d0dc98c23ff58c346c1",
+    "localOriginal": "tasks/omarchy-build/sumi-native-subsurface-wayland-1x.log",
+    "originalSha256": "fb6ecab52dfb28a999f82bfea70a981da7151de8f966691c1dcfae1c4e7ec95c"
+  },
+  "sumi-native-damage-unit-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "a6cb84fb8267690fcffc87a545b8ae8d3c0f9c4fa7837c369c8000f0f8be4531",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-unit-final.log",
+    "originalSha256": "5f3f7b6b69e7311d5201719247fbfad07db65ec1e753d0ba77e1ee5d80427ca4"
+  },
+  "sumi-native-damage-final-glyph.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "a73dbb6b56a57b28258e34abc22a4315ca7381d42363741f21ebbab36cc7f730",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-final-glyph.log",
+    "originalSha256": "f2428ae2d7382a5ff70ec0628df6915b4acfa1afc37a7e692a7048bda51e133c"
+  },
+  "sumi-native-damage-final-wayland-4x.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "ad6fec32beb7692e64f310ce6989f223d20891a8b38c3acfa3f835f22fc88e59",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-final-wayland-4x.log",
+    "originalSha256": "1354e4d663752287614c3cd600db0eaf8e3b991a1e34de291bb08b85389bc2cf"
+  },
+  "sumi-native-damage-final-wayland-1x.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "6ff279d81e9eac513561f242b398e11ca0021b690203ca75548c1843d0cc55f3",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-final-wayland-1x.log",
+    "originalSha256": "5f189601322b090a917094ce6934a857d1796fdfeade7b5a27bd080149ea4df4"
+  },
+  "sumi-native-damage-final-pixels.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "326d18495aa49a1cf8f77560d2ce4e732ed24fbfdb0f2ed05afc8000fef07598",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-final-pixels.log",
+    "originalSha256": "7b456d8e109680882b17ce5cfbbe8ed40dca5f9c37b366f958ffdc0da89c4194"
+  },
+  "sumi-native-damage-fullview.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "3c5dc7d10b0e8ae328176ee6097f216d9ee6daeeebe5eaf836d7af5e0bb809e0",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-fullview.log",
+    "originalSha256": "3c5dc7d10b0e8ae328176ee6097f216d9ee6daeeebe5eaf836d7af5e0bb809e0"
+  },
+  "sumi-native-damage-layoutfix.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "03f50b22ed5967b92effc0c23e9e32a480a60d5381289ae93bc79655ce2c3395",
+    "localOriginal": "tasks/omarchy-build/sumi-native-damage-layoutfix.log",
+    "originalSha256": "03f50b22ed5967b92effc0c23e9e32a480a60d5381289ae93bc79655ce2c3395"
+  },
+  "sumi-host-tests-owner-release.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "31f9adc4bee349b87da63e2783a53f88995e06cc00b641139b3a8ddd8924dcda",
+    "localOriginal": "tasks/omarchy-build/sumi-host-tests-owner-release.log",
+    "originalSha256": "1d17cbe7113004563ec4a1b6f7fe6e5d5849b09519be499eeec7eb4f25a80d82"
+  },
+  "gtk-keys-control.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "a53fda43b30fe434fdba26f6ea522e1765f164dc1eee810dba7250d9d66d7ae0",
+    "localOriginal": "tasks/omarchy-build/gtk-keys-control.log",
+    "originalSha256": "a53fda43b30fe434fdba26f6ea522e1765f164dc1eee810dba7250d9d66d7ae0"
+  },
+  "gtk-fixed-keys-control.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "868eb949b23b6f688315557e99a1d78a91c6066aaa156abe0bc753df926d1edf",
+    "localOriginal": "tasks/omarchy-build/gtk-fixed-keys-control.log",
+    "originalSha256": "868eb949b23b6f688315557e99a1d78a91c6066aaa156abe0bc753df926d1edf"
+  },
+  "sumi-host-build-wrap-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "d6bf76fd1e808c3d7a336d7387d65af5628fcc6da58441aaa347a97a171e2ffa",
+    "localOriginal": "tasks/omarchy-build/sumi-host-build-wrap-final.log",
+    "originalSha256": "f288c6c4c18dea8d3882813413bd8efc99ca3bdfedf0e90ba55d015bc91dec95"
+  },
+  "sumi-native-wrap-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "2bcfc94d42240dd427fe79db80f6433f044d88a440084623818511c12ef60299",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-final.log",
+    "originalSha256": "2bcfc94d42240dd427fe79db80f6433f044d88a440084623818511c12ef60299"
+  },
+  "sumi-native-wrap-fixed.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "6320a393bf7eac36a75a0865a997d6d902be2103b5e4a295cf0ca9ed9922b064",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-fixed.log",
+    "originalSha256": "eb6d31ff9079186f763c94fd7fcb17f50f7f93843c4210961c33c3de130b8f49"
+  },
+  "sumi-native-wrap-unit-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "1d5c9857fe29082496ba58f954f3d4e08f760e899dc7c4f117905560e9090e9c",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-unit-final.log",
+    "originalSha256": "fc63ab12f76680021aa33e69a9c5e94bfe724ce8f8becf666cf01dc0f3d9e0b7"
+  },
+  "sumi-native-wrap-glyph.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "d5ec926375b5c4abb75caf521f122f9ec18b3b595c7a006e72f442f16db9895e",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-glyph.log",
+    "originalSha256": "5f7bd609ae2e953b1f589c4264949084b3c0accd0c7db8b6935ba1d65c78a748"
+  },
+  "sumi-native-wrap-wayland-4x.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "4264f497dce1878fe15d468ac5d73dab662c3c2feb917bcea2ffd925a8fafea3",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-wayland-4x.log",
+    "originalSha256": "01bc13ae6751e8932299005d17642e6a827470a179a3752fa9cde21a9e6f6661"
+  },
+  "sumi-native-wrap-wayland-1x.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "90f14e080fe8137a8f1c09dee869de1beee90b7b485f2c4418cbf76a50ff9815",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-wayland-1x.log",
+    "originalSha256": "5f6c77065fecc6239de8ede043b19d661e0cd3c756d26ee040d3db2884e4269c"
+  },
+  "sumi-native-wrap-wayland-4x-allocation-delay.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "b1108e0172e184ce6a6b047046b7e707ffa54db106054dc223e6e0b2b9917b4b",
+    "localOriginal": "tasks/omarchy-build/sumi-native-wrap-wayland-4x-allocation-delay.log",
+    "originalSha256": "8f28933a59bfd3677a5bbb0453b024d70d2617a4cfbb2d82b42910eba7c4e2c5"
+  },
+  "sumi-frontend-tests-webview.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "4a2d2b591cf6aedfb4058e2dcce26f2dcf8a2652143afd0e39a385a6f5091b1f",
+    "localOriginal": "tasks/omarchy-build/sumi-frontend-tests-webview.log",
+    "originalSha256": "3a66ac7dbee54d0486300077d83e8913774f346ffe43e3b154201b72ce38dcd0"
+  },
+  "sumi-host-build-webview-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "0d7815d54c713740498f8f963551b75f65ebb6006a1acf84ada86201e61fd6fd",
+    "localOriginal": "tasks/omarchy-build/sumi-host-build-webview-final.log",
+    "originalSha256": "2e77569cd1b20b13e18bcb59ea7c5ab840ca284fcb337c75c22f5e4e599ff1db"
+  },
+  "sumi-frontend-build-webview-final.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "31c4139c2118be1e8ec4a4380f3019c8dd55d34b3653a31f05ad2dfedbcbd39d",
+    "localOriginal": "tasks/omarchy-build/sumi-frontend-build-webview-final.log",
+    "originalSha256": "1958e5f16ca59470d8d7f8fc540864b66f7ae6cc13cd40cccb215013390b7ac6"
+  },
+  "sumi-webview-shadow-regression.log": {
+    "normalization": "trailing whitespace and empty EOF lines only",
+    "archivedSha256": "2204214b0b3316afcda6338a2efdbdc3115b91249aab30157ed69ad7143f7367",
+    "localOriginal": "tasks/omarchy-build/sumi-webview-shadow-regression.log",
+    "originalSha256": "a21e8db5c93e5c14f5304daa6ae2841755ddcb77e8640424f543d69cce9421cb"
+  }
+}
