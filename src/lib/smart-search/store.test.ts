@@ -78,4 +78,27 @@ describe('SmartSearchStore', () => {
     expect(store.loading).toBe(false)
     expect(store.error).toBeNull()
   })
+
+  it('records a failed lookup without keeping stale hits', async () => {
+    const store = new SmartSearchStore(async () => response('old.md'))
+    await store.run('old')
+    expect(store.hits).toHaveLength(1)
+    store.fail('new', 'search index not ready')
+    expect(store).toMatchObject({
+      query: 'new', error: 'search index not ready', loading: false,
+      truncated: false, deepAvailable: false,
+    })
+    expect(store.hits).toEqual([])
+  })
+
+  it('ignores a preview response that started before a failed lookup', async () => {
+    let resolve!: (value: SmartSearchResponse) => void
+    const store = new SmartSearchStore(() => new Promise((r) => { resolve = r }))
+    const run = store.run('old')
+    store.fail('new', 'search index not ready')
+    resolve(response('late.md'))
+    expect(await run).toBeNull()
+    expect(store.hits).toEqual([])
+    expect(store.error).toBe('search index not ready')
+  })
 })

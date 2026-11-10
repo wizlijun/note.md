@@ -60,9 +60,10 @@ pub(crate) mod project_share_git;
 #[cfg(not(target_os = "ios"))]
 pub mod search;
 #[cfg(not(target_os = "ios"))]
-pub mod smart_search;
 #[cfg(not(target_os = "ios"))]
 pub mod smart_lookup;
+#[cfg(not(target_os = "ios"))]
+pub mod smart_model;
 #[cfg(not(target_os = "ios"))]
 pub mod mcp;
 #[cfg(not(target_os = "ios"))]
@@ -1708,8 +1709,7 @@ pub fn run() {
                 sotvault::sotvault_accept_current,
                 search::notemd_search,
                 search::notemd_smart_search,
-                search::notemd_search_plan_context,
-                search::notemd_planned_search,
+                search::smart_lookup_local,
                 search::notemd_search_stats,
                 search::notemd_search_rebuild,
                 search::notemd_search_progress,
@@ -1733,11 +1733,6 @@ pub fn run() {
                 open_smart_search_window,
                 hide_smart_search_window,
                 toggle_smart_search_window,
-                smart_search::smart_search_freeze_sources,
-                smart_search::smart_search_archive_answer,
-                smart_search::smart_search_record_feedback,
-                smart_search::smart_search_write_document,
-                smart_search::smart_search_memory_context,
                 smart_lookup::smart_lookup_start_summary,
                 smart_lookup::smart_lookup_start_handoff,
                 smart_lookup::smart_lookup_agent_default,

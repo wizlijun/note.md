@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Smart Lookup is rebuilt local-first.** Pressing Enter shows local results immediately instead of first starting an external Agent to interpret the question; neither typing nor searching calls a model. “Create answer” and “In-depth research” work from the local results and start only on click. Research receives the visible results (up to 20) as references, and the Agent window no longer opens by itself — an “Open research” link appears instead. Multi-select, remove and undo, the source filter, “Copy research instructions”, “Copy answer” and the in-window settings panel are gone; the answer’s AI service and model, and the other options, are in Settings → Search & Index.
+
 ## v6.1110.5 — 2026-11-10
 
 - **Stabilize Sumi focus writing on Linux.** Fix fractional scroll feedback that made the text jump between adjacent pixels. Hide the native editor scrollbar and frame while preserving scrolling and the input position outside focus mode.

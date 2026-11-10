@@ -1,4 +1,4 @@
-export type WorkflowStage = 'preview' | 'plan' | 'search' | 'summary' | 'handoff'
+export type WorkflowStage = 'preview' | 'search' | 'summary' | 'handoff'
 export type WorkflowLevel = 'active' | 'success' | 'warning' | 'error'
 
 export interface WorkflowEntry {
@@ -8,6 +8,10 @@ export interface WorkflowEntry {
   message: string
   runId?: string
   steps?: number
+  /** Milliseconds since the lookup that owns this entry started. */
+  elapsedMs?: number
+  /** Provider-reported usage, recorded only for a completed agent run. */
+  usage?: unknown
 }
 
 export const WORKFLOW_LOG_LIMIT = 50
@@ -33,4 +37,15 @@ export function isNearLogBottom(
   threshold = 24,
 ): boolean {
   return metrics.scrollHeight - metrics.scrollTop - metrics.clientHeight <= threshold
+}
+
+/** One JSON object per line, stable key order, for pasting into a bug report. */
+export function formatWorkflowLog(entries: WorkflowEntry[]): string {
+  return entries.map((entry) => JSON.stringify({
+    stage: entry.stage,
+    level: entry.level,
+    elapsedMs: entry.elapsedMs ?? null,
+    usage: entry.usage ?? null,
+    message: entry.message,
+  })).join('\n')
 }

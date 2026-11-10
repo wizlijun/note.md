@@ -81,6 +81,17 @@ export class SmartSearchStore {
     this.subqueries = response.subqueries ?? []
   }
 
+  /** Show an authoritative lookup failure; stale hits must not look current. */
+  fail(query: string, message: string): void {
+    this.sequence++
+    this.query = query
+    this.hits = []
+    this.error = message
+    this.loading = false
+    this.truncated = false
+    this.deepAvailable = false
+  }
+
   clear(): void {
     this.sequence++
     this.query = ''

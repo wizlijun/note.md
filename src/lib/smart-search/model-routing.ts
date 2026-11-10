@@ -1,6 +1,6 @@
 import type { AgentHarness } from '../agent-picker/types'
 
-export type SearchModelPhase = 'plan' | 'summary'
+export type SearchModelPhase = 'summary'
 export type ModelPreference = 'profile:fast' | 'profile:default' | `model:${string}`
 
 export type ModelSelector =
