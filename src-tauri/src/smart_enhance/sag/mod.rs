@@ -63,6 +63,11 @@ pub(crate) struct Term {
     pub score: f64,
     /// The original spelling shown in the UI.
     pub label: String,
+    /// The FTS5 phrase body (`text::fts_phrase`, inner stop words kept): what every
+    /// FTS probe and query for this term matches. `term` stays the identity and
+    /// scoring string, as in SAG2. A word's phrase is the word itself; a name
+    /// phrase's is `fts_phrase(label)` (spec H.3.4, H.5 FTS 短语 row).
+    pub phrase: String,
 }
 
 /// One round of the trace (`protocol/src/retrieval.rs:Trace`).

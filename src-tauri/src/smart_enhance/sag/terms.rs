@@ -10,7 +10,7 @@ use icu_collator::{Collator, CollatorOptions};
 use icu_locid::locale;
 use indexmap::IndexMap;
 
-use super::text::{name_spans, sag_tokens, sentences};
+use super::text::{name_spans, sag_tokens, sentences, NameSpan};
 use super::{SagCandidate, Term, TermKind};
 
 /// Corpus statistics for the IDF of `retrieval.rs:expansion_terms`
@@ -63,8 +63,8 @@ pub(crate) fn expansion_terms(
     let query_words = sag_tokens(query);
     let query_set: HashSet<String> = query_words.iter().cloned().collect();
     let max_score = seeds.iter().map(|s| s.score).fold(0., f64::max);
-    // (sentence, words, names as (term, label)) per sentence, per seed.
-    let mut passages: Vec<(&SagCandidate, Vec<(&str, Vec<String>, Vec<(String, String)>)>)> = vec![];
+    // (sentence, words, name spans) per sentence, per seed.
+    let mut passages: Vec<(&SagCandidate, Vec<(&str, Vec<String>, Vec<NameSpan>)>)> = vec![];
     // SAG2 uses a HashSet; sorted here only so the df request is reproducible
     // (the result does not depend on its order).
     let mut vocabulary: BTreeSet<String> = query_set.iter().cloned().collect();
@@ -81,17 +81,23 @@ pub(crate) fn expansion_terms(
             }
             ungrouped.push_str(&sentence[end..]);
             let mut words = sag_tokens(&ungrouped);
-            words.extend(names.iter().map(|n| n.term.clone()));
             vocabulary.extend(words.iter().cloned());
-            let names = names.into_iter().map(|n| (n.term, n.label)).collect();
+            // A name's df is counted by its phrase, inner stop words kept
+            // (spec H.3.4); its term stays the counting and scoring key. A
+            // name of stop words only (empty term) is skipped before its df
+            // is read.
+            vocabulary.extend(names.iter().filter(|n| !n.term.is_empty()).map(|n| n.phrase.clone()));
+            words.extend(names.iter().map(|n| n.term.clone()));
             parts.push((sentence, words, names));
         }
         passages.push((seed, parts));
     }
     let total = stats.total()?;
     // An empty name term (a name of stop words only) is skipped below before
-    // its df is read, so it is not requested (SAG asks for it and gets 0;
-    // FTS5 accepts the empty phrase and matches no rows).
+    // its df is read, so neither it nor its phrase is requested (SAG asks for
+    // it and gets 0; FTS5 accepts the empty phrase and matches no rows).
+    // `frequencies` is keyed by the FTS phrase body: a word is its own phrase,
+    // so a word and a name phrase with the same string share one count.
     let vocabulary: Vec<String> = vocabulary.into_iter().filter(|t| !t.is_empty()).collect();
     let frequencies: HashMap<String, f64> =
         stats.df(&vocabulary)?.into_iter().map(|(term, count)| (term, count as f64)).collect();
@@ -109,8 +115,8 @@ pub(crate) fn expansion_terms(
         let weight = 0.5 + 0.5 * if max_score > 0. { seed.score / max_score } else { 0. };
         let mut counts: IndexMap<String, usize> = IndexMap::new();
         let mut contexts: HashMap<String, f64> = HashMap::new();
-        // name term → label of its first span in this seed (P12).
-        let mut name_terms: HashMap<String, String> = HashMap::new();
+        // name term → its first span in this seed, for the label (P12) and phrase.
+        let mut name_terms: HashMap<&str, &NameSpan> = HashMap::new();
         for (sentence, words, names) in &parts {
             let mut unique = HashSet::new();
             let mut context = 0.;
@@ -124,21 +130,23 @@ pub(crate) fn expansion_terms(
                 let old = contexts.entry(word.clone()).or_default();
                 *old = old.max(context);
             }
-            for (term, label) in names {
-                name_terms.entry(term.clone()).or_insert_with(|| label.clone());
+            for name in names {
+                name_terms.entry(name.term.as_str()).or_insert(name);
             }
         }
         for (term, tf) in counts {
-            if sag_tokens(&term).iter().all(|w| query_set.contains(w)) || df(&term)? == 0. {
+            let (kind, label, phrase) = match name_terms.get(term.as_str()) {
+                Some(name) => (TermKind::NamePhrase, &name.label, &name.phrase),
+                None => (TermKind::Word, &term, &term),
+            };
+            // The skip rule reads the term; df and idf read the phrase.
+            if sag_tokens(&term).iter().all(|w| query_set.contains(w)) || df(phrase)? == 0. {
                 continue;
             }
-            let score = (1. + (tf as f64).ln()) * idf(&term)? * (1. + contexts[&term]) * weight;
+            let score = (1. + (tf as f64).ln()) * idf(phrase)? * (1. + contexts[&term]) * weight;
             if !ranked.contains_key(&term) || score > ranked[&term].score {
-                let (kind, label) = match name_terms.get(&term) {
-                    Some(label) => (TermKind::NamePhrase, label.clone()),
-                    None => (TermKind::Word, term.clone()),
-                };
-                ranked.insert(term.clone(), Term { term, kind, score, label });
+                let (label, phrase) = (label.clone(), phrase.clone());
+                ranked.insert(term.clone(), Term { term, kind, score, label, phrase });
             }
         }
     }
@@ -358,6 +366,68 @@ mod tests {
         assert_eq!(t[0].term, "paris");
         let want = idf(4.) * (1. + idf(5.)) * 0.5;
         assert!((t[0].score - want).abs() < 1e-12, "{} {}", t[0].score, want);
+    }
+
+    /// `Fixed` that records every term it is asked for.
+    struct Recording(Fixed, std::sync::Mutex<Vec<String>>);
+
+    impl TermStats for Recording {
+        fn total(&self) -> Result<f64, String> {
+            self.0.total()
+        }
+        fn df(&self, terms: &[String]) -> Result<HashMap<String, u64>, String> {
+            self.1.lock().unwrap().extend(terms.iter().cloned());
+            self.0.df(terms)
+        }
+    }
+
+    #[test]
+    fn a_name_phrase_with_inner_stop_words_gets_the_df_of_its_phrase() {
+        // The index keeps stop words, so the df of a name is its phrase's; the
+        // stub gives the `sag_tokens` strings "lord rings" and "傲慢 偏见" no count.
+        let stats = Recording(table(&[("lord of the rings", 7), ("傲慢 与 偏见", 3), ("loved", 10)]), Default::default());
+        let seeds = [seed(1., "I loved [[Lord of the Rings]]"), seed(1., "读[[傲慢与偏见]]")];
+        let t = expansion_terms("x", &seeds, 20, None, &stats).unwrap();
+        let lord = t.iter().find(|t| t.term == "lord rings").expect("name kept: its phrase has df 7");
+        assert_eq!((lord.kind, lord.label.as_str(), lord.phrase.as_str()), (NamePhrase, "Lord of the Rings", "lord of the rings"));
+        // tf 1, no context, weight 1: the score is the phrase's idf.
+        assert!((lord.score - idf(7.)).abs() < 1e-12, "{}", lord.score);
+        let pride = t.iter().find(|t| t.term == "傲慢 偏见").expect("name kept: its phrase has df 3");
+        assert_eq!((pride.kind, pride.phrase.as_str()), (NamePhrase, "傲慢 与 偏见"));
+        assert!((pride.score - idf(3.)).abs() < 1e-12, "{}", pride.score);
+        // Words keep phrase = term.
+        let loved = t.iter().find(|t| t.term == "loved").unwrap();
+        assert_eq!((loved.kind, loved.phrase.as_str()), (Word, "loved"));
+        let asked = stats.1.lock().unwrap().clone();
+        assert!(asked.contains(&"lord of the rings".to_owned()) && asked.contains(&"傲慢 与 偏见".to_owned()), "{asked:?}");
+        assert!(!asked.contains(&"lord rings".to_owned()) && !asked.contains(&"傲慢 偏见".to_owned()), "{asked:?}");
+    }
+
+    #[test]
+    fn a_name_with_only_edge_stop_words_is_counted_by_its_term_as_at_base() {
+        // NAMES matches "In Paris" and [[我的世界]] is a name; the edge stops are
+        // trimmed, so the phrase is the term and df is read for "paris" and
+        // "世界" exactly as before the phrase change (and as in SAG2).
+        let stats = Recording(table(&[("paris", 4), ("in paris", 1), ("世界", 5), ("我 的 世界", 1)]), Default::default());
+        let seeds = [seed(1., "In Paris, Alice met Bob."), seed(1., "玩[[我的世界]]")];
+        let t = expansion_terms("x", &seeds, 20, None, &stats).unwrap();
+        let paris = t.iter().find(|t| t.term == "paris").unwrap();
+        assert_eq!((paris.kind, paris.label.as_str(), paris.phrase.as_str()), (NamePhrase, "In Paris", "paris"));
+        let world = t.iter().find(|t| t.term == "世界").unwrap();
+        assert_eq!((world.kind, world.phrase.as_str()), (NamePhrase, "世界"));
+        // tf 1, no context, weight 1: the score is the idf of the term's own df.
+        assert!((paris.score - idf(4.)).abs() < 1e-12, "{}", paris.score);
+        assert!((world.score - idf(5.)).abs() < 1e-12, "{}", world.score);
+        let asked = stats.1.lock().unwrap().clone();
+        assert!(!asked.contains(&"in paris".to_owned()) && !asked.contains(&"我 的 世界".to_owned()), "{asked:?}");
+    }
+
+    #[test]
+    fn a_name_phrase_whose_phrase_has_no_df_is_skipped() {
+        // df is read by phrase: a df for the `sag_tokens` string alone does not keep it.
+        let stats = table(&[("lord rings", 7)]);
+        let t = expansion_terms("x", &[seed(1., "[[Lord of the Rings]]")], 20, None, &stats).unwrap();
+        assert!(t.is_empty(), "{t:?}");
     }
 
     // Ported from retrieval.rs:tests::interleaves_rank_then_term_and_deduplicates.

@@ -727,4 +727,35 @@ mod tests {
         // unclosed quote degrades to a term, an empty phrase disappears.
         assert_eq!(crate::query::free_text("tag: \"\" ext:md \"unclosed"), "tag: unclosed");
     }
+
+    /// Why the host builds every FTS phrase with its inner stop words kept
+    /// (spec H.5 FTS 短语 row): `tok_text` stores every token, so a phrase with
+    /// an inner stop word dropped is not adjacent and misses. Inside its edges
+    /// the host's `fts_phrase` is `tokens(..).join(" ")`; its `sag_tokens`
+    /// drops SAG2's stop words.
+    #[test]
+    fn phrases_match_only_with_the_stop_words_the_index_keeps() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("vault");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("c.md"), "I read the lord of the rings\n\n我的世界\n\n读傲慢与偏见\n").unwrap();
+        let db = dir.path().join("i.db");
+        let mut index = SearchIndex::open_at(&root, &db, "").unwrap();
+        index.index_one("c.md", &ScanOptions::default()).unwrap();
+        let r = SagReader::open_existing_at(&root, &db, "", 1).unwrap();
+        let phrase = |surface: &str| crate::tokenize::tokens(surface).join(" ");
+        let kept = [phrase("lord of the rings"), phrase("我的世界"), phrase("傲慢与偏见")];
+        assert_eq!(kept, ["lord of the rings", "我 的 世界", "傲慢 与 偏见"]);
+        // Stop words dropped ("我 世界" drops only 的, as in the ledger ruling).
+        let dropped = s(&["lord rings", "我 世界", "傲慢 偏见"]);
+        for p in &kept {
+            assert!(r.has_match(&quote(p), no_filters(), &[]).unwrap(), "{p}");
+        }
+        for p in &dropped {
+            assert!(!r.has_match(&quote(p), no_filters(), &[]).unwrap(), "{p}");
+        }
+        let f = r.frequencies(&[kept.to_vec(), dropped.clone()].concat(), Level::Line).unwrap();
+        assert_eq!(kept.iter().map(|p| f[p]).collect::<Vec<_>>(), vec![1, 1, 1]);
+        assert_eq!(dropped.iter().map(|p| f[p]).collect::<Vec<_>>(), vec![0, 0, 0]);
+    }
 }

@@ -857,7 +857,8 @@ SAG-Wiki：`retrieve_inner` 先 `corpus.repair(query, has_hits)`，再 `match_qu
 我们的复现：
 
 - 输入文本 `free_text`：问题去掉 DSL 过滤词元（`tag:`、`type:`、`path:`、`ext:`、`origin:`、`after:`、`before:`、`page:`）后剩下的部分，按原顺序以单个空格连接；带引号的短语保留引号内的文字。由新函数 `searchidx::query::free_text(raw)` 计算，切分规则与 `query::parse` 相同。`time.mode = window` 且识别到时间短语时，先从文本中去掉该短语，再把范围作为过滤（与本地检索一致）；`group` 和 `ignore` 模式保留时间短语原文。
-- 修复与 `match_query` 都用 `sag_tokens`，`has_hits` 用 `SagReader::has_match`（只看行级块，带显式过滤）。
+- `match_query` 用 `sag_tokens`，`has_hits` 用 `SagReader::has_match`（只看行级块，带显式过滤）。
+- 修复传给 `has_hits` 的短语改用 `fts_phrase(x)`：索引分词器 `tokens(x)` 中，从 `sag_tokens` 保留的第一个词元到最后一个词元之间的部分，以空格连接，即保留中间的停用词，去掉首尾的停用词：`!has_hits(quote(fts_phrase(source))) && has_hits(quote(fts_phrase(target)))`。原因：我们的索引不去停用词，去掉中间停用词后的短语在索引里不相邻，永远不命中；首尾的停用词 SAG2 的短语从不要求，所以去掉（H.5「FTS 短语」行）。没有中间停用词时 `fts_phrase(x) = sag_tokens(x).join(" ")`，与改动前和 SAG2 相同；`sag_tokens(x)` 为空时它也为空。别名匹配与替换本身不变。
 - 查询式为空：本轮结束，状态 `skipped`、停止原因 `noTerms`，不发请求。
 
 #### H.3.3 第 0 轮候选（受保护的前 `protectedK` 段）
@@ -904,6 +905,7 @@ SAG-Wiki `retrieval.rs:expansion_terms(store, query, seeds, limit)`，其中 `qu
 我们的复现：
 
 - 第 1、4、5 步的分词全部用 `sag_tokens`（与索引同一个 `cut_for_search`，这是硬要求）。
+- 名称词的 df 按它的短语计：`df(fts_phrase(label))`（保留中间的停用词，去掉首尾的停用词，H.3.2），`label` 是该种子里这个名称第一个片段的原文；没有中间停用词的名称（如 `In Paris` → `paris`、我的世界 → `世界`）短语就是 `term`，df 与 SAG2 相同；第 6 步 `df = 0` 的跳过和第 7 步的 `idf(term)` 也用这个 df。普通词只有一个词元，短语就是它本身，df 不变。词的身份、tf、context、「全部词元都在 `query_set` 中」的跳过与第 8 步排序仍用 `sag_tokens` 连接成的 `term`（同 SAG2）。每个词另带 `phrase`（即上面的短语），之后发给 FTS5 的探测和查询都用它（H.3.5）。
 - `N = count(*) FROM blocks WHERE level='line'`，`df(t) = count(*)`：`blocks_fts MATCH 'tok_text : "<t>"'` 且 `b.level = 'line'`（对应 SAG2 只数 `body` 列、只数 chunk）。不按显式过滤缩小，SAG2 也不按范围缩小。
 - 第 8 步排序规则：`icu_collator` 1.5、`locale!("en")`、`CollatorOptions::new()`；比较结果相等时再按字节序，保证全序（SAG2 在这种情况下依赖 `HashMap` 的遍历顺序，不确定；我们补上字节序后是它的确定化）。
 - 名称词的补充（SAG2 的 `name_phrases` 只认英文大写，中文完全没有名称词）。每句额外收集下列片段，与英文名称合并：
@@ -939,7 +941,7 @@ SAG-Wiki：
 - `candidate_queries` 对每个必含词跑一次 `candidate_query`，SQL 是 `(ranking) AND (required)`，但 BM25 的统计量只来自 `ranking`。
 - `interleave(lists, candidate_k)`：名次 r 从 0 到 `candidate_k−1`，对每个列表取第 r 个，按 id 去重依次追加，`order` 改为追加位置，满 `candidate_k` 即停。
 
-我们的复现：`resolve_terms`、`interleave` 逐字移植，`has_hits` 带本轮排除表与显式过滤。必含词用 H.3.3 SQL 的 `rowid IN (SELECT rowid FROM blocks_fts WHERE blocks_fts MATCH ?3)` 表达，`bm25()` 只对 `?1`（排序式）计分，与 `sag_bm25` 只用排序式统计量的效果相同。每个列表各自做 H.3.3 的回源过滤，然后交错。交错结果为空：停止原因 `candidatesEmpty`。
+我们的复现：`resolve_terms`、`interleave` 逐字移植，`has_hits` 带本轮排除表与显式过滤。发给 FTS5 的都是词的 `phrase`（H.3.4）：探测用 `has_hits(quote(phrase))`，排序式与必含词用 `quote(phrase)`；改写后 `term = sag_tokens(repaired).join(" ")`、`phrase = fts_phrase(repaired)`。名称词的标题回退仍按 `term` 的词元找子序列；同一词元序列可能对应中间停用词不同的几个标题，按字节序逐个探测它们的 `fts_phrase`，取第一个有命中的，`term` 与 `phrase` 一起换掉。必含词用 H.3.3 SQL 的 `rowid IN (SELECT rowid FROM blocks_fts WHERE blocks_fts MATCH ?3)` 表达，`bm25()` 只对 `?1`（排序式）计分，与 `sag_bm25` 只用排序式统计量的效果相同。每个列表各自做 H.3.3 的回源过滤，然后交错。交错结果为空：停止原因 `candidatesEmpty`。
 
 #### H.3.6 组池、带入与证据
 
@@ -1038,6 +1040,7 @@ SAG-Wiki 有两条回答路径。`models.rs:prepare_answer` 直接用证据回�
 | `bm25` 统计量 | `sag_bm25` 的 idf 和平均长度来自整个 chunk 表 | 内置 `bm25()` 的 idf 和平均长度来自 `blocks_fts` 全部行（含章节、文件级） | BM25 分值不同；同一查询内行级块之间的先后多数情况下相同（oracle 夹具全部相同，H.9） | 接受 |
 | 分词 | NFKC 后整串交给 jieba，jieba 会保留 `half-ounce`、`a.h.g`、`c++` 这类含标点的词，并把 `café` 切成 `caf`、`é` | 只把汉字段交给 jieba，其余按字母数字和 `_` 切，不做 NFKC | 含标点的英文词、带重音的词、全角字符的词元不同；例：SAG2 的 `a.h` 在我们这里是 `a`（停用词）和 `h` | 接受，以索引的分词为准（必须与索引一致）。oracle 夹具第 3 题的扩展词因此不同，测试按我们的期望值断言并注明 |
 | 停用词与 `WORD` | `STOPS`（中英混合的固定表）与「至少一个字母或数字」 | 索引不去停用词 | 不处理会让「的」「the」成为查询词和扩展词 | 查询侧适配：`sag_tokens` 逐字使用 SAG2 的 `STOPS` 与 `WORD` |
+| FTS 短语 | 索引和查询去掉同一批停用词，`tokens(x).join(" ")` 组成的短语在索引里仍是相邻的 | 索引保留停用词（`tok_text` 是未过滤的 `cut_for_search`） | 去掉中间停用词的短语不命中：`"lord rings"` 找不到 lord of the rings，`"傲慢 偏见"` 找不到 傲慢与偏见 | FTS 短语保留中间的停用词，因为我们的索引保留停用词；SAG2 的索引和查询去掉同一批停用词，所以它的短语是相邻的。首尾的停用词去掉，因为 SAG2 的短语从不要求它们：`In Paris` 的短语是 `paris`，我的世界 的是 `世界`，没有中间停用词时短语就是词本身，与 SAG2 相同。发给 FTS5 的短语一律由原文经索引分词器生成（`fts_phrase`，H.3.2、H.3.4、H.3.5）。计分用的词元（`sag_tokens`）不变。别名改写后短语由修复后的文本重建，而修复作用在已去掉停用词的 `term` 上（同 SAG2），所以词里其他词元之间原有的停用词不会保留，只保留改写目标自身的。jieba 单独切一个片段时可能与同一段文字在整行中的切法不同，改动前就是如此 |
 | 名称词 | 只有英文大写名称 | 英文规则照抄，另加 jieba 词性、wiki 链接、标签、别名 | 中文问题也能得到名称词；名称片段内的子词不再单独成为扩展词 | 扩展（H.3.4） |
 | 别名 | 文档标题的去重音写法 | 再加 frontmatter `aliases` 和 wiki 目标；中文键不加边界断言 | 能把「别名写法」改成「标题写法」再检索 | 扩展（H.3.1） |
 | casefold | Unicode casefold | `to_lowercase` | `ß`、`ſ`、`ς` 等少数字符不同 | 接受（与索引一致） |
