@@ -64,6 +64,11 @@ pub struct JudgeResult {
     pub skipped_stale: usize,
     pub skipped_long: usize,
     pub usage: Option<UsageDto>,
+    /// The result ids of the blocks that were picked to send (or that a
+    /// reused verdict covered), in send order. Host-side only (the eval's
+    /// window coverage); never serialized.
+    #[serde(skip)]
+    pub sent_result_ids: Vec<String>,
 }
 
 pub(crate) struct JudgeInput<'a> {
@@ -308,6 +313,7 @@ async fn judge_steps(
     result.skipped_stale = selection.skipped_stale;
     result.skipped_long = selection.skipped_long;
     let picked = selection.picked;
+    result.sent_result_ids = picked.iter().map(|c| c.result_id.clone()).collect();
     if picked.is_empty() {
         result.skip_reason = Some(SkipReason::NoCandidates);
         return Ok((result, None, false));

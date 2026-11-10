@@ -71,7 +71,7 @@ fn shallow(
 /// For each of the run's extracted terms (quoted when it has whitespace),
 /// with the question's explicit filters, a shallow search capped at
 /// [`TERM_COUNT_CAP`] hits. No model is involved.
-pub(super) fn diagnose_locked(
+pub(crate) fn diagnose_locked(
     handle: &IndexHandle,
     run: &LookupRun,
     fusion: &FusionParams,
@@ -267,7 +267,7 @@ pub(super) fn search_groups_locked(
 /// judging, no automatic request) that keeps the base run's question and
 /// time mode. `limit` is 1..=100 (default 100).
 #[allow(clippy::too_many_arguments)]
-pub(super) fn search_groups_in(
+pub(crate) fn search_groups_in(
     window_label: &str,
     root: &Path,
     handle: &IndexHandle,

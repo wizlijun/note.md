@@ -368,7 +368,6 @@ pub fn run(args: SearchArgs) -> ExitCode {
     // numbers are honestly different things, not a duplicate.
     let started = std::time::Instant::now();
     let opts = scan_options_for(&root);
-    let mut skipped_large: Vec<SkippedFile> = Vec::new();
 
     // The store's staleness stamp is `SourceGlobs::stamp()` (C-T6 repointed
     // it away from `sync_dir` — see `store::open`'s doc comment). Derived
@@ -383,40 +382,7 @@ pub fn run(args: SearchArgs) -> ExitCode {
     // repointed together — see `search::mod::open_vault`'s matching comment
     // for the full failure mode. Reading it off `opts` makes that drift
     // structurally impossible.
-    let globs_stamp = opts.source_globs.stamp();
-    // Every failure below degrades. The only hard error is "no vault".
-    let mut index = match SearchIndex::open(&root, &globs_stamp) {
-        Ok(i) => Some(i),
-        Err(e) => {
-            eprintln!("notemd: search index unavailable ({e}); scanning files directly");
-            None
-        }
-    };
-
-    if let Some(idx) = index.as_mut() {
-        let outcome = if args.rebuild {
-            idx.rebuild(&opts)
-        } else if args.no_sweep {
-            idx.ensure_built(&opts)
-        } else {
-            idx.ensure_built(&opts)
-                .and_then(|_| idx.sweep(&opts, Some(SWEEP_DEADLINE)))
-        };
-        match outcome {
-            Ok(stats) => {
-                skipped_large = stats.files_skipped_large.clone();
-                if stats.timed_out {
-                    eprintln!(
-                        "notemd: freshness scan exceeded 2s; answering from the existing index"
-                    );
-                }
-            }
-            Err(e) => {
-                eprintln!("notemd: index update failed ({e}); scanning files directly");
-                index = None;
-            }
-        }
-    }
+    let (index, skipped_large) = open_fresh_index(&root, &opts, args.rebuild, args.no_sweep);
 
     if args.stats {
         return report_stats(index.as_ref(), args.json, &skipped_large);
@@ -471,6 +437,56 @@ pub fn run(args: SearchArgs) -> ExitCode {
     } else {
         ExitCode::from(0)
     }
+}
+
+/// Opens the vault's index and brings it up to date, as `notemd search` does:
+/// `rebuild` forces a full rebuild, `no_sweep` only builds a missing index,
+/// otherwise a build plus a freshness sweep bounded by [`SWEEP_DEADLINE`].
+/// Every failure degrades to `None` with a one-line warning on stderr.
+/// Returns the index and the files skipped for size. Shared with
+/// `notemd lookup`, so both commands see the same freshness.
+pub(crate) fn open_fresh_index(
+    root: &Path,
+    opts: &ScanOptions,
+    rebuild: bool,
+    no_sweep: bool,
+) -> (Option<SearchIndex>, Vec<SkippedFile>) {
+    let mut skipped_large: Vec<SkippedFile> = Vec::new();
+    let globs_stamp = opts.source_globs.stamp();
+    // Every failure below degrades. The only hard error is "no vault".
+    let mut index = match SearchIndex::open(root, &globs_stamp) {
+        Ok(i) => Some(i),
+        Err(e) => {
+            eprintln!("notemd: search index unavailable ({e}); scanning files directly");
+            None
+        }
+    };
+
+    if let Some(idx) = index.as_mut() {
+        let outcome = if rebuild {
+            idx.rebuild(opts)
+        } else if no_sweep {
+            idx.ensure_built(opts)
+        } else {
+            idx.ensure_built(opts)
+                .and_then(|_| idx.sweep(opts, Some(SWEEP_DEADLINE)))
+        };
+        match outcome {
+            Ok(stats) => {
+                skipped_large = stats.files_skipped_large.clone();
+                if stats.timed_out {
+                    eprintln!(
+                        "notemd: freshness scan exceeded 2s; answering from the existing index"
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!("notemd: index update failed ({e}); scanning files directly");
+                index = None;
+            }
+        }
+    }
+    (index, skipped_large)
 }
 
 fn fail(json: bool, code: u8, kind: &str, message: &str) -> ExitCode {

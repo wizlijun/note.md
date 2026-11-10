@@ -10,7 +10,6 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::Manager;
 
 use crate::search::time_group::TimeMode;
 use crate::smart_enhance::Tier;
@@ -133,20 +132,8 @@ fn prune(runs: &mut LookupRuns, window_label: &str) {
     }
 }
 
-/// Registers a local smart search as a lookup run for the window, writing a
-/// `result_id` onto every hit. Returns the run id.
-pub(crate) fn retain_local_search(
-    window: &tauri::Window,
-    original_query: &str,
-    search: &mut crate::search::smart::SmartSearchResponse,
-    time: Option<RunTime>,
-    repaired: bool,
-) -> Result<String, String> {
-    let root = crate::sotvault::resolve_vault_root(window.app_handle())
-        .ok_or_else(|| "Vault not configured".to_string())?;
-    retain_search_in(window.label(), &root, original_query, search, time, repaired)
-}
-
+/// Registers a local smart search as a lookup run of `window_label` in
+/// `root`, writing a `result_id` onto every hit. Returns the run id.
 pub(crate) fn retain_search_in(
     window_label: &str,
     root: &Path,

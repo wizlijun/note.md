@@ -42,6 +42,9 @@ pub enum Builtin {
     PluginRemove(String, bool),
     /// `search <query...>` — full-text search over the configured vault.
     Search(super::search::SearchArgs),
+    /// `lookup <question...>` / `lookup eval --tasks <file>` — the full smart
+    /// lookup pipeline, headless. Core, never disabled.
+    Lookup(super::lookup::LookupArgs),
     /// `doctor` — self-check every local capability. Core, never disabled.
     Doctor(super::doctor::DoctorArgs),
     /// `mcp` —— MCP server 的 stdio 外壳。Core,never disabled:
@@ -150,6 +153,11 @@ pub fn resolve_with(
             &rest[1..],
             false,
         )));
+    }
+
+    // Core, never disabled, beside `search` (which it leaves unchanged).
+    if first == "lookup" {
+        return Route::Builtin(Builtin::Lookup(super::lookup::parse_args(&rest[1..], false)));
     }
 
     // Core, never disabled: a broken plugin state is exactly when doctor is
@@ -414,7 +422,7 @@ pub(crate) fn reject_cli_name_conflicts(
 
     const RESERVED: &[&str] = &[
         "help", "-h", "--help", "version", "-v", "--version", "plugin", "search",
-        "doctor", "mcp", "memory", "open", "reading-insights", "share", "--share",
+        "lookup", "doctor", "mcp", "memory", "open", "reading-insights", "share", "--share",
         "--json", "-q", "--quiet", "--no-clipboard", "--cli", "-y", "--yes",
     ];
     let mut owners: BTreeMap<String, BTreeSet<(usize, usize)>> = BTreeMap::new();
@@ -831,9 +839,20 @@ mod tests {
         assert!(manifests[1].0.cli.is_empty());
     }
     #[test]
+    fn lookup_routes_to_its_builtin() {
+        let route = route_with(&["lookup", "q"], vec![], Default::default());
+        assert!(
+            matches!(&route, Route::Builtin(Builtin::Lookup(args)) if args.question == ["q"] && args.errors.is_empty()),
+            "{route:?}"
+        );
+        let route = route_with(&["search", "q"], vec![], Default::default());
+        assert!(matches!(route, Route::Builtin(Builtin::Search(_))), "{route:?}");
+    }
+    #[test]
     fn core_reserved_cli_names_are_rejected() {
         for reserved in [
             "search",
+            "lookup",
             "open",
             "--json",
             "-q",

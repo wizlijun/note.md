@@ -30,6 +30,8 @@ pub mod runner;
 pub mod install;
 pub mod doctor;
 pub mod search;
+#[cfg(not(target_os = "ios"))]
+pub mod lookup;
 pub mod state;
 pub mod open;
 pub mod memory;
