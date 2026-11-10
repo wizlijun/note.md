@@ -1,0 +1,1107 @@
+signal time=1794290312.080820 sender=org.freedesktop.DBus -> destination=:1.5 serial=2 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.5"
+signal time=1794290312.081321 sender=org.freedesktop.DBus -> destination=:1.5 serial=4 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.5"
+method call time=1794290341.018214 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=61 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean true
+signal time=1794290341.022087 sender=:1.1 -> destination=:1.6 serial=44 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 1
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290356.376924 sender=:1.1 -> destination=:1.6 serial=49 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 2
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290356.411648 sender=:1.1 -> destination=:1.6 serial=53 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 3
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290356.411961 sender=:1.1 -> destination=:1.6 serial=55 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 4
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290356.734518 sender=:1.1 -> destination=:1.6 serial=63 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 5
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290357.731928 sender=:1.1 -> destination=:1.6 serial=66 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 6
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "n"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "能"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "年"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "那"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "内"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "丶 (zhǔ)"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290357.762113 sender=:1.1 -> destination=:1.6 serial=72 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 7
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "ni"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "拟"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "泥"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "逆"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "腻"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "呢"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290357.803455 sender=:1.1 -> destination=:1.6 serial=78 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 8
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "nih"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你会"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你还"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你和"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "你很"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290357.831592 sender=:1.1 -> destination=:1.6 serial=84 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 9
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你哈"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "nihal"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "拟"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "泥"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "逆"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "腻"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290357.839899 sender=:1.1 -> destination=:1.6 serial=90 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 10
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你毫"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你号"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你耗"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "拟好"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+method call time=1794290372.825826 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=62 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Select
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 10
+   int32 0
+signal time=1794290372.831359 sender=:1.1 -> destination=:1.6 serial=101 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 12
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+method call time=1794290374.276975 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=63 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean false
+signal time=1794290374.277482 sender=:1.1 -> destination=:1.6 serial=116 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 13
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290374.278980 sender=:1.1 -> destination=:1.6 serial=117 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Revoked
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+method call time=1794290394.053000 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=64 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean true
+signal time=1794290394.053519 sender=:1.1 -> destination=:1.6 serial=129 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 14
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290394.909151 sender=:1.1 -> destination=:1.6 serial=136 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 15
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "n"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "能"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "年"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "那"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "内"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "丶 (zhǔ)"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290395.016387 sender=:1.1 -> destination=:1.6 serial=143 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 16
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "ni"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "拟"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "泥"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "逆"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "腻"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "呢"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290395.121728 sender=:1.1 -> destination=:1.6 serial=149 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 17
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "nih"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你会"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你还"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你和"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "你很"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290395.225578 sender=:1.1 -> destination=:1.6 serial=155 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 18
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你哈"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "nihal"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "拟"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "泥"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "逆"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "腻"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290395.323993 sender=:1.1 -> destination=:1.6 serial=161 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 19
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你毫"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你号"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你耗"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "拟好"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+method call time=1794290412.602018 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=65 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Select
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 19
+   int32 0
+signal time=1794290412.602771 sender=:1.1 -> destination=:1.6 serial=170 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 21
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290413.258382 sender=:1.1 -> destination=:1.6 serial=187 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 22
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290414.249868 sender=:1.1 -> destination=:1.6 serial=204 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 23
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+method call time=1794290414.341056 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=66 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean false
+signal time=1794290414.341380 sender=:1.1 -> destination=:1.6 serial=212 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+   uint64 24
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290414.341715 sender=:1.1 -> destination=:1.6 serial=213 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Revoked
+   string "125410:8e098d83-3c40-48f0-9d29-89b5be3c041f:5480287095"
+method call time=1794290452.155194 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=72 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean true
+signal time=1794290452.216171 sender=:1.1 -> destination=:1.6 serial=229 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 25
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290453.424902 sender=:1.1 -> destination=:1.6 serial=234 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 26
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290453.433424 sender=:1.1 -> destination=:1.6 serial=238 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 27
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290453.433477 sender=:1.1 -> destination=:1.6 serial=240 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 28
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290453.702541 sender=:1.1 -> destination=:1.6 serial=248 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 29
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290454.027995 sender=:1.1 -> destination=:1.6 serial=251 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 30
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "n"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "能"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "年"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "那"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "内"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "丶 (zhǔ)"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290454.129179 sender=:1.1 -> destination=:1.6 serial=258 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 31
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "ni"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "拟"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "泥"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "逆"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "腻"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "呢"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290454.237048 sender=:1.1 -> destination=:1.6 serial=264 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 32
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "nih"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你会"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你还"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你和"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "你很"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290454.338430 sender=:1.1 -> destination=:1.6 serial=270 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 33
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你哈"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "nihal"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "拟"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "泥"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "逆"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "腻"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290454.438638 sender=:1.1 -> destination=:1.6 serial=276 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 34
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你毫"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你号"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你耗"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "拟好"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290455.054292 sender=:1.1 -> destination=:1.6 serial=282 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 35
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+method call time=1794290476.425222 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=73 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean false
+signal time=1794290476.425537 sender=:1.1 -> destination=:1.6 serial=323 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+   uint64 36
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290476.425596 sender=:1.1 -> destination=:1.6 serial=324 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Revoked
+   string "125410:d72fe2b2-6542-4c92-a7bf-4f5e5758be3b:5591642823"
+method call time=1794290477.299808 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=80 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=SetActive
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   array [
+      string "net.notemd.app"
+      string "notemd"
+   ]
+   boolean true
+signal time=1794290477.374597 sender=:1.1 -> destination=:1.6 serial=341 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 37
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290500.366515 sender=:1.1 -> destination=:1.6 serial=347 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 38
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false
+signal time=1794290500.692335 sender=:1.1 -> destination=:1.6 serial=352 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 39
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "n"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "能"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "年"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "那"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "内"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "丶 (zhǔ)"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290500.792622 sender=:1.1 -> destination=:1.6 serial=365 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 40
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "ni"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "拟"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "泥"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "逆"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "腻"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "呢"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290500.902663 sender=:1.1 -> destination=:1.6 serial=379 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 41
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "nih"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你会"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你还"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你和"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "你很"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290501.003858 sender=:1.1 -> destination=:1.6 serial=393 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 42
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你哈"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "nihal"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "拟"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "泥"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "逆"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "腻"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+signal time=1794290501.103048 sender=:1.1 -> destination=:1.6 serial=408 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 43
+   array [
+      struct {
+         int32 0
+         string "1. "
+         string "你好"
+      }
+      struct {
+         int32 1
+         string "2. "
+         string "👋"
+      }
+      struct {
+         int32 2
+         string "3. "
+         string "你毫"
+      }
+      struct {
+         int32 3
+         string "4. "
+         string "你号"
+      }
+      struct {
+         int32 4
+         string "5. "
+         string "你"
+      }
+      struct {
+         int32 5
+         string "6. "
+         string "你耗"
+      }
+      struct {
+         int32 6
+         string "7. "
+         string "拟好"
+      }
+   ]
+   int32 0
+   boolean false
+   boolean true
+method call time=1794290529.481204 sender=:1.6 -> destination=org.fcitx.Fcitx5 serial=81 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Select
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 43
+   int32 0
+signal time=1794290529.482086 sender=:1.1 -> destination=:1.6 serial=2143 path=/org/fcitx/Fcitx5/SumiCandidates; interface=org.fcitx.Fcitx.SumiCandidates1; member=Candidates
+   string "125410:29a6fe91-f489-442e-94ab-aa5c600ae788:5616805145"
+   uint64 45
+   array [
+   ]
+   int32 -1
+   boolean false
+   boolean false

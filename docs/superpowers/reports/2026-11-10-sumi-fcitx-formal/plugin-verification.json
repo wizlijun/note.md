@@ -1,0 +1,170 @@
+{
+  "tag": "v6.1110.2",
+  "commit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "package": "/home/bruce/git/note.md/tasks/sumi-plugin-release-0.1.11/output/notemd.sumi/0.1.11/x86_64-unknown-linux-gnu.notemdpkg",
+  "package_sha256": "b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8",
+  "signature_sha256": "7c5e0ad6e533a9b4c674ff961c974996fa5ae085f5393519700b4ac8d5a2665a",
+  "public_key": "RWSp4F+TVeWvKxkXXQIfd9pceHoU1UGBbDCC2BYOtOjeUdtf2X+YG2WT",
+  "signature_verification": "Signature and comment signature verified\nTrusted comment: timestamp:1794288025\tfile:x86_64-unknown-linux-gnu.notemdpkg\thashed\n",
+  "manifest_matches_tag": true,
+  "files": {
+    "bin/notemd-sumi": {
+      "sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+      "size": 5131856,
+      "mode": "0o100755"
+    },
+    "ui/sumi/CRT-PROVENANCE.json": {
+      "sha256": "a467c8a02478b57bc77e565671f2844a9e32dc53c21954d31e03d9f347ddcd7a",
+      "size": 2702,
+      "mode": "0o100644"
+    },
+    "ui/sumi/IBMPlexMono-OFL.txt": {
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+      "size": 4456,
+      "mode": "0o100644"
+    },
+    "ui/sumi/IBMPlexSansSC-LICENSE.txt": {
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+      "size": 4456,
+      "mode": "0o100644"
+    },
+    "ui/sumi/LXGWWenKaiMonoLite-OFL.txt": {
+      "sha256": "0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e",
+      "size": 5176,
+      "mode": "0o100644"
+    },
+    "ui/sumi/TerryWang-Official-License.json": {
+      "sha256": "7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e",
+      "size": 893,
+      "mode": "0o100644"
+    },
+    "ui/sumi/TerryWang-Typewriter-LICENSE.txt": {
+      "sha256": "e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5",
+      "size": 711,
+      "mode": "0o100644"
+    },
+    "ui/sumi/TerryWang-Typewriter-PROVENANCE.json": {
+      "sha256": "b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100",
+      "size": 10164,
+      "mode": "0o100644"
+    },
+    "ui/sumi/Unifont-OFL.txt": {
+      "sha256": "869692af094c57fb7258c57fe26820c759319603321d0ffeb278de3651763ded",
+      "size": 4340,
+      "mode": "0o100644"
+    },
+    "ui/sumi/ZhuqueFangsong-LICENSE.txt": {
+      "sha256": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043",
+      "size": 4389,
+      "mode": "0o100644"
+    },
+    "ui/sumi/manifest.json": {
+      "sha256": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3",
+      "size": 5284,
+      "mode": "0o100644"
+    },
+    "ui/assets/index-C-zoi2R2.css": {
+      "sha256": "d8373f6cc7791b224d705ae00579db2aaf101fd95d635a7e580e887ab342cb27",
+      "size": 3626,
+      "mode": "0o100644"
+    },
+    "ui/assets/index-Zdi9alHM.js": {
+      "sha256": "881a6c11826152175cf4d969152929e4e26e0b3fa81f5c433939dbad4a6f3507",
+      "size": 40051,
+      "mode": "0o100644"
+    },
+    "ui/index.html": {
+      "sha256": "1c251ba7ff932c049e5c8aae9494bdd3463815304c16f19833e73a3a08ba19bc",
+      "size": 357,
+      "mode": "0o100644"
+    },
+    "manifest.json": {
+      "sha256": "409537091f56e991444431aa935268bdbc33ad9295aa58cd3d01cad04268152a",
+      "size": 2701,
+      "mode": "0o100644"
+    },
+    "resources/sounds/manifest.json": {
+      "sha256": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+      "size": 4717,
+      "mode": "0o100644"
+    },
+    "resources/sounds/provenance.json": {
+      "sha256": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793",
+      "size": 3225,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-click-1.wav": {
+      "sha256": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca",
+      "size": 3996,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-delete-1.wav": {
+      "sha256": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+      "size": 4460,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-enter-1.wav": {
+      "sha256": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+      "size": 6254,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-keys-1.wav": {
+      "sha256": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+      "size": 8684,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-modifier-1.wav": {
+      "sha256": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+      "size": 4448,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-release-1.wav": {
+      "sha256": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+      "size": 6254,
+      "mode": "0o100644"
+    },
+    "resources/sounds/thock/thock-space-1.wav": {
+      "sha256": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+      "size": 4900,
+      "mode": "0o100644"
+    },
+    "resources/sounds/typewriter/typewriter-delete-1.wav": {
+      "sha256": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+      "size": 6476,
+      "mode": "0o100644"
+    },
+    "resources/sounds/typewriter/typewriter-enter2-1.wav": {
+      "sha256": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+      "size": 70604,
+      "mode": "0o100644"
+    },
+    "resources/sounds/typewriter/typewriter-keys-1.wav": {
+      "sha256": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+      "size": 6476,
+      "mode": "0o100644"
+    },
+    "resources/sounds/typewriter/typewriter-modifier-1.wav": {
+      "sha256": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+      "size": 5708,
+      "mode": "0o100644"
+    },
+    "resources/sounds/typewriter/typewriter-space-1.wav": {
+      "sha256": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974",
+      "size": 5324,
+      "mode": "0o100644"
+    }
+  },
+  "file_count": 29,
+  "host_gui_passed": false,
+  "reason": "Waiting for final Debian host artifact; no old preview substituted",
+  "tag_native_source_sha256": {
+    "tauri-plugin-native-editor/src/linux.rs": "aaabaec1e1fde73e7fc2ebd95f17d58bdeb14751f0b5678f874298df9b33b2c1",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "cdc99e10c6d675fafb9811981f28721f2382e6ed4483674b74dca969b0e135aa",
+    "tauri-plugin-native-editor/src/linux_caret.rs": "b3222fd3031b135327798a080d69c1641fcfa6f01b0fb2d8856f9936988f330e",
+    "tauri-plugin-native-editor/src/linux_candidates.rs": "1d9d34d705141f08093372e264694bc0177bdcdf0a1f57f2805f31f147e65a93",
+    "tauri-plugin-native-editor/src/linux_candidates_layout.rs": "a607151bcd9e2cb17c51c186a5d85073c5955201138a4a1516a069ab2a0ed6c9",
+    "src-tauri/src/sumi/mod.rs": "0200b075ae72df046937309e23b301d1c02d16d772bdd149e2e9d92086766a78",
+    "src-tauri/src/plugin_runtime/windows.rs": "7c94c1384c56bf5cbe23288caf4071199836259fad7fc373267c69e465bbd15d"
+  },
+  "verified_integration_source_unchanged": true
+}
