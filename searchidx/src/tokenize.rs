@@ -93,6 +93,25 @@ pub fn tokenize(text: &str) -> String {
     tokens(text).join(" ")
 }
 
+/// Person, place, organisation and other proper-noun words in `text`, found by
+/// jieba's part-of-speech tagger (`tag(text, hmm = true)`): only the name tag
+/// family `nr`, `nrt`, `nrfg` (person names; jieba tags transliterated and
+/// some full names separately), `ns`, `nt` and `nz`, and only words containing
+/// Han ideographs. Each item is `(byte_start, byte_end, word)` in `text`, in
+/// text order.
+///
+/// Query side only (smart lookup's SAG2 name terms, spec Appendix H.3.4): it
+/// never feeds the index, so it does not touch `TOKENIZER_ID`.
+pub fn pos_names(text: &str) -> Vec<(usize, usize, String)> {
+    jieba()
+        .tag(text, true)
+        .into_iter()
+        .filter(|t| matches!(t.tag, "nr" | "nrt" | "nrfg" | "ns" | "nt" | "nz") && has_han(t.word))
+        // jieba reports both char and byte positions; we want byte offsets.
+        .map(|t| (t.byte_start, t.byte_end, t.word.to_string()))
+        .collect()
+}
+
 /// Whether the text contains Han ideographs, i.e. whether the jieba path (and
 /// therefore the dictionary-blind-spot fallback) is relevant.
 pub fn has_han(text: &str) -> bool {
@@ -144,6 +163,32 @@ mod tests {
         assert!(has_han("检索"));
         assert!(!has_han("search"));
         assert!(!has_han("かな"));      // 假名走通用词元路径,不进 jieba
+    }
+
+    /// SAG2 名称词的词性来源(spec H.3.4):人名 nr、地名 ns、机构名 nt,偏移是字节。
+    #[test]
+    fn pos_names_keep_person_place_and_organisation() {
+        let n: Vec<String> = pos_names("鲁迅在北京的清华大学").into_iter().map(|t| t.2).collect();
+        assert_eq!(n, vec!["鲁迅", "北京", "清华大学"]);   // dict: 鲁迅 nr、北京 ns、清华大学 nt
+    }
+
+    #[test]
+    fn pos_names_keep_transliterated_person_names() {
+        // dict: 爱因斯坦 nrt
+        let tagged: Vec<_> = jieba().tag("爱因斯坦", true).into_iter().map(|t| (t.word, t.tag)).collect();
+        assert_eq!(tagged, vec![("爱因斯坦", "nrt")]);
+        let n: Vec<String> = pos_names("爱因斯坦在北京").into_iter().map(|t| t.2).collect();
+        assert_eq!(n, vec!["爱因斯坦", "北京"]);
+    }
+
+    #[test]
+    fn pos_names_report_byte_offsets_and_skip_non_han_words() {
+        let text = "Hi 鲁迅 met Smith";
+        let n = pos_names(text);
+        assert_eq!(n.len(), 1, "{n:?}");
+        let (start, end, word) = &n[0];
+        assert_eq!(&text[*start..*end], "鲁迅");
+        assert_eq!(word, "鲁迅");
     }
 
     /// 分词器指纹:jieba 升级或我们改了切分规则时必须失败,提醒开发者 bump

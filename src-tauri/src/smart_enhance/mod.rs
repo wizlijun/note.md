@@ -19,6 +19,7 @@ pub(crate) mod judge;
 pub(crate) mod keys;
 pub(crate) mod pipeline;
 pub(crate) mod repair;
+pub(crate) mod sag;
 
 /// Named by `search::smart_lookup_search_groups`.
 pub use repair::TermGroup;
