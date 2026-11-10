@@ -13,6 +13,8 @@ For the full commit history, see the git log.
 
 - **Headless `notemd lookup` command and tunable parameters.** `notemd lookup` runs Smart Lookup from the command line and has an `eval` mode for measuring result quality. Ranking and enhancement parameters live in `smart-lookup/params.json`, documented in `docs/smart-lookup-parameters.md`.
 
+- **Smart Lookup adds an “Evidence” section.** Above the local results, Jev looks for evidence round by round and expands the search from what the evidence names; you can stop at any time and go back to an earlier round.
+
 ## v6.1110.5 — 2026-11-10
 
 - **Stabilize Sumi focus writing on Linux.** Fix fractional scroll feedback that made the text jump between adjacent pixels. Hide the native editor scrollbar and frame while preserving scrolling and the input position outside focus mode.
