@@ -1,0 +1,27 @@
+# Unsubmitted template: run packaging/omarchy/prepare.py against a published release.
+
+pkgname=notemd
+pkgver=6.1110.2
+pkgrel=1
+pkgdesc="Markdown reader and editor for people and AI agents working on the same files"
+arch=('x86_64')
+url="https://notemd.net"
+license=('Apache-2.0')
+depends=('webkit2gtk-4.1' 'gtk3' 'libsecret' 'libpulse' 'fontconfig' 'libayatana-appindicator' 'git' 'xdg-utils' 'hicolor-icon-theme')
+makedepends=('libarchive')
+options=('!debug' '!strip')
+
+_deb_x86_64="note.md_${pkgver}_amd64.deb"
+_rel="https://github.com/wizlijun/note.md/releases/download/v${pkgver}"
+source_x86_64=("${_deb_x86_64}::${_rel}/${_deb_x86_64}")
+noextract=("${_deb_x86_64}")
+sha256sums_x86_64=('0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976')
+
+package() {
+  local deb_var="_deb_${CARCH}"
+  mkdir -p "${srcdir}/deb"
+  bsdtar -xf "${srcdir}/${!deb_var}" -C "${srcdir}/deb"
+  bsdtar --no-same-owner -xf "${srcdir}"/deb/data.tar.* -C "${pkgdir}"
+  install -Dm644 "${pkgdir}/usr/share/doc/note.md/copyright" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
