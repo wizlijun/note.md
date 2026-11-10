@@ -622,3 +622,108 @@ E1–E3 以 `#[ignore]` 测试的形式放在 `src-tauri` 里，读取环境变�
 - 前端随命令传入增强配置（`url`、`model`、`authMode`、`consentHost`）。`consentHost` 与 `jev_endpoint(url)` 的主机不一致时，宿主拒绝发送。
 - 候选、路径和原文一律由宿主从查找运行里取，前端不传任何笔记内容。
 - confidential 文件对所有接入点都不发送。为此 `searchidx` 增加一个按路径批量读取 `confidentiality` 的只读方法，不在索引里的路径按 confidential 处理。
+
+## 附录 G：参数配置与无界面 CLI（2026-11-10 追加）
+
+用户要求：把所有可调参数严格记录下来，给出一个可供以后调参的参数文件，并为整套查找提供无界面的 CLI。以下是确认的决定。
+
+**G.1 参数文件 `LookupParams`。** 附录 A 的起步值和正文里散落的常量收进一个结构，JSON 格式、字段名 camelCase。`Default` 与本附录之前的常量逐一相等，所以不写参数文件时行为不变。
+
+| 组 | 配置键 | 默认 | 范围 | 来源 |
+| --- | --- | --- | --- | --- |
+| 本地检索 | `local.limit` | 100 | 1–100 | §5.2 |
+| | `local.deepTimeoutMs` | 4000 | 1000–5000 | §2.1 |
+| | `local.rrfK` | 60 | 1–1000 | §2.1 |
+| | `local.strictWeight` | 1.5 | 0.1–10 | §2.1 |
+| | `local.relaxedWeight` | 1.0 | 0.1–10 | §2.1 |
+| 时间 | `time.mode` | `group` | `group`、`window`、`ignore` | §5.2 |
+| 路由 | `routing.fewTermsMax` | 2 | 0–12 | §5.3 |
+| 候选 | `candidates.pool` | 50 | 1–100 | §5.4 |
+| | `candidates.k` | 10 | 1–30 | §5.4 |
+| | `candidates.perFile` | 2 | 1–10 | §5.4 |
+| | `candidates.maxBlockChars` | 1200 | 100–3000 | 附录 A |
+| | `candidates.tokenBudget` | 4000 | 500–32000 | 附录 A |
+| | `candidates.cjkCharsPerToken` | 1 | 1–4 | 附录 A |
+| | `candidates.otherCharsPerToken` | 4 | 1–8 | 附录 A |
+| 分档 | `tiers.fit` | 0.7 | 0.5–1.0 | §5.4、F.3 |
+| | `tiers.unfit` | 0.3 | 0.0–0.5 | §5.4、F.3 |
+| 时限 | `enhance.timeoutMs` | 3000 | 1000–10000 | §5.6 |
+| 修复 | `repair.maxGroups` | 2 | 1–4 | §5.5、F.7 |
+| | `repair.maxTerms` | 6 | 1–12 | §5.5、F.7 |
+| | `repair.maxPhrases` | 2 | 0–4 | F.7 |
+| | `repair.itemMaxChars` | 40 | 8–80 | F.7 |
+| 判断 | `judge.criterion` | §5.4 的判断准则原文 | 1–1000 个字符，不含控制字符 | §5.4 |
+
+校验规则：
+
+- 范围两端都包含。
+- 跨字段规则：`candidates.k` 不得大于 `candidates.pool`；`tiers.unfit` 必须小于 `tiers.fit`。
+- 任一字段越界、类型不对或违反跨字段规则，整个文件作废。错误指出来源文件、配置键、取值和范围。从不截断到边界。
+- 未知字段在任何层级都拒绝。缺省的字段取默认值。
+- `routing.fewTermsMax` 为 0 时，「词太少不增强」这条路由规则失效。
+
+**G.2 加载顺序。** 依次为：CLI 的 `--params <文件>`、环境变量 `NOTEMD_LOOKUP_PARAMS`、`app_data_dir()/smart-lookup/params.json`、默认值。
+
+- app-data 下的文件不存在时用默认值。
+- 用 `--params` 或环境变量明确指定的文件不存在时报错，避免调参时因路径写错而悄悄跑成默认值。
+- 应用里每次命令调用都读取参数，按文件的路径、修改时间和长度缓存。
+- 文件无效时，查找命令返回带配置键的错误，不退回默认值。
+- 参数同时作用于输入预览（`notemd_smart_search`）和回车查找，两者的融合结果因此保持一致。
+
+**G.3 不可配置的规则。** 以下规则不进参数文件，改动须另行决定：
+
+- confidential 与不在索引中的文件一律不发送（§5.7、F.11）；
+- 按主机同意（F.2、F.11）；
+- 只发送行级块并逐块回源核对（§5.4）；
+- 每次回车至多一个自动请求（F.6）；
+- 不自动重试（§5.6）；
+- 远端文字不展示、不写日志（F.3）；
+- 密钥不进参数文件（F.8）。
+
+这些是隐私、费用和可信边界。调参追求的是排序与等待，不应该能顺手放宽这些边界。
+
+**G.4 被覆盖的条目。**
+
+- 附录 A 的起步值成为 `LookupParams` 的默认值。
+- §5.6 与附录 A 的「时限 3 秒」改为默认 3 秒、可在 1–10 秒内调整。
+- §8.3「`smart.rs` 的融合」不改：融合算法不变，但 RRF 的 k 和两种臂的权重改由参数提供，默认值与原常量相同。
+- 实施计划里「`smart.rs` 融合逻辑不改」的全局约束同样按此调整。
+- `notemd search` 的行为与输出不变。
+
+**G.5 无界面 CLI `notemd lookup`。** 新的内置子命令，与 `notemd search` 并列，`notemd search` 不变。它走完整链路：本地检索 → 路由 → 判断或修复 → 输出。
+
+- 参数：`--vault`、`--params`、`--deep`、`--time-mode group|window|ignore`、`--no-enhance`、`--jev-url`、`--jev-model`、`--jev-auth bearer|none`、`--chat-url`、`--chat-model`、`--allow-send <主机>`。
+- `--allow-send` 是 CLI 上的按主机同意。只有它与 `endpoint_host(jev_endpoint(--jev-url))` 相等时才发出判断请求，否则结果为「未同意」，不发请求。
+- 密钥只从环境变量 `NOTEMD_JEV_KEY`、`NOTEMD_CHAT_KEY` 读取，不接受命令行参数，从不回显。
+- 保密过滤、`current_block` 回源核对、错误到状态的映射、自动请求预算，都调用与窗口相同的宿主函数，不另写一套。
+- 展示顺序取宿主顺序。时间按 `group` 分组时，分组边界就是范围内的条数，重排不跨越它。
+- 输出：`--json` 时每行一个 JSON 对象；否则输出简短的文字摘要和命中列表。
+- 退出码沿用 `notemd search`：有命中为 0，无命中为 1，出错为 2。
+
+**G.6 评测模式 `notemd lookup eval`。** 用法：`notemd lookup eval --tasks <文件> [--params <文件>] [--out <jsonl>] [--compare <jsonl>] [--today YYYY-MM-DD]`，外加与 G.5 相同的接入参数。
+
+任务文件沿用 `smart_eval` 现有格式 `{"tasks":[…]}`。每题跑一遍 G.5 的完整链路，`--out` 写出每题一行。
+
+按全部、dev、holdout 三组打印 §9.3 的指标：
+
+- **评分题**：非「不存在」类且目标在索引里的题。
+- **Top 5 找回**：本地与增强后各报一次；净增 = 增强后进 Top 5 而本地不在的题数 − 挤出题数。
+- **挤出**：本地在 Top 5、增强后不在的题数。
+- **不存在资料的误判**：「不存在」类任务中，至少一个候选被判为符合的题所占比例。
+- **前 50 覆盖**：评分题中本地名次 ≤ 50 的比例。
+- **窗口覆盖**：发出（或复用）了判断的评分题中，目标块在发送候选里的比例。
+- **超时率**：超时的请求数除以发出的请求数。
+- **增强耗时与本地耗时**：各报 P50、P95，取最近秩。
+- **token**：服务返回的输入 token 合计（同时报告没有返回用量的条数），以及宿主估算的 token 合计。
+
+holdout 组另外按 §9.3 的 C3、C4 门槛给出是否达标。给出 `--compare` 时，把它指向的上一次 `--out` 文件当作基线，逐项给出差值。
+
+**G.7 参数说明文档。** `docs/smart-lookup-parameters.md`（中文）按参数逐节记录：
+
+- 配置键、默认值、范围、单位；
+- 读取它的代码位置（路径:函数）；
+- 来源条款；
+- 调高或调低对准确、等待和费用的影响；
+- 决定它的指标。
+
+文档另列不可配置的规则及理由、其余固定常量、一份与默认值完全相同的 `params.json` 示例，以及用 `notemd lookup eval` 调参的流程。示例与默认值的一致、每个参数是否都有一节、文档里的范围是否与代码一致，都由单元测试检查。
