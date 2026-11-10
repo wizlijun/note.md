@@ -646,22 +646,33 @@ pub(crate) async fn run_eval(
     Ok(0)
 }
 
-/// `gates (holdout, timeout 3000 ms) · C3 pass · C4 fail (1 of 4 rescued)`;
-/// at another limit both gates read `n/a (timeout ≠ 3 s)`.
+/// `gates (holdout, timeout 3000 ms, round timeout 10000 ms, maxHops 1) ·
+/// C3 n/a (maxHops ≠ 0) · C4 fail (1 of 4 rescued) · C5 pass (2 expansion-only,
+/// +2 vs round 0, 0 lost, 4 bridge)`. Off the 10 s round limit every gate
+/// reads `n/a (round timeout ≠ 10 s)`.
 fn gates_line(gates: &GateVerdicts) -> String {
-    let timeout = gates.timeout_ms.map_or("mixed".to_string(), |t| format!("{t} ms"));
-    let verdict = |v: Option<bool>| match (v, &gates.note) {
+    let ms = |v: Option<u64>| v.map_or("mixed".to_string(), |t| format!("{t} ms"));
+    let hops = gates.max_hops.map_or("mixed".to_string(), |h| h.to_string());
+    // `pass (…)`, `fail (…)` or `n/a (why)`; a gate with nothing to decide
+    // on and no rule against it is a bare `n/a`.
+    let verdict = |v: Option<bool>, note: &Option<String>, detail: String| match (v, gates.note.as_ref().or(note.as_ref())) {
         (_, Some(note)) => format!("n/a ({note})"),
-        (Some(true), None) => "pass".to_string(),
-        (Some(false), None) => "fail".to_string(),
+        (Some(true), None) => format!("pass{detail}"),
+        (Some(false), None) => format!("fail{detail}"),
         (None, None) => "n/a".to_string(),
     };
+    let c4 = format!(" ({} of {} rescued)", gates.c4_rescued, gates.c4_tasks);
+    let c5 = format!(
+        " ({} expansion-only, {:+} vs round 0, {} lost, {} bridge)",
+        gates.c5_expansion_only, gates.c5_recall_gain, gates.c5_lost, gates.c5_bridge_tasks
+    );
     format!(
-        "gates (holdout, timeout {timeout}) · C3 {} · C4 {} ({} of {} rescued)",
-        verdict(gates.c3),
-        verdict(gates.c4),
-        gates.c4_rescued,
-        gates.c4_tasks
+        "gates (holdout, timeout {}, round timeout {}, maxHops {hops}) · C3 {} · C4 {} · C5 {}",
+        ms(gates.timeout_ms),
+        ms(gates.round_timeout_ms),
+        verdict(gates.c3, &gates.c3_note, String::new()),
+        verdict(gates.c4, &gates.c4_note, c4),
+        verdict(gates.c5, &gates.c5_note, c5),
     )
 }
 
@@ -673,11 +684,21 @@ fn number(value: Option<f64>) -> String {
     }
 }
 
+/// One row per metric name, in the first split's order, then any name only
+/// a later split has (a hop the first did not reach); `-` where a split
+/// has no such metric.
 fn metrics_table(metrics: &[LookupMetrics]) -> Vec<String> {
-    let columns: Vec<Vec<(&'static str, Option<f64>)>> = metrics.iter().map(metric_values).collect();
+    let columns: Vec<Vec<(String, Option<f64>)>> = metrics.iter().map(metric_values).collect();
+    let mut names: Vec<&str> = Vec::new();
+    for (name, _) in columns.iter().flatten() {
+        if !names.contains(&name.as_str()) {
+            names.push(name);
+        }
+    }
     let mut rows: Vec<Vec<String>> = vec![std::iter::once("metric".to_string()).chain(metrics.iter().map(|m| m.split.clone())).collect()];
-    for (i, (metric, _)) in columns[0].iter().enumerate() {
-        rows.push(std::iter::once(metric.to_string()).chain(columns.iter().map(|c| number(c[i].1))).collect());
+    for name in names {
+        let cell = |c: &Vec<(String, Option<f64>)>| number(c.iter().find(|(n, _)| n == name).and_then(|(_, v)| *v));
+        rows.push(std::iter::once(name.to_string()).chain(columns.iter().map(cell)).collect());
     }
     align(&rows)
 }
@@ -1053,19 +1074,32 @@ mod tests {
         assert_eq!(code, 0);
         let objects = json_objects(&String::from_utf8(out).unwrap());
         assert_eq!(kinds(&objects), ["metrics", "metrics", "metrics", "gates"]);
+        assert_eq!((objects[0]["maxHops"].as_u64(), objects[0]["roundTimeoutMs"].as_u64()), (Some(1), Some(10_000)));
+        assert!(objects[0]["roundTokens"].as_array().is_some_and(|a| a.is_empty()), "{}", objects[0]);
+        assert!(objects[3]["c5"].is_null() && objects[3]["c5BridgeTasks"] == 0, "{}", objects[3]);
         let splits: Vec<&str> = objects[..3].iter().map(|o| o["split"].as_str().unwrap()).collect();
         assert_eq!(splits, ["all", "dev", "holdout"]);
         assert_eq!((objects[0]["tasks"].as_u64(), objects[1]["scored"].as_u64()), (Some(2), Some(1)));
         let rows = load_eval_rows(&std::fs::read_to_string(&rows_path).unwrap()).unwrap();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].route, Some(PipelineRoute::Local));
+        assert_eq!((rows[0].max_hops, rows[0].round_timeout_ms, rows[0].rounds.len()), (Some(1), Some(10_000), 0));
 
         let mut out = Vec::new();
         let args = run(&["--compare", rows_path.to_str().unwrap()]);
         run_eval(&args, v.root.path(), &v.index, &LookupParams::default(), &lookup, &mut out).await.unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.lines().next().is_some_and(|l| l.starts_with("metric") && l.contains("holdout")), "{text}");
-        assert!(text.contains("gates (holdout, timeout 3000 ms) · C3 "), "{text}");
+        assert!(
+            text.contains(
+                "gates (holdout, timeout 3000 ms, round timeout 10000 ms, maxHops 1) · C3 n/a (maxHops ≠ 0) · C4 n/a · C5 n/a (bridge tasks < 4)"
+            ),
+            "{text}"
+        );
+        // The evidence metrics are rows of the table (spec H.10).
+        for metric in ["maxHops", "roundTimeoutMs", "evidenceRecall10", "evidenceRecall10Round0", "expansionOnly", "lostByExpansion", "roundTimeoutRate"] {
+            assert!(text.lines().any(|l| l.split_whitespace().next() == Some(metric)), "{metric}: {text}");
+        }
         assert!(text.lines().any(|l| l.starts_with("netGain") && l.trim_end().ends_with('0')), "{text}");
         // A broken baseline is an error naming the line, before any lookup.
         std::fs::write(&rows_path, "{bad}\n").unwrap();
@@ -1101,7 +1135,9 @@ mod tests {
         run_eval(&argv(false), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(
-            text.contains("gates (holdout, timeout 5000 ms) · C3 n/a (timeout ≠ 3 s) · C4 n/a (timeout ≠ 3 s)"),
+            text.contains(
+                "gates (holdout, timeout 5000 ms, round timeout 10000 ms, maxHops 1) · C3 n/a (maxHops ≠ 0) · C4 n/a (timeout ≠ 3 s) · C5 n/a (bridge tasks < 4)"
+            ),
             "{text}"
         );
         assert!(text.lines().any(|l| l.starts_with("timeoutMs") && l.trim_end().ends_with("5000")), "{text}");
@@ -1109,9 +1145,28 @@ mod tests {
         run_eval(&argv(true), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
         let objects = json_objects(&String::from_utf8(out).unwrap());
         let gates = objects.iter().find(|o| o["kind"] == "gates").unwrap();
-        assert!(gates["c3"].is_null() && gates["c4"].is_null(), "{gates}");
-        assert_eq!((gates["timeoutMs"].as_u64(), gates["note"].as_str()), (Some(5_000), Some("timeout ≠ 3 s")));
+        assert!(gates["c3"].is_null() && gates["c4"].is_null() && gates["note"].is_null(), "{gates}");
+        assert_eq!((gates["timeoutMs"].as_u64(), gates["c4Note"].as_str()), (Some(5_000), Some("timeout ≠ 3 s")));
         assert_eq!(objects[0]["timeoutMs"], 5_000);
+        // Off the default round limit every gate is n/a (spec H.10), checked first.
+        let params = LookupParams {
+            retrieval: crate::lookup_params::RetrievalParams { round_timeout_ms: 5_000, ..Default::default() },
+            ..LookupParams::default()
+        };
+        let mut out = Vec::new();
+        run_eval(&argv(false), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains(
+                "gates (holdout, timeout 3000 ms, round timeout 5000 ms, maxHops 1) · C3 n/a (round timeout ≠ 10 s) · C4 n/a (round timeout ≠ 10 s) · C5 n/a (round timeout ≠ 10 s)"
+            ),
+            "{text}"
+        );
+        let mut out = Vec::new();
+        run_eval(&argv(true), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
+        let objects = json_objects(&String::from_utf8(out).unwrap());
+        let gates = objects.iter().find(|o| o["kind"] == "gates").unwrap();
+        assert_eq!((gates["note"].as_str(), gates["roundTimeoutMs"].as_u64()), (Some("round timeout ≠ 10 s"), Some(5_000)), "{gates}");
     }
 
     #[tokio::test]

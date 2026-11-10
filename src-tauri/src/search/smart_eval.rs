@@ -428,14 +428,42 @@ pub(super) fn feedback_agreement(jsonl: &str) -> Result<FeedbackAgreement, Strin
 // ---- the full pipeline: `notemd lookup eval` (spec Appendix G.6) ----------
 
 use crate::lookup_params::LookupParams;
+use crate::smart_enhance::evidence::{EvidenceItemDto, EvidenceStepResult};
 use crate::smart_enhance::pipeline::{run_pipeline, EnhanceSetup, PipelineInput, PipelineOutput, PipelineRoute};
+use crate::smart_enhance::sag::round::EvidenceStop;
 use crate::smart_enhance::{EnhanceStatus, Tier};
 
 /// The window label every eval run is registered under.
 pub(crate) const EVAL_WINDOW: &str = "cli-eval";
 
-/// The only time limit the §9.3 gates are defined for ("3 秒时限下").
+/// The only `enhance.timeoutMs` C4 is decided at (§9.3 "3 秒时限下"); since
+/// spec H.10 the evidence gates follow the round limit instead.
 pub(crate) const GATE_TIMEOUT_MS: u64 = 3_000;
+
+/// The only round time limit the gates are decided at (spec H.10: the
+/// default `retrieval.roundTimeoutMs`).
+pub(crate) const GATE_ROUND_TIMEOUT_MS: u64 = 10_000;
+
+/// Fewer scored holdout `bridge` tasks leave C5 n/a (spec H.10, 题量不足).
+const C5_MIN_BRIDGE_TASKS: usize = 4;
+
+/// What every row of one eval run records about its parameters.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RunSettings {
+    pub timeout_ms: u64,
+    pub max_hops: Option<u8>,
+    pub round_timeout_ms: Option<u64>,
+}
+
+impl RunSettings {
+    pub(crate) fn of(params: &LookupParams) -> Self {
+        Self {
+            timeout_ms: params.enhance.timeout_ms,
+            max_hops: Some(u8::try_from(params.retrieval.max_hops).unwrap_or(u8::MAX)),
+            round_timeout_ms: Some(params.retrieval.round_timeout_ms),
+        }
+    }
+}
 
 /// One task's outcome on the full pipeline; one line of `--out`. Fields
 /// added after the first version default when read back, so an older
@@ -489,6 +517,44 @@ pub(crate) struct LookupEvalRow {
     /// counts only towards `tasks` and `errors`.
     #[serde(default)]
     pub error: Option<String>,
+    /// `retrieval.maxHops` of the run (spec H.10).
+    #[serde(default)]
+    pub max_hops: Option<u8>,
+    /// `retrieval.roundTimeoutMs` of the run (pre-flight P13).
+    #[serde(default)]
+    pub round_timeout_ms: Option<u64>,
+    /// 目标在最终证据列表中的名次（1 起）: the latest `ok` round's list.
+    #[serde(default)]
+    pub evidence_rank: Option<usize>,
+    /// 目标段首次进入候选的轮次.
+    #[serde(default)]
+    pub found_round: Option<u8>,
+    /// One entry per evidence round, in the order they ran.
+    #[serde(default)]
+    pub rounds: Vec<RoundRow>,
+}
+
+/// One evidence round of a task (spec H.10), from its `EvidenceStepResult`.
+/// A round that scored nothing (a stop, a failure) reports the latest
+/// scored evidence list again, and its `evidence_rank` is the target's rank
+/// there.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RoundRow {
+    pub hop: u8,
+    /// The expansion terms as the window shows them (`label`).
+    pub terms: Vec<String>,
+    pub candidates: usize,
+    pub pool_size: usize,
+    pub sent_blocks: usize,
+    pub estimated_tokens: u64,
+    pub input_tokens: Option<u64>,
+    pub request_count: u32,
+    pub elapsed_ms: u64,
+    pub status: EnhanceStatus,
+    pub stop: Option<EvidenceStop>,
+    /// 每轮结束时目标在当时证据列表中的名次（1 起）.
+    pub evidence_rank: Option<usize>,
 }
 
 /// §9.3's metrics for one split of the rows. Error rows count only towards
@@ -537,21 +603,65 @@ pub(crate) struct LookupMetrics {
     /// `enhance.timeoutMs` shared by every row; `None` when rows differ or
     /// there are none.
     pub timeout_ms: Option<u64>,
+    /// `retrieval.maxHops` shared by every row; `None` when rows differ,
+    /// predate the field or there are none.
+    pub max_hops: Option<u8>,
+    /// `retrieval.roundTimeoutMs`, shared like `max_hops`.
+    #[serde(default)]
+    pub round_timeout_ms: Option<u64>,
+    /// Scored tasks whose target is in the final evidence list, as a share
+    /// of the scored tasks (spec H.10).
+    pub evidence_recall10: Option<f64>,
+    /// The same at the end of round 0.
+    pub evidence_recall10_round0: Option<f64>,
+    /// Scored tasks with an `evidence_rank` and `found_round ≥ 1`.
+    pub expansion_only: usize,
+    /// Scored tasks in the evidence at the end of round 0 and not at the end.
+    pub lost_by_expansion: usize,
+    /// Per hop (index = hop): estimated tokens of the rounds that sent.
+    pub round_tokens: Vec<u64>,
+    /// Per hop: the input tokens the service reported.
+    pub round_input_tokens: Vec<u64>,
+    /// Per hop: P50 / P95 of the time of the rounds that sent (nearest rank).
+    pub round_p50_ms: Vec<Option<u64>>,
+    pub round_p95_ms: Vec<Option<u64>>,
+    /// Rounds that sent at least one request; of them, the timed-out ones.
+    pub round_requests: usize,
+    pub round_timeouts: usize,
+    pub round_timeout_rate: Option<f64>,
 }
 
-/// The holdout gates of spec §9.3. A gate is `None` when it has no task to
-/// judge by, or when the run's time limit is not the 3 s the thresholds were
-/// fixed for (`note` then says so).
+/// The holdout gates of spec §9.3 and H.10. A gate is `None` when it has
+/// no task to judge by or a rule keeps it from being decided:
+///
+/// - `note`: every gate is n/a — the round time limit is not the 10 s the
+///   gates were fixed for (`"round timeout ≠ 10 s"`);
+/// - `c3_note`, `c4_note`, `c5_note`: why that one gate is n/a.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GateVerdicts {
     pub c3: Option<bool>,
     pub c4: Option<bool>,
+    pub c5: Option<bool>,
     pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub round_timeout_ms: Option<u64>,
+    pub max_hops: Option<u8>,
     pub note: Option<String>,
+    pub c3_note: Option<String>,
+    pub c4_note: Option<String>,
+    pub c5_note: Option<String>,
     /// C4's population and how many of it ended in the first 50.
     pub c4_tasks: usize,
     pub c4_rescued: usize,
+    /// Scored `bridge` tasks in the holdout rows; C5 needs at least 4.
+    pub c5_bridge_tasks: usize,
+    /// What C5 decides on, over the holdout rows: `expansionOnly`, the
+    /// scored tasks in the final evidence minus those in it at the end of
+    /// round 0, and `lostByExpansion`.
+    pub c5_expansion_only: usize,
+    pub c5_recall_gain: i64,
+    pub c5_lost: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -587,14 +697,34 @@ fn is_scored(row: &LookupEvalRow) -> bool {
     row.error.is_none() && row.category != Category::Absent && row.target_indexed
 }
 
-/// A request that went out on `route`.
+/// Requests went out on `route` (an evidence row may send several).
 fn sent_on(row: &LookupEvalRow, route: PipelineRoute) -> bool {
-    row.route == Some(route) && row.request_count == 1
+    row.route == Some(route) && row.request_count > 0
 }
 
 /// A judgement exists: sent, or reused from the cache.
 fn judged(row: &LookupEvalRow) -> bool {
-    row.route == Some(PipelineRoute::Judge) && (row.request_count == 1 || row.reused)
+    row.route == Some(PipelineRoute::Judge) && (row.request_count > 0 || row.reused)
+}
+
+/// The target's rank in the evidence list at the end of round 0.
+fn round0_rank(row: &LookupEvalRow) -> Option<usize> {
+    row.rounds.iter().find(|r| r.hop == 0).and_then(|r| r.evidence_rank)
+}
+
+/// The value every row shares; `None` when they differ or there is no row.
+fn shared<T: PartialEq + Copy>(rows: &[&LookupEvalRow], f: impl Fn(&LookupEvalRow) -> T) -> Option<T> {
+    let first = f(rows.first()?);
+    rows.iter().all(|r| f(r) == first).then_some(first)
+}
+
+/// Scored tasks whose target is in the final evidence list, and in the list
+/// at the end of round 0.
+fn evidence_counts(scored: &[&LookupEvalRow]) -> (usize, usize) {
+    (
+        scored.iter().filter(|r| r.evidence_rank.is_some()).count(),
+        scored.iter().filter(|r| round0_rank(r).is_some()).count(),
+    )
 }
 
 /// C4's population (§9.3 「预筛出的未召回任务」): scored tasks whose target
@@ -609,9 +739,13 @@ fn c4_population(row: &LookupEvalRow) -> bool {
 /// - Scored: not `absent`, the target is in the index, no error.
 /// - 窗口覆盖 (G.6): among scored tasks with a judgement (Judge route, sent
 ///   or reused), the share whose target block was among the sent candidates.
-/// - Requests: rows with `request_count == 1`. The pooled timeout rate,
+/// - Requests: rows with `request_count > 0`. The pooled timeout rate,
 ///   token sums and the per-route rates and latencies (judge / repair) are
 ///   over those. Local latencies are over every non-error row.
+/// - Evidence (spec H.10): `evidenceRecall10` is the share of scored tasks
+///   with an `evidence_rank`, `evidenceRecall10Round0` the same at the end
+///   of round 0; the per-round figures are over the rounds that sent at
+///   least one request, indexed by hop.
 pub(crate) fn lookup_metrics(rows: &[LookupEvalRow], split: &str) -> LookupMetrics {
     let in_split: Vec<&LookupEvalRow> = rows
         .iter()
@@ -629,7 +763,7 @@ pub(crate) fn lookup_metrics(rows: &[LookupEvalRow], split: &str) -> LookupMetri
     let absent: Vec<&LookupEvalRow> = ok.iter().copied().filter(|r| r.category == Category::Absent).collect();
     let absent_false_fit = count(&absent, &|r| r.any_fit);
     let with_judgement: Vec<&LookupEvalRow> = scored.iter().copied().filter(|r| judged(r)).collect();
-    let requests: Vec<&LookupEvalRow> = ok.iter().copied().filter(|r| r.request_count == 1).collect();
+    let requests: Vec<&LookupEvalRow> = ok.iter().copied().filter(|r| r.request_count > 0).collect();
     let timed_out = |r: &LookupEvalRow| r.status == Some(EnhanceStatus::Timeout);
     let on = |route| -> Vec<&LookupEvalRow> { requests.iter().copied().filter(|r| sent_on(r, route)).collect() };
     let judge = on(PipelineRoute::Judge);
@@ -639,8 +773,29 @@ pub(crate) fn lookup_metrics(rows: &[LookupEvalRow], split: &str) -> LookupMetri
     let timeouts = count(&requests, &timed_out);
     let judge_timeouts = count(&judge, &timed_out);
     let repair_timeouts = count(&repair, &timed_out);
-    let timeout_ms = ok.first().map(|r| r.timeout_ms).filter(|t| ok.iter().all(|r| r.timeout_ms == *t));
+    let timeout_ms = shared(&ok, |r| r.timeout_ms);
+    let (in_evidence, in_round0) = evidence_counts(&scored);
+    // Per-hop figures come from the rounds that sent: a round that sent
+    // nothing reports the hop of the latest scored round again.
+    let sent_rounds: Vec<&RoundRow> = ok.iter().flat_map(|r| &r.rounds).filter(|r| r.request_count > 0).collect();
+    let hops = sent_rounds.iter().map(|r| usize::from(r.hop) + 1).max().unwrap_or(0);
+    let at = |hop: usize| -> Vec<&RoundRow> { sent_rounds.iter().copied().filter(|r| usize::from(r.hop) == hop).collect() };
+    let round_ms = |hop: usize| -> Vec<u64> { at(hop).iter().map(|r| r.elapsed_ms).collect() };
+    let round_timeouts = sent_rounds.iter().filter(|r| r.status == EnhanceStatus::Timeout).count();
     LookupMetrics {
+        max_hops: shared(&ok, |r| r.max_hops).flatten(),
+        round_timeout_ms: shared(&ok, |r| r.round_timeout_ms).flatten(),
+        evidence_recall10: ratio(in_evidence, scored.len()),
+        evidence_recall10_round0: ratio(in_round0, scored.len()),
+        expansion_only: count(&scored, &|r| r.evidence_rank.is_some() && r.found_round.is_some_and(|h| h >= 1)),
+        lost_by_expansion: count(&scored, &|r| round0_rank(r).is_some() && r.evidence_rank.is_none()),
+        round_tokens: (0..hops).map(|h| at(h).iter().map(|r| r.estimated_tokens).sum()).collect(),
+        round_input_tokens: (0..hops).map(|h| at(h).iter().filter_map(|r| r.input_tokens).sum()).collect(),
+        round_p50_ms: (0..hops).map(|h| percentile(&round_ms(h), 0.5)).collect(),
+        round_p95_ms: (0..hops).map(|h| percentile(&round_ms(h), 0.95)).collect(),
+        round_requests: sent_rounds.len(),
+        round_timeouts,
+        round_timeout_rate: ratio(round_timeouts, sent_rounds.len()),
         split: split.to_string(),
         tasks: in_split.len(),
         errors: in_split.len() - ok.len(),
@@ -679,40 +834,88 @@ pub(crate) fn lookup_metrics(rows: &[LookupEvalRow], split: &str) -> LookupMetri
     }
 }
 
-/// Spec §9.3 on the holdout rows, only when every row ran with the 3 s limit
-/// (`enhance.timeoutMs == 3000`); otherwise both gates are `None` with a
-/// note. C3: net Top-5 gain ≥ 3, at most one target pushed out, judge
-/// timeouts ≤ 5% of judge requests, and at most a third of the absent tasks
-/// with a candidate judged fit. C4: of the scored tasks that both the normal
-/// and the deep local pass missed, at least a third end in the first 50, and
-/// repair timeouts ≤ 5% of repair requests. No requests (or no absent task)
-/// cannot fail a rate condition.
+/// Spec §9.3 and H.10 on the holdout rows. First: every gate is `None`
+/// (`note`) unless every row ran with `retrieval.roundTimeoutMs == 10000`.
+/// Then, each on its own:
+///
+/// - C3, only on a `maxHops = 0` run: net Top-5 gain ≥ 3 (the `finalRank`
+///   the window shows), at most one target pushed out, round timeouts ≤ 5%
+///   of the rounds sent, and at most a third of the absent tasks with fit
+///   evidence.
+/// - C4, only at `enhance.timeoutMs == 3000`: of the scored tasks that both
+///   the normal and the deep local pass missed, at least a third end in the
+///   first 50, and repair timeouts ≤ 5% of repair requests.
+/// - C5, only on a `maxHops ≥ 1` run with at least 4 scored `bridge` tasks:
+///   `expansionOnly ≥ 2`, at least 2 more tasks in the final evidence than
+///   at the end of round 0, `lostByExpansion ≤ 1`, round timeouts ≤ 5%.
+///
+/// No requests (or no absent task) cannot fail a rate condition.
 pub(crate) fn gate_verdicts(holdout: &[LookupEvalRow]) -> GateVerdicts {
     let m = lookup_metrics(holdout, "all");
     let population: Vec<&LookupEvalRow> = holdout.iter().filter(|r| c4_population(r)).collect();
     let rescued = population.iter().filter(|r| in_top(r.final_rank, 50)).count();
-    let mut gates =
-        GateVerdicts { c3: None, c4: None, timeout_ms: m.timeout_ms, note: None, c4_tasks: population.len(), c4_rescued: rescued };
-    if m.timeout_ms != Some(GATE_TIMEOUT_MS) {
+    let scored: Vec<&LookupEvalRow> = holdout.iter().filter(|r| is_scored(r)).collect();
+    let bridge = scored.iter().filter(|r| r.category == Category::Bridge).count();
+    let (in_evidence, in_round0) = evidence_counts(&scored);
+    let recall_gain = in_evidence as i64 - in_round0 as i64;
+    let mut gates = GateVerdicts {
+        c3: None,
+        c4: None,
+        c5: None,
+        timeout_ms: m.timeout_ms,
+        round_timeout_ms: m.round_timeout_ms,
+        max_hops: m.max_hops,
+        note: None,
+        c3_note: None,
+        c4_note: None,
+        c5_note: None,
+        c4_tasks: population.len(),
+        c4_rescued: rescued,
+        c5_bridge_tasks: bridge,
+        c5_expansion_only: m.expansion_only,
+        c5_recall_gain: recall_gain,
+        c5_lost: m.lost_by_expansion,
+    };
+    if m.round_timeout_ms != Some(GATE_ROUND_TIMEOUT_MS) {
         if m.tasks > m.errors {
-            gates.note = Some("timeout ≠ 3 s".to_string());
+            gates.note = Some("round timeout ≠ 10 s".to_string());
         }
         return gates;
     }
-    let judge_ok = m.judge_timeouts * 20 <= m.judge_requests;
-    let repair_ok = m.repair_timeouts * 20 <= m.repair_requests;
-    gates.c3 = (m.scored > 0).then(|| {
-        m.net_gain >= 3 && m.pushed_out <= 1 && judge_ok && m.absent_false_fit * 3 <= m.absent_tasks
-    });
-    gates.c4 = (!population.is_empty()).then(|| rescued * 3 >= population.len() && repair_ok);
+    let rounds_ok = m.round_timeouts * 20 <= m.round_requests;
+    let hops_note = |want: &str| match m.max_hops {
+        Some(_) => format!("maxHops {want}"),
+        None => "maxHops mixed".to_string(),
+    };
+    if m.max_hops == Some(0) {
+        gates.c3 = (m.scored > 0).then(|| {
+            m.net_gain >= 3 && m.pushed_out <= 1 && rounds_ok && m.absent_false_fit * 3 <= m.absent_tasks
+        });
+    } else {
+        gates.c3_note = Some(hops_note("≠ 0"));
+    }
+    if m.timeout_ms == Some(GATE_TIMEOUT_MS) {
+        let repair_ok = m.repair_timeouts * 20 <= m.repair_requests;
+        gates.c4 = (!population.is_empty()).then(|| rescued * 3 >= population.len() && repair_ok);
+    } else {
+        gates.c4_note = Some("timeout ≠ 3 s".to_string());
+    }
+    if !m.max_hops.is_some_and(|h| h >= 1) {
+        gates.c5_note = Some(hops_note("= 0"));
+    } else if bridge < C5_MIN_BRIDGE_TASKS {
+        gates.c5_note = Some(format!("bridge tasks < {C5_MIN_BRIDGE_TASKS}"));
+    } else {
+        gates.c5 = Some(m.expansion_only >= 2 && recall_gain >= 2 && m.lost_by_expansion <= 1 && rounds_ok);
+    }
     gates
 }
 
-/// Every numeric metric, by its JSON name, in display order.
-pub(crate) fn metric_values(m: &LookupMetrics) -> Vec<(&'static str, Option<f64>)> {
+/// Every numeric metric, by its JSON name, in display order. A per-round
+/// metric gives one entry per hop, named `roundTokens[0]`, `roundTokens[1]`….
+pub(crate) fn metric_values(m: &LookupMetrics) -> Vec<(String, Option<f64>)> {
     let n = |v: usize| Some(v as f64);
     let u = |v: Option<u64>| v.map(|v| v as f64);
-    vec![
+    let fixed: Vec<(&'static str, Option<f64>)> = vec![
         ("tasks", n(m.tasks)),
         ("errors", n(m.errors)),
         ("scored", n(m.scored)),
@@ -747,21 +950,47 @@ pub(crate) fn metric_values(m: &LookupMetrics) -> Vec<(&'static str, Option<f64>
         ("usageUnknown", n(m.usage_unknown)),
         ("estimatedTokens", Some(m.estimated_tokens as f64)),
         ("timeoutMs", u(m.timeout_ms)),
-    ]
+        ("maxHops", m.max_hops.map(f64::from)),
+        ("roundTimeoutMs", u(m.round_timeout_ms)),
+        ("evidenceRecall10", m.evidence_recall10),
+        ("evidenceRecall10Round0", m.evidence_recall10_round0),
+        ("expansionOnly", n(m.expansion_only)),
+        ("lostByExpansion", n(m.lost_by_expansion)),
+        ("roundRequests", n(m.round_requests)),
+        ("roundTimeouts", n(m.round_timeouts)),
+        ("roundTimeoutRate", m.round_timeout_rate),
+    ];
+    let mut values: Vec<(String, Option<f64>)> = fixed.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+    let per_hop = |name: &str, values: Vec<Option<f64>>| -> Vec<(String, Option<f64>)> {
+        values.into_iter().enumerate().map(|(hop, v)| (format!("{name}[{hop}]"), v)).collect()
+    };
+    values.extend(per_hop("roundTokens", m.round_tokens.iter().map(|&t| Some(t as f64)).collect()));
+    values.extend(per_hop("roundInputTokens", m.round_input_tokens.iter().map(|&t| Some(t as f64)).collect()));
+    values.extend(per_hop("roundP50Ms", m.round_p50_ms.iter().map(|&t| u(t)).collect()));
+    values.extend(per_hop("roundP95Ms", m.round_p95_ms.iter().map(|&t| u(t)).collect()));
+    values
 }
 
-/// `current − baseline` per metric; `None` when either side has no value.
+/// `current − baseline` per metric, matched by name; `None` when either side
+/// has no value. A metric only one side has (a hop the other run did not
+/// reach, `roundTokens[1]` against a `maxHops = 0` baseline) is listed with
+/// the other side empty: the current run's metrics first, then the
+/// baseline's extra ones.
 pub(crate) fn compare_metrics(current: &LookupMetrics, baseline: &LookupMetrics) -> Vec<MetricDelta> {
-    metric_values(current)
-        .into_iter()
-        .zip(metric_values(baseline))
-        .map(|((metric, current), (_, baseline))| MetricDelta {
-            metric: metric.to_string(),
-            current,
-            baseline,
-            delta: current.zip(baseline).map(|(c, b)| c - b),
-        })
-        .collect()
+    let current = metric_values(current);
+    let baseline = metric_values(baseline);
+    let find = |values: &[(String, Option<f64>)], name: &str| values.iter().find(|(n, _)| n == name).and_then(|(_, v)| *v);
+    let delta = |metric: &str, current: Option<f64>, baseline: Option<f64>| MetricDelta {
+        metric: metric.to_string(),
+        current,
+        baseline,
+        delta: current.zip(baseline).map(|(c, b)| c - b),
+    };
+    let mut deltas: Vec<MetricDelta> = current.iter().map(|(name, c)| delta(name, *c, find(&baseline, name))).collect();
+    deltas.extend(
+        baseline.iter().filter(|(name, _)| !current.iter().any(|(n, _)| n == name)).map(|(name, b)| delta(name, None, *b)),
+    );
+    deltas
 }
 
 /// One row per non-blank line (an earlier `--out`). A bad line is an error
@@ -801,7 +1030,7 @@ fn deep_pass(
     Ok((target_rank(&response.hits, &task.targets).map(|(rank, _)| rank), response.took_ms))
 }
 
-fn error_row(task: &EvalTask, timeout_ms: u64, error: String) -> LookupEvalRow {
+fn error_row(task: &EvalTask, settings: RunSettings, error: String) -> LookupEvalRow {
     LookupEvalRow {
         id: task.id.clone(),
         category: task.category,
@@ -824,16 +1053,81 @@ fn error_row(task: &EvalTask, timeout_ms: u64, error: String) -> LookupEvalRow {
         enhance_ms: None,
         estimated_tokens: 0,
         input_tokens: None,
-        timeout_ms,
+        timeout_ms: settings.timeout_ms,
         error: Some(error),
+        max_hops: settings.max_hops,
+        round_timeout_ms: settings.round_timeout_ms,
+        evidence_rank: None,
+        found_round: None,
+        rounds: Vec::new(),
+    }
+}
+
+/// The 1-based rank of the first evidence item that is a target.
+fn evidence_rank(evidence: &[EvidenceItemDto], is_target: &dyn Fn(&str, u32, u32) -> bool) -> Option<usize> {
+    evidence.iter().position(|i| is_target(&i.path, i.line, i.line_end)).map(|i| i + 1)
+}
+
+/// The target's rank as the window shows it top to bottom (spec H.10): the
+/// evidence list first, then the local hits not already in it (same path
+/// and line range), in their order.
+fn window_rank(
+    evidence: &[EvidenceItemDto],
+    local: &[SmartHitDto],
+    is_target: &dyn Fn(&str, u32, u32) -> bool,
+) -> Option<usize> {
+    if let Some(rank) = evidence_rank(evidence, is_target) {
+        return Some(rank);
+    }
+    let in_evidence = |h: &SmartHitDto| {
+        evidence.iter().any(|i| (i.path.as_str(), i.line, i.line_end) == (h.hit.path.as_str(), h.hit.line, h.hit.line_end))
+    };
+    local
+        .iter()
+        .filter(|h| !in_evidence(h))
+        .position(|h| is_target(&h.hit.path, h.hit.line, h.hit.line_end))
+        .map(|i| evidence.len() + i + 1)
+}
+
+/// The round the target block was first a candidate in: the `found_round`
+/// of a target evidence item, or the hop of a scored round that sent it
+/// (a round's pool holds only this and earlier rounds' candidates).
+fn found_round(rounds: &[EvidenceStepResult], is_target: &dyn Fn(&str, u32, u32) -> bool) -> Option<u8> {
+    rounds
+        .iter()
+        .filter(|r| r.status == EnhanceStatus::Ok)
+        .flat_map(|r| {
+            let from_items = r.evidence.iter().filter(|i| is_target(&i.path, i.line, i.line_end)).map(|i| i.found_round);
+            let sent = r.sent.iter().any(|(path, line, end)| is_target(path, *line, *end));
+            from_items.chain(sent.then_some(r.hop))
+        })
+        .min()
+}
+
+fn round_row(round: &EvidenceStepResult, is_target: &dyn Fn(&str, u32, u32) -> bool) -> RoundRow {
+    RoundRow {
+        hop: round.hop,
+        terms: round.terms.iter().map(|t| t.label.clone()).collect(),
+        candidates: round.candidates,
+        pool_size: round.pool_size,
+        sent_blocks: round.sent_blocks,
+        estimated_tokens: round.estimated_tokens,
+        input_tokens: round.usage.as_ref().map(|u| u.input_tokens),
+        request_count: round.request_count,
+        elapsed_ms: round.elapsed_ms,
+        status: round.status,
+        stop: round.stop,
+        evidence_rank: evidence_rank(&round.evidence, is_target),
     }
 }
 
 /// Score one task's pipeline output. On the judge route the model's part is
-/// the evidence rounds (spec H.10; Task 9 adds the per-round fields): counts
-/// and time are summed over the rounds, the status is the last round's, and
-/// a tier is the latest `ok` round's (its evidence items, then its local rows).
-fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout_ms: u64) -> LookupEvalRow {
+/// the evidence rounds (spec H.10): counts and time are summed over the
+/// rounds, the status is the last round's, and a tier is the latest `ok`
+/// round's (its evidence items, then its local rows). `final_rank` is the
+/// rank the window shows: with an `ok` round, its evidence list then the
+/// other local hits; otherwise the pipeline's hits (local or regrouped).
+fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, settings: RunSettings) -> LookupEvalRow {
     let matches_target = |path: &str, line: u32, line_end: u32| {
         task.targets.iter().any(|t| t.path == path && t.line.map_or(true, |l| line <= l && l <= line_end))
     };
@@ -843,9 +1137,12 @@ fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout
     let repair = output.repair.as_ref();
     let local_hits = &output.local.search.hits;
     let local_rank = rank(local_hits);
-    let final_rank = rank(&output.hits);
     let target_in_window = rounds.iter().any(|r| r.sent.iter().any(|(path, line, end)| matches_target(path, *line, *end)));
     let latest = rounds.iter().rev().find(|r| r.status == EnhanceStatus::Ok);
+    let final_rank = match latest {
+        Some(r) => window_rank(&r.evidence, local_hits, &matches_target),
+        None => rank(&output.hits),
+    };
     let fit_places: Vec<(&str, u32, u32)> = latest.map_or(Vec::new(), |r| {
         let local = r.local_tiers.iter().filter(|v| v.tier == Tier::Fit).filter_map(|v| {
             let h = local_hits.iter().find(|h| h.result_id.as_deref() == Some(v.result_id.as_str()))?;
@@ -902,8 +1199,13 @@ fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout
         // estimate but sent nothing.
         estimated_tokens: evidence.map_or(0, |r| r.iter().filter(|r| r.request_count > 0).map(|r| r.estimated_tokens).sum()),
         input_tokens,
-        timeout_ms,
+        timeout_ms: settings.timeout_ms,
         error: None,
+        max_hops: settings.max_hops,
+        round_timeout_ms: settings.round_timeout_ms,
+        evidence_rank: latest.and_then(|r| evidence_rank(&r.evidence, &matches_target)),
+        found_round: found_round(rounds, &matches_target),
+        rounds: rounds.iter().map(|r| round_row(r, &matches_target)).collect(),
     }
 }
 
@@ -916,7 +1218,6 @@ async fn eval_task(
     today: NaiveDate,
     client: &reqwest::Client,
 ) -> Result<LookupEvalRow, String> {
-    let timeout_ms = params.enhance.timeout_ms;
     let mut target_indexed = true;
     if task.category != Category::Absent {
         for target in &task.targets {
@@ -935,7 +1236,7 @@ async fn eval_task(
         enhance,
     };
     let output = run_pipeline(input, client).await?;
-    let row = score(task, target_indexed, &output, timeout_ms);
+    let row = score(task, target_indexed, &output, RunSettings::of(params));
     if is_scored(&row) && row.local_rank.is_none() {
         return Ok(with_deep_pass(row, deep_pass(index, task, params, today)));
     }
@@ -972,15 +1273,14 @@ pub(crate) async fn run_lookup_eval(
     client: &reqwest::Client,
     on_row: &mut dyn FnMut(&LookupEvalRow) -> Result<(), String>,
 ) -> Result<Vec<LookupEvalRow>, String> {
-    let timeout_ms = params.enhance.timeout_ms;
-    eval_each(tasks, timeout_ms, |task| eval_task(index, root, task, params, enhance, today, client), on_row).await
+    eval_each(tasks, RunSettings::of(params), |task| eval_task(index, root, task, params, enhance, today, client), on_row).await
 }
 
 /// The loop of [`run_lookup_eval`]: one task at a time, an error becomes an
 /// error row, each row goes to `on_row` before the next task starts.
 async fn eval_each<'t, F, Fut>(
     tasks: &'t [EvalTask],
-    timeout_ms: u64,
+    settings: RunSettings,
     mut run: F,
     on_row: &mut dyn FnMut(&LookupEvalRow) -> Result<(), String>,
 ) -> Result<Vec<LookupEvalRow>, String>
@@ -992,7 +1292,7 @@ where
     for task in tasks {
         let row = match run(task).await {
             Ok(row) => row,
-            Err(error) => error_row(task, timeout_ms, error),
+            Err(error) => error_row(task, settings, error),
         };
         on_row(&row)?;
         rows.push(row);
@@ -1258,6 +1558,29 @@ mod tests {
             input_tokens: Some(40),
             timeout_ms: GATE_TIMEOUT_MS,
             error: None,
+            max_hops: Some(0),
+            round_timeout_ms: Some(GATE_ROUND_TIMEOUT_MS),
+            evidence_rank: None,
+            found_round: None,
+            rounds: vec![],
+        }
+    }
+
+    /// A round that sent one request (50 estimated, 40 reported tokens, 100 ms).
+    fn round(hop: u8, status: EnhanceStatus, evidence_rank: Option<usize>) -> RoundRow {
+        RoundRow {
+            hop,
+            terms: vec![],
+            candidates: 5,
+            pool_size: 5,
+            sent_blocks: 5,
+            estimated_tokens: 50,
+            input_tokens: Some(40),
+            request_count: 1,
+            elapsed_ms: 100,
+            status,
+            stop: None,
+            evidence_rank,
         }
     }
 
@@ -1362,23 +1685,53 @@ mod tests {
         assert_eq!(gate_verdicts(&with_absent).c3, Some(true));
         with_absent.push(absent("a4", true));
         assert_eq!(gate_verdicts(&with_absent).c3, Some(false));
+        // One round sent and it timed out: 100% > 5%.
         let mut slow = gains();
-        slow.push(LookupEvalRow { status: Some(EnhanceStatus::Timeout), ..eval_row("t", Some(1), Some(1)) });
+        slow.push(LookupEvalRow {
+            status: Some(EnhanceStatus::Timeout),
+            rounds: vec![round(0, EnhanceStatus::Timeout, None)],
+            ..eval_row("t", Some(1), Some(1))
+        });
         assert_eq!(gate_verdicts(&slow).c3, Some(false));
-        assert_eq!(gate_verdicts(&[]), GateVerdicts { c3: None, c4: None, timeout_ms: None, note: None, c4_tasks: 0, c4_rescued: 0 });
+        assert_eq!(
+            gate_verdicts(&[]),
+            GateVerdicts {
+                c3: None,
+                c4: None,
+                c5: None,
+                timeout_ms: None,
+                round_timeout_ms: None,
+                max_hops: None,
+                note: None,
+                c3_note: None,
+                c4_note: None,
+                c5_note: None,
+                c4_tasks: 0,
+                c4_rescued: 0,
+                c5_bridge_tasks: 0,
+                c5_expansion_only: 0,
+                c5_recall_gain: 0,
+                c5_lost: 0,
+            }
+        );
     }
 
     #[test]
-    fn c3_gates_on_judge_timeouts_and_c4_on_repair_timeouts() {
+    fn c3_gates_on_round_timeouts_and_c4_on_repair_timeouts() {
         // A slow repair model does not fail C3 ...
         let mut rows = gains();
         rows.push(LookupEvalRow { status: Some(EnhanceStatus::Timeout), ..repair_row("slow repair", None) });
         assert_eq!(gate_verdicts(&rows).c3, Some(true));
         assert_eq!(gate_verdicts(&rows).c4, Some(false));
-        // ... and judge timeouts do not fail C4.
+        // ... and round timeouts do not fail C4.
         let mut rows = vec![repair_row("r1", Some(4)), repair_row("r2", None), repair_row("r3", None)];
-        rows.push(LookupEvalRow { status: Some(EnhanceStatus::Timeout), ..eval_row("slow judge", Some(1), Some(1)) });
+        rows.push(LookupEvalRow {
+            status: Some(EnhanceStatus::Timeout),
+            rounds: vec![round(0, EnhanceStatus::Timeout, None)],
+            ..eval_row("slow judge", Some(1), Some(1))
+        });
         assert_eq!(gate_verdicts(&rows).c4, Some(true));
+        assert_eq!(gate_verdicts(&rows).c3, Some(false));
     }
 
     #[test]
@@ -1415,15 +1768,20 @@ mod tests {
     }
 
     #[test]
-    fn gates_are_only_evaluated_at_the_three_second_limit() {
-        let longer: Vec<LookupEvalRow> = gains().into_iter().map(|r| LookupEvalRow { timeout_ms: 10_000, ..r }).collect();
+    fn c4_is_only_evaluated_at_the_three_second_limit() {
+        // C4 keeps the 3 s rule; C3 now depends on the round limit only.
+        let rescued = |r: LookupEvalRow| vec![r, repair_row("r2", Some(5)), repair_row("r3", Some(6))];
+        assert_eq!(gate_verdicts(&rescued(repair_row("r1", Some(4)))).c4, Some(true));
+        let longer: Vec<LookupEvalRow> =
+            gains().into_iter().chain(rescued(repair_row("r1", Some(4)))).map(|r| LookupEvalRow { timeout_ms: 10_000, ..r }).collect();
         let gates = gate_verdicts(&longer);
-        assert_eq!((gates.c3, gates.c4, gates.timeout_ms), (None, None, Some(10_000)));
-        assert_eq!(gates.note.as_deref(), Some("timeout ≠ 3 s"));
+        assert_eq!((gates.c3, gates.c4, gates.timeout_ms), (Some(true), None, Some(10_000)));
+        assert_eq!((gates.note.as_deref(), gates.c4_note.as_deref()), (None, Some("timeout ≠ 3 s")));
         assert_eq!(lookup_metrics(&longer, "all").timeout_ms, Some(10_000));
         let mut mixed = gains();
-        mixed.push(longer[0].clone());
-        assert_eq!(gate_verdicts(&mixed).c3, None);
+        mixed.extend(rescued(LookupEvalRow { timeout_ms: 10_000, ..repair_row("r1", Some(4)) }));
+        let gates = gate_verdicts(&mixed);
+        assert_eq!((gates.c3, gates.c4, gates.c4_note.as_deref()), (Some(true), None, Some("timeout ≠ 3 s")));
         assert_eq!(lookup_metrics(&mixed, "all").timeout_ms, None);
     }
 
@@ -1441,10 +1799,308 @@ mod tests {
         assert_eq!(deltas.len(), metric_values(&current).len());
     }
 
+    /// A scored holdout bridge task on a `maxHops = 1` run: (evidenceRank,
+    /// foundRound, round0Rank); rounds 0 and 1 both sent and finished.
+    fn bridge(evidence: Option<usize>, found: Option<u8>, round0: Option<usize>) -> LookupEvalRow {
+        LookupEvalRow {
+            category: Category::Bridge,
+            max_hops: Some(1),
+            evidence_rank: evidence,
+            found_round: found,
+            final_rank: evidence,
+            rounds: vec![round(0, EnhanceStatus::Ok, round0), round(1, EnhanceStatus::Ok, evidence)],
+            ..eval_row("bridge", None, None)
+        }
+    }
+
+    fn holdout(rows: &[LookupEvalRow]) -> Vec<LookupEvalRow> {
+        rows.iter()
+            .enumerate()
+            .map(|(i, r)| LookupEvalRow { id: format!("h{i}"), split: Split::Holdout, ..r.clone() })
+            .collect()
+    }
+
+    #[test]
+    fn c5_needs_expansion_only_recall_and_no_regression() {
+        let rows = holdout(&[
+            bridge(Some(3), Some(1), None),
+            bridge(Some(5), Some(2), None),
+            bridge(Some(2), Some(0), Some(2)),
+            bridge(None, None, None),
+        ]);
+        let g = gate_verdicts(&rows);
+        assert_eq!(g.c5_bridge_tasks, 4);
+        assert_eq!(g.c5, Some(true)); // expansionOnly 2，recall 3 vs round0 1（+2），lost 0
+        assert_eq!((g.c5_expansion_only, g.c5_recall_gain, g.c5_lost, g.c5_note.clone()), (2, 2, 0, None));
+        assert_eq!(gate_verdicts(&rows[..3]).c5, None); // 桥接题不足 4
+        assert_eq!(gate_verdicts(&rows[..3]).c5_note.as_deref(), Some("bridge tasks < 4"));
+        let m = lookup_metrics(&rows, "holdout");
+        assert_eq!((m.evidence_recall10, m.evidence_recall10_round0), (Some(0.75), Some(0.25)));
+        assert_eq!((m.expansion_only, m.lost_by_expansion), (2, 0));
+        // Only one task found by expansion.
+        let one = holdout(&[
+            bridge(Some(3), Some(1), None),
+            bridge(Some(5), Some(0), None),
+            bridge(Some(2), Some(0), Some(2)),
+            bridge(None, None, None),
+        ]);
+        assert_eq!(gate_verdicts(&one).c5, Some(false));
+        // The recall gain is only one task.
+        let mut flat = rows.clone();
+        flat[1].rounds[0].evidence_rank = Some(7);
+        assert_eq!((gate_verdicts(&holdout(&flat)).c5_recall_gain, gate_verdicts(&holdout(&flat)).c5), (1, Some(false)));
+        // Two targets that round 0 had are lost; two more gained keep the gain at +2.
+        let mut lost = rows.to_vec();
+        lost.extend([bridge(None, None, Some(1)), bridge(None, None, Some(4))]);
+        lost.extend([bridge(Some(1), Some(1), None), bridge(Some(4), Some(1), None)]);
+        let g = gate_verdicts(&holdout(&lost));
+        assert_eq!((g.c5_expansion_only, g.c5_recall_gain, g.c5_lost, g.c5), (4, 2, 2, Some(false)));
+        // One timed-out round of 10 sent: 10% > 5%.
+        let mut slow = rows.to_vec();
+        slow.push(LookupEvalRow {
+            rounds: vec![round(0, EnhanceStatus::Ok, None), round(1, EnhanceStatus::Timeout, None)],
+            ..bridge(None, None, None)
+        });
+        assert_eq!(lookup_metrics(&holdout(&slow), "all").round_timeout_rate, Some(0.1));
+        assert_eq!(gate_verdicts(&holdout(&slow)).c5, Some(false));
+        // C5 needs maxHops ≥ 1; only scored tasks count as bridge tasks.
+        let no_hops: Vec<LookupEvalRow> = rows.iter().map(|r| LookupEvalRow { max_hops: Some(0), ..r.clone() }).collect();
+        let g = gate_verdicts(&no_hops);
+        assert_eq!((g.c5, g.c5_note.as_deref()), (None, Some("maxHops = 0")));
+        let mut unindexed = rows.clone();
+        unindexed[3].target_indexed = false;
+        assert_eq!(gate_verdicts(&unindexed).c5_bridge_tasks, 3);
+        // C3 is the other way round: decided at maxHops 0, n/a at 1.
+        assert_eq!((g.c3_note.as_deref(), gate_verdicts(&rows).c3_note.as_deref()), (None, Some("maxHops ≠ 0")));
+    }
+
+    fn evidence_item(path: &str, line: u32, found_round: u8) -> EvidenceItemDto {
+        EvidenceItemDto {
+            evidence_id: format!("e-{path}-{line}"),
+            path: path.into(),
+            line,
+            line_end: line,
+            title: String::new(),
+            breadcrumb: String::new(),
+            text: String::new(),
+            found_round,
+            tier: Tier::Unsure,
+            local_result_id: None,
+        }
+    }
+
+    fn local_hit(path: &str, line: u32) -> SmartHitDto {
+        SmartHitDto {
+            hit: crate::search::HitDto {
+                path: path.into(),
+                abs_path: String::new(),
+                line,
+                line_end: line,
+                text: String::new(),
+                breadcrumb: String::new(),
+                level: "line".into(),
+                score: 0.0,
+                doc_date: None,
+                source_ref: String::new(),
+                agent_by: None,
+                human_verified: false,
+                origin: String::new(),
+                concept_type: None,
+                pinned: false,
+            },
+            fused_score: 0.0,
+            relevance_reasons: vec![],
+            matched_queries: vec![],
+            result_id: None,
+        }
+    }
+
+    #[test]
+    fn final_rank_reads_evidence_first_then_remaining_local_hits() {
+        let target = |t: &'static str| move |path: &str, _: u32, _: u32| path == t;
+        let evidence = [evidence_item("x.md", 1, 0), evidence_item("t.md", 1, 0)];
+        let local = [local_hit("y.md", 1), local_hit("t.md", 1), local_hit("z.md", 1)];
+        // 证据 [x,t]、本地 [y,t,z] → t 的 finalRank 2.
+        assert_eq!(window_rank(&evidence, &local, &target("t.md")), Some(2));
+        assert_eq!(evidence_rank(&evidence, &target("t.md")), Some(2));
+        // Not in the evidence: the evidence count plus its rank among the
+        // local hits without the evidence ones (y, z): z is 2 + 2.
+        assert_eq!(window_rank(&evidence, &local, &target("z.md")), Some(4));
+        assert_eq!(window_rank(&evidence, &local, &target("y.md")), Some(3));
+        assert_eq!(evidence_rank(&evidence, &target("z.md")), None);
+        assert_eq!(window_rank(&evidence, &local, &target("w.md")), None);
+        // A local hit is excluded only when the evidence has the same block.
+        let other_block = [evidence_item("x.md", 1, 0), evidence_item("y.md", 9, 0)];
+        assert_eq!(window_rank(&other_block, &local, &target("t.md")), Some(4));
+        // No evidence: the local order.
+        assert_eq!(window_rank(&[], &local, &target("t.md")), Some(2));
+    }
+
+    #[test]
+    fn found_round_and_round_rows_come_from_the_evidence_steps() {
+        let is_target = |path: &str, _: u32, _: u32| path == "t.md";
+        let step = |hop: u8, status: EnhanceStatus, evidence: Vec<EvidenceItemDto>, sent: &[&str]| EvidenceStepResult {
+            hop,
+            status,
+            evidence,
+            sent: sent.iter().map(|p| (p.to_string(), 1, 1)).collect(),
+            request_count: 2,
+            candidates: 4,
+            pool_size: 6,
+            sent_blocks: sent.len(),
+            estimated_tokens: 300,
+            usage: Some(crate::smart_enhance::UsageDto { input_tokens: 250, output_tokens: 9 }),
+            elapsed_ms: 70,
+            terms: vec![crate::smart_enhance::evidence::EvidenceTermDto {
+                term: "alice paul".into(),
+                label: "Alice Paul".into(),
+                kind: crate::smart_enhance::sag::TermKind::NamePhrase,
+            }],
+            ..EvidenceStepResult::default()
+        };
+        // Sent in round 1, never in the evidence: found in round 1.
+        let rounds = [
+            step(0, EnhanceStatus::Ok, vec![evidence_item("x.md", 1, 0)], &["x.md"]),
+            step(1, EnhanceStatus::Ok, vec![evidence_item("x.md", 1, 0)], &["x.md", "t.md"]),
+        ];
+        assert_eq!(found_round(&rounds, &is_target), Some(1));
+        // An evidence item's own found_round wins over a later send.
+        let rounds = [
+            step(0, EnhanceStatus::Ok, vec![], &["x.md"]),
+            step(1, EnhanceStatus::Ok, vec![evidence_item("t.md", 1, 0)], &["t.md"]),
+        ];
+        assert_eq!(found_round(&rounds, &is_target), Some(0));
+        // A failed round's partial send does not count.
+        let rounds = [step(0, EnhanceStatus::Ok, vec![], &["x.md"]), step(1, EnhanceStatus::Timeout, vec![], &["t.md"])];
+        assert_eq!(found_round(&rounds, &is_target), None);
+        let row = round_row(&step(1, EnhanceStatus::Ok, vec![evidence_item("x.md", 1, 0), evidence_item("t.md", 1, 1)], &[]), &is_target);
+        assert_eq!(
+            row,
+            RoundRow {
+                hop: 1,
+                terms: vec!["Alice Paul".into()],
+                candidates: 4,
+                pool_size: 6,
+                sent_blocks: 0,
+                estimated_tokens: 300,
+                input_tokens: Some(250),
+                request_count: 2,
+                elapsed_ms: 70,
+                status: EnhanceStatus::Ok,
+                stop: None,
+                evidence_rank: Some(2),
+            }
+        );
+        let json = serde_json::to_value(&row).unwrap();
+        for key in ["hop", "terms", "candidates", "poolSize", "sentBlocks", "estimatedTokens", "inputTokens", "requestCount", "elapsedMs", "status", "stop", "evidenceRank"] {
+            assert!(json.get(key).is_some(), "{key}: {json}");
+        }
+    }
+
+    #[test]
+    fn per_round_metrics_and_compare_across_max_hops() {
+        let slow = |r: RoundRow| RoundRow { elapsed_ms: 300, ..r };
+        // maxHops 0: a found in round 0 (rank 2), b not found.
+        let zero = vec![
+            LookupEvalRow {
+                evidence_rank: Some(2),
+                found_round: Some(0),
+                rounds: vec![round(0, EnhanceStatus::Ok, Some(2))],
+                ..eval_row("a", Some(2), Some(2))
+            },
+            LookupEvalRow { rounds: vec![round(0, EnhanceStatus::Ok, None)], ..eval_row("b", None, None) },
+        ];
+        // maxHops 1: round 1 moves a to 1 and finds b (rank 4).
+        let one = vec![
+            LookupEvalRow {
+                max_hops: Some(1),
+                evidence_rank: Some(1),
+                found_round: Some(0),
+                rounds: vec![round(0, EnhanceStatus::Ok, Some(2)), slow(round(1, EnhanceStatus::Ok, Some(1)))],
+                ..eval_row("a", Some(2), Some(1))
+            },
+            LookupEvalRow {
+                max_hops: Some(1),
+                evidence_rank: Some(4),
+                found_round: Some(1),
+                rounds: vec![
+                    round(0, EnhanceStatus::Ok, None),
+                    slow(round(1, EnhanceStatus::Ok, Some(4))),
+                    // A round that sent nothing (a stop) reports an earlier hop: not counted.
+                    RoundRow { request_count: 0, estimated_tokens: 999, ..round(0, EnhanceStatus::Ok, Some(4)) },
+                ],
+                ..eval_row("b", None, Some(4))
+            },
+        ];
+        let m = lookup_metrics(&one, "all");
+        assert_eq!((m.max_hops, m.round_timeout_ms), (Some(1), Some(GATE_ROUND_TIMEOUT_MS)));
+        assert_eq!((m.round_tokens.clone(), m.round_input_tokens.clone()), (vec![100, 100], vec![80, 80]));
+        assert_eq!((m.round_p50_ms.clone(), m.round_p95_ms.clone()), (vec![Some(100), Some(300)], vec![Some(100), Some(300)]));
+        assert_eq!((m.round_requests, m.round_timeouts, m.round_timeout_rate), (4, 0, Some(0.0)));
+        assert_eq!((m.evidence_recall10, m.evidence_recall10_round0), (Some(1.0), Some(0.5)));
+        assert_eq!((m.expansion_only, m.lost_by_expansion), (1, 0));
+        // Two --out files read back, then compared by name.
+        let jsonl = |rows: &[LookupEvalRow]| rows.iter().map(|r| serde_json::to_string(r).unwrap() + "\n").collect::<String>();
+        let current = lookup_metrics(&load_eval_rows(&jsonl(&one)).unwrap(), "all");
+        let baseline = lookup_metrics(&load_eval_rows(&jsonl(&zero)).unwrap(), "all");
+        assert_eq!(baseline.round_tokens, vec![100]);
+        let deltas = compare_metrics(&current, &baseline);
+        let find = |deltas: &[MetricDelta], name: &str| deltas.iter().find(|d| d.metric == name).cloned().unwrap_or_else(|| panic!("{name}: {deltas:?}"));
+        assert_eq!(find(&deltas, "evidenceRecall10").delta, Some(0.5));
+        assert_eq!(find(&deltas, "roundTokens[0]").delta, Some(0.0));
+        assert_eq!(find(&deltas, "maxHops").delta, Some(1.0));
+        let hop1 = find(&deltas, "roundTokens[1]");
+        assert_eq!((hop1.current, hop1.baseline, hop1.delta), (Some(100.0), None, None));
+        assert_eq!(find(&deltas, "roundP95Ms[1]").current, Some(300.0));
+        // The other way round, hop 1 is the baseline's only.
+        let back = compare_metrics(&baseline, &current);
+        let hop1 = find(&back, "roundTokens[1]");
+        assert_eq!((hop1.current, hop1.baseline), (None, Some(100.0)));
+        assert_eq!(back.len(), deltas.len());
+        assert_eq!(metric_values(&current).iter().filter(|(n, _)| n.starts_with("round") && n.ends_with("[1]")).count(), 4);
+    }
+
+    #[test]
+    fn gates_are_na_off_the_default_round_timeout() {
+        // Checked first: every gate is n/a, whatever else holds.
+        let rows: Vec<LookupEvalRow> = gains().into_iter().map(|r| LookupEvalRow { round_timeout_ms: Some(5_000), ..r }).collect();
+        let g = gate_verdicts(&rows);
+        assert_eq!((g.c3, g.c4, g.c5), (None, None, None));
+        assert_eq!(g.note.as_deref(), Some("round timeout ≠ 10 s"));
+        assert_eq!((g.round_timeout_ms, g.c3_note.clone(), g.c4_note.clone(), g.c5_note.clone()), (Some(5_000), None, None, None));
+        assert_eq!(gate_verdicts(&gains()).c3, Some(true));
+        // A bridge run off the default round limit: C5 is n/a too.
+        let bridges: Vec<LookupEvalRow> = holdout(&[
+            bridge(Some(3), Some(1), None),
+            bridge(Some(5), Some(2), None),
+            bridge(Some(2), Some(0), Some(2)),
+            bridge(None, None, None),
+        ])
+        .into_iter()
+        .map(|r| LookupEvalRow { round_timeout_ms: Some(20_000), ..r })
+        .collect();
+        let g = gate_verdicts(&bridges);
+        assert_eq!((g.c5, g.note.as_deref()), (None, Some("round timeout ≠ 10 s")));
+        // Rows from before the field, or a mix of limits, are not the default either.
+        let old: Vec<LookupEvalRow> = gains().into_iter().map(|r| LookupEvalRow { round_timeout_ms: None, ..r }).collect();
+        assert_eq!(gate_verdicts(&old).note.as_deref(), Some("round timeout ≠ 10 s"));
+        let mut mixed = gains();
+        mixed.push(rows[0].clone());
+        assert_eq!((gate_verdicts(&mixed).c3, gate_verdicts(&mixed).round_timeout_ms), (None, None));
+        // At 10 s, C3 still needs maxHops 0.
+        let hops: Vec<LookupEvalRow> = gains().into_iter().map(|r| LookupEvalRow { max_hops: Some(1), ..r }).collect();
+        let g = gate_verdicts(&hops);
+        assert_eq!((g.c3, g.c3_note.as_deref(), g.note.clone()), (None, Some("maxHops ≠ 0"), None));
+        let mut mixed_hops = gains();
+        mixed_hops.push(hops[0].clone());
+        let g = gate_verdicts(&mixed_hops);
+        assert_eq!((g.c3_note.as_deref(), g.c5_note.as_deref()), (Some("maxHops mixed"), Some("maxHops mixed")));
+    }
+
     #[test]
     fn eval_rows_round_trip_and_a_bad_line_names_its_number() {
         let mut rows = section_9_3_rows();
-        rows.push(error_row(&load_tasks(r#"{"tasks":[{"id":"e","question":"q","targets":[],"category":"absent","split":"dev"}]}"#).unwrap()[0], 3_000, "boom".into()));
+        rows.push(error_row(&load_tasks(r#"{"tasks":[{"id":"e","question":"q","targets":[],"category":"absent","split":"dev"}]}"#).unwrap()[0], RunSettings::of(&LookupParams::default()), "boom".into()));
         let jsonl: String = rows.iter().map(|r| serde_json::to_string(r).unwrap() + "\n").collect();
         assert_eq!(load_eval_rows(&format!("{jsonl}\n")).unwrap(), rows);
         let broken = format!("{jsonl}{{\"id\":1}}\n");
@@ -1453,6 +2109,13 @@ mod tests {
         let old = r#"{"id":"o","category":"exact","split":"dev","targetIndexed":true,"localRank":1,"finalRank":1,"route":"judge","status":"ok","requestCount":1,"reused":false,"targetInWindow":true,"anyFit":true,"localMs":3,"enhanceMs":9,"estimatedTokens":5,"inputTokens":null}"#;
         let old = load_eval_rows(old).unwrap();
         assert_eq!((old[0].route, old[0].timeout_ms, old[0].error.clone()), (Some(PipelineRoute::Judge), 0, None));
+        // ... and so does one written before the per-round fields (spec H.10).
+        assert_eq!((old[0].max_hops, old[0].round_timeout_ms, old[0].evidence_rank, old[0].found_round), (None, None, None, None));
+        assert!(old[0].rounds.is_empty());
+        let m = lookup_metrics(&old, "all");
+        assert_eq!((m.max_hops, m.round_timeout_ms, m.round_requests), (None, None, 0));
+        assert!(m.round_tokens.is_empty());
+        assert_eq!((m.evidence_recall10, m.evidence_recall10_round0), (Some(0.0), Some(0.0)));
     }
 
     #[tokio::test]
@@ -1472,7 +2135,7 @@ mod tests {
         };
         let rows = eval_each(
             &tasks,
-            3_000,
+            RunSettings::of(&LookupParams::default()),
             |task| {
                 events.borrow_mut().push(format!("run {}", task.id));
                 let result = if task.id == "b" { Err("index lock poisoned".to_string()) } else { Ok(eval_row(&task.id, Some(1), Some(1))) };
@@ -1485,11 +2148,13 @@ mod tests {
         assert_eq!(events.into_inner(), ["run a", "row a", "run b", "row b", "run c", "row c"]);
         assert_eq!(rows.len(), 3);
         assert_eq!((rows[1].error.as_deref(), rows[1].route, rows[1].timeout_ms), (Some("index lock poisoned"), None, 3_000));
+        // An error row still records the run's maxHops and round limit.
+        assert_eq!((rows[1].max_hops, rows[1].round_timeout_ms), (Some(1), Some(10_000)));
         let m = lookup_metrics(&rows, "all");
         assert_eq!((m.tasks, m.errors, m.scored, m.requests), (3, 1, 2, 2));
         // An error from `on_row` (the --out file) stops the eval.
         let mut failing = |_: &LookupEvalRow| Err("disk full".to_string());
-        let err = eval_each(&tasks, 3_000, |task| { let r = Ok(eval_row(&task.id, None, None)); async move { r } }, &mut failing).await;
+        let err = eval_each(&tasks, RunSettings::of(&LookupParams::default()), |task| { let r = Ok(eval_row(&task.id, None, None)); async move { r } }, &mut failing).await;
         assert_eq!(err.unwrap_err(), "disk full");
     }
 
@@ -1571,6 +2236,15 @@ mod tests {
         assert!(exact.mismatch && exact.demoted, "{exact:?}");
         assert!(exact.estimated_tokens > 0 && exact.enhance_ms.is_some());
         assert_eq!((exact.deep_ms, exact.timeout_ms), (None, GATE_TIMEOUT_MS));
+        // Spec H.10: the evidence is a, c, b, so the target is third there and
+        // on screen; it was a round-0 candidate.
+        assert_eq!((exact.max_hops, exact.round_timeout_ms), (Some(1), Some(GATE_ROUND_TIMEOUT_MS)));
+        assert_eq!((exact.evidence_rank, exact.found_round), (Some(3), Some(0)), "{exact:?}");
+        assert_eq!(exact.rounds[0].hop, 0);
+        assert_eq!(exact.rounds[0].evidence_rank, Some(3), "{exact:?}");
+        assert_eq!(exact.rounds.iter().map(|r| r.request_count).sum::<u32>(), exact.request_count);
+        assert_eq!(exact.rounds.iter().filter_map(|r| r.input_tokens).sum::<u64>(), 10 * requests as u64);
+        assert!(exact.rounds[0].candidates > 0 && exact.rounds[0].sent_blocks > 0, "{exact:?}");
         let absent = &rows[1];
         assert_eq!((absent.route, absent.request_count, absent.local_rank), (Some(PipelineRoute::Repair), 0, None), "{absent:?}");
         assert!(!absent.mismatch && absent.deep_ms.is_none());
@@ -1582,7 +2256,10 @@ mod tests {
         let jsonl: String = rows.iter().map(|r| serde_json::to_string(r).unwrap() + "\n").collect();
         assert_eq!(load_eval_rows(&jsonl).unwrap(), rows);
         let gates = gate_verdicts(&rows);
-        assert_eq!((gates.c3, gates.c4_tasks, gates.c4_rescued, gates.c4), (Some(false), 1, 0, Some(false)));
+        assert_eq!((gates.c4_tasks, gates.c4_rescued, gates.c4), (1, 0, Some(false)));
+        // The default maxHops is 1: C3 is for maxHops 0, and there is no bridge task for C5.
+        assert_eq!((gates.c3, gates.c3_note.as_deref()), (None, Some("maxHops ≠ 0")));
+        assert_eq!((gates.c5, gates.c5_note.as_deref(), gates.c5_bridge_tasks), (None, Some("bridge tasks < 4"), 0));
     }
 
     /// ```text
