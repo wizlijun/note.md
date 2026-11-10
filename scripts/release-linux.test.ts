@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { spawnSync, execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -40,7 +41,8 @@ function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?
 const fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['gh',...a])+'\\n');
 if(a.includes('api')) console.log(${JSON.stringify(remoteCommit)});
 else if(a.includes('view')) console.log(JSON.stringify({tagName:${JSON.stringify(tag)},isDraft:${options.draft !== false}}));
-else if(!a.includes('upload'))process.exit(5);
+else if(a.includes('upload')){const manifest=a.find(x=>x.endsWith('SHA256SUMS-linux.txt'));fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['uploaded-checksums',fs.readFileSync(manifest,'utf8')])+'\\n');}
+else process.exit(5);
 `)
   executable(join(bin, 'docker'), `#!/usr/bin/env node
 const fs=require('fs'),p=require('path'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['docker',...a])+'\\n');
@@ -103,6 +105,8 @@ describe('Linux release orchestration (fake remote/build boundary)', () => {
     }
     expect(all.slice(0, upload).filter(c => c.includes('/verify.sh'))).toHaveLength(3) // two ELF/layout inspections + Arch amd64 runtime
     expect(all[upload].filter(a => /\.deb$|SHA256SUMS-linux\.txt$/.test(a))).toHaveLength(3)
+    expect(all.find(c => c[0] === 'uploaded-checksums')?.[1]).toBe(['amd64', 'arm64'].map(arch =>
+      `${createHash('sha256').update('fixture ' + arch).digest('hex')}  note.md_${version}_${arch}.deb\n`).join(''))
     expect(git(h.repo, 'symbolic-ref', '--short', 'HEAD')).not.toBe('HEAD')
     expect(git(h.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1)
     expect(readFileSync(join(h.repo, 'package.json'), 'utf8')).toContain(version)
@@ -183,5 +187,38 @@ describe('macOS draft creation command', () => {
     const args = calls(log).find(c => c.includes('create'))!
     expect(args).toContain('--draft')
     expect(args.includes('--prerelease')).toBe(Boolean(prerelease))
+  })
+})
+
+
+describe('explicit amd64-only Linux build', () => {
+  it('retains both amd64 verifiers and uploads only the actual amd64 package plus one exact checksum', () => {
+    const h = linuxHarness(), result = h.run([tag, '--amd64-only'])
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const all = calls(h.log), upload = all.findIndex(c => c.includes('upload'))
+    const builds = all.filter(c => c[0] === 'docker' && c[1] === 'run' && !c.includes('/verify.sh'))
+    expect(builds).toHaveLength(1)
+    expect(builds[0][builds[0].indexOf('--platform') + 1]).toBe('linux/amd64')
+    expect(builds[0]).toContain('CARGO_BUILD_JOBS=2')
+    const verifiers = all.slice(0, upload).filter(c => c.includes('/verify.sh'))
+    expect(verifiers).toHaveLength(2)
+    expect(verifiers.some(c => c.includes('--inspect'))).toBe(true)
+    expect(verifiers.some(c => c.includes('--arch-runtime'))).toBe(true)
+    expect(all.some(c => c.includes('linux/arm64'))).toBe(false)
+    expect(all[upload].filter(a => /\.deb$|SHA256SUMS-linux\.txt$/.test(a)).map(a => a.split('/').at(-1))).toEqual([`note.md_${version}_amd64.deb`, 'SHA256SUMS-linux.txt'])
+    const hash = createHash('sha256').update('fixture amd64').digest('hex')
+    expect(all.find(c => c[0] === 'uploaded-checksums')?.[1]).toBe(`${hash}  note.md_${version}_amd64.deb\n`)
+    expect(all.filter(c => c.includes('view'))).toHaveLength(2)
+    expect(git(h.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1)
+  }, 20_000)
+  it.each([{ draft: false }, { remoteMismatch: true }, { fail: 'build' }, { fail: 'verify' }])('never uploads amd64 on preflight/build/verification failure %j', options => {
+    const h = linuxHarness(options), result = h.run([tag, '--amd64-only'])
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('upload') || c.includes('edit'))).toBe(false)
+  }, 20_000)
+  it.each([['--arm64-only'], ['--amd64-only', '--amd64-only'], ['--amd64-only', '--linux-only']])('rejects unsupported or combined build options %j before any remote/build action', (...args) => {
+    const h = linuxHarness(), result = h.run([tag, ...args])
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log)).toEqual([])
   })
 })

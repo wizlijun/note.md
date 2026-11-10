@@ -5,4 +5,5 @@ export function validateRelease(input: {
   without?: string;
   macArm64Only?: boolean;
   linuxOnly?: boolean;
+  linuxAmd64Only?: boolean;
 }): { version: string }

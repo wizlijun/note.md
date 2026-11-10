@@ -390,3 +390,69 @@ describe('Linux-only command boundary (fake network CLI, real downloaded bytes)'
     expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
   }, 20_000)
 })
+
+function linuxAmd64Fixture() {
+  const input = linuxFixture()
+  input.assets = input.assets.filter(a => !a.name.endsWith('_arm64.deb'))
+  input.contents['SHA256SUMS-linux.txt'] = `${sha('amd64-deb')}  note.md_${version}_amd64.deb\n`
+  input.assets.find(a => a.name === 'SHA256SUMS-linux.txt')!.content = input.contents['SHA256SUMS-linux.txt']
+  return input
+}
+
+describe('explicit Linux-amd64-only publication', () => {
+  it('accepts exactly amd64 and its checksum only in the explicit single-architecture mode', () => {
+    expect(() => validateRelease({ ...linuxAmd64Fixture(), linuxAmd64Only: true })).not.toThrow()
+    expect(() => validateRelease({ ...linuxAmd64Fixture(), linuxOnly: true })).toThrow()
+    expect(() => validateRelease({ ...linuxFixture(), linuxAmd64Only: true })).toThrow()
+  })
+  it.each([{ linuxOnly: true }, { macArm64Only: true }, { without: 'linux' }, { without: 'windows' }])('rejects incompatible mode %j', other => {
+    expect(() => validateRelease({ ...linuxAmd64Fixture(), linuxAmd64Only: true, ...other })).toThrow()
+  })
+  it.each([false, true])('publishes downloaded amd64 bytes with latest=false, prerelease=%s', prerelease => {
+    const h = harness(linuxAmd64Fixture(), prerelease)
+    const result = runInteractive(h, ['--linux-amd64-only'], `${tag} linux-amd64-only`)
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    expect(calls(h.log).filter(c => c.includes('edit'))).toEqual([['-R', 'wizlijun/note.md', 'release', 'edit', tag, '--draft=false', '--latest=false']])
+    expect(calls(h.log).filter(c => c.includes('download')).map(c => c[c.indexOf('--pattern') + 1])).toEqual(['SHA256SUMS-linux.txt', `note.md_${version}_amd64.deb`])
+  }, 20_000)
+  it('accepts only its matching draft slug', () => {
+    const input = linuxAmd64Fixture(); input.url = `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}`
+    input.assets.forEach(asset => { asset.url = draftBase + asset.name })
+    const h = harness(input), result = runInteractive(h, ['--linux-amd64-only'], `${tag} linux-amd64-only`)
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    expect(calls(h.log).filter(c => c.includes('view'))).toHaveLength(2)
+  }, 20_000)
+  it.each(['bytes', 'checksum', 'missing-deb', 'missing-checksum', 'old-url', 'other-draft', 'latest', 'arm64', 'extra-checksum', 'arm64-checksum', 'duplicate-checksum'])('rejects invalid single-architecture evidence: %s', drift => {
+    const input = linuxAmd64Fixture(), name = `note.md_${version}_amd64.deb`
+    if (drift === 'bytes') input.contents[name] = 'different-downloaded-bytes'
+    if (drift === 'checksum') input.contents['SHA256SUMS-linux.txt'] = input.contents['SHA256SUMS-linux.txt'].replace(sha('amd64-deb'), '0'.repeat(64))
+    if (drift === 'missing-deb') input.assets = input.assets.filter(a => a.name !== name)
+    if (drift === 'missing-checksum') input.assets = input.assets.filter(a => a.name !== 'SHA256SUMS-linux.txt')
+    if (drift === 'old-url') input.assets[0].url = input.assets[0].url.replace(tag, 'v6.1014.1')
+    if (drift === 'other-draft') input.assets[0].url = draftBase + input.assets[0].name
+    if (drift === 'latest') input.assets.push(fixture().assets.find(a => a.name === 'latest.json')!)
+    if (drift === 'arm64') input.assets.push(fixture().assets.find(a => a.name.endsWith('_arm64.deb'))!)
+    if (drift === 'extra-checksum') input.contents['SHA256SUMS-linux.txt'] += `${sha('arm64-deb')}  note.md_${version}_arm64.deb\n`
+    if (drift === 'arm64-checksum') input.contents['SHA256SUMS-linux.txt'] = `${sha('arm64-deb')}  note.md_${version}_arm64.deb\n`
+    if (drift === 'duplicate-checksum') input.contents['SHA256SUMS-linux.txt'] += input.contents['SHA256SUMS-linux.txt']
+    const h = harness(input), result = runInteractive(h, ['--linux-amd64-only'], `${tag} linux-amd64-only`)
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
+  }, 20_000)
+  it.each(['identity', 'published', 'draft-url'])('rechecks single-architecture draft %s immediately before publication', change => {
+    const input = linuxAmd64Fixture(); input.url = `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}`
+    const h = harness(input, false, change), result = runInteractive(h, ['--linux-amd64-only'], `${tag} linux-amd64-only`)
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
+  }, 20_000)
+  it.each(['yes', `${tag} linux-only`, 'v6.1014.1 linux-amd64-only'])('rejects incorrect confirmation %s', answer => {
+    const h = harness(linuxAmd64Fixture()), result = runInteractive(h, ['--linux-amd64-only'], answer)
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
+  }, 20_000)
+  it.each([['--linux-amd64-only'], ['--linux-amd64-only', '--linux-only'], ['--linux-amd64-only', '--mac-arm64-only'], ['--linux-amd64-only', '--without', 'windows']])('rejects noninteractive or combined arguments %j', (...args) => {
+    const h = harness(linuxAmd64Fixture()), result = h.run([tag, ...args])
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log)).toEqual([])
+  })
+})
