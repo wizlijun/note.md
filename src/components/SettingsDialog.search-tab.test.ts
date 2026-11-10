@@ -616,7 +616,8 @@ describe('SettingsDialog — Search & Index tab entry', () => {
       (candidate) => candidate.querySelector('h3')?.textContent?.trim() === 'Smart Lookup',
     )
     expect(section).toBeTruthy()
-    expect(section?.textContent).toContain('Understand natural language')
+    expect(section?.textContent).not.toContain('Understand natural language')
+    expect(section?.textContent).not.toContain('AI service')
     expect(section?.textContent).toContain('Maximum results')
     expect(section?.textContent).toContain('Quick answer')
     expect(section?.textContent).toContain('Research assistant')

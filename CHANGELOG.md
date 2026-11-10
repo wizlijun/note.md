@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Smart Lookup is rebuilt local-first.** Pressing Enter shows local results immediately instead of first starting an external Agent to interpret the question; neither typing nor searching calls a model. Answers and Agent handoff now work from the local results and still start only on click. Multi-select, remove and undo, the source filter and the in-window settings panel are gone; the remaining options live in Settings.
+
 ## v6.1110.2 — 2026-11-10 (Linux/Omarchy)
 
 - **Inline Fcitx candidates for Sumi on Linux.** Focus mode places candidates below the active line; outside focus mode, typing anchors the body line at the bottom and candidate expansion pushes it upward. Candidates inherit text typography with no separate background or border, up to four rows. Inline preedit has no selection fill; preedit and the current candidate use subtle underlines. Scoped to the native Sumi editor; requires the matching host and Fcitx sumicandidates addon.

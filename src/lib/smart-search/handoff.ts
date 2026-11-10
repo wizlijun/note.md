@@ -88,7 +88,7 @@ export function buildHandoffPacket(
       if (Array.isArray(safe) && safe.length) resolvedFilters[key] = safe
     }
     // Query filters are the authoritative executed range: the host intersects
-    // Planner time with user-locked after/before before building these arms.
+    // query time with user-locked after/before before building these arms.
     // `plan.time` is only a fallback for older hosts that did not expose the
     // effective range there.
     const after = plan.queries.find((query) => typeof query.filters.after === 'string')?.filters.after

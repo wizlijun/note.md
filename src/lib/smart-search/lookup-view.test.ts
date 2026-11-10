@@ -70,7 +70,7 @@ describe('pickTaskAgent', () => {
 
   it('resolves reserved values to app default, then Claude, then the first capable agent', () => {
     expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'auto', 'notemd.other', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.other')
-    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'same_as_planner', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
+    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'auto', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
     expect(pickTaskAgent([summary, other], SEARCH_SUMMARY_TASK, 'auto', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.summary-only')
     expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'ask', 'notemd.broken', HANDOFF_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
     expect(pickTaskAgent([summary], VAULT_RESEARCH_TASK, 'ask', '', HANDOFF_DEFAULT_CHOICES)).toBeNull()

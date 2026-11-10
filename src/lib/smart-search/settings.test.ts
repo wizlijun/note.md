@@ -4,14 +4,12 @@ import { DEFAULT_SMART_LOOKUP_SETTINGS, normalizeSmartLookupSettings } from './s
 describe('smart lookup settings', () => {
   it('uses the low-cost defaults', () => {
     expect(normalizeSmartLookupSettings(undefined)).toEqual(DEFAULT_SMART_LOOKUP_SETTINGS)
-    expect(DEFAULT_SMART_LOOKUP_SETTINGS.planner.timeoutMs).toBe(30_000)
     expect(DEFAULT_SMART_LOOKUP_SETTINGS.results.autoDeepOnZero).toBe(false)
     expect(DEFAULT_SMART_LOOKUP_SETTINGS.summary.modelByProvider).toEqual({})
   })
 
   it('keeps valid fields while independently resetting damaged fields', () => {
     const normalized = normalizeSmartLookupSettings({
-      planner: { enabled: false, provider: 'notemd.codex-agent', timeoutMs: 99_000 },
       results: { limit: 20, groupBy: 'date', autoDeepOnZero: true, deepTimeoutMs: 500 },
       summary: {
         provider: 'auto', sourceLimit: 6, charLimit: 6_000, style: 'sentence', timeoutMs: 30_000,
@@ -25,9 +23,6 @@ describe('smart lookup settings', () => {
       handoff: { defaultProvider: '../bad\0', includeSelectedRefs: false },
     })
 
-    expect(normalized.planner).toMatchObject({
-      enabled: false, provider: 'notemd.codex-agent', timeoutMs: 30_000,
-    })
     expect(normalized.results).toEqual({
       limit: 20, groupBy: 'date', autoDeepOnZero: true, deepTimeoutMs: 4_000,
     })
@@ -40,23 +35,24 @@ describe('smart lookup settings', () => {
 
   it('accepts every inclusive numeric boundary', () => {
     const min = normalizeSmartLookupSettings({
-      planner: { timeoutMs: 10_000 },
       results: { deepTimeoutMs: 1_000 },
       summary: { sourceLimit: 1, charLimit: 1_000, timeoutMs: 5_000 },
     })
     const max = normalizeSmartLookupSettings({
-      planner: { timeoutMs: 60_000 },
       results: { deepTimeoutMs: 5_000 },
       summary: { sourceLimit: 6, charLimit: 6_000, timeoutMs: 30_000 },
     })
-    expect(min.planner.timeoutMs).toBe(10_000)
     expect(min.summary.charLimit).toBe(1_000)
-    expect(max.planner.timeoutMs).toBe(60_000)
     expect(max.summary.sourceLimit).toBe(6)
   })
 
-  it('migrates the unsafe legacy 8 second Planner default', () => {
-    expect(normalizeSmartLookupSettings({ planner: { timeoutMs: 8_000 } }).planner.timeoutMs)
-      .toBe(30_000)
+  it('has no planner settings and drops legacy planner values', () => {
+    const normalized = normalizeSmartLookupSettings({
+      planner: { enabled: true, provider: 'notemd.codex-agent', timeoutMs: 30_000 },
+      summary: { provider: 'same_as_planner' },
+    })
+    expect('planner' in normalized).toBe(false)
+    expect('planner' in DEFAULT_SMART_LOOKUP_SETTINGS).toBe(false)
+    expect(normalized.summary.provider).toBe('auto')
   })
 })

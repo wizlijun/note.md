@@ -3,7 +3,6 @@ import type { AgentHarness, AgentOption } from '../agent-picker/types'
 import type { PluginManifest } from '../plugins/types'
 import type { ModelSelector } from './model-routing'
 
-export const SEARCH_PLAN_TASK = 'search-plan'
 export const SEARCH_SUMMARY_TASK = 'search-summary'
 export const VAULT_RESEARCH_TASK = 'vault-research'
 export const SEARCH_AGENT_POLL_MS = 500
@@ -122,11 +121,6 @@ export function supportsSearchTask(agent: AgentOption, task: string): boolean {
     && capability?.input_only_isolation === true
     && capability?.model_routing?.invocation_override === true
     && (profiles?.fast?.available === true || profiles?.default?.available === true)
-}
-
-export function supportsSearchPlanner(agent: AgentOption): boolean {
-  return supportsSearchTask(agent, SEARCH_PLAN_TASK)
-    && agent.harness?.capabilities?.search_plan_schemas?.includes(1) === true
 }
 
 export async function startAgentTask(
@@ -250,7 +244,7 @@ export async function pollAgentTask(
     }
     const record = response.record ?? {}
     const status = String(record.status ?? 'error')
-    if (task === SEARCH_PLAN_TASK || task === SEARCH_SUMMARY_TASK) {
+    if (task === SEARCH_SUMMARY_TASK) {
       if (status !== 'success') {
         const diagnostic = String(response.terminal_result?.content || record.stderr_tail || '').trim()
         const message = status === 'cancelled'

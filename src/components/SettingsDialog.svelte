@@ -46,7 +46,6 @@
   import type { AgentOption } from '../lib/agent-picker/types'
   import {
     loadSearchAgentOptions,
-    supportsSearchPlanner,
     supportsSearchTask,
     VAULT_RESEARCH_TASK,
   } from '../lib/smart-search/agent'
@@ -179,7 +178,6 @@
   function closeDialog(): void { if (canClose()) open = false }
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
   let smartLookupAgents = $state<AgentOption[]>([])
-  let smartLookupPlannerAgents = $derived(smartLookupAgents.filter(supportsSearchPlanner))
   let smartLookupHandoffAgents = $derived(
     smartLookupAgents.filter((agent) => supportsSearchTask(agent, VAULT_RESEARCH_TASK)),
   )
@@ -777,11 +775,6 @@
     try {
       smartLookupAgents = await loadSearchAgentOptions()
       let changed = false
-      if (settings.smartLookup.planner.provider !== 'auto'
-        && !smartLookupPlannerAgents.some((agent) => agent.id === settings.smartLookup.planner.provider)) {
-        settings.smartLookup.planner.provider = 'auto'
-        changed = true
-      }
       if (settings.smartLookup.handoff.defaultProvider !== 'ask'
         && !smartLookupHandoffAgents.some((agent) => agent.id === settings.smartLookup.handoff.defaultProvider)) {
         settings.smartLookup.handoff.defaultProvider = 'ask'
@@ -1656,24 +1649,6 @@
         {/if}
         <section class="block">
           <h3>{t('smartSearch.windowTitle')}</h3>
-          <p class="desc">{t('smartSearch.smartUnderstandingHint')}</p>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.smartUnderstanding')}</span>
-            <input type="checkbox" checked={settings.smartLookup.planner.enabled} onchange={(event) => {
-              settings.smartLookup.planner.enabled = event.currentTarget.checked; void saveSettings()
-            }} />
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.plannerProvider')}</span>
-            <select value={settings.smartLookup.planner.provider} onchange={(event) => {
-              settings.smartLookup.planner.provider = event.currentTarget.value; void saveSettings()
-            }}>
-              <option value="auto">{t('smartSearch.auto')}</option>
-              {#each smartLookupPlannerAgents as agent (agent.id)}
-                <option value={agent.id}>{agent.harness?.harness || agent.name}</option>
-              {/each}
-            </select>
-          </label>
           <label class="row">
             <span class="lbl">{t('smartSearch.resultLimit')}</span>
             <select value={settings.smartLookup.results.limit} onchange={(event) => {

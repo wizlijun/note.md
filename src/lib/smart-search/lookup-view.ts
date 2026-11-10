@@ -9,7 +9,7 @@ import { supportsSearchTask } from './agent'
 export const FALLBACK_AGENT_ID = 'notemd.claude-agent'
 
 /** `summary.provider` values that mean "choose for me" rather than an agent id. */
-export const SUMMARY_DEFAULT_CHOICES = ['auto', 'same_as_planner'] as const
+export const SUMMARY_DEFAULT_CHOICES = ['auto'] as const
 /** `handoff.defaultProvider` values that mean "choose for me" rather than an agent id. */
 export const HANDOFF_DEFAULT_CHOICES = ['ask'] as const
 
