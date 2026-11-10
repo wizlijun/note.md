@@ -7,6 +7,14 @@ mod attention_links;
 pub mod options;
 pub(crate) mod plan;
 pub(crate) mod smart;
+// E1 evaluation of the local lookup baseline; test builds only.
+#[cfg(test)]
+mod smart_eval;
+// Skeleton for soft time grouping; only the evaluation calls these so far.
+#[allow(dead_code)]
+mod time_group;
+#[allow(dead_code)]
+mod time_phrase;
 pub mod watch;
 
 use std::path::Path;
