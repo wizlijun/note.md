@@ -108,6 +108,9 @@ fn contains_forbidden_filter_path(value: &Value) -> bool {
     }
 }
 
+/// References are hints the Agent re-verifies. One whose file was deleted
+/// (or replaced by a non-file) since indexing is dropped rather than failing
+/// the handoff; a malformed, absolute or traversing path is still an error.
 fn prepare_handoff_in(
     root: &Path,
     question: &str,
@@ -137,12 +140,16 @@ fn prepare_handoff_in(
     {
         return Err("invalid handoff packet".to_string());
     }
-    for reference in &selected_refs {
+    let mut kept = Vec::with_capacity(selected_refs.len());
+    for reference in selected_refs {
         if reference.line == 0 || reference.line_end < reference.line {
             return Err("invalid handoff reference".to_string());
         }
-        canonical_source_path(&root, &reference.path)?;
+        if let SourceLookup::Found(_) = lookup_source_path(&root, &reference.path)? {
+            kept.push(reference);
+        }
     }
+    let selected_refs = kept;
     let packet = json!({
         "version": 1,
         "question": question.trim(),
@@ -277,7 +284,25 @@ pub(crate) fn summary_prompt_for_run(run_id: &str, window_label: &str) -> Result
     Ok(prepare_summary_in(&run, &[], 4, 4_000, "bullets")?.prompt)
 }
 
+/// A well-formed vault-relative source path, looked up on disk.
+enum SourceLookup {
+    Found(PathBuf),
+    /// The path is well-formed but nothing regular is there any more: a
+    /// component is missing or the target is not a regular file. Carries the
+    /// error `canonical_source_path` reports for it.
+    Gone(String),
+}
+
 fn canonical_source_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    match lookup_source_path(root, relative)? {
+        SourceLookup::Found(path) => Ok(path),
+        SourceLookup::Gone(error) => Err(error),
+    }
+}
+
+/// Malformed, absolute, traversing, symlinked, oversized or escaping paths
+/// are errors; a well-formed path whose file is gone is `Gone`.
+fn lookup_source_path(root: &Path, relative: &str) -> Result<SourceLookup, String> {
     let path = Path::new(relative);
     if relative.is_empty()
         || relative.len() > 2_048
@@ -296,15 +321,23 @@ fn canonical_source_path(root: &Path, relative: &str) -> Result<PathBuf, String>
             return Err("invalid lookup source path".to_string());
         };
         current.push(name);
-        let metadata = fs::symlink_metadata(&current)
-            .map_err(|error| format!("inspect lookup source: {error}"))?;
+        let metadata = match fs::symlink_metadata(&current) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(SourceLookup::Gone(format!("inspect lookup source: {error}")));
+            }
+            Err(error) => return Err(format!("inspect lookup source: {error}")),
+        };
         if metadata.file_type().is_symlink() {
             return Err("refusing symlink lookup source".to_string());
         }
     }
     let metadata = fs::symlink_metadata(&current)
         .map_err(|error| format!("inspect lookup source: {error}"))?;
-    if !metadata.is_file() || metadata.len() > MAX_FILE_BYTES {
+    if !metadata.is_file() {
+        return Ok(SourceLookup::Gone("lookup source is not a supported file".to_string()));
+    }
+    if metadata.len() > MAX_FILE_BYTES {
         return Err("lookup source is not a supported file".to_string());
     }
     let canonical =
@@ -312,7 +345,7 @@ fn canonical_source_path(root: &Path, relative: &str) -> Result<PathBuf, String>
     if !canonical.starts_with(root) {
         return Err("lookup source escaped the Vault".to_string());
     }
-    Ok(canonical)
+    Ok(SourceLookup::Found(canonical))
 }
 
 fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, String> {
@@ -693,9 +726,57 @@ mod tests {
     }
 
     #[test]
-    fn handoff_rejects_traversal_and_unknown_files() {
+    fn handoff_drops_references_whose_file_is_gone_or_not_a_file() {
         let root = tempfile::tempdir().unwrap();
-        for path in ["../outside.md", "missing.md", "nested\\file.md"] {
+        fs::write(root.path().join("a.md"), "kept\n").unwrap();
+        fs::create_dir(root.path().join("folder.md")).unwrap();
+        let reference = |path: &str| HandoffRef {
+            path: path.to_string(),
+            line: 1,
+            line_end: 1,
+        };
+        let prompt = prepare_handoff_in(
+            root.path(),
+            "question",
+            json!({}),
+            vec![],
+            vec![
+                reference("missing.md"),
+                reference("a.md"),
+                reference("gone/deeper.md"),
+                reference("folder.md"),
+            ],
+        )
+        .unwrap();
+        assert!(prompt.contains("\"path\":\"a.md\""));
+        assert!(!prompt.contains("missing.md"));
+        assert!(!prompt.contains("gone/deeper.md"));
+        assert!(!prompt.contains("folder.md"));
+
+        // Every reference stale: the handoff still starts, with no refs.
+        let prompt = prepare_handoff_in(
+            root.path(),
+            "question",
+            json!({}),
+            vec![],
+            vec![reference("missing.md")],
+        )
+        .unwrap();
+        assert!(prompt.contains("\"selectedRefs\":[]"));
+    }
+
+    #[test]
+    fn handoff_rejects_traversal_and_malformed_paths() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("a.md"), "kept\n").unwrap();
+        for path in [
+            "../outside.md",
+            "nested\\file.md",
+            "/abs/a.md",
+            "./a.md",
+            "x/../a.md",
+            "",
+        ] {
             let error = prepare_handoff_in(
                 root.path(),
                 "question",
