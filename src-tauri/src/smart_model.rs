@@ -10,8 +10,7 @@
 //! time limit bounds the wait. The key is passed in by the caller and is
 //! never read from, or written to, the vault.
 //!
-//! SKELETON: types, signatures and tests are final; the bodies are not
-//! written yet. Nothing in the product calls this module so far.
+//! Nothing in the product calls this module so far.
 
 #![allow(dead_code)]
 
@@ -49,8 +48,19 @@ pub struct JevConfig {
 /// `https://openrouter.ai/api/alpha/decisions` and `http://localhost:8000/v1`
 /// can all be entered directly.
 pub fn jev_endpoint(url: &str) -> Result<String, String> {
-    let _ = url;
-    todo!("plan Task 5 Step 3")
+    let mut parsed = reqwest::Url::parse(url.trim()).map_err(|e| format!("invalid url: {e}"))?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host().is_none() {
+        return Err("url must be http or https with a host".into());
+    }
+    parsed.set_fragment(None);
+    let path = parsed.path().trim_end_matches('/').to_string();
+    let path = if path.ends_with("/systemone") || path.ends_with("/decisions") {
+        path
+    } else {
+        format!("{path}/systemone")
+    };
+    parsed.set_path(&path);
+    Ok(parsed.to_string())
 }
 
 /// Reject a configuration that cannot be used safely.
@@ -60,8 +70,28 @@ pub fn jev_endpoint(url: &str) -> Result<String, String> {
 /// `127.0.0.0/8`, `::1`) — that would send the key in clear text. The last
 /// error mentions `http`.
 pub fn validate_jev_config(config: &JevConfig) -> Result<(), String> {
-    let _ = config;
-    todo!("plan Task 5 Step 3")
+    if config.url.trim().is_empty() {
+        return Err("url is empty".into());
+    }
+    if config.model.trim().is_empty() {
+        return Err("model is empty".into());
+    }
+    let parsed = reqwest::Url::parse(config.url.trim()).map_err(|e| format!("invalid url: {e}"))?;
+    jev_endpoint(&config.url)?;
+    if config.auth_mode == AuthMode::Bearer && parsed.scheme() == "http" {
+        let loopback = match parsed.host() {
+            Some(url::Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
+            Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+            Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+            None => false,
+        };
+        if !loopback {
+            return Err(
+                "a bearer key over plain http to a non-loopback host would be sent in clear text; use https".into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// One yes/no question. All questions of a request share one `state` and are
@@ -125,8 +155,86 @@ pub async fn score_noul(
     questions: &[NoulQuestion],
     timeout: Duration,
 ) -> Result<NoulOutcome, ModelError> {
-    let _ = (client, config, key, state, questions, timeout);
-    todo!("plan Task 5 Step 3")
+    validate_jev_config(config).map_err(ModelError::Invalid)?;
+    let endpoint = jev_endpoint(&config.url).map_err(ModelError::Invalid)?;
+    let mut seen = std::collections::HashSet::new();
+    if !questions.iter().all(|q| seen.insert(q.id.as_str())) {
+        return Err(ModelError::Invalid("duplicate question id".into()));
+    }
+    let bearer = match (config.auth_mode, key) {
+        (AuthMode::Bearer, Some(k)) if !k.is_empty() => Some(k),
+        (AuthMode::Bearer, _) => return Err(ModelError::Invalid("bearer mode needs a key".into())),
+        (AuthMode::None, _) => None,
+    };
+
+    let mut asked = serde_json::Map::new();
+    for q in questions {
+        asked.insert(
+            q.id.clone(),
+            serde_json::json!({
+                "type": "noul",
+                "instructions": q.instructions,
+                "criteria": {"true": q.criteria_true, "false": q.criteria_false},
+            }),
+        );
+    }
+    let body = serde_json::json!({"model": config.model, "state": state, "questions": asked});
+
+    let mut request = client.post(endpoint).json(&body);
+    if let Some(k) = bearer {
+        request = request.bearer_auth(k);
+    }
+
+    // One deadline covers sending, waiting and reading the body.
+    let exchange = async {
+        let response = request.send().await?;
+        let status = response.status();
+        if !status.is_success() {
+            return Ok((status.as_u16(), Vec::new()));
+        }
+        let bytes = response.bytes().await?;
+        Ok::<_, reqwest::Error>((status.as_u16(), bytes.to_vec()))
+    };
+    let (status, bytes) = match tokio::time::timeout(timeout, exchange).await {
+        Err(_) => return Err(ModelError::Timeout),
+        Ok(Err(e)) if e.is_timeout() => return Err(ModelError::Timeout),
+        Ok(Err(e)) => return Err(ModelError::Transport(e.without_url().to_string())),
+        Ok(Ok(done)) => done,
+    };
+    if !(200..300).contains(&status) {
+        return Err(ModelError::Http(status));
+    }
+
+    let invalid = |m: &str| ModelError::Invalid(m.to_string());
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| invalid("response is not JSON"))?;
+    let answers = value
+        .get("answers")
+        .and_then(|a| a.as_object())
+        .ok_or_else(|| invalid("response has no answers object"))?;
+    if answers.len() != questions.len() {
+        return Err(invalid("answer count differs from question count"));
+    }
+    let mut scores = Vec::with_capacity(questions.len());
+    for q in questions {
+        let answer = answers.get(&q.id).ok_or_else(|| invalid("an answer is missing"))?;
+        if answer.get("type").and_then(|t| t.as_str()) != Some("noul") {
+            return Err(invalid("answer is not of type noul"));
+        }
+        let noul = answer
+            .get("noul")
+            .and_then(|n| n.as_f64())
+            .filter(|n| (0.0..=1.0).contains(n))
+            .ok_or_else(|| invalid("noul is not a number in [0, 1]"))?;
+        scores.push((q.id.clone(), noul));
+    }
+    let usage = value.get("usage").and_then(|u| {
+        Some(Usage {
+            input_tokens: u.get("input_tokens")?.as_u64()?,
+            output_tokens: u.get("output_tokens")?.as_u64()?,
+        })
+    });
+    Ok(NoulOutcome { scores, usage })
 }
 
 #[cfg(test)]
@@ -372,6 +480,66 @@ mod tests {
     #[tokio::test]
     #[ignore = "calls a real Jev endpoint; run by hand with NOTEMD_EVAL_JEV_* set"]
     async fn jev_latency_probe() {
-        todo!("plan Task 5 Step 5")
+        let url = std::env::var("NOTEMD_EVAL_JEV_URL").expect("NOTEMD_EVAL_JEV_URL");
+        let model = std::env::var("NOTEMD_EVAL_JEV_MODEL").expect("NOTEMD_EVAL_JEV_MODEL");
+        let auth_mode = match std::env::var("NOTEMD_EVAL_JEV_AUTH").as_deref() {
+            Ok("none") => AuthMode::None,
+            Ok("bearer") | Err(_) => AuthMode::Bearer,
+            Ok(other) => panic!("NOTEMD_EVAL_JEV_AUTH must be bearer or none, got {other}"),
+        };
+        let key = std::env::var("NOTEMD_EVAL_JEV_KEY").ok();
+        let cfg = JevConfig { url, model, auth_mode };
+        validate_jev_config(&cfg).expect("invalid probe configuration");
+
+        let sentence = "这是一段用于测量延迟的合成文本，不含任何真实笔记内容。";
+        let passage: String = sentence.chars().cycle().take(400).collect();
+        let client = reqwest::Client::new();
+        for k in [10usize, 30] {
+            let questions: Vec<NoulQuestion> = (0..k)
+                .map(|i| NoulQuestion {
+                    id: format!("c{i}"),
+                    instructions: serde_json::json!({
+                        "question": "这段文字是否在讨论软件发布计划？",
+                        "passage": passage,
+                    }),
+                    criteria_true: "文字在讨论软件发布计划。".into(),
+                    criteria_false: "文字没有讨论软件发布计划。".into(),
+                })
+                .collect();
+            let (mut millis, mut timeouts, mut tokens) = (Vec::new(), 0usize, Vec::new());
+            for _ in 0..20 {
+                let started = std::time::Instant::now();
+                let result = score_noul(&client, &cfg, key.as_deref(), "latency probe", &questions, LIMIT).await;
+                match result {
+                    Ok(outcome) => {
+                        millis.push(started.elapsed().as_millis() as u64);
+                        if let Some(u) = outcome.usage {
+                            tokens.push(u.input_tokens);
+                        }
+                    }
+                    Err(ModelError::Timeout) => timeouts += 1,
+                    Err(other) => println!("K={k}: request failed: {other:?}"),
+                }
+            }
+            millis.sort_unstable();
+            let pct = |p: f64| -> String {
+                if millis.is_empty() {
+                    return "n/a".into();
+                }
+                let idx = ((p * millis.len() as f64).ceil() as usize).clamp(1, millis.len()) - 1;
+                millis[idx].to_string()
+            };
+            let mean = if tokens.is_empty() {
+                "n/a".to_string()
+            } else {
+                format!("{:.1}", tokens.iter().sum::<u64>() as f64 / tokens.len() as f64)
+            };
+            println!(
+                "K={k}: ok={} timeouts={timeouts} p50={}ms p95={}ms mean_input_tokens={mean}",
+                millis.len(),
+                pct(0.5),
+                pct(0.95)
+            );
+        }
     }
 }
