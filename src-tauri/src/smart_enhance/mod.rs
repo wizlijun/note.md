@@ -13,6 +13,7 @@ use crate::smart_model::{
     ModelError,
 };
 
+pub(crate) mod answer;
 pub(crate) mod candidates;
 pub(crate) mod evidence;
 pub(crate) mod feedback;
@@ -38,6 +39,9 @@ pub enum EnhanceStatus {
     Unreachable,
     Invalid,
     Cancelled,
+    /// The answer still cited a source number that was not sent, after the
+    /// correction turn (spec H.4); no answer is shown.
+    InvalidCitations,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

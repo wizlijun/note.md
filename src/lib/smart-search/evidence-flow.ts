@@ -1,6 +1,6 @@
 import type { Messages } from '../i18n/en'
 import type { SearchHit } from '../search/api'
-import type { EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm } from './api'
+import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm } from './api'
 import type { HeaderState } from './enhance-flow'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
@@ -162,4 +162,61 @@ export function shouldStartEvidence(hits: number, route: 'judge' | 'skip' | 'rep
   const host = endpointHost(jev.url)
   return enabled && hits > 0 && route !== 'skip' && jev.url.trim() !== '' && jev.model.trim() !== ''
     && host !== null && host === jev.consentHost
+}
+
+/** A piece of the answer: plain text, or a cited source number that links to its evidence item. */
+export type AnswerPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'cite'; text: string; id: number; evidenceId: string }
+
+/** The host's source label (`invalid_citations` in src-tauri/src/smart_enhance/answer.rs). */
+const SOURCE_LABEL = /\[(\d+(?:[ ,，]+\d+)*)\]/g
+
+/**
+ * The answer as plain text (spec H.4): nothing is parsed as HTML or Markdown;
+ * only source labels become links. A label is `[n]` or a list such as
+ * `[1, 2]` not followed by `(` or `:` (a Markdown link or definition), as the
+ * host checks them. `[n]` is one link; a list keeps its brackets and
+ * separators as text around one link per number. A number that names no sent
+ * source stays text.
+ */
+export function answerParts(text: string, sources: AnswerResult['sources']): AnswerPart[] {
+  const byId = new Map(sources.map((source) => [source.id, source.evidenceId]))
+  const parts: AnswerPart[] = []
+  const pushText = (value: string) => {
+    if (!value) return
+    const last = parts.at(-1)
+    if (last?.kind === 'text') last.text += value
+    else parts.push({ kind: 'text', text: value })
+  }
+  const cite = (digits: string, label: string) => {
+    const id = Number(digits)
+    const evidenceId = byId.get(id)
+    if (evidenceId === undefined) pushText(label)
+    else parts.push({ kind: 'cite', text: label, id, evidenceId })
+  }
+  let at = 0
+  for (const match of text.matchAll(SOURCE_LABEL)) {
+    const start = match.index ?? 0
+    const end = start + match[0].length
+    if (text[end] === '(' || text[end] === ':') continue
+    pushText(text.slice(at, start))
+    const inner = match[1]
+    if (/^\d+$/.test(inner)) {
+      cite(inner, match[0])
+    } else {
+      pushText('[')
+      let from = 0
+      for (const number of inner.matchAll(/\d+/g)) {
+        const index = number.index ?? 0
+        pushText(inner.slice(from, index))
+        cite(number[0], number[0])
+        from = index + number[0].length
+      }
+      pushText(inner.slice(from) + ']')
+    }
+    at = end
+  }
+  pushText(text.slice(at))
+  return parts
 }

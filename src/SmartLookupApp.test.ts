@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   diagnosis: { terms: [] } as unknown,
   keys: { jev: true, chat: false },
   repair: null as unknown,
+  /** `smart_lookup_answer` results handed out in call order. */
+  answers: [] as unknown[],
   groups: null as unknown,
   saveError: false,
 }))
@@ -67,7 +69,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 
 import SmartLookupApp from './SmartLookupApp.svelte'
 import { settings } from './lib/settings.svelte'
-import type { EvidenceItem, EvidenceStepResult } from './lib/smart-search/api'
+import type { AnswerResult, EvidenceItem, EvidenceStepResult } from './lib/smart-search/api'
 
 let component: ReturnType<typeof mount> | null = null
 
@@ -141,6 +143,13 @@ function ev(id: string, foundRound: number, extra: Partial<EvidenceItem> = {}): 
   }
 }
 
+function answered(partial: Partial<AnswerResult> = {}): AnswerResult {
+  return {
+    status: 'ok', missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
+    omittedSources: 0, requestCount: 1, elapsedMs: 900, usage: { inputTokens: 300, outputTokens: 40 }, ...partial,
+  }
+}
+
 const JEV = { url: 'https://api.typesafe.ai/v1', model: 'jev-1', authMode: 'bearer', consentHost: 'api.typesafe.ai' }
 const CHAT = { url: 'https://chat.example/v1', model: 'small' }
 
@@ -172,6 +181,7 @@ function installInvokeMock(): void {
     if (command === 'smart_lookup_diagnose') return mocks.diagnosis
     if (command === 'smart_lookup_key_status') return mocks.keys
     if (command === 'smart_lookup_repair_suggest') return mocks.repair
+    if (command === 'smart_lookup_answer') return mocks.answers.shift()
     if (command === 'smart_lookup_search_groups') return mocks.groups
     return undefined
   })
@@ -267,6 +277,7 @@ beforeEach(() => {
   mocks.diagnosis = { terms: [] }
   mocks.keys = { jev: true, chat: false }
   mocks.repair = null
+  mocks.answers = []
   mocks.groups = null
   mocks.saveError = false
   mocks.storedSmartLookup = { enhance: { jev: { ...JEV } }, launch: { firstRunSeen: true } }
@@ -618,6 +629,80 @@ describe('SmartLookupApp evidence', () => {
     expect(evidenceIds()).toEqual(['e1'])
     expect(evidenceHead()).not.toContain('No evidence found')
     expect(calls('smart_lookup_evidence_step')).toHaveLength(2)
+  })
+
+  it('generates an answer only when the user clicks', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT, consentHost: 'chat.example' } } }
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e2', 1)] }))
+    mocks.answers.push(answered({
+      text: 'ANSWER_TEXT chaired by Alice [1].\n<b>bold</b> **star** [1, 2] [9] [2](http://x)',
+      sources: [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e2' }],
+      omittedSources: 1,
+    }))
+    const input = await mountReady()
+    await submit(input)
+    // No button while the evidence is still being gathered.
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+    expect(document.querySelector('.answer-generate')).toBeNull()
+    release()
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1', 'e2']))
+    await wait(20)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.answer-text')).not.toBeNull())
+    expect(calls('smart_lookup_answer')).toEqual([
+      { lookupRunId: 'run-1', chat: { url: CHAT.url, model: CHAT.model, consentHost: 'chat.example' } },
+    ])
+    const text = document.querySelector<HTMLElement>('.answer-text')!
+    // Plain text: no HTML or Markdown is rendered.
+    expect(text.textContent).toBe('ANSWER_TEXT chaired by Alice [1].\n<b>bold</b> **star** [1, 2] [9] [2](http://x)')
+    expect(text.querySelector('b, strong, em')).toBeNull()
+    const links = [...text.querySelectorAll<HTMLAnchorElement>('a.citation')]
+    expect(links.map((link) => [link.textContent, link.dataset.cite])).toEqual([['[1]', 'e1'], ['1', 'e1'], ['2', 'e2']])
+    expect(evidenceHead() + document.querySelector('.evidence-answer')?.textContent).toContain('1 passage(s) over the budget were not sent')
+
+    click(links[2])
+    await vi.waitFor(() => expect(activeEvidenceId()).toBe('e2'))
+    click(links[0])
+    await vi.waitFor(() => expect(activeEvidenceId()).toBe('e1'))
+    expect(calls('smart_lookup_answer')).toHaveLength(1)
+
+    // The activity log has the status and counts, never the answer.
+    await chooseMenuAction('Copy activity log')
+    await vi.waitFor(() => expect(mocks.writeText).toHaveBeenCalledTimes(1))
+    const log = String(mocks.writeText.mock.calls[0][0])
+    const entry = log.split('\n').map((line) => JSON.parse(line)).find((e) => e.stage === 'answer')
+    expect(entry).toMatchObject({ level: 'success', usage: { inputTokens: 300, outputTokens: 40 } })
+    expect(entry.message).toContain('answer ok')
+    expect(log).not.toContain('ANSWER_TEXT')
+    expect(log).not.toContain('chat.example')
+  })
+
+  it('an answer without consent or with invalid citations shows no model text', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(
+      answered({ status: 'noConsent', requestCount: 0, usage: null }),
+      answered({ status: 'invalidCitations', requestCount: 3, sources: [{ id: 1, evidenceId: 'e1' }] }),
+    )
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1']))
+
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.evidence-answer')?.textContent).toContain('Sending to chat.example not allowed'))
+    expect(calls('smart_lookup_answer')[0].chat).toEqual({ url: CHAT.url, model: CHAT.model, consentHost: '' })
+    click(button('Settings'))
+    await vi.waitFor(() => expect(mocks.emitTo).toHaveBeenCalledWith('main', 'settings://open-tab', { tab: 'enhance' }))
+
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.evidence-answer')?.textContent).toContain('The model cited source numbers that do not exist'))
+    expect(document.querySelector('.answer-text')).toBeNull()
+    expect(calls('smart_lookup_answer')).toHaveLength(2)
   })
 
   it('one fit item is evidence: no rephrase offer', async () => {

@@ -226,6 +226,9 @@
   // The repair model always sends a Bearer key (spec F.7).
   const chatInsecure = $derived(sendsKeyInClearText(settings.smartLookup.enhance.chat.url, 'bearer'))
   const jevConsented = $derived(jevHost !== null && jevHost === settings.smartLookup.enhance.jev.consentHost)
+  // The evidence answer sends passages to the repair model's host, so it needs its own consent (spec H.6).
+  const chatHost = $derived(endpointHost(settings.smartLookup.enhance.chat.url, 'chat'))
+  const chatConsented = $derived(chatHost !== null && chatHost === settings.smartLookup.enhance.chat.consentHost)
   const jevRequestExample = JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2)
 
   $effect(() => {
@@ -252,6 +255,10 @@
   }
   function setJevConsent(allowed: boolean) {
     settings.smartLookup.enhance.jev.consentHost = allowed && jevHost !== null ? jevHost : ''
+    void saveSettings()
+  }
+  function setChatConsent(allowed: boolean) {
+    settings.smartLookup.enhance.chat.consentHost = allowed && chatHost !== null ? chatHost : ''
     void saveSettings()
   }
   async function saveEnhanceKey(kind: KeyKind) {
@@ -2166,6 +2173,13 @@
           </label>
           {@render keyRow('chat')}
           {@render testRow('chat', chatInsecure)}
+          <label class="row" data-chat-consent>
+            <!-- As for Jev: withdrawing is always allowed; giving it needs a URL that does not send the key in clear text. -->
+            <input type="checkbox" checked={chatConsented} disabled={chatHost === null || (chatInsecure && !chatConsented)}
+              onchange={(event) => setChatConsent(event.currentTarget.checked)} />
+            <span class="lbl">{t('settings.enhance.consent', { host: chatHost ?? '—' })}</span>
+          </label>
+          <p class="desc">{t('settings.enhance.chatConsentHint')}</p>
         </section>
       {:else if selectedTab === 'outline-notes'}
         <section class="block">

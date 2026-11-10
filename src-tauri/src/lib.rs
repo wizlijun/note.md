@@ -1723,6 +1723,7 @@ pub fn run() {
                 smart_enhance::smart_lookup_cancel,
                 smart_enhance::judge::smart_lookup_judge,
                 smart_enhance::evidence::smart_lookup_evidence_step,
+                smart_enhance::answer::smart_lookup_answer,
                 smart_enhance::feedback::smart_lookup_feedback,
                 smart_enhance::repair::smart_lookup_repair_suggest,
                 smart_enhance::repair::smart_lookup_test_chat,

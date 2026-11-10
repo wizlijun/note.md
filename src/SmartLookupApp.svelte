@@ -19,6 +19,7 @@
   import { SmartSearchStore } from './lib/smart-search/store.svelte'
   import {
     smartSearchApi,
+    type AnswerResult,
     type Diagnosis,
     type EnhanceStatus,
     type EvidenceItem,
@@ -39,6 +40,8 @@
     type ResultSection,
   } from './lib/smart-search/lookup-view'
   import {
+    answerMessage,
+    chatAnswerConfig,
     chatRequestConfig,
     endpointHost,
     headerMessage,
@@ -54,6 +57,7 @@
   import {
     absolutePath,
     addTotals,
+    answerParts,
     applyPending,
     applyRound,
     emptyEvidence,
@@ -84,8 +88,8 @@
 
   /** `preview`: live typing results. `lookup`: the result of an Enter. */
   type ResultsMode = 'idle' | 'preview' | 'lookup'
-  /** The evidence run or repair request the host is working on; `token` tells a newer one from an older one. */
-  type Inflight = { runId: string; kind: 'evidence' | 'repair'; token: number }
+  /** The evidence run, repair or answer request the host is working on; `token` tells a newer one from an older one. */
+  type Inflight = { runId: string; kind: 'evidence' | 'repair' | 'answer'; token: number }
   type StripState = { inputs: string[]; counts: number[] | null; error: string }
   /** `order`: the attempts in the order they ran (ledger ruling). */
   type Attempts = {
@@ -171,6 +175,15 @@
   let totals = $state<EvidenceTotals>(emptyTotals())
   let detailsOpen = $state(false)
   let feedbackSaved = $state<Record<string, 'fit' | 'unfit'>>({})
+  /**
+   * 「生成简答」 (spec H.4): only ever started by a click. `answer.text` is the one
+   * remote text this window shows, as plain text with `[n]` links; it is
+   * never written to the activity log.
+   */
+  let answer = $state<AnswerResult | null>(null)
+  let answerBusy = $state(false)
+  /** A host error (nothing was sent, or the run expired), redacted. */
+  let answerError = $state('')
   let now = $state(Date.now())
   /** Arrow keys, a click on a row, scrolling the list or opening a result since this Enter. */
   let interacted = false
@@ -236,6 +249,15 @@
   let showCriterion = $derived(settings.smartLookup.enhance.enabled && !repaired && store.hits.length > 0)
   let headerText = $derived(headerLine(header))
   let showStart = $derived(offerStart && evidenceRound === null && !repaired)
+  /** After the evidence rounds, when there is evidence to answer from. */
+  let showAnswer = $derived(
+    mode === 'lookup' && settings.smartLookup.enhance.enabled && !repaired && evidenceRound === null && evidence.shown.length > 0,
+  )
+  let answerNote = $derived.by(() => {
+    if (answerError) return t('smartSearch.answer.failed', { error: answerError })
+    const message = answer ? answerMessage(answer) : null
+    return message ? t(message.key, message.params) : ''
+  })
   let showJudgeHeader = $derived(mode === 'lookup' && (headerText !== '' || repairBusy || showStart))
   /** A failed 「换个说法」: its own line, whatever the judge header shows (F.3: every degraded state is visible). */
   let showRepairNotice = $derived(mode === 'lookup' && repairNotice !== null && !repairBusy)
@@ -316,6 +338,7 @@
     inflight = null
     evidenceRound = null
     repairBusy = false
+    answerBusy = false
     if (current) void smartSearchApi.cancel(current.runId).catch(() => {})
     return current
   }
@@ -342,6 +365,13 @@
     totals = emptyTotals()
     detailsOpen = false
     feedbackSaved = {}
+    clearAnswer()
+  }
+
+  function clearAnswer(): void {
+    answer = null
+    answerBusy = false
+    answerError = ''
   }
 
   function resetRepair(): void {
@@ -731,6 +761,8 @@
     header = { kind: 'none' }
     offerStart = false
     repairNotice = null
+    // New rounds change the evidence the answer cited.
+    clearAnswer()
     const deep = evidenceDeep
     for (;;) {
       evidenceRound = { hop: nextHop(evidence), startedAt: Date.now() }
@@ -765,6 +797,54 @@
     }
     inflight = null
     evidenceRound = null
+  }
+
+  /**
+   * 「生成简答」: one user-triggered call; the host re-checks every passage,
+   * needs consent for the repair model's host and sends at most three requests.
+   */
+  async function generateAnswer(): Promise<void> {
+    const runId = evidenceRunId
+    if (!showAnswer || answerBusy || !runId) return
+    const mine = requestSequence
+    const token = ++enhanceToken
+    inflight = { runId, kind: 'answer', token }
+    answer = null
+    answerError = ''
+    answerBusy = true
+    let result: AnswerResult
+    try {
+      result = await smartSearchApi.answer(runId, chatAnswerConfig(settings.smartLookup))
+    } catch (error) {
+      if (inflight?.token !== token || mine !== requestSequence) return
+      inflight = null
+      answerBusy = false
+      answerError = redactError(error)
+      appendActivity('answer', 'error', `answer failed: ${answerError}`)
+      return
+    }
+    if (inflight?.token !== token || mine !== requestSequence) return
+    inflight = null
+    answerBusy = false
+    answer = result
+    modelRequests = { ...modelRequests, repair: modelRequests.repair + result.requestCount }
+    appendActivity('answer', result.status === 'ok' || result.status === 'skipped' ? 'success' : 'warning', answerLog(result), { usage: result.usage })
+  }
+
+  /** Status and counts only: never the answer, never the host, never note text. */
+  function answerLog(result: AnswerResult): string {
+    const code = result.statusClass ? ` ${result.statusClass}` : ''
+    return `answer ${result.status}${code} · sources ${result.sources.length} · omitted ${result.omittedSources}`
+      + ` · requests ${result.requestCount} · ${result.elapsedMs} ms`
+  }
+
+  /** A `[n]` link: select evidence item n when it is in the list shown. */
+  async function showCited(evidenceId: string): Promise<void> {
+    const target = evidenceRows.find((row) => row.evidence?.evidenceId === evidenceId)
+    if (!target) return
+    markInteracted()
+    activeKey = rowKey(target)
+    await refocusActive()
   }
 
   function nextHop(view: EvidenceView): number {
@@ -1599,6 +1679,40 @@
                       </div>
                     {/if}
                   </div>
+                  {#if showAnswer || answerBusy || answer || answerError}
+                    <div class="evidence-answer">
+                      {#if answerBusy}
+                        <div class="evidence-status">
+                          <span class="spinner" aria-hidden="true"></span>
+                          <span class="judge-text" aria-live="polite">{t('smartSearch.answer.answering')}</span>
+                        </div>
+                      {:else if showAnswer}
+                        <div class="evidence-status">
+                          <button class="text-button answer-generate" onclick={() => void generateAnswer()}>{t('smartSearch.answer.generate')}</button>
+                        </div>
+                      {/if}
+                      {#if answer?.status === 'ok' && answer.text !== null}
+                        {@const sources = answer.sources}
+                        <!-- Plain text only (H.4): interpolation escapes everything; only source labels become links. -->
+                        <p class="answer-text">{#each answerParts(answer.text, sources) as part}{#if part.kind === 'cite'}<a
+                          class="citation"
+                          href={`#evidence-${part.id}`}
+                          data-cite={part.evidenceId}
+                          onclick={(event) => { event.preventDefault(); void showCited(part.evidenceId) }}
+                        >{part.text}</a>{:else}{part.text}{/if}{/each}</p>
+                        {#if answer.omittedSources > 0}
+                          <p class="answer-note">{t('smartSearch.answer.omitted', { count: answer.omittedSources })}</p>
+                        {/if}
+                      {:else if answerNote}
+                        <div class="evidence-status">
+                          <span class="judge-text" role="status">{answerNote}</span>
+                          {#if answer?.status === 'noConsent' || answer?.status === 'notConfigured'}
+                            <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettings')}</button>
+                          {/if}
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
                   {#if evidenceRows.length}
                     <div class="evidence-list" role="listbox" aria-label={t('smartSearch.evidence.title')}>
                       {#each evidenceRows as hit (rowKey(hit))}
@@ -1761,6 +1875,11 @@
   .evidence-status { display: flex; align-items: center; gap: 8px; min-height: 22px; padding: 0 12px 0 16px; font-size: 12px; }
   .evidence-terms { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0 16px; font-size: 11px; color: var(--lookup-muted); }
   .evidence-restore { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 12px; }
+  .evidence-answer { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
+  .answer-text { margin: 2px 16px 4px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+  .answer-note { margin: 0 16px 2px; font-size: 11px; color: var(--lookup-muted); }
+  .citation { color: var(--lookup-accent); text-decoration: none; font-variant-numeric: tabular-nums; }
+  .citation:hover { text-decoration: underline; }
   .result-crumb { min-width: 0; font-size: 11px; color: var(--lookup-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .group-label { display: flex; gap: 6px; padding: 4px 16px; font-size: 11px; font-weight: 600; color: var(--lookup-muted); }
   .result-row { padding: 7px 16px; border-left: 3px solid transparent; cursor: default; }

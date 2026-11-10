@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { en } from '../i18n/en'
-import type { Missing, RepairSuggestion } from './api'
+import type { AnswerResult, Missing, RepairSuggestion } from './api'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, type SmartLookupSettings } from './settings'
 import {
+  answerMessage,
   chatRequestConfig,
   endpointHost,
   headerMessage,
@@ -170,5 +171,25 @@ describe('repair and no-match', () => {
     expect(noMatchAttempts({ hits: 0, tookMs: 5 }, { kind: 'rephrased', hits: 0, tookMs: 900 }, null)).toEqual([
       { kind: 'original', hits: 0, tookMs: 5 }, { kind: 'rephrased', hits: 0, tookMs: 900 }, { kind: 'scan', hits: null, tookMs: null },
     ])
+  })
+})
+
+describe('answerMessage', () => {
+  const result = (partial: Partial<AnswerResult>): AnswerResult => ({
+    status: 'ok', missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
+    omittedSources: 0, requestCount: 1, elapsedMs: 1, usage: null, ...partial,
+  })
+
+  it('names what kept the answer from being shown, with the host at most', () => {
+    expect(answerMessage(result({ text: 'x [1]' }))).toBeNull()
+    expect(answerMessage(result({ status: 'cancelled' }))).toBeNull()
+    expect(answerMessage(result({ status: 'skipped' }))).toEqual({ key: 'smartSearch.answer.noSources', params: {} })
+    expect(answerMessage(result({ status: 'noConsent' }))).toEqual({ key: 'smartSearch.answer.noConsent', params: { host: 'chat.example' } })
+    expect(answerMessage(result({ status: 'invalidCitations' }))).toEqual({ key: 'smartSearch.answer.invalidCitations', params: {} })
+    expect(answerMessage(result({ status: 'timeout' }))).toEqual({ key: 'smartSearch.answer.timeout', params: {} })
+    expect(answerMessage(result({ status: 'invalid' }))).toEqual({ key: 'smartSearch.answer.invalid', params: { host: 'chat.example' } })
+    expect(answerMessage(result({ status: 'notConfigured', missing: 'key', endpointHost: null }))).toEqual({ key: 'smartSearch.enhance.notConfiguredKey', params: {} })
+    expect(answerMessage(result({ status: 'keyInvalid', statusClass: '4xx' }))).toEqual({ key: 'smartSearch.enhance.keyInvalid', params: { host: 'chat.example', code: '4xx' } })
+    expect(en['smartSearch.answer.noConsent']).toBe('Sending to {host} not allowed')
   })
 })

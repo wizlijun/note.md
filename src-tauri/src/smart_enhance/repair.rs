@@ -190,11 +190,12 @@ pub(crate) fn group_query(group: &TermGroup, filters: &[String]) -> String {
         .join(" ")
 }
 
-/// The configuration check behind both commands: url empty → Url; model
+/// The configuration check behind both commands here and the evidence
+/// answer (`answer.rs`, which adds per-host consent): url empty → Url; model
 /// empty → Model; unparseable, not http(s), no host or carrying userinfo →
 /// Url; plain http to a non-loopback host → Insecure (the key is always a
 /// bearer key); no key → Key.
-fn check_chat(config: &ChatRequestConfig, key: Option<&str>) -> Result<ChatConfig, Missing> {
+pub(crate) fn check_chat(config: &ChatRequestConfig, key: Option<&str>) -> Result<ChatConfig, Missing> {
     if config.url.trim().is_empty() {
         return Err(Missing::Url);
     }
@@ -221,7 +222,7 @@ fn check_chat(config: &ChatRequestConfig, key: Option<&str>) -> Result<ChatConfi
     Ok(chat)
 }
 
-fn chat_host(chat: &ChatConfig) -> Option<String> {
+pub(crate) fn chat_host(chat: &ChatConfig) -> Option<String> {
     chat_endpoint(&chat.url).and_then(|e| endpoint_host(&e)).ok()
 }
 

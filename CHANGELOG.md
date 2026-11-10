@@ -7,13 +7,15 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Smart Lookup is rebuilt local-first.** Return shows local results immediately; typing never calls a model, and the model never reorders or removes local results. With enhancement on, Jev marks the local results it judged “Fits” or “Possibly unrelated” (see Evidence below); if a request fails or is not configured, the local results stay as they are. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “Create answer” and “In-depth research” are removed from Smart Lookup.
+- **Smart Lookup is rebuilt local-first.** Return shows local results immediately; typing never calls a model, and the model never reorders or removes local results. With enhancement on, Jev marks the local results it judged “Fits” or “Possibly unrelated” (see Evidence below); if a request fails or is not configured, the local results stay as they are. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “In-depth research” is removed from Smart Lookup, and the agent-written answer is replaced by one written from the evidence (see below).
 
 - **New Settings → Lookup enhancement tab.** Choose the Jev endpoint (official, OpenRouter or self-hosted), model and authentication, and test the connection. The key is stored only on this device and is never shown again. Sending to a host needs your consent for that host, and notes marked confidential are never sent. A separate endpoint can be set for the query repair model.
 
 - **Headless `notemd lookup` command and tunable parameters.** `notemd lookup` runs Smart Lookup from the command line and has an `eval` mode for measuring result quality. Ranking and enhancement parameters live in `smart-lookup/params.json`, documented in `docs/smart-lookup-parameters.md`.
 
 - **Smart Lookup adds an “Evidence” section.** Above the local results, Jev looks for evidence round by round and expands the search from what the evidence names; you can stop at any time and go back to an earlier round.
+
+- **Smart Lookup can answer from the evidence, citing its sources by number (allow sending to the repair model’s host in Settings first).** The question and the evidence passages are sent only when you click “Answer”; the answer is shown as plain text, each [1], [2] links to its evidence, and an answer that cites a number that does not exist is not shown.
 
 ## v6.1110.5 — 2026-11-10
 
