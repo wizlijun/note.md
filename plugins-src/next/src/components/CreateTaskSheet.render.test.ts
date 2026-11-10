@@ -12,6 +12,7 @@ afterEach(() => {
   if (component) unmount(component)
   component = null
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
 })
 
 function input(name: string, value: string): void {
@@ -21,7 +22,7 @@ function input(name: string, value: string): void {
 }
 
 describe('CreateTaskSheet', () => {
-  it('creates an Inbox Task with Command-Enter and keeps optional fields structured', async () => {
+  it('creates an Inbox Task with Control-Enter and keeps optional fields structured', async () => {
     const onSubmit = vi.fn(async () => {})
     component = mount(CreateTaskSheet, {
       target: document.body,
@@ -31,7 +32,7 @@ describe('CreateTaskSheet', () => {
 
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('inbox/tasks')
     window.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'Enter', metaKey: true, bubbles: true, cancelable: true,
+      key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true,
     }))
     flushSync()
     expect(document.querySelector('[role="alert"]')?.textContent).toContain('任务')
@@ -41,7 +42,7 @@ describe('CreateTaskSheet', () => {
     input('body', '确认签名环境变量。')
     input('done_when', '构建可安装')
     window.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'Enter', metaKey: true, bubbles: true, cancelable: true,
+      key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true,
     }))
     await Promise.resolve()
 
@@ -54,6 +55,24 @@ describe('CreateTaskSheet', () => {
     }, false)
   })
 
+  it('submits once with Linux Ctrl+Enter, ignoring Super, extra modifiers and IME/repeat/consumed events', async () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64')
+    const onSubmit = vi.fn(async () => {})
+    component = mount(CreateTaskSheet, { target: document.body,
+      props: { taskDir: 'inbox/tasks', saving: false, onCancel: vi.fn(), onSubmit } })
+    flushSync(); input('title', '只创建一次')
+    for (const init of [
+      { metaKey: true }, { ctrlKey: true, metaKey: true },
+      { ctrlKey: true, shiftKey: true }, { ctrlKey: true, altKey: true },
+      { ctrlKey: true, repeat: true }, { ctrlKey: true, isComposing: true }, { ctrlKey: true, keyCode: 229 },
+    ]) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ...init, cancelable: true }))
+    const consumed = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, cancelable: true })
+    consumed.preventDefault(); window.dispatchEvent(consumed)
+    await Promise.resolve(); expect(onSubmit).not.toHaveBeenCalled()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, cancelable: true }))
+    await Promise.resolve()
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith({ title: '只创建一次', priority: 'P2', contexts: [] }, false)
+  })
   it('requires a close condition only for the explicit mark-current action', async () => {
     const onSubmit = vi.fn(async () => {})
     component = mount(CreateTaskSheet, {

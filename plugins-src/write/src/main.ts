@@ -1,4 +1,5 @@
 import './style.css'
+import { isApplePlatformSync, primaryShortcut, shortcutEventBlocked } from '../../shared/shortcuts'
 import { createI18n } from '../../../src/lib/sumi/i18n'
 import { fontPresets, pageLabel, preferencesFromForm, type SumiState, type SurfaceHandle, type Bounds, type FontState, type SoundState } from './contract'
 
@@ -50,9 +51,11 @@ el('app').innerHTML = `<main id="surface" aria-label="${appName}"></main>
 <div id="notice-slot"><p id="notice" role="status" aria-live="polite" tabindex="-1" hidden></p><button id="retry-save" hidden></button></div>
 <nav id="tools" aria-label="${appName}"><button id="previous">←</button><button id="next">→</button><button id="new">＋</button><button id="pages">☷</button><button id="appearance">Aa</button><button id="sync">⇄</button><button id="fullscreen">⛶</button></nav>
 <section id="panel" hidden aria-modal="true" role="dialog" aria-labelledby="panel-title"><header><h1 id="panel-title"></h1><button id="close">×</button></header><div id="panel-body"></div></section>`
-for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page', '前のページ'), next: t('下一页', 'Next page', '次のページ'), new: t('新的一页', 'New page', '新しいページ'), pages: t('纸页', 'Pages', 'ページ'), appearance: t('外观', 'Appearance', '外観'), sync: t('同步', 'Sync', '同期'), fullscreen: t('进入全屏（Cmd/Win/Super+Enter）', 'Enter fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンにする（Cmd/Win/Super+Enter）'), close: t('返回书写', 'Back to writing', '執筆に戻る') })) {
+for (const [id, label] of Object.entries({ previous: t('上一页', 'Previous page', '前のページ'), next: t('下一页', 'Next page', '次のページ'), new: t('新的一页', 'New page', '新しいページ'), pages: t('纸页', 'Pages', 'ページ'), appearance: t('外观', 'Appearance', '外観'), sync: t('同步', 'Sync', '同期'), close: t('返回书写', 'Back to writing', '執筆に戻る') })) {
   el(id).title = label; el(id).setAttribute('aria-label', label)
 }
+document.documentElement.dataset.platform = /Linux/i.test(navigator.platform) ? 'linux' : 'other'
+fullscreenLabel(false)
 
 async function request<T>(method: string, params?: unknown): Promise<T> {
   if (!window.notemd) throw new Error(t('请在 note.md 中打开玄霜打字机。', 'Open Sumi Typewriter inside note.md.', 'note.md からすみを開いてください。'))
@@ -485,8 +488,10 @@ el('pages').onclick = () => void run(showPages)
 el('appearance').onclick = () => void run(showAppearance)
 el('sync').onclick = () => void run(showSync)
 function fullscreenLabel(active: boolean) {
+  document.documentElement.dataset.fullscreen = String(active)
   const button = el('fullscreen')
-  button.title = active ? t('退出全屏（Cmd/Win/Super+Enter）', 'Exit fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンを解除（Cmd/Win/Super+Enter）') : t('进入全屏（Cmd/Win/Super+Enter）', 'Enter fullscreen (Cmd/Win/Super+Enter)', 'フルスクリーンにする（Cmd/Win/Super+Enter）')
+  const shortcut = isApplePlatformSync() ? '⌘Enter' : 'F11'
+  button.title = active ? t(`退出全屏（${shortcut}）`, `Exit fullscreen (${shortcut})`, `フルスクリーンを解除（${shortcut}）`) : t(`进入全屏（${shortcut}）`, `Enter fullscreen (${shortcut})`, `フルスクリーンにする（${shortcut}）`)
   button.setAttribute('aria-label', button.title)
   button.setAttribute('aria-pressed', String(active))
 }
@@ -499,14 +504,13 @@ el('close').onclick = () => void run(() => closePanel())
 el('retry-save').textContent = t('重试保存', 'Retry saving', '保存を再試行')
 el('retry-save').onclick = () => void run(async () => { await request('command', { action: 'save' }); await refresh() })
 document.addEventListener('keydown', event => {
-  if (!mounted || event.isComposing) return
-  const fullscreen = event.metaKey && !event.altKey && !event.shiftKey && (
-    (!event.ctrlKey && event.key === 'Enter') ||
-    (event.ctrlKey && event.key.toLowerCase() === 'f')
-  )
+  if (!mounted || shortcutEventBlocked(event)) return
+  const fullscreen = isApplePlatformSync()
+    ? primaryShortcut(event, 'Enter') || (event.metaKey && event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'f')
+    : event.key === 'F11' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
   if (fullscreen) {
     event.preventDefault()
-    if (!event.repeat) void run(toggleFullscreen)
+    void run(toggleFullscreen)
   } else if (event.key === 'Escape' && panelOpen) void run(() => closePanel())
 })
 function scheduleBounds() {

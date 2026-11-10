@@ -15,7 +15,8 @@ const fontState = (overrides: Partial<FontState> = {}): FontState => ({
   selectedFont: 'Sumi Plex', pendingFont: null, ...overrides,
 })
 const fontButton = (family: string) => document.querySelector<HTMLButtonElement>(`button[data-font="${family}"]`)!
-async function setup(next = state(), mount?: () => Promise<unknown>, locale = 'zh') {
+async function setup(next = state(), mount?: () => Promise<unknown>, locale = 'zh', platform = 'MacIntel') {
+  vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
   vi.resetModules()
   document.body.innerHTML = '<div id="app"></div>'
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
@@ -32,7 +33,7 @@ async function setup(next = state(), mount?: () => Promise<unknown>, locale = 'z
   await settle()
   return request
 }
-afterEach(() => { document.querySelector('[data-sumi-test-style]')?.remove(); sessionStorage.clear(); window.dispatchEvent(new Event('pagehide')); delete window.notemd; vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(() => { document.querySelector('[data-sumi-test-style]')?.remove(); sessionStorage.clear(); window.dispatchEvent(new Event('pagehide')); delete window.notemd; vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
 
 describe('Sumi native writing shell', () => {
   it('does not create a page or mount a fake web editor on unsupported systems', async () => {
@@ -111,12 +112,45 @@ describe('Sumi native writing shell', () => {
     expect(request.mock.calls.map(call => call[0])).toEqual(['host.sumi.fullscreen', 'host.sumi.fullscreen'])
     expect(document.getElementById('panel')!.hidden).toBe(false)
   })
+  it('uses plain F11 on Linux and leaves desktop Super chords alone', async () => {
+    const request = await setup(state(), undefined, 'en', 'Linux x86_64')
+    document.getElementById('appearance')!.click(); await settle()
+    expect(document.getElementById('fullscreen')!.title).toContain('F11')
+    expect(document.getElementById('fullscreen')!.title).not.toMatch(/Cmd|Win|Super/)
+    request.mockClear()
+    for (const init of [
+      { key: 'Enter', metaKey: true }, { key: 'f', metaKey: true, ctrlKey: true },
+      { key: 'F11', ctrlKey: true }, { key: 'F11', altKey: true },
+      { key: 'F11', shiftKey: true }, { key: 'F11', metaKey: true },
+      { key: 'F11', repeat: true }, { key: 'F11', isComposing: true }, { key: 'F11', keyCode: 229 },
+    ]) document.dispatchEvent(new KeyboardEvent('keydown', { ...init, cancelable: true }))
+    const consumed = new KeyboardEvent('keydown', { key: 'F11', cancelable: true })
+    consumed.preventDefault(); document.dispatchEvent(consumed)
+    await settle(); expect(request).not.toHaveBeenCalled()
+    request.mockResolvedValueOnce({ fullscreen: true } as never)
+    const key = new KeyboardEvent('keydown', { key: 'F11', bubbles: true, cancelable: true })
+    document.querySelector('#panel-body select')!.dispatchEvent(key)
+    await settle()
+    expect(key.defaultPrevented).toBe(true)
+    expect(request.mock.calls.map(call => call[0])).toEqual(['host.sumi.fullscreen'])
+    expect(document.getElementById('fullscreen')!.getAttribute('aria-pressed')).toBe('true')
+    expect(document.documentElement.dataset.fullscreen).toBe('true')
+    expect(document.documentElement.dataset.platform).toBe('linux')
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'F11', cancelable: true }))
+    await settle(); expect(request).toHaveBeenCalledTimes(1)
+    request.mockResolvedValueOnce({ fullscreen: false } as never)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F11', cancelable: true }))
+    await settle()
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(document.documentElement.dataset.fullscreen).toBe('false')
+    expect(document.getElementById('fullscreen')!.title).toBe('Enter fullscreen (F11)')
+  })
   it('does not toggle on repeat, composition or extra modifiers', async () => {
     const request = await setup()
     request.mockClear()
     const repeated = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, repeat: true, cancelable: true })
     document.dispatchEvent(repeated)
-    expect(repeated.defaultPrevented).toBe(true)
+    expect(repeated.defaultPrevented).toBe(false)
     for (const init of [
       { key: 'Enter' }, { key: 'Enter', ctrlKey: true },
       { key: 'Enter', metaKey: true, ctrlKey: true },
@@ -136,10 +170,10 @@ describe('Sumi native writing shell', () => {
   })
   it.each(['zh', 'en', 'ja'])('advertises Meta+Enter in %s fullscreen labels', async locale => {
     const request = await setup(state(), undefined, locale)
-    expect(document.getElementById('fullscreen')!.title).toContain('Cmd/Win/Super+Enter')
+    expect(document.getElementById('fullscreen')!.title).toContain('⌘Enter')
     request.mockResolvedValueOnce({ fullscreen: true } as never)
     document.getElementById('fullscreen')!.click(); await settle()
-    expect(document.getElementById('fullscreen')!.getAttribute('aria-label')).toContain('Cmd/Win/Super+Enter')
+    expect(document.getElementById('fullscreen')!.getAttribute('aria-label')).toContain('⌘Enter')
   })
   it('retains an unsuccessful save status instead of reporting success', async () => {
     const style = document.createElement('style'); style.dataset.sumiTestStyle = ''; style.textContent = styles; document.head.append(style)

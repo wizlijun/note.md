@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { primaryShortcut, primaryShortcutLabel, primaryShortcutAria, shortcutEventBlocked } from '../../shared/shortcuts'
   import '../../../src/styles/ui-foundation.css'
   import { onMount, tick } from 'svelte'
   import CreateIdeaSheet, { type IdeaDraft } from './components/CreateIdeaSheet.svelte'
@@ -410,12 +411,8 @@
   const blocked = $derived(Boolean(workspace?.readOnlyError || workspace?.projection.hasBlockingIssues))
   const interactionDisabled = $derived(store.saving || placementSaving || blocked)
   const createDefaults = $derived(planningDefaults(store.settings))
-  const newIdeaShortcut = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-    ? '⌘N'
-    : 'Ctrl+N'
-  const newTaskShortcut = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-    ? '⇧⌘N'
-    : 'Ctrl+Shift+N'
+  const newIdeaShortcut = primaryShortcutLabel('N')
+  const newTaskShortcut = primaryShortcutLabel('N', true)
   const repair = $derived(workspace?.items.filter((item) => (
     item.state === 'unsupported' || (item.state === 'capture' && item.orphan)
   ) && matchesFilters(item)) ?? [])
@@ -950,6 +947,7 @@
       if (!store.saving) void report(refreshWorkspace, 'error.load')
     }
     const onKey = (event: KeyboardEvent) => {
+      if (shortcutEventBlocked(event)) return
       if (event.key === 'Escape' && (dragPress || dragging)) {
         event.preventDefault()
         dragEnd()
@@ -967,7 +965,7 @@
       }
       previewKeydown(event)
       if (event.defaultPrevented) return
-      if (event.key.toLocaleLowerCase() !== 'n' || (!event.metaKey && !event.ctrlKey) || event.altKey) return
+      if (!primaryShortcut(event, 'n', event.shiftKey)) return
       event.preventDefault()
       if (event.shiftKey) {
         if (!creatingTask) openTaskCreation()
@@ -1023,12 +1021,12 @@
       </div>
     </div>
     <div class="top-actions">
-      <button type="button" data-action="new-task" class="new-task" aria-keyshortcuts="Meta+Shift+N Control+Shift+N" disabled={store.loading || store.saving} onclick={openTaskCreation}>
+      <button type="button" data-action="new-task" class="new-task" aria-keyshortcuts={primaryShortcutAria('N', true)} disabled={store.loading || store.saving} onclick={openTaskCreation}>
         <span aria-hidden="true">＋</span>
         <span>{t('action.newTask')}</span>
         <kbd>{newTaskShortcut}</kbd>
       </button>
-      <button type="button" data-action="new-idea" class="new-idea" aria-keyshortcuts="Meta+N Control+N" disabled={store.loading || store.saving} onclick={openCreation}>
+      <button type="button" data-action="new-idea" class="new-idea" aria-keyshortcuts={primaryShortcutAria('N')} disabled={store.loading || store.saving} onclick={openCreation}>
         <span>{t('action.newIdea')}</span>
         <kbd>{newIdeaShortcut}</kbd>
       </button>

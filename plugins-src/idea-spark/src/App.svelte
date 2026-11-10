@@ -44,6 +44,7 @@
      The kit owns the theme (it fetches and watches the host's compiled CSS) —
      nothing here touches it. -->
 <script lang="ts">
+  import { primaryShortcut } from '../../shared/shortcuts'
   import '../../../src/styles/ui-foundation.css'
   import { modalFocus } from '../../../src/lib/ui/modal-focus'
   import { onMount, tick } from 'svelte'
@@ -620,7 +621,7 @@
     // must win regardless of where focus sits. With autosave running, this is
     // "write it right now" rather than the only way to save.
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 's') {
+      if (primaryShortcut(e, 's')) {
         e.preventDefault()
         void saveNow()
       }

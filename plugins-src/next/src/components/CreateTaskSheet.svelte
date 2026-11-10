@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { primaryShortcut, primaryShortcutLabel, shortcutEventBlocked } from '../../../shared/shortcuts'
   import { onMount, untrack } from 'svelte'
   import { DEFAULT_PRIORITY, parseContextDraft, PRIORITIES, type Priority } from '../lib/metadata'
   import { t } from '../lib/strings'
@@ -87,12 +88,13 @@
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     queueMicrotask(() => titleEl?.focus())
     const onKey = (event: KeyboardEvent) => {
+      if (shortcutEventBlocked(event)) return
       if (event.key === 'Escape' && !saving) {
         event.preventDefault()
         onCancel()
         return
       }
-      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !saving) {
+      if (primaryShortcut(event, 'Enter') && !saving) {
         event.preventDefault()
         formEl?.requestSubmit()
         return
@@ -178,7 +180,7 @@
       {/if}
 
       <footer>
-        <span>{t('task.create.saveShortcut')}</span>
+        <span>{t('task.create.saveShortcut', { shortcut: primaryShortcutLabel('Enter') })}</span>
         <div>
           <button type="button" class="cancel" disabled={saving} onclick={onCancel}>{t('common.cancel')}</button>
           <button type="submit" class="inbox" disabled={saving}>{t('task.create.saveInbox')}</button>

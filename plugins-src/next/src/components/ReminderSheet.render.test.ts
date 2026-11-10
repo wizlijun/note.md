@@ -176,7 +176,7 @@ describe('ReminderSheet', () => {
     expect(document.body.textContent).not.toContain('关闭提醒不会完成任务')
     expect(document.body.textContent).not.toContain('恢复后按现有提醒规则筛选')
     expect(document.body.textContent).toContain('下次推送同步时生效')
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }))
     expect(onSubmit).not.toHaveBeenCalled()
     const buttons = document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')
     expect(buttons).toHaveLength(1)
