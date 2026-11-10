@@ -13,7 +13,7 @@ describe('application shortcuts respect the desktop platform', () => {
     vi.stubGlobal('navigator', { platform: 'Linux', userAgent: 'Linux' })
     expect(applicationShortcut(chord(key, { ctrlKey: true, shiftKey: true }))).toBe(action)
   })
-  it.each([{altKey:true},{metaKey:true},{isComposing:true},{repeat:true},{defaultPrevented:true},{shiftKey:true}])('does not trigger new-file with extra modifiers or handled input: %j', flags => {
+  it.each([{altKey:true},{metaKey:true},{isComposing:true},{keyCode:229},{repeat:true},{defaultPrevented:true},{shiftKey:true}])('does not trigger new-file with extra modifiers or handled input: %j', flags => {
     vi.stubGlobal('navigator', { platform: 'Linux', userAgent: 'Linux' })
     expect(applicationShortcut(chord('n', { ctrlKey: true, ...flags }))).toBeNull()
   })
