@@ -1,0 +1,6 @@
+
+running 2 tests
+test platform::tests::command_builds ... ok
+test platform::tests::allowlist_carries_no_secrets ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.00s

@@ -117,7 +117,13 @@ pub fn plugin_env_allowlist() -> &'static [&'static str] {
             "PROCESSOR_ARCHITECTURE", "LANG", "LC_ALL", "USERNAME",
         ]
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        // Default PulseAudio/PipeWire clients locate the user session socket
+        // here. Keep the rest of the plugin environment explicitly allowlisted.
+        &["HOME", "PATH", "LANG", "LC_ALL", "TERM", "USER", "TMPDIR", "XDG_RUNTIME_DIR"]
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         &["HOME", "PATH", "LANG", "LC_ALL", "TERM", "USER", "TMPDIR"]
     }
