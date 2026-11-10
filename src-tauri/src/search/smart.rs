@@ -1113,6 +1113,8 @@ mod tests {
             vault.path(),
             "release risk",
             &mut response,
+            None,
+            false,
         )
         .unwrap();
 

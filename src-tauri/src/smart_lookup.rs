@@ -4,12 +4,15 @@
 //! result ids back to canonical planned-search hits and re-read the current
 //! line block, rejecting stale content.
 
+use chrono::NaiveDate;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::Manager;
+
+use crate::search::time_group::TimeMode;
 
 const RUN_TTL: Duration = Duration::from_secs(10 * 60);
 const MAX_RUNS_PER_WINDOW: usize = 20;
@@ -24,6 +27,35 @@ pub(crate) struct CanonicalHit {
     pub(crate) line_end: u32,
     pub(crate) level: String,
     pub(crate) indexed_text: String,
+    pub(crate) breadcrumb: String,
+    pub(crate) pinned: bool,
+}
+
+/// What one query arm found, recorded for later routing decisions.
+#[derive(Clone)]
+pub(crate) struct ArmFact {
+    pub(crate) kind: String,
+    pub(crate) terms: Vec<String>,
+    pub(crate) hit_count: usize,
+}
+
+/// Facts about a lookup's result that later routing reads without re-searching.
+#[derive(Clone, Default)]
+pub(crate) struct RouteFacts {
+    pub(crate) hit_count: usize,
+    pub(crate) pinned: bool,
+    pub(crate) extracted_terms: Vec<String>,
+    pub(crate) arms: Vec<ArmFact>,
+}
+
+/// The time phrase a lookup grouped (or filtered) by.
+#[derive(Clone)]
+pub(crate) struct RunTime {
+    pub(crate) source_text: String,
+    pub(crate) after: NaiveDate,
+    pub(crate) before: NaiveDate,
+    pub(crate) mode: TimeMode,
+    pub(crate) in_window: usize,
 }
 
 #[derive(Clone)]
@@ -34,6 +66,10 @@ pub(crate) struct LookupRun {
     pub(crate) root: PathBuf,
     pub(crate) question: String,
     pub(crate) hits: Vec<CanonicalHit>,
+    pub(crate) facts: RouteFacts,
+    pub(crate) time: Option<RunTime>,
+    pub(crate) auto_request_used: bool,
+    pub(crate) repaired: bool,
 }
 
 #[derive(Default)]
@@ -89,10 +125,12 @@ pub(crate) fn retain_local_search(
     window: &tauri::Window,
     original_query: &str,
     search: &mut crate::search::smart::SmartSearchResponse,
+    time: Option<RunTime>,
+    repaired: bool,
 ) -> Result<String, String> {
     let root = crate::sotvault::resolve_vault_root(window.app_handle())
         .ok_or_else(|| "Vault not configured".to_string())?;
-    retain_search_in(window.label(), &root, original_query, search)
+    retain_search_in(window.label(), &root, original_query, search, time, repaired)
 }
 
 pub(crate) fn retain_search_in(
@@ -100,6 +138,8 @@ pub(crate) fn retain_search_in(
     root: &Path,
     original_query: &str,
     search: &mut crate::search::smart::SmartSearchResponse,
+    time: Option<RunTime>,
+    repaired: bool,
 ) -> Result<String, String> {
     let root = fs::canonicalize(root).map_err(|error| format!("resolve vault: {error}"))?;
     let run_id = uuid::Uuid::now_v7().to_string();
@@ -121,8 +161,24 @@ pub(crate) fn retain_search_in(
             } else {
                 String::new()
             },
+            breadcrumb: hit.hit.breadcrumb.clone(),
+            pinned: hit.hit.pinned,
         });
     }
+    let facts = RouteFacts {
+        hit_count: search.hits.len(),
+        pinned: search.hits.iter().any(|hit| hit.hit.pinned),
+        extracted_terms: search.extracted_terms.clone(),
+        arms: search
+            .subqueries
+            .iter()
+            .map(|arm| ArmFact {
+                kind: arm.kind.clone(),
+                terms: arm.terms.clone(),
+                hit_count: arm.hit_count,
+            })
+            .collect(),
+    };
     let run = LookupRun {
         id: run_id.clone(),
         created_at: Instant::now(),
@@ -130,6 +186,10 @@ pub(crate) fn retain_search_in(
         root,
         question: original_query.chars().take(2_000).collect(),
         hits,
+        facts,
+        time,
+        auto_request_used: repaired,
+        repaired,
     };
     let mut registry = LOOKUP_RUNS
         .get_or_init(|| Mutex::new(LookupRuns::default()))
@@ -139,6 +199,26 @@ pub(crate) fn retain_search_in(
     registry.order.push_back(run_id.clone());
     registry.runs.insert(run_id.clone(), run);
     Ok(run_id)
+}
+
+/// Applies `change` to the window's lookup run in place.
+pub(crate) fn update_run(
+    run_id: &str,
+    window_label: &str,
+    change: impl FnOnce(&mut LookupRun),
+) -> Result<(), String> {
+    let mut registry = LOOKUP_RUNS
+        .get_or_init(|| Mutex::new(LookupRuns::default()))
+        .lock()
+        .map_err(|_| "lookup run registry is unavailable".to_string())?;
+    prune_expired(&mut registry);
+    let run = registry
+        .runs
+        .get_mut(run_id)
+        .filter(|run| run.window_label == window_label)
+        .ok_or_else(|| "lookup run expired; run Smart Lookup again".to_string())?;
+    change(run);
+    Ok(())
 }
 
 /// Returns a clone of the window's lookup run and marks it most recently used.
@@ -263,6 +343,8 @@ mod tests {
             line_end,
             level: level.into(),
             indexed_text: text.into(),
+            breadcrumb: String::new(),
+            pinned: false,
         };
         assert_eq!(current_block(&root, &hit("line", 2, 3, "two\nthree")).unwrap(), "two\nthree");
         assert!(current_block(&root, &hit("line", 2, 3, "two\nTHREE")).is_err());
@@ -278,6 +360,10 @@ mod tests {
             root: PathBuf::new(),
             question: String::new(),
             hits: Vec::new(),
+            facts: RouteFacts::default(),
+            time: None,
+            auto_request_used: false,
+            repaired: false,
         }
     }
 
