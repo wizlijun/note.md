@@ -1,0 +1,116 @@
+{
+  "timestamp_utc": "2026-11-10T09:33:22.959025+00:00",
+  "version": "6.1110.4",
+  "architecture": "x86_64",
+  "source_tag": "v6.1110.4",
+  "source_commit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "prepare_tool_commit": "547e63461d4ee7b9e3e2ade6e4ae634c41a4ac81",
+  "prepare_command": "python3 packaging/omarchy/prepare.py 6.1110.4 --amd64-only --output tasks/omarchy-shortcuts-window/omarchy-6.1110.4",
+  "build_command": "makepkg --cleanbuild --noconfirm",
+  "downloaded_source": {
+    "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.4/note.md_6.1110.4_amd64.deb",
+    "sha256": "40e4b86e7408fefe7e16072df875ae007973452be0f0201ed1704028f2ea8bca",
+    "size": 15859902,
+    "matches_official_preserved_deb": true
+  },
+  "artifacts": {
+    "notemd-6.1110.4-1-x86_64.pkg.tar.zst": {
+      "sha256": "d8d179a8286043f8a560a98aec8e7a2b53a1f191da4e0ba2ce820f4555323575",
+      "size": 15236313
+    },
+    "notemd-6.1110.4-1-omarchy-recipe.tar.gz": {
+      "sha256": "3a7ad09afe522a5483e92d13d49f752ba3d6b6bb6d898915eda42fd5cb414d21",
+      "size": 1092
+    }
+  },
+  "recipe_files_sha256": {
+    "PKGBUILD": "465795b0d24d38b0e213b76e3f51e59ad5826924075c599cd8fa75553234f6b6",
+    ".SRCINFO": "bdbf13054ea16e0590905bedcee50d9214dd73630fdc3d04298233dbcf71ad05",
+    ".omarchy/package.json": "dc03657dc98a525213daf8a8b5f35de63348dc98c89617fbe4ce035fc9f2c9f4"
+  },
+  "debian_payload_files": {
+    "usr/bin/notemd": {
+      "sha256": "8bb5f2c42e77ae64f46a3b40c22e8a82e1da387fb1710e2c702b69fe5c941357",
+      "size": 30146864,
+      "mode": "0o755"
+    },
+    "usr/lib/note.md/resources/themes/default.css": {
+      "sha256": "625e454e75050b488f721571514b062df1b8e6a69dbd8f8d4f935c82cd28bdc3",
+      "size": 1521,
+      "mode": "0o644"
+    },
+    "usr/lib/note.md/resources/themes/effie.css": {
+      "sha256": "839f656bf38a413e378e2a7559d1f059284eca6fdd54cf1ab1a536b01761c4fb",
+      "size": 5412,
+      "mode": "0o644"
+    },
+    "usr/share/applications/note.md.desktop": {
+      "sha256": "bd74421fd535a9bf6ce0c14f3a469da26884ae256e68f96d06b41d6cb68a42e3",
+      "size": 224,
+      "mode": "0o644"
+    },
+    "usr/share/doc/note.md/copyright": {
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "size": 10174,
+      "mode": "0o644"
+    },
+    "usr/share/icons/hicolor/128x128/apps/notemd.png": {
+      "sha256": "ee9e8e2956b61fdca743c579d60698838f27ab4c01973e0a81fdb90e27e66694",
+      "size": 6956,
+      "mode": "0o644"
+    },
+    "usr/share/icons/hicolor/256x256@2/apps/notemd.png": {
+      "sha256": "ba8105c8a24630bc6e0f491003150aba956e250e58df3e64a55b3437e75d1464",
+      "size": 14333,
+      "mode": "0o644"
+    },
+    "usr/share/icons/hicolor/32x32/apps/notemd.png": {
+      "sha256": "f88b4817f48ca4295b925bf439f2fea19d7927746cfea2a4785a2682df64c6e6",
+      "size": 1521,
+      "mode": "0o644"
+    },
+    "usr/share/icons/hicolor/512x512/apps/notemd.png": {
+      "sha256": "184e2578f2d6b216c4258adf7a8d24352a26e5772e52ea6767ec08f35f7541bd",
+      "size": 30571,
+      "mode": "0o644"
+    }
+  },
+  "debian_payload_preserved": true,
+  "extra_files": [
+    ".BUILDINFO",
+    ".MTREE",
+    ".PKGINFO",
+    "usr/share/licenses/notemd/LICENSE"
+  ],
+  "checks": {
+    "recipe_x86_64_only": "passed",
+    "makepkg_source_sha256": "passed",
+    "package_metadata": "passed",
+    "all_debian_file_bytes_and_modes": "passed",
+    "all_debian_directory_modes": "passed",
+    "license_copy": "passed",
+    "elf_x86_64": "passed",
+    "ldd_r_resolved": "passed",
+    "cli_version": "notemd 6.1110.4 (plugin API v1)",
+    "max_glibc": "2.35",
+    "no_direct_libssl": true
+  },
+  "binary_sha256": "8bb5f2c42e77ae64f46a3b40c22e8a82e1da387fb1710e2c702b69fe5c941357",
+  "log_sha256": {
+    "arch-prepare.log": "65ed2f3e7e9a0a81a084d6d117c0a1b857f36c8b3715acdb0ace5ed580f237cb",
+    "arch-makepkg.log": "9da6604356d2f374d8e5729c43a9f537af71f05398f65f94bbf35c971650b6e5"
+  },
+  "verification_files_sha256": {
+    "arch-inventory.json": "01f1daaac35ccfcb362ea83f3bb880523cf01df907496ffb0e3f0a021d90e99e",
+    "cli-version.txt": "3a8fd23efffb9d583dc64568dac0d3d52fab296f9a63ffe6831e0a78d31c8d60",
+    "debian-inventory.json": "19dc0102de233c926555300d64121d2a1fa45a24e0a9efbaf434c74653c1274a",
+    "elf-dynamic.txt": "962d8b92874d43228e98f195818aa5b4dd3d070e1bb0ad95f68f1a4af8fc413e",
+    "elf-header.txt": "e162f9837067edc10d130758e12bb2ed34deabdbf585bf87b4b1f8374d82d5b5",
+    "elf-program.txt": "fe2f9d663ee5adf8194215b317633935d8253e31068abdaf18fb3a28805fc723",
+    "elf-versions.txt": "12a5e986c32c78653130c22d42bff8b07560f2a030b7d332ab24ed0119b4af79",
+    "ldd-r.txt": "f6b794808382394a11e780fa56ae83ff02c477b97ce3a01e8df7f6425ed1b643"
+  },
+  "installed": false,
+  "uploaded": false,
+  "gui_acceptance": "Debian and Arch binary bytes are identical; final GUI acceptance is owned by parent agent."
+}

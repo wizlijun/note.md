@@ -1,0 +1,75 @@
+{
+  "tag": "v6.1110.4",
+  "sourceCommit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "hostPid": 53745,
+  "fixture": "tasks/plugin-window-release/fixture",
+  "output": {
+    "physical": [
+      3840,
+      1200
+    ],
+    "scale": 2,
+    "logical": [
+      1920,
+      600
+    ]
+  },
+  "tool": "tasks/plugin-window-release/input-tools/drag",
+  "operations": [
+    {
+      "type": "pointer-edge-horizontal",
+      "from": [
+        1439,
+        300
+      ],
+      "to": [
+        1550,
+        300
+      ],
+      "before": [
+        480,
+        16,
+        960,
+        568
+      ],
+      "after": [
+        480,
+        16,
+        1065,
+        568
+      ],
+      "evidence": "width-after.json"
+    },
+    {
+      "type": "pointer-edge-vertical",
+      "from": [
+        1000,
+        17
+      ],
+      "to": [
+        1000,
+        70
+      ],
+      "before": [
+        480,
+        16,
+        1065,
+        568
+      ],
+      "after": [
+        480,
+        69,
+        1065,
+        515
+      ],
+      "evidence": "top-after.json"
+    }
+  ],
+  "observations": [
+    "Outside right edge x1441 clicked underlying main and raised it. Refocusing Sumi was needed before retry.",
+    "Bottom edge attempts did not change geometry; no claim of bottom handle validation.",
+    "Top edge changed y and height with fixed bottom584, distinguishing resize from title movement.",
+    "Only focus IPC used. No programmatic resize, no source/tag changes, no desktop configuration modifications."
+  ],
+  "controlReturnedTo": "/root/host_release_audit"
+}

@@ -1,0 +1,7 @@
+
+running 2 tests
+test tests::plugin_launches_remain_available_and_scoped_close_never_broadcasts ... ok
+test tests::plugin_edit_commands_never_reach_the_main_document ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md
+
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  16:25:36
+   Duration  4.60s (transform 796ms, setup 0ms, import 1.09s, tests 279ms, environment 2ms)
+

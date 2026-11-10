@@ -1,0 +1,480 @@
+{
+  "name": "sumi-panel-fullscreen-2",
+  "tag": "v6.1110.4",
+  "commit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "host_pid": 48511,
+  "host_exe": "/home/bruce/git/note.md/tasks/plugin-window-release/fixture/release-package/25157f1db07b5be9fb2962346894ab316bb27f22/payload/usr/bin/notemd",
+  "host_binary_sha256": "8bb5f2c42e77ae64f46a3b40c22e8a82e1da387fb1710e2c702b69fe5c941357",
+  "outputs": [
+    {
+      "id": 3,
+      "type": "output",
+      "orientation": "none",
+      "percent": 1.0,
+      "urgent": false,
+      "marks": [],
+      "layout": "output",
+      "border": "none",
+      "current_border_width": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200
+      },
+      "deco_rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "window_rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "name": "HEADLESS-1",
+      "window": null,
+      "nodes": [],
+      "floating_nodes": [],
+      "focus": [
+        4
+      ],
+      "fullscreen_mode": 0,
+      "sticky": false,
+      "floating": null,
+      "scratchpad_state": null,
+      "primary": false,
+      "make": "Unknown",
+      "model": "Unknown",
+      "serial": "Unknown",
+      "modes": [],
+      "features": {
+        "adaptive_sync": false,
+        "hdr": false
+      },
+      "non_desktop": false,
+      "active": true,
+      "dpms": true,
+      "power": true,
+      "scale": 2.0,
+      "scale_filter": "nearest",
+      "transform": "normal",
+      "adaptive_sync_status": "disabled",
+      "current_workspace": "1",
+      "current_mode": {
+        "width": 3840,
+        "height": 2400,
+        "refresh": 0
+      },
+      "max_render_time": 0,
+      "allow_tearing": false,
+      "hdr": false,
+      "focused": true,
+      "subpixel_hinting": "unknown"
+    }
+  ],
+  "tree": {
+    "id": 1,
+    "type": "root",
+    "orientation": "horizontal",
+    "percent": null,
+    "urgent": false,
+    "marks": [],
+    "focused": false,
+    "layout": "splith",
+    "border": "none",
+    "current_border_width": 0,
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200
+    },
+    "deco_rect": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "window_rect": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "geometry": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "name": "root",
+    "window": null,
+    "nodes": [
+      {
+        "id": 2147483647,
+        "type": "output",
+        "orientation": "horizontal",
+        "percent": null,
+        "urgent": false,
+        "marks": [],
+        "focused": false,
+        "layout": "output",
+        "border": "none",
+        "current_border_width": 0,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1200
+        },
+        "deco_rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "window_rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "name": "__i3",
+        "window": null,
+        "nodes": [
+          {
+            "id": 2147483646,
+            "type": "workspace",
+            "orientation": "horizontal",
+            "percent": null,
+            "urgent": false,
+            "marks": [],
+            "focused": false,
+            "layout": "splith",
+            "border": "none",
+            "current_border_width": 0,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1920,
+              "height": 1200
+            },
+            "deco_rect": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "window_rect": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "geometry": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "name": "__i3_scratch",
+            "window": null,
+            "nodes": [],
+            "floating_nodes": [],
+            "focus": [],
+            "fullscreen_mode": 1,
+            "sticky": false,
+            "floating": null,
+            "scratchpad_state": null
+          }
+        ],
+        "floating_nodes": [],
+        "focus": [
+          2147483646
+        ],
+        "fullscreen_mode": 0,
+        "sticky": false,
+        "floating": null,
+        "scratchpad_state": null
+      },
+      {
+        "id": 3,
+        "type": "output",
+        "orientation": "none",
+        "percent": 1.0,
+        "urgent": false,
+        "marks": [],
+        "focused": false,
+        "layout": "output",
+        "border": "none",
+        "current_border_width": 0,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1200
+        },
+        "deco_rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "window_rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "name": "HEADLESS-1",
+        "window": null,
+        "nodes": [
+          {
+            "id": 4,
+            "type": "workspace",
+            "orientation": "horizontal",
+            "percent": null,
+            "urgent": false,
+            "marks": [],
+            "focused": false,
+            "layout": "splith",
+            "border": "none",
+            "current_border_width": 0,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1920,
+              "height": 1200
+            },
+            "deco_rect": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "window_rect": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "geometry": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "name": "1",
+            "window": null,
+            "nodes": [],
+            "floating_nodes": [
+              {
+                "id": 5,
+                "type": "floating_con",
+                "orientation": "none",
+                "percent": 0.3038194444444445,
+                "urgent": false,
+                "marks": [],
+                "focused": false,
+                "layout": "none",
+                "border": "none",
+                "current_border_width": 2,
+                "rect": {
+                  "x": 460,
+                  "y": 250,
+                  "width": 1000,
+                  "height": 700
+                },
+                "deco_rect": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "window_rect": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1000,
+                  "height": 700
+                },
+                "geometry": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1000,
+                  "height": 700
+                },
+                "name": "untitled.md \u2014 note.md",
+                "window": null,
+                "nodes": [],
+                "floating_nodes": [],
+                "focus": [],
+                "fullscreen_mode": 0,
+                "sticky": false,
+                "floating": "user_on",
+                "scratchpad_state": "none",
+                "pid": 48511,
+                "app_id": "notemd",
+                "foreign_toplevel_identifier": "480207c3372a130ee2330fa82196ac60",
+                "visible": false,
+                "max_render_time": 0,
+                "allow_tearing": false,
+                "shell": "xdg_shell",
+                "inhibit_idle": false,
+                "sandbox_engine": null,
+                "sandbox_app_id": null,
+                "sandbox_instance_id": null,
+                "tag": null,
+                "idle_inhibitors": {
+                  "user": "none",
+                  "application": "none"
+                }
+              },
+              {
+                "id": 7,
+                "type": "floating_con",
+                "orientation": "none",
+                "percent": 1.0,
+                "urgent": false,
+                "marks": [],
+                "focused": true,
+                "layout": "none",
+                "border": "none",
+                "current_border_width": 2,
+                "rect": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1920,
+                  "height": 1200
+                },
+                "deco_rect": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "window_rect": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1920,
+                  "height": 1200
+                },
+                "geometry": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 960,
+                  "height": 767
+                },
+                "name": "Sumi Typewriter",
+                "window": null,
+                "nodes": [],
+                "floating_nodes": [],
+                "focus": [],
+                "fullscreen_mode": 1,
+                "sticky": false,
+                "floating": "user_on",
+                "scratchpad_state": "none",
+                "pid": 48511,
+                "app_id": "notemd",
+                "foreign_toplevel_identifier": "fd277accb9eaf549acb23416b34397fc",
+                "visible": true,
+                "max_render_time": 0,
+                "allow_tearing": false,
+                "shell": "xdg_shell",
+                "inhibit_idle": false,
+                "sandbox_engine": null,
+                "sandbox_app_id": null,
+                "sandbox_instance_id": null,
+                "tag": null,
+                "idle_inhibitors": {
+                  "user": "none",
+                  "application": "none"
+                }
+              }
+            ],
+            "focus": [
+              7,
+              5
+            ],
+            "fullscreen_mode": 1,
+            "sticky": false,
+            "floating": null,
+            "scratchpad_state": null,
+            "num": 1,
+            "output": "HEADLESS-1",
+            "representation": "H[]"
+          }
+        ],
+        "floating_nodes": [],
+        "focus": [
+          4
+        ],
+        "fullscreen_mode": 0,
+        "sticky": false,
+        "floating": null,
+        "scratchpad_state": null,
+        "primary": false,
+        "make": "Unknown",
+        "model": "Unknown",
+        "serial": "Unknown",
+        "modes": [],
+        "features": {
+          "adaptive_sync": false,
+          "hdr": false
+        },
+        "non_desktop": false,
+        "active": true,
+        "dpms": true,
+        "power": true,
+        "scale": 2.0,
+        "scale_filter": "nearest",
+        "transform": "normal",
+        "adaptive_sync_status": "disabled",
+        "current_workspace": "1",
+        "current_mode": {
+          "width": 3840,
+          "height": 2400,
+          "refresh": 0
+        },
+        "max_render_time": 0,
+        "allow_tearing": false,
+        "hdr": false
+      }
+    ],
+    "floating_nodes": [],
+    "focus": [
+      3
+    ],
+    "fullscreen_mode": 0,
+    "sticky": false,
+    "floating": null,
+    "scratchpad_state": null
+  },
+  "screenshot_sha256": "054eca7a253741c45abdd7babf3514133b96ee578accd42ae97dfa2e0e349174",
+  "screenshot_physical_size": [
+    3840,
+    2400
+  ],
+  "private_only": true,
+  "observer_snapshot": "/home/bruce/git/note.md/tasks/plugin-window-release/evidence/sumi-panel-fullscreen-2-observer"
+}

@@ -1,0 +1,101 @@
+{
+  "passed": true,
+  "tag": "v6.1110.4",
+  "commit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "host_version": "6.1110.4",
+  "deb_sha256": "40e4b86e7408fefe7e16072df875ae007973452be0f0201ed1704028f2ea8bca",
+  "host_binary_sha256": "8bb5f2c42e77ae64f46a3b40c22e8a82e1da387fb1710e2c702b69fe5c941357",
+  "plugins": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.12",
+      "sha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb",
+      "signature_sha256": "2835fe3ed2afe712d50eb02b4569a2b5590bea171204b54be47998bf7d8b6b52"
+    },
+    {
+      "id": "notemd.next",
+      "version": "1.13.3",
+      "sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+      "signature_sha256": "5d118a761200acf8edfdabdb644c3394744e0988bbbf677b43af8f691c1ca0ff"
+    },
+    {
+      "id": "notemd.idea-spark",
+      "version": "1.3.8",
+      "sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5",
+      "signature_sha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799"
+    }
+  ],
+  "displays": [
+    {
+      "physical": [
+        3840,
+        2400
+      ],
+      "scale": 2,
+      "logical": [
+        1920,
+        1200
+      ]
+    },
+    {
+      "physical": [
+        3840,
+        1200
+      ],
+      "scale": 2,
+      "logical": [
+        1920,
+        600
+      ]
+    },
+    {
+      "physical": [
+        3840,
+        2400
+      ],
+      "scale": 3,
+      "logical": [
+        1280,
+        800
+      ]
+    }
+  ],
+  "checks": {
+    "next_ctrl_n_s_isolated_before_and_after_menu_focus_rebuild": true,
+    "idea_ctrl_s_one_file_write": true,
+    "idea_ctrl_c_v_native_editing": true,
+    "ctrl_w_only_plugin": true,
+    "all_three_first_creation_centered_with_visible_title": true,
+    "all_three_titles_real_pointer_drag": true,
+    "all_three_real_pointer_edge_resize": true,
+    "sumi_horizontal_and_vertical_resize": true,
+    "sumi_native_body_f11_two_roundtrips": true,
+    "sumi_webkit_panel_f11_two_roundtrips": true,
+    "fullscreen_csd_hidden_and_restored": true,
+    "fullscreen_dom_aria_matches_compositor": true,
+    "fullscreen_toolbar_top_reachable": true,
+    "formal_native_font_22_27_5_22": true,
+    "low_height_all_three_title_reachable": true,
+    "scale3_all_three_title_reachable": true,
+    "scale3_sumi_body_panel_f11": true,
+    "scale3_next_menu_isolation": true,
+    "official_plugin_payloads_unchanged": true,
+    "new_fixture_stopped": true
+  },
+  "evidence": {
+    "assertions": "check-gui.py",
+    "fonts": "formal-font-measurements.json",
+    "integrity": "payload-integrity.json",
+    "resize_sumi": "../plugin-window-fix/resize-diagnosis/result.json",
+    "resize_next": "evidence/next-resize-confirmed.json",
+    "resize_idea": "evidence/idea-resize-confirmed.json"
+  },
+  "boundaries": [
+    "Private headless Sway, not live user Hyprland; actual Omarchy dock not launched. Toolbar top geometry proves separation from bottom dock region.",
+    "Read-only GTK module samples actual widgets/Pango and DOM; no native/version/HTTP mocks. gtkCursor is GTK raw cursor, not custom caret geometry.",
+    "Private keyboard fixture was restarted after original wtype long-delay process exited; finalized independent test delay3600000ms.",
+    "Main welcome still has old Cmd labels; application Ctrl functions and plugin Ctrl/F11 hints verified. No claim that every historical host label was fixed.",
+    "Font download and audio output were not acceptance scope; isolated fixture has no audio output.",
+    "No production install or user configuration change."
+  ]
+}

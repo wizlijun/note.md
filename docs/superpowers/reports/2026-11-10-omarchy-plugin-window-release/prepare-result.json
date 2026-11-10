@@ -1,0 +1,51 @@
+{
+  "tag": "v6.1110.4",
+  "sourceCommit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "coreCommit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "manifests": [
+    {
+      "path": "plugins-src/write/manifest.v2.json",
+      "id": "notemd.sumi",
+      "version": "0.1.12",
+      "engine": ">=6.1110.4",
+      "sha256": "1aeec40f1af0d7e1f25ddc7e5e26f832a8dde374960a3a25b86c60ebee273157"
+    },
+    {
+      "path": "plugins-src/next/manifest.v2.json",
+      "id": "notemd.next",
+      "version": "1.13.3",
+      "engine": ">=6.1110.4",
+      "sha256": "eb665bd54de1cbc6e84fc3c923a05a6913070d8d1962296f92dfe62b7fc88963"
+    },
+    {
+      "path": "plugins-src/idea-spark/manifest.v2.json",
+      "id": "notemd.idea-spark",
+      "version": "1.3.8",
+      "engine": ">=6.1110.4",
+      "sha256": "ddaa1f1f065764d4da44e5aab985e1ad0befbfe4924580745cda46b5393fa376"
+    }
+  ],
+  "archiveSha256": {
+    "source.tar": "6f788534fc868cc403658e7ca9adbb511a0279d07f269b5c7a4f023ef02b604b",
+    "core.tar": "4a9a77629b7ba8334a5e317db9f90d044829717d75cbfbd52bb5d0c929b2a859",
+    "commit-object": "94de18f288d4091a1fb2119f185639dfb6e93e7cc2b56214d3ce6399bc0c8c04",
+    "build.sh": "70a91777e80e736c806ccb45faa876b79cc1afdfbd305304c11d76a9a8a68653"
+  },
+  "archiveFiltering": "same source-safe filter as existing build-plugin-linux.sh; no credentials/config/cache paths mounted",
+  "backendCompilationDuringPrepare": false,
+  "keyMountedDuringPrepare": false,
+  "buildImage": "sha256:5e5a340d10dcc81b637d6b3f03d9ec854f74d97a26a2044225d6c2bf40c9609c",
+  "status": "prepare_complete",
+  "completed_at_utc": "2026-11-10T08:56:58.256025+00:00",
+  "backendCompilation": false,
+  "signing": false,
+  "publication": false,
+  "keyMounted": false,
+  "offlineFetchPassed": true,
+  "packageCommand": "bash tasks/omarchy-shortcuts-window/plugin-release/package-offline.sh /absolute/path/to/existing-plugin-signing-key",
+  "logs": {
+    "prepare.log": "726a74c1230115982f0ad5a8829f309f095505c24993f8a3e731db90e1365c74",
+    "offline-ready-check.log": "62b76d8a2766873b4b5a67c5bc0b9e645fcdc5f371aaf72904e14116ac89ff4b",
+    "prepare-mounts.json": "2e1b948dda99d54e0b754f63816de1b58ee985fb577979804531d73bb4facb45"
+  }
+}

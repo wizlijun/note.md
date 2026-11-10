@@ -1,0 +1,46 @@
+{
+  "actual_user_hyprland": true,
+  "start": {
+    "pid": 65707,
+    "title": "Sumi Typewriter",
+    "at": [
+      230,
+      128
+    ],
+    "size": [
+      820,
+      544
+    ],
+    "floating": true,
+    "fullscreen": 0
+  },
+  "fullscreen": {
+    "pid": 65707,
+    "title": "Sumi Typewriter",
+    "at": [
+      0,
+      0
+    ],
+    "size": [
+      1280,
+      800
+    ],
+    "floating": true,
+    "fullscreen": 2
+  },
+  "restored": {
+    "pid": 65707,
+    "title": "Sumi Typewriter",
+    "at": [
+      230,
+      128
+    ],
+    "size": [
+      820,
+      544
+    ],
+    "floating": true,
+    "fullscreen": 0
+  },
+  "text_input_sent": false
+}

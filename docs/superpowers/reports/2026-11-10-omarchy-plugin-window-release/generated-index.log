@@ -1,0 +1,6 @@
+⚠ --local-only: skipping the live index — the upload will REPLACE it wholesale
+wrote /build/mdeditor/dist-plugins/index.json (3 plugin version(s))
+  added     (new here):        notemd.idea-spark@1.3.8, notemd.next@1.13.3, notemd.sumi@0.1.12
+
+── publish the index (user step) ──────────────────────────────
+  wrangler kv key put index --path dist-plugins/index.json --binding INDEX

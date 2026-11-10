@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "signaturesValid": true,
+  "objects": [
+    {
+      "mode": "normal",
+      "file": "universal.notemdpkg",
+      "sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5"
+    },
+    {
+      "mode": "normal",
+      "file": "universal.notemdpkg.minisig",
+      "sha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799"
+    },
+    {
+      "mode": "fresh",
+      "file": "universal.notemdpkg",
+      "sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5"
+    },
+    {
+      "mode": "fresh",
+      "file": "universal.notemdpkg.minisig",
+      "sha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799"
+    }
+  ]
+}

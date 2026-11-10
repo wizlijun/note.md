@@ -1,0 +1,87 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md
+
+4:20:40 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+4:20:40 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+4:20:40 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+4:20:40 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+4:20:40 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+ ❯ src/components/source-view-select-all.test.ts (4 tests | 4 failed) 18348ms
+     × handles Cmd+A on the main source textarea instead of relying on WebKit native selection 5131ms
+     × keeps Ctrl+A native on Apple platforms and handles it off Apple platforms 5019ms
+     × focuses an existing Source owner without moving its selection or reading position 5013ms
+     × selects the entire textarea value on notemd:select-all 3173ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/source-view-select-all.test.ts > SourceView select-all integration > handles Cmd+A on the main source textarea instead of relying on WebKit native selection
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/components/source-view-select-all.test.ts:43:3
+     41|
+     42| describe('SourceView select-all integration', () => {
+     43|   it('handles Cmd+A on the main source textarea instead of relying on …
+       |   ^
+     44|     const target = await mountSourceView()
+     45|     const textarea = target.querySelector('textarea') as HTMLTextAreaE…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/components/source-view-select-all.test.ts > SourceView select-all integration > keeps Ctrl+A native on Apple platforms and handles it off Apple platforms
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/components/source-view-select-all.test.ts:63:3
+     61|   })
+     62|
+     63|   it('keeps Ctrl+A native on Apple platforms and handles it off Apple …
+       |   ^
+     64|     const target = await mountSourceView()
+     65|     const textarea = target.querySelector('textarea') as HTMLTextAreaE…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/components/source-view-select-all.test.ts > SourceView select-all integration > focuses an existing Source owner without moving its selection or reading position
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/components/source-view-select-all.test.ts:87:3
+     85|   })
+     86|
+     87|   it('focuses an existing Source owner without moving its selection or…
+       |   ^
+     88|     const { tabs, activeId } = await import('../lib/tabs.svelte')
+     89|     const prior = activeId.value
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/components/source-view-select-all.test.ts > SourceView select-all integration > selects the entire textarea value on notemd:select-all
+AssertionError: expected <textarea …(4)></textarea> to be <textarea …(4)></textarea> // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: <textarea …(4)></textarea>
+Received: serializes to the same string
+
+
+Compared values have no visual difference.
+
+ ❯ src/components/source-view-select-all.test.ts:113:36
+    111|     window.dispatchEvent(new CustomEvent('notemd:select-all'))
+    112|
+    113|     expect(document.activeElement).toBe(textarea)
+       |                                    ^
+    114|     expect(textarea.selectionStart).toBe(0)
+    115|     expect(textarea.selectionEnd).toBe(CONTENT.length)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  4 failed | 53 passed (57)
+   Start at  16:20:20
+   Duration  24.49s (transform 19.76s, setup 0ms, import 10.25s, tests 19.46s, environment 6.87s)
+

@@ -1,0 +1,23 @@
+test_append_preserves_history_and_unknown_root_fields (test_publish_plugin.GuardTests.test_append_preserves_history_and_unknown_root_fields) ... ok
+test_conflicting_or_duplicate_identity_rejected (test_publish_plugin.GuardTests.test_conflicting_or_duplicate_identity_rejected) ... ok
+test_missing_or_wrong_freeze_inputs_rejected (test_publish_plugin.GuardTests.test_missing_or_wrong_freeze_inputs_rejected) ... ok
+test_public_host_must_be_stable_and_assets_exact (test_publish_plugin.GuardTests.test_public_host_must_be_stable_and_assets_exact) ... ok
+test_two_platform_manifest_emits_only_built_linux_target (test_publish_plugin.GuardTests.test_two_platform_manifest_emits_only_built_linux_target) ... ok
+test_no_writes_on_host_signature_or_concurrent_change (test_publish_plugin.MutationTests.test_no_writes_on_host_signature_or_concurrent_change) ... ok
+test_order_preserves_old_entries_and_verifies_after_write (test_publish_plugin.MutationTests.test_order_preserves_old_entries_and_verifies_after_write) ... ok
+test_r2_checks_both_objects_before_any_write (test_publish_plugin.MutationTests.test_r2_checks_both_objects_before_any_write) ... ok
+test_uncertain_kv_write_reads_back_without_repeating (test_publish_plugin.MutationTests.test_uncertain_kv_write_reads_back_without_repeating) ... ok
+test_uncertain_r2_write_reads_back_before_retry (test_publish_plugin.MutationTests.test_uncertain_r2_write_reads_back_before_retry) ... ok
+test_all_three_fixed_profiles_match_generated_packages_offline (test_publish_plugin.ProfileTests.test_all_three_fixed_profiles_match_generated_packages_offline) ... ok
+test_generated_any_key_cannot_replace_real_universal_contract (test_publish_plugin.ProfileTests.test_generated_any_key_cannot_replace_real_universal_contract) ... ok
+test_public_object_with_different_bytes_or_uncertain_http_never_overwrites (test_publish_plugin.ProfileTests.test_public_object_with_different_bytes_or_uncertain_http_never_overwrites) ... ok
+test_three_serial_merges_preserve_every_earlier_entry_and_root_metadata (test_publish_plugin.ProfileTests.test_three_serial_merges_preserve_every_earlier_entry_and_root_metadata) ... ok
+test_ui_only_rejects_binary_declarations_and_native_payloads (test_publish_plugin.ProfileTests.test_ui_only_rejects_binary_declarations_and_native_payloads) ... ok
+test_wrong_frozen_source_and_cross_profile_receipts_fail (test_publish_plugin.ProfileTests.test_wrong_frozen_source_and_cross_profile_receipts_fail) ... ok
+test_public_tag_and_anonymous_asset_bytes_are_both_required (test_publish_plugin.PublicHostGateTests.test_public_tag_and_anonymous_asset_bytes_are_both_required) ... ok
+test_r2_retry_keeps_identical_object_key_and_reads_before_retry (test_publish_plugin.PublicHostGateTests.test_r2_retry_keeps_identical_object_key_and_reads_before_retry) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.055s
+
+OK

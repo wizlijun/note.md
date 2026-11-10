@@ -1,0 +1,53 @@
+{
+  "sourceCommit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "package": {
+    "id": "notemd.next",
+    "version": "1.13.3",
+    "arch": "universal",
+    "sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+    "signatureSha256": "5d118a761200acf8edfdabdb644c3394744e0988bbbf677b43af8f691c1ca0ff",
+    "bytes": 163405,
+    "files": {
+      "ui/index.html": "4d0f2f59bde71d33bc70c009ac6e395c9e751380105ba19bdf886b90f264386b",
+      "ui/assets/index-DoLCk2B8.js": "5129a2e497885f10bfff57699950f0fff825d884a048f4ba2d1732b8a0d9480d",
+      "ui/assets/index-BG2ecnAK.css": "134492f72cb53018ed7ceae7cbad669679ca746ebd4ba77ee9ab94f1d7fb7371",
+      "manifest.json": "eb665bd54de1cbc6e84fc3c923a05a6913070d8d1962296f92dfe62b7fc88963"
+    }
+  },
+  "host": {
+    "tag": "v6.1110.4",
+    "sourceCommit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+    "assets": [
+      {
+        "name": "note.md_6.1110.4_amd64.deb",
+        "sha256": "40e4b86e7408fefe7e16072df875ae007973452be0f0201ed1704028f2ea8bca",
+        "bytes": 15859902
+      },
+      {
+        "name": "notemd-6.1110.4-1-omarchy-recipe.tar.gz",
+        "sha256": "3a7ad09afe522a5483e92d13d49f752ba3d6b6bb6d898915eda42fd5cb414d21",
+        "bytes": 1092
+      },
+      {
+        "name": "notemd-6.1110.4-1-x86_64.pkg.tar.zst",
+        "sha256": "d8d179a8286043f8a560a98aec8e7a2b53a1f191da4e0ba2ce820f4555323575",
+        "bytes": 15236313
+      },
+      {
+        "name": "omarchy-6.1110.4-verification.json",
+        "sha256": "17ff4c1afcb0c2c4586f9096f7c3915440226b11cf61ec291a752aad5696bfcf",
+        "bytes": 4853
+      },
+      {
+        "name": "SHA256SUMS-linux.txt",
+        "sha256": "e6280cc83296b941eee9109d9e3cbcfebe8bd152bd5deec7664824641f3060ed",
+        "bytes": 93
+      },
+      {
+        "name": "SHA256SUMS-omarchy.txt",
+        "sha256": "42362e670040f6b3dc920c16fa3496304684236297b668f0a1698ca6086227ed",
+        "bytes": 310
+      }
+    ]
+  }
+}

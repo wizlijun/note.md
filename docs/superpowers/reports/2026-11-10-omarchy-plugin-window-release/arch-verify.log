@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "notemd-6.1110.4-1-x86_64.pkg.tar.zst": {
+      "sha256": "d8d179a8286043f8a560a98aec8e7a2b53a1f191da4e0ba2ce820f4555323575",
+      "size": 15236313
+    },
+    "notemd-6.1110.4-1-omarchy-recipe.tar.gz": {
+      "sha256": "3a7ad09afe522a5483e92d13d49f752ba3d6b6bb6d898915eda42fd5cb414d21",
+      "size": 1092
+    }
+  },
+  "verification": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/assets/omarchy-6.1110.4-verification.json",
+  "checksums": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/assets/SHA256SUMS-omarchy.txt",
+  "binary_sha256": "8bb5f2c42e77ae64f46a3b40c22e8a82e1da387fb1710e2c702b69fe5c941357",
+  "preserved_payload_files": 9,
+  "cli": "notemd 6.1110.4 (plugin API v1)"
+}

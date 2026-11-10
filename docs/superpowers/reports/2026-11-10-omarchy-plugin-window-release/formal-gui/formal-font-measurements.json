@@ -1,0 +1,231 @@
+{
+  "tag": "v6.1110.4",
+  "source": "formal packaged host process, read-only GTK observer",
+  "observer_sha256": "b108c91d69650cb31692f068e3658f9e7d4c4e03f8dd9571f9a70a759c604529",
+  "gtk_cursor_is_not_custom_caret_geometry": true,
+  "stages": [
+    {
+      "stage": "sumi-body-normal",
+      "font": "monospace 16.5",
+      "font_size_pt": 16.5,
+      "font_size_css_px": 22.0,
+      "scale": 2,
+      "metrics": [
+        {
+          "sample": "M",
+          "width": 13.0,
+          "height": 30.0,
+          "ink": [
+            1,
+            7,
+            11,
+            16
+          ]
+        },
+        {
+          "sample": "Ag\u4e2d",
+          "width": 48.0,
+          "height": 33.0,
+          "ink": [
+            1,
+            7,
+            45,
+            23
+          ]
+        }
+      ],
+      "gtk_cursor": [
+        76,
+        1,
+        0,
+        30
+      ],
+      "text": "m ag",
+      "allocation": [
+        0,
+        0,
+        960,
+        628
+      ]
+    },
+    {
+      "stage": "sumi-body-fullscreen-1",
+      "font": "monospace 20.625",
+      "font_size_pt": 20.625,
+      "font_size_css_px": 27.5,
+      "scale": 2,
+      "metrics": [
+        {
+          "sample": "M",
+          "width": 17.0,
+          "height": 38.0,
+          "ink": [
+            1,
+            8,
+            14,
+            21
+          ]
+        },
+        {
+          "sample": "Ag\u4e2d",
+          "width": 62.0,
+          "height": 41.0,
+          "ink": [
+            1,
+            8,
+            58,
+            29
+          ]
+        }
+      ],
+      "gtk_cursor": [
+        348,
+        1,
+        0,
+        38
+      ],
+      "text": "m ag",
+      "allocation": [
+        0,
+        0,
+        1920,
+        1054
+      ]
+    },
+    {
+      "stage": "sumi-body-restored-1",
+      "font": "monospace 16.5",
+      "font_size_pt": 16.5,
+      "font_size_css_px": 22.0,
+      "scale": 2,
+      "metrics": [
+        {
+          "sample": "M",
+          "width": 13.0,
+          "height": 30.0,
+          "ink": [
+            1,
+            7,
+            11,
+            16
+          ]
+        },
+        {
+          "sample": "Ag\u4e2d",
+          "width": 48.0,
+          "height": 33.0,
+          "ink": [
+            1,
+            7,
+            45,
+            23
+          ]
+        }
+      ],
+      "gtk_cursor": [
+        76,
+        1,
+        0,
+        30
+      ],
+      "text": "m ag",
+      "allocation": [
+        0,
+        0,
+        960,
+        628
+      ]
+    },
+    {
+      "stage": "sumi-body-fullscreen-2",
+      "font": "monospace 20.625",
+      "font_size_pt": 20.625,
+      "font_size_css_px": 27.5,
+      "scale": 2,
+      "metrics": [
+        {
+          "sample": "M",
+          "width": 17.0,
+          "height": 38.0,
+          "ink": [
+            1,
+            8,
+            14,
+            21
+          ]
+        },
+        {
+          "sample": "Ag\u4e2d",
+          "width": 62.0,
+          "height": 41.0,
+          "ink": [
+            1,
+            8,
+            58,
+            29
+          ]
+        }
+      ],
+      "gtk_cursor": [
+        348,
+        1,
+        0,
+        38
+      ],
+      "text": "m ag",
+      "allocation": [
+        0,
+        0,
+        1920,
+        1054
+      ]
+    },
+    {
+      "stage": "sumi-body-restored-2",
+      "font": "monospace 16.5",
+      "font_size_pt": 16.5,
+      "font_size_css_px": 22.0,
+      "scale": 2,
+      "metrics": [
+        {
+          "sample": "M",
+          "width": 13.0,
+          "height": 30.0,
+          "ink": [
+            1,
+            7,
+            11,
+            16
+          ]
+        },
+        {
+          "sample": "Ag\u4e2d",
+          "width": 48.0,
+          "height": 33.0,
+          "ink": [
+            1,
+            7,
+            45,
+            23
+          ]
+        }
+      ],
+      "gtk_cursor": [
+        76,
+        1,
+        0,
+        30
+      ],
+      "text": "m ag",
+      "allocation": [
+        0,
+        0,
+        960,
+        628
+      ]
+    }
+  ],
+  "normal_restored_equal": true,
+  "repeated_fullscreen_equal": true,
+  "persistent_base_font_size": 22
+}

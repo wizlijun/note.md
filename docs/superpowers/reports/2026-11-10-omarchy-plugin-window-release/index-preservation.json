@@ -1,0 +1,21 @@
+{
+  "before": 309,
+  "after": 312,
+  "all_existing_entries_unchanged": true,
+  "normal_fresh_kv_equal": true,
+  "new_entries": [
+    [
+      "notemd.idea-spark",
+      "1.3.8"
+    ],
+    [
+      "notemd.next",
+      "1.13.3"
+    ],
+    [
+      "notemd.sumi",
+      "0.1.12"
+    ]
+  ],
+  "evidence": "official publisher final anonymous normal/fresh readback and KV final"
+}
