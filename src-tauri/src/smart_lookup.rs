@@ -62,7 +62,6 @@ pub(crate) struct RunTime {
 
 /// What the model judged on a run, kept for the user's corrections.
 #[derive(Clone)]
-#[cfg_attr(not(test), expect(dead_code, reason = "read by smart_lookup_feedback (Task 7)"))]
 pub(crate) struct JudgeRecord {
     pub endpoint_host: String,
     pub model: String,

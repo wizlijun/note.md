@@ -337,6 +337,64 @@ pub(super) fn run_e1(
     Ok(rows)
 }
 
+/// How often the user's correction agreed with the model's tier, from the
+/// local feedback log. Only fit and unfit tiers are decided; an unsure tier
+/// has no side to agree with, so its corrections are only counted.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct FeedbackAgreement {
+    pub rows: usize,
+    pub decided: usize,
+    pub agreed: usize,
+    /// (rows the model tiered fit, of which the user also marked fit)
+    pub fit: (usize, usize),
+    /// (rows the model tiered unfit, of which the user also marked unfit)
+    pub unfit: (usize, usize),
+    pub unsure_marked_fit: usize,
+    pub unsure_marked_unfit: usize,
+    pub rate: Option<f64>,
+}
+
+/// Blank lines are skipped; a malformed line fails the whole read and names
+/// its 1-based line number.
+pub(super) fn feedback_agreement(jsonl: &str) -> Result<FeedbackAgreement, String> {
+    use crate::smart_enhance::feedback::{FeedbackRow, UserVerdict};
+    use crate::smart_enhance::Tier;
+    let mut a = FeedbackAgreement::default();
+    for (index, line) in jsonl.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let row: FeedbackRow =
+            serde_json::from_str(line).map_err(|e| format!("feedback line {}: {e}", index + 1))?;
+        a.rows += 1;
+        let agrees = match (row.model_tier, row.user_verdict) {
+            (Tier::Fit, UserVerdict::Fit) | (Tier::Unfit, UserVerdict::Unfit) => true,
+            _ => false,
+        };
+        match row.model_tier {
+            Tier::Fit => {
+                a.fit.0 += 1;
+                a.fit.1 += usize::from(agrees);
+            }
+            Tier::Unfit => {
+                a.unfit.0 += 1;
+                a.unfit.1 += usize::from(agrees);
+            }
+            Tier::Unsure => match row.user_verdict {
+                UserVerdict::Fit => a.unsure_marked_fit += 1,
+                UserVerdict::Unfit => a.unsure_marked_unfit += 1,
+            },
+        }
+        if row.model_tier != Tier::Unsure {
+            a.decided += 1;
+            a.agreed += usize::from(agrees);
+        }
+    }
+    a.rate = (a.decided > 0).then(|| a.agreed as f64 / a.decided as f64);
+    Ok(a)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -530,6 +588,37 @@ mod tests {
         assert!(!rows[2].target_indexed, "{:?}", rows[2]);
         let gates = pre_gates(&rows);
         assert_eq!((gates.scored_tasks, gates.unrecalled_after_deep), (1, 0));
+    }
+
+    fn feedback_row_json(tier: &str, verdict: &str) -> String {
+        format!(
+            r#"{{"ts":"2026-11-10T00:00:00Z","question":"q","path":"a.md","line":1,"lineEnd":2,"modelTier":"{tier}","userVerdict":"{verdict}","endpointHost":"h","model":"m"}}"#
+        )
+    }
+
+    #[test]
+    fn feedback_agreement_counts_decided_tiers_only() {
+        let row = feedback_row_json;
+        let jsonl = [row("fit", "fit"), row("fit", "unfit"), row("unfit", "unfit"), row("unsure", "fit"), String::new()]
+            .join("\n");
+        let a = feedback_agreement(&jsonl).unwrap();
+        assert_eq!((a.rows, a.decided, a.agreed, a.fit, a.unfit, a.unsure_marked_fit), (4, 3, 2, (2, 1), (1, 1), 1));
+        assert!((a.rate.unwrap() - 2.0 / 3.0).abs() < 1e-9);
+        assert!(feedback_agreement("{not json}").unwrap_err().contains("line 1"));
+        assert_eq!(feedback_agreement("").unwrap().rate, None);
+    }
+
+    /// ```text
+    /// NOTEMD_EVAL_FEEDBACK=<feedback.jsonl> RUSTUP_TOOLCHAIN=stable \
+    ///   cargo test --manifest-path src-tauri/Cargo.toml feedback_agreement_report -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "reads the local feedback log; run by hand with NOTEMD_EVAL_FEEDBACK set"]
+    fn feedback_agreement_report() {
+        let path = std::env::var("NOTEMD_EVAL_FEEDBACK").expect("NOTEMD_EVAL_FEEDBACK must be set for this run");
+        let text = std::fs::read_to_string(&path).expect("read feedback log");
+        let report = feedback_agreement(&text).expect("valid feedback log");
+        println!("{}", serde_json::to_string_pretty(&report).unwrap());
     }
 
     /// The real run. Quit note.md first so the index copy is consistent.
