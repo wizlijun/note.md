@@ -68,16 +68,62 @@ pub(super) struct EvalTask {
 /// other task without targets, and a target path that is empty, absolute or
 /// contains `..`.
 pub(super) fn load_tasks(json: &str) -> Result<Vec<EvalTask>, String> {
-    let _ = json;
-    todo!("plan Task 3 Step 3")
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct TaskFile {
+        tasks: Vec<EvalTask>,
+    }
+    let file: TaskFile = serde_json::from_str(json).map_err(|e| format!("task file: {e}"))?;
+    if file.tasks.is_empty() {
+        return Err("task file: no tasks".to_string());
+    }
+    let mut seen = std::collections::HashSet::new();
+    for task in &file.tasks {
+        let id = &task.id;
+        if !seen.insert(id.as_str()) {
+            return Err(format!("task {id}: duplicate id"));
+        }
+        if task.question.trim().is_empty() {
+            return Err(format!("task {id}: empty question"));
+        }
+        match (task.category == Category::Absent, task.targets.is_empty()) {
+            (true, false) => return Err(format!("task {id}: an absent task must not list targets")),
+            (false, true) => return Err(format!("task {id}: no targets")),
+            _ => {}
+        }
+        for target in &task.targets {
+            let path = Path::new(&target.path);
+            let escapes = path
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir));
+            if target.path.trim().is_empty()
+                || target.path.starts_with(['/', '\\'])
+                || path.is_absolute()
+                || escapes
+            {
+                return Err(format!(
+                    "task {id}: target path {:?} must be a non-empty relative path without `..`",
+                    target.path
+                ));
+            }
+        }
+    }
+    Ok(file.tasks)
 }
 
 /// The best 1-based rank among `targets`, with the level of the block that
 /// matched. A hit matches when the paths are equal and the target's line is
 /// absent or lies inside `[hit.line, hit.line_end]`.
 pub(super) fn target_rank(hits: &[SmartHitDto], targets: &[EvalTarget]) -> Option<(usize, String)> {
-    let _ = (hits, targets);
-    todo!("plan Task 3 Step 3")
+    hits.iter().enumerate().find_map(|(index, hit)| {
+        let matched = targets.iter().any(|target| {
+            target.path == hit.hit.path
+                && target
+                    .line
+                    .map_or(true, |line| hit.hit.line <= line && line <= hit.hit.line_end)
+        });
+        matched.then(|| (index + 1, hit.hit.level.clone()))
+    })
 }
 
 /// One task's outcome on the local baseline.
@@ -136,8 +182,46 @@ pub(super) struct PreGates {
 ///   there is no time task.
 /// - Constraint inference is worth evaluating when ≥ 4 tasks depend on it.
 pub(super) fn pre_gates(rows: &[E1Row]) -> PreGates {
-    let _ = rows;
-    todo!("plan Task 3 Step 3")
+    let scored: Vec<&E1Row> = rows.iter().filter(|r| r.target_indexed).collect();
+    let rank_6_to_50 = scored
+        .iter()
+        .filter(|r| r.rank.is_some_and(|rank| (6..=50).contains(&rank)))
+        .count();
+    let unrecalled_after_deep = scored
+        .iter()
+        .filter(|r| r.category != Category::Absent && r.rank.is_none() && r.deep_rank.is_none())
+        .count();
+    let recalled = scored.iter().filter(|r| r.rank.is_some()).count();
+    let rolled_up = scored
+        .iter()
+        .filter(|r| {
+            r.rank.is_some() && matches!(r.level.as_deref(), Some("section") | Some("file"))
+        })
+        .count();
+    let rollup_share = if recalled == 0 { 0.0 } else { rolled_up as f64 / recalled as f64 };
+    let timed: Vec<&&E1Row> = scored.iter().filter(|r| r.time_detected).collect();
+    let within_5 = |rank: Option<usize>| rank.is_some_and(|rank| rank <= 5);
+    let c2_grouping_ok = if timed.is_empty() {
+        None
+    } else {
+        let before = timed.iter().filter(|r| within_5(r.rank)).count();
+        let after = timed.iter().filter(|r| within_5(r.grouped_rank)).count();
+        Some(after >= before)
+    };
+    let inferred_constraint_tasks = scored.iter().filter(|r| r.needs_inferred_constraint).count();
+    PreGates {
+        scored_tasks: scored.len(),
+        rank_6_to_50,
+        c3_worth_testing: rank_6_to_50 >= 6,
+        unrecalled_after_deep,
+        c4_worth_testing: unrecalled_after_deep >= 4,
+        rollup_share,
+        rollup_excerpt_required: rollup_share >= 0.25,
+        time_tasks: timed.len(),
+        c2_grouping_ok,
+        inferred_constraint_tasks,
+        constraint_inference_worth_evaluating: inferred_constraint_tasks >= 4,
+    }
 }
 
 /// Score every task against the index behind `handle`.
