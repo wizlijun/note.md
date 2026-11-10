@@ -14,7 +14,7 @@ function init(root: string) {
   git(root, 'init', '-q'); git(root, 'add', '.')
   git(root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture')
 }
-function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?: string; remoteMismatch?: boolean } = {}) {
+function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?: string; remoteMismatch?: boolean; jobs?: string } = {}) {
   const root = dir(), repo = join(root, 'mdeditor'), core = join(root, 'moraya-core'), bin = join(root, 'bin'), log = join(root, 'calls')
   mkdirSync(join(repo, 'scripts/docker'), { recursive: true }); mkdirSync(join(repo, 'src-tauri'), { recursive: true })
   mkdirSync(join(core, 'dist'), { recursive: true }); mkdirSync(bin)
@@ -39,7 +39,12 @@ if(a[0]==='build'){const ctx=a.at(-1);if(fs.existsSync(p.join(ctx,'.env.private'
 if(a.includes('/verify.sh')) {if(${JSON.stringify(options.fail)}==='verify')process.exit(23);}
 else if(a[0]==='run') {if(${JSON.stringify(options.fail)}==='build')process.exit(22);let out;for(let i=0;i<a.length;i++)if(a[i]==='--mount'&&a[i+1].includes('dst=/output'))out=a[i+1].match(/src=([^,]+)/)[1];if(!out)process.exit(32);const arch=a[a.indexOf('--platform')+1].endsWith('amd64')?'amd64':'arm64';fs.writeFileSync(p.join(out,'note.md_${version}_'+arch+'.deb'),'fixture '+arch);}
 `)
-  return { root, repo, log, run: (args = [tag]) => spawnSync('bash', [join(repo, 'scripts/release-linux.sh'), ...args], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: bin + ':' + process.env.PATH } }) }
+  return { root, repo, log, run: (args = [tag]) => {
+    const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + ':' + process.env.PATH }
+    if (options.jobs === undefined) delete env.CARGO_BUILD_JOBS
+    else env.CARGO_BUILD_JOBS = options.jobs
+    return spawnSync('bash', [join(repo, 'scripts/release-linux.sh'), ...args], { cwd: repo, encoding: 'utf8', env })
+  } }
 }
 function calls(log: string): string[][] { return existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [] }
 describe('Linux release orchestration (fake remote/build boundary)', () => {
@@ -64,6 +69,7 @@ describe('Linux release orchestration (fake remote/build boundary)', () => {
       expect(build.some(a => a.includes(`notemd-linux-${arch}-target`))).toBe(true)
       expect(build.some(a => a.includes(`notemd-linux-${arch}-pnpm`))).toBe(true)
       expect(build.some(a => a.includes(`notemd-linux-${arch}-node`))).toBe(true)
+      expect(build).toContain('CARGO_BUILD_JOBS=2')
       const source = build.find(a => a.includes('dst=/input/mdeditor'))!.match(/src=([^,]+)/)![1]
       expect(existsSync(source)).toBe(false) // trap cleaned the temporary artifact worktree/input
     }
@@ -73,6 +79,18 @@ describe('Linux release orchestration (fake remote/build boundary)', () => {
     expect(git(h.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1)
     expect(readFileSync(join(h.repo, 'package.json'), 'utf8')).toContain(version)
   }, 20_000)
+  it('passes an explicit positive build-job limit to both architecture containers', () => {
+    const h = linuxHarness({ jobs: '3' }), result = h.run()
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const builds = calls(h.log).filter(c => c[0] === 'docker' && c[1] === 'run' && !c.includes('/verify.sh'))
+    expect(builds).toHaveLength(2)
+    expect(builds.every(c => c.includes('CARGO_BUILD_JOBS=3'))).toBe(true)
+  }, 20_000)
+  it.each(['', '0', '-1', '1.5', 'two'])('rejects invalid CARGO_BUILD_JOBS=%j before remote/build operations', jobs => {
+    const h = linuxHarness({ jobs }), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log)).toEqual([])
+  })
   it.each([{ draft: false }, { packageVersion: '6.1014.1' }, { remoteMismatch: true }, { fail: 'build' }, { fail: 'verify' }])('never uploads on preflight/build/verification failure %j', options => {
     const h = linuxHarness(options), result = h.run()
     expect(result.status).not.toBe(0)

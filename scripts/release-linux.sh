@@ -7,6 +7,8 @@ TAG=$1 VERSION=${1#v}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GH_REPO=${GH_REPO:-wizlijun/note.md}
 [[ "$GH_REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]] || die 'invalid GH_REPO'
+CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS-2}
+[[ "$CARGO_BUILD_JOBS" =~ ^[1-9][0-9]*$ ]] || die 'CARGO_BUILD_JOBS must be a positive integer'
 for tool in git node docker gh tar; do command -v "$tool" >/dev/null || die "$tool is required"; done
 RELEASE=$(gh -R "$GH_REPO" release view "$TAG" --json tagName,isDraft)
 node -e 'const r=JSON.parse(process.argv[1]); if(r.tagName!==process.argv[2]||r.isDraft!==true)throw Error("exact existing draft required")' "$RELEASE" "$TAG"
@@ -15,7 +17,7 @@ REMOTE_COMMIT=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
 [[ "$REMOTE_COMMIT" == "$COMMIT" ]] || die 'local tag commit differs from the remote release tag'
 CORE=$(cd "$ROOT/../moraya-core" && pwd)
 CORE_COMMIT=$(git -C "$CORE" rev-parse --verify HEAD)
-echo "Frozen Linux source: tag=$TAG commit=$COMMIT core=$CORE_COMMIT"
+echo "Frozen Linux source: tag=$TAG commit=$COMMIT core=$CORE_COMMIT jobs=$CARGO_BUILD_JOBS"
 TMP=$(mktemp -d)
 WORKTREE="$TMP/tag-worktree"
 cleanup() {
@@ -72,6 +74,7 @@ for ARCH in amd64 arm64; do
     --mount "type=volume,src=notemd-linux-$ARCH-target,dst=/cache/target" \
     --mount "type=volume,src=notemd-linux-$ARCH-pnpm,dst=/cache/pnpm" \
     --mount "type=volume,src=notemd-linux-$ARCH-node,dst=/cache/node" \
+    -e CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
     -e COREPACK_HOME=/cache/node/corepack \
     -e PNPM_CONFIG_STORE_DIR=/cache/pnpm \
     -e PNPM_CONFIG_CACHE_DIR=/cache/node/cache -e PNPM_CONFIG_STATE_DIR=/cache/node/state \

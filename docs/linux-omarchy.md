@@ -229,6 +229,8 @@ Run the Windows command on Windows before Linux/final publication. Linux uses
 Debian 12 containers for both architectures, verifies package layout/ELF/CLI
 and Arch compatibility, then uploads both debs plus their checksums. Keep the
 sibling `moraya-core` source available read-only as required by the build.
+Build containers default to two Cargo jobs to limit concurrent compiler memory;
+set `CARGO_BUILD_JOBS` to another positive integer when appropriate for the builder.
 The publish script validates the exact draft and complete platform asset set,
 then publishes immediately; the normal command has no confirmation prompt.
 The explicit `--without windows|linux` and `--mac-arm64-only` modes require typing
