@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, tick, unmount } from 'svelte'
 import type { SearchHit, SmartSearchHit, SmartSearchResponse } from './lib/search/api'
 
-type AgentStatus = Record<string, unknown>
-
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   writeText: vi.fn(async (_text: string) => {}),
@@ -17,10 +15,6 @@ const mocks = vi.hoisted(() => ({
   localGate: null as Promise<void> | null,
   localError: null as string | null,
   customHits: null as SmartSearchHit[] | null,
-  statusResults: [] as AgentStatus[],
-  summaryStartError: null as string | null,
-  agentsError: false,
-  secondAgent: false,
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
@@ -102,50 +96,8 @@ function searchResponse(kind: 'normal' | 'empty' | 'single'): SmartSearchRespons
   }
 }
 
-function harnessStatus(harness = 'Test Harness') {
-  return {
-    harness, ok: true, default_model: 'test-model',
-    capabilities: {
-      tasks: ['search-summary', 'vault-research'],
-      search_plan_schemas: [1],
-      terminal_result: true, input_only_isolation: true,
-      model_routing: {
-        invocation_override: true,
-        profiles: {
-          fast: { model: 'test-fast', available: true },
-          default: { model: 'test-model', available: true },
-        },
-        selectable_models: ['test-fast', 'test-model'],
-      },
-    },
-  }
-}
-
 function installInvokeMock(): void {
   mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
-    if (command === 'get_plugin_manifests') {
-      if (mocks.agentsError) throw new Error('plugins unavailable')
-      return [
-        { id: 'notemd.test-agent', name: 'Test Agent', agent_provider: true },
-        ...(mocks.secondAgent ? [{ id: 'notemd.other-agent', name: 'Other Agent', agent_provider: true }] : []),
-      ]
-    }
-    if (command === 'plugin_v2_execute') {
-      if (args?.command === 'harness-status') {
-        return harnessStatus(args?.pluginId === 'notemd.other-agent' ? 'Other Harness' : 'Test Harness')
-      }
-      if (args?.command === 'run-cancel') return { state: 'cancelling' }
-      if (args?.command === 'run-task') return { run_id: 'unexpected-run', resolved_model: 'test-fast' }
-      if (args?.command === 'run-status') {
-        if (mocks.statusResults.length) return mocks.statusResults.shift()
-        return {
-          state: 'done',
-          record: { status: 'success', usage: { input_tokens: 5 } },
-          terminal_result: { complete: true, content: '- Fix the blocker before release. [S1]' },
-        }
-      }
-    }
-    if (command === 'smart_lookup_agent_default') return 'notemd.test-agent'
     if (command === 'notemd_smart_search') {
       return searchResponse(args?.deep === true ? 'normal' : mocks.preview)
     }
@@ -160,16 +112,6 @@ function installInvokeMock(): void {
         : question === 'new question' ? searchResponse('single') : searchResponse(mocks.local)
       return { search, lookupRunId: `run-${question}` }
     }
-    if (command === 'smart_lookup_start_summary') {
-      if (mocks.summaryStartError) throw new Error(mocks.summaryStartError)
-      return {
-        runId: 'summary-1',
-        resolvedModel: 'test-fast',
-        sources: [{ id: 'S1', path: 'notes/alpha.md', line: 4, lineEnd: 4 }],
-        staleCount: 0,
-      }
-    }
-    if (command === 'smart_lookup_start_handoff') return { runId: 'research-1', resolvedModel: 'test-model' }
     return undefined
   })
 }
@@ -187,8 +129,9 @@ function agentCommands(name: string) {
 async function mountReady(): Promise<HTMLTextAreaElement> {
   component = mount(SmartLookupApp, { target: document.body })
   await vi.waitFor(() => {
-    expect(agentCommands('harness-status').length).toBeGreaterThan(0)
     expect(document.querySelector('.query-input')).not.toBeNull()
+    // Settings are loaded and the window is fully initialised.
+    expect(mocks.focusChanged).not.toBeNull()
   })
   await tick()
   return document.querySelector<HTMLTextAreaElement>('.query-input')!
@@ -255,10 +198,6 @@ beforeEach(() => {
   mocks.localGate = null
   mocks.localError = null
   mocks.customHits = null
-  mocks.statusResults.length = 0
-  mocks.summaryStartError = null
-  mocks.agentsError = false
-  mocks.secondAgent = false
   installInvokeMock()
 })
 
@@ -303,8 +242,6 @@ describe('SmartLookupApp', () => {
       question: 'release risk', deep: false, limit: 50,
     }))
     expect(agentCommands('run-task')).toHaveLength(0)
-    expect(calls('smart_lookup_start_summary')).toHaveLength(0)
-    expect(calls('smart_lookup_start_handoff')).toHaveLength(0)
     expect(document.querySelector('.result-row.active')?.textContent).toContain('alpha')
     expect(document.querySelector('.preview-pane')?.textContent).toContain('notes/alpha.md:4')
   })
@@ -453,123 +390,6 @@ describe('SmartLookupApp', () => {
     expect(calls('smart_lookup_local')).toHaveLength(1)
   })
 
-  it('summary runs only on click and renders validated output', async () => {
-    const input = await mountReady()
-    await submit(input)
-    expect(calls('smart_lookup_start_summary')).toHaveLength(0)
-
-    await chooseMenuAction('Create answer')
-    await vi.waitFor(() => expect(document.querySelector('.answer-body')?.textContent).toContain('[S1]'))
-
-    expect(agentCommands('run-task')).toHaveLength(0)
-    expect(calls('smart_lookup_start_summary')).toHaveLength(1)
-    expect(calls('smart_lookup_start_summary')[0][1]).toEqual(expect.objectContaining({
-      lookupRunId: 'run-release risk',
-      selectedResultIds: [],
-      sourceLimit: 4,
-      charLimit: 4000,
-      style: 'bullets',
-      provider: 'notemd.test-agent',
-      model_profile: 'fast',
-      invocationId: expect.any(String),
-    }))
-  })
-
-  it('an expired lookup run shows a summary error and re-enables the action', async () => {
-    mocks.summaryStartError = 'lookup run expired; run Smart Lookup again'
-    const input = await mountReady()
-    await submit(input)
-    await chooseMenuAction('Create answer')
-
-    await vi.waitFor(() => {
-      const error = document.querySelector('.preview-pane .summary-error[role="alert"]')?.textContent ?? ''
-      expect(error).toContain('Could not create a quick answer')
-      expect(error).toContain('lookup run expired')
-    })
-    expect(document.querySelector('.answer-body')).toBeNull()
-    await openMenu()
-    expect(menuItem('Create answer').disabled).toBe(false)
-  })
-
-  it('a new lookup cancels a running summary', async () => {
-    for (let i = 0; i < 20; i += 1) mocks.statusResults.push({ state: 'running', steps: i, last: 'hidden' })
-    const input = await mountReady()
-    await submit(input)
-    await chooseMenuAction('Create answer')
-    await vi.waitFor(() => expect(agentCommands('run-status').length).toBeGreaterThan(0))
-
-    await submit(input, 'new question', 1)
-    await vi.waitFor(() => expect(agentCommands('run-cancel').some((call) => (
-      call[1]?.context?.task === 'search-summary' && call[1]?.context?.run_id === 'summary-1'
-    ))).toBe(true))
-    mocks.statusResults.length = 0
-    await wait(700)
-    expect(document.querySelector('.answer-body')).toBeNull()
-    expect(document.body.textContent).toContain('new-result')
-  })
-
-  it('handoff sends only relative references', async () => {
-    mocks.customHits = [hit('alpha', 4), { ...hit('outside', 2), path: '/abs/outside.md' }]
-    const input = await mountReady()
-    await submit(input, 'release risk', 2)
-
-    await chooseMenuAction('In-depth research · Test Harness')
-    await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
-    const handoff = calls('smart_lookup_start_handoff')[0][1]
-    expect(handoff?.question).toBe('release risk')
-    expect(handoff?.provider).toBe('notemd.test-agent')
-    expect(handoff?.selectedRefs).toEqual([{ path: 'notes/alpha.md', line: 4, lineEnd: 4 }])
-    expect(JSON.stringify(handoff)).not.toContain('/vault/')
-    expect(JSON.stringify(handoff)).not.toContain('/abs/')
-    expect(JSON.stringify(handoff)).not.toContain('PRIVATE_BODY_')
-    expect(agentCommands('run-task')).toHaveLength(0)
-
-    await vi.waitFor(() => expect(document.querySelector('.handoff-status')).not.toBeNull())
-    buttonNamed('Open research ↗').click()
-    await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('plugin_v2_open_window', {
-      pluginId: 'notemd.test-agent', windowId: 'main',
-    }))
-  })
-
-  it('handoff omits result references when the setting is off', async () => {
-    mocks.storedSmartLookup = { handoff: { includeSelectedRefs: false } }
-    const input = await mountReady()
-    await submit(input)
-    await chooseMenuAction('In-depth research · Test Harness')
-    await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
-    expect(calls('smart_lookup_start_handoff')[0][1]?.selectedRefs).toEqual([])
-  })
-
-  it('"Ask every time" offers one research row per capable agent and starts nothing until one is chosen', async () => {
-    mocks.secondAgent = true
-    const input = await mountReady()
-    await submit(input)
-    await openMenu()
-    await vi.waitFor(() => expect(document.querySelectorAll('.actions-menu .handoff-action')).toHaveLength(2))
-    const labels = Array.from(document.querySelectorAll('.actions-menu .handoff-action')).map((row) => row.textContent?.trim())
-    expect(labels).toEqual(['In-depth research · Test Harness', 'In-depth research · Other Harness'])
-    expect(calls('smart_lookup_start_handoff')).toHaveLength(0)
-
-    await chooseMenuAction('In-depth research · Other Harness')
-    await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
-    expect(calls('smart_lookup_start_handoff')[0][1]?.provider).toBe('notemd.other-agent')
-  })
-
-  it('an explicitly configured research agent is the only row and is named', async () => {
-    mocks.secondAgent = true
-    mocks.storedSmartLookup = { handoff: { defaultProvider: 'notemd.other-agent' } }
-    const input = await mountReady()
-    await submit(input)
-    await openMenu()
-    await vi.waitFor(() => expect(document.querySelectorAll('.actions-menu .handoff-action')).toHaveLength(1))
-    expect(document.querySelector('.actions-menu .handoff-action')?.textContent?.trim())
-      .toBe('In-depth research · Other Harness')
-    expect(document.querySelector('.handoff-hint')).toBeNull()
-    await chooseMenuAction('In-depth research · Other Harness')
-    await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
-    expect(calls('smart_lookup_start_handoff')[0][1]?.provider).toBe('notemd.other-agent')
-  })
-
   it('copy activity log includes elapsed time', async () => {
     const input = await mountReady()
     await submit(input)
@@ -583,44 +403,14 @@ describe('SmartLookupApp', () => {
     expect(search.elapsedMs).toBeGreaterThanOrEqual(0)
   })
 
-  it('records summary usage in the activity log', async () => {
+  it('the actions menu offers no answer or research rows', async () => {
     const input = await mountReady()
-    await submit(input)
-    await chooseMenuAction('Create answer')
-    await vi.waitFor(() => expect(document.querySelector('.answer-body')).not.toBeNull())
-    await chooseMenuAction('Copy activity log')
-    await vi.waitFor(() => expect(mocks.writeText).toHaveBeenCalledTimes(1))
-    const lines = String(mocks.writeText.mock.calls[0][0]).split('\n').map((line) => JSON.parse(line))
-    expect(lines.find((entry) => entry.stage === 'summary' && entry.level === 'success'))
-      .toMatchObject({ usage: { input_tokens: 5 } })
-  })
-
-  it('keeps lookup working when agents cannot be loaded', async () => {
-    mocks.agentsError = true
-    component = mount(SmartLookupApp, { target: document.body })
-    await vi.waitFor(() => expect(calls('get_plugin_manifests')).toHaveLength(1))
-    const input = document.querySelector<HTMLTextAreaElement>('.query-input')!
-    await submit(input)
+    await submit(input, 'release risk')
     await openMenu()
-    expect(menuItem('Create answer').disabled).toBe(true)
-    expect(menuItem('In-depth research').disabled).toBe(true)
-  })
-
-  it('does not hand a configured but unavailable agent\'s work to another agent', async () => {
-    mocks.storedSmartLookup = {
-      summary: { provider: 'notemd.removed-agent' },
-      handoff: { defaultProvider: 'notemd.removed-agent' },
-    }
-    const input = await mountReady()
-    await submit(input)
-    await openMenu()
-    expect(menuItem('Create answer').disabled).toBe(true)
-    expect(menuItem('In-depth research').disabled).toBe(true)
-    expect(document.querySelectorAll('.actions-menu .handoff-action')).toHaveLength(1)
-    expect(document.querySelector('.menu-hint')?.textContent).toContain('No AI service is available for quick answers')
-    expect(document.querySelector('.handoff-hint')?.textContent).toContain('No research assistant is available')
-    expect(calls('smart_lookup_start_summary')).toHaveLength(0)
-    expect(calls('smart_lookup_start_handoff')).toHaveLength(0)
+    const rows = [...document.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent?.trim())
+    expect(rows).not.toContain('Create answer')
+    expect(rows.some((row) => row?.startsWith('In-depth research'))).toBe(false)
+    expect(mocks.invoke.mock.calls.map(([cmd]) => cmd)).not.toContain('plugin_v2_execute')
   })
 
   it('groups by month when settings ask for date grouping, and reloads on settings change', async () => {

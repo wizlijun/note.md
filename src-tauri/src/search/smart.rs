@@ -1119,9 +1119,9 @@ mod tests {
         assert!(!run_id.is_empty());
         assert!(!response.hits.is_empty());
         assert!(response.hits.iter().all(|hit| hit.result_id.is_some()));
-        let prompt = crate::smart_lookup::summary_prompt_for_run(&run_id, "smart-search").unwrap();
-        assert!(prompt.contains("release risk details"));
-        assert!(crate::smart_lookup::summary_prompt_for_run(&run_id, "another-window").is_err());
+        let run = crate::smart_lookup::run_for_window(&run_id, "smart-search").unwrap();
+        assert!(run.hits.iter().any(|hit| hit.indexed_text.contains("release risk details")));
+        assert!(crate::smart_lookup::run_for_window(&run_id, "another-window").is_err());
     }
 
     #[test]

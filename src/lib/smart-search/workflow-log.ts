@@ -1,4 +1,4 @@
-export type WorkflowStage = 'preview' | 'search' | 'summary' | 'handoff'
+export type WorkflowStage = 'preview' | 'search'
 export type WorkflowLevel = 'active' | 'success' | 'warning' | 'error'
 
 export interface WorkflowEntry {

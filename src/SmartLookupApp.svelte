@@ -1,13 +1,11 @@
 <script lang="ts">
   // Smart Lookup window. Local-first: typing previews and Enter both read the
-  // local index only; an Agent runs only when the user asks for a quick answer
-  // or hands the question to a research Agent from the actions menu.
+  // local index only; no model is involved.
   import './styles/app.css'
   import { onDestroy, onMount, tick } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { loadLocale, t, watchLocaleChanges } from './lib/i18n/store.svelte'
-  import type { AgentOption } from './lib/agent-picker/types'
   import type { SearchHit } from './lib/search/api'
   import type { HitGroup } from './lib/search/grouping'
   import { decideTrigger } from './lib/search/input-trigger'
@@ -15,29 +13,14 @@
   import { createImeGuard, isImeKey } from './lib/ime'
   import { loadSettings, settings } from './lib/settings.svelte'
   import { SmartSearchStore } from './lib/smart-search/store.svelte'
-  import {
-    AgentTaskError,
-    cancelAgentTask,
-    loadDefaultAgentProvider,
-    loadSearchAgentOptions,
-    pollAgentTask,
-    SEARCH_SUMMARY_TASK,
-  } from './lib/smart-search/agent'
   import { smartSearchApi } from './lib/smart-search/api'
-  import { buildHandoffPacket } from './lib/smart-search/handoff'
   import { hitKey } from './lib/smart-search/hit-key'
   import {
     dateSections,
-    handoffChoices,
-    hasSummarySource,
     hitReference,
-    pickTaskAgent,
     redactError,
     sourceSections,
-    SUMMARY_DEFAULT_CHOICES,
   } from './lib/smart-search/lookup-view'
-  import { availableModelPreference, selectorForPreference } from './lib/smart-search/model-routing'
-  import { validateSummaryOutput, type SummarySource } from './lib/smart-search/summary'
   import {
     appendWorkflowEntry,
     formatWorkflowLog,
@@ -48,11 +31,6 @@
 
   /** `preview`: live typing results. `lookup`: the result of an Enter. */
   type ResultsMode = 'idle' | 'preview' | 'lookup'
-
-  interface RunningAgent {
-    provider: string
-    runId: string
-  }
 
   const PREVIEW_CHARS = 3_000
 
@@ -76,17 +54,6 @@
   let menuOpen = $state(false)
   let openError = $state('')
 
-  let agents = $state<AgentOption[]>([])
-  let appDefaultAgent = $state('')
-
-  let summaryBusy = $state(false)
-  let summaryText = $state('')
-  let summarySources = $state<SummarySource[]>([])
-  let summaryError = $state('')
-  let handoffBusy = $state(false)
-  let handoffRun = $state<RunningAgent | null>(null)
-  let handoffError = $state('')
-
   let activity = $state<WorkflowEntry[]>([])
   let activitySequence = 0
   let startedAt = 0
@@ -95,9 +62,6 @@
 
   /** Bumped by every new lookup, preview or stop; stale async work compares against it. */
   let requestSequence = 0
-  let summaryAbort: AbortController | null = null
-  let summaryRun: RunningAgent | null = null
-
   let destroyed = false
   const cleanups: Array<() => void> = []
 
@@ -107,30 +71,11 @@
     : sourceSections(store.hits, groupLabel))
   let orderedHits = $derived(sections.flatMap((section) => section.hits))
   let activeHit = $derived(orderedHits.find((hit) => hitKey(hit) === activeKey) ?? orderedHits[0] ?? null)
-  let summaryAgent = $derived(pickTaskAgent(
-    agents, SEARCH_SUMMARY_TASK, settings.smartLookup.summary.provider, appDefaultAgent,
-    SUMMARY_DEFAULT_CHOICES,
-  ))
-  let handoff = $derived(handoffChoices(agents, settings.smartLookup.handoff.defaultProvider))
-  let summaryReady = $derived(settings.smartLookup.summary.enabled
-    && Boolean(lookupRunId) && Boolean(summaryAgent) && hasSummarySource(orderedHits))
-  /** Why the quick answer is unavailable; empty when it is available or switched off in settings. */
-  let summaryHint = $derived(
-    !settings.smartLookup.summary.enabled || summaryReady ? ''
-      : !lookupRunId ? t('smartSearch.summaryNeedsLookup')
-        : !summaryAgent ? t('smartSearch.summaryAgentUnavailable')
-          : t('smartSearch.summaryNeedsLine'),
-  )
-  let canSummarize = $derived(summaryReady && !summaryBusy && !lookupBusy)
   let canExpand = $derived(Boolean(lookupRunId) && (store.hits.length === 0 || store.deepAvailable))
-  let canHandoff = $derived(Boolean(question || inputValue.trim()) && !handoffBusy)
-  let working = $derived(lookupBusy || summaryBusy || handoffBusy || store.loading)
   let activityText = $derived(
-    lookupBusy || store.loading ? t('smartSearch.searching')
-      : summaryBusy ? t('smartSearch.summaryWorking')
-        : handoffBusy ? t('smartSearch.handoffWorking')
-          : activity.at(-1)?.message ?? '',
+    lookupBusy || store.loading ? t('smartSearch.searching') : activity.at(-1)?.message ?? '',
   )
+  let working = $derived(lookupBusy || store.loading)
 
   $effect(() => {
     const title = t('smartSearch.windowTitle')
@@ -155,7 +100,6 @@
   }
 
   async function initialise(): Promise<void> {
-    void loadAgents()
     try {
       await Promise.all([loadLocale(), loadSettings()])
       keep(await watchLocaleChanges())
@@ -177,20 +121,6 @@
     } catch { /* Browser preview has no Tauri window. */ }
   }
 
-  /** Agents only gate the quick answer and the handoff; a failure never blocks lookup. */
-  async function loadAgents(): Promise<void> {
-    try {
-      const [loaded, fallback] = await Promise.all([
-        loadSearchAgentOptions(),
-        loadDefaultAgentProvider().catch(() => ''),
-      ])
-      agents = loaded
-      appDefaultAgent = fallback
-    } catch {
-      agents = []
-    }
-  }
-
   // ---- in-flight work ----
 
   function cancelPreview(): void {
@@ -198,28 +128,15 @@
     previewTimer = undefined
   }
 
-  /** Make every running lookup, preview and summary stale; stop the summary's Agent run. */
+  /** Make every running lookup and preview stale. */
   function supersede(): number {
     requestSequence += 1
-    summaryAbort?.abort()
-    summaryAbort = null
-    if (summaryRun) {
-      const run = summaryRun
-      summaryRun = null
-      void cancelAgentTask(run.provider, SEARCH_SUMMARY_TASK, run.runId).catch(() => {})
-    }
     lookupBusy = false
-    summaryBusy = false
     return requestSequence
   }
 
   function resetDerivedWork(): void {
     lookupRunId = ''
-    summaryText = ''
-    summarySources = []
-    summaryError = ''
-    handoffRun = null
-    handoffError = ''
     openError = ''
   }
 
@@ -346,125 +263,7 @@
     if (broaden && mine === requestSequence) await lookup(true)
   }
 
-  // ---- quick answer ----
-
-  function summaryModelSelector(agent: AgentOption) {
-    return selectorForPreference(availableModelPreference(
-      settings.smartLookup.summary.modelByProvider[agent.id] ?? 'profile:fast',
-      'summary',
-      agent.harness,
-    ))
-  }
-
-  async function generateSummary(): Promise<void> {
-    const agent = summaryAgent
-    if (!canSummarize || !agent) return
-    const runId = lookupRunId
-    const config = { ...settings.smartLookup.summary }
-    const mine = requestSequence
-    const controller = new AbortController()
-    let timedOut = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-    summaryAbort = controller
-    summaryBusy = true
-    summaryText = ''
-    summarySources = []
-    summaryError = ''
-    appendActivity('summary', 'active', t('smartSearch.activitySummaryStart'))
-    try {
-      const start = await smartSearchApi.startSummary(
-        runId,
-        [],
-        config.sourceLimit,
-        config.charLimit,
-        config.style,
-        agent.id,
-        summaryModelSelector(agent),
-        crypto.randomUUID(),
-      )
-      if (mine !== requestSequence) {
-        void cancelAgentTask(agent.id, SEARCH_SUMMARY_TASK, start.runId).catch(() => {})
-        return
-      }
-      summaryRun = { provider: agent.id, runId: start.runId }
-      if (start.staleCount > 0) {
-        appendActivity('summary', 'warning', t('smartSearch.summaryStale', { n: start.staleCount }))
-      }
-      timer = setTimeout(() => { timedOut = true; controller.abort() }, config.timeoutMs)
-      const result = await pollAgentTask(agent.id, SEARCH_SUMMARY_TASK, start.runId, (progress) => {
-        if (mine !== requestSequence) return
-        appendActivity('summary', 'active', t('smartSearch.activityStep', { n: progress.steps }), {
-          runId: start.runId, steps: progress.steps,
-        })
-      }, { signal: controller.signal })
-      if (mine !== requestSequence) return
-      summaryRun = null
-      const valid = validateSummaryOutput(result.content, start.sources, config.style)
-      summaryText = valid.content
-      summarySources = start.sources
-      appendActivity('summary', 'success', t('smartSearch.activitySummaryDone'), {
-        runId: start.runId, usage: result.usage,
-      })
-    } catch (error) {
-      if (mine !== requestSequence) return
-      if (timedOut && summaryRun) {
-        const run = summaryRun
-        void cancelAgentTask(run.provider, SEARCH_SUMMARY_TASK, run.runId).catch(() => {})
-      }
-      summaryRun = null
-      summaryError = timedOut
-        ? t('smartSearch.agentTimeout')
-        : error instanceof AgentTaskError ? t('smartSearch.agentFailed') : redactError(error)
-      appendActivity('summary', 'error', `${t('smartSearch.summaryUnavailable')} ${summaryError}`)
-    } finally {
-      clearTimeout(timer)
-      if (summaryAbort === controller) summaryAbort = null
-      if (mine === requestSequence) summaryBusy = false
-    }
-  }
-
-  // ---- handoff ----
-
-  async function startHandoff(agent: AgentOption): Promise<void> {
-    const submitted = question || inputValue.trim()
-    if (!submitted || handoffBusy) return
-    const mine = requestSequence
-    handoffBusy = true
-    handoffRun = null
-    handoffError = ''
-    appendActivity('handoff', 'active', t('smartSearch.activityHandoffStart'))
-    try {
-      const refs = settings.smartLookup.handoff.includeSelectedRefs ? orderedHits : []
-      const packet = buildHandoffPacket(submitted, null, refs)
-      const start = await smartSearchApi.startHandoff(packet, agent.id, crypto.randomUUID())
-      if (mine !== requestSequence) return
-      handoffRun = { provider: agent.id, runId: start.runId }
-      appendActivity('handoff', 'success', t('smartSearch.activityHandoffDone'), { runId: start.runId })
-    } catch (error) {
-      if (mine !== requestSequence) return
-      handoffError = `${t('smartSearch.handoffFailed')} ${
-        error instanceof AgentTaskError ? t('smartSearch.agentFailed') : redactError(error)
-      }`
-      appendActivity('handoff', 'error', handoffError)
-    } finally {
-      handoffBusy = false
-    }
-  }
-
-  async function openHandoffRun(): Promise<void> {
-    if (!handoffRun) return
-    try {
-      await invoke('plugin_v2_open_window', { pluginId: handoffRun.provider, windowId: 'main' })
-    } catch (error) {
-      handoffError = redactError(error)
-    }
-  }
-
   // ---- results ----
-
-  function agentLabel(agent: AgentOption): string {
-    return agent.harness?.harness || agent.name
-  }
 
   function groupLabel(group: HitGroup): string {
     switch (group.kind) {
@@ -572,11 +371,10 @@
   async function hideWindow(): Promise<void> {
     cancelPreview()
     closeMenu(false)
-    if (lookupBusy || summaryBusy || store.loading) {
-      const stage: WorkflowStage = summaryBusy ? 'summary' : 'search'
+    if (lookupBusy || store.loading) {
       supersede()
       store.cancel()
-      appendActivity(stage, 'warning', t('smartSearch.stopped'))
+      appendActivity('search', 'warning', t('smartSearch.stopped'))
     }
     try { await invoke('hide_smart_search_window') } catch { /* Browser preview. */ }
   }
@@ -709,41 +507,10 @@
                   {#if canExpand}
                     <button class="menu-row" role="menuitem" tabindex="-1" disabled={lookupBusy} onclick={() => menuAction(() => lookup(true))}>{t('smartSearch.expandSearch')}</button>
                   {/if}
-                  <button
-                    class="menu-row summary-action"
-                    role="menuitem"
-                    tabindex="-1"
-                    disabled={!canSummarize}
-                    aria-describedby={summaryHint ? 'summary-hint' : undefined}
-                    onclick={() => menuAction(generateSummary)}
-                  >{t('smartSearch.generateSummary')}</button>
-                  {#each handoff.agents as agent (agent.id)}
-                    <button
-                      class="menu-row handoff-action"
-                      role="menuitem"
-                      tabindex="-1"
-                      disabled={!canHandoff}
-                      onclick={() => menuAction(() => startHandoff(agent))}
-                    >{t('smartSearch.handoff')} · {agentLabel(agent)}</button>
-                  {:else}
-                    <button
-                      class="menu-row handoff-action"
-                      role="menuitem"
-                      tabindex="-1"
-                      disabled
-                      aria-describedby="handoff-hint"
-                    >{t('smartSearch.handoff')}</button>
-                  {/each}
                   {#if activity.length}
                     <button class="menu-row" role="menuitem" tabindex="-1" onclick={() => menuAction(() => copyText(formatWorkflowLog(activity)))}>{t('smartSearch.copyActivity')}</button>
                   {/if}
                 </div>
-                {#if summaryHint}
-                  <p id="summary-hint" class="menu-hint">{summaryHint}</p>
-                {/if}
-                {#if handoff.unavailable}
-                  <p id="handoff-hint" class="menu-hint handoff-hint">{t('smartSearch.handoffAgentUnavailable')}</p>
-                {/if}
               </div>
             {/if}
           </div>
@@ -802,30 +569,6 @@
         </header>
         <div class="preview-scroll">
           {#if openError}<p class="notice error" role="alert">{openError}</p>{/if}
-          {#if summaryError}
-            <p class="notice error summary-error" role="alert">{t('smartSearch.summaryUnavailable')} {summaryError}</p>
-          {/if}
-          {#if summaryText}
-            <section class="answer" aria-label={t('smartSearch.quickSummary')}>
-              <header><strong>{t('smartSearch.quickSummary')}</strong><small>{t('smartSearch.basedOnMatches')}</small></header>
-              <p class="answer-body">{summaryText}</p>
-              {#if summarySources.length}
-                <div class="answer-sources">
-                  {#each summarySources as source (source.id)}
-                    <button class="text-button" onclick={() => void openHit(store.hits.find((candidate) => candidate.path === source.path && candidate.line === source.line))}>[{source.id}] {basename(source.path)}</button>
-                  {/each}
-                </div>
-              {/if}
-            </section>
-          {/if}
-          {#if handoffRun || handoffError}
-            <p class="notice handoff-status" role={handoffError ? 'alert' : undefined}>
-              {#if handoffError}{handoffError}{:else}
-                {t('smartSearch.activityHandoffDone')}
-                <button class="text-button" onclick={() => void openHandoffRun()}>{t('smartSearch.openAgentRun')} ↗</button>
-              {/if}
-            </p>
-          {/if}
           {#if activeHit}
             <div class="preview-location">{hitReference(activeHit)}</div>
             <h1 class="preview-title">{displayTitle(activeHit)}</h1>
@@ -884,7 +627,6 @@
   .menu-popover { position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; width: max-content; max-width: 280px; }
   .actions-menu { display: flex; flex-direction: column; }
   .actions-menu .menu-row { border: 0; background: transparent; text-align: left; min-height: 26px; }
-  .menu-hint { margin: 4px 0 0; padding: 6px 9px; border-radius: 8px; background: Canvas; border: 1px solid var(--lookup-border); color: var(--lookup-muted); font-size: 11px; line-height: 1.45; white-space: normal; }
   .results-scroll, .preview-scroll { flex: 1; min-height: 0; overflow-y: auto; }
   .result-group { padding: 6px 0; }
   .group-label { display: flex; gap: 6px; padding: 4px 16px; font-size: 11px; font-weight: 600; color: var(--lookup-muted); }
@@ -906,11 +648,6 @@
   .preview-text { margin: 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
   .notice { margin: 0 0 12px; padding: 8px 10px; border-radius: 8px; background: var(--lookup-soft); font-size: 12px; line-height: 1.5; }
   .notice.error { background: color-mix(in srgb, #ce3030 8%, Canvas); }
-  .answer { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--lookup-border); border-radius: 10px; }
-  .answer header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 12px; }
-  .answer small { color: var(--lookup-muted); font-size: 11px; }
-  .answer-body { margin: 8px 0 6px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-  .answer-sources { display: flex; flex-wrap: wrap; gap: 4px; }
   .activity { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 16px; border-top: 1px solid var(--lookup-border); font-size: 11px; color: var(--lookup-muted); }
   .activity-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .spinner { display: inline-block; flex-shrink: 0; width: 11px; height: 11px; border: 2px solid color-mix(in srgb, var(--lookup-accent) 18%, transparent); border-top-color: var(--lookup-accent); border-radius: 50%; animation: spin .8s linear infinite; }

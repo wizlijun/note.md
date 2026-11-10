@@ -43,21 +43,6 @@
   } from '../lib/outline/shortcuts'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import { consumePendingSettingsTab } from '../lib/ui-state.svelte'
-  import type { AgentOption } from '../lib/agent-picker/types'
-  import {
-    loadDefaultAgentProvider,
-    loadSearchAgentOptions,
-    SEARCH_SUMMARY_TASK,
-    supportsSearchTask,
-    VAULT_RESEARCH_TASK,
-  } from '../lib/smart-search/agent'
-  import { pickTaskAgent, SUMMARY_DEFAULT_CHOICES } from '../lib/smart-search/lookup-view'
-  import {
-    availableModelPreference,
-    resolvedModelHint,
-    selectableModelPreferences,
-    type ModelPreference,
-  } from '../lib/smart-search/model-routing'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -186,33 +171,6 @@
   }
   function closeDialog(): void { if (canClose()) open = false }
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
-  let smartLookupAgents = $state<AgentOption[]>([])
-  let smartLookupDefaultAgent = $state('')
-  let smartLookupHandoffAgents = $derived(
-    smartLookupAgents.filter((agent) => supportsSearchTask(agent, VAULT_RESEARCH_TASK)),
-  )
-  let smartLookupSummaryAgents = $derived(
-    smartLookupAgents.filter((agent) => supportsSearchTask(agent, SEARCH_SUMMARY_TASK)),
-  )
-  /** The agent the Smart Lookup window would use for a quick answer (same rule as the window). */
-  let smartLookupSummaryAgent = $derived(pickTaskAgent(
-    smartLookupAgents, SEARCH_SUMMARY_TASK, settings.smartLookup.summary.provider,
-    smartLookupDefaultAgent, SUMMARY_DEFAULT_CHOICES,
-  ))
-
-  function summaryModelPreference(agent: AgentOption): ModelPreference {
-    return availableModelPreference(
-      settings.smartLookup.summary.modelByProvider[agent.id] ?? 'profile:fast',
-      'summary',
-      agent.harness,
-    )
-  }
-
-  function summaryProfileLabel(agent: AgentOption, preference: ModelPreference, label: string): string {
-    const model = resolvedModelHint(preference, agent.harness)
-    return model ? `${label} (${model})` : label
-  }
-
   // Callers that want the dialog to land on a specific tab (e.g. the search
   // panel's gear button) go through `openSettings(tab)`, which stashes the
   // request in `uiState.pendingSettingsTab` rather than writing `selectedTab`
@@ -802,28 +760,6 @@
     } catch (e) {
       console.warn('[SettingsDialog] manifest load:', e)
       pluginTabs = [coreShareSettingsTab()]
-    }
-    try {
-      const [agents, defaultAgent] = await Promise.all([
-        loadSearchAgentOptions(),
-        loadDefaultAgentProvider().catch(() => ''),
-      ])
-      smartLookupAgents = agents
-      smartLookupDefaultAgent = defaultAgent
-      let changed = false
-      if (!SUMMARY_DEFAULT_CHOICES.includes(settings.smartLookup.summary.provider as 'auto')
-        && !smartLookupSummaryAgents.some((agent) => agent.id === settings.smartLookup.summary.provider)) {
-        settings.smartLookup.summary.provider = 'auto'
-        changed = true
-      }
-      if (settings.smartLookup.handoff.defaultProvider !== 'ask'
-        && !smartLookupHandoffAgents.some((agent) => agent.id === settings.smartLookup.handoff.defaultProvider)) {
-        settings.smartLookup.handoff.defaultProvider = 'ask'
-        changed = true
-      }
-      if (changed) void saveSettings()
-    } catch {
-      smartLookupAgents = []
     }
   })
 
@@ -1714,70 +1650,6 @@
             <span class="lbl">{t('smartSearch.autoDeep')}</span>
             <input type="checkbox" checked={settings.smartLookup.results.autoDeepOnZero} onchange={(event) => {
               settings.smartLookup.results.autoDeepOnZero = event.currentTarget.checked; void saveSettings()
-            }} />
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.quickSummary')}</span>
-            <input type="checkbox" checked={settings.smartLookup.summary.enabled} onchange={(event) => {
-              settings.smartLookup.summary.enabled = event.currentTarget.checked; void saveSettings()
-            }} />
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.summaryStyle')}</span>
-            <select value={settings.smartLookup.summary.style} onchange={(event) => {
-              settings.smartLookup.summary.style = event.currentTarget.value as 'sentence' | 'bullets'; void saveSettings()
-            }}>
-              <option value="bullets">{t('smartSearch.summaryBullets')}</option>
-              <option value="sentence">{t('smartSearch.summarySentence')}</option>
-            </select>
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.summaryProvider')}</span>
-            <select value={settings.smartLookup.summary.provider} onchange={(event) => {
-              settings.smartLookup.summary.provider = event.currentTarget.value; void saveSettings()
-            }}>
-              <option value="auto">{t('smartSearch.auto')}</option>
-              {#each smartLookupSummaryAgents as agent (agent.id)}
-                <option value={agent.id}>{agent.harness?.harness || agent.name}</option>
-              {/each}
-            </select>
-          </label>
-          {#if smartLookupSummaryAgent}
-            {@const agent = smartLookupSummaryAgent}
-            {@const profiles = agent.harness?.capabilities?.model_routing?.profiles}
-            <label class="row">
-              <span class="lbl">{t('smartSearch.summaryModel')}</span>
-              <select value={summaryModelPreference(agent)} onchange={(event) => {
-                settings.smartLookup.summary.modelByProvider[agent.id] = event.currentTarget.value as ModelPreference
-                void saveSettings()
-              }}>
-                {#if profiles?.fast?.available}
-                  <option value="profile:fast">{summaryProfileLabel(agent, 'profile:fast', t('smartSearch.modelFast'))}</option>
-                {/if}
-                {#if profiles?.default?.available}
-                  <option value="profile:default">{summaryProfileLabel(agent, 'profile:default', t('smartSearch.modelDefault'))}</option>
-                {/if}
-                {#each selectableModelPreferences(agent.harness) as preference (preference)}
-                  <option value={preference}>{preference.slice('model:'.length)}</option>
-                {/each}
-              </select>
-            </label>
-          {/if}
-          <label class="row">
-            <span class="lbl">{t('smartSearch.handoffProvider')}</span>
-            <select value={settings.smartLookup.handoff.defaultProvider} onchange={(event) => {
-              settings.smartLookup.handoff.defaultProvider = event.currentTarget.value; void saveSettings()
-            }}>
-              <option value="ask">{t('smartSearch.askEveryTime')}</option>
-              {#each smartLookupHandoffAgents as agent (agent.id)}
-                <option value={agent.id}>{agent.harness?.harness || agent.name}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.includeRefs')}</span>
-            <input type="checkbox" checked={settings.smartLookup.handoff.includeSelectedRefs} onchange={(event) => {
-              settings.smartLookup.handoff.includeSelectedRefs = event.currentTarget.checked; void saveSettings()
             }} />
           </label>
         </section>
