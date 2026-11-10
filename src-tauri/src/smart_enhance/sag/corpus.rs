@@ -61,6 +61,12 @@ pub(crate) fn diversity_idf(documents: u64, df: u64) -> f64 {
     ((1. + documents as f64) / (1. + df as f64)).ln() + 1.
 }
 
+/// An alias source's name: NFKC, then lowercase (`sag2_v10.rs:Corpus::from_vocabulary`,
+/// `title.nfkc().case_fold()`, with `to_lowercase` for the casefold, spec H.5).
+fn source_name(text: &str) -> String {
+    text.nfkc().collect::<String>().to_lowercase()
+}
+
 /// The alias table and title set of `sag2_v10.rs:Corpus` (the `aliases`,
 /// `names` and `titles` fields), built from note.md's three alias sources
 /// (spec H.3.1).
@@ -83,20 +89,21 @@ impl AliasMap {
     /// `sag2_v10.rs:Corpus::from_vocabulary`'s alias and title rules over the
     /// sources of spec H.3.1:
     ///
-    /// - each file title `t` (lowercased): `folded(t) → t`;
-    /// - each frontmatter alias `a` of the file titled `t`: `folded(lower(a)) → t`;
+    /// - each file title `t`: `folded(source_name(t)) → source_name(t)`;
+    /// - each frontmatter alias `a` of the file titled `t`: `folded(source_name(a)) → source_name(t)`;
     /// - each wiki-link target `w` (already without `#…`, from `SagReader`):
-    ///   `folded(lower(w)) → lower(w)`.
+    ///   `folded(source_name(w)) → source_name(w)`.
     ///
-    /// A key that names more than one distinct value is dropped, and a key equal
-    /// to its only value is not an alias (SAG2's "only one value" rule). `lower`
-    /// is `str::to_lowercase`, as the index lowercases (spec H.3.1). `titles`
-    /// holds the file titles only.
+    /// `source_name` is SAG2's `title.nfkc().case_fold()` (`from_vocabulary`) with
+    /// `str::to_lowercase` for the casefold, as the index lowercases (spec
+    /// H.3.1, H.5 casefold row). A key that names more than one distinct value
+    /// is dropped, and a key equal to its only value is not an alias (SAG2's
+    /// "only one value" rule). `titles` holds the file titles only.
     pub(crate) fn build(titles: &[String], aliases: &[(String, String)], wiki_targets: &[String]) -> Self {
         let mut names: HashMap<String, HashSet<String>> = HashMap::new();
         let mut title_terms = HashSet::new();
         for title in titles {
-            let name = title.to_lowercase();
+            let name = source_name(title);
             let terms = sag_tokens(&name);
             if terms.len() >= 2 {
                 title_terms.insert(terms.join(" "));
@@ -104,10 +111,10 @@ impl AliasMap {
             names.entry(folded(&name)).or_default().insert(name);
         }
         for (alias, title) in aliases {
-            names.entry(folded(&alias.to_lowercase())).or_default().insert(title.to_lowercase());
+            names.entry(folded(&source_name(alias))).or_default().insert(source_name(title));
         }
         for target in wiki_targets {
-            let name = target.to_lowercase();
+            let name = source_name(target);
             names.entry(folded(&name)).or_default().insert(name);
         }
         let aliases: HashMap<String, String> = names
@@ -222,6 +229,13 @@ impl AliasMap {
 /// The term vectors are `IndexMap`s in token order, as in SAG2, so the float
 /// sums run in a fixed order (D2). `vectorize` and `idf` replace SAG2's `words`
 /// and `Corpus.idf` (spec H.3.9).
+///
+/// `idf` must return a positive number for every token (SAG2's is always ≥ 1;
+/// [`diversity_idf`] is ≥ 1 whenever `df ≤ n`). A token missing from the counts
+/// should get `diversity_idf(n, 0)`, never 0: a passage whose tokens all weigh
+/// 0 has norm 0, its vector turns NaN, and diversification is silently lost
+/// for the rest of the list. A passage with no tokens at all is harmless (an
+/// empty vector, orthogonal to every other).
 #[allow(clippy::ptr_arg, clippy::needless_range_loop)] // the signature and loops of the source
 pub(crate) fn diversify(
     candidates: &mut Vec<SagCandidate>,
@@ -242,7 +256,9 @@ pub(crate) fn diversify(
             let mut vector: IndexMap<_, _> = counts
                 .into_iter()
                 .map(|(term, count)| {
-                    let weight = (1. + (count as f64).ln()) * idf(&term);
+                    let term_idf = idf(&term);
+                    debug_assert!(term_idf > 0., "diversify: idf must be > 0, got {term_idf}");
+                    let weight = (1. + (count as f64).ln()) * term_idf;
                     (term, weight)
                 })
                 .collect();
@@ -423,6 +439,37 @@ mod tests {
         let mut c = vec![candidate(1, "alpha beta", 0.9), candidate(2, "alpha beta", 0.8), candidate(3, "gamma delta", 0.5)];
         diversify(&mut c, &words, &|_| 1.);
         assert_eq!(ids(&c), vec![1, 3, 2]);
+    }
+
+    #[test]
+    fn diversify_breaks_equal_residuals_by_the_lower_index() {
+        // Orthogonal passages with equal scores: every residual stays equal,
+        // and `max_by` alone would return the last one.
+        let mut c = vec![candidate(7, "beta", 0.5), candidate(3, "alpha", 0.5), candidate(5, "gamma", 0.5)];
+        diversify(&mut c, &words, &|_| 1.);
+        assert_eq!(ids(&c), vec![7, 3, 5]);
+    }
+
+    #[test]
+    #[should_panic(expected = "idf must be > 0")]
+    fn diversify_rejects_a_zero_idf_in_debug_builds() {
+        let mut c = vec![candidate(1, "alpha", 0.9), candidate(2, "beta", 0.8)];
+        diversify(&mut c, &words, &|_| 0.);
+    }
+
+    #[test]
+    fn alias_names_are_nfkc_normalised_before_lowercasing() {
+        // NFD and NFC spellings of one title name one value (SAG2 nfkc()).
+        let m = AliasMap::build(&["Rene\u{301} Descartes".into(), "René Descartes".into()], &[], &[]);
+        let mut target = |t: &str| Ok(t == "\"rené descartes\"");
+        assert_eq!(m.repair("rene descartes", &mut target).unwrap(), "rené descartes");
+        assert!(m.titles.contains("rené descartes"));
+        // A full-width title, alias and wiki target fold to an identity: no alias.
+        let m = AliasMap::build(&["ＡＢＣ".into()], &[("Ｘ".into(), "x".into())], &["ＤＥＦ".into()]);
+        assert!(m.pattern().is_none());
+        // An NFD frontmatter alias names the NFC title.
+        let m = AliasMap::build(&[], &[("SAG".into(), "Cafe\u{301} Society".into())], &[]);
+        assert_eq!(m.aliases.get("sag").map(String::as_str), Some("café society"));
     }
 
     #[test]
