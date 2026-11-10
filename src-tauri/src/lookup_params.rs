@@ -668,6 +668,118 @@ mod tests {
         assert_eq!(load(&ParamsSource::Cli(good)).unwrap().tiers.fit, 0.8);
     }
 
+    // ---- docs/smart-lookup-parameters.md ---------------------------------
+
+    const DOC: &str = include_str!("../../docs/smart-lookup-parameters.md");
+
+    /// The first ```json block after `## 示例`.
+    fn example_block(doc: &str) -> &str {
+        let after = &doc[doc.find("\n## 示例\n").expect("## 示例 section")..];
+        let start = after.find("```json\n").expect("```json block after ## 示例") + "```json\n".len();
+        let body = &after[start..];
+        &body[..body.find("\n```").expect("closing fence")]
+    }
+
+    /// `"group.field"` for every field of the serialized defaults.
+    fn flattened_keys() -> Vec<String> {
+        let value = serde_json::to_value(LookupParams::default()).unwrap();
+        let mut keys = Vec::new();
+        for (group, body) in value.as_object().unwrap() {
+            for field in body.as_object().unwrap().keys() {
+                keys.push(format!("{group}.{field}"));
+            }
+        }
+        keys
+    }
+
+    /// The body of `### \`key\`` up to the next `###` or `##` heading.
+    fn section<'a>(doc: &'a str, key: &str) -> &'a str {
+        let heading = format!("### `{key}`\n");
+        let start = doc.find(&heading).unwrap_or_else(|| panic!("no section for {key}")) + heading.len();
+        let rest = &doc[start..];
+        let end = [rest.find("\n### "), rest.find("\n## ")].into_iter().flatten().min().unwrap_or(rest.len());
+        &rest[..end]
+    }
+
+    /// The text of the section's line starting with `prefix`, without it.
+    fn line_after<'a>(section: &'a str, prefix: &str, key: &str) -> &'a str {
+        section
+            .lines()
+            .find_map(|line| line.strip_prefix(prefix))
+            .unwrap_or_else(|| panic!("{key}: no line starting with {prefix:?}"))
+    }
+
+    /// `` `x` `` → `x` as a number.
+    fn code_number(text: &str, key: &str) -> f64 {
+        let inner = text.trim().strip_prefix('`').and_then(|t| t.strip_suffix('`'));
+        inner
+            .and_then(|t| t.parse::<f64>().ok())
+            .unwrap_or_else(|| panic!("{key}: {text:?} is not a number in backticks"))
+    }
+
+    #[test]
+    fn the_documented_example_equals_the_defaults() {
+        let example = example_block(DOC);
+        assert_eq!(parse_params(example, "doc").unwrap(), LookupParams::default());
+        // Byte for byte the pretty serialization, not a hand-typed copy.
+        assert_eq!(example, serde_json::to_string_pretty(&LookupParams::default()).unwrap());
+    }
+
+    #[test]
+    fn every_parameter_has_its_own_section() {
+        let keys = flattened_keys();
+        assert_eq!(keys.len(), 22);
+        const LINES: [&str; 8] =
+            ["- 默认：", "- 范围：", "- 单位：", "- 读取位置：", "- 来源：", "- 调高：", "- 调低：", "- 决定它的指标："];
+        for key in &keys {
+            assert_eq!(DOC.matches(&format!("### `{key}`\n")).count(), 1, "{key}");
+            // The eight lines, each once, in this order.
+            let body = section(DOC, key);
+            let mut at = 0;
+            for prefix in LINES {
+                assert_eq!(body.matches(&format!("\n{prefix}")).count(), 1, "{key}: {prefix}");
+                let found = body.find(&format!("\n{prefix}")).unwrap();
+                assert!(found >= at, "{key}: {prefix} out of order");
+                at = found;
+            }
+            // Every read location is a `src-tauri/src/…:function`.
+            for location in line_after(body, "- 读取位置：", key).split('、') {
+                let location = location.trim().trim_matches('`');
+                assert!(location.starts_with("src-tauri/src/") && location.contains(".rs:"), "{key}: {location}");
+            }
+        }
+    }
+
+    #[test]
+    fn documented_defaults_and_bounds_match_the_code() {
+        let defaults = LookupParams::default();
+        for bound in BOUNDS {
+            let body = section(DOC, bound.key);
+            let documented = code_number(line_after(body, "- 默认：", bound.key), bound.key);
+            assert_eq!(Some(documented), defaults.numeric(bound.key), "{}: default", bound.key);
+            let range = line_after(body, "- 范围：", bound.key);
+            let (min, max) = range.split_once('–').unwrap_or_else(|| panic!("{}: range {range:?}", bound.key));
+            assert_eq!(
+                (code_number(min, bound.key), code_number(max, bound.key)),
+                (bound.min, bound.max),
+                "{}: range",
+                bound.key
+            );
+        }
+        let time = section(DOC, "time.mode");
+        assert_eq!(line_after(time, "- 默认：", "time.mode"), "`group`");
+        assert_eq!(serde_json::to_value(defaults.time.mode).unwrap(), "group");
+        assert_eq!(line_after(time, "- 范围：", "time.mode"), "`group` | `window` | `ignore`");
+        for mode in ["group", "window", "ignore"] {
+            assert!(serde_json::from_value::<TimeMode>(serde_json::json!(mode)).is_ok(), "{mode}");
+        }
+        let criterion = section(DOC, "judge.criterion");
+        assert_eq!(line_after(criterion, "- 默认：", "judge.criterion"), "见下方原文");
+        assert_eq!(line_after(criterion, "- 范围：", "judge.criterion"), "1–1000 个字符，不含控制字符");
+        assert_eq!(MAX_CRITERION_CHARS, 1_000);
+        assert!(criterion.contains(&format!("\n> {DEFAULT_CRITERION}\n")), "the quoted criterion is DEFAULT_CRITERION");
+    }
+
     #[test]
     fn the_cached_load_rereads_a_changed_file_and_never_caches_an_error() {
         let dir = tempfile::tempdir().unwrap();
