@@ -84,7 +84,7 @@ pub(crate) fn estimate_tokens(text: &str, cjk_chars_per_token: u32, other_chars_
     cjk.div_ceil(u64::from(cjk_chars_per_token.max(1))) + other.div_ceil(u64::from(other_chars_per_token.max(1)))
 }
 
-fn title_of(path: &str) -> String {
+pub(crate) fn title_of(path: &str) -> String {
     let last = path.rsplit('/').next().unwrap_or(path);
     for ext in [".markdown", ".mdx", ".md"] {
         if let Some(stem) = last.strip_suffix(ext) {
