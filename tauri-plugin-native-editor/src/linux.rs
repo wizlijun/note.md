@@ -872,7 +872,9 @@ pub fn mount(
     view.set_wrap_mode(gtk::WrapMode::WordChar);
     view.set_accepts_tab(true);
     let scroll = gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
-    scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    // External hides the scrollbar without letting long content enlarge the viewport.
+    scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::External);
+    scroll.set_shadow_type(gtk::ShadowType::None);
     scroll.set_halign(gtk::Align::Start);
     scroll.set_valign(gtk::Align::Start);
     scroll.add(&view);
@@ -2062,6 +2064,161 @@ mod tests {
         }
         detach("font-geometry", "font-geometry", 1).unwrap();
         window.close();
+    }
+
+    #[test]
+    #[ignore = "requires GTK display connection; renders only an offscreen window"]
+    fn native_focus_center_is_idempotent_offscreen() {
+        fn settle() {
+            for _ in 0..4 {
+                while gtk::events_pending() {
+                    gtk::main_iteration_do(false);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        gtk::init().unwrap();
+        let app = gtk::Application::new(
+            Some("net.notemd.sumi.focus-stability-test"),
+            gtk::gio::ApplicationFlags::NON_UNIQUE,
+        );
+        app.register(None::<&gtk::gio::Cancellable>).unwrap();
+        let hidden = gtk::ApplicationWindow::new(&app);
+        hidden.add(&gtk::DrawingArea::new());
+        let line = "Stable line 中文 stays on the same baseline.\n";
+        let config = SurfaceConfig {
+            surface_id: "focus-stability".into(),
+            generation: 1,
+            revision: 0,
+            bounds: Bounds {
+                x: 0.0,
+                y: 0.0,
+                width: 1280.0,
+                height: 500.0,
+            },
+            appearance: Appearance {
+                focus_typing: true,
+                ..Appearance::default()
+            },
+            document: RenderDocument {
+                text: line.repeat(100),
+                runs: vec![],
+            },
+            selection: TextRange {
+                start: (line.encode_utf16().count() * 50) as u32,
+                length: 0,
+            },
+            viewport: Viewport::default(),
+        };
+        mount(
+            &hidden,
+            "focus-stability",
+            config,
+            Arc::new(|_| Ok(0.into())),
+            None,
+        )
+        .unwrap();
+        let s = surface("focus-stability", "focus-stability", 1).unwrap();
+        hidden.remove(&s.overlay);
+        let offscreen = gtk::OffscreenWindow::new();
+        offscreen.set_default_size(1280, 800);
+        offscreen.add(&s.overlay);
+        offscreen.show_all();
+        s.focused.set(true);
+        *s.focus_frame.borrow_mut() = focus::Frame::new(true);
+        s.appearance();
+        settle();
+        assert_eq!(s.scroll.vscrollbar_policy(), gtk::PolicyType::External);
+        assert!(!s.scroll.vscrollbar().unwrap().is_child_visible());
+        assert_eq!(s.scroll.shadow_type(), gtk::ShadowType::None);
+        for font_size in [22.0, 22.0 * (800.0_f64 / 720.0).sqrt(), 27.5] {
+            s.config.borrow_mut().appearance.font_size = font_size;
+            s.appearance();
+            settle();
+            let cursor = s.view.cursor_locations(None).0;
+            // Force a half-pixel centering target independently of the installed font.
+            let opposite_parity_height = if cursor.height() % 2 == 0 {
+                501.0
+            } else {
+                500.0
+            };
+            let adjustment = s.scroll.vadjustment();
+            for height in [
+                opposite_parity_height,
+                opposite_parity_height + 1.0,
+                opposite_parity_height + 0.25,
+                800.0,
+            ] {
+                s.config.borrow_mut().bounds.height = height;
+                s.position();
+                s.appearance();
+                settle();
+                // Also exercise a fractional adjustment left by the spatial animation.
+                for fraction in [0.0, 0.25, 0.8] {
+                    let was = s.updating.replace(true);
+                    adjustment.set_value(1000.0 + fraction);
+                    s.updating.set(was);
+                    settle();
+                    let mut samples = Vec::new();
+                    for _ in 0..20 {
+                        s.center();
+                        let cursor = s.view.cursor_locations(None).0;
+                        let (_, y) = s.view.buffer_to_window_coords(
+                            gtk::TextWindowType::Widget,
+                            cursor.x(),
+                            cursor.y(),
+                        );
+                        samples.push((adjustment.value(), y));
+                        settle();
+                    }
+                    println!("focus font={font_size} height={height} fraction={fraction} samples={samples:?}");
+                    assert!(samples[0].0 > adjustment.lower() + 10.0);
+                    assert!(samples[0].0 < adjustment.upper() - adjustment.page_size() - 10.0);
+                    assert!(
+                        samples.iter().all(|sample| *sample == samples[0]),
+                        "unchanged focus layout must be idempotent: {samples:?}"
+                    );
+                }
+            }
+            focus::verify_center_animation(&s);
+        }
+        s.reset_focus();
+        settle();
+        let cursor = s.view.cursor_locations(None).0;
+        let before = s
+            .view
+            .buffer_to_window_coords(gtk::TextWindowType::Widget, 0, cursor.y())
+            .1;
+        let adjustment = s.scroll.vadjustment();
+        adjustment.set_value(adjustment.value() + 50.0);
+        settle();
+        let after = s
+            .view
+            .buffer_to_window_coords(gtk::TextWindowType::Widget, 0, cursor.y())
+            .1;
+        assert_eq!(
+            after - before,
+            -50,
+            "hidden scrollbar must preserve scrolling"
+        );
+        assert_eq!(
+            s.scroll.allocated_height(),
+            s.config.borrow().bounds.height as i32
+        );
+        if let Ok(dir) = std::env::var("SUMI_CANDIDATE_TEST_ARTIFACTS") {
+            offscreen
+                .pixbuf()
+                .unwrap()
+                .savev(
+                    std::path::Path::new(&dir).join("focus-scrollbar.png"),
+                    "png",
+                    &[],
+                )
+                .unwrap();
+        }
+        detach("focus-stability", "focus-stability", 1).unwrap();
+        offscreen.close();
+        hidden.close();
     }
 
     #[test]

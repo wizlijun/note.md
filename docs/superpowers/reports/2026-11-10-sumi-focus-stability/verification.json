@@ -1,0 +1,23 @@
+{
+  "base": "25157f1d",
+  "native_test_binary": "/home/bruce/git/note.md/tasks/sumi-fcitx/target/debug/deps/tauri_plugin_native_editor-f6c6a8e8e22225ee",
+  "native_test_binary_sha256": "e756cda74ec188abe334a88d6bdec83b83decbf63208ae22687c3b12d5b847c8",
+  "source_sha256": {
+    "tauri-plugin-native-editor/src/linux.rs": "73cc27b78d4daf8fd49a483db3b6030488429e0a3823d2e17d19b9ae6b690c01",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "55d4bfbb7ca9342a973a4ef43d837460f057178fb2635f77fffbb1b8ff9bac48"
+  },
+  "files_sha256": {
+    "gtk-repro.py": "2b03a88dea0bf067f320591b678131c5f4735c4f578d1f80c4d42a2dba0a5926",
+    "gtk-repro-result.json": "2b59f043f03c6b2438cff8fbdecabc7e012d3bef7166617d6ea7836f21067a9e",
+    "red.log": "188a87abd2b1eaec3fb1e99fcac5ac05e8011bb00eb25b485c1684ae2d7761e0",
+    "green-scale1.log": "fcd6ce4db20f2bb8fee4d5d9cb18c728d0fd0e1acd739d07235b97ad3fbc612f",
+    "green-scale3.log": "82132275ef6268145114c82d87986b74bf50115abcd6cbc0cc5f189eefda3b5f",
+    "ime-scale3.log": "856aa3ef9ab02d5a8697d3342a5a5e7655f5bd22429b6774a8c9f09651da646f",
+    "transactions.log": "db1b4f3374cfe800a0c86acf474504a0c2759622e8fc78e9f2e0066849f77fc4",
+    "unit.log": "245fba894b82cae1785ecb475714a1feddff8697a0bdc1a5900412389aee7d86",
+    "build.log": "827547809201afac996c41006f404aaba056fd77cb41e6c143ed88e5e943f0ad",
+    "scrollbar.png": "da2bae1024e376a512ac6f044e5444b1ad8895955b9c28f2eff3115370c6b1d9"
+  },
+  "scope": "Native GTK/Wayland isolated regression; not final release package or user installation",
+  "right_edge": "All 8000 pixels of the rightmost 10 columns are #111111FF at 1280x800"
+}

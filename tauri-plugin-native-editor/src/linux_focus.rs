@@ -252,7 +252,11 @@ impl Surface {
             self.view
                 .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
         let target_center = height / 2.0;
-        let target = adjustment.value() + y as f64 + cursor.height() as f64 / 2.0 - target_center;
+        // GtkTextView truncates Adjustment to an integer yoffset. Cancel that
+        // same offset: adding its fractional remainder back causes a 1px
+        // oscillation on repeated centering (including animation retargets).
+        let target = adjustment.value().trunc() + y as f64 + cursor.height() as f64 / 2.0
+            - target_center;
         let target = target.clamp(
             adjustment.lower(),
             (adjustment.upper() - adjustment.page_size()).max(adjustment.lower()),
@@ -560,4 +564,30 @@ pub(super) fn verify_native_focus(s: &Surface) {
     );
     s.reset_focus();
     s.project(original.document, original.selection, original.revision);
+}
+
+#[cfg(test)]
+pub(super) fn verify_center_animation(s: &Surface) {
+    let adjustment = s.scroll.vadjustment();
+    s.center();
+    let target = adjustment.value();
+    let from = target - 80.8;
+    let start = Instant::now();
+    s.focus_frame.borrow_mut().spatial = Some((start, from, target));
+    let mut animated_samples = 0;
+    for _ in 0..20 {
+        s.tick_focus();
+        s.center();
+        if let Some((actual_start, actual_from, actual_target)) = s.focus_frame.borrow().spatial {
+            animated_samples += 1;
+            assert_eq!(actual_start, start, "retarget must not restart animation");
+            assert_eq!(actual_from, from);
+            assert_eq!(actual_target, target, "animation target must not drift");
+        }
+        while gtk::events_pending() { gtk::main_iteration_do(false); }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(animated_samples > 0, "must observe an animation in progress");
+    assert!(s.focus_frame.borrow().spatial.is_none());
+    assert_eq!(adjustment.value(), target);
 }

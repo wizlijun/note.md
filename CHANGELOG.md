@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Stabilize Sumi focus writing on Linux.** Fix fractional scroll feedback that made the text jump between adjacent pixels. Hide the native editor scrollbar and frame while preserving scrolling and the input position outside focus mode.
+
 ## v6.1110.4 — 2026-11-10
 
 - **Omarchy plugin windows and shortcuts.** Linux plugin windows open with a movable title bar, resize controls and an initial size fitted to the available desktop. App commands use Ctrl; Sumi uses F11 for fullscreen and keeps its controls reachable above the desktop dock. Fullscreen writing uses one proportional font scale and restores the saved size on exit.
