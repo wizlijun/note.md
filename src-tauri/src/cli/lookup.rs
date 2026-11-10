@@ -24,7 +24,7 @@ use serde_json::json;
 use crate::lookup_params::{self, LookupParams, PARAMS_ENV};
 use crate::search::smart_eval::{
     compare_metrics, gate_verdicts, load_eval_rows, load_tasks, lookup_metrics, metric_values, run_lookup_eval,
-    LookupMetrics, Split,
+    GateVerdicts, LookupEvalRow, LookupMetrics, Split,
 };
 use crate::search::time_group::TimeMode;
 use crate::search::IndexHandle;
@@ -191,44 +191,79 @@ pub fn parse_args(rest: &[String], json_global: bool) -> LookupArgs {
     a
 }
 
-fn fail(json: bool, code: u8, kind: &str, message: &str) -> ExitCode {
+/// Writes a failure the way `notemd search` does: a JSON error object on
+/// stdout with `--json`, else `notemd: <message>` on stderr.
+fn fail(json: bool, out: &mut dyn Write, err: &mut dyn Write, code: u8, kind: &str, message: &str) -> u8 {
     if json {
-        println!("{}", json!({ "ok": false, "error": { "code": kind, "message": message } }));
+        let _ = writeln!(out, "{}", json!({ "ok": false, "error": { "code": kind, "message": message } }));
     } else {
-        eprintln!("notemd: {message}");
+        let _ = writeln!(err, "notemd: {message}");
     }
-    ExitCode::from(code)
+    code
+}
+
+/// What `run` reads from the machine, so its error paths can be tested.
+pub(crate) struct Host<'a> {
+    pub env: &'a dyn Fn(&str) -> Option<String>,
+    /// The app data directory (`dirs::data_dir()/BUNDLE_ID`).
+    pub app_data: Option<PathBuf>,
+    pub resolve_vault: &'a dyn Fn(Option<&str>) -> Option<PathBuf>,
+    /// Opens and freshness-sweeps the vault's index; `None` when unusable.
+    pub open_index: &'a dyn Fn(&Path) -> Option<searchidx::SearchIndex>,
 }
 
 pub fn run(args: LookupArgs) -> ExitCode {
+    let env = |name: &str| std::env::var(name).ok();
+    let resolve_vault = |explicit: Option<&str>| super::search::resolve_vault_root(explicit);
+    // Same open and freshness sweep as `notemd search`; no file-scan fallback,
+    // so the warning claims none.
+    let open_index = |root: &Path| {
+        let opts = super::search::scan_options_for(root);
+        super::search::open_fresh_index(root, &opts, false, false, "").0
+    };
+    let host = Host {
+        env: &env,
+        app_data: dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID)),
+        resolve_vault: &resolve_vault,
+        open_index: &open_index,
+    };
+    let mut stdout = std::io::stdout().lock();
+    let mut stderr = std::io::stderr().lock();
+    ExitCode::from(run_with(args, &host, &mut stdout, &mut stderr))
+}
+
+/// `run`'s body: arguments, parameter file, Vault, index, then the query or
+/// the eval on a current-thread runtime. Every failure is exit 2.
+pub(crate) fn run_with(args: LookupArgs, host: &Host<'_>, out: &mut dyn Write, err: &mut dyn Write) -> u8 {
+    let json = args.json;
     if !args.errors.is_empty() {
         let message = args.errors.join("; ");
-        return fail(args.json, 2, "invalid_arguments", &format!("{message} — see: notemd help lookup"));
+        return fail(json, out, err, 2, "invalid_arguments", &format!("{message} — see: notemd help lookup"));
     }
-    let env_params = std::env::var_os(PARAMS_ENV);
-    let app_data = dirs::data_dir().map(|d| d.join(crate::app_dirs::BUNDLE_ID));
-    let source = lookup_params::resolve_source(args.params.as_deref(), env_params.as_deref(), app_data.as_deref());
+    let env_params = (host.env)(PARAMS_ENV).map(std::ffi::OsString::from);
+    let source = lookup_params::resolve_source(args.params.as_deref(), env_params.as_deref(), host.app_data.as_deref());
     let params = match lookup_params::load(&source) {
         Ok(params) => params,
-        Err(error) => return fail(args.json, 2, "invalid_params", &error),
+        Err(error) => return fail(json, out, err, 2, "invalid_params", &error),
     };
-    let Some(root) = super::search::resolve_vault_root(args.vault.as_deref()) else {
+    let Some(root) = (host.resolve_vault)(args.vault.as_deref()) else {
         return fail(
-            args.json,
+            json,
+            out,
+            err,
             2,
             "vault_not_configured",
             "no vault configured. Set one in Preferences, or pass --vault PATH.",
         );
     };
     if !root.is_dir() {
-        return fail(args.json, 2, "vault_not_found", &format!("vault not found: {}", root.display()));
+        return fail(json, out, err, 2, "vault_not_found", &format!("vault not found: {}", root.display()));
     }
-    let opts = super::search::scan_options_for(&root);
-    // Same open and freshness sweep as `notemd search`; no file-scan fallback.
-    let (index, _) = super::search::open_fresh_index(&root, &opts, false, false);
-    let Some(index) = index else {
+    let Some(index) = (host.open_index)(&root) else {
         return fail(
-            args.json,
+            json,
+            out,
+            err,
             2,
             "invalid_index",
             "the search index is unavailable; notemd lookup needs it (try: notemd search --rebuild <query>)",
@@ -237,20 +272,17 @@ pub fn run(args: LookupArgs) -> ExitCode {
     let handle: IndexHandle = Arc::new(Mutex::new(Some(index)));
     let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
         Ok(runtime) => runtime,
-        Err(error) => return fail(args.json, 2, "runtime", &format!("could not start the runtime: {error}")),
+        Err(error) => return fail(json, out, err, 2, "runtime", &format!("could not start the runtime: {error}")),
     };
-    let env = |name: &str| std::env::var(name).ok();
-    let mut stdout = std::io::stdout().lock();
     let outcome = runtime.block_on(async {
         match args.mode {
-            LookupMode::Query => run_query(&args, &root, &handle, &params, &env, &mut stdout).await,
-            LookupMode::Eval => run_eval(&args, &root, &handle, &params, &env, &mut stdout).await,
+            LookupMode::Query => run_query(&args, &root, &handle, &params, host.env, out).await,
+            LookupMode::Eval => run_eval(&args, &root, &handle, &params, host.env, out).await,
         }
     });
-    drop(stdout);
     match outcome {
-        Ok(code) => ExitCode::from(code),
-        Err(error) => fail(args.json, 2, "lookup_failed", &error),
+        Ok(code) => code,
+        Err(error) => fail(json, out, err, 2, "lookup_failed", &error),
     }
 }
 
@@ -325,7 +357,7 @@ pub(crate) async fn run_query(
     };
     let output = run_pipeline(input, &client).await?;
     let code = if output.hits.is_empty() { 1 } else { 0 };
-    let lines = if args.json { json_lines(&output, code) } else { text_lines(&output, args) };
+    let lines = if args.json { json_lines(&output, code) } else { text_lines(&output) };
     write_lines(out, &lines);
     Ok(code)
 }
@@ -445,7 +477,7 @@ fn status_line(
     parts.join(" · ")
 }
 
-fn text_lines(output: &PipelineOutput, args: &LookupArgs) -> Vec<String> {
+fn text_lines(output: &PipelineOutput) -> Vec<String> {
     let mut first = format!("local {} hits · {} ms", output.local.search.hits.len(), output.local_ms);
     if let Some(t) = &output.local.time {
         first.push_str(&format!(" · time {} ({}, {} in range)", t.source_text, name(&t.mode), t.in_window));
@@ -502,9 +534,6 @@ fn text_lines(output: &PipelineOutput, args: &LookupArgs) -> Vec<String> {
                     r.missing.as_ref(),
                     r.status_class.as_ref(),
                 )),
-                None if args.chat_url.is_some() && args.chat_model.is_some() && !args.no_enhance => {
-                    lines.push(format!("repair notConfigured · missing key ({CHAT_KEY_ENV})"))
-                }
                 None => lines.push("repair off (needs --chat-url and --chat-model)".to_string()),
             }
             if let Some(g) = &output.regrouped {
@@ -547,15 +576,25 @@ pub(crate) async fn run_eval(
     };
     let enhance = enhance_setup(args, env);
     let client = enhance_client()?;
-    let rows = run_lookup_eval(index, root, &tasks, params, enhance.as_ref(), today_or_local(args), &client).await?;
-    if let Some(path) = args.out.as_deref() {
-        let mut jsonl = String::new();
-        for row in &rows {
-            jsonl.push_str(&serde_json::to_string(row).map_err(|e| format!("encode row: {e}"))?);
-            jsonl.push('\n');
+    // `--out` is written one row at a time, each flushed, so an interrupted
+    // (paid) run keeps every row already finished.
+    let mut sink = match args.out.as_deref() {
+        Some(path) => Some((path, std::fs::File::create(path).map_err(|e| format!("{}: {e}", path.display()))?)),
+        None => None,
+    };
+    let mut on_row = |row: &LookupEvalRow| -> Result<(), String> {
+        if let Some(error) = &row.error {
+            eprintln!("notemd: task {}: {error}", row.id);
         }
-        std::fs::write(path, jsonl).map_err(|e| format!("{}: {e}", path.display()))?;
-    }
+        if let Some((path, file)) = sink.as_mut() {
+            let mut line = serde_json::to_string(row).map_err(|e| format!("encode row: {e}"))?;
+            line.push('\n');
+            file.write_all(line.as_bytes()).and_then(|_| file.flush()).map_err(|e| format!("{}: {e}", path.display()))?;
+        }
+        Ok(())
+    };
+    let rows =
+        run_lookup_eval(index, root, &tasks, params, enhance.as_ref(), today_or_local(args), &client, &mut on_row).await?;
     let metrics: Vec<LookupMetrics> = ["all", "dev", "holdout"].iter().map(|s| lookup_metrics(&rows, s)).collect();
     let holdout: Vec<_> = rows.iter().filter(|r| r.split == Split::Holdout).cloned().collect();
     let gates = gate_verdicts(&holdout);
@@ -570,19 +609,18 @@ pub(crate) async fn run_eval(
             }
             lines.push(value.to_string());
         }
-        lines.push(json!({ "kind": "gates", "c3": gates.c3, "c4": gates.c4 }).to_string());
+        let mut value = serde_json::to_value(&gates).map_err(|e| e.to_string())?;
+        if let Some(object) = value.as_object_mut() {
+            object.insert("kind".into(), json!("gates"));
+        }
+        lines.push(value.to_string());
         if let Some(deltas) = &deltas {
             lines.push(json!({ "kind": "compare", "deltas": deltas }).to_string());
         }
     } else {
         lines.extend(metrics_table(&metrics));
-        let verdict = |v: Option<bool>| match v {
-            Some(true) => "pass",
-            Some(false) => "fail",
-            None => "n/a",
-        };
         lines.push(String::new());
-        lines.push(format!("gates (holdout) · C3 {} · C4 {}", verdict(gates.c3), verdict(gates.c4)));
+        lines.push(gates_line(&gates));
         if let Some(deltas) = &deltas {
             lines.push(String::new());
             let rows: Vec<[String; 4]> = std::iter::once(["metric", "current", "baseline", "delta"].map(String::from))
@@ -593,6 +631,25 @@ pub(crate) async fn run_eval(
     }
     write_lines(out, &lines);
     Ok(0)
+}
+
+/// `gates (holdout, timeout 3000 ms) · C3 pass · C4 fail (1 of 4 rescued)`;
+/// at another limit both gates read `n/a (timeout ≠ 3 s)`.
+fn gates_line(gates: &GateVerdicts) -> String {
+    let timeout = gates.timeout_ms.map_or("mixed".to_string(), |t| format!("{t} ms"));
+    let verdict = |v: Option<bool>| match (v, &gates.note) {
+        (_, Some(note)) => format!("n/a ({note})"),
+        (Some(true), None) => "pass".to_string(),
+        (Some(false), None) => "fail".to_string(),
+        (None, None) => "n/a".to_string(),
+    };
+    format!(
+        "gates (holdout, timeout {timeout}) · C3 {} · C4 {} ({} of {} rescued)",
+        verdict(gates.c3),
+        verdict(gates.c4),
+        gates.c4_rescued,
+        gates.c4_tasks
+    )
 }
 
 fn number(value: Option<f64>) -> String {
@@ -960,14 +1017,14 @@ mod tests {
         assert_eq!((objects[0]["tasks"].as_u64(), objects[1]["scored"].as_u64()), (Some(2), Some(1)));
         let rows = load_eval_rows(&std::fs::read_to_string(&rows_path).unwrap()).unwrap();
         assert_eq!(rows.len(), 2);
-        assert_eq!(rows[0].route, PipelineRoute::Local);
+        assert_eq!(rows[0].route, Some(PipelineRoute::Local));
 
         let mut out = Vec::new();
         let args = run(&["--compare", rows_path.to_str().unwrap()]);
         run_eval(&args, v.root.path(), &v.index, &LookupParams::default(), &lookup, &mut out).await.unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.lines().next().is_some_and(|l| l.starts_with("metric") && l.contains("holdout")), "{text}");
-        assert!(text.contains("gates (holdout) · C3 "), "{text}");
+        assert!(text.contains("gates (holdout, timeout 3000 ms) · C3 "), "{text}");
         assert!(text.lines().any(|l| l.starts_with("netGain") && l.trim_end().ends_with('0')), "{text}");
         // A broken baseline is an error naming the line, before any lookup.
         std::fs::write(&rows_path, "{bad}\n").unwrap();
@@ -975,5 +1032,122 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("line 1"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn eval_gates_read_n_a_at_another_timeout_and_report_it() {
+        let v = three_notes("slowgate iota kappa lambda");
+        let dir = tempfile::tempdir().unwrap();
+        let tasks = dir.path().join("tasks.json");
+        std::fs::write(
+            &tasks,
+            r#"{"tasks":[{"id":"t1","question":"slowgate iota kappa lambda","targets":[{"path":"b.md"}],"category":"exact","split":"holdout"}]}"#,
+        )
+        .unwrap();
+        let params = LookupParams {
+            enhance: crate::lookup_params::EnhanceParams { timeout_ms: 5_000 },
+            ..LookupParams::default()
+        };
+        let lookup = |_: &str| -> Option<String> { None };
+        let argv = |json: bool| {
+            let mut a = s(&["eval", "--no-enhance", "--tasks", tasks.to_str().unwrap()]);
+            if json {
+                a.push("--json".into());
+            }
+            parse_args(&a, false)
+        };
+        let mut out = Vec::new();
+        run_eval(&argv(false), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains("gates (holdout, timeout 5000 ms) · C3 n/a (timeout ≠ 3 s) · C4 n/a (timeout ≠ 3 s)"),
+            "{text}"
+        );
+        assert!(text.lines().any(|l| l.starts_with("timeoutMs") && l.trim_end().ends_with("5000")), "{text}");
+        let mut out = Vec::new();
+        run_eval(&argv(true), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
+        let objects = json_objects(&String::from_utf8(out).unwrap());
+        let gates = objects.iter().find(|o| o["kind"] == "gates").unwrap();
+        assert!(gates["c3"].is_null() && gates["c4"].is_null(), "{gates}");
+        assert_eq!((gates["timeoutMs"].as_u64(), gates["note"].as_str()), (Some(5_000), Some("timeout ≠ 3 s")));
+        assert_eq!(objects[0]["timeoutMs"], 5_000);
+    }
+
+    #[tokio::test]
+    async fn a_chat_config_without_a_key_is_reported_by_the_host() {
+        let v = three_notes("nokey phi chi psi");
+        let (base, _request, accepted) = serve_once(200, "{}", Duration::ZERO).await;
+        let argv = s(&["--json", "--chat-url", &base, "--chat-model", "c", "zulu", "yankee", "xray"]);
+        let (code, out) = query(&argv, &v, &[]).await;
+        let objects = json_objects(&out);
+        let repair = objects.iter().find(|o| o["kind"] == "repair").expect("a repair line");
+        assert_eq!(
+            (repair["result"]["status"].as_str(), repair["result"]["missing"].as_str(), repair["result"]["requestCount"].as_u64()),
+            (Some("notConfigured"), Some("key"), Some(0)),
+            "{repair}"
+        );
+        assert_eq!((code, accepted.load(SeqCst)), (1, 0));
+        let (_, text) = query(&s(&["--chat-url", &base, "--chat-model", "c", "zulu", "yankee", "xray"]), &v, &[]).await;
+        assert!(text.lines().any(|l| l == "repair notConfigured · missing key"), "{text}");
+        assert_eq!(accepted.load(SeqCst), 0);
+    }
+
+    /// Runs `run_with` with a fake host; returns (exit code, stdout, stderr).
+    fn run_on(argv: &[&str], env: &[(&str, &str)], vault: Option<&Path>, index_ok: bool) -> (u8, String, String) {
+        let env: HashMap<String, String> = env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let lookup = |name: &str| env.get(name).cloned();
+        let resolve = |explicit: Option<&str>| explicit.map(PathBuf::from).or_else(|| vault.map(Path::to_path_buf));
+        let data = tempfile::tempdir().unwrap();
+        let open = |root: &Path| {
+            if !index_ok {
+                return None;
+            }
+            let mut idx = searchidx::SearchIndex::open_at(root, &data.path().join("i.db"), "sync").ok()?;
+            idx.sweep(&searchidx::ScanOptions::default(), None).ok()?;
+            Some(idx)
+        };
+        let host = Host { env: &lookup, app_data: None, resolve_vault: &resolve, open_index: &open };
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let code = run_with(parse_args(&s(argv), false), &host, &mut out, &mut err);
+        (code, String::from_utf8(out).unwrap(), String::from_utf8(err).unwrap())
+    }
+
+    #[test]
+    fn run_exits_2_on_bad_arguments_params_vault_or_index() {
+        let v = three_notes("exit omega sigma rho");
+        let root = v.root.path();
+        let code_of = |out: &str| serde_json::from_str::<serde_json::Value>(out.trim()).unwrap()["error"]["code"].as_str().unwrap().to_string();
+
+        let (code, out, err) = run_on(&["--json", "--bogus", "q"], &[], Some(root), true);
+        assert_eq!((code, code_of(&out).as_str(), err.as_str()), (2, "invalid_arguments", ""));
+
+        let bad = root.join("bad-params.json");
+        std::fs::write(&bad, r#"{"local":{"limit":0}}"#).unwrap();
+        let (code, out, err) = run_on(&["--params", bad.to_str().unwrap(), "q"], &[], Some(root), true);
+        assert_eq!((code, out.as_str()), (2, ""));
+        assert!(err.starts_with("notemd: ") && err.contains("local.limit = 0 is outside 1..=100"), "{err}");
+        let missing = root.join("missing.json");
+        let (code, out, _) = run_on(&["--json", "q"], &[(PARAMS_ENV, missing.to_str().unwrap())], Some(root), true);
+        assert_eq!((code, code_of(&out).as_str()), (2, "invalid_params"));
+        assert!(out.contains("file not found"), "{out}");
+
+        let (code, out, _) = run_on(&["--json", "q"], &[], None, true);
+        assert_eq!((code, code_of(&out).as_str()), (2, "vault_not_configured"));
+        let (code, _, err) = run_on(&["--vault", "/definitely/not/a/vault", "q"], &[], None, true);
+        assert_eq!(code, 2);
+        assert_eq!(err, "notemd: vault not found: /definitely/not/a/vault\n");
+
+        let (code, out, _) = run_on(&["--json", "q"], &[], Some(root), false);
+        assert_eq!((code, code_of(&out).as_str()), (2, "invalid_index"));
+        let (code, _, err) = run_on(&["q"], &[], Some(root), false);
+        assert_eq!(code, 2);
+        assert!(err.contains("search index is unavailable") && !err.contains("scanning"), "{err}");
+
+        // The happy paths: hits → 0, none → 1.
+        let (code, out, _) = run_on(&["--no-enhance", "exit", "omega", "sigma", "rho"], &[], Some(root), true);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.starts_with("local 3 hits"), "{out}");
+        let (code, _, _) = run_on(&["--no-enhance", "nothing", "matches", "zzzq"], &[], Some(root), true);
+        assert_eq!(code, 1);
     }
 }

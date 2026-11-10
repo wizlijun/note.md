@@ -86,8 +86,9 @@ pub(crate) struct PipelineOutput {
 ///    time mode from `params` unless the input names them);
 /// 2. no `enhance` → done, route `Local`;
 /// 3. `route` on the retained run's facts:
-///    - `Repair`: `diagnose_locked`; with a chat config and a chat key,
-///      `repair_run` (automatic), and on `ok` `search_groups_in`;
+///    - `Repair`: `diagnose_locked`; with a chat config, `repair_run`
+///      (automatic; without a key the host answers `notConfigured`), and on
+///      `ok` `search_groups_in`;
 ///    - `Judge`: `judge_run` (automatic) on the host display order, with
 ///      the in-range count as the only section break in `Group` time mode;
 ///      on `ok` the hits follow `JudgeResult.order`;
@@ -140,13 +141,14 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
         Route::Repair => {
             out.route = PipelineRoute::Repair;
             out.diagnosis = Some(diagnose_locked(input.index, &run, &params.local.fusion(), &counter, ticket)?);
-            if let (Some(chat), Some(key)) = (enhance.chat.as_ref(), enhance.chat_key.as_deref()) {
+            // As the window does: a missing key is the host's to report.
+            if let Some(chat) = enhance.chat.as_ref() {
                 let cancel = fresh_cancel_flag(&run.id);
                 let request = RepairRequest {
                     run_id: &run.id,
                     window_label: input.window_label,
                     chat,
-                    key: Some(key),
+                    key: enhance.chat_key.as_deref(),
                     trigger: Trigger::Auto,
                     limits: &params.repair,
                     timeout: params.enhance.timeout(),
