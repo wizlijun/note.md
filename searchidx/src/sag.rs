@@ -65,6 +65,7 @@ pub struct SagRow {
 
 /// What the alias table (spec H.3.1) is built from, apart from frontmatter
 /// `aliases`, which are not in the index (see [`frontmatter_aliases`]).
+#[derive(Debug, Clone, PartialEq)]
 pub struct AliasSources {
     /// Every indexed file, ordered by path.
     pub files: Vec<FileTitle>,
@@ -73,6 +74,7 @@ pub struct AliasSources {
     pub wiki_targets: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileTitle {
     pub path: String,
     /// `files.title`. The index already falls back frontmatter `title` →
@@ -98,6 +100,10 @@ struct DfCache {
 pub struct SagReader {
     conns: Vec<Mutex<Connection>>,
     df: Mutex<DfCache>,
+    /// Test seam: runs once in `frequencies` after the counts are taken and
+    /// before the generation is re-read, so a test can land a commit there.
+    #[cfg(test)]
+    after_counting: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 const CANDIDATE_SQL: &str = "SELECT b.id, f.path, b.line_start, b.line_end, b.breadcrumb, b.text,
@@ -161,23 +167,16 @@ impl SagReader {
                 .map_err(|e| format!("INDEX_NOT_READY: {e}"))?;
             conn.busy_timeout(std::time::Duration::from_secs(2)).map_err(err)?;
             if conns.is_empty() {
-                for (key, expected) in [
-                    ("schema_version", crate::store::SCHEMA_VERSION.to_string()),
-                    ("tokenizer_id", crate::tokenize::TOKENIZER_ID.to_string()),
-                    ("source_globs", globs_stamp.to_string()),
-                    ("vault_root", crate::paths::normalized_vault_root(root)),
-                ] {
-                    let actual: String = conn
-                        .query_row("SELECT value FROM meta WHERE key=?1", [key], |r| r.get(0))
-                        .map_err(|_| "INDEX_NOT_READY: rebuild index first")?;
-                    if actual != expected {
-                        return Err("INDEX_NOT_READY: rebuild index first".into());
-                    }
-                }
+                crate::snapshot::check_index_meta(&conn, root, globs_stamp)?;
             }
             conns.push(Mutex::new(conn));
         }
-        Ok(Self { conns, df: Mutex::new(DfCache::default()) })
+        Ok(Self {
+            conns,
+            df: Mutex::new(DfCache::default()),
+            #[cfg(test)]
+            after_counting: Mutex::new(None),
+        })
     }
 
     /// The index generation: `PRAGMA data_version` on the first connection.
@@ -239,10 +238,18 @@ impl SagReader {
                 .map(|h| h.join().map_err(|_| "frequency worker panicked".to_string())?)
                 .collect::<Result<Vec<_>, String>>()
         })?;
+        #[cfg(test)]
+        if let Some(hook) = lock(&self.after_counting).take() {
+            hook();
+        }
+        // The counts are cached only when no commit landed between the first
+        // generation read and now: SAG-Wiki reads its version inside the
+        // counting transaction, and re-reading here gives the same guarantee
+        // (the counts belong to `generation`). The cache must also still be
+        // on that generation — a concurrent call may have moved it on.
+        let unchanged = self.generation()? == generation;
         let mut cache = lock(&self.df);
-        // A commit while counting moved the cache on; these counts are not
-        // stored under the newer generation (SAG-Wiki keeps the same rule).
-        let store = cache.generation == Some(generation);
+        let store = unchanged && cache.generation == Some(generation);
         if store && cache.counts.len() + missing.len() > DF_CACHE_LIMIT {
             cache.counts.clear();
         }
@@ -335,25 +342,12 @@ impl SagReader {
         conn.query_row(&sql, params_from_iter(args.iter()), |r| r.get(0)).map_err(err)
     }
 
-    /// `files.confidentiality` for the given paths; the same query as
-    /// `SearchIndex::confidentiality_for_paths`, on this reader's connection
+    /// `files.confidentiality` for the given paths; the one implementation
+    /// shared with `SearchIndex::confidentiality_for_paths`
+    /// (`crate::confidentiality_on`), run on this reader's connection
     /// so the main index lock is not taken. Unknown paths are absent.
     pub fn confidentiality_for_paths(&self, paths: &[&str]) -> Result<HashMap<String, String>, String> {
-        let conn = self.any_conn();
-        let mut out = HashMap::new();
-        for chunk in paths.chunks(500) {
-            let marks = vec!["?"; chunk.len()].join(",");
-            let sql = format!("SELECT path, confidentiality FROM files WHERE path IN ({marks})");
-            let mut stmt = conn.prepare(&sql).map_err(err)?;
-            let rows = stmt
-                .query_map(params_from_iter(chunk.iter()), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-                .map_err(err)?;
-            for row in rows {
-                let (path, value) = row.map_err(err)?;
-                out.insert(path, value);
-            }
-        }
-        Ok(out)
+        crate::confidentiality_on(&self.any_conn(), paths)
     }
 
     /// File titles and wiki targets for the alias table (spec H.3.1; the
@@ -587,6 +581,137 @@ mod tests {
         assert!(SagReader::open_existing_at(&fx.root, &db, "", 1).is_ok());
         let err = SagReader::open_existing_at(&fx.root, &db, "other", 1).err().unwrap();
         assert!(err.starts_with("INDEX_NOT_READY"), "{err}");
+    }
+
+    /// Fix round 1: a commit landing between the first generation read and
+    /// the cache store must leave nothing cached — the counts may belong to
+    /// either side of the commit.
+    #[test]
+    fn frequencies_do_not_cache_counts_when_a_commit_lands_before_the_store() {
+        let fx = fixture();
+        let Fixture { _dir, root, mut index, reader } = fx;
+        let rel_root = root.clone();
+        *lock(&reader.after_counting) = Some(Box::new(move || {
+            std::fs::write(rel_root.join("a.md"), "alpha delta\n").unwrap();
+            index.index_one("a.md", &ScanOptions::default()).unwrap();
+        }));
+        let g0 = reader.generation().unwrap();
+        let f = reader.frequencies(&s(&["alpha"]), Level::Line).unwrap();
+        assert_eq!(f["alpha"], 2, "counted before the commit");
+        assert_ne!(reader.generation().unwrap(), g0, "the hook committed");
+        assert!(lock(&reader.df).counts.is_empty(), "nothing from a moved generation is cached");
+        // The next call counts afresh under the new generation and caches it.
+        assert_eq!(reader.frequencies(&s(&["alpha"]), Level::Line).unwrap()["alpha"], 1);
+        assert_eq!(lock(&reader.df).counts.get(&(Level::Line, "alpha".to_string())), Some(&1));
+    }
+
+    /// Without a commit the counts are cached under the generation they were
+    /// read at.
+    #[test]
+    fn frequencies_cache_counts_when_the_generation_is_unchanged() {
+        let fx = fixture();
+        let g = fx.reader.generation().unwrap();
+        fx.reader.frequencies(&s(&["alpha", "beta"]), Level::File).unwrap();
+        let cache = lock(&fx.reader.df);
+        assert_eq!(cache.generation, Some(g));
+        assert_eq!(cache.counts.get(&(Level::File, "alpha".to_string())), Some(&1));
+        assert_eq!(cache.counts.get(&(Level::File, "beta".to_string())), Some(&2));
+    }
+
+    /// Pins `bm25(blocks_fts, 1.0, 2.0, 2.0)` (spec H.3.3; SAG-Wiki
+    /// `sag_bm25(chunk_fts, stats, 2, 2, 1)`: title 2, heading 2, body 1).
+    ///
+    /// FTS5's bm25 adds the column weights into the term frequency before
+    /// saturating it: one phrase scores `idf·x(k1+1)/(x+K)` with
+    /// `x = Σ weight(column)·hits(column)` and `K = k1(1−b+b·D/avgdl)`, where
+    /// `D` is the row's total length. Three line blocks with the same total
+    /// length (3 tokens) and the same term therefore differ only in `x`:
+    ///
+    /// - `body`: term once in the body → `x = 1`
+    /// - `heading`: term once in the breadcrumb → `x = 2`
+    /// - `both`: once in each → `x = 3`
+    ///
+    /// `K` is solved from body/heading, and both/body must then equal
+    /// `3(1+K)/(3+K)`. Any other weighting (swapped `2,2,1`, flat `1,1,1`,
+    /// heading 3, …) breaks either the strict heading-first order or that
+    /// equation.
+    #[test]
+    fn heading_matches_weigh_twice_body_matches() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("vault");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("h.md"), "# Omega\n\nfiller words\n").unwrap();
+        std::fs::write(root.join("p.md"), "omega filler words\n").unwrap();
+        std::fs::write(root.join("z.md"), "# Omega\n\nomega words\n").unwrap();
+        let db = dir.path().join("i.db");
+        let mut index = SearchIndex::open_at(&root, &db, "").unwrap();
+        for rel in ["h.md", "p.md", "z.md"] {
+            index.index_one(rel, &ScanOptions::default()).unwrap();
+        }
+        let r = SagReader::open_existing_at(&root, &db, "", 1).unwrap();
+        let rows = r.candidate_query(&q("\"omega\"", None, &[], 10)).unwrap();
+        let row = |text: &str| rows.iter().find(|x| x.text == text).unwrap_or_else(|| panic!("{text}: {rows:?}")).clone();
+        let (heading, body, both) = (row("filler words"), row("omega filler words"), row("omega words"));
+        assert_eq!((heading.breadcrumb.as_str(), body.breadcrumb.as_str(), both.breadcrumb.as_str()), ("Omega", "", "Omega"));
+        assert!(heading.bm25 < body.bm25, "a heading match outranks a body-only match: {rows:?}");
+        let pos = |id| rows.iter().position(|x| x.id == id).unwrap();
+        assert!(pos(both.id) < pos(heading.id) && pos(heading.id) < pos(body.id));
+        let ratio = body.bm25 / heading.bm25; // = (2+K) / (2(1+K))
+        let k = (2.0 - 2.0 * ratio) / (2.0 * ratio - 1.0);
+        assert!(k > 0.0, "K = {k}");
+        let predicted = 3.0 * (1.0 + k) / (3.0 + k);
+        let observed = both.bm25 / body.bm25;
+        assert!((observed - predicted).abs() < 1e-9, "weights must be body 1, heading 2: {observed} vs {predicted}");
+    }
+
+    /// The title column (weight 2) is filled only on file-level blocks
+    /// (`store.rs:replace_file`), so a title-only term never yields a
+    /// line-level candidate — the accepted H.5 difference from SAG2, where
+    /// every chunk carries its document title.
+    #[test]
+    fn a_title_only_match_is_not_a_line_candidate() {
+        let fx = fixture();
+        assert!(fx.reader.candidate_query(&q("\"bee\"", None, &[], 10)).unwrap().is_empty());
+        assert!(!fx.reader.has_match("\"bee\"", no_filters(), &[]).unwrap());
+        assert_eq!(fx.reader.frequencies(&s(&["bee"]), Level::File).unwrap()["bee"], 0, "df counts tok_text only");
+    }
+
+    #[test]
+    fn candidate_query_applies_path_filters() {
+        let fx = fixture();
+        let only_b = parse("path:b.md");
+        let rows = fx
+            .reader
+            .candidate_query(&CandidateQuery { expression: "\"alpha\" OR \"beta\"", required: None, filters: &only_b, excluded: &[], limit: 10 })
+            .unwrap();
+        assert_eq!(rows.iter().map(|x| (x.path.as_str(), x.text.as_str())).collect::<Vec<_>>(), vec![("b.md", "beta [[Target Page|tp]]")]);
+        let only_a = parse("path:a.md");
+        let rows = fx
+            .reader
+            .candidate_query(&CandidateQuery { expression: "\"alpha\" OR \"beta\"", required: Some("\"beta\""), filters: &only_a, excluded: &[], limit: 10 })
+            .unwrap();
+        assert_eq!(rows.iter().map(|x| x.text.as_str()).collect::<Vec<_>>(), vec!["alpha beta"]);
+        let none = parse("path:zzz");
+        assert!(fx.reader.candidate_query(&CandidateQuery { expression: "\"alpha\"", required: None, filters: &none, excluded: &[], limit: 10 }).unwrap().is_empty());
+    }
+
+    /// Both openers answer confidentiality through the one shared helper.
+    #[test]
+    fn reader_and_index_report_the_same_confidentiality() {
+        let mut fx = fixture();
+        std::fs::write(fx.root.join("s.md"), "---\nprivate: true\n---\nsecret\n").unwrap();
+        fx.index.index_one("s.md", &ScanOptions::default()).unwrap();
+        let paths = ["s.md", "a.md", "b.md", "gone.md"];
+        assert_eq!(fx.reader.confidentiality_for_paths(&paths).unwrap(), fx.index.confidentiality_for_paths(&paths).unwrap());
+    }
+
+    #[test]
+    fn alias_sources_are_comparable_and_clonable() {
+        let fx = fixture();
+        let a = fx.reader.alias_sources().unwrap();
+        assert_eq!(a.clone(), a);
+        assert_eq!(a.files[1], FileTitle { path: "b.md".into(), title: Some("Bee".into()), ext: "md".into() });
+        assert!(format!("{a:?}").contains("Target Page"));
     }
 
     #[test]
