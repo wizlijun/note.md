@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "tag": "v6.1110.2",
+  "testedExecutable": "/home/bruce/git/note.md/tasks/sumi-plugin-release-0.1.11/output/notemd-sumi",
+  "binarySha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "signedPackageSha256": "b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8",
+  "testedBinaryMatchesSignedPackage": true,
+  "command": "SUMI_TEST_BINARY=/output/notemd-sumi CARGO_BUILD_JOBS=2 CARGO_NET_OFFLINE=true RUSTUP_TOOLCHAIN=stable cargo test --release --locked --manifest-path plugins-src/write/backend/Cargo.toml --target x86_64-unknown-linux-gnu --test stdio -- --test-threads=1",
+  "containerNetwork": "none",
+  "signingKeyMounted": false,
+  "privateVaultOnly": true,
+  "passed": 2,
+  "failed": 0,
+  "ignored": 1,
+  "ignoredReason": "Legacy executable compatibility test requires explicitly supplied previously released binary; not applicable to this Linux artifact test.",
+  "originalLogSha256": "5db016a2f0e538a24b1ea593c632399e3831d7b0b8bd0021f523abeb5bb0c1bd",
+  "reportLogSha256": "69e1b0996eea4c3bc6f0ed8882684b700afafaa074e88c6893152fa6978dc4a0",
+  "normalization": "line trailing whitespace and trailing empty lines only"
+}

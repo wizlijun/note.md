@@ -1,0 +1,12 @@
+{
+  "originalLog": "tasks/sumi-plugin-release-build.log",
+  "originalSha256": "1ee1010ecf6dcd4e846c8b63b85fb0aeb8fa009b2d0bb82b1cfbe4f535841ee2",
+  "reportLog": "plugin-build.log",
+  "reportSha256": "574fbc85b435f2a88634f114d083d09b58cbdfe7966b8a6dc1426ef00fa46d11",
+  "normalization": "line trailing whitespace only",
+  "elfSymbolVersions": {
+    "originalSha256": "b06ac65102583b9cf674e039a31b15d307d311b10fda4b3a02d2da0a0ef54e67",
+    "reportSha256": "47e8082dd8371b7dad36e0153e88719e07b8d94d72e43a6475df626c7ab897a3",
+    "normalization": "line trailing whitespace and trailing empty lines only"
+  }
+}

@@ -15,6 +15,20 @@ node scripts/gen-plugin-index.mjs
 
 生成器可能刷新无关插件的源码描述，因此不能把其整个结果直接覆盖线上 KV。本发布器核对生成器给出的本次条目，发布时从最新 KV **只追加这一条**。同版本不同内容、历史重复身份，以及提交前重读发现的并发 KV 变动均拒绝继续；KV 没有提供跨写者原子 compare-and-swap，本工具不声称消除了检查之后的全部竞争窗口。
 
+本轮实际构建使用 `build-plugin-linux.sh` / `plugin-container-build.sh`，从正式 tag 的 `git archive` 导出源码，在 Debian 12 构建器中执行上述原脚本。独立 Cargo/Node 缓存，Cargo jobs=2；联网获取依赖时不挂载密钥，构建/签名阶段以 `--network none` 运行并只读挂载原签名密钥和已验证 Debian minisign。真实 commit 对象在容器内重算 SHA，仅为原脚本的 `git rev-parse HEAD` 提供最小元数据，不挂载宿主 `.git` 或秘密配置。
+
+```sh
+bash docs/superpowers/reports/2026-11-10-sumi-omarchy-release/build-plugin-linux.sh \
+  v6.1110.2 1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4 \
+  f581448bce5e9cf557059f0700297a527069b5ae
+
+python3 docs/superpowers/reports/2026-11-10-sumi-omarchy-release/verify-plugin-package.py \
+  --repository "$PWD" --source 1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4 \
+  --build-root tasks/sumi-plugin-release-0.1.11
+```
+
+第二条生成实际包的 `plugin-package-receipt.json`，检查原签名、完整包清单、声音/字体元数据来源、ELF 和最高 GLIBC 版本（不得超过 2.36）、Debian 12 动态依赖。它故意不虚构尚未生成的正式宿主资产；负责人须在宿主产物冻结后加入 `host` 部分，才能通过正式发布器门禁。
+
 ## 冻结 receipt
 
 构建负责人提供真实 `frozen-plugin.json`，没有可执行的虚构默认值：
