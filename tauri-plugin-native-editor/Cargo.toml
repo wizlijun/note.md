@@ -26,6 +26,7 @@ required-features = ["probe"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
+unicode-segmentation = "1"
 rclip-rtf = { version = "=0.1.0", default-features = false }
 webkit2gtk = "2.0.2"
 tauri = { version = "2", default-features = false, features = ["wry"] }

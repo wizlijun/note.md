@@ -188,8 +188,19 @@ impl Surface {
         )
     }
     pub(super) fn typing(&self) {
-        if self.failed.get() || !self.visible.get() || !self.config.borrow().appearance.focus_typing
-        {
+        if self.failed.get() || !self.visible.get() {
+            return;
+        }
+        let anchored = self
+            .candidates
+            .borrow()
+            .as_ref()
+            .is_some_and(|p| !p.bottom_anchor.replace(true));
+        if anchored && !self.focused.get() {
+            self.appearance();
+        }
+        if !self.config.borrow().appearance.focus_typing {
+            self.center();
             return;
         }
         let now = Instant::now();
@@ -218,14 +229,24 @@ impl Surface {
         if self.pointer_tracking.get() {
             return;
         }
+        let anchored = self
+            .candidates
+            .borrow()
+            .as_ref()
+            .is_some_and(|p| p.bottom_anchor.replace(false));
         if self.focused.replace(false) {
             self.resume_focus.set(true);
             self.focus_frame.borrow_mut().spatial = None;
             self.appearance();
             self.decoration.queue_draw();
+        } else if anchored {
+            self.appearance();
         }
     }
     pub(super) fn reset_focus(&self) {
+        if let Some(p) = self.candidates.borrow().as_ref() {
+            p.bottom_anchor.set(false);
+        }
         self.focused.set(false);
         self.resume_focus.set(false);
         self.pointer_tracking.set(false);
@@ -235,7 +256,7 @@ impl Surface {
         self.decoration.queue_draw();
     }
     pub(super) fn center(&self) {
-        if !self.focused.get() || self.pointer_tracking.get() {
+        if (!self.focused.get() && !self.bottom_anchor()) || self.pointer_tracking.get() {
             return;
         }
         // GTK's own scrolling changes rendering, hit testing and IME rectangles together.
@@ -249,7 +270,12 @@ impl Surface {
         let (_, y) =
             self.view
                 .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
-        let target = adjustment.value() + y as f64 + cursor.height() as f64 / 2.0 - height / 2.0;
+        let target_center = if self.focused.get() {
+            height / 2.0
+        } else {
+            height - self.candidate_height() - candidates::Panel::pitch(self) / 2.0
+        };
+        let target = adjustment.value() + y as f64 + cursor.height() as f64 / 2.0 - target_center;
         let target = target.clamp(
             adjustment.lower(),
             (adjustment.upper() - adjustment.page_size()).max(adjustment.lower()),
@@ -259,7 +285,7 @@ impl Surface {
             .view
             .settings()
             .is_some_and(|settings| settings.is_gtk_enable_animations());
-        if frame.animate_next && animations && self.view.has_focus() {
+        if self.focused.get() && frame.animate_next && animations && self.view.has_focus() {
             frame.spatial = Some((Instant::now(), adjustment.value(), target));
             frame.animate_next = false;
             return;
