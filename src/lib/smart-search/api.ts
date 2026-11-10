@@ -21,6 +21,7 @@ export interface LocalLookupResponse {
 /** Exactly these four fields: the host rejects unknown ones (`deny_unknown_fields`), so never spread settings into it. */
 export interface JevRequestConfig { url: string; model: string; authMode: 'bearer' | 'none'; consentHost: string }
 export interface ChatRequestConfig { url: string; model: string }
+export interface ChatAnswerConfig { url: string; model: string; consentHost: string }
 export interface Usage { inputTokens: number; outputTokens: number }
 
 export interface JudgeResult {
@@ -47,6 +48,39 @@ export interface JudgeResult {
   skippedStale: number
   skippedLong: number
   usage: Usage | null
+}
+
+export type EvidenceStop = 'noTerms' | 'frontierEmpty' | 'termsEmpty' | 'candidatesEmpty' | 'maxHops' | 'budget' | 'indexChanged' | 'evidenceTooLarge'
+export interface EvidenceTerm { term: string; label: string; kind: 'word' | 'namePhrase' }
+export interface EvidenceItem {
+  evidenceId: string; path: string; line: number; lineEnd: number; title: string; breadcrumb: string
+  text: string; foundRound: number; tier: Tier; localResultId: string | null
+}
+export interface EvidenceStepResult {
+  status: EnhanceStatus
+  stop: EvidenceStop | null
+  skipReason: SkipReason | null
+  missing: Missing | null
+  endpointHost: string | null
+  statusClass: string | null
+  hop: number
+  terms: EvidenceTerm[]
+  evidence: EvidenceItem[]
+  localTiers: { resultId: string; tier: Tier }[]
+  done: boolean
+  requestCount: number
+  poolSize: number
+  /** Trace candidate count (pre-flight P13). */
+  candidates: number
+  sentBlocks: number
+  skippedConfidential: number
+  skippedStale: number
+  skippedLong: number
+  skippedOversize: number
+  estimatedTokens: number
+  tokensUsed: number
+  usage: Usage | null
+  elapsedMs: number
 }
 
 export interface TermGroup { terms: string[]; phrases: string[] }
@@ -89,6 +123,9 @@ export const smartSearchApi = {
   /** At most one Jev request; reorders inside sections only. */
   judge: (lookupRunId: string, displayOrder: string[], sectionBreaks: number[], jev: JevRequestConfig, trigger: Trigger) =>
     invoke<JudgeResult>('smart_lookup_judge', { lookupRunId, displayOrder, sectionBreaks, jev, trigger }),
+  /** One evidence round (at most one batch sequence); the host owns the hop counter. */
+  evidenceStep: (lookupRunId: string, jev: JevRequestConfig, trigger: Trigger, deep: boolean) =>
+    invoke<EvidenceStepResult>('smart_lookup_evidence_step', { lookupRunId, jev, trigger, deep }),
   cancel: (lookupRunId: string) => invoke<void>('smart_lookup_cancel', { lookupRunId }),
   diagnose: (lookupRunId: string) => invoke<Diagnosis>('smart_lookup_diagnose', { lookupRunId }),
   /** Sends only the question and search terms, never note content. */

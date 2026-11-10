@@ -12,7 +12,7 @@ export interface SmartLookupSettings {
   enhance: {
     enabled: boolean
     jev: { preset: JevPreset; url: string; model: string; authMode: JevAuthMode; consentHost: string }
-    chat: { url: string; model: string }
+    chat: { url: string; model: string; consentHost: string }
   }
   launch: { firstRunSeen: boolean }
 }
@@ -37,7 +37,7 @@ export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
   enhance: {
     enabled: true,
     jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' },
-    chat: { url: '', model: '' },
+    chat: { url: '', model: '', consentHost: '' },
   },
   launch: { firstRunSeen: false },
 }
@@ -101,6 +101,7 @@ export function normalizeSmartLookupSettings(value: unknown): SmartLookupSetting
       chat: {
         url: text(chat.url, URL_MAX_LENGTH, defaults.enhance.chat.url),
         model: text(chat.model, MODEL_MAX_LENGTH, defaults.enhance.chat.model),
+        consentHost: text(chat.consentHost, CONSENT_HOST_MAX_LENGTH, defaults.enhance.chat.consentHost),
       },
     },
     launch: {

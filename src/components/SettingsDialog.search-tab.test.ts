@@ -902,7 +902,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     expect(chat.textContent).toContain('only the question and search terms are sent, never note content')
     await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
     await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
-    expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x' })
+    expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x', consentHost: '' })
     expect(settings.smartLookup.enhance.jev.url).toBe('')
     button(chat, 'Test connection').click()
     await settle()
