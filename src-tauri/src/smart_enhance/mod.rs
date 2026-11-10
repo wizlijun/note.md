@@ -1,25 +1,29 @@
 //! Optional model-assisted enhancements to smart lookup: shared types here,
 //! pure routing/selection/rerank functions in [`candidates`].
-#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use crate::smart_model::{consent_matches, endpoint_host, jev_endpoint, validate_jev_config, AuthMode, JevConfig, ModelError};
+use crate::smart_model::{
+    consent_matches, endpoint_host, jev_endpoint, sends_key_in_clear_text, validate_jev_config, AuthMode, JevConfig,
+    ModelError,
+};
 
 pub(crate) mod candidates;
+pub(crate) mod judge;
 pub(crate) mod keys;
 
 pub(crate) const ENHANCE_TIMEOUT: Duration = Duration::from_secs(3);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum EnhanceStatus {
     Ok,
+    #[default]
     Skipped,
     NotConfigured,
     NoConsent,
@@ -108,10 +112,20 @@ pub(crate) fn check_config(
     if model.trim().is_empty() {
         return Err(Missing::Model);
     }
+    let Ok(parsed) = reqwest::Url::parse(url.trim()) else {
+        return Err(Missing::Url);
+    };
+    // Userinfo (`user:pass@`) would be sent as clear-text Basic auth.
+    if jev_endpoint(url).is_err() || !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(Missing::Url);
+    }
+    if sends_key_in_clear_text(&parsed, auth_mode) {
+        return Err(Missing::Insecure);
+    }
     let config = JevConfig { url: url.to_string(), model: model.to_string(), auth_mode };
+    // Every rule it applies was checked above; kept as the final word.
     if validate_jev_config(&config).is_err() {
-        // A usable URL with a validation error can only be the clear-text rule.
-        return Err(if jev_endpoint(url).is_ok() { Missing::Insecure } else { Missing::Url });
+        return Err(Missing::Url);
     }
     if auth_mode == AuthMode::Bearer && key.map_or(true, str::is_empty) {
         return Err(Missing::Key);
@@ -119,9 +133,10 @@ pub(crate) fn check_config(
     Ok(config)
 }
 
-/// url empty -> Url; model empty -> Model; plain http + bearer -> Insecure;
-/// other validation errors -> Url; bearer without key -> Key; consent for a
-/// different host -> NoConsent.
+/// url empty -> Url; model empty -> Model; unparseable, not http(s), no host
+/// or carrying userinfo -> Url; plain http + bearer to a non-loopback host ->
+/// Insecure; bearer without key -> Key; consent for a different host ->
+/// NoConsent.
 pub(crate) fn gate_jev(config: &JevRequestConfig, key: Option<&str>) -> Result<JevConfig, Gate> {
     let jev = check_config(&config.url, &config.model, config.auth_mode, key).map_err(Gate::NotConfigured)?;
     if !consent_matches(&config.url, &config.consent_host) {
@@ -163,8 +178,7 @@ impl CancelFlag {
 const FLAG_TTL: Duration = Duration::from_secs(10 * 60);
 static CANCEL_FLAGS: OnceLock<Mutex<HashMap<String, (Instant, Arc<CancelFlag>)>>> = OnceLock::new();
 
-/// One per lookup run; swept with the runs after ten minutes.
-pub(crate) fn cancel_flag(run_id: &str) -> Arc<CancelFlag> {
+fn cancel_flags() -> MutexGuard<'static, HashMap<String, (Instant, Arc<CancelFlag>)>> {
     let mut flags = CANCEL_FLAGS
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
@@ -172,10 +186,29 @@ pub(crate) fn cancel_flag(run_id: &str) -> Arc<CancelFlag> {
     let now = Instant::now();
     flags.retain(|_, (created, _)| now.duration_since(*created) <= FLAG_TTL);
     flags
+}
+
+/// One per lookup run; dropped ten minutes after it was made.
+pub(crate) fn cancel_flag(run_id: &str) -> Arc<CancelFlag> {
+    cancel_flags()
         .entry(run_id.to_string())
-        .or_insert_with(|| (now, Arc::new(CancelFlag::new())))
+        .or_insert_with(|| (Instant::now(), Arc::new(CancelFlag::new())))
         .1
         .clone()
+}
+
+/// The flag a new call on `run_id` waits on. A flag that was already
+/// cancelled is replaced, so a retry after 「停止」 is not cancelled at once;
+/// one still live is shared, so a later stop reaches every call in flight.
+pub(crate) fn fresh_cancel_flag(run_id: &str) -> Arc<CancelFlag> {
+    let mut flags = cancel_flags();
+    let entry = flags
+        .entry(run_id.to_string())
+        .or_insert_with(|| (Instant::now(), Arc::new(CancelFlag::new())));
+    if entry.1.is_cancelled() {
+        *entry = (Instant::now(), Arc::new(CancelFlag::new()));
+    }
+    entry.1.clone()
 }
 
 #[tauri::command]
@@ -220,6 +253,29 @@ mod tests {
         assert!(matches!(gate_jev(&c("https://b.example/v1", "m", AuthMode::Bearer, "a.example"), Some("k")),
             Err(Gate::NoConsent { endpoint_host }) if endpoint_host == "b.example"));
         assert!(gate_jev(&c("http://localhost:8000/v1", "m", AuthMode::None, "localhost:8000"), None).is_ok());
+    }
+
+    #[test]
+    fn check_config_rejects_userinfo_bad_schemes_and_clear_text_bearer() {
+        let check = |url: &str, auth: AuthMode| check_config(url, "m", auth, Some("k")).map(|_| ());
+        // userinfo would go out as clear-text Basic auth
+        assert_eq!(check("https://user:pass@a.example/v1", AuthMode::Bearer), Err(Missing::Url));
+        assert_eq!(check("https://user@a.example/v1", AuthMode::None), Err(Missing::Url));
+        assert_eq!(check("http://user:pass@localhost:8000/v1", AuthMode::None), Err(Missing::Url));
+        // not http(s), or not a URL at all
+        assert_eq!(check("ftp://a.example/v1", AuthMode::Bearer), Err(Missing::Url));
+        assert_eq!(check("ftp://a.example/v1", AuthMode::None), Err(Missing::Url));
+        assert_eq!(check("not a url", AuthMode::None), Err(Missing::Url));
+        assert_eq!(check("http://", AuthMode::None), Err(Missing::Url));
+        // clear-text bearer only for plain http to a non-loopback host
+        assert_eq!(check("http://192.168.1.5:8000/v1", AuthMode::Bearer), Err(Missing::Insecure));
+        assert_eq!(check("http://a.example/v1", AuthMode::Bearer), Err(Missing::Insecure));
+        assert_eq!(check("http://192.168.1.5:8000/v1", AuthMode::None), Ok(()));
+        assert_eq!(check("http://localhost:8000/v1", AuthMode::Bearer), Ok(()));
+        assert_eq!(check("http://127.0.0.1:8000/v1", AuthMode::Bearer), Ok(()));
+        assert_eq!(check("http://[::1]:8000/v1", AuthMode::Bearer), Ok(()));
+        assert_eq!(check("http://localhost:8000/v1", AuthMode::None), Ok(()));
+        assert_eq!(check("https://a.example/v1", AuthMode::Bearer), Ok(()));
     }
 
     #[tokio::test]

@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 use tauri::Manager;
 
 use crate::search::time_group::TimeMode;
+use crate::smart_enhance::Tier;
 
 const RUN_TTL: Duration = Duration::from_secs(10 * 60);
 const MAX_RUNS_PER_WINDOW: usize = 20;
@@ -35,6 +36,7 @@ pub(crate) struct CanonicalHit {
 #[derive(Clone)]
 pub(crate) struct ArmFact {
     pub(crate) kind: String,
+    #[expect(dead_code, reason = "read by query repair (Task 6)")]
     pub(crate) terms: Vec<String>,
     pub(crate) hit_count: usize,
 }
@@ -58,6 +60,16 @@ pub(crate) struct RunTime {
     pub(crate) in_window: usize,
 }
 
+/// What the model judged on a run, kept for the user's corrections.
+#[derive(Clone)]
+#[cfg_attr(not(test), expect(dead_code, reason = "read by smart_lookup_feedback (Task 7)"))]
+pub(crate) struct JudgeRecord {
+    pub endpoint_host: String,
+    pub model: String,
+    /// Keyed by `result_id`.
+    pub tiers: HashMap<String, Tier>,
+}
+
 #[derive(Clone)]
 pub(crate) struct LookupRun {
     pub(crate) id: String,
@@ -70,6 +82,7 @@ pub(crate) struct LookupRun {
     pub(crate) time: Option<RunTime>,
     pub(crate) auto_request_used: bool,
     pub(crate) repaired: bool,
+    pub(crate) judgement: Option<JudgeRecord>,
 }
 
 #[derive(Default)]
@@ -190,6 +203,7 @@ pub(crate) fn retain_search_in(
         time,
         auto_request_used: repaired,
         repaired,
+        judgement: None,
     };
     let mut registry = LOOKUP_RUNS
         .get_or_init(|| Mutex::new(LookupRuns::default()))
@@ -364,6 +378,7 @@ mod tests {
             time: None,
             auto_request_used: false,
             repaired: false,
+            judgement: None,
         }
     }
 

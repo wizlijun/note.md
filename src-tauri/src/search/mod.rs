@@ -302,6 +302,12 @@ pub fn lock(handle: &IndexHandle) -> MutexGuard<'_, Option<SearchIndex>> {
     handle.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// The filters the user wrote in `question` (`tag:x`, `after:…`), rendered
+/// as smart search shows them. For describing a lookup to a model.
+pub(crate) fn explicit_filters(question: &str) -> Vec<String> {
+    smart::render_filters(&searchidx::query::parse(question))
+}
+
 /// Pure decision logic for `open_vault`'s `SkippedState` write: given whether
 /// this thread's generation is still current and its sweep's result, what (if
 /// anything) should be installed into `SkippedState`. `None` means "write

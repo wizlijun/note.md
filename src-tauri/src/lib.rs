@@ -1717,6 +1717,7 @@ pub fn run() {
                 smart_enhance::keys::smart_lookup_key_status,
                 smart_enhance::keys::smart_lookup_test_jev,
                 smart_enhance::smart_lookup_cancel,
+                smart_enhance::judge::smart_lookup_judge,
                 search::notemd_search_stats,
                 search::notemd_search_rebuild,
                 search::notemd_search_progress,

@@ -54,6 +54,7 @@ pub(crate) struct Candidate {
     pub title: String,
     pub breadcrumb: String,
     pub passage: String,
+    #[expect(dead_code, reason = "no reader yet; Selection.estimated_tokens carries the sum")]
     pub tokens: u64,
 }
 

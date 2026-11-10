@@ -590,7 +590,7 @@ fn relaxation_sizes(count: usize) -> Vec<usize> {
     out
 }
 
-fn render_filters(query: &Query) -> Vec<String> {
+pub(super) fn render_filters(query: &Query) -> Vec<String> {
     let mut out = Vec::new();
     extend_filters(&mut out, "tag", &query.tags);
     extend_filters(&mut out, "type", &query.types);

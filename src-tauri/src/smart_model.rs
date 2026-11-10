@@ -78,22 +78,28 @@ pub fn validate_jev_config(config: &JevConfig) -> Result<(), String> {
     }
     let parsed = reqwest::Url::parse(config.url.trim()).map_err(|e| format!("invalid url: {e}"))?;
     jev_endpoint(&config.url)?;
-    if config.auth_mode == AuthMode::Bearer && parsed.scheme() == "http" {
-        let loopback = match parsed.host() {
-            Some(url::Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
-            Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
-            Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
-            None => false,
-        };
-        if !loopback {
-            return Err(
-                "a bearer key over plain http to a non-loopback host would be sent in clear text; use https".into(),
-            );
-        }
+    if sends_key_in_clear_text(&parsed, config.auth_mode) {
+        return Err(
+            "a bearer key over plain http to a non-loopback host would be sent in clear text; use https".into(),
+        );
     }
     Ok(())
 }
 
+/// A bearer key over plain `http` to a host that is not loopback
+/// (`localhost`, `127.0.0.0/8`, `::1`).
+pub(crate) fn sends_key_in_clear_text(url: &reqwest::Url, auth_mode: AuthMode) -> bool {
+    if auth_mode != AuthMode::Bearer || url.scheme() != "http" {
+        return false;
+    }
+    let loopback = match url.host() {
+        Some(url::Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
+    };
+    !loopback
+}
 
 /// Lower-case host of the resolved endpoint; an explicit non-default port is
 /// kept (`host:port`), IPv6 keeps its brackets.
