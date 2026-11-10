@@ -444,6 +444,84 @@ pub(crate) mod test_support {
         });
         (base, request_rx, accepted)
     }
+
+    /// A local Jev stand-in that answers every question it is asked:
+    /// `noul = score(question entry)` for each `questions` key, plus
+    /// `usage.input_tokens = 10` per request. The `n`-th request (from 0)
+    /// waits `delay(n)` first. Keeps every request body as received, and its
+    /// header block lower-cased.
+    pub(crate) struct NoulServer {
+        pub base: String,
+        pub bodies: Arc<std::sync::Mutex<Vec<String>>>,
+        pub heads: Arc<std::sync::Mutex<Vec<String>>>,
+        pub accepted: Arc<AtomicUsize>,
+    }
+
+    pub(crate) async fn serve_noul(
+        score: impl Fn(&serde_json::Value) -> f64 + Send + Sync + 'static,
+        delay: impl Fn(usize) -> Duration + Send + Sync + 'static,
+    ) -> NoulServer {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}/v1", listener.local_addr().unwrap());
+        let bodies = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let heads = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let accepted = Arc::new(AtomicUsize::new(0));
+        let server = NoulServer { base, bodies: bodies.clone(), heads: heads.clone(), accepted: accepted.clone() };
+        let (score, delay) = (Arc::new(score), Arc::new(delay));
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    break;
+                };
+                let n = accepted.fetch_add(1, Ordering::SeqCst);
+                let (bodies, heads, score, delay) = (bodies.clone(), heads.clone(), score.clone(), delay.clone());
+                tokio::spawn(async move {
+                    let mut received = Vec::new();
+                    let mut chunk = [0u8; 8192];
+                    let body = loop {
+                        let read = stream.read(&mut chunk).await.unwrap_or(0);
+                        if read == 0 {
+                            return;
+                        }
+                        received.extend_from_slice(&chunk[..read]);
+                        let text = String::from_utf8_lossy(&received).to_string();
+                        if let Some(end) = text.find("\r\n\r\n") {
+                            let length = text[..end]
+                                .lines()
+                                .find_map(|l| l.to_lowercase().strip_prefix("content-length:").map(|v| v.trim().to_string()))
+                                .and_then(|v| v.parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if received.len() >= end + 4 + length {
+                                heads.lock().unwrap().push(text[..end].to_lowercase());
+                                break String::from_utf8_lossy(&received[end + 4..end + 4 + length]).to_string();
+                            }
+                        }
+                    };
+                    bodies.lock().unwrap().push(body.clone());
+                    tokio::time::sleep(delay(n)).await;
+                    let parsed: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                    let answers: serde_json::Map<String, serde_json::Value> = parsed["questions"]
+                        .as_object()
+                        .map(|questions| {
+                            questions
+                                .iter()
+                                .map(|(id, q)| (id.clone(), serde_json::json!({"type": "noul", "noul": score(q)})))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let out =
+                        serde_json::json!({"answers": answers, "usage": {"input_tokens": 10, "output_tokens": 1}}).to_string();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{out}",
+                        out.len()
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                });
+            }
+        });
+        server
+    }
 }
 
 #[cfg(test)]

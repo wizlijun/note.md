@@ -829,29 +829,52 @@ fn error_row(task: &EvalTask, timeout_ms: u64, error: String) -> LookupEvalRow {
     }
 }
 
-/// Score one task's pipeline output.
+/// Score one task's pipeline output. On the judge route the model's part is
+/// the evidence rounds (spec H.10; Task 9 adds the per-round fields): counts
+/// and time are summed over the rounds, the status is the last round's, and
+/// a tier is the latest `ok` round's (its evidence items, then its local rows).
 fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout_ms: u64) -> LookupEvalRow {
-    let is_target = |hit: &SmartHitDto| target_rank(std::slice::from_ref(hit), &task.targets).is_some();
+    let matches_target = |path: &str, line: u32, line_end: u32| {
+        task.targets.iter().any(|t| t.path == path && t.line.map_or(true, |l| line <= l && l <= line_end))
+    };
+    let is_target = |hit: &SmartHitDto| matches_target(&hit.hit.path, hit.hit.line, hit.hit.line_end);
     let rank = |hits: &[SmartHitDto]| target_rank(hits, &task.targets).map(|(rank, _)| rank);
-    let judge = output.judge.as_ref();
+    let rounds = &output.evidence_rounds;
     let repair = output.repair.as_ref();
     let local_hits = &output.local.search.hits;
     let local_rank = rank(local_hits);
     let final_rank = rank(&output.hits);
-    let by_id = |id: &str| local_hits.iter().find(|h| h.result_id.as_deref() == Some(id));
-    let target_in_window = judge.is_some_and(|j| j.sent_result_ids.iter().any(|id| by_id(id).is_some_and(is_target)));
-    let fit_ids: Vec<&str> =
-        judge.map_or(Vec::new(), |j| j.verdicts.iter().filter(|v| v.tier == Tier::Fit).map(|v| v.result_id.as_str()).collect());
+    let target_in_window = rounds.iter().any(|r| r.sent.iter().any(|(path, line, end)| matches_target(path, *line, *end)));
+    let latest = rounds.iter().rev().find(|r| r.status == EnhanceStatus::Ok);
+    let fit_places: Vec<(&str, u32, u32)> = latest.map_or(Vec::new(), |r| {
+        let local = r.local_tiers.iter().filter(|v| v.tier == Tier::Fit).filter_map(|v| {
+            let h = local_hits.iter().find(|h| h.result_id.as_deref() == Some(v.result_id.as_str()))?;
+            Some((h.hit.path.as_str(), h.hit.line, h.hit.line_end))
+        });
+        r.evidence
+            .iter()
+            .filter(|i| i.tier == Tier::Fit)
+            .map(|i| (i.path.as_str(), i.line, i.line_end))
+            .chain(local)
+            .collect()
+    });
+    let is_fit = |hit: &SmartHitDto| fit_places.contains(&(hit.hit.path.as_str(), hit.hit.line, hit.hit.line_end));
     let scored = task.category != Category::Absent && target_indexed;
     let mismatch = scored
-        && output.hits.iter().enumerate().any(|(i, hit)| {
-            hit.result_id.as_deref().is_some_and(|id| fit_ids.contains(&id))
-                && !is_target(hit)
-                && final_rank.map_or(true, |target| i + 1 < target)
-        });
-    let reranked = judge.is_some_and(|j| j.status == EnhanceStatus::Ok);
-    let demoted = scored && reranked && matches!((local_rank, final_rank), (Some(l), Some(f)) if f > l);
-    let usage = judge.and_then(|j| j.usage.as_ref()).or_else(|| repair.and_then(|r| r.usage.as_ref()));
+        && output
+            .hits
+            .iter()
+            .enumerate()
+            .any(|(i, hit)| is_fit(hit) && !is_target(hit) && final_rank.map_or(true, |target| i + 1 < target));
+    let demoted = scored && latest.is_some() && matches!((local_rank, final_rank), (Some(l), Some(f)) if f > l);
+    let evidence = (!rounds.is_empty()).then_some(rounds);
+    let input_tokens = match evidence {
+        Some(rounds) => {
+            let reported: Vec<u64> = rounds.iter().filter_map(|r| r.usage.as_ref().map(|u| u.input_tokens)).collect();
+            (!reported.is_empty()).then(|| reported.iter().sum())
+        }
+        None => repair.and_then(|r| r.usage.as_ref()).map(|u| u.input_tokens),
+    };
     LookupEvalRow {
         id: task.id.clone(),
         category: task.category,
@@ -860,20 +883,25 @@ fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout
         local_rank,
         final_rank,
         route: Some(output.route),
-        status: judge.map(|j| j.status).or_else(|| repair.map(|r| r.status)),
-        request_count: judge.map(|j| j.request_count).or_else(|| repair.map(|r| r.request_count)).unwrap_or(0),
-        reused: judge.is_some_and(|j| j.reused),
+        status: evidence.and_then(|r| r.last()).map(|r| r.status).or_else(|| repair.map(|r| r.status)),
+        request_count: evidence
+            .map(|r| r.iter().map(|r| r.request_count).sum())
+            .or_else(|| repair.map(|r| r.request_count))
+            .unwrap_or(0),
+        reused: false,
         target_in_window,
-        any_fit: !fit_ids.is_empty(),
+        any_fit: !fit_places.is_empty(),
         mismatch,
         demoted,
         deep_rank: None,
         deep_ms: None,
         deep_error: None,
         local_ms: output.local_ms,
-        enhance_ms: judge.map(|j| j.elapsed_ms).or_else(|| repair.map(|r| r.elapsed_ms)),
-        estimated_tokens: judge.map_or(0, |j| j.estimated_tokens),
-        input_tokens: usage.map(|u| u.input_tokens),
+        enhance_ms: evidence.map(|r| r.iter().map(|r| r.elapsed_ms).sum()).or_else(|| repair.map(|r| r.elapsed_ms)),
+        // Only rounds that went out: a round the budget stopped reports its
+        // estimate but sent nothing.
+        estimated_tokens: evidence.map_or(0, |r| r.iter().filter(|r| r.request_count > 0).map(|r| r.estimated_tokens).sum()),
+        input_tokens,
         timeout_ms,
         error: None,
     }
@@ -1468,7 +1496,7 @@ mod tests {
     #[tokio::test]
     async fn lookup_eval_runs_the_pipeline_on_a_fixture_vault() {
         use crate::smart_enhance::JevRequestConfig;
-        use crate::smart_model::{endpoint_host, test_support::serve_once, AuthMode};
+        use crate::smart_model::{endpoint_host, AuthMode};
         use std::sync::atomic::Ordering::SeqCst;
         let vault = tempfile::tempdir().unwrap();
         let words = "EvalBudget release risk";
@@ -1488,13 +1516,22 @@ mod tests {
             ]}"#,
         )
         .unwrap();
-        // Local order a, b, c: a fit, b (the target) unfit, c unsure → a, c, b.
-        let (base, _request, accepted) = serve_once(
-            200,
-            r#"{"answers":{"c1":{"type":"noul","noul":0.95},"c2":{"type":"noul","noul":0.1},"c3":{"type":"noul","noul":0.5}},"usage":{"input_tokens":33,"output_tokens":1}}"#,
-            std::time::Duration::ZERO,
+        // a fit, b (the target) unfit, c unsure: the evidence is a, c, b.
+        let server = crate::smart_model::test_support::serve_noul(
+            |q| {
+                let passage = q["instructions"]["candidate_passage"].as_str().unwrap_or("");
+                if passage.ends_with("first") {
+                    0.95
+                } else if passage.ends_with("second") {
+                    0.1
+                } else {
+                    0.5
+                }
+            },
+            |_| std::time::Duration::ZERO,
         )
         .await;
+        let (base, accepted) = (server.base.clone(), server.accepted.clone());
         let enhance = EnhanceSetup {
             jev: Some(JevRequestConfig {
                 url: base.clone(),
@@ -1525,10 +1562,14 @@ mod tests {
         .unwrap();
         assert_eq!(seen, ["t01", "t02", "t03"]);
         let exact = &rows[0];
-        assert_eq!((exact.route, exact.status, exact.request_count), (Some(PipelineRoute::Judge), Some(EnhanceStatus::Ok), 1), "{exact:?}");
+        // Every round's requests are counted (each answer reports 10 input tokens).
+        let requests = accepted.load(SeqCst) as u32;
+        assert_eq!((exact.route, exact.status, exact.request_count), (Some(PipelineRoute::Judge), Some(EnhanceStatus::Ok), requests), "{exact:?}");
+        assert!(requests >= 1);
         assert!(exact.target_in_window && exact.any_fit && exact.target_indexed, "{exact:?}");
-        assert_eq!((exact.local_rank, exact.final_rank, exact.input_tokens), (Some(2), Some(3), Some(33)), "{exact:?}");
+        assert_eq!((exact.local_rank, exact.final_rank, exact.input_tokens), (Some(2), Some(3), Some(10 * requests as u64)), "{exact:?}");
         assert!(exact.mismatch && exact.demoted, "{exact:?}");
+        assert!(exact.estimated_tokens > 0 && exact.enhance_ms.is_some());
         assert_eq!((exact.deep_ms, exact.timeout_ms), (None, GATE_TIMEOUT_MS));
         let absent = &rows[1];
         assert_eq!((absent.route, absent.request_count, absent.local_rank), (Some(PipelineRoute::Repair), 0, None), "{absent:?}");
@@ -1537,7 +1578,7 @@ mod tests {
         let missed = &rows[2];
         assert_eq!((missed.local_rank, missed.deep_rank, missed.request_count), (None, None, 0), "{missed:?}");
         assert!(missed.deep_ms.is_some(), "{missed:?}");
-        assert_eq!(accepted.load(SeqCst), 1);
+        assert_eq!(accepted.load(SeqCst) as u32, requests, "only the judge route sends");
         let jsonl: String = rows.iter().map(|r| serde_json::to_string(r).unwrap() + "\n").collect();
         assert_eq!(load_eval_rows(&jsonl).unwrap(), rows);
         let gates = gate_verdicts(&rows);

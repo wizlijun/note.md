@@ -595,6 +595,7 @@ mod tests {
             repaired: false,
             auto_claim: None,
             judgement: None,
+            evidence: None,
         };
         let confidentiality =
             ["a.md", "b.md", "c.md", "d.md"].iter().map(|p| (p.to_string(), "unknown".to_string())).collect();

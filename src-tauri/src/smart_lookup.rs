@@ -83,6 +83,9 @@ pub(crate) struct LookupRun {
     /// `smart_enhance::claim_auto_request`); a repaired run has none.
     pub(crate) auto_claim: Option<u64>,
     pub(crate) judgement: Option<JudgeRecord>,
+    /// The SAG2 evidence rounds of this run (spec H.3.8), written back by
+    /// `smart_enhance::evidence::evidence_step` after each round.
+    pub(crate) evidence: Option<crate::smart_enhance::evidence::EvidenceRun>,
 }
 
 #[derive(Default)]
@@ -193,6 +196,7 @@ pub(crate) fn retain_search_in(
         repaired,
         auto_claim: None,
         judgement: None,
+        evidence: None,
     };
     let mut registry = LOOKUP_RUNS
         .get_or_init(|| Mutex::new(LookupRuns::default()))
@@ -380,6 +384,7 @@ mod tests {
             repaired: false,
             auto_claim: None,
             judgement: None,
+            evidence: None,
         }
     }
 

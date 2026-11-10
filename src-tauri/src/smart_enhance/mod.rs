@@ -14,6 +14,7 @@ use crate::smart_model::{
 };
 
 pub(crate) mod candidates;
+pub(crate) mod evidence;
 pub(crate) mod feedback;
 pub(crate) mod judge;
 pub(crate) mod keys;

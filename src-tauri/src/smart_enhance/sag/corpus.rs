@@ -7,7 +7,6 @@
 //! H.3.5) and the DPP diversification of the final ranking (spec H.3.9).
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::LazyLock;
 
 use fancy_regex::Regex;
 use indexmap::IndexMap;
@@ -42,10 +41,11 @@ pub(crate) fn folded(text: &str) -> String {
 /// (spec H.5 casefold row; the crate has no casefold dependency): the
 /// `[\p{L}\p{N}]+` runs of the lowercased text, so combining marks split words.
 /// The reference vectoriser of the DPP fixture; production vectorises with
-/// `searchidx::tokenize::tokens` (spec H.3.9).
+/// `searchidx::tokenize::tokens` (spec H.3.9), so it is built for tests only.
+#[cfg(test)]
 pub(crate) fn words(text: &str) -> Vec<String> {
-    static WORDS: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"[\p{L}\p{N}]+").unwrap());
+    static WORDS: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"[\p{L}\p{N}]+").unwrap());
     let lowered = text.to_lowercase();
     WORDS
         .find_iter(&lowered)

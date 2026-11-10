@@ -588,6 +588,7 @@ mod tests {
             repaired: false,
             auto_claim: None,
             judgement: None,
+            evidence: None,
         }
     }
 
