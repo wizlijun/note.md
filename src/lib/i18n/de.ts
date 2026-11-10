@@ -740,7 +740,7 @@ export const de: Record<keyof Messages, string> = {
   'smartSearch.summaryLimitation': 'Erstelle bei Bedarf eine kurze Antwort aus einigen passenden Ergebnissen.',
   'smartSearch.generateSummary': 'Antwort erstellen',
   'smartSearch.summaryNeedsLookup': 'Suche zuerst nach Ergebnissen, um eine Kurzantwort zu erstellen.',
-  'smartSearch.summaryAgentUnavailable': 'Für Kurzantworten ist kein KI-Dienst verfügbar. Prüfe die Sucheinstellungen.',
+  'smartSearch.summaryAgentUnavailable': 'Für Kurzantworten ist kein KI-Dienst verfügbar. Wähle einen unter Einstellungen › Suche & Index.',
   'smartSearch.summaryNeedsLine': 'Diese Ergebnisse brauchen mehr Kontext. Öffne das Original oder starte eine vertiefte Recherche.',
   'smartSearch.summaryStale': '{n} Quellen wurden geändert und nicht für diese Antwort verwendet.',
   'smartSearch.basedOnMatches': 'Basiert auf den verwendeten Ergebnissen, die möglicherweise nicht alle Notizen abdecken.',
