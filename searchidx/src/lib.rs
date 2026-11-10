@@ -288,6 +288,26 @@ impl SearchIndex {
         })
     }
 
+    /// `files.confidentiality` for the given vault-relative paths, read only.
+    /// A path that is not in `files` is absent from the result. Parameters go
+    /// in batches of 500 so no batch trips SQLite's variable limit.
+    pub fn confidentiality_for_paths(&self, paths: &[&str]) -> Result<std::collections::HashMap<String, String>, String> {
+        let mut out = std::collections::HashMap::new();
+        for chunk in paths.chunks(500) {
+            let marks = vec!["?"; chunk.len()].join(",");
+            let sql = format!("SELECT path, confidentiality FROM files WHERE path IN ({marks})");
+            let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(chunk.iter()), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+                .map_err(|e| e.to_string())?;
+            for row in rows {
+                let (path, value) = row.map_err(|e| e.to_string())?;
+                out.insert(path, value);
+            }
+        }
+        Ok(out)
+    }
+
     pub fn vault_root(&self) -> &Path {
         &self.vault_root
     }
@@ -463,6 +483,24 @@ fn today() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confidentiality_for_paths_reads_the_files_table() {
+        let d = tempfile::tempdir().unwrap();
+        let vault = d.path().join("vault");
+        std::fs::create_dir_all(&vault).unwrap();
+        std::fs::write(vault.join("secret.md"), "---\nprivate: true\n---\n# S\nbody\n").unwrap();
+        std::fs::write(vault.join("public.md"), "---\nconfidentiality: explicitly_public\n---\n# P\nbody\n").unwrap();
+        std::fs::write(vault.join("plain.md"), "# Q\nbody\n").unwrap();
+        let mut idx = SearchIndex::open_at(&vault, &d.path().join("i.db"), "sync").unwrap();
+        idx.rebuild(&ScanOptions::default()).unwrap();
+        let got = idx.confidentiality_for_paths(&["secret.md", "public.md", "plain.md", "gone.md"]).unwrap();
+        assert_eq!(got.get("secret.md").map(String::as_str), Some("confidential"));
+        assert_eq!(got.get("public.md").map(String::as_str), Some("explicitly_public"));
+        assert_eq!(got.get("plain.md").map(String::as_str), Some("unknown"));
+        assert!(!got.contains_key("gone.md"));
+    }
+
 
     /// `~/vault` and `~/vault/` are the same vault — and both are ordinary to
     /// type, since bash and zsh both append the slash when you tab-complete a

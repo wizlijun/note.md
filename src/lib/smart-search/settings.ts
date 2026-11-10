@@ -1,7 +1,6 @@
-import type { ModelPreference } from './model-routing'
-
 export type LookupGroupBy = 'auto' | 'source' | 'date'
-export type SummaryStyle = 'sentence' | 'bullets'
+export type JevPreset = 'official' | 'openrouter' | 'custom'
+export type JevAuthMode = 'bearer' | 'none'
 
 export interface SmartLookupSettings {
   results: {
@@ -10,20 +9,23 @@ export interface SmartLookupSettings {
     autoDeepOnZero: boolean
     deepTimeoutMs: number
   }
-  summary: {
+  enhance: {
     enabled: boolean
-    provider: 'auto' | string
-    modelByProvider: Record<string, ModelPreference>
-    sourceLimit: number
-    charLimit: number
-    style: SummaryStyle
-    timeoutMs: number
+    jev: { preset: JevPreset; url: string; model: string; authMode: JevAuthMode; consentHost: string }
+    chat: { url: string; model: string }
   }
-  handoff: {
-    defaultProvider: 'ask' | string
-    includeSelectedRefs: boolean
-  }
+  launch: { firstRunSeen: boolean }
 }
+
+/** Preset services fill only the URL; the model stays whatever the user typed (ledger: models empty in presets). */
+export const JEV_PRESET_URLS: Record<Exclude<JevPreset, 'custom'>, string> = {
+  official: 'https://api.typesafe.ai/v1',
+  openrouter: 'https://openrouter.ai/api/alpha/decisions',
+}
+
+export const URL_MAX_LENGTH = 2_048
+export const MODEL_MAX_LENGTH = 256
+export const CONSENT_HOST_MAX_LENGTH = 255
 
 export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
   results: {
@@ -32,19 +34,12 @@ export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
     autoDeepOnZero: false,
     deepTimeoutMs: 4_000,
   },
-  summary: {
+  enhance: {
     enabled: true,
-    provider: 'auto',
-    modelByProvider: {},
-    sourceLimit: 4,
-    charLimit: 4_000,
-    style: 'bullets',
-    timeoutMs: 15_000,
+    jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' },
+    chat: { url: '', model: '' },
   },
-  handoff: {
-    defaultProvider: 'ask',
-    includeSelectedRefs: true,
-  },
+  launch: { firstRunSeen: false },
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -63,40 +58,28 @@ function boundedInteger(value: unknown, min: number, max: number, fallback: numb
     : fallback
 }
 
-function choice<T extends string | number>(value: unknown, values: readonly T[], fallback: T): T {
-  return values.includes(value as T) ? value as T : fallback
-}
+// C0 and C1 control characters, DEL included.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/
 
-function provider(value: unknown, fallback: string): string {
-  return typeof value === 'string' && value.length > 0 && value.length <= 256 && !value.includes('\0')
+function text(value: unknown, maxLength: number, fallback: string): string {
+  return typeof value === 'string' && value.length <= maxLength && !CONTROL_CHARACTERS.test(value)
     ? value
     : fallback
 }
 
-function isModelPreference(value: unknown): value is ModelPreference {
-  return value === 'profile:fast'
-    || value === 'profile:default'
-    || (typeof value === 'string'
-      && value.startsWith('model:')
-      && value.length > 6
-      && value.length <= 256
-      && !Array.from(value).some((character) => /[\u0000-\u001f\u007f]/u.test(character)))
+function choice<T extends string | number>(value: unknown, values: readonly T[], fallback: T): T {
+  return values.includes(value as T) ? value as T : fallback
 }
 
-function modelMap(value: unknown): Record<string, ModelPreference> {
-  const result: Record<string, ModelPreference> = {}
-  for (const [key, preference] of Object.entries(object(value))) {
-    if (provider(key, '') && isModelPreference(preference)) result[key] = preference
-  }
-  return result
-}
-
-/** Legacy `planner` keys are ignored. Invalid fields fall back independently; one damaged value never resets the group. */
+/** Legacy `planner`, `summary` and `handoff` keys are ignored. Invalid fields fall back independently; one damaged value never resets the group. */
 export function normalizeSmartLookupSettings(value: unknown): SmartLookupSettings {
   const root = object(value)
   const results = object(root.results)
-  const summary = object(root.summary)
-  const handoff = object(root.handoff)
+  const enhance = object(root.enhance)
+  const jev = object(enhance.jev)
+  const chat = object(enhance.chat)
+  const launch = object(root.launch)
   const defaults = DEFAULT_SMART_LOOKUP_SETTINGS
 
   return {
@@ -106,21 +89,72 @@ export function normalizeSmartLookupSettings(value: unknown): SmartLookupSetting
       autoDeepOnZero: bool(results.autoDeepOnZero, defaults.results.autoDeepOnZero),
       deepTimeoutMs: boundedInteger(results.deepTimeoutMs, 1_000, 5_000, defaults.results.deepTimeoutMs),
     },
-    summary: {
-      enabled: bool(summary.enabled, defaults.summary.enabled),
-      // 'same_as_planner' was removed with the planner; old stored values read as 'auto'.
-      provider: summary.provider === 'same_as_planner'
-        ? 'auto'
-        : provider(summary.provider, defaults.summary.provider),
-      modelByProvider: modelMap(summary.modelByProvider),
-      sourceLimit: boundedInteger(summary.sourceLimit, 1, 6, defaults.summary.sourceLimit),
-      charLimit: boundedInteger(summary.charLimit, 1_000, 6_000, defaults.summary.charLimit),
-      style: choice(summary.style, ['sentence', 'bullets'] as const, defaults.summary.style),
-      timeoutMs: boundedInteger(summary.timeoutMs, 5_000, 30_000, defaults.summary.timeoutMs),
+    enhance: {
+      enabled: bool(enhance.enabled, defaults.enhance.enabled),
+      jev: {
+        preset: choice(jev.preset, ['official', 'openrouter', 'custom'] as const, defaults.enhance.jev.preset),
+        url: text(jev.url, URL_MAX_LENGTH, defaults.enhance.jev.url),
+        model: text(jev.model, MODEL_MAX_LENGTH, defaults.enhance.jev.model),
+        authMode: choice(jev.authMode, ['bearer', 'none'] as const, defaults.enhance.jev.authMode),
+        consentHost: text(jev.consentHost, CONSENT_HOST_MAX_LENGTH, defaults.enhance.jev.consentHost),
+      },
+      chat: {
+        url: text(chat.url, URL_MAX_LENGTH, defaults.enhance.chat.url),
+        model: text(chat.model, MODEL_MAX_LENGTH, defaults.enhance.chat.model),
+      },
     },
-    handoff: {
-      defaultProvider: provider(handoff.defaultProvider, defaults.handoff.defaultProvider),
-      includeSelectedRefs: bool(handoff.includeSelectedRefs, defaults.handoff.includeSelectedRefs),
+    launch: {
+      firstRunSeen: bool(launch.firstRunSeen, defaults.launch.firstRunSeen),
     },
   }
+}
+
+function parseHttpUrl(url: string): URL | null {
+  let parsed: URL
+  try { parsed = new URL(url.trim()) } catch { return null }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+  return parsed.host ? parsed : null
+}
+
+/**
+ * The host the consent is bound to — the same rule as the host's
+ * `endpoint_host` (smart_model.rs): lower-cased, an explicit non-default port
+ * kept (`host:port`), IPv6 in brackets. Uses `URL.host`, not `hostname`, so the
+ * port survives. `null` when the URL does not parse as http(s) with a host.
+ *
+ * `kind` mirrors the host's two call sites: `'jev'` resolves the endpoint path
+ * first (`jev_endpoint`), `'chat'` does not; the host never depends on the
+ * path, so both give the same answer.
+ */
+export function endpointHost(url: string, _kind: 'jev' | 'chat' = 'jev'): string | null {
+  return parseHttpUrl(url)?.host.toLowerCase() ?? null
+}
+
+/**
+ * A bearer key over plain `http` to a host that is not loopback (`localhost`,
+ * `127.0.0.0/8`, `::1`) — the host's `sends_key_in_clear_text`, which refuses
+ * such a configuration.
+ */
+export function sendsKeyInClearText(url: string, authMode: JevAuthMode): boolean {
+  if (authMode !== 'bearer') return false
+  const parsed = parseHttpUrl(url)
+  if (!parsed || parsed.protocol !== 'http:') return false
+  const host = parsed.hostname.toLowerCase()
+  const loopback = host === 'localhost' || host === '[::1]' || /^127\.\d+\.\d+\.\d+$/.test(host)
+  return !loopback
+}
+
+/**
+ * Event the lookup window emits to `main` to open Settings on a tab
+ * (`emitTo('main', OPEN_SETTINGS_TAB_EVENT, { tab: 'enhance' })`); `App.svelte`
+ * listens for it.
+ */
+export const OPEN_SETTINGS_TAB_EVENT = 'settings://open-tab'
+const OPENABLE_SETTINGS_TABS = ['enhance', 'search'] as const
+export type OpenableSettingsTab = typeof OPENABLE_SETTINGS_TABS[number]
+
+/** The tab an `OPEN_SETTINGS_TAB_EVENT` payload names, or `null` for anything else. */
+export function settingsTabFromEvent(payload: unknown): OpenableSettingsTab | null {
+  const tab = object(payload).tab
+  return OPENABLE_SETTINGS_TABS.includes(tab as OpenableSettingsTab) ? tab as OpenableSettingsTab : null
 }

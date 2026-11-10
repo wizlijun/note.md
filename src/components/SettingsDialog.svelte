@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
   import { settings, loadLinuxWindowDecorations, saveSettings as persistSettings, getPluginScopedAll, setPluginScopedValue, pluginScopedVersion } from '../lib/settings.svelte'
   import { modalFocus } from '../lib/ui/modal-focus'
@@ -43,21 +43,11 @@
   } from '../lib/outline/shortcuts'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
   import { consumePendingSettingsTab } from '../lib/ui-state.svelte'
-  import type { AgentOption } from '../lib/agent-picker/types'
   import {
-    loadDefaultAgentProvider,
-    loadSearchAgentOptions,
-    SEARCH_SUMMARY_TASK,
-    supportsSearchTask,
-    VAULT_RESEARCH_TASK,
-  } from '../lib/smart-search/agent'
-  import { pickTaskAgent, SUMMARY_DEFAULT_CHOICES } from '../lib/smart-search/lookup-view'
-  import {
-    availableModelPreference,
-    resolvedModelHint,
-    selectableModelPreferences,
-    type ModelPreference,
-  } from '../lib/smart-search/model-routing'
+    JEV_PRESET_URLS, URL_MAX_LENGTH, MODEL_MAX_LENGTH, endpointHost, sendsKeyInClearText,
+    type JevAuthMode, type JevPreset,
+  } from '../lib/smart-search/settings'
+  import { smartSearchApi, JEV_REQUEST_EXAMPLE, type ConnectionTest, type KeyStatus } from '../lib/smart-search/api'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
 
@@ -118,7 +108,7 @@
     const coreLabels: Record<string, keyof Messages> = {
       core: 'settings.tab.core', block: 'settings.tab.block', cli: 'settings.tab.cli',
       updates: 'settings.tab.updates', vault: 'settings.tab.vault', search: 'settings.tab.search',
-      'outline-notes': 'settings.tab.outline',
+      enhance: 'settings.tab.enhance', 'outline-notes': 'settings.tab.outline',
     }
     const plugin = pluginTabs.find((tab) => tab.pluginId === selectedTab)
     return coreLabels[selectedTab] ? t(coreLabels[selectedTab])
@@ -183,36 +173,10 @@
     return !linuxPolicyBusy && !importReport && !importBusy && !fontBusy && !busy && !cliBusy && !gitProxyBusy
       && !syncDirBusy && !thresholdBusy && !searchExcludeDirsBusy && !searchThresholdBusy
       && !globSaveBusy && !weightsBusy && !vaultBusy && settingsSaveBusy === 0
+      && !enhanceKeyBusy.jev && !enhanceKeyBusy.chat
   }
   function closeDialog(): void { if (canClose()) open = false }
   let pluginValues = $state<Record<string, Record<string, unknown>>>({})
-  let smartLookupAgents = $state<AgentOption[]>([])
-  let smartLookupDefaultAgent = $state('')
-  let smartLookupHandoffAgents = $derived(
-    smartLookupAgents.filter((agent) => supportsSearchTask(agent, VAULT_RESEARCH_TASK)),
-  )
-  let smartLookupSummaryAgents = $derived(
-    smartLookupAgents.filter((agent) => supportsSearchTask(agent, SEARCH_SUMMARY_TASK)),
-  )
-  /** The agent the Smart Lookup window would use for a quick answer (same rule as the window). */
-  let smartLookupSummaryAgent = $derived(pickTaskAgent(
-    smartLookupAgents, SEARCH_SUMMARY_TASK, settings.smartLookup.summary.provider,
-    smartLookupDefaultAgent, SUMMARY_DEFAULT_CHOICES,
-  ))
-
-  function summaryModelPreference(agent: AgentOption): ModelPreference {
-    return availableModelPreference(
-      settings.smartLookup.summary.modelByProvider[agent.id] ?? 'profile:fast',
-      'summary',
-      agent.harness,
-    )
-  }
-
-  function summaryProfileLabel(agent: AgentOption, preference: ModelPreference, label: string): string {
-    const model = resolvedModelHint(preference, agent.harness)
-    return model ? `${label} (${model})` : label
-  }
-
   // Callers that want the dialog to land on a specific tab (e.g. the search
   // panel's gear button) go through `openSettings(tab)`, which stashes the
   // request in `uiState.pendingSettingsTab` rather than writing `selectedTab`
@@ -236,13 +200,109 @@
   // request for a tab this platform doesn't render is dropped rather than
   // honoured: iOS has no search commands and no `open_search_logs_window`,
   // so the tab button is `!isIOSPlatform`-gated in the strip and landing on
-  // it via this path would show a page nothing can populate.
+  // it via this path would show a page nothing can populate. The same holds
+  // for 'enhance' (Smart Lookup and its commands are desktop-only); the
+  // lookup window asks for that tab through `settings://open-tab` (App.svelte).
   $effect(() => {
     const tab = consumePendingSettingsTab()
     if (!tab) return
-    if (tab === 'search' && isIOSPlatform) return
+    if ((tab === 'search' || tab === 'enhance') && isIOSPlatform) return
     selectedTab = tab
   })
+
+  // Lookup enhancement tab. Keys go to the host once (`smart_lookup_key_set`)
+  // and only their saved / not-saved status comes back; the typed value lives
+  // in a local draft that is cleared on success and never enters `settings`.
+  type KeyKind = 'jev' | 'chat'
+  let enhanceKeys = $state<KeyStatus>({ jev: false, chat: false })
+  let enhanceKeyDrafts = $state<Record<KeyKind, string>>({ jev: '', chat: '' })
+  let enhanceKeyBusy = $state<Record<KeyKind, boolean>>({ jev: false, chat: false })
+  let enhanceKeyErrors = $state<Record<KeyKind, string | null>>({ jev: null, chat: null })
+  let enhanceTests = $state<Record<KeyKind, ConnectionTest | null>>({ jev: null, chat: null })
+  let enhanceTestErrors = $state<Record<KeyKind, string | null>>({ jev: null, chat: null })
+  let enhanceTestBusy = $state<Record<KeyKind, boolean>>({ jev: false, chat: false })
+  const jevHost = $derived(endpointHost(settings.smartLookup.enhance.jev.url, 'jev'))
+  const jevInsecure = $derived(sendsKeyInClearText(settings.smartLookup.enhance.jev.url, settings.smartLookup.enhance.jev.authMode))
+  // The repair model always sends a Bearer key (spec F.7).
+  const chatInsecure = $derived(sendsKeyInClearText(settings.smartLookup.enhance.chat.url, 'bearer'))
+  const jevConsented = $derived(jevHost !== null && jevHost === settings.smartLookup.enhance.jev.consentHost)
+  const jevRequestExample = JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2)
+
+  $effect(() => {
+    if (open && selectedTab === 'enhance' && !isIOSPlatform) untrack(() => { void refreshEnhanceKeys() })
+  })
+  // The dialog stays mounted: an unsaved key draft must not outlive it.
+  $effect(() => {
+    if (!open) untrack(() => { enhanceKeyDrafts.jev = ''; enhanceKeyDrafts.chat = '' })
+  })
+  async function refreshEnhanceKeys() {
+    try { enhanceKeys = await smartSearchApi.keyStatus() }
+    catch (error) { console.warn('[SettingsDialog] smart_lookup_key_status:', error) }
+  }
+  function chooseJevPreset(preset: JevPreset) {
+    const jev = settings.smartLookup.enhance.jev
+    jev.preset = preset
+    if (preset !== 'custom') jev.url = JEV_PRESET_URLS[preset]
+    void saveSettings()
+  }
+  // Live, so the consent row follows the host as it is typed; saved on change.
+  function editJevUrl(url: string) {
+    settings.smartLookup.enhance.jev.url = url
+    settings.smartLookup.enhance.jev.preset = 'custom'
+  }
+  function setJevConsent(allowed: boolean) {
+    settings.smartLookup.enhance.jev.consentHost = allowed && jevHost !== null ? jevHost : ''
+    void saveSettings()
+  }
+  async function saveEnhanceKey(kind: KeyKind) {
+    const key = enhanceKeyDrafts[kind]
+    if (!key) return
+    enhanceKeyBusy[kind] = true
+    try {
+      await smartSearchApi.setKey(kind, key)
+      enhanceKeyDrafts[kind] = ''
+      enhanceKeys[kind] = true
+      enhanceKeyErrors[kind] = null
+    } catch (error) {
+      enhanceKeyErrors[kind] = t('vaultSync.saveFailed', { error: String(error) })
+    } finally { enhanceKeyBusy[kind] = false }
+  }
+  async function clearEnhanceKey(kind: KeyKind) {
+    enhanceKeyBusy[kind] = true
+    try {
+      await smartSearchApi.clearKey(kind)
+      enhanceKeys[kind] = false
+      enhanceKeyErrors[kind] = null
+    } catch (error) {
+      enhanceKeyErrors[kind] = t('vaultSync.saveFailed', { error: String(error) })
+    } finally { enhanceKeyBusy[kind] = false }
+  }
+  async function testEnhanceConnection(kind: KeyKind) {
+    const { jev, chat } = settings.smartLookup.enhance
+    enhanceTestBusy[kind] = true
+    enhanceTests[kind] = null
+    enhanceTestErrors[kind] = null
+    try {
+      enhanceTests[kind] = kind === 'jev'
+        ? await smartSearchApi.testJev({ url: jev.url, model: jev.model, authMode: jev.authMode })
+        : await smartSearchApi.testChat({ url: chat.url, model: chat.model })
+    } catch (error) {
+      enhanceTestErrors[kind] = String(error)
+    } finally { enhanceTestBusy[kind] = false }
+  }
+  /** Same status copy as the lookup window's header; only host and status class, never remote text. */
+  function connectionMessage(result: ConnectionTest): string {
+    const host = result.endpointHost ?? ''
+    switch (result.status) {
+      case 'ok': return t('settings.enhance.testOk', { ms: result.elapsedMs })
+      case 'notConfigured': return t('smartSearch.enhance.notConfigured')
+      case 'noConsent': return t('smartSearch.enhance.noConsent', { host })
+      case 'timeout': return t('smartSearch.enhance.timeout')
+      case 'keyInvalid': return t('smartSearch.enhance.keyInvalid', { host, code: result.statusClass ?? '4xx' })
+      case 'unreachable': return t('smartSearch.enhance.unreachable', { host, code: result.statusClass ? ` · ${result.statusClass}` : '' })
+      default: return t('smartSearch.enhance.invalid', { host })
+    }
+  }
 
   // Vault-scoped sync folder (stored in {vault}/.notemd/settings.json). Loaded
   // whenever the dialog opens; edited into a draft, then saved on demand.
@@ -803,28 +863,6 @@
       console.warn('[SettingsDialog] manifest load:', e)
       pluginTabs = [coreShareSettingsTab()]
     }
-    try {
-      const [agents, defaultAgent] = await Promise.all([
-        loadSearchAgentOptions(),
-        loadDefaultAgentProvider().catch(() => ''),
-      ])
-      smartLookupAgents = agents
-      smartLookupDefaultAgent = defaultAgent
-      let changed = false
-      if (!SUMMARY_DEFAULT_CHOICES.includes(settings.smartLookup.summary.provider as 'auto')
-        && !smartLookupSummaryAgents.some((agent) => agent.id === settings.smartLookup.summary.provider)) {
-        settings.smartLookup.summary.provider = 'auto'
-        changed = true
-      }
-      if (settings.smartLookup.handoff.defaultProvider !== 'ask'
-        && !smartLookupHandoffAgents.some((agent) => agent.id === settings.smartLookup.handoff.defaultProvider)) {
-        settings.smartLookup.handoff.defaultProvider = 'ask'
-        changed = true
-      }
-      if (changed) void saveSettings()
-    } catch {
-      smartLookupAgents = []
-    }
   })
 
   $effect(() => {
@@ -1219,6 +1257,9 @@
                not here — see its comment for why. -->
           <button aria-current={selectedTab === 'search' ? 'page' : undefined} data-initial-focus={selectedTab === 'search' ? '' : undefined} class:active={selectedTab === 'search'} onclick={() => selectedTab = 'search'}>
             {t('settings.tab.search')}
+          </button>
+          <button aria-current={selectedTab === 'enhance' ? 'page' : undefined} data-initial-focus={selectedTab === 'enhance' ? '' : undefined} class:active={selectedTab === 'enhance'} onclick={() => selectedTab = 'enhance'}>
+            {t('settings.tab.enhance')}
           </button>
         {/if}
         <button aria-current={selectedTab === 'outline-notes' ? 'page' : undefined} data-initial-focus={selectedTab === 'outline-notes' ? '' : undefined} class:active={selectedTab === 'outline-notes'} onclick={() => selectedTab = 'outline-notes'}>{t('settings.tab.outline')}</button>
@@ -1716,70 +1757,6 @@
               settings.smartLookup.results.autoDeepOnZero = event.currentTarget.checked; void saveSettings()
             }} />
           </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.quickSummary')}</span>
-            <input type="checkbox" checked={settings.smartLookup.summary.enabled} onchange={(event) => {
-              settings.smartLookup.summary.enabled = event.currentTarget.checked; void saveSettings()
-            }} />
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.summaryStyle')}</span>
-            <select value={settings.smartLookup.summary.style} onchange={(event) => {
-              settings.smartLookup.summary.style = event.currentTarget.value as 'sentence' | 'bullets'; void saveSettings()
-            }}>
-              <option value="bullets">{t('smartSearch.summaryBullets')}</option>
-              <option value="sentence">{t('smartSearch.summarySentence')}</option>
-            </select>
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.summaryProvider')}</span>
-            <select value={settings.smartLookup.summary.provider} onchange={(event) => {
-              settings.smartLookup.summary.provider = event.currentTarget.value; void saveSettings()
-            }}>
-              <option value="auto">{t('smartSearch.auto')}</option>
-              {#each smartLookupSummaryAgents as agent (agent.id)}
-                <option value={agent.id}>{agent.harness?.harness || agent.name}</option>
-              {/each}
-            </select>
-          </label>
-          {#if smartLookupSummaryAgent}
-            {@const agent = smartLookupSummaryAgent}
-            {@const profiles = agent.harness?.capabilities?.model_routing?.profiles}
-            <label class="row">
-              <span class="lbl">{t('smartSearch.summaryModel')}</span>
-              <select value={summaryModelPreference(agent)} onchange={(event) => {
-                settings.smartLookup.summary.modelByProvider[agent.id] = event.currentTarget.value as ModelPreference
-                void saveSettings()
-              }}>
-                {#if profiles?.fast?.available}
-                  <option value="profile:fast">{summaryProfileLabel(agent, 'profile:fast', t('smartSearch.modelFast'))}</option>
-                {/if}
-                {#if profiles?.default?.available}
-                  <option value="profile:default">{summaryProfileLabel(agent, 'profile:default', t('smartSearch.modelDefault'))}</option>
-                {/if}
-                {#each selectableModelPreferences(agent.harness) as preference (preference)}
-                  <option value={preference}>{preference.slice('model:'.length)}</option>
-                {/each}
-              </select>
-            </label>
-          {/if}
-          <label class="row">
-            <span class="lbl">{t('smartSearch.handoffProvider')}</span>
-            <select value={settings.smartLookup.handoff.defaultProvider} onchange={(event) => {
-              settings.smartLookup.handoff.defaultProvider = event.currentTarget.value; void saveSettings()
-            }}>
-              <option value="ask">{t('smartSearch.askEveryTime')}</option>
-              {#each smartLookupHandoffAgents as agent (agent.id)}
-                <option value={agent.id}>{agent.harness?.harness || agent.name}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="row">
-            <span class="lbl">{t('smartSearch.includeRefs')}</span>
-            <input type="checkbox" checked={settings.smartLookup.handoff.includeSelectedRefs} onchange={(event) => {
-              settings.smartLookup.handoff.includeSelectedRefs = event.currentTarget.checked; void saveSettings()
-            }} />
-          </label>
         </section>
         <section class="block">
           <h3>{t('settings.tab.search')}</h3>
@@ -2093,6 +2070,103 @@
             {/if}
           </section>
         {/if}
+      {:else if selectedTab === 'enhance' && !isIOSPlatform}
+        {@const enhance = settings.smartLookup.enhance}
+        {#snippet keyRow(kind: KeyKind)}
+          <div class="row" data-key-row={kind}>
+            <span class="lbl">{t('settings.enhance.key')}</span>
+            <span class="key-status">{enhanceKeys[kind] ? t('settings.enhance.keySaved') : t('settings.enhance.keyMissing')}</span>
+            <input type="password" autocomplete="off" spellcheck="false" aria-label={t('settings.enhance.key')}
+              bind:value={enhanceKeyDrafts[kind]} disabled={enhanceKeyBusy[kind]} />
+            <button onclick={() => saveEnhanceKey(kind)} disabled={enhanceKeyBusy[kind] || !enhanceKeyDrafts[kind]}>
+              {enhanceKeys[kind] ? t('settings.enhance.keyReplace') : t('settings.enhance.keySave')}
+            </button>
+            {#if enhanceKeys[kind]}
+              <button onclick={() => clearEnhanceKey(kind)} disabled={enhanceKeyBusy[kind]}>{t('settings.enhance.keyClear')}</button>
+            {/if}
+            {#if enhanceKeyErrors[kind]}<span class="result fail" role="alert">{enhanceKeyErrors[kind]}</span>{/if}
+          </div>
+        {/snippet}
+        {#snippet testRow(kind: KeyKind, insecure: boolean)}
+          {#if insecure}<p class="result fail" role="alert">{t('settings.enhance.insecure')}</p>{/if}
+          <div class="row">
+            <span class="lbl"></span>
+            <button onclick={() => testEnhanceConnection(kind)} disabled={insecure || enhanceTestBusy[kind]}>{t('settings.enhance.test')}</button>
+            {#if enhanceTests[kind]}
+              {@const result = enhanceTests[kind]!}
+              <span class="result {result.status === 'ok' ? 'ok' : 'fail'}" role="status">{connectionMessage(result)}</span>
+            {:else if enhanceTestErrors[kind]}
+              <span class="result fail" role="status">{enhanceTestErrors[kind]}</span>
+            {/if}
+          </div>
+        {/snippet}
+        <section class="block">
+          <h3>{t('settings.tab.enhance')}</h3>
+          <label class="row">
+            <input type="checkbox" checked={enhance.enabled} onchange={(event) => {
+              enhance.enabled = event.currentTarget.checked; void saveSettings()
+            }} />
+            <span class="lbl">{t('settings.enhance.enabled')}</span>
+          </label>
+          <p class="desc">{t('settings.enhance.enabledHint')}</p>
+          <label class="row">
+            <span class="lbl">{t('settings.enhance.service')}</span>
+            <select value={enhance.jev.preset} onchange={(event) => chooseJevPreset(event.currentTarget.value as JevPreset)}>
+              <option value="official">{t('settings.enhance.presetOfficial')}</option>
+              <option value="openrouter">{t('settings.enhance.presetOpenRouter')}</option>
+              <option value="custom">{t('settings.enhance.presetCustom')}</option>
+            </select>
+          </label>
+          <label class="row">
+            <span class="lbl">{t('settings.enhance.url')}</span>
+            <input type="url" spellcheck="false" maxlength={URL_MAX_LENGTH} value={enhance.jev.url}
+              oninput={(event) => editJevUrl(event.currentTarget.value)} onchange={() => void saveSettings()} />
+          </label>
+          <label class="row">
+            <span class="lbl">{t('settings.enhance.model')}</span>
+            <input type="text" spellcheck="false" maxlength={MODEL_MAX_LENGTH} value={enhance.jev.model}
+              oninput={(event) => { enhance.jev.model = event.currentTarget.value }} onchange={() => void saveSettings()} />
+          </label>
+          <label class="row">
+            <span class="lbl">{t('settings.enhance.auth')}</span>
+            <select value={enhance.jev.authMode} onchange={(event) => {
+              enhance.jev.authMode = event.currentTarget.value as JevAuthMode; void saveSettings()
+            }}>
+              <option value="bearer">{t('settings.enhance.authBearer')}</option>
+              <option value="none">{t('settings.enhance.authNone')}</option>
+            </select>
+          </label>
+          {@render keyRow('jev')}
+          {@render testRow('jev', jevInsecure)}
+          <label class="row" data-consent>
+            <!-- Withdrawing consent is always allowed; giving it needs a URL that does not send the key in clear text. -->
+            <input type="checkbox" checked={jevConsented} disabled={jevHost === null || (jevInsecure && !jevConsented)}
+              onchange={(event) => setJevConsent(event.currentTarget.checked)} />
+            <span class="lbl">{t('settings.enhance.consent', { host: jevHost ?? '—' })}</span>
+          </label>
+          <p class="desc">{t('settings.enhance.consentHint')}</p>
+          <p class="desc">{t('settings.enhance.budget')}</p>
+          <details class="enhance-example">
+            <summary class="desc">{t('settings.enhance.example')}</summary>
+            <pre>{jevRequestExample}</pre>
+          </details>
+        </section>
+        <section class="block">
+          <h3>{t('settings.enhance.repairTitle')}</h3>
+          <p class="desc">{t('settings.enhance.repairHint')}</p>
+          <label class="row">
+            <span class="lbl">{t('settings.enhance.url')}</span>
+            <input type="url" spellcheck="false" maxlength={URL_MAX_LENGTH} value={enhance.chat.url}
+              oninput={(event) => { enhance.chat.url = event.currentTarget.value }} onchange={() => void saveSettings()} />
+          </label>
+          <label class="row">
+            <span class="lbl">{t('settings.enhance.model')}</span>
+            <input type="text" spellcheck="false" maxlength={MODEL_MAX_LENGTH} value={enhance.chat.model}
+              oninput={(event) => { enhance.chat.model = event.currentTarget.value }} onchange={() => void saveSettings()} />
+          </label>
+          {@render keyRow('chat')}
+          {@render testRow('chat', chatInsecure)}
+        </section>
       {:else if selectedTab === 'outline-notes'}
         <section class="block">
           <h3>{t('outline.shortcutsTitle')}</h3>
@@ -2260,6 +2334,19 @@
     flex: 1;
     max-width: 100%;
   }
+  .enhance-example pre {
+    margin: 4px 0 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--ui-bg);
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'JetBrains Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .row .result { margin: 0; }
+  .key-status { color: var(--ui-secondary); }
   .mcp-setup-preview { display: block; width: 100%; box-sizing: border-box; resize: vertical; }
   .row input[type="number"] { flex: 0 1 120px; width: 120px; }
   .row input[readonly] { color: var(--ui-secondary); background: var(--ui-bg); }

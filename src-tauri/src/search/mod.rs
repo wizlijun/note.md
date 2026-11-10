@@ -5,14 +5,14 @@
 
 mod attention_links;
 pub mod options;
+mod repair_search;
+pub use repair_search::{Diagnosis, GroupLookupResponse, TermCount};
+pub(crate) use repair_search::{diagnose_locked, search_groups_in};
 pub(crate) mod smart;
-// E1 evaluation of the local lookup baseline; test builds only.
-#[cfg(test)]
-mod smart_eval;
-// Skeleton for soft time grouping; only the evaluation calls these so far.
-#[allow(dead_code)]
-mod time_group;
-#[allow(dead_code)]
+// E1 evaluation of the local lookup baseline (`#[ignore]` tests) and the
+// full-pipeline eval behind `notemd lookup eval`.
+pub(crate) mod smart_eval;
+pub(crate) mod time_group;
 mod time_phrase;
 pub mod watch;
 
@@ -303,6 +303,12 @@ pub fn skipped_state(app: &AppHandle) -> SkippedState {
 /// stop the app).
 pub fn lock(handle: &IndexHandle) -> MutexGuard<'_, Option<SearchIndex>> {
     handle.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// The filters the user wrote in `question` (`tag:x`, `after:…`), rendered
+/// as smart search shows them. For describing a lookup to a model.
+pub(crate) fn explicit_filters(question: &str) -> Vec<String> {
+    smart::render_filters(&searchidx::query::parse(question))
 }
 
 /// Pure decision logic for `open_vault`'s `SkippedState` write: given whether
@@ -963,19 +969,37 @@ pub fn notemd_smart_search(
 pub struct LocalLookupResponse {
     pub search: smart::SmartSearchResponse,
     pub lookup_run_id: String,
+    pub time: Option<TimeWindowDto>,
 }
 
+/// The time phrase a lookup grouped by, with dates as `YYYY-MM-DD`.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeWindowDto {
+    pub source_text: String,
+    pub after: String,
+    pub before: String,
+    pub mode: time_group::TimeMode,
+    pub in_window: usize,
+}
+
+/// `(limit, deep, timeout)` for one lookup. A caller's limit outside
+/// `1..=LOCAL_LIMIT_MAX` falls back to `local.limit`; a deep search without a
+/// budget gets `local.deepTimeoutMs`, a caller's own is capped at
+/// `DEEP_TIMEOUT_CAP_MS`.
 fn local_lookup_budget(
     limit: Option<usize>,
     deep: Option<bool>,
     timeout_ms: Option<u64>,
+    params: &crate::lookup_params::LocalParams,
 ) -> (usize, bool, Option<u64>) {
-    let limit = limit.filter(|n| (1..=100).contains(n)).unwrap_or(100);
+    use crate::lookup_params::{DEEP_TIMEOUT_CAP_MS, LOCAL_LIMIT_MAX};
+    let limit = limit.filter(|n| (1..=LOCAL_LIMIT_MAX).contains(n)).unwrap_or(params.limit);
     let deep = deep.unwrap_or(false);
     let timeout = if deep {
         match timeout_ms {
-            None | Some(0) => Some(4_000),
-            Some(ms) => Some(ms.min(5_000)),
+            None | Some(0) => Some(params.deep_timeout_ms),
+            Some(ms) => Some(ms.min(DEEP_TIMEOUT_CAP_MS)),
         }
     } else {
         timeout_ms
@@ -983,8 +1007,111 @@ fn local_lookup_budget(
     (limit, deep, timeout)
 }
 
-/// Local-first Smart Lookup: runs the deterministic smart search and registers
-/// the result as a lookup run so summary / Agent handoff can reuse it.
+/// Runs the lookup for `question`. A single time phrase is grouped on by
+/// default (spec §5.2): hits inside the window first, nothing dropped. `Window`
+/// searches only the window; `Ignore` searches the question untouched. `deep`
+/// applies only to the last search executed. Returns the response and, when a
+/// phrase was detected, it with the number of leading hits inside the window.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn local_lookup_locked(
+    handle: &IndexHandle,
+    question: &str,
+    limit: usize,
+    deep: bool,
+    timeout_ms: Option<u64>,
+    time_mode: time_group::TimeMode,
+    today: chrono::NaiveDate,
+    counter: &Arc<AtomicU64>,
+    ticket: u64,
+    fusion: &crate::lookup_params::FusionParams,
+) -> Result<(smart::SmartSearchResponse, Option<(time_phrase::DetectedTime, usize)>), String> {
+    use time_group::TimeMode;
+    let search = |query: &str, deep: bool| {
+        smart::smart_search_locked(
+            handle,
+            Instant::now(),
+            query,
+            Some(limit),
+            Some(deep),
+            timeout_ms,
+            counter,
+            ticket,
+            fusion,
+        )
+    };
+    let Some(time) = time_phrase::detect_time_phrase(question, today)? else {
+        return Ok((search(question, deep)?, None));
+    };
+    match time_mode {
+        TimeMode::Ignore => Ok((search(question, deep)?, Some((time, 0)))),
+        TimeMode::Window => {
+            let scoped = search(&time_group::time_scoped_query(question, &time), deep)?;
+            let in_window = scoped.hits.len();
+            Ok((scoped, Some((time, in_window))))
+        }
+        TimeMode::Group => {
+            let scoped = search(&time_group::time_scoped_query(question, &time), false)?;
+            let mut unscoped = search(question, deep)?;
+            let grouped = time_group::group_by_time(scoped.hits, std::mem::take(&mut unscoped.hits), limit);
+            unscoped.total = unscoped.total.max(grouped.hits.len());
+            unscoped.hits = grouped.hits;
+            Ok((unscoped, Some((time, grouped.in_window))))
+        }
+    }
+}
+
+/// The body of [`smart_lookup_local`], shared with `notemd lookup`: budget,
+/// fusion and the time mode the caller leaves out come from `params`; the
+/// result is registered as a lookup run of `window_label` in `vault_root`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn lookup_local_in(
+    index: &IndexHandle,
+    vault_root: &Path,
+    window_label: &str,
+    question: &str,
+    limit: Option<usize>,
+    deep: bool,
+    timeout_ms: Option<u64>,
+    time_mode: Option<time_group::TimeMode>,
+    today: chrono::NaiveDate,
+    params: &crate::lookup_params::LookupParams,
+    counter: &Arc<AtomicU64>,
+    ticket: u64,
+) -> Result<LocalLookupResponse, String> {
+    if question.trim().is_empty() {
+        return Err("empty question".to_string());
+    }
+    let (limit, deep, timeout) = local_lookup_budget(limit, Some(deep), timeout_ms, &params.local);
+    let mode = time_mode.unwrap_or(params.time.mode);
+    let (mut search, detected) = local_lookup_locked(
+        index,
+        question,
+        limit,
+        deep,
+        timeout,
+        mode,
+        today,
+        counter,
+        ticket,
+        &params.local.fusion(),
+    )?;
+    let run_time = detected.map(|(time, in_window)| crate::smart_lookup::RunTime {
+        source_text: time.source_text,
+        after: time.after,
+        before: time.before,
+        mode,
+        in_window,
+    });
+    let dto = run_time.as_ref().map(time_window_dto);
+    let lookup_run_id =
+        crate::smart_lookup::retain_search_in(window_label, vault_root, question, &mut search, run_time, false)?;
+    Ok(LocalLookupResponse { search, lookup_run_id, time: dto })
+}
+
+/// Local-first Smart Lookup: runs the deterministic smart search (with soft
+/// time grouping) and registers the result as a lookup run for later actions.
+/// Budget, fusion and the time mode the caller leaves out come from the
+/// parameter file; an invalid file is an error.
 #[tauri::command(async)]
 pub fn smart_lookup_local(
     app: AppHandle,
@@ -993,21 +1120,81 @@ pub fn smart_lookup_local(
     limit: Option<usize>,
     deep: Option<bool>,
     timeout_ms: Option<u64>,
+    time_mode: Option<time_group::TimeMode>,
 ) -> Result<LocalLookupResponse, String> {
     if question.trim().is_empty() {
         return Err("empty question".to_string());
     }
-    let (limit, deep, timeout) = local_lookup_budget(limit, deep, timeout_ms);
-    let mut search = smart::run_smart_search_command(
-        app,
-        window.clone(),
-        question.clone(),
-        Some(limit),
-        Some(deep),
-        timeout,
-    )?;
-    let lookup_run_id = crate::smart_lookup::retain_local_search(&window, &question, &mut search)?;
-    Ok(LocalLookupResponse { search, lookup_run_id })
+    let params = crate::lookup_params::for_app(&app)?;
+    let (ticket, counter) = app.state::<SearchGen>().next(window.label());
+    let root = crate::sotvault::resolve_vault_root(&app).ok_or_else(|| "Vault not configured".to_string())?;
+    lookup_local_in(
+        &handle(&app),
+        &root,
+        window.label(),
+        &question,
+        limit,
+        deep.unwrap_or(false),
+        timeout_ms,
+        time_mode,
+        chrono::Local::now().date_naive(),
+        &params,
+        &counter,
+        ticket,
+    )
+}
+
+fn time_window_dto(t: &crate::smart_lookup::RunTime) -> TimeWindowDto {
+    TimeWindowDto {
+        source_text: t.source_text.clone(),
+        after: t.after.format("%Y-%m-%d").to_string(),
+        before: t.before.format("%Y-%m-%d").to_string(),
+        mode: t.mode,
+        in_window: t.in_window,
+    }
+}
+
+/// Zero-hit diagnosis for a retained lookup run: a hit count per extracted
+/// term, locally, without any model (spec Appendix F.5).
+#[tauri::command(async)]
+pub fn smart_lookup_diagnose(
+    app: AppHandle,
+    window: tauri::Window,
+    lookup_run_id: String,
+) -> Result<Diagnosis, String> {
+    let fusion = crate::lookup_params::for_app(&app)?.local.fusion();
+    let run = crate::smart_lookup::run_for_window(&lookup_run_id, window.label())?;
+    let (ticket, counter) = app.state::<SearchGen>().next(window.label());
+    repair_search::diagnose_locked(&handle(&app), &run, &fusion, &counter, ticket)
+}
+
+/// Re-searches a retained lookup run locally by up to two wordings (from the
+/// repair model or edited by the user) and registers the answer as a new,
+/// repaired lookup run (spec Appendix F.6 / F.7).
+#[tauri::command(async)]
+pub fn smart_lookup_search_groups(
+    app: AppHandle,
+    window: tauri::Window,
+    lookup_run_id: String,
+    groups: Vec<crate::smart_enhance::TermGroup>,
+    limit: Option<usize>,
+) -> Result<GroupLookupResponse, String> {
+    let params = crate::lookup_params::for_app(&app)?;
+    let run = crate::smart_lookup::run_for_window(&lookup_run_id, window.label())?;
+    let root = crate::smart_lookup::active_root(&app)?;
+    let (ticket, counter) = app.state::<SearchGen>().next(window.label());
+    repair_search::search_groups_in(
+        window.label(),
+        &root,
+        &handle(&app),
+        &run,
+        &groups,
+        limit,
+        chrono::Local::now().date_naive(),
+        &counter,
+        ticket,
+        &params,
+    )
 }
 
 /// `(async)` is load-bearing, not decoration. A plain `#[tauri::command]` is
@@ -1405,12 +1592,97 @@ fn count_glob_matches(vault_root: &Path, patterns: &[String]) -> usize {
 mod command_tests {
     use super::*;
 
+    fn time_fixture() -> (tempfile::TempDir, IndexHandle) {
+        let vault = tempfile::tempdir().unwrap();
+        std::fs::write(vault.path().join("2026-11-03-a.md"), "# A\n上周 发布 风险 记录\n").unwrap();
+        std::fs::write(vault.path().join("2026-10-01-b.md"), "# B\n上周 发布 风险 旧\n").unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let mut idx = SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
+        idx.rebuild(&searchidx::ScanOptions::default()).unwrap();
+        std::mem::forget(data);
+        (vault, Arc::new(Mutex::new(Some(idx))))
+    }
+
+    fn lookup(
+        handle: &IndexHandle,
+        question: &str,
+        mode: time_group::TimeMode,
+    ) -> (smart::SmartSearchResponse, Option<(time_phrase::DetectedTime, usize)>) {
+        let counter = Arc::new(AtomicU64::new(1));
+        local_lookup_locked(
+            handle,
+            question,
+            20,
+            false,
+            None,
+            mode,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 10).unwrap(),
+            &counter,
+            1,
+            &crate::lookup_params::FusionParams::default(),
+        )
+        .unwrap()
+    }
+
+    fn hit_paths(response: &smart::SmartSearchResponse) -> Vec<&str> {
+        response.hits.iter().map(|h| h.hit.path.as_str()).collect()
+    }
+
+    #[test]
+    fn local_lookup_groups_a_time_phrase_without_dropping_hits() {
+        use time_group::TimeMode;
+        let (_vault, handle) = time_fixture();
+        let q = "上周 发布 风险";
+        let (group, time) = lookup(&handle, q, TimeMode::Group);
+        assert_eq!(hit_paths(&group), ["2026-11-03-a.md", "2026-10-01-b.md"]);
+        assert_eq!(time.as_ref().map(|(t, n)| (t.source_text.as_str(), *n)), Some(("上周", 1)));
+        let (window, time) = lookup(&handle, q, TimeMode::Window);
+        assert_eq!(hit_paths(&window), ["2026-11-03-a.md"]);
+        assert_eq!(time.map(|(_, n)| n), Some(1));
+        let (ignore, time) = lookup(&handle, q, TimeMode::Ignore);
+        assert_eq!(ignore.hits.len(), 2);
+        assert_eq!(time.map(|(_, n)| n), Some(0));
+    }
+
+    #[test]
+    fn a_retained_run_records_route_facts() {
+        let (vault, handle) = time_fixture();
+        let (mut response, time) = lookup(&handle, "发布 风险", time_group::TimeMode::Group);
+        assert!(time.is_none());
+        let run_id = crate::smart_lookup::retain_search_in(
+            "smart-search",
+            vault.path(),
+            "发布 风险",
+            &mut response,
+            None,
+            false,
+        )
+        .unwrap();
+        let run = crate::smart_lookup::run_for_window(&run_id, "smart-search").unwrap();
+        assert_eq!(run.facts.hit_count, 2);
+        assert!(!run.facts.pinned);
+        assert!(run.facts.arms.iter().any(|arm| arm.kind == "strict" && arm.hit_count == 2));
+        assert!(run.hits.iter().all(|hit| !hit.breadcrumb.is_empty()));
+        assert!(!run.auto_request_used && !run.repaired && run.time.is_none());
+    }
+
     #[test]
     fn local_lookup_budget_bounds_limit_and_deep_timeout() {
-        assert_eq!(local_lookup_budget(None, None, None), (100, false, None));
-        assert_eq!(local_lookup_budget(Some(50), Some(false), Some(900)), (50, false, Some(900)));
-        assert_eq!(local_lookup_budget(Some(0), Some(true), None), (100, true, Some(4_000)));
-        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000)), (100, true, Some(5_000)));
+        let p = crate::lookup_params::LocalParams::default();
+        // `local.limit` defaults to 50, what the app window sends.
+        assert_eq!(local_lookup_budget(None, None, None, &p), (50, false, None));
+        assert_eq!(local_lookup_budget(Some(100), Some(false), Some(900), &p), (100, false, Some(900)));
+        assert_eq!(local_lookup_budget(Some(0), Some(true), None, &p), (50, true, Some(4_000)));
+        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000), &p), (50, true, Some(5_000)));
+    }
+
+    #[test]
+    fn local_lookup_budget_defaults_come_from_the_params() {
+        let p = crate::lookup_params::LocalParams { limit: 30, deep_timeout_ms: 2_500, ..Default::default() };
+        assert_eq!(local_lookup_budget(None, None, None, &p), (30, false, None));
+        assert_eq!(local_lookup_budget(Some(0), Some(true), Some(0), &p), (30, true, Some(2_500)));
+        // A caller's own values still win, within the fixed caps.
+        assert_eq!(local_lookup_budget(Some(80), Some(true), Some(9_000), &p), (80, true, Some(5_000)));
     }
 
     fn sample_hit() -> Hit {

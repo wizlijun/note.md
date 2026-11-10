@@ -1,18 +1,15 @@
-//! Direct model client for Smart Lookup: the Jev Noul protocol.
+//! Direct model clients for Smart Lookup: the Jev Noul protocol (candidate
+//! judging) and an OpenAI-compatible chat client (query repair).
 //!
 //! The host talks to a Jev-compatible decision service over plain HTTP — the
 //! official service, OpenRouter's Decisions endpoint or a self-hosted one —
 //! instead of starting a headless Agent. The endpoint, the model name and the
 //! authentication mode are user configuration; nothing here names a vendor.
-//! Feasibility spec §5.7; plan Task 5.
+//! Feasibility spec §5.7, Appendix F.7.
 //!
 //! One call sends one request: there are no retries, and a caller-supplied
 //! time limit bounds the wait. The key is passed in by the caller and is
 //! never read from, or written to, the vault.
-//!
-//! Nothing in the product calls this module so far.
-
-#![allow(dead_code)]
 
 use std::time::Duration;
 
@@ -78,20 +75,50 @@ pub fn validate_jev_config(config: &JevConfig) -> Result<(), String> {
     }
     let parsed = reqwest::Url::parse(config.url.trim()).map_err(|e| format!("invalid url: {e}"))?;
     jev_endpoint(&config.url)?;
-    if config.auth_mode == AuthMode::Bearer && parsed.scheme() == "http" {
-        let loopback = match parsed.host() {
-            Some(url::Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
-            Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
-            Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
-            None => false,
-        };
-        if !loopback {
-            return Err(
-                "a bearer key over plain http to a non-loopback host would be sent in clear text; use https".into(),
-            );
-        }
+    if sends_key_in_clear_text(&parsed, config.auth_mode) {
+        return Err(
+            "a bearer key over plain http to a non-loopback host would be sent in clear text; use https".into(),
+        );
     }
     Ok(())
+}
+
+/// A bearer key over plain `http` to a host that is not loopback
+/// (`localhost`, `127.0.0.0/8`, `::1`).
+pub(crate) fn sends_key_in_clear_text(url: &reqwest::Url, auth_mode: AuthMode) -> bool {
+    if auth_mode != AuthMode::Bearer || url.scheme() != "http" {
+        return false;
+    }
+    let loopback = match url.host() {
+        Some(url::Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
+    };
+    !loopback
+}
+
+/// Lower-case host of the resolved endpoint; an explicit non-default port is
+/// kept (`host:port`), IPv6 keeps its brackets.
+pub fn endpoint_host(url: &str) -> Result<String, String> {
+    let parsed = reqwest::Url::parse(url.trim()).map_err(|e| format!("invalid url: {e}"))?;
+    let host = parsed.host_str().ok_or("url has no host")?.to_lowercase();
+    Ok(match parsed.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host,
+    })
+}
+
+/// Whether the stored consent names exactly the host this URL resolves to.
+pub fn consent_matches(jev_url: &str, consent_host: &str) -> bool {
+    let consent = consent_host.trim().to_lowercase();
+    if consent.is_empty() {
+        return false;
+    }
+    jev_endpoint(jev_url)
+        .and_then(|endpoint| endpoint_host(&endpoint))
+        .map(|host| host == consent)
+        .unwrap_or(false)
 }
 
 /// One yes/no question. All questions of a request share one `state` and are
@@ -180,30 +207,7 @@ pub async fn score_noul(
     }
     let body = serde_json::json!({"model": config.model, "state": state, "questions": asked});
 
-    let mut request = client.post(endpoint).json(&body);
-    if let Some(k) = bearer {
-        request = request.bearer_auth(k);
-    }
-
-    // One deadline covers sending, waiting and reading the body.
-    let exchange = async {
-        let response = request.send().await?;
-        let status = response.status();
-        if !status.is_success() {
-            return Ok((status.as_u16(), Vec::new()));
-        }
-        let bytes = response.bytes().await?;
-        Ok::<_, reqwest::Error>((status.as_u16(), bytes.to_vec()))
-    };
-    let (status, bytes) = match tokio::time::timeout(timeout, exchange).await {
-        Err(_) => return Err(ModelError::Timeout),
-        Ok(Err(e)) if e.is_timeout() => return Err(ModelError::Timeout),
-        Ok(Err(e)) => return Err(ModelError::Transport(e.without_url().to_string())),
-        Ok(Ok(done)) => done,
-    };
-    if !(200..300).contains(&status) {
-        return Err(ModelError::Http(status));
-    }
+    let bytes = post_once(client, &endpoint, &body, bearer, timeout).await?;
 
     let invalid = |m: &str| ModelError::Invalid(m.to_string());
     let value: serde_json::Value =
@@ -237,24 +241,162 @@ pub async fn score_noul(
     Ok(NoulOutcome { scores, usage })
 }
 
+/// POST `body` once and return a 2xx response body. One deadline covers
+/// sending, waiting and reading the body; a non-2xx status is `Http` and its
+/// body is never read.
+async fn post_once(
+    client: &reqwest::Client,
+    endpoint: &str,
+    body: &serde_json::Value,
+    bearer: Option<&str>,
+    timeout: Duration,
+) -> Result<Vec<u8>, ModelError> {
+    let mut request = client.post(endpoint).json(body);
+    if let Some(k) = bearer {
+        request = request.bearer_auth(k);
+    }
+    let exchange = async {
+        let response = request.send().await?;
+        let status = response.status();
+        if !status.is_success() {
+            return Ok((status.as_u16(), Vec::new()));
+        }
+        let bytes = response.bytes().await?;
+        Ok::<_, reqwest::Error>((status.as_u16(), bytes.to_vec()))
+    };
+    let (status, bytes) = match tokio::time::timeout(timeout, exchange).await {
+        Err(_) => return Err(ModelError::Timeout),
+        Ok(Err(e)) if e.is_timeout() => return Err(ModelError::Timeout),
+        Ok(Err(e)) => return Err(ModelError::Transport(e.without_url().to_string())),
+        Ok(Ok(done)) => done,
+    };
+    if !(200..300).contains(&status) {
+        return Err(ModelError::Http(status));
+    }
+    Ok(bytes)
+}
+
+// ---- OpenAI-compatible chat (query repair) ---------------------------------
+
+/// The user-configurable repair model. Always authenticated with a bearer key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChatConfig {
+    /// Base URL or complete endpoint; see [`chat_endpoint`].
+    pub url: String,
+    /// Sent verbatim as the request's `model`.
+    pub model: String,
+}
+
+/// A path ending in `/chat/completions` is used as is (minus a trailing
+/// slash); anything else gets `/chat/completions` appended. Query parameters
+/// are preserved, the fragment dropped.
+pub fn chat_endpoint(url: &str) -> Result<String, String> {
+    let mut parsed = reqwest::Url::parse(url.trim()).map_err(|e| format!("invalid url: {e}"))?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host().is_none() {
+        return Err("url must be http or https with a host".into());
+    }
+    parsed.set_fragment(None);
+    let path = parsed.path().trim_end_matches('/').to_string();
+    let path = if path.ends_with("/chat/completions") { path } else { format!("{path}/chat/completions") };
+    parsed.set_path(&path);
+    Ok(parsed.to_string())
+}
+
+/// Errors: an empty `url` or `model`, an unparseable or non-http(s) url, a
+/// url carrying credentials (`user:pass@`, which would go out as clear-text
+/// Basic auth), and plain `http` to a host that is not loopback — the key is
+/// always a bearer key, so it would be sent in clear text. The last error
+/// mentions `http`.
+pub fn validate_chat_config(config: &ChatConfig) -> Result<(), String> {
+    if config.url.trim().is_empty() {
+        return Err("url is empty".into());
+    }
+    if config.model.trim().is_empty() {
+        return Err("model is empty".into());
+    }
+    let parsed = reqwest::Url::parse(config.url.trim()).map_err(|e| format!("invalid url: {e}"))?;
+    chat_endpoint(&config.url)?;
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("url must not carry credentials".into());
+    }
+    if sends_key_in_clear_text(&parsed, AuthMode::Bearer) {
+        return Err("a bearer key over plain http to a non-loopback host would be sent in clear text; use https".into());
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChatOutcome {
+    /// `choices[0].message.content`, untouched. Never shown or logged.
+    pub content: String,
+    /// From `prompt_tokens` / `completion_tokens`; `None` when not reported.
+    pub usage: Option<Usage>,
+}
+
+/// One chat completion in JSON mode.
+///
+/// Body: `{"model", "messages": [{"role":"system",…},{"role":"user",…}],
+/// "temperature": 0, "response_format": {"type": "json_object"}}`, posted to
+/// `chat_endpoint(&config.url)` with `Authorization: Bearer <key>`. An empty
+/// key or an invalid config returns `Invalid` without sending. Exactly one
+/// request is sent otherwise. A 2xx body without a string
+/// `choices[0].message.content` is `Invalid`.
+pub async fn chat_complete(
+    client: &reqwest::Client,
+    config: &ChatConfig,
+    key: &str,
+    system: &str,
+    user: &str,
+    timeout: Duration,
+) -> Result<ChatOutcome, ModelError> {
+    validate_chat_config(config).map_err(ModelError::Invalid)?;
+    if key.is_empty() {
+        return Err(ModelError::Invalid("bearer mode needs a key".into()));
+    }
+    let endpoint = chat_endpoint(&config.url).map_err(ModelError::Invalid)?;
+    let body = serde_json::json!({
+        "model": config.model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+    });
+    let bytes = post_once(client, &endpoint, &body, Some(key), timeout).await?;
+    let invalid = |m: &str| ModelError::Invalid(m.to_string());
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| invalid("response is not JSON"))?;
+    let content = value
+        .pointer("/choices/0/message/content")
+        .and_then(|c| c.as_str())
+        .ok_or_else(|| invalid("response has no message content"))?
+        .to_string();
+    let usage = value.get("usage").and_then(|u| {
+        Some(Usage {
+            input_tokens: u.get("prompt_tokens")?.as_u64()?,
+            output_tokens: u.get("completion_tokens")?.as_u64()?,
+        })
+    });
+    Ok(ChatOutcome { content, usage })
+}
+
 #[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) mod test_support {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-    const OK_BODY: &str = r#"{"answers":{"c1":{"type":"noul","noul":0.93}}}"#;
 
     /// A local stand-in for the service. Every connection gets the same
     /// canned reply after `delay`. Returns the base URL (`…/v1`), the first
     /// request as received (lower-cased, headers and body) and the number of
     /// connections accepted so far.
-    async fn serve_once(
+    pub(crate) async fn serve_once(
         status: u16,
-        body: &'static str,
+        body: impl Into<String>,
         delay: Duration,
     ) -> (String, tokio::sync::oneshot::Receiver<String>, Arc<AtomicUsize>) {
+        let body: String = body.into();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}/v1", listener.local_addr().unwrap());
         let (request_tx, request_rx) = tokio::sync::oneshot::channel();
@@ -302,6 +444,15 @@ mod tests {
         });
         (base, request_rx, accepted)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::test_support::serve_once;
+    use std::sync::atomic::Ordering;
+
+    const OK_BODY: &str = r#"{"answers":{"c1":{"type":"noul","noul":0.93}}}"#;
 
     fn config(url: &str, auth_mode: AuthMode) -> JevConfig {
         JevConfig {
@@ -321,6 +472,23 @@ mod tests {
     }
 
     const LIMIT: Duration = Duration::from_secs(3);
+
+    #[test]
+    fn endpoint_host_keeps_explicit_ports_only() {
+        assert_eq!(endpoint_host("https://API.typesafe.ai/v1/systemone").unwrap(), "api.typesafe.ai");
+        assert_eq!(endpoint_host("http://localhost:8000/v1/systemone").unwrap(), "localhost:8000");
+        assert_eq!(endpoint_host("https://openrouter.ai:443/api/alpha/decisions").unwrap(), "openrouter.ai");
+        assert_eq!(endpoint_host("http://[::1]:9000/v1").unwrap(), "[::1]:9000");
+    }
+
+    #[test]
+    fn consent_is_bound_to_the_resolved_host() {
+        assert!(consent_matches("https://api.typesafe.ai/v1", "api.typesafe.ai"));
+        assert!(consent_matches("https://api.typesafe.ai/v1", " API.typesafe.ai "));
+        assert!(!consent_matches("https://openrouter.ai/api/alpha/decisions", "api.typesafe.ai"));
+        assert!(!consent_matches("http://localhost:8001/v1", "localhost:8000"));
+        assert!(!consent_matches("https://api.typesafe.ai/v1", ""));
+    }
 
     #[test]
     fn endpoint_follows_the_documented_rule() {
@@ -463,6 +631,58 @@ mod tests {
             score_noul(&client, &config(&base, AuthMode::None), None, "state", &one_question(), LIMIT).await;
         assert_eq!(limited, Err(ModelError::Http(429)));
         tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn chat_endpoint_appends_chat_completions_once() {
+        assert_eq!(chat_endpoint("https://api.deepseek.com/v1").unwrap(), "https://api.deepseek.com/v1/chat/completions");
+        assert_eq!(chat_endpoint("https://x.example/v1/chat/completions/").unwrap(), "https://x.example/v1/chat/completions");
+        assert_eq!(chat_endpoint("https://x.example/v1?key=1").unwrap(), "https://x.example/v1/chat/completions?key=1");
+        assert!(validate_chat_config(&ChatConfig { url: "http://x.example/v1".into(), model: "m".into() }).unwrap_err().contains("http"));
+        assert!(validate_chat_config(&ChatConfig { url: "http://127.0.0.1:11434/v1".into(), model: "m".into() }).is_ok());
+        assert!(validate_chat_config(&ChatConfig { url: "".into(), model: "m".into() }).is_err());
+        assert!(validate_chat_config(&ChatConfig { url: "https://x.example/v1".into(), model: " ".into() }).is_err());
+        assert!(validate_chat_config(&ChatConfig { url: "https://u:p@x.example/v1".into(), model: "m".into() }).is_err());
+        assert!(chat_endpoint("ftp://x.example/v1").is_err());
+    }
+
+    #[tokio::test]
+    async fn chat_sends_bearer_json_mode_once_and_reads_the_message() {
+        let client = reqwest::Client::new();
+        let body = r#"{"choices":[{"message":{"content":"{\"groups\":[]}"}}],"usage":{"prompt_tokens":9,"completion_tokens":3}}"#;
+        let (base, request, accepted) = serve_once(200, body, Duration::ZERO).await;
+        let cfg = ChatConfig { url: base, model: "chat-m".into() };
+        let outcome = chat_complete(&client, &cfg, "k1", "SYS", "USER", LIMIT).await.unwrap();
+        let request = request.await.unwrap();
+        assert!(request.starts_with("post /v1/chat/completions "), "{request}");
+        assert!(request.contains("authorization: bearer k1") && request.contains("\"json_object\""), "{request}");
+        assert!(request.contains(r#""temperature":0"#) && request.contains(r#""model":"chat-m""#), "{request}");
+        assert!(request.contains(r#""role":"system""#) && request.contains(r#""content":"sys""#), "{request}");
+        assert!(request.contains(r#""role":"user""#) && request.contains(r#""content":"user""#), "{request}");
+        assert_eq!(outcome.content, "{\"groups\":[]}");
+        assert_eq!(outcome.usage, Some(Usage { input_tokens: 9, output_tokens: 3 }));
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+
+        let (base, _request, accepted) = serve_once(200, r#"{"choices":[]}"#, Duration::ZERO).await;
+        let cfg = ChatConfig { url: base, model: "chat-m".into() };
+        let empty = chat_complete(&client, &cfg, "k1", "s", "u", LIMIT).await;
+        assert!(matches!(empty, Err(ModelError::Invalid(_))), "{empty:?}");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+
+        let (base, _request, accepted) = serve_once(500, "<html>sk-leak</html>", Duration::ZERO).await;
+        let cfg = ChatConfig { url: base, model: "chat-m".into() };
+        assert_eq!(chat_complete(&client, &cfg, "k1", "s", "u", LIMIT).await, Err(ModelError::Http(500)));
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+
+        // No usage is fine; a missing key is refused before anything is sent.
+        let (base, _request, accepted) =
+            serve_once(200, r#"{"choices":[{"message":{"content":"x"}}]}"#, Duration::ZERO).await;
+        let cfg = ChatConfig { url: base, model: "chat-m".into() };
+        assert_eq!(chat_complete(&client, &cfg, "k1", "s", "u", LIMIT).await.unwrap().usage, None);
+        assert!(matches!(chat_complete(&client, &cfg, "", "s", "u", LIMIT).await, Err(ModelError::Invalid(_))));
         assert_eq!(accepted.load(Ordering::SeqCst), 1);
     }
 

@@ -126,6 +126,7 @@ pub fn run(b: Builtin, parsed: &Parsed) -> ExitCode {
         Builtin::PluginUpdate(id) => market::run_update(id.as_deref(), parsed),
         Builtin::PluginRemove(id, keep_data) => market::run_remove(&id, keep_data, parsed),
         Builtin::Search(args) => super::search::run(args.with_global_json(parsed.globals.json)),
+        Builtin::Lookup(args) => super::lookup::run(args.with_global_json(parsed.globals.json)),
         Builtin::Doctor(args) => super::doctor::run(args.with_global_json(parsed.globals.json)),
         Builtin::Mcp => crate::mcp::shim::run_shim(),
         Builtin::McpSetup(lang) => crate::mcp::setup::run_cli(lang),
@@ -299,6 +300,8 @@ pub fn render_help(
     out.push_str(
         "  search        Full-text search over the Vault (--vault, --json, --limit, --stats)\n",
     );
+    out.push_str("  lookup        Smart lookup with optional model judging or repair, headless;\n");
+    out.push_str("                'lookup eval' scores a task file\n");
     out.push_str("  mcp           Serve this vault to agents over MCP (stdio); 'mcp setup' prints\n");
     out.push_str("                setup instructions to paste into Claude\n");
     out.push_str("  memory        Read and propose controlled personal Memory Claims\n");
@@ -656,6 +659,58 @@ EXIT CODES:
   0    Output was printed — one or more hits (or --stats/--rebuild ran)
   1    No hits — not an error, nothing to branch on but 'try something else'
   2    No Vault configured/found, or a missing query
+"
+        }
+        "lookup" => {
+            "\
+notemd lookup — Smart lookup over the Vault, with optional model judging or query repair
+
+USAGE:
+  notemd lookup [options] <question...>
+  notemd lookup eval --tasks <file> [options] [--out <rows.jsonl>] [--compare <rows.jsonl>] [--today YYYY-MM-DD]
+
+DESCRIPTION:
+  Runs the same pipeline as the Smart Lookup window, without a window: local
+  smart search (time phrases grouped by default), then routing, then either
+  one candidate-judging request (Jev) or, on zero hits, a local diagnosis and
+  one query-repair request (chat model) followed by a local re-search. Every
+  rule the window applies holds here too: confidential notes and files not in
+  the index are never sent, only line blocks re-read from disk are sent, at
+  most one automatic request per lookup, no retry. `notemd search` is
+  unchanged by this command. The index is opened and freshness-swept as
+  `notemd search` does; there is no direct-scan fallback.
+
+OPTIONS:
+  --vault <path>          Vault root (default: the configured Vault)
+  --params <file>         Parameter file (else NOTEMD_LOOKUP_PARAMS, else
+                          <app data>/smart-lookup/params.json, else defaults)
+  --deep                  Bounded deep scan on the final local search
+  --time-mode <m>         group|window|ignore (default: the params' time.mode)
+  --no-enhance            Local search only; nothing is sent
+  --jev-url <url>         Jev base URL or endpoint (judging needs --jev-model too)
+  --jev-model <name>      Jev model
+  --jev-auth <mode>       bearer|none (default: bearer)
+  --chat-url <url>        OpenAI-compatible base URL for query repair
+  --chat-model <name>     Chat model (repair needs --chat-url too)
+  --allow-send <host>     Consent to send to this host; judging is sent only
+                          when it equals the Jev endpoint's host
+  --today <YYYY-MM-DD>    Resolve time phrases against this date (default: today)
+  --json                  One JSON object per line: local, judge|diagnosis|
+                          repair|regrouped|skip, hit..., done
+
+KEYS:
+  Read only from the environment: NOTEMD_JEV_KEY (bearer mode) and
+  NOTEMD_CHAT_KEY. Never accepted as an argument, never printed.
+
+EVAL:
+  `lookup eval` runs every task of a {\"tasks\":[...]} file through the same
+  pipeline, prints metrics for all/dev/holdout and the holdout C3/C4 gates;
+  --out writes one row per task, --compare diffs against an earlier --out.
+
+EXIT CODES:
+  0    Hits (eval: finished)
+  1    No hits
+  2    Argument, parameter-file, Vault or index error
 "
         }
         "doctor" => {
@@ -2358,6 +2413,7 @@ mod tests {
             "plugin",
             "share",
             "search",
+            "lookup",
             "doctor",
             "mcp",
             "memory",
@@ -2518,6 +2574,7 @@ mod tests {
             "plugin",
             "share",
             "search",
+            "lookup",
             "doctor",
             "mcp",
             "memory",

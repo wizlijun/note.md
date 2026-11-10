@@ -368,7 +368,6 @@ pub fn run(args: SearchArgs) -> ExitCode {
     // numbers are honestly different things, not a duplicate.
     let started = std::time::Instant::now();
     let opts = scan_options_for(&root);
-    let mut skipped_large: Vec<SkippedFile> = Vec::new();
 
     // The store's staleness stamp is `SourceGlobs::stamp()` (C-T6 repointed
     // it away from `sync_dir` — see `store::open`'s doc comment). Derived
@@ -383,40 +382,7 @@ pub fn run(args: SearchArgs) -> ExitCode {
     // repointed together — see `search::mod::open_vault`'s matching comment
     // for the full failure mode. Reading it off `opts` makes that drift
     // structurally impossible.
-    let globs_stamp = opts.source_globs.stamp();
-    // Every failure below degrades. The only hard error is "no vault".
-    let mut index = match SearchIndex::open(&root, &globs_stamp) {
-        Ok(i) => Some(i),
-        Err(e) => {
-            eprintln!("notemd: search index unavailable ({e}); scanning files directly");
-            None
-        }
-    };
-
-    if let Some(idx) = index.as_mut() {
-        let outcome = if args.rebuild {
-            idx.rebuild(&opts)
-        } else if args.no_sweep {
-            idx.ensure_built(&opts)
-        } else {
-            idx.ensure_built(&opts)
-                .and_then(|_| idx.sweep(&opts, Some(SWEEP_DEADLINE)))
-        };
-        match outcome {
-            Ok(stats) => {
-                skipped_large = stats.files_skipped_large.clone();
-                if stats.timed_out {
-                    eprintln!(
-                        "notemd: freshness scan exceeded 2s; answering from the existing index"
-                    );
-                }
-            }
-            Err(e) => {
-                eprintln!("notemd: index update failed ({e}); scanning files directly");
-                index = None;
-            }
-        }
-    }
+    let (index, skipped_large) = open_fresh_index(&root, &opts, args.rebuild, args.no_sweep, SCAN_FALLBACK_NOTE);
 
     if args.stats {
         return report_stats(index.as_ref(), args.json, &skipped_large);
@@ -471,6 +437,70 @@ pub fn run(args: SearchArgs) -> ExitCode {
     } else {
         ExitCode::from(0)
     }
+}
+
+/// What `notemd search` does when the index cannot be used.
+pub(crate) const SCAN_FALLBACK_NOTE: &str = "; scanning files directly";
+
+fn index_open_warning(error: &str, fallback_note: &str) -> String {
+    format!("notemd: search index unavailable ({error}){fallback_note}")
+}
+
+fn index_update_warning(error: &str, fallback_note: &str) -> String {
+    format!("notemd: index update failed ({error}){fallback_note}")
+}
+
+/// Opens the vault's index and brings it up to date, as `notemd search` does:
+/// `rebuild` forces a full rebuild, `no_sweep` only builds a missing index,
+/// otherwise a build plus a freshness sweep bounded by [`SWEEP_DEADLINE`].
+/// Every failure degrades to `None` with a one-line warning on stderr that
+/// ends in `fallback_note` — what the caller does next ([`SCAN_FALLBACK_NOTE`]
+/// for `notemd search`; `notemd lookup`, which has no fallback, passes "").
+/// Returns the index and the files skipped for size. Shared with
+/// `notemd lookup`, so both commands see the same freshness.
+pub(crate) fn open_fresh_index(
+    root: &Path,
+    opts: &ScanOptions,
+    rebuild: bool,
+    no_sweep: bool,
+    fallback_note: &str,
+) -> (Option<SearchIndex>, Vec<SkippedFile>) {
+    let mut skipped_large: Vec<SkippedFile> = Vec::new();
+    let globs_stamp = opts.source_globs.stamp();
+    // Every failure below degrades. The only hard error is "no vault".
+    let mut index = match SearchIndex::open(root, &globs_stamp) {
+        Ok(i) => Some(i),
+        Err(e) => {
+            eprintln!("{}", index_open_warning(&e, fallback_note));
+            None
+        }
+    };
+
+    if let Some(idx) = index.as_mut() {
+        let outcome = if rebuild {
+            idx.rebuild(opts)
+        } else if no_sweep {
+            idx.ensure_built(opts)
+        } else {
+            idx.ensure_built(opts)
+                .and_then(|_| idx.sweep(opts, Some(SWEEP_DEADLINE)))
+        };
+        match outcome {
+            Ok(stats) => {
+                skipped_large = stats.files_skipped_large.clone();
+                if stats.timed_out {
+                    eprintln!(
+                        "notemd: freshness scan exceeded 2s; answering from the existing index"
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!("{}", index_update_warning(&e, fallback_note));
+                index = None;
+            }
+        }
+    }
+    (index, skipped_large)
 }
 
 fn fail(json: bool, code: u8, kind: &str, message: &str) -> ExitCode {
@@ -803,6 +833,22 @@ mod tests {
 
     fn strings(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    /// `notemd search`'s two index warnings, byte for byte as before the
+    /// note became a parameter; `notemd lookup` (note "") claims no scan.
+    #[test]
+    fn index_warnings_keep_search_text_and_let_lookup_drop_the_scan_claim() {
+        assert_eq!(
+            index_open_warning("disk I/O error", SCAN_FALLBACK_NOTE),
+            "notemd: search index unavailable (disk I/O error); scanning files directly"
+        );
+        assert_eq!(
+            index_update_warning("locked", SCAN_FALLBACK_NOTE),
+            "notemd: index update failed (locked); scanning files directly"
+        );
+        assert_eq!(index_open_warning("disk I/O error", ""), "notemd: search index unavailable (disk I/O error)");
+        assert_eq!(index_update_warning("locked", ""), "notemd: index update failed (locked)");
     }
 
     #[test]

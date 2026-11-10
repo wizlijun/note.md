@@ -1,62 +1,7 @@
 // Pure view helpers for the Smart Lookup window (`src/SmartLookupApp.svelte`).
 // Kept out of the component so the choices they encode stay unit-tested.
-import type { AgentOption } from '../agent-picker/types'
 import type { SearchHit } from '../search/api'
 import { groupHits, type HitGroup } from '../search/grouping'
-import { supportsSearchTask, VAULT_RESEARCH_TASK } from './agent'
-
-/** The bundled agent, preferred when the app has no default agent. */
-export const FALLBACK_AGENT_ID = 'notemd.claude-agent'
-
-/** `summary.provider` values that mean "choose for me" rather than an agent id. */
-export const SUMMARY_DEFAULT_CHOICES = ['auto'] as const
-/** `handoff.defaultProvider` value meaning "ask every time": the user picks the agent per handoff. */
-export const HANDOFF_ASK = 'ask'
-
-/**
- * The agent that runs `task`. A reserved value (`defaultChoices`) picks the
- * app default, the bundled agent, then the first capable agent. An explicit
- * agent id is honoured or nothing is: when that agent is missing or cannot run
- * the task the result is `null`, so note excerpts never go to a provider the
- * user did not choose.
- */
-export function pickTaskAgent(
-  agents: AgentOption[],
-  task: string,
-  configured: string,
-  appDefault: string,
-  defaultChoices: readonly string[],
-): AgentOption | null {
-  const capable = agents.filter((agent) => supportsSearchTask(agent, task))
-  if (!defaultChoices.includes(configured)) {
-    return capable.find((agent) => agent.id === configured) ?? null
-  }
-  return capable.find((agent) => agent.id === appDefault)
-    ?? capable.find((agent) => agent.id === FALLBACK_AGENT_ID)
-    ?? capable[0]
-    ?? null
-}
-
-export interface HandoffChoices {
-  /** One "In-depth research" row per agent; never chosen on the user's behalf. */
-  agents: AgentOption[]
-  /** No agent can be offered: none is capable, or the configured one is unavailable. */
-  unavailable: boolean
-}
-
-/**
- * The research agents the actions menu offers. `'ask'` offers every capable
- * agent so the user chooses each time; an explicit agent id offers that agent
- * only, and nothing when it is missing or cannot research — it is never
- * replaced by another agent.
- */
-export function handoffChoices(agents: AgentOption[], configured: string): HandoffChoices {
-  const capable = agents.filter((agent) => supportsSearchTask(agent, VAULT_RESEARCH_TASK))
-  const offered = configured === HANDOFF_ASK
-    ? capable
-    : capable.filter((agent) => agent.id === configured)
-  return { agents: offered, unavailable: offered.length === 0 }
-}
 
 export interface ResultSection<T extends SearchHit = SearchHit> {
   key: string
@@ -92,11 +37,6 @@ export function sourceSections(
     label: label(group),
     hits: group.files.flatMap((file) => file.hits),
   }))
-}
-
-/** A summary needs at least one line-level hit that carries text. */
-export function hasSummarySource(hits: SearchHit[]): boolean {
-  return hits.some((hit) => hit.level === 'line' && hit.text.trim().length > 0)
 }
 
 export function hitReference(hit: Pick<SearchHit, 'path' | 'line'>): string {

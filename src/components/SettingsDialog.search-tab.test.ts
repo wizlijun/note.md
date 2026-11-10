@@ -82,7 +82,7 @@ vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({ label: 'main', listen: async () => () => {} }),
 }))
 
-import { openSettings, closeSettings } from '../lib/ui-state.svelte'
+import { openSettings, closeSettings, uiState } from '../lib/ui-state.svelte'
 import { indexStatus, _setIndexApi } from '../lib/search/index-status.svelte'
 import { sotvaultStore } from '../lib/sotvault.svelte'
 import type { SearchStats, SearchProgress, SearchResponse } from '../lib/search/api'
@@ -91,6 +91,7 @@ import { sidePanels } from '../lib/side-panel/registry.svelte'
 import { toasts } from '../lib/toast.svelte'
 import { getPluginScopedAll, settings } from '../lib/settings.svelte'
 import { DEFAULT_SMART_LOOKUP_SETTINGS } from '../lib/smart-search/settings'
+import { JEV_REQUEST_EXAMPLE } from '../lib/smart-search/api'
 import { ask, open as openFilePicker } from '@tauri-apps/plugin-dialog'
 import * as settingsModule from '../lib/settings.svelte'
 import * as toastModule from '../lib/toast.svelte'
@@ -622,8 +623,8 @@ describe('SettingsDialog — Search & Index tab entry', () => {
     expect(Array.from(section!.querySelectorAll('.lbl')).map((label) => label.textContent?.trim()))
       .not.toContain('AI service')
     expect(section?.textContent).toContain('Maximum results')
-    expect(section?.textContent).toContain('Quick answer')
-    expect(section?.textContent).toContain('Research assistant')
+    expect(section?.textContent).not.toContain('Quick answer')
+    expect(section?.textContent).not.toContain('Research assistant')
 
     const deepRow = Array.from(section!.querySelectorAll('label.row')).find(
       (row) => row.querySelector('.lbl')?.textContent?.trim() === 'Search more broadly when nothing is found',
@@ -637,125 +638,319 @@ describe('SettingsDialog — Search & Index tab entry', () => {
   })
 })
 
-function agentHarness(name: string, tasks: string[]) {
-  return {
-    harness: name, ok: true, default_model: `${name}-default`,
-    capabilities: {
-      tasks, search_plan_schemas: [], terminal_result: true, input_only_isolation: true,
-      model_routing: {
-        invocation_override: true,
-        profiles: {
-          fast: { model: `${name}-fast`, available: true },
-          default: { model: `${name}-default`, available: true },
-        },
-        selectable_models: [`${name}-large`],
+// Task 8: the Lookup enhancement tab. Keys go to the host once and are never
+// kept in `settings`; consent is bound to the host parsed from the URL shown.
+describe('SettingsDialog — Lookup enhancement tab', () => {
+  // Answers the key/test commands on top of the file's default host stub.
+  function hostWith(answers: Record<string, (args: any) => unknown>) {
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd in answers) return answers[cmd](args)
+      return defaultInvokeImpl(cmd, args)
+    })
+  }
+
+  async function openEnhanceTab() {
+    await mountDialog()
+    await settle()
+    openSettings('enhance')
+    await settle()
+  }
+
+  function section(title: string): Element {
+    const found = Array.from(document.body.querySelectorAll('section.block')).find(
+      (candidate) => candidate.querySelector('h3')?.textContent?.trim() === title,
+    )
+    if (!found) throw new Error(`section "${title}" not found`)
+    return found
+  }
+  const jevSection = () => section('Lookup enhancement')
+  const chatSection = () => section('Query repair model')
+
+  function field<T extends HTMLElement>(root: Element, label: string, selector: string): T {
+    const row = Array.from(root.querySelectorAll('label.row')).find(
+      (candidate) => candidate.querySelector('.lbl')?.textContent?.trim() === label,
+    )
+    const control = row?.querySelector<T>(selector)
+    if (!control) throw new Error(`no ${selector} labelled "${label}"`)
+    return control
+  }
+  function button(root: Element, text: string): HTMLButtonElement {
+    const found = Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text)
+    if (!found) throw new Error(`no button "${text}"`)
+    return found as HTMLButtonElement
+  }
+  function consentCheckbox(): HTMLInputElement {
+    return jevSection().querySelector<HTMLInputElement>('[data-consent] input[type="checkbox"]')!
+  }
+  const consentLabel = () => jevSection().querySelector('[data-consent]')?.textContent ?? ''
+  const keyRow = (kind: 'jev' | 'chat') => document.body.querySelector(`[data-key-row="${kind}"]`)!
+  const testButton = () => button(jevSection(), 'Test connection')
+
+  async function typeInto(input: HTMLInputElement, value: string) {
+    input.value = value
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+  }
+  const typeUrl = (value: string) => typeInto(field<HTMLInputElement>(jevSection(), 'Endpoint URL', 'input'), value)
+  async function choosePreset(value: 'official' | 'openrouter' | 'custom') {
+    const select = field<HTMLSelectElement>(jevSection(), 'Service', 'select')
+    select.value = value
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+  }
+  async function checkConsent() {
+    consentCheckbox().click()
+    await settle()
+  }
+  async function saveKey(kind: 'jev' | 'chat', key: string) {
+    const row = keyRow(kind)
+    const input = row.querySelector<HTMLInputElement>('input[type="password"]')!
+    input.value = key
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await settle()
+    const save = Array.from(row.querySelectorAll('button')).find((b) => ['Save', 'Replace'].includes(b.textContent?.trim() ?? ''))!
+    save.click()
+    await settle()
+  }
+
+  it('is a desktop tab next to Search & Index, labelled in the header', async () => {
+    await mountDialog()
+    await settle()
+    const labels = Array.from(document.body.querySelectorAll('nav.tab-strip button')).map((b) => b.textContent?.trim())
+    expect(labels.indexOf('Lookup enhancement')).toBe(labels.indexOf('Search & Index') + 1)
+    openSettings('enhance')
+    await settle()
+    expect(document.body.querySelector('.current-page')?.textContent).toBe('Lookup enhancement')
+    expect(jevSection().textContent).toContain('Enable lookup enhancement')
+  })
+
+  it('is hidden on iOS and a request for it is dropped', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('ios')
+    _resetCacheForTests()
+    await mountDialog()
+    await settle()
+    const labels = Array.from(document.body.querySelectorAll('nav.tab-strip button')).map((b) => b.textContent?.trim())
+    expect(labels).not.toContain('Lookup enhancement')
+    openSettings('enhance')
+    await settle()
+    expect(document.body.querySelector('.current-page')?.textContent).not.toBe('Lookup enhancement')
+    expect(document.body.textContent).not.toContain('Enable lookup enhancement')
+  })
+
+  it('choosing OpenRouter fills the URL and consent is bound to the shown host', async () => {
+    settings.smartLookup.enhance.jev.model = 'my-model'
+    await openEnhanceTab()
+    await choosePreset('openrouter')
+    expect(settings.smartLookup.enhance.jev.url).toBe('https://openrouter.ai/api/alpha/decisions')
+    expect(settings.smartLookup.enhance.jev.model).toBe('my-model')
+    expect(consentLabel()).toContain('openrouter.ai')
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('openrouter.ai')
+    expect(consentCheckbox().checked).toBe(true)
+    await typeUrl('https://api.typesafe.ai/v1')
+    expect(settings.smartLookup.enhance.jev.preset).toBe('custom')
+    expect(consentLabel()).toContain('api.typesafe.ai')
+    expect(consentCheckbox().checked).toBe(false)
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('api.typesafe.ai')
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+  })
+
+  it('choosing Official Jev fills its URL; an explicit port is part of the host', async () => {
+    await openEnhanceTab()
+    await choosePreset('official')
+    expect(settings.smartLookup.enhance.jev).toMatchObject({ preset: 'official', url: 'https://api.typesafe.ai/v1' })
+    await typeUrl('http://LOCALHOST:8000/v1')
+    expect(consentLabel()).toContain('localhost:8000')
+  })
+
+  it('an unparseable URL disables the consent checkbox', async () => {
+    await openEnhanceTab()
+    await typeUrl('not a url')
+    expect(consentCheckbox().disabled).toBe(true)
+    await typeUrl('https://jev.example/v1')
+    expect(consentCheckbox().disabled).toBe(false)
+  })
+
+  it('a key is sent once, never stored in settings, and only its status is shown', async () => {
+    hostWith({ smart_lookup_key_status: () => ({ jev: false, chat: false }), smart_lookup_key_set: () => undefined })
+    await openEnhanceTab()
+    expect(keyRow('jev').textContent).toContain('Not saved')
+    await saveKey('jev', 'sk-test-123')
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_key_set', { kind: 'jev', key: 'sk-test-123' })
+    expect(invokeMock.mock.calls.filter(([cmd]) => cmd === 'smart_lookup_key_set')).toHaveLength(1)
+    expect(JSON.stringify(settings.smartLookup)).not.toContain('sk-test-123')
+    expect(document.body.textContent).not.toContain('sk-test-123')
+    expect(keyRow('jev').querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('')
+    expect(keyRow('jev').textContent).toContain('Saved')
+    expect(keyRow('jev').textContent).not.toContain('Not saved')
+    expect(keyRow('chat').textContent).toContain('Not saved')
+  })
+
+  it('a stored key can be replaced or cleared; a failed save keeps the status', async () => {
+    let fail = true
+    hostWith({
+      smart_lookup_key_status: () => ({ jev: false, chat: true }),
+      smart_lookup_key_set: () => { if (fail) throw new Error('store locked') },
+      smart_lookup_key_clear: () => undefined,
+    })
+    await openEnhanceTab()
+    expect(keyRow('chat').textContent).toContain('Saved')
+    expect(button(keyRow('chat'), 'Replace')).toBeTruthy()
+    await saveKey('chat', 'sk-new')
+    expect(keyRow('chat').textContent).toContain('store locked')
+    fail = false
+    await saveKey('chat', 'sk-new')
+    expect(invokeMock).toHaveBeenLastCalledWith('smart_lookup_key_set', { kind: 'chat', key: 'sk-new' })
+    button(keyRow('chat'), 'Clear').click()
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_key_clear', { kind: 'chat' })
+    expect(keyRow('chat').textContent).toContain('Not saved')
+  })
+
+  it('plain http with a key to a remote host warns and disables the test', async () => {
+    await openEnhanceTab()
+    await typeUrl('http://jev.example/v1')
+    expect(document.body.textContent).toContain('would send the key in clear text')
+    expect(testButton().disabled).toBe(true)
+    expect(consentCheckbox().disabled).toBe(true)
+    const auth = field<HTMLSelectElement>(jevSection(), 'Authentication', 'select')
+    auth.value = 'none'
+    auth.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(settings.smartLookup.enhance.jev.authMode).toBe('none')
+    expect(jevSection().textContent).not.toContain('would send the key in clear text')
+    expect(testButton().disabled).toBe(false)
+  })
+
+  it('consent can still be withdrawn after the URL turns insecure', async () => {
+    await openEnhanceTab()
+    await typeUrl('https://jev.example/v1')
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('jev.example')
+    // Same host, now plain http with a Bearer key.
+    await typeUrl('http://jev.example/v1')
+    expect(consentCheckbox().checked).toBe(true)
+    expect(consentCheckbox().disabled).toBe(false)
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+    // Giving consent again needs a safe URL.
+    expect(consentCheckbox().checked).toBe(false)
+    expect(consentCheckbox().disabled).toBe(true)
+  })
+
+  it('an unsaved key draft is dropped when the dialog closes', async () => {
+    // Bound like App.svelte's bind:open, so the dialog really closes and reopens.
+    const { default: SettingsDialog } = await import('./SettingsDialog.svelte')
+    currentApp = mount(SettingsDialog as unknown as Parameters<typeof mount>[0], {
+      target: document.body,
+      props: {
+        get open() { return uiState.showSettings },
+        set open(value: boolean) { uiState.showSettings = value },
       },
-    },
-  }
-}
-
-/** A host with a summary+research agent, a summary-only agent and a research-only agent. */
-function installSmartLookupAgents(appDefault = 'notemd.alpha'): void {
-  const harnesses: Record<string, ReturnType<typeof agentHarness>> = {
-    'notemd.alpha': agentHarness('Alpha', ['search-summary', 'vault-research']),
-    'notemd.beta': agentHarness('Beta', ['search-summary']),
-    'notemd.gamma': agentHarness('Gamma', ['vault-research']),
-  }
-  invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-    const a = args as Record<string, any> | undefined
-    if (cmd === 'get_plugin_manifests') {
-      return Object.keys(harnesses).map((id) => ({ id, name: id, agent_provider: true }))
+    })
+    openSettings('enhance')
+    await settle()
+    const draft = (kind: 'jev' | 'chat') => keyRow(kind).querySelector<HTMLInputElement>('input[type="password"]')!
+    for (const kind of ['jev', 'chat'] as const) {
+      draft(kind).value = `sk-unsaved-${kind}`
+      draft(kind).dispatchEvent(new Event('input', { bubbles: true }))
     }
-    if (cmd === 'plugin_v2_execute' && a?.command === 'harness-status') return harnesses[a.pluginId]
-    if (cmd === 'smart_lookup_agent_default') return appDefault
-    return defaultInvokeImpl(cmd, args)
+    await settle()
+    expect(draft('jev').value).toBe('sk-unsaved-jev')
+    button(document.body, 'Done').click()
+    await settle()
+    expect(uiState.showSettings).toBe(false)
+    expect(document.body.querySelector('[data-key-row="jev"]')).toBeNull()
+    openSettings('enhance')
+    await settle()
+    expect(draft('jev').value).toBe('')
+    expect(draft('chat').value).toBe('')
+    expect(invokeMock.mock.calls.filter(([cmd]) => cmd === 'smart_lookup_key_set')).toHaveLength(0)
   })
-}
 
-function smartLookupRow(label: string): HTMLLabelElement | undefined {
-  const section = Array.from(document.body.querySelectorAll('section.block')).find(
-    (candidate) => candidate.querySelector('h3')?.textContent?.trim() === 'Smart Lookup',
-  )
-  return Array.from(section?.querySelectorAll<HTMLLabelElement>('label.row') ?? []).find(
-    (row) => row.querySelector('.lbl')?.textContent?.trim() === label,
-  )
-}
-
-function choose(select: HTMLSelectElement, value: string): void {
-  select.value = value
-  select.dispatchEvent(new Event('change', { bubbles: true }))
-}
-
-describe('SettingsDialog — Smart Lookup quick-answer agent and model', () => {
-  it('offers Auto plus each summary-capable agent and saves the choice', async () => {
-    installSmartLookupAgents()
-    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
-    await mountDialog()
+  it('tests the connection with exactly url, model and authMode and shows the outcome', async () => {
+    const results = [
+      { status: 'ok', missing: null, endpointHost: 'jev.example', statusClass: null, elapsedMs: 412 },
+      { status: 'keyInvalid', missing: null, endpointHost: 'jev.example', statusClass: '4xx', elapsedMs: 80 },
+      { status: 'unreachable', missing: null, endpointHost: 'jev.example', statusClass: '5xx', elapsedMs: 90 },
+    ]
+    hostWith({ smart_lookup_test_jev: () => results.shift() })
+    settings.smartLookup.enhance.jev = { preset: 'custom', url: 'https://jev.example/v1', model: 'm1', authMode: 'bearer', consentHost: '' }
+    await openEnhanceTab()
+    testButton().click()
     await settle()
-    openSettings('search')
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_test_jev', { config: { url: 'https://jev.example/v1', model: 'm1', authMode: 'bearer' } })
+    expect(jevSection().textContent).toContain('Connected (412 ms)')
+    testButton().click()
     await settle()
+    expect(jevSection().textContent).toContain('jev.example rejected the key (4xx)')
+    testButton().click()
+    await settle()
+    expect(jevSection().textContent).toContain("Couldn't reach jev.example · 5xx")
+  })
 
-    const provider = smartLookupRow('AI service for answers')?.querySelector('select')
-    expect(provider, 'summary provider select').toBeTruthy()
-    expect(Array.from(provider!.options).map((option) => [option.value, option.textContent?.trim()])).toEqual([
-      ['auto', 'Auto'], ['notemd.alpha', 'Alpha'], ['notemd.beta', 'Beta'],
+  it('the repair model has its own URL, model, key and test, and says what it sends', async () => {
+    hostWith({
+      smart_lookup_key_status: () => ({ jev: false, chat: false }),
+      smart_lookup_test_chat: () => ({ status: 'ok', missing: null, endpointHost: 'chat.example', statusClass: null, elapsedMs: 200 }),
+    })
+    await openEnhanceTab()
+    const chat = chatSection()
+    expect(chat.textContent).toContain('only the question and search terms are sent, never note content')
+    await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
+    await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
+    expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x' })
+    expect(settings.smartLookup.enhance.jev.url).toBe('')
+    button(chat, 'Test connection').click()
+    await settle()
+    expect(invokeMock).toHaveBeenCalledWith('smart_lookup_test_chat', { chat: { url: 'https://chat.example/v1', model: 'gpt-x' } })
+    expect(chatSection().textContent).toContain('Connected (200 ms)')
+    await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'http://chat.example/v1')
+    expect(chatSection().textContent).toContain('would send the key in clear text')
+    expect(button(chatSection(), 'Test connection').disabled).toBe(true)
+  })
+
+  it('the enable switch, budget and request example are on the page', async () => {
+    await openEnhanceTab()
+    const enabled = field<HTMLInputElement>(jevSection(), 'Enable lookup enhancement', 'input[type="checkbox"]')
+    expect(enabled.checked).toBe(true)
+    enabled.click()
+    await settle()
+    expect(settings.smartLookup.enhance.enabled).toBe(false)
+    expect(jevSection().textContent).toContain('At most 1 request per Return')
+    expect(jevSection().querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
+  })
+
+  it('gives every enhance form field a real accessible name', async () => {
+    await openEnhanceTab()
+    for (const control of document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.settings-content input, .settings-content select')) {
+      const label = control.getAttribute('aria-label') || control.getAttribute('aria-labelledby')
+        || Array.from(control.labels ?? []).map((item) => item.textContent?.trim()).join('')
+      expect(label, `missing field name: ${control.outerHTML}`).toBeTruthy()
+    }
+  })
+
+  it('the request example has the score_noul field structure', () => {
+    expect(Object.keys(JEV_REQUEST_EXAMPLE)).toEqual(['model', 'state', 'questions'])
+    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1)).toEqual(['type', 'instructions', 'criteria'])
+    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1.instructions)).toEqual(['title', 'breadcrumb', 'passage'])
+    expect((JEV_REQUEST_EXAMPLE as any).questions.c1.criteria).toEqual({
+      true: '候选直接符合用户这次要找的对象或内容。',
+      false: '候选不符合用户这次要找的对象或内容，或只是主题相近。',
+    })
+    // Every line build_state can send, in its order: the time range and the
+    // filters are shown as optional placeholders.
+    const lines = (JEV_REQUEST_EXAMPLE as any).state.split('\n')
+    expect(lines.slice(0, 3)).toEqual([
+      '用户要找的内容：<问题>',
+      '[时间范围：<起> 至 <止>（来自「<时间说法>」）]',
+      '[过滤条件：<tag:… 等>]',
     ])
-    expect(provider!.value).toBe('auto')
-
-    choose(provider!, 'notemd.beta')
-    await settle()
-    expect(settings.smartLookup.summary.provider).toBe('notemd.beta')
-    expect(save).toHaveBeenCalled()
-  })
-
-  it('shows the models of the chosen agent and saves a model per agent', async () => {
-    installSmartLookupAgents()
-    settings.smartLookup.summary.provider = 'notemd.beta'
-    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
-    await mountDialog()
-    await settle()
-    openSettings('search')
-    await settle()
-
-    const model = smartLookupRow('Answer model')?.querySelector('select')
-    expect(model, 'summary model select').toBeTruthy()
-    expect(Array.from(model!.options).map((option) => option.value))
-      .toEqual(['profile:fast', 'profile:default', 'model:Beta-large'])
-    expect(model!.value).toBe('profile:fast')
-    expect(model!.options[0].textContent).toContain('Beta-fast')
-
-    choose(model!, 'model:Beta-large')
-    await settle()
-    expect(settings.smartLookup.summary.modelByProvider).toEqual({ 'notemd.beta': 'model:Beta-large' })
-    expect(save).toHaveBeenCalled()
-  })
-
-  it('with Auto, the model list belongs to the agent Auto resolves to', async () => {
-    installSmartLookupAgents('notemd.beta')
-    await mountDialog()
-    await settle()
-    openSettings('search')
-    await settle()
-    const model = smartLookupRow('Answer model')?.querySelector('select')
-    expect(Array.from(model!.options).map((option) => option.value)).toContain('model:Beta-large')
-  })
-
-  it('repairs an explicit quick-answer agent that is no longer available to Auto', async () => {
-    installSmartLookupAgents()
-    settings.smartLookup.summary.provider = 'notemd.gamma'
-    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
-    await mountDialog()
-    await settle()
-    expect(settings.smartLookup.summary.provider).toBe('auto')
-    expect(save).toHaveBeenCalled()
-  })
-
-  it('keeps an explicit quick-answer agent that is still available', async () => {
-    installSmartLookupAgents()
-    settings.smartLookup.summary.provider = 'notemd.beta'
-    await mountDialog()
-    await settle()
-    expect(settings.smartLookup.summary.provider).toBe('notemd.beta')
+    expect(lines[3]).toMatch(/^判断准则：仅依据候选的标题/)
+    expect(lines).toHaveLength(4)
   })
 })
 

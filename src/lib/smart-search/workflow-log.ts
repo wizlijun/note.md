@@ -1,4 +1,4 @@
-export type WorkflowStage = 'preview' | 'search' | 'summary' | 'handoff'
+export type WorkflowStage = 'preview' | 'search' | 'judge' | 'repair' | 'settings'
 export type WorkflowLevel = 'active' | 'success' | 'warning' | 'error'
 
 export interface WorkflowEntry {
@@ -10,7 +10,7 @@ export interface WorkflowEntry {
   steps?: number
   /** Milliseconds since the lookup that owns this entry started. */
   elapsedMs?: number
-  /** Provider-reported usage, recorded only for a completed agent run. */
+  /** Provider-reported token usage of a judge or repair request, when the provider returned it. */
   usage?: unknown
 }
 

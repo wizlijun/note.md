@@ -5,7 +5,9 @@
 //! questions need a different adapter because the core query language ANDs
 //! every term.  This module compiles one strict arm plus a small relaxation
 //! ladder, executes the whole batch under one window ticket/index lock, and
-//! fuses duplicate blocks with weighted reciprocal-rank fusion.
+//! fuses duplicate blocks with weighted reciprocal-rank fusion. The RRF
+//! constant and the arm weights come from `local.*` in `LookupParams`
+//! ([`FusionParams`]); the algorithm does not change with them.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicU64;
@@ -19,12 +21,10 @@ use tauri::{AppHandle, Manager};
 use super::{
     handle, hit_to_dto, lock, require_index, superseded, HitDto, IndexHandle, SearchGen, CANCELLED,
 };
+use crate::lookup_params::{self, FusionParams};
 
 const DEFAULT_LIMIT: usize = 50;
 const MAX_EXTRACTED_TERMS: usize = 12;
-const RRF_K: f64 = 60.0;
-const STRICT_WEIGHT: f64 = 1.5;
-const RELAXED_WEIGHT: f64 = 1.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum CandidateKind {
@@ -150,7 +150,9 @@ pub struct SmartSearchResponse {
 }
 
 /// Smart-search counterpart to `notemd_search`.  The ticket is minted exactly
-/// once here; every strict/relaxed arm below shares it.
+/// once here; every strict/relaxed arm below shares it. Fusion follows the
+/// parameter file, as the Enter lookup does, so the typing preview and the
+/// lookup rank alike; an invalid file is an error.
 pub(super) fn run_smart_search_command(
     app: AppHandle,
     window: tauri::Window,
@@ -160,6 +162,7 @@ pub(super) fn run_smart_search_command(
     timeout_ms: Option<u64>,
 ) -> Result<SmartSearchResponse, String> {
     let started = Instant::now();
+    let fusion = lookup_params::for_app(&app)?.local.fusion();
     let (ticket, counter) = app.state::<SearchGen>().next(window.label());
     let idx_handle = handle(&app);
     smart_search_locked(
@@ -171,6 +174,7 @@ pub(super) fn run_smart_search_command(
         timeout_ms,
         &counter,
         ticket,
+        &fusion,
     )
 }
 
@@ -197,17 +201,19 @@ pub(super) fn smart_search_locked(
     timeout_ms: Option<u64>,
     counter: &Arc<AtomicU64>,
     ticket: u64,
+    fusion: &FusionParams,
 ) -> Result<SmartSearchResponse, String> {
     execute_smart_plan_locked(
         idx_handle,
         started,
-        compile_query(raw_query),
+        compile_query(raw_query, fusion),
         raw_query,
         limit,
         deep,
         timeout_ms,
         counter,
         ticket,
+        fusion.rrf_k,
     )
 }
 
@@ -222,6 +228,7 @@ fn execute_smart_plan_locked(
     timeout_ms: Option<u64>,
     counter: &Arc<AtomicU64>,
     ticket: u64,
+    rrf_k: f64,
 ) -> Result<SmartSearchResponse, String> {
     let guard = lock(idx_handle);
     // Match `notemd_search`: waiting for a rebuild must not consume the query's
@@ -274,7 +281,7 @@ fn execute_smart_plan_locked(
         if answer.deep_available {
             deep_candidates.push(arm_index);
         }
-        merge_arm(&mut fused, arm_index, arm, answer.hits);
+        merge_arm(&mut fused, arm_index, arm, answer.hits, rrf_k);
         if deadline_reached(deadline) {
             truncated = true;
             break;
@@ -302,7 +309,7 @@ fn execute_smart_plan_locked(
             dto.truncated |= answer.truncated;
             used_scan = answer.route.as_str() == "t1-scan";
             truncated |= answer.truncated;
-            merge_arm(&mut fused, arm_index, arm, answer.hits);
+            merge_arm(&mut fused, arm_index, arm, answer.hits, rrf_k);
         }
     }
 
@@ -376,11 +383,13 @@ fn per_arm_limit(final_limit: usize) -> usize {
     }
 }
 
+/// Each hit adds `arm.weight / (rrf_k + rank)` (rank from 1), once per arm.
 fn merge_arm(
     fused: &mut HashMap<HitKey, FusedHit>,
     arm_index: usize,
     arm: &QueryArm,
     hits: Vec<Hit>,
+    rrf_k: f64,
 ) {
     for (offset, hit) in hits.into_iter().enumerate() {
         let key = HitKey {
@@ -388,7 +397,7 @@ fn merge_arm(
             line: hit.line,
             line_end: hit.line_end,
         };
-        let contribution = arm.weight / (RRF_K + offset as f64 + 1.0);
+        let contribution = arm.weight / (rrf_k + offset as f64 + 1.0);
         match fused.get_mut(&key) {
             Some(existing) => {
                 let pinned = existing.hit.pinned || hit.pinned;
@@ -509,7 +518,7 @@ fn relevance_reasons(hit: &FusedHit, plan: &SmartPlan) -> Vec<String> {
     reasons
 }
 
-fn compile_query(raw: &str) -> SmartPlan {
+fn compile_query(raw: &str, fusion: &FusionParams) -> SmartPlan {
     let strict = raw.trim().to_string();
     let parsed = searchidx::query::parse(&strict);
     let filters = render_filters(&parsed);
@@ -534,7 +543,7 @@ fn compile_query(raw: &str) -> SmartPlan {
         kind: "strict",
         query: strict,
         terms: strict_terms,
-        weight: STRICT_WEIGHT,
+        weight: fusion.strict_weight,
     }];
     let mut seen = HashSet::new();
     seen.insert(normalize_query(&arms[0].query));
@@ -553,7 +562,7 @@ fn compile_query(raw: &str) -> SmartPlan {
             kind: "relaxed",
             query,
             terms: selected.iter().map(|term| term.text.clone()).collect(),
-            weight: RELAXED_WEIGHT,
+            weight: fusion.relaxed_weight,
         });
     }
     SmartPlan {
@@ -590,7 +599,7 @@ fn relaxation_sizes(count: usize) -> Vec<usize> {
     out
 }
 
-fn render_filters(query: &Query) -> Vec<String> {
+pub(super) fn render_filters(query: &Query) -> Vec<String> {
     let mut out = Vec::new();
     extend_filters(&mut out, "tag", &query.tags);
     extend_filters(&mut out, "type", &query.types);
@@ -867,6 +876,14 @@ mod tests {
     use searchidx::SearchIndex;
     use std::sync::atomic::Ordering;
 
+    fn defaults() -> FusionParams {
+        FusionParams::default()
+    }
+
+    fn compile(raw: &str) -> SmartPlan {
+        compile_query(raw, &FusionParams::default())
+    }
+
     fn hit(path: &str, score: f64) -> Hit {
         Hit {
             path: path.to_string(),
@@ -889,7 +906,7 @@ mod tests {
     #[test]
     fn long_natural_language_gets_a_strict_arm_and_two_to_four_relaxations() {
         let raw = "请帮我找一下 \"发布风险\" tag:roadmap origin:human 2026-09-03 launch-plan.md Q3Budget APIClient 的相关资料";
-        let plan = compile_query(raw);
+        let plan = compile(raw);
         assert_eq!(plan.arms[0].id, "strict");
         assert_eq!(plan.arms[0].query, raw);
         assert!(
@@ -913,14 +930,14 @@ mod tests {
         assert!(extracted.contains(&"APIClient"), "{extracted:?}");
         assert_eq!(
             plan,
-            compile_query(raw),
+            compile(raw),
             "the compiler must be deterministic"
         );
     }
 
     #[test]
     fn explicit_filters_are_never_dropped_by_relaxation() {
-        let plan = compile_query(
+        let plan = compile(
             "please find launch budget tag:work type:Decision path:projects page:Roadmap ext:md origin:human after:2026-01-01 before:2026-12-31",
         );
         let expected = [
@@ -947,14 +964,14 @@ mod tests {
 
     #[test]
     fn repeated_terms_outrank_otherwise_similar_ordinary_terms() {
-        let plan = compile_query("alpha beta beta beta gamma");
+        let plan = compile("alpha beta beta beta gamma");
         assert_eq!(plan.extracted[0].normalized, "beta");
         assert_eq!(plan.extracted[0].occurrences, 3);
     }
 
     #[test]
     fn special_candidates_keep_their_explainable_kinds() {
-        let plan = compile_query("Notion APIClient Q3Budget 2026-09-03 launch-plan.md risk");
+        let plan = compile("Notion APIClient Q3Budget 2026-09-03 launch-plan.md risk");
         let kind = |needle: &str| {
             plan.extracted
                 .iter()
@@ -978,14 +995,14 @@ mod tests {
                     kind: "strict",
                     query: "strict".into(),
                     terms: vec![],
-                    weight: STRICT_WEIGHT,
+                    weight: defaults().strict_weight,
                 },
                 QueryArm {
                     id: "relaxed-1".into(),
                     kind: "relaxed",
                     query: "relaxed".into(),
                     terms: vec![],
-                    weight: RELAXED_WEIGHT,
+                    weight: defaults().relaxed_weight,
                 },
             ],
             sort: SortMode::Relevance,
@@ -996,12 +1013,14 @@ mod tests {
             0,
             &plan.arms[0],
             vec![hit("z.md", 3.0), hit("a.md", 1.0)],
+            defaults().rrf_k,
         );
         merge_arm(
             &mut fused,
             1,
             &plan.arms[1],
             vec![hit("a.md", 2.0), hit("b.md", 2.0)],
+            defaults().rrf_k,
         );
         let result = finish_fusion(fused, &plan, std::path::Path::new("/vault"));
 
@@ -1026,28 +1045,28 @@ mod tests {
                     kind: "strict",
                     query: "strict".into(),
                     terms: vec![],
-                    weight: STRICT_WEIGHT,
+                    weight: defaults().strict_weight,
                 },
                 QueryArm {
                     id: "relaxed-1".into(),
                     kind: "relaxed",
                     query: "one".into(),
                     terms: vec![],
-                    weight: RELAXED_WEIGHT,
+                    weight: defaults().relaxed_weight,
                 },
                 QueryArm {
                     id: "relaxed-2".into(),
                     kind: "relaxed",
                     query: "two".into(),
                     terms: vec![],
-                    weight: RELAXED_WEIGHT,
+                    weight: defaults().relaxed_weight,
                 },
             ],
             sort: SortMode::Relevance,
         };
         let mut fused = HashMap::new();
-        merge_arm(&mut fused, 1, &plan.arms[1], vec![hit("b.md", 1.0)]);
-        merge_arm(&mut fused, 2, &plan.arms[2], vec![hit("a.md", 1.0)]);
+        merge_arm(&mut fused, 1, &plan.arms[1], vec![hit("b.md", 1.0)], defaults().rrf_k);
+        merge_arm(&mut fused, 2, &plan.arms[2], vec![hit("a.md", 1.0)], defaults().rrf_k);
 
         let result = finish_fusion(fused, &plan, std::path::Path::new("/vault"));
         assert_eq!(
@@ -1078,7 +1097,7 @@ mod tests {
         recent.doc_date = Some("2026-08-01".into());
         let missing = hit("missing.md", 100.0);
         let mut fused = HashMap::new();
-        merge_arm(&mut fused, 0, &plan.arms[0], vec![old, missing, recent]);
+        merge_arm(&mut fused, 0, &plan.arms[0], vec![old, missing, recent], defaults().rrf_k);
 
         let result = finish_fusion(fused, &plan, std::path::Path::new("/vault"));
         assert_eq!(
@@ -1105,6 +1124,7 @@ mod tests {
             None,
             &counter,
             1,
+            &FusionParams::default(),
         )
         .unwrap();
 
@@ -1113,15 +1133,17 @@ mod tests {
             vault.path(),
             "release risk",
             &mut response,
+            None,
+            false,
         )
         .unwrap();
 
         assert!(!run_id.is_empty());
         assert!(!response.hits.is_empty());
         assert!(response.hits.iter().all(|hit| hit.result_id.is_some()));
-        let prompt = crate::smart_lookup::summary_prompt_for_run(&run_id, "smart-search").unwrap();
-        assert!(prompt.contains("release risk details"));
-        assert!(crate::smart_lookup::summary_prompt_for_run(&run_id, "another-window").is_err());
+        let run = crate::smart_lookup::run_for_window(&run_id, "smart-search").unwrap();
+        assert!(run.hits.iter().any(|hit| hit.indexed_text.contains("release risk details")));
+        assert!(crate::smart_lookup::run_for_window(&run_id, "another-window").is_err());
     }
 
     #[test]
@@ -1148,6 +1170,7 @@ mod tests {
             None,
             &counter,
             1,
+            &FusionParams::default(),
         )
         .unwrap();
 
@@ -1202,6 +1225,7 @@ mod tests {
             Some(4_000),
             &counter,
             1,
+            &FusionParams::default(),
         )
         .unwrap();
         assert!(shallow.deep_available);
@@ -1216,6 +1240,7 @@ mod tests {
             Some(4_000),
             &counter,
             1,
+            &FusionParams::default(),
         )
         .unwrap();
 
@@ -1255,6 +1280,7 @@ mod tests {
             Some(0),
             &counter,
             1,
+            &FusionParams::default(),
         )
         .unwrap();
 
@@ -1276,12 +1302,34 @@ mod tests {
             None,
             &counter,
             1,
+            &FusionParams::default(),
         );
         let error = match result {
             Ok(_) => panic!("a superseded batch must not return a response"),
             Err(error) => error,
         };
         assert_eq!(error, CANCELLED);
+    }
+
+    #[test]
+    fn fusion_params_set_arm_weights_and_the_rrf_constant() {
+        let fusion = FusionParams { rrf_k: 10.0, strict_weight: 2.0, relaxed_weight: 0.5 };
+        let plan = compile_query("release risk budget plan", &fusion);
+        assert!(plan.arms.len() > 1);
+        assert_eq!(plan.arms[0].weight, 2.0);
+        assert!(plan.arms[1..].iter().all(|arm| arm.weight == 0.5));
+        let mut fused = HashMap::new();
+        merge_arm(&mut fused, 0, &plan.arms[0], vec![hit("a.md", 1.0), hit("b.md", 1.0)], fusion.rrf_k);
+        merge_arm(&mut fused, 1, &plan.arms[1], vec![hit("b.md", 1.0)], fusion.rrf_k);
+        let result = finish_fusion(fused, &plan, std::path::Path::new("/vault"));
+        let score = |path: &str| result.iter().find(|h| h.hit.path == path).unwrap().fused_score;
+        assert_eq!(score("a.md"), 2.0 / 11.0);
+        assert_eq!(score("b.md"), 2.0 / 12.0 + 0.5 / 11.0);
+        // The defaults are the constants they replaced.
+        let default = compile("release risk budget plan");
+        assert_eq!(default.arms[0].weight, 1.5);
+        assert!(default.arms[1..].iter().all(|arm| arm.weight == 1.0));
+        assert_eq!(FusionParams::default().rrf_k, 60.0);
     }
 
     #[test]

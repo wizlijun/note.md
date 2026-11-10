@@ -4,11 +4,22 @@
 //! the phrase stripped and the window appended as `after:` / `before:`, once
 //! with the question untouched — and the two answers are concatenated: hits
 //! inside the window first, every other hit after them. Feasibility spec
-//! §5.2; plan Task 2. Only the evaluation calls this until the grouping
-//! pre-gate (spec §9.3) passes.
+//! §5.2; plan Task 2. On by default (`time.mode` = `group`); C2 of spec §9.3
+//! still measures it.
+
+use serde::{Deserialize, Serialize};
 
 use super::smart::SmartHitDto;
 use super::time_phrase::DetectedTime;
+
+/// How a detected time phrase is used: grouped (default), a hard window, or ignored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TimeMode {
+    Group,
+    Window,
+    Ignore,
+}
 
 /// The question with the first occurrence of the phrase removed, whitespace
 /// collapsed and trimmed, and ` after:YYYY-MM-DD before:YYYY-MM-DD` appended.

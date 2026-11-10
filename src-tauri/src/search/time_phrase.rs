@@ -14,7 +14,7 @@ use chrono::{Datelike, Days, Duration, Months, NaiveDate};
 /// One host-resolvable time phrase and the inclusive document-date window it
 /// names. `source_text` is the exact substring of the question.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct DetectedTime {
+pub(crate) struct DetectedTime {
     pub source_text: String,
     pub after: NaiveDate,
     pub before: NaiveDate,
