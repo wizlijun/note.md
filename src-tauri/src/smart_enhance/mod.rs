@@ -43,6 +43,9 @@ pub enum SkipReason {
     Repaired,
     NoCandidates,
     AutoBudgetUsed,
+    /// The index was busy (a rebuild), missing or for another vault, so
+    /// confidentiality could not be read and nothing was judged.
+    IndexUnavailable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

@@ -356,24 +356,24 @@ async fn judge_steps(
 type IndexAnswer = Option<(PathBuf, HashMap<String, String>)>;
 
 /// The map to judge with: the index's answer only when that index belongs to
-/// the run's vault. Anything else — no index, a busy one, another vault's —
-/// is an empty map, and an empty map sends nothing.
-fn scoped_confidentiality(answer: IndexAnswer, run_root: &Path) -> HashMap<String, String> {
+/// the run's vault. `None` — no index, a busy one, another vault's — means
+/// confidentiality is unknown and nothing may be judged.
+fn scoped_confidentiality(answer: IndexAnswer, run_root: &Path) -> Option<HashMap<String, String>> {
     match answer {
-        Some((index_root, found)) if std::fs::canonicalize(&index_root).is_ok_and(|root| root == run_root) => found,
-        _ => HashMap::new(),
+        Some((index_root, found)) if std::fs::canonicalize(&index_root).is_ok_and(|root| root == run_root) => Some(found),
+        _ => None,
     }
 }
 
 /// `files.confidentiality` for the pool's paths, keyed exactly like
 /// `CanonicalHit.path`. One query on a blocking thread under a `try_lock` of
 /// the index: a busy index (a rebuild holds it for minutes) is not waited
-/// for, it fails closed.
+/// for. `None` when the map is unavailable (see [`scoped_confidentiality`]).
 async fn pool_confidentiality(
     index: &IndexHandle,
     run: &LookupRun,
     display_order: &[String],
-) -> Result<HashMap<String, String>, String> {
+) -> Result<Option<HashMap<String, String>>, String> {
     let by_id: HashMap<&str, &str> = run.hits.iter().map(|h| (h.result_id.as_str(), h.path.as_str())).collect();
     let mut paths: Vec<String> = Vec::new();
     for id in display_order.iter().take(DEFAULT_LIMITS.pool) {
@@ -417,6 +417,10 @@ pub(crate) struct JudgeRequest<'a> {
 /// is valid (before touching the index), read confidentiality, claim the
 /// run's automatic request when `trigger` is `Auto`, judge, give the claim
 /// back when nothing was sent, and keep the judgement on the run.
+///
+/// When confidentiality cannot be read (busy, missing or other-vault index)
+/// it returns `Skipped` / `IndexUnavailable` at once: nothing is sent, no
+/// claim is taken, and nothing is counted as confidential.
 pub(crate) async fn judge_run(
     request: JudgeRequest<'_>,
     index: &IndexHandle,
@@ -428,7 +432,9 @@ pub(crate) async fn judge_run(
         return Err("lookup run belongs to another vault; run Smart Lookup again".to_string());
     }
     ordered_hits(&run, request.display_order, request.section_breaks)?;
-    let confidentiality = pool_confidentiality(index, &run, request.display_order).await?;
+    let Some(confidentiality) = pool_confidentiality(index, &run, request.display_order).await? else {
+        return Ok(JudgeResult { skip_reason: Some(SkipReason::IndexUnavailable), ..JudgeResult::default() });
+    };
     let claim = match request.trigger {
         Trigger::Auto => {
             let claim = claim_auto_request(&run.id, request.window_label)?;
@@ -992,11 +998,23 @@ mod tests {
         let (base, _request, accepted) = serve_once(200, answers(&[0.9; 4]), Duration::ZERO).await;
         let cfg = config(&base);
 
-        // Nothing to send (no index → empty map).
+        // Confidentiality unavailable (no index): no claim is left behind.
         let id = register(&f);
-        let empty = run_judge(&f, &id, &cfg, &ALL, Trigger::Auto, &no_index()).await.unwrap();
-        assert_eq!(empty.skip_reason, Some(SkipReason::NoCandidates));
+        let unavailable = run_judge(&f, &id, &cfg, &ALL, Trigger::Auto, &no_index()).await.unwrap();
+        assert_eq!(unavailable.skip_reason, Some(SkipReason::IndexUnavailable));
         assert_eq!(slot(&f, &id), (false, None));
+
+        // Nothing to send (every file confidential).
+        let mut secret = fixture("an automatic judge with only secrets");
+        for name in ["a", "b", "c", "d"] {
+            fs::write(secret.run.root.join(format!("{name}.md")), "---\nprivate: true\n---\nsecret\n").unwrap();
+        }
+        secret.run.window_label = f.run.window_label.clone();
+        let (_secret_db, secret_index) = index_for(&secret.run.root);
+        let secret_id = register(&secret);
+        let none = run_judge(&secret, &secret_id, &cfg, &ALL, Trigger::Auto, &secret_index).await.unwrap();
+        assert_eq!((none.skip_reason, none.skipped_confidential), (Some(SkipReason::NoCandidates), 4));
+        assert_eq!(slot(&secret, &secret_id), (false, None));
 
         // Gated.
         let gated = JevRequestConfig { consent_host: "other.example".into(), ..cfg.clone() };
@@ -1042,7 +1060,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn another_vaults_index_a_missing_index_or_a_busy_index_sends_nothing() {
+    async fn another_vaults_index_a_missing_index_or_a_busy_index_is_unavailable_and_sends_nothing() {
         let f = fixture("another vault's index");
         // Same file names, another vault: the paths would match, the root does not.
         let other = fixture("the other vault");
@@ -1051,17 +1069,20 @@ mod tests {
         let cfg = config(&base);
         let id = register(&f);
 
+        let unavailable = |r: &JudgeResult| {
+            assert_eq!((r.status, r.skip_reason), (EnhanceStatus::Skipped, Some(SkipReason::IndexUnavailable)));
+            assert_eq!((r.skipped_confidential, r.sent_blocks, r.request_count, r.pool_size), (0, 0, 0, 0));
+            assert!(r.order.is_empty() && r.verdicts.is_empty());
+        };
         for index in [other_index, no_index()] {
-            let r = run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap();
-            assert_eq!((r.status, r.skip_reason, r.sent_blocks), (EnhanceStatus::Skipped, Some(SkipReason::NoCandidates), 0));
+            unavailable(&run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap());
         }
 
         // Busy: another holder has the lock (as a rebuild does); not waited for.
         let (_db, index) = index_for(&f.run.root);
         let held = index.lock().unwrap();
         let started = Instant::now();
-        let busy = run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap();
-        assert_eq!(busy.skip_reason, Some(SkipReason::NoCandidates));
+        unavailable(&run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap());
         assert!(started.elapsed() < Duration::from_secs(1));
         // A bad order is refused before the index is looked at.
         assert_eq!(
@@ -1072,7 +1093,23 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(accepted.load(SeqCst), 0);
-        assert_eq!(scoped_confidentiality(None, &f.run.root), HashMap::new());
+        assert_eq!(scoped_confidentiality(None, &f.run.root), None);
+        assert_eq!(serde_json::to_string(&SkipReason::IndexUnavailable).unwrap(), "\"indexUnavailable\"");
+    }
+
+    #[tokio::test]
+    async fn a_confidential_file_in_the_index_is_still_counted_as_confidential() {
+        let f = fixture("a confidential file in the index");
+        fs::write(f.run.root.join("b.md"), "---\nprivate: true\n---\nB_SECRET beta\n").unwrap();
+        let (_db, index) = index_for(&f.run.root);
+        let (base, request, accepted) = serve_once(200, answers(&[0.9, 0.5, 0.1]), Duration::ZERO).await;
+        let id = register(&f);
+        let r = run_judge(&f, &id, &config(&base), &ALL, Trigger::User, &index).await.unwrap();
+        assert_eq!(r.status, EnhanceStatus::Ok);
+        assert_eq!((r.skipped_confidential, r.sent_blocks, r.request_count), (1, 3, 1));
+        let request = request.await.unwrap();
+        assert!(!request.contains("b_secret") && request.contains("a_body"), "{request}");
+        assert_eq!(accepted.load(SeqCst), 1);
     }
 
     #[tokio::test]
