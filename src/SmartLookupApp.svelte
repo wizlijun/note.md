@@ -316,6 +316,7 @@
     lookupBusy = true
     if (deep) appendActivity('search', 'active', t('smartSearch.activityDeepStart'))
     const limit = settings.smartLookup.results.limit
+    let broaden = false
     try {
       const result = await smartSearchApi.localLookup(submitted, deep
         ? { limit, deep: true, timeoutMs: settings.smartLookup.results.deepTimeoutMs }
@@ -331,6 +332,7 @@
         result.search.truncated ? 'warning' : 'success',
         t(result.search.truncated ? 'smartSearch.activitySearchPartial' : 'smartSearch.activitySearchDone', { n, docs }),
       )
+      broaden = !deep && n === 0 && settings.smartLookup.results.autoDeepOnZero
     } catch (error) {
       if (mine !== requestSequence) return
       const message = redactError(error)
@@ -340,6 +342,8 @@
     } finally {
       if (mine === requestSequence) lookupBusy = false
     }
+    // "Search more broadly when nothing is found": one deep lookup, only for a current Enter.
+    if (broaden && mine === requestSequence) await lookup(true)
   }
 
   // ---- quick answer ----

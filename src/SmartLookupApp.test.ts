@@ -416,6 +416,43 @@ describe('SmartLookupApp', () => {
     expect(agentCommands('run-task')).toHaveLength(0)
   })
 
+  it('searches more broadly once when Enter finds nothing and the setting is on', async () => {
+    mocks.preview = 'empty'
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = { results: { autoDeepOnZero: true } }
+    const input = await mountReady()
+    await submit(input, 'release risk', 3)
+
+    const lookups = calls('smart_lookup_local')
+    expect(lookups).toHaveLength(2)
+    expect(lookups[0][1]).toEqual(expect.objectContaining({ question: 'release risk', deep: false }))
+    expect(lookups[1][1]).toEqual(expect.objectContaining({
+      question: 'release risk', deep: true, timeoutMs: 4000,
+    }))
+    await wait(50)
+    expect(calls('smart_lookup_local')).toHaveLength(2)
+    expect(agentCommands('run-task')).toHaveLength(0)
+  })
+
+  it('does not search more broadly on its own when the setting is off', async () => {
+    mocks.preview = 'empty'
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = { results: { autoDeepOnZero: false } }
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await wait(50)
+    expect(calls('smart_lookup_local')).toHaveLength(1)
+    expect(document.body.textContent).toContain('No matches')
+  })
+
+  it('does not search more broadly when Enter finds results', async () => {
+    mocks.storedSmartLookup = { results: { autoDeepOnZero: true } }
+    const input = await mountReady()
+    await submit(input)
+    await wait(50)
+    expect(calls('smart_lookup_local')).toHaveLength(1)
+  })
+
   it('summary runs only on click and renders validated output', async () => {
     const input = await mountReady()
     await submit(input)
