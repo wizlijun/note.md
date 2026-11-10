@@ -832,6 +832,8 @@ export const ja: Record<keyof Messages, string> = {
   'smartSearch.agentTimeout': '通常より時間がかかっています。再試行するか、設定で制限時間を調整してください。',
   'smartSearch.agentIncomplete': '質問を読み取れませんでした。別の言い方でお試しください。',
   'smartSearch.moreActions': 'その他の操作',
+  'smartSearch.localResults': 'ローカル結果',
+  'smartSearch.copyActivity': 'アクティビティログをコピー',
 
   // Search & index settings tab
   'search.index.noVault': 'vault を開くと検索インデックスの状態が表示されます。',

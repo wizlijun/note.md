@@ -872,6 +872,8 @@ export const zh: Record<keyof Messages, string> = {
   'smartSearch.agentTimeout': '等待时间较长，请重试或在设置中调整等待时间。',
   'smartSearch.agentIncomplete': '未能理解这次问题，请换一种说法重试。',
   'smartSearch.moreActions': '更多操作',
+  'smartSearch.localResults': '本地结果',
+  'smartSearch.copyActivity': '复制活动记录',
 
   // Search & index settings tab
   'search.index.noVault': '打开一个 vault 后即可查看搜索索引状态。',

@@ -831,6 +831,8 @@ export const de: Record<keyof Messages, string> = {
   'smartSearch.agentTimeout': 'Dies dauert länger als erwartet. Versuche es erneut oder passe das Zeitlimit in den Einstellungen an.',
   'smartSearch.agentIncomplete': 'Die Frage konnte nicht verstanden werden. Versuche, sie anders zu formulieren.',
   'smartSearch.moreActions': 'Weitere Aktionen',
+  'smartSearch.localResults': 'Lokale Ergebnisse',
+  'smartSearch.copyActivity': 'Aktivitätsprotokoll kopieren',
 
   // Search & index settings tab
   'search.index.noVault': 'Öffne einen Vault, um den Status des Suchindex zu sehen.',

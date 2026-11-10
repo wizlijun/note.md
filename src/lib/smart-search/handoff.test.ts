@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SearchHit } from '../search/api'
-import type { ResolvedSearchPlan } from './plan'
-import { buildHandoffPacket, buildHandoffPrompt } from './handoff'
+import { buildHandoffPacket, buildHandoffPrompt, type HandoffSearchHints } from './handoff'
 
 function hit(path: string, line = 3): SearchHit {
   return {
@@ -35,7 +34,7 @@ describe('smart lookup handoff', () => {
       lockedFilters: {},
       sort: 'relevance',
       time: null,
-    } as unknown as ResolvedSearchPlan
+    } as unknown as HandoffSearchHints
     const packet = buildHandoffPacket('研究延期', plan, [hit('notes/a.md')])
     const encoded = JSON.stringify(packet)
     expect(packet.queryTerms).toEqual(['safe'])
@@ -56,7 +55,7 @@ describe('smart lookup handoff', () => {
         appliesTo: 'document_date', sourceText: '估算今年',
         after: '2026-01-01', before: '2026-12-31',
       },
-    } as unknown as ResolvedSearchPlan
+    } as unknown as HandoffSearchHints
     const packet = buildHandoffPacket('找发布决定', plan, [hit('notes/a.md')])
     expect(packet.resolvedFilters).toMatchObject({
       after: '2026-07-01',
@@ -71,7 +70,7 @@ describe('smart lookup handoff', () => {
         phrases: [], filters: {},
       }],
       lockedFilters: {}, sort: 'relevance', time: null,
-    } as unknown as ResolvedSearchPlan
+    } as unknown as HandoffSearchHints
     const packet = buildHandoffPacket('问'.repeat(2_000), plan, Array.from(
       { length: 20 }, (_, index) => hit(`notes/${index}.md`),
     ))

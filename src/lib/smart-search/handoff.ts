@@ -1,5 +1,15 @@
 import type { SearchHit } from '../search/api'
-import type { ResolvedSearchPlan } from './plan'
+
+/** The parts of a resolved search scope a handoff may carry as hints. */
+export interface HandoffSearchHints {
+  queries: Array<{
+    terms: string[]
+    phrases: string[]
+    filters: Record<string, unknown>
+  }>
+  time?: { after: string | null; before: string | null } | null
+  sort?: string
+}
 
 export interface HandoffRef {
   path: string
@@ -51,7 +61,7 @@ function safeFilterValue(value: unknown, depth = 0): unknown {
 
 export function buildHandoffPacket(
   question: string,
-  plan: ResolvedSearchPlan | null,
+  plan: HandoffSearchHints | null,
   hits: SearchHit[],
 ): HandoffPacket {
   const selectedRefs = hits

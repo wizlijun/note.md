@@ -1,36 +1,27 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { PlannedSearchResponse } from './plan'
+import type { SmartSearchResponse } from '../search/api'
 import type { SummaryTaskStart } from './summary'
 import type { SummaryStyle } from './settings'
 import type { ModelSelector } from './model-routing'
 import type { HandoffPacket } from './handoff'
 import type { AgentTaskStart } from './agent'
 
+export interface LocalLookupResponse {
+  search: SmartSearchResponse
+  /** Host-retained run that summary and handoff are started from. */
+  lookupRunId: string
+}
+
 export const smartSearchApi = {
-  planContext: (originalQuery: string, referenceTime: string, timezone: string) => invoke<{
-    lockedFilters: Record<string, unknown>
-    referenceDate: string
-    timeAnchors: Record<string, { after: string; before: string }>
-  }>(
-    'notemd_search_plan_context', { originalQuery, referenceTime, timezone },
-  ),
-  plannedSearch: (
-    originalQuery: string,
-    plan: unknown,
-    referenceTime: string,
-    timezone: string,
-    options: {
-      limit?: number
-      deep?: boolean
-      timeoutMs?: number
-      retainRun?: boolean
-    } = {},
-  ) => invoke<PlannedSearchResponse>('notemd_planned_search', {
-    originalQuery,
-    plan,
-    referenceTime,
-    timezone,
-    ...options,
+  /** Enter: local results plus a retained lookup run; never starts a model. */
+  localLookup: (
+    question: string,
+    options: { limit?: number; deep?: boolean; timeoutMs?: number } = {},
+  ) => invoke<LocalLookupResponse>('smart_lookup_local', {
+    question,
+    limit: options.limit,
+    deep: options.deep,
+    timeoutMs: options.timeoutMs,
   }),
   startSummary: (
     lookupRunId: string,

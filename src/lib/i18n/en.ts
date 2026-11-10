@@ -839,6 +839,8 @@ export const en = {
   'smartSearch.agentTimeout': 'This is taking longer than expected. Try again or adjust the time limit in settings.',
   'smartSearch.agentIncomplete': 'Your question could not be understood. Try asking it another way.',
   'smartSearch.moreActions': 'More actions',
+  'smartSearch.localResults': 'Local results',
+  'smartSearch.copyActivity': 'Copy activity log',
 
   // Search & index settings tab
   'search.index.noVault': 'Open a vault to see its search index status.',
