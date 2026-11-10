@@ -25,6 +25,15 @@ function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?
   writeFileSync(join(repo, 'src-tauri/Cargo.toml'), `[package]\nname="fixture"\nversion = "${version}"\n`)
   writeFileSync(join(repo, '.env.private'), 'fixture-secret'); writeFileSync(join(repo, 'credentials.json'), 'fixture-secret')
   writeFileSync(join(core, 'dist/index.js'), 'tracked-core'); writeFileSync(join(core, '.env'), 'fixture-secret')
+  const archiveSources = { mdeditor: ['src-tauri/src/sumi/credentials.rs', 'src-tauri/src/sumi/credentials_linux.rs'], 'moraya-core': ['src/credentials.rs'] }
+  const secretPaths = ['credentials', 'secrets/credentials.local', 'secrets/credentials [prod].json', 'credentials-store/credentials.rs', '.ssh/id_test', '.aws/config', 'private/signing.key', 'private/.env.local']
+  for (const [name, sources] of Object.entries(archiveSources)) {
+    const tree = name === 'mdeditor' ? repo : core
+    for (const file of [...sources, ...secretPaths]) {
+      mkdirSync(join(tree, file, '..'), { recursive: true })
+      writeFileSync(join(tree, file), sources.includes(file) ? '// tracked credential source\n' : 'fixture-secret')
+    }
+  }
   init(repo); git(repo, 'tag', tag); init(core)
   const remoteCommit = options.remoteMismatch ? '0'.repeat(40) : git(repo, 'rev-parse', 'HEAD')
   executable(join(bin, 'gh'), `#!/usr/bin/env node
@@ -35,7 +44,14 @@ else if(!a.includes('upload'))process.exit(5);
 `)
   executable(join(bin, 'docker'), `#!/usr/bin/env node
 const fs=require('fs'),p=require('path'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['docker',...a])+'\\n');
-if(a[0]==='build'){const ctx=a.at(-1);if(fs.existsSync(p.join(ctx,'.env.private'))||fs.existsSync(p.join(ctx,'credentials.json')))process.exit(31);}
+if(a[0]==='build'){
+ const ctx=a.at(-1);if(fs.existsSync(p.join(ctx,'.env.private'))||fs.existsSync(p.join(ctx,'credentials.json')))process.exit(31);
+ const archives={};for(const[name,sources]of Object.entries(${JSON.stringify(archiveSources)})){
+  const tree=p.join(p.dirname(ctx),name);
+  archives[name]={sources:sources.map(file=>fs.existsSync(p.join(tree,file))?fs.readFileSync(p.join(tree,file),'utf8'):null),secrets:${JSON.stringify(secretPaths)}.filter(file=>fs.existsSync(p.join(tree,file)))};
+ }
+ fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['archive',JSON.stringify(archives)])+'\\n');
+}
 if(a.includes('/verify.sh')) {if(${JSON.stringify(options.fail)}==='verify')process.exit(23);}
 else if(a[0]==='run') {if(${JSON.stringify(options.fail)}==='build')process.exit(22);let out;for(let i=0;i<a.length;i++)if(a[i]==='--mount'&&a[i+1].includes('dst=/output'))out=a[i+1].match(/src=([^,]+)/)[1];if(!out)process.exit(32);const arch=a[a.indexOf('--platform')+1].endsWith('amd64')?'amd64':'arm64';fs.writeFileSync(p.join(out,'note.md_${version}_'+arch+'.deb'),'fixture '+arch);}
 `)
@@ -55,6 +71,18 @@ describe('Linux release orchestration (fake remote/build boundary)', () => {
       expect(install.split(/\s+/)).toContain(dependency)
     }
   })
+  it('keeps tracked Rust credential modules in real git archives while excluding credential secrets and directories', () => {
+    const h = linuxHarness(), result = h.run()
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const archives = calls(h.log).filter(c => c[0] === 'archive').map(c => JSON.parse(c[1]))
+    expect(archives).toHaveLength(2)
+    for (const archive of archives) {
+      expect(archive).toEqual({
+        mdeditor: { sources: ['// tracked credential source\n', '// tracked credential source\n'], secrets: [] },
+        'moraya-core': { sources: ['// tracked credential source\n'], secrets: [] },
+      })
+    }
+  }, 20_000)
   it('builds immutable read-only sources with per-architecture caches and uploads only after both verifiers', () => {
     const h = linuxHarness(), result = h.run()
     expect(result.status, result.stdout + result.stderr).toBe(0)

@@ -43,14 +43,26 @@ NODE
 # git archive freezes only committed content. Exclusions apply at every depth,
 # before any container/context mount; host worktree caches and credentials never enter.
 archive_source() {
-  local source=$1 commit=$2 destination=$3 pattern
+  local source=$1 commit=$2 destination=$3 pattern path
   local excludes=()
   for pattern in '.env*' '.git' 'node_modules' 'target' '.pnpm-store' '.cache' \
     '.superpowers' '.worktrees' '.wrangler' '.dev.vars*' '.npmrc' '.netrc' \
-    '.ssh' '.aws' '.gnupg' 'credentials*' '*.p8' '*.p12' '*.pem' '*.key'; do
+    '.ssh' '.aws' '.gnupg' '*.p8' '*.p12' '*.pem' '*.key'; do
     excludes+=(":(exclude,glob)**/$pattern" ":(exclude,glob)**/$pattern/**")
   done
+  # Rust credential adapters are source, not secret files. Keep the broad
+  # credential-directory exclusion and exclude every other matching file by
+  # its literal path in the frozen tree, including extensionless/local configs.
+  excludes+=(':(exclude,glob)**/credentials*/**')
   mkdir -p "$destination"
+  git -C "$source" ls-tree -r --name-only -z "$commit" > "$destination.paths"
+  while IFS= read -r -d '' path; do
+    case "${path##*/}" in
+      credentials*.rs) ;;
+      credentials*) excludes+=(":(exclude,literal)$path") ;;
+    esac
+  done < "$destination.paths"
+  rm "$destination.paths"
   git -C "$source" archive "$commit" -- . "${excludes[@]}" | tar -x -C "$destination"
 }
 INPUT="$TMP/input"
