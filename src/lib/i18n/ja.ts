@@ -729,6 +729,7 @@ export const ja: Record<keyof Messages, string> = {
   'smartSearch.activityHandoffStart': '詳しい調査を開始しています',
   'smartSearch.activityHandoffDone': '調査を開始しました',
   'smartSearch.handoffFailed': '調査を開始できませんでした。もう一度お試しください。',
+  'smartSearch.handoffAgentUnavailable': '使える調査アシスタントがありません。「設定 › 検索とインデックス」で選択してください。',
   'smartSearch.returnedCount': '{n} 件の結果',
   'smartSearch.partialResults': '{n} 件を表示しています。他にも結果がある可能性があります。',
   'smartSearch.expandSearch': '検索を拡張',

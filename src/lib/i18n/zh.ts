@@ -769,6 +769,7 @@ export const zh: Record<keyof Messages, string> = {
   'smartSearch.activityHandoffStart': '正在启动深入研究',
   'smartSearch.activityHandoffDone': '研究已启动',
   'smartSearch.handoffFailed': '暂时无法启动研究，请重试。',
+  'smartSearch.handoffAgentUnavailable': '暂无可用的研究助手，请在「设置 › 搜索与索引」中选择。',
   'smartSearch.returnedCount': '{n} 条结果',
   'smartSearch.partialResults': '已显示 {n} 条结果，可能还有更多。',
   'smartSearch.expandSearch': '扩大查找',

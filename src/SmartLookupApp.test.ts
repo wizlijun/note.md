@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   statusResults: [] as AgentStatus[],
   summaryStartError: null as string | null,
   agentsError: false,
+  secondAgent: false,
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
@@ -101,9 +102,9 @@ function searchResponse(kind: 'normal' | 'empty' | 'single'): SmartSearchRespons
   }
 }
 
-function harnessStatus() {
+function harnessStatus(harness = 'Test Harness') {
   return {
-    harness: 'Test Harness', ok: true, default_model: 'test-model',
+    harness, ok: true, default_model: 'test-model',
     capabilities: {
       tasks: ['search-summary', 'vault-research'],
       search_plan_schemas: [1],
@@ -124,10 +125,15 @@ function installInvokeMock(): void {
   mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
     if (command === 'get_plugin_manifests') {
       if (mocks.agentsError) throw new Error('plugins unavailable')
-      return [{ id: 'notemd.test-agent', name: 'Test Agent', agent_provider: true }]
+      return [
+        { id: 'notemd.test-agent', name: 'Test Agent', agent_provider: true },
+        ...(mocks.secondAgent ? [{ id: 'notemd.other-agent', name: 'Other Agent', agent_provider: true }] : []),
+      ]
     }
     if (command === 'plugin_v2_execute') {
-      if (args?.command === 'harness-status') return harnessStatus()
+      if (args?.command === 'harness-status') {
+        return harnessStatus(args?.pluginId === 'notemd.other-agent' ? 'Other Harness' : 'Test Harness')
+      }
       if (args?.command === 'run-cancel') return { state: 'cancelling' }
       if (args?.command === 'run-task') return { run_id: 'unexpected-run', resolved_model: 'test-fast' }
       if (args?.command === 'run-status') {
@@ -252,6 +258,7 @@ beforeEach(() => {
   mocks.statusResults.length = 0
   mocks.summaryStartError = null
   mocks.agentsError = false
+  mocks.secondAgent = false
   installInvokeMock()
 })
 
@@ -469,7 +476,7 @@ describe('SmartLookupApp', () => {
     const input = await mountReady()
     await submit(input, 'release risk', 2)
 
-    await chooseMenuAction('In-depth research')
+    await chooseMenuAction('In-depth research · Test Harness')
     await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
     const handoff = calls('smart_lookup_start_handoff')[0][1]
     expect(handoff?.question).toBe('release risk')
@@ -491,9 +498,39 @@ describe('SmartLookupApp', () => {
     mocks.storedSmartLookup = { handoff: { includeSelectedRefs: false } }
     const input = await mountReady()
     await submit(input)
-    await chooseMenuAction('In-depth research')
+    await chooseMenuAction('In-depth research · Test Harness')
     await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
     expect(calls('smart_lookup_start_handoff')[0][1]?.selectedRefs).toEqual([])
+  })
+
+  it('"Ask every time" offers one research row per capable agent and starts nothing until one is chosen', async () => {
+    mocks.secondAgent = true
+    const input = await mountReady()
+    await submit(input)
+    await openMenu()
+    await vi.waitFor(() => expect(document.querySelectorAll('.actions-menu .handoff-action')).toHaveLength(2))
+    const labels = Array.from(document.querySelectorAll('.actions-menu .handoff-action')).map((row) => row.textContent?.trim())
+    expect(labels).toEqual(['In-depth research · Test Harness', 'In-depth research · Other Harness'])
+    expect(calls('smart_lookup_start_handoff')).toHaveLength(0)
+
+    await chooseMenuAction('In-depth research · Other Harness')
+    await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
+    expect(calls('smart_lookup_start_handoff')[0][1]?.provider).toBe('notemd.other-agent')
+  })
+
+  it('an explicitly configured research agent is the only row and is named', async () => {
+    mocks.secondAgent = true
+    mocks.storedSmartLookup = { handoff: { defaultProvider: 'notemd.other-agent' } }
+    const input = await mountReady()
+    await submit(input)
+    await openMenu()
+    await vi.waitFor(() => expect(document.querySelectorAll('.actions-menu .handoff-action')).toHaveLength(1))
+    expect(document.querySelector('.actions-menu .handoff-action')?.textContent?.trim())
+      .toBe('In-depth research · Other Harness')
+    expect(document.querySelector('.handoff-hint')).toBeNull()
+    await chooseMenuAction('In-depth research · Other Harness')
+    await vi.waitFor(() => expect(calls('smart_lookup_start_handoff')).toHaveLength(1))
+    expect(calls('smart_lookup_start_handoff')[0][1]?.provider).toBe('notemd.other-agent')
   })
 
   it('copy activity log includes elapsed time', async () => {
@@ -542,7 +579,9 @@ describe('SmartLookupApp', () => {
     await openMenu()
     expect(menuItem('Create answer').disabled).toBe(true)
     expect(menuItem('In-depth research').disabled).toBe(true)
+    expect(document.querySelectorAll('.actions-menu .handoff-action')).toHaveLength(1)
     expect(document.querySelector('.menu-hint')?.textContent).toContain('No AI service is available for quick answers')
+    expect(document.querySelector('.handoff-hint')?.textContent).toContain('No research assistant is available')
     expect(calls('smart_lookup_start_summary')).toHaveLength(0)
     expect(calls('smart_lookup_start_handoff')).toHaveLength(0)
   })

@@ -4,7 +4,8 @@ import type { SearchHit } from '../search/api'
 import { SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK } from './agent'
 import {
   dateSections,
-  HANDOFF_DEFAULT_CHOICES,
+  HANDOFF_ASK,
+  handoffChoices,
   hasSummarySource,
   hitReference,
   pickTaskAgent,
@@ -49,12 +50,10 @@ describe('pickTaskAgent', () => {
   it('uses an explicitly configured agent that supports the task', () => {
     expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.summary-only', 'notemd.other', SUMMARY_DEFAULT_CHOICES)?.id)
       .toBe('notemd.summary-only')
-    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.other', 'notemd.claude-agent', HANDOFF_DEFAULT_CHOICES)?.id)
-      .toBe('notemd.other')
   })
 
   it('never substitutes another agent for an explicit agent that cannot run the task', () => {
-    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.summary-only', 'notemd.other', HANDOFF_DEFAULT_CHOICES))
+    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.summary-only', 'notemd.other', SUMMARY_DEFAULT_CHOICES))
       .toBeNull()
     // A failed harness-status leaves the agent listed but incapable.
     expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.broken', 'notemd.other', SUMMARY_DEFAULT_CHOICES))
@@ -64,16 +63,35 @@ describe('pickTaskAgent', () => {
   it('returns null for an explicit agent id that is not installed', () => {
     expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.removed', 'notemd.other', SUMMARY_DEFAULT_CHOICES))
       .toBeNull()
-    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.removed', 'notemd.other', HANDOFF_DEFAULT_CHOICES))
-      .toBeNull()
   })
 
   it('resolves reserved values to app default, then Claude, then the first capable agent', () => {
     expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'auto', 'notemd.other', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.other')
     expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'auto', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
     expect(pickTaskAgent([summary, other], SEARCH_SUMMARY_TASK, 'auto', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.summary-only')
-    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'ask', 'notemd.broken', HANDOFF_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
-    expect(pickTaskAgent([summary], VAULT_RESEARCH_TASK, 'ask', '', HANDOFF_DEFAULT_CHOICES)).toBeNull()
+  })
+})
+
+describe('handoffChoices', () => {
+  const summary = agent('notemd.summary-only', [SEARCH_SUMMARY_TASK])
+  const claude = agent('notemd.claude-agent', [SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK])
+  const other = agent('notemd.other', [SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK])
+  const broken: AgentOption = { ...agent('notemd.broken', [SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK]), harness: null }
+  const agents = [summary, other, claude, broken]
+
+  it('"ask every time" offers every capable agent and picks none', () => {
+    expect(handoffChoices(agents, HANDOFF_ASK)).toEqual({ agents: [other, claude], unavailable: false })
+    expect(handoffChoices([summary, broken], HANDOFF_ASK)).toEqual({ agents: [], unavailable: true })
+  })
+
+  it('an explicit agent is the only choice', () => {
+    expect(handoffChoices(agents, 'notemd.claude-agent')).toEqual({ agents: [claude], unavailable: false })
+  })
+
+  it('an explicit agent that is missing or cannot research is never replaced', () => {
+    expect(handoffChoices(agents, 'notemd.removed')).toEqual({ agents: [], unavailable: true })
+    expect(handoffChoices(agents, 'notemd.summary-only')).toEqual({ agents: [], unavailable: true })
+    expect(handoffChoices(agents, 'notemd.broken')).toEqual({ agents: [], unavailable: true })
   })
 })
 

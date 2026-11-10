@@ -736,6 +736,7 @@ export const en = {
   'smartSearch.activityHandoffStart': 'Starting in-depth research',
   'smartSearch.activityHandoffDone': 'Research started',
   'smartSearch.handoffFailed': 'Could not start research. Please try again.',
+  'smartSearch.handoffAgentUnavailable': 'No research assistant is available. Choose one in Settings › Search & Index.',
   'smartSearch.returnedCount': '{n} results',
   'smartSearch.partialResults': 'Showing {n} results. More may be available.',
   'smartSearch.expandSearch': 'Expand search',

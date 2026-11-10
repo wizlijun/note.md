@@ -22,14 +22,13 @@
     loadSearchAgentOptions,
     pollAgentTask,
     SEARCH_SUMMARY_TASK,
-    VAULT_RESEARCH_TASK,
   } from './lib/smart-search/agent'
   import { smartSearchApi } from './lib/smart-search/api'
   import { buildHandoffPacket } from './lib/smart-search/handoff'
   import { hitKey } from './lib/smart-search/hit-key'
   import {
     dateSections,
-    HANDOFF_DEFAULT_CHOICES,
+    handoffChoices,
     hasSummarySource,
     hitReference,
     pickTaskAgent,
@@ -112,10 +111,7 @@
     agents, SEARCH_SUMMARY_TASK, settings.smartLookup.summary.provider, appDefaultAgent,
     SUMMARY_DEFAULT_CHOICES,
   ))
-  let handoffAgent = $derived(pickTaskAgent(
-    agents, VAULT_RESEARCH_TASK, settings.smartLookup.handoff.defaultProvider, appDefaultAgent,
-    HANDOFF_DEFAULT_CHOICES,
-  ))
+  let handoff = $derived(handoffChoices(agents, settings.smartLookup.handoff.defaultProvider))
   let summaryReady = $derived(settings.smartLookup.summary.enabled
     && Boolean(lookupRunId) && Boolean(summaryAgent) && hasSummarySource(orderedHits))
   /** Why the quick answer is unavailable; empty when it is available or switched off in settings. */
@@ -127,7 +123,7 @@
   )
   let canSummarize = $derived(summaryReady && !summaryBusy && !lookupBusy)
   let canExpand = $derived(Boolean(lookupRunId) && (store.hits.length === 0 || store.deepAvailable))
-  let canHandoff = $derived(Boolean(handoffAgent) && Boolean(question || inputValue.trim()) && !handoffBusy)
+  let canHandoff = $derived(Boolean(question || inputValue.trim()) && !handoffBusy)
   let working = $derived(lookupBusy || summaryBusy || handoffBusy || store.loading)
   let activityText = $derived(
     lookupBusy || store.loading ? t('smartSearch.searching')
@@ -425,10 +421,9 @@
 
   // ---- handoff ----
 
-  async function startHandoff(): Promise<void> {
-    const agent = handoffAgent
+  async function startHandoff(agent: AgentOption): Promise<void> {
     const submitted = question || inputValue.trim()
-    if (!agent || !submitted || handoffBusy) return
+    if (!submitted || handoffBusy) return
     const mine = requestSequence
     handoffBusy = true
     handoffRun = null
@@ -462,6 +457,10 @@
   }
 
   // ---- results ----
+
+  function agentLabel(agent: AgentOption): string {
+    return agent.harness?.harness || agent.name
+  }
 
   function groupLabel(group: HitGroup): string {
     switch (group.kind) {
@@ -714,20 +713,32 @@
                     aria-describedby={summaryHint ? 'summary-hint' : undefined}
                     onclick={() => menuAction(generateSummary)}
                   >{t('smartSearch.generateSummary')}</button>
-                  <button
-                    class="menu-row handoff-action"
-                    role="menuitem"
-                    tabindex="-1"
-                    disabled={!canHandoff}
-                    title={handoffAgent ? (handoffAgent.harness?.harness || handoffAgent.name) : undefined}
-                    onclick={() => menuAction(startHandoff)}
-                  >{t('smartSearch.handoff')}</button>
+                  {#each handoff.agents as agent (agent.id)}
+                    <button
+                      class="menu-row handoff-action"
+                      role="menuitem"
+                      tabindex="-1"
+                      disabled={!canHandoff}
+                      onclick={() => menuAction(() => startHandoff(agent))}
+                    >{t('smartSearch.handoff')} · {agentLabel(agent)}</button>
+                  {:else}
+                    <button
+                      class="menu-row handoff-action"
+                      role="menuitem"
+                      tabindex="-1"
+                      disabled
+                      aria-describedby="handoff-hint"
+                    >{t('smartSearch.handoff')}</button>
+                  {/each}
                   {#if activity.length}
                     <button class="menu-row" role="menuitem" tabindex="-1" onclick={() => menuAction(() => copyText(formatWorkflowLog(activity)))}>{t('smartSearch.copyActivity')}</button>
                   {/if}
                 </div>
                 {#if summaryHint}
                   <p id="summary-hint" class="menu-hint">{summaryHint}</p>
+                {/if}
+                {#if handoff.unavailable}
+                  <p id="handoff-hint" class="menu-hint handoff-hint">{t('smartSearch.handoffAgentUnavailable')}</p>
                 {/if}
               </div>
             {/if}

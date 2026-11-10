@@ -728,6 +728,7 @@ export const de: Record<keyof Messages, string> = {
   'smartSearch.activityHandoffStart': 'Vertiefte Recherche wird gestartet',
   'smartSearch.activityHandoffDone': 'Recherche gestartet',
   'smartSearch.handoffFailed': 'Die Recherche konnte nicht gestartet werden. Bitte versuche es erneut.',
+  'smartSearch.handoffAgentUnavailable': 'Kein Rechercheassistent verfügbar. Wähle einen unter Einstellungen › Suche & Index.',
   'smartSearch.returnedCount': '{n} Ergebnisse',
   'smartSearch.partialResults': '{n} Ergebnisse werden angezeigt. Weitere können vorhanden sein.',
   'smartSearch.expandSearch': 'Suche erweitern',
