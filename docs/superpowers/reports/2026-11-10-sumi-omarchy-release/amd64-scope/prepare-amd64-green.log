@@ -1,0 +1,14 @@
+test_amd64_mode_rejects_extra_checksum_and_tampering (test_prepare.PrepareTests.test_amd64_mode_rejects_extra_checksum_and_tampering) ... ok
+test_checksum_of_html_is_not_a_deb (test_prepare.PrepareTests.test_checksum_of_html_is_not_a_deb) ... ok
+test_default_still_requires_both_architectures (test_prepare.PrepareTests.test_default_still_requires_both_architectures) ... ok
+test_exact_checksums_and_deterministic_recipe (test_prepare.PrepareTests.test_exact_checksums_and_deterministic_recipe) ... ok
+test_explicit_amd64_release_emits_only_x86_recipe (test_prepare.PrepareTests.test_explicit_amd64_release_emits_only_x86_recipe) ... ok
+test_invalid_version_rejected_before_io (test_prepare.PrepareTests.test_invalid_version_rejected_before_io) ... ok
+test_missing_duplicate_or_extra_checksum_rejected (test_prepare.PrepareTests.test_missing_duplicate_or_extra_checksum_rejected) ... ok
+test_tampered_download_creates_no_recipe (test_prepare.PrepareTests.test_tampered_download_creates_no_recipe) ... ok
+test_unpublished_release_missing_arch_or_wrong_tag_rejected (test_prepare.PrepareTests.test_unpublished_release_missing_arch_or_wrong_tag_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.024s
+
+OK

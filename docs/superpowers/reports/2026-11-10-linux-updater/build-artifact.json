@@ -1,0 +1,12 @@
+{
+  "tag": "v6.1110.3",
+  "commit": "a64353c72ffe930de5ff90923b457e1d15360bef",
+  "core_commit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "build_command": "CARGO_BUILD_JOBS=2 bash scripts/release-linux.sh v6.1110.3 --amd64-only",
+  "source_output": "/tmp/tmp.Reqjq7fK5a/output/amd64/note.md_6.1110.3_amd64.deb",
+  "preserved": "/home/bruce/git/note.md/tasks/linux-updater-fix/assets/note.md_6.1110.3_amd64.deb",
+  "sha256": "e9945737d9dae0155fb46fe1a30f93450652f212f1877f600abcf8fef8a8fd29",
+  "size": 15848120,
+  "public": false,
+  "installed": false
+}

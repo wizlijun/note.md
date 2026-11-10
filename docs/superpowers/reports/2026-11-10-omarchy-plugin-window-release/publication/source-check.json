@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "tag": "v6.1110.4",
+  "profiles": [
+    {
+      "profile": "sumi",
+      "id": "notemd.sumi",
+      "version": "0.1.12",
+      "min_host": ">=6.1110.4",
+      "arch": "x86_64-unknown-linux-gnu",
+      "native": true
+    },
+    {
+      "profile": "next",
+      "id": "notemd.next",
+      "version": "1.13.3",
+      "min_host": ">=6.1110.4",
+      "arch": "universal",
+      "native": false
+    },
+    {
+      "profile": "idea",
+      "id": "notemd.idea-spark",
+      "version": "1.3.8",
+      "min_host": ">=6.1110.4",
+      "arch": "universal",
+      "native": false
+    }
+  ],
+  "wrangler": "3.114.17",
+  "remoteWrites": false,
+  "credentialsRead": false
+}

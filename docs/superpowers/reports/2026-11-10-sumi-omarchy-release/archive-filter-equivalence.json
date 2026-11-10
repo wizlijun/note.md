@@ -1,0 +1,10 @@
+{
+  "source.tar": {
+    "sha256": "ae451f9f8fb40f1729691d10e852b0da214fce2857b219c9c177db0ba381b19c",
+    "matchesReleaseLinuxCredentialExclusions": true
+  },
+  "core.tar": {
+    "sha256": "4a9a77629b7ba8334a5e317db9f90d044829717d75cbfbd52bb5d0c929b2a859",
+    "matchesReleaseLinuxCredentialExclusions": true
+  }
+}

@@ -102,6 +102,40 @@ class PrepareTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 prepare.validate_version(value)
 
+    def select_amd64(self):
+        self.names = self.names[:1]
+        self.release['assets'] = [{'name': name} for name in self.names + ['SHA256SUMS-linux.txt']]
+        self.write_sums()
+
+    def test_explicit_amd64_release_emits_only_x86_recipe(self):
+        self.select_amd64()
+        prepare.prepare(self.release, self.version, self.root, self.output, amd64_only=True)
+        recipe = (self.output / 'PKGBUILD').read_text()
+        self.assertNotIn('aarch64', recipe)
+        self.assertNotIn('arm64', recipe)
+        subprocess.run(['bash', '-c', 'source "$1"; [[ ${arch[*]} == x86_64 && ${#source_x86_64[@]} == 1 && ${#sha256sums_x86_64[@]} == 1 && ${#noextract[@]} == 1 ]]', 'recipe-check', str(self.output / 'PKGBUILD')], check=True)
+
+    def test_default_still_requires_both_architectures(self):
+        self.select_amd64()
+        with self.assertRaises(ValueError):
+            self.run_prepare()
+        self.assertFalse(self.output.exists())
+
+    def test_amd64_mode_rejects_extra_checksum_and_tampering(self):
+        self.select_amd64()
+        sums = self.root / 'SHA256SUMS-linux.txt'
+        original = sums.read_text()
+        for invalid in (original + original, original + '0' * 64 + f'  note.md_{self.version}_arm64.deb\n'):
+            sums.write_text(invalid)
+            with self.assertRaises(ValueError):
+                prepare.prepare(self.release, self.version, self.root, self.output, amd64_only=True)
+            self.assertFalse(self.output.exists())
+        sums.write_text(original)
+        (self.root / self.names[0]).write_bytes(b'!<arch>\nchanged')
+        with self.assertRaisesRegex(ValueError, 'checksum'):
+            prepare.prepare(self.release, self.version, self.root, self.output, amd64_only=True)
+        self.assertFalse(self.output.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,6 +18,13 @@ use std::sync::{LazyLock, RwLock};
 use std::time::{Duration, Instant};
 use tauri::{Manager, Runtime, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
+#[cfg(any(target_os = "linux", test))]
+#[path = "window_geometry.rs"]
+mod window_geometry;
+#[cfg(target_os = "linux")]
+#[path = "window_chrome.rs"]
+mod window_chrome;
+
 /// Plugin ids whose installed package is being reconciled. Opening a webview
 /// for one of these ids is rejected until STATE and RUNNING have completed the
 /// same pivot. The read guard in [`open_plugin_window`] is intentionally held
@@ -356,11 +363,36 @@ pub fn open_plugin_window<R: Runtime>(
         .parse()
         .map_err(|e| format!("bad plugin url: {e}"))?;
 
+    // An unmapped Wayland window has no monitor yet. Use the host's monitor
+    // before falling back to the compositor's primary/first monitor.
+    #[cfg(target_os = "linux")]
+    let work_area = app.get_webview_window("main")
+            .and_then(|main| main.current_monitor().ok().flatten())
+            .or_else(|| app.primary_monitor().ok().flatten())
+            .or_else(|| app.available_monitors().ok().and_then(|monitors| monitors.into_iter().next()))
+            .map(|monitor| {
+                let work = monitor.work_area();
+                let (position, size) = if work.size.width > 0 && work.size.height > 0 {
+                    (work.position, work.size)
+                } else {
+                    (*monitor.position(), *monitor.size())
+                };
+                window_geometry::WorkArea::from_physical(position.x, position.y,
+                    size.width, size.height, monitor.scale_factor())
+            });
+    #[allow(unused_mut)]
+    let (mut width, mut height) = (win.width, win.height);
+    #[cfg(target_os = "linux")]
+    if let Some(work) = work_area {
+        let layout = window_geometry::fit(width, height, win.min_width.zip(win.min_height), work, 0.0);
+        (width, height) = (layout.width, layout.height);
+    }
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::CustomProtocol(url))
         .title(title)
-        .inner_size(win.width, win.height)
-        .resizable(win.resizable)
-        .decorations(crate::platform::window_decorations())
+        .inner_size(width, height)
+        .resizable(crate::desktop_policy::plugin_window_resizable(std::env::consts::OS, win.resizable))
+        .decorations(crate::desktop_policy::decorations_for_window(std::env::consts::OS,
+            &label, crate::platform::window_decorations()))
         // macOS normally spends the first click only activating an inactive
         // window. Plugin controls must respond on that click, like native
         // utility windows and inspectors do.
@@ -368,6 +400,25 @@ pub fn open_plugin_window<R: Runtime>(
         .visible(false)
         .initialization_script(bridge_script(plugin_id, &locale, &theme));
 
+    #[cfg(target_os = "linux")]
+    {
+        // Explicit ownership prevents GTK from attaching the app-wide
+        // accelerator group (including host-only Ctrl+N/Ctrl+S) to plugins.
+        // It also keeps future app menu rebuilds from replacing this menu.
+        let close_id = format!("plugin-window-close:{label}");
+        let close = tauri::menu::MenuItem::with_id(app, &close_id, "Close Window", true, Some("Ctrl+W"))
+            .map_err(|e| format!("plugin close item creation failed: {e}"))?;
+        let menu = tauri::menu::Menu::with_items(app, &[&close])
+            .map_err(|e| format!("plugin menu creation failed: {e}"))?;
+        builder = builder.center().menu(menu).on_menu_event(move |window, event| {
+            if event.id().as_ref() == close_id {
+                // close(), rather than destroy(), preserves CloseRequested
+                // handlers such as Sumi's save/composition guards.
+                let _ = window.close();
+            }
+        });
+    }
+    #[cfg(not(target_os = "linux"))]
     if let (Some(w), Some(h)) = (win.min_width, win.min_height) {
         builder = builder.min_inner_size(w, h);
     }
@@ -375,6 +426,29 @@ pub fn open_plugin_window<R: Runtime>(
     let window = builder
         .build()
         .map_err(|e| format!("window build failed: {e}"))?;
+
+    #[cfg(target_os = "linux")]
+    let titlebar = linux_prepare_chrome(&window)?;
+    #[cfg(target_os = "linux")]
+    if let Some(work) = work_area {
+        // Measure this plugin's actual CSD, not the possibly undecorated host.
+        // Apply the minimum before resize; an oversized manifest minimum must
+        // not undo the work-area clamp. All requests precede the first show.
+        let layout = window_geometry::fit(win.width, win.height,
+            win.min_width.zip(win.min_height), work, titlebar);
+        if let Some((w, h)) = layout.minimum {
+            window.set_min_size(Some(tauri::LogicalSize::new(w, h)))
+                .map_err(|e| format!("plugin minimum size failed: {e}"))?;
+        }
+        window.set_size(tauri::LogicalSize::new(layout.width, layout.height))
+            .map_err(|e| format!("plugin size failed: {e}"))?;
+        // Wayland compositors retain final authority over toplevel placement.
+        window.set_position(tauri::LogicalPosition::new(layout.x, layout.y))
+            .map_err(|e| format!("plugin position failed: {e}"))?;
+    } else if let (Some(w), Some(h)) = (win.min_width, win.min_height) {
+        window.set_min_size(Some(tauri::LogicalSize::new(w, h)))
+            .map_err(|e| format!("plugin minimum size failed: {e}"))?;
+    }
 
     // Prune this plugin's fs.read:dialog grants when the window is destroyed:
     // GRANTED_PATHS is process-global, so a dialog-granted path would otherwise
@@ -423,6 +497,40 @@ pub fn open_plugin_window<R: Runtime>(
     let _ = window.set_focus();
     crate::sumi::plugin_window_shown(app, &label);
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn linux_prepare_chrome<R: Runtime>(window: &tauri::WebviewWindow<R>) -> Result<f64, String> {
+    use gtk::prelude::*;
+    let menu = window.menu().ok_or("plugin private Close menu is missing")?;
+    let items = menu.items().map_err(|e| e.to_string())?;
+    let [item] = items.as_slice() else {
+        return Err("plugin private menu must contain exactly one Close item".into());
+    };
+    if item.id().as_ref() != format!("plugin-window-close:{}", window.label()) {
+        return Err("plugin private Close menu identity mismatch".into());
+    }
+    let scheduler = window.clone();
+    let window = window.clone();
+    let (send, receive) = std::sync::mpsc::channel();
+    // Wry runs this inline if already on the main thread; otherwise dispatches
+    // through its event loop, like its synchronous window geometry getters.
+    scheduler.run_on_main_thread(move || {
+        let height = (|| {
+            let container = window.default_vbox().map_err(|e| e.to_string())?;
+            window_chrome::hide_private_close_menu(&container)?;
+            let window = window.gtk_window().map_err(|e| e.to_string())?;
+            Ok(window.titlebar().map_or(0.0, |bar| {
+                // Tao leaves header children hidden until the first window
+                // show_all(). Reveal only the header under this hidden window
+                // so its preferred height includes the actual theme/font.
+                bar.show_all();
+                f64::from(bar.allocated_height().max(bar.preferred_height().1))
+            }))
+        })();
+        let _ = send.send(height);
+    }).map_err(|error| error.to_string())?;
+    receive.recv().map_err(|error| error.to_string())?
 }
 
 /// Push `payload` to an already-open plugin window (used by later plugins that

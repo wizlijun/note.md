@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isApplePlatformSync } from '../lib/platform-sync'
   import type { Tab } from '../lib/tabs.svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
@@ -62,11 +63,11 @@
     type="button"
     role="tab"
     aria-selected={tab.mode === 'source'}
-    aria-label={t('mode.source')}
+    aria-label={t('mode.source', { shortcut: isApplePlatformSync() ? 'Cmd+/' : 'Ctrl+/' })}
     tabindex={tab.mode === 'source' ? 0 : -1}
     class:active={tab.mode === 'source'}
     onclick={() => selectSourceFileView(tab)}
-    title={t('mode.source')}
+    title={t('mode.source', { shortcut: isApplePlatformSync() ? 'Cmd+/' : 'Ctrl+/' })}
   >
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <polyline points="16 18 22 12 16 6"/>

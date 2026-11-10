@@ -1,0 +1,47 @@
+{
+  "usr/bin/notemd": {
+    "sha256": "cccbc48fc8fb52b9c2b158c6cd640c4ac4633e1e0dd3a33c6e281fb6043d82e7",
+    "size": 30134064,
+    "mode": "0o755"
+  },
+  "usr/lib/note.md/resources/themes/default.css": {
+    "sha256": "625e454e75050b488f721571514b062df1b8e6a69dbd8f8d4f935c82cd28bdc3",
+    "size": 1521,
+    "mode": "0o644"
+  },
+  "usr/lib/note.md/resources/themes/effie.css": {
+    "sha256": "839f656bf38a413e378e2a7559d1f059284eca6fdd54cf1ab1a536b01761c4fb",
+    "size": 5412,
+    "mode": "0o644"
+  },
+  "usr/share/applications/note.md.desktop": {
+    "sha256": "bd74421fd535a9bf6ce0c14f3a469da26884ae256e68f96d06b41d6cb68a42e3",
+    "size": 224,
+    "mode": "0o644"
+  },
+  "usr/share/doc/note.md/copyright": {
+    "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+    "size": 10174,
+    "mode": "0o644"
+  },
+  "usr/share/icons/hicolor/128x128/apps/notemd.png": {
+    "sha256": "ee9e8e2956b61fdca743c579d60698838f27ab4c01973e0a81fdb90e27e66694",
+    "size": 6956,
+    "mode": "0o644"
+  },
+  "usr/share/icons/hicolor/256x256@2/apps/notemd.png": {
+    "sha256": "ba8105c8a24630bc6e0f491003150aba956e250e58df3e64a55b3437e75d1464",
+    "size": 14333,
+    "mode": "0o644"
+  },
+  "usr/share/icons/hicolor/32x32/apps/notemd.png": {
+    "sha256": "f88b4817f48ca4295b925bf439f2fea19d7927746cfea2a4785a2682df64c6e6",
+    "size": 1521,
+    "mode": "0o644"
+  },
+  "usr/share/icons/hicolor/512x512/apps/notemd.png": {
+    "sha256": "184e2578f2d6b216c4258adf7a8d24352a26e5772e52ea6767ec08f35f7541bd",
+    "size": 30571,
+    "mode": "0o644"
+  }
+}

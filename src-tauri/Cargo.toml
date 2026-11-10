@@ -1,6 +1,6 @@
 [package]
 name = "notemd"
-version = "6.1108.6"
+version = "6.1110.5"
 edition = "2021"
 
 [lib]
@@ -112,6 +112,11 @@ objc2-foundation = "0.3"
 objc2-core-location = "0.3"
 block2 = "0.6"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Confirm deferred GTK shows and measure native titlebars on the main thread.
+glib = "0.18"
+gtk = "0.18"
+
 [target.'cfg(target_os = "ios")'.dependencies]
 # iOS ONLY. Desktop git goes through the external `git` CLI (vault_sync/git_ops.rs);
 # `git2::` appears nowhere outside src/vault_ios/. Keeping it as a desktop dep
@@ -135,3 +140,7 @@ codegen-units = 1     # one unit → better whole-program optimization
 panic = "abort"       # no unwinding tables
 strip = true          # strip debug symbols
 incremental = false
+
+# Keep GTK native overlays compatible with the runtime resize event handlers.
+[patch.crates-io]
+tauri-runtime-wry = { path = "../vendor/tauri-runtime-wry" }

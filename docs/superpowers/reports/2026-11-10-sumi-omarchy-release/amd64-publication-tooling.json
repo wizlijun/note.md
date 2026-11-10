@@ -1,0 +1,81 @@
+{
+  "timestamp_utc": "2026-11-10T06:06:12.736576+00:00",
+  "scope": "Explicit Linux amd64-only build/publication tooling; default dual-architecture and all existing platform modes retained.",
+  "plan": [
+    {
+      "step": "Add failing regressions for single-architecture assets, hashes, exclusive modes and confirmations",
+      "status": "complete"
+    },
+    {
+      "step": "Implement explicit modes without changing existing validation gates",
+      "status": "complete"
+    },
+    {
+      "step": "Run regression/syntax checks and audit reuse of the exact frozen-source artifact",
+      "status": "complete"
+    }
+  ],
+  "commands": {
+    "build": "scripts/release-linux.sh v6.1110.2 --amd64-only",
+    "publish": "scripts/release-publish.sh v6.1110.2 --linux-amd64-only",
+    "confirmation": "v6.1110.2 linux-amd64-only"
+  },
+  "publisher_gates": [
+    "Exclusive mode and exact draft/tag URL or same-draft slug",
+    "Exactly current-version amd64.deb plus SHA256SUMS-linux.txt; no updater/ARM assets",
+    "Exactly one checksum matching downloaded actual bytes",
+    "Exact interactive confirmation and immediate identity/asset recheck",
+    "--draft=false --latest=false"
+  ],
+  "build_gates": [
+    "Default still builds both architectures and checksums",
+    "Frozen tag/remote identity, archived source and all secret exclusions retained",
+    "Full Debian package/ELF/layout and Arch ldd/CLI gates retained",
+    "Only selected actual packages and matching checksums uploaded after verification/draft recheck"
+  ],
+  "tests": {
+    "command": "node node_modules/vitest/vitest.mjs run scripts/release-linux.test.ts scripts/release-publish.test.ts",
+    "red": {
+      "failed": 5,
+      "passed": 185,
+      "log_sha256": "3eb09c2e39c7686d67ba187419ed4fdc282a359466d63fc0061ab54454bbc1b8"
+    },
+    "final": {
+      "passed": 190,
+      "failed": 0,
+      "log_sha256": "cb367d24cce27c915c4b0eeca050f94f7b1798642dfbf943ac670e40f8f7717f"
+    },
+    "bash_syntax": "passed",
+    "node_syntax": "passed",
+    "diff_check": "passed"
+  },
+  "files_sha256": {
+    "scripts/release-linux.sh": "0beed184a7ac982ff40b3a94b4251cb842e311d2e7ee727f8c7d83f77fec6663",
+    "scripts/release-linux.test.ts": "09d7579fe4de88e030aa80d4292d6082af47446de458b33afafca6d645780aeb",
+    "scripts/release-publish-core.mjs": "02c8eefa33d2c445d0d4e226823cf94168e520e756efa0f4f02ac811cac37ab3",
+    "scripts/release-publish-core.d.mts": "8bfc05f69a5b0b7965e16002ae68252adbc079bb92ff2ca5fd25e43487a1a627",
+    "scripts/release-publish.test.ts": "43a68eeaefeada3da19504bec23563228adb8fb17c6481e841b85c878c879247"
+  },
+  "artifact_reuse": {
+    "result": "Appropriate after exact final GUI acceptance and publication-side download verification; scope narrowing alone does not require recompilation.",
+    "source_tag": "v6.1110.2",
+    "source_commit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+    "core_commit": "f581448bce5e9cf557059f0700297a527069b5ae",
+    "package_sha256": "0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976",
+    "package_size": 15848512,
+    "binary_sha256": "cccbc48fc8fb52b9c2b158c6cd640c4ac4633e1e0dd3a33c6e281fb6043d82e7",
+    "original_build": "Unmodified frozen default coordinator completed amd64 build and full Debian/Arch gates before stopping ahead of arm64/upload. New --amd64-only orchestration tested with controlled command fixtures, not a second real build.",
+    "verification_script_identical_to_frozen_tag": true,
+    "verification_script_sha256": "389d29100671365563c3fbdef2d4e884c2a41ad5276e2af666c67a13ddd437f9",
+    "build_log_raw_sha256": "d13dd0c814beb82574f0c2b9cc28e1bcb8e3de538d91b061cfa628dc8c7b1d9b",
+    "transition_record_sha256": "e69cd7a6f84cb3c2337960e178950e6daaf4f61471999f5eba43bde2e780a956",
+    "remaining_release_checks": [
+      "Final GUI uses exact preserved binary",
+      "Old coordinator stopped and no concurrent upload",
+      "Recheck exact draft and local package/checksum immediately before upload",
+      "Publisher downloads uploaded bytes again, followed by anonymous public verification and downstream Arch provenance"
+    ]
+  },
+  "tag_moved": false,
+  "published_by_this_change": false
+}

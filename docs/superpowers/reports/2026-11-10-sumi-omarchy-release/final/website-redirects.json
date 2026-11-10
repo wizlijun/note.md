@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://notemd.net/download?os=linux&format=arch&arch=x86_64",
+    "location": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/notemd-6.1110.2-1-x86_64.pkg.tar.zst",
+    "date": "Tue, 10 Nov 2026 06:15:36 GMT",
+    "cfRay": "a582ec74ee7833dc-SJC",
+    "matchesActualAsset": true
+  },
+  {
+    "url": "https://notemd.net/download?os=linux&format=arch&arch=aarch64",
+    "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/notemd-6.1027.1-1-aarch64.pkg.tar.zst",
+    "date": "Tue, 10 Nov 2026 06:15:37 GMT",
+    "cfRay": "a582ec79aa5df378-SJC",
+    "matchesActualAsset": true
+  },
+  {
+    "url": "https://notemd.net/download?os=linux&format=deb&arch=x86_64",
+    "location": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/note.md_6.1110.2_amd64.deb",
+    "date": "Tue, 10 Nov 2026 06:15:38 GMT",
+    "cfRay": "a582ec7edc8515ed-SJC",
+    "matchesActualAsset": true
+  },
+  {
+    "url": "https://notemd.net/download?os=linux&format=deb&arch=aarch64",
+    "location": "https://github.com/wizlijun/note.md/releases/download/v6.1027.1/note.md_6.1027.1_arm64.deb",
+    "date": "Tue, 10 Nov 2026 06:15:38 GMT",
+    "cfRay": "a582ec839e1e0dac-SJC",
+    "matchesActualAsset": true
+  }
+]

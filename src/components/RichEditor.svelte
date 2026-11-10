@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hasPrimaryModifier } from '../lib/primary-modifier'
   import { gfmTableCommand } from '@moraya/core/commands'
   import { onMount, onDestroy, untrack } from 'svelte'
   import type { Tab } from '../lib/tabs.svelte'
@@ -709,7 +710,7 @@
     }
 
     if (!editor) return
-    const mod   = event.metaKey || event.ctrlKey
+    const mod   = hasPrimaryModifier(event)
     const shift = event.shiftKey
     const alt   = event.altKey
     const key   = event.key.toLowerCase()

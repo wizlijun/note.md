@@ -1,0 +1,30 @@
+{
+  "logFormatVersion": 1,
+  "jobId": "4bbdb1c6-ec3a-48fb-b046-91c3f5589e3f",
+  "status": "Accepted",
+  "statusSummary": "Ready for distribution",
+  "statusCode": 0,
+  "archiveFilename": "note.md-6.1109.4-aarch64.dmg",
+  "uploadDate": "2026-11-09T15:40:31.273Z",
+  "sha256": "b2c0ce64b02711eef499b6ac87ba620b8f606504219a4298a54a34faba638ea0",
+  "ticketContents": [
+    {
+      "path": "note.md-6.1109.4-aarch64.dmg/note.md.app",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "e824f17f05b2f61f54ecec8c889fdba283f32a63",
+      "arch": "arm64"
+    },
+    {
+      "path": "note.md-6.1109.4-aarch64.dmg/note.md.app/Contents/MacOS/notemd",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "e824f17f05b2f61f54ecec8c889fdba283f32a63",
+      "arch": "arm64"
+    },
+    {
+      "path": "note.md-6.1109.4-aarch64.dmg",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "3e71b06e766c162f8b034d5730774e60a608c13e"
+    }
+  ],
+  "issues": null
+}

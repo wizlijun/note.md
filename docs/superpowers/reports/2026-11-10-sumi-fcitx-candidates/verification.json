@@ -1,0 +1,21 @@
+{
+  "fcitx_commit": "47da99c7716d02309ee97bf454333268bf69522d",
+  "source_location": "sumi-fcitx-candidates branch",
+  "source_sha256": {
+    "tauri-plugin-native-editor/src/linux.rs": "c06e0ba301aad84a447a3efc0e9cdec7b389d312794256ca3181c4c5ee910b05",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "aedf02721ad5a76871e560f8ba762cd2cd684bc83396924fdbb3a87170acc62c",
+    "tauri-plugin-native-editor/src/linux_candidates.rs": "50eb13541580a7183547bf94ff1016c2dbec79e5e082b7fdfd5936ccb09baa48",
+    "tauri-plugin-native-editor/src/linux_candidates_layout.rs": "a607151bcd9e2cb17c51c186a5d85073c5955201138a4a1516a069ab2a0ed6c9",
+    "tauri-plugin-native-editor/Cargo.toml": "a994654f51c00471c28534136c824c58a0eb4c079aca9ed29958f8aaf57886bd",
+    "tauri-plugin-native-editor/Cargo.lock": "3a354d2404f29e71e4c19600dc89dea186284f913dfac7db087b2d6eb12fd067"
+  },
+  "native_test": "26 passed; 3 display tests ignored",
+  "native_build": "passed",
+  "private_fcitx_gtk": "passed",
+  "installed": false,
+  "published": false,
+  "private_fcitx_gtk_scale4": "passed",
+  "foundation_commit": "40adb1f1a162348de9c8aefb86e992e64380da96",
+  "caret_regression": "passed",
+  "gtk_transaction_regression": "passed"
+}

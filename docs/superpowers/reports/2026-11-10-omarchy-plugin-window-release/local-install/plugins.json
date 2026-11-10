@@ -1,0 +1,20 @@
+[
+  {
+    "id": "notemd.sumi",
+    "version": "0.1.12",
+    "package_sha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb",
+    "all_installed_files_match_signed_package": true
+  },
+  {
+    "id": "notemd.next",
+    "version": "1.13.3",
+    "package_sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+    "all_installed_files_match_signed_package": true
+  },
+  {
+    "id": "notemd.idea-spark",
+    "version": "1.3.8",
+    "package_sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5",
+    "all_installed_files_match_signed_package": true
+  }
+]

@@ -7,6 +7,7 @@ fn main() {
     let native = "../../../tauri-plugin-native-editor/native";
     println!("cargo:rerun-if-changed={native}/editor.m");
     println!("cargo:rerun-if-changed={native}/editor.h");
+    println!("cargo:rerun-if-changed={native}/focus.h");
     println!("cargo:rerun-if-changed=runner.m");
     cc::Build::new()
         .file("runner.m")

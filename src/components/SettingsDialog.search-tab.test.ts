@@ -37,6 +37,7 @@ import { mount, unmount, flushSync } from 'svelte'
 const { invokeMock, defaultInvokeImpl } = vi.hoisted(() => {
   const defaultInvokeImpl = async (cmd: string, _args?: unknown): Promise<unknown> => {
     if (cmd === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: true, themeFontInstall: true, setDefaultApp: true, location: true, globalShortcuts: true, windowDecorations: true }
+    if (cmd === 'plugin_market_host_triple') return 'x86_64-unknown-linux-gnu'
     if (cmd === 'sotvault_vault_root') return '/tmp/vault'
     throw new Error('no tauri host in vitest')
   }
@@ -67,7 +68,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
   Store: { load: vi.fn(async () => ({ get: vi.fn(async () => undefined), set: vi.fn(async () => {}), save: vi.fn(async () => {}) })) },
 }))
 // Desktop, not iOS — the tab is `!isIOSPlatform`-gated in the strip.
-vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos' }))
+vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos', arch: () => 'x86_64' }))
 const { writeTextMock } = vi.hoisted(() => ({ writeTextMock: vi.fn(async (_text: string) => {}) }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: writeTextMock }))
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn(async () => null) }))
@@ -616,7 +617,10 @@ describe('SettingsDialog — Search & Index tab entry', () => {
       (candidate) => candidate.querySelector('h3')?.textContent?.trim() === 'Smart Lookup',
     )
     expect(section).toBeTruthy()
-    expect(section?.textContent).toContain('Understand natural language')
+    expect(section?.textContent).not.toContain('Understand natural language')
+    // The removed planner's provider row was labelled exactly "AI service".
+    expect(Array.from(section!.querySelectorAll('.lbl')).map((label) => label.textContent?.trim()))
+      .not.toContain('AI service')
     expect(section?.textContent).toContain('Maximum results')
     expect(section?.textContent).toContain('Quick answer')
     expect(section?.textContent).toContain('Research assistant')
@@ -630,6 +634,128 @@ describe('SettingsDialog — Search & Index tab entry', () => {
     checkbox!.dispatchEvent(new Event('change', { bubbles: true }))
     await settle()
     expect(settings.smartLookup.results.autoDeepOnZero).toBe(true)
+  })
+})
+
+function agentHarness(name: string, tasks: string[]) {
+  return {
+    harness: name, ok: true, default_model: `${name}-default`,
+    capabilities: {
+      tasks, search_plan_schemas: [], terminal_result: true, input_only_isolation: true,
+      model_routing: {
+        invocation_override: true,
+        profiles: {
+          fast: { model: `${name}-fast`, available: true },
+          default: { model: `${name}-default`, available: true },
+        },
+        selectable_models: [`${name}-large`],
+      },
+    },
+  }
+}
+
+/** A host with a summary+research agent, a summary-only agent and a research-only agent. */
+function installSmartLookupAgents(appDefault = 'notemd.alpha'): void {
+  const harnesses: Record<string, ReturnType<typeof agentHarness>> = {
+    'notemd.alpha': agentHarness('Alpha', ['search-summary', 'vault-research']),
+    'notemd.beta': agentHarness('Beta', ['search-summary']),
+    'notemd.gamma': agentHarness('Gamma', ['vault-research']),
+  }
+  invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+    const a = args as Record<string, any> | undefined
+    if (cmd === 'get_plugin_manifests') {
+      return Object.keys(harnesses).map((id) => ({ id, name: id, agent_provider: true }))
+    }
+    if (cmd === 'plugin_v2_execute' && a?.command === 'harness-status') return harnesses[a.pluginId]
+    if (cmd === 'smart_lookup_agent_default') return appDefault
+    return defaultInvokeImpl(cmd, args)
+  })
+}
+
+function smartLookupRow(label: string): HTMLLabelElement | undefined {
+  const section = Array.from(document.body.querySelectorAll('section.block')).find(
+    (candidate) => candidate.querySelector('h3')?.textContent?.trim() === 'Smart Lookup',
+  )
+  return Array.from(section?.querySelectorAll<HTMLLabelElement>('label.row') ?? []).find(
+    (row) => row.querySelector('.lbl')?.textContent?.trim() === label,
+  )
+}
+
+function choose(select: HTMLSelectElement, value: string): void {
+  select.value = value
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+describe('SettingsDialog — Smart Lookup quick-answer agent and model', () => {
+  it('offers Auto plus each summary-capable agent and saves the choice', async () => {
+    installSmartLookupAgents()
+    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
+    await mountDialog()
+    await settle()
+    openSettings('search')
+    await settle()
+
+    const provider = smartLookupRow('AI service for answers')?.querySelector('select')
+    expect(provider, 'summary provider select').toBeTruthy()
+    expect(Array.from(provider!.options).map((option) => [option.value, option.textContent?.trim()])).toEqual([
+      ['auto', 'Auto'], ['notemd.alpha', 'Alpha'], ['notemd.beta', 'Beta'],
+    ])
+    expect(provider!.value).toBe('auto')
+
+    choose(provider!, 'notemd.beta')
+    await settle()
+    expect(settings.smartLookup.summary.provider).toBe('notemd.beta')
+    expect(save).toHaveBeenCalled()
+  })
+
+  it('shows the models of the chosen agent and saves a model per agent', async () => {
+    installSmartLookupAgents()
+    settings.smartLookup.summary.provider = 'notemd.beta'
+    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
+    await mountDialog()
+    await settle()
+    openSettings('search')
+    await settle()
+
+    const model = smartLookupRow('Answer model')?.querySelector('select')
+    expect(model, 'summary model select').toBeTruthy()
+    expect(Array.from(model!.options).map((option) => option.value))
+      .toEqual(['profile:fast', 'profile:default', 'model:Beta-large'])
+    expect(model!.value).toBe('profile:fast')
+    expect(model!.options[0].textContent).toContain('Beta-fast')
+
+    choose(model!, 'model:Beta-large')
+    await settle()
+    expect(settings.smartLookup.summary.modelByProvider).toEqual({ 'notemd.beta': 'model:Beta-large' })
+    expect(save).toHaveBeenCalled()
+  })
+
+  it('with Auto, the model list belongs to the agent Auto resolves to', async () => {
+    installSmartLookupAgents('notemd.beta')
+    await mountDialog()
+    await settle()
+    openSettings('search')
+    await settle()
+    const model = smartLookupRow('Answer model')?.querySelector('select')
+    expect(Array.from(model!.options).map((option) => option.value)).toContain('model:Beta-large')
+  })
+
+  it('repairs an explicit quick-answer agent that is no longer available to Auto', async () => {
+    installSmartLookupAgents()
+    settings.smartLookup.summary.provider = 'notemd.gamma'
+    const save = vi.spyOn(settingsModule, 'saveSettings').mockResolvedValue()
+    await mountDialog()
+    await settle()
+    expect(settings.smartLookup.summary.provider).toBe('auto')
+    expect(save).toHaveBeenCalled()
+  })
+
+  it('keeps an explicit quick-answer agent that is still available', async () => {
+    installSmartLookupAgents()
+    settings.smartLookup.summary.provider = 'notemd.beta'
+    await mountDialog()
+    await settle()
+    expect(settings.smartLookup.summary.provider).toBe('notemd.beta')
   })
 })
 
@@ -1130,7 +1256,8 @@ describe('SettingsDialog — Search & Index tab, saving tier weights preserves a
 
 
 describe('SettingsDialog — desktop distribution capabilities', () => {
-  it('package-manager shows version and system update guidance without app updater controls', async () => {
+  it('package-manager restores update checks while keeping Mac-only capabilities hidden', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('linux')
     const normalInvoke = invokeMock.getMockImplementation()!
     invokeMock.mockImplementation(async (cmd, args) => cmd === 'desktop_capabilities'
       ? { distributionChannel: 'package-manager', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: true, windowDecorations: true }
@@ -1141,9 +1268,10 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
     openSettings('updates')
     await settle()
     expect(document.body.textContent).toContain('6.1015.1')
-    expect(document.body.textContent).toContain('omarchy update')
-    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(false)
-    expect(document.querySelector('input[type="checkbox"]')).toBe(null)
+    expect(document.body.textContent).not.toContain('omarchy update')
+    expect(document.body.textContent).toContain(t('settings.update.packageManager'))
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(true)
+    expect(document.querySelector('input[type="checkbox"]')).not.toBe(null)
     expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.tab.cli'))).toBe(false)
     openSettings('core')
     await settle()
@@ -1156,6 +1284,30 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
       expect(document.body.textContent).not.toContain('Download offline fonts')
       expect(invokeMock.mock.calls.some(([cmd]) => cmd === 'theme_font_status' || cmd === 'theme_font_download')).toBe(false)
     } finally { settings.theme = previousTheme }
+  })
+
+  it.each(['direct', 'package-manager'])('shows the correct available-version action for %s', async channel => {
+    vi.mocked(nativePlatform).mockReturnValue(channel === 'package-manager' ? 'linux' : 'macos')
+    const normalInvoke = invokeMock.getMockImplementation()!
+    invokeMock.mockImplementation(async (cmd, args) => cmd === 'desktop_capabilities'
+      ? { distributionChannel: channel, cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: true, windowDecorations: true }
+      : normalInvoke(cmd, args))
+    const { updater } = await import('../lib/updater.svelte')
+    Object.assign(updater, { state: 'available', currentVersion: '6.1109.4', latestVersion: '6.1110.2', notes: 'Verified release notes', error: null })
+    try {
+      await mountDialog()
+      openSettings('updates')
+      await settle()
+      const expected = t(channel === 'package-manager' ? 'settings.update.viewDownloads' : 'settings.update.downloadInstall', { version: '6.1110.2' })
+      expect([...document.querySelectorAll('button')].some(b => b.textContent?.trim() === expected)).toBe(true)
+      expect(document.body.textContent).toContain('Verified release notes')
+      if (channel === 'package-manager') {
+        expect(document.body.textContent).not.toContain(t('settings.update.downloadInstall', { version: '6.1110.2' }))
+        expect(document.body.textContent).not.toContain(t('settings.update.distNote'))
+      }
+    } finally {
+      Object.assign(updater, { state: 'idle', latestVersion: null, notes: null, error: null })
+    }
   })
 
   it('capability errors from updater initialization disappear after Settings retry', async () => {

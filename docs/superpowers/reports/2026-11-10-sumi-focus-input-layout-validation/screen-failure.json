@@ -1,0 +1,36 @@
+{
+  "at": "2026-11-09T17:47:35.888103+00:00",
+  "releaseReady": false,
+  "nativeGeometryAndInputSubsetPassed": true,
+  "screenPaintPassed": false,
+  "candidateBinarySha256": "2c15c4c2088001d67a94050bb4a2dfab2ada0077eea9d9feec4fab92d8238659",
+  "source": {
+    "editor": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+    "focus": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e"
+  },
+  "fixture": "synthetic 3 Chinese paragraphs; Zhaohua50/line1.2/crt,960x720,surface620; full projection replies",
+  "actions": [
+    "Right",
+    "a",
+    "Return",
+    "Up",
+    "Left",
+    "b",
+    "Return",
+    "d",
+    "Return"
+  ],
+  "observations": [
+    "navigation-first-key and active-line centering work",
+    "screen after Return can show black horizontal bands clipping glyphs in context lines",
+    "separate stable screenshot before idle reproduced clipping, not just one in-flight capture",
+    "idle full-opacity repaint or subsequent ordinary character can repaint cleanly",
+    "AX body remains correct; no production document edits"
+  ],
+  "hypothesesNotConclusions": [
+    "layer-backed overlay dirty repaint/compositing",
+    "TextKit line draw clipping outside native viewport"
+  ],
+  "probeQuitVerified": true,
+  "physicalImeNotTested": true
+}

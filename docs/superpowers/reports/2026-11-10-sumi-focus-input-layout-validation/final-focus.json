@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "at": "2026-11-09T18:43:10.386205+00:00",
+  "baseline": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "sourceHashes": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3",
+    "focus-probe.m": "567a57d741241c7794cd9f14212fdb8f5be5dab3cf5070faf1a18a991d5f54a0"
+  },
+  "command": [
+    "clang",
+    "-fobjc-arc",
+    "-fblocks",
+    "-O2",
+    "-mmacosx-version-min=11.0",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-framework",
+    "Cocoa",
+    "-framework",
+    "QuartzCore",
+    "-framework",
+    "CoreText",
+    "-framework",
+    "ApplicationServices",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source/tauri-plugin-native-editor/native/focus-probe.m",
+    "-o",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/focus-regression-evidence-final6/focus-probe"
+  ],
+  "buildExit": 0,
+  "runExit": 0,
+  "checks": 3932,
+  "originalAssertionsUnmodified": true,
+  "sourceUnchangedDuringRun": true,
+  "noFormalVaultAccess": true,
+  "network": false,
+  "evidence": {
+    "focus-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "focus.log": {
+      "bytes": 244,
+      "sha256": "3170752e29330e282c779910cd72c4a77a7cfe9430133945d25c393fed411c77"
+    }
+  }
+}

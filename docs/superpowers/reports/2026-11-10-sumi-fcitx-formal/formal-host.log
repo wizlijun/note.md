@@ -1,0 +1,65 @@
+[core] === note.md start ===
+[core] argv received
+MESA-EGL: warning: failed to get driver name for fd -1
+MESA-EGL: warning: MESA-LOADER: failed to retrieve device information
+MESA-EGL: warning: failed to get driver name for fd -1
+[search] opening index: vault=/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/vault
+[plugin_runtime] 1 plugin(s)
+[core] agents_sync run_check → None
+[search] open sweep: 0 renamed, 0 indexed, 0 removed, 3 ms
+[search] attention ingest: 0 files
+
+(notemd:125410): libayatana-appindicator-WARNING **: 13:58:41.469: libayatana-appindicator is deprecated. Please use libayatana-appindicator-glib in newly written code.
+[core] RunEvent::Ready
+
+(notemd:125410): Gtk-CRITICAL **: 13:58:42.083: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+
+(notemd:125410): Gtk-CRITICAL **: 13:58:42.114: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+
+(notemd:125410): Gtk-CRITICAL **: 13:58:43.678: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.887: ../gtk/gtk/gtkwidget.c:6787: no accelerator (44,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f677af50)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.888: ../gtk/gtk/gtkwidget.c:6787: no accelerator (72,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f677c4d0)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.888: ../gtk/gtk/gtkwidget.c:6787: no accelerator (78,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f67806a0)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.888: ../gtk/gtk/gtkwidget.c:6787: no accelerator (79,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f4b1e460)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.889: ../gtk/gtk/gtkwidget.c:6787: no accelerator (87,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f4b286d0)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.889: ../gtk/gtk/gtkwidget.c:6787: no accelerator (83,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f4b29840)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.889: ../gtk/gtk/gtkwidget.c:6787: no accelerator (83,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f4b2a380)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.889: ../gtk/gtk/gtkwidget.c:6787: no accelerator (80,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f4b2b690)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.889: ../gtk/gtk/gtkwidget.c:6787: no accelerator (76,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31d1120)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.890: ../gtk/gtk/gtkwidget.c:6787: no accelerator (70,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31db020)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.890: ../gtk/gtk/gtkwidget.c:6787: no accelerator (75,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31df3e0)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.891: ../gtk/gtk/gtkwidget.c:6787: no accelerator (47,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31e0530)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.891: ../gtk/gtk/gtkwidget.c:6787: no accelerator (69,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31e3490)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.891: ../gtk/gtk/gtkwidget.c:6787: no accelerator (70,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31e3750)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.891: ../gtk/gtk/gtkwidget.c:6787: no accelerator (79,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31fd770)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.891: ../gtk/gtk/gtkwidget.c:6787: no accelerator (89,5) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31ff400)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.892: ../gtk/gtk/gtkwidget.c:6787: no accelerator (61,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f320b010)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.892: ../gtk/gtk/gtkwidget.c:6787: no accelerator (45,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f31ffcc0)
+
+(notemd:125410): Gtk-WARNING **: 13:58:45.892: ../gtk/gtk/gtkwidget.c:6787: no accelerator (48,4) installed in accel group (0x5652f3a17350) for GtkMenuItem (0x5652f320b790)
+
+(notemd:125410): Gtk-CRITICAL **: 13:58:46.287: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+
+(notemd:125410): Gtk-CRITICAL **: 13:58:58.957: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+[core] single_instance argv received
+[core] emit open-file → /home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/vault/inbox/writings/2026-11-10-01.writing.md
+[search] attention ingest: 1 files
+[search] attention ingest: 1 files

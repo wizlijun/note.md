@@ -1,0 +1,415 @@
+{
+  "schema_version": 1,
+  "audited_at_utc": "2026-11-10T05:08:18.641394+00:00",
+  "audited_host_commit": "43a1e3b953e41fcb5ae80ac73cff120adb74173f",
+  "result": "ready_to_freeze_after_committing_this_evidence",
+  "intended_release": {
+    "host": "6.1110.2",
+    "plugin": "0.1.11",
+    "plugin_target": "x86_64-unknown-linux-gnu",
+    "mac_plugin_retained": "0.1.10",
+    "publication_mode": "linux-only --latest=false"
+  },
+  "repositories": [
+    {
+      "repository": "/home/bruce/git/note.md",
+      "head": "43a1e3b953e41fcb5ae80ac73cff120adb74173f",
+      "worktrees": [
+        {
+          "path": "/home/bruce/git/note.md",
+          "head": "43a1e3b953e41fcb5ae80ac73cff120adb74173f",
+          "branch": "refs/heads/main",
+          "status": [],
+          "unmerged_paths": []
+        },
+        {
+          "path": "/home/bruce/git/note.md-sumi-candidates",
+          "head": "8d55434ec6b46068ab979c2ef9813709deeca9ed",
+          "branch": "refs/heads/sumi-fcitx-candidates",
+          "status": [],
+          "unmerged_paths": []
+        },
+        {
+          "path": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+          "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+          "branch": null,
+          "status": [
+            "?? node_modules"
+          ],
+          "unmerged_paths": []
+        }
+      ],
+      "local_branches": [
+        {
+          "name": "main",
+          "head": "43a1e3b953e41fcb5ae80ac73cff120adb74173f",
+          "commits_not_in_audited_head": []
+        },
+        {
+          "name": "sumi-fcitx-candidates",
+          "head": "8d55434ec6b46068ab979c2ef9813709deeca9ed",
+          "commits_not_in_audited_head": []
+        }
+      ],
+      "stashes": []
+    },
+    {
+      "repository": "/home/bruce/git/moraya-core",
+      "head": "f581448bce5e9cf557059f0700297a527069b5ae",
+      "worktrees": [
+        {
+          "path": "/home/bruce/git/moraya-core",
+          "head": "f581448bce5e9cf557059f0700297a527069b5ae",
+          "branch": "refs/heads/main",
+          "status": [],
+          "unmerged_paths": []
+        }
+      ],
+      "local_branches": [
+        {
+          "name": "main",
+          "head": "f581448bce5e9cf557059f0700297a527069b5ae",
+          "commits_not_in_audited_head": []
+        }
+      ],
+      "stashes": []
+    },
+    {
+      "repository": "/home/bruce/git/fcitx5",
+      "head": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+      "worktrees": [
+        {
+          "path": "/home/bruce/git/fcitx5",
+          "head": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+          "branch": "refs/heads/typewriter-candidate-theme",
+          "status": [
+            "?? tasks/sumi-package-preedit/PKGBUILD",
+            "?? tasks/sumi-package-preedit/README.md",
+            "?? tasks/sumi-package-preedit/SHA256SUMS",
+            "?? tasks/sumi-package-preedit/build.log",
+            "?? tasks/sumi-package-preedit/build.sh",
+            "?? tasks/sumi-package-preedit/dbus-test.conf",
+            "?? tasks/sumi-package-preedit/elf-header.txt",
+            "?? tasks/sumi-package-preedit/ldd-r.txt",
+            "?? tasks/sumi-package-preedit/package-files.txt",
+            "?? tasks/sumi-package-preedit/package-info.txt",
+            "?? tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "?? tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "?? tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "?? tasks/sumi-package-preedit/runtime-artifacts.txt",
+            "?? tasks/sumi-package-preedit/runtime-worker.sh",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/cached_layouts",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/chttrans.conf",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/pinyin.conf",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/punctuation.conf",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/profile",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/addon/sumicandidates.conf",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.dict",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.history",
+            "?? tasks/sumi-package-preedit/runtime.KdI246/fcitx.log",
+            "?? tasks/sumi-package-preedit/runtime.log",
+            "?? tasks/sumi-package-preedit/runtime.sh",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "?? tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "?? tasks/sumi-package-preedit/verification.json",
+            "?? tasks/sumi-package-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "?? tasks/sumi-package-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "?? tasks/sumi-package-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "?? tasks/sumi-package-preedit/verify.py",
+            "?? tasks/sumi-package/PKGBUILD",
+            "?? tasks/sumi-package/README.md",
+            "?? tasks/sumi-package/SHA256SUMS",
+            "?? tasks/sumi-package/build.log",
+            "?? tasks/sumi-package/build.sh",
+            "?? tasks/sumi-package/dbus-test.conf",
+            "?? tasks/sumi-package/elf-header.txt",
+            "?? tasks/sumi-package/ldd-r.txt",
+            "?? tasks/sumi-package/package-files.txt",
+            "?? tasks/sumi-package/package-info.txt",
+            "?? tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "?? tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "?? tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "?? tasks/sumi-package/runtime-artifacts.txt",
+            "?? tasks/sumi-package/runtime-worker.sh",
+            "?? tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/cached_layouts",
+            "?? tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/chttrans.conf",
+            "?? tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/pinyin.conf",
+            "?? tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/punctuation.conf",
+            "?? tasks/sumi-package/runtime.SB2lWH/config/fcitx5/profile",
+            "?? tasks/sumi-package/runtime.SB2lWH/data/fcitx5/addon/sumicandidates.conf",
+            "?? tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.dict",
+            "?? tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.history",
+            "?? tasks/sumi-package/runtime.SB2lWH/fcitx.log",
+            "?? tasks/sumi-package/runtime.log",
+            "?? tasks/sumi-package/runtime.sh",
+            "?? tasks/sumi-package/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "?? tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "?? tasks/sumi-package/verification.json",
+            "?? tasks/sumi-package/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "?? tasks/sumi-package/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "?? tasks/sumi-package/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "?? tasks/sumi-package/verify.log",
+            "?? tasks/sumi-package/verify.py",
+            "?? tasks/todo.md"
+          ],
+          "unmerged_paths": []
+        }
+      ],
+      "local_branches": [
+        {
+          "name": "master",
+          "head": "5ffd9e5f905078880f1e21752e10b63490734809",
+          "commits_not_in_audited_head": []
+        },
+        {
+          "name": "typewriter-candidate-theme",
+          "head": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+          "commits_not_in_audited_head": []
+        }
+      ],
+      "stashes": []
+    }
+  ],
+  "scope_decisions": [
+    {
+      "paths": [
+        "note.md main tracked files"
+      ],
+      "decision": "clean version preparation 43a1e3b9 included; all relevant candidate commits merged"
+    },
+    {
+      "paths": [
+        "note.md/tasks/omarchy-build/source/node_modules"
+      ],
+      "decision": "old detached preview dependency symlink; untracked, excluded from release source"
+    },
+    {
+      "paths": [
+        "fcitx5/tasks/*"
+      ],
+      "decision": "82 untracked local packaging/testing files individually enumerated above; not addon source. Only fixed d2 source archive and the verified package are selected; other old r1 artifacts and private test state excluded"
+    },
+    {
+      "paths": [
+        "ignored tasks/build/runtime caches"
+      ],
+      "decision": "not tracked source; official release consumes fixed git archives with existing secret/cache exclusions"
+    }
+  ],
+  "candidate_commits": {
+    "4dd7c501": {
+      "resolved": "4dd7c5013374d9f5d95d0e2949d268395e5c4647",
+      "ancestor_of_audited_head": true
+    },
+    "e226cc86": {
+      "resolved": "e226cc86aeb34ddc7f3f160cdf846cea2d39ef4e",
+      "ancestor_of_audited_head": true
+    },
+    "8d55434e": {
+      "resolved": "8d55434ec6b46068ab979c2ef9813709deeca9ed",
+      "ancestor_of_audited_head": true
+    },
+    "246d498c": {
+      "resolved": "246d498cbae66fc74d1d177adf860a401a4f1fde",
+      "ancestor_of_audited_head": true
+    },
+    "c6ea24fc": {
+      "resolved": "c6ea24fcad379a083136e999e2c364492cbd265c",
+      "ancestor_of_audited_head": true
+    },
+    "43a1e3b9": {
+      "resolved": "43a1e3b953e41fcb5ae80ac73cff120adb74173f",
+      "ancestor_of_audited_head": true
+    }
+  },
+  "candidate_final_tree_comparison": {
+    "candidate_commit": "8d55434ec6b46068ab979c2ef9813709deeca9ed",
+    "native_crate_differences": [],
+    "host_differences": [
+      "src-tauri/Cargo.lock",
+      "src-tauri/Cargo.toml",
+      "src-tauri/tauri.conf.json"
+    ],
+    "all_host_differences_are_exact_version_replacement": true,
+    "source_evidence_hashes": {
+      "tauri-plugin-native-editor/src/linux.rs": {
+        "expected_sha256": "aaabaec1e1fde73e7fc2ebd95f17d58bdeb14751f0b5678f874298df9b33b2c1",
+        "actual_sha256": "aaabaec1e1fde73e7fc2ebd95f17d58bdeb14751f0b5678f874298df9b33b2c1",
+        "matches": true
+      },
+      "tauri-plugin-native-editor/src/linux_focus.rs": {
+        "expected_sha256": "cdc99e10c6d675fafb9811981f28721f2382e6ed4483674b74dca969b0e135aa",
+        "actual_sha256": "cdc99e10c6d675fafb9811981f28721f2382e6ed4483674b74dca969b0e135aa",
+        "matches": true
+      },
+      "tauri-plugin-native-editor/src/linux_caret.rs": {
+        "expected_sha256": "b3222fd3031b135327798a080d69c1641fcfa6f01b0fb2d8856f9936988f330e",
+        "actual_sha256": "b3222fd3031b135327798a080d69c1641fcfa6f01b0fb2d8856f9936988f330e",
+        "matches": true
+      },
+      "tauri-plugin-native-editor/src/linux_candidates.rs": {
+        "expected_sha256": "1d9d34d705141f08093372e264694bc0177bdcdf0a1f57f2805f31f147e65a93",
+        "actual_sha256": "1d9d34d705141f08093372e264694bc0177bdcdf0a1f57f2805f31f147e65a93",
+        "matches": true
+      },
+      "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+        "expected_sha256": "a607151bcd9e2cb17c51c186a5d85073c5955201138a4a1516a069ab2a0ed6c9",
+        "actual_sha256": "a607151bcd9e2cb17c51c186a5d85073c5955201138a4a1516a069ab2a0ed6c9",
+        "matches": true
+      },
+      "src-tauri/src/sumi/mod.rs": {
+        "expected_sha256": "0200b075ae72df046937309e23b301d1c02d16d772bdd149e2e9d92086766a78",
+        "actual_sha256": "0200b075ae72df046937309e23b301d1c02d16d772bdd149e2e9d92086766a78",
+        "matches": true
+      },
+      "src-tauri/src/plugin_runtime/windows.rs": {
+        "expected_sha256": "7c94c1384c56bf5cbe23288caf4071199836259fad7fc373267c69e465bbd15d",
+        "actual_sha256": "7c94c1384c56bf5cbe23288caf4071199836259fad7fc373267c69e465bbd15d",
+        "matches": true
+      }
+    },
+    "integration_evidence_file_hash_matches": {
+      "ordinary.log": true,
+      "caret-red.log": true,
+      "candidate-1x.log": true,
+      "candidate-4x.log": true,
+      "caret.log": true,
+      "transactions.log": true,
+      "damage.log": true,
+      "initial-parallel-4x-failed.log": true,
+      "host-build.log": true,
+      "host-bottom.png": true,
+      "host-focus.png": true,
+      "host-saved.png": true,
+      "host-final-tree.json": true,
+      "candidate-bridge.log": true
+    },
+    "acceptance_scope": "isolated Sway/DBus, real GTK/Fcitx, package-extracted executable; not physical desktop",
+    "preview_is_not_final_release_artifact": true
+  },
+  "fcitx_addon": {
+    "source_commit": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+    "repository_head_matches_source": true,
+    "source_archive": {
+      "sha256": "1cba8bf177ec6c37a7a0608104e7ec45a86628e58bff836dae67ff8c6f2e5073",
+      "expected_sha256": "1cba8bf177ec6c37a7a0608104e7ec45a86628e58bff836dae67ff8c6f2e5073",
+      "members": [
+        {
+          "path": "LICENSES/LGPL-2.1-or-later.txt",
+          "sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f",
+          "matches_fixed_commit": true
+        },
+        {
+          "path": "src/modules/sumicandidates/CMakeLists.txt",
+          "sha256": "e5c04cb1f2174c345c020daf89f402eb1efbfc4735dcc9813fc0e75179100a59",
+          "matches_fixed_commit": true
+        },
+        {
+          "path": "src/modules/sumicandidates/README.md",
+          "sha256": "32a414475a3c0e6b6f03f68edcc38adceec841326930017b8363a05ce5e085e3",
+          "matches_fixed_commit": true
+        },
+        {
+          "path": "src/modules/sumicandidates/sumicandidates.conf.in",
+          "sha256": "6b8110baf4f9f901f5b7caf1b2aacf5ee3d3cbf5806f9b7c162e1a4c2872fed2",
+          "matches_fixed_commit": true
+        },
+        {
+          "path": "src/modules/sumicandidates/sumicandidates.cpp",
+          "sha256": "50c140a25895e646f4093503772e7bfe265d15fe22062402d3ccc411a6bc2064",
+          "matches_fixed_commit": true
+        },
+        {
+          "path": "src/modules/sumicandidates/tests/integration.py",
+          "sha256": "5b1cdba0aee48a7614f5795cf926aaa9265314b25653af3f83be5ae98aed5245",
+          "matches_fixed_commit": true
+        },
+        {
+          "path": "src/modules/sumicandidates/tests/run-isolated.sh",
+          "sha256": "96dddf4a2dba49fc5fedf4405d24bdd856fadb8742f486c4edfbe913296d3ef0",
+          "matches_fixed_commit": true
+        }
+      ]
+    },
+    "package": {
+      "path": "/home/bruce/git/fcitx5/tasks/sumi-package-preedit/fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+      "sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314",
+      "expected_sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314",
+      "payload_sha256": {
+        "usr/lib/fcitx5/libsumicandidates.so": "7d2f92d6c0f1b403cc1d409e466f6f31d955eab528c84cfc6d7077c9e1e9092e",
+        "usr/share/fcitx5/addon/sumicandidates.conf": "a885bf56b061b14e6b82390045081f86eda5f789db36357155a67d576c7e4191",
+        "usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+      },
+      "payload_matches_record": true,
+      "pkginfo": [
+        "# Generated by makepkg 7.1.0",
+        "# using fakeroot version 1.37.2",
+        "pkgname = fcitx5-sumi-candidates",
+        "pkgbase = fcitx5-sumi-candidates",
+        "xdata = pkgtype=pkg",
+        "pkgver = 5.1.23.r2.gd2c14429-1",
+        "pkgdesc = Application-owned Fcitx candidate presentation for the native Sumi editor",
+        "url = https://github.com/wizlijun/fcitx5",
+        "builddate = 1794282313",
+        "packager = Unknown Packager",
+        "size = 134656",
+        "arch = x86_64",
+        "license = LGPL-2.1-or-later",
+        "depend = fcitx5>=5.1.23",
+        "depend = fcitx5<5.2",
+        "depend = gcc-libs",
+        "depend = glibc",
+        "makedepend = gcc",
+        "makedepend = pkgconf"
+      ],
+      "recipe_sha256": "9f79dbbc38f206f0e103fdc4305215d16b0aa196234d360532669b98e1b93d45",
+      "build_script_sha256": "82894c74ddf357c7d717c2b1c2f0fe0acb45243e9729e393142905dcb9b0d15a"
+    },
+    "classicui_replacement": false,
+    "reported_runtime_verification": {
+      "pacman_metadata": "passed",
+      "exact_payload": "passed",
+      "elf_x86_64_shared": "passed",
+      "ldd_relocations": "passed",
+      "packaged_addon_private_fcitx_protocol": "passed",
+      "sumi_preedit_no_highlight_with_underline": "passed",
+      "sibling_ic_highlight_preserved": "passed"
+    },
+    "runtime_checks_reexecuted_for_this_audit": false
+  },
+  "release_regression": {
+    "log": "tasks/omarchy-build/release-final-tests.log",
+    "log_sha256": "9c1a2575519a6846107160c0deb4b26b51ce8207369dc91da35ebaae1369a985",
+    "passed": 232,
+    "failed": 4,
+    "linux_tests_passed": 33,
+    "publisher_tests_passed": 120,
+    "failed_scope": "four existing macOS notarization helper fixtures on GNU Linux",
+    "cause": "scripts/release.sh:360 uses BSD mktemp -t notemd-dmg-notarize. GNU mktemp returns too few Xs before mocked xcrun executes, so fixture/calls is absent. Confirmed command and fixture code read; release.sh byte-identical to origin/main. No Mac production changes."
+  },
+  "freeze_conditions": [
+    "Commit this scope evidence only; no production changes required by this audit.",
+    "Recheck clean main and exact version/tag commit before creating immutable release tag.",
+    "Build and verify official Debian 12 amd64/arm64 assets from frozen tag; previous preview evidence does not prove final package inclusion.",
+    "Publish only after final artifact byte hashes, signatures and anonymous public checks pass through existing authorized channels."
+  ],
+  "limitations": [
+    "No release or installation performed by this audit.",
+    "Current repository inventory excludes ignored caches by design and does not expose secret contents.",
+    "Fcitx runtime evidence was integrity-checked, not rerun; final host/addon installation and public verification remain parent release work."
+  ]
+}

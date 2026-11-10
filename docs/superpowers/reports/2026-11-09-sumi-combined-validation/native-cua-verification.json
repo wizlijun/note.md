@@ -1,0 +1,37 @@
+{
+  "candidate": "candidate3",
+  "binarySha256": "406a39cde655c2bcc89615c645bb25583318bc09481c4acf16c31c616459ddbd",
+  "mechanism": "cua_repl native pressKey/click/drag and AX/screenshot observation",
+  "syntheticOnly": true,
+  "productionVaultTouched": false,
+  "cases": [
+    {
+      "case": "continuous_type_read_navigation_reenter",
+      "pass": true,
+      "observation": "5 visible lines with faint upper row; Up restores reading without text mutation"
+    },
+    {
+      "case": "single_click_then_x",
+      "pass": true,
+      "observation": "All three original paragraphs preserved; suffix abcdefghi becomes abcxdefghi at clicked boundary"
+    },
+    {
+      "case": "short_horizontal_drag_then_z",
+      "pass": true,
+      "observation": "AX selected text exactly abc; suffix abcxdefghijklm becomes zxdefghijklm, three paragraphs preserved"
+    }
+  ],
+  "limits": [
+    "Standalone real native editor probe; not packaged host",
+    "Physical Chinese IME candidate panel not exercised",
+    "Not a measurement of animation duration or end-to-end input latency",
+    "System Reduce Motion enabled; CUA proves focused end-state, not 420ms animation timing"
+  ],
+  "candidate4": {
+    "binarySha256": "3d976ecbbc29340783fc7db986640d8e5eacc4b4c543ed091d887143cf7324e0",
+    "sameThreeCasesRepeated": true,
+    "selectedTextExactly": "abc",
+    "finalSuffix": "zxdefghijklm",
+    "threeOriginalParagraphsPreserved": true
+  }
+}

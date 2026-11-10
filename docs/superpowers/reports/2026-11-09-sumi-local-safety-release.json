@@ -1,0 +1,104 @@
+{
+  "status": "published-and-required-readback-gates-passed",
+  "reportedAtUtc": "2026-11-09T06:49:02.981177+00:00",
+  "host": {
+    "version": "6.1109.1",
+    "tag": "v6.1109.1",
+    "sourceCommit": "4b3de21a0afef6c689cecadc9a2dadf0d4d57121",
+    "architecture": "aarch64-apple-darwin",
+    "releaseUrl": "https://github.com/wizlijun/note.md/releases/tag/v6.1109.1",
+    "localArtifactsVerified": true,
+    "draftFourAssetsFullyDownloadedAndVerified": true,
+    "publicRestFourAssetsFullyAnonymouslyDownloaded": true,
+    "updaterMinisignVerified": true,
+    "actualConfiguredUpdaterEndpointVerified": true,
+    "assets": [
+      {
+        "name": "latest.json",
+        "asset_id": "726402077",
+        "bytes": 740,
+        "sha256": "c3707595357313c20edfe1d1357ebb1f78aef7c4c4cca08691900e97c1af1c45"
+      },
+      {
+        "name": "note.md-6.1109.1-aarch64.dmg",
+        "asset_id": "726402075",
+        "bytes": 14286835,
+        "sha256": "5823bb32e0e7bb7a509750f595a572b04eb6eade424b9bfaf6524be1b7b10e84"
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz",
+        "asset_id": "726402087",
+        "bytes": 14361439,
+        "sha256": "be2bd18134b88e0d443712232b6ff058632566cd3d7dabc3dc1b5322dbc4907c"
+      },
+      {
+        "name": "note.md-aarch64.app.tar.gz.sig",
+        "asset_id": "726402076",
+        "bytes": 416,
+        "sha256": "7c42bb5fa6fe9f253d64c8eca96ae141ec9935b08fa81aeb450aa06af3862211"
+      }
+    ]
+  },
+  "plugin": {
+    "id": "notemd.sumi",
+    "version": "0.1.6",
+    "minimumHost": ">=6.1109.1",
+    "architecture": "aarch64-apple-darwin",
+    "sourceCommit": "3fd7b1da9fd32aeeab66267fb341ac1d175c7ea1",
+    "bytes": 2463938,
+    "sha256": "138180570976e3af22fe4d7440596d2c428e3f034326b818c4c1d23ba3f26f00",
+    "signatureSha256": "22210654905b8894472de67f88ee911e9fa9984c693662823084702b22dd2bae",
+    "normalAndFreshFullPackageAndSignatureReadbackByPublisher": true,
+    "independentPostPublicationPreservedBytesMinisignAndZipInventoryVerified": true,
+    "independentPostPublicationNetworkPackageDownload": false,
+    "beforeIndexCount": 303,
+    "afterIndexCount": 304,
+    "onlyAdded": [
+      {
+        "id": "notemd.sumi",
+        "version": "0.1.6"
+      }
+    ],
+    "historicalEntriesUnchanged": true,
+    "authoritativeKvNormalFreshExactlyEqual": true
+  },
+  "sourceScope": {
+    "p0VerifiedCommit": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+    "integratedP0Commit": "a173dbcf689f13e79f5489aa7c77cbdfaccbf223",
+    "includedExistingFullscreenCommit": "e388aef0e465cff862b065b1a878c4cf33c0dab7",
+    "excluded": [
+      "uncommitted focus typing and quiet notice work",
+      "local Rich YAML commits ffb26233 and 2a1b2a12"
+    ],
+    "frozenSourceInventoryIncludesHostJournalAndDurability": true,
+    "nativeReceiptSourceHashSetMatchesFinalHostTag": true
+  },
+  "boundaries": {
+    "canonicalBrowserFullGatePassed": false,
+    "canonicalBrowserFailure": "Intermittent anonymous download failures; final attempt HTTP 504. Earlier actual full latest.json, DMG and tar downloads are traced separately; no successful browser full report is claimed.",
+    "existingDatabase": "The backend SQLite CRDT store already existed. This release adds a separate host_input_journal durability boundary before acknowledging input.",
+    "notClaimed": [
+      "absolute zero data loss",
+      "complete persistent undo history",
+      "physical power-loss testing",
+      "proved origin of the user original file mismatch",
+      "physical IME/input UI acceptance from artifact verification",
+      "Windows/Linux/mobile/ESP32 release"
+    ],
+    "userDataOrCredentialsIncluded": false
+  },
+  "evidenceDigests": {
+    "artifact-verification.json": "fe78ff890b5922662b0e54b17c4a5785ab6edbebe89f2c4d05d5349a5bac1c50",
+    "frozen-inputs.json": "62896a4a59b207b4e0fed5d569a1a33f2a82e48e69433941dfb0e57dbf550e37",
+    "draft-assets-verification.json": "7a893d24808c56b0ec485c177b86e1548ac56d21b38993d6ae76d76d037f3e14",
+    "draft-signature-verification.json": "4aa000bef58e8c28c9a818d696e6f5057150b16edbb8e52ab64db4f0d77f0783",
+    "public-host-full-rest-verification.json": "e2caa90107a325dc21000b139749d135f49cbf724cfb23d0ee9c8c042b98eaca",
+    "actual-updater-endpoints.json": "ffe8ee849bdbb165f8a9f07ddeace661f428fc20f1c495349b5ec359ff4dba53",
+    "public-browser-incomplete.json": "01c08c1b087d8f6ff9d4309152aeb4427568e7be8be3fce9c8d6d3eaa660e7a4",
+    "plugins-public-packages.json": "a8eba9dc8f4b6e66901d870fa1ca4cac8ea4d4d7071876f3f8573714b586512d",
+    "plugins-index-verification.json": "906e745450d9bfb00a39eba805f226a05b11565228ef27d5db71710438b449c2",
+    "plugins-market-independent-verification.json": "bfaf924b41723a45a6d6a2618f42cab089d391b169e2b97a7c419f9e08fe705a",
+    "preserved-package-readback-tests.log": "351d2834d41e26ffa15237803d9c790b23cde3b46dc7669a57adfae086b899f5"
+  },
+  "evidenceLocation": "Local ignored task directory tasks/sumi-local-safety-release-20261109; only compact public facts and evidence hashes are committed."
+}

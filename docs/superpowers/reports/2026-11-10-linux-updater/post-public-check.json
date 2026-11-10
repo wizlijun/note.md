@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-11-10T07:06:01.874Z",
+  "sourceSha256": "430a0eb2ebbc6127297b2faeef2c00c2ebbde0a73d80b9d6e2c4a617ce048597",
+  "transport": "Node fetch replacing only native HTTP transport; anonymous live releases",
+  "checks": [
+    {
+      "triple": "x86_64-unknown-linux-gnu",
+      "version": "6.1110.3",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.3",
+      "passed": true
+    },
+    {
+      "triple": "aarch64-unknown-linux-gnu",
+      "version": "6.1027.1",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1027.1",
+      "passed": true
+    }
+  ]
+}

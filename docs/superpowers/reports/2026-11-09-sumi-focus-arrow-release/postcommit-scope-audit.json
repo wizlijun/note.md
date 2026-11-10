@@ -1,0 +1,1517 @@
+{
+  "ok": true,
+  "readOnly": true,
+  "auditedAtUtc": "2026-11-09T15:30:43.786918+00:00",
+  "base": "0e72197d9ed1f602b324cbec0be55d3fb549fb40",
+  "preparedSource": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+  "repositoryCount": 14,
+  "repositories": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "sameProject": true,
+      "head": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor",
+        "/Users/bruce/git/mdeditor/tasks/sumi-data-safety-20261109/worktree"
+      ],
+      "status": [
+        {
+          "path": "CHANGELOG.md",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 138349,
+          "sha256": "9c8f21eea77ab0e83010153a86d201300839f179a9faaa50cf615c53d41cb6a9"
+        },
+        {
+          "path": "CHANGELOG.zh-CN.md",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 124618,
+          "sha256": "b48a020a496cd3d8702ba1317104d51a04ada36482db93334c4f120a31013112"
+        },
+        {
+          "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 101499,
+          "sha256": "74fc432eb6ba2475103fd84bebf722640a0b5814325e1bacd79102b7dc39a65a"
+        },
+        {
+          "path": "plugins-src/write/src/contract.ts",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 3084,
+          "sha256": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2"
+        },
+        {
+          "path": "plugins-src/write/src/main.test.ts",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 65659,
+          "sha256": "bb2af06130631fc802b95b4c45444e6f2fd0c9e093b789568e5f1c132f270f6a"
+        },
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 37573,
+          "sha256": "67a20ac06bb16c6f02788c4f52eba0e31d4f9bc6112a44840350a11833f3e708"
+        },
+        {
+          "path": "plugins-src/write/src/style.css",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 3706,
+          "sha256": "d412a6f8ecf6d3f88ca08cc14b96674b2ef175ecba52d62a1d4682500835ea19"
+        },
+        {
+          "path": "scripts/sumi/build.mjs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 2800,
+          "sha256": "0c08a5653770b1afbc3dffa658ec52057f05002b54b782b1e9bdbbf6e8e6dfc2"
+        },
+        {
+          "path": "scripts/sumi/native/build.rs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 829,
+          "sha256": "8b666790ec393c8b860ad49ab1efd78a1e1181c5d10eafa96306b2dfd225f8f1"
+        },
+        {
+          "path": "scripts/sumi/run-native.mjs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 2493,
+          "sha256": "10acce3427c6bc39b31b3a5dadc1910f1f56ca6820236270490220cbef177fd3"
+        },
+        {
+          "path": "scripts/sumi/verify-release.py",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 39973,
+          "sha256": "e47247eb7fcdd0e14ff61663059f62da4bb8ed3965720c59fb9bd4b6e6236c7f"
+        },
+        {
+          "path": "searchidx/src/store.rs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 80766,
+          "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4"
+        },
+        {
+          "path": "src-tauri/src/smart_lookup.rs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 24801,
+          "sha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0"
+        },
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 197271,
+          "sha256": "13b7cc752cef8970f2d007d85658e1ad9b89e084c4375485a92d1ea41906655d"
+        },
+        {
+          "path": "tauri-plugin-native-editor/build.rs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 2081,
+          "sha256": "acca2d55035cd7995c56af402eae12ee14f568a53bcd09595f34e903a7516ac4"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 63990,
+          "sha256": "ff33a80a13f468b6290e13626ad8cfe943ec5d0d2d6dbb5d0de4286294ace4cb"
+        },
+        {
+          "path": "tauri-plugin-native-editor/src/lib.rs",
+          "status": " M",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 25007,
+          "sha256": "45c8e5bf94ab858e8fade895e8cf393227b13dec98564d63a34ae4cd46f808bd"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/focus-probe.m",
+          "status": "??",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 11003,
+          "sha256": "3fb4c76816015e6c42595900694001f92b446e72552ad919fd2145583b7f8303"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/focus.h",
+          "status": "??",
+          "classification": "prior-worktree-preserve-not-copied",
+          "bytes": 10610,
+          "sha256": "f4eba56e6b01a4b29a6e21356b2f30db118ec0ce12c34721ba3065b5ddd6f1f5"
+        }
+      ],
+      "stash": [],
+      "branches": [
+        {
+          "name": "fix/sumi-local-safety-20261109",
+          "sha": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [
+              "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 Make Rich YAML visibility a saved setting, hidden by default",
+              "ffb2623363602255bda14e2f9ed790f95b93aba6 Hide YAML frontmatter in desktop Rich mode and protect body editing"
+            ],
+            "ancestor": false
+          },
+          "unmergedCommitClassifications": [
+            {
+              "commit": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+              "integrated": "862a467379016a108c9e5a7d330a8004a839e8ca",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            },
+            {
+              "commit": "ffb2623363602255bda14e2f9ed790f95b93aba6",
+              "integrated": "8bad689ff77ee55466fc51635bc142bd5a3d0406",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            }
+          ]
+        },
+        {
+          "name": "fix/sumi-local-safety-release-20261109",
+          "sha": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": [
+              "85d2b490802a58f9021fa68ed2e146097bdc4caa fix(sumi): protect local input and open drafts despite projection conflicts"
+            ]
+          },
+          "unmergedToPrepared": {
+            "commits": [
+              "85d2b490802a58f9021fa68ed2e146097bdc4caa fix(sumi): protect local input and open drafts despite projection conflicts"
+            ],
+            "ancestor": false
+          },
+          "unmergedCommitClassifications": [
+            {
+              "commit": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+              "integrated": "a173dbcf689f13e79f5489aa7c77cbdfaccbf223",
+              "proof": "p0PatchEquivalence",
+              "classification": "already integrated; all 20 per-file patch IDs match"
+            }
+          ]
+        },
+        {
+          "name": "main",
+          "sha": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": [
+              "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 Make Rich YAML visibility a saved setting, hidden by default",
+              "ffb2623363602255bda14e2f9ed790f95b93aba6 Hide YAML frontmatter in desktop Rich mode and protect body editing"
+            ]
+          },
+          "unmergedToPrepared": {
+            "commits": [
+              "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 Make Rich YAML visibility a saved setting, hidden by default",
+              "ffb2623363602255bda14e2f9ed790f95b93aba6 Hide YAML frontmatter in desktop Rich mode and protect body editing"
+            ],
+            "ancestor": false
+          },
+          "unmergedCommitClassifications": [
+            {
+              "commit": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+              "integrated": "862a467379016a108c9e5a7d330a8004a839e8ca",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            },
+            {
+              "commit": "ffb2623363602255bda14e2f9ed790f95b93aba6",
+              "integrated": "8bad689ff77ee55466fc51635bc142bd5a3d0406",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/folder-release-20261025/build-input/mdeditor",
+      "sameProject": true,
+      "head": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/folder-release-20261025/build-input/mdeditor"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "7df51fa0d35a0cb5638427da3229bc1800f5fd45",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/omarchy-submission/upstream",
+      "sameProject": false,
+      "head": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/omarchy-submission/upstream"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "add-notemd",
+          "sha": "0bc6590fc97e869d3fa5d0e329161508333cba6b",
+          "upstream": "origin/add-notemd",
+          "unmergedToOwnMainOrMaster": {
+            "base": "master",
+            "commits": [
+              "0bc6590fc97e869d3fa5d0e329161508333cba6b Add notemd Markdown editor and CLI"
+            ]
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/add-notemd",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "notComparable": "Different project; not included in note.md release"
+          }
+        },
+        {
+          "name": "master",
+          "sha": "12217cedf28713ff0b48f92e8bb6af9a396dfabe",
+          "upstream": "upstream/master",
+          "unmergedToOwnMainOrMaster": {
+            "base": "master",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "upstream/master",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "notComparable": "Different project; not included in note.md release"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/mdeditor",
+      "sameProject": true,
+      "head": "7d3d38f51949c3b860f938860bd62152f76862d0",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/mdeditor"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "7d3d38f51949c3b860f938860bd62152f76862d0",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/moraya-core",
+      "sameProject": false,
+      "head": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/rich-release-20261024/build-input/moraya-core"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "c74ab423cacbff18c6283ceb60a98a6eded1f8c3",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "notComparable": "Different project; not included in note.md release"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+      "sameProject": true,
+      "head": "0621430d80840933424a2b3d7cbda85eb631a6c4",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "sha": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "main",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-data-safety-20261109/worktree",
+      "sameProject": true,
+      "head": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor",
+        "/Users/bruce/git/mdeditor/tasks/sumi-data-safety-20261109/worktree"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "fix/sumi-local-safety-20261109",
+          "sha": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [
+              "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 Make Rich YAML visibility a saved setting, hidden by default",
+              "ffb2623363602255bda14e2f9ed790f95b93aba6 Hide YAML frontmatter in desktop Rich mode and protect body editing"
+            ],
+            "ancestor": false
+          },
+          "unmergedCommitClassifications": [
+            {
+              "commit": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+              "integrated": "862a467379016a108c9e5a7d330a8004a839e8ca",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            },
+            {
+              "commit": "ffb2623363602255bda14e2f9ed790f95b93aba6",
+              "integrated": "8bad689ff77ee55466fc51635bc142bd5a3d0406",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            }
+          ]
+        },
+        {
+          "name": "fix/sumi-local-safety-release-20261109",
+          "sha": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": [
+              "85d2b490802a58f9021fa68ed2e146097bdc4caa fix(sumi): protect local input and open drafts despite projection conflicts"
+            ]
+          },
+          "unmergedToPrepared": {
+            "commits": [
+              "85d2b490802a58f9021fa68ed2e146097bdc4caa fix(sumi): protect local input and open drafts despite projection conflicts"
+            ],
+            "ancestor": false
+          },
+          "unmergedCommitClassifications": [
+            {
+              "commit": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+              "integrated": "a173dbcf689f13e79f5489aa7c77cbdfaccbf223",
+              "proof": "p0PatchEquivalence",
+              "classification": "already integrated; all 20 per-file patch IDs match"
+            }
+          ]
+        },
+        {
+          "name": "main",
+          "sha": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": [
+              "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 Make Rich YAML visibility a saved setting, hidden by default",
+              "ffb2623363602255bda14e2f9ed790f95b93aba6 Hide YAML frontmatter in desktop Rich mode and protect body editing"
+            ]
+          },
+          "unmergedToPrepared": {
+            "commits": [
+              "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 Make Rich YAML visibility a saved setting, hidden by default",
+              "ffb2623363602255bda14e2f9ed790f95b93aba6 Hide YAML frontmatter in desktop Rich mode and protect body editing"
+            ],
+            "ancestor": false
+          },
+          "unmergedCommitClassifications": [
+            {
+              "commit": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+              "integrated": "862a467379016a108c9e5a7d330a8004a839e8ca",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            },
+            {
+              "commit": "ffb2623363602255bda14e2f9ed790f95b93aba6",
+              "integrated": "8bad689ff77ee55466fc51635bc142bd5a3d0406",
+              "proof": "richYamlPatchEquivalence",
+              "classification": "already integrated; preserve original branch, do not cherry-pick again"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-local-safety-release-20261109/source",
+      "sameProject": true,
+      "head": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-local-safety-release-20261109/source"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source",
+      "sameProject": true,
+      "head": "b38dc722e6ab0e455147b07c39a972da297a9242",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-release-20261108/source"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "b38dc722e6ab0e455147b07c39a972da297a9242",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source",
+      "sameProject": true,
+      "head": "0e72197d9ed1f602b324cbec0be55d3fb549fb40",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "sha": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "main",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source",
+      "sameProject": true,
+      "head": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "sha": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "main",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/moraya-core",
+      "sameProject": false,
+      "head": "8bb896a3a56c2184db648e94cc1be26321476134",
+      "registeredWorktrees": [
+        "/Users/bruce/git/moraya-core",
+        "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/moraya-core"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "8bb896a3a56c2184db648e94cc1be26321476134",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": [
+              "8bb896a3a56c2184db648e94cc1be26321476134 fix: preserve BOM frontmatter when clearing rich body"
+            ]
+          },
+          "unmergedToPrepared": {
+            "notComparable": "Different project; not included in note.md release"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/moraya-core",
+      "sameProject": false,
+      "head": "8bb896a3a56c2184db648e94cc1be26321476134",
+      "registeredWorktrees": [
+        "/Users/bruce/git/moraya-core",
+        "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/moraya-core"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "main",
+          "sha": "8bb896a3a56c2184db648e94cc1be26321476134",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": [
+              "8bb896a3a56c2184db648e94cc1be26321476134 fix: preserve BOM frontmatter when clearing rich body"
+            ]
+          },
+          "unmergedToPrepared": {
+            "notComparable": "Different project; not included in note.md release"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source",
+      "sameProject": true,
+      "head": "2654f07802b49df71f66ffd0d674c50d34fb4ddf",
+      "registeredWorktrees": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-combined-release-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/omarchy-x86-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/source",
+        "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source"
+      ],
+      "status": [],
+      "stash": [],
+      "branches": [
+        {
+          "name": "feat/sumi-centered-focus-20261109",
+          "sha": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "fix/sumi-focus-arrow-20261109",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        },
+        {
+          "name": "main",
+          "sha": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+          "upstream": "origin/main",
+          "unmergedToOwnMainOrMaster": {
+            "base": "main",
+            "commits": []
+          },
+          "unmergedToOwnUpstream": {
+            "base": "origin/main",
+            "commits": []
+          },
+          "unmergedToPrepared": {
+            "commits": [],
+            "ancestor": true
+          },
+          "unmergedCommitClassifications": []
+        }
+      ]
+    }
+  ],
+  "rootDirty": [
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "9c8f21eea77ab0e83010153a86d201300839f179a9faaa50cf615c53d41cb6a9",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "CHANGELOG.zh-CN.md",
+      "sha256": "b48a020a496cd3d8702ba1317104d51a04ada36482db93334c4f120a31013112",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+      "sha256": "74fc432eb6ba2475103fd84bebf722640a0b5814325e1bacd79102b7dc39a65a",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "plugins-src/write/src/contract.ts",
+      "sha256": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "plugins-src/write/src/main.test.ts",
+      "sha256": "bb2af06130631fc802b95b4c45444e6f2fd0c9e093b789568e5f1c132f270f6a",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "plugins-src/write/src/main.ts",
+      "sha256": "67a20ac06bb16c6f02788c4f52eba0e31d4f9bc6112a44840350a11833f3e708",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "plugins-src/write/src/style.css",
+      "sha256": "d412a6f8ecf6d3f88ca08cc14b96674b2ef175ecba52d62a1d4682500835ea19",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "scripts/sumi/build.mjs",
+      "sha256": "0c08a5653770b1afbc3dffa658ec52057f05002b54b782b1e9bdbbf6e8e6dfc2",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "scripts/sumi/native/build.rs",
+      "sha256": "8b666790ec393c8b860ad49ab1efd78a1e1181c5d10eafa96306b2dfd225f8f1",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "scripts/sumi/run-native.mjs",
+      "sha256": "10acce3427c6bc39b31b3a5dadc1910f1f56ca6820236270490220cbef177fd3",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "scripts/sumi/verify-release.py",
+      "sha256": "e47247eb7fcdd0e14ff61663059f62da4bb8ed3965720c59fb9bd4b6e6236c7f",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "searchidx/src/store.rs",
+      "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "exclude-unrelated-eof-newline-only",
+      "currentScope": "excluded-unrelated-EOF"
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "sha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "exclude-unrelated-eof-newline-only",
+      "currentScope": "excluded-unrelated-EOF"
+    },
+    {
+      "path": "src-tauri/src/sumi/mod.rs",
+      "sha256": "13b7cc752cef8970f2d007d85658e1ad9b89e084c4375485a92d1ea41906655d",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "tauri-plugin-native-editor/build.rs",
+      "sha256": "acca2d55035cd7995c56af402eae12ee14f568a53bcd09595f34e903a7516ac4",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/editor.m",
+      "sha256": "ff33a80a13f468b6290e13626ad8cfe943ec5d0d2d6dbb5d0de4286294ace4cb",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "tauri-plugin-native-editor/src/lib.rs",
+      "sha256": "45c8e5bf94ab858e8fade895e8cf393227b13dec98564d63a34ae4cd46f808bd",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/focus-probe.m",
+      "sha256": "3fb4c76816015e6c42595900694001f92b446e72552ad919fd2145583b7f8303",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/focus.h",
+      "sha256": "f4eba56e6b01a4b29a6e21356b2f30db118ec0ce12c34721ba3065b5ddd6f1f5",
+      "matchesPriorObservedBytes": true,
+      "priorClassification": "include-focus-and-notice-after-validation",
+      "currentScope": "preserve-old-root; functionality already integrated in released base; not copied into this release"
+    }
+  ],
+  "root19OriginalBytesPreserved": true,
+  "candidateScope": {
+    "exactProductionAndSpecFiles": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+      "plugins-src/write/manifest.v2.json",
+      "plugins-src/write/package.json",
+      "plugins-src/write/src/main.test.ts",
+      "plugins-src/write/src/main.ts",
+      "scripts/sumi/verify-release.py",
+      "tauri-plugin-native-editor/native/editor.m",
+      "tauri-plugin-native-editor/native/focus-interactive-probe.m",
+      "tauri-plugin-native-editor/native/focus-probe.m",
+      "tauri-plugin-native-editor/native/focus.h"
+    ],
+    "validationEvidenceFiles": [
+      "docs/superpowers/reports/2026-11-09-sumi-focus-arrow-validation.json",
+      "docs/superpowers/reports/2026-11-09-sumi-focus-arrow-validation.md",
+      "docs/superpowers/reports/2026-11-09-sumi-focus-arrow-validation/cua-verification.json",
+      "docs/superpowers/reports/2026-11-09-sumi-focus-arrow-validation/native-verification.json",
+      "docs/superpowers/reports/2026-11-09-sumi-focus-arrow-validation/ui-verification.json",
+      "docs/superpowers/reports/2026-11-09-sumi-focus-arrow-validation/vertical-focus.png"
+    ],
+    "productionCount": 12,
+    "evidenceCount": 6,
+    "sourceCleanAtAudit": true,
+    "preCommitAudit": false,
+    "actualDiffSha256": "c108ea2dcbf269f382bce7e05dd539fa764f9a2c34051ac9af11a4b16422c9d8"
+  },
+  "p0AndCorePreservation": {
+    "noChangesFromReleasedBase": true,
+    "paths": [
+      "src-tauri/src/sumi/journal.rs",
+      "src-tauri/src/sumi/durability.rs",
+      "src-tauri/src/sumi/service.rs",
+      "sumi-protocol",
+      "write-core",
+      "plugins-src/write/backend"
+    ],
+    "fileCount": 65,
+    "sha256": {
+      "plugins-src/write/backend/Cargo.lock": "e9789dac5ac8e9eebb1fc58549517d11c3b056f45321d88b811284cab1405060",
+      "plugins-src/write/backend/Cargo.toml": "ec08c1e99666aa338453c60ca3e014534ebbbf4c935e58da3745075ad6457e1a",
+      "plugins-src/write/backend/build.rs": "437648cf94e219170e21d2404b127ae27cb2223123f106190b93869cc4f20598",
+      "plugins-src/write/backend/native/sound.h": "76c0ff6a1c6e2640c719c5917d1f8a09ed2babe4fbe83a784a91ebe291a34499",
+      "plugins-src/write/backend/native/sound.m": "10d70b82392e056afd4e52a478d6d103e388b006b8f98985923c8858a8f4ef17",
+      "plugins-src/write/backend/src/coordinator.rs": "a03d88f09cb15f69febf1b612fb415fa2d9c91353c0caeff71ed6a426849571a",
+      "plugins-src/write/backend/src/durability.rs": "3504160555422e7baf99cfa831eaf7ac092d32ffe008d03b2d5d89468de74113",
+      "plugins-src/write/backend/src/durability_rpc.rs": "09242c7a04a78ced9091367cfac81c0bbc637652a1759c1417cccdaed129505b",
+      "plugins-src/write/backend/src/fonts.rs": "2d013df525f4e07edbdf0de7f1792031345f7d73772f8d6c433bd63729edf145",
+      "plugins-src/write/backend/src/lib.rs": "9c49d90f1a7f5c8d8cb2a4cc0bdacd306474aa841014ff45d37be0568076ace8",
+      "plugins-src/write/backend/src/main.rs": "219e58e5392f27e94616298e71aec1248f69d6fae6960640e847334216ad20be",
+      "plugins-src/write/backend/src/network.rs": "b18f37e7f78db37555dad954178a580212462b561763119c85e11282b886bbc3",
+      "plugins-src/write/backend/src/runtime.rs": "a910dc997c15b8300e4649cdfa993ba34e445d2fae8faa366bab9a3765b74c95",
+      "plugins-src/write/backend/src/sound.rs": "5ca58abc8efa8b7d17d7a2e5a6cd791679962385128dbf48c31c3e3c6419997a",
+      "plugins-src/write/backend/src/sync.rs": "4de912ee86c4d39732ef172ce707e5e882baa95c68f654661440806890640d9f",
+      "plugins-src/write/backend/tests/stdio.rs": "2ca17a299f601becea34db0a8fea9e36458653efac9008098d9fcc89d9b35a2a",
+      "src-tauri/src/sumi/durability.rs": "32aceeff6116521014259a555d5e20684679978612a5eaa8c66af55c5075d52b",
+      "src-tauri/src/sumi/journal.rs": "0614aec536096377d02983de9954b2778bf78de86a087c8c8d746309fde3b54c",
+      "src-tauri/src/sumi/service.rs": "d58c67c7e7ff3b92926c02b1a8a0ea7d280b649b81a502f1e05e85a4d9620643",
+      "sumi-protocol/Cargo.lock": "19abfafe39f181c15a62d3d57381956ff701f40d560350eed8b78b6b7b412439",
+      "sumi-protocol/Cargo.toml": "f97dfe39cac213fe631a73396d6b34cf804908179888afd5b59c88e5c0126521",
+      "sumi-protocol/src/durability.rs": "25f381fdbb78a6616dc488793fb82f56674e112b1bec47b9a1c10e0882a4d50d",
+      "sumi-protocol/src/fonts.rs": "cc9924a0ba05062517afa3ca06a6e70de9651494c2ed9520ccc2522d579f9788",
+      "sumi-protocol/src/lib.rs": "ec60bb0294480049fc78b6970bd72a762d7384a37991bd5696d0d6a4b31ba653",
+      "sumi-protocol/src/service.rs": "daf5492bacfae6964d3c448d78b71409b53f1d80501ae68737cda8985a99a065",
+      "sumi-protocol/src/sync.rs": "19aee783b94afcfadd74049269e4a50aa26b8356fe7a80a98cc56837477376ec",
+      "write-core/.gitignore": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368",
+      "write-core/Cargo.lock": "7d0e841861355ad159658070de21999df73e58022aad92842a560fc6b38aacce",
+      "write-core/Cargo.toml": "fc4b37333856fc80f079fd5d5b0457794a23322ba69889964606c93489703a46",
+      "write-core/README.md": "1044100e59c4f5b4a4a6516c22fa83ba672eb80c587aba2cb37f86081d30d50c",
+      "write-core/WIRE.md": "a8b985c5f2c47e7cacc5c90f4b96c0168fc09dd406d47fb267e4c1831b47fda8",
+      "write-core/examples/candidate_benchmark.rs": "cc22802e1ef28fb36a971c9b5bf653929362ab02d9dee35fb9fbaebd047db532",
+      "write-core/examples/candidate_continuous.rs": "2c093e2f671237db2595ce176fad4b4513f6895fbea692b7b95ca7198ca3e576",
+      "write-core/examples/capacity_benchmark.rs": "6a8cbafdd2f78f2eec948ad7230bdcc0f5242bae1ad59c94bfd313ee3baf829c",
+      "write-core/examples/confirmed_benchmark.rs": "4a97db1d6cf6c29d27b6c0d1dc7bb8ce43dfdd24c78c358749ebe45c8a396fe1",
+      "write-core/examples/core_benchmark.rs": "5ef4e1fe86fa6a47da4b31e9a58fe7ad39b3db530feecd1d6810c3c1e400e67b",
+      "write-core/examples/fork_fixture.rs": "f8ca463731389c28e73150cc826fb91e4f08a4954b9bcccbd51a23de829fc82c",
+      "write-core/examples/full_path_benchmark.rs": "e0c722ab275af9b2d82f37aeac27f067c11ecf6fee3a1abb443e290c64a0fe9b",
+      "write-core/examples/pending_invalid_fixture.rs": "d67f52e545039ca2c6cfda273e62c5aa86255bfb07cc8bbb1f069429fae19804",
+      "write-core/examples/prepared_remote_benchmark.rs": "89a6e448d201c438dea7ef8b7cf397926a634fae149d5735ab4765c2ac645274",
+      "write-core/examples/replay_benchmark.rs": "3999a8782b31e2d01a8d7aa225e5826a8011081ade9dbe5a17bc2e9fd52aade7",
+      "write-core/examples/wire_fixture.rs": "0a2d0503610dd2e9ab213d0baa5b1efd0f3e45e7366eeb2a97a193ed56b3afb2",
+      "write-core/src/candidate.rs": "bcedfb4f1820a0a37b9c9e9c0dff2f9b14da15700bf6c6cf4e98023966ec28d3",
+      "write-core/src/catalog.rs": "80976542c0a38022d4f09d7b5e9b2c7e2fc24af7ee78cd1299c65291de17ae57",
+      "write-core/src/document.rs": "a02264611c9e9b9fd37c1e07cded3ab3d02c718ac9a00d449a7e6ac31d0e59d7",
+      "write-core/src/import.rs": "83d873679e2e8bd14705bc6b08e4528bbb771e418ffc991df8fb7a93495459c9",
+      "write-core/src/lib.rs": "0b86185a5f2f5b4fbcdd39ff4cb4c41fc8e3a36d02d9f50d1d759ca01994cd9d",
+      "write-core/src/projection.rs": "f629053372307959a6212ebef2c2228624d1feb6c83f7098723046ed8b39c0e7",
+      "write-core/src/render.rs": "92bafc83f7cce11e05fb3a617ef31e88f16e7a9bd7ab427e07777b862ffb859d",
+      "write-core/src/render/typing.rs": "2c66f0ed1aba32dffa3edf9ee5d028c00ab5d4022769c5e435cb6973b7da7498",
+      "write-core/src/selection.rs": "f1fdf8abec73e8f06b7f5c8bd625c739b65688413972e2c522dbffefbd742f17",
+      "write-core/src/storage.rs": "f3e17d1cca22f84ffd8f2555559799df6ad80df0be2b2118b58123c39fd4cc4b",
+      "write-core/tests/candidate.rs": "840d92e8e8d669913fdd7619d33c6ef7a0c0e1c2357a56f418cd4245d5237118",
+      "write-core/tests/catalog_projection.rs": "b61c75b7943b70a287e0f2d075ccdc479849f12ff2be3ca505e17def552d5a28",
+      "write-core/tests/clipboard.rs": "88cf9e346d963a686d314b7bac1ee9d5a54872561289da417d801ce192b46d9c",
+      "write-core/tests/document.rs": "1c37f751d1b1f306030b0a43f0b982bbc3a02119c2766bd2b9f2190549f57a91",
+      "write-core/tests/fixtures/fork-v1.json": "68b5ed61a4112e6e7daa20a075eceeca4177f3cff2b573d9f0f957ca97321f15",
+      "write-core/tests/fixtures/pending-invalid-v1.json": "cae148d33a98e58eb7641b302ac6575e3032cba23d4aa4ed24253d5b5201279d",
+      "write-core/tests/fixtures/yrs-v1.json": "82adac4b9a5eec66444e4edcbb100c3418d4a4c37ee67fe09040ac3e983f99d4",
+      "write-core/tests/import.rs": "47cacedf94097bbf43ec188cd0098b2ac04507adae190f223dd8dfd075f2a3cd",
+      "write-core/tests/render.rs": "25ab0661c800f9df51568b3db816fc393d44312f7cebc1e75a9017a38e286506",
+      "write-core/tests/selection.rs": "9bd841147b214a6ba37659c8f7cf3be9245d895c3dde2d5ba809448d8c73e4e6",
+      "write-core/tests/shortcuts.rs": "728ae3e22e201855c0c70e095f5b03e5b61665268a457384b7155b0bab5b7d3c",
+      "write-core/tests/storage.rs": "9ba5354e74fbc0dd5a95b0607e5ba0ff2945f5a50ee28d2bff2f898327081ea6",
+      "write-core/tests/typing.rs": "19c9d1caf4bd061b9940cc9c8a6590b0ce5169b54bfdd231db52f68dbe780ca7"
+    }
+  },
+  "richYamlPatchEquivalence": [
+    {
+      "original": "ffb2623363602255bda14e2f9ed790f95b93aba6",
+      "integrated": "8bad689ff77ee55466fc51635bc142bd5a3d0406",
+      "integratedAncestorOfPrepared": true,
+      "freshPerFileEquality": [
+        {
+          "path": "src/components/EditorPane.next-task-session.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "e9729d0e48e15a840b6c9a1522465efa1d481c8322d17ce8dae3460947328965"
+        },
+        {
+          "path": "src/components/RichEditor.svelte",
+          "postCommitBytesEqual": true,
+          "sha256": "60c5243c3a6260157eb74bf9aafc0cfba800402b2500915d5f67be829be0750c"
+        },
+        {
+          "path": "src/components/rich-editor-focus.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "67b21eac9d8f3950bcad1f9fb18dd5c2761c4b1ba31b88584bc6da0668130647"
+        },
+        {
+          "path": "src/lib/editor-bridge.ime.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "8834208874312ebae7089412dce6fd6783d704ecc4e8b77c5a4c53059552db34"
+        },
+        {
+          "path": "src/lib/editor-bridge.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "67522ac1c5c330cb83c04db5c734502eb70f84cdfa9d1415b43eb25edcfa8235"
+        },
+        {
+          "path": "src/lib/editor-select-all.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "8ced70f45d8655b8a040c4cc6d84537acd26e0e75873591da6995cedf8c6da41"
+        },
+        {
+          "path": "src/lib/frontmatter-html.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "f69336c30c6d0227c694b62520ac545e28e7e7618797bb628fcc97bef89d623d"
+        },
+        {
+          "path": "src/lib/frontmatter-view.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "6e4140b21d8af1600b29d4ba88264db59cd74696eb0a3e1352769c1e969ff9e5"
+        },
+        {
+          "path": "src/lib/frontmatter-view.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "934a0cd64a28f2971950b628264d63e71d43650d31146c617a0c486154ffa253"
+        },
+        {
+          "path": "src/lib/hidden-frontmatter-selection.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "afce59256918ca7f8fed79e784b813252c450d76ef08237c359c7d352128f798"
+        },
+        {
+          "path": "src/lib/hidden-frontmatter-selection.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "c98d69698e70e56fd02328805b508a51e10bcf2e768d7e4545a6eaac34f3466b"
+        },
+        {
+          "path": "src/styles/editor-base.css",
+          "postCommitBytesEqual": true,
+          "sha256": "e6a36afac99618183c852dd350ced9aa35135e89508aa881a3dc50a755c1a61c"
+        }
+      ],
+      "classification": "already delivered by integration; original SHA need not be ancestor"
+    },
+    {
+      "original": "2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1",
+      "integrated": "862a467379016a108c9e5a7d330a8004a839e8ca",
+      "integratedAncestorOfPrepared": true,
+      "freshPerFileEquality": [
+        {
+          "path": "src/components/EditorPane.next-task-session.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "5fba2b32dc561637cf7ee008d1b9902b4a4392ee1df9f1647ae624163bb5cec9"
+        },
+        {
+          "path": "src/components/RichEditor.svelte",
+          "postCommitBytesEqual": true,
+          "sha256": "9eb3cbc5a17b679fdc586445fc99dc14bf3cd7c911df03e6a9f3b32723defba2"
+        },
+        {
+          "path": "src/components/SettingsDialog.search-tab.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "c6192b81788234792be5d7d609b0bbf7cfcaae5e874ec0924d3741d524588a0d"
+        },
+        {
+          "path": "src/components/SettingsDialog.svelte",
+          "postCommitBytesEqual": true,
+          "sha256": "23f6f28b7608c6ee8ff4f481edfca2c54b5efc6b8e98712a0a28c82b387160fe"
+        },
+        {
+          "path": "src/components/rich-editor-focus.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "f176707a0b08d27dad5d6d174feaa234aa1070e9f39013d7d546a1f86bf2c5c1"
+        },
+        {
+          "path": "src/lib/editor-bridge.ime.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "498b86a460ad10cb0ac63719633abfac0f4b6c87894362c7a92c57b0b3a81c88"
+        },
+        {
+          "path": "src/lib/editor-bridge.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "4ef672005b6b4cd238893bc48018a0cefe570daf037f2f594191176b2297fa1f"
+        },
+        {
+          "path": "src/lib/editor-select-all.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "ad362a3f795447eb19554945aed7f89ed03da94befdad64993fc0f1eab1fbaf8"
+        },
+        {
+          "path": "src/lib/frontmatter-html.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "be9e3e1eff8df7b049c6d0e5f1683e2418a5482d8c79f6835cb9ebc481039b96"
+        },
+        {
+          "path": "src/lib/frontmatter-preference.svelte.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "fc69aec7bf42774f42157546ba4af96d74312e7192579853ec1fbc5057f3c82b"
+        },
+        {
+          "path": "src/lib/frontmatter-preference.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "9fc8d58650d329ccdca921a3c32eb9781cf7cd083f61f9a81eb9da2e2a22a408"
+        },
+        {
+          "path": "src/lib/frontmatter-view.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "6b49fab2f80d3e32753f5a4d9cf6dd1f86a11006444d3c37a6df4c678fe2164e"
+        },
+        {
+          "path": "src/lib/frontmatter-view.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "e9aa85cd244689d9ed74638afde0b74e87badb95031daf99bfcdcbf1f4110708"
+        },
+        {
+          "path": "src/lib/hidden-frontmatter-selection.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "e92716731f15c8b8860ec07b318d9ada4381c6317b65dfc50959f1f5ede194c2"
+        },
+        {
+          "path": "src/lib/i18n/de.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "8ebc5a3b34cfce92a889d12cdcc42bf32666aa6270395f1c1bd0e6d3f2045c42"
+        },
+        {
+          "path": "src/lib/i18n/en.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "169937258ab574fcee50f4045b533363faae65b81f46f0babb4fbbcd58bc977e"
+        },
+        {
+          "path": "src/lib/i18n/ja.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "5f6a3a2bf375ff54ea82f7c378307bdb47191495a6f9cb8e1e538cf8edf8fc6e"
+        },
+        {
+          "path": "src/lib/i18n/zh.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "d9dfc0bdef07d563a070b21a06b35bbb6e7e8c94ab4e4661e311d6374d733cce"
+        },
+        {
+          "path": "src/lib/settings.svelte.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "cbb84f1ba38d2c0721a91c397b4396cfbc0f893feba97224a131e8ed32bb0831"
+        },
+        {
+          "path": "src/lib/settings.test.ts",
+          "postCommitBytesEqual": true,
+          "sha256": "eb10ebc6681c8f258f51b88b1c61f5e0d467e256b3af8e8a24036ca178be3518"
+        },
+        {
+          "path": "src/styles/editor-base.css",
+          "postCommitBytesEqual": true,
+          "sha256": "8418ff00f1100bf6ce316c96ef56e8b356bd517a75b1dea7ee87ace4e16853d1"
+        }
+      ],
+      "classification": "already delivered by integration; original SHA need not be ancestor"
+    }
+  ],
+  "p0PatchEquivalence": {
+    "original": "85d2b490802a58f9021fa68ed2e146097bdc4caa",
+    "integrated": "a173dbcf689f13e79f5489aa7c77cbdfaccbf223",
+    "integratedAncestorOfPrepared": true,
+    "files": [
+      {
+        "path": "plugins-src/write/backend/src/durability.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "53e781c7effc0e9f008c676f88d12001a15b7f9a",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "plugins-src/write/backend/src/durability_rpc.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "85ac9396cfa4d03d26fddfba98f771546c55bf5c",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "plugins-src/write/backend/src/lib.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "8bcc364a605ef950f3bba6e89cc9cf8b1c977991",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "plugins-src/write/backend/src/runtime.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "1a507c173a52fac8c7b3d41c0b53187cde0c9650",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "plugins-src/write/backend/tests/stdio.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "2f3e99ef0466ffae14df50220522333ea5b850db",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "scripts/sumi/verify-release.py",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "913c13c15ff4e49ca46566ce3aad77d263943ad4",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "src-tauri/src/sumi/durability.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "3b95aafdf71a6404ad4d4f2bdd6089be362a79be",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "src-tauri/src/sumi/journal.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "b109cac17df923fbd7e59657da7dc7f5fe470ef0",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "src-tauri/src/sumi/mod.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "a143458aae9d768ea6749dedc18f6d1f9559b3ec",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "src-tauri/src/sumi/service.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "de3a9df5e2d2fc74cc2c4839d5411057e446f6c1",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "sumi-protocol/src/durability.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "18588185e62d47437e67ba52673bc2a3d3b3fcfe",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "sumi-protocol/src/lib.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "32a66aa3caedd7bcf73f535ac2a5d765e0ff7592",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "sumi-protocol/src/service.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "83139c7621a6ecf6969774d2819bae5a3f88f223",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "tauri-plugin-native-editor/README.md",
+        "postCommitBytesEqual": false,
+        "perFilePatchId": "8602b7660d35637cb68b6b6d2a13b8eba46ca997",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": "Integrated baseline additionally includes previously delivered fullscreen shortcut"
+      },
+      {
+        "path": "tauri-plugin-native-editor/native/draft-probe.m",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "4441b15b42ebf22ba70af81a432887d2b74de441",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "tauri-plugin-native-editor/native/editor.h",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "536e2323ff40b5dcc91cf1905358034bc9234ab3",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "tauri-plugin-native-editor/native/editor.m",
+        "postCommitBytesEqual": false,
+        "perFilePatchId": "df06667e76d89fddc5e32b7e4b25345be6035f4a",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": "Integrated baseline additionally includes previously delivered fullscreen shortcut"
+      },
+      {
+        "path": "tauri-plugin-native-editor/src/lib.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "64e189f4700dfd766549056c684721088d707b40",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "tauri-plugin-native-editor/src/platform.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "c1344645e3d61c0d4d3851b1d27064e5de318242",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      },
+      {
+        "path": "write-core/src/storage.rs",
+        "postCommitBytesEqual": true,
+        "perFilePatchId": "274d09c640170a710a75515db699c17da46f05e5",
+        "patchEquivalent": true,
+        "postFileDifferenceReason": null
+      }
+    ]
+  },
+  "historicalDeferredArchiveUnchanged": {
+    "docs/superpowers/reports/2026-11-09-combined-release-deferred-history.md": "8421deae83a1eabbe2d1ca2faa8dd745a2c919ae26dd9ffb8a0fc22a79a62d02",
+    "docs/superpowers/reports/2026-11-09-combined-release-deferred-history.json": "829b43fddbbd68df412e1fb7a8b3214caeb06208a912ee35dfb7d4ee782d1db2"
+  },
+  "priorScopeClassificationReference": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-centered-focus-20261109/scope-audit.json",
+    "sha256": "24ac8a22b87631572cf4a48fa880d047a6a22d860c95719e9050c940151f44bc",
+    "newAuditRecomputedCurrentState": true
+  },
+  "morayaCoreDependency": {
+    "commit": "8bb896a3a56c2184db648e94cc1be26321476134",
+    "distFileCount": 67,
+    "installedDistributionBytesEqual": true,
+    "sha256": {
+      "dist/adapters/browser-media-resolver.d.ts": "63eb0f9ac6aff43e1b9e7c903b056d1a326bef69bc5afa8ad6e78c9c05638cde",
+      "dist/adapters/browser-media-resolver.js": "3dbb6eb166bf5f7ff693f87cc3f26d3753455ef17f7817761023e487ebcea3b9",
+      "dist/adapters/browser-media-resolver.js.map": "cca2b7632293c2e2bbbb3648d8af862f562b9d3bf8c5b915b4c245f8a7b767e1",
+      "dist/commands.d.ts": "531b1ff25b0b2489afcc5aabf4345df998d59ca329118f36c3ec10d0686688fa",
+      "dist/commands.js": "88758a3ff1cb63e5cf070fd4a9f433d9018096a3e046e8942b8ed40e41359a3d",
+      "dist/commands.js.map": "87eb2445aa23ef837ed95a2d9a297b6660602728813977decef9f4eaa3cfa683",
+      "dist/doc-cache.d.ts": "a000e911d2d8388fae7f1147e72c8d999ea8811b1049efb3439ae9297bbec49f",
+      "dist/doc-cache.js": "9f54ea4135e064939ff59ec18ce82f5136d948d449f615fa5a7031af5643982a",
+      "dist/doc-cache.js.map": "df568ceb6369622c3275169e7e512e342e5ed84d8a33cc0a2458dd8b1a7dde84",
+      "dist/index.d.ts": "60eef27cdb1c98757f666e9fe4c2a5d09c0bb8cb0b64bc12b7dc9dbbd1f71ccb",
+      "dist/index.js": "86a430e134b7da051e9c6af4e29817dd72d9269ced56d1caf7509b876162d255",
+      "dist/index.js.map": "8007657ef3091e3622c7ccb1c272b2f97a0a420d1c3daf6095040e6fb2b7bbe7",
+      "dist/markdown-BLkhu8pG.d.ts": "9e4480266ee0a38d8f8fe2745f5f81a311b14506151cfa359806a69094832a75",
+      "dist/markdown.d.ts": "c1be1bc442c5d644cf29d55a8145ddb219006038e9008f7d21bf4aa22dfbeed3",
+      "dist/markdown.js": "59113f9665fbb8b3e48c4d3e0ed7258432d21de9a3d331fa74e6994308e62e22",
+      "dist/markdown.js.map": "82905e4d75ea4a90f4e0450f7d4bbbcd7e80298f6feac783bf0fdc92b4f2a2f4",
+      "dist/plugins/code-block-view.d.ts": "15745908930d438703f83692e9cbc4094cd00fdd04d072d898ce253bff986f18",
+      "dist/plugins/code-block-view.js": "a2aa17447b2893088644a3d5370f3dade8f35bab4de8ba8168004c24abf932c4",
+      "dist/plugins/code-block-view.js.map": "fdd3a3bf3538afc349a7dc162f05a03d1ab7b4ff7034720cdf5dffe76087ffae",
+      "dist/plugins/cursor-syntax.d.ts": "2de2187dfba300b5dc8e3eb6039ee6f7701be398fc71d2f7ed380185fca88082",
+      "dist/plugins/cursor-syntax.js": "311db2e63a5bae7b34efdafcbba6d3badf24a6df0d6ff0c33029bbd05f4107be",
+      "dist/plugins/cursor-syntax.js.map": "dbde5d9b6857c3b002d664ab7858f953ca0283496de619e99f1374584ba7b908",
+      "dist/plugins/definition-list.d.ts": "9c9b464e62ad1c179dba3df520491733c2a9ce0a12bd0f3f89fe60a1a4bdc75c",
+      "dist/plugins/definition-list.js": "a146169cce865dcaddd1adf0876f01824da84230702a5cd2fd83de2ea388b9ee",
+      "dist/plugins/definition-list.js.map": "2617ec96730078689b90471a951b5bf25e23a09849cf36a8e7698181b2721f02",
+      "dist/plugins/diagram-interaction.d.ts": "4cb075da51902cd34cac8a77f4b55eaa66ebc558065249b3031af7d15a3a442d",
+      "dist/plugins/diagram-interaction.js": "5ac36fe4e43e8e6f5c98fe053482f9fea1f5e453a9c05c4420d416fd85aaa1cc",
+      "dist/plugins/diagram-interaction.js.map": "db929874c85c8ddbc1c3288d14e54e1825156fe8a6757d79826a7bfa8577ee88",
+      "dist/plugins/editor-props-plugin.d.ts": "52862d2f0f43a573c857d6a617fcfe9e703b09431caacc517ced7e0d9f108514",
+      "dist/plugins/editor-props-plugin.js": "7c91407432f58d808de878bdf05ffefaef35b5b9547a0c6efe75764088aaab15",
+      "dist/plugins/editor-props-plugin.js.map": "963cbc244bf611af90f9e57cf092bbce27f40e82393ee6806ee48376a2f81d9c",
+      "dist/plugins/emoji.d.ts": "1e7c60e6fcae5cdb0a1cf35e533c0554e8325d5dcf076207ed893da0093ef7e0",
+      "dist/plugins/emoji.js": "74817332616055eebddfa3d15879c69b6fc3304e6e339db97844cef07fc77232",
+      "dist/plugins/emoji.js.map": "e72293d4c75a0a3a131ae904534b2e8bd63794e147473749dadf209ea3f7ebaa",
+      "dist/plugins/enter-handler.d.ts": "866a95c12fbab7bea9624819c24a3aeecdefb938bd40456b30a47424a0ed3438",
+      "dist/plugins/enter-handler.js": "9eeadd8d3a0091dd1270815b246823f0a861761fdfb4ff05d85bdfa6f4cf3ded",
+      "dist/plugins/enter-handler.js.map": "ff88bd0187a823efea8d0ec917f44cb272e407714963e183fcaf87d2b3e10e85",
+      "dist/plugins/footnote-plugin.d.ts": "706a77794c7a2d4bfee1bf5ba19b7b8b69157fd56a24bf7fcf154a9e5a09d212",
+      "dist/plugins/footnote-plugin.js": "9a750f723aea7af66a748fb60d96a52673d1a5ae15c6d16d0f4c9d4f8e99a16a",
+      "dist/plugins/footnote-plugin.js.map": "9950bc26f02cf413dfcfcec59b4e25199e7578e966147b086f06aee0a952a3ee",
+      "dist/plugins/highlight.d.ts": "dfc9ff33005feed7ae39e8e315d22f8b1938f6614a5ff9776a80e8d86b2f7936",
+      "dist/plugins/highlight.js": "aee02cbf4f63b90d9e55c819b43aa3d102e1a53e353c9ed3546d29772b937fb6",
+      "dist/plugins/highlight.js.map": "4902b3e3d0414bf2d67214f9ff0c43d276c89d3d5208f88de2be5f8f2a859ab3",
+      "dist/plugins/inline-code-convert.d.ts": "2f132d6fa6ba36d7617758236d1fcafc1a53bd5505a5c3a2c8f11a8b01601d28",
+      "dist/plugins/inline-code-convert.js": "b98d068bc24bd5300cda34a50101a1db439f157536eed91d0460c0c27b636b7a",
+      "dist/plugins/inline-code-convert.js.map": "714321e1f8149d6e94bb5bdefebe5401a3fe3a5f278ea88d2275e0d1fd3045f7",
+      "dist/plugins/link-text-plugin.d.ts": "210c6d02b9943ee6a0c5363048a269cf7000a82070778d3ef1c8980a615d553a",
+      "dist/plugins/link-text-plugin.js": "943e64584b4d6b8ea520cbfb21cb927aac1c2567352b33e0be8ae645515780cc",
+      "dist/plugins/link-text-plugin.js.map": "bf3c321017e6e8fa317b302f5d3705e816c956b29ce694608fdb7d9e83160a2b",
+      "dist/plugins/mermaid-renderer.d.ts": "44302ed67ad49d039a1bdfbaac9891ba2a967de612fafc36907394605a6ab4f3",
+      "dist/plugins/mermaid-renderer.js": "6edda02f87bd74bf746758f9df2ad439c8ebd88ab142707526c16d14986ab247",
+      "dist/plugins/mermaid-renderer.js.map": "b2639cbe2e4416304b127d7761caa2ad4af1e6dfcff392e745332b4d37706cfd",
+      "dist/plugins/session-table-view.d.ts": "0c6a05bbc374282fa219b06ff496e0b18cb3ee42205e27bab60a381c664558d7",
+      "dist/plugins/session-table-view.js": "d0f7000de5bf75f88e514df88997e15eaa081e942cf2391c78d12eb6f43d5627",
+      "dist/plugins/session-table-view.js.map": "6d9b09a4d99303020733e48a7cc147b55e53316259206eda0b8a9c7ffcae21e4",
+      "dist/schema.d.ts": "69b75feef708f17a01dde7cdbba8e487d655a1e892953df99aa9689f61b4198f",
+      "dist/schema.js": "cd50fe3e50ff6eed65d15e1cb93d88fea23d2d8f6a70c58fc96a4aeb25089fc4",
+      "dist/schema.js.map": "7bbde28fff9f2d3fd0d92995dd37a1f106d3075e711f518d73b5f79363104029",
+      "dist/setup.d.ts": "2d07949440e08629206362b21bf65df2b4272908fdde9a645dafe52c72ca28c1",
+      "dist/setup.js": "dd6eaf5c0af5b8747b8ae3f9e31481a1da62aacc821db37ffd915d1a5d263db0",
+      "dist/setup.js.map": "41fef87e83536c5ab6d3028815f0e5c026edbd846d4237c9fd995c95f0cb0557",
+      "dist/source-history.d.ts": "da2dc0aa446986487c214a3692dbdfa07e8320aa3fcb848068f1f0edd4d855f1",
+      "dist/source-history.js": "ade8c24859fb687bb164f4aa17509263806762f69ea7df15a60a0622cde9047a",
+      "dist/source-history.js.map": "23c4cf75c69cb301e8e9d3cfa43275f9e9b48b24c1947777acd07850a65be9da",
+      "dist/types.d.ts": "df995c423fdb77d201f8bf9a5f8ca282271921c1075e3d0102c0b7ca86ee1611",
+      "dist/types.js": "0e594a46975c734d3e7569b2dd4e3228dcb7d3848a698537471ff133ee55356b",
+      "dist/types.js.map": "01f87abfcfc873894a4eb00e10c4bf498d07a8703ca0e9267c36301e85ab58ae"
+    }
+  },
+  "stashAllEmpty": true,
+  "precommitAuditReference": {
+    "path": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/scope-audit.json",
+    "sha256": "364c070e2327ef3dffc8b9f357c16e9d75ba1df648a4cb7f2f961e1740b1fda9"
+  },
+  "gate": "Committed-and-pushed prepared source scope PASS. This is not a signature/package/publication claim."
+}

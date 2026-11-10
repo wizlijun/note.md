@@ -5,8 +5,15 @@
 
 mod attention_links;
 pub mod options;
-pub(crate) mod plan;
 pub(crate) mod smart;
+// E1 evaluation of the local lookup baseline; test builds only.
+#[cfg(test)]
+mod smart_eval;
+// Skeleton for soft time grouping; only the evaluation calls these so far.
+#[allow(dead_code)]
+mod time_group;
+#[allow(dead_code)]
+mod time_phrase;
 pub mod watch;
 
 use std::path::Path;
@@ -951,62 +958,56 @@ pub fn notemd_smart_search(
     smart::run_smart_search_command(app, window, query, limit, deep, timeout_ms)
 }
 
-/// Extract the authoritative filters and compute trusted local-date anchors
-/// for the isolated planner. This never opens the Vault or the index.
-#[tauri::command]
-pub fn notemd_search_plan_context(
-    original_query: String,
-    reference_time: String,
-    timezone: String,
-) -> Result<plan::SearchPlanContext, String> {
-    plan::search_plan_context(&original_query, &reference_time, &timezone)
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalLookupResponse {
+    pub search: smart::SmartSearchResponse,
+    pub lookup_run_id: String,
 }
 
-/// Validate and execute a bounded `SearchPlanV1` without accepting a command
-/// or raw query DSL from the planner.
-#[tauri::command(async)]
-pub fn notemd_planned_search(
-    app: AppHandle,
-    window: tauri::Window,
-    original_query: String,
-    plan: serde_json::Value,
-    baseline_plan: Option<serde_json::Value>,
-    reference_time: String,
-    timezone: String,
+fn local_lookup_budget(
     limit: Option<usize>,
     deep: Option<bool>,
     timeout_ms: Option<u64>,
-    retain_run: Option<bool>,
-) -> Result<plan::PlannedSearchResponse, String> {
-    let limit = Some(match limit {
-        Some(value @ 1..=100) => value,
-        _ => 100,
-    });
-    let timeout_ms = Some(match timeout_ms {
-        None | Some(0) => 2_000,
-        Some(value) => value.min(5_000),
-    });
-    let mut response = plan::run_planned_search_command(
+) -> (usize, bool, Option<u64>) {
+    let limit = limit.filter(|n| (1..=100).contains(n)).unwrap_or(100);
+    let deep = deep.unwrap_or(false);
+    let timeout = if deep {
+        match timeout_ms {
+            None | Some(0) => Some(4_000),
+            Some(ms) => Some(ms.min(5_000)),
+        }
+    } else {
+        timeout_ms
+    };
+    (limit, deep, timeout)
+}
+
+/// Local-first Smart Lookup: runs the deterministic smart search and registers
+/// the result as a lookup run so summary / Agent handoff can reuse it.
+#[tauri::command(async)]
+pub fn smart_lookup_local(
+    app: AppHandle,
+    window: tauri::Window,
+    question: String,
+    limit: Option<usize>,
+    deep: Option<bool>,
+    timeout_ms: Option<u64>,
+) -> Result<LocalLookupResponse, String> {
+    if question.trim().is_empty() {
+        return Err("empty question".to_string());
+    }
+    let (limit, deep, timeout) = local_lookup_budget(limit, deep, timeout_ms);
+    let mut search = smart::run_smart_search_command(
         app,
         window.clone(),
-        original_query.clone(),
-        plan,
-        baseline_plan,
-        reference_time,
-        timezone,
-        limit,
-        deep,
-        timeout_ms,
+        question.clone(),
+        Some(limit),
+        Some(deep),
+        timeout,
     )?;
-    #[cfg(not(target_os = "ios"))]
-    if retain_run.unwrap_or(false) {
-        crate::smart_lookup::retain_planned_search(&window, &original_query, &mut response)?;
-    }
-    #[cfg(target_os = "ios")]
-    if retain_run.unwrap_or(false) {
-        return Err("retained Smart Lookup runs are unavailable on iOS".to_string());
-    }
-    Ok(response)
+    let lookup_run_id = crate::smart_lookup::retain_local_search(&window, &question, &mut search)?;
+    Ok(LocalLookupResponse { search, lookup_run_id })
 }
 
 /// `(async)` is load-bearing, not decoration. A plain `#[tauri::command]` is
@@ -1403,6 +1404,14 @@ fn count_glob_matches(vault_root: &Path, patterns: &[String]) -> usize {
 #[cfg(test)]
 mod command_tests {
     use super::*;
+
+    #[test]
+    fn local_lookup_budget_bounds_limit_and_deep_timeout() {
+        assert_eq!(local_lookup_budget(None, None, None), (100, false, None));
+        assert_eq!(local_lookup_budget(Some(50), Some(false), Some(900)), (50, false, Some(900)));
+        assert_eq!(local_lookup_budget(Some(0), Some(true), None), (100, true, Some(4_000)));
+        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000)), (100, true, Some(5_000)));
+    }
 
     fn sample_hit() -> Hit {
         Hit {

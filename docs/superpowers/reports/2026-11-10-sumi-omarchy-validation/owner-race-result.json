@@ -1,0 +1,444 @@
+{
+  "status": "passed",
+  "storageKey": "sumi-isolated-detach-mount-result-1794282847556",
+  "started": "2026-11-10T03:54:07.556Z",
+  "rounds": [
+    {
+      "round": 0,
+      "old": {
+        "generation": 1,
+        "id": "9cdfae25-1475-4061-9bdc-12a1bb4a5106"
+      },
+      "launchGapMs": 0,
+      "started": 525,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "ed263f77-7233-4b0a-9f90-2b4e94226c1d"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "ed263f77-7233-4b0a-9f90-2b4e94226c1d"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "ed263f77-7233-4b0a-9f90-2b4e94226c1d"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 229
+    },
+    {
+      "round": 1,
+      "old": {
+        "generation": 1,
+        "id": "ed263f77-7233-4b0a-9f90-2b4e94226c1d"
+      },
+      "launchGapMs": 1,
+      "started": 755,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "05b4fad8-7e17-4e1d-98c1-af57fcca0a45"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "05b4fad8-7e17-4e1d-98c1-af57fcca0a45"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "05b4fad8-7e17-4e1d-98c1-af57fcca0a45"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 267
+    },
+    {
+      "round": 2,
+      "old": {
+        "generation": 1,
+        "id": "05b4fad8-7e17-4e1d-98c1-af57fcca0a45"
+      },
+      "launchGapMs": 5,
+      "started": 1022,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "3b05966a-e2ff-4533-9042-9a50489c4e77"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "3b05966a-e2ff-4533-9042-9a50489c4e77"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "3b05966a-e2ff-4533-9042-9a50489c4e77"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 258
+    },
+    {
+      "round": 3,
+      "old": {
+        "generation": 1,
+        "id": "3b05966a-e2ff-4533-9042-9a50489c4e77"
+      },
+      "launchGapMs": 10,
+      "started": 1280,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "89294360-9bc4-430e-aa99-dfeb27248c55"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "89294360-9bc4-430e-aa99-dfeb27248c55"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "89294360-9bc4-430e-aa99-dfeb27248c55"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 222
+    },
+    {
+      "round": 4,
+      "old": {
+        "generation": 1,
+        "id": "89294360-9bc4-430e-aa99-dfeb27248c55"
+      },
+      "launchGapMs": 0,
+      "started": 1502,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "d9a7e1d7-b23a-485d-99ae-3868416a68d1"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "d9a7e1d7-b23a-485d-99ae-3868416a68d1"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "d9a7e1d7-b23a-485d-99ae-3868416a68d1"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 275
+    },
+    {
+      "round": 5,
+      "old": {
+        "generation": 1,
+        "id": "d9a7e1d7-b23a-485d-99ae-3868416a68d1"
+      },
+      "launchGapMs": 1,
+      "started": 1777,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "120efba6-2609-4d96-b241-30a207770212"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "120efba6-2609-4d96-b241-30a207770212"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "120efba6-2609-4d96-b241-30a207770212"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 246
+    },
+    {
+      "round": 6,
+      "old": {
+        "generation": 1,
+        "id": "120efba6-2609-4d96-b241-30a207770212"
+      },
+      "launchGapMs": 5,
+      "started": 2024,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "8eb3561f-fbf0-42fe-a794-a89226c388ef"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "8eb3561f-fbf0-42fe-a794-a89226c388ef"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "8eb3561f-fbf0-42fe-a794-a89226c388ef"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 300
+    },
+    {
+      "round": 7,
+      "old": {
+        "generation": 1,
+        "id": "8eb3561f-fbf0-42fe-a794-a89226c388ef"
+      },
+      "launchGapMs": 10,
+      "started": 2325,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "1bac0055-9318-440e-a0c4-e8c6d4f02992"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "1bac0055-9318-440e-a0c4-e8c6d4f02992"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "1bac0055-9318-440e-a0c4-e8c6d4f02992"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 362
+    },
+    {
+      "round": 8,
+      "old": {
+        "generation": 1,
+        "id": "1bac0055-9318-440e-a0c4-e8c6d4f02992"
+      },
+      "launchGapMs": 0,
+      "started": 2688,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "6bd71a48-66de-49b1-b724-ea68fdf49aa2"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "6bd71a48-66de-49b1-b724-ea68fdf49aa2"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "6bd71a48-66de-49b1-b724-ea68fdf49aa2"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 240
+    },
+    {
+      "round": 9,
+      "old": {
+        "generation": 1,
+        "id": "6bd71a48-66de-49b1-b724-ea68fdf49aa2"
+      },
+      "launchGapMs": 1,
+      "started": 2928,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "704c594c-8bab-49b9-b18a-2b08ccdb809b"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "704c594c-8bab-49b9-b18a-2b08ccdb809b"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "704c594c-8bab-49b9-b18a-2b08ccdb809b"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 283
+    },
+    {
+      "round": 10,
+      "old": {
+        "generation": 1,
+        "id": "704c594c-8bab-49b9-b18a-2b08ccdb809b"
+      },
+      "launchGapMs": 5,
+      "started": 3211,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "1991f847-2f76-4421-b975-bbefa44b6596"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "1991f847-2f76-4421-b975-bbefa44b6596"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "1991f847-2f76-4421-b975-bbefa44b6596"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 371
+    },
+    {
+      "round": 11,
+      "old": {
+        "generation": 1,
+        "id": "1991f847-2f76-4421-b975-bbefa44b6596"
+      },
+      "launchGapMs": 10,
+      "started": 3582,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "577e12f9-50b6-4c22-9a39-0540ecf22fb5"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "577e12f9-50b6-4c22-9a39-0540ecf22fb5"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "577e12f9-50b6-4c22-9a39-0540ecf22fb5"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 291
+    },
+    {
+      "round": 12,
+      "old": {
+        "generation": 1,
+        "id": "577e12f9-50b6-4c22-9a39-0540ecf22fb5"
+      },
+      "launchGapMs": 0,
+      "started": 3873,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "8a0d708f-85c4-4eed-b266-14d5a9f85f00"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "8a0d708f-85c4-4eed-b266-14d5a9f85f00"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "8a0d708f-85c4-4eed-b266-14d5a9f85f00"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 245
+    },
+    {
+      "round": 13,
+      "old": {
+        "generation": 1,
+        "id": "8a0d708f-85c4-4eed-b266-14d5a9f85f00"
+      },
+      "launchGapMs": 1,
+      "started": 4118,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "2961466b-293c-49cb-bf39-e2b31607d090"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "2961466b-293c-49cb-bf39-e2b31607d090"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "2961466b-293c-49cb-bf39-e2b31607d090"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 229
+    },
+    {
+      "round": 14,
+      "old": {
+        "generation": 1,
+        "id": "2961466b-293c-49cb-bf39-e2b31607d090"
+      },
+      "launchGapMs": 5,
+      "started": 4347,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "4fb10b4d-c006-4376-b8b8-9886b7e3f1f8"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "4fb10b4d-c006-4376-b8b8-9886b7e3f1f8"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "4fb10b4d-c006-4376-b8b8-9886b7e3f1f8"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 330
+    },
+    {
+      "round": 15,
+      "old": {
+        "generation": 1,
+        "id": "4fb10b4d-c006-4376-b8b8-9886b7e3f1f8"
+      },
+      "launchGapMs": 10,
+      "started": 4678,
+      "detach": "ok",
+      "concurrentMount": {
+        "generation": 1,
+        "id": "f444629a-490a-4d4b-9a5f-cf68f31b2aa0"
+      },
+      "order": "new-B-returned",
+      "current": {
+        "generation": 1,
+        "id": "f444629a-490a-4d4b-9a5f-cf68f31b2aa0"
+      },
+      "currentCapabilityAlive": true,
+      "followupMount": {
+        "generation": 1,
+        "id": "f444629a-490a-4d4b-9a5f-cf68f31b2aa0"
+      },
+      "reusedCurrent": true,
+      "elapsedMs": 226
+    }
+  ],
+  "limitation": "Concurrent scheduling regression; no claim that every possible interleaving was forced.",
+  "pageId": "e9e05257-669b-4abb-9581-8110d576fff1",
+  "environment": {
+    "href": "plugin://notemd.sumi/index.html",
+    "width": 928,
+    "height": 494,
+    "dpr": 4
+  },
+  "initialSaveState": "saved",
+  "initialSurface": {
+    "generation": 1,
+    "id": "9cdfae25-1475-4061-9bdc-12a1bb4a5106"
+  },
+  "newBSurvivalRounds": 16,
+  "finalSurface": {
+    "generation": 1,
+    "id": "f444629a-490a-4d4b-9a5f-cf68f31b2aa0"
+  },
+  "finalSaveState": "saved",
+  "surfaceHiddenForReport": true,
+  "finished": "2026-11-10T03:54:12.441Z"
+}

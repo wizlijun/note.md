@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { primaryShortcut, shortcutEventBlocked } from '../../../shared/shortcuts'
   import { onMount, untrack } from 'svelte'
   import type { ReminderInput, ReminderView } from '../lib/reminders'
   import type { WorkspaceItem } from '../lib/repository'
@@ -72,12 +73,13 @@
       else sheetEl?.focus()
     })
     const onKey = (event: KeyboardEvent) => {
+      if (shortcutEventBlocked(event)) return
       if (event.key === 'Escape' && !busy) {
         event.preventDefault()
         onCancel()
         return
       }
-      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !busy && !readonly) {
+      if (primaryShortcut(event, 'Enter') && !busy && !readonly) {
         event.preventDefault()
         formEl?.requestSubmit()
         return

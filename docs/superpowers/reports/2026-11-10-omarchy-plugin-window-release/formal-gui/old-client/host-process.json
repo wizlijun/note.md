@@ -1,0 +1,8 @@
+{
+  "pid": 62724,
+  "host_sha256": "194c15a9b78f0524a2bebc341be97a83455028d3d14b64740a22931c421022c6",
+  "observer_sha256": "cb11d054fd235ffbfdfc561bca624d54c922ec11ac2073a374d808010726e7cb",
+  "tag": "v6.1110.3",
+  "fresh_cache": true,
+  "external_open_sink_only": "/home/bruce/git/note.md/tasks/plugin-window-release/url-capture-bin/xdg-open"
+}

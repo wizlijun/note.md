@@ -1,0 +1,31 @@
+{
+  "container": "a86a54d4691e",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "files": [
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "dda949fd65d3068621bc07f71911ac0580abfc2ae9ab4d0f33582500f4590415",
+      "matchesFrozenTag": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/src/linux.rs",
+      "sha256": "aaabaec1e1fde73e7fc2ebd95f17d58bdeb14751f0b5678f874298df9b33b2c1",
+      "matchesFrozenTag": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/src/linux_focus.rs",
+      "sha256": "cdc99e10c6d675fafb9811981f28721f2382e6ed4483674b74dca969b0e135aa",
+      "matchesFrozenTag": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/src/linux_candidates.rs",
+      "sha256": "1d9d34d705141f08093372e264694bc0177bdcdf0a1f57f2805f31f147e65a93",
+      "matchesFrozenTag": true
+    },
+    {
+      "path": "src-tauri/src/sumi/mod.rs",
+      "sha256": "0200b075ae72df046937309e23b301d1c02d16d772bdd149e2e9d92086766a78",
+      "matchesFrozenTag": true
+    }
+  ]
+}

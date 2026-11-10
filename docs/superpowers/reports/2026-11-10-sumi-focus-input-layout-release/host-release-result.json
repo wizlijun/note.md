@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-09T18:51:02.227049+00:00",
+  "sourceBeforeVersionBump": "183b636b05bcf1440e2b8626f28629ce44b78863",
+  "command": [
+    "scripts/release.sh",
+    "6.1110.1",
+    "--draft",
+    "--arm64-only",
+    "--expected-share-manifest",
+    "/Users/bruce/git/mdeditor/tasks/sumi-focus-resume-return-20261110/frozen-share-manifest.json"
+  ],
+  "scope": "Resume focus on first real input after reading navigation and preserve paragraph-split line fading; preserve published P0 and idle transitions; macOS arm64 only",
+  "credentials": "inherited existing release environment; values not recorded",
+  "exitCode": 0
+}

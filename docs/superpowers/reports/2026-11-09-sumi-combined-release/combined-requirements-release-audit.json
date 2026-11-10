@@ -1,0 +1,553 @@
+{
+  "auditAtUtc": "2026-11-09T11:39:36.813903+00:00",
+  "featureSource": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+  "publishedP0Baseline": "a7f4b35c24cd1fe829ebf20e8f04bf7dbed36c95",
+  "target": {
+    "host": "6.1109.2",
+    "plugin": "0.1.7",
+    "pluginMinHost": ">=6.1109.2",
+    "arch": "aarch64-apple-darwin"
+  },
+  "status": {
+    "sourceAudited": true,
+    "signedPluginTested": true,
+    "pluginFrozen": true,
+    "pluginR2FullReadbackVerified": true,
+    "marketKvPublishedByThisTask": false,
+    "hostTagVerified": false,
+    "hostPublicVerified": false,
+    "hostFinalArtifactGate": "pending",
+    "releaseComplete": false
+  },
+  "requirements": [
+    {
+      "id": "focus-default",
+      "requirement": "聚焦打字默认开启，可关闭并持久保存；独立于音效和输入监控授权",
+      "frozenSource": [
+        {
+          "path": "src-tauri/src/sumi/mod.rs",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "985dcb70783ef6bc61909ac8f851da6121d33adc7660c5c1f6980d094a63df54",
+          "line": 92
+        },
+        {
+          "path": "tauri-plugin-native-editor/src/lib.rs",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "c3338efd7886765a6e7b0459c6d73ea23324b941408d3ce330cfd0221e5decff",
+          "line": 29
+        },
+        {
+          "path": "plugins-src/write/src/contract.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2",
+          "line": 6
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "host-sumi-final.log",
+          "sha256": "ccb1458c19969311f1e80670f310723ec2e3b8371a0ecf2e976fc9cc83400eff"
+        },
+        {
+          "path": "native-rust-final.log",
+          "sha256": "010c9e716ee88118a08c3f5ad3b88766429c950ee0e5ab901ecd9beae90644be"
+        },
+        {
+          "path": "ui-notice-evidence.json",
+          "sha256": "ec1ec2f611293ecff3c81f5f736396c738e54acefdf5bdf13d9f51ea82aea550"
+        }
+      ],
+      "artifactBoundary": "plugin UI已包含开关；宿主偏好/原生组件仍待正式宿主产物与tag门禁",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": [
+        {
+          "path": "ui/assets/index-B0VnyVQ1.js",
+          "sha256": "29fe4eaf633b036cfdffaa5848c36983b88dfd8e05e5710d4ee1ac543f3bf310"
+        },
+        {
+          "path": "ui/assets/index-CYMziSzd.css",
+          "sha256": "bcc3f9ee78f93d644f12c57415c672398d3610822167dbd86e8b9559c554cb59"
+        },
+        {
+          "path": "manifest.json",
+          "sha256": "cb0cf9ae6c93627f4024cd95e2710ef6be31a0aea29988135794e682ef52740d"
+        }
+      ]
+    },
+    {
+      "id": "focus-geometry",
+      "requirement": "当前视觉行及上方4行，57%基线、+2pt显示倍率、统一纸面中轴，逐行缩小/行距压缩/最远20%透明；420ms进入，减少动态效果时直接呈现",
+      "frozenSource": [
+        {
+          "path": "tauri-plugin-native-editor/native/focus.h",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "a8db2af6989ca6cd0f9a42bcee7661b8775b700bb9d0d77e3ef9c6ccfb791b52",
+          "line": 127
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/focus.h",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "a8db2af6989ca6cd0f9a42bcee7661b8775b700bb9d0d77e3ef9c6ccfb791b52",
+          "line": 128
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "native-evidence/native-focus-evidence.json",
+          "sha256": "fc2dae9df3636bc3b1dc4ff6323f7125d8871342d950da741ca62eca6f818c03"
+        },
+        {
+          "path": "native-evidence/focus.log",
+          "sha256": "30ca808bb05dd74ffb6fed9d733e77c32aeb2e396398d1b346df525857e6ebd5"
+        },
+        {
+          "path": "native-cua-verification.json",
+          "sha256": "96257a422dd03e4e5852837c042e3c30e81595f36937ca3ce05580f93e57743c"
+        }
+      ],
+      "artifactBoundary": "实现编译进宿主，不在插件后台二进制；真实AppKit probe与PNG已过，正式宿主产物pending",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": []
+    },
+    {
+      "id": "focus-selection-ime",
+      "requirement": "阅读退出、点击/拖选映射、候选坐标、组字提交保护、远端/隐藏/失焦生命周期；不改正文CRDT或行时间",
+      "frozenSource": [
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "6f6adfa260b56191d19dfb9f7d7fce97f2f2ef664449a3488bcae90fa30a0d9b",
+          "line": 474
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "6f6adfa260b56191d19dfb9f7d7fce97f2f2ef664449a3488bcae90fa30a0d9b",
+          "line": 828
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/focus.h",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "a8db2af6989ca6cd0f9a42bcee7661b8775b700bb9d0d77e3ef9c6ccfb791b52",
+          "line": 157
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "native-evidence/focus.log",
+          "sha256": "30ca808bb05dd74ffb6fed9d733e77c32aeb2e396398d1b346df525857e6ebd5"
+        },
+        {
+          "path": "native-cua-verification.json",
+          "sha256": "96257a422dd03e4e5852837c042e3c30e81595f36937ca3ce05580f93e57743c"
+        },
+        {
+          "path": "native-final-review.json",
+          "sha256": "278e2518e1c64ad2301945c7c032d250abd9662ef9876c4a76ae862ae5f6058a"
+        }
+      ],
+      "artifactBoundary": "candidate4真实点击/短横拖/替换已过；物理中文IME与正式安装宿主不在该证据范围",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": []
+    },
+    {
+      "id": "quiet-notice",
+      "requirement": "普通状态和离线提示默认收起，hover/键盘focus可见；保存失败、未保存草稿和重试保持可见",
+      "frozenSource": [
+        {
+          "path": "plugins-src/write/src/main.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "39377f0ba94e858af251e5669b16b36914f36fc5d08ecc53bfb9bdd8f24ba7c4",
+          "line": 50
+        },
+        {
+          "path": "plugins-src/write/src/style.css",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "9a54149542d7c2c6c2133c5f2d34f97299d492e94bd6c88ed7e4578a7b47cbee",
+          "line": 14
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "ui-notice-evidence.json",
+          "sha256": "ec1ec2f611293ecff3c81f5f736396c738e54acefdf5bdf13d9f51ea82aea550"
+        },
+        {
+          "path": "ui-notice-test.log",
+          "sha256": "ea6fc4103193522753505c8b425c289ebf5a0a40fac99b6bda05fa5395c0c390"
+        }
+      ],
+      "artifactBoundary": "实际0.1.7插件JS/CSS逐字节冻结且R2回读验证；KV市场索引尚未发布",
+      "hostArtifactStatus": "not_required_for_plugin_asset_identity",
+      "pluginAssetWitness": [
+        {
+          "path": "ui/assets/index-B0VnyVQ1.js",
+          "sha256": "29fe4eaf633b036cfdffaa5848c36983b88dfd8e05e5710d4ee1ac543f3bf310"
+        },
+        {
+          "path": "ui/assets/index-CYMziSzd.css",
+          "sha256": "bcc3f9ee78f93d644f12c57415c672398d3610822167dbd86e8b9559c554cb59"
+        },
+        {
+          "path": "manifest.json",
+          "sha256": "cb0cf9ae6c93627f4024cd95e2710ef6be31a0aea29988135794e682ef52740d"
+        }
+      ]
+    },
+    {
+      "id": "rich-yaml",
+      "requirement": "桌面Rich默认隐藏YAML、设置可恢复并持久化；Source保留完整编辑，切换不重建owner或历史",
+      "frozenSource": [
+        {
+          "path": "src/lib/frontmatter-preference.svelte.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "fc69aec7bf42774f42157546ba4af96d74312e7192579853ec1fbc5057f3c82b"
+        },
+        {
+          "path": "src/components/SettingsDialog.svelte",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "23f6f28b7608c6ee8ff4f481edfca2c54b5efc6b8e98712a0a28c82b387160fe",
+          "line": 1289
+        },
+        {
+          "path": "src/lib/settings.svelte.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "cbb84f1ba38d2c0721a91c397b4396cfbc0f893feba97224a131e8ed32bb0831",
+          "line": 59
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "frozen-input-audit.json",
+          "sha256": "8e1f53c1ca5a8c59c395a4d84c54cfb189305589c317fc86530d78c6dcf192f6"
+        },
+        {
+          "path": "rich-embedded-gate-review.json",
+          "sha256": "ec641a2c254596595a2a9b761fee58987cf3e363d3a7e64812db51c20f9a07af"
+        }
+      ],
+      "artifactBoundary": "属于宿主Web前端，不在Sumi插件包；冻结源码与分包门禁已验证，正式宿主embedded binary证明pending",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": []
+    },
+    {
+      "id": "rich-body-safety",
+      "requirement": "隐藏元数据时正文全选/复制/删除/文首退格保留YAML、BOM和撤销历史",
+      "frozenSource": [
+        {
+          "path": "src/lib/hidden-frontmatter-selection.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "e92716731f15c8b8860ec07b318d9ada4381c6317b65dfc50959f1f5ede194c2"
+        },
+        {
+          "path": "src/lib/editor-select-all.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "ad362a3f795447eb19554945aed7f89ed03da94befdad64993fc0f1eab1fbaf8"
+        },
+        {
+          "path": "src/lib/editor-bridge.ts",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "4ef672005b6b4cd238893bc48018a0cefe570daf037f2f594191176b2297fa1f"
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "frozen-input-audit.json",
+          "sha256": "8e1f53c1ca5a8c59c395a4d84c54cfb189305589c317fc86530d78c6dcf192f6"
+        },
+        {
+          "path": "core-dependency-verification.json",
+          "sha256": "634deebc223b9c80e268a087e557704d7a59e6fcc8326729d2dd5c5441c2f702"
+        },
+        {
+          "path": "host-linux-bundle-recheck.log",
+          "sha256": "130c9abf20b65c9380b819bcc050a238e7a5a26cde3ea09433b3328f840eec26"
+        }
+      ],
+      "artifactBoundary": "依赖moraya-core8bb896a3已验证67个dist文件；宿主最终产物门禁pending",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": []
+    },
+    {
+      "id": "p0-retained",
+      "requirement": "输入ACK前本机耐久日志、精确回执回收、崩溃重放、投影冲突仍可读；日志失败草稿冻结可复制重试",
+      "frozenSource": [
+        {
+          "path": "src-tauri/src/sumi/journal.rs",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "0614aec536096377d02983de9954b2778bf78de86a087c8c8d746309fde3b54c"
+        },
+        {
+          "path": "src-tauri/src/sumi/durability.rs",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "32aceeff6116521014259a555d5e20684679978612a5eaa8c66af55c5075d52b"
+        },
+        {
+          "path": "plugins-src/write/backend/src/durability.rs",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "3504160555422e7baf99cfa831eaf7ac092d32ffe008d03b2d5d89468de74113"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/editor.m",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "6f6adfa260b56191d19dfb9f7d7fce97f2f2ef664449a3488bcae90fa30a0d9b",
+          "line": 204
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "actual-native-process-probe.json",
+          "sha256": "2e83c64aebcf6b945b64306e9635303904b7ae888fbab164ec6352443aa1304b"
+        },
+        {
+          "path": "native-evidence/draft.log",
+          "sha256": "d4dae25a9f8bbba9c8af9d76f36da6d4cbc5ab46de35a99f3d201d54f276393b"
+        },
+        {
+          "path": "host-sumi-final.log",
+          "sha256": "ccb1458c19969311f1e80670f310723ec2e3b8371a0ecf2e976fc9cc83400eff"
+        }
+      ],
+      "artifactBoundary": "P0关键核心文件与已发布基线字节相同；实际0.1.7签名后台通过stdio/host transport，宿主日志另用生产代理隔离SIGKILL测试",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": [
+        {
+          "path": "bin/notemd-sumi",
+          "sha256": "25ae48ebf6d2faf7649215be452dbb28b3c65a6a1a3b65ed4a90da17db281f95"
+        }
+      ]
+    },
+    {
+      "id": "light-package",
+      "requirement": "保持轻量：无内置大字体，保留6字体资源元数据与2套音效；保留已发布全屏快捷键和光标行为",
+      "frozenSource": [
+        {
+          "path": "plugins-src/write/resources/sumi/manifest.json",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3"
+        },
+        {
+          "path": "tauri-plugin-native-editor/native/shortcuts.h",
+          "sourceCommit": "710c148cc7548d8db14ecb6ae6dea75eca0ede09",
+          "sha256": "2cbf00c71df9fd13f99c103f1ce71d987d34893e35f832ce9b9fe5e75e3e6e62"
+        }
+      ],
+      "testsAndEvidence": [
+        {
+          "path": "frozen-plugin-packages.json",
+          "sha256": "bac662075cf14d570a84096025860c4ccf9c5a96cd8972620fb192da4da1f625"
+        },
+        {
+          "path": "actual-native-process-probe.json",
+          "sha256": "2e83c64aebcf6b945b64306e9635303904b7ae888fbab164ec6352443aa1304b"
+        },
+        {
+          "path": "native-evidence/native-regressions.json",
+          "sha256": "79ea329ccb4dc417bfb7eb7707d8f136958a91cba6de71be273f4468f287f05a"
+        }
+      ],
+      "artifactBoundary": "实际包29文件、0字体payload、14音效/元数据文件（two banks）；音效probe不播放，不把既有功能重复算本轮新增",
+      "hostArtifactStatus": "pending_final_host_gate",
+      "pluginAssetWitness": []
+    }
+  ],
+  "p0ByteIdenticalFiles": [
+    {
+      "path": "src-tauri/src/sumi/journal.rs",
+      "sha256": "0614aec536096377d02983de9954b2778bf78de86a087c8c8d746309fde3b54c",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "src-tauri/src/sumi/durability.rs",
+      "sha256": "32aceeff6116521014259a555d5e20684679978612a5eaa8c66af55c5075d52b",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "src-tauri/src/sumi/service.rs",
+      "sha256": "d58c67c7e7ff3b92926c02b1a8a0ea7d280b649b81a502f1e05e85a4d9620643",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "plugins-src/write/backend/src/durability.rs",
+      "sha256": "3504160555422e7baf99cfa831eaf7ac092d32ffe008d03b2d5d89468de74113",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "plugins-src/write/backend/src/durability_rpc.rs",
+      "sha256": "09242c7a04a78ced9091367cfac81c0bbc637652a1759c1417cccdaed129505b",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "plugins-src/write/backend/src/lib.rs",
+      "sha256": "9c49d90f1a7f5c8d8cb2a4cc0bdacd306474aa841014ff45d37be0568076ace8",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "plugins-src/write/backend/src/runtime.rs",
+      "sha256": "a910dc997c15b8300e4649cdfa993ba34e445d2fae8faa366bab9a3765b74c95",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "sumi-protocol/src/durability.rs",
+      "sha256": "25f381fdbb78a6616dc488793fb82f56674e112b1bec47b9a1c10e0882a4d50d",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "sumi-protocol/src/service.rs",
+      "sha256": "daf5492bacfae6964d3c448d78b71409b53f1d80501ae68737cda8985a99a065",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "write-core/src/storage.rs",
+      "sha256": "f3e17d1cca22f84ffd8f2555559799df6ad80df0be2b2118b58123c39fd4cc4b",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/draft-probe.m",
+      "sha256": "21259fa670a81f33a126f9e03d0d32ca4ec5f958986de4e292a3e624419fd3d4",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/shortcuts.h",
+      "sha256": "2cbf00c71df9fd13f99c103f1ce71d987d34893e35f832ce9b9fe5e75e3e6e62",
+      "byteIdenticalToP0": true
+    },
+    {
+      "path": "tauri-plugin-native-editor/native/typing-monitor.h",
+      "sha256": "6454f75100a5af7332b1dafdbb7c2af5e02f67c0bf22513070f1f66a547b7419",
+      "byteIdenticalToP0": true
+    }
+  ],
+  "reviewedP0Overlaps": [
+    "src-tauri/src/sumi/mod.rs: focus preference/default/migration only in production diff",
+    "tauri-plugin-native-editor/src/lib.rs: focus appearance field/default only; command_and_then unchanged",
+    "tauri-plugin-native-editor/native/editor.m: presentation/pointer lifecycle integration retains -2 draft_error and frozen-draft gates"
+  ],
+  "tests": {
+    "hostFrontendOriginalReleaseLog": [
+      "Test Files  427 passed (427)",
+      "Tests  5551 passed (5551)"
+    ],
+    "hostSumi": "79 passed, 4 ignored (not counted as passed)",
+    "nativeRust": "8 passed",
+    "pluginUI": "101 passed; typecheck/build passed",
+    "nativeFocus": "829 passed; 6 actual fonts x 6 themes x 3 sizes; physical IME excluded",
+    "nativeLegacy": "10 probe builds/runs passed; one prior foreground-PID-only concurrent-CUA failure retained and unchanged isolated rerun passed",
+    "actualSignedPluginSuites": [
+      {
+        "suite": "signed-stdio",
+        "count": 2,
+        "scope": "exact signed package binary; actual kill/reopen and observation RPC"
+      },
+      {
+        "suite": "host-journal-crash",
+        "count": 13,
+        "scope": "compiled production host proxy plus real SQLite worker; test-driver subprocess SIGKILL, not a claim these subprocesses are the signed backend"
+      },
+      {
+        "suite": "signed-host-proxy",
+        "count": 1,
+        "scope": "actual host transport spawns the exact signed package via SUMI_TEST_BACKEND; isolated Vault and process rebind"
+      }
+    ]
+  },
+  "actualPlugin": {
+    "bytes": 2464889,
+    "sha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+    "signatureSha256": "fdd391020cc8f980379be32fb3131eeeab48115a2e6632e827b60584a8142a8a",
+    "binarySha256": "25ae48ebf6d2faf7649215be452dbb28b3c65a6a1a3b65ed4a90da17db281f95",
+    "inventoryFiles": 29,
+    "fontPayloadFiles": 0,
+    "soundInventoryFiles": 14,
+    "metadataFiles": 10,
+    "appleSubmission": "78abbe37-ef9a-4de8-9b12-dca166288c60",
+    "appleStatus": "Accepted",
+    "publicReadback": {
+      "ok": true,
+      "signatures_valid": true,
+      "objects": [
+        {
+          "id": "notemd.sumi",
+          "version": "0.1.7",
+          "mode": "normal",
+          "file": "aarch64-apple-darwin.notemdpkg",
+          "sha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+          "bytes": 2464889
+        },
+        {
+          "id": "notemd.sumi",
+          "version": "0.1.7",
+          "mode": "normal",
+          "file": "aarch64-apple-darwin.notemdpkg.minisig",
+          "sha256": "fdd391020cc8f980379be32fb3131eeeab48115a2e6632e827b60584a8142a8a",
+          "bytes": 325
+        },
+        {
+          "id": "notemd.sumi",
+          "version": "0.1.7",
+          "mode": "fresh",
+          "file": "aarch64-apple-darwin.notemdpkg",
+          "sha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+          "bytes": 2464889
+        },
+        {
+          "id": "notemd.sumi",
+          "version": "0.1.7",
+          "mode": "fresh",
+          "file": "aarch64-apple-darwin.notemdpkg.minisig",
+          "sha256": "fdd391020cc8f980379be32fb3131eeeab48115a2e6632e827b60584a8142a8a",
+          "bytes": 325
+        }
+      ]
+    },
+    "sourcesAndFilesVerifiedAgainstFrozenReceipt": true
+  },
+  "evidence": [
+    {
+      "path": "frozen-plugin-packages.json",
+      "sha256": "bac662075cf14d570a84096025860c4ccf9c5a96cd8972620fb192da4da1f625"
+    },
+    {
+      "path": "actual-native-process-probe.json",
+      "sha256": "2e83c64aebcf6b945b64306e9635303904b7ae888fbab164ec6352443aa1304b"
+    },
+    {
+      "path": "plugins-public-packages.json",
+      "sha256": "56a04aa014d29f92a268470ccfd60de6fdae1efab2d48fc2ba7b861ef027f2e1"
+    },
+    {
+      "path": "plugin-r2-stage-complete.json",
+      "sha256": "ae01fdb9c622b4cee382eb068526a3f2514cd33e6c228cbb98ff4ed159c5d251"
+    },
+    {
+      "path": "frozen-input-audit.json",
+      "sha256": "8e1f53c1ca5a8c59c395a4d84c54cfb189305589c317fc86530d78c6dcf192f6"
+    },
+    {
+      "path": "native-evidence/native-focus-evidence.json",
+      "sha256": "fc2dae9df3636bc3b1dc4ff6323f7125d8871342d950da741ca62eca6f818c03"
+    },
+    {
+      "path": "native-cua-verification.json",
+      "sha256": "96257a422dd03e4e5852837c042e3c30e81595f36937ca3ce05580f93e57743c"
+    },
+    {
+      "path": "rich-embedded-gate-review.json",
+      "sha256": "ec641a2c254596595a2a9b761fee58987cf3e363d3a7e64812db51c20f9a07af"
+    }
+  ],
+  "limits": [
+    "Not a host release/tag/public publication receipt; host final artifact and public gates remain pending",
+    "Physical Chinese IME candidate panel not exercised; NSTextInputClient marked-text success and rejection callbacks tested",
+    "Standalone real native editor CUA is not installed formal host acceptance",
+    "Chromium Rich/notice checks are not macOS WKWebView system-IME acceptance",
+    "No Windows/Linux native editor, iOS/Android/ESP32 delivery claimed",
+    "No network sync/account production data touched; signed-probe uses synthetic temporary Vaults",
+    "Audio assets verified without playing audio; no new global keyboard permission granted"
+  ],
+  "nextGates": [
+    "Final host tag/source and signed install artifacts; embedded Rich/native witnesses",
+    "Host public release and compatible updater assets",
+    "Original publisher publish-index only after compatible host public; KV and public index normal/fresh verification"
+  ]
+}

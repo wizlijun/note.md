@@ -1,0 +1,26 @@
+{
+  "tag": "v6.1110.4",
+  "hostPid": 57705,
+  "logicalOutput": [
+    1920,
+    1200
+  ],
+  "scale": 2,
+  "command": "source tasks/plugin-window-release/fixture/environment.sh; tasks/plugin-window-release/input-tools/drag 1000 197 1000 250 1920 1200",
+  "before": [
+    340,
+    196,
+    1240,
+    807
+  ],
+  "after": [
+    340,
+    249,
+    1240,
+    754
+  ],
+  "fixedBottom": 1003,
+  "evidence": "next-top-after.json",
+  "productionChanges": false,
+  "controlReturned": true
+}

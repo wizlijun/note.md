@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-11-09T07:43:31.472716+00:00",
+  "candidate": "candidate4",
+  "mode": "read-only source and evidence review",
+  "sourceSha256": {
+    "tauri-plugin-native-editor/native/editor.m": "6f6adfa260b56191d19dfb9f7d7fce97f2f2ef664449a3488bcae90fa30a0d9b",
+    "tauri-plugin-native-editor/native/focus.h": "a8db2af6989ca6cd0f9a42bcee7661b8775b700bb9d0d77e3ef9c6ccfb791b52"
+  },
+  "positiveChecks": [
+    "P0 acceptChanges/retainDraft/applyProjection durability semantics retained; presentation does not own document",
+    "focus blocked by draftError/editable false; retainDraft stops overlay and keeps revision",
+    "hit testing uses immutable rendered NSTextLineFragment, whole-line coordinate inverse; no document-wide estimated hit test",
+    "gesture maps exact clicked/dragged selection before restoring regular layout",
+    "existing 816 assertion probe, 10 original probes and parent real CUA receipts match candidate hashes",
+    "826 probe assertions include synthetic real TextKit IME click success/-1/-2 and tracking-mode remote/hide/inactive interruption without mouseUp; checked actual log"
+  ],
+  "pendingNecessaryFixes": [],
+  "pendingValidation": [],
+  "evidence": [
+    "native-evidence/focus.log",
+    "native-evidence/native-focus-evidence.json",
+    "native-cua-verification.json"
+  ],
+  "boundary": "Source review matches candidate4. 826-assertion focus.log inspected; original candidate3 real CUA and native-regression evidence must not be relabelled as candidate4 before agent/root refreshed reports. Physical Chinese IME panel and packaged host remain separate acceptance gates.",
+  "mustFixRemaining": [],
+  "resolvedFindings": [
+    "applyProjection stops old-row tracking before replacing document; authoritative remote selection retained",
+    "tracking polls 50ms and notices removed/hidden overlay; missing mouseUp no longer indefinitely blocks lifecycle exit",
+    "IME clicks use existing safe prepareForPanel commit barrier; successful commit rebuilds rendered rows, rejected commit preserves exact preedit/selection or frozen retained draft"
+  ]
+}

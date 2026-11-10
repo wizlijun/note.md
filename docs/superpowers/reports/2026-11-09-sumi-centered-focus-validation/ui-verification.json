@@ -1,0 +1,38 @@
+{
+  "at": "2026-11-09T13:53:08.528465+00:00",
+  "ok": true,
+  "scope": "Three-language appearance text for centered fade, idle 10-second full-opacity return, and quick refocus; unchanged typography and focusTyping preference",
+  "supersedes": {
+    "report": "preferences-ui-verification-before-idle.json",
+    "sha256": "89e3c4bd7cd73d402fb4f9a5b9c74675cba87b5797d65e11a8a5b35d4e5019fe",
+    "reason": "User appended idle/resume behavior; prior UI text/build evidence does not certify this new wording"
+  },
+  "sourceFiles": {
+    "plugins-src/write/src/main.ts": "bacd60a6508521f4e620c20f465764b7dd2825828ec8319ad67f4ee349cd20e2",
+    "plugins-src/write/src/main.test.ts": "9c694acd1410755aa46a2089aae76e4288140a76dfc098c20c1b64bd61ce8410",
+    "plugins-src/write/src/style.css": "02648a37b7229e2c26eb833fbfd84ed3960f376bbc4ebfaa7be50bc8014e5f7d"
+  },
+  "tests": {
+    "suites": 2,
+    "passed": 101,
+    "failed": 0,
+    "log": "preferences-idle-ui-tests.log"
+  },
+  "typecheck": {
+    "exitCode": 0,
+    "log": "preferences-idle-ui-check.log"
+  },
+  "build": {
+    "exitCode": 0,
+    "log": "preferences-idle-ui-build.log",
+    "js": "assets/index-LG-CZU6c.js",
+    "css": "assets/index-C-zoi2R2.css"
+  },
+  "logs": {
+    "preferences-idle-ui-tests.log": "796bbffb2cd0a05241e450903223f2511a3e7bea6cd74ab950e3b0da45be2918",
+    "preferences-idle-ui-check.log": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+    "preferences-idle-ui-build.log": "3aa36e4b55a73752ba2ebd8557ea65a185ef22e3c5581223e457d003a8042f07"
+  },
+  "committed": false,
+  "published": false
+}

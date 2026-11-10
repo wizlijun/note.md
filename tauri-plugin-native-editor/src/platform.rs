@@ -60,6 +60,11 @@ extern "C" fn event(
         let handler = &*(context as *const EventHandler);
         let event: NativeEvent = serde_json::from_slice(CStr::from_ptr(json).to_bytes()).ok()?;
         let reply = handler(event).ok()?;
+        if let Some(error) = reply.draft_error {
+            if projection.is_null() { return Some(-1); }
+            *projection = encode(&serde_json::json!({"draft_error":error,"projection":reply.projection})).ok()?.into_raw();
+            return Some(-2); // Rejected draft: never an accepted edit revision.
+        }
         let revision = i64::try_from(reply.revision).ok()?;
         if !projection.is_null() {
             if let Some(text) = reply.clipboard_text {
@@ -253,3 +258,33 @@ pub fn configure_typing(enabled: bool, handler: Option<TypingSoundHandler>) -> T
     typing_bits(unsafe { sumi_typing_configure(i32::from(enabled), if has_handler { Some(typing_event) } else { None }) })
 }
 pub fn typing_status(request: bool) -> TypingMonitorStatus { typing_bits(unsafe { sumi_typing_status(i32::from(request)) }) }
+
+#[cfg(test)]
+mod draft_reply_tests {
+    use super::*;
+    #[test]
+    fn rejected_draft_uses_negative_abi_and_keeps_projection_separate_from_ack() {
+        let mut handler: EventHandler = Arc::new(|_| Ok(EventReply {
+            revision: 9,
+            projection: Some(Projection { document: RenderDocument { text: "保留的新稿".into(), runs: vec![] }, selection: TextRange { start: 5, length: 0 } }),
+            clipboard_text: None,
+            draft_error: Some("journal is read-only".into()),
+        }));
+        let input = CString::new(r#"{"kind":"edit","surface_id":"test","generation":1,"base_revision":8,"range":{"start":0,"length":0},"replacement":"新"}"#).unwrap();
+        let mut output = std::ptr::null_mut();
+        let result = event((&mut handler as *mut EventHandler).cast(), input.as_ptr(), &mut output);
+        assert_eq!(result, -2, "a failed journal must never acknowledge revision 9");
+        assert!(!output.is_null());
+        let value: serde_json::Value = unsafe { serde_json::from_slice(CStr::from_ptr(output).to_bytes()).unwrap() };
+        free_reply(output);
+        assert_eq!(value["draft_error"], "journal is read-only");
+        assert_eq!(value["projection"]["document"]["text"], "保留的新稿");
+        handler = Arc::new(|_| Ok(9.into()));
+        output = std::ptr::null_mut();
+        assert_eq!(event((&mut handler as *mut EventHandler).cast(), input.as_ptr(), &mut output), 9);
+        assert!(output.is_null());
+        handler = Arc::new(|_| Err("validation rejected before mutation".into()));
+        assert_eq!(event((&mut handler as *mut EventHandler).cast(), input.as_ptr(), &mut output), -1);
+        assert!(output.is_null());
+    }
+}

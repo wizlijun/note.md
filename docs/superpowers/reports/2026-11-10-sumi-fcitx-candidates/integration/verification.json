@@ -1,0 +1,59 @@
+{
+  "base_host": "576a0edb",
+  "candidate_parent": "e226cc86",
+  "addon_source": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+  "source_sha256": {
+    "tauri-plugin-native-editor/src/linux.rs": "aaabaec1e1fde73e7fc2ebd95f17d58bdeb14751f0b5678f874298df9b33b2c1",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "cdc99e10c6d675fafb9811981f28721f2382e6ed4483674b74dca969b0e135aa",
+    "tauri-plugin-native-editor/src/linux_caret.rs": "b3222fd3031b135327798a080d69c1641fcfa6f01b0fb2d8856f9936988f330e",
+    "tauri-plugin-native-editor/src/linux_candidates.rs": "1d9d34d705141f08093372e264694bc0177bdcdf0a1f57f2805f31f147e65a93",
+    "tauri-plugin-native-editor/src/linux_candidates_layout.rs": "a607151bcd9e2cb17c51c186a5d85073c5955201138a4a1516a069ab2a0ed6c9",
+    "src-tauri/src/sumi/mod.rs": "0200b075ae72df046937309e23b301d1c02d16d772bdd149e2e9d92086766a78",
+    "src-tauri/src/plugin_runtime/windows.rs": "7c94c1384c56bf5cbe23288caf4071199836259fad7fc373267c69e465bbd15d"
+  },
+  "package": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/merged-package/note.md_6.1110.1_amd64.deb",
+  "package_sha256": "7246408da8023529cabbd0ba99a8ae9bffcd00acb40e8de0460d5424046f8736",
+  "binary_sha256": "b4a45923efc211570d06c07a1735e4e3546c7a61fd4bf70462712d887f964683",
+  "addon_package_sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314",
+  "addon_sha256": "7d2f92d6c0f1b403cc1d409e466f6f31d955eab528c84cfc6d7077c9e1e9092e",
+  "native_tests": {
+    "ordinary": 26,
+    "candidate_scales": [
+      1,
+      4
+    ],
+    "caret": 1,
+    "transactions": 1,
+    "damage": 1
+  },
+  "host_sequence": [
+    "load previous four 你好",
+    "nonfocus mouse candidate: five 你好, saved",
+    "Appearance focused typing enabled and Apply",
+    "focus mouse candidate: six 你好, saved",
+    "Ctrl+W closes Sumi only",
+    "menu reopens Sumi with six 你好",
+    "new focused IC activated; nihao Space Ctrl+S: seven 你好"
+  ],
+  "saved_body": "你好你好你好你好你好你好你好",
+  "environment": "isolated Sway/DBus, real GTK/Fcitx, package-extracted executable; not physical desktop",
+  "version": "6.1110.1 integration preview; publisher owns final version/tag",
+  "installed": false,
+  "published": false,
+  "files_sha256": {
+    "ordinary.log": "6510536f48550fb88335483b709afd3f6623e9313eeaa7292eca740d214615d4",
+    "caret-red.log": "d1468f0ca70693c57cbdc892104d7ee44e95b667ba8dc59365e5124b127089c8",
+    "candidate-1x.log": "f3b2533c9b8c608200e9a60562264f9bdee26079b41fed33548ad15b1fe1ee6f",
+    "candidate-4x.log": "365798e2a94fe6322a3e07d1d860d7699a5d33edb4b1d43a646eb2710fe361be",
+    "caret.log": "21d563d20738cb937bd716628e7944203a140d00880d5f2f425dd607999f3619",
+    "transactions.log": "d598a505fda0417a94270070d390b5eb616389204d84d12eba1332e971a330e0",
+    "damage.log": "f1e8beddd4756da1b20a8b3005c6bc0606fc882b116eb8483a1d33352de5f290",
+    "initial-parallel-4x-failed.log": "ebd0045e728211a47b33b17e73c4785984e8288869cf8b9bb1e4154efadc2abe",
+    "host-build.log": "eac3904c9ae68f8db4fc58a38b093c6bd0f03a7e88b74a302fd8af0d23bcff19",
+    "host-bottom.png": "3e552a23636d2616f22666dc6a8f85c4386a5ab6e2fd433ac336b3d136e89c4b",
+    "host-focus.png": "bb6a6faeb1c5ab4211e36e844868cdb7c5997bdcc91addfa86d2841b058eae83",
+    "host-saved.png": "c8b928160f59cf816ecda08ba170aa4dda61aacf08665c6dd4c9e1a3c98902e9",
+    "host-final-tree.json": "3287adb10aea23051c04a29a1ea0ab7602cd6b34367a1c2e41b14bc5143cb5ce",
+    "candidate-bridge.log": "8044c1c965487f9a96767f29673101be030559a6f045f5731ae4d283b15e8091"
+  }
+}

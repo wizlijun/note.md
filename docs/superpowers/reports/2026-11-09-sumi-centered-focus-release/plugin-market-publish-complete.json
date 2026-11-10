@@ -1,0 +1,25 @@
+{
+  "at": "2026-11-09T14:42:05.190254+00:00",
+  "ok": true,
+  "source": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+  "hostTag": "v6.1109.3",
+  "hostCommit": "2654f07802b49df71f66ffd0d674c50d34fb4ddf",
+  "hostPublic": true,
+  "onlyAdded": "notemd.sumi@0.1.8",
+  "before": 305,
+  "after": 306,
+  "historicalEntriesUnchanged": true,
+  "kvNormalFreshEqual": true,
+  "writer": "This sole assigned publisher",
+  "kvPutExitCode": 0,
+  "evidenceSha256": {
+    "plugins-index-verification.json": "da523a5b655e174c46aa0e8cbc06e643e669bb6315f1e0eafa411c867a68f6d1",
+    "plugins-market-independent-verification.json": "17bc03f87de4da779bbc32bdaef2b44128ad13a3f7a296332db562df57d411fd",
+    "plugins-public-packages.json": "86ed0e5bb840c967367dc7965e2458e4ec3a2fb7bd9931ce69ff8c773be633ee",
+    "plugins-index-kv-final.json": "8eed2fb0683f01b2bc410f6dd32872afbbd6dd8ffee3481d75dda39bac26e60e",
+    "plugins-index-public-normal.json": "8eed2fb0683f01b2bc410f6dd32872afbbd6dd8ffee3481d75dda39bac26e60e",
+    "plugins-index-public-fresh.json": "8eed2fb0683f01b2bc410f6dd32872afbbd6dd8ffee3481d75dda39bac26e60e"
+  },
+  "noHelperChanges": true,
+  "noOtherPluginEntriesModified": true
+}

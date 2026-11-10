@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "at": "2026-11-09T14:37:53.956386+00:00",
+  "source": "2654f07802b49df71f66ffd0d674c50d34fb4ddf",
+  "messageSource": "entire authenticated draft asset download",
+  "tarSha256": "255ba7f5076e4773a34d408931d5d4266bd36cc2f382750ae8abe36b8fd96b7c",
+  "tarBytes": 14368840,
+  "signatureSha256": "c7a5bfb1d54de8fb32b581e05acc764b8fc11b1179fdbd8cb67b473dba79840f",
+  "publicKeySource": "frozen tag src-tauri/tauri.conf.json",
+  "exitCode": 0,
+  "stdout": "Signature and comment signature verified\nTrusted comment: timestamp:1794234982\tfile:note.md-aarch64.app.tar.gz\n",
+  "stderr": "",
+  "draftReportSha256": "be9e325e25dd6e84a2d78f3e03ef84ba46fa282a393cd14662b6c47305624775"
+}

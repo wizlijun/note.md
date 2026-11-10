@@ -1,0 +1,91 @@
+{
+  "tag": "v6.1110.2",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "publicStableRelease": true,
+  "checkedAtEpoch": 1794291252.9265115,
+  "assets": [
+    {
+      "name": "note.md_6.1110.2_amd64.deb",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/note.md_6.1110.2_amd64.deb",
+      "bytes": 15848512,
+      "sha256": "0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976",
+      "anonymousBytesMatch": true,
+      "method": "anonymous publisher host gate readback"
+    },
+    {
+      "name": "SHA256SUMS-linux.txt",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/SHA256SUMS-linux.txt",
+      "bytes": 93,
+      "sha256": "94e6c863a6f86faec1a15413fa710352cd13cc2efd7fce91c17f2ebabe6346a3",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "notemd-6.1110.2-1-x86_64.pkg.tar.zst",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/notemd-6.1110.2-1-x86_64.pkg.tar.zst",
+      "bytes": 15228959,
+      "sha256": "81dc102b1118fb8bcc1c33434923c59a65c96c58b2d2571cc03eaede3106ae2c",
+      "anonymousBytesMatch": true,
+      "method": "anonymous publisher host gate readback"
+    },
+    {
+      "name": "notemd-6.1110.2-1-omarchy-recipe.tar.gz",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/notemd-6.1110.2-1-omarchy-recipe.tar.gz",
+      "bytes": 1094,
+      "sha256": "73906b30c8481b1922e9aeef91dbdfbb4d4271bf002c3bae916dccde67fee2fe",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "omarchy-6.1110.2-verification.json",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/omarchy-6.1110.2-verification.json",
+      "bytes": 4803,
+      "sha256": "812c418b057b2ae781f37e2f81083d6811bad7faa15a2bb77670ca4148bc582a",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "SHA256SUMS-omarchy.txt",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/SHA256SUMS-omarchy.txt",
+      "bytes": 310,
+      "sha256": "02d84cc423ddcda94448dbe792fb2443f986b196622c162a4e5667572c8d7b86",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+      "bytes": 58229,
+      "sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314",
+      "anonymousBytesMatch": true,
+      "method": "anonymous publisher host gate readback"
+    },
+    {
+      "name": "fcitx5-sumi-candidates-d2c14429-build-source.tar.gz",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/fcitx5-sumi-candidates-d2c14429-build-source.tar.gz",
+      "bytes": 19407,
+      "sha256": "f08ed3438979eea61a41b590deb8c94673dedcc1cc05754f444b793e77046797",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "fcitx5-sumi-source.tar.gz",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/fcitx5-sumi-source.tar.gz",
+      "bytes": 17955,
+      "sha256": "1cba8bf177ec6c37a7a0608104e7ec45a86628e58bff836dae67ff8c6f2e5073",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    },
+    {
+      "name": "SHA256SUMS-sumi-fcitx.txt",
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1110.2/SHA256SUMS-sumi-fcitx.txt",
+      "bytes": 340,
+      "sha256": "59cb9bcc313c2e82ef76da59133f708079d08f20b4d9b282f932cb093fc536fd",
+      "anonymousBytesMatch": true,
+      "method": "anonymous curl readback"
+    }
+  ],
+  "githubLatestTag": "v6.1110.1",
+  "macLatestUnchanged": true,
+  "installed": false
+}

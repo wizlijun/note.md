@@ -15,7 +15,7 @@ afterEach(() => {
 })
 
 describe('CreateIdeaSheet', () => {
-  it('requires the only unavoidable input and submits with Command-Enter', async () => {
+  it('requires the only unavoidable input and submits with Control-Enter', async () => {
     const onSubmit = vi.fn(async () => {})
     component = mount(CreateIdeaSheet, {
       target: document.body,
@@ -32,7 +32,7 @@ describe('CreateIdeaSheet', () => {
     const textarea = document.querySelector<HTMLTextAreaElement>('textarea')!
     textarea.value = '一个念头'
     textarea.dispatchEvent(new InputEvent('input', { bubbles: true }))
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }))
     await Promise.resolve()
     expect(onSubmit).toHaveBeenCalledWith({ body: '一个念头', priority: 'P2', contexts: [] })
   })

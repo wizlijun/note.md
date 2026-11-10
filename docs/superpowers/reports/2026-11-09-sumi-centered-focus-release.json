@@ -1,0 +1,163 @@
+{
+  "ok": true,
+  "status": "macos_host_and_plugin_published",
+  "at": "2026-11-09T14:48:14.994670+00:00",
+  "hostTag": "v6.1109.3",
+  "hostCommit": "2654f07802b49df71f66ffd0d674c50d34fb4ddf",
+  "featureCommit": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df",
+  "pluginVersion": "0.1.8",
+  "pluginMinimumHost": ">=6.1109.3",
+  "plugin": {
+    "bytes": 2466020,
+    "sha256": "2521685f4ee5e1f544b57707687552f982228e48b81d7f7a5d367aa1c6be1b3b",
+    "sourceCommit": "db04e2d05da8ef83fa8e10b9f63de50e491bb2df"
+  },
+  "dmg": {
+    "path": "/tmp/note.md-6.1109.3-aarch64.dmg",
+    "bytes": 14295335,
+    "sha256": "011abaf7157cb8d0ec9e20b22beb82f137fd89a58b3da255c301e1e51a39831c",
+    "mach_o_sha256": "263cdfc6d4d1833eab5eb4e05434f5438c96ff4a44bc2f5790bac6638c257515",
+    "mach_o_bytes": 22004320,
+    "app_version": "6.1109.3",
+    "app_identifier": "net.notemd.app",
+    "candidate_and_updater_byte_identical": true,
+    "mount_readonly": true,
+    "detached_device": "/dev/disk8s1"
+  },
+  "updater": {
+    "path": "/tmp/note.md-aarch64.app.tar.gz",
+    "bytes": 14368840,
+    "sha256": "255ba7f5076e4773a34d408931d5d4266bd36cc2f382750ae8abe36b8fd96b7c",
+    "identity": {
+      "CFBundleIdentifier": "net.notemd.app",
+      "CFBundleShortVersionString": "6.1109.3",
+      "CFBundleExecutable": "notemd"
+    },
+    "signature": {
+      "path": "/tmp/note.md-aarch64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "c7a5bfb1d54de8fb32b581e05acc764b8fc11b1179fdbd8cb67b473dba79840f"
+    }
+  },
+  "scope": [
+    "macOS Apple Silicon",
+    "centered real visual line at viewport50%; unchanged typography and spacing",
+    "viewport upper/lower text opacity gradient",
+    "10s idle then1.2s full opacity; first valid typing restores gradient in0.2s",
+    "preserved P0 journal/CRDT/draft safety; unchanged caret breathing"
+  ],
+  "frontend": {
+    "suites": 427,
+    "passed": 5551,
+    "failed": 0
+  },
+  "initialDevelopmentFrontend": {
+    "passed": 5550,
+    "failed": 1,
+    "isolatedUnchangedBrowserSuiteRerunPassed": 235
+  },
+  "publicVerification": {
+    "restFourFullAssets": true,
+    "actualConfiguredUpdaterEndpoints": true,
+    "updaterSignature": true,
+    "extraBrowserFullDownloadPerformed": false,
+    "marketBefore": 305,
+    "marketAfter": 306,
+    "onlyAdded": "notemd.sumi@0.1.8",
+    "historicalMarketEntriesUnchanged": true,
+    "kvNormalFreshEqual": true
+  },
+  "nativeAcceptance": {
+    "focusChecks": 1930,
+    "oldRegressionGroups": 10,
+    "actualProbeBinarySha256": "742e3568cbc79ac736ea718cb49d1ca5cf9e8715f338ff30cdb3e0fc9f79aaca",
+    "sourceHashes": {
+      "focus.h": "08b1e66198be68bc3f2a55db864fbfe17ed9eaa9f106da89c11571d2567a0af2",
+      "editor.m": "ce2d2a028cb533ca3873abe5ea0e0ac50970136de06c1c8a78597a6a6874efa7",
+      "focus-probe.m": "38b28192508cfc7eab935370bb6bc666402438b3419d9041fb41af4696cce714",
+      "focus-interactive-probe.m": "eb71cc1655843bd13c873b02a06dfb140f2ee008e176120426cd0c2d4c53d42f"
+    },
+    "physicalImeCandidateWindowVerified": false
+  },
+  "evidence": {
+    "actual-updater-endpoints.json": {
+      "sha256": "2393f8b03042682d723eb273ba5577595235a9e6654c372d8eaa3b9bf93a62b1",
+      "bytes": 833
+    },
+    "artifact-verification.json": {
+      "sha256": "31b01d9d9df3231a03a2d28155bec83fee997ae6afa516e50433a180f0282a9c",
+      "bytes": 135499
+    },
+    "cua-idle-centered-focus-verification.json": {
+      "sha256": "043a9d8f82c1ee6dff8c40e3d8a24707b063b4e1246ed0ed98ae99bca8e24ef6",
+      "bytes": 1377
+    },
+    "draft-assets-verification.json": {
+      "sha256": "be9e325e25dd6e84a2d78f3e03ef84ba46fa282a393cd14662b6c47305624775",
+      "bytes": 2370
+    },
+    "draft-updater-signature-verification.json": {
+      "sha256": "28a6a6a3bba31e38e8374bd2322fd7616e0db14d5b4da2e4b5722c8d1dc073f5",
+      "bytes": 692
+    },
+    "host-app-apple-notary-log.json": {
+      "sha256": "16c82d6673f6e8b06b6aec91499b1ca5e4eab4f6c023a1b121dc93df8a0fa6f7",
+      "bytes": 736
+    },
+    "host-apple-notary-binding.json": {
+      "sha256": "2e9a5f18c1e417b98c2ea7942541309a71f73569169334d109e7ad353a8f4be3",
+      "bytes": 2605
+    },
+    "host-dmg-apple-notary-log.json": {
+      "sha256": "eaed0fa69b997f5cf36482b68bbd9736bede04cc04c608e501eaa3114863bf61",
+      "bytes": 941
+    },
+    "host-release-result.json": {
+      "sha256": "ef8dc3bffef5b848807aec1c6e12e65746aaa5328a7713de8442c73065f5ac52",
+      "bytes": 562
+    },
+    "official-release-checks.json": {
+      "sha256": "5da434fa6ae5a13ae5032c405754dfa529504beaa0a723dcd47405a73b23c789",
+      "bytes": 859
+    },
+    "plugin-market-publish-complete.json": {
+      "sha256": "5a1949cf57fca7cb1344b1ab01265fce2fcf5c398ca370a66d212f1191394031",
+      "bytes": 1170
+    },
+    "plugins-index-verification.json": {
+      "sha256": "da523a5b655e174c46aa0e8cbc06e643e669bb6315f1e0eafa411c867a68f6d1",
+      "bytes": 2137
+    },
+    "plugins-market-independent-verification.json": {
+      "sha256": "17bc03f87de4da779bbc32bdaef2b44128ad13a3f7a296332db562df57d411fd",
+      "bytes": 4360
+    },
+    "plugins-public-packages.json": {
+      "sha256": "86ed0e5bb840c967367dc7965e2458e4ec3a2fb7bd9931ce69ff8c773be633ee",
+      "bytes": 1050
+    },
+    "public-host-full-rest-verification.json": {
+      "sha256": "6c905874adc1be5cca0f95817bea1ccd41fd4ef1c20e49ace107533766a3f851",
+      "bytes": 10953
+    },
+    "scope-audit.json": {
+      "sha256": "24ac8a22b87631572cf4a48fa880d047a6a22d860c95719e9050c940151f44bc",
+      "bytes": 53063
+    },
+    "actual-native-process-probe.json": {
+      "sha256": "a6761183281401d8106efa1ed37957a2c721dd99125cdf498c21fc8d0d9e0a43",
+      "bytes": 4957
+    },
+    "frozen-plugin-packages.json": {
+      "sha256": "2dc29bf11865d1f2b717d9766f68c6d41089575611e547f08862cec12b647700",
+      "bytes": 7267
+    }
+  },
+  "boundaries": [
+    "Release scope is macOS arm64; Omarchy x86_64/Linux and other native platforms remain a separate follow-up",
+    "No claim of automatic installation of Sumi0.1.8 on this Mac",
+    "No formal writing document edited during release validation",
+    "Native CUA used an isolated synthetic probe; no full production host GUI or physical Chinese IME candidate-panel acceptance claimed",
+    "Final App notarization bound by Apple CDHash ticket; cleaned temporary App ZIP cannot be independently rehashed"
+  ]
+}

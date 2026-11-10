@@ -25,8 +25,11 @@ pub struct Appearance {
     pub locale: String,
     #[serde(default, alias = "caretMotion")]
     pub caret_motion: CaretMotion,
+    #[serde(default = "default_focus_typing", alias = "focusTyping")]
+    pub focus_typing: bool,
 }
 fn default_locale() -> String { "en".into() }
+fn default_focus_typing() -> bool { true }
 
 /// UI language only; unknown languages use English without changing document data.
 pub fn normalize_locale(locale: &str) -> &'static str {
@@ -56,6 +59,7 @@ impl Default for Appearance {
             bottom_inset: 0.0,
             locale: default_locale(),
             caret_motion: CaretMotion::Breathing,
+            focus_typing: default_focus_typing(),
         }
     }
 }
@@ -194,12 +198,12 @@ async fn typing_on_main<R: Runtime>(app: &tauri::AppHandle<R>, f: impl FnOnce() 
     rx.await.map_err(|_| "native typing monitor main thread stopped".to_owned())
 }
 fn platform_typing_configure(enabled: bool, handler: Option<TypingSoundHandler>) -> TypingMonitorStatus {
-    #[cfg(target_os = "macos")] { platform::configure_typing(enabled, handler) }
-    #[cfg(not(target_os = "macos"))] { let _ = (enabled, handler); TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
+    #[cfg(any(target_os = "macos", target_os = "linux"))] { platform::configure_typing(enabled, handler) }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))] { let _ = (enabled, handler); TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
 }
 fn platform_typing_status(request: bool) -> TypingMonitorStatus {
-    #[cfg(target_os = "macos")] { platform::typing_status(request) }
-    #[cfg(not(target_os = "macos"))] { let _ = request; TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
+    #[cfg(any(target_os = "macos", target_os = "linux"))] { platform::typing_status(request) }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))] { let _ = request; TypingMonitorStatus { enabled: false, permission_granted: false, listening: false } }
 }
 
 /// Controlled rich projection installed synchronously before the next native input.
@@ -213,6 +217,8 @@ pub struct EventReply {
     pub revision: u64,
     pub projection: Option<Projection>,
     pub clipboard_text: Option<String>,
+    /// Retain the supplied draft without acknowledging its revision.
+    pub draft_error: Option<String>,
 }
 impl From<u64> for EventReply {
     fn from(revision: u64) -> Self {
@@ -220,12 +226,16 @@ impl From<u64> for EventReply {
             revision,
             projection: None,
             clipboard_text: None,
+            draft_error: None,
         }
     }
 }
 /// Accept Edit/Action/Paste/Clipboard synchronously; return the accepted revision and any
-/// rich projection in the same reply. Queue persistence; never reenter AppKit or
-/// perform synchronous I/O here. Selection/composition replies do not mutate text.
+/// rich projection in the same reply. A positive edit ACK requires a synchronous
+/// durable host-journal commit; never reenter AppKit here. On journal failure,
+/// return draft_error plus the current projection to retain a read-only draft
+/// without advancing the native accepted revision. Selection/composition replies
+/// do not mutate text.
 pub type EventHandler = Arc<dyn Fn(NativeEvent) -> Result<EventReply, String> + Send + Sync>;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SurfaceState {
@@ -243,7 +253,7 @@ pub struct SurfaceState {
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("native-editor")
         .on_window_ready(|window| {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
             {
                 use tauri::Manager;
                 let label = window.label().to_owned();
@@ -255,7 +265,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                     }
                 });
             }
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
             let _ = window;
         })
         .build()
@@ -371,11 +381,11 @@ fn validate_document(d: &RenderDocument) -> Result<(), String> {
 }
 
 pub fn is_supported() -> bool {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         platform::is_supported()
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         false
     }
@@ -391,14 +401,14 @@ pub async fn register_font<R: Runtime>(
     if !path.is_absolute() || expected_family.is_empty() {
         return Err("invalid bundled font identity".into());
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         on_main(window, move || {
             platform::register_font(&path, &expected_family)
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = window;
         Err("native font registration is not supported on this platform".into())
@@ -423,14 +433,14 @@ pub async fn register_font_cascade<R: Runtime>(
     families: Vec<String>,
 ) -> Result<(), String> {
     validate_font_cascade(&alias, &families)?;
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         on_main(window, move || {
             platform::register_font_cascade(&alias, &families)
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = window;
         Err("native font registration is not supported on this platform".into())
@@ -457,7 +467,20 @@ pub async fn mount<R: Runtime>(
         rx.await
             .map_err(|_| "native mount callback cancelled".to_owned())?
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::*;
+        let label=window.label().to_owned();
+        let target=window.clone();
+        let (tx,rx)=tokio::sync::oneshot::channel();
+        window.with_webview(move |webview| {
+            let result=target.gtk_window().map_err(|e|e.to_string()).and_then(|parent|
+                platform::mount(&parent,&label,config,handler,Some(webview.inner().upcast::<gtk::Widget>())));
+            let _=tx.send(result);
+        }).map_err(|e|e.to_string())?;
+        rx.await.map_err(|_|"native mount callback cancelled".to_owned())?
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, config, handler);
         Err("native editor is not supported on this platform".into())
@@ -498,27 +521,43 @@ pub async fn command<R: Runtime>(
     generation: u64,
     command: SurfaceCommand,
 ) -> Result<(), String> {
+    command_and_then(window, surface_id, generation, command, || Ok(())).await
+}
+/// Complete host state reconciliation in the same main-thread turn as the native
+/// command. No input can enter between successful ApplyDocument and `complete`.
+/// On validation or native command failure, `complete` is never invoked.
+pub async fn command_and_then<R: Runtime, T: Send + 'static>(
+    window: &WebviewWindow<R>,
+    surface_id: String,
+    generation: u64,
+    command: SurfaceCommand,
+    complete: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
     validate_command(&command)?;
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
-            platform::command(&label, &surface_id, generation, command)
-        })
-        .await
+            complete_command(platform::command(&label, &surface_id, generation, command), complete)
+        }).await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
-        let _ = (window, surface_id, generation, command);
+        let _ = (window, surface_id, generation, command, complete);
         Err("native editor is not supported on this platform".into())
     }
+}
+#[cfg(any(target_os = "macos", target_os = "linux", test))]
+fn complete_command<T>(result: Result<(), String>, complete: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    result?;
+    complete()
 }
 pub async fn inspect<R: Runtime>(
     window: &WebviewWindow<R>,
     surface_id: String,
     generation: u64,
 ) -> Result<SurfaceState, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
@@ -526,7 +565,7 @@ pub async fn inspect<R: Runtime>(
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation);
         Err("native editor is not supported on this platform".into())
@@ -542,7 +581,7 @@ pub async fn transaction<R: Runtime, T: Send + 'static>(
     generation: u64,
     prepare: impl FnOnce(&SurfaceState) -> Result<(T, Option<EventReply>), String> + Send + 'static,
 ) -> Result<T, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
@@ -571,7 +610,7 @@ pub async fn transaction<R: Runtime, T: Send + 'static>(
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation, prepare);
         Err("native editor is not supported on this platform".into())
@@ -582,7 +621,7 @@ pub async fn detach<R: Runtime>(
     surface_id: String,
     generation: u64,
 ) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let label = window.label().to_owned();
         on_main(window, move || {
@@ -590,13 +629,13 @@ pub async fn detach<R: Runtime>(
         })
         .await
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = (window, surface_id, generation);
         Ok(())
     }
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn on_main<R: Runtime, T: Send + 'static>(
     window: &WebviewWindow<R>,
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
@@ -613,10 +652,26 @@ async fn on_main<R: Runtime, T: Send + 'static>(
 
 #[cfg(target_os = "macos")]
 mod platform;
+#[cfg(target_os = "linux")]
+#[path = "linux.rs"]
+mod platform;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn draft_reconciliation_runs_only_after_command_success_before_next_input() {
+        let protected = std::cell::Cell::new(true);
+        assert!(complete_command(Err("stale native revision".into()), || { protected.set(false); Ok(()) }).is_err());
+        assert!(protected.get(), "failed native apply must retain host protection");
+        let order = std::cell::RefCell::new(Vec::new());
+        let command_result = { order.borrow_mut().push("native applied"); Ok(()) };
+        complete_command(command_result, || { order.borrow_mut().push("host reconciled"); protected.set(false); Ok(()) }).unwrap();
+        order.borrow_mut().push("next input");
+        assert!(!protected.get());
+        assert_eq!(*order.borrow(), ["native applied", "host reconciled", "next input"]);
+    }
+
     #[test]
     fn typing_sound_wire_contains_only_surface_identity_and_role() {
         let roles = [TypingSoundRole::Key, TypingSoundRole::Space, TypingSoundRole::Enter, TypingSoundRole::Delete, TypingSoundRole::Modifier, TypingSoundRole::KeyUp, TypingSoundRole::SpaceUp, TypingSoundRole::Stop];
@@ -638,6 +693,19 @@ mod tests {
         let command = SurfaceCommand::SetLocale { locale: "ja-JP".into() };
         assert!(validate_command(&command).is_ok());
         assert_eq!(serde_json::to_value(command).unwrap(), serde_json::json!({"command":"set_locale","locale":"ja-JP"}));
+    }
+    #[test]
+    fn focus_typing_defaults_on_and_preserves_explicit_off() {
+        let mut value = serde_json::to_value(Appearance::default()).unwrap();
+        assert_eq!(value["focus_typing"], true);
+        value.as_object_mut().unwrap().remove("focus_typing");
+        assert!(serde_json::from_value::<Appearance>(value.clone()).unwrap().focus_typing);
+        value["focusTyping"] = serde_json::json!(false);
+        let disabled = serde_json::from_value::<Appearance>(value.clone()).unwrap();
+        assert!(!disabled.focus_typing);
+        assert_eq!(serde_json::to_value(disabled).unwrap()["focus_typing"], false);
+        value["focusTyping"] = serde_json::json!("false");
+        assert!(serde_json::from_value::<Appearance>(value).is_err());
     }
     #[test]
     fn caret_motion_defaults_and_accepts_only_supported_modes() {
@@ -698,8 +766,8 @@ mod tests {
 /// Main-thread native menu dispatch. Only the actual key-window Sumi responder
 /// can consume this command; other text fields retain AppKit behavior.
 pub fn menu_command(command: &str) -> bool {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     { platform::menu_command(command) }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     { let _ = command; false }
 }

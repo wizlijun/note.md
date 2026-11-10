@@ -116,7 +116,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
     url.accessibilityLabel=SumiLabel(locale,@"Link URL");alert.accessoryView=url;return alert;
 }
 
-@class SumiEditor;
+@class SumiEditor, SumiFocusView, SumiFocusRow;
 @interface SumiCaretView : NSView
 @property(nonatomic, strong) NSColor *color;
 @end
@@ -133,6 +133,11 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic) NSUInteger caretInputDepth;
 @property(nonatomic) NSUInteger compositionMutationDepth;
 @property(nonatomic) BOOL caretRefreshQueued;
+@property(nonatomic,strong) SumiFocusView *focusView;
+@property(nonatomic) BOOL focusUpdating, focusInputChanged, focusTracking;
+@property(nonatomic) BOOL focusResumeOnInput;
+@property(nonatomic) NSUInteger focusInputCount, focusKeyDepth;
+@property(nonatomic) CFTimeInterval focusLastInput, focusFirstInput, focusLastEvent;
 - (NSRect)typewriterCaretRect;
 - (BOOL)usesTypewriterCaret;
 - (BOOL)typewriterCaretEligible;
@@ -143,11 +148,35 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (void)queueCaretRefresh;
 - (BOOL)sumiCommand:(NSString *)command;
 - (BOOL)prepareForPanel;
+- (void)finishFocusInputMutation:(BOOL)imeActivity;
+- (void)prepareFocusResumeAfterReading;
+@end
+@interface SumiTextView (FocusTyping)
+- (BOOL)focusEnabled;
+- (void)ensureEmptyFocus;
+- (void)stopFocusTyping;
+- (void)recordFocusInputAt:(CFTimeInterval)time;
+- (void)animateFocusStrength:(CGFloat)strength duration:(NSTimeInterval)duration;
+- (void)scheduleFocusIdle;
+- (void)updateFocusRows;
+- (NSRect)focusRect:(NSRect)rect;
+- (NSPoint)focusOriginalPoint:(NSPoint)point;
+- (NSUInteger)focusCharacterIndexAtPoint:(NSPoint)point;
+- (void)recordFocusEvent:(NSEvent *)event;
+- (void)focusMutationFinished;
+- (void)focusScrollNotification:(NSNotification *)notification;
 @end
 @interface SumiContainer : NSView
 @end
 @implementation SumiContainer
 - (BOOL)isFlipped { return YES; }
+@end
+
+@interface SumiScrollView : NSScrollView
+@property(nonatomic,weak) SumiTextView *focusText;
+@end
+@implementation SumiScrollView
+- (void)scrollWheel:(NSEvent *)event { [self.focusText stopFocusTyping];[super scrollWheel:event];[self.focusText prepareFocusResumeAfterReading]; }
 @end
 
 @interface SumiEditor : NSObject <NSTextViewDelegate>
@@ -162,10 +191,12 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic) SumiReplyFree freeReply;
 @property(nonatomic) void *context;
 @property(nonatomic) BOOL applying;
+@property(nonatomic) BOOL focusDocumentReady;
 @property(nonatomic) BOOL composing;
 @property(nonatomic) BOOL detached;
 @property(nonatomic) BOOL reportingViewport;
 @property(nonatomic, copy) NSString *committed;
+@property(nonatomic, copy) NSString *draftError;
 @property(nonatomic, copy) NSString *compositionBase;
 @property(nonatomic, strong) NSMutableArray<NSDictionary *> *pending;
 @property(nonatomic, copy) NSDictionary *appearance;
@@ -177,6 +208,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (int64_t)emit:(NSString *)kind fields:(NSDictionary *)fields projection:(NSDictionary **)projection;
 - (void)transaction:(NSString *)kind fields:(NSDictionary *)fields;
 - (void)applyProjection:(NSDictionary *)projection revision:(uint64_t)revision;
+- (void)retainDraft:(NSDictionary *)projection error:(NSString *)error;
 - (void)beginComposition;
 - (void)finishComposition;
 - (void)acceptChanges;
@@ -190,6 +222,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (void)restoreViewport:(NSDictionary *)viewport;
 - (void)viewportChanged:(NSNotification *)notification;
 - (NSFont *)baseFont;
+- (NSRect)rectForInsertion:(NSUInteger)index;
 @end
 
 #import "typing-monitor.h"
@@ -227,6 +260,8 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     } while(extra);
     return @{ @"range":SumiRange(NSMakeRange(prefix,oldEnd-prefix)), @"replacement":[after substringWithRange:NSMakeRange(prefix,newEnd-prefix)] };
 }
+
+#import "focus.h"
 
 @implementation SumiTextView
 - (BOOL)usesTypewriterCaret { return self.owner && !self.owner.detached; }
@@ -304,15 +339,18 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
             self.refreshingCaret=NO;return;
         }
         NSRect frame=[self typewriterCaretRect];
+        if(self.focusView)frame=[self focusRect:frame];
         if(NSIsEmptyRect(frame)){
             [self queueCaretRefresh];self.refreshingCaret=NO;return;
         }
         if(!self.typewriterCaret){self.typewriterCaret=[[SumiCaretView alloc]initWithFrame:NSZeroRect];self.typewriterCaret.wantsLayer=YES;[self addSubview:self.typewriterCaret];}
         [CATransaction begin];[CATransaction setDisableActions:YES];
+        NSView *caretParent=self.focusView ?: self;
+        if(self.typewriterCaret.superview!=caretParent){[self.typewriterCaret removeFromSuperview];[caretParent addSubview:self.typewriterCaret];}
         self.typewriterCaret.frame=frame;self.typewriterCaret.color=SumiColor(self.owner.appearance[@"foreground"]);
         [CATransaction commit];
         self.typewriterCaret.needsDisplay=YES;
-        if(!NSIntersectsRect(self.typewriterCaret.frame,self.visibleRect)){
+        if(!NSIntersectsRect(self.typewriterCaret.frame,self.focusView?self.focusView.bounds:self.visibleRect)){
             self.typewriterCaret.hidden=YES;[self.typewriterCaret.layer removeAnimationForKey:@"sumi-caret-breathing"];
         }else{self.typewriterCaret.hidden=NO;[self updateCaretMotion];}
     }
@@ -323,21 +361,26 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     __weak SumiTextView *weakSelf=self;
     dispatch_async(dispatch_get_main_queue(), ^{
         SumiTextView *view=weakSelf;if(!view)return;
-        [view refreshTypewriterCaret:NO];view.caretRefreshQueued=NO;
+        [view updateFocusRows];[view refreshTypewriterCaret:NO];view.caretRefreshQueued=NO;
     });
 }
-- (void)layout { [super layout];[self refreshTypewriterCaret:NO]; }
+- (void)layout {
+    [super layout];
+    // AppKit is still committing fragment rendering state during layout.
+    // Resolve focus/caret geometry after that transaction, not reentrantly.
+    [self queueCaretRefresh];
+}
 - (void)updateInsertionPointStateAndRestartTimer:(BOOL)restart {
     [self syncSystemCaretColor];
     [super updateInsertionPointStateAndRestartTimer:restart];[self refreshTypewriterCaret:restart];
 }
-- (BOOL)becomeFirstResponder { BOOL accepted=[super becomeFirstResponder];[self refreshTypewriterCaret:YES];return accepted; }
+- (BOOL)becomeFirstResponder { BOOL accepted=[super becomeFirstResponder];if(accepted){[self ensureEmptyFocus];[self updateFocusRows];}[self refreshTypewriterCaret:YES];return accepted; }
 - (BOOL)resignFirstResponder {
     BOOL accepted=[super resignFirstResponder];
-    if(accepted){if(SumiTypingOwner==self.owner)SumiTypingClear();self.typewriterCaret.hidden=YES;[self.typewriterCaret.layer removeAnimationForKey:@"sumi-caret-breathing"];}
+    if(accepted){[self stopFocusTyping];if(SumiTypingOwner==self.owner)SumiTypingClear();self.typewriterCaret.hidden=YES;[self.typewriterCaret.layer removeAnimationForKey:@"sumi-caret-breathing"];}
     return accepted;
 }
-- (void)caretWindowChanged:(NSNotification *)notification { (void)notification;SumiTypingRefresh();[self refreshTypewriterCaret:YES]; }
+- (void)caretWindowChanged:(NSNotification *)notification { (void)notification;if(!self.window.isKeyWindow || !NSApp.isActive)[self stopFocusTyping];SumiTypingRefresh();[self refreshTypewriterCaret:YES]; }
 - (void)viewDidMoveToWindow {
     [super viewDidMoveToWindow];
     NSArray *names=@[NSWindowDidBecomeKeyNotification,NSWindowDidResignKeyNotification,NSApplicationDidBecomeActiveNotification,NSApplicationDidResignActiveNotification];
@@ -347,10 +390,30 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     }
     [self refreshTypewriterCaret:YES];
 }
-- (void)viewDidHide { [super viewDidHide];[self refreshTypewriterCaret:NO]; }
+- (void)viewDidHide { [self stopFocusTyping];[super viewDidHide];[self refreshTypewriterCaret:NO]; }
 - (void)viewDidUnhide { [super viewDidUnhide];[self refreshTypewriterCaret:YES]; }
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)prepareFocusResumeAfterReading {
+    if([self focusEnabled] && self.isEditable && self.owner && !self.owner.applying && !self.owner.draftError
+        && !self.owner.detached && !self.owner.container.hidden && !self.isHiddenOrHasHiddenAncestor)self.focusResumeOnInput=YES;
+}
+- (void)finishFocusInputMutation:(BOOL)imeActivity {
+    if(!self.caretInputDepth && !self.focusKeyDepth && !self.owner.applying){
+        // An input method may deliver preedit/commit after the key event has
+        // returned. Its actual text callback is activity; unmark/panel cleanup
+        // is not. Nested keyDown owns its one activity record at the outer end.
+        if(imeActivity)[self recordFocusInputAt:CACurrentMediaTime()];
+        else{
+            NSEvent *event=NSApp.currentEvent;
+            if(event && fabs(NSProcessInfo.processInfo.systemUptime-event.timestamp)<.5)[self recordFocusEvent:event];
+        }
+    }
+    [self focusMutationFinished];
+}
 - (void)setMarkedText:(id)value selectedRange:(NSRange)selected replacementRange:(NSRange)replacement {
+    if(self.owner.draftError)return;
+    BOOL imeActivity=([value isKindOfClass:NSString.class] || [value isKindOfClass:NSAttributedString.class]) && [value length]>0;
+    self.focusInputChanged=YES;
     self.caretInputDepth++;
     self.compositionMutationDepth++;
     [self.owner beginComposition];
@@ -358,18 +421,20 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     [super setMarkedText:value selectedRange:selected replacementRange:replacement];
     self.compositionMutationDepth--;
     if(!self.compositionMutationDepth && !self.hasMarkedText)[self.owner finishComposition];
-    self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    self.caretInputDepth--;if(imeActivity)[self finishFocusInputMutation:YES];else [self focusMutationFinished];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 - (void)unmarkText {
     self.caretInputDepth++;self.compositionMutationDepth++;
     [super unmarkText];
     self.compositionMutationDepth--;
     if(!self.compositionMutationDepth)[self.owner finishComposition];
-    self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    self.caretInputDepth--;[self focusMutationFinished];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 // Only an explicit panel request commits preedit. Background visibility and
 // remote updates must keep their composition barrier.
 - (BOOL)prepareForPanel {
+    if(self.owner.draftError)return NO;
+    [self stopFocusTyping];
     if(!self.owner.composing && !self.hasMarkedText)return YES;
     NSRange marked=self.markedRange,selection=self.selectedRange;
     NSAttributedString *preedit=self.hasMarkedText?[self.textStorage attributedSubstringFromRange:marked]:nil;
@@ -381,7 +446,8 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     self.compositionMutationDepth--;
     BOOL accepted=[self.owner acceptChangesPreservingRejectedText:YES];
     if(!accepted){
-        if(preedit){
+        if(self.owner.draftError){[self.owner finishComposition];}
+        else if(preedit){
             NSUInteger start=MIN(MAX(selection.location,marked.location),NSMaxRange(marked));
             NSRange clause=NSMakeRange(start-marked.location,MIN(selection.length,NSMaxRange(marked)-start));
             self.compositionMutationDepth++;
@@ -392,22 +458,99 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         [self.owner finishComposition];
         [self.inputContext discardMarkedText];
     }
-    self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    self.caretInputDepth--;[self focusMutationFinished];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
     return accepted && !self.hasMarkedText && !self.owner.composing;
 }
 - (void)insertText:(id)value replacementRange:(NSRange)replacement {
+    if(self.owner.draftError)return;
+    BOOL imeActivity=(self.hasMarkedText || self.owner.composing)
+        && ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSAttributedString.class]) && [value length]>0;
+    self.focusInputChanged=YES;
     self.caretInputDepth++;self.compositionMutationDepth++;
     [super insertText:value replacementRange:replacement];
     self.compositionMutationDepth--;
     if(!self.compositionMutationDepth && !self.hasMarkedText)[self.owner finishComposition];
-    self.caretInputDepth--;[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
+    self.caretInputDepth--;[self finishFocusInputMutation:imeActivity];[self updateInsertionPointStateAndRestartTimer:YES];[self queueCaretRefresh];
 }
 - (void)keyDown:(NSEvent *)event {
-    self.caretInputDepth++;[super keyDown:event];self.caretInputDepth--;
-    [self refreshTypewriterCaret:NO];[self queueCaretRefresh];
+    BOOL controlNavigation=(event.modifierFlags&NSEventModifierFlagControl)
+        && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagOption))
+        && [@[@"a",@"b",@"e",@"f",@"n",@"p"] containsObject:event.charactersIgnoringModifiers.lowercaseString];
+    BOOL navigation=controlNavigation || event.keyCode==123 || event.keyCode==124 || event.keyCode==125 || event.keyCode==126 || event.keyCode==115 || event.keyCode==119 || event.keyCode==116 || event.keyCode==121 || event.keyCode==53;
+    BOOL focusLineNavigation=self.focusView && !self.hasMarkedText && !self.owner.composing && !self.selectedRange.length
+        && (event.keyCode==125 || event.keyCode==126)
+        && !(event.modifierFlags&(NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption));
+    BOOL typing=!navigation && !(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) && (!event.isARepeat || self.focusView!=nil);
+    BOOL resumeOnInput=typing && self.focusResumeOnInput;
+    BOOL readingNavigation=navigation && event.keyCode!=53 && !self.hasMarkedText && !self.owner.composing;
+    if((navigation && !self.hasMarkedText && !focusLineNavigation) || (event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl)) || (!self.hasMarkedText && self.selectedRange.length))[self stopFocusTyping];
+    if(resumeOnInput)self.focusResumeOnInput=YES;
+    if(focusLineNavigation){
+        // AppKit owns visual-line movement and its preferred column. Recenter
+        // the same presentation without restarting typing or its idle clock.
+        self.focusView.progress=1;self.focusView.fromProgress=1;
+    }
+    self.focusInputChanged=NO;self.focusKeyDepth++;self.caretInputDepth++;[super keyDown:event];self.caretInputDepth--;self.focusKeyDepth--;
+    if(readingNavigation && !self.focusView)[self prepareFocusResumeAfterReading];
+    BOOL editIntent=event.keyCode==51 || event.keyCode==117 || event.keyCode==36 || event.keyCode==76;
+    if(typing && (self.focusInputChanged || (self.focusResumeOnInput && editIntent)))[self recordFocusEvent:event];
+    [self updateFocusRows];[self refreshTypewriterCaret:NO];[self queueCaretRefresh];
 }
-- (void)undo:(id)sender { [self.owner action:@"undo"]; }
-- (void)redo:(id)sender { [self.owner action:@"redo"]; }
+- (void)scrollWheel:(NSEvent *)event { [self stopFocusTyping];[super scrollWheel:event];[self prepareFocusResumeAfterReading]; }
+- (void)mouseDown:(NSEvent *)event {
+    if(!self.focusView){self.focusInputCount=0;[super mouseDown:event];[self prepareFocusResumeAfterReading];return;}
+    if(self.hasMarkedText || self.owner.composing){
+        SumiFocusView *view=self.focusView;
+        // Use the existing safe commit barrier. A rejected composition retains
+        // its preedit/draft and must never hand selection to another line.
+        if(![self prepareForPanel])return;
+        if(self.owner.draftError || self.owner.detached || self.owner.container.hidden)return;
+        self.focusView=view;view.rows=nil;
+        [self.owner.container addSubview:view positioned:NSWindowAbove relativeTo:self.owner.scroll];
+        [self updateFocusRows];if(!self.focusView)return;
+    }
+    NSPoint displayed=[self.focusView convertPoint:event.locationInWindow fromView:nil];
+    NSUInteger index=[self focusCharacterIndexAtPoint:displayed];
+    NSRange previous=self.selectedRange;
+    NSSelectionGranularity granularity=event.clickCount>=3?NSSelectByParagraph:(event.clickCount==2?NSSelectByWord:NSSelectByCharacter);
+    NSRange hit=[self selectionRangeForProposedRange:NSMakeRange(index,0) granularity:granularity];
+    BOOL extending=(event.modifierFlags&NSEventModifierFlagShift)!=0;
+    NSUInteger anchor=extending?(index<previous.location?NSMaxRange(previous):previous.location):hit.location;
+    // Keep both the paper and its hit coordinates fixed for the entire gesture.
+    // Exiting on mouseDown would interpret the next dragged event in a different
+    // layout and can select whole paragraphs instead of the visible few letters.
+    self.focusTracking=YES;[self.focusView.timer invalidate];self.focusView.timer=nil;[self.focusView.idleTimer invalidate];self.focusView.idleTimer=nil;
+    NSRange selection=extending?NSMakeRange(MIN(anchor,index),MAX(anchor,index)-MIN(anchor,index)):hit;
+    [self setSelectedRange:selection affinity:NSSelectionAffinityDownstream stillSelecting:YES];
+    self.focusView.needsDisplay=YES;
+    while(self.focusView && !self.owner.detached && !self.isHiddenOrHasHiddenAncestor){
+        NSEvent *next=[NSApp nextEventMatchingMask:NSEventMaskLeftMouseDragged|NSEventMaskLeftMouseUp untilDate:[NSDate dateWithTimeIntervalSinceNow:.05] inMode:NSEventTrackingRunLoopMode dequeue:YES];
+        if(!next)continue;
+        if(next.type==NSEventTypeLeftMouseUp || !self.focusView)break;
+        if(hypot(next.locationInWindow.x-event.locationInWindow.x,next.locationInWindow.y-event.locationInWindow.y)<3)continue;
+        NSPoint point=[self.focusView convertPoint:next.locationInWindow fromView:nil];
+        NSUInteger cursor=[self focusCharacterIndexAtPoint:point];
+        NSRange target=[self selectionRangeForProposedRange:NSMakeRange(cursor,0) granularity:granularity];
+        NSUInteger start=MIN(anchor,target.location),end=MAX(extending?anchor:NSMaxRange(hit),NSMaxRange(target));
+        [self setSelectedRange:NSMakeRange(start,end-start) affinity:NSSelectionAffinityDownstream stillSelecting:YES];
+        [self.focusView setNeedsDisplay:YES];[self.focusView displayIfNeeded];
+    }
+    self.focusTracking=NO;[self stopFocusTyping];
+    [self setSelectedRange:self.selectedRange affinity:NSSelectionAffinityDownstream stillSelecting:NO];
+    [self scrollRangeToVisible:self.selectedRange];
+    [self prepareFocusResumeAfterReading];
+}
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actual {
+    NSRect result=[super firstRectForCharacterRange:range actualRange:actual];
+    if(self.focusView && range.location<=self.string.length){
+        NSRect raw=[self.owner rectForInsertion:range.location];
+        raw.size.width=MAX(1,raw.size.width);NSRect projected=[self focusRect:raw];
+        return [self.window convertRectToScreen:[self.focusView convertRect:projected toView:nil]];
+    }
+    return result;
+}
+- (void)undo:(id)sender { [self stopFocusTyping];[self.owner action:@"undo"]; }
+- (void)redo:(id)sender { [self stopFocusTyping];[self.owner action:@"redo"]; }
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
     NSString *command=SumiShortcut(event.charactersIgnoringModifiers,event.keyCode,event.modifierFlags);
     if(self.window.firstResponder!=self){
@@ -425,8 +568,10 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     return [super performKeyEquivalent:event];
 }
 - (BOOL)sumiCommand:(NSString *)command {
+    [self stopFocusTyping];
     if(!self.owner || self.owner.detached || self.owner.container.hidden)return NO;
     if(self.hasMarkedText || self.owner.composing)return YES;
+    if(self.owner.draftError && ![@[@"select_all",@"copy",@"save",@"find",@"find_next",@"find_previous",@"escape"] containsObject:command])return YES;
     if([command isEqualToString:@"select_all"]){[self selectAll:nil];return YES;}
     if([command isEqualToString:@"copy"]){[self copy:nil];return YES;}
     if([command isEqualToString:@"cut"]){[self cut:nil];return YES;}
@@ -486,7 +631,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)subscript:(id)sender { (void)sender;NSBeep(); }
 - (void)superscript:(id)sender { (void)sender;NSBeep(); }
 - (BOOL)writeMarkdownToPasteboard:(NSPasteboard *)pasteboard cut:(BOOL)cut {
-    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return NO;
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached || (cut && self.owner.draftError))return NO;
     NSMutableArray *ranges=[NSMutableArray new];
     for(NSValue *value in self.selectedRanges)if(value.rangeValue.length)[ranges addObject:SumiRange(value.rangeValue)];
     if(ranges.count==0)return NO;
@@ -503,7 +648,8 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)copy:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:NO]; }
 - (void)cut:(id)sender { (void)sender;[self writeMarkdownToPasteboard:NSPasteboard.generalPasteboard cut:YES]; }
 - (void)pasteFromPasteboard:(NSPasteboard *)pasteboard literal:(BOOL)literal {
-    if(self.owner.composing || self.hasMarkedText || self.owner.detached)return;
+    if(self.owner.composing || self.hasMarkedText || self.owner.detached || self.owner.draftError)return;
+    [self stopFocusTyping];
     // Prefer public plain text, including Markdown emitted by our own copy.
     // Only input formats are decoded; no attributed string enters the editor.
     NSString *text=[pasteboard stringForType:NSPasteboardTypeString];
@@ -578,7 +724,14 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     NSString *json=[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     char *reply=NULL;
     int64_t revision=self.callback(self.context,json.UTF8String,&reply);
-    if(reply){if(projection)*projection=SumiJSON(reply);if(self.freeReply)self.freeReply(reply);}
+    if(reply){
+        NSDictionary *value=SumiJSON(reply);
+        if(revision==-2){
+            NSDictionary *draft=[value[@"projection"] isKindOfClass:NSDictionary.class]?value[@"projection"]:nil;
+            [self retainDraft:draft error:[value[@"draft_error"] isKindOfClass:NSString.class]?value[@"draft_error"]:@"本机保存失败，草稿尚未安全保存"];
+        }else if(projection)*projection=value;
+        if(self.freeReply)self.freeReply(reply);
+    }
     return revision;
 }
 - (NSRect)rectForInsertion:(NSUInteger)index {
@@ -626,7 +779,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)viewportChanged:(NSNotification *)notification {
     (void)notification;
     [self.text refreshTypewriterCaret:NO];
-    if(self.applying || self.composing || self.detached || self.reportingViewport)return;
+    if(self.applying || self.composing || self.detached || self.reportingViewport || self.draftError)return;
     self.reportingViewport=YES;
     [self emit:@"viewport" fields:@{@"revision":@(self.revision),@"viewport":[self viewport]}];
     self.reportingViewport=NO;
@@ -639,12 +792,13 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 - (void)finishComposition {
     if(!self.composing || self.text.hasMarkedText)return;
     // Emit the single committed replacement before releasing remote updates.
-    [self acceptChanges];self.composing=NO;self.compositionBase=nil;
+    if(!self.draftError)[self acceptChanges];self.composing=NO;self.compositionBase=nil;
     [self emit:@"composition" fields:@{@"revision":@(self.revision),@"active":@NO}];
-    [self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
+    if(!self.draftError)[self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
 }
 - (void)acceptChanges { [self acceptChangesPreservingRejectedText:NO]; }
 - (BOOL)acceptChangesPreservingRejectedText:(BOOL)preserve {
+    if(self.draftError)return NO;
     NSString *after=[self.text.string copy];
     if([self.committed isEqualToString:after]){[self.pending removeAllObjects];return YES;}
     NSDictionary *delta;
@@ -663,7 +817,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
         else {self.revision=(uint64_t)accepted;self.committed=after;}
     }
     else{
-        if(preserve)return NO;
+        if(preserve || self.draftError)return NO;
         self.applying=YES;
         self.text.string=self.committed;
         NSUInteger position=MIN([delta[@"range"][@"start"] unsignedIntegerValue],self.committed.length);
@@ -676,6 +830,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)replacement {
     if(self.applying)return YES;
+    if(self.draftError)return NO;
     if(!replacement)return NO; // Formatting must be a canonical document transaction.
     [self.pending addObject:@{@"range":SumiRange(range),@"replacement":replacement}];
     return YES;
@@ -686,12 +841,14 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     [self acceptChanges];
 }
 - (void)textViewDidChangeSelection:(NSNotification *)notification {
+    if(!self.applying && !self.composing && !self.text.caretInputDepth && !self.text.focusKeyDepth && !self.text.focusTracking && self.pending.count==0)[self.text stopFocusTyping];
     [self.text refreshTypewriterCaret:YES];
-    if(self.applying || self.composing || self.pending.count>0)return;
+    if(self.applying || self.composing || self.pending.count>0 || self.draftError)return;
     [self emit:@"selection" fields:@{@"revision":@(self.revision),@"range":SumiRange(self.text.selectedRange)}];
 }
 - (void)action:(NSString *)action {
     if(self.composing || self.detached)return;
+    if(self.draftError && ![action isEqualToString:@"save"])return;
     [self transaction:@"action" fields:@{@"revision":@(self.revision),@"action":action,@"range":SumiRange(self.text.selectedRange)}];
 }
 - (void)transaction:(NSString *)kind fields:(NSDictionary *)fields {
@@ -700,17 +857,37 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     if(accepted>=0 && (uint64_t)accepted>=self.revision && projection)
         [self applyProjection:projection revision:(uint64_t)accepted];
 }
+- (void)retainDraft:(NSDictionary *)projection error:(NSString *)error {
+    [self.text stopFocusTyping];
+    BOOL applying=self.applying;self.applying=YES;
+    // This is a display-only draft, never a committed revision or undo edit.
+    if([projection[@"document"][@"text"] isKindOfClass:NSString.class]){
+        NSString *next=projection[@"document"][@"text"];
+        NSDictionary *delta=SumiDifference(self.text.string,next);
+        if([delta[@"range"][@"length"] unsignedIntegerValue] || [delta[@"replacement"] length])
+            [self.text.textStorage replaceCharactersInRange:SumiReadRange(delta[@"range"]) withString:delta[@"replacement"]];
+        [self refreshRuns:projection[@"document"][@"runs"] ?: @[]];
+        NSRange selection=SumiReadRange(projection[@"selection"]);
+        if(NSMaxRange(selection)<=self.text.string.length)self.text.selectedRange=selection;
+    }
+    self.draftError=error;self.text.editable=NO;self.text.selectable=YES;
+    self.applying=applying;[self.text refreshTypewriterCaret:NO];
+}
 - (void)applyProjection:(NSDictionary *)projection revision:(uint64_t)revision {
+    if(self.text.focusTracking)[self.text stopFocusTyping];
     BOOL applying=self.applying;self.applying=YES;
     NSString *next=projection[@"document"][@"text"] ?: @"";
+    self.focusDocumentReady=[projection[@"document"][@"text"] isKindOfClass:NSString.class];
     NSDictionary *delta=SumiDifference(self.text.string,next);
     if([delta[@"range"][@"length"] unsignedIntegerValue] || [delta[@"replacement"] length])
         [self.text.textStorage replaceCharactersInRange:SumiReadRange(delta[@"range"]) withString:delta[@"replacement"]];
     self.revision=revision;self.committed=[next copy];
+    self.draftError=nil;self.text.editable=YES;[self.pending removeAllObjects];
     [self refreshRuns:projection[@"document"][@"runs"] ?: @[]];
     NSRange selection=SumiReadRange(projection[@"selection"]);
     if(NSMaxRange(selection)<=self.text.string.length)self.text.selectedRange=selection;
     self.applying=applying;
+    [self.text ensureEmptyFocus];[self.text updateFocusRows];
     [self.text refreshTypewriterCaret:YES];
 }
 - (NSFont *)baseFont {
@@ -742,6 +919,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
     self.text.textContainerInset=NSMakeSize(margin,vertical);
     self.text.textContainer.containerSize=NSMakeSize(MAX(0,w-2*margin),CGFLOAT_MAX);
     self.scroll.contentInsets=NSEdgeInsetsMake(0,0,[self.appearance[@"bottom_inset"] doubleValue],0);
+    [self.text updateFocusRows];
     [self.text refreshTypewriterCaret:NO];
 }
 - (NSDictionary *)baseAttributes {
@@ -862,27 +1040,29 @@ void *sumi_editor_mount(void *reference_view,int webview_sibling,const char *jso
     editor.callback=callback;editor.freeReply=free_reply;editor.context=context;editor.pending=[NSMutableArray new];editor.appearance=config[@"appearance"];editor.runs=config[@"document"][@"runs"] ?: @[];
     editor.container=[[SumiContainer alloc] initWithFrame:NSZeroRect];editor.container.wantsLayer=YES;editor.container.layer.masksToBounds=YES;
     editor.coordinateView=reference;
-    editor.scroll=[[NSScrollView alloc] initWithFrame:NSZeroRect];editor.scroll.hasVerticalScroller=YES;editor.scroll.autohidesScrollers=YES;editor.scroll.borderType=NSNoBorder;editor.scroll.drawsBackground=YES;
+    editor.scroll=[[SumiScrollView alloc] initWithFrame:NSZeroRect];editor.scroll.hasVerticalScroller=YES;editor.scroll.autohidesScrollers=YES;editor.scroll.borderType=NSNoBorder;editor.scroll.drawsBackground=YES;
     if(@available(macOS 13.0,*)){
         editor.text=[[SumiTextView alloc] initUsingTextLayoutManager:YES];
         if(!editor.text.textLayoutManager)return NULL;
     } else return NULL;
     editor.locale=SumiLocale(editor.appearance[@"locale"]);
     editor.text.accessibilityIdentifier=@"sumi-native-editor";
-    editor.text.owner=editor;editor.text.delegate=editor;editor.text.richText=YES;editor.text.importsGraphics=NO;editor.text.allowsUndo=NO;editor.text.usesFindBar=YES;editor.text.incrementalSearchingEnabled=YES;
+    editor.text.owner=editor;((SumiScrollView *)editor.scroll).focusText=editor.text;editor.text.delegate=editor;editor.text.richText=YES;editor.text.importsGraphics=NO;editor.text.allowsUndo=NO;editor.text.usesFindBar=YES;editor.text.incrementalSearchingEnabled=YES;
     editor.text.verticallyResizable=YES;editor.text.horizontallyResizable=NO;editor.text.minSize=NSZeroSize;editor.text.maxSize=NSMakeSize(CGFLOAT_MAX,CGFLOAT_MAX);
     editor.text.textContainer.widthTracksTextView=NO;editor.text.textContainer.lineFragmentPadding=0;
     editor.text.automaticQuoteSubstitutionEnabled=NO;editor.text.automaticDashSubstitutionEnabled=NO;editor.text.automaticTextReplacementEnabled=NO;editor.text.automaticLinkDetectionEnabled=NO;
     editor.applying=YES;editor.text.string=config[@"document"][@"text"] ?: @"";editor.committed=[editor.text.string copy];
+    editor.focusDocumentReady=[config[@"document"][@"text"] isKindOfClass:NSString.class];
     editor.scroll.documentView=editor.text;[editor.container addSubview:editor.scroll];
     [parent addSubview:editor.container positioned:NSWindowAbove relativeTo:webview_sibling?reference:nil];
     [editor applyStyles];[editor setBounds:config[@"bounds"]];
     NSRange selection=SumiReadRange(config[@"selection"] ?: @{});
     if(NSMaxRange(selection)<=editor.text.string.length)editor.text.selectedRange=selection;
     if(config[@"viewport"])[editor restoreViewport:config[@"viewport"]];
+    editor.applying=NO;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];
     editor.scroll.contentView.postsBoundsChangedNotifications=YES;
+    [NSNotificationCenter.defaultCenter addObserver:editor.text selector:@selector(focusScrollNotification:) name:NSScrollViewWillStartLiveScrollNotification object:editor.scroll];
     [NSNotificationCenter.defaultCenter addObserver:editor selector:@selector(viewportChanged:) name:NSViewBoundsDidChangeNotification object:editor.scroll.contentView];
-    editor.applying=NO;
     return (__bridge_retained void *)editor;
 }
 int sumi_editor_command(void *handle,const char *json){
@@ -896,7 +1076,7 @@ int sumi_editor_command(void *handle,const char *json){
     }
     if([command isEqualToString:@"set_bounds"]){
         BOOL applying=editor.applying;editor.applying=YES;
-        [editor setBounds:value[@"bounds"]];editor.applying=applying;[editor.text refreshTypewriterCaret:NO];return 0;
+        [editor setBounds:value[@"bounds"]];editor.applying=applying;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];[editor.text refreshTypewriterCaret:NO];return 0;
     }
     if([command isEqualToString:@"set_locale"]){
         editor.locale=SumiLocale(value[@"locale"]);
@@ -904,18 +1084,21 @@ int sumi_editor_command(void *handle,const char *json){
     }
     if([command isEqualToString:@"set_appearance"]){
         if(editor.composing)return 1;
-        editor.applying=YES;editor.appearance=value[@"appearance"];[editor applyStyles];[editor layoutEditor];editor.applying=NO;[editor.text refreshTypewriterCaret:NO];return 0;
+        editor.applying=YES;editor.appearance=value[@"appearance"];[editor applyStyles];[editor layoutEditor];editor.applying=NO;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];[editor.text refreshTypewriterCaret:NO];return 0;
     }
-    if([command isEqualToString:@"focus"]){BOOL applying=editor.applying;editor.applying=YES;[editor.text.window makeFirstResponder:editor.text];editor.applying=applying;return 0;}
+    if([command isEqualToString:@"focus"]){BOOL applying=editor.applying;editor.applying=YES;[editor.text.window makeFirstResponder:editor.text];editor.applying=applying;[editor.text ensureEmptyFocus];[editor.text updateFocusRows];return 0;}
     if([command isEqualToString:@"prepare_panel"]){
+        if(editor.draftError)return 5;
         if(![editor.text prepareForPanel])return 5;
         if(editor.text.window.firstResponder==editor.text && ![editor.text.window makeFirstResponder:nil])return 5;
         editor.container.hidden=YES;SumiTypingRefresh();return 0;
     }
     if([command isEqualToString:@"set_visible"]){
-        BOOL visible=[value[@"visible"] boolValue];if(visible==!editor.container.hidden)return 0;
+        BOOL visible=[value[@"visible"] boolValue];if(!visible && editor.draftError)return 5;
+        if(visible==!editor.container.hidden)return 0;
         if(editor.composing)return 1;
         editor.container.hidden=!visible;SumiTypingRefresh();
+        if(visible){[editor.text ensureEmptyFocus];[editor.text updateFocusRows];}
         if(!visible && editor.text.window.firstResponder==editor.text)[editor.text.window makeFirstResponder:nil];return 0;
     }
     return 3;
@@ -925,7 +1108,7 @@ char *sumi_editor_inspect(void *handle){
     SumiEditor *editor=(__bridge SumiEditor *)handle;
     BOOL textkit2=NO; if(@available(macOS 12.0,*))textkit2=editor.text.textLayoutManager!=nil;
     BOOL applying=editor.applying;editor.applying=YES;NSDictionary *viewport=[editor viewport];editor.applying=applying;
-    NSDictionary *state=@{@"surface_id":editor.surfaceID,@"generation":@(editor.generation),@"revision":@(editor.revision),@"text":editor.text.string,@"selection":SumiRange(editor.text.selectedRange),@"composing":editor.composing?@YES:@NO,@"textkit2":textkit2?@YES:@NO,@"visible":editor.container.hidden?@NO:@YES,@"viewport":viewport};
+    NSDictionary *state=@{@"surface_id":editor.surfaceID,@"generation":@(editor.generation),@"revision":@(editor.revision),@"text":editor.text.string,@"selection":SumiRange(editor.text.selectedRange),@"composing":editor.composing?@YES:@NO,@"textkit2":textkit2?@YES:@NO,@"visible":editor.container.hidden?@NO:@YES,@"viewport":viewport,@"draft_error":editor.draftError ?: NSNull.null};
     NSData *data=[NSJSONSerialization dataWithJSONObject:state options:0 error:nil];
     NSString *json=[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];return strdup(json.UTF8String);
 }
@@ -934,6 +1117,7 @@ void sumi_editor_detach(void *handle){
     if(!handle || !NSThread.isMainThread)return;
     SumiEditor *editor=(__bridge_transfer SumiEditor *)handle;
     if(SumiTypingOwner==editor)SumiTypingClear();
+    [editor.text stopFocusTyping];
     editor.detached=YES;editor.callback=NULL;editor.text.delegate=nil;editor.text.owner=nil;
     [editor.text refreshTypewriterCaret:NO];
     [NSNotificationCenter.defaultCenter removeObserver:editor];

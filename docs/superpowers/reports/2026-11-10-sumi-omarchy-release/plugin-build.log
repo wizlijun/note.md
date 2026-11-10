@@ -1,0 +1,661 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.plugin
+#1 transferring dockerfile:
+#1 transferring dockerfile: 176B 0.0s done
+#1 DONE 0.2s
+
+#2 [internal] load metadata for docker.io/library/notemd-linux-build:amd64
+#2 DONE 0.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context:
+#3 transferring context: 2B done
+#3 DONE 0.2s
+
+#4 [1/2] FROM docker.io/library/notemd-linux-build:amd64@sha256:00648c891a54487bdad7c135d2848f30eaa6894b1d8e64b8c00031a098c4b214
+#4 resolve docker.io/library/notemd-linux-build:amd64@sha256:00648c891a54487bdad7c135d2848f30eaa6894b1d8e64b8c00031a098c4b214
+#4 resolve docker.io/library/notemd-linux-build:amd64@sha256:00648c891a54487bdad7c135d2848f30eaa6894b1d8e64b8c00031a098c4b214 0.1s done
+#4 DONE 0.4s
+
+#5 [2/2] RUN apt-get update && apt-get install -y --no-install-recommends zip && rm -rf /var/lib/apt/lists/*
+#5 1.865 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#5 2.080 Get:2 https://deb.nodesource.com/node_22.x nodistro InRelease [12.1 kB]
+#5 2.633 Get:3 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#5 2.703 Get:4 https://deb.nodesource.com/node_22.x nodistro/main amd64 Packages [12.8 kB]
+#5 2.837 Get:5 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+#5 3.334 Get:6 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#5 7.480 Get:7 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#5 7.483 Get:8 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [366 kB]
+#5 17.88 Fetched 9429 kB in 17s (564 kB/s)
+#5 17.88 Reading package lists...
+#5 22.06 Reading package lists...
+#5 26.15 Building dependency tree...
+#5 26.87 Reading state information...
+#5 27.82 Recommended packages:
+#5 27.82   unzip
+#5 27.93 The following NEW packages will be installed:
+#5 27.93   zip
+#5 28.58 0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+#5 28.58 Need to get 230 kB of archives.
+#5 28.58 After this operation, 631 kB of additional disk space will be used.
+#5 28.58 Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 zip amd64 3.0-13+deb12u1 [230 kB]
+#5 30.25 debconf: delaying package configuration, since apt-utils is not installed
+#5 30.43 Fetched 230 kB in 1s (197 kB/s)
+#5 30.54 Selecting previously unselected package zip.
+#5 30.54 (Reading database ...
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 40520 files and directories currently installed.)
+#5 30.69 Preparing to unpack .../zip_3.0-13+deb12u1_amd64.deb ...
+#5 30.78 Unpacking zip (3.0-13+deb12u1) ...
+#5 31.16 Setting up zip (3.0-13+deb12u1) ...
+#5 DONE 31.7s
+
+#6 exporting to image
+#6 exporting layers
+#6 exporting layers 0.9s done
+#6 exporting manifest sha256:bcbcb524f92ffd3d17d70b88d52360ce3c56f8d32d2b3c521e292fe1b51f8d61 0.1s done
+#6 exporting config sha256:d27f90611e36bd5c0735ef2913bb745dc5313ad7af323244c16cf1d656dd672d 0.1s done
+#6 exporting attestation manifest sha256:207bb590da076d4d3eaad1c31c0c9ee850feed953f9e17bbaea5fd6276e23606 0.1s done
+#6 exporting manifest list sha256:5e5a340d10dcc81b637d6b3f03d9ec854f74d97a26a2044225d6c2bf40c9609c 0.1s done
+#6 naming to docker.io/library/notemd-sumi-plugin-tools:debian12 0.0s done
+#6 unpacking to docker.io/library/notemd-sumi-plugin-tools:debian12
+#6 unpacking to docker.io/library/notemd-sumi-plugin-tools:debian12 0.5s done
+#6 DONE 1.9s
+Scope: all 28 workspace projects
+? Verifying lockfile against supply-chain policies (406 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +354
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 354, reused 0, downloaded 0, added 0
+Progress: resolved 354, reused 1, downloaded 0, added 0
+Progress: resolved 354, reused 1, downloaded 1, added 0
+Progress: resolved 354, reused 1, downloaded 7, added 8
+Progress: resolved 354, reused 1, downloaded 12, added 11
+Progress: resolved 354, reused 1, downloaded 13, added 13
+Progress: resolved 354, reused 1, downloaded 15, added 16
+Progress: resolved 354, reused 1, downloaded 21, added 21
+Progress: resolved 354, reused 1, downloaded 28, added 27
+Progress: resolved 354, reused 1, downloaded 32, added 33
+Progress: resolved 354, reused 1, downloaded 40, added 39
+Progress: resolved 354, reused 1, downloaded 45, added 46
+[WARN] Request took 14962ms: https://registry.npmjs.org/@revolist%2Frevogrid
+[WARN] Request took 16845ms: https://registry.npmjs.org/pnpm
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │      Update available! 11.7.0 → 12.18.0.      │
+   │     Changelog: https://pnpm.io/v/12.18.0      │
+   │   To update, run: corepack use pnpm@12.18.0   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+Progress: resolved 354, reused 1, downloaded 54, added 55
+Progress: resolved 354, reused 1, downloaded 59, added 60
+Progress: resolved 354, reused 1, downloaded 65, added 66
+Progress: resolved 354, reused 1, downloaded 69, added 70
+Progress: resolved 354, reused 1, downloaded 73, added 74
+Progress: resolved 354, reused 1, downloaded 80, added 80
+Progress: resolved 354, reused 1, downloaded 81, added 81
+Progress: resolved 354, reused 1, downloaded 92, added 93
+Progress: resolved 354, reused 1, downloaded 104, added 103
+Progress: resolved 354, reused 1, downloaded 117, added 118
+Progress: resolved 354, reused 1, downloaded 132, added 133
+Progress: resolved 354, reused 1, downloaded 142, added 142
+[WARN] Request took 10185ms: https://registry.npmjs.org/react-is
+✓ Lockfile passes supply-chain policies (406 entries in 28.2s)
+Progress: resolved 354, reused 1, downloaded 147, added 147
+Progress: resolved 354, reused 1, downloaded 150, added 149
+Progress: resolved 354, reused 1, downloaded 158, added 159
+Progress: resolved 354, reused 1, downloaded 161, added 163
+Progress: resolved 354, reused 1, downloaded 166, added 165
+Progress: resolved 354, reused 1, downloaded 175, added 176
+Progress: resolved 354, reused 1, downloaded 189, added 191
+Progress: resolved 354, reused 1, downloaded 196, added 198
+Progress: resolved 354, reused 1, downloaded 206, added 207
+Progress: resolved 354, reused 1, downloaded 218, added 220
+Progress: resolved 354, reused 1, downloaded 231, added 232
+Progress: resolved 354, reused 1, downloaded 242, added 241
+Progress: resolved 354, reused 1, downloaded 249, added 251
+Progress: resolved 354, reused 1, downloaded 251, added 253
+Progress: resolved 354, reused 1, downloaded 257, added 260
+Progress: resolved 354, reused 1, downloaded 261, added 263
+Progress: resolved 354, reused 1, downloaded 266, added 269
+Progress: resolved 354, reused 1, downloaded 270, added 273
+Progress: resolved 354, reused 1, downloaded 275, added 277
+Progress: resolved 354, reused 1, downloaded 279, added 281
+Progress: resolved 354, reused 1, downloaded 280, added 281
+Progress: resolved 354, reused 1, downloaded 283, added 285
+Progress: resolved 354, reused 1, downloaded 288, added 287
+Progress: resolved 354, reused 1, downloaded 290, added 292
+Progress: resolved 354, reused 1, downloaded 292, added 292
+Progress: resolved 354, reused 1, downloaded 294, added 293
+Progress: resolved 354, reused 1, downloaded 297, added 294
+Progress: resolved 354, reused 1, downloaded 298, added 294
+Progress: resolved 354, reused 1, downloaded 298, added 295
+Progress: resolved 354, reused 1, downloaded 299, added 298
+Progress: resolved 354, reused 1, downloaded 301, added 301
+Progress: resolved 354, reused 1, downloaded 304, added 303
+Progress: resolved 354, reused 1, downloaded 306, added 305
+Progress: resolved 354, reused 1, downloaded 307, added 309
+Progress: resolved 354, reused 1, downloaded 308, added 311
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /cache/pnpm/v11
+  Virtual store is at:             node_modules/.pnpm
+Progress: resolved 354, reused 1, downloaded 315, added 318
+Progress: resolved 354, reused 1, downloaded 319, added 321
+Progress: resolved 354, reused 1, downloaded 331, added 337
+Progress: resolved 354, reused 1, downloaded 344, added 351
+Progress: resolved 354, reused 1, downloaded 346, added 353
+Progress: resolved 354, reused 1, downloaded 346, added 354, done
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+
+dependencies:
++ @moraya/core @moraya/core@file:../moraya-core(highlight.js@11.11.1)(katex@0.16.47)(markdown-it-deflist@3.0.0)(markdown-it-texmath@1.0.0)(markdown-it@14.3.3)(mermaid@11.17.2)(node-emoji@2.2.0)(prosemirror-commands@1.7.1)(prosemirror-dropcursor@1.8.2)(prosemirror-history@1.5.0)(prosemirror-inputrules@1.5.1)(prosemirror-keymap@1.2.3)(prosemirror-markdown@1.13.4)(prosemirror-model@1.25.11)(prosemirror-schema-list@1.5.1)(prosemirror-state@1.4.4)(prosemirror-tables@1.8.5)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.3)
++ @revolist/svelte-datagrid 4.21.8
++ @tauri-apps/api 2.11.0
++ @tauri-apps/plugin-clipboard-manager 2.3.2
++ @tauri-apps/plugin-deep-link 2.4.9
++ @tauri-apps/plugin-dialog 2.7.1
++ @tauri-apps/plugin-fs 2.5.1
++ @tauri-apps/plugin-http 2.5.9
++ @tauri-apps/plugin-opener 2.5.4
++ @tauri-apps/plugin-os 2.3.2
++ @tauri-apps/plugin-process 2.3.1
++ @tauri-apps/plugin-store 2.4.3
++ @tauri-apps/plugin-updater 2.10.1
++ @viz-js/viz 3.26.0
++ @xyflow/svelte 1.6.6
++ dompurify 3.4.17
++ fflate 0.8.3
++ highlight.js 11.11.1
++ katex 0.16.47
++ marked 18.0.3
++ marked-highlight 2.2.4
++ marked-katex-extension 5.1.8
++ mermaid 11.17.2
++ mermaid-mini 11.14.0-mdeditor.1
++ pele 1.6.0
++ svelte-sonner 1.1.1
++ yaml 2.9.0
+
+devDependencies:
++ @sveltejs/vite-plugin-svelte 5.1.1
++ @tauri-apps/cli 2.11.1
++ @testing-library/svelte 5.4.2
++ @types/node 22.20.1
++ fake-indexeddb 6.2.5
++ happy-dom 20.9.0
++ jsdom 25.0.1
++ json-schema-to-typescript 15.0.4
++ prosemirror-commands 1.7.1
++ prosemirror-history 1.5.0
++ prosemirror-model 1.25.11
++ prosemirror-schema-basic 1.2.4
++ prosemirror-schema-list 1.5.1
++ prosemirror-state 1.4.4
++ prosemirror-transform 1.12.0
++ prosemirror-view 1.42.3
++ svelte 5.55.5
++ svelte-check 4.4.8
++ typescript 5.9.3
++ vite 6.4.2
++ vitest 4.1.5
+
+Done in 1m 22.6s using pnpm v11.7.0
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded zopfli v0.8.4
+  Downloaded simd-adler32 v0.3.10
+  Downloaded log v0.4.35
+  Downloaded zip v2.6.1
+  Downloaded yoke-derive v0.8.4
+  Downloaded cfg-if v1.0.5
+  Downloaded bumpalo v3.20.3
+  Downloaded equivalent v1.0.3
+  Downloaded litemap v0.8.3
+  Downloaded adler2 v2.0.1
+  Downloaded smallstr v0.3.1
+  Downloaded scopeguard v1.2.0
+  Downloaded parking v2.2.1
+  Downloaded event-listener-strategy v0.5.4
+  Downloaded thiserror v2.0.21
+  Downloaded flate2 v1.1.11
+  Downloaded writeable v0.6.4
+  Downloaded tinystr v0.8.5
+  Downloaded itoa v1.0.18
+  Downloaded foldhash v0.2.0
+  Downloaded quote v1.0.47
+  Downloaded thiserror-impl v2.0.21
+  Downloaded zmij v1.0.23
+  Downloaded fastrand v2.5.0
+  Downloaded dashmap v6.2.1
+  Downloaded lock_api v0.4.14
+  Downloaded pin-project-lite v0.2.17
+  Downloaded icu_collections v2.4.0
+  Downloaded smallvec v1.16.5
+  Downloaded potential_utf v0.1.6
+  Downloaded parking_lot_core v0.9.12
+  Downloaded once_cell v1.21.4
+  Downloaded crossbeam-utils v0.8.23
+  Downloaded async-lock v3.5.0
+  Downloaded event-listener v5.4.2
+  Downloaded rustversion v1.0.23
+  Downloaded memchr v2.8.3
+  Downloaded unicode-ident v1.0.27
+  Downloaded serde_core v1.0.229
+  Downloaded async-trait v0.1.92
+  Downloaded crc32fast v1.5.4
+  Downloaded proc-macro2 v1.0.107
+  Downloaded serde_derive v1.0.229
+  Downloaded miniz_oxide v0.9.1
+  Downloaded generic-array v0.14.7
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded zerofrom-derive v0.1.8
+  Downloaded idna_adapter v1.2.2
+  Downloaded hex v0.4.3
+  Downloaded icu_properties_data v2.4.0
+  Downloaded cpufeatures v0.2.17
+  Downloaded zerofrom v0.1.8
+  Downloaded crypto-common v0.1.7
+  Downloaded percent-encoding v2.3.2
+  Downloaded block-buffer v0.10.4
+  Downloaded pulldown-cmark-escape v0.11.0
+  Downloaded utf8_iter v1.1.0
+  Downloaded version_check v0.9.5
+  Downloaded serde v1.0.229
+  Downloaded find-msvc-tools v0.1.15
+  Downloaded pkg-config v0.3.34
+  Downloaded rand_core v0.10.1
+  Downloaded sha2 v0.10.9
+  Downloaded icu_locale_core v2.4.0
+  Downloaded form_urlencoded v1.2.2
+  Downloaded sha1 v0.10.7
+  Downloaded digest v0.10.7
+  Downloaded fallible-iterator v0.3.0
+  Downloaded synstructure v0.14.0
+  Downloaded utf_types v1.0.0
+  Downloaded arc-swap v1.9.4
+  Downloaded utf-8 v0.7.6
+  Downloaded untrusted v0.9.0
+  Downloaded shlex v2.0.1
+  Downloaded tower-service v0.3.3
+  Downloaded subtle v2.6.1
+  Downloaded futures-sink v0.3.34
+  Downloaded futures-core v0.3.34
+  Downloaded errno v0.3.14
+  Downloaded unicase v2.10.0
+  Downloaded zerovec-derive v0.11.7
+  Downloaded yoke v0.8.4
+  Downloaded getopts v0.2.24
+  Downloaded autocfg v1.5.1
+  Downloaded serde_urlencoded v0.7.1
+  Downloaded tokio-macros v2.7.2
+  Downloaded hashlink v0.12.2
+  Downloaded lru-slab v0.1.3
+  Downloaded serde_yaml v0.9.34+deprecated
+  Downloaded rustc-hash v2.1.3
+  Downloaded futures-macro v0.3.34
+  Downloaded sync_wrapper v1.0.2
+  Downloaded alloc-stdlib v0.3.0
+  Downloaded futures-task v0.3.34
+  Downloaded tower-layer v0.3.3
+  Downloaded compression-core v0.4.34
+  Downloaded similar v2.7.0
+  Downloaded http-body v1.1.0
+  Downloaded getrandom v0.4.3
+  Downloaded ryu v1.0.23
+  Downloaded num-traits v0.2.19
+  Downloaded bitflags v2.13.2
+  Downloaded alloc-no-stdlib v3.0.0
+  Downloaded cfg_aliases v0.2.2
+  Downloaded rand_pcg v0.10.2
+  Downloaded want v0.3.2
+  Downloaded try-lock v0.2.5
+  Downloaded indexmap v2.14.2
+  Downloaded tokio-tungstenite v0.28.0
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded fs2 v0.4.3
+  Downloaded atomic-waker v1.1.2
+  Downloaded dyn-clone v1.0.20
+  Downloaded uuid v1.29.1
+  Downloaded hashbrown v0.17.1
+  Downloaded serde_json v1.0.154
+  Downloaded unsafe-libyaml v0.2.11
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded http-body-util v0.1.5
+  Downloaded zeroize v1.9.1
+  Downloaded rand_core v0.9.5
+  Downloaded rustls-native-certs v0.8.5
+  Downloaded openssl-probe v0.2.2
+  Downloaded rand_chacha v0.9.0
+  Downloaded ipnet v2.12.2
+  Downloaded cpufeatures v0.3.1
+  Downloaded data-encoding v2.11.1
+  Downloaded signal-hook-registry v1.4.8
+  Downloaded slab v0.4.12
+  Downloaded base64 v0.22.1
+  Downloaded typenum v1.20.1
+  Downloaded hyper-rustls v0.27.10
+  Downloaded serde_derive_internals v0.29.1
+  Downloaded rustls-pki-types v1.15.1
+  Downloaded getrandom v0.2.17
+  Downloaded hashbrown v0.14.5
+  Downloaded url v2.5.8
+  Downloaded unicode-segmentation v1.13.3
+  Downloaded displaydoc v0.2.7
+  Downloaded schemars_derive v0.8.22
+  Downloaded tokio-rustls v0.26.6
+  Downloaded quinn-udp v0.5.16
+  Downloaded chacha20 v0.10.2
+  Downloaded semver v1.0.28
+  Downloaded httparse v1.10.1
+  Downloaded getrandom v0.3.4
+  Downloaded tempfile v3.27.0
+  Downloaded tungstenite v0.28.0
+  Downloaded zerovec v0.11.9
+  Downloaded icu_provider v2.4.0
+  Downloaded zlib-rs v0.6.8
+  Downloaded icu_properties v2.4.0
+  Downloaded idna v1.1.0
+  Downloaded cc v1.11.1
+  Downloaded compression-codecs v0.4.47
+  Downloaded pulldown-cmark v0.13.6
+  Downloaded futures-channel v0.3.34
+  Downloaded rusqlite v0.40.2
+  Downloaded tinyvec v1.13.3
+  Downloaded socket2 v0.6.5
+  Downloaded schemars v0.8.22
+  Downloaded yrs v0.24.0
+  Downloaded tracing-core v0.1.36
+  Downloaded icu_normalizer_data v2.4.0
+  Downloaded syn v3.0.9
+  Downloaded vcpkg v0.2.15
+  Downloaded unicode-width v0.2.3
+  Downloaded chrono v0.4.45
+  Downloaded rustls-webpki v0.103.16
+  Downloaded quinn v0.11.12
+  Downloaded bstr v1.13.1
+  Downloaded rand v0.9.5
+  Downloaded bytes v1.12.1
+  Downloaded mio v1.2.4
+  Downloaded async-compression v0.4.52
+  Downloaded base64 v0.23.1
+  Downloaded zerotrie v0.2.5
+  Downloaded tower v0.5.3
+  Downloaded regex-automata v0.4.18
+  Downloaded http v1.5.0
+  Downloaded rand v0.10.3
+  Downloaded hyper-util v0.1.21
+  Downloaded libc v0.2.191
+  Downloaded tokio-util v0.7.20
+  Downloaded tower-http v0.6.11
+  Downloaded reqwest v0.12.28
+  Downloaded hyper v1.12.0
+  Downloaded futures-util v0.3.34
+  Downloaded webpki-roots v1.0.11
+  Downloaded quinn-proto v0.11.19
+  Downloaded syn v2.0.119
+  Downloaded brotli-decompressor v6.3.0
+  Downloaded zerocopy v0.8.63
+  Downloaded rustls v0.23.46
+  Downloaded rustix v1.1.6
+  Downloaded libsqlite3-sys v0.38.2
+  Downloaded tracing v0.1.44
+  Downloaded icu_normalizer v2.4.0
+  Downloaded brotli v9.1.1
+  Downloaded tokio v1.54.1
+  Downloaded ring v0.17.14
+  Downloaded linux-raw-sys v0.12.1
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling syn v3.0.9
+   Compiling cfg-if v1.0.5
+   Compiling pin-project-lite v0.2.17
+   Compiling find-msvc-tools v0.1.15
+   Compiling shlex v2.0.1
+   Compiling cc v1.11.1
+   Compiling itoa v1.0.18
+   Compiling bytes v1.12.1
+   Compiling smallvec v1.16.5
+   Compiling stable_deref_trait v1.2.1
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling synstructure v0.14.0
+   Compiling once_cell v1.21.4
+   Compiling zerofrom-derive v0.1.8
+   Compiling zerofrom v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling yoke v0.8.4
+   Compiling zerovec-derive v0.11.7
+   Compiling tokio-macros v2.7.2
+   Compiling displaydoc v0.2.7
+   Compiling zerovec v0.11.9
+   Compiling mio v1.2.4
+   Compiling socket2 v0.6.5
+   Compiling futures-core v0.3.34
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling tokio v1.54.1
+   Compiling serde v1.0.229
+   Compiling serde_derive v1.0.229
+   Compiling ring v0.17.14
+   Compiling zmij v1.0.23
+   Compiling zeroize v1.9.1
+   Compiling typenum v1.20.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling tinystr v0.8.5
+   Compiling http v1.5.0
+   Compiling writeable v0.6.4
+   Compiling crc32fast v1.5.4
+   Compiling litemap v0.8.3
+   Compiling serde_json v1.0.154
+   Compiling utf_types v1.0.0
+   Compiling utf8_iter v1.1.0
+   Compiling icu_locale_core v2.4.0
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling getrandom v0.2.17
+   Compiling untrusted v0.9.0
+   Compiling httparse v1.10.1
+   Compiling icu_properties_data v2.4.0
+   Compiling icu_normalizer_data v2.4.0
+   Compiling foldhash v0.2.0
+   Compiling futures-sink v0.3.34
+   Compiling simd-adler32 v0.3.10
+   Compiling hashbrown v0.17.1
+   Compiling icu_provider v2.4.0
+   Compiling icu_collections v2.4.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling futures-macro v0.3.34
+   Compiling adler2 v2.0.1
+   Compiling slab v0.4.12
+   Compiling zerocopy v0.8.63
+   Compiling percent-encoding v2.3.2
+   Compiling alloc-no-stdlib v3.0.0
+   Compiling thiserror v2.0.21
+   Compiling rustls v0.23.46
+   Compiling getrandom v0.3.4
+   Compiling futures-task v0.3.34
+   Compiling futures-util v0.3.34
+   Compiling alloc-stdlib v0.3.0
+   Compiling miniz_oxide v0.9.1
+   Compiling digest v0.10.7
+   Compiling rustls-webpki v0.103.16
+   Compiling http-body v1.1.0
+   Compiling thiserror-impl v2.0.21
+   Compiling autocfg v1.5.1
+   Compiling parking_lot_core v0.9.12
+   Compiling parking v2.2.1
+   Compiling vcpkg v0.2.15
+   Compiling subtle v2.6.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling rustversion v1.0.23
+   Compiling bitflags v2.13.2
+   Compiling pkg-config v0.3.34
+   Compiling cpufeatures v0.2.17
+   Compiling libsqlite3-sys v0.38.2
+   Compiling event-listener v5.4.2
+   Compiling num-traits v0.2.19
+   Compiling icu_normalizer v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling flate2 v1.1.11
+   Compiling brotli-decompressor v6.3.0
+   Compiling syn v2.0.119
+   Compiling log v0.4.35
+   Compiling try-lock v0.2.5
+   Compiling ryu v1.0.23
+   Compiling getrandom v0.4.3
+   Compiling scopeguard v1.2.0
+   Compiling tower-service v0.3.3
+   Compiling equivalent v1.0.3
+   Compiling indexmap v2.14.2
+   Compiling lock_api v0.4.14
+   Compiling serde_derive_internals v0.29.1
+   Compiling want v0.3.2
+   Compiling rand_core v0.9.5
+   Compiling brotli v9.1.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling idna_adapter v1.2.2
+   Compiling event-listener-strategy v0.5.4
+   Compiling form_urlencoded v1.2.2
+   Compiling tracing-core v0.1.36
+   Compiling unicode-width v0.2.3
+   Compiling hashbrown v0.14.5
+   Compiling atomic-waker v1.1.2
+   Compiling schemars v0.8.22
+   Compiling compression-core v0.4.34
+   Compiling pulldown-cmark v0.13.6
+   Compiling compression-codecs v0.4.47
+   Compiling hyper v1.12.0
+   Compiling dashmap v6.2.1
+   Compiling getopts v0.2.24
+   Compiling tracing v0.1.44
+   Compiling arc-swap v1.9.4
+   Compiling async-lock v3.5.0
+   Compiling idna v1.1.0
+   Compiling rand_chacha v0.9.0
+   Compiling schemars_derive v0.8.22
+   Compiling tokio-rustls v0.26.6
+   Compiling hashlink v0.12.2
+   Compiling sync_wrapper v1.0.2
+   Compiling futures-channel v0.3.34
+   Compiling async-trait v0.1.92
+   Compiling smallstr v0.3.1
+   Compiling base64 v0.23.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling base64 v0.22.1
+   Compiling fastrand v2.5.0
+   Compiling unicase v2.10.0
+   Compiling tower-layer v0.3.3
+   Compiling ipnet v2.12.2
+   Compiling fallible-iterator v0.3.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling unsafe-libyaml v0.2.11
+   Compiling pulldown-cmark-escape v0.11.0
+   Compiling dyn-clone v1.0.20
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling similar v2.7.0
+   Compiling hyper-util v0.1.21
+   Compiling tower v0.5.3
+   Compiling yrs v0.24.0
+   Compiling uuid v1.29.1
+   Compiling rand v0.9.5
+   Compiling url v2.5.8
+   Compiling chrono v0.4.45
+   Compiling async-compression v0.4.52
+   Compiling sha1 v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling http-body-util v0.1.5
+   Compiling tokio-util v0.7.20
+   Compiling webpki-roots v1.0.11
+   Compiling zip v2.6.1
+   Compiling openssl-probe v0.2.2
+   Compiling utf-8 v0.7.6
+   Compiling hex v0.4.3
+   Compiling bumpalo v3.20.3
+   Compiling data-encoding v2.11.1
+   Compiling rusqlite v0.40.2
+   Compiling semver v1.0.28
+   Compiling plugin-protocol v0.1.0 (/build/mdeditor/plugin-protocol)
+   Compiling write-core v0.1.0 (/build/mdeditor/write-core)
+   Compiling tungstenite v0.28.0
+   Compiling zopfli v0.8.4
+   Compiling rustls-native-certs v0.8.5
+   Compiling hyper-rustls v0.27.10
+   Compiling tower-http v0.6.11
+   Compiling serde_urlencoded v0.7.1
+   Compiling notemd-sumi-backend v0.1.5 (/build/mdeditor/plugins-src/write/backend)
+   Compiling reqwest v0.12.28
+   Compiling tokio-tungstenite v0.28.0
+   Compiling sumi-protocol v0.1.0 (/build/mdeditor/sumi-protocol)
+   Compiling notemd-plugin-sdk v0.1.0 (/build/mdeditor/notemd-plugin-sdk)
+   Compiling fs2 v0.4.3
+    Finished `release` profile [optimized] target(s) in 7m 24s
+{"target": "x86_64-unknown-linux-gnu", "sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb", "bytes": 5131856}
+vite v6.4.2 building for production...
+transforming...
+✓ 6 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                  0.36 kB │ gzip:  0.26 kB
+dist/assets/index-C-zoi2R2.css   3.63 kB │ gzip:  1.27 kB
+dist/assets/index-Zdi9alHM.js   40.05 kB │ gzip: 15.30 kB
+✓ built in 790ms
+{
+  "ok": true,
+  "packs": [
+    "typewriter",
+    "thock"
+  ],
+  "wavFiles": 12,
+  "audioBytes": 133584,
+  "exactReferenceBytes": true
+}
+{
+  "ok": true,
+  "packs": [
+    "typewriter",
+    "thock"
+  ],
+  "wavFiles": 12,
+  "audioBytes": 133584,
+  "exactReferenceBytes": true
+}
+[notemd.sumi] x86_64-unknown-linux-gnu.notemdpkg sha256=b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8
+
+── packages signed under dist-plugins/. NEXT (upload is a user step) ──────
+  1) Regenerate the registry index:
+       node scripts/gen-plugin-index.mjs
+  2) Upload each package + its .minisig to R2 (per arch), e.g.:
+       wrangler r2 object put notemd-plugins/<id>/<version>/<arch>.notemdpkg \
+         --file dist-plugins/<id>/<version>/<arch>.notemdpkg
+       wrangler r2 object put notemd-plugins/<id>/<version>/<arch>.notemdpkg.minisig \
+         --file dist-plugins/<id>/<version>/<arch>.notemdpkg.minisig
+  3) Publish the index to KV:
+       wrangler kv key put index --path dist-plugins/index.json --binding INDEX
+Frozen signed Linux plugin package: /home/bruce/git/note.md/tasks/sumi-plugin-release-0.1.11/output/notemd.sumi/0.1.11/x86_64-unknown-linux-gnu.notemdpkg

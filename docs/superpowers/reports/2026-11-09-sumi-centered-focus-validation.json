@@ -1,0 +1,82 @@
+{
+  "status": "implementation_verified_macos_release_published",
+  "base": "0621430d80840933424a2b3d7cbda85eb631a6c4",
+  "targetHost": "6.1109.3",
+  "targetPlugin": "0.1.8",
+  "nativeChecks": 1930,
+  "nativeRegressionGroups": 10,
+  "uiChecks": 101,
+  "hostSumi": {
+    "passed": 79,
+    "ignored": 4
+  },
+  "frontend": {
+    "initial": {
+      "passed": 5550,
+      "failed": 1,
+      "suites": 427
+    },
+    "failedSuite": "src/lib/project-share/browser.test.ts (unchanged from base)",
+    "isolatedRerunPassed": 235,
+    "fullOfficialReleaseRerun": {
+      "suites": 427,
+      "passed": 5551,
+      "failed": 0,
+      "evidence": "2026-11-09-sumi-centered-focus-release/official-release-checks.json"
+    }
+  },
+  "sourceHashes": {
+    "focus.h": "08b1e66198be68bc3f2a55db864fbfe17ed9eaa9f106da89c11571d2567a0af2",
+    "editor.m": "ce2d2a028cb533ca3873abe5ea0e0ac50970136de06c1c8a78597a6a6874efa7",
+    "focus-probe.m": "38b28192508cfc7eab935370bb6bc666402438b3419d9041fb41af4696cce714",
+    "focus-interactive-probe.m": "eb71cc1655843bd13c873b02a06dfb140f2ee008e176120426cd0c2d4c53d42f"
+  },
+  "evidence": {
+    "host-sumi-idle-tests.log": {
+      "sha256": "080f7c77fcfb421eea311d684d332074765d07c2004ad2b216e88a3e6b23c20f",
+      "bytes": 14963
+    },
+    "host-frontend-tests.log": {
+      "sha256": "d2477b86e0d1d981071540d7b6b1a54034a4a85915757b35fe96fae159533c48",
+      "bytes": 19226
+    },
+    "host-frontend-browser-recheck.log": {
+      "sha256": "d768fb57b79070b21ed684d5f3827d2eeb3fa9b22b174782875015095a4641e9",
+      "bytes": 259
+    },
+    "idle-full.png": {
+      "sha256": "3d2ce58218a9e7018a6218bd0d1197b95f33598531c3d36ed376819e60dc1e05",
+      "bytes": 489356
+    },
+    "native-verification.json": {
+      "sha256": "ced04531d9eb7be31a0999194924c33e95408bbafc8654d5a3741c89c41ade65",
+      "bytes": 4066
+    },
+    "centered-light.png": {
+      "sha256": "13d8927ee63b4dc6374ad26a6760a115232aac278ae3764fc71b9d9c6d9d3516",
+      "bytes": 302408
+    },
+    "native-source-evidence.json": {
+      "sha256": "bc22e5a5e1851fc3e7adcb335cef5500298f36e78c87d0d6a12221a9fb64f499",
+      "bytes": 2628
+    },
+    "idle-raster-verification.json": {
+      "sha256": "2d4a92d5e4098a595af20cf2ba4b9b63d0925009a70d986dbe0c0f2fe2e775c3",
+      "bytes": 805
+    },
+    "cua-verification.json": {
+      "sha256": "043a9d8f82c1ee6dff8c40e3d8a24707b063b4e1246ed0ed98ae99bca8e24ef6",
+      "bytes": 1377
+    },
+    "ui-verification.json": {
+      "sha256": "5902b8295e944d1929750dfaef715a48a0aa8e3ed806b2f260ff59ac8c1a19c0",
+      "bytes": 1586
+    },
+    "centered-dark.png": {
+      "sha256": "21ca4065ecd9b2e1dd718a08b47cb4874f0ac884190b33abf0daf655497d64c6",
+      "bytes": 285422
+    }
+  },
+  "releasePublished": true,
+  "releaseReport": "2026-11-09-sumi-centered-focus-release.json"
+}

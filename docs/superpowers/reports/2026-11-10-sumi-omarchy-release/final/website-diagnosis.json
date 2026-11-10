@@ -1,0 +1,34 @@
+{
+  "readOnly": true,
+  "cloudflareCredentialUsed": false,
+  "deployed": false,
+  "configurationChanged": false,
+  "latestSuccessfulWebsiteDeployment": {
+    "commit": "3a78ec4c17ab9aab96823b89b26a62fc6eaf204a",
+    "run": 42350833823,
+    "url": "https://github.com/wizlijun/note.md/actions/runs/42350833823",
+    "workerVersion": "eb9b12b7-7ddd-484d-b2b2-c1a28ef105c6",
+    "deployedAt": "2026-11-07T07:20:22Z",
+    "wranglerVersion": "4.127.1"
+  },
+  "routeFilesMatchCurrentSource": true,
+  "publicApiFirstPageContainsAllRequiredAssets": true,
+  "publicApiStatus": 200,
+  "publicApiRateLimitRemaining": 54,
+  "workerUpstreamStatusObserved": false,
+  "rootDomainAllFourCorrectAt": "2026-11-10T06:15:38Z",
+  "allFourAnonymousAssetHeadStatus": 200,
+  "recommendation": "No deployment or cache purge. Preserve ARM v6.1027.1 assets; use successful ordinary public redirects as release evidence.",
+  "diagnosis": "Observed stale x64 redirect is consistent with internal release/resolution caches; transient missing-format/architecture fallbacks recovered without any mutation. Exact Worker upstream failure status is not observable from these public responses; do not claim confirmed rate limiting.",
+  "sourceRouteSha256": {
+    "website/src/index.js": "6a782d856ef5d4fef277afaa426b160d5e0a8c6d453a249feefc5a58a36f5ddd",
+    "website/src/resolve-download.js": "ae1a90ee16b7cccc66d750d70367b967784404f856aa1a0aa3c501469741658c"
+  },
+  "evidenceSha256": {
+    "public-summary.json": "b9ec074082bc5edeb140213e744c1fb9b3c9b6b864c0cd743198024285703b9d",
+    "redirects-current.json": "f8c6dba3df001e20bbb143ff37c0d340110209a2624796c2f9f4d394ef33e9a1",
+    "redirects-followup.json": "12f6600521b754c3511ddc527f62576b4bc71f0641ea4c09d42f9b505a391e07",
+    "real-asset-head.json": "1ebb991bf3bfdb6b64a4fd2a64bbf80bbeb2fd1a63e0fdda78c54a46d792abb3",
+    "local-resolver-real-assets.json": "35d8a35222272180b858164dbf3b6ff9f0f787abe13fc201e582d84c3c986496"
+  }
+}

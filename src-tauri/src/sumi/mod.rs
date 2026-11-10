@@ -33,22 +33,54 @@ const PLUGIN: &str = "notemd.sumi";
 // A hidden singleton WebView remains alive. Fence new native mounts from the
 // moment closing starts until the explicit plugin-window show path reopens it.
 static PLUGIN_QUIESCING: AtomicBool = AtomicBool::new(false);
-static PLUGIN_WINDOW_HIDDEN: AtomicBool = AtomicBool::new(false);
+#[derive(Default)]
+struct WindowVisibility { epoch: u64, hidden: bool }
+impl WindowVisibility {
+    fn showing(&mut self) -> u64 { self.epoch = self.epoch.wrapping_add(1); self.epoch }
+    fn closing(&mut self) { self.showing(); self.hidden = true; }
+    fn shown(&mut self, epoch: u64) -> bool {
+        if self.epoch != epoch { return false; }
+        self.hidden = false;
+        true
+    }
+}
+static PLUGIN_WINDOW_VISIBILITY: Mutex<WindowVisibility> = Mutex::new(WindowVisibility { epoch: 0, hidden: false });
 fn is_plugin_window(label: &str) -> bool {
     label == crate::plugin_runtime::windows::window_label(PLUGIN, "main")
 }
 fn require_visible_native_window<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
-    if is_plugin_window(window.label()) && (PLUGIN_WINDOW_HIDDEN.load(Ordering::Acquire) || !window.is_visible().map_err(err)?) {
-        return Err("Sumi 窗口已关闭，请重新打开后继续书写".into());
+    if is_plugin_window(window.label()) {
+        let hidden = PLUGIN_WINDOW_VISIBILITY.lock().map_err(err)?.hidden;
+        if hidden || !window.is_visible().map_err(err)? {
+            return Err("Sumi 窗口已关闭，请重新打开后继续书写".into());
+        }
     }
     Ok(())
 }
 /// Called only after the explicit singleton open/show path, not ordinary focus
 /// events that may have been queued before closing.
 pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
-    if !is_plugin_window(label) || !app.get_webview_window(label).is_some_and(|w|w.is_visible().unwrap_or(false)) {return;}
-    PLUGIN_WINDOW_HIDDEN.store(false, Ordering::Release);
-    push(app, &json!({"type":"sumi-window-state","visible":true}));
+    if !is_plugin_window(label) { return; }
+    let epoch = match PLUGIN_WINDOW_VISIBILITY.lock() {
+        Ok(mut visibility) => visibility.showing(),
+        Err(_) => return,
+    };
+    #[cfg(target_os = "linux")]
+    let scheduler = app.clone();
+    let app = app.clone();
+    let label = label.to_owned();
+    let confirm = move || {
+        if !app.get_webview_window(&label).is_some_and(|w| w.is_visible().unwrap_or(false)) { return; }
+        let current = PLUGIN_WINDOW_VISIBILITY.lock().is_ok_and(|mut state| state.shown(epoch));
+        if current { push(&app, &json!({"type":"sumi-window-state","visible":true})); }
+    };
+    // Tao's Linux show() enqueues a second GTK request. A synchronous visibility
+    // query can still see the hidden window and permanently miss the resume.
+    // A later close invalidates this explicit-show ticket before it can reopen.
+    #[cfg(target_os = "linux")]
+    { let _ = scheduler.run_on_main_thread(move || { glib::idle_add_local_once(confirm); }); }
+    #[cfg(not(target_os = "linux"))]
+    confirm();
 }
 static WORKSPACES: LazyLock<tokio::sync::Mutex<HashMap<PathBuf, Arc<Workspace>>>> =
     LazyLock::new(Default::default);
@@ -86,7 +118,10 @@ struct Preferences {
     bottom_inset: f64,
     #[serde(default = "default_caret_motion")]
     caret_motion: String,
+    #[serde(default = "default_focus_typing")]
+    focus_typing: bool,
 }
+fn default_focus_typing() -> bool { true }
 fn default_caret_motion() -> String {
     "breathing".into()
 }
@@ -100,6 +135,7 @@ impl Default for Preferences {
             max_columns: 80,
             bottom_inset: 0.,
             caret_motion: default_caret_motion(),
+            focus_typing: default_focus_typing(),
         }
     }
 }
@@ -150,6 +186,7 @@ impl Preferences {
                 "steady" => native::CaretMotion::Steady,
                 _ => native::CaretMotion::Breathing,
             },
+            focus_typing: self.focus_typing,
         }
     }
 }
@@ -245,11 +282,18 @@ struct CleanupSnapshot {
     owner_generation: u64,
     snapshot: Opened,
 }
+#[derive(Clone)]
+struct PendingLocal {
+    edit: LocalEdit,
+    observed: Option<storage::FilePair>,
+}
 struct Paper {
     cleanup_snapshot: Option<CleanupSnapshot>,
     projection_identity: Option<durability::ProjectionIdentity>,
     remote: RemoteCandidate,
     pending_clipboard: Option<ClipboardDraft>,
+    pending_local: Option<PendingLocal>,
+    native_draft_revision: Option<u64>,
     pending_link: Option<write_core::SelectionAnchor>,
     position: Option<ReadingPosition>,
     position_dirty: bool,
@@ -283,6 +327,8 @@ impl Paper {
             projection_identity: None,
             remote: RemoteCandidate::default(),
             pending_clipboard: None,
+            pending_local: None,
+            native_draft_revision: None,
             pending_link: None,
             position: None,
             position_dirty: false,
@@ -312,7 +358,7 @@ impl Paper {
             page_id: self.entry.id.clone(),
             raw: self.raw.clone(),
             revision,
-            projected: self.error.is_none() && self.projection_error.is_none(),
+            projected: self.error.is_none() && self.projection_error.is_none() && self.pending_local.is_none() && self.native_draft_revision.is_none(),
             projection_identity: self.projection_identity.clone(),
         }
     }
@@ -330,6 +376,8 @@ pub(super) struct Workspace {
     papers: Mutex<HashMap<String, Paper>>,
     preferences: Mutex<Preferences>,
     appearance_changes: tokio::sync::Mutex<()>,
+    #[cfg(target_os = "linux")]
+    surface_appearances: Mutex<HashMap<String, (Surface, native::Appearance)>>,
     font_selection: Mutex<FontSelection>,
     active: Mutex<Option<String>>,
     navigation_version: AtomicU64,
@@ -456,14 +504,15 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         .join("documents.sqlite3");
     let event_app = app.clone();
     let event_root = root.clone();
+    let journal = database.with_extension("input-journal.sqlite3");
     let backend = service::Backend::open(app, root.clone(), database).await?;
-    let durable = Durability::from_backend(backend.clone(), move |event| {
+    let durable = Durability::from_backend(backend.clone(), journal, move |event| {
         let app = event_app.clone();
         let root = event_root.clone();
         tauri::async_runtime::spawn(async move {
             durable_event(&app, &root, event).await;
         });
-    });
+    })?;
     let preferences = load_preferences(&durable).await?;
     let active = durable
         .preferences("activePage".into())
@@ -479,6 +528,8 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         papers: Mutex::new(HashMap::new()),
         preferences: Mutex::new(preferences),
         appearance_changes: tokio::sync::Mutex::new(()),
+        #[cfg(target_os = "linux")]
+        surface_appearances: Mutex::new(HashMap::new()),
         font_selection: Mutex::new(FontSelection::default()),
         active: Mutex::new(active),
         navigation_version: AtomicU64::new(1),
@@ -571,7 +622,7 @@ async fn durable_event<R: Runtime>(app: &tauri::AppHandle<R>, root: &PathBuf, ev
                 let mut tab = None;
                 if let Some(p) = papers.get_mut(&page_id) {
                     p.durable_revision = p.durable_revision.max(revision);
-                    if revision >= p.doc.revision() && !p.entry.deleted && !p.owner.as_ref().is_some_and(|o| o.suspended) { p.error = None; }
+                    if revision >= p.doc.revision() && !p.entry.deleted && p.pending_local.is_none() && p.native_draft_revision.is_none() && !p.owner.as_ref().is_some_and(|o| o.suspended) { p.error = None; }
                     tab = p.owner.as_ref().map(|o| o.tab.clone());
                 }
                 json!({"page_id":page_id,"tab_id":tab,"revision":revision,"durable":true})
@@ -590,7 +641,7 @@ async fn durable_event<R: Runtime>(app: &tauri::AppHandle<R>, root: &PathBuf, ev
                         p.durable_revision = revision;
                         p.raw = raw_markdown.clone();
                         p.projection_error = projection_error.clone();
-                        if revision >= p.doc.revision() && !p.entry.deleted && !p.owner.as_ref().is_some_and(|o| o.suspended) { p.error = None; }
+                        if revision >= p.doc.revision() && !p.entry.deleted && p.pending_local.is_none() && p.native_draft_revision.is_none() && !p.owner.as_ref().is_some_and(|o| o.suspended) { p.error = None; }
                         p.projection_identity = projection_identity.clone();
                     }
                     tab = p.owner.as_ref().map(|o| o.tab.clone());
@@ -729,7 +780,7 @@ async fn state_value(ws: &Workspace) -> Result<Value> {
         .map(|h| h.status())
         .unwrap_or_else(|| json!({"connected":false,"message":"本机写作"}));
     sync["pending"] = json!(pending);
-    let save = if papers.values().any(|p| p.error.is_some()) {
+    let save = if papers.values().any(|p| p.error.is_some() || p.pending_local.is_some() || p.native_draft_revision.is_some()) {
         "error"
     } else if papers
         .values()
@@ -744,7 +795,7 @@ async fn state_value(ws: &Workspace) -> Result<Value> {
     let active = ws.active.lock().map_err(err)?;
     let navigation_version = ws.navigation_version.load(Ordering::Acquire);
     Ok(
-        json!({"available":native::is_supported(),"reason":if native::is_supported(){""}else{"Sumi 原生编辑需要 macOS 13 或更新版本"},"pages":pages,"activePageId":*active,"navigationVersion":navigation_version,"preferences":*ws.preferences.lock().map_err(err)?,"sync":sync,"saveState":save}),
+        json!({"available":native::is_supported(),"reason":if native::is_supported(){""}else{"当前系统尚不支持 Sumi 原生编辑（支持 macOS 13+ 与 Linux）"},"pages":pages,"activePageId":*active,"navigationVersion":navigation_version,"preferences":*ws.preferences.lock().map_err(err)?,"sync":sync,"saveState":save}),
     )
 }
 async fn activate_page(ws: &Workspace, id: &str) -> Result<()> {
@@ -845,9 +896,12 @@ fn queue(ws: &Workspace, p: &mut Paper, update: Vec<u8>) -> Result<()> {
     queue_reserved(p, update, ws.durable.try_reserve_edit()?)
 }
 fn queue_reserved(p: &mut Paper, update: Vec<u8>, permit: durability::Permit) -> Result<()> {
+    queue_attempt(p, update, Ok(permit))
+}
+fn queue_attempt(p: &mut Paper, update: Vec<u8>, permit: Result<durability::Permit>) -> Result<()> {
     p.cleanup_snapshot = None;
     p.remote.record(p.doc.revision(), &update);
-    permit.enqueue_local(LocalEdit {
+    let edit = LocalEdit {
         page_id: p.entry.id.clone(),
         epoch: p.entry.epoch,
         generation: p.entry.generation,
@@ -855,7 +909,15 @@ fn queue_reserved(p: &mut Paper, update: Vec<u8>, permit: durability::Permit) ->
         op_id: Uuid::new_v4().to_string(),
         update,
         first_write_date: Some(date()),
-    })
+    };
+    // Keep the exact failed operation for retry; never apply its edit twice.
+    match permit.and_then(|permit| permit.enqueue_local(edit.clone())) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            p.pending_local = Some(PendingLocal { edit, observed: None });
+            Err(error)
+        }
+    }
 }
 
 fn bounded_selection(text: &str, selection: native::TextRange) -> native::TextRange {
@@ -883,6 +945,7 @@ fn reply(p: &mut Paper) -> native::EventReply {
     native::EventReply {
         revision: p.doc.revision(),
         clipboard_text: None,
+        draft_error: None,
         projection: Some(native::Projection {
             document: native_document(&p.view),
             selection,
@@ -1116,16 +1179,24 @@ fn handle_native<R: Runtime>(
     if o.suspended || p.entry.deleted || o.generation != p.entry.generation {
         return Err("页面生命周期已变化，旧草稿已保留，请重新打开".into());
     }
-    if revision != p.doc.revision() {
+    let recovering = p.native_draft_revision == Some(revision);
+    if revision != p.doc.revision() && !recovering {
         return Err("编辑版本已变化，请重试".into());
     }
-    // Reserve capacity before touching the CRDT; an unavailable backend may
-    // reject new edits, but must never accept an edit we cannot retain for replay.
+    if p.pending_local.is_some() || p.native_draft_revision.is_some() {
+        let allowed = matches!(&event,
+            native::NativeEvent::Clipboard { cut: false, .. }
+            | native::NativeEvent::Composition { active: false, .. })
+            || matches!(&event, native::NativeEvent::Action { action, .. } if action == "save");
+        if !allowed { return Err("草稿尚未安全保存，已暂停修改；可复制正文或按 Command-S 重试保存".into()); }
+    }
+    // Try reserving capacity first. If unavailable, retain the user's newly
+    // visible draft, freeze edits, and reject its ACK rather than erasing input.
     let mut permit = if match &event {
         native::NativeEvent::Edit { .. } | native::NativeEvent::Paste { .. } | native::NativeEvent::Clipboard { cut:true, .. } => true,
         native::NativeEvent::Action { action, .. } => is_editor_action(action),
         _ => false,
-    } { Some(ws.durable.try_reserve_edit()?) } else { None };
+    } { Some(ws.durable.try_reserve_edit()) } else { None };
     let before = p.doc.revision();
     let mut changed = false;
     let mut drain = false;
@@ -1136,7 +1207,7 @@ fn handle_native<R: Runtime>(
             let update = apply_input(p, &write_core::render::TextRange { start: range.start, length: range.length }, &replacement, false, now())?;
             changed = p.doc.revision() != before;
             if changed {
-                if let Err(error) = queue_reserved(p, update, permit.take().ok_or("缺少编辑保存预留")?) { p.error = Some(error); }
+                if let Err(error) = queue_attempt(p, update, permit.take().ok_or("缺少编辑保存预留")?) { p.error = Some(error); }
             }
         }
         native::NativeEvent::Selection { range, .. } => {
@@ -1158,13 +1229,13 @@ fn handle_native<R: Runtime>(
             if p.owner.as_ref().is_some_and(|o| o.composing) { return Err("请先完成输入法组合".into()); }
             let ranges: Vec<_> = ranges.into_iter().map(|r| write_core::render::TextRange { start: r.start, length: r.length }).collect();
             let text = p.view.clipboard_markdown(&ranges).map_err(err)?;
-            if !cut { return Ok(native::EventReply { revision, projection: None, clipboard_text: Some(text) }); }
+            if !cut { return Ok(native::EventReply { revision, projection: None, clipboard_text: Some(text), draft_error: None }); }
             let update = p.view.cut_selections(&mut p.doc, &ranges, now()).map_err(err)?;
             changed = p.doc.revision() != before;
             if changed {
                 p.view = SourceMap::new(&p.doc.body(), p.doc.revision());
                 p.owner.as_mut().unwrap().selection = bounded_selection(&p.view.document.text, native::TextRange { start: ranges.iter().map(|r| r.start).min().unwrap_or(0), length: 0 });
-                if let Err(error) = queue_reserved(p, update, permit.take().ok_or("缺少编辑保存预留")?) { p.error = Some(error); }
+                if let Err(error) = queue_attempt(p, update, permit.take().ok_or("缺少编辑保存预留")?) { p.error = Some(error); }
             }
         }
         native::NativeEvent::Paste { range, text, html, rtf, literal, .. } => {
@@ -1186,7 +1257,7 @@ fn handle_native<R: Runtime>(
             let update = apply_input(p, &range, &markdown, !literal, now())?;
             changed = p.doc.revision() != before;
             if changed {
-                if let Err(error) = queue_reserved(p, update, permit.take().ok_or("缺少编辑保存预留")?) { p.error = Some(error); }
+                if let Err(error) = queue_attempt(p, update, permit.take().ok_or("缺少编辑保存预留")?) { p.error = Some(error); }
             }
             p.pending_clipboard = None;
         }
@@ -1209,13 +1280,13 @@ fn handle_native<R: Runtime>(
                         if is_plugin_window(&owner.window){push(&app,&json!({"type":"sumi-error","message":error}));}
                     }
                 });
-                return Ok(p.doc.revision().into());
+                return Ok(p.native_draft_revision.unwrap_or_else(|| p.doc.revision()).into());
             }
             let update = apply_action(p, &action, range, now())?;
             if action=="link_begin" {return Ok(reply(p));}
             changed = p.doc.revision() != before;
             if let Some(update) = update {
-                if let Err(error) = queue_reserved(p, update, permit.take().ok_or("缺少编辑保存预留")?) {
+                if let Err(error) = queue_attempt(p, update, permit.take().ok_or("缺少编辑保存预留")?) {
                     p.error = Some(error);
                 }
             } else if !is_editor_action(&action) && !matches!(
@@ -1239,9 +1310,14 @@ fn handle_native<R: Runtime>(
     }
     let accepted = if changed {
         position_changed(p);
-        reply(p)
+        let mut response = reply(p);
+        if p.pending_local.is_some() {
+            p.native_draft_revision.get_or_insert(before);
+            response.draft_error = Some(p.error.clone().unwrap_or_else(|| "草稿尚未安全保存".into()));
+        }
+        response
     } else {
-        p.doc.revision().into()
+        p.native_draft_revision.unwrap_or_else(|| p.doc.revision()).into()
     };
     drop(papers);
     if drain {
@@ -1317,7 +1393,8 @@ async fn pending_remote_for_drain(ws: &Workspace, page: &str) -> Result<Vec<dura
     {
         let papers = ws.papers.lock().map_err(err)?;
         let paper = papers.get(page).ok_or("missing page")?;
-        if paper.owner.as_ref().is_some_and(|owner| owner.composing) {
+        if paper.pending_local.is_some() || paper.native_draft_revision.is_some()
+            || paper.owner.as_ref().is_some_and(|owner| owner.composing) {
             return Ok(Vec::new());
         }
     }
@@ -1342,7 +1419,8 @@ async fn drain_remote_locked<R: Runtime>(
                 if p.entry.deleted || p.entry.generation != recorded.generation {
                     return Err("旧生命周期的同步草稿已隔离".into());
                 }
-                if p.owner.as_ref().is_some_and(|o| o.composing) {
+                if p.pending_local.is_some() || p.native_draft_revision.is_some()
+                    || p.owner.as_ref().is_some_and(|o| o.composing) {
                     return Ok(());
                 }
                 let mirrored = p.remote.base.load(Ordering::Acquire);
@@ -1706,10 +1784,11 @@ pub(super) async fn directory_changed<R: Runtime>(
 async fn load_preferences(durable: &Durability) -> Result<Preferences> {
     let stored = durable.preferences("appearance".into()).await?;
     let missing_caret_motion = stored.as_ref().is_some_and(|value| value.get("caretMotion").is_none());
+    let missing_focus_typing = stored.as_ref().is_some_and(|value| value.get("focusTyping").is_none());
     let mut preferences: Preferences = stored
         .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
     // Add the new default and migrate only retired fonts, preserving other fields.
-    if preferences.normalize_stored_font() || missing_caret_motion {
+    if preferences.normalize_stored_font() || missing_caret_motion || missing_focus_typing {
         durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
     }
     Ok(preferences)
@@ -1886,7 +1965,7 @@ async fn mount<R: Runtime>(
     bounds: native::Bounds,
 ) -> Result<EditorEntry<Surface>> {
     if !native::is_supported() {
-        return Err("Sumi 原生编辑需要 macOS 13 或更新版本".into());
+        return Err("当前系统尚不支持 Sumi 原生编辑（支持 macOS 13+ 与 Linux）".into());
     }
     current(app, ws)?;
     require_visible_native_window(window)?;
@@ -1903,6 +1982,8 @@ async fn mount<R: Runtime>(
                 // replace text, restore old selection or finish marked text.
                 native::command(window, surface.surface_id.clone(), surface.generation,
                     native::SurfaceCommand::SetBounds { bounds }).await?;
+                #[cfg(target_os = "linux")]
+                refresh_surface_font_size(window, ws, page_id, &surface.surface_id, surface.generation).await?;
                 current(app, ws)?;
                 require_visible_native_window(window)?;
                 match existing_mount_decision(ws, page_id, window.label(), tab_id)? {
@@ -1920,6 +2001,7 @@ async fn mount<R: Runtime>(
     let _appearance = ws.appearance_changes.lock().await;
     let appearance = ws.preferences.lock().map_err(err)?.appearance();
     let appearance = ensure_font(app, window, &appearance).await?;
+    let appearance = effective_appearance(window, appearance)?;
     let surface = Surface {
         surface_id: Uuid::new_v4().to_string(),
         generation: 1,
@@ -1958,7 +2040,7 @@ async fn mount<R: Runtime>(
             generation: surface.generation,
             revision: p.doc.revision(),
             bounds,
-            appearance,
+            appearance: appearance.clone(),
             document: native_document(&p.view),
             selection,
             viewport,
@@ -1972,7 +2054,8 @@ async fn mount<R: Runtime>(
         config,
         Arc::new(move |event| {
             let result = handle_native(&cb_app, &cb_ws, &page, event);
-            if let Err(error) = &result {
+            let draft_error = result.as_ref().ok().and_then(|reply| reply.draft_error.as_ref());
+            if let Some(error) = result.as_ref().err().or(draft_error) {
                 let target = cb_ws.papers.lock().ok().and_then(|p| {
                     p.get(&page)
                         .and_then(|p| p.owner.as_ref().map(|o| (o.window.clone(), o.tab.clone())))
@@ -1998,6 +2081,8 @@ async fn mount<R: Runtime>(
         }
         return Err(error);
     }
+    #[cfg(target_os = "linux")]
+    ws.surface_appearances.lock().map_err(err)?.insert(page_id.into(), (surface.clone(), appearance));
     sound::start(app, ws).await;
     Ok(EditorEntry::Opened(surface))
 }
@@ -2033,16 +2118,17 @@ async fn flush(
         if owner(p, window, tab, binding)?.composing {
             return Err("composition active".into());
         }
+        if p.pending_local.is_some() || p.native_draft_revision.is_some() {
+            return Err("草稿尚未安全保存，不能关闭；请复制正文或按 Command-S 重试保存".into());
+        }
     }
     // load drains accepted edits to SQLite. Projection may remain blocked by an
     // external file edit; that must not prevent Source handoff/import recovery.
-    let loaded = ws.durable.load(page.into()).await?;
+    let observation = ws.durable.observe_page(page.into()).await?;
     flush_positions(ws, Some(page)).await?;
-    let baseline = ws.durable.read_baseline(page.into()).await?;
-    let projected = loaded.entry.filename().is_none()
-        || baseline.as_ref().is_some_and(|b| {
-            b.revision == loaded.revision && b.pair.markdown == loaded.raw_markdown
-        });
+    let notice = projection_notice(&observation);
+    let projected = notice.is_none();
+    let loaded = observation.loaded;
     let mut papers = ws.papers.lock().map_err(err)?;
     let p = papers.get_mut(page).ok_or("missing page")?;
     if owner(p, window, tab, binding)?.composing {
@@ -2053,8 +2139,7 @@ async fn flush(
     }
     p.raw = loaded.raw_markdown;
     p.durable_revision = loaded.revision;
-    if projected { p.projection_error = None; }
-    else { p.projection_error.get_or_insert_with(|| "正文已保存在本机，Markdown 与时间文件仍待写出".into()); }
+    p.projection_error = notice;
     p.projection_identity = if projected {
         p.entry
             .filename()
@@ -2197,6 +2282,7 @@ async fn source_save(
 ) -> Result<Opened> {
     let _lease = ws.lifecycle.lock().await;
     ws.writable()?;
+    retry_pending_local(ws, page).await?;
     {
         let mut papers = ws.papers.lock().map_err(err)?;
         let p = papers.get_mut(page).ok_or("missing page")?;
@@ -2241,42 +2327,68 @@ async fn source_save(
     flush(ws, window, tab, page, None).await
 }
 
-/// Caller holds lifecycle and has detached this page's native surface. Both
-/// files are observed before any live CRDT mutation, including metadata-only edits.
+fn projection_notice(observation: &durability::PageObservation) -> Option<String> {
+    use sumi_protocol::durability::ObservedFiles;
+    match &observation.files {
+        ObservedFiles::Unwritten => None,
+        ObservedFiles::Published { pair } if observation.baseline.as_ref()
+            .is_some_and(|base| base.revision == observation.loaded.revision)
+            && pair.markdown == observation.loaded.raw_markdown => None,
+        ObservedFiles::Unavailable { error } => Some(error.clone()),
+        ObservedFiles::External { .. } => Some("正文已保存在本机，外部文件保留待处理".into()),
+        _ => Some("正文已保存在本机，Markdown 与时间文件仍待写出".into()),
+    }
+}
+
+/// Caller holds lifecycle and has detached this page's native surface. A file
+/// projection problem must not prevent opening a verified local CRDT document.
 async fn reconcile_known_files(ws: &Workspace, page: &str) -> Result<()> {
     ws.writable()?;
-    let result = reconcile_known_files_inner(ws, page).await;
-    if result.is_ok() {
-        if let Some(p) = ws.papers.lock().map_err(err)?.get_mut(page) { p.projection_error = None; }
-    }
-    if let Err(error) = &result {
-        let durable_revision = ws.durable.load(page.into()).await.ok().map(|loaded| loaded.revision);
-        if let Some(p) = ws.papers.lock().map_err(err)?.get_mut(page) {
-            if let Some(revision) = durable_revision { p.durable_revision = p.durable_revision.max(revision); }
-            if p.durable_revision < p.doc.revision() { p.error = Some(error.clone()); }
-            else { p.projection_error = Some(error.clone()); }
+    retry_pending_local(ws, page).await?;
+    // The backend owns both checkpoint publication and this observation. Never
+    // combine a baseline returned by one job with files read after another job.
+    let observation = ws.durable.observe_page(page.into()).await?;
+    let revision = observation.loaded.revision;
+    {
+        let mut papers = ws.papers.lock().map_err(err)?;
+        if let Some(p) = papers.get_mut(page) {
+            if revision == p.doc.revision() { p.raw = observation.loaded.raw_markdown.clone(); }
         }
     }
-    result
+    let result = reconcile_known_files_inner(ws, page, observation).await;
+    if let Some(p) = ws.papers.lock().map_err(err)?.get_mut(page) {
+        p.durable_revision = p.durable_revision.max(revision);
+        match &result {
+            Ok(notice) => {
+                p.projection_error = notice.clone();
+                if notice.is_some() { p.projection_identity = None; }
+            },
+            Err(error) if p.durable_revision < p.doc.revision() => p.error = Some(error.clone()),
+            Err(error) => p.projection_error = Some(error.clone()),
+        }
+    }
+    result.map(|_| ())
 }
-async fn reconcile_known_files_inner(ws: &Workspace, page: &str) -> Result<()> {
+async fn reconcile_known_files_inner(
+    ws: &Workspace,
+    page: &str,
+    observation: durability::PageObservation,
+) -> Result<Option<String>> {
+    use sumi_protocol::durability::ObservedFiles;
     ws.writable()?;
-    let loaded = ws.durable.load(page.into()).await?;
-    let Some(filename) = loaded.entry.filename() else {
-        return Ok(());
+    let notice = projection_notice(&observation);
+    let durability::PageObservation { loaded, baseline, files } = observation;
+    let observed = match files {
+        ObservedFiles::External { pair } => pair,
+        _ => return Ok(notice),
     };
-    let mut baseline = ws.durable.read_baseline(page.into()).await?;
-    if baseline.is_none() {
-        ws.durable.flush().await?;
-        baseline = ws.durable.read_baseline(page.into()).await?;
-    }
-    let baseline = baseline.ok_or("缺少可验证的文件基线；请使用恢复入口")?;
-    let (md, meta) = write_core::projection::paths(&ws.root, &filename).map_err(err)?;
-    let observed = external::Observed::read(&md, &meta)?.pair()?;
-    if observed.markdown == baseline.pair.markdown && observed.metadata == baseline.pair.metadata {
-        return Ok(());
-    }
-    let body = external::validate(&observed, &baseline.pair, page, loaded.entry.epoch)?;
+    let Some(baseline) = baseline else {
+        return Ok(Some("缺少可验证的文件基线；已打开本机正文，外部文件保留待恢复".into()));
+    };
+    let body = match external::validate(&observed, &baseline.pair, page, loaded.entry.epoch) {
+        Ok(body) => body,
+        Err(error) => return Ok(Some(error)),
+    };
     let permit=ws.durable.try_reserve_edit()?;
     let (edit, revision, generation) = {
         let mut papers = ws.papers.lock().map_err(err)?;
@@ -2314,25 +2426,37 @@ async fn reconcile_known_files_inner(ws: &Workspace, page: &str) -> Result<()> {
             }
             write_core::import::ImportOutcome::Unchanged => None,
             write_core::import::ImportOutcome::Conflict { reason, .. } => {
-                return Err(format!("外部正文与本机编辑冲突，两份内容均保留：{reason}"))
+                return Ok(Some(format!("外部正文与本机编辑冲突，两份内容均保留：{reason}")))
             }
         };
         (edit, p.doc.revision(), p.entry.generation)
     };
-    let loaded = if let Some(edit) = edit {
-        permit.enqueue_import(edit, observed)?.await.map_err(|_| "Sumi导入后台已停止")??
+    if let Some(edit) = edit {
+        let receiver = match permit.enqueue_import(edit.clone(), observed.clone()) {
+            Ok(receiver) => receiver,
+            Err(error) => {
+                if let Some(p) = ws.papers.lock().map_err(err)?.get_mut(page) {
+                    p.pending_local = Some(PendingLocal { edit, observed: Some(observed) });
+                }
+                return Err(error);
+            }
+        };
+        receiver.await.map_err(|_| "Sumi导入后台已停止")??
     } else {
         ws.durable
             .import_projection_extensions(page.into(), generation, revision, observed)
             .await?
     };
+    let observation = ws.durable.observe_page(page.into()).await?;
+    let notice = projection_notice(&observation);
+    let loaded = observation.loaded;
     let mut papers = ws.papers.lock().map_err(err)?;
     let p = papers.get_mut(page).ok_or("写作会话已关闭")?;
     p.raw = loaded.raw_markdown;
     p.durable_revision = loaded.revision;
     p.error = None;
-    p.projection_error = None;
-    Ok(())
+    p.projection_error = notice.clone();
+    Ok(notice)
 }
 
 async fn open_path<R: Runtime>(
@@ -2825,7 +2949,12 @@ async fn surface_command<R: Runtime>(
         let p = papers.get_mut(page).ok_or("missing page")?;
         owner(p, window.label(), tab, Some((id, generation)))?;
     }
-    native::command(window, id.to_owned(), generation, command).await
+    #[cfg(target_os = "linux")]
+    let resized = matches!(&command, native::SurfaceCommand::SetBounds { .. });
+    native::command(window, id.to_owned(), generation, command).await?;
+    #[cfg(target_os = "linux")]
+    if resized { refresh_surface_font_size(window, ws, page, id, generation).await?; }
+    Ok(())
 }
 #[tauri::command(rename_all = "snake_case")]
 pub async fn sumi_bounds(
@@ -2914,7 +3043,7 @@ pub fn has_sessions() -> bool {
 /// This admits no new text and is allowed after plugin/Vault revocation.
 pub async fn before_close<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) -> Result<()> {
     let plugin = is_plugin_window(label);
-    if plugin {PLUGIN_WINDOW_HIDDEN.store(true, Ordering::Release);}
+    if plugin {PLUGIN_WINDOW_VISIBILITY.lock().map_err(err)?.closing();}
     let result = before_close_inner(app, label, plugin).await;
     if plugin {
         if result.is_ok() {push(app, &json!({"type":"sumi-window-state","visible":false,"detached":true}));}
@@ -3220,6 +3349,50 @@ pub async fn cleanup_plugin<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()>
     }
     Ok(())
 }
+#[cfg(any(target_os = "linux", test))]
+fn fullscreen_font_size(base: f64, fullscreen: bool, width: f64, height: f64) -> f64 {
+    if !fullscreen || !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+        return base;
+    }
+    (base * (width / 960.0).min(height / 720.0).sqrt().clamp(1.0, 1.25)).min(96.0)
+}
+
+fn effective_appearance<R: Runtime>(window: &WebviewWindow<R>, appearance: native::Appearance) -> Result<native::Appearance> {
+    #[cfg(target_os = "linux")]
+    let mut appearance = appearance;
+    #[cfg(target_os = "linux")]
+    if is_plugin_window(window.label()) {
+        let size = window.as_ref().size().map_err(err)?;
+        let scale = window.scale_factor().map_err(err)?;
+        appearance.font_size = fullscreen_font_size(appearance.font_size, window.is_fullscreen().map_err(err)?, size.width as f64 / scale, size.height as f64 / scale);
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = window;
+    Ok(appearance)
+}
+
+#[cfg(target_os = "linux")]
+async fn refresh_surface_font_size<R: Runtime>(window: &WebviewWindow<R>, ws: &Workspace, page: &str, id: &str, generation: u64) -> Result<()> {
+    if !is_plugin_window(window.label()) { return Ok(()); }
+    let _appearance = ws.appearance_changes.lock().await;
+    let cached = ws.surface_appearances.lock().map_err(err)?.get(page).cloned();
+    let Some((surface, mut appearance)) = cached.filter(|(surface, _)| surface.surface_id == id && surface.generation == generation) else { return Ok(()); };
+    let previous = appearance.font_size;
+    // Start from the saved value every time; never multiply an already scaled font.
+    appearance.font_size = ws.preferences.lock().map_err(err)?.font_size;
+    appearance.locale = current_ui_locale(window.app_handle());
+    let appearance = effective_appearance(window, appearance)?;
+    if (appearance.font_size - previous).abs() < 0.01 { return Ok(()); }
+    // Reuse the prepared font cascade. Geometry updates do not register fonts,
+    // replace text or alter the user's stored appearance preferences.
+    match native::command(window, id.into(), generation, native::SurfaceCommand::SetAppearance { appearance: appearance.clone() }).await {
+        Ok(()) => { ws.surface_appearances.lock().map_err(err)?.insert(page.into(), (surface, appearance)); }
+        Err(error) if error == "composition active" => {} // drain_after_composition retries.
+        Err(error) => return Err(error),
+    }
+    Ok(())
+}
+
 async fn apply_appearance<R: Runtime>(
     app: &tauri::AppHandle<R>,
     ws: &Workspace,
@@ -3234,16 +3407,17 @@ async fn apply_appearance<R: Runtime>(
         papers
             .iter()
             .filter(|(id, _)| page.is_none_or(|page| page == id.as_str()))
-            .filter_map(|(_, p)| p.owner.clone().filter(|o| o.surface.is_some()))
+            .filter_map(|(id, p)| p.owner.clone().filter(|o| o.surface.is_some()).map(|o| (id.clone(), o)))
             .collect::<Vec<_>>()
     };
-    for o in owners {
+    for (_page_id, o) in owners {
         let window = app.get_webview_window(&o.window).ok_or("编辑窗口已关闭")?;
         let appearance = ensure_font(app, &window, &appearance).await?;
+        let appearance = effective_appearance(&window, appearance)?;
         let surface = o.surface.unwrap();
         if let Err(error) = native::command(
             &window,
-            surface.surface_id,
+            surface.surface_id.clone(),
             surface.generation,
             native::SurfaceCommand::SetAppearance {
                 appearance: appearance.clone(),
@@ -3254,6 +3428,9 @@ async fn apply_appearance<R: Runtime>(
             if error != "composition active" {
                 return Err(error);
             }
+        } else {
+            #[cfg(target_os = "linux")]
+            ws.surface_appearances.lock().map_err(err)?.insert(_page_id, (surface, appearance));
         }
     }
     Ok(())
@@ -3274,6 +3451,30 @@ fn invitation_response(invitation: &sync::Invitation) -> Result<Value> {
     Ok(json!({"invitation": serde_json::to_string(invitation).map_err(err)?}))
 }
 
+/// Retry the original operation only. The host CRDT already contains its edit.
+async fn retry_pending_local(ws: &Workspace, page: &str) -> Result<()> {
+    let pending = ws.papers.lock().map_err(err)?.get(page)
+        .ok_or("纸页已关闭")?.pending_local.clone();
+    let Some(pending) = pending else { return Ok(()); };
+    let permit = ws.durable.try_reserve_edit()?;
+    let result = if let Some(observed) = pending.observed.clone() {
+        match permit.enqueue_import(pending.edit.clone(), observed) {
+            Ok(receiver) => receiver.await.map_err(|_| "Sumi导入后台已停止".to_owned())?.map(|_| ()),
+            Err(error) => Err(error),
+        }
+    } else {
+        permit.enqueue_local(pending.edit.clone())
+    };
+    let mut papers = ws.papers.lock().map_err(err)?;
+    let p = papers.get_mut(page).ok_or("纸页已关闭")?;
+    result?;
+    if p.pending_local.as_ref().is_some_and(|item| item.edit.op_id == pending.edit.op_id) {
+        p.pending_local = None;
+        p.error = None;
+    }
+    Ok(())
+}
+
 async fn document_command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Workspace>, page: &str, window: &str, tab: &str, action: &str) -> Result<()> {
     authorize(PLUGIN)?;
     let _lease=ws.lifecycle.lock().await;
@@ -3286,6 +3487,29 @@ async fn document_command<R: Runtime>(app: &tauri::AppHandle<R>, ws: &Arc<Worksp
         owner.surface.clone()
     };
     if action=="save" {
+        retry_pending_local(ws, page).await?;
+        let command = {
+            let mut papers = ws.papers.lock().map_err(err)?;
+            let p = papers.get_mut(page).ok_or("纸页已关闭")?;
+            p.native_draft_revision.map(|base_revision| {
+                let projection = reply(p).projection.expect("paper reply includes projection");
+                native::SurfaceCommand::ApplyDocument { base_revision,
+                    revision: p.doc.revision(), document: projection.document, selection: projection.selection }
+            })
+        };
+        if let Some(command) = command {
+            let attached = surface.as_ref().ok_or("未保存草稿的原生编辑面已关闭")?;
+            let target = app.get_webview_window(window).ok_or("编辑窗口已关闭")?;
+            let completed_ws = ws.clone();
+            let completed_page = page.to_owned();
+            native::command_and_then(&target, attached.surface_id.clone(), attached.generation, command, move || {
+                let mut papers = completed_ws.papers.lock().map_err(err)?;
+                let p = papers.get_mut(&completed_page).ok_or("纸页已关闭")?;
+                p.native_draft_revision = None;
+                p.error = None;
+                Ok(())
+            }).await?;
+        }
         flush(ws,window,tab,page,surface.as_ref().map(|s|(s.surface_id.as_str(),s.generation))).await?;
     } else {
         let _appearance = ws.appearance_changes.lock().await;
@@ -3327,6 +3551,29 @@ pub fn handle_menu_event<R: Runtime>(app: &tauri::AppHandle<R>, id: &str) -> boo
     true
 }
 
+// Plugin windows send DOM coordinates; file-view callers already send native units.
+fn plugin_bounds<R: Runtime>(window: &WebviewWindow<R>, params: &Value) -> Result<native::Bounds> {
+    let bounds: native::Bounds = serde_json::from_value(params["bounds"].clone()).map_err(err)?;
+    #[cfg(target_os = "linux")]
+    if let Some(width) = params.get("viewportWidth") {
+        let width = width.as_f64().ok_or("invalid writing viewport width")?;
+        // The GTK toplevel can include CSD shadows outside the WebView viewport.
+        let logical_width = f64::from(window.as_ref().size().map_err(err)?.width) / window.scale_factor().map_err(err)?;
+        return scale_plugin_bounds(bounds, logical_width, width);
+    }
+    let _ = window;
+    Ok(bounds)
+}
+#[cfg(any(target_os = "linux", test))]
+fn scale_plugin_bounds(mut bounds: native::Bounds, logical_width: f64, viewport_width: f64) -> Result<native::Bounds> {
+    if !viewport_width.is_finite() || viewport_width <= 0.0 || !logical_width.is_finite() || logical_width <= 0.0 {
+        return Err("invalid writing viewport width".into());
+    }
+    let scale = logical_width / viewport_width;
+    bounds.x *= scale; bounds.y *= scale; bounds.width *= scale; bounds.height *= scale;
+    Ok(bounds)
+}
+
 pub async fn dispatch<R: Runtime>(
     app: &tauri::AppHandle<R>,
     plugin: &str,
@@ -3336,7 +3583,7 @@ pub async fn dispatch<R: Runtime>(
     authorize(plugin)?;
     if method == "host.sumi.state" && !native::is_supported() {
         return Ok(
-            json!({"available":false,"reason":"Sumi 原生编辑需要 macOS 13 或更新版本","pages":[],"activePageId":null,"preferences":Preferences::default(),"sync":{"connected":false,"pending":0},"saveState":"saved"}),
+            json!({"available":false,"reason":"当前系统尚不支持 Sumi 原生编辑（支持 macOS 13+ 与 Linux）","pages":[],"activePageId":null,"preferences":Preferences::default(),"sync":{"connected":false,"pending":0},"saveState":"saved"}),
         );
     }
     let ws = workspace(app).await?;
@@ -3462,7 +3709,7 @@ pub async fn dispatch<R: Runtime>(
             Ok(json!({"requested":true}))
         }
         "host.sumi.mount" => {
-            let bounds = serde_json::from_value(params["bounds"].clone()).map_err(err)?;
+            let bounds = plugin_bounds(&window, params)?;
             match mount(app, &ws, &window, page()?, tab, bounds).await? {
                 EditorEntry::Opened(s)=>Ok(json!({"id":s.surface_id,"generation":s.generation})),
                 existing=>serde_json::to_value(existing).map_err(err),
@@ -3487,12 +3734,15 @@ pub async fn dispatch<R: Runtime>(
                     .ok_or("编辑面已过期")?
             };
             if method == "host.sumi.detach" {
-                detach(&window, &ws, &page, tab, id, generation).await?;
+                // Keep owner release in the same lease as native detach. A
+                // concurrent mount must not lose its newly installed owner.
+                let _lease = ws.lifecycle.lock().await;
+                detach_locked(&window, &ws, &page, tab, id, generation).await?;
                 ws.papers.lock().map_err(err)?.get_mut(&page).unwrap().owner = None;
             } else {
                 let command = match method {
                     "host.sumi.bounds" => native::SurfaceCommand::SetBounds {
-                        bounds: serde_json::from_value(params["bounds"].clone()).map_err(err)?,
+                        bounds: plugin_bounds(&window, params)?,
                     },
                     "host.sumi.visible" => {
                         let visible = params["visible"].as_bool().ok_or("缺少可见性")?;
@@ -3576,7 +3826,47 @@ pub async fn dispatch<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn fullscreen_font_tracks_logical_viewport_without_changing_saved_size() {
+        let base = 22.0;
+        assert_eq!(super::fullscreen_font_size(base, false, 1920.0, 1200.0), base);
+        assert_eq!(super::fullscreen_font_size(base, true, 1920.0, 1200.0), 27.5);
+        assert_eq!(super::fullscreen_font_size(base, true, 800.0, 600.0), base);
+        let middle = super::fullscreen_font_size(base, true, 1200.0, 900.0);
+        assert!((middle - base * 1.25_f64.sqrt()).abs() < 0.0001);
+        assert_eq!(super::fullscreen_font_size(base, true, 3840.0, 2400.0), 27.5);
+        assert_eq!(super::fullscreen_font_size(90.0, true, 1920.0, 1200.0), 96.0);
+        for (width, height) in [(0.0, 1200.0), (1920.0, f64::NAN), (f64::INFINITY, 1200.0)] {
+            assert_eq!(super::fullscreen_font_size(base, true, width, height), base);
+        }
+        // Repeated resize/exit starts with the preference, never the effective value.
+        for fullscreen in [true, true, false, true, false] {
+            assert_eq!(super::fullscreen_font_size(base, fullscreen, 1920.0, 1200.0), if fullscreen { 27.5 } else { base });
+        }
+    }
     use super::*;
+    #[test]
+    fn deferred_show_cannot_reopen_a_later_close() {
+        let mut state = WindowVisibility::default();
+        state.closing();
+        let old_show = state.showing();
+        assert!(state.hidden);
+        state.closing();
+        assert!(!state.shown(old_show));
+        assert!(state.hidden);
+        let new_show = state.showing();
+        assert!(state.shown(new_show));
+        assert!(!state.hidden);
+    }
+    #[test]
+    fn plugin_bounds_correct_font_dpi_without_rescaling_native_tabs() {
+        let b = native::Bounds { x: 11.0, y: 55.0, width: 880.0, height: 330.0 };
+        let scaled = scale_plugin_bounds(b.clone(), 800.0, 880.0).unwrap();
+        assert!((scaled.y - 50.0).abs() < 0.001);
+        assert!((scaled.width - 800.0).abs() < 0.001);
+        assert!((scaled.height - 300.0).abs() < 0.001);
+        assert!(scale_plugin_bounds(b, 800.0, 0.0).is_err());
+    }
     #[test]
     fn writing_menu_mapping_and_editor_actions_are_explicit() {
         for (id,action) in [("new","new_page"),("open","menu"),("preferences","settings"),("close-tab","close"),("save","save"),("save-as","export"),("find-replace","replace"),("open-smart-search","link"),("zoom-in","zoom_in")] {
@@ -3631,6 +3921,7 @@ mod tests {
             let mut expected = saved;
             expected["fontFamily"] = json!(expected_font);
             expected["caretMotion"] = json!("breathing");
+            expected["focusTyping"] = json!(true);
             assert_eq!(serde_json::to_value(preferences).unwrap(), expected);
             assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
             assert_eq!(serde_json::to_value(load_preferences(&ws.durable).await.unwrap()).unwrap(), expected);
@@ -3646,6 +3937,7 @@ mod tests {
         assert!(matches!(migrated.appearance().caret_motion, native::CaretMotion::Breathing));
         let mut expected = legacy;
         expected["caretMotion"] = json!("breathing");
+        expected["focusTyping"] = json!(true);
         assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
         assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
         for invalid in ["blink", "", "Breathing", "STEADY"] {
@@ -3676,6 +3968,31 @@ mod tests {
         for alias in manifest["cascades"].as_object().unwrap().keys() { assert!(fonts::known_font(alias)); }
         assert!(!fonts::known_font("Sumi Elite"));
         assert!(!fonts::known_font("../../other-font"));
+    }
+    #[tokio::test]
+    async fn focus_typing_migrates_on_and_persists_off_without_changing_document_or_sound() {
+        let (temp, ws, id) = fixture().await;
+        let before = ws.papers.lock().unwrap()[&id].doc.encode_full();
+        let legacy = json!({"theme":"sepia","fontFamily":"Sumi Fangsong","fontSize":32.,"lineHeight":1.8,"maxColumns":64,"bottomInset":40.,"caretMotion":"steady"});
+        let sound = json!({"enabled":false,"preset":"thock"});
+        ws.durable.set_preferences("appearance".into(), legacy.clone()).await.unwrap();
+        ws.durable.set_preferences("typingSound".into(), sound.clone()).await.unwrap();
+        let mut migrated = load_preferences(&ws.durable).await.unwrap();
+        assert!(migrated.focus_typing && migrated.appearance().focus_typing);
+        let mut expected = legacy;
+        expected["focusTyping"] = json!(true);
+        assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
+        assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
+        migrated.focus_typing = false;
+        save_appearance(&ws, migrated, false).await.unwrap();
+        expected["focusTyping"] = json!(false);
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.encode_full(), before);
+        let root = ws.root.clone(); drop(ws);
+        let reopened = Durability::open(root, temp.path().join("sumi.sqlite3"), |_| {}).await.unwrap();
+        let restored = load_preferences(&reopened).await.unwrap();
+        assert!(!restored.focus_typing && !restored.appearance().focus_typing);
+        assert_eq!(serde_json::to_value(restored).unwrap(), expected);
+        assert_eq!(reopened.preferences("typingSound".into()).await.unwrap(), Some(sound));
     }
     #[test]
     fn pairing_ui_roundtrips_the_complete_invitation_without_exposing_invalid_input() {
@@ -3910,6 +4227,8 @@ mod tests {
             papers: Mutex::new(HashMap::from([(id.clone(), paper)])),
             preferences: Mutex::new(Preferences::default()),
             appearance_changes: tokio::sync::Mutex::new(()),
+            #[cfg(target_os = "linux")]
+            surface_appearances: Mutex::new(HashMap::new()),
             font_selection: Mutex::new(FontSelection::default()),
             active: Mutex::new(Some(id.clone())),
             navigation_version: AtomicU64::new(1),
@@ -3942,7 +4261,7 @@ mod tests {
         let before = ws.papers.lock().unwrap()[&id].doc.encode_full();
         let generation = begin_font_selection(&ws, "Sumi WenKai").await.unwrap().unwrap();
         let mut form = Preferences::default();
-        form.font_size = 50.; form.theme = "sepia".into(); form.bottom_inset = 80.;
+        form.font_size = 50.; form.theme = "sepia".into(); form.bottom_inset = 80.; form.focus_typing = false;
         save_appearance(&ws, form.clone(), true).await.unwrap();
         assert!(complete_font_selection(&ws, generation, "Sumi WenKai").await.unwrap());
         // A form created before completion must not restore its old Plex value.
@@ -3952,6 +4271,7 @@ mod tests {
         assert_eq!(restored.font_family, "Sumi WenKai");
         assert_eq!((restored.font_size, restored.line_height, restored.bottom_inset), (50., 2., 80.));
         assert_eq!(restored.theme, "sepia");
+        assert!(!restored.focus_typing);
         assert_eq!(ws.papers.lock().unwrap()[&id].doc.encode_full(), before);
     }
 
@@ -4135,10 +4455,8 @@ mod tests {
         let outside = baseline.pair.markdown.replace("base", "external retained");
         std::fs::write(&md, &outside).unwrap();
         std::fs::write(&meta, b"broken metadata").unwrap();
-        assert!(reconcile_known_files(&ws, &id)
-            .await
-            .unwrap_err()
-            .contains("原文件保留"));
+        reconcile_known_files(&ws, &id).await.unwrap();
+        assert!(ws.papers.lock().unwrap()[&id].projection_error.as_ref().unwrap().contains("原文件保留"));
         assert_eq!(ws.papers.lock().unwrap()[&id].doc.body(), "base");
         let (loaded, backup) = ws.durable.restore_projection(id.clone(), 0).await.unwrap();
         assert_eq!(
@@ -4161,30 +4479,85 @@ mod tests {
             original.sidecar.lines[0].first_written_at
         );
         std::fs::remove_file(&meta).unwrap();
-        assert!(reconcile_known_files(&ws, &id)
-            .await
-            .unwrap_err()
-            .contains("时间文件缺失"));
+        reconcile_known_files(&ws, &id).await.unwrap();
+        assert!(ws.papers.lock().unwrap()[&id].projection_error.as_ref().unwrap().contains("时间文件缺失"));
         assert_eq!(std::fs::read_to_string(&md).unwrap(), loaded.raw_markdown);
         ws.durable.restore_projection(id.clone(), 0).await.unwrap();
         let mut late: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&meta).unwrap()).unwrap();
         late["lines"][0]["last_written_at"] = json!("1970-01-01T00:00:00Z");
         std::fs::write(&meta, late.to_string()).unwrap();
-        assert!(reconcile_known_files(&ws, &id)
-            .await
-            .unwrap_err()
-            .contains("不会回滚"));
+        reconcile_known_files(&ws, &id).await.unwrap();
+        assert!(ws.papers.lock().unwrap()[&id].projection_error.as_ref().unwrap().contains("不会回滚"));
         assert_eq!(ws.papers.lock().unwrap()[&id].doc.body(), "base");
         std::fs::remove_file(&md).unwrap();
-        assert!(reconcile_known_files(&ws, &id)
-            .await
-            .unwrap_err()
-            .contains("正文文件已被外部移除"));
+        reconcile_known_files(&ws, &id).await.unwrap();
+        assert!(ws.papers.lock().unwrap()[&id].projection_error.as_ref().unwrap().contains("正文文件已被外部移除"));
         assert!(!ws.durable.list().await.unwrap()[0].deleted);
         ws.durable.restore_projection(id.clone(), 0).await.unwrap();
         assert!(md.exists());
         assert!(!ws.durable.list().await.unwrap()[0].deleted);
+    }
+    #[tokio::test]
+    async fn unjournaled_draft_blocks_handoff_and_retries_exactly_once() {
+        let (_temp, ws, id) = fixture().await;
+        let edit = {
+            let mut papers = ws.papers.lock().unwrap();
+            let p = papers.get_mut(&id).unwrap();
+            let update = apply_input(p, &write_core::render::TextRange { start: 0, length: 0 }, "保留未保存草稿", false, 100).unwrap();
+            assert!(queue_attempt(p, update, Err("injected journal admission failure".into())).is_err());
+            let edit = p.pending_local.as_ref().unwrap().edit.clone();
+            p.native_draft_revision = Some(0);
+            p.error = Some("injected journal failure".into());
+            edit
+        };
+        assert!(flush(&ws, "main", "test", &id, None).await.err().unwrap().contains("不能关闭"));
+        assert_eq!(ws.durable.load(id.clone()).await.unwrap().revision, 0);
+        assert_eq!(state_value(&ws).await.unwrap()["saveState"], "error");
+        retry_pending_local(&ws, &id).await.unwrap();
+        retry_pending_local(&ws, &id).await.unwrap();
+        let loaded = ws.durable.load(id.clone()).await.unwrap();
+        assert_eq!(loaded.revision, edit.revision);
+        assert_eq!(Paper::from_loaded(loaded).unwrap().doc.body(), "保留未保存草稿");
+        let outbox = ws.durable.outbox().await.unwrap();
+        assert_eq!(outbox.iter().filter(|item| item.update.op_id == edit.op_id).count(), 1);
+        // A journal retry alone must not claim the native draft was reconciled.
+        assert_eq!(state_value(&ws).await.unwrap()["saveState"], "error");
+        assert!(flush(&ws, "main", "test", &id, None).await.is_err());
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().native_draft_revision = None;
+        assert_eq!(flush(&ws, "main", "test", &id, None).await.unwrap().revision, edit.revision);
+    }
+    #[tokio::test]
+    async fn projection_conflict_allows_local_writing_reopen_and_never_reports_projected() {
+        let (_temp, ws, id) = fixture().await;
+        let raw = format!("{}本机第一段", ws.papers.lock().unwrap()[&id].raw);
+        source_save(&ws, "main", "test", &id, 0, &raw).await.unwrap();
+        ws.durable.flush().await.unwrap();
+        let baseline = ws.durable.read_baseline(id.clone()).await.unwrap().unwrap();
+        let (md, meta) = write_core::projection::paths(&ws.root, &baseline.filename).unwrap();
+        let disk_body = std::fs::read(&md).unwrap();
+        std::fs::write(&meta, b"incomplete external metadata").unwrap();
+        // A cached raw projection may lag the current verified local document.
+        ws.papers.lock().unwrap().get_mut(&id).unwrap().raw = "stale cached text".into();
+        reconcile_known_files(&ws, &id).await.unwrap();
+        assert_eq!(ws.papers.lock().unwrap()[&id].raw, baseline.pair.markdown);
+        let saved = flush(&ws, "main", "test", &id, None).await.unwrap();
+        assert!(!saved.projected);
+        assert!(saved.projection_identity.is_none());
+        assert!(ws.papers.lock().unwrap()[&id].projection_error.is_some());
+        let continued = format!("{}\n离线继续写作", saved.raw);
+        let saved = source_save(&ws, "main", "test", &id, saved.revision, &continued).await.unwrap();
+        assert!(!saved.projected);
+        assert!(ws.durable.flush().await.is_err());
+        assert_eq!(std::fs::read(&md).unwrap(), disk_body);
+        assert_eq!(std::fs::read(&meta).unwrap(), b"incomplete external metadata");
+        let loaded = ws.durable.load(id.clone()).await.unwrap();
+        let reopened = Paper::from_loaded(loaded).unwrap();
+        assert_eq!(reopened.doc.body(), "本机第一段\n离线继续写作");
+        ws.papers.lock().unwrap().insert(id.clone(), reopened);
+        reconcile_known_files(&ws, &id).await.unwrap();
+        assert_eq!(ws.papers.lock().unwrap()[&id].doc.body(), "本机第一段\n离线继续写作");
+        assert_eq!(std::fs::read(&meta).unwrap(), b"incomplete external metadata");
     }
     #[tokio::test]
     async fn empty_undo_does_not_poison_the_durable_queue_and_real_undo_maps_the_caret() {

@@ -2,11 +2,15 @@
 # Build a frozen draft's Debian 12 packages. Never changes tags/versions/latest.json.
 set -euo pipefail
 die() { echo "Linux release: $*" >&2; exit 1; }
-[[ $# -eq 1 && "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'usage: release-linux.sh <vX.Y.Z>'
+[[ ( $# -eq 1 || ( $# -eq 2 && "${2:-}" == --amd64-only ) ) && "${1:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'usage: release-linux.sh <vX.Y.Z> [--amd64-only]'
 TAG=$1 VERSION=${1#v}
+ARCHES=(amd64 arm64)
+if [[ "${2:-}" == --amd64-only ]]; then ARCHES=(amd64); fi
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GH_REPO=${GH_REPO:-wizlijun/note.md}
 [[ "$GH_REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]] || die 'invalid GH_REPO'
+CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS-2}
+[[ "$CARGO_BUILD_JOBS" =~ ^[1-9][0-9]*$ ]] || die 'CARGO_BUILD_JOBS must be a positive integer'
 for tool in git node docker gh tar; do command -v "$tool" >/dev/null || die "$tool is required"; done
 RELEASE=$(gh -R "$GH_REPO" release view "$TAG" --json tagName,isDraft)
 node -e 'const r=JSON.parse(process.argv[1]); if(r.tagName!==process.argv[2]||r.isDraft!==true)throw Error("exact existing draft required")' "$RELEASE" "$TAG"
@@ -15,7 +19,7 @@ REMOTE_COMMIT=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
 [[ "$REMOTE_COMMIT" == "$COMMIT" ]] || die 'local tag commit differs from the remote release tag'
 CORE=$(cd "$ROOT/../moraya-core" && pwd)
 CORE_COMMIT=$(git -C "$CORE" rev-parse --verify HEAD)
-echo "Frozen Linux source: tag=$TAG commit=$COMMIT core=$CORE_COMMIT"
+echo "Frozen Linux source: tag=$TAG commit=$COMMIT core=$CORE_COMMIT jobs=$CARGO_BUILD_JOBS architectures=${ARCHES[*]}"
 TMP=$(mktemp -d)
 WORKTREE="$TMP/tag-worktree"
 cleanup() {
@@ -41,14 +45,26 @@ NODE
 # git archive freezes only committed content. Exclusions apply at every depth,
 # before any container/context mount; host worktree caches and credentials never enter.
 archive_source() {
-  local source=$1 commit=$2 destination=$3 pattern
+  local source=$1 commit=$2 destination=$3 pattern path
   local excludes=()
   for pattern in '.env*' '.git' 'node_modules' 'target' '.pnpm-store' '.cache' \
     '.superpowers' '.worktrees' '.wrangler' '.dev.vars*' '.npmrc' '.netrc' \
-    '.ssh' '.aws' '.gnupg' 'credentials*' '*.p8' '*.p12' '*.pem' '*.key'; do
+    '.ssh' '.aws' '.gnupg' '*.p8' '*.p12' '*.pem' '*.key'; do
     excludes+=(":(exclude,glob)**/$pattern" ":(exclude,glob)**/$pattern/**")
   done
+  # Rust credential adapters are source, not secret files. Keep the broad
+  # credential-directory exclusion and exclude every other matching file by
+  # its literal path in the frozen tree, including extensionless/local configs.
+  excludes+=(':(exclude,glob)**/credentials*/**')
   mkdir -p "$destination"
+  git -C "$source" ls-tree -r --name-only -z "$commit" > "$destination.paths"
+  while IFS= read -r -d '' path; do
+    case "${path##*/}" in
+      credentials*.rs) ;;
+      credentials*) excludes+=(":(exclude,literal)$path") ;;
+    esac
+  done < "$destination.paths"
+  rm "$destination.paths"
   git -C "$source" archive "$commit" -- . "${excludes[@]}" | tar -x -C "$destination"
 }
 INPUT="$TMP/input"
@@ -57,7 +73,7 @@ archive_source "$CORE" "$CORE_COMMIT" "$INPUT/moraya-core"
 [[ -d "$INPUT/moraya-core/dist" ]] || die 'frozen sibling core must contain tracked dist'
 OUTPUT="$TMP/output"
 mkdir -p "$OUTPUT"
-for ARCH in amd64 arm64; do
+for ARCH in "${ARCHES[@]}"; do
   case "$ARCH" in amd64) TRIPLE=x86_64-unknown-linux-gnu ;; arm64) TRIPLE=aarch64-unknown-linux-gnu ;; esac
   IMAGE="notemd-linux-build:$ARCH"
   docker build --platform "linux/$ARCH" -t "$IMAGE" \
@@ -72,6 +88,7 @@ for ARCH in amd64 arm64; do
     --mount "type=volume,src=notemd-linux-$ARCH-target,dst=/cache/target" \
     --mount "type=volume,src=notemd-linux-$ARCH-pnpm,dst=/cache/pnpm" \
     --mount "type=volume,src=notemd-linux-$ARCH-node,dst=/cache/node" \
+    -e CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
     -e COREPACK_HOME=/cache/node/corepack \
     -e PNPM_CONFIG_STORE_DIR=/cache/pnpm \
     -e PNPM_CONFIG_CACHE_DIR=/cache/node/cache -e PNPM_CONFIG_STATE_DIR=/cache/node/state \
@@ -86,10 +103,14 @@ done
 
 STAGED="$TMP/staged"
 mkdir -p "$STAGED"
-for ARCH in amd64 arm64; do cp "$OUTPUT/$ARCH/note.md_${VERSION}_${ARCH}.deb" "$STAGED/"; done
-node - "$STAGED" "$VERSION" <<'NODE'
-const fs = require('fs'), path = require('path'), crypto = require('crypto'), [root, version] = process.argv.slice(2)
-const sums = ['amd64', 'arm64'].map(arch => {
+UPLOADS=()
+for ARCH in "${ARCHES[@]}"; do
+  cp "$OUTPUT/$ARCH/note.md_${VERSION}_${ARCH}.deb" "$STAGED/"
+  UPLOADS+=("$STAGED/note.md_${VERSION}_${ARCH}.deb")
+done
+node - "$STAGED" "$VERSION" "${ARCHES[@]}" <<'NODE'
+const fs = require('fs'), path = require('path'), crypto = require('crypto'), [root, version, ...architectures] = process.argv.slice(2)
+const sums = architectures.map(arch => {
   const name = `note.md_${version}_${arch}.deb`
   return `${crypto.createHash('sha256').update(fs.readFileSync(path.join(root, name))).digest('hex')}  ${name}\n`
 }).join('')
@@ -99,6 +120,6 @@ NODE
 RELEASE=$(gh -R "$GH_REPO" release view "$TAG" --json tagName,isDraft)
 node -e 'const r=JSON.parse(process.argv[1]); if(r.tagName!==process.argv[2]||r.isDraft!==true)throw Error("draft changed before upload")' "$RELEASE" "$TAG"
 gh -R "$GH_REPO" release upload "$TAG" \
-  "$STAGED/note.md_${VERSION}_amd64.deb" "$STAGED/note.md_${VERSION}_arm64.deb" \
+  "${UPLOADS[@]}" \
   "$STAGED/SHA256SUMS-linux.txt" --clobber
 echo "Uploaded verified Linux packages to draft $TAG; publish separately with release-publish.sh"

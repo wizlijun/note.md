@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { listen, type UnlistenFn } from '@tauri-apps/api/event'
   import { getCurrentWindow } from '@tauri-apps/api/window'
+  import { getCurrentWebview } from '@tauri-apps/api/webview'
   import { invoke } from '@tauri-apps/api/core'
   import { acceptSumiSnapshot, acknowledgeSumiProjection, prepareFileViewTransition, closeTab, setMode, type Tab } from '../lib/tabs.svelte'
   import type { FileViewRef } from '../lib/plugins/file-views'
@@ -92,7 +93,8 @@
   }
   async function updateScale() {
     const nativeWindow = getCurrentWindow()
-    const [size, dpi] = await Promise.all([nativeWindow.innerSize(), nativeWindow.scaleFactor()])
+    // GTK window geometry includes CSD shadows; DOM coordinates belong to the WebView.
+    const [size, dpi] = await Promise.all([getCurrentWebview().size(), nativeWindow.scaleFactor()])
     scale = window.innerWidth > 0 ? size.width / dpi / window.innerWidth : 1
     schedule()
   }

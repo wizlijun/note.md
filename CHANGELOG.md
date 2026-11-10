@@ -7,50 +7,65 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Smart Lookup is rebuilt local-first.** Pressing Enter shows local results immediately instead of first starting an external Agent to interpret the question; neither typing nor searching calls a model. “Create answer” and “In-depth research” work from the local results and start only on click. Research receives the visible results (up to 20) as references, and the Agent window no longer opens by itself — an “Open research” link appears instead. Multi-select, remove and undo, the source filter, “Copy research instructions”, “Copy answer” and the in-window settings panel are gone; the answer’s AI service and model, and the other options, are in Settings → Search & Index.
+
+## v6.1110.5 — 2026-11-10
+
+- **Stabilize Sumi focus writing on Linux.** Fix fractional scroll feedback that made the text jump between adjacent pixels. Hide the native editor scrollbar and frame while preserving scrolling and the input position outside focus mode.
+
+## v6.1110.4 — 2026-11-10
+
+- **Omarchy plugin windows and shortcuts.** Linux plugin windows open with a movable title bar, resize controls and an initial size fitted to the available desktop. App commands use Ctrl; Sumi uses F11 for fullscreen and keeps its controls reachable above the desktop dock. Fullscreen writing uses one proportional font scale and restores the saved size on exit.
+
+- **Matching plugin updates:** Sumi 0.1.12, NEXT 1.13.3 and Idea Spark 1.3.8 require host 6.1110.4 or later, including the Linux menu isolation that keeps plugin shortcuts from editing the main window.
+
+- **Keep the input line in place outside Sumi focus mode.** Fcitx candidates stay at the bottom and expand independently; displaying or paging candidates no longer anchors the body to the bottom or changes its viewport. Focus mode continues to show candidates below the active line.
+
+## v6.1110.3 — 2026-11-10
+
+- **Linux update checks work on startup and on demand.** Detect releases with a package for this machine, show new-version notifications, and open the matching download page. Failed or unperformed checks no longer appear as “up to date.” Install the selected package with the system package manager; older Linux clients need one manual upgrade to receive this fix.
+
+## v6.1110.2 — 2026-11-10 (Linux/Omarchy)
+
+- **Inline Fcitx candidates for Sumi on Linux.** Focus mode places candidates below the active line; outside focus mode, typing anchors the body line at the bottom and candidate expansion pushes it upward. Candidates inherit text typography with no separate background or border, up to four rows. Inline preedit has no selection fill; preedit and the current candidate use subtle underlines. Scoped to the native Sumi editor; requires the matching host and Fcitx sumicandidates addon.
+
+- **Sumi native editing on Linux/Omarchy.** Adds the GTK editor for standalone windows and writing tabs, Secret Service device credentials, PulseAudio/PipeWire typing audio and Linux plugin packaging. Sumi 0.1.11 is available for Linux x86_64 and requires host 6.1110.2; Mac keeps its existing 0.1.10 package.
+
+## v6.1110.1 — 2026-11-10
+
+- **Sumi 0.1.10 requires note.md 6.1110.1 or later.** Update both for the native input-resume and viewport-geometry fixes.
+
+- **Sumi resumes focus on the first input after reading navigation, including IME preedit.** Editing no longer waits for four new keystrokes after moving the caret. Focus geometry is refreshed from the current TextKit viewport so paragraph changes do not overlap or hide preceding lines.
+
+## v6.1109.4 — 2026-11-09
+
+- **Sumi focus follows vertical navigation.** Up/Down moves the caret through the real visual lines while keeping the active line centered and scrolling the page in the opposite direction. New blank pages start at the center immediately; their first characters and line breaks remain centered. Idle fading and local writing-safety protections remain intact.
+
+- **Sumi 0.1.9 requires note.md 6.1109.4 or later.** Update the host and plugin together for the revised native navigation and blank-page placement.
+
+## v6.1109.3 — 2026-11-09
+
+- **Sumi centered focus:** continuous typing keeps the active line at the center of the editor, with the original font size, line spacing and horizontal layout. Context above and below fades more strongly toward the edges, without a five-line limit. After ten seconds without typing, context gently becomes fully visible; the first new input quickly restores the fade. Reading navigation restores the normal page.
+
+- **Sumi 0.1.8 requires note.md 6.1109.3 or later.** Update both for the revised native focus presentation; existing local writing-safety protections and visible save errors remain in place.
+
+## v6.1109.2 — 2026-11-09
+
 - **Hide YAML metadata in Rich mode by default.** Turn off “Hide YAML metadata in Rich mode” in Settings → General → Editor to restore the metadata panel immediately. The preference is saved; Source editing and undo history remain available. Body selection, copying and deletion preserve hidden metadata, including UTF-8 BOM files.
 
+- **Quiet Sumi status:** routine bottom writing-status and offline messages stay hidden until hovered or keyboard-focused; unsaved-draft and save failures, and messages inside opened settings, remain visible.
+
+- **Sumi focused typing:** an optional, default-on writing mode keeps the active line at 57% of the editor height with four preceding visual lines. Continuous typing gently brings the five lines into focus; reading navigation restores the normal page. A small size increase, consistent page scaling, tighter upper-line spacing and fading guide attention without changing the document.
+
+- **Sumi 0.1.7 requires note.md 6.1109.2 or later.** Update the host and plugin together for focused typing and the revised status display; existing local writing-safety protections remain in place.
+
+Earlier deferred release notes are preserved in the [delivery-history audit](docs/superpowers/reports/2026-11-09-combined-release-deferred-history.md); they are not repeated as new features.
+
+## v6.1109.1 — 2026-11-09
+
+- **Sumi local writing safety.** Reopen and continue locally saved drafts when Markdown or line-time files are missing, stale or conflicting. Confirmed input now has a durable local replay journal; failed writes retain a copyable draft for retry, and changed external files remain protected.
+
 - **Sumi fullscreen shortcut:** press Cmd/Win/Super+Enter to enter or leave fullscreen. Command+keypad Enter also works in the macOS native editor; Control-Command-F remains available. Held-key repeats do not retrigger, and composition stays with the input method.
-
-
-- **Sumi 0.1.1 requires note.md 6.1108.2 or later.** Update the host alongside the marketplace plugin to receive the fix for the gentle breathing caret when macOS Reduce Motion is enabled.
-
-- **NEXT kickoff results stay tied to their Task.** Conflicting result files block only the affected Tasks, close stale result views, and preserve user content. Repeated background read failures show one notification per error during the current window session.
-
-- **Update website agent integrations.** Feature Grokbot on the homepage, add its integration guide in four languages, and order integration links as Claude, Codex, Grokbot, OpenClaw, Hermes. Fix the English language-switch target on translated content pages.
-
-- **NEXT 1.13.2: hide empty placed lanes.** With Show placed turned off, empty Later and Closed lanes disappear and the board fits its visible columns. Due items in Later remain visible.
-
-- **NEXT 1.13.1: card actions use compact split buttons.** Complete a task from the blue main button or open placement options from its arrow. The kickoff arrow opens the Agent menu beside the button, without an extra dialog.
-
-- **NEXT 1.13.0 with Codex 1.1.0, DeepSeek 1.2.0 and Claude 1.1.0: the Agent retrieves its own kickoff context.** Pass the current Vault and Task identity instead of collecting and sending a background file packet. The Agent uses notemd search and native web search for recent articles, then returns cited questions and suggestions. Per-Agent concurrency is adjustable and defaults to three, with separate runs for different Tasks. NEXT validates and saves the result; placement still requires the user. Update NEXT and the selected Agent together. On older hosts, open each Agent’s settings once to apply the new default when unset; saved limits remain unchanged. Web sources open on supporting hosts and copy their URL on older hosts.
-
-- **Ebook Import 1.5.6: optional AI reading from the import CLI.** Add `--ai-read` to read the imported book with your default installed Agent, or `--agent <plugin-id>` to select one for this run. The command waits for the summary and reports AI failures separately from a completed import. Agent runs require the current Vault; a shared SDK fix lets synchronous commands receive host replies without deadlocking.
-- **Ebook Import 1.5.6: check Baidu OCR upload limits before sending.** The existing cloud endpoint is documented as using Unlimited OCR 2. Local uploads now stop above 50 MB (50,000,000 bytes) or 500 PDF pages, with guidance to compress or split the file. Invalid PDFs fail before any Baidu request; your selected OCR provider stays unchanged.
-
-- **Ebook Import 1.5.5: import books from an Agent or terminal.** Discover valid topic IDs with `notemd ebook --list-topics --json`, import relative or absolute file paths with `--topic`, and explicitly enable scanned-PDF OCR with `--ocr`. The CLI shares the window import pipeline, reports progress and structured destinations, and rejects conflicting OCR options.
-
-
-- **Claude Agent 1.0.34: “Help me start” now works with Claude.** Claude runs on the same frozen v2 protocol and confirmed background snapshot as Codex and DeepSeek. It starts in an empty directory with no tools, MCP or on-disk instructions, and stops at a fixed total time limit. Weakened kickoff settings are refused before Claude starts. Update the Claude Agent plugin to select Claude in NEXT.
-
-- **NEXT 1.12.1: review each background snapshot before sending.** See the selected Agent provider and actual files every time. Large vaults and partial Chinese titles now retain relevant diaries, annotations and completed Tasks; citations must belong to the confirmed snapshot. Codex Agent 1.0.22 and DeepSeek Agent 1.1.21 consume one frozen v2 protocol. Unsupported Agents, including Claude, say so explicitly; lock conflicts report capacity and durations use whole seconds.
-
-- **NEXT 1.12.0: start an in-progress Task with your installed Agent.** The combined kickoff control offers both the main action and Agent selection. NEXT prepares a bounded snapshot of the Task and relevant declared background; Codex Agent 1.0.21 and DeepSeek Agent 1.1.20 return the questions without filesystem, command, network or MCP tools. Answers still require your confirmation before placement. Update the Agent plugin when its installed version does not provide this capability.
-
-- **NEXT 1.11.0: “Help me start” on Task cards.** Review up to three questions grounded in your vault, save your answers, and prefill the placement form for your approval. Existing answers survive regeneration and manually edited result text is preserved. Agent execution stays disabled until its read-only safety checks are verified.
-
-- **Agents can manage the same NEXT Tasks through a validated CLI.** Create, edit, place, complete and reopen tasks without changing their identity; background extraction stays create-only. Reminder preferences share the card controls, and Vault skills add one-time reminder rules with preflight checks and delivery receipts. Timed delivery still requires a deployed polling runner.
-
-- **Health Sync 0.1.1: preview a selected export before the first import.** The main collection action now uses the selected Apple file instead of requiring a remembered path; previews stay read-only. Identify the primary ZIP XML by its `HealthData` root, including localized or incorrectly encoded filenames. Stream large CDA documents using the XML size limit while retaining CDA, ECG and GPX attachments.
-
-- **Health Sync 0.1.0 (separate Mac plugin): collect one daily health archive.** Import complete Apple Health ZIP/XML exports, add Garmin Personal and Oura V2 API details, browse categories and coverage, and resume history through the window or CLI. Preserve original fields and attachments with readable slug filenames; provider credentials stay in Keychain.
-
-- **Roam Research Sync 1.2.7: fix large-page stdout pipe deadlocks.** Drain stdout and stderr concurrently while the Roam CLI runs, preserving the 60-second timeout and killing and reaping timed-out processes.
-
-- **Prioritize Omarchy downloads and provide an ARM64 Arch package.** Linux website buttons now lead to Omarchy/Arch packages, with separate Debian/Ubuntu links and explicit format selection. Release 6.1022.1 gains an aarch64 `.pkg.tar.zst` and its own checksum file; the application binaries are unchanged.
-
-- **Website: download the correct Linux architecture.** Negotiate the browser’s actual CPU architecture instead of treating Chromium’s reduced Linux user agent as AMD64. If detection is unavailable, offer explicit ARM64 and AMD64 choices.
-
-- **Refresh product documentation across languages.** Align the English/Chinese README and feature lists with the four-language website and agent reference. Remove stale release snapshots, clarify platform and plugin availability, document the current diagram renderer and external health library, and correct outdated shortcuts and storage claims.
 
 ## v6.1108.6 — 2026-11-09
 

@@ -3261,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "notemd"
-version = "6.1108.6"
+version = "6.1110.5"
 dependencies = [
  "base64 0.22.1",
  "block2",
@@ -3273,6 +3273,8 @@ dependencies = [
  "fs2",
  "futures-util",
  "git2",
+ "glib",
+ "gtk",
  "habitat-core",
  "hex",
  "hmac",
@@ -4502,6 +4504,21 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "rclip-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6414ce752a0d18ee3d000b6c76fccbc30e90b93c2a8c1e7fdd855ab9b7ea0af6"
+
+[[package]]
+name = "rclip-rtf"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e64929d6244eea54b6ae4276d5724ae8833c269b8156dd63d48b4f13d39a78ed"
+dependencies = [
+ "rclip-core",
 ]
 
 [[package]]
@@ -5915,10 +5932,14 @@ name = "tauri-plugin-native-editor"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "gtk",
+ "rclip-rtf",
  "serde",
  "serde_json",
  "tauri",
  "tokio",
+ "unicode-segmentation",
+ "webkit2gtk",
 ]
 
 [[package]]
@@ -6078,8 +6099,6 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-wry"
 version = "2.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3989df2ae1c476404fe0a2e8ffc4cfbde97e51efd613c2bb5355fbc9ab52cf0"
 dependencies = [
  "gtk",
  "http",

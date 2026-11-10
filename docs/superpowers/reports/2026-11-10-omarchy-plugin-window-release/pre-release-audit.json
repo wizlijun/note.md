@@ -1,0 +1,29 @@
+{
+  "worktrees": [
+    {
+      "path": "/home/bruce/git/note.md",
+      "commit": "b3a2f3ce42e7205d00e3e6b7806f8f08ad8c5bb0",
+      "status": "M CHANGELOG.md\n M CHANGELOG.zh-CN.md\n M package.json\n M plugins-src/idea-spark/manifest.v2.json\n M plugins-src/next/manifest.v2.json\n M plugins-src/write/manifest.v2.json\n M src-tauri/Cargo.lock\n M src-tauri/Cargo.toml\n M src-tauri/tauri.conf.json"
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-candidates",
+      "commit": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-candidate-position",
+      "commit": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+      "commit": "183b636b05bcf1440e2b8626f28629ce44b78863",
+      "status": "?? node_modules"
+    }
+  ],
+  "stash": "",
+  "unmerged_branches": "+ fix/sumi-candidate-position\n+ sumi-fcitx-candidates",
+  "candidate_position_patch_equivalence": "- 5fd8c46160e386cbbbaf110f062a02799bf71809",
+  "candidate_original_patch_equivalence": "- cf000db2d324a836a14cc4e05a6da584ec7531ba",
+  "scope": "All feature commits in main validated; only current host/plugin versions and changelogs pending. Native private snapshots and source node_modules are build artifacts, not release source."
+}

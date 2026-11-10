@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "releaseTag": "v6.1109.4",
+  "releaseCommit": "b55a6d0f42b4e948db3d22810be632249668d573",
+  "releaseExitCode": 0,
+  "frontEnd": {
+    "testFiles": 427,
+    "passed": 5551,
+    "failed": 0
+  },
+  "svelteCheck": {
+    "errors": 0,
+    "warnings": 31
+  },
+  "rustTargetedTestSummaries": [
+    "25 passed; 0 failed; 0 ignored; 0 measured; 1442 filtered out; finished in 0.07s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s",
+    "2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+    "0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s",
+    "3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  ],
+  "sourceLogSha256": "efad81f85196fef1651fdc82a1177c84f93dda153b1c8ab0a365ca847c2532a0",
+  "scope": "Exact test summaries extracted from this formal release log; not a claim of full unfiltered Rust coverage."
+}

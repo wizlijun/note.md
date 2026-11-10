@@ -1,0 +1,28 @@
+{
+  "hostVersion": "6.1110.2",
+  "pluginVersion": "0.1.11",
+  "tag": "v6.1110.2",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "coreCommit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "addonSourceCommit": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+  "gates": {
+    "sourceScopeAudit": "passed",
+    "tagPushed": "passed",
+    "debianAmd64Build": "passed",
+    "debianArm64Build": "out_of_scope_existing_stable_retained",
+    "signedPluginBuild": "passed",
+    "finalPackageGuiFcitx": "passed",
+    "hostPublicReadback": "passed_all_10_assets",
+    "archPackage": "passed",
+    "pluginR2SignatureReadback": "passed",
+    "pluginKvAndPublicIndex": "passed_309_entries",
+    "websiteDownloadRouting": "passed_all_four_urls",
+    "hostPublication": "passed_linux_amd64_only"
+  },
+  "installPerformed": false,
+  "pluginPackageSha256": "b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8",
+  "pluginEvidenceCommit": "86e0dc19",
+  "hostPublisherCommit": "aacb2f7ee554a86d6d1ac29f10ec5d4f564682d5",
+  "formalGuiEvidenceCommit": "2bbd9191",
+  "completedAtEpoch": 1794291477.7387838
+}

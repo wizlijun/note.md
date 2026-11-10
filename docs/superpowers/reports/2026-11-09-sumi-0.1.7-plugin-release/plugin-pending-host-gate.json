@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "compatibleHostPublic": false,
+  "minimumHost": ">=6.1109.2",
+  "compatibilityReportSha256": "5c31c41cfefd9ac301752c45ee5a7705c6e1fe0ec220bb6124a6eebfd5996054",
+  "userInstruction": "请上传插件",
+  "scope": "Publish immutable Sumi 0.1.7 index before host; retain minimum host and all older entries",
+  "oldHostRelease": "v6.1109.1"
+}

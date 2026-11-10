@@ -1,0 +1,15 @@
+{
+  "tag": "v6.1110.3",
+  "commit": "a64353c72ffe930de5ff90923b457e1d15360bef",
+  "files": {
+    "src/lib/linux-updates.ts": "430a0eb2ebbc6127297b2faeef2c00c2ebbde0a73d80b9d6e2c4a617ce048597",
+    "src/lib/updater.svelte.ts": "c40ec9e7d606f4de41abcb2e50b730e7adc58f0ff3a32271497c3929102de869",
+    "src/components/UpdateDialog.svelte": "7065cbf2159e6c15aa97c29d5bc8d02ca08b6e8c33b73c2357bdac37df4ce064",
+    "src/components/SettingsDialog.svelte": "6b8dbd12aacdd51ac284c1f334e15a460a6ca719848df223252a9d1d5ac3ddaf",
+    "src/lib/i18n/en.ts": "adc558b9b10b6ba05ffb81e4c60ce4bcb331f7292a027a7f80fe28c577a37902",
+    "src/lib/i18n/zh.ts": "aa79f7568c7236b5f3b3b5914d713af91eb0f5375a84a06e4404ab1c815b8ec0",
+    "src/lib/i18n/ja.ts": "1ebc5288b916c6877bf0b576f346afaa37ef65e41ae27c03fdea47e816435042",
+    "src/lib/i18n/de.ts": "29645b7f78136407584e41d1ce7cd6db84d5fbcc2723ed4c1af1ee8762e884fa"
+  },
+  "sumi_native_diff": ""
+}

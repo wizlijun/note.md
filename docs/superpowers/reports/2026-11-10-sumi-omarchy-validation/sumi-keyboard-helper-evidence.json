@@ -1,0 +1,14 @@
+{
+  "scope": "Test helper only, no production input changes",
+  "red": "Repeated wtype processes remap Left/BackSpace to code9; ordinary GTK ignores their bindings while Q inserts",
+  "green": "Fresh GTK first receives full standard keyboard End; wtype Unicode still inserts, subsequent fixed-map Left/BackSpace/Home/End work",
+  "sha256": {
+    "scripts/sumi/probe-pointer/keyboard.c": "a663524bbdd76f1b18e8c69419403df56d58b168eebefa384a378d2039a19f4e",
+    "scripts/sumi/probe-pointer/virtual-keyboard-unstable-v1.xml": "7ad7870003ecd592cae47dc19d277a609b7f18fd7b7be012623cf3225a7294f5",
+    "scripts/sumi/probe-pointer/build.sh": "e4870fe2d3653f03cdc0661dcbab17a31409be5d8517c91118a720cf2d69f152",
+    "scripts/sumi/probe-pointer/README.md": "df9c43c9d508b351fcf9af25f7fe0a58a44301d9625480eefdb1580d49cbc54c",
+    "tasks/omarchy-build/gtk-keys-control.log": "a53fda43b30fe434fdba26f6ea522e1765f164dc1eee810dba7250d9d66d7ae0",
+    "tasks/omarchy-build/gtk-fixed-keys-control.log": "868eb949b23b6f688315557e99a1d78a91c6066aaa156abe0bc753df926d1edf",
+    "tasks/omarchy-build/probe-pointer/keyboard": "47b9a226052527699bffe5ef0a733d7f370acdf0d9c10db783ceb54cfc31dbc5"
+  }
+}

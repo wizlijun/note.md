@@ -1,0 +1,9 @@
+{
+  "generator": "scripts/gen-plugin-index.mjs",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "totalEntries": 309,
+  "generatedIndexSha256": "492a0a6fce688d0027a1533849fc04293da49915f0c17360ec23be5bf0ea3274",
+  "onlyBuiltLinuxTarget": true,
+  "priorMacPackagePreserved": true,
+  "published": false
+}

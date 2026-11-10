@@ -23,7 +23,7 @@ const harness: AgentHarness = {
   ok: true,
   default_model: 'quality',
   capabilities: {
-    tasks: ['search-plan', 'search-summary', 'vault-research'],
+    tasks: ['search-summary', 'vault-research'],
     search_plan_schemas: [1],
     terminal_result: true,
     input_only_isolation: true,
@@ -39,22 +39,20 @@ const harness: AgentHarness = {
 }
 
 describe('smart-search model routing', () => {
-  it('defaults both automatic planning and manual summary to fast', () => {
-    expect(rememberedModelPreference('global-search', 'p', 'plan', harness, memory()))
-      .toBe('profile:fast')
+  it('defaults the manual summary to fast', () => {
     expect(rememberedModelPreference('global-search', 'p', 'summary', harness, memory()))
       .toBe('profile:fast')
   })
 
-  it('keeps settings separate by provider and phase', () => {
+  it('keeps settings separate by provider', () => {
     const storage = memory()
-    rememberModelPreference('global-search', 'claude', 'plan', 'model:fast-model', storage)
-    expect(storage.values.get(modelPreferenceKey('global-search', 'claude', 'plan')))
+    rememberModelPreference('global-search', 'claude', 'summary', 'model:fast-model', storage)
+    expect(storage.values.get(modelPreferenceKey('global-search', 'claude', 'summary')))
       .toBe('model:fast-model')
-    expect(rememberedModelPreference('global-search', 'codex', 'plan', harness, storage))
+    expect(rememberedModelPreference('global-search', 'codex', 'summary', harness, storage))
       .toBe('profile:fast')
     expect(rememberedModelPreference('global-search', 'claude', 'summary', harness, storage))
-      .toBe('profile:fast')
+      .toBe('model:fast-model')
   })
 
   it('drops stale exact models and creates mutually exclusive selectors', () => {
@@ -77,7 +75,7 @@ describe('smart-search model routing', () => {
   it('falls back to the available default when the fast profile is unavailable', () => {
     const withoutFast: AgentHarness = structuredClone(harness)
     withoutFast.capabilities!.model_routing.profiles.fast.available = false
-    expect(rememberedModelPreference('global-search', 'p', 'plan', withoutFast, memory()))
+    expect(rememberedModelPreference('global-search', 'p', 'summary', withoutFast, memory()))
       .toBe('profile:default')
   })
 

@@ -1,0 +1,11 @@
+{
+  "tag": "v6.1110.4",
+  "commit": "25157f1db07b5be9fb2962346894ab316bb27f22",
+  "deb": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/assets/note.md_6.1110.4_amd64.deb",
+  "deb_sha256": "40e4b86e7408fefe7e16072df875ae007973452be0f0201ed1704028f2ea8bca",
+  "deb_bytes": 15859902,
+  "binary": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/host-root/usr/bin/notemd",
+  "binary_sha256": "8bb5f2c42e77ae64f46a3b40c22e8a82e1da387fb1710e2c702b69fe5c941357",
+  "cli": "notemd 6.1110.4 (plugin API v1)",
+  "system_installed": false
+}

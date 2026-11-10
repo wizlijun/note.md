@@ -1,0 +1,16 @@
+{
+  "tag": "v6.1110.2",
+  "sourceCommit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "coreCommit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "baseImage": "sha256:00648c891a54487bdad7c135d2848f30eaa6894b1d8e64b8c00031a098c4b214",
+  "buildImage": "sha256:5e5a340d10dcc81b637d6b3f03d9ec854f74d97a26a2044225d6c2bf40c9609c",
+  "archiveSha256": {
+    "source.tar": "ae451f9f8fb40f1729691d10e852b0da214fce2857b219c9c177db0ba381b19c",
+    "core.tar": "4a9a77629b7ba8334a5e317db9f90d044829717d75cbfbd52bb5d0c929b2a859",
+    "commit-object": "1a0289d2ba3f88a6a116f11dacd89aad03285d428b51c07d51c8ca2c77356898",
+    "build.sh": "9f95b3c473907ff0c7c3f57dd843e867a9473c180568752849a5fb670bf24249"
+  },
+  "cargoJobs": 2,
+  "networkDuringSigning": false,
+  "privateKeyIncludedInImage": false
+}

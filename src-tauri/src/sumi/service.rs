@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, future::Future, path::PathBuf, pin::Pin, sync::{Arc, LazyLock, Weak, atomic::{AtomicBool, Ordering}}};
 use tauri::Manager;
 use crate::plugin_runtime::{commands, lifecycle::Trigger, process::PluginProcess};
+use sumi_protocol::service::Hello;
 type Result<T> = std::result::Result<T, String>;
 pub type ConnectFuture = Pin<Box<dyn Future<Output = Result<Arc<PluginProcess>>> + Send>>;
 pub type Connector = Arc<dyn Fn() -> ConnectFuture + Send + Sync>;
@@ -78,9 +79,7 @@ struct Inner {
     mutations: MutationGate,
 }
 #[derive(Clone)]
-struct Binding { instance: String, process: Arc<PluginProcess> }
-#[derive(Deserialize)]
-struct Hello { version: u32, instance: String }
+struct Binding { instance: String, process: Arc<PluginProcess>, hello: Hello }
 #[derive(Serialize, Deserialize)]
 struct Callback { session: String, instance: String, method: String, #[serde(default)] params: Value }
 
@@ -117,7 +116,7 @@ impl Backend {
         if hello.version != VERSION || uuid::Uuid::parse_str(&hello.instance).is_err() {
             return Err("Sumi 后台协议不兼容，请同时更新宿主和插件".into());
         }
-        let binding = Binding { instance: hello.instance, process };
+        let binding = Binding { instance: hello.instance.clone(), process, hello };
         let result: Result<Value> = raw(&binding.process, "open", json!({
             "version":VERSION,"instance":binding.instance,"session":self.inner.session,
             "vault":self.inner.root,"database":self.inner.database,"fontCache":self.inner.fonts,
@@ -163,10 +162,12 @@ impl Backend {
     pub async fn call_existing<T: DeserializeOwned>(&self, method: &str, payload: Value) -> Result<T> {
         let binding = self.inner.binding.lock().await.clone().ok_or("Sumi sound backend is not connected")?;
         if binding.process.has_exited().await.is_some() { return Err("Sumi sound backend has stopped".into()); }
+        binding.hello.check_request(method, &payload)?;
         raw(&binding.process, method, json!({"instance":binding.instance,"session":self.inner.session,"payload":payload})).await
     }
     pub async fn call<T: DeserializeOwned>(&self, method: &str, payload: Value) -> Result<T> {
         let binding = self.binding().await?;
+        binding.hello.check_request(method, &payload)?;
         raw(&binding.process, method, json!({"instance":binding.instance,"session":self.inner.session,"payload":payload})).await
     }
 }
@@ -283,7 +284,7 @@ mod tests {
         };
         let backend=Backend::connect(root.clone(),temp.path().join("private/sumi.sqlite3"),temp.path().join("fonts"),connector).await.unwrap();
         let first_instance=backend.binding().await.unwrap().instance;
-        let durable=Durability::from_backend(backend.clone(), |_|{});
+        let durable=Durability::from_backend(backend.clone(), temp.path().join("private/input-journal.sqlite3"), |_|{}).unwrap();
         let page=uuid::Uuid::new_v4().to_string();
         let mut doc=write_core::Document::new(&page,1,17).unwrap();
         durable.create(Create {page_id:page.clone(),epoch:1,full_state:doc.encode_full(),revision:0,after_id:None,first_write_date:None,frontmatter:None,preserved_pair:None}).await.unwrap();

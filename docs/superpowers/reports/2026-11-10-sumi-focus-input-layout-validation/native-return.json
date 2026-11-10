@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "at": "2026-11-09T17:44:38.189614+00:00",
+  "selectedBase": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "sourceHashes": {
+    "editor.m": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+    "focus.h": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+    "focus-return-probe.m": "d59cd3d9710d32d48009ff40ff36114c0e457a45b463f6389a90fead3e092754"
+  },
+  "strictCompile": {
+    "minimumMacOS": "11.0",
+    "warnings": [
+      "-Wall",
+      "-Wextra",
+      "-Werror"
+    ],
+    "arc": true
+  },
+  "checks": 49546,
+  "canonicalEditReplies": 560,
+  "bitmapInkSpanChecks": 20,
+  "configurations": {
+    "fonts": [
+      "Sumi System",
+      "Sumi Plex",
+      "Sumi WenKai",
+      "Sumi Zhaohua",
+      "Sumi Youcha",
+      "Sumi Fangsong",
+      "Sumi CRT"
+    ],
+    "sizes": [
+      22,
+      50
+    ],
+    "viewportHeights": [
+      620,
+      1080
+    ],
+    "lineHeight": 1.2,
+    "maxColumns": 80,
+    "nativeStyles": [
+      "plain",
+      "heading1/bold/quote/heading6"
+    ],
+    "positions": [
+      "document end",
+      "paragraph middle"
+    ],
+    "operations": [
+      "three real Return keyDown events",
+      "real markedText preedit and insertText commit followed by Return",
+      "canonical host document/runs/selection reply for every edit"
+    ]
+  },
+  "baseline": {
+    "releasedNativeMatchesGit": true,
+    "editorSha256": "4cdafe8902f28447e7b9c6323729bd5eb355b0d3e1fca90e8e46b6d8daa9769a",
+    "focusSha256": "63a5efa0751fa2d703ad22f5b75870c3ee90f2ec352d3d8893246ba81cb72518",
+    "exitCode": 1,
+    "failure": "distinct document rows overlap after previous Return/IME/canonical projections and a subsequent middle-position focus",
+    "rows": [
+      {
+        "range": "552:8",
+        "rawY": 843.2,
+        "height": 31.2
+      },
+      {
+        "range": "560:43",
+        "rawY": 843.2,
+        "height": 31.2
+      }
+    ],
+    "notClaimed": "Simple isolated Return did not fail for all configurations; mixed lifecycle and projection state are required to expose stale fragment measurements."
+  },
+  "fix": {
+    "boundedPreparation": "Candidate range ensureLayout plus viewport commit before reading the snapshot",
+    "freshRead": "Re-enumerate fresh LayoutAvailable fragments without EnsuresLayout; retain prepared extra insertion line for empty document; no fallback to old fragment/line objects",
+    "visualParametersChanged": false,
+    "rawCoordinatesInvented": false,
+    "bodyStorageOrCRDTChanged": false
+  },
+  "evidence": {
+    "source-before.json": {
+      "bytes": 260,
+      "sha256": "73f3ab70743df63d8b7e7a9650c3489864838ef4bc565834801fd5590c473917"
+    },
+    "build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run.log": {
+      "bytes": 155,
+      "sha256": "bbdff445363bc5eb4eba22e7bc11c9adf50c9be5f2866e74168149ea5cb798d4"
+    },
+    "zhaohua50.png": {
+      "bytes": 267832,
+      "sha256": "0006a5a97643741a575a3442dc1ecf4efa63c54f8f54d77399c8cb00feb27fe3"
+    }
+  },
+  "boundaries": [
+    "Synthetic in-memory documents and process-local font registration only; no production Vault content",
+    "AppKit callbacks and native bitmap checks do not constitute physical Chinese IME candidate-panel acceptance",
+    "Private intermediate/failing logs remain preserved; only final4/run.log corresponds to final product editor/header source"
+  ],
+  "scope": "Final4 complete native source after empty marked-text cancellation correction; original 49546 assertions unchanged",
+  "previousEvidencePreserved": "../return-layout-verification.json and final3-return.log bind the earlier editor source; not used as final4 success proof",
+  "binarySha256": "5661a6ae4c4a92cb4d6154a88df4f1e81c70d5f8df529a7b5e719ed570872c62"
+}

@@ -6,6 +6,19 @@ pub fn window_decorations(os: &str, hyprland: Option<&str>, override_value: Opti
     os != "ios" && (os != "linux" || override_value.unwrap_or(hyprland.is_none()))
 }
 
+/// Plugin UIs do not provide the host's custom titlebar or resize affordances.
+pub fn decorations_for_window(os: &str, label: &str, host_decorations: bool) -> bool {
+    (os == "linux" && label.starts_with("plugin-")) || host_decorations
+}
+
+pub fn plugin_window_resizable(os: &str, manifest_resizable: bool) -> bool {
+    os == "linux" || manifest_resizable
+}
+
+pub fn track_window_state(os: &str, label: &str) -> bool {
+    !(os == "linux" && label.starts_with("plugin-"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -25,6 +38,27 @@ mod tests {
         assert!(window_decorations("linux", Some("instance"), Some(true)));
         assert!(!window_decorations("linux", None, Some(false)));
         assert!(window_decorations("macos", Some("instance"), Some(false)));
+    }
+    #[test]
+    fn linux_plugins_remain_operable_when_host_decorations_are_disabled() {
+        assert!(decorations_for_window("linux", "plugin-notemd-sumi-main", false));
+        assert!(decorations_for_window("linux", "plugin-test-settings", false));
+        assert!(!decorations_for_window("linux", "main", false));
+        assert!(decorations_for_window("linux", "main", true));
+        assert!(!decorations_for_window("macos", "plugin-notemd-sumi-main", false));
+        assert!(!decorations_for_window("ios", "plugin-notemd-sumi-main", false));
+        assert!(plugin_window_resizable("linux", false));
+        assert!(!plugin_window_resizable("macos", false));
+        assert!(plugin_window_resizable("macos", true));
+    }
+    #[test]
+    fn newly_created_linux_plugins_do_not_restore_stale_offscreen_or_fullscreen_state() {
+        assert!(!track_window_state("linux", "plugin-notemd-sumi-main"));
+        assert!(!track_window_state("linux", "plugin-third-party-settings"));
+        assert!(track_window_state("linux", "main"));
+        assert!(track_window_state("linux", "settings"));
+        assert!(track_window_state("macos", "plugin-notemd-sumi-main"));
+        assert!(track_window_state("windows", "plugin-notemd-sumi-main"));
     }
 }
 

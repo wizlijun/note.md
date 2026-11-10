@@ -1,0 +1,13 @@
+{
+  "oldBuildPid": 76561,
+  "parentPausedAtEpoch": 1794290442.2540808,
+  "reason": "Release scope narrowed to requested Omarchy x86_64; allow current child Arch verification to finish, prevent subsequent ARM build/upload",
+  "amd64PackageSha256": "0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976",
+  "childVerificationNotStopped": true,
+  "amd64DebianAndArchVerification": "passed",
+  "oldCoordinatorTerminatedAtEpoch": 1794290528.1083167,
+  "noArmHostPublished": true,
+  "verifiedLogSha256": "d13dd0c814beb82574f0c2b9cc28e1bcb8e3de538d91b061cfa628dc8c7b1d9b",
+  "verifiedLogTextNormalizedSha256": "0b941d7bb003412cb1804720ffb6b902c9deb56e706aa920ea519247fad43960",
+  "logHashClarification": "Initial hash used Python text-mode universal newline normalization; raw bytes are now recorded separately. The normalized hash still matches the original record."
+}

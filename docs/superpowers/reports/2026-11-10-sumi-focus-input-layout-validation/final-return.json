@@ -1,0 +1,127 @@
+{
+  "ok": true,
+  "at": "2026-11-09T18:43:31.754113+00:00",
+  "selectedBase": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "sourceHashes": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3",
+    "focus-return-probe.m": "817abc403992de3f4b115e1af83ed0806b68b98637bd49d57d4666ab3a3cb547"
+  },
+  "strictCompile": {
+    "minimumMacOS": "11.0",
+    "warnings": [
+      "-Wall",
+      "-Wextra",
+      "-Werror"
+    ],
+    "arc": true
+  },
+  "checks": 49552,
+  "canonicalEditReplies": 560,
+  "bitmapInkSpanChecks": 20,
+  "configurations": {
+    "fonts": [
+      "Sumi System",
+      "Sumi Plex",
+      "Sumi WenKai",
+      "Sumi Zhaohua",
+      "Sumi Youcha",
+      "Sumi Fangsong",
+      "Sumi CRT"
+    ],
+    "sizes": [
+      22,
+      50
+    ],
+    "viewportHeights": [
+      620,
+      1080
+    ],
+    "lineHeight": 1.2,
+    "maxColumns": 80,
+    "nativeStyles": [
+      "plain",
+      "heading1/bold/quote/heading6"
+    ],
+    "positions": [
+      "document end",
+      "paragraph middle"
+    ],
+    "operations": [
+      "three real Return keyDown events",
+      "real markedText preedit and insertText commit followed by Return",
+      "canonical host document/runs/selection reply for every edit"
+    ]
+  },
+  "baseline": {
+    "releasedNativeMatchesGit": true,
+    "editorSha256": "4cdafe8902f28447e7b9c6323729bd5eb355b0d3e1fca90e8e46b6d8daa9769a",
+    "focusSha256": "63a5efa0751fa2d703ad22f5b75870c3ee90f2ec352d3d8893246ba81cb72518",
+    "exitCode": 1,
+    "failure": "distinct document rows overlap after previous Return/IME/canonical projections and a subsequent middle-position focus",
+    "rows": [
+      {
+        "range": "552:8",
+        "rawY": 843.2,
+        "height": 31.2
+      },
+      {
+        "range": "560:43",
+        "rawY": 843.2,
+        "height": 31.2
+      }
+    ],
+    "notClaimed": "Simple isolated Return did not fail for all configurations; mixed lifecycle and projection state are required to expose stale fragment measurements."
+  },
+  "fix": {
+    "boundedPreparation": "Candidate range ensureLayout plus viewport commit before reading the snapshot",
+    "freshRead": "Re-enumerate fresh LayoutAvailable fragments without EnsuresLayout; retain prepared extra insertion line for empty document; no fallback to old fragment/line objects",
+    "visualParametersChanged": false,
+    "rawCoordinatesInvented": false,
+    "bodyStorageOrCRDTChanged": false,
+    "nativeLayoutScheduling": "Existing coalesced queue prevents tested synchronous focus geometry reentry and quiesces when idle; does not independently resolve all observed live-window glyph clipping.",
+    "painting": "Selected product caches bounded immutable row images outside drawRect; no native-scroll-mask prototype, no unsuccessful opaque/group/text-reset experiments included"
+  },
+  "evidence": {
+    "source-before.json": {
+      "bytes": 260,
+      "sha256": "308de9097f82b1a14731bc48cab837432110a0dd14e41ef4f1ac3e3d64c2d046"
+    },
+    "build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run.log": {
+      "bytes": 204,
+      "sha256": "5e007275bde8da3ce69d6bb141a0efe9e7010635b5f8f016b0183e103f2ff16c"
+    },
+    "zhaohua50.png": {
+      "bytes": 314586,
+      "sha256": "294d9221c83e984947e2bd0e3f46a8fd60424e0003f69e5fce8a66017995ea14"
+    }
+  },
+  "boundaries": [
+    "Synthetic in-memory documents and process-local font registration only; no production Vault content",
+    "AppKit callbacks and native bitmap checks do not constitute physical Chinese IME candidate-panel acceptance",
+    "Private intermediate/failing logs remain preserved; only final5/run.log corresponds to final product editor/header source"
+  ],
+  "scope": "Final6 selected product raster-cache renderer plus existing coalesced layout queue; all49552 assertions unchanged",
+  "previousEvidencePreserved": "All final5 reports, real screen failures and the old5a native-layout RED test remain unchanged; only final6 source hashes apply to current renderer.",
+  "binarySha256": "736a42a2c7faa723c7eb05c593f00d6676bdb460e4ffa2a73064cc0f5f6c9482",
+  "nativeLayoutRegression": {
+    "baselineEditor": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+    "baselineFocus": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+    "baselineBuildExit": 0,
+    "baselineRunExit": 1,
+    "baselineFailure": "native layout never reenters TextKit focus geometry synchronously",
+    "fixedRunExit": 0,
+    "quietMilliseconds": 400,
+    "idleLayoutDelta": 0,
+    "idleFocusUpdateDelta": 0,
+    "existingQueuedFlagClearedAtBlockEnd": true,
+    "addedPropertiesOrIndependentQueue": false,
+    "baselineEvidence": "../final5/baseline-layout.log"
+  },
+  "releaseReady": false,
+  "manualScreenAcceptance": "Parent is verifying the exact final product App separately; prior final5 screen failure remains preserved and is not reused as a success proof."
+}

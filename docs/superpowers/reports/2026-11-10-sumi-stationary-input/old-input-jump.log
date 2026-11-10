@@ -1,0 +1,18 @@
+
+running 1 test
+test platform::candidates::tests::native_candidate_roundtrip ... candidate diagnostics focus=true accepted=true desired=true serial=2 programs=["native-tests", "net.notemd.sumi.candidate-test"] preedit="" text="" candidates=[]
+
+thread 'platform::candidates::tests::native_candidate_roundtrip' (27219) panicked at src/linux_candidates.rs:796:9:
+assertion `left == right` failed: nonfocus preedit must retain the input line position
+  left: 581
+ right: 33
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    platform::candidates::tests::native_candidate_roundtrip
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 29 filtered out; finished in 3.07s
+

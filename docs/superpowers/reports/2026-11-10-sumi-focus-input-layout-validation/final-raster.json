@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "at": "2026-11-09T18:45:30.884626+00:00",
+  "checks": 56,
+  "sourceHashes": {
+    "editor.m": "ea035a7d898baeb13b7ec070d9f1ff85e652b82f4aa61574906b30cdf7c0813f",
+    "editor.h": "13916fb953578eb366fc9f0bdaea68e06c7e52cb707e9ebb49b7e696e3750cb2",
+    "focus.h": "fc8485fd9f8bf77d22e5b53843d3681085d226bbbcb02cec641dbd7283e347b3",
+    "focus-raster-probe.m": "d47004f93add0c423c284fce4f1681d852d5d7cf4866a125364f975f47f6655f"
+  },
+  "strictCompileExit": 0,
+  "runExit": 0,
+  "binarySha256": "9490d2a1f60cdc2295fd485fb6abb22e588b828c0d44c669acfc5ba04c98f19e",
+  "compileFlags": [
+    "-fobjc-arc",
+    "-fblocks",
+    "-O2",
+    "-mmacosx-version-min=11.0",
+    "-Wall",
+    "-Wextra",
+    "-Werror"
+  ],
+  "covers": [
+    "forty identical viewport layouts and ten paints do not recapture",
+    "every published row holds immutable actual native glyph image at Retina scale with ink padding",
+    "offscreen canonical edit leaves visible slice unchanged but replaces immutable NSConcreteAttributedString shape context; old source remains unchanged and tiles recaptured",
+    "actual keyDown and full projection acknowledgements preserve body",
+    "complete native attributed marked text has all preedit characters in cached row tiles",
+    "actual firstRect equals existing mirrored candidate coordinates",
+    "one injected bitmap allocation failure stops whole focus and restores original0.63 native opacity without editing body/revision"
+  ],
+  "bitmapFailureInjection": "compile-time wrapper around actual CGBitmapContextCreate in this probe; no product test toggle",
+  "contextSource": "actual NSTextLineFragment.attributedString old/new snapshots observed NSConcreteAttributedString, distinct identity, not NSMutableAttributedString",
+  "physicalImeCandidateWindowTested": false,
+  "visibleWindowStarted": false,
+  "formalVaultAccess": false,
+  "evidence": {
+    "focus-raster.log": {
+      "bytes": 480,
+      "sha256": "a552031a88b8690065237ef6c0f666d303f072c77ccb03f7f5fb9ee9c7758668"
+    },
+    "focus.png": {
+      "bytes": 309986,
+      "sha256": "d6b78953038325521f61efa8f792563291ddb2cb05b02753b1f2b30e49065e66"
+    }
+  }
+}

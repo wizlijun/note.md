@@ -1,0 +1,12 @@
+[
+  {
+    "pid": 125410,
+    "exe": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/release-package/1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4/payload/usr/bin/notemd",
+    "sha256": "cccbc48fc8fb52b9c2b158c6cd640c4ac4633e1e0dd3a33c6e281fb6043d82e7"
+  },
+  {
+    "pid": 126041,
+    "exe": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/data/net.notemd.app/plugins/notemd.sumi/0.1.11/bin/notemd-sumi",
+    "sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb"
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "tauri-plugin-native-editor/src/lib.rs": "394bff0af376f9f98534c4f8437cf9e72566fcb2f6342ba924b0ad11e99200ff",
+  "tauri-plugin-native-editor/src/linux.rs": "dd58913d37560bcf0ff2cb375e27b0d524a0c73bddaabad46fd6306b844be895",
+  "tauri-plugin-native-editor/src/linux_focus.rs": "8e1f97d3ce5e57461204d24fe21a95d30ffb257d8f0ef655897088c2820ff316",
+  "tauri-plugin-native-editor/src/linux_rtf.rs": "dacd4e691985f42988791aa18acfdeb3bc830f0fc1cfe4d8de761eb535645dcc",
+  "vendor/tauri-runtime-wry/src/lib.rs": "e2db83734018dcf5958e57b52ed5d8757961b6f1546207e1b49a88c06937f687",
+  "vendor/tauri-runtime-wry/src/undecorated_resizing.rs": "d5e227e2496dbf9d44b0c2f4ef5817822eda2bf6f77a8ba2e92a9bbe9b6a08e8"
+}

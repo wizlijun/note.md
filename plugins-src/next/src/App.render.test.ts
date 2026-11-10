@@ -70,6 +70,7 @@ afterEach(() => {
   component = null
   document.body.innerHTML = ''
   vi.clearAllMocks()
+  vi.restoreAllMocks()
   mocks.createIdea.mockResolvedValue('inbox/ideas/new-idea.md')
   mocks.createTask.mockResolvedValue({ path: 'inbox/tasks/new-task.md', placedCurrent: false })
   mocks.updateSettings.mockResolvedValue(undefined)
@@ -208,6 +209,27 @@ function pointerDrag(itemKey: string, lane: string, pointerId = 1): void {
 }
 
 describe('Next window', () => {
+  it.each(['Linux x86_64', 'MacIntel'])('uses platform-specific creation keys and ignores consumed/IME/repeat chords on %s', platform => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(platform)
+    mocks.state.workspace = workspace()
+    component = mount(App, { target: document.body }); flushSync()
+    const apple = platform === 'MacIntel'
+    const modifier = apple ? { metaKey: true } : { ctrlKey: true }
+    expect(document.querySelector('[data-action="new-idea"]')!.getAttribute('aria-keyshortcuts')).toBe(apple ? 'Meta+N' : 'Control+N')
+    expect(document.querySelector('[data-action="new-task"] kbd')!.textContent).toBe(apple ? '⇧⌘N' : 'Ctrl+Shift+N')
+    for (const init of [
+      apple ? { ctrlKey: true } : { metaKey: true }, { ...modifier, altKey: true },
+      { ctrlKey: true, metaKey: true }, { ...modifier, repeat: true },
+      { ...modifier, isComposing: true }, { ...modifier, keyCode: 229 },
+    ]) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', ...init, cancelable: true }))
+    const consumed = new KeyboardEvent('keydown', { key: 'n', ...modifier, cancelable: true })
+    consumed.preventDefault(); window.dispatchEvent(consumed); flushSync()
+    expect(document.querySelector('[data-form="create-idea"],[data-form="create-task"]')).toBeNull()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', ...modifier, cancelable: true })); flushSync()
+    expect(document.querySelector('[data-form="create-idea"]')).toBeTruthy()
+    expect(document.querySelector('[data-form="create-task"]')).toBeNull()
+  })
   it('opens Task completion with a multiline note and preserves one operation through a failed completion retry', async () => {
     const next = workspace()
     const task: WorkspaceItem = { ...next.capture[0], kind: 'task',
@@ -487,7 +509,7 @@ describe('Next window', () => {
     expect(document.querySelector('[role="menu"]')).toBeTruthy()
 
     document.querySelector('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'n', metaKey: true, shiftKey: task, bubbles: true, cancelable: true,
+      key: 'n', ctrlKey: true, shiftKey: task, bubbles: true, cancelable: true,
     }))
     flushSync()
 
@@ -924,13 +946,13 @@ describe('Next window', () => {
     ))
   })
 
-  it('opens New Task with Shift-Command-N without changing the New Idea shortcut', () => {
+  it('opens New Task with Control-Shift-N without changing the New Idea shortcut', () => {
     mocks.state.workspace = workspace()
     component = mount(App, { target: document.body })
     flushSync()
 
     window.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'n', metaKey: true, shiftKey: true, bubbles: true, cancelable: true,
+      key: 'n', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
     }))
     flushSync()
     expect(document.querySelector('[data-form="create-task"]')).toBeTruthy()
@@ -1155,7 +1177,7 @@ describe('Next window', () => {
     component = mount(App, { target: document.body })
     flushSync()
 
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', metaKey: true, bubbles: true, cancelable: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', ctrlKey: true, bubbles: true, cancelable: true }))
     flushSync()
     const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="idea"]')!
     textarea.value = '不要丢掉我'

@@ -1,0 +1,16 @@
+
+running 1 test
+test platform::tests::native_wayland_transactions ...
+thread 'platform::tests::native_wayland_transactions' (42919) panicked at src/linux.rs:2647:13:
+assertion `left == right` failed: native subsurface follows the GTK overlay's changed position
+  left: (54, 123)
+ right: (84, 123)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    platform::tests::native_wayland_transactions
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out; finished in 13.07s

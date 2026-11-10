@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "tests": 10,
+  "networkWritesPerformed": false,
+  "testsUseMockNetworkAndSyntheticPackage": true,
+  "files": {
+    "publish-plugin.py": "101498d72cd160331b8a093cf2b3c644458b59dfbb1f22eda958a4a6bbb456e6",
+    "test_publish_plugin.py": "2be79bab83d949b1c5daa5db5c2fb7620649169189a747b7a2137b84334b26e8",
+    "PLUGIN-PUBLISHING.md": "7ae00373b109f34ab062ffa5030e877524e49049b0fc0930ca1c0bff70082f05"
+  }
+}

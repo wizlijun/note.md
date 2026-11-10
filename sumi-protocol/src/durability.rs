@@ -48,6 +48,25 @@ pub struct PublishedBaseline {
     pub revision: u64,
     pub hashes: Baseline,
 }
+/// Captured in one SQLite/projection owner job. Never combine its baseline with
+/// a later filesystem read: the worker may publish another revision immediately.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PageObservation {
+    pub loaded: Loaded,
+    pub baseline: Option<PublishedBaseline>,
+    pub files: ObservedFiles,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum ObservedFiles {
+    Unwritten,
+    Published { pair: FilePair },
+    /// Each file exactly matches the durable pending job's prior or next bytes.
+    /// This can be an interrupted two-file write; it is not an external import.
+    Pending,
+    External { pair: FilePair },
+    Unavailable { error: String },
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionIdentity {
     pub path: String,
@@ -94,6 +113,7 @@ pub struct IncomingReceipt {
 pub enum Request {
     Create(Create),
     Load { page_id: String },
+    ObservePage { page_id: String },
     CommitLocal(LocalEdit),
     CommitRemote { incoming: PendingUpdate, generation: u64, revision: u64 },
     Flush,

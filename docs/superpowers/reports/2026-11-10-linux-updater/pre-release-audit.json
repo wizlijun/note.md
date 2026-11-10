@@ -1,0 +1,25 @@
+{
+  "worktrees": [
+    {
+      "path": "/home/bruce/git/note.md",
+      "head": "04134696a2d4f0daeae7d28a433b7f9bf1d20d55",
+      "status": "M CHANGELOG.md\n M CHANGELOG.zh-CN.md\n M src/components/SettingsDialog.search-tab.test.ts\n M src/components/SettingsDialog.svelte\n M src/components/UpdateDialog.svelte\n M src/lib/i18n/de.ts\n M src/lib/i18n/en.ts\n M src/lib/i18n/ja.ts\n M src/lib/i18n/zh.ts\n M src/lib/updater.svelte.ts\n M src/lib/updater.test.ts\n?? docs/superpowers/specs/2026-11-10-linux-update-detection.md\n?? src/components/UpdateDialog.test.ts\n?? src/lib/linux-updates.test.ts\n?? src/lib/linux-updates.ts"
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-candidates",
+      "head": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+      "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+      "status": "?? node_modules"
+    }
+  ],
+  "stash": "",
+  "unmerged_branches": "+ sumi-fcitx-candidates",
+  "candidate_patch_equivalence": "- cf000db2d324a836a14cc4e05a6da584ec7531ba",
+  "core_head": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "core_status": "",
+  "scope": "Only updater/UI/i18n/spec/changelog changes in main are in scope. Candidate documentation commit is patch-equivalent; old detached build node_modules is a build artifact. No stash. Sumi source and published plugin unchanged."
+}

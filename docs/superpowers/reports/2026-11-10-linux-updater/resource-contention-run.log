@@ -1,0 +1,44 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md
+
+2:44:45 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+2:44:46 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+ ❯ src/lib/updater.test.ts (9 tests | 2 failed) 6665ms
+     × package-manager checks Linux releases with an isolated cache and opens downloads without self-install 5083ms
+     × automatically detects a Linux update after startup delay 716ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > package-manager checks Linux releases with an isolated cache and opens downloads without self-install
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/lib/updater.test.ts:45:3
+     43|
+     44| describe('distribution updater policy', () => {
+     45|   it('package-manager checks Linux releases with an isolated cache and…
+       |   ^
+     46|     const api = await import('./updater.svelte')
+     47|     await api.initUpdater()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/lib/updater.test.ts > distribution updater policy > automatically detects a Linux update after startup delay
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ src/lib/updater.test.ts:75:18
+     73|     await vi.advanceTimersByTimeAsync(1500)
+     74|     await initializing
+     75|     expect(http).toHaveBeenCalledTimes(1)
+       |                  ^
+     76|     expect(api.updater.state).toBe('available')
+     77|     expect(api.shouldShowBanner()).toBe(true)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  2 failed | 302 passed (304)
+   Start at  14:44:36
+   Duration  61.47s (transform 21.48s, setup 0ms, import 23.76s, tests 112.67s, environment 7.05s)
+

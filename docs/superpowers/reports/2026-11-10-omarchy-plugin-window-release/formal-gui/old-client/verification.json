@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "old_client_tag": "v6.1110.3",
+  "old_client_commit": "a64353c72ffe930de5ff90923b457e1d15360bef",
+  "old_deb_sha256": "e9945737d9dae0155fb46fe1a30f93450652f212f1877f600abcf8fef8a8fd29",
+  "running_host_sha256": "194c15a9b78f0524a2bebc341be97a83455028d3d14b64740a22931c421022c6",
+  "official_old_sumi_version": "0.1.11",
+  "official_old_plugin_payload_unchanged": true,
+  "discovered_public_version": "6.1110.4",
+  "native_http_mocked": false,
+  "version_mocked": false,
+  "fresh_private_cache": true,
+  "startup_cache": {
+    "check_on_startup": true,
+    "dismissed_version": null,
+    "last_check_succeeded": true,
+    "last_checked_at": "2026-11-10T09:38:20.271Z",
+    "latest_version_seen": "6.1110.4"
+  },
+  "manual_native_menu_force_fresh_cache": {
+    "check_on_startup": true,
+    "dismissed_version": null,
+    "last_check_succeeded": true,
+    "last_checked_at": "2026-11-10T09:39:18.894Z",
+    "latest_version_seen": "6.1110.4"
+  },
+  "canonical_url": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.4",
+  "native_opener_handoff_real": true,
+  "external_browser_boundary": "Only the test process PATH xdg-open handler records the final URL; no real user browser opened. Native HTTP and version discovery run unmodified.",
+  "installed_or_restarted_by_updater": false,
+  "old_client_stayed_6_1110_3": true,
+  "user_cache_or_config_modified": false,
+  "private_host_stopped": true,
+  "private_fixture_stopped": true
+}

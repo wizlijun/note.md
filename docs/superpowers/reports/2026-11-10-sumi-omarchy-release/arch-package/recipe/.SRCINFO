@@ -1,0 +1,24 @@
+pkgbase = notemd
+	pkgdesc = Markdown reader and editor for people and AI agents working on the same files
+	pkgver = 6.1110.2
+	pkgrel = 1
+	url = https://notemd.net
+	arch = x86_64
+	license = Apache-2.0
+	makedepends = libarchive
+	depends = webkit2gtk-4.1
+	depends = gtk3
+	depends = libsecret
+	depends = libpulse
+	depends = fontconfig
+	depends = libayatana-appindicator
+	depends = git
+	depends = xdg-utils
+	depends = hicolor-icon-theme
+	noextract = note.md_6.1110.2_amd64.deb
+	options = !debug
+	options = !strip
+	source_x86_64 = note.md_6.1110.2_amd64.deb::https://github.com/wizlijun/note.md/releases/download/v6.1110.2/note.md_6.1110.2_amd64.deb
+	sha256sums_x86_64 = 0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976
+
+pkgname = notemd

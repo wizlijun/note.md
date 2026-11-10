@@ -1,0 +1,71 @@
+{
+  "base_commit": "b7ad374ab64cbda0168686930627366deb5dbf41",
+  "source_sha256": {
+    "tauri-plugin-native-editor/src/linux.rs": "a16c45d13aa43e72612a4a54d92ffdc66b0dc873b9a4c539bf86ce8385bb545e",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "ef316d3376accc047cb4ca6caad58d3b60471b58af41935b0cfd80dc0c5e5ba4",
+    "tauri-plugin-native-editor/src/linux_candidates.rs": "6061987f7738d668e8a1cab049c302e25db7548e250556b9052a5cb0ed2f3e89",
+    "tauri-plugin-native-editor/src/linux_candidates_layout.rs": "7c771e979d14e9d7933e96e2d768ea95731b92f7de59ffc55166f3da3cb8f0db",
+    "scripts/sumi/fcitx-candidates/run-native.py": "b47b1d576e12b29ba67ee61718dd1ed7dce9ecd9e99830bfd7a59a622b26309b"
+  },
+  "test_binary_sha256": "abcd2bfaca3c7e465fc4a6850ee2adecb8e02331d0fbcc8d463d9dce2025d2fa",
+  "addon_source": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+  "tests": {
+    "ordinary": 26,
+    "candidate_1x": 1,
+    "candidate_4x": 1,
+    "glyph": 1,
+    "transactions": 1,
+    "damage": 1
+  },
+  "red": {
+    "before_input_y": 33,
+    "old_preedit_y": 581
+  },
+  "regression": {
+    "CSD_titlebar": true,
+    "bounds_origin": [
+      12,
+      18
+    ],
+    "body_height": 650,
+    "scrolled_document_lines": 40,
+    "middle_selection": 100,
+    "candidate_rows": [
+      1,
+      4,
+      0
+    ],
+    "real_preedit_and_commit": "nihao -> 你好 at original middle selection",
+    "unchanged_metrics": [
+      "caret Y",
+      "scroll adjustment",
+      "viewport allocation",
+      "selection during candidate-only changes"
+    ]
+  },
+  "four_x_final_duration_seconds": 65.83,
+  "test_keyboard_lifetime_seconds": 120,
+  "runner_test_deadline_seconds": 90,
+  "notes": [
+    "1x/glyph/transaction/damage logs precede only the test keyboard lifetime change; production implementation unchanged",
+    "4x completed beyond old 60-second keyboard lifetime after fixture fix",
+    "Candidate overlap hides only independent caret painting, never changes the input selection or scroll"
+  ],
+  "files_sha256": {
+    "README.md": "afe2ff7fe0eedfb2cf4b5d2336253ae53d945f63629dfb38ad1ba483733700e1",
+    "old-input-jump.log": "edc0101d70c32f13ce535323aedd15e13c7ef960483a5c03f84b45cb426d5841",
+    "candidate-1x.log": "5a90406ab2b96e6dc71d250e10ac3754f2c4aab8a44d11d3ed45c7fb0ce91135",
+    "keyboard-expiry-4x.log": "a10fb51dabacfebc26fcfad447696e1be8970b0583d30c31b80220ae59d17f5b",
+    "ordinary.log": "f65ba8ec8f837ccdf09d084aa35ff3065e665ab9dd72a6d0da725f23ebe309e1",
+    "caret.log": "9292823e0da815197f4b74009b8f58daf947927091a3b89e06a59c6c6107a751",
+    "transactions.log": "98ac4f82a67ead260ca41daea7f5cc54d7427a7a8f3e633074c003b4760ac0b4",
+    "damage.log": "247680a75c5122bcea261048f49bb7640d881eaae29842d927560f76eaed0d1a",
+    "nonfocus-middle-preedit.png": "7f12972c6ce8c5c74717c5091a09ebd7a10a5359c26eb046e1a3db1fe25b6362",
+    "nonfocus-four-rows.png": "49611d9d8bcb9687075dbf14a37bdbe95fc4baf78eb5b7cc89910d7998664751",
+    "focus-four-rows.png": "83642026272d28c5a55540b569c47519cebdd70abafec65eb6426ced6154a12d",
+    "candidate-4x.log": "be816f2967522d7f683fcaf3853a71a4a2e12cb80e82407830bb826db787dc5f",
+    "build.log": "4c08061c7bb2f2b686b0efa6d13d1384c2b4b753785035bc6061e38065150c11"
+  },
+  "installed": false,
+  "published": false
+}

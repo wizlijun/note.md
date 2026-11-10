@@ -1,0 +1,321 @@
+{
+  "draft": false,
+  "status": "published_and_verified_macos_arm64",
+  "preparedSource": "3ac51d342ad8d879549abf8d36f62d2c49234449",
+  "base": "0e72197d9ed1f602b324cbec0be55d3fb549fb40",
+  "host": {
+    "version": "6.1109.4",
+    "tag": "v6.1109.4",
+    "tagCommit": "b55a6d0f42b4e948db3d22810be632249668d573",
+    "published": true,
+    "publishedAt": "2026-11-09T15:45:52Z",
+    "dmg": {
+      "path": "/tmp/note.md-6.1109.4-aarch64.dmg",
+      "bytes": 14296231,
+      "sha256": "4ada0afafe8390bcde19f62e5efa76e760e1f202120c6295f25668d9bdaac437",
+      "mach_o_sha256": "b67f8d77d8f515ab318471cb97ff0f7ea00707e141d65d9025fea658f8cb98fe",
+      "mach_o_bytes": 22004336,
+      "app_version": "6.1109.4",
+      "app_identifier": "net.notemd.app",
+      "candidate_and_updater_byte_identical": true,
+      "mount_readonly": true,
+      "detached_device": "/dev/disk8s1"
+    },
+    "updater": {
+      "path": "/tmp/note.md-aarch64.app.tar.gz",
+      "bytes": 14370144,
+      "sha256": "c8d4afb17aa0ee919aa3f749ae14f492ea89149f6b4898a450234364d0fdf869",
+      "identity": {
+        "CFBundleIdentifier": "net.notemd.app",
+        "CFBundleShortVersionString": "6.1109.4",
+        "CFBundleExecutable": "notemd"
+      },
+      "signature": {
+        "path": "/tmp/note.md-aarch64.app.tar.gz.sig",
+        "bytes": 416,
+        "sha256": "955cf710576bc53fdd1a465c026e7a31d4ed334b038d87265f69ba06d13361e0"
+      }
+    },
+    "localArtifactVerification": {
+      "ok": true,
+      "evidence": "artifact-verification.json"
+    },
+    "draftFourAssetVerification": {
+      "status": "passed",
+      "count": 4,
+      "evidence": "draft-assets-verification.json"
+    },
+    "publicFullRestVerification": {
+      "status": "passed",
+      "anonymousFullFileDownload": true,
+      "assets": 4,
+      "entireUpdaterSignatureVerified": true,
+      "evidence": "public-host-full-rest-verification.json"
+    },
+    "actualUpdaterVerification": {
+      "ok": true,
+      "endpoints": [
+        {
+          "endpoint": "https://github.com/wizlijun/note.md/releases/latest/download/latest.json",
+          "http": 200,
+          "version": "6.1109.4",
+          "sha256": "bf98211f7d3fff815a07ffe03ba0531b062a2900b8ce8add4d0e430e9754df5d",
+          "matchesSignedReleaseManifest": true,
+          "anonymous": true
+        }
+      ],
+      "signatureVerified": true,
+      "restFallbackUsed": false,
+      "evidence": "actual-updater-endpoints.json"
+    },
+    "notaryBinding": {
+      "path": "host-apple-notary-binding.json",
+      "appAccepted": true,
+      "dmgAccepted": true,
+      "appBinarySha256": "b67f8d77d8f515ab318471cb97ff0f7ea00707e141d65d9025fea658f8cb98fe",
+      "appCdhash": "e824f17f05b2f61f54ecec8c889fdba283f32a63",
+      "appTicketBindsFinalCDHash": true,
+      "appLocalArchiveHashIndependentlyVerified": false,
+      "dmgBytes": 14296231,
+      "finalDmgSha256": "4ada0afafe8390bcde19f62e5efa76e760e1f202120c6295f25668d9bdaac437",
+      "submittedArchiveSha256": "b2c0ce64b02711eef499b6ac87ba620b8f606504219a4298a54a34faba638ea0",
+      "appleArchiveSha256MatchesUnstapledBundle": true,
+      "submittedAndFinalCDHashIdentical": true,
+      "appleTicketBindsDMGAndAppCDHash": true,
+      "staplerValidatePassed": true,
+      "codesignStrictPassed": true,
+      "readOnly": true,
+      "submitted": false
+    },
+    "releaseUrl": "https://github.com/wizlijun/note.md/releases/tag/v6.1109.4",
+    "draftFullTarMinisignVerification": {
+      "status": "passed",
+      "evidence": "draft-updater-signature-verification.json"
+    }
+  },
+  "plugin": {
+    "id": "notemd.sumi",
+    "version": "0.1.9",
+    "arch": "aarch64-apple-darwin",
+    "minimumHost": ">=6.1109.4",
+    "bytes": 2465880,
+    "sha256": "db732283cb0e51994e9f03b5b38892a751f464e8929dc86df3e67484167950af",
+    "appleAccepted": true,
+    "appleSubmissionId": "9a8e3eb0-022a-4e55-ab9c-353a28dd76ee",
+    "published": true,
+    "marketBeforeCount": 306,
+    "marketAfterCount": 307,
+    "marketIndependentVerification": {
+      "ok": true,
+      "historicalEntriesUnchanged": true,
+      "kvNormalFreshExactlyEqualCandidate": true,
+      "onlyAdded": "notemd.sumi@0.1.9",
+      "publisherNormalFreshFullReadback": true,
+      "independentRecheckedPreservedFullObjects": true,
+      "independentPostPublicationPackageNetworkDownloads": false,
+      "evidence": "plugins-market-independent-verification.json"
+    }
+  },
+  "scope": [
+    "retain centered native focus during ordinary Up/Down visual-line navigation",
+    "whole visible page scrolls in the inverse direction by actual native visual-line spacing",
+    "ready empty document prepares centered first line/caret before initial typing",
+    "first characters, Return, resize and explicit empty projections retain centered geometry",
+    "preserve idle10s/1.2s reveal/200ms resume, glyph sizes, typography and P0 protection"
+  ],
+  "validation": {
+    "nativeAssertions": 3654,
+    "nativeRegressionGroups": 10,
+    "fontPresets": 6,
+    "themes": 6,
+    "fontSizes": [
+      14,
+      22,
+      46
+    ],
+    "uiTests": 101,
+    "signedProcessSuites": [
+      {
+        "suite": "signed-stdio",
+        "passed": 2,
+        "exitCode": 0
+      },
+      {
+        "suite": "host-journal-crash",
+        "passed": 13,
+        "exitCode": 0
+      },
+      {
+        "suite": "signed-host-proxy",
+        "passed": 1,
+        "exitCode": 0
+      }
+    ],
+    "actualProbeBinarySha256": "cead3106712606797b044578706ee6b7b7b8c374fb5c90dda207c12043702b0a",
+    "sourceHashes": {
+      "editor.m": "4cdafe8902f28447e7b9c6323729bd5eb355b0d3e1fca90e8e46b6d8daa9769a",
+      "focus.h": "63a5efa0751fa2d703ad22f5b75870c3ee90f2ec352d3d8893246ba81cb72518",
+      "focus-probe.m": "567a57d741241c7794cd9f14212fdb8f5be5dab3cf5070faf1a18a991d5f54a0",
+      "focus-interactive-probe.m": "3fd21dea440dca8852d54919de14a26269d21b0e7598c39d4b690d04b50625c5"
+    },
+    "fullOfficialReleaseTests": {
+      "status": "passed",
+      "releaseTag": "v6.1109.4",
+      "releaseCommit": "b55a6d0f42b4e948db3d22810be632249668d573",
+      "releaseExitCode": 0,
+      "frontEnd": {
+        "testFiles": 427,
+        "passed": 5551,
+        "failed": 0
+      },
+      "svelteCheck": {
+        "errors": 0,
+        "warnings": 31
+      },
+      "rustTargetedTestSummaries": [
+        "25 passed; 0 failed; 0 ignored; 0 measured; 1442 filtered out; finished in 0.07s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s",
+        "2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+        "0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s",
+        "3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "sourceLogSha256": "efad81f85196fef1651fdc82a1177c84f93dda153b1c8ab0a365ca847c2532a0",
+      "scope": "Exact test summaries extracted from this formal release log; not a claim of full unfiltered Rust coverage."
+    }
+  },
+  "scopeAudit": {
+    "repositoryCount": 14,
+    "root19OriginalBytesPreserved": true,
+    "allStashesEmpty": true,
+    "p0StorageFileCount": 65,
+    "p0UnchangedFromBase": true
+  },
+  "evidence": {
+    "native-arrow-focus-verification.json": {
+      "bytes": 3567,
+      "sha256": "7843233c1baca516def6619451de4d40d008c6b89b33794387dcc9c410aaf2a9"
+    },
+    "cua-arrow-verification.json": {
+      "bytes": 1478,
+      "sha256": "a8dfd5b31627bcf1a5cf993e958c304e1af9c5efdd3fcf733e620d03ad0068b2"
+    },
+    "preferences-ui-verification.json": {
+      "bytes": 3757,
+      "sha256": "ff83df644459e65551404797c24c68304236cb4ba0b4b89ce8cfa09246fd50d0"
+    },
+    "actual-native-process-probe.json": {
+      "bytes": 4956,
+      "sha256": "0223fa7a96ebd70a16216221b5547aac76a3ab417341b8e5da373e77a81dc8f4"
+    },
+    "frozen-plugin-packages.json": {
+      "bytes": 7258,
+      "sha256": "590cdc090374951dfb7e398b6bfbbb9af2a5e599685c2c0d85db66f53eba064b"
+    },
+    "postcommit-scope-audit.json": {
+      "bytes": 67231,
+      "sha256": "a6a93422e33217993528cc96b16590b94e7c6a6e07a9bab63dc101bd5c19e7d3"
+    },
+    "host-app-apple-notary-log.json": {
+      "bytes": 736,
+      "sha256": "f27bc06363f2b72028673c750e6e7c976b48b904182f360bc2f78a7eba7f29f8"
+    },
+    "host-dmg-apple-notary-log.json": {
+      "bytes": 941,
+      "sha256": "047be2a825d9784d785c3398151bf1bbdf484ced4acd5d668cfec253022e2607"
+    },
+    "host-apple-notary-binding.json": {
+      "bytes": 2602,
+      "sha256": "9b253a8b588771c064806cf5fde18ed02b350d39839e63595a599700a62aa861"
+    },
+    "artifact-verification.json": {
+      "bytes": 135412,
+      "sha256": "bd8d890b75307869c22b5cbd13e4cb5bc7051f812d64ccc2574717cf5f75857d"
+    },
+    "draft-assets-verification.json": {
+      "bytes": 2370,
+      "sha256": "6d4ea0e258a428b92a4f62dd89b36a3142a785ec5e3616a775594b369541fde9"
+    },
+    "draft-updater-signature-verification.json": {
+      "bytes": 958,
+      "sha256": "06035de4fbae80bc7dea310af2af868b975f43abf89c0f9f61704e6887684897"
+    },
+    "public-host-full-rest-verification.json": {
+      "bytes": 10953,
+      "sha256": "2f469709eedc8dc5c2b7a2e72cb7d6f6bf137127bd3517ae970fc0960cc4891e"
+    },
+    "actual-updater-endpoints.json": {
+      "bytes": 830,
+      "sha256": "79ceeebc0b2b7bc1e13681d2206ba1c8d0e18c232545361dc125a44128e8ec6a"
+    },
+    "plugins-index-verification.json": {
+      "bytes": 2137,
+      "sha256": "04946e633b06b0ac86c24ee3e8b60b801dbf08fcb86656886638fdc5ee5de75d"
+    },
+    "plugins-market-independent-verification.json": {
+      "bytes": 4360,
+      "sha256": "4f8ac31e20e2ebb94b5ed077cde214d4652b43aa699ba30e1a9cceb8b8563c32"
+    },
+    "plugins-public-packages.json": {
+      "bytes": 1050,
+      "sha256": "ceb733dc88bd1fc1b2dc616fc2f49bbbb44d67ae085d567d00f7c3390641243a"
+    },
+    "plugin-host-gate-release.json": {
+      "bytes": 8578,
+      "sha256": "2ab11e4c590ec4dd120820ab8bb8422d700db5663af42627daddc4c15ba5d7a9"
+    },
+    "plugin-host-gate-endpoint.json": {
+      "bytes": 236,
+      "sha256": "3441e6b29b0256e9ea99856bc11ab987214faa3c20d2a189c82c328c960cf9f3"
+    },
+    "host-release-result.json": {
+      "bytes": 572,
+      "sha256": "e90dc394aae21d5e93e000d5cc7a781640a40a1349d3a9bc7a1459d7058b907d"
+    },
+    "host-release-tests.json": {
+      "bytes": 2554,
+      "sha256": "0d5d77518fa42caf7b9dbfc1420c9817cd608b15ea2e607f50ec1d513f6a06fa"
+    },
+    "plugin-r2-stage-complete.json": {
+      "bytes": 877,
+      "sha256": "4b9546a62b4abea1662ac99ccb733bfdd998abb5c52c7e4bdf02fcb9d12d242f"
+    }
+  },
+  "omarchy": {
+    "published": false,
+    "status": "separate task; no Linux or Omarchy release claim in this macOS draft"
+  },
+  "boundaries": [
+    "CUA used only synthetic memory text, not production Vault data",
+    "Probe Cmd+N did not clear fixture; explicit New Blank Page menu action verified empty projection; no production shortcut failure claimed",
+    "Native mount second argument selects webview sibling placement, not readonly; readonly test uses NSTextView.editable plus actual protected draft path",
+    "Physical Chinese IME candidate window and complete production-host interactive acceptance remain untested",
+    "No claim that the agent automatically installed 0.1.9 on the user computer",
+    "Original App notary ZIP was cleaned; local archive SHA was not independently reverified. Final App is bound by arm64 CDHash and formal Apple ticketContents; unstapled DMG archive SHA is verified separately from final stapled bytes.",
+    "Public assets were anonymously downloaded through exact REST asset endpoints; actual configured updater manifest endpoint was independently verified. No additional browser-route full-package download is claimed.",
+    "Independent market audit rechecked publisher-preserved full package objects and authoritative KV/public indices; it did not perform a second network download of every package."
+  ],
+  "verifiedAtUtc": "2026-11-09T15:48:34.209720+00:00",
+  "reportCommit": {
+    "reference": "git history for this report; exact commit is recorded in task completion log",
+    "releaseTagMoved": false
+  }
+}

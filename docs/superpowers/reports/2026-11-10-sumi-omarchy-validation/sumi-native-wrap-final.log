@@ -1,0 +1,24 @@
+   Compiling tauri-plugin-native-editor v0.1.0 (/home/bruce/git/note.md/tauri-plugin-native-editor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.48s
+     Running unittests src/lib.rs (tauri-plugin-native-editor/target/debug/deps/tauri_plugin_native_editor-5d351a11bdcbcbdd)
+
+running 1 test
+test platform::tests::native_wayland_damage ... MESA-EGL: warning: failed to get driver name for fd -1
+MESA-EGL: warning: MESA-LOADER: failed to retrieve device information
+MESA-EGL: warning: failed to get driver name for fd -1
+wrap bounds=800 scroll=800 view=800 mode=WordChar rows=13 margins=24,24
+wrap bounds=400 scroll=792 view=792 mode=WordChar rows=14 margins=24,24
+
+thread 'platform::tests::native_wayland_damage' (39029) panicked at src/linux.rs:1888:13:
+assertion failed: surface.view.allocated_width() <= width as i32
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    platform::tests::native_wayland_damage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out; finished in 12.62s
+
+error: test failed, to rerun pass `--lib`

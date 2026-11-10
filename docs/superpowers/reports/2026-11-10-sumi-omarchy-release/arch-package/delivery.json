@@ -1,0 +1,13 @@
+{
+  "frozen_assets_sha256": {
+    "notemd-6.1110.2-1-x86_64.pkg.tar.zst": "81dc102b1118fb8bcc1c33434923c59a65c96c58b2d2571cc03eaede3106ae2c",
+    "notemd-6.1110.2-1-omarchy-recipe.tar.gz": "73906b30c8481b1922e9aeef91dbdfbb4d4271bf002c3bae916dccde67fee2fe",
+    "omarchy-6.1110.2-verification.json": "812c418b057b2ae781f37e2f81083d6811bad7faa15a2bb77670ca4148bc582a",
+    "SHA256SUMS-omarchy.txt": "02d84cc423ddcda94448dbe792fb2443f986b196622c162a4e5667572c8d7b86"
+  },
+  "verification_phase": "Prepublication artifact validation; this record does not claim upload/public readback.",
+  "installed": false,
+  "uploaded_by_auditor": false,
+  "original_script_sha256": "6a8356eb08b7d87badd329cfe451200a51d73c70c657d9ef15903e04b050ff50",
+  "arch_binary_sha256": "cccbc48fc8fb52b9c2b158c6cd640c4ac4633e1e0dd3a33c6e281fb6043d82e7"
+}

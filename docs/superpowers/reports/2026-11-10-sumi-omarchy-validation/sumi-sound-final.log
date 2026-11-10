@@ -1,0 +1,28 @@
+    Finished `test` profile [unoptimized] target(s) in 0.40s
+     Running unittests src/lib.rs (plugins-src/write/backend/target/debug/deps/notemd_sumi_backend-f05da0436abec6c8)
+
+running 10 tests
+test sound::tests::linux_output_opens_and_stops_without_playing_samples ... ignored, requires local PulseAudio/PipeWire Pulse; opens a silent stream only
+test sound::platform::tests::overlapping_voices_mix_and_stop_is_immediate_in_mixer ... ok
+test sound::platform::tests::rejects_truncated_and_non_pcm_audio ... ok
+test sound::tests::malformed_requests_and_unknown_roles_are_rejected_without_starting_audio ... ok
+test sound::platform::tests::rapid_feedback_has_a_fixed_voice_budget ... ok
+test sound::tests::tampered_asset_is_rejected_before_audio_engine_creation ... ok
+test sound::tests::sessions_tokens_disable_and_stop_fence_audio_without_touching_documents ... ok
+test sound::tests::bundled_banks_are_verified_and_release_does_not_fall_back_to_press ... ok
+test sound::tests::missing_release_sample_is_silent_and_thock_release_is_a_real_sample ... ok
+test sound::tests::real_audio_decodes_renders_overlap_and_stops_without_system_playback ... ok
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 104 filtered out; finished in 0.06s
+
+     Running unittests src/main.rs (plugins-src/write/backend/target/debug/deps/notemd_sumi-8b84491f08c05878)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/stdio.rs (plugins-src/write/backend/target/debug/deps/stdio-d6efedabbea15320)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s

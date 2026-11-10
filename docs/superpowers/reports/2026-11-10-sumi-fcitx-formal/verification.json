@@ -1,0 +1,135 @@
+{
+  "tag": "v6.1110.2",
+  "commit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+  "artifact_provenance": {
+    "tag": "v6.1110.2",
+    "commit": "1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4",
+    "host_version": "6.1110.2",
+    "plugin_version": "0.1.11",
+    "host_binary": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/release-package/1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4/payload/usr/bin/notemd",
+    "host_binary_sha256": "cccbc48fc8fb52b9c2b158c6cd640c4ac4633e1e0dd3a33c6e281fb6043d82e7",
+    "deb": "/home/bruce/git/note.md/tasks/sumi-release-final/assets/note.md_6.1110.2_amd64.deb",
+    "deb_sha256": "0ae726211c3059b1bcfc892b904cf29ea50d8790106fedabc6a4a8b87f375976",
+    "plugin": "/home/bruce/git/note.md/tasks/sumi-plugin-release-0.1.11/output/notemd.sumi/0.1.11/x86_64-unknown-linux-gnu.notemdpkg",
+    "plugin_sha256": "b5f6347e84e30709eb429a02fbdcb58b9313c4901cea27ce9b832b0eb4a6bbb8",
+    "signature_sha256": "7c5e0ad6e533a9b4c674ff961c974996fa5ae085f5393519700b4ac8d5a2665a",
+    "public_key": "RWSp4F+TVeWvKxkXXQIfd9pceHoU1UGBbDCC2BYOtOjeUdtf2X+YG2WT",
+    "signature_verification": "Signature and comment signature verified\nTrusted comment: timestamp:1794288025\tfile:x86_64-unknown-linux-gnu.notemdpkg\thashed\n",
+    "plugin_directory": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/data/net.notemd.app/plugins/notemd.sumi/0.1.11",
+    "plugin_files_sha256": {
+      "manifest.json": "409537091f56e991444431aa935268bdbc33ad9295aa58cd3d01cad04268152a",
+      "bin/notemd-sumi": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+      "ui/index.html": "1c251ba7ff932c049e5c8aae9494bdd3463815304c16f19833e73a3a08ba19bc",
+      "resources/sounds/manifest.json": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+      "resources/sounds/provenance.json": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793",
+      "resources/sounds/thock/thock-click-1.wav": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca",
+      "resources/sounds/thock/thock-delete-1.wav": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+      "resources/sounds/thock/thock-enter-1.wav": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+      "resources/sounds/thock/thock-keys-1.wav": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+      "resources/sounds/thock/thock-modifier-1.wav": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+      "resources/sounds/thock/thock-release-1.wav": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+      "resources/sounds/thock/thock-space-1.wav": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+      "resources/sounds/typewriter/typewriter-delete-1.wav": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+      "resources/sounds/typewriter/typewriter-enter2-1.wav": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+      "resources/sounds/typewriter/typewriter-keys-1.wav": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+      "resources/sounds/typewriter/typewriter-modifier-1.wav": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+      "resources/sounds/typewriter/typewriter-space-1.wav": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974",
+      "ui/sumi/CRT-PROVENANCE.json": "a467c8a02478b57bc77e565671f2844a9e32dc53c21954d31e03d9f347ddcd7a",
+      "ui/sumi/IBMPlexMono-OFL.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+      "ui/sumi/IBMPlexSansSC-LICENSE.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+      "ui/sumi/LXGWWenKaiMonoLite-OFL.txt": "0333a85fe077b6849f8e417acc44e8bd879442ceb681e271acf93e2d57fd4e2e",
+      "ui/sumi/TerryWang-Official-License.json": "7576016d1e19d570bc7e2b9fcfb6d9aa09db4e91fe22c6f9d51b26fba555d14e",
+      "ui/sumi/TerryWang-Typewriter-LICENSE.txt": "e10018469969e87b2186920d01ceb2b511ce3685496c99ceb5675d0b38e90ac5",
+      "ui/sumi/TerryWang-Typewriter-PROVENANCE.json": "b354788ea1a12a4676ea1fbb2c8af2af1b784acb5297261fdd89638f9c83f100",
+      "ui/sumi/Unifont-OFL.txt": "869692af094c57fb7258c57fe26820c759319603321d0ffeb278de3651763ded",
+      "ui/sumi/ZhuqueFangsong-LICENSE.txt": "66cc01ad4df62fca6936431a426104cb32a52ce8da49de9a7d643e02d7659043",
+      "ui/sumi/manifest.json": "78190a4b2948acea82faf18313d1d84a09fa4f6e3dddbc050635a4fe42af46a3",
+      "ui/assets/index-C-zoi2R2.css": "d8373f6cc7791b224d705ae00579db2aaf101fd95d635a7e580e887ab342cb27",
+      "ui/assets/index-Zdi9alHM.js": "881a6c11826152175cf4d969152929e4e26e0b3fa81f5c433939dbad4a6f3507"
+    },
+    "system_installed": false,
+    "gui_passed": true
+  },
+  "actual_processes": [
+    {
+      "pid": 125410,
+      "exe": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/release-package/1dc72c9b2f5465c0bb9e94be2cdfcbed597bbee4/payload/usr/bin/notemd",
+      "sha256": "cccbc48fc8fb52b9c2b158c6cd640c4ac4633e1e0dd3a33c6e281fb6043d82e7"
+    },
+    {
+      "pid": 126041,
+      "exe": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/data/net.notemd.app/plugins/notemd.sumi/0.1.11/bin/notemd-sumi",
+      "sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb"
+    }
+  ],
+  "fcitx_process": {
+    "name": "fcitx",
+    "pid": 125357,
+    "start_time": "545067",
+    "command": [
+      "fcitx5",
+      "--keep",
+      "--disable",
+      "all",
+      "--enable",
+      "dbus,dbusfrontend,keyboard,pinyin,pinyinhelper,punctuation,chttrans,spell,sumicandidates,wayland,waylandim,classicui"
+    ]
+  },
+  "addon_package_sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314",
+  "addon_sha256": "7d2f92d6c0f1b403cc1d409e466f6f31d955eab528c84cfc6d7077c9e1e9092e",
+  "actual_addon_mapping": "/home/bruce/git/note.md/tasks/sumi-fcitx/host-fixture/addon/usr/lib/fcitx5/libsumicandidates.so",
+  "gui_passed": true,
+  "environment": "private Sway/DBus on Arch x86_64; Debian12-built production host and signed plugin; virtual keyboard/pointer, no physical desktop installation",
+  "steps": [
+    "Initial body seven 你好",
+    "Focus real nihao/mouse first candidate, saved exactly eight 你好",
+    "Appearance disable focus and Apply",
+    "Nonfocus body/candidate bottom, real nihao/mouse first candidate, saved nine 你好",
+    "Ctrl+A Ctrl+C; explicit text/plain;charset=utf-8 equals nine 你好",
+    "Ctrl+W Sumi; menu reopen; nihao Space Ctrl+S saves ten 你好",
+    "Unicode clipboard paste adds newline and CLIPBOARD 中文 😀 exactly",
+    "Open same file as native Writing Tab via host --gui file",
+    "Resize main window 1000 to600, candidates wrap to two rows; requested400 clamps at actual recorded width",
+    "Click first narrow Tab candidate; save adds exactly 你好",
+    "Restore main window1000"
+  ],
+  "tab_actual_rects": {
+    "formal-tab-narrow-tree.json": {
+      "x": 500,
+      "y": 150,
+      "width": 600,
+      "height": 700
+    },
+    "formal-tab-400-tree.json": {
+      "x": 600,
+      "y": 150,
+      "width": 548,
+      "height": 700
+    }
+  },
+  "final_body": "你好你好你好你好你好你好你好你好你好你好\nCLIPBOARD 中文 😀你好",
+  "limitations": [
+    "No physical desktop installation or public publishing by this task",
+    "No new 4x/full-engine-page test on this formal binary; those were passed against identical frozen native source before packaging",
+    "No audio verification in this private fixture"
+  ],
+  "files_sha256": {
+    "formal-processes.json": "af35690e94582de7adcd6b1b1d4706006a0e4f41f7f92394302ab87e0047cf98",
+    "formal-focus-preedit.png": "dde5727692eb497dada0010cdc3d9c9486ebe5bcd5a356bc6b2cefe4c591c48c",
+    "formal-bottom-preedit.png": "59f1e9c85328184057d09067c27ee7faaf13ef481611df579aa9bf3e86b6de05",
+    "formal-focus-ic.txt": "2b1773766fa4c3880243f4a9cb1bf43121b69e4acbfbefdcafb6afadf678e0a5",
+    "formal-reopened-ic.txt": "90810a566820064d21ec0ed949b7c2cdce7b98e137a1df721f7e6edf1a304a74",
+    "formal-clipboard-plain.txt": "fef9f8769b0b0806c024a4c6ba9c7c3ecd7a20c55a7116adbd6017a55c4f885c",
+    "formal-pasted.png": "71f5b1be4adabead75239ac6d371677a2cfffc94023dd749897f0387675883c1",
+    "formal-tab-open.png": "1f6c90a0e2d35d5e7d883cfe23a68628ea590546d4f7e34764f54b01c6b6527f",
+    "formal-tab-narrow.png": "826bc66215c77f665929e19fd82852fa2ec4d09f126e39f524730b3d77b677e4",
+    "formal-tab-narrow-tree.json": "71c4a3ef53e448859c9dd02f1ef12732a924d59caa7f808c05d9773f5aa69e95",
+    "formal-tab-400.png": "e1696ba0b954a52be4f057f7cf6ce3af928a6224c0ca5c310349e89977ee06ee",
+    "formal-tab-400-tree.json": "549340cb0a64232be06ee7600ed7f9c9594151ae418928e19f647e0e34c16904",
+    "formal-tab-restored.png": "7c9b6777f26eea74b0a606e8db4fa6e7dafd86acfaad98f9fbb151ce4d275602",
+    "formal-host.log": "d881490f6a9974318d101b41f3c1790ac26be52200e6da7e27c078169b989faf",
+    "candidate-bus.log": "3a7bcf66e2ff117046ef2c1990e1c93ca07d120611b420ea954609f1c776e5bc",
+    "plugin-verification.json": "2e156c6dd6981159a6591afa9589f68df5d3dd1611680970d306fae35fef3d8f",
+    "stage-release.py": "8f1d81947da3d3f88b22dc8af1424564785e556635b09cd5a1347c661e14d687"
+  }
+}

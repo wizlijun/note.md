@@ -1,0 +1,3 @@
+d8d179a8286043f8a560a98aec8e7a2b53a1f191da4e0ba2ce820f4555323575  notemd-6.1110.4-1-x86_64.pkg.tar.zst
+3a7ad09afe522a5483e92d13d49f752ba3d6b6bb6d898915eda42fd5cb414d21  notemd-6.1110.4-1-omarchy-recipe.tar.gz
+17ff4c1afcb0c2c4586f9096f7c3915440226b11cf61ec291a752aad5696bfcf  omarchy-6.1110.4-verification.json

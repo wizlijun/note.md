@@ -1,0 +1,43 @@
+{
+  "id": "notemd.next",
+  "version": "1.13.3",
+  "min_host": ">=6.1110.4",
+  "archs": [
+    "universal"
+  ],
+  "size": 163405,
+  "sha256": {
+    "universal": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2"
+  },
+  "name": "Next",
+  "category": "advance",
+  "description": "Give ideas and tasks a clear next step — or a place to rest.",
+  "i18n": {
+    "zh": {
+      "name": "下一步",
+      "description": "让想法和任务都有明确的下一步，或一个安心搁置的地方。",
+      "menus": {
+        "open": "下一步"
+      }
+    },
+    "ja": {
+      "name": "次の一歩",
+      "description": "アイデアとタスクに明確な次の一歩を与えるか、安心して休ませる場所を用意します。",
+      "menus": {
+        "open": "次の一歩"
+      }
+    },
+    "de": {
+      "name": "Nächster Schritt",
+      "description": "Ideen und Aufgaben einen klaren nächsten Schritt geben – oder einen guten Ort zum Ruhen.",
+      "menus": {
+        "open": "Nächster Schritt"
+      }
+    }
+  },
+  "icon_url": null,
+  "changelog_url": null,
+  "download": {
+    "universal": "https://plugins.notemd.net/api/download/notemd.next/1.13.3/universal"
+  }
+}

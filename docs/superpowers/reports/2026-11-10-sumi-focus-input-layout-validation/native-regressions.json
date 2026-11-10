@@ -1,0 +1,73 @@
+{
+  "ok": true,
+  "at": "2026-11-09T17:44:34.217621+00:00",
+  "sourceHashes": {
+    "editor.m": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+    "focus.h": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e"
+  },
+  "regressions": [
+    {
+      "probe": "caret",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "draft",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "panel",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "clipboard",
+      "minimum": "11.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "shortcuts",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "unicode",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "position",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "locale",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    },
+    {
+      "probe": "padding",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0,
+      "extra_system": 0,
+      "extra_crt": 0
+    },
+    {
+      "probe": "typewriter",
+      "minimum": "13.0",
+      "buildExit": 0,
+      "runExit": 0
+    }
+  ],
+  "fontFixture": "font-fixture-verification.json"
+}

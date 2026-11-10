@@ -1,0 +1,93 @@
+{
+  "status": "passed",
+  "tag": "v6.1110.3",
+  "commit": "a64353c72ffe930de5ff90923b457e1d15360bef",
+  "deb_sha256": "e9945737d9dae0155fb46fe1a30f93450652f212f1877f600abcf8fef8a8fd29",
+  "binary_sha256": "194c15a9b78f0524a2bebc341be97a83455028d3d14b64740a22931c421022c6",
+  "system_installed": false,
+  "native_identity": {
+    "capabilities": {
+      "distributionChannel": "package-manager",
+      "cliInstall": false,
+      "themeFontInstall": false,
+      "setDefaultApp": false,
+      "location": false,
+      "globalShortcuts": false,
+      "windowDecorations": true
+    },
+    "triple": "x86_64-unknown-linux-gnu",
+    "version": "6.1110.3"
+  },
+  "checks": {
+    "unmodified_binary_proc_sha": true,
+    "clean_launch_without_observer": true,
+    "legacy_cache_separated": true,
+    "native_http_startup_created_success_cache": true,
+    "failed_recent_999_cache_retried_and_cleared": true,
+    "native_menu_manual_check_refreshed_timestamp": true,
+    "native_menu_rendered_correct_latest_state": true,
+    "settings_manual_button_visible": true,
+    "auto_check_disabled_by_real_pointer_and_saved": true,
+    "preference_preserved_across_process_restart": true,
+    "no_auto_check_when_disabled": true,
+    "manual_check_still_works_with_auto_disabled": true,
+    "signed_sumi_0_1_11_unchanged": true,
+    "real_user_app_10298_running": true
+  },
+  "timestamps": {
+    "clean_auto": "2026-11-10T06:59:47.991Z",
+    "failed_retry": "2026-11-10T07:00:18.569Z",
+    "native_menu": "2026-11-10T07:00:43.194Z",
+    "settings_manual": "2026-11-10T07:03:10.547Z"
+  },
+  "boundaries": [
+    "First launch has no observation module. Subsequent launches use task-local GTK module only to read DOM and invoke real native capability/triple/version commands.",
+    "All updates use packaged native HTTP and real public GitHub releases; no mock responses, no source modifications, no fabricated new release.",
+    "Private headless Sway/DBus/XDG fixture only; no user config or running system app modified.",
+    "Version 6.1110.3 is greater than then-public 6.1110.2, so latest state is correct. New-version/download and network error UI were separately verified in production-component WebKit IPC fixture."
+  ],
+  "completed_at": "2026-11-10T07:04:16.453059+00:00",
+  "evidence": {
+    "observer.c": "b7f1739b94c00a2dcf496d99c1042d4d5bb3c1c63c412b0cae2f52b01cd5089d",
+    "stage.py": "b423a173a2450e493bf58dd3f497a69c8da0c7a551cc7f885b327d42ffaf7ebb",
+    "release-selection-6.1110.2.backup.json": "ffb5295dc147dc8f737f0e9fc47da325a72c1afc71479d4ff676d44baebb617d",
+    "release-selection-6.1110.3.json": "5fb38d889ab3780c74eab81d1800f34f51ac556c0b163fcfead74bf3d375b742",
+    "legacy-seed.json": "c21ac5332cb537ea769842b9fd41588081fc67731f11b099cd13782aaba3a1d5",
+    "launch-clean.json": "bd5d85617d6c83beb2747a6a08930ebc8a6bdd1399268489503762264a98ee9c",
+    "clean-start-cache.json": "29fc63c43e42a1eb0925f6978aa07182d20dfcd90330e4330bbce1df5d1586fd",
+    "clean-tree.json": "46313d8d79415949dabdfa3c93a9ff22ad8dbf4074476e8238d41c6629f14ffe",
+    "clean-start.png": "6f6f8db10180fbd195845e080251daf1323cd5c673cc7dbd7cc11c6c13d7d218",
+    "failure-seed.json": "a2877fbdc8e3ced0f9ceb796b38de717f512e00b5c80f609875b77c0de1ecd47",
+    "launch-observed.json": "4f9a58b194423ed4dc776ef17f76d43dce0312d6d8a94ba90a75e22a96a88e82",
+    "failed-cache-retried.json": "174ea96ba3d4e1c060aff7fc7756e7544661f76c1e1c70ec1591a8ef0fdbb608",
+    "observed-start-dom.json": "3c24e9bfde8afc9fa37a6acd361c50a655a986424ed25bc7b158b5279079177e",
+    "observed-tree.json": "86694406f70e4d49738dd443fec7989044dfc37f09eb599e600e30c346c7b32c",
+    "observed-start.png": "6f6f8db10180fbd195845e080251daf1323cd5c673cc7dbd7cc11c6c13d7d218",
+    "native-menu.png": "26caca2f70f151f36fff19d5d80019a1e84abb863f8ac29dc690fca0d5cdcc48",
+    "native-menu-check-cache.json": "9c7a7d64999b88a3be3a43f971c695247b4bb9b7ce72f8bb2a12c571bf2175c6",
+    "native-menu-uptodate.png": "9da80897c0965440579124035fee34d9daa904fee1dd626e514d739a0754776c",
+    "native-menu-uptodate-dom.json": "e537b34e9375352f8a760ff8539bca604bef8c9e7c7c0a19ef6799e307227703",
+    "preferences-attempt.png": "0452d26e26800444e64cf2a546c3752d668c5debff207be353c5869149025985",
+    "preferences-tree.json": "86694406f70e4d49738dd443fec7989044dfc37f09eb599e600e30c346c7b32c",
+    "settings-updates.png": "19e5eaea6f45baf01c12e2264e3ddea88164c3d06dc63f1e9a7608eaa549b7ab",
+    "settings-updates-dom.json": "c5cbaf556c3d64b172debb4da7e615208dcf3322a733b27cea632d46fff0749b",
+    "preference-disabled-cache.json": "7556e76f9ec95a543bb7ec7b8166573746be0b9a5e8cb024ebe97abced01e942",
+    "launch-reopened.json": "682d4d553d7d77d7aecfc0c15b99758a9f581486d91c8e9b2a2eb4f5b0c33020",
+    "reopened-no-auto-check-cache.json": "7556e76f9ec95a543bb7ec7b8166573746be0b9a5e8cb024ebe97abced01e942",
+    "reopened-preference-off.png": "d4350559f07087f73988276c0f2a7d679314c4d2d00d0212a533213f453ca213",
+    "reopened-preference-off-dom.json": "3976b03fb2e607ffb85ca9108736bd335fe3fa39b1c14f41764829607c88ceb3",
+    "settings-manual-check-cache.json": "18ee51004dcc60482dab484619698a927d6bdc155a9a3e3b07a7e319c614759f",
+    "settings-manual-checked.png": "e4e25d5d9aa1e0cf3aa1deacaabcdfbfcf569c130944ea75a202e8c7e823d2dd",
+    "settings-manual-checked-dom.json": "891cd6b269ea089332824178521ef17bc6c48a59851d810a8ea49965af3e8e9e",
+    "fixture-ready.json": "60ebc4275c2792c6e9a43dfc6af69ee1ebcaaf697e4ad66016be3199ef221962",
+    "public-releases.json": "393448bed567bf009a63a7f633f11f9bffb2deaab13fdfc3ebee1b31cde4aeca",
+    "public-readback.json": "c396ae040b5daa383f1e99cf700b45261e3923cd601ecca4c4c65d4b500fb252"
+  },
+  "cleanup": {
+    "all_owned_hosts_stopped": true,
+    "private_fixture_stopped": true,
+    "legacy_updater_cache_restored": true,
+    "old_release_selection_backed_up": true,
+    "current_fixture_selection": "v6.1110.3 with unchanged signed Sumi 0.1.11"
+  }
+}

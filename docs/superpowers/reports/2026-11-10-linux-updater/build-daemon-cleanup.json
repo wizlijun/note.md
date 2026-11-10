@@ -1,0 +1,14 @@
+{
+  "checked_at_utc": "2026-11-10T07:00:38.686929+00:00",
+  "daemon_pid": 155454,
+  "daemon_exec_session": 42015,
+  "verified_uid": 1000,
+  "verified_data_root": "/home/bruce/git/note.md/tasks/omarchy-build/rootless/data/docker",
+  "active_container_count": 0,
+  "status": "stopped_verified",
+  "stopped_at_utc": "2026-11-10T07:00:47.660188+00:00",
+  "daemon_process_absent": true,
+  "task_socket_absent": true,
+  "cache_data_preserved": true,
+  "exec_session_exit_code": 0
+}

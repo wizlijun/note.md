@@ -1,0 +1,16 @@
+
+running 1 test
+test platform::tests::native_focus_center_is_idempotent_offscreen ... focus height=500 fraction=0 samples=[(1750.0, 233), (1750.0, 233), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1750.0, 233)]
+
+thread 'platform::tests::native_focus_center_is_idempotent_offscreen' (71330) panicked at src/linux.rs:2135:17:
+unchanged focus layout must be idempotent: [(1750.0, 233), (1750.0, 233), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1750.0, 233), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1749.5, 234), (1750.0, 233)]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    platform::tests::native_focus_center_is_idempotent_offscreen
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 32 filtered out; finished in 1.21s
+

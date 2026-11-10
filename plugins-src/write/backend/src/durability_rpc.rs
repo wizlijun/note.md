@@ -11,6 +11,7 @@ pub async fn dispatch(worker: &Durability, request: Request) -> Result<Value, St
     match request {
         Request::Create(request) => call!(worker.create(request)),
         Request::Load { page_id } => call!(worker.load(page_id)),
+        Request::ObservePage { page_id } => call!(worker.observe_page(page_id)),
         Request::CommitLocal(edit) => call!(worker.commit_local(edit)),
         Request::CommitRemote { incoming, generation, revision } => call!(worker.commit_remote(incoming, generation, revision)),
         Request::Flush => call!(worker.flush()),

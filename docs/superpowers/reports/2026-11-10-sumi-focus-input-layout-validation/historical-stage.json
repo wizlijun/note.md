@@ -1,0 +1,59 @@
+{
+  "at": "2026-11-09T18:14:22.473904+00:00",
+  "status": "input_and_layout_subset_verified_screen_paint_unresolved",
+  "base": "4a3cc2a3a1b029367c2a22b06f698ab838f58738",
+  "sourceHashes": {
+    "editor.m": "5a4f168559cadf6681fad70c32731e44a250ae0ec418b32b2c9d34a2bb86d18a",
+    "focus.h": "02d0884a9b25b4869425f10f5d0d52a6fcd803140a8976d8c5badf3c56a6834e",
+    "focus-resume-probe.m": "7fda8a7d82d90c037db70b01572509bdbd5aa7555093ffcebffde9e42d4ae3ec",
+    "focus-return-probe.m": "d59cd3d9710d32d48009ff40ff36114c0e457a45b463f6389a90fead3e092754"
+  },
+  "validation": {
+    "input": 117,
+    "return": 49546,
+    "canonicalReplies": 560,
+    "bitmapChecks": 20,
+    "existingFocus": 3932,
+    "nativeRegressionGroups": 10,
+    "uiTests": 101,
+    "uiCheck": true,
+    "uiBuild": true
+  },
+  "screenPaintPassed": false,
+  "releaseReady": false,
+  "published": false,
+  "remaining": "Real window TextKit line mirroring can clip context glyphs after Return; native scroll+mask prototype and bounded raster fallback are being evaluated. No formal release claimed.",
+  "dataSafety": "65 protected input-journal/CRDT/backend files unchanged; original root19 files preserved; no formal writing body edited. User-taken test drafts stay open and are separately backed up; their contents are not archived here.",
+  "evidence": {
+    "native-input.json": {
+      "bytes": 4234,
+      "sha256": "a588d1b6fe30e97014a6bf529618ec824f0509695433f549126f67dbbdbb4222"
+    },
+    "native-return.json": {
+      "bytes": 3800,
+      "sha256": "9bd8c961e4a9862ed41e476fc22904c738eaeca9fbdc80770d527a1c0896fadb"
+    },
+    "native-regressions.json": {
+      "bytes": 1424,
+      "sha256": "bd2461c740f1a6aeb8f08eacd2955ce92293931800328e2e4fc9839403c1f8ac"
+    },
+    "native-focus.json": {
+      "bytes": 1407,
+      "sha256": "f6ab83518974a8965f9dbf03728ae35d39e847514742178852ff00763dd50c0b"
+    },
+    "data-preservation.json": {
+      "bytes": 10305,
+      "sha256": "2851c62cba51278570b508d2d2aafc46bef7532845335072524a0fedb6039905"
+    },
+    "screen-failure.json": {
+      "bytes": 1290,
+      "sha256": "e2c63cb90cf69df0c2985fc02af7e6d43e514d33e1fa85bde8a8d69f71a6e7ab"
+    }
+  },
+  "targetOnly": {
+    "host": "6.1110.1",
+    "plugin": "0.1.10",
+    "minimumHost": ">=6.1110.1"
+  },
+  "commitReference": "git history for this report"
+}

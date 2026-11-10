@@ -1,0 +1,22 @@
+{
+  "README.md": "33c5b316c22adc3863795ed4171d500bad04e6888a90443a88fec4d51bce09f6",
+  "addon-source-publication.json": "a03ef2dfd907a3a1c785592f939ff8c0a279b7946a4080197a11dcb6050aa489",
+  "amd64-live-source-check.json": "7cb34e807b8135c5ad52d110c29acd053d032925bfa134cea59dab264d927521",
+  "amd64-preservation.json": "4e964b707e1f613e0e30ea4358db4e6f2293930daabd8a8a16284df1e23044c4",
+  "cleanup.json": "9416a00fdfef3be502238a5a69c0064dfffdc5e28a4b0ce38aa35ccf532c34ba",
+  "frozen-plugin.json": "1ceafcafb1b206aa14243cc18e6e7a6d72383a860b578dd884dbb60e3358f288",
+  "host-public-verification.json": "f0f8637ca25c8389e562a7e5ce80a96856621e0903668fd63dd60e12506f5801",
+  "index-preservation.json": "9739a9850c6d3e7b484e2c316c29bc2544e86cb64ae51b95d86207e564da37e1",
+  "plugin-entry.json": "89a2801081fb79e746fb7b3f15019b047ce493b367705fb0d70acca6b8bbc0e2",
+  "plugin-host-gate.json": "ea1cb0d19ea6db9b2f57f9f0d8755031e46d7b159cd5e8a77d642d32719864ac",
+  "plugin-index-write.json": "ff8ae5796bcef71911ff9c5c3eaea341819c471f669549e252b830106edd4305",
+  "plugin-public-packages.json": "8c253d7742558d56879575a0c364272548b8727dfe1096b7d5e8db24dec30f26",
+  "plugin-publication.json": "7674a8c3123611442089549ad6e623fe0128fa12eadc2e6b40d02031aea8b3c1",
+  "post-release-scope-audit.json": "cfad371a72a7c4d30fa0e3ad369dbba5632037c0bd80ea6a61b56fb80215294f",
+  "release-linux.log": "d13dd0c814beb82574f0c2b9cc28e1bcb8e3de538d91b061cfa628dc8c7b1d9b",
+  "status.json": "fe9c8ea4992122b84bc33d3bfea5a5efa77a5809c6d75cb0de0d4424331bcfe5",
+  "website-assets.json": "1ebb991bf3bfdb6b64a4fd2a64bbf80bbeb2fd1a63e0fdda78c54a46d792abb3",
+  "website-diagnosis.json": "50e47a51d20235b37d2df31b6aff96d9dc1351027bf7fde2441b6309779a38ca",
+  "website-post-push-ci.json": "6b2876ed1b5d67a703a1f3fa50520e09dc10d7ea98ea7f36272c5e1e049c8c5d",
+  "website-redirects.json": "12f6600521b754c3511ddc527f62576b4bc71f0641ea4c09d42f9b505a391e07"
+}

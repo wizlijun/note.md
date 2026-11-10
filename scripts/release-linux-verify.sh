@@ -36,7 +36,7 @@ fi
 if [[ "$MODE" == arch-runtime ]]; then
   [[ "$ARCH" == amd64 ]] || die 'Arch runtime smoke requires amd64'
   pacman -Syu --noconfirm --needed dpkg binutils webkit2gtk-4.1 gtk3 \
-    libayatana-appindicator xdotool git xdg-utils
+    libayatana-appindicator libsecret libpulse fontconfig xdotool git xdg-utils
 elif [[ "${NOTEMD_VERIFY_CONTAINER:-}" == 1 ]]; then
   apt-get update
   apt-get install -y --no-install-recommends binutils dpkg

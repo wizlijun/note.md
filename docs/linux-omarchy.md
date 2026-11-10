@@ -103,18 +103,36 @@ machine. An empty share route alone is not a valid share payload.
 
 ## Hyprland and display configuration
 
-Wayland global shortcuts are owned by the compositor. Add, for example, to
-your Hyprland configuration:
+Application shortcuts use **Ctrl** on Linux; Sumi fullscreen uses bare **F11**
+(including when its native editor has focus). Super combinations remain owned
+by Omarchy: Super+Return opens a terminal, and Super+Ctrl+N opens Network.
+Sumi does not claim those combinations. Caps Lock does not change letter
+shortcuts, and fullscreen does not repeat while F11 is held or interrupt IME
+composition.
 
-```ini
-bind = SUPER CTRL, M, exec, notemd --gui --action smart-search
-# Replace the plugin id and window id with an installed, compatible plugin:
-bind = SUPER CTRL, N, exec, notemd --gui --action plugin:com.example:capture
+Sumi fullscreen derives its effective font size from the logical viewport,
+using one scale for the whole font, capped at 1.25× and 96 px. The saved font
+size stays unchanged; leaving fullscreen restores it. A 1920×1200 logical
+viewport (for example, 3840×2400 at scale 2) displays a saved 22 px font at
+27.5 px. Ordinary windows keep the saved size.
+
+Wayland global shortcuts are owned by the compositor. Plugin tray actions
+remain clickable, but do not show unavailable system-wide shortcut hints.
+To opt into a global action, first inspect `hyprctl binds -j` or
+`omarchy menu keybindings --print`. Current Omarchy uses Lua; these examples
+can be added to `~/.config/hypr/bindings.lua` after checking for local conflicts:
+
+```lua
+o.bind("CTRL + ALT + M", "note.md search", "notemd --gui --action smart-search")
+-- Replace the plugin id and window id with an installed, compatible plugin:
+o.bind("CTRL + ALT + N", "note.md plugin", "notemd --gui --action plugin:com.example:capture")
 ```
 
-Actions reach the existing instance through single-instance dispatch. Settings
-also provide copyable bindings. Under Hyprland, window decorations default off;
-the saved title-bar preference can override this. Verify tiled/floating windows
+Actions reach the existing instance through single-instance dispatch. The app
+does not overwrite desktop bindings. After a user configuration change, run
+`hyprctl reload` and `hyprctl configerrors`. Under Hyprland, the main window's
+saved title-bar preference controls its decorations; plugin windows retain
+native decorations and resizing in normal mode. Verify tiled/floating windows
 and fractional HiDPI on the actual compositor.
 
 Before GTK initialization, GUI startup reads
@@ -229,12 +247,36 @@ Run the Windows command on Windows before Linux/final publication. Linux uses
 Debian 12 containers for both architectures, verifies package layout/ELF/CLI
 and Arch compatibility, then uploads both debs plus their checksums. Keep the
 sibling `moraya-core` source available read-only as required by the build.
+Build containers default to two Cargo jobs to limit concurrent compiler memory;
+set `CARGO_BUILD_JOBS` to another positive integer when appropriate for the builder.
 The publish script validates the exact draft and complete platform asset set,
 then publishes immediately; the normal command has no confirmation prompt.
-Only `--without windows|linux` permits a missing platform and requires typing
-the exact tag/omitted-platform confirmation in an interactive terminal. Never
+The explicit `--without windows|linux` and `--mac-arm64-only` modes require typing
+the exact tag/platform confirmation in an interactive terminal. Never
 fabricate an asset or add a Linux updater entry. A real three-platform prerelease
 rehearsal (L5) remains pending; these local scripts/tests are not that rehearsal.
+
+For a separately scoped Linux release, first freeze and push its new version tag
+and create the matching draft. Keep the same Debian 12 dual-architecture build
+and verification gates, then publish with the explicit Linux-only mode:
+
+```bash
+scripts/release-linux.sh <tag>
+scripts/release-publish.sh <tag> --linux-only
+```
+
+This mode requires exactly both `note.md_<version>_{amd64,arm64}.deb` assets and
+`SHA256SUMS-linux.txt`. It downloads both packages and compares their actual
+SHA256 values, validates current-tag asset URLs (including GitHub's matching
+draft slug), and rejects `latest.json` or assets for other platforms. It cannot
+be combined with another omission mode. After the exact `<tag> linux-only`
+interactive confirmation, it rechecks the draft identity and publishes with
+`--latest=false`, preserving the macOS/Windows updater's existing latest release.
+Linux stays on the package-manager update channel. Prepare, independently verify
+and attach Arch packages or optional input-method addons afterward; they are not
+validated by this initial Debian publication gate. Public downloads and checksums
+must still be read back, and the website's per-format/per-architecture Linux
+download entries must be checked against the actual published assets.
 
 ## Omarchy real-machine acceptance (spec §8, exact checklist)
 

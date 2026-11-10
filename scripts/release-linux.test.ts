@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { spawnSync, execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -14,7 +15,7 @@ function init(root: string) {
   git(root, 'init', '-q'); git(root, 'add', '.')
   git(root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture')
 }
-function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?: string; remoteMismatch?: boolean } = {}) {
+function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?: string; remoteMismatch?: boolean; jobs?: string } = {}) {
   const root = dir(), repo = join(root, 'mdeditor'), core = join(root, 'moraya-core'), bin = join(root, 'bin'), log = join(root, 'calls')
   mkdirSync(join(repo, 'scripts/docker'), { recursive: true }); mkdirSync(join(repo, 'src-tauri'), { recursive: true })
   mkdirSync(join(core, 'dist'), { recursive: true }); mkdirSync(bin)
@@ -25,24 +26,65 @@ function linuxHarness(options: { draft?: boolean; packageVersion?: string; fail?
   writeFileSync(join(repo, 'src-tauri/Cargo.toml'), `[package]\nname="fixture"\nversion = "${version}"\n`)
   writeFileSync(join(repo, '.env.private'), 'fixture-secret'); writeFileSync(join(repo, 'credentials.json'), 'fixture-secret')
   writeFileSync(join(core, 'dist/index.js'), 'tracked-core'); writeFileSync(join(core, '.env'), 'fixture-secret')
+  const archiveSources = { mdeditor: ['src-tauri/src/sumi/credentials.rs', 'src-tauri/src/sumi/credentials_linux.rs'], 'moraya-core': ['src/credentials.rs'] }
+  const secretPaths = ['credentials', 'secrets/credentials.local', 'secrets/credentials [prod].json', 'credentials-store/credentials.rs', '.ssh/id_test', '.aws/config', 'private/signing.key', 'private/.env.local']
+  for (const [name, sources] of Object.entries(archiveSources)) {
+    const tree = name === 'mdeditor' ? repo : core
+    for (const file of [...sources, ...secretPaths]) {
+      mkdirSync(join(tree, file, '..'), { recursive: true })
+      writeFileSync(join(tree, file), sources.includes(file) ? '// tracked credential source\n' : 'fixture-secret')
+    }
+  }
   init(repo); git(repo, 'tag', tag); init(core)
   const remoteCommit = options.remoteMismatch ? '0'.repeat(40) : git(repo, 'rev-parse', 'HEAD')
   executable(join(bin, 'gh'), `#!/usr/bin/env node
 const fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['gh',...a])+'\\n');
 if(a.includes('api')) console.log(${JSON.stringify(remoteCommit)});
 else if(a.includes('view')) console.log(JSON.stringify({tagName:${JSON.stringify(tag)},isDraft:${options.draft !== false}}));
-else if(!a.includes('upload'))process.exit(5);
+else if(a.includes('upload')){const manifest=a.find(x=>x.endsWith('SHA256SUMS-linux.txt'));fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['uploaded-checksums',fs.readFileSync(manifest,'utf8')])+'\\n');}
+else process.exit(5);
 `)
   executable(join(bin, 'docker'), `#!/usr/bin/env node
 const fs=require('fs'),p=require('path'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['docker',...a])+'\\n');
-if(a[0]==='build'){const ctx=a.at(-1);if(fs.existsSync(p.join(ctx,'.env.private'))||fs.existsSync(p.join(ctx,'credentials.json')))process.exit(31);}
+if(a[0]==='build'){
+ const ctx=a.at(-1);if(fs.existsSync(p.join(ctx,'.env.private'))||fs.existsSync(p.join(ctx,'credentials.json')))process.exit(31);
+ const archives={};for(const[name,sources]of Object.entries(${JSON.stringify(archiveSources)})){
+  const tree=p.join(p.dirname(ctx),name);
+  archives[name]={sources:sources.map(file=>fs.existsSync(p.join(tree,file))?fs.readFileSync(p.join(tree,file),'utf8'):null),secrets:${JSON.stringify(secretPaths)}.filter(file=>fs.existsSync(p.join(tree,file)))};
+ }
+ fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(['archive',JSON.stringify(archives)])+'\\n');
+}
 if(a.includes('/verify.sh')) {if(${JSON.stringify(options.fail)}==='verify')process.exit(23);}
 else if(a[0]==='run') {if(${JSON.stringify(options.fail)}==='build')process.exit(22);let out;for(let i=0;i<a.length;i++)if(a[i]==='--mount'&&a[i+1].includes('dst=/output'))out=a[i+1].match(/src=([^,]+)/)[1];if(!out)process.exit(32);const arch=a[a.indexOf('--platform')+1].endsWith('amd64')?'amd64':'arm64';fs.writeFileSync(p.join(out,'note.md_${version}_'+arch+'.deb'),'fixture '+arch);}
 `)
-  return { root, repo, log, run: (args = [tag]) => spawnSync('bash', [join(repo, 'scripts/release-linux.sh'), ...args], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: bin + ':' + process.env.PATH } }) }
+  return { root, repo, log, run: (args = [tag]) => {
+    const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + ':' + process.env.PATH }
+    if (options.jobs === undefined) delete env.CARGO_BUILD_JOBS
+    else env.CARGO_BUILD_JOBS = options.jobs
+    return spawnSync('bash', [join(repo, 'scripts/release-linux.sh'), ...args], { cwd: repo, encoding: 'utf8', env })
+  } }
 }
 function calls(log: string): string[][] { return existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [] }
 describe('Linux release orchestration (fake remote/build boundary)', () => {
+  it('installs the Sumi native link dependencies in the Debian build image', () => {
+    const dockerfile = readFileSync(resolve('scripts/docker/linux-build.Dockerfile'), 'utf8')
+    const install = dockerfile.match(/apt-get install -y --no-install-recommends ([\s\S]*?)&&/)?.[1] || ''
+    for (const dependency of ['libsecret-1-dev', 'libpulse-dev', 'libfontconfig1-dev']) {
+      expect(install.split(/\s+/)).toContain(dependency)
+    }
+  })
+  it('keeps tracked Rust credential modules in real git archives while excluding credential secrets and directories', () => {
+    const h = linuxHarness(), result = h.run()
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const archives = calls(h.log).filter(c => c[0] === 'archive').map(c => JSON.parse(c[1]))
+    expect(archives).toHaveLength(2)
+    for (const archive of archives) {
+      expect(archive).toEqual({
+        mdeditor: { sources: ['// tracked credential source\n', '// tracked credential source\n'], secrets: [] },
+        'moraya-core': { sources: ['// tracked credential source\n'], secrets: [] },
+      })
+    }
+  }, 20_000)
   it('builds immutable read-only sources with per-architecture caches and uploads only after both verifiers', () => {
     const h = linuxHarness(), result = h.run()
     expect(result.status, result.stdout + result.stderr).toBe(0)
@@ -57,15 +99,30 @@ describe('Linux release orchestration (fake remote/build boundary)', () => {
       expect(build.some(a => a.includes(`notemd-linux-${arch}-target`))).toBe(true)
       expect(build.some(a => a.includes(`notemd-linux-${arch}-pnpm`))).toBe(true)
       expect(build.some(a => a.includes(`notemd-linux-${arch}-node`))).toBe(true)
+      expect(build).toContain('CARGO_BUILD_JOBS=2')
       const source = build.find(a => a.includes('dst=/input/mdeditor'))!.match(/src=([^,]+)/)![1]
       expect(existsSync(source)).toBe(false) // trap cleaned the temporary artifact worktree/input
     }
     expect(all.slice(0, upload).filter(c => c.includes('/verify.sh'))).toHaveLength(3) // two ELF/layout inspections + Arch amd64 runtime
     expect(all[upload].filter(a => /\.deb$|SHA256SUMS-linux\.txt$/.test(a))).toHaveLength(3)
+    expect(all.find(c => c[0] === 'uploaded-checksums')?.[1]).toBe(['amd64', 'arm64'].map(arch =>
+      `${createHash('sha256').update('fixture ' + arch).digest('hex')}  note.md_${version}_${arch}.deb\n`).join(''))
     expect(git(h.repo, 'symbolic-ref', '--short', 'HEAD')).not.toBe('HEAD')
     expect(git(h.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1)
     expect(readFileSync(join(h.repo, 'package.json'), 'utf8')).toContain(version)
   }, 20_000)
+  it('passes an explicit positive build-job limit to both architecture containers', () => {
+    const h = linuxHarness({ jobs: '3' }), result = h.run()
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const builds = calls(h.log).filter(c => c[0] === 'docker' && c[1] === 'run' && !c.includes('/verify.sh'))
+    expect(builds).toHaveLength(2)
+    expect(builds.every(c => c.includes('CARGO_BUILD_JOBS=3'))).toBe(true)
+  }, 20_000)
+  it.each(['', '0', '-1', '1.5', 'two'])('rejects invalid CARGO_BUILD_JOBS=%j before remote/build operations', jobs => {
+    const h = linuxHarness({ jobs }), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log)).toEqual([])
+  })
   it.each([{ draft: false }, { packageVersion: '6.1014.1' }, { remoteMismatch: true }, { fail: 'build' }, { fail: 'verify' }])('never uploads on preflight/build/verification failure %j', options => {
     const h = linuxHarness(options), result = h.run()
     expect(result.status).not.toBe(0)
@@ -92,7 +149,10 @@ else process.exit(4);
     executable(join(bin, 'readelf'), `#!/usr/bin/env node
 const a=process.argv.slice(2),v=${JSON.stringify(values)};if(a[0]==='-h')console.log('  Class: ELF64\\n  Type: DYN (Position-Independent Executable file)\\n  Machine: '+v.Machine);else if(a[0]==='-l')console.log('[Requesting program interpreter: '+v.Interpreter+']');else if(a[0]==='--version-info')console.log('Name: GLIBC_'+v.GLIBC);else if(a[0]==='-d')console.log(' 0x0000000000000001 (NEEDED) Shared library: ['+v.Needed+']');else process.exit(4);
 `)
-    executable(join(bin, 'pacman'), '#!/bin/sh\n[ "$1" = -Syu ] || exit 5\n')
+    executable(join(bin, 'pacman'), `#!/usr/bin/env node
+const args=process.argv.slice(2);
+if(args[0]!=='-Syu'||!['libsecret','libpulse','fontconfig'].every(dep=>args.includes(dep)))process.exit(5);
+`)
     executable(join(bin, 'ldd'), `#!/usr/bin/env node\nconsole.log(${JSON.stringify(values.Ldd)});\n`)
     const deb = join(root, `note.md_${version}_amd64.deb`); writeFileSync(deb, 'fixture')
     return spawnSync('bash', [resolve('scripts/release-linux-verify.sh'), mode, deb, version, 'amd64'], { encoding: 'utf8', env: { ...process.env, PATH: bin + ':' + process.env.PATH } })
@@ -127,5 +187,38 @@ describe('macOS draft creation command', () => {
     const args = calls(log).find(c => c.includes('create'))!
     expect(args).toContain('--draft')
     expect(args.includes('--prerelease')).toBe(Boolean(prerelease))
+  })
+})
+
+
+describe('explicit amd64-only Linux build', () => {
+  it('retains both amd64 verifiers and uploads only the actual amd64 package plus one exact checksum', () => {
+    const h = linuxHarness(), result = h.run([tag, '--amd64-only'])
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const all = calls(h.log), upload = all.findIndex(c => c.includes('upload'))
+    const builds = all.filter(c => c[0] === 'docker' && c[1] === 'run' && !c.includes('/verify.sh'))
+    expect(builds).toHaveLength(1)
+    expect(builds[0][builds[0].indexOf('--platform') + 1]).toBe('linux/amd64')
+    expect(builds[0]).toContain('CARGO_BUILD_JOBS=2')
+    const verifiers = all.slice(0, upload).filter(c => c.includes('/verify.sh'))
+    expect(verifiers).toHaveLength(2)
+    expect(verifiers.some(c => c.includes('--inspect'))).toBe(true)
+    expect(verifiers.some(c => c.includes('--arch-runtime'))).toBe(true)
+    expect(all.some(c => c.includes('linux/arm64'))).toBe(false)
+    expect(all[upload].filter(a => /\.deb$|SHA256SUMS-linux\.txt$/.test(a)).map(a => a.split('/').at(-1))).toEqual([`note.md_${version}_amd64.deb`, 'SHA256SUMS-linux.txt'])
+    const hash = createHash('sha256').update('fixture amd64').digest('hex')
+    expect(all.find(c => c[0] === 'uploaded-checksums')?.[1]).toBe(`${hash}  note.md_${version}_amd64.deb\n`)
+    expect(all.filter(c => c.includes('view'))).toHaveLength(2)
+    expect(git(h.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1)
+  }, 20_000)
+  it.each([{ draft: false }, { remoteMismatch: true }, { fail: 'build' }, { fail: 'verify' }])('never uploads amd64 on preflight/build/verification failure %j', options => {
+    const h = linuxHarness(options), result = h.run([tag, '--amd64-only'])
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('upload') || c.includes('edit'))).toBe(false)
+  }, 20_000)
+  it.each([['--arm64-only'], ['--amd64-only', '--amd64-only'], ['--amd64-only', '--linux-only']])('rejects unsupported or combined build options %j before any remote/build action', (...args) => {
+    const h = linuxHarness(), result = h.run([tag, ...args])
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log)).toEqual([])
   })
 })

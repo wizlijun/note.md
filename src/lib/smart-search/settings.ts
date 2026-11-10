@@ -4,12 +4,6 @@ export type LookupGroupBy = 'auto' | 'source' | 'date'
 export type SummaryStyle = 'sentence' | 'bullets'
 
 export interface SmartLookupSettings {
-  planner: {
-    enabled: boolean
-    provider: 'auto' | string
-    modelByProvider: Record<string, ModelPreference>
-    timeoutMs: number
-  }
   results: {
     limit: 20 | 50 | 100
     groupBy: LookupGroupBy
@@ -18,7 +12,7 @@ export interface SmartLookupSettings {
   }
   summary: {
     enabled: boolean
-    provider: 'same_as_planner' | 'auto' | string
+    provider: 'auto' | string
     modelByProvider: Record<string, ModelPreference>
     sourceLimit: number
     charLimit: number
@@ -32,12 +26,6 @@ export interface SmartLookupSettings {
 }
 
 export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
-  planner: {
-    enabled: true,
-    provider: 'auto',
-    modelByProvider: {},
-    timeoutMs: 30_000,
-  },
   results: {
     limit: 50,
     groupBy: 'auto',
@@ -46,7 +34,7 @@ export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
   },
   summary: {
     enabled: true,
-    provider: 'same_as_planner',
+    provider: 'auto',
     modelByProvider: {},
     sourceLimit: 4,
     charLimit: 4_000,
@@ -103,25 +91,15 @@ function modelMap(value: unknown): Record<string, ModelPreference> {
   return result
 }
 
-/** Invalid fields fall back independently; one damaged value never resets the group. */
+/** Legacy `planner` keys are ignored. Invalid fields fall back independently; one damaged value never resets the group. */
 export function normalizeSmartLookupSettings(value: unknown): SmartLookupSettings {
   const root = object(value)
-  const planner = object(root.planner)
   const results = object(root.results)
   const summary = object(root.summary)
   const handoff = object(root.handoff)
   const defaults = DEFAULT_SMART_LOOKUP_SETTINGS
 
   return {
-    planner: {
-      enabled: bool(planner.enabled, defaults.planner.enabled),
-      provider: provider(planner.provider, defaults.planner.provider),
-      modelByProvider: modelMap(planner.modelByProvider),
-      // The original 8 s default regularly expired while a fast harness was
-      // still starting. Keeping the supported floor above that value also
-      // migrates already-persisted copies of the old default automatically.
-      timeoutMs: boundedInteger(planner.timeoutMs, 10_000, 60_000, defaults.planner.timeoutMs),
-    },
     results: {
       limit: choice(results.limit, [20, 50, 100] as const, defaults.results.limit),
       groupBy: choice(results.groupBy, ['auto', 'source', 'date'] as const, defaults.results.groupBy),
@@ -130,7 +108,10 @@ export function normalizeSmartLookupSettings(value: unknown): SmartLookupSetting
     },
     summary: {
       enabled: bool(summary.enabled, defaults.summary.enabled),
-      provider: provider(summary.provider, defaults.summary.provider),
+      // 'same_as_planner' was removed with the planner; old stored values read as 'auto'.
+      provider: summary.provider === 'same_as_planner'
+        ? 'auto'
+        : provider(summary.provider, defaults.summary.provider),
       modelByProvider: modelMap(summary.modelByProvider),
       sourceLimit: boundedInteger(summary.sourceLimit, 1, 6, defaults.summary.sourceLimit),
       charLimit: boundedInteger(summary.charLimit, 1_000, 6_000, defaults.summary.charLimit),

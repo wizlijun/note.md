@@ -1,5 +1,69 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
-body{background:#111;color:#ccc;font:14px system-ui;margin:0}header{height:56px;display:flex;gap:8px;align-items:center;padding:0 20px}button{background:#333;color:#eee;border:1px solid #555;border-radius:5px;padding:8px}#state{position:absolute;bottom:0;height:100px;white-space:pre-wrap;overflow:auto;padding:12px;font:12px monospace}#overlay{display:none;position:absolute;left:150px;top:150px;background:#ccc;color:#111;padding:80px}
-</style></head><body><header><b>Sumi Native Probe</b><button onclick="call('focus_editor')">Focus</button><button onclick="call('remote_edit')">Remote edit</button><button onclick="call('snapshot')">Snapshot</button><button onclick="overlay()">Overlay</button><button onclick="call('quit')">Quit</button></header><div id="overlay">Web overlay — native surface hidden</div><div id="state">Isolated test window. Native NSTextView occupies the central area.</div><script>
+body{background:#111;color:#ccc;font:14px system-ui;margin:0}header{height:56px;display:flex;gap:8px;align-items:center;padding:0 20px}button{background:#333;color:#eee;border:1px solid #555;border-radius:5px;padding:8px}#surface{position:absolute;left:0;right:0;top:56px;bottom:124px}#state{position:absolute;bottom:0;height:100px;white-space:pre-wrap;overflow:auto;padding:12px;font:12px monospace}#overlay{display:none;position:absolute;left:150px;top:150px;background:#ccc;color:#111;padding:80px}
+</style></head><body><header><b>Sumi Native Probe</b><button onclick="call('focus_editor')">Focus</button><button onclick="call('remote_edit')">Remote edit</button><button onclick="call('snapshot')">Snapshot</button><button onclick="overlay()">Overlay</button><button onclick="call('quit')">Quit</button></header><div id="surface"></div><div id="overlay">Web overlay — native surface hidden<br><input id="panel-input" value="Panel selection probe"></div><div id="state">Isolated test window. Native editor occupies the central area.</div><script>
 async function call(name,args={}){try{const result=await window.__TAURI_INTERNALS__.invoke(name,args);document.querySelector('#state').textContent=JSON.stringify(result,null,2);return result}catch(e){document.querySelector('#state').textContent=String(e)}}let hidden=false;async function overlay(){hidden=!hidden;await call('visibility',{visible:!hidden});document.querySelector('#overlay').style.display=hidden?'block':'none'}
+
+// Opt-in integration acceptance runs inside the actual WebKit webview and calls
+// the same commands as the visible controls. No production Vault is opened.
+(async()=>{
+  const invoke=window.__TAURI_INTERNALS__.invoke;
+  document.addEventListener('pointerdown',e=>invoke('probe_pointer',{event:{x:e.clientX,y:e.clientY,target:e.target.tagName,text:e.target.textContent}}));
+  if(!await invoke('probe_automation'))return;
+  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const report={platform:navigator.platform,stages:[],checks:{}};
+  const save=async stage=>{report.stage=stage;report.stages.push(stage);await invoke('probe_report',{report})};
+  try{
+    let original;
+    for(let i=0;i<120;i++){
+      try{original=await invoke('snapshot');break}catch{await wait(100)}
+    }
+    if(!original)throw Error('native mount timed out');
+    let stress=await invoke('clone_stress',{start:true});
+    if(stress.enabled){
+      const pulse=setInterval(()=>invoke('snapshot').catch(()=>{}),10);
+      try{
+        for(let i=0;i<120&&!stress.complete;i++){await wait(50);stress=await invoke('clone_stress',{start:false})}
+        if(!stress.complete||!stress.passed)throw Error('concurrent handle clone/drop regression failed');
+        report.cloneStress=stress;
+      }finally{clearInterval(pulse)}
+    }
+    const header=document.querySelector('header').getBoundingClientRect();
+    report.checks.webHeaderHeight=header.height;
+    report.geometry={native:await invoke("probe_geometry"),dpr:devicePixelRatio,innerWidth,innerHeight,header:header.toJSON()};
+    report.geometry.buttons=Array.from(document.querySelectorAll('header button')).map(b=>({name:b.textContent,rect:b.getBoundingClientRect().toJSON()}));
+    const scale=report.geometry.native.gtkAllocation?report.geometry.native.gtkAllocation[2]/innerWidth:1;
+    const rect=document.querySelector('#surface').getBoundingClientRect();
+    report.geometry.nativeBounds={x:rect.x*scale,y:rect.y*scale,width:rect.width*scale,height:rect.height*scale};
+    await invoke('resize_probe',{bounds:report.geometry.nativeBounds});
+    report.checks.headerHit=document.elementFromPoint(250,28)?.tagName==='BUTTON';
+    if(!report.checks.headerHit)throw Error('web header is not reachable in DOM');
+    await invoke('remote_edit');
+    const remote=await invoke('snapshot');
+    report.checks.remoteText=remote.surface.text===original.surface.text+'\nRemote 同步增量';
+    report.checks.remoteRevision=remote.surface.revision===original.surface.revision+1;
+    if(!report.checks.remoteText||!report.checks.remoteRevision)throw Error('remote projection mismatch');
+    await save('native-visible');await wait(8000);
+    await invoke('visibility',{visible:false});
+    document.querySelector('#overlay').style.display='block';
+    const hidden=await invoke('snapshot');
+    report.checks.hidden=!hidden.surface.visible;
+    report.checks.overlayHit=document.elementFromPoint(200,200)?.id==='overlay';
+    if(!report.checks.hidden||!report.checks.overlayHit)throw Error('panel handoff failed');
+    const panelInput=document.querySelector('#panel-input');panelInput.focus();panelInput.setSelectionRange(0,0);
+    await wait(100);
+    report.checks.panelSelectAllRouted=await invoke('panel_select_all');
+    await wait(100);
+    report.checks.panelSelectAll=panelInput.selectionStart===0&&panelInput.selectionEnd===panelInput.value.length;
+    if(!report.checks.panelSelectAllRouted||!report.checks.panelSelectAll)throw Error('panel native menu input route failed');
+    await save('web-overlay');await wait(8000);
+    document.querySelector('#overlay').style.display='none';
+    await invoke('visibility',{visible:true});await invoke('focus_editor');
+    const restored=await invoke('snapshot');
+    report.checks.restored=restored.surface.visible&&restored.surface.text===remote.surface.text&&restored.surface.revision===remote.surface.revision;
+    if(!report.checks.restored)throw Error('restore changed native document');
+    report.passed=true;await save('passed');
+    setInterval(()=>invoke('snapshot').catch(()=>{}),1000);
+    document.querySelector('#state').textContent=JSON.stringify(report,null,2);
+  }catch(error){report.passed=false;report.error=String(error);await save('failed')}
+})();
 </script></body></html>

@@ -1,0 +1,36 @@
+{
+  "status": "partial_pass_pending_csd_and_caret_presentation",
+  "binarySha256": "5ff2f66873fd5e278e42adb1bcdcae38c0a7ee1035ad6836912d7c6a3822335d",
+  "packageSha256": "dbe0f509af57f0ed48218ebe537178523df74ee8f253f3b8c880a733d70404f2",
+  "environment": "private Sway headless/Pixman,960x600logical,scale4; GTK_IM_MODULE simple; isolated Vault/config/data/private DBus",
+  "checks": {
+    "firstOpenTextPresent": true,
+    "unicodeSaveProjection": true,
+    "hideRemovesSumiFromTree": true,
+    "reopenRestoresNativeText": true,
+    "reopenAdditionalInputSaved": true,
+    "appearanceAndPagesActualClicks": true,
+    "warmPaperApplyChangesNativeTheme": true,
+    "existingOwnerProtectedInFileTab": true,
+    "focusExistingEditorButton": true,
+    "releasedOwnerCanOpenInNativeTab": true,
+    "nativeTabActualFileSavePersists": true,
+    "windowFitsWorkArea": false
+  },
+  "windowRect": {
+    "x": 16,
+    "y": 0,
+    "width": 928,
+    "height": 615
+  },
+  "projectionSha256": "a14187600db18e0ed5726c7f825aa9edeca52ee6fc13c7f3389145c5e761958d",
+  "projectionPath": "tasks/sumi-omarchy-acceptance/vault/inbox/writings/2026-11-10-01.writing.md",
+  "notes": [
+    "Actual Linux CSD height remained615; tested panels after temporary window movey=-35, not counted as fit pass.",
+    "GTK file chooser emitted WIDGET_REALIZED_FOR_EVENT critical at11:15:45 when Open→Ctrl-L/type path; no crash. Not claiming warning-free logs.",
+    "Private runtime has no audio server; UI showed audio output unavailable; disabled sounds through Appearance for this isolated test.",
+    "Six physical caret frames unchanged despite61draws/2s is separate native presentation failure; native root-GDK-parent fix requires final package revalidation.",
+    "Markdown escapes underscores; decoded saved marker validated, original projection retained.",
+    "Original UI assets, no diagnostic injection for these functional checks."
+  ]
+}

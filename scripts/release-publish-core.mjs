@@ -13,15 +13,35 @@ function versionOf(tag) {
   return tag.slice(1)
 }
 
+function validateLinuxPackages(version, requireCurrentAsset, architectures = ['amd64', 'arm64']) {
+  const checksum = requireCurrentAsset('SHA256SUMS-linux.txt')
+  const lines = typeof checksum.content === 'string' ? checksum.content.trim().split(/\r?\n/) : []
+  if (lines.length !== architectures.length) fail(`Linux checksums must contain exactly ${architectures.length} debs`)
+  const hashes = new Map()
+  for (const line of lines) {
+    const match = /^([a-fA-F0-9]{64}) [ *](note\.md_\d+\.\d+\.\d+_(?:amd64|arm64)\.deb)$/.exec(line)
+    if (!match || hashes.has(match[2])) fail('invalid/duplicate Linux checksum entry')
+    hashes.set(match[2], match[1].toLowerCase())
+  }
+  for (const arch of architectures) {
+    const name = `note.md_${version}_${arch}.deb`, asset = requireCurrentAsset(name)
+    if (!/^[a-f0-9]{64}$/.test(asset.sha256 || '') || hashes.get(name) !== asset.sha256) fail(`Linux checksum mismatch: ${name}`)
+  }
+}
+
 /** Assets use gh's name/url fields plus downloaded content (signatures/checksums)
  * and sha256 (debs). This validates evidence; it does not cryptographically verify
  * updater payloads or replace the existing signed macOS/Windows build gates.
  */
-export function validateRelease({ tag, draft, assets, latest, without, macArm64Only = false }) {
+export function validateRelease({ tag, draft, assets, latest, without, macArm64Only = false, linuxOnly = false, linuxAmd64Only = false }) {
   const version = versionOf(tag)
   if (draft !== true) fail('release must be an existing draft')
   if (without !== undefined && !['windows', 'linux'].includes(without)) fail('invalid omitted platform')
   if (typeof macArm64Only !== 'boolean' || (macArm64Only && without !== undefined)) fail('invalid Apple Silicon-only mode')
+  if (typeof linuxOnly !== 'boolean' || (linuxOnly && (macArm64Only || without !== undefined))) fail('invalid or incompatible Linux-only mode')
+  if (typeof linuxAmd64Only !== 'boolean' || (linuxAmd64Only && (linuxOnly || macArm64Only || without !== undefined))) fail('invalid or incompatible Linux-amd64-only mode')
+  const linuxRelease = linuxOnly || linuxAmd64Only
+  const linuxArchitectures = linuxAmd64Only ? ['amd64'] : ['amd64', 'arm64']
   if (!Array.isArray(assets)) fail('missing release assets')
   const byName = new Map()
   for (const asset of assets) {
@@ -29,16 +49,24 @@ export function validateRelease({ tag, draft, assets, latest, without, macArm64O
     byName.set(asset.name, asset)
   }
   const requireAsset = name => byName.get(name) || fail(`missing release asset: ${name}`)
-  const manifestAsset = requireAsset('latest.json')
+  const anchorName = linuxRelease ? 'SHA256SUMS-linux.txt' : 'latest.json'
+  const manifestAsset = requireAsset(anchorName)
   const manifestURL = new URL(manifestAsset.url)
   if (manifestURL.protocol !== 'https:' || manifestURL.hostname !== 'github.com' ||
-      !new RegExp(`^/[^/]+/[^/]+/releases/download/${tag.replaceAll('.', '\\.')}/latest\\.json$`).test(manifestURL.pathname) ||
-      manifestURL.search || manifestURL.hash) fail('latest.json asset URL is not the current tag')
-  const base = manifestAsset.url.slice(0, -'latest.json'.length)
+      !new RegExp(`^/[^/]+/[^/]+/releases/download/${tag.replaceAll('.', '\\.')}/${anchorName.replaceAll('.', '\\.')}$`).test(manifestURL.pathname) ||
+      manifestURL.search || manifestURL.hash) fail(`${anchorName} asset URL is not the current tag`)
+  const base = manifestAsset.url.slice(0, -anchorName.length)
   const requireCurrentAsset = name => {
     const asset = requireAsset(name)
     if (asset.url !== base + name) fail(`asset URL is not current tag/name: ${name}`)
     return asset
+  }
+  if (linuxRelease) {
+    const allowed = new Set(['SHA256SUMS-linux.txt', ...linuxArchitectures.map(arch => `note.md_${version}_${arch}.deb`)])
+    if (latest !== undefined) fail('Linux-only releases must not contain an updater manifest')
+    for (const name of byName.keys()) if (!allowed.has(name)) fail(`unexpected Linux-only asset: ${name}`)
+    validateLinuxPackages(version, requireCurrentAsset, linuxArchitectures)
+    return { version }
   }
   const macArchitectures = macArm64Only ? ['aarch64'] : ['aarch64', 'x86_64']
   for (const arch of macArchitectures) requireCurrentAsset(`note.md-${version}-${arch}.dmg`)
@@ -67,19 +95,7 @@ export function validateRelease({ tag, draft, assets, latest, without, macArm64O
         typeof signature.content !== 'string' || entry.signature.trim() !== signature.content.trim()) fail(`updater signature mismatch: ${platform}`)
   }
   if (!macArm64Only && without !== 'linux') {
-    const checksum = requireCurrentAsset('SHA256SUMS-linux.txt')
-    const lines = typeof checksum.content === 'string' ? checksum.content.trim().split(/\r?\n/) : []
-    if (lines.length !== 2) fail('Linux checksums must contain exactly two debs')
-    const hashes = new Map()
-    for (const line of lines) {
-      const match = /^([a-fA-F0-9]{64}) [ *](note\.md_\d+\.\d+\.\d+_(?:amd64|arm64)\.deb)$/.exec(line)
-      if (!match || hashes.has(match[2])) fail('invalid/duplicate Linux checksum entry')
-      hashes.set(match[2], match[1].toLowerCase())
-    }
-    for (const arch of ['amd64', 'arm64']) {
-      const name = `note.md_${version}_${arch}.deb`, asset = requireCurrentAsset(name)
-      if (!/^[a-f0-9]{64}$/.test(asset.sha256 || '') || hashes.get(name) !== asset.sha256) fail(`Linux checksum mismatch: ${name}`)
-    }
+    validateLinuxPackages(version, requireCurrentAsset)
   }
   return { version }
 }
@@ -87,13 +103,17 @@ export function validateRelease({ tag, draft, assets, latest, without, macArm64O
 async function main(args) {
   const tag = args.shift()
   versionOf(tag)
-  let without, macArm64Only = false
+  let without, macArm64Only = false, linuxOnly = false, linuxAmd64Only = false
   if (args.length) {
-    if (args.length === 1 && args[0] === '--mac-arm64-only') macArm64Only = true
+    if (args.length === 1 && args[0] === '--linux-amd64-only') linuxAmd64Only = true
+    else if (args.length === 1 && args[0] === '--linux-only') linuxOnly = true
+    else if (args.length === 1 && args[0] === '--mac-arm64-only') macArm64Only = true
     else if (args.length === 2 && args[0] === '--without' && ['windows', 'linux'].includes(args[1])) without = args[1]
-    else fail('usage: release-publish.sh <tag> [--without windows|linux | --mac-arm64-only]')
+    else fail('usage: release-publish.sh <tag> [--without windows|linux | --mac-arm64-only | --linux-only | --linux-amd64-only]')
     if (!process.stdin.isTTY || !process.stdout.isTTY) fail('platform omission requires an interactive terminal; no automatic approval is allowed')
   }
+  const linuxRelease = linuxOnly || linuxAmd64Only
+  const linuxArchitectures = linuxAmd64Only ? ['amd64'] : ['amd64', 'arm64']
   const repo = process.env.GH_REPO || 'wizlijun/note.md'
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) fail('invalid GH_REPO')
   const gh = argv => {
@@ -126,21 +146,21 @@ async function main(args) {
       gh(['release', 'download', tag, '--pattern', name, '--dir', root])
       return readFileSync(join(root, name))
     }
-    const latest = JSON.parse(download('latest.json').toString('utf8'))
+    const latest = linuxRelease ? undefined : JSON.parse(download('latest.json').toString('utf8'))
     for (const asset of assets) {
-      if (asset.name.endsWith('.sig')) asset.content = download(asset.name).toString('utf8')
+      if (!linuxRelease && asset.name.endsWith('.sig')) asset.content = download(asset.name).toString('utf8')
     }
     if (!macArm64Only && without !== 'linux') {
       const checksums = download('SHA256SUMS-linux.txt')
       assets.find(a => a.name === 'SHA256SUMS-linux.txt').content = checksums.toString('utf8')
-      for (const arch of ['amd64', 'arm64']) {
+      for (const arch of linuxArchitectures) {
         const name = `note.md_${tag.slice(1)}_${arch}.deb`, bytes = download(name)
         assets.find(a => a.name === name).sha256 = createHash('sha256').update(bytes).digest('hex')
       }
     }
-    validateRelease({ tag, draft: release.isDraft, assets, latest, without, macArm64Only })
-    if (without || macArm64Only) {
-      const exact = macArm64Only ? `${tag} mac-arm64-only` : `${tag} without ${without}`
+    validateRelease({ tag, draft: release.isDraft, assets, latest, without, macArm64Only, linuxOnly, linuxAmd64Only })
+    if (without || macArm64Only || linuxRelease) {
+      const exact = linuxAmd64Only ? `${tag} linux-amd64-only` : linuxOnly ? `${tag} linux-only` : macArm64Only ? `${tag} mac-arm64-only` : `${tag} without ${without}`
       const terminal = createInterface({ input: process.stdin, output: process.stdout })
       try {
         const answer = await terminal.question(`Type exactly "${exact}" to publish with this omission: `)
@@ -157,8 +177,8 @@ async function main(args) {
     })
     // Download counts legitimately increase as this verifier fetches evidence.
     if (identity(current) !== identity(release)) fail('release changed during validation; retry from fresh assets')
-    gh(['release', 'edit', tag, '--draft=false', release.isPrerelease ? '--latest=false' : '--latest'])
-    console.log(`Published ${tag}${release.isPrerelease ? ' (prerelease; not latest)' : ''}`)
+    gh(['release', 'edit', tag, '--draft=false', release.isPrerelease || linuxRelease ? '--latest=false' : '--latest'])
+    console.log(`Published ${tag}${linuxAmd64Only ? ' (Linux amd64-only; not latest)' : linuxOnly ? ' (Linux-only; not latest)' : release.isPrerelease ? ' (prerelease; not latest)' : ''}`)
   } finally { rmSync(root, { recursive: true, force: true }) }
 }
 

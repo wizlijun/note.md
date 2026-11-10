@@ -2,8 +2,70 @@
 
 Host-controlled native rich-text surfaces for Sumi. The macOS backend uses an
 ARC Objective-C AppKit bridge and `NSTextView(initUsingTextLayoutManager:YES)`.
-Other platforms return unavailable; macOS requires 13+. There are no public JS
+The Linux backend uses GTK3 TextView in the host's GTK overlay and event loop,
+including native Wayland input. Other platforms return unavailable; macOS requires
+13+. There are no public JS
 mount commands and no Markdown, disk, credential, or sync implementation here.
+
+## Linux / Omarchy
+
+`src/linux.rs` implements the same host-owned transaction and UTF-16 protocol;
+`src/linux_focus.rs` handles presentation using GTK's real display lines and
+insertion cursor. Fonts register only in the process through Fontconfig. The
+host stores device credentials through libsecret and the plugin plays sound
+through PulseAudio (including PipeWire's Pulse server).
+
+Both Cargo entry points share the pinned
+[Tauri runtime GTK compatibility patch](../vendor/tauri-runtime-wry/NOTEMD_PATCH.md).
+It makes mouse and touch resizing resolve the actual toplevel window when the
+native overlay adds a container, while retaining the original WebKit/menu box.
+
+The Linux caret has its own small drawing area. On Wayland, `linux_caret.rs`
+backs it with a native GDK subsurface so breathing does not redraw the shared
+WebKit backing surface; other backends and offscreen tests keep GTK's ordinary
+drawing area. GTK owns positioning, scale and destruction, and an empty input
+region keeps the caret transparent to pointer events. Its fixed height uses the base font metrics;
+public Pango itemization and shaped glyph extents recover the native run baseline
+(including bitmap emoji scaling). The cache includes the context and font-map
+serials, font, language, complete cursor cluster and style. GTK supplies preedit
+text without its cursor offset: matching native run height resolves ordinary
+mixed preedit runs; if equally tall runs have different baselines, the bridge
+keeps GTK's exact caret rectangle instead of guessing. Physical IME candidate
+placement requires separate desktop acceptance.
+
+RTF-only clipboard data is converted to plain text by
+[`rclip-rtf` 0.1.0](https://docs.rs/rclip-rtf/0.1.0/rclip_rtf/), from
+[rich-clipboard](https://github.com/fschutt/rich-clipboard), licensed MIT OR
+Apache-2.0. Its default parser and `rclip-core` have no I/O, network or rendering
+capabilities and bound nesting to 64 groups. `src/linux_rtf.rs` caps both input
+and decoded text at 2 MiB, discards formatting/embedded objects, and rejects
+malformed input or replacement characters rather than saving undecodable text.
+Unicode RTF (including CJK and surrogate-pair emoji), Windows-1252 and Latin-1
+are supported; legacy CJK code-page bytes are rejected with a plain-text-copy
+instruction. No document converter process or system package is required.
+Run the module tests with `cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml rtf::`.
+
+
+Run `cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml` for unit
+tests. The opt-in GTK transaction test needs an available desktop:
+
+```sh
+GDK_BACKEND=wayland cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml \
+  native_wayland_transactions -- --ignored --test-threads=1
+```
+
+The ignored `native_wayland_damage` test additionally requires an isolated
+Wayland compositor, `grim`, ImageMagick (`magick`), and `SUMI_NATIVE_DAMAGE_DIR`.
+It compares compositor screenshots before and after a fresh text repaint and
+a system-cursor control, catching stale navigation pixels and duplicate carets.
+Use a private display because it captures that display. Layout changes invalidate
+the TextView once; the caret timer does not repaint the editor. Both GTK caret
+colors are transparent while cursor visibility remains enabled for navigation.
+
+This is an isolated synthetic native test, not evidence of physical IME or
+full-host acceptance. See the [Omarchy implementation and acceptance specification](../docs/superpowers/specs/2026-11-10-sumi-omarchy-native.md)
+for architecture decisions and outstanding acceptance boundaries. The AppKit
+implementation details and Objective-C probes below apply to macOS only.
 
 ## Host contract
 
@@ -36,18 +98,31 @@ window. Duplicate mounts and stale generations fail. Destroyed Tauri windows
 clean up their surfaces; the host must still explicitly flush and detach on tab,
 Vault and plugin lifecycle transitions. Do not forcibly detach during IME.
 
-`Edit` is a committed UTF-16 replacement against `base_revision`. The in-process
-handler synchronously applies it to the host's in-memory model and returns a
-strictly greater revision. The handler must validate before mutating: an error must not leave a partially
-applied core transaction. Failure restores the pre-edit native display; the host
-owns error/recovery messaging. A later persistence error must preserve the already
-accepted in-memory draft, not reject an already committed edit. Do not perform synchronous disk I/O in this callback
-or reenter native operations. Return `EventReply { revision, projection }` with
-any rich projection and resolved selection; native installs it before another
-input event can run. Action and Paste use the same atomic reply. The host controls
-durable save acknowledgement separately. Remote updates use `transaction`: inspect
-revision and composition, admit the host mutation, and apply its projection in one
-main-thread turn. A rejected composition never invokes the host mutation.
+`Edit` is a UTF-16 replacement against `base_revision`. Before returning a
+strictly greater accepted revision, the handler must synchronously commit the
+exact operation to the host's local crash journal. It must not reenter AppKit.
+The backend later commits the operation and returns an exact durable receipt;
+only that receipt permits journal reclamation. Startup replays pending journal
+operations before allowing document loads.
+
+Validation errors before mutation return an ordinary rejection and restore the
+pre-edit native display. If local journal persistence fails after the host model
+has changed, return `EventReply` with `draft_error: Some(error)` and the current
+rich `projection`. This is a rejected draft (native ABI return code `-2`), never an
+accepted revision. Native retains the visible text and selection, leaves its
+accepted revision and committed text unchanged, and allows selection and Markdown
+copy while disabling changes and unsafe hide/panel transitions. The host retains
+the exact failed operation, pauses remote updates, and permits explicit save retry.
+Only successful persistence followed by `ApplyDocument` against the old native
+revision clears this protected draft and restores editing. Paste, cut, formatting,
+and IME completion use the same failure protocol.
+
+Normal `EventReply` values use `draft_error: None`; rich projections and resolved
+selection are installed before another input event can run. The host tracks
+backend persistence and file projection acknowledgements separately. Remote
+updates use `transaction`: inspect revision and composition, admit the host
+mutation, and apply its projection in one main-thread turn. A rejected composition
+never invokes the host mutation.
 
 Marked text emits no Edit. At IME completion the native surface emits one committed
 Edit, then `Composition(active=false)`. `ApplyDocument` and appearance/visibility
@@ -194,3 +269,7 @@ font preset and does not overwrite the persisted selection. Six downloadable
 presets include the optional GNU Unifont-only `Sumi CRT` selection for unified
 English and Chinese pixel glyphs; rare characters can still use system fallback.
 The CRT theme uses green `#0ccc68` over black `#000000`.
+
+### Linux 内嵌 Fcitx 候选
+
+Sumi 原生正文可使用 `sumicandidates` addon 展示与正文排版一致的候选区。专注时在输入行下方展开，非专注打字时正文输入行与候选固定底部，最多四行；其他输入框保持普通输入法界面。缺少 addon 时自动保留原候选窗。详见 [规格](../docs/superpowers/specs/2026-11-10-sumi-fcitx-candidates.md) 与 [隔离验收](../scripts/sumi/fcitx-candidates/README.md)。此功能需要更新宿主和 Fcitx 模块，单独更新 Sumi 前端插件不能生效。

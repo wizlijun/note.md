@@ -1,0 +1,19 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md
+
+5:56:51 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+5:56:51 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+5:56:51 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+5:56:51 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+5:56:51 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+
+ Test Files  7 passed (7)
+      Tests  64 passed (64)
+   Start at  17:56:47
+   Duration  9.64s (transform 3.31s, setup 0ms, import 2.02s, tests 3.62s, environment 2.37s)
+

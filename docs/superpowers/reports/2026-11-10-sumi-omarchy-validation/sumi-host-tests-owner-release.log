@@ -1,0 +1,115 @@
+   Compiling tauri-plugin-native-editor v0.1.0 (/home/bruce/git/note.md/tauri-plugin-native-editor)
+   Compiling notemd v6.1110.1 (/home/bruce/git/note.md/src-tauri)
+warning: unused variable: `background`
+   --> src/cli/open.rs:172:35
+    |
+172 | fn spawn_gui(args: Vec<OsString>, background: bool) -> Result<(), String> {
+    |                                   ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_background`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 2 warnings (run `cargo fix --lib -p notemd --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.55s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/notemd_lib-cb6443c06a74e367)
+
+running 88 tests
+test plugin_runtime::windows::sumi_fixed_window_fits_scaled_work_area ... ok
+test sumi::auth::tests::auth_origin_disallows_redirect_credentials_and_non_origin_urls ... ok
+test cli::builtin::tests::root_help_alias_uses_manifest_positionals_instead_of_assuming_file ... ok
+test sumi::auth::tests::identity_mismatch_rejects_before_network_or_keychain ... ok
+test sumi::auth::tests::legacy_origin_spelling_does_not_change_the_paired_identity ... ok
+test sumi::credentials::tests::isolated_keychain_roundtrip ... ignored, writes a unique disposable credential; on Linux run scripts/sumi/test-linux-credentials.sh --private-keyring
+test sumi::auth::tests::error_responses_do_not_echo_remote_body_or_parse_details ... ok
+test sumi::auth::tests::missing_credential_is_not_permanently_cached ... ok
+test sumi::auth::tests::failed_read_is_cleared_and_a_retry_can_succeed ... ok
+test sumi::durability::journal::tests::crash_child ... ignored, only executed by the isolated crash test parent
+test sumi::credentials::tests::debug_does_not_leak_device_secret ... ok
+test sumi::auth::tests::canceled_load_rejoins_the_same_blocking_read_and_then_uses_cache ... ok
+test sumi::durability::journal::tests::measure_synchronous_crdt_journal_latency ... ignored, explicit isolated synchronous durability latency measurement
+test sumi::durability::journal::tests::failed_write_never_publishes_or_acknowledges ... ok
+test sumi::export::tests::export_does_not_replace_symlinks_or_their_targets ... ok
+test sumi::durability::journal::tests::corruption_and_second_host_fail_closed_without_deleting_log ... ok
+test sumi::export::tests::writing_identity_survives_rename_and_crlf_headers ... ok
+test sumi::export::tests::archive_keeps_one_revision_and_line_times_plain_export_omits_identity ... ok
+test sumi::external::tests::missing_metadata_and_deleted_markdown_are_explicit_repair_states ... ok
+test sumi::external::tests::external_body_and_unknown_fields_are_allowed_but_history_is_not ... ok
+test sumi::lifecycle_tests::frozen_cleanup_rejects_changed_revision_and_owner_generation ... ok
+test sumi::lifecycle_tests::failed_prepare_keeps_current_owner_and_does_not_create_a_ready_page ... ok
+test sumi::lifecycle_tests::failed_resume_keeps_frozen_cleanup_available_and_retryable ... ok
+test sumi::durability::journal::tests::fifo_reopen_and_exact_receipt_reclamation ... ok
+test sumi::auth::tests::canceled_pair_save_waits_for_old_read_and_updates_cache_atomically ... ok
+test sumi::paste::tests::active_content_images_and_tables_only_yield_inert_text ... ok
+test sumi::lifecycle_tests::preparing_a_missing_page_leaves_lifecycle_free_for_its_first_snapshot ... ok
+test sumi::paste::tests::oversized_html_is_rejected_before_tokenization ... ok
+test sumi::paste::tests::plain_wins_and_html_only_becomes_text_without_external_styles_or_active_content ... ok
+test sumi::lifecycle_tests::reenable_verifies_saved_state_and_resumes_existing_network_once ... ok
+test sumi::paste::tests::explicit_plain_fallback_preserves_markdown_characters_as_literal_text ... ok
+test sumi::lifecycle_tests::quiesce_preserves_external_file_conflict_and_freezes_durable_body ... ok
+test sumi::recovery::tests::ambiguous_metadata_candidates_are_not_guessed ... ok
+test sumi::lifecycle_tests::stopped_cleanup_uses_exact_final_snapshot_without_a_backend ... ok
+test sumi::recovery::tests::foreign_vault_and_symlink_sources_cannot_be_recovered ... ok
+test sumi::recovery::tests::malformed_frontmatter_keeps_entire_source_and_operation_binding_is_exact ... ok
+test sumi::recovery::tests::crlf_requires_explicit_consent_and_keeps_original_files ... ok
+test sumi::recovery::tests::matching_pair_forks_uuid_preserves_times_extensions_and_original_bytes ... ok
+test sumi::credentials::linux::tests::unavailable_service_is_an_error_not_an_absent_credential ... ok
+test sumi::service::tests::actual_host_proxy_saves_rebinds_and_flushes_native_process ... ignored, requires explicit SUMI_TEST_BACKEND path to the built native executable
+test sumi::service::tests::feedback_without_a_binding_never_activates_a_backend ... ok
+test sumi::service::tests::stop_invalidates_unpolled_start_and_start_waiting_for_inflight_work ... ok
+test sumi::service::tests::stopped_mutation_intake_drains_existing_callbacks_before_flush ... ok
+test sumi::sound::tests::configuration_and_key_deadlines_have_bounded_backend_expiry ... ok
+test sumi::sound::tests::expired_or_closed_events_never_play ... ok
+test sumi::sound::tests::full_queue_stop_cannot_be_dropped_and_new_focus_only_uses_new_epoch ... ok
+test sumi::recovery::tests::missing_or_damaged_sidecar_recovers_body_without_invented_times ... ok
+test sumi::durability::journal::tests::kill_after_receipt_reclamation_preserves_only_unacknowledged_input ... ok
+test sumi::recovery::tests::stale_markdown_metadata_or_late_companion_requires_new_probe ... ok
+test sumi::recovery::tests::moved_markdown_finds_unique_identity_matched_metadata_without_moving_it ... ok
+test sumi::recovery::tests::recovered_empty_page_is_durable_without_a_fake_filename_or_time ... ok
+test sumi::durability::journal::tests::kill_after_accepted_before_ipc_recovers_both_edits ... ok
+test sumi::sound::tests::owner_surface_generation_and_lifecycle_are_rechecked ... ok
+test sumi::tests::deferred_show_cannot_reopen_a_later_close ... ok
+test sumi::sound::tests::sound_defaults_persist_separately_without_changing_appearance_or_documents ... ok
+test sumi::tests::deleting_current_page_selects_next_then_previous_and_never_deleted_page ... ok
+test sumi::tests::background_font_completion_and_appearance_form_preserve_each_others_fields ... ok
+test sumi::recovery::tests::recovered_pair_and_operation_marker_survive_sqlite_reopen_without_duplicate_create ... ok
+test sumi::tests::caret_motion_defaults_and_survives_reopening_without_resetting_appearance ... ok
+test sumi::tests::deleted_generation_rejects_source_without_changing_its_draft_or_queue ... ok
+test sumi::tests::composition_defers_inbox_blob_reads_until_commit_and_keeps_fifo ... ok
+test sumi::tests::font_catalog_contains_only_selected_presets ... ok
+test sumi::tests::focus_owner_rechecks_bound_identity_without_changing_document_or_selection ... ok
+test sumi::tests::focus_typing_migrates_on_and_persists_off_without_changing_document_or_sound ... ok
+test sumi::tests::invalid_appearance_does_not_cancel_pending_font_and_explicit_old_client_change_does ... ok
+test sumi::tests::font_download_completion_only_applies_the_last_explicit_selection ... ok
+test sumi::tests::empty_undo_does_not_poison_the_durable_queue_and_real_undo_maps_the_caret ... ok
+test sumi::tests::pairing_ui_roundtrips_the_complete_invitation_without_exposing_invalid_input ... ok
+test sumi::tests::filename_reallocation_names_all_relocated_pages_and_cannot_rebind_the_old_tab ... ok
+test sumi::tests::plugin_bounds_correct_font_dpi_without_rescaling_native_tabs ... ok
+test sumi::tests::creating_page_retry_reuses_its_committed_operation_after_active_page_has_changed ... ok
+test sumi::tests::keyboard_formats_and_link_sheet_keep_canonical_identity ... ok
+test sumi::tests::broken_or_late_meta_never_mutates_known_text_and_explicit_repair_preserves_originals ... ok
+test sumi::tests::selection_clamping_never_splits_a_surrogate_pair ... ok
+test sumi::tests::navigation_versions_change_only_after_durable_active_page_changes ... ok
+test sumi::tests::reloaded_mount_recovers_only_the_same_live_authorized_owner ... ok
+test sumi::tests::pending_projection_and_failed_local_durability_have_distinct_ui_states ... ok
+test sumi::tests::lost_remote_receipt_retries_durability_without_reapplying_the_ui_packet ... ok
+test sumi::tests::typing_style_is_ephemeral_and_preserved_through_ime_commit ... ok
+test sumi::tests::typing_style_clears_on_navigation_and_lf_and_styles_paste_once ... ok
+test sumi::tests::writing_menu_mapping_and_editor_actions_are_explicit ... ok
+test sumi::tests::retired_fonts_migrate_durably_without_resetting_other_preferences ... ok
+test sumi::tests::known_external_header_and_metadata_extensions_preserve_body_history ... ok
+test sumi::tests::unresolved_foreign_reading_anchors_are_retained_without_moving_the_caret ... ok
+test sumi::tests::unjournaled_draft_blocks_handoff_and_retries_exactly_once ... ok
+test sumi::tests::successive_source_saves_pin_the_baseline_of_the_latest_submission ... ok
+test sumi::tests::projection_conflict_allows_local_writing_reopen_and_never_reports_projected ... ok
+test sumi::tests::small_reading_preferences_survive_reload_and_remote_insert_without_changing_text_history ... ok
+
+test result: ok. 84 passed; 0 failed; 4 ignored; 0 measured; 1371 filtered out; finished in 0.28s

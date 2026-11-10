@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "verified_at_utc": "2026-11-09T15:45:13.902742+00:00",
+  "tag": "v6.1109.4",
+  "commit": "b55a6d0f42b4e948db3d22810be632249668d573",
+  "entire_draft_tar_verified": true,
+  "tar": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/host-draft-download/note.md-aarch64.app.tar.gz",
+  "tar_bytes": 14370144,
+  "tar_sha256": "c8d4afb17aa0ee919aa3f749ae14f492ea89149f6b4898a450234364d0fdf869",
+  "signature_sha256": "955cf710576bc53fdd1a465c026e7a31d4ed334b038d87265f69ba06d13361e0",
+  "frozen_config_pubkey_sha256": "62a80aaa24841cac0378ecc3d947866be20984b1781ac8bdbd61b7b14d34a234",
+  "minisign_stdout": "Signature and comment signature verified\nTrusted comment: timestamp:1794238857\tfile:note.md-aarch64.app.tar.gz",
+  "minisign_stderr": "",
+  "draft_report_sha256": "6d4ea0e258a428b92a4f62dd89b36a3142a785ec5e3616a775594b369541fde9",
+  "mutations": "none: read-only artifact verification; decoded signature evidence only"
+}

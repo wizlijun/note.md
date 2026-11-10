@@ -9,9 +9,25 @@ body { margin:0 }
 [hidden] { display:none !important }
 #app { height:100dvh; display:flex; flex-direction:column }
 #surface { flex:1; min-height:0 }
-#notice { margin:0; padding:8px 24px; text-align:center }
+#notice { margin:0; padding:8px 24px; line-height:20px; text-align:center; user-select:text; -webkit-user-select:text }
+/* A stable row outside the native surface: status updates never move the writing anchor. */
+#notice-slot { display:flex; align-items:center; flex:0 0 36px; height:36px; min-height:36px }
+#notice-slot > #notice { flex:1; min-width:0; max-height:100%; overflow:auto; overflow-wrap:anywhere; opacity:0; transition:opacity .15s }
+#notice-slot:hover > #notice,#notice-slot > #notice:focus,#notice-slot > #notice[data-critical="true"] { opacity:1 }
+#notice-slot > #notice[data-critical="true"] { transition:none }
+#retry-save { flex:none; padding:7px 12px; margin-right:12px; border:1px solid currentColor }
+#notice:focus-visible { outline:1px solid currentColor; outline-offset:-2px }
+#panel > #notice { padding:0; margin-bottom:18px; text-align:left }
 #tools { display:flex; justify-content:center; gap:16px; padding:8px 20px 14px; opacity:0; transition:opacity .15s }
 #tools:hover,#tools:focus-within { opacity:1 }
+/* Keep fullscreen controls above a desktop dock; the native surface follows flex bounds. */
+:root[data-platform="linux"][data-fullscreen="true"] #tools { order:-2; flex:none; flex-wrap:wrap; opacity:1; padding-top:max(8px,env(safe-area-inset-top)); padding-bottom:8px }
+:root[data-platform="linux"][data-fullscreen="true"] #notice-slot { order:-1 }
+:root[data-platform="linux"][data-fullscreen="true"] #app { padding-bottom:max(clamp(32px,5vh,64px),env(safe-area-inset-bottom)) }
+@media (max-width:480px) {
+  #tools { gap:4px; padding-inline:8px; flex-wrap:wrap }
+  :root[data-platform="linux"][data-fullscreen="true"] #notice-slot { flex-basis:64px; height:64px; min-height:64px }
+}
 button,input,select,textarea { font:inherit; color:inherit }
 button { border:0; background:transparent; border-radius:6px; padding:7px 12px; cursor:pointer }
 button:focus-visible { outline:2px solid currentColor; outline-offset:2px }
@@ -41,5 +57,6 @@ form .font-option { display:grid; gap:5px; width:100%; text-align:left; padding:
 .sound-settings { display:grid; gap:10px }
 .sound-settings h2 { margin:0; font-size:14px; opacity:1 }
 .sound-settings p { margin:0; font-size:12px; opacity:.7; line-height:1.5; overflow-wrap:anywhere }
-.sound-toggle { display:flex; align-items:center; gap:8px }
-.sound-toggle input { width:auto; accent-color:var(--ink) }
+.sound-toggle,.focus-toggle { display:flex; align-items:center; gap:8px }
+.sound-toggle input,.focus-toggle input { width:auto; accent-color:var(--ink) }
+#focus-typing-hint { margin:0; font-size:12px; opacity:.7; line-height:1.5 }

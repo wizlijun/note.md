@@ -1,0 +1,50 @@
+{
+  "at": "2026-11-09T15:42:33.348714+00:00",
+  "releaseTag": "v6.1109.4",
+  "releaseCommit": "b55a6d0f42b4e948db3d22810be632249668d573",
+  "readOnly": true,
+  "submitted": false,
+  "tool": {
+    "path": "/Library/Developer/CommandLineTools/usr/bin/notarytool",
+    "version": "1.1.4 (43)",
+    "sha256": "ff742860507d8cc9e0bf990489f071748eb6d4e0974ec7b8d232c5665a9d95c9"
+  },
+  "app": {
+    "job": "857cf225-cab3-41c0-a617-2712e776667a",
+    "status": "Accepted",
+    "appleArchiveSha256": "575ea1918e844f077261074396d4fbca134ab692f32b822efa381ed316859f19",
+    "binarySha256": "b67f8d77d8f515ab318471cb97ff0f7ea00707e141d65d9025fea658f8cb98fe",
+    "cdhash": "e824f17f05b2f61f54ecec8c889fdba283f32a63",
+    "team": "T5G56DH47L",
+    "appleTicketBindsFinalCDHash": true,
+    "localArchiveStillExists": false,
+    "localArchiveMatches": false,
+    "currentTransportInvocationExists": false,
+    "matchingTransportInvocations": [],
+    "localArchiveIdentityBound": false,
+    "localArchiveHashIndependentlyVerified": false,
+    "archiveHashBoundary": "Apple reports archive SHA; original temporary ZIP was cleaned and no final submit transport record exists; final App identity is independently bound by CDHash and Apple ticketContents",
+    "logSha256": "f27bc06363f2b72028673c750e6e7c976b48b904182f360bc2f78a7eba7f29f8"
+  },
+  "dmg": {
+    "job": "4bbdb1c6-ec3a-48fb-b046-91c3f5589e3f",
+    "status": "Accepted",
+    "path": "/tmp/note.md-6.1109.4-aarch64.dmg",
+    "sha256": "4ada0afafe8390bcde19f62e5efa76e760e1f202120c6295f25668d9bdaac437",
+    "bytes": 14296231,
+    "appleArchiveSha256MatchesUnstapledBundle": true,
+    "submittedArchivePath": "/Users/bruce/git/mdeditor/tasks/sumi-focus-arrow-20261109/source/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/note.md_6.1109.4_aarch64.dmg",
+    "submittedArchiveBytes": 14294541,
+    "submittedArchiveSha256": "b2c0ce64b02711eef499b6ac87ba620b8f606504219a4298a54a34faba638ea0",
+    "finalDistributedSha256": "4ada0afafe8390bcde19f62e5efa76e760e1f202120c6295f25668d9bdaac437",
+    "stapledFinalDiffersFromSubmittedBytes": true,
+    "cdhash": "3e71b06e766c162f8b034d5730774e60a608c13e",
+    "submittedAndFinalCDHashIdentical": true,
+    "appleTicketBindsDMGAndAppCDHash": true,
+    "staplerValidatePassed": true,
+    "codesignStrictPassed": true,
+    "releaseScriptBinding": "scripts/release.sh419 copies submitted bundle image to /tmp,426 notarizes,427 staples only /tmp; final image hash is intentionally different",
+    "logSha256": "047be2a825d9784d785c3398151bf1bbdf484ced4acd5d668cfec253022e2607"
+  },
+  "publishedByThisTask": false
+}

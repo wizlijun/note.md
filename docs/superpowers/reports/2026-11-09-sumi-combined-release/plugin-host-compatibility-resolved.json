@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "at": "2026-11-09T13:07:38.913777+00:00",
+  "pluginVersion": "0.1.7",
+  "minimumHost": ">=6.1109.2",
+  "compatibleHostPublic": true,
+  "hostTag": "v6.1109.2",
+  "hostSource": "94ec8e3984212942f46f1fe7006122272fd6ee62",
+  "registryCount": 305,
+  "registryUnchangedSincePluginPublication": true,
+  "registryMutated": false,
+  "packageSha256": "bb77853ffe2276e43c4079aa9f2fa146a4e432fbfae1ace7990c805f53c763a1",
+  "hostManifestGate": {
+    "canonical_status": 200,
+    "canonical_transport_error": null,
+    "verified_endpoint": "canonical",
+    "manifest_sha256": "97d749e96819800281e07604a15eca8f26ae6c781a2460ef6364b4bdd0f8ca08",
+    "ordinary_download_route_verified": true
+  }
+}

@@ -18,6 +18,9 @@
         "depends": [
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0",
+          "libsecret-1-0",
+          "libpulse0",
+          "libfontconfig1",
           "libayatana-appindicator3-1",
           "git",
           "xdg-utils"

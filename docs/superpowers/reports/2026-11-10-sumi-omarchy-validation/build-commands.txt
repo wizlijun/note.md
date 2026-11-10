@@ -1,0 +1,22 @@
+# From /home/bruce/git/note.md; local debug preview, no installation/publication.
+# Frontend was built with pnpm build. Plugin/backend acceptance zip is separate.
+export PATH="$PWD/tasks/omarchy-build/tools/node_modules/.bin:$PATH"
+export LIBRARY_PATH="$PWD/tasks/omarchy-build/sysroot/usr/lib"
+export LD_LIBRARY_PATH="$PWD/tasks/omarchy-build/sysroot/usr/lib"
+export NOTEMD_DIST_CHANNEL=package-manager RUSTUP_TOOLCHAIN=stable CARGO_BUILD_JOBS=2
+pnpm tauri build --debug --ci --bundles deb --config '{"build":{"beforeBuildCommand":""}}'
+python3 tasks/omarchy-build/sumi-arch-package/prepare.py
+# In tasks/omarchy-build/sumi-arch-package:
+makepkg --force --nodeps --noconfirm
+python3 verify.py
+# prepare.py reuses packaging/omarchy/notemd/PKGBUILD package(), local deb SHA256,
+# a preview package name, exact native dependencies and stripped debug executable.
+
+# Archived package-prepare.py/package-verify.py in this evidence directory
+# must be copied back as prepare.py/verify.py under tasks/omarchy-build/sumi-arch-package
+# to retain the validated relative-path behavior.
+
+# Diagnostic-only GTK module, loaded exclusively into the isolated test process:
+# cc -shared -fPIC gtk-geometry-module.c -o gtk-geometry-module.so $(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1)
+# GTK_MODULES=/absolute/path/gtk-geometry-module.so SUMI_GTK_GEOMETRY_DIR=/isolated/evidence <private-host-launcher>
+# This only records widget allocations and DOM/WebView/window sizes; production package does not load it.
