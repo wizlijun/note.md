@@ -71,6 +71,7 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
     if(@available(macOS 13.0,*))for(SumiFocusRow *row in frameRows){
         CGFloat p=self.progress;
         NSPoint origin=NSMakePoint(row.startOrigin.x+(row.origin.x-row.startOrigin.x)*p,row.startOrigin.y+(row.origin.y-row.startOrigin.y)*p);
+        origin.y+=[self.text candidateOffsetForRow:row];
         CGContextSaveGState(ctx);CGContextSetAlpha(ctx,1+(row.alpha-1)*self.strength);
         CGContextTranslateCTM(ctx,origin.x,origin.y);
         NSRange selected=NSIntersectionRange(self.text.selectedRange,row.range);
@@ -329,6 +330,7 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
     SumiFocusView *view=self.focusView;SumiFocusRow *row=[self focusRowForRect:rect];if(!row)return rect;
     CGFloat p=view.progress;
     NSPoint origin=NSMakePoint(row.startOrigin.x+(row.origin.x-row.startOrigin.x)*p,row.startOrigin.y+(row.origin.y-row.startOrigin.y)*p);
+    origin.y+=[self candidateOffsetForRow:row];
     return NSMakeRect(origin.x+rect.origin.x-row.rawOrigin.x,origin.y+rect.origin.y-row.rawOrigin.y,rect.size.width,rect.size.height);
 }
 - (NSUInteger)focusCharacterIndexAtPoint:(NSPoint)point {
@@ -351,6 +353,7 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
     if(!nearest)return [self convertPoint:point fromView:self.focusView];
     CGFloat p=self.focusView.progress;
     NSPoint origin=NSMakePoint(nearest.startOrigin.x+(nearest.origin.x-nearest.startOrigin.x)*p,nearest.startOrigin.y+(nearest.origin.y-nearest.startOrigin.y)*p);
+    origin.y+=[self candidateOffsetForRow:nearest];
     CGFloat x=nearest.rawOrigin.x+point.x-origin.x;
     CGFloat y=nearest.rawOrigin.y+point.y-origin.y;
     // Inter-line / outside whitespace belongs to its nearest visible row, never

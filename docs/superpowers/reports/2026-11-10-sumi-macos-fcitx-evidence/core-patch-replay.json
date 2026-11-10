@@ -1,0 +1,51 @@
+{
+  "base": "5ffd9e5f905078880f1e21752e10b63490734809",
+  "patches": [
+    {
+      "name": "tempmode.patch",
+      "sha256": "a4798d053d10848092015754f1c67901b39fc096e1fd59c962909f978d856772"
+    },
+    {
+      "name": "safe-pipe.patch",
+      "sha256": "c411d70fdeba42f6c88fc4d6e157fbd2978bc78159534463dd08d4ed9d0e233b"
+    },
+    {
+      "name": "sumi-context-candidates.patch",
+      "sha256": "b76ef356015a046312e6a14e42ef01521799517c1fd47d4996a8dfe63b9a9b77"
+    }
+  ],
+  "replay_files": [
+    {
+      "path": "src/lib/fcitx-utils/misc_p.h",
+      "equal": true,
+      "sha256": "a9456eeb50de0705df5fc627d2bd8e61743d742cd9a26655bac0f256f0a19340"
+    },
+    {
+      "path": "src/lib/fcitx/candidatelist.cpp",
+      "equal": true,
+      "sha256": "b4d2bbc69b3e495e55be78d1cd99003dfeb28ef14d13a4a71e18a44261cb662f"
+    },
+    {
+      "path": "src/lib/fcitx/candidatelist.h",
+      "equal": true,
+      "sha256": "ce5c060fbdead0c277ecf2969e310b815239484a3bfec5cd2c4d9acc834f6dc7"
+    },
+    {
+      "path": "src/lib/fcitx/instance.cpp",
+      "equal": true,
+      "sha256": "e3c17ad20026b69f04f961238b02c04cb63fe1c418cec96a2c334f43f74a0aba"
+    },
+    {
+      "path": "src/lib/fcitx/instance.h",
+      "equal": true,
+      "sha256": "2036875e5754c4ac15a2a5d79c62b2776704cc07d20a0424355a6755453361d6"
+    },
+    {
+      "path": "test/testcandidatelist.cpp",
+      "equal": true,
+      "sha256": "c1c24fc6726de3d93b67d6e236fbca110fc081260164f87dfa1746a6844bd820"
+    }
+  ],
+  "all_equal": true,
+  "unexpected_dirty": []
+}

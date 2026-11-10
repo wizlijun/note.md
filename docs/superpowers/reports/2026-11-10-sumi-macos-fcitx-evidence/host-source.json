@@ -1,0 +1,21 @@
+{
+  "base": "d8df740c",
+  "source_sha256": {
+    "scripts/sumi/test-macos-candidates.sh": "201338b4debd35bbf83a37c13427bbfe85625c8223083822f85fabb0d2557134",
+    "tauri-plugin-native-editor/build.rs": "b1218e78ed119fd7a126a26ed8bc86989b172ae6542dfdb1577b7e5ac3e872c6",
+    "tauri-plugin-native-editor/native/candidates-bridge-probe.m": "8bd165dee50bb05b59ae5ce8049fdc37a9c86ad9dbb2cb86777214fae205401f",
+    "tauri-plugin-native-editor/native/candidates-bridge.h": "f106ffd846976cf6525ccfb4a321b64cb3297ec6ebdb97bdb1500a522300cb03",
+    "tauri-plugin-native-editor/native/candidates-host-probe.m": "a68cb006efdba231b8f882786ff32106cf1d7849b5db698f07433e216e01aaec",
+    "tauri-plugin-native-editor/native/candidates-host.h": "a84d365944bc4ab7e486cc05b3d3a3966e95f8eb52554073219076df145391b7",
+    "tauri-plugin-native-editor/native/candidates-view-probe.m": "7a13e7f430224553bd60cbd7a0561f617247952860cd95164984454d9c5299c2",
+    "tauri-plugin-native-editor/native/candidates-view.h": "95d82f4b9fd7dcf2f73f370692138751bba003dd5c8650e91e87a435a0a56482",
+    "tauri-plugin-native-editor/native/caret-render-probe.m": "d7724b1fcadc67582a523a50086b18777f120610e10fcc632a626cdf17ffed80",
+    "tauri-plugin-native-editor/native/editor.m": "e578b7f9baac5411b0df4c0b3a788c12584382e05fa119ef5f44b6a791211f5b",
+    "tauri-plugin-native-editor/native/focus.h": "225165d022abc19647c530ed47364ccaf9bad0c930ef3076f56cb4b0f40dbfca"
+  },
+  "appkit_host_checks": 60,
+  "layout_assertions": 20877,
+  "full_system_acceptance": false,
+  "host_distribution_built": false,
+  "known_baseline_failure": "caret-render KVO observations=12 <20; gaps=0; visible_system_colors=0"
+}

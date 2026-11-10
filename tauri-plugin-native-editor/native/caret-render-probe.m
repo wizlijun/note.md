@@ -62,12 +62,21 @@ static NSDictionary *captureRaster(NSTextView *text,NSString *name,BOOL blue,BOO
     [text cacheDisplayInRect:text.bounds toBitmapImageRep:bitmap];
     NSString *path=[@"tasks/sumi-native" stringByAppendingPathComponent:[name stringByAppendingString:@".png"]];
     require([[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}]writeToFile:path atomically:YES],@"save exact AppKit raster evidence");
+    // Preedit now inherits the body's color, which is also the custom caret
+    // color. Measure the actual caret view's raster, not same-colored glyphs
+    // elsewhere in the document. Keep the system-indicator audit global.
+    NSRect caretRegion=text.bounds;
+    if([text isKindOfClass:SumiTextView.class]){
+        NSView *caret=((SumiTextView *)text).typewriterCaret;
+        caretRegion=[text convertRect:caret.bounds fromView:caret];
+    }
+    CGFloat pixelScale=bitmap.pixelsWide/text.bounds.size.width;
     NSInteger count=0,left=NSIntegerMax,top=NSIntegerMax,right=0,bottom=0,stale=0;
     for(NSInteger y=0;y<bitmap.pixelsHigh;y++)for(NSInteger x=0;x<bitmap.pixelsWide;x++){
         NSColor *color=[[bitmap colorAtX:x y:y]colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
         BOOL red=color.redComponent>0.7 && color.greenComponent<0.4 && color.blueComponent<0.4;
         BOOL current=blue?(color.blueComponent>0.7 && color.redComponent<0.4 && color.greenComponent<0.4):red;
-        if(current){count++;left=MIN(left,x);top=MIN(top,y);right=MAX(right,x);bottom=MAX(bottom,y);}
+        if(current && NSPointInRect(NSMakePoint((x+.5)/pixelScale,(y+.5)/pixelScale),caretRegion)){count++;left=MIN(left,x);top=MIN(top,y);right=MAX(right,x);bottom=MAX(bottom,y);}
         if(blue && red)stale++;
     }
     NSDictionary *result=@{@"pixels":@(count),@"width":@(count?right-left+1:0),@"height":@(count?bottom-top+1:0),@"stale_red":@(stale),@"system_indicators":@(systemIndicators(text,YES)),@"system_indicator_objects":@(systemIndicators(text,NO))};

@@ -1,0 +1,17 @@
+I2026-11-10 13:34:06.740590 instance.cpp:691] Starting fcitx5 5.1.23
+I2026-11-10 13:34:06.741238 instance.cpp:227] Trying to fallback to compose table for en_US.UTF-8
+W2026-11-10 13:34:06.741468 instance.cpp:234] No compose table is loaded, you may want to check your locale settings.
+I2026-11-10 13:34:06.741577 instance.cpp:1501] Override Enabled Addons: {pinyin, punctuation}
+I2026-11-10 13:34:06.741616 instance.cpp:1502] Override Disabled Addons: {all}
+I2026-11-10 13:34:06.743662 inputmethodmanager.cpp:135] No valid input method group in configuration. Building a default one
+I2026-11-10 13:34:06.743708 instance.cpp:427] Items in Default: [InputMethodGroupItem(keyboard-us,layout=)]
+I2026-11-10 13:34:06.743761 instance.cpp:432] Generated groups: [Default]
+E2026-11-10 13:34:06.743806 instance.cpp:1511] Couldn't find keyboard-us
+I2026-11-10 13:34:06.746137 addonmanager.cpp:208] Loaded addon punctuation
+E2026-11-10 13:34:06.767783 pinyin.cpp:937] Failed to load pinyin history: io fail: unspecified iostream_category error
+I2026-11-10 13:34:06.771101 addonmanager.cpp:208] Loaded addon pinyin
+click index 1 committed 拟好 once; release restored 👋
+Sumi production frontend + real pinyin: snapshot, exact-once click, empty, page, number-key and focus rejection passed
+I2026-11-10 13:34:06.780418 inputcontextmanager.cpp:373] All display connections are gone, exit now.
+I2026-11-10 13:34:06.780461 addonmanager.cpp:312] Unloading addon pinyin
+I2026-11-10 13:34:06.780653 addonmanager.cpp:312] Unloading addon punctuation

@@ -1,0 +1,27 @@
+{
+  "repository": "/Users/bruce/git/fcitx5-macos-sumi",
+  "commit": "0b4b866fb0449ea6cd0abf8eef3ef0cfeeae416a",
+  "upstream": "6322853b17aca03ce1f1b694208cc5201944ca69",
+  "source_sha256": {
+    "docs/sumi-candidates.md": "1678b62aab621c0d42a5ab7da8f5ace0943e11d6e70998635a763f168daa5791",
+    "macosfrontend/CMakeLists.txt": "c555125ff901b644d5c239fa4ecb63e1b141df94b67fb0017ac6df26d67243e2",
+    "macosfrontend/macosfrontend-public.h": "b5d5c7f9d1e8d3cfc245da4dcc708018b9a57e4311eb1539029bfd2abf6a72e7",
+    "macosfrontend/macosfrontend.cpp": "5b4c7b29c76ad959e3847d11815c6c1e10c7f83004912b2a15067415b1312aad",
+    "macosfrontend/macosfrontend.h": "06919619c95f740b682c518717eb1e27faca5469a8085302311345e490533711",
+    "macosfrontend/macosfrontend.swift": "b04880a7fff1af78ea4dc792ff00aa28ae998655da3e9799e683d171b86e4082",
+    "macosfrontend/sumi-candidates.swift": "a6c082e5ab4e456f5af11ca6f967c18b555637dbfb39c1d79caf27fb34924d94",
+    "patches/sumi-context-candidates.patch": "b76ef356015a046312e6a14e42ef01521799517c1fd47d4996a8dfe63b9a9b77",
+    "scripts/patch.sh": "1eb3a98c25d98c9ce3b5d8a4d5be3ad924e0d854326f9ce2c71d2152268d8a2e",
+    "src/controller.swift": "6b482a190e1c066b3d47d8430e5ab878d9d8bc8a6bdb5dceb3ab759c6d6ca8d8",
+    "tests/CMakeLists.txt": "685973d56c9af45e83e889bc5e831c6773639be74f77d014667938e0e6fb0fcc",
+    "tests/sumi-bridge-stubs.cpp": "ba5b864d7f52196d3cef7c141cf29e7f9031fffede67c63ea5bfcbe731325147",
+    "tests/testsumi-bridge.swift": "e63c3688ce0367316399e4d394684e8e95281de342908cd0137887ae36192309",
+    "tests/testsumi-pinyin.cpp": "be3af1e99331160459402957e1e2f065fb760c04aae3daf925bf500b34a0069c",
+    "tests/testsumi.cpp": "8aede10205b2fd603a4c3e94b6dbf749f07112c51dc1c5af498410636812c7db",
+    "webpanel/webpanel.cpp": "bd384256323ef1c7a405a113ac0909d16f9a17e822251b3f3b2548178c935990",
+    "webpanel/webpanel.h": "793c41c1e404911464368a383b49b2fc416edcf4555eb1f84e306c3d3a4f7f8f"
+  },
+  "core_patch_replayed": true,
+  "system_installed": false,
+  "packaged_or_released": false
+}

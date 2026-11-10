@@ -1,0 +1,123 @@
+FAIL: continuous KVO audit detects no transient steady-caret gap or visible system color during input
+caret-render-system {
+    height = 70;
+    pixels = 206;
+    "stale_red" = 0;
+    "system_indicator_objects" = 1;
+    "system_indicators" = 1;
+    width = 3;
+}
+System legacy drawInsertionPoint calls=0
+caret-render-sumi {
+    height = 70;
+    pixels = 420;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-font-theme {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-0 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-settled-0 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-1 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-settled-1 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-2 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-settled-2 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-3 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-ime-settled-3 {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-after-ime {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-typing-x {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-typing-y {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+caret-render-typing-z {
+    height = 103;
+    pixels = 618;
+    "stale_red" = 0;
+    "system_indicator_objects" = 0;
+    "system_indicators" = 0;
+    width = 6;
+}
+INPUT AUDIT observations=12 gaps=0 visible_system_colors=0
