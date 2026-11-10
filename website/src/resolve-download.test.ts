@@ -372,4 +372,16 @@ describe('Linux Arch package asset selection', () => {
       ? Array.from({ length: 100 }, () => ({ assets: [dl('v7', 'note.md_7_arm64.deb')] })) : releases,
     'aarch64', 100, 'arch')).toBe(arm.browser_download_url)
   })
+
+  it.each([
+    ['deb', 'note.md_6.1110.2_amd64.deb', 'note.md_6.1027.1_arm64.deb'],
+    ['arch', 'notemd-6.1110.2-1-x86_64.pkg.tar.zst', 'notemd-6.1027.1-1-aarch64.pkg.tar.zst'],
+  ])('keeps the actual ARM stable download after an x86-only %s release', (format, newName, oldName) => {
+    const newest = dl('v6.1110.2', newName)
+    const previous = dl('v6.1027.1', oldName)
+    const published = [{ draft: false, prerelease: false, assets: [newest] },
+      { draft: false, prerelease: false, assets: [previous] }]
+    expect(linuxUrlFromReleases(published, 'x86_64', format)).toBe(newest.browser_download_url)
+    expect(linuxUrlFromReleases(published, 'aarch64', format)).toBe(previous.browser_download_url)
+  })
 })
