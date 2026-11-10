@@ -9,6 +9,8 @@
 //! Never a Vault path. Which blocks may be sent at all (confidentiality,
 //! consent) is decided by the caller before a candidate reaches this module.
 
+use std::collections::HashMap;
+use std::future::Future;
 use std::time::Duration;
 
 use futures_util::stream::{self, StreamExt, TryStreamExt};
@@ -19,7 +21,7 @@ use super::{SagCandidate, CRITERIA_FALSE, CRITERIA_TRUE, CRITERION, SCORE_NOTE};
 use crate::smart_enhance::candidates::estimate_tokens;
 use crate::smart_enhance::judge::{CRITERIA_FALSE as DIRECT_FALSE, CRITERIA_TRUE as DIRECT_TRUE};
 use crate::smart_enhance::CancelFlag;
-use crate::smart_model::{score_noul, JevConfig, ModelError, NoulQuestion};
+use crate::smart_model::{score_noul, JevConfig, ModelError, NoulOutcome, NoulQuestion};
 
 /// The question wording (defined with the parameters, `judge.preset`; P7).
 pub(crate) use crate::lookup_params::Preset;
@@ -177,7 +179,8 @@ pub(crate) fn jev_batches(
             (c, question, n)
         })
         .collect::<Vec<_>>();
-    let base = estimate_value(&Value::String(state.to_string()), cjk, other) + 1024;
+    // `estimate(Value::String(state))`, without copying the state.
+    let base = estimate_tokens(state, cjk, other) + 1024;
     if base + 64 > context_tokens {
         return Err(BatchError::EvidenceTooLarge);
     }
@@ -241,20 +244,36 @@ pub(crate) async fn score_round(
     deadline: Duration,
     cancel: &CancelFlag,
 ) -> Result<RoundScore, RoundError> {
+    score_batches(batches, deadline, cancel, |questions: Vec<NoulQuestion>, timeout| async move {
+        score_noul(client, jev, key, state, &questions, timeout).await
+    })
+    .await
+}
+
+/// The orchestration of [`score_round`] with the transport passed in: `send`
+/// asks one batch's questions within the given timeout, which is the time
+/// left until the shared deadline when the batch starts (SAG's
+/// `timeout.min(remaining)`).
+async fn score_batches<F, Fut>(
+    batches: Vec<Batch>,
+    deadline: Duration,
+    cancel: &CancelFlag,
+    send: F,
+) -> Result<RoundScore, RoundError>
+where
+    F: Fn(Vec<NoulQuestion>, Duration) -> Fut,
+    Fut: Future<Output = Result<NoulOutcome, ModelError>>,
+{
     if cancel.is_cancelled() {
         return Err(RoundError::Cancelled);
     }
+    let started = tokio::time::Instant::now();
     let requests = batches.len() as u32;
+    let send = &send;
     let work = async {
         let outcomes: Vec<(Vec<SagCandidate>, Option<(u64, u64)>)> = stream::iter(batches.into_iter().map(|batch| async move {
-            // Each request may use the whole round; the outer timeout ends
-            // the round when the shared deadline passes.
-            let outcome = score_noul(client, jev, key, state, &batch.questions, deadline).await?;
-            let mut items = batch.items;
-            for (item, (id, noul)) in items.iter_mut().zip(outcome.scores) {
-                debug_assert_eq!(id, format!("candidate_{}", item.id));
-                item.score = noul;
-            }
+            let outcome = send(batch.questions, deadline.saturating_sub(started.elapsed())).await?;
+            let items = apply_scores(batch.items, outcome.scores)?;
             Ok::<_, ModelError>((items, outcome.usage.map(|u| (u.input_tokens, u.output_tokens))))
         }))
         .buffered(JEV_CONCURRENCY)
@@ -281,13 +300,26 @@ pub(crate) async fn score_round(
     }
 }
 
+/// `score = noul`, looked up by `candidate_{id}` (as SAG's `score_batch`
+/// does). The answers must be exactly the batch's ids.
+fn apply_scores(mut items: Vec<SagCandidate>, scores: Vec<(String, f64)>) -> Result<Vec<SagCandidate>, ModelError> {
+    let mismatch = || ModelError::Invalid("answer ids differ from the batch".into());
+    if scores.len() != items.len() {
+        return Err(mismatch());
+    }
+    let by_id: HashMap<String, f64> = scores.into_iter().collect();
+    for item in &mut items {
+        item.score = *by_id.get(&format!("candidate_{}", item.id)).ok_or_else(mismatch)?;
+    }
+    Ok(items)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::smart_model::AuthMode;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, LazyLock, Mutex};
-    use std::time::Instant;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     static ORACLE: LazyLock<Value> =
@@ -336,8 +368,9 @@ mod tests {
     }
 
     #[test]
-    fn every_oracle_state_without_scores_or_headings_round_trips() {
-        // The other oracle states: no previous scores means no score note.
+    fn every_oracle_state_round_trips() {
+        // Every oracle state, rebuilt from its own evidence (with and without
+        // previous scores), comes out byte for byte.
         for case in ORACLE["cases"].as_array().unwrap() {
             for request in case["requests"].as_array().unwrap() {
                 let expected = request["state"].as_str().unwrap();
@@ -488,38 +521,40 @@ mod tests {
         );
     }
 
-    // ---- score_round against a local stand-in --------------------------------
+    // ---- score_round over HTTP (one real-socket test, no timing asserts) ------
 
     struct Reply {
         status: u16,
         delay: Duration,
-        usage: Option<(u64, u64)>,
+        /// Answer `candidate_{id + 1}` instead of `candidate_{id}`.
+        wrong_ids: bool,
+    }
+
+    fn ok(delay_ms: u64) -> Reply {
+        Reply { status: 200, delay: Duration::from_millis(delay_ms), wrong_ids: false }
     }
 
     struct Fake {
         base: String,
         bodies: Arc<Mutex<Vec<String>>>,
         accepted: Arc<AtomicUsize>,
-        max_in_flight: Arc<AtomicUsize>,
     }
 
-    /// Answers each question `candidate_{id}` with `noul = id / 100`; `reply`
-    /// picks status, delay and usage from the request's question ids.
+    /// A local stand-in for the service. Answers each question
+    /// `candidate_{id}` with `noul = id / 100`; `reply` picks status, delay
+    /// and id handling from the request's question ids.
     async fn fake(reply: impl Fn(&[i64]) -> Reply + Send + Sync + 'static) -> Fake {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}/v1", listener.local_addr().unwrap());
         let bodies = Arc::new(Mutex::new(vec![]));
         let accepted = Arc::new(AtomicUsize::new(0));
-        let in_flight = Arc::new(AtomicUsize::new(0));
-        let max_in_flight = Arc::new(AtomicUsize::new(0));
         let reply = Arc::new(reply);
-        let fake = Fake { base, bodies: bodies.clone(), accepted: accepted.clone(), max_in_flight: max_in_flight.clone() };
+        let fake = Fake { base, bodies: bodies.clone(), accepted: accepted.clone() };
         tokio::spawn(async move {
             loop {
                 let Ok((mut stream, _)) = listener.accept().await else { break };
                 accepted.fetch_add(1, Ordering::SeqCst);
-                let (bodies, reply, in_flight, max_in_flight) =
-                    (bodies.clone(), reply.clone(), in_flight.clone(), max_in_flight.clone());
+                let (bodies, reply) = (bodies.clone(), reply.clone());
                 tokio::spawn(async move {
                     let mut received = Vec::new();
                     let mut chunk = [0u8; 8192];
@@ -541,8 +576,6 @@ mod tests {
                             }
                         }
                     };
-                    let now = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
-                    max_in_flight.fetch_max(now, Ordering::SeqCst);
                     bodies.lock().unwrap().push(body.clone());
                     let parsed: Value = serde_json::from_str(&body).unwrap();
                     let ids: Vec<i64> = parsed["questions"]
@@ -553,16 +586,14 @@ mod tests {
                         .collect();
                     let r = reply(&ids);
                     tokio::time::sleep(r.delay).await;
-                    in_flight.fetch_sub(1, Ordering::SeqCst);
                     let answers: serde_json::Map<String, Value> = ids
                         .iter()
-                        .map(|id| (format!("candidate_{id}"), json!({"type": "noul", "noul": *id as f64 / 100.0})))
+                        .map(|id| {
+                            let answered = if r.wrong_ids { id + 1 } else { *id };
+                            (format!("candidate_{answered}"), json!({"type": "noul", "noul": *id as f64 / 100.0}))
+                        })
                         .collect();
-                    let mut out = json!({"answers": answers});
-                    if let Some((i, o)) = r.usage {
-                        out["usage"] = json!({"input_tokens": i, "output_tokens": o});
-                    }
-                    let out = if r.status == 200 { out.to_string() } else { "oops".to_string() };
+                    let out = if r.status == 200 { json!({"answers": answers}).to_string() } else { "oops".to_string() };
                     let response = format!(
                         "HTTP/1.1 {} X\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{out}",
                         r.status,
@@ -574,10 +605,6 @@ mod tests {
             }
         });
         fake
-    }
-
-    fn ok(delay_ms: u64) -> Reply {
-        Reply { status: 200, delay: Duration::from_millis(delay_ms), usage: None }
     }
 
     fn config(base: &str) -> JevConfig {
@@ -617,21 +644,28 @@ mod tests {
         .await;
         assert_eq!(result, Err(RoundError::Model(ModelError::Http(500))));
 
+        // A 2xx answer under the wrong ids fails the round too.
+        let server = fake(|ids| if ids.contains(&4) { Reply { wrong_ids: true, ..ok(0) } } else { ok(0) }).await;
+        let result = score_round(
+            &client,
+            &config(&server.base),
+            None,
+            "{}",
+            batches(&[&[1, 2], &[4]]),
+            Duration::from_secs(5),
+            &cancel,
+        )
+        .await;
+        assert!(matches!(result, Err(RoundError::Model(ModelError::Invalid(_)))), "{result:?}");
+
         // 全部 200 → scored 按批次顺序，score = noul，requests = 批数.
         // The first batch answers last; the order is still batch order.
         let server = fake(|ids| if ids.contains(&9) { ok(200) } else { ok(0) }).await;
         let state = encode_state("q", &[], &StateExtras::default());
-        let round = score_round(
-            &client,
-            &config(&server.base),
-            None,
-            &state,
-            batches(&[&[9, 2], &[5], &[7, 1]]),
-            Duration::from_secs(5),
-            &cancel,
-        )
-        .await
-        .unwrap();
+        let sent = batches(&[&[9, 2], &[5], &[7, 1]]);
+        let questions: Vec<NoulQuestion> = sent.iter().flat_map(|b| b.questions.clone()).collect();
+        let round =
+            score_round(&client, &config(&server.base), None, &state, sent, Duration::from_secs(5), &cancel).await.unwrap();
         assert_eq!(round.requests, 3);
         assert_eq!(round.scored.iter().map(|c| c.id).collect::<Vec<_>>(), vec![9, 2, 5, 7, 1]);
         assert_eq!(round.scored.iter().map(|c| c.score).collect::<Vec<_>>(), vec![0.09, 0.02, 0.05, 0.07, 0.01]);
@@ -639,33 +673,220 @@ mod tests {
         assert_eq!(server.accepted.load(Ordering::SeqCst), 3);
 
         // Every request carries the shared state and the model; never a path.
+        // Each question entry on the wire is exactly `wire_question`, the
+        // shape the budget estimate counts (D1).
         let bodies = server.bodies.lock().unwrap().clone();
         assert_eq!(bodies.len(), 3);
+        let mut entries = 0;
         for body in &bodies {
             assert!(!body.contains("private/dir"), "{body}");
             let v: Value = serde_json::from_str(body).unwrap();
             assert_eq!(v["state"], state);
             assert_eq!(v["model"], "jev-latest");
+            for (id, entry) in v["questions"].as_object().unwrap() {
+                let q = questions.iter().find(|q| &q.id == id).unwrap();
+                assert_eq!(entry, &wire_question(q));
+                entries += 1;
+            }
         }
+        assert_eq!(entries, 5);
+    }
+
+    // ---- orchestration with an in-process sender (no wall-clock asserts) -----
+    //
+    // tokio's paused clock needs the `test-util` feature, which this crate
+    // does not enable; instead the sender waits on a gate the test opens, so
+    // concurrency, ordering and cancellation are driven step by step.
+
+    /// Records what the in-process sender saw, and gates its answers.
+    struct Probe {
+        calls: AtomicUsize,
+        in_flight: AtomicUsize,
+        max_in_flight: AtomicUsize,
+        /// `(first question id, timeout given)` per call, in call order.
+        timeouts: Mutex<Vec<(String, Duration)>>,
+        /// A gated call waits for one permit (FIFO, so in call order).
+        gate: tokio::sync::Semaphore,
+    }
+
+    fn probe() -> Arc<Probe> {
+        Arc::new(Probe {
+            calls: AtomicUsize::new(0),
+            in_flight: AtomicUsize::new(0),
+            max_in_flight: AtomicUsize::new(0),
+            timeouts: Mutex::new(vec![]),
+            gate: tokio::sync::Semaphore::new(0),
+        })
+    }
+
+    type Sent = std::pin::Pin<Box<dyn Future<Output = Result<NoulOutcome, ModelError>>>>;
+
+    /// An in-process sender: waits at the gate when `gated(ids)`, then answers
+    /// every question with `noul = id / 100`, or fails with `fail(ids)`.
+    fn sender(
+        probe: Arc<Probe>,
+        gated: impl Fn(&[i64]) -> bool + Clone + 'static,
+        fail: impl Fn(&[i64]) -> Option<ModelError> + Clone + 'static,
+        usage: impl Fn(&[i64]) -> Option<(u64, u64)> + Clone + 'static,
+    ) -> impl Fn(Vec<NoulQuestion>, Duration) -> Sent {
+        move |questions, timeout| {
+            let (probe, gated, fail, usage) = (probe.clone(), gated.clone(), fail.clone(), usage.clone());
+            Box::pin(async move {
+                let ids: Vec<i64> =
+                    questions.iter().map(|q| q.id.strip_prefix("candidate_").unwrap().parse().unwrap()).collect();
+                probe.calls.fetch_add(1, Ordering::SeqCst);
+                probe.timeouts.lock().unwrap().push((questions[0].id.clone(), timeout));
+                let now = probe.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+                probe.max_in_flight.fetch_max(now, Ordering::SeqCst);
+                if gated(&ids) {
+                    probe.gate.acquire().await.unwrap().forget();
+                }
+                probe.in_flight.fetch_sub(1, Ordering::SeqCst);
+                if let Some(error) = fail(&ids) {
+                    return Err(error);
+                }
+                Ok(NoulOutcome {
+                    scores: questions.iter().zip(&ids).map(|(q, id)| (q.id.clone(), *id as f64 / 100.0)).collect(),
+                    usage: usage(&ids).map(|(i, o)| crate::smart_model::Usage { input_tokens: i, output_tokens: o }),
+                })
+            })
+        }
+    }
+
+    fn always(_: &[i64]) -> bool {
+        true
+    }
+
+    fn open(_: &[i64]) -> bool {
+        false
+    }
+
+    fn never(_: &[i64]) -> Option<ModelError> {
+        None
+    }
+
+    fn no_usage(_: &[i64]) -> Option<(u64, u64)> {
+        None
+    }
+
+    fn singles(n: i64) -> Vec<Batch> {
+        let groups: Vec<Vec<i64>> = (1..=n).map(|id| vec![id]).collect();
+        batches(&groups.iter().map(Vec::as_slice).collect::<Vec<_>>())
+    }
+
+    /// Yields until `done()`; panics instead of hanging.
+    async fn until(done: impl Fn() -> bool) {
+        for _ in 0..100_000 {
+            if done() {
+                return;
+            }
+            tokio::task::yield_now().await;
+        }
+        panic!("condition not reached");
+    }
+
+    #[tokio::test]
+    async fn at_most_twenty_batches_in_flight_and_late_batches_get_the_time_left() {
+        let p = probe();
+        let cancel = CancelFlag::new();
+        let deadline = Duration::from_secs(30);
+        let round = score_batches(singles(21), deadline, &cancel, sender(p.clone(), always, never, no_usage));
+        let driver = async {
+            until(|| p.in_flight.load(Ordering::SeqCst) == 20).await;
+            for _ in 0..100 {
+                tokio::task::yield_now().await;
+            }
+            // The 21st is not asked while 20 are in flight.
+            assert_eq!(p.calls.load(Ordering::SeqCst), 20);
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            p.gate.add_permits(1); // releases batch 1 (FIFO)
+            until(|| p.calls.load(Ordering::SeqCst) == 21).await;
+            p.gate.add_permits(20);
+        };
+        let (round, ()) = tokio::join!(round, driver);
+        let round = round.unwrap();
+        assert_eq!(p.max_in_flight.load(Ordering::SeqCst), 20);
+        assert_eq!(round.requests, 21);
+        assert_eq!(round.scored.iter().map(|c| c.id).collect::<Vec<_>>(), (1..=21).collect::<Vec<_>>());
+        assert_eq!(round.scored.iter().map(|c| c.score).collect::<Vec<_>>(), (1..=21).map(|i| i as f64 / 100.0).collect::<Vec<_>>());
+        // Each request gets the time left until the one deadline: the 21st
+        // started at least 20 ms after the round did.
+        let timeouts = p.timeouts.lock().unwrap().clone();
+        assert!(timeouts.iter().all(|(_, t)| *t <= deadline), "{timeouts:?}");
+        assert_eq!(timeouts[20].0, "candidate_21");
+        assert!(timeouts[20].1 <= deadline - Duration::from_millis(20), "{timeouts:?}");
+    }
+
+    #[tokio::test]
+    async fn one_deadline_covers_all_batches_and_cancel_wins() {
+        // Batches that never answer: the one 100 ms deadline ends the round.
+        let p = probe();
+        let started = std::time::Instant::now();
+        let result =
+            score_batches(singles(21), Duration::from_millis(100), &CancelFlag::new(), sender(p.clone(), always, never, no_usage))
+                .await;
+        assert_eq!(result, Err(RoundError::Model(ModelError::Timeout)));
+        assert!(started.elapsed() >= Duration::from_millis(100));
+        assert_eq!(p.calls.load(Ordering::SeqCst), 20);
+
+        // cancel 先触发 → Cancelled, and nothing is sent.
+        let cancel = CancelFlag::new();
+        cancel.cancel();
+        let p = probe();
+        let result =
+            score_batches(batches(&[&[1]]), Duration::from_secs(5), &cancel, sender(p.clone(), open, never, no_usage)).await;
+        assert_eq!(result, Err(RoundError::Cancelled));
+        assert_eq!(p.calls.load(Ordering::SeqCst), 0);
+
+        // A cancel while requests are in flight ends the round at once.
+        let cancel = CancelFlag::new();
+        let p = probe();
+        let round = score_batches(batches(&[&[1], &[2]]), Duration::from_secs(30), &cancel, sender(p.clone(), always, never, no_usage));
+        let driver = async {
+            until(|| p.in_flight.load(Ordering::SeqCst) == 2).await;
+            cancel.cancel();
+        };
+        let (result, ()) = tokio::join!(round, driver);
+        assert_eq!(result, Err(RoundError::Cancelled));
+        assert_eq!(p.in_flight.load(Ordering::SeqCst), 2); // dropped, never answered
+    }
+
+    #[tokio::test]
+    async fn the_first_failing_batch_in_batch_order_fails_the_round() {
+        // Batch 2 fails first; batch 1 fails afterwards. Batch 1's error wins.
+        let p = probe();
+        let fail = |ids: &[i64]| match ids[0] {
+            1 => Some(ModelError::Transport("late".into())),
+            2 => Some(ModelError::Http(500)),
+            _ => None,
+        };
+        let cancel = CancelFlag::new();
+        let round = score_batches(
+            batches(&[&[1], &[2], &[3]]),
+            Duration::from_secs(30),
+            &cancel,
+            sender(p.clone(), |ids: &[i64]| ids[0] == 1, fail, no_usage),
+        );
+        let driver = async {
+            until(|| p.calls.load(Ordering::SeqCst) == 3 && p.in_flight.load(Ordering::SeqCst) == 1).await;
+            p.gate.add_permits(1);
+        };
+        let (result, ()) = tokio::join!(round, driver);
+        assert_eq!(result, Err(RoundError::Model(ModelError::Transport("late".into()))));
     }
 
     #[tokio::test]
     async fn usage_sums_only_the_batches_that_report_it() {
-        let server = fake(|ids| match ids[0] {
-            1 => Reply { usage: Some((100, 3)), ..ok(0) },
-            3 => Reply { usage: Some((50, 2)), ..ok(0) },
-            _ => ok(0),
-        })
-        .await;
-        let client = reqwest::Client::new();
-        let round = score_round(
-            &client,
-            &config(&server.base),
-            None,
-            "{}",
+        let reported = |ids: &[i64]| match ids[0] {
+            1 => Some((100, 3)),
+            3 => Some((50, 2)),
+            _ => None,
+        };
+        let round = score_batches(
             batches(&[&[1], &[2], &[3]]),
             Duration::from_secs(5),
             &CancelFlag::new(),
+            sender(probe(), open, never, reported),
         )
         .await
         .unwrap();
@@ -674,104 +895,36 @@ mod tests {
 
     #[tokio::test]
     async fn no_batches_send_nothing() {
-        let client = reqwest::Client::new();
-        let config = config("http://127.0.0.1:9/v1");
-        let round = score_round(&client, &config, None, "{}", vec![], Duration::from_secs(1), &CancelFlag::new())
+        let p = probe();
+        let round = score_batches(vec![], Duration::from_secs(1), &CancelFlag::new(), sender(p.clone(), open, never, no_usage))
             .await
             .unwrap();
         assert_eq!(round, RoundScore { scored: vec![], requests: 0, usage: None });
+        assert_eq!(p.calls.load(Ordering::SeqCst), 0);
     }
 
-    #[tokio::test]
-    async fn one_deadline_covers_all_batches_and_cancel_wins() {
-        // 假服务延迟 300ms、deadline 100ms → Timeout
-        let server = fake(|_| ok(300)).await;
-        let client = reqwest::Client::new();
-        let started = Instant::now();
-        let result = score_round(
-            &client,
-            &config(&server.base),
-            None,
-            "{}",
-            batches(&[&[1], &[2]]),
-            Duration::from_millis(100),
-            &CancelFlag::new(),
-        )
-        .await;
-        assert_eq!(result, Err(RoundError::Model(ModelError::Timeout)));
-        assert!(started.elapsed() < Duration::from_millis(290), "{:?}", started.elapsed());
-
-        // cancel 先触发 → Cancelled, and nothing is sent.
-        let cancel = CancelFlag::new();
-        cancel.cancel();
-        let server = fake(|_| ok(0)).await;
-        let result =
-            score_round(&client, &config(&server.base), None, "{}", batches(&[&[1]]), Duration::from_secs(5), &cancel)
-                .await;
-        assert_eq!(result, Err(RoundError::Cancelled));
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        assert_eq!(server.accepted.load(Ordering::SeqCst), 0);
-
-        // A cancel while requests are in flight ends the round at once.
-        let server = fake(|_| ok(2_000)).await;
-        let cancel = Arc::new(CancelFlag::new());
-        let trigger = cancel.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            trigger.cancel();
-        });
-        let started = Instant::now();
-        let result = score_round(
-            &client,
-            &config(&server.base),
-            None,
-            "{}",
-            batches(&[&[1], &[2]]),
-            Duration::from_secs(5),
-            &cancel,
-        )
-        .await;
-        assert_eq!(result, Err(RoundError::Cancelled));
-        assert!(started.elapsed() < Duration::from_millis(1_500), "{:?}", started.elapsed());
+    #[test]
+    fn score_round_future_is_send() {
+        // The host command awaits it inside a Tauri command, which must be Send (P8).
+        fn assert_send<T: Send>(_: T) {}
+        let (client, cancel) = (reqwest::Client::new(), CancelFlag::new());
+        assert_send(score_round(&client, &config("http://127.0.0.1:9/v1"), None, "", vec![], Duration::ZERO, &cancel));
     }
 
-    #[tokio::test]
-    async fn at_most_twenty_batches_in_flight_under_the_one_deadline() {
-        // 21 batches of 400 ms each: the first 20 run together, the 21st only
-        // after one of them finishes, so it ends near 800 ms. A per-request
-        // limit of 600 ms would pass; the shared 600 ms deadline does not.
-        let server = fake(|_| ok(400)).await;
-        let client = reqwest::Client::new();
-        let groups: Vec<Vec<i64>> = (1..=21).map(|id| vec![id]).collect();
-        let refs: Vec<&[i64]> = groups.iter().map(Vec::as_slice).collect();
-        let result = score_round(
-            &client,
-            &config(&server.base),
-            None,
-            "{}",
-            batches(&refs),
-            Duration::from_millis(600),
-            &CancelFlag::new(),
-        )
-        .await;
-        assert_eq!(result, Err(RoundError::Model(ModelError::Timeout)));
-        assert_eq!(server.max_in_flight.load(Ordering::SeqCst), 20);
-
-        // With room for both waves the round succeeds, still never over 20.
-        let server = fake(|_| ok(100)).await;
-        let round = score_round(
-            &client,
-            &config(&server.base),
-            None,
-            "{}",
-            batches(&refs),
-            Duration::from_secs(10),
-            &CancelFlag::new(),
-        )
-        .await
-        .unwrap();
-        assert_eq!(round.requests, 21);
-        assert_eq!(round.scored.iter().map(|c| c.id).collect::<Vec<_>>(), (1..=21).collect::<Vec<_>>());
-        assert!(server.max_in_flight.load(Ordering::SeqCst) <= 20);
+    #[test]
+    fn scores_map_by_id_and_a_mismatched_answer_set_fails() {
+        let items = vec![cand(1, "T", "", "a"), cand(2, "T", "", "b")];
+        // By id, not by position.
+        let scored =
+            apply_scores(items.clone(), vec![("candidate_2".into(), 0.2), ("candidate_1".into(), 0.9)]).unwrap();
+        assert_eq!(scored.iter().map(|c| (c.id, c.score)).collect::<Vec<_>>(), vec![(1, 0.9), (2, 0.2)]);
+        for scores in [
+            vec![("candidate_1".to_string(), 0.9)],
+            vec![("candidate_1".into(), 0.9), ("candidate_3".into(), 0.2)],
+            vec![("candidate_1".into(), 0.9), ("candidate_1".into(), 0.2)],
+            vec![("candidate_1".into(), 0.9), ("candidate_2".into(), 0.2), ("candidate_3".into(), 0.1)],
+        ] {
+            assert!(matches!(apply_scores(items.clone(), scores), Err(ModelError::Invalid(_))));
+        }
     }
 }
