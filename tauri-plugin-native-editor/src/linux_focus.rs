@@ -191,16 +191,7 @@ impl Surface {
         if self.failed.get() || !self.visible.get() {
             return;
         }
-        let anchored = self
-            .candidates
-            .borrow()
-            .as_ref()
-            .is_some_and(|p| !p.bottom_anchor.replace(true));
-        if anchored && !self.focused.get() {
-            self.appearance();
-        }
         if !self.config.borrow().appearance.focus_typing {
-            self.center();
             return;
         }
         let now = Instant::now();
@@ -229,24 +220,14 @@ impl Surface {
         if self.pointer_tracking.get() {
             return;
         }
-        let anchored = self
-            .candidates
-            .borrow()
-            .as_ref()
-            .is_some_and(|p| p.bottom_anchor.replace(false));
         if self.focused.replace(false) {
             self.resume_focus.set(true);
             self.focus_frame.borrow_mut().spatial = None;
             self.appearance();
             self.decoration.queue_draw();
-        } else if anchored {
-            self.appearance();
         }
     }
     pub(super) fn reset_focus(&self) {
-        if let Some(p) = self.candidates.borrow().as_ref() {
-            p.bottom_anchor.set(false);
-        }
         self.focused.set(false);
         self.resume_focus.set(false);
         self.pointer_tracking.set(false);
@@ -256,7 +237,7 @@ impl Surface {
         self.decoration.queue_draw();
     }
     pub(super) fn center(&self) {
-        if (!self.focused.get() && !self.bottom_anchor()) || self.pointer_tracking.get() {
+        if !self.focused.get() || self.pointer_tracking.get() {
             return;
         }
         // GTK's own scrolling changes rendering, hit testing and IME rectangles together.
@@ -270,11 +251,7 @@ impl Surface {
         let (_, y) =
             self.view
                 .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
-        let target_center = if self.focused.get() {
-            height / 2.0
-        } else {
-            height - self.candidate_height() - candidates::Panel::pitch(self) / 2.0
-        };
+        let target_center = height / 2.0;
         let target = adjustment.value() + y as f64 + cursor.height() as f64 / 2.0 - target_center;
         let target = target.clamp(
             adjustment.lower(),
@@ -344,7 +321,7 @@ impl Surface {
         let width = (config.appearance.font_size / 11.0).clamp(2.0, 3.0).ceil() as i32;
         let height = cursor.height().max(1);
         if y < 0
-            || y + height > self.editor_height() as i32
+            || y + height > config.bounds.height as i32
             || x < 0
             || x >= config.bounds.width as i32
         {
@@ -353,6 +330,26 @@ impl Surface {
         }
         let x = self.scroll.margin_start() + x;
         let y = self.scroll.margin_top() + y;
+        // This root-parent window is not clipped by the candidate overlay.
+        // Suppress only its painting where the panel actually covers it;
+        // never resize or scroll the text viewport to make room for candidates.
+        let covered = self.candidates.borrow().as_ref().is_some_and(|panel| {
+            let area = panel.widget.allocation();
+            panel.widget.is_visible()
+                && panel
+                    .widget
+                    .translate_coordinates(&self.overlay, 0, 0)
+                    .is_some_and(|(px, py)| {
+                        x < px + area.width()
+                            && x + width > px
+                            && y < py + area.height()
+                            && y + height > py
+                    })
+        });
+        if covered {
+            self.caret.hide();
+            return;
+        }
         if self.caret.margin_start() != x {
             self.caret.set_margin_start(x);
         }

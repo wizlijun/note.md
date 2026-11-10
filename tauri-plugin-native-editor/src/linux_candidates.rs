@@ -30,7 +30,6 @@ pub(super) struct Panel {
     pub height: Cell<f64>,
     metrics: Cell<(f64, f64, f64, bool)>,
     minimum_width: Cell<f64>,
-    pub bottom_anchor: Cell<bool>,
 }
 impl Panel {
     pub fn attach(surface: &Rc<Surface>) -> Rc<Self> {
@@ -65,7 +64,6 @@ impl Panel {
             manual_page: Cell::new(false),
             layout: RefCell::new(None),
             height: Cell::new(0.0),
-            bottom_anchor: Cell::new(false),
             metrics: Cell::new((0.0, 0.0, 0.0, false)),
             minimum_width: Cell::new(0.0),
         });
@@ -328,7 +326,7 @@ impl Panel {
             Self::pitch(&s),
             s.focused.get(),
         );
-        let metrics_changed = self.metrics.replace(metrics) != metrics;
+        self.metrics.set(metrics);
         self.minimum_width
             .set(s.view.create_pango_layout(Some("1. 中…")).pixel_size().0 as f64);
         let width =
@@ -354,12 +352,7 @@ impl Panel {
         let rows = result.rows;
         *self.layout.borrow_mut() = Some(result);
         drop(c);
-        let changed = self.height.replace(rows as f64 * pitch) != rows as f64 * pitch;
-        if changed || metrics_changed {
-            s.appearance();
-            s.position();
-            s.defer_center();
-        }
+        self.height.set(rows as f64 * pitch);
         self.arrange();
         self.widget.queue_draw();
     }
@@ -382,11 +375,6 @@ impl Panel {
         }
         let height = self.height.get();
         let viewport = (c.bounds.height - c.appearance.bottom_inset).max(1.0);
-        let scroll_height = s.editor_height();
-        if s.scroll.size_request() != (c.bounds.width as i32, scroll_height as i32) {
-            s.scroll
-                .set_size_request(c.bounds.width as i32, scroll_height as i32);
-        }
         if height == 0.0 || !s.visible.get() || !s.view.has_focus() {
             self.widget.hide();
             return;
@@ -637,7 +625,7 @@ mod tests {
         }
         let _keyboard = Keyboard(
             std::process::Command::new("wtype")
-                .args(["-s", "60000"])
+                .args(["-s", "120000"])
                 .spawn()
                 .unwrap(),
         );
@@ -648,7 +636,8 @@ mod tests {
         );
         app.register(None::<&gio::Cancellable>).unwrap();
         let window = gtk::ApplicationWindow::new(&app);
-        window.set_default_size(900, 650);
+        window.set_titlebar(Some(&gtk::HeaderBar::new()));
+        window.set_default_size(940, 740);
         let child = gtk::DrawingArea::new();
         window.add(&child);
         let mut appearance = Appearance::default();
@@ -658,8 +647,8 @@ mod tests {
             generation: 1,
             revision: 0,
             bounds: Bounds {
-                x: 0.0,
-                y: 0.0,
+                x: 12.0,
+                y: 18.0,
                 width: 900.0,
                 height: 650.0,
             },
@@ -772,6 +761,13 @@ mod tests {
             )
             .unwrap();
         }
+        let (before_cursor, _) = s.view.cursor_locations(None);
+        let (_, before_y) = s.view.buffer_to_window_coords(
+            gtk::TextWindowType::Widget,
+            before_cursor.x(),
+            before_cursor.y(),
+        );
+        let before_scroll = s.scroll.vadjustment().value();
         keys(&["nihao"]);
         screenshot("diagnostic");
         eprintln!("candidate diagnostics focus={} accepted={} desired={} serial={} programs={:?} preedit={:?} text={:?} candidates={:?}",s.view.has_focus(),p.accepted.get(),p.desired.get(),p.serial.get(),p.programs(),s.preedit.borrow(),text(&s.buffer()),p.candidates.borrow());
@@ -789,14 +785,25 @@ mod tests {
         let (_, y) =
             s.view
                 .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
-        let expected = 650.0
-            - s.config.borrow().appearance.bottom_inset
-            - p.height.get()
-            - Panel::pitch(&s) / 2.0;
+        assert_eq!(
+            y, before_y,
+            "nonfocus preedit must retain the input line position"
+        );
+        assert_eq!(
+            s.scroll.vadjustment().value(),
+            before_scroll,
+            "candidate appearance must not scroll the document"
+        );
+        assert_eq!(
+            s.scroll.allocation().height(),
+            650,
+            "candidate appearance must not shrink the text viewport"
+        );
         assert!(
-            (y as f64 + cursor.height() as f64 / 2.0 - expected).abs() < 3.0,
-            "bottom line y={y}, cursor={}, expected={expected}",
-            cursor.height()
+            ((p.widget.margin_top() - s.scroll.margin_top()) as f64 + p.height.get()
+                - (650.0 - s.config.borrow().appearance.bottom_inset))
+                .abs()
+                < 2.0
         );
         screenshot("bottom-real-nihao");
         let wanted = p
@@ -894,8 +901,8 @@ mod tests {
         );
         assert_eq!(
             allocation.height(),
-            s.editor_height() as i32,
-            "candidate rows must be excluded from the text viewport"
+            650,
+            "candidate rows must not resize the text viewport"
         );
         settle();
         assert_eq!(
@@ -910,46 +917,122 @@ mod tests {
         settle();
         assert_eq!(p.layout.borrow().as_ref().unwrap().rows, 4);
         screenshot("bottom-four-rows");
-        // The independent caret window must not escape the shortened text
-        // viewport when reading scroll moves the insertion point below it.
+        // Candidate appearance/expansion must preserve a middle input line in
+        // a genuinely scrolled document, including real composition/commit.
         let saved = s.config.borrow().clone();
-        let sample = "line\n".repeat(20) + "cursor";
-        let end = sample.len() as u32;
+        let sample = "line\n".repeat(40);
+        let insertion = 100;
+        p.candidates.borrow_mut().clear();
+        p.refresh();
         s.project(
             RenderDocument {
-                text: sample,
+                text: sample.clone(),
                 runs: vec![],
             },
             TextRange {
-                start: end,
+                start: insertion,
                 length: 0,
             },
             saved.revision,
         );
         s.appearance();
-        s.center();
         settle();
-        s.pointer_tracking.set(true);
-        let adjustment = s.scroll.vadjustment();
-        adjustment.set_value(adjustment.value() - Panel::pitch(&s) * 2.0);
-        settle();
-        let cursor = s.caret_geometry();
-        let (_, y) =
+        let cursor_y = || {
+            let cursor = s.caret_geometry();
             s.view
-                .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
-        assert!(
-            y >= s.editor_height() as i32 && y < 650,
-            "test caret must be in the reserved candidate area: y={y}"
+                .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y())
+                .1
+        };
+        let adjustment = s.scroll.vadjustment();
+        adjustment.set_value(adjustment.value() + cursor_y() as f64 - 300.0);
+        settle();
+        let stable = (
+            cursor_y(),
+            adjustment.value(),
+            s.scroll.allocation(),
+            s.selection().start,
         );
+        assert!(stable.1 > 0.0, "regression requires a scrolled document");
+        for (count, expected_rows) in [(1, 1), (30, 4), (0, 0)] {
+            *p.candidates.borrow_mut() = (0..count)
+                .map(|i| Candidate {
+                    index: i,
+                    label: format!("{}.", i + 1),
+                    text: format!("候选文字{i}"),
+                })
+                .collect();
+            p.refresh();
+            settle();
+            assert_eq!(p.layout.borrow().as_ref().unwrap().rows, expected_rows);
+            assert_eq!(
+                (
+                    cursor_y(),
+                    adjustment.value(),
+                    s.scroll.allocation(),
+                    s.selection().start
+                ),
+                stable,
+                "candidate row changes must not move the input line"
+            );
+        }
+        keys(&["nihao"]);
+        wait(|| p.candidates.borrow().iter().any(|c| c.text == "你好"));
+        assert_eq!(
+            (
+                cursor_y(),
+                adjustment.value(),
+                s.scroll.allocation(),
+                s.selection().start
+            ),
+            stable,
+            "real preedit must keep the scrolled input line in place"
+        );
+        screenshot("nonfocus-middle-preedit");
+        let wanted = p
+            .candidates
+            .borrow()
+            .iter()
+            .find(|c| c.text == "你好")
+            .unwrap()
+            .index;
+        p.call(
+            "Select",
+            (p.token.clone(), p.serial.get(), wanted).to_variant(),
+        );
+        wait(|| !s.composing.get());
+        let mut expected = sample.clone();
+        expected.insert_str(insertion as usize, "你好");
+        assert_eq!(text(&s.buffer()), expected);
+        assert_eq!(
+            cursor_y(),
+            stable.0,
+            "commit must stay on the same input line"
+        );
+        assert_eq!(adjustment.value(), stable.1);
+        assert_eq!(s.selection().start, insertion + 2);
+        // The root-parent caret must not paint through the candidate overlay.
+        *p.candidates.borrow_mut() = (0..30)
+            .map(|i| Candidate {
+                index: i,
+                label: format!("{}.", i + 1),
+                text: format!("候选文字{i}"),
+            })
+            .collect();
+        p.refresh();
+        settle();
+        let panel_top = p.widget.margin_top() - s.scroll.margin_top();
+        adjustment.set_value(adjustment.value() + cursor_y() as f64 - panel_top as f64 - 10.0);
+        settle();
+        assert!(cursor_y() >= panel_top && cursor_y() < 650);
+        let covered_scroll = adjustment.value();
         s.tick_focus();
         assert!(
             !s.caret.is_visible(),
             "caret must not paint over candidates"
         );
-        s.pointer_tracking.set(false);
+        assert_eq!(adjustment.value(), covered_scroll);
         s.project(saved.document, saved.selection, saved.revision);
         s.appearance();
-        s.center();
         settle();
         s.focused.set(true);
         s.appearance();

@@ -17,6 +17,9 @@ sysroot=args.sway_prefix.resolve()
 source=args.fcitx_source.resolve()/'src/modules/sumicandidates'
 for d in ['config/fcitx5','data/fcitx5/addon','lib','cache']:(art/d).mkdir(parents=True,exist_ok=True)
 (art/'config/fcitx5/profile').write_text('[Groups/0]\nName=Default\nDefault Layout=us\nDefaultIM=pinyin\n[Groups/0/Items/0]\nName=keyboard-us\n[Groups/0/Items/1]\nName=pinyin\n[GroupOrder]\n0=Default\n')
+# Match the requested text-only candidate presentation in the isolated fixture.
+(art/'config/fcitx5/conf').mkdir(exist_ok=True)
+(art/'config/fcitx5/conf/pinyin.conf').write_text('SymbolsEnabled=False\n')
 (art/'data/fcitx5/addon/sumicandidates.conf').write_text((source/'sumicandidates.conf.in').read_text().replace('@FCITX_ADDON_TYPE@','SharedLibrary').replace('@PROJECT_VERSION@','5.1.23'))
 flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Fcitx5Core'],text=True))
 subprocess.run(['g++','-std=c++20','-shared','-fPIC',str(source/'sumicandidates.cpp'),'-o',str(art/'lib/libsumicandidates.so'),*flags,'-I/usr/include/Fcitx5/Module/fcitx-module/dbus'],check=True)
@@ -37,8 +40,9 @@ try:
  env['WAYLAND_DISPLAY']=sockets[0].name
  log=(art/'fcitx.log').open('w');p=subprocess.Popen(['fcitx5','--keep','--disable','all','--enable','dbus,dbusfrontend,keyboard,pinyin,pinyinhelper,punctuation,chttrans,spell,sumicandidates,wayland,waylandim,classicui'],env=env,stdout=log,stderr=subprocess.STDOUT);processes.append(p)
  time.sleep(.8)
- # Keep a virtual keyboard attached so clipboard serials and native focus work.
- processes.append(subprocess.Popen(['wtype','-s','60000'],env=env))
+ # Keep the seat alive beyond the entire 90-second test deadline; losing the
+ # last keyboard while composing resets GTK/Fcitx and commits raw preedit.
+ processes.append(subprocess.Popen(['wtype','-s','120000'],env=env))
  time.sleep(.2)
  result=subprocess.run([str(args.test_binary.resolve()),args.test_filter,'--ignored','--nocapture','--test-threads=1'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=90)
  (art/'test.log').write_text(result.stdout);print(result.stdout);sys.exit(result.returncode)

@@ -127,10 +127,7 @@ impl Surface {
             if let Some(surface) = weak.upgrade() {
                 surface.layout_pending.set(false);
                 surface.position();
-                if surface.visible.get()
-                    && (surface.focused.get() || surface.bottom_anchor())
-                    && !surface.failed.get()
-                {
+                if surface.visible.get() && surface.focused.get() && !surface.failed.get() {
                     surface.center();
                     surface.decoration.queue_draw();
                 }
@@ -147,10 +144,7 @@ impl Surface {
         let x = bounds.x.max(0.0) as i32 + origin_x;
         let y = bounds.y.max(0.0) as i32 + origin_y;
         for (widget, height) in [
-            (
-                self.scroll.upcast_ref::<gtk::Widget>(),
-                self.editor_height(),
-            ),
+            (self.scroll.upcast_ref::<gtk::Widget>(), bounds.height),
             (self.decoration.upcast_ref::<gtk::Widget>(), bounds.height),
         ] {
             if widget.margin_start() != x {
@@ -163,26 +157,6 @@ impl Surface {
                 widget.set_size_request(bounds.width as i32, height as i32);
             }
         }
-    }
-    fn editor_height(&self) -> f64 {
-        let height = self.config.borrow().bounds.height;
-        if self.focused.get() {
-            height
-        } else {
-            (height - self.candidate_height()).max(1.0)
-        }
-    }
-    fn bottom_anchor(&self) -> bool {
-        self.candidates
-            .borrow()
-            .as_ref()
-            .is_some_and(|p| p.bottom_anchor.get())
-    }
-    fn candidate_height(&self) -> f64 {
-        self.candidates
-            .borrow()
-            .as_ref()
-            .map_or(0.0, |p| p.height.get())
     }
     fn buffer(&self) -> gtk::TextBuffer {
         self.view.buffer().expect("text buffer")
@@ -763,13 +737,6 @@ impl Surface {
         self.view.set_right_margin(margin);
         let pad = if self.focused.get() {
             (c.bounds.height - a.bottom_inset - a.font_size * a.line_height).max(0.0) / 2.0
-        } else if self.bottom_anchor() {
-            (c.bounds.height
-                - a.bottom_inset
-                - self.candidate_height()
-                - glyph_height
-                - (line_extra / 2.0).floor() * 2.0)
-                .max(0.0)
         } else {
             vertical
         };
@@ -963,11 +930,6 @@ pub fn mount(
         {
             return None;
         }
-        let height = if child == s.scroll.upcast_ref::<gtk::Widget>() {
-            s.editor_height()
-        } else {
-            s.config.borrow().bounds.height
-        };
         let config = s.config.borrow();
         // size_request is only a minimum. The host bounds are the actual native
         // allocation; GTK removes these margins when allocating the child.
@@ -975,7 +937,7 @@ pub fn mount(
             0,
             0,
             (config.bounds.width as i32).max(1) + child.margin_start() + child.margin_end(),
-            (height as i32).max(1) + child.margin_top() + child.margin_bottom(),
+            (config.bounds.height as i32).max(1) + child.margin_top() + child.margin_bottom(),
         ))
     });
     *s.allocation_handler.borrow_mut() = Some(allocation_handler);

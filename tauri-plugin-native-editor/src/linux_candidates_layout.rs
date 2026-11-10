@@ -127,8 +127,7 @@ pub(super) struct Geometry {
     pub input_top: f64,
     pub candidates_top: f64,
     pub candidates_height: f64,
-    /// Positive values scroll existing content upward. GTK applies this to its
-    /// adjustment; do not translate drawing alone, which would break IME/clicks.
+    /// Candidate presentation never scrolls the document.
     pub scroll_delta: f64,
 }
 
@@ -143,15 +142,14 @@ pub(super) fn geometry(
 ) -> Geometry {
     let pitch = line_pitch.max(1.0);
     let candidates_height = candidate_rows.min(MAX_ROWS) as f64 * pitch;
-    let input_top = match mode {
-        Mode::Focus => caret_top,
-        Mode::Bottom => (viewport_height - pitch - candidates_height).max(0.0),
-    };
     Geometry {
-        input_top,
-        candidates_top: input_top + pitch,
+        input_top: caret_top,
+        candidates_top: match mode {
+            Mode::Focus => caret_top + pitch,
+            Mode::Bottom => (viewport_height - candidates_height).max(0.0),
+        },
         candidates_height,
-        scroll_delta: caret_top - input_top,
+        scroll_delta: 0.0,
     }
 }
 
@@ -284,14 +282,15 @@ mod tests {
     }
 
     #[test]
-    fn bottom_input_and_candidates_move_up_as_rows_expand() {
+    fn bottom_candidates_expand_without_moving_input() {
         let single = geometry(Mode::Bottom, 700.0, 350.0, 32.0, 1);
         let expanded = geometry(Mode::Bottom, 700.0, 350.0, 32.0, 4);
-        assert_eq!(single.input_top, 636.0);
-        assert_eq!(expanded.input_top, 540.0);
+        assert_eq!(single.input_top, 350.0);
+        assert_eq!(expanded.input_top, 350.0);
         assert_eq!(expanded.candidates_top + expanded.candidates_height, 700.0);
-        assert_eq!(expanded.scroll_delta - single.scroll_delta, 96.0);
+        assert_eq!(expanded.scroll_delta, 0.0);
+        assert_eq!(single.scroll_delta, 0.0);
         let idle = geometry(Mode::Bottom, 700.0, 350.0, 32.0, 0);
-        assert_eq!(idle.input_top, 668.0);
+        assert_eq!(idle.input_top, 350.0);
     }
 }

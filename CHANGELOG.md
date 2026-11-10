@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Keep the input line in place outside Sumi focus mode.** Fcitx candidates stay at the bottom and expand independently; displaying or paging candidates no longer anchors the body to the bottom or changes its viewport. Focus mode continues to show candidates below the active line.
+
 ## v6.1110.3 — 2026-11-10
 
 - **Linux update checks work on startup and on demand.** Detect releases with a package for this machine, show new-version notifications, and open the matching download page. Failed or unperformed checks no longer appear as “up to date.” Install the selected package with the system package manager; older Linux clients need one manual upgrade to receive this fix.
