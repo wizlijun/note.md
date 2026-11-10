@@ -88,13 +88,49 @@ export function startOffered(result: EvidenceStepResult): boolean {
 
 /**
  * The line that says how a finished run ended, or null: the token budget, an
- * index change, or a run that ended without evidence. A failed round is not
- * "no evidence": the status line says what failed.
+ * index change, evidence too large for the context, or a run that found no
+ * evidence. The host keeps the top `topK` of every scored block whatever its
+ * score, so "no evidence" means every shown item is `unfit` (and, vacuously,
+ * an empty list). A failed round is not "no evidence": the status line says
+ * what failed.
  */
 export function evidenceNotice(view: EvidenceView): keyof Messages | null {
   if (view.stop === 'budget') return 'smartSearch.evidence.budget'
   if (view.stop === 'indexChanged') return 'smartSearch.evidence.indexChanged'
-  return view.done && view.stop !== null && view.shown.length === 0 ? 'smartSearch.evidence.none' : null
+  if (view.stop === 'evidenceTooLarge') return 'smartSearch.evidence.tooLarge'
+  const none = view.done && view.stop !== null && view.shown.every((item) => item.tier === 'unfit')
+  return none ? 'smartSearch.evidence.none' : null
+}
+
+/** What a run sent and left out, summed over its calls (the F.3 details, without the reorder lines). */
+export interface EvidenceTotals {
+  /** The host passages went to; null while nothing was sent. */
+  host: string | null
+  requests: number
+  elapsedMs: number
+  sent: number
+  tokens: number
+  confidential: number
+  stale: number
+  /** Blocks too long to send, alone (`skippedLong`) or in any batch (`skippedOversize`). */
+  long: number
+}
+
+export function emptyTotals(): EvidenceTotals {
+  return { host: null, requests: 0, elapsedMs: 0, sent: 0, tokens: 0, confidential: 0, stale: 0, long: 0 }
+}
+
+export function addTotals(totals: EvidenceTotals, result: EvidenceStepResult): EvidenceTotals {
+  return {
+    host: result.requestCount > 0 && result.endpointHost ? result.endpointHost : totals.host,
+    requests: totals.requests + result.requestCount,
+    elapsedMs: totals.elapsedMs + result.elapsedMs,
+    sent: totals.sent + result.sentBlocks,
+    tokens: totals.tokens + (result.requestCount > 0 ? result.estimatedTokens : 0),
+    confidential: totals.confidential + result.skippedConfidential,
+    stale: totals.stale + result.skippedStale,
+    long: totals.long + result.skippedLong + result.skippedOversize,
+  }
 }
 
 /**

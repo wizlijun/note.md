@@ -602,7 +602,7 @@ describe('SmartLookupApp evidence', () => {
     expect(calls('smart_lookup_evidence_step')).toHaveLength(2)
     expect(evidenceIds()).toEqual(['e1'])
     expect(rowIds()).toEqual(LOCAL)
-    expect(header()).toContain('Judging stopped')
+    expect(header()).toContain('Evidence search stopped')
   })
 
   it('a round-running answer is ignored: nothing applied, the run not finished', async () => {
@@ -617,6 +617,77 @@ describe('SmartLookupApp evidence', () => {
     await vi.waitFor(() => expect(header()).toContain('Find evidence'))
     expect(evidenceIds()).toEqual(['e1'])
     expect(evidenceHead()).not.toContain('No evidence found')
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(2)
+  })
+
+  it('one fit item is evidence: no rephrase offer', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0, { tier: 'unfit' }), ev('e2', 1)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1', 'e2']))
+    await wait(20)
+    expect(evidenceHead()).not.toContain('No evidence found')
+    expect(evidenceHead()).not.toContain('Rephrase')
+  })
+
+  it('the evidence title opens what the run sent, summed over its rounds', async () => {
+    useLocal()
+    mocks.evidenceQueue.push(
+      step({ evidence: [ev('e1', 0)], requestCount: 2, elapsedMs: 300, sentBlocks: 10, estimatedTokens: 3000, skippedConfidential: 1, skippedLong: 2 }),
+      step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e1', 0)], requestCount: 1, elapsedMs: 200, sentBlocks: 4,
+        estimatedTokens: 1000, skippedConfidential: 1, skippedStale: 1, skippedOversize: 1 }),
+    )
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(2))
+    await vi.waitFor(() => expect(evidenceHead()).not.toContain('Expanding'))
+
+    click(document.querySelector<HTMLButtonElement>('.evidence-title')!)
+    await vi.waitFor(() => expect(document.querySelector('.judge-details[role="dialog"]')).not.toBeNull())
+    const details = document.querySelector('.judge-details')!
+    expect(details.getAttribute('aria-label')).toBe('This evidence search')
+    expect(details.textContent).toContain('Sent to api.typesafe.ai')
+    expect(details.textContent).toContain('3 request(s) · 500 ms')
+    expect(details.textContent).toContain('Sent 14 passages · about 4000 tokens')
+    expect(details.textContent).toContain('Not sent: 2 confidential · 1 changed since indexing · 3 too long')
+    // No reorder lines: the model never reorders the local results.
+    expect(details.textContent).not.toContain('Reused')
+    expect(details.textContent).not.toContain('of the first')
+
+    key(input, 'Escape')
+    await vi.waitFor(() => expect(document.querySelector('.judge-details')).toBeNull())
+    expect(calls('hide_smart_search_window')).toHaveLength(0)
+  })
+
+  it('a URL without a host is not configured and sends nothing', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { url: 'not a url', model: 'm', authMode: 'bearer', consentHost: '' } } }
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(header()).toContain('No endpoint set up'))
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(header()).not.toContain('Find evidence')
+  })
+
+  it('Esc twice during a round stops it, hides the window, drops the late round and offers a restart', async () => {
+    useLocal()
+    mocks.evidenceGates.push(null)
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e2', 1)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceHead()).toContain('Expanding the search (round 1)'))
+    key(input, 'Escape')
+    key(document.body, 'Escape')
+    await vi.waitFor(() => expect(calls('hide_smart_search_window')).toHaveLength(1))
+    expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }])
+    release()
+    await wait(20)
+    expect(evidenceIds()).toEqual(['e1'])
+    expect(header()).toContain('Evidence search stopped')
+    expect(header()).toContain('Find evidence')
     expect(calls('smart_lookup_evidence_step')).toHaveLength(2)
   })
 
@@ -771,8 +842,8 @@ describe('SmartLookupApp enhancement', () => {
     await submit(input)
     await vi.waitFor(() => expect(evidenceIds()).toEqual(['e2', 'e1']))
     // The round shown has no restore button; the earlier one does.
-    expect(Array.from(document.querySelectorAll('.evidence-restore button')).map((item) => item.textContent?.trim())).toEqual(['Back to round 0'])
-    click(button('Back to round 0'))
+    expect(Array.from(document.querySelectorAll('.evidence-restore button')).map((item) => item.textContent?.trim())).toEqual(['Back to local'])
+    click(button('Back to local'))
     await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1']))
     expect(calls('smart_lookup_evidence_step')).toHaveLength(2)
     click(button('Back to round 1'))
@@ -811,7 +882,7 @@ describe('SmartLookupApp enhancement', () => {
     mocks.evidenceQueue.push(step({ status: 'skipped', skipReason: 'indexUnavailable', endpointHost: null, requestCount: 0, done: true }))
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Index busy — not judged'))
+    await vi.waitFor(() => expect(header()).toContain('Index busy — no evidence searched'))
     expect(document.querySelectorAll('.judge-header button')).toHaveLength(0)
   })
 
@@ -949,10 +1020,10 @@ describe('SmartLookupApp enhancement', () => {
     })
   })
 
-  it('no evidence offers rephrase as a user action', async () => {
+  it('evidence that is all unfit offers rephrase as a user action', async () => {
     useLocal()
     mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: ['e1', 'e2', 'e3'].map((id) => ev(id, 0, { tier: 'unfit' })), localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
     mocks.repair = {
       status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
       groups: [{ terms: ['发布'], phrases: [] }], requestCount: 1, elapsedMs: 600, usage: null,
@@ -961,6 +1032,9 @@ describe('SmartLookupApp enhancement', () => {
     const input = await mountReady()
     await submit(input)
     await vi.waitFor(() => expect(evidenceHead()).toContain('No evidence found'))
+    // The host keeps its top K whatever the score: every shown item is unfit, so nothing was found.
+    expect(evidenceIds()).toEqual(['e1', 'e2', 'e3'])
+    expect(evidenceRow('e1').textContent).toContain('Possibly unrelated')
     expect(row('r1').textContent).toContain('Possibly unrelated')
 
     click(button('Rephrase'))
@@ -974,7 +1048,7 @@ describe('SmartLookupApp enhancement', () => {
   it('Tab leaves the question field when the repair strip shows over results', async () => {
     useLocal()
     mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: ['e1', 'e2', 'e3'].map((id) => ev(id, 0, { tier: 'unfit' })), localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
     mocks.repair = {
       status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
       groups: [{ terms: ['发布'], phrases: [] }], requestCount: 1, elapsedMs: 600, usage: null,
@@ -1000,7 +1074,7 @@ describe('SmartLookupApp enhancement', () => {
   ])('a failed rephrase after no evidence says so (%s)', async (status, extra, notice) => {
     useLocal()
     mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: ['e1', 'e2', 'e3'].map((id) => ev(id, 0, { tier: 'unfit' })), localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
     mocks.repair = {
       status, skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
       groups: [], requestCount: status === 'notConfigured' ? 0 : 1, elapsedMs: 600, usage: null, ...extra,
@@ -1157,10 +1231,10 @@ describe('SmartLookupApp enhancement', () => {
     const input = await mountReady()
     await submit(input)
     await vi.waitFor(() => expect(evidenceHead()).toContain('Searching the notes · 0 s'))
-    expect(footer().replace(/\s+/g, ' ')).toBe('esc Stop judging ⌘K Actions')
+    expect(footer().replace(/\s+/g, ' ')).toBe('esc Stop the evidence search ⌘K Actions')
 
     key(input, 'Escape')
-    await vi.waitFor(() => expect(header()).toContain('Judging stopped'))
+    await vi.waitFor(() => expect(header()).toContain('Evidence search stopped'))
     expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }])
     expect(calls('hide_smart_search_window')).toHaveLength(0)
     expect(footer()).toBe('⌘K Actions')
@@ -1288,7 +1362,7 @@ describe('SmartLookupApp enhancement', () => {
   it('the repair strip summarises the repair, shows the local diagnosis and can go back to the original question', async () => {
     useLocal()
     mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: ['e1', 'e2', 'e3'].map((id) => ev(id, 0, { tier: 'unfit' })), localTiers: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
     mocks.repair = {
       status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
       groups: [{ terms: ['发布'], phrases: [] }, { terms: ['上架'], phrases: [] }], requestCount: 1, elapsedMs: 800, usage: null,

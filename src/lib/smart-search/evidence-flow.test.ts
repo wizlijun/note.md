@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { EvidenceItem, EvidenceStepResult } from './api'
-import { absolutePath, applyPending, applyRound, emptyEvidence, evidenceNotice, headerFromStep, restoreRound, roundLabel, shouldStartEvidence, startOffered } from './evidence-flow'
+import {
+  absolutePath, addTotals, applyPending, applyRound, emptyEvidence, emptyTotals, evidenceNotice, headerFromStep, restoreRound,
+  roundLabel, shouldStartEvidence, startOffered,
+} from './evidence-flow'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, normalizeSmartLookupSettings } from './settings'
 import { en } from '../i18n/en'
 import { zh } from '../i18n/zh'
 
-const item = (id: string, foundRound: number): EvidenceItem => ({
-  evidenceId: id, path: `${id}.md`, line: 1, lineEnd: 2, title: id, breadcrumb: '', text: id, foundRound, tier: 'fit', localResultId: null,
+const item = (id: string, foundRound: number, tier: EvidenceItem['tier'] = 'fit'): EvidenceItem => ({
+  evidenceId: id, path: `${id}.md`, line: 1, lineEnd: 2, title: id, breadcrumb: '', text: id, foundRound, tier, localResultId: null,
 })
 const round = (hop: number, ids: string[], extra: Partial<EvidenceStepResult> = {}): EvidenceStepResult => ({
   status: 'ok', stop: null, skipReason: null, missing: null, endpointHost: null, statusClass: null, hop,
@@ -73,10 +76,32 @@ describe('evidence view', () => {
     expect(evidenceNotice(done({ stop: 'noTerms', status: 'skipped' }))).toBe('smartSearch.evidence.none')
     expect(evidenceNotice(done({ stop: 'maxHops' }, ['a']))).toBeNull()
     expect(evidenceNotice(done({ stop: 'budget' }))).toBe('smartSearch.evidence.budget')
+    expect(evidenceNotice(done({ stop: 'evidenceTooLarge', status: 'skipped' }))).toBe('smartSearch.evidence.tooLarge')
     expect(evidenceNotice(done({ stop: 'indexChanged', status: 'skipped' }, ['a']))).toBe('smartSearch.evidence.indexChanged')
     // A failed round says so in the status line; it is not "no evidence".
     expect(evidenceNotice(done({ status: 'timeout', done: false }))).toBeNull()
     expect(evidenceNotice(emptyEvidence())).toBeNull()
+  })
+  it('a run whose evidence is all unfit found no evidence; one fit or unsure item is evidence', () => {
+    const finished = (tiers: EvidenceItem['tier'][], extra: Partial<EvidenceStepResult> = { done: true, stop: 'maxHops' }) =>
+      applyRound(emptyEvidence(), { ...round(0, []), ...extra, evidence: tiers.map((tier, i) => item(`i${i}`, 0, tier)) }, false)
+    expect(evidenceNotice(finished(['unfit', 'unfit', 'unfit']))).toBe('smartSearch.evidence.none')
+    expect(evidenceNotice(finished(['unfit', 'fit', 'unfit']))).toBeNull()
+    expect(evidenceNotice(finished(['unsure', 'unfit']))).toBeNull()
+    // Still running: no verdict yet.
+    expect(evidenceNotice(finished(['unfit'], { done: false, stop: null }))).toBeNull()
+  })
+  it('sums what each call sent into run totals; the host only when something went to it', () => {
+    const one = addTotals(emptyTotals(), round(0, ['a'], {
+      requestCount: 2, elapsedMs: 300, sentBlocks: 12, estimatedTokens: 4000, skippedConfidential: 1, skippedStale: 2, skippedLong: 3,
+      skippedOversize: 1, endpointHost: 'h.example',
+    }))
+    const two = addTotals(one, round(1, ['b'], {
+      requestCount: 1, elapsedMs: 200, sentBlocks: 5, estimatedTokens: 1000, skippedConfidential: 2, endpointHost: 'h.example',
+    }))
+    expect(two).toEqual({ host: 'h.example', requests: 3, elapsedMs: 500, sent: 17, tokens: 5000, confidential: 3, stale: 2, long: 4 })
+    const nothingSent = addTotals(emptyTotals(), round(0, [], { status: 'noConsent', requestCount: 0, sentBlocks: 0, estimatedTokens: 0, endpointHost: 'x.example' }))
+    expect(nothingSent.host).toBeNull(); expect(nothingSent.tokens).toBe(0)
   })
   it('opens evidence by the vault root that the local hits show', () => {
     const hits = [{ path: 'notes/a.md', absPath: '/vault/notes/a.md' }]
@@ -121,6 +146,8 @@ describe('evidence view', () => {
   it('starts automatically only with hits, a judge route and a consented endpoint', () => {
     const s = normalizeSmartLookupSettings({ enhance: { jev: { url: 'https://a.example/v1', model: 'm', consentHost: 'a.example' } } })
     expect(shouldStartEvidence(3, 'judge', s)).toBe(true)
+    // Only `skip` blocks a route; the window passes `judge` whenever it has hits.
+    expect(shouldStartEvidence(3, 'repair', s)).toBe(true)
     // Zero hits take the repair route (F.5, F.6), never evidence.
     expect(shouldStartEvidence(0, 'repair', s)).toBe(false)
     expect(shouldStartEvidence(0, 'judge', s)).toBe(false)

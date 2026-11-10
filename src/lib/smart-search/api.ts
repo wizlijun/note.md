@@ -24,32 +24,6 @@ export interface ChatRequestConfig { url: string; model: string }
 export interface ChatAnswerConfig { url: string; model: string; consentHost: string }
 export interface Usage { inputTokens: number; outputTokens: number }
 
-export interface JudgeResult {
-  status: EnhanceStatus
-  skipReason: SkipReason | null
-  missing: Missing | null
-  endpointHost: string | null
-  statusClass: string | null
-  verdicts: { resultId: string; tier: Tier }[]
-  /** Full display order after rerank; non-empty only when `status === 'ok'`. */
-  order: string[]
-  judgedCount: number
-  rerankedCount: number
-  topTenUnfit: boolean
-  /** 0 when nothing was sent — including a `cancelled` run stopped before the request went out. */
-  requestCount: number
-  reused: boolean
-  elapsedMs: number
-  poolSize: number
-  sentBlocks: number
-  estimatedTokens: number
-  skippedRollups: number
-  skippedConfidential: number
-  skippedStale: number
-  skippedLong: number
-  usage: Usage | null
-}
-
 export type EvidenceStop = 'noTerms' | 'frontierEmpty' | 'termsEmpty' | 'candidatesEmpty' | 'maxHops' | 'budget' | 'indexChanged' | 'evidenceTooLarge'
 export interface EvidenceTerm { term: string; label: string; kind: 'word' | 'namePhrase' }
 export interface EvidenceItem {
@@ -120,9 +94,6 @@ export const smartSearchApi = {
     timeoutMs: options.timeoutMs,
     timeMode: options.timeMode,
   }),
-  /** At most one Jev request; reorders inside sections only. */
-  judge: (lookupRunId: string, displayOrder: string[], sectionBreaks: number[], jev: JevRequestConfig, trigger: Trigger) =>
-    invoke<JudgeResult>('smart_lookup_judge', { lookupRunId, displayOrder, sectionBreaks, jev, trigger }),
   /** One evidence round (at most one batch sequence); the host owns the hop counter. */
   evidenceStep: (lookupRunId: string, jev: JevRequestConfig, trigger: Trigger, deep: boolean) =>
     invoke<EvidenceStepResult>('smart_lookup_evidence_step', { lookupRunId, jev, trigger, deep }),

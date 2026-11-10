@@ -53,9 +53,11 @@
   } from './lib/smart-search/enhance-flow'
   import {
     absolutePath,
+    addTotals,
     applyPending,
     applyRound,
     emptyEvidence,
+    emptyTotals,
     evidenceNotice,
     headerFromStep,
     restoreRound,
@@ -63,6 +65,7 @@
     shouldStartEvidence,
     startOffered,
     type EvidenceRound,
+    type EvidenceTotals,
     type EvidenceView,
   } from './lib/smart-search/evidence-flow'
   import { clearRecent, loadRecent, loadRecentCounts, rememberRecent, rememberRecentCount } from './lib/smart-search/recent'
@@ -98,6 +101,7 @@
     time: TimeWindow | null
     header: HeaderState
     evidence: EvidenceView
+    totals: EvidenceTotals
     evidenceRunId: string
     evidenceDeep: boolean
     localTiers: Map<string, Tier>
@@ -163,6 +167,9 @@
   let localTiers = $state<Map<string, Tier>>(new Map())
   /** 「查找证据」: the evidence did not start on its own (route, slot) or was stopped. */
   let offerStart = $state(false)
+  /** What this run sent and left out, for the details popover (F.3 without the reorder lines). */
+  let totals = $state<EvidenceTotals>(emptyTotals())
+  let detailsOpen = $state(false)
   let feedbackSaved = $state<Record<string, 'fit' | 'unfit'>>({})
   let now = $state(Date.now())
   /** Arrow keys, a click on a row, scrolling the list or opening a result since this Enter. */
@@ -332,6 +339,8 @@
     evidenceRound = null
     localTiers = new Map()
     offerStart = false
+    totals = emptyTotals()
+    detailsOpen = false
     feedbackSaved = {}
   }
 
@@ -690,8 +699,10 @@
     }
     if (trigger === 'auto' && !shouldStartEvidence(store.hits.length, 'judge', current)) {
       const host = endpointHost(jev.url)
-      if (host) header = { kind: 'degraded', status: 'noConsent', host, statusClass: null, missing: null }
-      else offerStart = true
+      header = host
+        ? { kind: 'degraded', status: 'noConsent', host, statusClass: null, missing: null }
+        // A URL without a host is not an endpoint.
+        : { kind: 'degraded', status: 'notConfigured', host: null, statusClass: null, missing: 'url' }
       return
     }
     await runEvidence(mine, trigger)
@@ -713,6 +724,7 @@
     if (evidenceRunId !== runId) {
       evidence = emptyEvidence()
       localTiers = new Map()
+      totals = emptyTotals()
       feedbackSaved = {}
       evidenceRunId = runId
     }
@@ -742,6 +754,7 @@
       }
       modelRequests = { ...modelRequests, judge: modelRequests.judge + result.requestCount }
       appendActivity('judge', activityLevel(result.status), evidenceLog(result), { usage: result.usage })
+      totals = addTotals(totals, result)
       evidence = applyRound(evidence, result, interacted)
       if (result.status === 'ok') localTiers = new Map(result.localTiers.map((verdict) => [verdict.resultId, verdict.tier]))
       header = headerFromStep(result)
@@ -909,6 +922,7 @@
     showSearch(question, view.search, view.runId, view.time)
     header = view.header
     evidence = view.evidence
+    totals = view.totals
     evidenceRunId = view.evidenceRunId
     evidenceDeep = view.evidenceDeep
     localTiers = view.localTiers
@@ -966,13 +980,17 @@
   async function searchWithGroups(mine: number, groups: TermGroup[]): Promise<void> {
     const runId = lookupRunId
     if (!runId) return
+    // A round stopped here can be continued after 「只用原问题」.
+    const stoppedRound = evidenceRound !== null
     stopEnhanceRequest()
     lookupBusy = true
     try {
       const result = await serial(() => smartSearchApi.searchGroups(runId, groups, settings.smartLookup.results.limit))
       if (mine !== requestSequence) return
       if (!repaired && lastLocal) {
-        originalView = { ...lastLocal, header, evidence, evidenceRunId, evidenceDeep, localTiers, offerStart }
+        originalView = {
+          ...lastLocal, header, evidence, totals, evidenceRunId, evidenceDeep, localTiers, offerStart: offerStart || stoppedRound,
+        }
       }
       resetEvidence()
       repaired = true
@@ -1226,9 +1244,10 @@
     escape()
   }
 
-  /** Close the time menu; true when it was open. */
+  /** Close the details popover or the time menu; true when one was open. */
   function closePopovers(): boolean {
-    const open = timeMenuOpen
+    const open = detailsOpen || timeMenuOpen
+    detailsOpen = false
     timeMenuOpen = false
     return open
   }
@@ -1241,7 +1260,10 @@
       const stopped = inflight
       supersede()
       store.cancel()
-      if (stopped?.kind === 'evidence') header = cancelledHeader()
+      if (stopped?.kind === 'evidence') {
+        header = cancelledHeader()
+        offerStart = true
+      }
       appendActivity('search', 'warning', t('smartSearch.stopped'))
     }
     try { await invoke('hide_smart_search_window') } catch { /* Browser preview. */ }
@@ -1291,6 +1313,7 @@
     const target = event.target as Node | null
     if (menuOpen && !(target && (menuEl?.contains(target) || menuButton?.contains(target)))) closeMenu(false)
     if (timeMenuOpen && !(target instanceof Element && target.closest('.time-anchor'))) timeMenuOpen = false
+    if (detailsOpen && !(target instanceof Element && target.closest('.evidence-head'))) detailsOpen = false
   }
 
   function menuAction(action: () => unknown): void {
@@ -1380,7 +1403,7 @@
               class="time-chip"
               aria-haspopup="menu"
               aria-expanded={timeMenuOpen}
-              onclick={() => { timeMenuOpen = !timeMenuOpen }}
+              onclick={() => { detailsOpen = false; timeMenuOpen = !timeMenuOpen }}
             >{chipText} <small class="time-mode">{t(timeModeLabel(current))}</small></button>
             {#if current !== 'ignore'}
               <button
@@ -1523,7 +1546,20 @@
               {#if showEvidence}
                 <section class="evidence" aria-label={t('smartSearch.evidence.title')}>
                   <div class="evidence-head">
-                    <div class="evidence-title group-label">{t('smartSearch.evidence.title')}<span>{evidence.shown.length}</span></div>
+                    <button
+                      class="evidence-title group-label details-toggle"
+                      aria-expanded={detailsOpen}
+                      onclick={() => { timeMenuOpen = false; detailsOpen = !detailsOpen }}
+                    >{t('smartSearch.evidence.title')}<span>{evidence.shown.length}</span></button>
+                    {#if detailsOpen}
+                      <div class="judge-details" role="dialog" aria-label={t('smartSearch.enhance.detailsTitle')}>
+                        <div class="details-title">{t('smartSearch.enhance.detailsTitle')}</div>
+                        {#if totals.host}<p>{t('smartSearch.enhance.detailsHost', { host: totals.host })}</p>{/if}
+                        <p>{t('smartSearch.enhance.detailsRequests', { n: totals.requests, ms: totals.elapsedMs })}</p>
+                        <p>{t('smartSearch.enhance.detailsSent', { n: totals.sent, tokens: totals.tokens })}</p>
+                        <p>{t('smartSearch.enhance.detailsUnsent', { confidential: totals.confidential, stale: totals.stale, long: totals.long })}</p>
+                      </div>
+                    {/if}
                     {#if evidenceRound}
                       <div class="evidence-status">
                         <span class="spinner" aria-hidden="true"></span>
@@ -1555,7 +1591,9 @@
                       <div class="evidence-restore">
                         {#each evidence.rounds as round (round.hop)}
                           {#if !isShown(round)}
-                            <button class="text-button" onclick={() => void restoreTo(round.hop)}>{t('smartSearch.evidence.restore', { hop: round.hop })}</button>
+                            <button class="text-button" onclick={() => void restoreTo(round.hop)}>{round.hop === 0
+                              ? t('smartSearch.evidence.restoreLocal')
+                              : t('smartSearch.evidence.restore', { hop: round.hop })}</button>
                           {/if}
                         {/each}
                       </div>
@@ -1715,6 +1753,11 @@
   .result-group { padding: 6px 0; }
   .evidence { padding: 6px 0; border-bottom: 1px solid var(--lookup-border); background: color-mix(in srgb, var(--lookup-accent) 3%, Canvas); }
   .evidence-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 2px; }
+  .evidence-title { border: 0; background: transparent; text-align: left; }
+  .details-toggle { text-decoration: underline dotted; text-underline-offset: 3px; }
+  .judge-details { padding: 6px 16px 8px; font-size: 12px; color: var(--lookup-muted); }
+  .judge-details p { margin: 0 0 3px; }
+  .details-title { margin-bottom: 4px; font-weight: 600; color: CanvasText; }
   .evidence-status { display: flex; align-items: center; gap: 8px; min-height: 22px; padding: 0 12px 0 16px; font-size: 12px; }
   .evidence-terms { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0 16px; font-size: 11px; color: var(--lookup-muted); }
   .evidence-restore { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 12px; }
