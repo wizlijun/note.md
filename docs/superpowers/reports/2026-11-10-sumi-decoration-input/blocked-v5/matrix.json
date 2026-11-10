@@ -1,0 +1,227 @@
+{
+  "formal_release_blocked_on_pointer": true,
+  "stable_interval_definition": "First2seconds of each explicit stable marker: run-case waits2s before validation; later rows may contain subsequent interactions and are preserved in raw file.",
+  "cases": [
+    {
+      "case": "s2-fullscreen-cjk-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s2-fullscreen-cjk-stable.jsonl",
+      "raw_sha256": "8ee6ffc7f16bcd8c1473acc0e11551f1be78a6d2d3bd1d44e28227b8e0c56042",
+      "interval_start_us": 9824465958,
+      "interval_end_us": 9826417422,
+      "result": {
+        "passed": true,
+        "samples": 44,
+        "paint_samples": 4,
+        "duration_us": 1951464,
+        "scale": 2,
+        "viewport_height": 1054,
+        "viewport_parity": 0,
+        "gtk_caret_height": 40,
+        "caret_parity": 0,
+        "font_size_pango": 21120,
+        "adjustment": {
+          "value": 4959.0,
+          "lower": 0.0,
+          "upper": 10890.0,
+          "page_size": 1054.0
+        },
+        "window_y": 507
+      }
+    },
+    {
+      "case": "s2-fullscreen-even-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s2-fullscreen-even-stable.jsonl",
+      "raw_sha256": "8f2a76f934caa437536ad574087874f929b20382af90cab72a286d163d132050",
+      "interval_start_us": 9810737435,
+      "interval_end_us": 9812736474,
+      "result": {
+        "passed": true,
+        "samples": 44,
+        "paint_samples": 4,
+        "duration_us": 1999039,
+        "scale": 2,
+        "viewport_height": 1054,
+        "viewport_parity": 0,
+        "gtk_caret_height": 38,
+        "caret_parity": 0,
+        "font_size_pango": 21120,
+        "adjustment": {
+          "value": 4918.0,
+          "lower": 0.0,
+          "upper": 10890.0,
+          "page_size": 1054.0
+        },
+        "window_y": 508
+      }
+    },
+    {
+      "case": "s2-normal-even-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s2-normal-even-stable.jsonl",
+      "raw_sha256": "a25d50d94658375089462651cb013a18d27271a6f86aca5adb1e83149054a8ba",
+      "interval_start_us": 9745604061,
+      "interval_end_us": 9747564187,
+      "result": {
+        "passed": true,
+        "samples": 44,
+        "paint_samples": 4,
+        "duration_us": 1960126,
+        "scale": 2,
+        "viewport_height": 628,
+        "viewport_parity": 0,
+        "gtk_caret_height": 30,
+        "caret_parity": 0,
+        "font_size_pango": 16896,
+        "adjustment": {
+          "value": 4018.0,
+          "lower": 0.0,
+          "upper": 8664.0,
+          "page_size": 628.0
+        },
+        "window_y": 299
+      }
+    },
+    {
+      "case": "s2-normal-odd-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s2-normal-odd-stable.jsonl",
+      "raw_sha256": "d4eddde8ad8aa76a802fdecd53d4a5a2641f88c8a64952ac9843c5468fb1165e",
+      "interval_start_us": 9785083620,
+      "interval_end_us": 9787079627,
+      "result": {
+        "passed": true,
+        "samples": 42,
+        "paint_samples": 3,
+        "duration_us": 1996007,
+        "scale": 2,
+        "viewport_height": 575,
+        "viewport_parity": 1,
+        "gtk_caret_height": 30,
+        "caret_parity": 0,
+        "font_size_pango": 16896,
+        "adjustment": {
+          "value": 4017.5,
+          "lower": 0.0,
+          "upper": 8610.0,
+          "page_size": 575.0
+        },
+        "window_y": 273
+      }
+    },
+    {
+      "case": "s3-fullscreen-cjk-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s3-fullscreen-cjk-stable.jsonl",
+      "raw_sha256": "d4e5316df90e2f4d918f712cc27c4043d2815d36de465c2b247dcd2e1beba23d",
+      "interval_start_us": 9837123692,
+      "interval_end_us": 9839074738,
+      "result": {
+        "passed": true,
+        "samples": 44,
+        "paint_samples": 4,
+        "duration_us": 1951046,
+        "scale": 3,
+        "viewport_height": 674,
+        "viewport_parity": 0,
+        "gtk_caret_height": 34,
+        "caret_parity": 0,
+        "font_size_pango": 17810,
+        "adjustment": {
+          "value": 3929.0,
+          "lower": 0.0,
+          "upper": 8467.0,
+          "page_size": 674.0
+        },
+        "window_y": 320
+      }
+    },
+    {
+      "case": "s3-fullscreen-latin-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s3-fullscreen-latin-stable.jsonl",
+      "raw_sha256": "356f2694bd0af986b25c9e1f3142eedeb94f34c37838646b54fc565bded3c839",
+      "interval_start_us": 9851251729,
+      "interval_end_us": 9853249222,
+      "result": {
+        "passed": true,
+        "samples": 37,
+        "paint_samples": 5,
+        "duration_us": 1997493,
+        "scale": 3,
+        "viewport_height": 674,
+        "viewport_parity": 0,
+        "gtk_caret_height": 31,
+        "caret_parity": 1,
+        "font_size_pango": 17810,
+        "adjustment": {
+          "value": 4137.5,
+          "lower": 0.0,
+          "upper": 8949.0,
+          "page_size": 674.0
+        },
+        "window_y": 322
+      }
+    },
+    {
+      "case": "s3-normal-odd-settled-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s3-normal-odd-settled-stable.jsonl",
+      "raw_sha256": "90bda17a38d030ad94ecc404c5202555901dfd25419419cb8c439245979bea96",
+      "interval_start_us": 9910713955,
+      "interval_end_us": 9912667558,
+      "result": {
+        "passed": true,
+        "samples": 41,
+        "paint_samples": 4,
+        "duration_us": 1953603,
+        "scale": 3,
+        "viewport_height": 575,
+        "viewport_parity": 1,
+        "gtk_caret_height": 30,
+        "caret_parity": 0,
+        "font_size_pango": 16896,
+        "adjustment": {
+          "value": 4017.5,
+          "lower": 0.0,
+          "upper": 8610.0,
+          "page_size": 575.0
+        },
+        "window_y": 273
+      }
+    },
+    {
+      "case": "s3-normal-odd-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s3-normal-odd-stable.jsonl",
+      "raw_sha256": "e44536aaf406626167c515abbb5cbd9ca101e1632d9ea2b48ec8d02b4a0429ae",
+      "interval_start_us": 9873205470,
+      "interval_end_us": 9875181088,
+      "result": {
+        "passed": false,
+        "error": "adjustment oscillates in stable interval"
+      }
+    },
+    {
+      "case": "s3-pure-stable",
+      "raw_file": "tasks/sumi-focus-v5/evidence/frames/frames-s3-pure-stable.jsonl",
+      "raw_sha256": "ae1f0047b2784a70a247d16a1fcad8ffae60da821185a4c168f693a772ec12a0",
+      "interval_start_us": 10141697700,
+      "interval_end_us": 10143658484,
+      "result": {
+        "passed": true,
+        "samples": 44,
+        "paint_samples": 4,
+        "duration_us": 1960784,
+        "scale": 3,
+        "viewport_height": 674,
+        "viewport_parity": 0,
+        "gtk_caret_height": 31,
+        "caret_parity": 1,
+        "font_size_pango": 17810,
+        "adjustment": {
+          "value": 4137.5,
+          "lower": 0.0,
+          "upper": 8949.0,
+          "page_size": 674.0
+        },
+        "window_y": 322
+      }
+    }
+  ],
+  "finite_mode_transition_boundary_seconds": 5.153,
+  "boundary_cause_not_proven": true
+}

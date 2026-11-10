@@ -1,0 +1,8 @@
+{
+  "binary": "/home/bruce/git/note.md/tasks/sumi-fcitx/target/debug/deps/tauri_plugin_native_editor-fecfa112bb76e87d",
+  "binarySha256": "d948f6b390916e78139ab9786fd4807b5da297b48e3af6e3ee33339ef7fbd968",
+  "sourceHead": "54d2c56724ca1f91fdb8f2d79b8a74d0a0e6b009",
+  "linuxRsSha256": "7627ed3bd242e85eb8725fdb2046c2bb6deeac17c9e7f7f8d446bccf09913eed",
+  "buildExitCode": 0,
+  "productionChange": "uncommitted decoration realize input pass-through fix"
+}
