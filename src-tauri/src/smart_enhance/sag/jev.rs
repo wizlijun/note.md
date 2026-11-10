@@ -230,6 +230,9 @@ pub(crate) enum RoundError {
     /// The first failing batch (in batch order); `Timeout` when `deadline` passed.
     Model(ModelError),
     Cancelled,
+    /// The scorer decided not to send this round (`Budget`, `EvidenceTooLarge`;
+    /// spec H.3.7, H.6). `EvidenceState::step` ends the rounds with it.
+    Stop(super::round::EvidenceStop),
 }
 
 /// `score_with_runtime` without retries or splitting (spec H.3.7, G.3): one
