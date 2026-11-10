@@ -1,0 +1,158 @@
+[
+  {
+    "case": "s2-normal-even",
+    "file": "tasks/sumi-focus-v6/evidence/frames/frames-s2-normal-even-stable.jsonl",
+    "sha256": "919d3c527803f244d1a8d1edffb156370c9b2ce2b985445e1debe51c1a01ee14",
+    "stable_interval_start_us": 11492318702,
+    "stable_interval_end_us": 11494293039,
+    "result": {
+      "passed": true,
+      "samples": 41,
+      "paint_samples": 3,
+      "duration_us": 1974337,
+      "scale": 2,
+      "viewport_height": 628,
+      "viewport_parity": 0,
+      "gtk_caret_height": 30,
+      "caret_parity": 0,
+      "font_size_pango": 16896,
+      "adjustment": {
+        "value": 4018.0,
+        "lower": 0.0,
+        "upper": 8664.0,
+        "page_size": 628.0
+      },
+      "window_y": 299
+    }
+  },
+  {
+    "case": "s2-normal-odd",
+    "file": "tasks/sumi-focus-v6/evidence/frames/frames-s2-normal-odd-stable.jsonl",
+    "sha256": "4a5da63d0b743519bdcc4caff08fbd8655ccf39fc4b34351aee99993d677585f",
+    "stable_interval_start_us": 11499765710,
+    "stable_interval_end_us": 11501735320,
+    "result": {
+      "passed": true,
+      "samples": 44,
+      "paint_samples": 4,
+      "duration_us": 1969610,
+      "scale": 2,
+      "viewport_height": 581,
+      "viewport_parity": 1,
+      "gtk_caret_height": 30,
+      "caret_parity": 0,
+      "font_size_pango": 16896,
+      "adjustment": {
+        "value": 4017.5,
+        "lower": 0.0,
+        "upper": 8616.0,
+        "page_size": 581.0
+      },
+      "window_y": 276
+    }
+  },
+  {
+    "case": "s2-fullscreen-latin",
+    "file": "tasks/sumi-focus-v6/evidence/frames/frames-s2-fullscreen-latin-stable.jsonl",
+    "sha256": "d1c5a01d2d6ce837dba465f382c6df0d24ce3646cd6f39e85d8d2a737ae3a206",
+    "stable_interval_start_us": 11524660624,
+    "stable_interval_end_us": 11526479599,
+    "result": {
+      "passed": true,
+      "samples": 35,
+      "paint_samples": 4,
+      "duration_us": 1818975,
+      "scale": 2,
+      "viewport_height": 1054,
+      "viewport_parity": 0,
+      "gtk_caret_height": 38,
+      "caret_parity": 0,
+      "font_size_pango": 21120,
+      "adjustment": {
+        "value": 4918.0,
+        "lower": 0.0,
+        "upper": 10890.0,
+        "page_size": 1054.0
+      },
+      "window_y": 508
+    }
+  },
+  {
+    "case": "s3-fullscreen-latin",
+    "file": "tasks/sumi-focus-v6/evidence/frames/frames-s3-fullscreen-latin-stable.jsonl",
+    "sha256": "9423e79673724472f4c585cf8e913d58167e5a0aa099b7fc2a656caeae28ae31",
+    "stable_interval_start_us": 11555488298,
+    "stable_interval_end_us": 11557444659,
+    "result": {
+      "passed": true,
+      "samples": 43,
+      "paint_samples": 3,
+      "duration_us": 1956361,
+      "scale": 3,
+      "viewport_height": 674,
+      "viewport_parity": 0,
+      "gtk_caret_height": 31,
+      "caret_parity": 1,
+      "font_size_pango": 17810,
+      "adjustment": {
+        "value": 3896.5,
+        "lower": 0.0,
+        "upper": 8467.0,
+        "page_size": 674.0
+      },
+      "window_y": 322
+    }
+  },
+  {
+    "case": "s3-normal-odd",
+    "file": "tasks/sumi-focus-v6/evidence/frames/frames-s3-normal-odd-stable.jsonl",
+    "sha256": "24d498bfcd716c06f636ef8dfd454deb60c951bd65df986189baddd6221a7bc3",
+    "stable_interval_start_us": 11597918086,
+    "stable_interval_end_us": 11599824542,
+    "result": {
+      "passed": true,
+      "samples": 38,
+      "paint_samples": 4,
+      "duration_us": 1906456,
+      "scale": 3,
+      "viewport_height": 581,
+      "viewport_parity": 1,
+      "gtk_caret_height": 30,
+      "caret_parity": 0,
+      "font_size_pango": 16896,
+      "adjustment": {
+        "value": 4017.5,
+        "lower": 0.0,
+        "upper": 8616.0,
+        "page_size": 581.0
+      },
+      "window_y": 276
+    }
+  },
+  {
+    "case": "s3-continuous",
+    "file": "tasks/sumi-focus-v6/evidence/frames/frames-s3-continuous-stable.jsonl",
+    "sha256": "e169c2d5f9fc796e7c7a98235f7f9c8e3c2de1ea8d292ddfc2ef011e4351eda8",
+    "stable_interval_start_us": 11713990840,
+    "stable_interval_end_us": 11715942024,
+    "result": {
+      "passed": true,
+      "samples": 44,
+      "paint_samples": 4,
+      "duration_us": 1951184,
+      "scale": 3,
+      "viewport_height": 674,
+      "viewport_parity": 0,
+      "gtk_caret_height": 31,
+      "caret_parity": 1,
+      "font_size_pango": 17810,
+      "adjustment": {
+        "value": 4140.5,
+        "lower": 0.0,
+        "upper": 8952.0,
+        "page_size": 674.0
+      },
+      "window_y": 322
+    }
+  }
+]

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md-sumi-release-integration
+
+
+ Test Files  11 passed (11)
+      Tests  129 passed (129)
+   Start at  18:59:29
+   Duration  27.66s (transform 9.69s, setup 0ms, import 10.19s, tests 12.58s, environment 2.03s)
+

@@ -1,0 +1,48 @@
+
+Dynamic section at offset 0x1cb7a18 contains 45 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libsecret-1.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libglib-2.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgobject-2.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpangocairo-1.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libfontconfig.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpangoft2-1.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgdk-3.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpango-1.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgdk_pixbuf-2.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libcairo.so.2]
+ 0x0000000000000001 (NEEDED)             Shared library: [libdbus-1.so.3]
+ 0x0000000000000001 (NEEDED)             Shared library: [libwebkit2gtk-4.1.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgtk-3.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libsoup-3.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgio-2.0.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libjavascriptcoregtk-4.1.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x000000000000001e (FLAGS)              BIND_NOW
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000007 (RELA)               0xbbf8
+ 0x0000000000000008 (RELASZ)             1857624 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffff9 (RELACOUNT)          76509
+ 0x0000000000000017 (JMPREL)             0x1d1450
+ 0x0000000000000002 (PLTRELSZ)           1128 (bytes)
+ 0x0000000000000003 (PLTGOT)             0x1cbbd30
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000006 (SYMTAB)             0x340
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000005 (STRTAB)             0x6798
+ 0x000000000000000a (STRSZ)              21598 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x65f8
+ 0x0000000000000019 (INIT_ARRAY)         0x1ae2830
+ 0x000000000000001b (INIT_ARRAYSZ)       24 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0x1ae2828
+ 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)
+ 0x000000000000000c (INIT)               0x1ae147c
+ 0x000000000000000d (FINI)               0x1ae1494
+ 0x000000006ffffff0 (VERSYM)             0x5c68
+ 0x000000006ffffffe (VERNEED)            0x63d8
+ 0x000000006fffffff (VERNEEDNUM)         4
+ 0x0000000000000000 (NULL)               0x0

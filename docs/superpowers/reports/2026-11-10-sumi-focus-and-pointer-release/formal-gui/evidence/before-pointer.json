@@ -1,0 +1,87 @@
+{
+  "seq": 956,
+  "monotonic_us": 11394436113,
+  "kind": "poll",
+  "frame": 451,
+  "frame_us": 11394429693,
+  "case": "",
+  "view": "0x557d3555de40",
+  "scale": 2,
+  "focus": true,
+  "line": 120,
+  "line_offset": 33,
+  "insert_offset": 3453,
+  "char_count": 6840,
+  "line_count": 241,
+  "window_xy": [
+    453,
+    598
+  ],
+  "gtk_cursor": [
+    453,
+    4021,
+    0,
+    30
+  ],
+  "visible_rect": [
+    0,
+    3423,
+    960,
+    628
+  ],
+  "view_allocation": [
+    0,
+    0,
+    960,
+    628
+  ],
+  "outer_allocation": [
+    0,
+    0,
+    1012,
+    819
+  ],
+  "gdk_outer_geometry": [
+    0,
+    0,
+    1012,
+    819
+  ],
+  "window_state": 87168,
+  "vadjustment": {
+    "value": 3455.0,
+    "lower": 0.0,
+    "upper": 8136.0,
+    "page_size": 628.0
+  },
+  "font": "monospace 16.5",
+  "font_size_pango": 16896,
+  "font_absolute": false,
+  "font_ascent": 23.0,
+  "font_descent": 7.0,
+  "scroll_policy": [
+    2,
+    3
+  ],
+  "shadow_type": 0,
+  "hscrollbar": {
+    "visible": true,
+    "mapped": false,
+    "allocation": [
+      -1,
+      -1,
+      1,
+      1
+    ]
+  },
+  "vscrollbar": {
+    "visible": true,
+    "mapped": false,
+    "allocation": [
+      -1,
+      -1,
+      1,
+      1
+    ]
+  }
+}

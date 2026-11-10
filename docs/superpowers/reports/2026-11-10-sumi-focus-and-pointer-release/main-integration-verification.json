@@ -1,0 +1,48 @@
+{
+  "timestamp_utc": "2026-11-10T11:01:27.416406+00:00",
+  "worktree": "/home/bruce/git/note.md-sumi-release-integration",
+  "branch": "integrate/sumi6-main",
+  "mergeCommit": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+  "parents": [
+    "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+    "024d81814b4076def2456428150a4a2cd84095de"
+  ],
+  "rootMainUnchanged": "024d81814b4076def2456428150a4a2cd84095de",
+  "frozenTagUnchanged": "024d81814b4076def2456428150a4a2cd84095de",
+  "manualResolutionFiles": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md"
+  ],
+  "resolution": "Remote Unreleased Smart Lookup section preserved byte-for-byte; v6 and unpublished v5 plus historical sections preserved byte-for-byte from frozen release. All remote changed runtime files equal b524; both native editor files equal 024.",
+  "validation": {
+    "changelogCheck": "passed",
+    "conflictMarkers": "none",
+    "vitest": {
+      "passed": 129,
+      "failed": 0,
+      "files": 11,
+      "command": "NODE_OPTIONS=--no-experimental-webstorage ./node_modules/.bin/vitest run src/SmartLookupApp.test.ts src/lib/smart-search src/components/SettingsDialog.search-tab.test.ts --maxWorkers=1",
+      "node": "v26.13.0",
+      "log": "integration-vitest.log",
+      "sha256": "ab48f9ee6469b63f3106f7841553b0ae03fd07bb07cbd3c2a12b47db27c81d96"
+    },
+    "hostCheck": {
+      "exitCode": 0,
+      "command": "CARGO_BUILD_JOBS=1 CARGO_TARGET_DIR=/home/bruce/git/note.md/src-tauri/target cargo check --locked --manifest-path src-tauri/Cargo.toml --lib",
+      "warnings": 6,
+      "log": "integration-host-check.log",
+      "sha256": "dcbce343f09f5d5b2930c3839abc642ec2b590e2ad26bad666e9bf3755968508"
+    },
+    "environmentDiagnostic": {
+      "initialDefaultNode26Run": "102 passed; 27 failed at beforeEach/afterEach localStorage.clear due Node experimental WebStorage masking happy-dom storage; tests had not entered business scenarios",
+      "resolution": "Use the installed Node-supported --no-experimental-webstorage flag; no test source, application source or assertions changed",
+      "log": "integration-vitest-node26-default.log"
+    },
+    "inheritedWhitespace": "git diff --check on complete merge reports trailing blank lines in three committed native-regression logs from release parent; logs retained exactly as evidence. Changed conflict resolution files pass whitespace check."
+  },
+  "status": "?? node_modules",
+  "untrackedExclusion": "node_modules symlink to existing shared dependency tree, not committed",
+  "pushed": false,
+  "releaseRebuiltFromMergedMain": false,
+  "limitations": "Frontend targeted tests and host compile validate integration. No Smart Lookup GUI/performance acceptance claimed. Current v6 package remains built only from frozen tag 024 and excludes all remote feature commits."
+}

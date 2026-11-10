@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "baseRelease": "v6.1110.6",
+  "sourceFilesSha256": {
+    "src-tauri/src/platform.rs": "ebaa8d669b775d67bf25211cc1d2d6d839e05b4e7f8845f7f14c28408c079cf8",
+    "src-tauri/src/plugin_runtime/process.rs": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55",
+    "src-tauri/Cargo.toml": "19754c21460f2e9ad992003d6c590b103f7c089c8881ca25670e04edc48d43d4",
+    "src-tauri/Cargo.lock": "6a52a7c76de7dc69d14bb8e9e100ecb2bfb7b4d51f634512a7ffb79dedc5d0af",
+    "src-tauri/tauri.conf.json": "fb8defb3559f2e6023a3cceb40ca81ad3955d6a4dab01e6d2d2ac1e3758af787",
+    "package.json": "a6a80c572a6f32e1ccb69b255adde21c4910cfd07a4bb4b962c5f6c5f8381133"
+  },
+  "coreCommit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "signedPluginUnchanged": "notemd.sumi 0.1.12",
+  "backendSha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "runtimeChange": "Linux plugin allowlist inherits XDG_RUNTIME_DIR; other platform allowlists unchanged",
+  "excludedFromFrozenRelease": "main Smart Lookup unreleased features",
+  "mainSourceCommits": [
+    "c59752dd",
+    "1af73a96",
+    "320a4613"
+  ],
+  "frozenTag": "v6.1110.7",
+  "tagMatchesSource": true
+}

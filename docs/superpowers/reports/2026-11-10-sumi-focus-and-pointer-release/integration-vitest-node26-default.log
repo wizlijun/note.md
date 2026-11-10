@@ -1,0 +1,118 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md-sumi-release-integration
+
+(node:97231) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ❯ src/SmartLookupApp.test.ts (27 tests | 27 failed) 40ms
+     × typing previews locally without any agent task 13ms
+     × does not preview or submit while an IME composition is open 1ms
+     × Enter shows local results immediately with zero model calls 1ms
+     × Enter does not wait for the preview debounce 1ms
+     × a late response for a superseded question is ignored 1ms
+     × index not ready shows retry and keeps the input usable 1ms
+     × arrow keys navigate results and Enter opens the active hit 1ms
+     × opens the current hit from the preview header 1ms
+     × Escape hides the window 1ms
+     × copy reference copies path and line 1ms
+     × expand search runs a deep local lookup on zero results 1ms
+     × searches more broadly once when Enter finds nothing and the setting is on 1ms
+     × does not search more broadly on its own when the setting is off 1ms
+     × does not search more broadly when Enter finds results 1ms
+     × summary runs only on click and renders validated output 1ms
+     × an expired lookup run shows a summary error and re-enables the action 1ms
+     × a new lookup cancels a running summary 1ms
+     × handoff sends only relative references 1ms
+     × handoff omits result references when the setting is off 1ms
+     × "Ask every time" offers one research row per capable agent and starts nothing until one is chosen 1ms
+     × an explicitly configured research agent is the only row and is named 1ms
+     × copy activity log includes elapsed time 1ms
+     × records summary usage in the activity log 1ms
+     × keeps lookup working when agents cannot be loaded 1ms
+     × does not hand a configured but unavailable agent's work to another agent 1ms
+     × groups by month when settings ask for date grouping, and reloads on settings change 1ms
+     × selects the query text when the window regains focus 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 27 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > typing previews locally without any agent task
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not preview or submit while an IME composition is open
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > Enter shows local results immediately with zero model calls
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > Enter does not wait for the preview debounce
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > a late response for a superseded question is ignored
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > index not ready shows retry and keeps the input usable
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > arrow keys navigate results and Enter opens the active hit
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > opens the current hit from the preview header
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > Escape hides the window
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > copy reference copies path and line
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > expand search runs a deep local lookup on zero results
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > searches more broadly once when Enter finds nothing and the setting is on
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not search more broadly on its own when the setting is off
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not search more broadly when Enter finds results
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > summary runs only on click and renders validated output
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > an expired lookup run shows a summary error and re-enables the action
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > a new lookup cancels a running summary
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > handoff sends only relative references
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > handoff omits result references when the setting is off
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > "Ask every time" offers one research row per capable agent and starts nothing until one is chosen
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > an explicitly configured research agent is the only row and is named
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > copy activity log includes elapsed time
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > records summary usage in the activity log
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > keeps lookup working when agents cannot be loaded
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not hand a configured but unavailable agent's work to another agent
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > groups by month when settings ask for date grouping, and reloads on settings change
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > selects the query text when the window regains focus
+TypeError: Cannot read properties of undefined (reading 'clear')
+ ❯ src/SmartLookupApp.test.ts:247:16
+    245|
+    246| beforeEach(() => {
+    247|   localStorage.clear()
+       |                ^
+    248|   document.body.innerHTML = ''
+    249|   vi.clearAllMocks()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/54]⎯
+
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > typing previews locally without any agent task
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not preview or submit while an IME composition is open
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > Enter shows local results immediately with zero model calls
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > Enter does not wait for the preview debounce
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > a late response for a superseded question is ignored
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > index not ready shows retry and keeps the input usable
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > arrow keys navigate results and Enter opens the active hit
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > opens the current hit from the preview header
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > Escape hides the window
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > copy reference copies path and line
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > expand search runs a deep local lookup on zero results
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > searches more broadly once when Enter finds nothing and the setting is on
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not search more broadly on its own when the setting is off
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not search more broadly when Enter finds results
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > summary runs only on click and renders validated output
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > an expired lookup run shows a summary error and re-enables the action
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > a new lookup cancels a running summary
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > handoff sends only relative references
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > handoff omits result references when the setting is off
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > "Ask every time" offers one research row per capable agent and starts nothing until one is chosen
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > an explicitly configured research agent is the only row and is named
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > copy activity log includes elapsed time
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > records summary usage in the activity log
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > keeps lookup working when agents cannot be loaded
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > does not hand a configured but unavailable agent's work to another agent
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > groups by month when settings ask for date grouping, and reloads on settings change
+ FAIL  src/SmartLookupApp.test.ts > SmartLookupApp > selects the query text when the window regains focus
+TypeError: Cannot read properties of undefined (reading 'clear')
+ ❯ src/SmartLookupApp.test.ts:269:16
+    267|   component = null
+    268|   document.body.innerHTML = ''
+    269|   localStorage.clear()
+       |                ^
+    270| })
+    271|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/54]⎯
+
+
+ Test Files  1 failed | 10 passed (11)
+      Tests  27 failed | 102 passed (129)
+   Start at  18:58:15
+   Duration  14.10s (transform 5.86s, setup 0ms, import 5.46s, tests 4.58s, environment 1.20s)
+

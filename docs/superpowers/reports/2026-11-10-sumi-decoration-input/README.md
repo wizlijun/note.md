@@ -1,0 +1,9 @@
+# Sumi Linux 装饰窗口输入修复
+
+正式v6.1110.5是未公开的验收构建：固定布局长文聚焦稳定，但完整宿主真实鼠标命中失败，因此阻断发布。blocked-v5保留失败与独立诊断A/B证据；诊断改变GDK窗口状态，不能当作正式包通过。
+
+生产最小修复只在decoration的realize回调将自有GdkWindow设为输入穿透并清空输入区域；不改绘制、候选、caret或正文。GtkOverlay wrapper穿透设置继续保留。每次realize都执行，覆盖窗口重建。
+
+修改后host cargo check通过；27普通测试、scale3长文聚焦与原生事务回归均过，linux.rs测试字节SHA7627ed3bd242e85eb8725fdb2046c2bb6deeac17c9e7f7f8d446bccf09913eed。日志报告中的未提交状态记录编译当时的历史事实；最终修复精确提交由git历史追踪。
+
+这些是原生回归与根因证明，不代替下一冻结版本的正式包鼠标/IME/绘制验收；新正式版本另行记录。

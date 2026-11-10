@@ -1,0 +1,48 @@
+   Compiling notemd v6.1110.6 (/home/bruce/git/note.md/src-tauri)
+warning: unused variable: `background`
+   --> src/cli/open.rs:172:35
+    |
+172 | fn spawn_gui(args: Vec<OsString>, background: bool) -> Result<(), String> {
+    |                                   ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_background`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `CL_ERROR_DENIED_CODE` is never used
+  --> src/plugin_runtime/location.rs:22:7
+   |
+22 | const CL_ERROR_DENIED_CODE: isize = 1;
+   |       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LOCATION_DENIED_ERROR` is never used
+  --> src/plugin_runtime/location.rs:23:7
+   |
+23 | const LOCATION_DENIED_ERROR: &str =
+   |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `core_location_failure` is never used
+  --> src/plugin_runtime/location.rs:26:4
+   |
+26 | fn core_location_failure(code: isize, description: &str) -> String {
+   |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `Observed` is never constructed
+ --> src/sumi/external.rs:9:19
+  |
+9 | pub(super) struct Observed {
+  |                   ^^^^^^^^
+
+warning: associated items `read` and `pair` are never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated items in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+...
+34 |     pub fn pair(&self) -> Result<FilePair> {
+   |            ^^^^
+
+warning: `notemd` (lib) generated 6 warnings (run `cargo fix --lib -p notemd` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.06s

@@ -1,0 +1,183 @@
+{
+  "command": [
+    "parec",
+    "--server=unix:/run/user/1000/pulse/native",
+    "--monitor-stream=758",
+    "--device=alsa_output.pci-0000_00_1f.3.analog-stereo.monitor",
+    "--client-name=Sumi-private-release-audit",
+    "--stream-name=Only-Sumi-test-stream",
+    "--raw",
+    "--format=float32le",
+    "--rate=48000",
+    "--channels=1",
+    "--latency-msec=20"
+  ],
+  "stream_id": 758,
+  "backend": {
+    "pid": 133412,
+    "ppid": 132765,
+    "start_time": "1755438",
+    "exe_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb"
+  },
+  "volume": "10% own sink-input only",
+  "monitor_stream_isolation": true,
+  "start_monotonic_ns": 17725228640039,
+  "end_monotonic_ns": 17728310551240,
+  "bytes": 572160,
+  "sha256": "667a8a2eeef5374074ea92b48b2bbb5fc6a6bdd65164cc222575b73c321e9be5",
+  "windows_100ms": [
+    {
+      "start_seconds": 0.0,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.1,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.2,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.3,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.4,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.5,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.6,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.7,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.8,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 0.9,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.0,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.1,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.2,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.3,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.4,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.5,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.6,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.7,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.8,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 1.9,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.0,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.1,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.2,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.3,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.4,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.5,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.6,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.7,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.8,
+      "peak": 0.0,
+      "rms": 0.0
+    },
+    {
+      "start_seconds": 2.9,
+      "peak": 0.0,
+      "rms": 0.0
+    }
+  ],
+  "peak": 0.0,
+  "baseline_300ms_peak": 0.0,
+  "tail_500ms_peak": 0.0
+}

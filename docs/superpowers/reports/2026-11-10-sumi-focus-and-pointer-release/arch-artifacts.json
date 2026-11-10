@@ -1,0 +1,22 @@
+[
+  {
+    "path": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/notemd-6.1110.6-1-x86_64.pkg.tar.zst",
+    "sha256": "97e454f388cbcc523e9425d22f1f8b7cee80046afc5ea35f9e0828c142c113e2",
+    "bytes": 15237536
+  },
+  {
+    "path": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/notemd-6.1110.6-1-omarchy-recipe.tar.gz",
+    "sha256": "f0fc135a43567b5e7a22230adef4ecd47a6417e3ec069c2f6afe8cdce1187aa8",
+    "bytes": 1094
+  },
+  {
+    "path": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/omarchy-6.1110.6-verification.json",
+    "sha256": "a5251c162d1f246d77055089fe1ea5a186f04372c56520107f7c8e029b37919c",
+    "bytes": 4856
+  },
+  {
+    "path": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/SHA256SUMS-omarchy.txt",
+    "sha256": "1b081a7b1763f61aad614517fc26be2d3fee99e89edf970c939c61bf1d29eff8",
+    "bytes": 310
+  }
+]

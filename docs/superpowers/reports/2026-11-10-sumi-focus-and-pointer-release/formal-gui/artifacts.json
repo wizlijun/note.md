@@ -1,0 +1,40 @@
+{
+  "tag": "v6.1110.6",
+  "commit": "024d81814b4076def2456428150a4a2cd84095de",
+  "host": {
+    "path": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/note.md_6.1110.6_amd64.deb",
+    "sha256": "8f11cc89f73832b3ab2106552408c8289ac0fe87aaff47a02d81a9d8f48927d8"
+  },
+  "plugins": [
+    {
+      "manifest": "plugins-src/write/manifest.v2.json",
+      "path": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.sumi/0.1.12/x86_64-unknown-linux-gnu.notemdpkg",
+      "sha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb",
+      "signature": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.sumi/0.1.12/x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "signature_sha256": "2835fe3ed2afe712d50eb02b4569a2b5590bea171204b54be47998bf7d8b6b52"
+    },
+    {
+      "manifest": "plugins-src/next/manifest.v2.json",
+      "path": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.next/1.13.3/universal.notemdpkg",
+      "sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+      "signature": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.next/1.13.3/universal.notemdpkg.minisig",
+      "signature_sha256": "5d118a761200acf8edfdabdb644c3394744e0988bbbf677b43af8f691c1ca0ff"
+    },
+    {
+      "manifest": "plugins-src/idea-spark/manifest.v2.json",
+      "path": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.idea-spark/1.3.8/universal.notemdpkg",
+      "sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5",
+      "signature": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.idea-spark/1.3.8/universal.notemdpkg.minisig",
+      "signature_sha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799"
+    }
+  ],
+  "addon": {
+    "path": "/home/bruce/git/fcitx5/tasks/sumi-package-preedit/fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+    "sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314"
+  },
+  "display": {
+    "width": 3840,
+    "height": 2400,
+    "scale": 2
+  }
+}

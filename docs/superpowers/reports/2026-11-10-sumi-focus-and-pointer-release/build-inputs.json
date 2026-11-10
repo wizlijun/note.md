@@ -1,0 +1,19 @@
+{
+  "planned_tag": "v6.1110.6",
+  "commit": "024d81814b4076def2456428150a4a2cd84095de",
+  "focus_fix": "e8e8e26a",
+  "pointer_fix": "693e5feb",
+  "core_commit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "source_files": {
+    "tauri-plugin-native-editor/src/linux.rs": "7627ed3bd242e85eb8725fdb2046c2bb6deeac17c9e7f7f8d446bccf09913eed",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "55d4bfbb7ca9342a973a4ef43d837460f057178fb2635f77fffbb1b8ff9bac48",
+    "package.json": "5b9fccb5b95310a9bc89feeefb88c98cc52e4f830cd17caf89ab1d53acb0912c",
+    "src-tauri/tauri.conf.json": "f44d81e62e96d18a5f629647c78c5bec205cce47cd0f1ca4e427cf4a6eb0f0b9",
+    "src-tauri/Cargo.toml": "3270f9f4ac70d4d1a5bbe0df6b75fbd0679ee0c934b1b98beb251c06df06dc6e",
+    "src-tauri/Cargo.lock": "e2c1cc616c69beabef65a25e761c28ccbf565f7aa43211d0154eb02afa1804e8"
+  },
+  "host_check_log_sha256": "e18cd02759e2088b34892e2ad92a6a06e04b28db72f3f74812724155ff716fb0",
+  "unpublished_failed_draft": "v6.1110.5",
+  "plugins": "unchanged Sumi0.1.12/NEXT1.13.3/Idea1.3.8",
+  "addon": "unchanged d2c14429"
+}

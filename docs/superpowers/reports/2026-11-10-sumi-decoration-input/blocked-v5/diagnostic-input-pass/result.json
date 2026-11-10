@@ -1,0 +1,52 @@
+{
+  "diagnostic_only": true,
+  "formal_release_acceptance": false,
+  "formal_v5_release_blocked": true,
+  "mutation": {
+    "diagnostic_mutation": true,
+    "formal_acceptance": false,
+    "us": 10590617132,
+    "widget": "0x560a41cc3d60",
+    "gdk_window": "0x560a435f5c50",
+    "owner_matches": true,
+    "allocation": [
+      0,
+      0,
+      960,
+      628
+    ],
+    "before_pass_through": false,
+    "after_pass_through": true,
+    "empty_input_region_applied": true
+  },
+  "baseline": {
+    "line": 120,
+    "insert_offset": 3493,
+    "vadjustment": {
+      "value": 4050.0,
+      "lower": 0.0,
+      "upper": 8696.0,
+      "page_size": 628.0
+    }
+  },
+  "after_mutation": {
+    "line": 119,
+    "insert_offset": 3409,
+    "vadjustment": {
+      "value": 4600.006336015,
+      "lower": 0.0,
+      "upper": 8168.0,
+      "page_size": 628.0
+    }
+  },
+  "actual_native_wheel_event_after_mutation": true,
+  "production_source_tag_package_unchanged": true,
+  "evidence_sha256": {
+    "probe.c": "413f12ebd85d5322bb167ac0d39692a9ff78e78c4bf256dcf44b222ef442b33c",
+    "probe.so": "0f8f0400d97321025bf13829b886af6ca4a693c8d9db051bb15de20a13e96c10",
+    "input-events.jsonl": "60298c98b613c45229afafb9f53f63bd1fde39fec2875d2b490c4d0b866c5cb9",
+    "mutation.jsonl": "b0cf79ae5412a895c458fae102e89b16e0c484f84fa6fbede715bd5662eb4811",
+    "baseline-last.json": "70a77c4553c86d0f037ae99b78d81e3a03edbef657c380daed8b5f1cec5f5340",
+    "mutated-last.json": "3375d2c7c77a4dff24078fda83d1d36d7dad1d8ae73c0be0761f803e206d28d2"
+  }
+}

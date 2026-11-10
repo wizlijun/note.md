@@ -1,0 +1,44 @@
+{
+  "tag": "v6.1110.7",
+  "commit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "source_sha256": {
+    "src-tauri/src/plugin_runtime/process.rs": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55",
+    "plugins-src/write/manifest.v2.json": "1aeec40f1af0d7e1f25ddc7e5e26f832a8dde374960a3a25b86c60ebee273157",
+    "plugins-src/next/manifest.v2.json": "eb665bd54de1cbc6e84fc3c923a05a6913070d8d1962296f92dfe62b7fc88963",
+    "plugins-src/idea-spark/manifest.v2.json": "ddaa1f1f065764d4da44e5aab985e1ad0befbfe4924580745cda46b5393fa376"
+  },
+  "reused_plugins": [
+    {
+      "manifest": "plugins-src/write/manifest.v2.json",
+      "path": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.sumi/0.1.12/x86_64-unknown-linux-gnu.notemdpkg",
+      "sha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb",
+      "signature": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.sumi/0.1.12/x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "signature_sha256": "2835fe3ed2afe712d50eb02b4569a2b5590bea171204b54be47998bf7d8b6b52"
+    },
+    {
+      "manifest": "plugins-src/next/manifest.v2.json",
+      "path": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.next/1.13.3/universal.notemdpkg",
+      "sha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+      "signature": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.next/1.13.3/universal.notemdpkg.minisig",
+      "signature_sha256": "5d118a761200acf8edfdabdb644c3394744e0988bbbf677b43af8f691c1ca0ff"
+    },
+    {
+      "manifest": "plugins-src/idea-spark/manifest.v2.json",
+      "path": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.idea-spark/1.3.8/universal.notemdpkg",
+      "sha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5",
+      "signature": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.idea-spark/1.3.8/universal.notemdpkg.minisig",
+      "signature_sha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799"
+    }
+  ],
+  "reused_addon": {
+    "path": "/home/bruce/git/fcitx5/tasks/sumi-package-preedit/fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+    "sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314"
+  },
+  "official_deb_pending": false,
+  "pulse_volume_cleanup_evidence": "tasks/sumi-sound-diagnosis/volume-cleanup.json",
+  "restore_before_close_required": true,
+  "official_host": {
+    "path": "/home/bruce/git/note.md/tasks/sumi-sound-release-6.1110.7/assets/note.md_6.1110.7_amd64.deb",
+    "sha256": "886379f3f52c768790ce4a9113f56b4c243033d6362a2afbfca36fbc6bdcbe23"
+  }
+}

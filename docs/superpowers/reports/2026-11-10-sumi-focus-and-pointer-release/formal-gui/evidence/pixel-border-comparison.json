@@ -1,0 +1,30 @@
+[
+  {
+    "scale": 2,
+    "edge_x": 0,
+    "inset_x": 20,
+    "rows": 2000,
+    "all_rgb_pixels_identical": true
+  },
+  {
+    "scale": 2,
+    "edge_x": 3839,
+    "inset_x": 3819,
+    "rows": 2000,
+    "all_rgb_pixels_identical": true
+  },
+  {
+    "scale": 3,
+    "edge_x": 0,
+    "inset_x": 20,
+    "rows": 2000,
+    "all_rgb_pixels_identical": true
+  },
+  {
+    "scale": 3,
+    "edge_x": 3839,
+    "inset_x": 3819,
+    "rows": 2000,
+    "all_rgb_pixels_identical": true
+  }
+]

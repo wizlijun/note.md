@@ -1,0 +1,17 @@
+{
+  "installedVersion": "6.1110.7",
+  "hostPid": 142195,
+  "backendPid": 142526,
+  "binarySha256": "213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467",
+  "inheritedRuntime": "/run/user/1000",
+  "streamId": 822,
+  "monitorOwnStreamOnly": true,
+  "testKey": "Shift_L",
+  "textInputInjected": false,
+  "samples": 58560,
+  "peak": 0.293684720993042,
+  "pcmSha256": "f58db90e01ea966f07ffa1e330a189985e92b9171921a99f79c95dd011626a0e",
+  "recorderStopped": true,
+  "appVolumeUnchanged": "100%",
+  "applicationLeftRunning": true
+}

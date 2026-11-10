@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "notemd-6.1110.6-1-x86_64.pkg.tar.zst": {
+      "sha256": "97e454f388cbcc523e9425d22f1f8b7cee80046afc5ea35f9e0828c142c113e2",
+      "size": 15237536
+    },
+    "notemd-6.1110.6-1-omarchy-recipe.tar.gz": {
+      "sha256": "f0fc135a43567b5e7a22230adef4ecd47a6417e3ec069c2f6afe8cdce1187aa8",
+      "size": 1094
+    }
+  },
+  "verification": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/omarchy-6.1110.6-verification.json",
+  "checksums": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/assets/SHA256SUMS-omarchy.txt",
+  "binary_sha256": "efd58b8a0b3e523b3499a2eba8ead39ba018b0ae69695a21456ae180758504bb",
+  "preserved_payload_files": 9,
+  "cli": "notemd 6.1110.6 (plugin API v1)"
+}

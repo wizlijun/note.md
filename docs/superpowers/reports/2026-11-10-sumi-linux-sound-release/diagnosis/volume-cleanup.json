@@ -1,0 +1,18 @@
+{
+  "beforeRestoreEntry": [
+    "Output/Audio:application.name:Sumi={\"volume\":1.000000, \"mute\":false, \"channelMap\":[\"MONO\"], \"channelVolumes\":[0.001000]}"
+  ],
+  "globalVolumeBefore": "Volume: front-left: 29491 /  45% / -20.81 dB,   front-right: 29491 /  45% / -20.81 dB\n        balance 0.00\n",
+  "globalMuteBefore": "Mute: no\n",
+  "afterRestoreEntry": [
+    "Output/Audio:application.name:Sumi={\"volume\":1.000000, \"mute\":false, \"channelVolumes\":[1.000000], \"channelMap\":[\"MONO\"]}"
+  ],
+  "globalVolumeAfter": "Volume: front-left: 29491 /  45% / -20.81 dB,   front-right: 29491 /  45% / -20.81 dB\n        balance 0.00\n",
+  "globalMuteAfter": "Mute: no\n",
+  "globalStateUnchanged": true,
+  "restoreBackendExited": true,
+  "restoreStreamRemoved": true,
+  "samplesPlayed": 0,
+  "stateFileModifiedDirectly": false,
+  "completedAt": "2026-11-10T12:29:05.386832+00:00"
+}

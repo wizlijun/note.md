@@ -1,0 +1,27 @@
+   Compiling notemd v6.1110.6 (/home/bruce/git/note.md-sumi-sound-fix/src-tauri)
+warning: unused variable: `background`
+   --> src/cli/open.rs:172:35
+    |
+172 | fn spawn_gui(args: Vec<OsString>, background: bool) -> Result<(), String> {
+    |                                   ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_background`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 2 warnings (run `cargo fix --lib -p notemd --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.21s
+     Running unittests src/lib.rs (/home/bruce/git/note.md/src-tauri/target/debug/deps/notemd_lib-93e6988acf928d88)
+
+running 1 test
+test plugin_runtime::process::tests::linux_plugin_spawn_preserves_runtime_without_secrets ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1469 filtered out; finished in 0.05s
