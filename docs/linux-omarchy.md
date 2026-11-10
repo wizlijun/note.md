@@ -103,18 +103,30 @@ machine. An empty share route alone is not a valid share payload.
 
 ## Hyprland and display configuration
 
-Wayland global shortcuts are owned by the compositor. Add, for example, to
-your Hyprland configuration:
+Application shortcuts use **Ctrl** on Linux; Sumi fullscreen uses bare **F11**
+(including when its native editor has focus). Super combinations remain owned
+by Omarchy: Super+Return opens a terminal, and Super+Ctrl+N opens Network.
+Sumi does not claim those combinations. Caps Lock does not change letter
+shortcuts, and fullscreen does not repeat while F11 is held or interrupt IME
+composition.
 
-```ini
-bind = SUPER CTRL, M, exec, notemd --gui --action smart-search
-# Replace the plugin id and window id with an installed, compatible plugin:
-bind = SUPER CTRL, N, exec, notemd --gui --action plugin:com.example:capture
+Wayland global shortcuts are owned by the compositor. Plugin tray actions
+remain clickable, but do not show unavailable system-wide shortcut hints.
+To opt into a global action, first inspect `hyprctl binds -j` or
+`omarchy menu keybindings --print`. Current Omarchy uses Lua; these examples
+can be added to `~/.config/hypr/bindings.lua` after checking for local conflicts:
+
+```lua
+o.bind("CTRL + ALT + M", "note.md search", "notemd --gui --action smart-search")
+-- Replace the plugin id and window id with an installed, compatible plugin:
+o.bind("CTRL + ALT + N", "note.md plugin", "notemd --gui --action plugin:com.example:capture")
 ```
 
-Actions reach the existing instance through single-instance dispatch. Settings
-also provide copyable bindings. Under Hyprland, window decorations default off;
-the saved title-bar preference can override this. Verify tiled/floating windows
+Actions reach the existing instance through single-instance dispatch. The app
+does not overwrite desktop bindings. After a user configuration change, run
+`hyprctl reload` and `hyprctl configerrors`. Under Hyprland, the main window's
+saved title-bar preference controls its decorations; plugin windows retain
+native decorations and resizing in normal mode. Verify tiled/floating windows
 and fractional HiDPI on the actual compositor.
 
 Before GTK initialization, GUI startup reads

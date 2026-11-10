@@ -2039,6 +2039,70 @@ mod tests {
         );
     }
     #[test]
+    #[ignore = "requires isolated Wayland display; measures real fullscreen GTK allocation"]
+    fn native_fullscreen_font_geometry() {
+        fn settle() {
+            for _ in 0..30 {
+                while gtk::events_pending() { gtk::main_iteration_do(false); }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        gtk::init().unwrap();
+        let app = gtk::Application::new(Some("net.notemd.sumi.font-geometry"), gtk::gio::ApplicationFlags::NON_UNIQUE);
+        app.register(None::<&gtk::gio::Cancellable>).unwrap();
+        let window = gtk::ApplicationWindow::new(&app);
+        window.set_default_size(960, 720);
+        window.add(&gtk::DrawingArea::new());
+        let config = SurfaceConfig {
+            surface_id: "font-geometry".into(), generation: 1, revision: 0,
+            bounds: Bounds { x: 0.0, y: 0.0, width: 960.0, height: 720.0 },
+            appearance: Appearance { font_size: 22.0, focus_typing: false, ..Appearance::default() },
+            document: RenderDocument { text: "M Ag中\nM Ag中".into(), runs: vec![] },
+            selection: TextRange::default(), viewport: Viewport::default(),
+        };
+        mount(&window, "font-geometry", config, Arc::new(|_| Ok(0.into())), None).unwrap();
+        window.show_all();
+        let s = surface("font-geometry", "font-geometry", 1).unwrap();
+        let mut records = Vec::new();
+        for (stage, fullscreen, font_size) in [("normal", false, 22.0), ("fullscreen", true, 22.0), ("restored", false, 22.0), ("normal-large", false, 27.5), ("fullscreen-large", true, 27.5), ("restored-large", false, 27.5)] {
+            if fullscreen { window.fullscreen(); } else { window.unfullscreen(); }
+            settle();
+            let width = window.allocated_width();
+            let height = window.allocated_height();
+            command("font-geometry", "font-geometry", 1, SurfaceCommand::SetBounds { bounds: Bounds { x: 0.0, y: 0.0, width: width as f64, height: height as f64 } }).unwrap();
+            let mut appearance = s.config.borrow().appearance.clone();
+            appearance.font_size = font_size;
+            command("font-geometry", "font-geometry", 1, SurfaceCommand::SetAppearance { appearance }).unwrap();
+            settle();
+            let metrics = ["M", "Ag中"].map(|sample| {
+                let layout = s.view.create_pango_layout(Some(sample));
+                let (width, height) = layout.size();
+                let (ink, _) = layout.pixel_extents();
+                serde_json::json!({"sample":sample,"width":width as f64 / pango::SCALE as f64,"height":height as f64 / pango::SCALE as f64,"ink":[ink.x(),ink.y(),ink.width(),ink.height()]})
+            });
+            let caret = s.caret_geometry();
+            let first = s.view.iter_location(&s.buffer().start_iter());
+            assert!(caret.height() > 0 && caret.height() <= first.height());
+            assert!(caret.y() >= first.y() && caret.y() + caret.height() <= first.y() + first.height() + 1);
+            assert_eq!(text(&s.buffer()), "M Ag中\nM Ag中");
+            records.push(serde_json::json!({"stage":stage,"font_size":s.config.borrow().appearance.font_size,"scale":window.scale_factor(),"allocation":[width,height],"textview":[s.view.allocated_width(),s.view.allocated_height()],"metrics":metrics,"caret":[caret.x(),caret.y(),caret.width(),caret.height()],"line":[first.x(),first.y(),first.width(),first.height()]}));
+        }
+        // Compare the same effective font size across window modes. Different
+        // sizes legitimately have different hinting and fallback-font metrics.
+        for offset in [0, 3] {
+            assert_eq!(records[offset]["metrics"], records[offset + 1]["metrics"]);
+            assert_eq!(records[offset]["metrics"], records[offset + 2]["metrics"]);
+        }
+        let evidence = serde_json::to_string_pretty(&records).unwrap();
+        println!("{evidence}");
+        if let Ok(dir) = std::env::var("SUMI_CANDIDATE_TEST_ARTIFACTS") {
+            std::fs::write(std::path::Path::new(&dir).join("font-geometry.json"), evidence).unwrap();
+        }
+        detach("font-geometry", "font-geometry", 1).unwrap();
+        window.close();
+    }
+
+    #[test]
     #[ignore = "requires GTK display connection; renders only an offscreen window"]
     fn native_caret_geometry_offscreen() {
         gtk::init().unwrap();

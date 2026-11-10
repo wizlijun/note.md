@@ -292,6 +292,19 @@ pub fn group_plugin_menu_items(items: &[LocatedMenuItem]) -> Vec<PluginMenuGroup
     groups
 }
 
+fn plugin_menu_shortcut(shortcut: &str, macos: bool) -> String {
+    // A primary Command shortcut follows the application platform. Explicit
+    // Command+Control chords retain both modifiers instead of collapsing to Ctrl.
+    if macos || shortcut.split('+').any(|part| matches!(part.trim().to_ascii_lowercase().as_str(), "ctrl" | "control")) {
+        return shortcut.to_owned();
+    }
+    shortcut.split('+').map(|part| {
+        if matches!(part.trim().to_ascii_lowercase().as_str(), "cmd" | "command") {
+            "CmdOrCtrl"
+        } else { part }
+    }).collect::<Vec<_>>().join("+")
+}
+
 /// Returns menu entries across all active plugins, with ids encoded
 /// as `plugin:<id>:<command>`. Menu labels are resolved for `locale` (falling
 /// back to the manifest's English label per missing key; a plugin's i18n block
@@ -310,7 +323,7 @@ pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
             out.push(LocatedMenuItem {
                 id: format!("plugin:{}:{}", m.id, me.command),
                 label,
-                shortcut: me.shortcut.clone(),
+                shortcut: me.shortcut.as_deref().map(|s| plugin_menu_shortcut(s, cfg!(target_os = "macos"))),
                 location: me.location.clone(),
                 submenu: me.submenu.clone(),
             });
@@ -322,6 +335,17 @@ pub fn collect_top_menu_items(locale: &str) -> Vec<LocatedMenuItem> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plugin_menu_command_modifier_is_platform_aware() {
+        assert_eq!(plugin_menu_shortcut("Cmd+Shift+K", false), "CmdOrCtrl+Shift+K");
+        assert_eq!(plugin_menu_shortcut("command+Plus", false), "CmdOrCtrl+Plus");
+        assert_eq!(plugin_menu_shortcut("Cmd++", false), "CmdOrCtrl++");
+        assert_eq!(plugin_menu_shortcut("Cmd+Shift+K", true), "Cmd+Shift+K");
+        for value in ["CmdOrCtrl+K", "Ctrl+K", "Super+K", "Cmd+Ctrl+I", "Control+Command+N"] {
+            assert_eq!(plugin_menu_shortcut(value, false), value);
+        }
+    }
 
     #[test]
     fn manifest_with_cli_round_trips() {

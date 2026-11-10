@@ -1,0 +1,296 @@
+[
+  {
+    "allocation": [
+      960,
+      720
+    ],
+    "caret": [
+      24,
+      1,
+      0,
+      33
+    ],
+    "font_size": 22.0,
+    "line": [
+      24,
+      1,
+      18,
+      33
+    ],
+    "metrics": [
+      {
+        "height": 33.0,
+        "ink": [
+          2,
+          10,
+          14,
+          16
+        ],
+        "sample": "M",
+        "width": 18.0
+      },
+      {
+        "height": 33.0,
+        "ink": [
+          0,
+          7,
+          45,
+          24
+        ],
+        "sample": "Ag中",
+        "width": 47.0
+      }
+    ],
+    "scale": 2,
+    "stage": "normal",
+    "textview": [
+      960,
+      720
+    ]
+  },
+  {
+    "allocation": [
+      1920,
+      1200
+    ],
+    "caret": [
+      240,
+      1,
+      0,
+      33
+    ],
+    "font_size": 22.0,
+    "line": [
+      240,
+      1,
+      18,
+      33
+    ],
+    "metrics": [
+      {
+        "height": 33.0,
+        "ink": [
+          2,
+          10,
+          14,
+          16
+        ],
+        "sample": "M",
+        "width": 18.0
+      },
+      {
+        "height": 33.0,
+        "ink": [
+          0,
+          7,
+          45,
+          24
+        ],
+        "sample": "Ag中",
+        "width": 47.0
+      }
+    ],
+    "scale": 2,
+    "stage": "fullscreen",
+    "textview": [
+      1920,
+      1200
+    ]
+  },
+  {
+    "allocation": [
+      960,
+      720
+    ],
+    "caret": [
+      24,
+      1,
+      0,
+      33
+    ],
+    "font_size": 22.0,
+    "line": [
+      24,
+      1,
+      18,
+      33
+    ],
+    "metrics": [
+      {
+        "height": 33.0,
+        "ink": [
+          2,
+          10,
+          14,
+          16
+        ],
+        "sample": "M",
+        "width": 18.0
+      },
+      {
+        "height": 33.0,
+        "ink": [
+          0,
+          7,
+          45,
+          24
+        ],
+        "sample": "Ag中",
+        "width": 47.0
+      }
+    ],
+    "scale": 2,
+    "stage": "restored",
+    "textview": [
+      960,
+      720
+    ]
+  },
+  {
+    "allocation": [
+      960,
+      720
+    ],
+    "caret": [
+      30,
+      5,
+      0,
+      40
+    ],
+    "font_size": 27.5,
+    "line": [
+      30,
+      5,
+      22,
+      40
+    ],
+    "metrics": [
+      {
+        "height": 40.0,
+        "ink": [
+          2,
+          12,
+          18,
+          20
+        ],
+        "sample": "M",
+        "width": 22.0
+      },
+      {
+        "height": 40.0,
+        "ink": [
+          0,
+          8,
+          58,
+          30
+        ],
+        "sample": "Ag中",
+        "width": 61.0
+      }
+    ],
+    "scale": 2,
+    "stage": "normal-large",
+    "textview": [
+      960,
+      720
+    ]
+  },
+  {
+    "allocation": [
+      1920,
+      1200
+    ],
+    "caret": [
+      80,
+      2,
+      0,
+      40
+    ],
+    "font_size": 27.5,
+    "line": [
+      80,
+      2,
+      22,
+      40
+    ],
+    "metrics": [
+      {
+        "height": 40.0,
+        "ink": [
+          2,
+          12,
+          18,
+          20
+        ],
+        "sample": "M",
+        "width": 22.0
+      },
+      {
+        "height": 40.0,
+        "ink": [
+          0,
+          8,
+          58,
+          30
+        ],
+        "sample": "Ag中",
+        "width": 61.0
+      }
+    ],
+    "scale": 2,
+    "stage": "fullscreen-large",
+    "textview": [
+      1920,
+      1200
+    ]
+  },
+  {
+    "allocation": [
+      960,
+      720
+    ],
+    "caret": [
+      30,
+      2,
+      0,
+      40
+    ],
+    "font_size": 27.5,
+    "line": [
+      30,
+      2,
+      22,
+      40
+    ],
+    "metrics": [
+      {
+        "height": 40.0,
+        "ink": [
+          2,
+          12,
+          18,
+          20
+        ],
+        "sample": "M",
+        "width": 22.0
+      },
+      {
+        "height": 40.0,
+        "ink": [
+          0,
+          8,
+          58,
+          30
+        ],
+        "sample": "Ag中",
+        "width": 61.0
+      }
+    ],
+    "scale": 2,
+    "stage": "restored-large",
+    "textview": [
+      960,
+      720
+    ]
+  }
+]
