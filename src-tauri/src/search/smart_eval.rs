@@ -1,6 +1,8 @@
-//! Offline evaluation of the local lookup baseline (experiment E1).
+//! Offline evaluation: the local lookup baseline (experiment E1, `#[ignore]`
+//! tests) and the full-pipeline eval behind `notemd lookup eval` (spec
+//! Appendix G.6).
 //!
-//! Compiled only for tests and never shipped. E1 costs nothing: it runs the
+//! E1 costs nothing: it runs the
 //! existing local smart search over a copy of a real index and records where
 //! each task's target lands, so the pre-gates of feasibility spec §9.3 can
 //! decide which paid experiments are worth running at all. Plan Tasks 3–4.
@@ -27,14 +29,14 @@ use super::IndexHandle;
 /// that covers that 1-based line; without it any hit in the file counts.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct EvalTarget {
+pub(crate) struct EvalTarget {
     pub path: String,
     pub line: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum Category {
+pub(crate) enum Category {
     Exact,
     Colloquial,
     Synonym,
@@ -47,14 +49,14 @@ pub(super) enum Category {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum Split {
+pub(crate) enum Split {
     Dev,
     Holdout,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct EvalTask {
+pub(crate) struct EvalTask {
     pub id: String,
     pub question: String,
     pub targets: Vec<EvalTarget>,
@@ -74,7 +76,7 @@ pub(super) struct EvalTask {
 /// contains `..`. Accepted target paths are normalised to the index's
 /// spelling: forward slashes only, no `.` or empty segments (`./a//b.md` →
 /// `a/b.md`).
-pub(super) fn load_tasks(json: &str) -> Result<Vec<EvalTask>, String> {
+pub(crate) fn load_tasks(json: &str) -> Result<Vec<EvalTask>, String> {
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct TaskFile {
@@ -131,7 +133,7 @@ fn normalise_target_path(path: &str) -> String {
 /// The best 1-based rank among `targets`, with the level of the block that
 /// matched. A hit matches when the paths are equal and the target's line is
 /// absent or lies inside `[hit.line, hit.line_end]`.
-pub(super) fn target_rank(hits: &[SmartHitDto], targets: &[EvalTarget]) -> Option<(usize, String)> {
+pub(crate) fn target_rank(hits: &[SmartHitDto], targets: &[EvalTarget]) -> Option<(usize, String)> {
     hits.iter().enumerate().find_map(|(index, hit)| {
         let matched = targets.iter().any(|target| {
             target.path == hit.hit.path
@@ -360,17 +362,40 @@ pub(super) struct FeedbackAgreement {
 }
 
 /// Blank lines are skipped; a malformed line fails the whole read and names
-/// its 1-based line number.
+/// its 1-based line number. Rows are deduped by (question, path, line,
+/// lineEnd, endpointHost, model) and the last one wins (ledger ruling, Task
+/// 7): a user who clicks twice, or changes their mind, counts once, with
+/// their final verdict.
 pub(super) fn feedback_agreement(jsonl: &str) -> Result<FeedbackAgreement, String> {
     use crate::smart_enhance::feedback::{FeedbackRow, UserVerdict};
     use crate::smart_enhance::Tier;
-    let mut a = FeedbackAgreement::default();
+    let mut rows: Vec<FeedbackRow> = Vec::new();
+    let mut at: std::collections::HashMap<(String, String, u32, u32, String, String), usize> =
+        std::collections::HashMap::new();
     for (index, line) in jsonl.lines().enumerate() {
         if line.trim().is_empty() {
             continue;
         }
         let row: FeedbackRow =
             serde_json::from_str(line).map_err(|e| format!("feedback line {}: {e}", index + 1))?;
+        let key = (
+            row.question.clone(),
+            row.path.clone(),
+            row.line,
+            row.line_end,
+            row.endpoint_host.clone(),
+            row.model.clone(),
+        );
+        match at.get(&key) {
+            Some(&i) => rows[i] = row,
+            None => {
+                at.insert(key, rows.len());
+                rows.push(row);
+            }
+        }
+    }
+    let mut a = FeedbackAgreement::default();
+    for row in rows {
         a.rows += 1;
         let agrees = match (row.model_tier, row.user_verdict) {
             (Tier::Fit, UserVerdict::Fit) | (Tier::Unfit, UserVerdict::Unfit) => true,
@@ -397,6 +422,534 @@ pub(super) fn feedback_agreement(jsonl: &str) -> Result<FeedbackAgreement, Strin
     }
     a.rate = (a.decided > 0).then(|| a.agreed as f64 / a.decided as f64);
     Ok(a)
+}
+
+// ---- the full pipeline: `notemd lookup eval` (spec Appendix G.6) ----------
+
+use crate::lookup_params::LookupParams;
+use crate::smart_enhance::pipeline::{run_pipeline, EnhanceSetup, PipelineInput, PipelineOutput, PipelineRoute};
+use crate::smart_enhance::{EnhanceStatus, Tier};
+
+/// The window label every eval run is registered under.
+pub(crate) const EVAL_WINDOW: &str = "cli-eval";
+
+/// The only time limit the §9.3 gates are defined for ("3 秒时限下").
+pub(crate) const GATE_TIMEOUT_MS: u64 = 3_000;
+
+/// One task's outcome on the full pipeline; one line of `--out`. Fields
+/// added after the first version default when read back, so an older
+/// `--out` still works as a `--compare` baseline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LookupEvalRow {
+    pub id: String,
+    pub category: Category,
+    pub split: Split,
+    pub target_indexed: bool,
+    pub local_rank: Option<usize>,
+    pub final_rank: Option<usize>,
+    /// `None` only on an error row.
+    pub route: Option<PipelineRoute>,
+    pub status: Option<EnhanceStatus>,
+    pub request_count: u32,
+    pub reused: bool,
+    /// 目标块在发送给模型的候选里。
+    pub target_in_window: bool,
+    pub any_fit: bool,
+    /// 误匹配 (§9.3): a hit that is not a target was judged fit and is ranked
+    /// before the target in the final order (or the target is not in the
+    /// final list at all). Scored tasks only; an absent task's fits are
+    /// `any_fit` instead.
+    #[serde(default)]
+    pub mismatch: bool,
+    /// 目标被下沉 (§9.3): the judgement's rerank moved the target to a later
+    /// rank than the local one.
+    #[serde(default)]
+    pub demoted: bool,
+    /// The target's rank after a local deep pass (no model), run only for
+    /// scored tasks the normal local pass missed; the C4 pre-filter of §9.3
+    /// ("FTS 和 deep 都未召回").
+    #[serde(default)]
+    pub deep_rank: Option<usize>,
+    #[serde(default)]
+    pub deep_ms: Option<u64>,
+    pub local_ms: u64,
+    pub enhance_ms: Option<u64>,
+    pub estimated_tokens: u64,
+    pub input_tokens: Option<u64>,
+    /// `enhance.timeoutMs` of the run.
+    #[serde(default)]
+    pub timeout_ms: u64,
+    /// The task could not be run; every other field is empty and the row
+    /// counts only towards `tasks` and `errors`.
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+/// §9.3's metrics for one split of the rows. Error rows count only towards
+/// `tasks` and `errors`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LookupMetrics {
+    pub split: String,
+    pub tasks: usize,
+    pub errors: usize,
+    pub scored: usize,
+    pub top5_local: usize,
+    pub top5_final: usize,
+    pub net_gain: i64,
+    pub pushed_out: usize,
+    /// 误匹配: scored tasks with `mismatch` (§9.3).
+    pub mismatches: usize,
+    /// 目标被下沉: scored tasks with `demoted` (§9.3).
+    pub demoted: usize,
+    pub absent_tasks: usize,
+    /// Absent tasks that were actually judged (a request sent or a verdict
+    /// reused); the rate below still divides by every absent task (G.6).
+    pub absent_judged: usize,
+    pub absent_false_fit: usize,
+    pub absent_false_fit_rate: Option<f64>,
+    pub top50_coverage: Option<f64>,
+    pub window_coverage: Option<f64>,
+    pub requests: usize,
+    pub timeouts: usize,
+    pub timeout_rate: Option<f64>,
+    pub judge_requests: usize,
+    pub judge_timeouts: usize,
+    pub judge_timeout_rate: Option<f64>,
+    pub repair_requests: usize,
+    pub repair_timeouts: usize,
+    pub repair_timeout_rate: Option<f64>,
+    pub local_p50_ms: Option<u64>,
+    pub local_p95_ms: Option<u64>,
+    pub judge_p50_ms: Option<u64>,
+    pub judge_p95_ms: Option<u64>,
+    pub repair_p50_ms: Option<u64>,
+    pub repair_p95_ms: Option<u64>,
+    pub input_tokens: u64,
+    pub usage_unknown: usize,
+    pub estimated_tokens: u64,
+    /// `enhance.timeoutMs` shared by every row; `None` when rows differ or
+    /// there are none.
+    pub timeout_ms: Option<u64>,
+}
+
+/// The holdout gates of spec §9.3. A gate is `None` when it has no task to
+/// judge by, or when the run's time limit is not the 3 s the thresholds were
+/// fixed for (`note` then says so).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GateVerdicts {
+    pub c3: Option<bool>,
+    pub c4: Option<bool>,
+    pub timeout_ms: Option<u64>,
+    pub note: Option<String>,
+    /// C4's population and how many of it ended in the first 50.
+    pub c4_tasks: usize,
+    pub c4_rescued: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MetricDelta {
+    pub metric: String,
+    pub current: Option<f64>,
+    pub baseline: Option<f64>,
+    pub delta: Option<f64>,
+}
+
+/// 最近秩：升序排序后取第 ceil(p·n) 个（从 1 起）；空集为 None。
+pub(crate) fn percentile(values: &[u64], p: f64) -> Option<u64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_unstable();
+    let n = sorted.len();
+    let rank = ((p * n as f64).ceil() as usize).clamp(1, n);
+    Some(sorted[rank - 1])
+}
+
+fn ratio(part: usize, whole: usize) -> Option<f64> {
+    (whole > 0).then(|| part as f64 / whole as f64)
+}
+
+fn in_top(rank: Option<usize>, n: usize) -> bool {
+    rank.is_some_and(|r| r <= n)
+}
+
+fn is_scored(row: &LookupEvalRow) -> bool {
+    row.error.is_none() && row.category != Category::Absent && row.target_indexed
+}
+
+/// A request that went out on `route`.
+fn sent_on(row: &LookupEvalRow, route: PipelineRoute) -> bool {
+    row.route == Some(route) && row.request_count == 1
+}
+
+/// A judgement exists: sent, or reused from the cache.
+fn judged(row: &LookupEvalRow) -> bool {
+    row.route == Some(PipelineRoute::Judge) && (row.request_count == 1 || row.reused)
+}
+
+/// C4's population (§9.3 「预筛出的未召回任务」): scored tasks whose target
+/// neither the normal local pass nor the local deep pass found.
+fn c4_population(row: &LookupEvalRow) -> bool {
+    is_scored(row) && row.local_rank.is_none() && row.deep_rank.is_none()
+}
+
+/// `split` is `"all"`, `"dev"` or `"holdout"`.
+///
+/// - Scored: not `absent`, the target is in the index, no error.
+/// - 窗口覆盖 (G.6): among scored tasks with a judgement (Judge route, sent
+///   or reused), the share whose target block was among the sent candidates.
+/// - Requests: rows with `request_count == 1`. The pooled timeout rate,
+///   token sums and the per-route rates and latencies (judge / repair) are
+///   over those. Local latencies are over every non-error row.
+pub(crate) fn lookup_metrics(rows: &[LookupEvalRow], split: &str) -> LookupMetrics {
+    let in_split: Vec<&LookupEvalRow> = rows
+        .iter()
+        .filter(|r| match split {
+            "dev" => r.split == Split::Dev,
+            "holdout" => r.split == Split::Holdout,
+            _ => true,
+        })
+        .collect();
+    let ok: Vec<&LookupEvalRow> = in_split.iter().copied().filter(|r| r.error.is_none()).collect();
+    let scored: Vec<&LookupEvalRow> = ok.iter().copied().filter(|r| is_scored(r)).collect();
+    let count = |rows: &[&LookupEvalRow], f: &dyn Fn(&LookupEvalRow) -> bool| rows.iter().filter(|r| f(r)).count();
+    let gained = count(&scored, &|r| in_top(r.final_rank, 5) && !in_top(r.local_rank, 5));
+    let pushed_out = count(&scored, &|r| in_top(r.local_rank, 5) && !in_top(r.final_rank, 5));
+    let absent: Vec<&LookupEvalRow> = ok.iter().copied().filter(|r| r.category == Category::Absent).collect();
+    let absent_false_fit = count(&absent, &|r| r.any_fit);
+    let with_judgement: Vec<&LookupEvalRow> = scored.iter().copied().filter(|r| judged(r)).collect();
+    let requests: Vec<&LookupEvalRow> = ok.iter().copied().filter(|r| r.request_count == 1).collect();
+    let timed_out = |r: &LookupEvalRow| r.status == Some(EnhanceStatus::Timeout);
+    let on = |route| -> Vec<&LookupEvalRow> { requests.iter().copied().filter(|r| sent_on(r, route)).collect() };
+    let judge = on(PipelineRoute::Judge);
+    let repair = on(PipelineRoute::Repair);
+    let latencies = |rows: &[&LookupEvalRow]| -> Vec<u64> { rows.iter().filter_map(|r| r.enhance_ms).collect() };
+    let local_ms: Vec<u64> = ok.iter().map(|r| r.local_ms).collect();
+    let timeouts = count(&requests, &timed_out);
+    let judge_timeouts = count(&judge, &timed_out);
+    let repair_timeouts = count(&repair, &timed_out);
+    let timeout_ms = ok.first().map(|r| r.timeout_ms).filter(|t| ok.iter().all(|r| r.timeout_ms == *t));
+    LookupMetrics {
+        split: split.to_string(),
+        tasks: in_split.len(),
+        errors: in_split.len() - ok.len(),
+        scored: scored.len(),
+        top5_local: count(&scored, &|r| in_top(r.local_rank, 5)),
+        top5_final: count(&scored, &|r| in_top(r.final_rank, 5)),
+        net_gain: gained as i64 - pushed_out as i64,
+        pushed_out,
+        mismatches: count(&scored, &|r| r.mismatch),
+        demoted: count(&scored, &|r| r.demoted),
+        absent_tasks: absent.len(),
+        absent_judged: count(&absent, &judged),
+        absent_false_fit,
+        absent_false_fit_rate: ratio(absent_false_fit, absent.len()),
+        top50_coverage: ratio(count(&scored, &|r| in_top(r.local_rank, 50)), scored.len()),
+        window_coverage: ratio(count(&with_judgement, &|r| r.target_in_window), with_judgement.len()),
+        requests: requests.len(),
+        timeouts,
+        timeout_rate: ratio(timeouts, requests.len()),
+        judge_requests: judge.len(),
+        judge_timeouts,
+        judge_timeout_rate: ratio(judge_timeouts, judge.len()),
+        repair_requests: repair.len(),
+        repair_timeouts,
+        repair_timeout_rate: ratio(repair_timeouts, repair.len()),
+        local_p50_ms: percentile(&local_ms, 0.5),
+        local_p95_ms: percentile(&local_ms, 0.95),
+        judge_p50_ms: percentile(&latencies(&judge), 0.5),
+        judge_p95_ms: percentile(&latencies(&judge), 0.95),
+        repair_p50_ms: percentile(&latencies(&repair), 0.5),
+        repair_p95_ms: percentile(&latencies(&repair), 0.95),
+        input_tokens: requests.iter().filter_map(|r| r.input_tokens).sum(),
+        usage_unknown: count(&requests, &|r| r.input_tokens.is_none()),
+        estimated_tokens: requests.iter().map(|r| r.estimated_tokens).sum(),
+        timeout_ms,
+    }
+}
+
+/// Spec §9.3 on the holdout rows, only when every row ran with the 3 s limit
+/// (`enhance.timeoutMs == 3000`); otherwise both gates are `None` with a
+/// note. C3: net Top-5 gain ≥ 3, at most one target pushed out, judge
+/// timeouts ≤ 5% of judge requests, and at most a third of the absent tasks
+/// with a candidate judged fit. C4: of the scored tasks that both the normal
+/// and the deep local pass missed, at least a third end in the first 50, and
+/// repair timeouts ≤ 5% of repair requests. No requests (or no absent task)
+/// cannot fail a rate condition.
+pub(crate) fn gate_verdicts(holdout: &[LookupEvalRow]) -> GateVerdicts {
+    let m = lookup_metrics(holdout, "all");
+    let population: Vec<&LookupEvalRow> = holdout.iter().filter(|r| c4_population(r)).collect();
+    let rescued = population.iter().filter(|r| in_top(r.final_rank, 50)).count();
+    let mut gates =
+        GateVerdicts { c3: None, c4: None, timeout_ms: m.timeout_ms, note: None, c4_tasks: population.len(), c4_rescued: rescued };
+    if m.timeout_ms != Some(GATE_TIMEOUT_MS) {
+        if m.tasks > m.errors {
+            gates.note = Some("timeout ≠ 3 s".to_string());
+        }
+        return gates;
+    }
+    let judge_ok = m.judge_timeouts * 20 <= m.judge_requests;
+    let repair_ok = m.repair_timeouts * 20 <= m.repair_requests;
+    gates.c3 = (m.scored > 0).then(|| {
+        m.net_gain >= 3 && m.pushed_out <= 1 && judge_ok && m.absent_false_fit * 3 <= m.absent_tasks
+    });
+    gates.c4 = (!population.is_empty()).then(|| rescued * 3 >= population.len() && repair_ok);
+    gates
+}
+
+/// Every numeric metric, by its JSON name, in display order.
+pub(crate) fn metric_values(m: &LookupMetrics) -> Vec<(&'static str, Option<f64>)> {
+    let n = |v: usize| Some(v as f64);
+    let u = |v: Option<u64>| v.map(|v| v as f64);
+    vec![
+        ("tasks", n(m.tasks)),
+        ("errors", n(m.errors)),
+        ("scored", n(m.scored)),
+        ("top5Local", n(m.top5_local)),
+        ("top5Final", n(m.top5_final)),
+        ("netGain", Some(m.net_gain as f64)),
+        ("pushedOut", n(m.pushed_out)),
+        ("mismatches", n(m.mismatches)),
+        ("demoted", n(m.demoted)),
+        ("absentTasks", n(m.absent_tasks)),
+        ("absentJudged", n(m.absent_judged)),
+        ("absentFalseFit", n(m.absent_false_fit)),
+        ("absentFalseFitRate", m.absent_false_fit_rate),
+        ("top50Coverage", m.top50_coverage),
+        ("windowCoverage", m.window_coverage),
+        ("requests", n(m.requests)),
+        ("timeouts", n(m.timeouts)),
+        ("timeoutRate", m.timeout_rate),
+        ("judgeRequests", n(m.judge_requests)),
+        ("judgeTimeouts", n(m.judge_timeouts)),
+        ("judgeTimeoutRate", m.judge_timeout_rate),
+        ("repairRequests", n(m.repair_requests)),
+        ("repairTimeouts", n(m.repair_timeouts)),
+        ("repairTimeoutRate", m.repair_timeout_rate),
+        ("localP50Ms", u(m.local_p50_ms)),
+        ("localP95Ms", u(m.local_p95_ms)),
+        ("judgeP50Ms", u(m.judge_p50_ms)),
+        ("judgeP95Ms", u(m.judge_p95_ms)),
+        ("repairP50Ms", u(m.repair_p50_ms)),
+        ("repairP95Ms", u(m.repair_p95_ms)),
+        ("inputTokens", Some(m.input_tokens as f64)),
+        ("usageUnknown", n(m.usage_unknown)),
+        ("estimatedTokens", Some(m.estimated_tokens as f64)),
+        ("timeoutMs", u(m.timeout_ms)),
+    ]
+}
+
+/// `current − baseline` per metric; `None` when either side has no value.
+pub(crate) fn compare_metrics(current: &LookupMetrics, baseline: &LookupMetrics) -> Vec<MetricDelta> {
+    metric_values(current)
+        .into_iter()
+        .zip(metric_values(baseline))
+        .map(|((metric, current), (_, baseline))| MetricDelta {
+            metric: metric.to_string(),
+            current,
+            baseline,
+            delta: current.zip(baseline).map(|(c, b)| c - b),
+        })
+        .collect()
+}
+
+/// One row per non-blank line (an earlier `--out`). A bad line is an error
+/// naming its 1-based line number.
+pub(crate) fn load_eval_rows(jsonl: &str) -> Result<Vec<LookupEvalRow>, String> {
+    jsonl
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| !line.trim().is_empty())
+        .map(|(index, line)| serde_json::from_str(line).map_err(|e| format!("eval rows line {}: {e}", index + 1)))
+        .collect()
+}
+
+/// The target's rank after a local deep pass with the lookup's own budget
+/// (`local.limit`, `local.deepTimeoutMs`) and time mode; no model, no run
+/// registered.
+fn deep_pass(
+    index: &IndexHandle,
+    task: &EvalTask,
+    params: &LookupParams,
+    today: NaiveDate,
+) -> Result<(Option<usize>, u64), String> {
+    let (limit, deep, timeout) = super::local_lookup_budget(None, Some(true), None, &params.local);
+    let counter = Arc::new(AtomicU64::new(1));
+    let (response, _) = super::local_lookup_locked(
+        index,
+        &task.question,
+        limit,
+        deep,
+        timeout,
+        params.time.mode,
+        today,
+        &counter,
+        1,
+        &params.local.fusion(),
+    )?;
+    Ok((target_rank(&response.hits, &task.targets).map(|(rank, _)| rank), response.took_ms))
+}
+
+fn error_row(task: &EvalTask, timeout_ms: u64, error: String) -> LookupEvalRow {
+    LookupEvalRow {
+        id: task.id.clone(),
+        category: task.category,
+        split: task.split,
+        target_indexed: false,
+        local_rank: None,
+        final_rank: None,
+        route: None,
+        status: None,
+        request_count: 0,
+        reused: false,
+        target_in_window: false,
+        any_fit: false,
+        mismatch: false,
+        demoted: false,
+        deep_rank: None,
+        deep_ms: None,
+        local_ms: 0,
+        enhance_ms: None,
+        estimated_tokens: 0,
+        input_tokens: None,
+        timeout_ms,
+        error: Some(error),
+    }
+}
+
+/// Score one task's pipeline output.
+fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout_ms: u64) -> LookupEvalRow {
+    let is_target = |hit: &SmartHitDto| target_rank(std::slice::from_ref(hit), &task.targets).is_some();
+    let rank = |hits: &[SmartHitDto]| target_rank(hits, &task.targets).map(|(rank, _)| rank);
+    let judge = output.judge.as_ref();
+    let repair = output.repair.as_ref();
+    let local_hits = &output.local.search.hits;
+    let local_rank = rank(local_hits);
+    let final_rank = rank(&output.hits);
+    let by_id = |id: &str| local_hits.iter().find(|h| h.result_id.as_deref() == Some(id));
+    let target_in_window = judge.is_some_and(|j| j.sent_result_ids.iter().any(|id| by_id(id).is_some_and(is_target)));
+    let fit_ids: Vec<&str> =
+        judge.map_or(Vec::new(), |j| j.verdicts.iter().filter(|v| v.tier == Tier::Fit).map(|v| v.result_id.as_str()).collect());
+    let scored = task.category != Category::Absent && target_indexed;
+    let mismatch = scored
+        && output.hits.iter().enumerate().any(|(i, hit)| {
+            hit.result_id.as_deref().is_some_and(|id| fit_ids.contains(&id))
+                && !is_target(hit)
+                && final_rank.map_or(true, |target| i + 1 < target)
+        });
+    let reranked = judge.is_some_and(|j| j.status == EnhanceStatus::Ok);
+    let demoted = scored && reranked && matches!((local_rank, final_rank), (Some(l), Some(f)) if f > l);
+    let usage = judge.and_then(|j| j.usage.as_ref()).or_else(|| repair.and_then(|r| r.usage.as_ref()));
+    LookupEvalRow {
+        id: task.id.clone(),
+        category: task.category,
+        split: task.split,
+        target_indexed,
+        local_rank,
+        final_rank,
+        route: Some(output.route),
+        status: judge.map(|j| j.status).or_else(|| repair.map(|r| r.status)),
+        request_count: judge.map(|j| j.request_count).or_else(|| repair.map(|r| r.request_count)).unwrap_or(0),
+        reused: judge.is_some_and(|j| j.reused),
+        target_in_window,
+        any_fit: !fit_ids.is_empty(),
+        mismatch,
+        demoted,
+        deep_rank: None,
+        deep_ms: None,
+        local_ms: output.local_ms,
+        enhance_ms: judge.map(|j| j.elapsed_ms).or_else(|| repair.map(|r| r.elapsed_ms)),
+        estimated_tokens: judge.map_or(0, |j| j.estimated_tokens),
+        input_tokens: usage.map(|u| u.input_tokens),
+        timeout_ms,
+        error: None,
+    }
+}
+
+async fn eval_task(
+    index: &IndexHandle,
+    root: &Path,
+    task: &EvalTask,
+    params: &LookupParams,
+    enhance: Option<&EnhanceSetup>,
+    today: NaiveDate,
+    client: &reqwest::Client,
+) -> Result<LookupEvalRow, String> {
+    let timeout_ms = params.enhance.timeout_ms;
+    let mut target_indexed = true;
+    if task.category != Category::Absent {
+        for target in &task.targets {
+            target_indexed &= indexed_file(index, &target.path)?;
+        }
+    }
+    let input = PipelineInput {
+        question: &task.question,
+        vault_root: root,
+        index,
+        window_label: EVAL_WINDOW,
+        params,
+        deep: false,
+        time_mode: None,
+        today,
+        enhance,
+    };
+    let output = run_pipeline(input, client).await?;
+    let mut row = score(task, target_indexed, &output, timeout_ms);
+    if is_scored(&row) && row.local_rank.is_none() {
+        let (deep_rank, deep_ms) = deep_pass(index, task, params, today)?;
+        row.deep_rank = deep_rank;
+        row.deep_ms = Some(deep_ms);
+    }
+    Ok(row)
+}
+
+/// Run every task through [`run_pipeline`] (window [`EVAL_WINDOW`], deep
+/// off, time mode from `params`) and score it; scored tasks the local pass
+/// missed also get a local deep pass. A task that fails becomes an error
+/// row and the eval goes on. `on_row` sees each row as soon as it is done
+/// (`--out` writes it then); its error stops the eval.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn run_lookup_eval(
+    index: &IndexHandle,
+    root: &Path,
+    tasks: &[EvalTask],
+    params: &LookupParams,
+    enhance: Option<&EnhanceSetup>,
+    today: NaiveDate,
+    client: &reqwest::Client,
+    on_row: &mut dyn FnMut(&LookupEvalRow) -> Result<(), String>,
+) -> Result<Vec<LookupEvalRow>, String> {
+    let timeout_ms = params.enhance.timeout_ms;
+    eval_each(tasks, timeout_ms, |task| eval_task(index, root, task, params, enhance, today, client), on_row).await
+}
+
+/// The loop of [`run_lookup_eval`]: one task at a time, an error becomes an
+/// error row, each row goes to `on_row` before the next task starts.
+async fn eval_each<'t, F, Fut>(
+    tasks: &'t [EvalTask],
+    timeout_ms: u64,
+    mut run: F,
+    on_row: &mut dyn FnMut(&LookupEvalRow) -> Result<(), String>,
+) -> Result<Vec<LookupEvalRow>, String>
+where
+    F: FnMut(&'t EvalTask) -> Fut,
+    Fut: std::future::Future<Output = Result<LookupEvalRow, String>>,
+{
+    let mut rows = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        let row = match run(task).await {
+            Ok(row) => row,
+            Err(error) => error_row(task, timeout_ms, error),
+        };
+        on_row(&row)?;
+        rows.push(row);
+    }
+    Ok(rows)
 }
 
 #[cfg(test)]
@@ -594,22 +1147,359 @@ mod tests {
         assert_eq!((gates.scored_tasks, gates.unrecalled_after_deep), (1, 0));
     }
 
-    fn feedback_row_json(tier: &str, verdict: &str) -> String {
+    fn feedback_row_json(path: &str, tier: &str, verdict: &str) -> String {
         format!(
-            r#"{{"ts":"2026-11-10T00:00:00Z","question":"q","path":"a.md","line":1,"lineEnd":2,"modelTier":"{tier}","userVerdict":"{verdict}","endpointHost":"h","model":"m"}}"#
+            r#"{{"ts":"2026-11-10T00:00:00Z","question":"q","path":"{path}","line":1,"lineEnd":2,"modelTier":"{tier}","userVerdict":"{verdict}","endpointHost":"h","model":"m"}}"#
         )
     }
 
     #[test]
     fn feedback_agreement_counts_decided_tiers_only() {
         let row = feedback_row_json;
-        let jsonl = [row("fit", "fit"), row("fit", "unfit"), row("unfit", "unfit"), row("unsure", "fit"), String::new()]
-            .join("\n");
+        let jsonl = [
+            row("a.md", "fit", "fit"),
+            row("b.md", "fit", "unfit"),
+            row("c.md", "unfit", "unfit"),
+            row("d.md", "unsure", "fit"),
+            String::new(),
+        ]
+        .join("\n");
         let a = feedback_agreement(&jsonl).unwrap();
         assert_eq!((a.rows, a.decided, a.agreed, a.fit, a.unfit, a.unsure_marked_fit), (4, 3, 2, (2, 1), (1, 1), 1));
         assert!((a.rate.unwrap() - 2.0 / 3.0).abs() < 1e-9);
         assert!(feedback_agreement("{not json}").unwrap_err().contains("line 1"));
         assert_eq!(feedback_agreement("").unwrap().rate, None);
+    }
+
+    #[test]
+    fn feedback_agreement_dedupes_repeated_clicks_and_keeps_the_last_verdict() {
+        let row = feedback_row_json;
+        // Same (question, path, line, lineEnd, host, model): counted once, as
+        // the last verdict. Another path is another row.
+        let jsonl = [row("a.md", "fit", "unfit"), row("a.md", "fit", "unfit"), row("a.md", "fit", "fit"), row("b.md", "unfit", "fit")]
+            .join("\n");
+        let a = feedback_agreement(&jsonl).unwrap();
+        assert_eq!((a.rows, a.decided, a.agreed, a.fit, a.unfit), (2, 2, 1, (1, 1), (1, 0)));
+        let other_model = row("a.md", "fit", "unfit").replace(r#""model":"m""#, r#""model":"n""#);
+        let a = feedback_agreement(&[row("a.md", "fit", "fit"), other_model].join("\n")).unwrap();
+        assert_eq!((a.rows, a.agreed), (2, 1));
+    }
+
+    fn eval_row(id: &str, local: Option<usize>, fin: Option<usize>) -> LookupEvalRow {
+        LookupEvalRow {
+            id: id.into(),
+            category: Category::Exact,
+            split: Split::Holdout,
+            target_indexed: true,
+            local_rank: local,
+            final_rank: fin,
+            route: Some(PipelineRoute::Judge),
+            status: Some(EnhanceStatus::Ok),
+            request_count: 1,
+            reused: false,
+            target_in_window: true,
+            any_fit: false,
+            mismatch: false,
+            demoted: false,
+            deep_rank: None,
+            deep_ms: None,
+            local_ms: 10,
+            enhance_ms: Some(100),
+            estimated_tokens: 50,
+            input_tokens: Some(40),
+            timeout_ms: GATE_TIMEOUT_MS,
+            error: None,
+        }
+    }
+
+    fn repair_row(id: &str, fin: Option<usize>) -> LookupEvalRow {
+        LookupEvalRow {
+            route: Some(PipelineRoute::Repair),
+            target_in_window: false,
+            enhance_ms: Some(700),
+            ..eval_row(id, None, fin)
+        }
+    }
+
+    #[test]
+    fn percentiles_use_the_nearest_rank() {
+        assert_eq!(percentile(&[400, 100, 300, 200], 0.5), Some(200));
+        assert_eq!(percentile(&[400, 100, 300, 200], 0.95), Some(400));
+        assert_eq!(percentile(&[], 0.5), None);
+        assert_eq!(percentile(&[7], 0.5), Some(7));
+    }
+
+    fn section_9_3_rows() -> Vec<LookupEvalRow> {
+        vec![
+            eval_row("gain", Some(7), Some(2)),
+            LookupEvalRow { mismatch: true, demoted: true, ..eval_row("pushed", Some(3), Some(8)) },
+            eval_row("kept", Some(1), Some(1)),
+            LookupEvalRow { category: Category::Absent, any_fit: true, target_in_window: false, ..eval_row("absent", None, None) },
+            LookupEvalRow { target_indexed: false, ..eval_row("typo", None, None) },
+            LookupEvalRow { input_tokens: None, ..repair_row("rescued", Some(30)) },
+            LookupEvalRow {
+                status: Some(EnhanceStatus::Timeout),
+                target_in_window: false,
+                input_tokens: None,
+                split: Split::Dev,
+                ..eval_row("slow", Some(20), Some(20))
+            },
+        ]
+    }
+
+    #[test]
+    fn lookup_metrics_follow_section_9_3() {
+        let rows = section_9_3_rows();
+        let m = lookup_metrics(&rows, "all");
+        assert_eq!((m.scored, m.top5_local, m.top5_final, m.net_gain, m.pushed_out), (5, 2, 2, 0, 1));
+        assert_eq!((m.absent_tasks, m.absent_judged, m.absent_false_fit), (1, 1, 1));
+        assert_eq!(m.absent_false_fit_rate, Some(1.0));
+        assert_eq!((m.mismatches, m.demoted), (1, 1));
+        assert_eq!(m.timeouts, 1);
+        assert_eq!((m.tasks, m.errors, m.requests), (7, 0, 7));
+        assert_eq!(m.timeout_rate, Some(1.0 / 7.0));
+        // local ranks of the 5 scored rows: 7, 3, 1, None, 20 → 4 within 50
+        assert_eq!(m.top50_coverage, Some(4.0 / 5.0));
+        // input tokens: 5 rows with 40, 2 without
+        assert_eq!((m.input_tokens, m.usage_unknown, m.estimated_tokens), (200, 2, 350));
+        assert_eq!(m.local_p50_ms, Some(10));
+        assert_eq!(m.timeout_ms, Some(GATE_TIMEOUT_MS));
+        let dev = lookup_metrics(&rows, "dev");
+        assert_eq!((dev.split.as_str(), dev.tasks, dev.scored, dev.timeouts), ("dev", 1, 1, 1));
+        assert_eq!(lookup_metrics(&rows, "holdout").tasks, 6);
+        // Rows without a request count for neither the rate nor the latencies.
+        let unsent = LookupEvalRow { request_count: 0, enhance_ms: None, ..eval_row("x", Some(1), Some(1)) };
+        let m = lookup_metrics(&[unsent], "all");
+        assert_eq!((m.requests, m.timeout_rate, m.judge_p50_ms, m.window_coverage), (0, None, None, None));
+    }
+
+    #[test]
+    fn window_coverage_counts_only_judged_rows() {
+        // judged scored rows: gain, pushed, kept, slow (a repair request is no
+        // judgement); target in window: gain, pushed, kept.
+        assert_eq!(lookup_metrics(&section_9_3_rows(), "all").window_coverage, Some(3.0 / 4.0));
+        let reused = LookupEvalRow { request_count: 0, reused: true, target_in_window: false, ..eval_row("r", Some(2), Some(2)) };
+        let skipped = LookupEvalRow { request_count: 0, status: Some(EnhanceStatus::NoConsent), ..eval_row("s", Some(2), Some(2)) };
+        let m = lookup_metrics(&[eval_row("a", Some(1), Some(1)), reused, skipped, repair_row("p", None)], "all");
+        assert_eq!(m.window_coverage, Some(1.0 / 2.0));
+    }
+
+    #[test]
+    fn timeouts_and_latencies_are_split_by_route() {
+        let rows = section_9_3_rows();
+        let m = lookup_metrics(&rows, "all");
+        assert_eq!((m.judge_requests, m.judge_timeouts, m.repair_requests, m.repair_timeouts), (6, 1, 1, 0));
+        assert_eq!((m.judge_timeout_rate, m.repair_timeout_rate), (Some(1.0 / 6.0), Some(0.0)));
+        assert_eq!((m.judge_p50_ms, m.judge_p95_ms, m.repair_p50_ms, m.repair_p95_ms), (Some(100), Some(100), Some(700), Some(700)));
+    }
+
+    fn gains() -> Vec<LookupEvalRow> {
+        (0..3).map(|i| eval_row(&format!("g{i}"), Some(9), Some(1))).collect()
+    }
+
+    #[test]
+    fn gates_follow_the_confirmed_thresholds() {
+        assert_eq!(gate_verdicts(&gains()).c3, Some(true));
+        assert_eq!(gate_verdicts(&gains()).c4, None);
+        assert_eq!(gate_verdicts(&gains()[..2]).c3, Some(false));
+        let mut pushed = gains();
+        pushed.extend([eval_row("p1", Some(1), Some(9)), eval_row("p2", Some(2), None)]);
+        pushed.extend((3..5).map(|i| eval_row(&format!("g{i}"), None, Some(2))));
+        // gained 5 − pushed 2 = 3, but two pushed out
+        assert_eq!(gate_verdicts(&pushed).c3, Some(false));
+        let absent = |id: &str, fit: bool| LookupEvalRow { category: Category::Absent, any_fit: fit, ..eval_row(id, None, None) };
+        let mut with_absent = gains();
+        with_absent.extend([absent("a1", true), absent("a2", false), absent("a3", false)]);
+        assert_eq!(gate_verdicts(&with_absent).c3, Some(true));
+        with_absent.push(absent("a4", true));
+        assert_eq!(gate_verdicts(&with_absent).c3, Some(false));
+        let mut slow = gains();
+        slow.push(LookupEvalRow { status: Some(EnhanceStatus::Timeout), ..eval_row("t", Some(1), Some(1)) });
+        assert_eq!(gate_verdicts(&slow).c3, Some(false));
+        assert_eq!(gate_verdicts(&[]), GateVerdicts { c3: None, c4: None, timeout_ms: None, note: None, c4_tasks: 0, c4_rescued: 0 });
+    }
+
+    #[test]
+    fn c3_gates_on_judge_timeouts_and_c4_on_repair_timeouts() {
+        // A slow repair model does not fail C3 ...
+        let mut rows = gains();
+        rows.push(LookupEvalRow { status: Some(EnhanceStatus::Timeout), ..repair_row("slow repair", None) });
+        assert_eq!(gate_verdicts(&rows).c3, Some(true));
+        assert_eq!(gate_verdicts(&rows).c4, Some(false));
+        // ... and judge timeouts do not fail C4.
+        let mut rows = vec![repair_row("r1", Some(4)), repair_row("r2", None), repair_row("r3", None)];
+        rows.push(LookupEvalRow { status: Some(EnhanceStatus::Timeout), ..eval_row("slow judge", Some(1), Some(1)) });
+        assert_eq!(gate_verdicts(&rows).c4, Some(true));
+    }
+
+    #[test]
+    fn c4_counts_only_tasks_the_deep_pass_also_missed() {
+        let deep_found = LookupEvalRow { deep_rank: Some(3), ..repair_row("deep", None) };
+        let rows = [repair_row("m1", Some(40)), repair_row("m2", None), deep_found.clone()];
+        let gates = gate_verdicts(&rows);
+        assert_eq!((gates.c4_tasks, gates.c4_rescued, gates.c4), (2, 1, Some(true)));
+        assert_eq!(gate_verdicts(&[repair_row("m2", None), deep_found]).c4, Some(false));
+        let missed = [repair_row("m1", Some(40)), repair_row("m2", None), repair_row("m3", Some(60))];
+        assert_eq!(gate_verdicts(&missed).c4, Some(true));
+        assert_eq!(gate_verdicts(&missed[1..]).c4, Some(false));
+    }
+
+    #[test]
+    fn gates_are_only_evaluated_at_the_three_second_limit() {
+        let longer: Vec<LookupEvalRow> = gains().into_iter().map(|r| LookupEvalRow { timeout_ms: 10_000, ..r }).collect();
+        let gates = gate_verdicts(&longer);
+        assert_eq!((gates.c3, gates.c4, gates.timeout_ms), (None, None, Some(10_000)));
+        assert_eq!(gates.note.as_deref(), Some("timeout ≠ 3 s"));
+        assert_eq!(lookup_metrics(&longer, "all").timeout_ms, Some(10_000));
+        let mut mixed = gains();
+        mixed.push(longer[0].clone());
+        assert_eq!(gate_verdicts(&mixed).c3, None);
+        assert_eq!(lookup_metrics(&mixed, "all").timeout_ms, None);
+    }
+
+    #[test]
+    fn compare_reports_each_metric_delta() {
+        let baseline = lookup_metrics(&[eval_row("a", Some(9), Some(1)), eval_row("b", Some(9), Some(9))], "all");
+        let current = lookup_metrics(
+            &[eval_row("a", Some(9), Some(1)), eval_row("b", Some(9), Some(2)), eval_row("c", Some(9), Some(3))],
+            "all",
+        );
+        let deltas = compare_metrics(&current, &baseline);
+        assert!(deltas.iter().any(|d| d.metric == "netGain" && d.delta == Some(2.0)), "{deltas:?}");
+        assert!(deltas.iter().any(|d| d.metric == "tasks" && d.current == Some(3.0) && d.baseline == Some(2.0)));
+        assert!(deltas.iter().any(|d| d.metric == "absentFalseFitRate" && d.delta.is_none()));
+        assert_eq!(deltas.len(), metric_values(&current).len());
+    }
+
+    #[test]
+    fn eval_rows_round_trip_and_a_bad_line_names_its_number() {
+        let mut rows = section_9_3_rows();
+        rows.push(error_row(&load_tasks(r#"{"tasks":[{"id":"e","question":"q","targets":[],"category":"absent","split":"dev"}]}"#).unwrap()[0], 3_000, "boom".into()));
+        let jsonl: String = rows.iter().map(|r| serde_json::to_string(r).unwrap() + "\n").collect();
+        assert_eq!(load_eval_rows(&format!("{jsonl}\n")).unwrap(), rows);
+        let broken = format!("{jsonl}{{\"id\":1}}\n");
+        assert!(load_eval_rows(&broken).unwrap_err().contains(&format!("line {}", rows.len() + 1)));
+        // A row written before the fix-round fields still reads.
+        let old = r#"{"id":"o","category":"exact","split":"dev","targetIndexed":true,"localRank":1,"finalRank":1,"route":"judge","status":"ok","requestCount":1,"reused":false,"targetInWindow":true,"anyFit":true,"localMs":3,"enhanceMs":9,"estimatedTokens":5,"inputTokens":null}"#;
+        let old = load_eval_rows(old).unwrap();
+        assert_eq!((old[0].route, old[0].timeout_ms, old[0].error.clone()), (Some(PipelineRoute::Judge), 0, None));
+    }
+
+    #[tokio::test]
+    async fn a_failing_task_becomes_an_error_row_and_rows_arrive_one_by_one() {
+        let tasks = load_tasks(
+            r#"{"tasks":[
+              {"id":"a","question":"q","targets":[{"path":"a.md"}],"category":"exact","split":"dev"},
+              {"id":"b","question":"q","targets":[{"path":"b.md"}],"category":"exact","split":"holdout"},
+              {"id":"c","question":"q","targets":[],"category":"absent","split":"holdout"}
+            ]}"#,
+        )
+        .unwrap();
+        let events = std::cell::RefCell::new(Vec::new());
+        let mut on_row = |row: &LookupEvalRow| {
+            events.borrow_mut().push(format!("row {}", row.id));
+            Ok(())
+        };
+        let rows = eval_each(
+            &tasks,
+            3_000,
+            |task| {
+                events.borrow_mut().push(format!("run {}", task.id));
+                let result = if task.id == "b" { Err("index lock poisoned".to_string()) } else { Ok(eval_row(&task.id, Some(1), Some(1))) };
+                async move { result }
+            },
+            &mut on_row,
+        )
+        .await
+        .unwrap();
+        assert_eq!(events.into_inner(), ["run a", "row a", "run b", "row b", "run c", "row c"]);
+        assert_eq!(rows.len(), 3);
+        assert_eq!((rows[1].error.as_deref(), rows[1].route, rows[1].timeout_ms), (Some("index lock poisoned"), None, 3_000));
+        let m = lookup_metrics(&rows, "all");
+        assert_eq!((m.tasks, m.errors, m.scored, m.requests), (3, 1, 2, 2));
+        // An error from `on_row` (the --out file) stops the eval.
+        let mut failing = |_: &LookupEvalRow| Err("disk full".to_string());
+        let err = eval_each(&tasks, 3_000, |task| { let r = Ok(eval_row(&task.id, None, None)); async move { r } }, &mut failing).await;
+        assert_eq!(err.unwrap_err(), "disk full");
+    }
+
+    #[tokio::test]
+    async fn lookup_eval_runs_the_pipeline_on_a_fixture_vault() {
+        use crate::smart_enhance::JevRequestConfig;
+        use crate::smart_model::{endpoint_host, test_support::serve_once, AuthMode};
+        use std::sync::atomic::Ordering::SeqCst;
+        let vault = tempfile::tempdir().unwrap();
+        let words = "EvalBudget release risk";
+        for (name, extra) in [("a.md", "first"), ("b.md", "second"), ("c.md", "third")] {
+            std::fs::write(vault.path().join(name), format!("# {name}\n{words} {extra}\n")).unwrap();
+        }
+        std::fs::write(vault.path().join("other.md"), "# Other\nunrelated gardening notes\n").unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let mut idx = SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
+        idx.sweep(&searchidx::ScanOptions::default(), None).unwrap();
+        let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
+        let tasks = load_tasks(
+            r#"{"tasks":[
+              {"id":"t01","question":"EvalBudget release risk","targets":[{"path":"b.md","line":2}],"category":"exact","split":"holdout"},
+              {"id":"t02","question":"quantum pasta","targets":[],"category":"absent","split":"holdout"},
+              {"id":"t03","question":"zebra quokka lemur","targets":[{"path":"other.md"}],"category":"synonym","split":"holdout"}
+            ]}"#,
+        )
+        .unwrap();
+        // Local order a, b, c: a fit, b (the target) unfit, c unsure → a, c, b.
+        let (base, _request, accepted) = serve_once(
+            200,
+            r#"{"answers":{"c1":{"type":"noul","noul":0.95},"c2":{"type":"noul","noul":0.1},"c3":{"type":"noul","noul":0.5}},"usage":{"input_tokens":33,"output_tokens":1}}"#,
+            std::time::Duration::ZERO,
+        )
+        .await;
+        let enhance = EnhanceSetup {
+            jev: Some(JevRequestConfig {
+                url: base.clone(),
+                model: "m".into(),
+                auth_mode: AuthMode::None,
+                consent_host: endpoint_host(&base).unwrap(),
+            }),
+            jev_key: None,
+            chat: None,
+            chat_key: None,
+        };
+        let client = crate::smart_enhance::enhance_client().unwrap();
+        let mut seen = Vec::new();
+        let rows = run_lookup_eval(
+            &handle,
+            vault.path(),
+            &tasks,
+            &LookupParams::default(),
+            Some(&enhance),
+            NaiveDate::from_ymd_opt(2026, 11, 10).unwrap(),
+            &client,
+            &mut |row| {
+                seen.push(row.id.clone());
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(seen, ["t01", "t02", "t03"]);
+        let exact = &rows[0];
+        assert_eq!((exact.route, exact.status, exact.request_count), (Some(PipelineRoute::Judge), Some(EnhanceStatus::Ok), 1), "{exact:?}");
+        assert!(exact.target_in_window && exact.any_fit && exact.target_indexed, "{exact:?}");
+        assert_eq!((exact.local_rank, exact.final_rank, exact.input_tokens), (Some(2), Some(3), Some(33)), "{exact:?}");
+        assert!(exact.mismatch && exact.demoted, "{exact:?}");
+        assert_eq!((exact.deep_ms, exact.timeout_ms), (None, GATE_TIMEOUT_MS));
+        let absent = &rows[1];
+        assert_eq!((absent.route, absent.request_count, absent.local_rank), (Some(PipelineRoute::Repair), 0, None), "{absent:?}");
+        assert!(!absent.mismatch && absent.deep_ms.is_none());
+        // Scored and missed locally: a local deep pass ran (no model) and missed too.
+        let missed = &rows[2];
+        assert_eq!((missed.local_rank, missed.deep_rank, missed.request_count), (None, None, 0), "{missed:?}");
+        assert!(missed.deep_ms.is_some(), "{missed:?}");
+        assert_eq!(accepted.load(SeqCst), 1);
+        let jsonl: String = rows.iter().map(|r| serde_json::to_string(r).unwrap() + "\n").collect();
+        assert_eq!(load_eval_rows(&jsonl).unwrap(), rows);
+        let gates = gate_verdicts(&rows);
+        assert_eq!((gates.c3, gates.c4_tasks, gates.c4_rescued, gates.c4), (Some(false), 1, 0, Some(false)));
     }
 
     /// ```text

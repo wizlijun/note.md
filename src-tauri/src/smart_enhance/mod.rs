@@ -17,12 +17,13 @@ pub(crate) mod candidates;
 pub(crate) mod feedback;
 pub(crate) mod judge;
 pub(crate) mod keys;
+pub(crate) mod pipeline;
 pub(crate) mod repair;
 
 /// Named by `search::smart_lookup_search_groups`.
 pub use repair::TermGroup;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum EnhanceStatus {
     Ok,
