@@ -340,7 +340,7 @@ describe('dev-install-plugin.sh codex-agent dispatch', () => {
 
 describe('Human Signature plugin releases', () => {
   it.each([
-    ['idea-spark', '1.3.7'],
+    ['idea-spark', '1.3.8'],
     ['trace-source', '1.2.5'],
   ])('%s publishes the Human Signature release version', (dir, version) => {
     const manifest = JSON.parse(
