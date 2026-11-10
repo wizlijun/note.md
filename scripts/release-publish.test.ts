@@ -39,6 +39,47 @@ function armFixture() {
   return input
 }
 
+function linuxFixture() {
+  const input = fixture()
+  input.assets = input.assets.filter(a => a.name.endsWith('.deb') || a.name === 'SHA256SUMS-linux.txt')
+  return { ...input, latest: undefined }
+}
+
+describe('explicit Linux-only publication', () => {
+  it('requires the explicit mode and its complete package-manager asset set', () => {
+    expect(() => validateRelease(linuxFixture())).toThrow()
+    expect(() => validateRelease({ ...linuxFixture(), linuxOnly: true })).not.toThrow()
+    expect(() => validateRelease({ ...fixture(), linuxOnly: true })).toThrow()
+  })
+  for (const { name } of linuxFixture().assets) {
+    it(`requires ${name}`, () => {
+      const input = linuxFixture(); input.assets = input.assets.filter(a => a.name !== name)
+      expect(() => validateRelease({ ...input, linuxOnly: true })).toThrow()
+    })
+  }
+  it.each([{ without: 'windows' }, { without: 'linux' }, { macArm64Only: true }])('rejects incompatible mode %j', other => {
+    expect(() => validateRelease({ ...linuxFixture(), linuxOnly: true, ...other })).toThrow()
+  })
+  it.each(['latest.json', 'note.md-aarch64.app.tar.gz', 'note.md_6.1015.2_x64-setup.exe'])('rejects non-Linux asset %s', name => {
+    const input = linuxFixture(); input.assets.push(fixture().assets.find(a => a.name === name)!)
+    expect(() => validateRelease({ ...input, linuxOnly: true })).toThrow()
+  })
+  it('rejects an updater manifest even when supplied without its asset', () => {
+    expect(() => validateRelease({ ...linuxFixture(), latest: fixture().latest, linuxOnly: true })).toThrow()
+  })
+  it.each(['hash', 'old-tag', 'other-repository', 'wrong-checksum-url'])('rejects package evidence drift: %s', kind => {
+    const input = linuxFixture(), deb = input.assets.find(a => a.name.endsWith('_amd64.deb'))!
+    if (kind === 'hash') deb.sha256 = '0'.repeat(64)
+    if (kind === 'old-tag') deb.url = deb.url.replace(tag, 'v6.1014.1')
+    if (kind === 'other-repository') deb.url = deb.url.replace('/note.md/', '/other/')
+    if (kind === 'wrong-checksum-url') input.assets.find(a => a.name === 'SHA256SUMS-linux.txt')!.url += '?download=1'
+    expect(() => validateRelease({ ...input, linuxOnly: true })).toThrow()
+  })
+  it('rejects an already published release', () => {
+    expect(() => validateRelease({ ...linuxFixture(), draft: false, linuxOnly: true })).toThrow()
+  })
+})
+
 describe('explicit Apple Silicon-only publication', () => {
   it('requires the explicit mode and accepts only its complete asset set', () => {
     expect(() => validateRelease(armFixture())).toThrow()
@@ -136,7 +177,7 @@ function draftFixture() {
 
 const roots: string[] = []
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })))
-function harness(input = fixture(), prerelease = false, recheck = '') {
+function harness(input: ReturnType<typeof fixture> | ReturnType<typeof linuxFixture> = fixture(), prerelease = false, recheck = '') {
   const root = mkdtempSync(join(tmpdir(), 'notemd-publish-')); roots.push(root)
   writeFileSync(join(root, 'release.json'), JSON.stringify({ tagName: tag, isDraft: input.draft, isPrerelease: prerelease, url: input.url, assets: input.assets }))
   writeFileSync(join(root, 'contents.json'), JSON.stringify({ ...input.contents, 'latest.json': JSON.stringify(input.latest) }))
@@ -152,6 +193,31 @@ else if(!args.includes('edit')) process.exit(8);
   return { root, log, run: (args: string[] = [tag]) => spawnSync('bash', [resolve('scripts/release-publish.sh'), ...args], { encoding: 'utf8', env: { ...process.env, PATH: root + ':' + process.env.PATH }, input: '' }) }
 }
 function calls(log: string) { try { return readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line) as string[]) } catch { return [] } }
+function runInteractive(h: ReturnType<typeof harness>, args: string[], answer: string) {
+  return spawnSync('python3', ['-c', `
+import os, pty, select, subprocess, sys, time
+master, slave = pty.openpty()
+child = subprocess.Popen(['bash', sys.argv[1], sys.argv[2]] + sys.argv[4:], stdin=slave, stdout=slave, stderr=slave)
+os.close(slave)
+output = b''
+sent = False
+deadline = time.monotonic() + 15
+while time.monotonic() < deadline:
+    if select.select([master], [], [], .1)[0]:
+        try: data = os.read(master, 65536)
+        except OSError: break
+        if not data: break
+        output += data
+        if b'Type exactly' in output and not sent:
+            os.write(master, (sys.argv[3] + '\\n').encode()); sent = True
+    if child.poll() is not None: break
+if child.poll() is None: child.kill()
+child.wait()
+os.close(master)
+sys.stdout.buffer.write(output)
+sys.exit(child.returncode)
+`, resolve('scripts/release-publish.sh'), tag, answer, ...args], { encoding: 'utf8', env: { ...process.env, PATH: h.root + ':' + process.env.PATH } })
+}
 describe('publish command boundary (fake network CLI, real gate)', () => {
   it('publishes a validated normal release as latest', () => {
     const h = harness(), result = h.run()
@@ -185,7 +251,7 @@ describe('publish command boundary (fake network CLI, real gate)', () => {
     expect(result.status).not.toBe(0)
     expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
   })
-  it.each([[tag, '--mac-arm64-only'], [tag, '--mac-arm64-only', '--without', 'linux'], [tag, '--without', 'windows'], [tag, '--yes'], ['bad-tag'], [tag, '--without', 'macos']])('rejects noninteractive omissions or bad arguments %j before any mutation', (...args) => {
+  it.each([[tag, '--linux-only'], [tag, '--linux-only', '--mac-arm64-only'], [tag, '--linux-only', '--without', 'windows'], [tag, '--mac-arm64-only'], [tag, '--mac-arm64-only', '--without', 'linux'], [tag, '--without', 'windows'], [tag, '--yes'], ['bad-tag'], [tag, '--without', 'macos']])('rejects noninteractive omissions or bad arguments %j before any mutation', (...args) => {
     const h = harness(), result = h.run(args)
     expect(result.status).not.toBe(0)
     expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
@@ -200,29 +266,7 @@ describe('publish command boundary (fake network CLI, real gate)', () => {
       delete input.latest.platforms['windows-x86_64']
     }
     const h = harness(input)
-    const result = spawnSync('python3', ['-c', `
-import os, pty, select, subprocess, sys, time
-master, slave = pty.openpty()
-child = subprocess.Popen(['bash', sys.argv[1], sys.argv[2]] + sys.argv[4:], stdin=slave, stdout=slave, stderr=slave)
-os.close(slave)
-output = b''
-sent = False
-deadline = time.monotonic() + 15
-while time.monotonic() < deadline:
-    if select.select([master], [], [], .1)[0]:
-        try: data = os.read(master, 65536)
-        except OSError: break
-        if not data: break
-        output += data
-        if b'Type exactly' in output and not sent:
-            os.write(master, (sys.argv[3] + '\\n').encode()); sent = True
-    if child.poll() is not None: break
-if child.poll() is None: child.kill()
-child.wait()
-os.close(master)
-sys.stdout.buffer.write(output)
-sys.exit(child.returncode)
-`, resolve('scripts/release-publish.sh'), tag, answer, ...(arm ? ['--mac-arm64-only'] : ['--without', 'windows'])], { encoding: 'utf8', env: { ...process.env, PATH: h.root + ':' + process.env.PATH } })
+    const result = runInteractive(h, arm ? ['--mac-arm64-only'] : ['--without', 'windows'], answer)
     const accepted = answer === (arm ? `${tag} mac-arm64-only` : `${tag} without windows`)
     expect(result.status === 0, result.stdout + result.stderr).toBe(accepted)
     expect(calls(h.log).some(c => c.includes('edit'))).toBe(accepted)
@@ -306,4 +350,43 @@ describe('actual GitHub untagged draft URL boundary', () => {
     expect(result.status).not.toBe(0)
     expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
   })
+})
+
+describe('Linux-only command boundary (fake network CLI, real downloaded bytes)', () => {
+  it.each([false, true])('publishes exact Linux assets without changing latest, prerelease=%s', prerelease => {
+    const h = harness(linuxFixture(), prerelease), result = runInteractive(h, ['--linux-only'], `${tag} linux-only`)
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    const issued = calls(h.log)
+    expect(issued.filter(c => c.includes('edit'))).toEqual([['-R', 'wizlijun/note.md', 'release', 'edit', tag, '--draft=false', '--latest=false']])
+    expect(issued.filter(c => c.includes('download')).map(c => c[c.indexOf('--pattern') + 1])).toEqual(['SHA256SUMS-linux.txt', `note.md_${version}_amd64.deb`, `note.md_${version}_arm64.deb`])
+  }, 20_000)
+  it('accepts only the matching GitHub draft slug and rechecks it before publication', () => {
+    const input = linuxFixture(); input.url = `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}`
+    input.assets.forEach(asset => { asset.url = draftBase + asset.name })
+    const h = harness(input), result = runInteractive(h, ['--linux-only'], `${tag} linux-only`)
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    expect(calls(h.log).filter(c => c.includes('view'))).toHaveLength(2)
+  }, 20_000)
+  it.each(['yes', 'v6.1014.1 linux-only', `${tag} mac-arm64-only`])('rejects nonmatching confirmation %s', answer => {
+    const h = harness(linuxFixture()), result = runInteractive(h, ['--linux-only'], answer)
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
+  }, 20_000)
+  it.each(['bytes', 'checksum', 'missing', 'url', 'latest'])('never publishes invalid Linux-only evidence: %s', drift => {
+    const input = linuxFixture(), name = `note.md_${version}_amd64.deb`
+    if (drift === 'bytes') input.contents[name] = 'different-downloaded-bytes'
+    if (drift === 'checksum') input.contents['SHA256SUMS-linux.txt'] = input.contents['SHA256SUMS-linux.txt'].replace(sha('amd64-deb'), '0'.repeat(64))
+    if (drift === 'missing') input.assets = input.assets.filter(a => a.name !== name)
+    if (drift === 'url') input.assets[0].url = input.assets[0].url.replace(tag, 'v6.1014.1')
+    if (drift === 'latest') input.assets.push(fixture().assets.find(a => a.name === 'latest.json')!)
+    const h = harness(input), result = runInteractive(h, ['--linux-only'], `${tag} linux-only`)
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
+  }, 20_000)
+  it.each(['identity', 'published', 'draft-url'])('rechecks Linux draft %s before mutation', change => {
+    const input = linuxFixture(); input.url = `https://github.com/wizlijun/note.md/releases/tag/${draftSlug}`
+    const h = harness(input, false, change), result = runInteractive(h, ['--linux-only'], `${tag} linux-only`)
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit'))).toBe(false)
+  }, 20_000)
 })

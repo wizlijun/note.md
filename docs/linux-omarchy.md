@@ -231,10 +231,32 @@ and Arch compatibility, then uploads both debs plus their checksums. Keep the
 sibling `moraya-core` source available read-only as required by the build.
 The publish script validates the exact draft and complete platform asset set,
 then publishes immediately; the normal command has no confirmation prompt.
-Only `--without windows|linux` permits a missing platform and requires typing
-the exact tag/omitted-platform confirmation in an interactive terminal. Never
+The explicit `--without windows|linux` and `--mac-arm64-only` modes require typing
+the exact tag/platform confirmation in an interactive terminal. Never
 fabricate an asset or add a Linux updater entry. A real three-platform prerelease
 rehearsal (L5) remains pending; these local scripts/tests are not that rehearsal.
+
+For a separately scoped Linux release, first freeze and push its new version tag
+and create the matching draft. Keep the same Debian 12 dual-architecture build
+and verification gates, then publish with the explicit Linux-only mode:
+
+```bash
+scripts/release-linux.sh <tag>
+scripts/release-publish.sh <tag> --linux-only
+```
+
+This mode requires exactly both `note.md_<version>_{amd64,arm64}.deb` assets and
+`SHA256SUMS-linux.txt`. It downloads both packages and compares their actual
+SHA256 values, validates current-tag asset URLs (including GitHub's matching
+draft slug), and rejects `latest.json` or assets for other platforms. It cannot
+be combined with another omission mode. After the exact `<tag> linux-only`
+interactive confirmation, it rechecks the draft identity and publishes with
+`--latest=false`, preserving the macOS/Windows updater's existing latest release.
+Linux stays on the package-manager update channel. Prepare, independently verify
+and attach Arch packages or optional input-method addons afterward; they are not
+validated by this initial Debian publication gate. Public downloads and checksums
+must still be read back, and the website's per-format/per-architecture Linux
+download entries must be checked against the actual published assets.
 
 ## Omarchy real-machine acceptance (spec §8, exact checklist)
 
