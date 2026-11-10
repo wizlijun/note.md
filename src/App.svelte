@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { applicationShortcut } from './lib/application-shortcuts'
   import './styles/app.css'
   import './styles/editor-base.css'
   import 'mermaid-mini/style.css'
@@ -902,29 +903,21 @@
   })
 
   function onKeyDown(e: KeyboardEvent) {
-    if (!e.metaKey) return
-    const k = e.key.toLowerCase()
+    const action = applicationShortcut(e)
+    if (!action) return
+    if (action === 'refresh-blocks' && !settings.mdblock.enabled) return
+    e.preventDefault()
     const isCanvas = activeTab()?.kind === 'canvas'
-    if (k === 'n' && !e.shiftKey) { e.preventDefault(); newFile() }
-    else if (k === 'f' && !e.shiftKey) {
-      e.preventDefault()
-      if (!isCanvas) openFind()
-    }
-    else if (k === 'f' && e.shiftKey) {
-      e.preventDefault()
-      if (!isCanvas) openFindReplace()
-    }
-    else if (k === 'o') { e.preventDefault(); cmdOpen() }
-    else if (k === 's' && !e.shiftKey) { e.preventDefault(); cmdSave() }
-    else if (k === 's' && e.shiftKey) { e.preventDefault(); cmdSaveAs() }
-    else if (k === 'w') { e.preventDefault(); cmdCloseActive() }
-    else if (k === '/') {
-      e.preventDefault()
-      if (!isCanvas) cmdToggleMode()
-    }
-    else if (k === 'b' && e.shiftKey && settings.mdblock.enabled) {
-      e.preventDefault()
-      void cmdMdblockRefresh()
+    switch (action) {
+      case 'new': newFile(); break
+      case 'find': if (!isCanvas) openFind(); break
+      case 'replace': if (!isCanvas) openFindReplace(); break
+      case 'open': cmdOpen(); break
+      case 'save': cmdSave(); break
+      case 'save-as': cmdSaveAs(); break
+      case 'close': cmdCloseActive(); break
+      case 'toggle-mode': if (!isCanvas) cmdToggleMode(); break
+      case 'refresh-blocks': void cmdMdblockRefresh(); break
     }
   }
 

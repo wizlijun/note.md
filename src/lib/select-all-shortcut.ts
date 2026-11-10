@@ -1,4 +1,4 @@
-import { isApplePlatformSync } from './platform-sync'
+import { hasPrimaryModifier } from './primary-modifier'
 
 /** Modifier+key fields of a keydown — a structural subset of KeyboardEvent. */
 type Chord = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>
@@ -9,7 +9,7 @@ type Chord = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'a
  * `meta || ctrl` — on macOS Ctrl+A moves to the start of the line.
  */
 export function isSelectAllShortcut(e: Chord): boolean {
-  const mod = isApplePlatformSync() ? e.metaKey : e.ctrlKey
+  const mod = hasPrimaryModifier(e)
   return mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a'
 }
 

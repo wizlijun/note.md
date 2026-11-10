@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hasPrimaryModifier } from '../lib/primary-modifier'
   import { untrack } from 'svelte'
   import { registerFileSourceGuard } from '../lib/file-editor-sessions'
   import type { FileSourceInput, FileSourceOptions, PendingSource } from '../editor-kit-v2/file-source-input'
@@ -156,7 +157,7 @@
     if (textareaEl && handleTextSelectAllKeydown(ev, textareaEl)) return
 
     // Inline formatting shortcuts — independent of mdblock setting
-    if (ev.metaKey || ev.ctrlKey) {
+    if (hasPrimaryModifier(ev) && !ev.altKey) {
       // ── Insert annotation: Cmd+Shift+N / Ask: Cmd+? (both mirror rich mode) ──
       // Cmd+? is matched on `key` (the printed character), not `code`, so it
       // works on layouts where `?` isn't Shift+/.
@@ -207,7 +208,7 @@
 
     // mdblock-specific shortcuts
     if (!settings.mdblock.enabled) return
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+    if (hasPrimaryModifier(ev) && !ev.altKey && !ev.shiftKey && ev.key === 'Enter') {
       const handled = await cmdMdblockFollowCitationAtCursor()
       if (handled) {
         ev.preventDefault()

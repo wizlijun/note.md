@@ -271,7 +271,7 @@ export const en = {
   // Editor mode toggle
   'mode.editorMode': 'Editor mode',
   'mode.previewRich': 'Preview (rich)',
-  'mode.source': 'Source (Cmd+/)',
+  'mode.source': 'Source ({shortcut})',
 
   // Mobile toolbar
   'toolbar.openMenu': 'Open menu',

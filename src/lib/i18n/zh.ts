@@ -266,7 +266,7 @@ export const zh: Record<keyof Messages, string> = {
   // Editor mode toggle
   'mode.editorMode': '编辑模式',
   'mode.previewRich': '预览（富文本）',
-  'mode.source': '源码（Cmd+/）',
+  'mode.source': '源码（{shortcut}）',
 
   // Mobile toolbar
   'toolbar.openMenu': '打开菜单',

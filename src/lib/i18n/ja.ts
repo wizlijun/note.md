@@ -266,7 +266,7 @@ export const ja: Record<keyof Messages, string> = {
   // Editor mode toggle
   'mode.editorMode': 'エディターモード',
   'mode.previewRich': 'プレビュー（リッチ）',
-  'mode.source': 'ソース（Cmd+/）',
+  'mode.source': 'ソース（{shortcut}）',
 
   // Mobile toolbar
   'toolbar.openMenu': 'メニューを開く',

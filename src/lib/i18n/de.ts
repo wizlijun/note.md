@@ -264,7 +264,7 @@ export const de: Record<keyof Messages, string> = {
   // Editor mode toggle
   'mode.editorMode': 'Editormodus',
   'mode.previewRich': 'Vorschau (Rich)',
-  'mode.source': 'Quelltext (Cmd+/)',
+  'mode.source': 'Quelltext ({shortcut})',
 
   // Mobile toolbar
   'toolbar.openMenu': 'Menü öffnen',
