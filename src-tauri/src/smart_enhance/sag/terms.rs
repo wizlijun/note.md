@@ -90,7 +90,8 @@ pub(crate) fn expansion_terms(
     }
     let total = stats.total()?;
     // An empty name term (a name of stop words only) is skipped below before
-    // its df is read, so it is not asked for: `tok_text : ""` is no query.
+    // its df is read, so it is not requested (SAG asks for it and gets 0;
+    // FTS5 accepts the empty phrase and matches no rows).
     let vocabulary: Vec<String> = vocabulary.into_iter().filter(|t| !t.is_empty()).collect();
     let frequencies: HashMap<String, f64> =
         stats.df(&vocabulary)?.into_iter().map(|(term, count)| (term, count as f64)).collect();
@@ -180,7 +181,7 @@ pub(crate) fn rank(mut candidates: Vec<SagCandidate>) -> Vec<SagCandidate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cmp::Ordering::Less;
+    use std::cmp::Ordering::{Equal, Greater, Less};
     use TermKind::*;
 
     struct Fixed(f64, HashMap<String, u64>);
@@ -283,18 +284,80 @@ mod tests {
         assert_eq!(t.iter().map(|t| (t.term.as_str(), t.label.as_str())).collect::<Vec<_>>(), vec![("paris", "paris"), ("moved", "moved")]);
     }
 
+    /// A `TermStats` with N = 100 and the given df table (unlisted terms: 0).
+    fn table(df: &[(&str, u64)]) -> Fixed {
+        Fixed(100., df.iter().map(|(t, n)| (t.to_string(), *n)).collect())
+    }
+
+    /// `Fixed` that leaves one term out of every `df` answer.
+    struct Without(Fixed, &'static str);
+
+    impl TermStats for Without {
+        fn total(&self) -> Result<f64, String> {
+            self.0.total()
+        }
+        fn df(&self, terms: &[String]) -> Result<HashMap<String, u64>, String> {
+            let mut out = self.0.df(terms)?;
+            out.remove(self.1);
+            Ok(out)
+        }
+    }
+
+    fn idf(df: f64) -> f64 {
+        (1. + (100. - df + 0.5) / (df + 0.5)).ln()
+    }
+
     #[test]
     fn missing_frequency_is_an_error_not_a_panic() {
-        struct Empty;
-        impl TermStats for Empty {
-            fn total(&self) -> Result<f64, String> {
-                Ok(10.)
-            }
-            fn df(&self, _: &[String]) -> Result<HashMap<String, u64>, String> {
-                Ok(HashMap::new())
-            }
-        }
-        assert!(expansion_terms("alice", &[seed(1., "Alice moved")], 20, None, &Empty).is_err());
+        // A missing query word fails in the context sum (`idf(&word)?`).
+        let err = expansion_terms("alice", &[seed(1., "Alice moved")], 20, None, &Without(fixed(), "alice"))
+            .unwrap_err();
+        assert_eq!(err, "缺少词项的文档频率：alice");
+        // A missing non-query word fails at the term-loop skip check (`df(&term)?`).
+        let err = expansion_terms("alice", &[seed(1., "Alice moved")], 20, None, &Without(fixed(), "moved"))
+            .unwrap_err();
+        assert_eq!(err, "缺少词项的文档频率：moved");
+    }
+
+    #[test]
+    fn tied_terms_sort_by_icu_not_bytes() {
+        // Same tf, context and df, so the scores tie. Bytes put "cafez" first
+        // ('z' < 0xC3); ICU en puts "café" first.
+        let stats = table(&[("café", 3), ("cafez", 3)]);
+        let t = expansion_terms("x", &[seed(1., "cafez café")], 20, None, &stats).unwrap();
+        assert_eq!(t[0].score, t[1].score);
+        assert_eq!(t.iter().map(|t| t.term.as_str()).collect::<Vec<_>>(), vec!["café", "cafez"]);
+    }
+
+    #[test]
+    fn a_tie_between_seeds_keeps_the_first_seed() {
+        // "paris" is a name (wiki target) in `named` and a word in `plain`; equal
+        // seed scores, tf 1, no query words: the scores tie, and only a
+        // strictly greater score replaces, so the first seed's kind and label stay.
+        let stats = table(&[("paris", 4), ("see", 10)]);
+        let named = seed(1., "see [[Paris]]");
+        let plain = seed(1., "see paris");
+        let paris = |seeds: &[SagCandidate]| {
+            let t = expansion_terms("x", seeds, 20, None, &stats).unwrap();
+            let p = t.into_iter().find(|t| t.term == "paris").unwrap();
+            (p.kind, p.label)
+        };
+        assert_eq!(paris(&[named.clone(), plain.clone()]), (NamePhrase, "Paris".to_owned()));
+        assert_eq!(paris(&[plain.clone(), named.clone()]), (Word, "paris".to_owned()));
+        // A later seed with a strictly greater score does replace.
+        assert_eq!(paris(&[seed(0.5, "see paris"), named]), (NamePhrase, "Paris".to_owned()));
+    }
+
+    #[test]
+    fn a_repeated_query_word_counts_once_and_zero_scores_weigh_half() {
+        // Context = idf(alice) once although "alice" occurs twice; every seed
+        // scores 0, so max_score is 0 and the weight is 0.5.
+        let stats = table(&[("alice", 5), ("paris", 4)]);
+        let t = expansion_terms("alice", &[seed(0., "alice alice paris"), seed(0., "")], 20, None, &stats).unwrap();
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].term, "paris");
+        let want = idf(4.) * (1. + idf(5.)) * 0.5;
+        assert!((t[0].score - want).abs() < 1e-12, "{} {}", t[0].score, want);
     }
 
     // Ported from retrieval.rs:tests::interleaves_rank_then_term_and_deduplicates.
@@ -320,5 +383,20 @@ mod tests {
         assert_eq!(term_cmp("café", "cafez"), Less); // bytes say the opposite
         assert_eq!(term_cmp("a1", "ab"), Less);
         assert_eq!(term_cmp("zeta", "北京"), Less);
+        // Pairs where ICU en and byte order disagree.
+        for (a, b) in [("café", "cafez"), ("éclair", "zeta"), ("apple", "Zeta"), ("a_", "a1")] {
+            assert_eq!(term_cmp(a, b), Less, "{a} {b}");
+            assert_eq!(a.cmp(b), Greater, "bytes {a} {b}");
+        }
+    }
+
+    #[test]
+    fn term_cmp_breaks_icu_ties_by_bytes() {
+        // Canonically equivalent spellings: ICU calls them equal, bytes do not.
+        let (decomposed, composed) = ("e\u{301}", "\u{e9}");
+        COLLATOR.with(|c| assert_eq!(c.as_ref().unwrap().compare(decomposed, composed), Equal));
+        assert_eq!(term_cmp(decomposed, composed), Less);
+        assert_eq!(term_cmp(composed, decomposed), Greater);
+        assert_eq!(term_cmp(composed, composed), Equal);
     }
 }
