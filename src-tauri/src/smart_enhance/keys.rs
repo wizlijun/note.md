@@ -10,9 +10,7 @@ use serde::{Deserialize, Serialize};
 use tauri_plugin_store::StoreExt;
 
 use super::{check_config, enhance_client, EnhanceStatus, Missing};
-use crate::smart_model::{
-    endpoint_host, score_noul, AuthMode, JevConfig, NoulQuestion,
-};
+use crate::smart_model::{endpoint_host, score_noul, AuthMode, NoulQuestion};
 
 pub(crate) const KEY_STORE: &str = "smart_lookup_keys.json";
 const MAX_KEY_BYTES: usize = 4096;
@@ -139,7 +137,6 @@ pub(crate) async fn run_jev_test(
     let host = crate::smart_model::jev_endpoint(&jev.url)
         .and_then(|e| endpoint_host(&e))
         .ok();
-    let jev: JevConfig = jev;
     match score_noul(client, &jev, key, "连接测试", &[synthetic_question()], timeout).await {
         Ok(_) => done(EnhanceStatus::Ok, None, host, None),
         Err(e) => {

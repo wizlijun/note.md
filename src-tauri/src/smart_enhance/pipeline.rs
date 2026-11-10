@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use super::candidates::{route, Route};
 use super::judge::{judge_run, JudgeRequest, JudgeResult};
 use super::repair::{repair_run, RepairRequest, RepairSuggestion};
-use super::{fresh_cancel_flag, ChatRequestConfig, EnhanceStatus, JevRequestConfig, SkipReason, Trigger};
+use super::{cancel_flag_for, ChatRequestConfig, EnhanceStatus, JevRequestConfig, SkipReason, Trigger};
 use crate::lookup_params::LookupParams;
 use crate::search::smart::SmartHitDto;
 use crate::search::time_group::TimeMode;
@@ -143,7 +143,7 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
             out.diagnosis = Some(diagnose_locked(input.index, &run, &params.local.fusion(), &counter, ticket)?);
             // As the window does: a missing key is the host's to report.
             if let Some(chat) = enhance.chat.as_ref() {
-                let cancel = fresh_cancel_flag(&run.id);
+                let cancel = cancel_flag_for(Trigger::Auto, &run.id);
                 let request = RepairRequest {
                     run_id: &run.id,
                     window_label: input.window_label,
@@ -193,7 +193,7 @@ pub(crate) async fn run_pipeline(input: PipelineInput<'_>, client: &reqwest::Cli
             let config = enhance.jev.as_ref().unwrap_or(&unconfigured);
             let vault_root =
                 std::fs::canonicalize(input.vault_root).map_err(|error| format!("resolve vault: {error}"))?;
-            let cancel = fresh_cancel_flag(&run.id);
+            let cancel = cancel_flag_for(Trigger::Auto, &run.id);
             let request = JudgeRequest {
                 run_id: &run.id,
                 window_label: input.window_label,

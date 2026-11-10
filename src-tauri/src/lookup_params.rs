@@ -2,7 +2,9 @@
 //! Appendix G).
 //!
 //! JSON, camelCase keys. A missing field takes its default; the defaults are
-//! exactly the constants this file replaced, so no file means no change. A
+//! exactly the constants this file replaced, except `local.limit`: 50 (what
+//! the app window sends) instead of the old host fallback 100, by ruling, so
+//! the CLI and its eval search as the window does. A
 //! field out of range, of the wrong type, unknown at any level, or a broken
 //! cross-field rule rejects the whole file with an error naming the key;
 //! nothing is clamped.
@@ -77,7 +79,7 @@ impl Default for LocalParams {
     fn default() -> Self {
         let fusion = FusionParams::default();
         Self {
-            limit: 100,
+            limit: 50,
             deep_timeout_ms: 4_000,
             rrf_k: fusion.rrf_k,
             strict_weight: fusion.strict_weight,
@@ -266,7 +268,8 @@ pub(crate) const BOUNDS: &[Bound] = &[
     float("tiers.fit", 0.5, 1.0),
     float("tiers.unfit", 0.0, 0.5),
     int("enhance.timeoutMs", 1_000.0, 10_000.0),
-    int("repair.maxGroups", 1.0, 4.0),
+    // At most the window's wording slots (`WORDING_SLOTS` in src/SmartLookupApp.svelte).
+    int("repair.maxGroups", 1.0, 2.0),
     int("repair.maxTerms", 1.0, 12.0),
     int("repair.maxPhrases", 0.0, 4.0),
     int("repair.itemMaxChars", 8.0, 80.0),
@@ -285,13 +288,27 @@ impl LookupParams {
         if c.k > c.pool {
             return Err(format!("candidates.k = {} must not exceed candidates.pool = {}", c.k, c.pool));
         }
+        // One block of the largest allowed size must fit the budget, or
+        // in-range values could silently send nothing.
+        let per_token = u64::from(c.cjk_chars_per_token.min(c.other_chars_per_token));
+        let worst = (c.max_block_chars as u64).div_ceil(per_token);
+        if c.token_budget < worst {
+            return Err(format!(
+                "candidates.tokenBudget = {} must be at least {worst} = ceil(candidates.maxBlockChars {} / \
+                 min(candidates.cjkCharsPerToken {}, candidates.otherCharsPerToken {}))",
+                c.token_budget, c.max_block_chars, c.cjk_chars_per_token, c.other_chars_per_token
+            ));
+        }
         let t = &self.tiers;
         if t.unfit >= t.fit {
             return Err(format!("tiers.unfit = {} must be below tiers.fit = {}", t.unfit, t.fit));
         }
         let criterion = &self.judge.criterion;
         let chars = criterion.chars().count();
-        if !(1..=MAX_CRITERION_CHARS).contains(&chars) || criterion.chars().any(char::is_control) {
+        if !(1..=MAX_CRITERION_CHARS).contains(&chars)
+            || criterion.trim().is_empty()
+            || criterion.chars().any(char::is_control)
+        {
             return Err(format!(
                 "judge.criterion must be 1..={MAX_CRITERION_CHARS} characters without control characters"
             ));
@@ -469,7 +486,7 @@ mod tests {
     #[test]
     fn defaults_equal_the_constants_they_replace() {
         let p = LookupParams::default();
-        assert_eq!((p.local.limit, p.local.deep_timeout_ms), (100, 4_000));
+        assert_eq!((p.local.limit, p.local.deep_timeout_ms), (50, 4_000));
         assert_eq!((p.local.rrf_k, p.local.strict_weight, p.local.relaxed_weight), (60.0, 1.5, 1.0));
         assert_eq!(p.time.mode, TimeMode::Group);
         assert_eq!(p.routing.few_terms_max, 2);
@@ -525,8 +542,12 @@ mod tests {
         assert_eq!(keys.len(), 20, "keys are unique");
         for bound in BOUNDS {
             assert!(LookupParams::default().numeric(bound.key).is_some(), "{}", bound.key);
-            let extra: Vec<(&str, serde_json::Value)> =
-                if bound.key == "candidates.pool" { vec![("candidates.k", serde_json::json!(1))] } else { vec![] };
+            // Cross-field partners that keep the bound's own edge valid.
+            let extra: Vec<(&str, serde_json::Value)> = match bound.key {
+                "candidates.pool" => vec![("candidates.k", serde_json::json!(1))],
+                "candidates.tokenBudget" => vec![("candidates.maxBlockChars", serde_json::json!(100))],
+                _ => vec![],
+            };
             let step = if bound.integer { 1.0 } else { 0.01 };
             for inside in [bound.min, bound.max] {
                 let json = file_with(bound.key, number(inside, bound.integer).unwrap(), &extra);
@@ -604,6 +625,46 @@ mod tests {
         assert_eq!(parse_params(r#"{"time":{"mode":"window"}}"#, "p").unwrap().time.mode, TimeMode::Window);
         assert!(parse_params(r#"{"enhance":{"timeoutMs":"3000"}}"#, "p").is_err());
         assert!(parse_params(r#"{"candidates":{"k":1.5}}"#, "p").is_err());
+    }
+
+    #[test]
+    fn a_whitespace_only_criterion_is_rejected() {
+        // Whitespace only would send an empty 「判断准则：」.
+        assert_eq!(
+            parse_params(r#"{"judge":{"criterion":"   "}}"#, "p").unwrap_err(),
+            "p: judge.criterion must be 1..=1000 characters without control characters"
+        );
+    }
+
+    #[test]
+    fn the_token_budget_must_fit_one_block_of_the_largest_allowed_size() {
+        // One block of the largest allowed size must fit the token budget.
+        assert_eq!(
+            parse_params(r#"{"candidates":{"tokenBudget":500,"maxBlockChars":3000}}"#, "p").unwrap_err(),
+            "p: candidates.tokenBudget = 500 must be at least 3000 = ceil(candidates.maxBlockChars 3000 / \
+             min(candidates.cjkCharsPerToken 1, candidates.otherCharsPerToken 4))"
+        );
+        assert!(parse_params(r#"{"candidates":{"tokenBudget":1200}}"#, "p").is_ok());
+        assert!(parse_params(r#"{"candidates":{"tokenBudget":1199}}"#, "p").unwrap_err().contains("must be at least 1200"));
+        // Fewer characters per token count more tokens: the budget follows the lower rate.
+        assert!(parse_params(
+            r#"{"candidates":{"tokenBudget":750,"maxBlockChars":3000,"cjkCharsPerToken":4,"otherCharsPerToken":2}}"#,
+            "p"
+        )
+        .unwrap_err()
+        .contains("must be at least 1500 = "));
+        assert!(parse_params(
+            r#"{"candidates":{"tokenBudget":750,"maxBlockChars":3000,"cjkCharsPerToken":4,"otherCharsPerToken":4}}"#,
+            "p"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn repair_max_groups_is_at_most_the_two_wording_slots() {
+        // The ruled 1..=2: the window has two wording slots.
+        assert!(parse_params(r#"{"repair":{"maxGroups":3}}"#, "p").unwrap_err().contains("repair.maxGroups = 3 is outside 1..=2"));
+        assert_eq!(parse_params(r#"{"repair":{"maxGroups":2}}"#, "p").unwrap().repair.max_groups, 2);
     }
 
     #[test]

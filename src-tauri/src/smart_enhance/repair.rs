@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::keys::{read_key, ConnectionTest, KeyKind};
 use super::{
-    claim_auto_request, enhance_client, fresh_cancel_flag, release_auto_request, status_for, CancelFlag,
+    cancel_flag_for, claim_auto_request, enhance_client, release_auto_request, status_for, CancelFlag,
     ChatRequestConfig, EnhanceStatus, Missing, SkipReason, Trigger, UsageDto,
 };
 use crate::lookup_params::RepairParams;
@@ -392,7 +392,7 @@ pub async fn smart_lookup_repair_suggest(
 ) -> Result<RepairSuggestion, String> {
     // An invalid parameter file is an error before anything else: no request.
     let params = crate::lookup_params::for_app(&app)?;
-    let cancel = fresh_cancel_flag(&lookup_run_id);
+    let cancel = cancel_flag_for(trigger, &lookup_run_id);
     let key = read_key(&app, KeyKind::Chat);
     let client = enhance_client()?;
     let request = RepairRequest {
@@ -462,11 +462,18 @@ mod tests {
         assert!(sanitize_groups(vec![g(&["123456789"], &[])], &few).is_err());
         assert!(parse_repair_groups(r#"{"groups":[{"terms":["123456789"]}]}"#, &few).is_err());
         assert_eq!(sanitize_groups(vec![g(&["12345678", "b"], &[])], &few).unwrap(), vec![g(&["12345678", "b"], &[])]);
-        let wide = RepairParams { max_groups: 4, max_terms: 12, max_phrases: 4, item_max_chars: 80 };
+        // The widest limits the params file allows (`repair.maxGroups` ≤ 2).
+        let wide = RepairParams { max_groups: 2, max_terms: 12, max_phrases: 4, item_max_chars: 80 };
         let long = "长".repeat(80);
-        let four = format!(r#"{{"groups":[{{"terms":["{long}"]}},{{"terms":["b"]}},{{"terms":["c"]}},{{"terms":["d"]}}]}}"#);
-        assert_eq!(parse_repair_groups(&four, &wide).unwrap().len(), 4);
-        assert!(parse(&four).is_err());
+        let terms: Vec<String> = (0..12).map(|i| format!("t{i}")).collect();
+        let two = format!(
+            r#"{{"groups":[{{"terms":["{long}"],"phrases":["p a","p b","p c","p d"]}},{{"terms":{}}}]}}"#,
+            serde_json::to_string(&terms).unwrap()
+        );
+        assert_eq!(parse_repair_groups(&two, &wide).unwrap().len(), 2);
+        assert!(parse(&two).is_err());
+        let three = r#"{"groups":[{"terms":["a"]},{"terms":["b"]},{"terms":["c"]}]}"#;
+        assert!(parse_repair_groups(three, &wide).is_err());
     }
 
     #[test]

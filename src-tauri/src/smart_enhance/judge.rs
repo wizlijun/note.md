@@ -16,10 +16,11 @@ use sha2::{Digest, Sha256};
 use super::candidates::{rerank, route, select_candidates, tier, top_ten_unfit, Candidate, Route};
 use super::keys::{read_key, KeyKind};
 use super::{
-    claim_auto_request, enhance_client, fresh_cancel_flag, gate_jev, release_auto_request, status_for, CancelFlag,
+    cancel_flag_for, claim_auto_request, enhance_client, gate_jev, release_auto_request, status_for, CancelFlag,
     EnhanceStatus, Gate, JevRequestConfig, Missing, SkipReason, Tier, Trigger, UsageDto,
 };
 use crate::lookup_params::{self, LookupParams};
+use crate::search::time_group::TimeMode;
 use crate::search::IndexHandle;
 use crate::smart_lookup::{
     active_root, current_block, run_for_window, update_run, CanonicalHit, JudgeRecord, LookupRun,
@@ -88,12 +89,13 @@ pub(crate) struct JudgeInput<'a> {
 
 /// The shared Noul `state`: question, time range and filters when present,
 /// then the criterion (`judge.criterion`, spec §5.4 by default), verbatim.
-/// The 时间范围 line goes out whenever the run has a time — in Group mode
-/// and in Window mode alike (ledger ruling: §5.4 sends the parsed time, and
-/// Window mode is a filter on it).
+/// The 时间范围 line goes out when the run has a time in Group or Window mode
+/// (ledger ruling: §5.4 sends the parsed time, and Window mode is a filter on
+/// it), not in Ignore mode: the user chose to ignore time, as repair's
+/// 「时间：无」.
 fn build_state(run: &LookupRun, criterion: &str) -> String {
     let mut lines = vec![format!("用户要找的内容：{}", run.question)];
-    if let Some(time) = &run.time {
+    if let Some(time) = run.time.as_ref().filter(|t| t.mode != TimeMode::Ignore) {
         lines.push(format!(
             "时间范围：{} 至 {}（来自「{}」）",
             time.after.format("%Y-%m-%d"),
@@ -381,6 +383,13 @@ fn scoped_confidentiality(answer: IndexAnswer, run_root: &Path) -> Option<HashMa
     }
 }
 
+/// The index's answer for one query.
+/// A failed query is unavailable like a busy index: an empty map would count
+/// every candidate as confidential and over-report 保密笔记.
+fn index_answer(root: PathBuf, found: Result<HashMap<String, String>, String>) -> IndexAnswer {
+    Some((root, found.ok()?))
+}
+
 /// `files.confidentiality` for the pool's paths, keyed exactly like
 /// `CanonicalHit.path`, for the first `pool` hits in display order. One query
 /// on a blocking thread under a `try_lock` of the index: a busy index (a
@@ -410,7 +419,7 @@ async fn pool_confidentiality(
         };
         let index = guard.as_ref()?;
         let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
-        Some((index.vault_root().to_path_buf(), index.confidentiality_for_paths(&refs).unwrap_or_default()))
+        index_answer(index.vault_root().to_path_buf(), index.confidentiality_for_paths(&refs))
     })
     .await
     .map_err(|_| "confidentiality lookup failed".to_string())?;
@@ -502,7 +511,7 @@ pub async fn smart_lookup_judge(
     // An invalid parameter file is an error before anything else: no request.
     let params = lookup_params::for_app(&app)?;
     let vault_root = active_root(&app)?;
-    let cancel = fresh_cancel_flag(&lookup_run_id);
+    let cancel = cancel_flag_for(trigger, &lookup_run_id);
     let key = match jev.auth_mode {
         AuthMode::Bearer => read_key(&app, KeyKind::Jev),
         AuthMode::None => None,
@@ -528,7 +537,7 @@ mod tests {
     use super::*;
     use crate::lookup_params::DEFAULT_CRITERION;
     use crate::search::time_group::TimeMode;
-    use crate::smart_enhance::{cancel_flag, smart_lookup_cancel};
+    use crate::smart_enhance::{cancel_flag, cancel_flag_for, fresh_cancel_flag, smart_lookup_cancel};
     use crate::smart_lookup::{ArmFact, RouteFacts, RunTime};
     use crate::smart_model::test_support::serve_once;
     use std::fs;
@@ -1199,11 +1208,78 @@ mod tests {
         assert!(lines[3].starts_with("判断准则：仅依据候选的标题、层级和提供的原文"));
         assert_eq!(lines.len(), 4);
 
+        // Ignore mode: the user chose to ignore time, so no 时间范围 line
+        // (as repair sends 「时间：无」).
+        let mut ignored = fixture("tag:work 发布 风险 评审");
+        ignored.run.time = f.run.time.clone().map(|t| RunTime { mode: TimeMode::Ignore, ..t });
+        let ignored = build_state(&ignored.run, DEFAULT_CRITERION);
+        assert!(!ignored.contains("时间范围"), "{ignored}");
+        assert_eq!(ignored.lines().collect::<Vec<_>>(), [lines[0], lines[2], lines[3]]);
+        // Window mode is a filter on the time: the line goes out.
+        let mut window = fixture("发布 风险 评审");
+        window.run.time = f.run.time.clone().map(|t| RunTime { mode: TimeMode::Window, ..t });
+        assert!(build_state(&window.run, DEFAULT_CRITERION).lines().nth(1).unwrap().starts_with("时间范围："));
+
         let plain = build_state(&fixture("发布 风险 评审").run, DEFAULT_CRITERION);
         assert_eq!(plain.lines().count(), 2);
         assert_eq!(lines[3], format!("判断准则：{DEFAULT_CRITERION}"));
         let custom = build_state(&fixture("发布").run, "只看决定。");
         assert_eq!(custom.lines().last(), Some("判断准则：只看决定。"));
+    }
+
+    /// The Settings page shows `JEV_REQUEST_EXAMPLE` as what is sent: its
+    /// `state` has the lines `build_state` writes, in the same order, and the
+    /// criterion is `DEFAULT_CRITERION`.
+    #[test]
+    fn the_settings_request_example_has_the_state_lines_in_build_state_order() {
+        let mut f = fixture("tag:work 发布");
+        f.run.time = Some(RunTime {
+            source_text: "上周".into(),
+            after: chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap(),
+            before: chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+            mode: TimeMode::Group,
+            in_window: 1,
+        });
+        let prefix = |line: &str| line.split_once('：').map(|(p, _)| p.to_string()).unwrap();
+        let sent: Vec<String> = build_state(&f.run, DEFAULT_CRITERION).lines().map(prefix).collect();
+        assert_eq!(sent, ["用户要找的内容", "时间范围", "过滤条件", "判断准则"]);
+
+        const API: &str = include_str!("../../../src/lib/smart-search/api.ts");
+        let start = API.find("state: `").expect("JEV_REQUEST_EXAMPLE.state") + "state: `".len();
+        let body = &API[start..];
+        let state = &body[..body.find('`').unwrap()];
+        let shown: Vec<String> = state
+            .split("\\n")
+            .map(|line| prefix(line.trim_start_matches('[').trim_end_matches(']')))
+            .collect();
+        assert_eq!(shown, sent, "{state}");
+        assert!(state.ends_with("判断准则：${CRITERION}"), "{state}");
+        assert!(API.contains(&format!("const CRITERION = '{DEFAULT_CRITERION}'")), "the example's criterion is DEFAULT_CRITERION");
+    }
+
+    #[test]
+    fn an_index_that_cannot_answer_is_unavailable_not_all_unknown() {
+        let root = PathBuf::from("/v");
+        assert_eq!(index_answer(root.clone(), Err("no such table: files".into())), None);
+        let found: HashMap<String, String> = [("a.md".to_string(), "unknown".to_string())].into();
+        assert_eq!(index_answer(root.clone(), Ok(found.clone())), Some((root, found)));
+    }
+
+    #[tokio::test]
+    async fn an_automatic_judge_after_a_cancel_stays_cancelled_and_sends_nothing() {
+        let f = fixture("an automatic judge after a cancel");
+        let (base, _request, accepted) = serve_once(200, answers(&[0.9; 4]), Duration::ZERO).await;
+        let cfg = config(&base);
+        // 停止 reaches the host before the automatic judge registers its flag.
+        smart_lookup_cancel(f.run.id.clone());
+        let auto = cancel_flag_for(Trigger::Auto, &f.run.id);
+        assert!(auto.is_cancelled());
+        let (r, _, sent) = judge_with(&f, &cfg, &ALL, &[], Trigger::Auto, &auto).await.unwrap();
+        assert_eq!((r.status, r.request_count, sent), (EnhanceStatus::Cancelled, 0, false));
+        // The user's own retry starts from a fresh flag.
+        assert!(!cancel_flag_for(Trigger::User, &f.run.id).is_cancelled());
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(accepted.load(SeqCst), 0);
     }
 
     #[tokio::test]

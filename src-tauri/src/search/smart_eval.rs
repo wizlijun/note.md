@@ -274,16 +274,17 @@ pub(super) fn run_e1(
     today: NaiveDate,
 ) -> Result<Vec<E1Row>, String> {
     let counter = Arc::new(AtomicU64::new(1));
-    // E1 measures the local baseline at the default fusion constants.
+    // E1 measures the local baseline at the default params.
     let fusion = FusionParams::default();
+    let local = crate::lookup_params::LocalParams::default();
     let search = |question: &str, deep: bool| {
         smart_search_locked(
             handle,
             Instant::now(),
             question,
-            Some(50),
+            Some(local.limit),
             Some(deep),
-            deep.then_some(4_000),
+            deep.then_some(local.deep_timeout_ms),
             &counter,
             1,
             &fusion,
@@ -473,6 +474,10 @@ pub(crate) struct LookupEvalRow {
     pub deep_rank: Option<usize>,
     #[serde(default)]
     pub deep_ms: Option<u64>,
+    /// The local deep pass failed. The pipeline row (paid) is kept; the row
+    /// is left out of C4's population, whose filter needs that pass.
+    #[serde(default)]
+    pub deep_error: Option<String>,
     pub local_ms: u64,
     pub enhance_ms: Option<u64>,
     pub estimated_tokens: u64,
@@ -594,8 +599,9 @@ fn judged(row: &LookupEvalRow) -> bool {
 
 /// C4's population (§9.3 「预筛出的未召回任务」): scored tasks whose target
 /// neither the normal local pass nor the local deep pass found.
+/// A row whose deep pass failed is left out: whether deep found it is unknown.
 fn c4_population(row: &LookupEvalRow) -> bool {
-    is_scored(row) && row.local_rank.is_none() && row.deep_rank.is_none()
+    is_scored(row) && row.local_rank.is_none() && row.deep_rank.is_none() && row.deep_error.is_none()
 }
 
 /// `split` is `"all"`, `"dev"` or `"holdout"`.
@@ -813,6 +819,7 @@ fn error_row(task: &EvalTask, timeout_ms: u64, error: String) -> LookupEvalRow {
         demoted: false,
         deep_rank: None,
         deep_ms: None,
+        deep_error: None,
         local_ms: 0,
         enhance_ms: None,
         estimated_tokens: 0,
@@ -862,6 +869,7 @@ fn score(task: &EvalTask, target_indexed: bool, output: &PipelineOutput, timeout
         demoted,
         deep_rank: None,
         deep_ms: None,
+        deep_error: None,
         local_ms: output.local_ms,
         enhance_ms: judge.map(|j| j.elapsed_ms).or_else(|| repair.map(|r| r.elapsed_ms)),
         estimated_tokens: judge.map_or(0, |j| j.estimated_tokens),
@@ -899,13 +907,25 @@ async fn eval_task(
         enhance,
     };
     let output = run_pipeline(input, client).await?;
-    let mut row = score(task, target_indexed, &output, timeout_ms);
+    let row = score(task, target_indexed, &output, timeout_ms);
     if is_scored(&row) && row.local_rank.is_none() {
-        let (deep_rank, deep_ms) = deep_pass(index, task, params, today)?;
-        row.deep_rank = deep_rank;
-        row.deep_ms = Some(deep_ms);
+        return Ok(with_deep_pass(row, deep_pass(index, task, params, today)));
     }
     Ok(row)
+}
+
+/// Record the local deep pass on a scored row the normal pass missed. A
+/// failed pass keeps the (paid) pipeline row and records `deep_error`; the
+/// row then leaves C4's population.
+fn with_deep_pass(mut row: LookupEvalRow, deep: Result<(Option<usize>, u64), String>) -> LookupEvalRow {
+    match deep {
+        Ok((deep_rank, deep_ms)) => {
+            row.deep_rank = deep_rank;
+            row.deep_ms = Some(deep_ms);
+        }
+        Err(error) => row.deep_error = Some(error),
+    }
+    row
 }
 
 /// Run every task through [`run_pipeline`] (window [`EVAL_WINDOW`], deep
@@ -1203,6 +1223,7 @@ mod tests {
             demoted: false,
             deep_rank: None,
             deep_ms: None,
+            deep_error: None,
             local_ms: 10,
             enhance_ms: Some(100),
             estimated_tokens: 50,
@@ -1342,6 +1363,27 @@ mod tests {
         let missed = [repair_row("m1", Some(40)), repair_row("m2", None), repair_row("m3", Some(60))];
         assert_eq!(gate_verdicts(&missed).c4, Some(true));
         assert_eq!(gate_verdicts(&missed[1..]).c4, Some(false));
+    }
+
+    #[test]
+    fn a_failed_deep_pass_keeps_the_paid_row_and_leaves_c4() {
+        let paid = LookupEvalRow { input_tokens: Some(120), ..repair_row("t09", Some(4)) };
+        let row = with_deep_pass(paid.clone(), Err("index busy".into()));
+        assert_eq!(row.error, None, "{row:?}");
+        assert_eq!(row.deep_error.as_deref(), Some("index busy"));
+        assert_eq!((row.route, row.status, row.request_count), (paid.route, paid.status, 1));
+        assert_eq!((row.final_rank, row.input_tokens, row.enhance_ms), (Some(4), Some(120), Some(700)));
+        assert_eq!((row.deep_rank, row.deep_ms), (None, None));
+        // Its deep pass never ran, so C4's 「deep 也未召回」 is unknown: not counted.
+        let gates = gate_verdicts(&[row.clone(), repair_row("m2", None)]);
+        assert_eq!((gates.c4_tasks, gates.c4_rescued), (1, 0));
+        // Still a scored, paid row everywhere else.
+        assert_eq!(lookup_metrics(&[row.clone()], "all").errors, 0);
+        let line = serde_json::to_string(&row).unwrap();
+        assert!(line.contains(r#""deepError":"index busy""#), "{line}");
+        // A finished deep pass is recorded as before.
+        let found = with_deep_pass(paid, Ok((Some(9), 40)));
+        assert_eq!((found.deep_rank, found.deep_ms, found.deep_error), (Some(9), Some(40), None));
     }
 
     #[test]

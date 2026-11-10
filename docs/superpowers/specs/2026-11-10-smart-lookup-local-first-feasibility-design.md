@@ -627,11 +627,11 @@ E1–E3 以 `#[ignore]` 测试的形式放在 `src-tauri` 里，读取环境变�
 
 用户要求：把所有可调参数严格记录下来，给出一个可供以后调参的参数文件，并为整套查找提供无界面的 CLI。以下是确认的决定。
 
-**G.1 参数文件 `LookupParams`。** 附录 A 的起步值和正文里散落的常量收进一个结构，JSON 格式、字段名 camelCase。`Default` 与本附录之前的常量逐一相等，所以不写参数文件时行为不变。
+**G.1 参数文件 `LookupParams`。** 附录 A 的起步值和正文里散落的常量收进一个结构，JSON 格式、字段名 camelCase。`Default` 与本附录之前的常量逐一相等，所以不写参数文件时行为不变；唯一的例外是 `local.limit`：默认 50（应用窗口实际传的默认条数），不是宿主原来在调用方不给条数时的 100（最终修复轮裁定，让 CLI 评测反映实际使用；应用总是传自己的条数，行为不变）。
 
 | 组 | 配置键 | 默认 | 范围 | 来源 |
 | --- | --- | --- | --- | --- |
-| 本地检索 | `local.limit` | 100 | 1–100 | §5.2 |
+| 本地检索 | `local.limit` | 50 | 1–100 | §5.2 |
 | | `local.deepTimeoutMs` | 4000 | 1000–5000 | §2.1 |
 | | `local.rrfK` | 60 | 1–1000 | §2.1 |
 | | `local.strictWeight` | 1.5 | 0.1–10 | §2.1 |
@@ -648,7 +648,7 @@ E1–E3 以 `#[ignore]` 测试的形式放在 `src-tauri` 里，读取环境变�
 | 分档 | `tiers.fit` | 0.7 | 0.5–1.0 | §5.4、F.3 |
 | | `tiers.unfit` | 0.3 | 0.0–0.5 | §5.4、F.3 |
 | 时限 | `enhance.timeoutMs` | 3000 | 1000–10000 | §5.6 |
-| 修复 | `repair.maxGroups` | 2 | 1–4 | §5.5、F.7 |
+| 修复 | `repair.maxGroups` | 2 | 1–2（窗口只有 2 个说法栏，`WORDING_SLOTS`） | §5.5、F.7 |
 | | `repair.maxTerms` | 6 | 1–12 | §5.5、F.7 |
 | | `repair.maxPhrases` | 2 | 0–4 | F.7 |
 | | `repair.itemMaxChars` | 40 | 8–80 | F.7 |
@@ -657,7 +657,8 @@ E1–E3 以 `#[ignore]` 测试的形式放在 `src-tauri` 里，读取环境变�
 校验规则：
 
 - 范围两端都包含。
-- 跨字段规则：`candidates.k` 不得大于 `candidates.pool`；`tiers.unfit` 必须小于 `tiers.fit`。
+- 跨字段规则：`candidates.k` 不得大于 `candidates.pool`；`tiers.unfit` 必须小于 `tiers.fit`；`candidates.tokenBudget` 不得小于 `ceil(candidates.maxBlockChars / min(candidates.cjkCharsPerToken, candidates.otherCharsPerToken))`，保证一个允许的最长块放得下，否则范围内的取值可能什么都不发。
+- `judge.criterion` 不得只有空白字符。
 - 任一字段越界、类型不对或违反跨字段规则，整个文件作废。错误指出来源文件、配置键、取值和范围。从不截断到边界。
 - 未知字段在任何层级都拒绝。缺省的字段取默认值。
 - `routing.fewTermsMax` 为 0 时，「词太少不增强」这条路由规则失效。
@@ -697,6 +698,7 @@ E1–E3 以 `#[ignore]` 测试的形式放在 `src-tauri` 里，读取环境变�
 - 密钥只从环境变量 `NOTEMD_JEV_KEY`、`NOTEMD_CHAT_KEY` 读取，不接受命令行参数，从不回显。
 - 保密过滤、`current_block` 回源核对、错误到状态的映射、自动请求预算，都调用与窗口相同的宿主函数，不另写一套。
 - 展示顺序取宿主顺序。时间按 `group` 分组时，分组边界就是范围内的条数，重排不跨越它。
+- 与窗口的差异（最终评审 #8，裁定记录在案）：CLI 与评测判断的是宿主顺序，分组边界只有时间分组；应用窗口判断的是按来源分组（`results.groupBy` 默认 `auto`）展开后的顺序，分组边界是这些来源分组，候选池是展开后的前 `candidates.pool` 条，重排不跨越来源分组。所以 `notemd lookup eval` 量的是宿主顺序上的判断，窗口在自己的展示分组内重排，C3 的结论按宿主顺序得出。让评测按窗口的默认分组排列是后续工作（要在 Rust 里再实现一次分组，暂不做）。
 - 输出：`--json` 时每行一个 JSON 对象；否则输出简短的文字摘要和命中列表。
 - 退出码沿用 `notemd search`：有命中为 0，无命中为 1，出错为 2。
 

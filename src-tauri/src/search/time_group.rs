@@ -4,8 +4,8 @@
 //! the phrase stripped and the window appended as `after:` / `before:`, once
 //! with the question untouched — and the two answers are concatenated: hits
 //! inside the window first, every other hit after them. Feasibility spec
-//! §5.2; plan Task 2. Only the evaluation calls this until the grouping
-//! pre-gate (spec §9.3) passes.
+//! §5.2; plan Task 2. On by default (`time.mode` = `group`); C2 of spec §9.3
+//! still measures it.
 
 use serde::{Deserialize, Serialize};
 

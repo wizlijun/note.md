@@ -218,6 +218,17 @@ pub(crate) fn fresh_cancel_flag(run_id: &str) -> Arc<CancelFlag> {
     entry.1.clone()
 }
 
+/// The flag a judge or repair call waits on. Only the user's own retry needs
+/// a fresh one (a retry after 「停止」); an automatic call keeps the run's
+/// existing flag, so a 停止 or supersede that reached the host before the
+/// call registered still cancels it (§5.6). Each Enter has its own run id.
+pub(crate) fn cancel_flag_for(trigger: Trigger, run_id: &str) -> Arc<CancelFlag> {
+    match trigger {
+        Trigger::User => fresh_cancel_flag(run_id),
+        Trigger::Auto => cancel_flag(run_id),
+    }
+}
+
 static CLAIM_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Proof that this caller took a lookup run's one automatic request. Keep it

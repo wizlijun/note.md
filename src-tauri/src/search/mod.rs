@@ -1669,10 +1669,11 @@ mod command_tests {
     #[test]
     fn local_lookup_budget_bounds_limit_and_deep_timeout() {
         let p = crate::lookup_params::LocalParams::default();
-        assert_eq!(local_lookup_budget(None, None, None, &p), (100, false, None));
-        assert_eq!(local_lookup_budget(Some(50), Some(false), Some(900), &p), (50, false, Some(900)));
-        assert_eq!(local_lookup_budget(Some(0), Some(true), None, &p), (100, true, Some(4_000)));
-        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000), &p), (100, true, Some(5_000)));
+        // `local.limit` defaults to 50, what the app window sends.
+        assert_eq!(local_lookup_budget(None, None, None, &p), (50, false, None));
+        assert_eq!(local_lookup_budget(Some(100), Some(false), Some(900), &p), (100, false, Some(900)));
+        assert_eq!(local_lookup_budget(Some(0), Some(true), None, &p), (50, true, Some(4_000)));
+        assert_eq!(local_lookup_budget(Some(500), Some(true), Some(9_000), &p), (50, true, Some(5_000)));
     }
 
     #[test]

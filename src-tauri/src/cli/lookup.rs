@@ -586,6 +586,9 @@ pub(crate) async fn run_eval(
         if let Some(error) = &row.error {
             eprintln!("notemd: task {}: {error}", row.id);
         }
+        if let Some(error) = &row.deep_error {
+            eprintln!("notemd: task {}: deep pass: {error}", row.id);
+        }
         if let Some((path, file)) = sink.as_mut() {
             let mut line = serde_json::to_string(row).map_err(|e| format!("encode row: {e}"))?;
             line.push('\n');

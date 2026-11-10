@@ -1,8 +1,8 @@
 //! Short-lived trusted state for Smart Lookup runs.
 //!
-//! Normal lookup never reads source files here. Later actions resolve opaque
-//! result ids back to canonical planned-search hits and re-read the current
-//! line block, rejecting stale content.
+//! Normal lookup never reads source files here. Later actions (judge,
+//! feedback) resolve opaque result ids back to the run's canonical local
+//! lookup hits and re-read the current line block, rejecting stale content.
 
 use chrono::NaiveDate;
 use std::collections::{HashMap, VecDeque};
