@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "hostVersion": "6.1110.8",
+  "pluginVersion": "0.1.13",
+  "architecture": "aarch64-apple-darwin",
+  "sourceCommit": "0b5c3c7ba1b6f3f0923c71041315ae73142faa3b",
+  "actualHostCompilationSource": "436a7ed72471e7b3a40679b87b61c40d0a3029d0",
+  "pluginActualBuildSource": "2ddc823d68267e375023f072c60ea6a53c7fddcf",
+  "sourceEquivalence": "Only unrelated test expectations and external read-only artifact verifier differ; native receipt input hashes and all tracked plugin inputs match exactly. Original receipt is preserved.",
+  "tag": "v6.1110.8",
+  "releaseUrl": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.8",
+  "publishedAt": "2026-11-10T16:34:00Z",
+  "public": true,
+  "hostAssets": {
+    "note.md-6.1110.8-aarch64.dmg": {
+      "bytes": 14100740,
+      "sha256": "7d1f20c20a094f6dd4435e217e82ca0c4e335238a75e2ec4f96645b68cb38e46"
+    },
+    "note.md-aarch64.app.tar.gz": {
+      "bytes": 14174984,
+      "sha256": "1054cc4c9d6791909ad60941e5b55a7449c9ba85fcd620a5ea81fa31d9c2e607"
+    },
+    "note.md-aarch64.app.tar.gz.sig": {
+      "bytes": 416,
+      "sha256": "b087efa44dede9e3a07b52e66feaf73e1c60f25269248d19b376ec68196ba704"
+    },
+    "latest.json": {
+      "bytes": 747,
+      "sha256": "c7c46c7e978a09d06524790dfd8a11a784f687a19521930bacdfb3cb99134b2e"
+    }
+  },
+  "nativeBridgeBinarySha256": "69c499d031f8688688f295182b225867f62d018dc51ae8a13bc81ace6cf50edf",
+  "appleNotary": {
+    "app": {
+      "jobId": "d4f8f0bf-bab5-4946-a6c6-b7531c85d8b9",
+      "status": "Accepted"
+    },
+    "dmg": {
+      "jobId": "b3092da0-63f0-45b5-a61b-10f83673fc9f",
+      "status": "Accepted"
+    }
+  },
+  "validation": {
+    "frontendSuites": 430,
+    "frontendTests": 5718,
+    "typeErrors": 0,
+    "typeWarnings": 31,
+    "protocol": "passed",
+    "prodAuditHighOrCritical": 0,
+    "canvasChecks": 27,
+    "mobileConfigChecks": 3,
+    "signedPackagedBackendSuites": [
+      2,
+      13,
+      1
+    ],
+    "candidateLayoutAssertions": 20877,
+    "nativeHostChecks": 60,
+    "objcAndSwiftCrossProcess": "passed",
+    "artifactVerifier": true,
+    "draftFourFullBodyReadbacks": "passed",
+    "publicFourFullBodyReadbacks": "passed",
+    "actualUpdaterEndpoint": "6.1110.8 matched exact frozen manifest"
+  },
+  "limits": [
+    "Physical IMK candidate-window end-to-end typing was not established by tool-generated keys.",
+    "Existing caret-render KVO12<20 also failed the production baseline; no threshold was lowered and it is not a newly introduced regression.",
+    "No Intel or Linux binary was built for this release."
+  ],
+  "scopeAudit": "scope-audit.json",
+  "evidenceRoot": "/Users/bruce/git/mdeditor/tasks/sumi-ime-host-release-20261110",
+  "localInstalledVersion": "6.1110.8",
+  "localInstalledBinarySha256": "69c499d031f8688688f295182b225867f62d018dc51ae8a13bc81ace6cf50edf"
+}

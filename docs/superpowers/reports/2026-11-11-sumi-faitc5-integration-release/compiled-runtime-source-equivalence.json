@@ -1,0 +1,10 @@
+{
+  "actual_compilation_source": "436a7ed72471e7b3a40679b87b61c40d0a3029d0",
+  "selected_release_source": "0b5c3c7ba1b6f3f0923c71041315ae73142faa3b",
+  "changed_paths": [
+    "scripts/sumi/verify-release.py"
+  ],
+  "difference_sha256": "3a346c137bd2b2db4173271dfab2f8ecfee88ec51abaa92a08990c774fc3e7f3",
+  "runtime_and_plugin_inputs_identical": true,
+  "scope": "Only the external read-only artifact validator changed; no compiled source, resource, version, Cargo lock, build script, native plugin input or plugin UI differs."
+}

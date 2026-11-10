@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "source": "0b5c3c7ba1b6f3f0923c71041315ae73142faa3b",
+  "assets": [
+    {
+      "name": "note.md-6.1110.8-aarch64.dmg",
+      "bytes": 14100740,
+      "sha256": "7d1f20c20a094f6dd4435e217e82ca0c4e335238a75e2ec4f96645b68cb38e46"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "bytes": 14174984,
+      "sha256": "1054cc4c9d6791909ad60941e5b55a7449c9ba85fcd620a5ea81fa31d9c2e607"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "bytes": 416,
+      "sha256": "b087efa44dede9e3a07b52e66feaf73e1c60f25269248d19b376ec68196ba704"
+    },
+    {
+      "name": "latest.json",
+      "bytes": 747,
+      "sha256": "c7c46c7e978a09d06524790dfd8a11a784f687a19521930bacdfb3cb99134b2e"
+    }
+  ]
+}
