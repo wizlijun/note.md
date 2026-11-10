@@ -1,0 +1,40 @@
+{
+  "checked_at_utc": "2026-11-10T11:00:53.415728+00:00",
+  "daemon_pid": 90427,
+  "daemon_exec_session": 76821,
+  "verified_uid": 1000,
+  "verified_data_root": "/home/bruce/git/note.md/tasks/omarchy-build/rootless/data/docker",
+  "active_container_count": 0,
+  "image_ids": [
+    "98eaf4caae68",
+    "5e5a340d10dc",
+    "5c3388c25935",
+    "d4594bb2300c",
+    "734a72b3d614",
+    "268fb24c39bc"
+  ],
+  "volume_names": [
+    "notemd-linux-amd64-git",
+    "notemd-linux-amd64-node",
+    "notemd-linux-amd64-pnpm",
+    "notemd-linux-amd64-registry",
+    "notemd-linux-amd64-target",
+    "notemd-linux-arm64-git",
+    "notemd-linux-arm64-node",
+    "notemd-linux-arm64-pnpm",
+    "notemd-linux-arm64-registry",
+    "notemd-sumi-plugin-build",
+    "notemd-sumi-plugin-git",
+    "notemd-sumi-plugin-node",
+    "notemd-sumi-plugin-pnpm",
+    "notemd-sumi-plugin-registry",
+    "notemd-sumi-plugin-target"
+  ],
+  "status": "stopped_verified",
+  "stopped_at_utc": "2026-11-10T11:01:02.611447+00:00",
+  "daemon_process_absent": true,
+  "task_socket_absent": true,
+  "cache_data_preserved": true,
+  "release_assets_preserved": true,
+  "exec_session_exit_code": 0
+}

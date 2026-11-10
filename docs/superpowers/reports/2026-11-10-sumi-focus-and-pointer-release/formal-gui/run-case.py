@@ -1,0 +1,4 @@
+import pathlib,subprocess,time,sys,json
+r=pathlib.Path(__file__).resolve().parent;case=sys.argv[1];assert case and all(c.isalnum() or c in '-_' for c in case);marker=r/'evidence/frames/case.txt'
+events=[{'name':'input_start','monotonic_us':time.monotonic_ns()//1000}];marker.write_text(case+'-input');subprocess.run([str(r.parent/'plugin-window-release/input-tools/keyboard')]+['a','BackSpace']*20,check=True);events.append({'name':'input_returned','monotonic_us':time.monotonic_ns()//1000});time.sleep(.6);marker.write_text(case+'-stable');events.append({'name':'stable_start','monotonic_us':time.monotonic_ns()//1000});time.sleep(2);events.append({'name':'stable_end','monotonic_us':time.monotonic_ns()//1000});marker.write_text(case+'-finished');(r/'evidence'/(case+'-events.json')).write_text(json.dumps(events,indent=2)+'\n')
+subprocess.run(['python3',str(r/'analyze.py'),str(r/'evidence/frames'/('frames-'+case+'-stable.jsonl')),'--case',case+'-stable'],check=True)

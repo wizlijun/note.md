@@ -1,0 +1,11 @@
+{
+  "status": "unconfirmed observation outside release gate, not a proven clipboard defect",
+  "source_line": "第126行 中文聚焦测试 光标居中与滚动稳定",
+  "saved_document_contains_literal_backslash_u": false,
+  "captured_file_bytes_hex": "3132365c7538383463205c75346532645c75363538375c75383035615c75373132365c75366434625c753862643520",
+  "captured_file_text": "126\\u884c \\u4e2d\\u6587\\u805a\\u7126\\u6d4b\\u8bd5 ",
+  "selection_screenshot": "evidence/drag-selection.png",
+  "capture_chain_known": "Actual pointer drag followed by Ctrl+C and private Wayland clipboard retrieval. The exact original retrieval shell invocation/MIME request was not preserved in these artifacts, so whether escaping came from retrieval/serialization is not proven.",
+  "source_review": "Parent inspected SourceMap::clipboard_markdown: selected source copied without Unicode escaping; native clipboard set_text uses reply string directly.",
+  "claim_limit": "Real selection and ASCII prefix validate pointer selection. This capture does not establish UTF-8 clipboard success or a production clipboard regression. No new GUI or production modification was performed."
+}

@@ -1,0 +1,27 @@
+{
+  "source": "/tmp/tmp.j9wSvZb4Iv/output/amd64/note.md_6.1110.6_amd64.deb",
+  "verificationContainer": "cf68b94630538cfdb3119daa0fb5018b54c27037b99da8a771eed2e612ac88ca",
+  "copiedAt": "2026-11-10T10:56:40.560138+00:00",
+  "sha256": "8f11cc89f73832b3ab2106552408c8289ac0fe87aaff47a02d81a9d8f48927d8",
+  "runtimeVerified": true,
+  "officialChecksumCopied": false,
+  "sourceTag": "v6.1110.6",
+  "sourceCommit": "024d81814b4076def2456428150a4a2cd84095de",
+  "coreCommit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "binarySha256": "efd58b8a0b3e523b3499a2eba8ead39ba018b0ae69695a21456ae180758504bb",
+  "binaryPath": "/home/bruce/git/note.md/tasks/sumi-focus-release-6.1110.6/package-provenance/usr/bin/notemd",
+  "packageMetadata": "Package: note-md\nVersion: 6.1110.6\nArchitecture: amd64",
+  "verificationStatus": "passed_on_same_package_retry",
+  "verificationFailure": {
+    "stage": "Arch pacman dependency installation",
+    "mirror": "fastly.mirror.pkgbuild.com",
+    "files": [
+      "perl-5.44.0-1-x86_64.pkg.tar.zst.sig",
+      "mesa-1:26.2.6-1-x86_64.pkg.tar.zst"
+    ],
+    "error": "Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds"
+  },
+  "officialReleaseScriptTemporaryDirectoryRemoved": true,
+  "watcherExited": true,
+  "runtimeRetryEvidence": "runtime-retry-result.json"
+}

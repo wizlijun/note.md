@@ -1,0 +1,11 @@
+{
+  "pid": 94818,
+  "tag": "v6.1110.6",
+  "host_binary_sha256": "efd58b8a0b3e523b3499a2eba8ead39ba018b0ae69695a21456ae180758504bb",
+  "diagnostic_mutation_module_loaded": false,
+  "read_only_modules_sha256": {
+    "/home/bruce/git/note.md/tasks/plugin-window-release/observer.so": "b108c91d69650cb31692f068e3658f9e7d4c4e03f8dd9571f9a70a759c604529",
+    "/home/bruce/git/note.md/tasks/sumi-focus-v5/frame-observer.so": "677e8e38e904b2d4c3e4702c43bc06a241bb04d5bcc2be4dc6fd30f853141e90",
+    "/home/bruce/git/note.md/tasks/sumi-focus-v6/input-observer.so": "92bcae4973495a4355adb5944dfe912c44cab6a5c72f8b7d39d68e32aba62ecc"
+  }
+}

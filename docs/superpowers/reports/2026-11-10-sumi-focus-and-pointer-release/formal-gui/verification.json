@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "release_gate_passed": true,
+  "tag": "v6.1110.6",
+  "commit": "024d81814b4076def2456428150a4a2cd84095de",
+  "deb_sha256": "8f11cc89f73832b3ab2106552408c8289ac0fe87aaff47a02d81a9d8f48927d8",
+  "host_binary_sha256": "efd58b8a0b3e523b3499a2eba8ead39ba018b0ae69695a21456ae180758504bb",
+  "host_pid": 94818,
+  "diagnostic_mutation_module_loaded": false,
+  "read_only_modules_sha256": {
+    "/home/bruce/git/note.md/tasks/plugin-window-release/observer.so": "b108c91d69650cb31692f068e3658f9e7d4c4e03f8dd9571f9a70a759c604529",
+    "/home/bruce/git/note.md/tasks/sumi-focus-v5/frame-observer.so": "677e8e38e904b2d4c3e4702c43bc06a241bb04d5bcc2be4dc6fd30f853141e90",
+    "/home/bruce/git/note.md/tasks/sumi-focus-v6/input-observer.so": "92bcae4973495a4355adb5944dfe912c44cab6a5c72f8b7d39d68e32aba62ecc"
+  },
+  "signed_plugin_payloads_unchanged": true,
+  "checks": {
+    "formal_decoration_native_window_pass_through_true": true,
+    "actual_body_click_changes_selection": true,
+    "actual_drag_selects_text": true,
+    "actual_wheel_changes_mid_scroll": true,
+    "candidate_mouse_commit_focus_and_nonfocus": true,
+    "exactly_two_nihao_commits_no_raw_pinyin": true,
+    "nonfocus_candidate_preserves_scroll_viewport_and_row_y": true,
+    "long_document_240_lines_mid_scroll": true,
+    "fixed_layout_stability_six_cases_scale2_scale3": true,
+    "even_odd_viewport_and_caret_covered": true,
+    "font22_27_5_23_19_actual_pango": true,
+    "f11_enter_exit_restores_layout_and_font": true,
+    "scrollbar_unmapped_shadow_none": true,
+    "left_right_edge_matches_inset_2000_rows_each_scale": true
+  },
+  "matrix": "matrix.json",
+  "pixel_comparison": "evidence/pixel-border-comparison.json",
+  "boundaries": [
+    "Formal GUI uses private Sway and isolated DBus/Fcitx/Vault, not user desktop.",
+    "Read-only after-paint and timer samples recorded separately. RawGTK cursor does not claim custom caret geometry.",
+    "Mode changes can require finite multi-second reflow: formal6 observed about4.06s exit and4.15s entry. Prior failed5 first transition5.153s preserved separately. Fixed-layout continued input is stable; no claim of instant transition.",
+    "Isolated IME uses test defaults; user configured emoji preference is not modified."
+  ],
+  "private_fixture_stopped": true,
+  "production_source_or_user_config_modified": false
+}

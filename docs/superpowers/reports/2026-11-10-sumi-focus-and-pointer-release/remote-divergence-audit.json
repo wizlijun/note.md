@@ -1,0 +1,241 @@
+{
+  "timestamp_utc": "2026-11-10T10:56:27.187619+00:00",
+  "release_tag": "v6.1110.6",
+  "release_source_commit": "024d81814b4076def2456428150a4a2cd84095de",
+  "release_branch": "release/sumi-6.1110.6",
+  "release_branch_commit": "024d81814b4076def2456428150a4a2cd84095de",
+  "observed_remote_main": "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+  "merge_base": "54d2c56724ca1f91fdb8f2d79b8a74d0a0e6b009",
+  "remote_only_commits": [
+    {
+      "sha": "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+      "subject": "Merge remote-tracking branch 'origin/main'"
+    },
+    {
+      "sha": "7b6c7ace72ba451277d366a6f50d37e24165da19",
+      "subject": "Merge branch 'feat/smart-lookup-rebuild'"
+    },
+    {
+      "sha": "928e64f1fe0730b4f7a4e3b480a6951a0d62ce21",
+      "subject": "docs(changelog): state what the Smart Lookup rebuild removed and moved"
+    },
+    {
+      "sha": "6d7fa218d0f491b186f6e8eda45bdac370951fcd",
+      "subject": "fix(smart-lookup): drop stale handoff references instead of failing the handoff"
+    },
+    {
+      "sha": "568bd28593606fd4bcff5e5c2f52b93693afb0e4",
+      "subject": "fix(search): E1 decides target_indexed from the index, with normalised paths"
+    },
+    {
+      "sha": "1c8e028e25bb9b5baabfdc831a4d0d98b4885a3c",
+      "subject": "fix(smart-lookup): honour \"Search more broadly when nothing is found\""
+    },
+    {
+      "sha": "6d9ce434dddb060c4dc001e2d2f5fa8364ae4728",
+      "subject": "fix(settings): choose the quick-answer agent and model in Preferences"
+    },
+    {
+      "sha": "146a203368506eba6e3f1726214c78ed1e6f647b",
+      "subject": "fix(smart-lookup): \"Ask every time\" offers each research agent instead of picking one"
+    },
+    {
+      "sha": "ef0ea1178eafc631de45c6151bde283733a9455a",
+      "subject": "refactor(smart-lookup): remove the host planner and the legacy answer module"
+    },
+    {
+      "sha": "0761ef839902ac363ec6de5be3888a00e796a7f6",
+      "subject": "refactor(smart-lookup): remove the planner from settings and agent helpers"
+    },
+    {
+      "sha": "702b34dda1bdff85671765e26dfec4f204b7486d",
+      "subject": "fix(smart-lookup): never replace an explicitly configured agent"
+    },
+    {
+      "sha": "74c252c3d2bb2175d91ff5de4220bdd744d17c84",
+      "subject": "feat(smart-lookup): rebuild the lookup window local-first"
+    },
+    {
+      "sha": "6971c1ccc40fab512fc7ae4952f4e80d16729124",
+      "subject": "feat(smart-lookup): smart_lookup_local command retains local results as a lookup run"
+    },
+    {
+      "sha": "214949f05daaf128f485b293c7cb69893742e125",
+      "subject": "feat(smart-lookup): Jev Noul client prototype with configurable endpoint"
+    },
+    {
+      "sha": "3a19c8ae82c568de223ed36ddecffa50716a96e2",
+      "subject": "test(search): E1 local baseline evaluation over an index copy"
+    },
+    {
+      "sha": "0cf4cfd40a364cf2b70309786f2d09c698c22f48",
+      "subject": "test(search): smart lookup eval core and pre-gate rules"
+    },
+    {
+      "sha": "cc0df2f23e98001765e07925e3805c3aed9bde1f",
+      "subject": "feat(search): soft time grouping that never drops hits"
+    },
+    {
+      "sha": "6ad44e631a633c06170e3e4de25b7283976393bc",
+      "subject": "feat(search): zero-model time phrase detection"
+    },
+    {
+      "sha": "aaa98b670103fd9b4d63832186b8a321d4bfdbe4",
+      "subject": "chore(smart-lookup): skeleton modules with failing tests; spec and plans"
+    }
+  ],
+  "remote_only_count": 19,
+  "remote_only_nonmerge_count": 17,
+  "all_remote_only_commits_excluded_from_tag": true,
+  "local_changed_paths_since_base": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/README.md",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/README.md",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/analyze.py",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/artifacts.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/baseline-last.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/input-events.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/mutated-last.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/mutation.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/probe.c",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/diagnostic-input-pass/result.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s2-normal-odd-stable.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-exit-input-timed.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-fullscreen-latin-stable.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-normal-odd-input.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-normal-odd-settled-stable.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/frames/frames-s3-normal-odd-stable.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/input-events.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/native-pointer-blocked.png",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/evidence/s3-exit-input-timed-events.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/frame-observer.c",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/frozen-source.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/input-observer.c",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/inventory.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/matrix.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/blocked-v5/verification-blocked.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/gtk-source-review.md",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/host-check.log",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/binary-path",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/binary.json",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/build.jsonl",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/build.log",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/focus-scale3.log",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/transactions-scale3.log",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/unit.log",
+    "docs/superpowers/reports/2026-11-10-sumi-decoration-input/native-regression/verification.json",
+    "docs/superpowers/specs/2026-11-10-sumi-decoration-input.md",
+    "package.json",
+    "src-tauri/Cargo.lock",
+    "src-tauri/Cargo.toml",
+    "src-tauri/tauri.conf.json",
+    "tauri-plugin-native-editor/src/linux.rs"
+  ],
+  "remote_changed_paths_since_base": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "docs/superpowers/plans/2026-11-10-smart-lookup-local-first-phase0-1.md",
+    "docs/superpowers/plans/2026-11-10-smart-lookup-rebuild.md",
+    "docs/superpowers/specs/2026-11-10-smart-lookup-local-first-feasibility-design.md",
+    "src-tauri/src/lib.rs",
+    "src-tauri/src/search/mod.rs",
+    "src-tauri/src/search/plan.rs",
+    "src-tauri/src/search/smart.rs",
+    "src-tauri/src/search/smart_eval.rs",
+    "src-tauri/src/search/time_group.rs",
+    "src-tauri/src/search/time_phrase.rs",
+    "src-tauri/src/smart_lookup.rs",
+    "src-tauri/src/smart_model.rs",
+    "src-tauri/src/smart_search.rs",
+    "src/SmartLookupApp.svelte",
+    "src/SmartLookupApp.test.ts",
+    "src/SmartSearchApp.svelte",
+    "src/SmartSearchApp.test.ts",
+    "src/components/SettingsDialog.search-tab.test.ts",
+    "src/components/SettingsDialog.svelte",
+    "src/lib/i18n/de.ts",
+    "src/lib/i18n/en.ts",
+    "src/lib/i18n/ja.ts",
+    "src/lib/i18n/zh.ts",
+    "src/lib/smart-search/agent.test.ts",
+    "src/lib/smart-search/agent.ts",
+    "src/lib/smart-search/api.ts",
+    "src/lib/smart-search/handoff.test.ts",
+    "src/lib/smart-search/handoff.ts",
+    "src/lib/smart-search/hit-key.test.ts",
+    "src/lib/smart-search/hit-key.ts",
+    "src/lib/smart-search/lookup-view.test.ts",
+    "src/lib/smart-search/lookup-view.ts",
+    "src/lib/smart-search/model-routing.test.ts",
+    "src/lib/smart-search/model-routing.ts",
+    "src/lib/smart-search/plan.test.ts",
+    "src/lib/smart-search/plan.ts",
+    "src/lib/smart-search/selection.test.ts",
+    "src/lib/smart-search/selection.ts",
+    "src/lib/smart-search/settings.test.ts",
+    "src/lib/smart-search/settings.ts",
+    "src/lib/smart-search/store.svelte.ts",
+    "src/lib/smart-search/store.test.ts",
+    "src/lib/smart-search/workflow-log.test.ts",
+    "src/lib/smart-search/workflow-log.ts",
+    "src/smart-search-main.ts"
+  ],
+  "shared_changed_paths": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md"
+  ],
+  "runtime_path_intersection": [],
+  "remote_native_crate_changes": [],
+  "merge_tree": {
+    "command": [
+      "git",
+      "merge-tree",
+      "--write-tree",
+      "--messages",
+      "024d81814b4076def2456428150a4a2cd84095de",
+      "b524e6d5b26d1a613d13f0ea80ba03f17633ec58"
+    ],
+    "exit_code": 1,
+    "conflict_paths": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md"
+    ],
+    "output": "e96042abd0fcb6e73f38450fe65a86b063e8c162\n100644 b651f66b19229cc9cf026d9abf62f68bf30536ad 1\tCHANGELOG.md\n100644 7012207163782602afecb82167c57c712e2e832b 2\tCHANGELOG.md\n100644 39a935a0687086e231d1a538a126af192a1fa881 3\tCHANGELOG.md\n100644 d587ef631c2dbc05ee612dee59e2618dfdbfcd31 1\tCHANGELOG.zh-CN.md\n100644 742bea48ccad23e00122a20522362eed02a28112 2\tCHANGELOG.zh-CN.md\n100644 0b2e99e34d8b4e269d3b5a39a74d6c22c61b10b3 3\tCHANGELOG.zh-CN.md\n\nAuto-merging CHANGELOG.md\nCONFLICT (content): Merge conflict in CHANGELOG.md\nAuto-merging CHANGELOG.zh-CN.md\nCONFLICT (content): Merge conflict in CHANGELOG.zh-CN.md\n",
+    "worktree_or_index_changed": false,
+    "note": "merge-tree may write temporary git tree/blob objects; it does not merge refs/index/worktree"
+  },
+  "remote_evidence": {
+    "test_sources": [
+      "src-tauri/src/search/smart_eval.rs",
+      "src-tauri/src/search/time_group.rs",
+      "src-tauri/src/search/time_phrase.rs",
+      "src/SmartLookupApp.test.ts",
+      "src/SmartSearchApp.test.ts",
+      "src/components/SettingsDialog.search-tab.test.ts",
+      "src/lib/smart-search/agent.test.ts",
+      "src/lib/smart-search/handoff.test.ts",
+      "src/lib/smart-search/hit-key.test.ts",
+      "src/lib/smart-search/lookup-view.test.ts",
+      "src/lib/smart-search/model-routing.test.ts",
+      "src/lib/smart-search/plan.test.ts",
+      "src/lib/smart-search/selection.test.ts",
+      "src/lib/smart-search/settings.test.ts",
+      "src/lib/smart-search/store.test.ts",
+      "src/lib/smart-search/workflow-log.test.ts"
+    ],
+    "spec_and_plan_paths": [
+      "docs/superpowers/plans/2026-11-10-smart-lookup-local-first-phase0-1.md",
+      "docs/superpowers/plans/2026-11-10-smart-lookup-rebuild.md",
+      "docs/superpowers/specs/2026-11-10-smart-lookup-local-first-feasibility-design.md"
+    ],
+    "committed_smart_lookup_execution_report_paths": [],
+    "assessment": "Test source and detailed plans exist. No matching committed report/log found under docs/superpowers/reports; plan steps include Expected PASS and unchecked acceptance actions, which are not executed-test evidence. This audit did not run remote tests and does not approve Smart Lookup for release."
+  },
+  "recommendation": "Normal non-forced merge is mechanically isolated from native fix. Resolve only two changelogs by preserving remote Smart Lookup Unreleased entries and local versioned release sections; do not choose an entire ours/theirs changelog. Validate merged main with relevant Smart Lookup tests and host check as a separate integration task. Keep release/sumi-6.1110.6 and v6.1110.6 fixed at 024; build/publish only the frozen tag. If integration validation is deferred, retain release branch temporarily instead of forcing/rebasing remote main.",
+  "release_scope_blocker": false,
+  "actual_merge_performed": false,
+  "production_source_modified": false,
+  "script_source_pinned": "024d81814b4076def2456428150a4a2cd84095de",
+  "script_deb_hash": null
+}
