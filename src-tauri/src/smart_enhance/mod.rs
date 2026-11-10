@@ -16,6 +16,10 @@ use crate::smart_model::{
 pub(crate) mod candidates;
 pub(crate) mod judge;
 pub(crate) mod keys;
+pub(crate) mod repair;
+
+/// Named by `search::smart_lookup_search_groups`.
+pub use repair::TermGroup;
 
 pub(crate) const ENHANCE_TIMEOUT: Duration = Duration::from_secs(3);
 

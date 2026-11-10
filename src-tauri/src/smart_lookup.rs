@@ -36,7 +36,6 @@ pub(crate) struct CanonicalHit {
 #[derive(Clone)]
 pub(crate) struct ArmFact {
     pub(crate) kind: String,
-    #[expect(dead_code, reason = "read by query repair (Task 6)")]
     pub(crate) terms: Vec<String>,
     pub(crate) hit_count: usize,
 }
