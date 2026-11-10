@@ -58,7 +58,7 @@ function defaults(): SmartLookupSettings {
 
 function withChat(): SmartLookupSettings {
   const settings = defaults()
-  settings.enhance.chat = { url: 'https://api.example.com/v1', model: 'small-chat' }
+  settings.enhance.chat = { url: 'https://api.example.com/v1', model: 'small-chat', consentHost: '' }
   return settings
 }
 

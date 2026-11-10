@@ -1,6 +1,6 @@
 import type { Messages } from '../i18n/en'
 import type { SearchHit } from '../search/api'
-import type { ChatRequestConfig, JevRequestConfig, JudgeResult, KeyStatus, Missing, RepairSuggestion, Tier } from './api'
+import type { ChatAnswerConfig, ChatRequestConfig, JevRequestConfig, JudgeResult, KeyStatus, Missing, RepairSuggestion, Tier } from './api'
 import type { ResultSection } from './lookup-view'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
@@ -213,6 +213,12 @@ export function jevRequestConfig(settings: SmartLookupSettings): JevRequestConfi
 export function chatRequestConfig(settings: SmartLookupSettings): ChatRequestConfig {
   const chat = settings.enhance.chat
   return { url: chat.url, model: chat.model }
+}
+
+/** Built field by field (the host rejects unknown fields); for the evidence answer request. */
+export function chatAnswerConfig(settings: SmartLookupSettings): ChatAnswerConfig {
+  const chat = settings.enhance.chat
+  return { url: chat.url, model: chat.model, consentHost: chat.consentHost }
 }
 
 /** Zero local hits, enhancement on, the repair model's url and model both non-empty, and its key stored. */

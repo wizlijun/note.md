@@ -42,7 +42,7 @@ describe('smart lookup settings', () => {
 
   it('enhancement defaults on with nothing configured and no consent', () => {
     const s = normalizeSmartLookupSettings(undefined)
-    expect(s.enhance).toEqual({ enabled: true, jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' }, chat: { url: '', model: '' } })
+    expect(s.enhance).toEqual({ enabled: true, jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' }, chat: { url: '', model: '', consentHost: '' } })
     expect(s.launch.firstRunSeen).toBe(false)
   })
 
@@ -61,7 +61,7 @@ describe('smart lookup settings', () => {
       launch: { firstRunSeen: true },
     })
     expect(ok.enhance.jev).toEqual({ preset: 'openrouter', url: 'u'.repeat(2_048), model: 'm'.repeat(256), authMode: 'none', consentHost: 'h'.repeat(255) })
-    expect(ok.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt' })
+    expect(ok.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt', consentHost: '' })
     expect(ok.launch.firstRunSeen).toBe(true)
 
     const bad = normalizeSmartLookupSettings({
@@ -104,5 +104,12 @@ describe('smart lookup settings', () => {
     expect(settingsTabFromEvent({ tab: 'core' })).toBeNull()
     expect(settingsTabFromEvent('enhance')).toBeNull()
     expect(settingsTabFromEvent(null)).toBeNull()
+  })
+})
+
+describe('chat consent host', () => {
+  it('is kept when valid and defaults to empty', () => {
+    expect(normalizeSmartLookupSettings({ enhance: { chat: { consentHost: 'a.example' } } }).enhance.chat.consentHost).toBe('a.example')
+    expect(normalizeSmartLookupSettings({}).enhance.chat.consentHost).toBe('')
   })
 })
