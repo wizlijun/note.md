@@ -2,7 +2,7 @@
 // `core/src/models.rs` (jev_batches_with_runtime criteria), `core/src/text.rs`
 // (STOPS) and `core/src/retrieval.rs` / `protocol/src/retrieval.rs` (Term, Trace,
 // retrieve_inner hop-2 constants), MIT License,
-// Copyright (c) SAG-Wiki contributors. Changes for note.md: see spec Appendix H.
+// Copyright (c) 2026 sag contributors. Changes for note.md: see spec Appendix H.
 
 //! SAG2 V10 multi-round evidence retrieval for smart lookup (spec Appendix H):
 //! the shared types and the verbatim SAG2 constants. The steps live in the

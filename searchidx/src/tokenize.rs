@@ -94,9 +94,11 @@ pub fn tokenize(text: &str) -> String {
 }
 
 /// Person, place, organisation and other proper-noun words in `text`, found by
-/// jieba's part-of-speech tagger (`tag(text, hmm = true)`): only the tags `nr`,
-/// `ns`, `nt` and `nz`, and only words containing Han ideographs. Each item is
-/// `(byte_start, byte_end, word)` in `text`, in text order.
+/// jieba's part-of-speech tagger (`tag(text, hmm = true)`): only the name tag
+/// family `nr`, `nrt`, `nrfg` (person names; jieba tags transliterated and
+/// some full names separately), `ns`, `nt` and `nz`, and only words containing
+/// Han ideographs. Each item is `(byte_start, byte_end, word)` in `text`, in
+/// text order.
 ///
 /// Query side only (smart lookup's SAG2 name terms, spec Appendix H.3.4): it
 /// never feeds the index, so it does not touch `TOKENIZER_ID`.
@@ -104,7 +106,7 @@ pub fn pos_names(text: &str) -> Vec<(usize, usize, String)> {
     jieba()
         .tag(text, true)
         .into_iter()
-        .filter(|t| matches!(t.tag, "nr" | "ns" | "nt" | "nz") && has_han(t.word))
+        .filter(|t| matches!(t.tag, "nr" | "nrt" | "nrfg" | "ns" | "nt" | "nz") && has_han(t.word))
         // jieba reports both char and byte positions; we want byte offsets.
         .map(|t| (t.byte_start, t.byte_end, t.word.to_string()))
         .collect()
@@ -168,6 +170,15 @@ mod tests {
     fn pos_names_keep_person_place_and_organisation() {
         let n: Vec<String> = pos_names("鲁迅在北京的清华大学").into_iter().map(|t| t.2).collect();
         assert_eq!(n, vec!["鲁迅", "北京", "清华大学"]);   // dict: 鲁迅 nr、北京 ns、清华大学 nt
+    }
+
+    #[test]
+    fn pos_names_keep_transliterated_person_names() {
+        // dict: 爱因斯坦 nrt
+        let tagged: Vec<_> = jieba().tag("爱因斯坦", true).into_iter().map(|t| (t.word, t.tag)).collect();
+        assert_eq!(tagged, vec![("爱因斯坦", "nrt")]);
+        let n: Vec<String> = pos_names("爱因斯坦在北京").into_iter().map(|t| t.2).collect();
+        assert_eq!(n, vec!["爱因斯坦", "北京"]);
     }
 
     #[test]

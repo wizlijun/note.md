@@ -1,6 +1,6 @@
 // Ported from SAG-Wiki 61f63c6 `core/src/text.rs` (tokenize, quote, search_terms, match_query)
 // and `core/src/retrieval.rs` (SENTENCES, NAMES, sentences, name_phrases), MIT License,
-// Copyright (c) SAG-Wiki contributors. Changes for note.md: see spec Appendix H.
+// Copyright (c) 2026 sag contributors. Changes for note.md: see spec Appendix H.
 
 //! SAG2 text primitives: query-side tokens, FTS quoting, sentence splitting and
 //! name spans (spec H.3.1, H.3.2, H.3.4).
@@ -85,13 +85,20 @@ pub(crate) fn match_query(text: &str) -> String {
 /// returned, even when empty (`retrieval.rs:sentences`).
 ///
 /// SAG2 propagates fancy-regex's backtrack-limit error; this signature has no
-/// error, so an error ends the scan and the rest stays one piece. `SENTENCES`
-/// only looks behind one character, so the limit is not reachable in practice.
+/// error, so an error ends the scan (logged, see [`warn_scan_stopped`]) and the
+/// rest stays one piece. `SENTENCES` only looks behind one character, so the
+/// limit is not reachable in practice.
 pub(crate) fn sentences(text: &str) -> Vec<&str> {
     let mut out = vec![];
     let mut end = 0;
     for m in SENTENCES.find_iter(text) {
-        let Ok(m) = m else { break };
+        let m = match m {
+            Ok(m) => m,
+            Err(e) => {
+                warn_scan_stopped("sentence", &e);
+                break;
+            }
+        };
         out.push(&text[end..m.start()]);
         end = m.end();
     }
@@ -127,12 +134,18 @@ fn span(start: usize, end: usize, label: &str) -> NameSpan {
 }
 
 /// Collects every match of `re` as `(start, end, label)`, where the label is
-/// capture `group` (0 = the whole match). An engine error ends the scan, as in
-/// [`sentences`].
-fn matches(re: &Regex, text: &str, group: usize) -> Vec<(usize, usize, String)> {
+/// capture `group` (0 = the whole match). An engine error ends the scan and is
+/// logged under `pattern`, as in [`sentences`].
+fn matches(re: &Regex, text: &str, group: usize, pattern: &str) -> Vec<(usize, usize, String)> {
     let mut out = vec![];
     for caps in re.captures_iter(text) {
-        let Ok(caps) = caps else { break };
+        let caps = match caps {
+            Ok(caps) => caps,
+            Err(e) => {
+                warn_scan_stopped(pattern, &e);
+                break;
+            }
+        };
         let whole = caps.get(0).expect("group 0 always participates");
         let label = caps.get(group).map_or("", |g| g.as_str());
         out.push((whole.start(), whole.end(), label.to_owned()));
@@ -151,18 +164,22 @@ fn matches(re: &Regex, text: &str, group: usize) -> Vec<(usize, usize, String)> 
 /// `name_phrases` does; `expansion_terms` skips empty terms.
 pub(crate) fn name_spans(sentence: &str, aliases: Option<&Regex>) -> Vec<NameSpan> {
     let mut all: Vec<(Source, NameSpan)> = vec![];
-    for (start, end, target) in matches(&WIKI, sentence, 1) {
+    for (start, end, target) in matches(&WIKI, sentence, 1, "wiki-link") {
+        // The label is the target trimmed, so `[[ Foo ]]` shows as "Foo": the
+        // spaces inside the brackets are link padding, not part of the name.
+        // P12 says "the source text"; trimming changes only the label, never
+        // the term, because tokens ignore spaces.
         all.push((Source::Wiki, span(start, end, target.trim())));
     }
-    for (start, end, tag) in matches(&TAG, sentence, 1) {
+    for (start, end, tag) in matches(&TAG, sentence, 1, "tag") {
         all.push((Source::Tag, span(start, end, &tag)));
     }
     if let Some(re) = aliases {
-        for (start, end, text) in matches(re, sentence, 0) {
+        for (start, end, text) in matches(re, sentence, 0, "alias") {
             all.push((Source::Alias, span(start, end, &text)));
         }
     }
-    for (start, end, text) in matches(&NAMES, sentence, 0) {
+    for (start, end, text) in matches(&NAMES, sentence, 0, "name") {
         all.push((Source::English, span(start, end, &text)));
     }
     for (start, end, word) in pos_names(sentence) {
@@ -208,6 +225,7 @@ pub(crate) fn alias_pattern(keys: &[String]) -> Option<Regex> {
     if keys.is_empty() {
         return None;
     }
+    let key_count = keys.len();
     // (needs left assertion, needs right assertion) → consecutive escaped keys.
     let mut runs: Vec<((bool, bool), Vec<String>)> = vec![];
     for k in keys {
@@ -235,8 +253,44 @@ pub(crate) fn alias_pattern(keys: &[String]) -> Option<Regex> {
         .join("|");
     // SAG2 propagates a compile error with `?`; the only failure for escaped
     // literals is the size limit, and without a pattern alias repair is a no-op
-    // (SAG2's behaviour with no alias table).
-    Regex::new(&format!("(?i)(?:{alternatives})")).ok()
+    // (SAG2's behaviour with no alias table). Logged so the degraded lookup is
+    // visible.
+    match Regex::new(&format!("(?i)(?:{alternatives})")) {
+        Ok(re) => Some(re),
+        Err(e) => {
+            crate::log_cat!(
+                "search",
+                "warn",
+                "SAG2 alias pattern for {key_count} keys did not compile ({}); alias repair is off",
+                error_kind(&e)
+            );
+            None
+        }
+    }
+}
+
+/// Logs that a fancy-regex error ended a scan early. Only the pattern's name
+/// and the error kind are logged, never the text being scanned (vault content).
+fn warn_scan_stopped(pattern: &str, error: &fancy_regex::Error) {
+    crate::log_cat!(
+        "search",
+        "warn",
+        "SAG2 {pattern} scan stopped early ({}); the rest of the text is not matched",
+        error_kind(error)
+    );
+}
+
+/// A description of a fancy-regex error that carries no text: runtime errors
+/// are printed (their messages are fixed strings); parse and compile errors are
+/// named only by kind, because some of their messages quote pattern fragments,
+/// and alias patterns are built from vault titles.
+fn error_kind(error: &fancy_regex::Error) -> String {
+    match error {
+        fancy_regex::Error::RuntimeError(e) => e.to_string(),
+        fancy_regex::Error::ParseError(..) => "parse error".to_owned(),
+        fancy_regex::Error::CompileError(..) => "compile error, usually the size limit".to_owned(),
+        _ => "regex error".to_owned(),
+    }
 }
 
 #[cfg(test)]
@@ -338,6 +392,31 @@ mod tests {
         assert_eq!((n[0].start, n[0].end), (0, 17));
         // `a#b` and `/#x` are not tags.
         assert!(name_spans("a#b c/#x", None).is_empty());
+    }
+
+    #[test]
+    fn a_scan_stopped_by_the_engine_is_logged_without_the_text() {
+        let _g = crate::log_bus::test_guard();
+        crate::log_bus::clear();
+        // A backtrack limit of 1 makes the first look-around search fail.
+        let re = fancy_regex::RegexBuilder::new(r"(?<![\p{L}])(?:a+|b)+c")
+            .backtrack_limit(1)
+            .build()
+            .unwrap();
+        let secret = "aaaaaaaaaaaab private note text";
+        assert!(matches(&re, secret, 0, "alias").is_empty());
+        let warns: Vec<_> = crate::log_bus::snapshot()
+            .into_iter()
+            .filter(|l| l.category == "search" && l.level == "warn")
+            .collect();
+        assert_eq!(warns.len(), 1, "{warns:?}");
+        assert!(warns[0].message.contains("SAG2 alias scan stopped early"), "{}", warns[0].message);
+        assert!(!warns[0].message.contains("private"), "{}", warns[0].message);
+        let kind = error_kind(&fancy_regex::Error::ParseError(
+            0,
+            fancy_regex::ParseError::InvalidEscape("vault title".into()),
+        ));
+        assert!(!kind.contains("vault title"), "{kind}");
     }
 
     #[test]
