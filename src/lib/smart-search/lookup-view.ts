@@ -8,21 +8,30 @@ import { supportsSearchTask } from './agent'
 /** The bundled agent, preferred when the app has no default agent. */
 export const FALLBACK_AGENT_ID = 'notemd.claude-agent'
 
+/** `summary.provider` values that mean "choose for me" rather than an agent id. */
+export const SUMMARY_DEFAULT_CHOICES = ['auto', 'same_as_planner'] as const
+/** `handoff.defaultProvider` values that mean "choose for me" rather than an agent id. */
+export const HANDOFF_DEFAULT_CHOICES = ['ask'] as const
+
 /**
- * The agent that runs `task`: the configured id when that agent can run the
- * task; otherwise the app default, the bundled agent, then the first capable
- * agent. Reserved settings values (`auto`, `same_as_planner`, `ask`) never
- * name an agent, so they fall through to the default order.
+ * The agent that runs `task`. A reserved value (`defaultChoices`) picks the
+ * app default, the bundled agent, then the first capable agent. An explicit
+ * agent id is honoured or nothing is: when that agent is missing or cannot run
+ * the task the result is `null`, so note excerpts never go to a provider the
+ * user did not choose.
  */
 export function pickTaskAgent(
   agents: AgentOption[],
   task: string,
   configured: string,
   appDefault: string,
+  defaultChoices: readonly string[],
 ): AgentOption | null {
   const capable = agents.filter((agent) => supportsSearchTask(agent, task))
-  return capable.find((agent) => agent.id === configured)
-    ?? capable.find((agent) => agent.id === appDefault)
+  if (!defaultChoices.includes(configured)) {
+    return capable.find((agent) => agent.id === configured) ?? null
+  }
+  return capable.find((agent) => agent.id === appDefault)
     ?? capable.find((agent) => agent.id === FALLBACK_AGENT_ID)
     ?? capable[0]
     ?? null

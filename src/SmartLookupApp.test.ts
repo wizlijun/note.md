@@ -532,6 +532,21 @@ describe('SmartLookupApp', () => {
     expect(menuItem('In-depth research').disabled).toBe(true)
   })
 
+  it('does not hand a configured but unavailable agent\'s work to another agent', async () => {
+    mocks.storedSmartLookup = {
+      summary: { provider: 'notemd.removed-agent' },
+      handoff: { defaultProvider: 'notemd.removed-agent' },
+    }
+    const input = await mountReady()
+    await submit(input)
+    await openMenu()
+    expect(menuItem('Create answer').disabled).toBe(true)
+    expect(menuItem('In-depth research').disabled).toBe(true)
+    expect(document.querySelector('.menu-hint')?.textContent).toContain('No AI service is available for quick answers')
+    expect(calls('smart_lookup_start_summary')).toHaveLength(0)
+    expect(calls('smart_lookup_start_handoff')).toHaveLength(0)
+  })
+
   it('groups by month when settings ask for date grouping, and reloads on settings change', async () => {
     mocks.customHits = [hit('alpha', 4, '2026-08-20'), hit('beta', 8, null), hit('gamma', 12, '2026-10-02')]
     const input = await mountReady()

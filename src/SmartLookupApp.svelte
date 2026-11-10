@@ -29,11 +29,13 @@
   import { hitKey } from './lib/smart-search/hit-key'
   import {
     dateSections,
+    HANDOFF_DEFAULT_CHOICES,
     hasSummarySource,
     hitReference,
     pickTaskAgent,
     redactError,
     sourceSections,
+    SUMMARY_DEFAULT_CHOICES,
   } from './lib/smart-search/lookup-view'
   import { availableModelPreference, selectorForPreference } from './lib/smart-search/model-routing'
   import { validateSummaryOutput, type SummarySource } from './lib/smart-search/summary'
@@ -108,9 +110,11 @@
   let activeHit = $derived(orderedHits.find((hit) => hitKey(hit) === activeKey) ?? orderedHits[0] ?? null)
   let summaryAgent = $derived(pickTaskAgent(
     agents, SEARCH_SUMMARY_TASK, settings.smartLookup.summary.provider, appDefaultAgent,
+    SUMMARY_DEFAULT_CHOICES,
   ))
   let handoffAgent = $derived(pickTaskAgent(
     agents, VAULT_RESEARCH_TASK, settings.smartLookup.handoff.defaultProvider, appDefaultAgent,
+    HANDOFF_DEFAULT_CHOICES,
   ))
   let summaryReady = $derived(settings.smartLookup.summary.enabled
     && Boolean(lookupRunId) && Boolean(summaryAgent) && hasSummarySource(orderedHits))

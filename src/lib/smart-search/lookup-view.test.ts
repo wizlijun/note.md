@@ -4,11 +4,13 @@ import type { SearchHit } from '../search/api'
 import { SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK } from './agent'
 import {
   dateSections,
+  HANDOFF_DEFAULT_CHOICES,
   hasSummarySource,
   hitReference,
   pickTaskAgent,
   redactError,
   sourceSections,
+  SUMMARY_DEFAULT_CHOICES,
 } from './lookup-view'
 
 function agent(id: string, tasks: string[]): AgentOption {
@@ -41,22 +43,37 @@ describe('pickTaskAgent', () => {
   const summary = agent('notemd.summary-only', [SEARCH_SUMMARY_TASK])
   const claude = agent('notemd.claude-agent', [SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK])
   const other = agent('notemd.other', [SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK])
-  const agents = [summary, other, claude]
+  const broken: AgentOption = { ...agent('notemd.broken', [SEARCH_SUMMARY_TASK, VAULT_RESEARCH_TASK]), harness: null }
+  const agents = [summary, other, claude, broken]
 
   it('uses an explicitly configured agent that supports the task', () => {
-    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.summary-only', 'notemd.other')?.id)
+    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.summary-only', 'notemd.other', SUMMARY_DEFAULT_CHOICES)?.id)
       .toBe('notemd.summary-only')
+    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.other', 'notemd.claude-agent', HANDOFF_DEFAULT_CHOICES)?.id)
+      .toBe('notemd.other')
   })
 
-  it('falls back to app default, then Claude, then the first capable agent', () => {
-    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'auto', 'notemd.other')?.id).toBe('notemd.other')
-    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'same_as_planner', '')?.id).toBe('notemd.claude-agent')
-    expect(pickTaskAgent([summary, other], SEARCH_SUMMARY_TASK, 'auto', '')?.id).toBe('notemd.summary-only')
+  it('never substitutes another agent for an explicit agent that cannot run the task', () => {
+    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.summary-only', 'notemd.other', HANDOFF_DEFAULT_CHOICES))
+      .toBeNull()
+    // A failed harness-status leaves the agent listed but incapable.
+    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.broken', 'notemd.other', SUMMARY_DEFAULT_CHOICES))
+      .toBeNull()
   })
 
-  it('ignores a configured agent that cannot run the task', () => {
-    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.summary-only', '')?.id).toBe('notemd.claude-agent')
-    expect(pickTaskAgent([summary], VAULT_RESEARCH_TASK, 'ask', '')).toBeNull()
+  it('returns null for an explicit agent id that is not installed', () => {
+    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'notemd.removed', 'notemd.other', SUMMARY_DEFAULT_CHOICES))
+      .toBeNull()
+    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'notemd.removed', 'notemd.other', HANDOFF_DEFAULT_CHOICES))
+      .toBeNull()
+  })
+
+  it('resolves reserved values to app default, then Claude, then the first capable agent', () => {
+    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'auto', 'notemd.other', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.other')
+    expect(pickTaskAgent(agents, SEARCH_SUMMARY_TASK, 'same_as_planner', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
+    expect(pickTaskAgent([summary, other], SEARCH_SUMMARY_TASK, 'auto', '', SUMMARY_DEFAULT_CHOICES)?.id).toBe('notemd.summary-only')
+    expect(pickTaskAgent(agents, VAULT_RESEARCH_TASK, 'ask', 'notemd.broken', HANDOFF_DEFAULT_CHOICES)?.id).toBe('notemd.claude-agent')
+    expect(pickTaskAgent([summary], VAULT_RESEARCH_TASK, 'ask', '', HANDOFF_DEFAULT_CHOICES)).toBeNull()
   })
 })
 
