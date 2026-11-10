@@ -1,0 +1,23 @@
+E...E....
+======================================================================
+ERROR: test_amd64_mode_rejects_extra_checksum_and_tampering (test_prepare.PrepareTests.test_amd64_mode_rejects_extra_checksum_and_tampering)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/bruce/git/note.md/packaging/omarchy/test_prepare.py", line 131, in test_amd64_mode_rejects_extra_checksum_and_tampering
+    prepare.prepare(self.release, self.version, self.root, self.output, amd64_only=True)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: prepare() got an unexpected keyword argument 'amd64_only'
+
+======================================================================
+ERROR: test_explicit_amd64_release_emits_only_x86_recipe (test_prepare.PrepareTests.test_explicit_amd64_release_emits_only_x86_recipe)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/bruce/git/note.md/packaging/omarchy/test_prepare.py", line 112, in test_explicit_amd64_release_emits_only_x86_recipe
+    prepare.prepare(self.release, self.version, self.root, self.output, amd64_only=True)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: prepare() got an unexpected keyword argument 'amd64_only'
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.027s
+
+FAILED (errors=2)

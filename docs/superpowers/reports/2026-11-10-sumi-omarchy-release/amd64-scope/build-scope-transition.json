@@ -7,5 +7,7 @@
   "amd64DebianAndArchVerification": "passed",
   "oldCoordinatorTerminatedAtEpoch": 1794290528.1083167,
   "noArmHostPublished": true,
-  "verifiedLogSha256": "0b941d7bb003412cb1804720ffb6b902c9deb56e706aa920ea519247fad43960"
+  "verifiedLogSha256": "d13dd0c814beb82574f0c2b9cc28e1bcb8e3de538d91b061cfa628dc8c7b1d9b",
+  "verifiedLogTextNormalizedSha256": "0b941d7bb003412cb1804720ffb6b902c9deb56e706aa920ea519247fad43960",
+  "logHashClarification": "Initial hash used Python text-mode universal newline normalization; raw bytes are now recorded separately. The normalized hash still matches the original record."
 }
