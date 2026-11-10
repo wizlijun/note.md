@@ -49,11 +49,16 @@
     tiersById,
     type DegradedStatus,
     type HeaderMessage,
+    type AttemptKind,
     type HeaderState,
     type JudgeTicket,
     type LookupAttempt,
   } from './lib/smart-search/enhance-flow'
-  import { clearRecent, loadRecent, rememberRecent } from './lib/smart-search/recent'
+  import { clearRecent, loadRecent, loadRecentCounts, rememberRecent, rememberRecentCount } from './lib/smart-search/recent'
+  import LaunchView from './components/smart-lookup/LaunchView.svelte'
+  import NoMatchPanel from './components/smart-lookup/NoMatchPanel.svelte'
+  import RepairStrip from './components/smart-lookup/RepairStrip.svelte'
+  import { wordingLetter } from './components/smart-lookup/format'
   import { OPEN_SETTINGS_TAB_EVENT, type SmartLookupSettings } from './lib/smart-search/settings'
   import {
     appendWorkflowEntry,
@@ -67,8 +72,24 @@
   type ResultsMode = 'idle' | 'preview' | 'lookup'
   /** The judge or repair request the host is working on; `token` tells a newer one from an older one. */
   type Inflight = { runId: string; kind: 'judge' | 'repair'; token: number }
-  type RepairStrip = { inputs: string[]; counts: number[] | null; error: string }
-  type Attempts = { original: { hits: number; tookMs: number }; rephrased: LookupAttempt | null; scan: LookupAttempt | null }
+  type StripState = { inputs: string[]; counts: number[] | null; error: string }
+  /** `order`: the attempts in the order they ran (ledger ruling). */
+  type Attempts = {
+    original: { hits: number; tookMs: number }
+    rephrased: LookupAttempt | null
+    scan: LookupAttempt | null
+    order: AttemptKind[]
+  }
+  /** The local result and judgement before a regrouped search, for 「只用原问题」. */
+  type OriginalView = {
+    search: SmartSearchResponse
+    runId: string
+    time: TimeWindow | null
+    header: HeaderState
+    judgeResult: JudgeResult | null
+    judgedRunId: string
+    appliedOrder: string[] | null
+  }
 
   const PREVIEW_CHARS = 3_000
   const TIME_OPTIONS: ReadonlyArray<readonly [TimeMode, 'smartSearch.enhance.timeGroup' | 'smartSearch.enhance.timeWindow' | 'smartSearch.enhance.timeIgnore']> = [
@@ -80,6 +101,8 @@
   const isMac = isApplePlatformSync()
   const actionsShortcut = isMac ? '⌘K' : 'Ctrl+K'
   const restoreShortcut = isMac ? '⌘Z' : 'Ctrl+Z'
+  const applyShortcut = isMac ? '⌘R' : 'Ctrl+R'
+  const rewriteShortcut = isMac ? '⌘L' : 'Ctrl+L'
 
   const store = new SmartSearchStore()
   const appWindow = getCurrentWindow()
@@ -103,6 +126,9 @@
   let menuOpen = $state(false)
   let openError = $state('')
   let recent = $state<string[]>(loadRecent())
+  let recentCounts = $state<Record<string, number>>(loadRecentCounts())
+  /** Recent lookup chosen with ↑/↓ from the empty input; -1 = none. */
+  let recentIndex = $state(-1)
 
   // Conditions of the current Enter.
   let lookupTime = $state<TimeWindow | null>(null)
@@ -119,7 +145,6 @@
   let detailsOpen = $state(false)
   let feedbackSaved = $state<Record<string, 'fit' | 'unfit'>>({})
   let now = $state(Date.now())
-  let clockTimer: ReturnType<typeof setInterval> | undefined
   /** Arrow keys, a click on a row, scrolling the list or opening a result since this Enter. */
   let interacted = false
   let judgeTicket: JudgeTicket | null = null
@@ -128,10 +153,20 @@
   // Zero hits and repair.
   let diagnosis = $state<Diagnosis | null>(null)
   let attempts = $state<Attempts | null>(null)
-  let strip = $state<RepairStrip | null>(null)
+  let strip = $state<StripState | null>(null)
+  let stripView = $state<ReturnType<typeof RepairStrip>>()
   let repairBusy = $state(false)
   let repairNotice = $state<HeaderMessage | null>(null)
   let repaired = $state(false)
+  /** Set when the current wordings came from the repair model. */
+  let repairSource = $state<{ elapsedMs: number } | null>(null)
+  /** The wordings of the last regrouped search. */
+  let lastGroups = $state<TermGroup[]>([])
+  let originalView = $state<OriginalView | null>(null)
+  /** The last result of `smart_lookup_local` for this question (not regrouped). */
+  let lastLocal: { search: SmartSearchResponse; runId: string; time: TimeWindow | null } | null = null
+  /** Model requests made for this Enter (judge and repair). */
+  let modelRequests = $state({ judge: 0, repair: 0 })
   /** 1-based wording numbers per hit (`hitKey`), from a regrouped search. */
   let hitGroups = $state<Map<string, number[]>>(new Map())
 
@@ -174,7 +209,14 @@
   let showCriterion = $derived(settings.smartLookup.enhance.enabled && !repaired && store.hits.length > 0)
   let headerText = $derived(headerLine(header, now))
   let showJudgeHeader = $derived(mode === 'lookup' && (headerText !== '' || repairBusy || repairNotice !== null))
-  let attemptRows = $derived(attempts ? noMatchAttempts(attempts.original, attempts.rephrased, attempts.scan) : [])
+  let attemptRows = $derived(attempts ? orderedAttempts(attempts) : [])
+  let noMatchVisible = $derived(mode === 'lookup' && !store.error && !lookupBusy && !store.loading && !orderedHits.length)
+  /** The rows the host will look at while judging: line-level, unpinned, among the first 50, at most the judging count. */
+  let judgingKeys = $derived(header.kind === 'judging'
+    ? new Set(localHits.slice(0, 50).filter((hit) => hit.level === 'line' && !hit.pinned).slice(0, header.count).map(hitKey))
+    : new Set<string>())
+  let canApply = $derived(Boolean(judgeResult) && !appliedOrder && (header.kind === 'pending'
+    || (header.kind === 'topTenUnfit' && header.result.rerankedCount > 0)))
 
   $effect(() => {
     const title = t('smartSearch.windowTitle')
@@ -186,7 +228,6 @@
     if (header.kind !== 'judging') return
     now = Date.now()
     const timer = setInterval(() => { now = Date.now() }, 1_000)
-    clockTimer = timer
     return () => clearInterval(timer)
   })
 
@@ -198,7 +239,6 @@
     destroyed = true
     cancelPreview()
     clearTimeout(copyTimer)
-    clearInterval(clockTimer)
     supersede()
     for (const cleanup of cleanups.splice(0)) cleanup()
   })
@@ -282,7 +322,30 @@
     strip = null
     repairNotice = null
     repaired = false
+    repairSource = null
+    lastGroups = []
+    originalView = null
     hitGroups = new Map()
+  }
+
+  function startAttempts(hits: number, tookMs: number): void {
+    attempts = { original: { hits, tookMs }, rephrased: null, scan: null, order: ['original'] }
+  }
+
+  function recordAttempt(kind: 'rephrased' | 'scan', hits: number, tookMs: number): void {
+    if (!attempts) return
+    const order = attempts.order.includes(kind) ? attempts.order : [...attempts.order, kind]
+    attempts = { ...attempts, [kind]: { kind, hits, tookMs }, order }
+  }
+
+  /** Attempts in the order they ran, then the ones that did not run. */
+  function orderedAttempts(value: Attempts): LookupAttempt[] {
+    const rows = noMatchAttempts(value.original, value.rephrased, value.scan)
+    const rank = (kind: AttemptKind) => {
+      const index = value.order.indexOf(kind)
+      return index < 0 ? value.order.length + rows.findIndex((row) => row.kind === kind) : index
+    }
+    return [...rows].sort((a, b) => rank(a.kind) - rank(b.kind))
   }
 
   function resetActivity(): void {
@@ -336,6 +399,8 @@
       question = ''
       activeKey = null
       recent = loadRecent()
+      recentCounts = loadRecentCounts()
+      recentIndex = -1
       return
     }
     const query = inputValue
@@ -405,7 +470,10 @@
     if (options.keepZeroState) {
       diagnosis = keptDiagnosis
       attempts = keptAttempts
+    } else {
+      modelRequests = { judge: 0, repair: 0 }
     }
+    lastLocal = null
     if (options.keepActivity) startedAt = performance.now()
     else resetActivity()
     interacted = false
@@ -423,7 +491,7 @@
     const mine = beginLookup(submitted)
     const first = await runLocal(mine, submitted, false)
     if (!first) return
-    attempts = { original: { hits: first.hits, tookMs: first.tookMs }, rephrased: null, scan: null }
+    startAttempts(first.hits, first.tookMs)
     if (first.hits > 0) {
       await judgeLookup(mine, 'auto')
       return
@@ -438,7 +506,7 @@
     const mine = beginLookup(submitted, { keepActivity: true, keepZeroState: true })
     const scan = await runLocal(mine, submitted, true)
     if (!scan) return
-    if (attempts) attempts = { ...attempts, scan: { kind: 'scan', hits: scan.hits, tookMs: scan.tookMs } }
+    recordAttempt('scan', scan.hits, scan.tookMs)
     if (scan.hits > 0) await judgeLookup(mine, 'user')
   }
 
@@ -450,7 +518,7 @@
     chosenTimeMode = timeMode
     const mine = beginLookup(submitted, { keepActivity: true })
     const result = await runLocal(mine, submitted, false)
-    if (result) attempts = { original: { hits: result.hits, tookMs: result.tookMs }, rephrased: null, scan: null }
+    if (result) startAttempts(result.hits, result.tookMs)
     timeChipEl?.focus()
   }
 
@@ -465,7 +533,9 @@
         ? { limit, deep: true, timeoutMs: settings.smartLookup.results.deepTimeoutMs, ...timeMode }
         : { limit, deep: false, ...timeMode })
       if (mine !== requestSequence) return null
+      lastLocal = { search: result.search, runId: result.lookupRunId, time: result.time ?? null }
       showSearch(submitted, result.search, result.lookupRunId, result.time ?? null)
+      noteRecentCount(submitted, result.search.hits.length)
       logSearch(result.search)
       return { hits: result.search.hits.length, tookMs: result.search.tookMs }
     } catch (error) {
@@ -488,6 +558,10 @@
     activeKey = orderedHits[0] ? hitKey(orderedHits[0]) : null
   }
 
+  function noteRecentCount(submitted: string, hits: number): void {
+    recentCounts = rememberRecentCount(submitted, hits)
+  }
+
   function logSearch(search: SmartSearchResponse): void {
     const n = search.hits.length
     const docs = new Set(search.hits.map((hit) => hit.path)).size
@@ -508,7 +582,7 @@
       // "Search more broadly when nothing is found": one deep lookup, a new run.
       const scan = await runLocal(mine, question, true)
       if (!scan) return
-      if (attempts) attempts = { ...attempts, scan: { kind: 'scan', hits: scan.hits, tookMs: scan.tookMs } }
+      recordAttempt('scan', scan.hits, scan.tookMs)
       if (scan.hits > 0) {
         await judgeLookup(mine, 'auto')
         return
@@ -565,6 +639,7 @@
     judgeTicket = null
     inflight = null
     header = next
+    modelRequests = { ...modelRequests, judge: modelRequests.judge + result.requestCount }
     if (result.status === 'ok') {
       judgeResult = result
       judgedRunId = runId
@@ -611,18 +686,21 @@
     if (mode === 'lookup') interacted = true
   }
 
+  /** 「应用」/ ⌘R: show the judged order. A top-ten-unfit header stays, so 「换个说法」 stays offered. */
   async function applyJudgement(): Promise<void> {
-    if (header.kind !== 'pending') return
-    const result = header.result
+    if (!canApply || !judgeResult) return
+    const result = judgeResult
     appliedOrder = result.order
-    header = { kind: 'judged', result }
+    header = result.topTenUnfit ? { kind: 'topTenUnfit', result } : { kind: 'judged', result }
     await refocusActive()
   }
 
+  /** Back to the local order; the judged order can be applied again. */
   async function restoreLocalOrder(): Promise<void> {
     if (!appliedOrder || !judgeResult) return
+    const result = judgeResult
     appliedOrder = null
-    header = { kind: 'pending', result: judgeResult }
+    header = result.topTenUnfit ? { kind: 'topTenUnfit', result } : { kind: 'pending', result }
     detailsOpen = false
     await refocusActive()
   }
@@ -644,7 +722,11 @@
       await loadSettings()
       change(settings.smartLookup)
       await saveSettings()
-    } catch { /* The in-memory value still applies to this window. */ }
+    } catch {
+      // The in-memory value still applies to this window. No error text: it may name local paths.
+      change(settings.smartLookup)
+      appendActivity('settings', 'error', t('smartSearch.enhance.settingsSaveFailed'))
+    }
   }
 
   async function allowHost(host: string | null): Promise<void> {
@@ -695,8 +777,34 @@
     strip = { inputs, counts: null, error: '' }
   }
 
-  function editWording(): void {
-    openStrip([{ terms: store.extractedTerms.slice(0, 6), phrases: [] }])
+  async function editWording(): Promise<void> {
+    if (!strip) openStrip([{ terms: store.extractedTerms.slice(0, 6), phrases: [] }])
+    await tick()
+    stripView?.focusFirst()
+  }
+
+  /** 「只用原问题」: back to the local result (and its judgement) from before the regrouped search. */
+  async function useOriginal(): Promise<void> {
+    const view = originalView
+    if (!view) return
+    stopEnhanceRequest()
+    requestSequence += 1
+    lookupBusy = false
+    repaired = false
+    strip = null
+    repairSource = null
+    repairNotice = null
+    originalView = null
+    lastGroups = []
+    showSearch(question, view.search, view.runId, view.time)
+    header = view.header
+    judgeResult = view.judgeResult
+    judgedRunId = view.judgedRunId
+    appliedOrder = view.appliedOrder
+    if (view.appliedOrder) activeKey = orderedHits[0] ? hitKey(orderedHits[0]) : null
+    noteRecentCount(question, view.search.hits.length)
+    await tick()
+    inputEl?.focus()
   }
 
   async function repairLookup(mine: number, trigger: Trigger): Promise<void> {
@@ -721,14 +829,18 @@
       appendActivity('repair', 'error', `repair failed: ${failure}`)
       return
     }
-    appendActivity('repair', activityLevel(result.status), repairLog(result), { usage: result.usage })
+    modelRequests = { ...modelRequests, repair: modelRequests.repair + result.requestCount }
+    const empty = result.status === 'ok' && !result.groups.length
+    appendActivity('repair', empty ? 'warning' : activityLevel(result.status), repairLog(result), { usage: result.usage })
     if (result.status === 'ok' && result.groups.length) {
       openStrip(result.groups)
+      repairSource = { elapsedMs: result.elapsedMs }
       await searchWithGroups(mine, result.groups)
-    } else if (result.status !== 'ok' && result.status !== 'skipped') {
+    } else if (result.status !== 'skipped') {
+      // An ok answer without any wording is an invalid return, like any other unusable one.
       repairNotice = headerMessage({
         kind: 'degraded',
-        status: result.status as DegradedStatus,
+        status: empty ? 'invalid' : result.status as DegradedStatus,
         host: result.endpointHost,
         statusClass: result.statusClass,
         missing: result.missing,
@@ -740,6 +852,8 @@
     if (!strip) return
     const groups = strip.inputs.map(parseGroup).filter((group) => group.terms.length || group.phrases.length)
     if (!groups.length) return
+    // Edited by the user: no longer the repair model's words.
+    repairSource = null
     await searchWithGroups(requestSequence, groups)
   }
 
@@ -752,11 +866,17 @@
     try {
       const result = await serial(() => smartSearchApi.searchGroups(runId, groups, settings.smartLookup.results.limit))
       if (mine !== requestSequence) return
+      if (!repaired && lastLocal) {
+        const kept: HeaderState = header.kind === 'judging' ? { kind: 'none' } : header
+        originalView = { ...lastLocal, header: kept, judgeResult, judgedRunId, appliedOrder }
+      }
       resetJudgement()
       repaired = true
+      lastGroups = groups
       showSearch(question, result.search, result.lookupRunId, result.time ?? null, result.hitGroups)
       if (strip) strip = { ...strip, counts: result.groupCounts, error: '' }
-      if (attempts) attempts = { ...attempts, rephrased: { kind: 'rephrased', hits: result.search.hits.length, tookMs: result.search.tookMs } }
+      recordAttempt('rephrased', result.search.hits.length, result.search.tookMs)
+      noteRecentCount(question, result.search.hits.length)
       logSearch(result.search)
     } catch (error) {
       if (mine !== requestSequence) return
@@ -842,11 +962,37 @@
         text: t(move.direction === 'up' ? 'smartSearch.enhance.movedUp' : 'smartSearch.enhance.movedDown', { n: move.from }),
       })
     }
-    if (judgeResult && hit.level !== 'line') marks.push({ kind: 'not-judged', text: t('smartSearch.enhance.notJudged') })
-    for (const group of hitGroups.get(hitKey(hit)) ?? []) {
-      marks.push({ kind: 'wording', text: t('smartSearch.enhance.wordingLabel', { n: group }) })
+    if (hit.level !== 'line') {
+      if (judgeResult) marks.push({ kind: 'not-judged', text: t('smartSearch.enhance.notJudged') })
+      else if (header.kind === 'judging') marks.push({ kind: 'not-judged', text: t('smartSearch.enhance.rowRollupSkipped') })
+    }
+    const groups = hitGroups.get(hitKey(hit)) ?? []
+    if (groups.length === 1) {
+      marks.push({ kind: 'wording', text: t('smartSearch.enhance.wordingLabel', { n: wordingLetter(groups[0] - 1) }) })
+    } else if (groups.length > 1) {
+      marks.push({ kind: 'wording', text: groups.map((group) => wordingLetter(group - 1)).join(' + ') })
     }
     return marks
+  }
+
+  /** `10/1–10/31`; the year is added when the range spans two years. Dates are inclusive. */
+  function dateRange(time: TimeWindow): string {
+    const parts = (iso: string) => /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+    const after = parts(time.after)
+    const before = parts(time.before)
+    if (!after || !before) return `${time.after}–${time.before}`
+    const withYear = after[1] !== before[1]
+    const format = (match: RegExpExecArray) => `${withYear ? `${match[1]}/` : ''}${Number(match[2])}/${Number(match[3])}`
+    return time.after === time.before ? format(after) : `${format(after)}–${format(before)}`
+  }
+
+  function timeModeLabel(value: TimeMode): (typeof TIME_OPTIONS)[number][1] {
+    return TIME_OPTIONS.find(([option]) => option === value)?.[1] ?? 'smartSearch.enhance.timeGroup'
+  }
+
+  /** The model's verdict as the preselected correction; unsure preselects nothing. */
+  function modelChoice(tier: string | undefined): 'fit' | 'unfit' | null {
+    return tier === 'fit' ? 'fit' : tier === 'unfit' ? 'unfit' : null
   }
 
   async function focusHit(index: number): Promise<void> {
@@ -927,18 +1073,40 @@
 
   function onInputKeydown(event: KeyboardEvent): void {
     if (ime.blocks(event)) return
-    if (event.key === 'Enter' && !event.shiftKey) {
+    const onLaunch = mode === 'idle' && recent.length > 0 && inputValue.trim() === ''
+    if (onLaunch && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && !event.shiftKey) {
       event.preventDefault()
-      void submitLookup()
+      recentIndex = event.key === 'ArrowDown'
+        ? Math.min(recent.length - 1, recentIndex + 1)
+        : Math.max(-1, recentIndex - 1)
+    } else if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      if (onLaunch && recentIndex >= 0) runRecent(recent[recentIndex])
+      else void submitLookup()
     } else if (event.key === 'ArrowDown' && !event.shiftKey && orderedHits.length && caretOnLastLine()) {
       event.preventDefault()
       markInteracted()
       void focusHit(0)
+    } else if (event.key === 'Tab' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey
+      && mode === 'lookup' && (noMatchVisible || strip)) {
+      // ⇥: edit the wordings.
+      event.preventDefault()
+      void editWording()
     } else if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
-      if (!closePopovers()) void hideWindow()
+      escape()
     }
+  }
+
+  /** Esc: close a popover, else stop a judgement in flight (the window stays), else hide the window. */
+  function escape(): void {
+    if (closePopovers()) return
+    if (header.kind === 'judging') {
+      stopJudging()
+      return
+    }
+    void hideWindow()
   }
 
   function onWindowKeydown(event: KeyboardEvent): void {
@@ -955,9 +1123,21 @@
       void restoreLocalOrder()
       return
     }
+    if (shortcut(event, 'r')) {
+      if (!canApply) return
+      event.preventDefault()
+      void applyJudgement()
+      return
+    }
+    if (shortcut(event, 'l')) {
+      if (!noMatchVisible) return
+      event.preventDefault()
+      void rewriteQuestion()
+      return
+    }
     if (event.key !== 'Escape') return
     event.preventDefault()
-    if (!closePopovers()) void hideWindow()
+    escape()
   }
 
   /** Close the details popover or the time menu; true when one was open. */
@@ -1076,16 +1256,25 @@
         {#if lookupTime}
           {@const time = lookupTime}
           {@const current = chosenTimeMode ?? time.mode}
-          <div class="time-anchor">
+          {@const chipText = t('smartSearch.enhance.timeChip', { range: `${time.sourceText} · ${dateRange(time)}` })}
+          <div class="time-anchor chip">
             <button
               bind:this={timeChipEl}
-              class="chip time-chip"
+              class="time-chip"
               aria-haspopup="menu"
               aria-expanded={timeMenuOpen}
               onclick={() => { detailsOpen = false; timeMenuOpen = !timeMenuOpen }}
-            >{t('smartSearch.enhance.timeChip', { range: time.sourceText })} <span aria-hidden="true">▾</span></button>
+            >{chipText} <small class="time-mode">{t(timeModeLabel(current))}</small></button>
+            {#if current !== 'ignore'}
+              <button
+                class="time-clear"
+                aria-label={t('smartSearch.enhance.timeIgnore')}
+                title={t('smartSearch.enhance.timeIgnore')}
+                onclick={() => void chooseTimeMode('ignore')}
+              ><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+            {/if}
             {#if timeMenuOpen}
-              <div class="menu-panel time-menu" role="menu" aria-label={t('smartSearch.enhance.timeChip', { range: time.sourceText })}>
+              <div class="menu-panel time-menu" role="menu" aria-label={chipText}>
                 {#each TIME_OPTIONS as [value, label] (value)}
                   <button
                     class="menu-row"
@@ -1111,33 +1300,16 @@
   </section>
 
   {#if mode === 'idle'}
-    <div class="launch">
-      {#if ready && !settings.smartLookup.launch.firstRunSeen}
-        <section class="first-run" aria-label={t('smartSearch.enhance.firstRunTitle')}>
-          <h2>{t('smartSearch.enhance.firstRunTitle')}</h2>
-          <p>{t('smartSearch.enhance.firstRunBody')}</p>
-          <button class="secondary-button" onclick={() => void dismissFirstRun()}>{t('smartSearch.enhance.firstRunDismiss')}</button>
-        </section>
-      {/if}
-      {#if recent.length}
-        <section class="recent" aria-label={t('smartSearch.enhance.recentTitle')}>
-          <header class="recent-header">
-            <h2>{t('smartSearch.enhance.recentTitle')}</h2>
-            <button class="text-button" onclick={clearRecentLookups}>{t('smartSearch.enhance.recentClear')}</button>
-          </header>
-          <ul>
-            {#each recent as entry (entry)}
-              <li><button class="recent-item" onclick={() => runRecent(entry)}>{entry}</button></li>
-            {/each}
-          </ul>
-        </section>
-      {:else if ready && settings.smartLookup.launch.firstRunSeen}
-        <div class="empty-launch">
-          <h1>{t('smartSearch.emptyTitle')}</h1>
-          <p>{t('smartSearch.emptyPrompt')}</p>
-        </div>
-      {/if}
-    </div>
+    <LaunchView
+      showFirstRun={ready && !settings.smartLookup.launch.firstRunSeen}
+      showEmpty={ready && settings.smartLookup.launch.firstRunSeen}
+      {recent}
+      counts={recentCounts}
+      selected={recentIndex}
+      onDismissFirstRun={() => void dismissFirstRun()}
+      onRun={runRecent}
+      onClear={clearRecentLookups}
+    />
   {:else}
     <section class="workspace">
       <aside class="results-pane" aria-label={t('smartSearch.results')}>
@@ -1163,11 +1335,16 @@
                 onclick={() => { timeMenuOpen = false; detailsOpen = !detailsOpen }}
               >{headerText}</button>
               {#if header.kind === 'topTenUnfit'}
+                {#if canApply}
+                  <button class="text-button" onclick={() => void applyJudgement()}>{t('smartSearch.enhance.apply')}</button>
+                  <kbd>{applyShortcut}</kbd>
+                {/if}
                 <button class="text-button" onclick={() => void repairLookup(requestSequence, 'user')}>{t('smartSearch.enhance.rephrase')}</button>
               {/if}
             {:else if header.kind === 'pending'}
               <span class="judge-text" aria-live="polite">{headerText}</span>
               <button class="text-button" onclick={() => void applyJudgement()}>{t('smartSearch.enhance.apply')}</button>
+              <kbd>{applyShortcut}</kbd>
             {:else if header.kind === 'degraded'}
               {@const state = header}
               <span class="judge-text" aria-live="polite">{headerText}</span>
@@ -1177,6 +1354,8 @@
                 <button class="text-button" onclick={() => void allowHost(state.host)}>{t('smartSearch.enhance.allow')}</button>
               {:else if state.status === 'timeout'}
                 <button class="text-button" onclick={() => void judgeLookup(requestSequence, 'user')}>{t('smartSearch.enhance.retry')}</button>
+              {:else if state.status === 'keyInvalid' || state.status === 'unreachable'}
+                <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettingsAction')}</button>
               {/if}
             {:else if header.kind === 'indexUnavailable'}
               <span class="judge-text" aria-live="polite">{headerText}</span>
@@ -1184,7 +1363,8 @@
           </div>
           {#if detailsOpen && judgeResult && (header.kind === 'judged' || header.kind === 'topTenUnfit')}
             {@const result = judgeResult}
-            <div class="judge-details" role="group" aria-label={headerText}>
+            <div class="judge-details" role="dialog" aria-label={t('smartSearch.enhance.detailsTitle')}>
+              <div class="details-title">{t('smartSearch.enhance.detailsTitle')}</div>
               {#if result.endpointHost}<p>{t('smartSearch.enhance.detailsHost', { host: result.endpointHost })}</p>{/if}
               <p>{result.reused
                 ? t('smartSearch.enhance.detailsReused')
@@ -1202,22 +1382,22 @@
           {/if}
         {/if}
         {#if strip && mode === 'lookup'}
-          {@const current = strip}
-          <form class="repair-strip" onsubmit={(event) => { event.preventDefault(); void searchStripGroups() }}>
-            {#if struckTerms.length}
-              <p class="struck">{t('smartSearch.enhance.repairStruck')}: {#each struckTerms as term, index (term)}{#if index > 0}{' '}{/if}<s>{term}</s>{/each}</p>
-            {/if}
-            {#each current.inputs as value, index (index)}
-              <label class="wording">
-                <span>{current.counts
-                  ? t('smartSearch.enhance.repairGroup', { n: index + 1, count: current.counts[index] ?? 0 })
-                  : t('smartSearch.enhance.wordingLabel', { n: index + 1 })}</span>
-                <input {value} oninput={(event) => setStripInput(index, (event.currentTarget as HTMLInputElement).value)} />
-              </label>
-            {/each}
-            {#if current.error}<p class="notice error" role="alert">{current.error}</p>{/if}
-            <button class="secondary-button" type="submit" disabled={lookupBusy}>{t('smartSearch.enhance.repairSearch')}</button>
-          </form>
+          <RepairStrip
+            bind:this={stripView}
+            {struckTerms}
+            inputs={strip.inputs}
+            counts={strip.counts}
+            error={strip.error}
+            busy={lookupBusy}
+            summary={strip.counts && attempts
+              ? { originalHits: attempts.original.hits, originalMs: attempts.original.tookMs, resultHits: store.hits.length, groups: lastGroups.length }
+              : null}
+            source={repairSource}
+            canUseOriginal={Boolean(originalView)}
+            onInput={setStripInput}
+            onSearch={() => void searchStripGroups()}
+            onUseOriginal={() => void useOriginal()}
+          />
         {/if}
         <!-- Wheel, touch and scrollbar presses only record that the user moved; they are not controls. -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1237,34 +1417,19 @@
           {:else if (lookupBusy || store.loading) && !orderedHits.length}
             <div class="state"><span class="spinner" aria-hidden="true"></span><p>{t('smartSearch.searching')}</p></div>
           {:else if !orderedHits.length && mode === 'lookup'}
-            <div class="state no-match">
-              <strong>{t('smartSearch.enhance.noMatchTitle')}</strong>
-              <p>{t('smartSearch.noResultsHint')}</p>
-              {#if struckTerms.length && !strip}
-                <p class="struck">{t('smartSearch.enhance.repairStruck')}: {#each struckTerms as term, index (term)}{#if index > 0}{' '}{/if}<s>{term}</s>{/each}</p>
-              {/if}
-              {#if attemptRows.length}
-                <ul class="attempts">
-                  {#each attemptRows as attempt (attempt.kind)}
-                    <li>
-                      <span>{t(attempt.kind === 'original' ? 'smartSearch.enhance.attemptOriginal'
-                        : attempt.kind === 'rephrased' ? 'smartSearch.enhance.attemptRephrased'
-                          : 'smartSearch.enhance.attemptScan')}</span>
-                      <span>{attempt.hits === null
-                        ? t('smartSearch.enhance.attemptNotRun')
-                        : t('smartSearch.enhance.attemptResult', { n: attempt.hits, ms: attempt.tookMs ?? 0 })}</span>
-                    </li>
-                  {/each}
-                </ul>
-              {/if}
-              <div class="no-match-actions">
-                <button class="secondary-button" onclick={() => void rewriteQuestion()}>{t('smartSearch.enhance.rewrite')}</button>
-                <button class="secondary-button" onclick={editWording}>{t('smartSearch.enhance.editWording')}</button>
-                {#if canExpand}
-                  <button class="secondary-button" disabled={lookupBusy} onclick={() => void expandLookup()}>{t('smartSearch.expandSearch')}</button>
-                {/if}
-              </div>
-            </div>
+            <NoMatchPanel
+              attempts={attemptRows}
+              groups={lastGroups}
+              struckTerms={strip ? [] : struckTerms}
+              timeGrouped={lookupTime && (chosenTimeMode ?? lookupTime.mode) === 'group' ? lookupTime.sourceText : null}
+              modelCalls={{ total: modelRequests.judge + modelRequests.repair, judged: modelRequests.judge > 0 }}
+              {canExpand}
+              busy={lookupBusy}
+              {rewriteShortcut}
+              onRewrite={() => void rewriteQuestion()}
+              onEditWording={() => void editWording()}
+              onExpand={() => void expandLookup()}
+            />
           {:else if !orderedHits.length}
             <div class="state">
               <strong>{t('search.noResults')}</strong>
@@ -1279,9 +1444,11 @@
                     {@const index = orderedHits.indexOf(hit)}
                     {@const active = activeHit === hit}
                     {@const marks = rowMarks(hit)}
+                    {@const id = resultIdOf(hit)}
                     <div
                       class="result-row"
                       class:active
+                      class:dim={Boolean(id) && tiers.get(id ?? '') === 'unfit' && !hit.pinned}
                       role="option"
                       aria-selected={active}
                       tabindex={active ? 0 : -1}
@@ -1291,7 +1458,12 @@
                       ondblclick={() => void openHit(hit)}
                       onkeydown={(event) => onRowKeydown(event, index)}
                     >
-                      <strong class="result-title">{displayTitle(hit)}</strong>
+                      <span class="title-line">
+                        <strong class="result-title">{displayTitle(hit)}</strong>
+                        {#if judgingKeys.has(hitKey(hit))}
+                          <span class="pending-dot" role="img" aria-label={t('smartSearch.enhance.rowJudging')}></span>
+                        {/if}
+                      </span>
                       <p class="result-snippet">{#each highlightParts(snippet(hit), highlightTerms) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</p>
                       {#if marks.length}
                         <div class="result-badges">
@@ -1325,14 +1497,16 @@
             <div class="preview-location">{hitReference(hit)}</div>
             <h1 class="preview-title">{displayTitle(hit)}</h1>
             {#if id && tiers.has(id) && !hit.pinned}
+              {@const chosen = feedbackSaved[id] ?? modelChoice(tiers.get(id))}
               <div class="correction">
-                {#if feedbackSaved[id]}
-                  <span role="status">{t('smartSearch.enhance.correctSaved')}</span>
-                {:else}
-                  <span>{t('smartSearch.enhance.correctPrompt')}</span>
-                  <button class="secondary-button" onclick={() => void correct(hit, 'fit')}>{t('smartSearch.enhance.correctFit')}</button>
-                  <button class="secondary-button" onclick={() => void correct(hit, 'unfit')}>{t('smartSearch.enhance.correctUnfit')}</button>
-                {/if}
+                <span>{t('smartSearch.enhance.correctPrompt')}</span>
+                <span class="segmented" role="radiogroup" aria-label={t('smartSearch.enhance.correctGroup')}>
+                  <button role="radio" class:on-fit={chosen === 'fit'} aria-checked={chosen === 'fit'} onclick={() => void correct(hit, 'fit')}>{t('smartSearch.enhance.correctFit')}</button>
+                  <button role="radio" class:on-unfit={chosen === 'unfit'} aria-checked={chosen === 'unfit'} onclick={() => void correct(hit, 'unfit')}>{t('smartSearch.enhance.correctUnfit')}</button>
+                </span>
+                <span class="correction-note" role="status">{feedbackSaved[id]
+                  ? t('smartSearch.enhance.correctSaved')
+                  : t('smartSearch.enhance.correctNote')}</span>
               </div>
             {/if}
             {#if hit.level !== 'line' || hit.text.length > PREVIEW_CHARS}
@@ -1375,6 +1549,9 @@
   {/if}
 
   <footer class="footer">
+    {#if header.kind === 'judging'}
+      <span class="footer-hint"><kbd>esc</kbd> {t('smartSearch.enhance.escStop')}</span>
+    {/if}
     <button
       bind:this={menuButton}
       class="footer-actions more-actions"
@@ -1394,9 +1571,10 @@
     --lookup-fit: #1a7f37;
     --lookup-unfit: #9a6700;
   }
-  button, textarea, input { font: inherit; color: inherit; }
-  button:disabled { opacity: .4; }
-  button:focus-visible, .result-row:focus-visible, textarea:focus-visible, input:focus-visible {
+  /* Shared by the child views (launch, repair strip, no-match panel). */
+  .lookup :global(button), .lookup :global(textarea), .lookup :global(input) { font: inherit; color: inherit; }
+  .lookup :global(button:disabled) { opacity: .4; }
+  .lookup :global(button:focus-visible), .result-row:focus-visible, .lookup :global(textarea:focus-visible), .lookup :global(input:focus-visible) {
     outline: 3px solid color-mix(in srgb, var(--lookup-accent) 55%, transparent);
     outline-offset: 1px;
   }
@@ -1409,9 +1587,11 @@
   }
   .conditions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid var(--lookup-border); border-radius: 999px; background: var(--lookup-soft); font-size: 11px; color: var(--lookup-muted); }
-  button.chip { cursor: default; }
-  button.chip:hover { color: CanvasText; }
-  .time-anchor { position: relative; }
+  .time-anchor { position: relative; gap: 2px; padding-right: 4px; }
+  .time-chip { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
+  .time-mode { margin-left: 4px; opacity: .8; }
+  .time-clear { display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; }
+  .time-clear:hover { background: var(--lookup-soft); color: CanvasText; }
   .time-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 12; display: flex; flex-direction: column; min-width: 140px; }
   .time-menu .menu-row, .actions-menu .menu-row { border: 0; background: transparent; text-align: left; min-height: 26px; }
   .time-menu .menu-row[aria-checked='true']::before { content: '✓ '; }
@@ -1419,18 +1599,6 @@
   .hint { margin: 0; flex: 0 0 auto; font-size: 11px; color: var(--lookup-muted); }
   .activity { flex: 1; min-width: 0; display: flex; justify-content: flex-end; align-items: center; gap: 6px; font-size: 11px; color: var(--lookup-muted); }
   .activity-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .launch { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 12px 18px 18px; border-top: 1px solid var(--lookup-border); }
-  .first-run { padding: 12px 14px; border: 1px solid var(--lookup-border); border-radius: 10px; background: var(--lookup-soft); }
-  .first-run h2, .recent h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
-  .first-run p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--lookup-muted); }
-  .recent-header { display: flex; align-items: center; justify-content: space-between; }
-  .recent-header h2 { margin: 0; }
-  .recent ul { list-style: none; margin: 6px 0 0; padding: 0; }
-  .recent-item { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; text-align: left; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .recent-item:hover, .recent-item:focus-visible { background: var(--lookup-soft); }
-  .empty-launch { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; text-align: center; }
-  .empty-launch h1 { font-size: 19px; font-weight: 600; margin: 0 0 8px; }
-  .empty-launch p { margin: 0; max-width: 380px; color: var(--lookup-muted); font-size: 13px; line-height: 1.6; }
   .workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 42%) minmax(0, 1fr); border-top: 1px solid var(--lookup-border); }
   .results-pane, .preview-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .results-pane { border-right: 1px solid var(--lookup-border); }
@@ -1442,14 +1610,9 @@
   .details-toggle { padding: 0; border: 0; background: transparent; text-align: left; text-decoration: underline dotted; text-underline-offset: 3px; }
   .judge-details { flex: 0 0 auto; padding: 8px 16px 10px; border-bottom: 1px solid var(--lookup-border); font-size: 12px; color: var(--lookup-muted); }
   .judge-details p { margin: 0 0 3px; }
+  .details-title { margin-bottom: 4px; font-weight: 600; color: CanvasText; }
   .details-actions { display: flex; align-items: center; gap: 8px; }
   kbd { font: inherit; font-size: 11px; color: var(--lookup-muted); }
-  .repair-strip { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 16px 10px; border-bottom: 1px solid var(--lookup-border); font-size: 12px; }
-  .repair-strip .secondary-button { align-self: flex-start; margin-top: 0; }
-  .wording { display: grid; grid-template-columns: max-content 1fr; align-items: center; gap: 8px; color: var(--lookup-muted); }
-  .wording input { min-width: 0; padding: 4px 8px; border: 1px solid var(--lookup-border); border-radius: 6px; background: Canvas; color: CanvasText; }
-  .struck { margin: 0; color: var(--lookup-muted); font-size: 12px; }
-  s { color: CanvasText; }
   .menu-popover { position: absolute; left: 12px; bottom: 34px; z-index: 10; width: max-content; max-width: 280px; }
   .actions-menu { display: flex; flex-direction: column; }
   .results-scroll, .preview-scroll { flex: 1; min-height: 0; overflow-y: auto; }
@@ -1457,7 +1620,11 @@
   .group-label { display: flex; gap: 6px; padding: 4px 16px; font-size: 11px; font-weight: 600; color: var(--lookup-muted); }
   .result-row { padding: 7px 16px; border-left: 3px solid transparent; cursor: default; }
   .result-row.active { background: color-mix(in srgb, var(--lookup-accent) 9%, Canvas); border-left-color: var(--lookup-accent); }
-  .result-title { display: block; font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .result-row.dim .result-title, .result-row.dim .result-snippet { opacity: .55; }
+  .title-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .pending-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--lookup-accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .result-title { display: block; min-width: 0; font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .result-snippet { margin: 2px 0 0; font-size: 12px; line-height: 1.45; color: var(--lookup-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .result-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
   .result-badge { padding: 0 6px; border-radius: 4px; background: var(--lookup-soft); font-size: 10.5px; line-height: 17px; color: var(--lookup-muted); }
@@ -1468,20 +1635,23 @@
   .state strong { color: CanvasText; }
   .state p { margin: 0; }
   .state.error strong { color: #b42318; }
-  .attempts { list-style: none; margin: 6px 0 0; padding: 0; min-width: 220px; font-size: 12px; }
-  .attempts li { display: flex; justify-content: space-between; gap: 16px; padding: 3px 0; border-bottom: 1px solid var(--lookup-border); }
-  .no-match-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
   .secondary-button { margin-top: 6px; padding: 5px 12px; border: 1px solid var(--lookup-border); border-radius: 7px; background: var(--lookup-soft); }
   .text-button { padding: 2px 4px; border: 0; background: transparent; color: var(--lookup-accent); font-size: 12px; white-space: nowrap; }
   .preview-scroll { padding: 14px 18px; }
   .preview-location { font-size: 11px; color: var(--lookup-muted); word-break: break-all; }
   .preview-title { margin: 4px 0 10px; font-size: 16px; font-weight: 600; }
   .correction { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 12px; color: var(--lookup-muted); }
-  .correction .secondary-button { margin-top: 0; padding: 2px 10px; }
+  .segmented { display: inline-flex; border: 1px solid var(--lookup-border); border-radius: 7px; overflow: hidden; }
+  .segmented button { padding: 2px 10px; border: 0; background: transparent; font-size: 12px; }
+  .segmented button + button { border-left: 1px solid var(--lookup-border); }
+  .segmented .on-fit { background: color-mix(in srgb, var(--lookup-fit) 14%, transparent); color: var(--lookup-fit); }
+  .segmented .on-unfit { background: color-mix(in srgb, var(--lookup-unfit) 14%, transparent); color: var(--lookup-unfit); }
+  .correction-note { margin-left: auto; font-size: 11px; }
   .preview-note { margin: 0 0 8px; font-size: 12px; color: var(--lookup-muted); }
   .preview-text { margin: 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
   .notice { margin: 0 0 12px; padding: 8px 10px; border-radius: 8px; background: var(--lookup-soft); font-size: 12px; line-height: 1.5; }
   .notice.error { background: color-mix(in srgb, #ce3030 8%, Canvas); }
+  .footer-hint { margin-right: 10px; font-size: 11px; color: var(--lookup-muted); }
   .footer { flex: 0 0 auto; display: flex; align-items: center; min-height: 28px; padding: 0 12px; border-top: 1px solid var(--lookup-border); }
   .footer-actions { padding: 2px 6px; border: 0; border-radius: 5px; background: transparent; font-size: 11px; color: var(--lookup-muted); }
   .footer-actions:hover { background: var(--lookup-soft); color: CanvasText; }

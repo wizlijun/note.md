@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearRecent, loadRecent, rememberRecent } from './recent'
+import { clearRecent, loadRecent, loadRecentCounts, rememberRecent, rememberRecentCount } from './recent'
 
 const KEY = 'notemd.smartLookup.recent'
 
@@ -67,5 +67,20 @@ describe('recent lookups', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('keeps result counts only for listed questions and clears them with the list', () => {
+    rememberRecent('alpha')
+    expect(rememberRecentCount(' alpha ', 12)).toEqual({ alpha: 12 })
+    expect(rememberRecentCount('not listed', 3)).toEqual({ alpha: 12 })
+    expect(rememberRecentCount('alpha', -1)).toEqual({ alpha: 12 })
+    localStorage.setItem('notemd.smartLookup.recentCounts', JSON.stringify({ alpha: 4, gone: 2, beta: 'x' }))
+    expect(loadRecentCounts()).toEqual({ alpha: 4 })
+    localStorage.setItem('notemd.smartLookup.recentCounts', '{bad')
+    expect(loadRecentCounts()).toEqual({})
+    rememberRecentCount('alpha', 5)
+    clearRecent()
+    expect(loadRecentCounts()).toEqual({})
+    expect(localStorage.getItem('notemd.smartLookup.recentCounts')).toBeNull()
   })
 })
