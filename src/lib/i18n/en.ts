@@ -435,10 +435,11 @@ export const en = {
   'settings.update.checking': 'Checking…',
   'settings.update.checkNow': 'Check for updates now',
   'settings.update.downloadInstall': 'Download and install v{version}',
+  'settings.update.viewDownloads': 'View downloads for v{version}',
   'settings.update.restartNow': 'Restart now to finish updating',
   'settings.update.downloading': 'Downloading:',
   'settings.update.notes': 'v{version} release notes',
-  'settings.update.packageManager': 'Update this installation through your system package manager. On Omarchy, run:',
+  'settings.update.packageManager': 'Choose a package for your Linux distribution from the release downloads, then update using your package manager.',
   'settings.capabilities.error': 'Unable to load desktop capabilities: {error}',
   'settings.capabilities.retry': 'Retry',
   'settings.update.distNote': 'Updates are distributed via GitHub Releases; downloads are signature-verified with a built-in public key before install — only signed packages replace the .app.',
@@ -504,6 +505,7 @@ export const en = {
   'updateDialog.error': 'Update error',
   'updateDialog.unknownError': 'Unknown error',
   'updateDialog.upToDate': 'note.md is up to date',
+  'updateDialog.notChecked': 'Updates have not been checked yet',
 
   // Update banner
   'updateBanner.available': '✨ note.md {version} available',

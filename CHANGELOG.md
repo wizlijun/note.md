@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Linux update checks work on startup and on demand.** Detect releases with a package for this machine, show new-version notifications, and open the matching download page. Failed or unperformed checks no longer appear as “up to date.” Install the selected package with the system package manager; older Linux clients need one manual upgrade to receive this fix.
+
 ## v6.1110.2 — 2026-11-10 (Linux/Omarchy)
 
 - **Inline Fcitx candidates for Sumi on Linux.** Focus mode places candidates below the active line; outside focus mode, typing anchors the body line at the bottom and candidate expansion pushes it upward. Candidates inherit text typography with no separate background or border, up to four rows. Inline preedit has no selection fill; preedit and the current candidate use subtle underlines. Scoped to the native Sumi editor; requires the matching host and Fcitx sumicandidates addon.

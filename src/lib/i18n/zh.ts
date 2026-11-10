@@ -470,10 +470,11 @@ export const zh: Record<keyof Messages, string> = {
   'settings.update.checking': '检查中…',
   'settings.update.checkNow': '立即检查更新',
   'settings.update.downloadInstall': '下载并安装 v{version}',
+  'settings.update.viewDownloads': '查看 v{version} 下载',
   'settings.update.restartNow': '立即重启完成更新',
   'settings.update.downloading': '下载中：',
   'settings.update.notes': 'v{version} 更新说明',
-  'settings.update.packageManager': '请通过系统包管理器更新此安装。Omarchy 用户请运行：',
+  'settings.update.packageManager': '请在发布页选择适合当前 Linux 发行版的软件包，再通过包管理器更新。',
   'settings.capabilities.error': '无法加载桌面能力：{error}',
   'settings.capabilities.retry': '重试',
   'settings.update.distNote': '更新通过 GitHub Releases 分发，下载前会用内置公钥校验签名；只有签名通过的包才会被替换到 .app 中。',
@@ -539,6 +540,7 @@ export const zh: Record<keyof Messages, string> = {
   'updateDialog.error': '更新出错',
   'updateDialog.unknownError': '未知错误',
   'updateDialog.upToDate': 'note.md 已是最新版本',
+  'updateDialog.notChecked': '尚未检查更新',
 
   // Update banner
   'updateBanner.available': '✨ note.md {version} 可用',

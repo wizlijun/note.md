@@ -1569,10 +1569,10 @@
           <p class="desc">
             {t('settings.update.currentVersionLabel')}<strong>v{updaterState.currentVersion || '—'}</strong>
           </p>
-          {#if desktopCapabilities.value?.distributionChannel === 'package-manager'}
+          {#if desktopCapabilities.value}
+          {#if desktopCapabilities.value.distributionChannel === 'package-manager'}
             <p class="desc">{t('settings.update.packageManager')}</p>
-            <code>omarchy update</code>
-          {:else if desktopCapabilities.value?.distributionChannel === 'direct'}
+          {/if}
           <p class="desc">
             {t('settings.update.lastChecked', { time: formatLastChecked(updaterState.lastCheckedAt) })}
           </p>
@@ -1586,10 +1586,10 @@
             </button>
             {#if hasUpdateForSettings() && updaterState.state !== 'downloading' && updaterState.state !== 'ready'}
               <button class="primary" onclick={handleUpdateNow} disabled={updaterBusy}>
-                {t('settings.update.downloadInstall', { version: updaterState.latestVersion ?? '' })}
+                {t(desktopCapabilities.value.distributionChannel === 'package-manager' ? 'settings.update.viewDownloads' : 'settings.update.downloadInstall', { version: updaterState.latestVersion ?? '' })}
               </button>
             {/if}
-            {#if updaterState.state === 'ready'}
+            {#if updaterState.state === 'ready' && desktopCapabilities.value.distributionChannel === 'direct'}
               <button class="primary" onclick={handleRestart}>{t('settings.update.restartNow')}</button>
             {/if}
           </div>
@@ -1618,9 +1618,11 @@
             </details>
           {/if}
 
+          {#if desktopCapabilities.value.distributionChannel === 'direct'}
           <p class="desc" style="margin-top: 14px;">
             {t('settings.update.distNote')}
           </p>
+          {/if}
           {/if}
         </section>
       {:else if selectedTab === 'vault' && isIOSPlatform}

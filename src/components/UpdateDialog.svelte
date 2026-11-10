@@ -1,7 +1,8 @@
 <script lang="ts">
   import {
-    updater, downloadAndInstall, dismissCurrent, restartApp,
+    updater, runCheck, downloadAndInstall, dismissCurrent, restartApp,
   } from '../lib/updater.svelte'
+  import { desktopCapabilities } from '../lib/desktop-capabilities.svelte'
   import { t } from '../lib/i18n/store.svelte'
 
   let { open = $bindable(false) }: { open: boolean } = $props()
@@ -22,6 +23,14 @@
       await downloadAndInstall()
     } catch (e) {
       console.warn('[UpdateDialog] downloadAndInstall:', e)
+    }
+  }
+
+  async function onCheckNow() {
+    try {
+      await runCheck({ forceFresh: true })
+    } catch (e) {
+      console.warn('[UpdateDialog] runCheck:', e)
     }
   }
 
@@ -61,6 +70,9 @@
       {:else if updater.state === 'available'}
         <h2 id="updater-title">{t('updateDialog.available', { version: updater.latestVersion ?? '' })}</h2>
         <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        {#if desktopCapabilities.value?.distributionChannel === 'package-manager'}
+          <p class="meta">{t('settings.update.packageManager')}</p>
+        {/if}
         {#if updater.notes}
           <div class="notes">
             <h3>{t('updateDialog.whatsNew')}</h3>
@@ -72,7 +84,9 @@
         <footer>
           <button class="ghost" onclick={onSkip}>{t('updateDialog.skip')}</button>
           <button class="ghost" onclick={close}>{t('updateDialog.later')}</button>
-          <button class="primary" onclick={onUpdateNow}>{t('updateDialog.updateNow')}</button>
+          <button class="primary" onclick={onUpdateNow}>{desktopCapabilities.value?.distributionChannel === 'package-manager'
+            ? t('settings.update.viewDownloads', { version: updater.latestVersion ?? '' })
+            : t('updateDialog.updateNow')}</button>
         </footer>
 
       {:else if updater.state === 'downloading'}
@@ -108,11 +122,18 @@
           <button class="ghost" onclick={close}>{t('common.close')}</button>
         </footer>
 
-      {:else}
+      {:else if updater.state === 'uptodate'}
         <h2 id="updater-title">{t('updateDialog.upToDate')}</h2>
         <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
         <footer>
           <button class="primary" onclick={close}>{t('common.close')}</button>
+        </footer>
+      {:else}
+        <h2 id="updater-title">{t('updateDialog.notChecked')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+          <button class="primary" onclick={onCheckNow}>{t('settings.update.checkNow')}</button>
         </footer>
       {/if}
     </div>

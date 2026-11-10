@@ -14,6 +14,9 @@ import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Store } from '@tauri-apps/plugin-store'
 import { getVersion } from '@tauri-apps/api/app'
+import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import { checkLinuxRelease, linuxUpdateStoreName, type LinuxRelease } from './linux-updates'
 import { desktopCapabilities, loadDesktopCapabilities } from './desktop-capabilities.svelte'
 
 const CACHE_TTL_MS = 20 * 60 * 60 * 1000  // 20 hours, matches codex
@@ -34,6 +37,7 @@ interface Persisted {
   latest_version_seen: string | null
   dismissed_version: string | null
   check_on_startup: boolean
+  last_check_succeeded: boolean
 }
 
 const DEFAULT_PERSISTED: Persisted = {
@@ -41,6 +45,7 @@ const DEFAULT_PERSISTED: Persisted = {
   latest_version_seen: null,
   dismissed_version: null,
   check_on_startup: true,
+  last_check_succeeded: false,
 }
 
 export const updater = $state<{
@@ -68,11 +73,14 @@ export const updater = $state<{
 let store: Awaited<ReturnType<typeof Store.load>> | null = null
 let persisted: Persisted = { ...DEFAULT_PERSISTED }
 let pendingUpdate: Update | null = null
+let pendingLinuxRelease: LinuxRelease | null = null
+let linuxTriple: string | null = null
 let hydrated = false
 let errorSource: 'capabilities' | 'updater' | null = null
 
 async function getStore() {
-  if (!store) store = await Store.load(UPDATER_STORE_FILE)
+  if (!store) store = await Store.load(desktopCapabilities.value?.distributionChannel === 'package-manager'
+    ? linuxUpdateStoreName(linuxTriple ?? '') : UPDATER_STORE_FILE)
   return store
 }
 
@@ -94,10 +102,11 @@ async function savePersisted(): Promise<void> {
 }
 
 function isWithinTtl(): boolean {
-  if (!persisted.last_checked_at) return false
+  if (!persisted.last_check_succeeded || !persisted.last_checked_at) return false
   const last = Date.parse(persisted.last_checked_at)
   if (!Number.isFinite(last)) return false
-  return Date.now() - last < CACHE_TTL_MS
+  const age = Date.now() - last
+  return age >= 0 && age < CACHE_TTL_MS
 }
 
 /**
@@ -122,26 +131,25 @@ function compareVersion(a: string, b: string): number {
   return 0
 }
 
-/** Gate every updater entry before touching persisted state or updater IPC. */
-async function canUpdate(): Promise<boolean> {
+/** Detection is supported for both channels; installation remains channel-specific. */
+async function canCheck(): Promise<boolean> {
   try {
     const capabilities = await loadDesktopCapabilities()
     recoverUpdaterCapabilityError()
-    if (capabilities.distributionChannel === 'direct') return true
-    pendingUpdate = null
-    updater.state = 'idle'
-    updater.latestVersion = null
-    updater.notes = null
-    updater.error = null
-    errorSource = null
+    if (capabilities.distributionChannel === 'package-manager' && !linuxTriple) {
+      const triple = await invoke<string>('plugin_market_host_triple')
+      linuxUpdateStoreName(triple) // Reject unsupported identities before accessing a cache.
+      linuxTriple = triple
+    }
+    return true
   } catch (error) {
     if (errorSource !== 'updater') {
       updater.state = 'error'
       updater.error = error instanceof Error ? error.message : String(error)
       errorSource = 'capabilities'
     }
+    return false
   }
-  return false
 }
 
 /** Clear only the identity error whose cause a successful capability retry resolved. */
@@ -158,7 +166,7 @@ export function recoverUpdaterCapabilityError(): void {
  * logic (ignores dismissed_version).
  */
 export function shouldShowBanner(): boolean {
-  if (desktopCapabilities.value?.distributionChannel !== 'direct') return false
+  if (!desktopCapabilities.value) return false
   if (updater.state === 'downloading' || updater.state === 'ready') return true
   if (updater.state !== 'available') return false
   if (!updater.latestVersion) return false
@@ -179,7 +187,7 @@ export async function initUpdater(): Promise<void> {
   } catch (e) {
     console.warn('[updater] getVersion:', e)
   }
-  if (!await canUpdate()) { booted = false; return }
+  if (!await canCheck()) { booted = false; return }
   await loadPersisted()
 
   if (!persisted.check_on_startup) {
@@ -219,33 +227,44 @@ interface CheckOpts {
 
 /**
  * Hit the GitHub Releases endpoint and update state. Always updates
- * last_checked_at (even on failure) so we don't hot-loop on broken networks.
+ * last_checked_at records attempts; only successful results can satisfy the cache TTL.
  */
 export async function runCheck(opts: CheckOpts = {}): Promise<void> {
-  if (!await canUpdate()) return
+  if (!await canCheck()) return
   if (updater.state === 'checking' || updater.state === 'downloading') return
-  await loadPersisted()
   updater.state = 'checking'
   updater.error = null
   errorSource = null
+  pendingUpdate = null
+  pendingLinuxRelease = null
   try {
-    const result = await check()
+    if (!updater.currentVersion) updater.currentVersion = await getVersion()
+    await loadPersisted()
+    const packageManaged = desktopCapabilities.value?.distributionChannel === 'package-manager'
+    const result = packageManaged ? await checkLinuxRelease(linuxTriple!) : await check()
     persisted.last_checked_at = new Date().toISOString()
+    persisted.last_check_succeeded = true
     updater.lastCheckedAt = persisted.last_checked_at
-    if (!result) {
+    if (!result || compareVersion(result.version, updater.currentVersion) <= 0) {
       updater.state = 'uptodate'
-      pendingUpdate = null
+      updater.latestVersion = null
+      updater.notes = null
+      persisted.latest_version_seen = null
       await savePersisted()
       return
     }
-    pendingUpdate = result
+    if (packageManaged) pendingLinuxRelease = result as LinuxRelease
+    else pendingUpdate = result as Update
     updater.latestVersion = result.version
     updater.notes = result.body ?? null
     persisted.latest_version_seen = result.version
     updater.state = 'available'
     await savePersisted()
   } catch (e) {
+    pendingUpdate = null
+    pendingLinuxRelease = null
     persisted.last_checked_at = new Date().toISOString()
+    persisted.last_check_succeeded = false
     updater.lastCheckedAt = persisted.last_checked_at
     updater.state = 'error'
     updater.error = e instanceof Error ? e.message : String(e)
@@ -260,7 +279,7 @@ export async function runCheck(opts: CheckOpts = {}): Promise<void> {
  * shows the update so users can change their mind.
  */
 export async function dismissCurrent(): Promise<void> {
-  if (!await canUpdate()) return
+  if (!await canCheck()) return
   if (!updater.latestVersion) return
   persisted.dismissed_version = updater.latestVersion
   await savePersisted()
@@ -271,18 +290,32 @@ export async function dismissCurrent(): Promise<void> {
  * "立即检查更新" in Settings.
  */
 export async function setCheckOnStartup(v: boolean): Promise<void> {
-  if (!await canUpdate()) return
+  if (!await canCheck()) return
   persisted.check_on_startup = v
   updater.checkOnStartup = v
   await savePersisted()
 }
 
 /**
- * Download the new bundle, verify signature, replace .app in place.
+ * Direct channel: download and verify the signed bundle. Linux: open package downloads.
  * Progress arrives via the onProgress callback Tauri gives us.
  */
 export async function downloadAndInstall(): Promise<void> {
-  if (!await canUpdate()) return
+  if (!await canCheck()) return
+  if (desktopCapabilities.value?.distributionChannel === 'package-manager') {
+    // Revalidate cached notifications before opening this exact release's downloads.
+    if (!pendingLinuxRelease) await runCheck({ forceFresh: true })
+    if (!pendingLinuxRelease || updater.state !== 'available') return
+    try {
+      await openUrl(pendingLinuxRelease.url)
+    } catch (e) {
+      updater.state = 'error'
+      updater.error = e instanceof Error ? e.message : String(e)
+      errorSource = 'updater'
+      throw e
+    }
+    return
+  }
   if (!pendingUpdate) {
     // Re-fetch if state was hydrated from cache without a live handle.
     await runCheck({ forceFresh: true })
@@ -315,7 +348,7 @@ export async function downloadAndInstall(): Promise<void> {
 }
 
 export async function restartApp(): Promise<void> {
-  if (!await canUpdate()) return
+  if (!await canCheck() || desktopCapabilities.value?.distributionChannel !== 'direct') return
   await relaunch()
 }
 
@@ -325,7 +358,7 @@ export async function restartApp(): Promise<void> {
  * version, regardless of dismissed state.
  */
 export function hasUpdateForSettings(): boolean {
-  if (desktopCapabilities.value?.distributionChannel !== 'direct') return false
+  if (!desktopCapabilities.value) return false
   if (!updater.latestVersion) return false
   return compareVersion(updater.latestVersion, updater.currentVersion) > 0
 }

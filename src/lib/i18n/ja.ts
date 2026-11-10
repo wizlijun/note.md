@@ -430,10 +430,11 @@ export const ja: Record<keyof Messages, string> = {
   'settings.update.checking': '確認中…',
   'settings.update.checkNow': '今すぐ更新を確認',
   'settings.update.downloadInstall': 'v{version} をダウンロードしてインストール',
+  'settings.update.viewDownloads': 'v{version} のダウンロードを見る',
   'settings.update.restartNow': '今すぐ再起動して更新を完了',
   'settings.update.downloading': 'ダウンロード中：',
   'settings.update.notes': 'v{version} のリリースノート',
-  'settings.update.packageManager': 'このアプリはシステムのパッケージマネージャーで更新してください。Omarchy では次を実行します：',
+  'settings.update.packageManager': 'リリースページでお使いの Linux ディストリビューションに合うパッケージを選び、パッケージマネージャーで更新してください。',
   'settings.capabilities.error': 'デスクトップ機能を読み込めません：{error}',
   'settings.capabilities.retry': '再試行',
   'settings.update.distNote': '更新は GitHub Releases 経由で配布され、インストール前に組み込みの公開鍵で署名を検証します。署名済みのパッケージのみが .app に置き換えられます。',
@@ -499,6 +500,7 @@ export const ja: Record<keyof Messages, string> = {
   'updateDialog.error': '更新エラー',
   'updateDialog.unknownError': '不明なエラー',
   'updateDialog.upToDate': 'note.md は最新です',
+  'updateDialog.notChecked': '更新はまだ確認していません',
 
   // Update banner
   'updateBanner.available': '✨ note.md {version} が利用可能',

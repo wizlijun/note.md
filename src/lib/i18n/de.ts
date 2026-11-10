@@ -428,10 +428,11 @@ export const de: Record<keyof Messages, string> = {
   'settings.update.checking': 'Prüft…',
   'settings.update.checkNow': 'Jetzt nach Updates suchen',
   'settings.update.downloadInstall': 'v{version} herunterladen und installieren',
+  'settings.update.viewDownloads': 'Downloads für v{version} ansehen',
   'settings.update.restartNow': 'Jetzt neu starten, um die Aktualisierung abzuschließen',
   'settings.update.downloading': 'Herunterladen:',
   'settings.update.notes': 'v{version} Versionshinweise',
-  'settings.update.packageManager': 'Aktualisieren Sie diese Installation über die Systempaketverwaltung. Unter Omarchy:',
+  'settings.update.packageManager': 'Wählen Sie auf der Release-Seite das Paket für Ihre Linux-Distribution und aktualisieren Sie es mit Ihrem Paketmanager.',
   'settings.capabilities.error': 'Desktop-Funktionen konnten nicht geladen werden: {error}',
   'settings.capabilities.retry': 'Erneut versuchen',
   'settings.update.distNote': 'Updates werden über GitHub Releases verteilt; Downloads werden mit einem integrierten öffentlichen Schlüssel signaturgeprüft, bevor sie installiert werden — nur signierte Pakete ersetzen die .app.',
@@ -497,6 +498,7 @@ export const de: Record<keyof Messages, string> = {
   'updateDialog.error': 'Update-Fehler',
   'updateDialog.unknownError': 'Unbekannter Fehler',
   'updateDialog.upToDate': 'note.md ist aktuell',
+  'updateDialog.notChecked': 'Es wurde noch nicht nach Updates gesucht',
 
   // Update banner
   'updateBanner.available': '✨ note.md {version} verfügbar',

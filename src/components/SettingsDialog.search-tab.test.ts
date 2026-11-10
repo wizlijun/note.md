@@ -37,6 +37,7 @@ import { mount, unmount, flushSync } from 'svelte'
 const { invokeMock, defaultInvokeImpl } = vi.hoisted(() => {
   const defaultInvokeImpl = async (cmd: string, _args?: unknown): Promise<unknown> => {
     if (cmd === 'desktop_capabilities') return { distributionChannel: 'direct', cliInstall: true, themeFontInstall: true, setDefaultApp: true, location: true, globalShortcuts: true, windowDecorations: true }
+    if (cmd === 'plugin_market_host_triple') return 'x86_64-unknown-linux-gnu'
     if (cmd === 'sotvault_vault_root') return '/tmp/vault'
     throw new Error('no tauri host in vitest')
   }
@@ -67,7 +68,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
   Store: { load: vi.fn(async () => ({ get: vi.fn(async () => undefined), set: vi.fn(async () => {}), save: vi.fn(async () => {}) })) },
 }))
 // Desktop, not iOS — the tab is `!isIOSPlatform`-gated in the strip.
-vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos' }))
+vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn(() => 'macos'), type: () => 'macos', arch: () => 'x86_64' }))
 const { writeTextMock } = vi.hoisted(() => ({ writeTextMock: vi.fn(async (_text: string) => {}) }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: writeTextMock }))
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn(async () => null) }))
@@ -1130,7 +1131,8 @@ describe('SettingsDialog — Search & Index tab, saving tier weights preserves a
 
 
 describe('SettingsDialog — desktop distribution capabilities', () => {
-  it('package-manager shows version and system update guidance without app updater controls', async () => {
+  it('package-manager restores update checks while keeping Mac-only capabilities hidden', async () => {
+    vi.mocked(nativePlatform).mockReturnValue('linux')
     const normalInvoke = invokeMock.getMockImplementation()!
     invokeMock.mockImplementation(async (cmd, args) => cmd === 'desktop_capabilities'
       ? { distributionChannel: 'package-manager', cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: true, windowDecorations: true }
@@ -1141,9 +1143,10 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
     openSettings('updates')
     await settle()
     expect(document.body.textContent).toContain('6.1015.1')
-    expect(document.body.textContent).toContain('omarchy update')
-    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(false)
-    expect(document.querySelector('input[type="checkbox"]')).toBe(null)
+    expect(document.body.textContent).not.toContain('omarchy update')
+    expect(document.body.textContent).toContain(t('settings.update.packageManager'))
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.update.checkNow'))).toBe(true)
+    expect(document.querySelector('input[type="checkbox"]')).not.toBe(null)
     expect([...document.querySelectorAll('button')].some((b) => b.textContent === t('settings.tab.cli'))).toBe(false)
     openSettings('core')
     await settle()
@@ -1156,6 +1159,30 @@ describe('SettingsDialog — desktop distribution capabilities', () => {
       expect(document.body.textContent).not.toContain('Download offline fonts')
       expect(invokeMock.mock.calls.some(([cmd]) => cmd === 'theme_font_status' || cmd === 'theme_font_download')).toBe(false)
     } finally { settings.theme = previousTheme }
+  })
+
+  it.each(['direct', 'package-manager'])('shows the correct available-version action for %s', async channel => {
+    vi.mocked(nativePlatform).mockReturnValue(channel === 'package-manager' ? 'linux' : 'macos')
+    const normalInvoke = invokeMock.getMockImplementation()!
+    invokeMock.mockImplementation(async (cmd, args) => cmd === 'desktop_capabilities'
+      ? { distributionChannel: channel, cliInstall: false, themeFontInstall: false, setDefaultApp: false, location: false, globalShortcuts: true, windowDecorations: true }
+      : normalInvoke(cmd, args))
+    const { updater } = await import('../lib/updater.svelte')
+    Object.assign(updater, { state: 'available', currentVersion: '6.1109.4', latestVersion: '6.1110.2', notes: 'Verified release notes', error: null })
+    try {
+      await mountDialog()
+      openSettings('updates')
+      await settle()
+      const expected = t(channel === 'package-manager' ? 'settings.update.viewDownloads' : 'settings.update.downloadInstall', { version: '6.1110.2' })
+      expect([...document.querySelectorAll('button')].some(b => b.textContent?.trim() === expected)).toBe(true)
+      expect(document.body.textContent).toContain('Verified release notes')
+      if (channel === 'package-manager') {
+        expect(document.body.textContent).not.toContain(t('settings.update.downloadInstall', { version: '6.1110.2' }))
+        expect(document.body.textContent).not.toContain(t('settings.update.distNote'))
+      }
+    } finally {
+      Object.assign(updater, { state: 'idle', latestVersion: null, notes: null, error: null })
+    }
   })
 
   it('capability errors from updater initialization disappear after Settings retry', async () => {
