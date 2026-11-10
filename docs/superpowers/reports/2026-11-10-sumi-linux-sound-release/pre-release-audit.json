@@ -1,0 +1,720 @@
+{
+  "timestampUtc": "2026-11-10T12:31:00.433301+00:00",
+  "candidateVersion": "6.1110.7",
+  "candidateSource": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "baseTag": "v6.1110.6",
+  "baseCommit": "024d81814b4076def2456428150a4a2cd84095de",
+  "currentMain": "320a461327edf4146bb15acc0cb580121ad6601a",
+  "worktrees": [
+    {
+      "worktree": "/home/bruce/git/note.md",
+      "HEAD": "320a461327edf4146bb15acc0cb580121ad6601a",
+      "branch": "refs/heads/main",
+      "changes": [],
+      "ignoredRoots": [
+        "dist-share-editor/",
+        "dist/",
+        "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/host.log",
+        "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-events.log",
+        "docs/superpowers/reports/2026-11-10-sumi-omarchy-release/__pycache__/",
+        "node_modules/",
+        "packaging/omarchy/__pycache__/",
+        "plugins-registry/node_modules/",
+        "plugins-src/agency/node_modules/",
+        "plugins-src/apple-notes/node_modules/",
+        "plugins-src/assistant-mail/node_modules/",
+        "plugins-src/claude-agent/node_modules/",
+        "plugins-src/codex-agent/node_modules/",
+        "plugins-src/conversation-dictionary/node_modules/",
+        "plugins-src/decision-log/node_modules/",
+        "plugins-src/deepseek-agent/node_modules/",
+        "plugins-src/ebook-import/node_modules/",
+        "plugins-src/habitat/node_modules/",
+        "plugins-src/health-sync/node_modules/",
+        "plugins-src/idea-spark/dist/",
+        "plugins-src/idea-spark/node_modules/",
+        "plugins-src/index-viewer/node_modules/",
+        "plugins-src/knowledge-browser/node_modules/",
+        "plugins-src/meetings/node_modules/",
+        "plugins-src/memory/node_modules/",
+        "plugins-src/next/dist/",
+        "plugins-src/next/node_modules/",
+        "plugins-src/power-mode/node_modules/",
+        "plugins-src/quick-launch/node_modules/",
+        "plugins-src/roam-import/node_modules/",
+        "plugins-src/strata/node_modules/",
+        "plugins-src/timeline/node_modules/",
+        "plugins-src/trace-source/node_modules/",
+        "plugins-src/typst-reader/node_modules/",
+        "plugins-src/weekly-review/node_modules/",
+        "plugins-src/write/backend/target/",
+        "plugins-src/write/dist/",
+        "plugins-src/write/node_modules/",
+        "scripts/sumi/__pycache__/",
+        "src-tauri/gen/schemas/",
+        "src-tauri/resources/sumi/",
+        "src-tauri/resources/sumi/IBMPlexMono-Light.ttf",
+        "src-tauri/resources/sumi/IBMPlexSansSC-Light.otf",
+        "src-tauri/resources/sumi/LXGWWenKaiMonoLite-Regular.ttf",
+        "src-tauri/resources/sumi/Unifont-18.0.01.otf",
+        "src-tauri/resources/sumi/YouchaSanz.ttf",
+        "src-tauri/resources/sumi/ZhaohuaTypeWriter.ttf",
+        "src-tauri/resources/sumi/ZhuqueFangsong-Regular.ttf",
+        "src-tauri/target/",
+        "tasks/",
+        "tauri-plugin-native-editor/target/",
+        "write-core/target/"
+      ],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents."
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-candidate-position",
+      "HEAD": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "branch": "refs/heads/fix/sumi-candidate-position",
+      "changes": [],
+      "ignoredRoots": [],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents."
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-candidates",
+      "HEAD": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "branch": "refs/heads/sumi-fcitx-candidates",
+      "changes": [],
+      "ignoredRoots": [
+        "dist-share-editor/",
+        "dist/",
+        "node_modules/",
+        "plugins-src/agency/node_modules/",
+        "plugins-src/apple-notes/node_modules/",
+        "plugins-src/assistant-mail/node_modules/",
+        "plugins-src/claude-agent/node_modules/",
+        "plugins-src/codex-agent/node_modules/",
+        "plugins-src/conversation-dictionary/node_modules/",
+        "plugins-src/decision-log/node_modules/",
+        "plugins-src/deepseek-agent/node_modules/",
+        "plugins-src/ebook-import/node_modules/",
+        "plugins-src/habitat/node_modules/",
+        "plugins-src/health-sync/node_modules/",
+        "plugins-src/idea-spark/node_modules/",
+        "plugins-src/index-viewer/node_modules/",
+        "plugins-src/knowledge-browser/node_modules/",
+        "plugins-src/meetings/node_modules/",
+        "plugins-src/memory/node_modules/",
+        "plugins-src/next/node_modules/",
+        "plugins-src/power-mode/node_modules/",
+        "plugins-src/quick-launch/node_modules/",
+        "plugins-src/roam-import/node_modules/",
+        "plugins-src/strata/node_modules/",
+        "plugins-src/timeline/node_modules/",
+        "plugins-src/trace-source/node_modules/",
+        "plugins-src/typst-reader/node_modules/",
+        "plugins-src/weekly-review/node_modules/",
+        "plugins-src/write/node_modules/",
+        "src-tauri/gen/schemas/",
+        "src-tauri/resources/sumi/",
+        "src-tauri/resources/sumi/IBMPlexMono-Light.ttf",
+        "src-tauri/resources/sumi/IBMPlexSansSC-Light.otf",
+        "src-tauri/resources/sumi/LXGWWenKaiMonoLite-Regular.ttf",
+        "src-tauri/resources/sumi/Unifont-18.0.01.otf",
+        "src-tauri/resources/sumi/YouchaSanz.ttf",
+        "src-tauri/resources/sumi/ZhaohuaTypeWriter.ttf",
+        "src-tauri/resources/sumi/ZhuqueFangsong-Regular.ttf",
+        "src-tauri/target/"
+      ],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents."
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-focus-stability",
+      "HEAD": "690154c8d98c0c8caf2906615561b2e2e6235589",
+      "branch": "refs/heads/fix/sumi-focus-stability",
+      "changes": [],
+      "ignoredRoots": [
+        "tasks/"
+      ],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents."
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-release-integration",
+      "HEAD": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+      "branch": "refs/heads/integrate/sumi6-main",
+      "changes": [
+        "?? node_modules"
+      ],
+      "ignoredRoots": [
+        "src-tauri/gen/schemas/"
+      ],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents.",
+      "changeClassification": [
+        {
+          "path": "node_modules",
+          "type": "untracked dependency-cache symlink",
+          "target": "/home/bruce/git/note.md/node_modules",
+          "releaseScope": "excluded from frozen git archive; no source implementation pending",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "worktree": "/home/bruce/git/note.md-sumi-sound-fix",
+      "HEAD": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+      "branch": "refs/heads/fix/sumi-linux-sound",
+      "changes": [],
+      "ignoredRoots": [
+        "src-tauri/gen/schemas/",
+        "tasks/"
+      ],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents."
+    },
+    {
+      "worktree": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+      "HEAD": "183b636b05bcf1440e2b8626f28629ce44b78863",
+      "detached": true,
+      "changes": [
+        "?? node_modules"
+      ],
+      "ignoredRoots": [
+        "dist/",
+        "src-tauri/gen/schemas/",
+        "src-tauri/target/"
+      ],
+      "scope": "Only frozen candidate tracked source is included; ignored build/fixture/cache roots are excluded without reading contents.",
+      "changeClassification": [
+        {
+          "path": "node_modules",
+          "type": "untracked dependency-cache symlink",
+          "target": "/home/bruce/git/note.md/node_modules",
+          "releaseScope": "excluded from frozen git archive; no source implementation pending",
+          "blocking": false
+        }
+      ]
+    }
+  ],
+  "branches": [
+    {
+      "branch": "fix/sumi-candidate-position",
+      "head": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "commitsNotAncestorOfCandidate": [
+        {
+          "sha": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+          "subject": "fix(sumi): keep nonfocus input stationary above bottom candidates",
+          "scope": "Patch-equivalent cherry-pick already in frozen candidate: bb5e7e2bfadfbb336289563f609a745f547040de"
+        }
+      ],
+      "commitsNotAncestorOfMain": [
+        "5fd8c46160e386cbbbaf110f062a02799bf71809"
+      ]
+    },
+    {
+      "branch": "fix/sumi-focus-stability",
+      "head": "690154c8d98c0c8caf2906615561b2e2e6235589",
+      "commitsNotAncestorOfCandidate": [
+        {
+          "sha": "690154c8d98c0c8caf2906615561b2e2e6235589",
+          "subject": "fix(sumi): stabilize focus scrolling and hide native scrollbar",
+          "scope": "Patch-equivalent cherry-pick already in frozen candidate: e8e8e26a55ecebde9fe8846f4b887d9de96c152e"
+        }
+      ],
+      "commitsNotAncestorOfMain": [
+        "690154c8d98c0c8caf2906615561b2e2e6235589"
+      ]
+    },
+    {
+      "branch": "fix/sumi-linux-sound",
+      "head": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+      "commitsNotAncestorOfCandidate": [],
+      "commitsNotAncestorOfMain": [
+        "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "eb7643d25b281358a2f5c0a08a2e6633e0d293ab",
+        "c8057be88b9c1dfb3f79528e1402b84dcdbe3077"
+      ]
+    },
+    {
+      "branch": "integrate/sumi6-main",
+      "head": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+      "commitsNotAncestorOfCandidate": [
+        {
+          "sha": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+          "subject": "Merge Sumi 6.1110.6 pointer fixes with Smart Lookup main",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+          "subject": "Merge remote-tracking branch 'origin/main'",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "7b6c7ace72ba451277d366a6f50d37e24165da19",
+          "subject": "Merge branch 'feat/smart-lookup-rebuild'",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "928e64f1fe0730b4f7a4e3b480a6951a0d62ce21",
+          "subject": "docs(changelog): state what the Smart Lookup rebuild removed and moved",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6d7fa218d0f491b186f6e8eda45bdac370951fcd",
+          "subject": "fix(smart-lookup): drop stale handoff references instead of failing the handoff",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "568bd28593606fd4bcff5e5c2f52b93693afb0e4",
+          "subject": "fix(search): E1 decides target_indexed from the index, with normalised paths",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "1c8e028e25bb9b5baabfdc831a4d0d98b4885a3c",
+          "subject": "fix(smart-lookup): honour \"Search more broadly when nothing is found\"",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6d9ce434dddb060c4dc001e2d2f5fa8364ae4728",
+          "subject": "fix(settings): choose the quick-answer agent and model in Preferences",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "146a203368506eba6e3f1726214c78ed1e6f647b",
+          "subject": "fix(smart-lookup): \"Ask every time\" offers each research agent instead of picking one",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "ef0ea1178eafc631de45c6151bde283733a9455a",
+          "subject": "refactor(smart-lookup): remove the host planner and the legacy answer module",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "0761ef839902ac363ec6de5be3888a00e796a7f6",
+          "subject": "refactor(smart-lookup): remove the planner from settings and agent helpers",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "702b34dda1bdff85671765e26dfec4f204b7486d",
+          "subject": "fix(smart-lookup): never replace an explicitly configured agent",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "74c252c3d2bb2175d91ff5de4220bdd744d17c84",
+          "subject": "feat(smart-lookup): rebuild the lookup window local-first",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6971c1ccc40fab512fc7ae4952f4e80d16729124",
+          "subject": "feat(smart-lookup): smart_lookup_local command retains local results as a lookup run",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "214949f05daaf128f485b293c7cb69893742e125",
+          "subject": "feat(smart-lookup): Jev Noul client prototype with configurable endpoint",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "3a19c8ae82c568de223ed36ddecffa50716a96e2",
+          "subject": "test(search): E1 local baseline evaluation over an index copy",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "0cf4cfd40a364cf2b70309786f2d09c698c22f48",
+          "subject": "test(search): smart lookup eval core and pre-gate rules",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "cc0df2f23e98001765e07925e3805c3aed9bde1f",
+          "subject": "feat(search): soft time grouping that never drops hits",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6ad44e631a633c06170e3e4de25b7283976393bc",
+          "subject": "feat(search): zero-model time phrase detection",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "aaa98b670103fd9b4d63832186b8a321d4bfdbe4",
+          "subject": "chore(smart-lookup): skeleton modules with failing tests; spec and plans",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        }
+      ],
+      "commitsNotAncestorOfMain": []
+    },
+    {
+      "branch": "main",
+      "head": "320a461327edf4146bb15acc0cb580121ad6601a",
+      "commitsNotAncestorOfCandidate": [
+        {
+          "sha": "320a461327edf4146bb15acc0cb580121ad6601a",
+          "subject": "test(linux): use platform launcher for plugin environment regression",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "1af73a96b04932d6876655d20be6cae1065817bc",
+          "subject": "chore: release Linux Sumi typing sound fix 6.1110.7",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "c59752dd789e616d02119ab507956b31a6f12a3d",
+          "subject": "fix(linux): retain plugin audio session runtime directory",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "5a1bdf4bcf22b6e3289e4f32ca4b6bf8f62bf6e9",
+          "subject": "docs: verify and record Sumi focus and pointer release 6.1110.6",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+          "subject": "Merge Sumi 6.1110.6 pointer fixes with Smart Lookup main",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+          "subject": "Merge remote-tracking branch 'origin/main'",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "7b6c7ace72ba451277d366a6f50d37e24165da19",
+          "subject": "Merge branch 'feat/smart-lookup-rebuild'",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "928e64f1fe0730b4f7a4e3b480a6951a0d62ce21",
+          "subject": "docs(changelog): state what the Smart Lookup rebuild removed and moved",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6d7fa218d0f491b186f6e8eda45bdac370951fcd",
+          "subject": "fix(smart-lookup): drop stale handoff references instead of failing the handoff",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "568bd28593606fd4bcff5e5c2f52b93693afb0e4",
+          "subject": "fix(search): E1 decides target_indexed from the index, with normalised paths",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "1c8e028e25bb9b5baabfdc831a4d0d98b4885a3c",
+          "subject": "fix(smart-lookup): honour \"Search more broadly when nothing is found\"",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6d9ce434dddb060c4dc001e2d2f5fa8364ae4728",
+          "subject": "fix(settings): choose the quick-answer agent and model in Preferences",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "146a203368506eba6e3f1726214c78ed1e6f647b",
+          "subject": "fix(smart-lookup): \"Ask every time\" offers each research agent instead of picking one",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "ef0ea1178eafc631de45c6151bde283733a9455a",
+          "subject": "refactor(smart-lookup): remove the host planner and the legacy answer module",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "0761ef839902ac363ec6de5be3888a00e796a7f6",
+          "subject": "refactor(smart-lookup): remove the planner from settings and agent helpers",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "702b34dda1bdff85671765e26dfec4f204b7486d",
+          "subject": "fix(smart-lookup): never replace an explicitly configured agent",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "74c252c3d2bb2175d91ff5de4220bdd744d17c84",
+          "subject": "feat(smart-lookup): rebuild the lookup window local-first",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6971c1ccc40fab512fc7ae4952f4e80d16729124",
+          "subject": "feat(smart-lookup): smart_lookup_local command retains local results as a lookup run",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "214949f05daaf128f485b293c7cb69893742e125",
+          "subject": "feat(smart-lookup): Jev Noul client prototype with configurable endpoint",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "3a19c8ae82c568de223ed36ddecffa50716a96e2",
+          "subject": "test(search): E1 local baseline evaluation over an index copy",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "0cf4cfd40a364cf2b70309786f2d09c698c22f48",
+          "subject": "test(search): smart lookup eval core and pre-gate rules",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "cc0df2f23e98001765e07925e3805c3aed9bde1f",
+          "subject": "feat(search): soft time grouping that never drops hits",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "6ad44e631a633c06170e3e4de25b7283976393bc",
+          "subject": "feat(search): zero-model time phrase detection",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        },
+        {
+          "sha": "aaa98b670103fd9b4d63832186b8a321d4bfdbe4",
+          "subject": "chore(smart-lookup): skeleton modules with failing tests; spec and plans",
+          "scope": "Main-only integration/Smart Lookup/docs history, excluded from release; audio/metadata commits separately verified equivalent."
+        }
+      ],
+      "commitsNotAncestorOfMain": []
+    },
+    {
+      "branch": "release/sumi-6.1110.6",
+      "head": "024d81814b4076def2456428150a4a2cd84095de",
+      "commitsNotAncestorOfCandidate": [],
+      "commitsNotAncestorOfMain": []
+    },
+    {
+      "branch": "sumi-fcitx-candidates",
+      "head": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "commitsNotAncestorOfCandidate": [
+        {
+          "sha": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+          "subject": "docs(sumi): verify frozen release host plugin and Fcitx integration",
+          "scope": "Patch-equivalent cherry-pick already in frozen candidate: 2bbd9191983eebf5d5237cefa6e5ad8aa49696ba"
+        }
+      ],
+      "commitsNotAncestorOfMain": [
+        "cf000db2d324a836a14cc4e05a6da584ec7531ba"
+      ]
+    }
+  ],
+  "patchEquivalence": [
+    {
+      "source": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "integrated": "bb5e7e2bfadfbb336289563f609a745f547040de",
+      "patchId": "7e245ca1c4ec55997ad81067a61a8882082ee408",
+      "equal": true
+    },
+    {
+      "source": "690154c8d98c0c8caf2906615561b2e2e6235589",
+      "integrated": "e8e8e26a55ecebde9fe8846f4b887d9de96c152e",
+      "patchId": "bd27cada41e5d6b1eee9ba35a5c7fae3bee00089",
+      "equal": true
+    },
+    {
+      "source": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "integrated": "2bbd9191983eebf5d5237cefa6e5ad8aa49696ba",
+      "patchId": "7c4f38cb00aaa2f64d5387ba159aafe93a56ee3d",
+      "equal": true
+    },
+    {
+      "source": "c8057be88b9c1dfb3f79528e1402b84dcdbe3077",
+      "integrated": "c59752dd789e616d02119ab507956b31a6f12a3d",
+      "patchId": "e648e3aab002e338e446b583232131c5cbd991d8",
+      "equal": true
+    },
+    {
+      "source": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+      "integrated": "320a461327edf4146bb15acc0cb580121ad6601a",
+      "patchId": "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef",
+      "equal": true
+    }
+  ],
+  "stashes": [],
+  "remote": {
+    "fetched": true,
+    "main": "5a1bdf4bcf22b6e3289e4f32ca4b6bf8f62bf6e9",
+    "mainIsAncestorOfLocalMain": true,
+    "tag7Absent": true,
+    "commitsExcludedFromCandidate": [
+      {
+        "sha": "5a1bdf4bcf22b6e3289e4f32ca4b6bf8f62bf6e9",
+        "subject": "docs: verify and record Sumi focus and pointer release 6.1110.6"
+      },
+      {
+        "sha": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+        "subject": "Merge Sumi 6.1110.6 pointer fixes with Smart Lookup main"
+      },
+      {
+        "sha": "b524e6d5b26d1a613d13f0ea80ba03f17633ec58",
+        "subject": "Merge remote-tracking branch 'origin/main'"
+      },
+      {
+        "sha": "7b6c7ace72ba451277d366a6f50d37e24165da19",
+        "subject": "Merge branch 'feat/smart-lookup-rebuild'"
+      },
+      {
+        "sha": "928e64f1fe0730b4f7a4e3b480a6951a0d62ce21",
+        "subject": "docs(changelog): state what the Smart Lookup rebuild removed and moved"
+      },
+      {
+        "sha": "6d7fa218d0f491b186f6e8eda45bdac370951fcd",
+        "subject": "fix(smart-lookup): drop stale handoff references instead of failing the handoff"
+      },
+      {
+        "sha": "568bd28593606fd4bcff5e5c2f52b93693afb0e4",
+        "subject": "fix(search): E1 decides target_indexed from the index, with normalised paths"
+      },
+      {
+        "sha": "1c8e028e25bb9b5baabfdc831a4d0d98b4885a3c",
+        "subject": "fix(smart-lookup): honour \"Search more broadly when nothing is found\""
+      },
+      {
+        "sha": "6d9ce434dddb060c4dc001e2d2f5fa8364ae4728",
+        "subject": "fix(settings): choose the quick-answer agent and model in Preferences"
+      },
+      {
+        "sha": "146a203368506eba6e3f1726214c78ed1e6f647b",
+        "subject": "fix(smart-lookup): \"Ask every time\" offers each research agent instead of picking one"
+      },
+      {
+        "sha": "ef0ea1178eafc631de45c6151bde283733a9455a",
+        "subject": "refactor(smart-lookup): remove the host planner and the legacy answer module"
+      },
+      {
+        "sha": "0761ef839902ac363ec6de5be3888a00e796a7f6",
+        "subject": "refactor(smart-lookup): remove the planner from settings and agent helpers"
+      },
+      {
+        "sha": "702b34dda1bdff85671765e26dfec4f204b7486d",
+        "subject": "fix(smart-lookup): never replace an explicitly configured agent"
+      },
+      {
+        "sha": "74c252c3d2bb2175d91ff5de4220bdd744d17c84",
+        "subject": "feat(smart-lookup): rebuild the lookup window local-first"
+      },
+      {
+        "sha": "6971c1ccc40fab512fc7ae4952f4e80d16729124",
+        "subject": "feat(smart-lookup): smart_lookup_local command retains local results as a lookup run"
+      },
+      {
+        "sha": "214949f05daaf128f485b293c7cb69893742e125",
+        "subject": "feat(smart-lookup): Jev Noul client prototype with configurable endpoint"
+      },
+      {
+        "sha": "3a19c8ae82c568de223ed36ddecffa50716a96e2",
+        "subject": "test(search): E1 local baseline evaluation over an index copy"
+      },
+      {
+        "sha": "0cf4cfd40a364cf2b70309786f2d09c698c22f48",
+        "subject": "test(search): smart lookup eval core and pre-gate rules"
+      },
+      {
+        "sha": "cc0df2f23e98001765e07925e3805c3aed9bde1f",
+        "subject": "feat(search): soft time grouping that never drops hits"
+      },
+      {
+        "sha": "6ad44e631a633c06170e3e4de25b7283976393bc",
+        "subject": "feat(search): zero-model time phrase detection"
+      },
+      {
+        "sha": "aaa98b670103fd9b4d63832186b8a321d4bfdbe4",
+        "subject": "chore(smart-lookup): skeleton modules with failing tests; spec and plans"
+      }
+    ]
+  },
+  "scope": {
+    "changedFiles": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/README.md",
+      "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/green.log",
+      "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/host-check.log",
+      "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/platform-tests.log",
+      "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/red.log",
+      "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/rustc-wrapper.py",
+      "docs/superpowers/specs/2026-11-10-sumi-linux-audio-session.md",
+      "package.json",
+      "src-tauri/Cargo.lock",
+      "src-tauri/Cargo.toml",
+      "src-tauri/src/platform.rs",
+      "src-tauri/src/plugin_runtime/process.rs",
+      "src-tauri/tauri.conf.json"
+    ],
+    "runtimeFiles": [
+      "src-tauri/src/platform.rs",
+      "src-tauri/src/plugin_runtime/process.rs"
+    ],
+    "productionBehaviorChange": "Linux plugin environment adds only XDG_RUNTIME_DIR; process.rs changes are test-only.",
+    "windowsAndMacAllowlistUnchanged": true,
+    "metadataOnlyVersionBump": true,
+    "changelogs": [
+      {
+        "path": "CHANGELOG.md",
+        "previousReleaseSectionsByteIdentical": true,
+        "mainUnreleasedPreserved": true,
+        "mainReleaseSectionsEqualCandidate": true
+      },
+      {
+        "path": "CHANGELOG.zh-CN.md",
+        "previousReleaseSectionsByteIdentical": true,
+        "mainUnreleasedPreserved": true,
+        "mainReleaseSectionsEqualCandidate": true
+      }
+    ],
+    "smartLookupExcluded": true,
+    "candidateHasExactlyThreeNewCommits": true
+  },
+  "plugins": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.12",
+      "packagePath": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.sumi/0.1.12/x86_64-unknown-linux-gnu.notemdpkg",
+      "packageSha256": "64ebdd9ffdcab1a740b3d56a0cc59874484d8fd8fc62422955b64ac7b68799cb",
+      "signatureSha256": "2835fe3ed2afe712d50eb02b4569a2b5590bea171204b54be47998bf7d8b6b52",
+      "signedBytesUnchanged": true,
+      "manifestBlob": "667f33e18b1bc678df1fddb9402b375f397140c7",
+      "pluginSourceUnchanged": true
+    },
+    {
+      "id": "notemd.next",
+      "version": "1.13.3",
+      "packagePath": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.next/1.13.3/universal.notemdpkg",
+      "packageSha256": "e0221ef0621444fc0bb11b302ecdd15b986a9fb916bad5c1e7a38a62c227abf2",
+      "signatureSha256": "5d118a761200acf8edfdabdb644c3394744e0988bbbf677b43af8f691c1ca0ff",
+      "signedBytesUnchanged": true,
+      "manifestBlob": "29cd9b861e5270fcc18807aae8caaffa033d9d39",
+      "pluginSourceUnchanged": true
+    },
+    {
+      "id": "notemd.idea-spark",
+      "version": "1.3.8",
+      "packagePath": "/home/bruce/git/note.md/tasks/omarchy-shortcuts-window/plugin-release/output/notemd.idea-spark/1.3.8/universal.notemdpkg",
+      "packageSha256": "1a6817c6924dce05a643301af883452b9de69a223a3ac11ed3069ea8ac9dd9e5",
+      "signatureSha256": "4125a479ea5ca4b0957f72229ae756616da77e071b4591485994e2eed651e799",
+      "signedBytesUnchanged": true,
+      "manifestBlob": "809c087de99ba4119e78e285327633f1153f25d6",
+      "pluginSourceUnchanged": true
+    }
+  ],
+  "verificationScripts": [
+    {
+      "path": "/home/bruce/git/note.md/tasks/sumi-sound-release-6.1110.7/verify-arch-package.py",
+      "sha256": "02be35f3abdb73068ae66b5d9bf85ded64311aaa6ec2e97a126b2a358264587b",
+      "unfrozenInputs": {
+        "EXPECTED_DEB_SHA256": null,
+        "source_commit": null
+      },
+      "refusesBeforeFreeze": true
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/sumi-sound-release-6.1110.7/verify-public-host.py",
+      "sha256": "bb8335a316174fb5ed8faac20dc8702b820b913e270c32f1075a7a7ed8192f77",
+      "unfrozenInputs": {
+        "SOURCE_COMMIT": null,
+        "EXPECTED_DEB_SHA256": null
+      },
+      "refusesBeforeFreeze": true
+    }
+  ],
+  "regression": {
+    "redExit": 101,
+    "greenExit": 0,
+    "productionSpawnTestsPassed": 1,
+    "platformTestsPassed": 2,
+    "hostCheckExit": 0,
+    "launcherCorrectionGreenLog": "/home/bruce/git/note.md-sumi-sound-fix/tasks/sumi-sound-fix/launcher-green.log"
+  },
+  "ignoredInventoryPolicy": "Enumerated ignored roots only; credentials/cache contents not read or published. All excluded from frozen git archive.",
+  "issues": [],
+  "conclusion": "PASS",
+  "codeModified": false,
+  "committed": false,
+  "uploaded": false,
+  "excludedUntrackedCacheLinks": 2
+}

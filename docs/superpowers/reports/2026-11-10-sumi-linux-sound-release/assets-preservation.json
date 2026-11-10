@@ -1,0 +1,17 @@
+{
+  "source": "/tmp/tmp.6qtgqGKZ76/output/amd64/note.md_6.1110.7_amd64.deb",
+  "verificationContainer": "9150564e9567c407526f3c35a8cb7d9a7d25ebf975c2e53c255b5ede2e6101ac",
+  "copiedAt": "2026-11-10T12:37:43.292981+00:00",
+  "sha256": "886379f3f52c768790ce4a9113f56b4c243033d6362a2afbfca36fbc6bdcbe23",
+  "runtimeVerified": true,
+  "officialChecksumCopied": false,
+  "sourceTag": "v6.1110.7",
+  "sourceCommit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+  "coreCommit": "f581448bce5e9cf557059f0700297a527069b5ae",
+  "binarySha256": "213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467",
+  "binaryPath": "/home/bruce/git/note.md/tasks/sumi-sound-release-6.1110.7/package-provenance/usr/bin/notemd",
+  "packageMetadata": "Package: note-md\nVersion: 6.1110.7\nArchitecture: amd64",
+  "verificationStatus": "passed_on_same_package_retry",
+  "runtimeRetryEvidence": "runtime-retry-result.json",
+  "initialVerificationFailure": "Arch mirror perl package signature download low-speed timeout"
+}

@@ -1,0 +1,16 @@
+{
+  "original": {
+    "volume": [
+      65536
+    ],
+    "mute": false
+  },
+  "restored": true,
+  "only_own_stream": true,
+  "actual": {
+    "volume": [
+      65536
+    ],
+    "mute": false
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "manifestSha256": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+  "assetsValidated": 12,
+  "presets": [
+    "typewriter",
+    "thock"
+  ],
+  "pulseError6": "Connection refused",
+  "conclusion": "Installed SDK binary and resources work; missing XDG_RUNTIME_DIR prevents Pulse server discovery in sanitized host subprocess environment."
+}

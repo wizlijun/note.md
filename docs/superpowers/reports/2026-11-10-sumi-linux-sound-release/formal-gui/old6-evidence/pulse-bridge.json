@@ -1,0 +1,9 @@
+{
+  "fixture": "/home/bruce/git/note.md/tasks/sumi-audio-v7/old6-fixture",
+  "private_runtime": "/tmp/sumi-host-1keui9qx",
+  "link": "/tmp/sumi-host-1keui9qx/pulse/native",
+  "target": "/run/user/1000/pulse/native",
+  "same_uid": 1000,
+  "production_modification": false,
+  "host_PULSE_SERVER_injected": false
+}

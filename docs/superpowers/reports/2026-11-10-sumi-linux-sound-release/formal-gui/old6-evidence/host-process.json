@@ -1,0 +1,8 @@
+{
+  "pid": 131347,
+  "tag": "v6.1110.6",
+  "host_binary_sha256": "efd58b8a0b3e523b3499a2eba8ead39ba018b0ae69695a21456ae180758504bb",
+  "observer_sha256": "b108c91d69650cb31692f068e3658f9e7d4c4e03f8dd9571f9a70a759c604529",
+  "pulse_server_injected": false,
+  "diagnostic_mutation_module_loaded": false
+}

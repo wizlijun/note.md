@@ -1,0 +1,64 @@
+{
+  "owned_streams": [
+    {
+      "index": 758,
+      "driver": "PipeWire",
+      "owner_module": null,
+      "client": "756",
+      "sink": 61,
+      "sample_specification": "float32le 1ch 48000Hz",
+      "channel_map": "mono",
+      "format": "pcm, format.sample_format = \"\\\"float32le\\\"\"  format.rate = \"48000\"  format.channels = \"1\"  format.channel_map = \"\\\"mono\\\"\"",
+      "corked": false,
+      "mute": false,
+      "volume": {
+        "mono": {
+          "value": 65536,
+          "value_percent": "100%",
+          "db": "0.00 dB"
+        }
+      },
+      "balance": 0.0,
+      "buffer_latency_usec": 0.0,
+      "sink_latency_usec": 0.0,
+      "resample_method": "PipeWire",
+      "properties": {
+        "client.api": "pipewire-pulse",
+        "pulse.server.type": "unix",
+        "application.name": "Sumi",
+        "application.process.id": "133412",
+        "application.process.user": "bruce",
+        "application.process.host": "brucemarchy",
+        "application.process.binary": "notemd-sumi",
+        "application.language": "C",
+        "application.process.machine_id": "f3aba968c26549ed81cec727769f59e3",
+        "media.name": "Typing feedback",
+        "pulse.corked": "false",
+        "node.rate": "1/48000",
+        "node.latency": "480/48000",
+        "stream.is-live": "true",
+        "node.name": "Sumi",
+        "node.want-driver": "true",
+        "node.autoconnect": "true",
+        "media.class": "Stream/Output/Audio",
+        "port.group": "stream.0",
+        "adapt.follower.spa-node": "",
+        "object.register": "false",
+        "factory.id": "7",
+        "clock.quantum-limit": "8192",
+        "node.loop.name": "data-loop.0",
+        "library.name": "audioconvert/libspa-audioconvert",
+        "client.id": "83",
+        "object.id": "79",
+        "object.serial": "758",
+        "node.driver-id": "61",
+        "pulse.attr.maxlength": "38400",
+        "pulse.attr.tlength": "5760",
+        "pulse.attr.prebuf": "0",
+        "pulse.attr.minreq": "1920",
+        "module-stream-restore.id": "sink-input-by-application-name:Sumi"
+      }
+    }
+  ],
+  "backend_exists": true
+}

@@ -1,0 +1,53 @@
+{
+  "binary": "/home/bruce/.local/share/net.notemd.app/plugins/notemd.sumi/0.1.12/bin/notemd-sumi",
+  "binarySha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "results": [
+    {
+      "preset": "typewriter",
+      "backendPid": 119852,
+      "streamId": 615,
+      "streamVolume": "10%",
+      "monitorOwnStreamOnly": true,
+      "baselineFrames": 14400,
+      "recordedFrames": 52800,
+      "baselinePeak": 0.0,
+      "afterKeyPeak": 0.000489340047352016,
+      "rolesPlayed": [
+        "key"
+      ],
+      "pcm": "/home/bruce/git/note.md/tasks/sumi-sound-diagnosis/playback/typewriter/own-stream.f32le",
+      "backendExited": true,
+      "streamRemoved": true,
+      "sinkIndex": 61,
+      "sinkName": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+      "monitorSource": "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor",
+      "recorderExited": true
+    },
+    {
+      "preset": "thock",
+      "backendPid": 119881,
+      "streamId": 637,
+      "streamVolume": "10%",
+      "monitorOwnStreamOnly": true,
+      "baselineFrames": 14400,
+      "recordedFrames": 52800,
+      "baselinePeak": 0.0,
+      "afterKeyPeak": 0.00028754305094480515,
+      "rolesPlayed": [
+        "key"
+      ],
+      "pcm": "/home/bruce/git/note.md/tasks/sumi-sound-diagnosis/playback/thock/own-stream.f32le",
+      "backendExited": true,
+      "streamRemoved": true,
+      "sinkIndex": 61,
+      "sinkName": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+      "monitorSource": "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor",
+      "recorderExited": true
+    }
+  ],
+  "globalVolumeUnchanged": true,
+  "existingBackendUntouched": true,
+  "completedAt": "2026-11-10T12:18:03.737778+00:00",
+  "recorder": "parec --monitor-stream=<own-sink-input> --device=<own-sink-monitor> --raw --format=float32le --rate=48000 --channels=1",
+  "initialSetupAttempt": "First setup stopped before recording/play because pactl JSON used monitor_source instead of monitor_source_name; own backend cleaned. No key was played in that attempt."
+}

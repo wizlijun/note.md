@@ -1,0 +1,81 @@
+{
+  "host": {
+    "pid": 132765,
+    "ppid": 904,
+    "start_time": "1754723",
+    "exe_sha256": "213c47b888592ed7546db1d2acb5ceb3386e9cc5e89c9a8304105b0d766ed467"
+  },
+  "backend": {
+    "pid": 133412,
+    "ppid": 132765,
+    "start_time": "1755438",
+    "exe_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb"
+  },
+  "backend_environment": {
+    "XDG_RUNTIME_DIR": "/tmp/sumi-host-p1xbuo69",
+    "PULSE_SERVER_present": false,
+    "private_runtime_expected": "/tmp/sumi-host-p1xbuo69"
+  },
+  "streams": [
+    {
+      "index": 732,
+      "driver": "PipeWire",
+      "owner_module": null,
+      "client": "731",
+      "sink": 61,
+      "sample_specification": "float32le 1ch 48000Hz",
+      "channel_map": "mono",
+      "format": "pcm, format.sample_format = \"\\\"float32le\\\"\"  format.rate = \"48000\"  format.channels = \"1\"  format.channel_map = \"\\\"mono\\\"\"",
+      "corked": false,
+      "mute": false,
+      "volume": {
+        "mono": {
+          "value": 65536,
+          "value_percent": "100%",
+          "db": "0.00 dB"
+        }
+      },
+      "balance": 0.0,
+      "buffer_latency_usec": 0.0,
+      "sink_latency_usec": 0.0,
+      "resample_method": "PipeWire",
+      "properties": {
+        "client.api": "pipewire-pulse",
+        "pulse.server.type": "unix",
+        "application.name": "Sumi",
+        "application.process.id": "133412",
+        "application.process.user": "bruce",
+        "application.process.host": "brucemarchy",
+        "application.process.binary": "notemd-sumi",
+        "application.language": "C",
+        "application.process.machine_id": "f3aba968c26549ed81cec727769f59e3",
+        "media.name": "Typing feedback",
+        "pulse.corked": "false",
+        "node.rate": "1/48000",
+        "node.latency": "480/48000",
+        "stream.is-live": "true",
+        "node.name": "Sumi",
+        "node.want-driver": "true",
+        "node.autoconnect": "true",
+        "media.class": "Stream/Output/Audio",
+        "port.group": "stream.0",
+        "adapt.follower.spa-node": "",
+        "object.register": "false",
+        "factory.id": "7",
+        "clock.quantum-limit": "8192",
+        "node.loop.name": "data-loop.0",
+        "library.name": "audioconvert/libspa-audioconvert",
+        "client.id": "83",
+        "object.id": "81",
+        "object.serial": "732",
+        "node.driver-id": "61",
+        "pulse.attr.maxlength": "38400",
+        "pulse.attr.tlength": "5760",
+        "pulse.attr.prebuf": "0",
+        "pulse.attr.minreq": "1920",
+        "module-stream-restore.id": "sink-input-by-application-name:Sumi"
+      }
+    }
+  ],
+  "monotonic_ns": 17565133870475
+}
