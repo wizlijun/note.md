@@ -5,17 +5,19 @@
 //! each task's target lands, so the pre-gates of feasibility spec §9.3 can
 //! decide which paid experiments are worth running at all. Plan Tasks 3–4.
 //!
-//! SKELETON: types, signatures and tests are final; the bodies are not
-//! written yet. Every test in this file is expected to fail until they are.
-
 #![allow(dead_code)]
 
 use std::path::Path;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
+use std::time::Instant;
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use super::smart::SmartHitDto;
+use super::smart::{smart_search_locked, SmartHitDto};
+use super::time_group::{group_by_time, time_scoped_query};
+use super::time_phrase::detect_time_phrase;
 use super::IndexHandle;
 
 /// Where a task expects its answer. `line` narrows the match to the block
@@ -236,8 +238,67 @@ pub(super) fn run_e1(
     tasks: &[EvalTask],
     today: NaiveDate,
 ) -> Result<Vec<E1Row>, String> {
-    let _ = (handle, vault_root, tasks, today);
-    todo!("plan Task 4 Step 2")
+    let counter = Arc::new(AtomicU64::new(1));
+    let search = |question: &str, deep: bool| {
+        smart_search_locked(
+            handle,
+            Instant::now(),
+            question,
+            Some(50),
+            Some(deep),
+            deep.then_some(4_000),
+            &counter,
+            1,
+        )
+    };
+    let mut rows = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        let absent = task.category == Category::Absent;
+        let target_indexed =
+            absent || task.targets.iter().all(|t| vault_root.join(&t.path).is_file());
+
+        let shallow = search(&task.question, false)?;
+        let found = target_rank(&shallow.hits, &task.targets);
+        let top = shallow.hits.len().min(30);
+        let line_share_top30 = if top == 0 {
+            0.0
+        } else {
+            shallow.hits[..top].iter().filter(|h| h.hit.level == "line").count() as f64
+                / top as f64
+        };
+
+        let (mut deep_rank, mut deep_ms) = (None, None);
+        if found.is_none() && target_indexed && !absent {
+            let deep = search(&task.question, true)?;
+            deep_rank = target_rank(&deep.hits, &task.targets).map(|(rank, _)| rank);
+            deep_ms = Some(deep.took_ms);
+        }
+
+        let (mut time_detected, mut grouped_rank) = (false, None);
+        if let Some(time) = detect_time_phrase(&task.question, today)? {
+            time_detected = true;
+            let scoped = search(&time_scoped_query(&task.question, &time), false)?;
+            let grouped = group_by_time(scoped.hits, shallow.hits, 50);
+            grouped_rank = target_rank(&grouped.hits, &task.targets).map(|(rank, _)| rank);
+        }
+
+        rows.push(E1Row {
+            id: task.id.clone(),
+            category: task.category,
+            split: task.split,
+            target_indexed,
+            rank: found.as_ref().map(|(rank, _)| *rank),
+            level: found.map(|(_, level)| level),
+            line_share_top30,
+            local_ms: shallow.took_ms,
+            deep_rank,
+            deep_ms,
+            time_detected,
+            grouped_rank,
+            needs_inferred_constraint: task.needs_inferred_constraint,
+        });
+    }
+    Ok(rows)
 }
 
 #[cfg(test)]
@@ -395,6 +456,51 @@ mod tests {
     #[test]
     #[ignore = "reads a real vault; run by hand with NOTEMD_EVAL_* set"]
     fn e1_local_baseline() {
-        todo!("plan Task 4 Step 3")
+        let env = |name: &str| {
+            std::env::var(name).unwrap_or_else(|_| panic!("{name} must be set for this run"))
+        };
+        let vault = std::path::PathBuf::from(env("NOTEMD_EVAL_VAULT"));
+        let tasks_path = env("NOTEMD_EVAL_TASKS");
+        let out_path = env("NOTEMD_EVAL_OUT");
+        let source_db = match std::env::var("NOTEMD_EVAL_INDEX_DB") {
+            Ok(path) => std::path::PathBuf::from(path),
+            Err(_) => searchidx::paths::index_db_path(&vault)
+                .expect("no index location for this vault; set NOTEMD_EVAL_INDEX_DB"),
+        };
+        let tasks = load_tasks(&std::fs::read_to_string(&tasks_path).expect("read tasks file"))
+            .expect("valid tasks file");
+
+        let copy_dir = tempfile::tempdir().unwrap();
+        let copy_db = copy_dir.path().join(source_db.file_name().expect("index file name"));
+        std::fs::copy(&source_db, &copy_db).expect("copy index file");
+        for suffix in ["-wal", "-shm"] {
+            let mut side = source_db.clone().into_os_string();
+            side.push(suffix);
+            let side = std::path::PathBuf::from(side);
+            if side.exists() {
+                let mut dest = copy_db.clone().into_os_string();
+                dest.push(suffix);
+                std::fs::copy(&side, dest).expect("copy index side file");
+            }
+        }
+
+        let stamp = crate::cli::search::scan_options_for(&vault).source_globs.stamp();
+        let idx = SearchIndex::open_at(&vault, &copy_db, &stamp).expect("open index copy");
+        if idx.stats().expect("index stats").files == 0 {
+            panic!("索引副本为空：stamp 不匹配或索引尚未建立");
+        }
+        let handle: IndexHandle = Arc::new(Mutex::new(Some(idx)));
+
+        let rows = run_e1(&handle, &vault, &tasks, chrono::Local::now().date_naive())
+            .expect("run E1");
+        let gates = pre_gates(&rows);
+        let report = serde_json::json!({
+            "vault": vault.display().to_string(),
+            "rows": rows,
+            "preGates": gates,
+        });
+        std::fs::write(&out_path, serde_json::to_string_pretty(&report).unwrap())
+            .expect("write report");
+        println!("{}", serde_json::to_string_pretty(&gates).unwrap());
     }
 }

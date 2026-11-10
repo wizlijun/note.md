@@ -199,7 +199,7 @@ struct FusedHit {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn smart_search_locked(
+pub(super) fn smart_search_locked(
     idx_handle: &IndexHandle,
     started: Instant,
     raw_query: &str,
