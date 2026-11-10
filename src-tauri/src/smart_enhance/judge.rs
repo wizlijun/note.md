@@ -6,8 +6,8 @@
 //! Vault path, and never a block from a confidential, stale or roll-up hit.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock, TryLockError};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -16,9 +16,10 @@ use sha2::{Digest, Sha256};
 use super::candidates::{rerank, route, select_candidates, tier, top_ten_unfit, Candidate, Route, DEFAULT_LIMITS};
 use super::keys::{read_key, KeyKind};
 use super::{
-    enhance_client, fresh_cancel_flag, gate_jev, status_for, CancelFlag, EnhanceStatus, Gate, JevRequestConfig,
-    Missing, SkipReason, Tier, Trigger, UsageDto, ENHANCE_TIMEOUT,
+    claim_auto_request, enhance_client, fresh_cancel_flag, gate_jev, release_auto_request, status_for, CancelFlag,
+    EnhanceStatus, Gate, JevRequestConfig, Missing, SkipReason, Tier, Trigger, UsageDto, ENHANCE_TIMEOUT,
 };
+use crate::search::IndexHandle;
 use crate::smart_lookup::{
     active_root, current_block, run_for_window, update_run, CanonicalHit, JudgeRecord, LookupRun,
 };
@@ -79,7 +80,9 @@ pub(crate) struct JudgeInput<'a> {
 }
 
 /// The shared Noul `state`: question, time range and filters when present,
-/// then the criterion.
+/// then the criterion. The 时间范围 line goes out whenever the run has a
+/// time — in Group mode and in Window mode alike (ledger ruling: §5.4 sends
+/// the parsed time, and Window mode is a filter on it).
 fn build_state(run: &LookupRun) -> String {
     let mut lines = vec![format!("用户要找的内容：{}", run.question)];
     if let Some(time) = &run.time {
@@ -144,28 +147,34 @@ fn ordered_hits<'a>(
 struct CachedVerdicts {
     key: [u8; 32],
     stored_at: Instant,
-    /// One per selected candidate, in selection order.
+    /// One per question, in question order.
     tiers: Vec<Tier>,
 }
 
 static JUDGE_CACHE: OnceLock<Mutex<VecDeque<CachedVerdicts>>> = OnceLock::new();
 
-/// SHA-256 over the question, host, model and every selected candidate's
-/// path, line range and passage, each field length-prefixed.
-fn cache_key(question: &str, host: &str, model: &str, picked: &[Candidate]) -> [u8; 32] {
+/// SHA-256 over exactly what the request carries: the resolved endpoint URL,
+/// the model, the auth mode, the `state`, and every question's id,
+/// instructions and criteria, each field length-prefixed. Another route on
+/// the same host, or a changed time-range or filter line, is a different key.
+fn cache_key(endpoint: &str, model: &str, auth_mode: AuthMode, state: &str, questions: &[NoulQuestion]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     let mut field = |bytes: &[u8]| {
         hasher.update((bytes.len() as u64).to_le_bytes());
         hasher.update(bytes);
     };
-    field(question.as_bytes());
-    field(host.as_bytes());
+    field(endpoint.as_bytes());
     field(model.as_bytes());
-    for c in picked {
-        field(c.path.as_bytes());
-        field(&c.line.to_le_bytes());
-        field(&c.line_end.to_le_bytes());
-        field(c.passage.as_bytes());
+    field(match auth_mode {
+        AuthMode::Bearer => b"bearer".as_slice(),
+        AuthMode::None => b"none".as_slice(),
+    });
+    field(state.as_bytes());
+    for q in questions {
+        field(q.id.as_bytes());
+        field(q.instructions.to_string().as_bytes());
+        field(q.criteria_true.as_bytes());
+        field(q.criteria_false.as_bytes());
     }
     hasher.finalize().into()
 }
@@ -228,9 +237,12 @@ fn apply_tiers(
 /// 可测的核心；返回结果，以及要写回运行的 (JudgeRecord, 是否发出了请求)。
 ///
 /// Each step that does not hold returns its status without sending anything.
-/// A cancel noticed before the request starts sends nothing (`request_count`
-/// 0); one during the request stops the wait (`request_count` 1; the service
-/// may still bill it).
+///
+/// Cancellation (ledger ruling, overriding brief step 8): a cancel noticed
+/// before the request starts — checked before the cache lookup too, so it
+/// also wins over a reused verdict — returns `Cancelled` with
+/// `request_count` 0 and sends nothing. A cancel during the request stops
+/// the wait and reports `request_count` 1 (the service may still bill it).
 pub(crate) async fn judge_core(
     input: JudgeInput<'_>,
     client: &reqwest::Client,
@@ -270,8 +282,9 @@ async fn judge_steps(
             return Ok((result, None, false));
         }
     };
-    // The gate accepted the URL, so it resolves to a host.
-    let host = jev_endpoint(&jev.url).and_then(|e| endpoint_host(&e)).unwrap_or_default();
+    // The gate accepted the URL, so it resolves to an endpoint and a host.
+    let endpoint = jev_endpoint(&jev.url).unwrap_or_default();
+    let host = endpoint_host(&endpoint).unwrap_or_default();
     let mut result = JudgeResult { endpoint_host: Some(host.clone()), ..JudgeResult::default() };
     if input.trigger == Trigger::Auto && run.auto_request_used {
         result.skip_reason = Some(SkipReason::AutoBudgetUsed);
@@ -292,15 +305,6 @@ async fn judge_steps(
         result.skip_reason = Some(SkipReason::NoCandidates);
         return Ok((result, None, false));
     }
-
-    let key = cache_key(&run.question, &host, &jev.model, &picked);
-    let cached = cache_lookup(&mut judge_cache(), &key, picked.len(), Instant::now());
-    if let Some(tiers) = cached {
-        result.reused = true;
-        let record =
-            apply_tiers(&mut result, &picked, &tiers, input.display_order, input.section_breaks, &host, &jev.model);
-        return Ok((result, Some(record), false));
-    }
     if cancel.is_cancelled() {
         result.status = EnhanceStatus::Cancelled;
         return Ok((result, None, false));
@@ -309,6 +313,15 @@ async fn judge_steps(
     let questions: Vec<NoulQuestion> =
         picked.iter().enumerate().map(|(i, c)| question_for(format!("c{}", i + 1), c)).collect();
     let state = build_state(run);
+    let key = cache_key(&endpoint, &jev.model, jev.auth_mode, &state, &questions);
+    let cached = cache_lookup(&mut judge_cache(), &key, questions.len(), Instant::now());
+    if let Some(tiers) = cached {
+        result.reused = true;
+        let record =
+            apply_tiers(&mut result, &picked, &tiers, input.display_order, input.section_breaks, &host, &jev.model);
+        return Ok((result, Some(record), false));
+    }
+
     result.request_count = 1;
     let answer = tokio::select! {
         biased;
@@ -336,13 +349,28 @@ async fn judge_steps(
     Ok((result, Some(record), true))
 }
 
-// ---- command ---------------------------------------------------------------
+// ---- the retained run ------------------------------------------------------
 
-/// `files.confidentiality` for the pool's paths: one query under the index
-/// lock, on a blocking thread. An index that is missing, failing or for
-/// another vault yields an empty map, so nothing is sent.
+/// What the index said about the pool: its vault root and the map it
+/// returned. `None` when there is no index or it is busy.
+type IndexAnswer = Option<(PathBuf, HashMap<String, String>)>;
+
+/// The map to judge with: the index's answer only when that index belongs to
+/// the run's vault. Anything else — no index, a busy one, another vault's —
+/// is an empty map, and an empty map sends nothing.
+fn scoped_confidentiality(answer: IndexAnswer, run_root: &Path) -> HashMap<String, String> {
+    match answer {
+        Some((index_root, found)) if std::fs::canonicalize(&index_root).is_ok_and(|root| root == run_root) => found,
+        _ => HashMap::new(),
+    }
+}
+
+/// `files.confidentiality` for the pool's paths, keyed exactly like
+/// `CanonicalHit.path`. One query on a blocking thread under a `try_lock` of
+/// the index: a busy index (a rebuild holds it for minutes) is not waited
+/// for, it fails closed.
 async fn pool_confidentiality(
-    app: &tauri::AppHandle,
+    index: &IndexHandle,
     run: &LookupRun,
     display_order: &[String],
 ) -> Result<HashMap<String, String>, String> {
@@ -355,20 +383,83 @@ async fn pool_confidentiality(
             }
         }
     }
-    let handle = crate::search::handle(app);
-    let (index_root, found): (Option<PathBuf>, HashMap<String, String>) =
-        tauri::async_runtime::spawn_blocking(move || {
-            let guard = crate::search::lock(&handle);
-            let Some(index) = guard.as_ref() else {
-                return (None, HashMap::new());
-            };
-            let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
-            (Some(index.vault_root().to_path_buf()), index.confidentiality_for_paths(&refs).unwrap_or_default())
-        })
-        .await
-        .map_err(|_| "confidentiality lookup failed".to_string())?;
-    let same_vault = index_root.and_then(|root| std::fs::canonicalize(root).ok()).is_some_and(|root| root == run.root);
-    Ok(if same_vault { found } else { HashMap::new() })
+    let handle = index.clone();
+    let answer: IndexAnswer = tokio::task::spawn_blocking(move || {
+        let guard = match handle.try_lock() {
+            Ok(guard) => guard,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => return None,
+        };
+        let index = guard.as_ref()?;
+        let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
+        Some((index.vault_root().to_path_buf(), index.confidentiality_for_paths(&refs).unwrap_or_default()))
+    })
+    .await
+    .map_err(|_| "confidentiality lookup failed".to_string())?;
+    Ok(scoped_confidentiality(answer, &run.root))
+}
+
+/// Everything `smart_lookup_judge` needs once the app-bound values are read.
+pub(crate) struct JudgeRequest<'a> {
+    pub run_id: &'a str,
+    pub window_label: &'a str,
+    /// The active vault, canonical.
+    pub vault_root: &'a Path,
+    pub display_order: &'a [String],
+    pub section_breaks: &'a [usize],
+    pub config: &'a JevRequestConfig,
+    pub key: Option<&'a str>,
+    pub trigger: Trigger,
+    pub timeout: Duration,
+}
+
+/// Judge a retained run: check it belongs to the active vault and the order
+/// is valid (before touching the index), read confidentiality, claim the
+/// run's automatic request when `trigger` is `Auto`, judge, give the claim
+/// back when nothing was sent, and keep the judgement on the run.
+pub(crate) async fn judge_run(
+    request: JudgeRequest<'_>,
+    index: &IndexHandle,
+    client: &reqwest::Client,
+    cancel: &CancelFlag,
+) -> Result<JudgeResult, String> {
+    let mut run = run_for_window(request.run_id, request.window_label)?;
+    if run.root != request.vault_root {
+        return Err("lookup run belongs to another vault; run Smart Lookup again".to_string());
+    }
+    ordered_hits(&run, request.display_order, request.section_breaks)?;
+    let confidentiality = pool_confidentiality(index, &run, request.display_order).await?;
+    let claim = match request.trigger {
+        Trigger::Auto => {
+            let claim = claim_auto_request(&run.id, request.window_label)?;
+            run.auto_request_used = claim.is_none();
+            claim
+        }
+        Trigger::User => None,
+    };
+    let input = JudgeInput {
+        run: &run,
+        display_order: request.display_order,
+        section_breaks: request.section_breaks,
+        config: request.config,
+        key: request.key,
+        trigger: request.trigger,
+        confidentiality: &confidentiality,
+        timeout: request.timeout,
+    };
+    let outcome = judge_core(input, client, cancel).await;
+    let sent = matches!(outcome, Ok((_, _, true)));
+    if let Some(claim) = claim {
+        if !sent {
+            release_auto_request(claim);
+        }
+    }
+    let (result, record, _) = outcome?;
+    if let Some(record) = record {
+        // A run that expired meanwhile still gets its result shown.
+        let _ = update_run(&run.id, request.window_label, |r| r.judgement = Some(record));
+    }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -381,54 +472,25 @@ pub async fn smart_lookup_judge(
     jev: JevRequestConfig,
     trigger: Trigger,
 ) -> Result<JudgeResult, String> {
-    let label = window.label().to_string();
-    let mut run = run_for_window(&lookup_run_id, &label)?;
-    if run.root != active_root(&app)? {
-        return Err("lookup run belongs to another vault; run Smart Lookup again".to_string());
-    }
-    let run_id = run.id.clone();
-    let cancel = fresh_cancel_flag(&run_id);
-    let confidentiality = pool_confidentiality(&app, &run, &display_order).await?;
+    let vault_root = active_root(&app)?;
+    let cancel = fresh_cancel_flag(&lookup_run_id);
     let key = match jev.auth_mode {
         AuthMode::Bearer => read_key(&app, KeyKind::Jev),
         AuthMode::None => None,
     };
     let client = enhance_client()?;
-
-    // Claim the run's one automatic request before anything can be sent; a
-    // concurrent automatic call then sees it used.
-    let mut claimed = false;
-    if trigger == Trigger::Auto {
-        let mut was_used = true;
-        update_run(&run_id, &label, |r| {
-            was_used = r.auto_request_used;
-            r.auto_request_used = true;
-        })?;
-        run.auto_request_used = was_used;
-        claimed = !was_used;
-    }
-    let input = JudgeInput {
-        run: &run,
+    let request = JudgeRequest {
+        run_id: &lookup_run_id,
+        window_label: window.label(),
+        vault_root: &vault_root,
         display_order: &display_order,
         section_breaks: &section_breaks,
         config: &jev,
         key: key.as_deref(),
         trigger,
-        confidentiality: &confidentiality,
         timeout: ENHANCE_TIMEOUT,
     };
-    let outcome = judge_core(input, &client, &cancel).await;
-    let sent = matches!(outcome, Ok((_, _, true)));
-    if claimed && !sent {
-        // Nothing went out (gated, nothing to send, reused): give the claim back.
-        let _ = update_run(&run_id, &label, |r| r.auto_request_used = false);
-    }
-    let (result, record, _) = outcome?;
-    if let Some(record) = record {
-        // A run that expired meanwhile still gets its result shown.
-        let _ = update_run(&run_id, &label, |r| r.judgement = Some(record));
-    }
-    Ok(result)
+    judge_run(request, &crate::search::handle(&app), &client, &cancel).await
 }
 
 #[cfg(test)]
@@ -489,6 +551,7 @@ mod tests {
             time: None,
             auto_request_used: false,
             repaired: false,
+            auto_claim: None,
             judgement: None,
         };
         let confidentiality =
@@ -797,23 +860,251 @@ mod tests {
     }
 
     #[test]
-    fn the_cache_key_covers_every_field() {
+    fn the_cache_key_covers_everything_that_is_sent() {
         let f = fixture("cache key");
         let read = |h: &CanonicalHit| current_block(&f.run.root, h);
         let refs: Vec<&CanonicalHit> = f.run.hits.iter().collect();
         let picked = select_candidates(&refs, &f.confidentiality, read, &DEFAULT_LIMITS).picked;
-        let base = cache_key("q", "h", "m", &picked);
-        assert_eq!(base, cache_key("q", "h", "m", &picked));
-        assert_ne!(base, cache_key("q2", "h", "m", &picked));
-        assert_ne!(base, cache_key("q", "h2", "m", &picked));
-        assert_ne!(base, cache_key("q", "h", "m2", &picked));
-        assert_ne!(base, cache_key("q", "h", "m", &picked[..3]));
-        let mut changed = select_candidates(&refs, &f.confidentiality, read, &DEFAULT_LIMITS).picked;
-        changed[0].passage.push('!');
-        assert_ne!(base, cache_key("q", "h", "m", &changed));
-        let mut moved = select_candidates(&refs, &f.confidentiality, read, &DEFAULT_LIMITS).picked;
-        moved[0].line_end += 1;
-        assert_ne!(base, cache_key("q", "h", "m", &moved));
+        let questions: Vec<NoulQuestion> =
+            picked.iter().enumerate().map(|(i, c)| question_for(format!("c{}", i + 1), c)).collect();
+        let key = |e: &str, m: &str, a: AuthMode, s: &str, q: &[NoulQuestion]| cache_key(e, m, a, s, q);
+        let base = key("http://h/v1/systemone", "m", AuthMode::None, "s", &questions);
+        assert_eq!(base, key("http://h/v1/systemone", "m", AuthMode::None, "s", &questions));
+        assert_ne!(base, key("http://h/v2/systemone", "m", AuthMode::None, "s", &questions));
+        assert_ne!(base, key("http://h/v1/systemone", "m2", AuthMode::None, "s", &questions));
+        assert_ne!(base, key("http://h/v1/systemone", "m", AuthMode::Bearer, "s", &questions));
+        assert_ne!(base, key("http://h/v1/systemone", "m", AuthMode::None, "s2", &questions));
+        assert_ne!(base, key("http://h/v1/systemone", "m", AuthMode::None, "s", &questions[..3]));
+        let mut changed = questions.clone();
+        changed[0].instructions["breadcrumb"] = serde_json::json!("Renamed heading");
+        assert_ne!(base, key("http://h/v1/systemone", "m", AuthMode::None, "s", &changed));
+        let mut renumbered = questions.clone();
+        renumbered[0].id = "c9".into();
+        assert_ne!(base, key("http://h/v1/systemone", "m", AuthMode::None, "s", &renumbered));
+    }
+
+    #[tokio::test]
+    async fn another_route_on_the_same_host_or_another_time_range_is_not_a_cache_hit() {
+        let mut f = fixture("cache misses on what is sent");
+        let (base, _request, accepted) = serve_once(200, answers(&[0.9, 0.1, 0.5, 0.2]), Duration::ZERO).await;
+        let v1 = config(&base);
+        let v2 = JevRequestConfig { url: base.replace("/v1", "/v2"), ..config(&base) };
+        let flag = CancelFlag::new();
+        let (first, _, _) = judge_with(&f, &v1, &ALL, &[], Trigger::User, &flag).await.unwrap();
+        let (other_route, _, sent) = judge_with(&f, &v2, &ALL, &[], Trigger::User, &flag).await.unwrap();
+        assert!(!first.reused && !other_route.reused && sent);
+        assert_eq!(other_route.status, EnhanceStatus::Ok);
+        assert_eq!(accepted.load(SeqCst), 2);
+        f.run.time = Some(RunTime {
+            source_text: "上周".into(),
+            after: chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap(),
+            before: chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+            mode: TimeMode::Window,
+            in_window: 4,
+        });
+        let (timed, _, sent) = judge_with(&f, &v1, &ALL, &[], Trigger::User, &flag).await.unwrap();
+        assert!(!timed.reused && sent);
+        assert_eq!(accepted.load(SeqCst), 3);
+        let (again, _, sent) = judge_with(&f, &v1, &ALL, &[], Trigger::User, &flag).await.unwrap();
+        assert!(again.reused && !sent);
+        assert_eq!(accepted.load(SeqCst), 3);
+    }
+
+    // ---- judge_run: the retained run, the automatic-request slot, the index
+
+    fn index_for(root: &Path) -> (tempfile::TempDir, IndexHandle) {
+        let db = tempfile::tempdir().unwrap();
+        let mut index = searchidx::SearchIndex::open_at(root, &db.path().join("i.db"), "sync").unwrap();
+        index.rebuild(&searchidx::ScanOptions::default()).unwrap();
+        (db, std::sync::Arc::new(Mutex::new(Some(index))))
+    }
+
+    fn no_index() -> IndexHandle {
+        std::sync::Arc::new(Mutex::new(None))
+    }
+
+    /// Registers the fixture's run (under a fresh id) and returns that id.
+    fn register(f: &Fixture) -> String {
+        let id = uuid::Uuid::now_v7().to_string();
+        crate::smart_lookup::insert_run_for_test(LookupRun { id: id.clone(), created_at: Instant::now(), ..f.run.clone() });
+        id
+    }
+
+    async fn run_judge(
+        f: &Fixture,
+        run_id: &str,
+        cfg: &JevRequestConfig,
+        order: &[&str],
+        trigger: Trigger,
+        index: &IndexHandle,
+    ) -> Result<JudgeResult, String> {
+        let order: Vec<String> = order.iter().map(|s| s.to_string()).collect();
+        let request = JudgeRequest {
+            run_id,
+            window_label: &f.run.window_label,
+            vault_root: &f.run.root,
+            display_order: &order,
+            section_breaks: &[],
+            config: cfg,
+            key: None,
+            trigger,
+            timeout: TIMEOUT,
+        };
+        judge_run(request, index, &enhance_client().unwrap(), &CancelFlag::new()).await
+    }
+
+    fn slot(f: &Fixture, run_id: &str) -> (bool, Option<u64>) {
+        let run = run_for_window(run_id, &f.run.window_label).unwrap();
+        (run.auto_request_used, run.auto_claim)
+    }
+
+    #[tokio::test]
+    async fn an_automatic_send_keeps_the_claim_and_a_second_automatic_request_is_skipped() {
+        let f = fixture("an automatic send keeps the claim");
+        let (_db, index) = index_for(&f.run.root);
+        let (base, _request, accepted) = serve_once(200, answers(&[0.1, 0.9, 0.5, 0.95]), Duration::ZERO).await;
+        let cfg = config(&base);
+        let id = register(&f);
+
+        let auto = run_judge(&f, &id, &cfg, &ALL, Trigger::Auto, &index).await.unwrap();
+        assert_eq!(auto.status, EnhanceStatus::Ok);
+        assert_eq!(auto.sent_blocks, 4, "the index's own confidentiality map is keyed like CanonicalHit.path");
+        assert!(slot(&f, &id).0, "a sent automatic request keeps its claim");
+        let judgement = run_for_window(&id, &f.run.window_label).unwrap().judgement.unwrap();
+        assert_eq!(judgement.tiers.len(), 4);
+        assert_eq!(judgement.tiers.get("r2"), Some(&Tier::Fit));
+
+        let second = run_judge(&f, &id, &cfg, &ALL, Trigger::Auto, &index).await.unwrap();
+        assert_eq!((second.status, second.skip_reason), (EnhanceStatus::Skipped, Some(SkipReason::AutoBudgetUsed)));
+        assert!(slot(&f, &id).0);
+
+        // The user's own retry is not automatic: allowed while the slot is used.
+        let user = run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap();
+        assert_eq!((user.status, user.skip_reason), (EnhanceStatus::Ok, None));
+        assert!(slot(&f, &id).0);
+        assert_eq!(accepted.load(SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn an_automatic_judge_that_sends_nothing_gives_the_claim_back() {
+        let f = fixture("an automatic judge that sends nothing");
+        let (_db, index) = index_for(&f.run.root);
+        let (base, _request, accepted) = serve_once(200, answers(&[0.9; 4]), Duration::ZERO).await;
+        let cfg = config(&base);
+
+        // Nothing to send (no index → empty map).
+        let id = register(&f);
+        let empty = run_judge(&f, &id, &cfg, &ALL, Trigger::Auto, &no_index()).await.unwrap();
+        assert_eq!(empty.skip_reason, Some(SkipReason::NoCandidates));
+        assert_eq!(slot(&f, &id), (false, None));
+
+        // Gated.
+        let gated = JevRequestConfig { consent_host: "other.example".into(), ..cfg.clone() };
+        let refused = run_judge(&f, &id, &gated, &ALL, Trigger::Auto, &index).await.unwrap();
+        assert_eq!(refused.status, EnhanceStatus::NoConsent);
+        assert_eq!(slot(&f, &id), (false, None));
+
+        // A reused verdict: the user's judge sent, the automatic one did not.
+        let user = run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap();
+        assert!(!user.reused);
+        assert_eq!(slot(&f, &id), (false, None), "a user request does not touch the slot");
+        let reused = run_judge(&f, &id, &cfg, &ALL, Trigger::Auto, &index).await.unwrap();
+        assert!(reused.reused);
+        assert_eq!(slot(&f, &id), (false, None));
+        assert_eq!(accepted.load(SeqCst), 1);
+    }
+
+    #[test]
+    fn a_release_only_undoes_its_own_claim() {
+        let f = fixture("a release only undoes its own claim");
+        let label = f.run.window_label.clone();
+
+        let id = register(&f);
+        let first = claim_auto_request(&id, &label).unwrap().expect("a fresh run's slot is free");
+        assert!(claim_auto_request(&id, &label).unwrap().is_none(), "a second automatic request is refused");
+        release_auto_request(first);
+        assert_eq!(slot(&f, &id), (false, None));
+        let again = claim_auto_request(&id, &label).unwrap().expect("a released slot can be claimed again");
+
+        // The slot was taken over meanwhile (another claim holds it): a stale
+        // release must leave it used.
+        update_run(&id, &label, |r| r.auto_claim = Some(u64::MAX)).unwrap();
+        release_auto_request(again);
+        assert_eq!(slot(&f, &id), (true, Some(u64::MAX)));
+
+        // A repaired run's slot is used from the start and no claim holds it.
+        let mut repaired = fixture("a repaired run");
+        repaired.run.repaired = true;
+        repaired.run.auto_request_used = true;
+        let repaired_id = register(&repaired);
+        assert!(claim_auto_request(&repaired_id, &label).unwrap().is_none());
+        assert_eq!(slot(&repaired, &repaired_id), (true, None));
+    }
+
+    #[tokio::test]
+    async fn another_vaults_index_a_missing_index_or_a_busy_index_sends_nothing() {
+        let f = fixture("another vault's index");
+        // Same file names, another vault: the paths would match, the root does not.
+        let other = fixture("the other vault");
+        let (_db, other_index) = index_for(&other.run.root);
+        let (base, _request, accepted) = serve_once(200, answers(&[0.9; 4]), Duration::ZERO).await;
+        let cfg = config(&base);
+        let id = register(&f);
+
+        for index in [other_index, no_index()] {
+            let r = run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap();
+            assert_eq!((r.status, r.skip_reason, r.sent_blocks), (EnhanceStatus::Skipped, Some(SkipReason::NoCandidates), 0));
+        }
+
+        // Busy: another holder has the lock (as a rebuild does); not waited for.
+        let (_db, index) = index_for(&f.run.root);
+        let held = index.lock().unwrap();
+        let started = Instant::now();
+        let busy = run_judge(&f, &id, &cfg, &ALL, Trigger::User, &index).await.unwrap();
+        assert_eq!(busy.skip_reason, Some(SkipReason::NoCandidates));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        // A bad order is refused before the index is looked at.
+        assert_eq!(
+            run_judge(&f, &id, &cfg, &["r1", "r2"], Trigger::User, &index).await.unwrap_err(),
+            "invalid display order"
+        );
+        drop(held);
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(accepted.load(SeqCst), 0);
+        assert_eq!(scoped_confidentiality(None, &f.run.root), HashMap::new());
+    }
+
+    #[tokio::test]
+    async fn a_run_from_another_vault_or_window_is_refused() {
+        let f = fixture("a run from another vault");
+        let other = fixture("the active vault");
+        let id = register(&f);
+        let cfg = config("http://127.0.0.1:9/v1");
+        let order: Vec<String> = ALL.iter().map(|s| s.to_string()).collect();
+        let make = |vault_root: &Path, window_label: &str| {
+            let order = order.clone();
+            let cfg = cfg.clone();
+            let id = id.clone();
+            let vault_root = vault_root.to_path_buf();
+            let window_label = window_label.to_string();
+            async move {
+                let request = JudgeRequest {
+                    run_id: &id,
+                    window_label: &window_label,
+                    vault_root: &vault_root,
+                    display_order: &order,
+                    section_breaks: &[],
+                    config: &cfg,
+                    key: None,
+                    trigger: Trigger::User,
+                    timeout: TIMEOUT,
+                };
+                judge_run(request, &no_index(), &enhance_client().unwrap(), &CancelFlag::new()).await
+            }
+        };
+        assert!(make(&other.run.root, &f.run.window_label).await.unwrap_err().contains("another vault"));
+        assert!(make(&f.run.root, "another-window").await.unwrap_err().contains("expired"));
     }
 
     #[test]

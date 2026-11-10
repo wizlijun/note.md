@@ -2,7 +2,7 @@
 //! pure routing/selection/rerank functions in [`candidates`].
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -209,6 +209,45 @@ pub(crate) fn fresh_cancel_flag(run_id: &str) -> Arc<CancelFlag> {
         *entry = (Instant::now(), Arc::new(CancelFlag::new()));
     }
     entry.1.clone()
+}
+
+static CLAIM_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Proof that this caller took a lookup run's one automatic request. Keep it
+/// (drop it) once the request went out; hand it to [`release_auto_request`]
+/// when nothing was sent.
+pub(crate) struct AutoClaim {
+    run_id: String,
+    window_label: String,
+    id: u64,
+}
+
+/// Test-and-set of the run's automatic-request slot, shared by every
+/// automatic model request (judge, repair). `None`: the slot was already used
+/// — by an earlier automatic request, or because the run is a repair.
+pub(crate) fn claim_auto_request(run_id: &str, window_label: &str) -> Result<Option<AutoClaim>, String> {
+    let id = CLAIM_SEQ.fetch_add(1, Ordering::SeqCst) + 1;
+    let mut taken = false;
+    crate::smart_lookup::update_run(run_id, window_label, |run| {
+        if !run.auto_request_used {
+            run.auto_request_used = true;
+            run.auto_claim = Some(id);
+            taken = true;
+        }
+    })?;
+    Ok(taken.then(|| AutoClaim { run_id: run_id.to_string(), window_label: window_label.to_string(), id }))
+}
+
+/// Gives the slot back after nothing was sent. Only undoes this claim: if
+/// the slot is now held by anything else it stays used. An expired run is
+/// left alone.
+pub(crate) fn release_auto_request(claim: AutoClaim) {
+    let _ = crate::smart_lookup::update_run(&claim.run_id, &claim.window_label, |run| {
+        if run.auto_claim == Some(claim.id) {
+            run.auto_request_used = false;
+            run.auto_claim = None;
+        }
+    });
 }
 
 #[tauri::command]

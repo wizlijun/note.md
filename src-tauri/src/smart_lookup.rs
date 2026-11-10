@@ -82,6 +82,9 @@ pub(crate) struct LookupRun {
     pub(crate) time: Option<RunTime>,
     pub(crate) auto_request_used: bool,
     pub(crate) repaired: bool,
+    /// The claim that set `auto_request_used`, if a claim did (see
+    /// `smart_enhance::claim_auto_request`); a repaired run has none.
+    pub(crate) auto_claim: Option<u64>,
     pub(crate) judgement: Option<JudgeRecord>,
 }
 
@@ -203,6 +206,7 @@ pub(crate) fn retain_search_in(
         time,
         auto_request_used: repaired,
         repaired,
+        auto_claim: None,
         judgement: None,
     };
     let mut registry = LOOKUP_RUNS
@@ -341,6 +345,17 @@ pub(crate) fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, S
     Ok(text)
 }
 
+/// Registers a hand-built run, for tests elsewhere in the crate.
+#[cfg(test)]
+pub(crate) fn insert_run_for_test(run: LookupRun) {
+    let mut registry = LOOKUP_RUNS
+        .get_or_init(|| Mutex::new(LookupRuns::default()))
+        .lock()
+        .unwrap();
+    registry.order.push_back(run.id.clone());
+    registry.runs.insert(run.id.clone(), run);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,18 +393,12 @@ mod tests {
             time: None,
             auto_request_used: false,
             repaired: false,
+            auto_claim: None,
             judgement: None,
         }
     }
 
-    fn insert_run(run: LookupRun) {
-        let mut registry = LOOKUP_RUNS
-            .get_or_init(|| Mutex::new(LookupRuns::default()))
-            .lock()
-            .unwrap();
-        registry.order.push_back(run.id.clone());
-        registry.runs.insert(run.id.clone(), run);
-    }
+    use super::insert_run_for_test as insert_run;
 
     #[test]
     fn reading_the_oldest_run_of_a_full_window_returns_it() {

@@ -48,14 +48,9 @@ pub(crate) const DEFAULT_LIMITS: CandidateLimits = CandidateLimits {
 pub(crate) struct Candidate {
     pub position: usize,
     pub result_id: String,
-    pub path: String,
-    pub line: u32,
-    pub line_end: u32,
     pub title: String,
     pub breadcrumb: String,
     pub passage: String,
-    #[expect(dead_code, reason = "no reader yet; Selection.estimated_tokens carries the sum")]
-    pub tokens: u64,
 }
 
 #[derive(Default)]
@@ -159,13 +154,9 @@ pub(crate) fn select_candidates(
         sel.picked.push(Candidate {
             position,
             result_id: hit.result_id.clone(),
-            path: hit.path.clone(),
-            line: hit.line,
-            line_end: hit.line_end,
             title,
             breadcrumb: hit.breadcrumb.clone(),
             passage,
-            tokens,
         });
     }
     sel
@@ -287,7 +278,8 @@ mod tests {
             _ => Ok("passage".to_string()),
         };
         let s = select_candidates(&refs, &conf, read, &DEFAULT_LIMITS);
-        assert_eq!(s.picked.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(), ["a.md", "a.md", "h.md"]);
+        // a.md, a.md, h.md
+        assert_eq!(s.picked.iter().map(|c| c.result_id.as_str()).collect::<Vec<_>>(), ["1", "2", "10"]);
         assert_eq!(
             (s.skipped_rollups, s.skipped_confidential, s.skipped_stale, s.skipped_long, s.skipped_pinned),
             (1, 2, 1, 1, 1)
