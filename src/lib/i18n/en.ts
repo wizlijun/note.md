@@ -1044,6 +1044,7 @@ export const en = {
   "smartSearch.enhance.repairing": "Trying other wording…",
   "smartSearch.enhance.repairStruck": "Words with no matches",
   "smartSearch.enhance.repairGroup": "Wording {n} · {count}",
+  "smartSearch.enhance.wordingLabel": "Wording {n}",
   "smartSearch.enhance.repairSearch": "Search with these",
   "smartSearch.enhance.noMatchTitle": "Nothing found",
   "smartSearch.enhance.attemptOriginal": "Original question",

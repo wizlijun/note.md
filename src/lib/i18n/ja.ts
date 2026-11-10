@@ -994,6 +994,7 @@ export const ja: Record<keyof Messages, string> = {
   "smartSearch.enhance.repairing": "別の言い方を試しています…",
   "smartSearch.enhance.repairStruck": "一致がない語",
   "smartSearch.enhance.repairGroup": "言い方 {n} · {count} 件",
+  "smartSearch.enhance.wordingLabel": "言い方 {n}",
   "smartSearch.enhance.repairSearch": "この言い方で再検索",
   "smartSearch.enhance.noMatchTitle": "見つかりませんでした",
   "smartSearch.enhance.attemptOriginal": "元の質問",

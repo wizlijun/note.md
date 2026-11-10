@@ -1033,6 +1033,7 @@ export const zh: Record<keyof Messages, string> = {
   "smartSearch.enhance.repairing": "正在换个说法…",
   "smartSearch.enhance.repairStruck": "没有命中的词",
   "smartSearch.enhance.repairGroup": "说法 {n} · {count} 条",
+  "smartSearch.enhance.wordingLabel": "说法 {n}",
   "smartSearch.enhance.repairSearch": "用这些说法再搜",
   "smartSearch.enhance.noMatchTitle": "没有找到",
   "smartSearch.enhance.attemptOriginal": "原问题",

@@ -994,6 +994,7 @@ export const de: Record<keyof Messages, string> = {
   "smartSearch.enhance.repairing": "Versuche andere Formulierungen…",
   "smartSearch.enhance.repairStruck": "Wörter ohne Treffer",
   "smartSearch.enhance.repairGroup": "Formulierung {n} · {count}",
+  "smartSearch.enhance.wordingLabel": "Formulierung {n}",
   "smartSearch.enhance.repairSearch": "Damit suchen",
   "smartSearch.enhance.noMatchTitle": "Nichts gefunden",
   "smartSearch.enhance.attemptOriginal": "Ursprüngliche Frage",
