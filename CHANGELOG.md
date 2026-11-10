@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1110.5 — 2026-11-10
+
 - **Stabilize Sumi focus writing on Linux.** Fix fractional scroll feedback that made the text jump between adjacent pixels. Hide the native editor scrollbar and frame while preserving scrolling and the input position outside focus mode.
 
 ## v6.1110.4 — 2026-11-10
