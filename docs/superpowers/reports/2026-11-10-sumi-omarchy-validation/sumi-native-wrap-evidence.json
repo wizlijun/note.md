@@ -1,0 +1,21 @@
+{
+  "scope": "Precise overlay bounds with GTK margins; last production change 2026-11-10 12:06:12 +0800",
+  "red": "400px host bounds previously allocated 792px native view and only 14 display rows",
+  "green": "400px host bounds allocate 400px native view with 30 display rows; every glyph stays within width; prior 800px remains 800px and 13 rows",
+  "sha256": {
+    "tauri-plugin-native-editor/src/lib.rs": "394bff0af376f9f98534c4f8437cf9e72566fcb2f6342ba924b0ad11e99200ff",
+    "tauri-plugin-native-editor/src/linux.rs": "f7a0c4116538455913f08a9a42803a84b63a4ed592eb79af03e0fc5165d17744",
+    "tauri-plugin-native-editor/src/linux_focus.rs": "8003f56c46905b2335e841c4b397541ac85aaa5ddcea033e30ff84d2238a152b",
+    "tauri-plugin-native-editor/src/linux_caret.rs": "b3222fd3031b135327798a080d69c1641fcfa6f01b0fb2d8856f9936988f330e",
+    "tauri-plugin-native-editor/src/linux_rtf.rs": "dacd4e691985f42988791aa18acfdeb3bc830f0fc1cfe4d8de761eb535645dcc",
+    "tasks/omarchy-build/sumi-native-wrap-final.log": "2bcfc94d42240dd427fe79db80f6433f044d88a440084623818511c12ef60299",
+    "tasks/omarchy-build/sumi-native-wrap-fixed.log": "eb6d31ff9079186f763c94fd7fcb17f50f7f93843c4210961c33c3de130b8f49",
+    "tasks/omarchy-build/sumi-native-wrap-unit-final.log": "fc63ab12f76680021aa33e69a9c5e94bfe724ce8f8becf666cf01dc0f3d9e0b7",
+    "tasks/omarchy-build/sumi-native-wrap-glyph.log": "5f7bd609ae2e953b1f589c4264949084b3c0accd0c7db8b6935ba1d65c78a748",
+    "tasks/omarchy-build/sumi-native-wrap-wayland-4x.log": "01bc13ae6751e8932299005d17642e6a827470a179a3752fa9cde21a9e6f6661",
+    "tasks/omarchy-build/sumi-native-wrap-wayland-1x.log": "5f6c77065fecc6239de8ede043b19d661e0cd3c756d26ee040d3db2884e4269c"
+  },
+  "production_prefix_sha256": "a43344cd77afe1f3f82238cd3a2194b08a104cce122e4334542722026befc7b7",
+  "test_only_change": "Native position assertions poll allocation up to 2 seconds; earlier 100ms failure under host link load preserved separately",
+  "allocation_delay_log": "tasks/omarchy-build/sumi-native-wrap-wayland-4x-allocation-delay.log"
+}

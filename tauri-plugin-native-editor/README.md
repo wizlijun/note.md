@@ -20,8 +20,11 @@ Both Cargo entry points share the pinned
 It makes mouse and touch resizing resolve the actual toplevel window when the
 native overlay adds a container, while retaining the original WebKit/menu box.
 
-The Linux caret has its own small drawing area, so breathing does not invalidate
-an editor-sized translucent layer. Its fixed height uses the base font metrics;
+The Linux caret has its own small drawing area. On Wayland, `linux_caret.rs`
+backs it with a native GDK subsurface so breathing does not redraw the shared
+WebKit backing surface; other backends and offscreen tests keep GTK's ordinary
+drawing area. GTK owns positioning, scale and destruction, and an empty input
+region keeps the caret transparent to pointer events. Its fixed height uses the base font metrics;
 public Pango itemization and shaped glyph extents recover the native run baseline
 (including bitmap emoji scaling). The cache includes the context and font-map
 serials, font, language, complete cursor cluster and style. GTK supplies preedit
@@ -50,6 +53,14 @@ tests. The opt-in GTK transaction test needs an available desktop:
 GDK_BACKEND=wayland cargo test --manifest-path tauri-plugin-native-editor/Cargo.toml \
   native_wayland_transactions -- --ignored --test-threads=1
 ```
+
+The ignored `native_wayland_damage` test additionally requires an isolated
+Wayland compositor, `grim`, ImageMagick (`magick`), and `SUMI_NATIVE_DAMAGE_DIR`.
+It compares compositor screenshots before and after a fresh text repaint and
+a system-cursor control, catching stale navigation pixels and duplicate carets.
+Use a private display because it captures that display. Layout changes invalidate
+the TextView once; the caret timer does not repaint the editor. Both GTK caret
+colors are transparent while cursor visibility remains enabled for navigation.
 
 This is an isolated synthetic native test, not evidence of physical IME or
 full-host acceptance. See the [Omarchy implementation and acceptance specification](../docs/superpowers/specs/2026-11-10-sumi-omarchy-native.md)

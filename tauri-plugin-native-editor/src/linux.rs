@@ -10,6 +10,8 @@ use std::{
 
 #[path = "linux_candidates.rs"]
 mod candidates;
+#[path = "linux_caret.rs"]
+mod caret;
 #[path = "linux_focus.rs"]
 mod focus;
 #[path = "linux_rtf.rs"]
@@ -25,6 +27,7 @@ struct Surface {
     view: gtk::TextView,
     scroll: gtk::ScrolledWindow,
     overlay: gtk::Overlay,
+    allocation_handler: RefCell<Option<glib::SignalHandlerId>>,
     origin: Option<gtk::Widget>,
     css: gtk::CssProvider,
     decoration: gtk::DrawingArea,
@@ -731,7 +734,7 @@ impl Surface {
             .map(|part| format!("\"{}\"", part.replace(['"', '\\', '\n', '\r'], "")))
             .collect::<Vec<_>>()
             .join(", ");
-        let _=css.load_from_data(format!("textview {{ font-family: {}; font-size: {}px; font-weight: {}; color: {}; background-color: {}; caret-color: transparent; }} textview text {{ background-color: {}; color: {}; }} textview text selection {{ background-color: alpha({}, 0.22); color: {}; }}",safe_family,a.font_size,if matches!(a.font_family.as_str(),"Sumi Plex"|"Sumi Zhaohua"|"Sumi Youcha"){300}else{400},a.foreground,a.background,a.background,a.foreground,a.foreground,a.foreground).as_bytes());
+        let _=css.load_from_data(format!("textview {{ font-family: {}; font-size: {}px; font-weight: {}; color: {}; background-color: {}; caret-color: transparent; -gtk-secondary-caret-color: transparent; }} textview text {{ background-color: {}; color: {}; caret-color: transparent; -gtk-secondary-caret-color: transparent; }} textview text selection {{ background-color: alpha({}, 0.22); color: {}; }}",safe_family,a.font_size,if matches!(a.font_family.as_str(),"Sumi Plex"|"Sumi Zhaohua"|"Sumi Youcha"){300}else{400},a.foreground,a.background,a.background,a.foreground,a.foreground,a.foreground).as_bytes());
         self.view
             .style_context()
             .add_provider(css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -779,6 +782,9 @@ impl Surface {
             .set_pixels_inside_wrap((line_extra / 2.0) as i32 * 2);
         self.line_pitch
             .set(glyph_height + (line_extra / 2.0).floor() * 2.0);
+        // GTK's margin changes may scroll cached text pixels without damaging
+        // their old location. Repaint the text widget once after layout changes.
+        self.view.queue_draw();
         self.caret.queue_draw();
     }
     fn viewport(&self) -> Viewport {
@@ -908,7 +914,7 @@ pub fn mount(
     decoration.set_valign(gtk::Align::Start);
     overlay.add_overlay(&decoration);
     overlay.set_overlay_pass_through(&decoration, true);
-    let caret = gtk::DrawingArea::new();
+    let caret = caret::new();
     caret.set_halign(gtk::Align::Start);
     caret.set_valign(gtk::Align::Start);
     caret.set_no_show_all(true);
@@ -919,6 +925,7 @@ pub fn mount(
         view,
         scroll,
         overlay,
+        allocation_handler: RefCell::new(None),
         origin,
         css: gtk::CssProvider::new(),
         decoration,
@@ -947,6 +954,30 @@ pub fn mount(
         visible: Cell::new(true),
     });
     *s.candidates.borrow_mut() = Some(candidates::Panel::attach(&s));
+    let weak = Rc::downgrade(&s);
+    let allocation_handler = s.overlay.connect_get_child_position(move |_, child| {
+        let s = weak.upgrade()?;
+        if child != s.scroll.upcast_ref::<gtk::Widget>()
+            && child != s.decoration.upcast_ref::<gtk::Widget>()
+        {
+            return None;
+        }
+        let height = if child == s.scroll.upcast_ref::<gtk::Widget>() {
+            s.editor_height()
+        } else {
+            s.config.borrow().bounds.height
+        };
+        let config = s.config.borrow();
+        // size_request is only a minimum. The host bounds are the actual native
+        // allocation; GTK removes these margins when allocating the child.
+        Some(gdk::Rectangle::new(
+            0,
+            0,
+            (config.bounds.width as i32).max(1) + child.margin_start() + child.margin_end(),
+            (height as i32).max(1) + child.margin_top() + child.margin_bottom(),
+        ))
+    });
+    *s.allocation_handler.borrow_mut() = Some(allocation_handler);
     s.project(config.document, config.selection, config.revision);
     s.appearance();
     let weak = Rc::downgrade(&s);
@@ -1470,6 +1501,9 @@ pub fn detach(window: &str, id: &str, generation: u64) -> Result<(), String> {
         p.release();
         s.overlay.remove(&p.widget);
     }
+    if let Some(handler) = s.allocation_handler.borrow_mut().take() {
+        s.overlay.disconnect(handler);
+    }
     s.overlay.remove(&s.scroll);
     s.overlay.remove(&s.decoration);
     s.overlay.remove(&s.caret);
@@ -1489,6 +1523,9 @@ pub fn detach_window(window: &str) {
         if let Some(p) = panel {
             p.release();
             s.overlay.remove(&p.widget);
+        }
+        if let Some(handler) = s.allocation_handler.borrow_mut().take() {
+            s.overlay.disconnect(handler);
         }
         s.overlay.remove(&s.scroll);
         s.overlay.remove(&s.decoration);
@@ -1781,6 +1818,213 @@ mod tests {
         );
     }
     #[test]
+    #[ignore = "requires isolated Wayland compositor, grim, magick and SUMI_NATIVE_DAMAGE_DIR"]
+    fn native_wayland_damage() {
+        fn settle() {
+            for _ in 0..60 {
+                while gtk::events_pending() {
+                    gtk::main_iteration_do(false);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        let directory = std::path::PathBuf::from(std::env::var("SUMI_NATIVE_DAMAGE_DIR").unwrap());
+        std::fs::create_dir_all(&directory).unwrap();
+        let capture = |name: &str| {
+            let path = directory.join(format!("{name}.png"));
+            assert!(std::process::Command::new("grim")
+                .arg(&path)
+                .status()
+                .unwrap()
+                .success());
+            path
+        };
+        gtk::init().unwrap();
+        let app = gtk::Application::new(
+            Some("net.notemd.sumi.damage-test"),
+            gtk::gio::ApplicationFlags::NON_UNIQUE,
+        );
+        app.register(None::<&gtk::gio::Cancellable>).unwrap();
+        let window = gtk::ApplicationWindow::new(&app);
+        window.set_default_size(800, 500);
+        let webview = webkit2gtk::WebView::new();
+        webkit2gtk::WebViewExt::load_html(
+            &webview,
+            "<body style='background:#f3ead7'>Native damage test</body>",
+            None,
+        );
+        window.add(&webview);
+        let sample = "Alpha 中文 😀\nSecond line remains exactly once\nThird line REOPEN_OK";
+        let config = SurfaceConfig {
+            surface_id: "damage".into(),
+            generation: 1,
+            revision: 0,
+            bounds: Bounds {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 500.0,
+            },
+            appearance: Appearance {
+                caret_motion: CaretMotion::Steady,
+                background: "#f3ead7".into(),
+                foreground: "#45433d".into(),
+                ..Appearance::default()
+            },
+            document: RenderDocument {
+                text: sample.into(),
+                runs: vec![],
+            },
+            selection: TextRange {
+                start: sample.encode_utf16().count() as u32,
+                length: 0,
+            },
+            viewport: Viewport::default(),
+        };
+        mount(
+            &window,
+            "damage",
+            config,
+            Arc::new(|_| Ok(0.into())),
+            Some(webview.upcast()),
+        )
+        .unwrap();
+        window.show_all();
+        let surface = surface("damage", "damage", 1).unwrap();
+        surface.view.grab_focus();
+        settle();
+        assert!(surface.view.has_focus());
+        for _ in 0..4 {
+            surface.typing();
+        }
+        settle();
+        assert!(surface.focused.get());
+        capture("focused");
+        surface.reading();
+        let previous = surface.selection().start;
+        surface.view.emit_by_name::<()>(
+            "move-cursor",
+            &[&gtk::MovementStep::LogicalPositions, &-1i32, &false],
+        );
+        assert_eq!(
+            surface.selection().start,
+            previous - 1,
+            "native keyboard navigation remains enabled"
+        );
+        settle();
+        let before = capture("reading-before-redraw");
+        surface.overlay.queue_draw();
+        surface.view.queue_draw();
+
+        settle();
+        let after = capture("reading-after-redraw");
+        let difference = std::process::Command::new("magick")
+            .arg(&before)
+            .arg(&after)
+            .args([
+                "-compose",
+                "difference",
+                "-composite",
+                "-format",
+                "%[fx:mean]",
+                "info:",
+            ])
+            .output()
+            .unwrap();
+        assert!(difference.status.success());
+        let difference = String::from_utf8(difference.stdout)
+            .unwrap()
+            .trim()
+            .parse::<f64>()
+            .unwrap();
+        surface.view.set_cursor_visible(false);
+        surface.view.queue_draw();
+        settle();
+        let without_native_cursor = capture("native-cursor-disabled");
+        let cursor_difference = std::process::Command::new("magick")
+            .arg(&after)
+            .arg(&without_native_cursor)
+            .args([
+                "-compose",
+                "difference",
+                "-composite",
+                "-format",
+                "%[fx:mean]",
+                "info:",
+            ])
+            .output()
+            .unwrap();
+        assert!(cursor_difference.status.success());
+        let cursor_difference = String::from_utf8(cursor_difference.stdout)
+            .unwrap()
+            .trim()
+            .parse::<f64>()
+            .unwrap();
+        surface.view.set_cursor_visible(true);
+        let long_line =
+            "FINAL_OMARCHY 保存验证 😀 VERIFIED_PACKAGE_REOPEN_OK NAVIGATION_Y ".repeat(10);
+        surface.project(
+            RenderDocument {
+                text: long_line.clone(),
+                runs: vec![],
+            },
+            TextRange::default(),
+            0,
+        );
+        for width in [800.0, 400.0] {
+            command(
+                "damage",
+                "damage",
+                1,
+                SurfaceCommand::SetBounds {
+                    bounds: Bounds {
+                        x: 0.0,
+                        y: 0.0,
+                        width,
+                        height: 500.0,
+                    },
+                },
+            )
+            .unwrap();
+            settle();
+            let buffer = surface.buffer();
+            let mut iter = buffer.start_iter();
+            let mut rows = 1;
+            while surface.view.forward_display_line(&mut iter) {
+                rows += 1;
+            }
+            eprintln!(
+                "wrap bounds={width} scroll={} view={} mode={:?} rows={rows} margins={},{}",
+                surface.scroll.allocated_width(),
+                surface.view.allocated_width(),
+                surface.view.wrap_mode(),
+                surface.view.left_margin(),
+                surface.view.right_margin()
+            );
+            assert_eq!(surface.view.wrap_mode(), gtk::WrapMode::WordChar);
+            assert!(surface.view.allocated_width() <= width as i32);
+            assert!(rows > 1, "long paragraph must wrap within native bounds");
+            for offset in 0..buffer.char_count() {
+                let rect = surface.view.iter_location(&buffer.iter_at_offset(offset));
+                assert!(
+                    rect.x() + rect.width() <= surface.view.allocated_width(),
+                    "glyph at {offset} clipped beyond narrow view"
+                );
+            }
+            capture(&format!("wrap-{width}"));
+        }
+        detach("damage", "damage", 1).unwrap();
+        window.close();
+        assert_eq!(
+            difference, 0.0,
+            "navigation must match a fresh repaint, without stale text pixels"
+        );
+        assert_eq!(
+            cursor_difference, 0.0,
+            "CSS must suppress every system caret pixel while preserving navigation"
+        );
+    }
+    #[test]
     #[ignore = "requires GTK display connection; renders only an offscreen window"]
     fn native_caret_geometry_offscreen() {
         gtk::init().unwrap();
@@ -1816,6 +2060,11 @@ mod tests {
         offscreen.set_default_size(700, 500);
         offscreen.add(&s.overlay);
         offscreen.show_all();
+        s.caret.realize();
+        assert_eq!(
+            s.caret.window().unwrap().window_type(),
+            gdk::WindowType::Child
+        );
         for line_height in [1.0, 3.0] {
             s.config.borrow_mut().appearance.line_height = line_height;
             s.appearance();
@@ -2463,6 +2712,78 @@ mod tests {
         let state = inspect("test", "test", 2).unwrap();
         assert!(state.visible && restored.view.is_mapped() && restored.scroll.is_mapped());
         assert_eq!(state.text, reopened.document.text);
+        assert!(restored.caret.is_mapped());
+        let caret_window = restored.caret.window().unwrap();
+        assert_eq!(caret_window.window_type(), gdk::WindowType::Subsurface);
+        assert!(caret_window.has_native());
+        assert!(caret_window.is_pass_through());
+        assert_eq!(caret_window.width(), restored.caret.allocated_width());
+        assert_eq!(caret_window.height(), restored.caret.allocated_height());
+        assert_eq!(caret_window.scale_factor(), restored.view.scale_factor());
+        for x in [30.0, 60.0] {
+            let mut bounds = restored.config.borrow().bounds.clone();
+            bounds.x = x;
+            command("test", "test", 2, SurfaceCommand::SetBounds { bounds }).unwrap();
+            for _ in 0..200 {
+                while gtk::events_pending() {
+                    gtk::main_iteration_do(false);
+                }
+                let cursor = restored.caret_geometry();
+                let (cx, cy) = restored.view.buffer_to_window_coords(
+                    gtk::TextWindowType::Widget,
+                    cursor.x(),
+                    cursor.y(),
+                );
+                let (ox, oy) = restored
+                    .overlay
+                    .translate_coordinates(&window, 0, 0)
+                    .unwrap();
+                if caret_window.position()
+                    == (
+                        ox + restored.scroll.margin_start() + cx,
+                        oy + restored.scroll.margin_top() + cy,
+                    )
+                {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let (ox, oy) = restored
+                .overlay
+                .translate_coordinates(&window, 0, 0)
+                .unwrap();
+            let cursor = restored.caret_geometry();
+            let (cx, cy) = restored.view.buffer_to_window_coords(
+                gtk::TextWindowType::Widget,
+                cursor.x(),
+                cursor.y(),
+            );
+            assert_eq!(
+                caret_window.position(),
+                (
+                    ox + restored.scroll.margin_start() + cx,
+                    oy + restored.scroll.margin_top() + cy
+                ),
+                "native subsurface follows the GTK overlay's changed position"
+            );
+        }
+        command("test", "test", 2, SurfaceCommand::PreparePanel).unwrap();
+        assert!(!restored.caret.is_mapped() && !caret_window.is_visible());
+        command(
+            "test",
+            "test",
+            2,
+            SurfaceCommand::SetVisible { visible: true },
+        )
+        .unwrap();
+        command("test", "test", 2, SurfaceCommand::Focus).unwrap();
+        for _ in 0..10 {
+            while gtk::events_pending() {
+                gtk::main_iteration_do(false);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(restored.caret.is_mapped() && caret_window.is_visible());
         let mut pixels = gtk::cairo::ImageSurface::create(
             gtk::cairo::Format::ARgb32,
             restored.view.allocated_width(),
@@ -2484,6 +2805,7 @@ mod tests {
         );
         drop(data);
         detach("test", "test", 2).unwrap();
+        assert!(caret_window.is_destroyed());
         window.close();
     }
 }

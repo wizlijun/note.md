@@ -8,10 +8,11 @@ import type { Tab } from '../lib/tabs.svelte'
 const mocks = vi.hoisted(() => ({ open: vi.fn(), mount: vi.fn(), focus: vi.fn(), handlers: new Map<string, (event: {payload: unknown}) => void>(), close: vi.fn(), prepare: vi.fn(), mode: vi.fn(), invoke: vi.fn(), release: vi.fn(), error: vi.fn(), confirm: vi.fn() }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async (name: string, handler: (event: {payload: unknown}) => void) => { mocks.handlers.set(name, handler); return () => mocks.handlers.delete(name) }) }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ innerSize: async () => ({width: 800,height:600}), scaleFactor: async () => 1 }) }))
+vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ innerSize: async () => ({width: 4048,height:2608}), scaleFactor: async () => 4 }) }))
+vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ size: async () => ({width: 3840,height:2104}) }) }))
 vi.mock('../lib/tabs.svelte', () => ({ acceptSumiSnapshot: vi.fn(), acknowledgeSumiProjection: vi.fn(), prepareFileViewTransition: mocks.prepare, closeTab: mocks.close, setMode: mocks.mode }))
 vi.mock('../lib/dialogs', () => ({ confirmDirtyClose: mocks.confirm, showError: mocks.error }))
-vi.mock('../lib/sumi/geometry', () => ({ boundsForNative: () => ({x:0,y:0,width:800,height:600}), nativeSurfaceOccluded: () => false }))
+vi.mock('../lib/sumi/geometry', () => ({ boundsForNative: (_element: HTMLElement, scale: number) => ({x:0,y:34*scale,width:960*scale,height:492*scale}), nativeSurfaceOccluded: () => false }))
 vi.mock('../lib/sumi/session', () => ({ SumiExistingOwnerError: class extends Error { constructor(readonly pageId: string) { super('此页已在另一个编辑面中打开') } }, openSumiOwner: mocks.open, closeSumiOwner: mocks.release, focusExistingSumiPage: mocks.focus, mountSumiOwner: mocks.mount, detachSumiSurface: vi.fn(async()=>{}), updateSumiSurface: vi.fn(async()=>{}) }))
 vi.mock('./SumiRecovery.svelte', () => ({default: () => ({})}))
 let component: ReturnType<typeof mount> | undefined
@@ -24,6 +25,7 @@ beforeEach(async () => {
   mocks.open.mockReset().mockResolvedValue({pageId:'paper-a',tabId:'tab-a'})
   mocks.mount.mockReset().mockResolvedValue({surfaceId:'surface',generation:1})
   vi.stubGlobal('ResizeObserver',class {observe(){}disconnect(){}})
+  vi.stubGlobal('innerWidth',960)
   vi.stubGlobal('requestAnimationFrame',()=>1);vi.stubGlobal('cancelAnimationFrame',()=>{})
   tab={id:'tab-a',filePath:'/vault/a.writing.md',mode:'rich',initialContent:''} as Tab
   mocks.prepare.mockResolvedValue(undefined);mocks.close.mockResolvedValue(true);mocks.release.mockResolvedValue(undefined)
@@ -33,6 +35,9 @@ beforeEach(async () => {
 })
 afterEach(async()=>{if(component)await unmount(component);component=undefined;document.body.innerHTML='';vi.unstubAllGlobals()})
 describe('native focused action routing',()=>{
+  it('uses the WebView viewport without scaling native bounds by GTK window shadows',()=>{
+    expect(mocks.mount).toHaveBeenCalledWith(expect.anything(),{x:0,y:34,width:960,height:492},expect.any(Function))
+  })
   it('closes exactly its own tab and never another page or owner',async()=>{
     action('close','other');action('close','paper-a','other-tab');await settle();expect(mocks.close).not.toHaveBeenCalled()
     action('close');await settle();expect(mocks.close).toHaveBeenCalledWith('tab-a',mocks.confirm)

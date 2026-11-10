@@ -356,9 +356,30 @@ pub fn open_plugin_window<R: Runtime>(
         .parse()
         .map_err(|e| format!("bad plugin url: {e}"))?;
 
+    #[allow(unused_mut)]
+    let (mut width, mut height) = (win.width, win.height);
+    // Resolve before creating a fixed-size window: GTK ignores a later resize
+    // when resizable=false, and an unmapped Wayland window has no monitor yet.
+    #[cfg(target_os = "linux")]
+    if plugin_id == "notemd.sumi" {
+        let monitor = app.get_webview_window("main")
+            .and_then(|main| main.current_monitor().ok().flatten())
+            .or_else(|| app.primary_monitor().ok().flatten())
+            .or_else(|| app.available_monitors().ok().and_then(|monitors| monitors.into_iter().next()));
+        if let Some(monitor) = monitor {
+            let work = monitor.work_area().size;
+            let physical = if work.width > 0 && work.height > 0 { work } else { *monitor.size() };
+            let area = physical.to_logical::<f64>(monitor.scale_factor());
+            // Tao's Wayland outer/inner getters can report identical sizes
+            // despite a GTK titlebar. Measure that widget on the GTK thread.
+            let titlebar = linux_titlebar_height(app)?;
+            (width, height) = sumi_window_size(width, height,
+                area.width, area.height - titlebar);
+        }
+    }
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::CustomProtocol(url))
         .title(title)
-        .inner_size(win.width, win.height)
+        .inner_size(width, height)
         .resizable(win.resizable)
         .decorations(crate::platform::window_decorations())
         // macOS normally spends the first click only activating an inactive
@@ -423,6 +444,39 @@ pub fn open_plugin_window<R: Runtime>(
     let _ = window.set_focus();
     crate::sumi::plugin_window_shown(app, &label);
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn linux_titlebar_height<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<f64, String> {
+    use gtk::prelude::*;
+    let Some(main) = app.get_webview_window("main") else { return Ok(0.0); };
+    let scheduler = main.clone();
+    let (send, receive) = std::sync::mpsc::channel();
+    // Wry runs this inline if already on the main thread; otherwise dispatches
+    // through its event loop, like its synchronous window geometry getters.
+    scheduler.run_on_main_thread(move || {
+        let height = main.gtk_window().map(|window| {
+            window.titlebar().map_or(0.0, |bar| {
+                f64::from(bar.allocated_height().max(bar.preferred_height().1))
+            })
+        }).map_err(|error| error.to_string());
+        let _ = send.send(height);
+    }).map_err(|error| error.to_string())?;
+    receive.recv().map_err(|error| error.to_string())?
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn sumi_window_size(width: f64, height: f64, available_width: f64, available_height: f64) -> (f64, f64) {
+    (width.min((available_width - 32.0).max(1.0)), height.min((available_height - 32.0).max(1.0)))
+}
+
+#[cfg(test)]
+#[test]
+fn sumi_fixed_window_fits_scaled_work_area() {
+    assert_eq!(sumi_window_size(960.0, 720.0, 960.0, 600.0), (928.0, 568.0));
+    assert_eq!(sumi_window_size(960.0, 720.0, 1920.0, 1080.0), (960.0, 720.0));
+    // A 47px CSD frame must fit too; content + frame + margin is exactly 600.
+    assert_eq!(sumi_window_size(960.0, 720.0, 960.0, 600.0 - 47.0), (928.0, 521.0));
 }
 
 /// Push `payload` to an already-open plugin window (used by later plugins that

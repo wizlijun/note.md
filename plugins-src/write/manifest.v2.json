@@ -5,7 +5,8 @@
   "version": "0.1.10",
   "kind": "native",
   "binary": {
-    "aarch64-apple-darwin": "bin/notemd-sumi"
+    "aarch64-apple-darwin": "bin/notemd-sumi",
+    "x86_64-unknown-linux-gnu": "bin/notemd-sumi"
   },
   "engines": {
     "notemd": ">=6.1110.1"

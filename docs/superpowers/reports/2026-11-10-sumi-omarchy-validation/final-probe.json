@@ -1,0 +1,122 @@
+{
+  "passed": true,
+  "wayland": true,
+  "window": {
+    "address": "23",
+    "title": "Sumi Native Probe — isolated",
+    "class": "native-probe",
+    "pid": 36849,
+    "at": [
+      100,
+      70
+    ],
+    "size": [
+      760,
+      460
+    ],
+    "monitor": "HEADLESS-1",
+    "xwayland": false,
+    "focused": true
+  },
+  "compositor": "Sway virtual display",
+  "stages": [
+    "native-visible",
+    "passed",
+    "web-overlay"
+  ],
+  "checks": {
+    "headerHit": true,
+    "hidden": true,
+    "overlayHit": true,
+    "panelSelectAll": true,
+    "panelSelectAllRouted": true,
+    "remoteRevision": true,
+    "remoteText": true,
+    "restored": true,
+    "webHeaderHeight": 55.99204635620117
+  },
+  "menu": {
+    "action": "save",
+    "consumed": true
+  },
+  "cloneStress": null,
+  "actualWebButtons": [
+    {
+      "target": "BUTTON",
+      "text": "Remote edit",
+      "x": 267.66183400154114,
+      "y": 28.11060357093811
+    },
+    {
+      "target": "BUTTON",
+      "text": "Snapshot",
+      "x": 364.21564626693726,
+      "y": 28.11060357093811
+    },
+    {
+      "target": "BUTTON",
+      "text": "Overlay",
+      "x": 447.3252568244934,
+      "y": 28.11060357093811
+    },
+    {
+      "target": "BUTTON",
+      "text": "Overlay",
+      "x": 447.3252568244934,
+      "y": 28.11060357093811
+    },
+    {
+      "target": "BUTTON",
+      "text": "Focus",
+      "x": 182.10782313346863,
+      "y": 28.11060357093811
+    }
+  ],
+  "actualQuitClosedWindow": true,
+  "idleCpuPercentOneCore": 2.5995562703021657,
+  "breathingPhaseFrames": 6,
+  "navigation": {
+    "before": {
+      "composing": false,
+      "generation": 1,
+      "revision": 23,
+      "selection": {
+        "length": 0,
+        "start": 82
+      },
+      "surface_id": "probe",
+      "text": "Sumi 原生写作\n这里是隔离的系统原生编辑区域。\n中文输入、emoji 😀、选区与撤销路由。\nRemote 同步增量\nOmarchy Wayland 验证 😀\nRemote 同步增量",
+      "textkit2": false,
+      "viewport": {
+        "offset": -32.0,
+        "start": 0
+      },
+      "visible": true
+    },
+    "after": {
+      "composing": false,
+      "generation": 1,
+      "revision": 23,
+      "selection": {
+        "length": 0,
+        "start": 76
+      },
+      "surface_id": "probe",
+      "text": "Sumi 原生写作\n这里是隔离的系统原生编辑区域。\n中文输入、emoji 😀、选区与撤销路由。\nRemote 同步增量\nOmarchy Wayland 验证 😀\nRemote 同步增量",
+      "textkit2": false,
+      "viewport": {
+        "offset": -32.0,
+        "start": 0
+      },
+      "visible": true
+    },
+    "visualReview": "required: inspect three navigation images for stale text/caret"
+  },
+  "cpuMeasurement": "5 second /proc stat delta after 12 seconds without input; probe snapshot interval remains 1 second",
+  "input": {
+    "method": "wtype text and fixed-keymap virtual keyboard; not physical IME",
+    "exactText": true,
+    "beforeRevision": 1,
+    "afterRevision": 22
+  }
+}

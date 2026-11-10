@@ -344,7 +344,7 @@ impl Surface {
         let width = (config.appearance.font_size / 11.0).clamp(2.0, 3.0).ceil() as i32;
         let height = cursor.height().max(1);
         if y < 0
-            || y + height > config.bounds.height as i32
+            || y + height > self.editor_height() as i32
             || x < 0
             || x >= config.bounds.width as i32
         {
@@ -377,6 +377,15 @@ impl Surface {
         } else {
             0.625 + 0.375 * (self.phase.elapsed().as_secs_f64() * std::f64::consts::TAU / 4.0).cos()
         };
+        // Replace independent subsurface pixels, including their previous alpha.
+        // Shared GTK backing surfaces retain ordinary alpha compositing.
+        if self
+            .caret
+            .window()
+            .is_some_and(|window| window.window_type() == gdk::WindowType::Subsurface)
+        {
+            cr.set_operator(gtk::cairo::Operator::Source);
+        }
         cr.set_source_rgba(r, g, b, alpha);
         let _ = cr.paint();
     }

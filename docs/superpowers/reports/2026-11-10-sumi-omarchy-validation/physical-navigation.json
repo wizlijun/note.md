@@ -1,0 +1,37 @@
+{
+  "before": {
+    "composing": false,
+    "generation": 1,
+    "revision": 23,
+    "selection": {
+      "length": 0,
+      "start": 82
+    },
+    "surface_id": "probe",
+    "text": "Sumi 原生写作\n这里是隔离的系统原生编辑区域。\n中文输入、emoji 😀、选区与撤销路由。\nRemote 同步增量\nOmarchy Wayland 验证 😀\nRemote 同步增量",
+    "textkit2": false,
+    "viewport": {
+      "offset": -32.0,
+      "start": 0
+    },
+    "visible": true
+  },
+  "after": {
+    "composing": false,
+    "generation": 1,
+    "revision": 23,
+    "selection": {
+      "length": 0,
+      "start": 76
+    },
+    "surface_id": "probe",
+    "text": "Sumi 原生写作\n这里是隔离的系统原生编辑区域。\n中文输入、emoji 😀、选区与撤销路由。\nRemote 同步增量\nOmarchy Wayland 验证 😀\nRemote 同步增量",
+    "textkit2": false,
+    "viewport": {
+      "offset": -32.0,
+      "start": 0
+    },
+    "visible": true
+  },
+  "visualReview": "required: inspect three navigation images for stale text/caret"
+}

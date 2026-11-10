@@ -1,0 +1,28 @@
+{"kind": "start", "text": "ABCDE", "cursor": 5, "focus": false, "cursorVisible": true}
+{"kind": "key", "keyval": 65367, "name": "End", "code": 9, "state": 0, "group": 0}
+{"kind": "mark", "text": "ABCDE", "cursor": 5, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCDE", "cursor": 5, "focus": true, "cursorVisible": true}
+{"kind": "after-key", "text": "ABCDE", "cursor": 5, "focus": true, "cursorVisible": true}
+{"kind": "key", "keyval": 65361, "name": "Left", "code": 10, "state": 0, "group": 0}
+{"kind": "mark", "text": "ABCDE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCDE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCDE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "after-key", "text": "ABCDE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "key", "keyval": 65288, "name": "BackSpace", "code": 11, "state": 0, "group": 0}
+{"kind": "mark", "text": "ABCDE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCDE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "change", "text": "ABCE", "cursor": 3, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCE", "cursor": 3, "focus": true, "cursorVisible": true}
+{"kind": "after-key", "text": "ABCE", "cursor": 3, "focus": true, "cursorVisible": true}
+{"kind": "key", "keyval": 90, "name": "Z", "code": 12, "state": 0, "group": 0}
+{"kind": "change", "text": "ABCZE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCZE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "after-key", "text": "ABCZE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "key", "keyval": 65361, "name": "Left", "code": 9, "state": 0, "group": 0}
+{"kind": "after-key", "text": "ABCZE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "key", "keyval": 65288, "name": "BackSpace", "code": 9, "state": 0, "group": 0}
+{"kind": "after-key", "text": "ABCZE", "cursor": 4, "focus": true, "cursorVisible": true}
+{"kind": "key", "keyval": 81, "name": "Q", "code": 9, "state": 0, "group": 0}
+{"kind": "change", "text": "ABCZQE", "cursor": 5, "focus": true, "cursorVisible": true}
+{"kind": "mark", "text": "ABCZQE", "cursor": 5, "focus": true, "cursorVisible": true}
+{"kind": "after-key", "text": "ABCZQE", "cursor": 5, "focus": true, "cursorVisible": true}

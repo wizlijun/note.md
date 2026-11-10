@@ -1,0 +1,57 @@
+$ tauri build --debug --ci --bundles deb --config '{"build":{"beforeBuildCommand":""}}'
+        Info Looking up installed tauri packages to check mismatched versions...
+        Warn The bundle identifier "net.notemd.app" set in `"tauri.conf.json" identifier` ends with `.app`. This is not recommended because it conflicts with the application bundle extension on macOS.
+   Compiling tauri-plugin-native-editor v0.1.0 (/home/bruce/git/note.md/tauri-plugin-native-editor)
+   Compiling notemd v6.1110.1 (/home/bruce/git/note.md/src-tauri)
+warning: unused variable: `background`
+   --> src/cli/open.rs:172:35
+    |
+172 | fn spawn_gui(args: Vec<OsString>, background: bool) -> Result<(), String> {
+    |                                   ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_background`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `CL_ERROR_DENIED_CODE` is never used
+  --> src/plugin_runtime/location.rs:22:7
+   |
+22 | const CL_ERROR_DENIED_CODE: isize = 1;
+   |       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LOCATION_DENIED_ERROR` is never used
+  --> src/plugin_runtime/location.rs:23:7
+   |
+23 | const LOCATION_DENIED_ERROR: &str =
+   |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `core_location_failure` is never used
+  --> src/plugin_runtime/location.rs:26:4
+   |
+26 | fn core_location_failure(code: isize, description: &str) -> String {
+   |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `Observed` is never constructed
+ --> src/sumi/external.rs:9:19
+  |
+9 | pub(super) struct Observed {
+  |                   ^^^^^^^^
+
+warning: associated items `read` and `pair` are never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated items in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+...
+34 |     pub fn pair(&self) -> Result<FilePair> {
+   |            ^^^^
+
+warning: `notemd` (lib) generated 6 warnings (run `cargo fix --lib -p notemd` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 32s
+       Built application at: /home/bruce/git/note.md/src-tauri/target/debug/notemd
+        Info Patching /home/bruce/git/note.md/src-tauri/target/debug/notemd with bundle type information: deb
+    Bundling note.md_6.1110.1_amd64.deb (/home/bruce/git/note.md/src-tauri/target/debug/bundle/deb/note.md_6.1110.1_amd64.deb)
+    Finished 1 bundle at:
+        /home/bruce/git/note.md/src-tauri/target/debug/bundle/deb/note.md_6.1110.1_amd64.deb

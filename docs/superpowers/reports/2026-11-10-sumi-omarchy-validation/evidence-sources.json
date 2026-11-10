@@ -1,0 +1,50 @@
+{
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-frontend-tests.log": {
+    "source": "tasks/omarchy-build/sumi-frontend-tests.log",
+    "originalSha256": "986b5cf4801dbbf7796e340eb2d15d13aea2c069fc3ce7dc5c6bfa9e35f25c02"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-plugin-final-tests.log": {
+    "source": "tasks/omarchy-build/sumi-plugin-final-tests.log",
+    "originalSha256": "5e410d20609cf6d3e6a5ed1165e2d09d4f1c1ac1980727c4d2f9bb013601b030"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-core-tests.log": {
+    "source": "tasks/omarchy-build/sumi-core-tests.log",
+    "originalSha256": "804824fa6f7cbd40cb112ae2f913dcc2be432fd33f8907da334b1ae4229425f6"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-sound-final.log": {
+    "source": "tasks/omarchy-build/sumi-sound-final.log",
+    "originalSha256": "ea5af81208bf582eb2bb9fc47a1aaf09944311258f3ce012cf41d2c32024c943"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-pulse-silent-final.log": {
+    "source": "tasks/omarchy-build/sumi-pulse-silent-final.log",
+    "originalSha256": "e0225075ecedda0adf5a9a35d2c2804bcfc2b3b1c38cc8aafed6c226ae5a8be8"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-credentials-final.log": {
+    "source": "tasks/omarchy-build/sumi-credentials-final.log",
+    "originalSha256": "fd5fcea05729078d86a69eac05912690c55fe7bb7611d48d74faf21222c5a974"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-packaging-tests-final.log": {
+    "source": "tasks/omarchy-build/sumi-packaging-tests-final.log",
+    "originalSha256": "d89626a4a3aa2d6c89c17f1419fc4076424cf3a30dede42cbdd69ea4db43c110"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-elf-validator-final.log": {
+    "source": "tasks/omarchy-build/sumi-elf-validator-final.log",
+    "originalSha256": "2299339565fdc7c4fedeb54e99b181ba53b821f77194926422cc7df3301ba0ee"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-host-tests-reopen.log": {
+    "source": "tasks/omarchy-build/sumi-host-tests-reopen.log",
+    "originalSha256": "f5c5f1d617353fda0cd1befa51d8332b05a1ef63a86befdecbe089f701361495"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-backend-smoke.json": {
+    "source": "tasks/omarchy-build/sumi-backend-smoke.json",
+    "originalSha256": "3c28dac0e528503358cfc75931d2fdd9f2a5040d21b3b7078b71ecb0653ae464"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-probe-run20-arc-breathing--clone-stress.json": {
+    "source": "tasks/omarchy-build/sumi-probe-run20-arc-breathing/clone-stress.json",
+    "originalSha256": "ed1b031ddf9688c7c7508eb325aa0cacc61dc176987224b97610e80ab70b4fc7"
+  },
+  "docs/superpowers/reports/2026-11-10-sumi-omarchy-validation/sumi-plugin-acceptance--package-evidence.json": {
+    "source": "tasks/omarchy-build/sumi-plugin-acceptance/package-evidence.json",
+    "originalSha256": "d8447f57e3abd7114a87984c3e7a9228cea1a48f3390c5e222e8990525da4cb0"
+  }
+}

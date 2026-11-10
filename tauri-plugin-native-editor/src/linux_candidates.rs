@@ -568,6 +568,33 @@ mod tests {
         }
         panic!("native candidate condition timed out");
     }
+    fn focused_context(bus: &gio::DBusConnection, programs: &[String]) -> Option<String> {
+        let (info,) = bus
+            .call_sync(
+                Some(SERVICE),
+                "/controller",
+                "org.fcitx.Fcitx.Controller1",
+                "DebugInfo",
+                Some(&().to_variant()),
+                None,
+                gio::DBusCallFlags::NONE,
+                1000,
+                None::<&gio::Cancellable>,
+            )
+            .unwrap()
+            .get::<(String,)>()
+            .unwrap();
+        info.lines()
+            .find(|line| {
+                line.contains(" frontend:dbus ")
+                    && line.ends_with(" focus:1")
+                    && programs
+                        .iter()
+                        .any(|program| line.contains(&format!(" program:{program} ")))
+            })
+            .and_then(|line| line.split("IC [").nth(1)?.split(']').next())
+            .map(str::to_owned)
+    }
     fn keys(args: &[&str]) {
         let mut child = std::process::Command::new("wtype")
             .args(["-s", "150", "-d", "80"])
@@ -860,6 +887,16 @@ mod tests {
         settle();
         assert_eq!(p.layout.borrow().as_ref().unwrap().rows, 4);
         let allocation = s.scroll.allocation();
+        assert_eq!(
+            allocation.width(),
+            360,
+            "native allocation must follow host width"
+        );
+        assert_eq!(
+            allocation.height(),
+            s.editor_height() as i32,
+            "candidate rows must be excluded from the text viewport"
+        );
         settle();
         assert_eq!(
             s.scroll.allocation(),
@@ -873,6 +910,47 @@ mod tests {
         settle();
         assert_eq!(p.layout.borrow().as_ref().unwrap().rows, 4);
         screenshot("bottom-four-rows");
+        // The independent caret window must not escape the shortened text
+        // viewport when reading scroll moves the insertion point below it.
+        let saved = s.config.borrow().clone();
+        let sample = "line\n".repeat(20) + "cursor";
+        let end = sample.len() as u32;
+        s.project(
+            RenderDocument {
+                text: sample,
+                runs: vec![],
+            },
+            TextRange {
+                start: end,
+                length: 0,
+            },
+            saved.revision,
+        );
+        s.appearance();
+        s.center();
+        settle();
+        s.pointer_tracking.set(true);
+        let adjustment = s.scroll.vadjustment();
+        adjustment.set_value(adjustment.value() - Panel::pitch(&s) * 2.0);
+        settle();
+        let cursor = s.caret_geometry();
+        let (_, y) =
+            s.view
+                .buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
+        assert!(
+            y >= s.editor_height() as i32 && y < 650,
+            "test caret must be in the reserved candidate area: y={y}"
+        );
+        s.tick_focus();
+        assert!(
+            !s.caret.is_visible(),
+            "caret must not paint over candidates"
+        );
+        s.pointer_tracking.set(false);
+        s.project(saved.document, saved.selection, saved.revision);
+        s.appearance();
+        s.center();
+        settle();
         s.focused.set(true);
         s.appearance();
         s.center();
@@ -897,6 +975,7 @@ mod tests {
         p.candidates.borrow_mut().clear();
         p.refresh();
         // A sibling input uses normal Fcitx UI, never Sumi's candidate lease.
+        let sumi_context = focused_context(bus, &p.programs()).expect("focused Sumi context");
         let entry = gtk::Entry::new();
         entry.set_halign(gtk::Align::Start);
         entry.set_valign(gtk::Align::Start);
@@ -904,7 +983,9 @@ mod tests {
         s.overlay.add_overlay(&entry);
         entry.show();
         entry.grab_focus();
-        settle();
+        // GTK focus signals precede asynchronous Fcitx FocusIn. Activate only
+        // after the daemon sees the new context, not its most-recent old one.
+        wait(|| focused_context(bus, &p.programs()).is_some_and(|id| id != sumi_context));
         assert!(!p.desired.get());
         assert!(!p.widget.is_visible());
         for (method, args) in [

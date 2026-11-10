@@ -1,0 +1,35 @@
+{
+  "status": "confirmed_host_window_includes_csd_shadow_scale_error",
+  "packageSha256": "929763ed01c5c15a1a8fcc639a29994a9115788446abf9f78fc61ac68c353870",
+  "binarySha256": "bf30c6607a96418205a3e49581f81149f09faa349db8969c6b506c744fa29dcb",
+  "environment": "private Sway 960x600 scale4, isolated fixture",
+  "observed": {
+    "domInnerWidth": 960,
+    "domRegionWidth": 960,
+    "domRegionHeight": 492,
+    "webkitAllocatedWidth": 960,
+    "gtkToplevelAllocatedWidth": 1012,
+    "nativeScrollRequestedWidth": 1012,
+    "nativeScrollAllocatedWidth": 1012,
+    "textViewAllocatedWidth": 1012,
+    "textViewWrapMode": 3,
+    "tauriWindowPhysicalSize": [
+      4048,
+      2608
+    ],
+    "tauriScale": 4,
+    "tauriWebviewPhysicalSize": [
+      3840,
+      2104
+    ]
+  },
+  "interpretation": "Window inner_size contains client-side decoration/shadow allocation. Official Webview.size matches actual WebKit allocation; using webview width removes erroneous 1012/960 scaling.",
+  "fixtureModified": false,
+  "evidence": [
+    "geometry-before-scale-fix/gtk-tree.jsonl",
+    "geometry-clipped.png",
+    "tab-stable-display.png",
+    "geometry-v3/gtk-tree.jsonl"
+  ],
+  "sourceHashes": "source-hashes.json"
+}

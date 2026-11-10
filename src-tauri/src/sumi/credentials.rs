@@ -1,4 +1,4 @@
-//! Sumi device credentials. Only the Keychain representation contains the secret.
+//! Sumi device credentials. Only the platform secret store contains the secret.
 //! Do not return `Credentials` through IPC or persist it in preferences/Vault files.
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -100,15 +100,21 @@ pub fn remove(profile: &str) -> Result<(), String> {
         Err(e) => Err(format!("Sumi Keychain delete failed ({})", e.code())),
     }
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+#[path = "credentials_linux.rs"]
+mod linux;
+#[cfg(target_os = "linux")]
+pub use linux::{load, remove, save};
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn save(_: &str, _: &Credentials) -> Result<(), String> {
     Err("Sumi secure credential storage is not implemented on this platform".into())
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn load(_: &str) -> Result<Option<Credentials>, String> {
     Err("Sumi secure credential storage is not implemented on this platform".into())
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn remove(_: &str) -> Result<(), String> {
     Err("Sumi secure credential storage is not implemented on this platform".into())
 }
@@ -130,7 +136,7 @@ mod tests {
         assert_ne!(account("vault-a").unwrap(), account("vault-b").unwrap());
     }
     #[test]
-    #[ignore = "writes a unique disposable test item to the real macOS Keychain"]
+    #[ignore = "writes a unique disposable credential; on Linux run scripts/sumi/test-linux-credentials.sh --private-keyring"]
     fn isolated_keychain_roundtrip() {
         let profile = format!("sumi-test-{}", uuid::Uuid::new_v4());
         let credential = Credentials::new(

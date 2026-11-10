@@ -1,6 +1,6 @@
 [package]
 name = "notemd"
-version = "6.1109.4"
+version = "6.1110.1"
 edition = "2021"
 
 [lib]
@@ -111,6 +111,11 @@ objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-core-location = "0.3"
 block2 = "0.6"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Confirm deferred GTK shows and measure native titlebars on the main thread.
+glib = "0.18"
+gtk = "0.18"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 # iOS ONLY. Desktop git goes through the external `git` CLI (vault_sync/git_ops.rs);

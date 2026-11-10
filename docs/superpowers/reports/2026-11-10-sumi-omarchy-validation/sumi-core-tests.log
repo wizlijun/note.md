@@ -1,0 +1,239 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling serde_core v1.0.229
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling syn v3.0.9
+   Compiling typenum v1.20.1
+   Compiling smallvec v1.16.5
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.17.1
+   Compiling cc v1.11.1
+   Compiling getrandom v0.4.3
+   Compiling zmij v1.0.23
+   Compiling autocfg v1.5.1
+   Compiling pin-project-lite v0.2.17
+   Compiling crossbeam-utils v0.8.23
+   Compiling parking v2.2.1
+   Compiling rustversion v1.0.23
+   Compiling bitflags v2.13.2
+   Compiling vcpkg v0.2.15
+   Compiling pkg-config v0.3.34
+   Compiling parking_lot_core v0.9.12
+   Compiling serde v1.0.229
+   Compiling serde_derive v1.0.229
+   Compiling num-traits v0.2.19
+   Compiling event-listener v5.4.2
+   Compiling thiserror v2.0.21
+   Compiling memchr v2.8.3
+   Compiling libsqlite3-sys v0.38.2
+   Compiling serde_json v1.0.154
+   Compiling itoa v1.0.18
+   Compiling once_cell v1.21.4
+   Compiling scopeguard v1.2.0
+   Compiling lock_api v0.4.14
+   Compiling event-listener-strategy v0.5.4
+   Compiling thiserror-impl v2.0.21
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling pulldown-cmark v0.13.6
+   Compiling unicode-width v0.2.3
+   Compiling hashbrown v0.14.5
+   Compiling rustix v1.1.6
+   Compiling fastrand v2.5.0
+   Compiling equivalent v1.0.3
+   Compiling indexmap v2.14.2
+   Compiling dashmap v6.2.1
+   Compiling getopts v0.2.24
+   Compiling digest v0.10.7
+   Compiling arc-swap v1.9.3
+   Compiling async-lock v3.5.0
+   Compiling async-trait v0.1.92
+   Compiling hashlink v0.12.2
+   Compiling smallstr v0.3.1
+   Compiling pulldown-cmark-escape v0.11.0
+   Compiling unsafe-libyaml v0.2.11
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling unicode-segmentation v1.13.3
+   Compiling unicase v2.10.0
+   Compiling ryu v1.0.23
+   Compiling linux-raw-sys v0.12.1
+   Compiling fallible-iterator v0.3.0
+   Compiling cpufeatures v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling similar v2.7.0
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling yrs v0.24.0
+   Compiling chrono v0.4.45
+   Compiling uuid v1.29.1
+   Compiling hex v0.4.3
+   Compiling base64 v0.22.1
+   Compiling tempfile v3.27.0
+   Compiling rusqlite v0.40.2
+   Compiling write-core v0.1.0 (/home/bruce/git/note.md/write-core)
+    Finished `test` profile [unoptimized] target(s) in 4m 25s
+     Running unittests src/lib.rs (write-core/target/debug/deps/write_core-2346c985b0b504e2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/candidate.rs (write-core/target/debug/deps/candidate-704abda26c504e34)
+
+running 9 tests
+test immutable_timing_and_writer_future_clocks_are_rejected ... ok
+test deferred_malicious_packet_poison_is_confined_to_candidate ... ok
+test confirmed_replica_still_rejects_combined_pending_poison ... ok
+test later_remote_generation_survives_previous_commit_ack ... ok
+test acknowledged_record_can_already_be_in_the_trusted_journal ... ok
+test revision_gap_and_wrong_session_ack_are_rejected ... ok
+test persistent_candidate_catches_up_after_stale_preparation ... ok
+test confirmed_persistence_replica_replays_exact_fifo_and_caches_snapshot ... ok
+test candidate_replays_split_merge_undo_and_reordered_remote_updates ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.40s
+
+     Running tests/catalog_projection.rs (write-core/target/debug/deps/catalog_projection-4d17a73df9a97282)
+
+running 6 tests
+test metadata_conflict_is_checked_before_any_markdown_write ... ok
+test interrupted_pair_write_can_resume_but_unrelated_files_are_never_overwritten ... ok
+test symlinked_writing_directory_cannot_escape_vault ... ok
+test failed_document_transaction_does_not_leave_directory_or_outbox_behind ... ok
+test server_filename_reassigns_only_provisional_collision_without_losing_local_delete ... ok
+test empty_pages_get_a_filename_only_on_first_written_day_and_never_reuse_deleted_slots ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/clipboard.rs (write-core/target/debug/deps/clipboard-5749873fbc5e1387)
+
+running 3 tests
+test markdown_paste_does_not_escape_copied_syntax_and_rejects_stale_or_surrogate_ranges ... ok
+test copy_preserves_nested_markdown_links_lists_and_literal_source ... ok
+test multi_selection_copy_cut_is_atomic_undoable_and_preserves_middle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/document.rs (write-core/target/debug/deps/document-021e5115ee329ace)
+
+running 25 tests
+test future_pending_clocks_of_the_active_actor_are_rejected ... ok
+test empty_lines_and_clearing ... ok
+test loading_a_used_actor_id_is_rejected ... ok
+test incremental_keyboard_matches_provenance_replay ... ok
+test final_peer_surrogate_pair_survives_anchor_index ... ok
+test new_empty_line_first_is_unset ... ok
+test pasted_new_middle_line_has_new_first ... ok
+test concurrent_newlines_have_unique_ids_and_no_inheritance ... ok
+test invalid_pending_update_cannot_poison_live_state_when_dependency_arrives ... ok
+test duplicate_out_of_order_updates ... ok
+test merge_concurrent_right_edit ... ok
+test one_item_clients_do_not_break_anchor_index ... ok
+test remote_cannot_remove_timing_events_or_change_root ... ok
+test redo_paste_keeps_new_middle_line_first_time ... ok
+test snapshot_recovery_forks_identity_and_preserves_time_without_fake_creation ... ok
+test prepared_remote_commits_only_matching_causal_revision ... ok
+test undo_all_and_redo_keep_first_written_time ... ok
+test stale_edit_and_identity_rejection ... ok
+test utf16_and_graphemes ... ok
+test split_concurrent_right_edit ... ok
+test stable_selection_tracks_remote_emoji_and_undo ... ok
+test yjs_reverse_interop ... ok
+test undo_preserves_remote_and_line_identity ... ok
+test concurrent_operations_permutations_converge ... ok
+test randomized_incremental_matches_full_reducer ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.33s
+
+     Running tests/import.rs (write-core/target/debug/deps/import-42af1e8f879e7234)
+
+running 6 tests
+test in_flight_source_draft_rebases_without_repeating_accepted_typing ... ok
+test matching_external_edit_is_not_inserted_twice ... ok
+test overlapping_and_repeated_context_are_preserved ... ok
+test non_overlapping_external_change_preserves_live_edit_and_identity ... ok
+test external_combining_character_and_emoji_changes_use_grapheme_boundaries ... ok
+test source_save_is_local_undoable_and_preserves_concurrent_changes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/render.rs (write-core/target/debug/deps/render-4f1fdf880bcedcb1)
+
+running 10 tests
+test unicode_escape_and_hard_break ... ok
+test unknown_blocks_preserved_readonly ... ok
+test remove_last_formatted_text_and_literal_paste ... ok
+test literal_list_prefixes_stay_visible_in_plain_and_rich_paste ... ok
+test readonly_markdown_still_allows_stable_reading_selection ... ok
+test block_format_converts_ordered_and_bullet_lists_and_stops_at_selected_newline ... ok
+test rich_clipboard_is_local_markdown_and_rejects_invalid_runs_atomically ... ok
+test rich_projection_and_small_edit ... ok
+test format_toggle_block_styles_links_and_nested_runs ... ok
+test visible_selection_survives_markdown_hidden_syntax_and_remote_edit ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/selection.rs (write-core/target/debug/deps/selection-aade2dff6faac621)
+
+running 5 tests
+test untrusted_preferences_reject_wrong_roots_maps_unknown_dependencies_and_ambiguous_encoding ... ok
+test missing_position_is_retryable_after_local_document_receives_its_dependency ... ok
+test anchors_are_bound_to_page_epoch_and_creation_root_even_when_actor_clocks_overlap ... ok
+test deleted_ranges_empty_roots_and_combining_characters_remain_safe_after_restart ... ok
+test persisted_selection_and_viewport_follow_offline_remote_edits_after_restart ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/shortcuts.rs (write-core/target/debug/deps/shortcuts-79356d576226bd62)
+
+running 4 tests
+test edit_existing_link_does_not_nest_links_or_change_reference_definitions ... ok
+test selected_list_indentation_keeps_markdown_and_excludes_next_line ... ok
+test link_url_change_preserves_outer_emphasis_and_reference_definition ... ok
+test plain_indentation_stays_editable_and_roundtrips_multiple_lines ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/storage.rs (write-core/target/debug/deps/storage-cc1675a396ad4e53)
+
+running 11 tests
+test delta_crash_child ... ok
+
+running 1 test
+test committed_projection_rejects_forged_line_time ... ok
+test portable_recovery_requires_fork_and_preserves_metadata ... ok
+test inbox_survives_reopen_and_id_reuse_rejected ... ok
+test checkpoint_prunes_only_atomically_and_full_commit_covers_prior_deltas ... ok
+test delta_commit_is_atomic_and_reopens_without_projection_checkpoint ... ok
+test malformed_or_missing_durable_tail_fails_closed ... ok
+
+running 1 test
+test remote_delta_requires_exact_received_bytes_and_rolls_back_applied_flag ... ok
+test durable_outbox_and_catalog_rollback ... ok
+test portable_pair_preserves_bytes_and_rejects_stale ... ok
+test abrupt_process_exit_recovers_committed_delta_and_rolls_back_partial_checkpoint ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/typing.rs (write-core/target/debug/deps/typing-3e7799d1a3bfe789)
+
+running 6 tests
+test input_intent_is_ephemeral_and_ime_commit_is_one_undoable_transaction ... ok
+test styled_input_and_peer_edit_merge_and_local_undo_keeps_peer_text ... ok
+test explicit_plain_intent_keeps_literals_and_hard_break_exits_the_span ... ok
+test nested_style_boundaries_whitespace_and_lf_preserve_visible_text ... ok
+test continuous_typing_toggles_off_without_styling_following_text ... ok
+test pending_style_applies_to_markdown_paste_atomically_and_preserves_unknown_blocks ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests write_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
