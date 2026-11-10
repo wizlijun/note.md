@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Inline Fcitx candidates for Sumi on Linux.** Focus mode places candidates below the active line; outside focus mode, typing anchors the body line at the bottom and candidate expansion pushes it upward. Candidates inherit text typography with no separate background or border, up to four rows. Scoped to the native Sumi editor; requires the matching host and Fcitx sumicandidates addon. Not installed or released yet.
+- **Inline Fcitx candidates for Sumi on Linux.** Focus mode places candidates below the active line; outside focus mode, typing anchors the body line at the bottom and candidate expansion pushes it upward. Candidates inherit text typography with no separate background or border, up to four rows. Inline preedit has no selection fill; preedit and the current candidate use subtle underlines. Scoped to the native Sumi editor; requires the matching host and Fcitx sumicandidates addon. Not installed or released yet.
 
 - **Sumi 0.1.10 requires note.md 6.1110.1 or later.** Update both for the native input-resume and viewport-geometry fixes.
 

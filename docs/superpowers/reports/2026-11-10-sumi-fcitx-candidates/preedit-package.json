@@ -1,0 +1,58 @@
+{
+  "source_commit": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+  "source_archive": "fcitx5-sumi-source.tar.gz",
+  "source_sha256": "1cba8bf177ec6c37a7a0608104e7ec45a86628e58bff836dae67ff8c6f2e5073",
+  "package": "/home/bruce/git/fcitx5/tasks/sumi-package-preedit/fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+  "package_sha256": "4bbd003599af85b6d2a4a15f0aaa598d973a63983ca58b00ab457f16a19c9314",
+  "package_size": 58229,
+  "payload_sha256": {
+    "usr/lib/fcitx5/libsumicandidates.so": "7d2f92d6c0f1b403cc1d409e466f6f31d955eab528c84cfc6d7077c9e1e9092e",
+    "usr/share/fcitx5/addon/sumicandidates.conf": "a885bf56b061b14e6b82390045081f86eda5f789db36357155a67d576c7e4191",
+    "usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+  },
+  "build_environment": [
+    "fcitx5 5.1.23-1",
+    "gcc 16.2.1+r23+gd564253eb6c8-1",
+    "glibc 2.44+r50+g1848099f063e-1",
+    "pkgconf 3.0.10-1",
+    "binutils 2.47-4",
+    "zstd 1.5.7-3"
+  ],
+  "checks": {
+    "pacman_metadata": "passed",
+    "exact_payload": "passed",
+    "elf_x86_64_shared": "passed",
+    "ldd_relocations": "passed",
+    "packaged_addon_private_fcitx_protocol": "passed",
+    "sumi_preedit_no_highlight_with_underline": "passed",
+    "sibling_ic_highlight_preserved": "passed"
+  },
+  "installed": false,
+  "published": false,
+  "requires_matching_sumi_host": true,
+  "classic_ui": "System classicui is not replaced; late registration uses safe fallback.",
+  "host_preview": {
+    "candidate_commit": "4dd7c501",
+    "native_foundation": "40adb1f1",
+    "host": "uncommitted snapshot for integration testing only",
+    "deb_sha256": "8db605bc43968368b9ef72f121191e1444d1f583aa51f5319b25409a2a305fc0",
+    "checks": {
+      "actual_plugin_menu": "passed",
+      "focused_candidates_next_line": "passed",
+      "mouse_select_exact_document": "你好",
+      "settings_apply_focus_off_bottom_anchor": "passed",
+      "space_commit_exact_document": "你好你好",
+      "close_reopen_new_ic_activate_continue": "你好你好你好",
+      "preedit_no_highlight": "passed",
+      "ordinary_document_selection_visible": "passed",
+      "preedit_style_mouse_select_exact_body": "你好你好你好你好"
+    },
+    "scope": "Private headless Sway, virtual input, private D-Bus/keyring/Vault; not physical desktop acceptance",
+    "installed": false,
+    "published": false,
+    "host_sha256": "6dccbdb227151fc1ea6956d12b852e0ebd742570467c19539d8a95eb8218bda2",
+    "addon_sha256": "7d2f92d6c0f1b403cc1d409e466f6f31d955eab528c84cfc6d7077c9e1e9092e",
+    "final_source_committed": false,
+    "host_snapshot_not_final": true
+  }
+}
