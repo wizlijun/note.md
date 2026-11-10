@@ -1,6 +1,6 @@
 # Sumi Linux 音效修复：正式 6.1110.7
 
-已公开[v6.1110.7](https://github.com/wizlijun/note.md/releases/tag/v6.1110.7)，冻结源码fbb9186259773a77f84a3ac69918e9f2f9df341f。Sumi0.1.12原签包和音频后台d044c31d…保持原字节，无需更新插件。此报告涵盖源码、正式包、隔离GUI与公开资产；本机安装正等待系统认证，实际重启与运行中音频验收另行追加，不能把隔离成功说成用户进程已修复。
+已公开[v6.1110.7](https://github.com/wizlijun/note.md/releases/tag/v6.1110.7)，冻结源码fbb9186259773a77f84a3ac69918e9f2f9df341f。Sumi0.1.12原签包和音频后台d044c31d…保持原字节，无需更新插件。此报告涵盖源码、正式包、隔离GUI、公开资产及本机安装后的实际音频验证。本机已安装7并通过正常退出流程重启，实际按键音频已恢复。
 
 ## 根因和最小修复
 
@@ -26,4 +26,8 @@ Arch SHA256：8c1755a55db1d66777df9a174c9a63c59ae5f82e6bface18bf0805dc1c5508bc�
 - F11往返、正常编辑保存、真实nihao候选鼠标提交严格得到目标中文，测试正文为固定私有内容。
 - 每次临时10%自有stream测试结束均按原声道整数volume/mute还原并读回；早期诊断曾遗留WirePlumber应用音量10%，已用自有静音流/官方API恢复Sumi默认100%未静音，全局sink45%未变，未直接编辑state文件。
 
-全部私有host/backend/recorder/fixture和任务Docker均已清理。原生修复无用户文档改动；本机升级与正常重启需完成管理员认证，尚未据此报告生产进程恢复。
+全部私有host/backend/recorder/fixture和任务Docker均已清理。原生修复无用户文档改动。本机管理员认证后，pacman/CLI/binary均核对为7；正常tray Quit保存退出旧6，再启动正式7和Sumi，未强制终止用户程序。
+
+## 本机实际进程验证
+
+[实际验收](local-install/verification.json)：安装notemd6.1110.7-1，/usr/bin与运行host142195均为正式213c47b8…；正常退出旧110504后，原签后台142526实际继承/run/user/1000，并建立Sumi/Typing feedback流822，应用音量100%未静音。仅在已聚焦Sumi时发送一次Shift_L（不注入正文），只录自有stream，58560帧peak0.29368472。录音器已退出，用户应用/Sumi保持运行，默认输出音量仍45%。用户现场PCM与日志只保留ignored任务目录，不作为公开附件。
