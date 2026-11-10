@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /home/bruce/git/note.md-sumi-candidates
+
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  12:55:45
+   Duration  10.08s (transform 84ms, setup 0ms, import 118ms, tests 9.70s, environment 0ms)
+

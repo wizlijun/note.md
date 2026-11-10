@@ -1,0 +1,11 @@
+
+running 1 test
+test platform::tests::native_wayland_damage ... MESA-EGL: warning: failed to get driver name for fd -1
+MESA-EGL: warning: MESA-LOADER: failed to retrieve device information
+MESA-EGL: warning: failed to get driver name for fd -1
+wrap bounds=800 scroll=800 view=800 mode=WordChar rows=13 margins=24,24
+wrap bounds=400 scroll=400 view=400 mode=WordChar rows=30 margins=24,24
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 6.70s
+
