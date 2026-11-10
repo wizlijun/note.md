@@ -1189,6 +1189,43 @@ mod tests {
     }
 
     #[test]
+    fn a_local_smart_search_can_be_retained_as_a_lookup_run() {
+        let vault = tempfile::tempdir().unwrap();
+        std::fs::write(vault.path().join("a.md"), "# A\nrelease risk details\n").unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let mut idx = SearchIndex::open_at(vault.path(), &data.path().join("i.db"), "sync").unwrap();
+        idx.sweep(&searchidx::ScanOptions::default(), None).unwrap();
+        let handle: IndexHandle = Arc::new(std::sync::Mutex::new(Some(idx)));
+        let counter = Arc::new(AtomicU64::new(1));
+        let mut response = smart_search_locked(
+            &handle,
+            Instant::now(),
+            "release risk",
+            Some(20),
+            Some(false),
+            None,
+            &counter,
+            1,
+        )
+        .unwrap();
+
+        let run_id = crate::smart_lookup::retain_search_in(
+            "smart-search",
+            vault.path(),
+            "release risk",
+            &mut response,
+        )
+        .unwrap();
+
+        assert!(!run_id.is_empty());
+        assert!(!response.hits.is_empty());
+        assert!(response.hits.iter().all(|hit| hit.result_id.is_some()));
+        let prompt = crate::smart_lookup::summary_prompt_for_run(&run_id, "smart-search").unwrap();
+        assert!(prompt.contains("release risk details"));
+        assert!(crate::smart_lookup::summary_prompt_for_run(&run_id, "another-window").is_err());
+    }
+
+    #[test]
     fn planned_executor_uses_typed_multiword_filters() {
         let vault = tempfile::tempdir().unwrap();
         std::fs::write(

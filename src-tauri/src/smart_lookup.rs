@@ -218,10 +218,33 @@ fn retain_in(
     original_query: &str,
     response: &mut crate::search::plan::PlannedSearchResponse,
 ) -> Result<(), String> {
+    let run_id = retain_search_in(window_label, root, original_query, &mut response.search)?;
+    response.lookup_run_id = Some(run_id);
+    Ok(())
+}
+
+/// Registers a local smart search as a lookup run for the window, writing a
+/// `result_id` onto every hit. Returns the run id.
+pub(crate) fn retain_local_search(
+    window: &tauri::Window,
+    original_query: &str,
+    search: &mut crate::search::smart::SmartSearchResponse,
+) -> Result<String, String> {
+    let root = crate::sotvault::resolve_vault_root(window.app_handle())
+        .ok_or_else(|| "Vault not configured".to_string())?;
+    retain_search_in(window.label(), &root, original_query, search)
+}
+
+pub(crate) fn retain_search_in(
+    window_label: &str,
+    root: &Path,
+    original_query: &str,
+    search: &mut crate::search::smart::SmartSearchResponse,
+) -> Result<String, String> {
     let root = fs::canonicalize(root).map_err(|error| format!("resolve vault: {error}"))?;
     let run_id = uuid::Uuid::now_v7().to_string();
-    let mut hits = Vec::with_capacity(response.search.hits.len());
-    for hit in &mut response.search.hits {
+    let mut hits = Vec::with_capacity(search.hits.len());
+    for hit in &mut search.hits {
         let result_id = uuid::Uuid::now_v7().to_string();
         hit.result_id = Some(result_id.clone());
         hits.push(CanonicalHit {
@@ -255,8 +278,24 @@ fn retain_in(
     prune(&mut registry, window_label);
     registry.order.push_back(run_id.clone());
     registry.runs.insert(run_id.clone(), run);
-    response.lookup_run_id = Some(run_id);
-    Ok(())
+    Ok(run_id)
+}
+
+#[cfg(test)]
+pub(crate) fn summary_prompt_for_run(run_id: &str, window_label: &str) -> Result<String, String> {
+    let run = {
+        let registry = LOOKUP_RUNS
+            .get_or_init(|| Mutex::new(LookupRuns::default()))
+            .lock()
+            .map_err(|_| "lookup run registry is unavailable".to_string())?;
+        registry
+            .runs
+            .get(run_id)
+            .filter(|run| run.window_label == window_label)
+            .cloned()
+            .ok_or_else(|| "lookup run expired; run Smart Lookup again".to_string())?
+    };
+    Ok(prepare_summary_in(&run, &[], 4, 4_000, "bullets")?.prompt)
 }
 
 fn canonical_source_path(root: &Path, relative: &str) -> Result<PathBuf, String> {

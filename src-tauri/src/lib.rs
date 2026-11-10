@@ -1703,6 +1703,7 @@ pub fn run() {
                 sotvault::sotvault_accept_current,
                 search::notemd_search,
                 search::notemd_smart_search,
+                search::smart_lookup_local,
                 search::notemd_search_plan_context,
                 search::notemd_planned_search,
                 search::notemd_search_stats,
