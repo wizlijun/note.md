@@ -6,9 +6,11 @@
 
 ## 未发布
 
-- **Sumi Linux 内嵌 Fcitx 候选。** 专注时在输入行下一行展开，非专注打字时正文输入行固定底部，候选扩展将正文上推；继承正文字体与行距，无独立背景、边框，最多四行；组字串去除蓝底，组字与当前候选仅用细下划线标记。仅接管 Sumi 原生正文，需要配套宿主与 Fcitx sumicandidates 模块；尚未安装或发布。
+## v6.1110.2 — 2026-11-10（Linux／Omarchy）
 
-- **Sumi 支持 Linux／Omarchy 原生编辑。** 独立窗口和写作标签共用 GTK 编辑桥，新增 Secret Service 设备凭据、PulseAudio／PipeWire 打字音效和 Linux 插件打包。已验证的本地 x86_64 预览单独记录，尚未发布 Linux 插件市场版本。
+- **Sumi Linux 内嵌 Fcitx 候选。** 专注时在输入行下一行展开，非专注打字时正文输入行固定底部，候选扩展将正文上推；继承正文字体与行距，无独立背景、边框，最多四行；组字串去除蓝底，组字与当前候选仅用细下划线标记。仅接管 Sumi 原生正文，需要配套宿主与 Fcitx sumicandidates 模块。
+
+- **Sumi 支持 Linux／Omarchy 原生编辑。** 独立窗口和写作标签共用 GTK 编辑桥，新增 Secret Service 设备凭据、PulseAudio／PipeWire 打字音效和 Linux 插件打包。Sumi 0.1.11 面向 Linux x86_64，要求宿主 6.1110.2；Mac 保留既有 0.1.10 插件包。
 
 ## v6.1110.1 — 2026-11-10
 

@@ -20,4 +20,4 @@
 
 ## 当前环境前提
 
-本机GitHub读写身份可用；Docker socket当前不可用且sudo需要认证。未发现既有插件签名私钥或本机Cloudflare Account API Token；GitHub CI只有Cloudflare部署secret，没有构建/插件签名发布流程。已向用户询问现有发布机SSH或凭据配置路径。继续可独立完成的整合、测试和脚本准备；不生成新密钥绕过信任链，不宣称已发布。
+本机GitHub身份可用。原插件签名密钥已由用户提供并与宿主原公钥匹配；Account Token通过既有Wrangler3的INDEX KV只读验证，写权限仍以正式操作结果为准。临时rootless Docker在任务目录运行，Debian12 amd64/arm64与apt验证通过，不改系统Docker权限或用户配置。现已具备继续冻结和正式构建的前提；密钥/Token均不进入git归档或报告。
