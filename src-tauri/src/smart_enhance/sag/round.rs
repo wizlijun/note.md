@@ -16,7 +16,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
 use indexmap::IndexMap;
@@ -55,8 +54,8 @@ pub(crate) enum EvidenceStop {
     EvidenceTooLarge,
 }
 
-/// Blocks dropped by the H.3.3 source check, counted over the life of a
-/// [`ReaderIndex`].
+/// Distinct blocks dropped by the H.3.3 source check over the life of a
+/// [`ReaderIndex`]: a block returned by several term lists or rounds counts once.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Skipped {
     pub confidential: usize,
@@ -85,13 +84,14 @@ pub(crate) trait SagIndex: Sync {
     fn has_hits(&self, expression: &str, excluded: &[i64]) -> Result<bool, String>;
     /// The alias table of the current generation (H.3.1).
     fn aliases(&self) -> Result<Arc<AliasMap>, String>;
-    /// Blocks dropped so far by the source check.
+    /// Distinct blocks dropped so far by the source check.
     fn skipped(&self) -> Skipped;
 }
 
 /// Scores one round's pool. Batching, the budget check and the requests live
 /// in the implementation (Task 8); `step` only builds the pool, the evidence
-/// and the `state` string and keeps the books.
+/// and the `state` string and keeps the books. A round the scorer will not
+/// send (`Budget`, `EvidenceTooLarge`) comes back as `RoundError::Stop`.
 pub(crate) trait Scorer {
     fn score(
         &mut self,
@@ -145,7 +145,8 @@ pub(crate) enum StepOutcome {
     /// `max_hops`; the next call reports that as `Stopped(MaxHops)` (P14).
     Scored { hop: u8, terms: Vec<Term>, pool_size: usize },
     Stopped(EvidenceStop),
-    /// Scoring failed or was cancelled; the state is unchanged.
+    /// Scoring failed or was cancelled; the state is unchanged. A scorer's
+    /// `RoundError::Stop` is reported as `Stopped` instead.
     Failed(RoundError),
 }
 
@@ -306,6 +307,9 @@ impl EvidenceState {
         };
         let scored = match scored {
             Ok(scored) => scored,
+            // Not sent (budget, evidence too large): the round is discarded
+            // and the rounds end.
+            Err(RoundError::Stop(stop)) => return Ok(self.stopped(stop)),
             Err(error) => return Ok(StepOutcome::Failed(error)),
         };
         next.retained = rank(scored);
@@ -403,9 +407,10 @@ pub(crate) struct ReaderIndex {
     max_block_chars: usize,
     line: ReaderStats,
     file: ReaderStats,
-    confidential: AtomicUsize,
-    stale: AtomicUsize,
-    long: AtomicUsize,
+    /// Ids of the blocks dropped, per reason (H.5 「跳过数照实返回」).
+    confidential: Mutex<BTreeSet<i64>>,
+    stale: Mutex<BTreeSet<i64>>,
+    long: Mutex<BTreeSet<i64>>,
 }
 
 impl ReaderIndex {
@@ -417,9 +422,9 @@ impl ReaderIndex {
             root,
             filters,
             max_block_chars,
-            confidential: AtomicUsize::new(0),
-            stale: AtomicUsize::new(0),
-            long: AtomicUsize::new(0),
+            confidential: Mutex::default(),
+            stale: Mutex::default(),
+            long: Mutex::default(),
         }
     }
 
@@ -491,7 +496,7 @@ impl SagIndex for ReaderIndex {
         let mut out = Vec::with_capacity(rows.len());
         for (order, row) in rows.into_iter().enumerate() {
             if !matches!(confidentiality.get(&row.path).map(String::as_str), Some("unknown" | "explicitly_public")) {
-                self.confidential.fetch_add(1, Ordering::Relaxed);
+                lock(&self.confidential).insert(row.id);
                 continue;
             }
             let hit = CanonicalHit {
@@ -505,11 +510,11 @@ impl SagIndex for ReaderIndex {
                 pinned: false,
             };
             if current_block(&self.root, &hit).is_err() {
-                self.stale.fetch_add(1, Ordering::Relaxed);
+                lock(&self.stale).insert(row.id);
                 continue;
             }
             if row.text.chars().count() > self.max_block_chars {
-                self.long.fetch_add(1, Ordering::Relaxed);
+                lock(&self.long).insert(row.id);
                 continue;
             }
             out.push(SagCandidate {
@@ -555,9 +560,9 @@ impl SagIndex for ReaderIndex {
 
     fn skipped(&self) -> Skipped {
         Skipped {
-            confidential: self.confidential.load(Ordering::Relaxed),
-            stale: self.stale.load(Ordering::Relaxed),
-            long: self.long.load(Ordering::Relaxed),
+            confidential: lock(&self.confidential).len(),
+            stale: lock(&self.stale).len(),
+            long: lock(&self.long).len(),
         }
     }
 }
@@ -928,7 +933,12 @@ mod tests {
         let mut state = EvidenceState::start(&index, "Anchor", settings(10, 5, 1, 5)).unwrap();
         let mut scorer = TitleScorer::default();
         let cancel = CancelFlag::new();
-        let mut outcomes = vec![];
+        let first = state.step(&index, &mut scorer, &StateExtras::default(), &cancel).await.unwrap();
+        assert!(matches!(first, StepOutcome::Scored { hop: 0, .. }), "{first:?}");
+        // Round 0 never meets secret.md, so every confidential drop below
+        // belongs to the expansion round.
+        assert_eq!(index.skipped().confidential, 0);
+        let mut outcomes = vec![format!("{first:?}")];
         loop {
             match state.step(&index, &mut scorer, &StateExtras::default(), &cancel).await.unwrap() {
                 StepOutcome::Stopped(stop) => {
@@ -1058,6 +1068,85 @@ mod tests {
         assert_eq!(state, before);
     }
 
+    /// A scorer during whose scoring the main connection commits (review M2).
+    struct CommittingScorer<'a> {
+        index: &'a mut searchidx::SearchIndex,
+        root: PathBuf,
+        calls: usize,
+    }
+
+    impl Scorer for CommittingScorer<'_> {
+        fn score(
+            &mut self,
+            mut pool: Vec<SagCandidate>,
+            _evidence: Vec<SagCandidate>,
+            _state: String,
+        ) -> impl Future<Output = Result<Vec<SagCandidate>, RoundError>> + Send {
+            self.calls += 1;
+            std::fs::write(self.root.join("Bridge.md"), "Bob Smith moved away.").unwrap();
+            self.index.index_one("Bridge.md", &searchidx::ScanOptions::default()).unwrap();
+            for c in &mut pool {
+                c.score = 0.5;
+            }
+            async move { Ok(pool) }
+        }
+    }
+
+    #[tokio::test]
+    async fn an_index_commit_during_scoring_discards_the_round() {
+        let mut v = oracle_vault();
+        let index = v.index();
+        let mut state = EvidenceState::start(&index, "Anchor", oracle_settings()).unwrap();
+        let before = state.clone();
+        let cancel = CancelFlag::new();
+        let mut scorer = CommittingScorer { index: &mut v.index, root: v.root.clone(), calls: 0 };
+        let outcome = state.step(&index, &mut scorer, &StateExtras::default(), &cancel).await.unwrap();
+        assert_eq!(outcome, StepOutcome::Stopped(EvidenceStop::IndexChanged));
+        assert_eq!(scorer.calls, 1);
+        // The round is thrown away: only the stop is recorded.
+        assert_eq!(state, EvidenceState { stop: Some(EvidenceStop::IndexChanged), ..before });
+        assert!(state.retained.is_empty() && state.trace.is_empty() && state.seen.is_empty());
+    }
+
+    /// A scorer that declines to send the round (Budget, EvidenceTooLarge).
+    struct StoppingScorer(EvidenceStop, usize);
+
+    impl Scorer for StoppingScorer {
+        fn score(
+            &mut self,
+            _: Vec<SagCandidate>,
+            _: Vec<SagCandidate>,
+            _: String,
+        ) -> impl Future<Output = Result<Vec<SagCandidate>, RoundError>> + Send {
+            self.1 += 1;
+            let stop = self.0;
+            async move { Err(RoundError::Stop(stop)) }
+        }
+    }
+
+    #[tokio::test]
+    async fn a_scorer_stop_ends_the_rounds_and_discards_the_round() {
+        for stop in [EvidenceStop::Budget, EvidenceStop::EvidenceTooLarge] {
+            let v = oracle_vault();
+            let index = v.index();
+            let mut state = EvidenceState::start(&index, "Anchor birthplace depicts", oracle_settings()).unwrap();
+            let cancel = CancelFlag::new();
+            let mut titles = TitleScorer::default();
+            let first = state.step(&index, &mut titles, &StateExtras::default(), &cancel).await.unwrap();
+            assert!(matches!(first, StepOutcome::Scored { hop: 0, .. }), "{first:?}");
+            let before = state.clone();
+            let mut scorer = StoppingScorer(stop, 0);
+            let outcome = state.step(&index, &mut scorer, &StateExtras::default(), &cancel).await.unwrap();
+            assert_eq!(outcome, StepOutcome::Stopped(stop));
+            assert_eq!(state, EvidenceState { stop: Some(stop), ..before.clone() });
+            assert_eq!(state.evidence(&index).unwrap(), before.evidence(&index).unwrap());
+            // Later calls report the stop without scoring again.
+            let again = state.step(&index, &mut scorer, &StateExtras::default(), &cancel).await.unwrap();
+            assert_eq!(again, StepOutcome::Stopped(stop));
+            assert_eq!(scorer.1, 1);
+        }
+    }
+
     #[tokio::test]
     async fn max_hops_ends_after_the_last_scored_round() {
         let v = oracle_vault();
@@ -1111,13 +1200,43 @@ mod tests {
             ("b.md".into(), format!("alpha {}\n", "x".repeat(50))),
             ("c.md".into(), "alpha three\n".into()),
         ]);
-        std::fs::write(v.root.join("c.md"), "changed on disk\n").unwrap();
+        std::fs::write(v.root.join("a.md"), "changed on disk\n").unwrap();
         let index = ReaderIndex::new(v.reader.clone(), v.root.clone(), Query::default(), 20);
         let got = index.candidates("\"alpha\"", None, &[], 10).unwrap();
-        assert_eq!(got.iter().map(|c| (c.path.as_str(), c.title.as_str())).collect::<Vec<_>>(), vec![("a.md", "a")]);
+        assert_eq!(got.iter().map(|c| (c.path.as_str(), c.title.as_str())).collect::<Vec<_>>(), vec![("c.md", "c")]);
         assert_eq!(index.skipped(), Skipped { confidential: 0, stale: 1, long: 1 });
-        // `order` is the SQL row number, gaps included.
-        assert!(got[0].order <= 2);
+        // `order` is the SQL row number, gaps included: c.md keeps the
+        // position it had before a.md and b.md were dropped.
+        let rows = v
+            .reader
+            .candidate_query(&CandidateQuery { expression: "\"alpha\"", required: None, filters: &Query::default(), excluded: &[], limit: 10 })
+            .unwrap();
+        assert_eq!(rows.len(), 3);
+        let position = rows.iter().position(|r| r.path == "c.md").unwrap();
+        assert_eq!(got[0].order, position);
+        assert!(position > 0, "c.md must come after a dropped row: {rows:?}");
+    }
+
+    /// Review M1: `Skipped` counts distinct blocks, so a block returned by
+    /// several term lists or rounds counts once.
+    #[test]
+    fn skipped_blocks_are_counted_once_however_often_they_return() {
+        let v = vault(&[
+            ("s.md".into(), "---\nconfidentiality: confidential\n---\nalpha beta secret\n".into()),
+            ("a.md".into(), "alpha one\n".into()),
+            ("b.md".into(), format!("alpha beta {}\n", "x".repeat(50))),
+        ]);
+        std::fs::write(v.root.join("a.md"), "changed on disk\n").unwrap();
+        let index = ReaderIndex::new(v.reader.clone(), v.root.clone(), Query::default(), 30);
+        let once = Skipped { confidential: 1, stale: 1, long: 1 };
+        index.candidates("\"alpha\"", None, &[], 10).unwrap();
+        assert_eq!(index.skipped(), once);
+        // Two term lists of one round, then the next round: the same blocks.
+        let ranking = "\"beta\" OR \"one\" OR (\"alpha\")";
+        let lists = candidate_lists(&index, ranking, &["\"beta\"".into(), "\"alpha\"".into()], &[], 10).unwrap();
+        assert!(lists.iter().all(Vec::is_empty), "{lists:?}");
+        index.candidates("\"alpha\"", None, &[], 10).unwrap();
+        assert_eq!(index.skipped(), once);
     }
 
     #[test]
