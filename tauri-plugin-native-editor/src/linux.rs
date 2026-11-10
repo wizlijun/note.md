@@ -880,6 +880,13 @@ pub fn mount(
     scroll.add(&view);
     overlay.add_overlay(&scroll);
     let decoration = gtk::DrawingArea::new();
+    decoration.connect_realize(|area| {
+        // Overlay pass-through covers its wrapper, not this area's own window.
+        if let Some(window) = area.window() {
+            window.set_pass_through(true);
+            window.input_shape_combine_region(&gtk::cairo::Region::create(), 0, 0);
+        }
+    });
     decoration.set_halign(gtk::Align::Start);
     decoration.set_valign(gtk::Align::Start);
     overlay.add_overlay(&decoration);
