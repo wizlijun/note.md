@@ -231,6 +231,10 @@
   $effect(() => {
     if (open && selectedTab === 'enhance' && !isIOSPlatform) untrack(() => { void refreshEnhanceKeys() })
   })
+  // The dialog stays mounted: an unsaved key draft must not outlive it.
+  $effect(() => {
+    if (!open) untrack(() => { enhanceKeyDrafts.jev = ''; enhanceKeyDrafts.chat = '' })
+  })
   async function refreshEnhanceKeys() {
     try { enhanceKeys = await smartSearchApi.keyStatus() }
     catch (error) { console.warn('[SettingsDialog] smart_lookup_key_status:', error) }
@@ -2135,7 +2139,8 @@
           {@render keyRow('jev')}
           {@render testRow('jev', jevInsecure)}
           <label class="row" data-consent>
-            <input type="checkbox" checked={jevConsented} disabled={jevHost === null || jevInsecure}
+            <!-- Withdrawing consent is always allowed; giving it needs a URL that does not send the key in clear text. -->
+            <input type="checkbox" checked={jevConsented} disabled={jevHost === null || (jevInsecure && !jevConsented)}
               onchange={(event) => setJevConsent(event.currentTarget.checked)} />
             <span class="lbl">{t('settings.enhance.consent', { host: jevHost ?? '—' })}</span>
           </label>

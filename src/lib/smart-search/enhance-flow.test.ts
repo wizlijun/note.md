@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SearchHit } from '../search/api'
 import { en } from '../i18n/en'
-import type { JudgeResult } from './api'
+import type { JudgeResult, RepairSuggestion } from './api'
 import type { ResultSection } from './lookup-view'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, type SmartLookupSettings } from './settings'
 import {
@@ -16,6 +16,7 @@ import {
   jevRequestConfig,
   movedFrom,
   noMatchAttempts,
+  repairMessage,
   sectionBreaks,
   shouldAutoRepair,
   tiersById,
@@ -144,6 +145,17 @@ describe('headerMessage', () => {
     expect(degraded('cancelled')).toEqual({ key: 'smartSearch.enhance.cancelled', params: {} })
   })
 
+  it('not configured names a missing key or an insecure endpoint', () => {
+    const notConfigured = (missing: JudgeResult['missing']) =>
+      headerMessage({ kind: 'degraded', status: 'notConfigured', host: null, statusClass: null, missing })
+    expect(notConfigured('key')).toEqual({ key: 'smartSearch.enhance.notConfiguredKey', params: {} })
+    expect(notConfigured('insecure')).toEqual({ key: 'smartSearch.enhance.notConfiguredInsecure', params: {} })
+    for (const missing of ['url', 'model', null] as const) {
+      expect(notConfigured(missing)).toEqual({ key: 'smartSearch.enhance.notConfigured', params: {} })
+    }
+    expect(en['smartSearch.enhance.notConfiguredKey']).toBe('No key saved')
+  })
+
   it('judged says how many moved, or that the order stayed', () => {
     expect(headerMessage({ kind: 'judged', result: result({ rerankedCount: 3, judgedCount: 5 }) }))
       .toEqual({ key: 'smartSearch.enhance.judged', params: { n: 3 } })
@@ -180,6 +192,38 @@ describe('headerMessage', () => {
   })
 })
 
+describe('repairMessage', () => {
+  function repair(overrides: Partial<RepairSuggestion> = {}): RepairSuggestion {
+    return {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['发布'], phrases: [] }], requestCount: 1, elapsedMs: 600, usage: null, ...overrides,
+    }
+  }
+
+  it('says what failed about rephrasing, not about judging', () => {
+    expect(repairMessage(repair({ status: 'timeout', groups: [] })))
+      .toEqual({ key: 'smartSearch.enhance.repairTimeout', params: {} })
+    expect(repairMessage(repair({ status: 'invalid', groups: [] })))
+      .toEqual({ key: 'smartSearch.enhance.repairInvalid', params: { host: 'chat.example' } })
+    // An ok answer without any wording is an invalid return.
+    expect(repairMessage(repair({ groups: [] })))
+      .toEqual({ key: 'smartSearch.enhance.repairInvalid', params: { host: 'chat.example' } })
+    expect(en['smartSearch.enhance.repairTimeout']).toBe('Rephrasing timed out; results unchanged')
+    expect(en['smartSearch.enhance.repairTimeout']).not.toContain('Judging')
+  })
+
+  it('shares the copy that is not about judging, and is silent when there is nothing to say', () => {
+    expect(repairMessage(repair({ status: 'notConfigured', missing: 'key', groups: [], endpointHost: null })))
+      .toEqual({ key: 'smartSearch.enhance.notConfiguredKey', params: {} })
+    expect(repairMessage(repair({ status: 'keyInvalid', statusClass: '4xx', groups: [] })))
+      .toEqual({ key: 'smartSearch.enhance.keyInvalid', params: { host: 'chat.example', code: '4xx' } })
+    expect(repairMessage(repair({ status: 'unreachable', groups: [] })))
+      .toEqual({ key: 'smartSearch.enhance.unreachable', params: { host: 'chat.example', code: '' } })
+    expect(repairMessage(repair())).toBeNull()
+    expect(repairMessage(repair({ status: 'skipped', skipReason: 'autoBudgetUsed', groups: [] }))).toBeNull()
+  })
+})
+
 describe('judging', () => {
   it('counts line-level, unpinned hits in the first 50, at most 10', () => {
     const hits = [
@@ -189,6 +233,10 @@ describe('judging', () => {
     expect(judgingCount(hits)).toBe(3)
     expect(judgingCount(Array.from({ length: 30 }, (_, i) => hit(`l${i}`)))).toBe(10)
     expect(judgingCount([...Array.from({ length: 50 }, (_, i) => hit(`f${i}`, { level: 'file' })), hit('late')])).toBe(0)
+  })
+
+  it('the judging count is labelled as an estimate (the window does not know the host\'s pool and K)', () => {
+    expect(en['smartSearch.enhance.judging']).toBe('Judging about {n} · {s}s')
   })
 
   it('the judging message shows whole elapsed seconds', () => {

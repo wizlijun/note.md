@@ -623,7 +623,7 @@ describe('SmartLookupApp enhancement', () => {
     mocks.judgeQueue.push(REORDERED())
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Judging up to 3 · 0s'))
+    await vi.waitFor(() => expect(header()).toContain('Judging about 3 · 0s'))
 
     click(button('Stop'))
     await vi.waitFor(() => expect(header()).toContain('Judging stopped'))
@@ -894,6 +894,58 @@ describe('SmartLookupApp enhancement', () => {
     expect(calls('smart_lookup_judge')).toHaveLength(1)
   })
 
+  it('Tab leaves the question field when the repair strip shows over results', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
+    mocks.judgeQueue.push(judgement({ order: LOCAL, topTenUnfit: true, judgedCount: 3,
+      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['发布'], phrases: [] }], requestCount: 1, elapsedMs: 600, usage: null,
+    }
+    mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [1], hitGroups: [[1]] }
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
+    click(button('Rephrase'))
+    await vi.waitFor(() => expect(rowIds()).toEqual(['r9']))
+    expect(document.querySelector('.repair-strip')).not.toBeNull()
+
+    input.focus()
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    input.dispatchEvent(tab)
+    expect(tab.defaultPrevented).toBe(false)
+  })
+
+  it.each([
+    ['notConfigured', { missing: 'key', endpointHost: null }, 'No key saved'],
+    ['timeout', {}, 'Rephrasing timed out; results unchanged'],
+    ['invalid', {}, 'chat.example sent no usable wording; results unchanged'],
+  ])('a failed rephrase under top ten unfit says so (%s)', async (status, extra, notice) => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
+    mocks.judgeQueue.push(judgement({ order: LOCAL, topTenUnfit: true, judgedCount: 3,
+      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
+    mocks.repair = {
+      status, skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [], requestCount: status === 'notConfigured' ? 0 : 1, elapsedMs: 600, usage: null, ...extra,
+    }
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
+
+    click(button('Rephrase'))
+    await vi.waitFor(() => expect(calls('smart_lookup_repair_suggest')).toHaveLength(1))
+    await vi.waitFor(() => expect(document.querySelector('.repair-notice')?.textContent).toContain(notice))
+    // The judgement stays, and so do the results.
+    expect(header()).toContain('None of the top 10 fit')
+    expect(rowIds()).toEqual(LOCAL)
+
+    // The next lookup clears it.
+    await submit(input, 'release risk again', 3)
+    await vi.waitFor(() => expect(document.querySelector('.repair-notice')).toBeNull())
+  })
+
   it('whole-section hits say they were not judged', async () => {
     mocks.localByQuestion['release risk'] = [rh('r1'), rh('r2'), rh('r4', { level: 'section' }), rh('r5', { pinned: true, level: 'section' })]
     mocks.judgeQueue.push(judgement({ order: ['r1', 'r2', 'r4', 'r5'], judgedCount: 2,
@@ -1020,7 +1072,7 @@ describe('SmartLookupApp enhancement', () => {
     mocks.judgeQueue.push(REORDERED())
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Judging up to'))
+    await vi.waitFor(() => expect(header()).toContain('Judging about'))
     expect(footer().replace(/\s+/g, ' ')).toBe('esc Stop judging ⌘K Actions')
 
     key(input, 'Escape')
@@ -1129,7 +1181,7 @@ describe('SmartLookupApp enhancement', () => {
     }
     const input = await mountReady()
     await submit(input, 'release risk', 0)
-    await vi.waitFor(() => expect(header()).toContain('chat.example sent an invalid response'))
+    await vi.waitFor(() => expect(document.querySelector('.repair-notice')?.textContent).toContain('chat.example sent no usable wording; results unchanged'))
     expect(calls('smart_lookup_search_groups')).toHaveLength(0)
     expect(noMatchPanel()).toContain('1 model request(s) this time')
   })
@@ -1349,7 +1401,7 @@ describe('SmartLookupApp enhancement', () => {
     const release = gate()
     const input = await mountReady()
     await submit(input, 'release risk', 4)
-    await vi.waitFor(() => expect(header()).toContain('Judging up to 2'))
+    await vi.waitFor(() => expect(header()).toContain('Judging about 2'))
     expect(row('r1').querySelector('.pending-dot')?.getAttribute('aria-label')).toBe('Being judged')
     expect(row('r2').querySelector('.pending-dot')).not.toBeNull()
     expect(row('r4').querySelector('.pending-dot')).toBeNull()

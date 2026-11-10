@@ -71,6 +71,24 @@ describe.each([
   })
 })
 
+// Spec F.1 removed the lookup window's summary, handoff and agent run; their
+// copy goes with them, as does the repair strip's unused 「没有命中的词」.
+describe('removed Smart Lookup copy', () => {
+  const removed = [
+    'smartSearch.activityAgentStarted', 'smartSearch.agentIncomplete', 'smartSearch.deepAgentRecommended',
+    'smartSearch.modelFallback', 'smartSearch.activityPlanStart', 'smartSearch.activityPlanReady',
+    'smartSearch.understanding', 'smartSearch.noContext',
+    'smartSearch.copySummary', 'smartSearch.summaryLimitation', 'smartSearch.summarySources',
+    'smartSearch.summaryChars', 'smartSearch.summaryTimeout', 'smartSearch.summarySelection',
+    'smartSearch.summaryVisible', 'smartSearch.settingsSummary',
+    'smartSearch.copyHandoff', 'smartSearch.handoffCopied', 'smartSearch.handoffHint', 'smartSearch.settingsHandoff',
+    'smartSearch.enhance.repairStruck',
+  ]
+  it.each([['en', en], ['zh', zh], ['ja', ja], ['de', de]])('is gone from the %s catalog', (_name, catalog) => {
+    expect(removed.filter((key) => key in catalog)).toEqual([])
+  })
+})
+
 describe('t with a non-English locale', () => {
   it('returns the localized string for the active locale', () => {
     i18n.locale = 'zh'

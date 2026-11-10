@@ -1,6 +1,6 @@
 import type { Messages } from '../i18n/en'
 import type { SearchHit } from '../search/api'
-import type { ChatRequestConfig, JevRequestConfig, JudgeResult, KeyStatus, Missing, Tier } from './api'
+import type { ChatRequestConfig, JevRequestConfig, JudgeResult, KeyStatus, Missing, RepairSuggestion, Tier } from './api'
 import type { ResultSection } from './lookup-view'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
@@ -109,6 +109,11 @@ export function headerMessage(state: HeaderState): HeaderMessage | null {
           return { key, params: { host, code: state.statusClass ?? '4xx' } }
         case 'unreachable':
           return { key, params: { host, code: state.statusClass ? ` · ${state.statusClass}` : '' } }
+        // The host says what is missing: a key, or an endpoint that would send it in clear text.
+        case 'notConfigured':
+          if (state.missing === 'key') return { key: 'smartSearch.enhance.notConfiguredKey', params: {} }
+          if (state.missing === 'insecure') return { key: 'smartSearch.enhance.notConfiguredInsecure', params: {} }
+          return { key, params: {} }
         default:
           return { key, params: {} }
       }
@@ -116,13 +121,33 @@ export function headerMessage(state: HeaderState): HeaderMessage | null {
   }
 }
 
-/** 判断中 · {n} 条以内 · {s} 秒, with whole seconds since `startedAt`. */
+/**
+ * The notice for a repair (「换个说法」) that produced no wording, or null
+ * (skipped, or wordings to search with). Timeout and invalid have their own
+ * copy: the judge's says the local order was kept, which is not what failed.
+ * Like the header, params carry only the endpoint host and status class.
+ */
+export function repairMessage(result: RepairSuggestion): HeaderMessage | null {
+  if (result.status === 'skipped' || (result.status === 'ok' && result.groups.length)) return null
+  // An ok answer without any wording is an invalid return, like any other unusable one.
+  const status: DegradedStatus = result.status === 'ok' ? 'invalid' : result.status
+  if (status === 'timeout') return { key: 'smartSearch.enhance.repairTimeout', params: {} }
+  if (status === 'invalid') return { key: 'smartSearch.enhance.repairInvalid', params: { host: result.endpointHost ?? '' } }
+  return headerMessage({ kind: 'degraded', status, host: result.endpointHost, statusClass: result.statusClass, missing: result.missing })
+}
+
+/** 判断中 · 约 {n} 条 · {s} 秒, with whole seconds since `startedAt`. */
 export function judgingMessage(state: { kind: 'judging'; count: number; startedAt: number }, now: number): HeaderMessage {
   const s = Math.max(0, Math.floor((now - state.startedAt) / 1000))
   return { key: 'smartSearch.enhance.judging', params: { n: state.count, s } }
 }
 
-/** The judging header's count: line-level, unpinned hits among the first 50, at most 10. */
+/**
+ * The judging header's count, an estimate: line-level, unpinned hits among
+ * the first 50, at most 10, i.e. the default `candidates.pool` / `.k`. The
+ * window does not read the host's params file, so with other values the
+ * host may send more or fewer; the copy says 「约」 / "about".
+ */
 export function judgingCount(hits: Pick<SearchHit, 'level' | 'pinned'>[]): number {
   return Math.min(10, hits.slice(0, 50).filter((hit) => hit.level === 'line' && !hit.pinned).length)
 }

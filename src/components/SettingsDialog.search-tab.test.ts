@@ -82,7 +82,7 @@ vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({ label: 'main', listen: async () => () => {} }),
 }))
 
-import { openSettings, closeSettings } from '../lib/ui-state.svelte'
+import { openSettings, closeSettings, uiState } from '../lib/ui-state.svelte'
 import { indexStatus, _setIndexApi } from '../lib/search/index-status.svelte'
 import { sotvaultStore } from '../lib/sotvault.svelte'
 import type { SearchStats, SearchProgress, SearchResponse } from '../lib/search/api'
@@ -825,6 +825,52 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     expect(testButton().disabled).toBe(false)
   })
 
+  it('consent can still be withdrawn after the URL turns insecure', async () => {
+    await openEnhanceTab()
+    await typeUrl('https://jev.example/v1')
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('jev.example')
+    // Same host, now plain http with a Bearer key.
+    await typeUrl('http://jev.example/v1')
+    expect(consentCheckbox().checked).toBe(true)
+    expect(consentCheckbox().disabled).toBe(false)
+    await checkConsent()
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+    // Giving consent again needs a safe URL.
+    expect(consentCheckbox().checked).toBe(false)
+    expect(consentCheckbox().disabled).toBe(true)
+  })
+
+  it('an unsaved key draft is dropped when the dialog closes', async () => {
+    // Bound like App.svelte's bind:open, so the dialog really closes and reopens.
+    const { default: SettingsDialog } = await import('./SettingsDialog.svelte')
+    currentApp = mount(SettingsDialog as unknown as Parameters<typeof mount>[0], {
+      target: document.body,
+      props: {
+        get open() { return uiState.showSettings },
+        set open(value: boolean) { uiState.showSettings = value },
+      },
+    })
+    openSettings('enhance')
+    await settle()
+    const draft = (kind: 'jev' | 'chat') => keyRow(kind).querySelector<HTMLInputElement>('input[type="password"]')!
+    for (const kind of ['jev', 'chat'] as const) {
+      draft(kind).value = `sk-unsaved-${kind}`
+      draft(kind).dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    await settle()
+    expect(draft('jev').value).toBe('sk-unsaved-jev')
+    button(document.body, 'Done').click()
+    await settle()
+    expect(uiState.showSettings).toBe(false)
+    expect(document.body.querySelector('[data-key-row="jev"]')).toBeNull()
+    openSettings('enhance')
+    await settle()
+    expect(draft('jev').value).toBe('')
+    expect(draft('chat').value).toBe('')
+    expect(invokeMock.mock.calls.filter(([cmd]) => cmd === 'smart_lookup_key_set')).toHaveLength(0)
+  })
+
   it('tests the connection with exactly url, model and authMode and shows the outcome', async () => {
     const results = [
       { status: 'ok', missing: null, endpointHost: 'jev.example', statusClass: null, elapsedMs: 412 },
@@ -895,7 +941,16 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
       true: '候选直接符合用户这次要找的对象或内容。',
       false: '候选不符合用户这次要找的对象或内容，或只是主题相近。',
     })
-    expect((JEV_REQUEST_EXAMPLE as any).state).toMatch(/^用户要找的内容：<问题>\n判断准则：/)
+    // Every line build_state can send, in its order: the time range and the
+    // filters are shown as optional placeholders.
+    const lines = (JEV_REQUEST_EXAMPLE as any).state.split('\n')
+    expect(lines.slice(0, 3)).toEqual([
+      '用户要找的内容：<问题>',
+      '[时间范围：<起> 至 <止>（来自「<时间说法>」）]',
+      '[过滤条件：<tag:… 等>]',
+    ])
+    expect(lines[3]).toMatch(/^判断准则：仅依据候选的标题/)
+    expect(lines).toHaveLength(4)
   })
 })
 

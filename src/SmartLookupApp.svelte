@@ -44,10 +44,10 @@
     judgingMessage,
     movedFrom,
     noMatchAttempts,
+    repairMessage,
     sectionBreaks,
     shouldAutoRepair,
     tiersById,
-    type DegradedStatus,
     type HeaderMessage,
     type AttemptKind,
     type HeaderState,
@@ -208,7 +208,9 @@
   /** The judging criterion; regrouped (repaired) results are never judged. */
   let showCriterion = $derived(settings.smartLookup.enhance.enabled && !repaired && store.hits.length > 0)
   let headerText = $derived(headerLine(header, now))
-  let showJudgeHeader = $derived(mode === 'lookup' && (headerText !== '' || repairBusy || repairNotice !== null))
+  let showJudgeHeader = $derived(mode === 'lookup' && (headerText !== '' || repairBusy))
+  /** A failed 「换个说法」: its own line, whatever the judge header shows (F.3: every degraded state is visible). */
+  let showRepairNotice = $derived(mode === 'lookup' && repairNotice !== null && !repairBusy)
   let attemptRows = $derived(attempts ? orderedAttempts(attempts) : [])
   let noMatchVisible = $derived(mode === 'lookup' && !store.error && !lookupBusy && !store.loading && !orderedHits.length)
   /** The rows the host will look at while judging: line-level, unpinned, among the first 50, at most the judging count. */
@@ -618,6 +620,7 @@
     if (!displayOrder.length || displayOrder.some((id) => !id)) return
     const runId = lookupRunId
     stopEnhanceRequest()
+    repairNotice = null
     const ticket: JudgeTicket = { lookupRunId: runId, seq: ++judgeSeq }
     judgeTicket = ticket
     inflight = { runId, kind: 'judge', token: ++enhanceToken }
@@ -836,15 +839,8 @@
       openStrip(result.groups)
       repairSource = { elapsedMs: result.elapsedMs }
       await searchWithGroups(mine, result.groups)
-    } else if (result.status !== 'skipped') {
-      // An ok answer without any wording is an invalid return, like any other unusable one.
-      repairNotice = headerMessage({
-        kind: 'degraded',
-        status: empty ? 'invalid' : result.status as DegradedStatus,
-        host: result.endpointHost,
-        statusClass: result.statusClass,
-        missing: result.missing,
-      })
+    } else {
+      repairNotice = repairMessage(result)
     }
   }
 
@@ -1088,8 +1084,8 @@
       markInteracted()
       void focusHit(0)
     } else if (event.key === 'Tab' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey
-      && mode === 'lookup' && (noMatchVisible || strip)) {
-      // ⇥: edit the wordings.
+      && mode === 'lookup' && noMatchVisible) {
+      // ⇥ from the no-match panel: edit the wordings. Over real results Tab moves focus as usual.
       event.preventDefault()
       void editWording()
     } else if (event.key === 'Escape') {
@@ -1322,8 +1318,6 @@
             {#if repairBusy}
               <span class="spinner" aria-hidden="true"></span>
               <span class="judge-text" aria-live="polite">{t('smartSearch.enhance.repairing')}</span>
-            {:else if repairNotice && header.kind === 'none'}
-              <span class="judge-text" aria-live="polite">{t(repairNotice.key, repairNotice.params)}</span>
             {:else if header.kind === 'judging'}
               <span class="spinner" aria-hidden="true"></span>
               <span class="judge-text" aria-live="polite">{headerText}</span>
@@ -1380,6 +1374,11 @@
               {/if}
             </div>
           {/if}
+        {/if}
+        {#if showRepairNotice && repairNotice}
+          <div class="judge-header repair-notice">
+            <span class="judge-text" aria-live="polite">{t(repairNotice.key, repairNotice.params)}</span>
+          </div>
         {/if}
         {#if strip && mode === 'lookup'}
           <RepairStrip
