@@ -57,10 +57,50 @@ int main(){@autoreleasepool{
     SumiTypingHandle(nil,kCGEventKeyDown,0,NO,0);require([roles isEqual:@[@7]],"focus loss stops and clears");[roles removeAllObjects];
     SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);require(roles.count==0,"orphan release after focus loss silent");
     require([editor.text.string isEqual:text] && NSEqualRanges(editor.text.selectedRange,selection) && NSEqualRanges(editor.text.markedRange,marked) && editor.revision==revision && editor.composing,"sound never mutates text marked range selection revision");
+    // Read-only and failed drafts are not typing surfaces, even while they
+    // retain the real first responder for selection/copy/recovery.
+    [editor.text unmarkText];
+    [roles removeAllObjects];
+    SumiTypingHandle(editor,kCGEventKeyDown,0,NO,0);
+    editor.text.editable=NO;
+    require(SumiTypingFocusedEditor(YES,window)==nil,"read-only responder excluded");
+    SumiTypingHandle(editor,kCGEventKeyDown,1,NO,0);
+    require([roles isEqual:@[@0,@7]],"read-only transition clears active typing session");
+    SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);
+    require([roles isEqual:@[@0,@7]],"read-only key and orphan release stay silent");
+    editor.text.editable=YES;[roles removeAllObjects];
+    NSDictionary *projection=@{@"document":@{@"text":editor.text.string,@"runs":@[]},@"selection":SumiRange(editor.text.selectedRange)};
+    NSString *draftText=[editor.text.string copy];NSRange draftSelection=editor.text.selectedRange;uint64_t draftRevision=editor.revision;
+    SumiTypingHandle(editor,kCGEventKeyDown,0,NO,0);
+    [editor retainDraft:nil error:@"isolated save failure"];
+    require([roles isEqual:@[@0,@7]] && SumiTypingOwner==nil && !SumiTypingPressed[0],"save failure immediately stops and clears held key");
+    require(SumiTypingFocusedEditor(YES,window)==nil,"failed draft responder excluded");
+    SumiTypingHandle(editor,kCGEventKeyDown,1,NO,0);
+    SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);
+    SumiTypingHandle(editor,kCGEventFlagsChanged,56,NO,NX_DEVICELSHIFTKEYMASK);
+    require([roles isEqual:@[@0,@7]],"failed draft suppresses typing release and modifier sounds");
+    require([editor.text.string isEqual:draftText] && NSEqualRanges(editor.text.selectedRange,draftSelection) && editor.revision==draftRevision,"sound freeze preserves draft selection and revision");
+    [editor applyProjection:projection revision:draftRevision];
+    require(SumiTypingFocusedEditor(YES,window)==editor,"successful save projection restores typing eligibility");
+    [roles removeAllObjects];
+    SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);
+    require(roles.count==0,"old held release stays silent after recovery");
+    SumiTypingHandle(editor,kCGEventKeyDown,0,NO,0);SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);
+    require([roles isEqual:@[@0,@5]],"recovered editor accepts fresh typing sounds");[roles removeAllObjects];
+    for(NSNumber *modifier in @[@(kCGEventFlagMaskCommand),@(kCGEventFlagMaskControl),@(kCGEventFlagMaskCommand|kCGEventFlagMaskShift)]){
+        SumiTypingHandle(editor,kCGEventKeyDown,0,NO,modifier.unsignedLongLongValue);
+        SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);
+        require(roles.count==0 && !SumiTypingPressed[0],"command/control shortcut and release stay silent");
+    }
+    for(NSNumber *modifier in @[@(kCGEventFlagMaskShift),@(kCGEventFlagMaskAlternate)]){
+        SumiTypingHandle(editor,kCGEventKeyDown,0,NO,modifier.unsignedLongLongValue);
+        SumiTypingHandle(editor,kCGEventKeyUp,0,NO,0);
+        require([roles isEqual:@[@0,@5]],"shift and option text input keep typing sounds");[roles removeAllObjects];
+    }
     require(SumiTypingReceive(NULL,kCGEventKeyDown,NULL,NULL)==NULL,"real inactive callback passes through and stays silent");
     [roles removeAllObjects];SumiTypingHandle(editor,kCGEventKeyDown,0,NO,0);sumi_typing_configure(0,NULL);
     require([roles isEqual:@[@0,@7]] && !SumiTypingTap && !SumiTypingSource,"disable stops without installing permission tap");
     window.simulatedVisible=NO;require(![window actuallyVisible] && !NSApp.isActive && NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier==foreground,"foreground untouched");
     [editor.text unmarkText];sumi_editor_detach(handle);
-    printf("PASS: typing roles/repeat/modifiers/IME state, actual hidden AppKit responder tree safety, simulated foreground gate, stop/disable; no tap installed or permission requested\n");
+    printf("PASS: typing roles/repeat/modifiers/IME state, actual hidden AppKit responder tree safety, simulated foreground gate, stop/disable, read-only/save-failure recovery and shortcut filtering; no tap installed or permission requested\n");
 }}
