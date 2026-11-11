@@ -947,7 +947,9 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     enabled.click()
     await settle()
     expect(settings.smartLookup.enhance.enabled).toBe(false)
-    expect(jevSection().textContent).toContain('At most 1 request per Return')
+    expect(jevSection().textContent).toContain('By default, per Return: up to 2 rounds')
+    expect(jevSection().textContent).toContain('at most 200,000 tokens')
+    expect(jevSection().textContent).toContain('earlier evidence passages again in later rounds')
     expect(jevSection().querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
   })
 
@@ -960,24 +962,22 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     }
   })
 
-  it('the request example has the score_noul field structure', () => {
-    expect(Object.keys(JEV_REQUEST_EXAMPLE)).toEqual(['model', 'state', 'questions'])
-    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1)).toEqual(['type', 'instructions', 'criteria'])
-    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1.instructions)).toEqual(['title', 'breadcrumb', 'passage'])
-    expect((JEV_REQUEST_EXAMPLE as any).questions.c1.criteria).toEqual({
-      true: '候选直接符合用户这次要找的对象或内容。',
-      false: '候选不符合用户这次要找的对象或内容，或只是主题相近。',
-    })
-    // Every line build_state can send, in its order: the time range and the
-    // filters are shown as optional placeholders.
-    const lines = (JEV_REQUEST_EXAMPLE as any).state.split('\n')
-    expect(lines.slice(0, 3)).toEqual([
-      '用户要找的内容：<问题>',
-      '[时间范围：<起> 至 <止>（来自「<时间说法>」）]',
-      '[过滤条件：<tag:… 等>]',
+  it('the request example has the SAG2 score_noul field structure', () => {
+    const example = JEV_REQUEST_EXAMPLE as any
+    expect(Object.keys(example)).toEqual(['model', 'questions', 'state'])
+    expect(Object.keys(example.questions)).toEqual(['candidate_<id>'])
+    const question = example.questions['candidate_<id>']
+    expect(Object.keys(question)).toEqual(['criteria', 'instructions', 'type'])
+    expect(Object.keys(question.instructions)).toEqual(['candidate_heading', 'candidate_passage', 'candidate_title', 'question'])
+    expect(question.instructions.question).toMatch(/^Is this candidate itself necessary evidence/)
+    expect(question.criteria.true).toMatch(/^This candidate itself supplies a necessary fact/)
+    // Earlier evidence goes out again in `state`, with every optional field shown.
+    expect(Object.keys(example.state)).toEqual([
+      'original_question', 'previously_retrieved_evidence', 'evidence_score_note', 'explicit_filters', 'time_range',
     ])
-    expect(lines[3]).toMatch(/^判断准则：仅依据候选的标题/)
-    expect(lines).toHaveLength(4)
+    expect(Object.keys(example.state.previously_retrieved_evidence[0])).toEqual(['title', 'passage', 'heading', 'previous_jev_score'])
+    // Never a vault path or a key.
+    expect(JSON.stringify(example)).not.toMatch(/path|\.md|key/i)
   })
 })
 

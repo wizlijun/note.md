@@ -328,6 +328,82 @@ mod tests {
     static ORACLE: LazyLock<Value> =
         LazyLock::new(|| serde_json::from_str(include_str!("fixtures/sag2_v10_oracle.json")).unwrap());
 
+    /// The keys of a JSON object, sorted (serde_json's map order).
+    fn keys(v: &Value) -> Vec<&str> {
+        v.as_object().unwrap_or_else(|| panic!("not an object: {v}")).keys().map(String::as_str).collect()
+    }
+
+    /// `keys` appear in `text` in this order (each as `"key"`).
+    fn in_order(text: &str, keys: &[&str]) -> bool {
+        let at: Vec<usize> = keys.iter().map(|k| text.find(&format!("\"{k}\"")).unwrap_or(usize::MAX)).collect();
+        at.windows(2).all(|w| w[0] < w[1]) && at.iter().all(|&a| a != usize::MAX)
+    }
+
+    /// The Settings page shows `JEV_REQUEST_EXAMPLE` (src/lib/smart-search/api.ts)
+    /// as what one Jev request sends, under the per-host consent: it has the
+    /// body's keys in wire order, `state` with `encode_state`'s keys in its
+    /// order (every optional field shown), one `candidate_<id>` question with
+    /// `question_for`'s instructions, and the default preset's fixed texts.
+    #[test]
+    fn the_settings_request_example_has_the_wire_shape() {
+        const API: &str = include_str!("../../../../src/lib/smart-search/api.ts");
+        let marker = "const JEV_REQUEST_JSON = String.raw`";
+        let text = &API[API.find(marker).expect("JEV_REQUEST_JSON") + marker.len()..];
+        let text = &text[..text.find('`').unwrap()];
+        let shown: Value = serde_json::from_str(text).expect("the example is JSON");
+
+        let c = SagCandidate {
+            id: 7,
+            path: "notes/a.md".into(),
+            line: 1,
+            line_end: 1,
+            title: "a".into(),
+            heading: "H".into(),
+            content: "p".into(),
+            bm25: 0.,
+            score: 0.8,
+            previous_score: Some(0.8),
+            order: 0,
+        };
+        let extras = StateExtras {
+            explicit_filters: vec!["tag:work".into()],
+            time_range: Some(TimeRange { after: "2026-11-02".into(), before: "2026-11-08".into(), source_text: "上周".into() }),
+        };
+        let state = encode_state("q", &[c.clone()], &extras);
+        let question = question_for(&c, Preset::Sag2V10, "unused");
+        let wire = wire_question(&question);
+        let body = json!({"model": "m", "state": state, "questions": {question.id.clone(): wire.clone()}});
+
+        // The body: `score_noul`'s keys, in wire order.
+        assert_eq!(keys(&shown), keys(&body));
+        assert!(in_order(text, &["model", "questions", "state"]), "{text}");
+        let questions = shown["questions"].as_object().unwrap();
+        assert_eq!(questions.len(), 1);
+        let (id, shown_q) = questions.iter().next().unwrap();
+        assert!(id.starts_with("candidate_") && question.id.starts_with("candidate_"), "{id}");
+        assert_eq!(keys(shown_q), keys(&wire));
+        assert_eq!(keys(&shown_q["instructions"]), keys(&wire["instructions"]));
+        assert!(in_order(text, &["candidate_heading", "candidate_passage", "candidate_title", "question"]), "{text}");
+        assert_eq!(shown_q["type"], wire["type"]);
+        assert_eq!(shown_q["criteria"], wire["criteria"]);
+        assert_eq!(shown_q["instructions"]["question"], CRITERION);
+
+        // `state`: every field `encode_state` can write, in its order.
+        let sent: Value = serde_json::from_str(&state).unwrap();
+        let shown_state = &shown["state"];
+        assert_eq!(keys(shown_state), keys(&sent));
+        let mut order: Vec<&str> = keys(&sent);
+        order.sort_by_key(|k| state.find(&format!("\"{k}\":")).unwrap());
+        let state_text = &text[text.find("\"state\"").unwrap()..];
+        assert!(in_order(state_text, &order), "{order:?}");
+        let (shown_e, sent_e) = (&shown_state["previously_retrieved_evidence"][0], &sent["previously_retrieved_evidence"][0]);
+        assert_eq!(keys(shown_e), keys(sent_e));
+        assert!(in_order(state_text, &["title", "passage", "heading", "previous_jev_score"]));
+        assert_eq!(keys(&shown_state["time_range"]), keys(&sent["time_range"]));
+        assert_eq!(shown_state["evidence_score_note"], SCORE_NOTE);
+        assert_eq!(sent["evidence_score_note"], SCORE_NOTE);
+    }
+
     /// `cases[0].requests[2].state` of the oracle fixture (spec H.9).
     static ORACLE_CASE1_REQ2_STATE: LazyLock<String> =
         LazyLock::new(|| ORACLE["cases"][0]["requests"][2]["state"].as_str().unwrap().to_string());

@@ -1235,36 +1235,6 @@ mod tests {
         assert_eq!(custom.lines().last(), Some("判断准则：只看决定。"));
     }
 
-    /// The Settings page shows `JEV_REQUEST_EXAMPLE` as what is sent: its
-    /// `state` has the lines `build_state` writes, in the same order, and the
-    /// criterion is `DEFAULT_CRITERION`.
-    #[test]
-    fn the_settings_request_example_has_the_state_lines_in_build_state_order() {
-        let mut f = fixture("tag:work 发布");
-        f.run.time = Some(RunTime {
-            source_text: "上周".into(),
-            after: chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap(),
-            before: chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
-            mode: TimeMode::Group,
-            in_window: 1,
-        });
-        let prefix = |line: &str| line.split_once('：').map(|(p, _)| p.to_string()).unwrap();
-        let sent: Vec<String> = build_state(&f.run, DEFAULT_CRITERION).lines().map(prefix).collect();
-        assert_eq!(sent, ["用户要找的内容", "时间范围", "过滤条件", "判断准则"]);
-
-        const API: &str = include_str!("../../../src/lib/smart-search/api.ts");
-        let start = API.find("state: `").expect("JEV_REQUEST_EXAMPLE.state") + "state: `".len();
-        let body = &API[start..];
-        let state = &body[..body.find('`').unwrap()];
-        let shown: Vec<String> = state
-            .split("\\n")
-            .map(|line| prefix(line.trim_start_matches('[').trim_end_matches(']')))
-            .collect();
-        assert_eq!(shown, sent, "{state}");
-        assert!(state.ends_with("判断准则：${CRITERION}"), "{state}");
-        assert!(API.contains(&format!("const CRITERION = '{DEFAULT_CRITERION}'")), "the example's criterion is DEFAULT_CRITERION");
-    }
-
     #[test]
     fn an_index_that_cannot_answer_is_unavailable_not_all_unknown() {
         let root = PathBuf::from("/v");
