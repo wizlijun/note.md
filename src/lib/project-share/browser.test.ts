@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Marked } from 'marked'
 import { Zip, ZipPassThrough, Unzip, UnzipPassThrough, unzipSync } from 'fflate'
 import { buildProjectBundle } from './bundle'
@@ -51,7 +51,21 @@ function publicationPoll() {
   return {run:async()=> { expect(check).toBeDefined(); await check!() },restore:()=>timer.mockRestore()}
 }
 
+let removePageListeners = () => {}
+afterEach(() => {
+  removePageListeners()
+  vi.restoreAllMocks()
+})
+
 beforeEach(() => {
+  // Each fixture is a new published page; its window/document handlers must
+  // not survive into the next page in Happy DOM's shared browser context.
+  const windowListeners = vi.spyOn(window, 'addEventListener')
+  const documentListeners = vi.spyOn(document, 'addEventListener')
+  removePageListeners = () => {
+    for (const [type, listener, options] of windowListeners.mock.calls) window.removeEventListener(type, listener, options)
+    for (const [type, listener, options] of documentListeners.mock.calls) document.removeEventListener(type, listener, options)
+  }
   values = new Map()
   vi.unstubAllGlobals()
   history.replaceState(null, '', '/#feedback=visitor-token')
