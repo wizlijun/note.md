@@ -1,0 +1,60 @@
+test_both_exact_manifest_entries (test_publish_plugin.ManifestTests.test_both_exact_manifest_entries) ... ok
+test_missing_duplicate_architecture_rejected (test_publish_plugin.ManifestTests.test_missing_duplicate_architecture_rejected) ... ok
+test_no_extra_or_tampered_candidate_fields (test_publish_plugin.ManifestTests.test_no_extra_or_tampered_candidate_fields) ... ok
+test_package_source_agreement_cannot_lower_engine_or_restore_legacy_menu (test_publish_plugin.ManifestTests.test_package_source_agreement_cannot_lower_engine_or_restore_legacy_menu) ... ok
+test_source_manifest_must_match_all_fields (test_publish_plugin.ManifestTests.test_source_manifest_must_match_all_fields) ... ok
+test_x86_package_validated_against_same_aggregate_entry (test_publish_plugin.ManifestTests.test_x86_package_validated_against_same_aggregate_entry) ... ok
+test_all_history_preserved_and_inputs_unchanged (test_publish_plugin.MergeTests.test_all_history_preserved_and_inputs_unchanged) ... FAIL
+test_duplicate_existing_identity_rejected (test_publish_plugin.MergeTests.test_duplicate_existing_identity_rejected) ... ok
+test_extra_missing_wrong_identity_or_category_rejected (test_publish_plugin.MergeTests.test_extra_missing_wrong_identity_or_category_rejected) ... ok
+test_idempotent_after_success (test_publish_plugin.MergeTests.test_idempotent_after_success) ... ok
+test_same_version_conflict_not_hidden_by_category_rewrite (test_publish_plugin.MergeTests.test_same_version_conflict_not_hidden_by_category_rewrite) ... ok
+test_conflicting_second_object_does_not_partially_write (test_publish_plugin.NetworkMutationTests.test_conflicting_second_object_does_not_partially_write) ... ok
+test_host_gate_failure_prevents_kv_and_upload (test_publish_plugin.NetworkMutationTests.test_host_gate_failure_prevents_kv_and_upload) ... ok
+test_index_concurrent_change_blocks_write (test_publish_plugin.NetworkMutationTests.test_index_concurrent_change_blocks_write) ... FAIL
+test_index_timeout_after_landing_reads_back_and_does_not_rewrite (test_publish_plugin.NetworkMutationTests.test_index_timeout_after_landing_reads_back_and_does_not_rewrite) ... FAIL
+test_public_package_failure_prevents_kv_write (test_publish_plugin.NetworkMutationTests.test_public_package_failure_prevents_kv_write) ... ok
+test_timeout_landed_object_is_read_before_retry (test_publish_plugin.NetworkMutationTests.test_timeout_landed_object_is_read_before_retry) ... R2 timeout; checking object before any retry notemd.apple-notes/1.0.5/aarch64-apple-darwin.notemdpkg
+R2 timeout; checking object before any retry notemd.apple-notes/1.0.5/aarch64-apple-darwin.notemdpkg.minisig
+ok
+test_uncertain_preflight_does_not_write (test_publish_plugin.NetworkMutationTests.test_uncertain_preflight_does_not_write) ... ok
+
+======================================================================
+FAIL: test_all_history_preserved_and_inputs_unchanged (test_publish_plugin.MergeTests.test_all_history_preserved_and_inputs_unchanged)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/test_publish_plugin.py", line 32, in test_all_history_preserved_and_inputs_unchanged
+    self.assertEqual(result, expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+AssertionError: {'sch[788 chars]5.1'}]} != {'sch[788 chars]5.1'}, {'id': 'notemd.apple-notes', 'version':[247 chars]1'}]}
+Diff is 1763 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_index_concurrent_change_blocks_write (test_publish_plugin.NetworkMutationTests.test_index_concurrent_change_blocks_write)
+----------------------------------------------------------------------
+RuntimeError: KV content differs; inspect before retry
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/test_publish_plugin.py", line 165, in test_index_concurrent_change_blocks_write
+    with self.assertRaisesRegex(RuntimeError, 'Concurrent'): p.publish_index(entries())
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "Concurrent" does not match "KV content differs; inspect before retry"
+
+======================================================================
+FAIL: test_index_timeout_after_landing_reads_back_and_does_not_rewrite (test_publish_plugin.NetworkMutationTests.test_index_timeout_after_landing_reads_back_and_does_not_rewrite)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/test_publish_plugin.py", line 185, in test_index_timeout_after_landing_reads_back_and_does_not_rewrite
+    write.assert_called_once()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 965, in assert_called_once
+    raise AssertionError(msg)
+AssertionError: Expected 'wrangler' to have been called once. Called 0 times.
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.008s
+
+FAILED (failures=3)
+All six packages and signatures read back completely; index unchanged
