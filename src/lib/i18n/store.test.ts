@@ -83,6 +83,14 @@ describe('removed Smart Lookup copy', () => {
     'smartSearch.summaryVisible', 'smartSearch.settingsSummary',
     'smartSearch.copyHandoff', 'smartSearch.handoffCopied', 'smartSearch.handoffHint', 'smartSearch.settingsHandoff',
     'smartSearch.enhance.repairStruck',
+    // Spec H.8: evidence replaced the one-round judge reorder in the lookup window.
+    'smartSearch.enhance.apply', 'smartSearch.enhance.restore', 'smartSearch.enhance.movedUp', 'smartSearch.enhance.movedDown',
+    'smartSearch.enhance.notJudged', 'smartSearch.enhance.rowJudging', 'smartSearch.enhance.rowRollupSkipped',
+    'smartSearch.enhance.judging', 'smartSearch.enhance.judged', 'smartSearch.enhance.judgedUnchanged',
+    'smartSearch.enhance.pending', 'smartSearch.enhance.topTenUnfit',
+    'smartSearch.enhance.detailsReused', 'smartSearch.enhance.detailsScope',
+    // The host sends no progress inside a round, so the window cannot say when judging starts.
+    'smartSearch.evidence.judging',
   ]
   it.each([['en', en], ['zh', zh], ['ja', ja], ['de', de]])('is gone from the %s catalog', (_name, catalog) => {
     expect(removed.filter((key) => key in catalog)).toEqual([])

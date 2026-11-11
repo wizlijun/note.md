@@ -1,8 +1,9 @@
 <script lang="ts">
   // Smart Lookup window. Local-first: typing previews and Enter both read the
-  // local index at once. After an Enter the host may judge the candidates (one
-  // request at most, reordering inside sections only) or, on zero hits, suggest
-  // other wording; both are bound to the lookup run the host retained.
+  // local index at once. After an Enter the host may gather evidence round by
+  // round (spec H.8: an 「证据」 section above the local results, whose order the
+  // model never changes) or, on zero hits, suggest other wording; both are
+  // bound to the lookup run the host retained.
   import './styles/app.css'
   import { onDestroy, onMount, tick } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
@@ -18,10 +19,14 @@
   import { SmartSearchStore } from './lib/smart-search/store.svelte'
   import {
     smartSearchApi,
+    type AnswerResult,
     type Diagnosis,
-    type JudgeResult,
+    type EnhanceStatus,
+    type EvidenceItem,
+    type EvidenceStepResult,
     type RepairSuggestion,
     type TermGroup,
+    type Tier,
     type TimeMode,
     type TimeWindow,
     type Trigger,
@@ -35,25 +40,38 @@
     type ResultSection,
   } from './lib/smart-search/lookup-view'
   import {
-    applyOrder,
+    answerMessage,
+    chatAnswerConfig,
     chatRequestConfig,
+    endpointHost,
     headerMessage,
-    headerOnArrival,
     jevRequestConfig,
-    judgingCount,
-    judgingMessage,
-    movedFrom,
     noMatchAttempts,
     repairMessage,
-    sectionBreaks,
     shouldAutoRepair,
-    tiersById,
     type HeaderMessage,
     type AttemptKind,
     type HeaderState,
-    type JudgeTicket,
     type LookupAttempt,
   } from './lib/smart-search/enhance-flow'
+  import {
+    answerErrorKey,
+    answerParts,
+    applyPending,
+    applyRound,
+    emptyEvidence,
+    emptyTotals,
+    evidenceNotice,
+    headerFromStep,
+    restoreRound,
+    roundLabel,
+    shouldStartEvidence,
+    startOffered,
+    totalsOf,
+    type EvidenceRound,
+    type EvidenceTotals,
+    type EvidenceView,
+  } from './lib/smart-search/evidence-flow'
   import { clearRecent, loadRecent, loadRecentCounts, rememberRecent, rememberRecentCount } from './lib/smart-search/recent'
   import LaunchView from './components/smart-lookup/LaunchView.svelte'
   import NoMatchPanel from './components/smart-lookup/NoMatchPanel.svelte'
@@ -70,8 +88,8 @@
 
   /** `preview`: live typing results. `lookup`: the result of an Enter. */
   type ResultsMode = 'idle' | 'preview' | 'lookup'
-  /** The judge or repair request the host is working on; `token` tells a newer one from an older one. */
-  type Inflight = { runId: string; kind: 'judge' | 'repair'; token: number }
+  /** The evidence run, repair or answer request the host is working on; `token` tells a newer one from an older one. */
+  type Inflight = { runId: string; kind: 'evidence' | 'repair' | 'answer'; token: number }
   type StripState = { inputs: string[]; counts: number[] | null; error: string }
   /** `order`: the attempts in the order they ran (ledger ruling). */
   type Attempts = {
@@ -80,16 +98,22 @@
     scan: LookupAttempt | null
     order: AttemptKind[]
   }
-  /** The local result and judgement before a regrouped search, for 「只用原问题」. */
+  /** The local result and its evidence before a regrouped search, for 「只用原问题」. */
   type OriginalView = {
     search: SmartSearchResponse
     runId: string
     time: TimeWindow | null
     header: HeaderState
-    judgeResult: JudgeResult | null
-    judgedRunId: string
-    appliedOrder: string[] | null
+    evidence: EvidenceView
+    totals: EvidenceTotals
+    nextHop: number
+    evidenceRunId: string
+    evidenceDeep: boolean
+    localTiers: Map<string, Tier>
+    offerStart: boolean
   }
+  /** A row of either list: evidence rows carry their item and are opened like local hits. */
+  type Row = SearchHit & { evidence?: EvidenceItem }
 
   const PREVIEW_CHARS = 3_000
   const TIME_OPTIONS: ReadonlyArray<readonly [TimeMode, 'smartSearch.enhance.timeGroup' | 'smartSearch.enhance.timeWindow' | 'smartSearch.enhance.timeIgnore']> = [
@@ -100,7 +124,6 @@
   const WORDING_SLOTS = 2
   const isMac = isApplePlatformSync()
   const actionsShortcut = isMac ? '⌘K' : 'Ctrl+K'
-  const restoreShortcut = isMac ? '⌘Z' : 'Ctrl+Z'
   const applyShortcut = isMac ? '⌘R' : 'Ctrl+R'
   const rewriteShortcut = isMac ? '⌘L' : 'Ctrl+L'
 
@@ -136,19 +159,39 @@
   let chosenTimeMode = $state<TimeMode | undefined>(undefined)
   let timeMenuOpen = $state(false)
 
-  // Judging.
+  // Evidence (spec H.8). `header` is the status line: degraded states and the start offer.
   let header = $state<HeaderState>({ kind: 'none' })
-  let judgeResult = $state<JudgeResult | null>(null)
-  let judgedRunId = ''
-  /** The judged order currently shown; `null` = local order. */
-  let appliedOrder = $state<string[] | null>(null)
+  let evidence = $state<EvidenceView>(emptyEvidence())
+  /** The lookup run the evidence belongs to; corrections are recorded on it. */
+  let evidenceRunId = ''
+  /** Whether that run is an expanded (deep) lookup; every round of it says so. */
+  let evidenceDeep = false
+  /** The round in flight, for the progress line; `null` when none runs. */
+  let evidenceRound = $state<{ hop: number; startedAt: number } | null>(null)
+  /** Local rows' tiers from the latest round (H.8: same path and line range as a scored block). */
+  let localTiers = $state<Map<string, Tier>>(new Map())
+  /** 「查找证据」: the evidence did not start on its own (route, slot) or was stopped. */
+  let offerStart = $state(false)
+  /** What this run sent and left out, for the details popover (F.3 without the reorder lines): the host's run totals from its latest result. */
+  let totals = $state<EvidenceTotals>(emptyTotals())
+  /** The hop the host attempts next on this run (the host owns the counter; review M8). */
+  let hostNextHop = 0
   let detailsOpen = $state(false)
   let feedbackSaved = $state<Record<string, 'fit' | 'unfit'>>({})
+  /**
+   * 「生成简答」 (spec H.4): only ever started by a click. `answer.text` is the one
+   * remote text this window shows, as plain text with `[n]` links; it is
+   * never written to the activity log.
+   */
+  let answer = $state<AnswerResult | null>(null)
+  let answerBusy = $state(false)
+  /** A host error (nothing was sent, or the run expired), redacted. */
+  let answerError = $state('')
+  /** The user stopped the answer; a late reply is dropped. */
+  let answerStopped = $state(false)
   let now = $state(Date.now())
   /** Arrow keys, a click on a row, scrolling the list or opening a result since this Enter. */
   let interacted = false
-  let judgeTicket: JudgeTicket | null = null
-  let judgeSeq = 0
 
   // Zero hits and repair.
   let diagnosis = $state<Diagnosis | null>(null)
@@ -165,7 +208,7 @@
   let originalView = $state<OriginalView | null>(null)
   /** The last result of `smart_lookup_local` for this question (not regrouped). */
   let lastLocal: { search: SmartSearchResponse; runId: string; time: TimeWindow | null } | null = null
-  /** Model requests made for this Enter (judge and repair). */
+  /** Model requests made for this Enter: `judge` counts Jev requests (the evidence rounds), `repair` the repair model's. */
   let modelRequests = $state({ judge: 0, repair: 0 })
   /** 1-based wording numbers per hit (`hitKey`), from a regrouped search. */
   let hitGroups = $state<Map<string, number[]>>(new Map())
@@ -187,15 +230,20 @@
   const cleanups: Array<() => void> = []
 
   let highlightTerms = $derived(parseHighlightTerms(mode === 'lookup' ? question : store.query))
-  let baseSections = $derived(buildSections(store.hits, mode === 'lookup' ? lookupTime : null, settings.smartLookup.results.groupBy))
-  let localHits = $derived(baseSections.flatMap((section) => section.hits))
-  let sections = $derived(appliedOrder ? applyOrder(baseSections, appliedOrder) : baseSections)
+  let sections = $derived(buildSections(store.hits, mode === 'lookup' ? lookupTime : null, settings.smartLookup.results.groupBy))
+  /** The local rows in display order; the model never reorders them (H.8). */
   let orderedHits = $derived(sections.flatMap((section) => section.hits))
-  let activeHit = $derived(orderedHits.find((hit) => hitKey(hit) === activeKey) ?? orderedHits[0] ?? null)
-  let tiers = $derived(tiersById(judgeResult))
-  let moved = $derived(appliedOrder && judgeResult
-    ? movedFrom(localHits.map((hit) => resultIdOf(hit) ?? ''), appliedOrder, new Set(tiers.keys()))
-    : new Map<string, { from: number; direction: 'up' | 'down' }>())
+  let evidenceRows = $derived(mode === 'lookup' ? evidence.shown.map(evidenceRow) : [])
+  /** Every selectable row: the evidence above, then the local rows. */
+  let rows = $derived<Row[]>([...evidenceRows, ...orderedHits])
+  let activeHit = $derived<Row | null>(rows.find((hit) => rowKey(hit) === activeKey) ?? rows[0] ?? null)
+  let noticeKey = $derived(evidenceNotice(evidence))
+  let expansionRounds = $derived(evidence.rounds.filter((round) => round.hop > 0 && round.terms.length > 0))
+  /** The head (and its details) shows whenever anything was sent on the run, also after a stop or a failed round 0. */
+  let showEvidence = $derived(mode === 'lookup' && (
+    evidenceRound !== null || evidence.rounds.length > 0 || noticeKey !== null || evidence.unfound !== null || totals.requests > 0
+  ))
+  let progressText = $derived(evidenceRound ? progressLine(evidenceRound, now) : '')
   let struckTerms = $derived((diagnosis?.terms ?? []).filter((term) => term.hits === 0).map((term) => term.term))
   let canExpand = $derived(Boolean(lookupRunId) && (store.hits.length === 0 || store.deepAvailable))
   let working = $derived(lookupBusy || store.loading || repairBusy)
@@ -207,18 +255,32 @@
   let showConditions = $derived(mode === 'lookup' && !store.error && Boolean(lookupRunId))
   /** The judging criterion; regrouped (repaired) results are never judged. */
   let showCriterion = $derived(settings.smartLookup.enhance.enabled && !repaired && store.hits.length > 0)
-  let headerText = $derived(headerLine(header, now))
-  let showJudgeHeader = $derived(mode === 'lookup' && (headerText !== '' || repairBusy))
+  let headerText = $derived(headerLine(header))
+  let showStart = $derived(offerStart && evidenceRound === null && !repaired)
+  /**
+   * After the evidence rounds, when there is evidence to answer from and the
+   * list on screen is the latest round's: the host answers from that list, so
+   * a restored round or an order waiting for Apply would send passages the
+   * user is not looking at.
+   */
+  let showAnswer = $derived(
+    mode === 'lookup' && settings.smartLookup.enhance.enabled && !repaired && evidenceRound === null
+      && evidence.shown.length > 0 && showsLatestRound(evidence),
+  )
+  let answerNote = $derived.by(() => {
+    if (answerStopped) return t('smartSearch.answer.stopped')
+    if (answerError) {
+      const key = answerErrorKey(answerError)
+      return key ? t(key) : t('smartSearch.answer.failed', { error: answerError })
+    }
+    const message = answer ? answerMessage(answer) : null
+    return message ? t(message.key, message.params) : ''
+  })
+  let showJudgeHeader = $derived(mode === 'lookup' && (headerText !== '' || repairBusy || showStart))
   /** A failed 「换个说法」: its own line, whatever the judge header shows (F.3: every degraded state is visible). */
   let showRepairNotice = $derived(mode === 'lookup' && repairNotice !== null && !repairBusy)
   let attemptRows = $derived(attempts ? orderedAttempts(attempts) : [])
   let noMatchVisible = $derived(mode === 'lookup' && !store.error && !lookupBusy && !store.loading && !orderedHits.length)
-  /** The rows the host will look at while judging: line-level, unpinned, among the first 50, at most the judging count. */
-  let judgingKeys = $derived(header.kind === 'judging'
-    ? new Set(localHits.slice(0, 50).filter((hit) => hit.level === 'line' && !hit.pinned).slice(0, header.count).map(hitKey))
-    : new Set<string>())
-  let canApply = $derived(Boolean(judgeResult) && !appliedOrder && (header.kind === 'pending'
-    || (header.kind === 'topTenUnfit' && header.result.rerankedCount > 0)))
 
   $effect(() => {
     const title = t('smartSearch.windowTitle')
@@ -226,8 +288,8 @@
   })
 
   $effect(() => {
-    // The judging header shows seconds; tick only while judging.
-    if (header.kind !== 'judging') return
+    // The progress line shows seconds; tick only while a round runs.
+    if (!evidenceRound) return
     now = Date.now()
     const timer = setInterval(() => { now = Date.now() }, 1_000)
     return () => clearInterval(timer)
@@ -280,7 +342,7 @@
     previewTimer = undefined
   }
 
-  /** Make every running lookup, preview, judgement and repair stale; cancel the host request. */
+  /** Make every running lookup, preview, evidence run and repair stale; cancel the host request. */
   function supersede(): number {
     requestSequence += 1
     lookupBusy = false
@@ -288,12 +350,13 @@
     return requestSequence
   }
 
-  /** Cancel the judge or repair request in flight (if any); returns it. */
+  /** Cancel the evidence run or repair request in flight (if any); returns it. */
   function stopEnhanceRequest(): Inflight | null {
     const current = inflight
     inflight = null
-    judgeTicket = null
+    evidenceRound = null
     repairBusy = false
+    answerBusy = false
     if (current) void smartSearchApi.cancel(current.runId).catch(() => {})
     return current
   }
@@ -309,13 +372,28 @@
     openError = ''
   }
 
-  function resetJudgement(): void {
+  function resetEvidence(): void {
     header = { kind: 'none' }
-    judgeResult = null
-    judgedRunId = ''
-    appliedOrder = null
+    evidence = emptyEvidence()
+    evidenceRunId = ''
+    evidenceDeep = false
+    evidenceRound = null
+    localTiers = new Map()
+    offerStart = false
+    totals = emptyTotals()
+    hostNextHop = 0
     detailsOpen = false
     feedbackSaved = {}
+    clearAnswer()
+  }
+
+  /** Drops the answer shown and cancels one in flight: it no longer matches the list on screen. */
+  function clearAnswer(): void {
+    if (inflight?.kind === 'answer') stopEnhanceRequest()
+    answer = null
+    answerBusy = false
+    answerError = ''
+    answerStopped = false
   }
 
   function resetRepair(): void {
@@ -391,7 +469,7 @@
     closePopovers()
     supersede()
     resetDerivedWork()
-    resetJudgement()
+    resetEvidence()
     resetRepair()
     resetActivity()
     lookupTime = null
@@ -439,6 +517,49 @@
     return (hit as SmartSearchHit).resultId
   }
 
+  /** Selection identity: path and line range (H.8), kept apart for an evidence row and a local row of the same block. */
+  function rowKey(hit: Row): string {
+    return hit.evidence ? `evidence\0${hitKey(hit)}` : hitKey(hit)
+  }
+
+  /**
+   * An evidence item as a row: local vault text only. The host computes the
+   * absolute path from the run's vault root, as for local hits.
+   */
+  function evidenceRow(item: EvidenceItem): Row {
+    return {
+      path: item.path,
+      absPath: item.absPath,
+      line: item.line,
+      lineEnd: item.lineEnd,
+      text: item.text,
+      breadcrumb: item.breadcrumb,
+      level: 'line',
+      score: 0,
+      docDate: null,
+      sourceRef: `${item.path}#L${item.line}`,
+      agentBy: null,
+      humanVerified: false,
+      origin: 'unlabeled',
+      conceptType: null,
+      pinned: false,
+      evidence: item,
+    }
+  }
+
+  /** An evidence row's tier, or a local row's from the latest round. */
+  function tierOf(hit: Row): Tier | undefined {
+    if (hit.evidence) return hit.evidence.tier
+    const id = resultIdOf(hit)
+    return id && !hit.pinned ? localTiers.get(id) : undefined
+  }
+
+  /** What a correction names: the evidence id, or the result id of a tiered local row. */
+  function correctionId(hit: Row): string | undefined {
+    if (hit.evidence) return hit.evidence.evidenceId
+    return tierOf(hit) ? resultIdOf(hit) : undefined
+  }
+
   /** Two time sections when the host grouped by a time phrase; otherwise source or date sections. */
   function buildSections(hits: SearchHit[], time: TimeWindow | null, groupBy: SmartLookupSettings['results']['groupBy']): ResultSection[] {
     if (time && time.mode === 'group' && time.inWindow > 0) {
@@ -465,7 +586,7 @@
     const mine = supersede()
     store.cancel()
     resetDerivedWork()
-    resetJudgement()
+    resetEvidence()
     const keptDiagnosis = diagnosis
     const keptAttempts = attempts
     resetRepair()
@@ -495,7 +616,7 @@
     if (!first) return
     startAttempts(first.hits, first.tookMs)
     if (first.hits > 0) {
-      await judgeLookup(mine, 'auto')
+      await startEvidence(mine, 'auto', false)
       return
     }
     await afterZeroHits(mine, settings.smartLookup.results.autoDeepOnZero)
@@ -509,10 +630,10 @@
     const scan = await runLocal(mine, submitted, true)
     if (!scan) return
     recordAttempt('scan', scan.hits, scan.tookMs)
-    if (scan.hits > 0) await judgeLookup(mine, 'user')
+    if (scan.hits > 0) await startEvidence(mine, 'user', true)
   }
 
-  /** The time chip: search locally again with that time mode; never judges or repairs. */
+  /** The time chip: search locally again with that time mode; never gathers evidence or repairs. */
   async function chooseTimeMode(timeMode: TimeMode): Promise<void> {
     timeMenuOpen = false
     const submitted = question
@@ -557,7 +678,7 @@
     lookupRunId = runId
     lookupTime = time
     hitGroups = groups ? new Map(search.hits.map((hit, index) => [hitKey(hit), groups[index] ?? []])) : new Map()
-    activeKey = orderedHits[0] ? hitKey(orderedHits[0]) : null
+    activeKey = rows[0] ? rowKey(rows[0]) : null
   }
 
   function noteRecentCount(submitted: string, hits: number): void {
@@ -586,7 +707,7 @@
       if (!scan) return
       recordAttempt('scan', scan.hits, scan.tookMs)
       if (scan.hits > 0) {
-        await judgeLookup(mine, 'auto')
+        await startEvidence(mine, 'auto', true)
         return
       }
     }
@@ -595,76 +716,188 @@
     if (shouldAutoRepair(store.hits.length, settings.smartLookup, keys)) await repairLookup(mine, 'auto')
   }
 
-  // ---- judging ----
+  // ---- evidence ----
 
-  function headerLine(state: HeaderState, at: number): string {
-    if (state.kind === 'judging') {
-      const message = judgingMessage(state, at)
-      return t(message.key, message.params)
-    }
+  function headerLine(state: HeaderState): string {
     const message = headerMessage(state)
     return message ? t(message.key, message.params) : ''
   }
 
-  async function judgeLookup(mine: number, trigger: Trigger): Promise<void> {
-    if (mine !== requestSequence || mode !== 'lookup' || repaired) return
-    const current = settings.smartLookup
-    if (!current.enhance.enabled) return
-    if (!current.enhance.jev.url.trim()) {
-      // Computed here: no host call without an endpoint.
-      header = { kind: 'degraded', status: 'notConfigured', host: null, statusClass: null, missing: 'url' }
-      return
-    }
-    const local = localHits
-    const displayOrder = local.map(resultIdOf)
-    if (!displayOrder.length || displayOrder.some((id) => !id)) return
-    const runId = lookupRunId
-    stopEnhanceRequest()
-    repairNotice = null
-    const ticket: JudgeTicket = { lookupRunId: runId, seq: ++judgeSeq }
-    judgeTicket = ticket
-    inflight = { runId, kind: 'judge', token: ++enhanceToken }
-    header = { kind: 'judging', count: judgingCount(local), startedAt: Date.now() }
-    detailsOpen = false
-    let result: JudgeResult
-    try {
-      result = await smartSearchApi.judge(runId, displayOrder as string[], sectionBreaks(baseSections), jevRequestConfig(current), trigger)
-    } catch (error) {
-      if (judgeTicket !== ticket) return
-      judgeTicket = null
-      inflight = null
-      header = { kind: 'none' }
-      appendActivity('judge', 'error', `judge failed: ${redactError(error)}`)
-      return
-    }
-    const next = headerOnArrival(judgeTicket, ticket, result, interacted)
-    if (!next || mine !== requestSequence) return
-    judgeTicket = null
-    inflight = null
-    header = next
-    modelRequests = { ...modelRequests, judge: modelRequests.judge + result.requestCount }
-    if (result.status === 'ok') {
-      judgeResult = result
-      judgedRunId = runId
-      if (!interacted && result.rerankedCount > 0 && next.kind !== 'pending') {
-        appliedOrder = result.order
-        // Nothing was chosen yet, so the new top result becomes the current one.
-        activeKey = orderedHits[0] ? hitKey(orderedHits[0]) : null
-      }
-    }
-    appendActivity('judge', activityLevel(result.status), judgeLog(result), { usage: result.usage })
+  /** 正在检索原文 (round 0) or 正在扩展检索（第 N 轮）, with whole seconds since the round started. */
+  function progressLine(round: { hop: number; startedAt: number }, at: number): string {
+    const phase = round.hop === 0
+      ? t('smartSearch.evidence.searching')
+      : t('smartSearch.evidence.expanding', { hop: round.hop })
+    const s = Math.max(0, Math.floor((at - round.startedAt) / 1000))
+    return `${phase} · ${t('smartSearch.enhance.durationSeconds', { s })}`
   }
 
-  function activityLevel(status: JudgeResult['status']): WorkflowLevel {
+  /**
+   * The evidence for the run on screen. It starts on its own (`auto`) only
+   * when `shouldStartEvidence` holds; otherwise the window says what is
+   * missing without calling the host (no endpoint, no consent for its host).
+   * Regrouped (repaired) results are never judged.
+   */
+  async function startEvidence(mine: number, trigger: Trigger, deep: boolean): Promise<void> {
+    if (mine !== requestSequence || mode !== 'lookup' || repaired || !lookupRunId || !store.hits.length) return
+    const current = settings.smartLookup
+    if (!current.enhance.enabled) return
+    if (evidenceRunId !== lookupRunId) evidenceDeep = deep
+    const jev = current.enhance.jev
+    if (!jev.url.trim() || !jev.model.trim()) {
+      header = { kind: 'degraded', status: 'notConfigured', host: null, statusClass: null, missing: jev.url.trim() ? 'model' : 'url' }
+      return
+    }
+    if (trigger === 'auto' && !shouldStartEvidence(store.hits.length, 'judge', current)) {
+      const host = endpointHost(jev.url)
+      header = host
+        ? { kind: 'degraded', status: 'noConsent', host, statusClass: null, missing: null }
+        // A URL without a host is not an endpoint.
+        : { kind: 'degraded', status: 'notConfigured', host: null, statusClass: null, missing: 'url' }
+      return
+    }
+    await runEvidence(mine, trigger)
+  }
+
+  /**
+   * One round at a time on the current run until the host says done, the
+   * user stops, or a newer lookup supersedes it. Task 8 rulings: never two
+   * steps on one run; `auto` continues as `auto` only on the run it started
+   * on; a `skipped`/`roundRunning` answer is ignored entirely. A failed or
+   * stopped round leaves the local results and the shown evidence as they are.
+   */
+  async function runEvidence(mine: number, trigger: Trigger): Promise<void> {
+    const runId = lookupRunId
+    if (!runId) return
+    stopEnhanceRequest()
+    const token = ++enhanceToken
+    inflight = { runId, kind: 'evidence', token }
+    if (evidenceRunId !== runId) {
+      evidence = emptyEvidence()
+      localTiers = new Map()
+      totals = emptyTotals()
+      hostNextHop = 0
+      feedbackSaved = {}
+      evidenceRunId = runId
+    }
+    header = { kind: 'none' }
+    offerStart = false
+    repairNotice = null
+    // New rounds change the evidence the answer cited.
+    clearAnswer()
+    const deep = evidenceDeep
+    for (;;) {
+      evidenceRound = { hop: hostNextHop, startedAt: Date.now() }
+      let result: EvidenceStepResult
+      try {
+        result = await smartSearchApi.evidenceStep(runId, jevRequestConfig(settings.smartLookup), trigger, deep)
+      } catch (error) {
+        if (inflight?.token !== token || mine !== requestSequence) return
+        inflight = null
+        evidenceRound = null
+        offerStart = !evidence.done
+        appendActivity('judge', 'error', `evidence failed: ${redactError(error)}`)
+        return
+      }
+      // What the host sent is the run's, whether or not this result is still wanted: after
+      // 「停止」 the round that was already out is counted (final review I2). A roundRunning
+      // answer predates the round that holds the run, so it says nothing new.
+      if (mine === requestSequence && evidenceRunId === runId && result.skipReason !== 'roundRunning'
+        && result.run.elapsedMs >= totals.elapsedMs) {
+        totals = totalsOf(result)
+        hostNextHop = result.nextHop
+      }
+      if (inflight?.token !== token || mine !== requestSequence) return
+      // The previous round still holds the run (a restart right after a stop): nothing was
+      // sent or applied; the start stays offered.
+      if (result.skipReason === 'roundRunning') {
+        offerStart = true
+        break
+      }
+      modelRequests = { ...modelRequests, judge: modelRequests.judge + result.requestCount }
+      appendActivity('judge', activityLevel(result.status), evidenceLog(result), { usage: result.usage })
+      evidence = applyRound(evidence, result, interacted)
+      if (result.status === 'ok') localTiers = new Map(result.localTiers.map((verdict) => [verdict.resultId, verdict.tier]))
+      header = headerFromStep(result)
+      offerStart = startOffered(result)
+      // Nothing was chosen yet, so the top row becomes the current one.
+      if (!interacted) activeKey = rows[0] ? rowKey(rows[0]) : null
+      if (result.done || result.status !== 'ok') break
+    }
+    inflight = null
+    evidenceRound = null
+  }
+
+  /**
+   * 「生成简答」: one user-triggered call; the host re-checks every passage,
+   * needs consent for the repair model's host and sends at most three requests.
+   */
+  async function generateAnswer(): Promise<void> {
+    const runId = evidenceRunId
+    if (!showAnswer || answerBusy || !runId) return
+    const mine = requestSequence
+    const token = ++enhanceToken
+    // The list on screen, in its order: the host answers from these only (review M1).
+    const shownIds = evidence.shown.map((item) => item.evidenceId)
+    inflight = { runId, kind: 'answer', token }
+    answer = null
+    answerError = ''
+    answerStopped = false
+    answerBusy = true
+    let result: AnswerResult
+    try {
+      result = await smartSearchApi.answer(runId, chatAnswerConfig(settings.smartLookup), shownIds)
+    } catch (error) {
+      if (inflight?.token !== token || mine !== requestSequence) return
+      inflight = null
+      answerBusy = false
+      answerError = redactError(error)
+      appendActivity('answer', 'error', `answer failed: ${answerError}`)
+      return
+    }
+    if (inflight?.token !== token || mine !== requestSequence) return
+    inflight = null
+    answerBusy = false
+    answer = result
+    modelRequests = { ...modelRequests, repair: modelRequests.repair + result.requestCount }
+    appendActivity('answer', result.status === 'ok' || result.status === 'skipped' ? 'success' : 'warning', answerLog(result), { usage: result.usage })
+  }
+
+  /** 「停止」 while answering (or Esc): cancels the run's request; a late answer is dropped. */
+  function stopAnswer(): void {
+    if (!answerBusy || inflight?.kind !== 'answer') return
+    stopEnhanceRequest()
+    answerStopped = true
+    appendActivity('answer', 'warning', 'answer cancelled')
+  }
+
+  /** Status and counts only: never the answer, never the host, never note text. */
+  function answerLog(result: AnswerResult): string {
+    const code = result.statusClass ? ` ${result.statusClass}` : ''
+    return `answer ${result.status}${code} · sources ${result.sources.length} · omitted ${result.omittedSources}`
+      + ` · requests ${result.requestCount} · ${result.elapsedMs} ms`
+  }
+
+  /** A `[n]` link: select evidence item n when it is in the list shown. */
+  async function showCited(evidenceId: string): Promise<void> {
+    const target = evidenceRows.find((row) => row.evidence?.evidenceId === evidenceId)
+    if (!target) return
+    markInteracted()
+    activeKey = rowKey(target)
+    await refocusActive()
+  }
+
+  function activityLevel(status: EnhanceStatus): WorkflowLevel {
     return status === 'ok' || status === 'skipped' ? 'success' : 'warning'
   }
 
-  /** Status and counts only: never remote text, never the host. */
-  function judgeLog(result: JudgeResult): string {
+  /** Status and counts only: never remote text, never the host, never note text. */
+  function evidenceLog(result: EvidenceStepResult): string {
     const reason = result.skipReason ? ` (${result.skipReason})` : ''
+    const stop = result.stop ? ` stop ${result.stop}` : ''
     const code = result.statusClass ? ` ${result.statusClass}` : ''
-    return `judge ${result.status}${reason}${code} · judged ${result.judgedCount} · reranked ${result.rerankedCount}`
-      + ` · requests ${result.requestCount}${result.reused ? ' (reused)' : ''} · ${result.elapsedMs} ms`
+    return `evidence ${result.status}${reason}${stop}${code} · hop ${result.hop} · evidence ${result.evidence.length}`
+      + ` · pool ${result.poolSize} · sent ${result.sentBlocks} · requests ${result.requestCount} · ${result.elapsedMs} ms`
   }
 
   function repairLog(result: RepairSuggestion): string {
@@ -674,11 +907,13 @@
       + ` · requests ${result.requestCount} · ${result.elapsedMs} ms`
   }
 
-  function stopJudging(): void {
-    if (header.kind !== 'judging') return
+  /** 「停止」/ Esc: cancels this round and the later ones; what is shown stays. Continuing is a user action. */
+  function stopEvidence(): void {
+    if (!evidenceRound) return
     stopEnhanceRequest()
     header = cancelledHeader()
-    appendActivity('judge', 'warning', 'judge cancelled')
+    offerStart = true
+    appendActivity('judge', 'warning', 'evidence cancelled')
   }
 
   function cancelledHeader(): HeaderState {
@@ -689,29 +924,36 @@
     if (mode === 'lookup') interacted = true
   }
 
-  /** 「应用」/ ⌘R: show the judged order. A top-ten-unfit header stays, so 「换个说法」 stays offered. */
-  async function applyJudgement(): Promise<void> {
-    if (!canApply || !judgeResult) return
-    const result = judgeResult
-    appliedOrder = result.order
-    header = result.topTenUnfit ? { kind: 'topTenUnfit', result } : { kind: 'judged', result }
+  /** 「顺序有更新 · 应用」/ ⌘R: show the list the latest round produced. */
+  async function applyEvidence(): Promise<void> {
+    if (!evidence.pending) return
+    evidence = applyPending(evidence)
+    clearAnswer()
     await refocusActive()
   }
 
-  /** Back to the local order; the judged order can be applied again. */
-  async function restoreLocalOrder(): Promise<void> {
-    if (!appliedOrder || !judgeResult) return
-    const result = judgeResult
-    appliedOrder = null
-    header = result.topTenUnfit ? { kind: 'topTenUnfit', result } : { kind: 'pending', result }
-    detailsOpen = false
+  /** 「恢复到第 N 轮」: that round's snapshot; no request. */
+  async function restoreTo(hop: number): Promise<void> {
+    evidence = restoreRound(evidence, hop)
+    clearAnswer()
     await refocusActive()
   }
 
-  /** The selection is a `hitKey`, so it survives a reorder; move focus to its new row. */
+  function isShown(round: EvidenceRound, view: EvidenceView = evidence): boolean {
+    return round.items.length === view.shown.length
+      && round.items.every((item, index) => item.evidenceId === view.shown[index].evidenceId)
+  }
+
+  /** The list on screen is the one the latest round produced (what the host answers from). */
+  function showsLatestRound(view: EvidenceView): boolean {
+    const latest = view.rounds.at(-1)
+    return view.pending === null && latest !== undefined && isShown(latest, view)
+  }
+
+  /** The selection is a row key (path and line range), so it survives a new list; move focus to its row. */
   async function refocusActive(): Promise<void> {
     await tick()
-    const index = activeHit ? orderedHits.indexOf(activeHit) : -1
+    const index = activeHit ? rows.indexOf(activeHit) : -1
     if (index < 0) return
     const row = listEl?.querySelector<HTMLElement>(`.result-row[data-index="${index}"]`)
     row?.focus()
@@ -736,7 +978,7 @@
     if (!host) return
     const mine = requestSequence
     await persistSmartLookup((value) => { value.enhance.jev.consentHost = host })
-    await judgeLookup(mine, 'user')
+    await startEvidence(mine, 'user', evidenceDeep)
   }
 
   async function openEnhanceSettings(): Promise<void> {
@@ -746,9 +988,10 @@
     } catch { /* Browser preview has no event bridge. */ }
   }
 
-  async function correct(hit: SearchHit, verdict: 'fit' | 'unfit'): Promise<void> {
-    const id = resultIdOf(hit)
-    const runId = judgedRunId
+  /** F.4 on an evidence row (its evidence id) or a local row tiered by the evidence (its result id). */
+  async function correct(hit: Row, verdict: 'fit' | 'unfit'): Promise<void> {
+    const id = correctionId(hit)
+    const runId = evidenceRunId
     if (!id || !runId) return
     try {
       await smartSearchApi.feedback(runId, id, verdict)
@@ -786,7 +1029,7 @@
     stripView?.focusFirst()
   }
 
-  /** 「只用原问题」: back to the local result (and its judgement) from before the regrouped search. */
+  /** 「只用原问题」: back to the local result (and its evidence) from before the regrouped search. */
   async function useOriginal(): Promise<void> {
     const view = originalView
     if (!view) return
@@ -801,10 +1044,15 @@
     lastGroups = []
     showSearch(question, view.search, view.runId, view.time)
     header = view.header
-    judgeResult = view.judgeResult
-    judgedRunId = view.judgedRunId
-    appliedOrder = view.appliedOrder
-    if (view.appliedOrder) activeKey = orderedHits[0] ? hitKey(orderedHits[0]) : null
+    evidence = view.evidence
+    totals = view.totals
+    hostNextHop = view.nextHop
+    evidenceRunId = view.evidenceRunId
+    evidenceDeep = view.evidenceDeep
+    localTiers = view.localTiers
+    offerStart = view.offerStart
+    clearAnswer()
+    activeKey = rows[0] ? rowKey(rows[0]) : null
     noteRecentCount(question, view.search.hits.length)
     await tick()
     inputEl?.focus()
@@ -853,20 +1101,23 @@
     await searchWithGroups(requestSequence, groups)
   }
 
-  /** Local search with the given wordings; the results are not judged. */
+  /** Local search with the given wordings; the results get no evidence. */
   async function searchWithGroups(mine: number, groups: TermGroup[]): Promise<void> {
     const runId = lookupRunId
     if (!runId) return
+    // A round stopped here can be continued after 「只用原问题」.
+    const stoppedRound = evidenceRound !== null
     stopEnhanceRequest()
     lookupBusy = true
     try {
       const result = await serial(() => smartSearchApi.searchGroups(runId, groups, settings.smartLookup.results.limit))
       if (mine !== requestSequence) return
       if (!repaired && lastLocal) {
-        const kept: HeaderState = header.kind === 'judging' ? { kind: 'none' } : header
-        originalView = { ...lastLocal, header: kept, judgeResult, judgedRunId, appliedOrder }
+        originalView = {
+          ...lastLocal, header, evidence, totals, nextHop: hostNextHop, evidenceRunId, evidenceDeep, localTiers, offerStart: offerStart || stoppedRound,
+        }
       }
-      resetJudgement()
+      resetEvidence()
       repaired = true
       lastGroups = groups
       showSearch(question, result.search, result.lookupRunId, result.time ?? null, result.hitGroups)
@@ -943,25 +1194,15 @@
     return Array.from(hit.text.slice(0, PREVIEW_CHARS * 2)).slice(0, PREVIEW_CHARS).join('')
   }
 
-  /** Marks for one row. Pinned hits get none. */
-  function rowMarks(hit: SearchHit): Array<{ kind: string; text: string }> {
+  /** Marks for one row: an evidence row's round, then the tier (`tiers.*`); pinned hits get none. */
+  function rowMarks(hit: Row): Array<{ kind: string; text: string }> {
     if (hit.pinned) return []
     const marks: Array<{ kind: string; text: string }> = []
-    const id = resultIdOf(hit)
-    const tier = id ? tiers.get(id) : undefined
+    if (hit.evidence) marks.push({ kind: 'round', text: t(roundLabel(hit.evidence.foundRound)) })
+    const tier = tierOf(hit)
     if (tier === 'fit') marks.push({ kind: 'fit', text: t('smartSearch.enhance.tierFit') })
     else if (tier === 'unfit') marks.push({ kind: 'unfit', text: t('smartSearch.enhance.tierUnfit') })
-    const move = id ? moved.get(id) : undefined
-    if (move) {
-      marks.push({
-        kind: 'moved',
-        text: t(move.direction === 'up' ? 'smartSearch.enhance.movedUp' : 'smartSearch.enhance.movedDown', { n: move.from }),
-      })
-    }
-    if (hit.level !== 'line') {
-      if (judgeResult) marks.push({ kind: 'not-judged', text: t('smartSearch.enhance.notJudged') })
-      else if (header.kind === 'judging') marks.push({ kind: 'not-judged', text: t('smartSearch.enhance.rowRollupSkipped') })
-    }
+    if (hit.evidence) return marks
     const groups = hitGroups.get(hitKey(hit)) ?? []
     if (groups.length === 1) {
       marks.push({ kind: 'wording', text: t('smartSearch.enhance.wordingLabel', { n: wordingLetter(groups[0] - 1) }) })
@@ -992,9 +1233,9 @@
   }
 
   async function focusHit(index: number): Promise<void> {
-    if (!orderedHits.length) return
-    const next = Math.max(0, Math.min(index, orderedHits.length - 1))
-    activeKey = hitKey(orderedHits[next])
+    if (!rows.length) return
+    const next = Math.max(0, Math.min(index, rows.length - 1))
+    activeKey = rowKey(rows[next])
     await tick()
     const row = listEl?.querySelector<HTMLElement>(`.result-row[data-index="${next}"]`)
     row?.focus()
@@ -1019,10 +1260,10 @@
     } else if (event.key === 'End') {
       event.preventDefault()
       markInteracted()
-      void focusHit(orderedHits.length - 1)
+      void focusHit(rows.length - 1)
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      void openHit(orderedHits[index])
+      void openHit(rows[index])
     }
   }
 
@@ -1031,11 +1272,15 @@
     if (event.target === event.currentTarget) markInteracted()
   }
 
-  async function openHit(hit: SearchHit | undefined): Promise<void> {
+  async function openHit(hit: Row | undefined): Promise<void> {
     if (!hit) return
     markInteracted()
     const preview = previewLine(hit.text, highlightTerms)
     openError = ''
+    if (!hit.absPath) {
+      openError = t('smartSearch.staleNavigation')
+      return
+    }
     try {
       await invoke('editor_show_and_reveal_search_hit', {
         path: hit.absPath,
@@ -1062,11 +1307,6 @@
     return primary && !event.shiftKey && !event.altKey && event.key.toLowerCase() === letter
   }
 
-  function isTextField(target: EventTarget | null): boolean {
-    return target instanceof HTMLElement
-      && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)
-  }
-
   function onInputKeydown(event: KeyboardEvent): void {
     if (ime.blocks(event)) return
     const onLaunch = mode === 'idle' && recent.length > 0 && inputValue.trim() === ''
@@ -1079,7 +1319,7 @@
       event.preventDefault()
       if (onLaunch && recentIndex >= 0) runRecent(recent[recentIndex])
       else void submitLookup()
-    } else if (event.key === 'ArrowDown' && !event.shiftKey && orderedHits.length && caretOnLastLine()) {
+    } else if (event.key === 'ArrowDown' && !event.shiftKey && rows.length && caretOnLastLine()) {
       event.preventDefault()
       markInteracted()
       void focusHit(0)
@@ -1095,11 +1335,15 @@
     }
   }
 
-  /** Esc: close a popover, else stop a judgement in flight (the window stays), else hide the window. */
+  /** Esc: close a popover, else stop the evidence run or the answer (the window stays), else hide the window. */
   function escape(): void {
     if (closePopovers()) return
-    if (header.kind === 'judging') {
-      stopJudging()
+    if (evidenceRound) {
+      stopEvidence()
+      return
+    }
+    if (answerBusy) {
+      stopAnswer()
       return
     }
     void hideWindow()
@@ -1112,17 +1356,10 @@
       void toggleMenu()
       return
     }
-    if (shortcut(event, 'z')) {
-      // In a text field ⌘Z stays text undo.
-      if (isTextField(event.target) || !appliedOrder) return
-      event.preventDefault()
-      void restoreLocalOrder()
-      return
-    }
     if (shortcut(event, 'r')) {
-      if (!canApply) return
+      if (!evidence.pending) return
       event.preventDefault()
-      void applyJudgement()
+      void applyEvidence()
       return
     }
     if (shortcut(event, 'l')) {
@@ -1148,11 +1385,10 @@
     cancelPreview()
     closeMenu(false)
     closePopovers()
+    // Esc stops an evidence round or an answer before it gets here, so only a lookup or a repair can still run.
     if (lookupBusy || store.loading || inflight) {
-      const stopped = inflight
       supersede()
       store.cancel()
-      if (stopped?.kind === 'judge') header = cancelledHeader()
       appendActivity('search', 'warning', t('smartSearch.stopped'))
     }
     try { await invoke('hide_smart_search_window') } catch { /* Browser preview. */ }
@@ -1202,7 +1438,7 @@
     const target = event.target as Node | null
     if (menuOpen && !(target && (menuEl?.contains(target) || menuButton?.contains(target)))) closeMenu(false)
     if (timeMenuOpen && !(target instanceof Element && target.closest('.time-anchor'))) timeMenuOpen = false
-    if (detailsOpen && !(target instanceof Element && target.closest('.judge-header, .judge-details'))) detailsOpen = false
+    if (detailsOpen && !(target instanceof Element && target.closest('.evidence-head'))) detailsOpen = false
   }
 
   function menuAction(action: () => unknown): void {
@@ -1228,6 +1464,39 @@
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} onpointerdown={onWindowPointerDown} />
+
+{#snippet resultRow(hit: Row)}
+  {@const index = rows.indexOf(hit)}
+  {@const active = activeHit === hit}
+  {@const marks = rowMarks(hit)}
+  <div
+    class="result-row"
+    class:active
+    class:dim={tierOf(hit) === 'unfit'}
+    role="option"
+    aria-selected={active}
+    tabindex={active ? 0 : -1}
+    data-index={index}
+    data-result-id={hit.evidence ? undefined : resultIdOf(hit)}
+    data-evidence-id={hit.evidence?.evidenceId}
+    onclick={() => { markInteracted(); activeKey = rowKey(hit) }}
+    ondblclick={() => void openHit(hit)}
+    onkeydown={(event) => onRowKeydown(event, index)}
+  >
+    <span class="title-line">
+      <strong class="result-title">{hit.evidence ? hit.evidence.title : displayTitle(hit)}</strong>
+      {#if hit.evidence?.breadcrumb}<span class="result-crumb">{hit.evidence.breadcrumb}</span>{/if}
+    </span>
+    <p class="result-snippet">{#each highlightParts(snippet(hit), highlightTerms) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</p>
+    {#if marks.length}
+      <div class="result-badges">
+        {#each marks as mark, markIndex (markIndex)}
+          <span class="result-badge {mark.kind}">{mark.text}</span>
+        {/each}
+      </div>
+    {/if}
+  </div>
+{/snippet}
 
 <main class="lookup">
   <section class="query-bar" aria-label={t('smartSearch.windowTitle')}>
@@ -1318,62 +1587,25 @@
             {#if repairBusy}
               <span class="spinner" aria-hidden="true"></span>
               <span class="judge-text" aria-live="polite">{t('smartSearch.enhance.repairing')}</span>
-            {:else if header.kind === 'judging'}
-              <span class="spinner" aria-hidden="true"></span>
+            {:else}
               <span class="judge-text" aria-live="polite">{headerText}</span>
-              <button class="text-button" onclick={stopJudging}>{t('smartSearch.enhance.stop')}</button>
-            {:else if header.kind === 'judged' || header.kind === 'topTenUnfit'}
-              <button
-                class="judge-text details-toggle"
-                aria-expanded={detailsOpen}
-                onclick={() => { timeMenuOpen = false; detailsOpen = !detailsOpen }}
-              >{headerText}</button>
-              {#if header.kind === 'topTenUnfit'}
-                {#if canApply}
-                  <button class="text-button" onclick={() => void applyJudgement()}>{t('smartSearch.enhance.apply')}</button>
-                  <kbd>{applyShortcut}</kbd>
+              {#if header.kind === 'degraded'}
+                {@const state = header}
+                {#if state.status === 'notConfigured'}
+                  <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettings')}</button>
+                {:else if state.status === 'noConsent' && state.host}
+                  <button class="text-button" onclick={() => void allowHost(state.host)}>{t('smartSearch.enhance.allow')}</button>
+                {:else if state.status === 'timeout'}
+                  <button class="text-button" onclick={() => void startEvidence(requestSequence, 'user', evidenceDeep)}>{t('smartSearch.enhance.retry')}</button>
+                {:else if state.status === 'keyInvalid' || state.status === 'unreachable'}
+                  <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettingsAction')}</button>
                 {/if}
-                <button class="text-button" onclick={() => void repairLookup(requestSequence, 'user')}>{t('smartSearch.enhance.rephrase')}</button>
               {/if}
-            {:else if header.kind === 'pending'}
-              <span class="judge-text" aria-live="polite">{headerText}</span>
-              <button class="text-button" onclick={() => void applyJudgement()}>{t('smartSearch.enhance.apply')}</button>
-              <kbd>{applyShortcut}</kbd>
-            {:else if header.kind === 'degraded'}
-              {@const state = header}
-              <span class="judge-text" aria-live="polite">{headerText}</span>
-              {#if state.status === 'notConfigured'}
-                <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettings')}</button>
-              {:else if state.status === 'noConsent' && state.host}
-                <button class="text-button" onclick={() => void allowHost(state.host)}>{t('smartSearch.enhance.allow')}</button>
-              {:else if state.status === 'timeout'}
-                <button class="text-button" onclick={() => void judgeLookup(requestSequence, 'user')}>{t('smartSearch.enhance.retry')}</button>
-              {:else if state.status === 'keyInvalid' || state.status === 'unreachable'}
-                <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettingsAction')}</button>
+              {#if showStart}
+                <button class="text-button" onclick={() => void startEvidence(requestSequence, 'user', evidenceDeep)}>{t('smartSearch.evidence.start')}</button>
               {/if}
-            {:else if header.kind === 'indexUnavailable'}
-              <span class="judge-text" aria-live="polite">{headerText}</span>
             {/if}
           </div>
-          {#if detailsOpen && judgeResult && (header.kind === 'judged' || header.kind === 'topTenUnfit')}
-            {@const result = judgeResult}
-            <div class="judge-details" role="dialog" aria-label={t('smartSearch.enhance.detailsTitle')}>
-              <div class="details-title">{t('smartSearch.enhance.detailsTitle')}</div>
-              {#if result.endpointHost}<p>{t('smartSearch.enhance.detailsHost', { host: result.endpointHost })}</p>{/if}
-              <p>{result.reused
-                ? t('smartSearch.enhance.detailsReused')
-                : t('smartSearch.enhance.detailsRequests', { n: result.requestCount, ms: result.elapsedMs })}</p>
-              <p>{t('smartSearch.enhance.detailsSent', { n: result.sentBlocks, tokens: result.estimatedTokens })}</p>
-              <p>{t('smartSearch.enhance.detailsUnsent', { rollups: result.skippedRollups, confidential: result.skippedConfidential })}</p>
-              <p>{t('smartSearch.enhance.detailsScope', { n: result.judgedCount, pool: result.poolSize })}</p>
-              {#if appliedOrder}
-                <div class="details-actions">
-                  <button class="secondary-button" onclick={() => void restoreLocalOrder()}>{t('smartSearch.enhance.restore')}</button>
-                  <kbd>{restoreShortcut}</kbd>
-                </div>
-              {/if}
-            </div>
-          {/if}
         {/if}
         {#if showRepairNotice && repairNotice}
           <div class="judge-header repair-notice">
@@ -1435,46 +1667,123 @@
               <p>{t('smartSearch.noResultsHint')}</p>
             </div>
           {:else}
-            <div bind:this={listEl} class="result-list" role="listbox" aria-label={t('smartSearch.results')}>
-              {#each sections as section (section.key)}
-                <div class="result-group" role="group" aria-label={section.label}>
-                  <div class="group-label" aria-hidden="true">{section.label}<span>{section.hits.length}</span></div>
-                  {#each section.hits as hit (hitKey(hit))}
-                    {@const index = orderedHits.indexOf(hit)}
-                    {@const active = activeHit === hit}
-                    {@const marks = rowMarks(hit)}
-                    {@const id = resultIdOf(hit)}
-                    <div
-                      class="result-row"
-                      class:active
-                      class:dim={Boolean(id) && tiers.get(id ?? '') === 'unfit' && !hit.pinned}
-                      role="option"
-                      aria-selected={active}
-                      tabindex={active ? 0 : -1}
-                      data-index={index}
-                      data-result-id={resultIdOf(hit)}
-                      onclick={() => { markInteracted(); activeKey = hitKey(hit) }}
-                      ondblclick={() => void openHit(hit)}
-                      onkeydown={(event) => onRowKeydown(event, index)}
-                    >
-                      <span class="title-line">
-                        <strong class="result-title">{displayTitle(hit)}</strong>
-                        {#if judgingKeys.has(hitKey(hit))}
-                          <span class="pending-dot" role="img" aria-label={t('smartSearch.enhance.rowJudging')}></span>
+            <div bind:this={listEl} class="result-lists">
+              {#if showEvidence}
+                <section class="evidence" aria-label={t('smartSearch.evidence.title')}>
+                  <div class="evidence-head">
+                    <button
+                      class="evidence-title group-label details-toggle"
+                      aria-expanded={detailsOpen}
+                      onclick={() => { timeMenuOpen = false; detailsOpen = !detailsOpen }}
+                    >{t('smartSearch.evidence.title')}<span>{evidence.shown.length}</span></button>
+                    {#if detailsOpen}
+                      <div class="judge-details" role="dialog" aria-label={t('smartSearch.enhance.detailsTitle')}>
+                        <div class="details-title">{t('smartSearch.enhance.detailsTitle')}</div>
+                        {#if totals.host}<p>{t('smartSearch.enhance.detailsHost', { host: totals.host })}</p>{/if}
+                        <p>{t('smartSearch.enhance.detailsRequests', { n: totals.requests, ms: totals.elapsedMs })}</p>
+                        <p>{t('smartSearch.enhance.detailsSent', { n: totals.sent, tokens: totals.tokens })}</p>
+                        <p>{t('smartSearch.enhance.detailsUnsent', { confidential: totals.confidential, stale: totals.stale, long: totals.long })}</p>
+                      </div>
+                    {/if}
+                    {#if evidenceRound}
+                      <div class="evidence-status">
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span class="judge-text" aria-live="polite">{progressText}</span>
+                        <button class="text-button" onclick={stopEvidence}>{t('smartSearch.enhance.stop')}</button>
+                      </div>
+                    {/if}
+                    {#if evidence.pending}
+                      <div class="evidence-status">
+                        <button class="text-button" onclick={() => void applyEvidence()}>{t('smartSearch.evidence.updated')}</button>
+                        <kbd>{applyShortcut}</kbd>
+                      </div>
+                    {/if}
+                    {#if noticeKey && !evidenceRound}
+                      <div class="evidence-status">
+                        <span class="judge-text" aria-live="polite">{t(noticeKey)}</span>
+                        {#if noticeKey === 'smartSearch.evidence.none' && !repaired}
+                          <button class="text-button" onclick={() => void repairLookup(requestSequence, 'user')}>{t('smartSearch.enhance.rephrase')}</button>
                         {/if}
-                      </span>
-                      <p class="result-snippet">{#each highlightParts(snippet(hit), highlightTerms) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</p>
-                      {#if marks.length}
-                        <div class="result-badges">
-                          {#each marks as mark, markIndex (markIndex)}
-                            <span class="result-badge {mark.kind}">{mark.text}</span>
-                          {/each}
+                      </div>
+                    {/if}
+                    {#each expansionRounds as round (round.hop)}
+                      <p class="evidence-terms">
+                        <span class="result-badge round">{t(roundLabel(round.hop))}</span>
+                        {t('smartSearch.evidence.terms', { terms: round.terms.map((term) => term.label).join(', ') })}
+                      </p>
+                    {/each}
+                    {#if evidence.unfound}
+                      <p class="evidence-terms evidence-unfound">
+                        <span class="result-badge round">{t(roundLabel(evidence.unfound.hop))}</span>
+                        {t('smartSearch.evidence.termsNothingNew', { terms: evidence.unfound.terms.map((term) => term.label).join(', ') })}
+                      </p>
+                    {/if}
+                    {#if !evidenceRound && evidence.rounds.length > 1}
+                      <div class="evidence-restore">
+                        {#each evidence.rounds as round (round.hop)}
+                          {#if !isShown(round)}
+                            <button class="text-button" onclick={() => void restoreTo(round.hop)}>{round.hop === 0
+                              ? t('smartSearch.evidence.restoreLocal')
+                              : t('smartSearch.evidence.restore', { hop: round.hop })}</button>
+                          {/if}
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                  {#if showAnswer || answerBusy || answer || answerError || answerStopped}
+                    <div class="evidence-answer">
+                      {#if answerBusy}
+                        <div class="evidence-status">
+                          <span class="spinner" aria-hidden="true"></span>
+                          <span class="judge-text" aria-live="polite">{t('smartSearch.answer.answering')}</span>
+                          <button class="text-button answer-stop" onclick={stopAnswer}>{t('smartSearch.enhance.stop')}</button>
+                        </div>
+                      {:else if showAnswer}
+                        <div class="evidence-status">
+                          <button class="text-button answer-generate" onclick={() => void generateAnswer()}>{t('smartSearch.answer.generate')}</button>
+                        </div>
+                      {/if}
+                      {#if answer?.status === 'ok' && answer.text !== null}
+                        {@const sources = answer.sources}
+                        <!-- Plain text only (H.4): interpolation escapes everything; only source labels become links. -->
+                        <p class="answer-text">{#each answerParts(answer.text, sources) as part}{#if part.kind === 'cite'}<a
+                          class="citation"
+                          href={`#evidence-${part.id}`}
+                          data-cite={part.evidenceId}
+                          onclick={(event) => { event.preventDefault(); void showCited(part.evidenceId) }}
+                        >{part.text}</a>{:else}{part.text}{/if}{/each}</p>
+                        {#if answer.omittedSources > 0}
+                          <p class="answer-note">{t('smartSearch.answer.omitted', { count: answer.omittedSources })}</p>
+                        {/if}
+                      {:else if answerNote}
+                        <div class="evidence-status">
+                          <span class="judge-text" role="status">{answerNote}</span>
+                          {#if answer?.status === 'noConsent' || answer?.status === 'notConfigured'}
+                            <button class="text-button" onclick={() => void openEnhanceSettings()}>{t('smartSearch.enhance.openSettings')}</button>
+                          {/if}
                         </div>
                       {/if}
                     </div>
-                  {/each}
-                </div>
-              {/each}
+                  {/if}
+                  {#if evidenceRows.length}
+                    <div class="evidence-list" role="listbox" aria-label={t('smartSearch.evidence.title')}>
+                      {#each evidenceRows as hit (rowKey(hit))}
+                        {@render resultRow(hit)}
+                      {/each}
+                    </div>
+                  {/if}
+                </section>
+              {/if}
+              <div class="result-list" role="listbox" aria-label={t('smartSearch.results')}>
+                {#each sections as section (section.key)}
+                  <div class="result-group" role="group" aria-label={section.label}>
+                    <div class="group-label" aria-hidden="true">{section.label}<span>{section.hits.length}</span></div>
+                    {#each section.hits as hit (hitKey(hit))}
+                      {@render resultRow(hit)}
+                    {/each}
+                  </div>
+                {/each}
+              </div>
             </div>
           {/if}
         </div>
@@ -1492,11 +1801,11 @@
           {#if openError}<p class="notice error" role="alert">{openError}</p>{/if}
           {#if activeHit}
             {@const hit = activeHit}
-            {@const id = resultIdOf(hit)}
+            {@const id = correctionId(hit)}
             <div class="preview-location">{hitReference(hit)}</div>
             <h1 class="preview-title">{displayTitle(hit)}</h1>
-            {#if id && tiers.has(id) && !hit.pinned}
-              {@const chosen = feedbackSaved[id] ?? modelChoice(tiers.get(id))}
+            {#if id && !hit.pinned}
+              {@const chosen = feedbackSaved[id] ?? modelChoice(tierOf(hit))}
               <div class="correction">
                 <span>{t('smartSearch.enhance.correctPrompt')}</span>
                 <span class="segmented" role="radiogroup" aria-label={t('smartSearch.enhance.correctGroup')}>
@@ -1537,9 +1846,6 @@
         {#if canExpand}
           <button class="menu-row" role="menuitem" tabindex="-1" disabled={lookupBusy} onclick={() => menuAction(expandLookup)}>{t('smartSearch.expandSearch')}</button>
         {/if}
-        {#if appliedOrder}
-          <button class="menu-row" role="menuitem" tabindex="-1" onclick={() => menuAction(restoreLocalOrder)}>{t('smartSearch.enhance.restore')}</button>
-        {/if}
         {#if activity.length}
           <button class="menu-row" role="menuitem" tabindex="-1" onclick={() => menuAction(() => copyText(formatWorkflowLog(activity)))}>{t('smartSearch.copyActivity')}</button>
         {/if}
@@ -1548,7 +1854,7 @@
   {/if}
 
   <footer class="footer">
-    {#if header.kind === 'judging'}
+    {#if evidenceRound}
       <span class="footer-hint"><kbd>esc</kbd> {t('smartSearch.enhance.escStop')}</span>
     {/if}
     <button
@@ -1606,23 +1912,32 @@
   .pane-header > span { color: var(--lookup-muted); font-size: 11px; white-space: nowrap; }
   .judge-header { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--lookup-border); background: var(--lookup-soft); font-size: 12px; }
   .judge-text { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .details-toggle { padding: 0; border: 0; background: transparent; text-align: left; text-decoration: underline dotted; text-underline-offset: 3px; }
-  .judge-details { flex: 0 0 auto; padding: 8px 16px 10px; border-bottom: 1px solid var(--lookup-border); font-size: 12px; color: var(--lookup-muted); }
-  .judge-details p { margin: 0 0 3px; }
-  .details-title { margin-bottom: 4px; font-weight: 600; color: CanvasText; }
-  .details-actions { display: flex; align-items: center; gap: 8px; }
   kbd { font: inherit; font-size: 11px; color: var(--lookup-muted); }
   .menu-popover { position: absolute; left: 12px; bottom: 34px; z-index: 10; width: max-content; max-width: 280px; }
   .actions-menu { display: flex; flex-direction: column; }
   .results-scroll, .preview-scroll { flex: 1; min-height: 0; overflow-y: auto; }
   .result-group { padding: 6px 0; }
+  .evidence { padding: 6px 0; border-bottom: 1px solid var(--lookup-border); background: color-mix(in srgb, var(--lookup-accent) 3%, Canvas); }
+  .evidence-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 2px; }
+  .evidence-title { border: 0; background: transparent; text-align: left; }
+  .details-toggle { text-decoration: underline dotted; text-underline-offset: 3px; }
+  .judge-details { padding: 6px 16px 8px; font-size: 12px; color: var(--lookup-muted); }
+  .judge-details p { margin: 0 0 3px; }
+  .details-title { margin-bottom: 4px; font-weight: 600; color: CanvasText; }
+  .evidence-status { display: flex; align-items: center; gap: 8px; min-height: 22px; padding: 0 12px 0 16px; font-size: 12px; }
+  .evidence-terms { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0 16px; font-size: 11px; color: var(--lookup-muted); }
+  .evidence-restore { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 12px; }
+  .evidence-answer { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
+  .answer-text { margin: 2px 16px 4px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+  .answer-note { margin: 0 16px 2px; font-size: 11px; color: var(--lookup-muted); }
+  .citation { color: var(--lookup-accent); text-decoration: none; font-variant-numeric: tabular-nums; }
+  .citation:hover { text-decoration: underline; }
+  .result-crumb { min-width: 0; font-size: 11px; color: var(--lookup-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .group-label { display: flex; gap: 6px; padding: 4px 16px; font-size: 11px; font-weight: 600; color: var(--lookup-muted); }
   .result-row { padding: 7px 16px; border-left: 3px solid transparent; cursor: default; }
   .result-row.active { background: color-mix(in srgb, var(--lookup-accent) 9%, Canvas); border-left-color: var(--lookup-accent); }
   .result-row.dim .result-title, .result-row.dim .result-snippet { opacity: .55; }
   .title-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .pending-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--lookup-accent); animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: .3; } }
   .result-title { display: block; min-width: 0; font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .result-snippet { margin: 2px 0 0; font-size: 12px; line-height: 1.45; color: var(--lookup-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .result-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }

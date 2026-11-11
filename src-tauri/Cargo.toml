@@ -86,6 +86,18 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 chrono-tz = "0.10"
 unicode-normalization = "0.1"
 fs2 = "0.4"
+# SAG2 multi-round evidence retrieval (`smart_enhance::sag`, spec Appendix H),
+# ported from SAG-Wiki 61f63c6 with the same crates so the output is
+# byte-identical: fancy-regex for its look-around patterns (`SENTENCES`,
+# `NAMES`, alias matching), regex for `regex::escape` of alias keys, the ICU
+# `en` collator for the expansion-term tiebreak, and IndexMap where SAG2's
+# insertion order is part of the result. regex and indexmap were already in
+# the lock transitively.
+fancy-regex = "0.16"
+regex = "1"
+indexmap = "2"
+icu_collator = "1.5"
+icu_locid = "1.5"
 
 [target.'cfg(unix)'.dependencies]
 # `localtime_r` for the tray's absolute "last synced HH:MM" (see `local_parts`).

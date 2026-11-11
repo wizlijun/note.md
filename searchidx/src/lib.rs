@@ -23,6 +23,7 @@ pub mod paths;
 pub mod plain;
 pub mod prose;
 pub mod query;
+pub mod sag;
 /// Rename/move detection's pure pairing half. `pub(crate)` throughout: the
 /// two call sites (the sweep and the watcher batch) are both inside this
 /// crate, and the decision is not something a caller should be able to
@@ -53,6 +54,34 @@ pub const NO_LIMIT: usize = usize::MAX;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+/// `files.confidentiality` for the given vault-relative paths on `conn`, read
+/// only. A path that is not in `files` is absent from the result. Parameters
+/// go in batches of 500 so no batch trips SQLite's variable limit.
+///
+/// The single implementation of this privacy gate: both
+/// [`SearchIndex::confidentiality_for_paths`] and
+/// `sag::SagReader::confidentiality_for_paths` call it, so local search and
+/// SAG2 retrieval can never filter differently.
+pub(crate) fn confidentiality_on(
+    conn: &rusqlite::Connection,
+    paths: &[&str],
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let mut out = std::collections::HashMap::new();
+    for chunk in paths.chunks(500) {
+        let marks = vec!["?"; chunk.len()].join(",");
+        let sql = format!("SELECT path, confidentiality FROM files WHERE path IN ({marks})");
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(chunk.iter()), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (path, value) = row.map_err(|e| e.to_string())?;
+            out.insert(path, value);
+        }
+    }
+    Ok(out)
+}
 
 /// One open index over one vault.
 ///
@@ -292,24 +321,30 @@ impl SearchIndex {
     /// A path that is not in `files` is absent from the result. Parameters go
     /// in batches of 500 so no batch trips SQLite's variable limit.
     pub fn confidentiality_for_paths(&self, paths: &[&str]) -> Result<std::collections::HashMap<String, String>, String> {
-        let mut out = std::collections::HashMap::new();
-        for chunk in paths.chunks(500) {
-            let marks = vec!["?"; chunk.len()].join(",");
-            let sql = format!("SELECT path, confidentiality FROM files WHERE path IN ({marks})");
-            let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
-            let rows = stmt
-                .query_map(rusqlite::params_from_iter(chunk.iter()), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-                .map_err(|e| e.to_string())?;
-            for row in rows {
-                let (path, value) = row.map_err(|e| e.to_string())?;
-                out.insert(path, value);
-            }
-        }
-        Ok(out)
+        confidentiality_on(&self.conn, paths)
     }
 
     pub fn vault_root(&self) -> &Path {
         &self.vault_root
+    }
+
+    /// The database file this index lives in, for opening a read-only
+    /// [`sag::SagReader`] on the same index.
+    pub fn db_path(&self) -> &Path {
+        &self.db_path
+    }
+
+    /// The `source_globs` stamp stored in `meta`: the stamp this index was
+    /// opened (and, after a change, rebuilt in place) with, which a
+    /// [`sag::SagReader`] on the same file must present. `None` when unreadable.
+    ///
+    /// Read from the same `meta` the reader then checks it against, so on this
+    /// path that check cannot fail: what makes the stamp current is that this
+    /// index was opened with the configured stamp (and rebuilt in place when it
+    /// differed). A caller that needs the configured stamp compared must pass
+    /// `opts.source_globs.stamp()` instead.
+    pub fn globs_stamp(&self) -> Option<String> {
+        store::meta_get(&self.conn, "source_globs")
     }
 
     /// 重新摄取 vault 的注意力数据,返回写入的文件数。

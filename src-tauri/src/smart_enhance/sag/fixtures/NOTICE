@@ -1,0 +1,33 @@
+sag2_v10_oracle.json and sag2_v10_dpp.json in this directory are unmodified
+copies of tests/sag2_v10_oracle.json and tests/sag2_v10_dpp.json from SAG-Wiki
+(https://github.com/Zleap-AI/SAG-Wiki), commit 61f63c6, including their recorded
+data. They are used as golden fixtures for note.md's port of SAG2 V10 multi-round
+evidence retrieval (smart_enhance::sag; spec Appendix H.9).
+
+SHA-256 of the copies:
+  4c08f4d426bd7646b080ff5e2ec41165dfa4b91c9fdf14cb768429807bfb9e36  sag2_v10_oracle.json
+  c2dc3d3f8a2f38452974d85a361c27dad8f9da24b6fcee03d142c132e7cf76d0  sag2_v10_dpp.json
+
+SAG-Wiki is distributed under the MIT License, reproduced from its LICENSE file:
+
+MIT License
+
+Copyright (c) 2026 sag contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -377,13 +377,16 @@ fn name<T: Serialize>(value: &T) -> String {
     serde_json::to_value(value).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default()
 }
 
-/// Per final hit: its tier (when judged) and its 1-based local rank when the
-/// judgement moved it.
+/// Per final hit: its tier (from the latest `ok` evidence round: the
+/// evidence item at the same place, else the local row's tier) and its
+/// 1-based local rank when the evidence moved it.
 fn hit_marks(output: &PipelineOutput) -> Vec<(Option<Tier>, Option<usize>)> {
-    let Some(judge) = output.judge.as_ref().filter(|j| j.status == EnhanceStatus::Ok) else {
+    let Some(latest) = output.evidence_rounds.iter().rev().find(|r| r.status == EnhanceStatus::Ok) else {
         return vec![(None, None); output.hits.len()];
     };
-    let tiers: HashMap<&str, Tier> = judge.verdicts.iter().map(|v| (v.result_id.as_str(), v.tier)).collect();
+    let by_place: HashMap<(&str, u32, u32), Tier> =
+        latest.evidence.iter().map(|i| ((i.path.as_str(), i.line, i.line_end), i.tier)).collect();
+    let by_id: HashMap<&str, Tier> = latest.local_tiers.iter().map(|v| (v.result_id.as_str(), v.tier)).collect();
     let local: HashMap<&str, usize> = output
         .local
         .search
@@ -399,7 +402,8 @@ fn hit_marks(output: &PipelineOutput) -> Vec<(Option<Tier>, Option<usize>)> {
         .map(|(i, hit)| {
             let id = hit.result_id.as_deref().unwrap_or_default();
             let moved = local.get(id).copied().filter(|&from| from != i + 1);
-            (tiers.get(id).copied(), moved)
+            let place = (hit.hit.path.as_str(), hit.hit.line, hit.hit.line_end);
+            (by_place.get(&place).or_else(|| by_id.get(id)).copied(), moved)
         })
         .collect()
 }
@@ -414,7 +418,9 @@ fn json_lines(output: &PipelineOutput, code: u8) -> Vec<String> {
     })];
     match output.route {
         PipelineRoute::Local => {}
-        PipelineRoute::Judge => lines.push(json!({ "kind": "judge", "result": output.judge })),
+        PipelineRoute::Judge => {
+            lines.extend(output.evidence_rounds.iter().map(|round| json!({ "kind": "evidence", "result": round })))
+        }
         PipelineRoute::Repair => {
             if let Some(diagnosis) = &output.diagnosis {
                 lines.push(json!({ "kind": "diagnosis", "terms": diagnosis.terms }));
@@ -489,26 +495,30 @@ fn text_lines(output: &PipelineOutput) -> Vec<String> {
             lines.push(format!("skip · {}", output.skip_reason.as_ref().map(name).unwrap_or_default()))
         }
         PipelineRoute::Judge => {
-            if let Some(j) = &output.judge {
-                lines.push(if j.status == EnhanceStatus::Ok {
+            for r in &output.evidence_rounds {
+                let mut line = if r.status == EnhanceStatus::Ok {
                     format!(
-                        "judge ok · {} · {} sent · {} ms · {} moved{}",
-                        j.endpoint_host.clone().unwrap_or_default(),
-                        j.sent_blocks,
-                        j.elapsed_ms,
-                        j.reranked_count,
-                        if j.reused { " · reused" } else { "" }
+                        "evidence ok · {} · round {} · {} sent · {} ms · {} items",
+                        r.endpoint_host.clone().unwrap_or_default(),
+                        r.hop,
+                        r.sent_blocks,
+                        r.elapsed_ms,
+                        r.evidence.len()
                     )
                 } else {
                     status_line(
-                        "judge",
-                        j.status,
-                        j.endpoint_host.as_ref(),
-                        j.skip_reason.as_ref(),
-                        j.missing.as_ref(),
-                        j.status_class.as_ref(),
+                        "evidence",
+                        r.status,
+                        r.endpoint_host.as_ref(),
+                        r.skip_reason.as_ref(),
+                        r.missing.as_ref(),
+                        r.status_class.as_ref(),
                     )
-                });
+                };
+                if let Some(stop) = &r.stop {
+                    line.push_str(&format!(" · stop {}", name(stop)));
+                }
+                lines.push(line);
             }
         }
         PipelineRoute::Repair => {
@@ -636,22 +646,33 @@ pub(crate) async fn run_eval(
     Ok(0)
 }
 
-/// `gates (holdout, timeout 3000 ms) · C3 pass · C4 fail (1 of 4 rescued)`;
-/// at another limit both gates read `n/a (timeout ≠ 3 s)`.
+/// `gates (holdout, timeout 3000 ms, round timeout 10000 ms, maxHops 1) ·
+/// C3 n/a (maxHops ≠ 0) · C4 fail (1 of 4 rescued) · C5 pass (2 expansion-only,
+/// +2 vs round 0, 0 lost, 4 bridge)`. Off the 10 s round limit every gate
+/// reads `n/a (round timeout ≠ 10 s)`.
 fn gates_line(gates: &GateVerdicts) -> String {
-    let timeout = gates.timeout_ms.map_or("mixed".to_string(), |t| format!("{t} ms"));
-    let verdict = |v: Option<bool>| match (v, &gates.note) {
+    let ms = |v: Option<u64>| v.map_or("mixed".to_string(), |t| format!("{t} ms"));
+    let hops = gates.max_hops.map_or("mixed".to_string(), |h| h.to_string());
+    // `pass (…)`, `fail (…)` or `n/a (why)`; a gate with nothing to decide
+    // on and no rule against it is a bare `n/a`.
+    let verdict = |v: Option<bool>, note: &Option<String>, detail: String| match (v, gates.note.as_ref().or(note.as_ref())) {
         (_, Some(note)) => format!("n/a ({note})"),
-        (Some(true), None) => "pass".to_string(),
-        (Some(false), None) => "fail".to_string(),
+        (Some(true), None) => format!("pass{detail}"),
+        (Some(false), None) => format!("fail{detail}"),
         (None, None) => "n/a".to_string(),
     };
+    let c4 = format!(" ({} of {} rescued)", gates.c4_rescued, gates.c4_tasks);
+    let c5 = format!(
+        " ({} expansion-only, {:+} vs round 0, {} lost, {} bridge)",
+        gates.c5_expansion_only, gates.c5_recall_gain, gates.c5_lost, gates.c5_bridge_tasks
+    );
     format!(
-        "gates (holdout, timeout {timeout}) · C3 {} · C4 {} ({} of {} rescued)",
-        verdict(gates.c3),
-        verdict(gates.c4),
-        gates.c4_rescued,
-        gates.c4_tasks
+        "gates (holdout, timeout {}, round timeout {}, maxHops {hops}) · C3 {} · C4 {} · C5 {}",
+        ms(gates.timeout_ms),
+        ms(gates.round_timeout_ms),
+        verdict(gates.c3, &gates.c3_note, String::new()),
+        verdict(gates.c4, &gates.c4_note, c4),
+        verdict(gates.c5, &gates.c5_note, c5),
     )
 }
 
@@ -663,11 +684,21 @@ fn number(value: Option<f64>) -> String {
     }
 }
 
+/// One row per metric name, in the first split's order, then any name only
+/// a later split has (a hop the first did not reach); `-` where a split
+/// has no such metric.
 fn metrics_table(metrics: &[LookupMetrics]) -> Vec<String> {
-    let columns: Vec<Vec<(&'static str, Option<f64>)>> = metrics.iter().map(metric_values).collect();
+    let columns: Vec<Vec<(String, Option<f64>)>> = metrics.iter().map(metric_values).collect();
+    let mut names: Vec<&str> = Vec::new();
+    for (name, _) in columns.iter().flatten() {
+        if !names.contains(&name.as_str()) {
+            names.push(name);
+        }
+    }
     let mut rows: Vec<Vec<String>> = vec![std::iter::once("metric".to_string()).chain(metrics.iter().map(|m| m.split.clone())).collect()];
-    for (i, (metric, _)) in columns[0].iter().enumerate() {
-        rows.push(std::iter::once(metric.to_string()).chain(columns.iter().map(|c| number(c[i].1))).collect());
+    for name in names {
+        let cell = |c: &Vec<(String, Option<f64>)>| number(c.iter().find(|(n, _)| n == name).and_then(|(_, v)| *v));
+        rows.push(std::iter::once(name.to_string()).chain(columns.iter().map(cell)).collect());
     }
     align(&rows)
 }
@@ -694,7 +725,7 @@ fn align<R: AsRef<[String]>>(rows: &[R]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::smart_model::test_support::serve_once;
+    use crate::smart_model::test_support::{serve_noul, serve_once, NoulServer};
     use std::sync::atomic::Ordering::SeqCst;
     use std::time::Duration;
 
@@ -732,6 +763,25 @@ mod tests {
         let inner: Vec<String> =
             scores.iter().enumerate().map(|(i, s)| format!(r#""c{}":{{"type":"noul","noul":{s}}}"#, i + 1)).collect();
         format!(r#"{{"answers":{{{}}}}}"#, inner.join(","))
+    }
+
+    /// A Jev stand-in that scores each passage by its last word: `third`
+    /// fit, `first` unfit, anything else unsure.
+    async fn jev() -> NoulServer {
+        serve_noul(
+            |q| {
+                let passage = q["instructions"]["candidate_passage"].as_str().unwrap_or("");
+                if passage.ends_with("third") {
+                    0.95
+                } else if passage.ends_with("first") {
+                    0.1
+                } else {
+                    0.5
+                }
+            },
+            |_| Duration::ZERO,
+        )
+        .await
     }
 
     fn host(base: &str) -> String {
@@ -810,30 +860,37 @@ mod tests {
     #[tokio::test]
     async fn judging_needs_allow_send_equal_to_the_endpoint_host() {
         let v = three_notes("consent alpha bravo charlie");
-        let (base, _request, accepted) = serve_once(200, answers(&[0.2, 0.9, 0.5]), Duration::ZERO).await;
+        let server = jev().await;
+        let base = server.base.clone();
         let argv = |allow: &str| {
             s(&["--json", "--jev-url", &base, "--jev-model", "m", "--jev-auth", "none", "--allow-send", allow, "consent", "alpha", "bravo", "charlie"])
         };
         let (_, out) = query(&argv("other.example"), &v, &[]).await;
-        let judge = &json_objects(&out)[1];
-        assert_eq!(judge["kind"], "judge");
-        assert_eq!(judge["result"]["status"], "noConsent", "{judge}");
-        assert_eq!(accepted.load(SeqCst), 0);
+        let evidence = &json_objects(&out)[1];
+        assert_eq!(evidence["kind"], "evidence");
+        assert_eq!(evidence["result"]["status"], "noConsent", "{evidence}");
+        assert_eq!(server.accepted.load(SeqCst), 0);
         // No --allow-send at all: the consent host is empty, nothing is sent.
         let no_flag = s(&["--json", "--jev-url", &base, "--jev-model", "m", "--jev-auth", "none", "consent", "alpha", "bravo", "charlie"]);
         let (_, out) = query(&no_flag, &v, &[]).await;
         assert_eq!(json_objects(&out)[1]["result"]["status"], "noConsent");
-        assert_eq!(accepted.load(SeqCst), 0);
+        assert_eq!(server.accepted.load(SeqCst), 0);
         let (code, out) = query(&argv(&host(&base)), &v, &[]).await;
-        let judge = &json_objects(&out)[1];
-        assert_eq!(judge["result"]["status"], "ok", "{judge}");
-        assert_eq!((code, accepted.load(SeqCst)), (0, 1));
+        let objects = json_objects(&out);
+        let evidence = &objects[1];
+        assert_eq!(evidence["result"]["status"], "ok", "{evidence}");
+        assert_eq!(code, 0);
+        // Exactly the requests the rounds report, round 0's among them.
+        let requests: u64 = objects.iter().filter(|o| o["kind"] == "evidence").map(|o| o["result"]["requestCount"].as_u64().unwrap()).sum();
+        assert_eq!(evidence["result"]["requestCount"], 1);
+        assert_eq!(server.accepted.load(SeqCst) as u64, requests);
     }
 
     #[tokio::test]
     async fn keys_come_only_from_the_environment_and_never_reach_the_output() {
         let v = three_notes("keyed delta echo foxtrot");
-        let (base, request, accepted) = serve_once(200, answers(&[0.2, 0.9, 0.5]), Duration::ZERO).await;
+        let server = jev().await;
+        let base = server.base.clone();
         let env = [(JEV_KEY_ENV, "sk-live-xyz")];
         let argv = |json: bool| {
             let mut a = s(&["--jev-url", &base, "--jev-model", "m", "--allow-send", &host(&base), "keyed", "delta", "echo", "foxtrot"]);
@@ -843,53 +900,51 @@ mod tests {
             a
         };
         let (_, text) = query(&argv(false), &v, &env).await;
-        assert!(text.contains("judge ok"), "{text}");
+        assert!(text.contains("evidence ok"), "{text}");
         let (_, json_out) = query(&argv(true), &v, &env).await;
         assert!(!text.contains("sk-live-xyz") && !json_out.contains("sk-live-xyz"), "{text}\n{json_out}");
-        let request = request.await.unwrap();
-        assert!(request.contains("authorization: bearer sk-live-xyz"), "{request}");
-        // The second run reuses the verdicts: still one request.
-        assert_eq!(accepted.load(SeqCst), 1);
+        let heads = server.heads.lock().unwrap().clone();
+        assert!(!heads.is_empty() && heads.iter().all(|h| h.contains("authorization: bearer sk-live-xyz")), "{heads:?}");
         // Bearer without a key in the environment: not configured, nothing sent.
         let v2 = three_notes("keyless golf hotel india");
-        let (base2, _r, accepted2) = serve_once(200, answers(&[0.5, 0.5, 0.5]), Duration::ZERO).await;
+        let server2 = jev().await;
+        let base2 = server2.base.clone();
         let argv2 = s(&["--json", "--jev-url", &base2, "--jev-model", "m", "--allow-send", &host(&base2), "keyless", "golf", "hotel", "india"]);
         let (_, out) = query(&argv2, &v2, &[(JEV_KEY_ENV, "bad key with spaces")]).await;
-        let judge = &json_objects(&out)[1]["result"];
-        assert_eq!((judge["status"].as_str(), judge["missing"].as_str()), (Some("notConfigured"), Some("key")), "{judge}");
+        let evidence = &json_objects(&out)[1]["result"];
+        assert_eq!((evidence["status"].as_str(), evidence["missing"].as_str()), (Some("notConfigured"), Some("key")), "{evidence}");
         assert!(!out.contains("bad key"), "{out}");
-        assert_eq!(accepted2.load(SeqCst), 0);
+        assert_eq!(server2.accepted.load(SeqCst), 0);
     }
 
     #[tokio::test]
     async fn json_lines_follow_the_documented_kinds() {
         let v = three_notes("shape juliet kilo lima");
-        let (base, _request, _accepted) = serve_once(200, answers(&[0.1, 0.5, 0.95]), Duration::ZERO).await;
+        let server = jev().await;
+        let base = server.base.clone();
         let argv = s(&["--json", "--jev-url", &base, "--jev-model", "m", "--jev-auth", "none", "--allow-send", &host(&base), "shape", "juliet", "kilo", "lima"]);
         let (code, out) = query(&argv, &v, &[]).await;
         let objects = json_objects(&out);
         let kinds = kinds(&objects);
         assert_eq!(kinds.first().map(String::as_str), Some("local"));
-        assert_eq!(kinds.get(1).map(String::as_str), Some("judge"));
+        assert_eq!(kinds.get(1).map(String::as_str), Some("evidence"));
         assert_eq!(kinds.last().map(String::as_str), Some("done"));
-        assert!(kinds[2..kinds.len() - 1].iter().all(|k| k == "hit"), "{kinds:?}");
+        let rounds = kinds.iter().filter(|k| *k == "evidence").count();
+        assert!(kinds[1..=rounds].iter().all(|k| k == "evidence"), "{kinds:?}");
+        assert!(kinds[1 + rounds..kinds.len() - 1].iter().all(|k| k == "hit"), "{kinds:?}");
         let local = &objects[0];
-        let hit_count = local["hitCount"].as_u64().unwrap() as usize;
-        assert_eq!(kinds.len(), hit_count + 3);
         assert!(local["extractedTerms"].as_array().is_some_and(|t| !t.is_empty()) && local["time"].is_null());
-        let judge = &objects[1]["result"];
-        assert_eq!(judge["status"], "ok", "{judge}");
-        let hits = &objects[2..objects.len() - 1];
-        let tiered = hits.iter().filter(|h| !h["tier"].is_null()).count();
-        let moved = hits.iter().filter(|h| !h["movedFrom"].is_null()).count();
-        assert_eq!(tiered as u64, judge["judgedCount"].as_u64().unwrap());
-        assert_eq!(moved as u64, judge["rerankedCount"].as_u64().unwrap());
-        assert!(moved > 0);
-        // The fit hit is first, and its tier is the verdict for that result.
-        assert_eq!(hits[0]["tier"], "fit", "{:?}", hits[0]);
-        let first_id = judge["order"][0].as_str().unwrap();
-        let verdict = judge["verdicts"].as_array().unwrap().iter().find(|v| v["resultId"] == first_id).unwrap();
-        assert_eq!(verdict["tier"], "fit");
+        let first = &objects[1]["result"];
+        assert_eq!((first["status"].as_str(), first["hop"].as_u64()), (Some("ok"), Some(0)), "{first}");
+        let hits = &objects[1 + rounds..objects.len() - 1];
+        // Every local hit is listed once; the three are all evidence here.
+        assert_eq!(hits.len() as u64, local["hitCount"].as_u64().unwrap());
+        assert_eq!(hits.iter().filter(|h| !h["tier"].is_null()).count(), 3);
+        assert!(hits.iter().any(|h| !h["movedFrom"].is_null()));
+        // The fit block is first, and its tier is the evidence item's.
+        assert_eq!((hits[0]["path"].as_str(), hits[0]["tier"].as_str()), (Some("c.md"), Some("fit")), "{:?}", hits[0]);
+        let item = &first["evidence"][0];
+        assert_eq!((item["path"].as_str(), item["tier"].as_str()), (Some("c.md"), Some("fit")), "{first}");
         for (i, hit) in hits.iter().enumerate() {
             assert_eq!(hit["rank"], i + 1);
             for key in ["path", "line", "lineEnd", "level", "text"] {
@@ -904,17 +959,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn text_output_summarises_the_local_and_judge_lines_then_lists_hits() {
+    async fn text_output_summarises_the_local_and_evidence_lines_then_lists_hits() {
         let v = three_notes("plain mike november oscar");
-        let (base, _request, _accepted) = serve_once(200, answers(&[0.1, 0.5, 0.95]), Duration::ZERO).await;
+        let server = jev().await;
+        let base = server.base.clone();
         let argv = s(&["--jev-url", &base, "--jev-model", "m", "--jev-auth", "none", "--allow-send", &host(&base), "plain", "mike", "november", "oscar"]);
         let (_, out) = query(&argv, &v, &[]).await;
         let lines: Vec<&str> = out.lines().collect();
         assert!(lines[0].starts_with("local ") && lines[0].contains(" hits · ") && lines[0].ends_with(" ms"), "{out}");
-        assert!(lines[1].starts_with(&format!("judge ok · {} · 3 sent · ", host(&base))) && lines[1].ends_with(" moved"), "{out}");
-        assert!(lines[2].starts_with("1. ") && lines[2].contains(" [fit] "), "{out}");
+        assert!(lines[1].starts_with(&format!("evidence ok · {} · round 0 · 3 sent · ", host(&base))) && lines[1].ends_with(" 3 items"), "{out}");
+        let first_hit = lines.iter().position(|l| l.starts_with("1. ")).unwrap();
+        assert!(lines[1..first_hit].iter().all(|l| l.starts_with("evidence ")), "{out}");
+        assert!(lines[first_hit].starts_with("1. c.md:") && lines[first_hit].contains(" [fit] "), "{out}");
         assert!(lines.iter().any(|l| l.contains(" [unfit] ")), "{out}");
-        assert!(lines[3..].iter().all(|l| !l.contains("[unsure]")), "{out}");
+        assert!(lines[first_hit..].iter().all(|l| !l.contains("[unsure]")), "{out}");
     }
 
     #[tokio::test]
@@ -978,14 +1036,15 @@ mod tests {
             ("b.md", &format!("# B\n{words} second\n")),
             ("s.md", &format!("---\nprivate: true\n---\n# S\n{words} CLI_SECRET\n")),
         ]);
-        let (base, request, accepted) = serve_once(200, answers(&[0.9, 0.1]), Duration::ZERO).await;
+        let server = jev().await;
+        let base = server.base.clone();
         let argv = s(&["--json", "--jev-url", &base, "--jev-model", "m", "--jev-auth", "none", "--allow-send", &host(&base), "secret", "victor", "whiskey", "yoke"]);
         let (_, out) = query(&argv, &v, &[]).await;
-        let judge = &json_objects(&out)[1]["result"];
-        assert_eq!((judge["status"].as_str(), judge["skippedConfidential"].as_u64()), (Some("ok"), Some(1)), "{judge}");
-        let request = request.await.unwrap();
-        assert!(!request.contains("cli_secret"), "{request}");
-        assert_eq!(accepted.load(SeqCst), 1);
+        let first = &json_objects(&out)[1]["result"];
+        assert_eq!((first["status"].as_str(), first["skippedConfidential"].as_u64()), (Some("ok"), Some(1)), "{first}");
+        let bodies = server.bodies.lock().unwrap().clone();
+        assert!(!bodies.is_empty());
+        assert!(bodies.iter().all(|b| !b.contains("CLI_SECRET") && b.contains("first")), "{bodies:?}");
     }
 
     #[tokio::test]
@@ -1015,19 +1074,32 @@ mod tests {
         assert_eq!(code, 0);
         let objects = json_objects(&String::from_utf8(out).unwrap());
         assert_eq!(kinds(&objects), ["metrics", "metrics", "metrics", "gates"]);
+        assert_eq!((objects[0]["maxHops"].as_u64(), objects[0]["roundTimeoutMs"].as_u64()), (Some(1), Some(10_000)));
+        assert!(objects[0]["roundTokens"].as_array().is_some_and(|a| a.is_empty()), "{}", objects[0]);
+        assert!(objects[3]["c5"].is_null() && objects[3]["c5BridgeTasks"] == 0, "{}", objects[3]);
         let splits: Vec<&str> = objects[..3].iter().map(|o| o["split"].as_str().unwrap()).collect();
         assert_eq!(splits, ["all", "dev", "holdout"]);
         assert_eq!((objects[0]["tasks"].as_u64(), objects[1]["scored"].as_u64()), (Some(2), Some(1)));
         let rows = load_eval_rows(&std::fs::read_to_string(&rows_path).unwrap()).unwrap();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].route, Some(PipelineRoute::Local));
+        assert_eq!((rows[0].max_hops, rows[0].round_timeout_ms, rows[0].rounds.len()), (Some(1), Some(10_000), 0));
 
         let mut out = Vec::new();
         let args = run(&["--compare", rows_path.to_str().unwrap()]);
         run_eval(&args, v.root.path(), &v.index, &LookupParams::default(), &lookup, &mut out).await.unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.lines().next().is_some_and(|l| l.starts_with("metric") && l.contains("holdout")), "{text}");
-        assert!(text.contains("gates (holdout, timeout 3000 ms) · C3 "), "{text}");
+        assert!(
+            text.contains(
+                "gates (holdout, timeout 3000 ms, round timeout 10000 ms, maxHops 1) · C3 n/a (maxHops ≠ 0) · C4 n/a · C5 n/a (bridge tasks < 4)"
+            ),
+            "{text}"
+        );
+        // The evidence metrics are rows of the table (spec H.10).
+        for metric in ["maxHops", "roundTimeoutMs", "evidenceRecall10", "evidenceRecall10Round0", "expansionOnly", "lostByExpansion", "roundTimeoutRate"] {
+            assert!(text.lines().any(|l| l.split_whitespace().next() == Some(metric)), "{metric}: {text}");
+        }
         assert!(text.lines().any(|l| l.starts_with("netGain") && l.trim_end().ends_with('0')), "{text}");
         // A broken baseline is an error naming the line, before any lookup.
         std::fs::write(&rows_path, "{bad}\n").unwrap();
@@ -1063,7 +1135,9 @@ mod tests {
         run_eval(&argv(false), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(
-            text.contains("gates (holdout, timeout 5000 ms) · C3 n/a (timeout ≠ 3 s) · C4 n/a (timeout ≠ 3 s)"),
+            text.contains(
+                "gates (holdout, timeout 5000 ms, round timeout 10000 ms, maxHops 1) · C3 n/a (maxHops ≠ 0) · C4 n/a (timeout ≠ 3 s) · C5 n/a (bridge tasks < 4)"
+            ),
             "{text}"
         );
         assert!(text.lines().any(|l| l.starts_with("timeoutMs") && l.trim_end().ends_with("5000")), "{text}");
@@ -1071,9 +1145,28 @@ mod tests {
         run_eval(&argv(true), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
         let objects = json_objects(&String::from_utf8(out).unwrap());
         let gates = objects.iter().find(|o| o["kind"] == "gates").unwrap();
-        assert!(gates["c3"].is_null() && gates["c4"].is_null(), "{gates}");
-        assert_eq!((gates["timeoutMs"].as_u64(), gates["note"].as_str()), (Some(5_000), Some("timeout ≠ 3 s")));
+        assert!(gates["c3"].is_null() && gates["c4"].is_null() && gates["note"].is_null(), "{gates}");
+        assert_eq!((gates["timeoutMs"].as_u64(), gates["c4Note"].as_str()), (Some(5_000), Some("timeout ≠ 3 s")));
         assert_eq!(objects[0]["timeoutMs"], 5_000);
+        // Off the default round limit every gate is n/a (spec H.10), checked first.
+        let params = LookupParams {
+            retrieval: crate::lookup_params::RetrievalParams { round_timeout_ms: 5_000, ..Default::default() },
+            ..LookupParams::default()
+        };
+        let mut out = Vec::new();
+        run_eval(&argv(false), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains(
+                "gates (holdout, timeout 3000 ms, round timeout 5000 ms, maxHops 1) · C3 n/a (round timeout ≠ 10 s) · C4 n/a (round timeout ≠ 10 s) · C5 n/a (round timeout ≠ 10 s)"
+            ),
+            "{text}"
+        );
+        let mut out = Vec::new();
+        run_eval(&argv(true), v.root.path(), &v.index, &params, &lookup, &mut out).await.unwrap();
+        let objects = json_objects(&String::from_utf8(out).unwrap());
+        let gates = objects.iter().find(|o| o["kind"] == "gates").unwrap();
+        assert_eq!((gates["note"].as_str(), gates["roundTimeoutMs"].as_u64()), (Some("round timeout ≠ 10 s"), Some(5_000)), "{gates}");
     }
 
     #[tokio::test]

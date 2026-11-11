@@ -1,5 +1,6 @@
 //! Direct model clients for Smart Lookup: the Jev Noul protocol (candidate
-//! judging) and an OpenAI-compatible chat client (query repair).
+//! judging) and an OpenAI-compatible chat client (query repair, and the
+//! evidence answer).
 //!
 //! The host talks to a Jev-compatible decision service over plain HTTP — the
 //! official service, OpenRouter's Decisions endpoint or a self-hosted one —
@@ -364,8 +365,35 @@ pub async fn chat_complete(
         "response_format": {"type": "json_object"},
     });
     let bytes = post_once(client, &endpoint, &body, Some(key), timeout).await?;
+    chat_reply(&bytes)
+}
+
+/// One chat completion over the given messages (the evidence answer, spec
+/// H.4): body `{"model", "messages"}`, no `response_format`, no
+/// `temperature`, not streamed, posted to `chat_endpoint(&config.url)` with
+/// `Authorization: Bearer <key>`. The same refusals, the single request and
+/// the reply contract as [`chat_complete`].
+pub async fn chat_messages(
+    client: &reqwest::Client,
+    config: &ChatConfig,
+    key: &str,
+    messages: &[serde_json::Value],
+    timeout: Duration,
+) -> Result<ChatOutcome, ModelError> {
+    validate_chat_config(config).map_err(ModelError::Invalid)?;
+    if key.is_empty() {
+        return Err(ModelError::Invalid("bearer mode needs a key".into()));
+    }
+    let endpoint = chat_endpoint(&config.url).map_err(ModelError::Invalid)?;
+    let body = serde_json::json!({"model": config.model, "messages": messages});
+    let bytes = post_once(client, &endpoint, &body, Some(key), timeout).await?;
+    chat_reply(&bytes)
+}
+
+/// `choices[0].message.content` (a string) and the usage, from a 2xx body.
+fn chat_reply(bytes: &[u8]) -> Result<ChatOutcome, ModelError> {
     let invalid = |m: &str| ModelError::Invalid(m.to_string());
-    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| invalid("response is not JSON"))?;
+    let value: serde_json::Value = serde_json::from_slice(bytes).map_err(|_| invalid("response is not JSON"))?;
     let content = value
         .pointer("/choices/0/message/content")
         .and_then(|c| c.as_str())
@@ -443,6 +471,144 @@ pub(crate) mod test_support {
             }
         });
         (base, request_rx, accepted)
+    }
+
+    /// A local Jev stand-in that answers every question it is asked:
+    /// `noul = score(question entry)` for each `questions` key, plus
+    /// `usage.input_tokens = 10` per request. The `n`-th request (from 0)
+    /// waits `delay(n)` first. Keeps every request body as received, and its
+    /// header block lower-cased.
+    pub(crate) struct NoulServer {
+        pub base: String,
+        pub bodies: Arc<std::sync::Mutex<Vec<String>>>,
+        pub heads: Arc<std::sync::Mutex<Vec<String>>>,
+        pub accepted: Arc<AtomicUsize>,
+    }
+
+    pub(crate) async fn serve_noul(
+        score: impl Fn(&serde_json::Value) -> f64 + Send + Sync + 'static,
+        delay: impl Fn(usize) -> Duration + Send + Sync + 'static,
+    ) -> NoulServer {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}/v1", listener.local_addr().unwrap());
+        let bodies = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let heads = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let accepted = Arc::new(AtomicUsize::new(0));
+        let server = NoulServer { base, bodies: bodies.clone(), heads: heads.clone(), accepted: accepted.clone() };
+        let (score, delay) = (Arc::new(score), Arc::new(delay));
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    break;
+                };
+                let n = accepted.fetch_add(1, Ordering::SeqCst);
+                let (bodies, heads, score, delay) = (bodies.clone(), heads.clone(), score.clone(), delay.clone());
+                tokio::spawn(async move {
+                    let mut received = Vec::new();
+                    let mut chunk = [0u8; 8192];
+                    let body = loop {
+                        let read = stream.read(&mut chunk).await.unwrap_or(0);
+                        if read == 0 {
+                            return;
+                        }
+                        received.extend_from_slice(&chunk[..read]);
+                        let text = String::from_utf8_lossy(&received).to_string();
+                        if let Some(end) = text.find("\r\n\r\n") {
+                            let length = text[..end]
+                                .lines()
+                                .find_map(|l| l.to_lowercase().strip_prefix("content-length:").map(|v| v.trim().to_string()))
+                                .and_then(|v| v.parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if received.len() >= end + 4 + length {
+                                heads.lock().unwrap().push(text[..end].to_lowercase());
+                                break String::from_utf8_lossy(&received[end + 4..end + 4 + length]).to_string();
+                            }
+                        }
+                    };
+                    bodies.lock().unwrap().push(body.clone());
+                    tokio::time::sleep(delay(n)).await;
+                    let parsed: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                    let answers: serde_json::Map<String, serde_json::Value> = parsed["questions"]
+                        .as_object()
+                        .map(|questions| {
+                            questions
+                                .iter()
+                                .map(|(id, q)| (id.clone(), serde_json::json!({"type": "noul", "noul": score(q)})))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let out =
+                        serde_json::json!({"answers": answers, "usage": {"input_tokens": 10, "output_tokens": 1}}).to_string();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{out}",
+                        out.len()
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                });
+            }
+        });
+        server
+    }
+
+    /// A local chat stand-in: the `n`-th request (from 0) is answered with
+    /// `replies[n]` as `choices[0].message.content` (the last one again when
+    /// they run out), with usage 10 / 2. Keeps every request body as received.
+    pub(crate) struct ChatServer {
+        pub base: String,
+        pub bodies: Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    pub(crate) async fn serve_chat_replies(replies: &[&str]) -> ChatServer {
+        let replies: Vec<String> = replies.iter().map(|r| r.to_string()).collect();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}/v1", listener.local_addr().unwrap());
+        let bodies = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let server = ChatServer { base, bodies: bodies.clone() };
+        tokio::spawn(async move {
+            let mut n = 0usize;
+            loop {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    break;
+                };
+                let mut received = Vec::new();
+                let mut chunk = [0u8; 8192];
+                let body = loop {
+                    let read = stream.read(&mut chunk).await.unwrap_or(0);
+                    if read == 0 {
+                        break None;
+                    }
+                    received.extend_from_slice(&chunk[..read]);
+                    let text = String::from_utf8_lossy(&received).to_string();
+                    if let Some(end) = text.find("\r\n\r\n") {
+                        let length = text[..end]
+                            .lines()
+                            .find_map(|l| l.to_lowercase().strip_prefix("content-length:").map(|v| v.trim().to_string()))
+                            .and_then(|v| v.parse::<usize>().ok())
+                            .unwrap_or(0);
+                        if received.len() >= end + 4 + length {
+                            break Some(String::from_utf8_lossy(&received[end + 4..end + 4 + length]).to_string());
+                        }
+                    }
+                };
+                let Some(body) = body else { continue };
+                bodies.lock().unwrap().push(body);
+                let content = replies.get(n).or(replies.last()).cloned().unwrap_or_default();
+                n += 1;
+                let out = serde_json::json!({
+                    "choices": [{"message": {"content": content}}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+                })
+                .to_string();
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{out}",
+                    out.len()
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+                let _ = stream.shutdown().await;
+            }
+        });
+        server
     }
 }
 
@@ -683,6 +849,27 @@ mod tests {
         let cfg = ChatConfig { url: base, model: "chat-m".into() };
         assert_eq!(chat_complete(&client, &cfg, "k1", "s", "u", LIMIT).await.unwrap().usage, None);
         assert!(matches!(chat_complete(&client, &cfg, "", "s", "u", LIMIT).await, Err(ModelError::Invalid(_))));
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn chat_messages_sends_the_messages_without_json_mode() {
+        let client = reqwest::Client::new();
+        let body = r#"{"choices":[{"message":{"content":"答 [1]"}}],"usage":{"prompt_tokens":20,"completion_tokens":4}}"#;
+        let (base, request, accepted) = serve_once(200, body, Duration::ZERO).await;
+        let cfg = ChatConfig { url: base, model: "chat-m".into() };
+        let messages = [serde_json::json!({"role":"system","content":"SYS"}), serde_json::json!({"role":"user","content":"Q"})];
+        let outcome = chat_messages(&client, &cfg, "k1", &messages, LIMIT).await.unwrap();
+        let request = request.await.unwrap();
+        assert!(request.starts_with("post /v1/chat/completions "), "{request}");
+        assert!(request.contains("authorization: bearer k1"), "{request}");
+        let body: serde_json::Value = serde_json::from_str(&request[request.find("\r\n\r\n").unwrap() + 4..]).unwrap();
+        assert_eq!(body, serde_json::json!({"model":"chat-m","messages":[{"role":"system","content":"sys"},{"role":"user","content":"q"}]}));
+        assert_eq!(outcome, ChatOutcome { content: "答 [1]".into(), usage: Some(Usage { input_tokens: 20, output_tokens: 4 }) });
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+        assert!(matches!(chat_messages(&client, &cfg, "", &messages, LIMIT).await, Err(ModelError::Invalid(_))));
+        let insecure = ChatConfig { url: "http://x.example/v1".into(), model: "m".into() };
+        assert!(matches!(chat_messages(&client, &insecure, "k1", &messages, LIMIT).await, Err(ModelError::Invalid(_))));
         assert_eq!(accepted.load(Ordering::SeqCst), 1);
     }
 

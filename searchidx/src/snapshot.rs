@@ -95,6 +95,31 @@ fn require_ready(conn: &rusqlite::Connection, root: &std::path::Path) -> Result<
     Ok(())
 }
 
+/// The compatibility gate for every read-only opener of an existing index
+/// (`SearchIndex::open_existing_at`, `sag::SagReader::open_existing_at`): the
+/// schema version, tokenizer id, source-glob stamp and vault root must all
+/// match. Readiness (`built_at`) is the caller's own decision.
+pub(crate) fn check_index_meta(
+    conn: &rusqlite::Connection,
+    root: &std::path::Path,
+    globs: &str,
+) -> Result<(), String> {
+    for (key, expected) in [
+        ("schema_version", crate::store::SCHEMA_VERSION.to_string()),
+        ("tokenizer_id", crate::tokenize::TOKENIZER_ID.to_string()),
+        ("source_globs", globs.to_string()),
+        ("vault_root", crate::paths::normalized_vault_root(root)),
+    ] {
+        let actual: String = conn
+            .query_row("SELECT value FROM meta WHERE key=?1", [key], |r| r.get(0))
+            .map_err(|_| "INDEX_NOT_READY: rebuild index first")?;
+        if actual != expected {
+            return Err("INDEX_NOT_READY: rebuild index first".into());
+        }
+    }
+    Ok(())
+}
+
 fn read_unit(
     row: &rusqlite::Row<'_>,
     file: &File,
@@ -203,19 +228,7 @@ impl SearchIndex {
                 .map_err(|e| format!("INDEX_NOT_READY: {e}"))?;
         conn.busy_timeout(std::time::Duration::from_secs(2))
             .map_err(|e| e.to_string())?;
-        for (key, expected) in [
-            ("schema_version", crate::store::SCHEMA_VERSION.to_string()),
-            ("tokenizer_id", crate::tokenize::TOKENIZER_ID.to_string()),
-            ("source_globs", globs.to_string()),
-            ("vault_root", crate::paths::normalized_vault_root(root)),
-        ] {
-            let actual: String = conn
-                .query_row("SELECT value FROM meta WHERE key=?1", [key], |r| r.get(0))
-                .map_err(|_| "INDEX_NOT_READY: rebuild index first")?;
-            if actual != expected {
-                return Err("INDEX_NOT_READY: rebuild index first".into());
-            }
-        }
+        check_index_meta(&conn, root, globs)?;
         if crate::store::meta_get(&conn, "built_at").is_none() {
             return Err("INDEX_NOT_READY: initial build incomplete".into());
         }
@@ -423,6 +436,33 @@ impl SearchIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The metadata gate shared with `sag::SagReader::open_existing_at`, seen
+    /// through this opener: a stale glob stamp or another vault root is
+    /// rejected; a matching index without `built_at` is not ready; a built one
+    /// opens.
+    #[test]
+    fn open_existing_at_checks_the_shared_metadata_gate_then_built_at() {
+        let d = tempfile::tempdir().unwrap();
+        let root = d.path().join("vault");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.md"), "alpha\n").unwrap();
+        let db = d.path().join("i.db");
+        let mut index = SearchIndex::open_at(&root, &db, "g").unwrap();
+        index.index_one("a.md", &crate::ScanOptions::default()).unwrap();
+        let not_built = SearchIndex::open_existing_at(&root, &db, "g").err().unwrap();
+        assert_eq!(not_built, "INDEX_NOT_READY: initial build incomplete");
+        index.rebuild(&crate::ScanOptions::default()).unwrap();
+        assert!(SearchIndex::open_existing_at(&root, &db, "g").is_ok());
+        let stale = SearchIndex::open_existing_at(&root, &db, "other").err().unwrap();
+        assert_eq!(stale, "INDEX_NOT_READY: rebuild index first");
+        let elsewhere = SearchIndex::open_existing_at(&d.path().join("elsewhere"), &db, "g").err().unwrap();
+        assert_eq!(elsewhere, "INDEX_NOT_READY: rebuild index first");
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        assert!(check_index_meta(&conn, &root, "g").is_ok());
+        assert_eq!(check_index_meta(&conn, &root, "x").err().unwrap(), "INDEX_NOT_READY: rebuild index first");
+    }
+
     #[test]
     fn large_atlas_and_range_metadata_do_not_retain_unit_rows() {
         let (_root, mut index) = fixture();
