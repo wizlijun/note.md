@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1111.5 — 2026-11-11
+
 - **Restore Linux Sumi typing sounds during IME composition.** Preedit changes now provide feedback before text is committed, without extra sounds for repeated updates or clearing composition; the sound toggle remains effective.
 
 ## v6.1111.4 — 2026-11-11
