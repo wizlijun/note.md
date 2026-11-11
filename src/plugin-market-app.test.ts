@@ -71,7 +71,7 @@ vi.mock('./lib/i18n/store.svelte', () => {
     'pluginCategory.reflect': 'Review',
     'pluginCategory.create': 'Write',
     'pluginCategory.importExport': 'Import & Export',
-    'pluginCategory.experience': 'Extensions',
+    'pluginCategory.experience': 'Other',
     'pluginMarket.aiTitle': 'Create with AI',
     'pluginMarket.aiSubtitle': 'Focused AI collaborators for understanding, ideas, and action.',
     'pluginMarket.aiBadge.read': 'AI Read',
@@ -398,7 +398,7 @@ describe('plugin market staged loading', () => {
     component = mount(PluginMarketApp, { target: document.body })
     await vi.waitFor(() => expect(document.querySelectorAll('.plugin-card')).toHaveLength(13))
     expect([...document.querySelectorAll('.category-block h2')].map((node) => node.textContent))
-      .toEqual(['AI', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Extensions'])
+      .toEqual(['AI', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Other'])
     expect(document.querySelectorAll('[data-category="record"] .plugin-card')).toHaveLength(3)
     expect(document.querySelectorAll('[data-category="create"] .plugin-card')).toHaveLength(2)
     expect(document.querySelectorAll('[data-category="experience"] .plugin-card')).toHaveLength(3)

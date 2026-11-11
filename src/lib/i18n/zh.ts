@@ -302,7 +302,7 @@ export const zh: Record<keyof Messages, string> = {
   'pluginCategory.reflect': '回顾',
   'pluginCategory.create': '写作',
   'pluginCategory.importExport': '数据导入导出',
-  'pluginCategory.experience': '其他增强',
+  'pluginCategory.experience': '其他',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': '插件市场',

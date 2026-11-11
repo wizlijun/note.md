@@ -300,7 +300,7 @@ export const de: Record<keyof Messages, string> = {
   'pluginCategory.reflect': 'Rückblick',
   'pluginCategory.create': 'Schreiben',
   'pluginCategory.importExport': 'Importieren & Exportieren',
-  'pluginCategory.experience': 'Erweiterungen',
+  'pluginCategory.experience': 'Sonstiges',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'Plugin-Markt',
