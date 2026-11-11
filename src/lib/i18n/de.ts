@@ -1005,6 +1005,7 @@ export const de: Record<keyof Messages, string> = {
   "smartSearch.fallback.answerNotConfigured": "Kein Endpunkt zum Schreiben von Antworten eingerichtet, daher wurde keine Antwort geschrieben.",
   "smartSearch.fallback.answerFailed": "Keine belegte Antwort möglich; unten die bestätigten Belege.",
   "smartSearch.fallback.answerStopped": "Antwort gestoppt; unten die bestätigten Belege.",
+  "smartSearch.fallback.checkUnfinished": "Die Belegprüfung wurde nicht abgeschlossen; die Antwort stützt sich nur auf die bisher bestätigten Belege.",
   "smartSearch.footer.sending": "Sende an {hosts} · vertrauliche Notizen werden nicht gesendet",
   "smartSearch.footer.sent": "Gesendet an {hosts} · {n} Absätze insgesamt · keine vertraulichen Notizen",
   "smartSearch.footer.sentCompact": "An {count} Host(s) gesendet · {n} Absätze · keine vertraulichen Notizen",

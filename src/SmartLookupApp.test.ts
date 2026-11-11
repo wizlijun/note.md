@@ -1160,14 +1160,26 @@ describe('SmartLookupApp fallbacks', () => {
     expect(document.body.textContent).not.toContain('4xx')
   })
 
-  it('a failed round after a scored one discards that round, keeps the local results and retries on Return', async () => {
+  it('a failed round after a scored one is dropped; the answer is written from the evidence already confirmed, with one line', async () => {
     useLocal()
     configureBoth()
-    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), step({ hop: 1, status: 'timeout', done: true, evidence: [ev('e1', 0)] }))
+    mocks.evidenceQueue.push(
+      step({ evidence: [ev('e1', 0), ev('e2', 0, { tier: 'unfit' })] }),
+      step({ hop: 1, status: 'timeout', done: true, evidence: [ev('e9', 1)], run: runTotals({ sentBlocks: 40 }) }),
+    )
+    mocks.answers.push(answered({ text: 'PARTIAL [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(fallback()).toContain('timed out'))
-    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('PARTIAL 1'))
+    // Only the evidence round 0 confirmed went to the answer host; the failed round is dropped whole.
+    expect(calls('smart_lookup_answer')).toEqual([expect.objectContaining({ lookupRunId: 'run-1', evidenceIds: ['e1'] })])
+    expect(ids('source')).toEqual(['e1'])
+    expect(document.body.textContent).not.toContain('LOCAL_PASSAGE_e9')
+    expect(fallback()).toBe("The evidence check didn't finish; the answer uses only the evidence confirmed so far.")
+    expect(chip()).toBe('Grounded · 1 source(s)')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 40 passages in all · no confidential notes sent')
+
+    // Return retries the whole lookup.
     mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
     mocks.answers.push(answered({ text: 'OK [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
     key(input, 'Enter')
@@ -1176,6 +1188,43 @@ describe('SmartLookupApp fallbacks', () => {
     expect(calls('smart_lookup_evidence_step').map((call) => [call.lookupRunId, call.trigger])).toEqual([
       ['run-1', 'auto'], ['run-1', 'auto'], ['run-2', 'auto'],
     ])
+  })
+
+  it('a later round the host refuses outright also answers from the confirmed evidence', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), new Error('lookup run expired at /Users/me/vault'))
+    mocks.answers.push(answered({ text: 'PARTIAL [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('PARTIAL 1'))
+    expect(calls('smart_lookup_answer')).toEqual([expect.objectContaining({ evidenceIds: ['e1'] })])
+    expect(fallback()).toBe("The evidence check didn't finish; the answer uses only the evidence confirmed so far.")
+    expect(document.body.textContent).not.toContain('/Users/me')
+  })
+
+  it('a failed round after a scored one with nothing confirmed keeps the local results and one line', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0, { tier: 'unsure' })] }), step({ hop: 1, status: 'timeout', done: true }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toContain('timed out'))
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(document.querySelector('.no-match')).toBeNull()
+    expect(ids('local')).toEqual(LOCAL)
+    expect(chip()).toBe('Local results only')
+  })
+
+  it('without consent for the answer host, a failed later round still lists the confirmed sources', async () => {
+    useLocal()
+    configureBoth({ ...CHAT })
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), step({ hop: 1, status: 'unreachable', done: true }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('Sending to chat.example is not allowed, so no answer was written. Settings'))
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(ids('source')).toEqual(['e1'])
   })
 
   it('no consent for the Jev host sends nothing and links to the settings', async () => {

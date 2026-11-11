@@ -269,6 +269,12 @@ describe('fallbackLine', () => {
     expect(line({ ...sources, answer: answer(null, [], { status: 'noConsent' }) })?.settings).toBe(true)
     expect(line({ ...sources, answerStopped: true })?.text).toBe('已停止写回答，下面是确认过的依据。')
   })
+  it('above an answer written from the evidence confirmed before a later round failed (I5)', () => {
+    const interrupted = { ...finished([item('a')], { done: false, stop: null }), done: true, interrupted: true }
+    expect(line({ phase: 'answer', evidence: interrupted, header: degraded('timeout') }))
+      .toEqual({ text: '依据没有核对完，回答只根据已经确认的依据。', settings: false })
+    expect(lookupPhase({ working: false, evidence: interrupted, answer: null, cited: 0, hits: 3, zeroHitsTried: false })).toBe('sources')
+  })
   it('nothing while working, with an answer, or when nothing answers', () => {
     for (const phase of ['working', 'answer', 'noAnswer'] as const) expect(line({ phase, header: degraded('timeout') })).toBeNull()
   })

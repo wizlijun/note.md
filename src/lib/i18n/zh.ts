@@ -1044,6 +1044,7 @@ export const zh: Record<keyof Messages, string> = {
   "smartSearch.fallback.answerNotConfigured": "没有设置写回答的接口，没有写回答。",
   "smartSearch.fallback.answerFailed": "没能写出有依据的回答，下面是确认过的依据。",
   "smartSearch.fallback.answerStopped": "已停止写回答，下面是确认过的依据。",
+  "smartSearch.fallback.checkUnfinished": "依据没有核对完，回答只根据已经确认的依据。",
   "smartSearch.footer.sending": "正在发送到 {hosts} · 保密笔记不发送",
   "smartSearch.footer.sent": "本次发送到 {hosts} · 共 {n} 段 · 保密笔记未发送",
   "smartSearch.footer.sentCompact": "本次发送到 {count} 个主机 · {n} 段 · 保密笔记未发送",

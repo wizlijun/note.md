@@ -2,7 +2,7 @@ import type { Messages } from '../i18n/en'
 import type { SearchHit } from '../search/api'
 import type { AnswerResult, EvidenceItem, TermGroup, Tier } from './api'
 import type { AttemptKind, HeaderState, LookupAttempt } from './enhance-flow'
-import { answerParts, evidenceFinished, fitEvidence, type AnswerGate, type EvidenceView } from './evidence-flow'
+import { answerable, answerParts, evidenceFinished, fitEvidence, type AnswerGate, type EvidenceView } from './evidence-flow'
 import { hitKey } from './hit-key'
 
 // Pure state for the answer-first lookup window (plan 2026-11-11): what the
@@ -13,7 +13,8 @@ export type ViewMessage = { key: keyof Messages; params: Record<string, string |
 /**
  * `working`: evidence rounds or the answer are running. `answer`: a cited
  * answer. `sources`: confirmed sources without an answer (the answer was not
- * allowed, failed or was stopped). `noAnswer`: nothing in the notes answers
+ * allowed, failed or was stopped). Both also follow a later round that
+ * failed after earlier ones confirmed evidence (`answerable`). `noAnswer`: nothing in the notes answers
  * the question. `local`: local results only.
  */
 export type LookupPhase = 'local' | 'working' | 'answer' | 'sources' | 'noAnswer'
@@ -113,7 +114,7 @@ export function lookupPhase(input: {
   if (input.working) return 'working'
   if (input.answer?.status === 'ok' && input.cited > 0) return 'answer'
   if (isNoAnswer(input.evidence, input.zeroHitsTried, input.hits)) return 'noAnswer'
-  if (evidenceFinished(input.evidence) && fitEvidence(input.evidence).length > 0) return 'sources'
+  if (answerable(input.evidence)) return 'sources'
   return 'local'
 }
 
@@ -161,7 +162,8 @@ const REASON = {
 
 /**
  * The one line above the local results (or the confirmed sources) when the
- * answer could not be grounded or written. It carries only the host name and
+ * answer could not be grounded or written, or above an answer written before
+ * the evidence check finished. It carries only the host name and
  * the reason class, never remote text; `settings` adds the 「设置」 link.
  */
 export function fallbackLine(input: {
@@ -189,6 +191,8 @@ export function fallbackLine(input: {
     if (input.answer?.status === 'noConsent') return line('smartSearch.fallback.answerNoConsent', { host: input.answer.endpointHost ?? '' }, true)
     return line('smartSearch.fallback.answerFailed')
   }
+  // The answer stands on the evidence confirmed before a later round failed (I5): say the check did not finish.
+  if (input.phase === 'answer') return input.evidence.interrupted ? line('smartSearch.fallback.checkUnfinished') : null
   if (input.phase !== 'local') return null
   if (input.disabled) return line('smartSearch.fallback.notEnabled', {}, true)
   const header = input.header

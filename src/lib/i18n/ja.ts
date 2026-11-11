@@ -1005,6 +1005,7 @@ export const ja: Record<keyof Messages, string> = {
   "smartSearch.fallback.answerNotConfigured": "回答を書く接続先が設定されていないため、回答は書いていません。",
   "smartSearch.fallback.answerFailed": "根拠のある回答を書けませんでした。下は確認済みの根拠です。",
   "smartSearch.fallback.answerStopped": "回答の作成を停止しました。下は確認済みの根拠です。",
+  "smartSearch.fallback.checkUnfinished": "根拠の確認は最後まで終わりませんでした。回答は確認済みの根拠だけに基づいています。",
   "smartSearch.footer.sending": "{hosts} に送信中 · 機密ノートは送信しません",
   "smartSearch.footer.sent": "今回の送信先 {hosts} · 計 {n} 段落 · 機密ノートは送信していません",
   "smartSearch.footer.sentCompact": "今回の送信先 {count} ホスト · {n} 段落 · 機密ノートは送信していません",

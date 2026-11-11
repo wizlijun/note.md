@@ -45,15 +45,16 @@
     type LookupAttempt,
   } from './lib/smart-search/enhance-flow'
   import {
+    answerable,
     answerGate,
     answerParts,
     applyRound,
     confirmedCount,
     emptyEvidence,
     emptyTotals,
-    evidenceFinished,
     fitEvidence,
     headerFromStep,
+    interruptRun,
     shouldStartEvidence,
     totalsOf,
     type AnswerGate,
@@ -728,7 +729,9 @@
    * user stops, or a newer lookup supersedes it. Never two steps on one run;
    * `auto` continues as `auto` only on the run it started on; a
    * `roundRunning` answer is ignored entirely. Rounds apply as they arrive. A
-   * failed or stopped round leaves the local results as they are. When the
+   * failed round is dropped whole: after a scored round with confirmed
+   * evidence the answer is written from that evidence (I5), otherwise the
+   * local results stay as they are. A stopped round is dropped. When the
    * rounds finish with confirmed evidence, the answer starts (ruling A).
    */
   async function runEvidence(mine: number, trigger: Trigger): Promise<void> {
@@ -765,9 +768,12 @@
         if (inflight?.token !== token || mine !== requestSequence) return
         inflight = null
         evidenceBusy = false
-        workStartedAt = null
         evidenceError = true
         appendActivity('judge', 'error', `evidence failed: ${redactError(error)}`)
+        // A later round that fails keeps what the earlier ones confirmed (I5).
+        evidence = interruptRun(evidence)
+        if (answerable(evidence)) await startAnswer(mine)
+        else workStartedAt = null
         return
       }
       // What the host sent is the run's, whether or not this result is still wanted: after
@@ -795,7 +801,8 @@
     }
     inflight = null
     evidenceBusy = false
-    if (evidenceFinished(evidence) && fitEvidence(evidence).length > 0) await startAnswer(mine)
+    // Finished, or a later round failed after earlier ones confirmed evidence (I5): answer from it.
+    if (answerable(evidence)) await startAnswer(mine)
     else workStartedAt = null
   }
 

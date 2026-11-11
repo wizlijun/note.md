@@ -1055,6 +1055,7 @@ export const en = {
   "smartSearch.fallback.answerNotConfigured": "No endpoint for writing answers is set up, so no answer was written.",
   "smartSearch.fallback.answerFailed": "Couldn't write a grounded answer; below are the confirmed sources.",
   "smartSearch.fallback.answerStopped": "Stopped writing the answer; below are the confirmed sources.",
+  "smartSearch.fallback.checkUnfinished": "The evidence check didn't finish; the answer uses only the evidence confirmed so far.",
   "smartSearch.footer.sending": "Sending to {hosts} · confidential notes are not sent",
   "smartSearch.footer.sent": "Sent to {hosts} · {n} passages in all · no confidential notes sent",
   "smartSearch.footer.sentCompact": "Sent to {count} host(s) · {n} passages · no confidential notes sent",
