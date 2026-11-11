@@ -873,21 +873,29 @@ mod tests {
         assert!(!body.contains("chaired"), "{body}");
     }
 
-    /// Each host code has a message in every locale (`smartSearch.answer.error.*`).
+    /// The budget codes are a stable host contract. The window shows no per-code copy: every
+    /// answer failure maps to the single `smartSearch.fallback.answerFailed` line (plan behaviour 7).
     #[test]
-    fn every_budget_error_code_has_a_message_in_every_locale() {
+    fn budget_error_codes_are_stable_and_the_window_shows_one_fallback_line() {
+        assert_eq!(BudgetError::QuestionTooLarge.code(), "questionTooLarge");
+        assert_eq!(BudgetError::SourceTooLarge.code(), "sourceTooLarge");
+        assert_eq!(BudgetError::OutputReserve.code(), "outputReserve");
         let locales = [
             include_str!("../../../src/lib/i18n/en.ts"),
             include_str!("../../../src/lib/i18n/zh.ts"),
             include_str!("../../../src/lib/i18n/de.ts"),
             include_str!("../../../src/lib/i18n/ja.ts"),
         ];
-        // The window maps each code to its message (`answerErrorKey`).
+        const VIEW: &str = include_str!("../../../src/lib/smart-search/answer-view.ts");
         const FLOW: &str = include_str!("../../../src/lib/smart-search/evidence-flow.ts");
+        // Any other answer status ends in the single failure line.
+        assert!(VIEW.contains("return line('smartSearch.fallback.answerFailed')"));
+        assert!(locales.iter().all(|l| l.contains("\"smartSearch.fallback.answerFailed\"")));
+        // No per-code copy or mapping comes back.
         for error in [BudgetError::QuestionTooLarge, BudgetError::SourceTooLarge, BudgetError::OutputReserve] {
             let key = format!("smartSearch.answer.error.{}", error.code());
-            assert!(locales.iter().all(|l| l.contains(&format!("\"{key}\""))), "{key}");
-            assert!(FLOW.contains(&format!("{}: '{key}'", error.code())), "{key} is not mapped in evidence-flow.ts");
+            assert!(locales.iter().all(|l| !l.contains(&key)), "{key} is back in a locale");
+            assert!(!VIEW.contains(&key) && !FLOW.contains(&key), "{key} is mapped in the window");
         }
     }
 

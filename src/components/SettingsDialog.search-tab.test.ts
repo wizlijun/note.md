@@ -663,8 +663,14 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     if (!found) throw new Error(`section "${title}" not found`)
     return found
   }
-  const jevSection = () => section('Lookup enhancement')
-  const chatSection = () => section('Query repair model')
+  const jevSection = () => section('Check the evidence · Jev')
+  const chatSection = () => section('Write the answer and rephrase · OpenAI-compatible endpoint')
+  const SWITCH_TITLE = 'Answer with sources when you press Return'
+  const switchSection = () => {
+    const found = Array.from(document.body.querySelectorAll('section.block')).find((candidate) => candidate.textContent?.includes(SWITCH_TITLE))
+    if (!found) throw new Error('switch section not found')
+    return found
+  }
 
   function field<T extends HTMLElement>(root: Element, label: string, selector: string): T {
     const row = Array.from(root.querySelectorAll('label.row')).find(
@@ -722,7 +728,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     openSettings('enhance')
     await settle()
     expect(document.body.querySelector('.current-page')?.textContent).toBe('Lookup enhancement')
-    expect(jevSection().textContent).toContain('Enable lookup enhancement')
+    expect(switchSection().textContent).toContain(SWITCH_TITLE)
   })
 
   it('is hidden on iOS and a request for it is dropped', async () => {
@@ -735,7 +741,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     openSettings('enhance')
     await settle()
     expect(document.body.querySelector('.current-page')?.textContent).not.toBe('Lookup enhancement')
-    expect(document.body.textContent).not.toContain('Enable lookup enhancement')
+    expect(document.body.textContent).not.toContain(SWITCH_TITLE)
   })
 
   it('choosing OpenRouter fills the URL and consent is bound to the shown host', async () => {
@@ -925,8 +931,8 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     })
     await openEnhanceTab()
     const chat = chatSection()
-    expect(chat.textContent).toContain('Query repair (when nothing is found) sends only the question and search terms, never note content.')
-    expect(chat.textContent).toContain('An answer, if you allow it below, sends the question and the evidence passages.')
+    expect(chat.textContent).toContain('Writing an answer sends the question and the confirmed evidence passages; rephrasing (when nothing is found) sends only the question and search terms.')
+    expect(chat.textContent).toContain('Each answer sends the question and the evidence passages; notes marked confidential never are.')
     await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
     await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
     expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x', consentHost: '' })
@@ -942,15 +948,20 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
 
   it('the enable switch, budget and request example are on the page', async () => {
     await openEnhanceTab()
-    const enabled = field<HTMLInputElement>(jevSection(), 'Enable lookup enhancement', 'input[type="checkbox"]')
+    const enabled = field<HTMLInputElement>(switchSection(), SWITCH_TITLE, 'input[type="checkbox"]')
     expect(enabled.checked).toBe(true)
+    expect(switchSection().textContent).toContain('Set up once.')
     enabled.click()
     await settle()
     expect(settings.smartLookup.enhance.enabled).toBe(false)
-    expect(jevSection().textContent).toContain('By default, per Return: up to 2 rounds')
+    expect(jevSection().textContent).toContain('By default, per Return: the evidence check runs up to 2 rounds, up to 65 passages and 10 seconds per round, then writes 1 answer')
     expect(jevSection().textContent).toContain('at most 200,000 tokens')
     expect(jevSection().textContent).toContain('earlier evidence passages again in later rounds')
-    expect(jevSection().querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
+    // The example is collapsed until asked for.
+    const example = jevSection().querySelector<HTMLDetailsElement>('details.enhance-example')!
+    expect(example.open).toBe(false)
+    expect(example.querySelector('summary')?.textContent).toBe('View an example of what is sent')
+    expect(example.querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
   })
 
   it('gives every enhance form field a real accessible name', async () => {

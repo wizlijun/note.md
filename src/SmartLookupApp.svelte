@@ -928,20 +928,6 @@
     row?.scrollIntoView?.({ block: 'nearest' })
   }
 
-  /** Change the stored lookup settings from this window: re-read first so other fields are not overwritten with stale values. */
-  async function persistSmartLookup(change: (value: SmartLookupSettings) => void): Promise<void> {
-    change(settings.smartLookup)
-    try {
-      await loadSettings()
-      change(settings.smartLookup)
-      await saveSettings()
-    } catch {
-      // The in-memory value still applies to this window. No error text: it may name local paths.
-      change(settings.smartLookup)
-      appendActivity('settings', 'error', t('smartSearch.enhance.settingsSaveFailed'))
-    }
-  }
-
   async function openEnhanceSettings(): Promise<void> {
     try {
       const { emitTo } = await import('@tauri-apps/api/event')
@@ -1023,10 +1009,6 @@
   }
 
   // ---- launch view ----
-
-  async function dismissFirstRun(): Promise<void> {
-    await persistSmartLookup((value) => { value.launch.firstRunSeen = true })
-  }
 
   function runRecent(entry: string): void {
     inputValue = entry
@@ -1393,12 +1375,10 @@
 
   {#if mode === 'idle'}
     <LaunchView
-      showFirstRun={ready && !settings.smartLookup.launch.firstRunSeen}
-      showEmpty={ready && settings.smartLookup.launch.firstRunSeen}
+      showEmpty={ready}
       {recent}
       counts={recentCounts}
       selected={recentIndex}
-      onDismissFirstRun={() => void dismissFirstRun()}
       onRun={runRecent}
       onClear={clearRecentLookups}
     />
@@ -1559,6 +1539,9 @@
       <span class="footer-line compact" aria-hidden="true">{t(footer.compact.key, footer.compact.params)}</span>
     {/if}
     <span class="spacer"></span>
+    {#if mode === 'idle' && ready && settings.smartLookup.enhance.enabled}
+      <button class="enhance-chip" onclick={() => void openEnhanceSettings()}><span class="dot" aria-hidden="true"></span>{t('smartSearch.launch.enhanceOn')}</button>
+    {/if}
     <span class="footer-hint"><kbd>esc</kbd> {working ? t('smartSearch.footer.escStop') : t('smartSearch.footer.escClose')}</span>
     <button
       bind:this={menuButton}
@@ -1667,6 +1650,8 @@
   .footer-line { min-width: 0; font-size: 11.5px; color: var(--lookup-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .footer-line.compact { display: none; }
   .spacer { flex: 1; }
+  .enhance-chip { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; border: 1px solid var(--lookup-border); border-radius: 12px; background: Canvas; font: inherit; font-size: 12px; color: var(--lookup-muted); }
+  .enhance-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: #28a745; }
   .footer-hint { font-size: 11.5px; color: var(--lookup-muted); white-space: nowrap; }
   .footer-actions { padding: 2px 6px; border: 0; border-radius: 5px; background: transparent; font-size: 11px; color: var(--lookup-muted); }
   .footer-actions:hover { background: var(--lookup-soft); color: CanvasText; }

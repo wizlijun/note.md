@@ -2108,7 +2108,6 @@
           </div>
         {/snippet}
         <section class="block">
-          <h3>{t('settings.tab.enhance')}</h3>
           <label class="row">
             <input type="checkbox" checked={enhance.enabled} onchange={(event) => {
               enhance.enabled = event.currentTarget.checked; void saveSettings()
@@ -2116,6 +2115,9 @@
             <span class="lbl">{t('settings.enhance.enabled')}</span>
           </label>
           <p class="desc">{t('settings.enhance.enabledHint')}</p>
+        </section>
+        <section class="block">
+          <h3>{t('settings.enhance.jevTitle')}</h3>
           <label class="row">
             <span class="lbl">{t('settings.enhance.service')}</span>
             <select value={enhance.jev.preset} onchange={(event) => chooseJevPreset(event.currentTarget.value as JevPreset)}>

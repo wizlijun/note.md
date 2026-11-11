@@ -119,6 +119,13 @@ describe('removed Smart Lookup copy', () => {
     'smartSearch.evidence.searching', 'smartSearch.evidence.start', 'smartSearch.evidence.terms',
     'smartSearch.evidence.termsNothingNew', 'smartSearch.evidence.title', 'smartSearch.evidence.tooLarge',
     'smartSearch.evidence.updated',
+    // Answer-first Task C: the first-run explainer is gone (nothing to read or dismiss).
+    'smartSearch.enhance.firstRunTitle', 'smartSearch.enhance.firstRunDismiss', 'smartSearch.enhance.firstRunOnce',
+    'smartSearch.enhance.firstRunClose', 'smartSearch.enhance.firstRunStep1Lead', 'smartSearch.enhance.firstRunStep1',
+    'smartSearch.enhance.firstRunStep2Lead', 'smartSearch.enhance.firstRunStep2', 'smartSearch.enhance.firstRunStep3Lead',
+    'smartSearch.enhance.firstRunStep3', 'smartSearch.enhance.firstRunFootnote',
+    // Nothing in the window writes settings any more (the first-run note was the only writer).
+    'smartSearch.enhance.settingsSaveFailed',
   ]
   it.each([['en', en], ['zh', zh], ['ja', ja], ['de', de]])('is gone from the %s catalog', (_name, catalog) => {
     expect(removed.filter((key) => key in catalog)).toEqual([])
