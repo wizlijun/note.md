@@ -106,6 +106,7 @@
     header: HeaderState
     evidence: EvidenceView
     totals: EvidenceTotals
+    nextHop: number
     evidenceRunId: string
     evidenceDeep: boolean
     localTiers: Map<string, Tier>
@@ -1045,6 +1046,7 @@
     header = view.header
     evidence = view.evidence
     totals = view.totals
+    hostNextHop = view.nextHop
     evidenceRunId = view.evidenceRunId
     evidenceDeep = view.evidenceDeep
     localTiers = view.localTiers
@@ -1112,7 +1114,7 @@
       if (mine !== requestSequence) return
       if (!repaired && lastLocal) {
         originalView = {
-          ...lastLocal, header, evidence, totals, evidenceRunId, evidenceDeep, localTiers, offerStart: offerStart || stoppedRound,
+          ...lastLocal, header, evidence, totals, nextHop: hostNextHop, evidenceRunId, evidenceDeep, localTiers, offerStart: offerStart || stoppedRound,
         }
       }
       resetEvidence()
