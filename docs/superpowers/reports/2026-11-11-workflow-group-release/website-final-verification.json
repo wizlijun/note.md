@@ -1,0 +1,231 @@
+{
+  "source_commit": "e4486a80613eca18fd509efd4e54605e3efd1392",
+  "wrangler_version": "3.114.17",
+  "route": "https://plugins.notemd.net/",
+  "worker": "notemd-plugins",
+  "version_id": "1addd9b2-99f6-42a0-9dfd-93a29990c280",
+  "channel": "Existing Wrangler 3.114.17 + Account API Token; no OAuth, KV or R2 writes",
+  "source_files_sha256": {
+    "src/page.ts": "46b5e009091c987e067bbb5e6bb32cc54680879e9fdc60298bb758ae09aa2795",
+    "src/index.ts": "257d247753b8723f3242b811b23064f23dcf1ca8272031c6ff47e22d83b16c23",
+    "wrangler.toml": "d0275683e452182f4fc9a7d77f33da4465124ce918891333802200b46267d3f3"
+  },
+  "public_checks": [
+    {
+      "name": "normal",
+      "url": "https://plugins.notemd.net/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "2d1680b8d7ea34bd85c2556da669fecbb275c08e6111b66a81bc051c137e17dc",
+      "frozen_source_exact": true
+    },
+    {
+      "name": "fresh",
+      "url": "https://plugins.notemd.net/?lang=zh&verify=1794374776630",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "2d1680b8d7ea34bd85c2556da669fecbb275c08e6111b66a81bc051c137e17dc",
+      "frozen_source_exact": true
+    }
+  ],
+  "rendered_checks": [
+    {
+      "lang": "en",
+      "plugin_count": 319,
+      "old_sumi_and_idea_metadata_map_to": "create",
+      "group_order": [
+        "ai",
+        "record",
+        "reading",
+        "create",
+        "advance",
+        "reflect",
+        "import-export",
+        "experience"
+      ],
+      "rendered_headings": [
+        "AI",
+        "Capture",
+        "Read",
+        "Write",
+        "Advance",
+        "Review",
+        "Import & Export",
+        "Other"
+      ],
+      "rendered_grid": true
+    },
+    {
+      "lang": "zh",
+      "plugin_count": 319,
+      "old_sumi_and_idea_metadata_map_to": "create",
+      "group_order": [
+        "ai",
+        "record",
+        "reading",
+        "create",
+        "advance",
+        "reflect",
+        "import-export",
+        "experience"
+      ],
+      "rendered_headings": [
+        "AI",
+        "捕捉",
+        "阅读",
+        "写作",
+        "推进",
+        "回顾",
+        "数据导入导出",
+        "其他"
+      ],
+      "rendered_grid": true
+    }
+  ],
+  "latest_releases": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.15",
+      "category": "create",
+      "name": "Sumi Write",
+      "localized_names": {
+        "en": "Sumi Write",
+        "zh": "玄霜写作"
+      }
+    },
+    {
+      "id": "notemd.idea-spark",
+      "version": "1.3.9",
+      "category": "create",
+      "name": "Idea Spark",
+      "localized_names": {
+        "en": "Idea Spark",
+        "zh": "奇思妙想"
+      }
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "category": "record",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "name": "Apple Notes Sync",
+      "i18n": {
+        "zh": {
+          "name": "Apple Notes 同步",
+          "description": "按 Apple Notes 的账户和文件夹组织方式生成可读的只读 Markdown 路径，来源 ID 统一保存在 applenotes/id-sync.json。仅 macOS 可用。",
+          "menus": {
+            "open": "同步 Apple Notes…"
+          }
+        },
+        "ja": {
+          "name": "Apple Notes 同期",
+          "description": "Apple Notes の構成を読みやすい Markdown パスへ同期し、ソース ID は applenotes/id-sync.json で一元管理します。macOS 専用です。",
+          "menus": {
+            "open": "Apple Notes を同期…"
+          }
+        },
+        "de": {
+          "name": "Apple Notes-Synchronisierung",
+          "description": "Spiegelt Apple Notes in lesbare, schreibgeschützte Markdown-Pfade; Quell-IDs werden zentral in applenotes/id-sync.json verwaltet. Nur für macOS.",
+          "menus": {
+            "open": "Apple Notes synchronisieren…"
+          }
+        }
+      }
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "category": "record",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "name": "Roam Research Sync",
+      "i18n": {
+        "zh": {
+          "name": "Roam Research 同步",
+          "description": "无需离开 Roam Research；将其中的页面和每日笔记同步为 Vault 内的 `.note.md` 文件，汇集数据供 Agent 统一检索和计算。",
+          "menus": {
+            "open": "同步 Roam Research…"
+          },
+          "windows": {
+            "main": "Roam Research 同步"
+          }
+        },
+        "ja": {
+          "name": "Roam Research 同期",
+          "description": "Roam Research を使い続けながら、ページとデイリーノートを Vault の `.note.md` ファイルへ同期し、Agent が横断的に検索・処理できるようにします。",
+          "menus": {
+            "open": "Roam Research を同期…"
+          },
+          "windows": {
+            "main": "Roam Research 同期"
+          }
+        },
+        "de": {
+          "name": "Roam-Research-Synchronisierung",
+          "description": "Roam Research weiter nutzen und Seiten sowie tägliche Notizen als `.note.md`-Dateien ins Vault synchronisieren, damit Agents die gesammelten Daten durchsuchen und verarbeiten können.",
+          "menus": {
+            "open": "Roam Research synchronisieren…"
+          },
+          "windows": {
+            "main": "Roam-Research-Synchronisierung"
+          }
+        }
+      }
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "category": "record",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "name": "Health Sync",
+      "i18n": {
+        "zh": {
+          "name": "健康数据同步",
+          "description": "原始健康数据保存在 Vault 外的 SQLite 资料库；支持 Apple 文件增量导入、Garmin/Oura 多账号导入与 API 增量，以及 Agent 检索 CLI。",
+          "menus": {
+            "open": "导入健康数据…"
+          },
+          "windows": {
+            "main": "健康数据同步"
+          }
+        },
+        "ja": {
+          "name": "ヘルスデータ同期",
+          "description": "Appleヘルスケアの書き出しとGarmin/Ouraの詳細データをMacで収集。日別アーカイブ、カテゴリ表示、差分同期、CLIに対応。",
+          "menus": {
+            "open": "ヘルスデータを読み込む…"
+          },
+          "windows": {
+            "main": "ヘルスデータ同期"
+          }
+        },
+        "de": {
+          "name": "Gesundheitsdaten synchronisieren",
+          "description": "Apple-Health-Exporte und Garmin-/Oura-Details auf dem Mac sammeln: ein tägliches Archiv mit Kategorien, inkrementeller Synchronisierung und CLI.",
+          "menus": {
+            "open": "Gesundheitsdaten importieren…"
+          },
+          "windows": {
+            "main": "Gesundheitsdaten synchronisieren"
+          }
+        }
+      }
+    }
+  ],
+  "index_entries": 319,
+  "index_sha256": "6ff7520e841717678bdac85897b8ff595f18eaf7f65d3e1b62deb0051be306eb",
+  "normal_fresh_index_exact": true,
+  "verified_at": "2026-11-11T05:26:18.439Z",
+  "index_migration_receipt": "../../capture-plugin-release-20261111/plugins-index-verification.json",
+  "tests": "24 passed; explicit installed Cloudflare ambient types typecheck passed",
+  "verification_note": "Anonymous HTTP full-body comparison plus served page JavaScript rendered with the current public index in JSDOM; new three-plugin index publication recorded separately; this verifier performs no external writes."
+}

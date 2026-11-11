@@ -1,0 +1,30 @@
+{
+  "worktrees": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "head": "fe88d1258d8b54b9681ae7ebf1bb80b63f754368",
+      "status": " M searchidx/src/store.rs\n M src-tauri/src/smart_lookup.rs\n?? docs/superpowers/specs/2026-11-11-workflow-group-release.md\n"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-plugin-release-20261111",
+      "head": "b88edb93c5c09611ad9d888177b3814ce2ab3d64",
+      "status": ""
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-sumi-release-20261111",
+      "head": "a56e861dd71708feb98a623a50dc45bd73b8300d",
+      "status": ""
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-writing-release-20261111",
+      "head": "a56e861dd71708feb98a623a50dc45bd73b8300d",
+      "status": "MM plugins-src/idea-spark/manifest.v2.json\nMM plugins-src/write/manifest.v2.json\nMM scripts/gen-plugin-index.mjs\nMM scripts/gen-plugin-index.test.ts\nMM src-tauri/src/lib.rs\nMM src-tauri/src/plugin_host.rs\nMM src-tauri/src/plugin_runtime/adapter.rs\nMM src/lib/i18n/de.ts\nMM src/lib/i18n/en.ts\nMM src/lib/i18n/ja.ts\nMM src/lib/i18n/zh.ts\nMM src/lib/plugins/categories.test.ts\nMM src/lib/plugins/categories.ts\nMM src/plugin-market-app.svelte\nMM src/plugin-market-app.test.ts\n"
+    }
+  ],
+  "branches": "main fe88d1258d8b54b9681ae7ebf1bb80b63f754368\nrelease/plugins-20261111-create b88edb93c5c09611ad9d888177b3814ce2ab3d64\nrelease/sumi-20261111 a56e861dd71708feb98a623a50dc45bd73b8300d\nrelease/writing-groups-20261111 6f6c1443c96f874f9d10b56d3516c7f42bceb999\n",
+  "unmergedMain": "fe88d125 Record verified host grouping changes and website rollout\n47a2cff3 Align native plugin menus with eight workflow categories\n4103c96f Record deployed writing workflow groups and category-only index migration\ne4486a80 Use Other as the final plugin category label\n51a1db53 Use Other as the final plugin group label\nada5978e Label the final plugin category Other\ndf051fdf Unify marketplace workflow groups and context capture sources\n660c4da3 Align host plugin groups with Capture and Write workflow\nef9499f9 Align plugin manifests and registry categories with writing workflow\n4805a39a Record published Create plugin updates and public website verification\ncf10a449 Record deployed Create grouping website verification\n45dde57f release: record creation package offline verification\n9fac3c2a release: prepare verified creation plugin publisher\ne786cf0b Align marketplace Create order with host categories\nd2545784 Merge marketplace inspiration plugins into Create\n3f83f013 Merge native inspiration menus into Create and include Sumi Write\n4efc77e7 Unify inspiration and Sumi Write under the creation category\n5b87fcc2 Record published Sumi Write release and Faitc5 companion verification\n9717662f Require approved Faitc5 companion packages before Mac release publication\n1aa63388 Attach approved modified Faitc5 installer to macOS releases\n4938ba27 Rename Sumi writing plugin display brand to Sumi Write\n48ce1498 Complete Sumi Write labels in document actions and accessibility\n6f0e3e05 Document Sumi Write naming scope and release rebuild\nb751d7dd Rename Sumi writing surfaces to Sumi Write and 玄霜写作\n8e76b6ea docs(sumi): record window acceptance and sync recovery validation\ne6a2098f feat(sumi): adapt macOS windows and default new windows to fullscreen\n49e203c6 feat(sumi): add macOS fullscreen startup preference UI\n08d42615 fix(sumi): preserve durable identity for local cloud echoes\n79ff7479 docs(sumi): record platform parity audit and unresolved rendering report\nf0343d3f fix(sumi): align focus timing and usable viewport on macOS\nf7e5c147 fix(sumi): keep macOS candidates above reserved bottom space\n35611925 fix(sumi): align fullscreen font sizing on macOS and Linux\ne5c323d8 fix(sumi): route Linux Shift Enter through hard break action\n93775741 fix(sumi): silence frozen drafts and command shortcut typing sounds\n",
+  "stash": "stash@{0}: On main: codex-before-git-pull-2026-11-10\n",
+  "stashFiles": " CHANGELOG.md                                       |  6 ++\n CHANGELOG.zh-CN.md                                 |  6 ++\n .../specs/2026-11-07-immersive-write-design.md     | 24 ++++++\n plugins-src/write/src/contract.ts                  |  5 +-\n plugins-src/write/src/main.test.ts                 | 80 +++++++++++++++++-\n plugins-src/write/src/main.ts                      | 14 +++-\n plugins-src/write/src/style.css                    | 12 ++-\n scripts/sumi/build.mjs                             |  2 +-\n scripts/sumi/native/build.rs                       |  1 +\n scripts/sumi/run-native.mjs                        |  2 +-\n scripts/sumi/verify-release.py                     |  2 +-\n searchidx/src/store.rs                             |  2 +-\n src-tauri/src/smart_lookup.rs                      |  2 +-\n src-tauri/src/sumi/mod.rs                          | 38 ++++++++-\n tauri-plugin-native-editor/build.rs                |  1 +\n tauri-plugin-native-editor/native/editor.m         | 95 ++++++++++++++++++----\n tauri-plugin-native-editor/src/lib.rs              | 17 ++++\n 17 files changed, 276 insertions(+), 33 deletions(-)\n",
+  "baseTag": "a56e861dd71708feb98a623a50dc45bd73b8300d",
+  "scope": "New host must branch from published v6.1111.1 and cherry-pick only reviewed category changes. main SmartLookup changes, original store/smart_lookup dirty EOF changes and stash are excluded. Prior release branches are evidence, not automatically new scope."
+}
