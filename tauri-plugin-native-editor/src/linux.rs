@@ -1314,8 +1314,12 @@ pub fn mount(
                 let mut iter = b.iter_at_offset(char_offset(&text(&b), viewport.start));
                 s.updating.set(true);
                 s.view.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
-                let adjustment = s.scroll.vadjustment();
-                adjustment.set_value(adjustment.value() + viewport.offset);
+                // scroll_to_iter may defer until GTK validates the new text
+                // layout. Writing the old adjustment back cancels that scroll.
+                if viewport.offset != 0. {
+                    let adjustment = s.scroll.vadjustment();
+                    adjustment.set_value(adjustment.value() + viewport.offset);
+                }
                 s.updating.set(false);
             }
         }
@@ -1889,6 +1893,59 @@ mod tests {
         assert_eq!(shortcut(z, M::CONTROL_MASK | M::SHIFT_MASK), Some("redo"));
         assert_eq!(shortcut(I, M::SUPER_MASK), None);
         assert_eq!(shortcut(b, M::CONTROL_MASK | M::SHIFT_MASK), None);
+    }
+    #[test]
+    #[ignore = "requires isolated GTK display"]
+    fn native_entry_at_document_end() {
+        fn settle() {
+            for _ in 0..50 {
+                while gtk::events_pending() { gtk::main_iteration_do(false); }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        gtk::init().unwrap();
+        let app = gtk::Application::new(Some("net.notemd.sumi.entry-test"), gtk::gio::ApplicationFlags::NON_UNIQUE);
+        app.register(None::<&gtk::gio::Cancellable>).unwrap();
+        let window = gtk::ApplicationWindow::new(&app);
+        window.set_default_size(800, 500);
+        window.add(&gtk::Label::new(Some("private entry test")));
+        window.show_all();
+        let mut sample = "长文中文😀\n".repeat(150);
+        sample.push_str("最后一行😀");
+        for generation in 1..=2 {
+            let end = sample.encode_utf16().count() as u32;
+            mount(&window, "entry", SurfaceConfig {
+                surface_id: "entry".into(), generation, revision: 0,
+                bounds: Bounds { x: 0., y: 0., width: 800., height: 500. },
+                appearance: Appearance::default(),
+                document: RenderDocument { text: sample.clone(), runs: vec![] },
+                selection: TextRange { start: end, length: 0 },
+                viewport: Viewport { start: end, offset: 0. },
+            }, Arc::new(|event| match event {
+                NativeEvent::Edit { base_revision, .. } => Ok((base_revision + 1).into()),
+                _ => Ok(0.into()),
+            }), None).unwrap();
+            command("entry", "entry", generation, SurfaceCommand::Focus).unwrap();
+            settle();
+            let s = surface("entry", "entry", generation).unwrap();
+            assert_eq!((s.selection().start, s.selection().length), (end, 0));
+            let (cursor, _) = s.view.cursor_locations(None);
+            let (_, y) = s.view.buffer_to_window_coords(gtk::TextWindowType::Widget, cursor.x(), cursor.y());
+            assert!(y >= 0 && y + cursor.height() <= s.view.allocated_height(), "last-line caret outside viewport: {y}");
+            s.buffer().insert_at_cursor("追加");
+            assert_eq!(text(&s.buffer()), format!("{sample}追加"));
+            s.buffer().place_cursor(&s.buffer().start_iter());
+            command("entry", "entry", generation, SurfaceCommand::PreparePanel).unwrap();
+            command("entry", "entry", generation, SurfaceCommand::SetVisible { visible: false }).unwrap();
+            command("entry", "entry", generation, SurfaceCommand::SetVisible { visible: true }).unwrap();
+            command("entry", "entry", generation, SurfaceCommand::Focus).unwrap();
+            assert_eq!(s.selection().start, 0, "ordinary refocus must preserve the editing position");
+            detach("entry", "entry", generation).unwrap();
+            window.hide();
+            window.show_all();
+            sample.push_str("\n");
+        }
+        window.close();
     }
     #[test]
     #[ignore = "requires isolated Wayland compositor, grim, magick and SUMI_NATIVE_DAMAGE_DIR"]

@@ -761,6 +761,18 @@ fn resolve_reading_position(p: &Paper) -> Result<(native::TextRange, native::Vie
     // them resolvable later. Never reinterpret another page's offsets.
     resolved
 }
+fn initial_reading_position(p: &mut Paper, window: &str) -> (native::TextRange, native::Viewport) {
+    if is_plugin_window(window) {
+        // Sumi opens ready to continue writing; offsets belong to the rendered
+        // UTF-16 document, not the Markdown source or its UTF-8 byte length.
+        let end = p.view.document.text.encode_utf16().count() as u32;
+        p.position_resolved = true;
+        return (native::TextRange { start: end, length: 0 }, native::Viewport { start: end, offset: 0. });
+    }
+    let restored = resolve_reading_position(p);
+    p.position_resolved = p.position.is_none() || restored.is_ok();
+    restored.unwrap_or_default()
+}
 async fn load_position(ws: &Workspace, page: &str) -> Result<()> {
     if ws.papers.lock().map_err(err)?.get(page).is_some_and(|p| p.position.is_some()) { return Ok(()); }
     let value = ws.durable.preferences(format!("readingPosition:{page}")).await?;
@@ -2064,9 +2076,7 @@ async fn mount<R: Runtime>(
                 return Ok(existing_editor(page_id));
             }
         }
-        let restored = resolve_reading_position(p);
-        p.position_resolved = p.position.is_none() || restored.is_ok();
-        let (selection, viewport) = restored.unwrap_or_default();
+        let (selection, viewport) = initial_reading_position(p, window.label());
         p.cleanup_snapshot = None;
         p.owner = Some(Owner {
             window: window.label().into(),
@@ -4456,6 +4466,30 @@ mod tests {
         assert_eq!(state_value(&ws).await.unwrap()["saveState"],"error");
         ws.papers.lock().unwrap().get_mut(&id).unwrap().error=None;
         assert_eq!(state_value(&ws).await.unwrap()["saveState"],"projection-pending");
+    }
+    #[tokio::test]
+    async fn sumi_entry_starts_at_rendered_end_without_replacing_tab_reading_position() {
+        for body in ["", "中文😀", "## 标题\n**正文😀**\n", "第一行\n最后一行\n"] {
+            let (_temp,ws,id)=fixture().await;
+            let mut papers=ws.papers.lock().unwrap();let p=papers.get_mut(&id).unwrap();
+            p.doc.replace(0,0,0,body,1).unwrap();p.view=SourceMap::new(&p.doc.body(),p.doc.revision());
+            let end=p.view.document.text.encode_utf16().count() as u32;
+            let saved=end.min(1);
+            let owner=p.owner.as_mut().unwrap();
+            owner.selection=native::TextRange{start:saved,length:0};
+            owner.viewport=native::Viewport{start:saved,offset:3.};
+            p.position=reading_position(p).unwrap();
+            let before=p.doc.body();let revision=p.doc.revision();
+            let label=crate::plugin_runtime::windows::window_label(PLUGIN,"main");
+            let (selection,viewport)=initial_reading_position(p,&label);
+            assert_eq!((selection.start,selection.length),(end,0));
+            assert_eq!((viewport.start,viewport.offset),(end,0.));
+            assert!(p.position_resolved);
+            let (selection,viewport)=initial_reading_position(p,"main");
+            assert_eq!((selection.start,selection.length),(saved,0));
+            assert_eq!((viewport.start,viewport.offset),(saved,3.));
+            assert_eq!(p.doc.body(),before);assert_eq!(p.doc.revision(),revision);
+        }
     }
     #[tokio::test]
     async fn small_reading_preferences_survive_reload_and_remote_insert_without_changing_text_history() {

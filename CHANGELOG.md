@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Continue Sumi writing at the end.** Opening or reopening the Sumi window now places the caret at the end of the rendered page and keeps the final line visible, including long Linux documents. Returning from settings preserves the current editing position.
+
 ## v6.1112.1 — 2026-11-12
 
 - **Complete Linux Sumi IME typing feedback.** The host and r4 input-method companion use physical key events for Chinese punctuation, Space/Enter confirmation, deleting the last composition character, candidate navigation, and numeric selection. Forwarded keys are paired to avoid duplicate sounds while held-key repeats remain audible. Update both the host and companion module.
