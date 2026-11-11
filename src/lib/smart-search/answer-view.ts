@@ -73,9 +73,22 @@ export function otherResults<T extends SearchHit>(input: {
   return { evidence, local }
 }
 
-/** Plan behaviour 6: the rounds finished and no shown evidence is `fit`; or no try found anything. */
+/**
+ * At least one round sent passages and came back scored. A run can end
+ * `done` before that (the evidence is too large, the budget, no terms, no
+ * candidates on round 0): then nothing was judged.
+ */
+export function judgedAnything(view: EvidenceView): boolean {
+  return view.rounds.length > 0
+}
+
+/**
+ * Plan behaviour 6: the rounds finished, at least one of them judged
+ * passages, and no shown evidence is `fit`; or no try found anything. A run
+ * that judged nothing says nothing about the local results.
+ */
 export function isNoAnswer(view: EvidenceView, zeroHitsTried: boolean, hits: number): boolean {
-  if (evidenceFinished(view)) return fitEvidence(view).length === 0
+  if (evidenceFinished(view) && judgedAnything(view)) return fitEvidence(view).length === 0
   return hits === 0 && zeroHitsTried
 }
 
@@ -90,7 +103,7 @@ export function lookupPhase(input: {
   if (input.working) return 'working'
   if (input.answer?.status === 'ok' && input.cited > 0) return 'answer'
   if (isNoAnswer(input.evidence, input.zeroHitsTried, input.hits)) return 'noAnswer'
-  if (evidenceFinished(input.evidence)) return 'sources'
+  if (evidenceFinished(input.evidence) && fitEvidence(input.evidence).length > 0) return 'sources'
   return 'local'
 }
 
@@ -181,6 +194,7 @@ export function fallbackLine(input: {
   }
   if (input.evidenceError) return line('smartSearch.fallback.error')
   if (input.evidence.done && input.evidence.stop === 'indexChanged') return line('smartSearch.evidence.indexChanged')
+  if (evidenceFinished(input.evidence) && !judgedAnything(input.evidence)) return line('smartSearch.fallback.nothingToCheck')
   return null
 }
 

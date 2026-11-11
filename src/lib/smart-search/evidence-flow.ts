@@ -69,22 +69,18 @@ export function headerFromStep(result: EvidenceStepResult): HeaderState {
   }
 }
 
-/** What a run sent and left out (the F.3 details, without the reorder lines), as the host counts it. */
+/** What a run sent, as the host counts it: the footer's host and passage count, and the order of results. */
 export interface EvidenceTotals {
-  /** The host passages went to; null while nothing was sent. */
+  /** The Jev host passages went to; null while nothing was sent. */
   host: string | null
-  requests: number
-  elapsedMs: number
+  /** Distinct passages sent over the run. */
   sent: number
-  tokens: number
-  confidential: number
-  stale: number
-  /** Blocks too long to send, alone (`skippedLong`) or in any batch (`skippedOversize`). */
-  long: number
+  /** The run's time so far; a newer result for the run has at least this. */
+  elapsedMs: number
 }
 
 export function emptyTotals(): EvidenceTotals {
-  return { host: null, requests: 0, elapsedMs: 0, sent: 0, tokens: 0, confidential: 0, stale: 0, long: 0 }
+  return { host: null, sent: 0, elapsedMs: 0 }
 }
 
 /**
@@ -94,17 +90,7 @@ export function emptyTotals(): EvidenceTotals {
  * evidence the window drops after a stop.
  */
 export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
-  const run = result.run
-  return {
-    host: run.endpointHost,
-    requests: run.requests,
-    elapsedMs: run.elapsedMs,
-    sent: run.sentBlocks,
-    tokens: run.tokens,
-    confidential: run.skippedConfidential,
-    stale: run.skippedStale,
-    long: run.skippedLong + run.skippedOversize,
-  }
+  return { host: result.run.endpointHost, sent: result.run.sentBlocks, elapsedMs: result.run.elapsedMs }
 }
 
 /**

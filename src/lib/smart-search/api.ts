@@ -84,7 +84,7 @@ export interface EvidenceStepResult {
 }
 
 /**
- * 「生成简答」 (spec H.4). `text` is the model's answer, set only when `status` is
+ * The cited answer (spec H.4, written automatically per ruling A). `text` is the model's answer, set only when `status` is
  * `ok`: the one remote text the window shows, as plain text, never logged.
  * `sources` maps each cited number `[id]` to the evidence item it came from.
  */
@@ -117,7 +117,6 @@ export interface RepairSuggestion {
   usage: Usage | null
 }
 
-export interface Diagnosis { terms: { term: string; hits: number; capped: boolean }[] }
 export interface GroupLookupResponse extends LocalLookupResponse { groupCounts: number[]; hitGroups: number[][] }
 export interface KeyStatus { jev: boolean; chat: boolean }
 export interface ConnectionTest {
@@ -132,26 +131,26 @@ export const smartSearchApi = {
   /** Enter: local results plus a retained lookup run; never starts a model. */
   localLookup: (
     question: string,
-    options: { limit?: number; deep?: boolean; timeoutMs?: number; timeMode?: TimeMode } = {},
+    options: { limit?: number; deep?: boolean; timeoutMs?: number } = {},
   ) => invoke<LocalLookupResponse>('smart_lookup_local', {
     question,
     limit: options.limit,
     deep: options.deep,
     timeoutMs: options.timeoutMs,
-    timeMode: options.timeMode,
   }),
   /** One evidence round (at most one batch sequence); the host owns the hop counter. */
   evidenceStep: (lookupRunId: string, jev: JevRequestConfig, trigger: Trigger, deep: boolean) =>
     invoke<EvidenceStepResult>('smart_lookup_evidence_step', { lookupRunId, jev, trigger, deep }),
   /**
-   * User action only: sends the question and the checked evidence passages to the repair model's host (needs its consent).
-   * `evidenceIds` is the list on screen, in its order; the host answers only from those it handed out on the run.
+   * The automatic answer (ruling A): the window asks for it once the evidence rounds are done, while the window is
+   * visible, and only when the answer model's host has the user's consent; the host checks that consent again and
+   * sends the question and the checked evidence passages to the answer model's host.
+   * `evidenceIds` is the fit evidence on screen, in its order; the host answers only from those it handed out on the run.
    * A failure that is the host's own is a stable code (`questionTooLarge`, `sourceTooLarge`, `outputReserve`).
    */
   answer: (lookupRunId: string, chat: ChatAnswerConfig, evidenceIds: string[]) =>
     invoke<AnswerResult>('smart_lookup_answer', { lookupRunId, chat, evidenceIds }),
   cancel: (lookupRunId: string) => invoke<void>('smart_lookup_cancel', { lookupRunId }),
-  diagnose: (lookupRunId: string) => invoke<Diagnosis>('smart_lookup_diagnose', { lookupRunId }),
   /** Sends only the question and search terms, never note content. */
   repairSuggest: (lookupRunId: string, chat: ChatRequestConfig, trigger: Trigger) =>
     invoke<RepairSuggestion>('smart_lookup_repair_suggest', { lookupRunId, chat, trigger }),

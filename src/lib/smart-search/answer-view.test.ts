@@ -42,6 +42,16 @@ function finished(items: EvidenceItem[], extra: Partial<EvidenceStepResult> = {}
   return applyRound(emptyEvidence(), step)
 }
 
+function stepOf(items: EvidenceItem[]): EvidenceStepResult {
+  return {
+    status: 'ok', stop: null, skipReason: null, missing: null, endpointHost: null, statusClass: null, hop: 0, terms: [],
+    evidence: items, localTiers: [], done: false, requestCount: 1, poolSize: 0, candidates: 0, sentBlocks: 0,
+    skippedConfidential: 0, skippedStale: 0, skippedLong: 0, skippedOversize: 0, estimatedTokens: 0, tokensUsed: 0, usage: null,
+    elapsedMs: 0, nextHop: 1,
+    run: { endpointHost: null, requests: 0, elapsedMs: 0, sentBlocks: 0, tokens: 0, skippedConfidential: 0, skippedStale: 0, skippedLong: 0, skippedOversize: 0 },
+  }
+}
+
 function answer(text: string | null, sources: AnswerResult['sources'], extra: Partial<AnswerResult> = {}): AnswerResult {
   return {
     status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null, text, sources,
@@ -117,7 +127,31 @@ describe('the no-answer decision and the phase', () => {
   it('no answer when the rounds finished and nothing shown is fit', () => {
     expect(isNoAnswer(finished([item('a', 'unfit'), item('b', 'unsure')]), false, 3)).toBe(true)
     expect(isNoAnswer(finished([item('a', 'unfit'), item('b')]), false, 3)).toBe(false)
-    expect(isNoAnswer(finished([], { status: 'skipped', stop: 'noTerms' }), false, 3)).toBe(true)
+  })
+  it.each([
+    ['evidenceTooLarge', 'skipped'],
+    ['budget', 'ok'],
+    ['noTerms', 'skipped'],
+    ['candidatesEmpty', 'ok'],
+  ] as const)('a run that ended on round 0 with %s judged nothing: local results and one line, not "no answer"', (stop, status) => {
+    const view = finished([], { status, stop, requestCount: 0 })
+    expect(view.rounds).toEqual([])
+    expect(isNoAnswer(view, false, 3)).toBe(false)
+    const phase = lookupPhase({ working: false, evidence: view, answer: null, cited: 0, hits: 3, zeroHitsTried: false })
+    expect(phase).toBe('local')
+    expect(text(statusChip(phase, { seconds: 0, sources: 0, busy: false }))).toBe('只有本地结果')
+    const line = fallbackLine({
+      phase, header: { kind: 'none' }, evidence: view, disabled: false, evidenceError: false, jevHost: 'localhost:8080',
+      answerGate: null, answer: null, answerStopped: false,
+    })
+    expect(text(line)).toBe('这次没有可以核对的段落，下面是本地结果。')
+    expect(line?.settings).toBe(false)
+  })
+  it('the same stops after a scored round are judged: nothing fit means no answer', () => {
+    const scored = finished([item('a', 'unfit')], { done: false, stop: null })
+    const view = applyRound(scored, { ...stepOf([]), stop: 'budget', done: true, status: 'ok', hop: 1 })
+    expect(view.rounds).toHaveLength(1)
+    expect(isNoAnswer(view, false, 3)).toBe(true)
   })
   it('a failed, stopped or unfinished run is not "no answer"', () => {
     expect(isNoAnswer(finished([], { status: 'timeout', stop: null }), false, 3)).toBe(false)
@@ -186,8 +220,8 @@ describe('fallbackLine', () => {
   }
 
   it('one line above the local results, with 「设置」 only when there is something to set', () => {
-    expect(line({ disabled: true })).toEqual({ text: '未开启查找增强，只显示本地结果。', settings: true })
-    expect(line({ header: degraded('notConfigured', null) })).toEqual({ text: '未开启查找增强，只显示本地结果。', settings: true })
+    expect(line({ disabled: true })).toEqual({ text: '查找增强还没设置好，只显示本地结果。', settings: true })
+    expect(line({ header: degraded('notConfigured', null) })).toEqual({ text: '查找增强还没设置好，只显示本地结果。', settings: true })
     expect(line({ header: degraded('noConsent') })).toEqual({ text: '没有允许发送到 localhost:8080，只显示本地结果。', settings: true })
     expect(line({ header: degraded('timeout') })).toEqual({
       text: '没能确认依据：localhost:8080 超时。下面是本机按相关度排的结果，再按一次回车会重试。', settings: false,

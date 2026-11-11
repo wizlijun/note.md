@@ -73,10 +73,10 @@ describe('evidence view', () => {
         skippedConfidential: 2, skippedStale: 1, skippedLong: 3, skippedOversize: 1,
       },
     })
-    expect(totalsOf(result)).toEqual({ host: 'h.example', requests: 3, elapsedMs: 500, sent: 14, tokens: 5000, confidential: 2, stale: 1, long: 4 })
+    expect(totalsOf(result)).toEqual({ host: 'h.example', elapsedMs: 500, sent: 14 })
     // A refused call reports the run so far; nothing sent means no host.
     const nothingSent = totalsOf(round(0, [], { status: 'noConsent', requestCount: 0, endpointHost: 'x.example' }))
-    expect(nothingSent.host).toBeNull(); expect(nothingSent.requests).toBe(0)
+    expect(nothingSent.host).toBeNull(); expect(nothingSent.sent).toBe(0)
   })
   it('maps a step to the status line: host and status class only', () => {
     expect(headerFromStep(round(0, ['a']))).toEqual({ kind: 'none' })
