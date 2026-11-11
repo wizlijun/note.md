@@ -127,7 +127,9 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 - (BOOL)isAccessibilityElement { return NO; }
 - (void)drawRect:(NSRect)dirty { (void)dirty;[self.color setFill];NSRectFill(self.bounds); }
 @end
-@interface SumiTextView : NSTextView
+@interface SumiTextView : NSTextView {
+    CFTimeInterval _focusInputTimes[4];
+}
 @property(nonatomic, weak) SumiEditor *owner;
 @property(nonatomic, strong) SumiCaretView *typewriterCaret;
 @property(nonatomic) CFTimeInterval caretBreathingEpoch;
@@ -139,7 +141,7 @@ static NSAlert *SumiLinkAlert(NSString *locale) {
 @property(nonatomic) BOOL focusUpdating, focusInputChanged, focusTracking;
 @property(nonatomic) BOOL focusResumeOnInput;
 @property(nonatomic) NSUInteger focusInputCount, focusKeyDepth;
-@property(nonatomic) CFTimeInterval focusLastInput, focusFirstInput, focusLastEvent;
+@property(nonatomic) CFTimeInterval focusLastInput, focusLastEvent;
 @property(nonatomic,strong) SumiCandidatesBridge *candidateBridge;
 @property(nonatomic,strong) SumiCandidatesView *candidateView;
 @property(nonatomic,copy) NSDictionary *candidateSnapshot, *candidateNormalSelection;

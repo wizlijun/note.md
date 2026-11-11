@@ -46,7 +46,6 @@ static int64_t receive(void *context,const char *json,char **reply){
 static void freeReply(char *reply){free(reply);}
 static NSEvent *key(NSWindow *window,NSString *characters,unsigned short code){return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:CACurrentMediaTime() windowNumber:window.windowNumber context:nil characters:characters charactersIgnoringModifiers:characters isARepeat:NO keyCode:code];}
 static void checkRenderedRows(SumiTextView *text){
-    if(![text.owner.appearance[@"font_family"] isEqual:@"Sumi Zhaohua"] || [text.owner.appearance[@"font_size"] doubleValue]!=50 || text.focusView.bounds.size.height!=620 || mixedStyles)return;
     NSView *container=text.owner.container;[container layoutSubtreeIfNeeded];
     NSBitmapImageRep *bitmap=[container bitmapImageRepForCachingDisplayInRect:container.bounds];[container cacheDisplayInRect:container.bounds toBitmapImageRep:bitmap];
     CGFloat scale=bitmap.pixelsHigh/container.bounds.size.height;
@@ -56,14 +55,15 @@ static void checkRenderedRows(SumiTextView *text){
         NSAttributedString *reference=[text.textStorage attributedSubstringFromRange:row.range];CTLineRef line=CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)reference);CGRect glyphs=CTLineGetBoundsWithOptions(line,kCTLineBoundsUseGlyphPathBounds);CFRelease(line);
         if(glyphs.size.height<2)continue;
         NSInteger top=MAX(0,(NSInteger)floor(row.origin.y*scale)),bottom=MIN(bitmap.pixelsHigh,(NSInteger)ceil((row.origin.y+row.height)*scale));NSInteger first=bottom,last=top;
-        for(NSInteger y=top;y<bottom;y+=2)for(NSInteger x=0;x<bitmap.pixelsWide;x+=2){NSColor *color=[[bitmap colorAtX:x y:y] colorUsingColorSpace:NSColorSpace.deviceRGBColorSpace];if(color.greenComponent>.02 || color.redComponent>.02 || color.blueComponent>.02){first=MIN(first,y);last=MAX(last,y);}}
+        for(NSInteger y=top;y<bottom;y+=2)for(NSInteger x=0;x<bitmap.pixelsWide;x+=2){NSColor *color=[[bitmap colorAtX:x y:y] colorUsingColorSpace:NSColorSpace.deviceRGBColorSpace];if(color.greenComponent>.02 || color.redComponent>.02 || color.blueComponent>.02){first=MIN(first,y);last=MAX(last,y);break;}}
+        if(!(first<=last && (last-first+2)/scale>=glyphs.size.height*.55))fprintf(stderr,"INK font=%s size=%g height=%g styled=%d range=%s alpha=%g ink=%g expected=%g\n",[text.owner.appearance[@"font_family"] UTF8String],[text.owner.appearance[@"font_size"] doubleValue],text.focusView.bounds.size.height,mixedStyles,NSStringFromRange(row.range).UTF8String,row.alpha,(last-first+2)/scale,glyphs.size.height);
         require(first<=last && (last-first+2)/scale>=glyphs.size.height*.55,@"rendered upper glyphs retain their vertical ink span instead of a clipped horizontal strip");bitmapRows++;
     }
 }
 static void checkRows(SumiTextView *text){
     SumiFocusView *view=text.focusView;require(view && view.rows.count>1,@"paragraph fixture retains a real focus surface and context");
     SumiFocusRow *active=view.rows.firstObject;
-    require(fabs(active.origin.y+active.height/2-NSMidY(view.bounds))<.01 && active.alpha==1,@"active visual line remains centered and fully opaque");
+    require(fabs(active.origin.y+active.height/2-MAX(1,view.bounds.size.height-[text.owner.appearance[@"bottom_inset"] doubleValue])/2)<.01 && active.alpha==1,@"active visual line remains centered and fully opaque");
     NSArray *ordered=[view.rows sortedArrayUsingComparator:^NSComparisonResult(SumiFocusRow *a,SumiFocusRow *b){return a.range.location<b.range.location?NSOrderedAscending:a.range.location>b.range.location?NSOrderedDescending:NSOrderedSame;}];
     SumiFocusRow *previous=nil,*nearestAbove=nil;CGFloat previousDistance=CGFLOAT_MAX,previousAlpha=0;
     for(SumiFocusRow *row in ordered){
@@ -76,6 +76,12 @@ static void checkRows(SumiTextView *text){
             require(distance<previousDistance && row.alpha>=previousAlpha,@"visible upper context fades monotonically by actual native distance");previousDistance=distance;previousAlpha=row.alpha;nearestAbove=row;
         }
         require(row.alpha>=0 && row.alpha<=1,@"context opacity remains bounded");
+    }
+    CGFloat usableHeight=MAX(1,view.bounds.size.height-MAX(0,[text.owner.appearance[@"bottom_inset"] doubleValue]));
+    if(active.range.location>0 && usableHeight>active.height*4){
+        if(!nearestAbove)fprintf(stderr,"MISSING UPPER font=%s size=%g active=%s rows=%lu height=%g\n",[text.owner.appearance[@"font_family"]UTF8String],[text.owner.appearance[@"font_size"]doubleValue],NSStringFromRange(active.range).UTF8String,(unsigned long)view.rows.count,usableHeight);
+        require(nearestAbove!=nil,@"noninitial focus line retains its immediate preceding visual line");
+        require(NSMaxRange(nearestAbove.range)==active.range.location,@"upper context remains contiguous with the active visual line");
     }
     if(nearestAbove && nearestAbove.origin.y>0)require(nearestAbove.alpha>.25,@"adjacent upper line does not become nearly invisible after Return");
     checkRenderedRows(text);
@@ -113,10 +119,10 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     NSString *sentence=@"雨停以后，我把窗推开了一些，街道上的灯光映在湿润的石板上，像一封还没有写完的信。我坐回桌前，听见远处偶尔传来车轮经过的声音。白天那些纷乱的念头终于慢了下来，不再催促我立刻找到答案。";
     NSMutableString *body=[NSMutableString new];for(int n=0;n<8;n++)[body appendFormat:@"%@\n\nshort row %d\n下一行文字 %d\n",sentence,n,n];
     BOOL queueChecked=NO;
-    for(NSString *family in families)for(NSNumber *size in @[@22,@50])for(NSNumber *height in @[@620,@1080])for(NSNumber *styled in @[@NO,@YES]){
+    for(NSString *family in families)for(NSNumber *size in @[@22,@50])for(NSNumber *height in @[@620,@1080])for(NSNumber *styled in @[@NO,@YES])for(NSNumber *inset in @[@0,@100]){
         mixedStyles=styled.boolValue;
         NSWindow *window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,960,height.doubleValue) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];window.releasedWhenClosed=NO;
-        NSDictionary *config=@{@"surface_id":@"return",@"generation":@1,@"revision":@0,@"bounds":@{@"x":@0,@"y":@0,@"width":@960,@"height":height},@"appearance":@{@"font_family":family,@"font_size":size,@"line_height":@1.2,@"foreground":@"#0ccc68",@"background":@"#000000",@"max_columns":@80,@"bottom_inset":@0,@"caret_motion":@"steady",@"focus_typing":@YES},@"document":@{@"text":body,@"runs":styles(body)}};
+        NSDictionary *config=@{@"surface_id":@"return",@"generation":@1,@"revision":@0,@"bounds":@{@"x":@0,@"y":@0,@"width":@960,@"height":height},@"appearance":@{@"font_family":family,@"font_size":size,@"line_height":@1.2,@"foreground":@"#0ccc68",@"background":@"#000000",@"max_columns":@80,@"bottom_inset":inset,@"caret_motion":@"steady",@"focus_typing":@YES},@"document":@{@"text":body,@"runs":styles(body)}};
         NSString *json=[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:config options:0 error:nil] encoding:NSUTF8StringEncoding];
         void *handle=sumi_editor_mount((__bridge void*)window.contentView,0,json.UTF8String,receive,freeReply,NULL);require(handle!=NULL,@"mounts native paragraph fixture");
         probeEditor=(__bridge SumiEditor*)handle;SumiTextView *text=probeEditor.text;object_setClass(text,ReturnProbeText.class);[window makeFirstResponder:text];
