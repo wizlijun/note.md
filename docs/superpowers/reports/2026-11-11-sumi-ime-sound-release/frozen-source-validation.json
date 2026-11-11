@@ -1,0 +1,10 @@
+{
+  "native_tested_source_sha256": {
+    "tauri-plugin-native-editor/src/linux.rs": "ec6548b59bbc103d5374d61794c48e0c30f6008a003fce30175f8844abd2dfd8",
+    "tauri-plugin-native-editor/src/linux_candidates.rs": "a98b379f26e12275772d8b6666d03a0b1a619338ab35559ac29a7fccf520e091"
+  },
+  "matches_prior_actual_ime_tests": true,
+  "frontend_source_and_lockfile_unchanged_since": "v6.1111.4",
+  "prior_frontend_evidence": "docs/superpowers/reports/2026-11-11-omarchy-amd64-ime-release/frontend-results.json",
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e"
+}

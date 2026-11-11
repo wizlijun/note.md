@@ -1,0 +1,7 @@
+{
+  "container": "4d57c29469c2",
+  "container_output": "/tmp/tmp.FDhZQlBGBy/output/amd64",
+  "tag": "v6.1111.5",
+  "host_commit": "fa5f701798e6df6b839164c2aa299879b1640e3d",
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e"
+}

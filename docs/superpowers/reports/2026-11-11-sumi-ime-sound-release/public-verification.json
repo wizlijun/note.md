@@ -1,0 +1,42 @@
+{
+  "verified_at_utc": "2026-11-11T15:39:51.131251+00:00",
+  "tag": "v6.1111.5",
+  "source_commit": "fa5f701798e6df6b839164c2aa299879b1640e3d",
+  "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1111.5",
+  "assets": {
+    "note.md_6.1111.5_amd64.deb": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.5/note.md_6.1111.5_amd64.deb",
+      "sha256": "227b4e898970e924d3ac11fa2ea5500ee9a972f9eaff0721c8f3f4df314c5d40",
+      "bytes": 17380828,
+      "anonymous_full_download_verified": true
+    },
+    "notemd-6.1111.5-1-x86_64.pkg.tar.zst": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.5/notemd-6.1111.5-1-x86_64.pkg.tar.zst",
+      "sha256": "904d1e5119c16a84cb9eb8f3c343bf6a3d941af9fb71c8e4ca3e9cef0461b6db",
+      "bytes": 16804192,
+      "anonymous_full_download_verified": true
+    },
+    "PKGBUILD": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.5/PKGBUILD",
+      "sha256": "41a546175d5539b6979f207a084a0f7b024c3ea0dfa4db2c077d342374b2d25c",
+      "bytes": 1075,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-omarchy.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.5/SHA256SUMS-omarchy.txt",
+      "sha256": "38a45a0e7547aa851e04017f359d49f0d16f822fd2ef4a5f07c707f23c6188e8",
+      "bytes": 178,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-linux.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.5/SHA256SUMS-linux.txt",
+      "sha256": "3f8c7795196439ebb8fa2e89b521e3b107c7ae77ce67ba5bb0a8d77a85085688",
+      "bytes": 93,
+      "anonymous_full_download_verified": true
+    }
+  },
+  "github_latest_unchanged": "v6.1111.3",
+  "mac_latest_json_unchanged": true,
+  "mac_latest_json_sha256": "42f66f9ae9e9652b22b4daf0cf1a3aa6e4064773e8bd6eec7480cfdee29686e5",
+  "locally_installed": false
+}

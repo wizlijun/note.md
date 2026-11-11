@@ -1,0 +1,47 @@
+{
+  "timestamp_utc": "2026-11-11T15:36:54.616136+00:00",
+  "source_commit": "fa5f701798e6df6b839164c2aa299879b1640e3d",
+  "tag": "v6.1111.5",
+  "version": "6.1111.5",
+  "published": false,
+  "package": "/home/bruce/git/note.md/tasks/sumi-ime-sound-release/arch/notemd-6.1111.5-1-x86_64.pkg.tar.zst",
+  "package_sha256": "904d1e5119c16a84cb9eb8f3c343bf6a3d941af9fb71c8e4ca3e9cef0461b6db",
+  "deb": "/home/bruce/git/note.md/tasks/sumi-ime-sound-release/artifacts/note.md_6.1111.5_amd64.deb",
+  "deb_sha256": "227b4e898970e924d3ac11fa2ea5500ee9a972f9eaff0721c8f3f4df314c5d40",
+  "binary_sha256": "b5d25ee759b442f6a52b69f83957377f59d8379c9a1e7d7104a0dc050e1d9cad",
+  "verified_binary": "/home/bruce/git/note.md/tasks/sumi-ime-sound-release/arch/verification-0sw0lb3p/arch-root/usr/bin/notemd",
+  "recipe_sha256": "41a546175d5539b6979f207a084a0f7b024c3ea0dfa4db2c077d342374b2d25c",
+  "verification_directory": "/home/bruce/git/note.md/tasks/sumi-ime-sound-release/arch/verification-0sw0lb3p",
+  "payload_files": 9,
+  "extra_files": [
+    ".BUILDINFO",
+    ".MTREE",
+    ".PKGINFO",
+    "usr/share/licenses/notemd/LICENSE"
+  ],
+  "dependencies": [
+    "webkit2gtk-4.1",
+    "gtk3",
+    "libsecret",
+    "libpulse",
+    "fontconfig",
+    "libayatana-appindicator",
+    "git",
+    "xdg-utils",
+    "hicolor-icon-theme"
+  ],
+  "checks": {
+    "exact_debian_input": "passed",
+    "package_function_and_dependencies_match_frozen_source": "passed",
+    "payload_bytes_and_modes": "passed",
+    "binary_byte_identical": "passed",
+    "package_metadata": "passed",
+    "elf_x86_64": "passed",
+    "ldd_r": "passed",
+    "cli": "notemd 6.1111.5 (plugin API v1)",
+    "max_glibc": "2.35"
+  },
+  "installed": false,
+  "uploaded": false,
+  "gui_acceptance": "Passed actual packaged host and original signed Sumi backend: all five uncommitted pinyin keys produced nonzero PCM on private audio stream."
+}

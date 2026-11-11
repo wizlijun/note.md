@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "old_version": "6.1111.4",
+  "new_version": "6.1111.5",
+  "old_host_sha256": "eebcc8591cf31f576e0317112585e49a3ae4e4bb230788d4fd94a11c0c34cdb9",
+  "new_host_sha256": "b5d25ee759b442f6a52b69f83957377f59d8379c9a1e7d7104a0dc050e1d9cad",
+  "same_signed_backend": true,
+  "old_pinyin_peaks": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "new_pinyin_peaks": [
+    0.48947450518608093,
+    0.48947450518608093,
+    0.48947450518608093,
+    0.48947450518608093,
+    0.48947450518608093
+  ],
+  "old_latin_positive_control_peak": 0.48947450518608093,
+  "new_latin_positive_control_peak": 0.48947450518608093,
+  "both_baselines_zero": true,
+  "preedit_document_empty_for_all_keys": true,
+  "both_commit_nihao": true,
+  "private_only": true,
+  "all_processes_stopped": true,
+  "visual_review": "Actual new package screenshot inspected: ni hao underlined preedit, first candidate 你好; artificial isolated document only.",
+  "hashes": {
+    "tasks/sumi-ime-sound-release/gui/verification.json": "1b8a4b0983f84cd6727ca8e9bbebc744f9bd58556910a4ececf8d6800f9e4ebe",
+    "tasks/sumi-ime-sound-release/gui/baseline2/verification.json": "b333da3a228f627cb6f68c6882be089bca7219e624a3cc1d4aa90cb01ec34753",
+    "tasks/sumi-ime-sound-release/gui/evidence/own-stream.f32le": "08a3d8ac0135abf6e961d1334ad6bd89085eb129d5abdee1d3c12de6e3d5cf3f",
+    "tasks/sumi-ime-sound-release/gui/baseline2/evidence/own-stream.f32le": "765e753343d7c39c4147fb8e44b0d4da74a3858c37f9339a5dd0495ee58bcaca",
+    "tasks/sumi-ime-sound-release/gui/evidence/observer/preedit.jsonl": "aeeaee0e4e1d741c27c2466c1ee169d074e0007c361d8f59dcaa2021131b3551",
+    "tasks/sumi-ime-sound-release/gui/baseline2/evidence/observer/preedit.jsonl": "5bc86f101f354b10cec58dc547277467d59d1a946a16d7ea8241b5096f6c78c9",
+    "tasks/sumi-ime-sound-release/gui/evidence/composition-before-commit.png": "6d8e3216c3b6fccafca50de4f93d4ea8705796225505ba931e566279d34dcd46",
+    "tasks/sumi-ime-sound-release/gui/evidence/committed.png": "39d8f72821db5129968a4a6166d64e92ad18a4c4fedca1b658b99d99d47e0814",
+    "tasks/sumi-ime-sound-release/gui/run-audio.py": "17fe62e292e9752d645c9fd845a9b4db1c3eb6ed6aa2bdbd1cd1eb7deb7bb3c2",
+    "tasks/sumi-ime-sound-release/gui/observer.c": "2168902c838f1d021edda227fd704323ea110d4fa69e387a20528d17acaa468d"
+  }
+}

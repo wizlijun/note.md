@@ -1,0 +1,73 @@
+{
+  "worktrees": [
+    {
+      "path": "/home/bruce/git/note.md",
+      "head": "fa5f701798e6df6b839164c2aa299879b1640e3d",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-candidate-position",
+      "head": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-candidates",
+      "head": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-focus-stability",
+      "head": "690154c8d98c0c8caf2906615561b2e2e6235589",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-release-integration",
+      "head": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+      "status": "?? node_modules"
+    },
+    {
+      "path": "/home/bruce/git/note.md-sumi-sound-fix",
+      "head": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+      "head": "183b636b05bcf1440e2b8626f28629ce44b78863",
+      "status": "?? node_modules"
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/sumi-candidate-host/source",
+      "head": "15ec134fd301f7b33a56d45b8540801b31d21a44",
+      "status": ""
+    },
+    {
+      "path": "/home/bruce/git/note.md/tasks/sumi-candidate-no-dot/source",
+      "head": "100dc160b435c44716166d2eb12fe0071e252fb6",
+      "status": ""
+    },
+    {
+      "path": "/tmp/tmp.FDhZQlBGBy/tag-worktree",
+      "head": "fa5f701798e6df6b839164c2aa299879b1640e3d",
+      "status": ""
+    }
+  ],
+  "branches_cherry": {
+    "fix/sumi-candidate-position": "- 5fd8c46160e386cbbbaf110f062a02799bf71809",
+    "fix/sumi-focus-stability": "- 690154c8d98c0c8caf2906615561b2e2e6235589",
+    "fix/sumi-linux-sound": "- c8057be88b9c1dfb3f79528e1402b84dcdbe3077\n+ eb7643d25b281358a2f5c0a08a2e6633e0d293ab\n- fbb9186259773a77f84a3ac69918e9f2f9df341f",
+    "integrate/sumi6-main": "",
+    "release/sumi-6.1110.6": "",
+    "release/sumi-6.1110.7": "- c8057be88b9c1dfb3f79528e1402b84dcdbe3077\n+ eb7643d25b281358a2f5c0a08a2e6633e0d293ab\n- fbb9186259773a77f84a3ac69918e9f2f9df341f",
+    "sumi-fcitx-candidates": "- cf000db2d324a836a14cc4e05a6da584ec7531ba"
+  },
+  "stash": "",
+  "excluded": [
+    "untracked node_modules symlinks in two older worktrees",
+    "eb7643d2 old version bump already superseded"
+  ],
+  "scope": "only Linux native editor composition sound, tests and release metadata",
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e",
+  "core_status": "",
+  "prior_release": "v6.1111.4",
+  "diff": "CHANGELOG.md                                       |    4 +\n CHANGELOG.zh-CN.md                                 |    4 +\n .../2026-11-11-omarchy-amd64-ime-release/README.md |   38 +\n .../arch-verification.json                         |   47 +\n .../build-inputs.json                              |   13 +\n .../candidate-scale4.png                           |  Bin 0 -> 84060 bytes\n .../companion-frozen-verification.json             |   21 +\n .../core-audit.json                                |   21 +\n .../core-hardlink-detachment.json                  |    8 +\n .../core-verification.json                         |   92 +\n .../frontend-results.json                          |   34 +\n .../gui-verification.json                          |   30 +\n .../ime-verification.json                          |   37 +\n .../keyboard-committed-scale4.png                  |  Bin 0 -> 50494 bytes\n .../local-log-hashes.json                          |   12 +\n .../official-recipe-verification.json              |    9 +\n .../pre-release-audit.json                         | 3085 ++++++++++++++++++++\n .../public-verification.json                       |   72 +\n .../reports/2026-11-11-sumi-ime-sound/README.md    |   24 +\n .../2026-11-11-sumi-ime-sound/candidates.log       |   11 +\n .../reports/2026-11-11-sumi-ime-sound/fcitx.log    |   11 +\n .../reports/2026-11-11-sumi-ime-sound/red.log      |   18 +\n .../reports/2026-11-11-sumi-ime-sound/sha256.json  |   10 +\n .../reports/2026-11-11-sumi-ime-sound/unit.log     |   44 +\n .../reports/2026-11-11-sumi-ime-sound/wayland.log  |   10 +\n .../superpowers/specs/2026-11-11-sumi-ime-sound.md |   11 +\n package.json                                       |    2 +-\n src-tauri/Cargo.lock                               |    2 +-\n src-tauri/Cargo.toml                               |    2 +-\n src-tauri/tauri.conf.json                          |    2 +-\n tauri-plugin-native-editor/src/linux.rs            |   35 +\n tauri-plugin-native-editor/src/linux_candidates.rs |  120 +\n 32 files changed, 3825 insertions(+), 4 deletions(-)"
+}
