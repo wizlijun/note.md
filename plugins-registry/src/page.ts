@@ -160,7 +160,7 @@ en:{
  arch_arm64:'Apple Silicon',arch_intel:'Intel',arch_win_arm64:'ARM64',arch_win_x64:'x64',arch_win_x86:'x86',
  err:"Couldn't load plugins, please retry later.",empty:'No plugins published yet.',
  fallback:'Enable it from the Plugins menu in note.md after install.',
- group_ai:'AI',group_record:'Capture',group_reading:'Read',group_inspiration:'Ideas',
+ group_ai:'AI',group_record:'Capture',group_reading:'Read',
  group_advance:'Move Forward',group_reflect:'Reflect',group_create:'Create',group_import_export:'Import & Export',group_experience:'Experience',group_other:'Other',system:'System Feature'
 },
 zh:{
@@ -179,7 +179,7 @@ zh:{
  arch_arm64:'Apple Silicon',arch_intel:'Intel',arch_win_arm64:'ARM64',arch_win_x64:'x64',arch_win_x86:'x86',
  err:'暂时无法加载插件列表，请稍后重试。',empty:'暂无已上架插件。',
  fallback:'安装后在 note.md 的「插件」菜单中启用。',
- group_ai:'AI',group_record:'记录',group_reading:'阅读',group_inspiration:'灵感',
+ group_ai:'AI',group_record:'记录',group_reading:'阅读',
  group_advance:'推进',group_reflect:'回顾',group_create:'创作',group_import_export:'导入与导出',group_experience:'体验增强',group_other:'其他',system:'系统功能'
 }};
 // Per-plugin entry, from each manifest's contributes.menus.location.
@@ -192,7 +192,8 @@ var ENTRY_MAP={
  'notemd.codex-agent':{en:'<b>Plugins</b> → <b>Move Forward</b> → Codex Agent…',zh:'「<b>插件</b>」→「<b>推进</b>」→ Codex 智能体…'},
  'notemd.deepseek-agent':{en:'<b>Plugins</b> → <b>Move Forward</b> → DeepSeek Agent…',zh:'「<b>插件</b>」→「<b>推进</b>」→ DeepSeek 智能体…'},
  'notemd.next':{en:'<b>Plugins</b> → <b>Move Forward</b> → Next',zh:'「<b>插件</b>」→「<b>推进</b>」→ 下一步'},
- 'notemd.idea-spark':{en:'<b>Plugins</b> → <b>Ideas</b> → Idea Spark',zh:'「<b>插件</b>」→「<b>灵感</b>」→ 奇思妙想'},
+ 'notemd.idea-spark':{en:'<b>Plugins</b> → <b>Create</b> → Idea Spark',zh:'「<b>插件</b>」→「<b>创作</b>」→ 奇思妙想'},
+ 'notemd.sumi':{en:'<b>Plugins</b> → <b>Create</b> → Sumi Write',zh:'「<b>插件</b>」→「<b>创作</b>」→ 玄霜写作'},
  'notemd.index-viewer':{en:'Open a <code>*.index.md</code> file to view it automatically, or choose <b>Plugins → Read → View File Index</b>. Switch between cover gallery, table, grouped list and board layouts within the view.',zh:'打开 <code>*.index.md</code> 文件可自动显示，或选择「<b>插件 → 阅读 → 打开索引查看器</b>」。可在视图内切换封面画廊、多列表格、分组列表和看板。'},
  'notemd.ebook-import':{en:'<b>Plugins</b> → <b>Read</b> → Import Ebooks… (also CLI <code>notemd ebook</code>)',zh:'「<b>插件</b>」→「<b>阅读</b>」→ 导入电子书…（也支持 CLI <code>notemd ebook</code>）'},
  'notemd.roam-import':{en:'<b>Plugins</b> → <b>Import & Export</b> → Sync Roam Research…',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 同步 Roam Research…'},
@@ -238,9 +239,9 @@ function applyStatic(){
 function entryFor(id){
  var e=ENTRY_MAP[id];return e?e[lang]:I18N[lang].fallback;
 }
-var GROUP_ORDER=['ai','record','reading','inspiration','advance','reflect','create','import-export','experience','other'];
-var LEGACY_GROUPS={'agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
-var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.assistant-mail':'record','notemd.meetings':'record','notemd.roam-import':'import-export','notemd.apple-notes':'import-export','notemd.health-sync':'import-export','notemd.ebook-import':'reading','notemd.index-viewer':'reading','notemd.knowledge-browser':'reading','notemd.typst-reader':'reading','notemd.trace-source':'reading','notemd.idea-spark':'inspiration','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'reflect','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
+var GROUP_ORDER=['ai','record','reading','advance','reflect','create','import-export','experience','other'];
+var LEGACY_GROUPS={'inspiration':'create','agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
+var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.assistant-mail':'record','notemd.meetings':'record','notemd.roam-import':'import-export','notemd.apple-notes':'import-export','notemd.health-sync':'import-export','notemd.ebook-import':'reading','notemd.index-viewer':'reading','notemd.knowledge-browser':'reading','notemd.typst-reader':'reading','notemd.trace-source':'reading','notemd.idea-spark':'create','notemd.sumi':'create','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'reflect','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
 var AI_ROLES={'notemd.ebook-import':{en:'AI Read',zh:'AI 阅读'},'notemd.idea-spark':{en:'AI Inspire',zh:'AI 启发'},'notemd.trace-source':{en:'AI Reason',zh:'AI 推理'},'notemd.claude-agent':{en:'AI Action',zh:'AI 执行'},'notemd.codex-agent':{en:'AI Action',zh:'AI 执行'},'notemd.deepseek-agent':{en:'AI Action',zh:'AI 执行'},'notemd.memory':{en:'AI Memory',zh:'AI 记忆'},'notemd.conversation-dictionary':{en:'AI Review',zh:'AI 审阅'}};
 function normalizeGroup(value,id){return OFFICIAL_GROUPS[id]||(GROUP_ORDER.indexOf(value)>=0?value:(LEGACY_GROUPS[value]||'other'));}
 function groupLabel(key){
