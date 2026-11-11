@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi platform parity (host update required).** macOS enters focus using a rolling two-second typing window, follows the Linux bounded fullscreen font scaling and restores the original size on exit, and respects reserved bottom space in focused text and candidates. Frozen drafts and Command/Control shortcuts no longer trigger typing sounds. Linux supports Shift+Return for a Markdown hard break. The reported disappearance of all preceding lines after Return remains under investigation.
+
 - **Smart Lookup is rebuilt local-first, with one optional model judgement.** Return shows local results immediately; typing never calls a model. With enhancement on, each Return sends at most one request: Jev judges the top 10 results and reorders them in place, marking each “Fits” or “Possibly unrelated”. Nothing is removed, and everything falls back to the local results if the request fails or is not configured. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “Create answer” and “In-depth research” are removed from Smart Lookup.
 
 - **New Settings → Lookup enhancement tab.** Choose the Jev endpoint (official, OpenRouter or self-hosted), model and authentication, and test the connection. The key is stored only on this device and is never shown again. Sending to a host needs your consent for that host, and notes marked confidential are never sent. A separate endpoint can be set for the query repair model.

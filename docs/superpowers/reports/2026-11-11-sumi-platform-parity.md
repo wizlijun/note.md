@@ -1,0 +1,33 @@
+# Sumi macOS / Linux 对齐验收记录
+
+基线 `eff8c327`，审计清单见 `../specs/2026-11-11-sumi-platform-parity.md`。本轮为源码修复和隔离验收；尚未发布新版正式宿主。
+
+## 已提交的独立修复
+
+|提交|行为|验证|
+|---|---|---|
+|`93775741`|失败草稿停止声音；Command/Control普通快捷键不触发正文打字音|旧源码红测；隔离快照 typing、draft、shortcuts 通过|
+|`e5c323d8`|Linux Shift+Return/KP_Enter走现有hard_break|抽取生产入口红绿3项；没有Linux GTK实机证据|
+|`35611925`|macOS/Linux共用有界全屏字号计算，退出恢复；IME期间延迟应用|计算红绿6项；宿主Sumi测试82通过、4既有忽略；真实全屏GUI待验|
+|`f7e5c147`|macOS候选尊重底部保留区域，避免重复扣除|旧实现红测；独立快照491项，候选布局20877项通过|
+|`f0343d3f`|macOS滑动两秒输入窗口；聚焦中心与边缘扣除底部留白；增强Return测试|旧inset中心红测；focus2733、raster56、resume88项通过|
+
+Return矩阵覆盖系统与六种预设字体、22/50字号、620/1080视口、0/100底部留白、混合样式、段中/段末、空行、IME提交。97041项、1120规范projection回复、2799字形像素检查通过。追加“上行必须存在且字符范围连续”后，朝华子矩阵13724项、160回复、395像素检查通过。**这些结果不等于复现或修复用户报告。**
+
+补测IME结束后异步SetAppearance：当前源码21540项、eff8c327快照11270项通过。真实WKWebView sibling=1挂载的冻结旧版探针1202项、22次projection、8次异步SetAppearance、62项像素检查通过，真屏上方三行仍完整。这些仍没有覆盖完整宿主与真实物理Faitc输入组合。
+
+## 用户报告仍未解决
+
+用户纠正为“回车后上部所有行完全没了”，不是上一行变淡。朝华50号/1.2行距/绿色CRT/呼吸光标的合成AppKit窗口，连续Return后仍有上文；尚未得到故障红测。不能以透明度属性、进程正常或版本号宣称已修复。
+
+运行中的普通note.md PID30354来自智能查找debug验收包；版本也是6.1110.8，UUID `99166352-7A31-347B-9E5C-3974C58B74ED`，SHA256 `a1e703c0331e2590775d3090f65d60572d83fb3c3c976310dae974ee74930cd6`。构建证据记录源eff8c327，已含先前聚焦修复。它与Applications正式包不同，但没有证据证明此差异就是消失根因。
+
+完整隔离宿主已构建并严格验证Developer ID签名；独立bundle ID `net.notemd.sumi.acceptance`，MCP关闭，仅使用标记的测试Vault。首次完整GUI尝试遇到外观应用错误 `operation ID reused with different durable payload`，正在单独定位；不删除待恢复日志来掩盖错误。
+
+## 证据位置与限制
+
+本机测试日志：`tasks/sumi-parity-20261111/`、`tasks/sumi-parity-sound/`、`tasks/sumi-parity-hard-break/`、`tasks/sumi-parity-review/`。构建记录 `tasks/sumi-native/host-acceptance/build-report.json`；源码/产物摘要汇总 `tasks/sumi-parity-20261111/current-evidence.json`。这些是本机忽略产物，不作为发布tag已经包含功能的证明。
+
+预先存在的 `searchidx/src/store.rs` 与 `src-tauri/src/smart_lookup.rs` 改动保留，未纳入上述提交；隔离验收构建包含它们，不能直接当正式发布包。
+
+Faitc5的默认中英文空格另仓库提交 `27d4f6e`，39策略+16同步路由测试、3个Sumi CTest及完整arm64构建通过。默认开启，可在通用→输入关闭；只在输入法参与且当前客户端提供可靠上下文的同步输入中生效。不重排已有右侧正文。尚未打包、安装或物理键盘验收。
