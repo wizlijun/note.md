@@ -45,6 +45,11 @@
     NSView *container=self.owner.container;
     NSRect viewport=[container convertRect:self.owner.scroll.contentView.bounds fromView:self.owner.scroll.contentView];
     viewport=NSIntersectionRect(viewport,container.bounds);
+    // contentInsets reserves scrolling space but does not shrink the clip view.
+    // Intersect with the usable container so an already-clipped viewport is not inset twice.
+    NSRect usable=container.bounds;
+    usable.size.height=MAX(0,usable.size.height-MAX(0,[self.owner.appearance[@"bottom_inset"] doubleValue]));
+    viewport=NSIntersectionRect(viewport,usable);
     CGFloat left=[container convertPoint:NSMakePoint(self.textContainerOrigin.x,0) fromView:self].x;
     CGFloat width=MIN(self.textContainer.size.width,NSMaxX(viewport)-left);
     NSDictionary *attributes=[self.owner baseAttributes];NSFont *font=attributes[NSFontAttributeName];
