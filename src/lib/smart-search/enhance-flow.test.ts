@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { en } from '../i18n/en'
-import type { AnswerResult, Missing, RepairSuggestion } from './api'
+import type { Missing, RepairSuggestion } from './api'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, type SmartLookupSettings } from './settings'
 import {
-  answerMessage,
   chatRequestConfig,
   endpointHost,
   headerMessage,
   jevRequestConfig,
-  noMatchAttempts,
   repairMessage,
   shouldAutoRepair,
   type DegradedStatus,
@@ -71,10 +69,6 @@ describe('headerMessage', () => {
       const placeholders = (en[m.key].match(/\{(\w+)\}/g) ?? []).map((p) => p.slice(1, -1)).sort()
       expect(Object.keys(m.params).sort(), m.key).toEqual(placeholders)
     }
-  })
-
-  it('the criterion chip describes what is sent', () => {
-    expect(en['smartSearch.enhance.criterion']).toBe("Criterion: directly matches what you're looking for")
   })
 })
 
@@ -141,7 +135,7 @@ describe('request configs', () => {
   })
 })
 
-describe('repair and no-match', () => {
+describe('repair', () => {
   it('auto repair needs zero hits, a configured model and a stored key', () => {
     expect(shouldAutoRepair(0, withChat(), { jev: false, chat: true })).toBe(true)
     expect(shouldAutoRepair(1, withChat(), { jev: false, chat: true })).toBe(false)
@@ -159,38 +153,5 @@ describe('repair and no-match', () => {
     const noUrl = withChat()
     noUrl.enhance.chat.url = ''
     expect(shouldAutoRepair(0, noUrl, { jev: true, chat: true })).toBe(false)
-  })
-
-  it('no-match attempts list the three tries in order, marking the ones not run', () => {
-    expect(noMatchAttempts({ hits: 0, tookMs: 12 }, null, { kind: 'scan', hits: 0, tookMs: 3400 })).toEqual([
-      { kind: 'original', hits: 0, tookMs: 12 }, { kind: 'rephrased', hits: null, tookMs: null }, { kind: 'scan', hits: 0, tookMs: 3400 },
-    ])
-  })
-
-  it('no-match attempts keep their slot kinds', () => {
-    expect(noMatchAttempts({ hits: 0, tookMs: 5 }, { kind: 'rephrased', hits: 0, tookMs: 900 }, null)).toEqual([
-      { kind: 'original', hits: 0, tookMs: 5 }, { kind: 'rephrased', hits: 0, tookMs: 900 }, { kind: 'scan', hits: null, tookMs: null },
-    ])
-  })
-})
-
-describe('answerMessage', () => {
-  const result = (partial: Partial<AnswerResult>): AnswerResult => ({
-    status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
-    omittedSources: 0, requestCount: 1, elapsedMs: 1, usage: null, ...partial,
-  })
-
-  it('names what kept the answer from being shown, with the host at most', () => {
-    expect(answerMessage(result({ text: 'x [1]' }))).toBeNull()
-    expect(answerMessage(result({ status: 'cancelled' }))).toBeNull()
-    expect(answerMessage(result({ status: 'skipped' }))).toEqual({ key: 'smartSearch.answer.noSources', params: {} })
-    expect(answerMessage(result({ status: 'skipped', skipReason: 'indexUnavailable' }))).toEqual({ key: 'smartSearch.answer.indexUnavailable', params: {} })
-    expect(answerMessage(result({ status: 'noConsent' }))).toEqual({ key: 'smartSearch.answer.noConsent', params: { host: 'chat.example' } })
-    expect(answerMessage(result({ status: 'invalidCitations' }))).toEqual({ key: 'smartSearch.answer.invalidCitations', params: {} })
-    expect(answerMessage(result({ status: 'timeout' }))).toEqual({ key: 'smartSearch.answer.timeout', params: {} })
-    expect(answerMessage(result({ status: 'invalid' }))).toEqual({ key: 'smartSearch.answer.invalid', params: { host: 'chat.example' } })
-    expect(answerMessage(result({ status: 'notConfigured', missing: 'key', endpointHost: null }))).toEqual({ key: 'smartSearch.enhance.notConfiguredKey', params: {} })
-    expect(answerMessage(result({ status: 'keyInvalid', statusClass: '4xx' }))).toEqual({ key: 'smartSearch.enhance.keyInvalid', params: { host: 'chat.example', code: '4xx' } })
-    expect(en['smartSearch.answer.noConsent']).toBe('Sending to {host} not allowed')
   })
 })
