@@ -1,0 +1,15 @@
+test_all_six_exact (test_public_host.FrozenTests.test_all_six_exact) ... ok
+test_changed_bytes (test_public_host.FrozenTests.test_changed_bytes) ... ok
+test_missing_or_extra_assets (test_public_host.FrozenTests.test_missing_or_extra_assets) ... ok
+test_same_count_duplicate (test_public_host.FrozenTests.test_same_count_duplicate) ... ok
+test_source_mismatch (test_public_host.FrozenTests.test_source_mismatch) ... ok
+test_tampered_digest (test_public_host.FrozenTests.test_tampered_digest) ... ok
+test_version_mismatch (test_public_host.FrozenTests.test_version_mismatch) ... ok
+test_full_and_ranged (test_public_host.ResponseTests.test_full_and_ranged) ... ok
+test_truncated_body (test_public_host.ResponseTests.test_truncated_body) ... ok
+test_wrong_range_or_full_status (test_public_host.ResponseTests.test_wrong_range_or_full_status) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.005s
+
+OK
