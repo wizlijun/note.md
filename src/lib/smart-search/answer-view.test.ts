@@ -249,6 +249,14 @@ describe('fallbackLine', () => {
     expect(line({ header: degraded('cancelled') })?.settings).toBe(false)
     expect(line({})).toBeNull()
   })
+  it('says why the host skipped the route (M4)', () => {
+    const skipped = (skipReason: 'pinned' | 'fewTerms' | 'autoBudgetUsed') => applyRound(emptyEvidence(), {
+      ...stepOf([]), status: 'skipped', skipReason, done: true, requestCount: 0,
+    })
+    expect(line({ evidence: skipped('pinned') })).toEqual({ text: '命中了置顶页，这次不核对依据，下面是本地结果。', settings: false })
+    expect(line({ evidence: skipped('fewTerms') })?.text).toBe('问题只有一两个词，原词已经找到，这次不核对依据，下面是本地结果。')
+    expect(line({ evidence: skipped('autoBudgetUsed') })).toBeNull()
+  })
   it('never carries more than the host and the reason class', () => {
     for (const status of ['notConfigured', 'noConsent', 'timeout', 'keyInvalid', 'unreachable', 'invalid', 'cancelled'] as const) {
       const result = fallbackLine({ ...base, header: degraded(status) })!

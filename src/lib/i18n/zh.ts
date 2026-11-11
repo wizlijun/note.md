@@ -1039,6 +1039,8 @@ export const zh: Record<keyof Messages, string> = {
   "smartSearch.fallback.reason.invalid": "返回无效",
   "smartSearch.fallback.error": "没能确认依据。下面是本机按相关度排的结果，再按一次回车会重试。",
   "smartSearch.fallback.nothingToCheck": "这次没有可以核对的段落，下面是本地结果。",
+  "smartSearch.fallback.skipPinned": "命中了置顶页，这次不核对依据，下面是本地结果。",
+  "smartSearch.fallback.skipFewTerms": "问题只有一两个词，原词已经找到，这次不核对依据，下面是本地结果。",
   "smartSearch.fallback.stopped": "已停止找依据，只显示本地结果。再按一次回车会重试。",
   "smartSearch.fallback.answerNoConsent": "没有允许发送到 {host}，没有写回答。",
   "smartSearch.fallback.answerNotConfigured": "没有设置写回答的接口，没有写回答。",

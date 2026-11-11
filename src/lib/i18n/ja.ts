@@ -1000,6 +1000,8 @@ export const ja: Record<keyof Messages, string> = {
   "smartSearch.fallback.reason.invalid": "無効な応答",
   "smartSearch.fallback.error": "根拠を確認できませんでした。下はこの端末で関連度順に並べた結果です。もう一度 Return を押すと再試行します。",
   "smartSearch.fallback.nothingToCheck": "今回は確認できる段落がありませんでした。下はローカルの結果です。",
+  "smartSearch.fallback.skipPinned": "ピン留めしたページが一致したため、根拠は確認していません。下はローカルの結果です。",
+  "smartSearch.fallback.skipFewTerms": "質問の語が 1〜2 個で、そのままの語が見つかったため、根拠は確認していません。下はローカルの結果です。",
   "smartSearch.fallback.stopped": "根拠の確認を停止しました。ローカルの結果のみ表示します。もう一度 Return を押すと再試行します。",
   "smartSearch.fallback.answerNoConsent": "{host} への送信が許可されていないため、回答は書いていません。",
   "smartSearch.fallback.answerNotConfigured": "回答を書く接続先が設定されていないため、回答は書いていません。",

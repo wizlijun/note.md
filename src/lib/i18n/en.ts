@@ -1050,6 +1050,8 @@ export const en = {
   "smartSearch.fallback.reason.invalid": "sent an invalid response",
   "smartSearch.fallback.error": "Couldn't confirm evidence. Below are the local results by relevance; press Return again to retry.",
   "smartSearch.fallback.nothingToCheck": "There were no passages to check this time; below are the local results.",
+  "smartSearch.fallback.skipPinned": "A pinned page matched, so no evidence was checked; below are the local results.",
+  "smartSearch.fallback.skipFewTerms": "The question has only a word or two and they were found as written, so no evidence was checked; below are the local results.",
   "smartSearch.fallback.stopped": "Stopped finding evidence; showing local results only. Press Return again to retry.",
   "smartSearch.fallback.answerNoConsent": "Sending to {host} is not allowed, so no answer was written.",
   "smartSearch.fallback.answerNotConfigured": "No endpoint for writing answers is set up, so no answer was written.",

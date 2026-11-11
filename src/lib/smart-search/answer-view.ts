@@ -208,6 +208,9 @@ export function fallbackLine(input: {
   }
   if (input.evidenceError) return line('smartSearch.fallback.error')
   if (input.evidence.done && input.evidence.stop === 'indexChanged') return line('smartSearch.evidence.indexChanged')
+  // A route the host skips (spec §5.3) gets its reason in one passive line (M4).
+  if (input.evidence.done && input.evidence.skipReason === 'pinned') return line('smartSearch.fallback.skipPinned')
+  if (input.evidence.done && input.evidence.skipReason === 'fewTerms') return line('smartSearch.fallback.skipFewTerms')
   if (evidenceFinished(input.evidence) && !judgedAnything(input.evidence)) return line('smartSearch.fallback.nothingToCheck')
   return null
 }

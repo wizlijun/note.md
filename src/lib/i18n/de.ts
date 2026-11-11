@@ -1000,6 +1000,8 @@ export const de: Record<keyof Messages, string> = {
   "smartSearch.fallback.reason.invalid": "ungültige Antwort",
   "smartSearch.fallback.error": "Belege nicht bestätigt. Unten die lokalen Ergebnisse nach Relevanz; erneut Return drücken, um es noch einmal zu versuchen.",
   "smartSearch.fallback.nothingToCheck": "Diesmal gab es keine Absätze zum Prüfen; unten die lokalen Ergebnisse.",
+  "smartSearch.fallback.skipPinned": "Eine angeheftete Seite passt, daher wurden keine Belege geprüft; unten die lokalen Ergebnisse.",
+  "smartSearch.fallback.skipFewTerms": "Die Frage hat nur ein oder zwei Wörter, und sie wurden genau so gefunden, daher wurden keine Belege geprüft; unten die lokalen Ergebnisse.",
   "smartSearch.fallback.stopped": "Belegsuche gestoppt; nur lokale Ergebnisse. Erneut Return drücken, um es noch einmal zu versuchen.",
   "smartSearch.fallback.answerNoConsent": "Senden an {host} ist nicht erlaubt, daher wurde keine Antwort geschrieben.",
   "smartSearch.fallback.answerNotConfigured": "Kein Endpunkt zum Schreiben von Antworten eingerichtet, daher wurde keine Antwort geschrieben.",

@@ -1,4 +1,4 @@
-import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm } from './api'
+import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm, SkipReason } from './api'
 import type { HeaderState } from './enhance-flow'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
@@ -17,10 +17,12 @@ export interface EvidenceView {
    * scored rounds confirmed stands, so the answer is written from it.
    */
   interrupted: boolean
+  /** Why the host skipped the latest call (a pinned page, few terms): the window says so in one line (M4). */
+  skipReason: SkipReason | null
 }
 
 export function emptyEvidence(): EvidenceView {
-  return { rounds: [], shown: [], done: false, stop: null, interrupted: false }
+  return { rounds: [], shown: [], done: false, stop: null, interrupted: false, skipReason: null }
 }
 
 /** A round that failed (timeout, unreachable, key, invalid return, not set up): not a skip, not a stop the user asked for. */
@@ -39,11 +41,17 @@ function failed(status: EvidenceStepResult['status']): boolean {
 export function applyRound(view: EvidenceView, result: EvidenceStepResult): EvidenceView {
   const scored = result.status === 'ok' && (result.stop === null || result.stop === 'maxHops')
   if (!scored) {
-    return { ...view, done: true, stop: result.stop ?? view.stop, interrupted: view.rounds.length > 0 && failed(result.status) }
+    return {
+      ...view,
+      done: true,
+      stop: result.stop ?? view.stop,
+      interrupted: view.rounds.length > 0 && failed(result.status),
+      skipReason: result.status === 'skipped' ? result.skipReason : null,
+    }
   }
   const round: EvidenceRound = { hop: result.hop, terms: result.terms, items: result.evidence }
   const rounds = [...view.rounds.filter((r) => r.hop !== result.hop), round].sort((a, b) => a.hop - b.hop)
-  return { rounds, shown: result.evidence, done: result.done, stop: result.stop, interrupted: false }
+  return { rounds, shown: result.evidence, done: result.done, stop: result.stop, interrupted: false, skipReason: null }
 }
 
 /** The host refused a step outright (an error, not a status): like a failed round, it ends the run. */

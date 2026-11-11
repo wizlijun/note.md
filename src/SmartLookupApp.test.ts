@@ -1282,15 +1282,20 @@ describe('SmartLookupApp fallbacks', () => {
     expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
   })
 
-  it('a route the host skips shows the local results with no button to start the evidence', async () => {
+  it.each([
+    ['fewTerms', 'The question has only a word or two and they were found as written, so no evidence was checked; below are the local results.'],
+    ['pinned', 'A pinned page matched, so no evidence was checked; below are the local results.'],
+  ] as const)('a route the host skips (%s) shows the local results under one line with its reason, and no button', async (skipReason, line) => {
     useLocal()
     configureBoth()
-    mocks.evidenceQueue.push(step({ status: 'skipped', skipReason: 'fewTerms', endpointHost: null, requestCount: 0, done: true }))
+    mocks.evidenceQueue.push(step({ status: 'skipped', skipReason, endpointHost: null, requestCount: 0, done: true }))
     const input = await mountReady()
     await submit(input)
     await vi.waitFor(() => expect(chip()).toBe('Local results only'))
-    expect(fallback()).toBe('')
+    expect(fallback()).toBe(line)
+    expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
     expect(document.body.textContent).not.toContain('Find evidence')
+    expect(ids('local')).toEqual(LOCAL)
     expect(calls('smart_lookup_evidence_step')).toHaveLength(1)
     expect(calls('smart_lookup_answer')).toHaveLength(0)
   })
