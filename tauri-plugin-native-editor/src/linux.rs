@@ -835,6 +835,9 @@ fn shortcut(key: gdk::keys::Key, mask: gdk::ModifierType) -> Option<&'static str
             _ => None,
         };
     }
+    if mask == shift && matches!(key, Return | KP_Enter) {
+        return Some("hard_break");
+    }
     if mask == shift && matches!(key, Tab | ISO_Left_Tab) {
         return Some("outdent");
     }
@@ -1792,6 +1795,20 @@ mod tests {
             shortcut(b, M::CONTROL_MASK | M::MOD1_MASK | M::SHIFT_MASK),
             None
         );
+    }
+    #[test]
+    fn linux_hard_break_requires_only_shift() {
+        use gdk::{keys::constants::*, ModifierType as M};
+        for key in [Return, KP_Enter] {
+            assert_eq!(shortcut(key, M::SHIFT_MASK), Some("hard_break"));
+            for mask in [M::empty(), M::CONTROL_MASK, M::MOD1_MASK, M::SUPER_MASK, M::META_MASK,
+                M::SHIFT_MASK | M::CONTROL_MASK, M::SHIFT_MASK | M::MOD1_MASK,
+                M::SHIFT_MASK | M::SUPER_MASK, M::SHIFT_MASK | M::META_MASK] {
+                assert_eq!(shortcut(key, mask), None);
+            }
+        }
+        assert_eq!(shortcut(Tab, M::SHIFT_MASK), Some("outdent"));
+        assert_eq!(shortcut(ISO_Left_Tab, M::SHIFT_MASK), Some("outdent"));
     }
     #[test]
     fn linux_shortcuts_ignore_caps_lock_letter_case_without_ignoring_shift() {
