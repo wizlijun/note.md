@@ -16,3 +16,11 @@
 - 本报告只证明网站和索引上线；宿主代码需随新宿主版本交付，不能据此声称旧宿主已更新。
 
 运行证据保存在 `tasks/plugin-writing-website-20261111/`。此目录的脚本副本用于审计，实际执行路径是 tasks 目录（迁移脚本复用前次已审计 publisher 的 Wrangler、下载和鉴权方法）。源工作区并行宿主改动及原有 store/smart_lookup 修改均未打包进网站。
+
+## 宿主与索引生成源码验收
+
+- 索引生成与三个同步清单：`ef9499f9`、最终名称文档修正 `51a1db53`。
+- 宿主 TS/内置市场：`660c4da3`、最终 Other 文案 `ada5978e`。
+- 联合运行 `scripts/gen-plugin-index.test.ts`、`src/lib/plugins/categories.test.ts`、`src/plugin-market-app.test.ts`：49 项通过，覆盖中英文实际词典及组件八组渲染。
+- 本次没有生成或发布新版宿主安装包；官网变化不会替换已安装宿主的本地菜单代码。
+- 原生宿主：`47a2cff3`，plugin_host 12、menu_label_tests 7、adapter 13，共 32 项通过；最终 Other 测试名称修改后重跑 host 12 项。
