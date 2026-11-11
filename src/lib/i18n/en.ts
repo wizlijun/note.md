@@ -303,12 +303,11 @@ export const en = {
   'pluginCategory.ai': 'AI',
   'pluginCategory.record': 'Capture',
   'pluginCategory.reading': 'Read',
-  'pluginCategory.advance': 'Move Forward',
-  'pluginCategory.reflect': 'Reflect',
-  'pluginCategory.create': 'Create',
+  'pluginCategory.advance': 'Advance',
+  'pluginCategory.reflect': 'Review',
+  'pluginCategory.create': 'Write',
   'pluginCategory.importExport': 'Import & Export',
-  'pluginCategory.experience': 'Experience',
-  'pluginCategory.other': 'Other',
+  'pluginCategory.experience': 'Extensions',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'Plugin Market',

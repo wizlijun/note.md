@@ -300,10 +300,9 @@ export const ja: Record<keyof Messages, string> = {
   'pluginCategory.reading': '読む',
   'pluginCategory.advance': '前へ進む',
   'pluginCategory.reflect': '振り返る',
-  'pluginCategory.create': '創作',
+  'pluginCategory.create': '書く',
   'pluginCategory.importExport': '読み込みと書き出し',
-  'pluginCategory.experience': '体験向上',
-  'pluginCategory.other': 'その他',
+  'pluginCategory.experience': 'その他の拡張',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'プラグインマーケット',

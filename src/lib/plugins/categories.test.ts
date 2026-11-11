@@ -1,17 +1,26 @@
 import { describe, expect, it } from 'vitest'
+import { en } from '../i18n/en'
+import { zh } from '../i18n/zh'
 import {
   groupPluginsByCategory,
   isSystemPluginCategory,
   normalizePluginCategory,
   pluginAiRole,
+  pluginCategoryLabelKey,
   PLUGIN_CATEGORY_ORDER,
 } from './categories'
 
 describe('plugin capability categories', () => {
   it('uses the documented top-level category order', () => {
     expect(PLUGIN_CATEGORY_ORDER).toEqual([
-      'ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience', 'other',
+      'ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience',
     ])
+  })
+
+  it('labels the eight groups consistently in Chinese and English', () => {
+    const keys = PLUGIN_CATEGORY_ORDER.map(pluginCategoryLabelKey)
+    expect(keys.map((key) => zh[key])).toEqual(['AI', '捕捉', '阅读', '写作', '推进', '回顾', '数据导入导出', '其他增强'])
+    expect(keys.map((key) => en[key])).toEqual(['AI', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Extensions'])
   })
 
   it('keeps the fixed capability order and stable input order within a group', () => {
@@ -34,24 +43,25 @@ describe('plugin capability categories', () => {
     expect(groupPluginsByCategory(rows)).toEqual([{ key: 'create', items: rows }])
   })
 
-  it('sends unknown and missing categories to Other', () => {
-    expect(normalizePluginCategory('future-category')).toBe('other')
-    expect(normalizePluginCategory(null)).toBe('other')
+  it('sends unknown and missing categories to Extensions', () => {
+    expect(normalizePluginCategory('future-category')).toBe('experience')
+    expect(normalizePluginCategory(null)).toBe('experience')
     expect(groupPluginsByCategory([
       { id: 'unknown', category: 'future-category' },
       { id: 'missing' },
-    ])).toEqual([{ key: 'other', items: [
+    ])).toEqual([{ key: 'experience', items: [
       { id: 'unknown', category: 'future-category' },
       { id: 'missing' },
     ] }])
   })
 
-  it('keeps Other last', () => {
-    expect(PLUGIN_CATEGORY_ORDER.at(-1)).toBe('other')
+  it('keeps Extensions last', () => {
+    expect(PLUGIN_CATEGORY_ORDER.at(-1)).toBe('experience')
   })
 
   it('maps previous category keys to their closest current category', () => {
     expect(normalizePluginCategory('inspiration')).toBe('create')
+    expect(normalizePluginCategory('other')).toBe('experience')
     expect(normalizePluginCategory('experience', 'notemd.sumi')).toBe('create')
     expect(normalizePluginCategory('agents')).toBe('ai')
     expect(normalizePluginCategory('capture')).toBe('record')
@@ -71,9 +81,14 @@ describe('plugin capability categories', () => {
     expect(normalizePluginCategory('thinking', 'notemd.next')).toBe('advance')
     expect(normalizePluginCategory('thinking', 'notemd.weekly-review')).toBe('reflect')
     expect(normalizePluginCategory(undefined, 'notemd.timeline')).toBe('reflect')
-    expect(normalizePluginCategory('record', 'notemd.roam-import')).toBe('import-export')
+    expect(normalizePluginCategory('import-export', 'notemd.roam-import')).toBe('record')
     expect(normalizePluginCategory('create', 'notemd.md2pdf')).toBe('import-export')
     expect(normalizePluginCategory('editing', 'notemd.power-mode')).toBe('experience')
+  })
+
+  it.each(['notemd.apple-notes', 'notemd.roam-import', 'notemd.health-sync'])('places %s in Capture regardless of cached category', (id) => {
+    expect(normalizePluginCategory('import-export', id)).toBe('record')
+    expect(normalizePluginCategory(undefined, id)).toBe('record')
   })
 
   it('identifies only host-level categories as system features', () => {

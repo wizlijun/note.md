@@ -67,12 +67,11 @@ vi.mock('./lib/i18n/store.svelte', () => {
     'pluginCategory.record': 'Capture',
     'pluginCategory.ai': 'AI',
     'pluginCategory.reading': 'Read',
-    'pluginCategory.advance': 'Move Forward',
-    'pluginCategory.reflect': 'Reflect',
-    'pluginCategory.create': 'Create',
+    'pluginCategory.advance': 'Advance',
+    'pluginCategory.reflect': 'Review',
+    'pluginCategory.create': 'Write',
     'pluginCategory.importExport': 'Import & Export',
-    'pluginCategory.experience': 'Experience',
-    'pluginCategory.other': 'Other',
+    'pluginCategory.experience': 'Extensions',
     'pluginMarket.aiTitle': 'Create with AI',
     'pluginMarket.aiSubtitle': 'Focused AI collaborators for understanding, ideas, and action.',
     'pluginMarket.aiBadge.read': 'AI Read',
@@ -357,9 +356,9 @@ describe('plugin market staged loading', () => {
     expect(document.querySelector('.ai-spotlight')).toBeNull()
   })
 
-  it('separates import/export and experience as system feature categories', async () => {
+  it('keeps sync capture separate from import/export and extensions', async () => {
     const roam = entry('notemd.roam-import', 'Roam Import')
-    roam.category = 'record'
+    roam.category = 'import-export'
     const pdf = entry('notemd.md2pdf', 'Export to PDF')
     pdf.category = 'create'
     const power = entry('notemd.power-mode', 'Power Mode')
@@ -373,10 +372,37 @@ describe('plugin market staged loading', () => {
 
     component = mount(PluginMarketApp, { target: document.body })
     await vi.waitFor(() => expect(document.body.textContent).toContain('Power Mode'))
-    expect(document.querySelectorAll('[data-category="import-export"] .plugin-card')).toHaveLength(2)
+    expect(document.querySelectorAll('[data-category="record"] .plugin-card')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-category="import-export"] .plugin-card')).toHaveLength(1)
     expect(document.querySelectorAll('[data-category="experience"] .plugin-card')).toHaveLength(1)
     expect(document.querySelectorAll('.system-badge')).toHaveLength(2)
     expect(document.querySelector('[data-category="create"]')).toBeNull()
+  })
+
+  it('renders eight groups in order while merging legacy and missing categories', async () => {
+    const rows = [
+      ['third.unknown', 'future'], ['third.missing', undefined], ['third.other', 'other'],
+      ['notemd.health-sync', 'import-export'], ['notemd.apple-notes', 'import-export'],
+      ['notemd.roam-import', 'import-export'], ['notemd.sumi', 'experience'],
+      ['notemd.idea-spark', 'inspiration'], ['notemd.md2pdf', 'import-export'],
+      ['notemd.next', 'advance'], ['notemd.weekly-review', 'reflect'],
+      ['notemd.ebook-import', 'reading'], ['notemd.codex-agent', 'advance'],
+    ].map(([id, category]) => ({ ...entry(id!, id!), category }))
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'plugin_market_host_triple') return Promise.resolve('x86_64-unknown-linux-gnu')
+      if (command === 'plugin_market_installed') return Promise.resolve([])
+      if (command === 'plugin_market_index') return Promise.resolve({ plugins: rows })
+      return Promise.resolve()
+    })
+
+    component = mount(PluginMarketApp, { target: document.body })
+    await vi.waitFor(() => expect(document.querySelectorAll('.plugin-card')).toHaveLength(13))
+    expect([...document.querySelectorAll('.category-block h2')].map((node) => node.textContent))
+      .toEqual(['AI', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Extensions'])
+    expect(document.querySelectorAll('[data-category="record"] .plugin-card')).toHaveLength(3)
+    expect(document.querySelectorAll('[data-category="create"] .plugin-card')).toHaveLength(2)
+    expect(document.querySelectorAll('[data-category="experience"] .plugin-card')).toHaveLength(3)
+    expect(document.querySelector('[data-category="other"]')).toBeNull()
   })
 
   it('loads a newly installed plugin immediately without a window reminder', async () => {

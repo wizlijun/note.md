@@ -298,10 +298,9 @@ export const de: Record<keyof Messages, string> = {
   'pluginCategory.reading': 'Lesen',
   'pluginCategory.advance': 'Vorankommen',
   'pluginCategory.reflect': 'Rückblick',
-  'pluginCategory.create': 'Gestalten',
+  'pluginCategory.create': 'Schreiben',
   'pluginCategory.importExport': 'Importieren & Exportieren',
-  'pluginCategory.experience': 'Erlebnis',
-  'pluginCategory.other': 'Sonstige',
+  'pluginCategory.experience': 'Erweiterungen',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'Plugin-Markt',
