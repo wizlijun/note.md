@@ -213,7 +213,7 @@ pub struct LocatedMenuItem {
 /// `menus[].submenu` carries one of these language-neutral keys. Keeping the
 /// field open means an older Host still loads newer plugin manifests; this
 /// Host normalizes unknown/missing keys to Other instead of hiding an action.
-pub const PLUGIN_MENU_GROUP_ORDER: [&str; 9] = [
+pub const PLUGIN_MENU_GROUP_ORDER: [&str; 8] = [
     "ai",
     "record",
     "reading",
@@ -222,7 +222,6 @@ pub const PLUGIN_MENU_GROUP_ORDER: [&str; 9] = [
     "reflect",
     "import-export",
     "experience",
-    "other",
 ];
 
 pub fn normalize_plugin_menu_group(group: Option<&str>) -> &'static str {
@@ -235,7 +234,7 @@ pub fn normalize_plugin_menu_group(group: Option<&str>) -> &'static str {
         Some("reflect") | Some("thinking") | Some("thinking-review") => "reflect",
         Some("import-export") | Some("publish-export") => "import-export",
         Some("experience") | Some("editing") | Some("editor-extensions") => "experience",
-        _ => "other",
+        _ => "experience",
     }
 }
 
@@ -243,7 +242,7 @@ pub fn normalize_plugin_menu_group(group: Option<&str>) -> &'static str {
 /// older installed manifest still carries a legacy capability key.
 pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'static str {
     match plugin_id {
-        "notemd.pos-log" => "record",
+        "notemd.pos-log" | "notemd.apple-notes" | "notemd.roam-import" | "notemd.health-sync" => "record",
         "notemd.ebook-import" | "notemd.trace-source" => "reading",
         "notemd.idea-spark" | "notemd.sumi" => "create",
         "notemd.next" => "advance",
@@ -253,7 +252,7 @@ pub fn plugin_menu_group_for_plugin(plugin_id: &str, group: Option<&str>) -> &'s
         | "notemd.conversation-dictionary"
         | "notemd.memory" => "ai",
         "notemd.decision-log" | "notemd.weekly-review" | "notemd.timeline" => "reflect",
-        "notemd.roam-import" | "notemd.md2pdf" => "import-export",
+        "notemd.md2pdf" => "import-export",
         "notemd.power-mode" => "experience",
         _ => normalize_plugin_menu_group(group),
     }
@@ -440,7 +439,6 @@ mod tests {
             "reflect",
             "import-export",
             "experience",
-            "other",
         ]);
     }
 
@@ -463,18 +461,20 @@ mod tests {
     }
 
     #[test]
-    fn unknown_or_missing_plugin_menu_group_falls_back_to_other() {
+    fn unknown_or_missing_plugin_menu_group_merges_into_other() {
         let items = vec![
             menu_item("known", Some("thinking")),
             menu_item("unknown", Some("future-category")),
             menu_item("missing", None),
+            menu_item("legacy-other", Some("other")),
+            menu_item("enhancement", Some("experience")),
         ];
         let groups = group_plugin_menu_items(&items);
         assert_eq!(groups.iter().map(|g| g.key).collect::<Vec<_>>(), vec![
-            "reflect", "other",
+            "reflect", "experience",
         ]);
         assert_eq!(groups[1].items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>(), vec![
-            "unknown", "missing",
+            "unknown", "missing", "legacy-other", "enhancement",
         ]);
     }
 
@@ -496,7 +496,9 @@ mod tests {
         assert_eq!(plugin_menu_group_for_plugin("notemd.sumi", Some("experience")), "create");
         assert_eq!(plugin_menu_group_for_plugin("notemd.trace-source", Some("capture")), "reading");
         assert_eq!(plugin_menu_group_for_plugin("notemd.power-mode", Some("editing")), "experience");
-        assert_eq!(plugin_menu_group_for_plugin("notemd.roam-import", Some("record")), "import-export");
+        for id in ["notemd.apple-notes", "notemd.roam-import", "notemd.health-sync"] {
+            assert_eq!(plugin_menu_group_for_plugin(id, Some("import-export")), "record");
+        }
         assert_eq!(plugin_menu_group_for_plugin("third.party", Some("thinking")), "reflect");
     }
 

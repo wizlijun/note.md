@@ -2364,19 +2364,18 @@ fn menu_label(locale: &str, key: &str) -> String {
         "menu.help" => ("Help", "帮助", "ヘルプ", "Hilfe"),
         "menu.plugins" => ("Plugins", "插件", "プラグイン", "Plugins"),
         "plugins.group.ai" => ("AI", "AI", "AI", "AI"),
-        "plugins.group.record" => ("Capture", "记录", "記録", "Festhalten"),
+        "plugins.group.record" => ("Capture", "捕捉", "記録", "Festhalten"),
         "plugins.group.reading" => ("Read", "阅读", "読む", "Lesen"),
-        "plugins.group.advance" => ("Move Forward", "推进", "前へ進む", "Vorankommen"),
-        "plugins.group.reflect" => ("Reflect", "回顾", "振り返る", "Rückblick"),
-        "plugins.group.create" | "plugins.group.inspiration" => ("Create", "创作", "創作", "Gestalten"),
+        "plugins.group.advance" => ("Advance", "推进", "前へ進む", "Vorankommen"),
+        "plugins.group.reflect" => ("Review", "回顾", "振り返る", "Rückblick"),
+        "plugins.group.create" | "plugins.group.inspiration" => ("Write", "写作", "書く", "Schreiben"),
         "plugins.group.importExport" => (
             "Import & Export",
-            "导入与导出",
+            "数据导入导出",
             "読み込みと書き出し",
             "Importieren & Exportieren",
         ),
-        "plugins.group.experience" => ("Experience", "体验增强", "体験向上", "Erlebnis"),
-        "plugins.group.other" => ("Other", "其他", "その他", "Sonstige"),
+        "plugins.group.experience" | "plugins.group.other" => ("Other", "其他", "その他", "Sonstiges"),
         "file.latestCreated" => ("Latest Created", "最新创建", "最近作成したファイル", "Zuletzt erstellt"),
         "file.noLatest" => ("No Markdown Files", "无 Markdown 文件", "Markdown ファイルなし", "Keine Markdown-Dateien"),
         "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く", "Zuletzt geöffnet"),
@@ -3116,7 +3115,7 @@ fn build_menu<R: tauri::Runtime>(
                     "create" => "plugins.group.create",
                     "import-export" => "plugins.group.importExport",
                     "experience" => "plugins.group.experience",
-                    _ => "plugins.group.other",
+                    _ => "plugins.group.experience",
                 };
                 let group_label = native_menu_literal(&menu_label(locale, label_key));
                 let mut gb = SubmenuBuilder::new(app, group_label);
@@ -3170,7 +3169,7 @@ mod menu_label_tests {
 
     #[test]
     fn legacy_inspiration_label_uses_the_single_create_category() {
-        for (locale, expected) in [("en", "Create"), ("zh", "创作"), ("ja", "創作"), ("de", "Gestalten")] {
+        for (locale, expected) in [("en", "Write"), ("zh", "写作"), ("ja", "書く"), ("de", "Schreiben")] {
             assert_eq!(menu_label(locale, "plugins.group.create"), expected);
             assert_eq!(menu_label(locale, "plugins.group.inspiration"), expected);
         }
@@ -3182,16 +3181,31 @@ mod menu_label_tests {
         assert_eq!(menu_label("zh", "plugins.group.ai"), "AI");
         assert_eq!(menu_label("ja", "plugins.group.ai"), "AI");
         assert_eq!(menu_label("de", "plugins.group.ai"), "AI");
-        assert_eq!(menu_label("en", "plugins.group.advance"), "Move Forward");
+        assert_eq!(menu_label("en", "plugins.group.advance"), "Advance");
         assert_eq!(menu_label("zh", "plugins.group.advance"), "推进");
         assert_eq!(menu_label("ja", "plugins.group.advance"), "前へ進む");
         assert_eq!(menu_label("de", "plugins.group.advance"), "Vorankommen");
-        assert_eq!(menu_label("en", "plugins.group.experience"), "Experience");
-        assert_eq!(menu_label("zh", "plugins.group.experience"), "体验增强");
-        assert_eq!(menu_label("ja", "plugins.group.experience"), "体験向上");
-        assert_eq!(menu_label("de", "plugins.group.experience"), "Erlebnis");
+        assert_eq!(menu_label("en", "plugins.group.experience"), "Other");
+        assert_eq!(menu_label("zh", "plugins.group.experience"), "其他");
+        assert_eq!(menu_label("ja", "plugins.group.experience"), "その他");
+        assert_eq!(menu_label("de", "plugins.group.experience"), "Sonstiges");
         assert_eq!(menu_label("en", "plugins.group.importExport"), "Import & Export");
-        assert_eq!(menu_label("zh", "plugins.group.importExport"), "导入与导出");
+        assert_eq!(menu_label("zh", "plugins.group.importExport"), "数据导入导出");
+    }
+
+    #[test]
+    fn eight_plugin_group_labels_match_the_approved_navigation() {
+        let keys = ["ai", "record", "reading", "create", "advance", "reflect", "importExport", "experience"];
+        for (locale, expected) in [
+            ("en", ["AI", "Capture", "Read", "Write", "Advance", "Review", "Import & Export", "Other"]),
+            ("zh", ["AI", "捕捉", "阅读", "写作", "推进", "回顾", "数据导入导出", "其他"]),
+        ] {
+            let actual: Vec<_> = keys.iter().map(|key| menu_label(locale, &format!("plugins.group.{key}"))).collect();
+            assert_eq!(actual, expected);
+        }
+        for locale in ["en", "zh", "ja", "de"] {
+            assert_eq!(menu_label(locale, "plugins.group.other"), menu_label(locale, "plugins.group.experience"));
+        }
     }
 
     #[test]
