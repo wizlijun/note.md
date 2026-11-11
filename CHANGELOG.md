@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ## v6.1111.1 — 2026-11-11
 
+- **Companion input method included.** The release also includes the modified Faitc5 for Sumi 0.5.0.13 Apple silicon installer, with Chinese/English spacing enabled by default. Its App is signed and notarized; the installer package itself is unsigned. Future macOS releases validate the approved package before attaching it.
+
 - **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
 
 - **Sumi windows fit your Mac display.** New standalone windows use the available screen area and support the green full-screen button. “Open new windows in full screen” is on by default; changing it applies to the next new window without switching the current one.

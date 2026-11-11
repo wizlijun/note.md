@@ -49,3 +49,9 @@ host 版本统一为 `6.1111.1`；Sumi manifest/package 为 `0.1.14`，最低宿
 后续命名提交：main `48ce1498` → release `4b173315` 补齐文档操作与凭据显示标签、移除中文辅助功能重复“写作”；main `4938ba27` → release `6d9233a0` 覆盖插件市场、入口、窗口与 Linux 音频应用名。manifest cherry-pick 的版本邻行冲突已明确保留 0.1.14 / >=6.1111.1，仅采用新名称。宿主相关 177 测试、插件 110 测试及 tsc/Vite 通过。
 
 最终冻结前重新核对：仅 main/release 两个工作树，main 仍只有 searchidx/src/store.rs 与 src-tauri/src/smart_lookup.rs 两处原有 EOF 改动；stash 不变。命名后所有当前产品源码纳入新候选；main 新文档采用选定spec/日志，未包含智能查找改动。旧源码八项补丁等价仍成立，新三项命名通过实际文件对比（manifest 仅版本/min_host 差异）。
+
+## 发布附件自动化追加（rc3）
+
+用户要求CD自动附带最后批准的改造Faitc5安装包。main `1aa63388` / `9717662f` → release `fe5b02a3` / `d033aa8a`，加入固定批准JSON、构建前精确暂存、draft附件及发布前下载核对；每个macOS发行缺包/错版本/错hash均拒绝，pkg独立于宿主updater。批准Faitc5为0.5.0.13，源码46bb19a84f7c7e9aa6756d4e9d4e1826a259184b，SHA256 2f30d4903b98bf40ce18520a6f4f948e36afb2fc62cbc1fce38de1286c881b5b，61309600字节；App签名公证，pkg未签名。
+
+App/插件实际构建源仍为23e4ad11a66461b96f75568130d66c9def8020fe，rc3仅增添CD脚本、审批元数据和说明。最终freeze须证明全部App/plugin构建输入摘要与rc2逐字一致，再使用原产物重新做完整verifier；不将rc3称为实际编译源，不重新签名或改写已公证字节。rc2标签和报告保留，尚未公开的正式tag在rc3冻结后建立。
