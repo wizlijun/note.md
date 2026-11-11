@@ -17,6 +17,7 @@ pub fn plugin_window_resizable(os: &str, manifest_resizable: bool) -> bool {
 
 pub fn track_window_state(os: &str, label: &str) -> bool {
     !(os == "linux" && label.starts_with("plugin-"))
+        && !(os == "macos" && label == "plugin-notemd-sumi-main")
 }
 
 #[cfg(test)]
@@ -52,12 +53,14 @@ mod tests {
         assert!(plugin_window_resizable("macos", true));
     }
     #[test]
-    fn newly_created_linux_plugins_do_not_restore_stale_offscreen_or_fullscreen_state() {
+    fn fresh_linux_plugins_and_mac_sumi_do_not_restore_stale_window_state() {
         assert!(!track_window_state("linux", "plugin-notemd-sumi-main"));
         assert!(!track_window_state("linux", "plugin-third-party-settings"));
         assert!(track_window_state("linux", "main"));
         assert!(track_window_state("linux", "settings"));
-        assert!(track_window_state("macos", "plugin-notemd-sumi-main"));
+        assert!(!track_window_state("macos", "plugin-notemd-sumi-main"));
+        assert!(track_window_state("macos", "main"));
+        assert!(track_window_state("macos", "plugin-third-party-settings"));
         assert!(track_window_state("windows", "plugin-notemd-sumi-main"));
     }
 }

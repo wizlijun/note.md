@@ -18,7 +18,7 @@ use std::sync::{LazyLock, RwLock};
 use std::time::{Duration, Instant};
 use tauri::{Manager, Runtime, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
 #[path = "window_geometry.rs"]
 mod window_geometry;
 #[cfg(target_os = "linux")]
@@ -363,6 +363,22 @@ pub fn open_plugin_window<R: Runtime>(
         .parse()
         .map_err(|e| format!("bad plugin url: {e}"))?;
 
+    #[cfg(target_os = "macos")]
+    let sumi_window = plugin_id == "notemd.sumi" && window_id == "main";
+    #[cfg(target_os = "macos")]
+    let sumi_work_area = if sumi_window {
+        app.webview_windows().values().find(|window| window.is_focused().unwrap_or(false))
+            .and_then(|window| window.current_monitor().ok().flatten())
+            .or_else(|| app.cursor_position().ok()
+                .and_then(|point| app.monitor_from_point(point.x, point.y).ok().flatten()))
+            .or_else(|| app.primary_monitor().ok().flatten())
+            .map(|monitor| {
+                let work = monitor.work_area();
+                window_geometry::WorkArea::from_physical(work.position.x, work.position.y,
+                    work.size.width, work.size.height, monitor.scale_factor())
+            })
+    } else { None };
+
     // An unmapped Wayland window has no monitor yet. Use the host's monitor
     // before falling back to the compositor's primary/first monitor.
     #[cfg(target_os = "linux")]
@@ -400,6 +416,13 @@ pub fn open_plugin_window<R: Runtime>(
         .visible(false)
         .initialization_script(bridge_script(plugin_id, &locale, &theme));
 
+    #[cfg(target_os = "macos")]
+    if sumi_window {
+        // A resizable native NSWindow keeps its green full-screen control enabled,
+        // including after leaving full screen. The plugin manifest is fixed-size.
+        builder = builder.resizable(true).maximizable(true).decorations(true);
+    }
+
     #[cfg(target_os = "linux")]
     {
         // Explicit ownership prevents GTK from attaching the app-wide
@@ -420,12 +443,32 @@ pub fn open_plugin_window<R: Runtime>(
     }
     #[cfg(not(target_os = "linux"))]
     if let (Some(w), Some(h)) = (win.min_width, win.min_height) {
-        builder = builder.min_inner_size(w, h);
+        #[cfg(target_os = "macos")]
+        if !sumi_window { builder = builder.min_inner_size(w, h); }
+        #[cfg(not(target_os = "macos"))]
+        { builder = builder.min_inner_size(w, h); }
     }
 
     let window = builder
         .build()
         .map_err(|e| format!("window build failed: {e}"))?;
+
+    #[cfg(target_os = "macos")]
+    if let Some(work) = sumi_work_area {
+        // Measure the native titlebar in points before the first show. Both the
+        // requested minimum and content rectangle must fit the usable screen.
+        let scale = window.scale_factor().map_err(|e| e.to_string())?;
+        let outer = window.outer_size().map_err(|e| e.to_string())?;
+        let inner = window.inner_size().map_err(|e| e.to_string())?;
+        let titlebar = f64::from(outer.height.saturating_sub(inner.height)) / scale;
+        let layout = window_geometry::fit_sumi(win.width, win.height,
+            win.min_width.zip(win.min_height), work, titlebar);
+        if let Some((w, h)) = layout.minimum {
+            window.set_min_size(Some(tauri::LogicalSize::new(w, h))).map_err(|e| e.to_string())?;
+        }
+        window.set_size(tauri::LogicalSize::new(layout.width, layout.height)).map_err(|e| e.to_string())?;
+        window.set_position(tauri::LogicalPosition::new(layout.x, layout.y)).map_err(|e| e.to_string())?;
+    }
 
     #[cfg(target_os = "linux")]
     let titlebar = linux_prepare_chrome(&window)?;
@@ -492,6 +535,8 @@ pub fn open_plugin_window<R: Runtime>(
         _ => {}
     });
 
+    #[cfg(target_os = "macos")]
+    if crate::sumi::show_created_plugin_window(&window) { return Ok(()); }
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
