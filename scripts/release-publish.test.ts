@@ -1,20 +1,27 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync, mkdirSync, copyFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { validateRelease } from './release-publish-core.mjs'
+import { validateRelease, validateCompanionMetadata } from './release-publish-core.mjs'
 
 const tag = 'v6.1015.2', version = '6.1015.2'
 const base = `https://github.com/wizlijun/note.md/releases/download/${tag}/`
 const sha = (bytes: string) => createHash('sha256').update(bytes).digest('hex')
+const companionFilename = 'Faitc5-for-Sumi-0.5.0.13-arm64.pkg'
+const companionBytes = 'exact-approved-faitc5-package'
+function approvedCompanion() {
+  return { schema: 1, product: 'Faitc5 for Sumi', version: '0.5.0.13', platform: 'darwin-aarch64',
+    filename: companionFilename, sha256: sha(companionBytes), bytes: Buffer.byteLength(companionBytes),
+    sourceCommit: 'a'.repeat(40), appNotarized: true, packageSigned: false }
+}
 function fixture() {
   const names = ['note.md-6.1015.2-aarch64.dmg', 'note.md-6.1015.2-x86_64.dmg',
     'note.md-aarch64.app.tar.gz', 'note.md-aarch64.app.tar.gz.sig',
     'note.md-x86_64.app.tar.gz', 'note.md-x86_64.app.tar.gz.sig',
     'note.md_6.1015.2_x64-setup.exe', 'note.md_6.1015.2_x64-setup.exe.sig',
-    'note.md_6.1015.2_amd64.deb', 'note.md_6.1015.2_arm64.deb', 'SHA256SUMS-linux.txt', 'latest.json']
+    'note.md_6.1015.2_amd64.deb', 'note.md_6.1015.2_arm64.deb', 'SHA256SUMS-linux.txt', 'latest.json', 'faitc5-companion.json', companionFilename]
   const platforms = {
     'darwin-aarch64': { url: base + names[2], signature: 'signed-arm' },
     'darwin-x86_64': { url: base + names[4], signature: 'signed-intel' },
@@ -27,13 +34,15 @@ function fixture() {
   }
   const latest: { version: string; platforms: Record<string, { url: string; signature: string }> } = { version, platforms }
   contents['latest.json'] = JSON.stringify(latest)
-  const assets = names.map(name => ({ name, url: base + name, content: contents[name], sha256: sha(contents[name] || '') }))
-  return { tag, draft: true, url: `https://github.com/wizlijun/note.md/releases/tag/${tag}`, assets, latest, contents }
+  contents['faitc5-companion.json'] = JSON.stringify(approvedCompanion())
+  contents[companionFilename] = companionBytes
+  const assets = names.map(name => ({ name, url: base + name, content: contents[name], sha256: sha(contents[name] || ''), bytes: Buffer.byteLength(contents[name] || '') }))
+  return { tag, approvedCompanion: approvedCompanion(), draft: true, url: `https://github.com/wizlijun/note.md/releases/tag/${tag}`, assets, latest, contents }
 }
 
 function armFixture() {
   const input = fixture()
-  input.assets = input.assets.filter(a => a.name.includes('aarch64') || a.name === 'latest.json')
+  input.assets = input.assets.filter(a => a.name.includes('aarch64') || a.name === 'latest.json' || a.name === 'faitc5-companion.json' || a.name === companionFilename)
   delete input.latest.platforms['darwin-x86_64']
   delete input.latest.platforms['windows-x86_64']
   return input
@@ -178,9 +187,13 @@ function draftFixture() {
 const roots: string[] = []
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })))
 function harness(input: ReturnType<typeof fixture> | ReturnType<typeof linuxFixture> = fixture(), prerelease = false, recheck = '') {
-  const root = mkdtempSync(join(tmpdir(), 'notemd-publish-')); roots.push(root)
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'notemd-publish-'))); roots.push(root)
   writeFileSync(join(root, 'release.json'), JSON.stringify({ tagName: tag, isDraft: input.draft, isPrerelease: prerelease, url: input.url, assets: input.assets }))
   writeFileSync(join(root, 'contents.json'), JSON.stringify({ ...input.contents, 'latest.json': JSON.stringify(input.latest) }))
+  mkdirSync(join(root, 'scripts/release-companions'), { recursive: true })
+  for (const name of ['release-publish.sh', 'release-publish-core.mjs']) copyFileSync(resolve('scripts', name), join(root, 'scripts', name))
+  writeFileSync(join(root, 'scripts/release-companions/faitc5.json'), JSON.stringify(input.approvedCompanion))
+  const script = join(root, 'scripts/release-publish.sh')
   const log = join(root, 'calls.jsonl')
   writeFileSync(join(root, 'gh'), `#!/usr/bin/env node
 const fs=require('fs'),path=require('path'),args=process.argv.slice(2),root=${JSON.stringify(root)};
@@ -190,7 +203,7 @@ else if(args.includes('download')) {const name=args[args.indexOf('--pattern')+1]
 else if(!args.includes('edit')) process.exit(8);
 `)
   chmodSync(join(root, 'gh'), 0o755)
-  return { root, log, run: (args: string[] = [tag]) => spawnSync('bash', [resolve('scripts/release-publish.sh'), ...args], { encoding: 'utf8', env: { ...process.env, PATH: root + ':' + process.env.PATH }, input: '' }) }
+  return { root, log, script, run: (args: string[] = [tag]) => spawnSync('bash', [script, ...args], { encoding: 'utf8', env: { ...process.env, PATH: root + ':' + process.env.PATH }, input: '' }) }
 }
 function calls(log: string) { try { return readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line) as string[]) } catch { return [] } }
 function runInteractive(h: ReturnType<typeof harness>, args: string[], answer: string) {
@@ -216,7 +229,7 @@ child.wait()
 os.close(master)
 sys.stdout.buffer.write(output)
 sys.exit(child.returncode)
-`, resolve('scripts/release-publish.sh'), tag, answer, ...args], { encoding: 'utf8', env: { ...process.env, PATH: h.root + ':' + process.env.PATH } })
+`, h.script, tag, answer, ...args], { encoding: 'utf8', env: { ...process.env, PATH: h.root + ':' + process.env.PATH } })
 }
 describe('publish command boundary (fake network CLI, real gate)', () => {
   it('publishes a validated normal release as latest', () => {
@@ -270,7 +283,7 @@ describe('publish command boundary (fake network CLI, real gate)', () => {
     const accepted = answer === (arm ? `${tag} mac-arm64-only` : `${tag} without windows`)
     expect(result.status === 0, result.stdout + result.stderr).toBe(accepted)
     expect(calls(h.log).some(c => c.includes('edit'))).toBe(accepted)
-    if (arm) expect(calls(h.log).filter(c => c.includes('download')).map(c => c[c.indexOf('--pattern') + 1])).toEqual(['latest.json', 'note.md-aarch64.app.tar.gz.sig'])
+    if (arm) expect(calls(h.log).filter(c => c.includes('download')).map(c => c[c.indexOf('--pattern') + 1])).toEqual(['latest.json', 'note.md-aarch64.app.tar.gz.sig', 'faitc5-companion.json', companionFilename])
   }, 20_000)
 })
 
@@ -455,4 +468,67 @@ describe('explicit Linux-amd64-only publication', () => {
     expect(result.status).not.toBe(0)
     expect(calls(h.log)).toEqual([])
   })
+})
+
+
+describe('approved Faitc5 companion boundary', () => {
+  it('requires both companion assets for all Mac release modes', () => {
+    for (const source of [fixture(), armFixture()]) {
+      for (const name of ['faitc5-companion.json', companionFilename]) {
+        const input = { ...source, assets: source.assets.filter(a => a.name !== name), macArm64Only: source.latest.platforms['darwin-x86_64'] === undefined }
+        expect(() => validateRelease(input)).toThrow()
+      }
+    }
+  })
+  it('requires local approval rather than accepting any self-consistent uploaded JSON', () => {
+    expect(() => validateRelease({ ...fixture(), approvedCompanion: undefined })).toThrow()
+    const input = fixture(), changed = { ...input.approvedCompanion, sourceCommit: 'b'.repeat(40) }
+    input.assets.find(a => a.name === 'faitc5-companion.json')!.content = JSON.stringify(changed)
+    expect(() => validateRelease(input)).toThrow()
+  })
+  it('allows a newly approved version without a code version allowlist', () => {
+    const input = armFixture(), newer = 'Faitc5-for-Sumi-0.5.0.14-arm64.pkg'
+    input.approvedCompanion = { ...input.approvedCompanion, version: '0.5.0.14', filename: newer }
+    input.assets.find(a => a.name === 'faitc5-companion.json')!.content = JSON.stringify(input.approvedCompanion)
+    const pkg = input.assets.find(a => a.name === companionFilename)!; pkg.name = newer; pkg.url = base + newer
+    expect(() => validateRelease({ ...input, macArm64Only: true })).not.toThrow()
+  })
+  it.each(['hash', 'bytes', 'old-tag', 'other-repo', 'other-pkg', 'updater'])('rejects invalid companion evidence: %s', kind => {
+    const input = fixture(), pkg = input.assets.find(a => a.name === companionFilename)!
+    if (kind === 'hash') pkg.sha256 = '0'.repeat(64)
+    if (kind === 'bytes') pkg.bytes += 1
+    if (kind === 'old-tag') pkg.url = pkg.url.replace(tag, 'v6.1014.1')
+    if (kind === 'other-repo') pkg.url = pkg.url.replace('/note.md/', '/other/')
+    if (kind === 'other-pkg') input.assets.push({ ...pkg, name: 'arbitrary.pkg', url: base + 'arbitrary.pkg' })
+    if (kind === 'updater') input.latest.platforms['darwin-aarch64'].url = pkg.url
+    expect(() => validateRelease(input)).toThrow()
+  })
+  it.each([
+    { schema: 2 }, { product: 'Other' }, { platform: 'darwin-x86_64' }, { version: '../0.5.0.13' },
+    { filename: '../Faitc5-for-Sumi-0.5.0.13-arm64.pkg' }, { filename: 'Faitc5-for-Sumi-0.5.0.14-arm64.pkg' },
+    { sha256: 'x'.repeat(64) }, { bytes: 0 }, { bytes: 1.5 }, { bytes: Number.MAX_SAFE_INTEGER + 1 },
+    { sourceCommit: 'short' }, { appNotarized: false }, { packageSigned: 'false' }, { unknown: true },
+  ])('rejects malformed approval %j', change => {
+    expect(() => validateCompanionMetadata({ ...approvedCompanion(), ...change })).toThrow()
+  })
+  it('accepts accurate unsigned-package metadata without calling it a package signature', () => {
+    expect(validateCompanionMetadata(approvedCompanion()).packageSigned).toBe(false)
+  })
+  it.each(['bytes', 'approved-json', 'malformed-json', 'missing-json', 'missing-pkg'])('CLI never publishes invalid downloaded companion: %s', drift => {
+    const input = fixture()
+    if (drift === 'bytes') input.contents[companionFilename] += 'tampered'
+    if (drift === 'approved-json') input.contents['faitc5-companion.json'] = JSON.stringify({ ...input.approvedCompanion, sourceCommit: 'b'.repeat(40) })
+    if (drift === 'malformed-json') input.contents['faitc5-companion.json'] = '{bad'
+    if (drift === 'missing-json') input.assets = input.assets.filter(a => a.name !== 'faitc5-companion.json')
+    if (drift === 'missing-pkg') input.assets = input.assets.filter(a => a.name !== companionFilename)
+    const h = harness(input), result = h.run()
+    expect(result.status).not.toBe(0)
+    expect(calls(h.log).some(c => c.includes('edit') || c.includes('upload'))).toBe(false)
+  })
+  it('Linux-only assets remain independent of the Mac approval file', () => {
+    const h = harness(linuxFixture()); rmSync(join(h.root, 'scripts/release-companions/faitc5.json'))
+    const result = runInteractive(h, ['--linux-only'], `${tag} linux-only`)
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    expect(calls(h.log).some(c => c.includes('faitc5-companion.json'))).toBe(false)
+  }, 20_000)
 })
