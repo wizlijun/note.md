@@ -1,0 +1,10 @@
+{
+  "reproduced": true,
+  "version": "6.1112.1",
+  "reason": "reopening restores saved beginning rather than document end",
+  "actual_insert_utf16": 0,
+  "expected_insert_utf16": 3907,
+  "document_sha256": "913c77a389e5771eb8d7269891d30be757cdbf5ec4a0b803b848d59bead548f2",
+  "actual_document_matches": true,
+  "private_fixture_stopped": true
+}

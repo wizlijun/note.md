@@ -1,0 +1,1609 @@
+{
+  "audit_utc": "2026-11-11T16:38:03.709358+00:00",
+  "target_version": "6.1112.2",
+  "scope": "Linux host entry-at-document-end fix e7e6b0f7; previous published IME sound bridge retained. Plugin update audited separately.",
+  "baseline_audit": "tasks/sumi-ime-keys-release/pre-release-audit.json",
+  "note_md": {
+    "head": "e7e6b0f75f03e4a7b1b8aed153b5d5ba07b1607b",
+    "origin_main_live": "e7e6b0f75f03e4a7b1b8aed153b5d5ba07b1607b\trefs/heads/main",
+    "worktrees": [
+      {
+        "worktree": "/home/bruce/git/note.md",
+        "HEAD": "e7e6b0f75f03e4a7b1b8aed153b5d5ba07b1607b",
+        "branch": "refs/heads/main",
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      },
+      {
+        "worktree": "/home/bruce/git/note.md-sumi-candidate-position",
+        "HEAD": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+        "branch": "refs/heads/fix/sumi-candidate-position",
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      },
+      {
+        "worktree": "/home/bruce/git/note.md-sumi-candidates",
+        "HEAD": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+        "branch": "refs/heads/sumi-fcitx-candidates",
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      },
+      {
+        "worktree": "/home/bruce/git/note.md-sumi-focus-stability",
+        "HEAD": "690154c8d98c0c8caf2906615561b2e2e6235589",
+        "branch": "refs/heads/fix/sumi-focus-stability",
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      },
+      {
+        "worktree": "/home/bruce/git/note.md-sumi-release-integration",
+        "HEAD": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+        "branch": "refs/heads/integrate/sumi6-main",
+        "tracked_changes": [],
+        "untracked_nonignored": [
+          "node_modules"
+        ],
+        "untracked_classification": [
+          {
+            "path": "node_modules",
+            "include": false,
+            "reason": "dependency symlink excluded from frozen source",
+            "target": "/home/bruce/git/note.md/node_modules"
+          }
+        ]
+      },
+      {
+        "worktree": "/home/bruce/git/note.md-sumi-sound-fix",
+        "HEAD": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "branch": "refs/heads/fix/sumi-linux-sound",
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      },
+      {
+        "worktree": "/home/bruce/git/note.md/tasks/omarchy-build/source",
+        "HEAD": "183b636b05bcf1440e2b8626f28629ce44b78863",
+        "detached": true,
+        "tracked_changes": [],
+        "untracked_nonignored": [
+          "node_modules"
+        ],
+        "untracked_classification": [
+          {
+            "path": "node_modules",
+            "include": false,
+            "reason": "dependency symlink excluded from frozen source",
+            "target": "/home/bruce/git/note.md/node_modules"
+          }
+        ]
+      },
+      {
+        "worktree": "/home/bruce/git/note.md/tasks/sumi-candidate-host/source",
+        "HEAD": "15ec134fd301f7b33a56d45b8540801b31d21a44",
+        "detached": true,
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      },
+      {
+        "worktree": "/home/bruce/git/note.md/tasks/sumi-candidate-no-dot/source",
+        "HEAD": "100dc160b435c44716166d2eb12fe0071e252fb6",
+        "detached": true,
+        "tracked_changes": [],
+        "untracked_nonignored": [],
+        "untracked_classification": []
+      }
+    ],
+    "stash": [],
+    "branches": [
+      {
+        "branch": "fix/sumi-candidate-position",
+        "head": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+        "commits_not_ancestors_of_main": [
+          "5fd8c46160e386cbbbaf110f062a02799bf71809 fix(sumi): keep nonfocus input stationary above bottom candidates"
+        ],
+        "patch_equivalence_vs_main": [
+          "- 5fd8c46160e386cbbbaf110f062a02799bf71809"
+        ]
+      },
+      {
+        "branch": "fix/sumi-focus-stability",
+        "head": "690154c8d98c0c8caf2906615561b2e2e6235589",
+        "commits_not_ancestors_of_main": [
+          "690154c8d98c0c8caf2906615561b2e2e6235589 fix(sumi): stabilize focus scrolling and hide native scrollbar"
+        ],
+        "patch_equivalence_vs_main": [
+          "- 690154c8d98c0c8caf2906615561b2e2e6235589"
+        ]
+      },
+      {
+        "branch": "fix/sumi-linux-sound",
+        "head": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "commits_not_ancestors_of_main": [
+          "fbb9186259773a77f84a3ac69918e9f2f9df341f test(linux): use platform launcher for plugin environment regression",
+          "eb7643d25b281358a2f5c0a08a2e6633e0d293ab chore: release Linux Sumi typing sound fix 6.1110.7",
+          "c8057be88b9c1dfb3f79528e1402b84dcdbe3077 fix(linux): retain plugin audio session runtime directory"
+        ],
+        "patch_equivalence_vs_main": [
+          "- c8057be88b9c1dfb3f79528e1402b84dcdbe3077",
+          "+ eb7643d25b281358a2f5c0a08a2e6633e0d293ab",
+          "- fbb9186259773a77f84a3ac69918e9f2f9df341f"
+        ]
+      },
+      {
+        "branch": "integrate/sumi6-main",
+        "head": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+        "commits_not_ancestors_of_main": [],
+        "patch_equivalence_vs_main": []
+      },
+      {
+        "branch": "main",
+        "head": "e7e6b0f75f03e4a7b1b8aed153b5d5ba07b1607b",
+        "commits_not_ancestors_of_main": [],
+        "patch_equivalence_vs_main": []
+      },
+      {
+        "branch": "release/sumi-6.1110.6",
+        "head": "024d81814b4076def2456428150a4a2cd84095de",
+        "commits_not_ancestors_of_main": [],
+        "patch_equivalence_vs_main": []
+      },
+      {
+        "branch": "release/sumi-6.1110.7",
+        "head": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "commits_not_ancestors_of_main": [
+          "fbb9186259773a77f84a3ac69918e9f2f9df341f test(linux): use platform launcher for plugin environment regression",
+          "eb7643d25b281358a2f5c0a08a2e6633e0d293ab chore: release Linux Sumi typing sound fix 6.1110.7",
+          "c8057be88b9c1dfb3f79528e1402b84dcdbe3077 fix(linux): retain plugin audio session runtime directory"
+        ],
+        "patch_equivalence_vs_main": [
+          "- c8057be88b9c1dfb3f79528e1402b84dcdbe3077",
+          "+ eb7643d25b281358a2f5c0a08a2e6633e0d293ab",
+          "- fbb9186259773a77f84a3ac69918e9f2f9df341f"
+        ]
+      },
+      {
+        "branch": "sumi-fcitx-candidates",
+        "head": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+        "commits_not_ancestors_of_main": [
+          "cf000db2d324a836a14cc4e05a6da584ec7531ba docs(sumi): verify frozen release host plugin and Fcitx integration"
+        ],
+        "patch_equivalence_vs_main": [
+          "- cf000db2d324a836a14cc4e05a6da584ec7531ba"
+        ]
+      }
+    ],
+    "old_patch_checks": [
+      {
+        "old": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+        "main_equivalent": "bb5e7e2bfadfbb336289563f609a745f547040de",
+        "stable_patch_ids": [
+          "7e245ca1c4ec55997ad81067a61a8882082ee408",
+          "7e245ca1c4ec55997ad81067a61a8882082ee408"
+        ],
+        "equivalent": true,
+        "main_contains_equivalent": true
+      },
+      {
+        "old": "690154c8d98c0c8caf2906615561b2e2e6235589",
+        "main_equivalent": "e8e8e26a55ecebde9fe8846f4b887d9de96c152e",
+        "stable_patch_ids": [
+          "bd27cada41e5d6b1eee9ba35a5c7fae3bee00089",
+          "bd27cada41e5d6b1eee9ba35a5c7fae3bee00089"
+        ],
+        "equivalent": true,
+        "main_contains_equivalent": true
+      },
+      {
+        "old": "c8057be88b9c1dfb3f79528e1402b84dcdbe3077",
+        "main_equivalent": "c59752dd789e616d02119ab507956b31a6f12a3d",
+        "stable_patch_ids": [
+          "e648e3aab002e338e446b583232131c5cbd991d8",
+          "e648e3aab002e338e446b583232131c5cbd991d8"
+        ],
+        "equivalent": true,
+        "main_contains_equivalent": true
+      },
+      {
+        "old": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "main_equivalent": "320a461327edf4146bb15acc0cb580121ad6601a",
+        "stable_patch_ids": [
+          "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef",
+          "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef"
+        ],
+        "equivalent": true,
+        "main_contains_equivalent": true
+      },
+      {
+        "old": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+        "main_equivalent": "2bbd9191983eebf5d5237cefa6e5ad8aa49696ba",
+        "stable_patch_ids": [
+          "7c4f38cb00aaa2f64d5387ba159aafe93a56ee3d",
+          "7c4f38cb00aaa2f64d5387ba159aafe93a56ee3d"
+        ],
+        "equivalent": true,
+        "main_contains_equivalent": true
+      }
+    ],
+    "old_version_only_commit": {
+      "commit": "eb7643d25b281358a2f5c0a08a2e6633e0d293ab",
+      "include": false,
+      "reason": "6.1110.7 version bump only; old functionality patch-equivalent on main and both changelogs already preserve that release",
+      "actual_files": [
+        "CHANGELOG.md",
+        "CHANGELOG.zh-CN.md",
+        "package.json",
+        "src-tauri/Cargo.lock",
+        "src-tauri/Cargo.toml",
+        "src-tauri/tauri.conf.json"
+      ]
+    },
+    "retained_functional_source_checks": [
+      {
+        "file": "src-tauri/src/platform.rs",
+        "marker": "\"XDG_RUNTIME_DIR\"",
+        "purpose": "Linux plugin audio session environment retained",
+        "present": true
+      },
+      {
+        "file": "tauri-plugin-native-editor/src/linux_focus.rs",
+        "marker": "adjustment.value().trunc()",
+        "purpose": "Focus fractional adjustment fix retained",
+        "present": true
+      },
+      {
+        "file": "tauri-plugin-native-editor/src/linux.rs",
+        "marker": "gtk::PolicyType::External",
+        "purpose": "Native scrollbars remain external",
+        "present": true
+      },
+      {
+        "file": "tauri-plugin-native-editor/src/linux_candidates.rs",
+        "marker": "nonfocus preedit must retain the input line position",
+        "purpose": "Stationary nonfocus input regression retained",
+        "present": true
+      },
+      {
+        "file": "CHANGELOG.md",
+        "marker": "## v6.1110.7",
+        "purpose": "Old English release history retained",
+        "present": true
+      },
+      {
+        "file": "CHANGELOG.zh-CN.md",
+        "marker": "## v6.1110.7",
+        "purpose": "Old Chinese release history retained",
+        "present": true
+      }
+    ],
+    "since_previous_release": [
+      "e7e6b0f75f03e4a7b1b8aed153b5d5ba07b1607b fix(sumi): open writing pages at the visible document end",
+      "6a85b421fb16c0985d0da3e81a627358e867c215 docs(sumi): record 6.1112.1 package audio release and local installation"
+    ],
+    "entry_fix_commit": "e7e6b0f75f03e4a7b1b8aed153b5d5ba07b1607b",
+    "entry_fix_in_head": true,
+    "entry_fix_files": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "docs/superpowers/reports/2026-11-12-sumi-entry-end/README.md",
+      "docs/superpowers/reports/2026-11-12-sumi-entry-end/verification.json",
+      "src-tauri/src/sumi/mod.rs",
+      "tauri-plugin-native-editor/src/linux.rs"
+    ],
+    "entry_fix_acceptance": {
+      "base_commit": "6a85b421",
+      "source_hashes": {
+        "src-tauri/src/sumi/mod.rs": "a9006777c76e97e9cd9d48daecb2ee5ee616e17f8a064204fe29134d3c6f3bb8",
+        "tauri-plugin-native-editor/src/linux.rs": "bd55c00bdb0868e5046987a416c730574c67cf0006aae274c79d49edc4f8a55e"
+      },
+      "logs": {
+        "tasks/sumi-entry-end/host-final-tests.log": {
+          "sha256": "1b8f0472a59f2f8969a34f684e0f55ff08483c924ab930b42ba3aacb0738577c",
+          "result": "test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 1679 filtered out; finished in 0.25s"
+        },
+        "tasks/sumi-entry-end/native-tests.log": {
+          "sha256": "327d66027c359d775a918af31c8a5a48727dc028a6973f1242f66ebae3968ffb",
+          "result": "test result: ok. 35 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 2.45s"
+        },
+        "tasks/sumi-entry-end/wayland/native-verification-wayland/test.log": {
+          "sha256": "b8956a71baf76552cf471166af3b99ded65dff1223d81d095e26de7fd183c1a6",
+          "result": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.77s"
+        },
+        "tasks/sumi-entry-end/fixed-wayland/native-verification-wayland/test.log": {
+          "sha256": "caab34ae3210408bfbc1c5d5e6df972d9fbd4f10d501d76d28b3870118750c48",
+          "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 1.55s"
+        },
+        "tasks/sumi-entry-end/fixed-fcitx/native-verification/test.log": {
+          "sha256": "ec090074f4a72e64a7d83589372da16beda59cdd9820fb31d5319898f440330f",
+          "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 2.12s"
+        },
+        "tasks/sumi-entry-end/ime-regression/native-verification-wayland/test.log": {
+          "sha256": "355a56bc10061a17789ae17323e25ab09407c9f72327c4238f5ca0341c6a5890",
+          "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 15.71s"
+        }
+      },
+      "published": false,
+      "installed": false,
+      "formal_notes_modified": false
+    },
+    "entry_fix_source_matches_acceptance": {
+      "src-tauri/src/sumi/mod.rs": true,
+      "tauri-plugin-native-editor/src/linux.rs": true
+    },
+    "versions_at_audit": {
+      "package.json": "6.1112.1",
+      "src-tauri/tauri.conf.json": "6.1112.1"
+    },
+    "release_tag": [],
+    "ignored_artifacts_policy": "tasks, dependency/build caches and credentials excluded from git archive; no working tree copies used as release source"
+  },
+  "fcitx5": {
+    "head": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+    "worktrees": [
+      {
+        "worktree": "/home/bruce/git/fcitx5",
+        "HEAD": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+        "branch": "refs/heads/typewriter-candidate-theme",
+        "tracked_changes": [],
+        "untracked_nonignored": [
+          "tasks/sumi-package-global-preedit/PKGBUILD",
+          "tasks/sumi-package-global-preedit/SHA256SUMS",
+          "tasks/sumi-package-global-preedit/dbus-test.conf",
+          "tasks/sumi-package-global-preedit/elf-header.txt",
+          "tasks/sumi-package-global-preedit/ldd-r.txt",
+          "tasks/sumi-package-global-preedit/package-files.txt",
+          "tasks/sumi-package-global-preedit/package-info.txt",
+          "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+          "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package-global-preedit/runtime-artifacts.txt",
+          "tasks/sumi-package-global-preedit/runtime-worker.sh",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/cached_layouts",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/chttrans.conf",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/pinyin.conf",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/punctuation.conf",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/profile",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/pinyin/user.dict",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/pinyin/user.history",
+          "tasks/sumi-package-global-preedit/runtime.VgpoTu/fcitx.log",
+          "tasks/sumi-package-global-preedit/runtime.log",
+          "tasks/sumi-package-global-preedit/runtime.sh",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+          "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+          "tasks/sumi-package-global-preedit/verification.json",
+          "tasks/sumi-package-global-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+          "tasks/sumi-package-global-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package-global-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package-global-preedit/verify.py",
+          "tasks/sumi-package-preedit/PKGBUILD",
+          "tasks/sumi-package-preedit/README.md",
+          "tasks/sumi-package-preedit/SHA256SUMS",
+          "tasks/sumi-package-preedit/build.log",
+          "tasks/sumi-package-preedit/build.sh",
+          "tasks/sumi-package-preedit/dbus-test.conf",
+          "tasks/sumi-package-preedit/elf-header.txt",
+          "tasks/sumi-package-preedit/ldd-r.txt",
+          "tasks/sumi-package-preedit/package-files.txt",
+          "tasks/sumi-package-preedit/package-info.txt",
+          "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+          "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package-preedit/runtime-artifacts.txt",
+          "tasks/sumi-package-preedit/runtime-worker.sh",
+          "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/cached_layouts",
+          "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/chttrans.conf",
+          "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/pinyin.conf",
+          "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/punctuation.conf",
+          "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/profile",
+          "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.dict",
+          "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.history",
+          "tasks/sumi-package-preedit/runtime.KdI246/fcitx.log",
+          "tasks/sumi-package-preedit/runtime.log",
+          "tasks/sumi-package-preedit/runtime.sh",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+          "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+          "tasks/sumi-package-preedit/verification.json",
+          "tasks/sumi-package-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+          "tasks/sumi-package-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package-preedit/verify.py",
+          "tasks/sumi-package/PKGBUILD",
+          "tasks/sumi-package/README.md",
+          "tasks/sumi-package/SHA256SUMS",
+          "tasks/sumi-package/build.log",
+          "tasks/sumi-package/build.sh",
+          "tasks/sumi-package/dbus-test.conf",
+          "tasks/sumi-package/elf-header.txt",
+          "tasks/sumi-package/ldd-r.txt",
+          "tasks/sumi-package/package-files.txt",
+          "tasks/sumi-package/package-info.txt",
+          "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+          "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package/runtime-artifacts.txt",
+          "tasks/sumi-package/runtime-worker.sh",
+          "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/cached_layouts",
+          "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/chttrans.conf",
+          "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/pinyin.conf",
+          "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/punctuation.conf",
+          "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/profile",
+          "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.dict",
+          "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.history",
+          "tasks/sumi-package/runtime.SB2lWH/fcitx.log",
+          "tasks/sumi-package/runtime.log",
+          "tasks/sumi-package/runtime.sh",
+          "tasks/sumi-package/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+          "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+          "tasks/sumi-package/verification.json",
+          "tasks/sumi-package/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+          "tasks/sumi-package/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+          "tasks/sumi-package/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+          "tasks/sumi-package/verify.log",
+          "tasks/sumi-package/verify.py",
+          "tasks/sumi-typing-bridge-test.log",
+          "tasks/todo.md",
+          "tasks/transparent-ime/dpi-sync-verification.json",
+          "tasks/transparent-ime/verify-theme.cpp",
+          "tasks/transparent-ime/visual/README.md",
+          "tasks/transparent-ime/visual/app.log",
+          "tasks/transparent-ime/visual/app.py",
+          "tasks/transparent-ime/visual/before.png",
+          "tasks/transparent-ime/visual/cache/gtk-3.0/compose/35fe8688.cache",
+          "tasks/transparent-ime/visual/config/fcitx5/conf/cached_layouts",
+          "tasks/transparent-ime/visual/config/fcitx5/conf/chttrans.conf",
+          "tasks/transparent-ime/visual/config/fcitx5/conf/classicui.conf",
+          "tasks/transparent-ime/visual/config/fcitx5/conf/pinyin.conf",
+          "tasks/transparent-ime/visual/config/fcitx5/conf/punctuation.conf",
+          "tasks/transparent-ime/visual/config/fcitx5/profile",
+          "tasks/transparent-ime/visual/data/fcitx5/pinyin/user.dict",
+          "tasks/transparent-ime/visual/data/fcitx5/pinyin/user.history",
+          "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/arrow.svg",
+          "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/next.svg",
+          "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/prev.svg",
+          "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/radio.svg",
+          "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/theme.conf",
+          "tasks/transparent-ime/visual/debug.txt",
+          "tasks/transparent-ime/visual/fcitx.log",
+          "tasks/transparent-ime/visual/keyboard.log",
+          "tasks/transparent-ime/visual/ni.png",
+          "tasks/transparent-ime/visual/nihao.png",
+          "tasks/transparent-ime/visual/run.py",
+          "tasks/transparent-ime/visual/scale3/app.log",
+          "tasks/transparent-ime/visual/scale3/app.py",
+          "tasks/transparent-ime/visual/scale3/before.png",
+          "tasks/transparent-ime/visual/scale3/cache/gtk-3.0/compose/35fe8688.cache",
+          "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/cached_layouts",
+          "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/chttrans.conf",
+          "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/classicui.conf",
+          "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/pinyin.conf",
+          "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/punctuation.conf",
+          "tasks/transparent-ime/visual/scale3/config/fcitx5/profile",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/pinyin/user.dict",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/pinyin/user.history",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/arrow.svg",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/next.svg",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/prev.svg",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/radio.svg",
+          "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/theme.conf",
+          "tasks/transparent-ime/visual/scale3/debug.txt",
+          "tasks/transparent-ime/visual/scale3/fcitx.log",
+          "tasks/transparent-ime/visual/scale3/keyboard.log",
+          "tasks/transparent-ime/visual/scale3/ni.png",
+          "tasks/transparent-ime/visual/scale3/nihao.png",
+          "tasks/transparent-ime/visual/scale3/sway.conf",
+          "tasks/transparent-ime/visual/scale3/sway.log",
+          "tasks/transparent-ime/visual/scale3/verification.json",
+          "tasks/transparent-ime/visual/sway.conf",
+          "tasks/transparent-ime/visual/sway.log",
+          "tasks/transparent-ime/visual/verification.json",
+          "tasks/transparent-ime/visual/verify-pixels.py"
+        ],
+        "untracked_classification": [
+          {
+            "path": "tasks/sumi-package-global-preedit/PKGBUILD",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/SHA256SUMS",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/dbus-test.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/elf-header.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/ldd-r.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/package-files.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/package-info.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime-artifacts.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime-worker.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/cached_layouts",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/chttrans.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/pinyin.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/punctuation.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/profile",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/pinyin/user.dict",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/pinyin/user.history",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/fcitx.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/runtime.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/verification.json",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-global-preedit/verify.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/PKGBUILD",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/README.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/SHA256SUMS",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/build.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/build.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/dbus-test.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/elf-header.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/ldd-r.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/package-files.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/package-info.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime-artifacts.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime-worker.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/cached_layouts",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/chttrans.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/pinyin.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/punctuation.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/profile",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.dict",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.history",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/fcitx.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/runtime.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/verification.json",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package-preedit/verify.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/PKGBUILD",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/README.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/SHA256SUMS",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/build.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/build.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/dbus-test.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/elf-header.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/ldd-r.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/package-files.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/package-info.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime-artifacts.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime-worker.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/cached_layouts",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/chttrans.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/pinyin.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/punctuation.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/profile",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.dict",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.history",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.SB2lWH/fcitx.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/runtime.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/verification.json",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/verify.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-package/verify.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/sumi-typing-bridge-test.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/todo.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/dpi-sync-verification.json",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/verify-theme.cpp",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/README.md",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/app.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/app.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/before.png",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/cache/gtk-3.0/compose/35fe8688.cache",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/cached_layouts",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/chttrans.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/classicui.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/pinyin.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/punctuation.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/config/fcitx5/profile",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/pinyin/user.dict",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/pinyin/user.history",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/arrow.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/next.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/prev.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/radio.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/theme.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/debug.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/fcitx.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/keyboard.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/ni.png",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/nihao.png",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/run.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/app.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/app.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/before.png",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/cache/gtk-3.0/compose/35fe8688.cache",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/cached_layouts",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/chttrans.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/classicui.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/pinyin.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/punctuation.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/profile",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/pinyin/user.dict",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/pinyin/user.history",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/arrow.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/next.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/prev.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/radio.svg",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/theme.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/debug.txt",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/fcitx.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/keyboard.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/ni.png",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/nihao.png",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/sway.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/sway.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/scale3/verification.json",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/sway.conf",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/sway.log",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/verification.json",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          },
+          {
+            "path": "tasks/transparent-ime/visual/verify-pixels.py",
+            "include": false,
+            "reason": "local task artifact excluded",
+            "target": null
+          }
+        ]
+      }
+    ],
+    "stash": [],
+    "branch_inventory": [
+      {
+        "branch": "master",
+        "head": "5ffd9e5f905078880f1e21752e10b63490734809",
+        "commits_not_ancestors_of_main": [],
+        "patch_equivalence_vs_main": []
+      },
+      {
+        "branch": "typewriter-candidate-theme",
+        "head": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+        "commits_not_ancestors_of_main": [],
+        "patch_equivalence_vs_main": []
+      }
+    ],
+    "scope": "Reuse previously published and installed r4 unchanged; no new addon product changes required for caret entry fix",
+    "same_frozen_r4": true,
+    "package_source_archive_sha256": "52b6c811c38aa0f471f4c0c9e73ccf6132e052448f3a68c2a7f63b131b92bfe7"
+  },
+  "blocking_findings": [],
+  "remaining_release_gates": [
+    "Freeze version/tag 6.1112.2 with confirmed scope",
+    "Build from frozen tag and verify actual package end-caret behavior",
+    "Verify plugin update source/signature/compatibility separately",
+    "Anonymous release asset readback and local running payload hash verification"
+  ]
+}

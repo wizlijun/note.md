@@ -1,0 +1,42 @@
+{
+  "verified_at_utc": "2026-11-11T16:52:23.260145+00:00",
+  "tag": "v6.1112.2",
+  "source_commit": "800f582276c683f81ab74465e2ae004bf8f7c0a9",
+  "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1112.2",
+  "assets": {
+    "PKGBUILD": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1112.2/PKGBUILD",
+      "sha256": "8809d925a6e5bbd5cee590fd38f5bda340eab07ec207761a4bcee29b27296f1c",
+      "bytes": 1075,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-linux.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1112.2/SHA256SUMS-linux.txt",
+      "sha256": "d86fea3888ec3aa77fbcfe85978cb2ce20bb9ef2e5fa273330195cf2904efad2",
+      "bytes": 93,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-omarchy.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1112.2/SHA256SUMS-omarchy.txt",
+      "sha256": "f0815bb9704ba366fd97d88cbf3dc03d3e1d5c2b78dc261abc094bb5a4ee62ad",
+      "bytes": 178,
+      "anonymous_full_download_verified": true
+    },
+    "note.md_6.1112.2_amd64.deb": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1112.2/note.md_6.1112.2_amd64.deb",
+      "sha256": "fcf728c355bd2448b56278ef1bff4f6c205c447bad7b27e035345b9bf56b5217",
+      "bytes": 17383912,
+      "anonymous_full_download_verified": true
+    },
+    "notemd-6.1112.2-1-x86_64.pkg.tar.zst": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1112.2/notemd-6.1112.2-1-x86_64.pkg.tar.zst",
+      "sha256": "41b1609cc3fe4ee600e135dfe6eab276ecc6cf60c3baef9dc62144e2953e1d52",
+      "bytes": 16809937,
+      "anonymous_full_download_verified": true
+    }
+  },
+  "github_latest_unchanged": "v6.1111.3",
+  "mac_latest_json_unchanged": true,
+  "mac_latest_json_sha256": "42f66f9ae9e9652b22b4daf0cf1a3aa6e4064773e8bd6eec7480cfdee29686e5",
+  "locally_installed": false
+}

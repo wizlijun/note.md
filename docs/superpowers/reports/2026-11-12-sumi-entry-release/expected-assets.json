@@ -1,0 +1,22 @@
+{
+  "PKGBUILD": {
+    "sha256": "8809d925a6e5bbd5cee590fd38f5bda340eab07ec207761a4bcee29b27296f1c",
+    "bytes": 1075
+  },
+  "SHA256SUMS-linux.txt": {
+    "sha256": "d86fea3888ec3aa77fbcfe85978cb2ce20bb9ef2e5fa273330195cf2904efad2",
+    "bytes": 93
+  },
+  "SHA256SUMS-omarchy.txt": {
+    "sha256": "f0815bb9704ba366fd97d88cbf3dc03d3e1d5c2b78dc261abc094bb5a4ee62ad",
+    "bytes": 178
+  },
+  "note.md_6.1112.2_amd64.deb": {
+    "sha256": "fcf728c355bd2448b56278ef1bff4f6c205c447bad7b27e035345b9bf56b5217",
+    "bytes": 17383912
+  },
+  "notemd-6.1112.2-1-x86_64.pkg.tar.zst": {
+    "sha256": "41b1609cc3fe4ee600e135dfe6eab276ecc6cf60c3baef9dc62144e2953e1d52",
+    "bytes": 16809937
+  }
+}

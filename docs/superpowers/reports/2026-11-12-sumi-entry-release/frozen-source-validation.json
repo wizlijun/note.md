@@ -1,0 +1,38 @@
+{
+  "tag": "v6.1112.2",
+  "commit": "800f582276c683f81ab74465e2ae004bf8f7c0a9",
+  "source_hashes": {
+    "src-tauri/src/sumi/mod.rs": "a9006777c76e97e9cd9d48daecb2ee5ee616e17f8a064204fe29134d3c6f3bb8",
+    "tauri-plugin-native-editor/src/linux.rs": "bd55c00bdb0868e5046987a416c730574c67cf0006aae274c79d49edc4f8a55e"
+  },
+  "entry_validation_report": "docs/superpowers/reports/2026-11-12-sumi-entry-end/verification.json",
+  "validated_source_identical": true,
+  "source_test_results": {
+    "tasks/sumi-entry-end/host-final-tests.log": {
+      "sha256": "1b8f0472a59f2f8969a34f684e0f55ff08483c924ab930b42ba3aacb0738577c",
+      "result": "test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 1679 filtered out; finished in 0.25s"
+    },
+    "tasks/sumi-entry-end/native-tests.log": {
+      "sha256": "327d66027c359d775a918af31c8a5a48727dc028a6973f1242f66ebae3968ffb",
+      "result": "test result: ok. 35 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 2.45s"
+    },
+    "tasks/sumi-entry-end/wayland/native-verification-wayland/test.log": {
+      "sha256": "b8956a71baf76552cf471166af3b99ded65dff1223d81d095e26de7fd183c1a6",
+      "result": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.77s"
+    },
+    "tasks/sumi-entry-end/fixed-wayland/native-verification-wayland/test.log": {
+      "sha256": "caab34ae3210408bfbc1c5d5e6df972d9fbd4f10d501d76d28b3870118750c48",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 1.55s"
+    },
+    "tasks/sumi-entry-end/fixed-fcitx/native-verification/test.log": {
+      "sha256": "ec090074f4a72e64a7d83589372da16beda59cdd9820fb31d5319898f440330f",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 2.12s"
+    },
+    "tasks/sumi-entry-end/ime-regression/native-verification-wayland/test.log": {
+      "sha256": "355a56bc10061a17789ae17323e25ab09407c9f72327c4238f5ca0341c6a5890",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 15.71s"
+    }
+  },
+  "frontend": "host frontend unchanged from 5883-test validated baseline; rebuilt in official container",
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e"
+}

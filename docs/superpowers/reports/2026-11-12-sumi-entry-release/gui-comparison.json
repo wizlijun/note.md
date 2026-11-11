@@ -1,0 +1,209 @@
+{
+  "passed": true,
+  "host_version": "6.1112.2",
+  "plugin_version": "0.1.15",
+  "source_commit": "800f582276c683f81ab74465e2ae004bf8f7c0a9",
+  "host_sha256": "c8aad11189e9b3f0b69e6c16c4cbe58269e9ae76b6b19f2870fced34d9ab5fbd",
+  "deb_sha256": "fcf728c355bd2448b56278ef1bff4f6c205c447bad7b27e035345b9bf56b5217",
+  "plugin_backend_sha256": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+  "mapped_addon_sha256": "a67e71c5dba32fff70294e80b07f150b4d5eadd28fecc1bd2b84baec5ab35173",
+  "old_reopened_utf16": 0,
+  "new_reopened_utf16": 3907,
+  "expected_document_utf16": 3907,
+  "identical_seed_document": true,
+  "entry_stages": [
+    {
+      "name": "reopened-end",
+      "document_sha256": "913c77a389e5771eb8d7269891d30be757cdbf5ec4a0b803b848d59bead548f2",
+      "document_characters": 3756,
+      "document_utf16_units": 3907,
+      "insert_offset": 3756,
+      "insert_utf16": 3907,
+      "caret": [
+        150,
+        5254,
+        0,
+        27
+      ],
+      "visible_rect": [
+        0,
+        4888,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    },
+    {
+      "name": "reopened-empty-last-line",
+      "document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "document_characters": 3758,
+      "document_utf16_units": 3909,
+      "insert_offset": 3758,
+      "insert_utf16": 3909,
+      "caret": [
+        24,
+        5286,
+        0,
+        30
+      ],
+      "visible_rect": [
+        0,
+        4920,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    },
+    {
+      "name": "cold-start-end",
+      "document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "document_characters": 3758,
+      "document_utf16_units": 3909,
+      "insert_offset": 3758,
+      "insert_utf16": 3909,
+      "caret": [
+        24,
+        5286,
+        0,
+        30
+      ],
+      "visible_rect": [
+        0,
+        4920,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    },
+    {
+      "name": "appended-final",
+      "document_sha256": "2217fba97c8dc869126cefe1ab277935e8cd56dea297a52490f42a13b849ff7e",
+      "document_characters": 3763,
+      "document_utf16_units": 3914,
+      "insert_offset": 3763,
+      "insert_utf16": 3914,
+      "caret": [
+        125,
+        5286,
+        0,
+        30
+      ],
+      "visible_rect": [
+        0,
+        5086,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    }
+  ],
+  "audio_stages": [
+    {
+      "name": "pinyin-n",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "pinyin-i",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "pinyin-h",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "pinyin-a",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "pinyin-o",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "space-confirm",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "chinese-period",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "chinese-comma",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "return-preedit",
+      "peak": 0.48947450518608093
+    },
+    {
+      "name": "return-confirm",
+      "peak": 0.48947450518608093
+    }
+  ],
+  "baseline_peak": 0.0,
+  "silent_inter_stage_gaps": [
+    {
+      "after": "pinyin-n",
+      "before": "pinyin-i",
+      "bytes": 57600,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-i",
+      "before": "pinyin-h",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-h",
+      "before": "pinyin-a",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-a",
+      "before": "pinyin-o",
+      "bytes": 57600,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-o",
+      "before": "space-confirm",
+      "bytes": 57600,
+      "peak": 0.0
+    },
+    {
+      "after": "space-confirm",
+      "before": "chinese-period",
+      "bytes": 57600,
+      "peak": 0.0
+    },
+    {
+      "after": "chinese-period",
+      "before": "chinese-comma",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "chinese-comma",
+      "before": "return-preedit",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "return-preedit",
+      "before": "return-confirm",
+      "bytes": 57600,
+      "peak": 0.0
+    }
+  ],
+  "original_pcm_sha256": "45cfab606a13597c2d8a774364327fd583f479c918d558b17059fef874c2748c",
+  "screenshot_reviewed": [
+    "reopened-end.png",
+    "cold-start-end.png"
+  ],
+  "private_processes_cleaned": true
+}

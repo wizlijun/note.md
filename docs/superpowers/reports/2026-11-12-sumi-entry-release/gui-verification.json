@@ -1,0 +1,339 @@
+{
+  "passed": true,
+  "version": "6.1112.2",
+  "expected_behavior": "new",
+  "addon_sha256": "54f6b60e4faa82f3abb111b6f79de679ba41252f829bb397a4008b5d4992fd13",
+  "addon_source_commit": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+  "source_commit": "800f582276c683f81ab74465e2ae004bf8f7c0a9",
+  "private_audio_only": true,
+  "hardware_audio_devices_opened": false,
+  "user_audio_settings_modified": false,
+  "typing_bridge_available": true,
+  "mapped_addon_sha256": "a67e71c5dba32fff70294e80b07f150b4d5eadd28fecc1bd2b84baec5ab35173",
+  "keyboard_helper_sha256": "cdebe14077aa8929da85ccac6e6e0970f65b8b1c2c1125d3673731d05edd46d6",
+  "keyboard_source_sha256": "f1744cda1cecf4f23f51c41abcd4b1e60e7b5b3f8ffe280f959e2d33efff027f",
+  "private_pulse_server": "unix:/tmp/sumi-host-zdc4q0yf/pulse/native",
+  "private_sinks": [
+    {
+      "index": 49,
+      "state": "SUSPENDED",
+      "name": "sumi_audit",
+      "description": "sumi_audit Audio/Sink sink",
+      "driver": "PipeWire",
+      "sample_specification": "float32le 2ch 48000Hz",
+      "channel_map": "front-left,front-right",
+      "owner_module": 536870916,
+      "mute": false,
+      "volume": {
+        "front-left": {
+          "value": 65536,
+          "value_percent": "100%",
+          "db": "0.00 dB"
+        },
+        "front-right": {
+          "value": 65536,
+          "value_percent": "100%",
+          "db": "0.00 dB"
+        }
+      },
+      "balance": 0.0,
+      "base_volume": {
+        "value": 65536,
+        "value_percent": "100%",
+        "db": "0.00 dB"
+      },
+      "monitor_source": "sumi_audit.monitor",
+      "latency": {
+        "actual": 0.0,
+        "configured": 0.0
+      },
+      "flags": [
+        "HARDWARE",
+        "DECIBEL_VOLUME",
+        "LATENCY"
+      ],
+      "properties": {
+        "node.name": "sumi_audit",
+        "audio.channels": "2",
+        "audio.position": "[ FL, FR ]",
+        "media.class": "Audio/Sink",
+        "device.description": "sumi_audit Audio/Sink sink",
+        "factory.name": "support.null-audio-sink",
+        "monitor.channel-volumes": "true",
+        "monitor.passthrough": "true",
+        "pulse.module.id": "536870916",
+        "factory.id": "19",
+        "clock.quantum-limit": "8192",
+        "client.id": "48",
+        "node.driver": "true",
+        "port.group": "stream.0",
+        "node.loop.name": "data-loop.0",
+        "library.name": "audioconvert/libspa-audioconvert",
+        "object.id": "49",
+        "object.serial": "49"
+      },
+      "ports": [],
+      "active_port": null,
+      "formats": [
+        "pcm"
+      ]
+    }
+  ],
+  "host_pid": 62643,
+  "host_binary_sha256": "c8aad11189e9b3f0b69e6c16c4cbe58269e9ae76b6b19f2870fced34d9ab5fbd",
+  "deb_sha256": "fcf728c355bd2448b56278ef1bff4f6c205c447bad7b27e035345b9bf56b5217",
+  "plugin_version": "0.1.15",
+  "plugin_backend_sha256": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+  "plugin_signature_verification": "Signature and comment signature verified\nTrusted comment: timestamp:1794415351\tfile:x86_64-unknown-linux-gnu.notemdpkg\thashed",
+  "stream": {
+    "index": 65,
+    "driver": "PipeWire",
+    "owner_module": null,
+    "client": "64",
+    "sink": 49,
+    "sample_specification": "float32le 1ch 48000Hz",
+    "channel_map": "mono",
+    "format": "pcm, format.sample_format = \"\\\"float32le\\\"\"  format.rate = \"48000\"  format.channels = \"1\"  format.channel_map = \"\\\"mono\\\"\"",
+    "corked": false,
+    "mute": false,
+    "volume": {
+      "mono": {
+        "value": 65536,
+        "value_percent": "100%",
+        "db": "0.00 dB"
+      }
+    },
+    "balance": 0.0,
+    "buffer_latency_usec": 0.0,
+    "sink_latency_usec": 0.0,
+    "resample_method": "PipeWire",
+    "properties": {
+      "client.api": "pipewire-pulse",
+      "pulse.server.type": "unix",
+      "application.name": "Sumi Write",
+      "application.process.id": "62983",
+      "application.process.user": "bruce",
+      "application.process.host": "brucemarchy",
+      "application.process.binary": "notemd-sumi",
+      "application.language": "C",
+      "application.process.machine_id": "f3aba968c26549ed81cec727769f59e3",
+      "media.name": "Typing feedback",
+      "pulse.corked": "false",
+      "node.rate": "1/48000",
+      "node.latency": "480/48000",
+      "stream.is-live": "true",
+      "node.name": "Sumi Write",
+      "node.want-driver": "true",
+      "node.autoconnect": "true",
+      "media.class": "Stream/Output/Audio",
+      "port.group": "stream.0",
+      "adapt.follower.spa-node": "",
+      "object.register": "false",
+      "factory.id": "7",
+      "clock.quantum-limit": "8192",
+      "node.loop.name": "data-loop.0",
+      "library.name": "audioconvert/libspa-audioconvert",
+      "client.id": "44",
+      "object.id": "43",
+      "object.serial": "65",
+      "node.driver-id": "49",
+      "pulse.attr.maxlength": "38400",
+      "pulse.attr.tlength": "5760",
+      "pulse.attr.prebuf": "0",
+      "pulse.attr.minreq": "1920",
+      "module-stream-restore.id": "sink-input-by-application-name:Sumi Write"
+    }
+  },
+  "entry_stages": [
+    {
+      "name": "reopened-end",
+      "document_sha256": "913c77a389e5771eb8d7269891d30be757cdbf5ec4a0b803b848d59bead548f2",
+      "document_characters": 3756,
+      "document_utf16_units": 3907,
+      "insert_offset": 3756,
+      "insert_utf16": 3907,
+      "caret": [
+        150,
+        5254,
+        0,
+        27
+      ],
+      "visible_rect": [
+        0,
+        4888,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    },
+    {
+      "name": "reopened-empty-last-line",
+      "document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "document_characters": 3758,
+      "document_utf16_units": 3909,
+      "insert_offset": 3758,
+      "insert_utf16": 3909,
+      "caret": [
+        24,
+        5286,
+        0,
+        30
+      ],
+      "visible_rect": [
+        0,
+        4920,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    },
+    {
+      "name": "cold-start-end",
+      "document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "document_characters": 3758,
+      "document_utf16_units": 3909,
+      "insert_offset": 3758,
+      "insert_utf16": 3909,
+      "caret": [
+        24,
+        5286,
+        0,
+        30
+      ],
+      "visible_rect": [
+        0,
+        4920,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    },
+    {
+      "name": "appended-final",
+      "document_sha256": "2217fba97c8dc869126cefe1ab277935e8cd56dea297a52490f42a13b849ff7e",
+      "document_characters": 3763,
+      "document_utf16_units": 3914,
+      "insert_offset": 3763,
+      "insert_utf16": 3914,
+      "caret": [
+        125,
+        5286,
+        0,
+        30
+      ],
+      "visible_rect": [
+        0,
+        5086,
+        928,
+        429
+      ],
+      "focused": true,
+      "caret_visible": true
+    }
+  ],
+  "normal_tray_exit": true,
+  "first_backend_exited": true,
+  "baseline_peak": 0.0,
+  "key_stages": [
+    {
+      "name": "pinyin-n",
+      "key": "n",
+      "from_byte": 134400,
+      "to_byte": 372480,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "preedit": "n"
+    },
+    {
+      "name": "pinyin-i",
+      "key": "i",
+      "from_byte": 430080,
+      "to_byte": 744960,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "preedit": "ni"
+    },
+    {
+      "name": "pinyin-h",
+      "key": "h",
+      "from_byte": 806400,
+      "to_byte": 1140480,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "preedit": "ni h"
+    },
+    {
+      "name": "pinyin-a",
+      "key": "a",
+      "from_byte": 1201920,
+      "to_byte": 1516800,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "preedit": "ni ha"
+    },
+    {
+      "name": "pinyin-o",
+      "key": "o",
+      "from_byte": 1574400,
+      "to_byte": 1912320,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "b5bb3c4cc5bb07486b412808e832654f9156d7cec93c4cfdc8286726d0d45685",
+      "preedit": "ni hao"
+    },
+    {
+      "name": "space-confirm",
+      "key": "Space",
+      "from_byte": 1969920,
+      "to_byte": 2288640,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "e7442eeb78beaf4b971cea9cc60df6a7b3c2bcab6e7b40e0bc7a6dfe9f3a13c2",
+      "preedit": ""
+    },
+    {
+      "name": "chinese-period",
+      "key": ".",
+      "from_byte": 2346240,
+      "to_byte": 2684160,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "4c19bbe0f63f937a8ff6806eefe5902ca776c808bfebf89fdc79ce7c087987e2",
+      "preedit": ""
+    },
+    {
+      "name": "chinese-comma",
+      "key": ",",
+      "from_byte": 2745600,
+      "to_byte": 3064320,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "6478c608e1ecec29f59b48b9034983d0dcb7e8b98c178655cc62e22cd1ba52de",
+      "preedit": ""
+    },
+    {
+      "name": "return-preedit",
+      "key": "n",
+      "from_byte": 3125760,
+      "to_byte": 3448320,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "6478c608e1ecec29f59b48b9034983d0dcb7e8b98c178655cc62e22cd1ba52de",
+      "preedit": "n"
+    },
+    {
+      "name": "return-confirm",
+      "key": "Return",
+      "from_byte": 3505920,
+      "to_byte": 3828480,
+      "peak": 0.48947450518608093,
+      "expected_document_sha256": "2217fba97c8dc869126cefe1ab277935e8cd56dea297a52490f42a13b849ff7e",
+      "preedit": ""
+    }
+  ],
+  "committed_text_sha256": "2217fba97c8dc869126cefe1ab277935e8cd56dea297a52490f42a13b849ff7e",
+  "pcm_sha256": "45cfab606a13597c2d8a774364327fd583f479c918d558b17059fef874c2748c",
+  "pcm_bytes": 3897600,
+  "im_module": "wayland",
+  "private_fixture_stopped": true,
+  "private_audio_processes_stopped": true,
+  "plugin_backend_exited": true
+}

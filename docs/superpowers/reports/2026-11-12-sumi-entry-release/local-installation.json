@@ -1,0 +1,18 @@
+{
+  "verified_at_utc": "2026-11-11T16:54:02.848627+00:00",
+  "host_pid": 65286,
+  "backend_pid": 65695,
+  "host_sha256": "c8aad11189e9b3f0b69e6c16c4cbe58269e9ae76b6b19f2870fced34d9ab5fbd",
+  "plugin_version": "0.1.15",
+  "backend_sha256": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+  "packages": [
+    "notemd 6.1112.2-1",
+    "fcitx5-sumi-candidates 5.1.23.r4.gb07f55ca-1"
+  ],
+  "package_checks": "notemd: 32 total files, 0 altered files\nfcitx5-sumi-candidates: 11 total files, 0 altered files\n",
+  "audio_stream_active": true,
+  "audio_stream_muted": false,
+  "input_service_restarted": false,
+  "formal_note_test_input_injected": false,
+  "old_host_quit_via_tray": true
+}

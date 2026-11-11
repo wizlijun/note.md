@@ -1,0 +1,34 @@
+{
+  "verified_at_utc": "2026-11-11T16:52:37.855949+00:00",
+  "source_commit": "800f582276c683f81ab74465e2ae004bf8f7c0a9",
+  "plugin": "notemd.sumi",
+  "version": "0.1.15",
+  "target": "x86_64-unknown-linux-gnu",
+  "package_sha256": "eff0c9e680200ae6b422a1fe53bbe4ac1e7c4609c4636af8bc61e2c250d97603",
+  "signature_sha256": "d135185fa6e1998c968751dbf9909cc0053d529b7855022236b98c1c7b854cb2",
+  "backend_sha256": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+  "source_manifest_exact": true,
+  "original_production_signature_verified": true,
+  "wrangler_version": "3.114.17",
+  "account_token_active": true,
+  "r2_public_normal_and_fresh_bytes_verified": true,
+  "kv_public_normal_and_fresh_equal": true,
+  "all_other_versions_and_plugins_unchanged": true,
+  "existing_macos_fields_unchanged": true,
+  "old_archs": [
+    "aarch64-apple-darwin"
+  ],
+  "new_archs": [
+    "aarch64-apple-darwin",
+    "x86_64-unknown-linux-gnu"
+  ],
+  "package_url": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.15/x86_64-unknown-linux-gnu",
+  "host_gate": "v6.1112.2 public and complete Deb SHA verified",
+  "ui_tests": 110,
+  "backend_unit_tests": 111,
+  "backend_integration_tests": 2,
+  "ignored_backend_tests": 8,
+  "publisher_merge_tests": 5,
+  "joint_package_acceptance": "tasks/sumi-entry-release/gui/verification.json",
+  "locally_installed_by_this_agent": false
+}
