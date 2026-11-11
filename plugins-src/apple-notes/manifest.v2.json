@@ -15,7 +15,7 @@
     "events": ["onStartupFinished", "onCommand:open", "onCli:apple-notes-sync"]
   },
   "contributes": {
-    "menus": [{ "location": "plugins", "submenu": "import-export", "label": "Sync Apple Notes…", "command": "open" }],
+    "menus": [{ "location": "plugins", "submenu": "record", "label": "Sync Apple Notes…", "command": "open" }],
     "windows": [{
       "id": "main", "entry": "index.html", "title": "Apple Notes Sync",
       "width": 660, "height": 620, "min_width": 480, "min_height": 420,

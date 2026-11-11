@@ -37,6 +37,7 @@ describe('pluginCategoryFromManifest', () => {
   it('normalizes previous capability keys in newly generated indexes', () => {
     const aliases = {
       agents: 'ai',
+      other: 'experience',
       'capture-import': 'record',
       'thinking-review': 'reflect',
       'publish-export': 'import-export',
@@ -62,18 +63,24 @@ describe('pluginCategoryFromManifest', () => {
     expect(pluginCategoryFromManifest({ id: 'notemd.ebook-import' })).toBe('reading')
   })
 
-  it('migrates legacy inspiration and old Sumi manifests to Create', () => {
+  it('migrates legacy inspiration and old Sumi manifests to Write', () => {
     for (const id of ['notemd.sumi', 'notemd.idea-spark']) {
       expect(pluginCategoryFromManifest({ id, contributes: { menus: [{ submenu: 'experience' }] } })).toBe('create')
     }
     expect(pluginCategoryFromManifest({ contributes: { menus: [{ submenu: 'inspiration' }] } })).toBe('create')
   })
 
-  it('falls back to other for missing or unknown groups', () => {
-    expect(pluginCategoryFromManifest({})).toBe('other')
+  it('falls back to Other for missing or unknown groups', () => {
+    expect(pluginCategoryFromManifest({})).toBe('experience')
     expect(pluginCategoryFromManifest({
       contributes: { menus: [{ command: 'open', submenu: 'future-category' }] },
-    })).toBe('other')
+    })).toBe('experience')
+  })
+
+  it('classifies external context sync as Capture despite old manifests', () => {
+    for (const id of ['notemd.apple-notes', 'notemd.roam-import', 'notemd.health-sync']) {
+      expect(pluginCategoryFromManifest({ id, contributes: { menus: [{ submenu: 'import-export' }] } })).toBe('record')
+    }
   })
 
   it('places a file-only Timeline view in Reflect without requiring a menu', () => {
