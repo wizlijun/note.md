@@ -1,0 +1,23 @@
+{
+  "worktrees": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "status": " M plugins-registry/src/page.ts\n M plugins-registry/tests/index.test.ts\n M plugins-registry/tests/page.test.ts\n M searchidx/src/store.rs\n M src-tauri/src/lib.rs\n M src-tauri/src/plugin_host.rs\n M src-tauri/src/plugin_runtime/adapter.rs\n M src-tauri/src/smart_lookup.rs\n",
+      "head": "660c4da351350b8bb71aeed905f921cb53fead58\n"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-plugin-release-20261111",
+      "status": "",
+      "head": "b88edb93c5c09611ad9d888177b3814ce2ab3d64\n"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-sumi-release-20261111",
+      "status": "",
+      "head": "a56e861dd71708feb98a623a50dc45bd73b8300d\n"
+    }
+  ],
+  "branches": "main 660c4da351350b8bb71aeed905f921cb53fead58\nrelease/plugins-20261111-create b88edb93c5c09611ad9d888177b3814ce2ab3d64\nrelease/sumi-20261111 a56e861dd71708feb98a623a50dc45bd73b8300d\n",
+  "local_commits_not_in_origin_main": "660c4da3 Align host plugin groups with Capture and Write workflow\nef9499f9 Align plugin manifests and registry categories with writing workflow\n4805a39a Record published Create plugin updates and public website verification\ncf10a449 Record deployed Create grouping website verification\n45dde57f release: record creation package offline verification\n9fac3c2a release: prepare verified creation plugin publisher\ne786cf0b Align marketplace Create order with host categories\nd2545784 Merge marketplace inspiration plugins into Create\nb88edb93 Prepare Create category plugin updates Sumi 0.1.15 and Idea Spark 1.3.9\n3f83f013 Merge native inspiration menus into Create and include Sumi Write\n4efc77e7 Unify inspiration and Sumi Write under the creation category\n5b87fcc2 Record published Sumi Write release and Faitc5 companion verification\na56e861d Record final release companion and unchanged application build inputs\nd033aa8a Require approved Faitc5 companion packages before Mac release publication\n9717662f Require approved Faitc5 companion packages before Mac release publication\nfe5b02a3 Attach approved modified Faitc5 installer to macOS releases\n1aa63388 Attach approved modified Faitc5 installer to macOS releases\n23e4ad11 Freeze Sumi Write naming for 6.1111.1 release candidate\n6d9233a0 Rename Sumi writing plugin display brand to Sumi Write\n4938ba27 Rename Sumi writing plugin display brand to Sumi Write\n4b173315 Complete Sumi Write labels in document actions and accessibility\n48ce1498 Complete Sumi Write labels in document actions and accessibility\nbcafd2ab Rename Sumi writing surfaces to Sumi Write and \u7384\u971c\u5199\u4f5c\n6f0e3e05 Document Sumi Write naming scope and release rebuild\nb751d7dd Rename Sumi writing surfaces to Sumi Write and \u7384\u971c\u5199\u4f5c\n8e76b6ea docs(sumi): record window acceptance and sync recovery validation\n5e197ce4 Prepare Sumi macOS parity release 6.1111.1 and plugin 0.1.14\n32d2e26c feat(sumi): adapt macOS windows and default new windows to fullscreen\ne73cc0f3 feat(sumi): add macOS fullscreen startup preference UI\n45e07d39 fix(sumi): preserve durable identity for local cloud echoes\n91c0fb82 fix(sumi): align focus timing and usable viewport on macOS\n86e11a01 fix(sumi): keep macOS candidates above reserved bottom space\nc94c4488 fix(sumi): align fullscreen font sizing on macOS and Linux\ne76b3f75 fix(sumi): route Linux Shift Enter through hard break action\n0341b8db fix(sumi): silence frozen drafts and command shortcut typing sounds\ne6a2098f feat(sumi): adapt macOS windows and default new windows to fullscreen\n49e203c6 feat(sumi): add macOS fullscreen startup preference UI\n08d42615 fix(sumi): preserve durable identity for local cloud echoes\n79ff7479 docs(sumi): record platform parity audit and unresolved rendering report\nf0343d3f fix(sumi): align focus timing and usable viewport on macOS\nf7e5c147 fix(sumi): keep macOS candidates above reserved bottom space\n35611925 fix(sumi): align fullscreen font sizing on macOS and Linux\ne5c323d8 fix(sumi): route Linux Shift Enter through hard break action\n93775741 fix(sumi): silence frozen drafts and command shortcut typing sounds\n",
+  "stash": "stash@{0}: On main: codex-before-git-pull-2026-11-10\n",
+  "scope": "Only committed plugins-registry files deployed from frozen git archive; concurrent host/source changes and original smart_lookup/store edits excluded. Existing release branches and stash untouched."
+}
