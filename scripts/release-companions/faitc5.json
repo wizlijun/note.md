@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "product": "Faitc5 for Sumi",
+  "version": "0.5.0.13",
+  "platform": "darwin-aarch64",
+  "filename": "Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+  "sha256": "2f30d4903b98bf40ce18520a6f4f948e36afb2fc62cbc1fce38de1286c881b5b",
+  "bytes": 61309600,
+  "sourceCommit": "46bb19a84f7c7e9aa6756d4e9d4e1826a259184b",
+  "appNotarized": true,
+  "packageSigned": false
+}
