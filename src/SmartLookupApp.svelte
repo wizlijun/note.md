@@ -656,7 +656,11 @@
   async function afterZeroHits(mine: number): Promise<void> {
     const keys = await smartSearchApi.keyStatus().catch(() => null)
     if (mine !== requestSequence) return
-    if (keys && shouldAutoRepair(store.hits.length, settings.smartLookup, keys)) {
+    // The rephrase sends the question to the answer model's host: never from a hidden window.
+    const hidden = keys && shouldAutoRepair(store.hits.length, settings.smartLookup, keys) ? await windowHidden() : false
+    if (mine !== requestSequence) return
+    if (hidden) appendActivity('repair', 'warning', 'repair not requested (window hidden)')
+    else if (keys && shouldAutoRepair(store.hits.length, settings.smartLookup, keys)) {
       await repairLookup(mine, 'auto')
       if (mine !== requestSequence) return
       if (repaired && store.hits.length > 0) return
@@ -757,6 +761,13 @@
         totals = totalsOf(result)
       }
       if (inflight?.token !== token || mine !== requestSequence) return
+      // Hidden while the round was out: drop it, as Esc drops a late round, and cancel the run.
+      const hiddenNow = await windowHidden()
+      if (inflight?.token !== token || mine !== requestSequence) return
+      if (hiddenNow) {
+        stopEvidence('window hidden')
+        return
+      }
       // The previous round still holds the run (a restart right after a stop): nothing was sent or applied.
       if (result.skipReason === 'roundRunning') break
       appendActivity('judge', activityLevel(result.status), evidenceLog(result), { usage: result.usage })
@@ -837,6 +848,13 @@
       return
     }
     if (inflight?.token !== token || mine !== requestSequence) return
+    // Hidden while the answer was written: drop it, as Esc drops a late answer.
+    const hidden = await windowHidden()
+    if (inflight?.token !== token || mine !== requestSequence) return
+    if (hidden) {
+      stopAnswer('window hidden')
+      return
+    }
     inflight = null
     answerBusy = false
     workStartedAt = null
@@ -845,11 +863,11 @@
   }
 
   /** Esc while answering: cancels the run's request; a late answer is dropped. */
-  function stopAnswer(): void {
+  function stopAnswer(reason = ''): void {
     if (!answerBusy || inflight?.kind !== 'answer') return
     stopEnhanceRequest()
     answerStopped = true
-    appendActivity('answer', 'warning', 'answer cancelled')
+    appendActivity('answer', 'warning', reason ? `answer cancelled (${reason})` : 'answer cancelled')
   }
 
   /** Status and counts only: never the answer, never the host, never note text. */

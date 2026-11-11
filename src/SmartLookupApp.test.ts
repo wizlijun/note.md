@@ -23,15 +23,14 @@ const mocks = vi.hoisted(() => ({
   /** Evidence step results handed out in call order; the default is a finished run without evidence. */
   evidenceQueue: [] as unknown[],
   evidenceGates: [] as Array<Promise<void> | null>,
-  diagnosis: { terms: [] } as unknown,
   keys: { jev: true, chat: false },
   repair: null as unknown,
   /** `smart_lookup_answer` results handed out in call order. */
   answers: [] as unknown[],
   groups: null as unknown,
   saveError: false,
-  /** What `isVisible()` answers: the global shortcut hides the window without telling the page. */
-  visible: true,
+  /** What `isVisible()` answers: the global shortcut hides the window without telling the page. A function is asked each time. */
+  visible: true as boolean | (() => boolean),
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/api/event', () => ({
@@ -49,7 +48,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
     setTitle: mocks.setTitle,
-    isVisible: vi.fn(async () => mocks.visible),
+    isVisible: vi.fn(async () => (typeof mocks.visible === 'function' ? mocks.visible() : mocks.visible)),
     onFocusChanged: vi.fn(async (callback: (event: { payload: boolean }) => Promise<void>) => {
       mocks.focusChanged = callback
       return () => { mocks.focusChanged = null }
@@ -199,7 +198,6 @@ function installInvokeMock(): void {
       if (queued instanceof Error) throw queued
       return queued ?? step({ done: true, stop: 'maxHops' })
     }
-    if (command === 'smart_lookup_diagnose') return mocks.diagnosis
     if (command === 'smart_lookup_key_status') return mocks.keys
     if (command === 'smart_lookup_repair_suggest') return mocks.repair
     if (command === 'smart_lookup_answer') {
@@ -305,7 +303,6 @@ beforeEach(() => {
   mocks.runCounter = 0
   mocks.evidenceQueue = []
   mocks.evidenceGates = []
-  mocks.diagnosis = { terms: [] }
   mocks.keys = { jev: true, chat: false }
   mocks.repair = null
   mocks.answers = []
@@ -903,20 +900,62 @@ describe('SmartLookupApp answer', () => {
     expect(calls('smart_lookup_answer').map((call) => call.lookupRunId)).toEqual(['run-1', 'run-2'])
   })
 
-  it('a hidden window sends no answer: the run is cancelled as Esc would', async () => {
+  it('a window hidden once the rounds are done sends no answer: the run is cancelled as Esc would', async () => {
     useLocal()
     configureBoth()
-    const release = gateEvidence()
     mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    // Shown before and after the round; hidden by the time the answer would be asked for.
+    let asked = 0
+    mocks.visible = () => ++asked <= 2
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
-    // The global shortcut hides the window while the round is out.
-    mocks.visible = false
-    release()
     await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
     await wait(20)
     expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.')
+  })
+
+  it('a round that returns after the window was hidden is dropped, and nothing of it shows when the window reopens', async () => {
+    useLocal()
+    configureBoth()
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops', evidence: [ev('e1', 0)], localTiers: [{ resultId: 'r3', tier: 'unfit' }],
+    }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+    mocks.visible = false
+    release()
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    mocks.visible = true
+    await mocks.focusChanged?.({ payload: true })
+    await wait(20)
+    // Not applied: no sources, no tiers (r3 is still listed), no answer.
+    expect(document.querySelector('.source-list')).toBeNull()
+    expect(ids('local')).toEqual(LOCAL)
+    expect(document.body.textContent).not.toContain('LOCAL_PASSAGE_e1')
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.')
+  })
+
+  it('an answer that returns after the window was hidden is dropped', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    let release!: (value: AnswerResult) => void
+    mocks.answers.push(new Promise<AnswerResult>((resolve) => { release = resolve }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_answer')).toHaveLength(1))
+    mocks.visible = false
+    release(answered({ text: 'HIDDEN_ANSWER [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    mocks.visible = true
+    await mocks.focusChanged?.({ payload: true })
+    await wait(20)
+    expect(answerText()).toBeNull()
+    expect(document.body.textContent).not.toContain('HIDDEN_ANSWER')
     expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.')
   })
 
@@ -1207,6 +1246,28 @@ describe('SmartLookupApp zero hits', () => {
     expect(document.querySelectorAll('.repair-strip input, .repair-strip button')).toHaveLength(0)
     expect(chip()).toBe('Local results only')
     expect(footerLineText()).toBe('Sent to chat.example · 0 passages in all · no confidential notes sent')
+  })
+
+  it('a hidden window does not rephrase: nothing is sent', async () => {
+    mocks.local = 'empty'
+    configureBoth()
+    mocks.keys = { jev: true, chat: true }
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['预算'], phrases: [] }], requestCount: 1, elapsedMs: 300, usage: null,
+    }
+    mocks.visible = false
+    const input = await mountReady()
+    setQuery(input, 'release risk')
+    key(input, 'Enter')
+    await vi.waitFor(() => expect(calls('smart_lookup_key_status')).toHaveLength(1))
+    // The scan that follows is local; the evidence it would start refuses a hidden window too.
+    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(2))
+    await wait(30)
+    expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
   })
 
   it('when the other wordings find nothing either, scans every file line by line, then lists what ran', async () => {
