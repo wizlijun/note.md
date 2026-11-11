@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Restore Linux Sumi typing sounds during IME composition.** Preedit changes now provide feedback before text is committed, without extra sounds for repeated updates or clearing composition; the sound toggle remains effective.
+
 ## v6.1111.4 — 2026-11-11
 
 - **Keep BOM front matter when clearing the body.** Clearing all body text in a BOM/CRLF note no longer rolls back after switching from Source to Rich; metadata, original line endings, and undo history are preserved.

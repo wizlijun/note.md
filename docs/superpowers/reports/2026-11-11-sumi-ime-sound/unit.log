@@ -1,0 +1,44 @@
+   Compiling tauri-plugin-native-editor v0.1.0 (/home/bruce/git/note.md/tauri-plugin-native-editor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.89s
+     Running unittests src/lib.rs (tauri-plugin-native-editor/target/debug/deps/tauri_plugin_native_editor-5ece4426f1455d02)
+
+running 36 tests
+test platform::candidates::layout::tests::bottom_candidates_expand_without_moving_input ... ok
+test platform::candidates::layout::tests::engine_label_padding_does_not_expand_candidate_spacing ... ok
+test platform::candidates::layout::tests::focus_candidates_start_on_next_input_row ... ok
+test platform::candidates::layout::tests::long_unicode_words_are_ellipsized_without_changing_identity ... ok
+test platform::candidates::tests::native_candidate_roundtrip ... ignored, private Wayland display + private D-Bus + Fcitx addon only
+test platform::candidates::layout::tests::cursor_uses_real_index_and_automatically_reveals_its_page ... ok
+test platform::candidates::layout::tests::narrow_windows_and_empty_lists_still_terminate ... ok
+test platform::candidates::layout::tests::rows_use_measured_width_and_start_at_left ... ok
+test platform::candidates::layout::tests::four_row_limit_paginates_without_losing_candidates ... ok
+test platform::candidates::layout::tests::viewport_row_limit_pages_the_selected_candidate_without_clipping ... ok
+test platform::candidates::tests::native_ime_typing_sound ... ignored, private Wayland display + private D-Bus + Fcitx addon only
+test platform::candidates::layout::tests::ellipsis_preserves_combining_emoji_and_flag_graphemes ... ok
+test platform::focus::tests::line_fade_matches_native_pitch_and_edges ... ok
+test platform::focus::tests::pause_and_resume_are_continuous ... ok
+test platform::rtf::tests::formatting_metadata_and_external_payloads_never_become_active_content ... ok
+test platform::rtf::tests::legacy_font_encoding_is_not_misread_as_global_latin_but_unicode_is_supported ... ok
+test platform::tests::linux_hard_break_requires_only_shift ... ok
+test platform::tests::linux_shortcuts_ignore_caps_lock_letter_case_without_ignoring_shift ... ok
+test platform::rtf::tests::unicode_and_fallbacks_preserve_cjk_emoji_and_plain_markdown ... ok
+test platform::tests::native_caret_geometry_offscreen ... ignored, requires GTK display connection; renders only an offscreen window
+test platform::tests::linux_shortcuts_use_exact_modifiers ... ok
+test platform::tests::native_focus_center_is_idempotent_offscreen ... ignored, requires GTK display connection; renders only an offscreen window
+test platform::tests::native_fullscreen_font_geometry ... ignored, requires isolated Wayland display; measures real fullscreen GTK allocation
+test platform::tests::native_wayland_damage ... ignored, requires isolated Wayland compositor, grim, magick and SUMI_NATIVE_DAMAGE_DIR
+test platform::tests::native_wayland_transactions ... ignored, requires a desktop display; run with --ignored --test-threads=1
+test platform::tests::replacement_diff_preserves_unicode_boundaries ... ok
+test platform::tests::utf16_gtk_coordinates ... ok
+test tests::draft_reconciliation_runs_only_after_command_success_before_next_input ... ok
+test tests::caret_motion_defaults_and_accepts_only_supported_modes ... ok
+test tests::locale_defaults_for_older_appearance_and_normalizes_regions ... ok
+test tests::reject_invalid_geometry_and_attributes ... ok
+test tests::focus_typing_defaults_on_and_preserves_explicit_off ... ok
+test tests::single_face_presets_are_valid_but_empty_cascades_are_not ... ok
+test tests::typing_sound_wire_contains_only_surface_identity_and_role ... ok
+test platform::rtf::tests::malformed_and_undecodable_data_is_rejected_without_partial_text ... ok
+test platform::rtf::tests::input_and_expanded_output_are_bounded ... ok
+
+test result: ok. 29 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.20s
+

@@ -612,6 +612,14 @@ mod tests {
     #[test]
     #[ignore = "private Wayland display + private D-Bus + Fcitx addon only"]
     fn native_candidate_roundtrip() {
+        candidate_roundtrip(false);
+    }
+    #[test]
+    #[ignore = "private Wayland display + private D-Bus + Fcitx addon only"]
+    fn native_ime_typing_sound() {
+        candidate_roundtrip(true);
+    }
+    fn candidate_roundtrip(sound_only: bool) {
         assert_eq!(
             std::env::var("SUMI_FCITX_ISOLATED_TEST").as_deref(),
             Ok("1")
@@ -769,7 +777,39 @@ mod tests {
             before_cursor.y(),
         );
         let before_scroll = s.scroll.vadjustment().value();
+        let sounds = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded_sounds = sounds.clone();
+        configure_typing(
+            true,
+            Some(Arc::new(move |event| {
+                recorded_sounds.lock().unwrap().push(event.role);
+            })),
+        );
         keys(&["nihao"]);
+        eprintln!("IME typing sounds: {:?}", sounds.lock().unwrap());
+        assert_eq!(
+            sounds
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|role| **role == TypingSoundRole::Key)
+                .count(),
+            5,
+            "each pinyin key must sound before committing any text"
+        );
+        let heard = sounds.lock().unwrap().len();
+        emit_preedit_typing(&s, "");
+        emit_preedit_typing(&s, &s.preedit.borrow());
+        s.updating.set(true);
+        emit_preedit_typing(&s, "programmatic preedit");
+        s.updating.set(false);
+        s.visible.set(false);
+        emit_preedit_typing(&s, "hidden preedit");
+        s.visible.set(true);
+        s.failed.set(true);
+        emit_preedit_typing(&s, "failed preedit");
+        s.failed.set(false);
+        assert_eq!(sounds.lock().unwrap().len(), heard);
         screenshot("diagnostic");
         eprintln!("candidate diagnostics focus={} accepted={} desired={} serial={} programs={:?} preedit={:?} text={:?} candidates={:?}",s.view.has_focus(),p.accepted.get(),p.desired.get(),p.serial.get(),p.programs(),s.preedit.borrow(),text(&s.buffer()),p.candidates.borrow());
         wait(|| {
@@ -830,6 +870,13 @@ mod tests {
         wait(|| text(&s.buffer()) == "你好");
         wait(|| p.height.get() == 0.0);
         assert!(!s.composing.get());
+        assert_eq!(
+            sounds.lock().unwrap().len(),
+            heard,
+            "candidate selection and clearing preedit must not add a second sound"
+        );
+        configure_typing(false, None);
+        let disabled_heard = sounds.lock().unwrap().len();
         // A Markdown projection removes delimiters and restyles the committed
         // text while GTK still owns the native IM commit transaction.
         rich.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -847,6 +894,11 @@ mod tests {
             revision,
         );
         keys(&["nihao"]);
+        assert_eq!(
+            sounds.lock().unwrap().len(),
+            disabled_heard,
+            "real IME typing must stay silent after disabling sounds"
+        );
         wait(|| {
             p.candidates
                 .borrow()
@@ -879,6 +931,74 @@ mod tests {
             "rich projection's deferred selection must apply"
         );
         rich.store(false, std::sync::atomic::Ordering::SeqCst);
+        if sound_only {
+            bus.call_sync(
+                Some(SERVICE),
+                "/controller",
+                "org.fcitx.Fcitx.Controller1",
+                "Deactivate",
+                Some(&().to_variant()),
+                None,
+                gio::DBusCallFlags::NONE,
+                1000,
+                None::<&gio::Cancellable>,
+            )
+            .unwrap();
+            settle();
+            let recorded_sounds = sounds.clone();
+            configure_typing(
+                true,
+                Some(Arc::new(move |event| {
+                    recorded_sounds.lock().unwrap().push(event.role);
+                })),
+            );
+            sounds.lock().unwrap().clear();
+            keys(&["abc"]);
+            assert_eq!(
+                sounds
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|r| **r == TypingSoundRole::Key)
+                    .count(),
+                3,
+                "ordinary Latin input must sound exactly once per key"
+            );
+            assert_eq!(
+                sounds
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|r| **r == TypingSoundRole::KeyUp)
+                    .count(),
+                3
+            );
+            // Switching a live im-wayland context recurses in GTK's reset path.
+            // Exercise synchronous local composition in the fcitx fixture only.
+            if std::env::var("GTK_IM_MODULE").as_deref() == Ok("fcitx") {
+                // The local GTK compose context updates preedit synchronously inside
+                // the same key dispatch. It must not also emit fallback sounds.
+                s.view.set_property("im-module", "gtk-im-context-simple");
+                sounds.lock().unwrap().clear();
+                keys(&["-k", "Multi_key", "-k", "apostrophe", "e"]);
+                eprintln!("local compose sounds: {:?}", sounds.lock().unwrap());
+                assert_eq!(
+                    sounds
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|r| **r == TypingSoundRole::Key)
+                        .count(),
+                    3,
+                    "synchronous local composition must not double sound"
+                );
+                assert!(text(&s.buffer()).contains("abcé"), "local compose text: {:?}", text(&s.buffer()));
+            }
+            configure_typing(false, None);
+            detach("candidate-test", "candidate-test", 1).unwrap();
+            window.close();
+            return;
+        }
         // Narrow presentation must paginate without changing the document.
         let original = (text(&s.buffer()), s.selection(), s.config.borrow().revision);
         *p.candidates.borrow_mut() = (0..30)

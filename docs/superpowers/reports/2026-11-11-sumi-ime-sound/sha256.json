@@ -1,0 +1,10 @@
+{
+  "tauri-plugin-native-editor/src/linux.rs": "ec6548b59bbc103d5374d61794c48e0c30f6008a003fce30175f8844abd2dfd8",
+  "tauri-plugin-native-editor/src/linux_candidates.rs": "a98b379f26e12275772d8b6666d03a0b1a619338ab35559ac29a7fccf520e091",
+  "tauri-plugin-native-editor/target/debug/deps/tauri_plugin_native_editor-5ece4426f1455d02": "3e187aec8b6fb56cecba85125adbba54efdde5e3ac4e2e8fdccde322dccffe58",
+  "docs/superpowers/reports/2026-11-11-sumi-ime-sound/candidates.log": "3bcff0e1df0678972e1de3b2f1b4c971028e22dc07726b6827960ff45243de4e",
+  "docs/superpowers/reports/2026-11-11-sumi-ime-sound/fcitx.log": "54cfc64c0c6fa1b0f7f06b6ccf4d7150315e0d6a2829c9a2679d69797f9f3101",
+  "docs/superpowers/reports/2026-11-11-sumi-ime-sound/red.log": "255c729676d448cb1129f09cdedec5bf1f0413c3064de0c8530af7cc50468140",
+  "docs/superpowers/reports/2026-11-11-sumi-ime-sound/unit.log": "8f430a343034127263618b21ad3db07cf7ddff50f2439a04e5df17087a932e40",
+  "docs/superpowers/reports/2026-11-11-sumi-ime-sound/wayland.log": "02255cccd95bddea33a19af3cf829b0d29e109390728e87c23de90eac112b6b6"
+}

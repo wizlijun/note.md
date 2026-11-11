@@ -52,6 +52,7 @@ struct Surface {
     failed: Cell<bool>,
     fullscreen_down: Cell<bool>,
     sound_keys: RefCell<std::collections::HashSet<u16>>,
+    sound_key_event: Cell<Option<(u32, u16)>>,
     search: RefCell<String>,
     visible: Cell<bool>,
 }
@@ -930,6 +931,7 @@ pub fn mount(
         failed: Cell::new(false),
         fullscreen_down: Cell::new(false),
         sound_keys: RefCell::new(std::collections::HashSet::new()),
+        sound_key_event: Cell::new(None),
         search: RefCell::new(String::new()),
         visible: Cell::new(true),
     });
@@ -1067,6 +1069,7 @@ pub fn mount(
     let weak = Rc::downgrade(&s);
     s.view.connect_preedit_changed(move |_, value| {
         if let Some(s) = weak.upgrade() {
+            emit_preedit_typing(&s, value);
             *s.preedit.borrow_mut() = value.into();
             if !value.is_empty() {
                 s.typing();
@@ -1576,6 +1579,7 @@ pub fn typing_status(_: bool) -> TypingMonitorStatus {
 }
 fn stop_typing(s: &Surface) {
     s.sound_keys.borrow_mut().clear();
+    s.sound_key_event.set(None);
     let handler = TYPING.with(|h| h.borrow().clone());
     if let Some(handler) = handler {
         let (surface_id, generation, _) = s.identity();
@@ -1583,6 +1587,35 @@ fn stop_typing(s: &Surface) {
             surface_id,
             generation,
             role: TypingSoundRole::Stop,
+        });
+    }
+}
+// Wayland text-input and Fcitx's GTK filter can consume keys before the
+// TextView receives them. Their changed preedit is the available typing feedback.
+fn emit_preedit_typing(s: &Surface, value: &str) {
+    if value.is_empty()
+        || *s.preedit.borrow() == value
+        || s.updating.get()
+        || s.failed.get()
+        || !s.visible.get()
+        || !s.view.has_focus()
+    {
+        return;
+    }
+    // Local IM contexts may update preedit during a key event we already heard.
+    // Match that exact dispatch, rather than suppressing nearby rapid keystrokes.
+    if let Some(event) = gtk::current_event().and_then(|e| e.downcast::<gdk::EventKey>().ok()) {
+        if s.sound_key_event.get() == Some((event.time(), event.hardware_keycode())) {
+            return;
+        }
+    }
+    let handler = TYPING.with(|h| h.borrow().clone());
+    if let Some(handler) = handler {
+        let (surface_id, generation, _) = s.identity();
+        handler(TypingSoundEvent {
+            surface_id,
+            generation,
+            role: TypingSoundRole::Key,
         });
     }
 }
@@ -1605,6 +1638,8 @@ fn emit_typing(s: &Surface, e: &gdk::EventKey, release: bool) {
         }
     } else {
         s.sound_keys.borrow_mut().insert(e.hardware_keycode());
+        s.sound_key_event
+            .set(Some((e.time(), e.hardware_keycode())));
     }
     let role = match e.keyval() {
         gdk::keys::constants::Shift_L

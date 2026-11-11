@@ -1,0 +1,18 @@
+
+running 1 test
+test platform::candidates::tests::native_candidate_roundtrip ... IME typing sounds: []
+
+thread 'platform::candidates::tests::native_candidate_roundtrip' (5856) panicked at src/linux_candidates.rs:779:9:
+assertion `left == right` failed: each pinyin key must sound before committing any text
+  left: 0
+ right: 5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    platform::candidates::tests::native_candidate_roundtrip
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 34 filtered out; finished in 1.75s
+
