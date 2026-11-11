@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- The next macOS host release will include Faitc5 for Sumi 0.5.0.14: default Command-semicolon for Quick Phrases, consistent Restore Defaults, and verified automatic post-install input-source repair. Existing host release assets are unchanged.
+- The macOS host release includes Faitc5 for Sumi 0.5.0.14: default Command-semicolon for Quick Phrases, consistent Restore Defaults, and verified automatic post-install input-source repair. Existing host release assets are unchanged.
 
 - **Smart Lookup is rebuilt local-first.** Return shows local results immediately; typing never calls a model, and the model never reorders local results. With enhancement on, Jev checks the local results for evidence (see below); if a request fails or is not configured, the local results stay as they are. When nothing is found, the search is rephrased (once the answer model’s host is allowed) and re-run locally on its own. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement from the ⌘K menu; corrections stay on this device. “In-depth research” is removed from Smart Lookup, and the agent-written answer is replaced by one written from the evidence (see below).
 
@@ -18,6 +18,28 @@ For the full commit history, see the git log.
 - **Smart Lookup finds the evidence for you.** After Return, local results appear at once while Jev checks the passages round by round, with a progress line (“Looking for evidence · N s”) and a stop with Esc. The footer says which host the passages went to and how many were sent; confidential notes are never sent. Passages that do not fit are hidden, and the rest sit under a collapsed “Other results”. Round-by-round expansion terms, the “restore to round N” button, the “order updated · apply” prompt and the evidence-details popover are gone.
 
 - **Smart Lookup answers first, citing numbered sources.** When the evidence is confirmed and sending to the answer model’s host is allowed in Settings, the answer is written automatically, with no button: the answer on top, numbered citations that open the cited passage with the cited lines marked, and a “Sources” list in citation order. A question that could mean different things is answered once per meaning. If a later evidence round fails, the answer is written from the evidence already confirmed, with one line saying the check did not finish. When nothing in your notes answers the question, you are told so and shown what was tried automatically (searching, rephrasing and re-searching, scanning line by line); only passages that were actually judged are called unrelated, and confidential passages that were not checked are counted. Zero local hits now rephrase and scan by default, also for settings saved by an earlier version (the scan can be turned off again in Settings → Search & Index). The answer is shown as plain text and never logged; an answer that cites a number that does not exist is not shown. “Is this judgement right?” moved into the ⌘K menu as “Mark as fitting” and “Mark as unrelated”, and the criterion and time-mode chips, “Rephrase”, and the editable wordings are removed.
+
+## v6.1111.2 — 2026-11-11
+
+- **One consistent plugin workflow.** Native menus and the built-in marketplace now use AI, Capture, Read, Write, Advance, Review, Import & Export, and Other. Write follows Read, with Sumi Write and Idea Spark together.
+
+- **Context sync belongs to Capture.** Apple Notes, Roam Research and Health Sync move into Capture, including older installed plugin manifests and cached categories. Known legacy categories map to their matching workflow groups; unknown groups remain visible in Other.
+
+- **Apple silicon release.** The modified Faitc5 for Sumi 0.5.0.13 installer is included as a companion download; its App is signed and notarized, while the installer package remains unsigned.
+
+## v6.1111.1 — 2026-11-11
+
+- **Companion input method included.** The release also includes the modified Faitc5 for Sumi 0.5.0.13 Apple silicon installer, with Chinese/English spacing enabled by default. Its App is signed and notarized; the installer package itself is unsigned. Future macOS releases validate the approved package before attaching it.
+
+- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
+
+- **Sumi windows fit your Mac display.** New standalone windows use the available screen area and support the green full-screen button. “Open new windows in full screen” is on by default; changing it applies to the next new window without switching the current one.
+
+- **Bring macOS writing behavior in line with Linux.** Full-screen text scales proportionally and returns to the saved size on exit. Focus typing uses a rolling two-second input window, and focus layout and inline candidates respect the reserved bottom space. Command shortcuts and drafts paused after a save failure no longer trigger typing sounds.
+
+- **Recover local edits echoed back through cloud sync.** Recognize matching edits without conflicting with their original durable receipts, so recovered edits no longer block appearance and font settings. Different payloads with reused operation IDs remain rejected.
+
+- **Apple silicon update with Sumi 0.1.14.** Update the host and plugin together; the plugin requires note.md 6.1111.1 or later. Existing Linux packages remain available unchanged.
 
 ## v6.1110.8 — 2026-11-10
 
