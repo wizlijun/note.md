@@ -164,11 +164,11 @@ const JEV = { url: 'https://api.typesafe.ai/v1', model: 'jev-1', authMode: 'bear
 const CHAT = { url: 'https://chat.example/v1', model: 'small' }
 const CHAT_ALLOWED = { ...CHAT, consentHost: 'chat.example' }
 
-/** Stored lookup settings: the first-run note seen and the automatic scan on, unless the test says otherwise. */
+/** Stored lookup settings: the first-run note seen and the automatic scan on (already migrated), unless the test says otherwise. */
 function stored(value: { results?: Record<string, unknown>; enhance?: Record<string, unknown>; launch?: Record<string, unknown> }): unknown {
   return {
     ...value,
-    results: { autoDeepOnZero: true, ...value.results },
+    results: { autoDeepOnZero: true, autoDeepMigrated: true, ...value.results },
     launch: { firstRunSeen: true, ...value.launch },
   }
 }
@@ -1413,6 +1413,15 @@ describe('SmartLookupApp zero hits', () => {
     expect(calls('smart_lookup_local')).toHaveLength(1)
     expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
     expect(footerLineText()).toBe('')
+  })
+
+  it('settings saved before answer-first (scan stored off, no marker) still scan on zero hits', async () => {
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = { results: { limit: 50, groupBy: 'auto', autoDeepOnZero: false, deepTimeoutMs: 4000 }, launch: { firstRunSeen: true } }
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(calls('smart_lookup_local').map((call) => call.deep)).toEqual([false, true]))
+    expect(settings.smartLookup.results).toMatchObject({ autoDeepOnZero: true, autoDeepMigrated: true })
   })
 
   it('⌘K expand search still runs a deep local lookup on zero results', async () => {
