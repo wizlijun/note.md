@@ -4,6 +4,7 @@ import { en } from '../i18n/en'
 import { zh } from '../i18n/zh'
 import type { AnswerResult, EvidenceItem, EvidenceStepResult, Tier } from './api'
 import {
+  allJudgedUnfit,
   citedSources,
   confirmedSources,
   fallbackLine,
@@ -123,6 +124,22 @@ describe('otherResults', () => {
   })
 })
 
+describe('allJudgedUnfit', () => {
+  const tiers = new Map<string, Tier>([['r-x', 'unfit'], ['r-y', 'unfit']])
+  const tierOf = (row: EvidenceItem | (SearchHit & { resultId: string })) =>
+    ('evidenceId' in row ? row.tier : tiers.get(row.resultId))
+  it('is true only when every row was judged unfit', () => {
+    expect(allJudgedUnfit([item('a', 'unfit'), local('x'), local('y')], tierOf)).toBe(true)
+  })
+  it('a mixed list is not "all unrelated": an untiered (never judged) or unsure row keeps it plain', () => {
+    // `z` has no tier: confidential, over-long, stale, section-level or beyond the candidates.
+    expect(allJudgedUnfit([item('a', 'unfit'), local('x'), local('z')], tierOf)).toBe(false)
+    expect(allJudgedUnfit([item('a', 'unfit'), item('b', 'unsure'), local('x')], tierOf)).toBe(false)
+    expect(allJudgedUnfit([local('z')], tierOf)).toBe(false)
+    expect(allJudgedUnfit([], tierOf)).toBe(false)
+  })
+})
+
 describe('the no-answer decision and the phase', () => {
   it('no answer when the rounds finished and nothing shown is fit', () => {
     expect(isNoAnswer(finished([item('a', 'unfit'), item('b', 'unsure')]), false, 3)).toBe(true)
@@ -232,6 +249,14 @@ describe('fallbackLine', () => {
     expect(line({ header: degraded('cancelled') })?.settings).toBe(false)
     expect(line({})).toBeNull()
   })
+  it('says why the host skipped the route (M4)', () => {
+    const skipped = (skipReason: 'pinned' | 'fewTerms' | 'autoBudgetUsed') => applyRound(emptyEvidence(), {
+      ...stepOf([]), status: 'skipped', skipReason, done: true, requestCount: 0,
+    })
+    expect(line({ evidence: skipped('pinned') })).toEqual({ text: '命中了置顶页，这次不核对依据，下面是本地结果。', settings: false })
+    expect(line({ evidence: skipped('fewTerms') })?.text).toBe('问题只有一两个词，原词已经找到，这次不核对依据，下面是本地结果。')
+    expect(line({ evidence: skipped('autoBudgetUsed') })).toBeNull()
+  })
   it('never carries more than the host and the reason class', () => {
     for (const status of ['notConfigured', 'noConsent', 'timeout', 'keyInvalid', 'unreachable', 'invalid', 'cancelled'] as const) {
       const result = fallbackLine({ ...base, header: degraded(status) })!
@@ -251,6 +276,12 @@ describe('fallbackLine', () => {
       .toEqual({ text: '没能写出有依据的回答，下面是确认过的依据。', settings: false })
     expect(line({ ...sources, answer: answer(null, [], { status: 'noConsent' }) })?.settings).toBe(true)
     expect(line({ ...sources, answerStopped: true })?.text).toBe('已停止写回答，下面是确认过的依据。')
+  })
+  it('above an answer written from the evidence confirmed before a later round failed (I5)', () => {
+    const interrupted = { ...finished([item('a')], { done: false, stop: null }), done: true, interrupted: true }
+    expect(line({ phase: 'answer', evidence: interrupted, header: degraded('timeout') }))
+      .toEqual({ text: '依据没有核对完，回答只根据已经确认的依据。', settings: false })
+    expect(lookupPhase({ working: false, evidence: interrupted, answer: null, cited: 0, hits: 3, zeroHitsTried: false })).toBe('sources')
   })
   it('nothing while working, with an answer, or when nothing answers', () => {
     for (const phase of ['working', 'answer', 'noAnswer'] as const) expect(line({ phase, header: degraded('timeout') })).toBeNull()

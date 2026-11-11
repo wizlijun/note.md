@@ -11,11 +11,23 @@ describe('smart lookup settings', () => {
 
   it('keeps valid fields while independently resetting damaged fields', () => {
     const normalized = normalizeSmartLookupSettings({
-      results: { limit: 20, groupBy: 'date', autoDeepOnZero: true, deepTimeoutMs: 500 },
+      results: { limit: 20, groupBy: 'date', autoDeepOnZero: true, autoDeepMigrated: true, deepTimeoutMs: 500 },
     })
     expect(normalized.results).toEqual({
-      limit: 20, groupBy: 'date', autoDeepOnZero: true, deepTimeoutMs: 4_000,
+      limit: 20, groupBy: 'date', autoDeepOnZero: true, autoDeepMigrated: true, deepTimeoutMs: 4_000,
     })
+  })
+
+  it('migrates a stored false once: settings saved before answer-first turn the zero-hit scan on (I6)', () => {
+    // Every save before the marker wrote the old default `false` explicitly.
+    const old = normalizeSmartLookupSettings({ results: { limit: 20, autoDeepOnZero: false, deepTimeoutMs: 4_000 } })
+    expect(old.results).toMatchObject({ limit: 20, autoDeepOnZero: true, autoDeepMigrated: true })
+    // Saved with the marker, a later choice stands.
+    const chosen = normalizeSmartLookupSettings({ ...old, results: { ...old.results, autoDeepOnZero: false } })
+    expect(chosen.results).toMatchObject({ autoDeepOnZero: false, autoDeepMigrated: true })
+    expect(normalizeSmartLookupSettings(chosen).results.autoDeepOnZero).toBe(false)
+    // A damaged marker is not a migration record.
+    expect(normalizeSmartLookupSettings({ results: { autoDeepOnZero: false, autoDeepMigrated: 'yes' } }).results.autoDeepOnZero).toBe(true)
   })
 
   it('accepts every inclusive numeric boundary', () => {

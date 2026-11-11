@@ -16,7 +16,7 @@
   import { highlightParts, parseHighlightTerms, previewLine } from './lib/search/preview'
   import { createImeGuard, isImeKey } from './lib/ime'
   import { isApplePlatformSync } from './lib/platform-sync'
-  import { loadSettings, saveSettings, settings } from './lib/settings.svelte'
+  import { loadSettings, settings } from './lib/settings.svelte'
   import { SmartSearchStore } from './lib/smart-search/store.svelte'
   import {
     smartSearchApi,
@@ -45,15 +45,17 @@
     type LookupAttempt,
   } from './lib/smart-search/enhance-flow'
   import {
+    answerable,
     answerGate,
     answerParts,
     applyRound,
     confirmedCount,
     emptyEvidence,
     emptyTotals,
-    evidenceFinished,
+    evidenceReady,
     fitEvidence,
     headerFromStep,
+    interruptRun,
     shouldStartEvidence,
     totalsOf,
     type AnswerGate,
@@ -61,6 +63,7 @@
     type EvidenceView,
   } from './lib/smart-search/evidence-flow'
   import {
+    allJudgedUnfit,
     citedSources,
     confirmedSources,
     fallbackLine,
@@ -161,6 +164,13 @@
   let answerStopped = $state(false)
   /** Why no answer was asked for: the answer model is not set up, or its host not allowed. */
   let answerBlocked = $state<AnswerGate | null>(null)
+  /**
+   * The answer host a request of this run was started with. The footer keeps
+   * naming it after a stop or a hidden-window drop (final review I1): the
+   * question and the passages may already have gone there. Cleared only for
+   * a new run, or when the host refused the request before sending.
+   */
+  let answerSentHost = $state<string | null>(null)
   let otherOpen = $state(false)
   /** The narrow window shows the selected row's passage inline; Space folds it. */
   let inlineOpen = $state(true)
@@ -252,12 +262,20 @@
       totals.host ?? (evidenceBusy ? endpointHost(settings.smartLookup.enhance.jev.url) : null),
       repairHost ?? (repairBusy ? endpointHost(settings.smartLookup.enhance.chat.url, 'chat') : null),
       answerBusy ? endpointHost(settings.smartLookup.enhance.chat.url, 'chat')
-        : answer && answer.requestCount > 0 ? answer.endpointHost ?? endpointHost(settings.smartLookup.enhance.chat.url, 'chat') : null,
+        : answer ? (answer.requestCount > 0 ? answer.endpointHost ?? endpointHost(settings.smartLookup.enhance.chat.url, 'chat') : null)
+          : answerSentHost,
     ],
     sent: totals.sent,
   }, t('smartSearch.footer.hostSeparator')) : null)
-  /** The try whose hits the evidence rounds checked: they were all unrelated when nothing was found. */
-  let judgedAttempt = $derived<AttemptKind | null>(judgedAnything(evidence) ? (evidenceDeep ? 'scan' : 'original') : null)
+  /**
+   * The try whose hits the evidence rounds checked, when every one of them was judged unfit (final
+   * review I4): hits the host never judged (confidential, over-long, beyond the candidates) are not "unrelated".
+   */
+  let judgedAttempt = $derived<AttemptKind | null>(judgedAnything(evidence) && allJudgedUnfit(store.hits, tierOf)
+    ? (evidenceDeep ? 'scan' : 'original')
+    : null)
+  /** The no-answer view says 「都不相关」 only when every row behind 「其他结果」 was judged unfit. */
+  let otherAllUnfit = $derived(phase === 'noAnswer' && allJudgedUnfit(otherRows, tierOf))
   let tried = $derived(attempts ? triedSteps(attempts, lastGroups, judgedAttempt, t('smartSearch.footer.hostSeparator')) : [])
   /** ⌘K 「扩大查找」, until the line-by-line scan has run for this question (automatically or from the menu). */
   let canExpand = $derived(Boolean(lookupRunId) && !attempts?.scan && (store.hits.length === 0 || store.deepAvailable))
@@ -366,6 +384,7 @@
     workStartedAt = null
     otherOpen = false
     clearAnswer()
+    answerSentHost = null
   }
 
   /** Drops the answer shown and cancels one in flight: it no longer matches the evidence. */
@@ -649,7 +668,8 @@
 
   /**
    * Zero hits (plan behaviour 6): rephrase once when a repair model is set up
-   * (only the question and search terms are sent); if that finds nothing
+   * and its host allowed (only the question and search terms are sent; without
+   * that consent the rephrase is skipped, `shouldAutoRepair`); if that finds nothing
    * either, scan every file line by line when `autoDeepOnZero` is on. Hits
    * from the scan get evidence; hits from other wordings are never judged.
    */
@@ -711,7 +731,9 @@
    * user stops, or a newer lookup supersedes it. Never two steps on one run;
    * `auto` continues as `auto` only on the run it started on; a
    * `roundRunning` answer is ignored entirely. Rounds apply as they arrive. A
-   * failed or stopped round leaves the local results as they are. When the
+   * failed round is dropped whole: after a scored round with confirmed
+   * evidence the answer is written from that evidence (I5), otherwise the
+   * local results stay as they are. A stopped round is dropped. When the
    * rounds finish with confirmed evidence, the answer starts (ruling A).
    */
   async function runEvidence(mine: number, trigger: Trigger): Promise<void> {
@@ -748,9 +770,12 @@
         if (inflight?.token !== token || mine !== requestSequence) return
         inflight = null
         evidenceBusy = false
-        workStartedAt = null
         evidenceError = true
         appendActivity('judge', 'error', `evidence failed: ${redactError(error)}`)
+        // A later round that fails keeps what the earlier ones confirmed (I5).
+        evidence = interruptRun(evidence)
+        if (answerable(evidence)) await startAnswer(mine)
+        else workStartedAt = null
         return
       }
       // What the host sent is the run's, whether or not this result is still wanted: after
@@ -778,7 +803,8 @@
     }
     inflight = null
     evidenceBusy = false
-    if (evidenceFinished(evidence) && fitEvidence(evidence).length > 0) await startAnswer(mine)
+    // Finished, or a later round failed after earlier ones confirmed evidence (I5): answer from it.
+    if (answerable(evidence)) await startAnswer(mine)
     else workStartedAt = null
   }
 
@@ -808,13 +834,15 @@
   /**
    * Whether the window is hidden. The global shortcut hides it without
    * telling the page, so the window asks before each step and before the
-   * answer. Without a window (browser preview) it counts as shown.
+   * answer. It fails closed: when the window cannot say (a missing
+   * `core:window:allow-is-visible` permission, no Tauri window), it counts as
+   * hidden and nothing more is sent.
    */
   async function windowHidden(): Promise<boolean> {
     try {
       return !(await appWindow.isVisible())
     } catch {
-      return false
+      return true
     }
   }
 
@@ -835,11 +863,14 @@
     answerBlocked = null
     answerBusy = true
     if (workStartedAt === null) workStartedAt = Date.now()
+    answerSentHost = endpointHost(settings.smartLookup.enhance.chat.url, 'chat')
     let result: AnswerResult
     try {
       result = await smartSearchApi.answer(runId, chatAnswerConfig(settings.smartLookup), shownIds)
     } catch (error) {
       if (inflight?.token !== token || mine !== requestSequence) return
+      // The host refuses before sending anything (a budget code, an expired run).
+      answerSentHost = null
       inflight = null
       answerBusy = false
       workStartedAt = null
@@ -966,13 +997,21 @@
       failure = redactError(error)
     }
     if (inflight?.token !== token || mine !== requestSequence) return
+    // Hidden while the rephrase was out: drop its wordings, as a late round or answer is dropped.
+    const hidden = await windowHidden()
+    if (inflight?.token !== token || mine !== requestSequence) return
     inflight = null
     repairBusy = false
+    // The question went to the chat host whether or not the result is still wanted: the footer names it.
+    if (result && result.requestCount > 0 && result.endpointHost) repairHost = result.endpointHost
+    if (hidden) {
+      appendActivity('repair', 'warning', 'repair dropped (window hidden)')
+      return
+    }
     if (!result) {
       appendActivity('repair', 'error', `repair failed: ${failure}`)
       return
     }
-    if (result.requestCount > 0 && result.endpointHost) repairHost = result.endpointHost
     const empty = result.status === 'ok' && !result.groups.length
     appendActivity('repair', empty ? 'warning' : activityLevel(result.status), repairLog(result), { usage: result.usage })
     if (result.status === 'ok' && result.groups.length) {
@@ -1275,7 +1314,7 @@
   <div
     class="result-row"
     class:active
-    class:dim={phase === 'noAnswer'}
+    class:dim={phase === 'noAnswer' && tierOf(hit) === 'unfit'}
     class:source={hit.sourceId !== undefined}
     role="option"
     aria-selected={active}
@@ -1454,8 +1493,9 @@
                 <NoMatchPanel
                   steps={tried}
                   notice={repairNotice ? t(repairNotice.key, repairNotice.params) : ''}
+                  confidential={totals.skippedConfidential}
                 />
-                {@render otherDisclosure(t('smartSearch.answer.otherUnrelated', { n: otherRows.length }))}
+                {@render otherDisclosure(t(otherAllUnfit ? 'smartSearch.answer.otherUnrelated' : 'smartSearch.answer.other', { n: otherRows.length }))}
               {:else if localRows.length}
                 {#if repaired && attempts}
                   <RepairStrip
@@ -1539,7 +1579,7 @@
       <span class="footer-line compact" aria-hidden="true">{t(footer.compact.key, footer.compact.params)}</span>
     {/if}
     <span class="spacer"></span>
-    {#if mode === 'idle' && ready && settings.smartLookup.enhance.enabled}
+    {#if mode === 'idle' && ready && evidenceReady(settings.smartLookup) && answerGate(settings.smartLookup).kind === 'start'}
       <button class="enhance-chip" onclick={() => void openEnhanceSettings()}><span class="dot" aria-hidden="true"></span>{t('smartSearch.launch.enhanceOn')}</button>
     {/if}
     <span class="footer-hint"><kbd>esc</kbd> {working ? t('smartSearch.footer.escStop') : t('smartSearch.footer.escClose')}</span>
@@ -1560,7 +1600,6 @@
     --lookup-muted: color-mix(in srgb, CanvasText 60%, transparent);
     --lookup-soft: color-mix(in srgb, CanvasText 4%, transparent);
     --lookup-fit: #1a7f37;
-    --lookup-unfit: #9a6700;
   }
   /* Shared by the child views (launch, repair strip, no-answer panel). */
   .lookup :global(button), .lookup :global(textarea), .lookup :global(input) { font: inherit; color: inherit; }
