@@ -239,7 +239,7 @@ function applyStatic(){
 function entryFor(id){
  var e=ENTRY_MAP[id];return e?e[lang]:I18N[lang].fallback;
 }
-var GROUP_ORDER=['ai','record','reading','advance','reflect','create','import-export','experience','other'];
+var GROUP_ORDER=['ai','record','reading','create','advance','reflect','import-export','experience','other'];
 var LEGACY_GROUPS={'inspiration':'create','agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
 var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.assistant-mail':'record','notemd.meetings':'record','notemd.roam-import':'import-export','notemd.apple-notes':'import-export','notemd.health-sync':'import-export','notemd.ebook-import':'reading','notemd.index-viewer':'reading','notemd.knowledge-browser':'reading','notemd.typst-reader':'reading','notemd.trace-source':'reading','notemd.idea-spark':'create','notemd.sumi':'create','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'reflect','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
 var AI_ROLES={'notemd.ebook-import':{en:'AI Read',zh:'AI 阅读'},'notemd.idea-spark':{en:'AI Inspire',zh:'AI 启发'},'notemd.trace-source':{en:'AI Reason',zh:'AI 推理'},'notemd.claude-agent':{en:'AI Action',zh:'AI 执行'},'notemd.codex-agent':{en:'AI Action',zh:'AI 执行'},'notemd.deepseek-agent':{en:'AI Action',zh:'AI 执行'},'notemd.memory':{en:'AI Memory',zh:'AI 记忆'},'notemd.conversation-dictionary':{en:'AI Review',zh:'AI 审阅'}};

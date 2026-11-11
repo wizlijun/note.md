@@ -18,7 +18,7 @@ describe('marketplace plugin metadata', () => {
   })
   it('merges old inspiration metadata into Create without changing the remaining section order', () => {
     const page = grouping()
-    expect(page.GROUP_ORDER).toEqual(['ai', 'record', 'reading', 'advance', 'reflect', 'create', 'import-export', 'experience', 'other'])
+    expect(page.GROUP_ORDER).toEqual(['ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience', 'other'])
     for (const id of ['notemd.sumi', 'notemd.idea-spark']) {
       for (const category of ['inspiration', 'experience', 'other', 'create']) {
         expect(page.normalizeGroup(category, id)).toBe('create')
@@ -34,9 +34,9 @@ describe('marketplace plugin metadata', () => {
       { id: 'notemd.timeline', category: 'reflect' },
     ]
     expect(page.groupPlugins(items)).toEqual([
+      { key: 'create', items: [items[0], items[2], items[3]] },
       { key: 'advance', items: [items[1]] },
       { key: 'reflect', items: [items[4]] },
-      { key: 'create', items: [items[0], items[2], items[3]] },
     ])
   })
   it('shows Create in both plugin entry instructions without retaining a separate Ideas heading', () => {
