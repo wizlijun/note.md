@@ -13,6 +13,33 @@ function versionOf(tag) {
   return tag.slice(1)
 }
 
+const companionManifest = 'faitc5-companion.json'
+const companionFields = ['schema', 'product', 'version', 'platform', 'filename', 'sha256', 'bytes', 'sourceCommit', 'appNotarized', 'packageSigned']
+
+/** Validate the approved companion declaration, not an Apple signing receipt.
+ * The build/staging gate establishes notarization and signing status separately.
+ */
+export function validateCompanionMetadata(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).length !== companionFields.length ||
+      companionFields.some(key => !Object.hasOwn(value, key))) fail('invalid Faitc5 companion metadata fields')
+  if (value.schema !== 1 || value.product !== 'Faitc5 for Sumi' || value.platform !== 'darwin-aarch64' ||
+      typeof value.version !== 'string' || !/^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){3}$/.test(value.version) ||
+      value.filename !== `Faitc5-for-Sumi-${value.version}-arm64.pkg` ||
+      typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(value.sha256) ||
+      !Number.isSafeInteger(value.bytes) || value.bytes <= 0 ||
+      typeof value.sourceCommit !== 'string' || !/^[a-f0-9]{40}$/.test(value.sourceCommit) ||
+      value.appNotarized !== true || typeof value.packageSigned !== 'boolean') fail('invalid Faitc5 companion metadata')
+  return value
+}
+
+function approvedUploadedCompanion(content, approved) {
+  validateCompanionMetadata(approved)
+  const uploaded = validateCompanionMetadata(JSON.parse(content))
+  if (companionFields.some(key => uploaded[key] !== approved[key])) fail('Faitc5 companion differs from repository approval')
+  return uploaded
+}
+
 function validateLinuxPackages(version, requireCurrentAsset, architectures = ['amd64', 'arm64']) {
   const checksum = requireCurrentAsset('SHA256SUMS-linux.txt')
   const lines = typeof checksum.content === 'string' ? checksum.content.trim().split(/\r?\n/) : []
@@ -30,10 +57,10 @@ function validateLinuxPackages(version, requireCurrentAsset, architectures = ['a
 }
 
 /** Assets use gh's name/url fields plus downloaded content (signatures/checksums)
- * and sha256 (debs). This validates evidence; it does not cryptographically verify
+ * and sha256/bytes (packages). This validates evidence; it does not cryptographically verify
  * updater payloads or replace the existing signed macOS/Windows build gates.
  */
-export function validateRelease({ tag, draft, assets, latest, without, macArm64Only = false, linuxOnly = false, linuxAmd64Only = false }) {
+export function validateRelease({ tag, draft, assets, latest, without, macArm64Only = false, linuxOnly = false, linuxAmd64Only = false, approvedCompanion }) {
   const version = versionOf(tag)
   if (draft !== true) fail('release must be an existing draft')
   if (without !== undefined && !['windows', 'linux'].includes(without)) fail('invalid omitted platform')
@@ -68,6 +95,10 @@ export function validateRelease({ tag, draft, assets, latest, without, macArm64O
     validateLinuxPackages(version, requireCurrentAsset, linuxArchitectures)
     return { version }
   }
+  const companion = approvedUploadedCompanion(requireCurrentAsset(companionManifest).content, approvedCompanion)
+  const companionPackage = requireCurrentAsset(companion.filename)
+  if (companionPackage.sha256 !== companion.sha256 || companionPackage.bytes !== companion.bytes) fail('Faitc5 companion package hash/size mismatch')
+  for (const name of byName.keys()) if (name.endsWith('.pkg') && name !== companion.filename) fail(`unexpected companion package: ${name}`)
   const macArchitectures = macArm64Only ? ['aarch64'] : ['aarch64', 'x86_64']
   for (const arch of macArchitectures) requireCurrentAsset(`note.md-${version}-${arch}.dmg`)
   if (!latest || latest.version !== version || !latest.platforms || Array.isArray(latest.platforms) || typeof latest.platforms !== 'object') fail('manifest version/platforms mismatch')
@@ -77,7 +108,7 @@ export function validateRelease({ tag, draft, assets, latest, without, macArm64O
   if (!macArm64Only) expected['darwin-x86_64'] = 'note.md-x86_64.app.tar.gz'
   if (!macArm64Only && without !== 'windows') expected['windows-x86_64'] = `note.md_${version}_x64-setup.exe`
   if (macArm64Only) {
-    const allowed = new Set(['latest.json', `note.md-${version}-aarch64.dmg`, 'note.md-aarch64.app.tar.gz', 'note.md-aarch64.app.tar.gz.sig'])
+    const allowed = new Set(['latest.json', `note.md-${version}-aarch64.dmg`, 'note.md-aarch64.app.tar.gz', 'note.md-aarch64.app.tar.gz.sig', companionManifest, companion.filename])
     for (const name of byName.keys()) if (!allowed.has(name)) fail(`unexpected Apple Silicon-only asset: ${name}`)
   }
   for (const key of Object.keys(latest.platforms)) {
@@ -158,7 +189,17 @@ async function main(args) {
         assets.find(a => a.name === name).sha256 = createHash('sha256').update(bytes).digest('hex')
       }
     }
-    validateRelease({ tag, draft: release.isDraft, assets, latest, without, macArm64Only, linuxOnly, linuxAmd64Only })
+    let approvedCompanion
+    if (!linuxRelease) {
+      approvedCompanion = validateCompanionMetadata(JSON.parse(readFileSync(new URL('./release-companions/faitc5.json', import.meta.url), 'utf8')))
+      const content = download(companionManifest).toString('utf8')
+      const companion = approvedUploadedCompanion(content, approvedCompanion)
+      assets.find(a => a.name === companionManifest).content = content
+      const bytes = download(companion.filename), asset = assets.find(a => a.name === companion.filename)
+      asset.sha256 = createHash('sha256').update(bytes).digest('hex')
+      asset.bytes = bytes.length
+    }
+    validateRelease({ tag, draft: release.isDraft, assets, latest, without, macArm64Only, linuxOnly, linuxAmd64Only, approvedCompanion })
     if (without || macArm64Only || linuxRelease) {
       const exact = linuxAmd64Only ? `${tag} linux-amd64-only` : linuxOnly ? `${tag} linux-only` : macArm64Only ? `${tag} mac-arm64-only` : `${tag} without ${without}`
       const terminal = createInterface({ input: process.stdin, output: process.stdout })
