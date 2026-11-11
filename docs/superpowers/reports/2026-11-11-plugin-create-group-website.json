@@ -1,0 +1,97 @@
+{
+  "source_commit": "e786cf0b67f2d05fa7af4116e1866c07ff59451b",
+  "wrangler_version": "3.114.17",
+  "route": "https://plugins.notemd.net/",
+  "worker": "notemd-plugins",
+  "version_id": "0f70cf9a-f27f-4a55-b04c-94fa8e0d10a5",
+  "channel": "Existing Wrangler 3.114.17 + Account API Token; no OAuth, KV or R2 writes",
+  "source_files_sha256": {
+    "src/page.ts": "137b6f13e91905af2409095195a6d5d897a7f0030dd4af1b2d6b05e2336f50f0",
+    "src/index.ts": "257d247753b8723f3242b811b23064f23dcf1ca8272031c6ff47e22d83b16c23",
+    "wrangler.toml": "d0275683e452182f4fc9a7d77f33da4465124ce918891333802200b46267d3f3"
+  },
+  "public_checks": [
+    {
+      "name": "normal",
+      "url": "https://plugins.notemd.net/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "e2f555b3f82b5a6e4388eef8b0a5390b85c208c50f901be6dd10086b4ae9469e",
+      "frozen_source_exact": true
+    },
+    {
+      "name": "fresh",
+      "url": "https://plugins.notemd.net/?lang=zh&verify=1794371050281",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "e2f555b3f82b5a6e4388eef8b0a5390b85c208c50f901be6dd10086b4ae9469e",
+      "frozen_source_exact": true
+    }
+  ],
+  "rendered_checks": [
+    {
+      "lang": "en",
+      "plugin_count": 314,
+      "old_sumi_and_idea_metadata_map_to": "create",
+      "group_order": [
+        "ai",
+        "record",
+        "reading",
+        "create",
+        "advance",
+        "reflect",
+        "import-export",
+        "experience",
+        "other"
+      ],
+      "rendered_headings": [
+        "AI",
+        "Capture",
+        "Read",
+        "Create",
+        "Move Forward",
+        "Reflect",
+        "Import & Export",
+        "Experience"
+      ],
+      "rendered_grid": true
+    },
+    {
+      "lang": "zh",
+      "plugin_count": 314,
+      "old_sumi_and_idea_metadata_map_to": "create",
+      "group_order": [
+        "ai",
+        "record",
+        "reading",
+        "create",
+        "advance",
+        "reflect",
+        "import-export",
+        "experience",
+        "other"
+      ],
+      "rendered_headings": [
+        "AI",
+        "记录",
+        "阅读",
+        "创作",
+        "推进",
+        "回顾",
+        "导入与导出",
+        "体验增强"
+      ],
+      "rendered_grid": true
+    }
+  ],
+  "index_read_only": true,
+  "tests": "23 passed; explicit installed Cloudflare ambient types typecheck passed",
+  "verification_note": "Anonymous HTTP full-body comparison plus served page JavaScript rendered with the current public index in JSDOM; no KV/R2 writes.",
+  "verified_at": "2026-11-11T04:24:38.656450+00:00",
+  "implementation_commits": [
+    "d254578413da6f362396932450e8f8f48ff0e833",
+    "e786cf0b67f2d05fa7af4116e1866c07ff59451b"
+  ],
+  "scope": "Website Create grouping and entry text only. Plugin package/index publishing is a separate task.",
+  "test_environment_note": "Default registry tsconfig omits cloudflare:test ambient declarations; explicit existing @cloudflare/vitest-pool-workers types passed. Local worker test runtime falls back from configured 2026-05-01 compatibility date to supported 2024-12-30; deployed public page independently verified."
+}
