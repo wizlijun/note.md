@@ -209,7 +209,8 @@ pub(crate) struct EvidenceRequest<'a> {
     pub config: &'a JevRequestConfig,
     pub key: Option<&'a str>,
     pub trigger: Trigger,
-    /// Round 0 takes `retrieval.deepCandidateK` candidates.
+    /// An expanded lookup: every round takes `retrieval.deepCandidateK`
+    /// candidates instead of `retrieval.candidateK` (spec H.3.10).
     pub deep: bool,
     pub params: &'a LookupParams,
     pub reader: Arc<SagReader>,

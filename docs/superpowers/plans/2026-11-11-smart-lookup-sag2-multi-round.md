@@ -14,7 +14,7 @@
 
 ```rust
 // Ported from SAG-Wiki 61f63c6 `core/src/<file>.rs` (<functions>), MIT License,
-// Copyright (c) SAG-Wiki contributors. Changes for note.md: see spec Appendix H.
+// Copyright (c) 2026 sag contributors. Changes for note.md: see spec Appendix H.
 ```
 
 ## Global Constraints
@@ -322,7 +322,7 @@ struct Fixed(f64, HashMap<String, u64>);   // TermStats：total = 100，df 表�
 Run: `CARGO_INCREMENTAL=0 RUSTUP_TOOLCHAIN=stable cargo test --manifest-path src-tauri/Cargo.toml --lib -- smart_enhance::sag::terms`
 Expected: FAIL
 
-- [ ] **Step 3: 实现** 按 H.3.4 逐行移植 `expansion_terms`；`ranked` 用 `HashMap` 收集后整体按（score 降序、`term_cmp`）排序，所以收集顺序不影响输出。`Collator::try_new(&locale!("en").into(), CollatorOptions::new())` 放在 `OnceLock` 里。
+- [ ] **Step 3: 实现** 按 H.3.4 逐行移植 `expansion_terms`；`ranked` 用 `HashMap` 收集后整体按（score 降序、`term_cmp`）排序，所以收集顺序不影响输出。`Collator::try_new(&locale!("en").into(), CollatorOptions::new())` 放在 `thread_local!` 里，每个线程一个（`icu_collator` 1.5 的 `Collator` 不是 `Sync`，不能放进 `OnceLock`；开启它的 `sync` 特性要改 Cargo 文件，P3 不允许）；输出与共享一个实例相同。
 
 - [ ] **Step 4: 运行，确认通过**（同上）Expected: PASS
 
