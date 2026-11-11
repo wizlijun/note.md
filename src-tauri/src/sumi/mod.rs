@@ -44,6 +44,7 @@ impl WindowVisibility {
         true
     }
 }
+static FONT_UPDATE_WINDOW: Mutex<Option<String>> = Mutex::new(None);
 static PLUGIN_WINDOW_VISIBILITY: Mutex<WindowVisibility> = Mutex::new(WindowVisibility { epoch: 0, hidden: false });
 fn is_plugin_window(label: &str) -> bool {
     label == crate::plugin_runtime::windows::window_label(PLUGIN, "main")
@@ -61,6 +62,7 @@ fn require_visible_native_window<R: Runtime>(window: &WebviewWindow<R>) -> Resul
 /// events that may have been queued before closing.
 pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
     if !is_plugin_window(label) { return; }
+    if let Some(window) = app.get_webview_window(label) { watch_fullscreen_font(&window); }
     let epoch = match PLUGIN_WINDOW_VISIBILITY.lock() {
         Ok(mut visibility) => visibility.showing(),
         Err(_) => return,
@@ -376,7 +378,6 @@ pub(super) struct Workspace {
     papers: Mutex<HashMap<String, Paper>>,
     preferences: Mutex<Preferences>,
     appearance_changes: tokio::sync::Mutex<()>,
-    #[cfg(target_os = "linux")]
     surface_appearances: Mutex<HashMap<String, (Surface, native::Appearance)>>,
     font_selection: Mutex<FontSelection>,
     active: Mutex<Option<String>>,
@@ -528,7 +529,6 @@ async fn workspace<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Arc<Workspac
         papers: Mutex::new(HashMap::new()),
         preferences: Mutex::new(preferences),
         appearance_changes: tokio::sync::Mutex::new(()),
-        #[cfg(target_os = "linux")]
         surface_appearances: Mutex::new(HashMap::new()),
         font_selection: Mutex::new(FontSelection::default()),
         active: Mutex::new(active),
@@ -1982,7 +1982,6 @@ async fn mount<R: Runtime>(
                 // replace text, restore old selection or finish marked text.
                 native::command(window, surface.surface_id.clone(), surface.generation,
                     native::SurfaceCommand::SetBounds { bounds }).await?;
-                #[cfg(target_os = "linux")]
                 refresh_surface_font_size(window, ws, page_id, &surface.surface_id, surface.generation).await?;
                 current(app, ws)?;
                 require_visible_native_window(window)?;
@@ -2081,7 +2080,6 @@ async fn mount<R: Runtime>(
         }
         return Err(error);
     }
-    #[cfg(target_os = "linux")]
     ws.surface_appearances.lock().map_err(err)?.insert(page_id.into(), (surface.clone(), appearance));
     sound::start(app, ws).await;
     Ok(EditorEntry::Opened(surface))
@@ -2949,10 +2947,8 @@ async fn surface_command<R: Runtime>(
         let p = papers.get_mut(page).ok_or("missing page")?;
         owner(p, window.label(), tab, Some((id, generation)))?;
     }
-    #[cfg(target_os = "linux")]
     let resized = matches!(&command, native::SurfaceCommand::SetBounds { .. });
     native::command(window, id.to_owned(), generation, command).await?;
-    #[cfg(target_os = "linux")]
     if resized { refresh_surface_font_size(window, ws, page, id, generation).await?; }
     Ok(())
 }
@@ -3349,7 +3345,50 @@ pub async fn cleanup_plugin<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()>
     }
     Ok(())
 }
-#[cfg(any(target_os = "linux", test))]
+// AppKit restores the fullscreen state at windowDidExitFullScreen, then emits a
+// final native Resized event. Its WebView may already have its final size, so a
+// ResizeObserver alone can miss the state change and leave the enlarged font.
+// Register once per singleton window, including OS-menu fullscreen transitions.
+fn watch_fullscreen_font<R: Runtime>(window: &WebviewWindow<R>) {
+    let mut registered = match FONT_UPDATE_WINDOW.lock() { Ok(value) => value, Err(_) => return };
+    if registered.as_deref() == Some(window.label()) { return; }
+    *registered = Some(window.label().into());
+    drop(registered);
+    let label = window.label().to_owned();
+    let app = window.app_handle().clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            if let Ok(mut registered) = FONT_UPDATE_WINDOW.lock() {
+                if registered.as_deref() == Some(label.as_str()) { *registered = None; }
+            }
+        } else if matches!(event, tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }) {
+            let app = app.clone();
+            let label = label.clone();
+            tauri::async_runtime::spawn(async move {
+                if PLUGIN_QUIESCING.load(Ordering::SeqCst) { return; }
+                let Some(window) = app.get_webview_window(&label) else { return; };
+                let workspaces = WORKSPACES.lock().await.values().cloned().collect::<Vec<_>>();
+                for ws in workspaces {
+                    let _lease = ws.lifecycle.lock().await;
+                    if PLUGIN_QUIESCING.load(Ordering::SeqCst) { return; }
+                    let surfaces = match ws.papers.lock() {
+                        Ok(papers) => papers.iter().filter_map(|(page, paper)| {
+                            let owner = paper.owner.as_ref().filter(|owner| owner.window == label)?;
+                            Some((page.clone(), owner.surface.clone()?))
+                        }).collect::<Vec<_>>(),
+                        Err(_) => continue,
+                    };
+                    for (page, surface) in surfaces {
+                        if let Err(error) = refresh_surface_font_size(&window, &ws, &page, &surface.surface_id, surface.generation).await {
+                            let _ = app.emit_to(&label, "sumi-state", json!({"page_id":page,"error":error}));
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
+
 fn fullscreen_font_size(base: f64, fullscreen: bool, width: f64, height: f64) -> f64 {
     if !fullscreen || !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
         return base;
@@ -3358,20 +3397,15 @@ fn fullscreen_font_size(base: f64, fullscreen: bool, width: f64, height: f64) ->
 }
 
 fn effective_appearance<R: Runtime>(window: &WebviewWindow<R>, appearance: native::Appearance) -> Result<native::Appearance> {
-    #[cfg(target_os = "linux")]
     let mut appearance = appearance;
-    #[cfg(target_os = "linux")]
     if is_plugin_window(window.label()) {
         let size = window.as_ref().size().map_err(err)?;
         let scale = window.scale_factor().map_err(err)?;
         appearance.font_size = fullscreen_font_size(appearance.font_size, window.is_fullscreen().map_err(err)?, size.width as f64 / scale, size.height as f64 / scale);
     }
-    #[cfg(not(target_os = "linux"))]
-    let _ = window;
     Ok(appearance)
 }
 
-#[cfg(target_os = "linux")]
 async fn refresh_surface_font_size<R: Runtime>(window: &WebviewWindow<R>, ws: &Workspace, page: &str, id: &str, generation: u64) -> Result<()> {
     if !is_plugin_window(window.label()) { return Ok(()); }
     let _appearance = ws.appearance_changes.lock().await;
@@ -3429,7 +3463,6 @@ async fn apply_appearance<R: Runtime>(
                 return Err(error);
             }
         } else {
-            #[cfg(target_os = "linux")]
             ws.surface_appearances.lock().map_err(err)?.insert(_page_id, (surface, appearance));
         }
     }
@@ -4227,7 +4260,6 @@ mod tests {
             papers: Mutex::new(HashMap::from([(id.clone(), paper)])),
             preferences: Mutex::new(Preferences::default()),
             appearance_changes: tokio::sync::Mutex::new(()),
-            #[cfg(target_os = "linux")]
             surface_appearances: Mutex::new(HashMap::new()),
             font_selection: Mutex::new(FontSelection::default()),
             active: Mutex::new(Some(id.clone())),
