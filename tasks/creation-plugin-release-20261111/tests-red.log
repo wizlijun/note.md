@@ -1,0 +1,47 @@
+..EE..FR2 timeout; checking object before any retry notemd.sumi/0.1.15/aarch64-apple-darwin.notemdpkg
+R2 timeout; checking object before any retry notemd.sumi/0.1.15/aarch64-apple-darwin.notemdpkg.minisig
+..
+======================================================================
+ERROR: test_idempotent_after_success (__main__.MergeTests.test_idempotent_after_success)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/test_publish_plugin.py", line 40, in test_idempotent_after_success
+    once = p.merge_entries(self.live, entries())
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 180, in merge_entries
+    require([(entry.get('id'), entry.get('version')) for entry in entries] == [('notemd.sumi','0.1.14')], 'Only this Sumi version may be appended; Power and history are immutable')
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 43, in require
+    raise RuntimeError(message)
+RuntimeError: Only this Sumi version may be appended; Power and history are immutable
+
+======================================================================
+ERROR: test_only_two_historical_categories_change_and_inputs_unchanged (__main__.MergeTests.test_only_two_historical_categories_change_and_inputs_unchanged)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/test_publish_plugin.py", line 30, in test_only_two_historical_categories_change_and_inputs_unchanged
+    result = p.merge_entries(self.live, entries())
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 180, in merge_entries
+    require([(entry.get('id'), entry.get('version')) for entry in entries] == [('notemd.sumi','0.1.14')], 'Only this Sumi version may be appended; Power and history are immutable')
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 43, in require
+    raise RuntimeError(message)
+RuntimeError: Only this Sumi version may be appended; Power and history are immutable
+
+======================================================================
+FAIL: test_index_concurrent_change_blocks_write (__main__.NetworkMutationTests.test_index_concurrent_change_blocks_write)
+----------------------------------------------------------------------
+RuntimeError: Only this Sumi version may be appended; Power and history are immutable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/test_publish_plugin.py", line 112, in test_index_concurrent_change_blocks_write
+    with self.assertRaisesRegex(RuntimeError, 'Concurrent'): p.publish_index(entries())
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "Concurrent" does not match "Only this Sumi version may be appended; Power and history are immutable"
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.004s
+
+FAILED (failures=1, errors=2)
+Sumi package and signature read back completely; index unchanged

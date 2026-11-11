@@ -1,0 +1,9 @@
+............KV timeout; read back before retry
+..R2 timeout; checking object before any retry notemd.sumi/0.1.15/aarch64-apple-darwin.notemdpkg
+R2 timeout; checking object before any retry notemd.sumi/0.1.15/aarch64-apple-darwin.notemdpkg.minisig
+..
+----------------------------------------------------------------------
+Ran 16 tests in 0.006s
+
+OK
+Both packages and signatures read back completely; index unchanged
