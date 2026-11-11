@@ -25,6 +25,55 @@ static NSDictionary *snapshot(NSUInteger count,NSUInteger serial){
     return @{@"serial":[NSString stringWithFormat:@"%lu",(unsigned long)serial],@"candidates":items,@"cursor":@0,@"hasPrev":@NO,@"hasNext":@YES};
 }
 static void show(NSDictionary *value){require(editor.text.candidateBridge.prepare(value),@"native snapshot prepared");editor.text.candidateBridge.present();}
+// Exercise the same native clip geometry with and without reserved bottom space.
+static void checkViewport(NSDictionary *config,CGFloat height,CGFloat inset,CGFloat fontSize,BOOL focused,BOOL clipped){
+    NSMutableDictionary *value=config.mutableCopy,*appearance=[config[@"appearance"] mutableCopy];
+    appearance[@"bottom_inset"]=@(inset);appearance[@"font_size"]=@(fontSize);appearance[@"focus_typing"]=@(focused);
+    value[@"appearance"]=appearance;value[@"bounds"]=@{@"x":@0,@"y":@0,@"width":@700,@"height":@(height)};
+    body=config[@"document"][@"text"];revision=0;
+    NSWindow *window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,700,height) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+    NSString *json=[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:value options:0 error:nil] encoding:NSUTF8StringEncoding];
+    void *handle=sumi_editor_mount((__bridge void *)window.contentView,0,json.UTF8String,receive,freeReply,NULL);
+    require(handle!=NULL,@"viewport matrix mounts native editor");editor=(__bridge SumiEditor *)handle;
+    object_setClass(editor.text,CandidateProbeText.class);[window makeFirstResponder:editor.text];
+    if(clipped){NSRect frame=editor.scroll.frame;frame.size.height=MAX(0,height-inset);editor.scroll.frame=frame;}
+    editor.text.selectedRange=NSMakeRange(body.length/2,0);[editor.text scrollRangeToVisible:editor.text.selectedRange];
+    if(focused){
+        for(int i=0;i<4;i++)[editor.text recordFocusInputAt:CACurrentMediaTime()+i*.01];
+        require(editor.text.focusView!=nil,@"viewport matrix activates focus");
+        [editor.text.focusView.timer invalidate];editor.text.focusView.timer=nil;editor.text.focusView.progress=1;[editor.text updateFocusRows];
+    }
+    NSPoint scroll=editor.scroll.contentView.bounds.origin;NSRange selection=editor.text.selectedRange;NSString *before=editor.text.string.copy;
+    CGFloat bottom=MAX(0,height-MAX(0,inset));
+    CGFloat top=0,lineHeight=[[NSLayoutManager new]defaultLineHeightForFont:[editor baseFont]]*[appearance[@"line_height"]doubleValue];
+    SumiFocusRow *active=editor.text.focusView.rows.firstObject;NSRect activeBefore=NSZeroRect;
+    if(active){
+        CGFloat pitch=CGFLOAT_MAX;
+        for(SumiFocusRow *row in editor.text.focusView.rows){CGFloat distance=fabs(row.rawOrigin.y-active.rawOrigin.y);if(distance>.1)pitch=MIN(pitch,distance);}
+        if(pitch!=CGFLOAT_MAX)lineHeight=pitch;
+        activeBefore=[editor.text focusRect:NSMakeRect(active.rawOrigin.x,active.rawOrigin.y,1,active.height)];
+        top=MAX(0,NSMinY(activeBefore)+MAX(active.height,lineHeight));
+    }
+    for(NSNumber *count in @[@32,@1,@0]){
+        BOOL prepared=editor.text.candidateBridge.prepare(snapshot(count.unsignedIntegerValue,1));
+        BOOL fits=bottom>0 && (!count.unsignedIntegerValue || bottom-top>=lineHeight);
+        require(prepared==fits,[NSString stringWithFormat:@"candidate capacity respects usable viewport (height=%.0f inset=%.0f font=%.0f focus=%d)",height,inset,fontSize,focused]);
+        if(prepared){
+            editor.text.candidateBridge.present();NSRect frame=editor.text.candidateView.frame;
+            require(frame.size.height>=0,@"candidate height is never negative");
+            if(count.unsignedIntegerValue){
+                require(NSMaxY(frame)<=bottom+.01 && NSMinY(frame)>=-.01,@"candidates never enter reserved bottom space");
+                if(!focused)require(fabs(NSMaxY(frame)-bottom)<.01,@"ordinary candidates anchor to usable bottom");
+                else require(NSMinY(frame)>=NSMaxY(activeBefore)-.01,@"focus candidates stay below the active line");
+            }
+            require(editor.text.candidateView.rowCount<=4,@"viewport matrix retains four-row limit");
+        }else require(editor.text.candidateView.hidden && editor.text.candidateGap==0,@"insufficient space releases candidate overlay");
+        require(NSEqualPoints(scroll,editor.scroll.contentView.bounds.origin) && NSEqualRanges(selection,editor.text.selectedRange),@"viewport layout preserves scroll and selection");
+        require([editor.text.string isEqual:before] && [body isEqual:before] && revision==0,@"viewport layout never changes document or revision");
+        if(active)require(NSEqualRects(activeBefore,[editor.text focusRect:NSMakeRect(active.rawOrigin.x,active.rawOrigin.y,1,active.height)]),@"viewport layout leaves active line stationary");
+    }
+    require(!window.visible,@"viewport matrix stays offscreen");sumi_editor_detach(handle);
+}
 int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*)){
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
     NSWindow *window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,700,600) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
@@ -88,5 +137,11 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     require([editor.text.selectedTextAttributes isEqual:ordinarySelection],@"normal selection styling restored after commit");
     require(!editor.scroll.hasVerticalScroller,@"scrollbar absent while native scroll remains available");
     require(!window.visible,@"probe stays offscreen");sumi_editor_detach(handle);
+    for(NSNumber *height in @[@500,@220])for(NSNumber *inset in @[@0,@100])for(NSNumber *font in @[@22,@48])for(NSNumber *focused in @[@NO,@YES])
+        checkViewport(config,height.doubleValue,inset.doubleValue,font.doubleValue,focused.boolValue,NO);
+    checkViewport(config,220,600,22,NO,NO);
+    checkViewport(config,220,-40,22,NO,NO);
+    checkViewport(config,500,100,22,NO,YES);
+    checkViewport(config,500,100,22,YES,YES);
     printf("PASS %lu native host candidate checks\n",(unsigned long)checks);return 0;
 }return 77;}}
