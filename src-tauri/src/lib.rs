@@ -2366,10 +2366,9 @@ fn menu_label(locale: &str, key: &str) -> String {
         "plugins.group.ai" => ("AI", "AI", "AI", "AI"),
         "plugins.group.record" => ("Capture", "记录", "記録", "Festhalten"),
         "plugins.group.reading" => ("Read", "阅读", "読む", "Lesen"),
-        "plugins.group.inspiration" => ("Ideas", "灵感", "アイデア", "Ideen"),
         "plugins.group.advance" => ("Move Forward", "推进", "前へ進む", "Vorankommen"),
         "plugins.group.reflect" => ("Reflect", "回顾", "振り返る", "Rückblick"),
-        "plugins.group.create" => ("Create", "创作", "創作", "Gestalten"),
+        "plugins.group.create" | "plugins.group.inspiration" => ("Create", "创作", "創作", "Gestalten"),
         "plugins.group.importExport" => (
             "Import & Export",
             "导入与导出",
@@ -3112,7 +3111,6 @@ fn build_menu<R: tauri::Runtime>(
                     "ai" => "plugins.group.ai",
                     "record" => "plugins.group.record",
                     "reading" => "plugins.group.reading",
-                    "inspiration" => "plugins.group.inspiration",
                     "advance" => "plugins.group.advance",
                     "reflect" => "plugins.group.reflect",
                     "create" => "plugins.group.create",
@@ -3168,6 +3166,14 @@ mod menu_label_tests {
             menu_label("de", "view.smartSearch"),
             "Intelligente Suche…"
         );
+    }
+
+    #[test]
+    fn legacy_inspiration_label_uses_the_single_create_category() {
+        for (locale, expected) in [("en", "Create"), ("zh", "创作"), ("ja", "創作"), ("de", "Gestalten")] {
+            assert_eq!(menu_label(locale, "plugins.group.create"), expected);
+            assert_eq!(menu_label(locale, "plugins.group.inspiration"), expected);
+        }
     }
 
     #[test]
