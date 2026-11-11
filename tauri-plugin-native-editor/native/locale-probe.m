@@ -30,7 +30,7 @@ int main(){@autoreleasepool{
     const char *config="{\"surface_id\":\"locale-probe\",\"generation\":1,\"revision\":0,\"bounds\":{\"x\":0,\"y\":0,\"width\":760,\"height\":540},\"appearance\":{\"font_family\":\"Menlo\",\"font_size\":22,\"line_height\":1.6,\"foreground\":\"#00BFFF\",\"background\":\"#000000\",\"max_columns\":80,\"bottom_inset\":80,\"caret_motion\":\"steady\"},\"document\":{\"text\":\"原文 日本語 English\",\"runs\":[]}}";
     void *handle=sumi_editor_mount((__bridge void *)window.contentView,0,config,receive,freeReply,NULL);
     require(handle!=NULL,@"mount with legacy appearance lacking locale");SumiEditor *editor=(__bridge SumiEditor *)handle;
-    checkControls(editor,@"en",@"Copy",@"Sumi Typewriter…",@"Link",@"Apply",@"Cancel",@"Sumi Typewriter writing editor");
+    checkControls(editor,@"en",@"Copy",@"Sumi Write…",@"Link",@"Apply",@"Cancel",@"Sumi Write writing editor");
     NSMenu *originalMenu=[editor.text menuForEvent:menuEvent()];
     [editor.text setMarkedText:@"zhong" selectedRange:NSMakeRange(2,1) replacementRange:NSMakeRange(0,0)];
     require(editor.composing && editor.text.hasMarkedText,@"actual preedit active");
@@ -43,11 +43,11 @@ int main(){@autoreleasepool{
     require([editor.text.string isEqual:text] && NSEqualRanges(editor.text.selectedRange,selected) && NSEqualRanges(editor.text.markedRange,marked) && editor.composing && editor.text.hasMarkedText && editor.revision==revision && !editor.container.hidden,@"handle recovery preserves preedit, selection, revision and visibility");
     events=eventCount;
     NSArray *cases=@[
-        @[@"zh-CN",@"复制",@"玄霜打字机…",@"链接",@"应用",@"取消",@"玄霜打字机写作编辑器"],
-        @[@"ja_JP",@"コピー",@"すみ…",@"リンク",@"適用",@"キャンセル",@"すみの執筆エディタ"],
-        @[@"ZH_Hant_TW",@"复制",@"玄霜打字机…",@"链接",@"应用",@"取消",@"玄霜打字机写作编辑器"],
-        @[@"en-GB",@"Copy",@"Sumi Typewriter…",@"Link",@"Apply",@"Cancel",@"Sumi Typewriter writing editor"],
-        @[@"unsupported",@"Copy",@"Sumi Typewriter…",@"Link",@"Apply",@"Cancel",@"Sumi Typewriter writing editor"]
+        @[@"zh-CN",@"复制",@"玄霜写作…",@"链接",@"应用",@"取消",@"玄霜写作写作编辑器"],
+        @[@"ja_JP",@"コピー",@"Sumi Write…",@"リンク",@"適用",@"キャンセル",@"Sumi Writeの執筆エディタ"],
+        @[@"ZH_Hant_TW",@"复制",@"玄霜写作…",@"链接",@"应用",@"取消",@"玄霜写作写作编辑器"],
+        @[@"en-GB",@"Copy",@"Sumi Write…",@"Link",@"Apply",@"Cancel",@"Sumi Write writing editor"],
+        @[@"unsupported",@"Copy",@"Sumi Write…",@"Link",@"Apply",@"Cancel",@"Sumi Write writing editor"]
     ];
     for(NSArray *row in cases){
         NSData *data=[NSJSONSerialization dataWithJSONObject:@{@"command":@"set_locale",@"locale":row[0]} options:0 error:nil];
