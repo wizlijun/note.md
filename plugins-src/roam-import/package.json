@@ -1,6 +1,6 @@
 {
   "name": "roam-import-plugin",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "type": "module",
   "private": true,
   "scripts": {

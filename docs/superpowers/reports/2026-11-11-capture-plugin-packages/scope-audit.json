@@ -1,0 +1,33 @@
+{
+  "worktrees": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "status": " M plugins-src/apple-notes/manifest.v2.json\n M plugins-src/apple-notes/package.json\n M plugins-src/health-sync/manifest.v2.json\n M plugins-src/health-sync/package.json\n M plugins-src/roam-import/manifest.v2.json\n M plugins-src/roam-import/package.json\n M searchidx/src/store.rs\n M src-tauri/src/smart_lookup.rs\n?? docs/superpowers/reports/2026-11-11-capture-plugin-packages/\n",
+      "head": "b3ef0ded4b4b07a68420d2a20d9a48493840a858"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-capture-release-20261111",
+      "status": "",
+      "head": "93a8253490c7e649cceb4108c11c22d747192e32"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-plugin-release-20261111",
+      "status": "",
+      "head": "b88edb93c5c09611ad9d888177b3814ce2ab3d64"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-sumi-release-20261111",
+      "status": "",
+      "head": "a56e861dd71708feb98a623a50dc45bd73b8300d"
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor-writing-release-20261111",
+      "status": "",
+      "head": "c4d39ddff04296f66ec80ae72459bb9c8ce2d15f"
+    }
+  ],
+  "branches": "main b3ef0ded4b4b07a68420d2a20d9a48493840a858\nrelease/capture-plugins-20261111 93a8253490c7e649cceb4108c11c22d747192e32\nrelease/plugins-20261111-create b88edb93c5c09611ad9d888177b3814ce2ab3d64\nrelease/sumi-20261111 a56e861dd71708feb98a623a50dc45bd73b8300d\nrelease/writing-groups-20261111 c4d39ddff04296f66ec80ae72459bb9c8ce2d15f\n",
+  "localCommitsNotInOriginMain": "b3ef0ded Add full anonymous verification for six workflow host release assets\n81f84d52 Prepare verified multi-architecture Capture plugin publisher\n33194006 Define scoped host and capture plugin publication\nfe88d125 Record verified host grouping changes and website rollout\n47a2cff3 Align native plugin menus with eight workflow categories\n4103c96f Record deployed writing workflow groups and category-only index migration\ne4486a80 Use Other as the final plugin category label\n51a1db53 Use Other as the final plugin group label\nada5978e Label the final plugin category Other\ndf051fdf Unify marketplace workflow groups and context capture sources\n660c4da3 Align host plugin groups with Capture and Write workflow\nef9499f9 Align plugin manifests and registry categories with writing workflow\n4805a39a Record published Create plugin updates and public website verification\ncf10a449 Record deployed Create grouping website verification\n45dde57f release: record creation package offline verification\n9fac3c2a release: prepare verified creation plugin publisher\ne786cf0b Align marketplace Create order with host categories\nd2545784 Merge marketplace inspiration plugins into Create\n3f83f013 Merge native inspiration menus into Create and include Sumi Write\n4efc77e7 Unify inspiration and Sumi Write under the creation category\n5b87fcc2 Record published Sumi Write release and Faitc5 companion verification\n9717662f Require approved Faitc5 companion packages before Mac release publication\n1aa63388 Attach approved modified Faitc5 installer to macOS releases\n4938ba27 Rename Sumi writing plugin display brand to Sumi Write\n48ce1498 Complete Sumi Write labels in document actions and accessibility\n6f0e3e05 Document Sumi Write naming scope and release rebuild\nb751d7dd Rename Sumi writing surfaces to Sumi Write and 玄霜写作\n8e76b6ea docs(sumi): record window acceptance and sync recovery validation\ne6a2098f feat(sumi): adapt macOS windows and default new windows to fullscreen\n49e203c6 feat(sumi): add macOS fullscreen startup preference UI\n08d42615 fix(sumi): preserve durable identity for local cloud echoes\n79ff7479 docs(sumi): record platform parity audit and unresolved rendering report\nf0343d3f fix(sumi): align focus timing and usable viewport on macOS\nf7e5c147 fix(sumi): keep macOS candidates above reserved bottom space\n35611925 fix(sumi): align fullscreen font sizing on macOS and Linux\ne5c323d8 fix(sumi): route Linux Shift Enter through hard break action\n93775741 fix(sumi): silence frozen drafts and command shortcut typing sounds\n",
+  "stash": "stash@{0}: On main: codex-before-git-pull-2026-11-10\n",
+  "scope": "Only the three previous public packages and frozen changed manifests are repackaged. Every non-manifest ZIP payload is byte-identical, including existing signed binaries. Concurrent host branch and original main smart_lookup/store edits excluded. Main Health Japanese/German description remains newer than this package intentionally; no source reset."
+}

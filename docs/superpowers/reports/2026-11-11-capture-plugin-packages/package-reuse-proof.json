@@ -1,0 +1,173 @@
+[
+  {
+    "id": "notemd.apple-notes",
+    "version": "1.0.5",
+    "arch": "aarch64-apple-darwin",
+    "previousVersion": "1.0.4",
+    "previousPackageSha256": "ead7ca59c8a2a67806002d061d89be384a1efadf224cf24b197b300c18632336",
+    "previousPackageMinisignVerified": true,
+    "payloadFilesIdentical": {
+      "ui/index.html": "f65047f2c65a16ba8546f3a00d9e59ce231f93f9a655c93655bb7d5d21db83fc",
+      "ui/assets/index-C7EdTUpW.js": "d967be1ff5949b4057425e37d7fece6213d4417d266999f841079fa712168049",
+      "ui/assets/index-Bonn6ETc.css": "2efa0f0923fc701398267930cf0f9b7ba51adb5b1ac3b63cd75dd0958541cc28",
+      "bin/notemd-apple-notes": "04f68f07ce371835dec29f4f97166cee92fdb6088fdd438f6630ca0fd27d0e3f"
+    },
+    "manifestOnlyChanges": [
+      "version",
+      "contributes.menus[].submenu"
+    ],
+    "codesignVerify": "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.apple-notes/aarch64-apple-darwin/bin/notemd-apple-notes: valid on disk\n/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.apple-notes/aarch64-apple-darwin/bin/notemd-apple-notes: satisfies its Designated Requirement\n",
+    "codesignDetails": "Executable=/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.apple-notes/aarch64-apple-darwin/bin/notemd-apple-notes\nIdentifier=notemd-apple-notes\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=5374 flags=0x10000(runtime) hashes=157+7 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=85c6d24aa273e1708c2b3fa489a0c16ff01a020f\nCandidateCDHashFull sha256=85c6d24aa273e1708c2b3fa489a0c16ff01a020f646a282c54ef9af3cc73efe5\nHash choices=sha256\nCMSDigest=85c6d24aa273e1708c2b3fa489a0c16ff01a020f646a282c54ef9af3cc73efe5\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=2080768\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=85c6d24aa273e1708c2b3fa489a0c16ff01a020f\nSignature size=9013\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Sep 15, 2026 at 3:13:07 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1\n",
+    "architecture": "arm64",
+    "smoke": {
+      "initialize": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "ok": true
+        }
+      },
+      "deactivateOutput": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"ok\":true}}\n",
+      "exitCode": 0,
+      "scope": "Initialize/deactivate only; no activation, account or personal data access"
+    },
+    "notarization": "Retained exact previously distributed signed binary; not rebuilt or re-signed; no new notary submission claimed"
+  },
+  {
+    "id": "notemd.apple-notes",
+    "version": "1.0.5",
+    "arch": "x86_64-apple-darwin",
+    "previousVersion": "1.0.4",
+    "previousPackageSha256": "c545cbafea259e339a40996641fe2118f883e533fdcf9b68903a5722be718815",
+    "previousPackageMinisignVerified": true,
+    "payloadFilesIdentical": {
+      "ui/index.html": "f65047f2c65a16ba8546f3a00d9e59ce231f93f9a655c93655bb7d5d21db83fc",
+      "ui/assets/index-C7EdTUpW.js": "d967be1ff5949b4057425e37d7fece6213d4417d266999f841079fa712168049",
+      "ui/assets/index-Bonn6ETc.css": "2efa0f0923fc701398267930cf0f9b7ba51adb5b1ac3b63cd75dd0958541cc28",
+      "bin/notemd-apple-notes": "25128aff8cb7d1ba10c818651152c4f1a4795663d916c516b1444845f901728e"
+    },
+    "manifestOnlyChanges": [
+      "version",
+      "contributes.menus[].submenu"
+    ],
+    "codesignVerify": "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.apple-notes/x86_64-apple-darwin/bin/notemd-apple-notes: valid on disk\n/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.apple-notes/x86_64-apple-darwin/bin/notemd-apple-notes: satisfies its Designated Requirement\n",
+    "codesignDetails": "Executable=/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.apple-notes/x86_64-apple-darwin/bin/notemd-apple-notes\nIdentifier=notemd-apple-notes\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=22942 flags=0x10000(runtime) hashes=706+7 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=37391fa7dc821afa9c3892ba340c73519d955f45\nCandidateCDHashFull sha256=37391fa7dc821afa9c3892ba340c73519d955f45968508c885a622db32015ef7\nHash choices=sha256\nCMSDigest=37391fa7dc821afa9c3892ba340c73519d955f45968508c885a622db32015ef7\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=2428928\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=37391fa7dc821afa9c3892ba340c73519d955f45\nSignature size=9013\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Sep 15, 2026 at 3:13:08 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1\n",
+    "architecture": "x86_64",
+    "smoke": null,
+    "notarization": "Retained exact previously distributed signed binary; not rebuilt or re-signed; no new notary submission claimed"
+  },
+  {
+    "id": "notemd.roam-import",
+    "version": "1.2.8",
+    "arch": "aarch64-apple-darwin",
+    "previousVersion": "1.2.7",
+    "previousPackageSha256": "9b64247352dd3335936188292092c57fe6add2339a0cff81eb8bc35afae012e0",
+    "previousPackageMinisignVerified": true,
+    "payloadFilesIdentical": {
+      "ui/index.html": "56890cdaf60900fedcbb4f75bc812ffed4eed0f9f4dae21a69dd1dbb2f91fcf5",
+      "ui/assets/index-CXLVfieF.css": "7b100e907e244c148e19234e41bac24efec243c9ecaba084c51c61d0ecbcbb53",
+      "ui/assets/index-BW9SasT7.js": "33a45b2307e76075143c0aee61af87fae575c441fd21c61f32841bf6324c3934",
+      "bin/notemd-roam-import": "9a6729ec07bf02adc16f8c522a4e6761c6f745488a2691233d48ab9f9b004dd3"
+    },
+    "manifestOnlyChanges": [
+      "version",
+      "contributes.menus[].submenu"
+    ],
+    "codesignVerify": "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.roam-import/aarch64-apple-darwin/bin/notemd-roam-import: valid on disk\n/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.roam-import/aarch64-apple-darwin/bin/notemd-roam-import: satisfies its Designated Requirement\n",
+    "codesignDetails": "Executable=/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.roam-import/aarch64-apple-darwin/bin/notemd-roam-import\nIdentifier=notemd-roam-import\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=3326 flags=0x10000(runtime) hashes=98+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=b362045ec66d803169239e7af84296d6579f8e85\nCandidateCDHashFull sha256=b362045ec66d803169239e7af84296d6579f8e850beb92bbe5a841d1cc0fbfc6\nHash choices=sha256\nCMSDigest=b362045ec66d803169239e7af84296d6579f8e850beb92bbe5a841d1cc0fbfc6\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1376256\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=b362045ec66d803169239e7af84296d6579f8e85\nSignature size=9015\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 23, 2026 at 11:27:32 AM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1\n",
+    "architecture": "arm64",
+    "smoke": {
+      "initialize": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "ok": true
+        }
+      },
+      "deactivateOutput": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"ok\":true}}\n",
+      "exitCode": 0,
+      "scope": "Initialize/deactivate only; no activation, account or personal data access"
+    },
+    "notarization": "Retained exact previously distributed signed binary; not rebuilt or re-signed; no new notary submission claimed"
+  },
+  {
+    "id": "notemd.roam-import",
+    "version": "1.2.8",
+    "arch": "x86_64-apple-darwin",
+    "previousVersion": "1.2.7",
+    "previousPackageSha256": "f14e70b1ec6c3ccb0d3f185405a5ace77fbdcfb7b563644728bc43c1a8c04130",
+    "previousPackageMinisignVerified": true,
+    "payloadFilesIdentical": {
+      "ui/index.html": "56890cdaf60900fedcbb4f75bc812ffed4eed0f9f4dae21a69dd1dbb2f91fcf5",
+      "ui/assets/index-CXLVfieF.css": "7b100e907e244c148e19234e41bac24efec243c9ecaba084c51c61d0ecbcbb53",
+      "ui/assets/index-BW9SasT7.js": "33a45b2307e76075143c0aee61af87fae575c441fd21c61f32841bf6324c3934",
+      "bin/notemd-roam-import": "d1bd56529e3424bab9188ab31cb5d7a9fe218eda4e48520ddf300876f47a0d6a"
+    },
+    "manifestOnlyChanges": [
+      "version",
+      "contributes.menus[].submenu"
+    ],
+    "codesignVerify": "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.roam-import/x86_64-apple-darwin/bin/notemd-roam-import: valid on disk\n/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.roam-import/x86_64-apple-darwin/bin/notemd-roam-import: satisfies its Designated Requirement\n",
+    "codesignDetails": "Executable=/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.roam-import/x86_64-apple-darwin/bin/notemd-roam-import\nIdentifier=notemd-roam-import\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=13982 flags=0x10000(runtime) hashes=431+2 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=9e6ca5005dc877731804b57fa10b04abc90b6bee\nCandidateCDHashFull sha256=9e6ca5005dc877731804b57fa10b04abc90b6bee8a3aa3ee28b6c4319e349ddd\nHash choices=sha256\nCMSDigest=9e6ca5005dc877731804b57fa10b04abc90b6bee8a3aa3ee28b6c4319e349ddd\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1576960\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=9e6ca5005dc877731804b57fa10b04abc90b6bee\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 23, 2026 at 11:27:33 AM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1\n",
+    "architecture": "x86_64",
+    "smoke": null,
+    "notarization": "Retained exact previously distributed signed binary; not rebuilt or re-signed; no new notary submission claimed"
+  },
+  {
+    "id": "notemd.health-sync",
+    "version": "0.2.3",
+    "arch": "aarch64-apple-darwin",
+    "previousVersion": "0.2.2",
+    "previousPackageSha256": "da087f18008bc4f346aae29ee466bba20379f11db6285024ace8fc7bd09a045f",
+    "previousPackageMinisignVerified": true,
+    "payloadFilesIdentical": {
+      "ui/index.html": "d0661b4b878829d64182168e64b61c643c94a2dde034110810ec99e9dd0fec0e",
+      "ui/assets/index-CgkhkY0j.css": "75770c9ab872fed66e11b2fea9c802fde2d379644f618ac1e7ab859f43b19231",
+      "ui/assets/index-CDRno3gS.js": "03152ccd687e8055ec8057fc1d0e6b9682ffdca9ccb3d630db4740ef9782a51e",
+      "bin/notemd-health-sync": "b439cbb0ce4c8467878fd1fcc66b073df24961efdf99bbede97b9077b4f8a666"
+    },
+    "manifestOnlyChanges": [
+      "version",
+      "contributes.menus[].submenu"
+    ],
+    "codesignVerify": "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.health-sync/aarch64-apple-darwin/bin/notemd-health-sync: valid on disk\n/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.health-sync/aarch64-apple-darwin/bin/notemd-health-sync: satisfies its Designated Requirement\n",
+    "codesignDetails": "Executable=/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.health-sync/aarch64-apple-darwin/bin/notemd-health-sync\nIdentifier=notemd-health-sync\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=7358 flags=0x10000(runtime) hashes=224+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=53b9e8d5367d5211c7a692370f47dd1f603d177d\nCandidateCDHashFull sha256=53b9e8d5367d5211c7a692370f47dd1f603d177db911adfa49f83171162a54c6\nHash choices=sha256\nCMSDigest=53b9e8d5367d5211c7a692370f47dd1f603d177db911adfa49f83171162a54c6\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=3473408\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=53b9e8d5367d5211c7a692370f47dd1f603d177d\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 30, 2026 at 5:21:06 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1\n",
+    "architecture": "arm64",
+    "smoke": {
+      "initialize": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "ok": true
+        }
+      },
+      "deactivateOutput": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"ok\":true}}\n",
+      "exitCode": 0,
+      "scope": "Initialize/deactivate only; no activation, account or personal data access"
+    },
+    "notarization": "Retained exact previously distributed signed binary; not rebuilt or re-signed; no new notary submission claimed"
+  },
+  {
+    "id": "notemd.health-sync",
+    "version": "0.2.3",
+    "arch": "x86_64-apple-darwin",
+    "previousVersion": "0.2.2",
+    "previousPackageSha256": "6ab817ed467ff7c3697b9275c5d5ed72020ddf2d2a03546f240ca3ab97f1a473",
+    "previousPackageMinisignVerified": true,
+    "payloadFilesIdentical": {
+      "ui/index.html": "d0661b4b878829d64182168e64b61c643c94a2dde034110810ec99e9dd0fec0e",
+      "ui/assets/index-CgkhkY0j.css": "75770c9ab872fed66e11b2fea9c802fde2d379644f618ac1e7ab859f43b19231",
+      "ui/assets/index-CDRno3gS.js": "03152ccd687e8055ec8057fc1d0e6b9682ffdca9ccb3d630db4740ef9782a51e",
+      "bin/notemd-health-sync": "f13a8366629ac256e734e75c9c8bd1bf58dcdead87ad98bb3f41540008b8b783"
+    },
+    "manifestOnlyChanges": [
+      "version",
+      "contributes.menus[].submenu"
+    ],
+    "codesignVerify": "/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.health-sync/x86_64-apple-darwin/bin/notemd-health-sync: valid on disk\n/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.health-sync/x86_64-apple-darwin/bin/notemd-health-sync: satisfies its Designated Requirement\n",
+    "codesignDetails": "Executable=/Users/bruce/git/mdeditor/tasks/capture-plugin-release-20261111/verified/notemd.health-sync/x86_64-apple-darwin/bin/notemd-health-sync\nIdentifier=notemd-health-sync\nFormat=Mach-O thin (x86_64)\nCodeDirectory v=20500 size=32894 flags=0x10000(runtime) hashes=1022+2 location=embedded\nVersionPlatform=1\nVersionMin=658432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=1f784fb016aecd7ff14417ae688e03e781e70d63\nCandidateCDHashFull sha256=1f784fb016aecd7ff14417ae688e03e781e70d63591b9916f0aeadb5aeff1e66\nHash choices=sha256\nCMSDigest=1f784fb016aecd7ff14417ae688e03e781e70d63591b9916f0aeadb5aeff1e66\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=4018176\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=1f784fb016aecd7ff14417ae688e03e781e70d63\nSignature size=9014\nAuthority=Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 30, 2026 at 5:21:06 PM\nInfo.plist=not bound\nTeamIdentifier=T5G56DH47L\nRuntime Version=26.5.0\nSealed Resources=none\nInternal requirements count=1 size=180\nTotal signatures=1\nChosen signature=1\n",
+    "architecture": "x86_64",
+    "smoke": null,
+    "notarization": "Retained exact previously distributed signed binary; not rebuilt or re-signed; no new notary submission claimed"
+  }
+]

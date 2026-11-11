@@ -1,0 +1,114 @@
+{
+  "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+  "sourceRepository": "/Users/bruce/git/mdeditor-capture-release-20261111",
+  "packages": [
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "arch": "aarch64-apple-darwin",
+      "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+      "packagePath": "/Users/bruce/git/mdeditor-capture-release-20261111/dist-plugins/notemd.apple-notes/1.0.5/aarch64-apple-darwin.notemdpkg",
+      "sha256": "7c14128578a58859ccc30e950307ec88856962b1622fcb03bd8f3b589a2836d7",
+      "bytes": 1209020,
+      "signatureSha256": "4d41a55a5e0e6ec2791a9b6d994854008f8433119c6a95f5e68c8b6fd9d27436",
+      "files": {
+        "ui/index.html": "f65047f2c65a16ba8546f3a00d9e59ce231f93f9a655c93655bb7d5d21db83fc",
+        "ui/assets/index-C7EdTUpW.js": "d967be1ff5949b4057425e37d7fece6213d4417d266999f841079fa712168049",
+        "ui/assets/index-Bonn6ETc.css": "2efa0f0923fc701398267930cf0f9b7ba51adb5b1ac3b63cd75dd0958541cc28",
+        "bin/notemd-apple-notes": "04f68f07ce371835dec29f4f97166cee92fdb6088fdd438f6630ca0fd27d0e3f",
+        "manifest.json": "d053a91b92d4f02b24fe27e697bc18941e3cae857fc1f506d91f459f58b8646e"
+      },
+      "minHost": ">=6.915.1"
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "arch": "x86_64-apple-darwin",
+      "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+      "packagePath": "/Users/bruce/git/mdeditor-capture-release-20261111/dist-plugins/notemd.apple-notes/1.0.5/x86_64-apple-darwin.notemdpkg",
+      "sha256": "791e091012f90b820a5d994257ead4d3b2a7ebb8078a7d65ab495f58bb2eb72e",
+      "bytes": 1289217,
+      "signatureSha256": "359053d5c164b1852497d1bf664b1d8450afb2c7f22471bb1856d67f7c37a71e",
+      "files": {
+        "ui/index.html": "f65047f2c65a16ba8546f3a00d9e59ce231f93f9a655c93655bb7d5d21db83fc",
+        "ui/assets/index-C7EdTUpW.js": "d967be1ff5949b4057425e37d7fece6213d4417d266999f841079fa712168049",
+        "ui/assets/index-Bonn6ETc.css": "2efa0f0923fc701398267930cf0f9b7ba51adb5b1ac3b63cd75dd0958541cc28",
+        "bin/notemd-apple-notes": "25128aff8cb7d1ba10c818651152c4f1a4795663d916c516b1444845f901728e",
+        "manifest.json": "d053a91b92d4f02b24fe27e697bc18941e3cae857fc1f506d91f459f58b8646e"
+      },
+      "minHost": ">=6.915.1"
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "arch": "aarch64-apple-darwin",
+      "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+      "packagePath": "/Users/bruce/git/mdeditor-capture-release-20261111/dist-plugins/notemd.roam-import/1.2.8/aarch64-apple-darwin.notemdpkg",
+      "sha256": "e18613f8c98ab877dcffd5767432dee678c8c4348e3ddbee15c3b5a18d35aec6",
+      "bytes": 811044,
+      "signatureSha256": "c0b006402aae366302979a2c741d8102cd9409a614c9992316c55bfcddebe775",
+      "files": {
+        "ui/index.html": "56890cdaf60900fedcbb4f75bc812ffed4eed0f9f4dae21a69dd1dbb2f91fcf5",
+        "ui/assets/index-CXLVfieF.css": "7b100e907e244c148e19234e41bac24efec243c9ecaba084c51c61d0ecbcbb53",
+        "ui/assets/index-BW9SasT7.js": "33a45b2307e76075143c0aee61af87fae575c441fd21c61f32841bf6324c3934",
+        "bin/notemd-roam-import": "9a6729ec07bf02adc16f8c522a4e6761c6f745488a2691233d48ab9f9b004dd3",
+        "manifest.json": "ebb39890ef2b4dd206da043212af54a204035e5c57473db60d9d706828d7c71b"
+      },
+      "minHost": ">=6.828.3"
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "arch": "x86_64-apple-darwin",
+      "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+      "packagePath": "/Users/bruce/git/mdeditor-capture-release-20261111/dist-plugins/notemd.roam-import/1.2.8/x86_64-apple-darwin.notemdpkg",
+      "sha256": "4f987b3311c17b74f7215d276a49d62e7285e7ee0b977e3bb1c3f91541686271",
+      "bytes": 878980,
+      "signatureSha256": "c2d90c4fa726d75f806f1a6670a56159a6da61bd826e00c417dd978b2a4b6553",
+      "files": {
+        "ui/index.html": "56890cdaf60900fedcbb4f75bc812ffed4eed0f9f4dae21a69dd1dbb2f91fcf5",
+        "ui/assets/index-CXLVfieF.css": "7b100e907e244c148e19234e41bac24efec243c9ecaba084c51c61d0ecbcbb53",
+        "ui/assets/index-BW9SasT7.js": "33a45b2307e76075143c0aee61af87fae575c441fd21c61f32841bf6324c3934",
+        "bin/notemd-roam-import": "d1bd56529e3424bab9188ab31cb5d7a9fe218eda4e48520ddf300876f47a0d6a",
+        "manifest.json": "ebb39890ef2b4dd206da043212af54a204035e5c57473db60d9d706828d7c71b"
+      },
+      "minHost": ">=6.828.3"
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "arch": "aarch64-apple-darwin",
+      "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+      "packagePath": "/Users/bruce/git/mdeditor-capture-release-20261111/dist-plugins/notemd.health-sync/0.2.3/aarch64-apple-darwin.notemdpkg",
+      "sha256": "189f63badce31f7afcd4e5f21e011d51944356b3890d8d0bac3682f05ceedd8c",
+      "bytes": 2205345,
+      "signatureSha256": "08e067a622b680bc4cc5057da3a42f7249f9122bdcd7af8a0fee936ae6449f46",
+      "files": {
+        "ui/index.html": "d0661b4b878829d64182168e64b61c643c94a2dde034110810ec99e9dd0fec0e",
+        "ui/assets/index-CgkhkY0j.css": "75770c9ab872fed66e11b2fea9c802fde2d379644f618ac1e7ab859f43b19231",
+        "ui/assets/index-CDRno3gS.js": "03152ccd687e8055ec8057fc1d0e6b9682ffdca9ccb3d630db4740ef9782a51e",
+        "bin/notemd-health-sync": "b439cbb0ce4c8467878fd1fcc66b073df24961efdf99bbede97b9077b4f8a666",
+        "manifest.json": "47a8e390c449664e44f2f23b78d7b100128975700c4b5870a13d29491703963e"
+      },
+      "minHost": ">=6.915.1"
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "arch": "x86_64-apple-darwin",
+      "sourceCommit": "93a8253490c7e649cceb4108c11c22d747192e32",
+      "packagePath": "/Users/bruce/git/mdeditor-capture-release-20261111/dist-plugins/notemd.health-sync/0.2.3/x86_64-apple-darwin.notemdpkg",
+      "sha256": "8a18886167bdd440b581731f18831688890b409041f3a7422b4f469df078ef61",
+      "bytes": 2339801,
+      "signatureSha256": "e1987f683ccd1cedf45f0c9e57dfee86dd38beb13522625ecbad9041183968fe",
+      "files": {
+        "ui/index.html": "d0661b4b878829d64182168e64b61c643c94a2dde034110810ec99e9dd0fec0e",
+        "ui/assets/index-CgkhkY0j.css": "75770c9ab872fed66e11b2fea9c802fde2d379644f618ac1e7ab859f43b19231",
+        "ui/assets/index-CDRno3gS.js": "03152ccd687e8055ec8057fc1d0e6b9682ffdca9ccb3d630db4740ef9782a51e",
+        "bin/notemd-health-sync": "f13a8366629ac256e734e75c9c8bd1bf58dcdead87ad98bb3f41540008b8b783",
+        "manifest.json": "47a8e390c449664e44f2f23b78d7b100128975700c4b5870a13d29491703963e"
+      },
+      "minHost": ">=6.915.1"
+    }
+  ]
+}
