@@ -616,6 +616,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("vault");
         std::fs::create_dir_all(&root).unwrap();
+        let root = std::fs::canonicalize(root).unwrap();
         let db = dir.path().join("i.db");
         let mut index = searchidx::SearchIndex::open_at(&root, &db, "").unwrap();
         for (rel, text) in files {

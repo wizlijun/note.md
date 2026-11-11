@@ -1140,16 +1140,16 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn stop_during_round_one_keeps_round_zero_evidence_and_sends_no_more() {
         let c = ctx("test-evidence-stop").await;
-        let s = server(|n| if n == 1 { Duration::from_secs(2) } else { Duration::ZERO }).await;
-        let cfg = config(&s.base);
         let cancel = cancel_flag(&c.run);
+        let canceller = cancel.clone();
+        let s = server(move |n| if n == 1 {
+            // The server has read the whole second request before this callback.
+            canceller.cancel();
+            Duration::from_secs(2)
+        } else { Duration::ZERO }).await;
+        let cfg = config(&s.base);
         let r0 = c.step_with(&cfg, Trigger::Auto, &cancel).await;
         assert_eq!(r0.status, EnhanceStatus::Ok, "{r0:?}");
-        let canceller = cancel.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            canceller.cancel();
-        });
         let started = Instant::now();
         let r1 = c.step_with(&cfg, Trigger::Auto, &cancel).await;
         assert!(started.elapsed() < Duration::from_millis(1500), "the stop did not wait for the reply");
