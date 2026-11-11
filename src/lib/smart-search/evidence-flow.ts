@@ -135,10 +135,18 @@ export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
  * host gates them (`gate_jev`) and answers `notConfigured` before sending.
  */
 export function shouldStartEvidence(hits: number, route: 'judge' | 'skip' | 'repair', settings: SmartLookupSettings): boolean {
+  return hits > 0 && route !== 'skip' && evidenceReady(settings)
+}
+
+/**
+ * Enhancement on, Jev's url and model set, and its host allowed: a Return
+ * with local hits would check the evidence. The Launch chip 「有依据的回答 ·
+ * 已开启」 shows only then (M1).
+ */
+export function evidenceReady(settings: SmartLookupSettings): boolean {
   const { enabled, jev } = settings.enhance
   const host = endpointHost(jev.url)
-  return enabled && hits > 0 && route !== 'skip' && jev.url.trim() !== '' && jev.model.trim() !== ''
-    && host !== null && host === jev.consentHost
+  return enabled && jev.url.trim() !== '' && jev.model.trim() !== '' && host !== null && host === jev.consentHost
 }
 
 /** A piece of the answer: plain text, or a cited source number that links to its evidence item. */

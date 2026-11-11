@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EvidenceItem, EvidenceStepResult } from './api'
 import {
-  answerable, answerGate, answerParts, applyRound, confirmedCount, emptyEvidence, evidenceFinished, fitEvidence, headerFromStep,
+  answerable, answerGate, answerParts, applyRound, confirmedCount, emptyEvidence, evidenceFinished, evidenceReady, fitEvidence, headerFromStep,
   interruptRun, shouldStartEvidence, totalsOf,
 } from './evidence-flow'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, normalizeSmartLookupSettings } from './settings'
@@ -121,6 +121,14 @@ describe('evidence view', () => {
     expect(shouldStartEvidence(3, 'skip', s)).toBe(false)
     expect(shouldStartEvidence(3, 'judge', normalizeSmartLookupSettings({ enhance: { jev: { ...s.enhance.jev, consentHost: 'b.example' } } }))).toBe(false)
     expect(shouldStartEvidence(3, 'judge', DEFAULT_SMART_LOOKUP_SETTINGS)).toBe(false)
+  })
+  it('is ready (the Launch chip) only with enhancement on, Jev set up and its host allowed', () => {
+    const s = normalizeSmartLookupSettings({ enhance: { jev: { url: 'https://a.example/v1', model: 'm', consentHost: 'a.example' } } })
+    expect(evidenceReady(s)).toBe(true)
+    expect(evidenceReady(DEFAULT_SMART_LOOKUP_SETTINGS)).toBe(false)
+    expect(evidenceReady({ ...s, enhance: { ...s.enhance, enabled: false } })).toBe(false)
+    expect(evidenceReady({ ...s, enhance: { ...s.enhance, jev: { ...s.enhance.jev, consentHost: '' } } })).toBe(false)
+    expect(evidenceReady({ ...s, enhance: { ...s.enhance, jev: { ...s.enhance.jev, model: ' ' } } })).toBe(false)
   })
 })
 

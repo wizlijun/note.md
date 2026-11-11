@@ -52,6 +52,7 @@
     confirmedCount,
     emptyEvidence,
     emptyTotals,
+    evidenceReady,
     fitEvidence,
     headerFromStep,
     interruptRun,
@@ -1577,7 +1578,7 @@
       <span class="footer-line compact" aria-hidden="true">{t(footer.compact.key, footer.compact.params)}</span>
     {/if}
     <span class="spacer"></span>
-    {#if mode === 'idle' && ready && settings.smartLookup.enhance.enabled}
+    {#if mode === 'idle' && ready && evidenceReady(settings.smartLookup)}
       <button class="enhance-chip" onclick={() => void openEnhanceSettings()}><span class="dot" aria-hidden="true"></span>{t('smartSearch.launch.enhanceOn')}</button>
     {/if}
     <span class="footer-hint"><kbd>esc</kbd> {working ? t('smartSearch.footer.escStop') : t('smartSearch.footer.escClose')}</span>

@@ -1563,10 +1563,23 @@ describe('SmartLookupApp launch view', () => {
     expect(calls('smart_lookup_local').at(-1)).toMatchObject({ question: 'release risk' })
   })
 
-  it('the launch view asks for a question and the footer says the answer is on', async () => {
+  it('the launch view asks for a question and the footer says the answer is on once lookup is set up and allowed', async () => {
+    configureBoth()
     const input = await mountReady()
     expect((input as HTMLTextAreaElement).placeholder).toBe('Ask a question')
     await vi.waitFor(() => expect(document.querySelector('.footer')?.textContent).toContain('Answers with sources · on'))
+  })
+
+  it.each([
+    ['nothing is set up', {}],
+    ['the Jev host is not allowed', { enhance: { jev: { ...JEV, consentHost: '' } } }],
+    ['Jev has no model', { enhance: { jev: { ...JEV, model: '' } } }],
+  ])('the launch footer has no answer chip when %s', async (_name, value) => {
+    mocks.storedSmartLookup = stored(value)
+    await mountReady()
+    await vi.waitFor(() => expect(document.querySelector('.footer')).not.toBeNull())
+    expect(settings.smartLookup.enhance.enabled).toBe(true)
+    expect(document.querySelector('.enhance-chip')).toBeNull()
   })
 
   it('the launch footer has no answer chip while lookup enhancement is off', async () => {
