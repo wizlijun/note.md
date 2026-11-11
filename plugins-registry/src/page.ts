@@ -161,7 +161,7 @@ en:{
  err:"Couldn't load plugins, please retry later.",empty:'No plugins published yet.',
  fallback:'Enable it from the Plugins menu in note.md after install.',
  group_ai:'AI',group_record:'Capture',group_reading:'Read',
- group_advance:'Move Forward',group_reflect:'Reflect',group_create:'Create',group_import_export:'Import & Export',group_experience:'Experience',group_other:'Other',system:'System Feature'
+ group_advance:'Advance',group_reflect:'Review',group_create:'Write',group_import_export:'Import & Export',group_experience:'Extensions',sync:'Sync',context_source:'Context source',system:'System Feature'
 },
 zh:{
  meta_title:'note.md 插件市场',meta_desc:'note.md 官方插件市场：安装插件，并查看每个插件在应用内的使用入口。',
@@ -179,8 +179,8 @@ zh:{
  arch_arm64:'Apple Silicon',arch_intel:'Intel',arch_win_arm64:'ARM64',arch_win_x64:'x64',arch_win_x86:'x86',
  err:'暂时无法加载插件列表，请稍后重试。',empty:'暂无已上架插件。',
  fallback:'安装后在 note.md 的「插件」菜单中启用。',
- group_ai:'AI',group_record:'记录',group_reading:'阅读',
- group_advance:'推进',group_reflect:'回顾',group_create:'创作',group_import_export:'导入与导出',group_experience:'体验增强',group_other:'其他',system:'系统功能'
+ group_ai:'AI',group_record:'捕捉',group_reading:'阅读',
+ group_advance:'推进',group_reflect:'回顾',group_create:'写作',group_import_export:'数据导入导出',group_experience:'其他增强',sync:'同步',context_source:'上下文来源',system:'系统功能'
 }};
 // Per-plugin entry, from each manifest's contributes.menus.location.
 // Every plugin command lands in the Plugins menu regardless of the location its
@@ -188,28 +188,28 @@ zh:{
 // that one menu. Labels are the plugin's own localized menu text.
 // (No backticks in here: this block lives inside the PAGE_HTML template string.)
 var ENTRY_MAP={
- 'notemd.claude-agent':{en:'<b>Plugins</b> → <b>Move Forward</b> → Claude Agent… (also CLI <code>notemd agent</code>)',zh:'「<b>插件</b>」→「<b>推进</b>」→ Claude 智能体…（也支持 CLI <code>notemd agent</code>）'},
- 'notemd.codex-agent':{en:'<b>Plugins</b> → <b>Move Forward</b> → Codex Agent…',zh:'「<b>插件</b>」→「<b>推进</b>」→ Codex 智能体…'},
- 'notemd.deepseek-agent':{en:'<b>Plugins</b> → <b>Move Forward</b> → DeepSeek Agent…',zh:'「<b>插件</b>」→「<b>推进</b>」→ DeepSeek 智能体…'},
- 'notemd.next':{en:'<b>Plugins</b> → <b>Move Forward</b> → Next',zh:'「<b>插件</b>」→「<b>推进</b>」→ 下一步'},
- 'notemd.idea-spark':{en:'<b>Plugins</b> → <b>Create</b> → Idea Spark',zh:'「<b>插件</b>」→「<b>创作</b>」→ 奇思妙想'},
- 'notemd.sumi':{en:'<b>Plugins</b> → <b>Create</b> → Sumi Write',zh:'「<b>插件</b>」→「<b>创作</b>」→ 玄霜写作'},
+ 'notemd.claude-agent':{en:'<b>Plugins</b> → <b>AI</b> → Claude Agent… (also CLI <code>notemd agent</code>)',zh:'「<b>插件</b>」→「<b>AI</b>」→ Claude 智能体…（也支持 CLI <code>notemd agent</code>）'},
+ 'notemd.codex-agent':{en:'<b>Plugins</b> → <b>AI</b> → Codex Agent…',zh:'「<b>插件</b>」→「<b>AI</b>」→ Codex 智能体…'},
+ 'notemd.deepseek-agent':{en:'<b>Plugins</b> → <b>AI</b> → DeepSeek Agent…',zh:'「<b>插件</b>」→「<b>AI</b>」→ DeepSeek 智能体…'},
+ 'notemd.next':{en:'<b>Plugins</b> → <b>Advance</b> → Next',zh:'「<b>插件</b>」→「<b>推进</b>」→ 下一步'},
+ 'notemd.idea-spark':{en:'<b>Plugins</b> → <b>Write</b> → Idea Spark',zh:'「<b>插件</b>」→「<b>写作</b>」→ 奇思妙想'},
+ 'notemd.sumi':{en:'<b>Plugins</b> → <b>Write</b> → Sumi Write',zh:'「<b>插件</b>」→「<b>写作</b>」→ 玄霜写作'},
  'notemd.index-viewer':{en:'Open a <code>*.index.md</code> file to view it automatically, or choose <b>Plugins → Read → View File Index</b>. Switch between cover gallery, table, grouped list and board layouts within the view.',zh:'打开 <code>*.index.md</code> 文件可自动显示，或选择「<b>插件 → 阅读 → 打开索引查看器</b>」。可在视图内切换封面画廊、多列表格、分组列表和看板。'},
  'notemd.ebook-import':{en:'<b>Plugins</b> → <b>Read</b> → Import Ebooks… (also CLI <code>notemd ebook</code>)',zh:'「<b>插件</b>」→「<b>阅读</b>」→ 导入电子书…（也支持 CLI <code>notemd ebook</code>）'},
- 'notemd.roam-import':{en:'<b>Plugins</b> → <b>Import & Export</b> → Sync Roam Research…',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 同步 Roam Research…'},
- 'notemd.pos-log':{en:'<b>Plugins</b> → <b>Capture</b> → Location Log',zh:'「<b>插件</b>」→「<b>记录</b>」→ 位置记录'},
+ 'notemd.roam-import':{en:'<b>Plugins</b> → <b>Capture</b> → Sync Roam Research…',zh:'「<b>插件</b>」→「<b>捕捉</b>」→ 同步 Roam Research…'},
+ 'notemd.pos-log':{en:'<b>Plugins</b> → <b>Capture</b> → Location Log',zh:'「<b>插件</b>」→「<b>捕捉</b>」→ 位置记录'},
  'notemd.trace-source':{en:'<b>Plugins</b> → <b>Read</b> → Trace Source',zh:'「<b>插件</b>」→「<b>阅读</b>」→ 溯源'},
- 'notemd.decision-log':{en:'<b>Plugins</b> → <b>Reflect</b> → Decision',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 决策'},
- 'notemd.weekly-review':{en:'<b>Plugins</b> → <b>Reflect</b> → Weekly Review',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 周检视'},
- 'notemd.timeline':{en:'Open a Markdown file with <code>type: timeline</code> to show it automatically, or choose <strong>Plugins → Reflect → View Timeline</strong>. With no file open, the command asks you to choose one. Edit category rules within the view.',zh:'打开 frontmatter 中设有 <code>type: timeline</code> 的 Markdown 文件可自动显示，或选择<strong>插件 → 回顾 → 查看时间轴</strong>；没有打开文件时会要求选择文件。分类规则可在视图内设置。'},
- 'notemd.md2pdf':{en:'<b>Plugins</b> → <b>Import & Export</b> → Export to PDF… (also CLI <code>notemd pdf</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→ 导出为 PDF…（也支持 CLI <code>notemd pdf</code>）'},
- 'notemd.power-mode':{en:'<b>Plugins</b> → <b>Experience</b> → Power Mode',zh:'「<b>插件</b>」→「<b>体验增强</b>」→ 狂暴模式'},
- 'notemd.assistant-mail':{en:'<b>Plugins</b> → <b>Capture</b> → Assistant Mail… (also CLI <code>notemd mail-status</code>, <code>mail-sync</code> and <code>mail-query</code>)',zh:'「<b>插件</b>」→「<b>记录</b>」→「助理邮箱…」（也支持 CLI <code>notemd mail-status</code>、<code>mail-sync</code> 与 <code>mail-query</code>）'},
- 'notemd.health-sync':{en:'<b>Plugins</b> → <b>Import & Export</b> → Import health data… (also CLI <code>notemd health-sync</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→「导入健康数据…」（也支持 CLI <code>notemd health-sync</code>）'},
- 'notemd.apple-notes':{en:'<b>Plugins</b> → <b>Import & Export</b> → Sync Apple Notes… (also CLI <code>notemd apple-notes-sync</code>)',zh:'「<b>插件</b>」→「<b>导入与导出</b>」→「同步 Apple Notes…」（也支持 CLI <code>notemd apple-notes-sync</code>）'},
+ 'notemd.decision-log':{en:'<b>Plugins</b> → <b>Review</b> → Decision',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 决策'},
+ 'notemd.weekly-review':{en:'<b>Plugins</b> → <b>Review</b> → Weekly Review',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 周检视'},
+ 'notemd.timeline':{en:'Open a Markdown file with <code>type: timeline</code> to show it automatically, or choose <strong>Plugins → Review → View Timeline</strong>. With no file open, the command asks you to choose one. Edit category rules within the view.',zh:'打开 frontmatter 中设有 <code>type: timeline</code> 的 Markdown 文件可自动显示，或选择<strong>插件 → 回顾 → 查看时间轴</strong>；没有打开文件时会要求选择文件。分类规则可在视图内设置。'},
+ 'notemd.md2pdf':{en:'<b>Plugins</b> → <b>Import & Export</b> → Export to PDF… (also CLI <code>notemd pdf</code>)',zh:'「<b>插件</b>」→「<b>数据导入导出</b>」→ 导出为 PDF…（也支持 CLI <code>notemd pdf</code>）'},
+ 'notemd.power-mode':{en:'<b>Plugins</b> → <b>Extensions</b> → Power Mode',zh:'「<b>插件</b>」→「<b>其他增强</b>」→ 狂暴模式'},
+ 'notemd.assistant-mail':{en:'<b>Plugins</b> → <b>Capture</b> → Assistant Mail… (also CLI <code>notemd mail-status</code>, <code>mail-sync</code> and <code>mail-query</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「助理邮箱…」（也支持 CLI <code>notemd mail-status</code>、<code>mail-sync</code> 与 <code>mail-query</code>）'},
+ 'notemd.health-sync':{en:'<b>Plugins</b> → <b>Capture</b> → Import health data… (also CLI <code>notemd health-sync</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「导入健康数据…」（也支持 CLI <code>notemd health-sync</code>）'},
+ 'notemd.apple-notes':{en:'<b>Plugins</b> → <b>Capture</b> → Sync Apple Notes… (also CLI <code>notemd apple-notes-sync</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「同步 Apple Notes…」（也支持 CLI <code>notemd apple-notes-sync</code>）'},
  'notemd.knowledge-browser':{en:'Open a supported knowledge JSON file to view it automatically, or choose <b>Plugins → Read → Open Knowledge Browser…</b>.',zh:'打开受支持的知识 JSON 文件可自动显示，或选择「<b>插件 → 阅读 → 打开提取知识浏览器…</b>」。'},
- 'notemd.meetings':{en:'<b>Plugins</b> → <b>Capture</b> → Meetings… (also CLI <code>notemd meetings-sync</code> and <code>meetings-import-hemory</code>)',zh:'「<b>插件</b>」→「<b>记录</b>」→「会议记录…」（也支持 CLI <code>notemd meetings-sync</code> 与 <code>meetings-import-hemory</code>）'},
- 'notemd.memory':{en:'<b>Plugins</b> → <b>Reflect</b> → Memory',zh:'「<b>插件</b>」→「<b>回顾</b>」→「记忆」'},
+ 'notemd.meetings':{en:'<b>Plugins</b> → <b>Capture</b> → Meetings… (also CLI <code>notemd meetings-sync</code> and <code>meetings-import-hemory</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「会议记录…」（也支持 CLI <code>notemd meetings-sync</code> 与 <code>meetings-import-hemory</code>）'},
+ 'notemd.memory':{en:'<b>Plugins</b> → <b>Review</b> → Memory',zh:'「<b>插件</b>」→「<b>回顾</b>」→「记忆」'},
  'notemd.typst-reader':{en:'Open a <code>*.typeset.md</code> file to view it automatically, or choose <b>Plugins → Read → Open Typeset Reader</b>.',zh:'打开 <code>*.typeset.md</code> 文件可自动显示，或选择「<b>插件 → 阅读 → 打开排版阅读器</b>」。'},
  'notemd.conversation-dictionary':{en:'<b>Plugins</b> → <b>AI</b> → Conversation Transcript Corrections… (also CLI <code>notemd conversation-dictionary</code>)',zh:'「<b>插件</b>」→「<b>AI</b>」→「沟通转写勘误…」（也支持 CLI <code>notemd conversation-dictionary</code>）'}
 };
@@ -239,13 +239,14 @@ function applyStatic(){
 function entryFor(id){
  var e=ENTRY_MAP[id];return e?e[lang]:I18N[lang].fallback;
 }
-var GROUP_ORDER=['ai','record','reading','create','advance','reflect','import-export','experience','other'];
-var LEGACY_GROUPS={'inspiration':'create','agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
-var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.assistant-mail':'record','notemd.meetings':'record','notemd.roam-import':'import-export','notemd.apple-notes':'import-export','notemd.health-sync':'import-export','notemd.ebook-import':'reading','notemd.index-viewer':'reading','notemd.knowledge-browser':'reading','notemd.typst-reader':'reading','notemd.trace-source':'reading','notemd.idea-spark':'create','notemd.sumi':'create','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'reflect','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
+var GROUP_ORDER=['ai','record','reading','create','advance','reflect','import-export','experience'];
+var LEGACY_GROUPS={'other':'experience','inspiration':'create','agents':'ai','capture':'record','capture-import':'record','thinking':'reflect','thinking-review':'reflect','publish-export':'import-export','editing':'experience','editor-extensions':'experience'};
+var OFFICIAL_GROUPS={'notemd.pos-log':'record','notemd.assistant-mail':'record','notemd.meetings':'record','notemd.roam-import':'record','notemd.apple-notes':'record','notemd.health-sync':'record','notemd.ebook-import':'reading','notemd.index-viewer':'reading','notemd.knowledge-browser':'reading','notemd.typst-reader':'reading','notemd.trace-source':'reading','notemd.idea-spark':'create','notemd.sumi':'create','notemd.next':'advance','notemd.claude-agent':'ai','notemd.codex-agent':'ai','notemd.deepseek-agent':'ai','notemd.conversation-dictionary':'ai','notemd.memory':'reflect','notemd.decision-log':'reflect','notemd.weekly-review':'reflect','notemd.timeline':'reflect','notemd.md2pdf':'import-export','notemd.power-mode':'experience'};
 var AI_ROLES={'notemd.ebook-import':{en:'AI Read',zh:'AI 阅读'},'notemd.idea-spark':{en:'AI Inspire',zh:'AI 启发'},'notemd.trace-source':{en:'AI Reason',zh:'AI 推理'},'notemd.claude-agent':{en:'AI Action',zh:'AI 执行'},'notemd.codex-agent':{en:'AI Action',zh:'AI 执行'},'notemd.deepseek-agent':{en:'AI Action',zh:'AI 执行'},'notemd.memory':{en:'AI Memory',zh:'AI 记忆'},'notemd.conversation-dictionary':{en:'AI Review',zh:'AI 审阅'}};
-function normalizeGroup(value,id){return OFFICIAL_GROUPS[id]||(GROUP_ORDER.indexOf(value)>=0?value:(LEGACY_GROUPS[value]||'other'));}
+var CONTEXT_SOURCES=['notemd.apple-notes','notemd.roam-import','notemd.health-sync'];
+function normalizeGroup(value,id){return OFFICIAL_GROUPS[id]||(GROUP_ORDER.indexOf(value)>=0?value:(LEGACY_GROUPS[value]||'experience'));}
 function groupLabel(key){
- return I18N[lang]['group_'+key.replace(/-/g,'_')]||I18N[lang].group_other;
+ return I18N[lang]['group_'+key.replace(/-/g,'_')]||I18N[lang].group_experience;
 }
 function isSystemGroup(key){return key==='ai'||key==='import-export'||key==='experience';}
 function groupPlugins(list){
@@ -278,10 +279,12 @@ function renderCard(p,d){
   (platform?'<span>'+esc(d.platform)+esc(platform)+'</span>':'')+
   (p.min_host?'<span>'+esc(d.host)+esc(p.min_host)+'</span>':'')+'</div>':'';
  var ai=AI_ROLES[p.id];
+ var contextSource=CONTEXT_SOURCES.indexOf(p.id)>=0;
  var localized=p.i18n&&p.i18n[lang]||{};
  return '<div class="card'+(ai?' ai-card':'')+'">'+
   '<div class="card-top"><h3>'+esc(localized.name||p.name||p.id)+'</h3>'+
   (ai?'<span class="ai">'+esc(ai[lang])+'</span>':'')+
+  (contextSource?'<span class="sys-tag">'+esc(d.sync)+' · '+esc(d.context_source)+'</span>':'')+
   (p.version?'<span class="ver">v'+esc(p.version)+'</span>':'')+'</div>'+
   '<p class="desc">'+esc(localized.description||p.description||'')+'</p>'+
   '<div class="entry"><span class="lbl">'+esc(d.entry_lbl)+'</span>'+entryFor(p.id)+compatibility+'</div>'+

@@ -16,16 +16,20 @@ describe('marketplace plugin metadata', () => {
     expect(PAGE_HTML).not.toMatch(/openclaw/i)
     expect(PAGE_HTML).toContain('notemd.claude-agent')
   })
-  it('merges old inspiration metadata into Create without changing the remaining section order', () => {
+  it('merges old inspiration metadata into Write without changing the remaining section order', () => {
     const page = grouping()
-    expect(page.GROUP_ORDER).toEqual(['ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience', 'other'])
+    expect(page.GROUP_ORDER).toEqual(['ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience'])
     for (const id of ['notemd.sumi', 'notemd.idea-spark']) {
-      for (const category of ['inspiration', 'experience', 'other', 'create']) {
+      for (const category of ['inspiration', 'experience', 'create']) {
         expect(page.normalizeGroup(category, id)).toBe('create')
       }
     }
     expect(page.normalizeGroup('inspiration', 'third-party.idea')).toBe('create')
-    expect(page.normalizeGroup('unknown', 'third-party.other')).toBe('other')
+    expect(page.normalizeGroup('unknown', 'third-party.other')).toBe('experience')
+    expect(page.normalizeGroup('other', 'third-party.other')).toBe('experience')
+    for (const id of ['notemd.apple-notes', 'notemd.roam-import', 'notemd.health-sync']) {
+      expect(page.normalizeGroup('import-export', id)).toBe('record')
+    }
     const items = [
       { id: 'notemd.sumi', category: 'experience' },
       { id: 'notemd.next', category: 'advance' },
@@ -39,11 +43,20 @@ describe('marketplace plugin metadata', () => {
       { key: 'reflect', items: [items[4]] },
     ])
   })
-  it('shows Create in both plugin entry instructions without retaining a separate Ideas heading', () => {
+  it('shows Write in both plugin entry instructions without retaining a separate Ideas heading', () => {
     expect(PAGE_HTML).not.toContain('group_inspiration:')
     expect(PAGE_HTML).not.toContain('<b>Ideas</b>')
     expect(PAGE_HTML).not.toContain('<b>灵感</b>')
-    expect(PAGE_HTML).toContain("'notemd.sumi':{en:'<b>Plugins</b> → <b>Create</b> → Sumi Write'")
-    expect(PAGE_HTML).toContain('「<b>插件</b>」→「<b>创作</b>」→ 玄霜写作')
+    expect(PAGE_HTML).toContain("'notemd.sumi':{en:'<b>Plugins</b> → <b>Write</b> → Sumi Write'")
+    expect(PAGE_HTML).toContain('「<b>插件</b>」→「<b>写作</b>」→ 玄霜写作')
+  })
+})
+
+describe('cognitive workflow labels', () => {
+  it('uses eight agreed labels and context-source tags', () => {
+    for (const label of ['捕捉', '阅读', '写作', '推进', '回顾', '数据导入导出', '其他增强', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Extensions']) expect(PAGE_HTML).toContain(label)
+    expect(PAGE_HTML).not.toContain('group_other:')
+    expect(PAGE_HTML).toContain("CONTEXT_SOURCES=['notemd.apple-notes','notemd.roam-import','notemd.health-sync']")
+    expect(PAGE_HTML).toContain("context_source:'上下文来源'")
   })
 })
