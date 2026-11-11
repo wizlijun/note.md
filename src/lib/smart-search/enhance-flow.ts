@@ -1,5 +1,5 @@
 import type { Messages } from '../i18n/en'
-import type { ChatAnswerConfig, ChatRequestConfig, JevRequestConfig, KeyStatus, Missing, RepairSuggestion } from './api'
+import type { AnswerResult, ChatAnswerConfig, ChatRequestConfig, JevRequestConfig, KeyStatus, Missing, RepairSuggestion } from './api'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
 // Pure state for the lookup window's status line and repair flow. No I/O
@@ -77,6 +77,34 @@ export function repairMessage(result: RepairSuggestion): HeaderMessage | null {
   if (status === 'timeout') return { key: 'smartSearch.enhance.repairTimeout', params: {} }
   if (status === 'invalid') return { key: 'smartSearch.enhance.repairInvalid', params: { host: result.endpointHost ?? '' } }
   return headerMessage({ kind: 'degraded', status, host: result.endpointHost, statusClass: result.statusClass, missing: result.missing })
+}
+
+/**
+ * The line under 「生成简答」 when no answer is shown, or null (an answer, or a
+ * cancelled request, which a newer lookup caused). Params carry only the
+ * endpoint host and status class, never remote text.
+ */
+export function answerMessage(result: AnswerResult): HeaderMessage | null {
+  const host = result.endpointHost ?? ''
+  switch (result.status) {
+    case 'ok':
+    case 'cancelled':
+      return null
+    case 'skipped':
+      return result.skipReason === 'indexUnavailable'
+        ? { key: 'smartSearch.answer.indexUnavailable', params: {} }
+        : { key: 'smartSearch.answer.noSources', params: {} }
+    case 'noConsent':
+      return { key: 'smartSearch.answer.noConsent', params: { host } }
+    case 'invalidCitations':
+      return { key: 'smartSearch.answer.invalidCitations', params: {} }
+    case 'timeout':
+      return { key: 'smartSearch.answer.timeout', params: {} }
+    case 'invalid':
+      return { key: 'smartSearch.answer.invalid', params: { host } }
+    default:
+      return headerMessage({ kind: 'degraded', status: result.status, host: result.endpointHost, statusClass: result.statusClass, missing: result.missing })
+  }
 }
 
 /** Built field by field: the host rejects unknown fields, and `preset` must never be sent (F13). */

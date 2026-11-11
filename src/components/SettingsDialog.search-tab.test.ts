@@ -758,6 +758,32 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
   })
 
+  it('the repair model has its own consent for the evidence answer, bound to its host', async () => {
+    await openEnhanceTab()
+    const chatConsent = () => chatSection().querySelector<HTMLInputElement>('[data-chat-consent] input[type="checkbox"]')!
+    const chatConsentLabel = () => chatSection().querySelector('[data-chat-consent]')?.textContent ?? ''
+    expect(chatConsent().disabled).toBe(true)
+    await typeInto(field<HTMLInputElement>(chatSection(), 'Endpoint URL', 'input'), 'https://api.deepseek.com/v1')
+    expect(chatConsentLabel()).toContain('api.deepseek.com')
+    expect(chatConsent().checked).toBe(false)
+    chatConsent().click()
+    await settle()
+    expect(settings.smartLookup.enhance.chat.consentHost).toBe('api.deepseek.com')
+    // The Jev consent is separate.
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+    await typeInto(field<HTMLInputElement>(chatSection(), 'Endpoint URL', 'input'), 'https://other.example/v1')
+    expect(chatConsent().checked).toBe(false)
+    chatConsent().click()
+    await settle()
+    expect(settings.smartLookup.enhance.chat.consentHost).toBe('other.example')
+    chatConsent().click()
+    await settle()
+    expect(settings.smartLookup.enhance.chat.consentHost).toBe('')
+    // A bearer key over plain http to a remote host: consent cannot be given.
+    await typeInto(field<HTMLInputElement>(chatSection(), 'Endpoint URL', 'input'), 'http://other.example/v1')
+    expect(chatConsent().disabled).toBe(true)
+  })
+
   it('choosing Official Jev fills its URL; an explicit port is part of the host', async () => {
     await openEnhanceTab()
     await choosePreset('official')
@@ -899,7 +925,8 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     })
     await openEnhanceTab()
     const chat = chatSection()
-    expect(chat.textContent).toContain('only the question and search terms are sent, never note content')
+    expect(chat.textContent).toContain('Query repair (when nothing is found) sends only the question and search terms, never note content.')
+    expect(chat.textContent).toContain('An answer, if you allow it below, sends the question and the evidence passages.')
     await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
     await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
     expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x', consentHost: '' })

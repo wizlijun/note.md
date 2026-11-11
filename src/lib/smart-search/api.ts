@@ -57,6 +57,26 @@ export interface EvidenceStepResult {
   elapsedMs: number
 }
 
+/**
+ * 「生成简答」 (spec H.4). `text` is the model's answer, set only when `status` is
+ * `ok`: the one remote text the window shows, as plain text, never logged.
+ * `sources` maps each cited number `[id]` to the evidence item it came from.
+ */
+export interface AnswerResult {
+  status: EnhanceStatus | 'invalidCitations'
+  /** With `skipped`: `indexUnavailable` when the index was not ready, so nothing could be checked again or sent. */
+  skipReason: SkipReason | null
+  missing: Missing | null
+  endpointHost: string | null
+  statusClass: string | null
+  text: string | null
+  sources: { id: number; evidenceId: string }[]
+  omittedSources: number
+  requestCount: number
+  elapsedMs: number
+  usage: Usage | null
+}
+
 export interface TermGroup { terms: string[]; phrases: string[] }
 
 export interface RepairSuggestion {
@@ -97,6 +117,9 @@ export const smartSearchApi = {
   /** One evidence round (at most one batch sequence); the host owns the hop counter. */
   evidenceStep: (lookupRunId: string, jev: JevRequestConfig, trigger: Trigger, deep: boolean) =>
     invoke<EvidenceStepResult>('smart_lookup_evidence_step', { lookupRunId, jev, trigger, deep }),
+  /** User action only: sends the question and the checked evidence passages to the repair model's host (needs its consent). */
+  answer: (lookupRunId: string, chat: ChatAnswerConfig) =>
+    invoke<AnswerResult>('smart_lookup_answer', { lookupRunId, chat }),
   cancel: (lookupRunId: string) => invoke<void>('smart_lookup_cancel', { lookupRunId }),
   diagnose: (lookupRunId: string) => invoke<Diagnosis>('smart_lookup_diagnose', { lookupRunId }),
   /** Sends only the question and search terms, never note content. */

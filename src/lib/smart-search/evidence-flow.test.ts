@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EvidenceItem, EvidenceStepResult } from './api'
 import {
-  absolutePath, addTotals, applyPending, applyRound, emptyEvidence, emptyTotals, evidenceNotice, headerFromStep, restoreRound,
+  absolutePath, addTotals, answerParts, applyPending, applyRound, emptyEvidence, emptyTotals, evidenceNotice, headerFromStep, restoreRound,
   roundLabel, shouldStartEvidence, startOffered,
 } from './evidence-flow'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, normalizeSmartLookupSettings } from './settings'
@@ -154,5 +154,57 @@ describe('evidence view', () => {
     expect(shouldStartEvidence(3, 'skip', s)).toBe(false)
     expect(shouldStartEvidence(3, 'judge', normalizeSmartLookupSettings({ enhance: { jev: { ...s.enhance.jev, consentHost: 'b.example' } } }))).toBe(false)
     expect(shouldStartEvidence(3, 'judge', DEFAULT_SMART_LOOKUP_SETTINGS)).toBe(false)
+  })
+})
+
+describe('answerParts', () => {
+  const sources = [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e2' }]
+
+  it('links source labels and keeps everything else as plain text', () => {
+    expect(answerParts('A [1] and <i>b</i> [1, 2]，[1，2]', sources)).toEqual([
+      { kind: 'text', text: 'A ' },
+      { kind: 'cite', text: '[1]', id: 1, evidenceId: 'e1' },
+      { kind: 'text', text: ' and <i>b</i> [' },
+      { kind: 'cite', text: '1', id: 1, evidenceId: 'e1' },
+      { kind: 'text', text: ', ' },
+      { kind: 'cite', text: '2', id: 2, evidenceId: 'e2' },
+      { kind: 'text', text: ']，[' },
+      { kind: 'cite', text: '1', id: 1, evidenceId: 'e1' },
+      { kind: 'text', text: '，' },
+      { kind: 'cite', text: '2', id: 2, evidenceId: 'e2' },
+      { kind: 'text', text: ']' },
+    ])
+  })
+
+  it('leaves Markdown links, definitions and unknown numbers as text', () => {
+    expect(answerParts('[1](http://x) [2]: y [9] [1, 9]', sources)).toEqual([
+      { kind: 'text', text: '[1](http://x) [2]: y [9] [' },
+      { kind: 'cite', text: '1', id: 1, evidenceId: 'e1' },
+      { kind: 'text', text: ', 9]' },
+    ])
+    expect(answerParts('no labels', sources)).toEqual([{ kind: 'text', text: 'no labels' }])
+  })
+
+  it('leaves labels in code as text, as the host ignores them', () => {
+    expect(answerParts('see `[1]` and [2]', sources)).toEqual([
+      { kind: 'text', text: 'see `[1]` and ' },
+      { kind: 'cite', text: '[2]', id: 2, evidenceId: 'e2' },
+    ])
+    expect(answerParts('```\n[1]\n``` [2]', sources)).toEqual([
+      { kind: 'text', text: '```\n[1]\n``` ' },
+      { kind: 'cite', text: '[2]', id: 2, evidenceId: 'e2' },
+    ])
+    // An unclosed fence runs to the end, as in the host.
+    expect(answerParts('[1] ```x [2]', sources)).toEqual([
+      { kind: 'cite', text: '[1]', id: 1, evidenceId: 'e1' },
+      { kind: 'text', text: ' ```x [2]' },
+    ])
+    // The host looks ahead in the prose with code removed: `[1]` then `(` is a link there.
+    expect(answerParts('[1]`x`(y) [2]`z`', sources)).toEqual([
+      { kind: 'text', text: '[1]`x`(y) ' },
+      { kind: 'cite', text: '[2]', id: 2, evidenceId: 'e2' },
+      { kind: 'text', text: '`z`' },
+    ])
+    expect(answerParts('', sources)).toEqual([])
   })
 })
