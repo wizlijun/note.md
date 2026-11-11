@@ -1425,6 +1425,8 @@ describe('SmartLookupApp zero hits', () => {
     expect(document.querySelector('.repair-strip')).toBeNull()
     expect(document.body.textContent).not.toContain('HIDDEN_WORDING')
     expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    // The question did go to the chat host: the footer still names it.
+    expect(footerLineText()).toContain('chat.example')
   })
 
   it('when the other wordings find nothing either, scans every file line by line, then lists what ran', async () => {
@@ -1577,8 +1579,10 @@ describe('SmartLookupApp launch view', () => {
 
   it.each([
     ['nothing is set up', {}],
-    ['the Jev host is not allowed', { enhance: { jev: { ...JEV, consentHost: '' } } }],
-    ['Jev has no model', { enhance: { jev: { ...JEV, model: '' } } }],
+    ['the Jev host is not allowed', { enhance: { jev: { ...JEV, consentHost: '' }, chat: { ...CHAT_ALLOWED } } }],
+    ['Jev has no model', { enhance: { jev: { ...JEV, model: '' }, chat: { ...CHAT_ALLOWED } } }],
+    ['only Jev is set up', { enhance: { jev: { ...JEV } } }],
+    ['the answer host is not allowed', { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }],
   ])('the launch footer has no answer chip when %s', async (_name, value) => {
     mocks.storedSmartLookup = stored(value)
     await mountReady()

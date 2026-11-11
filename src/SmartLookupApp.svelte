@@ -1002,6 +1002,8 @@
     if (inflight?.token !== token || mine !== requestSequence) return
     inflight = null
     repairBusy = false
+    // The question went to the chat host whether or not the result is still wanted: the footer names it.
+    if (result && result.requestCount > 0 && result.endpointHost) repairHost = result.endpointHost
     if (hidden) {
       appendActivity('repair', 'warning', 'repair dropped (window hidden)')
       return
@@ -1010,7 +1012,6 @@
       appendActivity('repair', 'error', `repair failed: ${failure}`)
       return
     }
-    if (result.requestCount > 0 && result.endpointHost) repairHost = result.endpointHost
     const empty = result.status === 'ok' && !result.groups.length
     appendActivity('repair', empty ? 'warning' : activityLevel(result.status), repairLog(result), { usage: result.usage })
     if (result.status === 'ok' && result.groups.length) {
@@ -1578,7 +1579,7 @@
       <span class="footer-line compact" aria-hidden="true">{t(footer.compact.key, footer.compact.params)}</span>
     {/if}
     <span class="spacer"></span>
-    {#if mode === 'idle' && ready && evidenceReady(settings.smartLookup)}
+    {#if mode === 'idle' && ready && evidenceReady(settings.smartLookup) && answerGate(settings.smartLookup).kind === 'start'}
       <button class="enhance-chip" onclick={() => void openEnhanceSettings()}><span class="dot" aria-hidden="true"></span>{t('smartSearch.launch.enhanceOn')}</button>
     {/if}
     <span class="footer-hint"><kbd>esc</kbd> {working ? t('smartSearch.footer.escStop') : t('smartSearch.footer.escClose')}</span>

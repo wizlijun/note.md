@@ -933,6 +933,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     const chat = chatSection()
     expect(chat.textContent).toContain('Writing an answer sends the question and the confirmed evidence passages; rephrasing (when nothing is found) sends only the question and search terms.')
     expect(chat.textContent).toContain('Each answer sends the question and the evidence passages; notes marked confidential never are.')
+    expect(chat.textContent).toContain('The same permission covers rephrasing when nothing is found')
     await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
     await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
     expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x', consentHost: '' })

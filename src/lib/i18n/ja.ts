@@ -925,7 +925,7 @@ export const ja: Record<keyof Messages, string> = {
   "settings.enhance.testOk": "接続できました（{ms} ミリ秒）",
   "settings.enhance.consent": "ノートの抜粋を {host} に送信することを許可する",
   "settings.enhance.consentHint": "判定に必要な段落だけを送信し、後のラウンドでは前のラウンドの根拠段落も再び送信します。機密とマークしたノートは送信しません。アドレスを変えた場合は改めて許可が必要です。",
-  "settings.enhance.chatConsentHint": "回答のたびに質問と根拠の段落を送信します。機密とマークしたノートは送信しません。アドレスを変えた場合は改めて許可が必要です。",
+  "settings.enhance.chatConsentHint": "回答のたびに質問と根拠の段落を送信します。見つからないときの言い換えもこの許可で行い、質問と検索語だけを送信します。機密とマークしたノートは送信しません。アドレスを変えた場合は改めて許可が必要です。",
   "settings.enhance.insecure": "このアドレスではキーが平文で送信されます。https を使ってください。",
   "settings.enhance.budget": "既定では Return 1 回につき：根拠の確認は最大 2 ラウンド、1 ラウンド最大 65 段落（行ごとの走査や検索を広げたあとは 115 段落）・10 秒以内、合計最大 200,000 トークン。そのあと回答を 1 回作成（予算は別、最大 3 リクエスト）",
   "settings.enhance.example": "送信内容の例を見る",

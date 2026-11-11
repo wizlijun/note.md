@@ -149,7 +149,7 @@ export function shouldStartEvidence(hits: number, route: 'judge' | 'skip' | 'rep
 /**
  * Enhancement on, Jev's url and model set, and its host allowed: a Return
  * with local hits would check the evidence. The Launch chip 「有依据的回答 ·
- * 已开启」 shows only then (M1).
+ * 已开启」 needs this and `answerGate` to start (M1, N2).
  */
 export function evidenceReady(settings: SmartLookupSettings): boolean {
   const { enabled, jev } = settings.enhance

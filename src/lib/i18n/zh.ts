@@ -964,7 +964,7 @@ export const zh: Record<keyof Messages, string> = {
   "settings.enhance.testOk": "连接正常（{ms} 毫秒）",
   "settings.enhance.consent": "允许把笔记片段发送到 {host}",
   "settings.enhance.consentHint": "只发送判断所需的段落，后续轮次会再次发送前几轮的证据段落；标为保密的笔记从不发送。更换地址后需要重新允许。",
-  "settings.enhance.chatConsentHint": "每次回答发送问题和依据段落，标为保密的笔记从不发送。更换地址后需要重新允许。",
+  "settings.enhance.chatConsentHint": "每次回答发送问题和依据段落；没找到时换说法也用这项允许，只发送问题和检索词。标为保密的笔记从不发送。更换地址后需要重新允许。",
   "settings.enhance.insecure": "这个地址会以明文发送密钥，请改用 https。",
   "settings.enhance.budget": "默认每次回车：核对依据至多 2 轮、每轮至多 65 段（逐行扫描或扩大查找后每轮至多 115 段）、每轮 10 秒内，合计至多 200,000 token；之后写 1 次回答，预算另计，至多 3 个请求",
   "settings.enhance.example": "查看发送内容示例",

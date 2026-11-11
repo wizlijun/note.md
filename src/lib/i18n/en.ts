@@ -975,7 +975,7 @@ export const en = {
   "settings.enhance.testOk": "Connected ({ms} ms)",
   "settings.enhance.consent": "Allow sending note excerpts to {host}",
   "settings.enhance.consentHint": "Only the passages being judged are sent, and earlier evidence passages again in later rounds; notes marked confidential never are. Changing the address requires allowing again.",
-  "settings.enhance.chatConsentHint": "Each answer sends the question and the evidence passages; notes marked confidential never are. Changing the address requires allowing again.",
+  "settings.enhance.chatConsentHint": "Each answer sends the question and the evidence passages; notes marked confidential never are. The same permission covers rephrasing when nothing is found, which sends only the question and search terms. Changing the address requires allowing again.",
   "settings.enhance.insecure": "This address would send the key in clear text. Use https.",
   "settings.enhance.budget": "By default, per Return: the evidence check runs up to 2 rounds, up to 65 passages per round (115 after a line-by-line scan or an expanded search) and 10 seconds per round, at most 200,000 tokens in all; then 1 answer is written, with its own budget and up to 3 requests",
   "settings.enhance.example": "View an example of what is sent",
