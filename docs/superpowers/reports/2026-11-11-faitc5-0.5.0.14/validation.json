@@ -1,0 +1,33 @@
+{
+  "version": "0.5.0.14",
+  "source_commit": "53758c46aed45f3de997bf956becdd819d0f8be1",
+  "source_tag": "faitc5-sumi-v0.5.0.14-rc1",
+  "automatic_spacing_commit": "27d4f6e25ce3f96f3bdd82a166f3511f137655b9",
+  "package": "/Users/bruce/Faitc5-Releases/0.5.0.14/Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+  "package_sha256": "f68ee5877b681279f56d8b2c642b5c5235a8cbc4bb04717b9006ebfbb69438a5",
+  "app_notarized": true,
+  "app_stapled": true,
+  "installer_signature": "unsigned",
+  "installer_notarized": false,
+  "submission_id": "c96d2006-ff9d-4ba3-b015-abfb69ed416a",
+  "notary_archive_sha256": "f643c1aa14d8553ca2c6dc6f6621363daa85cbe7e954dab25041145e59837b27",
+  "signed_machos": 13,
+  "payload_files_and_links": 636,
+  "payload_entries_including_directories": 1463,
+  "payload_exact_match": true,
+  "test_evidence": {
+    "spacing_policy": "39 passed",
+    "production_IMK_route": "16 passed",
+    "sumi_ctest": "7 passed including settings and key mapping",
+    "installation_model": "production model receipt/permission/resume/retry passed",
+    "native_repair": "17 passed",
+    "request_handoff": "7 passed",
+    "preinstall": "5 passed",
+    "postinstall_restart": "16 passed",
+    "source_user_resources": "16 groups + 6 negative arguments passed",
+    "expanded_resources": "first setup and repeat no-change passed",
+    "expanded_pinyin_defaults": "actual Chinese archive with packaged quickphrase: Command-semicolon opens Quick Phrase, bare semicolon commits punctuation, Pinyin/emoji defaults passed",
+    "full_arm64_build": "passed after isolated CMake 4.3.4 replaced too-old environment tool"
+  },
+  "runtime_acceptance": "Not installed by this release task. New package native repair was verified by production-model fixtures and exact bundled scripts; physical first-install acceptance remains unverified. Historical 0.5.0.12 acceptance is not substituted."
+}
