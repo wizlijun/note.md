@@ -60,10 +60,11 @@ pub(super) fn layout(
     let mut x = 0.0;
     let mut row = 0;
     for (position, candidate) in candidates.iter().enumerate() {
-        let full = if candidate.label.is_empty() {
+        let label = candidate.label.trim_end();
+        let full = if label.is_empty() {
             candidate.text.clone()
         } else {
-            format!("{} {}", candidate.label, candidate.text)
+            format!("{}\u{2009}{}", label, candidate.text)
         };
         let (text, measured) = ellipsize(&full, width, &mut measure);
         if !page.placements.is_empty() && x + measured > width {
@@ -174,6 +175,7 @@ mod tests {
             .map(|c| match c {
                 '汉' | '字' | '😀' => 20.0,
                 '\u{301}' => 0.0,
+                '\u{2009}' => 2.0,
                 _ => 5.0,
             })
             .sum()
@@ -184,11 +186,25 @@ mod tests {
         let page = layout(&candidates(5), -1, 0, 120.0, 32.0, 10.0, 4, measure);
         assert_eq!(page.rows, 3);
         assert_eq!(page.page_end, 5);
-        assert_eq!(page.placements[0].text, "1. 汉字");
-        assert_eq!(page.placements[0].width, 55.0);
-        assert_eq!(page.placements[1].x, 65.0);
+        assert_eq!(page.placements[0].text, "1.\u{2009}汉字");
+        assert_eq!(page.placements[0].width, 52.0);
+        assert_eq!(page.placements[1].x, 62.0);
         assert_eq!(page.placements[2].x, 0.0);
         assert_eq!(page.placements[2].y, 32.0);
+    }
+
+    #[test]
+    fn engine_label_padding_does_not_expand_candidate_spacing() {
+        let mut entries = candidates(3);
+        let expected = layout(&entries, -1, 0, 160.0, 32.0, 15.0, 4, measure);
+        entries[0].label.push(' ');
+        entries[1].label.push_str("  ");
+        entries[2].label.push('\u{3000}');
+        assert_eq!(
+            layout(&entries, -1, 0, 160.0, 32.0, 15.0, 4, measure),
+            expected
+        );
+        assert_eq!(entries[0].label, "1. ");
     }
 
     #[test]
@@ -200,7 +216,7 @@ mod tests {
         }];
         let page = layout(&entries, 23, 0, 45.0, 32.0, 10.0, 4, measure);
         assert_eq!(page.placements[0].index, 23);
-        assert_eq!(page.placements[0].text, "7. 汉…");
+        assert_eq!(page.placements[0].text, "7.\u{2009}汉…");
         assert!(page.placements[0].width <= 45.0);
         assert_eq!(entries[0].text, "汉字😀e\u{301}");
     }

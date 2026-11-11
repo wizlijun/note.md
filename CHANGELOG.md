@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Tighter Sumi candidate spacing on Linux.** Remove duplicate spacing after candidate numbers and use a compact, font-scaled gap between candidate groups.
+
 ## v6.1111.3 — 2026-11-11
 
 - The macOS host release includes Faitc5 for Sumi 0.5.0.14: default Command-semicolon for Quick Phrases, consistent Restore Defaults, and verified automatic post-install input-source repair. Existing host release assets are unchanged.
