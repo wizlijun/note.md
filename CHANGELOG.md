@@ -7,19 +7,26 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
-
-- **Sumi windows on macOS.** New writing windows fit the current display’s usable area. The green window button enters full screen. “Open in full screen” is on by default; turning it off is remembered for the next new independent window.
-
-- **Sumi sync recovery.** A local edit echoed back by sync no longer blocks saving or appearance settings with an operation-ID conflict. Verified echoes retain distinct durable receipts; conflicting content is still rejected.
-
-- **Sumi platform parity (host update required).** macOS enters focus using a rolling two-second typing window, follows the Linux bounded fullscreen font scaling and restores the original size on exit, and respects reserved bottom space in focused text and candidates. Frozen drafts and Command/Control shortcuts no longer trigger typing sounds. Linux supports Shift+Return for a Markdown hard break. The reported disappearance of all preceding lines after Return remains under investigation.
-
 - **Smart Lookup is rebuilt local-first, with one optional model judgement.** Return shows local results immediately; typing never calls a model. With enhancement on, each Return sends at most one request: Jev judges the top 10 results and reorders them in place, marking each “Fits” or “Possibly unrelated”. Nothing is removed, and everything falls back to the local results if the request fails or is not configured. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “Create answer” and “In-depth research” are removed from Smart Lookup.
 
 - **New Settings → Lookup enhancement tab.** Choose the Jev endpoint (official, OpenRouter or self-hosted), model and authentication, and test the connection. The key is stored only on this device and is never shown again. Sending to a host needs your consent for that host, and notes marked confidential are never sent. A separate endpoint can be set for the query repair model.
 
 - **Headless `notemd lookup` command and tunable parameters.** `notemd lookup` runs Smart Lookup from the command line and has an `eval` mode for measuring result quality. Ranking and enhancement parameters live in `smart-lookup/params.json`, documented in `docs/smart-lookup-parameters.md`.
+
+## v6.1111.1 — 2026-11-11
+
+- **Companion input method included.** The release also includes the modified Faitc5 for Sumi 0.5.0.13 Apple silicon installer, with Chinese/English spacing enabled by default. Its App is signed and notarized; the installer package itself is unsigned. Future macOS releases validate the approved package before attaching it.
+
+- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
+
+- **Sumi windows fit your Mac display.** New standalone windows use the available screen area and support the green full-screen button. “Open new windows in full screen” is on by default; changing it applies to the next new window without switching the current one.
+
+- **Bring macOS writing behavior in line with Linux.** Full-screen text scales proportionally and returns to the saved size on exit. Focus typing uses a rolling two-second input window, and focus layout and inline candidates respect the reserved bottom space. Command shortcuts and drafts paused after a save failure no longer trigger typing sounds.
+
+- **Recover local edits echoed back through cloud sync.** Recognize matching edits without conflicting with their original durable receipts, so recovered edits no longer block appearance and font settings. Different payloads with reused operation IDs remain rejected.
+
+- **Apple silicon update with Sumi 0.1.14.** Update the host and plugin together; the plugin requires note.md 6.1111.1 or later. Existing Linux packages remain available unchanged.
+
 
 ## v6.1110.8 — 2026-11-10
 

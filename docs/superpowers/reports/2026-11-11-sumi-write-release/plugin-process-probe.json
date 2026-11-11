@@ -1,0 +1,117 @@
+{
+  "ok": true,
+  "at": "2026-11-11T03:55:17.010651+00:00",
+  "source": "23e4ad11a66461b96f75568130d66c9def8020fe",
+  "selectedSource": "23e4ad11a66461b96f75568130d66c9def8020fe",
+  "binary_sha256": "4756942354a16eb0ef71715ff1cc8af3b37eb9212d6ffd6efcad26a8e6680f0e",
+  "binary_bytes": 3857200,
+  "package_sha256": "466bc2e73328c6e4db25b6c756751c8292adba29a3521ab4f64033895f813df5",
+  "spawned": true,
+  "exit_code": 0,
+  "isolated_vault": true,
+  "network_started": false,
+  "account_access": false,
+  "cargoOffline": true,
+  "packaged_sound_banks": [
+    "typewriter",
+    "thock"
+  ],
+  "sound_samples_scheduled": 0,
+  "suites": [
+    {
+      "suite": "signed-stdio",
+      "command": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-parity-release-20261111/probe-target/debug/deps/stdio-dfd6d9fabccdd0bd",
+        "--nocapture"
+      ],
+      "testDriverSha256": "63e4185f2e6f8a13bd3fee7035c33f98fadbea96807c01d8b7f9d91288beaf95",
+      "passed": [
+        "real_stdio_advertises_and_serves_atomic_observation",
+        "real_stdio_commit_kill_reopen_replay_and_private_boundary"
+      ],
+      "count": 2,
+      "exitCode": 0,
+      "elapsedSeconds": 0.938,
+      "logSha256": "b162fe13b2e8c59fe375a8819de6958f4f484c8c3c03889d5a98a8f43f56111a",
+      "scope": "exact signed package binary; actual kill/reopen and observation RPC"
+    },
+    {
+      "suite": "host-journal-crash",
+      "command": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-parity-release-20261111/probe-target/debug/deps/notemd_sumi_backend-a2d46b93f6882a3d",
+        "host_proxy_harness",
+        "--nocapture"
+      ],
+      "testDriverSha256": "552ab984d23af4c0c5006d7daa7bc47d392f20dc3329f5eddce0bc10e6527af3",
+      "passed": [
+        "host_proxy_harness::continuous_polling_does_not_postpone_the_retry_deadline",
+        "host_proxy_harness::durability::journal::tests::corruption_and_second_host_fail_closed_without_deleting_log",
+        "host_proxy_harness::durability::journal::tests::failed_write_never_publishes_or_acknowledges",
+        "host_proxy_harness::durability::journal::tests::fifo_reopen_and_exact_receipt_reclamation",
+        "host_proxy_harness::durability::journal::tests::kill_after_accepted_before_ipc_recovers_both_edits",
+        "host_proxy_harness::durability::journal::tests::kill_after_receipt_reclamation_preserves_only_unacknowledged_input",
+        "host_proxy_harness::host_sigkill_after_backend_commit_before_ack_replays_exactly_once",
+        "host_proxy_harness::host_sigkill_before_backend_commit_recovers_accepted_input_on_first_load",
+        "host_proxy_harness::journaled_import_survives_host_crash_and_new_external_files_without_blocking_load",
+        "host_proxy_harness::legacy_local_echo_journal_replays_before_appearance_preferences",
+        "host_proxy_harness::lost_commit_reply_fails_barrier_then_replays_same_operation",
+        "host_proxy_harness::permits_bound_pending_edits_and_reserve_before_native_mutation",
+        "host_proxy_harness::reserved_import_rejects_wrong_receipt_and_replays_without_duplicate_apply",
+        "host_proxy_harness::unavailable_worker_retains_local_remote_order_and_flush_is_prompt"
+      ],
+      "count": 14,
+      "exitCode": 0,
+      "elapsedSeconds": 1.787,
+      "logSha256": "ad271ebb39209bb86d80829dbb006bee31dc0b06585379dd0a2f48c192ff765f",
+      "scope": "compiled production host proxy plus real SQLite worker; test-driver SIGKILL and legacy echo, not signed backend subprocesses"
+    },
+    {
+      "suite": "echo-identity-atomicity",
+      "command": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-parity-release-20261111/probe-target/debug/deps/notemd_sumi_backend-a2d46b93f6882a3d",
+        "echo",
+        "--nocapture"
+      ],
+      "testDriverSha256": "552ab984d23af4c0c5006d7daa7bc47d392f20dc3329f5eddce0bc10e6527af3",
+      "passed": [
+        "durability::tests::echo_receipt_failure_rolls_back_checkpoint_and_inbox_before_reopen",
+        "durability::tests::first_echo_requires_exact_local_identity_and_legacy_proof",
+        "durability::tests::local_cloud_echo_retains_both_exact_receipts_without_duplicate_delta",
+        "host_proxy_harness::legacy_local_echo_journal_replays_before_appearance_preferences"
+      ],
+      "count": 4,
+      "exitCode": 0,
+      "elapsedSeconds": 0.631,
+      "logSha256": "757da61b51be4d1e95881e1e4a8f448a9ed43b003559b7c5b0ea33861519f243",
+      "scope": "compiled production SQLite echo identity, legacy proof and atomic rollback/reopen"
+    },
+    {
+      "suite": "signed-host-proxy",
+      "command": [
+        "/Users/bruce/git/mdeditor/tasks/sumi-parity-release-20261111/probe-target/debug/deps/notemd_lib-f9ffad0483533c8f",
+        "sumi::service::tests::actual_host_proxy_saves_rebinds_and_flushes_native_process",
+        "--exact",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "testDriverSha256": "10e8f2c478f594e4da1f7b82d556a0b0ced810c161089ddd1693786c45cf1206",
+      "passed": [
+        "sumi::service::tests::actual_host_proxy_saves_rebinds_and_flushes_native_process"
+      ],
+      "count": 1,
+      "exitCode": 0,
+      "elapsedSeconds": 1.367,
+      "logSha256": "1f785d45d56a08da5fbcaba95b302ec03c32509fa39ac0d6565bbe654152fcac",
+      "scope": "actual host transport spawns the exact signed package via SUMI_TEST_BACKEND; isolated Vault and process rebind"
+    }
+  ],
+  "host_driver_source_sha256": {
+    "src-tauri/src/sumi/service.rs": "d58c67c7e7ff3b92926c02b1a8a0ea7d280b649b81a502f1e05e85a4d9620643",
+    "src-tauri/src/sumi/durability.rs": "32aceeff6116521014259a555d5e20684679978612a5eaa8c66af55c5075d52b",
+    "src-tauri/src/sumi/journal.rs": "0614aec536096377d02983de9954b2778bf78de86a087c8c8d746309fde3b54c",
+    "src-tauri/src/plugin_runtime/process.rs": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55"
+  },
+  "wrapperSha256": "552fc211c075fa4d43e46448445f30f4982ffd8371dbf6346b9b3c3268ac8a85",
+  "scope": "Real notarized packaged binary executed by stdio and host transport drivers; host journal SIGKILL tested separately with compiled production proxy and SQLite worker. Synthetic temporary Vaults only; child credentials excluded."
+}

@@ -1,0 +1,30 @@
+{
+  "source": "a56e861dd71708feb98a623a50dc45bd73b8300d",
+  "tag": "v6.1111.1",
+  "version": "6.1111.1",
+  "architecture": "arm64",
+  "files": {
+    "note.md-6.1111.1-aarch64.dmg": {
+      "path": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc3/note.md-6.1111.1-aarch64.dmg",
+      "size": 14110213,
+      "sha256": "f69326d52bec2d3f2c2271595b2878cb0d9049d01c3467cebc8b2810c0a866d9"
+    },
+    "note.md-aarch64.app.tar.gz": {
+      "path": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc3/note.md-aarch64.app.tar.gz",
+      "size": 14184067,
+      "sha256": "51ee04b8cd2974235a7f1d3bd7b69a5f10c2e9c089f10b6ace4e959e24b5fbb9"
+    },
+    "note.md-aarch64.app.tar.gz.sig": {
+      "path": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc3/note.md-aarch64.app.tar.gz.sig",
+      "size": 416,
+      "sha256": "03fdbba7d41ba95013e1ac5ac01a16177c9b6394415991734fad4c0863d64fea"
+    },
+    "latest.json": {
+      "path": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc3/latest.json",
+      "size": 740,
+      "sha256": "61df59876842e7c41f5f0229ec8e2a1c7665b5b4166ab58ab173238e6bf839f2"
+    }
+  },
+  "actual_build_source": "23e4ad11a66461b96f75568130d66c9def8020fe",
+  "equivalence_report": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc3/source-artifact-equivalence.json"
+}

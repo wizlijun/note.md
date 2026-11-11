@@ -1,0 +1,67 @@
+{
+  "ok": true,
+  "before": 313,
+  "after": 314,
+  "onlyAdded": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.14",
+      "min_host": ">=6.1111.1",
+      "archs": [
+        "aarch64-apple-darwin"
+      ],
+      "size": 2468478,
+      "sha256": {
+        "aarch64-apple-darwin": "466bc2e73328c6e4db25b6c756751c8292adba29a3521ab4f64033895f813df5"
+      },
+      "name": "Sumi Write",
+      "category": "experience",
+      "description": "Sumi Write is a quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "玄霜写作",
+          "description": "玄霜写作，一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "玄霜写作",
+            "read-writing": "玄霜写作"
+          },
+          "windows": {
+            "main": "玄霜写作"
+          }
+        },
+        "en": {
+          "name": "Sumi Write",
+          "description": "Sumi Write is a quiet page for native writing, with offline collaboration and seamless continuation.",
+          "menus": {
+            "open": "Sumi Write",
+            "read-writing": "Sumi Write"
+          },
+          "windows": {
+            "main": "Sumi Write"
+          }
+        },
+        "ja": {
+          "name": "Sumi Write",
+          "description": "Sumi Write は、静かに書くためのタイプライターアプリです。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+          "menus": {
+            "open": "Sumi Write",
+            "read-writing": "Sumi Write"
+          },
+          "windows": {
+            "main": "Sumi Write"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.14/aarch64-apple-darwin"
+      }
+    }
+  ],
+  "historicalEntriesUnchanged": true,
+  "publicNormalFreshAndKvEqual": true,
+  "compatibleHostPublic": true,
+  "publishedBeforeCompatibleHost": false,
+  "minimumHost": ">=6.1111.1"
+}

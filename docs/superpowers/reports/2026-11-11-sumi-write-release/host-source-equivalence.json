@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "actual_host_build_source": "23e4ad11a66461b96f75568130d66c9def8020fe",
+  "actual_plugin_build_source": "23e4ad11a66461b96f75568130d66c9def8020fe",
+  "release_tag_source": "a56e861dd71708feb98a623a50dc45bd73b8300d",
+  "release_tag": "v6.1111.1",
+  "scope": "Tag adds only publication scripts, approved companion metadata, documentation and changelogs. App and plugin were actually built at 23e4ad11; no rebuild or renotarization is claimed.",
+  "all_git_changed_files": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "docs/superpowers/reports/2026-11-11-sumi-release-candidate.md",
+    "docs/superpowers/specs/2026-11-11-release-input-method-companion.md",
+    "scripts/release-arm64.test.ts",
+    "scripts/release-companion.d.mts",
+    "scripts/release-companion.mjs",
+    "scripts/release-companion.test.ts",
+    "scripts/release-companions/faitc5.json",
+    "scripts/release-publish-core.d.mts",
+    "scripts/release-publish-core.mjs",
+    "scripts/release-publish.test.ts",
+    "scripts/release.sh"
+  ],
+  "all_other_tracked_blobs_unchanged": true,
+  "verified_source_inventory_count": 157,
+  "native_source_inventory_count": 102,
+  "source_inventory_identical": true,
+  "native_receipt_sources_identical": true,
+  "artifact_bytes_identical": true,
+  "actual_build_log": {
+    "path": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc2/build.log",
+    "sha256": "e6b3e9ccb1fcdee6f2300c0482097e5fa94e1324f8f1b6972541c814a5ec784d",
+    "size": 81253
+  },
+  "previous_artifact_report": {
+    "path": "/Users/bruce/git/sumi-release-artifacts-20261111/host/rc2/artifact-verification.json",
+    "sha256": "c90135274c4f386d14540565ed75ea903e23ca1d0c21d96a9fa95c79d56bf867",
+    "size": 134090
+  },
+  "native_receipt": {
+    "path": "/Users/bruce/git/mdeditor-sumi-release-20261111/dist-plugins/notemd.sumi/0.1.14/native-aarch64-apple-darwin/receipt.json",
+    "sha256": "be232d38882d4ed4239410fcb4097d34746ead2ff0b657dc21831b285574f2e9",
+    "size": 13023
+  },
+  "timestamp": "2026-11-11T04:04:59.334659+00:00"
+}

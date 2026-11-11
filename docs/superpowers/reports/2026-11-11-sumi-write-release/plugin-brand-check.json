@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "source": "23e4ad11a66461b96f75568130d66c9def8020fe",
+  "packageSha256": "466bc2e73328c6e4db25b6c756751c8292adba29a3521ab4f64033895f813df5",
+  "manifestSha256": "368d51af92ab632ccab058624caa9a5922b812283cbe925aef1fca82476e6aab",
+  "id": "notemd.sumi",
+  "version": "0.1.14",
+  "minimumHost": ">=6.1111.1",
+  "locales": {
+    "zh": "玄霜写作",
+    "en": "Sumi Write",
+    "ja": "Sumi Write"
+  },
+  "scope": "Exact package manifest equals frozen source; all localized menu/window labels match final product names."
+}

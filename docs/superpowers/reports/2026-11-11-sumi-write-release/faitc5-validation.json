@@ -1,0 +1,32 @@
+{
+  "version": "0.5.0.13",
+  "source_commit": "46bb19a84f7c7e9aa6756d4e9d4e1826a259184b",
+  "source_tag": "faitc5-sumi-v0.5.0.13-rc1",
+  "automatic_spacing_commit": "27d4f6e25ce3f96f3bdd82a166f3511f137655b9",
+  "package": "/Users/bruce/Faitc5-Releases/0.5.0.13/Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+  "package_sha256": "2f30d4903b98bf40ce18520a6f4f948e36afb2fc62cbc1fce38de1286c881b5b",
+  "app_notarized": true,
+  "app_stapled": true,
+  "installer_signature": "unsigned",
+  "installer_notarized": false,
+  "submission_id": "8aea10d4-6546-449f-af0a-235b0d569a87",
+  "notary_archive_sha256": "3569dc92bbd1b44332b285266f4ea6138015f23f6fd7c90344145988777e7fc8",
+  "signed_machos": 13,
+  "payload_files_and_links": 636,
+  "payload_entries_including_directories": 1463,
+  "payload_exact_match": true,
+  "test_evidence": {
+    "spacing_policy": "39 passed",
+    "production_IMK_route": "16 passed",
+    "sumi_ctest": "3 passed",
+    "preinstall": "5 passed",
+    "postinstall_restart": "16 passed",
+    "source_user_resources": "16 groups + 6 negative arguments passed",
+    "expanded_resources": "first setup and repeat no-change passed",
+    "expanded_pinyin_defaults": "actual Chinese archive with packaged quickphrase: semicolon/pinyin/emoji defaults passed",
+    "full_arm64_build": "passed"
+  },
+  "runtime_acceptance": "Not installed by this release task. New automatic spacing in real apps and physical IME input pending; 0.5.0.12 installation acceptance is historical only.",
+  "download_path": "/Users/bruce/Downloads/Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+  "test_harness_note": "Initial expanded-pinyin harness passed .config instead of required .config/fcitx5 and failed its defaults assertion. Corrected invocation on a second isolated home passed; no product code or defaults changed."
+}
