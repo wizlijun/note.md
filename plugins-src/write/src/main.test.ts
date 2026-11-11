@@ -365,6 +365,48 @@ describe('Sumi native writing shell', () => {
     expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, focusTyping: !focusTyping }, preserveFont: true })
     expect(request.mock.calls.some(call => call[0] === 'host.sumi.sound_set')).toBe(false)
   })
+  it.each([
+    ['zh', '启动时进入全屏', '下次打开新的独立写作窗口时生效，不影响当前窗口或标签页。'],
+    ['en', 'Open in full screen', 'Applies to the next new writing window. The current window and tabs are unchanged.'],
+    ['ja', '起動時にフルスクリーンで開く', '次に新しい執筆用ウインドウを開くときに適用されます。現在のウインドウやタブには影響しません。'],
+  ])('defaults new macOS writing windows to fullscreen with a localized %s setting', async (locale, label, hint) => {
+    await setup(state(), undefined, locale)
+    document.getElementById('appearance')!.click(); await settle()
+    const input = document.querySelector<HTMLInputElement>('input[name="startFullscreen"]')!
+    expect(input?.checked).toBe(true)
+    expect(input.closest('label')!.textContent).toBe(label)
+    expect(input.getAttribute('aria-describedby')).toBe('start-fullscreen-hint')
+    expect(document.getElementById('start-fullscreen-hint')!.textContent).toBe(hint)
+  })
+  it.each([undefined, true, false])('preserves stored fullscreen startup %s and only saves changes for later windows', async startFullscreen => {
+    const preferences = { ...defaultPreferences, fontSize: 32 }
+    if (startFullscreen === undefined) delete (preferences as Partial<typeof preferences>).startFullscreen
+    else preferences.startFullscreen = startFullscreen
+    const request = await setup(state({ preferences }))
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector('#panel-body form') as HTMLFormElement
+    const input = form.elements.namedItem('startFullscreen') as HTMLInputElement
+    expect(input?.checked).toBe(startFullscreen ?? true)
+    request.mockClear()
+    input.checked = !(startFullscreen ?? true)
+    input.dispatchEvent(new Event('change', { bubbles: true })); await settle()
+    expect(request).not.toHaveBeenCalled()
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, startFullscreen: input.checked }, preserveFont: true })
+    expect(request.mock.calls.some(call => call[0] === 'host.sumi.fullscreen')).toBe(false)
+  })
+  it.each([true, false])('hides macOS startup fullscreen on Linux while preserving stored %s', async startFullscreen => {
+    const preferences = { ...defaultPreferences, startFullscreen }
+    const request = await setup(state({ preferences }), undefined, 'en', 'Linux x86_64')
+    document.getElementById('appearance')!.click(); await settle()
+    const form = document.querySelector('#panel-body form') as HTMLFormElement
+    expect(form.elements.namedItem('startFullscreen')).toBeNull()
+    ;(form.elements.namedItem('fontSize') as HTMLInputElement).value = '34'
+    request.mockClear()
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle()
+    expect(request).toHaveBeenCalledWith('host.sumi.preferences', { preferences: { ...preferences, fontSize: 34 }, preserveFont: true })
+    expect(request.mock.calls.some(call => call[0] === 'host.sumi.fullscreen')).toBe(false)
+  })
   it('displays the complete one-time invitation for another device', async () => {
     const request = await setup(state({ sync: { connected: true, pending: 0 } }))
     document.getElementById('sync')!.click(); await settle()

@@ -4,6 +4,7 @@ export interface Preferences {
   fontFamily: string
   caretMotion: 'breathing' | 'steady'
   focusTyping: boolean
+  startFullscreen: boolean
   fontSize: number
   lineHeight: number
   maxColumns: number
@@ -46,13 +47,13 @@ export const fontPresets = [
   ['Sumi CRT', '复古绿磷 CRT · GNU Unifont'],
 ] as const
 export const defaultPreferences: Preferences = {
-  theme: 'dim', fontFamily: 'Sumi Plex', caretMotion: 'breathing', focusTyping: true, fontSize: 22,
+  theme: 'dim', fontFamily: 'Sumi Plex', caretMotion: 'breathing', focusTyping: true, startFullscreen: true, fontSize: 22,
   lineHeight: 1.6, maxColumns: 80, bottomInset: 0,
 }
 export function pageLabel(page: Page, fallback: string): string {
   return page.excerpt.trim().slice(0, 80) || fallback
 }
-export function preferencesFromForm(form: HTMLFormElement, currentFont?: string): Preferences {
+export function preferencesFromForm(form: HTMLFormElement, currentFont?: string, currentStartFullscreen = true): Preferences {
   const data = new FormData(form)
   const number = (key: string, min: number, max: number) => {
     const value = Number(data.get(key))
@@ -65,5 +66,5 @@ export function preferencesFromForm(form: HTMLFormElement, currentFont?: string)
   if (!fontPresets.some(([value]) => value === fontFamily)) throw new Error('Invalid font')
   const caretMotion = data.get('caretMotion')
   if (caretMotion !== 'breathing' && caretMotion !== 'steady') throw new Error('Invalid caret motion')
-  return { theme, fontFamily, caretMotion, focusTyping: data.has('focusTyping'), fontSize: number('fontSize', 8, 96), lineHeight: number('lineHeight', 1, 3), maxColumns: number('maxColumns', 20, 200), bottomInset: number('bottomInset', 0, 2000) }
+  return { theme, fontFamily, caretMotion, focusTyping: data.has('focusTyping'), startFullscreen: form.elements.namedItem('startFullscreen') ? data.has('startFullscreen') : currentStartFullscreen, fontSize: number('fontSize', 8, 96), lineHeight: number('lineHeight', 1, 3), maxColumns: number('maxColumns', 20, 200), bottomInset: number('bottomInset', 0, 2000) }
 }

@@ -459,6 +459,14 @@ async function showAppearance() {
   focusHint.textContent = t('空白页从中线开始；聚焦时上下移动光标，当前行仍居中。阅读导航后首个按键或拼音输入即恢复聚焦。停笔10秒后上下文逐渐显现，重新打字快速恢复渐隐。字号与行距不变。', 'Blank pages start at the center. Up/Down keeps the active line centered while focused. After reading navigation, the first input, including IME preedit, restores focus. After 10 seconds without typing, context gradually reappears; typing restores the fade. Font size and line spacing stay unchanged.', '空白のページは中央から書き始めます。集中表示中は上下キーで移動しても現在の行を中央に保ちます。移動後は、変換中の文字を含め最初の入力で集中表示に戻ります。10秒入力しないと前後の文章がゆっくり現れ、入力を再開すると素早く薄くなります。文字サイズと行間は変わりません。')
   form.append(focusHint)
   if (isApplePlatformSync()) {
+    const startupLabel = document.createElement('label'); startupLabel.className = 'focus-toggle'
+    const startupText = document.createElement('span'); startupText.textContent = t('启动时进入全屏', 'Open in full screen', '起動時にフルスクリーンで開く')
+    const startup = document.createElement('input'); startup.type = 'checkbox'; startup.name = 'startFullscreen'; startup.checked = state!.preferences.startFullscreen ?? true
+    startup.setAttribute('aria-describedby', 'start-fullscreen-hint')
+    startupLabel.append(startupText, startup); form.append(startupLabel)
+    const startupHint = document.createElement('p'); startupHint.id = 'start-fullscreen-hint'
+    startupHint.textContent = t('下次打开新的独立写作窗口时生效，不影响当前窗口或标签页。', 'Applies to the next new writing window. The current window and tabs are unchanged.', '次に新しい執筆用ウインドウを開くときに適用されます。現在のウインドウやタブには影響しません。')
+    form.append(startupHint)
     const section = document.createElement('section'); section.id = 'input-method-guidance'
     const title = document.createElement('h3'); title.textContent = t('输入法联动', 'Input Method Integration', '入力メソッドとの連携')
     const hint = document.createElement('p')
@@ -467,7 +475,7 @@ async function showAppearance() {
   }
   showSounds(form)
   const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('应用', 'Apply', '適用'); form.append(submit)
-  form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily), preserveFont: true })); await closePanel() }) }
+  form.onsubmit = event => { event.preventDefault(); void run(async () => { applyState(await request<SumiState>('preferences', { preferences: preferencesFromForm(form, state!.preferences.fontFamily, state!.preferences.startFullscreen ?? true), preserveFont: true })); await closePanel() }) }
   el('panel-body').append(form)
   fontPanel?.render(); void fontPanel?.poll(); soundPanel?.render(); void soundPanel?.read()
 }
