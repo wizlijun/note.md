@@ -1,5 +1,4 @@
 import type { Messages } from '../i18n/en'
-import type { SearchHit } from '../search/api'
 import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm } from './api'
 import type { HeaderState } from './enhance-flow'
 import { endpointHost, type SmartLookupSettings } from './settings'
@@ -14,10 +13,12 @@ export interface EvidenceView {
   pending: EvidenceItem[] | null
   done: boolean
   stop: EvidenceStop | null
+  /** The expansion round whose terms found nothing new (`candidatesEmpty`): its terms are still shown (H.3.11). */
+  unfound: { hop: number; terms: EvidenceTerm[] } | null
 }
 
 export function emptyEvidence(): EvidenceView {
-  return { rounds: [], shown: [], pending: null, done: false, stop: null }
+  return { rounds: [], shown: [], pending: null, done: false, stop: null, unfound: null }
 }
 
 /**
@@ -31,10 +32,15 @@ export function emptyEvidence(): EvidenceView {
  */
 export function applyRound(view: EvidenceView, result: EvidenceStepResult, interacted: boolean): EvidenceView {
   const scored = result.status === 'ok' && (result.stop === null || result.stop === 'maxHops')
-  if (!scored) return { ...view, done: true, stop: result.stop ?? view.stop }
+  if (!scored) {
+    const unfound = result.stop === 'candidatesEmpty' && result.hop > 0 && result.terms.length > 0
+      ? { hop: result.hop, terms: result.terms }
+      : view.unfound
+    return { ...view, done: true, stop: result.stop ?? view.stop, unfound }
+  }
   const round: EvidenceRound = { hop: result.hop, terms: result.terms, items: result.evidence }
   const rounds = [...view.rounds.filter((r) => r.hop !== result.hop), round].sort((a, b) => a.hop - b.hop)
-  const base = { rounds, done: result.done, stop: result.stop }
+  const base = { rounds, done: result.done, stop: result.stop, unfound: view.unfound }
   if (!interacted) return { ...base, shown: result.evidence, pending: null }
   const have = new Set(view.shown.map((i) => i.evidenceId))
   const shown = [...view.shown, ...result.evidence.filter((i) => !have.has(i.evidenceId))]
@@ -102,7 +108,7 @@ export function evidenceNotice(view: EvidenceView): keyof Messages | null {
   return none ? 'smartSearch.evidence.none' : null
 }
 
-/** What a run sent and left out, summed over its calls (the F.3 details, without the reorder lines). */
+/** What a run sent and left out (the F.3 details, without the reorder lines), as the host counts it. */
 export interface EvidenceTotals {
   /** The host passages went to; null while nothing was sent. */
   host: string | null
@@ -120,34 +126,24 @@ export function emptyTotals(): EvidenceTotals {
   return { host: null, requests: 0, elapsedMs: 0, sent: 0, tokens: 0, confidential: 0, stale: 0, long: 0 }
 }
 
-export function addTotals(totals: EvidenceTotals, result: EvidenceStepResult): EvidenceTotals {
-  return {
-    host: result.requestCount > 0 && result.endpointHost ? result.endpointHost : totals.host,
-    requests: totals.requests + result.requestCount,
-    elapsedMs: totals.elapsedMs + result.elapsedMs,
-    sent: totals.sent + result.sentBlocks,
-    tokens: totals.tokens + (result.requestCount > 0 ? result.estimatedTokens : 0),
-    confidential: totals.confidential + result.skippedConfidential,
-    stale: totals.stale + result.skippedStale,
-    long: totals.long + result.skippedLong + result.skippedOversize,
-  }
-}
-
 /**
- * The absolute path of a vault-relative evidence path, for opening it in the
- * editor. Evidence carries only the vault path; every local hit of the run
- * shows the vault root (its `absPath` ends with its `path`). Null when no
- * local hit does.
+ * The run's totals from a step result: the host keeps them over the whole
+ * run (distinct passages, every call that reached a round, cancelled ones
+ * included), so the latest result for the run is the answer, also one whose
+ * evidence the window drops after a stop.
  */
-export function absolutePath(path: string, hits: Pick<SearchHit, 'path' | 'absPath'>[]): string | null {
-  const same = hits.find((hit) => hit.path === path)
-  if (same) return same.absPath
-  for (const hit of hits) {
-    if (!hit.absPath.replace(/\\/g, '/').endsWith(`/${hit.path}`)) continue
-    const root = hit.absPath.slice(0, hit.absPath.length - hit.path.length)
-    return root + (hit.absPath.includes('\\') ? path.replace(/\//g, '\\') : path)
+export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
+  const run = result.run
+  return {
+    host: run.endpointHost,
+    requests: run.requests,
+    elapsedMs: run.elapsedMs,
+    sent: run.sentBlocks,
+    tokens: run.tokens,
+    confidential: run.skippedConfidential,
+    stale: run.skippedStale,
+    long: run.skippedLong + run.skippedOversize,
   }
-  return null
 }
 
 /**
@@ -162,6 +158,18 @@ export function shouldStartEvidence(hits: number, route: 'judge' | 'skip' | 'rep
   const host = endpointHost(jev.url)
   return enabled && hits > 0 && route !== 'skip' && jev.url.trim() !== '' && jev.model.trim() !== ''
     && host !== null && host === jev.consentHost
+}
+
+/** The host's own answer failures (`BudgetError::code` in src-tauri/src/smart_enhance/answer.rs). */
+const ANSWER_ERRORS = {
+  questionTooLarge: 'smartSearch.answer.error.questionTooLarge',
+  sourceTooLarge: 'smartSearch.answer.error.sourceTooLarge',
+  outputReserve: 'smartSearch.answer.error.outputReserve',
+} as const satisfies Record<string, keyof Messages>
+
+/** The message for a host answer error that is a stable code; null for any other error. */
+export function answerErrorKey(error: string): keyof Messages | null {
+  return Object.hasOwn(ANSWER_ERRORS, error) ? ANSWER_ERRORS[error as keyof typeof ANSWER_ERRORS] : null
 }
 
 /** A piece of the answer: plain text, or a cited source number that links to its evidence item. */

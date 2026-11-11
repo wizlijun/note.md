@@ -1,21 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import type { EvidenceItem, EvidenceStepResult } from './api'
 import {
-  absolutePath, addTotals, answerParts, applyPending, applyRound, emptyEvidence, emptyTotals, evidenceNotice, headerFromStep, restoreRound,
-  roundLabel, shouldStartEvidence, startOffered,
+  answerErrorKey, answerParts, applyPending, applyRound, emptyEvidence, evidenceNotice, headerFromStep, restoreRound,
+  roundLabel, shouldStartEvidence, startOffered, totalsOf,
 } from './evidence-flow'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, normalizeSmartLookupSettings } from './settings'
 import { en } from '../i18n/en'
 import { zh } from '../i18n/zh'
+import { de } from '../i18n/de'
+import { ja } from '../i18n/ja'
 
 const item = (id: string, foundRound: number, tier: EvidenceItem['tier'] = 'fit'): EvidenceItem => ({
-  evidenceId: id, path: `${id}.md`, line: 1, lineEnd: 2, title: id, breadcrumb: '', text: id, foundRound, tier, localResultId: null,
+  evidenceId: id, path: `${id}.md`, absPath: `/vault/${id}.md`, line: 1, lineEnd: 2, title: id, breadcrumb: '', text: id, foundRound, tier, localResultId: null,
 })
 const round = (hop: number, ids: string[], extra: Partial<EvidenceStepResult> = {}): EvidenceStepResult => ({
   status: 'ok', stop: null, skipReason: null, missing: null, endpointHost: null, statusClass: null, hop,
   terms: [{ term: 't', label: 'T', kind: 'word' }], evidence: ids.map((i) => item(i, hop)), localTiers: [], done: false,
   requestCount: 1, poolSize: 0, candidates: 0, sentBlocks: 0, skippedConfidential: 0, skippedStale: 0, skippedLong: 0,
-  skippedOversize: 0, estimatedTokens: 0, tokensUsed: 0, usage: null, elapsedMs: 0, ...extra,
+  skippedOversize: 0, estimatedTokens: 0, tokensUsed: 0, usage: null, elapsedMs: 0, nextHop: hop + 1,
+  run: { endpointHost: null, requests: 0, elapsedMs: 0, sentBlocks: 0, tokens: 0, skippedConfidential: 0, skippedStale: 0, skippedLong: 0, skippedOversize: 0 },
+  ...extra,
 })
 const ids = (items: EvidenceItem[]) => items.map((i) => i.evidenceId)
 
@@ -91,25 +95,38 @@ describe('evidence view', () => {
     // Still running: no verdict yet.
     expect(evidenceNotice(finished(['unfit'], { done: false, stop: null }))).toBeNull()
   })
-  it('sums what each call sent into run totals; the host only when something went to it', () => {
-    const one = addTotals(emptyTotals(), round(0, ['a'], {
-      requestCount: 2, elapsedMs: 300, sentBlocks: 12, estimatedTokens: 4000, skippedConfidential: 1, skippedStale: 2, skippedLong: 3,
-      skippedOversize: 1, endpointHost: 'h.example',
-    }))
-    const two = addTotals(one, round(1, ['b'], {
+  it('takes the run totals from the host, not from summing this call', () => {
+    const result = round(1, ['b'], {
       requestCount: 1, elapsedMs: 200, sentBlocks: 5, estimatedTokens: 1000, skippedConfidential: 2, endpointHost: 'h.example',
-    }))
-    expect(two).toEqual({ host: 'h.example', requests: 3, elapsedMs: 500, sent: 17, tokens: 5000, confidential: 3, stale: 2, long: 4 })
-    const nothingSent = addTotals(emptyTotals(), round(0, [], { status: 'noConsent', requestCount: 0, sentBlocks: 0, estimatedTokens: 0, endpointHost: 'x.example' }))
-    expect(nothingSent.host).toBeNull(); expect(nothingSent.tokens).toBe(0)
+      run: {
+        endpointHost: 'h.example', requests: 3, elapsedMs: 500, sentBlocks: 14, tokens: 5000,
+        skippedConfidential: 2, skippedStale: 1, skippedLong: 3, skippedOversize: 1,
+      },
+    })
+    expect(totalsOf(result)).toEqual({ host: 'h.example', requests: 3, elapsedMs: 500, sent: 14, tokens: 5000, confidential: 2, stale: 1, long: 4 })
+    // A refused call reports the run so far; nothing sent means no host.
+    const nothingSent = totalsOf(round(0, [], { status: 'noConsent', requestCount: 0, endpointHost: 'x.example' }))
+    expect(nothingSent.host).toBeNull(); expect(nothingSent.requests).toBe(0)
   })
-  it('opens evidence by the vault root that the local hits show', () => {
-    const hits = [{ path: 'notes/a.md', absPath: '/vault/notes/a.md' }]
-    expect(absolutePath('notes/a.md', hits)).toBe('/vault/notes/a.md')
-    expect(absolutePath('other/b.md', hits)).toBe('/vault/other/b.md')
-    expect(absolutePath('other/b.md', [{ path: 'notes/a.md', absPath: 'C:\\vault\\notes\\a.md' }])).toBe('C:\\vault\\other\\b.md')
-    expect(absolutePath('other/b.md', [{ path: 'notes/a.md', absPath: '/elsewhere/x.md' }])).toBeNull()
-    expect(absolutePath('other/b.md', [])).toBeNull()
+  it('keeps the terms of an expansion round that found nothing new', () => {
+    const shown = applyRound(emptyEvidence(), round(0, ['a']), false)
+    const terms = [{ term: 'alice paul', label: 'Alice Paul', kind: 'namePhrase' as const }]
+    const v = applyRound(shown, round(1, ['a'], { stop: 'candidatesEmpty', done: true, terms }), false)
+    expect(v.unfound).toEqual({ hop: 1, terms }); expect(v.rounds.map((r) => r.hop)).toEqual([0]); expect(ids(v.shown)).toEqual(['a'])
+    // Other stops, and an empty round without terms, leave it as it was.
+    expect(applyRound(shown, round(1, ['a'], { stop: 'termsEmpty', done: true, terms: [] }), false).unfound).toBeNull()
+    expect(applyRound(shown, round(1, ['a'], { stop: 'candidatesEmpty', done: true, terms: [] }), false).unfound).toBeNull()
+    expect(emptyEvidence().unfound).toBeNull()
+  })
+  it('maps the host answer codes to messages in every locale; other errors stay as they are', () => {
+    for (const code of ['questionTooLarge', 'sourceTooLarge', 'outputReserve']) {
+      const key = answerErrorKey(code)
+      expect(key).toBe(`smartSearch.answer.error.${code}`)
+      for (const messages of [en, zh, de, ja]) expect((messages as Record<string, string>)[key!]).toBeTruthy()
+    }
+    expect(en[answerErrorKey('questionTooLarge')!]).not.toMatch(/[\u4e00-\u9fff]/)
+    expect(answerErrorKey('lookup run expired; run Smart Lookup again')).toBeNull()
+    expect(answerErrorKey('toString')).toBeNull()
   })
   it('records the stop reason when the run finishes', () => {
     const v = applyRound(emptyEvidence(), round(2, ['a'], { done: true, stop: 'maxHops' }), false)

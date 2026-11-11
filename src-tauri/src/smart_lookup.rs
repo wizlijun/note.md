@@ -313,7 +313,25 @@ fn lookup_source_path(root: &Path, relative: &str) -> Result<SourceLookup, Strin
     Ok(SourceLookup::Found(canonical))
 }
 
+/// The current text of `hit`'s line block, read from disk; an error when the
+/// hit is not a complete line block or the file no longer holds the indexed
+/// text there.
 pub(crate) fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, String> {
+    read_source(root, hit).map(|source| source.block)
+}
+
+/// A line block as it is on disk now, with what its file says about itself.
+pub(crate) struct SourceRead {
+    /// Equal to the hit's indexed text.
+    pub(crate) block: String,
+    /// `files.confidentiality` as the indexer would store it for the file's
+    /// current bytes (`searchidx::chunk::confidentiality_of`).
+    pub(crate) confidentiality: String,
+}
+
+/// [`current_block`] plus the frontmatter's confidentiality, from one read
+/// of the file.
+pub(crate) fn read_source(root: &Path, hit: &CanonicalHit) -> Result<SourceRead, String> {
     if hit.level != "line"
         || hit.indexed_text.is_empty()
         || hit.line == 0
@@ -334,7 +352,44 @@ pub(crate) fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, S
     if text.is_empty() || text != hit.indexed_text {
         return Err("lookup source changed after indexing".to_string());
     }
-    Ok(text)
+    Ok(SourceRead { block: text, confidentiality: searchidx::chunk::confidentiality_of(&hit.path, &body) })
+}
+
+/// Why a block may not be sent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Dropped {
+    /// The index or the file's current frontmatter says it is not
+    /// `unknown` or `explicitly_public` (or the index does not know the file).
+    Confidential,
+    /// The file no longer holds the indexed text (or cannot be read).
+    Stale,
+}
+
+/// The one "may this block be sent to a model" check (spec H.3.3 checks 1
+/// and 2, H.6), shared by the SAG2 rounds, the answer and the one-round
+/// judge. In order:
+/// 1. the index's `files.confidentiality` for the file (`indexed`; `None`
+///    when the index has no row) is `unknown` or `explicitly_public`;
+/// 2. `read` (normally [`read_source`]) still finds the indexed text;
+/// 3. the file's current frontmatter, parsed as the indexer parses it, is
+///    `unknown` or `explicitly_public` too: a file marked confidential on
+///    disk is dropped before the index has caught up (fail closed).
+///
+/// Returns the block's text. `read` is not called for a block the index
+/// already refuses.
+pub(crate) fn sendable_block(
+    indexed: Option<&str>,
+    read: impl FnOnce() -> Result<SourceRead, String>,
+) -> Result<String, Dropped> {
+    let public = |value: &str| matches!(value, "unknown" | "explicitly_public");
+    if !indexed.is_some_and(public) {
+        return Err(Dropped::Confidential);
+    }
+    let source = read().map_err(|_| Dropped::Stale)?;
+    if !public(&source.confidentiality) {
+        return Err(Dropped::Confidential);
+    }
+    Ok(source.block)
 }
 
 /// Registers a hand-built run, for tests elsewhere in the crate.
@@ -371,6 +426,44 @@ mod tests {
         assert!(current_block(&root, &hit("line", 2, 3, "two\nTHREE")).is_err());
         assert!(current_block(&root, &hit("section", 1, 3, "one")).is_err());
         assert!(current_block(&root, &hit("line", 3, 5, "three")).is_err());
+    }
+
+    #[test]
+    fn sendable_block_checks_the_index_then_the_text_then_the_frontmatter() {
+        let root = tempfile::tempdir().unwrap();
+        let write = |name: &str, body: &str| fs::write(root.path().join(name), body).unwrap();
+        write("plain.md", "one\ntwo\n");
+        write("marked.md", "---\nconfidentiality: confidential\n---\nsecret line\n");
+        write("private.md", "---\nprivate: true\n---\nsecret line\n");
+        write("public.md", "---\nconfidentiality: explicitly_public\n---\nopen line\n");
+        // A .txt has no frontmatter, so its `---` block is text (as the indexer reads it).
+        write("note.txt", "---\nconfidentiality: confidential\n---\nplain text\n");
+        let root = fs::canonicalize(root.path()).unwrap();
+        let hit = |path: &str, line: u32, text: &str| CanonicalHit {
+            result_id: String::new(),
+            path: path.into(),
+            line,
+            line_end: line,
+            level: "line".into(),
+            indexed_text: text.into(),
+            breadcrumb: String::new(),
+            pinned: false,
+        };
+        let check = |indexed: Option<&str>, h: CanonicalHit| sendable_block(indexed, || read_source(&root, &h));
+        assert_eq!(check(Some("unknown"), hit("plain.md", 2, "two")), Ok("two".into()));
+        assert_eq!(check(Some("explicitly_public"), hit("public.md", 4, "open line")), Ok("open line".into()));
+        assert_eq!(check(Some("unknown"), hit("note.txt", 4, "plain text")), Ok("plain text".into()));
+        // The index refuses: the file is not read at all.
+        for indexed in [Some("confidential"), None, Some("other")] {
+            assert_eq!(sendable_block(indexed, || panic!("read")), Err(Dropped::Confidential));
+        }
+        assert_eq!(check(Some("unknown"), hit("plain.md", 2, "TWO")), Err(Dropped::Stale));
+        assert_eq!(check(Some("unknown"), hit("gone.md", 1, "x")), Err(Dropped::Stale));
+        // Marked confidential on disk, not re-indexed yet: dropped as confidential.
+        assert_eq!(check(Some("unknown"), hit("marked.md", 4, "secret line")), Err(Dropped::Confidential));
+        assert_eq!(check(Some("explicitly_public"), hit("private.md", 4, "secret line")), Err(Dropped::Confidential));
+        let read = read_source(&root, &hit("marked.md", 4, "secret line")).unwrap();
+        assert_eq!((read.block.as_str(), read.confidentiality.as_str()), ("secret line", "confidential"));
     }
 
     fn test_run(id: &str, window: &str, created_at: Instant) -> LookupRun {

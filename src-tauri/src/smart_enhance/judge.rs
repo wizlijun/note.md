@@ -23,7 +23,7 @@ use crate::lookup_params::{self, LookupParams};
 use crate::search::time_group::TimeMode;
 use crate::search::IndexHandle;
 use crate::smart_lookup::{
-    active_root, current_block, run_for_window, update_run, CanonicalHit, JudgeRecord, LookupRun,
+    active_root, read_source, run_for_window, update_run, CanonicalHit, JudgeRecord, LookupRun,
 };
 use crate::smart_model::{endpoint_host, jev_endpoint, score_noul, AuthMode, NoulQuestion};
 
@@ -307,7 +307,7 @@ async fn judge_steps(
     }
 
     let limits = params.candidates.limits();
-    let selection = select_candidates(&ordered, input.confidentiality, |hit| current_block(&run.root, hit), &limits);
+    let selection = select_candidates(&ordered, input.confidentiality, |hit| read_source(&run.root, hit), &limits);
     result.pool_size = selection.pool_size;
     result.sent_blocks = selection.picked.len();
     result.estimated_tokens = selection.estimated_tokens;
@@ -499,7 +499,12 @@ pub(crate) async fn judge_run(
     Ok(result)
 }
 
-#[tauri::command]
+/// The one-round judge as it was a Tauri command. No longer registered
+/// (spec H.7): the window and the CLI use the evidence rounds, so this is
+/// not reachable over IPC and sends nothing. The code stays, with its
+/// tests, until the cleanup that also removes `candidates.pool`/`k`/
+/// `perFile`/`tokenBudget`.
+#[allow(dead_code)]
 pub async fn smart_lookup_judge(
     app: tauri::AppHandle,
     window: tauri::Window,
@@ -914,7 +919,7 @@ mod tests {
     #[test]
     fn the_cache_key_covers_everything_that_is_sent() {
         let f = fixture("cache key");
-        let read = |h: &CanonicalHit| current_block(&f.run.root, h);
+        let read = |h: &CanonicalHit| read_source(&f.run.root, h);
         let refs: Vec<&CanonicalHit> = f.run.hits.iter().collect();
         let picked = select_candidates(&refs, &f.confidentiality, read, &f.params.candidates.limits()).picked;
         let questions: Vec<NoulQuestion> =
@@ -1228,36 +1233,6 @@ mod tests {
         assert_eq!(lines[3], format!("判断准则：{DEFAULT_CRITERION}"));
         let custom = build_state(&fixture("发布").run, "只看决定。");
         assert_eq!(custom.lines().last(), Some("判断准则：只看决定。"));
-    }
-
-    /// The Settings page shows `JEV_REQUEST_EXAMPLE` as what is sent: its
-    /// `state` has the lines `build_state` writes, in the same order, and the
-    /// criterion is `DEFAULT_CRITERION`.
-    #[test]
-    fn the_settings_request_example_has_the_state_lines_in_build_state_order() {
-        let mut f = fixture("tag:work 发布");
-        f.run.time = Some(RunTime {
-            source_text: "上周".into(),
-            after: chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap(),
-            before: chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
-            mode: TimeMode::Group,
-            in_window: 1,
-        });
-        let prefix = |line: &str| line.split_once('：').map(|(p, _)| p.to_string()).unwrap();
-        let sent: Vec<String> = build_state(&f.run, DEFAULT_CRITERION).lines().map(prefix).collect();
-        assert_eq!(sent, ["用户要找的内容", "时间范围", "过滤条件", "判断准则"]);
-
-        const API: &str = include_str!("../../../src/lib/smart-search/api.ts");
-        let start = API.find("state: `").expect("JEV_REQUEST_EXAMPLE.state") + "state: `".len();
-        let body = &API[start..];
-        let state = &body[..body.find('`').unwrap()];
-        let shown: Vec<String> = state
-            .split("\\n")
-            .map(|line| prefix(line.trim_start_matches('[').trim_end_matches(']')))
-            .collect();
-        assert_eq!(shown, sent, "{state}");
-        assert!(state.ends_with("判断准则：${CRITERION}"), "{state}");
-        assert!(API.contains(&format!("const CRITERION = '{DEFAULT_CRITERION}'")), "the example's criterion is DEFAULT_CRITERION");
     }
 
     #[test]

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use super::{SkipReason, Tier};
 use crate::lookup_params::TierParams;
-use crate::smart_lookup::{CanonicalHit, RouteFacts};
+use crate::smart_lookup::{sendable_block, CanonicalHit, Dropped, RouteFacts, SourceRead};
 
 pub(crate) enum Route {
     Repair,
@@ -94,10 +94,12 @@ pub(crate) fn title_of(path: &str) -> String {
     last.to_string()
 }
 
+/// `read_source` is normally `smart_lookup::read_source`; each block goes
+/// through the shared `sendable_block` check.
 pub(crate) fn select_candidates(
     ordered: &[&CanonicalHit],
     confidentiality: &HashMap<String, String>,
-    mut read_block: impl FnMut(&CanonicalHit) -> Result<String, String>,
+    mut read_source: impl FnMut(&CanonicalHit) -> Result<SourceRead, String>,
     limits: &CandidateLimits,
 ) -> Selection {
     let mut sel = Selection {
@@ -124,16 +126,13 @@ pub(crate) fn select_candidates(
         if per_file.get(hit.path.as_str()).copied().unwrap_or(0) >= limits.per_file {
             continue;
         }
-        match confidentiality.get(&hit.path).map(String::as_str) {
-            Some("unknown") | Some("explicitly_public") => {}
-            _ => {
+        let passage = match sendable_block(confidentiality.get(&hit.path).map(String::as_str), || read_source(hit)) {
+            Ok(p) => p,
+            Err(Dropped::Confidential) => {
                 sel.skipped_confidential += 1;
                 continue;
             }
-        }
-        let passage = match read_block(hit) {
-            Ok(p) => p,
-            Err(_) => {
+            Err(Dropped::Stale) => {
                 sel.skipped_stale += 1;
                 continue;
             }
@@ -233,6 +232,11 @@ mod tests {
         }
     }
 
+    /// A read that finds `text` in a file without frontmatter.
+    fn found(text: String) -> Result<SourceRead, String> {
+        Ok(SourceRead { block: text, confidentiality: "unknown".into() })
+    }
+
     fn hit(id: &str, path: &str, level: &str, text: &str, pinned: bool) -> CanonicalHit {
         CanonicalHit {
             result_id: id.into(),
@@ -272,6 +276,7 @@ mod tests {
             hit("8", "f.md", "line", "x", false),
             hit("9", "g.md", "line", "x", true),
             hit("10", "h.md", "line", "x", false),
+            hit("11", "h.md", "line", "x", false),
         ];
         let refs: Vec<&CanonicalHit> = hits.iter().collect();
         let mut conf = HashMap::new();
@@ -282,18 +287,20 @@ mod tests {
         // d.md is absent from the index.
         let read = |h: &CanonicalHit| match h.path.as_str() {
             "e.md" => Err("stale".to_string()),
-            "f.md" => Ok("字".repeat(1_201)),
-            _ => Ok("passage".to_string()),
+            "f.md" => found("字".repeat(1_201)),
+            // Marked confidential on disk after indexing.
+            "h.md" if h.result_id == "11" => Ok(SourceRead { block: "passage".into(), confidentiality: "confidential".into() }),
+            _ => found("passage".to_string()),
         };
         let s = select_candidates(&refs, &conf, read, &limits());
         // a.md, a.md, h.md
         assert_eq!(s.picked.iter().map(|c| c.result_id.as_str()).collect::<Vec<_>>(), ["1", "2", "10"]);
         assert_eq!(
             (s.skipped_rollups, s.skipped_confidential, s.skipped_stale, s.skipped_long, s.skipped_pinned),
-            (1, 2, 1, 1, 1)
+            (1, 3, 1, 1, 1)
         );
         assert_eq!(s.picked[0].title, "a");
-        assert_eq!(s.pool_size, 10);
+        assert_eq!(s.pool_size, 11);
     }
 
     #[test]
@@ -304,8 +311,8 @@ mod tests {
         let refs: Vec<&CanonicalHit> = hits.iter().collect();
         let conf: HashMap<String, String> =
             hits.iter().map(|h| (h.path.clone(), "unknown".to_string())).collect();
-        let small = select_candidates(&refs, &conf, |_| Ok("字".repeat(100)), &limits());
-        let large = select_candidates(&refs, &conf, |_| Ok("字".repeat(1_000)), &limits());
+        let small = select_candidates(&refs, &conf, |_| found("字".repeat(100)), &limits());
+        let large = select_candidates(&refs, &conf, |_| found("字".repeat(1_000)), &limits());
         assert_eq!((small.picked.len(), small.pool_size), (10, 50));
         assert_eq!(large.picked.len(), 3);
         assert!(large.estimated_tokens <= 4_000);
@@ -349,17 +356,17 @@ mod tests {
         let conf: HashMap<String, String> =
             hits.iter().map(|h| (h.path.clone(), "unknown".to_string())).collect();
         let narrow = CandidateParams { pool: 8, k: 3, per_file: 1, ..CandidateParams::default() }.limits();
-        let s = select_candidates(&refs, &conf, |_| Ok("p".to_string()), &narrow);
+        let s = select_candidates(&refs, &conf, |_| found("p".to_string()), &narrow);
         assert_eq!(s.pool_size, 8);
         assert_eq!(s.picked.iter().map(|c| c.result_id.as_str()).collect::<Vec<_>>(), ["r0", "r4"]);
         let wide = CandidateParams { k: 3, per_file: 4, ..CandidateParams::default() }.limits();
-        assert_eq!(select_candidates(&refs, &conf, |_| Ok("p".to_string()), &wide).picked.len(), 3);
+        assert_eq!(select_candidates(&refs, &conf, |_| found("p".to_string()), &wide).picked.len(), 3);
         // Two CJK characters per token halve the estimate; a tighter block limit refuses the block.
         let half = CandidateParams { cjk_chars_per_token: 2, ..CandidateParams::default() }.limits();
-        let s = select_candidates(&refs[..1], &conf, |_| Ok("字".repeat(100)), &half);
+        let s = select_candidates(&refs[..1], &conf, |_| found("字".repeat(100)), &half);
         assert_eq!(s.estimated_tokens, estimate_tokens("f0F", 1, 4) + 50);
         let short = CandidateParams { max_block_chars: 100, ..CandidateParams::default() }.limits();
-        assert_eq!(select_candidates(&refs[..1], &conf, |_| Ok("字".repeat(101)), &short).skipped_long, 1);
+        assert_eq!(select_candidates(&refs[..1], &conf, |_| found("字".repeat(101)), &short).skipped_long, 1);
     }
 
     #[test]

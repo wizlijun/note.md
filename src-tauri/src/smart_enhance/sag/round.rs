@@ -30,7 +30,7 @@ use super::text::{match_query, quote};
 use super::{SagCandidate, Term, Trace, HOP2_EVIDENCE, HOP2_INCOMING};
 use crate::smart_enhance::candidates::title_of;
 use crate::smart_enhance::CancelFlag;
-use crate::smart_lookup::{current_block, CanonicalHit};
+use crate::smart_lookup::{read_source, sendable_block, CanonicalHit, Dropped};
 
 /// Why the rounds ended (spec H.3.2–H.3.11, H.6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +63,15 @@ pub(crate) struct Skipped {
     pub long: usize,
 }
 
+/// The block ids behind [`Skipped`], for a caller that keeps distinct counts
+/// over several [`ReaderIndex`]es (a lookup run's rounds).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SkippedIds {
+    pub confidential: BTreeSet<i64>,
+    pub stale: BTreeSet<i64>,
+    pub long: BTreeSet<i64>,
+}
+
 /// The index as the round state machine sees it. `Sync` so the step future
 /// is `Send` and the per-term queries can run on scoped threads (P8).
 pub(crate) trait SagIndex: Sync {
@@ -93,6 +102,10 @@ pub(crate) trait SagIndex: Sync {
 /// and the `state` string and keeps the books. A round the scorer will not
 /// send (`Budget`, `EvidenceTooLarge`) comes back as `RoundError::Stop`.
 pub(crate) trait Scorer {
+    /// Told the round's pool length and candidate count before `score` (or a
+    /// cancel) runs, so a round that is not scored can still report them.
+    fn built(&mut self, _pool_size: usize, _candidates: usize) {}
+
     fn score(
         &mut self,
         pool: Vec<SagCandidate>,
@@ -300,6 +313,7 @@ impl EvidenceState {
         let state = encode_state(&self.query, &evidence, extras);
         let pool: Vec<SagCandidate> = pool.into_values().collect();
         let pool_size = pool.len();
+        scorer.built(pool_size, candidates.len());
         let scored = tokio::select! {
             biased;
             _ = cancel.cancelled() => return Ok(StepOutcome::Failed(RoundError::Cancelled)),
@@ -428,6 +442,15 @@ impl ReaderIndex {
         }
     }
 
+    /// The ids of the blocks dropped so far, per reason.
+    pub(crate) fn skipped_ids(&self) -> SkippedIds {
+        SkippedIds {
+            confidential: lock(&self.confidential).clone(),
+            stale: lock(&self.stale).clone(),
+            long: lock(&self.long).clone(),
+        }
+    }
+
     /// The alias table from the index's titles and wiki targets plus the
     /// frontmatter `aliases` of the markdown files (spec H.3.1). A title that
     /// is missing or empty falls back to the file name without its extension.
@@ -470,10 +493,11 @@ impl SagIndex for ReaderIndex {
     }
 
     /// `SagReader::candidate_query`, then the H.3.3 source check in order:
-    /// the file is `unknown` or `explicitly_public` (read in one batch; a
-    /// failed read fails the call), `current_block` still reads the indexed
-    /// text, and the text is at most `max_block_chars` characters. Dropped
-    /// rows keep their row number out of `order`.
+    /// `sendable_block` (the index says `unknown` or `explicitly_public`,
+    /// read in one batch, a failed read failing the call; the file still
+    /// holds the indexed text; its current frontmatter is not confidential
+    /// either), then the text is at most `max_block_chars` characters.
+    /// Dropped rows keep their row number out of `order`.
     fn candidates(
         &self,
         expression: &str,
@@ -495,10 +519,6 @@ impl SagIndex for ReaderIndex {
         let confidentiality = self.reader.confidentiality_for_paths(&paths.into_iter().collect::<Vec<_>>())?;
         let mut out = Vec::with_capacity(rows.len());
         for (order, row) in rows.into_iter().enumerate() {
-            if !matches!(confidentiality.get(&row.path).map(String::as_str), Some("unknown" | "explicitly_public")) {
-                lock(&self.confidential).insert(row.id);
-                continue;
-            }
             let hit = CanonicalHit {
                 result_id: String::new(),
                 path: row.path.clone(),
@@ -509,9 +529,16 @@ impl SagIndex for ReaderIndex {
                 breadcrumb: row.breadcrumb.clone(),
                 pinned: false,
             };
-            if current_block(&self.root, &hit).is_err() {
-                lock(&self.stale).insert(row.id);
-                continue;
+            match sendable_block(confidentiality.get(&row.path).map(String::as_str), || read_source(&self.root, &hit)) {
+                Ok(_) => {}
+                Err(Dropped::Confidential) => {
+                    lock(&self.confidential).insert(row.id);
+                    continue;
+                }
+                Err(Dropped::Stale) => {
+                    lock(&self.stale).insert(row.id);
+                    continue;
+                }
             }
             if row.text.chars().count() > self.max_block_chars {
                 lock(&self.long).insert(row.id);
@@ -1214,6 +1241,24 @@ mod tests {
         let position = rows.iter().position(|r| r.path == "c.md").unwrap();
         assert_eq!(got[0].order, position);
         assert!(position > 0, "c.md must come after a dropped row: {rows:?}");
+    }
+
+    /// Ruling (final review): a file marked confidential on disk is dropped
+    /// before the index has caught up, and counted as confidential.
+    #[test]
+    fn a_file_marked_confidential_on_disk_but_not_reindexed_is_dropped() {
+        let v = vault(&[
+            ("m.md".into(), "---\nprivate: false\n---\nalpha marked later\n".into()),
+            ("p.md".into(), "---\nconfidentiality: explicitly_public\n---\nalpha public\n".into()),
+        ]);
+        // Same lines, so the indexed text still matches; only the marker changed.
+        std::fs::write(v.root.join("m.md"), "---\nprivate: true\n---\nalpha marked later\n").unwrap();
+        std::fs::write(v.root.join("p.md"), "---\nconfidentiality: confidential\n---\nalpha public\n").unwrap();
+        let index = v.index();
+        assert!(index.candidates("\"alpha\"", None, &[], 10).unwrap().is_empty());
+        assert_eq!(index.skipped(), Skipped { confidential: 2, stale: 0, long: 0 });
+        let unchanged = vault(&[("m.md".into(), "---\nprivate: false\n---\nalpha marked later\n".into())]);
+        assert_eq!(unchanged.index().candidates("\"alpha\"", None, &[], 10).unwrap().len(), 1);
     }
 
     /// Review M1: `Skipped` counts distinct blocks, so a block returned by

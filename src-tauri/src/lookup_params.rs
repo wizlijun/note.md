@@ -621,6 +621,50 @@ mod tests {
     use std::path::Path;
     use std::time::Duration;
 
+    /// The Settings copy under the Jev consent (`settings.enhance.budget`)
+    /// states the default sending figures (final review I1): rounds per
+    /// Return, passages per round (the protected, carried and new ones of a
+    /// later round), the token ceiling and the round time limit.
+    #[test]
+    fn the_settings_budget_copy_states_the_default_figures() {
+        let p = LookupParams::default();
+        let r = &p.retrieval;
+        let rounds = 1 + r.max_hops;
+        let per_round = r.protected_k + r.seed_k + r.candidate_k;
+        let expanded = r.protected_k + r.seed_k + r.deep_candidate_k;
+        assert!(r.candidate_k <= per_round, "round 0 sends at most candidateK");
+        let seconds = r.round_timeout_ms / 1000;
+        let tokens = p.budget.max_tokens_per_lookup;
+        let grouped = |sep: char| {
+            let digits = tokens.to_string();
+            let mut out = String::new();
+            for (i, c) in digits.chars().enumerate() {
+                if i > 0 && (digits.len() - i) % 3 == 0 {
+                    out.push(sep);
+                }
+                out.push(c);
+            }
+            out
+        };
+        let line = |source: &str| -> String {
+            let key = "\"settings.enhance.budget\": ";
+            let at = source.find(key).expect("settings.enhance.budget") + key.len();
+            source[at..source[at..].find('\n').unwrap() + at].to_string()
+        };
+        let cases = [
+            (include_str!("../../src/lib/i18n/en.ts"), vec![format!("up to {rounds} rounds"), format!("up to {per_round} passages per round"), format!("({expanded} when"), grouped(','), format!("{seconds} seconds per round")]),
+            (include_str!("../../src/lib/i18n/zh.ts"), vec![format!("至多 {rounds} 轮"), format!("至多 {per_round} 段"), format!("{expanded} 段"), grouped(','), format!("每轮 {seconds} 秒")]),
+            (include_str!("../../src/lib/i18n/de.ts"), vec![format!("bis zu {rounds} Runden"), format!("bis zu {per_round} Absätze"), format!("({expanded} bei"), grouped('.'), format!("{seconds} Sekunden pro Runde")]),
+            (include_str!("../../src/lib/i18n/ja.ts"), vec![format!("最大 {rounds} ラウンド"), format!("最大 {per_round} 段落"), format!("{expanded} 段落"), grouped(','), format!("{seconds} 秒以内")]),
+        ];
+        for (source, wanted) in cases {
+            let copy = line(source);
+            for want in wanted {
+                assert!(copy.contains(&want), "{want:?} missing from {copy}");
+            }
+        }
+    }
+
     #[test]
     fn defaults_equal_the_constants_they_replace() {
         let p = LookupParams::default();

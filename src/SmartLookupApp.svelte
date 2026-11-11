@@ -55,8 +55,7 @@
     type LookupAttempt,
   } from './lib/smart-search/enhance-flow'
   import {
-    absolutePath,
-    addTotals,
+    answerErrorKey,
     answerParts,
     applyPending,
     applyRound,
@@ -68,6 +67,7 @@
     roundLabel,
     shouldStartEvidence,
     startOffered,
+    totalsOf,
     type EvidenceRound,
     type EvidenceTotals,
     type EvidenceView,
@@ -106,6 +106,7 @@
     header: HeaderState
     evidence: EvidenceView
     totals: EvidenceTotals
+    nextHop: number
     evidenceRunId: string
     evidenceDeep: boolean
     localTiers: Map<string, Tier>
@@ -171,8 +172,10 @@
   let localTiers = $state<Map<string, Tier>>(new Map())
   /** 「查找证据」: the evidence did not start on its own (route, slot) or was stopped. */
   let offerStart = $state(false)
-  /** What this run sent and left out, for the details popover (F.3 without the reorder lines). */
+  /** What this run sent and left out, for the details popover (F.3 without the reorder lines): the host's run totals from its latest result. */
   let totals = $state<EvidenceTotals>(emptyTotals())
+  /** The hop the host attempts next on this run (the host owns the counter; review M8). */
+  let hostNextHop = 0
   let detailsOpen = $state(false)
   let feedbackSaved = $state<Record<string, 'fit' | 'unfit'>>({})
   /**
@@ -184,6 +187,8 @@
   let answerBusy = $state(false)
   /** A host error (nothing was sent, or the run expired), redacted. */
   let answerError = $state('')
+  /** The user stopped the answer; a late reply is dropped. */
+  let answerStopped = $state(false)
   let now = $state(Date.now())
   /** Arrow keys, a click on a row, scrolling the list or opening a result since this Enter. */
   let interacted = false
@@ -234,7 +239,10 @@
   let activeHit = $derived<Row | null>(rows.find((hit) => rowKey(hit) === activeKey) ?? rows[0] ?? null)
   let noticeKey = $derived(evidenceNotice(evidence))
   let expansionRounds = $derived(evidence.rounds.filter((round) => round.hop > 0 && round.terms.length > 0))
-  let showEvidence = $derived(mode === 'lookup' && (evidenceRound !== null || evidence.rounds.length > 0 || noticeKey !== null))
+  /** The head (and its details) shows whenever anything was sent on the run, also after a stop or a failed round 0. */
+  let showEvidence = $derived(mode === 'lookup' && (
+    evidenceRound !== null || evidence.rounds.length > 0 || noticeKey !== null || evidence.unfound !== null || totals.requests > 0
+  ))
   let progressText = $derived(evidenceRound ? progressLine(evidenceRound, now) : '')
   let struckTerms = $derived((diagnosis?.terms ?? []).filter((term) => term.hits === 0).map((term) => term.term))
   let canExpand = $derived(Boolean(lookupRunId) && (store.hits.length === 0 || store.deepAvailable))
@@ -260,7 +268,11 @@
       && evidence.shown.length > 0 && showsLatestRound(evidence),
   )
   let answerNote = $derived.by(() => {
-    if (answerError) return t('smartSearch.answer.failed', { error: answerError })
+    if (answerStopped) return t('smartSearch.answer.stopped')
+    if (answerError) {
+      const key = answerErrorKey(answerError)
+      return key ? t(key) : t('smartSearch.answer.failed', { error: answerError })
+    }
     const message = answer ? answerMessage(answer) : null
     return message ? t(message.key, message.params) : ''
   })
@@ -369,6 +381,7 @@
     localTiers = new Map()
     offerStart = false
     totals = emptyTotals()
+    hostNextHop = 0
     detailsOpen = false
     feedbackSaved = {}
     clearAnswer()
@@ -380,6 +393,7 @@
     answer = null
     answerBusy = false
     answerError = ''
+    answerStopped = false
   }
 
   function resetRepair(): void {
@@ -509,14 +523,13 @@
   }
 
   /**
-   * An evidence item as a row: local vault text only. The host sends the
-   * vault path; the absolute one comes from the run's local hits, and an
-   * empty one makes opening report a stale target.
+   * An evidence item as a row: local vault text only. The host computes the
+   * absolute path from the run's vault root, as for local hits.
    */
   function evidenceRow(item: EvidenceItem): Row {
     return {
       path: item.path,
-      absPath: absolutePath(item.path, store.hits) ?? '',
+      absPath: item.absPath,
       line: item.line,
       lineEnd: item.lineEnd,
       text: item.text,
@@ -763,6 +776,7 @@
       evidence = emptyEvidence()
       localTiers = new Map()
       totals = emptyTotals()
+      hostNextHop = 0
       feedbackSaved = {}
       evidenceRunId = runId
     }
@@ -773,7 +787,7 @@
     clearAnswer()
     const deep = evidenceDeep
     for (;;) {
-      evidenceRound = { hop: nextHop(evidence), startedAt: Date.now() }
+      evidenceRound = { hop: hostNextHop, startedAt: Date.now() }
       let result: EvidenceStepResult
       try {
         result = await smartSearchApi.evidenceStep(runId, jevRequestConfig(settings.smartLookup), trigger, deep)
@@ -785,6 +799,14 @@
         appendActivity('judge', 'error', `evidence failed: ${redactError(error)}`)
         return
       }
+      // What the host sent is the run's, whether or not this result is still wanted: after
+      // 「停止」 the round that was already out is counted (final review I2). A roundRunning
+      // answer predates the round that holds the run, so it says nothing new.
+      if (mine === requestSequence && evidenceRunId === runId && result.skipReason !== 'roundRunning'
+        && result.run.elapsedMs >= totals.elapsedMs) {
+        totals = totalsOf(result)
+        hostNextHop = result.nextHop
+      }
       if (inflight?.token !== token || mine !== requestSequence) return
       // The previous round still holds the run (a restart right after a stop): nothing was
       // sent or applied; the start stays offered.
@@ -794,7 +816,6 @@
       }
       modelRequests = { ...modelRequests, judge: modelRequests.judge + result.requestCount }
       appendActivity('judge', activityLevel(result.status), evidenceLog(result), { usage: result.usage })
-      totals = addTotals(totals, result)
       evidence = applyRound(evidence, result, interacted)
       if (result.status === 'ok') localTiers = new Map(result.localTiers.map((verdict) => [verdict.resultId, verdict.tier]))
       header = headerFromStep(result)
@@ -816,13 +837,16 @@
     if (!showAnswer || answerBusy || !runId) return
     const mine = requestSequence
     const token = ++enhanceToken
+    // The list on screen, in its order: the host answers from these only (review M1).
+    const shownIds = evidence.shown.map((item) => item.evidenceId)
     inflight = { runId, kind: 'answer', token }
     answer = null
     answerError = ''
+    answerStopped = false
     answerBusy = true
     let result: AnswerResult
     try {
-      result = await smartSearchApi.answer(runId, chatAnswerConfig(settings.smartLookup))
+      result = await smartSearchApi.answer(runId, chatAnswerConfig(settings.smartLookup), shownIds)
     } catch (error) {
       if (inflight?.token !== token || mine !== requestSequence) return
       inflight = null
@@ -839,6 +863,14 @@
     appendActivity('answer', result.status === 'ok' || result.status === 'skipped' ? 'success' : 'warning', answerLog(result), { usage: result.usage })
   }
 
+  /** 「停止」 while answering (or Esc): cancels the run's request; a late answer is dropped. */
+  function stopAnswer(): void {
+    if (!answerBusy || inflight?.kind !== 'answer') return
+    stopEnhanceRequest()
+    answerStopped = true
+    appendActivity('answer', 'warning', 'answer cancelled')
+  }
+
   /** Status and counts only: never the answer, never the host, never note text. */
   function answerLog(result: AnswerResult): string {
     const code = result.statusClass ? ` ${result.statusClass}` : ''
@@ -853,11 +885,6 @@
     markInteracted()
     activeKey = rowKey(target)
     await refocusActive()
-  }
-
-  function nextHop(view: EvidenceView): number {
-    const last = view.rounds.at(-1)
-    return last ? last.hop + 1 : 0
   }
 
   function activityLevel(status: EnhanceStatus): WorkflowLevel {
@@ -1019,6 +1046,7 @@
     header = view.header
     evidence = view.evidence
     totals = view.totals
+    hostNextHop = view.nextHop
     evidenceRunId = view.evidenceRunId
     evidenceDeep = view.evidenceDeep
     localTiers = view.localTiers
@@ -1086,7 +1114,7 @@
       if (mine !== requestSequence) return
       if (!repaired && lastLocal) {
         originalView = {
-          ...lastLocal, header, evidence, totals, evidenceRunId, evidenceDeep, localTiers, offerStart: offerStart || stoppedRound,
+          ...lastLocal, header, evidence, totals, nextHop: hostNextHop, evidenceRunId, evidenceDeep, localTiers, offerStart: offerStart || stoppedRound,
         }
       }
       resetEvidence()
@@ -1307,11 +1335,15 @@
     }
   }
 
-  /** Esc: close a popover, else stop the evidence run (the window stays), else hide the window. */
+  /** Esc: close a popover, else stop the evidence run or the answer (the window stays), else hide the window. */
   function escape(): void {
     if (closePopovers()) return
     if (evidenceRound) {
       stopEvidence()
+      return
+    }
+    if (answerBusy) {
+      stopAnswer()
       return
     }
     void hideWindow()
@@ -1353,14 +1385,10 @@
     cancelPreview()
     closeMenu(false)
     closePopovers()
+    // Esc stops an evidence round or an answer before it gets here, so only a lookup or a repair can still run.
     if (lookupBusy || store.loading || inflight) {
-      const stopped = inflight
       supersede()
       store.cancel()
-      if (stopped?.kind === 'evidence') {
-        header = cancelledHeader()
-        offerStart = true
-      }
       appendActivity('search', 'warning', t('smartSearch.stopped'))
     }
     try { await invoke('hide_smart_search_window') } catch { /* Browser preview. */ }
@@ -1684,6 +1712,12 @@
                         {t('smartSearch.evidence.terms', { terms: round.terms.map((term) => term.label).join(', ') })}
                       </p>
                     {/each}
+                    {#if evidence.unfound}
+                      <p class="evidence-terms evidence-unfound">
+                        <span class="result-badge round">{t(roundLabel(evidence.unfound.hop))}</span>
+                        {t('smartSearch.evidence.termsNothingNew', { terms: evidence.unfound.terms.map((term) => term.label).join(', ') })}
+                      </p>
+                    {/if}
                     {#if !evidenceRound && evidence.rounds.length > 1}
                       <div class="evidence-restore">
                         {#each evidence.rounds as round (round.hop)}
@@ -1696,12 +1730,13 @@
                       </div>
                     {/if}
                   </div>
-                  {#if showAnswer || answerBusy || answer || answerError}
+                  {#if showAnswer || answerBusy || answer || answerError || answerStopped}
                     <div class="evidence-answer">
                       {#if answerBusy}
                         <div class="evidence-status">
                           <span class="spinner" aria-hidden="true"></span>
                           <span class="judge-text" aria-live="polite">{t('smartSearch.answer.answering')}</span>
+                          <button class="text-button answer-stop" onclick={stopAnswer}>{t('smartSearch.enhance.stop')}</button>
                         </div>
                       {:else if showAnswer}
                         <div class="evidence-status">

@@ -1721,7 +1721,6 @@ pub fn run() {
                 smart_enhance::keys::smart_lookup_key_status,
                 smart_enhance::keys::smart_lookup_test_jev,
                 smart_enhance::smart_lookup_cancel,
-                smart_enhance::judge::smart_lookup_judge,
                 smart_enhance::evidence::smart_lookup_evidence_step,
                 smart_enhance::answer::smart_lookup_answer,
                 smart_enhance::feedback::smart_lookup_feedback,
