@@ -44,6 +44,7 @@ const PLUGIN_CATEGORIES = new Set([
 ])
 const LEGACY_PLUGIN_CATEGORIES = new Map([
   ['inspiration', 'create'],
+  ['other', 'experience'],
   ['agents', 'ai'],
   ['capture', 'record'],
   ['capture-import', 'record'],
@@ -55,7 +56,9 @@ const LEGACY_PLUGIN_CATEGORIES = new Map([
 ])
 const OFFICIAL_PLUGIN_CATEGORIES = new Map([
   ['notemd.pos-log', 'record'],
-  ['notemd.roam-import', 'import-export'],
+  ['notemd.roam-import', 'record'],
+  ['notemd.apple-notes', 'record'],
+  ['notemd.health-sync', 'record'],
   ['notemd.ebook-import', 'reading'],
   ['notemd.typst-reader', 'reading'],
   ['notemd.trace-source', 'reading'],
@@ -78,7 +81,7 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
  * The primary marketplace category reuses the first menu contribution's
  * one-level submenu key. The same manifest field drives the native Plugins
  * menu, so membership cannot drift between surfaces. Unknown/missing values
- * remain visible under Other.
+ * remain visible under Extensions.
  */
 export function pluginCategoryFromManifest(manifest) {
   const official = OFFICIAL_PLUGIN_CATEGORIES.get(manifest?.id)
@@ -88,7 +91,7 @@ export function pluginCategoryFromManifest(manifest) {
     ? menus.find((menu) => typeof menu?.submenu === 'string')?.submenu
     : null
   if (PLUGIN_CATEGORIES.has(raw)) return raw
-  return LEGACY_PLUGIN_CATEGORIES.get(raw) ?? 'other'
+  return LEGACY_PLUGIN_CATEGORIES.get(raw) ?? 'experience'
 }
 
 /**

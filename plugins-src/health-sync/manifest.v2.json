@@ -32,7 +32,7 @@
     "menus": [
       {
         "location": "plugins",
-        "submenu": "import-export",
+        "submenu": "record",
         "label": "Import health data…",
         "command": "open"
       }

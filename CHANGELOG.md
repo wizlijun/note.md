@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- Unify plugin groups as AI, Capture, Read, Write, Advance, Review, Import & Export, and Extensions. Apple Notes, Roam Research and Health Sync belong to Capture; old Other entries join Extensions. Host menu changes require a new host release.
+
 - Merge Ideas into Create in native menus, including older installed manifests and caches. The plugin website and packages Sumi Write 0.1.15 / Idea Spark 1.3.9 were published on 2026-11-11; native menu changes still require a host update.
 
 - **Smart Lookup is rebuilt local-first, with one optional model judgement.** Return shows local results immediately; typing never calls a model. With enhancement on, each Return sends at most one request: Jev judges the top 10 results and reorders them in place, marking each “Fits” or “Possibly unrelated”. Nothing is removed, and everything falls back to the local results if the request fails or is not configured. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “Create answer” and “In-depth research” are removed from Smart Lookup.
