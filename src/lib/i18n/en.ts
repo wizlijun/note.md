@@ -303,7 +303,6 @@ export const en = {
   'pluginCategory.ai': 'AI',
   'pluginCategory.record': 'Capture',
   'pluginCategory.reading': 'Read',
-  'pluginCategory.inspiration': 'Ideas',
   'pluginCategory.advance': 'Move Forward',
   'pluginCategory.reflect': 'Reflect',
   'pluginCategory.create': 'Create',

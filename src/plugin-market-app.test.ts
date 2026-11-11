@@ -67,7 +67,6 @@ vi.mock('./lib/i18n/store.svelte', () => {
     'pluginCategory.record': 'Capture',
     'pluginCategory.ai': 'AI',
     'pluginCategory.reading': 'Read',
-    'pluginCategory.inspiration': 'Ideas',
     'pluginCategory.advance': 'Move Forward',
     'pluginCategory.reflect': 'Reflect',
     'pluginCategory.create': 'Create',
@@ -226,8 +225,8 @@ describe('plugin market staged loading', () => {
     expect(document.querySelector('.update-card .update-action')?.textContent).toContain('1.1.0')
     expect(document.querySelectorAll('.category-block[data-category="advance"]')).toHaveLength(1)
     expect(document.querySelectorAll('.category-block[data-category="advance"] .plugin-card')).toHaveLength(1)
-    expect(document.querySelectorAll('.category-block[data-category="inspiration"]')).toHaveLength(1)
-    expect(document.querySelectorAll('.category-block[data-category="inspiration"] .plugin-card')).toHaveLength(1)
+    expect(document.querySelectorAll('.category-block[data-category="create"]')).toHaveLength(1)
+    expect(document.querySelectorAll('.category-block[data-category="create"] .plugin-card')).toHaveLength(1)
   })
 
   it('keeps authoritative installed plugins visible when the registry fails', async () => {

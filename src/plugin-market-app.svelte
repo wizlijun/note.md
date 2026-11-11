@@ -453,7 +453,6 @@
       ai: '✦',
       record: '+',
       reading: '◫',
-      inspiration: '◇',
       advance: '→',
       reflect: '↺',
       create: '✦',
@@ -823,7 +822,6 @@
   .category-block[data-category='ai'] { --accent: #7758ff; }
   .category-block[data-category='record'] { --accent: #ec5d74; }
   .category-block[data-category='reading'] { --accent: #f09a3e; }
-  .category-block[data-category='inspiration'] { --accent: #9b5de5; }
   .category-block[data-category='advance'] { --accent: #3479db; }
   .category-block[data-category='reflect'] { --accent: #159c92; }
   .category-block[data-category='create'] { --accent: #635bff; }

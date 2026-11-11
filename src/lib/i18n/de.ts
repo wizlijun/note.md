@@ -296,7 +296,6 @@ export const de: Record<keyof Messages, string> = {
   'pluginCategory.ai': 'AI',
   'pluginCategory.record': 'Festhalten',
   'pluginCategory.reading': 'Lesen',
-  'pluginCategory.inspiration': 'Ideen',
   'pluginCategory.advance': 'Vorankommen',
   'pluginCategory.reflect': 'Rückblick',
   'pluginCategory.create': 'Gestalten',

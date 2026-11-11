@@ -10,7 +10,7 @@ import {
 describe('plugin capability categories', () => {
   it('uses the documented top-level category order', () => {
     expect(PLUGIN_CATEGORY_ORDER).toEqual([
-      'ai', 'record', 'reading', 'inspiration', 'advance', 'reflect', 'create', 'import-export', 'experience', 'other',
+      'ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience', 'other',
     ])
   })
 
@@ -24,9 +24,14 @@ describe('plugin capability categories', () => {
     ]
     const groups = groupPluginsByCategory(rows)
     expect(groups.map((group) => group.key)).toEqual([
-      'record', 'reading', 'advance', 'create',
+      'record', 'reading', 'create', 'advance',
     ])
-    expect(groups[2].items.map((row) => row.id)).toEqual(['third.agent-b', 'third.agent-a'])
+    expect(groups[3].items.map((row) => row.id)).toEqual(['third.agent-b', 'third.agent-a'])
+  })
+
+  it('merges legacy inspiration, existing creation and cached Sumi into one group', () => {
+    const rows = [{ id: 'third', category: 'inspiration' }, { id: 'notemd.sumi', category: 'experience' }, { id: 'notemd.idea-spark', category: 'capture' }, { id: 'writer', category: 'create' }]
+    expect(groupPluginsByCategory(rows)).toEqual([{ key: 'create', items: rows }])
   })
 
   it('sends unknown and missing categories to Other', () => {
@@ -46,6 +51,8 @@ describe('plugin capability categories', () => {
   })
 
   it('maps previous category keys to their closest current category', () => {
+    expect(normalizePluginCategory('inspiration')).toBe('create')
+    expect(normalizePluginCategory('experience', 'notemd.sumi')).toBe('create')
     expect(normalizePluginCategory('agents')).toBe('ai')
     expect(normalizePluginCategory('capture')).toBe('record')
     expect(normalizePluginCategory('thinking-review')).toBe('reflect')
@@ -59,7 +66,7 @@ describe('plugin capability categories', () => {
     expect(normalizePluginCategory('advance', 'notemd.deepseek-agent')).toBe('ai')
     expect(normalizePluginCategory('editing', 'notemd.conversation-dictionary')).toBe('ai')
     expect(normalizePluginCategory('reflect', 'notemd.memory')).toBe('ai')
-    expect(normalizePluginCategory('capture', 'notemd.idea-spark')).toBe('inspiration')
+    expect(normalizePluginCategory('capture', 'notemd.idea-spark')).toBe('create')
     expect(normalizePluginCategory('capture', 'notemd.trace-source')).toBe('reading')
     expect(normalizePluginCategory('thinking', 'notemd.next')).toBe('advance')
     expect(normalizePluginCategory('thinking', 'notemd.weekly-review')).toBe('reflect')

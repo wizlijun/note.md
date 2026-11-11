@@ -4,10 +4,9 @@ export const PLUGIN_CATEGORY_ORDER = [
   'ai',
   'record',
   'reading',
-  'inspiration',
+  'create',
   'advance',
   'reflect',
-  'create',
   'import-export',
   'experience',
   'other',
@@ -17,6 +16,7 @@ export type PluginCategory = typeof PLUGIN_CATEGORY_ORDER[number]
 
 const KNOWN_CATEGORIES = new Set<string>(PLUGIN_CATEGORY_ORDER)
 const LEGACY_CATEGORIES: Record<string, PluginCategory> = {
+  inspiration: 'create',
   agents: 'ai',
   capture: 'record',
   'capture-import': 'record',
@@ -33,7 +33,8 @@ export const OFFICIAL_PLUGIN_CATEGORIES: Readonly<Record<string, PluginCategory>
   'notemd.roam-import': 'import-export',
   'notemd.ebook-import': 'reading',
   'notemd.trace-source': 'reading',
-  'notemd.idea-spark': 'inspiration',
+  'notemd.idea-spark': 'create',
+  'notemd.sumi': 'create',
   'notemd.next': 'advance',
   'notemd.claude-agent': 'ai',
   'notemd.codex-agent': 'ai',
@@ -87,7 +88,6 @@ export function pluginCategoryLabelKey(category: PluginCategory): keyof Messages
     ai: 'pluginCategory.ai',
     record: 'pluginCategory.record',
     reading: 'pluginCategory.reading',
-    inspiration: 'pluginCategory.inspiration',
     advance: 'pluginCategory.advance',
     reflect: 'pluginCategory.reflect',
     create: 'pluginCategory.create',
