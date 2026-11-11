@@ -64,7 +64,7 @@ struct NetworkRequest { operation:String, page:Option<String>, server:Option<Str
 fn decode<T: serde::de::DeserializeOwned>(value:Value) -> Result<T> {
     serde_json::from_value(value).map_err(|e| format!("invalid service request: {e}"))
 }
-fn version(value:u32) -> Result<()> { if value==VERSION {Ok(())} else {Err("unsupported Sumi service version".into())} }
+fn version(value:u32) -> Result<()> { if value==VERSION {Ok(())} else {Err("unsupported Sumi Write service version".into())} }
 fn private_directory(path:&Path) -> Result<PathBuf> {
     if !path.is_absolute() { return Err("service paths must be absolute".into()); }
     std::fs::create_dir_all(path).map_err(crate::err)?;
@@ -88,13 +88,13 @@ impl NotemdPlugin for Plugin {
     fn initialize(&mut self,_:&Host,params:&InitializeParams) {self.context=Some(params.clone());}
     fn activate(&mut self,_:&Host,_:&ActivateParams)->Result<()> {Ok(())}
     fn execute_command(&mut self,_:&Host,params:&ExecuteCommandParams)->Result<Value> {
-        match params.command.as_str() {"open"|"read-writing"=>Ok(Value::Null),_=>Err("unknown Sumi command".into())}
+        match params.command.as_str() {"open"|"read-writing"=>Ok(Value::Null),_=>Err("unknown Sumi Write command".into())}
     }
     fn deactivate(&mut self,_:&Host) {
         let state=self.state.clone();
         if let Err(_error)=tokio::runtime::Handle::current().block_on(state.shutdown()) {
             // No document bytes or private authentication values in process logs.
-            eprintln!("Sumi shutdown left recoverable work; prior host flush is required");
+            eprintln!("Sumi Write shutdown left recoverable work; prior host flush is required");
         }
     }
     fn on_service_request(&mut self,host:Host,method:String,params:Value)->ServiceFuture {
@@ -205,7 +205,7 @@ impl State {
                     }).await.map_err(crate::err)?
                 } else {self.network_request(session,decode(envelope.payload)?).await}
             }
-            _=>Err("unknown private Sumi service".into()),
+            _=>Err("unknown private Sumi Write service".into()),
         }
     }
     async fn shutdown(&self)->Result<()> {

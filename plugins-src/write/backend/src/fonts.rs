@@ -42,7 +42,7 @@ struct Manifest {
 }
 static MANIFEST: LazyLock<Manifest> = LazyLock::new(|| {
     serde_json::from_str(include_str!("../../resources/sumi/manifest.json"))
-        .expect("trusted Sumi font manifest")
+        .expect("trusted Sumi Write font manifest")
 });
 type Progress = Arc<dyn Fn(u64) + Send + Sync>;
 type FetchFuture = Pin<Box<dyn Future<Output = Result<Vec<u8>>> + Send>>;
@@ -199,7 +199,7 @@ impl Manager {
             .catalog
             .get(alias)
             .cloned()
-            .ok_or_else(|| "Unknown Sumi font family".into())
+            .ok_or_else(|| "Unknown Sumi Write font family".into())
     }
     fn status(&self, alias: &str, assets: &[Asset], phase: &str) -> FontStatus {
         FontStatus {

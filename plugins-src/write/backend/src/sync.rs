@@ -61,7 +61,7 @@ fn endpoint(server: &str, allow_local: bool) -> Result<Url> {
     let mut url = Url::parse(server).map_err(|_| SyncError::Configuration("invalid server URL"))?;
     let local = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
     if url.scheme() != "https" && !(allow_local && local && url.scheme() == "http") {
-        return Err(SyncError::Configuration("Sumi requires HTTPS"));
+        return Err(SyncError::Configuration("Sumi Write requires HTTPS"));
     }
     if !url.username().is_empty()
         || url.password().is_some()

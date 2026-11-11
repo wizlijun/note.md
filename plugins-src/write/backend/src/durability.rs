@@ -506,7 +506,7 @@ impl Worker {
         let lock_path = database.with_extension("sqlite3.owner.lock");
         let owner_lock = std::fs::OpenOptions::new().create(true).truncate(false).read(true).write(true)
             .open(lock_path).map_err(error)?;
-        owner_lock.try_lock_exclusive().map_err(|_| "Sumi workspace already has a writer".to_owned())?;
+        owner_lock.try_lock_exclusive().map_err(|_| "Sumi Write workspace already has a writer".to_owned())?;
         let mut store = Store::open(database).map_err(error)?;
         store.transaction(|tx| {
             catalog::initialize(tx)?;
