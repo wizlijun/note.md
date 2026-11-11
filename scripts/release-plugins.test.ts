@@ -340,7 +340,7 @@ describe('dev-install-plugin.sh codex-agent dispatch', () => {
 
 describe('Human Signature plugin releases', () => {
   it.each([
-    ['idea-spark', '1.3.8'],
+    ['idea-spark', '1.3.9'],
     ['trace-source', '1.2.5'],
   ])('%s publishes the Human Signature release version', (dir, version) => {
     const manifest = JSON.parse(
@@ -480,7 +480,7 @@ describe('Roam Research Sync product identity', () => {
     expect(manifest.id).toBe('notemd.roam-import')
     expect(packageJson.name).toBe('roam-import-plugin')
     expect(packageJson.version).toBe(manifest.version)
-    expect(manifest.version).toBe('1.2.7')
+    expect(manifest.version).toBe('1.2.8')
     expect(manifest.name).toBe('Roam Research Sync')
     expect(manifest.description).toContain('Keep using Roam Research')
     expect(manifest.description).toContain('agents')
