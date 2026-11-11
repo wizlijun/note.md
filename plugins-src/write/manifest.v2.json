@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.sumi",
   "name": "Sumi Write",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-sumi",
