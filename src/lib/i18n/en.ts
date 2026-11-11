@@ -307,7 +307,7 @@ export const en = {
   'pluginCategory.reflect': 'Review',
   'pluginCategory.create': 'Write',
   'pluginCategory.importExport': 'Import & Export',
-  'pluginCategory.experience': 'Extensions',
+  'pluginCategory.experience': 'Other',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'Plugin Market',

@@ -302,7 +302,7 @@ export const ja: Record<keyof Messages, string> = {
   'pluginCategory.reflect': '振り返る',
   'pluginCategory.create': '書く',
   'pluginCategory.importExport': '読み込みと書き出し',
-  'pluginCategory.experience': 'その他の拡張',
+  'pluginCategory.experience': 'その他',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': 'プラグインマーケット',

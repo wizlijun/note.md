@@ -19,8 +19,8 @@ describe('plugin capability categories', () => {
 
   it('labels the eight groups consistently in Chinese and English', () => {
     const keys = PLUGIN_CATEGORY_ORDER.map(pluginCategoryLabelKey)
-    expect(keys.map((key) => zh[key])).toEqual(['AI', '捕捉', '阅读', '写作', '推进', '回顾', '数据导入导出', '其他增强'])
-    expect(keys.map((key) => en[key])).toEqual(['AI', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Extensions'])
+    expect(keys.map((key) => zh[key])).toEqual(['AI', '捕捉', '阅读', '写作', '推进', '回顾', '数据导入导出', '其他'])
+    expect(keys.map((key) => en[key])).toEqual(['AI', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Other'])
   })
 
   it('keeps the fixed capability order and stable input order within a group', () => {
@@ -43,7 +43,7 @@ describe('plugin capability categories', () => {
     expect(groupPluginsByCategory(rows)).toEqual([{ key: 'create', items: rows }])
   })
 
-  it('sends unknown and missing categories to Extensions', () => {
+  it('sends unknown and missing categories to Other', () => {
     expect(normalizePluginCategory('future-category')).toBe('experience')
     expect(normalizePluginCategory(null)).toBe('experience')
     expect(groupPluginsByCategory([
@@ -55,7 +55,7 @@ describe('plugin capability categories', () => {
     ] }])
   })
 
-  it('keeps Extensions last', () => {
+  it('keeps Other last', () => {
     expect(PLUGIN_CATEGORY_ORDER.at(-1)).toBe('experience')
   })
 
