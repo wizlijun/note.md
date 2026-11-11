@@ -991,6 +991,17 @@ describe('SmartLookupApp answer', () => {
     expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
   })
 
+  it('a window that cannot say whether it is shown counts as hidden: nothing is sent', async () => {
+    useLocal()
+    configureBoth()
+    mocks.visible = () => { throw new Error('window.is_visible not allowed') }
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.'))
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
   it('a window hidden between rounds sends no further step', async () => {
     useLocal()
     configureBoth()
@@ -1376,6 +1387,39 @@ describe('SmartLookupApp zero hits', () => {
     expect(calls('smart_lookup_search_groups')).toHaveLength(0)
     expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
     expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
+  it('a rephrase that returns after the window was hidden is dropped: no wordings, no regrouped search', async () => {
+    mocks.local = 'empty'
+    configureBoth()
+    mocks.keys = { jev: true, chat: true }
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const base = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
+      if (command === 'smart_lookup_repair_suggest') {
+        await gate
+        return {
+          status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+          groups: [{ terms: ['HIDDEN_WORDING'], phrases: [] }], requestCount: 1, elapsedMs: 300, usage: null,
+        }
+      }
+      return base(command, args)
+    })
+    mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [1], hitGroups: [[0]] }
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(calls('smart_lookup_repair_suggest')).toHaveLength(1))
+    mocks.visible = false
+    release()
+    await wait(30)
+    mocks.visible = true
+    await mocks.focusChanged?.({ payload: true })
+    await wait(20)
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
+    expect(document.querySelector('.repair-strip')).toBeNull()
+    expect(document.body.textContent).not.toContain('HIDDEN_WORDING')
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
   })
 
   it('when the other wordings find nothing either, scans every file line by line, then lists what ran', async () => {

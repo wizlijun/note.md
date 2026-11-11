@@ -833,13 +833,15 @@
   /**
    * Whether the window is hidden. The global shortcut hides it without
    * telling the page, so the window asks before each step and before the
-   * answer. Without a window (browser preview) it counts as shown.
+   * answer. It fails closed: when the window cannot say (a missing
+   * `core:window:allow-is-visible` permission, no Tauri window), it counts as
+   * hidden and nothing more is sent.
    */
   async function windowHidden(): Promise<boolean> {
     try {
       return !(await appWindow.isVisible())
     } catch {
-      return false
+      return true
     }
   }
 
@@ -994,8 +996,15 @@
       failure = redactError(error)
     }
     if (inflight?.token !== token || mine !== requestSequence) return
+    // Hidden while the rephrase was out: drop its wordings, as a late round or answer is dropped.
+    const hidden = await windowHidden()
+    if (inflight?.token !== token || mine !== requestSequence) return
     inflight = null
     repairBusy = false
+    if (hidden) {
+      appendActivity('repair', 'warning', 'repair dropped (window hidden)')
+      return
+    }
     if (!result) {
       appendActivity('repair', 'error', `repair failed: ${failure}`)
       return
