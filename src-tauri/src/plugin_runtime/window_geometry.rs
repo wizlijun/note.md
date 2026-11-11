@@ -51,6 +51,14 @@ pub(super) fn fit(
     }
 }
 
+/// Preserve the Sumi canvas proportions while using the current logical work area.
+pub(super) fn fit_sumi(width: f64, height: f64, minimum: Option<(f64, f64)>,
+    work: WorkArea, titlebar_height: f64) -> Layout {
+    let scale = (work.width * 0.8 / width)
+        .min((work.height - titlebar_height).max(1.0) * 0.85 / height);
+    fit(width * scale, height * scale, minimum, work, titlebar_height)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,4 +153,25 @@ mod tests {
         assert_eq!((layout.width, layout.height), (1.0, 1.0));
         assert_eq!(layout.minimum, Some((1.0, 1.0)));
     }
+    #[test]
+    fn sumi_scales_proportionally_on_current_logical_monitor() {
+        let small = fit_sumi(960., 720., Some((640., 480.)),
+            WorkArea::from_physical(0, 24, 1440, 876, 1.), 28.);
+        let large = fit_sumi(960., 720., Some((640., 480.)),
+            WorkArea::from_physical(0, 24, 1920, 1176, 1.), 28.);
+        assert!(large.width > small.width && large.height > small.height);
+        assert!((large.width / large.height - 4. / 3.).abs() < 0.001);
+        let retina = fit_sumi(960., 720., Some((640., 480.)),
+            WorkArea::from_physical(0, 48, 2880, 1752, 2.), 28.);
+        assert_eq!(retina, small);
+    }
+    #[test]
+    fn sumi_small_external_work_area_clamps_minimum_and_stays_visible() {
+        let layout = fit_sumi(960., 720., Some((640., 600.)),
+            WorkArea::from_physical(-1600, 80, 1600, 600, 2.), 28.);
+        assert!(layout.x >= -800. && layout.x + layout.width <= 0.);
+        assert!(layout.y >= 40. && layout.y + layout.height + 28. <= 340.);
+        assert!(layout.minimum.unwrap().1 <= layout.height);
+    }
+
 }

@@ -84,6 +84,47 @@ pub fn plugin_window_shown<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
     #[cfg(not(target_os = "linux"))]
     confirm();
 }
+/// Apply the launch preference once, only for a newly created independent Sumi
+/// window. Existing singleton show/focus and editor tabs never enter this path.
+#[cfg(target_os = "macos")]
+pub fn show_created_plugin_window<R: Runtime>(window: &WebviewWindow<R>) -> bool {
+    if !is_plugin_window(window.label()) { return false; }
+    watch_fullscreen_font(window);
+    let ticket = match PLUGIN_WINDOW_VISIBILITY.lock() {
+        Ok(mut state) => state.showing(),
+        Err(_) => return false,
+    };
+    let window = window.clone();
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn(async move {
+        let preference = async {
+            let ws = workspace(&app).await?;
+            current(&app, &ws)?;
+            let enabled = ws.preferences.lock().map_err(err)?.start_fullscreen;
+            Ok::<_, String>(enabled)
+        }.await;
+        if PLUGIN_QUIESCING.load(Ordering::Acquire) { return; }
+        // A failed settings read is not evidence that the user enabled full
+        // screen. Leave the window usable and preserve the stored preference.
+        let fullscreen = preference.unwrap_or_else(|error| {
+            eprintln!("Sumi launch preference unavailable: {error}"); false
+        });
+        let scheduler = window.clone();
+        let _ = scheduler.run_on_main_thread(move || {
+            // A close or a newer explicit show cancels this delayed first-show
+            // request, so slow preference loading cannot reopen a hidden window.
+            if PLUGIN_QUIESCING.load(Ordering::Acquire)
+                || !PLUGIN_WINDOW_VISIBILITY.lock().is_ok_and(|state| state.epoch == ticket) { return; }
+            if window.show().is_err() { return; }
+            let _ = window.unminimize();
+            if fullscreen { let _ = window.set_fullscreen(true); }
+            let _ = window.set_focus();
+            plugin_window_shown(&app, window.label());
+        });
+    });
+    true
+}
+
 static WORKSPACES: LazyLock<tokio::sync::Mutex<HashMap<PathBuf, Arc<Workspace>>>> =
     LazyLock::new(Default::default);
 // Explicit UI changes win over the asynchronously persisted settings file.
@@ -122,8 +163,11 @@ struct Preferences {
     caret_motion: String,
     #[serde(default = "default_focus_typing")]
     focus_typing: bool,
+    #[serde(default = "default_start_fullscreen")]
+    start_fullscreen: bool,
 }
 fn default_focus_typing() -> bool { true }
+fn default_start_fullscreen() -> bool { true }
 fn default_caret_motion() -> String {
     "breathing".into()
 }
@@ -138,6 +182,7 @@ impl Default for Preferences {
             bottom_inset: 0.,
             caret_motion: default_caret_motion(),
             focus_typing: default_focus_typing(),
+            start_fullscreen: default_start_fullscreen(),
         }
     }
 }
@@ -1785,10 +1830,11 @@ async fn load_preferences(durable: &Durability) -> Result<Preferences> {
     let stored = durable.preferences("appearance".into()).await?;
     let missing_caret_motion = stored.as_ref().is_some_and(|value| value.get("caretMotion").is_none());
     let missing_focus_typing = stored.as_ref().is_some_and(|value| value.get("focusTyping").is_none());
+    let missing_start_fullscreen = stored.as_ref().is_some_and(|value| value.get("startFullscreen").is_none());
     let mut preferences: Preferences = stored
         .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
     // Add the new default and migrate only retired fonts, preserving other fields.
-    if preferences.normalize_stored_font() || missing_caret_motion || missing_focus_typing {
+    if preferences.normalize_stored_font() || missing_caret_motion || missing_focus_typing || missing_start_fullscreen {
         durable.set_preferences("appearance".into(), serde_json::to_value(&preferences).map_err(err)?).await?;
     }
     Ok(preferences)
@@ -3887,7 +3933,9 @@ mod tests {
         state.closing();
         assert!(!state.shown(old_show));
         assert!(state.hidden);
+        let pending_startup = state.showing();
         let new_show = state.showing();
+        assert_ne!(state.epoch, pending_startup, "a newer singleton show cancels delayed startup");
         assert!(state.shown(new_show));
         assert!(!state.hidden);
     }
@@ -3955,6 +4003,7 @@ mod tests {
             expected["fontFamily"] = json!(expected_font);
             expected["caretMotion"] = json!("breathing");
             expected["focusTyping"] = json!(true);
+            expected["startFullscreen"] = json!(true);
             assert_eq!(serde_json::to_value(preferences).unwrap(), expected);
             assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
             assert_eq!(serde_json::to_value(load_preferences(&ws.durable).await.unwrap()).unwrap(), expected);
@@ -3971,6 +4020,7 @@ mod tests {
         let mut expected = legacy;
         expected["caretMotion"] = json!("breathing");
         expected["focusTyping"] = json!(true);
+        expected["startFullscreen"] = json!(true);
         assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
         assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
         for invalid in ["blink", "", "Breathing", "STEADY"] {
@@ -3995,6 +4045,27 @@ mod tests {
         assert_eq!(restored.appearance().background, "#000000");
         assert_eq!(serde_json::to_value(load_preferences(&reopened).await.unwrap()).unwrap(), expected);
     }
+    #[tokio::test]
+    async fn startup_fullscreen_defaults_and_preserves_explicit_false_after_reopen() {
+        let (temp, ws, _) = fixture().await;
+        assert!(Preferences::default().start_fullscreen);
+        let mut legacy = serde_json::to_value(Preferences::default()).unwrap();
+        legacy.as_object_mut().unwrap().remove("startFullscreen");
+        ws.durable.set_preferences("appearance".into(), legacy).await.unwrap();
+        assert!(load_preferences(&ws.durable).await.unwrap().start_fullscreen);
+        let stored = ws.durable.preferences("appearance".into()).await.unwrap().unwrap();
+        assert_eq!(stored["startFullscreen"], true);
+        let mut disabled = stored.clone(); disabled["startFullscreen"] = json!(false);
+        disabled["fontSize"] = json!(31.);
+        ws.durable.set_preferences("appearance".into(), disabled.clone()).await.unwrap();
+        assert!(!load_preferences(&ws.durable).await.unwrap().start_fullscreen);
+        let root = ws.root.clone(); drop(ws);
+        let durable = Durability::open(root, temp.path().join("sumi.sqlite3"), |_| {}).await.unwrap();
+        let reopened = load_preferences(&durable).await.unwrap();
+        assert!(!reopened.start_fullscreen);
+        assert_eq!(serde_json::to_value(reopened).unwrap(), disabled);
+    }
+
     #[test]
     fn font_catalog_contains_only_selected_presets() {
         let manifest: Value = serde_json::from_str(include_str!("../../../plugins-src/write/resources/sumi/manifest.json")).unwrap();
@@ -4014,6 +4085,7 @@ mod tests {
         assert!(migrated.focus_typing && migrated.appearance().focus_typing);
         let mut expected = legacy;
         expected["focusTyping"] = json!(true);
+        expected["startFullscreen"] = json!(true);
         assert_eq!(serde_json::to_value(&migrated).unwrap(), expected);
         assert_eq!(ws.durable.preferences("appearance".into()).await.unwrap(), Some(expected.clone()));
         migrated.focus_typing = false;
