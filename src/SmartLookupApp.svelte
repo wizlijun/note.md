@@ -61,6 +61,7 @@
     type EvidenceView,
   } from './lib/smart-search/evidence-flow'
   import {
+    allJudgedUnfit,
     citedSources,
     confirmedSources,
     fallbackLine,
@@ -264,8 +265,15 @@
     ],
     sent: totals.sent,
   }, t('smartSearch.footer.hostSeparator')) : null)
-  /** The try whose hits the evidence rounds checked: they were all unrelated when nothing was found. */
-  let judgedAttempt = $derived<AttemptKind | null>(judgedAnything(evidence) ? (evidenceDeep ? 'scan' : 'original') : null)
+  /**
+   * The try whose hits the evidence rounds checked, when every one of them was judged unfit (final
+   * review I4): hits the host never judged (confidential, over-long, beyond the candidates) are not "unrelated".
+   */
+  let judgedAttempt = $derived<AttemptKind | null>(judgedAnything(evidence) && allJudgedUnfit(store.hits, tierOf)
+    ? (evidenceDeep ? 'scan' : 'original')
+    : null)
+  /** The no-answer view says 「都不相关」 only when every row behind 「其他结果」 was judged unfit. */
+  let otherAllUnfit = $derived(phase === 'noAnswer' && allJudgedUnfit(otherRows, tierOf))
   let tried = $derived(attempts ? triedSteps(attempts, lastGroups, judgedAttempt, t('smartSearch.footer.hostSeparator')) : [])
   /** ⌘K 「扩大查找」, until the line-by-line scan has run for this question (automatically or from the menu). */
   let canExpand = $derived(Boolean(lookupRunId) && !attempts?.scan && (store.hits.length === 0 || store.deepAvailable))
@@ -1287,7 +1295,7 @@
   <div
     class="result-row"
     class:active
-    class:dim={phase === 'noAnswer'}
+    class:dim={phase === 'noAnswer' && tierOf(hit) === 'unfit'}
     class:source={hit.sourceId !== undefined}
     role="option"
     aria-selected={active}
@@ -1466,8 +1474,9 @@
                 <NoMatchPanel
                   steps={tried}
                   notice={repairNotice ? t(repairNotice.key, repairNotice.params) : ''}
+                  confidential={totals.skippedConfidential}
                 />
-                {@render otherDisclosure(t('smartSearch.answer.otherUnrelated', { n: otherRows.length }))}
+                {@render otherDisclosure(t(otherAllUnfit ? 'smartSearch.answer.otherUnrelated' : 'smartSearch.answer.other', { n: otherRows.length }))}
               {:else if localRows.length}
                 {#if repaired && attempts}
                   <RepairStrip

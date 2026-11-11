@@ -77,10 +77,12 @@ export interface EvidenceTotals {
   sent: number
   /** The run's time so far; a newer result for the run has at least this. */
   elapsedMs: number
+  /** Distinct passages of confidential notes the host left out unchecked (final review I4). */
+  skippedConfidential: number
 }
 
 export function emptyTotals(): EvidenceTotals {
-  return { host: null, sent: 0, elapsedMs: 0 }
+  return { host: null, sent: 0, elapsedMs: 0, skippedConfidential: 0 }
 }
 
 /**
@@ -90,7 +92,12 @@ export function emptyTotals(): EvidenceTotals {
  * evidence the window drops after a stop.
  */
 export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
-  return { host: result.run.endpointHost, sent: result.run.sentBlocks, elapsedMs: result.run.elapsedMs }
+  return {
+    host: result.run.endpointHost,
+    sent: result.run.sentBlocks,
+    elapsedMs: result.run.elapsedMs,
+    skippedConfidential: result.run.skippedConfidential,
+  }
 }
 
 /**

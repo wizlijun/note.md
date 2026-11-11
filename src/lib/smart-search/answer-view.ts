@@ -52,7 +52,7 @@ export function confirmedSources(view: EvidenceView): NumberedSource[] {
  * Everything behind 「其他结果」, each block (path and line range) once and
  * never one already listed as a source: the evidence first, `fit` before the
  * rest, then the local results. `unfit` rows are left out unless asked for
- * (the no-answer view lists them, all unrelated).
+ * (the no-answer view lists them, next to rows that were never judged).
  */
 export function otherResults<T extends SearchHit>(input: {
   shown: EvidenceItem[]
@@ -71,6 +71,16 @@ export function otherResults<T extends SearchHit>(input: {
   const evidence = ranked.filter((item) => keep(hitKey(item), item.tier))
   const local = input.local.filter((hit) => keep(hitKey(hit), input.localTier(hit)))
   return { evidence, local }
+}
+
+/**
+ * Whether every row was judged `unfit`: only then may the no-answer view call
+ * them 「都不相关」 (final review I4). A row without a tier was never judged
+ * (a confidential, over-long, stale or section-level hit, or one beyond the
+ * candidates), and `unsure` is not unrelated either. An empty list is not.
+ */
+export function allJudgedUnfit<T>(rows: T[], tier: (row: T) => Tier | undefined): boolean {
+  return rows.length > 0 && rows.every((row) => tier(row) === 'unfit')
 }
 
 /**
@@ -203,8 +213,8 @@ export interface TriedStep { kind: AttemptKind; label: ViewMessage; result: View
 
 /**
  * The automatic tries that actually ran, in the order they ran, each with its
- * count. `judged` is the try whose results the evidence rounds checked: its
- * count says they were all unrelated.
+ * count. `judged` is the try whose results the evidence rounds checked and
+ * found all unrelated (`allJudgedUnfit`): its count says so.
  */
 export function triedSteps(
   attempts: { original: LookupAttempt; rephrased: LookupAttempt | null; scan: LookupAttempt | null; order: AttemptKind[] },

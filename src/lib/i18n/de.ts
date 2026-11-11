@@ -990,6 +990,7 @@ export const de: Record<keyof Messages, string> = {
   "smartSearch.answer.triedCount": "{n}",
   "smartSearch.answer.triedUnrelated": "{n} · alle ohne Bezug",
   "smartSearch.answer.noPassage": "Kein Absatz taugt als Beleg, daher wird hier kein Originaltext gezeigt.",
+  "smartSearch.answer.skippedConfidential": "Weitere {n} Absätze aus vertraulichen Notizen wurden nicht geprüft",
   "smartSearch.fallback.notEnabled": "Die Suchverbesserung ist noch nicht eingerichtet; nur lokale Ergebnisse.",
   "smartSearch.fallback.noConsent": "Senden an {host} ist nicht erlaubt; nur lokale Ergebnisse.",
   "smartSearch.fallback.failed": "Belege nicht bestätigt: {host} {reason}. Unten die lokalen Ergebnisse nach Relevanz; erneut Return drücken, um es noch einmal zu versuchen.",

@@ -10,9 +10,15 @@
     steps: TriedStep[]
     /** A rephrase that produced no wording, as one line; empty when none. */
     notice: string
+    /**
+     * Passages of confidential notes the host left out unchecked over the run
+     * (final review I4): a confidential note may hold the answer, so the list
+     * says they were not checked.
+     */
+    confidential: number
   }
 
-  let { steps, notice }: Props = $props()
+  let { steps, notice, confidential }: Props = $props()
 </script>
 
 <div class="no-match">
@@ -21,7 +27,7 @@
     <p class="lead">{t('smartSearch.answer.noAnswer')}</p>
     <p class="hint">{t('smartSearch.answer.noAnswerHint')}</p>
   </section>
-  {#if steps.length || notice}
+  {#if steps.length || notice || confidential > 0}
     <section class="tried" aria-label={t('smartSearch.answer.tried')}>
       <span class="list-label">{t('smartSearch.answer.tried')}</span>
       <ul>
@@ -29,6 +35,7 @@
           <li class="attempt"><span class="attempt-label">{t(step.label.key, step.label.params)}</span><span class="n">{t(step.result.key, step.result.params)}</span></li>
         {/each}
       </ul>
+      {#if confidential > 0}<p class="notice confidential">{t('smartSearch.answer.skippedConfidential', { n: confidential })}</p>{/if}
       {#if notice}<p class="notice">{notice}</p>{/if}
     </section>
   {/if}

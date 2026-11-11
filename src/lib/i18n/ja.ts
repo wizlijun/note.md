@@ -990,6 +990,7 @@ export const ja: Record<keyof Messages, string> = {
   "smartSearch.answer.triedCount": "{n} 件",
   "smartSearch.answer.triedUnrelated": "{n} 件 · すべて無関係",
   "smartSearch.answer.noPassage": "根拠にできる段落がないため、ここには原文を表示しません。",
+  "smartSearch.answer.skippedConfidential": "ほかに機密ノートの {n} 段落は確認していません",
   "smartSearch.fallback.notEnabled": "検索の強化がまだ設定されていないため、ローカルの結果のみ表示します。",
   "smartSearch.fallback.noConsent": "{host} への送信が許可されていないため、ローカルの結果のみ表示します。",
   "smartSearch.fallback.failed": "根拠を確認できませんでした：{host} {reason}。下はこの端末で関連度順に並べた結果です。もう一度 Return を押すと再試行します。",

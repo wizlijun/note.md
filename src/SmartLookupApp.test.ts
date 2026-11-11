@@ -796,8 +796,8 @@ describe('SmartLookupApp answer', () => {
     configureBoth()
     mocks.evidenceQueue.push(step({
       done: true, stop: 'maxHops',
-      evidence: [ev('e1', 0, { tier: 'unfit' }), ev('e2', 0, { tier: 'unsure' })],
-      localTiers: [{ resultId: 'r1', tier: 'unfit' }],
+      evidence: [ev('e1', 0, { tier: 'unfit' })],
+      localTiers: [{ resultId: 'r1', tier: 'unfit' }, { resultId: 'r2', tier: 'unfit' }, { resultId: 'r3', tier: 'unfit' }],
     }))
     const input = await mountReady()
     await submit(input)
@@ -810,13 +810,39 @@ describe('SmartLookupApp answer', () => {
     expect(noMatchPanel()).toContain('Ask again with words you remember from the note; that may find it faster.')
     const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
     expect(tried).toEqual(['Searched the original question on this device3 · all unrelated'])
+    expect(noMatchPanel()).not.toContain('confidential')
     expect(document.querySelectorAll('.no-match button')).toHaveLength(0)
     expect(chip()).toBe('No evidence')
     expect(document.querySelector('.preview-pane')?.textContent).toContain('No passage can serve as evidence')
-    // The unrelated rows wait behind one closed disclosure.
-    click(buttonNamed('5 other results (all unrelated)'))
+    // Every row was judged unfit: they wait, dimmed, behind one closed disclosure that says so.
+    click(buttonNamed('4 other results (all unrelated)'))
+    await vi.waitFor(() => expect(ids('other')).toEqual(['e1', 'r1', 'r2', 'r3']))
+    expect([...document.querySelectorAll('.other-list .result-row')].every((row) => row.classList.contains('dim'))).toBe(true)
+  })
+
+  it('the no-answer view never calls a row it did not judge unrelated, and says how many confidential passages were not checked', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops',
+      evidence: [ev('e1', 0, { tier: 'unfit' }), ev('e2', 0, { tier: 'unsure' })],
+      // r3 was never judged (a confidential note, say): it has no tier.
+      localTiers: [{ resultId: 'r1', tier: 'unfit' }, { resultId: 'r2', tier: 'unfit' }],
+      run: runTotals({ skippedConfidential: 2 }),
+    }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(document.querySelector('.no-match')).not.toBeNull())
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual(['Searched the original question on this device3'])
+    expect(noMatchPanel()).toContain('2 more passage(s) from confidential notes were not checked')
+    expect(document.body.textContent).not.toContain('all unrelated')
+    click(buttonNamed('5 other results'))
     await vi.waitFor(() => expect(ids('other')).toEqual(['e1', 'e2', 'r1', 'r2', 'r3']))
-    expect(document.querySelector('.other-list .result-row')?.classList.contains('dim')).toBe(true)
+    // Only the rows judged unfit are dimmed.
+    const dimmed = [...document.querySelectorAll('.other-list .result-row.dim')]
+      .map((row) => row.getAttribute('data-evidence-id') ?? row.getAttribute('data-result-id'))
+    expect(dimmed).toEqual(['e1', 'r1', 'r2'])
   })
 
   it('⌘K marks the selected row as fitting or unrelated, on this device only', async () => {

@@ -4,6 +4,7 @@ import { en } from '../i18n/en'
 import { zh } from '../i18n/zh'
 import type { AnswerResult, EvidenceItem, EvidenceStepResult, Tier } from './api'
 import {
+  allJudgedUnfit,
   citedSources,
   confirmedSources,
   fallbackLine,
@@ -120,6 +121,22 @@ describe('otherResults', () => {
     const all = otherResults({ shown, sources: [], local: hits, localTier, includeUnfit: true })
     expect(all.evidence.map((i) => i.evidenceId)).toEqual(['bad'])
     expect(all.local).toHaveLength(3)
+  })
+})
+
+describe('allJudgedUnfit', () => {
+  const tiers = new Map<string, Tier>([['r-x', 'unfit'], ['r-y', 'unfit']])
+  const tierOf = (row: EvidenceItem | (SearchHit & { resultId: string })) =>
+    ('evidenceId' in row ? row.tier : tiers.get(row.resultId))
+  it('is true only when every row was judged unfit', () => {
+    expect(allJudgedUnfit([item('a', 'unfit'), local('x'), local('y')], tierOf)).toBe(true)
+  })
+  it('a mixed list is not "all unrelated": an untiered (never judged) or unsure row keeps it plain', () => {
+    // `z` has no tier: confidential, over-long, stale, section-level or beyond the candidates.
+    expect(allJudgedUnfit([item('a', 'unfit'), local('x'), local('z')], tierOf)).toBe(false)
+    expect(allJudgedUnfit([item('a', 'unfit'), item('b', 'unsure'), local('x')], tierOf)).toBe(false)
+    expect(allJudgedUnfit([local('z')], tierOf)).toBe(false)
+    expect(allJudgedUnfit([], tierOf)).toBe(false)
   })
 })
 

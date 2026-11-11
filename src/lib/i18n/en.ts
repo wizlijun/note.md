@@ -1040,6 +1040,7 @@ export const en = {
   "smartSearch.answer.triedCount": "{n}",
   "smartSearch.answer.triedUnrelated": "{n} · all unrelated",
   "smartSearch.answer.noPassage": "No passage can serve as evidence, so no original text is shown here.",
+  "smartSearch.answer.skippedConfidential": "{n} more passage(s) from confidential notes were not checked",
   "smartSearch.fallback.notEnabled": "Lookup enhancement isn't set up yet; showing local results only.",
   "smartSearch.fallback.noConsent": "Sending to {host} is not allowed; showing local results only.",
   "smartSearch.fallback.failed": "Couldn't confirm evidence: {host} {reason}. Below are the local results by relevance; press Return again to retry.",

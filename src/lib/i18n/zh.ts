@@ -1029,6 +1029,7 @@ export const zh: Record<keyof Messages, string> = {
   "smartSearch.answer.triedCount": "{n} 条",
   "smartSearch.answer.triedUnrelated": "{n} 条 · 都不相关",
   "smartSearch.answer.noPassage": "没有可以作为依据的段落，所以这里不显示原文。",
+  "smartSearch.answer.skippedConfidential": "另有 {n} 段保密笔记没有核对",
   "smartSearch.fallback.notEnabled": "查找增强还没设置好，只显示本地结果。",
   "smartSearch.fallback.noConsent": "没有允许发送到 {host}，只显示本地结果。",
   "smartSearch.fallback.failed": "没能确认依据：{host} {reason}。下面是本机按相关度排的结果，再按一次回车会重试。",
