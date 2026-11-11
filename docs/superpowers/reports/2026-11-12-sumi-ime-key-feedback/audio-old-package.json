@@ -1,0 +1,398 @@
+{
+  "passed": true,
+  "version": "6.1111.5",
+  "expected_behavior": "old",
+  "addon_sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+  "addon_source_commit": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+  "source_commit": "fa5f701798e6df6b839164c2aa299879b1640e3d",
+  "private_audio_only": true,
+  "hardware_audio_devices_opened": false,
+  "user_audio_settings_modified": false,
+  "private_pulse_server": "unix:/tmp/sumi-host-zelvwmpa/pulse/native",
+  "private_sinks": [
+    {
+      "index": 49,
+      "state": "SUSPENDED",
+      "name": "sumi_audit",
+      "description": "sumi_audit Audio/Sink sink",
+      "driver": "PipeWire",
+      "sample_specification": "float32le 2ch 48000Hz",
+      "channel_map": "front-left,front-right",
+      "owner_module": 536870916,
+      "mute": false,
+      "volume": {
+        "front-left": {
+          "value": 65536,
+          "value_percent": "100%",
+          "db": "0.00 dB"
+        },
+        "front-right": {
+          "value": 65536,
+          "value_percent": "100%",
+          "db": "0.00 dB"
+        }
+      },
+      "balance": 0.0,
+      "base_volume": {
+        "value": 65536,
+        "value_percent": "100%",
+        "db": "0.00 dB"
+      },
+      "monitor_source": "sumi_audit.monitor",
+      "latency": {
+        "actual": 0.0,
+        "configured": 0.0
+      },
+      "flags": [
+        "HARDWARE",
+        "DECIBEL_VOLUME",
+        "LATENCY"
+      ],
+      "properties": {
+        "node.name": "sumi_audit",
+        "audio.channels": "2",
+        "audio.position": "[ FL, FR ]",
+        "media.class": "Audio/Sink",
+        "device.description": "sumi_audit Audio/Sink sink",
+        "factory.name": "support.null-audio-sink",
+        "monitor.channel-volumes": "true",
+        "monitor.passthrough": "true",
+        "pulse.module.id": "536870916",
+        "factory.id": "19",
+        "clock.quantum-limit": "8192",
+        "client.id": "48",
+        "node.driver": "true",
+        "port.group": "stream.0",
+        "node.loop.name": "data-loop.0",
+        "library.name": "audioconvert/libspa-audioconvert",
+        "object.id": "49",
+        "object.serial": "49"
+      },
+      "ports": [],
+      "active_port": null,
+      "formats": [
+        "pcm"
+      ]
+    }
+  ],
+  "host_pid": 31196,
+  "host_binary_sha256": "b5d25ee759b442f6a52b69f83957377f59d8379c9a1e7d7104a0dc050e1d9cad",
+  "deb_sha256": "227b4e898970e924d3ac11fa2ea5500ee9a972f9eaff0721c8f3f4df314c5d40",
+  "plugin_version": "0.1.12",
+  "plugin_backend_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "plugin_signature_verification": "Signature and comment signature verified\nTrusted comment: timestamp:1794301896\tfile:x86_64-unknown-linux-gnu.notemdpkg\thashed",
+  "stream": {
+    "index": 58,
+    "driver": "PipeWire",
+    "owner_module": null,
+    "client": "57",
+    "sink": 49,
+    "sample_specification": "float32le 1ch 48000Hz",
+    "channel_map": "mono",
+    "format": "pcm, format.sample_format = \"\\\"float32le\\\"\"  format.rate = \"48000\"  format.channels = \"1\"  format.channel_map = \"\\\"mono\\\"\"",
+    "corked": false,
+    "mute": false,
+    "volume": {
+      "mono": {
+        "value": 65536,
+        "value_percent": "100%",
+        "db": "0.00 dB"
+      }
+    },
+    "balance": 0.0,
+    "buffer_latency_usec": 0.0,
+    "sink_latency_usec": 0.0,
+    "resample_method": "PipeWire",
+    "properties": {
+      "client.api": "pipewire-pulse",
+      "pulse.server.type": "unix",
+      "application.name": "Sumi",
+      "application.process.id": "31533",
+      "application.process.user": "bruce",
+      "application.process.host": "brucemarchy",
+      "application.process.binary": "notemd-sumi",
+      "application.language": "C",
+      "application.process.machine_id": "f3aba968c26549ed81cec727769f59e3",
+      "media.name": "Typing feedback",
+      "pulse.corked": "false",
+      "node.rate": "1/48000",
+      "node.latency": "480/48000",
+      "stream.is-live": "true",
+      "node.name": "Sumi",
+      "node.want-driver": "true",
+      "node.autoconnect": "true",
+      "media.class": "Stream/Output/Audio",
+      "port.group": "stream.0",
+      "adapt.follower.spa-node": "",
+      "object.register": "false",
+      "factory.id": "7",
+      "clock.quantum-limit": "8192",
+      "node.loop.name": "data-loop.0",
+      "library.name": "audioconvert/libspa-audioconvert",
+      "client.id": "47",
+      "object.id": "43",
+      "object.serial": "58",
+      "node.driver-id": "49",
+      "pulse.attr.maxlength": "38400",
+      "pulse.attr.tlength": "5760",
+      "pulse.attr.prebuf": "0",
+      "pulse.attr.minreq": "1920",
+      "module-stream-restore.id": "sink-input-by-application-name:Sumi"
+    }
+  },
+  "latin_positive_control_peak": 0.48947450518608093,
+  "baseline_peak": 0.0,
+  "baseline_bytes": 72960,
+  "key_stages": [
+    {
+      "name": "pinyin-n",
+      "key": "n",
+      "from_byte": 130560,
+      "to_byte": 291840,
+      "peak": 0.48947450518608093,
+      "preedit": "n",
+      "document_text": "",
+      "expected_audible": true
+    },
+    {
+      "name": "pinyin-i",
+      "key": "i",
+      "from_byte": 349440,
+      "to_byte": 510720,
+      "peak": 0.48947450518608093,
+      "preedit": "ni",
+      "document_text": "",
+      "expected_audible": true
+    },
+    {
+      "name": "pinyin-h",
+      "key": "h",
+      "from_byte": 572160,
+      "to_byte": 733440,
+      "peak": 0.48947450518608093,
+      "preedit": "ni h",
+      "document_text": "",
+      "expected_audible": true
+    },
+    {
+      "name": "pinyin-a",
+      "key": "a",
+      "from_byte": 791040,
+      "to_byte": 952320,
+      "peak": 0.48947450518608093,
+      "preedit": "ni ha",
+      "document_text": "",
+      "expected_audible": true
+    },
+    {
+      "name": "pinyin-o",
+      "key": "o",
+      "from_byte": 1013760,
+      "to_byte": 1175040,
+      "peak": 0.48947450518608093,
+      "preedit": "ni hao",
+      "document_text": "",
+      "expected_audible": true
+    },
+    {
+      "name": "space-select",
+      "key": "Space",
+      "from_byte": 1305600,
+      "to_byte": 1470720,
+      "peak": 0.0,
+      "preedit": "",
+      "document_text": "\u4f60\u597d",
+      "expected_audible": false
+    },
+    {
+      "name": "chinese-period",
+      "key": ".",
+      "from_byte": 1528320,
+      "to_byte": 1693440,
+      "peak": 0.0,
+      "preedit": "",
+      "document_text": "\u4f60\u597d\u3002",
+      "expected_audible": false
+    },
+    {
+      "name": "chinese-comma",
+      "key": ",",
+      "from_byte": 1751040,
+      "to_byte": 1916160,
+      "peak": 0.0,
+      "preedit": "",
+      "document_text": "\u4f60\u597d\u3002\uff0c",
+      "expected_audible": false
+    },
+    {
+      "name": "return-compose-n",
+      "key": "n",
+      "from_byte": 1973760,
+      "to_byte": 2138880,
+      "peak": 0.48947450518608093,
+      "preedit": "n",
+      "document_text": "\u4f60\u597d\u3002\uff0c",
+      "expected_audible": true
+    },
+    {
+      "name": "return-compose-i",
+      "key": "i",
+      "from_byte": 2196480,
+      "to_byte": 2357760,
+      "peak": 0.48947450518608093,
+      "preedit": "ni",
+      "document_text": "\u4f60\u597d\u3002\uff0c",
+      "expected_audible": true
+    },
+    {
+      "name": "return-confirm",
+      "key": "Return",
+      "from_byte": 2419200,
+      "to_byte": 2580480,
+      "peak": 0.0,
+      "preedit": "",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": false
+    },
+    {
+      "name": "delete-compose-n",
+      "key": "n",
+      "from_byte": 2641920,
+      "to_byte": 2803200,
+      "peak": 0.48947450518608093,
+      "preedit": "n",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "delete-compose-i",
+      "key": "i",
+      "from_byte": 2860800,
+      "to_byte": 3025920,
+      "peak": 0.48947450518608093,
+      "preedit": "ni",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "delete-nonempty",
+      "key": "BackSpace",
+      "from_byte": 3083520,
+      "to_byte": 3248640,
+      "peak": 0.48947450518608093,
+      "preedit": "n",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "delete-to-empty",
+      "key": "BackSpace",
+      "from_byte": 3306240,
+      "to_byte": 3471360,
+      "peak": 0.0,
+      "preedit": "",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": false
+    },
+    {
+      "name": "navigation-compose-n",
+      "key": "n",
+      "from_byte": 3528960,
+      "to_byte": 3694080,
+      "peak": 0.48947450518608093,
+      "preedit": "n",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "navigation-compose-i",
+      "key": "i",
+      "from_byte": 3751680,
+      "to_byte": 3916800,
+      "peak": 0.48947450518608093,
+      "preedit": "ni",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "navigation-compose-h",
+      "key": "h",
+      "from_byte": 3974400,
+      "to_byte": 4135680,
+      "peak": 0.48947450518608093,
+      "preedit": "ni h",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "navigation-compose-a",
+      "key": "a",
+      "from_byte": 4197120,
+      "to_byte": 4358400,
+      "peak": 0.48947450518608093,
+      "preedit": "ni ha",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "navigation-compose-o",
+      "key": "o",
+      "from_byte": 4416000,
+      "to_byte": 4581120,
+      "peak": 0.48947450518608093,
+      "preedit": "ni hao",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": true
+    },
+    {
+      "name": "left-navigation",
+      "key": "Left",
+      "from_byte": 4638720,
+      "to_byte": 4803840,
+      "peak": 0.0,
+      "preedit": "ni hao",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": false
+    },
+    {
+      "name": "right-navigation",
+      "key": "Right",
+      "from_byte": 4861440,
+      "to_byte": 5026560,
+      "peak": 0.0,
+      "preedit": "ni hao",
+      "document_text": "\u4f60\u597d\u3002\uff0cni",
+      "expected_audible": false
+    },
+    {
+      "name": "numeric-selection",
+      "key": "1",
+      "from_byte": 5084160,
+      "to_byte": 5249280,
+      "peak": 0.0,
+      "preedit": "",
+      "document_text": "\u4f60\u597d\u3002\uff0cni\u4f60\u597d",
+      "expected_audible": false
+    },
+    {
+      "name": "latin-positive-control",
+      "key": "x",
+      "from_byte": 5448960,
+      "to_byte": 5610240,
+      "peak": 0.48947450518608093,
+      "preedit": "",
+      "document_text": "\u4f60\u597d\u3002\uff0cni\u4f60\u597dx",
+      "expected_audible": true
+    }
+  ],
+  "committed_text": "\u4f60\u597d\u3002\uff0cni\u4f60\u597dx",
+  "pcm_sha256": "2745ca8eb8ca3a58450b2e856eecdafd3aef23b6b34bc242cca7339f2c4fc25f",
+  "pcm_bytes": 5614080,
+  "im_module": "wayland",
+  "private_fixture_stopped": true,
+  "private_audio_processes_stopped": true,
+  "plugin_backend_exited": true,
+  "typing_bridge_available": false,
+  "keyboard_helper_sha256": "cdebe14077aa8929da85ccac6e6e0970f65b8b1c2c1125d3673731d05edd46d6",
+  "extracted_addon_sha256": "3ca8bfb88a0b84336aeecb4c5777d2238b89fc025f0f36c0a9505c7cecbf8f00"
+}

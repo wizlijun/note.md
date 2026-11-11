@@ -1,0 +1,58 @@
+{
+  "tasks/sumi-ime-keys/red.log": {
+    "sha256": "5861517d7dfe586eb0844d0c00e05be65da61d148c60992b6177473616f44158",
+    "bytes": 1339
+  },
+  "tasks/sumi-ime-keys/unit-frozen.log": {
+    "sha256": "2fef981e2fa8d3466ef6e48cec98d3313266427834ce96b6d7717c9bd9fda00b",
+    "bytes": 4367
+  },
+  "tasks/sumi-ime-keys/frozen-wayland/native-verification-wayland/test.log": {
+    "sha256": "76ab98c7842f48f979f15a1f00b8560eda9a422173791bbfc61495692ece24ee",
+    "bytes": 997
+  },
+  "tasks/sumi-ime-keys/frozen-fcitx/native-verification/test.log": {
+    "sha256": "59ef3efb82b15811163014fc95e944aa87b8369c5db1b9a584327f7898f5642c",
+    "bytes": 1062
+  },
+  "tasks/sumi-ime-keys/final-candidates.log": {
+    "sha256": "ebcbe899b22d52b77af831cebac20135d888f93c07b8e8d135e188141dde2a71",
+    "bytes": 1000
+  },
+  "tasks/sumi-ime-keys/final-legacy.log": {
+    "sha256": "87e9253d5fe5ddf8f2e5f6bd68e1cf497842b7ec2c69c0d89a6325367659cd4e",
+    "bytes": 965
+  },
+  "tasks/sumi-ime-keys-release/ime-verify.log": {
+    "sha256": "3bb3ff7ad6efe72de66be6c8db3f0de4d277dbba366ef4be9ad6492bcb8c72f7",
+    "bytes": 2316
+  },
+  "tasks/sumi-ime-keys-release/build.log": {
+    "sha256": "3098850a06ece0eead36fd5377ce66cbd8d63fc8e0b8017aa37ed1e00b152ea4",
+    "bytes": 124196
+  },
+  "tasks/sumi-ime-keys-release/install.log": {
+    "sha256": "9deade094a5d0200e76659af4692a44f55b164f197aa8ee7ab505bfef54472b3",
+    "bytes": 952
+  },
+  "tasks/sumi-ime-keys-release/public-verify.log": {
+    "sha256": "2236ab716a27b1c42ebfb48b3527121acaa661a4b0855cb794ff101422f3d663",
+    "bytes": 529
+  },
+  "tasks/sumi-ime-keys-release/arch/build.log": {
+    "sha256": "d2122c6142a2ba90ac4f29ada308ff62ba42a0c22204fa4bb03d64ce8611048b",
+    "bytes": 3896
+  },
+  "tasks/sumi-ime-keys-release/gui/verified/run-audio.py": {
+    "sha256": "ebf54a3f548fa3d7afcf943ddc98e8f8c51daa50ac2f73e8fd417a9f1b8db307",
+    "bytes": 11719
+  },
+  "tasks/sumi-ime-keys-release/gui/verified/evidence/own-stream.f32le": {
+    "sha256": "ff8af5351f812363babf378a19b3c402f57f34f5d2a69ea43cd740e522642279",
+    "bytes": 10295040
+  },
+  "tasks/sumi-ime-keys-release/gui/baseline2/evidence/own-stream.f32le": {
+    "sha256": "2745ca8eb8ca3a58450b2e856eecdafd3aef23b6b34bc242cca7339f2c4fc25f",
+    "bytes": 5614080
+  }
+}

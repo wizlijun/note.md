@@ -1,0 +1,8 @@
+{
+  "container": "978d844f9d56",
+  "container_output": "/tmp/tmp.31ULCjw8aq/output/amd64",
+  "source_input": "/tmp/tmp.31ULCjw8aq/input/mdeditor",
+  "core_input": "/tmp/tmp.31ULCjw8aq/input/moraya-core",
+  "commit": "d21010dece28ccfb9b785fe8be1cfa847e2c5989",
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e"
+}

@@ -1,0 +1,367 @@
+{
+  "passed": true,
+  "old_version": "6.1111.5",
+  "new_version": "6.1112.1",
+  "old_host_sha256": "b5d25ee759b442f6a52b69f83957377f59d8379c9a1e7d7104a0dc050e1d9cad",
+  "new_host_sha256": "6630c8b73d30767074c2e43acf72cdab3fed29b7e6757e975768cfce761b426b",
+  "old_addon_sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+  "new_addon_sha256": "54f6b60e4faa82f3abb111b6f79de679ba41252f829bb397a4008b5d4992fd13",
+  "new_mapped_addon_sha256": "a67e71c5dba32fff70294e80b07f150b4d5eadd28fecc1bd2b84baec5ab35173",
+  "same_signed_backend": true,
+  "same_keyboard_helper": true,
+  "new_typing_bridge_available": true,
+  "both_baselines_zero": true,
+  "stages": [
+    {
+      "stage": "pinyin-n",
+      "key": "n",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "",
+      "preedit": "n"
+    },
+    {
+      "stage": "pinyin-i",
+      "key": "i",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "",
+      "preedit": "ni"
+    },
+    {
+      "stage": "pinyin-h",
+      "key": "h",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "",
+      "preedit": "ni h"
+    },
+    {
+      "stage": "pinyin-a",
+      "key": "a",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "",
+      "preedit": "ni ha"
+    },
+    {
+      "stage": "pinyin-o",
+      "key": "o",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "",
+      "preedit": "ni hao"
+    },
+    {
+      "stage": "space-select",
+      "key": "Space",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好",
+      "preedit": ""
+    },
+    {
+      "stage": "chinese-period",
+      "key": ".",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。",
+      "preedit": ""
+    },
+    {
+      "stage": "chinese-comma",
+      "key": ",",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，",
+      "preedit": ""
+    },
+    {
+      "stage": "return-compose-n",
+      "key": "n",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，",
+      "preedit": "n"
+    },
+    {
+      "stage": "return-compose-i",
+      "key": "i",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，",
+      "preedit": "ni"
+    },
+    {
+      "stage": "return-confirm",
+      "key": "Return",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": ""
+    },
+    {
+      "stage": "delete-compose-n",
+      "key": "n",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "n"
+    },
+    {
+      "stage": "delete-compose-i",
+      "key": "i",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni"
+    },
+    {
+      "stage": "delete-nonempty",
+      "key": "BackSpace",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "n"
+    },
+    {
+      "stage": "delete-to-empty",
+      "key": "BackSpace",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": ""
+    },
+    {
+      "stage": "navigation-compose-n",
+      "key": "n",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "n"
+    },
+    {
+      "stage": "navigation-compose-i",
+      "key": "i",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni"
+    },
+    {
+      "stage": "navigation-compose-h",
+      "key": "h",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni h"
+    },
+    {
+      "stage": "navigation-compose-a",
+      "key": "a",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni ha"
+    },
+    {
+      "stage": "navigation-compose-o",
+      "key": "o",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni hao"
+    },
+    {
+      "stage": "left-navigation",
+      "key": "Left",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni hao"
+    },
+    {
+      "stage": "right-navigation",
+      "key": "Right",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni",
+      "preedit": "ni hao"
+    },
+    {
+      "stage": "numeric-selection",
+      "key": "1",
+      "old_peak": 0.0,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni你好",
+      "preedit": ""
+    },
+    {
+      "stage": "latin-positive-control",
+      "key": "x",
+      "old_peak": 0.48947450518608093,
+      "new_peak": 0.48947450518608093,
+      "document_text": "你好。，ni你好x",
+      "preedit": ""
+    }
+  ],
+  "silent_inter_stage_gaps": [
+    {
+      "after": "pinyin-n",
+      "before": "pinyin-i",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-i",
+      "before": "pinyin-h",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-h",
+      "before": "pinyin-a",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-a",
+      "before": "pinyin-o",
+      "bytes": 65280,
+      "peak": 0.0
+    },
+    {
+      "after": "pinyin-o",
+      "before": "space-select",
+      "bytes": 744960,
+      "peak": 0.0
+    },
+    {
+      "after": "space-select",
+      "before": "chinese-period",
+      "bytes": 72960,
+      "peak": 0.0
+    },
+    {
+      "after": "chinese-period",
+      "before": "chinese-comma",
+      "bytes": 72960,
+      "peak": 0.0
+    },
+    {
+      "after": "chinese-comma",
+      "before": "return-compose-n",
+      "bytes": 69120,
+      "peak": 0.0
+    },
+    {
+      "after": "return-compose-n",
+      "before": "return-compose-i",
+      "bytes": 69120,
+      "peak": 0.0
+    },
+    {
+      "after": "return-compose-i",
+      "before": "return-confirm",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "return-confirm",
+      "before": "delete-compose-n",
+      "bytes": 65280,
+      "peak": 0.0
+    },
+    {
+      "after": "delete-compose-n",
+      "before": "delete-compose-i",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "delete-compose-i",
+      "before": "delete-nonempty",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "delete-nonempty",
+      "before": "delete-to-empty",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "delete-to-empty",
+      "before": "navigation-compose-n",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "navigation-compose-n",
+      "before": "navigation-compose-i",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "navigation-compose-i",
+      "before": "navigation-compose-h",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "navigation-compose-h",
+      "before": "navigation-compose-a",
+      "bytes": 65280,
+      "peak": 0.0
+    },
+    {
+      "after": "navigation-compose-a",
+      "before": "navigation-compose-o",
+      "bytes": 61440,
+      "peak": 0.0
+    },
+    {
+      "after": "navigation-compose-o",
+      "before": "left-navigation",
+      "bytes": 65280,
+      "peak": 0.0
+    },
+    {
+      "after": "left-navigation",
+      "before": "right-navigation",
+      "bytes": 65280,
+      "peak": 0.0
+    },
+    {
+      "after": "right-navigation",
+      "before": "numeric-selection",
+      "bytes": 65280,
+      "peak": 0.0
+    },
+    {
+      "after": "numeric-selection",
+      "before": "latin-positive-control",
+      "bytes": 403200,
+      "peak": 0.0
+    }
+  ],
+  "private_only": true,
+  "all_processes_stopped": true,
+  "hashes": {
+    "verified/verification.json": "f1dd3632237511f5d8fdd022f0a4e05184ba2f83ce0f2b8cf1a30462c8f9f978",
+    "baseline2/verification.json": "68d602896068734d2b5335f84cf1f0cfe992e51a120d52acccfeaa3f6a4dbcfb",
+    "verified/evidence/own-stream.f32le": "ff8af5351f812363babf378a19b3c402f57f34f5d2a69ea43cd740e522642279",
+    "baseline2/evidence/own-stream.f32le": "2745ca8eb8ca3a58450b2e856eecdafd3aef23b6b34bc242cca7339f2c4fc25f",
+    "verified/evidence/observer/preedit.jsonl": "ff906c322c9fa0807d60a87bf578d94547b2683e98a4aa0ae971b12e4072b3f5",
+    "baseline2/evidence/observer/preedit.jsonl": "373439c5f30dd0d58046d014a18caf7e6ecfac462b81afa0b5e31117a33efc74",
+    "verified/evidence/observer/document.jsonl": "1e9e870728cb2f51f0a9f026cb3142849f7fd04e9b4dd57eb7c96d8988a0b9e6",
+    "baseline2/evidence/observer/document.jsonl": "ff50897f95f09ebf1d5a1aacdf28237dbcc6a0a105e5ca509a420b80978156ff",
+    "verified/evidence/composition-before-commit.png": "0c77dbda2fd6f91d881bd1fc5cc0b3bf255da277d93611f654494440c4c967e9",
+    "verified/evidence/committed.png": "860be586734e91f53f78272f1842f976b7b8324afa67e220bc73c9f0fa565ee1",
+    "verified/run-audio.py": "ebf54a3f548fa3d7afcf943ddc98e8f8c51daa50ac2f73e8fd417a9f1b8db307",
+    "verified/observer.c": "de451163ade5b85f8758bdb5d966830851be10629ecbeb794b8ce8f5b3b15180",
+    "verified/input-tools/keyboard.source.c": "f1744cda1cecf4f23f51c41abcd4b1e60e7b5b3f8ffe280f959e2d33efff027f",
+    "verified/input-tools/keyboard": "cdebe14077aa8929da85ccac6e6e0970f65b8b1c2c1125d3673731d05edd46d6"
+  },
+  "visual_review": "已打开并审阅新实际包 committed.png，正文为你好。，ni你好；随后英文正控x另有GTK日志证明。"
+}

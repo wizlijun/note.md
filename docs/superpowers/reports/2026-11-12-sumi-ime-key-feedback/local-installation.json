@@ -1,0 +1,29 @@
+{
+  "installed_at_utc": "2026-11-11T16:22:42.427874+00:00",
+  "user_authorized_all_local_install": true,
+  "packages": [
+    "notemd 6.1112.1-1",
+    "fcitx5-sumi-candidates 5.1.23.r4.gb07f55ca-1",
+    "fcitx5 5.1.23-1",
+    "fcitx5-chinese-addons 5.1.15-2",
+    "fcitx5-gtk 5.1.7-1"
+  ],
+  "running_host_pid": 45071,
+  "running_fcitx_pid": 45010,
+  "running_backend_pid": 45372,
+  "running_host_matches_public_package_sha256": "6630c8b73d30767074c2e43acf72cdab3fed29b7e6757e975768cfce761b426b",
+  "old_host_exited_via_tray_quit": true,
+  "old_fcitx_replaced": true,
+  "input_method": "pinyin",
+  "sumi_plugin_version": "0.1.12",
+  "running_plugin_backend_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "active_fcitx_addon_sha256": "a67e71c5dba32fff70294e80b07f150b4d5eadd28fecc1bd2b84baec5ab35173",
+  "typing_bridge_interface_available": true,
+  "package_file_checks": "notemd: 32 total files, 0 altered files\nfcitx5-sumi-candidates: 11 total files, 0 altered files\n",
+  "native_wayland_input_module_loaded": true,
+  "sumi_audio_stream_active": true,
+  "sumi_audio_stream_muted": false,
+  "user_audio_settings_modified": false,
+  "formal_document_test_input_injected": false,
+  "local_keystroke_audio_claim": "Actual package audio verified in isolated fixture; no automated typing injected into formal local notes"
+}

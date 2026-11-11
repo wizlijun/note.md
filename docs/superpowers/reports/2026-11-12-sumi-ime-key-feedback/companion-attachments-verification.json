@@ -1,0 +1,137 @@
+{
+  "created_utc": "2026-11-11T16:07:50.934250+00:00",
+  "release_tag": "v6.1112.1",
+  "release_commit": "d21010dece28ccfb9b785fe8be1cfa847e2c5989",
+  "fcitx_source_commit": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+  "package_matches_frozen_manifest": true,
+  "install_version_verified": "6.1112.1",
+  "bundle_format": "git archive of frozen packaging subtree; gzip mtime=0; all eight files retained including executable modes",
+  "bundle_files": [
+    {
+      "path": "fcitx5-sumi-candidates-build/INSTALL.zh-CN.md",
+      "sha256": "2b808a62429ba962f0ae2d239262b4b87c1a8cb248214a198e4e6fbfabc150a6",
+      "bytes": 3964,
+      "matches_tag": true,
+      "mode": "0o664"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/PKGBUILD",
+      "sha256": "dffc49dafa3b023cc431c6ecd64a5de3274914b2f2e818ce4e9f7038721f8631",
+      "bytes": 1429,
+      "matches_tag": true,
+      "mode": "0o664"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/build.sh",
+      "sha256": "c27b4f2a700abc33cca7d86d830ea4f2ee59e8e21a289b37d7ffb475fe4a6f0f",
+      "bytes": 264,
+      "matches_tag": true,
+      "mode": "0o775"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/dbus-test.conf",
+      "sha256": "d1b830c0bb04739e9e8d0dc2014a2e6eb87566936267f5f2b07e460c727612f4",
+      "bytes": 395,
+      "matches_tag": true,
+      "mode": "0o664"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/fcitx5-sumi-source.tar.gz",
+      "sha256": "52b6c811c38aa0f471f4c0c9e73ccf6132e052448f3a68c2a7f63b131b92bfe7",
+      "bytes": 21027,
+      "matches_tag": true,
+      "mode": "0o664"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/runtime-worker.sh",
+      "sha256": "91eea6ddf564febf33834c665085c925747d7a0d3ca54708611ea0174c97c8de",
+      "bytes": 1373,
+      "matches_tag": true,
+      "mode": "0o775"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/source-manifest.json",
+      "sha256": "d4a740880b3fd5a5dd8cbaa0da17dd23be649ca01071388e0965cc2341e63899",
+      "bytes": 1474,
+      "matches_tag": true,
+      "mode": "0o664"
+    },
+    {
+      "path": "fcitx5-sumi-candidates-build/verify.py",
+      "sha256": "775dd15602c4df5c24d769e84a2d9105c65d7a1f0dd274dbb9d1dc184d1399d9",
+      "bytes": 4939,
+      "matches_tag": true,
+      "mode": "0o775"
+    }
+  ],
+  "source_files": [
+    {
+      "path": "LICENSES/LGPL-2.1-or-later.txt",
+      "sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f",
+      "matches_manifest_and_fcitx_commit": true
+    },
+    {
+      "path": "src/modules/sumicandidates/CMakeLists.txt",
+      "sha256": "e5c04cb1f2174c345c020daf89f402eb1efbfc4735dcc9813fc0e75179100a59",
+      "matches_manifest_and_fcitx_commit": true
+    },
+    {
+      "path": "src/modules/sumicandidates/README.md",
+      "sha256": "b8b768b6d11f8b404050f014f6f407fe85c83731a7df069f89c388522600bb0f",
+      "matches_manifest_and_fcitx_commit": true
+    },
+    {
+      "path": "src/modules/sumicandidates/sumicandidates.conf.in",
+      "sha256": "6b8110baf4f9f901f5b7caf1b2aacf5ee3d3cbf5806f9b7c162e1a4c2872fed2",
+      "matches_manifest_and_fcitx_commit": true
+    },
+    {
+      "path": "src/modules/sumicandidates/sumicandidates.cpp",
+      "sha256": "5e9de3181c92064417e7b1c90544ab741e6458f2800788927906e17e9a47ee08",
+      "matches_manifest_and_fcitx_commit": true
+    },
+    {
+      "path": "src/modules/sumicandidates/tests/integration.py",
+      "sha256": "89b85c294c1c80692478ae2317911b3648967dfdc8daf7d4aaa1f69d6fe8c31d",
+      "matches_manifest_and_fcitx_commit": true
+    },
+    {
+      "path": "src/modules/sumicandidates/tests/run-isolated.sh",
+      "sha256": "96dddf4a2dba49fc5fedf4405d24bdd856fadb8742f486c4edfbe913296d3ef0",
+      "matches_manifest_and_fcitx_commit": true
+    }
+  ],
+  "checksum_verification": [
+    "fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-build.tar.gz: OK",
+    "fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-1-x86_64.pkg.tar.zst: OK",
+    "fcitx5-sumi-source.tar.gz: OK",
+    "INSTALL.zh-CN.md: OK"
+  ],
+  "assets": {
+    "INSTALL.zh-CN.md": {
+      "sha256": "2b808a62429ba962f0ae2d239262b4b87c1a8cb248214a198e4e6fbfabc150a6",
+      "bytes": 3964
+    },
+    "SHA256SUMS-ime.txt": {
+      "sha256": "361a22028481ef9f6391d748e0cff49df6eaa39c8973c55e8432b57210f36c7e",
+      "bytes": 427
+    },
+    "fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-1-x86_64.pkg.tar.zst": {
+      "sha256": "54f6b60e4faa82f3abb111b6f79de679ba41252f829bb397a4008b5d4992fd13",
+      "bytes": 62643
+    },
+    "fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-build.tar.gz": {
+      "sha256": "bf92917b5cc88ed171b368546d67cf2ac9f64ca9f60407c3851e3561e237518e",
+      "bytes": 28913
+    },
+    "fcitx5-sumi-source.tar.gz": {
+      "sha256": "52b6c811c38aa0f471f4c0c9e73ccf6132e052448f3a68c2a7f63b131b92bfe7",
+      "bytes": 21027
+    }
+  },
+  "published": false,
+  "notes": [
+    "Standalone PKGBUILD is reserved for the host Arch package as in the prior release; addon PKGBUILD is included in the full eight-file companion build bundle.",
+    "All prepared bytes come from the frozen tag except the prebuilt r4 package, which matches its frozen manifest SHA-256."
+  ]
+}

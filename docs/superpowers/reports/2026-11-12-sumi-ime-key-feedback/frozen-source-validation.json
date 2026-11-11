@@ -1,0 +1,36 @@
+{
+  "tag": "v6.1112.1",
+  "commit": "d21010dece28ccfb9b785fe8be1cfa847e2c5989",
+  "files": {
+    "tauri-plugin-native-editor/src/linux.rs": "eede3739aac25ba7dda0646099179445319be7a652cdb1eb76407d1d324f2b24",
+    "tauri-plugin-native-editor/src/linux_candidates.rs": "f327538eaa37aff964690b09af22f095eed753abf305acb8cd3d036a09c50024",
+    "tauri-plugin-native-editor/src/linux_typing.rs": "2b79da62627fbd857c6893359f83cc82125d5b6bb60c52e1de7983bf36f793ce",
+    "scripts/sumi/fcitx-candidates/run-native.py": "4814bdc13129df055a31ebaed2e024be8335528a2950efbd35929e9c37d23d03",
+    "scripts/sumi/probe-pointer/keyboard.c": "f1744cda1cecf4f23f51c41abcd4b1e60e7b5b3f8ffe280f959e2d33efff027f"
+  },
+  "logs": {
+    "tasks/sumi-ime-keys/unit-frozen.log": {
+      "sha256": "2fef981e2fa8d3466ef6e48cec98d3313266427834ce96b6d7717c9bd9fda00b",
+      "result": "test result: ok. 35 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.21s"
+    },
+    "tasks/sumi-ime-keys/frozen-wayland/native-verification-wayland/test.log": {
+      "sha256": "76ab98c7842f48f979f15a1f00b8560eda9a422173791bbfc61495692ece24ee",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 14.53s"
+    },
+    "tasks/sumi-ime-keys/frozen-fcitx/native-verification/test.log": {
+      "sha256": "59ef3efb82b15811163014fc95e944aa87b8369c5db1b9a584327f7898f5642c",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 15.27s"
+    },
+    "tasks/sumi-ime-keys/final-candidates.log": {
+      "sha256": "ebcbe899b22d52b77af831cebac20135d888f93c07b8e8d135e188141dde2a71",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 13.08s"
+    },
+    "tasks/sumi-ime-keys/final-legacy.log": {
+      "sha256": "87e9253d5fe5ddf8f2e5f6bd68e1cf497842b7ec2c69c0d89a6325367659cd4e",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 13.12s"
+    }
+  },
+  "full_candidate_and_legacy_tests": "ran before formatting-only final changes; final physical-key tests rerun for both transports",
+  "frontend": "unchanged source/core from previously verified v6.1111.4: 5883 tests; rebuilt inside official frozen container",
+  "synthetic_zero_identity_limitation": "wtype time=0 cannot be reliably paired; tests use stable US keymap and monotonic nonzero timestamps"
+}

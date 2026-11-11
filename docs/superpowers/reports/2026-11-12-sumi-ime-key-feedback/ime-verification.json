@@ -1,0 +1,40 @@
+{
+  "source_commit": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+  "source_archive_sha256": "52b6c811c38aa0f471f4c0c9e73ccf6132e052448f3a68c2a7f63b131b92bfe7",
+  "pkgbuild_sha256": "dffc49dafa3b023cc431c6ecd64a5de3274914b2f2e818ce4e9f7038721f8631",
+  "package": "/home/bruce/git/note.md/tasks/sumi-ime-keys-release/ime/fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-1-x86_64.pkg.tar.zst",
+  "package_sha256": "54f6b60e4faa82f3abb111b6f79de679ba41252f829bb397a4008b5d4992fd13",
+  "matches_original_package": true,
+  "payload_sha256": {
+    "usr/lib/fcitx5/libsumicandidates.so": "a67e71c5dba32fff70294e80b07f150b4d5eadd28fecc1bd2b84baec5ab35173",
+    "usr/share/fcitx5/addon/sumicandidates.conf": "a885bf56b061b14e6b82390045081f86eda5f789db36357155a67d576c7e4191",
+    "usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+  },
+  "audit_directory": "/home/bruce/git/note.md/tasks/sumi-ime-keys-release/ime/audit-lsmha4wd",
+  "dependency_packages": [
+    "fcitx5 5.1.23-1",
+    "fcitx5-chinese-addons 5.1.15-2",
+    "fcitx5-gtk 5.1.7-1"
+  ],
+  "checks": {
+    "frozen_source_manifest": true,
+    "exact_three_file_payload": true,
+    "elf_and_relocations": true,
+    "actual_package_module_loaded_on_private_bus": true,
+    "real_pinyin_protocol_regressions": [
+      "PASS: real pinyin candidates, underline-only inline preedit preserved",
+      "PASS: owner validation, stale serial rejection, real candidate commit",
+      "PASS: callback reattached after panel reset and candidate paging",
+      "PASS: focus loss revokes exact IC; unleased sibling keeps underline-only preedit",
+      "PASS: destroyed IC and disconnected owner release the lease",
+      "PASS: unrelated application has underline-only preedit without a lease",
+      "PASS: existing GTK client-side popup preserved, retry after reset accepted",
+      "PASS: opt-in unicast typing covers pinyin, space/return confirmation and Chinese punctuation",
+      "PASS: typing preserves repeat identity, roles and modifier filtering; legacy renewal clears pressed keys",
+      "PASS: typing stops on focus loss and owner disconnect; a new lease cannot release old keys"
+    ]
+  },
+  "system_installed_by_verifier": false,
+  "global_fcitx_restarted": false,
+  "published": false
+}
