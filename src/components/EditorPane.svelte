@@ -218,7 +218,7 @@
       <CustomEditorIframe {tab} />
     {/key}
   {:else if nativeHandoff}
-    <div class="native-handoff" role="status">{nativeHandoffError || '正在保存并切换 Sumi 编辑器…'}</div>
+    <div class="native-handoff" role="status">{nativeHandoffError || '正在保存并切换玄霜写作编辑器…'}</div>
   {:else if useFileOwner}
     {#key tab.id}
       <div class="file-rich-container" class:file-hidden={tab.mode !== 'rich'}>

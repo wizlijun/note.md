@@ -43,9 +43,9 @@ int main(){@autoreleasepool{
     require([editor.text.string isEqual:text] && NSEqualRanges(editor.text.selectedRange,selected) && NSEqualRanges(editor.text.markedRange,marked) && editor.composing && editor.text.hasMarkedText && editor.revision==revision && !editor.container.hidden,@"handle recovery preserves preedit, selection, revision and visibility");
     events=eventCount;
     NSArray *cases=@[
-        @[@"zh-CN",@"复制",@"玄霜写作…",@"链接",@"应用",@"取消",@"玄霜写作写作编辑器"],
+        @[@"zh-CN",@"复制",@"玄霜写作…",@"链接",@"应用",@"取消",@"玄霜写作编辑器"],
         @[@"ja_JP",@"コピー",@"Sumi Write…",@"リンク",@"適用",@"キャンセル",@"Sumi Writeの執筆エディタ"],
-        @[@"ZH_Hant_TW",@"复制",@"玄霜写作…",@"链接",@"应用",@"取消",@"玄霜写作写作编辑器"],
+        @[@"ZH_Hant_TW",@"复制",@"玄霜写作…",@"链接",@"应用",@"取消",@"玄霜写作编辑器"],
         @[@"en-GB",@"Copy",@"Sumi Write…",@"Link",@"Apply",@"Cancel",@"Sumi Write writing editor"],
         @[@"unsupported",@"Copy",@"Sumi Write…",@"Link",@"Apply",@"Cancel",@"Sumi Write writing editor"]
     ];

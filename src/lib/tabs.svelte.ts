@@ -1320,7 +1320,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   const t = tabs.find((x) => x.id === id)
   if (!t || isReadOnlyTab(t) || isGuestUpdateBusy(t.filePath) || isGuestUpdateBusy(newPath)) return
   if (sumiOwner(id) || managedSumiTab(t) || newPath.endsWith('.writing.md')) {
-    throw new Error('Sumi 页面包含独立的同步身份与时间记录，请通过 Sumi 新建页面；普通另存为暂不支持复制整页。')
+    throw new Error('玄霜写作页面包含独立的同步身份与时间记录，请通过玄霜写作新建页面；普通另存为暂不支持复制整页。')
   }
   if (fileEditorSession(id) || activeId.value === id) await flushMountedDocument(id)
   if (shouldSkipEmptySave(t)) return

@@ -152,7 +152,7 @@
   async function commitRename(entry: FolderEntry, newName: string) {
     renamingPath = null
     if (newName !== entry.name && (isSumiProjection(entry.path) || isSumiProjection(newName))) {
-      pushToast({ level: 'warn', message: 'Sumi 纸页和逐行时间需要一起保存。请在 Sumi 中导出，或将已有副本恢复为新的一页。' })
+      pushToast({ level: 'warn', message: '玄霜写作纸页和逐行时间需要一起保存。请在玄霜写作中导出，或将已有副本恢复为新的一页。' })
       return
     }
     const dir = parentDir(entry.path)
