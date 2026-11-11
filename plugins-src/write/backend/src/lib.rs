@@ -240,6 +240,47 @@ mod host_proxy_harness {
         assert_eq!(backend.worker.outbox().await.unwrap().iter().filter(|v|v.update.op_id==edit.op_id).count(),1);
     }
     #[tokio::test]
+    async fn legacy_local_echo_journal_replays_before_appearance_preferences() {
+        use sumi_protocol::durability::Request;
+        let (temp, backend, id, mut doc) = fixture().await;
+        let local = local(&id, &mut doc, "cloud echo must not block appearance");
+        let original = backend.worker.commit_local(local.clone()).await.unwrap();
+        backend.worker.flush().await.unwrap();
+        backend.worker.ack(local.op_id.clone()).await.unwrap();
+        drop(backend);
+        // Simulate the already-shipped schema: the local receipt survives ACK,
+        // while the original host accepted the returned cloud echo at revision+1.
+        let database = rusqlite::Connection::open(temp.path().join("state.sqlite3")).unwrap();
+        database.execute("DELETE FROM sumi_local_update_identity", []).unwrap();
+        drop(database);
+        let incoming = write_core::storage::PendingUpdate { op_id:local.op_id.clone(), page_id:id.clone(), epoch:1, update:local.update.clone() };
+        let request = Request::CommitRemote { incoming:incoming.clone(), generation:0, revision:local.revision+1 };
+        let mut echoed = local.clone(); echoed.revision += 1; echoed.first_write_date = None;
+        let receipt = sumi_protocol::durability::edit_receipt(&echoed, true, None).unwrap();
+        let payload = serde_json::to_vec(&request).unwrap();
+        let journal_path = temp.path().join("host-journal.sqlite3");
+        let journal = rusqlite::Connection::open(&journal_path).unwrap();
+        journal.execute_batch("CREATE TABLE host_input_journal(sequence INTEGER PRIMARY KEY AUTOINCREMENT,op_id TEXT NOT NULL UNIQUE,payload BLOB NOT NULL,payload_sha256 TEXT NOT NULL,receipt BLOB NOT NULL); PRAGMA user_version=1;").unwrap();
+        journal.execute("INSERT INTO host_input_journal(op_id,payload,payload_sha256,receipt) VALUES(?1,?2,?3,?4)",
+            rusqlite::params![local.op_id, payload, write_core::storage::sha256(&payload), serde_json::to_vec(&receipt).unwrap()]).unwrap();
+        drop(journal);
+        let worker = crate::durability::Durability::open(temp.path().into(), temp.path().join("state.sqlite3"), |_| {}).await.unwrap();
+        let backend = service::Backend { worker:worker.clone(), lose_committed_reply:Arc::new(AtomicBool::new(false)),
+            unavailable:Arc::new(AtomicBool::new(false)), corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+        let proxy = durability::Durability::from_backend(backend, journal_path.clone(), |_| {}).unwrap();
+        let appearance = serde_json::json!({"fontFamily":"Sumi Zhaohua","fontSize":50});
+        tokio::time::timeout(Duration::from_secs(2), proxy.set_preferences("appearance".into(), appearance.clone())).await.unwrap().unwrap();
+        assert_eq!(proxy.preferences("appearance".into()).await.unwrap(), Some(appearance));
+        let loaded = proxy.load(id).await.unwrap();
+        assert_eq!(loaded.revision, echoed.revision);
+        assert!(loaded.raw_markdown.ends_with("cloud echo must not block appearance"));
+        assert_eq!(worker.commit_local(local).await.unwrap(), original);
+        assert_eq!(worker.commit_remote(incoming, 0, echoed.revision).await.unwrap(), receipt);
+        let journal = rusqlite::Connection::open(journal_path).unwrap();
+        assert_eq!(journal.query_row("SELECT COUNT(*) FROM host_input_journal", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+    }
+
+    #[tokio::test]
     async fn permits_bound_pending_edits_and_reserve_before_native_mutation() {
         let (_temp,backend,_id,_doc) = fixture().await;
         let proxy=durability::Durability::from_backend(backend, _temp.path().join("host-journal.sqlite3"), |_|{}).unwrap();
