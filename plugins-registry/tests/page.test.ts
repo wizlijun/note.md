@@ -54,7 +54,7 @@ describe('marketplace plugin metadata', () => {
 
 describe('cognitive workflow labels', () => {
   it('uses eight agreed labels and context-source tags', () => {
-    for (const label of ['捕捉', '阅读', '写作', '推进', '回顾', '数据导入导出', '其他增强', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Extensions']) expect(PAGE_HTML).toContain(label)
+    for (const label of ['捕捉', '阅读', '写作', '推进', '回顾', '数据导入导出', '其他', 'Capture', 'Read', 'Write', 'Advance', 'Review', 'Import & Export', 'Other']) expect(PAGE_HTML).toContain(label)
     expect(PAGE_HTML).not.toContain('group_other:')
     expect(PAGE_HTML).toContain("CONTEXT_SOURCES=['notemd.apple-notes','notemd.roam-import','notemd.health-sync']")
     expect(PAGE_HTML).toContain("context_source:'上下文来源'")

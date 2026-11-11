@@ -189,7 +189,7 @@ describe('GET / (landing page)', () => {
     expect(body).toContain('Review')
     expect(body).toContain('Write')
     expect(body).toContain('Import & Export')
-    expect(body).toContain('Extensions')
+    expect(body).toContain('Other')
     expect(body).toContain("group_ai:'AI'")
     expect(body).toContain('System Feature')
     expect(body).toContain('Location Log')

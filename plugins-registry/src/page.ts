@@ -161,7 +161,7 @@ en:{
  err:"Couldn't load plugins, please retry later.",empty:'No plugins published yet.',
  fallback:'Enable it from the Plugins menu in note.md after install.',
  group_ai:'AI',group_record:'Capture',group_reading:'Read',
- group_advance:'Advance',group_reflect:'Review',group_create:'Write',group_import_export:'Import & Export',group_experience:'Extensions',sync:'Sync',context_source:'Context source',system:'System Feature'
+ group_advance:'Advance',group_reflect:'Review',group_create:'Write',group_import_export:'Import & Export',group_experience:'Other',sync:'Sync',context_source:'Context source',system:'System Feature'
 },
 zh:{
  meta_title:'note.md 插件市场',meta_desc:'note.md 官方插件市场：安装插件，并查看每个插件在应用内的使用入口。',
@@ -180,7 +180,7 @@ zh:{
  err:'暂时无法加载插件列表，请稍后重试。',empty:'暂无已上架插件。',
  fallback:'安装后在 note.md 的「插件」菜单中启用。',
  group_ai:'AI',group_record:'捕捉',group_reading:'阅读',
- group_advance:'推进',group_reflect:'回顾',group_create:'写作',group_import_export:'数据导入导出',group_experience:'其他增强',sync:'同步',context_source:'上下文来源',system:'系统功能'
+ group_advance:'推进',group_reflect:'回顾',group_create:'写作',group_import_export:'数据导入导出',group_experience:'其他',sync:'同步',context_source:'上下文来源',system:'系统功能'
 }};
 // Per-plugin entry, from each manifest's contributes.menus.location.
 // Every plugin command lands in the Plugins menu regardless of the location its
@@ -203,7 +203,7 @@ var ENTRY_MAP={
  'notemd.weekly-review':{en:'<b>Plugins</b> → <b>Review</b> → Weekly Review',zh:'「<b>插件</b>」→「<b>回顾</b>」→ 周检视'},
  'notemd.timeline':{en:'Open a Markdown file with <code>type: timeline</code> to show it automatically, or choose <strong>Plugins → Review → View Timeline</strong>. With no file open, the command asks you to choose one. Edit category rules within the view.',zh:'打开 frontmatter 中设有 <code>type: timeline</code> 的 Markdown 文件可自动显示，或选择<strong>插件 → 回顾 → 查看时间轴</strong>；没有打开文件时会要求选择文件。分类规则可在视图内设置。'},
  'notemd.md2pdf':{en:'<b>Plugins</b> → <b>Import & Export</b> → Export to PDF… (also CLI <code>notemd pdf</code>)',zh:'「<b>插件</b>」→「<b>数据导入导出</b>」→ 导出为 PDF…（也支持 CLI <code>notemd pdf</code>）'},
- 'notemd.power-mode':{en:'<b>Plugins</b> → <b>Extensions</b> → Power Mode',zh:'「<b>插件</b>」→「<b>其他增强</b>」→ 狂暴模式'},
+ 'notemd.power-mode':{en:'<b>Plugins</b> → <b>Other</b> → Power Mode',zh:'「<b>插件</b>」→「<b>其他</b>」→ 狂暴模式'},
  'notemd.assistant-mail':{en:'<b>Plugins</b> → <b>Capture</b> → Assistant Mail… (also CLI <code>notemd mail-status</code>, <code>mail-sync</code> and <code>mail-query</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「助理邮箱…」（也支持 CLI <code>notemd mail-status</code>、<code>mail-sync</code> 与 <code>mail-query</code>）'},
  'notemd.health-sync':{en:'<b>Plugins</b> → <b>Capture</b> → Import health data… (also CLI <code>notemd health-sync</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「导入健康数据…」（也支持 CLI <code>notemd health-sync</code>）'},
  'notemd.apple-notes':{en:'<b>Plugins</b> → <b>Capture</b> → Sync Apple Notes… (also CLI <code>notemd apple-notes-sync</code>)',zh:'「<b>插件</b>」→「<b>捕捉</b>」→「同步 Apple Notes…」（也支持 CLI <code>notemd apple-notes-sync</code>）'},
