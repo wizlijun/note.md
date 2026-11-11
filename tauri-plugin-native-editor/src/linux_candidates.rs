@@ -9,6 +9,17 @@ const SERVICE: &str = "org.fcitx.Fcitx5";
 const PATH: &str = "/org/fcitx/Fcitx5/SumiCandidates";
 const INTERFACE: &str = "org.fcitx.Fcitx.SumiCandidates1";
 
+fn unknown_method(error: &glib::Error) -> bool {
+    use glib::translate::{from_glib_full, ToGlibPtr};
+    // gio 0.18 does not wrap the D-Bus error helpers. The returned name is owned.
+    let name: Option<glib::GString> = unsafe {
+        from_glib_full(gio::ffi::g_dbus_error_get_remote_error(
+            error.to_glib_none().0,
+        ))
+    };
+    name.as_deref() == Some("org.freedesktop.DBus.Error.UnknownMethod")
+}
+
 pub(super) struct Panel {
     surface: Weak<Surface>,
     pub widget: gtk::DrawingArea,
@@ -17,6 +28,8 @@ pub(super) struct Panel {
     token: String,
     desired: Cell<bool>,
     accepted: Cell<bool>,
+    typing_bridge: Cell<bool>,
+    typing_serial: Cell<u64>,
     retry_after: Cell<i64>,
     epoch: Cell<u64>,
     serial: Cell<u64>,
@@ -53,6 +66,8 @@ impl Panel {
             ),
             desired: Cell::new(false),
             accepted: Cell::new(false),
+            typing_bridge: Cell::new(false),
+            typing_serial: Cell::new(0),
             retry_after: Cell::new(0),
             epoch: Cell::new(0),
             serial: Cell::new(0),
@@ -112,6 +127,44 @@ impl Panel {
             let id = bus.signal_subscribe(
                 Some(SERVICE),
                 Some(INTERFACE),
+                Some("TypingKey"),
+                Some(PATH),
+                Some(&panel.token),
+                gio::DBusSignalFlags::NONE,
+                move |_, _, _, _, _, value| {
+                    let Some(p) = weak.upgrade() else {
+                        return;
+                    };
+                    let Some((token, serial, time, code, role)) =
+                        value.get::<(String, u64, u32, u32, u32)>()
+                    else {
+                        return;
+                    };
+                    if token != p.token || !p.has_typing_bridge() || serial <= p.typing_serial.get()
+                    {
+                        return;
+                    }
+                    p.typing_serial.set(serial);
+                    let role = match role {
+                        0 => TypingSoundRole::Key,
+                        1 => TypingSoundRole::Space,
+                        2 => TypingSoundRole::Enter,
+                        3 => TypingSoundRole::Delete,
+                        4 => TypingSoundRole::Modifier,
+                        5 => TypingSoundRole::KeyUp,
+                        6 => TypingSoundRole::SpaceUp,
+                        _ => return,
+                    };
+                    if let Some(s) = p.surface.upgrade() {
+                        emit_typing_event(&s, role, time, code, typing::Source::Ime);
+                    }
+                },
+            );
+            panel.subscriptions.borrow_mut().push(id);
+            let weak = Rc::downgrade(&panel);
+            let id = bus.signal_subscribe(
+                Some(SERVICE),
+                Some(INTERFACE),
                 Some("Revoked"),
                 Some(PATH),
                 Some(&panel.token),
@@ -119,6 +172,7 @@ impl Panel {
                 move |_, _, _, _, _, _| {
                     if let Some(p) = weak.upgrade() {
                         p.accepted.set(false);
+                        p.reset_typing_bridge();
                         p.clear();
                         p.retry_after.set(glib::monotonic_time() + 1_500_000);
                     }
@@ -143,6 +197,8 @@ impl Panel {
                     p.desired.set(false);
                     p.accepted.set(false);
                     p.serial.set(0);
+                    p.typing_serial.set(0);
+                    p.reset_typing_bridge();
                     p.clear();
                     if !owner.is_empty() {
                         p.sync_active();
@@ -244,43 +300,75 @@ impl Panel {
         if !active {
             self.clear();
         }
+        self.request_active(epoch, active, active);
+    }
+    pub fn has_typing_bridge(&self) -> bool {
+        self.typing_bridge.get() && self.desired.get()
+    }
+    fn reset_typing_bridge(&self) {
+        self.typing_bridge.set(false);
+        if let Some(s) = self.surface.upgrade() {
+            stop_typing(&s);
+        }
+    }
+    fn request_active(self: &Rc<Self>, epoch: u64, active: bool, with_typing: bool) {
+        self.reset_typing_bridge();
         let Some(bus) = &self.bus else {
             return;
         };
+        // Suppress text-based fallback while negotiating: IM preedit and D-Bus
+        // replies can arrive on different transports. Local keys still work.
+        self.typing_bridge.set(active && with_typing);
         let weak = Rc::downgrade(self);
         bus.call(
             Some(SERVICE),
             PATH,
             INTERFACE,
-            "SetActive",
+            if with_typing {
+                "SetActiveWithTyping"
+            } else {
+                "SetActive"
+            },
             Some(&(self.token.clone(), self.programs(), active).to_variant()),
             None,
             gio::DBusCallFlags::NO_AUTO_START,
             1000,
             None::<&gio::Cancellable>,
             move |result| {
-                if let Some(p) = weak.upgrade() {
-                    if p.epoch.get() != epoch {
-                        return;
-                    }
-                    let accepted = result
-                        .ok()
-                        .and_then(|v| v.get::<(bool,)>())
-                        .is_some_and(|v| v.0);
-                    p.accepted.set(accepted);
-                    if !accepted {
-                        p.call(
-                            "SetActive",
-                            (p.token.clone(), p.programs(), false).to_variant(),
-                        );
-                        p.clear();
-                    }
+                let Some(p) = weak.upgrade() else {
+                    return;
+                };
+                if p.epoch.get() != epoch {
+                    return;
+                }
+                if with_typing
+                    && result
+                        .as_ref()
+                        .err()
+                        .is_some_and(|error| unknown_method(error))
+                {
+                    p.request_active(epoch, active, false);
+                    return;
+                }
+                let accepted = result
+                    .ok()
+                    .and_then(|v| v.get::<(bool,)>())
+                    .is_some_and(|v| v.0);
+                p.accepted.set(accepted);
+                if !accepted {
+                    p.reset_typing_bridge();
+                    p.call(
+                        "SetActive",
+                        (p.token.clone(), p.programs(), false).to_variant(),
+                    );
+                    p.clear();
                 }
             },
         );
     }
     pub fn release(&self) {
         self.accepted.set(false);
+        self.reset_typing_bridge();
         if self.desired.replace(false) {
             self.epoch.set(self.epoch.get() + 1);
             self.call(
@@ -585,12 +673,36 @@ mod tests {
             .map(str::to_owned)
     }
     fn keys(args: &[&str]) {
-        let mut child = std::process::Command::new("wtype")
-            .args(["-s", "150", "-d", "80"])
-            .args(args)
-            .args(["-s", "200"])
-            .spawn()
-            .unwrap();
+        keys_held(args, 0);
+    }
+    fn keys_held(args: &[&str], hold_ms: u32) {
+        let mut chords = Vec::new();
+        let mut args = args.iter();
+        while let Some(arg) = args.next() {
+            if *arg == "-k" {
+                let key = *args.next().expect("key name");
+                chords.push(
+                    match key {
+                        "space" => "Space",
+                        "Multi_key" => "Compose",
+                        "apostrophe" => "'",
+                        _ => key,
+                    }
+                    .to_string(),
+                );
+            } else {
+                chords.extend(arg.chars().map(|c| c.to_string()));
+            }
+        }
+        // Unlike wtype, this fixture preserves a standard keymap and supplies
+        // real event timestamps, as a physical keyboard does.
+        let mut child = std::process::Command::new(
+            std::env::var("SUMI_CANDIDATE_TEST_KEYBOARD").expect("private keyboard helper"),
+        )
+        .args(chords)
+        .env("SUMI_KEY_HOLD_MS", hold_ms.to_string())
+        .spawn()
+        .unwrap();
         loop {
             settle();
             if let Some(status) = child.try_wait().unwrap() {
@@ -633,10 +745,12 @@ mod tests {
             }
         }
         let _keyboard = Keyboard(
-            std::process::Command::new("wtype")
-                .args(["-s", "120000"])
-                .spawn()
-                .unwrap(),
+            std::process::Command::new(
+                std::env::var("SUMI_CANDIDATE_TEST_KEYBOARD").expect("private keyboard helper"),
+            )
+            .env("SUMI_KEYBOARD_HOLD_SECONDS", "120")
+            .spawn()
+            .unwrap(),
         );
         settle();
         let app = gtk::Application::new(
@@ -932,6 +1046,145 @@ mod tests {
         );
         rich.store(false, std::sync::atomic::Ordering::SeqCst);
         if sound_only {
+            let recorded_sounds = sounds.clone();
+            configure_typing(
+                true,
+                Some(Arc::new(move |event| {
+                    recorded_sounds.lock().unwrap().push(event.role);
+                })),
+            );
+            sounds.lock().unwrap().clear();
+            keys(&[".,"]);
+            eprintln!("Chinese punctuation sounds: {:?}", sounds.lock().unwrap());
+            assert!(
+                text(&s.buffer()).contains("。，"),
+                "must test converted Chinese punctuation"
+            );
+            assert_eq!(
+                sounds
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|r| **r == TypingSoundRole::Key)
+                    .count(),
+                2,
+                "Chinese full stop and comma must each sound even without preedit"
+            );
+            assert_eq!(
+                sounds
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|r| **r == TypingSoundRole::KeyUp)
+                    .count(),
+                2
+            );
+            for (key, role) in [
+                ("space", TypingSoundRole::Space),
+                ("Return", TypingSoundRole::Enter),
+            ] {
+                let revision = s.config.borrow().revision;
+                s.project(
+                    RenderDocument {
+                        text: String::new(),
+                        runs: vec![],
+                    },
+                    TextRange::default(),
+                    revision,
+                );
+                sounds.lock().unwrap().clear();
+                keys(&["nihao"]);
+                assert!(text(&s.buffer()).is_empty());
+                keys(&["-k", key]);
+                assert_eq!(
+                    text(&s.buffer()).replace(' ', ""),
+                    if key == "space" { "你好" } else { "nihao" }
+                );
+                assert!(s.preedit.borrow().is_empty());
+                let events = sounds.lock().unwrap();
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|r| **r == TypingSoundRole::Key)
+                        .count(),
+                    5
+                );
+                assert_eq!(
+                    events.iter().filter(|r| **r == role).count(),
+                    1,
+                    "IME confirmation {key}: {events:?}"
+                );
+                let releases = events
+                    .iter()
+                    .filter(|r| matches!(r, TypingSoundRole::KeyUp | TypingSoundRole::SpaceUp))
+                    .count();
+                assert_eq!(releases, 6, "each press must have one release: {events:?}");
+            }
+            // Erasing the final preedit character and moving its cursor do not
+            // necessarily leave a nonempty changed preedit, but are real keys.
+            keys(&["ni"]);
+            sounds.lock().unwrap().clear();
+            keys(&[
+                "-k",
+                "Left",
+                "-k",
+                "Right",
+                "-k",
+                "BackSpace",
+                "-k",
+                "BackSpace",
+            ]);
+            assert!(s.preedit.borrow().is_empty());
+            {
+                let events = sounds.lock().unwrap();
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|r| **r == TypingSoundRole::Key)
+                        .count(),
+                    2,
+                    "navigation {events:?}"
+                );
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|r| **r == TypingSoundRole::Delete)
+                        .count(),
+                    2,
+                    "erase preedit {events:?}"
+                );
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|r| **r == TypingSoundRole::KeyUp)
+                        .count(),
+                    4
+                );
+            }
+            keys(&["nihao"]);
+            sounds.lock().unwrap().clear();
+            keys(&["1"]);
+            assert!(s.preedit.borrow().is_empty());
+            assert_eq!(
+                *sounds.lock().unwrap(),
+                vec![TypingSoundRole::Key, TypingSoundRole::KeyUp],
+                "numeric candidate selection"
+            );
+            sounds.lock().unwrap().clear();
+            keys_held(&["n"], 1000);
+            let typed = s.preedit.borrow().chars().filter(|c| *c == 'n').count();
+            assert!(typed > 1, "fixture must exercise real key repetition");
+            assert_eq!(
+                sounds
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|r| **r == TypingSoundRole::Key)
+                    .count(),
+                typed,
+                "repeated IME keys with reused timestamps must each sound exactly once"
+            );
+            keys(&["-k", "Escape"]);
             bus.call_sync(
                 Some(SERVICE),
                 "/controller",
@@ -992,7 +1245,11 @@ mod tests {
                     3,
                     "synchronous local composition must not double sound"
                 );
-                assert!(text(&s.buffer()).contains("abcé"), "local compose text: {:?}", text(&s.buffer()));
+                assert!(
+                    text(&s.buffer()).contains("abcé"),
+                    "local compose text: {:?}",
+                    text(&s.buffer())
+                );
             }
             configure_typing(false, None);
             detach("candidate-test", "candidate-test", 1).unwrap();

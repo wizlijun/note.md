@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Complete Linux Sumi IME typing feedback.** The host and r4 input-method companion use physical key events for Chinese punctuation, Space/Enter confirmation, deleting the last composition character, candidate navigation, and numeric selection. Forwarded keys are paired to avoid duplicate sounds while held-key repeats remain audible. Update both the host and companion module.
+
 ## v6.1111.5 — 2026-11-11
 
 - **Restore Linux Sumi typing sounds during IME composition.** Preedit changes now provide feedback before text is committed, without extra sounds for repeated updates or clearing composition; the sound toggle remains effective.

@@ -27,10 +27,14 @@ static int keycode(const char *name) {
   {"Home",KEY_HOME},{"End",KEY_END},{"PageUp",KEY_PAGEUP},{"PageDown",KEY_PAGEDOWN},
   {"BackSpace",KEY_BACKSPACE},{"Delete",KEY_DELETE},{"Return",KEY_ENTER},
   {"Tab",KEY_TAB},{"Escape",KEY_ESC},{"Space",KEY_SPACE},{"F10",KEY_F10},
+  {"space",KEY_SPACE},{".",KEY_DOT},{"period",KEY_DOT},{",",KEY_COMMA},{"comma",KEY_COMMA},
+  {"'",KEY_APOSTROPHE},{"apostrophe",KEY_APOSTROPHE},{"Compose",KEY_COMPOSE},{"Multi_key",KEY_COMPOSE},
   {"Ctrl",KEY_LEFTCTRL},{"Shift",KEY_LEFTSHIFT},{"Alt",KEY_LEFTALT},{"Super",KEY_LEFTMETA}
  };
  for(size_t i=0;i<sizeof(keys)/sizeof(keys[0]);i++) if(!strcmp(name,keys[i].name)) return keys[i].code;
  if(strlen(name)==1) {
+  if(name[0]>='1' && name[0]<='9')return KEY_1+name[0]-'1';
+  if(name[0]=='0')return KEY_0;
   const char *rows[]={"qwertyuiop","asdfghjkl","zxcvbnm"};
   const int first[]={KEY_Q,KEY_A,KEY_Z};
   for(int i=0;i<3;i++) { const char *p=strchr(rows[i],tolower((unsigned char)name[0])); if(p) return first[i]+(int)(p-rows[i]); }
@@ -50,6 +54,13 @@ static void key(struct wl_display *display,struct zwp_virtual_keyboard_v1 *keybo
  nanosleep(&(struct timespec){.tv_nsec=30000000},NULL);
 }
 int main(int argc,char **argv) {
+ long hold_ms=0;const char *hold_text=getenv("SUMI_KEY_HOLD_MS");
+ if(hold_text) {
+  char *end;hold_ms=strtol(hold_text,&end,10);
+  if(end==hold_text || *end || hold_ms<0 || hold_ms>2000) {
+   fprintf(stderr,"SUMI_KEY_HOLD_MS must be an integer from 0 to 2000\n");return 2;
+  }
+ }
  /* Validate every chord before connecting or sending any input. */
  for(int i=1;i<argc;i++) {
   char *copy=strdup(argv[i]);int count=0;
@@ -62,7 +73,7 @@ int main(int argc,char **argv) {
  struct wl_registry *registry=wl_display_get_registry(display);wl_registry_add_listener(registry,&listener,NULL);wl_display_roundtrip(display);
  if(!manager||!seat)return 4;
  struct xkb_context *context=xkb_context_new(XKB_CONTEXT_NO_FLAGS);
- const struct xkb_rule_names names={.rules="evdev",.model="pc105",.layout="us",.variant="",.options=""};
+ const struct xkb_rule_names names={.rules="evdev",.model="pc105",.layout="us",.variant="",.options="compose:menu"};
  struct xkb_keymap *map=xkb_keymap_new_from_names(context,&names,XKB_KEYMAP_COMPILE_NO_FLAGS);if(!map)return 5;
  struct xkb_state *state=xkb_state_new(map);
  char *text=xkb_keymap_get_as_string(map,XKB_KEYMAP_FORMAT_TEXT_V1);size_t size=strlen(text)+1;
@@ -74,6 +85,7 @@ int main(int argc,char **argv) {
   char *copy=strdup(argv[i]);int codes[5],count=0;
   for(char *part=strtok(copy,"+");part;part=strtok(NULL,"+")) codes[count++]=keycode(part);
   for(int j=0;j<count;j++)key(display,keyboard,state,codes[j],1);
+  if(hold_ms)nanosleep(&(struct timespec){.tv_sec=hold_ms/1000,.tv_nsec=(hold_ms%1000)*1000000},NULL);
   for(int j=count-1;j>=0;j--)key(display,keyboard,state,codes[j],0);
   free(copy);
  }

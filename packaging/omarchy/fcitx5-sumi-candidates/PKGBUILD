@@ -1,6 +1,6 @@
-# Local Sumi addon package; fixed source commit b75c450fe8ee0249d20d8727abe59c2b818e0c16.
+# Local Sumi addon package; fixed source commit b07f55ca2415c48190c84a4c6e17df41bec4f9fc.
 pkgname=fcitx5-sumi-candidates
-pkgver=5.1.23.r3.gb75c450f
+pkgver=5.1.23.r4.gb07f55ca
 pkgrel=1
 pkgdesc='Application-owned Fcitx candidate presentation for the native Sumi editor'
 arch=('x86_64')
@@ -10,7 +10,7 @@ depends=('fcitx5>=5.1.23' 'fcitx5<5.2' 'gcc-libs' 'glibc')
 makedepends=('gcc' 'pkgconf')
 options=('!debug' '!lto')
 source=('fcitx5-sumi-source.tar.gz')
-sha256sums=('cf4ad1867750dbe283c047d64e867e270f1e607624b2437df2a6f93d3669d4bd')
+sha256sums=('52b6c811c38aa0f471f4c0c9e73ccf6132e052448f3a68c2a7f63b131b92bfe7')
 
 build() {
     cd "$srcdir/fcitx5-sumi/src/modules/sumicandidates"

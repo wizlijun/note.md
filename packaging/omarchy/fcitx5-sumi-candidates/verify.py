@@ -25,7 +25,7 @@ archive=verify_source()
 if a.source_only:
     print('Frozen source and original PKGBUILD verified: '+MANIFEST['source_commit']);raise SystemExit(0)
 package=a.package.resolve();pkginfo=run(['bsdtar','-xOf',str(package),'.PKGINFO'])
-for line in ['pkgname = fcitx5-sumi-candidates','pkgver = 5.1.23.r3.gb75c450f-1','arch = x86_64','depend = fcitx5>=5.1.23','depend = fcitx5<5.2']:
+for line in ['pkgname = fcitx5-sumi-candidates','pkgver = 5.1.23.r4.gb07f55ca-1','arch = x86_64','depend = fcitx5>=5.1.23','depend = fcitx5<5.2']:
     assert line in pkginfo.splitlines(),line
 members=run(['bsdtar','-tf',str(package)]).splitlines();metadata={'.PKGINFO','.BUILDINFO','.MTREE'}
 assert sorted(n for n in members if not n.endswith('/') and n not in metadata)==sorted(PAYLOAD)
@@ -46,6 +46,6 @@ env=os.environ.copy();env.update(SUMI_PACKAGE_TEST_DIR=str(runtime),SUMI_PACKAGE
 with (audit/'runtime.log').open('w') as log:
     subprocess.run(['dbus-run-session','--config-file='+str(ROOT/'dbus-test.conf'),'--','bash',str(ROOT/'runtime-worker.sh')],env=env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=45)
 passed=[line for line in (audit/'runtime.log').read_text().splitlines() if line.startswith('PASS:')]
-assert len(passed)==7,passed
+assert len(passed)==10,passed
 result={'source_commit':MANIFEST['source_commit'],'source_archive_sha256':digest(archive),'pkgbuild_sha256':digest(ROOT/'PKGBUILD'),'package':str(package),'package_sha256':digest(package),'matches_original_package':digest(package)==MANIFEST['original_package_sha256'],'payload_sha256':{n:digest(extract/n) for n in PAYLOAD},'audit_directory':str(audit),'dependency_packages':run(['pacman','-Q','fcitx5','fcitx5-chinese-addons','fcitx5-gtk']).splitlines(),'checks':{'frozen_source_manifest':True,'exact_three_file_payload':True,'elf_and_relocations':True,'actual_package_module_loaded_on_private_bus':True,'real_pinyin_protocol_regressions':passed},'system_installed_by_verifier':False,'global_fcitx_restarted':False,'published':False}
 a.output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))

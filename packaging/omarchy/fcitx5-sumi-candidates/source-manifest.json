@@ -1,20 +1,20 @@
 {
-  "source_commit": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
-  "source_commit_epoch": 1794385308,
-  "original_package_build_epoch": 1794385340,
+  "source_commit": "b07f55ca2415c48190c84a4c6e17df41bec4f9fc",
+  "source_commit_epoch": 1794412702,
+  "original_package_build_epoch": 1794412702,
   "source_archive": "fcitx5-sumi-source.tar.gz",
-  "source_archive_sha256": "cf4ad1867750dbe283c047d64e867e270f1e607624b2437df2a6f93d3669d4bd",
+  "source_archive_sha256": "52b6c811c38aa0f471f4c0c9e73ccf6132e052448f3a68c2a7f63b131b92bfe7",
   "source_files_sha256": {
     "LICENSES/LGPL-2.1-or-later.txt": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f",
     "src/modules/sumicandidates/CMakeLists.txt": "e5c04cb1f2174c345c020daf89f402eb1efbfc4735dcc9813fc0e75179100a59",
-    "src/modules/sumicandidates/README.md": "31620c15c55cb3f0e9768ad62b16be218cddd5f3513af5442d5977d0b4f8927d",
+    "src/modules/sumicandidates/README.md": "b8b768b6d11f8b404050f014f6f407fe85c83731a7df069f89c388522600bb0f",
     "src/modules/sumicandidates/sumicandidates.conf.in": "6b8110baf4f9f901f5b7caf1b2aacf5ee3d3cbf5806f9b7c162e1a4c2872fed2",
-    "src/modules/sumicandidates/sumicandidates.cpp": "8cfec034cde43dad4268f725fe28df359e2f68d948fae45234be98ef870dc9e2",
-    "src/modules/sumicandidates/tests/integration.py": "e634685ce490b1ce08edb49b32b215408f86fd0f95a8630c1a7571c614489156",
+    "src/modules/sumicandidates/sumicandidates.cpp": "5e9de3181c92064417e7b1c90544ab741e6458f2800788927906e17e9a47ee08",
+    "src/modules/sumicandidates/tests/integration.py": "89b85c294c1c80692478ae2317911b3648967dfdc8daf7d4aaa1f69d6fe8c31d",
     "src/modules/sumicandidates/tests/run-isolated.sh": "96dddf4a2dba49fc5fedf4405d24bdd856fadb8742f486c4edfbe913296d3ef0"
   },
-  "original_package": "fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst",
-  "original_package_sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
-  "original_pkgbuild_sha256": "d6c718649a26104b73331cb50e612b8d0a8a0b52ec26ecf4f88b4f502eb6dc6a",
+  "original_package": "fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-1-x86_64.pkg.tar.zst",
+  "original_package_sha256": "54f6b60e4faa82f3abb111b6f79de679ba41252f829bb397a4008b5d4992fd13",
+  "original_pkgbuild_sha256": "dffc49dafa3b023cc431c6ecd64a5de3274914b2f2e818ce4e9f7038721f8631",
   "source_matches_git_archive": true
 }

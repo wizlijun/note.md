@@ -10,6 +10,9 @@ root=args.artifacts.resolve(); root.mkdir(parents=True,exist_ok=True)
 scale=float(os.environ.get('SUMI_CANDIDATE_SCALE','1'))
 mode=os.environ.get('SUMI_CANDIDATE_IM_MODULE','fcitx')
 art=root/(('native-verification' if scale==1 else f'native-verification-scale{scale:g}')+('' if mode=='fcitx' else '-'+mode));art.mkdir(exist_ok=True)
+input_tools=art/'input-tools'
+subprocess.run(['bash',str(pathlib.Path(__file__).resolve().parent.parent/'probe-pointer/build.sh'),str(input_tools)],check=True)
+keyboard=str(input_tools/'keyboard')
 # Unix socket paths are limited to 108 bytes, regardless of artifact depth.
 runtime_dir=tempfile.TemporaryDirectory(prefix='sumi-ime-')
 runtime=pathlib.Path(runtime_dir.name)
@@ -26,7 +29,7 @@ subprocess.run(['g++','-std=c++20','-shared','-fPIC',str(source/'sumicandidates.
 env=os.environ.copy()
 assert env.get('SUMI_CANDIDATE_PRIVATE_BUS')=='1', 'launch with run-native.sh (private bus without service activation)'
 for key in ['DISPLAY','WAYLAND_DISPLAY','HYPRLAND_INSTANCE_SIGNATURE','SWAYSOCK']:env.pop(key,None)
-env.update(XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(art/'config'),XDG_DATA_HOME=str(art/'data'),XDG_CACHE_HOME=str(art/'cache'),LD_LIBRARY_PATH=str(sysroot/'lib'),WLR_BACKENDS='headless',WLR_RENDERER='pixman',WLR_LIBINPUT_NO_DEVICES='1',WLR_HEADLESS_OUTPUTS='1',NO_AT_BRIDGE='1',GIO_USE_VFS='local',GTK_USE_PORTAL='0',XDG_CURRENT_DESKTOP='sway',GTK_IM_MODULE=os.environ.get('SUMI_CANDIDATE_IM_MODULE','fcitx'),SUMI_FCITX_ISOLATED_TEST='1',SUMI_CANDIDATE_TEST_ARTIFACTS=str(art),FCITX_ADDON_DIRS=f'{art}/lib:/usr/lib/fcitx5')
+env.update(XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(art/'config'),XDG_DATA_HOME=str(art/'data'),XDG_CACHE_HOME=str(art/'cache'),LD_LIBRARY_PATH=str(sysroot/'lib'),WLR_BACKENDS='headless',WLR_RENDERER='pixman',WLR_LIBINPUT_NO_DEVICES='1',WLR_HEADLESS_OUTPUTS='1',NO_AT_BRIDGE='1',GIO_USE_VFS='local',GTK_USE_PORTAL='0',XDG_CURRENT_DESKTOP='sway',GTK_IM_MODULE=os.environ.get('SUMI_CANDIDATE_IM_MODULE','fcitx'),SUMI_FCITX_ISOLATED_TEST='1',SUMI_CANDIDATE_TEST_ARTIFACTS=str(art),SUMI_CANDIDATE_TEST_KEYBOARD=keyboard,FCITX_ADDON_DIRS=f'{art}/lib:/usr/lib/fcitx5')
 conf=art/'sway.conf';conf.write_text(f'xwayland disable\noutput HEADLESS-1 mode {int(1600*scale)}x{int(1000*scale)} scale {scale:g}\nseat seat0 fallback true\nfocus_follows_mouse no\nfor_window [app_id=".*"] floating enable\nfor_window [app_id=".*"] border none\n')
 processes=[]
 try:
@@ -42,7 +45,7 @@ try:
  time.sleep(.8)
  # Keep the seat alive beyond the entire 90-second test deadline; losing the
  # last keyboard while composing resets GTK/Fcitx and commits raw preedit.
- processes.append(subprocess.Popen(['wtype','-s','120000'],env=env))
+ processes.append(subprocess.Popen([keyboard],env={**env,'SUMI_KEYBOARD_HOLD_SECONDS':'120'}))
  time.sleep(.2)
  result=subprocess.run([str(args.test_binary.resolve()),args.test_filter,'--ignored','--nocapture','--test-threads=1'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=90)
  (art/'test.log').write_text(result.stdout);print(result.stdout);sys.exit(result.returncode)
