@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { EvidenceItem, EvidenceStepResult } from './api'
 import {
-  answerGate, answerParts, applyRound, confirmedCount, emptyEvidence, evidenceFinished, fitEvidence, headerFromStep,
-  shouldStartEvidence, totalsOf,
+  answerable, answerGate, answerParts, applyRound, confirmedCount, emptyEvidence, evidenceFinished, evidenceReady, fitEvidence, headerFromStep,
+  interruptRun, shouldStartEvidence, totalsOf,
 } from './evidence-flow'
 import { DEFAULT_SMART_LOOKUP_SETTINGS, normalizeSmartLookupSettings } from './settings'
 
@@ -28,6 +28,29 @@ describe('evidence view', () => {
     const v = applyRound(applyRound(emptyEvidence(), round(0, ['a'])), round(1, [], { status: 'timeout' }))
     expect(ids(v.shown)).toEqual(['a']); expect(v.done).toBe(true); expect(v.stop).toBeNull(); expect(v.rounds).toHaveLength(1)
     expect(evidenceFinished(v)).toBe(false)
+  })
+  it('a failed round after a scored one interrupts the run: the confirmed evidence stays answerable (final review I5)', () => {
+    const scored = applyRound(emptyEvidence(), { ...round(0, []), evidence: [item('a', 0), item('b', 0, 'unfit')] })
+    for (const status of ['timeout', 'unreachable', 'keyInvalid', 'invalid', 'notConfigured', 'noConsent'] as const) {
+      const v = applyRound(scored, round(1, ['z'], { status, done: true }))
+      expect(v.interrupted, status).toBe(true)
+      expect(ids(v.shown), status).toEqual(['a', 'b'])
+      expect(evidenceFinished(v), status).toBe(false)
+      expect(answerable(v), status).toBe(true)
+    }
+    // A host error for the step (not a status) interrupts the same way.
+    expect(answerable(interruptRun(scored))).toBe(true)
+  })
+  it('a failed first round, a stop, a skip or nothing confirmed is not answerable', () => {
+    expect(applyRound(emptyEvidence(), round(0, [], { status: 'timeout', done: true })).interrupted).toBe(false)
+    expect(interruptRun(emptyEvidence()).interrupted).toBe(false)
+    const scored = applyRound(emptyEvidence(), round(0, ['a']))
+    expect(answerable(applyRound(scored, round(1, [], { status: 'cancelled', done: true })))).toBe(false)
+    expect(answerable(applyRound(scored, round(1, [], { status: 'skipped', skipReason: 'indexUnavailable', done: true })))).toBe(false)
+    expect(answerable(scored)).toBe(false)
+    const unsure = applyRound(emptyEvidence(), { ...round(0, []), evidence: [item('a', 0, 'unsure')] })
+    expect(answerable(applyRound(unsure, round(1, [], { status: 'timeout', done: true })))).toBe(false)
+    expect(answerable(applyRound(emptyEvidence(), round(0, ['a'], { done: true, stop: 'maxHops' })))).toBe(true)
   })
   it('a stop that scored nothing reports the shown list again without adding a round', () => {
     // The host repeats the last scored evidence with the stop (Task 8 `report_shown`).
@@ -73,7 +96,7 @@ describe('evidence view', () => {
         skippedConfidential: 2, skippedStale: 1, skippedLong: 3, skippedOversize: 1,
       },
     })
-    expect(totalsOf(result)).toEqual({ host: 'h.example', elapsedMs: 500, sent: 14 })
+    expect(totalsOf(result)).toEqual({ host: 'h.example', elapsedMs: 500, sent: 14, skippedConfidential: 2 })
     // A refused call reports the run so far; nothing sent means no host.
     const nothingSent = totalsOf(round(0, [], { status: 'noConsent', requestCount: 0, endpointHost: 'x.example' }))
     expect(nothingSent.host).toBeNull(); expect(nothingSent.sent).toBe(0)
@@ -98,6 +121,14 @@ describe('evidence view', () => {
     expect(shouldStartEvidence(3, 'skip', s)).toBe(false)
     expect(shouldStartEvidence(3, 'judge', normalizeSmartLookupSettings({ enhance: { jev: { ...s.enhance.jev, consentHost: 'b.example' } } }))).toBe(false)
     expect(shouldStartEvidence(3, 'judge', DEFAULT_SMART_LOOKUP_SETTINGS)).toBe(false)
+  })
+  it('is ready (the Launch chip) only with enhancement on, Jev set up and its host allowed', () => {
+    const s = normalizeSmartLookupSettings({ enhance: { jev: { url: 'https://a.example/v1', model: 'm', consentHost: 'a.example' } } })
+    expect(evidenceReady(s)).toBe(true)
+    expect(evidenceReady(DEFAULT_SMART_LOOKUP_SETTINGS)).toBe(false)
+    expect(evidenceReady({ ...s, enhance: { ...s.enhance, enabled: false } })).toBe(false)
+    expect(evidenceReady({ ...s, enhance: { ...s.enhance, jev: { ...s.enhance.jev, consentHost: '' } } })).toBe(false)
+    expect(evidenceReady({ ...s, enhance: { ...s.enhance, jev: { ...s.enhance.jev, model: ' ' } } })).toBe(false)
   })
 })
 

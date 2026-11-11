@@ -1714,7 +1714,6 @@ pub fn run() {
                 search::notemd_search,
                 search::notemd_smart_search,
                 search::smart_lookup_local,
-                search::smart_lookup_diagnose,
                 search::smart_lookup_search_groups,
                 smart_enhance::keys::smart_lookup_key_set,
                 smart_enhance::keys::smart_lookup_key_clear,

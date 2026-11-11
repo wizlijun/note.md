@@ -19,7 +19,7 @@ function defaults(): SmartLookupSettings {
 
 function withChat(): SmartLookupSettings {
   const settings = defaults()
-  settings.enhance.chat = { url: 'https://api.example.com/v1', model: 'small-chat', consentHost: '' }
+  settings.enhance.chat = { url: 'https://api.example.com/v1', model: 'small-chat', consentHost: 'api.example.com' }
   return settings
 }
 
@@ -153,5 +153,17 @@ describe('repair', () => {
     const noUrl = withChat()
     noUrl.enhance.chat.url = ''
     expect(shouldAutoRepair(0, noUrl, { jev: true, chat: true })).toBe(false)
+  })
+
+  it('auto repair needs consent for the answer host: it sends the question there', () => {
+    const none = withChat()
+    none.enhance.chat.consentHost = ''
+    expect(shouldAutoRepair(0, none, { jev: true, chat: true })).toBe(false)
+    const other = withChat()
+    other.enhance.chat.consentHost = 'other.example.com'
+    expect(shouldAutoRepair(0, other, { jev: true, chat: true })).toBe(false)
+    const unparsable = withChat()
+    unparsable.enhance.chat = { url: 'not a url', model: 'm', consentHost: '' }
+    expect(shouldAutoRepair(0, unparsable, { jev: true, chat: true })).toBe(false)
   })
 })

@@ -7,6 +7,13 @@ export interface SmartLookupSettings {
     limit: 20 | 50 | 100
     groupBy: LookupGroupBy
     autoDeepOnZero: boolean
+    /**
+     * The answer-first default (`autoDeepOnZero: true`) was applied to the
+     * stored settings once (final review I6). Before this marker every save
+     * wrote the old default `false` explicitly, so a stored `false` without
+     * it is not a choice and becomes `true`; with it, the stored value stands.
+     */
+    autoDeepMigrated: boolean
     deepTimeoutMs: number
   }
   enhance: {
@@ -32,6 +39,7 @@ export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
     limit: 50,
     groupBy: 'auto',
     autoDeepOnZero: true,
+    autoDeepMigrated: true,
     deepTimeoutMs: 4_000,
   },
   enhance: {
@@ -86,7 +94,11 @@ export function normalizeSmartLookupSettings(value: unknown): SmartLookupSetting
     results: {
       limit: choice(results.limit, [20, 50, 100] as const, defaults.results.limit),
       groupBy: choice(results.groupBy, ['auto', 'source', 'date'] as const, defaults.results.groupBy),
-      autoDeepOnZero: bool(results.autoDeepOnZero, defaults.results.autoDeepOnZero),
+      // One-time migration (I6): settings saved before the marker turn the scan on.
+      autoDeepOnZero: results.autoDeepMigrated === true
+        ? bool(results.autoDeepOnZero, defaults.results.autoDeepOnZero)
+        : defaults.results.autoDeepOnZero,
+      autoDeepMigrated: true,
       deepTimeoutMs: boundedInteger(results.deepTimeoutMs, 1_000, 5_000, defaults.results.deepTimeoutMs),
     },
     enhance: {

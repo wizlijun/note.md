@@ -1,4 +1,4 @@
-import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm } from './api'
+import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm, SkipReason } from './api'
 import type { HeaderState } from './enhance-flow'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
@@ -11,10 +11,23 @@ export interface EvidenceView {
   shown: EvidenceItem[]
   done: boolean
   stop: EvidenceStop | null
+  /**
+   * The run ended on a failed round after at least one scored round (final
+   * review I5): the failed round is dropped whole, and the evidence the
+   * scored rounds confirmed stands, so the answer is written from it.
+   */
+  interrupted: boolean
+  /** Why the host skipped the latest call (a pinned page, few terms): the window says so in one line (M4). */
+  skipReason: SkipReason | null
 }
 
 export function emptyEvidence(): EvidenceView {
-  return { rounds: [], shown: [], done: false, stop: null }
+  return { rounds: [], shown: [], done: false, stop: null, interrupted: false, skipReason: null }
+}
+
+/** A round that failed (timeout, unreachable, key, invalid return, not set up): not a skip, not a stop the user asked for. */
+function failed(status: EvidenceStepResult['status']): boolean {
+  return status !== 'ok' && status !== 'skipped' && status !== 'cancelled'
 }
 
 /**
@@ -22,14 +35,28 @@ export function emptyEvidence(): EvidenceView {
  * the run and records its stop: a failed round (`status !== 'ok'`), or a stop
  * other than `maxHops`, for which the host reports the last scored evidence
  * again (`maxHops` comes with the round that reached it, pre-flight P14). A
- * scored round replaces the list.
+ * failed round after a scored one marks the run `interrupted`. A scored round
+ * replaces the list.
  */
 export function applyRound(view: EvidenceView, result: EvidenceStepResult): EvidenceView {
   const scored = result.status === 'ok' && (result.stop === null || result.stop === 'maxHops')
-  if (!scored) return { ...view, done: true, stop: result.stop ?? view.stop }
+  if (!scored) {
+    return {
+      ...view,
+      done: true,
+      stop: result.stop ?? view.stop,
+      interrupted: view.rounds.length > 0 && failed(result.status),
+      skipReason: result.status === 'skipped' ? result.skipReason : null,
+    }
+  }
   const round: EvidenceRound = { hop: result.hop, terms: result.terms, items: result.evidence }
   const rounds = [...view.rounds.filter((r) => r.hop !== result.hop), round].sort((a, b) => a.hop - b.hop)
-  return { rounds, shown: result.evidence, done: result.done, stop: result.stop }
+  return { rounds, shown: result.evidence, done: result.done, stop: result.stop, interrupted: false, skipReason: null }
+}
+
+/** The host refused a step outright (an error, not a status): like a failed round, it ends the run. */
+export function interruptRun(view: EvidenceView): EvidenceView {
+  return { ...view, done: true, interrupted: view.rounds.length > 0 }
 }
 
 /**
@@ -45,6 +72,14 @@ export function evidenceFinished(view: EvidenceView): boolean {
 /** The shown evidence Jev judged `fit`, in its order: what the answer is written from. */
 export function fitEvidence(view: EvidenceView): EvidenceItem[] {
   return view.shown.filter((item) => item.tier === 'fit')
+}
+
+/**
+ * There is confirmed evidence to write the answer from: the rounds finished,
+ * or a later round failed after earlier ones confirmed something (I5).
+ */
+export function answerable(view: EvidenceView): boolean {
+  return fitEvidence(view).length > 0 && (evidenceFinished(view) || view.interrupted)
 }
 
 /** 「已确认 N 处」: the `fit` items of the latest completed round (ledger ruling: no host change). */
@@ -77,10 +112,12 @@ export interface EvidenceTotals {
   sent: number
   /** The run's time so far; a newer result for the run has at least this. */
   elapsedMs: number
+  /** Distinct passages of confidential notes the host left out unchecked (final review I4). */
+  skippedConfidential: number
 }
 
 export function emptyTotals(): EvidenceTotals {
-  return { host: null, sent: 0, elapsedMs: 0 }
+  return { host: null, sent: 0, elapsedMs: 0, skippedConfidential: 0 }
 }
 
 /**
@@ -90,7 +127,12 @@ export function emptyTotals(): EvidenceTotals {
  * evidence the window drops after a stop.
  */
 export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
-  return { host: result.run.endpointHost, sent: result.run.sentBlocks, elapsedMs: result.run.elapsedMs }
+  return {
+    host: result.run.endpointHost,
+    sent: result.run.sentBlocks,
+    elapsedMs: result.run.elapsedMs,
+    skippedConfidential: result.run.skippedConfidential,
+  }
 }
 
 /**
@@ -101,10 +143,18 @@ export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
  * host gates them (`gate_jev`) and answers `notConfigured` before sending.
  */
 export function shouldStartEvidence(hits: number, route: 'judge' | 'skip' | 'repair', settings: SmartLookupSettings): boolean {
+  return hits > 0 && route !== 'skip' && evidenceReady(settings)
+}
+
+/**
+ * Enhancement on, Jev's url and model set, and its host allowed: a Return
+ * with local hits would check the evidence. The Launch chip 「有依据的回答 ·
+ * 已开启」 needs this and `answerGate` to start (M1, N2).
+ */
+export function evidenceReady(settings: SmartLookupSettings): boolean {
   const { enabled, jev } = settings.enhance
   const host = endpointHost(jev.url)
-  return enabled && hits > 0 && route !== 'skip' && jev.url.trim() !== '' && jev.model.trim() !== ''
-    && host !== null && host === jev.consentHost
+  return enabled && jev.url.trim() !== '' && jev.model.trim() !== '' && host !== null && host === jev.consentHost
 }
 
 /** A piece of the answer: plain text, or a cited source number that links to its evidence item. */
