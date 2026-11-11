@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
   answers: [] as unknown[],
   groups: null as unknown,
   saveError: false,
+  /** What `isVisible()` answers: the global shortcut hides the window without telling the page. */
+  visible: true,
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/api/event', () => ({
@@ -47,6 +49,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
     setTitle: mocks.setTitle,
+    isVisible: vi.fn(async () => mocks.visible),
     onFocusChanged: vi.fn(async (callback: (event: { payload: boolean }) => Promise<void>) => {
       mocks.focusChanged = callback
       return () => { mocks.focusChanged = null }
@@ -308,6 +311,7 @@ beforeEach(() => {
   mocks.answers = []
   mocks.groups = null
   mocks.saveError = false
+  mocks.visible = true
   // No endpoint by default: a lookup shows local results only. `autoDeepOnZero` is set either way,
   // so the tests do not depend on its default.
   mocks.storedSmartLookup = stored({})
@@ -436,9 +440,10 @@ describe('SmartLookupApp', () => {
     expect(document.querySelector('.result-row.active')?.textContent).toContain('alpha')
     expect(document.querySelector('.preview-header')?.textContent).toContain('notes/alpha.md · line 4')
     // No endpoint: one line above the local results, with the settings link.
-    expect(fallback()).toBe('Lookup enhancement is not on; showing local results only. Settings')
+    expect(fallback()).toBe("Lookup enhancement isn't set up yet; showing local results only. Settings")
     expect(chip()).toBe('Local results only')
     expect(footer()).toBe('esc Close ⌘K Actions')
+    expect(document.querySelector('.hint')?.textContent).toBe('Return to answer · Shift-Return for a new line')
   })
 
   it('Enter does not wait for the preview debounce', async () => {
@@ -898,6 +903,128 @@ describe('SmartLookupApp answer', () => {
     expect(calls('smart_lookup_answer').map((call) => call.lookupRunId)).toEqual(['run-1', 'run-2'])
   })
 
+  it('a hidden window sends no answer: the run is cancelled as Esc would', async () => {
+    useLocal()
+    configureBoth()
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+    // The global shortcut hides the window while the round is out.
+    mocks.visible = false
+    release()
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    await wait(20)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.')
+  })
+
+  it('a window hidden between rounds sends no further step', async () => {
+    useLocal()
+    configureBoth()
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ hop: 0, evidence: [ev('e1', 0)] }), step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+    mocks.visible = false
+    release()
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    await wait(20)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(1)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.')
+    // Shown again, Return retries on a new run.
+    mocks.visible = true
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'OK [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    key(input, 'Enter')
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('OK 1'))
+  })
+
+  it.each([
+    ['evidenceTooLarge', 'skipped'],
+    ['budget', 'ok'],
+    ['noTerms', 'skipped'],
+    ['candidatesEmpty', 'ok'],
+  ] as const)('a run that ends with %s before judging anything shows the local results, not "no answer"', async (stop, status) => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ status, stop, done: true, requestCount: 0, sentBlocks: 0, evidence: [] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('There were no passages to check this time; below are the local results.'))
+    expect(chip()).toBe('Local results only')
+    expect(document.querySelector('.no-match')).toBeNull()
+    expect(document.body.textContent).not.toContain('all unrelated')
+    expect(ids('local')).toEqual(LOCAL)
+    expect(document.querySelectorAll('.local-list .result-row.dim')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
+  it('a source row shows its heading path without repeating the title', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops',
+      evidence: [ev('e1', 0, { title: 'Decision log', breadcrumb: 'Decision log > 6.1110 on time?' })],
+    }))
+    mocks.answers.push(answered({ text: 'A [1].', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(ids('source')).toEqual(['e1']))
+    const row = document.querySelector('.source-list .result-row')!
+    expect(row.querySelector('.result-title')?.textContent).toBe('Decision log')
+    expect(row.querySelector('.result-crumb')?.textContent).toBe('› 6.1110 on time?')
+  })
+
+  it('the narrow window: the selected source expands inline, Space folds it, and the footer is short', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e2', 1)], run: runTotals({ sentBlocks: 74 }) }))
+    mocks.answers.push(answered({ text: 'A [1] B [2].', sources: [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e2' }] }))
+    const original = window.matchMedia
+    let narrow = false
+    window.matchMedia = ((query: string) => ({ matches: narrow && query.includes('max-width'), media: query })) as unknown as typeof window.matchMedia
+    try {
+      const input = await mountReady()
+      await submit(input)
+      await vi.waitFor(() => expect(ids('source')).toEqual(['e1', 'e2']))
+      const inline = () => document.querySelectorAll('.source-list .result-row .inline-passage')
+      // Only the selected row carries its passage, with 打开原文 and 收起.
+      expect(inline()).toHaveLength(1)
+      const passage = document.querySelector('.source-list .result-row.active .inline-passage')!
+      expect(passage.textContent).toContain('LOCAL_PASSAGE_e1')
+      expect(passage.textContent).toContain('Open original ↗')
+      expect(passage.textContent?.replace(/\s+/g, ' ')).toContain('␣ Collapse')
+      expect(document.querySelector('.footer-line.compact')?.textContent).toBe('Sent to 2 host(s) · 74 passages · no confidential notes sent')
+
+      // The wide window leaves Space alone.
+      const space = () => {
+        const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+        document.querySelector('.source-list .result-row.active')!.dispatchEvent(event)
+        return event
+      }
+      expect(space().defaultPrevented).toBe(false)
+      await tick()
+      expect(inline()).toHaveLength(1)
+      // The narrow window folds and unfolds the passage.
+      narrow = true
+      expect(space().defaultPrevented).toBe(true)
+      await vi.waitFor(() => expect(inline()).toHaveLength(0))
+      space()
+      await vi.waitFor(() => expect(inline()).toHaveLength(1))
+      // Another row opens unfolded.
+      space()
+      await vi.waitFor(() => expect(inline()).toHaveLength(0))
+      key(document.querySelector('.source-list .result-row.active')!, 'ArrowDown')
+      await vi.waitFor(() => expect(document.querySelector('.source-list .result-row.active .inline-passage')?.textContent).toContain('LOCAL_PASSAGE_e2'))
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   it('a late round for a superseded lookup is ignored', async () => {
     useLocal()
     useLocal(['r7', 'r8'], 'other question')
@@ -1000,7 +1127,7 @@ describe('SmartLookupApp fallbacks', () => {
     mocks.storedSmartLookup = stored({ enhance: { jev: { url: 'not a url', model: 'm', authMode: 'bearer', consentHost: '' } } })
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(fallback()).toContain('Lookup enhancement is not on'))
+    await vi.waitFor(() => expect(fallback()).toContain("Lookup enhancement isn't set up yet"))
     expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
   })
 
@@ -1011,7 +1138,7 @@ describe('SmartLookupApp fallbacks', () => {
     await submit(input)
     await wait(20)
     expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
-    expect(fallback()).toBe('Lookup enhancement is not on; showing local results only. Settings')
+    expect(fallback()).toBe("Lookup enhancement isn't set up yet; showing local results only. Settings")
   })
 
   it('a busy index says so without an action', async () => {
@@ -1115,6 +1242,9 @@ describe('SmartLookupApp zero hits', () => {
     expect(document.querySelectorAll('.no-match button')).toHaveLength(0)
     expect(chip()).toBe('No evidence')
     expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    // The scan already ran: ⌘K does not offer it again.
+    await openMenu()
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim())).not.toContain('Expand search')
   })
 
   it('a line-by-line scan that finds something gathers evidence and answers', async () => {

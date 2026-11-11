@@ -31,7 +31,7 @@
     type Trigger,
   } from './lib/smart-search/api'
   import { hitKey } from './lib/smart-search/hit-key'
-  import { dateSections, hitReference, redactError, sourceSections, type ResultSection } from './lib/smart-search/lookup-view'
+  import { crumbAfterTitle, dateSections, hitReference, redactError, sourceSections, type ResultSection } from './lib/smart-search/lookup-view'
   import {
     chatAnswerConfig,
     chatRequestConfig,
@@ -65,6 +65,7 @@
     confirmedSources,
     fallbackLine,
     footerLine,
+    judgedAnything,
     lookupPhase,
     otherResults,
     statusChip,
@@ -256,9 +257,10 @@
     sent: totals.sent,
   }, t('smartSearch.footer.hostSeparator')) : null)
   /** The try whose hits the evidence rounds checked: they were all unrelated when nothing was found. */
-  let judgedAttempt = $derived<AttemptKind | null>(evidence.rounds.length > 0 || evidence.done ? (evidenceDeep ? 'scan' : 'original') : null)
+  let judgedAttempt = $derived<AttemptKind | null>(judgedAnything(evidence) ? (evidenceDeep ? 'scan' : 'original') : null)
   let tried = $derived(attempts ? triedSteps(attempts, lastGroups, judgedAttempt, t('smartSearch.footer.hostSeparator')) : [])
-  let canExpand = $derived(Boolean(lookupRunId) && (store.hits.length === 0 || store.deepAvailable))
+  /** ⌘K 「扩大查找」, until the line-by-line scan has run for this question (automatically or from the menu). */
+  let canExpand = $derived(Boolean(lookupRunId) && !attempts?.scan && (store.hits.length === 0 || store.deepAvailable))
   /** What is running locally; the activity log's own lines stay in the log (⌘K). */
   let activityText = $derived(
     repairBusy ? t('smartSearch.enhance.repairing')
@@ -728,6 +730,13 @@
     workStartedAt = Date.now()
     const deep = evidenceDeep
     for (;;) {
+      // A window hidden by the global shortcut is closed for the user: stop as Esc does, before anything more is sent.
+      const hidden = await windowHidden()
+      if (inflight?.token !== token || mine !== requestSequence) return
+      if (hidden) {
+        stopEvidence('window hidden')
+        return
+      }
       let result: EvidenceStepResult
       try {
         result = await smartSearchApi.evidenceStep(runId, jevRequestConfig(settings.smartLookup), trigger, deep)
@@ -771,7 +780,31 @@
       appendActivity('answer', 'warning', `answer not requested (${gate.kind})`)
       return
     }
+    // Nothing is sent from a hidden window: the run is cancelled as Esc would, and Return asks again.
+    const hidden = await windowHidden()
+    if (mine !== requestSequence) return
+    if (hidden) {
+      const runId = evidenceRunId
+      workStartedAt = null
+      answerStopped = true
+      if (runId) void smartSearchApi.cancel(runId).catch(() => {})
+      appendActivity('answer', 'warning', 'answer not requested (window hidden)')
+      return
+    }
     await generateAnswer(mine)
+  }
+
+  /**
+   * Whether the window is hidden. The global shortcut hides it without
+   * telling the page, so the window asks before each step and before the
+   * answer. Without a window (browser preview) it counts as shown.
+   */
+  async function windowHidden(): Promise<boolean> {
+    try {
+      return !(await appWindow.isVisible())
+    } catch {
+      return false
+    }
   }
 
   /**
@@ -855,11 +888,11 @@
   }
 
   /** Esc while the rounds run: cancels this round and the later ones; no answer is written. Return retries. */
-  function stopEvidence(): void {
+  function stopEvidence(reason = ''): void {
     if (!evidenceBusy) return
     stopEnhanceRequest()
     header = { kind: 'degraded', status: 'cancelled', host: null, statusClass: null, missing: null }
-    appendActivity('judge', 'warning', 'evidence cancelled')
+    appendActivity('judge', 'warning', reason ? `evidence cancelled (${reason})` : 'evidence cancelled')
   }
 
   /** The user picked a row: the selection follows it (path and line range) while it stays listed. */
@@ -1054,10 +1087,19 @@
     } else if (event.key === 'Enter') {
       event.preventDefault()
       void openHit(rows[index])
-    } else if (event.key === ' ') {
-      // The narrow window folds the inline passage.
+    } else if (event.key === ' ' && narrowWindow()) {
+      // The narrow window folds the inline passage; the wide one leaves Space alone.
       event.preventDefault()
       inlineOpen = !inlineOpen
+    }
+  }
+
+  /** The Compact board's layout: the same width as the stylesheet's narrow media query. */
+  function narrowWindow(): boolean {
+    try {
+      return window.matchMedia?.('(max-width: 719.98px)').matches ?? false
+    } catch {
+      return false
     }
   }
 
@@ -1229,6 +1271,7 @@
 {#snippet resultRow(hit: Row)}
   {@const index = rows.indexOf(hit)}
   {@const active = activeHit === hit}
+  {@const crumb = hit.evidence ? crumbAfterTitle(hit.evidence.title, hit.evidence.breadcrumb) : ''}
   <div
     class="result-row"
     class:active
@@ -1249,7 +1292,7 @@
     <span class="row-body">
       <span class="title-line">
         <strong class="result-title">{displayTitle(hit)}</strong>
-        {#if hit.evidence?.breadcrumb}<span class="result-crumb">› {hit.evidence.breadcrumb}</span>{/if}
+        {#if crumb}<span class="result-crumb">› {crumb}</span>{/if}
       </span>
       <span class="result-snippet">{#each highlightParts(snippet(hit), highlightTerms) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</span>
       {#if active && inlineOpen && mode === 'lookup'}
