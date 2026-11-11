@@ -9,6 +9,8 @@ For the full commit history, see the git log.
 
 ## v6.1111.1 — 2026-11-11
 
+- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
+
 - **Sumi windows fit your Mac display.** New standalone windows use the available screen area and support the green full-screen button. “Open new windows in full screen” is on by default; changing it applies to the next new window without switching the current one.
 
 - **Bring macOS writing behavior in line with Linux.** Full-screen text scales proportionally and returns to the saved size on exit. Focus typing uses a rolling two-second input window, and focus layout and inline candidates respect the reserved bottom space. Command shortcuts and drafts paused after a save failure no longer trigger typing sounds.

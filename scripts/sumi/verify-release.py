@@ -21,7 +21,9 @@ ROOT = Path(__file__).resolve().parents[2]
 VERSION = '6.1111.1'
 PLUGIN_VERSION = '0.1.14'
 EXPECTED_BINARY_MAP = {'aarch64-apple-darwin':'bin/notemd-sumi', 'x86_64-unknown-linux-gnu':'bin/notemd-sumi'}
-SOURCES = ['src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
+SOURCES = ['src/components/EditorPane.svelte', 'src/components/FolderView.svelte', 'src/lib/tabs.svelte.ts',
+           'src-tauri/src/sumi/credentials_linux.rs', 'plugins-src/write/index.html',
+           'src/components/NativeFileView.svelte', 'src/components/SumiRecovery.svelte',
            'src/lib/sumi/session.ts', 'src/lib/sumi/recovery.ts', 'src/lib/sumi/i18n.ts', 'src/App.svelte',
            'src-tauri/src/sumi/mod.rs', 'src-tauri/src/sumi/export.rs',
            'src-tauri/src/sumi/recovery.rs', 'src-tauri/src/sumi/external.rs',

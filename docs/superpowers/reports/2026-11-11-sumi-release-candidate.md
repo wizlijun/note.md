@@ -39,3 +39,13 @@ host 版本统一为 `6.1111.1`；Sumi manifest/package 为 `0.1.14`，最低宿
 准备阶段通过：双语 changelog check/rotate；`python3 scripts/sumi/verify-release.py --self-test`；`python3 -m unittest discover -s scripts/sumi -p test_native_release.py`（9 项）；八项 stable patch-id、关键源码与 main 等价、Smart Lookup 与 tag 等价。verify-release 的版本门禁已更新，并把新窗口 geometry/policy 加入冻结源摘要。
 
 后续仍需正式 host 和插件构建、签名、公证、精确源摘要/嵌入资源/架构/真实进程探针验收、市场与 GitHub 回读，再能称已发布。既有 `scripts/release.sh` 要求 main 且等于 origin/main，不能在此分支直接运行，也不能放宽门禁；使用既有分步构建、verify-release 与 draft/publish 流程，保留审计证据。市场必须沿用 Wrangler 3、Account API Token、R2→匿名回读验签→KV→公网复核，不改 Linux 条目。
+
+## 发布前追加命名（rc2）
+
+用户最终确认仅写作产品改名 Sumi Write／玄霜写作，note.md 与 Faitc5 名称保留。旧源码 `5e197ce4` 的正式构建和精确插件验收已完成，但均标记 superseded、不可发布；从未 push、上传 R2 或发布索引。旧 rc1 标签保留。临时本地正式 tag 对象 `81e7b292` 尚未 push，已移除；新冻结源码将重新建立正式 tag，未移动任何公开版本。
+
+新增宿主显示品牌提交 main `b751d7dd` → release `bcafd2ab`；三语言正文入口/恢复测试 18 项和真实 AppKit 菜单/链接对话框/辅助功能 probe 通过，组字、正文、revision、命令身份不变。插件品牌另以精确提交纳入，新包必须重新构建、验签、公证及真实进程验收。保留字体兼容别名、原始诊断详情/路径及用户正文。
+
+后续命名提交：main `48ce1498` → release `4b173315` 补齐文档操作与凭据显示标签、移除中文辅助功能重复“写作”；main `4938ba27` → release `6d9233a0` 覆盖插件市场、入口、窗口与 Linux 音频应用名。manifest cherry-pick 的版本邻行冲突已明确保留 0.1.14 / >=6.1111.1，仅采用新名称。宿主相关 177 测试、插件 110 测试及 tsc/Vite 通过。
+
+最终冻结前重新核对：仅 main/release 两个工作树，main 仍只有 searchidx/src/store.rs 与 src-tauri/src/smart_lookup.rs 两处原有 EOF 改动；stash 不变。命名后所有当前产品源码纳入新候选；main 新文档采用选定spec/日志，未包含智能查找改动。旧源码八项补丁等价仍成立，新三项命名通过实际文件对比（manifest 仅版本/min_host 差异）。
