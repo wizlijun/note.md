@@ -772,10 +772,11 @@ describe('SmartLookupApp answer', () => {
   })
 
   it.each([
-    ['invalid citations', () => answered({ status: 'invalidCitations', requestCount: 3, sources: [{ id: 1, evidenceId: 'e1' }] })],
-    ['a timeout', () => answered({ status: 'timeout' })],
-    ['a host budget code', () => Promise.reject('sourceTooLarge')],
-  ])('a failed answer (%s) shows the confirmed sources under one line, never remote text', async (_name, reply) => {
+    ['invalid citations', () => answered({ status: 'invalidCitations', requestCount: 3, sources: [{ id: 1, evidenceId: 'e1' }] }), 'api.typesafe.ai, chat.example'],
+    ['a timeout', () => answered({ status: 'timeout' }), 'api.typesafe.ai, chat.example'],
+    // The host refused before sending: the answer host is not named.
+    ['a host budget code', () => Promise.reject('sourceTooLarge'), 'api.typesafe.ai'],
+  ])('a failed answer (%s) shows the confirmed sources under one line, never remote text', async (_name, reply, hosts) => {
     useLocal()
     configureBoth()
     mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
@@ -787,6 +788,7 @@ describe('SmartLookupApp answer', () => {
     expect(ids('source')).toEqual(['e1'])
     expect(document.body.textContent).not.toContain('sourceTooLarge')
     expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
+    expect(footerLineText()).toBe(`Sent to ${hosts} · 3 passages in all · no confidential notes sent`)
   })
 
   it('no answer request when nothing shown is fit: the no-answer view', async () => {
@@ -886,10 +888,13 @@ describe('SmartLookupApp answer', () => {
     expect(calls('hide_smart_search_window')).toHaveLength(0)
     await vi.waitFor(() => expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.'))
     expect(ids('source')).toEqual(['e1'])
+    // The question and the passages may already have gone to the answer host: the footer still names it.
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
     release(answered({ text: 'LATE_ANSWER [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
     await wait(20)
     expect(answerText()).toBeNull()
     expect(document.body.textContent).not.toContain('LATE_ANSWER')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
 
     // Return retries: a new lookup run, its own evidence, its own answer.
     mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
@@ -957,6 +962,7 @@ describe('SmartLookupApp answer', () => {
     expect(answerText()).toBeNull()
     expect(document.body.textContent).not.toContain('HIDDEN_ANSWER')
     expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
   })
 
   it('a window hidden between rounds sends no further step', async () => {

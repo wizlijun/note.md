@@ -161,6 +161,13 @@
   let answerStopped = $state(false)
   /** Why no answer was asked for: the answer model is not set up, or its host not allowed. */
   let answerBlocked = $state<AnswerGate | null>(null)
+  /**
+   * The answer host a request of this run was started with. The footer keeps
+   * naming it after a stop or a hidden-window drop (final review I1): the
+   * question and the passages may already have gone there. Cleared only for
+   * a new run, or when the host refused the request before sending.
+   */
+  let answerSentHost = $state<string | null>(null)
   let otherOpen = $state(false)
   /** The narrow window shows the selected row's passage inline; Space folds it. */
   let inlineOpen = $state(true)
@@ -252,7 +259,8 @@
       totals.host ?? (evidenceBusy ? endpointHost(settings.smartLookup.enhance.jev.url) : null),
       repairHost ?? (repairBusy ? endpointHost(settings.smartLookup.enhance.chat.url, 'chat') : null),
       answerBusy ? endpointHost(settings.smartLookup.enhance.chat.url, 'chat')
-        : answer && answer.requestCount > 0 ? answer.endpointHost ?? endpointHost(settings.smartLookup.enhance.chat.url, 'chat') : null,
+        : answer ? (answer.requestCount > 0 ? answer.endpointHost ?? endpointHost(settings.smartLookup.enhance.chat.url, 'chat') : null)
+          : answerSentHost,
     ],
     sent: totals.sent,
   }, t('smartSearch.footer.hostSeparator')) : null)
@@ -366,6 +374,7 @@
     workStartedAt = null
     otherOpen = false
     clearAnswer()
+    answerSentHost = null
   }
 
   /** Drops the answer shown and cancels one in flight: it no longer matches the evidence. */
@@ -835,11 +844,14 @@
     answerBlocked = null
     answerBusy = true
     if (workStartedAt === null) workStartedAt = Date.now()
+    answerSentHost = endpointHost(settings.smartLookup.enhance.chat.url, 'chat')
     let result: AnswerResult
     try {
       result = await smartSearchApi.answer(runId, chatAnswerConfig(settings.smartLookup), shownIds)
     } catch (error) {
       if (inflight?.token !== token || mine !== requestSequence) return
+      // The host refuses before sending anything (a budget code, an expired run).
+      answerSentHost = null
       inflight = null
       answerBusy = false
       workStartedAt = null
