@@ -954,8 +954,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     enabled.click()
     await settle()
     expect(settings.smartLookup.enhance.enabled).toBe(false)
-    expect(jevSection().textContent).toContain('By default, per Return: the evidence check runs up to 2 rounds, up to 65 passages and 10 seconds per round, then writes 1 answer')
-    expect(jevSection().textContent).toContain('at most 200,000 tokens')
+    expect(jevSection().textContent).toContain('By default, per Return: the evidence check runs up to 2 rounds, up to 65 passages per round (115 after a line-by-line scan or an expanded search) and 10 seconds per round, at most 200,000 tokens in all; then 1 answer is written, with its own budget and up to 3 requests')
     expect(jevSection().textContent).toContain('earlier evidence passages again in later rounds')
     // The example is collapsed until asked for.
     const example = jevSection().querySelector<HTMLDetailsElement>('details.enhance-example')!

@@ -927,7 +927,7 @@ export const de: Record<keyof Messages, string> = {
   "settings.enhance.consentHint": "Nur die zu beurteilenden Absätze werden gesendet, in späteren Runden auch die Belege früherer Runden erneut; als vertraulich markierte Notizen nie. Nach einer Adressänderung muss das Senden erneut erlaubt werden.",
   "settings.enhance.chatConsentHint": "Jede Antwort sendet die Frage und die Belegabsätze; als vertraulich markierte Notizen nie. Nach einer Adressänderung muss das Senden erneut erlaubt werden.",
   "settings.enhance.insecure": "Diese Adresse würde den Schlüssel im Klartext senden. Verwenden Sie https.",
-  "settings.enhance.budget": "Standardmäßig pro Eingabetaste: Belegprüfung in bis zu 2 Runden, je bis zu 65 Absätze und 10 Sekunden, danach 1 Antwort · insgesamt höchstens 200.000 Token",
+  "settings.enhance.budget": "Standardmäßig pro Eingabetaste: Belegprüfung in bis zu 2 Runden, je bis zu 65 Absätze (115 nach einem zeilenweisen Scan oder einer erweiterten Suche) und 10 Sekunden pro Runde, insgesamt höchstens 200.000 Token; danach 1 Antwort mit eigenem Budget und bis zu 3 Anfragen",
   "settings.enhance.example": "Beispiel für gesendete Inhalte ansehen",
   "settings.enhance.repairTitle": "Antwort schreiben und umformulieren · OpenAI-kompatibler Endpunkt",
   "settings.enhance.repairHint": "Beim Schreiben der Antwort werden die Frage und die bestätigten Belegabsätze gesendet; beim Umformulieren (wenn nichts gefunden wird) nur die Frage und die Suchbegriffe.",

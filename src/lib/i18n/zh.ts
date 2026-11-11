@@ -966,7 +966,7 @@ export const zh: Record<keyof Messages, string> = {
   "settings.enhance.consentHint": "只发送判断所需的段落，后续轮次会再次发送前几轮的证据段落；标为保密的笔记从不发送。更换地址后需要重新允许。",
   "settings.enhance.chatConsentHint": "每次回答发送问题和依据段落，标为保密的笔记从不发送。更换地址后需要重新允许。",
   "settings.enhance.insecure": "这个地址会以明文发送密钥，请改用 https。",
-  "settings.enhance.budget": "默认每次回车：核对依据至多 2 轮、每轮至多 65 段、每轮 10 秒内，再写 1 次回答；合计至多 200,000 token",
+  "settings.enhance.budget": "默认每次回车：核对依据至多 2 轮、每轮至多 65 段（逐行扫描或扩大查找后每轮至多 115 段）、每轮 10 秒内，合计至多 200,000 token；之后写 1 次回答，预算另计，至多 3 个请求",
   "settings.enhance.example": "查看发送内容示例",
   "settings.enhance.repairTitle": "写回答与换说法 · OpenAI 兼容接口",
   "settings.enhance.repairHint": "写回答时发送问题和确认过的依据段落；没找到时换说法只发送问题和检索词。",
