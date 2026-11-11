@@ -1,0 +1,113 @@
+{
+  "baseSource": "9eb02fa6",
+  "frontend": {
+    "files": 431,
+    "tests": 5883,
+    "failed": 0
+  },
+  "svelte": {
+    "errors": 0,
+    "existingWarnings": 31
+  },
+  "protocol": "up-to-date",
+  "productionAudit": {
+    "critical": 0,
+    "high": 0,
+    "moderate": 4,
+    "low": 1
+  },
+  "rust": {
+    "searchidx": 389,
+    "smartLookupAndSag": 224,
+    "explicitIgnoredRealEndpointProbes": 3,
+    "lookupParameters": 19,
+    "lookupCli": 13,
+    "releaseCanvas": 27,
+    "releaseMobileConfig": 3
+  },
+  "scope": "Automated regression in isolated source/temp vaults and fake servers; no real model endpoint quality or physical input claim. Final signed artifact verification is separate.",
+  "logs": {
+    "host-release.log": {
+      "sha256": "7ab6ab727316851a3d98a523419b7a7e79fef6d14fb6d64fcb22be887963aef6",
+      "results": [
+        " Test Files  431 passed (431)",
+        "      Tests  5883 passed (5883)",
+        "svelte-check found 0 errors and 31 warnings in 15 files",
+        "Severity: 1 low | 4 moderate",
+        "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 1699 filtered out; finished in 0.09s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "rust-smart-tests-green.log": {
+      "sha256": "75c2adc42bb952055417019917d451df8dca4cd3521f2afea21caba40b673d60",
+      "results": [
+        "test result: ok. 224 passed; 0 failed; 3 ignored; 0 measured; 1497 filtered out; finished in 2.47s"
+      ]
+    },
+    "rust-searchidx-tests.log": {
+      "sha256": "0d43cb600d5bc704047ae785d242a8f4dab7b2713b3b8dbf97db8db235f8f0c0",
+      "results": [
+        "test result: ok. 359 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.63s",
+        "test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "rust-lookup-params-tests.log": {
+      "sha256": "44216bb67c75885e6a0f7da933fe5d9fada7c9c5efccc68d856fa20557a2ab58",
+      "results": [
+        "test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1705 filtered out; finished in 0.00s"
+      ]
+    },
+    "rust-cli-lookup-tests.log": {
+      "sha256": "193a310aa10841575558838238ef3acd95611be2391141d852bcd7d973b0ff8b",
+      "results": [
+        "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 1711 filtered out; finished in 0.63s"
+      ]
+    },
+    "rust-sag-round-green.log": {
+      "sha256": "7081fc48014009b499b4a2cb4b70e008c7532091736fe1132a213890e05d3146",
+      "results": [
+        "test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1705 filtered out; finished in 0.63s"
+      ]
+    },
+    "evidence-cancel-targeted.log": {
+      "sha256": "23dc157167c04b5f42a1fe874bfeda9d6c80cc5192f2de70abfefe5d2481c0a5",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1723 filtered out; finished in 0.60s"
+      ]
+    },
+    "plugin-tests-green.log": {
+      "sha256": "ac932c326609c85aeca4801bde7c04ea166e6b9dcccf9c646c88a40522241650",
+      "results": [
+        " Test Files  1 passed (1)",
+        "      Tests  83 passed (83)"
+      ]
+    }
+  },
+  "sourceCommit": "bcc4be833d1b02b6a1e8eb6fa54ae2fb82afaac4",
+  "releaseScriptExitCode": 0,
+  "archivedLogs": "ANSI cleaned, secret values redacted if present; original task log SHA values above."
+}

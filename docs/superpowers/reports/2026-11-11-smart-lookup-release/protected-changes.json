@@ -1,0 +1,16 @@
+{
+  "head": "eef41cf5037f232ea9bf3ae8bf61c6714838541b",
+  "files": [
+    {
+      "path": "searchidx/src/store.rs",
+      "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "diffSha256": "0920bc3dfc4f2b91c65c469069259052312e8f8ebcaf0f58c92683e7705bf158"
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "sha256": "ac84b2e79ad8ab3051b5a1bb7aa1318365b33e98307be72a5f230a4fe40ca8f3",
+      "diffSha256": "2cf23228c1003ace152473bb9afc8781f4c72f4e52d211a5c8aec3259fa03385"
+    }
+  ],
+  "stash": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c On main: codex-before-git-pull-2026-11-10\n"
+}

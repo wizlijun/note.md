@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "bcc4be833d1b02b6a1e8eb6fa54ae2fb82afaac4",
+  "version": "6.1111.3",
+  "assets": [
+    {
+      "name": "note.md-6.1111.3-aarch64.dmg",
+      "path": "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/host/note.md-6.1111.3-aarch64.dmg",
+      "size": 15832513,
+      "sha256": "b7ea7131109ea61c84f0a6b3a6c9c9636ac11ff01613a6b293e9d548a7338ebc"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "path": "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/host/note.md-aarch64.app.tar.gz",
+      "size": 15937251,
+      "sha256": "a4e093961d8c8355038b11868b7cf54a5da50234a93edaea117807443240c0c3"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "path": "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/host/note.md-aarch64.app.tar.gz.sig",
+      "size": 416,
+      "sha256": "753494c7b5547d62047947e6fccd6c2a567722d3d181da5927101e38b5a87005"
+    },
+    {
+      "name": "latest.json",
+      "path": "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/host/latest.json",
+      "size": 740,
+      "sha256": "42f66f9ae9e9652b22b4daf0cf1a3aa6e4064773e8bd6eec7480cfdee29686e5"
+    },
+    {
+      "name": "Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+      "path": "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/host/Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+      "size": 61310549,
+      "sha256": "f68ee5877b681279f56d8b2c642b5c5235a8cbc4bb04717b9006ebfbb69438a5"
+    },
+    {
+      "name": "faitc5-companion.json",
+      "path": "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/host/faitc5-companion.json",
+      "size": 372,
+      "sha256": "4550fa9ab6cbc1efed7440f8d164473642a326156c39294bbbe6cd793d44e078"
+    }
+  ]
+}
