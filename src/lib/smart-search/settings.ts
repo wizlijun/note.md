@@ -31,7 +31,7 @@ export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
   results: {
     limit: 50,
     groupBy: 'auto',
-    autoDeepOnZero: false,
+    autoDeepOnZero: true,
     deepTimeoutMs: 4_000,
   },
   enhance: {
