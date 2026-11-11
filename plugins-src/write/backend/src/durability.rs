@@ -53,6 +53,21 @@ fn record_receipt(tx: &Transaction<'_>, receipt: &CommitReceipt) -> write_core::
         params![receipt.op_id,receipt.digest,receipt.page_id,receipt.epoch,sql_u64(receipt.generation)?,sql_u64(receipt.revision)?]).map_err(db)?;
     Ok(())
 }
+fn local_update_identity(edit: &LocalEdit) -> Result<String> {
+    serde_json::to_vec(&(&edit.page_id, edit.epoch, edit.generation, &edit.update))
+        .map(|bytes| storage::sha256(&bytes)).map_err(error)
+}
+fn record_local_receipt(tx: &Transaction<'_>, receipt: &CommitReceipt, edit: &LocalEdit) -> write_core::Result<()> {
+    record_receipt(tx, receipt)?;
+    let identity = local_update_identity(edit).map_err(write_core::Error::Invalid)?;
+    tx.execute("INSERT INTO sumi_local_update_identity(op_id,digest) VALUES(?1,?2)", params![edit.op_id, identity]).map_err(db)?;
+    Ok(())
+}
+fn read_receipt(tx: &Transaction<'_>, table: &str, op_id: &str) -> write_core::Result<Option<CommitReceipt>> {
+    tx.query_row(&format!("SELECT op_id,page_id,epoch,generation,revision,digest FROM {table} WHERE op_id=?1"),
+        [op_id], |row| Ok(CommitReceipt { op_id:row.get(0)?, page_id:row.get(1)?, epoch:row.get(2)?,
+            generation:read_u64(row,3)?, revision:read_u64(row,4)?, digest:row.get(5)? })).optional().map_err(db)
+}
 struct Queued {
     edit: LocalEdit,
     remote: bool,
@@ -501,7 +516,9 @@ impl Worker {
                 CREATE TABLE IF NOT EXISTS sumi_baselines(page_id TEXT PRIMARY KEY,filename TEXT NOT NULL,markdown TEXT NOT NULL,metadata TEXT NOT NULL,full_state BLOB NOT NULL,revision INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS sumi_import_permissions(page_id TEXT PRIMARY KEY,baseline TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS sumi_dirty_projection(page_id TEXT PRIMARY KEY,revision INTEGER NOT NULL);
-                CREATE TABLE IF NOT EXISTS sumi_edit_receipts(op_id TEXT PRIMARY KEY,digest TEXT NOT NULL,page_id TEXT NOT NULL,epoch INTEGER NOT NULL,generation INTEGER NOT NULL,revision INTEGER NOT NULL);").map_err(db)
+                CREATE TABLE IF NOT EXISTS sumi_edit_receipts(op_id TEXT PRIMARY KEY,digest TEXT NOT NULL,page_id TEXT NOT NULL,epoch INTEGER NOT NULL,generation INTEGER NOT NULL,revision INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS sumi_local_update_identity(op_id TEXT PRIMARY KEY,digest TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS sumi_echo_receipts(op_id TEXT PRIMARY KEY,digest TEXT NOT NULL,page_id TEXT NOT NULL,epoch INTEGER NOT NULL,generation INTEGER NOT NULL,revision INTEGER NOT NULL);").map_err(db)
         }).map_err(error)?;
         let mut worker = Self {
             _owner_lock: owner_lock,
@@ -532,17 +549,37 @@ impl Worker {
     }
     fn receipt(&mut self, queued: &Queued) -> Result<Option<CommitReceipt>> {
         let expected = edit_receipt(queued)?;
-        let found = self.store.transaction(|tx| {
-            tx.query_row("SELECT op_id,page_id,epoch,generation,revision,digest FROM sumi_edit_receipts WHERE op_id=?1",
-                [&expected.op_id], |row| Ok(CommitReceipt {
-                    op_id: row.get(0)?, page_id: row.get(1)?, epoch: row.get(2)?,
-                    generation: read_u64(row,3)?, revision: read_u64(row,4)?, digest: row.get(5)?,
-                })).optional().map_err(db)
-        }).map_err(error)?;
+        if queued.remote {
+            let echo = self.store.transaction(|tx| read_receipt(tx, "sumi_echo_receipts", &expected.op_id)).map_err(error)?;
+            if let Some(echo) = echo {
+                return if echo == expected { Ok(Some(echo)) } else { Err("operation ID reused with different durable payload".into()) };
+            }
+        }
+        let found = self.store.transaction(|tx| read_receipt(tx, "sumi_edit_receipts", &expected.op_id)).map_err(error)?;
         if found.as_ref().is_some_and(|receipt| receipt != &expected) {
+            // An acknowledged local operation can return through the cloud with
+            // a new host revision. It is a distinct confirmation, not ID reuse.
+            if queued.remote && queued.edit.first_write_date.is_none() && self.local_echo(&queued.edit)? { return Ok(None); }
             return Err("operation ID reused with different durable payload".into());
         }
         Ok(found)
+    }
+    fn local_echo(&mut self, edit: &LocalEdit) -> Result<bool> {
+        let Some(original) = self.store.transaction(|tx| read_receipt(tx, "sumi_edit_receipts", &edit.op_id)).map_err(error)? else { return Ok(false); };
+        if original.page_id != edit.page_id || original.epoch != edit.epoch || original.generation != edit.generation { return Ok(false); }
+        let identity: Option<String> = self.store.transaction(|tx| tx.query_row(
+            "SELECT digest FROM sumi_local_update_identity WHERE op_id=?1", [&edit.op_id], |row| row.get(0)).optional().map_err(db)).map_err(error)?;
+        if let Some(identity) = identity { return Ok(identity == local_update_identity(edit)?); }
+        // Older releases retained the exact local receipt but not this independent
+        // wire identity. Only a cryptographic reconstruction proves a legacy echo;
+        // unknown dates/import payloads remain blocked, never guessed or discarded.
+        let mut local = edit.clone();
+        local.revision = original.revision;
+        for date in [self.entry(&edit.page_id)?.local_date, None] {
+            local.first_write_date = date;
+            if sumi_protocol::durability::edit_receipt(&local, false, None)? == original { return Ok(true); }
+        }
+        Ok(false)
     }
     fn report_failure(&self, error: String) {
         if let Some(next) = self.pending.front() {
@@ -818,7 +855,7 @@ impl Worker {
                         )
                         .map_err(db)?;
                         mark_projection_dirty(tx, &e.page_id, e.revision)?;
-                        record_receipt(tx, &receipt)
+                        record_local_receipt(tx, &receipt, e)
                     },
                 )
                 .map_err(error)?;
@@ -849,7 +886,7 @@ impl Worker {
                     record_permission(tx, &e.page_id, observed)?;
                 }
                 record_local(tx, &entry, &e.op_id, &full, e.revision)?;
-                record_receipt(tx, &receipt)
+                record_local_receipt(tx, &receipt, e)
             })
             .map_err(error)?;
         self.emit_saved(&e.page_id, e.revision, pair.markdown);
@@ -1223,6 +1260,7 @@ impl Worker {
     }
     fn persist_remote(&mut self, queued: &mut Queued) -> Result<Loaded> {
         if self.receipt(queued)?.is_some() { return self.loaded(&queued.edit.page_id); }
+        let echo = self.local_echo(&queued.edit)?;
         let receipt = edit_receipt(queued)?;
         let edit = &queued.edit;
         let incoming = PendingUpdate {
@@ -1237,6 +1275,20 @@ impl Worker {
         let entry = self.entry(&edit.page_id)?;
         let snapshot = self.confirmed_snapshot(queued)?;
         let edit = &queued.edit;
+        if echo {
+            // The local delta may still own this op_id. Checkpoint the confirmed
+            // no-op revision instead of inserting a duplicate delta; the inbox
+            // marker and exact remote receipt commit in the same transaction.
+            let pair = self.pair_for(&edit.page_id, &snapshot)?;
+            self.store.commit_remote_with(&self.docs[&edit.page_id], &[edit.op_id.clone()], &pair, |tx| {
+                mark_projection_dirty(tx, &entry.id, edit.revision)?;
+                tx.execute("INSERT INTO sumi_echo_receipts(op_id,digest,page_id,epoch,generation,revision) VALUES(?1,?2,?3,?4,?5,?6)",
+                    params![receipt.op_id,receipt.digest,receipt.page_id,receipt.epoch,sql_u64(receipt.generation)?,sql_u64(receipt.revision)?]).map_err(db)?;
+                Ok(())
+            }).map_err(error)?;
+            self.committed(&edit.page_id, edit.revision);
+            return self.loaded(&edit.page_id);
+        }
         self.store
             .commit_remote_delta_with(
                 &edit.page_id,
@@ -2678,6 +2730,106 @@ mod tests {
         let mut wrong_kind = queued(original);
         wrong_kind.remote = true;
         assert!(restarted.receipt(&wrong_kind).is_err());
+    }
+
+    #[test]
+    fn local_cloud_echo_retains_both_exact_receipts_without_duplicate_delta() {
+        for checkpoint in [false, true] {
+            let mut f = fixture();
+            let (id, mut ui) = page(&mut f.worker, "before");
+            let original = edit(&id, &mut ui, " after").edit;
+            let queued = |edit, remote| Queued { edit, remote, reply:None, applied:false, imported:None };
+            f.worker.pending.push_back(queued(original.clone(), false));
+            f.worker.drain().unwrap();
+            let local_receipt = f.worker.receipt(&queued(original.clone(), false)).unwrap().unwrap();
+            if checkpoint { f.worker.checkpoint_dirty().unwrap(); }
+            f.worker.store.ack(&original.op_id).unwrap();
+            let mut echo = original.clone();
+            echo.first_write_date = None;
+            echo.revision += 1;
+            f.worker.pending.push_back(queued(echo.clone(), true));
+            f.worker.drain().unwrap();
+            let remote_receipt = f.worker.receipt(&queued(echo.clone(), true)).unwrap().unwrap();
+            assert_eq!(remote_receipt, edit_receipt(&queued(echo.clone(), true)).unwrap());
+            assert_eq!(f.worker.receipt(&queued(original.clone(), false)).unwrap(), Some(local_receipt));
+            assert_eq!(f.worker.loaded(&id).unwrap().revision, echo.revision);
+            assert_eq!(f.worker.docs[&id].body(), "before after");
+            assert!(f.worker.incoming(&id).unwrap().is_empty());
+            drop(f.worker);
+            let mut restarted = Worker::open(f.temp.path().into(), f.db, Arc::new(|_| {})).unwrap();
+            restarted.pending.push_back(queued(echo.clone(), true));
+            restarted.drain().unwrap();
+            assert_eq!(restarted.receipt(&queued(echo.clone(), true)).unwrap(), Some(remote_receipt));
+            for changed_field in 0..5 {
+                let mut changed = echo.clone();
+                match changed_field {
+                    0 => changed.update.push(0),
+                    1 => changed.revision += 1,
+                    2 => changed.generation += 1,
+                    3 => changed.epoch += 1,
+                    _ => changed.page_id = Uuid::new_v4().to_string(),
+                }
+                assert!(restarted.receipt(&queued(changed, true)).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn first_echo_requires_exact_local_identity_and_legacy_proof() {
+        for legacy in [false, true] {
+            let mut f = fixture();
+            let (id, mut ui) = page(&mut f.worker, "before");
+            let mut original = edit(&id, &mut ui, " after").edit;
+            original.first_write_date = f.worker.entry(&id).unwrap().local_date;
+            let queued = |edit, remote| Queued { edit, remote, reply:None, applied:false, imported:None };
+            f.worker.pending.push_back(queued(original.clone(), false));
+            f.worker.drain().unwrap();
+            if legacy { f.worker.store.transaction(|tx| tx.execute("DELETE FROM sumi_local_update_identity", []).map_err(db)).unwrap(); }
+            let mut echo = original.clone(); echo.first_write_date = None; echo.revision += 1;
+            assert!(f.worker.receipt(&queued(echo.clone(), true)).unwrap().is_none());
+            for field in 0..4 {
+                let mut changed = echo.clone();
+                match field { 0 => changed.update.push(0), 1 => changed.page_id = Uuid::new_v4().to_string(),
+                    2 => changed.epoch += 1, _ => changed.generation += 1 }
+                assert!(f.worker.receipt(&queued(changed, true)).unwrap_err().contains("reused"));
+            }
+            if legacy {
+                // A legacy local edit made on another date cannot be inferred from
+                // the page's first-writing date. Retain it rather than accepting a guess.
+                let other = edit(&id, &mut ui, " later date").edit;
+                f.worker.pending.push_back(queued(other.clone(), false)); f.worker.drain().unwrap();
+                f.worker.store.transaction(|tx| tx.execute("DELETE FROM sumi_local_update_identity", []).map_err(db)).unwrap();
+                let mut unknown = other; unknown.first_write_date = None; unknown.revision += 1;
+                assert!(f.worker.receipt(&queued(unknown, true)).unwrap_err().contains("reused"));
+            }
+        }
+    }
+
+    #[test]
+    fn echo_receipt_failure_rolls_back_checkpoint_and_inbox_before_reopen() {
+        let mut f = fixture();
+        let (id, mut ui) = page(&mut f.worker, "before");
+        let original = edit(&id, &mut ui, " after").edit;
+        let queued = |edit, remote| Queued { edit, remote, reply:None, applied:false, imported:None };
+        f.worker.pending.push_back(queued(original.clone(), false)); f.worker.drain().unwrap();
+        let mut echo = original.clone(); echo.first_write_date = None; echo.revision += 1;
+        f.worker.store.transaction(|tx| tx.execute_batch("CREATE TRIGGER reject_echo_receipt BEFORE INSERT ON sumi_echo_receipts BEGIN SELECT RAISE(ABORT,'echo receipt disk failure'); END;").map_err(db)).unwrap();
+        f.worker.pending.push_back(queued(echo.clone(), true));
+        assert!(f.worker.drain().unwrap_err().contains("echo receipt disk failure"));
+        let stored = f.worker.store.load(&id, 123).unwrap();
+        assert_eq!(stored.revision(), original.revision); assert_eq!(stored.body(), "before after");
+        assert!(f.worker.receipt(&queued(echo.clone(), true)).unwrap().is_none());
+        assert_eq!(f.worker.incoming(&id).unwrap().len(), 1);
+        drop(f.worker);
+        let mut restarted = Worker::open(f.temp.path().into(), f.db, Arc::new(|_| {})).unwrap();
+        assert_eq!(restarted.loaded(&id).unwrap().revision, original.revision);
+        assert_eq!(restarted.incoming(&id).unwrap().len(), 1);
+        restarted.store.transaction(|tx| tx.execute_batch("DROP TRIGGER reject_echo_receipt;").map_err(db)).unwrap();
+        restarted.pending.push_back(queued(echo.clone(), true)); restarted.drain().unwrap();
+        assert_eq!(restarted.loaded(&id).unwrap().revision, echo.revision);
+        assert!(restarted.incoming(&id).unwrap().is_empty());
+        assert!(restarted.receipt(&queued(original, false)).unwrap().is_some());
+        assert_eq!(restarted.receipt(&queued(echo.clone(), true)).unwrap(), Some(edit_receipt(&queued(echo, true)).unwrap()));
     }
 
     #[test]
