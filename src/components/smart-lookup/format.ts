@@ -9,14 +9,6 @@ export function formatDuration(ms: number): string {
     : t('smartSearch.enhance.durationSeconds', { s: (value / 1_000).toFixed(1) })
 }
 
-/** `{n} 条 · {time}` for one attempt that ran. */
-export function formatAttempt(hits: number, ms: number): string {
-  const value = Math.max(0, Math.round(ms))
-  return value < 1_000
-    ? t('smartSearch.enhance.attemptResult', { n: hits, ms: value })
-    : t('smartSearch.enhance.attemptResultSeconds', { n: hits, s: (value / 1_000).toFixed(1) })
-}
-
 /** Wordings are named A, B, … in the window. */
 export function wordingLetter(index: number): string {
   return String.fromCharCode(65 + index)

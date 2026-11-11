@@ -1,5 +1,5 @@
 import type { Messages } from '../i18n/en'
-import type { AnswerResult, ChatAnswerConfig, ChatRequestConfig, JevRequestConfig, KeyStatus, Missing, RepairSuggestion } from './api'
+import type { ChatAnswerConfig, ChatRequestConfig, JevRequestConfig, KeyStatus, Missing, RepairSuggestion } from './api'
 import { endpointHost, type SmartLookupSettings } from './settings'
 
 // Pure state for the lookup window's status line and repair flow. No I/O
@@ -79,34 +79,6 @@ export function repairMessage(result: RepairSuggestion): HeaderMessage | null {
   return headerMessage({ kind: 'degraded', status, host: result.endpointHost, statusClass: result.statusClass, missing: result.missing })
 }
 
-/**
- * The line under 「生成简答」 when no answer is shown, or null (an answer, or a
- * cancelled request, which a newer lookup caused). Params carry only the
- * endpoint host and status class, never remote text.
- */
-export function answerMessage(result: AnswerResult): HeaderMessage | null {
-  const host = result.endpointHost ?? ''
-  switch (result.status) {
-    case 'ok':
-    case 'cancelled':
-      return null
-    case 'skipped':
-      return result.skipReason === 'indexUnavailable'
-        ? { key: 'smartSearch.answer.indexUnavailable', params: {} }
-        : { key: 'smartSearch.answer.noSources', params: {} }
-    case 'noConsent':
-      return { key: 'smartSearch.answer.noConsent', params: { host } }
-    case 'invalidCitations':
-      return { key: 'smartSearch.answer.invalidCitations', params: {} }
-    case 'timeout':
-      return { key: 'smartSearch.answer.timeout', params: {} }
-    case 'invalid':
-      return { key: 'smartSearch.answer.invalid', params: { host } }
-    default:
-      return headerMessage({ kind: 'degraded', status: result.status, host: result.endpointHost, statusClass: result.statusClass, missing: result.missing })
-  }
-}
-
 /** Built field by field: the host rejects unknown fields, and `preset` must never be sent (F13). */
 export function jevRequestConfig(settings: SmartLookupSettings): JevRequestConfig {
   const jev = settings.enhance.jev
@@ -131,20 +103,5 @@ export function shouldAutoRepair(hits: number, settings: SmartLookupSettings, ke
 }
 
 export type AttemptKind = 'original' | 'rephrased' | 'scan'
-/** `null` = not run. */
+/** One automatic try on zero or unjudged hits; `null` = not run. */
 export interface LookupAttempt { kind: AttemptKind; hits: number | null; tookMs: number | null }
-
-/** The three tries in fixed order; a try that did not run has null hits and time. */
-export function noMatchAttempts(
-  original: { hits: number; tookMs: number },
-  rephrased: LookupAttempt | null,
-  scan: LookupAttempt | null,
-): LookupAttempt[] {
-  const slot = (kind: AttemptKind, attempt: LookupAttempt | null): LookupAttempt =>
-    ({ kind, hits: attempt?.hits ?? null, tookMs: attempt?.tookMs ?? null })
-  return [
-    { kind: 'original', hits: original.hits, tookMs: original.tookMs },
-    slot('rephrased', rephrased),
-    slot('scan', scan),
-  ]
-}

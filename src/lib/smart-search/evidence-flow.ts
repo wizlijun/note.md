@@ -1,4 +1,3 @@
-import type { Messages } from '../i18n/en'
 import type { AnswerResult, EvidenceItem, EvidenceStepResult, EvidenceStop, EvidenceTerm } from './api'
 import type { HeaderState } from './enhance-flow'
 import { endpointHost, type SmartLookupSettings } from './settings'
@@ -8,62 +7,50 @@ import { endpointHost, type SmartLookupSettings } from './settings'
 export interface EvidenceRound { hop: number; terms: EvidenceTerm[]; items: EvidenceItem[] }
 export interface EvidenceView {
   rounds: EvidenceRound[]
+  /** The latest scored round's list: rounds apply as they arrive (answer-first plan, behaviour 9). */
   shown: EvidenceItem[]
-  /** The list the latest round produced while the user was interacting; `null` when nothing waits for Apply. */
-  pending: EvidenceItem[] | null
   done: boolean
   stop: EvidenceStop | null
-  /** The expansion round whose terms found nothing new (`candidatesEmpty`): its terms are still shown (H.3.11). */
-  unfound: { hop: number; terms: EvidenceTerm[] } | null
 }
 
 export function emptyEvidence(): EvidenceView {
-  return { rounds: [], shown: [], pending: null, done: false, stop: null, unfound: null }
+  return { rounds: [], shown: [], done: false, stop: null }
 }
 
 /**
- * A call that scored no new round keeps the rounds, the shown list and any
- * list waiting for Apply, ends the run and records its stop: a failed round
- * (`status !== 'ok'`), or a stop other than `maxHops`, for which the host
- * reports the last scored evidence again (`maxHops` comes with the round that
- * reached it, pre-flight P14). A scored round replaces the list, or, once the
- * user has interacted, waits as `pending` while new items are appended in
- * place; a round whose order is already the one shown leaves nothing to apply.
+ * A call that scored no new round keeps the rounds and the shown list, ends
+ * the run and records its stop: a failed round (`status !== 'ok'`), or a stop
+ * other than `maxHops`, for which the host reports the last scored evidence
+ * again (`maxHops` comes with the round that reached it, pre-flight P14). A
+ * scored round replaces the list.
  */
-export function applyRound(view: EvidenceView, result: EvidenceStepResult, interacted: boolean): EvidenceView {
+export function applyRound(view: EvidenceView, result: EvidenceStepResult): EvidenceView {
   const scored = result.status === 'ok' && (result.stop === null || result.stop === 'maxHops')
-  if (!scored) {
-    const unfound = result.stop === 'candidatesEmpty' && result.hop > 0 && result.terms.length > 0
-      ? { hop: result.hop, terms: result.terms }
-      : view.unfound
-    return { ...view, done: true, stop: result.stop ?? view.stop, unfound }
-  }
+  if (!scored) return { ...view, done: true, stop: result.stop ?? view.stop }
   const round: EvidenceRound = { hop: result.hop, terms: result.terms, items: result.evidence }
   const rounds = [...view.rounds.filter((r) => r.hop !== result.hop), round].sort((a, b) => a.hop - b.hop)
-  const base = { rounds, done: result.done, stop: result.stop, unfound: view.unfound }
-  if (!interacted) return { ...base, shown: result.evidence, pending: null }
-  const have = new Set(view.shown.map((i) => i.evidenceId))
-  const shown = [...view.shown, ...result.evidence.filter((i) => !have.has(i.evidenceId))]
-  return { ...base, shown, pending: sameOrder(shown, result.evidence) ? null : result.evidence }
+  return { rounds, shown: result.evidence, done: result.done, stop: result.stop }
 }
 
-function sameOrder(a: EvidenceItem[], b: EvidenceItem[]): boolean {
-  return a.length === b.length && a.every((item, index) => item.evidenceId === b[index].evidenceId)
+/**
+ * The run finished on its own: the host said done with a stop. A failed or
+ * cancelled round ends the run without a stop (it keeps the previous one, and
+ * the first round has none), and an index change makes the evidence stale, so
+ * neither counts: no answer is written from it and it is not "no answer".
+ */
+export function evidenceFinished(view: EvidenceView): boolean {
+  return view.done && view.stop !== null && view.stop !== 'indexChanged'
 }
 
-export function applyPending(view: EvidenceView): EvidenceView {
-  return view.pending ? { ...view, shown: view.pending, pending: null } : view
+/** The shown evidence Jev judged `fit`, in its order: what the answer is written from. */
+export function fitEvidence(view: EvidenceView): EvidenceItem[] {
+  return view.shown.filter((item) => item.tier === 'fit')
 }
 
-/** Back to the snapshot of an earlier round; no request. Unknown hops change nothing. */
-export function restoreRound(view: EvidenceView, hop: number): EvidenceView {
-  const round = view.rounds.find((r) => r.hop === hop)
-  return round ? { ...view, shown: round.items, pending: null } : view
-}
-
-export function roundLabel(foundRound: number): keyof Messages {
-  if (foundRound <= 0) return 'smartSearch.evidence.round.local'
-  return foundRound === 1 ? 'smartSearch.evidence.round.one' : 'smartSearch.evidence.round.two'
+/** 「已确认 N 处」: the `fit` items of the latest completed round (ledger ruling: no host change). */
+export function confirmedCount(view: EvidenceView): number | null {
+  const latest = view.rounds.at(-1)
+  return latest ? latest.items.filter((item) => item.tier === 'fit').length : null
 }
 
 /**
@@ -82,48 +69,18 @@ export function headerFromStep(result: EvidenceStepResult): HeaderState {
   }
 }
 
-/**
- * 「查找证据」 after the host declined to start on its own: the route skips
- * (a pinned page, few terms) or the run's automatic slot is used (H.8: the
- * user may still start it).
- */
-export function startOffered(result: EvidenceStepResult): boolean {
-  return result.status === 'skipped'
-    && (result.skipReason === 'pinned' || result.skipReason === 'fewTerms' || result.skipReason === 'autoBudgetUsed')
-}
-
-/**
- * The line that says how a finished run ended, or null: the token budget, an
- * index change, evidence too large for the context, or a run that found no
- * evidence. The host keeps the top `topK` of every scored block whatever its
- * score, so "no evidence" means every shown item is `unfit` (and, vacuously,
- * an empty list). A failed round is not "no evidence": the status line says
- * what failed.
- */
-export function evidenceNotice(view: EvidenceView): keyof Messages | null {
-  if (view.stop === 'budget') return 'smartSearch.evidence.budget'
-  if (view.stop === 'indexChanged') return 'smartSearch.evidence.indexChanged'
-  if (view.stop === 'evidenceTooLarge') return 'smartSearch.evidence.tooLarge'
-  const none = view.done && view.stop !== null && view.shown.every((item) => item.tier === 'unfit')
-  return none ? 'smartSearch.evidence.none' : null
-}
-
-/** What a run sent and left out (the F.3 details, without the reorder lines), as the host counts it. */
+/** What a run sent, as the host counts it: the footer's host and passage count, and the order of results. */
 export interface EvidenceTotals {
-  /** The host passages went to; null while nothing was sent. */
+  /** The Jev host passages went to; null while nothing was sent. */
   host: string | null
-  requests: number
-  elapsedMs: number
+  /** Distinct passages sent over the run. */
   sent: number
-  tokens: number
-  confidential: number
-  stale: number
-  /** Blocks too long to send, alone (`skippedLong`) or in any batch (`skippedOversize`). */
-  long: number
+  /** The run's time so far; a newer result for the run has at least this. */
+  elapsedMs: number
 }
 
 export function emptyTotals(): EvidenceTotals {
-  return { host: null, requests: 0, elapsedMs: 0, sent: 0, tokens: 0, confidential: 0, stale: 0, long: 0 }
+  return { host: null, sent: 0, elapsedMs: 0 }
 }
 
 /**
@@ -133,17 +90,7 @@ export function emptyTotals(): EvidenceTotals {
  * evidence the window drops after a stop.
  */
 export function totalsOf(result: EvidenceStepResult): EvidenceTotals {
-  const run = result.run
-  return {
-    host: run.endpointHost,
-    requests: run.requests,
-    elapsedMs: run.elapsedMs,
-    sent: run.sentBlocks,
-    tokens: run.tokens,
-    confidential: run.skippedConfidential,
-    stale: run.skippedStale,
-    long: run.skippedLong + run.skippedOversize,
-  }
+  return { host: result.run.endpointHost, sent: result.run.sentBlocks, elapsedMs: result.run.elapsedMs }
 }
 
 /**
@@ -158,18 +105,6 @@ export function shouldStartEvidence(hits: number, route: 'judge' | 'skip' | 'rep
   const host = endpointHost(jev.url)
   return enabled && hits > 0 && route !== 'skip' && jev.url.trim() !== '' && jev.model.trim() !== ''
     && host !== null && host === jev.consentHost
-}
-
-/** The host's own answer failures (`BudgetError::code` in src-tauri/src/smart_enhance/answer.rs). */
-const ANSWER_ERRORS = {
-  questionTooLarge: 'smartSearch.answer.error.questionTooLarge',
-  sourceTooLarge: 'smartSearch.answer.error.sourceTooLarge',
-  outputReserve: 'smartSearch.answer.error.outputReserve',
-} as const satisfies Record<string, keyof Messages>
-
-/** The message for a host answer error that is a stable code; null for any other error. */
-export function answerErrorKey(error: string): keyof Messages | null {
-  return Object.hasOwn(ANSWER_ERRORS, error) ? ANSWER_ERRORS[error as keyof typeof ANSWER_ERRORS] : null
 }
 
 /** A piece of the answer: plain text, or a cited source number that links to its evidence item. */
@@ -216,10 +151,11 @@ function sourceLabels(text: string): { start: number; end: number; inner: string
 
 /**
  * The answer as plain text (spec H.4): nothing is parsed as HTML or Markdown;
- * only the source labels the host checks become links, so labels inside code
- * and Markdown links stay text. `[n]` is one link; a list keeps its brackets
- * and separators as text around one link per number. A number that names no
- * sent source stays text.
+ * only the source labels the host checks become citations, so labels inside
+ * code and Markdown links stay text. Each number of a label that names a sent
+ * source is one numbered chip (`text` is the number), and the label's
+ * brackets and separators go; a number that names no sent source stays text
+ * as `[n]`, and a label with no such number stays as written.
  */
 export function answerParts(text: string, sources: AnswerResult['sources']): AnswerPart[] {
   const byId = new Map(sources.map((source) => [source.id, source.evidenceId]))
@@ -230,30 +166,39 @@ export function answerParts(text: string, sources: AnswerResult['sources']): Ans
     if (last?.kind === 'text') last.text += value
     else parts.push({ kind: 'text', text: value })
   }
-  const cite = (digits: string, label: string) => {
-    const id = Number(digits)
-    const evidenceId = byId.get(id)
-    if (evidenceId === undefined) pushText(label)
-    else parts.push({ kind: 'cite', text: label, id, evidenceId })
-  }
   let at = 0
   for (const { start, end, inner } of sourceLabels(text)) {
     pushText(text.slice(at, start))
-    if (/^\d+$/.test(inner)) {
-      cite(inner, text.slice(start, end))
+    const numbers = [...inner.matchAll(/\d+/g)].map((match) => Number(match[0]))
+    if (!numbers.some((id) => byId.has(id))) {
+      pushText(text.slice(start, end))
     } else {
-      pushText('[')
-      let from = 0
-      for (const number of inner.matchAll(/\d+/g)) {
-        const index = number.index ?? 0
-        pushText(inner.slice(from, index))
-        cite(number[0], number[0])
-        from = index + number[0].length
+      for (const id of numbers) {
+        const evidenceId = byId.get(id)
+        if (evidenceId === undefined) pushText(`[${id}]`)
+        else parts.push({ kind: 'cite', text: String(id), id, evidenceId })
       }
-      pushText(inner.slice(from) + ']')
     }
     at = end
   }
   pushText(text.slice(at))
   return parts
+}
+
+/** Whether the window writes the answer by itself (ruling A): the answer model is set up and its host allowed. */
+export type AnswerGate =
+  | { kind: 'start' }
+  | { kind: 'notConfigured' }
+  | { kind: 'noConsent'; host: string }
+
+/**
+ * Ruling A: the answer starts on its own only when the answer model's url and
+ * model are set and the user allowed its host. The host checks again (and
+ * checks the key) before sending anything.
+ */
+export function answerGate(settings: SmartLookupSettings): AnswerGate {
+  const chat = settings.enhance.chat
+  const host = endpointHost(chat.url, 'chat')
+  if (!settings.enhance.enabled || !chat.url.trim() || !chat.model.trim() || host === null) return { kind: 'notConfigured' }
+  return host === chat.consentHost ? { kind: 'start' } : { kind: 'noConsent', host }
 }

@@ -55,3 +55,14 @@ export function redactError(error: unknown): string {
     .trim()
   return Array.from(message).slice(0, 180).join('')
 }
+
+/**
+ * The heading path shown after a source's title, levels joined by ` › `. The
+ * index joins levels with ` > `; a leading level that only repeats the title
+ * is dropped (「决策日志 › 决策日志 › 6.1110…」 reads 「决策日志 › 6.1110…」).
+ */
+export function crumbAfterTitle(title: string, breadcrumb: string): string {
+  const levels = breadcrumb.split(/\s*[>›]\s*/).map((level) => level.trim()).filter(Boolean)
+  if (levels.length && levels[0] === title.trim()) levels.shift()
+  return levels.join(' › ')
+}

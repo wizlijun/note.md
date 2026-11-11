@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SearchHit } from '../search/api'
 import {
+  crumbAfterTitle,
   dateSections,
   hitReference,
   redactError,
@@ -47,5 +48,18 @@ describe('lookup helpers', () => {
     expect(text).not.toContain('abc123')
     expect(text).not.toContain('sk-abcdefgh12345')
     expect(redactError('search index not ready')).toBe('search index not ready')
+  })
+})
+
+describe('crumbAfterTitle', () => {
+  it('drops a leading level that repeats the title and joins the rest with ›', () => {
+    expect(crumbAfterTitle('决策日志', '决策日志 > 6.1110 是否按期发布')).toBe('6.1110 是否按期发布')
+    expect(crumbAfterTitle('决策日志', '决策日志 › 6.1110 是否按期发布 › 结论')).toBe('6.1110 是否按期发布 › 结论')
+    expect(crumbAfterTitle('决策日志', '决策日志')).toBe('')
+  })
+  it('keeps a path that does not start with the title', () => {
+    expect(crumbAfterTitle('人员与职责', '发布工程 > 王磊')).toBe('发布工程 › 王磊')
+    expect(crumbAfterTitle('A', 'AB > C')).toBe('AB › C')
+    expect(crumbAfterTitle('A', '')).toBe('')
   })
 })

@@ -11,6 +11,8 @@
 - 文件无效时，下列命令都返回错误，不退回默认值（字段级的错误带配置键；JSON 语法错误、文件不是 JSON 对象、指定的文件不存在这三种只带来源路径，例如 `p.json: expected a JSON object`）：`notemd_smart_search`（输入预览）、`smart_lookup_local`、`smart_lookup_diagnose`、`smart_lookup_search_groups`、`smart_lookup_evidence_step`、`smart_lookup_answer`、`smart_lookup_repair_suggest`、`smart_lookup_test_jev`、`smart_lookup_test_chat`。
 - 重复的键不报错，后出现的值生效（先解析成 `serde_json::Value` 再取值）。
 
+**答案优先窗口（2026-11-11）对本页的改动。** 窗口不再有「生成简答」按钮：证据轮次结束（`done`）且回答主机（修复模型的主机）已获允许时，窗口自动调用 `smart_lookup_answer`；没有允许则显示「没有允许发送到 {host}，没有写回答。」与「设置」链接。`smartLookup.results.autoDeepOnZero` 的默认值改为 `true`：零命中时先自动改写重搜，仍为零则自动做逐行扫描（有本地命中但没有符合的证据时不修复、不扫描）。时间方式条已从窗口移除，窗口不传 `timeMode`，由 `time.mode` 决定时间短语的处理，时间短语照旧自动分组与排序。`ANSWER_SYSTEM` 在 SAG2 原文之后多一句「问题可能指不同对象时，分别回答并说明区别。」（spec H.5 的有意差异）。
+
 **应用窗口里的两个例外（Task 12 裁定）。** 智能查找窗口每次回车都把用户设置里的 `smartLookup.results.limit`（可选 20、50、100，默认 50）作为 `limit` 传给 `smart_lookup_local`，deep 检索时还把 `smartLookup.results.deepTimeoutMs`（1000–5000，默认 4000）作为 `timeoutMs` 传入。调用方给了值，就用调用方的值（`search/mod.rs:local_lookup_budget`），所以 `local.limit` 和 `local.deepTimeoutMs` 在应用窗口里不起作用，只在调用方不给值时生效，也就是 CLI：`notemd lookup` 与 `notemd lookup eval` 经 `src-tauri/src/smart_enhance/pipeline.rs:run_pipeline` 调用 `src-tauri/src/search/mod.rs:lookup_local_in` 时，条数与 deep 时限都传 `None`。CLI 修复后的按说法重搜也用 `local.limit` 作条数（`run_pipeline` 传 `Some(params.local.limit)`），应用里则是用户的结果条数。这两项要在 CLI 上调；应用里改的是设置对话框里的那两项。`local.limit` 默认 50，与应用窗口的默认结果条数相同（裁定：CLI 评测要反映实际使用；引入参数文件之前宿主在调用方不给条数时取 100），所以不写参数文件时 CLI 与应用的本地结果条数一致。
 
 **各命令读取哪些组。** 「读取位置」一行写的是参数值实际起作用的函数；命令入口经 `for_app` 读整个文件，再把需要的组传下去：
@@ -96,7 +98,7 @@
 - 读取位置：`src-tauri/src/search/mod.rs:lookup_local_in`、`src-tauri/src/search/smart_eval.rs:deep_pass`
 - 来源：spec §5.2、附录 G.1
 - 调高：本项是枚举，没有高低，三种取值的效果写在这一行和下一行。`group`：识别到时间短语时检索两次（去掉短语并附加 `after:`/`before:` 的一次，原问题一次），范围内的命中在前、其余去重在后，两部分合计截到 `limit` 条（`search/time_group.rs:group_by_time`），范围外的命中只下沉、不过滤。证据轮次照原问题召回（时间短语留在 `free_text` 里），Jev 请求的 `state` 带 `time_range`（`smart_enhance/evidence.rs:state_extras`）。等待：多一次本地检索。费用：`state` 多一个 `time_range` 字段，每批都带。
-- 调低：`window`：只检索范围内一次，范围外的命中不出现（硬过滤），宿主分不清文档日期与事件日期时目标可能被挡掉；证据轮次同样去掉时间短语、把范围作为显式过滤召回（`smart_enhance/evidence.rs:lookup_query`），`state` 同样带 `time_range`；等待比 `group` 少一次检索。`ignore`：原问题原样检索一次，不分组；`state` 不带 `time_range`（`smart_enhance/evidence.rs:state_extras`），与修复请求的「时间：无」一致（`smart_enhance/repair.rs:repair_prompt`）。只在调用方不传 `timeMode` 时使用（`lookup_local_in` 取 `time_mode.unwrap_or(params.time.mode)`）：窗口第一次回车不传，用户点了时间条之后才传；CLI 查询模式的 `--time-mode` 也是这样传入。评测的本地 deep 补测（`deep_pass`）直接用本参数。没有识别到时间短语时三者没有区别。修复后的重搜沿用原运行的模式（`search/repair_search.rs:search_groups_locked`），不再读本参数。
+- 调低：`window`：只检索范围内一次，范围外的命中不出现（硬过滤），宿主分不清文档日期与事件日期时目标可能被挡掉；证据轮次同样去掉时间短语、把范围作为显式过滤召回（`smart_enhance/evidence.rs:lookup_query`），`state` 同样带 `time_range`；等待比 `group` 少一次检索。`ignore`：原问题原样检索一次，不分组；`state` 不带 `time_range`（`smart_enhance/evidence.rs:state_extras`），与修复请求的「时间：无」一致（`smart_enhance/repair.rs:repair_prompt`）。只在调用方不传 `timeMode` 时使用（`lookup_local_in` 取 `time_mode.unwrap_or(params.time.mode)`）：窗口不再传（时间方式条已移除）；CLI 查询模式的 `--time-mode` 仍会传入。评测的本地 deep 补测（`deep_pass`）直接用本参数。没有识别到时间短语时三者没有区别。修复后的重搜沿用原运行的模式（`search/repair_search.rs:search_groups_locked`），不再读本参数。
 - 决定它的指标：E1 的 `grouped_rank` 与 C2 门槛（spec §9.3）。C2 不通过时改为 `ignore`。`notemd lookup eval` 不接受 `--time-mode`，按参数文件的 `time.mode` 跑。
 
 ### `routing.fewTermsMax`
@@ -215,7 +217,7 @@
 - 单位：无（noul 分数，0–1）
 - 读取位置：`src-tauri/src/smart_enhance/candidates.rs:tier`，经 `src-tauri/src/smart_enhance/evidence.rs:evidence_items` 与 `src-tauri/src/smart_enhance/evidence.rs:local_tiers` 使用
 - 来源：spec §5.4、F.3、附录 G.1、H.8
-- 调高：准确：`noul ≤ unfit` 标「可能不相关」（本地行变暗），不改变任何顺序。证据运行结束时显示的证据全部为「可能不相关」时，窗口显示「没有找到证据」并提供「换个说法」（`src/lib/smart-search/evidence-flow.ts:evidenceNotice`，F.6），调高后这种情况更常见。等待：不变。费用：证据请求本身不变；「换个说法」由用户点按，每点一次是一次修复请求。必须小于 `tiers.fit`。
+- 调高：准确：`noul ≤ unfit` 标「可能不相关」（本地行变暗），不改变任何顺序。证据运行结束时显示的证据全部为「可能不相关」时，窗口显示「笔记里没有找到能回答这个问题的内容」，不发送回答请求（`src/lib/smart-search/evidence-flow.ts:evidenceNotice`，spec 附录 I），调高后这种情况更常见。等待：不变。费用：证据请求本身不变；不再有「换个说法」按钮，没有额外请求。必须小于 `tiers.fit`。
 - 调低：准确：标为不相关的变少。取 0.0 时只有恰好 0 分才算不相关。等待：不变。费用：不变。
 - 决定它的指标：`mismatches`、`absentFalseFitRate`（C3），以及纠正一致率（Task 7）；`netGain`、`pushedOut`、`demoted` 只随证据列表的内容变化，不随分档变化。
 
@@ -318,7 +320,7 @@
 - 单位：段（deep 查找时的候选数）
 - 读取位置：`src-tauri/src/lookup_params.rs:candidate_k_for`、`src-tauri/src/smart_enhance/evidence.rs:round_settings`
 - 来源：spec 附录 H.3.10、H.7；SAG-Wiki `retrieval.rs:search` 设的 100
-- 调高：准确：「扩大查找」（deep）的证据运行每一轮都取这么多候选（代替 `retrieval.candidateK`）；窗口在本地零命中后扩大查找、或用户点「扩大查找」时是 deep，CLI 的 `--deep` 也是。等待：deep 的每轮批数增多。费用：默认是 `retrieval.candidateK` 的两倍，受 `budget.maxTokensPerLookup` 限制。
+- 调高：准确：「扩大查找」（deep）的证据运行每一轮都取这么多候选（代替 `retrieval.candidateK`）；窗口在本地零命中后自动逐行扫描（`autoDeepOnZero` 默认开启）时是 deep，CLI 的 `--deep` 也是。等待：deep 的每轮批数增多。费用：默认是 `retrieval.candidateK` 的两倍，受 `budget.maxTokensPerLookup` 限制。
 - 调低：准确：deep 与普通查找的差别变小。等待、费用：随候选数下降。
 - 决定它的指标：`evidenceRecall10`、`roundTokens`、`roundP95Ms`；只在 deep 的评测行上起作用。
 
@@ -419,7 +421,7 @@
 - 来源：spec 附录 H.4、H.7；SAG-Wiki `Settings::answer_context_tokens`
 - 调高：准确：装入更多证据段，简答依据更全。等待：输入更长，生成更慢。费用：输入 token 随装入的来源增长。必须大于 `answer.outputTokens`，否则整个文件作废；也不应超过所用模型的真实上下文。
 - 调低：准确：按窗口显示的证据顺序逐段装入，放不下的省略（窗口显示省略数）；一段都放不下时宿主返回代码 `sourceTooLarge`，问题本身就放不下时返回 `questionTooLarge`，窗口按界面语言显示（`src/lib/smart-search/evidence-flow.ts:answerErrorKey`），不发送。等待、费用：下降。
-- 决定它的指标：不在 `notemd lookup eval` 的指标里（简答由用户点按触发，评测不运行）；以详情里的来源数与省略数判断。
+- 决定它的指标：不在 `notemd lookup eval` 的指标里（回答在证据轮次结束后由窗口自动触发，评测不运行）；以详情里的来源数与省略数判断。
 
 ### `answer.outputTokens`
 
@@ -439,7 +441,7 @@
 - 单位：毫秒（每次简答请求的时限）
 - 读取位置：`src-tauri/src/lookup_params.rs:timeout`、`src-tauri/src/smart_enhance/answer.rs:smart_lookup_answer`
 - 来源：spec 附录 H.4、H.7；SAG-Wiki `timeout_secs`（120 秒）的一半
-- 调高：准确：长输出不容易因超时失败。等待：最坏等待更长（一次点按至多 3 个请求，各用这个时限）；回答进行中用户可以「停止」或按 Esc，宿主取消这次请求，迟到的回答丢弃。费用：超时或停止的请求服务端仍可能计费；引用校验的修正回合各用同一时限。
+- 调高：准确：长输出不容易因超时失败。等待：最坏等待更长（一次回答至多 3 个请求，各用这个时限）；回答进行中用户可以「停止」或按 Esc，宿主取消这次请求，迟到的回答丢弃。费用：超时或停止的请求服务端仍可能计费；引用校验的修正回合各用同一时限。
 - 调低：准确：慢模型更容易超时，简答失败，证据列表不受影响。等待：更短。费用：不重试，所以不省钱。
 - 决定它的指标：不在评测指标里（同 `answer.contextTokens`）。
 
@@ -454,7 +456,7 @@
 | 只发送行级块，并逐块回源核对，文本与索引不一致的跳过 | `src-tauri/src/smart_lookup.rs:sendable_block`、`src-tauri/src/smart_lookup.rs:read_source` | 可信：汇总块无法核对，送出的内容必须就是磁盘上的原文（spec §5.4） |
 | 每次回车至多 `1 + retrieval.maxHops` 轮证据请求，每轮按 `retrieval.jevContextTokens` 分批；第 0 轮领取自动名额，后续轮次属于同一次领取；轮次超过 `maxHops` 宿主拒绝；修复与证据不会在同一次回车里同时自动发生（零命中走修复，否则走证据） | `src-tauri/src/smart_enhance/mod.rs:claim_auto_request`、`src-tauri/src/smart_enhance/evidence.rs:evidence_step`、`src-tauri/src/smart_enhance/repair.rs:repair_steps` | 费用：一次回车的轮数与总量由 `1 + maxHops` 轮和 `budget.maxTokensPerLookup` 固定（spec H.6，修订 F.6、G.3） |
 | 不自动重试；超时、网络错误、429 都按失败处理 | `src-tauri/src/smart_model.rs:post_once`、`src-tauri/src/smart_model.rs:score_noul`、`src-tauri/src/smart_model.rs:chat_complete` | 费用与等待：重试会让费用和最坏等待成倍增加（spec §5.6） |
-| 远端返回的文字不展示、不写日志（简答例外：用户点按「生成简答」后，模型的回答按纯文本显示，仍不写日志，spec H.4）；状态里只有主机名和状态码类别 | `src-tauri/src/smart_enhance/mod.rs:status_for`、`src-tauri/src/smart_model.rs:post_once`、`src-tauri/src/smart_enhance/repair.rs:parse_repair_groups` | 可信：远端文字可能夹带指令或回显密钥，只接受严格校验过的分数和检索词（spec F.3） |
+| 远端返回的文字不展示、不写日志（回答例外：证据轮次结束且回答主机已获允许时窗口自动请求回答，模型的回答按纯文本显示，仍不写日志，spec H.4）；状态里只有主机名和状态码类别 | `src-tauri/src/smart_enhance/mod.rs:status_for`、`src-tauri/src/smart_model.rs:post_once`、`src-tauri/src/smart_enhance/repair.rs:parse_repair_groups` | 可信：远端文字可能夹带指令或回显密钥，只接受严格校验过的分数和检索词（spec F.3） |
 | 密钥不进参数文件，只存在 app-data Store 的独立键里（CLI 只从环境变量 `NOTEMD_JEV_KEY`、`NOTEMD_CHAT_KEY` 读取，不接受命令行参数） | `src-tauri/src/smart_enhance/keys.rs:read_key`、`src-tauri/src/cli/lookup.rs:env_key`、`src-tauri/src/lookup_params.rs:parse_params` | 安全：参数文件会被复制、分享和提交，不能放秘密（spec F.8、G.5） |
 
 ## 其他固定常量
