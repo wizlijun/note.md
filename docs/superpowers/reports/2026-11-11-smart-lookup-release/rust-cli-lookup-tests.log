@@ -1,0 +1,71 @@
+    Blocking waiting for file lock on build directory
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: `tauri-runtime-wry` (lib) generated 5 warnings
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 22.80s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/notemd_lib-043bd015a39be959)
+
+running 13 tests
+test cli::lookup::tests::parse_args_rejects_bad_values ... ok
+test cli::lookup::tests::parse_args_reads_every_documented_flag ... ok
+test cli::lookup::tests::a_chat_config_without_a_key_is_reported_by_the_host ... ok
+test cli::lookup::tests::zero_hits_diagnose_then_repair_through_the_fake_chat_server ... ok
+test cli::lookup::tests::eval_prints_metrics_gates_and_a_comparison_and_writes_rows ... ok
+test cli::lookup::tests::run_exits_2_on_bad_arguments_params_vault_or_index ... ok
+test cli::lookup::tests::eval_gates_read_n_a_at_another_timeout_and_report_it ... ok
+test cli::lookup::tests::no_enhance_or_missing_urls_send_nothing ... ok
+test cli::lookup::tests::confidential_notes_are_not_sent_from_the_cli ... ok
+test cli::lookup::tests::text_output_summarises_the_local_and_evidence_lines_then_lists_hits ... ok
+test cli::lookup::tests::judging_needs_allow_send_equal_to_the_endpoint_host ... ok
+test cli::lookup::tests::json_lines_follow_the_documented_kinds ... ok
+notemd: NOTEMD_JEV_KEY ignored (key contains whitespace or control characters)
+test cli::lookup::tests::keys_come_only_from_the_environment_and_never_reach_the_output ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 1711 filtered out; finished in 0.63s
+

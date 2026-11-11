@@ -1,0 +1,283 @@
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: `tauri-runtime-wry` (lib) generated 5 warnings
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 0.22s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/notemd_lib-043bd015a39be959)
+
+running 227 tests
+test menu_label_tests::smart_search_is_localized_in_every_locale ... ok
+test search::smart_eval::tests::an_evidence_row_with_several_requests_counts_in_every_row_filter ... ok
+test search::smart_eval::tests::a_failed_deep_pass_keeps_the_paid_row_and_leaves_c4 ... ok
+test search::smart_eval::tests::c4_is_only_evaluated_at_the_three_second_limit ... ok
+test search::smart_eval::tests::a_hop_one_row_that_sent_nothing_adds_no_round_figures ... ok
+test search::smart_eval::tests::c4_counts_only_tasks_the_deep_pass_also_missed ... ok
+test search::smart_eval::tests::c3_gates_on_round_timeouts_and_c4_on_repair_timeouts ... ok
+test search::smart_eval::tests::c5_needs_expansion_only_recall_and_no_regression ... ok
+test search::smart_eval::tests::absent_false_fits_count_only_fit_evidence ... ok
+test search::smart_eval::tests::an_old_baseline_has_no_evidence_metrics_rather_than_zero ... ok
+test search::smart_eval::tests::a_failing_task_becomes_an_error_row_and_rows_arrive_one_by_one ... ok
+test search::smart::tests::a_superseded_smart_batch_is_cancelled_before_touching_the_index ... ok
+test search::smart_eval::tests::e1_local_baseline ... ignored, reads a real vault; run by hand with NOTEMD_EVAL_* set
+test search::smart_eval::tests::compare_reports_each_metric_delta ... ok
+test search::smart_eval::tests::feedback_agreement_report ... ignored, reads the local feedback log; run by hand with NOTEMD_EVAL_FEEDBACK set
+test search::smart_eval::tests::feedback_agreement_counts_decided_tiers_only ... ok
+test search::smart_eval::tests::feedback_agreement_dedupes_repeated_clicks_and_keeps_the_last_verdict ... ok
+test search::smart_eval::tests::final_rank_reads_evidence_first_then_remaining_local_hits ... ok
+test search::smart_eval::tests::found_round_and_round_rows_come_from_the_evidence_steps ... ok
+test search::smart_eval::tests::gates_are_na_off_the_default_round_timeout ... ok
+test search::smart_eval::tests::eval_rows_round_trip_and_a_bad_line_names_its_number ... ok
+test search::smart_eval::tests::gates_follow_the_confirmed_thresholds ... ok
+test search::smart_eval::tests::load_tasks_normalises_target_paths ... ok
+test search::smart_eval::tests::load_tasks_rejects_inconsistent_entries_naming_the_task ... ok
+test search::smart_eval::tests::lookup_metrics_follow_section_9_3 ... ok
+test search::smart_eval::tests::percentiles_use_the_nearest_rank ... ok
+test search::smart_eval::tests::rows_whose_target_is_not_in_the_vault_are_excluded_from_every_gate ... ok
+test search::smart_eval::tests::pre_gates_apply_the_confirmed_thresholds ... ok
+test search::smart_eval::tests::timeouts_and_latencies_are_split_by_route ... ok
+test search::smart_eval::tests::window_coverage_counts_only_judged_rows ... ok
+test search::smart_eval::tests::per_round_metrics_and_compare_across_max_hops ... ok
+test smart_enhance::answer::tests::invalid_citations_serialise_in_camel_case ... ok
+test smart_enhance::answer::tests::messages_match_sag2_without_paths ... ok
+test smart_enhance::answer::tests::budget_fits_sources_greedily ... ok
+test smart_enhance::candidates::tests::estimate_counts_cjk_per_char_and_other_text_per_four ... ok
+test smart_enhance::candidates::tests::rerank_moves_only_judged_hits_inside_their_section ... ok
+test smart_enhance::answer::tests::budget_error_codes_are_stable_and_the_window_shows_one_fallback_line ... ok
+test smart_enhance::candidates::tests::route_follows_spec_5_3 ... ok
+test smart_enhance::candidates::tests::routing_tokens_and_tiers_follow_the_params ... ok
+test smart_enhance::candidates::tests::selection_follows_the_candidate_params ... ok
+test smart_enhance::candidates::tests::selection_stops_at_k_and_at_the_token_budget ... ok
+test smart_enhance::candidates::tests::tiers_use_the_spec_thresholds ... ok
+test smart_enhance::candidates::tests::selection_takes_only_current_public_line_blocks_two_per_file ... ok
+test smart_enhance::candidates::tests::top_ten_unfit_requires_every_leading_hit_judged_unfit ... ok
+test smart_enhance::answer::tests::invalid_citations_follow_agent_rs ... ok
+test smart_enhance::answer::tests::a_cancelled_answer_sends_nothing_more ... ok
+test smart_enhance::answer::tests::one_correction_turn_then_review_then_error ... ok
+test search::smart::tests::a_local_smart_search_can_be_retained_as_a_lookup_run ... ok
+test search::smart_eval::tests::e1_scores_a_fixture_vault_end_to_end ... ok
+test search::smart_eval::tests::e1_decides_target_indexed_from_the_index_not_the_disk ... ok
+test smart_enhance::evidence::tests::an_automatic_first_round_that_sends_nothing_gives_the_slot_back ... ok
+test smart_enhance::evidence::tests::a_recreated_database_gets_a_fresh_reader_and_forget_drops_them ... ok
+test smart_enhance::evidence::tests::an_unready_index_is_unavailable_and_a_user_step_needs_no_slot ... ok
+test smart_enhance::evidence::tests::a_cancel_between_rounds_at_hop_one_sends_nothing_and_keeps_the_run ... ok
+test smart_enhance::evidence::tests::consent_for_another_host_sends_nothing ... ok
+test smart_enhance::evidence::tests::max_hops_zero_ends_after_round_zero ... ok
+test smart_enhance::evidence::tests::sent_blocks_are_the_union_of_the_pool_and_the_state_evidence ... ok
+test smart_enhance::evidence::tests::evidence_too_large_sends_nothing_and_gives_the_slot_back ... ok
+test smart_enhance::evidence::tests::the_direct_match_preset_asks_the_criterion_with_the_judge_criteria ... ok
+test smart_enhance::evidence::tests::the_step_future_is_send ... ok
+test smart_enhance::evidence::tests::the_wire_result_uses_the_ts_field_names ... ok
+test smart_enhance::evidence::tests::user_started_rounds_do_not_continue_automatically ... ok
+test smart_enhance::evidence::tests::stop_during_round_one_keeps_round_zero_evidence_and_sends_no_more ... ok
+test smart_enhance::feedback::tests::a_full_log_refuses_more_rows ... ok
+test smart_enhance::feedback::tests::feedback_accepts_evidence_ids ... ok
+test smart_enhance::feedback::tests::feedback_rows_come_from_the_run_and_append_as_jsonl ... ok
+test smart_enhance::evidence::tests::first_step_claims_the_auto_slot_and_later_steps_reuse_it ... ok
+test smart_enhance::evidence::tests::local_rows_get_tiers_from_the_latest_score ... ok
+test smart_enhance::evidence::tests::a_round_that_would_exceed_the_lookup_budget_is_not_sent ... ok
+test smart_enhance::evidence::tests::run_totals_include_a_cancelled_round_and_stay_distinct ... ok
+test smart_enhance::answer::tests::a_source_marked_confidential_on_disk_but_not_reindexed_is_not_sent ... ok
+test smart_enhance::evidence::tests::a_second_step_while_one_runs_sends_nothing ... ok
+test smart_enhance::judge::tests::a_release_only_undoes_its_own_claim ... ok
+test smart_enhance::judge::tests::a_display_order_that_is_not_a_permutation_is_an_error ... ok
+test smart_enhance::judge::tests::a_run_from_another_vault_or_window_is_refused ... ok
+test smart_enhance::judge::tests::a_retry_after_a_cancel_on_the_same_run_is_not_cancelled ... ok
+test search::smart_eval::tests::lookup_eval_runs_the_pipeline_on_a_fixture_vault ... ok
+test smart_enhance::answer::tests::answer_needs_consent_for_the_chat_host_and_skips_confidential_sources ... ok
+test smart_enhance::evidence::tests::window_mode_moves_the_time_phrase_into_the_filters ... ok
+test smart_enhance::judge::tests::a_second_identical_judge_reuses_the_cached_verdicts ... ok
+test smart_enhance::judge::tests::an_index_that_cannot_answer_is_unavailable_not_all_unknown ... ok
+test smart_enhance::answer::tests::the_answer_uses_the_list_the_window_shows_not_the_hosts_latest ... ok
+test smart_enhance::judge::tests::an_auto_judge_after_the_runs_request_is_skipped_but_a_user_retry_is_sent ... ok
+test smart_enhance::judge::tests::a_changed_criterion_or_candidate_set_is_a_new_request_but_new_tiers_reuse_the_scores ... ok
+test smart_enhance::judge::tests::a_confidential_file_in_the_index_is_still_counted_as_confidential ... ok
+test smart_enhance::judge::tests::confidential_stale_and_rollup_blocks_are_never_sent ... ok
+test smart_enhance::judge::tests::judge_sends_one_request_and_reranks_within_sections ... ok
+test smart_enhance::judge::tests::an_automatic_send_keeps_the_claim_and_a_second_automatic_request_is_skipped ... ok
+test smart_enhance::judge::tests::another_route_on_the_same_host_or_another_time_range_is_not_a_cache_hit ... ok
+test smart_enhance::judge::tests::http_errors_map_to_status_without_body_text ... ok
+test smart_enhance::judge::tests::the_cache_keeps_a_hundred_entries_for_ten_minutes_and_drops_the_oldest ... ok
+test smart_enhance::judge::tests::routing_follows_the_few_terms_param ... ok
+test smart_enhance::judge::tests::the_cache_key_covers_everything_that_is_sent ... ok
+test smart_enhance::keys::tests::keys_are_trimmed_bounded_and_errors_never_echo_them ... ok
+test smart_enhance::judge::tests::an_automatic_judge_that_sends_nothing_gives_the_claim_back ... ok
+test smart_enhance::judge::tests::the_state_carries_the_question_time_filters_and_criterion ... ok
+test smart_enhance::repair::tests::a_group_query_quotes_phrases_and_keeps_the_explicit_filters ... ok
+test smart_enhance::keys::tests::the_connection_test_sends_synthetic_text_and_reports_without_the_key ... ok
+test smart_enhance::pipeline::tests::pipeline_judge_route_runs_evidence_rounds ... ok
+test smart_enhance::repair::tests::a_repaired_run_or_an_automatic_repair_with_hits_is_not_repaired ... ok
+test smart_enhance::repair::tests::an_automatic_repair_sends_only_the_question_facts_and_takes_the_runs_slot ... ok
+test smart_enhance::repair::tests::edited_groups_get_the_same_limits_and_empty_groups_are_dropped ... ok
+test smart_enhance::judge::tests::a_cancel_before_the_request_starts_still_cancels ... ok
+test smart_enhance::judge::tests::a_cancel_during_the_request_stops_waiting_for_it ... ok
+test smart_enhance::repair::tests::items_lose_dsl_operators_and_filters ... ok
+test smart_enhance::repair::tests::repair_accepts_two_clean_groups ... ok
+test smart_enhance::repair::tests::repair_prompt_with_default_params_matches_the_fixed_text ... ok
+test smart_enhance::repair::tests::repair_limits_follow_the_params ... ok
+test smart_enhance::repair::tests::repair_rejects_fenced_or_oversized_output ... ok
+test smart_enhance::repair::tests::the_repair_prompt_carries_no_note_text ... ok
+test smart_enhance::repair::tests::the_chat_connection_test_sends_synthetic_text_only ... ok
+test smart_enhance::sag::corpus::tests::a_source_with_stop_words_that_has_hits_is_kept ... ok
+test smart_enhance::sag::corpus::tests::ambiguous_aliases_are_dropped ... ok
+test smart_enhance::judge::tests::an_automatic_judge_after_a_cancel_stays_cancelled_and_sends_nothing ... ok
+test smart_enhance::sag::corpus::tests::diversify_breaks_equal_residuals_by_the_lower_index ... ok
+test smart_enhance::sag::corpus::tests::diversify_leaves_candidates_after_the_first_ten_and_handles_empty ... ok
+test smart_enhance::sag::corpus::tests::diversity_idf_is_the_document_formula ... ok
+test smart_enhance::sag::corpus::tests::diversify_rejects_a_zero_idf_in_debug_builds - should panic ... ok
+test smart_enhance::sag::corpus::tests::folded_drops_marks_on_latin_letters_only ... ok
+test smart_enhance::sag::corpus::tests::name_phrase_falls_back_to_longest_title_subphrase ... ok
+test smart_enhance::judge::tests::consent_for_another_host_sends_nothing ... ok
+test smart_enhance::sag::corpus::tests::diversity_words_match_python_for_combining_marks ... ok
+test smart_enhance::sag::corpus::tests::alias_names_are_nfkc_normalised_before_lowercasing ... ok
+test smart_enhance::sag::corpus::tests::repair_finds_stop_word_alias_targets_by_their_phrase ... ok
+test smart_enhance::judge::tests::nothing_to_send_skips_without_a_request_and_fills_the_counts ... ok
+test smart_enhance::judge::tests::another_vaults_index_a_missing_index_or_a_busy_index_is_unavailable_and_sends_nothing ... ok
+test smart_enhance::sag::corpus::tests::title_fallback_tries_every_title_of_the_sub_phrase_in_byte_order ... ok
+test smart_enhance::sag::corpus::tests::unresolved_expansion_terms_preserve_connected_tokens ... ok
+test smart_enhance::judge::tests::repaired_pinned_and_unconfigured_runs_send_nothing ... ok
+test smart_enhance::sag::corpus::tests::repair_keeps_a_source_that_has_hits_itself ... ok
+test smart_enhance::repair::tests::a_judge_that_took_the_slot_leaves_no_automatic_repair ... ok
+test smart_enhance::sag::jev::tests::batches_split_on_budget_skip_oversize_and_reject_large_evidence ... ok
+test smart_enhance::sag::jev::tests::estimate_follows_sag2_structure ... ok
+test smart_enhance::sag::jev::tests::every_oracle_state_round_trips ... ok
+test smart_enhance::sag::jev::tests::extras_follow_sag2_fields_and_are_omitted_when_empty ... ok
+test smart_enhance::sag::jev::tests::heading_goes_after_passage_and_only_when_present ... ok
+test smart_enhance::sag::jev::tests::no_batches_send_nothing ... ok
+test smart_enhance::sag::corpus::tests::repair_rewrites_folded_title_and_frontmatter_alias_only_when_it_has_hits ... ok
+test smart_enhance::sag::jev::tests::question_shape_follows_preset ... ok
+test smart_enhance::sag::jev::tests::questions_equal_every_oracle_question ... ok
+test smart_enhance::sag::jev::tests::score_round_future_is_send ... ok
+test smart_enhance::sag::jev::tests::scores_map_by_id_and_a_mismatched_answer_set_fails ... ok
+test smart_enhance::sag::jev::tests::state_matches_sag2_byte_for_byte ... ok
+test smart_enhance::sag::jev::tests::the_first_failing_batch_in_batch_order_fails_the_round ... ok
+test smart_enhance::sag::jev::tests::the_settings_request_example_has_the_wire_shape ... ok
+test smart_enhance::sag::jev::tests::usage_sums_only_the_batches_that_report_it ... ok
+test smart_enhance::sag::corpus::tests::resolve_terms_probe_and_rewrite_by_phrase ... ok
+test smart_enhance::sag::corpus::tests::resolve_terms_repairs_then_retokenises_and_keeps_words_and_labels ... ok
+test smart_enhance::repair::tests::a_repair_that_sends_nothing_gives_the_automatic_slot_back ... ok
+test smart_enhance::sag::corpus::tests::wiki_targets_and_aliases_build_the_pattern ... ok
+test smart_enhance::sag::corpus::tests::recorded_final_rankings_match_python_v10 ... ok
+test smart_enhance::sag::round::tests::a_question_without_terms_sends_nothing ... ok
+test smart_enhance::sag::round::tests::a_file_marked_confidential_on_disk_but_not_reindexed_is_dropped ... ok
+test smart_enhance::sag::jev::tests::at_most_twenty_batches_in_flight_and_late_batches_get_the_time_left ... ok
+test smart_enhance::sag::round::tests::a_cancel_during_scoring_discards_the_round ... ok
+test smart_enhance::sag::round::tests::evidence_stop_serialises_in_camel_case ... ok
+test smart_enhance::sag::round::tests::a_cancelled_round_sends_nothing_and_keeps_the_state ... ok
+test smart_enhance::sag::round::tests::an_index_commit_during_scoring_discards_the_round ... ok
+test smart_enhance::sag::round::tests::an_index_commit_between_rounds_stops_with_index_changed ... ok
+test smart_enhance::sag::round::tests::chinese_sentences_do_not_share_expansion_context ... ok
+test smart_enhance::sag::round::tests::expansion_candidates_from_confidential_files_are_never_sent ... ok
+test smart_enhance::sag::round::tests::frontmatter_aliases_name_the_file_title ... ok
+test smart_enhance::sag::round::tests::skipped_blocks_are_counted_once_however_often_they_return ... ok
+test smart_enhance::sag::round::tests::stale_and_overlong_blocks_are_dropped_and_counted ... ok
+test smart_enhance::sag::round::tests::the_step_future_is_send ... ok
+test smart_enhance::sag::terms::tests::a_name_phrase_whose_phrase_has_no_df_is_skipped ... ok
+test smart_enhance::sag::terms::tests::a_name_phrase_with_inner_stop_words_gets_the_df_of_its_phrase ... ok
+test smart_enhance::sag::terms::tests::a_name_with_only_edge_stop_words_is_counted_by_its_term_as_at_base ... ok
+test smart_enhance::sag::terms::tests::a_repeated_query_word_counts_once_and_zero_scores_weigh_half ... ok
+test smart_enhance::sag::round::tests::max_hops_ends_after_the_last_scored_round ... ok
+test smart_enhance::sag::terms::tests::a_tie_between_seeds_keeps_the_first_seed ... ok
+test smart_enhance::sag::terms::tests::interleave_sets_order_and_stops_at_limit ... ok
+test smart_enhance::sag::terms::tests::interleaves_rank_then_term_and_deduplicates ... ok
+test smart_enhance::sag::terms::tests::missing_frequency_is_an_error_not_a_panic ... ok
+test smart_enhance::sag::terms::tests::rank_orders_score_then_order_then_id ... ok
+test smart_enhance::sag::terms::tests::expansion_terms_match_hand_computed_scores ... ok
+test smart_enhance::sag::terms::tests::term_cmp_breaks_icu_ties_by_bytes ... ok
+test smart_enhance::sag::terms::tests::term_cmp_uses_icu_not_bytes ... ok
+test smart_enhance::sag::terms::tests::tied_terms_sort_by_icu_not_bytes ... ok
+test smart_enhance::sag::terms::tests::word_labels_are_the_term ... ok
+test smart_enhance::sag::text::tests::a_scan_stopped_by_the_engine_is_logged_without_the_text ... ok
+test smart_enhance::sag::round::tests::the_alias_table_is_built_once_per_reader_and_generation ... ok
+test smart_enhance::sag::text::tests::alias_keys_sort_longest_first_and_mixed_keys_keep_latin_boundaries ... ok
+test smart_enhance::sag::text::tests::alias_matches_become_name_spans_with_their_source_spelling ... ok
+test smart_enhance::sag::jev::tests::one_deadline_covers_all_batches_and_cancel_wins ... ok
+test smart_enhance::sag::text::tests::fts_phrases_keep_inner_stop_words ... ok
+test smart_enhance::sag::text::tests::entity_spans_merge_without_overlap ... ok
+test smart_enhance::sag::text::tests::fts_phrases_trim_edge_stop_words_so_the_phrase_is_the_term ... ok
+test smart_enhance::sag::text::tests::name_spans_carry_the_phrase_of_their_label ... ok
+test smart_enhance::sag::text::tests::names_keep_initials_and_boundaries ... ok
+test smart_enhance::sag::text::tests::sag2_constants_are_copied_whole ... ok
+test smart_enhance::sag::text::tests::chinese_alias_keys_match_inside_chinese_text ... ok
+test smart_enhance::sag::text::tests::sag_tokens_drop_stops_and_match_query_dedupes ... ok
+test smart_enhance::sag::text::tests::sag_tokens_follow_the_index_cut_and_drop_chinese_stops ... ok
+test smart_enhance::sag::text::tests::sentence_boundaries_preserve_english_initials_and_split_chinese ... ok
+test smart_enhance::sag::text::tests::sentences_keep_the_trailing_piece_even_when_empty ... ok
+test smart_enhance::tests::a_cancel_before_waiting_still_wakes_the_waiter ... ok
+test smart_enhance::tests::check_config_rejects_userinfo_bad_schemes_and_clear_text_bearer ... ok
+test smart_enhance::tests::model_errors_map_to_statuses_without_detail ... ok
+test smart_enhance::tests::the_gate_names_what_is_missing_and_binds_consent_to_the_host ... ok
+test smart_lookup::tests::a_run_older_than_the_ttl_is_reported_expired_on_read ... ok
+test smart_enhance::sag::text::tests::tags_and_wiki_sections_label_the_name_only ... ok
+test smart_lookup::tests::current_block_accepts_only_unchanged_complete_line_blocks ... ok
+test smart_lookup::tests::reading_the_oldest_run_of_a_full_window_returns_it ... ok
+test smart_lookup::tests::sendable_block_checks_the_index_then_the_text_then_the_frontmatter ... ok
+test smart_model::tests::accepts_a_response_without_usage_and_reads_usage_when_present ... ok
+test smart_enhance::sag::round::tests::a_failed_round_leaves_the_state_as_it_was ... ok
+test smart_model::tests::chat_endpoint_appends_chat_completions_once ... ok
+test smart_model::tests::bearer_sends_the_key_and_none_never_does ... ok
+test smart_model::tests::chat_messages_sends_the_messages_without_json_mode ... ok
+test smart_model::tests::config_refuses_a_bearer_key_over_plain_http_to_a_remote_host ... ok
+test smart_model::tests::consent_is_bound_to_the_resolved_host ... ok
+test smart_model::tests::endpoint_follows_the_documented_rule ... ok
+test smart_model::tests::endpoint_host_keeps_explicit_ports_only ... ok
+test smart_model::tests::jev_latency_probe ... ignored, calls a real Jev endpoint; run by hand with NOTEMD_EVAL_JEV_* set
+test smart_model::tests::rejects_malformed_success_bodies_without_panicking ... ok
+test smart_enhance::judge::tests::a_slow_service_times_out_and_keeps_the_local_order ... ok
+test smart_enhance::sag::round::tests::found_round_records_the_hop_of_first_appearance ... ok
+test smart_enhance::sag::round::tests::a_scorer_stop_ends_the_rounds_and_discards_the_round ... ok
+test smart_enhance::sag::round::tests::frozen_v10_requests_and_rounds_on_our_index ... ok
+test smart_enhance::sag::text::tests::grouped_alias_pattern_matches_the_per_key_form ... ok
+test smart_enhance::sag::jev::tests::a_failing_batch_fails_the_round_and_results_keep_batch_order ... ok
+test smart_enhance::evidence::tests::an_automatic_round_that_failed_after_sending_ends_the_automatic_rounds ... ok
+test smart_model::tests::chat_sends_bearer_json_mode_once_and_reads_the_message ... ok
+test smart_enhance::repair::tests::invalid_model_output_or_an_error_returns_no_groups_and_no_detail ... ok
+test smart_model::tests::a_slow_server_times_out_and_http_errors_are_reported_once ... ok
+test smart_enhance::sag::text::tests::a_thousand_alias_keys_compile ... ok
+
+test result: ok. 224 passed; 0 failed; 3 ignored; 0 measured; 1497 filtered out; finished in 2.47s
+

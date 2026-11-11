@@ -1,0 +1,92 @@
+
+ RUN  v4.1.5 /Users/bruce/git/mdeditor
+
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > dispatches every plugin it accepts as an argument 2ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'agency' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'apple-notes' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'assistant-mail' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'claude-agent' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'codex-agent' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'conversation-dictionary' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'deepseek-agent' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'ebook-import' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'habitat' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'health-sync' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'md2pdf' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'meetings' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'pos-log' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'roam-import' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'strata' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'typst-reader' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'write' declares a binary, so it must be packaged per triple 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'custom-editor-fixture' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'decision-log' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'idea-spark' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'index-viewer' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'knowledge-browser' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'memory' declares no binary, so universal is the right shape 1ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'next' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'power-mode' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'quick-launch' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'timeline' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'trace-source' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > 'weekly-review' declares no binary, so universal is the right shape 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > refuses a universal package whose manifest declares a binary 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > builds and packages codex-agent as a native plugin with UI 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > Sumi release and development installation both carry the native backend 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > Sumi Linux reaches the native build without Apple credentials 42ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > development installation resolves Linux XDG paths including spaces 7ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > Quick Launch builds the package-name-matched UI in both release and dev installation 2ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > accepts HABITAT and builds both manifest targets with its matching backend and UI 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > does not ship Python interpreter caches from bundled Skills 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > packages Knowledge Browser third-party license notices 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > packages Typeset Reader as a native UI plugin with its license notice 0ms
+ ✓ scripts/release-plugins.test.ts > release-plugins.sh packaging shape > packages Conversation Dictionary with its review-dataset Skill 0ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > retries TLS failures from the notarization service 0ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > resubmits when Apple allocated an ID but the upload failed 425ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > resumes the same ID after a completed upload and repeated transient wait failures 447ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > stops after three incomplete uploads instead of waiting on an orphaned ID 446ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > does not retry a permanent rejection after upload 222ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > rejects untracked files as well as tracked and staged changes 0ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > runs type, security and Canvas native gates before version bumps 0ms
+ ✓ scripts/release-plugins.test.ts > release.sh transient Apple failures > separates the install preamble from the changelog heading 0ms
+ ✓ scripts/release-plugins.test.ts > dev-install-plugin.sh codex-agent dispatch > accepts, builds and installs the codex-agent backend and UI 0ms
+ ✓ scripts/release-plugins.test.ts > Human Signature plugin releases > idea-spark publishes the Human Signature release version 0ms
+ ✓ scripts/release-plugins.test.ts > Human Signature plugin releases > trace-source publishes the Human Signature release version 0ms
+ ✓ scripts/release-plugins.test.ts > Next plugin packaging > builds and packages Next as a universal UI plugin 0ms
+ ✓ scripts/release-plugins.test.ts > Next plugin packaging > accepts, builds and installs Next in the dev installer 0ms
+ ✓ scripts/release-plugins.test.ts > Next plugin packaging > keeps Next settings inside the plugin window instead of global Settings 0ms
+ ✓ scripts/release-plugins.test.ts > agent-owned concurrency and time-planning host requirements > claude-agent keeps concurrency plugin-owned and requires a time-aware host 0ms
+ ✓ scripts/release-plugins.test.ts > agent-owned concurrency and time-planning host requirements > codex-agent keeps concurrency plugin-owned and requires a time-aware host 0ms
+ ✓ scripts/release-plugins.test.ts > agent-owned concurrency and time-planning host requirements > deepseek-agent keeps concurrency plugin-owned and requires a time-aware host 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > apple-notes provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > claude-agent provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > codex-agent provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > conversation-dictionary provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > decision-log provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > deepseek-agent provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > ebook-import provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > idea-spark provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > md2pdf provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > memory provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > next provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > pos-log provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > power-mode provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > roam-import provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > trace-source provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > typst-reader provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > plugin market metadata localization > weekly-review provides a name and description for every market locale 0ms
+ ✓ scripts/release-plugins.test.ts > Roam Research Sync product identity > renames only the product surface and keeps the installed identity stable 0ms
+ ✓ scripts/release-plugins.test.ts > Roam Research Sync product identity > keeps the zh product name while using an action-style menu label 0ms
+ ✓ scripts/release-plugins.test.ts > Roam Research Sync product identity > keeps the ja product name while using an action-style menu label 0ms
+ ✓ scripts/release-plugins.test.ts > Roam Research Sync product identity > keeps the de product name while using an action-style menu label 0ms
+ ✓ scripts/release-plugins.test.ts > sync plugin menu naming convention > uses action-first Apple-style labels for apple-notes 0ms
+ ✓ scripts/release-plugins.test.ts > sync plugin menu naming convention > uses action-first Apple-style labels for roam-import 0ms
+ ✓ scripts/release-plugins.test.ts > Location Log product identity > keeps the stable plugin id while using one display name per locale 0ms
+ ✓ scripts/release-plugins.test.ts > Next tray shortcut > opens Next from the capture group with its global shortcut 0ms
+
+ Test Files  1 passed (1)
+      Tests  83 passed (83)
+   Start at  16:51:14
+   Duration  1.70s (transform 20ms, setup 0ms, import 30ms, tests 1.60s, environment 0ms)
+

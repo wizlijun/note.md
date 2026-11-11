@@ -1,0 +1,58 @@
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: `tauri-runtime-wry` (lib) generated 5 warnings
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+   Compiling notemd v6.1111.2 (/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/src-tauri)
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 27.72s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/notemd_lib-043bd015a39be959)
+
+running 1 test
+test smart_enhance::evidence::tests::stop_during_round_one_keeps_round_zero_evidence_and_sends_no_more ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1723 filtered out; finished in 0.60s
+

@@ -1,0 +1,75 @@
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: `tauri-runtime-wry` (lib) generated 5 warnings
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 0.22s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/notemd_lib-043bd015a39be959)
+
+running 19 tests
+test smart_enhance::sag::round::tests::evidence_stop_serialises_in_camel_case ... ok
+test smart_enhance::sag::round::tests::frontmatter_aliases_name_the_file_title ... ok
+test smart_enhance::sag::round::tests::a_file_marked_confidential_on_disk_but_not_reindexed_is_dropped ... ok
+test smart_enhance::sag::round::tests::an_index_commit_during_scoring_discards_the_round ... ok
+test smart_enhance::sag::round::tests::a_cancelled_round_sends_nothing_and_keeps_the_state ... ok
+test smart_enhance::sag::round::tests::a_cancel_during_scoring_discards_the_round ... ok
+test smart_enhance::sag::round::tests::an_index_commit_between_rounds_stops_with_index_changed ... ok
+test smart_enhance::sag::round::tests::stale_and_overlong_blocks_are_dropped_and_counted ... ok
+test smart_enhance::sag::round::tests::skipped_blocks_are_counted_once_however_often_they_return ... ok
+test smart_enhance::sag::round::tests::the_step_future_is_send ... ok
+test smart_enhance::sag::round::tests::max_hops_ends_after_the_last_scored_round ... ok
+test smart_enhance::sag::round::tests::the_alias_table_is_built_once_per_reader_and_generation ... ok
+test smart_enhance::sag::round::tests::a_question_without_terms_sends_nothing ... ok
+test smart_enhance::sag::round::tests::expansion_candidates_from_confidential_files_are_never_sent ... ok
+test smart_enhance::sag::round::tests::chinese_sentences_do_not_share_expansion_context ... ok
+test smart_enhance::sag::round::tests::found_round_records_the_hop_of_first_appearance ... ok
+test smart_enhance::sag::round::tests::a_failed_round_leaves_the_state_as_it_was ... ok
+test smart_enhance::sag::round::tests::frozen_v10_requests_and_rounds_on_our_index ... ok
+test smart_enhance::sag::round::tests::a_scorer_stop_ends_the_rounds_and_discards_the_round ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1705 filtered out; finished in 0.63s
+
