@@ -1,0 +1,116 @@
+{
+  "source_commit": "e786cf0b67f2d05fa7af4116e1866c07ff59451b",
+  "wrangler_version": "3.114.17",
+  "route": "https://plugins.notemd.net/",
+  "worker": "notemd-plugins",
+  "version_id": "0f70cf9a-f27f-4a55-b04c-94fa8e0d10a5",
+  "channel": "Existing Wrangler 3.114.17 + Account API Token; no OAuth, KV or R2 writes",
+  "source_files_sha256": {
+    "src/page.ts": "137b6f13e91905af2409095195a6d5d897a7f0030dd4af1b2d6b05e2336f50f0",
+    "src/index.ts": "257d247753b8723f3242b811b23064f23dcf1ca8272031c6ff47e22d83b16c23",
+    "wrangler.toml": "d0275683e452182f4fc9a7d77f33da4465124ce918891333802200b46267d3f3"
+  },
+  "public_checks": [
+    {
+      "name": "normal",
+      "url": "https://plugins.notemd.net/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "e2f555b3f82b5a6e4388eef8b0a5390b85c208c50f901be6dd10086b4ae9469e",
+      "frozen_source_exact": true
+    },
+    {
+      "name": "fresh",
+      "url": "https://plugins.notemd.net/?lang=zh&verify=1794371229034",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "e2f555b3f82b5a6e4388eef8b0a5390b85c208c50f901be6dd10086b4ae9469e",
+      "frozen_source_exact": true
+    }
+  ],
+  "rendered_checks": [
+    {
+      "lang": "en",
+      "plugin_count": 316,
+      "old_sumi_and_idea_metadata_map_to": "create",
+      "group_order": [
+        "ai",
+        "record",
+        "reading",
+        "create",
+        "advance",
+        "reflect",
+        "import-export",
+        "experience",
+        "other"
+      ],
+      "rendered_headings": [
+        "AI",
+        "Capture",
+        "Read",
+        "Create",
+        "Move Forward",
+        "Reflect",
+        "Import & Export",
+        "Experience"
+      ],
+      "rendered_grid": true
+    },
+    {
+      "lang": "zh",
+      "plugin_count": 316,
+      "old_sumi_and_idea_metadata_map_to": "create",
+      "group_order": [
+        "ai",
+        "record",
+        "reading",
+        "create",
+        "advance",
+        "reflect",
+        "import-export",
+        "experience",
+        "other"
+      ],
+      "rendered_headings": [
+        "AI",
+        "记录",
+        "阅读",
+        "创作",
+        "推进",
+        "回顾",
+        "导入与导出",
+        "体验增强"
+      ],
+      "rendered_grid": true
+    }
+  ],
+  "latest_releases": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.15",
+      "category": "create",
+      "name": "Sumi Write",
+      "localized_names": {
+        "en": "Sumi Write",
+        "zh": "玄霜写作"
+      }
+    },
+    {
+      "id": "notemd.idea-spark",
+      "version": "1.3.9",
+      "category": "create",
+      "name": "Idea Spark",
+      "localized_names": {
+        "en": "Idea Spark",
+        "zh": "奇思妙想"
+      }
+    }
+  ],
+  "index_entries": 316,
+  "index_sha256": "7e882c866cfc846d0adc00aa5d6ff3ef93c3315fc2bd919425a4a90f4f1f7074",
+  "normal_fresh_index_exact": true,
+  "verified_at": "2026-11-11T04:27:11.003Z",
+  "index_read_only": true,
+  "tests": "23 passed; explicit installed Cloudflare ambient types typecheck passed",
+  "verification_note": "Anonymous HTTP full-body comparison plus served page JavaScript rendered with the current public index in JSDOM; no KV/R2 writes."
+}

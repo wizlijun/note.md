@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "sourceCommit": "b88edb93c5c09611ad9d888177b3814ce2ab3d64",
+  "tag": "plugins-create-20261111-rc1",
+  "sourceScope": [
+    {
+      "product": "Sumi",
+      "publishedBaseline": "23e4ad11a66461b96f75568130d66c9def8020fe",
+      "checkedPaths": [
+        "plugins-src/write",
+        "plugins-src/shared",
+        "src/lib/sumi",
+        "sumi-protocol",
+        "write-core",
+        "notemd-plugin-sdk",
+        "plugin-protocol"
+      ],
+      "onlyChangedPaths": [
+        "plugins-src/write/manifest.v2.json",
+        "plugins-src/write/package.json"
+      ],
+      "permittedChanges": [
+        "version",
+        "menus[].submenu=create"
+      ]
+    },
+    {
+      "product": "Idea Spark",
+      "publishedBaseline": "25157f1db07b5be9fb2962346894ab316bb27f22",
+      "checkedPaths": [
+        "plugins-src/idea-spark",
+        "plugins-src/shared",
+        "src/lib/ui/modal-focus.ts"
+      ],
+      "onlyChangedPaths": [
+        "plugins-src/idea-spark/manifest.v2.json",
+        "plugins-src/idea-spark/package.json"
+      ],
+      "permittedChanges": [
+        "version",
+        "menus[].submenu=create"
+      ]
+    }
+  ],
+  "signedStdioProbe": "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/signed-stdio/actual-native-process-probe.json",
+  "buildLog": "/Users/bruce/git/mdeditor/tasks/create-plugin-release-20261111/build.log",
+  "nativeAppNotaryJob": "a8f8dd79-9f79-4c80-b004-e3653413e4cf",
+  "marketplaceMutated": false,
+  "hostRebuilt": false,
+  "removedBuildCacheSymlinks": [
+    "plugins-src/idea-spark/node_modules",
+    "plugins-src/write/node_modules",
+    "plugins-src/write/backend/target"
+  ],
+  "cacheTargetsPreserved": true
+}

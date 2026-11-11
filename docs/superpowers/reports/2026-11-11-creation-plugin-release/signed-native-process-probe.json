@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "source": "b88edb93c5c09611ad9d888177b3814ce2ab3d64",
+  "selectedSource": "b88edb93c5c09611ad9d888177b3814ce2ab3d64",
+  "spawned": true,
+  "exit_code": 0,
+  "isolated_vault": true,
+  "network_started": false,
+  "account_access": false,
+  "package_sha256": "b5b76160e19594a2a9f41288cc32fee9cc029f356dc83c90c5f79cb644ee97e6",
+  "binary_sha256": "16b6b9b3fd49ee0e577bc6c67fcbfc6f60c461e53a662bf96055e56032bf3444",
+  "binary_bytes": 3857200,
+  "driver": "/Users/bruce/git/mdeditor/tasks/sumi-parity-release-20261111/probe-target/debug/deps/stdio-49cde6a62eeae7dd",
+  "driver_sha256": "b0b3c298b33416b50942ce00ae16cea049deebd5b7b237ca319427aea6e0f0b5",
+  "passed": [
+    "real_stdio_advertises_and_serves_atomic_observation",
+    "real_stdio_commit_kill_reopen_replay_and_private_boundary"
+  ],
+  "log_sha256": "44c703ef23bd61d3903e86fd5a6bda76b612920f05c6f6987872a5441e244efb",
+  "scope": "Exact signed/notarized Sumi 0.1.15 package executed by freshly compiled frozen-source stdio tests in synthetic temporary Vaults; full host not rebuilt for manifest-only update.",
+  "wrapper_sha256": "7ac4edaf7b189bb683950938f1e0c3793644f594d052318d646cd83b804eb230",
+  "elapsed_seconds": 0.992
+}

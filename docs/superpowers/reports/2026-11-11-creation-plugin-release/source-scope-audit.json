@@ -1,0 +1,11 @@
+{
+  "mainSource": "3f83f01396d2a2218df8f3c48f3f75de940a4de7",
+  "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD 3f83f01396d2a2218df8f3c48f3f75de940a4de7\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor-plugin-release-20261111\nHEAD 3f83f01396d2a2218df8f3c48f3f75de940a4de7\nbranch refs/heads/release/plugins-20261111-create\n\nworktree /Users/bruce/git/mdeditor-sumi-release-20261111\nHEAD a56e861dd71708feb98a623a50dc45bd73b8300d\nbranch refs/heads/release/sumi-20261111\n\n",
+  "branches": "* main                            3f83f013 [origin/main: ahead 19] Merge native inspiration menus into Create and include Sumi Write\n+ release/plugins-20261111-create 3f83f013 (/Users/bruce/git/mdeditor-plugin-release-20261111) Merge native inspiration menus into Create and include Sumi Write\n+ release/sumi-20261111           a56e861d (/Users/bruce/git/mdeditor-sumi-release-20261111) Record final release companion and unchanged application build inputs\n",
+  "stash": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c On main: codex-before-git-pull-2026-11-10\n",
+  "unrelatedDirty": {
+    "searchidx/src/store.rs": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+    "src-tauri/src/smart_lookup.rs": "fe3f349ecba2f3e432352ef17a1748cece465fd1cb19e6ce58e6046e0bbbb223"
+  },
+  "scope": "new Sumi and Idea Spark packages plus registry website/category metadata; no host build or published package replacement"
+}
