@@ -372,7 +372,7 @@ tauri_build_with_apple_retries() {
 notarize_dmg_with_apple_retries() {
   local dmg="$1" arch_tag="$2" attempt=1 max_attempts=3 log rc submission_id=""
   while :; do
-    log=$(mktemp -t notemd-dmg-notarize)
+    log=$(mktemp "${TMPDIR:-/tmp}/notemd-dmg-notarize.XXXXXX")
     set +e
     if [[ -n "$submission_id" ]]; then
       xcrun notarytool wait "$submission_id" \
