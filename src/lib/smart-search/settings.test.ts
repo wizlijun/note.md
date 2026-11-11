@@ -6,7 +6,7 @@ import {
 describe('smart lookup settings', () => {
   it('uses the low-cost defaults', () => {
     expect(normalizeSmartLookupSettings(undefined)).toEqual(DEFAULT_SMART_LOOKUP_SETTINGS)
-    expect(DEFAULT_SMART_LOOKUP_SETTINGS.results.autoDeepOnZero).toBe(false)
+    expect(DEFAULT_SMART_LOOKUP_SETTINGS.results.autoDeepOnZero).toBe(true)
   })
 
   it('keeps valid fields while independently resetting damaged fields', () => {

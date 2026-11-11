@@ -630,11 +630,11 @@ describe('SettingsDialog — Search & Index tab entry', () => {
       (row) => row.querySelector('.lbl')?.textContent?.trim() === 'Search more broadly when nothing is found',
     )
     const checkbox = deepRow?.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    expect(checkbox?.checked).toBe(false)
-    checkbox!.checked = true
+    expect(checkbox?.checked).toBe(true)
+    checkbox!.checked = false
     checkbox!.dispatchEvent(new Event('change', { bubbles: true }))
     await settle()
-    expect(settings.smartLookup.results.autoDeepOnZero).toBe(true)
+    expect(settings.smartLookup.results.autoDeepOnZero).toBe(false)
   })
 })
 
