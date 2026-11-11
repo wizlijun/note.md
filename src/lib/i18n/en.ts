@@ -992,7 +992,7 @@ export const en = {
   "smartSearch.enhance.unreachable": "Couldn't reach {host}{code}",
   "smartSearch.enhance.invalid": "{host} sent an invalid response; local order kept",
   "smartSearch.enhance.openSettings": "Settings",
-  "smartSearch.enhance.cancelled": "Evidence search stopped",
+  "smartSearch.enhance.cancelled": "Stopped finding evidence",
   "smartSearch.enhance.indexUnavailable": "Index busy — no evidence searched",
   "smartSearch.enhance.timeInRange": "In range",
   "smartSearch.enhance.timeOther": "Other dates",

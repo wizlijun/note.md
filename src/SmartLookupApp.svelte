@@ -16,7 +16,7 @@
   import { highlightParts, parseHighlightTerms, previewLine } from './lib/search/preview'
   import { createImeGuard, isImeKey } from './lib/ime'
   import { isApplePlatformSync } from './lib/platform-sync'
-  import { loadSettings, saveSettings, settings } from './lib/settings.svelte'
+  import { loadSettings, settings } from './lib/settings.svelte'
   import { SmartSearchStore } from './lib/smart-search/store.svelte'
   import {
     smartSearchApi,
@@ -1599,7 +1599,6 @@
     --lookup-muted: color-mix(in srgb, CanvasText 60%, transparent);
     --lookup-soft: color-mix(in srgb, CanvasText 4%, transparent);
     --lookup-fit: #1a7f37;
-    --lookup-unfit: #9a6700;
   }
   /* Shared by the child views (launch, repair strip, no-answer panel). */
   .lookup :global(button), .lookup :global(textarea), .lookup :global(input) { font: inherit; color: inherit; }
