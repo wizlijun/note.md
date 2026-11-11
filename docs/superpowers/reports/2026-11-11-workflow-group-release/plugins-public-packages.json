@@ -1,0 +1,198 @@
+{
+  "ok": true,
+  "signatures_valid": true,
+  "objects": [
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "7c14128578a58859ccc30e950307ec88856962b1622fcb03bd8f3b589a2836d7",
+      "bytes": 1209020
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "4d41a55a5e0e6ec2791a9b6d994854008f8433119c6a95f5e68c8b6fd9d27436",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "7c14128578a58859ccc30e950307ec88856962b1622fcb03bd8f3b589a2836d7",
+      "bytes": 1209020
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "4d41a55a5e0e6ec2791a9b6d994854008f8433119c6a95f5e68c8b6fd9d27436",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "normal",
+      "file": "x86_64-apple-darwin.notemdpkg",
+      "sha256": "791e091012f90b820a5d994257ead4d3b2a7ebb8078a7d65ab495f58bb2eb72e",
+      "bytes": 1289217
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "normal",
+      "file": "x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "359053d5c164b1852497d1bf664b1d8450afb2c7f22471bb1856d67f7c37a71e",
+      "bytes": 324
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "fresh",
+      "file": "x86_64-apple-darwin.notemdpkg",
+      "sha256": "791e091012f90b820a5d994257ead4d3b2a7ebb8078a7d65ab495f58bb2eb72e",
+      "bytes": 1289217
+    },
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "mode": "fresh",
+      "file": "x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "359053d5c164b1852497d1bf664b1d8450afb2c7f22471bb1856d67f7c37a71e",
+      "bytes": 324
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "e18613f8c98ab877dcffd5767432dee678c8c4348e3ddbee15c3b5a18d35aec6",
+      "bytes": 811044
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "c0b006402aae366302979a2c741d8102cd9409a614c9992316c55bfcddebe775",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "e18613f8c98ab877dcffd5767432dee678c8c4348e3ddbee15c3b5a18d35aec6",
+      "bytes": 811044
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "c0b006402aae366302979a2c741d8102cd9409a614c9992316c55bfcddebe775",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "normal",
+      "file": "x86_64-apple-darwin.notemdpkg",
+      "sha256": "4f987b3311c17b74f7215d276a49d62e7285e7ee0b977e3bb1c3f91541686271",
+      "bytes": 878980
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "normal",
+      "file": "x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "c2d90c4fa726d75f806f1a6670a56159a6da61bd826e00c417dd978b2a4b6553",
+      "bytes": 324
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "fresh",
+      "file": "x86_64-apple-darwin.notemdpkg",
+      "sha256": "4f987b3311c17b74f7215d276a49d62e7285e7ee0b977e3bb1c3f91541686271",
+      "bytes": 878980
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "mode": "fresh",
+      "file": "x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "c2d90c4fa726d75f806f1a6670a56159a6da61bd826e00c417dd978b2a4b6553",
+      "bytes": 324
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "189f63badce31f7afcd4e5f21e011d51944356b3890d8d0bac3682f05ceedd8c",
+      "bytes": 2205345
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "08e067a622b680bc4cc5057da3a42f7249f9122bdcd7af8a0fee936ae6449f46",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "189f63badce31f7afcd4e5f21e011d51944356b3890d8d0bac3682f05ceedd8c",
+      "bytes": 2205345
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "08e067a622b680bc4cc5057da3a42f7249f9122bdcd7af8a0fee936ae6449f46",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "normal",
+      "file": "x86_64-apple-darwin.notemdpkg",
+      "sha256": "8a18886167bdd440b581731f18831688890b409041f3a7422b4f469df078ef61",
+      "bytes": 2339801
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "normal",
+      "file": "x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "e1987f683ccd1cedf45f0c9e57dfee86dd38beb13522625ecbad9041183968fe",
+      "bytes": 324
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "fresh",
+      "file": "x86_64-apple-darwin.notemdpkg",
+      "sha256": "8a18886167bdd440b581731f18831688890b409041f3a7422b4f469df078ef61",
+      "bytes": 2339801
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "mode": "fresh",
+      "file": "x86_64-apple-darwin.notemdpkg.minisig",
+      "sha256": "e1987f683ccd1cedf45f0c9e57dfee86dd38beb13522625ecbad9041183968fe",
+      "bytes": 324
+    }
+  ]
+}

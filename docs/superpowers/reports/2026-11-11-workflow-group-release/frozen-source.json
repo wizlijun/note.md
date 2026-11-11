@@ -1,0 +1,33 @@
+{
+  "source": "c4d39ddff04296f66ec80ae72459bb9c8ce2d15f",
+  "base": "a56e861dd71708feb98a623a50dc45bd73b8300d",
+  "changedFiles": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "package.json",
+    "plugins-src/apple-notes/manifest.v2.json",
+    "plugins-src/health-sync/manifest.v2.json",
+    "plugins-src/idea-spark/manifest.v2.json",
+    "plugins-src/roam-import/manifest.v2.json",
+    "plugins-src/write/manifest.v2.json",
+    "scripts/gen-plugin-index.mjs",
+    "scripts/gen-plugin-index.test.ts",
+    "src-tauri/Cargo.lock",
+    "src-tauri/Cargo.toml",
+    "src-tauri/src/lib.rs",
+    "src-tauri/src/plugin_host.rs",
+    "src-tauri/src/plugin_runtime/adapter.rs",
+    "src-tauri/tauri.conf.json",
+    "src/lib/i18n/de.ts",
+    "src/lib/i18n/en.ts",
+    "src/lib/i18n/ja.ts",
+    "src/lib/i18n/zh.ts",
+    "src/lib/plugins/categories.test.ts",
+    "src/lib/plugins/categories.ts",
+    "src/plugin-market-app.svelte",
+    "src/plugin-market-app.test.ts"
+  ],
+  "smartLookupAndSearchIdenticalToPublishedBase": true,
+  "version": "6.1111.2",
+  "architecture": "aarch64-apple-darwin"
+}

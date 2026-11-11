@@ -1,0 +1,27 @@
+{
+  "frontend": {
+    "files": 431,
+    "tests": 5764
+  },
+  "svelteCheck": {
+    "errors": 0,
+    "warnings": 31
+  },
+  "protocol": "up to date",
+  "audit": {
+    "high": 0,
+    "moderate": 4,
+    "low": 1
+  },
+  "rust": {
+    "canvasUnit": 25,
+    "canvasIntegration": 2,
+    "mobileProjectConfig": 3,
+    "pluginHost": 12,
+    "menuLabels": 7,
+    "adapter": 13
+  },
+  "exitCode": 0,
+  "environmentRepair": "Initial symlinked node_modules triggered Vite Denied ID for raw dependency import; replaced only isolated worktree symlink with APFS clone of same installed dependencies and reran complete original gates. No source/config filtering bypass.",
+  "checksLogSha256": "e8131b8af3b534a061cdfc4fc9a42be09840688b6f89540fb05cbd1cb0b9a641"
+}

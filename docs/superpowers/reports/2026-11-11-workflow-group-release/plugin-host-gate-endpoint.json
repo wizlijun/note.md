@@ -1,0 +1,7 @@
+{
+  "canonical_status": 200,
+  "canonical_transport_error": null,
+  "verified_endpoint": "canonical",
+  "manifest_sha256": "86f4fd803b84cede67cdded3676b27c2967cd8230d4fbc74d6b8529bfdc0a1e1",
+  "ordinary_download_route_verified": true
+}

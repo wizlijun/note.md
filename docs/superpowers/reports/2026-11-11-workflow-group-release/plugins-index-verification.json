@@ -1,0 +1,172 @@
+{
+  "ok": true,
+  "before": 316,
+  "after": 319,
+  "onlyAdded": [
+    {
+      "id": "notemd.apple-notes",
+      "version": "1.0.5",
+      "min_host": ">=6.915.1",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "size": 1289217,
+      "sha256": {
+        "aarch64-apple-darwin": "7c14128578a58859ccc30e950307ec88856962b1622fcb03bd8f3b589a2836d7",
+        "x86_64-apple-darwin": "791e091012f90b820a5d994257ead4d3b2a7ebb8078a7d65ab495f58bb2eb72e"
+      },
+      "name": "Apple Notes Sync",
+      "category": "record",
+      "description": "Mirror Apple Notes into readable, read-only Markdown paths, with source IDs kept centrally in applenotes/id-sync.json. macOS only.",
+      "i18n": {
+        "zh": {
+          "name": "Apple Notes 同步",
+          "description": "按 Apple Notes 的账户和文件夹组织方式生成可读的只读 Markdown 路径，来源 ID 统一保存在 applenotes/id-sync.json。仅 macOS 可用。",
+          "menus": {
+            "open": "同步 Apple Notes…"
+          }
+        },
+        "ja": {
+          "name": "Apple Notes 同期",
+          "description": "Apple Notes の構成を読みやすい Markdown パスへ同期し、ソース ID は applenotes/id-sync.json で一元管理します。macOS 専用です。",
+          "menus": {
+            "open": "Apple Notes を同期…"
+          }
+        },
+        "de": {
+          "name": "Apple Notes-Synchronisierung",
+          "description": "Spiegelt Apple Notes in lesbare, schreibgeschützte Markdown-Pfade; Quell-IDs werden zentral in applenotes/id-sync.json verwaltet. Nur für macOS.",
+          "menus": {
+            "open": "Apple Notes synchronisieren…"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.apple-notes/1.0.5/aarch64-apple-darwin",
+        "x86_64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.apple-notes/1.0.5/x86_64-apple-darwin"
+      }
+    },
+    {
+      "id": "notemd.roam-import",
+      "version": "1.2.8",
+      "min_host": ">=6.828.3",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "size": 878980,
+      "sha256": {
+        "aarch64-apple-darwin": "e18613f8c98ab877dcffd5767432dee678c8c4348e3ddbee15c3b5a18d35aec6",
+        "x86_64-apple-darwin": "4f987b3311c17b74f7215d276a49d62e7285e7ee0b977e3bb1c3f91541686271"
+      },
+      "name": "Roam Research Sync",
+      "category": "record",
+      "description": "Keep using Roam Research while synchronizing its pages and daily notes into the vault as .note.md files for agents to search and compute across.",
+      "i18n": {
+        "zh": {
+          "name": "Roam Research 同步",
+          "description": "无需离开 Roam Research；将其中的页面和每日笔记同步为 Vault 内的 `.note.md` 文件，汇集数据供 Agent 统一检索和计算。",
+          "menus": {
+            "open": "同步 Roam Research…"
+          },
+          "windows": {
+            "main": "Roam Research 同步"
+          }
+        },
+        "ja": {
+          "name": "Roam Research 同期",
+          "description": "Roam Research を使い続けながら、ページとデイリーノートを Vault の `.note.md` ファイルへ同期し、Agent が横断的に検索・処理できるようにします。",
+          "menus": {
+            "open": "Roam Research を同期…"
+          },
+          "windows": {
+            "main": "Roam Research 同期"
+          }
+        },
+        "de": {
+          "name": "Roam-Research-Synchronisierung",
+          "description": "Roam Research weiter nutzen und Seiten sowie tägliche Notizen als `.note.md`-Dateien ins Vault synchronisieren, damit Agents die gesammelten Daten durchsuchen und verarbeiten können.",
+          "menus": {
+            "open": "Roam Research synchronisieren…"
+          },
+          "windows": {
+            "main": "Roam-Research-Synchronisierung"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.roam-import/1.2.8/aarch64-apple-darwin",
+        "x86_64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.roam-import/1.2.8/x86_64-apple-darwin"
+      }
+    },
+    {
+      "id": "notemd.health-sync",
+      "version": "0.2.3",
+      "min_host": ">=6.915.1",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "size": 2339801,
+      "sha256": {
+        "aarch64-apple-darwin": "189f63badce31f7afcd4e5f21e011d51944356b3890d8d0bac3682f05ceedd8c",
+        "x86_64-apple-darwin": "8a18886167bdd440b581731f18831688890b409041f3a7422b4f469df078ef61"
+      },
+      "name": "Health Sync",
+      "category": "record",
+      "description": "Store Apple, Garmin and Oura health records in an external SQLite library, with incremental imports, API sync and an Agent query CLI.",
+      "i18n": {
+        "zh": {
+          "name": "健康数据同步",
+          "description": "原始健康数据保存在 Vault 外的 SQLite 资料库；支持 Apple 文件增量导入、Garmin/Oura 多账号导入与 API 增量，以及 Agent 检索 CLI。",
+          "menus": {
+            "open": "导入健康数据…"
+          },
+          "windows": {
+            "main": "健康数据同步"
+          }
+        },
+        "ja": {
+          "name": "ヘルスデータ同期",
+          "description": "Appleヘルスケアの書き出しとGarmin/Ouraの詳細データをMacで収集。日別アーカイブ、カテゴリ表示、差分同期、CLIに対応。",
+          "menus": {
+            "open": "ヘルスデータを読み込む…"
+          },
+          "windows": {
+            "main": "ヘルスデータ同期"
+          }
+        },
+        "de": {
+          "name": "Gesundheitsdaten synchronisieren",
+          "description": "Apple-Health-Exporte und Garmin-/Oura-Details auf dem Mac sammeln: ein tägliches Archiv mit Kategorien, inkrementeller Synchronisierung und CLI.",
+          "menus": {
+            "open": "Gesundheitsdaten importieren…"
+          },
+          "windows": {
+            "main": "Gesundheitsdaten synchronisieren"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.health-sync/0.2.3/aarch64-apple-darwin",
+        "x86_64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.health-sync/0.2.3/x86_64-apple-darwin"
+      }
+    }
+  ],
+  "historicalFieldsPreservedExceptApprovedCategories": true,
+  "categoryChanges": [],
+  "publicNormalFreshAndKvEqual": true,
+  "compatibleHostPublic": true,
+  "minimumHosts": {
+    "notemd.apple-notes": ">=6.915.1",
+    "notemd.roam-import": ">=6.828.3",
+    "notemd.health-sync": ">=6.915.1"
+  }
+}

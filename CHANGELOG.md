@@ -7,15 +7,22 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- Unify plugin groups as AI, Capture, Read, Write, Advance, Review, Import & Export, and Other. Apple Notes, Roam Research and Health Sync belong to Capture; the previous enhancement and fallback groups merge into Other. The website and category metadata were updated on 2026-11-11; host menu changes require a new host release.
-
-- Merge Ideas into Create in native menus, including older installed manifests and caches. The plugin website and packages Sumi Write 0.1.15 / Idea Spark 1.3.9 were published on 2026-11-11; native menu changes still require a host update.
 
 - **Smart Lookup is rebuilt local-first, with one optional model judgement.** Return shows local results immediately; typing never calls a model. With enhancement on, each Return sends at most one request: Jev judges the top 10 results and reorders them in place, marking each “Fits” or “Possibly unrelated”. Nothing is removed, and everything falls back to the local results if the request fails or is not configured. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “Create answer” and “In-depth research” are removed from Smart Lookup.
 
 - **New Settings → Lookup enhancement tab.** Choose the Jev endpoint (official, OpenRouter or self-hosted), model and authentication, and test the connection. The key is stored only on this device and is never shown again. Sending to a host needs your consent for that host, and notes marked confidential are never sent. A separate endpoint can be set for the query repair model.
 
 - **Headless `notemd lookup` command and tunable parameters.** `notemd lookup` runs Smart Lookup from the command line and has an `eval` mode for measuring result quality. Ranking and enhancement parameters live in `smart-lookup/params.json`, documented in `docs/smart-lookup-parameters.md`.
+
+## v6.1111.2 — 2026-11-11
+
+- **Capture plugins updated.** Apple Notes 1.0.5, Roam Research 1.2.8 and Health Sync 0.2.3 are published for Apple silicon and Intel Mac; only manifest version/category changed, retaining the existing signed backend and UI.
+
+- **One consistent plugin workflow.** Native menus, the built-in marketplace and website use AI, Capture, Read, Write, Advance, Review, Import & Export, and Other. Sumi Write and Idea Spark belong to Write, immediately after Read.
+
+- **Capture external context.** Apple Notes, Roam Research and Health Sync belong to Capture, including older installed manifests and caches. Old Ideas maps to Write; old Other and unknown categories map to Other.
+
+- **Apple silicon update.** The App and DMG are signed and notarized. The release includes the approved Faitc5 for Sumi 0.5.0.13 installer; its App is signed and notarized, while its package remains unsigned.
 
 ## v6.1111.1 — 2026-11-11
 
@@ -30,7 +37,6 @@ For the full commit history, see the git log.
 - **Recover local edits echoed back through cloud sync.** Recognize matching edits without conflicting with their original durable receipts, so recovered edits no longer block appearance and font settings. Different payloads with reused operation IDs remain rejected.
 
 - **Apple silicon update with Sumi 0.1.14.** Update the host and plugin together; the plugin requires note.md 6.1111.1 or later. Existing Linux packages remain available unchanged.
-
 
 ## v6.1110.8 — 2026-11-10
 

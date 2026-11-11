@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "c4d39ddff04296f66ec80ae72459bb9c8ce2d15f",
+  "version": "6.1111.2",
+  "assets": [
+    {
+      "name": "note.md-6.1111.2-aarch64.dmg",
+      "path": "/Users/bruce/git/writing-release-artifacts-20261111/host/note.md-6.1111.2-aarch64.dmg",
+      "size": 14109210,
+      "sha256": "1fc64af60758175b8cd3e8fd748f30496bab115014db80a7cfdc97cdeb839ae7"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "path": "/Users/bruce/git/writing-release-artifacts-20261111/host/note.md-aarch64.app.tar.gz",
+      "size": 14183747,
+      "sha256": "cf4c954938b68937521377d5b69f78039995b4f725b3c16812d86cfae02dc48b"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "path": "/Users/bruce/git/writing-release-artifacts-20261111/host/note.md-aarch64.app.tar.gz.sig",
+      "size": 416,
+      "sha256": "08e034a5435bb14d324b72f6d4a60f640b66557c9c4920a367bc75c369290203"
+    },
+    {
+      "name": "latest.json",
+      "path": "/Users/bruce/git/writing-release-artifacts-20261111/host/latest.json",
+      "size": 747,
+      "sha256": "86f4fd803b84cede67cdded3676b27c2967cd8230d4fbc74d6b8529bfdc0a1e1"
+    },
+    {
+      "name": "Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+      "path": "/Users/bruce/git/writing-release-artifacts-20261111/host/Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+      "size": 61309600,
+      "sha256": "2f30d4903b98bf40ce18520a6f4f948e36afb2fc62cbc1fce38de1286c881b5b"
+    },
+    {
+      "name": "faitc5-companion.json",
+      "path": "/Users/bruce/git/writing-release-artifacts-20261111/host/faitc5-companion.json",
+      "size": 372,
+      "sha256": "ba7a85479f28687b6df124859add153748c2b9c4c604b7d9e1b29313b1bbcda0"
+    }
+  ]
+}
