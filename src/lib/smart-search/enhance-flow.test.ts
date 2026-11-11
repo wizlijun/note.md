@@ -176,7 +176,7 @@ describe('repair and no-match', () => {
 
 describe('answerMessage', () => {
   const result = (partial: Partial<AnswerResult>): AnswerResult => ({
-    status: 'ok', missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
+    status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
     omittedSources: 0, requestCount: 1, elapsedMs: 1, usage: null, ...partial,
   })
 
@@ -184,6 +184,7 @@ describe('answerMessage', () => {
     expect(answerMessage(result({ text: 'x [1]' }))).toBeNull()
     expect(answerMessage(result({ status: 'cancelled' }))).toBeNull()
     expect(answerMessage(result({ status: 'skipped' }))).toEqual({ key: 'smartSearch.answer.noSources', params: {} })
+    expect(answerMessage(result({ status: 'skipped', skipReason: 'indexUnavailable' }))).toEqual({ key: 'smartSearch.answer.indexUnavailable', params: {} })
     expect(answerMessage(result({ status: 'noConsent' }))).toEqual({ key: 'smartSearch.answer.noConsent', params: { host: 'chat.example' } })
     expect(answerMessage(result({ status: 'invalidCitations' }))).toEqual({ key: 'smartSearch.answer.invalidCitations', params: {} })
     expect(answerMessage(result({ status: 'timeout' }))).toEqual({ key: 'smartSearch.answer.timeout', params: {} })

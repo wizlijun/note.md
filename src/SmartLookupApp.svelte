@@ -249,9 +249,15 @@
   let showCriterion = $derived(settings.smartLookup.enhance.enabled && !repaired && store.hits.length > 0)
   let headerText = $derived(headerLine(header))
   let showStart = $derived(offerStart && evidenceRound === null && !repaired)
-  /** After the evidence rounds, when there is evidence to answer from. */
+  /**
+   * After the evidence rounds, when there is evidence to answer from and the
+   * list on screen is the latest round's: the host answers from that list, so
+   * a restored round or an order waiting for Apply would send passages the
+   * user is not looking at.
+   */
   let showAnswer = $derived(
-    mode === 'lookup' && settings.smartLookup.enhance.enabled && !repaired && evidenceRound === null && evidence.shown.length > 0,
+    mode === 'lookup' && settings.smartLookup.enhance.enabled && !repaired && evidenceRound === null
+      && evidence.shown.length > 0 && showsLatestRound(evidence),
   )
   let answerNote = $derived.by(() => {
     if (answerError) return t('smartSearch.answer.failed', { error: answerError })
@@ -368,7 +374,9 @@
     clearAnswer()
   }
 
+  /** Drops the answer shown and cancels one in flight: it no longer matches the list on screen. */
   function clearAnswer(): void {
+    if (inflight?.kind === 'answer') stopEnhanceRequest()
     answer = null
     answerBusy = false
     answerError = ''
@@ -893,18 +901,26 @@
   async function applyEvidence(): Promise<void> {
     if (!evidence.pending) return
     evidence = applyPending(evidence)
+    clearAnswer()
     await refocusActive()
   }
 
   /** 「恢复到第 N 轮」: that round's snapshot; no request. */
   async function restoreTo(hop: number): Promise<void> {
     evidence = restoreRound(evidence, hop)
+    clearAnswer()
     await refocusActive()
   }
 
-  function isShown(round: EvidenceRound): boolean {
-    return round.items.length === evidence.shown.length
-      && round.items.every((item, index) => item.evidenceId === evidence.shown[index].evidenceId)
+  function isShown(round: EvidenceRound, view: EvidenceView = evidence): boolean {
+    return round.items.length === view.shown.length
+      && round.items.every((item, index) => item.evidenceId === view.shown[index].evidenceId)
+  }
+
+  /** The list on screen is the one the latest round produced (what the host answers from). */
+  function showsLatestRound(view: EvidenceView): boolean {
+    const latest = view.rounds.at(-1)
+    return view.pending === null && latest !== undefined && isShown(latest, view)
   }
 
   /** The selection is a row key (path and line range), so it survives a new list; move focus to its row. */
@@ -1007,6 +1023,7 @@
     evidenceDeep = view.evidenceDeep
     localTiers = view.localTiers
     offerStart = view.offerStart
+    clearAnswer()
     activeKey = rows[0] ? rowKey(rows[0]) : null
     noteRecentCount(question, view.search.hits.length)
     await tick()

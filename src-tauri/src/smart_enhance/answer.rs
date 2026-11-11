@@ -35,8 +35,8 @@ use super::keys::{read_key, KeyKind};
 use super::repair::{chat_host, check_chat};
 use super::sag::jev::estimate_value;
 use super::{
-    cancel_flag_for, enhance_client, status_for, CancelFlag, ChatRequestConfig, EnhanceStatus, Missing, Trigger,
-    UsageDto,
+    cancel_flag_for, enhance_client, status_for, CancelFlag, ChatRequestConfig, EnhanceStatus, Missing, SkipReason,
+    Trigger, UsageDto,
 };
 use crate::lookup_params::{self, AnswerParams};
 use crate::smart_lookup::{active_root, current_block, run_for_window, CanonicalHit};
@@ -213,6 +213,10 @@ pub struct AnswerSourceRef {
 #[serde(rename_all = "camelCase")]
 pub struct AnswerResult {
     pub status: EnhanceStatus,
+    /// With `skipped`: `indexUnavailable` when the index was not ready or
+    /// could not be read, so nothing could be checked again; `None` when no
+    /// evidence passed the checks.
+    pub skip_reason: Option<SkipReason>,
     pub missing: Option<Missing>,
     pub endpoint_host: Option<String>,
     pub status_class: Option<String>,
@@ -356,7 +360,8 @@ pub(crate) struct AnswerRequest<'a> {
 /// host has consent (`noConsent`); the evidence that passes the checks
 /// again ([`sendable`]) is fitted to `answer.*` ([`fit_sources`], `Err` when
 /// nothing fits); then [`ask`]. With no evidence left to send the result is
-/// `skipped` and nothing is sent.
+/// `skipped` and nothing is sent; `skipped`/`indexUnavailable` when the
+/// index was not ready or could not be read.
 pub(crate) async fn answer_run(
     req: AnswerRequest<'_>,
     client: &reqwest::Client,
@@ -398,6 +403,7 @@ async fn answer_steps(
 
     let items = run.evidence.as_ref().and_then(|e| e.shown.as_ref()).map(|(items, _)| items.clone()).unwrap_or_default();
     let Some(reader) = req.reader else {
+        result.skip_reason = Some(SkipReason::IndexUnavailable);
         return Ok(result);
     };
     let root = run.root.clone();
@@ -408,6 +414,7 @@ async fn answer_steps(
         Ok(items) => items,
         Err(_) => {
             crate::log_cat!("search", "warn", "evidence answer: the index could not be read; nothing sent");
+            result.skip_reason = Some(SkipReason::IndexUnavailable);
             return Ok(result);
         }
     };
@@ -661,9 +668,8 @@ mod tests {
         let params = AnswerParams::default();
         let ready = ready_reader(&f.index, &f.root).await.unwrap();
         assert!(ready.is_some());
-        let answer = |consent_host: &str| {
+        let answer_with = |consent_host: &str, reader: Option<Arc<SagReader>>| {
             let chat = ChatAnswerConfig { url: server.base.clone(), model: "m".into(), consent_host: consent_host.into() };
-            let reader = ready.clone();
             let run = run.clone();
             let root = f.root.clone();
             let params = params.clone();
@@ -682,6 +688,7 @@ mod tests {
                 answer_run(request, &enhance_client().unwrap(), &CancelFlag::new()).await.unwrap()
             }
         };
+        let answer = |consent_host: &str| answer_with(consent_host, ready.clone());
 
         // Consent for another host: nothing is sent.
         let refused = answer("other.example").await;
@@ -689,6 +696,12 @@ mod tests {
         assert_eq!(refused.endpoint_host.as_deref(), Some(host.as_str()));
         assert_eq!(refused.request_count, 0);
         assert!(server.bodies.lock().unwrap().is_empty());
+
+        // The index is not ready: nothing can be checked again, so nothing is sent.
+        let unready = answer_with(&host, None).await;
+        assert_eq!((unready.status, unready.skip_reason, unready.request_count), (EnhanceStatus::Skipped, Some(SkipReason::IndexUnavailable), 0));
+        assert!(server.bodies.lock().unwrap().is_empty());
+        assert_eq!(serde_json::to_value(&unready).unwrap()["skipReason"], json!("indexUnavailable"));
 
         // p.md became confidential after the evidence was found: it is not sent.
         mark_confidential(&f, "p.md");
@@ -715,7 +728,7 @@ mod tests {
         // Nothing left that may be sent: skipped, no request.
         mark_confidential(&f, "q.md");
         let none = answer(&host).await;
-        assert_eq!((none.status, none.request_count, none.text), (EnhanceStatus::Skipped, 0, None));
+        assert_eq!((none.status, none.skip_reason, none.request_count, none.text), (EnhanceStatus::Skipped, None, 0, None));
         assert_eq!(server.bodies.lock().unwrap().len(), 1);
     }
 

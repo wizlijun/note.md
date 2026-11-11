@@ -64,6 +64,8 @@ export interface EvidenceStepResult {
  */
 export interface AnswerResult {
   status: EnhanceStatus | 'invalidCitations'
+  /** With `skipped`: `indexUnavailable` when the index was not ready, so nothing could be checked again or sent. */
+  skipReason: SkipReason | null
   missing: Missing | null
   endpointHost: string | null
   statusClass: string | null

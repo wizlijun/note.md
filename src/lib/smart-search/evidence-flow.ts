@@ -169,16 +169,49 @@ export type AnswerPart =
   | { kind: 'text'; text: string }
   | { kind: 'cite'; text: string; id: number; evidenceId: string }
 
-/** The host's source label (`invalid_citations` in src-tauri/src/smart_enhance/answer.rs). */
+/** The host's code spans and source label (`invalid_citations` in src-tauri/src/smart_enhance/answer.rs). */
+const CODE = /```[\s\S]*?(?:```|$)|`[^`]*`/g
 const SOURCE_LABEL = /\[(\d+(?:[ ,，]+\d+)*)\]/g
 
 /**
+ * The source labels the host counts, as ranges of `text`: the host removes
+ * fenced and inline code, then takes each `[n]` / `[1, 2]` of the remaining
+ * prose that is not followed by `(` or `:` (a Markdown link or definition).
+ * A label the removal joined across a code span is not a range of `text` and
+ * is left out.
+ */
+function sourceLabels(text: string): { start: number; end: number; inner: string }[] {
+  const pieces: { at: number; from: number; text: string }[] = []
+  let from = 0
+  let at = 0
+  const keep = (to: number) => {
+    if (to > from) { pieces.push({ at, from, text: text.slice(from, to) }); at += to - from }
+  }
+  for (const code of text.matchAll(CODE)) {
+    keep(code.index ?? 0)
+    from = (code.index ?? 0) + code[0].length
+  }
+  keep(text.length)
+  const prose = pieces.map((piece) => piece.text).join('')
+  const labels: { start: number; end: number; inner: string }[] = []
+  for (const match of prose.matchAll(SOURCE_LABEL)) {
+    const start = match.index ?? 0
+    const end = start + match[0].length
+    if (prose[end] === '(' || prose[end] === ':') continue
+    const piece = pieces.find((p) => start >= p.at && end <= p.at + p.text.length)
+    if (!piece) continue
+    const origin = piece.from + start - piece.at
+    labels.push({ start: origin, end: origin + match[0].length, inner: match[1] })
+  }
+  return labels
+}
+
+/**
  * The answer as plain text (spec H.4): nothing is parsed as HTML or Markdown;
- * only source labels become links. A label is `[n]` or a list such as
- * `[1, 2]` not followed by `(` or `:` (a Markdown link or definition), as the
- * host checks them. `[n]` is one link; a list keeps its brackets and
- * separators as text around one link per number. A number that names no sent
- * source stays text.
+ * only the source labels the host checks become links, so labels inside code
+ * and Markdown links stay text. `[n]` is one link; a list keeps its brackets
+ * and separators as text around one link per number. A number that names no
+ * sent source stays text.
  */
 export function answerParts(text: string, sources: AnswerResult['sources']): AnswerPart[] {
   const byId = new Map(sources.map((source) => [source.id, source.evidenceId]))
@@ -196,14 +229,10 @@ export function answerParts(text: string, sources: AnswerResult['sources']): Ans
     else parts.push({ kind: 'cite', text: label, id, evidenceId })
   }
   let at = 0
-  for (const match of text.matchAll(SOURCE_LABEL)) {
-    const start = match.index ?? 0
-    const end = start + match[0].length
-    if (text[end] === '(' || text[end] === ':') continue
+  for (const { start, end, inner } of sourceLabels(text)) {
     pushText(text.slice(at, start))
-    const inner = match[1]
     if (/^\d+$/.test(inner)) {
-      cite(inner, match[0])
+      cite(inner, text.slice(start, end))
     } else {
       pushText('[')
       let from = 0

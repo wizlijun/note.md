@@ -145,7 +145,7 @@ function ev(id: string, foundRound: number, extra: Partial<EvidenceItem> = {}): 
 
 function answered(partial: Partial<AnswerResult> = {}): AnswerResult {
   return {
-    status: 'ok', missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
+    status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
     omittedSources: 0, requestCount: 1, elapsedMs: 900, usage: { inputTokens: 300, outputTokens: 40 }, ...partial,
   }
 }
@@ -679,6 +679,96 @@ describe('SmartLookupApp evidence', () => {
     expect(entry.message).toContain('answer ok')
     expect(log).not.toContain('ANSWER_TEXT')
     expect(log).not.toContain('chat.example')
+  })
+
+  it('the answer is offered only for the latest round on screen and cleared by a restore', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT, consentHost: 'chat.example' } } }
+    mocks.evidenceQueue.push(
+      step({ hop: 0, evidence: [ev('e1', 0)] }),
+      step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e2', 1), ev('e1', 0)] }),
+    )
+    let release!: (value: AnswerResult) => void
+    mocks.answers.push(
+      answered({ text: 'FIRST_ANSWER [1]', sources: [{ id: 1, evidenceId: 'e2' }] }),
+      new Promise<AnswerResult>((resolve) => { release = resolve }),
+    )
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e2', 'e1']))
+
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.answer-text')?.textContent).toBe('FIRST_ANSWER [1]'))
+    // Back to round 0: the answer was written from round 1's passages, so it goes, and none is offered.
+    click(button('Back to local'))
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1']))
+    expect(document.querySelector('.answer-text')).toBeNull()
+    expect(document.querySelector('.answer-generate')).toBeNull()
+
+    // The latest round again: offered; a restore while it runs cancels it and drops the late reply.
+    click(button('Back to round 1'))
+    await vi.waitFor(() => expect(document.querySelector('.answer-generate')).not.toBeNull())
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.evidence-answer')?.textContent).toContain('Writing the answer'))
+    click(button('Back to local'))
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    release(answered({ text: 'LATE_ANSWER [1]', sources: [{ id: 1, evidenceId: 'e2' }] }))
+    await wait(20)
+    expect(document.querySelector('.answer-text')).toBeNull()
+    expect(document.querySelector('.evidence-answer')?.textContent ?? '').not.toContain('Writing the answer')
+    expect(calls('smart_lookup_answer')).toHaveLength(2)
+  })
+
+  it('no answer is offered while an order update waits for Apply', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT, consentHost: 'chat.example' } } }
+    mocks.evidenceGates.push(null)
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(
+      step({ hop: 0, evidence: [ev('e1', 0), ev('e2', 0)] }),
+      step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e3', 1), ev('e1', 0)] }),
+    )
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1', 'e2']))
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(2))
+    key(input, 'ArrowDown')
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('data-evidence-id')).toBe('e1'))
+    release()
+    await vi.waitFor(() => expect(evidenceHead()).toContain('Order updated · Apply'))
+    expect(document.querySelector('.answer-generate')).toBeNull()
+
+    click(button('Order updated · Apply'))
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e3', 'e1']))
+    await vi.waitFor(() => expect(document.querySelector('.answer-generate')).not.toBeNull())
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
+  it('an answer with the index not ready says so', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT, consentHost: 'chat.example' } } }
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ status: 'skipped', skipReason: 'indexUnavailable', requestCount: 0, usage: null }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1']))
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.evidence-answer')?.textContent).toContain('Index not ready — nothing sent'))
+    expect(document.querySelector('.evidence-answer')?.textContent).not.toContain('No evidence that may be sent')
+  })
+
+  it('labels inside code in the answer are not links', async () => {
+    useLocal()
+    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT, consentHost: 'chat.example' } } }
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'Use `a[1]` here [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(evidenceIds()).toEqual(['e1']))
+    click(button('Answer'))
+    await vi.waitFor(() => expect(document.querySelector('.answer-text')?.textContent).toBe('Use `a[1]` here [1]'))
+    const links = [...document.querySelectorAll('.answer-text a.citation')].map((link) => link.textContent)
+    expect(links).toEqual(['[1]'])
   })
 
   it('an answer without consent or with invalid citations shows no model text', async () => {

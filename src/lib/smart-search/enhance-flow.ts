@@ -91,7 +91,9 @@ export function answerMessage(result: AnswerResult): HeaderMessage | null {
     case 'cancelled':
       return null
     case 'skipped':
-      return { key: 'smartSearch.answer.noSources', params: {} }
+      return result.skipReason === 'indexUnavailable'
+        ? { key: 'smartSearch.answer.indexUnavailable', params: {} }
+        : { key: 'smartSearch.answer.noSources', params: {} }
     case 'noConsent':
       return { key: 'smartSearch.answer.noConsent', params: { host } }
     case 'invalidCitations':

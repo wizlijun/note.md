@@ -183,6 +183,28 @@ describe('answerParts', () => {
       { kind: 'text', text: ', 9]' },
     ])
     expect(answerParts('no labels', sources)).toEqual([{ kind: 'text', text: 'no labels' }])
+  })
+
+  it('leaves labels in code as text, as the host ignores them', () => {
+    expect(answerParts('see `[1]` and [2]', sources)).toEqual([
+      { kind: 'text', text: 'see `[1]` and ' },
+      { kind: 'cite', text: '[2]', id: 2, evidenceId: 'e2' },
+    ])
+    expect(answerParts('```\n[1]\n``` [2]', sources)).toEqual([
+      { kind: 'text', text: '```\n[1]\n``` ' },
+      { kind: 'cite', text: '[2]', id: 2, evidenceId: 'e2' },
+    ])
+    // An unclosed fence runs to the end, as in the host.
+    expect(answerParts('[1] ```x [2]', sources)).toEqual([
+      { kind: 'cite', text: '[1]', id: 1, evidenceId: 'e1' },
+      { kind: 'text', text: ' ```x [2]' },
+    ])
+    // The host looks ahead in the prose with code removed: `[1]` then `(` is a link there.
+    expect(answerParts('[1]`x`(y) [2]`z`', sources)).toEqual([
+      { kind: 'text', text: '[1]`x`(y) ' },
+      { kind: 'cite', text: '[2]', id: 2, evidenceId: 'e2' },
+      { kind: 'text', text: '`z`' },
+    ])
     expect(answerParts('', sources)).toEqual([])
   })
 })
