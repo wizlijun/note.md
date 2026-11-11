@@ -7,6 +7,16 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1111.1 — 2026-11-11
+
+- **Sumi windows fit your Mac display.** New standalone windows use the available screen area and support the green full-screen button. “Open new windows in full screen” is on by default; changing it applies to the next new window without switching the current one.
+
+- **Bring macOS writing behavior in line with Linux.** Full-screen text scales proportionally and returns to the saved size on exit. Focus typing uses a rolling two-second input window, and focus layout and inline candidates respect the reserved bottom space. Command shortcuts and drafts paused after a save failure no longer trigger typing sounds.
+
+- **Recover local edits echoed back through cloud sync.** Recognize matching edits without conflicting with their original durable receipts, so recovered edits no longer block appearance and font settings. Different payloads with reused operation IDs remain rejected.
+
+- **Apple silicon update with Sumi 0.1.14.** Update the host and plugin together; the plugin requires note.md 6.1111.1 or later. Existing Linux packages remain available unchanged.
+
 ## v6.1110.8 — 2026-11-10
 
 - **Sumi macOS inline candidates with Faitc5 for Sumi.** Candidates follow the body typography, appear below the active line in focus mode, and stay at the bottom without moving the document outside focus mode. Clicking candidates preserves the input position; search fields retain the normal input-method window. Use the companion Faitc5 for Sumi input method and Sumi plugin 0.1.13; the plugin settings explain how to enable the integration.
