@@ -9,9 +9,9 @@ describe('Sumi language and host diagnostics', () => {
     ['en-US', 'en'], ['de-DE', 'en'], ['', 'en'],
   ])('normalizes %s to %s', (input, expected) => expect(normalizeLocale(input)).toBe(expected))
   it.each([
-    ['zh-CN', '玄霜打字机', '正在等待系统钥匙串授权', '请先完成输入法组合', '字体大小或 SHA-256 校验失败'],
-    ['ja-JP', 'すみ', 'キーチェーンへのアクセス許可を待っています', '入力中の変換を確定', 'フォントサイズまたは SHA-256'],
-    ['en-US', 'Sumi Typewriter', 'Waiting for Keychain access', 'Finish the current text composition', 'Font size or SHA-256 verification failed'],
+    ['zh-CN', '玄霜写作', '正在等待系统钥匙串授权', '请先完成输入法组合', '字体大小或 SHA-256 校验失败'],
+    ['ja-JP', 'Sumi Write', 'キーチェーンへのアクセス許可を待っています', '入力中の変換を確定', 'フォントサイズまたは SHA-256'],
+    ['en-US', 'Sumi Write', 'Waiting for Keychain access', 'Finish the current text composition', 'Font size or SHA-256 verification failed'],
   ])('localizes known diagnostics and retains the RPC code in %s', (locale, name, keychain, composition, fontFailure) => {
     const i18n = createI18n(locale)
     expect(i18n.appName).toBe(name)

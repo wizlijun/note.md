@@ -68,7 +68,7 @@ impl Output {
         let stream = unsafe {
             pa_simple_new(
                 ptr::null(),
-                c"Sumi".as_ptr(),
+                c"Sumi Write".as_ptr(),
                 1,
                 ptr::null(),
                 c"Typing feedback".as_ptr(),

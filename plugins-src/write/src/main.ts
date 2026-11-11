@@ -58,7 +58,7 @@ document.documentElement.dataset.platform = /Linux/i.test(navigator.platform) ? 
 fullscreenLabel(false)
 
 async function request<T>(method: string, params?: unknown): Promise<T> {
-  if (!window.notemd) throw new Error(t('请在 note.md 中打开玄霜打字机。', 'Open Sumi Typewriter inside note.md.', 'note.md からすみを開いてください。'))
+  if (!window.notemd) throw new Error(t('请在 note.md 中打开玄霜写作。', 'Open Sumi Write inside note.md.', 'note.md から Sumi Write を開いてください。'))
   return await window.notemd.request(`host.sumi.${method}`, params) as T
 }
 function saveFailure() {
