@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 import { mount, unmount } from 'svelte'
 import RichEditor from './RichEditor.svelte'
 import { tabs, activeId } from '../lib/tabs.svelte'
@@ -15,6 +15,16 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => null), conver
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'macos', type: () => 'macos' }))
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => vi.fn() }) }))
 vi.mock('../lib/note-anno/answers-store.svelte', () => ({ answersStore: { version: 0 }, loadAnswersFor: vi.fn(), answeredMap: () => new Map() }))
+// Cold Vite compilation belongs to fixture setup, not the editor focus deadline.
+beforeAll(async () => {
+  await Promise.all([
+    import('../lib/editor-bridge'), import('../lib/adapters/tauri-media-resolver'),
+    import('../lib/wikilink-plugin'), import('../lib/note-anno/note-plugin'),
+    import('../lib/placeholder-plugin'), import('../lib/note-anno/answer-card'),
+    import('../lib/note-anno/adopt-answer'), import('../lib/power-mode/plugin'),
+    import('../lib/power-mode/host-config.svelte'),
+  ])
+}, 30_000)
 const components: ReturnType<typeof mount>[] = []
 afterEach(async () => {
   for (const component of components.splice(0)) await unmount(component)
@@ -25,8 +35,9 @@ async function editor(raw: string, focus = true, readOnly = false) {
   const tab = { id: `focus-${tabs.length}`, filePath: `/vault/focus-${tabs.length}.md`, title: 'focus.md', kind: 'markdown' as const, mode: 'rich' as const, currentContent: raw, initialContent: raw, externalState: 'fresh' as const, externalBannerDismissed: false, lastKnownMtime: 0, lastKnownHash: '' }
   tabs.push(tab); activeId.value = tab.id
   if (focus) requestEditorFocus(tab.filePath)
-  const component = mount(RichEditor, { target: document.body, props: { tab, fileBacked: true, readOnly } }); components.push(component)
-  await vi.waitFor(() => expect(fileEditorSession(tab.id)).toBeDefined())
+  let ready = false
+  const component = mount(RichEditor, { target: document.body, props: { tab, fileBacked: true, readOnly, onFileReady: () => { ready = true } } }); components.push(component)
+  await vi.waitFor(() => expect(ready).toBe(true))
   return { tab, component, session: fileEditorSession(tab.id)! }
 }
 const cases = [

@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import {afterEach,expect,it,vi} from 'vitest'
+import {afterEach,beforeAll,expect,it,vi} from 'vitest'
 vi.mock('../lib/platform-sync',()=>({isApplePlatformSync:()=>true}))
 vi.mock('@tauri-apps/api/core',()=>({invoke:vi.fn(async()=>null),convertFileSrc:(s:string)=>s}))
 vi.mock('@tauri-apps/plugin-os',()=>({platform:()=> 'macos',type:()=> 'macos'}))
@@ -11,6 +11,16 @@ import {mount,unmount} from 'svelte'
 import {applySelectAll} from '../lib/editor-select-all'
 import {mountFileEditor,type FileMountSession} from './file-main'
 
+// Compile the desktop component and its lazy plugins outside input assertions.
+beforeAll(async()=>{
+ await Promise.all([
+  import('../components/RichEditor.svelte'), import('../lib/editor-bridge'),
+  import('../lib/adapters/tauri-media-resolver'), import('../lib/wikilink-plugin'),
+  import('../lib/note-anno/note-plugin'), import('../lib/placeholder-plugin'),
+  import('../lib/note-anno/answer-card'), import('../lib/note-anno/adopt-answer'),
+  import('../lib/power-mode/plugin'), import('../lib/power-mode/host-config.svelte'),
+ ])
+},30_000)
 const editors:FileMountSession[]=[]
 afterEach(async()=>{for(const f of editors.splice(0))await f.owner.close();document.body.replaceChildren();vi.restoreAllMocks()})
 async function fixture(raw:string){
