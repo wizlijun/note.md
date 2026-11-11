@@ -35,6 +35,13 @@ pub(super) fn time_scoped_query(question: &str, time: &DetectedTime) -> String {
     }
 }
 
+/// [`time_scoped_query`] for the time a lookup run kept: the same text the
+/// run's `window`-mode search ran with (spec H.3.2).
+pub(crate) fn run_time_scoped_query(question: &str, time: &crate::smart_lookup::RunTime) -> String {
+    let detected = DetectedTime { source_text: time.source_text.clone(), after: time.after, before: time.before };
+    time_scoped_query(question, &detected)
+}
+
 /// The grouped answer and how many of its leading hits are inside the window.
 pub(super) struct TimeGrouped {
     pub hits: Vec<SmartHitDto>,

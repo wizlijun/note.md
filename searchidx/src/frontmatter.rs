@@ -12,6 +12,10 @@ pub struct Frontmatter {
     pub concept_type: Option<String>,
     pub title: Option<String>,
     pub tags: Vec<String>,
+    /// `aliases`, read exactly like `tags` (inline list, block list or a bare
+    /// scalar). Not stored in the index; SAG2 retrieval reads it from disk
+    /// (`sag::frontmatter_aliases`, spec H.3.1).
+    pub aliases: Vec<String>,
     pub created: Option<String>,
     pub date: Option<String>,
     pub generated_at: Option<String>,
@@ -80,16 +84,8 @@ pub fn parse(raw: &str) -> Frontmatter {
             "title" => fm.title = scalar(value),
             "created" => fm.created = scalar(value),
             "date" => fm.date = scalar(value),
-            "tags" => {
-                fm.tags = if value.trim().is_empty() {
-                    collect_block(&mut lines)
-                        .into_iter()
-                        .filter_map(|v| scalar(v.trim().trim_start_matches("- ")))
-                        .collect()
-                } else {
-                    parse_inline_list(value)
-                };
-            }
+            "tags" => fm.tags = string_list(value, &mut lines),
+            "aliases" => fm.aliases = string_list(value, &mut lines),
             "generated" => {
                 for entry in entries_for(value, &mut lines) {
                     match split_key(entry.trim().trim_start_matches("- ")) {
@@ -249,6 +245,19 @@ fn scalar(value: &str) -> Option<String> {
     }
 }
 
+/// A list-valued key (`tags`, `aliases`): the indented `- item` block below
+/// an empty value, otherwise the inline `[a, b]` list or bare scalar.
+fn string_list<'a>(value: &str, lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>) -> Vec<String> {
+    if value.trim().is_empty() {
+        collect_block(lines)
+            .into_iter()
+            .filter_map(|v| scalar(v.trim().trim_start_matches("- ")))
+            .collect()
+    } else {
+        parse_inline_list(value)
+    }
+}
+
 fn parse_inline_list(value: &str) -> Vec<String> {
     value
         .trim()
@@ -300,6 +309,15 @@ mod tests {
         assert_eq!(parse("tags: [a, b]").tags, vec!["a", "b"]);
         assert_eq!(parse("tags:\n  - a\n  - b").tags, vec!["a", "b"]);
         assert_eq!(parse("tags: a").tags, vec!["a"]);
+    }
+
+    #[test]
+    fn parses_aliases_exactly_like_tags() {
+        assert_eq!(parse("aliases: [B1, 别名]").aliases, vec!["B1", "别名"]);
+        assert_eq!(parse("aliases:\n  - \"One\"\n  - Two\ntitle: x").aliases, vec!["One", "Two"]);
+        assert_eq!(parse("aliases: Solo").aliases, vec!["Solo"]);
+        assert!(parse("title: x").aliases.is_empty());
+        assert!(parse("tags: [a]").aliases.is_empty());
     }
 
     #[test]

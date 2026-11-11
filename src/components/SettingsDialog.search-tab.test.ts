@@ -630,11 +630,11 @@ describe('SettingsDialog — Search & Index tab entry', () => {
       (row) => row.querySelector('.lbl')?.textContent?.trim() === 'Search more broadly when nothing is found',
     )
     const checkbox = deepRow?.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    expect(checkbox?.checked).toBe(false)
-    checkbox!.checked = true
+    expect(checkbox?.checked).toBe(true)
+    checkbox!.checked = false
     checkbox!.dispatchEvent(new Event('change', { bubbles: true }))
     await settle()
-    expect(settings.smartLookup.results.autoDeepOnZero).toBe(true)
+    expect(settings.smartLookup.results.autoDeepOnZero).toBe(false)
   })
 })
 
@@ -663,8 +663,14 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     if (!found) throw new Error(`section "${title}" not found`)
     return found
   }
-  const jevSection = () => section('Lookup enhancement')
-  const chatSection = () => section('Query repair model')
+  const jevSection = () => section('Check the evidence · Jev')
+  const chatSection = () => section('Write the answer and rephrase · OpenAI-compatible endpoint')
+  const SWITCH_TITLE = 'Answer with sources when you press Return'
+  const switchSection = () => {
+    const found = Array.from(document.body.querySelectorAll('section.block')).find((candidate) => candidate.textContent?.includes(SWITCH_TITLE))
+    if (!found) throw new Error('switch section not found')
+    return found
+  }
 
   function field<T extends HTMLElement>(root: Element, label: string, selector: string): T {
     const row = Array.from(root.querySelectorAll('label.row')).find(
@@ -722,7 +728,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     openSettings('enhance')
     await settle()
     expect(document.body.querySelector('.current-page')?.textContent).toBe('Lookup enhancement')
-    expect(jevSection().textContent).toContain('Enable lookup enhancement')
+    expect(switchSection().textContent).toContain(SWITCH_TITLE)
   })
 
   it('is hidden on iOS and a request for it is dropped', async () => {
@@ -735,7 +741,7 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     openSettings('enhance')
     await settle()
     expect(document.body.querySelector('.current-page')?.textContent).not.toBe('Lookup enhancement')
-    expect(document.body.textContent).not.toContain('Enable lookup enhancement')
+    expect(document.body.textContent).not.toContain(SWITCH_TITLE)
   })
 
   it('choosing OpenRouter fills the URL and consent is bound to the shown host', async () => {
@@ -756,6 +762,32 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     expect(settings.smartLookup.enhance.jev.consentHost).toBe('api.typesafe.ai')
     await checkConsent()
     expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+  })
+
+  it('the repair model has its own consent for the evidence answer, bound to its host', async () => {
+    await openEnhanceTab()
+    const chatConsent = () => chatSection().querySelector<HTMLInputElement>('[data-chat-consent] input[type="checkbox"]')!
+    const chatConsentLabel = () => chatSection().querySelector('[data-chat-consent]')?.textContent ?? ''
+    expect(chatConsent().disabled).toBe(true)
+    await typeInto(field<HTMLInputElement>(chatSection(), 'Endpoint URL', 'input'), 'https://api.deepseek.com/v1')
+    expect(chatConsentLabel()).toContain('api.deepseek.com')
+    expect(chatConsent().checked).toBe(false)
+    chatConsent().click()
+    await settle()
+    expect(settings.smartLookup.enhance.chat.consentHost).toBe('api.deepseek.com')
+    // The Jev consent is separate.
+    expect(settings.smartLookup.enhance.jev.consentHost).toBe('')
+    await typeInto(field<HTMLInputElement>(chatSection(), 'Endpoint URL', 'input'), 'https://other.example/v1')
+    expect(chatConsent().checked).toBe(false)
+    chatConsent().click()
+    await settle()
+    expect(settings.smartLookup.enhance.chat.consentHost).toBe('other.example')
+    chatConsent().click()
+    await settle()
+    expect(settings.smartLookup.enhance.chat.consentHost).toBe('')
+    // A bearer key over plain http to a remote host: consent cannot be given.
+    await typeInto(field<HTMLInputElement>(chatSection(), 'Endpoint URL', 'input'), 'http://other.example/v1')
+    expect(chatConsent().disabled).toBe(true)
   })
 
   it('choosing Official Jev fills its URL; an explicit port is part of the host', async () => {
@@ -899,10 +931,12 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     })
     await openEnhanceTab()
     const chat = chatSection()
-    expect(chat.textContent).toContain('only the question and search terms are sent, never note content')
+    expect(chat.textContent).toContain('Writing an answer sends the question and the confirmed evidence passages; rephrasing (when nothing is found) sends only the question and search terms.')
+    expect(chat.textContent).toContain('Each answer sends the question and the evidence passages; notes marked confidential never are.')
+    expect(chat.textContent).toContain('The same permission covers rephrasing when nothing is found')
     await typeInto(field<HTMLInputElement>(chat, 'Endpoint URL', 'input'), 'https://chat.example/v1')
     await typeInto(field<HTMLInputElement>(chat, 'Model', 'input'), 'gpt-x')
-    expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x' })
+    expect(settings.smartLookup.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt-x', consentHost: '' })
     expect(settings.smartLookup.enhance.jev.url).toBe('')
     button(chat, 'Test connection').click()
     await settle()
@@ -915,13 +949,19 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
 
   it('the enable switch, budget and request example are on the page', async () => {
     await openEnhanceTab()
-    const enabled = field<HTMLInputElement>(jevSection(), 'Enable lookup enhancement', 'input[type="checkbox"]')
+    const enabled = field<HTMLInputElement>(switchSection(), SWITCH_TITLE, 'input[type="checkbox"]')
     expect(enabled.checked).toBe(true)
+    expect(switchSection().textContent).toContain('Set up once.')
     enabled.click()
     await settle()
     expect(settings.smartLookup.enhance.enabled).toBe(false)
-    expect(jevSection().textContent).toContain('At most 1 request per Return')
-    expect(jevSection().querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
+    expect(jevSection().textContent).toContain('By default, per Return: the evidence check runs up to 2 rounds, up to 65 passages per round (115 after a line-by-line scan or an expanded search) and 10 seconds per round, at most 200,000 tokens in all; then 1 answer is written, with its own budget and up to 3 requests')
+    expect(jevSection().textContent).toContain('earlier evidence passages again in later rounds')
+    // The example is collapsed until asked for.
+    const example = jevSection().querySelector<HTMLDetailsElement>('details.enhance-example')!
+    expect(example.open).toBe(false)
+    expect(example.querySelector('summary')?.textContent).toBe('View an example of what is sent')
+    expect(example.querySelector('pre')?.textContent).toBe(JSON.stringify(JEV_REQUEST_EXAMPLE, null, 2))
   })
 
   it('gives every enhance form field a real accessible name', async () => {
@@ -933,24 +973,22 @@ describe('SettingsDialog — Lookup enhancement tab', () => {
     }
   })
 
-  it('the request example has the score_noul field structure', () => {
-    expect(Object.keys(JEV_REQUEST_EXAMPLE)).toEqual(['model', 'state', 'questions'])
-    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1)).toEqual(['type', 'instructions', 'criteria'])
-    expect(Object.keys((JEV_REQUEST_EXAMPLE as any).questions.c1.instructions)).toEqual(['title', 'breadcrumb', 'passage'])
-    expect((JEV_REQUEST_EXAMPLE as any).questions.c1.criteria).toEqual({
-      true: '候选直接符合用户这次要找的对象或内容。',
-      false: '候选不符合用户这次要找的对象或内容，或只是主题相近。',
-    })
-    // Every line build_state can send, in its order: the time range and the
-    // filters are shown as optional placeholders.
-    const lines = (JEV_REQUEST_EXAMPLE as any).state.split('\n')
-    expect(lines.slice(0, 3)).toEqual([
-      '用户要找的内容：<问题>',
-      '[时间范围：<起> 至 <止>（来自「<时间说法>」）]',
-      '[过滤条件：<tag:… 等>]',
+  it('the request example has the SAG2 score_noul field structure', () => {
+    const example = JEV_REQUEST_EXAMPLE as any
+    expect(Object.keys(example)).toEqual(['model', 'questions', 'state'])
+    expect(Object.keys(example.questions)).toEqual(['candidate_<id>'])
+    const question = example.questions['candidate_<id>']
+    expect(Object.keys(question)).toEqual(['criteria', 'instructions', 'type'])
+    expect(Object.keys(question.instructions)).toEqual(['candidate_heading', 'candidate_passage', 'candidate_title', 'question'])
+    expect(question.instructions.question).toMatch(/^Is this candidate itself necessary evidence/)
+    expect(question.criteria.true).toMatch(/^This candidate itself supplies a necessary fact/)
+    // Earlier evidence goes out again in `state`, with every optional field shown.
+    expect(Object.keys(example.state)).toEqual([
+      'original_question', 'previously_retrieved_evidence', 'evidence_score_note', 'explicit_filters', 'time_range',
     ])
-    expect(lines[3]).toMatch(/^判断准则：仅依据候选的标题/)
-    expect(lines).toHaveLength(4)
+    expect(Object.keys(example.state.previously_retrieved_evidence[0])).toEqual(['title', 'passage', 'heading', 'previous_jev_score'])
+    // Never a vault path or a key.
+    expect(JSON.stringify(example)).not.toMatch(/path|\.md|key/i)
   })
 })
 

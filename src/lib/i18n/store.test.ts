@@ -83,6 +83,49 @@ describe('removed Smart Lookup copy', () => {
     'smartSearch.summaryVisible', 'smartSearch.settingsSummary',
     'smartSearch.copyHandoff', 'smartSearch.handoffCopied', 'smartSearch.handoffHint', 'smartSearch.settingsHandoff',
     'smartSearch.enhance.repairStruck',
+    // Spec H.8: evidence replaced the one-round judge reorder in the lookup window.
+    'smartSearch.enhance.apply', 'smartSearch.enhance.restore', 'smartSearch.enhance.movedUp', 'smartSearch.enhance.movedDown',
+    'smartSearch.enhance.notJudged', 'smartSearch.enhance.rowJudging', 'smartSearch.enhance.rowRollupSkipped',
+    'smartSearch.enhance.judging', 'smartSearch.enhance.judged', 'smartSearch.enhance.judgedUnchanged',
+    'smartSearch.enhance.pending', 'smartSearch.enhance.topTenUnfit',
+    'smartSearch.enhance.detailsReused', 'smartSearch.enhance.detailsScope',
+    // The host sends no progress inside a round, so the window cannot say when judging starts.
+    'smartSearch.evidence.judging',
+    // Answer-first window (plan 2026-11-11): the criterion and time chips, the evidence head
+    // (round badges, expansion terms, restore, apply, details), the answer button and its
+    // per-status lines, the preview-pane correction and the no-match panel's actions.
+    'smartSearch.answer.answering', 'smartSearch.answer.error.outputReserve', 'smartSearch.answer.error.questionTooLarge',
+    'smartSearch.answer.error.sourceTooLarge', 'smartSearch.answer.failed', 'smartSearch.answer.generate',
+    'smartSearch.answer.indexUnavailable', 'smartSearch.answer.invalid', 'smartSearch.answer.invalidCitations',
+    'smartSearch.answer.noConsent', 'smartSearch.answer.noSources', 'smartSearch.answer.stopped', 'smartSearch.answer.timeout',
+    'smartSearch.enhance.allow', 'smartSearch.enhance.attemptNotRun', 'smartSearch.enhance.attemptOriginal',
+    'smartSearch.enhance.attemptOriginalDetail', 'smartSearch.enhance.attemptRephrased', 'smartSearch.enhance.attemptScan',
+    'smartSearch.enhance.attemptTimeGrouped', 'smartSearch.enhance.attemptResult', 'smartSearch.enhance.attemptResultSeconds',
+    'smartSearch.enhance.correctFit', 'smartSearch.enhance.correctGroup', 'smartSearch.enhance.correctNote',
+    'smartSearch.enhance.correctPrompt', 'smartSearch.enhance.correctUnfit', 'smartSearch.enhance.criterion',
+    'smartSearch.enhance.detailsHost', 'smartSearch.enhance.detailsRequests', 'smartSearch.enhance.detailsSent',
+    'smartSearch.enhance.detailsTitle', 'smartSearch.enhance.detailsUnsent', 'smartSearch.enhance.diagnosisLabel',
+    'smartSearch.enhance.diagnosisMissing', 'smartSearch.enhance.diagnosisNoModel', 'smartSearch.enhance.editWording',
+    'smartSearch.enhance.escStop', 'smartSearch.enhance.modelCalls', 'smartSearch.enhance.modelCallsJudged',
+    'smartSearch.enhance.modelCallsNone', 'smartSearch.enhance.modelCallsRepair', 'smartSearch.enhance.nextSteps',
+    'smartSearch.enhance.noMatchAllTried', 'smartSearch.enhance.noMatchSomeTried', 'smartSearch.enhance.noMatchTitle',
+    'smartSearch.enhance.openSettingsAction', 'smartSearch.enhance.repairHint', 'smartSearch.enhance.repairSearch',
+    'smartSearch.enhance.rephrase', 'smartSearch.enhance.retry', 'smartSearch.enhance.rewrite', 'smartSearch.enhance.stop',
+    'smartSearch.enhance.tierFit', 'smartSearch.enhance.tierUnfit', 'smartSearch.enhance.timeChip',
+    'smartSearch.enhance.timeGroup', 'smartSearch.enhance.timeIgnore', 'smartSearch.enhance.timeWindow',
+    'smartSearch.enhance.useOriginal', 'smartSearch.evidence.budget', 'smartSearch.evidence.expanding',
+    'smartSearch.evidence.none', 'smartSearch.evidence.restore', 'smartSearch.evidence.restoreLocal',
+    'smartSearch.evidence.round.local', 'smartSearch.evidence.round.one', 'smartSearch.evidence.round.two',
+    'smartSearch.evidence.searching', 'smartSearch.evidence.start', 'smartSearch.evidence.terms',
+    'smartSearch.evidence.termsNothingNew', 'smartSearch.evidence.title', 'smartSearch.evidence.tooLarge',
+    'smartSearch.evidence.updated',
+    // Answer-first Task C: the first-run explainer is gone (nothing to read or dismiss).
+    'smartSearch.enhance.firstRunTitle', 'smartSearch.enhance.firstRunDismiss', 'smartSearch.enhance.firstRunOnce',
+    'smartSearch.enhance.firstRunClose', 'smartSearch.enhance.firstRunStep1Lead', 'smartSearch.enhance.firstRunStep1',
+    'smartSearch.enhance.firstRunStep2Lead', 'smartSearch.enhance.firstRunStep2', 'smartSearch.enhance.firstRunStep3Lead',
+    'smartSearch.enhance.firstRunStep3', 'smartSearch.enhance.firstRunFootnote',
+    // Nothing in the window writes settings any more (the first-run note was the only writer).
+    'smartSearch.enhance.settingsSaveFailed',
   ]
   it.each([['en', en], ['zh', zh], ['ja', ja], ['de', de]])('is gone from the %s catalog', (_name, catalog) => {
     expect(removed.filter((key) => key in catalog)).toEqual([])

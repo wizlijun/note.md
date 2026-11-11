@@ -381,6 +381,10 @@ fn install_if_current(
 /// and the watcher must be governed by the same counter.
 pub fn open_vault(app: &AppHandle, vault_root: &Path) {
     crate::plugin_runtime::index_api::invalidate_all();
+    // The SAG2 readers too: the open below may wipe and recreate the file
+    // (a corrupt or outdated index), and a cached reader would keep reading
+    // the old one (and on Windows keep it from being removed).
+    crate::smart_enhance::evidence::forget_readers();
     let my_gen = watch::reserve_generation(app);
     let idx_handle = handle(app);
     let open_state = app.state::<OpenState>().inner().clone();
@@ -1152,20 +1156,6 @@ fn time_window_dto(t: &crate::smart_lookup::RunTime) -> TimeWindowDto {
         mode: t.mode,
         in_window: t.in_window,
     }
-}
-
-/// Zero-hit diagnosis for a retained lookup run: a hit count per extracted
-/// term, locally, without any model (spec Appendix F.5).
-#[tauri::command(async)]
-pub fn smart_lookup_diagnose(
-    app: AppHandle,
-    window: tauri::Window,
-    lookup_run_id: String,
-) -> Result<Diagnosis, String> {
-    let fusion = crate::lookup_params::for_app(&app)?.local.fusion();
-    let run = crate::smart_lookup::run_for_window(&lookup_run_id, window.label())?;
-    let (ticket, counter) = app.state::<SearchGen>().next(window.label());
-    repair_search::diagnose_locked(&handle(&app), &run, &fusion, &counter, ticket)
 }
 
 /// Re-searches a retained lookup run locally by up to two wordings (from the

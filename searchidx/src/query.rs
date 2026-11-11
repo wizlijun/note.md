@@ -126,39 +126,79 @@ impl Hit {
 pub fn parse(raw: &str) -> Query {
     let mut q = Query { raw: raw.to_string(), ..Default::default() };
     for token in split_respecting_quotes(raw) {
-        if let Some(rest) = token.strip_prefix('"') {
-            // Only a *closed* quote makes a phrase; an unterminated one is far
-            // more likely a typo than an intent, so it degrades to a term.
-            if let Some(inner) = rest.strip_suffix('"') {
-                if !inner.trim().is_empty() {
-                    q.phrases.push(inner.trim().to_string());
-                    continue;
-                }
-            }
-            push_terms(&mut q, rest.trim_matches('"'));
-            continue;
-        }
-        match token.split_once(':') {
-            Some(("tag", v)) if !v.is_empty() => q.tags.push(v.to_string()),
-            Some(("type", v)) if !v.is_empty() => q.types.push(v.to_string()),
-            Some(("path", v)) if !v.is_empty() => q.paths.push(v.to_string()),
-            Some(("ext", v)) if !v.is_empty() => q.exts.push(v.trim_start_matches('.').to_string()),
-            // Unvalidated on purpose, like every other filter value here — an
-            // unrecognized tier (`origin:bogus`) is bound literally into the
-            // SQL by `push_filters` below and fails closed (matches zero
-            // rows) rather than erroring or being silently dropped. See the
-            // `an_unrecognized_origin_value_matches_nothing_not_everything`
-            // test for the reasoning.
-            Some(("origin", v)) if !v.is_empty() => q.origins.push(v.to_string()),
-            Some(("after", v)) if !v.is_empty() => q.after = Some(v.to_string()),
-            Some(("before", v)) if !v.is_empty() => q.before = Some(v.to_string()),
-            Some(("page", v)) if !v.is_empty() => {
-                q.pages.push(v.trim_start_matches("[[").trim_end_matches("]]").to_string())
-            }
-            _ => push_terms(&mut q, &token),
+        match classify(&token) {
+            Piece::Phrase(p) => q.phrases.push(p.to_string()),
+            Piece::Term(t) => push_terms(&mut q, t),
+            Piece::Filter(key, v) => match key {
+                "tag" => q.tags.push(v.to_string()),
+                "type" => q.types.push(v.to_string()),
+                "path" => q.paths.push(v.to_string()),
+                "ext" => q.exts.push(v.trim_start_matches('.').to_string()),
+                // Unvalidated on purpose, like every other filter value here — an
+                // unrecognized tier (`origin:bogus`) is bound literally into the
+                // SQL by `push_filters` below and fails closed (matches zero
+                // rows) rather than erroring or being silently dropped. See the
+                // `an_unrecognized_origin_value_matches_nothing_not_everything`
+                // test for the reasoning.
+                "origin" => q.origins.push(v.to_string()),
+                "after" => q.after = Some(v.to_string()),
+                "before" => q.before = Some(v.to_string()),
+                "page" => q.pages.push(v.trim_start_matches("[[").trim_end_matches("]]").to_string()),
+                _ => unreachable!("classify only yields the filter keys listed in FILTER_KEYS"),
+            },
         }
     }
     q
+}
+
+/// The DSL filter keys `parse` understands. A `key:value` token with one of
+/// these keys and a non-empty value is a filter; anything else is free text.
+const FILTER_KEYS: [&str; 8] = ["tag", "type", "path", "ext", "origin", "after", "before", "page"];
+
+/// What one [`split_respecting_quotes`] token is. Shared by [`parse`] and
+/// [`free_text`] so the two can never disagree about which tokens are filters.
+enum Piece<'a> {
+    Phrase(&'a str),
+    Term(&'a str),
+    Filter(&'static str, &'a str),
+}
+
+fn classify(token: &str) -> Piece<'_> {
+    if let Some(rest) = token.strip_prefix('"') {
+        // Only a *closed* quote makes a phrase; an unterminated one is far
+        // more likely a typo than an intent, so it degrades to a term.
+        if let Some(inner) = rest.strip_suffix('"') {
+            if !inner.trim().is_empty() {
+                return Piece::Phrase(inner.trim());
+            }
+        }
+        return Piece::Term(rest.trim_matches('"'));
+    }
+    if let Some((key, v)) = token.split_once(':') {
+        if let Some(key) = FILTER_KEYS.iter().find(|k| **k == key) {
+            if !v.is_empty() {
+                return Piece::Filter(key, v);
+            }
+        }
+    }
+    Piece::Term(token)
+}
+
+/// The question with every DSL filter token removed (spec H.3.2): the
+/// remaining terms in their original order, a closed quoted phrase reduced to
+/// the text inside its quotes, joined by single spaces. Tokens are split and
+/// classified exactly as [`parse`] does.
+pub fn free_text(raw: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    let tokens = split_respecting_quotes(raw);
+    for token in &tokens {
+        match classify(token) {
+            Piece::Phrase(p) => out.push(p),
+            Piece::Term(t) if !t.trim().is_empty() => out.push(t.trim()),
+            Piece::Term(_) | Piece::Filter(..) => {}
+        }
+    }
+    out.join(" ")
 }
 
 fn push_terms(q: &mut Query, raw: &str) {
@@ -963,7 +1003,7 @@ fn escape_like(s: &str) -> String {
 // add a new single-valued-per-file filter, default to the `tags`/`types`
 // AND idiom UNLESS repeats are a plausible query shape (like `origin:`'s
 // tier), in which case use the `IN (...)` idiom instead and say so.
-fn push_filters(q: &Query, sql: &mut String, args: &mut Vec<String>) {
+pub(crate) fn push_filters(q: &Query, sql: &mut String, args: &mut Vec<String>) {
     let next = |args: &mut Vec<String>, v: String| {
         args.push(v);
         args.len()

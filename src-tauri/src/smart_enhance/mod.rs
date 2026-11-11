@@ -13,12 +13,15 @@ use crate::smart_model::{
     ModelError,
 };
 
+pub(crate) mod answer;
 pub(crate) mod candidates;
+pub(crate) mod evidence;
 pub(crate) mod feedback;
 pub(crate) mod judge;
 pub(crate) mod keys;
 pub(crate) mod pipeline;
 pub(crate) mod repair;
+pub(crate) mod sag;
 
 /// Named by `search::smart_lookup_search_groups`.
 pub use repair::TermGroup;
@@ -36,6 +39,9 @@ pub enum EnhanceStatus {
     Unreachable,
     Invalid,
     Cancelled,
+    /// The answer still cited a source number that was not sent, after the
+    /// correction turn (spec H.4); no answer is shown.
+    InvalidCitations,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -50,6 +56,9 @@ pub enum SkipReason {
     /// The index was busy (a rebuild), missing or for another vault, so
     /// confidentiality could not be read and nothing was judged.
     IndexUnavailable,
+    /// Another evidence round is already running on the lookup run; nothing
+    /// was sent.
+    RoundRunning,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

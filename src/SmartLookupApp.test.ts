@@ -20,14 +20,17 @@ const mocks = vi.hoisted(() => ({
   localByQuestion: {} as Record<string, SmartSearchHit[]>,
   localTime: null as unknown,
   runCounter: 0,
-  /** Judge results handed out in call order; the default echoes the display order. */
-  judgeQueue: [] as unknown[],
-  judgeGates: [] as Array<Promise<void> | null>,
-  diagnosis: { terms: [] } as unknown,
+  /** Evidence step results handed out in call order; the default is a finished run without evidence. */
+  evidenceQueue: [] as unknown[],
+  evidenceGates: [] as Array<Promise<void> | null>,
   keys: { jev: true, chat: false },
   repair: null as unknown,
+  /** `smart_lookup_answer` results handed out in call order. */
+  answers: [] as unknown[],
   groups: null as unknown,
   saveError: false,
+  /** What `isVisible()` answers: the global shortcut hides the window without telling the page. A function is asked each time. */
+  visible: true as boolean | (() => boolean),
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/api/event', () => ({
@@ -45,6 +48,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
     setTitle: mocks.setTitle,
+    isVisible: vi.fn(async () => (typeof mocks.visible === 'function' ? mocks.visible() : mocks.visible)),
     onFocusChanged: vi.fn(async (callback: (event: { payload: boolean }) => Promise<void>) => {
       mocks.focusChanged = callback
       return () => { mocks.focusChanged = null }
@@ -67,7 +71,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
 
 import SmartLookupApp from './SmartLookupApp.svelte'
 import { settings } from './lib/settings.svelte'
-import type { JudgeResult } from './lib/smart-search/api'
+import type { AnswerResult, EvidenceItem, EvidenceStepResult } from './lib/smart-search/api'
 
 let component: ReturnType<typeof mount> | null = null
 
@@ -124,18 +128,50 @@ function response(hits: SmartSearchHit[]): SmartSearchResponse {
   }
 }
 
-function judgement(partial: Partial<JudgeResult> = {}): JudgeResult {
+/** The host's run totals; a test that reads the details sets them as the host would. */
+function runTotals(partial: Partial<EvidenceStepResult['run']> = {}): EvidenceStepResult['run'] {
   return {
-    status: 'ok', skipReason: null, missing: null, endpointHost: 'api.typesafe.ai', statusClass: null,
-    verdicts: [], order: [], judgedCount: 0, rerankedCount: 0, topTenUnfit: false, requestCount: 1,
-    reused: false, elapsedMs: 420, poolSize: 3, sentBlocks: 3, estimatedTokens: 900, skippedRollups: 0,
-    skippedConfidential: 0, skippedStale: 0, skippedLong: 0, usage: { inputTokens: 900, outputTokens: 12 },
-    ...partial,
+    endpointHost: 'api.typesafe.ai', requests: 1, elapsedMs: 420, sentBlocks: 3, tokens: 900,
+    skippedConfidential: 0, skippedStale: 0, skippedLong: 0, skippedOversize: 0, ...partial,
+  }
+}
+
+function step(partial: Partial<EvidenceStepResult> = {}): EvidenceStepResult {
+  return {
+    status: 'ok', stop: null, skipReason: null, missing: null, endpointHost: 'api.typesafe.ai', statusClass: null, hop: 0,
+    terms: [], evidence: [], localTiers: [], done: false, requestCount: 1, poolSize: 3, candidates: 3, sentBlocks: 3,
+    skippedConfidential: 0, skippedStale: 0, skippedLong: 0, skippedOversize: 0, estimatedTokens: 900, tokensUsed: 900,
+    usage: { inputTokens: 900, outputTokens: 12 }, elapsedMs: 420, nextHop: (partial.hop ?? 0) + 1, run: runTotals(), ...partial,
+  }
+}
+
+/** Evidence with local vault text, as the host returns it. */
+function ev(id: string, foundRound: number, extra: Partial<EvidenceItem> = {}): EvidenceItem {
+  return {
+    evidenceId: id, path: `notes/${id}.md`, absPath: `/vault/notes/${id}.md`, line: 3, lineEnd: 3, title: id, breadcrumb: `${id} heading`,
+    text: `LOCAL_PASSAGE_${id} release risk`, foundRound, tier: 'fit', localResultId: null, ...extra,
+  }
+}
+
+function answered(partial: Partial<AnswerResult> = {}): AnswerResult {
+  return {
+    status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null, text: null, sources: [],
+    omittedSources: 0, requestCount: 1, elapsedMs: 900, usage: { inputTokens: 300, outputTokens: 40 }, ...partial,
   }
 }
 
 const JEV = { url: 'https://api.typesafe.ai/v1', model: 'jev-1', authMode: 'bearer', consentHost: 'api.typesafe.ai' }
 const CHAT = { url: 'https://chat.example/v1', model: 'small' }
+const CHAT_ALLOWED = { ...CHAT, consentHost: 'chat.example' }
+
+/** Stored lookup settings: the first-run note seen and the automatic scan on (already migrated), unless the test says otherwise. */
+function stored(value: { results?: Record<string, unknown>; enhance?: Record<string, unknown>; launch?: Record<string, unknown> }): unknown {
+  return {
+    ...value,
+    results: { autoDeepOnZero: true, autoDeepMigrated: true, ...value.results },
+    launch: { firstRunSeen: true, ...value.launch },
+  }
+}
 
 function installInvokeMock(): void {
   mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
@@ -155,16 +191,20 @@ function installInvokeMock(): void {
           : question === 'new question' ? searchResponse('single') : searchResponse(mocks.local)
       return { search, lookupRunId: `run-${++mocks.runCounter}`, time: mocks.localTime }
     }
-    if (command === 'smart_lookup_judge') {
-      const queued = mocks.judgeQueue.shift()
-      const gate = mocks.judgeGates.shift()
+    if (command === 'smart_lookup_evidence_step') {
+      const queued = mocks.evidenceQueue.shift()
+      const gate = mocks.evidenceGates.shift()
       if (gate) await gate
       if (queued instanceof Error) throw queued
-      return queued ?? judgement({ order: args?.displayOrder ?? [] })
+      return queued ?? step({ done: true, stop: 'maxHops' })
     }
-    if (command === 'smart_lookup_diagnose') return mocks.diagnosis
     if (command === 'smart_lookup_key_status') return mocks.keys
     if (command === 'smart_lookup_repair_suggest') return mocks.repair
+    if (command === 'smart_lookup_answer') {
+      const next = mocks.answers.shift()
+      // A function is called at request time, so a rejection is only made once it is awaited.
+      return typeof next === 'function' ? next() : next
+    }
     if (command === 'smart_lookup_search_groups') return mocks.groups
     return undefined
   })
@@ -202,13 +242,19 @@ function key(target: EventTarget, name: string, init: KeyboardEventInit = {}): v
   target.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, ...init }))
 }
 
+/** Enter, then wait for `rows` local results (or, with 0, for the lookup to settle on no local results). */
 async function submit(input: HTMLTextAreaElement, value = 'release risk', rows = 3): Promise<void> {
   setQuery(input, value)
   key(input, 'Enter')
-  await vi.waitFor(() => {
-    expect(document.querySelector('.results-pane .pane-header')?.textContent).toContain('Local results')
-    expect(document.querySelectorAll('.result-row')).toHaveLength(rows)
-  })
+  await vi.waitFor(() => expect(calls('smart_lookup_local').some((call) => call.question === value.trim())).toBe(true))
+  if (rows === 0) {
+    await vi.waitFor(() => expect(document.querySelector('.no-match, .state')).not.toBeNull())
+    return
+  }
+  // The answer view may already have replaced the local list.
+  await vi.waitFor(() => expect(
+    document.querySelectorAll('.local-list .result-row').length === rows || document.querySelector('.source-list, .no-match') !== null,
+  ).toBe(true))
 }
 
 function buttonNamed(label: string): HTMLButtonElement {
@@ -255,14 +301,17 @@ beforeEach(() => {
   mocks.localByQuestion = {}
   mocks.localTime = null
   mocks.runCounter = 0
-  mocks.judgeQueue = []
-  mocks.judgeGates = []
-  mocks.diagnosis = { terms: [] }
+  mocks.evidenceQueue = []
+  mocks.evidenceGates = []
   mocks.keys = { jev: true, chat: false }
   mocks.repair = null
+  mocks.answers = []
   mocks.groups = null
   mocks.saveError = false
-  mocks.storedSmartLookup = { enhance: { jev: { ...JEV } }, launch: { firstRunSeen: true } }
+  mocks.visible = true
+  // No endpoint by default: a lookup shows local results only. `autoDeepOnZero` is set either way,
+  // so the tests do not depend on its default.
+  mocks.storedSmartLookup = stored({})
   Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
   installInvokeMock()
 })
@@ -273,6 +322,79 @@ afterEach(async () => {
   document.body.innerHTML = ''
   localStorage.clear()
 })
+
+// ---- helpers for the answer-first window ----
+
+const LOCAL = ['r1', 'r2', 'r3']
+
+function useLocal(ids: string[] = LOCAL, question = 'release risk'): void {
+  mocks.localByQuestion[question] = ids.map((id) => rh(id))
+}
+
+/** Rows of one list, by their result or evidence id. */
+function ids(list: 'local' | 'source' | 'other'): Array<string | null> {
+  return [...document.querySelectorAll(`.${list}-list .result-row`)]
+    .map((row) => row.getAttribute('data-evidence-id') ?? row.getAttribute('data-result-id'))
+}
+
+function activeId(): string | null | undefined {
+  const row = document.querySelector('.result-row.active')
+  return row?.getAttribute('data-evidence-id') ?? row?.getAttribute('data-result-id')
+}
+
+function chip(): string {
+  return document.querySelector('.status-chip')?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+}
+
+function fallback(): string {
+  return document.querySelector('.fallback-line')?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+}
+
+function footerLineText(): string {
+  return document.querySelector('.footer-line.wide')?.textContent?.trim() ?? ''
+}
+
+function footer(): string {
+  return document.querySelector('footer')?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+}
+
+function answerText(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('.answer-text')
+}
+
+function noMatchPanel(): string {
+  return document.querySelector('.no-match')?.textContent?.replace(/\s+/g, ' ') ?? ''
+}
+
+function gateEvidence(): () => void {
+  let release!: () => void
+  mocks.evidenceGates.push(new Promise<void>((resolve) => { release = resolve }))
+  return release
+}
+
+function click(element: HTMLElement): void {
+  element.click()
+}
+
+function recentItem(label: string): HTMLButtonElement {
+  const item = [...document.querySelectorAll<HTMLButtonElement>('.recent-item')]
+    .find((candidate) => candidate.querySelector('.recent-question')?.textContent?.trim() === label)
+  expect(item, `Recent ${label}`).toBeDefined()
+  return item!
+}
+
+/** ⌘K 「复制活动日志」, then what reached the clipboard. */
+async function copiedLog(): Promise<string> {
+  const before = mocks.writeText.mock.calls.length
+  await chooseMenuAction('Copy activity log')
+  await vi.waitFor(() => expect(mocks.writeText.mock.calls.length).toBeGreaterThan(before))
+  return String(mocks.writeText.mock.calls.at(-1)?.[0] ?? '')
+}
+
+/** Jev and the answer model both set up and allowed. */
+function configureBoth(chat: Record<string, unknown> = CHAT_ALLOWED): void {
+  mocks.storedSmartLookup = stored({ enhance: { jev: { ...JEV }, chat: { ...chat } } })
+}
 
 describe('SmartLookupApp', () => {
   it('typing previews locally without any agent task', async () => {
@@ -286,6 +408,7 @@ describe('SmartLookupApp', () => {
     expect(document.querySelector('.results-pane .pane-header')?.textContent).toContain('Local preview')
     expect(agentCommands('run-task')).toHaveLength(0)
     expect(calls('smart_lookup_local')).toHaveLength(0)
+    expect(chip()).toBe('')
   })
 
   it('does not preview or submit while an IME composition is open', async () => {
@@ -299,7 +422,7 @@ describe('SmartLookupApp', () => {
     expect(calls('smart_lookup_local')).toHaveLength(0)
   })
 
-  it('Enter shows local results immediately with zero model calls', async () => {
+  it('Enter shows local results immediately with zero model calls and never sends a time mode', async () => {
     const input = await mountReady()
     await submit(input)
 
@@ -307,9 +430,17 @@ describe('SmartLookupApp', () => {
     expect(calls('smart_lookup_local')[0]).toEqual(expect.objectContaining({
       question: 'release risk', deep: false, limit: 50,
     }))
+    // The time chip and its menu are gone: the window leaves the host's own time handling alone.
+    expect(calls('smart_lookup_local')[0].timeMode).toBeUndefined()
     expect(agentCommands('run-task')).toHaveLength(0)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
     expect(document.querySelector('.result-row.active')?.textContent).toContain('alpha')
-    expect(document.querySelector('.preview-pane')?.textContent).toContain('notes/alpha.md:4')
+    expect(document.querySelector('.preview-header')?.textContent).toContain('notes/alpha.md · line 4')
+    // No endpoint: one line above the local results, with the settings link.
+    expect(fallback()).toBe("Lookup enhancement isn't set up yet; showing local results only. Settings")
+    expect(chip()).toBe('Local results only')
+    expect(footer()).toBe('esc Close ⌘K Actions')
+    expect(document.querySelector('.hint')?.textContent).toBe('Return to answer · Shift-Return for a new line')
   })
 
   it('Enter does not wait for the preview debounce', async () => {
@@ -401,82 +532,22 @@ describe('SmartLookupApp', () => {
     await vi.waitFor(() => expect(mocks.writeText).toHaveBeenCalledWith('notes/alpha.md:4'))
   })
 
-  it('expand search runs a deep local lookup on zero results', async () => {
-    mocks.preview = 'empty'
-    mocks.local = 'empty'
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    expect(document.body.textContent).toContain("Your notes probably don't contain this")
-
-    await chooseMenuAction('Expand search')
-    await vi.waitFor(() => expect(document.querySelectorAll('.result-row')).toHaveLength(3))
-    const lookups = calls('smart_lookup_local')
-    expect(lookups).toHaveLength(2)
-    expect(lookups[1]).toEqual(expect.objectContaining({
-      question: 'release risk', deep: true, timeoutMs: 4000,
-    }))
-    expect(agentCommands('run-task')).toHaveLength(0)
-  })
-
-  it('searches more broadly once when Enter finds nothing and the setting is on', async () => {
-    mocks.preview = 'empty'
-    mocks.local = 'empty'
-    mocks.storedSmartLookup = { results: { autoDeepOnZero: true } }
-    const input = await mountReady()
-    await submit(input, 'release risk', 3)
-
-    const lookups = calls('smart_lookup_local')
-    expect(lookups).toHaveLength(2)
-    expect(lookups[0]).toEqual(expect.objectContaining({ question: 'release risk', deep: false }))
-    expect(lookups[1]).toEqual(expect.objectContaining({
-      question: 'release risk', deep: true, timeoutMs: 4000,
-    }))
-    await wait(50)
-    expect(calls('smart_lookup_local')).toHaveLength(2)
-    expect(agentCommands('run-task')).toHaveLength(0)
-  })
-
-  it('does not search more broadly on its own when the setting is off', async () => {
-    mocks.preview = 'empty'
-    mocks.local = 'empty'
-    mocks.storedSmartLookup = { results: { autoDeepOnZero: false } }
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    await wait(50)
-    expect(calls('smart_lookup_local')).toHaveLength(1)
-    expect(document.body.textContent).toContain("Your notes probably don't contain this")
-  })
-
-  it('does not search more broadly when Enter finds results', async () => {
-    mocks.storedSmartLookup = { results: { autoDeepOnZero: true } }
-    const input = await mountReady()
-    await submit(input)
-    await wait(50)
-    expect(calls('smart_lookup_local')).toHaveLength(1)
-  })
-
   it('copy activity log includes elapsed time', async () => {
     const input = await mountReady()
     await submit(input)
-    await chooseMenuAction('Copy activity log')
-
-    await vi.waitFor(() => expect(mocks.writeText).toHaveBeenCalledTimes(1))
-    const lines = String(mocks.writeText.mock.calls[0][0]).split('\n').map((line) => JSON.parse(line))
+    const lines = (await copiedLog()).split('\n').map((line) => JSON.parse(line))
     const search = lines.find((entry) => entry.stage === 'search')
     expect(search).toMatchObject({ level: 'success', usage: null })
     expect(typeof search.elapsedMs).toBe('number')
     expect(search.elapsedMs).toBeGreaterThanOrEqual(0)
   })
 
-  it('the actions menu offers no answer or research rows', async () => {
+  it('the actions menu offers no answer, research or correction rows without evidence', async () => {
     const input = await mountReady()
     await submit(input, 'release risk')
     await openMenu()
     const rows = [...document.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent?.trim())
-    expect(rows).toContain('Copy reference')
-    expect(rows).toContain('Copy activity log')
-    expect(rows).not.toContain('Create answer')
-    expect(rows.some((row) => row?.startsWith('In-depth research'))).toBe(false)
+    expect(rows).toEqual(['Copy reference', 'Copy activity log'])
     expect(mocks.invoke.mock.calls.map(([cmd]) => cmd)).not.toContain('plugin_v2_execute')
   })
 
@@ -486,12 +557,23 @@ describe('SmartLookupApp', () => {
     await submit(input)
     expect(document.querySelectorAll('[role="listbox"] [role="group"]')).toHaveLength(1)
 
-    mocks.storedSmartLookup = { results: { groupBy: 'date' } }
+    mocks.storedSmartLookup = stored({ results: { groupBy: 'date' } })
     for (const handler of mocks.listeners.get('settings://changed') ?? []) await handler()
     await vi.waitFor(() => {
       const groups = Array.from(document.querySelectorAll('[role="listbox"] [role="group"]'))
       expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual(['2026-10', '2026-08', 'Date unknown'])
     })
+  })
+
+  it('a time phrase still groups the local results, with no chip or menu', async () => {
+    useLocal()
+    mocks.localTime = { sourceText: '上周', after: '2026-11-02', before: '2026-11-09', mode: 'group', inWindow: 1 }
+    const input = await mountReady()
+    await submit(input)
+    const groups = [...document.querySelectorAll('.local-list [role="group"]')].map((group) => group.getAttribute('aria-label'))
+    expect(groups).toEqual(['In range', 'Other dates'])
+    expect(document.querySelector('.time-chip, .time-anchor, .criterion-chip')).toBeNull()
+    expect(document.body.textContent).not.toContain('Time: 上周')
   })
 
   it('selects the query text when the window regains focus', async () => {
@@ -506,304 +588,735 @@ describe('SmartLookupApp', () => {
   })
 })
 
-// ---- enhancement: judging, repair, conditions, launch view, footer ----
-
-const LOCAL = ['r1', 'r2', 'r3']
-
-function rowIds(): Array<string | null> {
-  return [...document.querySelectorAll('.result-row')].map((row) => row.getAttribute('data-result-id'))
-}
-
-function row(id: string): HTMLElement {
-  const element = document.querySelector<HTMLElement>(`.result-row[data-result-id="${id}"]`)
-  expect(element, `Row ${id}`).not.toBeNull()
-  return element!
-}
-
-function activeRowId(): string | null | undefined {
-  return document.querySelector('.result-row.active')?.getAttribute('data-result-id')
-}
-
-function header(): string {
-  return document.querySelector('.judge-header')?.textContent ?? ''
-}
-
-function footer(): string {
-  return document.querySelector('footer')?.textContent?.trim() ?? ''
-}
-
-function noMatchPanel(): string {
-  return document.querySelector('.no-match')?.textContent ?? ''
-}
-
-function button(label: string): HTMLButtonElement {
-  return buttonNamed(label)
-}
-
-/** A button whose text starts with `label` (the rest is a shortcut hint). */
-function buttonStarting(label: string): HTMLButtonElement {
-  const found = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
-    .find((candidate) => candidate.textContent?.trim().startsWith(label))
-  expect(found, `Button starting "${label}"`).toBeDefined()
-  return found!
-}
-
-function click(element: HTMLElement): void {
-  element.click()
-}
-
-function timeChip(): HTMLButtonElement {
-  const chip = document.querySelector<HTMLButtonElement>('.time-chip')
-  expect(chip, 'time chip').not.toBeNull()
-  return chip!
-}
-
-async function choose(chip: HTMLButtonElement, label: string): Promise<void> {
-  chip.click()
-  await vi.waitFor(() => expect(document.querySelector('.time-menu[role="menu"]')).not.toBeNull())
-  const item = [...document.querySelectorAll<HTMLButtonElement>('.time-menu [role="menuitemradio"]')]
-    .find((candidate) => candidate.textContent?.trim() === label)
-  expect(item, `Time option ${label}`).toBeDefined()
-  item!.click()
-}
-
-function recentItem(label: string): HTMLButtonElement {
-  const item = [...document.querySelectorAll<HTMLButtonElement>('.recent-item')]
-    .find((candidate) => candidate.querySelector('.recent-question')?.textContent?.trim() === label)
-  expect(item, `Recent ${label}`).toBeDefined()
-  return item!
-}
-
-function gate(): () => void {
-  let release!: () => void
-  mocks.judgeGates.push(new Promise<void>((resolve) => { release = resolve }))
-  return release
-}
-
-function useLocal(ids: string[] = LOCAL, question = 'release risk'): void {
-  mocks.localByQuestion[question] = ids.map((id) => rh(id))
-}
-
-const REORDERED = () => judgement({
-  order: ['r3', 'r1', 'r2'],
-  verdicts: [{ resultId: 'r3', tier: 'fit' }, { resultId: 'r1', tier: 'unsure' }, { resultId: 'r2', tier: 'unsure' }],
-  judgedCount: 3,
-  rerankedCount: 3,
-})
-
-describe('SmartLookupApp enhancement', () => {
-  it('enter judges once and applies the order when the user has not moved', async () => {
+describe('SmartLookupApp answer', () => {
+  it('answers by itself once the rounds are done, from the fit evidence on screen', async () => {
     useLocal()
-    mocks.judgeQueue.push(REORDERED())
+    configureBoth()
+    mocks.evidenceGates.push(null)
+    const releaseRound = gateEvidence()
+    mocks.evidenceQueue.push(
+      step({ hop: 0, evidence: [ev('e1', 0), ev('e2', 0, { tier: 'unfit' })], localTiers: [{ resultId: 'r3', tier: 'unfit' }] }),
+      step({
+        hop: 1, done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e3', 1), ev('e2', 0, { tier: 'unfit' })],
+        localTiers: [{ resultId: 'r3', tier: 'unfit' }], run: runTotals({ sentBlocks: 74 }),
+      }),
+    )
+    let releaseAnswer!: (value: AnswerResult) => void
+    mocks.answers.push(new Promise<AnswerResult>((resolve) => { releaseAnswer = resolve }))
     const input = await mountReady()
-    await submit(input)
+    await submit(input, 'release risk', 2)
 
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    expect(calls('smart_lookup_judge')).toHaveLength(1)
-    expect(calls('smart_lookup_judge')[0]).toMatchObject({
-      lookupRunId: 'run-1',
-      displayOrder: ['r1', 'r2', 'r3'],
-      sectionBreaks: [],
-      trigger: 'auto',
-      jev: { url: 'https://api.typesafe.ai/v1', consentHost: 'api.typesafe.ai' },
+    // Working board: the rounds run; nothing is answered yet.
+    await vi.waitFor(() => expect(document.querySelector('.steps')?.textContent).toContain('1 confirmed'))
+    const steps = () => [...document.querySelectorAll('.steps .step')].map((item) => item.textContent?.trim())
+    expect(steps()).toEqual(['Found 3 on this device', 'Checking each passage for evidence · 1 confirmed', 'Write the answer'])
+    expect(chip()).toBe('Finding evidence · 0 s')
+    expect(document.querySelector('.local-list')?.getAttribute('aria-label')).toBe('Local results · read these meanwhile')
+    // A local row the rounds judged unfit is no longer listed.
+    expect(ids('local')).toEqual(['r1', 'r2'])
+    expect(footerLineText()).toBe('Sending to api.typesafe.ai · confidential notes are not sent')
+    expect(footer()).toContain('esc Stop')
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+
+    releaseRound()
+    await vi.waitFor(() => expect(calls('smart_lookup_answer')).toHaveLength(1))
+    // Only the fit passages, in their order on screen.
+    expect(calls('smart_lookup_answer')[0]).toEqual({
+      lookupRunId: 'run-1', chat: { url: CHAT.url, model: CHAT.model, consentHost: 'chat.example' }, evidenceIds: ['e1', 'e3'],
     })
-    expect(Object.keys(calls('smart_lookup_judge')[0].jev).sort()).toEqual(['authMode', 'consentHost', 'model', 'url'])
-    expect(header()).toContain('Reordered 3 by judgement')
-    expect(row('r3').textContent).toContain('Fits')
-    expect(row('r3').textContent).toContain('↑ was #3')
-    expect(row('r1').textContent).not.toContain('Fits')
-    expect(row('r1').textContent).not.toContain('Possibly unrelated')
-    // Nothing was selected by the user, so the new top result is the current one.
-    expect(activeRowId()).toBe('r3')
+    await vi.waitFor(() => expect(document.querySelector('.step.on')?.textContent).toContain('Write the answer'))
+    expect(footerLineText()).toBe('Sending to api.typesafe.ai, chat.example · confidential notes are not sent')
+    expect(ids('local')).toEqual(['r1', 'r2'])
+
+    releaseAnswer(answered({
+      text: 'ANSWER_TEXT decided by Alice [2].\n<b>bold</b> **star** [1, 2] [9] [2](http://x)',
+      sources: [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e3' }],
+      omittedSources: 1,
+    }))
+    await vi.waitFor(() => expect(answerText()).not.toBeNull())
+    // Plain text: no HTML or Markdown is rendered; each cited number is a chip.
+    expect(answerText()!.textContent).toBe('ANSWER_TEXT decided by Alice 2.\n<b>bold</b> **star** 12 [9] [2](http://x)')
+    expect(answerText()!.querySelector('b, strong, em')).toBeNull()
+    const chips = [...answerText()!.querySelectorAll<HTMLAnchorElement>('a.cite')]
+    expect(chips.map((link) => [link.textContent, link.dataset.cite, link.getAttribute('aria-label')])).toEqual([
+      ['2', 'e3', 'Source 2'], ['1', 'e1', 'Source 1'], ['2', 'e3', 'Source 2'],
+    ])
+    expect(document.querySelector('.answer-block')?.textContent).toContain('1 passage(s) over the budget were not sent')
+    // 依据: the cited sources in citation-number order, numbered to match.
+    expect(ids('source')).toEqual(['e1', 'e3'])
+    expect([...document.querySelectorAll('.source-list .num')].map((num) => num.textContent)).toEqual(['1', '2'])
+    expect(document.querySelector('.local-list')).toBeNull()
+    expect(chip()).toBe('Grounded · 2 source(s)')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 74 passages in all · no confidential notes sent')
+    expect(footer()).toContain('esc Close')
+    expect(fallback()).toBe('')
+    // The top source is current, and its passage is marked in the preview.
+    expect(activeId()).toBe('e1')
+    expect(document.querySelector('.preview-text.cited')?.textContent).toContain('LOCAL_PASSAGE_e1')
+
+    // The activity log has the status and counts, never the answer or a host.
+    const log = await copiedLog()
+    const entry = log.split('\n').map((line) => JSON.parse(line)).find((e) => e.stage === 'answer')
+    expect(entry).toMatchObject({ level: 'success', usage: { inputTokens: 300, outputTokens: 40 } })
+    expect(entry.message).toContain('answer ok')
+    expect(log).not.toContain('ANSWER_TEXT')
+    expect(log).not.toContain('chat.example')
+    expect(log).not.toContain('api.typesafe.ai')
+    expect(log).not.toContain('LOCAL_PASSAGE')
   })
 
-  it('shows the judging state with a stop button that cancels the request', async () => {
+  it('a citation chip or a source row shows that passage in the preview, marked', async () => {
     useLocal()
-    const release = gate()
-    mocks.judgeQueue.push(REORDERED())
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e2', 1, { line: 7, lineEnd: 9 })] }))
+    mocks.answers.push(answered({ text: 'A [1]. B [2].', sources: [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e2' }] }))
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Judging about 3 · 0s'))
+    await vi.waitFor(() => expect(ids('source')).toEqual(['e1', 'e2']))
 
-    click(button('Stop'))
-    await vi.waitFor(() => expect(header()).toContain('Judging stopped'))
-    expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }])
-    release()
-    await wait(20)
-    expect(rowIds()).toEqual(LOCAL)
-    expect(header()).toContain('Judging stopped')
+    click(document.querySelectorAll<HTMLAnchorElement>('.answer-text a.cite')[1])
+    await vi.waitFor(() => expect(activeId()).toBe('e2'))
+    expect(document.querySelector('.preview-header')?.textContent).toContain('notes/e2.md · lines 7–9')
+    expect(document.querySelector('.preview-text.cited')?.textContent).toContain('LOCAL_PASSAGE_e2')
+    click(document.querySelector<HTMLElement>('.source-list .result-row[data-evidence-id="e1"]')!)
+    await vi.waitFor(() => expect(activeId()).toBe('e1'))
+    // Arrow keys move between the sources; Return opens the passage in the editor.
+    key(document.querySelector('.source-list .result-row.active')!, 'ArrowDown')
+    await vi.waitFor(() => expect(activeId()).toBe('e2'))
+    key(document.activeElement!, 'Enter')
+    await vi.waitFor(() => expect(calls('editor_show_and_reveal_search_hit')[0]).toMatchObject({ path: '/vault/notes/e2.md' }))
+    expect(calls('smart_lookup_answer')).toHaveLength(1)
   })
 
-  it('the judged header opens the details popover', async () => {
+  it('other results: uncited fit evidence first, then local results, each block once and never an unfit row', async () => {
     useLocal()
-    mocks.judgeQueue.push({ ...REORDERED(), skippedRollups: 2, skippedConfidential: 1, poolSize: 12 })
+    configureBoth()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops',
+      // e1 is the same block as local r1; e2 the same block as local r2.
+      evidence: [
+        ev('e1', 0, { path: 'notes/r1.md', line: 10, lineEnd: 10, localResultId: 'r1' }),
+        ev('e2', 0, { path: 'notes/r2.md', line: 10, lineEnd: 10, localResultId: 'r2' }),
+        ev('e4', 1, { tier: 'unfit' }),
+        ev('e5', 1, { tier: 'unsure' }),
+      ],
+      localTiers: [{ resultId: 'r1', tier: 'fit' }, { resultId: 'r2', tier: 'fit' }, { resultId: 'r3', tier: 'unfit' }],
+    }))
+    mocks.answers.push(answered({ text: 'Answer [1].', sources: [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e2' }] }))
+    useLocal(['r1', 'r2', 'r3', 'r4'])
     const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Reordered 3 by judgement'))
+    await submit(input, 'release risk', 4)
+    await vi.waitFor(() => expect(ids('source')).toEqual(['e1']))
 
-    click(button('Reordered 3 by judgement'))
-    await vi.waitFor(() => expect(document.querySelector('.judge-details')).not.toBeNull())
-    const details = document.querySelector('.judge-details')!.textContent!
-    expect(details).toContain('Sent to api.typesafe.ai')
-    expect(details).toContain('1 request(s) · 420 ms')
-    expect(details).toContain('Sent 3 passages · about 900 tokens')
-    expect(details).toContain('Not sent: 2 whole sections · 1 confidential')
-    expect(details).toContain('Judged 3 of the first 12')
-    click(button('Restore local order'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(LOCAL))
-    expect(header()).toContain('New order available')
+    const more = buttonNamed('3 other results')
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    expect(document.querySelector('.other-list')).toBeNull()
+    click(more)
+    await vi.waitFor(() => expect(ids('other')).toEqual(['e2', 'e5', 'r4']))
+    // Nowhere: the unfit evidence, the unfit local row, and the local copies of e1 and e2.
+    expect(document.querySelector('[data-evidence-id="e4"], [data-result-id="r3"], [data-result-id="r1"], [data-result-id="r2"]')).toBeNull()
+    // The other rows are selectable after the sources.
+    key(document.querySelector('.source-list .result-row')!, 'ArrowDown')
+    await vi.waitFor(() => expect(activeId()).toBe('e2'))
   })
 
-  it('a judgement arriving after the user moved waits for apply', async () => {
+  it('a round that arrives keeps the selection on its row while that row is still listed', async () => {
     useLocal()
-    const release = gate()
-    mocks.judgeQueue.push(REORDERED())
+    configureBoth({ ...CHAT })
+    mocks.evidenceGates.push(null)
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(
+      step({ hop: 0, evidence: [ev('e1', 0)] }),
+      step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e1', 0)], localTiers: [{ resultId: 'r1', tier: 'unfit' }] }),
+    )
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(1))
-
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(2))
     key(input, 'ArrowDown')
-    await vi.waitFor(() => expect(document.activeElement?.getAttribute('data-result-id')).toBe('r1'))
-    key(document.activeElement!, 'ArrowDown')
-    await vi.waitFor(() => expect(document.activeElement?.getAttribute('data-result-id')).toBe('r2'))
+    key(document.querySelector('.local-list .result-row.active')!, 'ArrowDown')
+    await vi.waitFor(() => expect(activeId()).toBe('r2'))
     release()
-
-    await vi.waitFor(() => expect(header()).toContain('New order available'))
-    expect(rowIds()).toEqual(['r1', 'r2', 'r3'])
-    click(button('Apply'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    expect(activeRowId()).toBe('r2')
-    expect(header()).toContain('Reordered 3 by judgement')
+    // The round applied at once (no 「应用」): r1 is now unfit and gone; r2 stays selected until the answer phase.
+    await vi.waitFor(() => expect(document.querySelector('.source-list')).not.toBeNull())
+    expect(document.body.textContent).not.toContain('Order updated')
+    click(buttonNamed('2 other results'))
+    await vi.waitFor(() => expect(ids('other')).toEqual(['r2', 'r3']))
+    expect(activeId()).toBe('r2')
   })
 
-  it('scrolling the result list counts as moving', async () => {
+  it('no answer request without consent for the answer host: the confirmed sources and one line', async () => {
     useLocal()
-    const release = gate()
-    mocks.judgeQueue.push(REORDERED())
+    configureBoth({ ...CHAT })
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e2', 0, { tier: 'unfit' })] }))
     const input = await mountReady()
     await submit(input)
-    document.querySelector('.results-scroll')!.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 40 }))
-    release()
-    await vi.waitFor(() => expect(header()).toContain('New order available'))
-    expect(rowIds()).toEqual(LOCAL)
-  })
-
-  it('an ok judgement that moved nothing shows judged, not pending, after interaction', async () => {
-    useLocal()
-    const release = gate()
-    mocks.judgeQueue.push(judgement({ order: LOCAL, verdicts: [{ resultId: 'r1', tier: 'fit' }], judgedCount: 3 }))
-    const input = await mountReady()
-    await submit(input)
-    key(input, 'ArrowDown')
-    await vi.waitFor(() => expect(activeRowId()).toBe('r1'))
-    release()
-    await vi.waitFor(() => expect(header()).toContain('Judged 3; order unchanged'))
-    expect(header()).not.toContain('New order available')
-  })
-
-  it('restores the local order with the shortcut outside the input', async () => {
-    useLocal()
-    mocks.judgeQueue.push(REORDERED())
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-
-    // Inside the input ⌘Z stays text undo.
-    key(input, 'z', { metaKey: true })
-    await tick()
-    expect(rowIds()).toEqual(['r3', 'r1', 'r2'])
-
-    key(input, 'ArrowDown')
-    await vi.waitFor(() => expect(document.activeElement?.classList.contains('result-row')).toBe(true))
-    key(document.activeElement!, 'z', { metaKey: true })
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r1', 'r2', 'r3']))
-    expect(header()).toContain('New order available')
-    expect(activeRowId()).toBe('r3')
-  })
-
-  it('a key error shows only host and status class', async () => {
-    useLocal()
-    mocks.judgeQueue.push(judgement({ status: 'keyInvalid', endpointHost: 'api.typesafe.ai', statusClass: '4xx', requestCount: 1 }))
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('api.typesafe.ai rejected the key (4xx)'))
-    expect(rowIds()).toEqual(['r1', 'r2', 'r3'])
-    expect(document.querySelector('.result-badge')).toBeNull()
-  })
-
-  it('a timeout keeps the local order and retries as a user action', async () => {
-    useLocal()
-    mocks.judgeQueue.push(judgement({ status: 'timeout' }), REORDERED())
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Judging timed out; local order kept'))
-    expect(rowIds()).toEqual(LOCAL)
-    click(button('Try again'))
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(2))
-    expect(calls('smart_lookup_judge')[1]).toMatchObject({ trigger: 'user', lookupRunId: 'run-1' })
-  })
-
-  it('a busy index says so without an action', async () => {
-    useLocal()
-    mocks.judgeQueue.push(judgement({ status: 'skipped', skipReason: 'indexUnavailable', endpointHost: null, requestCount: 0 }))
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Index busy — not judged'))
-    expect(document.querySelectorAll('.judge-header button')).toHaveLength(0)
-  })
-
-  it('no consent offers allow for the current host only', async () => {
-    useLocal()
-    mocks.storedSmartLookup = {
-      enhance: { jev: { url: 'https://openrouter.ai/api/alpha/decisions', model: 'm', authMode: 'bearer', consentHost: '' } },
-    }
-    mocks.judgeQueue.push(judgement({ status: 'noConsent', endpointHost: 'openrouter.ai', requestCount: 0 }))
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Sending to openrouter.ai not allowed'))
-
-    click(button('Allow'))
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(2))
-    expect(settings.smartLookup.enhance.jev.consentHost).toBe('openrouter.ai')
-    expect(calls('smart_lookup_judge').at(-1)).toMatchObject({ trigger: 'user', jev: { consentHost: 'openrouter.ai' } })
-    await vi.waitFor(() => expect((mocks.storedSmartLookup as any).enhance.jev.consentHost).toBe('openrouter.ai'))
-  })
-
-  it('an endpoint that is not set up sends nothing and opens the settings tab', async () => {
-    useLocal()
-    mocks.storedSmartLookup = {}
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('No endpoint set up'))
-    expect(calls('smart_lookup_judge')).toHaveLength(0)
-    click(button('Settings'))
+    await vi.waitFor(() => expect(fallback()).toBe('Sending to chat.example is not allowed, so no answer was written. Settings'))
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(ids('source')).toEqual(['e1'])
+    expect(answerText()).toBeNull()
+    expect(chip()).toBe('Grounded · 1 source(s)')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai · 3 passages in all · no confidential notes sent')
+    click(buttonNamed('Settings'))
     await vi.waitFor(() => expect(mocks.emitTo).toHaveBeenCalledWith('main', 'settings://open-tab', { tab: 'enhance' }))
   })
 
-  it('a late judgement for a superseded lookup is ignored', async () => {
+  it('no answer request without an answer endpoint', async () => {
     useLocal()
-    useLocal(['r7', 'r8'], 'other question')
-    const release = gate()
-    mocks.judgeQueue.push(REORDERED())
+    mocks.storedSmartLookup = stored({ enhance: { jev: { ...JEV } } })
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
     const input = await mountReady()
     await submit(input)
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(1))
+    await vi.waitFor(() => expect(fallback()).toBe('No endpoint for writing answers is set up, so no answer was written. Settings'))
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(ids('source')).toEqual(['e1'])
+  })
 
+  it.each([
+    ['invalid citations', () => answered({ status: 'invalidCitations', requestCount: 3, sources: [{ id: 1, evidenceId: 'e1' }] }), 'api.typesafe.ai, chat.example'],
+    ['a timeout', () => answered({ status: 'timeout' }), 'api.typesafe.ai, chat.example'],
+    // The host refused before sending: the answer host is not named.
+    ['a host budget code', () => Promise.reject('sourceTooLarge'), 'api.typesafe.ai'],
+  ])('a failed answer (%s) shows the confirmed sources under one line, never remote text', async (_name, reply, hosts) => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(reply)
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe("Couldn't write a grounded answer; below are the confirmed sources."))
+    expect(answerText()).toBeNull()
+    expect(ids('source')).toEqual(['e1'])
+    expect(document.body.textContent).not.toContain('sourceTooLarge')
+    expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
+    expect(footerLineText()).toBe(`Sent to ${hosts} · 3 passages in all · no confidential notes sent`)
+  })
+
+  it('no answer request when nothing shown is fit: the no-answer view', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops',
+      evidence: [ev('e1', 0, { tier: 'unfit' })],
+      localTiers: [{ resultId: 'r1', tier: 'unfit' }, { resultId: 'r2', tier: 'unfit' }, { resultId: 'r3', tier: 'unfit' }],
+    }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(document.querySelector('.no-match')).not.toBeNull())
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    // Local hits but nothing fit: no repair and no scan (their results would not be verified).
+    expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
+    expect(calls('smart_lookup_local')).toHaveLength(1)
+    expect(noMatchPanel()).toContain('Nothing in your notes answers this question.')
+    expect(noMatchPanel()).toContain('Ask again with words you remember from the note; that may find it faster.')
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual(['Searched the original question on this device3 · all unrelated'])
+    expect(noMatchPanel()).not.toContain('confidential')
+    expect(document.querySelectorAll('.no-match button')).toHaveLength(0)
+    expect(chip()).toBe('No evidence')
+    expect(document.querySelector('.preview-pane')?.textContent).toContain('No passage can serve as evidence')
+    // Every row was judged unfit: they wait, dimmed, behind one closed disclosure that says so.
+    click(buttonNamed('4 other results (all unrelated)'))
+    await vi.waitFor(() => expect(ids('other')).toEqual(['e1', 'r1', 'r2', 'r3']))
+    expect([...document.querySelectorAll('.other-list .result-row')].every((row) => row.classList.contains('dim'))).toBe(true)
+  })
+
+  it('the no-answer view never calls a row it did not judge unrelated, and says how many confidential passages were not checked', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops',
+      evidence: [ev('e1', 0, { tier: 'unfit' }), ev('e2', 0, { tier: 'unsure' })],
+      // r3 was never judged (a confidential note, say): it has no tier.
+      localTiers: [{ resultId: 'r1', tier: 'unfit' }, { resultId: 'r2', tier: 'unfit' }],
+      run: runTotals({ skippedConfidential: 2 }),
+    }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(document.querySelector('.no-match')).not.toBeNull())
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual(['Searched the original question on this device3'])
+    expect(noMatchPanel()).toContain('2 more passage(s) from confidential notes were not checked')
+    expect(document.body.textContent).not.toContain('all unrelated')
+    click(buttonNamed('5 other results'))
+    await vi.waitFor(() => expect(ids('other')).toEqual(['e1', 'e2', 'r1', 'r2', 'r3']))
+    // Only the rows judged unfit are dimmed.
+    const dimmed = [...document.querySelectorAll('.other-list .result-row.dim')]
+      .map((row) => row.getAttribute('data-evidence-id') ?? row.getAttribute('data-result-id'))
+    expect(dimmed).toEqual(['e1', 'r1', 'r2'])
+  })
+
+  it('⌘K marks the selected row as fitting or unrelated, on this device only', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'A [1].', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(ids('source')).toEqual(['e1']))
+    // The preview pane has no correction any more.
+    expect(document.querySelector('.correction')).toBeNull()
+    expect(document.body.textContent).not.toContain('Is this judgement right?')
+
+    key(window, 'k', { metaKey: true })
+    await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    const rows = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim())
+    expect(rows).toEqual(['Copy reference', 'Mark as fitting', 'Mark as unrelated', 'Copy activity log'])
+    click(menuItem('Mark as unrelated'))
+    await vi.waitFor(() => expect(calls('smart_lookup_feedback')).toEqual([{ lookupRunId: 'run-1', resultId: 'e1', verdict: 'unfit' }]))
+    await vi.waitFor(() => expect(document.querySelector('.copy-status')?.textContent).toBe('Recorded on this device only'))
+    await chooseMenuAction('Mark as fitting')
+    await vi.waitFor(() => expect(calls('smart_lookup_feedback').at(-1)).toEqual({ lookupRunId: 'run-1', resultId: 'e1', verdict: 'fit' }))
+    // Nothing else is sent: the correction is local.
+    expect(calls('smart_lookup_answer')).toHaveLength(1)
+  })
+
+  it('Esc while the rounds run stops them, keeps the window and writes no answer; the next Esc hides it', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceGates.push(null)
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e2', 1)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(2))
+    expect(footer()).toContain('esc Stop')
+
+    key(input, 'Escape')
+    await vi.waitFor(() => expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.'))
+    expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }])
+    expect(calls('hide_smart_search_window')).toHaveLength(0)
+    expect(footer()).toContain('esc Close')
+    release()
+    await wait(20)
+    // The late round is dropped and no answer starts.
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(ids('local')).toEqual(LOCAL)
+    expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
+
+    key(document.body, 'Escape')
+    await vi.waitFor(() => expect(calls('hide_smart_search_window')).toHaveLength(1))
+    expect(calls('smart_lookup_cancel')).toHaveLength(1)
+  })
+
+  it('Esc while the answer is written stops it and drops the late answer; Return asks again', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    let release!: (value: AnswerResult) => void
+    mocks.answers.push(new Promise<AnswerResult>((resolve) => { release = resolve }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_answer')).toHaveLength(1))
+    await vi.waitFor(() => expect(document.querySelector('.step.on')?.textContent).toContain('Write the answer'))
+
+    key(input, 'Escape')
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    expect(calls('hide_smart_search_window')).toHaveLength(0)
+    await vi.waitFor(() => expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.'))
+    expect(ids('source')).toEqual(['e1'])
+    // The question and the passages may already have gone to the answer host: the footer still names it.
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
+    release(answered({ text: 'LATE_ANSWER [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    await wait(20)
+    expect(answerText()).toBeNull()
+    expect(document.body.textContent).not.toContain('LATE_ANSWER')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
+
+    // Return retries: a new lookup run, its own evidence, its own answer.
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'AGAIN [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    key(input, 'Enter')
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('AGAIN 1'))
+    expect(calls('smart_lookup_evidence_step').map((call) => [call.lookupRunId, call.trigger])).toEqual([['run-1', 'auto'], ['run-2', 'auto']])
+    expect(calls('smart_lookup_answer').map((call) => call.lookupRunId)).toEqual(['run-1', 'run-2'])
+  })
+
+  it('a window hidden once the rounds are done sends no answer: the run is cancelled as Esc would', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    // Shown before and after the round; hidden by the time the answer would be asked for.
+    let asked = 0
+    mocks.visible = () => ++asked <= 2
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    await wait(20)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.')
+  })
+
+  it('a round that returns after the window was hidden is dropped, and nothing of it shows when the window reopens', async () => {
+    useLocal()
+    configureBoth()
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops', evidence: [ev('e1', 0)], localTiers: [{ resultId: 'r3', tier: 'unfit' }],
+    }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+    mocks.visible = false
+    release()
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    mocks.visible = true
+    await mocks.focusChanged?.({ payload: true })
+    await wait(20)
+    // Not applied: no sources, no tiers (r3 is still listed), no answer.
+    expect(document.querySelector('.source-list')).toBeNull()
+    expect(ids('local')).toEqual(LOCAL)
+    expect(document.body.textContent).not.toContain('LOCAL_PASSAGE_e1')
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.')
+  })
+
+  it('an answer that returns after the window was hidden is dropped', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    let release!: (value: AnswerResult) => void
+    mocks.answers.push(new Promise<AnswerResult>((resolve) => { release = resolve }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_answer')).toHaveLength(1))
+    mocks.visible = false
+    release(answered({ text: 'HIDDEN_ANSWER [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    mocks.visible = true
+    await mocks.focusChanged?.({ payload: true })
+    await wait(20)
+    expect(answerText()).toBeNull()
+    expect(document.body.textContent).not.toContain('HIDDEN_ANSWER')
+    expect(fallback()).toBe('Stopped writing the answer; below are the confirmed sources.')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 3 passages in all · no confidential notes sent')
+  })
+
+  it('a window that cannot say whether it is shown counts as hidden: nothing is sent', async () => {
+    useLocal()
+    configureBoth()
+    mocks.visible = () => { throw new Error('window.is_visible not allowed') }
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.'))
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
+  it('a window hidden between rounds sends no further step', async () => {
+    useLocal()
+    configureBoth()
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ hop: 0, evidence: [ev('e1', 0)] }), step({ hop: 1, done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+    mocks.visible = false
+    release()
+    await vi.waitFor(() => expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }]))
+    await wait(20)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(1)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(fallback()).toBe('Stopped finding evidence; showing local results only. Press Return again to retry.')
+    // Shown again, Return retries on a new run.
+    mocks.visible = true
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'OK [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    key(input, 'Enter')
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('OK 1'))
+  })
+
+  it.each([
+    ['evidenceTooLarge', 'skipped'],
+    ['budget', 'ok'],
+    ['noTerms', 'skipped'],
+    ['candidatesEmpty', 'ok'],
+  ] as const)('a run that ends with %s before judging anything shows the local results, not "no answer"', async (stop, status) => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ status, stop, done: true, requestCount: 0, sentBlocks: 0, evidence: [] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('There were no passages to check this time; below are the local results.'))
+    expect(chip()).toBe('Local results only')
+    expect(document.querySelector('.no-match')).toBeNull()
+    expect(document.body.textContent).not.toContain('all unrelated')
+    expect(ids('local')).toEqual(LOCAL)
+    expect(document.querySelectorAll('.local-list .result-row.dim')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
+  it('a source row shows its heading path without repeating the title', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops',
+      evidence: [ev('e1', 0, { title: 'Decision log', breadcrumb: 'Decision log > 6.1110 on time?' })],
+    }))
+    mocks.answers.push(answered({ text: 'A [1].', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(ids('source')).toEqual(['e1']))
+    const row = document.querySelector('.source-list .result-row')!
+    expect(row.querySelector('.result-title')?.textContent).toBe('Decision log')
+    expect(row.querySelector('.result-crumb')?.textContent).toBe('› 6.1110 on time?')
+  })
+
+  it('the narrow window: the selected source expands inline, Space folds it, and the footer is short', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0), ev('e2', 1)], run: runTotals({ sentBlocks: 74 }) }))
+    mocks.answers.push(answered({ text: 'A [1] B [2].', sources: [{ id: 1, evidenceId: 'e1' }, { id: 2, evidenceId: 'e2' }] }))
+    const original = window.matchMedia
+    let narrow = false
+    window.matchMedia = ((query: string) => ({ matches: narrow && query.includes('max-width'), media: query })) as unknown as typeof window.matchMedia
+    try {
+      const input = await mountReady()
+      await submit(input)
+      await vi.waitFor(() => expect(ids('source')).toEqual(['e1', 'e2']))
+      const inline = () => document.querySelectorAll('.source-list .result-row .inline-passage')
+      // Only the selected row carries its passage, with 打开原文 and 收起.
+      expect(inline()).toHaveLength(1)
+      const passage = document.querySelector('.source-list .result-row.active .inline-passage')!
+      expect(passage.textContent).toContain('LOCAL_PASSAGE_e1')
+      expect(passage.textContent).toContain('Open original ↗')
+      expect(passage.textContent?.replace(/\s+/g, ' ')).toContain('␣ Collapse')
+      expect(document.querySelector('.footer-line.compact')?.textContent).toBe('Sent to 2 host(s) · 74 passages · no confidential notes sent')
+
+      // The wide window leaves Space alone.
+      const space = () => {
+        const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+        document.querySelector('.source-list .result-row.active')!.dispatchEvent(event)
+        return event
+      }
+      expect(space().defaultPrevented).toBe(false)
+      await tick()
+      expect(inline()).toHaveLength(1)
+      // The narrow window folds and unfolds the passage.
+      narrow = true
+      expect(space().defaultPrevented).toBe(true)
+      await vi.waitFor(() => expect(inline()).toHaveLength(0))
+      space()
+      await vi.waitFor(() => expect(inline()).toHaveLength(1))
+      // Another row opens unfolded.
+      space()
+      await vi.waitFor(() => expect(inline()).toHaveLength(0))
+      key(document.querySelector('.source-list .result-row.active')!, 'ArrowDown')
+      await vi.waitFor(() => expect(document.querySelector('.source-list .result-row.active .inline-passage')?.textContent).toContain('LOCAL_PASSAGE_e2'))
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
+  it('a late round for a superseded lookup is ignored', async () => {
+    useLocal()
+    useLocal(['r7', 'r8'], 'other question')
+    configureBoth()
+    const release = gateEvidence()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toHaveLength(1))
+
+    mocks.evidenceGates.push(new Promise<void>(() => {}))
     await submit(input, 'other question', 2)
     release()
     await wait(20)
     await tick()
 
     expect(calls('smart_lookup_cancel')[0]).toEqual({ lookupRunId: 'run-1' })
-    expect(rowIds()).toEqual(['r7', 'r8'])
-    expect(header()).not.toContain('Reordered 3')
+    expect(ids('local')).toEqual(['r7', 'r8'])
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(calls('smart_lookup_evidence_step').map((call) => call.lookupRunId)).toEqual(['run-1', 'run-2'])
   })
 
-  it('zero hits diagnose, strike missing terms and repair automatically once', async () => {
+  it('the activity log records each evidence round with usage but no remote or note text', async () => {
+    useLocal()
+    mocks.storedSmartLookup = stored({ enhance: { jev: { ...JEV } } })
+    mocks.evidenceQueue.push(step({
+      done: true, stop: 'maxHops', evidence: [ev('e1', 0)],
+      terms: [{ term: 'secret term', label: 'Secret Term', kind: 'namePhrase' }],
+    }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(ids('source')).toEqual(['e1']))
+    // Expansion terms and round badges are not shown.
+    expect(document.body.textContent).not.toContain('Secret Term')
+    const log = await copiedLog()
+    const round = log.split('\n').map((line) => JSON.parse(line)).find((entry) => entry.stage === 'judge')
+    expect(round).toMatchObject({ level: 'success', usage: { inputTokens: 900, outputTokens: 12 } })
+    expect(round.message).toContain('evidence ok')
+    expect(log).not.toContain('api.typesafe.ai')
+    expect(log).not.toContain('LOCAL_PASSAGE')
+    expect(log).not.toContain('Secret Term')
+  })
+})
+
+describe('SmartLookupApp fallbacks', () => {
+  it.each([
+    ['timeout', {}, "Couldn't confirm evidence: api.typesafe.ai timed out. Below are the local results by relevance; press Return again to retry."],
+    ['keyInvalid', { statusClass: '4xx' }, "Couldn't confirm evidence: api.typesafe.ai rejected the key. Below are the local results by relevance; press Return again to retry."],
+    ['unreachable', { statusClass: '5xx' }, "Couldn't confirm evidence: api.typesafe.ai couldn't be reached. Below are the local results by relevance; press Return again to retry."],
+    ['invalid', {}, "Couldn't confirm evidence: api.typesafe.ai sent an invalid response. Below are the local results by relevance; press Return again to retry."],
+  ])('a %s shows one line with the host and reason class, the local results, and no button', async (status, extra, line) => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ status: status as EvidenceStepResult['status'], endpointHost: 'api.typesafe.ai', done: true, ...extra }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe(line))
+    expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
+    expect(ids('local')).toEqual(LOCAL)
+    expect(chip()).toBe('Local results only')
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(document.body.textContent).not.toContain('4xx')
+  })
+
+  it('a failed round after a scored one is dropped; the answer is written from the evidence already confirmed, with one line', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(
+      step({ evidence: [ev('e1', 0), ev('e2', 0, { tier: 'unfit' })] }),
+      step({ hop: 1, status: 'timeout', done: true, evidence: [ev('e9', 1)], run: runTotals({ sentBlocks: 40 }) }),
+    )
+    mocks.answers.push(answered({ text: 'PARTIAL [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('PARTIAL 1'))
+    // Only the evidence round 0 confirmed went to the answer host; the failed round is dropped whole.
+    expect(calls('smart_lookup_answer')).toEqual([expect.objectContaining({ lookupRunId: 'run-1', evidenceIds: ['e1'] })])
+    expect(ids('source')).toEqual(['e1'])
+    expect(document.body.textContent).not.toContain('LOCAL_PASSAGE_e9')
+    expect(fallback()).toBe("The evidence check didn't finish; the answer uses only the evidence confirmed so far.")
+    expect(chip()).toBe('Grounded · 1 source(s)')
+    expect(footerLineText()).toBe('Sent to api.typesafe.ai, chat.example · 40 passages in all · no confidential notes sent')
+
+    // Return retries the whole lookup.
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'OK [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    key(input, 'Enter')
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('OK 1'))
+    expect(fallback()).toBe('')
+    expect(calls('smart_lookup_evidence_step').map((call) => [call.lookupRunId, call.trigger])).toEqual([
+      ['run-1', 'auto'], ['run-1', 'auto'], ['run-2', 'auto'],
+    ])
+  })
+
+  it('a later round the host refuses outright also answers from the confirmed evidence', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), new Error('lookup run expired at /Users/me/vault'))
+    mocks.answers.push(answered({ text: 'PARTIAL [1]', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('PARTIAL 1'))
+    expect(calls('smart_lookup_answer')).toEqual([expect.objectContaining({ evidenceIds: ['e1'] })])
+    expect(fallback()).toBe("The evidence check didn't finish; the answer uses only the evidence confirmed so far.")
+    expect(document.body.textContent).not.toContain('/Users/me')
+  })
+
+  it('a failed round after a scored one with nothing confirmed keeps the local results and one line', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0, { tier: 'unsure' })] }), step({ hop: 1, status: 'timeout', done: true }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toContain('timed out'))
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(document.querySelector('.no-match')).toBeNull()
+    expect(ids('local')).toEqual(LOCAL)
+    expect(chip()).toBe('Local results only')
+  })
+
+  it('without consent for the answer host, a failed later round still lists the confirmed sources', async () => {
+    useLocal()
+    configureBoth({ ...CHAT })
+    mocks.evidenceQueue.push(step({ evidence: [ev('e1', 0)] }), step({ hop: 1, status: 'unreachable', done: true }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('Sending to chat.example is not allowed, so no answer was written. Settings'))
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    expect(ids('source')).toEqual(['e1'])
+  })
+
+  it('no consent for the Jev host sends nothing and links to the settings', async () => {
+    useLocal()
+    mocks.storedSmartLookup = stored({
+      enhance: { jev: { url: 'https://openrouter.ai/api/alpha/decisions', model: 'm', authMode: 'bearer', consentHost: '' } },
+    })
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('Sending to openrouter.ai is not allowed; showing local results only. Settings'))
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(document.body.textContent).not.toContain('Allow')
+    expect(footerLineText()).toBe('')
+    click(buttonNamed('Settings'))
+    await vi.waitFor(() => expect(mocks.emitTo).toHaveBeenCalledWith('main', 'settings://open-tab', { tab: 'enhance' }))
+  })
+
+  it('a URL without a host is not configured and sends nothing', async () => {
+    useLocal()
+    mocks.storedSmartLookup = stored({ enhance: { jev: { url: 'not a url', model: 'm', authMode: 'bearer', consentHost: '' } } })
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toContain("Lookup enhancement isn't set up yet"))
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+  })
+
+  it('with enhancement off Enter gathers no evidence and says so in one line', async () => {
+    useLocal()
+    mocks.storedSmartLookup = stored({ enhance: { enabled: false, jev: { ...JEV } } })
+    const input = await mountReady()
+    await submit(input)
+    await wait(20)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(fallback()).toBe("Lookup enhancement isn't set up yet; showing local results only. Settings")
+  })
+
+  it('a busy index says so without an action', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ status: 'skipped', skipReason: 'indexUnavailable', endpointHost: null, requestCount: 0, done: true }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe('Index busy — no evidence searched'))
+    expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
+  })
+
+  it.each([
+    ['fewTerms', 'The question has only a word or two and they were found as written, so no evidence was checked; below are the local results.'],
+    ['pinned', 'A pinned page matched, so no evidence was checked; below are the local results.'],
+  ] as const)('a route the host skips (%s) shows the local results under one line with its reason, and no button', async (skipReason, line) => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(step({ status: 'skipped', skipReason, endpointHost: null, requestCount: 0, done: true }))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(chip()).toBe('Local results only'))
+    expect(fallback()).toBe(line)
+    expect(document.querySelectorAll('.fallback-line button')).toHaveLength(0)
+    expect(document.body.textContent).not.toContain('Find evidence')
+    expect(ids('local')).toEqual(LOCAL)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(1)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+  })
+
+  it('a host error for a step shows one line and keeps the local results', async () => {
+    useLocal()
+    configureBoth()
+    mocks.evidenceQueue.push(new Error('lookup run expired at /Users/me/vault'))
+    const input = await mountReady()
+    await submit(input)
+    await vi.waitFor(() => expect(fallback()).toBe("Couldn't confirm evidence. Below are the local results by relevance; press Return again to retry."))
+    expect(document.body.textContent).not.toContain('/Users/me')
+    expect(ids('local')).toEqual(LOCAL)
+  })
+})
+
+describe('SmartLookupApp zero hits', () => {
+  it('rephrases automatically; results from other wordings are shown passively and never judged', async () => {
     mocks.local = 'empty'
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
+    configureBoth()
     mocks.keys = { jev: true, chat: true }
-    mocks.diagnosis = { terms: [{ term: '预算', hits: 2, capped: false }, { term: '火星', hits: 0, capped: false }] }
     const groups = [{ terms: ['预算', '计划'], phrases: [] }, { terms: ['航天'], phrases: ['火星 计划'] }]
     mocks.repair = {
       status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
@@ -811,287 +1324,217 @@ describe('SmartLookupApp enhancement', () => {
     }
     mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [0, 1], hitGroups: [[2]] }
     const input = await mountReady()
-    await submit(input, 'release risk', 1)
+    await submit(input, 'release risk', 0)
 
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r9']))
-    expect(calls('smart_lookup_diagnose')).toEqual([{ lookupRunId: 'run-1' }])
+    await vi.waitFor(() => expect(ids('local')).toEqual(['r9']))
     expect(calls('smart_lookup_repair_suggest')).toEqual([expect.objectContaining({ trigger: 'auto', lookupRunId: 'run-1', chat: CHAT })])
     expect(calls('smart_lookup_search_groups')).toEqual([{ lookupRunId: 'run-1', groups, limit: 50 }])
-    const order = mocks.invoke.mock.calls.map(([command]) => command)
-    expect(order.indexOf('smart_lookup_diagnose')).toBeLessThan(order.indexOf('smart_lookup_search_groups'))
-    expect(calls('smart_lookup_judge')).toHaveLength(0)
-    expect(document.querySelectorAll('s')).toHaveLength(1)
-    expect(document.querySelector('s')?.textContent).toBe('火星')
-    expect(row('r9').textContent).toContain('Wording B')
-    const inputs = [...document.querySelectorAll<HTMLInputElement>('.repair-strip input')]
-    expect(inputs.map((field) => field.value)).toEqual(['预算 计划', '航天 "火星 计划"'])
-    expect(document.querySelector('.repair-strip')?.textContent).toContain('Wording B · 1')
-
-    // Editing a wording searches locally again; nothing is judged or sent to a model.
-    inputs[0].value = '预算 "年度 计划"'
-    inputs[0].dispatchEvent(new Event('input', { bubbles: true }))
-    click(button('Search with these'))
-    await vi.waitFor(() => expect(calls('smart_lookup_search_groups')).toHaveLength(2))
-    expect(calls('smart_lookup_search_groups')[1].groups).toEqual([
-      { terms: ['预算'], phrases: ['年度 计划'] },
-      { terms: ['航天'], phrases: ['火星 计划'] },
-    ])
-    expect(calls('smart_lookup_repair_suggest')).toHaveLength(1)
-    expect(calls('smart_lookup_judge')).toHaveLength(0)
+    // Found something: no line-by-line scan, no evidence, no answer.
+    expect(calls('smart_lookup_local')).toHaveLength(1)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
+    const strip = document.querySelector('.repair-strip')!.textContent!
+    expect(strip).toContain('Original question: 0 locally · 2 ms')
+    expect(strip).toContain('Two other wordings found 1 locally')
+    expect(strip).toContain('Wording B · 1')
+    expect(strip).toContain('"火星 计划"')
+    expect(strip).toContain('Results from other wordings are not judged')
+    // Passive: nothing to edit, no search or back button.
+    expect(document.querySelectorAll('.repair-strip input, .repair-strip button')).toHaveLength(0)
+    expect(chip()).toBe('Local results only')
+    expect(footerLineText()).toBe('Sent to chat.example · 0 passages in all · no confidential notes sent')
   })
 
-  it('zero hits without a repair model show the three attempts', async () => {
+  it('without consent for the answer host the question is not rephrased: the line-by-line scan runs instead', async () => {
     mocks.local = 'empty'
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    await vi.waitFor(() => expect(noMatchPanel()).toContain('Searched the original question locally'))
-    expect(noMatchPanel()).toMatch(/Searched the original question locally\s*0 · 2 ms/)
-    expect(noMatchPanel()).toMatch(/Searched again with other wordings\s*Not run/)
-    expect(noMatchPanel()).toMatch(/Scanned every file line by line\s*Not run/)
-    await wait(20)
-    expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
-    expect(calls('smart_lookup_judge')).toHaveLength(0)
-  })
-
-  it('the no-match panel edits the wording with the extracted terms', async () => {
-    mocks.local = 'empty'
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    await vi.waitFor(() => expect(noMatchPanel()).toContain('Searched the original question locally'))
-    click(buttonStarting('Edit wordings A / B and search again'))
-    await vi.waitFor(() => expect(document.querySelector('.repair-strip')).not.toBeNull())
-    const fields = [...document.querySelectorAll<HTMLInputElement>('.repair-strip input')]
-    expect(fields.map((field) => field.value)).toEqual(['release risk', ''])
-
-    input.setSelectionRange(3, 3)
-    click(buttonStarting('Rewrite the question with words you remember'))
-    await vi.waitFor(() => {
-      expect(document.activeElement).toBe(input)
-      expect(input.selectionStart).toBe(0)
-      expect(input.selectionEnd).toBe('release risk'.length)
+    configureBoth({ ...CHAT })
+    mocks.keys = { jev: true, chat: true }
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['预算'], phrases: [] }], requestCount: 1, elapsedMs: 300, usage: null,
+    }
+    const base = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
+      if (command === 'smart_lookup_local' && args?.deep === true) {
+        return { search: response([]), lookupRunId: `run-${++mocks.runCounter}`, time: null }
+      }
+      return base(command, args)
     })
-  })
-
-  it('top ten unfit offers rephrase as a user action', async () => {
-    useLocal()
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.judgeQueue.push(judgement({ order: LOCAL, topTenUnfit: true, judgedCount: 3,
-      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
-    mocks.repair = {
-      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [{ terms: ['发布'], phrases: [] }], requestCount: 1, elapsedMs: 600, usage: null,
-    }
-    mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [1], hitGroups: [[1]] }
     const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
-    expect(row('r1').textContent).toContain('Possibly unrelated')
-
-    click(button('Rephrase'))
-    await vi.waitFor(() => expect(calls('smart_lookup_repair_suggest')).toHaveLength(1))
-    expect(calls('smart_lookup_repair_suggest')[0]).toMatchObject({ trigger: 'user', lookupRunId: 'run-1' })
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r9']))
-    expect(calls('smart_lookup_judge')).toHaveLength(1)
-  })
-
-  it('Tab leaves the question field when the repair strip shows over results', async () => {
-    useLocal()
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.judgeQueue.push(judgement({ order: LOCAL, topTenUnfit: true, judgedCount: 3,
-      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
-    mocks.repair = {
-      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [{ terms: ['发布'], phrases: [] }], requestCount: 1, elapsedMs: 600, usage: null,
-    }
-    mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [1], hitGroups: [[1]] }
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
-    click(button('Rephrase'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r9']))
-    expect(document.querySelector('.repair-strip')).not.toBeNull()
-
-    input.focus()
-    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
-    input.dispatchEvent(tab)
-    expect(tab.defaultPrevented).toBe(false)
-  })
-
-  it.each([
-    ['notConfigured', { missing: 'key', endpointHost: null }, 'No key saved'],
-    ['timeout', {}, 'Rephrasing timed out; results unchanged'],
-    ['invalid', {}, 'chat.example sent no usable wording; results unchanged'],
-  ])('a failed rephrase under top ten unfit says so (%s)', async (status, extra, notice) => {
-    useLocal()
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.judgeQueue.push(judgement({ order: LOCAL, topTenUnfit: true, judgedCount: 3,
-      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
-    mocks.repair = {
-      status, skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [], requestCount: status === 'notConfigured' ? 0 : 1, elapsedMs: 600, usage: null, ...extra,
-    }
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
-
-    click(button('Rephrase'))
-    await vi.waitFor(() => expect(calls('smart_lookup_repair_suggest')).toHaveLength(1))
-    await vi.waitFor(() => expect(document.querySelector('.repair-notice')?.textContent).toContain(notice))
-    // The judgement stays, and so do the results.
-    expect(header()).toContain('None of the top 10 fit')
-    expect(rowIds()).toEqual(LOCAL)
-
-    // The next lookup clears it.
-    await submit(input, 'release risk again', 3)
-    await vi.waitFor(() => expect(document.querySelector('.repair-notice')).toBeNull())
-  })
-
-  it('whole-section hits say they were not judged', async () => {
-    mocks.localByQuestion['release risk'] = [rh('r1'), rh('r2'), rh('r4', { level: 'section' }), rh('r5', { pinned: true, level: 'section' })]
-    mocks.judgeQueue.push(judgement({ order: ['r1', 'r2', 'r4', 'r5'], judgedCount: 2,
-      verdicts: [{ resultId: 'r1', tier: 'unsure' }, { resultId: 'r2', tier: 'unsure' }] }))
-    const input = await mountReady()
-    await submit(input, 'release risk', 4)
-    await vi.waitFor(() => expect(row('r4').textContent).toContain('Whole section not judged · position kept'))
-    expect(row('r1').textContent).not.toContain('Whole section not judged')
-    expect(row('r5').textContent).not.toContain('Whole section not judged')
-  })
-
-  it('correcting a judged result writes local feedback', async () => {
-    useLocal()
-    mocks.judgeQueue.push(REORDERED())
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    expect(document.querySelector('.preview-pane')?.textContent).toContain('Is this judgement right?')
-
-    click(button('Unrelated'))
-    await vi.waitFor(() => expect(calls('smart_lookup_feedback')).toHaveLength(1))
-    expect(calls('smart_lookup_feedback')[0]).toEqual({ lookupRunId: 'run-1', resultId: 'r3', verdict: 'unfit' })
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Recorded on this device only'))
-  })
-
-  it('the time chip re-searches locally without judging', async () => {
-    useLocal()
-    mocks.localTime = { sourceText: '上周', after: '2026-11-02', before: '2026-11-09', mode: 'group', inWindow: 1 }
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(1))
-    expect(calls('smart_lookup_local')[0].timeMode).toBeUndefined()
-    expect(calls('smart_lookup_judge')[0]).toMatchObject({ displayOrder: LOCAL, sectionBreaks: [1] })
-    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map((group) => group.getAttribute('aria-label'))
-    expect(groups).toEqual(['In range', 'Other dates'])
-    expect(timeChip().textContent).toContain('Time: 上周')
-    expect(document.querySelector('.criterion-chip')?.textContent).toContain("Criterion: directly matches what you're looking for")
-
-    await choose(timeChip(), 'Only in range')
-    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(2))
-    expect(calls('smart_lookup_local').at(-1)).toMatchObject({ question: 'release risk', timeMode: 'window', deep: false })
-    await wait(20)
-    expect(calls('smart_lookup_judge')).toHaveLength(1)
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(noMatchPanel()).toContain('Scanned every file line by line'))
     expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
-
-    // A new question drops the chosen time mode.
-    await submit(input, 'release risk again', 3)
-    expect(calls('smart_lookup_local').at(-1).timeMode).toBeUndefined()
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
+    expect(calls('smart_lookup_local').map((call) => call.deep)).toEqual([false, true])
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual(['Searched the original question on this device0', 'Scanned every file line by line0'])
+    // Nothing was sent anywhere.
+    expect(footerLineText()).toBe('')
   })
 
-  it('the launch view shows recent lookups and the first-run note once', async () => {
-    localStorage.setItem('notemd.smartLookup.recent', JSON.stringify(['release risk', 'budget']))
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV } }, launch: { firstRunSeen: false } }
-    await mountReady()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('What happens after Return'))
-
-    click(button('Got it'))
-
-    await vi.waitFor(() => expect(settings.smartLookup.launch.firstRunSeen).toBe(true))
-    await vi.waitFor(() => expect(document.body.textContent).not.toContain('What happens after Return'))
-    await vi.waitFor(() => expect((mocks.storedSmartLookup as any).launch.firstRunSeen).toBe(true))
-
-    click(recentItem('release risk'))
-    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(1))
-    expect(calls('smart_lookup_local').at(-1)).toMatchObject({ question: 'release risk' })
-  })
-
-  it('clearing recent lookups empties the launch list', async () => {
-    localStorage.setItem('notemd.smartLookup.recent', JSON.stringify(['release risk']))
-    await mountReady()
-    await vi.waitFor(() => expect(document.querySelectorAll('.recent-item')).toHaveLength(1))
-    expect(document.body.textContent).not.toContain('What happens after Return')
-    click(button('Clear'))
-    await vi.waitFor(() => expect(document.querySelectorAll('.recent-item')).toHaveLength(0))
-    expect(localStorage.getItem('notemd.smartLookup.recent')).toBeNull()
-  })
-
-  it('with enhancement off Enter sends no judge', async () => {
-    useLocal()
-    mocks.storedSmartLookup = { enhance: { enabled: false, jev: { ...JEV } } }
+  it('a hidden window does not rephrase: nothing is sent', async () => {
+    mocks.local = 'empty'
+    configureBoth()
+    mocks.keys = { jev: true, chat: true }
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['预算'], phrases: [] }], requestCount: 1, elapsedMs: 300, usage: null,
+    }
+    mocks.visible = false
     const input = await mountReady()
-    await submit(input)
-    await wait(20)
-    expect(calls('smart_lookup_judge')).toHaveLength(0)
-    expect(header()).toBe('')
-    expect(document.querySelector('.criterion-chip')).toBeNull()
+    setQuery(input, 'release risk')
+    key(input, 'Enter')
+    await vi.waitFor(() => expect(calls('smart_lookup_key_status')).toHaveLength(1))
+    // The scan that follows is local; the evidence it would start refuses a hidden window too.
+    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(2))
+    await wait(30)
+    expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    expect(calls('smart_lookup_answer')).toHaveLength(0)
   })
 
-  it('the footer shows only the actions shortcut and it opens the menu', async () => {
-    useLocal()
-    mocks.judgeQueue.push(REORDERED())
+  it('a rephrase that returns after the window was hidden is dropped: no wordings, no regrouped search', async () => {
+    mocks.local = 'empty'
+    configureBoth()
+    mocks.keys = { jev: true, chat: true }
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const base = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
+      if (command === 'smart_lookup_repair_suggest') {
+        await gate
+        return {
+          status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+          groups: [{ terms: ['HIDDEN_WORDING'], phrases: [] }], requestCount: 1, elapsedMs: 300, usage: null,
+        }
+      }
+      return base(command, args)
+    })
+    mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [1], hitGroups: [[0]] }
     const input = await mountReady()
-    expect(footer()).toBe('⌘K Actions')
-    await submit(input)
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    key(window, 'k', { metaKey: true })
-    await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
-    const rows = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim())
-    expect(rows).toEqual(['Copy reference', 'Restore local order', 'Copy activity log'])
-    expect(document.body.textContent).not.toContain('简答')
-    expect(document.body.textContent).not.toContain('深入研究')
-  })
-
-  it('the activity log records judge and repair with usage but no remote text', async () => {
-    useLocal()
-    mocks.judgeQueue.push(REORDERED())
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    await chooseMenuAction('Copy activity log')
-    await vi.waitFor(() => expect(mocks.writeText).toHaveBeenCalledTimes(1))
-    const lines = String(mocks.writeText.mock.calls[0][0]).split('\n').map((line) => JSON.parse(line))
-    const judge = lines.find((entry) => entry.stage === 'judge')
-    expect(judge).toMatchObject({ level: 'success', usage: { inputTokens: 900, outputTokens: 12 } })
-    expect(typeof judge.elapsedMs).toBe('number')
-    expect(judge.message).toContain('ok')
-    expect(judge.message).toContain('3')
-    expect(judge.message).not.toContain('api.typesafe.ai')
-  })
-
-  it('Esc while judging stops the judgement and keeps the window; the next Esc hides it', async () => {
-    useLocal()
-    const release = gate()
-    mocks.judgeQueue.push(REORDERED())
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Judging about'))
-    expect(footer().replace(/\s+/g, ' ')).toBe('esc Stop judging ⌘K Actions')
-
-    key(input, 'Escape')
-    await vi.waitFor(() => expect(header()).toContain('Judging stopped'))
-    expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }])
-    expect(calls('hide_smart_search_window')).toHaveLength(0)
-    expect(footer()).toBe('⌘K Actions')
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(calls('smart_lookup_repair_suggest')).toHaveLength(1))
+    mocks.visible = false
     release()
+    await wait(30)
+    mocks.visible = true
+    await mocks.focusChanged?.({ payload: true })
     await wait(20)
-    expect(rowIds()).toEqual(LOCAL)
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
+    expect(document.querySelector('.repair-strip')).toBeNull()
+    expect(document.body.textContent).not.toContain('HIDDEN_WORDING')
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    // The question did go to the chat host: the footer still names it.
+    expect(footerLineText()).toContain('chat.example')
+  })
 
-    key(document.body, 'Escape')
-    await vi.waitFor(() => expect(calls('hide_smart_search_window')).toHaveLength(1))
-    expect(calls('smart_lookup_cancel')).toHaveLength(1)
+  it('when the other wordings find nothing either, scans every file line by line, then lists what ran', async () => {
+    mocks.local = 'empty'
+    configureBoth()
+    mocks.keys = { jev: true, chat: true }
+    const base = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
+      if (command === 'smart_lookup_local' && args?.deep === true) {
+        return { search: { ...response([]), tookMs: 1900 }, lookupRunId: `run-${++mocks.runCounter}`, time: null }
+      }
+      return base(command, args)
+    })
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['采购合同'], phrases: [] }, { terms: ['返点'], phrases: [] }], requestCount: 1, elapsedMs: 700, usage: null,
+    }
+    mocks.groups = { search: { ...response([]), tookMs: 40 }, lookupRunId: 'run-2', time: null, groupCounts: [0, 0], hitGroups: [] }
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(noMatchPanel()).toContain('Scanned every file line by line'))
+
+    const order = mocks.invoke.mock.calls.map(([command, args]) => (command === 'smart_lookup_local' ? `local:${args.deep}` : command))
+      .filter((command) => command.startsWith('local') || command.startsWith('smart_lookup_repair') || command.startsWith('smart_lookup_search_groups'))
+    expect(order).toEqual(['local:false', 'smart_lookup_repair_suggest', 'smart_lookup_search_groups', 'local:true'])
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual([
+      'Searched the original question on this device0',
+      'Searched again with two other wordings (采购合同, 返点)0',
+      'Scanned every file line by line0',
+    ])
+    expect(noMatchPanel()).toContain('Nothing in your notes answers this question.')
+    expect(document.querySelectorAll('.no-match button')).toHaveLength(0)
+    expect(chip()).toBe('No evidence')
+    expect(calls('smart_lookup_evidence_step')).toHaveLength(0)
+    // The scan already ran: ⌘K does not offer it again.
+    await openMenu()
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim())).not.toContain('Expand search')
+  })
+
+  it('a line-by-line scan that finds something gathers evidence and answers', async () => {
+    mocks.preview = 'empty'
+    mocks.local = 'empty'
+    configureBoth()
+    mocks.evidenceQueue.push(step({ done: true, stop: 'maxHops', evidence: [ev('e1', 0)] }))
+    mocks.answers.push(answered({ text: 'Found [1].', sources: [{ id: 1, evidenceId: 'e1' }] }))
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(answerText()?.textContent).toBe('Found 1.'))
+    expect(calls('smart_lookup_local').map((call) => call.deep)).toEqual([false, true])
+    expect(calls('smart_lookup_evidence_step')).toEqual([expect.objectContaining({ lookupRunId: 'run-2', trigger: 'auto', deep: true })])
+  })
+
+  it('without a repair model and with the scan off, only the local search ran', async () => {
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = stored({ results: { autoDeepOnZero: false } })
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(noMatchPanel()).toContain('Nothing in your notes answers this question.'))
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual(['Searched the original question on this device0'])
+    expect(calls('smart_lookup_local')).toHaveLength(1)
+    expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
+    expect(footerLineText()).toBe('')
+  })
+
+  it('settings saved before answer-first (scan stored off, no marker) still scan on zero hits', async () => {
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = { results: { limit: 50, groupBy: 'auto', autoDeepOnZero: false, deepTimeoutMs: 4000 }, launch: { firstRunSeen: true } }
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(calls('smart_lookup_local').map((call) => call.deep)).toEqual([false, true]))
+    expect(settings.smartLookup.results).toMatchObject({ autoDeepOnZero: true, autoDeepMigrated: true })
+  })
+
+  it('⌘K expand search still runs a deep local lookup on zero results', async () => {
+    mocks.preview = 'empty'
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = stored({ results: { autoDeepOnZero: false }, enhance: { jev: { ...JEV } } })
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(noMatchPanel()).toContain('Nothing in your notes answers this question.'))
+
+    await chooseMenuAction('Expand search')
+    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(2))
+    expect(calls('smart_lookup_local')[1]).toEqual(expect.objectContaining({ question: 'release risk', deep: true, timeoutMs: 4000 }))
+    await vi.waitFor(() => expect(calls('smart_lookup_evidence_step')).toEqual([
+      expect.objectContaining({ lookupRunId: 'run-2', trigger: 'user', deep: true }),
+    ]))
+  })
+
+  it('a repair that returns no wording says so in the list of tries', async () => {
+    mocks.local = 'empty'
+    mocks.storedSmartLookup = stored({ results: { autoDeepOnZero: false }, enhance: { jev: { ...JEV }, chat: { ...CHAT_ALLOWED } } })
+    mocks.keys = { jev: true, chat: true }
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [], requestCount: 1, elapsedMs: 300, usage: null,
+    }
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(noMatchPanel()).toContain('chat.example sent no usable wording; results unchanged'))
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
   })
 
   it('hiding the window by its own command still cancels an in-flight repair', async () => {
     mocks.local = 'empty'
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
+    configureBoth()
     mocks.keys = { jev: true, chat: true }
     let release!: () => void
     const gateRepair = new Promise<void>((resolve) => { release = resolve })
@@ -1108,232 +1551,61 @@ describe('SmartLookupApp enhancement', () => {
     expect(calls('smart_lookup_cancel')).toEqual([{ lookupRunId: 'run-1' }])
     release()
   })
+})
 
-  // ---- fix round 1: design states ----
+describe('SmartLookupApp launch view', () => {
+  it('the launch view shows recent lookups with no first-run note, even for old settings that never saw it', async () => {
+    localStorage.setItem('notemd.smartLookup.recent', JSON.stringify(['release risk', 'budget']))
+    mocks.storedSmartLookup = stored({ launch: { firstRunSeen: false } })
+    await mountReady()
+    await vi.waitFor(() => expect(document.querySelectorAll('.recent-item')).toHaveLength(2))
+    expect(document.querySelector('.first-run')).toBeNull()
+    expect(document.body.textContent).not.toContain('What happens after Return')
+    // The stored flag stays readable and is never written by the window.
+    expect(settings.smartLookup.launch.firstRunSeen).toBe(false)
+    expect((mocks.storedSmartLookup as any).launch.firstRunSeen).toBe(false)
 
-  it('key and connection errors offer to open the enhancement settings', async () => {
-    for (const status of ['keyInvalid', 'unreachable'] as const) {
-      useLocal()
-      mocks.judgeQueue.push(judgement({ status, endpointHost: 'api.typesafe.ai', statusClass: status === 'keyInvalid' ? '4xx' : '5xx' }))
-      mocks.emitTo.mockClear()
-      const input = await mountReady()
-      await submit(input)
-      await vi.waitFor(() => expect(header()).toContain('api.typesafe.ai'))
-      click(button('Open settings'))
-      await vi.waitFor(() => expect(mocks.emitTo).toHaveBeenCalledWith('main', 'settings://open-tab', { tab: 'enhance' }))
-      await unmount(component!)
-      component = null
-      document.body.innerHTML = ''
-    }
+    click(recentItem('release risk'))
+    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(1))
+    expect(calls('smart_lookup_local').at(-1)).toMatchObject({ question: 'release risk' })
   })
 
-  it('⌘R applies a pending order', async () => {
-    useLocal()
-    const release = gate()
-    mocks.judgeQueue.push(REORDERED())
+  it('the launch view asks for a question and the footer says the answer is on once lookup is set up and allowed', async () => {
+    configureBoth()
     const input = await mountReady()
-    await submit(input)
-    key(input, 'ArrowDown')
-    await vi.waitFor(() => expect(document.activeElement?.getAttribute('data-result-id')).toBe('r1'))
-    release()
-    await vi.waitFor(() => expect(header()).toContain('New order available'))
-    expect(header()).toContain('⌘R')
-    key(document.activeElement!, 'r', { metaKey: true })
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    expect(activeRowId()).toBe('r1')
-    expect(header()).toContain('Reordered 3 by judgement')
+    expect((input as HTMLTextAreaElement).placeholder).toBe('Ask a question')
+    await vi.waitFor(() => expect(document.querySelector('.footer')?.textContent).toContain('Answers with sources · on'))
   })
 
-  it('top ten unfit with a new order after moving offers Apply, then still Rephrase after restore and apply', async () => {
-    useLocal()
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    const release = gate()
-    mocks.judgeQueue.push(judgement({ order: ['r3', 'r1', 'r2'], topTenUnfit: true, judgedCount: 3, rerankedCount: 3,
-      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
-    const input = await mountReady()
-    await submit(input)
-    key(input, 'ArrowDown')
-    await vi.waitFor(() => expect(document.activeElement?.getAttribute('data-result-id')).toBe('r1'))
-    release()
-    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
-    expect(rowIds()).toEqual(LOCAL)
-    click(button('Apply'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    expect(header()).toContain('None of the top 10 fit')
-    button('Rephrase')
-    expect(document.querySelectorAll('.judge-header button')).toHaveLength(2)
-
-    key(document.activeElement!, 'z', { metaKey: true })
-    await vi.waitFor(() => expect(rowIds()).toEqual(LOCAL))
-    button('Rephrase')
-    click(button('Apply'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    button('Rephrase')
+  it.each([
+    ['nothing is set up', {}],
+    ['the Jev host is not allowed', { enhance: { jev: { ...JEV, consentHost: '' }, chat: { ...CHAT_ALLOWED } } }],
+    ['Jev has no model', { enhance: { jev: { ...JEV, model: '' }, chat: { ...CHAT_ALLOWED } } }],
+    ['only Jev is set up', { enhance: { jev: { ...JEV } } }],
+    ['the answer host is not allowed', { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }],
+  ])('the launch footer has no answer chip when %s', async (_name, value) => {
+    mocks.storedSmartLookup = stored(value)
+    await mountReady()
+    await vi.waitFor(() => expect(document.querySelector('.footer')).not.toBeNull())
+    expect(settings.smartLookup.enhance.enabled).toBe(true)
+    expect(document.querySelector('.enhance-chip')).toBeNull()
   })
 
-  it('a repair that returns no wording shows the invalid state', async () => {
-    mocks.local = 'empty'
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.keys = { jev: true, chat: true }
-    mocks.repair = {
-      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [], requestCount: 1, elapsedMs: 300, usage: null,
-    }
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    await vi.waitFor(() => expect(document.querySelector('.repair-notice')?.textContent).toContain('chat.example sent no usable wording; results unchanged'))
-    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
-    expect(noMatchPanel()).toContain('1 model request(s) this time')
+  it('the launch footer has no answer chip while lookup enhancement is off', async () => {
+    mocks.storedSmartLookup = stored({ enhance: { enabled: false } })
+    await mountReady()
+    await vi.waitFor(() => expect(settings.smartLookup.enhance.enabled).toBe(false))
+    expect(document.querySelector('.footer')?.textContent).not.toContain('Answers with sources')
   })
 
-  it('a failed settings save is logged without any error text', async () => {
-    useLocal()
-    mocks.storedSmartLookup = {
-      enhance: { jev: { url: 'https://openrouter.ai/api/alpha/decisions', model: 'm', authMode: 'bearer', consentHost: '' } },
-    }
-    mocks.judgeQueue.push(judgement({ status: 'noConsent', endpointHost: 'openrouter.ai', requestCount: 0 }))
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('Sending to openrouter.ai not allowed'))
-    mocks.saveError = true
-    click(button('Allow'))
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(2))
-    expect(settings.smartLookup.enhance.jev.consentHost).toBe('openrouter.ai')
-    mocks.saveError = false
-    await chooseMenuAction('Copy activity log')
-    await vi.waitFor(() => expect(mocks.writeText).toHaveBeenCalledTimes(1))
-    const log = String(mocks.writeText.mock.calls[0][0])
-    const entry = log.split('\n').map((line) => JSON.parse(line)).find((item) => item.stage === 'settings')
-    expect(entry).toMatchObject({ level: 'error', message: "Settings weren't saved; they apply to this window only" })
-    expect(log).not.toContain('disk full')
-    expect(log).not.toContain('/Users/me')
-  })
-
-  it('the repair strip summarises the repair, shows the local diagnosis and can go back to the original question', async () => {
-    useLocal()
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.judgeQueue.push(judgement({ order: LOCAL, topTenUnfit: true, judgedCount: 3,
-      verdicts: LOCAL.map((resultId) => ({ resultId, tier: 'unfit' as const })) }))
-    mocks.repair = {
-      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [{ terms: ['发布'], phrases: [] }, { terms: ['上架'], phrases: [] }], requestCount: 1, elapsedMs: 800, usage: null,
-    }
-    mocks.groups = {
-      search: response([rh('r8'), rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [2, 1], hitGroups: [[1, 2], [1]],
-    }
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(header()).toContain('None of the top 10 fit'))
-    click(button('Rephrase'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r8', 'r9']))
-
-    const strip = document.querySelector('.repair-strip')!.textContent!
-    expect(strip).toContain('Original question: 3 locally · 7 ms')
-    expect(strip).toContain('Two other wordings found 2 locally')
-    expect(strip).toContain('Search words from the repair model · only the question was sent · 800 ms')
-    expect(strip).toContain('Wording A · 2')
-    expect(strip).toContain('Wording B · 1')
-    expect(row('r8').textContent).toContain('A + B')
-    expect(row('r9').textContent).toContain('Wording A')
-
-    click(button('Original question only'))
-    await vi.waitFor(() => expect(rowIds()).toEqual(LOCAL))
-    expect(header()).toContain('None of the top 10 fit')
-    expect(document.querySelector('.repair-strip')).toBeNull()
-    expect(calls('smart_lookup_judge')).toHaveLength(1)
-    expect(calls('smart_lookup_local')).toHaveLength(1)
-  })
-
-  it('the repair strip shows the struck terms with the no-model note', async () => {
-    mocks.local = 'empty'
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.keys = { jev: true, chat: true }
-    mocks.diagnosis = { terms: [{ term: '老王', hits: 0, capped: false }, { term: '苹果', hits: 0, capped: false }] }
-    mocks.repair = {
-      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [{ terms: ['上架'], phrases: [] }], requestCount: 1, elapsedMs: 800, usage: null,
-    }
-    mocks.groups = { search: response([rh('r9')]), lookupRunId: 'run-2', time: null, groupCounts: [1], hitGroups: [[1]] }
-    const input = await mountReady()
-    await submit(input, 'release risk', 1)
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r9']))
-    const diagnosisRow = document.querySelector('.repair-strip .diagnosis')!
-    expect([...diagnosisRow.querySelectorAll('s')].map((term) => term.textContent)).toEqual(['老王', '苹果'])
-    expect(diagnosisRow.textContent).toContain('Local check')
-    expect(diagnosisRow.textContent).toContain('No model used')
-    expect(document.querySelector('.repair-strip')!.textContent).toContain('Another wording found 1 locally')
-
-    // The zero-hit original is one click away too.
-    click(button('Original question only'))
-    await vi.waitFor(() => expect(noMatchPanel()).toContain("Your notes probably don't contain this"))
-  })
-
-  it('the no-match panel lists what ran, in order, with the wordings and the model calls', async () => {
-    mocks.local = 'empty'
-    mocks.storedSmartLookup = { results: { autoDeepOnZero: true }, enhance: { jev: { ...JEV }, chat: { ...CHAT } } }
-    mocks.keys = { jev: true, chat: true }
-    const base = mocks.invoke.getMockImplementation()!
-    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
-      if (command === 'smart_lookup_local' && args?.deep === true) {
-        return { search: { ...response([]), tookMs: 1900 }, lookupRunId: `run-${++mocks.runCounter}`, time: null }
-      }
-      return base(command, args)
-    })
-    mocks.repair = {
-      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
-      groups: [{ terms: ['供应商', '折扣'], phrases: [] }, { terms: ['采购合同'], phrases: ['价格 条款'] }],
-      requestCount: 1, elapsedMs: 700, usage: null,
-    }
-    mocks.groups = { search: { ...response([]), tookMs: 40 }, lookupRunId: 'run-3', time: null, groupCounts: [0, 0], hitGroups: [] }
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    await vi.waitFor(() => expect(calls('smart_lookup_search_groups')).toHaveLength(1))
-    await vi.waitFor(() => expect(noMatchPanel()).toContain('Searched again with other wordings'))
-
-    const panel = document.querySelector('.no-match')!
-    expect(panel.querySelector('h2')?.textContent).toBe("Your notes probably don't contain this")
-    expect(panel.textContent).toContain('All three steps below were tried; no passage matched.')
-    const rows = [...panel.querySelectorAll('.attempt')].map((item) => item.querySelector('strong')?.textContent)
-    expect(rows).toEqual([
-      'Searched the original question locally',
-      'Scanned every file line by line',
-      'Searched again with other wordings',
-    ])
-    expect(panel.textContent).toMatch(/Scanned every file line by line\s*0 · 1\.9 s/)
-    expect(panel.textContent).toMatch(/Searched again with other wordings\s*0 · 40 ms/)
-    const wordings = [...panel.querySelectorAll('.group-line')].map((line) => ({
-      label: line.querySelector('.glabel')?.textContent,
-      terms: [...line.querySelectorAll('.term')].map((term) => term.textContent),
-    }))
-    expect(wordings).toEqual([
-      { label: 'Wording A', terms: ['供应商', '折扣'] },
-      { label: 'Wording B', terms: ['采购合同', '"价格 条款"'] },
-    ])
-    expect(panel.textContent).toContain('1 model request(s) this time')
-    expect(panel.textContent).toContain('Only the question was sent to the repair model')
-    expect(buttonStarting('Rewrite the question').textContent).toContain('⌘L')
-    expect(buttonStarting('Edit wordings A / B').textContent).toContain('⇥')
-  })
-
-  it('⌘L rewrites the question and ⇥ edits the wordings from the no-match panel', async () => {
-    mocks.local = 'empty'
-    const input = await mountReady()
-    await submit(input, 'release risk', 0)
-    await vi.waitFor(() => expect(noMatchPanel()).toContain('0 model request(s) this time'))
-    expect(noMatchPanel()).toContain('Nothing was sent.')
-    expect(noMatchPanel()).toContain('The steps below were tried; no passage matched.')
-
-    key(input, 'Tab')
-    await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.repair-strip input')))
-    expect((document.activeElement as HTMLInputElement).value).toBe('release risk')
-
-    input.setSelectionRange(2, 2)
-    key(document.activeElement!, 'l', { metaKey: true })
-    await vi.waitFor(() => {
-      expect(document.activeElement).toBe(input)
-      expect(input.selectionEnd).toBe('release risk'.length)
-      expect(input.selectionStart).toBe(0)
-    })
+  it('clearing recent lookups empties the launch list', async () => {
+    localStorage.setItem('notemd.smartLookup.recent', JSON.stringify(['release risk']))
+    await mountReady()
+    await vi.waitFor(() => expect(document.querySelectorAll('.recent-item')).toHaveLength(1))
+    expect(document.body.textContent).not.toContain('What happens after Return')
+    click(buttonNamed('Clear'))
+    await vi.waitFor(() => expect(document.querySelectorAll('.recent-item')).toHaveLength(0))
+    expect(localStorage.getItem('notemd.smartLookup.recent')).toBeNull()
   })
 
   it('the launch view shows counts, a local-only note, and runs a recent lookup with arrows and Return', async () => {
@@ -1357,86 +1629,8 @@ describe('SmartLookupApp enhancement', () => {
     key(input, 'Enter')
     await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(1))
     expect(calls('smart_lookup_local')[0]).toMatchObject({ question: 'budget' })
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r7']))
+    await vi.waitFor(() => expect(ids('local')).toEqual(['r7']))
     expect(JSON.parse(localStorage.getItem('notemd.smartLookup.recentCounts')!)).toMatchObject({ budget: 1 })
   })
 
-  it('the first-run card shows three steps and closes with ×', async () => {
-    mocks.storedSmartLookup = { enhance: { jev: { ...JEV } }, launch: { firstRunSeen: false } }
-    await mountReady()
-    await vi.waitFor(() => expect(document.querySelector('.first-run')).not.toBeNull())
-    const card = document.querySelector('.first-run')!
-    expect(card.querySelectorAll('.steps li')).toHaveLength(3)
-    expect(card.textContent).toContain('Shown only the first time')
-    expect(card.textContent).toContain('Local search')
-    expect(card.textContent).toContain("directly match what you're looking for")
-    expect(card.textContent).toContain('You can correct a wrong judgement; corrections stay on this device.')
-    click(card.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!)
-    await vi.waitFor(() => expect(document.querySelector('.first-run')).toBeNull())
-    await vi.waitFor(() => expect((mocks.storedSmartLookup as any).launch.firstRunSeen).toBe(true))
-  })
-
-  it('the time chip shows the range and mode, and × ignores the time with a local re-search', async () => {
-    useLocal()
-    mocks.localTime = { sourceText: '上个月', after: '2026-10-01', before: '2026-10-31', mode: 'group', inWindow: 1 }
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(calls('smart_lookup_judge')).toHaveLength(1))
-    const chip = document.querySelector('.time-anchor')!
-    expect(chip.textContent).toContain('Time: 上个月 · 10/1–10/31')
-    expect(chip.querySelector('.time-mode')?.textContent).toBe('Group only')
-
-    mocks.localTime = { sourceText: '上个月', after: '2026-10-01', before: '2026-10-31', mode: 'ignore', inWindow: 0 }
-    click(chip.querySelector<HTMLButtonElement>('button[aria-label="Ignore time"]')!)
-    await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(2))
-    expect(calls('smart_lookup_local')[1]).toMatchObject({ question: 'release risk', timeMode: 'ignore', deep: false })
-    await vi.waitFor(() => expect(document.querySelector('.time-mode')?.textContent).toBe('Ignore time'))
-    expect(document.querySelector('button[aria-label="Ignore time"]')).toBeNull()
-    await wait(20)
-    expect(calls('smart_lookup_judge')).toHaveLength(1)
-  })
-
-  it('while judging, candidate rows show a pending mark and whole sections say they are left out', async () => {
-    mocks.localByQuestion['release risk'] = [rh('r1'), rh('r4', { level: 'section' }), rh('r2'), rh('r5', { pinned: true })]
-    const release = gate()
-    const input = await mountReady()
-    await submit(input, 'release risk', 4)
-    await vi.waitFor(() => expect(header()).toContain('Judging about 2'))
-    expect(row('r1').querySelector('.pending-dot')?.getAttribute('aria-label')).toBe('Being judged')
-    expect(row('r2').querySelector('.pending-dot')).not.toBeNull()
-    expect(row('r4').querySelector('.pending-dot')).toBeNull()
-    expect(row('r5').querySelector('.pending-dot')).toBeNull()
-    expect(row('r4').textContent).toContain('Whole section not judged')
-    expect(row('r5').textContent).not.toContain('Whole section')
-    release()
-    await vi.waitFor(() => expect(document.querySelectorAll('.pending-dot')).toHaveLength(0))
-  })
-
-  it('unfit rows are dimmed, the correction preselects the verdict, and the popover is titled', async () => {
-    useLocal()
-    mocks.judgeQueue.push(judgement({
-      order: ['r3', 'r1', 'r2'], judgedCount: 3, rerankedCount: 3,
-      verdicts: [{ resultId: 'r3', tier: 'fit' }, { resultId: 'r1', tier: 'unsure' }, { resultId: 'r2', tier: 'unfit' }],
-    }))
-    const input = await mountReady()
-    await submit(input)
-    await vi.waitFor(() => expect(rowIds()).toEqual(['r3', 'r1', 'r2']))
-    expect(row('r2').classList.contains('dim')).toBe(true)
-    expect(row('r3').classList.contains('dim')).toBe(false)
-
-    const radios = () => [...document.querySelectorAll<HTMLButtonElement>('.correction [role="radio"]')]
-    expect(radios().map((radio) => radio.getAttribute('aria-checked'))).toEqual(['true', 'false'])
-    expect(document.querySelector('.correction')?.textContent).toContain('Corrections stay on this device and are used to evaluate judging')
-    click(row('r1'))
-    await vi.waitFor(() => expect(activeRowId()).toBe('r1'))
-    expect(radios().map((radio) => radio.getAttribute('aria-checked'))).toEqual(['false', 'false'])
-    click(radios()[0])
-    await vi.waitFor(() => expect(radios()[0].getAttribute('aria-checked')).toBe('true'))
-    expect(calls('smart_lookup_feedback')[0]).toEqual({ lookupRunId: 'run-1', resultId: 'r1', verdict: 'fit' })
-
-    click(button('Reordered 3 by judgement'))
-    await vi.waitFor(() => expect(document.querySelector('.judge-details[role="dialog"]')).not.toBeNull())
-    expect(document.querySelector('.judge-details')?.getAttribute('aria-label')).toBe('This judgement')
-    expect(document.querySelector('.details-title')?.textContent).toBe('This judgement')
-  })
 })

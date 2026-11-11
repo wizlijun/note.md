@@ -47,6 +47,9 @@ pub struct LookupParams {
     pub enhance: EnhanceParams,
     pub repair: RepairParams,
     pub judge: JudgeParams,
+    pub retrieval: RetrievalParams,
+    pub budget: BudgetParams,
+    pub answer: AnswerParams,
 }
 
 impl Default for LookupParams {
@@ -60,6 +63,9 @@ impl Default for LookupParams {
             enhance: EnhanceParams::default(),
             repair: RepairParams::default(),
             judge: JudgeParams::default(),
+            retrieval: RetrievalParams::default(),
+            budget: BudgetParams::default(),
+            answer: AnswerParams::default(),
         }
     }
 }
@@ -184,11 +190,107 @@ impl Default for RepairParams {
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct JudgeParams {
     pub criterion: String,
+    pub preset: Preset,
 }
 
 impl Default for JudgeParams {
     fn default() -> Self {
-        Self { criterion: DEFAULT_CRITERION.to_string() }
+        Self { criterion: DEFAULT_CRITERION.to_string(), preset: Preset::default() }
+    }
+}
+
+/// Which wording the Jev questions use (spec H.3.7). `Sag2V10` is the SAG2
+/// text, verbatim; `directMatch` is the Chinese direct-match criterion of
+/// spec 5.4 (`judge.criterion`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Preset {
+    #[default]
+    Sag2V10,
+    DirectMatch,
+}
+
+/// Multi-round evidence retrieval (spec Appendix H.7). Defaults follow
+/// SAG-Wiki `protocol/src/types.rs:Retrieval` (commit 61f63c6), except
+/// `deep_candidate_k` (the 100 `retrieval.rs:search` sets),
+/// `protected_k` (the `take(5)` in `retrieve_inner`) and
+/// `round_timeout_ms` (spec H.6).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+pub struct RetrievalParams {
+    pub candidate_k: usize,
+    pub deep_candidate_k: usize,
+    pub seed_k: usize,
+    pub expansion_term_limit: usize,
+    pub max_hops: usize,
+    pub top_k: usize,
+    pub protected_k: usize,
+    pub jev_context_tokens: u64,
+    pub round_timeout_ms: u64,
+}
+
+impl Default for RetrievalParams {
+    fn default() -> Self {
+        Self {
+            candidate_k: 50,
+            deep_candidate_k: 100,
+            seed_k: 10,
+            expansion_term_limit: 20,
+            max_hops: 1,
+            top_k: 10,
+            protected_k: 5,
+            jev_context_tokens: 32_000,
+            round_timeout_ms: 10_000,
+        }
+    }
+}
+
+impl RetrievalParams {
+    pub(crate) fn round_timeout(&self) -> Duration {
+        Duration::from_millis(self.round_timeout_ms)
+    }
+
+    /// The round-0 candidate count: `deep_candidate_k` for a deep search.
+    pub(crate) fn candidate_k_for(&self, deep: bool) -> usize {
+        if deep {
+            self.deep_candidate_k
+        } else {
+            self.candidate_k
+        }
+    }
+}
+
+/// Total token ceiling of one lookup (spec H.6).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+pub struct BudgetParams {
+    pub max_tokens_per_lookup: u64,
+}
+
+impl Default for BudgetParams {
+    fn default() -> Self {
+        Self { max_tokens_per_lookup: 200_000 }
+    }
+}
+
+/// The short answer written from the evidence (spec H.4, H.7).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+pub struct AnswerParams {
+    pub context_tokens: u64,
+    pub output_tokens: u64,
+    pub timeout_ms: u64,
+}
+
+impl Default for AnswerParams {
+    fn default() -> Self {
+        Self { context_tokens: 65_536, output_tokens: 2_048, timeout_ms: 60_000 }
+    }
+}
+
+impl AnswerParams {
+    pub(crate) fn timeout(&self) -> Duration {
+        Duration::from_millis(self.timeout_ms)
     }
 }
 
@@ -273,6 +375,20 @@ pub(crate) const BOUNDS: &[Bound] = &[
     int("repair.maxTerms", 1.0, 12.0),
     int("repair.maxPhrases", 0.0, 4.0),
     int("repair.itemMaxChars", 8.0, 80.0),
+    int("retrieval.candidateK", 1.0, 100.0),
+    int("retrieval.deepCandidateK", 1.0, 200.0),
+    int("retrieval.seedK", 1.0, 50.0),
+    int("retrieval.expansionTermLimit", 1.0, 50.0),
+    int("retrieval.maxHops", 0.0, 2.0),
+    int("retrieval.topK", 1.0, 50.0),
+    int("retrieval.protectedK", 0.0, 50.0),
+    int("retrieval.jevContextTokens", 4_000.0, 64_000.0),
+    int("retrieval.roundTimeoutMs", 1_000.0, 60_000.0),
+    int("budget.maxTokensPerLookup", 10_000.0, 2_000_000.0),
+    int("answer.contextTokens", 4_096.0, 131_072.0),
+    // Also below `answer.contextTokens` (cross-field rule in `validate`).
+    int("answer.outputTokens", 256.0, 8_192.0),
+    int("answer.timeoutMs", 5_000.0, 120_000.0),
 ];
 
 impl LookupParams {
@@ -299,6 +415,13 @@ impl LookupParams {
                 c.token_budget, c.max_block_chars, c.cjk_chars_per_token, c.other_chars_per_token
             ));
         }
+        let a = &self.answer;
+        if a.output_tokens >= a.context_tokens {
+            return Err(format!(
+                "answer.outputTokens = {} must be below answer.contextTokens = {}",
+                a.output_tokens, a.context_tokens
+            ));
+        }
         let t = &self.tiers;
         if t.unfit >= t.fit {
             return Err(format!("tiers.unfit = {} must be below tiers.fit = {}", t.unfit, t.fit));
@@ -319,6 +442,7 @@ impl LookupParams {
     /// 按配置键取数值字段（BOUNDS 里的键），供 validate 与测试使用。
     pub(crate) fn numeric(&self, key: &str) -> Option<f64> {
         let (l, c, r) = (&self.local, &self.candidates, &self.repair);
+        let (v, a) = (&self.retrieval, &self.answer);
         Some(match key {
             "local.limit" => l.limit as f64,
             "local.deepTimeoutMs" => l.deep_timeout_ms as f64,
@@ -340,6 +464,19 @@ impl LookupParams {
             "repair.maxTerms" => r.max_terms as f64,
             "repair.maxPhrases" => r.max_phrases as f64,
             "repair.itemMaxChars" => r.item_max_chars as f64,
+            "retrieval.candidateK" => v.candidate_k as f64,
+            "retrieval.deepCandidateK" => v.deep_candidate_k as f64,
+            "retrieval.seedK" => v.seed_k as f64,
+            "retrieval.expansionTermLimit" => v.expansion_term_limit as f64,
+            "retrieval.maxHops" => v.max_hops as f64,
+            "retrieval.topK" => v.top_k as f64,
+            "retrieval.protectedK" => v.protected_k as f64,
+            "retrieval.jevContextTokens" => v.jev_context_tokens as f64,
+            "retrieval.roundTimeoutMs" => v.round_timeout_ms as f64,
+            "budget.maxTokensPerLookup" => self.budget.max_tokens_per_lookup as f64,
+            "answer.contextTokens" => a.context_tokens as f64,
+            "answer.outputTokens" => a.output_tokens as f64,
+            "answer.timeoutMs" => a.timeout_ms as f64,
             _ => return None,
         })
     }
@@ -400,7 +537,8 @@ fn locate_error(value: &serde_json::Value, error: serde_json::Error) -> String {
     error.to_string()
 }
 
-const GROUPS: [&str; 8] = ["local", "time", "routing", "candidates", "tiers", "enhance", "repair", "judge"];
+const GROUPS: [&str; 11] =
+    ["local", "time", "routing", "candidates", "tiers", "enhance", "repair", "judge", "retrieval", "budget", "answer"];
 
 /// The file and each known group must be JSON objects: serde would otherwise
 /// read an array as a struct and fill the rest with defaults.
@@ -483,6 +621,79 @@ mod tests {
     use std::path::Path;
     use std::time::Duration;
 
+    /// The Settings copy under the Jev consent (`settings.enhance.budget`)
+    /// states the default sending figures: rounds per Return, passages per
+    /// round (the protected, carried and new ones of a later round) and after
+    /// a line-by-line scan or an expanded search (`deepCandidateK`), the round
+    /// time limit, and the token ceiling. The ceiling belongs to the evidence
+    /// check: the answer is stated after it, with its own budget and up to
+    /// three requests (`answer.rs`: one correction and one review turn).
+    #[test]
+    fn the_settings_budget_copy_states_the_default_figures() {
+        let p = LookupParams::default();
+        let r = &p.retrieval;
+        let rounds = 1 + r.max_hops;
+        let per_round = r.protected_k + r.seed_k + r.candidate_k;
+        let expanded = r.protected_k + r.seed_k + r.deep_candidate_k;
+        assert!(r.candidate_k <= per_round, "round 0 sends at most candidateK");
+        let seconds = r.round_timeout_ms / 1000;
+        let tokens = p.budget.max_tokens_per_lookup;
+        let grouped = |sep: char| {
+            let digits = tokens.to_string();
+            let mut out = String::new();
+            for (i, c) in digits.chars().enumerate() {
+                if i > 0 && (digits.len() - i) % 3 == 0 {
+                    out.push(sep);
+                }
+                out.push(c);
+            }
+            out
+        };
+        let line = |source: &str| -> String {
+            let key = "\"settings.enhance.budget\": ";
+            let at = source.find(key).expect("settings.enhance.budget") + key.len();
+            source[at..source[at..].find('\n').unwrap() + at].to_string()
+        };
+        // (catalog, figures of the evidence check, the token ceiling, the answer and its requests)
+        let cases = [
+            (
+                include_str!("../../src/lib/i18n/en.ts"),
+                vec![format!("up to {rounds} rounds"), format!("up to {per_round} passages per round"), format!("({expanded} after"), format!("{seconds} seconds per round")],
+                grouped(','),
+                vec!["1 answer".to_string(), "its own budget".to_string(), "up to 3 requests".to_string()],
+            ),
+            (
+                include_str!("../../src/lib/i18n/zh.ts"),
+                vec![format!("至多 {rounds} 轮"), format!("每轮至多 {per_round} 段"), format!("每轮至多 {expanded} 段"), format!("每轮 {seconds} 秒")],
+                grouped(','),
+                vec!["1 次回答".to_string(), "预算另计".to_string(), "至多 3 个请求".to_string()],
+            ),
+            (
+                include_str!("../../src/lib/i18n/de.ts"),
+                vec![format!("bis zu {rounds} Runden"), format!("bis zu {per_round} Absätze"), format!("({expanded} nach"), format!("{seconds} Sekunden pro Runde")],
+                grouped('.'),
+                vec!["1 Antwort".to_string(), "eigenem Budget".to_string(), "bis zu 3 Anfragen".to_string()],
+            ),
+            (
+                include_str!("../../src/lib/i18n/ja.ts"),
+                vec![format!("最大 {rounds} ラウンド"), format!("最大 {per_round} 段落"), format!("{expanded} 段落"), format!("{seconds} 秒以内")],
+                grouped(','),
+                vec!["回答を 1 回".to_string(), "予算は別".to_string(), "最大 3 リクエスト".to_string()],
+            ),
+        ];
+        for (source, check, ceiling, answer) in cases {
+            let copy = line(source);
+            let at = |want: &str| copy.find(want).unwrap_or_else(|| panic!("{want:?} missing from {copy}"));
+            let ceiling_at = at(&ceiling);
+            for want in &check {
+                assert!(at(want) < ceiling_at, "{want:?} should come before the token ceiling in {copy}");
+            }
+            for want in &answer {
+                assert!(at(want) > ceiling_at, "{want:?} should follow the token ceiling, outside it, in {copy}");
+            }
+        }
+    }
+
     #[test]
     fn defaults_equal_the_constants_they_replace() {
         let p = LookupParams::default();
@@ -500,6 +711,7 @@ mod tests {
         let r = &p.repair;
         assert_eq!((r.max_groups, r.max_terms, r.max_phrases, r.item_max_chars), (2, 6, 2, 40));
         assert_eq!(p.judge.criterion, DEFAULT_CRITERION);
+        assert_eq!(p.judge.preset, Preset::Sag2V10);
         assert_eq!(p.local.fusion(), FusionParams::default());
         assert_eq!(FusionParams::default(), FusionParams { rrf_k: 60.0, strict_weight: 1.5, relaxed_weight: 1.0 });
         let l = p.candidates.limits();
@@ -510,6 +722,49 @@ mod tests {
         assert_eq!(DEEP_TIMEOUT_CAP_MS, 5_000);
         assert_eq!(LOCAL_LIMIT_MAX, 100);
         assert!(p.validate().is_ok());
+    }
+
+    #[test]
+    fn retrieval_defaults_follow_sag2() {
+        let p = LookupParams::default();
+        assert_eq!(
+            (
+                p.retrieval.candidate_k,
+                p.retrieval.deep_candidate_k,
+                p.retrieval.seed_k,
+                p.retrieval.expansion_term_limit,
+                p.retrieval.max_hops,
+                p.retrieval.top_k,
+                p.retrieval.protected_k
+            ),
+            (50, 100, 10, 20, 1, 10, 5)
+        );
+        assert_eq!(
+            (p.retrieval.jev_context_tokens, p.retrieval.round_timeout_ms, p.budget.max_tokens_per_lookup),
+            (32_000, 10_000, 200_000)
+        );
+        assert_eq!((p.answer.context_tokens, p.answer.output_tokens, p.answer.timeout_ms), (65_536, 2_048, 60_000));
+        assert_eq!(p.judge.preset, Preset::Sag2V10);
+        assert_eq!(p.retrieval.round_timeout(), Duration::from_secs(10));
+        assert_eq!(p.answer.timeout(), Duration::from_secs(60));
+        assert_eq!((p.retrieval.candidate_k_for(false), p.retrieval.candidate_k_for(true)), (50, 100));
+    }
+
+    #[test]
+    fn max_hops_above_two_and_output_not_below_context_are_rejected() {
+        assert!(parse_params(r#"{"retrieval":{"maxHops":3}}"#, "p.json")
+            .unwrap_err()
+            .contains("retrieval.maxHops = 3 is outside 0..=2"));
+        assert!(parse_params(r#"{"answer":{"contextTokens":4096,"outputTokens":4096}}"#, "p.json")
+            .unwrap_err()
+            .contains("answer.outputTokens"));
+        assert!(parse_params(r#"{"answer":{"contextTokens":4096,"outputTokens":4095}}"#, "p.json").is_ok());
+        assert!(parse_params(r#"{"judge":{"preset":"other"}}"#, "p.json").is_err());
+        assert_eq!(
+            parse_params(r#"{"judge":{"preset":"directMatch"}}"#, "p.json").unwrap().judge.preset,
+            Preset::DirectMatch
+        );
+        assert!(parse_params(r#"{"retrieval":{"maxHop":1}}"#, "p.json").unwrap_err().contains("unknown field"));
     }
 
     /// `{"group":{"field":value}}` plus `extra` fields merged into the same group.
@@ -535,11 +790,11 @@ mod tests {
 
     #[test]
     fn every_numeric_bound_is_inclusive_and_rejected_just_outside() {
-        assert_eq!(BOUNDS.len(), 20);
+        assert_eq!(BOUNDS.len(), 33);
         let mut keys: Vec<&str> = BOUNDS.iter().map(|b| b.key).collect();
         keys.sort_unstable();
         keys.dedup();
-        assert_eq!(keys.len(), 20, "keys are unique");
+        assert_eq!(keys.len(), 33, "keys are unique");
         for bound in BOUNDS {
             assert!(LookupParams::default().numeric(bound.key).is_some(), "{}", bound.key);
             // Cross-field partners that keep the bound's own edge valid.
@@ -789,7 +1044,7 @@ mod tests {
     #[test]
     fn every_parameter_has_its_own_section() {
         let keys = flattened_keys();
-        assert_eq!(keys.len(), 22);
+        assert_eq!(keys.len(), 36);
         const LINES: [&str; 8] =
             ["- 默认：", "- 范围：", "- 单位：", "- 读取位置：", "- 来源：", "- 调高：", "- 调低：", "- 决定它的指标："];
         for key in &keys {
@@ -833,6 +1088,13 @@ mod tests {
         assert_eq!(line_after(time, "- 范围：", "time.mode"), "`group` | `window` | `ignore`");
         for mode in ["group", "window", "ignore"] {
             assert!(serde_json::from_value::<TimeMode>(serde_json::json!(mode)).is_ok(), "{mode}");
+        }
+        let preset = section(DOC, "judge.preset");
+        assert_eq!(line_after(preset, "- 默认：", "judge.preset"), "`sag2V10`");
+        assert_eq!(serde_json::to_value(defaults.judge.preset).unwrap(), "sag2V10");
+        assert_eq!(line_after(preset, "- 范围：", "judge.preset"), "`sag2V10` | `directMatch`");
+        for preset in ["sag2V10", "directMatch"] {
+            assert!(serde_json::from_value::<Preset>(serde_json::json!(preset)).is_ok(), "{preset}");
         }
         let criterion = section(DOC, "judge.criterion");
         assert_eq!(line_after(criterion, "- 默认：", "judge.criterion"), "见下方原文");

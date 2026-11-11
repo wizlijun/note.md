@@ -37,12 +37,10 @@ pub fn parse_file(rel_path: &str, raw: &str, mtime_secs: i64, globs: &SourceGlob
     // supposed to give it. `---` is ordinary punctuation in transcripts and
     // plain text (a scene divider, a rule under a heading); it is a header
     // only in markdown.
-    let is_transcript = ends_with_ascii_ci(rel_path, ".srt") || ends_with_ascii_ci(rel_path, ".vtt");
-    let is_plain_text = ends_with_ascii_ci(rel_path, ".txt");
-    let is_markdown = !is_transcript && !is_plain_text;
+    let is_transcript = is_transcript_path(rel_path);
+    let is_plain_text = is_plain_text_path(rel_path);
 
-    let (fm_raw, body, body_line) =
-        if is_markdown { frontmatter::split(&text) } else { (None, text.as_ref(), 1) };
+    let (fm_raw, body, body_line) = split_frontmatter(rel_path, &text);
     // `fm_raw.is_some()` must be captured BEFORE it is collapsed below —
     // `fm_raw.map(parse).unwrap_or_default()` produces the exact same
     // `Frontmatter::default()`-shaped value for "no `---` block at all" and
@@ -55,8 +53,8 @@ pub fn parse_file(rel_path: &str, raw: &str, mtime_secs: i64, globs: &SourceGlob
     let fm_present = fm_raw.is_some();
     let fm = fm_raw.map(frontmatter::parse).unwrap_or_default();
 
-    // Chunker dispatch, from the same three booleans computed above so it can
-    // never disagree with the frontmatter decision. `.note.md` is checked
+    // Chunker dispatch, from the same two predicates `split_frontmatter`
+    // uses, so it can never disagree with the frontmatter decision. `.note.md` is checked
     // with an exact, case-sensitive `ends_with` (it is this vault's own
     // in-app convention — see the asymmetry `is_indexable` documents in
     // `scan.rs`); the three externally-authored formats go through the SAME
@@ -88,10 +86,40 @@ pub fn parse_file(rel_path: &str, raw: &str, mtime_secs: i64, globs: &SourceGlob
         doc_date,
         date_inferred,
         human_verified: fm.human_verified,
-        confidentiality: fm.confidentiality.clone().unwrap_or_else(|| "unknown".into()),
+        confidentiality: stored_confidentiality(&fm),
         origin: origin::derive(rel_path, fm_present.then_some(&fm), globs),
     };
     Parsed { meta, blocks, links: links::extract(body, body_line) }
+}
+
+fn is_transcript_path(rel_path: &str) -> bool {
+    ends_with_ascii_ci(rel_path, ".srt") || ends_with_ascii_ci(rel_path, ".vtt")
+}
+
+fn is_plain_text_path(rel_path: &str) -> bool {
+    ends_with_ascii_ci(rel_path, ".txt")
+}
+
+/// `frontmatter::split` for markdown; every other format has no frontmatter
+/// (see `parse_file`). `text` has its CRs stripped already.
+fn split_frontmatter<'t>(rel_path: &str, text: &'t str) -> (Option<&'t str>, &'t str, u32) {
+    let is_markdown = !is_transcript_path(rel_path) && !is_plain_text_path(rel_path);
+    if is_markdown { frontmatter::split(text) } else { (None, text, 1) }
+}
+
+/// `files.confidentiality` as the index stores it for this frontmatter.
+fn stored_confidentiality(fm: &frontmatter::Frontmatter) -> String {
+    fm.confidentiality.clone().unwrap_or_else(|| "unknown".into())
+}
+
+/// The `files.confidentiality` value [`parse_file`] would store for these
+/// bytes, without chunking them: the same CR stripping, format dispatch and
+/// frontmatter reader. Lets a caller holding a file's current bytes notice a
+/// marker the index has not seen yet (smart lookup's send check).
+pub fn confidentiality_of(rel_path: &str, raw: &str) -> String {
+    let text = norm::strip_cr(raw);
+    let fm = split_frontmatter(rel_path, &text).0.map(frontmatter::parse).unwrap_or_default();
+    stored_confidentiality(&fm)
 }
 
 /// Degradation chain from spec §3.5: filename prefix → frontmatter → mtime.
@@ -174,6 +202,26 @@ pub(crate) fn stem(rel_path: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frontmatter_confidentiality_of_is_what_parse_file_stores() {
+        let cases = [
+            ("a.md", "---\nconfidentiality: confidential\n---\nbody\n"),
+            ("a.md", "---\r\nprivate: true\r\n---\r\nbody\r\n"),
+            ("a.md", "---\nconfidentiality: explicitly_public\n---\nbody\n"),
+            ("a.md", "---\nconfidentiality: \"explicitly_public # no\"\n---\nbody\n"),
+            ("a.md", "no header\n"),
+            ("a.note.md", "---\nprivate: true\n---\n- x\n"),
+            // Only markdown has frontmatter (`parse_file`'s dispatch).
+            ("a.txt", "---\nconfidentiality: confidential\n---\nbody\n"),
+            ("a.SRT", "---\nprivate: true\n---\n"),
+        ];
+        let want = ["confidential", "confidential", "explicitly_public", "unknown", "unknown", "confidential", "unknown", "unknown"];
+        for ((path, raw), want) in cases.into_iter().zip(want) {
+            assert_eq!(confidentiality_of(path, raw), want, "{path}: {raw:?}");
+            assert_eq!(parse_file(path, raw, MTIME, &no_globs()).meta.confidentiality, want, "{path}: {raw:?}");
+        }
+    }
 
     // 2026-08-10T00:00:00Z. NOTE: the task brief's original constant
     // (1_754_784_000) is 2025-08-10T00:00:00Z, not 2026 — corrected here.

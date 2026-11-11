@@ -303,6 +303,7 @@ pub fn notemd_vault_settings_set(
     )?;
     // A frozen index snapshot must not revive after settings change and revert.
     crate::plugin_runtime::index_api::invalidate_all();
+    crate::smart_enhance::evidence::forget_readers();
     // `searchSourceGlobs` is the one setting the search index stores a
     // *derived value* from (`origin`, rule 5′) and stamps into its own
     // `meta` (`SourceGlobs::stamp()` — C-T6). Reopening here is what keeps

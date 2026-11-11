@@ -6,16 +6,28 @@ import {
 describe('smart lookup settings', () => {
   it('uses the low-cost defaults', () => {
     expect(normalizeSmartLookupSettings(undefined)).toEqual(DEFAULT_SMART_LOOKUP_SETTINGS)
-    expect(DEFAULT_SMART_LOOKUP_SETTINGS.results.autoDeepOnZero).toBe(false)
+    expect(DEFAULT_SMART_LOOKUP_SETTINGS.results.autoDeepOnZero).toBe(true)
   })
 
   it('keeps valid fields while independently resetting damaged fields', () => {
     const normalized = normalizeSmartLookupSettings({
-      results: { limit: 20, groupBy: 'date', autoDeepOnZero: true, deepTimeoutMs: 500 },
+      results: { limit: 20, groupBy: 'date', autoDeepOnZero: true, autoDeepMigrated: true, deepTimeoutMs: 500 },
     })
     expect(normalized.results).toEqual({
-      limit: 20, groupBy: 'date', autoDeepOnZero: true, deepTimeoutMs: 4_000,
+      limit: 20, groupBy: 'date', autoDeepOnZero: true, autoDeepMigrated: true, deepTimeoutMs: 4_000,
     })
+  })
+
+  it('migrates a stored false once: settings saved before answer-first turn the zero-hit scan on (I6)', () => {
+    // Every save before the marker wrote the old default `false` explicitly.
+    const old = normalizeSmartLookupSettings({ results: { limit: 20, autoDeepOnZero: false, deepTimeoutMs: 4_000 } })
+    expect(old.results).toMatchObject({ limit: 20, autoDeepOnZero: true, autoDeepMigrated: true })
+    // Saved with the marker, a later choice stands.
+    const chosen = normalizeSmartLookupSettings({ ...old, results: { ...old.results, autoDeepOnZero: false } })
+    expect(chosen.results).toMatchObject({ autoDeepOnZero: false, autoDeepMigrated: true })
+    expect(normalizeSmartLookupSettings(chosen).results.autoDeepOnZero).toBe(false)
+    // A damaged marker is not a migration record.
+    expect(normalizeSmartLookupSettings({ results: { autoDeepOnZero: false, autoDeepMigrated: 'yes' } }).results.autoDeepOnZero).toBe(true)
   })
 
   it('accepts every inclusive numeric boundary', () => {
@@ -42,7 +54,7 @@ describe('smart lookup settings', () => {
 
   it('enhancement defaults on with nothing configured and no consent', () => {
     const s = normalizeSmartLookupSettings(undefined)
-    expect(s.enhance).toEqual({ enabled: true, jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' }, chat: { url: '', model: '' } })
+    expect(s.enhance).toEqual({ enabled: true, jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' }, chat: { url: '', model: '', consentHost: '' } })
     expect(s.launch.firstRunSeen).toBe(false)
   })
 
@@ -61,7 +73,7 @@ describe('smart lookup settings', () => {
       launch: { firstRunSeen: true },
     })
     expect(ok.enhance.jev).toEqual({ preset: 'openrouter', url: 'u'.repeat(2_048), model: 'm'.repeat(256), authMode: 'none', consentHost: 'h'.repeat(255) })
-    expect(ok.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt' })
+    expect(ok.enhance.chat).toEqual({ url: 'https://chat.example/v1', model: 'gpt', consentHost: '' })
     expect(ok.launch.firstRunSeen).toBe(true)
 
     const bad = normalizeSmartLookupSettings({
@@ -104,5 +116,12 @@ describe('smart lookup settings', () => {
     expect(settingsTabFromEvent({ tab: 'core' })).toBeNull()
     expect(settingsTabFromEvent('enhance')).toBeNull()
     expect(settingsTabFromEvent(null)).toBeNull()
+  })
+})
+
+describe('chat consent host', () => {
+  it('is kept when valid and defaults to empty', () => {
+    expect(normalizeSmartLookupSettings({ enhance: { chat: { consentHost: 'a.example' } } }).enhance.chat.consentHost).toBe('a.example')
+    expect(normalizeSmartLookupSettings({}).enhance.chat.consentHost).toBe('')
   })
 })

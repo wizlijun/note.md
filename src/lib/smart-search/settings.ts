@@ -7,12 +7,19 @@ export interface SmartLookupSettings {
     limit: 20 | 50 | 100
     groupBy: LookupGroupBy
     autoDeepOnZero: boolean
+    /**
+     * The answer-first default (`autoDeepOnZero: true`) was applied to the
+     * stored settings once (final review I6). Before this marker every save
+     * wrote the old default `false` explicitly, so a stored `false` without
+     * it is not a choice and becomes `true`; with it, the stored value stands.
+     */
+    autoDeepMigrated: boolean
     deepTimeoutMs: number
   }
   enhance: {
     enabled: boolean
     jev: { preset: JevPreset; url: string; model: string; authMode: JevAuthMode; consentHost: string }
-    chat: { url: string; model: string }
+    chat: { url: string; model: string; consentHost: string }
   }
   launch: { firstRunSeen: boolean }
 }
@@ -31,13 +38,14 @@ export const DEFAULT_SMART_LOOKUP_SETTINGS: SmartLookupSettings = {
   results: {
     limit: 50,
     groupBy: 'auto',
-    autoDeepOnZero: false,
+    autoDeepOnZero: true,
+    autoDeepMigrated: true,
     deepTimeoutMs: 4_000,
   },
   enhance: {
     enabled: true,
     jev: { preset: 'custom', url: '', model: '', authMode: 'bearer', consentHost: '' },
-    chat: { url: '', model: '' },
+    chat: { url: '', model: '', consentHost: '' },
   },
   launch: { firstRunSeen: false },
 }
@@ -86,7 +94,11 @@ export function normalizeSmartLookupSettings(value: unknown): SmartLookupSetting
     results: {
       limit: choice(results.limit, [20, 50, 100] as const, defaults.results.limit),
       groupBy: choice(results.groupBy, ['auto', 'source', 'date'] as const, defaults.results.groupBy),
-      autoDeepOnZero: bool(results.autoDeepOnZero, defaults.results.autoDeepOnZero),
+      // One-time migration (I6): settings saved before the marker turn the scan on.
+      autoDeepOnZero: results.autoDeepMigrated === true
+        ? bool(results.autoDeepOnZero, defaults.results.autoDeepOnZero)
+        : defaults.results.autoDeepOnZero,
+      autoDeepMigrated: true,
       deepTimeoutMs: boundedInteger(results.deepTimeoutMs, 1_000, 5_000, defaults.results.deepTimeoutMs),
     },
     enhance: {
@@ -101,6 +113,7 @@ export function normalizeSmartLookupSettings(value: unknown): SmartLookupSetting
       chat: {
         url: text(chat.url, URL_MAX_LENGTH, defaults.enhance.chat.url),
         model: text(chat.model, MODEL_MAX_LENGTH, defaults.enhance.chat.model),
+        consentHost: text(chat.consentHost, CONSENT_HOST_MAX_LENGTH, defaults.enhance.chat.consentHost),
       },
     },
     launch: {

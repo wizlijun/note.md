@@ -7,36 +7,15 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Smart Lookup is rebuilt local-first.** Return shows local results immediately; typing never calls a model, and the model never reorders local results. With enhancement on, Jev checks the local results for evidence (see below); if a request fails or is not configured, the local results stay as they are. When nothing is found, the search is rephrased (once the answer model’s host is allowed) and re-run locally on its own. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement from the ⌘K menu; corrections stay on this device. “In-depth research” is removed from Smart Lookup, and the agent-written answer is replaced by one written from the evidence (see below).
 
-- **Smart Lookup is rebuilt local-first, with one optional model judgement.** Return shows local results immediately; typing never calls a model. With enhancement on, each Return sends at most one request: Jev judges the top 10 results and reorders them in place, marking each “Fits” or “Possibly unrelated”. Nothing is removed, and everything falls back to the local results if the request fails or is not configured. When nothing is found, a repair model suggests two alternative wordings that you can edit and that are searched locally. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement; corrections stay on this device. “Create answer” and “In-depth research” are removed from Smart Lookup.
-
-- **New Settings → Lookup enhancement tab.** Choose the Jev endpoint (official, OpenRouter or self-hosted), model and authentication, and test the connection. The key is stored only on this device and is never shown again. Sending to a host needs your consent for that host, and notes marked confidential are never sent. A separate endpoint can be set for the query repair model.
+- **New Settings → Lookup enhancement tab.** Choose the Jev endpoint (official, OpenRouter or self-hosted), model and authentication, and test the connection. The key is stored only on this device and is never shown again. Sending to a host needs your consent for that host, and the tab states what one Return may send by default (the evidence check: up to 2 rounds, up to 65 passages per round, or 115 after a line-by-line scan or an expanded search, 10 seconds per round and at most 200,000 tokens; then 1 answer, with its own budget and up to 3 requests) with an example request. Notes marked confidential are never sent, including one just marked whose index has not caught up yet. A separate endpoint, with its own consent, can be set for writing answers and rephrasing.
 
 - **Headless `notemd lookup` command and tunable parameters.** `notemd lookup` runs Smart Lookup from the command line and has an `eval` mode for measuring result quality. Ranking and enhancement parameters live in `smart-lookup/params.json`, documented in `docs/smart-lookup-parameters.md`.
 
-## v6.1111.2 — 2026-11-11
+- **Smart Lookup finds the evidence for you.** After Return, local results appear at once while Jev checks the passages round by round, with a progress line (“Looking for evidence · N s”) and a stop with Esc. The footer says which host the passages went to and how many were sent; confidential notes are never sent. Passages that do not fit are hidden, and the rest sit under a collapsed “Other results”. Round-by-round expansion terms, the “restore to round N” button, the “order updated · apply” prompt and the evidence-details popover are gone.
 
-- **Capture plugins updated.** Apple Notes 1.0.5, Roam Research 1.2.8 and Health Sync 0.2.3 are published for Apple silicon and Intel Mac; only manifest version/category changed, retaining the existing signed backend and UI.
-
-- **One consistent plugin workflow.** Native menus, the built-in marketplace and website use AI, Capture, Read, Write, Advance, Review, Import & Export, and Other. Sumi Write and Idea Spark belong to Write, immediately after Read.
-
-- **Capture external context.** Apple Notes, Roam Research and Health Sync belong to Capture, including older installed manifests and caches. Old Ideas maps to Write; old Other and unknown categories map to Other.
-
-- **Apple silicon update.** The App and DMG are signed and notarized. The release includes the approved Faitc5 for Sumi 0.5.0.13 installer; its App is signed and notarized, while its package remains unsigned.
-
-## v6.1111.1 — 2026-11-11
-
-- **Companion input method included.** The release also includes the modified Faitc5 for Sumi 0.5.0.13 Apple silicon installer, with Chinese/English spacing enabled by default. Its App is signed and notarized; the installer package itself is unsigned. Future macOS releases validate the approved package before attaching it.
-
-- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
-
-- **Sumi windows fit your Mac display.** New standalone windows use the available screen area and support the green full-screen button. “Open new windows in full screen” is on by default; changing it applies to the next new window without switching the current one.
-
-- **Bring macOS writing behavior in line with Linux.** Full-screen text scales proportionally and returns to the saved size on exit. Focus typing uses a rolling two-second input window, and focus layout and inline candidates respect the reserved bottom space. Command shortcuts and drafts paused after a save failure no longer trigger typing sounds.
-
-- **Recover local edits echoed back through cloud sync.** Recognize matching edits without conflicting with their original durable receipts, so recovered edits no longer block appearance and font settings. Different payloads with reused operation IDs remain rejected.
-
-- **Apple silicon update with Sumi 0.1.14.** Update the host and plugin together; the plugin requires note.md 6.1111.1 or later. Existing Linux packages remain available unchanged.
+- **Smart Lookup answers first, citing numbered sources.** When the evidence is confirmed and sending to the answer model’s host is allowed in Settings, the answer is written automatically, with no button: the answer on top, numbered citations that open the cited passage with the cited lines marked, and a “Sources” list in citation order. A question that could mean different things is answered once per meaning. If a later evidence round fails, the answer is written from the evidence already confirmed, with one line saying the check did not finish. When nothing in your notes answers the question, you are told so and shown what was tried automatically (searching, rephrasing and re-searching, scanning line by line); only passages that were actually judged are called unrelated, and confidential passages that were not checked are counted. Zero local hits now rephrase and scan by default, also for settings saved by an earlier version (the scan can be turned off again in Settings → Search & Index). The answer is shown as plain text and never logged; an answer that cites a number that does not exist is not shown. “Is this judgement right?” moved into the ⌘K menu as “Mark as fitting” and “Mark as unrelated”, and the criterion and time-mode chips, “Rephrase”, and the editable wordings are removed.
 
 ## v6.1110.8 — 2026-11-10
 
