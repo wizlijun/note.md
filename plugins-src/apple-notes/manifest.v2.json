@@ -2,53 +2,94 @@
   "manifest_version": 2,
   "id": "notemd.apple-notes",
   "name": "Apple Notes Sync",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-apple-notes",
     "x86_64-apple-darwin": "bin/notemd-apple-notes"
   },
-  "engines": { "notemd": ">=6.915.1" },
+  "engines": {
+    "notemd": ">=6.915.1"
+  },
   "description": "Mirror Apple Notes into readable, read-only Markdown paths, with source IDs kept centrally in applenotes/id-sync.json. macOS only.",
   "ui": "ui/",
   "activation": {
-    "events": ["onStartupFinished", "onCommand:open", "onCli:apple-notes-sync"]
+    "events": [
+      "onStartupFinished",
+      "onCommand:open",
+      "onCli:apple-notes-sync"
+    ]
   },
   "contributes": {
-    "menus": [{ "location": "plugins", "submenu": "record", "label": "Sync Apple Notes…", "command": "open" }],
-    "windows": [{
-      "id": "main", "entry": "index.html", "title": "Apple Notes Sync",
-      "width": 660, "height": 620, "min_width": 480, "min_height": 420,
-      "open_command": "open"
-    }],
-    "cli": [{
-      "subcommand": "apple-notes-sync", "command": "sync",
-      "summary": "Sync Apple Notes into the Vault (macOS only)",
-      "args": [],
-      "flags": [
-        { "long": "--vault", "type": "string", "help": "Vault root (default: configured Vault)" },
-        { "long": "--dry-run", "type": "boolean", "help": "Preview changes without modifying the Vault" }
-      ],
-      "requires_tab_context": false
-    }]
+    "menus": [
+      {
+        "location": "plugins",
+        "submenu": "record",
+        "label": "Sync Apple Notes…",
+        "command": "open"
+      }
+    ],
+    "windows": [
+      {
+        "id": "main",
+        "entry": "index.html",
+        "title": "Apple Notes Sync",
+        "width": 660,
+        "height": 620,
+        "min_width": 480,
+        "min_height": 420,
+        "open_command": "open"
+      }
+    ],
+    "cli": [
+      {
+        "subcommand": "apple-notes-sync",
+        "command": "sync",
+        "summary": "Sync Apple Notes into the Vault (macOS only)",
+        "args": [],
+        "flags": [
+          {
+            "long": "--vault",
+            "type": "string",
+            "help": "Vault root (default: configured Vault)"
+          },
+          {
+            "long": "--dry-run",
+            "type": "boolean",
+            "help": "Preview changes without modifying the Vault"
+          }
+        ],
+        "requires_tab_context": false
+      }
+    ]
   },
-  "capabilities": ["vault.read", "vault.write", "ui"],
+  "capabilities": [
+    "vault.read",
+    "vault.write",
+    "ui"
+  ],
   "request_timeout_seconds": 300,
   "i18n": {
     "zh": {
       "name": "Apple Notes 同步",
       "description": "按 Apple Notes 的账户和文件夹组织方式生成可读的只读 Markdown 路径，来源 ID 统一保存在 applenotes/id-sync.json。仅 macOS 可用。",
-      "menus": { "open": "同步 Apple Notes…" }
+      "menus": {
+        "open": "同步 Apple Notes…"
+      }
     },
     "ja": {
       "name": "Apple Notes 同期",
       "description": "Apple Notes の構成を読みやすい Markdown パスへ同期し、ソース ID は applenotes/id-sync.json で一元管理します。macOS 専用です。",
-      "menus": { "open": "Apple Notes を同期…" }
+      "menus": {
+        "open": "Apple Notes を同期…"
+      }
     },
     "de": {
       "name": "Apple Notes-Synchronisierung",
       "description": "Spiegelt Apple Notes in lesbare, schreibgeschützte Markdown-Pfade; Quell-IDs werden zentral in applenotes/id-sync.json verwaltet. Nur für macOS.",
-      "menus": { "open": "Apple Notes synchronisieren…" }
+      "menus": {
+        "open": "Apple Notes synchronisieren…"
+      }
     }
   }
 }

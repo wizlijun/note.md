@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.health-sync",
   "name": "Health Sync",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-health-sync",
@@ -358,7 +358,7 @@
     },
     "ja": {
       "name": "ヘルスデータ同期",
-      "description": "Apple Health、Garmin、Ouraの生データをVault外のSQLiteライブラリに保存。差分インポート、API同期、Agent用検索CLIに対応。",
+      "description": "Appleヘルスケアの書き出しとGarmin/Ouraの詳細データをMacで収集。日別アーカイブ、カテゴリ表示、差分同期、CLIに対応。",
       "menus": {
         "open": "ヘルスデータを読み込む…"
       },
@@ -368,7 +368,7 @@
     },
     "de": {
       "name": "Gesundheitsdaten synchronisieren",
-      "description": "Apple-, Garmin- und Oura-Gesundheitsdaten in einer SQLite-Bibliothek außerhalb des Vaults speichern – mit inkrementellem Import, API-Synchronisierung und Agent-Abfrage-CLI.",
+      "description": "Apple-Health-Exporte und Garmin-/Oura-Details auf dem Mac sammeln: ein tägliches Archiv mit Kategorien, inkrementeller Synchronisierung und CLI.",
       "menus": {
         "open": "Gesundheitsdaten importieren…"
       },

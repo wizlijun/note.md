@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.roam-import",
   "name": "Roam Research Sync",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "kind": "native",
   "binary": {
     "aarch64-apple-darwin": "bin/notemd-roam-import",
@@ -48,8 +48,16 @@
         "summary": "Sync one day's Roam daily note into the vault",
         "args": [],
         "flags": [
-          { "long": "--date", "type": "string", "help": "yyyy-MM-dd, today or yesterday (default: yesterday)" },
-          { "long": "--graph", "type": "string", "help": "Roam graph name (default: the CLI's own default)" }
+          {
+            "long": "--date",
+            "type": "string",
+            "help": "yyyy-MM-dd, today or yesterday (default: yesterday)"
+          },
+          {
+            "long": "--graph",
+            "type": "string",
+            "help": "Roam graph name (default: the CLI's own default)"
+          }
         ],
         "requires_tab_context": false
       },
@@ -59,9 +67,21 @@
         "summary": "Sync every Roam page changed since the last sync",
         "args": [],
         "flags": [
-          { "long": "--since", "type": "string", "help": "Override the stored watermark (yyyy-MM-dd)" },
-          { "long": "--graph", "type": "string", "help": "Roam graph name (default: the CLI's own default)" },
-          { "long": "--dry-run", "type": "boolean", "help": "List what would be synced without writing" }
+          {
+            "long": "--since",
+            "type": "string",
+            "help": "Override the stored watermark (yyyy-MM-dd)"
+          },
+          {
+            "long": "--graph",
+            "type": "string",
+            "help": "Roam graph name (default: the CLI's own default)"
+          },
+          {
+            "long": "--dry-run",
+            "type": "boolean",
+            "help": "List what would be synced without writing"
+          }
         ],
         "requires_tab_context": false
       }
