@@ -143,9 +143,13 @@ export const smartSearchApi = {
   /** One evidence round (at most one batch sequence); the host owns the hop counter. */
   evidenceStep: (lookupRunId: string, jev: JevRequestConfig, trigger: Trigger, deep: boolean) =>
     invoke<EvidenceStepResult>('smart_lookup_evidence_step', { lookupRunId, jev, trigger, deep }),
-  /** User action only: sends the question and the checked evidence passages to the repair model's host (needs its consent). */
-  answer: (lookupRunId: string, chat: ChatAnswerConfig) =>
-    invoke<AnswerResult>('smart_lookup_answer', { lookupRunId, chat }),
+  /**
+   * User action only: sends the question and the checked evidence passages to the repair model's host (needs its consent).
+   * `evidenceIds` is the list on screen, in its order; the host answers only from those it handed out on the run.
+   * A failure that is the host's own is a stable code (`questionTooLarge`, `sourceTooLarge`, `outputReserve`).
+   */
+  answer: (lookupRunId: string, chat: ChatAnswerConfig, evidenceIds: string[]) =>
+    invoke<AnswerResult>('smart_lookup_answer', { lookupRunId, chat, evidenceIds }),
   cancel: (lookupRunId: string) => invoke<void>('smart_lookup_cancel', { lookupRunId }),
   diagnose: (lookupRunId: string) => invoke<Diagnosis>('smart_lookup_diagnose', { lookupRunId }),
   /** Sends only the question and search terms, never note content. */
