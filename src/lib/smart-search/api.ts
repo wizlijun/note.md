@@ -27,9 +27,31 @@ export interface Usage { inputTokens: number; outputTokens: number }
 export type EvidenceStop = 'noTerms' | 'frontierEmpty' | 'termsEmpty' | 'candidatesEmpty' | 'maxHops' | 'budget' | 'indexChanged' | 'evidenceTooLarge'
 export interface EvidenceTerm { term: string; label: string; kind: 'word' | 'namePhrase' }
 export interface EvidenceItem {
-  evidenceId: string; path: string; line: number; lineEnd: number; title: string; breadcrumb: string
+  evidenceId: string; path: string
+  /** The vault root joined with `path`, computed by the host as for local hits: what the window opens. */
+  absPath: string
+  line: number; lineEnd: number; title: string; breadcrumb: string
   text: string; foundRound: number; tier: Tier; localResultId: string | null
 }
+/**
+ * What a lookup run's evidence rounds sent and left out so far, kept by the
+ * host and cumulative over every call that reached a round (cancelled and
+ * failed ones included). Block counts are distinct over the run.
+ */
+export interface EvidenceRunTotals {
+  /** The Jev host passages went to; null while nothing was sent. */
+  endpointHost: string | null
+  requests: number
+  elapsedMs: number
+  /** Distinct passages sent: pool passages and the earlier evidence repeated in `state`. */
+  sentBlocks: number
+  tokens: number
+  skippedConfidential: number
+  skippedStale: number
+  skippedLong: number
+  skippedOversize: number
+}
+/** One call's counts are its own; `tokensUsed`, `nextHop` and `run` are the run's so far. */
 export interface EvidenceStepResult {
   status: EnhanceStatus
   stop: EvidenceStop | null
@@ -37,6 +59,7 @@ export interface EvidenceStepResult {
   missing: Missing | null
   endpointHost: string | null
   statusClass: string | null
+  /** The hop this call attempted, on every path. */
   hop: number
   terms: EvidenceTerm[]
   evidence: EvidenceItem[]
@@ -55,6 +78,9 @@ export interface EvidenceStepResult {
   tokensUsed: number
   usage: Usage | null
   elapsedMs: number
+  /** The hop the run's next call attempts (the host owns the counter). */
+  nextHop: number
+  run: EvidenceRunTotals
 }
 
 /**

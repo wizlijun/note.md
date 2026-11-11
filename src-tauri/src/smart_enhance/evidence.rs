@@ -19,7 +19,7 @@
 //! path and never a key. Confidential, stale and overlong blocks are dropped
 //! by `ReaderIndex::candidates` before a pool is built.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, TryLockError};
 use std::time::{Duration, Instant};
@@ -31,7 +31,9 @@ use super::candidates::{route, tier, Route};
 use super::judge::VerdictDto;
 use super::keys::{read_key, KeyKind};
 use super::sag::jev::{jev_batches, score_round, BatchError, Preset, RoundError, StateExtras, TimeRange};
-use super::sag::round::{EvidenceState, EvidenceStop, ReaderIndex, RoundSettings, SagIndex, Scorer, Skipped, StepOutcome};
+use super::sag::round::{
+    EvidenceState, EvidenceStop, ReaderIndex, RoundSettings, SagIndex, Scorer, Skipped, SkippedIds, StepOutcome,
+};
 use super::sag::{SagCandidate, Term, TermKind};
 use super::{
     cancel_flag_for, claim_auto_request, enhance_client, gate_jev, release_auto_request, status_for, CancelFlag,
@@ -63,6 +65,9 @@ pub struct EvidenceItemDto {
     /// Opaque, stable for a block within one lookup run.
     pub evidence_id: String,
     pub path: String,
+    /// The run's vault root joined with `path`, as for local hits
+    /// (`HitDto::abs_path`): what the window opens. Never sent anywhere.
+    pub abs_path: String,
     pub line: u32,
     pub line_end: u32,
     pub title: String,
@@ -76,9 +81,32 @@ pub struct EvidenceItemDto {
     pub local_result_id: Option<String>,
 }
 
-/// What one round did. Counts are this call's; `tokens_used` is the run's
-/// total so far. A call that scores nothing (a stop or a failure) reports the
-/// latest scored evidence again.
+/// What the evidence rounds of one lookup run have sent and left out so far
+/// (the F.3 details), cumulative over every call that reached a round,
+/// cancelled and failed ones included. Block counts are distinct over the
+/// run: a passage sent in two rounds, or dropped in two, counts once.
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct EvidenceRunTotals {
+    /// The Jev host passages went to; `None` while nothing was sent.
+    pub endpoint_host: Option<String>,
+    pub requests: u32,
+    pub elapsed_ms: u64,
+    /// Distinct passages sent: every pool passage in a request and every
+    /// earlier evidence passage repeated in `state`.
+    pub sent_blocks: usize,
+    /// Estimated tokens of the rounds that were sent (`tokens_used`).
+    pub tokens: u64,
+    pub skipped_confidential: usize,
+    pub skipped_stale: usize,
+    pub skipped_long: usize,
+    pub skipped_oversize: usize,
+}
+
+/// What one round did. Counts are this call's; `tokens_used`, `next_hop` and
+/// `run` are the run's so far. A call that scores nothing (a stop or a
+/// failure) reports the latest scored evidence again. `hop` is the hop this
+/// call attempted (the run's `next_hop` when it started), on every path.
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct EvidenceStepResult {
@@ -108,6 +136,11 @@ pub struct EvidenceStepResult {
     pub tokens_used: u64,
     pub usage: Option<UsageDto>,
     pub elapsed_ms: u64,
+    /// The hop the run's next call attempts (`EvidenceState::next_hop`); 0
+    /// before any round.
+    pub next_hop: u8,
+    /// The run's totals after this call, also when this call sent nothing.
+    pub run: EvidenceRunTotals,
     /// `(path, line, line_end)` of each block this call sent, in send order.
     /// Host-side only (the eval's window coverage); never serialized.
     #[serde(skip)]
@@ -136,6 +169,36 @@ pub(crate) struct EvidenceRun {
     /// The latest scored round's list, reported again by a call that scores
     /// nothing.
     pub shown: Option<(Vec<EvidenceItemDto>, Vec<VerdictDto>)>,
+    pub totals: RunTotals,
+}
+
+/// The books behind [`EvidenceRunTotals`]: block ids, so counts stay distinct.
+#[derive(Clone, Default)]
+pub(crate) struct RunTotals {
+    pub endpoint_host: Option<String>,
+    pub requests: u32,
+    pub elapsed_ms: u64,
+    pub sent: BTreeSet<i64>,
+    pub confidential: BTreeSet<i64>,
+    pub stale: BTreeSet<i64>,
+    pub long: BTreeSet<i64>,
+    pub oversize: BTreeSet<i64>,
+}
+
+impl RunTotals {
+    fn dto(&self, tokens: u64) -> EvidenceRunTotals {
+        EvidenceRunTotals {
+            endpoint_host: self.endpoint_host.clone(),
+            requests: self.requests,
+            elapsed_ms: self.elapsed_ms,
+            sent_blocks: self.sent.len(),
+            tokens,
+            skipped_confidential: self.confidential.len(),
+            skipped_stale: self.stale.len(),
+            skipped_long: self.long.len(),
+            skipped_oversize: self.oversize.len(),
+        }
+    }
 }
 
 pub(crate) struct EvidenceRequest<'a> {
@@ -208,20 +271,46 @@ pub(crate) fn reader_for(root: &Path, db: &Path, globs_stamp: &str) -> Result<Ar
 /// the host reopens its index (`search::open_vault`, a settings change),
 /// before the open may wipe the file. A round in flight keeps its own
 /// reader and stops on its next generation check.
+///
+/// A known race: this runs before the caller drops the old `SearchIndex`,
+/// so a [`ready_reader`] that took the index lock just before the reopen
+/// can cache a reader on the old file again in that window. On unix the
+/// `(dev, ino)` in [`ReaderKey`] replaces it on the next call. On Windows
+/// there is no file identity, so that reader stays until the next
+/// `forget_readers`, and its open handle can make a wipe of the old file
+/// fail (the reopen then reports an error and can be retried). Rare, and it
+/// never sends anything: every round still checks confidentiality and the
+/// source text.
 pub(crate) fn forget_readers() {
     readers().clear();
 }
 
-/// The reader for `vault_root`'s index when that index is ready, with the
-/// readiness the local lookup and the judge use: the host holds an open
-/// index (not busy: a rebuild holds the lock for minutes and is not waited
-/// for) and it belongs to `vault_root`. `None` otherwise, which callers
+/// A reader already cached for `vault_root` (canonical) whose database file
+/// is still the one it was opened on. Takes no index lock.
+fn cached_reader(vault_root: &Path) -> Option<Arc<SagReader>> {
+    let readers = readers();
+    readers.iter().find_map(|(db, (key, reader))| {
+        let same_root = std::fs::canonicalize(&key.root).is_ok_and(|root| root == vault_root);
+        (same_root && key.file == file_identity(db)).then(|| reader.clone())
+    })
+}
+
+/// The reader for `vault_root`'s index when that index is ready. The first
+/// time, with the readiness the local lookup and the judge use: the host
+/// holds an open index (not busy: a rebuild holds the lock for minutes and
+/// is not waited for) and it belongs to `vault_root`. After that the cached
+/// reader for this vault is used without the index lock (review M6: a
+/// watcher ingest between rounds no longer ends them); a reopen of the
+/// index drops it ([`forget_readers`]). `None` otherwise, which callers
 /// report as `skipped`/`indexUnavailable`. The lock is held only to read the
 /// index's location, never during a round.
 pub(crate) async fn ready_reader(index: &IndexHandle, vault_root: &Path) -> Result<Option<Arc<SagReader>>, String> {
     let handle = index.clone();
     let vault_root = vault_root.to_path_buf();
     tokio::task::spawn_blocking(move || {
+        if let Some(reader) = cached_reader(&vault_root) {
+            return Some(reader);
+        }
         let (root, db, stamp) = {
             let guard = match handle.try_lock() {
                 Ok(guard) => guard,
@@ -264,24 +353,34 @@ struct JevScorer {
     cancel: Arc<CancelFlag>,
     requests: u32,
     estimated: u64,
-    sent_blocks: usize,
-    oversize: usize,
+    /// The round `step` built: its pool length and candidate count, also when
+    /// it was not scored (review M3).
+    built: Option<(usize, usize)>,
+    /// Ids of the blocks sent, pool and `state` evidence (review M2).
+    sent_ids: BTreeSet<i64>,
+    oversize: BTreeSet<i64>,
     usage: Option<(u64, u64)>,
     sent: Vec<(String, u32, u32)>,
 }
 
 impl Scorer for JevScorer {
+    fn built(&mut self, pool_size: usize, candidates: usize) {
+        self.built = Some((pool_size, candidates));
+    }
+
     fn score(
         &mut self,
         pool: Vec<SagCandidate>,
-        _evidence: Vec<SagCandidate>,
+        evidence: Vec<SagCandidate>,
         state: String,
     ) -> impl std::future::Future<Output = Result<Vec<SagCandidate>, RoundError>> + Send {
         async move {
-            let (batches, oversize) =
+            let pool_ids: Vec<i64> = pool.iter().map(|c| c.id).collect();
+            let (batches, _) =
                 jev_batches(&state, pool, self.preset, &self.criterion, self.context_tokens, self.cjk, self.other)
                     .map_err(|BatchError::EvidenceTooLarge| RoundError::Stop(EvidenceStop::EvidenceTooLarge))?;
-            self.oversize = oversize;
+            let batched: BTreeSet<i64> = batches.iter().flat_map(|b| b.items.iter().map(|c| c.id)).collect();
+            self.oversize = pool_ids.into_iter().filter(|id| !batched.contains(id)).collect();
             self.estimated = batches.iter().map(|b| b.estimated).sum();
             // H.6: the whole round's estimate must fit what is left; else nothing goes out.
             if self.tokens_used + self.estimated > self.budget {
@@ -290,8 +389,18 @@ impl Scorer for JevScorer {
             if self.cancel.is_cancelled() {
                 return Err(RoundError::Cancelled);
             }
-            self.sent = batches.iter().flat_map(|b| b.items.iter().map(|c| (c.path.clone(), c.line, c.line_end))).collect();
-            self.sent_blocks = self.sent.len();
+            // Every request carries `state`, so its evidence goes out with the
+            // pool: the distinct union, pool order first.
+            let in_state: &[SagCandidate] = if batches.is_empty() { &[] } else { &evidence };
+            let mut sent_ids = BTreeSet::new();
+            self.sent = batches
+                .iter()
+                .flat_map(|b| b.items.iter())
+                .chain(in_state)
+                .filter(|c| sent_ids.insert(c.id))
+                .map(|c| (c.path.clone(), c.line, c.line_end))
+                .collect();
+            self.sent_ids = sent_ids;
             self.requests = batches.len() as u32;
             let round =
                 score_round(&self.client, &self.jev, self.key.as_deref(), &state, batches, self.deadline, &self.cancel)
@@ -322,6 +431,7 @@ struct RoundDone {
     /// After a scored round: the list SAG2 would return now (H.3.10).
     evidence: Option<Result<Vec<SagCandidate>, String>>,
     skipped: Skipped,
+    skipped_ids: SkippedIds,
     scorer: JevScorer,
 }
 
@@ -337,13 +447,20 @@ fn run_round(round: Round, handle: tokio::runtime::Handle) -> RoundDone {
     let mut state = match started {
         Ok(state) => state,
         Err(error) => {
-            return RoundDone { state: None, outcome: Err(error), evidence: None, skipped: index.skipped(), scorer }
+            return RoundDone {
+                state: None,
+                outcome: Err(error),
+                evidence: None,
+                skipped: index.skipped(),
+                skipped_ids: index.skipped_ids(),
+                scorer,
+            }
         }
     };
     let cancel = scorer.cancel.clone();
     let outcome = handle.block_on(state.step(&index, &mut scorer, &extras, &cancel));
     let evidence = matches!(outcome, Ok(StepOutcome::Scored { .. })).then(|| state.evidence(&index));
-    RoundDone { state: Some(state), outcome, evidence, skipped: index.skipped(), scorer }
+    RoundDone { state: Some(state), outcome, evidence, skipped: index.skipped(), skipped_ids: index.skipped_ids(), scorer }
 }
 
 /// [`run_round`] on a blocking thread. A cancel of `cancel` reaches the round
@@ -429,6 +546,7 @@ fn evidence_items(record: &mut EvidenceRun, run: &LookupRun, list: &[SagCandidat
             EvidenceItemDto {
                 evidence_id,
                 path: c.path.clone(),
+                abs_path: run.root.join(&c.path).to_string_lossy().to_string(),
                 line: c.line,
                 line_end: c.line_end,
                 title: c.title.clone(),
@@ -461,19 +579,30 @@ fn local_tiers(run: &LookupRun, state: &EvidenceState, tiers: &TierParams) -> Ve
 }
 
 /// A call that scored nothing reports the latest scored list again: `ok`
-/// when there is one, else `skipped`; hop and terms from the last trace
-/// entry (which may be a round that found no candidates).
+/// when there is one, else `skipped`. Its terms are those of the attempted
+/// hop's trace entry, which exists only for a round that found no candidates
+/// (`candidatesEmpty`; H.3.11 keeps it so the window can show its terms).
 fn report_shown(result: &mut EvidenceStepResult, record: &EvidenceRun) {
     if let Some((evidence, local)) = &record.shown {
         result.status = EnhanceStatus::Ok;
         result.evidence = evidence.clone();
         result.local_tiers = local.clone();
     }
-    if let Some(trace) = record.state.trace.last() {
-        result.hop = trace.hop;
+    if let Some(trace) = record.state.trace.last().filter(|t| t.hop == result.hop) {
         result.terms = term_dtos(&trace.terms);
         result.candidates = trace.candidates.len();
     }
+}
+
+/// The run's totals and next hop as stored, onto a result of this call.
+/// Leaves the result as it is when the run has no evidence rounds yet (or
+/// expired meanwhile).
+fn with_run_totals(mut result: EvidenceStepResult, run_id: &str, window_label: &str) -> EvidenceStepResult {
+    if let Some(record) = run_for_window(run_id, window_label).ok().and_then(|run| run.evidence) {
+        result.run = record.totals.dto(record.state.tokens_used);
+        result.next_hop = record.state.next_hop;
+    }
+    result
 }
 
 /// Holds a lookup run's `evidence_busy` flag: one evidence round per run at
@@ -504,8 +633,9 @@ pub(crate) fn begin_step(run_id: &str, window_label: &str) -> Result<Option<Step
 }
 
 /// `skipped`/`roundRunning`: another round holds the run; nothing was sent.
+/// Not `done`: the rounds may well go on (the window ignores this result).
 fn round_running() -> EvidenceStepResult {
-    EvidenceStepResult { skip_reason: Some(SkipReason::RoundRunning), done: true, ..EvidenceStepResult::default() }
+    EvidenceStepResult { skip_reason: Some(SkipReason::RoundRunning), done: false, ..EvidenceStepResult::default() }
 }
 
 /// Run one round on the run (see the module docs for the checks before
@@ -517,7 +647,7 @@ pub(crate) async fn evidence_step(
     cancel: &CancelFlag,
 ) -> Result<EvidenceStepResult, String> {
     let Some(guard) = begin_step(req.run_id, req.window_label)? else {
-        return Ok(round_running());
+        return Ok(with_run_totals(round_running(), req.run_id, req.window_label));
     };
     evidence_step_held(req, guard, client, cancel).await
 }
@@ -531,7 +661,10 @@ async fn evidence_step_held(
     cancel: &CancelFlag,
 ) -> Result<EvidenceStepResult, String> {
     let started = Instant::now();
-    let result = evidence_steps(req, client, cancel).await;
+    let (run_id, window_label) = (req.run_id, req.window_label);
+    let result = evidence_steps(req, client, cancel, started).await;
+    // Read while the guard still holds the run: no other round has changed it.
+    let result = result.map(|r| with_run_totals(r, run_id, window_label));
     drop(guard);
     let mut result = result?;
     result.elapsed_ms = started.elapsed().as_millis() as u64;
@@ -542,6 +675,7 @@ async fn evidence_steps(
     req: EvidenceRequest<'_>,
     client: &reqwest::Client,
     cancel: &CancelFlag,
+    started: Instant,
 ) -> Result<EvidenceStepResult, String> {
     let run = run_for_window(req.run_id, req.window_label)?;
     if run.root != req.vault_root {
@@ -626,12 +760,15 @@ async fn evidence_steps(
             cancel: Arc::new(CancelFlag::new()),
             requests: 0,
             estimated: 0,
-            sent_blocks: 0,
-            oversize: 0,
+            built: None,
+            sent_ids: BTreeSet::new(),
+            oversize: BTreeSet::new(),
             usage: None,
             sent: vec![],
         },
     };
+    // The hop this call attempts, reported on every path (review M4).
+    let attempted = previous.as_ref().map_or(0, |e| e.state.next_hop);
     let done = off_workers(round, cancel).await;
     // A failed join (a panic in the round) may have sent: keep the claim.
     let sent = done.as_ref().map_or(true, |d| d.scorer.requests > 0);
@@ -650,17 +787,18 @@ async fn evidence_steps(
         Some(_) => true,
         None => previous.as_ref().is_some_and(|e| e.auto_claimed),
     };
-    let RoundDone { state, outcome, evidence, skipped, scorer } = done?;
+    let RoundDone { state, outcome, evidence, skipped, skipped_ids, scorer } = done?;
 
     let mut result = EvidenceStepResult {
         endpoint_host: Some(host.clone()),
+        hop: attempted,
         done: true,
         request_count: scorer.requests,
-        sent_blocks: scorer.sent_blocks,
+        sent_blocks: scorer.sent_ids.len(),
         skipped_confidential: skipped.confidential,
         skipped_stale: skipped.stale,
         skipped_long: skipped.long,
-        skipped_oversize: scorer.oversize,
+        skipped_oversize: scorer.oversize.len(),
         estimated_tokens: scorer.estimated,
         usage: scorer.usage.map(|(input_tokens, output_tokens)| UsageDto { input_tokens, output_tokens }),
         sent: scorer.sent,
@@ -683,9 +821,25 @@ async fn evidence_steps(
         auto_ended: false,
         tiers: HashMap::new(),
         shown: None,
+        totals: RunTotals::default(),
     });
     record.state = state;
     record.auto_claimed = auto_claimed;
+    let totals = &mut record.totals;
+    totals.requests += scorer.requests;
+    totals.elapsed_ms += started.elapsed().as_millis() as u64;
+    totals.sent.extend(scorer.sent_ids.iter().copied());
+    if scorer.requests > 0 {
+        totals.endpoint_host = Some(host.clone());
+    }
+    let index_failed = outcome.is_err() || matches!(evidence, Some(Err(_)));
+    if !index_failed {
+        // A failed index read counts nothing as dropped (see below).
+        totals.confidential.extend(skipped_ids.confidential);
+        totals.stale.extend(skipped_ids.stale);
+        totals.long.extend(skipped_ids.long);
+        totals.oversize.extend(scorer.oversize.iter().copied());
+    }
     let scored = matches!((&outcome, &evidence), (Ok(StepOutcome::Scored { .. }), Some(Ok(_))));
     if req.trigger == Trigger::Auto && scorer.requests > 0 && !scored {
         record.auto_ended = true;
@@ -702,12 +856,16 @@ async fn evidence_steps(
             crate::log_cat!("search", "warn", "SAG2 evidence: an index read failed during the round");
             result = EvidenceStepResult {
                 endpoint_host: Some(host),
+                hop: attempted,
                 request_count: result.request_count,
+                sent_blocks: result.sent_blocks,
                 tokens_used: result.tokens_used,
+                sent: std::mem::take(&mut result.sent),
                 ..unavailable()
             };
         }
         (Ok(StepOutcome::Scored { hop, terms, pool_size }), Some(Ok(list))) => {
+            debug_assert_eq!(hop, attempted);
             result.status = EnhanceStatus::Ok;
             result.hop = hop;
             result.terms = term_dtos(&terms);
@@ -731,12 +889,16 @@ async fn evidence_steps(
         (Ok(StepOutcome::Stopped(stop)), _) => {
             result.stop = Some(stop);
             report_shown(&mut result, &record);
+            // A round the scorer would not send (budget, evidence too large).
+            if let Some((pool_size, candidates)) = scorer.built {
+                (result.pool_size, result.candidates) = (pool_size, candidates);
+            }
         }
         (Ok(StepOutcome::Failed(error)), _) => {
             report_shown(&mut result, &record);
-            result.hop = record.state.next_hop;
+            // The round that failed, not an earlier one (review M3).
             result.terms = vec![];
-            result.candidates = 0;
+            (result.pool_size, result.candidates) = scorer.built.unwrap_or((0, 0));
             (result.status, result.status_class) = match error {
                 RoundError::Model(error) => status_for(&error),
                 RoundError::Cancelled => (EnhanceStatus::Cancelled, None),
@@ -768,7 +930,7 @@ pub async fn smart_lookup_evidence_step(
     // Before `cancel_flag_for` may replace the run's flag: a round already
     // running keeps the flag a stop reaches.
     let Some(guard) = begin_step(&lookup_run_id, window.label())? else {
-        return Ok(round_running());
+        return Ok(with_run_totals(round_running(), &lookup_run_id, window.label()));
     };
     let cancel = cancel_flag_for(trigger, &lookup_run_id);
     let key = match jev.auth_mode {
@@ -777,7 +939,7 @@ pub async fn smart_lookup_evidence_step(
     };
     let client = enhance_client()?;
     let Some(reader) = ready_reader(&crate::search::handle(&app), &vault_root).await? else {
-        return Ok(unavailable());
+        return Ok(with_run_totals(unavailable(), &lookup_run_id, window.label()));
     };
     let request = EvidenceRequest {
         run_id: &lookup_run_id,
@@ -813,14 +975,18 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn fixture() -> Fixture {
-        let dir = tempfile::tempdir().unwrap();
-        let files = [
+        fixture_with(&[
             ("q.md", "The anchor budget review meeting was chaired by Alice Paul.\n"),
             ("p.md", "Alice Paul signed the contract.\n"),
             ("secret.md", "---\nconfidentiality: confidential\n---\nAlice Paul SECRET_SALARY figures\n"),
             ("other.md", "unrelated gardening notes\n"),
-        ];
-        for (name, body) in files {
+        ])
+    }
+
+    /// A vault of `files`, indexed.
+    pub(crate) fn fixture_with(files: &[(&str, &str)]) -> Fixture {
+        let dir = tempfile::tempdir().unwrap();
+        for &(name, body) in files {
             std::fs::write(dir.path().join(name), body).unwrap();
         }
         let root = std::fs::canonicalize(dir.path()).unwrap();
@@ -917,7 +1083,10 @@ pub(crate) mod tests {
         assert_eq!(r2.evidence.iter().find(|i| i.path == "p.md").unwrap().found_round, 1);
         let r3 = c.step_with(&cfg, Trigger::Auto, &cancel).await;
         assert!(r3.done && r3.request_count == 0, "{r3:?}"); // 超过 maxHops 不再发
-        assert_eq!((r3.status, r3.stop, r3.hop), (EnhanceStatus::Ok, Some(EvidenceStop::MaxHops), 1));
+        // The hop it attempted (review M4), with no terms of another hop.
+        assert_eq!((r3.status, r3.stop, r3.hop, r3.next_hop), (EnhanceStatus::Ok, Some(EvidenceStop::MaxHops), 2, 2));
+        assert!(r3.terms.is_empty() && r3.candidates == 0, "{r3:?}");
+        assert_eq!((r1.next_hop, r2.next_hop), (1, 2));
         assert_eq!(r3.evidence, r2.evidence);
         assert_eq!(s.accepted.load(SeqCst), 2);
         assert_eq!(r2.tokens_used, r1.estimated_tokens + r2.estimated_tokens);
@@ -959,6 +1128,10 @@ pub(crate) mod tests {
         assert_eq!(r1.evidence, r0.evidence);
         assert_eq!(r1.tokens_used, r0.estimated_tokens);
         assert!(r1.estimated_tokens > 1, "the round's estimate is reported: {r1:?}");
+        // The round it built, at the hop it attempted; nothing of it was sent.
+        assert_eq!((r1.hop, r1.sent_blocks), (1, 0), "{r1:?}");
+        assert!(r1.pool_size > 0 && r1.candidates > 0, "{r1:?}");
+        assert_eq!((r1.run.requests, r1.run.sent_blocks, r1.run.tokens), (r0.run.requests, r0.run.sent_blocks, r0.run.tokens));
         assert_eq!(s.accepted.load(SeqCst), 1);
         assert!(c.slot().0, "round 0 was sent, so the claim stays");
     }
@@ -1018,6 +1191,26 @@ pub(crate) mod tests {
         assert!(ready_reader(&f.index, &f.root).await.unwrap().is_none(), "a busy index is not waited for");
         drop(held);
         assert!(ready_reader(&f.index, &f.root).await.unwrap().is_some());
+        // Review M6: once a reader is cached for the vault, a busy index (a
+        // watcher ingest between rounds) no longer makes it unavailable. A
+        // parallel test's `forget_readers` can empty the cache between the
+        // two calls, so the pair is retried.
+        let cached = (0..5).any(|_| {
+            let reader = {
+                let guard = f.index.lock().unwrap();
+                let idx = guard.as_ref().unwrap();
+                reader_for(idx.vault_root(), idx.db_path(), &idx.globs_stamp().unwrap()).unwrap()
+            };
+            let held = f.index.lock().unwrap();
+            let got = cached_reader(&f.root);
+            drop(held);
+            got.is_some_and(|r| Arc::ptr_eq(&r, &reader))
+        });
+        assert!(cached, "the cached reader is used without the index lock");
+        let held = f.index.lock().unwrap();
+        let busy = ready_reader(&f.index, &f.root).await.unwrap();
+        drop(held);
+        assert!(busy.is_some() || cached_reader(&f.root).is_none(), "only a parallel forget makes it unavailable");
         assert_eq!(serde_json::to_value(unavailable()).unwrap()["skipReason"], "indexUnavailable");
 
         // A user's step on a run whose automatic slot is used still runs.
@@ -1109,6 +1302,7 @@ pub(crate) mod tests {
         assert_eq!((first.status, first.request_count), (EnhanceStatus::Ok, 1), "{first:?}");
         assert_eq!((second.status, second.skip_reason, second.request_count), (EnhanceStatus::Skipped, Some(SkipReason::RoundRunning), 0));
         assert_eq!(serde_json::to_value(&second).unwrap()["skipReason"], "roundRunning");
+        assert!(!second.done, "the rounds may go on: {second:?}");
         assert_eq!(s.accepted.load(SeqCst), 1);
         assert!(!run_for_window(&c.run, &c.window).unwrap().evidence_busy, "the guard is cleared");
         let next = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
@@ -1180,6 +1374,7 @@ pub(crate) mod tests {
             "status", "stop", "skipReason", "missing", "endpointHost", "statusClass", "hop", "terms", "evidence",
             "localTiers", "done", "requestCount", "poolSize", "candidates", "sentBlocks", "skippedConfidential",
             "skippedStale", "skippedLong", "skippedOversize", "estimatedTokens", "tokensUsed", "usage", "elapsedMs",
+            "nextHop", "run",
         ];
         want.sort_unstable();
         assert_eq!(keys, want);
@@ -1188,8 +1383,16 @@ pub(crate) mod tests {
         item_keys.sort_unstable();
         assert_eq!(
             item_keys,
-            ["breadcrumb", "evidenceId", "foundRound", "line", "lineEnd", "localResultId", "path", "text", "tier", "title"]
+            ["absPath", "breadcrumb", "evidenceId", "foundRound", "line", "lineEnd", "localResultId", "path", "text", "tier", "title"]
         );
+        assert_eq!(item["absPath"], c.f.root.join("q.md").to_string_lossy().as_ref());
+        let mut run_keys: Vec<&str> = v["run"].as_object().unwrap().keys().map(String::as_str).collect();
+        run_keys.sort_unstable();
+        let run_want = [
+            "elapsedMs", "endpointHost", "requests", "sentBlocks", "skippedConfidential", "skippedLong", "skippedOversize",
+            "skippedStale", "tokens",
+        ];
+        assert_eq!(run_keys, run_want);
         // The TS type (Task 10) has every field, `candidates` included.
         const API: &str = include_str!("../../../src/lib/smart-search/api.ts");
         let ts = &API[API.find("export interface EvidenceStepResult").unwrap()..];
@@ -1197,6 +1400,126 @@ pub(crate) mod tests {
         for key in want {
             assert!(ts.contains(&format!("{key}:")), "{key} missing from the TS EvidenceStepResult");
         }
+        let ts = &API[API.find("export interface EvidenceRunTotals").unwrap()..];
+        let ts = &ts[..ts.find("\n}").unwrap()];
+        for key in run_want {
+            assert!(ts.contains(&format!("{key}:")), "{key} missing from the TS EvidenceRunTotals");
+        }
+        let ts = &API[API.find("export interface EvidenceItem ").unwrap()..];
+        assert!(ts[..ts.find("\n}").unwrap()].contains("absPath:"), "absPath missing from the TS EvidenceItem");
+    }
+
+    /// Final-wave item 6: a stop between rounds at hop ≥ 1, before the next
+    /// round sends anything.
+    #[tokio::test]
+    async fn a_cancel_between_rounds_at_hop_one_sends_nothing_and_keeps_the_run() {
+        let c = ctx("test-evidence-cancel-between").await;
+        let s = server(|_| Duration::ZERO).await;
+        let cfg = config(&s.base);
+        let r0 = c.step_with(&cfg, Trigger::Auto, &CancelFlag::new()).await;
+        assert_eq!((r0.status, r0.request_count, r0.next_hop), (EnhanceStatus::Ok, 1, 1), "{r0:?}");
+        let cancel = CancelFlag::new();
+        cancel.cancel();
+        let r1 = c.step_with(&cfg, Trigger::Auto, &cancel).await;
+        assert_eq!((r1.status, r1.request_count, r1.done, r1.hop, r1.next_hop), (EnhanceStatus::Cancelled, 0, true, 1, 1), "{r1:?}");
+        assert_eq!(r1.evidence, r0.evidence);
+        assert_eq!((r1.sent_blocks, r1.estimated_tokens), (0, 0));
+        assert_eq!((r1.run.requests, r1.run.sent_blocks, r1.run.tokens), (1, r0.sent_blocks, r0.tokens_used));
+        let e = c.evidence();
+        assert_eq!(e.state.next_hop, 1, "the state is as round 0 left it");
+        assert!(e.auto_claimed && !e.auto_ended, "nothing was sent, so the automatic rounds did not end");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(s.accepted.load(SeqCst), 1);
+    }
+
+    /// Ruling (final review, I2): a stop during round 0 still reports what
+    /// went out, in the run's totals, and a later call reports the same.
+    #[tokio::test]
+    async fn run_totals_include_a_cancelled_round_and_stay_distinct() {
+        let c = ctx("test-evidence-run-totals").await;
+        let s = server(|n| if n == 0 { Duration::from_secs(2) } else { Duration::ZERO }).await;
+        let cfg = config(&s.base);
+        let cancel = cancel_flag(&c.run);
+        let canceller = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            canceller.cancel();
+        });
+        let r0 = c.step_with(&cfg, Trigger::User, &cancel).await;
+        assert_eq!((r0.status, r0.request_count, r0.hop, r0.next_hop), (EnhanceStatus::Cancelled, 1, 0, 0), "{r0:?}");
+        assert!(r0.evidence.is_empty());
+        assert!(r0.sent_blocks > 0 && r0.pool_size == r0.sent_blocks && r0.candidates > 0, "review M3: {r0:?}");
+        let host = endpoint_host(&s.base).ok();
+        assert_eq!(r0.run.endpoint_host, host);
+        assert_eq!((r0.run.requests, r0.run.sent_blocks, r0.run.tokens), (1, r0.sent_blocks, r0.estimated_tokens));
+        assert!(r0.run.elapsed_ms >= 100, "{r0:?}");
+        // The user starts again: round 0 is sent again; the passages are the
+        // same blocks, so the run's distinct count does not double.
+        let again = c.step_with(&cfg, Trigger::User, &CancelFlag::new()).await;
+        assert_eq!((again.status, again.hop, again.next_hop), (EnhanceStatus::Ok, 0, 1), "{again:?}");
+        assert_eq!(again.run.requests, 2);
+        assert_eq!(again.run.sent_blocks, r0.sent_blocks);
+        assert_eq!(again.run.tokens, r0.estimated_tokens + again.estimated_tokens);
+        assert!(again.run.elapsed_ms >= r0.run.elapsed_ms);
+        let r1 = c.step_with(&cfg, Trigger::User, &CancelFlag::new()).await;
+        assert_eq!((r1.status, r1.hop), (EnhanceStatus::Ok, 1), "{r1:?}");
+        assert_eq!(r1.run.skipped_confidential, 1, "secret.md, once however often it returns: {r1:?}");
+        // A call refused before any round still carries the run's totals.
+        let refused = c.step_with(&JevRequestConfig { consent_host: "other.example".into(), ..cfg.clone() }, Trigger::User, &CancelFlag::new()).await;
+        assert_eq!(refused.status, EnhanceStatus::NoConsent);
+        assert_eq!((refused.run.clone(), refused.next_hop), (EvidenceRunTotals { elapsed_ms: r1.run.elapsed_ms, ..r1.run.clone() }, 2));
+        let wire = serde_json::to_value(&refused).unwrap();
+        assert_eq!(wire["run"]["requests"], 3);
+        assert_eq!(wire["nextHop"], 2);
+    }
+
+    /// Review M2: the evidence repeated in `state` is sent with the pool, so
+    /// it is counted and recorded once, after the pool.
+    #[tokio::test]
+    async fn sent_blocks_are_the_union_of_the_pool_and_the_state_evidence() {
+        let s = server(|_| Duration::ZERO).await;
+        let block = |id: i64, path: &str, text: &str| SagCandidate {
+            id,
+            path: path.into(),
+            line: 1,
+            line_end: 1,
+            title: path.trim_end_matches(".md").into(),
+            heading: String::new(),
+            content: text.into(),
+            bm25: 0.,
+            score: 0.5,
+            previous_score: Some(0.5),
+            order: 0,
+        };
+        let mut scorer = JevScorer {
+            client: enhance_client().unwrap(),
+            jev: gate_jev(&config(&s.base), None).ok().expect("configured"),
+            key: None,
+            preset: Preset::Sag2V10,
+            criterion: String::new(),
+            context_tokens: 32_000,
+            cjk: 1,
+            other: 4,
+            deadline: Duration::from_secs(5),
+            budget: 200_000,
+            tokens_used: 0,
+            cancel: Arc::new(CancelFlag::new()),
+            requests: 0,
+            estimated: 0,
+            built: None,
+            sent_ids: BTreeSet::new(),
+            oversize: BTreeSet::new(),
+            usage: None,
+            sent: vec![],
+        };
+        let pool = vec![block(1, "a.md", "alpha"), block(2, "b.md", "beta")];
+        let evidence = vec![block(2, "b.md", "beta"), block(3, "c.md", "gamma")];
+        let state = super::super::sag::jev::encode_state("q", &evidence, &StateExtras::default());
+        scorer.score(pool, evidence, state).await.unwrap();
+        assert_eq!(scorer.requests, 1);
+        assert_eq!(scorer.sent_ids, BTreeSet::from([1, 2, 3]));
+        let sent: Vec<&str> = scorer.sent.iter().map(|(p, _, _)| p.as_str()).collect();
+        assert_eq!(sent, ["a.md", "b.md", "c.md"]);
     }
 
     #[test]

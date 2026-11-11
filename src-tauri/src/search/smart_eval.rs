@@ -711,9 +711,11 @@ fn judged(row: &LookupEvalRow) -> bool {
     row.route == Some(PipelineRoute::Judge) && (row.request_count > 0 || row.reused)
 }
 
-/// The target's rank in the evidence list at the end of round 0.
+/// The target's rank in the evidence list at the end of round 0: the first
+/// hop-0 row that was sent (a call that sent nothing reports the hop it
+/// attempted, so it cannot stand for round 0's result).
 fn round0_rank(row: &LookupEvalRow) -> Option<usize> {
-    row.rounds.iter().find(|r| r.hop == 0).and_then(|r| r.evidence_rank)
+    row.rounds.iter().find(|r| r.hop == 0 && r.request_count > 0).and_then(|r| r.evidence_rank)
 }
 
 /// The value every row shares; `None` when they differ or there is no row.
@@ -783,8 +785,9 @@ pub(crate) fn lookup_metrics(rows: &[LookupEvalRow], split: &str) -> LookupMetri
     // their recall is unknown, not 0 (a `--compare` baseline would
     // otherwise show the whole current recall as a gain).
     let evidence_known = scored.iter().any(|r| r.max_hops.is_some());
-    // Per-hop figures come from the rounds that sent: a round that sent
-    // nothing reports the hop of the latest scored round again.
+    // Per-hop figures come from the rounds that sent: a call that sent
+    // nothing (a budget stop, a cancel) reports the hop it attempted, with
+    // the earlier round's evidence again.
     let sent_rounds: Vec<&RoundRow> = ok.iter().flat_map(|r| &r.rounds).filter(|r| r.request_count > 0).collect();
     let hops = sent_rounds.iter().map(|r| usize::from(r.hop) + 1).max().unwrap_or(0);
     let at = |hop: usize| -> Vec<&RoundRow> { sent_rounds.iter().copied().filter(|r| usize::from(r.hop) == hop).collect() };
@@ -1891,6 +1894,7 @@ mod tests {
         EvidenceItemDto {
             evidence_id: format!("e-{path}-{line}"),
             path: path.into(),
+            abs_path: String::new(),
             line,
             line_end: line,
             title: String::new(),
@@ -2117,8 +2121,8 @@ mod tests {
                 rounds: vec![
                     round(0, EnhanceStatus::Ok, None),
                     slow(round(1, EnhanceStatus::Ok, Some(4))),
-                    // A round that sent nothing (a stop) reports an earlier hop: not counted.
-                    RoundRow { request_count: 0, estimated_tokens: 999, ..round(0, EnhanceStatus::Ok, Some(4)) },
+                    // A call that sent nothing (a stop) reports the hop it attempted: not counted.
+                    RoundRow { request_count: 0, estimated_tokens: 999, ..round(2, EnhanceStatus::Ok, Some(4)) },
                 ],
                 ..eval_row("b", None, Some(4))
             },
@@ -2149,6 +2153,44 @@ mod tests {
         assert_eq!((hop1.current, hop1.baseline), (None, Some(100.0)));
         assert_eq!(back.len(), deltas.len());
         assert_eq!(metric_values(&current).iter().filter(|(n, _)| n.starts_with("round") && n.ends_with("[1]")).count(), 4);
+    }
+
+    /// Final-wave item 2: with maxHops 1, round 0 was sent and round 1 was
+    /// not (the budget stopped it). Its row has hop 1, no requests and round
+    /// 0's evidence again: it adds no hop-1 figures and changes no recall.
+    #[test]
+    fn a_hop_one_row_that_sent_nothing_adds_no_round_figures() {
+        let rows = vec![LookupEvalRow {
+            max_hops: Some(1),
+            evidence_rank: Some(3),
+            found_round: Some(0),
+            rounds: vec![
+                round(0, EnhanceStatus::Ok, Some(3)),
+                RoundRow {
+                    request_count: 0,
+                    sent_blocks: 0,
+                    estimated_tokens: 999,
+                    input_tokens: None,
+                    stop: Some(EvidenceStop::Budget),
+                    ..round(1, EnhanceStatus::Ok, Some(3))
+                },
+            ],
+            ..eval_row("a", Some(3), Some(3))
+        }];
+        let m = lookup_metrics(&rows, "all");
+        assert_eq!((m.round_tokens.clone(), m.round_input_tokens.clone()), (vec![50], vec![40]));
+        assert_eq!((m.round_p50_ms.clone(), m.round_requests), (vec![Some(100)], 1));
+        assert_eq!((m.evidence_recall10, m.evidence_recall10_round0), (Some(1.0), Some(1.0)));
+        assert_eq!((m.expansion_only, m.lost_by_expansion), (0, 0));
+        // Round 0 itself not sent (a cancel before it went out): no round-0 rank.
+        let unsent = LookupEvalRow {
+            rounds: vec![RoundRow { request_count: 0, ..round(0, EnhanceStatus::Cancelled, None) }],
+            evidence_rank: None,
+            found_round: None,
+            ..rows[0].clone()
+        };
+        assert_eq!(round0_rank(&unsent), None);
+        assert_eq!(lookup_metrics(&[unsent], "all").round_requests, 0);
     }
 
     #[test]

@@ -231,6 +231,7 @@ mod tests {
             auto_ended: false,
             tiers: HashMap::from([("e1".to_string(), Tier::Fit), ("r1".to_string(), Tier::Unfit)]),
             shown: None,
+            totals: Default::default(),
         }
     }
 

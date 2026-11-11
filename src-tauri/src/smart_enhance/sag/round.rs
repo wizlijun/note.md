@@ -63,6 +63,15 @@ pub(crate) struct Skipped {
     pub long: usize,
 }
 
+/// The block ids behind [`Skipped`], for a caller that keeps distinct counts
+/// over several [`ReaderIndex`]es (a lookup run's rounds).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SkippedIds {
+    pub confidential: BTreeSet<i64>,
+    pub stale: BTreeSet<i64>,
+    pub long: BTreeSet<i64>,
+}
+
 /// The index as the round state machine sees it. `Sync` so the step future
 /// is `Send` and the per-term queries can run on scoped threads (P8).
 pub(crate) trait SagIndex: Sync {
@@ -93,6 +102,10 @@ pub(crate) trait SagIndex: Sync {
 /// and the `state` string and keeps the books. A round the scorer will not
 /// send (`Budget`, `EvidenceTooLarge`) comes back as `RoundError::Stop`.
 pub(crate) trait Scorer {
+    /// Told the round's pool length and candidate count before `score` (or a
+    /// cancel) runs, so a round that is not scored can still report them.
+    fn built(&mut self, _pool_size: usize, _candidates: usize) {}
+
     fn score(
         &mut self,
         pool: Vec<SagCandidate>,
@@ -300,6 +313,7 @@ impl EvidenceState {
         let state = encode_state(&self.query, &evidence, extras);
         let pool: Vec<SagCandidate> = pool.into_values().collect();
         let pool_size = pool.len();
+        scorer.built(pool_size, candidates.len());
         let scored = tokio::select! {
             biased;
             _ = cancel.cancelled() => return Ok(StepOutcome::Failed(RoundError::Cancelled)),
@@ -425,6 +439,15 @@ impl ReaderIndex {
             confidential: Mutex::default(),
             stale: Mutex::default(),
             long: Mutex::default(),
+        }
+    }
+
+    /// The ids of the blocks dropped so far, per reason.
+    pub(crate) fn skipped_ids(&self) -> SkippedIds {
+        SkippedIds {
+            confidential: lock(&self.confidential).clone(),
+            stale: lock(&self.stale).clone(),
+            long: lock(&self.long).clone(),
         }
     }
 
