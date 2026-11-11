@@ -1158,20 +1158,6 @@ fn time_window_dto(t: &crate::smart_lookup::RunTime) -> TimeWindowDto {
     }
 }
 
-/// Zero-hit diagnosis for a retained lookup run: a hit count per extracted
-/// term, locally, without any model (spec Appendix F.5).
-#[tauri::command(async)]
-pub fn smart_lookup_diagnose(
-    app: AppHandle,
-    window: tauri::Window,
-    lookup_run_id: String,
-) -> Result<Diagnosis, String> {
-    let fusion = crate::lookup_params::for_app(&app)?.local.fusion();
-    let run = crate::smart_lookup::run_for_window(&lookup_run_id, window.label())?;
-    let (ticket, counter) = app.state::<SearchGen>().next(window.label());
-    repair_search::diagnose_locked(&handle(&app), &run, &fusion, &counter, ticket)
-}
-
 /// Re-searches a retained lookup run locally by up to two wordings (from the
 /// repair model or edited by the user) and registers the answer as a new,
 /// repaired lookup run (spec Appendix F.6 / F.7).
