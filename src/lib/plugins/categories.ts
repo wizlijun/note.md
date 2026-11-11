@@ -9,7 +9,6 @@ export const PLUGIN_CATEGORY_ORDER = [
   'reflect',
   'import-export',
   'experience',
-  'other',
 ] as const
 
 export type PluginCategory = typeof PLUGIN_CATEGORY_ORDER[number]
@@ -17,6 +16,7 @@ export type PluginCategory = typeof PLUGIN_CATEGORY_ORDER[number]
 const KNOWN_CATEGORIES = new Set<string>(PLUGIN_CATEGORY_ORDER)
 const LEGACY_CATEGORIES: Record<string, PluginCategory> = {
   inspiration: 'create',
+  other: 'experience',
   agents: 'ai',
   capture: 'record',
   'capture-import': 'record',
@@ -30,7 +30,9 @@ const LEGACY_CATEGORIES: Record<string, PluginCategory> = {
 /** Current category is authoritative by id so old manifests/caches migrate offline. */
 export const OFFICIAL_PLUGIN_CATEGORIES: Readonly<Record<string, PluginCategory>> = {
   'notemd.pos-log': 'record',
-  'notemd.roam-import': 'import-export',
+  'notemd.roam-import': 'record',
+  'notemd.apple-notes': 'record',
+  'notemd.health-sync': 'record',
   'notemd.ebook-import': 'reading',
   'notemd.trace-source': 'reading',
   'notemd.idea-spark': 'create',
@@ -55,9 +57,9 @@ export function normalizePluginCategory(
   if (pluginId && OFFICIAL_PLUGIN_CATEGORIES[pluginId]) {
     return OFFICIAL_PLUGIN_CATEGORIES[pluginId]
   }
-  if (!category) return 'other'
+  if (!category) return 'experience'
   if (KNOWN_CATEGORIES.has(category)) return category as PluginCategory
-  return LEGACY_CATEGORIES[category] ?? 'other'
+  return LEGACY_CATEGORIES[category] ?? 'experience'
 }
 
 export type PluginAiRole = 'read' | 'inspire' | 'reason' | 'execute'
@@ -93,7 +95,6 @@ export function pluginCategoryLabelKey(category: PluginCategory): keyof Messages
     create: 'pluginCategory.create',
     'import-export': 'pluginCategory.importExport',
     experience: 'pluginCategory.experience',
-    other: 'pluginCategory.other',
   }
   return keys[category]
 }

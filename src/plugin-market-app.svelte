@@ -458,7 +458,6 @@
       create: '✦',
       'import-export': '⇄',
       experience: '⚡',
-      other: '•••',
     }
     return marks[category]
   }
@@ -827,7 +826,6 @@
   .category-block[data-category='create'] { --accent: #635bff; }
   .category-block[data-category='import-export'] { --accent: #667085; }
   .category-block[data-category='experience'] { --accent: #e34b87; }
-  .category-block[data-category='other'] { --accent: #7a8495; }
   .category-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .category-mark {
     display: grid;

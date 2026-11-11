@@ -296,14 +296,13 @@ export const zh: Record<keyof Messages, string> = {
 
   // 插件能力分组
   'pluginCategory.ai': 'AI',
-  'pluginCategory.record': '记录',
+  'pluginCategory.record': '捕捉',
   'pluginCategory.reading': '阅读',
   'pluginCategory.advance': '推进',
   'pluginCategory.reflect': '回顾',
-  'pluginCategory.create': '创作',
-  'pluginCategory.importExport': '导入与导出',
-  'pluginCategory.experience': '体验增强',
-  'pluginCategory.other': '其他',
+  'pluginCategory.create': '写作',
+  'pluginCategory.importExport': '数据导入导出',
+  'pluginCategory.experience': '其他增强',
 
   // Plugin Market window (子项目③)
   'pluginMarket.windowTitle': '插件市场',
