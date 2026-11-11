@@ -61,6 +61,7 @@ pub(super) fn layout(
     let mut row = 0;
     for (position, candidate) in candidates.iter().enumerate() {
         let label = candidate.label.trim_end();
+        let label = label.strip_suffix('.').unwrap_or(label);
         let full = if label.is_empty() {
             candidate.text.clone()
         } else {
@@ -186,9 +187,9 @@ mod tests {
         let page = layout(&candidates(5), -1, 0, 120.0, 32.0, 10.0, 4, measure);
         assert_eq!(page.rows, 3);
         assert_eq!(page.page_end, 5);
-        assert_eq!(page.placements[0].text, "1.\u{2009}汉字");
-        assert_eq!(page.placements[0].width, 52.0);
-        assert_eq!(page.placements[1].x, 62.0);
+        assert_eq!(page.placements[0].text, "1\u{2009}汉字");
+        assert_eq!(page.placements[0].width, 47.0);
+        assert_eq!(page.placements[1].x, 57.0);
         assert_eq!(page.placements[2].x, 0.0);
         assert_eq!(page.placements[2].y, 32.0);
     }
@@ -216,7 +217,7 @@ mod tests {
         }];
         let page = layout(&entries, 23, 0, 45.0, 32.0, 10.0, 4, measure);
         assert_eq!(page.placements[0].index, 23);
-        assert_eq!(page.placements[0].text, "7.\u{2009}汉…");
+        assert_eq!(page.placements[0].text, "7\u{2009}汉…");
         assert!(page.placements[0].width <= 45.0);
         assert_eq!(entries[0].text, "汉字😀e\u{301}");
     }

@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- **Tighter Sumi candidate spacing on Linux.** Remove duplicate spacing after candidate numbers and use a compact, font-scaled gap between candidate groups.
+- **Tighter Sumi candidate spacing on Linux.** Remove periods and duplicate spacing after candidate numbers and use a compact, font-scaled gap between candidate groups.
 
 ## v6.1111.3 — 2026-11-11
 

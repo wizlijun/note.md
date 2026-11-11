@@ -328,7 +328,7 @@ impl Panel {
         );
         self.metrics.set(metrics);
         self.minimum_width
-            .set(s.view.create_pango_layout(Some("1.\u{2009}中…")).pixel_size().0 as f64);
+            .set(s.view.create_pango_layout(Some("1\u{2009}中…")).pixel_size().0 as f64);
         let width =
             (c.bounds.width - (s.view.left_margin() + s.view.right_margin()) as f64).max(1.0);
         let pitch = Self::pitch(&s);
