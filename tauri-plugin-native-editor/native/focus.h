@@ -105,7 +105,7 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
     [self.owner.container addSubview:view positioned:NSWindowAbove relativeTo:self.owner.scroll];
 }
 - (void)stopFocusTyping {
-    self.focusInputCount=0;self.focusLastInput=0;self.focusFirstInput=0;self.focusResumeOnInput=NO;
+    self.focusInputCount=0;self.focusLastInput=0;self.focusResumeOnInput=NO;
     SumiFocusView *view=self.focusView;if(!view)return;
     if(view.nativeScrollHidden){[CATransaction begin];[CATransaction setDisableActions:YES];self.owner.scroll.layer.opacity=view.nativeScrollOpacity;view.nativeScrollHidden=NO;[CATransaction commit];}
     [view.timer invalidate];view.timer=nil;[view.idleTimer invalidate];view.idleTimer=nil;
@@ -159,9 +159,13 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
 }
 - (void)recordFocusInputAt:(CFTimeInterval)time {
     if(![self focusEnabled] || !self.owner || self.owner.applying || self.owner.draftError || !self.isEditable || self.owner.detached || self.owner.container.hidden || self.window.firstResponder!=self)return;
-    if(time-self.focusFirstInput>2 || time<self.focusLastInput)self.focusInputCount=0;
-    if(!self.focusInputCount)self.focusFirstInput=time;
-    self.focusLastInput=time;self.focusInputCount++;
+    if(time<self.focusLastInput)self.focusInputCount=0;
+    // Match Linux's rolling two-second window. Only the latest four events
+    // can affect entry, so retain a fixed-size history even while focused.
+    NSUInteger recent=0;
+    for(NSUInteger n=0;n<self.focusInputCount;n++)if(time-_focusInputTimes[n]<=2)_focusInputTimes[recent++]=_focusInputTimes[n];
+    if(recent==4){for(NSUInteger n=1;n<4;n++)_focusInputTimes[n-1]=_focusInputTimes[n];recent=3;}
+    _focusInputTimes[recent++]=time;self.focusInputCount=recent;self.focusLastInput=time;
     if(!self.focusView && self.focusInputCount<4 && !self.focusResumeOnInput)return;
     BOOL entering=self.focusView==nil;
     if(entering){
@@ -181,6 +185,7 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
     SumiFocusView *view=self.focusView;if(!view)return;
     if(![self focusEnabled] || self.owner.draftError || !self.isEditable || self.owner.detached || self.owner.container.hidden){[self stopFocusTyping];return;}
     self.focusUpdating=YES;
+    CGFloat viewportHeight=MAX(1,view.bounds.size.height-MAX(0,[self.owner.appearance[@"bottom_inset"] doubleValue]));
     if(@available(macOS 13.0,*)){
         NSTextLayoutManager *layout=self.textLayoutManager;NSTextContentManager *content=layout.textContentManager;
         // Commit the bounded native viewport before reading fragment frames.
@@ -214,19 +219,19 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
                     return row;
                 };
                 SumiFocusRow *active=makeRow(current,lines[activeIndex]);[rows addObject:active];
-                CGFloat activeMid=active.rawOrigin.y+active.height/2,half=view.bounds.size.height/2;
+                CGFloat activeMid=active.rawOrigin.y+active.height/2,half=viewportHeight/2;
                 // During entry include the old visible rows as well, so they
                 // fade and move out instead of disappearing on the first frame.
                 // An offscreen synthetic selection must not expand the walk.
                 CGFloat startMid=active.startOrigin.y+active.height/2;
-                BOOL includeStart=view.progress<1 && startMid>=0 && startMid<=view.bounds.size.height;
+                BOOL includeStart=view.progress<1 && startMid>=0 && startMid<=viewportHeight;
                 BOOL (^append)(NSTextLayoutFragment *,NSTextLineFragment *,BOOL)=^BOOL(NSTextLayoutFragment *fragment,NSTextLineFragment *line,BOOL reverse){
                     SumiFocusRow *row=makeRow(fragment,line);
                     refreshRow(active);
                     CGFloat anchor=active.rawOrigin.y+active.height/2;
                     CGFloat top=half+row.rawOrigin.y-anchor,bottom=top+row.height;
-                    BOOL outside=reverse?bottom<0:top>view.bounds.size.height;
-                    BOOL outsideStart=reverse?row.startOrigin.y+row.height<0:row.startOrigin.y>view.bounds.size.height;
+                    BOOL outside=reverse?bottom<0:top>viewportHeight;
+                    BOOL outsideStart=reverse?row.startOrigin.y+row.height<0:row.startOrigin.y>viewportHeight;
                     if(outside && (!includeStart || outsideStart))return NO;
                     [rows addObject:row];return YES;
                 };
@@ -294,7 +299,7 @@ static SumiFocusTile *SumiCreateFocusTile(SumiFocusRow *row,CGFloat scale,CGFloa
                     row.origin=NSMakePoint(row.startOrigin.x,half+row.rawOrigin.y-activeMid);
                     CGFloat distance=fabs(row.rawOrigin.y+row.height/2-activeMid),edge=distance/MAX(1,half);
                     row.alpha=pow(.55,distance/pitch)*MAX(0,1-edge*edge);
-                    if(row!=active && (row.origin.y<=0 || row.origin.y+row.height>=view.bounds.size.height))row.alpha=0;
+                    if(row!=active && (row.origin.y<=0 || row.origin.y+row.height>=viewportHeight))row.alpha=0;
                     CGFloat scale=MAX(1,self.window.backingScaleFactor),padding=MAX(1,[self.owner.appearance[@"font_size"] doubleValue]);
                     NSArray *key=SumiFocusTileKey(row,scale,padding);
                     SumiFocusTile *tile=key?(nextRasterCache[key] ?: view.rasterCache[key]):nil;

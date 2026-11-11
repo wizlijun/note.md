@@ -4,7 +4,13 @@ static NSWindow *probeWindow;
 static void *probeHandle;
 static int64_t receive(void *context,const char *json,char **reply) {
     (void)context;(void)reply;NSDictionary *event=SumiJSON(json);
-    if([event[@"kind"] isEqual:@"edit"])return [event[@"base_revision"] longLongValue]+1;
+    if([event[@"kind"] isEqual:@"edit"]){
+        SumiEditor *editor=(__bridge SumiEditor *)probeHandle;
+        NSString *next=[editor.committed stringByReplacingCharactersInRange:SumiReadRange(event[@"range"]) withString:event[@"replacement"]];
+        NSDictionary *projection=@{@"document":@{@"text":next,@"runs":@[]},@"selection":SumiRange(editor.text.selectedRange)};
+        *reply=strdup([[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:projection options:0 error:nil] encoding:NSUTF8StringEncoding].UTF8String);
+        return [event[@"base_revision"] longLongValue]+1;
+    }
     if([event[@"action"] isEqual:@"fullscreen"])[probeWindow toggleFullScreen:nil];
     if([event[@"kind"] isEqual:@"copy"]){SumiEditor *editor=(__bridge SumiEditor *)probeHandle;NSRange range=SumiReadRange(event[@"range"]);if(NSMaxRange(range)<=editor.text.string.length){NSData *data=[NSJSONSerialization dataWithJSONObject:@{@"clipboard_text":[editor.text.string substringWithRange:range]} options:0 error:nil];*reply=strdup([[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding].UTF8String);}}
     return [event[@"revision"] longLongValue];
@@ -19,6 +25,11 @@ static void releaseReply(char *reply){free(reply);}
     [editor applyProjection:@{@"document":@{@"text":@"",@"runs":@[]},@"selection":SumiRange(NSMakeRange(0,0))} revision:editor.revision+1];
     [probeWindow makeFirstResponder:editor.text];
 }
+- (void)startFocusedFixture:(id)sender {
+    (void)sender;SumiEditor *editor=(__bridge SumiEditor *)probeHandle;
+    [probeWindow makeFirstResponder:editor.text];
+    for(int n=0;n<4;n++)[editor.text recordFocusInputAt:CACurrentMediaTime()+n*.01];
+}
 - (void)windowDidResize:(NSNotification *)notification {
     (void)notification;if(!probeHandle)return;SumiEditor *editor=(__bridge SumiEditor *)probeHandle;
     [editor setBounds:@{@"x":@0,@"y":@0,@"width":@(probeWindow.contentView.bounds.size.width),@"height":@(probeWindow.contentView.bounds.size.height)}];
@@ -28,7 +39,7 @@ static void releaseReply(char *reply){free(reply);}
 int main(void){@autoreleasepool{
     [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     FocusProbeDelegate *delegate=[FocusProbeDelegate new];NSApp.delegate=delegate;
-    NSMenu *menu=[NSMenu new];NSMenuItem *application=[NSMenuItem new];[menu addItem:application];NSMenu *appMenu=[NSMenu new];[appMenu addItemWithTitle:@"Quit Sumi Native Probe" action:@selector(terminate:) keyEquivalent:@"q"];NSMenuItem *blankPage=[appMenu addItemWithTitle:@"New Blank Page — synthetic only" action:@selector(newBlankPage:) keyEquivalent:@"n"];blankPage.target=delegate;application.submenu=appMenu;NSApp.mainMenu=menu;
+    NSMenu *menu=[NSMenu new];NSMenuItem *application=[NSMenuItem new];[menu addItem:application];NSMenu *appMenu=[NSMenu new];[appMenu addItemWithTitle:@"Quit Sumi Native Probe" action:@selector(terminate:) keyEquivalent:@"q"];NSMenuItem *blankPage=[appMenu addItemWithTitle:@"New Blank Page — synthetic only" action:@selector(newBlankPage:) keyEquivalent:@"n"];blankPage.target=delegate;NSMenuItem *focusFixture=[appMenu addItemWithTitle:@"Start Focus — synthetic only" action:@selector(startFocusedFixture:) keyEquivalent:@""];focusFixture.target=delegate;application.submenu=appMenu;NSApp.mainMenu=menu;
     probeWindow=[[NSWindow alloc]initWithContentRect:NSMakeRect(100,100,960,720) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
     probeWindow.title=@"Sumi Native Probe — 合成草稿 · 等字号居中渐隐 / 连打聚焦 / 上下保持中线 / ⌘N空白页 / 左右与拖选阅读";probeWindow.delegate=delegate;
     probeWindow.collectionBehavior=NSWindowCollectionBehaviorFullScreenPrimary;
