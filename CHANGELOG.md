@@ -7,6 +7,14 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1111.2 — 2026-11-11
+
+- **One consistent plugin workflow.** Native menus and the built-in marketplace now use AI, Capture, Read, Write, Advance, Review, Import & Export, and Other. Write follows Read, with Sumi Write and Idea Spark together.
+
+- **Context sync belongs to Capture.** Apple Notes, Roam Research and Health Sync move into Capture, including older installed plugin manifests and cached categories. Legacy and unknown groups remain visible in Other.
+
+- **Apple silicon release.** The modified Faitc5 for Sumi 0.5.0.13 installer is included as a companion download; its App is signed and notarized, while the installer package remains unsigned.
+
 ## v6.1111.1 — 2026-11-11
 
 - **Companion input method included.** The release also includes the modified Faitc5 for Sumi 0.5.0.13 Apple silicon installer, with Chinese/English spacing enabled by default. Its App is signed and notarized; the installer package itself is unsigned. Future macOS releases validate the approved package before attaching it.
