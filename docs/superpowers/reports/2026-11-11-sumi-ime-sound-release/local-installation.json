@@ -1,0 +1,20 @@
+{
+  "installed_at_utc": "2026-11-11T15:44:00.170784+00:00",
+  "user_authorized_all_local_install": true,
+  "packages": [
+    "notemd 6.1111.5-1",
+    "fcitx5 5.1.23-1",
+    "fcitx5-sumi-candidates 5.1.23.r3.gb75c450f-1"
+  ],
+  "running_host_matches_public_package_sha256": "b5d25ee759b442f6a52b69f83957377f59d8379c9a1e7d7104a0dc050e1d9cad",
+  "old_host_exited_via_tray_quit": true,
+  "sumi_plugin_version": "0.1.12",
+  "running_plugin_backend_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "active_fcitx_addon_sha256": "3ca8bfb88a0b84336aeecb4c5777d2238b89fc025f0f36c0a9505c7cecbf8f00",
+  "package_file_checks": "notemd: 32 total files, 0 altered files\nfcitx5-sumi-candidates: 11 total files, 0 altered files\n",
+  "native_wayland_input_module_loaded": true,
+  "sumi_audio_stream_active": true,
+  "sumi_audio_stream_muted": false,
+  "user_audio_settings_modified": false,
+  "formal_document_test_input_injected": false
+}
