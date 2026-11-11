@@ -84,8 +84,8 @@ static NSString *SumiLocale(id value) {
 static NSString *SumiLabel(NSString *locale,NSString *english) {
     NSString *language=SumiLocale(locale);
     if([language isEqualToString:@"en"]){
-        if([english isEqualToString:@"Sumi…"])return @"Sumi Typewriter…";
-        if([english isEqualToString:@"Sumi writing editor"])return @"Sumi Typewriter writing editor";
+        if([english isEqualToString:@"Sumi…"])return @"Sumi Write…";
+        if([english isEqualToString:@"Sumi writing editor"])return @"Sumi Write writing editor";
         return english;
     }
     static NSDictionary<NSString *,NSArray<NSString *> *> *labels;static dispatch_once_t once;
@@ -96,7 +96,7 @@ static NSString *SumiLabel(NSString *locale,NSString *english) {
         @"Recover original paste":@[@"恢复原始粘贴",@"元の貼り付けを復元"],
         @"Select All":@[@"全选",@"すべてを選択"], @"Bold":@[@"粗体",@"太字"],
         @"Italic":@[@"斜体",@"斜体"], @"Strikethrough":@[@"删除线",@"取り消し線"],
-        @"Sumi…":@[@"玄霜打字机…",@"すみ…"], @"Paragraph":@[@"正文",@"本文"],
+        @"Sumi…":@[@"玄霜写作…",@"Sumi Write…"], @"Paragraph":@[@"正文",@"本文"],
         @"Heading 1":@[@"一级标题",@"見出し1"], @"Heading 2":@[@"二级标题",@"見出し2"],
         @"Heading 3":@[@"三级标题",@"見出し3"], @"Heading 4":@[@"四级标题",@"見出し4"],
         @"Heading 5":@[@"五级标题",@"見出し5"], @"Heading 6":@[@"六级标题",@"見出し6"],
@@ -107,7 +107,7 @@ static NSString *SumiLabel(NSString *locale,NSString *english) {
         @"Find Previous":@[@"查找上一个",@"前を検索"], @"Replace…":@[@"替换…",@"置換…"],
         @"Link":@[@"链接",@"リンク"], @"Apply":@[@"应用",@"適用"], @"Cancel":@[@"取消",@"キャンセル"],
         @"Link URL":@[@"链接地址",@"リンク先URL"],
-        @"Sumi writing editor":@[@"玄霜打字机写作编辑器",@"すみの執筆エディタ"]
+        @"Sumi writing editor":@[@"玄霜写作写作编辑器",@"Sumi Writeの執筆エディタ"]
     };});
     NSArray *translated=labels[english];return translated ? translated[[language isEqualToString:@"zh"]?0:1] : english;
 }

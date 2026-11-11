@@ -135,8 +135,8 @@ pub async fn save<R: tauri::Runtime>(
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (extension, filename, label) = match format.as_str() {
-            "markdown" => ("md", "Sumi.md", "Markdown 正文（不含逐行时间）"),
-            "archive" => ("zip", "Sumi.zip", "Sumi 正文与逐行时间"),
+            "markdown" => ("md", "Sumi Write.md", "Markdown 正文（不含逐行时间）"),
+            "archive" => ("zip", "Sumi Write.zip", "玄霜写作正文与逐行时间"),
             _ => return Err("未知导出格式".into()),
         };
         let content = bytes(&loaded, &format)?;

@@ -836,9 +836,9 @@ mod tests {
             window_title(Some(&i18n2), "zh-Hans", "main", None, "Plugin Name"),
             "主窗口"
         );
-        let sumi = serde_json::json!({ "zh": { "name": "玄霜打字机" }, "ja": { "name": "すみ", "windows": { "main": "すみ" } } });
-        for (locale, expected) in [("zh-CN", "玄霜打字机"), ("ja-JP", "すみ"), ("en-US", "Sumi Typewriter"), ("de", "Sumi Typewriter")] {
-            assert_eq!(window_title(Some(&sumi), locale, "main", Some("Sumi Typewriter"), "Sumi Typewriter"), expected);
+        let sumi = serde_json::json!({ "zh": { "name": "玄霜写作" }, "ja": { "name": "Sumi Write", "windows": { "main": "Sumi Write" } } });
+        for (locale, expected) in [("zh-CN", "玄霜写作"), ("ja-JP", "Sumi Write"), ("en-US", "Sumi Write"), ("de", "Sumi Write")] {
+            assert_eq!(window_title(Some(&sumi), locale, "main", Some("Sumi Write"), "Sumi Write"), expected);
         }
     }
 
