@@ -65,3 +65,7 @@ python3 tasks/creation-plugin-release-20261111/publish-plugin.py publish-index -
 - `plugins-r2-preflight.json`、`plugins-public-packages.json`、`plugins-index-before/candidate/kv-final/public-{normal,fresh}.json`、`plugins-index-verification.json`：由实际执行阶段生成。
 - `categoryChanges`明确记录所有历史分类迁移，不声称历史条目完全未改。
 - 已发布旧宿主的菜单硬编码兼容行为属于宿主版本；本轮包和网站更新不能声称替换旧宿主代码。
+
+## 本次离线实包验收
+
+已通过：source `b88edb93c5c09611ad9d888177b3814ce2ab3d64`；Sumi包SHA `b5b76160e19594a2a9f41288cc32fee9cc029f356dc83c90c5f79cb644ee97e6`；IdeaSpark包SHA `976c6f27b05b3b8fd1d7c9cad403d572aa7b2ee61c52e0b4289a4f057ef05e55`。两个包minisign、完整ZIP摘要、Git源manifest、生成索引及既有Wrangler版本都通过。证据 `packages-check.log`；先前索引尚未生成时的失败记录保留于 `packages-check-before-index.log`。本验收没有执行inspect/stage/publish-index，不代表市场已发布。发布器与16项离线回归精确提交 `9fac3c2a`。

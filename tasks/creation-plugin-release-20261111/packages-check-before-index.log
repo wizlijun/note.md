@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 338, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 332, in main
+    entries=check_packages()
+  File "/Users/bruce/git/mdeditor/tasks/creation-plugin-release-20261111/publish-plugin.py", line 175, in check_packages
+    generated=json.loads((SOURCE/'dist-plugins/index.json').read_text())
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 787, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/bruce/git/mdeditor-plugin-release-20261111/dist-plugins/index.json'
