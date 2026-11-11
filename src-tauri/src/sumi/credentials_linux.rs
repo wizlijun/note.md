@@ -128,7 +128,7 @@ pub fn save(profile: &str, credential: &Credentials) -> Result<(), String> {
         secret_password_store_sync(
             schema.0,
             ptr::null(),
-            c"Sumi device credential".as_ptr(),
+            c"Sumi Write device credential".as_ptr(),
             data.as_ptr(),
             ptr::null_mut(),
             &mut error,

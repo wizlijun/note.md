@@ -107,7 +107,7 @@ static NSString *SumiLabel(NSString *locale,NSString *english) {
         @"Find Previous":@[@"查找上一个",@"前を検索"], @"Replace…":@[@"替换…",@"置換…"],
         @"Link":@[@"链接",@"リンク"], @"Apply":@[@"应用",@"適用"], @"Cancel":@[@"取消",@"キャンセル"],
         @"Link URL":@[@"链接地址",@"リンク先URL"],
-        @"Sumi writing editor":@[@"玄霜写作写作编辑器",@"Sumi Writeの執筆エディタ"]
+        @"Sumi writing editor":@[@"玄霜写作编辑器",@"Sumi Writeの執筆エディタ"]
     };});
     NSArray *translated=labels[english];return translated ? translated[[language isEqualToString:@"zh"]?0:1] : english;
 }
