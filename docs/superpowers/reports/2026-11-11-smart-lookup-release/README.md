@@ -1,10 +1,10 @@
-# Smart Lookup 6.1111.3 发布候选
+# Smart Lookup 6.1111.3 正式发布
 
-用户要求在运行合并版本供验收后，将改动合入 main 并发布。main 与远端已同步至冻结 tag `v6.1111.3`（`bcc4be833d1b02b6a1e8eb6fa54ae2fb82afaac4`）。
+用户要求在运行合并版本供验收后，将改动合入 main 并发布。发布源码已合入并推送 main，冻结 tag `v6.1111.3` 为 `bcc4be833d1b02b6a1e8eb6fa54ae2fb82afaac4`；后续 main 仅追加发布证据。
 
 ## 当前状态
 
-签名、公证、构建门禁与六件草稿附件验证已完成；尚未公开。既有 `release-publish-core.mjs` 对省略其他平台明确要求交互确认，目前等待用户确认 `v6.1111.3 mac-arm64-only`。不能把此候选记录称为正式发布证据。
+用户明确确认 `v6.1111.3 mac-arm64-only` 后，经既有 release-publish 门禁于 2026-11-11 10:12:20 UTC 正式公开，非草稿、非预发布。正式地址：https://github.com/wizlijun/note.md/releases/tag/v6.1111.3 。六附件已完整匿名从 browser 下载地址回读并通过 SHA256、GitHub digest、更新 Minisign、配套包与元数据核对；发布前后资产身份和远端 tag 未变化。实际配置的自动更新 latest 入口也返回与冻结产物逐字相同的6.1111.3，仅 darwin-aarch64。
 
 ## 范围与验证
 
@@ -15,4 +15,10 @@
 - 六件草稿回读与冻结源一致：完整App文件、DMG和updater、真实Mach-O内全部前端资产；SmartLookup四命令、中英自动回答文案、完整ANSWER_SYSTEM和SAG2 CRITERION均在实际二进制内。详见artifact-verification.json。
 - 原两处EOF未提交修改及原stash精确保留；未替换用户本机App，未宣称真实模型质量或物理键盘验收。仅Apple Silicon宿主；其他平台历史包保持。Faitc5的App已签名公证，pkg本身无Installer签名，依批准元数据如实附带。
 
-最终公开后须补完整匿名六附件browser回读、SHA256/更新签名、实际updater入口和远端tag身份复核。
+## 公网发布证据
+
+- `public-host-full-browser-verification.json`：六附件整包匿名回读、全部分段组合与SHA256/资产digest、最终tar签名、批准Faitc5元数据、发布及tag前后身份一致。`updater-endpoint-verification.json`：实际latest入口200且740字节逐字匹配。
+- 首轮输入法包一个分段长度不足被校验器拒绝；同一canonical地址单段诊断正常，原校验器重试后全部通过，已成功验证分段逐一复核复用。保留首轮失败与诊断记录；未改HTTP/长度/Range/hash门槛，也未改走REST。
+- 六件最终资产：DMG 15,832,513字节、updater 15,937,251字节、更新签名416字节、latest740字节、Faitc5 .14包61,310,549字节、配套JSON372字节；精确SHA见host-assets.json。
+- 源码与草稿证据提交 `28e3fd99`、脱敏门禁日志 `75a371a9` 已推main。此记录与公网验证随后精确提交，不移动冻结tag，不重打或替换已发布附件。
+- 验证脚本按原执行字节归档；原执行目录为 `tasks/smart-lookup-release-20261111`，签名产物、完整回读文件及分段保存在该目录。

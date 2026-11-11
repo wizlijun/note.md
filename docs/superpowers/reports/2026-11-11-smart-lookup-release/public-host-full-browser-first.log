@@ -1,0 +1,34 @@
+FULL ANONYMOUS PASS faitc5-companion.json
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/verify-public-host-full.py", line 196, in <module>
+    main()
+    ~~~~^^
+  File "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/verify-public-host-full.py", line 172, in main
+    records = [full_asset(asset, prior[asset['name']], args.transport, out) for asset in release['assets']]
+               ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/verify-public-host-full.py", line 117, in full_asset
+    parts = list(pool.map(fetch, range(0, asset['size'], CHUNK)))
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 645, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 312, in _result_or_cancel
+    return fut.result(timeout)
+           ~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 447, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 396, in __get_result
+    raise self._exception
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/verify-public-host-full.py", line 111, in fetch
+    body = read(url, length, start, asset['size'], asset=True)
+  File "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/verify-public-host-full.py", line 56, in read
+    check_response(body, response.headers, response.status, bound, start, total)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/bruce/git/mdeditor/tasks/smart-lookup-release-20261111/verify-public-host-full.py", line 38, in check_response
+    assert len(body) == expected, 'Response body length differs'
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Response body length differs

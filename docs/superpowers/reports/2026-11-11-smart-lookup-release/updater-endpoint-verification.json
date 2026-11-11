@@ -1,0 +1,14 @@
+{
+  "verified_at_utc": "2026-11-11T10:13:02.922310+00:00",
+  "endpoint": "https://github.com/wizlijun/note.md/releases/latest/download/latest.json",
+  "anonymous": true,
+  "http": 200,
+  "bytes": 740,
+  "sha256": "42f66f9ae9e9652b22b4daf0cf1a3aa6e4064773e8bd6eec7480cfdee29686e5",
+  "version": "6.1111.3",
+  "platforms": [
+    "darwin-aarch64"
+  ],
+  "matches_frozen_release_bytes": true,
+  "fallback_used": false
+}

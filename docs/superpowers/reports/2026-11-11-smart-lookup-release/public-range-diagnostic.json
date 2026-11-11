@@ -1,0 +1,13 @@
+[
+  {
+    "requestedStart": 50331648,
+    "requestedLength": 2097152,
+    "status": 206,
+    "contentLength": "2097152",
+    "contentRange": "bytes 50331648-52428799/61310549",
+    "receivedBytes": 2097152,
+    "sha256": "ad3fe66aa3b39887075a907fb55004de120a35c390f4299ed4629a864ef6fcde",
+    "contentEncoding": null,
+    "contentType": "application/octet-stream"
+  }
+]
