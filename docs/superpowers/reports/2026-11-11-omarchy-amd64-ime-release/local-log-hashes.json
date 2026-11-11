@@ -1,0 +1,12 @@
+{
+  "build.log": "039683997091b7b5b4b148c8e157645025b433e0e193b965395cee9731058b94",
+  "package-verify-retry.log": "82057b0e9926833c676d71a1e5de1cc3900288e40991e7ad2c725ece74c5f708",
+  "frontend-validation/tests-release.log": "e51c6b2617f70fd6a07b22d21aad31d2033f71dbcd39c9fce97db9a640addceb",
+  "frontend-validation/check-release.log": "d6ae4b25c8b33293bef7522771854cce8bf54e4c50133dcf703448c318f5127c",
+  "native-tests.log": "687dc4be9817e84b13e31c0e6084733b9a1c8bfc9657cdb1f1f8f0c62bbb19b6",
+  "canvas-tests.log": "5f49b74eeaf5b49a7851a59340742e311fb48597b16d7a449932ba5038e12a96",
+  "mobile-tests.log": "69135287503ee7667d993868e2052a8291253c48bae98576b5197b13c7fe3e6f",
+  "core-bom/green-final.log": "6508baca40e0dba0dfd5a1d02f777df3c8223b4c3c9fd03743068c2d57f75a40",
+  "core-bom/build.log": "1228459268b305572c33ff79a51546e2c813b6cd831be1c6b33a23a731a9b4df",
+  "public-verification.log": "408a50cdfac185bbbbd7021a39a0b8cbc57191336c8e19668ea4696d4bc39cdd"
+}

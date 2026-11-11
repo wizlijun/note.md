@@ -1,0 +1,13 @@
+{
+  "container": "6b72f38bbbfa",
+  "tag": "v6.1111.4",
+  "host_commit": "509c80e057744c6e0a54f4c241e39c21c0051923",
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e",
+  "core_source_and_installed_index_sha256": "86a430e134b7da051e9c6af4e29817dd72d9269ced56d1caf7509b876162d255",
+  "container_checks": [
+    "86a430e134b7da051e9c6af4e29817dd72d9269ced56d1caf7509b876162d255  /build/moraya-core/dist/index.js",
+    "86a430e134b7da051e9c6af4e29817dd72d9269ced56d1caf7509b876162d255  /build/mdeditor/node_modules/@moraya/core/dist/index.js"
+  ],
+  "container_output": "/tmp/tmp.YJTYWxutXB/output/amd64",
+  "build_jobs": 2
+}

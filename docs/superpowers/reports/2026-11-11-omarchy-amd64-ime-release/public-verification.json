@@ -1,0 +1,72 @@
+{
+  "verified_at_utc": "2026-11-11T13:55:03.393112+00:00",
+  "tag": "v6.1111.4",
+  "source_commit": "509c80e057744c6e0a54f4c241e39c21c0051923",
+  "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1111.4",
+  "assets": {
+    "INSTALL.zh-CN.md": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/INSTALL.zh-CN.md",
+      "sha256": "a4eb6e8823c998d7a229f69a5e032743465a175b16deb3142b33bfc86d1fc6bf",
+      "bytes": 3657,
+      "anonymous_full_download_verified": true
+    },
+    "PKGBUILD": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/PKGBUILD",
+      "sha256": "285cbb182ea72ac3eb3bf90779fcda72beb8e762696095a1ee94ae3610a1a1a0",
+      "bytes": 1075,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-ime.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/SHA256SUMS-ime.txt",
+      "sha256": "d4b0e294c4d8c3e2e9b6ef3749fc530a3f233cf9d828257d9b9258243ea6e2ec",
+      "bytes": 427,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-linux.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/SHA256SUMS-linux.txt",
+      "sha256": "537996bfb0d8a8431313d8630b3dc62e1a07a8ba23c591ec49d93cba0882600f",
+      "bytes": 93,
+      "anonymous_full_download_verified": true
+    },
+    "SHA256SUMS-omarchy.txt": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/SHA256SUMS-omarchy.txt",
+      "sha256": "e3af6e15669a5455b7a81d48cb44fcf0a3340c6e1c1625dfa3fe612b5447a56f",
+      "bytes": 178,
+      "anonymous_full_download_verified": true
+    },
+    "fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst",
+      "sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+      "bytes": 58321,
+      "anonymous_full_download_verified": true
+    },
+    "fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-build.tar.gz": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-build.tar.gz",
+      "sha256": "6e668a1424c2bc8c3d1731ced75e10bcc8ab9c1915bebbd14c09ce53072b4a58",
+      "bytes": 25586,
+      "anonymous_full_download_verified": true
+    },
+    "fcitx5-sumi-source.tar.gz": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/fcitx5-sumi-source.tar.gz",
+      "sha256": "cf4ad1867750dbe283c047d64e867e270f1e607624b2437df2a6f93d3669d4bd",
+      "bytes": 18069,
+      "anonymous_full_download_verified": true
+    },
+    "note.md_6.1111.4_amd64.deb": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/note.md_6.1111.4_amd64.deb",
+      "sha256": "b840946645a340452fb5780b1e53e711f9829c4838ea712ea9c5f498586fd41a",
+      "bytes": 17380104,
+      "anonymous_full_download_verified": true
+    },
+    "notemd-6.1111.4-1-x86_64.pkg.tar.zst": {
+      "url": "https://github.com/wizlijun/note.md/releases/download/v6.1111.4/notemd-6.1111.4-1-x86_64.pkg.tar.zst",
+      "sha256": "ab3eb35ef0baa8ce5197b73af33a51410b150bdd02cd7fc51d2b05d607ed8b22",
+      "bytes": 16814450,
+      "anonymous_full_download_verified": true
+    }
+  },
+  "github_latest_unchanged": "v6.1111.3",
+  "mac_latest_json_unchanged": true,
+  "mac_latest_json_sha256": "42f66f9ae9e9652b22b4daf0cf1a3aa6e4064773e8bd6eec7480cfdee29686e5",
+  "locally_installed": false
+}

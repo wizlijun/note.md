@@ -1,0 +1,3085 @@
+{
+  "started_utc": "2026-11-11T13:30:24.054722+00:00",
+  "finished_utc": "2026-11-11T13:30:34.039346+00:00",
+  "mode": "read-only-git-and-artifact-inspection-no-fetch-no-checkout-no-push-no-publish",
+  "scope": "new Omarchy amd64 host with current main candidate spacing/no-period changes plus special Fcitx r3 addon; version chosen by parent",
+  "note_md": {
+    "path": "<note.md>",
+    "main_head": "509c80e057744c6e0a54f4c241e39c21c0051923",
+    "remote_main": {
+      "ok": true,
+      "refs": {
+        "refs/heads/main": "509c80e057744c6e0a54f4c241e39c21c0051923"
+      }
+    },
+    "local_main_equals_remote": true,
+    "worktrees": [
+      {
+        "worktree": "<note.md>",
+        "HEAD": "509c80e057744c6e0a54f4c241e39c21c0051923",
+        "branch": "refs/heads/main",
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "dist-share-editor/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "dist/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/host.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "docs/superpowers/reports/2026-11-10-omarchy-plugin-window-release/formal-gui/evidence/idea-save-events.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "docs/superpowers/reports/2026-11-10-sumi-omarchy-release/__pycache__/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "packaging/omarchy/__pycache__/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugin-protocol/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-registry/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/agency/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/apple-notes/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/assistant-mail/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/claude-agent/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/codex-agent/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/conversation-dictionary/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/decision-log/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/deepseek-agent/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/ebook-import/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/habitat/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/health-sync/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/idea-spark/dist/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/idea-spark/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/index-viewer/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/knowledge-browser/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/meetings/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/memory/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/next/dist/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/next/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/power-mode/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/quick-launch/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/roam-import/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/strata/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/timeline/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/trace-source/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/typst-reader/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/weekly-review/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/write/backend/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/write/dist/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/write/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "scripts/sumi/__pycache__/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/gen/schemas/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/IBMPlexMono-Light.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/IBMPlexSansSC-Light.otf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/LXGWWenKaiMonoLite-Regular.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/Unifont-18.0.01.otf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/YouchaSanz.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/ZhaohuaTypeWriter.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/ZhuqueFangsong-Regular.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/fcitx-semicolon-disable/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/lessons.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/linux-updater-fix/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/linux-updater-webkit/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/omarchy-amd64-ime-release/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/omarchy-build/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/omarchy-shortcuts-window/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/omarchy-sumi-services-tests/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/plugin-shortcuts/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/plugin-window-fix/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/plugin-window-release/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/portal-crash-fix-20261110/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/shortcuts-core.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-audio-v7/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-candidate-host/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-candidate-no-dot-layout/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-candidate-no-dot/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-candidate-spacing/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-credentials-target/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-fcitx/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-focus-release-6.1110.5/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-focus-release-6.1110.6/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-focus-v5/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-focus-v6/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-omarchy-acceptance/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-plugin-release-0.1.11/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-plugin-release-build.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-pointer-fix/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-release-final/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-release-private/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-rtf-tests/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-sound-diagnosis/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-sound-release-6.1110.7/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-website-readonly/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-window-font/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/todo.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/usb-keyboard-20261110/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tauri-plugin-native-editor/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "write-core/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          }
+        ]
+      },
+      {
+        "worktree": "<note.md>-sumi-candidate-position",
+        "HEAD": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+        "branch": "refs/heads/fix/sumi-candidate-position",
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": []
+      },
+      {
+        "worktree": "<note.md>-sumi-candidates",
+        "HEAD": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+        "branch": "refs/heads/sumi-fcitx-candidates",
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "dist-share-editor/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "dist/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/agency/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/apple-notes/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/assistant-mail/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/claude-agent/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/codex-agent/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/conversation-dictionary/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/decision-log/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/deepseek-agent/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/ebook-import/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/habitat/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/health-sync/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/idea-spark/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/index-viewer/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/knowledge-browser/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/meetings/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/memory/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/next/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/power-mode/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/quick-launch/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/roam-import/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/strata/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/timeline/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/trace-source/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/typst-reader/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/weekly-review/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "plugins-src/write/node_modules/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/gen/schemas/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/IBMPlexMono-Light.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/IBMPlexSansSC-Light.otf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/LXGWWenKaiMonoLite-Regular.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/Unifont-18.0.01.otf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/YouchaSanz.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/ZhaohuaTypeWriter.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/resources/sumi/ZhuqueFangsong-Regular.ttf",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          }
+        ]
+      },
+      {
+        "worktree": "<note.md>-sumi-focus-stability",
+        "HEAD": "690154c8d98c0c8caf2906615561b2e2e6235589",
+        "branch": "refs/heads/fix/sumi-focus-stability",
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "tasks/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          }
+        ]
+      },
+      {
+        "worktree": "<note.md>-sumi-release-integration",
+        "HEAD": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+        "branch": "refs/heads/integrate/sumi6-main",
+        "uncommitted_and_untracked": [
+          {
+            "status": "??",
+            "path": "node_modules",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "symlink",
+            "target": "<note.md>/node_modules"
+          }
+        ],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "src-tauri/gen/schemas/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          }
+        ]
+      },
+      {
+        "worktree": "<note.md>-sumi-sound-fix",
+        "HEAD": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "branch": "refs/heads/fix/sumi-linux-sound",
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "src-tauri/gen/schemas/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          }
+        ]
+      },
+      {
+        "worktree": "<note.md>/tasks/omarchy-build/source",
+        "HEAD": "183b636b05bcf1440e2b8626f28629ce44b78863",
+        "detached": true,
+        "uncommitted_and_untracked": [
+          {
+            "status": "??",
+            "path": "node_modules",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "symlink",
+            "target": "<note.md>/node_modules"
+          }
+        ],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "dist/",
+            "classification": "local-build-or-validation-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/gen/schemas/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "src-tauri/target/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          }
+        ],
+        "classification": "local-build-frozen-worktree-not-release-source",
+        "candidate_files_vs_main": {
+          "tauri-plugin-native-editor/src/linux_candidates.rs": {
+            "equal": false,
+            "note": "Path not present in one revision; classified via equivalent patch or superseded metadata"
+          },
+          "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+            "equal": false,
+            "note": "Path not present in one revision; classified via equivalent patch or superseded metadata"
+          }
+        },
+        "unmerged_commits_vs_main": []
+      },
+      {
+        "worktree": "<note.md>/tasks/sumi-candidate-host/source",
+        "HEAD": "15ec134fd301f7b33a56d45b8540801b31d21a44",
+        "detached": true,
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [],
+        "classification": "local-build-frozen-worktree-not-release-source",
+        "candidate_files_vs_main": {
+          "tauri-plugin-native-editor/src/linux_candidates.rs": {
+            "equal": false,
+            "old_sha256": "34fdaf31bf1c79c056fbe1d849887976fb4a93ad5db988b6f4754fa118aeb7a4",
+            "current_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2"
+          },
+          "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+            "equal": false,
+            "old_sha256": "84d9d13e6073cbe27ce7cf9809d1c7239ad9304f3c64d2d1b40d88a977bd117c",
+            "current_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18"
+          }
+        },
+        "unmerged_commits_vs_main": [
+          "15ec134fd301f7b33a56d45b8540801b31d21a44 fix(sumi): backport candidate spacing for local 6.1110.7-2",
+          "fbb9186259773a77f84a3ac69918e9f2f9df341f test(linux): use platform launcher for plugin environment regression",
+          "eb7643d25b281358a2f5c0a08a2e6633e0d293ab chore: release Linux Sumi typing sound fix 6.1110.7",
+          "c8057be88b9c1dfb3f79528e1402b84dcdbe3077 fix(linux): retain plugin audio session runtime directory"
+        ]
+      },
+      {
+        "worktree": "<note.md>/tasks/sumi-candidate-no-dot/source",
+        "HEAD": "100dc160b435c44716166d2eb12fe0071e252fb6",
+        "detached": true,
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [],
+        "classification": "local-build-frozen-worktree-not-release-source",
+        "candidate_files_vs_main": {
+          "tauri-plugin-native-editor/src/linux_candidates.rs": {
+            "equal": true,
+            "old_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2",
+            "current_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2"
+          },
+          "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+            "equal": true,
+            "old_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18",
+            "current_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18"
+          }
+        },
+        "unmerged_commits_vs_main": [
+          "100dc160b435c44716166d2eb12fe0071e252fb6 fix(sumi): omit candidate label periods in local host build",
+          "15ec134fd301f7b33a56d45b8540801b31d21a44 fix(sumi): backport candidate spacing for local 6.1110.7-2",
+          "fbb9186259773a77f84a3ac69918e9f2f9df341f test(linux): use platform launcher for plugin environment regression",
+          "eb7643d25b281358a2f5c0a08a2e6633e0d293ab chore: release Linux Sumi typing sound fix 6.1110.7",
+          "c8057be88b9c1dfb3f79528e1402b84dcdbe3077 fix(linux): retain plugin audio session runtime directory"
+        ]
+      },
+      {
+        "worktree": "/tmp/tmp.YJTYWxutXB/tag-worktree",
+        "HEAD": "509c80e057744c6e0a54f4c241e39c21c0051923",
+        "detached": true,
+        "uncommitted_and_untracked": [],
+        "ignored_paths_not_expanded": [],
+        "classification": "local-build-frozen-worktree-not-release-source",
+        "candidate_files_vs_main": {
+          "tauri-plugin-native-editor/src/linux_candidates.rs": {
+            "equal": true,
+            "old_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2",
+            "current_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2"
+          },
+          "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+            "equal": true,
+            "old_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18",
+            "current_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18"
+          }
+        },
+        "unmerged_commits_vs_main": []
+      }
+    ],
+    "branches": [
+      {
+        "branch": "fix/sumi-candidate-position",
+        "tip": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+        "not_in_base_by_ancestry": [
+          {
+            "commit": "5fd8c46160e386cbbbaf110f062a02799bf71809",
+            "subject": "fix(sumi): keep nonfocus input stationary above bottom candidates",
+            "paths": [
+              "CHANGELOG.md",
+              "CHANGELOG.zh-CN.md",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/README.md",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/build.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/candidate-1x.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/candidate-4x.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/caret.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/damage.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/focus-four-rows.png",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/keyboard-expiry-4x.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/nonfocus-four-rows.png",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/nonfocus-middle-preedit.png",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/old-input-jump.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/ordinary.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/transactions.log",
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/verification.json",
+              "docs/superpowers/specs/2026-11-10-sumi-fcitx-candidates.md",
+              "docs/superpowers/specs/2026-11-10-sumi-stationary-nonfocus-input.md",
+              "scripts/sumi/fcitx-candidates/run-native.py",
+              "tauri-plugin-native-editor/src/linux.rs",
+              "tauri-plugin-native-editor/src/linux_candidates.rs",
+              "tauri-plugin-native-editor/src/linux_candidates_layout.rs",
+              "tauri-plugin-native-editor/src/linux_focus.rs"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "7e245ca1c4ec55997ad81067a61a8882082ee408",
+            "equivalent_main_commit": "bb5e7e2bfadfbb336289563f609a745f547040de",
+            "equivalent_patch_id": "7e245ca1c4ec55997ad81067a61a8882082ee408",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "CHANGELOG.md": {
+                "equal": false,
+                "old_sha256": "f05c0e539dd67d9d3ae5bbc37715b25f95cbf0d98fa9af1e26209379fcd9cb99",
+                "current_sha256": "73454c453f98a84c8cdf585267fa2a143b4abe96812dabf9f9ecc34cc0f4a98e"
+              },
+              "CHANGELOG.zh-CN.md": {
+                "equal": false,
+                "old_sha256": "110bdde01e69f4aefbeb9771f11dfed8c74e5ea4840ee9043c06ead3797252a0",
+                "current_sha256": "08845a5f9114aa7c28562342d743b149113511aca56bd5695f1de7632a867b83"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/README.md": {
+                "equal": true,
+                "old_sha256": "5f6835e030334ef6e703f736e6923da6154bbde56a2583ab4371673ba8560eb6",
+                "current_sha256": "5f6835e030334ef6e703f736e6923da6154bbde56a2583ab4371673ba8560eb6"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/build.log": {
+                "equal": true,
+                "old_sha256": "4c08061c7bb2f2b686b0efa6d13d1384c2b4b753785035bc6061e38065150c11",
+                "current_sha256": "4c08061c7bb2f2b686b0efa6d13d1384c2b4b753785035bc6061e38065150c11"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/candidate-1x.log": {
+                "equal": true,
+                "old_sha256": "5a90406ab2b96e6dc71d250e10ac3754f2c4aab8a44d11d3ed45c7fb0ce91135",
+                "current_sha256": "5a90406ab2b96e6dc71d250e10ac3754f2c4aab8a44d11d3ed45c7fb0ce91135"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/candidate-4x.log": {
+                "equal": true,
+                "old_sha256": "be816f2967522d7f683fcaf3853a71a4a2e12cb80e82407830bb826db787dc5f",
+                "current_sha256": "be816f2967522d7f683fcaf3853a71a4a2e12cb80e82407830bb826db787dc5f"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/caret.log": {
+                "equal": true,
+                "old_sha256": "9292823e0da815197f4b74009b8f58daf947927091a3b89e06a59c6c6107a751",
+                "current_sha256": "9292823e0da815197f4b74009b8f58daf947927091a3b89e06a59c6c6107a751"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/damage.log": {
+                "equal": true,
+                "old_sha256": "247680a75c5122bcea261048f49bb7640d881eaae29842d927560f76eaed0d1a",
+                "current_sha256": "247680a75c5122bcea261048f49bb7640d881eaae29842d927560f76eaed0d1a"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/focus-four-rows.png": {
+                "equal": true,
+                "old_sha256": "83642026272d28c5a55540b569c47519cebdd70abafec65eb6426ced6154a12d",
+                "current_sha256": "83642026272d28c5a55540b569c47519cebdd70abafec65eb6426ced6154a12d"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/keyboard-expiry-4x.log": {
+                "equal": true,
+                "old_sha256": "a10fb51dabacfebc26fcfad447696e1be8970b0583d30c31b80220ae59d17f5b",
+                "current_sha256": "a10fb51dabacfebc26fcfad447696e1be8970b0583d30c31b80220ae59d17f5b"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/nonfocus-four-rows.png": {
+                "equal": true,
+                "old_sha256": "49611d9d8bcb9687075dbf14a37bdbe95fc4baf78eb5b7cc89910d7998664751",
+                "current_sha256": "49611d9d8bcb9687075dbf14a37bdbe95fc4baf78eb5b7cc89910d7998664751"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/nonfocus-middle-preedit.png": {
+                "equal": true,
+                "old_sha256": "7f12972c6ce8c5c74717c5091a09ebd7a10a5359c26eb046e1a3db1fe25b6362",
+                "current_sha256": "7f12972c6ce8c5c74717c5091a09ebd7a10a5359c26eb046e1a3db1fe25b6362"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/old-input-jump.log": {
+                "equal": true,
+                "old_sha256": "edc0101d70c32f13ce535323aedd15e13c7ef960483a5c03f84b45cb426d5841",
+                "current_sha256": "edc0101d70c32f13ce535323aedd15e13c7ef960483a5c03f84b45cb426d5841"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/ordinary.log": {
+                "equal": true,
+                "old_sha256": "f65ba8ec8f837ccdf09d084aa35ff3065e665ab9dd72a6d0da725f23ebe309e1",
+                "current_sha256": "f65ba8ec8f837ccdf09d084aa35ff3065e665ab9dd72a6d0da725f23ebe309e1"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/transactions.log": {
+                "equal": true,
+                "old_sha256": "98ac4f82a67ead260ca41daea7f5cc54d7427a7a8f3e633074c003b4760ac0b4",
+                "current_sha256": "98ac4f82a67ead260ca41daea7f5cc54d7427a7a8f3e633074c003b4760ac0b4"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-stationary-input/verification.json": {
+                "equal": true,
+                "old_sha256": "189da93c93f143727a9b417d414dcca52c3fc3f25c28b05828adbe779e5f7bc2",
+                "current_sha256": "189da93c93f143727a9b417d414dcca52c3fc3f25c28b05828adbe779e5f7bc2"
+              },
+              "docs/superpowers/specs/2026-11-10-sumi-fcitx-candidates.md": {
+                "equal": true,
+                "old_sha256": "d5a5e9506c052b5f7f8f223fca3f482fc94723e9619de9f21016d3d64400dc91",
+                "current_sha256": "d5a5e9506c052b5f7f8f223fca3f482fc94723e9619de9f21016d3d64400dc91"
+              },
+              "docs/superpowers/specs/2026-11-10-sumi-stationary-nonfocus-input.md": {
+                "equal": true,
+                "old_sha256": "0df54189f9e4f4d0380515b8dce259c14ac6c05142c71243da76fbf9688b0b16",
+                "current_sha256": "0df54189f9e4f4d0380515b8dce259c14ac6c05142c71243da76fbf9688b0b16"
+              },
+              "scripts/sumi/fcitx-candidates/run-native.py": {
+                "equal": true,
+                "old_sha256": "b47b1d576e12b29ba67ee61718dd1ed7dce9ecd9e99830bfd7a59a622b26309b",
+                "current_sha256": "b47b1d576e12b29ba67ee61718dd1ed7dce9ecd9e99830bfd7a59a622b26309b"
+              },
+              "tauri-plugin-native-editor/src/linux.rs": {
+                "equal": false,
+                "old_sha256": "a16c45d13aa43e72612a4a54d92ffdc66b0dc873b9a4c539bf86ce8385bb545e",
+                "current_sha256": "f57247a22821809372010ea7f3e8261ea40aaf97540e2a5f8b2e00c3bdaac8a7"
+              },
+              "tauri-plugin-native-editor/src/linux_candidates.rs": {
+                "equal": false,
+                "old_sha256": "6061987f7738d668e8a1cab049c302e25db7548e250556b9052a5cb0ed2f3e89",
+                "current_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2"
+              },
+              "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+                "equal": false,
+                "old_sha256": "7c771e979d14e9d7933e96e2d768ea95731b92f7de59ffc55166f3da3cb8f0db",
+                "current_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18"
+              },
+              "tauri-plugin-native-editor/src/linux_focus.rs": {
+                "equal": false,
+                "old_sha256": "ef316d3376accc047cb4ca6caad58d3b60471b58af41935b0cfd80dc0c5e5ba4",
+                "current_sha256": "55d4bfbb7ca9342a973a4ef43d837460f057178fb2635f77fffbb1b8ff9bac48"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          }
+        ]
+      },
+      {
+        "branch": "fix/sumi-focus-stability",
+        "tip": "690154c8d98c0c8caf2906615561b2e2e6235589",
+        "not_in_base_by_ancestry": [
+          {
+            "commit": "690154c8d98c0c8caf2906615561b2e2e6235589",
+            "subject": "fix(sumi): stabilize focus scrolling and hide native scrollbar",
+            "paths": [
+              "CHANGELOG.md",
+              "CHANGELOG.zh-CN.md",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/README.md",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/build.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale1.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale3.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro-result.json",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro.py",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/ime-scale3.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/red.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/scrollbar.png",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/transactions.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/unit.log",
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/verification.json",
+              "docs/superpowers/specs/2026-11-10-sumi-focus-stability.md",
+              "tauri-plugin-native-editor/src/linux.rs",
+              "tauri-plugin-native-editor/src/linux_focus.rs"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "bd27cada41e5d6b1eee9ba35a5c7fae3bee00089",
+            "equivalent_main_commit": "e8e8e26a55ecebde9fe8846f4b887d9de96c152e",
+            "equivalent_patch_id": "bd27cada41e5d6b1eee9ba35a5c7fae3bee00089",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "CHANGELOG.md": {
+                "equal": false,
+                "old_sha256": "7b2e459876abdec05c58c42fcca674c5541daa15227756bebe7d932f003ee9af",
+                "current_sha256": "73454c453f98a84c8cdf585267fa2a143b4abe96812dabf9f9ecc34cc0f4a98e"
+              },
+              "CHANGELOG.zh-CN.md": {
+                "equal": false,
+                "old_sha256": "58b6f2af8aaf62e3ce735ee2fae1994f566686b6743a47e4fc0ab75ae4604f36",
+                "current_sha256": "08845a5f9114aa7c28562342d743b149113511aca56bd5695f1de7632a867b83"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/README.md": {
+                "equal": true,
+                "old_sha256": "d6f72aa65259a5cb13a674a4f41dd19bcd803f910a8ff52fd3a50d041cd71ca1",
+                "current_sha256": "d6f72aa65259a5cb13a674a4f41dd19bcd803f910a8ff52fd3a50d041cd71ca1"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/build.log": {
+                "equal": true,
+                "old_sha256": "827547809201afac996c41006f404aaba056fd77cb41e6c143ed88e5e943f0ad",
+                "current_sha256": "827547809201afac996c41006f404aaba056fd77cb41e6c143ed88e5e943f0ad"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale1.log": {
+                "equal": true,
+                "old_sha256": "fcd6ce4db20f2bb8fee4d5d9cb18c728d0fd0e1acd739d07235b97ad3fbc612f",
+                "current_sha256": "fcd6ce4db20f2bb8fee4d5d9cb18c728d0fd0e1acd739d07235b97ad3fbc612f"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/green-scale3.log": {
+                "equal": true,
+                "old_sha256": "82132275ef6268145114c82d87986b74bf50115abcd6cbc0cc5f189eefda3b5f",
+                "current_sha256": "82132275ef6268145114c82d87986b74bf50115abcd6cbc0cc5f189eefda3b5f"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro-result.json": {
+                "equal": true,
+                "old_sha256": "2b59f043f03c6b2438cff8fbdecabc7e012d3bef7166617d6ea7836f21067a9e",
+                "current_sha256": "2b59f043f03c6b2438cff8fbdecabc7e012d3bef7166617d6ea7836f21067a9e"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/gtk-repro.py": {
+                "equal": true,
+                "old_sha256": "2b03a88dea0bf067f320591b678131c5f4735c4f578d1f80c4d42a2dba0a5926",
+                "current_sha256": "2b03a88dea0bf067f320591b678131c5f4735c4f578d1f80c4d42a2dba0a5926"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/ime-scale3.log": {
+                "equal": true,
+                "old_sha256": "856aa3ef9ab02d5a8697d3342a5a5e7655f5bd22429b6774a8c9f09651da646f",
+                "current_sha256": "856aa3ef9ab02d5a8697d3342a5a5e7655f5bd22429b6774a8c9f09651da646f"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/red.log": {
+                "equal": true,
+                "old_sha256": "188a87abd2b1eaec3fb1e99fcac5ac05e8011bb00eb25b485c1684ae2d7761e0",
+                "current_sha256": "188a87abd2b1eaec3fb1e99fcac5ac05e8011bb00eb25b485c1684ae2d7761e0"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/scrollbar.png": {
+                "equal": true,
+                "old_sha256": "da2bae1024e376a512ac6f044e5444b1ad8895955b9c28f2eff3115370c6b1d9",
+                "current_sha256": "da2bae1024e376a512ac6f044e5444b1ad8895955b9c28f2eff3115370c6b1d9"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/transactions.log": {
+                "equal": true,
+                "old_sha256": "db1b4f3374cfe800a0c86acf474504a0c2759622e8fc78e9f2e0066849f77fc4",
+                "current_sha256": "db1b4f3374cfe800a0c86acf474504a0c2759622e8fc78e9f2e0066849f77fc4"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/unit.log": {
+                "equal": true,
+                "old_sha256": "245fba894b82cae1785ecb475714a1feddff8697a0bdc1a5900412389aee7d86",
+                "current_sha256": "245fba894b82cae1785ecb475714a1feddff8697a0bdc1a5900412389aee7d86"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-focus-stability/verification.json": {
+                "equal": true,
+                "old_sha256": "05de4200dd3838312c465ef8ee0cec4d519ee114fc55d1dbe84f533b886b188f",
+                "current_sha256": "05de4200dd3838312c465ef8ee0cec4d519ee114fc55d1dbe84f533b886b188f"
+              },
+              "docs/superpowers/specs/2026-11-10-sumi-focus-stability.md": {
+                "equal": true,
+                "old_sha256": "394ba978082c880417d04c39dae92bd681dd6bd27fb01bb3f6ce0afb251bd7d3",
+                "current_sha256": "394ba978082c880417d04c39dae92bd681dd6bd27fb01bb3f6ce0afb251bd7d3"
+              },
+              "tauri-plugin-native-editor/src/linux.rs": {
+                "equal": false,
+                "old_sha256": "73cc27b78d4daf8fd49a483db3b6030488429e0a3823d2e17d19b9ae6b690c01",
+                "current_sha256": "f57247a22821809372010ea7f3e8261ea40aaf97540e2a5f8b2e00c3bdaac8a7"
+              },
+              "tauri-plugin-native-editor/src/linux_focus.rs": {
+                "equal": true,
+                "old_sha256": "55d4bfbb7ca9342a973a4ef43d837460f057178fb2635f77fffbb1b8ff9bac48",
+                "current_sha256": "55d4bfbb7ca9342a973a4ef43d837460f057178fb2635f77fffbb1b8ff9bac48"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          }
+        ]
+      },
+      {
+        "branch": "fix/sumi-linux-sound",
+        "tip": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "not_in_base_by_ancestry": [
+          {
+            "commit": "c8057be88b9c1dfb3f79528e1402b84dcdbe3077",
+            "subject": "fix(linux): retain plugin audio session runtime directory",
+            "paths": [
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/README.md",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/green.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/host-check.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/platform-tests.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/red.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/rustc-wrapper.py",
+              "docs/superpowers/specs/2026-11-10-sumi-linux-audio-session.md",
+              "src-tauri/src/platform.rs",
+              "src-tauri/src/plugin_runtime/process.rs"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "e648e3aab002e338e446b583232131c5cbd991d8",
+            "equivalent_main_commit": "c59752dd789e616d02119ab507956b31a6f12a3d",
+            "equivalent_patch_id": "e648e3aab002e338e446b583232131c5cbd991d8",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/README.md": {
+                "equal": true,
+                "old_sha256": "87e9e3dad7f5d3945b177debfa19561f830ce1ba9610c28d628e219033121af8",
+                "current_sha256": "87e9e3dad7f5d3945b177debfa19561f830ce1ba9610c28d628e219033121af8"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/green.log": {
+                "equal": true,
+                "old_sha256": "17e3a754927fe600ef3f1279927371d28bfd0d0dfcba9169b945a906c6571842",
+                "current_sha256": "17e3a754927fe600ef3f1279927371d28bfd0d0dfcba9169b945a906c6571842"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/host-check.log": {
+                "equal": true,
+                "old_sha256": "822bef0b6f1f63eed30050635aa58a15e8db74d62f1552519b0405a63fb0dab2",
+                "current_sha256": "822bef0b6f1f63eed30050635aa58a15e8db74d62f1552519b0405a63fb0dab2"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/platform-tests.log": {
+                "equal": true,
+                "old_sha256": "f0c02c2cca357f3631ac52e506f34e9267aae0ebfc4b779033bf830f70dedd9d",
+                "current_sha256": "f0c02c2cca357f3631ac52e506f34e9267aae0ebfc4b779033bf830f70dedd9d"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/red.log": {
+                "equal": true,
+                "old_sha256": "fb6ae057de77729269f429346ae6b18c0c9f84243ec084487dc7517fb1bb260e",
+                "current_sha256": "fb6ae057de77729269f429346ae6b18c0c9f84243ec084487dc7517fb1bb260e"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/rustc-wrapper.py": {
+                "equal": true,
+                "old_sha256": "44b0b86f4d943233bf635b8b7a2d1e6946a05d9b686026c8c466aab47022145d",
+                "current_sha256": "44b0b86f4d943233bf635b8b7a2d1e6946a05d9b686026c8c466aab47022145d"
+              },
+              "docs/superpowers/specs/2026-11-10-sumi-linux-audio-session.md": {
+                "equal": true,
+                "old_sha256": "57e6f9a96a8382234f8f1cd9ff80cc126501af54512a92e00cb1cd546a488006",
+                "current_sha256": "57e6f9a96a8382234f8f1cd9ff80cc126501af54512a92e00cb1cd546a488006"
+              },
+              "src-tauri/src/platform.rs": {
+                "equal": true,
+                "old_sha256": "ebaa8d669b775d67bf25211cc1d2d6d839e05b4e7f8845f7f14c28408c079cf8",
+                "current_sha256": "ebaa8d669b775d67bf25211cc1d2d6d839e05b4e7f8845f7f14c28408c079cf8"
+              },
+              "src-tauri/src/plugin_runtime/process.rs": {
+                "equal": false,
+                "old_sha256": "6c076eb4cf8de0c195d0327b0cb45e0316f2326fe3188e32897e6f4ee13672c2",
+                "current_sha256": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          },
+          {
+            "commit": "eb7643d25b281358a2f5c0a08a2e6633e0d293ab",
+            "subject": "chore: release Linux Sumi typing sound fix 6.1110.7",
+            "paths": [
+              "CHANGELOG.md",
+              "CHANGELOG.zh-CN.md",
+              "package.json",
+              "src-tauri/Cargo.lock",
+              "src-tauri/Cargo.toml",
+              "src-tauri/tauri.conf.json"
+            ],
+            "git_cherry_mark": "+",
+            "patch_id": "28725a2a523eb028d08551d4ddc4bee250ea5f27",
+            "equivalent_main_commit": "1af73a96b04932d6876655d20be6cae1065817bc",
+            "equivalent_patch_id": "25530880cd30ed2d7fb99639bbc203aacc5aaf84",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "CHANGELOG.md": {
+                "equal": false,
+                "old_sha256": "086d4dd0e87388764e1e1d604c27d0cb18f97fd987143a563b7c2bd230ae0a8e",
+                "current_sha256": "73454c453f98a84c8cdf585267fa2a143b4abe96812dabf9f9ecc34cc0f4a98e"
+              },
+              "CHANGELOG.zh-CN.md": {
+                "equal": false,
+                "old_sha256": "b49dc5bce2cd1469f3b6a7c45bd1c26c63f3ae56e8b00a9c2e5a04cd365fd811",
+                "current_sha256": "08845a5f9114aa7c28562342d743b149113511aca56bd5695f1de7632a867b83"
+              },
+              "package.json": {
+                "equal": false,
+                "old_sha256": "a6a80c572a6f32e1ccb69b255adde21c4910cfd07a4bb4b962c5f6c5f8381133",
+                "current_sha256": "95de51dee0b940fd349ce9e6c73ff315eefb5aceb54ef8427f39ac783de9a6ba"
+              },
+              "src-tauri/Cargo.lock": {
+                "equal": false,
+                "old_sha256": "6a52a7c76de7dc69d14bb8e9e100ecb2bfb7b4d51f634512a7ffb79dedc5d0af",
+                "current_sha256": "70a4a2e52c857137c4fbb8c0c1c2423eb78cff211cdfa156e9d40ca0cc2f9fd9"
+              },
+              "src-tauri/Cargo.toml": {
+                "equal": false,
+                "old_sha256": "19754c21460f2e9ad992003d6c590b103f7c089c8881ca25670e04edc48d43d4",
+                "current_sha256": "629fb90c4ee14d152462525ee941075f04905150ab1975ab2ec6cd2c04b2efa1"
+              },
+              "src-tauri/tauri.conf.json": {
+                "equal": false,
+                "old_sha256": "fb8defb3559f2e6023a3cceb40ca81ad3955d6a4dab01e6d2d2ac1e3758af787",
+                "current_sha256": "2f60fb5156e306949eecac3a3f84a5438a4d2ea94e15274ccf51e2d1598354fe"
+              }
+            },
+            "classification": "old-release-metadata-equivalent-to-main-and-superseded-by-v6.1111.3",
+            "note": "Actual added/deleted lines match main 1af73a96; version files are now a newer published release. Do not reapply old version bump."
+          },
+          {
+            "commit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+            "subject": "test(linux): use platform launcher for plugin environment regression",
+            "paths": [
+              "src-tauri/src/plugin_runtime/process.rs"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef",
+            "equivalent_main_commit": "320a461327edf4146bb15acc0cb580121ad6601a",
+            "equivalent_patch_id": "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "src-tauri/src/plugin_runtime/process.rs": {
+                "equal": true,
+                "old_sha256": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55",
+                "current_sha256": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          }
+        ]
+      },
+      {
+        "branch": "integrate/sumi6-main",
+        "tip": "cd87f8ec55056667c3206e302ffa3d421c030a72",
+        "not_in_base_by_ancestry": []
+      },
+      {
+        "branch": "main",
+        "tip": "509c80e057744c6e0a54f4c241e39c21c0051923",
+        "not_in_base_by_ancestry": []
+      },
+      {
+        "branch": "release/sumi-6.1110.6",
+        "tip": "024d81814b4076def2456428150a4a2cd84095de",
+        "not_in_base_by_ancestry": []
+      },
+      {
+        "branch": "release/sumi-6.1110.7",
+        "tip": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+        "not_in_base_by_ancestry": [
+          {
+            "commit": "c8057be88b9c1dfb3f79528e1402b84dcdbe3077",
+            "subject": "fix(linux): retain plugin audio session runtime directory",
+            "paths": [
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/README.md",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/green.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/host-check.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/platform-tests.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/red.log",
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/rustc-wrapper.py",
+              "docs/superpowers/specs/2026-11-10-sumi-linux-audio-session.md",
+              "src-tauri/src/platform.rs",
+              "src-tauri/src/plugin_runtime/process.rs"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "e648e3aab002e338e446b583232131c5cbd991d8",
+            "equivalent_main_commit": "c59752dd789e616d02119ab507956b31a6f12a3d",
+            "equivalent_patch_id": "e648e3aab002e338e446b583232131c5cbd991d8",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/README.md": {
+                "equal": true,
+                "old_sha256": "87e9e3dad7f5d3945b177debfa19561f830ce1ba9610c28d628e219033121af8",
+                "current_sha256": "87e9e3dad7f5d3945b177debfa19561f830ce1ba9610c28d628e219033121af8"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/green.log": {
+                "equal": true,
+                "old_sha256": "17e3a754927fe600ef3f1279927371d28bfd0d0dfcba9169b945a906c6571842",
+                "current_sha256": "17e3a754927fe600ef3f1279927371d28bfd0d0dfcba9169b945a906c6571842"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/host-check.log": {
+                "equal": true,
+                "old_sha256": "822bef0b6f1f63eed30050635aa58a15e8db74d62f1552519b0405a63fb0dab2",
+                "current_sha256": "822bef0b6f1f63eed30050635aa58a15e8db74d62f1552519b0405a63fb0dab2"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/platform-tests.log": {
+                "equal": true,
+                "old_sha256": "f0c02c2cca357f3631ac52e506f34e9267aae0ebfc4b779033bf830f70dedd9d",
+                "current_sha256": "f0c02c2cca357f3631ac52e506f34e9267aae0ebfc4b779033bf830f70dedd9d"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/red.log": {
+                "equal": true,
+                "old_sha256": "fb6ae057de77729269f429346ae6b18c0c9f84243ec084487dc7517fb1bb260e",
+                "current_sha256": "fb6ae057de77729269f429346ae6b18c0c9f84243ec084487dc7517fb1bb260e"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-linux-audio-session/rustc-wrapper.py": {
+                "equal": true,
+                "old_sha256": "44b0b86f4d943233bf635b8b7a2d1e6946a05d9b686026c8c466aab47022145d",
+                "current_sha256": "44b0b86f4d943233bf635b8b7a2d1e6946a05d9b686026c8c466aab47022145d"
+              },
+              "docs/superpowers/specs/2026-11-10-sumi-linux-audio-session.md": {
+                "equal": true,
+                "old_sha256": "57e6f9a96a8382234f8f1cd9ff80cc126501af54512a92e00cb1cd546a488006",
+                "current_sha256": "57e6f9a96a8382234f8f1cd9ff80cc126501af54512a92e00cb1cd546a488006"
+              },
+              "src-tauri/src/platform.rs": {
+                "equal": true,
+                "old_sha256": "ebaa8d669b775d67bf25211cc1d2d6d839e05b4e7f8845f7f14c28408c079cf8",
+                "current_sha256": "ebaa8d669b775d67bf25211cc1d2d6d839e05b4e7f8845f7f14c28408c079cf8"
+              },
+              "src-tauri/src/plugin_runtime/process.rs": {
+                "equal": false,
+                "old_sha256": "6c076eb4cf8de0c195d0327b0cb45e0316f2326fe3188e32897e6f4ee13672c2",
+                "current_sha256": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          },
+          {
+            "commit": "eb7643d25b281358a2f5c0a08a2e6633e0d293ab",
+            "subject": "chore: release Linux Sumi typing sound fix 6.1110.7",
+            "paths": [
+              "CHANGELOG.md",
+              "CHANGELOG.zh-CN.md",
+              "package.json",
+              "src-tauri/Cargo.lock",
+              "src-tauri/Cargo.toml",
+              "src-tauri/tauri.conf.json"
+            ],
+            "git_cherry_mark": "+",
+            "patch_id": "28725a2a523eb028d08551d4ddc4bee250ea5f27",
+            "equivalent_main_commit": "1af73a96b04932d6876655d20be6cae1065817bc",
+            "equivalent_patch_id": "25530880cd30ed2d7fb99639bbc203aacc5aaf84",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "CHANGELOG.md": {
+                "equal": false,
+                "old_sha256": "086d4dd0e87388764e1e1d604c27d0cb18f97fd987143a563b7c2bd230ae0a8e",
+                "current_sha256": "73454c453f98a84c8cdf585267fa2a143b4abe96812dabf9f9ecc34cc0f4a98e"
+              },
+              "CHANGELOG.zh-CN.md": {
+                "equal": false,
+                "old_sha256": "b49dc5bce2cd1469f3b6a7c45bd1c26c63f3ae56e8b00a9c2e5a04cd365fd811",
+                "current_sha256": "08845a5f9114aa7c28562342d743b149113511aca56bd5695f1de7632a867b83"
+              },
+              "package.json": {
+                "equal": false,
+                "old_sha256": "a6a80c572a6f32e1ccb69b255adde21c4910cfd07a4bb4b962c5f6c5f8381133",
+                "current_sha256": "95de51dee0b940fd349ce9e6c73ff315eefb5aceb54ef8427f39ac783de9a6ba"
+              },
+              "src-tauri/Cargo.lock": {
+                "equal": false,
+                "old_sha256": "6a52a7c76de7dc69d14bb8e9e100ecb2bfb7b4d51f634512a7ffb79dedc5d0af",
+                "current_sha256": "70a4a2e52c857137c4fbb8c0c1c2423eb78cff211cdfa156e9d40ca0cc2f9fd9"
+              },
+              "src-tauri/Cargo.toml": {
+                "equal": false,
+                "old_sha256": "19754c21460f2e9ad992003d6c590b103f7c089c8881ca25670e04edc48d43d4",
+                "current_sha256": "629fb90c4ee14d152462525ee941075f04905150ab1975ab2ec6cd2c04b2efa1"
+              },
+              "src-tauri/tauri.conf.json": {
+                "equal": false,
+                "old_sha256": "fb8defb3559f2e6023a3cceb40ca81ad3955d6a4dab01e6d2d2ac1e3758af787",
+                "current_sha256": "2f60fb5156e306949eecac3a3f84a5438a4d2ea94e15274ccf51e2d1598354fe"
+              }
+            },
+            "classification": "old-release-metadata-equivalent-to-main-and-superseded-by-v6.1111.3",
+            "note": "Actual added/deleted lines match main 1af73a96; version files are now a newer published release. Do not reapply old version bump."
+          },
+          {
+            "commit": "fbb9186259773a77f84a3ac69918e9f2f9df341f",
+            "subject": "test(linux): use platform launcher for plugin environment regression",
+            "paths": [
+              "src-tauri/src/plugin_runtime/process.rs"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef",
+            "equivalent_main_commit": "320a461327edf4146bb15acc0cb580121ad6601a",
+            "equivalent_patch_id": "e1ad89843dfe03f2482636e8f87fe64b7be0f0ef",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "src-tauri/src/plugin_runtime/process.rs": {
+                "equal": true,
+                "old_sha256": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55",
+                "current_sha256": "52a68d9649ac9b3226e230a6ba654975daff8d3cd88c54c90b9139b3a2ffab55"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          }
+        ]
+      },
+      {
+        "branch": "sumi-fcitx-candidates",
+        "tip": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+        "not_in_base_by_ancestry": [
+          {
+            "commit": "cf000db2d324a836a14cc4e05a6da584ec7531ba",
+            "subject": "docs(sumi): verify frozen release host plugin and Fcitx integration",
+            "paths": [
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/README.md",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/candidate-bus.log",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-bottom-preedit.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-clipboard-plain.txt",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-focus-ic.txt",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-focus-preedit.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-host.log",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-pasted.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-processes.json",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-reopened-ic.txt",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-400-tree.json",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-400.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-narrow-tree.json",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-narrow.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-open.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-restored.png",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/plugin-verification.json",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/stage-release.py",
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/verification.json"
+            ],
+            "git_cherry_mark": "-",
+            "patch_id": "7c4f38cb00aaa2f64d5387ba159aafe93a56ee3d",
+            "equivalent_main_commit": "2bbd9191983eebf5d5237cefa6e5ad8aa49696ba",
+            "equivalent_patch_id": "7c4f38cb00aaa2f64d5387ba159aafe93a56ee3d",
+            "added_deleted_content_equal": true,
+            "actual_file_comparison_to_main": {
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/README.md": {
+                "equal": true,
+                "old_sha256": "602e0a4fe912ad3d042441168a5e32c35725c673b704c04a25edc868b5e58d8b",
+                "current_sha256": "602e0a4fe912ad3d042441168a5e32c35725c673b704c04a25edc868b5e58d8b"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/candidate-bus.log": {
+                "equal": true,
+                "old_sha256": "3a7bcf66e2ff117046ef2c1990e1c93ca07d120611b420ea954609f1c776e5bc",
+                "current_sha256": "3a7bcf66e2ff117046ef2c1990e1c93ca07d120611b420ea954609f1c776e5bc"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-bottom-preedit.png": {
+                "equal": true,
+                "old_sha256": "59f1e9c85328184057d09067c27ee7faaf13ef481611df579aa9bf3e86b6de05",
+                "current_sha256": "59f1e9c85328184057d09067c27ee7faaf13ef481611df579aa9bf3e86b6de05"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-clipboard-plain.txt": {
+                "equal": true,
+                "old_sha256": "fef9f8769b0b0806c024a4c6ba9c7c3ecd7a20c55a7116adbd6017a55c4f885c",
+                "current_sha256": "fef9f8769b0b0806c024a4c6ba9c7c3ecd7a20c55a7116adbd6017a55c4f885c"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-focus-ic.txt": {
+                "equal": true,
+                "old_sha256": "2b1773766fa4c3880243f4a9cb1bf43121b69e4acbfbefdcafb6afadf678e0a5",
+                "current_sha256": "2b1773766fa4c3880243f4a9cb1bf43121b69e4acbfbefdcafb6afadf678e0a5"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-focus-preedit.png": {
+                "equal": true,
+                "old_sha256": "dde5727692eb497dada0010cdc3d9c9486ebe5bcd5a356bc6b2cefe4c591c48c",
+                "current_sha256": "dde5727692eb497dada0010cdc3d9c9486ebe5bcd5a356bc6b2cefe4c591c48c"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-host.log": {
+                "equal": true,
+                "old_sha256": "d881490f6a9974318d101b41f3c1790ac26be52200e6da7e27c078169b989faf",
+                "current_sha256": "d881490f6a9974318d101b41f3c1790ac26be52200e6da7e27c078169b989faf"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-pasted.png": {
+                "equal": true,
+                "old_sha256": "71f5b1be4adabead75239ac6d371677a2cfffc94023dd749897f0387675883c1",
+                "current_sha256": "71f5b1be4adabead75239ac6d371677a2cfffc94023dd749897f0387675883c1"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-processes.json": {
+                "equal": true,
+                "old_sha256": "af35690e94582de7adcd6b1b1d4706006a0e4f41f7f92394302ab87e0047cf98",
+                "current_sha256": "af35690e94582de7adcd6b1b1d4706006a0e4f41f7f92394302ab87e0047cf98"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-reopened-ic.txt": {
+                "equal": true,
+                "old_sha256": "90810a566820064d21ec0ed949b7c2cdce7b98e137a1df721f7e6edf1a304a74",
+                "current_sha256": "90810a566820064d21ec0ed949b7c2cdce7b98e137a1df721f7e6edf1a304a74"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-400-tree.json": {
+                "equal": true,
+                "old_sha256": "549340cb0a64232be06ee7600ed7f9c9594151ae418928e19f647e0e34c16904",
+                "current_sha256": "549340cb0a64232be06ee7600ed7f9c9594151ae418928e19f647e0e34c16904"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-400.png": {
+                "equal": true,
+                "old_sha256": "e1696ba0b954a52be4f057f7cf6ce3af928a6224c0ca5c310349e89977ee06ee",
+                "current_sha256": "e1696ba0b954a52be4f057f7cf6ce3af928a6224c0ca5c310349e89977ee06ee"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-narrow-tree.json": {
+                "equal": true,
+                "old_sha256": "71c4a3ef53e448859c9dd02f1ef12732a924d59caa7f808c05d9773f5aa69e95",
+                "current_sha256": "71c4a3ef53e448859c9dd02f1ef12732a924d59caa7f808c05d9773f5aa69e95"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-narrow.png": {
+                "equal": true,
+                "old_sha256": "826bc66215c77f665929e19fd82852fa2ec4d09f126e39f524730b3d77b677e4",
+                "current_sha256": "826bc66215c77f665929e19fd82852fa2ec4d09f126e39f524730b3d77b677e4"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-open.png": {
+                "equal": true,
+                "old_sha256": "1f6c90a0e2d35d5e7d883cfe23a68628ea590546d4f7e34764f54b01c6b6527f",
+                "current_sha256": "1f6c90a0e2d35d5e7d883cfe23a68628ea590546d4f7e34764f54b01c6b6527f"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/formal-tab-restored.png": {
+                "equal": true,
+                "old_sha256": "7c9b6777f26eea74b0a606e8db4fa6e7dafd86acfaad98f9fbb151ce4d275602",
+                "current_sha256": "7c9b6777f26eea74b0a606e8db4fa6e7dafd86acfaad98f9fbb151ce4d275602"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/plugin-verification.json": {
+                "equal": true,
+                "old_sha256": "2e156c6dd6981159a6591afa9589f68df5d3dd1611680970d306fae35fef3d8f",
+                "current_sha256": "2e156c6dd6981159a6591afa9589f68df5d3dd1611680970d306fae35fef3d8f"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/stage-release.py": {
+                "equal": true,
+                "old_sha256": "8f1d81947da3d3f88b22dc8af1424564785e556635b09cd5a1347c661e14d687",
+                "current_sha256": "8f1d81947da3d3f88b22dc8af1424564785e556635b09cd5a1347c661e14d687"
+              },
+              "docs/superpowers/reports/2026-11-10-sumi-fcitx-formal/verification.json": {
+                "equal": true,
+                "old_sha256": "253312194dfa76b5400cba025f7eb6013f433f9766bf8afc2e63d76caa872971",
+                "current_sha256": "253312194dfa76b5400cba025f7eb6013f433f9766bf8afc2e63d76caa872971"
+              }
+            },
+            "classification": "already-in-main-patch-equivalent"
+          }
+        ]
+      }
+    ],
+    "stashes": [],
+    "requested_candidate_files": {
+      "tauri-plugin-native-editor/src/linux_candidates.rs": {
+        "equal": true,
+        "old_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2",
+        "current_sha256": "abef801ac8bf5867f98974fb44308b1aff6f2203a59dd1e056de43a62c48c0f2"
+      },
+      "tauri-plugin-native-editor/src/linux_candidates_layout.rs": {
+        "equal": true,
+        "old_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18",
+        "current_sha256": "c07920070e1380258a8ef51571ec20ffecd817ee7113da711a10bf16c3f11e18"
+      }
+    },
+    "rewritten_candidate_commits": [
+      {
+        "original": "06da92d4",
+        "current_main": "b9f1f0b0",
+        "original_patch_id": "d8e0067d4b53dfe668d415ba361b819288f7d34d",
+        "current_patch_id": "e0dce228db77bea8eabf683301c9b40fba8244e8",
+        "added_deleted_content_equal": true
+      },
+      {
+        "original": "0fbf7095",
+        "current_main": "304e7555",
+        "original_patch_id": "1fea486772f26b03ce9ee16b3c19bd4b6ade44a4",
+        "current_patch_id": "fa9961ce885b90c30f8cdce40a867bff85be353d",
+        "added_deleted_content_equal": true
+      }
+    ],
+    "remotes": {
+      "origin": "https://github.com/wizlijun/note.md.git"
+    }
+  },
+  "fcitx5": {
+    "path": "<fcitx5>",
+    "head": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+    "branch": "typewriter-candidate-theme",
+    "worktrees": [
+      {
+        "worktree": "<fcitx5>",
+        "HEAD": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+        "branch": "refs/heads/typewriter-candidate-theme",
+        "uncommitted_and_untracked": [
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/PKGBUILD",
+            "classification": "in-scope-ime-artifact-or-reproducible-recipe-verified-separately",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/SHA256SUMS",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/dbus-test.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/elf-header.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/ldd-r.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/package-files.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/package-info.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime-artifacts.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime-worker.sh",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/cached_layouts",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/chttrans.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/pinyin.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/conf/punctuation.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/config/fcitx5/profile",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/pinyin/user.dict",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/data/fcitx5/pinyin/user.history",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.VgpoTu/fcitx.log",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.log",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/runtime.sh",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/verification.json",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-global-preedit/verify.py",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/PKGBUILD",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/README.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/SHA256SUMS",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/build.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/build.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/dbus-test.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/elf-header.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/ldd-r.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/package-files.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/package-info.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime-artifacts.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime-worker.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/cached_layouts",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/chttrans.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/pinyin.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/conf/punctuation.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/config/fcitx5/profile",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.dict",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/data/fcitx5/pinyin/user.history",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.KdI246/fcitx.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/runtime.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/verification.json",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package-preedit/verify.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/PKGBUILD",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/README.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/SHA256SUMS",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/build.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/build.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/dbus-test.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/elf-header.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/ldd-r.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/package-files.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/package-info.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/lib/fcitx5/libsumicandidates.so",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime-artifacts.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime-worker.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/cached_layouts",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/chttrans.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/pinyin.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/conf/punctuation.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/config/fcitx5/profile",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.dict",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/data/fcitx5/pinyin/user.history",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.SB2lWH/fcitx.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/runtime.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/LICENSES/LGPL-2.1-or-later.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/CMakeLists.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/README.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/libsumicandidates.so",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.conf.in",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/sumicandidates.cpp",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/integration.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/src/fcitx5-sumi/src/modules/sumicandidates/tests/run-isolated.sh",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/verification.json",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/verified-root/usr/lib/fcitx5/libsumicandidates.so",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/verified-root/usr/share/fcitx5/addon/sumicandidates.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/verified-root/usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/verify.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/sumi-package/verify.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/todo.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/dpi-sync-verification.json",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/verify-theme.cpp",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/README.md",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/app.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/app.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/before.png",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/cache/gtk-3.0/compose/35fe8688.cache",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/cached_layouts",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/chttrans.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/classicui.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/pinyin.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/config/fcitx5/conf/punctuation.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/config/fcitx5/profile",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/pinyin/user.dict",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/pinyin/user.history",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/arrow.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/next.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/prev.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/radio.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/data/fcitx5/themes/bruce-transparent/theme.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/debug.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/fcitx.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/keyboard.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/ni.png",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/nihao.png",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/run.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/app.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/app.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/before.png",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/cache/gtk-3.0/compose/35fe8688.cache",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/cached_layouts",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/chttrans.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/classicui.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/pinyin.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/conf/punctuation.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/config/fcitx5/profile",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/pinyin/user.dict",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/pinyin/user.history",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/arrow.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/next.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/prev.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/radio.svg",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/data/fcitx5/themes/bruce-transparent/theme.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/debug.txt",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/fcitx.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/keyboard.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/ni.png",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/nihao.png",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/sway.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/sway.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/scale3/verification.json",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/sway.conf",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/sway.log",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/verification.json",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "??",
+            "path": "tasks/transparent-ime/visual/verify-pixels.py",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          }
+        ],
+        "ignored_paths_not_expanded": [
+          {
+            "status": "!!",
+            "path": "build-sumi-classic/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "build-sumicandidates/",
+            "classification": "local-build-or-dependency-artifacts-excluded",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/build-tools/",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "directory"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-global-preedit/fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst",
+            "classification": "in-scope-ime-artifact-or-reproducible-recipe-verified-separately",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-global-preedit/fcitx5-sumi-source.tar.gz",
+            "classification": "in-scope-ime-artifact-or-reproducible-recipe-verified-separately",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/.BUILDINFO",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/.MTREE",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-global-preedit/pkg/fcitx5-sumi-candidates/.PKGINFO",
+            "classification": "local-ime-validation-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-global-preedit/src/fcitx5-sumi-source.tar.gz",
+            "classification": "in-scope-ime-artifact-or-reproducible-recipe-verified-separately",
+            "file_type": "symlink",
+            "target": "<fcitx5>/tasks/sumi-package-global-preedit/fcitx5-sumi-source.tar.gz"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-preedit/fcitx5-sumi-candidates-5.1.23.r2.gd2c14429-1-x86_64.pkg.tar.zst",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-preedit/fcitx5-sumi-source.tar.gz",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/.BUILDINFO",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/.MTREE",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-preedit/pkg/fcitx5-sumi-candidates/.PKGINFO",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package-preedit/src/fcitx5-sumi-source.tar.gz",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "symlink",
+            "target": "<fcitx5>/tasks/sumi-package-preedit/fcitx5-sumi-source.tar.gz"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package/fcitx5-sumi-candidates-5.1.23.r1.g47da99c7-1-x86_64.pkg.tar.zst",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package/fcitx5-sumi-source.tar.gz",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/.BUILDINFO",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/.MTREE",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package/pkg/fcitx5-sumi-candidates/.PKGINFO",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "file"
+          },
+          {
+            "status": "!!",
+            "path": "tasks/sumi-package/src/fcitx5-sumi-source.tar.gz",
+            "classification": "local-validation-and-task-artifacts-excluded-from-source",
+            "file_type": "symlink",
+            "target": "<fcitx5>/tasks/sumi-package/fcitx5-sumi-source.tar.gz"
+          }
+        ]
+      }
+    ],
+    "branches": [
+      {
+        "branch": "master",
+        "tip": "5ffd9e5f905078880f1e21752e10b63490734809",
+        "not_in_base_by_ancestry": []
+      },
+      {
+        "branch": "typewriter-candidate-theme",
+        "tip": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+        "not_in_base_by_ancestry": [
+          {
+            "commit": "47da99c7716d02309ee97bf454333268bf69522d",
+            "subject": "Add opt-in Sumi candidate panel bridge with scoped lifecycle",
+            "paths": [
+              "src/modules/CMakeLists.txt",
+              "src/modules/sumicandidates/CMakeLists.txt",
+              "src/modules/sumicandidates/README.md",
+              "src/modules/sumicandidates/sumicandidates.conf.in",
+              "src/modules/sumicandidates/sumicandidates.cpp",
+              "src/modules/sumicandidates/tests/integration.py",
+              "src/modules/sumicandidates/tests/run-isolated.sh",
+              "src/ui/classic/classicui.cpp",
+              "src/ui/classic/classicui.h",
+              "src/ui/classic/classicui_public.h"
+            ],
+            "git_cherry_mark": "+",
+            "patch_id": "ffaa5d78271dfe37d64fe1d406d36a1d2409abc4",
+            "classification": "in-scope-fcitx-sumi-addon-commit"
+          },
+          {
+            "commit": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591",
+            "subject": "fix(sumi): render inline preedit with an underline instead of selection fill",
+            "paths": [
+              "src/modules/sumicandidates/README.md",
+              "src/modules/sumicandidates/sumicandidates.cpp",
+              "src/modules/sumicandidates/tests/integration.py"
+            ],
+            "git_cherry_mark": "+",
+            "patch_id": "38c56bac9e90a29d8957a7219cefae8bc73e5f97",
+            "classification": "in-scope-fcitx-sumi-addon-commit"
+          },
+          {
+            "commit": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+            "subject": "fix(ime): use underline-only preedit in all focused applications",
+            "paths": [
+              "src/modules/sumicandidates/README.md",
+              "src/modules/sumicandidates/sumicandidates.cpp",
+              "src/modules/sumicandidates/tests/integration.py"
+            ],
+            "git_cherry_mark": "+",
+            "patch_id": "f00c08a3069c5efcfa5595cd1ca39a5fbf981651",
+            "classification": "in-scope-fcitx-sumi-addon-commit"
+          }
+        ]
+      }
+    ],
+    "stashes": [],
+    "remote_refs": {
+      "origin": {
+        "ok": true,
+        "refs": {
+          "refs/heads/master": "5ffd9e5f905078880f1e21752e10b63490734809",
+          "refs/heads/typewriter-candidate-theme": "d2c1442957f695b3a3bbd9c2aaec0f753c50a591"
+        }
+      },
+      "upstream": {
+        "ok": true,
+        "refs": {
+          "refs/heads/master": "5ffd9e5f905078880f1e21752e10b63490734809"
+        }
+      }
+    },
+    "remotes": {
+      "origin": "https://github.com/wizlijun/fcitx5.git",
+      "upstream": "https://github.com/fcitx/fcitx5.git"
+    },
+    "artifact_provenance": {
+      "source_commit": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+      "source_archive": "<fcitx5>/tasks/sumi-package-global-preedit/fcitx5-sumi-source.tar.gz",
+      "source_sha256": "cf4ad1867750dbe283c047d64e867e270f1e607624b2437df2a6f93d3669d4bd",
+      "source_hash_matches_record": true,
+      "source_archive_files_vs_commit": {
+        "LICENSES/LGPL-2.1-or-later.txt": {
+          "equal_to_commit": true,
+          "sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+        },
+        "src/modules/sumicandidates/CMakeLists.txt": {
+          "equal_to_commit": true,
+          "sha256": "e5c04cb1f2174c345c020daf89f402eb1efbfc4735dcc9813fc0e75179100a59"
+        },
+        "src/modules/sumicandidates/README.md": {
+          "equal_to_commit": true,
+          "sha256": "31620c15c55cb3f0e9768ad62b16be218cddd5f3513af5442d5977d0b4f8927d"
+        },
+        "src/modules/sumicandidates/sumicandidates.conf.in": {
+          "equal_to_commit": true,
+          "sha256": "6b8110baf4f9f901f5b7caf1b2aacf5ee3d3cbf5806f9b7c162e1a4c2872fed2"
+        },
+        "src/modules/sumicandidates/sumicandidates.cpp": {
+          "equal_to_commit": true,
+          "sha256": "8cfec034cde43dad4268f725fe28df359e2f68d948fae45234be98ef870dc9e2"
+        },
+        "src/modules/sumicandidates/tests/integration.py": {
+          "equal_to_commit": true,
+          "sha256": "e634685ce490b1ce08edb49b32b215408f86fd0f95a8630c1a7571c614489156"
+        },
+        "src/modules/sumicandidates/tests/run-isolated.sh": {
+          "equal_to_commit": true,
+          "sha256": "96dddf4a2dba49fc5fedf4405d24bdd856fadb8742f486c4edfbe913296d3ef0"
+        }
+      },
+      "package": "<fcitx5>/tasks/sumi-package-global-preedit/fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst",
+      "package_sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+      "package_hash_matches_record": true,
+      "payload": {
+        "usr/lib/fcitx5/libsumicandidates.so": {
+          "sha256": "3ca8bfb88a0b84336aeecb4c5777d2238b89fc025f0f36c0a9505c7cecbf8f00",
+          "matches_record": true,
+          "installed_sha256": "3ca8bfb88a0b84336aeecb4c5777d2238b89fc025f0f36c0a9505c7cecbf8f00",
+          "matches_installed": true
+        },
+        "usr/share/fcitx5/addon/sumicandidates.conf": {
+          "sha256": "a885bf56b061b14e6b82390045081f86eda5f789db36357155a67d576c7e4191",
+          "matches_record": true,
+          "installed_sha256": "a885bf56b061b14e6b82390045081f86eda5f789db36357155a67d576c7e4191",
+          "matches_installed": true
+        },
+        "usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt": {
+          "sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f",
+          "matches_record": true,
+          "installed_sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f",
+          "matches_installed": true
+        }
+      },
+      "pkginfo": [
+        "pkgname = fcitx5-sumi-candidates",
+        "pkgver = 5.1.23.r3.gb75c450f-1",
+        "arch = x86_64",
+        "depend = fcitx5>=5.1.23",
+        "depend = fcitx5<5.2",
+        "depend = gcc-libs",
+        "depend = glibc"
+      ],
+      "previous_validation_checks": {
+        "pacman_metadata": "passed",
+        "exact_payload": "passed",
+        "elf_x86_64_shared": "passed",
+        "ldd_relocations": "passed",
+        "packaged_addon_private_fcitx_protocol": "passed",
+        "sumi_preedit_no_highlight_with_underline": "passed",
+        "all_focused_ic_underline_only": "passed"
+      },
+      "published_record": false
+    },
+    "source_pushed_to_origin": false
+  },
+  "limitations": [
+    "Snapshot audit; repeat final status after parent freeze/version/package edits.",
+    "Ignored directories are listed as Git matching roots, not recursively expanded dependency/build caches.",
+    "No secret contents read or included; paths/status only for unrelated files.",
+    "Artifact checksum and source equality prove provenance consistency, not new runtime validation."
+  ],
+  "release_gates": {
+    "main_matches_live_origin_main": true,
+    "requested_candidate_files_match_reviewed_commit": true,
+    "candidate_change_in_tracked_changelog": false,
+    "ime_source_archive_matches_frozen_commit": true,
+    "ime_package_and_payload_hashes_match_record": true,
+    "ime_source_commit_pushed": false
+  }
+}

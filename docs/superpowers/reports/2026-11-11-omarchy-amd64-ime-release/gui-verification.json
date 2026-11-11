@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "host_version": "6.1111.4",
+  "addon_package_sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+  "source_commit": "509c80e057744c6e0a54f4c241e39c21c0051923",
+  "host_binary_sha256": "eebcc8591cf31f576e0317112585e49a3ae4e4bb230788d4fd94a11c0c34cdb9",
+  "deb_sha256": "b840946645a340452fb5780b1e53e711f9829c4838ea712ea9c5f498586fd41a",
+  "plugin_version": "0.1.12",
+  "plugin_backend_sha256": "d044c31ddac05f654cc5901dde98c0ed7c45bc5f21d579a3b361477db86afecb",
+  "private_only": true,
+  "checks": {
+    "actual_packaged_binary_not_previous_build": "passed",
+    "signed_plugin_validation": "passed",
+    "scale4_visual_no_period_labels": "passed",
+    "scale4_mouse_candidate_commit": "passed",
+    "scale4_keyboard_candidate_commit": "passed"
+  },
+  "screenshots": {
+    "candidate-scale4": "5972274be78d759cad5f53c915941eef07a1584ba256547a3e1314f522dba696",
+    "mouse-committed-scale4": "24ce914f828eca988f331f05da32ee41cb8a3b74642f8aeb9bad1629bbf63166",
+    "keyboard-candidates-scale4": "2d39c8d82abb2b968593719d365fb7651aeb8f28185b74acce87e08b588daaf3",
+    "keyboard-committed-scale4": "2a4848434ca985cdabd715cab17192dab7596f706aafcf7d00ff33cf624af2d7"
+  },
+  "ordinary_user_data_modified": false,
+  "private_fixture_stopped": true,
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e",
+  "plugin_manifest_source_commit": "100dc160b435c44716166d2eb12fe0071e252fb6",
+  "latest_published_linux_plugin_verified": true,
+  "compatibility_scope": "6.1111.4 host with latest published Linux Sumi 0.1.12; source 0.1.15 public artifacts Apple-only"
+}

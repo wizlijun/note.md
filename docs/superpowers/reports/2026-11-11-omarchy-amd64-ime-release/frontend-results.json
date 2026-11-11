@@ -1,0 +1,34 @@
+{
+  "tests": {
+    "files": 431,
+    "passed": 5883,
+    "failed": 0,
+    "exit_code": 0,
+    "seconds": 361.4,
+    "log": "tests-release.log"
+  },
+  "check": {
+    "errors": 0,
+    "warnings": 31,
+    "exit_code": 0,
+    "log": "check-release.log"
+  },
+  "protocol": {
+    "passed": true,
+    "log": "protocol.log"
+  },
+  "audit": {
+    "exit_code": 0,
+    "high": 0,
+    "critical": 0,
+    "low": 1,
+    "moderate": 4,
+    "log": "audit.log"
+  },
+  "core_commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e",
+  "frontend_input_changes_during_run": [],
+  "core_input_changes_during_run": [],
+  "all_inputs_unchanged": true,
+  "head_at_completion": "509c80e057744c6e0a54f4c241e39c21c0051923",
+  "prior_runs": "diagnostic only; interrupted runs and controlled run with core hardlink overlap are not final release evidence"
+}

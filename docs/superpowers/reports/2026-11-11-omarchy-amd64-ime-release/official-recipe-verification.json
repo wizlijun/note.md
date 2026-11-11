@@ -1,0 +1,9 @@
+{
+  "tag": "v6.1111.4",
+  "published_release_verified_by_official_prepare": true,
+  "candidate_recipe_byte_identical": true,
+  "files_sha256": {
+    "PKGBUILD": "285cbb182ea72ac3eb3bf90779fcda72beb8e762696095a1ee94ae3610a1a1a0",
+    ".omarchy/package.json": "dc03657dc98a525213daf8a8b5f35de63348dc98c89617fbe4ce035fc9f2c9f4"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "tag": "v6.1111.4",
+  "source_files_match_frozen_tag": [
+    "INSTALL.zh-CN.md",
+    "PKGBUILD",
+    "build.sh",
+    "dbus-test.conf",
+    "fcitx5-sumi-source.tar.gz",
+    "runtime-worker.sh",
+    "source-manifest.json",
+    "verify.py"
+  ],
+  "package_and_archive_sha256": {
+    "fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-build.tar.gz": "6e668a1424c2bc8c3d1731ced75e10bcc8ab9c1915bebbd14c09ce53072b4a58",
+    "fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+    "fcitx5-sumi-source.tar.gz": "cf4ad1867750dbe283c047d64e867e270f1e607624b2437df2a6f93d3669d4bd",
+    "INSTALL.zh-CN.md": "a4eb6e8823c998d7a229f69a5e032743465a175b16deb3142b33bfc86d1fc6bf"
+  },
+  "source_commit": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+  "public_source_delivery": "Both standalone frozen source archive and complete build archive"
+}

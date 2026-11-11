@@ -1,0 +1,37 @@
+{
+  "source_commit": "b75c450fe8ee0249d20d8727abe59c2b818e0c16",
+  "source_archive_sha256": "cf4ad1867750dbe283c047d64e867e270f1e607624b2437df2a6f93d3669d4bd",
+  "pkgbuild_sha256": "d6c718649a26104b73331cb50e612b8d0a8a0b52ec26ecf4f88b4f502eb6dc6a",
+  "package": "<note.md>/tasks/omarchy-amd64-ime-release/ime/fcitx5-sumi-candidates-5.1.23.r3.gb75c450f-1-x86_64.pkg.tar.zst",
+  "package_sha256": "b1b77e9f7eb9bc6951ad12dcfe0d69455b63d8c259c810287f913b532d62fbba",
+  "matches_original_package": true,
+  "payload_sha256": {
+    "usr/lib/fcitx5/libsumicandidates.so": "3ca8bfb88a0b84336aeecb4c5777d2238b89fc025f0f36c0a9505c7cecbf8f00",
+    "usr/share/fcitx5/addon/sumicandidates.conf": "a885bf56b061b14e6b82390045081f86eda5f789db36357155a67d576c7e4191",
+    "usr/share/licenses/fcitx5-sumi-candidates/LGPL-2.1-or-later.txt": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+  },
+  "audit_directory": "<note.md>/tasks/omarchy-amd64-ime-release/ime/audit-dbdz3_xp",
+  "dependency_packages": [
+    "fcitx5 5.1.23-1",
+    "fcitx5-chinese-addons 5.1.15-2",
+    "fcitx5-gtk 5.1.7-1"
+  ],
+  "checks": {
+    "frozen_source_manifest": true,
+    "exact_three_file_payload": true,
+    "elf_and_relocations": true,
+    "actual_package_module_loaded_on_private_bus": true,
+    "real_pinyin_protocol_regressions": [
+      "PASS: real pinyin candidates, underline-only inline preedit preserved",
+      "PASS: owner validation, stale serial rejection, real candidate commit",
+      "PASS: callback reattached after panel reset and candidate paging",
+      "PASS: focus loss revokes exact IC; unleased sibling keeps underline-only preedit",
+      "PASS: destroyed IC and disconnected owner release the lease",
+      "PASS: unrelated application has underline-only preedit without a lease",
+      "PASS: existing GTK client-side popup preserved, retry after reset accepted"
+    ]
+  },
+  "system_installed_by_verifier": false,
+  "global_fcitx_restarted": false,
+  "published": false
+}

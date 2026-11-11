@@ -1,0 +1,47 @@
+{
+  "timestamp_utc": "2026-11-11T13:40:35.935749+00:00",
+  "source_commit": "509c80e057744c6e0a54f4c241e39c21c0051923",
+  "tag": "v6.1111.4",
+  "version": "6.1111.4",
+  "published": false,
+  "package": "<note.md>/tasks/omarchy-amd64-ime-release/arch/notemd-6.1111.4-1-x86_64.pkg.tar.zst",
+  "package_sha256": "ab3eb35ef0baa8ce5197b73af33a51410b150bdd02cd7fc51d2b05d607ed8b22",
+  "deb": "<note.md>/tasks/omarchy-amd64-ime-release/artifacts/note.md_6.1111.4_amd64.deb",
+  "deb_sha256": "b840946645a340452fb5780b1e53e711f9829c4838ea712ea9c5f498586fd41a",
+  "binary_sha256": "eebcc8591cf31f576e0317112585e49a3ae4e4bb230788d4fd94a11c0c34cdb9",
+  "verified_binary": "<note.md>/tasks/omarchy-amd64-ime-release/arch/verification-ye4eq9_0/arch-root/usr/bin/notemd",
+  "recipe_sha256": "285cbb182ea72ac3eb3bf90779fcda72beb8e762696095a1ee94ae3610a1a1a0",
+  "verification_directory": "<note.md>/tasks/omarchy-amd64-ime-release/arch/verification-ye4eq9_0",
+  "payload_files": 9,
+  "extra_files": [
+    ".BUILDINFO",
+    ".MTREE",
+    ".PKGINFO",
+    "usr/share/licenses/notemd/LICENSE"
+  ],
+  "dependencies": [
+    "webkit2gtk-4.1",
+    "gtk3",
+    "libsecret",
+    "libpulse",
+    "fontconfig",
+    "libayatana-appindicator",
+    "git",
+    "xdg-utils",
+    "hicolor-icon-theme"
+  ],
+  "checks": {
+    "exact_debian_input": "passed",
+    "package_function_and_dependencies_match_frozen_source": "passed",
+    "payload_bytes_and_modes": "passed",
+    "binary_byte_identical": "passed",
+    "package_metadata": "passed",
+    "elf_x86_64": "passed",
+    "ldd_r": "passed",
+    "cli": "notemd 6.1111.4 (plugin API v1)",
+    "max_glibc": "2.35"
+  },
+  "installed": false,
+  "uploaded": false,
+  "gui_acceptance": "Pending actual packaged host GUI acceptance by parent agent."
+}

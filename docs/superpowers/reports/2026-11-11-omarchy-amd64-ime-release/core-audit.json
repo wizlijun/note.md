@@ -1,0 +1,21 @@
+{
+  "commit": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e",
+  "worktrees": [
+    {
+      "worktree": "<moraya-core>",
+      "HEAD": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e",
+      "branch": "refs/heads/main",
+      "uncommitted_and_untracked": [],
+      "ignored_paths_not_expanded": []
+    }
+  ],
+  "local_branches_not_merged": [],
+  "stashes": [],
+  "remote_main": {
+    "ok": true,
+    "refs": {
+      "refs/heads/main": "1722a6dedec8ee79e7a6ff046e7eeafb7187102e"
+    }
+  },
+  "release_scope": "Only 1722a6d source fix, regression test, and matching dist; previous f581448 was already remote main."
+}
