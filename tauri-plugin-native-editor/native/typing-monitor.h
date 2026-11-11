@@ -13,7 +13,7 @@ static SumiEditor *SumiTypingFocusedEditor(BOOL active, NSWindow *keyWindow) {
     NSResponder *responder=keyWindow.firstResponder;
     if(![responder isKindOfClass:SumiTextView.class])return nil;
     SumiTextView *text=(SumiTextView *)responder;SumiEditor *editor=text.owner;
-    if(!editor || editor.detached || editor.container.hidden || text.isHiddenOrHasHiddenAncestor || text.window!=keyWindow)return nil;
+    if(!editor || editor.detached || editor.draftError || !text.isEditable || editor.container.hidden || text.isHiddenOrHasHiddenAncestor || text.window!=keyWindow)return nil;
     return editor;
 }
 static void SumiTypingClear(void) {
@@ -40,11 +40,14 @@ static CGEventFlags SumiTypingModifierMask(uint16_t code) {
 }
 // Pure role/state processing is separately exercised without installing a system tap.
 static void SumiTypingHandle(SumiEditor *editor, CGEventType type, uint16_t code, BOOL repeat, CGEventFlags flags) {
-    if(!SumiTypingEnabled || !SumiTypingHandler || !editor){SumiTypingClear();return;}
+    if(!SumiTypingEnabled || !SumiTypingHandler || !editor || editor.draftError || !editor.text.isEditable){SumiTypingClear();return;}
     if(SumiTypingOwner!=editor){SumiTypingClear();SumiTypingOwner=editor;}
     if(code>=128)return;
     uint32_t role;
     if(type==kCGEventKeyDown){
+        // Command shortcuts do not represent typing. Do not arm their release;
+        // modifier key edges and Shift/Option text input retain their own roles.
+        if(flags&(kCGEventFlagMaskCommand|kCGEventFlagMaskControl))return;
         if(repeat || SumiTypingPressed[code])return;
         SumiTypingPressed[code]=YES;role=SumiTypingDownRole(code);
     }else if(type==kCGEventKeyUp){

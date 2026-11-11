@@ -895,6 +895,7 @@ static NSDictionary *SumiDifference(NSString *before, NSString *after) {
 }
 - (void)retainDraft:(NSDictionary *)projection error:(NSString *)error {
     [self.text stopFocusTyping];
+    if(SumiTypingOwner==self)SumiTypingClear();
     BOOL applying=self.applying;self.applying=YES;
     // This is a display-only draft, never a committed revision or undo edit.
     if([projection[@"document"][@"text"] isKindOfClass:NSString.class]){
