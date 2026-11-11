@@ -9,3 +9,5 @@
 独立输入法发布，保持已公开note.md v6.1111.2的0.5.0.13附件不动；未来CD批准清单更新到0.5.0.14。GitHub输入法发布tag在note.md仓库指向批准清单与证据；实际输入法源码位于独立fcitx5-macos-sumi仓库冻结53758c46，不将宿主tag误称输入法源码。
 
 CD验收：release-companion与release-publish共187测试通过；真实.14包通过现有release-companion.mjs stage批准hash/size核验，日志在Faitc5-Releases/0.5.0.14/cd-stage.log。
+
+已公开 https://github.com/wizlijun/note.md/releases/tag/faitc5-v0.5.0.14 ，发布tag指向批准记录3c055387。三附件先draft全量回读，再公开从官方URL完整匿名下载，SHA/大小与发布资产digest一致；latest宿主仍v6.1111.2。新包本地副本在Downloads。脚本为本次执行归档，真实执行目录在Faitc5-Releases/0.5.0.14。
