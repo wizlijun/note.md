@@ -81,7 +81,7 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
  * The primary marketplace category reuses the first menu contribution's
  * one-level submenu key. The same manifest field drives the native Plugins
  * menu, so membership cannot drift between surfaces. Unknown/missing values
- * remain visible under Extensions.
+ * remain visible under Other.
  */
 export function pluginCategoryFromManifest(manifest) {
   const official = OFFICIAL_PLUGIN_CATEGORIES.get(manifest?.id)

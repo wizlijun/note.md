@@ -1,6 +1,6 @@
 # 八组插件分类统一
 
-用户确认：AI → 捕捉 Capture → 阅读 Read → 写作 Write → 推进 Advance → 回顾 Review → 数据导入导出 Import & Export → 其他增强 Extensions。AI 为通用能力入口，末两组为工具区，不宣称整个序列为严格认知负荷量表。
+用户确认：AI → 捕捉 Capture → 阅读 Read → 写作 Write → 推进 Advance → 回顾 Review → 数据导入导出 Import & Export → 其他 Other。AI 为通用能力入口，末两组为工具区，不宣称整个序列为严格认知负荷量表。
 
 沿用内部 key ai/record/reading/create/advance/reflect/import-export/experience，旧 inspiration 归 create，旧 other 及未知分组归 experience。无第九组。显示名创作改写作，Sumi 与奇思妙想保持 create。Apple Notes、Roam Research、健康同步按主要用户目的统一归 record；旧包及缓存以官方 ID 归类兼容，不覆盖不可变发布包。
 

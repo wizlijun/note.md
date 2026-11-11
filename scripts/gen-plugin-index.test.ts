@@ -70,7 +70,7 @@ describe('pluginCategoryFromManifest', () => {
     expect(pluginCategoryFromManifest({ contributes: { menus: [{ submenu: 'inspiration' }] } })).toBe('create')
   })
 
-  it('falls back to Extensions for missing or unknown groups', () => {
+  it('falls back to Other for missing or unknown groups', () => {
     expect(pluginCategoryFromManifest({})).toBe('experience')
     expect(pluginCategoryFromManifest({
       contributes: { menus: [{ command: 'open', submenu: 'future-category' }] },
