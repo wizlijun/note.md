@@ -499,7 +499,12 @@ pub(crate) async fn judge_run(
     Ok(result)
 }
 
-#[tauri::command]
+/// The one-round judge as it was a Tauri command. No longer registered
+/// (spec H.7): the window and the CLI use the evidence rounds, so this is
+/// not reachable over IPC and sends nothing. The code stays, with its
+/// tests, until the cleanup that also removes `candidates.pool`/`k`/
+/// `perFile`/`tokenBudget`.
+#[allow(dead_code)]
 pub async fn smart_lookup_judge(
     app: tauri::AppHandle,
     window: tauri::Window,
