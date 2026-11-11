@@ -4,6 +4,7 @@
 #
 #   scripts/release.sh [version] [--draft] [--prerelease] [--arm64-only]
 #     [--allow-untracked <exact JSON list>] [--expected-share-manifest <frozen JSON>]
+#     [--faitc5-package <approved arm64 pkg>]
 # Controlled options require NOTEMD_EMPTY_ENV_DIR; they never skip release gates.
 #
 # Version numbers are DATE-BASED and auto-derived when omitted:
@@ -37,6 +38,9 @@
 #   APPLE_ID            App-Store-Connect Apple ID for notarization.
 #   APPLE_PASSWORD      App-specific password (not the actual Apple ID password).
 #   GH_REPO         default: wizlijun/note.md
+#   FAITC5_PACKAGE_PATH  Approved modified input-method package; defaults to the
+#                        exact filename from scripts/release-companions/faitc5.json
+#                        in ~/Downloads. Missing/stale packages stop the release.
 #
 # Updater signing (required — release will fail without these):
 #   TAURI_SIGNING_PRIVATE_KEY           private key string OR
@@ -80,14 +84,17 @@ ALLOW_UNTRACKED=""; EXPECTED_SHARE_MANIFEST=""
 ALLOW_UNTRACKED_COPY=""; EXPECTED_SHARE_COPY=""
 PRERELEASE=0
 ARM64_ONLY=0
+FAITC5_PACKAGE="${FAITC5_PACKAGE_PATH:-}"
+COMPANION_STAGE=""
 while (( $# )); do
   arg="$1"; shift
   case "$arg" in
-    --allow-untracked|--expected-share-manifest)
+    --allow-untracked|--expected-share-manifest|--faitc5-package)
       (( $# )) || die "missing value for $arg"
       case "$arg" in
         --allow-untracked) ALLOW_UNTRACKED="$1" ;;
         --expected-share-manifest) EXPECTED_SHARE_MANIFEST="$1" ;;
+        --faitc5-package) FAITC5_PACKAGE="$1" ;;
       esac
       shift ;;
     --universal)
@@ -151,10 +158,18 @@ say "pre-flight"
 cleanup_release_inputs() {
   [[ -z "$ALLOW_UNTRACKED_COPY" ]] || rm -f "$ALLOW_UNTRACKED_COPY"
   [[ -z "$EXPECTED_SHARE_COPY" ]] || rm -f "$EXPECTED_SHARE_COPY"
+  [[ -z "$COMPANION_STAGE" ]] || rm -rf "$COMPANION_STAGE"
   return 0
 }
 trap cleanup_release_inputs EXIT
 node scripts/release-inputs.mjs clean ${ALLOW_UNTRACKED:+"$ALLOW_UNTRACKED"}
+COMPANION_STAGE=$(mktemp -d -t notemd-faitc5-release)
+if [[ -n "$FAITC5_PACKAGE" ]]; then
+  node scripts/release-companion.mjs --output-dir "$COMPANION_STAGE" --package "$FAITC5_PACKAGE"
+else
+  node scripts/release-companion.mjs --output-dir "$COMPANION_STAGE"
+fi
+FAITC5_FILENAME=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).filename)' "$COMPANION_STAGE/faitc5-companion.json")
 if [[ -n "$ALLOW_UNTRACKED" ]]; then
   ALLOW_UNTRACKED_COPY=$(mktemp -t notemd-preserved-files)
   cp "$ALLOW_UNTRACKED" "$ALLOW_UNTRACKED_COPY"
@@ -310,7 +325,7 @@ rustup target add "${RUST_TARGETS[@]}" >/dev/null 2>&1 || true
 
 # Build each architecture independently. macOS bash 3.2 lacks associative
 # arrays, so we stash results in arch-suffixed variables (e.g. DMG_STAGED_AARCH64).
-STAGED_ASSETS=()
+STAGED_ASSETS=("$COMPANION_STAGE/$FAITC5_FILENAME" "$COMPANION_STAGE/faitc5-companion.json")
 
 is_transient_apple_service_failure() {
   grep -Eq 'HTTPClientError\.(connectTimeout|deadlineExceeded)|abortedUpload|timestamp service is not available|A timestamp was expected but was not found|NSURLErrorDomain Code=-1200|A TLS error caused the secure connection to fail' "$1"
@@ -572,6 +587,8 @@ $INSTALLERS
 
 > Code-signed with Developer ID Application (\`$APPLE_TEAM_ID\`), hardened runtime, notarized.
 > Auto-update is available for architectures included in this release.
+
+$(cat "$COMPANION_STAGE/faitc5-release-note.md")
 
 EOF
 )
