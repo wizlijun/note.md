@@ -16,7 +16,7 @@ import {
   type LookupPhase,
   type ViewMessage,
 } from './answer-view'
-import { applyRound, emptyEvidence, type EvidenceView } from './evidence-flow'
+import { applyRound, emptyEvidence, type AnswerGate, type EvidenceView } from './evidence-flow'
 import type { HeaderState } from './enhance-flow'
 
 const item = (id: string, tier: Tier = 'fit', extra: Partial<EvidenceItem> = {}): EvidenceItem => ({
@@ -172,7 +172,8 @@ describe('footerLine', () => {
 describe('fallbackLine', () => {
   const base = {
     phase: 'local' as LookupPhase, header: { kind: 'none' } as HeaderState, evidence: emptyEvidence(), disabled: false,
-    evidenceError: false, jevHost: 'localhost:8080', answerGate: null, answer: null, answerStopped: false,
+    evidenceError: false, jevHost: 'localhost:8080', answerGate: null as AnswerGate | null, answer: null as AnswerResult | null,
+    answerStopped: false,
   }
   const degraded = (status: Extract<HeaderState, { kind: 'degraded' }>['status'], host: string | null = 'localhost:8080'): HeaderState =>
     ({ kind: 'degraded', status, host, statusClass: '5xx', missing: null })
