@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1111.3 — 2026-11-11
+
 - The macOS host release includes Faitc5 for Sumi 0.5.0.14: default Command-semicolon for Quick Phrases, consistent Restore Defaults, and verified automatic post-install input-source repair. Existing host release assets are unchanged.
 
 - **Smart Lookup is rebuilt local-first.** Return shows local results immediately; typing never calls a model, and the model never reorders local results. With enhancement on, Jev checks the local results for evidence (see below); if a request fails or is not configured, the local results stay as they are. When nothing is found, the search is rephrased (once the answer model’s host is allowed) and re-run locally on its own. Time phrases such as “last month” now group results instead of filtering them out. You can correct a judgement from the ⌘K menu; corrections stay on this device. “In-depth research” is removed from Smart Lookup, and the agent-written answer is replaced by one written from the evidence (see below).
