@@ -96,10 +96,17 @@ export function chatAnswerConfig(settings: SmartLookupSettings): ChatAnswerConfi
   return { url: chat.url, model: chat.model, consentHost: chat.consentHost }
 }
 
-/** Zero local hits, enhancement on, the repair model's url and model both non-empty, and its key stored. */
+/**
+ * Zero local hits, enhancement on, the repair model's url and model both
+ * non-empty, its key stored, and the user allowed its host (`chat.consentHost`,
+ * the same consent as the answer). The rephrase sends the question to that
+ * host, so it never runs without that host's consent (rephrase-consent ruling).
+ */
 export function shouldAutoRepair(hits: number, settings: SmartLookupSettings, keys: KeyStatus): boolean {
   const { enabled, chat } = settings.enhance
+  const host = endpointHost(chat.url, 'chat')
   return hits === 0 && enabled && chat.url.trim() !== '' && chat.model.trim() !== '' && keys.chat
+    && host !== null && host === chat.consentHost
 }
 
 export type AttemptKind = 'original' | 'rephrased' | 'scan'

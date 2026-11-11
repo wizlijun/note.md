@@ -1329,6 +1329,33 @@ describe('SmartLookupApp zero hits', () => {
     expect(footerLineText()).toBe('Sent to chat.example · 0 passages in all · no confidential notes sent')
   })
 
+  it('without consent for the answer host the question is not rephrased: the line-by-line scan runs instead', async () => {
+    mocks.local = 'empty'
+    configureBoth({ ...CHAT })
+    mocks.keys = { jev: true, chat: true }
+    mocks.repair = {
+      status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,
+      groups: [{ terms: ['预算'], phrases: [] }], requestCount: 1, elapsedMs: 300, usage: null,
+    }
+    const base = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, any>) => {
+      if (command === 'smart_lookup_local' && args?.deep === true) {
+        return { search: response([]), lookupRunId: `run-${++mocks.runCounter}`, time: null }
+      }
+      return base(command, args)
+    })
+    const input = await mountReady()
+    await submit(input, 'release risk', 0)
+    await vi.waitFor(() => expect(noMatchPanel()).toContain('Scanned every file line by line'))
+    expect(calls('smart_lookup_repair_suggest')).toHaveLength(0)
+    expect(calls('smart_lookup_search_groups')).toHaveLength(0)
+    expect(calls('smart_lookup_local').map((call) => call.deep)).toEqual([false, true])
+    const tried = [...document.querySelectorAll('.no-match .attempt')].map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+    expect(tried).toEqual(['Searched the original question on this device0', 'Scanned every file line by line0'])
+    // Nothing was sent anywhere.
+    expect(footerLineText()).toBe('')
+  })
+
   it('a hidden window does not rephrase: nothing is sent', async () => {
     mocks.local = 'empty'
     configureBoth()
@@ -1442,7 +1469,7 @@ describe('SmartLookupApp zero hits', () => {
 
   it('a repair that returns no wording says so in the list of tries', async () => {
     mocks.local = 'empty'
-    mocks.storedSmartLookup = stored({ results: { autoDeepOnZero: false }, enhance: { jev: { ...JEV }, chat: { ...CHAT } } })
+    mocks.storedSmartLookup = stored({ results: { autoDeepOnZero: false }, enhance: { jev: { ...JEV }, chat: { ...CHAT_ALLOWED } } })
     mocks.keys = { jev: true, chat: true }
     mocks.repair = {
       status: 'ok', skipReason: null, missing: null, endpointHost: 'chat.example', statusClass: null,

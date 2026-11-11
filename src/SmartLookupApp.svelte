@@ -667,7 +667,8 @@
 
   /**
    * Zero hits (plan behaviour 6): rephrase once when a repair model is set up
-   * (only the question and search terms are sent); if that finds nothing
+   * and its host allowed (only the question and search terms are sent; without
+   * that consent the rephrase is skipped, `shouldAutoRepair`); if that finds nothing
    * either, scan every file line by line when `autoDeepOnZero` is on. Hits
    * from the scan get evidence; hits from other wordings are never judged.
    */
