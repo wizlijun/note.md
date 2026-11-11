@@ -1386,21 +1386,33 @@ describe('SmartLookupApp zero hits', () => {
 })
 
 describe('SmartLookupApp launch view', () => {
-  it('the launch view shows recent lookups and the first-run note once', async () => {
+  it('the launch view shows recent lookups with no first-run note, even for old settings that never saw it', async () => {
     localStorage.setItem('notemd.smartLookup.recent', JSON.stringify(['release risk', 'budget']))
     mocks.storedSmartLookup = stored({ launch: { firstRunSeen: false } })
     await mountReady()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('What happens after Return'))
-
-    click(buttonNamed('Got it'))
-
-    await vi.waitFor(() => expect(settings.smartLookup.launch.firstRunSeen).toBe(true))
-    await vi.waitFor(() => expect(document.body.textContent).not.toContain('What happens after Return'))
-    await vi.waitFor(() => expect((mocks.storedSmartLookup as any).launch.firstRunSeen).toBe(true))
+    await vi.waitFor(() => expect(document.querySelectorAll('.recent-item')).toHaveLength(2))
+    expect(document.querySelector('.first-run')).toBeNull()
+    expect(document.body.textContent).not.toContain('What happens after Return')
+    // The stored flag stays readable and is never written by the window.
+    expect(settings.smartLookup.launch.firstRunSeen).toBe(false)
+    expect((mocks.storedSmartLookup as any).launch.firstRunSeen).toBe(false)
 
     click(recentItem('release risk'))
     await vi.waitFor(() => expect(calls('smart_lookup_local')).toHaveLength(1))
     expect(calls('smart_lookup_local').at(-1)).toMatchObject({ question: 'release risk' })
+  })
+
+  it('the launch view asks for a question and the footer says the answer is on', async () => {
+    const input = await mountReady()
+    expect((input as HTMLTextAreaElement).placeholder).toBe('Ask a question')
+    await vi.waitFor(() => expect(document.querySelector('.footer')?.textContent).toContain('Answers with sources · on'))
+  })
+
+  it('the launch footer has no answer chip while lookup enhancement is off', async () => {
+    mocks.storedSmartLookup = stored({ enhance: { enabled: false } })
+    await mountReady()
+    await vi.waitFor(() => expect(settings.smartLookup.enhance.enabled).toBe(false))
+    expect(document.querySelector('.footer')?.textContent).not.toContain('Answers with sources')
   })
 
   it('clearing recent lookups empties the launch list', async () => {
@@ -1438,28 +1450,4 @@ describe('SmartLookupApp launch view', () => {
     expect(JSON.parse(localStorage.getItem('notemd.smartLookup.recentCounts')!)).toMatchObject({ budget: 1 })
   })
 
-  it('the first-run card shows three steps and closes with ×', async () => {
-    mocks.storedSmartLookup = stored({ launch: { firstRunSeen: false } })
-    await mountReady()
-    await vi.waitFor(() => expect(document.querySelector('.first-run')).not.toBeNull())
-    const card = document.querySelector('.first-run')!
-    expect(card.querySelectorAll('.steps li')).toHaveLength(3)
-    click(card.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!)
-    await vi.waitFor(() => expect(document.querySelector('.first-run')).toBeNull())
-    await vi.waitFor(() => expect((mocks.storedSmartLookup as any).launch.firstRunSeen).toBe(true))
-  })
-
-  it('a failed settings save is logged without any error text', async () => {
-    mocks.storedSmartLookup = stored({ launch: { firstRunSeen: false } })
-    const input = await mountReady()
-    await vi.waitFor(() => expect(document.querySelector('.first-run')).not.toBeNull())
-    mocks.saveError = true
-    click(buttonNamed('Got it'))
-    await vi.waitFor(() => expect(settings.smartLookup.launch.firstRunSeen).toBe(true))
-    mocks.saveError = false
-    await submit(input)
-    const log = await copiedLog()
-    expect(log).not.toContain('disk full')
-    expect(log).not.toContain('/Users/me')
-  })
 })
