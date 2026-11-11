@@ -40,9 +40,10 @@ const RETIRED_PLUGIN_IDS = new Set(JSON.parse(readFileSync(
   new URL('../plugins-registry/retired-plugins.json', import.meta.url), 'utf8',
 )))
 const PLUGIN_CATEGORIES = new Set([
-  'ai', 'record', 'reading', 'inspiration', 'advance', 'reflect', 'create', 'import-export', 'experience',
+  'ai', 'record', 'reading', 'create', 'advance', 'reflect', 'import-export', 'experience',
 ])
 const LEGACY_PLUGIN_CATEGORIES = new Map([
+  ['inspiration', 'create'],
   ['agents', 'ai'],
   ['capture', 'record'],
   ['capture-import', 'record'],
@@ -58,7 +59,8 @@ const OFFICIAL_PLUGIN_CATEGORIES = new Map([
   ['notemd.ebook-import', 'reading'],
   ['notemd.typst-reader', 'reading'],
   ['notemd.trace-source', 'reading'],
-  ['notemd.idea-spark', 'inspiration'],
+  ['notemd.idea-spark', 'create'],
+  ['notemd.sumi', 'create'],
   ['notemd.next', 'advance'],
   ['notemd.claude-agent', 'ai'],
   ['notemd.codex-agent', 'ai'],

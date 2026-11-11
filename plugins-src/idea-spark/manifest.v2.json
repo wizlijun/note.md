@@ -18,7 +18,7 @@
     "menus": [
       {
         "location": "plugins",
-        "submenu": "inspiration",
+        "submenu": "create",
         "label": "Idea Spark",
         "command": "open"
       }

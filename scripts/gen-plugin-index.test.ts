@@ -62,6 +62,13 @@ describe('pluginCategoryFromManifest', () => {
     expect(pluginCategoryFromManifest({ id: 'notemd.ebook-import' })).toBe('reading')
   })
 
+  it('migrates legacy inspiration and old Sumi manifests to Create', () => {
+    for (const id of ['notemd.sumi', 'notemd.idea-spark']) {
+      expect(pluginCategoryFromManifest({ id, contributes: { menus: [{ submenu: 'experience' }] } })).toBe('create')
+    }
+    expect(pluginCategoryFromManifest({ contributes: { menus: [{ submenu: 'inspiration' }] } })).toBe('create')
+  })
+
   it('falls back to other for missing or unknown groups', () => {
     expect(pluginCategoryFromManifest({})).toBe('other')
     expect(pluginCategoryFromManifest({
@@ -95,7 +102,7 @@ describe('applySourceMetadata', () => {
     expect(updated).toMatchObject({
       version: '1.3.5',
       description: 'Capture a spark.',
-      category: 'inspiration',
+      category: 'create',
       i18n: { zh: { name: '奇思妙想', description: '捕捉一闪而过的灵感。' } },
       sha256: { universal: 'keep-sha' },
       download: { universal: 'https://plugins.notemd.net/pkg' },

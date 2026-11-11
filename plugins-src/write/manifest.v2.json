@@ -22,7 +22,7 @@
     "menus": [
       {
         "location": "plugins",
-        "submenu": "experience",
+        "submenu": "create",
         "label": "Sumi Write",
         "command": "open"
       }

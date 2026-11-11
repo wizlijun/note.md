@@ -298,7 +298,6 @@ export const ja: Record<keyof Messages, string> = {
   'pluginCategory.ai': 'AI',
   'pluginCategory.record': '記録',
   'pluginCategory.reading': '読む',
-  'pluginCategory.inspiration': 'アイデア',
   'pluginCategory.advance': '前へ進む',
   'pluginCategory.reflect': '振り返る',
   'pluginCategory.create': '創作',

@@ -298,7 +298,6 @@ export const zh: Record<keyof Messages, string> = {
   'pluginCategory.ai': 'AI',
   'pluginCategory.record': '记录',
   'pluginCategory.reading': '阅读',
-  'pluginCategory.inspiration': '灵感',
   'pluginCategory.advance': '推进',
   'pluginCategory.reflect': '回顾',
   'pluginCategory.create': '创作',
