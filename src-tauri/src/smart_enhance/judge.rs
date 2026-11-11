@@ -23,7 +23,7 @@ use crate::lookup_params::{self, LookupParams};
 use crate::search::time_group::TimeMode;
 use crate::search::IndexHandle;
 use crate::smart_lookup::{
-    active_root, current_block, run_for_window, update_run, CanonicalHit, JudgeRecord, LookupRun,
+    active_root, read_source, run_for_window, update_run, CanonicalHit, JudgeRecord, LookupRun,
 };
 use crate::smart_model::{endpoint_host, jev_endpoint, score_noul, AuthMode, NoulQuestion};
 
@@ -307,7 +307,7 @@ async fn judge_steps(
     }
 
     let limits = params.candidates.limits();
-    let selection = select_candidates(&ordered, input.confidentiality, |hit| current_block(&run.root, hit), &limits);
+    let selection = select_candidates(&ordered, input.confidentiality, |hit| read_source(&run.root, hit), &limits);
     result.pool_size = selection.pool_size;
     result.sent_blocks = selection.picked.len();
     result.estimated_tokens = selection.estimated_tokens;
@@ -914,7 +914,7 @@ mod tests {
     #[test]
     fn the_cache_key_covers_everything_that_is_sent() {
         let f = fixture("cache key");
-        let read = |h: &CanonicalHit| current_block(&f.run.root, h);
+        let read = |h: &CanonicalHit| read_source(&f.run.root, h);
         let refs: Vec<&CanonicalHit> = f.run.hits.iter().collect();
         let picked = select_candidates(&refs, &f.confidentiality, read, &f.params.candidates.limits()).picked;
         let questions: Vec<NoulQuestion> =
