@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1112.2 — 2026-11-12
+
 - **Continue Sumi writing at the end.** Opening or reopening the Sumi window now places the caret at the end of the rendered page and keeps the final line visible, including long Linux documents. Returning from settings preserves the current editing position.
 
 ## v6.1112.1 — 2026-11-12
