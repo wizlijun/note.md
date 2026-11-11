@@ -7,6 +7,12 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1111.4 — 2026-11-11
+
+- **Keep BOM front matter when clearing the body.** Clearing all body text in a BOM/CRLF note no longer rolls back after switching from Source to Rich; metadata, original line endings, and undo history are preserved.
+
+- **Omarchy amd64 companion release.** Includes the customized Fcitx 5 Sumi addon with global underline-only preedit styling, frozen addon source, build/verification scripts, and joint installation instructions. Personal themes and DPI settings remain local.
+
 - **Tighter Sumi candidate spacing on Linux.** Remove periods and duplicate spacing after candidate numbers and use a compact, font-scaled gap between candidate groups.
 
 ## v6.1111.3 — 2026-11-11
