@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names.
+
 - **Sumi windows on macOS.** New writing windows fit the current display’s usable area. The green window button enters full screen. “Open in full screen” is on by default; turning it off is remembered for the next new independent window.
 
 - **Sumi sync recovery.** A local edit echoed back by sync no longer blocks saving or appearance settings with an operation-ID conflict. Verified echoes retain distinct durable receipts; conflicting content is still rejected.
