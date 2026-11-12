@@ -1,0 +1,6 @@
+{
+  "pid": 28276,
+  "uid": 501,
+  "path": "/System/Library/CoreServices/TextInputMenuAgent.app/Contents/MacOS/TextInputMenuAgent",
+  "operation": "SIGTERM exact existing user TextInputMenuAgent; launchd KeepAlive restart; no input-method engine termination"
+}

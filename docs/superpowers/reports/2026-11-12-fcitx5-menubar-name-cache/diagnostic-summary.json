@@ -1,0 +1,61 @@
+{
+  "installedVersion": "0.5.0.15",
+  "installedBuild": "2026111201",
+  "installedSource": "2f561d84463a225f89acd1cf6f9e561c575642da",
+  "bundleName": "Fcitx5 for Sumi",
+  "bundleDisplayName": "Fcitx5 for Sumi",
+  "freshTisStatus": {
+    "uid": 501,
+    "parent_enabled": true,
+    "enabled_selectable_mode": true,
+    "registered": true,
+    "sources": [
+      {
+        "enable_capable": true,
+        "id": "org.fcitx.inputmethod.Fcitx5",
+        "enabled": true,
+        "select_capable": false,
+        "name": "Fcitx5 for Sumi",
+        "type": "TISTypeKeyboardInputMethodModeEnabled"
+      },
+      {
+        "enable_capable": true,
+        "id": "org.fcitx.inputmethod.Fcitx5.fcitx5",
+        "enabled": false,
+        "select_capable": true,
+        "name": "Fcitx5 for Sumi",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      {
+        "enable_capable": true,
+        "id": "org.fcitx.inputmethod.Fcitx5.zhHans",
+        "enabled": true,
+        "select_capable": true,
+        "name": "Fcitx5 for Sumi",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      {
+        "enable_capable": true,
+        "id": "org.fcitx.inputmethod.Fcitx5.zhHant",
+        "enabled": false,
+        "select_capable": true,
+        "name": "Fcitx5 for Sumi",
+        "type": "TISTypeKeyboardInputMode"
+      }
+    ],
+    "fresh_enabled_snapshot": [
+      "org.fcitx.inputmethod.Fcitx5",
+      "org.fcitx.inputmethod.Fcitx5.zhHans"
+    ],
+    "state": "ready"
+  },
+  "settingsUiObservedName": "Fcitx5 for Sumi, Fcitx5 for Sumi",
+  "beforeMenuPid": 28276,
+  "afterMenuPid": 64114,
+  "inputMethodEngineRestarted": false,
+  "preferencesWritten": false,
+  "cacheFilesDeleted": false,
+  "renderedMenuConfirmation": "User explicitly confirmed Fcitx5 for Sumi after menu-agent refresh.",
+  "cause": "Long-lived TextInputMenuAgent retained the pre-rename display name. Installed .15, all InfoPlist localizations, fresh TIS and Settings already had the correct name; only the menu-agent process was refreshed and the actual menu name changed.",
+  "resolved": true
+}

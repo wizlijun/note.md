@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "current_source": "org.fcitx.inputmethod.Fcitx5.zhHans",
+  "parent_enabled": true,
+  "enabled_snapshot": [
+    "org.fcitx.inputmethod.Fcitx5",
+    "org.fcitx.inputmethod.Fcitx5.zhHans"
+  ],
+  "registered": true,
+  "all_enabled_sources": [
+    "com.apple.keylayout.ABC",
+    "com.tencent.inputmethod.wetype",
+    "com.tencent.inputmethod.wetype.pinyin",
+    "org.fcitx.inputmethod.Fcitx5",
+    "org.fcitx.inputmethod.Fcitx5.zhHans"
+  ],
+  "enabled_modes": [
+    "org.fcitx.inputmethod.Fcitx5.zhHans"
+  ]
+}
