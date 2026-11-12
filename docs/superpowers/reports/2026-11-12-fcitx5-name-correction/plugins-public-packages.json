@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "signatures_valid": true,
+  "objects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "9c7966ae073a06bbc81f0161a12be4e165989cf51c3e762f6f38e7c4ad1f5b51",
+      "bytes": 2467815
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "normal",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "ebf373b3fb3d61a45d23bc1c790b7bf04907b8e0bee4a7139405b7b3111122a1",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "sha256": "9c7966ae073a06bbc81f0161a12be4e165989cf51c3e762f6f38e7c4ad1f5b51",
+      "bytes": 2467815
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "fresh",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "sha256": "ebf373b3fb3d61a45d23bc1c790b7bf04907b8e0bee4a7139405b7b3111122a1",
+      "bytes": 325
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "normal",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg",
+      "sha256": "090f296d6422e2190154ff1e95da8c40f4e13dcaeebf2990dc901039ae4618c9",
+      "bytes": 2741389
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "normal",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "sha256": "ac294cfdee239815dc82273e4d34aebcc19379e7ce7be531a2073a5dab044134",
+      "bytes": 329
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "fresh",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg",
+      "sha256": "090f296d6422e2190154ff1e95da8c40f4e13dcaeebf2990dc901039ae4618c9",
+      "bytes": 2741389
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "mode": "fresh",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "sha256": "ac294cfdee239815dc82273e4d34aebcc19379e7ce7be531a2073a5dab044134",
+      "bytes": 329
+    }
+  ]
+}

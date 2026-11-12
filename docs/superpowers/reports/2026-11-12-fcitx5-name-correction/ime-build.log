@@ -1,0 +1,72 @@
+Skipping fcitx5: has uncommitted changes
+Skipping fcitx5-webview/webview: has uncommitted changes
+-- Recent tag: faitc5-sumi-v0.5.0.14-rc1, commits since tag: 2
+CMake Warning (author) at build-tools/local/share/ECM/modules/ECMFindModuleHelpers.cmake:113 (message):
+  Your project should require at least CMake 3.16.0 to use
+  FindXKBCommon.cmake
+Call Stack (most recent call first):
+  fcitx5/cmake/FindXKBCommon.cmake:4 (ecm_find_package_version_check)
+  fcitx5/CMakeLists.txt:155 (find_package)
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+-- The following OPTIONAL packages have been found:
+
+ * Execinfo
+
+-- The following REQUIRED packages have been found:
+
+ * ECM
+ * DL
+ * LibIntl
+ * Pthread
+ * Gettext
+ * Expat
+ * XKBCommon, Keyboard handling library using XKB data, <http://xkbcommon.org>
+ * IsoCodes
+ * PkgConfig
+ * XKeyboardConfig
+ * nlohmann_json
+
+macosfrontendnotificationswebpanelFcitx5Objs
+-- Configuring done (0.4s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/bruce/git/fcitx5-macos-sumi/build/arm64
+[0/2] Re-checking globbed directories...
+[1/42] Creating library symlink bin/libFcitx5Utils.2.dylib bin/libFcitx5Utils.dylib
+[2/42] cd /Users/bruce/git/fcitx5-macos-sumi/build/arm64/fcitx5/src/modules/spell && /Users/bruce/git/fcitx5-macos-sumi/build-tools/python/lib/python3.14/site-packages/cmake/data/bin/cmake -P /Users/bruce/git/fcitx5-macos-sumi/build/arm64/fcitx5/src/modules/spell/spell-en-download-download.cmake
+[3/42] Creating library symlink bin/libFcitx5Config.6.dylib bin/libFcitx5Config.dylib
+[4/42] Creating library symlink bin/libFcitx5Core.7.dylib bin/libFcitx5Core.dylib
+[5/42] Linking CXX static library lib/libkeyboard.a
+[6/42] Linking CXX static library deps/url-filter/liburl-filter.a
+[7/42] Building Swift Module 'Logging' with 2 sources
+[8/41] Linking CXX static library keycode/libKeycode.a
+[9/41] Building Swift Module 'AlertToast' with 3 sources
+[10/40] Generating macosfrontend.conf
+[11/40] Building Swift Module 'SwiftNotify' with 1 source
+[12/39] Linking CXX static library macosnotifications/libnotifications.a
+[13/39] Generating notifications.conf
+[14/39] Building Swift Module 'SwiftFrontend' with 4 sources
+[15/38] Linking CXX static library fcitx5-webview/src/libWebviewCandidateWindow.a
+[16/38] Linking CXX static library macosfrontend/libmacosfrontend.a
+[17/38] Linking CXX static library webpanel/libwebpanel.a
+[18/38] Generating webpanel.conf
+[19/38] Linking CXX static library fcitx5-beast/src/libbeast.a
+[20/38] Linking CXX static library src/libFcitx5Objs.a
+[21/38] Generating fcitx5-macos-zh_CN.mo
+[22/38] Linking Swift executable tests/config-cpp
+[23/38] Linking Swift executable tests/icon-cpp
+[24/38] Linking CXX executable tests/key-cpp
+[25/38] Linking Swift executable tests/key-release-cpp
+[26/38] Linking CXX executable tests/layout-cpp
+[27/38] Linking Swift executable tests/KeySwift
+[28/38] Linking Swift executable tests/KeyEventSwift
+[29/38] Linking Swift executable tests/sumi-candidates-cpp
+[30/38] Linking Swift executable tests/sumi-pinyin-cpp
+[31/38] Building Swift Module 'settings_sync_swift' with 2 sources
+[32/38] Linking Swift executable tests/settings-sync-swift
+[33/38] Building Swift Module 'FcitxConfigUI' with 61 sources
+[34/38] Linking Swift static library src/libFcitxConfigUI.a
+[35/38] Building Swift Module 'FcitxTestApp' with 2 sources
+[36/38] Linking Swift executable appium/FcitxTestApp.app/Contents/MacOS/FcitxTestApp
+[37/38] Building Swift Module 'Fcitx5' with 6 sources
+[38/38] Linking Swift executable src/Fcitx5.app/Contents/MacOS/Fcitx5

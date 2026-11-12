@@ -1,0 +1,158 @@
+{
+  "checkedAt": "2026-11-12T05:17:03.869499+00:00",
+  "readOnly": true,
+  "githubCopyNeedingCorrection": [
+    {
+      "tag": "v6.1111.3",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1111.3",
+      "publishedAt": "2026-11-11T10:12:20Z",
+      "copyLines": [
+        "Companion input method for Apple silicon: Faitc5 for Sumi 0.5.0.14 (attached as `Faitc5-for-Sumi-0.5.0.14-arm64.pkg`). The modified App inside is Developer ID signed and notarized. The installer package itself is unsigned.",
+        "- The macOS host release includes Faitc5 for Sumi 0.5.0.14: default Command-semicolon for Quick Phrases, consistent Restore Defaults, and verified automatic post-install input-source repair. Existing host release assets are unchanged."
+      ],
+      "existingAssetNames": [
+        "faitc5-companion.json",
+        "Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+        "latest.json",
+        "note.md-6.1111.3-aarch64.dmg",
+        "note.md-aarch64.app.tar.gz",
+        "note.md-aarch64.app.tar.gz.sig"
+      ]
+    },
+    {
+      "tag": "v6.1111.2",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1111.2",
+      "publishedAt": "2026-11-11T05:24:24Z",
+      "copyLines": [
+        "- 附带改造后的 **Faitc5 for Sumi 0.5.0.13** 安装包。其中 App 已签名并公证，`.pkg` 安装包本身未签名。"
+      ],
+      "existingAssetNames": [
+        "faitc5-companion.json",
+        "Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+        "latest.json",
+        "note.md-6.1111.2-aarch64.dmg",
+        "note.md-aarch64.app.tar.gz",
+        "note.md-aarch64.app.tar.gz.sig"
+      ]
+    },
+    {
+      "tag": "v6.1111.1",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1111.1",
+      "publishedAt": "2026-11-11T04:08:20Z",
+      "copyLines": [
+        "- [Faitc5 for Sumi 0.5.0.13 — modified Apple silicon input method](https://github.com/wizlijun/note.md/releases/download/v6.1111.1/Faitc5-for-Sumi-0.5.0.13-arm64.pkg)",
+        "note.md and the App inside Faitc5 are Developer ID signed and notarized. The Faitc5 installer package itself is unsigned. Existing Intel, Linux and Windows releases remain available.",
+        "- **Companion input method included.** The release also includes the modified Faitc5 for Sumi 0.5.0.13 Apple silicon installer, with Chinese/English spacing enabled by default. Its App is signed and notarized; the installer package itself is unsigned. Future macOS releases validate the approved package before attaching it.",
+        "- **Sumi Write / 玄霜写作.** The writing product now uses its new name in the plugin catalog, windows, menus, settings and recovery messages. Existing writing and settings remain compatible; note.md and Faitc5 keep their names."
+      ],
+      "existingAssetNames": [
+        "faitc5-companion.json",
+        "Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+        "latest.json",
+        "note.md-6.1111.1-aarch64.dmg",
+        "note.md-aarch64.app.tar.gz",
+        "note.md-aarch64.app.tar.gz.sig"
+      ]
+    },
+    {
+      "tag": "faitc5-v0.5.0.14",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/faitc5-v0.5.0.14",
+      "publishedAt": "2026-11-11T07:38:43Z",
+      "copyLines": [
+        "## Faitc5 for Sumi 0.5.0.14（Apple 芯片）",
+        "输入法源码冻结：53758c46aed45f3de997bf956becdd819d0f8be1。SHA256 见附件；faitc5-companion.json 为后续宿主CD批准记录。"
+      ],
+      "existingAssetNames": [
+        "faitc5-companion.json",
+        "Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+        "SHA256SUMS"
+      ]
+    },
+    {
+      "tag": "v6.1110.8",
+      "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1110.8",
+      "publishedAt": "2026-11-10T16:34:00Z",
+      "copyLines": [
+        "Developer ID signed, hardened runtime, notarized. Includes the macOS native Sumi input-method bridge; use Sumi 0.1.13 and the companion Faitc5 for Sumi input method for inline candidates.",
+        "- **Sumi macOS inline candidates with Faitc5 for Sumi.** Candidates follow the body typography, appear below the active line in focus mode, and stay at the bottom without moving the document outside focus mode. Clicking candidates preserves the input position; search fields retain the normal input-method window. Use the companion Faitc5 for Sumi input method and Sumi plugin 0.1.13; the plugin settings explain how to enable the integration."
+      ],
+      "existingAssetNames": [
+        "latest.json",
+        "note.md-6.1110.8-aarch64.dmg",
+        "note.md-aarch64.app.tar.gz",
+        "note.md-aarch64.app.tar.gz.sig"
+      ]
+    }
+  ],
+  "immutableHistoryRule": "Correct prose/title and annotate archived filename; retain old tags/assets/hash/download identity. New fcitx5-v0.5.0.15 should not replace macOS host latest.",
+  "market": {
+    "indexEntries": 319,
+    "baselineEntry": {
+      "id": "notemd.sumi",
+      "version": "0.1.15",
+      "min_host": ">=6.1111.1",
+      "archs": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "size": 2744317,
+      "sha256": {
+        "aarch64-apple-darwin": "b5b76160e19594a2a9f41288cc32fee9cc029f356dc83c90c5f79cb644ee97e6",
+        "x86_64-unknown-linux-gnu": "eff0c9e680200ae6b422a1fe53bbe4ac1e7c4609c4636af8bc61e2c250d97603"
+      },
+      "name": "Sumi Write",
+      "category": "create",
+      "description": "Sumi Write is a quiet page for native writing, with offline collaboration and seamless continuation.",
+      "i18n": {
+        "zh": {
+          "name": "玄霜写作",
+          "description": "玄霜写作，一页纸，安静地写。原生编辑，离线也能续写，多设备自动同步。",
+          "menus": {
+            "open": "玄霜写作",
+            "read-writing": "玄霜写作"
+          },
+          "windows": {
+            "main": "玄霜写作"
+          }
+        },
+        "en": {
+          "name": "Sumi Write",
+          "description": "Sumi Write is a quiet page for native writing, with offline collaboration and seamless continuation.",
+          "menus": {
+            "open": "Sumi Write",
+            "read-writing": "Sumi Write"
+          },
+          "windows": {
+            "main": "Sumi Write"
+          }
+        },
+        "ja": {
+          "name": "Sumi Write",
+          "description": "Sumi Write は、静かに書くためのタイプライターアプリです。ネイティブ編集で、オフラインでも書き続けられ、端末間で自動同期します。",
+          "menus": {
+            "open": "Sumi Write",
+            "read-writing": "Sumi Write"
+          },
+          "windows": {
+            "main": "Sumi Write"
+          }
+        }
+      },
+      "icon_url": null,
+      "changelog_url": null,
+      "download": {
+        "aarch64-apple-darwin": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.15/aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu": "https://plugins.notemd.net/api/download/notemd.sumi/0.1.15/x86_64-unknown-linux-gnu"
+      }
+    },
+    "metadataHasTypo": false,
+    "publicArmBackendSHA256": "16b6b9b3fd49ee0e577bc6c67fcbfc6f60c461e53a662bf96055e56032bf3444",
+    "publicLinuxBackendSHA256": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+    "uiBothArchitecturesTypoOccurrences": 3,
+    "baselineSHAAndMinisignVerified": true
+  },
+  "otherCurrentDocTypo": "packaging/omarchy/fcitx5-sumi-candidates/INSTALL.zh-CN.md:3",
+  "websiteRule": "plugins-registry/src/page.ts latestById collapses globally by highest version; preserve both existing architectures in .16 to preserve card platform coverage",
+  "runtimeSourceDiffFromB88edb93": [],
+  "historicalEvidence": "Existing reports and old immutable attachments record the misspelling as actually shipped; do not rewrite hashes or rename artifacts in those records."
+}

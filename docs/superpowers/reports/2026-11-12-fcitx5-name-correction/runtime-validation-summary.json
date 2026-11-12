@@ -1,0 +1,36 @@
+{
+  "runtimeAndLocaleChanges": "All current Faitc5 display names, localization keys/values, plist display names, backup export names, notifications, toolbar and test launch env corrected to Fcitx5. Stable bundle identifier/executable/data directories unchanged.",
+  "legacyReferences": [
+    "NativeInputSourceRepair.swift exact legacy display name match for stale system rows",
+    "InstallSetupPolicy.swift legacy Faitc5 install request path read/complete compatibility",
+    "Settings.swift existing Faitc5SumiSettings AppKit frame autosave key kept to preserve window position",
+    "request-user-setup.sh and tests explicit old-path fallback cases"
+  ],
+  "observedTests": [
+    {
+      "command": "python3 scripts/sumi-package/test-request-user-setup.py",
+      "passed": 10,
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/sumi-package/test-native-repair.py",
+      "passed": 17,
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/sumi-package/test-preinstall.py",
+      "passed": 5,
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/sumi-package/test-install-setup.py",
+      "result": "PASS receipt/setup/permissions/cancellation plus current/legacy request path and completion token/version preservation",
+      "exitCode": 0
+    },
+    {
+      "command": "msgfmt -c po/zh_CN.po -o /dev/null",
+      "exitCode": 0
+    }
+  ],
+  "localizationBaseline": "localization-baseline.json records all syntax/BOM and renamed-key sets unchanged from HEAD. 12 pre-existing incomplete locales each lack 35 installation/repair/spacing keys. No unrelated keys/translations added; corrected English fallback handles these."
+}

@@ -1,0 +1,155 @@
+{
+  "version": "0.5.0.15",
+  "product": "Fcitx5 for Sumi",
+  "sourceCommit": "2f561d84463a225f89acd1cf6f9e561c575642da",
+  "package": "/Users/bruce/Fcitx5-Releases/0.5.0.15/Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+  "bytes": 61312645,
+  "sha256": "f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299",
+  "appNotarized": true,
+  "appStapled": true,
+  "packageSigned": false,
+  "packageNotarized": false,
+  "submissionId": "85a89706-8105-4bf4-9c8d-56a145093688",
+  "notaryArchiveSha256": "4888664b0ec481973917fac6d8b89d7a8b09c58c237665e491690f7f5feee3b7",
+  "expandedAppFilesAndLinks": 636,
+  "payloadExactMatch": true,
+  "allLocalizedResources": {
+    "Contents/Resources/de.lproj/Localizable.strings": {
+      "sha256": "844e4fde58e55a2844bc180152327981250f7a73fb4e9c112169d4bc18e62205",
+      "entries": 720
+    },
+    "Contents/Resources/he.lproj/Localizable.strings": {
+      "sha256": "ce0d947dbd22ddff74e0105c028b7325ff3047be99b487b522fa0e86ff731f77",
+      "entries": 720
+    },
+    "Contents/Resources/zh-Hans.lproj/Localizable.strings": {
+      "sha256": "000501a0b0e34157ce5cb6dc1a98e08c8ec32291148a58c6b1529b9bfb0650e2",
+      "entries": 755
+    },
+    "Contents/Resources/zh-Hans.lproj/InfoPlist.strings": {
+      "sha256": "2b4e6445f6b2415ef4c2af59a3e89f37aab66bbd50c22c5614ac5d20653357d5",
+      "entries": 5
+    },
+    "Contents/Resources/ja.lproj/Localizable.strings": {
+      "sha256": "13ab979033d87501c99d5c8fbf4db7f3d8e17f2f76cb63f8f484a38fe9a653cd",
+      "entries": 720
+    },
+    "Contents/Resources/en.lproj/Terminology.strings": {
+      "sha256": "cef7fa3c0cdf32ac43b329bd66fbfd038a68e92ff42ab26363585c41976d23fb",
+      "entries": 562
+    },
+    "Contents/Resources/en.lproj/Localizable.strings": {
+      "sha256": "aa9232c947d55cf1963efbfc6c0bc0f3071202ea8a9e47646d6a2f5c9a53d0ee",
+      "entries": 755
+    },
+    "Contents/Resources/en.lproj/InfoPlist.strings": {
+      "sha256": "2b4e6445f6b2415ef4c2af59a3e89f37aab66bbd50c22c5614ac5d20653357d5",
+      "entries": 5
+    },
+    "Contents/Resources/es.lproj/Localizable.strings": {
+      "sha256": "3ab5819672a58646af2703a6ed8faab2a2dcf61001c25cd351fd833500e72569",
+      "entries": 720
+    },
+    "Contents/Resources/da.lproj/Localizable.strings": {
+      "sha256": "a8bc492449326b3f4a26bbb23e9eddc55a88c2f8795952b6ed2cedb983cedfa7",
+      "entries": 720
+    },
+    "Contents/Resources/sv.lproj/Localizable.strings": {
+      "sha256": "892ce22a663f78586d24c203203038452e5a1c9e8a8e3ce664dd2b8d939dbc80",
+      "entries": 720
+    },
+    "Contents/Resources/sv.lproj/InfoPlist.strings": {
+      "sha256": "2b4e6445f6b2415ef4c2af59a3e89f37aab66bbd50c22c5614ac5d20653357d5",
+      "entries": 5
+    },
+    "Contents/Resources/ko.lproj/Localizable.strings": {
+      "sha256": "c7b3c27b914740148a0efa58d9165390b9a7a71417714ed27bbe838b3dc493f1",
+      "entries": 720
+    },
+    "Contents/Resources/zh-Hant.lproj/Localizable.strings": {
+      "sha256": "6a7a5b9bf78cfe6645ff3f908556fb2bb9561dac3ac8f63a88736f17fdcfb526",
+      "entries": 755
+    },
+    "Contents/Resources/zh-Hant.lproj/InfoPlist.strings": {
+      "sha256": "2b4e6445f6b2415ef4c2af59a3e89f37aab66bbd50c22c5614ac5d20653357d5",
+      "entries": 5
+    },
+    "Contents/Resources/ka.lproj/Localizable.strings": {
+      "sha256": "3b41e593ab1a1b942e9d4990eb3f641cd448488eabdf3b3fbf7f12c90f3d2d42",
+      "entries": 720
+    },
+    "Contents/Resources/vi.lproj/Localizable.strings": {
+      "sha256": "058070b75ca2046e956946c3ddfc8bd2390c95c35b10f5bd8fbc9c3512378a8d",
+      "entries": 720
+    },
+    "Contents/Resources/ru.lproj/Localizable.strings": {
+      "sha256": "f807f345cceaad58071d1fccf84b39c8ec855a2087273e56c5eb36714f36e784",
+      "entries": 720
+    },
+    "Contents/Resources/ru.lproj/InfoPlist.strings": {
+      "sha256": "2b4e6445f6b2415ef4c2af59a3e89f37aab66bbd50c22c5614ac5d20653357d5",
+      "entries": 5
+    },
+    "Contents/Resources/fr.lproj/Localizable.strings": {
+      "sha256": "61dd88c56808e7d4553e6560c0f6064a474d585371ee3f3d721c8d23759295ce",
+      "entries": 720
+    },
+    "Contents/Resources/ca.lproj/Localizable.strings": {
+      "sha256": "1df7aaa20c7f42b77ffba793c75ad9f29aca6f9e46d9bb7c493e0234cc69e6bc",
+      "entries": 720
+    }
+  },
+  "info": {
+    "CFBundleName": "Fcitx5 for Sumi",
+    "CFBundleDisplayName": "Fcitx5 for Sumi",
+    "CFBundleIdentifier": "org.fcitx.inputmethod.Fcitx5",
+    "CFBundleVersion": "2026111201",
+    "SumiPackageVersion": "0.5.0.15",
+    "SumiSourceCommit": "2f561d84463a225f89acd1cf6f9e561c575642da"
+  },
+  "commands": [
+    {
+      "command": [
+        "codesign",
+        "--verify",
+        "--deep",
+        "--strict",
+        "/Users/bruce/Fcitx5-Releases/0.5.0.15/expanded-final/Fcitx5-Sumi-component.pkg/Payload/Library/Input Methods/Fcitx5.app"
+      ],
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "xcrun",
+        "stapler",
+        "validate",
+        "/Users/bruce/Fcitx5-Releases/0.5.0.15/expanded-final/Fcitx5-Sumi-component.pkg/Payload/Library/Input Methods/Fcitx5.app"
+      ],
+      "stdout": "Processing: /Users/bruce/Fcitx5-Releases/0.5.0.15/expanded-final/Fcitx5-Sumi-component.pkg/Payload/Library/Input Methods/Fcitx5.app\nThe validate action worked!\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "spctl",
+        "--assess",
+        "--type",
+        "execute",
+        "--verbose=4",
+        "/Users/bruce/Fcitx5-Releases/0.5.0.15/expanded-final/Fcitx5-Sumi-component.pkg/Payload/Library/Input Methods/Fcitx5.app"
+      ],
+      "stdout": "",
+      "stderr": "/Users/bruce/Fcitx5-Releases/0.5.0.15/expanded-final/Fcitx5-Sumi-component.pkg/Payload/Library/Input Methods/Fcitx5.app: accepted\nsource=Notarized Developer ID\n"
+    },
+    {
+      "command": [
+        "lipo",
+        "-archs",
+        "/Users/bruce/Fcitx5-Releases/0.5.0.15/expanded-final/Fcitx5-Sumi-component.pkg/Payload/Library/Input Methods/Fcitx5.app/Contents/MacOS/Fcitx5"
+      ],
+      "stdout": "arm64\n",
+      "stderr": ""
+    }
+  ],
+  "runtimeBoundary": "Not installed; original stable identity and user data preserved. New package actual UI/metadata/scripts verified; first-install GUI/permission acceptance not claimed."
+}

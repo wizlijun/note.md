@@ -1,0 +1,23 @@
+{
+  "canonicalName": "Fcitx5 for Sumi",
+  "hostSourceCommit": "8a7d9db75ae5cd2a267f4622f9411a246f36c623",
+  "inputMethodSourceCommit": "2f561d84463a225f89acd1cf6f9e561c575642da",
+  "inputMethodSourceTag": "fcitx5-sumi-v0.5.0.15-rc1",
+  "inputMethodReleaseTag": "fcitx5-v0.5.0.15",
+  "inputMethodVersion": "0.5.0.15",
+  "sumiPluginVersion": "0.1.16",
+  "tests": {
+    "hostCompanion": 194,
+    "sumiPlugin": 110,
+    "pluginPublisher": 14,
+    "imeCtest": 15,
+    "requestCompatibility": 10,
+    "nativeRepair": 17,
+    "preinstall": 5
+  },
+  "originalSubmoduleChangesUnchanged": true,
+  "hostOriginalEofChangesUnchanged": true,
+  "publishedOldAssetsUnchanged": true,
+  "sourceOriginNote": "Input method origin points to upstream fcitx/fcitx5-macos; local product branch commit/tag retained and exact correction patch archived here, no upstream write.",
+  "installationBoundary": "New pkg is in Downloads and public release; no privileged system installation or local plugin activation performed."
+}

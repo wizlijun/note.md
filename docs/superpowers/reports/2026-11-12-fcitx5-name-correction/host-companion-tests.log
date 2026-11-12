@@ -1,0 +1,31 @@
+Scope: all 28 workspace projects
+✓ Lockfile passes supply-chain policies (verified 23h ago)
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Progress: resolved 17, reused 17, downloaded 0, added 0
+
+   ╭───────────────────────────────────────────────╮
+   │                                               │
+   │      Update available! 11.7.0 → 12.18.0.      │
+   │     Changelog: https://pnpm.io/v/12.18.0      │
+   │   To update, run: corepack use pnpm@12.18.0   │
+   │                                               │
+   ╰───────────────────────────────────────────────╯
+
+Progress: resolved 52, reused 52, downloaded 0, added 0
+Progress: resolved 53, reused 53, downloaded 0, added 0
+Progress: resolved 401, reused 342, downloaded 0, added 0
+Progress: resolved 406, reused 347, downloaded 0, added 0
+[WARN] 1 deprecated subdependencies found: whatwg-encoding@3.1.1
+Packages: +1
++
+Progress: resolved 407, reused 348, downloaded 0, added 1, done
+
+Done in 5.8s using pnpm v11.7.0
+
+ RUN  v4.1.5 /Users/bruce/git/mdeditor
+
+
+ Test Files  3 passed (3)
+      Tests  194 passed (194)
+   Start at  13:07:46
+   Duration  36.89s (transform 56ms, setup 0ms, import 83ms, tests 37.54s, environment 0ms)

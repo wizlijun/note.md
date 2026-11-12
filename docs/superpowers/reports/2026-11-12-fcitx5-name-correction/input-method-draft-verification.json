@@ -1,0 +1,27 @@
+{
+  "tag": "fcitx5-v0.5.0.15",
+  "metadataCommit": "8a7d9db75ae5cd2a267f4622f9411a246f36c623",
+  "sourceCommit": "2f561d84463a225f89acd1cf6f9e561c575642da",
+  "fullDraftReadback": true,
+  "assets": [
+    {
+      "name": "fcitx5-companion.json",
+      "bytes": 372,
+      "sha256": "dfe3c834ccd645899a928e7082d2cdfe8be5828f4a3c5cb07b9d92d059c8d05f",
+      "assetId": "RA_kwDOSW8VZs4r__vv"
+    },
+    {
+      "name": "Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+      "bytes": 61312645,
+      "sha256": "f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299",
+      "assetId": "RA_kwDOSW8VZs4r__vx"
+    },
+    {
+      "name": "SHA256SUMS",
+      "bytes": 101,
+      "sha256": "3e7858683a6f51b683f2baa4e2f48b8d446d36077cc56fe725b004bc2c2d5c33",
+      "assetId": "RA_kwDOSW8VZs4r__v0"
+    }
+  ],
+  "url": "https://github.com/wizlijun/note.md/releases/tag/untagged-a76ff20247f051bb03d3"
+}

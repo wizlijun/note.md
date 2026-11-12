@@ -1,0 +1,8 @@
+
+ RUN  v4.1.5 /Users/bruce/git/mdeditor/plugins-src/write
+
+
+ Test Files  2 passed (2)
+      Tests  110 passed (110)
+   Start at  13:14:57
+   Duration  687ms (transform 99ms, setup 0ms, import 99ms, tests 328ms, environment 500ms)

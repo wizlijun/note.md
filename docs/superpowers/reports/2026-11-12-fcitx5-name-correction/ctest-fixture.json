@@ -1,0 +1,10 @@
+{
+  "fixtureSourceUrl": "https://raw.githubusercontent.com/fcitx/fcitx5-rime/f5048611ea60e53955d5f013f608551e85d38f09/data/48x48/apps/org.fcitx.Fcitx5.fcitx_rime_deploy.png",
+  "upstreamCommit": "f5048611ea60e53955d5f013f608551e85d38f09",
+  "sha256": "bb259ff017e4ef5d9e81a231cba16bb4c5c63bef28a0fdcfc30271144f5e6c16",
+  "bytes": 2198,
+  "isolatedFixturePath": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/fcitx5-name-ctest-nomsqsef/data/icons/hicolor/48x48/apps/fcitx_rime_deploy.png",
+  "fixtureMode": "0444",
+  "scope": "Official Rime PNG required by upstream icon-cpp test, only provided in an isolated test data directory. Not added to source product or delivery package. Product assertions and test selection unchanged.",
+  "ctestExitCode": 0
+}

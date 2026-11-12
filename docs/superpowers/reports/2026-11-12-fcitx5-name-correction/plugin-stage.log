@@ -1,0 +1,5 @@
+R2 attempt 1 notemd.sumi/0.1.16/aarch64-apple-darwin.notemdpkg exit 0
+R2 attempt 1 notemd.sumi/0.1.16/aarch64-apple-darwin.notemdpkg.minisig exit 0
+R2 attempt 1 notemd.sumi/0.1.16/x86_64-unknown-linux-gnu.notemdpkg exit 0
+R2 attempt 1 notemd.sumi/0.1.16/x86_64-unknown-linux-gnu.notemdpkg.minisig exit 0
+Sumi package and signature read back completely; index unchanged

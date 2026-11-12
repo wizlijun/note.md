@@ -1,0 +1,33 @@
+{
+  "objects": [
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "file": "aarch64-apple-darwin.notemdpkg",
+      "httpStatus": 404,
+      "sameFrozenBytes": null
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "file": "aarch64-apple-darwin.notemdpkg.minisig",
+      "httpStatus": 404,
+      "sameFrozenBytes": null
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg",
+      "httpStatus": 404,
+      "sameFrozenBytes": null
+    },
+    {
+      "id": "notemd.sumi",
+      "version": "0.1.16",
+      "file": "x86_64-unknown-linux-gnu.notemdpkg.minisig",
+      "httpStatus": 404,
+      "sameFrozenBytes": null
+    }
+  ],
+  "writesPerformed": false
+}

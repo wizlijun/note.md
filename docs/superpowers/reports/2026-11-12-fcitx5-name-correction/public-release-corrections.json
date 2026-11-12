@@ -1,0 +1,206 @@
+{
+  "verifiedAtUtc": "2026-11-12T05:29:52.190322+00:00",
+  "releases": [
+    {
+      "tag": "v6.1111.3",
+      "nameBefore": "note.md 6.1111.3",
+      "nameAfter": "note.md 6.1111.3",
+      "bodyBeforeSha256": "a097e38f429343e22bb1d032daf101329f781fd0d1d6e26b7f3adafc870e2999",
+      "bodyAfterSha256": "c4235e4dfa53502e11cc61abd8bad97586a51e8fc42c7a11ed40bdbf40e08798",
+      "assetIdentityUnchanged": true,
+      "assets": [
+        {
+          "id": 734861378,
+          "name": "faitc5-companion.json",
+          "sha256": "sha256:4550fa9ab6cbc1efed7440f8d164473642a326156c39294bbbe6cd793d44e078",
+          "bytes": 372
+        },
+        {
+          "id": 734861377,
+          "name": "Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+          "sha256": "sha256:f68ee5877b681279f56d8b2c642b5c5235a8cbc4bb04717b9006ebfbb69438a5",
+          "bytes": 61310549
+        },
+        {
+          "id": 734861421,
+          "name": "latest.json",
+          "sha256": "sha256:42f66f9ae9e9652b22b4daf0cf1a3aa6e4064773e8bd6eec7480cfdee29686e5",
+          "bytes": 740
+        },
+        {
+          "id": 734861360,
+          "name": "note.md-6.1111.3-aarch64.dmg",
+          "sha256": "sha256:b7ea7131109ea61c84f0a6b3a6c9c9636ac11ff01613a6b293e9d548a7338ebc",
+          "bytes": 15832513
+        },
+        {
+          "id": 734861363,
+          "name": "note.md-aarch64.app.tar.gz",
+          "sha256": "sha256:a4e093961d8c8355038b11868b7cf54a5da50234a93edaea117807443240c0c3",
+          "bytes": 15937251
+        },
+        {
+          "id": 734861368,
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "sha256": "sha256:753494c7b5547d62047947e6fccd6c2a567722d3d181da5927101e38b5a87005",
+          "bytes": 416
+        }
+      ]
+    },
+    {
+      "tag": "v6.1111.2",
+      "nameBefore": "note.md 6.1111.2",
+      "nameAfter": "note.md 6.1111.2",
+      "bodyBeforeSha256": "2d8c3c5b81c57f7ae4d03a085d58f64083bc5640351af073d5e9483fd5cf2db7",
+      "bodyAfterSha256": "6c9b57b25fc807a37df8c57fc360e2ac1ebda1953b6ee7038977dc2828be38a8",
+      "assetIdentityUnchanged": true,
+      "assets": [
+        {
+          "id": 734252799,
+          "name": "faitc5-companion.json",
+          "sha256": "sha256:ba7a85479f28687b6df124859add153748c2b9c4c604b7d9e1b29313b1bbcda0",
+          "bytes": 372
+        },
+        {
+          "id": 734252772,
+          "name": "Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+          "sha256": "sha256:2f30d4903b98bf40ce18520a6f4f948e36afb2fc62cbc1fce38de1286c881b5b",
+          "bytes": 61309600
+        },
+        {
+          "id": 734252764,
+          "name": "latest.json",
+          "sha256": "sha256:86f4fd803b84cede67cdded3676b27c2967cd8230d4fbc74d6b8529bfdc0a1e1",
+          "bytes": 747
+        },
+        {
+          "id": 734252773,
+          "name": "note.md-6.1111.2-aarch64.dmg",
+          "sha256": "sha256:1fc64af60758175b8cd3e8fd748f30496bab115014db80a7cfdc97cdeb839ae7",
+          "bytes": 14109210
+        },
+        {
+          "id": 734252763,
+          "name": "note.md-aarch64.app.tar.gz",
+          "sha256": "sha256:cf4c954938b68937521377d5b69f78039995b4f725b3c16812d86cfae02dc48b",
+          "bytes": 14183747
+        },
+        {
+          "id": 734252775,
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "sha256": "sha256:08e034a5435bb14d324b72f6d4a60f640b66557c9c4920a367bc75c369290203",
+          "bytes": 416
+        }
+      ]
+    },
+    {
+      "tag": "v6.1111.1",
+      "nameBefore": "note.md 6.1111.1",
+      "nameAfter": "note.md 6.1111.1",
+      "bodyBeforeSha256": "64b608a0e717d0ba0c25a296b6a5693dd1dcdf75907144422b18c8d7eaccbb53",
+      "bodyAfterSha256": "7bdb3a56e2de27044ed1832f275451ccb2ce9347fb169ebb015aadca8def56c7",
+      "assetIdentityUnchanged": true,
+      "assets": [
+        {
+          "id": 734071945,
+          "name": "faitc5-companion.json",
+          "sha256": "sha256:ba7a85479f28687b6df124859add153748c2b9c4c604b7d9e1b29313b1bbcda0",
+          "bytes": 372
+        },
+        {
+          "id": 734071903,
+          "name": "Faitc5-for-Sumi-0.5.0.13-arm64.pkg",
+          "sha256": "sha256:2f30d4903b98bf40ce18520a6f4f948e36afb2fc62cbc1fce38de1286c881b5b",
+          "bytes": 61309600
+        },
+        {
+          "id": 734071889,
+          "name": "latest.json",
+          "sha256": "sha256:61df59876842e7c41f5f0229ec8e2a1c7665b5b4166ab58ab173238e6bf839f2",
+          "bytes": 740
+        },
+        {
+          "id": 734071904,
+          "name": "note.md-6.1111.1-aarch64.dmg",
+          "sha256": "sha256:f69326d52bec2d3f2c2271595b2878cb0d9049d01c3467cebc8b2810c0a866d9",
+          "bytes": 14110213
+        },
+        {
+          "id": 734071890,
+          "name": "note.md-aarch64.app.tar.gz",
+          "sha256": "sha256:51ee04b8cd2974235a7f1d3bd7b69a5f10c2e9c089f10b6ace4e959e24b5fbb9",
+          "bytes": 14184067
+        },
+        {
+          "id": 734071902,
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "sha256": "sha256:03fdbba7d41ba95013e1ac5ac01a16177c9b6394415991734fad4c0863d64fea",
+          "bytes": 416
+        }
+      ]
+    },
+    {
+      "tag": "faitc5-v0.5.0.14",
+      "nameBefore": "Faitc5 for Sumi 0.5.0.14",
+      "nameAfter": "Fcitx5 for Sumi 0.5.0.14",
+      "bodyBeforeSha256": "38163e5b7f391b84e93531a6314e9a698cda98f3aac7b1e13d415b3ce02d30a3",
+      "bodyAfterSha256": "448d68e4a92fe76a0189f733769d991d9f61a5f35a1343f3f75e85712e846835",
+      "assetIdentityUnchanged": true,
+      "assets": [
+        {
+          "id": 734603240,
+          "name": "faitc5-companion.json",
+          "sha256": "sha256:4550fa9ab6cbc1efed7440f8d164473642a326156c39294bbbe6cd793d44e078",
+          "bytes": 372
+        },
+        {
+          "id": 734603239,
+          "name": "Faitc5-for-Sumi-0.5.0.14-arm64.pkg",
+          "sha256": "sha256:f68ee5877b681279f56d8b2c642b5c5235a8cbc4bb04717b9006ebfbb69438a5",
+          "bytes": 61310549
+        },
+        {
+          "id": 734603246,
+          "name": "SHA256SUMS",
+          "sha256": "sha256:8ee2928932267497f0518e095ee4fe9c58ab4fdf6aa9a222cfdb5e252082ac85",
+          "bytes": 101
+        }
+      ]
+    },
+    {
+      "tag": "v6.1110.8",
+      "nameBefore": "note.md 6.1110.8",
+      "nameAfter": "note.md 6.1110.8",
+      "bodyBeforeSha256": "245a8bc7513918663cc181512fe497e9fadaef254015e444c42f033ba3bf13bb",
+      "bodyAfterSha256": "f2c54fcf4cf717c0a732e54c32853acca538fe3e237cb8dbf342bd4aba8d315c",
+      "assetIdentityUnchanged": true,
+      "assets": [
+        {
+          "id": 732105749,
+          "name": "latest.json",
+          "sha256": "sha256:c7c46c7e978a09d06524790dfd8a11a784f687a19521930bacdfb3cb99134b2e",
+          "bytes": 747
+        },
+        {
+          "id": 732105748,
+          "name": "note.md-6.1110.8-aarch64.dmg",
+          "sha256": "sha256:7d1f20c20a094f6dd4435e217e82ca0c4e335238a75e2ec4f96645b68cb38e46",
+          "bytes": 14100740
+        },
+        {
+          "id": 732105772,
+          "name": "note.md-aarch64.app.tar.gz",
+          "sha256": "sha256:1054cc4c9d6791909ad60941e5b55a7449c9ba85fcd620a5ea81fa31d9c2e607",
+          "bytes": 14174984
+        },
+        {
+          "id": 732105740,
+          "name": "note.md-aarch64.app.tar.gz.sig",
+          "sha256": "sha256:b087efa44dede9e3a07b52e66feaf73e1c60f25269248d19b376ec68196ba704",
+          "bytes": 416
+        }
+      ]
+    }
+  ],
+  "hostLatestUnchanged": "v6.1111.3"
+}

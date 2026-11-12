@@ -1,0 +1,17 @@
+{
+  "fcitx5": {
+    "sha256": "578d82f3840e80c14ff966de8cc6100c0adee422562e793689316f4b2bf9b1b4",
+    "bytes": 9430,
+    "head": "5ffd9e5f905078880f1e21752e10b63490734809"
+  },
+  "fcitx5-webview": {
+    "sha256": "548cc16beed23bdcff4d21b60102d743053588256038bf15ca7ceda383392bc5",
+    "bytes": 197,
+    "head": "c534328c61b12ed0b7644b07a0c72841050394e0"
+  },
+  "fcitx5-webview/webview": {
+    "sha256": "dd7ddb359dd79a32ee92db7a4895c2e09fb94f22c8f69cdfa504b6d32da25c8f",
+    "bytes": 2930,
+    "head": "cbbdee44afff22867de9fd88a9fc8350d9bdd399"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "sourceCommit": "2f561d84463a225f89acd1cf6f9e561c575642da",
+  "baseCommit": "51e55ad",
+  "rawPatchSha256": "cf2695c6e93b5d4bf8a208bc8a95ead1f67c2ec32cd1d07f0ce755cbccb468ce",
+  "gzipSha256": "46251f48b533ae9d4c55368d6f208fe583b9fe8728a807ac3353d10e4fc54ca5",
+  "format": "git diff --binary; gzip mtime=0"
+}

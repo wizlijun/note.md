@@ -1,0 +1,65 @@
+{
+  "ok": true,
+  "packages": [
+    {
+      "arch": "aarch64-apple-darwin",
+      "previousVersion": "0.1.15",
+      "previousPackageSha256": "b5b76160e19594a2a9f41288cc32fee9cc029f356dc83c90c5f79cb644ee97e6",
+      "previousMinisignVerified": true,
+      "backendSha256": "16b6b9b3fd49ee0e577bc6c67fcbfc6f60c461e53a662bf96055e56032bf3444",
+      "retainedFiles": {
+        "bin/notemd-sumi": "16b6b9b3fd49ee0e577bc6c67fcbfc6f60c461e53a662bf96055e56032bf3444",
+        "resources/sounds/provenance.json": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793",
+        "resources/sounds/manifest.json": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+        "resources/sounds/typewriter/typewriter-enter2-1.wav": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+        "resources/sounds/typewriter/typewriter-space-1.wav": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974",
+        "resources/sounds/typewriter/typewriter-delete-1.wav": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+        "resources/sounds/typewriter/typewriter-keys-1.wav": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+        "resources/sounds/typewriter/typewriter-modifier-1.wav": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+        "resources/sounds/thock/thock-modifier-1.wav": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+        "resources/sounds/thock/thock-enter-1.wav": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+        "resources/sounds/thock/thock-release-1.wav": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+        "resources/sounds/thock/thock-space-1.wav": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+        "resources/sounds/thock/thock-keys-1.wav": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+        "resources/sounds/thock/thock-delete-1.wav": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+        "resources/sounds/thock/thock-click-1.wav": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca"
+      },
+      "uiExactChange": "Three Faitc5 -> Fcitx5 byte replacements; index.html references new content hash",
+      "uiOtherFilesIdentical": true,
+      "newBackendBuildOrSigningOrNotarization": false
+    },
+    {
+      "arch": "x86_64-unknown-linux-gnu",
+      "previousVersion": "0.1.15",
+      "previousPackageSha256": "eff0c9e680200ae6b422a1fe53bbe4ac1e7c4609c4636af8bc61e2c250d97603",
+      "previousMinisignVerified": true,
+      "backendSha256": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+      "retainedFiles": {
+        "bin/notemd-sumi": "31bd91e14a486bba5ed1f2c0cd15471a726d041f1538dabaff893be2b678650b",
+        "resources/sounds/manifest.json": "edbac670b199ef4c8d4fb883c7d5facbc81426900ff4dde1481d4ebc54f9aa76",
+        "resources/sounds/provenance.json": "231070b84f4c31608b2307adb7dc049524b4817cb8b1c614a1fb7af838e64793",
+        "resources/sounds/thock/thock-click-1.wav": "fd5a29d6347cb4aa73515df22e55dbf6af7327334cbfa3c331d150e68cce17ca",
+        "resources/sounds/thock/thock-delete-1.wav": "cbee6960b891674e00ddd913cdf735f9f3f2f1e7bf381c13de140b2c373bf10d",
+        "resources/sounds/thock/thock-enter-1.wav": "f098a6f7d0a4ba4e4f14ceb6fc7a7d51fec63c4ffea77c5880ffa7926f9b3011",
+        "resources/sounds/thock/thock-keys-1.wav": "a9c531cdaab60aebca71ee6e176f6e35abb20e25059994110818847cb4474cb1",
+        "resources/sounds/thock/thock-modifier-1.wav": "3c071afc0f86bf18ca1aa05a22fc54e2426c698631c12a06629eedb284b23de8",
+        "resources/sounds/thock/thock-release-1.wav": "e60ed156dbd0b13339de6a156288d67b4c151879e8c3f14ffeccf24340084266",
+        "resources/sounds/thock/thock-space-1.wav": "ae80426a08b1061235c168c6b360cf34475ef4465309fee3b191fc1752ca5b3e",
+        "resources/sounds/typewriter/typewriter-delete-1.wav": "7389237e56e33e349851b8c61fbbc8932b8f22c21f361c0fcbd04586bb5dd318",
+        "resources/sounds/typewriter/typewriter-enter2-1.wav": "7bb8063e4d7d834d0de1d7876c8cf613c1c316d831f676f0a4b48e21636f021b",
+        "resources/sounds/typewriter/typewriter-keys-1.wav": "b5b4d31f405ccf341f435252be9a796eb203bf08cf39a78342cf63c433f68697",
+        "resources/sounds/typewriter/typewriter-modifier-1.wav": "70f7c75f0d3dbff2926e8db875a4e9bf8dd81e586301fbd9bcd16fb0bdb91b9c",
+        "resources/sounds/typewriter/typewriter-space-1.wav": "d163c58c477dd1cd9ba6d6d3bc25491202637ff6cdc92c59ab91db760bba1974"
+      },
+      "uiExactChange": "Three Faitc5 -> Fcitx5 byte replacements; index.html references new content hash",
+      "uiOtherFilesIdentical": true,
+      "newBackendBuildOrSigningOrNotarization": false
+    }
+  ],
+  "preparationTools": {
+    "prepare-plugin.py": "34fb956aaa775b751ff905c32f944c581353a6fbfe34aecc64e28ff81fd19c30",
+    "publish-plugin.py": "b94235e3681d5cd21eecb4ff12cc730fa0ba4602e7105c4296c0a2cabdaf5d0d",
+    "test-publish-plugin.py": "2cd71cd93cbcd20a1cd654d371f51c4d613dbde48df1285c1a33a8fa157e35a8"
+  },
+  "baselineIndexSHA256": "9e2d146d256effdcfcf18e5531f80770dbf5e25514ade3877ce6e02490669462"
+}
