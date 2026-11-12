@@ -1,5 +1,5 @@
 export interface CompanionMetadata {
-  schema: 1; product: 'Faitc5 for Sumi'; version: string; platform: 'darwin-aarch64';
+  schema: 1; product: 'Fcitx5 for Sumi'; version: string; platform: 'darwin-aarch64';
   filename: string; sha256: string; bytes: number; sourceCommit: string;
   appNotarized: true; packageSigned: boolean;
 }

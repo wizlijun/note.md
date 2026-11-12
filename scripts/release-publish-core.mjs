@@ -13,7 +13,7 @@ function versionOf(tag) {
   return tag.slice(1)
 }
 
-const companionManifest = 'faitc5-companion.json'
+const companionManifest = 'fcitx5-companion.json'
 const companionFields = ['schema', 'product', 'version', 'platform', 'filename', 'sha256', 'bytes', 'sourceCommit', 'appNotarized', 'packageSigned']
 
 /** Validate the approved companion declaration, not an Apple signing receipt.
@@ -22,21 +22,21 @@ const companionFields = ['schema', 'product', 'version', 'platform', 'filename',
 export function validateCompanionMetadata(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.keys(value).length !== companionFields.length ||
-      companionFields.some(key => !Object.hasOwn(value, key))) fail('invalid Faitc5 companion metadata fields')
-  if (value.schema !== 1 || value.product !== 'Faitc5 for Sumi' || value.platform !== 'darwin-aarch64' ||
+      companionFields.some(key => !Object.hasOwn(value, key))) fail('invalid Fcitx5 companion metadata fields')
+  if (value.schema !== 1 || value.product !== 'Fcitx5 for Sumi' || value.platform !== 'darwin-aarch64' ||
       typeof value.version !== 'string' || !/^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){3}$/.test(value.version) ||
-      value.filename !== `Faitc5-for-Sumi-${value.version}-arm64.pkg` ||
+      value.filename !== `Fcitx5-for-Sumi-${value.version}-arm64.pkg` ||
       typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(value.sha256) ||
       !Number.isSafeInteger(value.bytes) || value.bytes <= 0 ||
       typeof value.sourceCommit !== 'string' || !/^[a-f0-9]{40}$/.test(value.sourceCommit) ||
-      value.appNotarized !== true || typeof value.packageSigned !== 'boolean') fail('invalid Faitc5 companion metadata')
+      value.appNotarized !== true || typeof value.packageSigned !== 'boolean') fail('invalid Fcitx5 companion metadata')
   return value
 }
 
 function approvedUploadedCompanion(content, approved) {
   validateCompanionMetadata(approved)
   const uploaded = validateCompanionMetadata(JSON.parse(content))
-  if (companionFields.some(key => uploaded[key] !== approved[key])) fail('Faitc5 companion differs from repository approval')
+  if (companionFields.some(key => uploaded[key] !== approved[key])) fail('Fcitx5 companion differs from repository approval')
   return uploaded
 }
 
@@ -97,7 +97,7 @@ export function validateRelease({ tag, draft, assets, latest, without, macArm64O
   }
   const companion = approvedUploadedCompanion(requireCurrentAsset(companionManifest).content, approvedCompanion)
   const companionPackage = requireCurrentAsset(companion.filename)
-  if (companionPackage.sha256 !== companion.sha256 || companionPackage.bytes !== companion.bytes) fail('Faitc5 companion package hash/size mismatch')
+  if (companionPackage.sha256 !== companion.sha256 || companionPackage.bytes !== companion.bytes) fail('Fcitx5 companion package hash/size mismatch')
   for (const name of byName.keys()) if (name.endsWith('.pkg') && name !== companion.filename) fail(`unexpected companion package: ${name}`)
   const macArchitectures = macArm64Only ? ['aarch64'] : ['aarch64', 'x86_64']
   for (const arch of macArchitectures) requireCurrentAsset(`note.md-${version}-${arch}.dmg`)
@@ -191,7 +191,7 @@ async function main(args) {
     }
     let approvedCompanion
     if (!linuxRelease) {
-      approvedCompanion = validateCompanionMetadata(JSON.parse(readFileSync(new URL('./release-companions/faitc5.json', import.meta.url), 'utf8')))
+      approvedCompanion = validateCompanionMetadata(JSON.parse(readFileSync(new URL('./release-companions/fcitx5.json', import.meta.url), 'utf8')))
       const content = download(companionManifest).toString('utf8')
       const companion = approvedUploadedCompanion(content, approvedCompanion)
       assets.find(a => a.name === companionManifest).content = content

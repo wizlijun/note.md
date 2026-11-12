@@ -1,6 +1,6 @@
 # Omarchy amd64 联合安装（v6.1112.1）
 
-本发布配套 `notemd-6.1112.1-1-x86_64.pkg.tar.zst` 和 `fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-1-x86_64.pkg.tar.zst`。后者是 Linux Fcitx 5 addon，不是 macOS 的 Faitc5。Sumi 候选布局由宿主提供；addon 提供候选桥接、输入中的下划线样式及受当前输入框租约限制的真实按键音效信息，不能单独替代宿主更新。Sumi 插件须使用项目正式签名版本。完整输入法音效需要宿主6.1112.1与本次r4模块同时更新；只升级宿主而保留r3模块无法覆盖中文标点和空格/回车确认。
+本发布配套 `notemd-6.1112.1-1-x86_64.pkg.tar.zst` 和 `fcitx5-sumi-candidates-5.1.23.r4.gb07f55ca-1-x86_64.pkg.tar.zst`。后者是 Linux Fcitx 5 addon，不是 macOS 的 Fcitx5。Sumi 候选布局由宿主提供；addon 提供候选桥接、输入中的下划线样式及受当前输入框租约限制的真实按键音效信息，不能单独替代宿主更新。Sumi 插件须使用项目正式签名版本。完整输入法音效需要宿主6.1112.1与本次r4模块同时更新；只升级宿主而保留r3模块无法覆盖中文标点和空格/回车确认。
 
 ## 安装
 

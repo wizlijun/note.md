@@ -40,7 +40,7 @@ describe('macOS build architecture selection', () => {
 
   it.each([false, true])('advertises only the built installers (arm64-only=%s)', armOnly => {
     const root = mkdtempSync(join(tmpdir(), 'notemd-companion-notes-')); roots.push(root)
-    writeFileSync(join(root, 'faitc5-release-note.md'), 'Faitc5 for Sumi: App notarized; installer package unsigned.\n')
+    writeFileSync(join(root, 'fcitx5-release-note.md'), 'Fcitx5 for Sumi: App notarized; installer package unsigned.\n')
     const section = source.slice(source.indexOf('INSTALLERS='), source.indexOf('# Release 正文'))
     const result = spawnSync('bash', ['-c', `set -euo pipefail\nARM64_ONLY=${Number(armOnly)}; VERSION=6.1022.2; APPLE_TEAM_ID=fixture; COMPANION_STAGE="$1"\n${section}\nprintf '%s' "$PREAMBLE"`, 'test', root], { encoding: 'utf8' })
     expect(result.status, result.stderr).toBe(0)

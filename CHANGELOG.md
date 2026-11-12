@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- Correct the companion input method name to **Fcitx5 for Sumi** in current UI, installation guidance and future release assets. Previously published packages keep their original historical filenames and signatures.
+
 ## v6.1112.2 — 2026-11-12
 
 - **Continue Sumi writing at the end.** Opening or reopening the Sumi window now places the caret at the end of the rendered page and keeps the final line visible, including long Linux documents. Returning from settings preserves the current editing position.

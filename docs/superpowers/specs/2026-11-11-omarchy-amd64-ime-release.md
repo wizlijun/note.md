@@ -1,5 +1,7 @@
 # Omarchy amd64 宿主与特殊输入法联合发布
 
+> 2026-11-12 名称更正：历史范围中的 Faitc5 为误拼；当前规范名为 Fcitx5 for Sumi。已公开旧包的实际文件名、tag 与哈希仍按原始证据保留。
+
 用户要求发布新的 Omarchy amd64 版本并附特殊输入法。本次为 note.md v6.1111.4 Linux x86_64，与 fcitx5-sumi-candidates 5.1.23.r3.gb75c450f-1 联合交付。
 
 ## 范围

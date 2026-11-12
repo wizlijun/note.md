@@ -470,7 +470,7 @@ async function showAppearance() {
     const section = document.createElement('section'); section.id = 'input-method-guidance'
     const title = document.createElement('h3'); title.textContent = t('输入法联动', 'Input Method Integration', '入力メソッドとの連携')
     const hint = document.createElement('p')
-    hint.textContent = t('在 macOS 输入菜单中选择 Faitc5 for Sumi。正文获得输入焦点时，候选字会自动沿用正文排版；搜索框和其他应用继续使用输入法候选窗口。联动不可用时自动恢复输入法候选窗口。', 'Choose Faitc5 for Sumi in the macOS Input menu. While the writing editor has focus, candidates automatically use the text’s layout. Search fields and other apps use the input method’s candidate window. If integration is unavailable, the candidate window is restored automatically.', 'macOS の入力メニューで Faitc5 for Sumi を選択してください。本文にフォーカスがある間、変換候補は本文のレイアウトで表示されます。検索欄やほかのアプリでは入力メソッドの候補ウインドウを使います。連携できない場合は候補ウインドウに自動で戻ります。')
+    hint.textContent = t('在 macOS 输入菜单中选择 Fcitx5 for Sumi。正文获得输入焦点时，候选字会自动沿用正文排版；搜索框和其他应用继续使用输入法候选窗口。联动不可用时自动恢复输入法候选窗口。', 'Choose Fcitx5 for Sumi in the macOS Input menu. While the writing editor has focus, candidates automatically use the text’s layout. Search fields and other apps use the input method’s candidate window. If integration is unavailable, the candidate window is restored automatically.', 'macOS の入力メニューで Fcitx5 for Sumi を選択してください。本文にフォーカスがある間、変換候補は本文のレイアウトで表示されます。検索欄やほかのアプリでは入力メソッドの候補ウインドウを使います。連携できない場合は候補ウインドウに自動で戻ります。')
     section.append(title, hint); form.append(section)
   }
   showSounds(form)

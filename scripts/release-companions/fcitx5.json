@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "product": "Fcitx5 for Sumi",
+  "version": "0.5.0.15",
+  "platform": "darwin-aarch64",
+  "filename": "Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+  "sha256": "f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299",
+  "bytes": 61312645,
+  "sourceCommit": "2f561d84463a225f89acd1cf6f9e561c575642da",
+  "appNotarized": true,
+  "packageSigned": false
+}
