@@ -1,0 +1,11 @@
+{
+  "version": "6.1114.1",
+  "sourceBase": "d56a538f97afe2870085581a5d75eac2624d37f7",
+  "versionPatchSha256": "4a16fb4fe3b7bba37e1b9588ed8ac1363d5192e486ad73b3368e2b67100a2518",
+  "appBinarySha256": "ba26833c9e92b87d7b13b0829cf8086965fb2784a07938f01c1221525ac2d5c7",
+  "notarized": false,
+  "published": false,
+  "blocker": "Apple notarization HTTP 403: required agreement missing or expired",
+  "tagCreated": false,
+  "draftCreated": false
+}
