@@ -121,6 +121,12 @@ pub fn check(path: &Path) -> Result<(), Reject> {
     )
 }
 
+/// Validate a prospective child of an already canonicalized parent before
+/// creating it. The ordinary check still runs after mkdir to catch races.
+pub fn check_new(path: &Path) -> Result<(), Reject> {
+    check_with(path, true, dirs::home_dir().as_deref(), &system_roots())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

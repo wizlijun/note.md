@@ -1,10 +1,15 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+  import { platform } from '../lib/platform.svelte'
+  import VaultOverview from './VaultOverview.svelte'
   import { version } from '../../package.json'
   import { pickOpenFile, showError } from '../lib/dialogs'
   import { openFile, newCanvas, newFile } from '../lib/tabs.svelte'
   import { t } from '../lib/i18n/store.svelte'
 
   const majorVersion = version.split('.')[0]
+  let desktop = $state(false)
+  onMount(() => { void platform().then((value) => { desktop = value !== 'ios' }) })
 
   async function onOpen() {
     const p = await pickOpenFile()
@@ -17,7 +22,8 @@
     newFile()
   }
 
-  function onDblClick() {
+  function onDblClick(event: MouseEvent) {
+    if (event.target instanceof Element && event.target.closest('.vault-overview, button')) return
     newFile()
   }
 
@@ -35,6 +41,7 @@
       </div>
       <span class="major-version" aria-hidden="true">{majorVersion}</span>
     </div>
+    {#if desktop}<VaultOverview />{/if}
     <p class="hint">{t('emptyState.hint')}</p>
     <div class="actions">
       <button onclick={onNew}>{t('emptyState.new')}</button>
@@ -87,7 +94,7 @@
   }
   .major-version {
     font-size: 120px;
-    font-size: clamp(120px, 45cqi, 300px);
+    font-size: clamp(80px, 24cqi, 150px);
     font-weight: 800;
     letter-spacing: -0.08em;
     line-height: 0.72;

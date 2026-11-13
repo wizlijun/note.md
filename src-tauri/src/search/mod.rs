@@ -282,7 +282,13 @@ pub fn init(app: &AppHandle) {
     app.manage(open_state);
     app.manage::<OpenLock>(open_lock);
     if let Some(root) = crate::sotvault::resolve_vault_root(app) {
-        open_vault(app, &root);
+        // Keep an inaccessible legacy root available in Vault settings for
+        // recovery, without indexing or creating management files there.
+        if crate::sotvault::root_guard::check(&root).is_ok() {
+            open_vault(app, &root);
+        } else {
+            crate::dlog("[search] configured Vault is unavailable; use Vault settings to recover it");
+        }
     }
 }
 

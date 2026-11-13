@@ -8,6 +8,7 @@ const reloadTabFromDisk = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ ask: (...a: unknown[]) => ask(...a) }))
 vi.mock('./toast.svelte', () => ({ pushToast: (...a: unknown[]) => pushToast(...a) }))
+vi.mock('./okf/identity', () => ({ resetHumanActor: vi.fn(), warmHumanActor: vi.fn() }))
 vi.mock('./tabs.svelte', () => ({
   activeTab: () => ({ filePath: '/src/a.md' }),
   reloadTabFromDisk: (...a: unknown[]) => reloadTabFromDisk(...a),
@@ -31,6 +32,7 @@ const sourceCheck = (outcome: string) => ({ outcome, vaultPath: VAULT, openedIsS
 
 beforeEach(() => {
   invoke.mockReset(); ask.mockReset(); pushToast.mockReset(); reloadTabFromDisk.mockReset()
+  setVaultRootChangedHandler(null)
   sotvaultStore.vaultRoot = null
   sotvaultStore.records = []
   sotvaultStore.mirrorMetas = []
@@ -104,6 +106,66 @@ describe('refreshSotvault', () => {
     await refreshSotvault()
     expect(sotvaultStore.mirrorMetas).toHaveLength(1)
     expect(sotvaultStore.mirrorMetas[0].mirror).toBe('sync/a.md')
+  })
+})
+
+describe('refreshSotvault root isolation', () => {
+  it('publishes a new root and clears previous data even when records cannot be read', async () => {
+    sotvaultStore.vaultRoot = '/old'
+    sotvaultStore.records = [{ source_path: '/source', vault_path: '/old/Sync/source.md', synced_at: 1, source_hash: 'old', vault_hash: 'old' }]
+    sotvaultStore.mirrorMetas = [{ mirror: 'old.md', deviceId: 'device', deviceName: 'Mac', source: '/source', syncedAt: 1, checksum: 'old' }]
+    const handler = vi.fn(() => {
+      expect(sotvaultStore.vaultRoot).toBe('/new')
+      expect(sotvaultStore.records).toEqual([])
+      expect(sotvaultStore.mirrorMetas).toEqual([])
+    })
+    setVaultRootChangedHandler(handler)
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === 'sotvault_vault_root') return Promise.resolve('/new')
+      if (cmd === 'sotvault_records') return Promise.reject(new Error('corrupt records'))
+      return Promise.resolve([])
+    })
+    await refreshSotvault()
+    expect(sotvaultStore.vaultRoot).toBe('/new')
+    expect(sotvaultStore.records).toEqual([])
+    expect(handler).toHaveBeenCalledOnce()
+    expect(warning).toHaveBeenCalledWith('[sotvault] records:', expect.any(Error))
+    warning.mockRestore()
+  })
+
+  it('ignores a late root response from an older refresh', async () => {
+    let finish!: (root: string) => void
+    invoke.mockImplementation((cmd: string) => cmd === 'sotvault_vault_root' ? Promise.resolve('/new') : Promise.resolve([]))
+    invoke.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const old = refreshSotvault()
+    await refreshSotvault()
+    finish('/old')
+    await old
+    expect(sotvaultStore.vaultRoot).toBe('/new')
+  })
+
+  it('discards old metadata that completes after a second Vault is active', async () => {
+    let finish!: (records: unknown[]) => void
+    let root = '/old'
+    let delayed = true
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === 'sotvault_vault_root') return Promise.resolve(root)
+      if (cmd === 'sotvault_records' && delayed) {
+        delayed = false
+        return new Promise(resolve => { finish = resolve })
+      }
+      if (cmd === 'sotvault_records') return Promise.resolve([{ source: '/new-source', vault: '/new/Sync/source.md' }])
+      return Promise.resolve([])
+    })
+    const old = refreshSotvault()
+    await vi.waitFor(() => expect(finish).toBeDefined())
+    root = '/new'
+    await refreshSotvault()
+    finish([{ source: '/old-source', vault: '/old/Sync/source.md' }])
+    await old
+    expect(sotvaultStore.vaultRoot).toBe('/new')
+    expect(sotvaultStore.records).toEqual([{ source: '/new-source', vault: '/new/Sync/source.md' }])
   })
 })
 

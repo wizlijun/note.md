@@ -42,6 +42,8 @@
     type OutlineCommandId,
   } from '../lib/outline/shortcuts'
   import VaultSettingsTab from './VaultSettingsTab.svelte'
+  import DesktopVaultSettings from './DesktopVaultSettings.svelte'
+  import { openVaultManagement } from '../lib/vault-management.svelte'
   import { consumePendingSettingsTab } from '../lib/ui-state.svelte'
   import {
     JEV_PRESET_URLS, URL_MAX_LENGTH, MODEL_MAX_LENGTH, endpointHost, sendsKeyInClearText,
@@ -387,7 +389,9 @@
   let agentsSectionBusy = $state(false)
   $effect(() => {
     if (!open) return
+    const root = sotvaultStore.vaultRoot
     void loadVaultSettings().then(() => {
+      if (root !== sotvaultStore.vaultRoot) return
       syncDirDraft = vaultSettings.syncDir
       thresholdDraft = vaultSettings.largeFileThresholdMb
       searchExcludeDirsDraft = vaultSettings.searchExcludeDirs.join('\n')
@@ -1228,6 +1232,41 @@
   }
 </script>
 
+{#snippet vaultCollection()}
+  <section class="block">
+    <h3>{t('vaultManage.collectHeading')}</h3>
+          <div class="row">
+            <label class="lbl" for="settings-sync-dir">{t('vaultSync.relPath')}</label>
+            <input id="settings-sync-dir" type="text" bind:value={syncDirDraft}
+              placeholder={DEFAULT_SYNC_DIR}
+              disabled={!vaultSettings.vaultPath || syncDirBusy || vaultBusy} />
+            <button onclick={onSaveSyncDir}
+              disabled={!vaultSettings.vaultPath || syncDirBusy || vaultBusy}>{t('vaultSync.save')}</button>
+          </div>
+  </section>
+{/snippet}
+
+{#snippet vaultAdvanced()}
+          <div class="row">
+            <label class="lbl" for="settings-file-threshold">{t('vaultSync.largeFileThreshold')}</label>
+            <input id="settings-file-threshold" type="number" min="1" step="1" bind:value={thresholdDraft}
+              disabled={!vaultSettings.vaultPath || thresholdBusy || vaultBusy} />
+            <button onclick={onSaveThreshold}
+              disabled={!vaultSettings.vaultPath || thresholdBusy || vaultBusy}>{t('vaultSync.save')}</button>
+          </div>
+          {#if agentsSectionMissing}
+            <div class="row" style="align-items: flex-start;">
+              <span class="lbl"></span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <p class="desc" style="margin: 0;">{t('search.agentsHint')}</p>
+                <button onclick={onAddAgentsSearchSection}
+                  style="align-self: flex-start;"
+                  disabled={agentsSectionBusy || vaultBusy}>{t('search.agentsAdd')}</button>
+              </div>
+            </div>
+          {/if}
+{/snippet}
+
 {#if open}
   <div
     class="overlay"
@@ -1242,17 +1281,15 @@
       </header>
 
       <div class="settings-layout">
-      <nav class="tab-strip" aria-label={t('settings.title')}>
+      <nav class="tab-strip" aria-label={t('settings.title')} inert={vaultBusy || syncDirBusy || thresholdBusy || agentsSectionBusy}>
         <button aria-current={selectedTab === 'core' ? 'page' : undefined} data-initial-focus={selectedTab === 'core' ? '' : undefined} class:active={selectedTab === 'core'} onclick={() => selectedTab = 'core'}>{t('settings.tab.core')}</button>
+        <button aria-current={selectedTab === 'vault' ? 'page' : undefined} data-initial-focus={selectedTab === 'vault' ? '' : undefined} class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>{t('settings.tab.vault')}</button>
         <button aria-current={selectedTab === 'block' ? 'page' : undefined} data-initial-focus={selectedTab === 'block' ? '' : undefined} class:active={selectedTab === 'block'} onclick={() => selectedTab = 'block'}>{t('settings.tab.block')}</button>
         {#if !isIOSPlatform}
           {#if desktopCapabilities.value?.cliInstall}
           <button aria-current={selectedTab === 'cli' ? 'page' : undefined} data-initial-focus={selectedTab === 'cli' ? '' : undefined} class:active={selectedTab === 'cli'} onclick={() => { selectedTab = 'cli'; void refreshCliStatus() }}>{t('settings.tab.cli')}</button>
           {/if}
           <button aria-current={selectedTab === 'updates' ? 'page' : undefined} data-initial-focus={selectedTab === 'updates' ? '' : undefined} class:active={selectedTab === 'updates'} onclick={() => { selectedTab = 'updates' }}>{t('settings.tab.updates')}</button>
-        {/if}
-        {#if isIOSPlatform}
-          <button aria-current={selectedTab === 'vault' ? 'page' : undefined} data-initial-focus={selectedTab === 'vault' ? '' : undefined} class:active={selectedTab === 'vault'} onclick={() => selectedTab = 'vault'}>{t('settings.tab.vault')}</button>
         {/if}
         {#if !isIOSPlatform}
           <!-- iOS registers no search commands at all (see the `#[cfg(not(
@@ -1434,41 +1471,15 @@
           </section>
         {/if}
 
-        <section class="block">
-          <h3>{t('vaultSync.title')}</h3>
-          <p class="desc">{t('vaultSync.desc')}</p>
-          <label class="row">
-            <span class="lbl">{t('vaultSync.vaultPath')}</span>
-            <input type="text" readonly
-              value={vaultSettings.vaultPath ?? t('vaultSync.notConfigured')} />
-          </label>
-          <div class="row">
-            <label class="lbl" for="settings-sync-dir">{t('vaultSync.relPath')}</label>
-            <input id="settings-sync-dir" type="text" bind:value={syncDirDraft}
-              placeholder={DEFAULT_SYNC_DIR}
-              disabled={!vaultSettings.vaultPath || syncDirBusy} />
-            <button onclick={onSaveSyncDir}
-              disabled={!vaultSettings.vaultPath || syncDirBusy}>{t('vaultSync.save')}</button>
-          </div>
-          <div class="row">
-            <label class="lbl" for="settings-file-threshold">{t('vaultSync.largeFileThreshold')}</label>
-            <input id="settings-file-threshold" type="number" min="1" step="1" bind:value={thresholdDraft}
-              disabled={!vaultSettings.vaultPath || thresholdBusy} />
-            <button onclick={onSaveThreshold}
-              disabled={!vaultSettings.vaultPath || thresholdBusy}>{t('vaultSync.save')}</button>
-          </div>
-          {#if agentsSectionMissing}
-            <div class="row" style="align-items: flex-start;">
-              <span class="lbl"></span>
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                <p class="desc" style="margin: 0;">{t('search.agentsHint')}</p>
-                <button onclick={onAddAgentsSearchSection}
-                  style="align-self: flex-start;"
-                  disabled={agentsSectionBusy}>{t('search.agentsAdd')}</button>
-              </div>
-            </div>
-          {/if}
-        </section>
+        {#if isIOSPlatform}
+          <section class="block">
+            <h3>{t('vaultSync.title')}</h3>
+            <p class="desc">{t('vaultSync.desc')}</p>
+            <label class="row"><span class="lbl">{t('vaultSync.vaultPath')}</span><input type="text" readonly value={vaultSettings.vaultPath ?? t('vaultSync.notConfigured')} /></label>
+            {@render vaultCollection()}
+            {@render vaultAdvanced()}
+          </section>
+        {/if}
 
         {#if !isIOSPlatform}
           {#if desktopCapabilities.value?.setDefaultApp}
@@ -1707,8 +1718,12 @@
           {/if}
           {/if}
         </section>
-      {:else if selectedTab === 'vault' && isIOSPlatform}
-        <VaultSettingsTab onBusyChange={(value) => vaultBusy = value} />
+      {:else if selectedTab === 'vault'}
+        {#if isIOSPlatform}
+          <VaultSettingsTab onBusyChange={(value) => vaultBusy = value} />
+        {:else}
+          <DesktopVaultSettings onBusyChange={(value) => vaultBusy = value} externalBusy={syncDirBusy || thresholdBusy || agentsSectionBusy} collection={vaultCollection} advanced={vaultAdvanced} />
+        {/if}
       {:else if selectedTab === 'search'}
         {#if !isIOSPlatform}
           <section class="block">
@@ -1769,6 +1784,7 @@
           <h3>{t('settings.tab.search')}</h3>
           {#if !sotvaultStore.vaultRoot}
             <p class="desc">{t('search.index.noVault')}</p>
+            <button onclick={() => void openVaultManagement()}>{t('vaultManage.setup')}</button>
           {:else}
             {#if indexStatus.notReady}
               <!-- Two very different situations used to render as one

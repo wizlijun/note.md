@@ -13,8 +13,17 @@ const MAX_DEFER: Duration = Duration::from_secs(120);
 
 pub fn start(app: &AppHandle) -> Result<(), String> {
     let mgr = app.state::<Arc<VaultSyncManager>>();
+    let _lifecycle = mgr.lifecycle.lock().unwrap();
+    {
+        let mut worker = mgr.worker.lock().unwrap();
+        if worker.as_ref().is_some_and(|handle| !handle.is_finished()) {
+            return if *mgr.stop_flag.lock().unwrap() { Err("Vault sync is still stopping".into()) } else { Ok(()) };
+        }
+        if let Some(handle) = worker.take() { let _ = handle.join(); }
+    }
     let repo_path = mgr.repo_path.lock().unwrap().clone()
         .ok_or("Vault sync not configured: no repo_path")?;
+    if !crate::vault_management::sync_enabled(app, &repo_path)? { return Err("Vault sync is paused".into()); }
     let repo = PathBuf::from(&repo_path);
 
     if !repo.join(".git").exists() {
@@ -32,36 +41,48 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     let remote = mgr.remote.clone();
     let branch = mgr.branch.clone();
 
-    std::thread::spawn(move || {
-        run_loop(app_handle, repo, remote, branch);
-    });
+    *mgr.worker.lock().unwrap() = Some(std::thread::spawn(move || {
+        run_loop(app_handle.clone(), repo, remote, branch);
+        let mgr = app_handle.state::<Arc<VaultSyncManager>>();
+        if *mgr.stop_flag.lock().unwrap() { set_state(&app_handle, SyncState::Stopped); }
+    }));
 
     Ok(())
 }
 
 pub fn stop(app: &AppHandle) -> Result<(), String> {
     let mgr = app.state::<Arc<VaultSyncManager>>();
-    {
-        let mut stop = mgr.stop_flag.lock().unwrap();
-        *stop = true;
-    }
+    let _lifecycle = mgr.lifecycle.lock().unwrap();
+    *mgr.stop_flag.lock().unwrap() = true;
+    wait_for_worker(&mgr.worker, Duration::from_secs(15))?;
+    let _sync = mgr.sync_gate.try_lock().map_err(|_| "A manual sync is still running; retry when it finishes")?;
     set_state(app, SyncState::Stopped);
     mgr.logs.push("INFO", "Sync stopped");
     Ok(())
 }
 
+fn wait_for_worker(worker: &std::sync::Mutex<Option<std::thread::JoinHandle<()>>>, timeout: Duration) -> Result<(), String> {
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        let done = worker.lock().unwrap().as_ref().is_none_or(|handle| handle.is_finished());
+        if done { break; }
+        if std::time::Instant::now() >= deadline { return Err("Vault sync is still stopping; retry after the current operation finishes".into()); }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    if let Some(handle) = worker.lock().unwrap().take() {
+        handle.join().map_err(|_| "Vault sync worker exited unexpectedly")?;
+    }
+    Ok(())
+}
+
 pub fn sync_once(app: &AppHandle) -> Result<(), String> {
     let mgr = app.state::<Arc<VaultSyncManager>>();
-    let repo_path = mgr.repo_path.lock().unwrap().clone()
-        .ok_or("Not configured")?;
-    let repo = PathBuf::from(&repo_path);
-    let remote = mgr.remote.clone();
-    let branch = mgr.branch.clone();
-
-    match mgr.sync_gate.try_lock() {
-        Ok(_guard) => do_sync(app, &repo, &remote, &branch),
-        Err(_) => mgr.logs.push("INFO", "sync already in progress, skipped"),
-    }
+    let _guard = mgr.sync_gate.try_lock().map_err(|_| "Sync is already running")?;
+    if *mgr.stop_flag.lock().unwrap() { return Err("Vault sync is paused".into()); }
+    let repo_path = mgr.repo_path.lock().unwrap().clone().ok_or("Not configured")?;
+    if !crate::vault_management::sync_enabled(app, &repo_path)? { return Err("Vault sync is paused".into()); }
+    do_sync(app, &PathBuf::from(repo_path), &mgr.remote, &mgr.branch);
+    if let Some(error) = mgr.error_msg.lock().unwrap().clone() { return Err(error); }
     Ok(())
 }
 
@@ -82,22 +103,10 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
     {
         let mgr = app.state::<Arc<VaultSyncManager>>();
         let _guard = mgr.sync_gate.lock().unwrap();
-        do_sync(&app, &repo, &remote, &branch);
+        if !*mgr.stop_flag.lock().unwrap() { do_sync(&app, &repo, &remote, &branch); }
     }
 
-    let tx_periodic = tx.clone();
-    let app_for_periodic = app.clone();
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(Duration::from_secs(30));
-            let mgr = app_for_periodic.state::<Arc<VaultSyncManager>>();
-            if *mgr.stop_flag.lock().unwrap() {
-                break;
-            }
-            let _ = tx_periodic.send(());
-        }
-    });
-
+    let mut last_periodic = std::time::Instant::now();
     loop {
         match rx.recv_timeout(Duration::from_secs(1)) {
             Ok(_) => {
@@ -107,6 +116,7 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
                 // MAX_DEFER 兜底:长时间不停笔也要定期落一个检查点,不能无限推迟。
                 let start = std::time::Instant::now();
                 loop {
+                    if *app.state::<Arc<VaultSyncManager>>().stop_flag.lock().unwrap() { return; }
                     match rx.recv_timeout(QUIET_PERIOD) {
                         // 又有改动 —— 顺延,除非已经拖到上限。
                         Ok(_) if start.elapsed() < MAX_DEFER => continue,
@@ -119,7 +129,8 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
                 if *mgr.stop_flag.lock().unwrap() {
                     break;
                 }
-                continue;
+                if last_periodic.elapsed() < Duration::from_secs(30) { continue; }
+                last_periodic = std::time::Instant::now();
             }
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         }
@@ -132,7 +143,7 @@ fn run_loop(app: AppHandle, repo: PathBuf, remote: String, branch: String) {
         {
             let mgr = app.state::<Arc<VaultSyncManager>>();
             let _guard = mgr.sync_gate.lock().unwrap();
-            do_sync(&app, &repo, &remote, &branch);
+            if !*mgr.stop_flag.lock().unwrap() { do_sync(&app, &repo, &remote, &branch); }
         }
     }
 }
@@ -221,4 +232,40 @@ fn set_state(app: &AppHandle, state: SyncState) {
     let _ = app.emit("vault-sync-state-changed", state);
     #[cfg(not(target_os = "ios"))]
     crate::refresh_tray_status(app);
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+    use std::sync::{mpsc, Mutex};
+
+    #[test]
+    fn timeout_retains_worker_until_old_write_finishes_before_next_worker() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("writes");
+        let old_path = path.clone();
+        let (release, wait) = mpsc::channel();
+        let worker = Mutex::new(Some(std::thread::spawn(move || {
+            wait.recv().unwrap();
+            std::fs::write(old_path, "old finished").unwrap();
+        })));
+        assert!(wait_for_worker(&worker, Duration::from_millis(1)).is_err());
+        assert!(worker.lock().unwrap().is_some());
+        assert!(!path.exists());
+        release.send(()).unwrap();
+        wait_for_worker(&worker, Duration::from_secs(2)).unwrap();
+        assert!(worker.lock().unwrap().is_none());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "old finished");
+        let next_path = path.clone();
+        *worker.lock().unwrap() = Some(std::thread::spawn(move || { std::fs::write(next_path, "new finished").unwrap(); }));
+        wait_for_worker(&worker, Duration::from_secs(2)).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "new finished");
+    }
+
+    #[test]
+    fn panicked_worker_is_an_error_not_a_successful_stop() {
+        let worker = Mutex::new(Some(std::thread::spawn(|| panic!("injected worker failure"))));
+        assert!(wait_for_worker(&worker, Duration::from_secs(2)).is_err());
+        assert!(worker.lock().unwrap().is_none());
+    }
 }

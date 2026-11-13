@@ -1,7 +1,7 @@
 # Vault 创建入口与桌面设置设计
 
 日期：2026-11-14  
-状态：设计提案，待产品确认；本轮不实现、不发布。  
+状态：已按确认方案实现，验证记录见 [验证记录](../reports/2026-11-14-vault-management/verification.md)；尚未发布。
 范围：macOS、Windows、Linux 桌面端。iOS 保持现有连接流程。
 
 ## 1. 目标与设计决定

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- **Set up your Vault without finding the tray icon.** First-run guidance and one shared Vault menu entry lead to desktop Vault settings. The welcome page shows the current folder, document count and content size; home paths use `~`. Git initialization is optional, and changing the Vault location requires an explicit confirmation in Advanced settings.
+
 - Correct the companion input method name to **Fcitx5 for Sumi** in current UI, installation guidance and future release assets. Previously published packages keep their original historical filenames and signatures.
 
 ## v6.1112.2 — 2026-11-12

@@ -162,6 +162,14 @@ const NAME_TABLE: Record<string, FileClass> = {
   gemfile:    { kind: 'code', language: 'ruby' },
 }
 
+/** File-based documents, excluding media previews; shared by Vault statistics. */
+export function documentFileRules(): { extensions: string[]; names: string[] } {
+  return {
+    extensions: Object.entries(EXT_TABLE).filter(([, value]) => value.kind !== 'image').map(([ext]) => ext),
+    names: Object.keys(NAME_TABLE),
+  }
+}
+
 export function classifyPath(path: string): FileClass | null {
   const base = basename(path).toLowerCase()
   if (NAME_TABLE[base]) return { ...NAME_TABLE[base] }

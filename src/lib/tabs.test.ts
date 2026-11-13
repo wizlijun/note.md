@@ -2062,3 +2062,39 @@ describe('folder file deletion', () => {
     expect(tab.externalState).toBe('deleted')
   })
 })
+
+describe('prepareVaultChange', () => {
+  it('preserves dirty content and the current tabs when the user cancels', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/a.txt')
+    m.tabs[0].currentContent = 'unsaved'
+    expect(await m.prepareVaultChange(async () => 'cancel')).toBe(false)
+    expect(m.tabs[0].currentContent).toBe('unsaved')
+  })
+  it('saves a named draft without closing or changing its absolute path', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/a.txt')
+    const id = m.tabs[0].id
+    m.tabs[0].currentContent = 'saved before switch'
+    expect(await m.prepareVaultChange(async () => 'save')).toBe(true)
+    expect(m.tabs[0].id).toBe(id)
+    expect(m.tabs[0].filePath).toBe('/vault/a.txt')
+    expect(m.isDirty(id)).toBe(false)
+  })
+  it('closes only explicitly discarded drafts and preserves clean files', async () => {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/a.txt')
+    await m.openFile('/vault/b.txt')
+    m.tabs[0].currentContent = 'discarded draft'
+    expect(await m.prepareVaultChange(async () => 'discard')).toBe(true)
+    expect(m.tabs.map(tab => tab.filePath)).toEqual(['/vault/b.txt'])
+  })
+  it('blocks the change if saving fails, keeping the draft', async () => {
+    const m = await import('./tabs.svelte'), fs = await import('./fs')
+    await m.openFile('/vault/a.txt')
+    m.tabs[0].currentContent = 'keep this'
+    vi.mocked(fs.writeMd).mockRejectedValueOnce(new Error('disk full'))
+    await expect(m.prepareVaultChange(async () => 'save')).rejects.toThrow('disk full')
+    expect(m.tabs[0].currentContent).toBe('keep this')
+  })
+})

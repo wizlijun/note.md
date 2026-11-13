@@ -1480,6 +1480,37 @@ export async function closeTab(
   return true
 }
 
+/** Settle documents before changing the application's Vault root. Saved ordinary
+ * tabs keep their absolute paths; only explicitly discarded drafts are closed. */
+export async function prepareVaultChange(
+  confirm: (name: string) => Promise<DirtyChoice>,
+): Promise<boolean> {
+  const ids = tabs.map(tab => tab.id)
+  for (const id of ids) {
+    await waitForMarkdownSaves(id)
+    let tab = tabs.find(item => item.id === id)
+    if (!tab) continue
+    if (isGuestUpdateBusy(tab.filePath)) return false
+    await flushMountedDocument(id)
+    tab = tabs.find(item => item.id === id)
+    if (!tab || !isDirty(id)) continue
+    if (!tab.filePath) {
+      if (!await closeTab(id, confirm)) return false
+      continue
+    }
+    const choice = await confirm(basename(tab.filePath))
+    if (choice === 'cancel') return false
+    if (choice === 'discard') {
+      if (!await closeTab(id, async () => 'discard')) return false
+    } else {
+      await saveTab(id)
+      if (isDirty(id)) return false
+    }
+  }
+  // A new edit/tab while the native prompt was open invalidates this attempt.
+  return tabs.every(tab => ids.includes(tab.id) && !isDirty(tab.id) && !isGuestUpdateBusy(tab.filePath))
+}
+
 /** Close a stable tab-id snapshot in order, preserving closeTab's dirty-file
  * prompts. Cancelling any one close leaves that tab and every later tab open. */
 export async function closeTabs(

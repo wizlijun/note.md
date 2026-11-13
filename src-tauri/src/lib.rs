@@ -40,6 +40,10 @@ pub mod themes;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_sync;
 #[cfg(not(target_os = "ios"))]
+pub mod vault_management;
+#[cfg(not(target_os = "ios"))]
+pub mod vault_stats;
+#[cfg(not(target_os = "ios"))]
 pub mod git_history;
 
 pub mod okf;
@@ -1053,73 +1057,39 @@ fn trigger_quick_note<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 }
 
 #[cfg(not(target_os = "ios"))]
-fn pick_sync_folder(app: &tauri::AppHandle) {
-    let app_clone = app.clone();
-    pick_sync_folder_inner(app, move |_path| {
-        let _ = vault_sync::vault_sync_start(app_clone.clone());
-        refresh_tray_status(&app_clone);
-    });
+static VAULT_MANAGEMENT_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+fn take_vault_management_request(window: tauri::WebviewWindow) -> bool {
+    window.label() == "main" && VAULT_MANAGEMENT_PENDING.swap(false, std::sync::atomic::Ordering::SeqCst)
 }
 
 #[cfg(not(target_os = "ios"))]
-fn pick_sync_folder_inner(app: &tauri::AppHandle, on_done: impl FnOnce(String) + Send + 'static) {
-    use tauri_plugin_dialog::DialogExt;
-    use tauri_plugin_store::StoreExt;
-
-    let app_clone = app.clone();
-    app.dialog()
-        .file()
-        .set_title("Select Vault Git Repository")
-        .pick_folder(move |folder| {
-            if let Some(path) = folder {
-                let path_str = path.to_string();
-                // Gate BEFORE anything is written. A rejected root must leave
-                // the previous vault (and settings.json / shared.json) exactly
-                // as it was — see sotvault::root_guard for what and why.
-                if let Err(reason) = sotvault::root_guard::check(std::path::Path::new(&path_str)) {
-                    report_vault_root_rejected(&app_clone, &path_str, reason);
-                    return;
-                }
-                let mgr = app_clone.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
-                *mgr.repo_path.lock().unwrap() = Some(path_str.clone());
-
-                if let Ok(s) = app_clone.store("settings.json") {
-                    let _ = s.set("vault_sync.repo_path", serde_json::json!(&path_str));
-                    let _ = s.save();
-                }
-
-                if let Ok(shared_path) = crate::shared_config::config_path() {
-                    if let Ok(mut cfg) = crate::shared_config::read(&shared_path) {
-                        cfg.sotvault = Some(path_str.clone());
-                        let _ = crate::shared_config::write(&shared_path, &cfg);
-                    }
-                }
-
-                update_tray_repo_label(&app_clone, &path_str);
-                agents_sync::restart(&app_clone, &path_str);
-                search::open_vault(&app_clone, std::path::Path::new(&path_str));
-                on_done(path_str);
-            }
-        });
+#[tauri::command]
+fn open_vault_sync_logs(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "main" { return Err("Vault settings are available in the main window".into()); }
+    open_logs_window(&app, Some("git-sync"));
+    Ok(())
 }
 
-/// Tell the user why the folder they picked was refused, in their language,
-/// and leave a trace in the log bus for support.
 #[cfg(not(target_os = "ios"))]
-fn report_vault_root_rejected(
-    app: &tauri::AppHandle,
-    path: &str,
-    reason: sotvault::root_guard::Reject,
-) {
-    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
-    let locale = read_saved_locale(app);
-    let body = format!("{}\n\n{}", path, menu_label(&locale, reason.i18n_key()));
-    dlog(&format!("vault root rejected ({reason:?}): {path}"));
-    app.dialog()
-        .message(body)
-        .title(menu_label(&locale, "vault.reject.title"))
-        .kind(MessageDialogKind::Warning)
-        .show(|_| {});
+fn show_vault_management(app: &tauri::AppHandle) {
+    VAULT_MANAGEMENT_PENDING.store(true, std::sync::atomic::Ordering::SeqCst);
+    show_main_window(app);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.emit("vault-management-open", ());
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
+fn vault_menu_label<R: tauri::Runtime>(app: &tauri::AppHandle<R>, locale: &str) -> String {
+    let manager = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
+    let root = manager.repo_path.lock().unwrap().clone();
+    match root {
+        Some(path) => format!("Vault: {}", abbreviate_path(&path)),
+        None => menu_label(locale, "tray.vaultSetFolder"),
+    }
 }
 
 #[cfg(not(target_os = "ios"))]
@@ -1134,25 +1104,17 @@ fn update_tray_item<T: Clone>(state: &Mutex<Option<T>>, update: impl FnOnce(T)) 
 }
 
 #[cfg(not(target_os = "ios"))]
-fn update_tray_repo_label(app: &tauri::AppHandle, path: &str) {
-    if let Some(state) = app.try_state::<TrayRepoItem>() {
-        update_tray_item(&state.0, |item| {
-            let _ = item.set_text(&format!("Vault: {}", abbreviate_path(path)));
-        });
-    }
+fn abbreviate_path(path: &str) -> String {
+    let Some(home) = dirs::home_dir() else { return path.to_string(); };
+    abbreviate_home_path(std::path::Path::new(path), &home)
 }
 
 #[cfg(not(target_os = "ios"))]
-fn abbreviate_path(path: &str) -> String {
-    // `dirs::home_dir()`, not `$HOME` — Windows does not set HOME, so the tray
-    // showed the full `C:\Users\…` path where macOS showed `~/…`.
-    let home = dirs::home_dir()
-        .map(|p| p.display().to_string())
-        .unwrap_or_default();
-    if !home.is_empty() && path.starts_with(&home) {
-        format!("~{}", &path[home.len()..])
-    } else {
-        path.to_string()
+fn abbreviate_home_path(path: &std::path::Path, home: &std::path::Path) -> String {
+    match path.strip_prefix(home) {
+        Ok(relative) if relative.as_os_str().is_empty() => "~".into(),
+        Ok(relative) => format!("~{}{}", std::path::MAIN_SEPARATOR, relative.display()),
+        Err(_) => path.display().to_string(),
     }
 }
 
@@ -1688,6 +1650,17 @@ pub fn run() {
                 themes::commands::theme_import,
                 themes::commands::theme_install,
                 themes::commands::theme_cancel_import,
+                take_vault_management_request,
+                open_vault_sync_logs,
+                vault_management::vault_inspect,
+                vault_management::vault_create,
+                vault_management::vault_activate,
+                vault_management::vault_init_git,
+                vault_management::vault_set_sync,
+                vault_management::vault_sync_now_for_root,
+                vault_management::vault_set_onboarding,
+                vault_stats::notemd_vault_stats,
+                vault_stats::notemd_vault_stats_cancel,
                 vault_sync::vault_sync_start,
                 vault_sync::vault_sync_stop,
                 vault_sync::vault_sync_now,
@@ -1884,6 +1857,10 @@ pub fn run() {
                 *app.state::<LatestMenu>().0.lock().unwrap() = Some(latest_submenu);
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, event| {
+                    if event.id().0.as_str() == "vault-management" {
+                        show_vault_management(app);
+                        return;
+                    }
                     if sumi::handle_menu_event(app, event.id().0.as_str()) { return; }
                     if event.id().0.as_str() == "hide-app" {
                         if let Some(w) = app.get_webview_window("main") {
@@ -1994,8 +1971,21 @@ pub fn run() {
                                     activate_plugin_tray_target(app, plugin_id, window);
                                 }
                             }
-                            "tray-sync-repo" => { pick_sync_folder(app); }
-                            "tray-sync-now" => { let _ = vault_sync::vault_sync_now(app.clone()); }
+                            "tray-sync-repo" => { show_vault_management(app); }
+                            "tray-sync-now" => {
+                                let app = app.clone();
+                                tauri::async_runtime::spawn_blocking(move || {
+                                    let _operation = vault_management::OPERATIONS.lock().unwrap();
+                                    if let Err(error) = vault_sync::service::sync_once(&app) {
+                                        crate::log_cat!("git-sync", "error", "{error}");
+                                        crate::notifications::push(
+                                            menu_label(&read_saved_locale(&app), "notif.syncError"),
+                                            crate::notifications::NotificationAction::OpenLogs { filter: Some("git-sync".into()) },
+                                            None, crate::notifications::Severity::Warn,
+                                        );
+                                    }
+                                });
+                            }
                             "tray-sync-log" => { open_logs_window(app, Some("git-sync")); }
                             "tray-edit-agents" => agents_sync::edit_agents_md(app),
                             "tray-quit" => app.exit(0),
@@ -2460,7 +2450,7 @@ fn menu_label(locale: &str, key: &str) -> String {
         "tray.launchEmpty" => ("No enabled launch items", "没有启用的启动项", "有効な起動項目なし", "Keine aktiven Starteinträge"),
         "tray.launchInvalid" => ("Cannot read launch items — open configuration", "无法读取启动项，请打开配置", "起動項目を読み込めません", "Starteinträge können nicht gelesen werden"),
         "tray.launchCompleted" => ("Command completed", "命令执行完成", "コマンド完了", "Befehl abgeschlossen"),
-        "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：选择文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
+        "tray.vaultSetFolder" => ("Vault: Set Folder…", "Vault：设置文件夹…", "Vault：フォルダを選択…", "Vault: Ordner wählen…"),
         "tray.syncNow" => ("Sync Now", "立即同步", "今すぐ同期", "Jetzt synchronisieren"),
         "tray.viewLog" => ("View Log…", "查看日志…", "ログを表示…", "Protokoll anzeigen…"),
         "tray.editAgents" => ("Edit AGENTS.md…", "编辑 AGENTS.md…", "AGENTS.md を編集…", "AGENTS.md bearbeiten…"),
@@ -2644,14 +2634,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     };
     let capture_plugin_items = to_items(capture_entries);
     let plugin_tray_items = to_items(other_entries);
-    let sync_repo_label = {
-        let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
-        let guard = mgr.repo_path.lock().unwrap();
-        match guard.as_deref() {
-            Some(p) => format!("Vault: {}", abbreviate_path(p)),
-            None => menu_label(locale, "tray.vaultSetFolder"),
-        }
-    };
+    let sync_repo_label = vault_menu_label(app, locale);
     let sync_repo_item = MenuItem::with_id(app, "tray-sync-repo", &sync_repo_label, true, None::<&str>)?;
     let (status_label, status_dot) = {
         let mgr = app.state::<std::sync::Arc<vault_sync::VaultSyncManager>>();
@@ -2978,6 +2961,8 @@ fn build_menu<R: tauri::Runtime>(
         .item(&recent_menu)
         .item(&latest_menu)
         .separator()
+        .item(&MenuItemBuilder::with_id("vault-management", vault_menu_label(app, locale)).build(app)?)
+        .separator()
         .item(
             &MenuItemBuilder::with_id("close-tab", menu_label(locale, "file.closeTab"))
                 .accelerator("CmdOrCtrl+W")
@@ -3142,6 +3127,17 @@ fn build_menu<R: tauri::Runtime>(
 #[cfg(all(test, not(target_os = "ios")))]
 mod menu_label_tests {
     use super::menu_label;
+
+    #[test]
+    fn vault_home_abbreviation_respects_directory_boundaries() {
+        use std::path::Path;
+        let home = Path::new("/Users/alice");
+        assert_eq!(super::abbreviate_home_path(home, home), "~");
+        assert_eq!(super::abbreviate_home_path(Path::new("/Users/alice/Vault"), home), format!("~{}Vault", std::path::MAIN_SEPARATOR));
+        assert_eq!(super::abbreviate_home_path(Path::new("/Users/alice-other/Vault"), home), "/Users/alice-other/Vault");
+        assert_eq!(super::abbreviate_home_path(Path::new("/Volumes/Vault"), home), "/Volumes/Vault");
+    }
+
 
     /// "New Base" used to arrive as a plugin menu item from the bundled `base`
     /// manifest, which carried zh/ja/de labels. The item is core now, so the

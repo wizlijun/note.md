@@ -12,7 +12,7 @@ pub mod watcher;
 use logic::{ClaudeKind, SyncAction};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 use tauri::Manager;
 
@@ -21,12 +21,14 @@ pub const TEMPLATE: &str = include_str!("../../templates/AGENTS.md");
 pub struct AgentsSyncState {
     /// Bumped on every (re)start; stale watcher threads exit when they notice.
     generation: AtomicU64,
+    writes: Mutex<()>,
 }
 
 impl AgentsSyncState {
     fn new() -> Self {
         Self {
             generation: AtomicU64::new(0),
+            writes: Mutex::new(()),
         }
     }
 }
@@ -152,13 +154,19 @@ fn reconcile(root: &Path) {
 pub fn init(app: &tauri::AppHandle) {
     app.manage(AgentsSyncState::new());
     if let Some(root) = vault_root(app) {
-        start(app, &root);
+        if crate::sotvault::root_guard::check(&root).is_ok() { start(app, &root); }
     }
 }
 
 /// Call when the vault folder changes (tray picker).
 pub fn restart(app: &tauri::AppHandle, root: &str) {
     start(app, Path::new(root));
+}
+
+pub fn stop(app: &tauri::AppHandle) {
+    let state = app.state::<AgentsSyncState>();
+    let _writes = state.writes.lock().unwrap();
+    state.generation.fetch_add(1, Ordering::SeqCst);
 }
 
 fn start(app: &tauri::AppHandle, root: &Path) {
@@ -174,7 +182,7 @@ fn start(app: &tauri::AppHandle, root: &Path) {
             Err(_) => return,
         };
         // Startup check catches state that changed while the app was closed.
-        run_check(&app, &root);
+        run_generation_check(&app, &root, my_gen);
         loop {
             let stale = || {
                 app.state::<AgentsSyncState>().generation.load(Ordering::SeqCst) != my_gen
@@ -186,7 +194,7 @@ fn start(app: &tauri::AppHandle, root: &Path) {
                     if stale() {
                         return;
                     }
-                    run_check(&app, &root);
+                    run_generation_check(&app, &root, my_gen);
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     if stale() {
@@ -197,6 +205,12 @@ fn start(app: &tauri::AppHandle, root: &Path) {
             }
         }
     });
+}
+
+fn run_generation_check(app: &tauri::AppHandle, root: &Path, generation: u64) {
+    let state = app.state::<AgentsSyncState>();
+    let _writes = state.writes.lock().unwrap();
+    if state.generation.load(Ordering::SeqCst) == generation { run_check(app, root); }
 }
 
 fn run_check(_app: &tauri::AppHandle, root: &Path) {
@@ -212,12 +226,7 @@ pub fn edit_agents_md(app: &tauri::AppHandle) {
     if let Some(root) = vault_root(app) {
         open_agents_in_editor(app, &root);
     } else {
-        // No vault yet: reuse the folder picker, then open. The picker's
-        // shared path (pick_sync_folder_inner) also calls restart() for us.
-        let app_for_open = app.clone();
-        crate::pick_sync_folder_inner(app, move |path| {
-            open_agents_in_editor(&app_for_open, Path::new(&path));
-        });
+        crate::show_vault_management(app);
     }
 }
 

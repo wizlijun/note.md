@@ -76,6 +76,7 @@ pub fn run_git(repo: &Path, args: &[&str]) -> GitResult<String> {
 /// injection is testable against a real repo without touching the user's config.
 fn run_git_with_proxy(repo: &Path, args: &[&str], proxy: Option<&str>) -> GitResult<String> {
     let mut cmd = command("git");
+    cmd.env("LC_ALL", "C");
     // `-c` overrides go BEFORE the subcommand, and are scoped to this single
     // invocation — nothing is written to the user's repo or global config, so
     // clearing the setting genuinely stops proxying instead of leaving a stale

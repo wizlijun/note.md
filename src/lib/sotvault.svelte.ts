@@ -3,6 +3,7 @@ import { pushToast } from './toast.svelte'
 import { t } from './i18n/store.svelte'
 import { activeTab, reloadTabFromDisk } from './tabs.svelte'
 import { setMemoryProjectionVaultRoot } from './memory-projection'
+import { resetHumanActor, warmHumanActor } from './okf/identity'
 import { hostname } from '@tauri-apps/plugin-os'
 import { getDeviceId } from './settings.svelte'
 import {
@@ -48,33 +49,41 @@ export function setVaultRootChangedHandler(fn: (() => void) | null): void {
   vaultRootChangedHandler = fn
 }
 
+let refreshGeneration = 0
+
 export async function refreshSotvault(): Promise<void> {
+  const generation = ++refreshGeneration
   try {
-    // The vault root is a GLOBAL setting (VaultSyncManager.repo_path). sotvault
-    // is core-ized and always active, so this is always loaded. Other features —
-    // notably reading-insights — rely on it to know whether a vault is configured.
+    // Root identity is authoritative even when a consumer's records are corrupt
+    // or unavailable. Publish it before loading optional metadata, and clear
+    // the old root's data immediately so it cannot be used against the new one.
     const root = await invoke<string | null>('sotvault_vault_root')
-    // Core-ized: always load records (sotvault is always active).
-    const records = await invoke<SotRecord[]>('sotvault_records')
-    // Git-synced mirror metas make cross-device mirrors recognizable even on a
-    // device that never synced them. Best-effort: empty when unavailable.
+    if (generation !== refreshGeneration) return
+    const rootChanged = sotvaultStore.vaultRoot !== root
+    if (rootChanged) {
+      sotvaultStore.vaultRoot = root
+      setMemoryProjectionVaultRoot(root)
+      sotvaultStore.records = []
+      sotvaultStore.mirrorMetas = []
+      sotvaultStore.tick++
+      resetHumanActor()
+      warmHumanActor()
+      vaultRootChangedHandler?.()
+    }
+    const records = await invoke<SotRecord[]>('sotvault_records').catch((error) => {
+      console.warn('[sotvault] records:', error)
+      return null
+    })
+    if (generation !== refreshGeneration) return
     const mirrorMetas = root
       ? await invoke<MirrorMeta[]>('notemd_mirror_metas').catch(() => [] as MirrorMeta[])
       : []
-    // Compared against the store's own previous value rather than a private
-    // "last seen" variable: one source of truth, and no way for the two to
-    // drift apart.
-    const rootChanged = sotvaultStore.vaultRoot !== root
-    sotvaultStore.vaultRoot = root
-    setMemoryProjectionVaultRoot(root)
-    sotvaultStore.records = records
+    if (generation !== refreshGeneration || sotvaultStore.vaultRoot !== root) return
+    // For a same-root refresh, a transient read failure may retain its last
+    // known records. A root change already discarded every old-root record.
+    if (records !== null) sotvaultStore.records = records
     sotvaultStore.mirrorMetas = mirrorMetas
     sotvaultStore.tick++
-    // 身份由 vault 的 git 配置推出,换 vault 就换人。
-    if (rootChanged) {
-      void import('./okf/identity').then(m => { m.resetHumanActor(); m.warmHumanActor() })
-    }
-    if (rootChanged) vaultRootChangedHandler?.()
   } catch (e) {
     console.warn('[sotvault] refresh:', e)
   }

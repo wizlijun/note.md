@@ -29,6 +29,8 @@
   import { startAutoSaveWatcher } from './lib/autosave.svelte'
   import { installFocusPoll } from './lib/file-watcher.svelte'
   import SettingsDialog from './components/SettingsDialog.svelte'
+  import VaultOnboarding from './components/VaultOnboarding.svelte'
+  import { vaultManagement, initializeVaultOnboarding, openVaultManagement, refreshVaultManagement } from './lib/vault-management.svelte'
   import OpenShareDialog from './components/share-guest/OpenShareDialog.svelte'
   import { guestState, receiveGuestUrl, closeGuestLink, finishGuestBootstrap, refreshGuests, retryGuests } from './lib/share-guest/state.svelte'
   import ProjectShareDialog from './components/ProjectShareDialog.svelte'
@@ -60,7 +62,7 @@
   import {
     loadSidePanels, registerBuiltinSideViews, toggleSideView, getSideView,
   } from './lib/side-panel/registry.svelte'
-  import { loadFolderViewState, defaultRootToVault } from './lib/folder-view.svelte'
+  import { loadFolderViewState, defaultRootToVault, setRootDir } from './lib/folder-view.svelte'
   import { loadOutlineGate } from './lib/outline/gate.svelte'
   import { loadHistoryGate, historyAppliesTo } from './lib/git-history/gate.svelte'
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
@@ -162,6 +164,7 @@
 
     let stopAutoSave: (() => void) | undefined
     let stopThemes: (() => void) | undefined
+    let stopVaultFirstVisible: (() => void) | undefined
     let disposed = false
     let dispatchPlugin: (pluginId: string, command: string) => Promise<void> = async () => {}
 
@@ -236,6 +239,22 @@
         await win.show()
         await win.setFocus()
       } catch (err) { console.warn(`[App] ${OPEN_SETTINGS_TAB_EVENT}:`, err) }
+    })
+
+    const consumeVaultRequest = async () => {
+      if (win.label !== 'main' || await isIOS()) return
+      if (await invoke<boolean>('take_vault_management_request')) await openVaultManagement()
+    }
+    const unlistenVaultManagement = listen('vault-management-open', () => {
+      void consumeVaultRequest().catch(error => console.warn('[vault] open:', error))
+    })
+    const unlistenVaultRoot = listen('vault-root-changed', () => {
+      void (async () => {
+        await refreshSotvault()
+        await refreshVaultManagement()
+        if (sotvaultStore.vaultRoot) await setRootDir(sotvaultStore.vaultRoot)
+        await refreshRecentMenu()
+      })().catch(error => console.warn('[vault] refresh:', error))
     })
 
     // File-view plugins can navigate to another matching file and retain their
@@ -479,10 +498,18 @@
         try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
         catch (e) { console.warn('[App] get_plugin_manifests:', e) }
       }
-      // First-launch nudge: offer to install the `notemd` shell command.
-      // Fire-and-forget so a slow dialog doesn't block the rest of startup.
-      void (async () => {
+      // CLI/background launches also own a hidden main webview. Onboarding
+      // belongs to the first visible GUI session, ahead of the CLI nudge.
+      let firstVisiblePromptStarted = false
+      const firstVisiblePrompts = async () => {
         try {
+          if (win.label !== 'main' || await isIOS() || !await win.isVisible()) return
+          if (disposed || firstVisiblePromptStarted) return
+          firstVisiblePromptStarted = true
+          await unlistenVaultManagement
+          await initializeVaultOnboarding()
+          await consumeVaultRequest()
+          if (vaultManagement.onboardingShownThisRun) return
           const { getCliPromptShown, setCliPromptShown } = await import('./lib/settings.svelte')
           if (await getCliPromptShown()) return
           const status = await invoke<{ installed: boolean; path: string | null }>('cli_install_status')
@@ -493,6 +520,7 @@
           }
           // Small delay so the main window finishes appearing before the dialog.
           await new Promise((r) => setTimeout(r, 1200))
+          if (disposed || vaultManagement.onboardingShownThisRun || uiState.showSettings || !await win.isVisible()) return
           const { ask } = await import('@tauri-apps/plugin-dialog')
           const yes = await ask(
             t('cli.installPrompt'),
@@ -516,7 +544,12 @@
         } catch (e) {
           console.warn('[App] cli first-launch prompt:', e)
         }
-      })()
+      }
+      if (win.label === 'main' && !await isIOS()) {
+        const stop = await win.onFocusChanged(event => { if (event.payload) void firstVisiblePrompts() })
+        if (disposed) stop()
+        else { stopVaultFirstVisible = stop; void firstVisiblePrompts() }
+      }
 
       dispatchPlugin = async (pluginId: string, command: string) => {
         // Side-view toggles: folder-view / outline-notes / git-history and any
@@ -707,7 +740,17 @@
     // vault's oversize files can never be attributed to another; keeping the
     // frontend snapshot would undo that at the display layer — the settings
     // page would describe the previous vault until something refreshed it.
-    setVaultRootChangedHandler(() => { void refreshGuests(sotvaultStore.vaultRoot); indexStatus.reset(); void maybeInstallTracker(); void ensureWikilinkBlocklist(); void defaultRootToVault(sotvaultStore.vaultRoot) })
+    setVaultRootChangedHandler(() => {
+      indexStatus.reset()
+      void (async () => {
+        await loadOutlineDirs()
+        await (await import('./lib/quick-note.svelte')).loadInboxDir()
+        await Promise.allSettled([
+          refreshGuests(sotvaultStore.vaultRoot), maybeInstallTracker(),
+          ensureWikilinkBlocklist(), defaultRootToVault(sotvaultStore.vaultRoot),
+        ])
+      })().catch(error => console.warn('[vault] root consumers:', error))
+    })
     // 镜像的伴生笔记要在 front-matter 里记下源文件(OKF §5.1)。store 不直接依赖
     // sotvault(会成环),所以解析器在这里注入。
     setMirrorSourceResolver((mainPath) => deviceSourceForVaultPath(mainPath))
@@ -902,6 +945,8 @@
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
       unlistenOpenSettingsTab.then((fn) => fn())
+      unlistenVaultManagement.then((fn) => fn())
+      unlistenVaultRoot.then((fn) => fn())
       unlistenOpenFileView.then((fn) => fn())
       unlistenSearchReveal.then((fn) => fn())
       unlistenOpenRemoteBuffer.then((fn) => fn())
@@ -915,6 +960,7 @@
       void shutdownTracker()
       disposed = true
       stopThemes?.()
+      stopVaultFirstVisible?.()
       stopAutoSave?.()
     }
   })
@@ -1056,6 +1102,7 @@
     {/if}
   </section>
   <SettingsDialog bind:open={uiState.showSettings} />
+  <VaultOnboarding />
   {#if uiState.showProjectShare && platformName !== 'ios'}
     <ProjectShareDialog onClose={() => uiState.showProjectShare = false} />
   {/if}

@@ -73,6 +73,8 @@ pub struct VaultSyncManager {
     pub error_msg: Mutex<Option<String>>,
     pub git_available: Mutex<bool>,
     pub stop_flag: Mutex<bool>,
+    pub worker: Mutex<Option<std::thread::JoinHandle<()>>>,
+    pub lifecycle: Mutex<()>,
     /// 串行化 do_sync:后台循环阻塞持有,手动 sync_once 用 try_lock。
     pub sync_gate: Mutex<()>,
     /// 最近一轮被门禁排除的大文件(相对 repo 根路径)。正交于 SyncState。
@@ -91,6 +93,8 @@ impl VaultSyncManager {
             error_msg: Mutex::new(None),
             git_available: Mutex::new(true),
             stop_flag: Mutex::new(false),
+            worker: Mutex::new(None),
+            lifecycle: Mutex::new(()),
             sync_gate: Mutex::new(()),
             skipped_large_files: Mutex::new(Vec::new()),
         }
@@ -98,18 +102,32 @@ impl VaultSyncManager {
 }
 
 #[tauri::command]
-pub fn vault_sync_start(app: AppHandle) -> Result<(), String> {
-    service::start(&app)
+pub async fn vault_sync_start(app: AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    crate::vault_management::require_main(window.label())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = crate::vault_management::OPERATIONS.lock().unwrap();
+        service::start(&app)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn vault_sync_stop(app: AppHandle) -> Result<(), String> {
-    service::stop(&app)
+pub async fn vault_sync_stop(app: AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    crate::vault_management::require_main(window.label())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = crate::vault_management::OPERATIONS.lock().unwrap();
+        let root = app.state::<Arc<VaultSyncManager>>().repo_path.lock().unwrap().clone();
+        if let Some(root) = root { crate::vault_management::authorization(&app, &root, false)?; }
+        service::stop(&app)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn vault_sync_now(app: AppHandle) -> Result<(), String> {
-    service::sync_once(&app)
+pub async fn vault_sync_now(app: AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    crate::vault_management::require_main(window.label())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = crate::vault_management::OPERATIONS.lock().unwrap();
+        service::sync_once(&app)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -138,6 +156,9 @@ pub fn init(app: &AppHandle) {
         .filter(|s| !s.is_empty());
 
     if let Some(ref path) = repo_path {
+        let mgr = app.state::<Arc<VaultSyncManager>>();
+        *mgr.repo_path.lock().unwrap() = Some(path.clone());
+        // Keep an unavailable configured root visible for recovery.
         // The picker gates this too, but the value also arrives from a file on
         // disk (`shared.json`) that predates the gate or was edited by hand.
         // Auto-sync means `git add -A` + commit + push on a timer, so a bad
@@ -156,9 +177,18 @@ pub fn init(app: &AppHandle) {
 
         *mgr.state.lock().unwrap() = SyncState::Stopped;
         let app_clone = app.clone();
+        if let Err(error) = crate::vault_management::migrate_legacy_sync(app, path) {
+            *mgr.error_msg.lock().unwrap() = Some(error);
+            return;
+        }
+        let path_for_start = path.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(2));
-            let _ = service::start(&app_clone);
+            let _operation = crate::vault_management::OPERATIONS.lock().unwrap();
+            if crate::vault_management::sync_enabled(&app_clone, path_for_start.as_str()).unwrap_or(false)
+                && app_clone.state::<Arc<VaultSyncManager>>().repo_path.lock().unwrap().as_deref() == Some(path_for_start.as_str()) {
+                let _ = service::start(&app_clone);
+            }
             crate::refresh_tray_status(&app_clone);
         });
     }
