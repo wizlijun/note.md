@@ -31,3 +31,16 @@ Apple 公证返回：
 - `verify-host.py` 与 `verify-public-host-full.py` 保留在任务目录待后续正式产物产生后使用；没有生成虚假的产物验签成功证据。
 
 协议处理完成后，重新确认版本未被占用、同步最新 main，在干净源码上重跑原 release.sh 门禁与公证；候选就绪后按既有平台范围确认门禁公开，再做完整匿名回读。不能仅上传本次未公证 App。
+
+## 换用历史成功通道复核
+
+用户要求更换方法后，核对了 11 月 9–10 日的成功发布证据：当时通过 xcrun shim 使用 Command Line Tools 的 `notarytool 1.1.4 (43)`，本次默认 Xcode 工具为 `1.1.2 (41)`。当前 CLT 工具与历史二进制 SHA 一致。
+
+本轮直接调用 `/Library/Developer/CommandLineTools/usr/bin/notarytool`，绕开 Tauri 和默认 xcrun：
+
+1. 用既有发布凭证读取此前 Accepted 的 submission `85a89706-8105-4bf4-9c8d-56a145093688`，退出 1，相同协议 HTTP 403。
+2. 将保留的签名 App 用 ditto 打包后直接 submit，退出 1，相同协议 HTTP 403，没有取得新 submission ID。
+
+[脱敏复核证据](direct-notary-recheck.json)记录工具及候选哈希。此次已实际复用此前成功的工具通道，仍被 Apple 服务端拒绝；没有仅凭旧版默认工具的报错下结论。没有发现本项目已使用的另一组 API Key 公证凭证。不能将此次失败解释为已通过公证，也未创建 tag 或发布。
+
+Apple DTS 对公证协议的说明见 [Notarytool agreement check](https://developer.apple.com/forums/thread/768266)：这里涉及 Apple Developer Program License Agreement。若账号页面没有待签协议或已经签署仍被拒绝，应由账号持有人联系 Apple Developer Support 核查团队协议状态。

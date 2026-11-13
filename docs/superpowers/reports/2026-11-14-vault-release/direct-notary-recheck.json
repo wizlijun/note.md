@@ -1,0 +1,13 @@
+{
+  "tool": "/Library/Developer/CommandLineTools/usr/bin/notarytool",
+  "version": "1.1.4 (43)",
+  "archiveSha256": "3bfdea241d2285afba369ae64ca3f7d2eca49c97325ea0db8fba21931e7876d5",
+  "exitCode": 1,
+  "output": "Error: HTTP status code: 403. A required agreement is missing or has expired. This request requires an in-effect agreement that has not been signed or has expired. Ensure your team has signed the necessary legal agreements and that they are not expired.\n",
+  "toolSha256": "ff742860507d8cc9e0bf990489f071748eb6d4e0974ec7b8d232c5665a9d95c9",
+  "previousAcceptedSubmissionInfo": {
+    "id": "85a89706-8105-4bf4-9c8d-56a145093688",
+    "exitCode": 1,
+    "output": "Error: HTTP status code: 403. A required agreement is missing or has expired. This request requires an in-effect agreement that has not been signed or has expired. Ensure your team has signed the necessary legal agreements and that they are not expired.\n"
+  }
+}
