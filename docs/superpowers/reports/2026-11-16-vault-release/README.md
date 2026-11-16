@@ -48,4 +48,3 @@
 - 验证前后 tag object、release 和资产身份未变；没有通道 fallback、没有修改远端。验证脚本 fixture tests 10 项通过。
 
 验收脚本一并保存为 [verify-host.py](verify-host.py) 和 [verify-public-host-full.py](verify-public-host-full.py)，本次原始构建日志及完整下载保留在 `tasks/vault-release-20261116/`。已再次核对主工作区原两处 EOF 与 stash 哈希不变。
-
