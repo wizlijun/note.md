@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-11-16T15:49:20.145125+00:00",
+  "exitCode": 0,
+  "output": "{\"status\":\"Accepted\",\"id\":\"85a89706-8105-4bf4-9c8d-56a145093688\",\"createdDate\":\"2026-11-12T05:18:25.355Z\",\"message\":\"Successfully received submission info\",\"name\":\"notary-app.zip\"}\n",
+  "portalAgreementIssued": "2026-10-30",
+  "portalAgreementAccepted": "2026-11-16",
+  "interpretation": "Existing Apple ID credentials can again read a previously Accepted submission. This verifies restored service access, not acceptance of the new release.",
+  "transportTool": "/Library/Developer/CommandLineTools/usr/bin/notarytool",
+  "transportToolSha256": "ff742860507d8cc9e0bf990489f071748eb6d4e0974ec7b8d232c5665a9d95c9"
+}

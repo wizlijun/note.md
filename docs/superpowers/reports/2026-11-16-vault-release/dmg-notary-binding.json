@@ -1,0 +1,27 @@
+{
+  "submissionId": "e4e38dcc-9c6e-4e76-b2fd-9894efae4bc9",
+  "status": "Accepted",
+  "dmgCDHash": "b51529e3807e84073a57bcd97ff591e954bb317b",
+  "ticketMatchesDmg": true,
+  "appleSubmittedSha256": "f8119a493a9553016a1cdb0c6b8f4b2acac8809e028524628880f233b2afe5f5",
+  "stapledDownloadedSha256": "5c708ccd1a071ccb154f8bb705638c3614f55b2eab2a3d66767eed1afeeba847",
+  "tickets": [
+    {
+      "path": "note.md-6.1116.1-aarch64.dmg/note.md.app",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "6ead977fdc206d4eae193a74b81044a633a79443",
+      "arch": "arm64"
+    },
+    {
+      "path": "note.md-6.1116.1-aarch64.dmg/note.md.app/Contents/MacOS/notemd",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "6ead977fdc206d4eae193a74b81044a633a79443",
+      "arch": "arm64"
+    },
+    {
+      "path": "note.md-6.1116.1-aarch64.dmg",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "b51529e3807e84073a57bcd97ff591e954bb317b"
+    }
+  ]
+}

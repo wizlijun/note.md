@@ -1,0 +1,16 @@
+{
+  "sourceCommitAtAudit": "83638b30ed03d5198ed7ef3da467aceafcf01a9f",
+  "finalCandidateExecuted": false,
+  "homeModified": false,
+  "productionConfigAccessed": false,
+  "productionVaultAccessed": false,
+  "files": {
+    "src-tauri/src/app_dirs.rs": "375d5d31868d74d9a93f3f09e9c45ce13b9e05fef358f50eddf811993f318bb8",
+    "src-tauri/src/shared_config.rs": "6fd6dec7434c277a92357d84fff4c62ebd41b52636378f52650a36650a558c37",
+    "src-tauri/src/platform.rs": "ebaa8d669b775d67bf25211cc1d2d6d839e05b4e7f8845f7f14c28408c079cf8",
+    "src-tauri/src/cli/mod.rs": "5ccd512e9d4b241192c6a559a26ffcb96461950986c0ff6e05f716dcaa2de181",
+    "src-tauri/src/lib.rs": "125331b422c6b92b174f5bea30345b8a74a3fbe382692a722a4c07e36eb77a61",
+    "src-tauri/src/main.rs": "318e86e166bef57512a5d7d882fc154a112768031ee7c0ec08ce324775742476"
+  },
+  "conclusion": "No supported runtime configuration/Vault isolation switch for macOS release binary under current user without modifying HOME. Debug-only acceptance feature changes binary identity and cannot prove final package native execution."
+}

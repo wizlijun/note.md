@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "5d57fc6f73464334043bbab8001204c84c226d4f",
+  "version": "6.1116.1",
+  "assets": [
+    {
+      "name": "note.md-6.1116.1-aarch64.dmg",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261116/host/note.md-6.1116.1-aarch64.dmg",
+      "size": 15871444,
+      "sha256": "5c708ccd1a071ccb154f8bb705638c3614f55b2eab2a3d66767eed1afeeba847"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261116/host/note.md-aarch64.app.tar.gz",
+      "size": 15991140,
+      "sha256": "b4caed1f3f71461813689f89096a1d12e4031646b020aeec813b07d0c695c970"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261116/host/note.md-aarch64.app.tar.gz.sig",
+      "size": 416,
+      "sha256": "af3afdd5c9a602a558c0ad8fa51b1ebd6d7eeb3faeda256f987e94fac7953420"
+    },
+    {
+      "name": "latest.json",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261116/host/latest.json",
+      "size": 740,
+      "sha256": "8ca296481d7537920280d905b279bb09074b9dba6dbbcac9330798eea40fb9f0"
+    },
+    {
+      "name": "Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261116/host/Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+      "size": 61312645,
+      "sha256": "f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299"
+    },
+    {
+      "name": "fcitx5-companion.json",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261116/host/fcitx5-companion.json",
+      "size": 372,
+      "sha256": "dfe3c834ccd645899a928e7082d2cdfe8be5828f4a3c5cb07b9d92d059c8d05f"
+    }
+  ]
+}
