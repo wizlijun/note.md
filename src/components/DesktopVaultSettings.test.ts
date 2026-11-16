@@ -1,13 +1,12 @@
 // @vitest-environment happy-dom
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
+import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 import { t } from '../lib/i18n/store.svelte'
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), open: vi.fn(), copy: vi.fn(), reveal: vi.fn(), prepare: vi.fn() }))
-vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), open: vi.fn(), copy: vi.fn(), prepare: vi.fn() }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: mocks.open }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: mocks.copy }))
-vi.mock('@tauri-apps/plugin-opener', () => ({ openPath: mocks.reveal }))
 vi.mock('../lib/tabs.svelte', () => ({ prepareVaultChange: mocks.prepare }))
 vi.mock('../lib/dialogs', () => ({ confirmDirtyClose: vi.fn() }))
 vi.mock('../lib/sotvault.svelte', () => ({ refreshSotvault: vi.fn(async () => {}) }))
@@ -22,7 +21,7 @@ const info = (root: string | null = '/Users/me/Vault'): VaultInspection => ({
 })
 let component: ReturnType<typeof mount> | null = null
 let current: VaultInspection
-async function settle() { flushSync(); for (let i = 0; i < 10; i++) await Promise.resolve(); flushSync() }
+async function settle() { flushSync(); await new Promise(resolve => setTimeout(resolve, 0)); flushSync() }
 function button(label: string, root: ParentNode = document): HTMLButtonElement {
   const value = Array.from(root.querySelectorAll('button')).find(b => b.textContent?.trim() === label)
   if (!value) throw new Error(`Missing ${label}`)
@@ -30,11 +29,13 @@ function button(label: string, root: ParentNode = document): HTMLButtonElement {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  mockIPC((cmd, args) => mocks.invoke(cmd, args))
   current = info()
   Object.assign(vaultManagement, { info: null, loading: false, error: null, onboardingOpen: false, onboardingShownThisRun: false })
   mocks.open.mockResolvedValue('/Users/me/Other')
   mocks.prepare.mockResolvedValue(true)
   mocks.invoke.mockImplementation(async (cmd, args) => {
+    if (cmd === 'plugin:opener|open_path') throw new Error(`Not allowed to open path ${args.path}`)
     if (cmd === 'vault_inspect') return current
     if (cmd === 'vault_sync_status') return { repo_path: current.root, state: 'stopped', last_sync: null, error_message: null }
     if (cmd === 'vault_activate') { current = info(args.path); return current }
@@ -43,10 +44,29 @@ beforeEach(() => {
   })
   document.body.innerHTML = ''
 })
-afterEach(async () => { if (component) await unmount(component); component = null; document.body.innerHTML = '' })
+afterEach(async () => { if (component) await unmount(component); component = null; clearMocks(); document.body.innerHTML = '' })
 async function setup() { component = mount(DesktopVaultSettings, { target: document.body }); await settle() }
 
 describe('Desktop Vault settings', () => {
+  it.each(['/Users/me/My Vault', '/Users/me/资料库'])('reveals the absolute Vault path through the permitted plugin command: %s', async (root) => {
+    current = info(root)
+    await setup()
+    button(t('vaultManage.reveal')).click(); await settle()
+    expect(mocks.invoke).toHaveBeenCalledWith('plugin:opener|reveal_item_in_dir', { paths: [root] })
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+  })
+  it('reports a file-manager failure and restores the action button', async () => {
+    const impl = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (cmd, args) => {
+      if (cmd === 'plugin:opener|reveal_item_in_dir') throw new Error('Folder no longer exists')
+      return impl(cmd, args)
+    })
+    await setup()
+    button(t('vaultManage.reveal')).click(); await settle()
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Folder no longer exists')
+    expect(button(t('vaultManage.reveal')).disabled).toBe(false)
+    expect(current.root).toBe('/Users/me/Vault')
+  })
   it('shows only one setup action when unconfigured, with no Git form', async () => {
     current = info(null)
     await setup()

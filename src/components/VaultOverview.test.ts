@@ -1,16 +1,15 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
+import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 
 const mocks = vi.hoisted(() => ({
   root: { vaultRoot: '/home/alice/Notes' as string | null },
-  invoke: vi.fn(), copy: vi.fn(), reveal: vi.fn(), open: vi.fn(), refresh: vi.fn(async () => {}),
+  invoke: vi.fn(), copy: vi.fn(), open: vi.fn(), refresh: vi.fn(async () => {}),
   watch: vi.fn(async (..._args: unknown[]) => () => {}),
 }))
-vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/plugin-fs', () => ({ watchImmediate: mocks.watch }))
 vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({ writeText: mocks.copy }))
-vi.mock('@tauri-apps/plugin-opener', () => ({ openPath: mocks.reveal }))
 vi.mock('../lib/sotvault.svelte', () => ({ sotvaultStore: mocks.root }))
 vi.mock('../lib/plugins/runtime.svelte', () => ({ pluginRuntime: { manifests: [] } }))
 vi.mock('../lib/vault-stats', () => ({ vaultDocumentRules: () => ({ extensions: ['md'], names: [] }), formatContentBytes: (n: number) => `${n} B` }))
@@ -26,14 +25,39 @@ const snapshot = { root: '/home/alice/Notes', documents: 3, files: 5, bytes: 120
 async function settle() { await new Promise((r) => setTimeout(r, 0)); flushSync() }
 beforeEach(() => {
   vi.clearAllMocks()
+  mockIPC((cmd, args) => mocks.invoke(cmd, args))
   mocks.root.vaultRoot = '/home/alice/Notes'
-  mocks.invoke.mockResolvedValue(snapshot)
+  mocks.invoke.mockImplementation(async (cmd, args) => {
+    // The shipped opener capability permits reveal, but has no open_path scope.
+    if (cmd === 'plugin:opener|open_path') throw new Error(`Not allowed to open path ${args.path}`)
+    return snapshot
+  })
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
   document.body.innerHTML = ''
 })
-afterEach(async () => { if (app) await unmount(app); app = undefined; vi.useRealTimers() })
+afterEach(async () => { if (app) await unmount(app); app = undefined; clearMocks(); vi.useRealTimers() })
 
 describe('welcome Vault overview', () => {
+  it.each(['/home/alice/Notes with spaces', '/home/alice/资料库'])('reveals the absolute Vault path through the permitted plugin command: %s', async (root) => {
+    mocks.root.vaultRoot = root
+    app = mount(VaultOverview, { target: document.body }); await settle()
+    const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'vaultOverview.reveal')!
+    button.click(); await settle()
+    expect(mocks.invoke).toHaveBeenCalledWith('plugin:opener|reveal_item_in_dir', { paths: [root] })
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+  })
+  it('reports a file-manager failure without changing the Vault', async () => {
+    const impl = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (cmd, args) => {
+      if (cmd === 'plugin:opener|reveal_item_in_dir') throw new Error('Folder no longer exists')
+      return impl(cmd, args)
+    })
+    app = mount(VaultOverview, { target: document.body }); await settle()
+    const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'vaultOverview.reveal')!
+    button.click(); await settle()
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Folder no longer exists')
+    expect(mocks.root.vaultRoot).toBe('/home/alice/Notes')
+  })
   it('shows a setup action, not zero statistics, without a Vault', async () => {
     mocks.root.vaultRoot = null
     app = mount(VaultOverview, { target: document.body })

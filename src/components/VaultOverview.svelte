@@ -8,7 +8,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import { watchImmediate } from '@tauri-apps/plugin-fs'
   import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-  import { openPath } from '@tauri-apps/plugin-opener'
+  import { revealItemInDir } from '@tauri-apps/plugin-opener'
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { pluginRuntime } from '../lib/plugins/runtime.svelte'
   import { t, i18n } from '../lib/i18n/store.svelte'
@@ -117,7 +117,7 @@
     <div class="path-row">
       <span class="path" title={root}>{pathLabel}</span>
       <button aria-label={t('vaultOverview.copyPath')} onclick={() => void action(async () => { await writeText(root); copied = true })}>{copied ? t('vaultOverview.copied') : t('vaultOverview.copy')}</button>
-      <button onclick={() => void action(() => openPath(root))}>{t('vaultOverview.reveal')}</button>
+      <button onclick={() => void action(() => revealItemInDir(root))}>{t('vaultOverview.reveal')}</button>
     </div>
     <div class="statistics" aria-live="polite" aria-busy={busy}>
       {#if stats}

@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- Fixed the Vault welcome page and settings “Show in file manager” actions failing with a path permission error. Both now reveal and select the Vault folder.
+
 ## v6.1116.1 — 2026-11-16
 
 - **Set up your Vault without finding the tray icon.** First-run guidance and one shared Vault menu entry lead to desktop Vault settings. The welcome page shows the current folder, document count and content size; home paths use `~`. Git initialization is optional, and changing the Vault location requires an explicit confirmation in Advanced settings.

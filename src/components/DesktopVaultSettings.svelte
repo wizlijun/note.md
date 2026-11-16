@@ -3,7 +3,7 @@
   import { listen } from '@tauri-apps/api/event'
   import { open } from '@tauri-apps/plugin-dialog'
   import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-  import { openPath } from '@tauri-apps/plugin-opener'
+  import { revealItemInDir } from '@tauri-apps/plugin-opener'
   import { onMount, onDestroy, tick, type Snippet } from 'svelte'
   import { t } from '../lib/i18n/store.svelte'
   import { confirmDirtyClose } from '../lib/dialogs'
@@ -157,7 +157,7 @@
       <code class="path" title={info.root}>{displayPath(info.root)}</code>
       <div class="actions">
         <button disabled={locked} onclick={() => void run(async () => { await writeText(info!.root!) })}>{t('vaultManage.copy')}</button>
-        <button disabled={locked || !info.accessible} onclick={() => void run(async () => { await openPath(info!.root!) })}>{t('vaultManage.reveal')}</button>
+        <button disabled={locked || !info.accessible} onclick={() => void run(async () => { await revealItemInDir(info!.root!) })}>{t('vaultManage.reveal')}</button>
         <button disabled={locked} onclick={() => void run(refresh)}>{t('vaultManage.recheck')}</button>
       </div>
       {#if !info.accessible}
