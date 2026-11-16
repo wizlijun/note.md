@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1117.1 — 2026-11-17
+
 - Fixed the Vault welcome page and settings “Show in file manager” actions failing with a path permission error. Both now reveal and select the Vault folder.
 
 ## v6.1116.1 — 2026-11-16
