@@ -1,0 +1,21 @@
+{
+  "submissionId": "d86dd996-74a9-4ed8-87c3-107945b6bd3f",
+  "status": "Accepted",
+  "appCDHash": "e8ced4661888a05526e12389fa9318eeb4f3d817",
+  "ticketMatchesApp": true,
+  "appleArchiveSha256": "fd12cbb71f1e5cd8399b1aad312c14d05971e0cab33977519166be9a66220504",
+  "tickets": [
+    {
+      "path": "note.md.zip/note.md.app",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "e8ced4661888a05526e12389fa9318eeb4f3d817",
+      "arch": "arm64"
+    },
+    {
+      "path": "note.md.zip/note.md.app/Contents/MacOS/notemd",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "e8ced4661888a05526e12389fa9318eeb4f3d817",
+      "arch": "arm64"
+    }
+  ]
+}

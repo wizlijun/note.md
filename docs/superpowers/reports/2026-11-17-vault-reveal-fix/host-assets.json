@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "d6d63363fb7667e34eaa60af27abd3ae13ded87b",
+  "version": "6.1117.1",
+  "assets": [
+    {
+      "name": "note.md-6.1117.1-aarch64.dmg",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/note.md-6.1117.1-aarch64.dmg",
+      "size": 15871415,
+      "sha256": "de61c5380599b3c8d1f3193d26ebb36cc456bfd5a7ad8267f06970934da8d9c9"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/note.md-aarch64.app.tar.gz",
+      "size": 15988467,
+      "sha256": "7df3eb26c5798be9139bdf9c13637e6f3be3337e983b6b1fdb28cf7aed0feeb3"
+    },
+    {
+      "name": "note.md-aarch64.app.tar.gz.sig",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/note.md-aarch64.app.tar.gz.sig",
+      "size": 416,
+      "sha256": "9f1bbd66c893c47d5d5a817df40f9cc13da70d16860163cb8e58307d63dfc76f"
+    },
+    {
+      "name": "latest.json",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/latest.json",
+      "size": 740,
+      "sha256": "881dc51ac8d6e5eb4cc6f4df848540d7219e89c7a53c5094ace61ae88751ef44"
+    },
+    {
+      "name": "Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+      "size": 61312645,
+      "sha256": "f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299"
+    },
+    {
+      "name": "fcitx5-companion.json",
+      "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/fcitx5-companion.json",
+      "size": 372,
+      "sha256": "dfe3c834ccd645899a928e7082d2cdfe8be5828f4a3c5cb07b9d92d059c8d05f"
+    }
+  ]
+}

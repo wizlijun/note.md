@@ -14,4 +14,4 @@
 - Svelte 检查 0 errors / 31 既有 warnings；生产 build 通过；差异检查通过。
 - 核对真实 `src-tauri/capabilities/default.json` 与本地锁定插件默认权限及命令实现；这是 SDK/IPC 契约回归加实际权限配置核对，没有将 mocked IPC 声称为原生 WebView/Finder 端到端测试。
 
-用户随后明确要求修复后再发布一个版本，沿用已确认 Apple Silicon macOS 范围。新版本发布验收另行记录；本文不单独证明已进入安装包。
+用户随后明确要求修复后再发布一个版本，沿用已确认 Apple Silicon macOS 范围。修复已进入正式发布的 v6.1117.1；冻结源码、实际包调用绑定、公证与匿名回读证据见 [发布验收](RELEASE.md)。
