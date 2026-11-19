@@ -739,6 +739,29 @@ mod tests {
     }
 
     #[test]
+    fn installed_inventory_rejects_missing_installed_field() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"), "{}").unwrap();
+        assert!(installed_from_root(dir.path()).is_err());
+    }
+
+    #[test]
+    fn installed_inventory_rejects_unrelated_object() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"), r#"{"other":{"enabled":true}}"#).unwrap();
+        assert!(installed_from_root(dir.path()).is_err());
+    }
+
+    #[test]
+    fn installed_inventory_requires_installed_map() {
+        let dir = tempfile::tempdir().unwrap();
+        for content in [r#"{"installed":null}"#, r#"{"installed":[]}"#, "[{}]"] {
+            std::fs::write(dir.path().join("state.json"), content).unwrap();
+            assert!(installed_from_root(dir.path()).is_err(), "{content}");
+        }
+    }
+
+    #[test]
     fn installed_inventory_rejects_corrupt_state() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("state.json"), "{ not json").unwrap();

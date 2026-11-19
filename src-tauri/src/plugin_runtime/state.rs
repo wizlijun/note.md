@@ -20,7 +20,7 @@ pub fn load(root: &Path) -> InstallState {
         .unwrap_or_default()
 }
 
-/// A complete inventory may be empty only when no state exists yet or it parses as empty.
+/// Existing inventory files must explicitly contain the installed map.
 pub fn load_strict(root: &Path) -> Result<InstallState, String> {
     let path = root.join("state.json");
     let bytes = match std::fs::read(&path) {
@@ -28,7 +28,12 @@ pub fn load_strict(root: &Path) -> Result<InstallState, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(InstallState::default()),
         Err(error) => return Err(format!("cannot read plugin install state {}: {error}", path.display())),
     };
-    serde_json::from_slice(&bytes)
+    let value: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("cannot parse plugin install state {}: {error}", path.display()))?;
+    if !value.get("installed").is_some_and(serde_json::Value::is_object) {
+        return Err(format!("plugin install state {} must contain an installed map", path.display()));
+    }
+    serde_json::from_value(value)
         .map_err(|error| format!("cannot parse plugin install state {}: {error}", path.display()))
 }
 
@@ -50,6 +55,31 @@ mod tests {
         assert!(load_strict(&dir.path().join("missing-plugins")).unwrap().installed.is_empty());
         std::fs::write(dir.path().join("state.json"), r#"{"installed":{}}"#).unwrap();
         assert!(load_strict(dir.path()).unwrap().installed.is_empty());
+    }
+
+    #[test]
+    fn strict_load_rejects_missing_installed_field() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"), "{}").unwrap();
+        assert!(load(dir.path()).installed.is_empty());
+        assert!(load_strict(dir.path()).is_err());
+    }
+
+    #[test]
+    fn strict_load_rejects_unrelated_object() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"), r#"{"other":{"enabled":true}}"#).unwrap();
+        assert!(load(dir.path()).installed.is_empty());
+        assert!(load_strict(dir.path()).is_err());
+    }
+
+    #[test]
+    fn strict_load_requires_installed_map() {
+        let dir = tempfile::tempdir().unwrap();
+        for content in [r#"{"installed":null}"#, r#"{"installed":[]}"#, "[{}]"] {
+            std::fs::write(dir.path().join("state.json"), content).unwrap();
+            assert!(load_strict(dir.path()).is_err(), "{content}");
+        }
     }
 
     #[test]
