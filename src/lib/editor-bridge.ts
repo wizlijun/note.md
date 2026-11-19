@@ -1,3 +1,4 @@
+import { reportFileInputBlocked } from './file-input-feedback'
 import { loadDesktopMermaid } from './adapters/mermaid-loader'
 import 'katex/dist/katex.min.css'
 import {
@@ -119,7 +120,7 @@ export async function mountRichEditor(
         }), ...file.plugins], onDelta: delta => {
           recordEditorDelta(delta)
           if (delta.userEdit !== false) recordHomeEdit(file.tab.filePath, sotvaultStore.vaultRoot)
-        }, externalSource: true, imeGuard })
+        }, externalSource: true, imeGuard, onInputBlocked: reportFileInputBlocked })
         registerFileEditorSession(file.tab.id, session)
         await session.setMode(file.tab.mode)
       }

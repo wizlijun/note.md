@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportFileInputBlocked } from './lib/file-input-feedback'
   import { applicationShortcut } from './lib/application-shortcuts'
   import './styles/app.css'
   import './styles/editor-base.css'
@@ -742,12 +743,16 @@
       // Rust-side prevent_close), after which the app has no window to re-show.
       unlistenClose = await win.onCloseRequested(async (event) => {
         event.preventDefault()
-        while (tabs.length > 0) {
-          const id = tabs[0].id
-          if (!await closeTab(id, async () => isDirty(id) ? 'save' : 'discard')) return
+        try {
+          while (tabs.length > 0) {
+            const id = tabs[0].id
+            if (!await closeTab(id, async () => isDirty(id) ? 'save' : 'discard')) return
+          }
+          await flushHomeContent().catch(error => console.warn('[home-content] close:', error))
+          await win.hide()
+        } catch (error) {
+          if (!reportFileInputBlocked(error)) void showError(String(error))
         }
-        await flushHomeContent().catch(error => console.warn('[home-content] close:', error))
-        await win.hide()
       })
     })()
 

@@ -11,6 +11,7 @@ import { withBlockIdentitySchema } from './identity'
 import { createFileResize } from './file-resize'
 import { commandFor } from './commands'
 import { attachFileSourceInput, type FileSourceInput, type FileSourceOptions } from './file-source-input'
+import { FILE_INPUT_WAIT_MS, FileInputBlockedError } from './file-input-error'
 import { noteUi, type NoteEditState } from '../lib/note-anno/note-ui.svelte'
 import { finishNoteEdit, insertNoteRich, openEditForAnchor, openEditForMark, type NoteEditAdmission } from '../lib/note-anno/note-commands'
 import { noteBadgePlugin } from '../lib/note-anno/note-plugin'
@@ -29,6 +30,7 @@ export interface FileMountWiring {
   externalSource?: boolean
   imeGuard?: ImeGuard
   notify?(text: string): void
+  onInputBlocked?(error: FileInputBlockedError): void
 }
 export interface FileMountSession extends MountedFileEditor {
   closeIfSaved(expected: { identity: object; raw: string }): Promise<void>
@@ -59,7 +61,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   let pane: HTMLElement | undefined
   let mode: 'rich' | 'source' = 'rich'
   let closed = false, detached = false, readOnly = options.readOnly ?? false
-  let richComposing = false, richFrame: number | null = null
+  let richComposing = false, richFrame: number | null = null, richCompositionEpoch = 0
   let policy = options.policy
   let ownedEdit: NoteEditState | undefined
   const layers = new Map<string, readonly DecorationItem[]>()
@@ -133,10 +135,29 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     setReadOnly(value) { menus.closeContext(); if (ownedEdit && noteUi.edit === ownedEdit) ownedEdit.readOnly = value; readOnly = value; controller.setReadOnly(value); instance.view.setProps({ editable: () => !readOnly }); if (pane) pane.querySelector('textarea')!.readOnly = readOnly },
     async flush() {
       if (closed) throw new Error('file-closed')
-      if (richComposing) await new Promise<void>((resolve, reject) => richWaiters.push({ resolve, reject }))
-      await source?.flush()
-      if (!flushNote()) throw new Error('annotation-pending')
-      return controller.snapshot()
+      try {
+        if (richComposing) await new Promise<void>((resolve, reject) => {
+          const remove = () => { clearTimeout(timer); const index = richWaiters.indexOf(waiter); if (index >= 0) richWaiters.splice(index, 1) }
+          const waiter = {
+            resolve() { remove(); resolve() },
+            reject(error: Error) { remove(); reject(error) },
+          }
+          const timer = setTimeout(() => waiter.reject(new FileInputBlockedError('rich-composing')), FILE_INPUT_WAIT_MS)
+          richWaiters.push(waiter)
+        })
+        await source?.flush()
+        if (!flushNote()) throw new FileInputBlockedError('annotation-pending')
+        return controller.snapshot()
+      } catch (error) {
+        if (error instanceof FileInputBlockedError) {
+          try {
+            if (error.reason === 'source-pending') source?.reveal()
+            if (error.reason === 'annotation-pending' && ownedEdit === noteUi.edit) ownedEdit?.revealDraft?.()
+          } catch { /* Draft recovery UI must not replace the blocking error. */ }
+          try { wiring.onInputBlocked?.(error) } catch { /* Reporting cannot resume a blocked operation. */ }
+        }
+        throw error
+      }
     },
     observe(listener) { listeners.add(listener); return () => { listeners.delete(listener) } },
     close: () => close(),
@@ -245,8 +266,13 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     for (const listener of richCompositionListeners) listener()
     refreshFileHistoryRoute()
   }
+  function finishRichComposition() {
+    setRichComposing(false)
+    for (const waiter of richWaiters.splice(0)) waiter.resolve()
+  }
   rich.addEventListener('compositionstart', event => {
     if (!isRichEditorInput(event, rich)) return
+    richCompositionEpoch++
     if (richFrame !== null) { cancelAnimationFrame(richFrame); richFrame = null }
     setRichComposing(true)
   }, true)
@@ -254,9 +280,21 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     if (!isRichEditorInput(event, rich)) return
     if (richFrame !== null) cancelAnimationFrame(richFrame)
     richFrame = requestAnimationFrame(() => {
-      richFrame = null; setRichComposing(false)
-      for (const waiter of richWaiters.splice(0)) waiter.resolve()
+      richFrame = null; finishRichComposition()
     })
+  }, true)
+  // PM flushes native input and ends composition for these gestures without
+  // emitting compositionend. A task runs after the whole native event dispatch;
+  // a microtask can run between our capture listener and PM's target listener.
+  // Never release active composition or a delivered end's final-input frame.
+  for (const type of ['mousedown', 'contextmenu', 'touchstart']) rich.addEventListener(type, event => {
+    if (!richComposing || !isRichEditorInput(event, rich)) return
+    const epoch = richCompositionEpoch
+    setTimeout(() => {
+      if (closed || detached || epoch !== richCompositionEpoch || !richComposing || richFrame !== null || instance.view.composing) return
+      ime.reset()
+      finishRichComposition()
+    }, 0)
   }, true)
   rich.addEventListener('keydown', event => {
     if (isRichEditorInput(event, rich) && (event.metaKey || event.ctrlKey) && ['z', 'y'].includes(event.key.toLowerCase()) && (richComposing || ime.blocks(event))) {
@@ -361,7 +399,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     async setMode(next) {
       if (closed) return false
       menus.closeContext()
-      try { await owner.flush() } catch { return false }
+      try { await owner.flush() } catch (error) { if (error instanceof FileInputBlockedError) return false; throw error }
       if (mode === next) return true
       if (ownedEdit && noteUi.edit === ownedEdit) noteUi.edit = null
       menus.closeSlash()
@@ -374,10 +412,11 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     focus() { if (!closed && !detached) { if (mode === 'source') pane?.querySelector('textarea')?.focus(); else instance.view.focus() } },
     destroyView() {
       if (detached || closed) return
+      richCompositionEpoch++
       menus.closeSlash(); menus.closeContext(); unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
       if (richFrame !== null) cancelAnimationFrame(richFrame)
       richFrame = null
-      if (richComposing) { richComposing = false; for (const waiter of richWaiters.splice(0)) waiter.reject(new Error('composition-interrupted')) }
+      if (richComposing) { richComposing = false; for (const waiter of richWaiters.splice(0)) waiter.reject(new FileInputBlockedError('rich-composing', 'composition-interrupted')) }
     },
     attach(target) { if (closed) throw new Error('file-closed'); target.append(root); detached = false; instance.view.updateState(controller.state); controller.bindView(instance.view); bindRichHistory(); if (pane) attachSource(pane.querySelector('textarea')!) },
     decorations: {

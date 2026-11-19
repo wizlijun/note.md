@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { reportFileInputBlocked } from '../lib/file-input-feedback'
   import { tabs, activeId, activeTab, isDirty, activate, activateHome, closeTab, closeTabs } from '../lib/tabs.svelte'
   import { formFactor } from '../lib/platform.svelte'
-  import { confirmDirtyClose } from '../lib/dialogs'
+  import { confirmDirtyClose, showError } from '../lib/dialogs'
   import { t } from '../lib/i18n/store.svelte'
   import ModeToggle from './ModeToggle.svelte'
   import {
@@ -18,7 +19,9 @@
 
   async function onClose(e: MouseEvent, id: string) {
     e.stopPropagation()
-    await closeTab(id, confirmDirtyClose)
+    try { await closeTab(id, confirmDirtyClose) } catch (error) {
+      if (!reportFileInputBlocked(error)) void showError(String(error))
+    }
   }
 
   let active = $derived(activeTab())
@@ -110,7 +113,9 @@
         ? tabs.slice(0, index).map((tab) => tab.id)
         : tabs.map((tab) => tab.id)
     closeCtxMenu()
-    await closeTabs(ids, confirmDirtyClose)
+    try { await closeTabs(ids, confirmDirtyClose) } catch (error) {
+      if (!reportFileInputBlocked(error)) void showError(String(error))
+    }
   }
 
   async function onCtxItemClick(item: CollectedItem, enabled: boolean) {

@@ -1398,6 +1398,13 @@ export const de: Record<keyof Messages, string> = {
   'daily.toolbar.find': 'Find',
   'daily.emptyDay': '(empty)',
 
+  'editorInput.richComposing': "Die Texteingabe ist noch aktiv. Die Aktion wurde nicht abgeschlossen. Bestätige oder verwirf die Eingabe und versuche es erneut. Das Dokument bleibt erhalten.",
+  'editorInput.sourceComposing': "Die Texteingabe im Quelltext ist noch aktiv. Bestätige oder verwirf sie und versuche es erneut. Der Entwurf bleibt erhalten.",
+  'editorInput.sourcePending': "Quelltextänderungen konnten nicht übernommen werden. Kopiere oder bearbeite den Entwurf im Quelltexteditor und versuche es erneut.",
+  'editorInput.annotationPending': "Anmerkungen konnten nicht übernommen werden. Bearbeite den Entwurf und versuche es erneut. Das Dokument bleibt erhalten.",
+  'editorInput.copyDraft': "Entwurf kopieren",
+  'noteedit.copyFailed': "Kopieren fehlgeschlagen. Markiere den Text und kopiere ihn manuell.",
+
   // Tray menu
   'tray.dailyNotes': 'Tagesnotizen',
 } as const

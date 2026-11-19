@@ -89,6 +89,8 @@ export interface NoteEditState {
   save: (note: string) => boolean | void
   remove: () => boolean | void
   flushDraft?: () => boolean | void
+  /** Bring a rejected draft back into view without committing or replacing it. */
+  revealDraft?: () => void
 }
 
 export interface NoteHoverState {

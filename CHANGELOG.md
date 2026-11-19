@@ -9,6 +9,11 @@ For the full commit history, see the git log.
 
 - The desktop home page now separates unread new content from documents you edited or spent time reading. Process files are filtered from new content, brief previews do not crowd continuing reads, and each suggestion can be dismissed across restarts. The File menu uses the same suggestions and keeps unfiltered open history separately. Read-only shared pages now expose “Open in note.md” to continue in the app. The Safari-inspired layout combines built-in tools, pinned and frequent apps in two shortcut rows, followed by two document columns with three body previews and independent Show All controls, an AI suggestions layout area, and a compact status/settings footer.
 
+- Editor actions now explain blocked composition or unapplied source/annotation drafts instead of waiting indefinitely. Failed drafts can be copied, retried or explicitly discarded; annotation recovery controls remain visible.
+
+- Fixed a Rich editor IME state mismatch after mouse interactions that could disable editing commands and leave mode switches or tab closure waiting indefinitely.
+
+
 ## v6.1119.1 — 2026-11-19
 
 - The desktop home page now puts creation tools and eight app shortcuts in one aligned grid, with installed-app search, categories, pinning and position editing. Daily suggestions stay stable; disabled pinned apps keep their positions and explain availability. Vault statistics remain visible while secondary folder controls are collapsed.

@@ -1397,6 +1397,13 @@ export const zh: Record<keyof Messages, string> = {
   'daily.toolbar.find': '查找',
   'daily.emptyDay': '（空）',
 
+  'editorInput.richComposing': "输入法尚未结束，本次操作未完成。请确认或取消候选字后重试；文档仍保留。",
+  'editorInput.sourceComposing': "源码中的输入法尚未结束。请确认或取消候选字后重试；草稿仍保留。",
+  'editorInput.sourcePending': "源码修改尚未应用。请在源码编辑区复制或处理草稿后重试。",
+  'editorInput.annotationPending': "批注修改尚未应用。请处理批注草稿后重试；正文仍保留。",
+  'editorInput.copyDraft': "复制草稿",
+  'noteedit.copyFailed': "复制失败，请选中文字手动复制。",
+
   // Tray menu
   'tray.dailyNotes': '每日笔记',
 }
