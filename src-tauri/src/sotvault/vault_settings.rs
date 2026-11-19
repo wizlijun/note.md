@@ -94,6 +94,14 @@ pub struct VaultSettings {
     /// `validate_search_weights` 里 `check` 的 `low_inclusive` 参数。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub search_weights: Option<SearchWeights>,
+    /// 主页「新内容」列表排除的库相对目录(含全部子目录)。只作用于新内容,
+    /// 不影响继续阅读、搜索或任何其他列表;排除优先于下面的「只看」。
+    /// 缺省 = 未配置;空列表 = 显式清空。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub home_new_exclude_dirs: Option<Vec<String>>,
+    /// 主页「新内容」只列这些库相对目录(含全部子目录);空或缺省 = 不限。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub home_new_include_dirs: Option<Vec<String>>,
 }
 
 /// Plain data shape for [`VaultSettings::search_weights`] — see that field's
@@ -212,6 +220,8 @@ pub fn merge(
     search_large_file_threshold_mb: Option<u32>,
     search_source_globs: Option<Vec<String>>,
     search_weights: Option<SearchWeights>,
+    home_new_exclude_dirs: Option<Vec<String>>,
+    home_new_include_dirs: Option<Vec<String>>,
 ) -> Result<VaultSettings, String> {
     let mut out = base;
     if let Some(v) = sync_dir {
@@ -252,7 +262,17 @@ pub fn merge(
         validate_search_weights(&w)?;
         out.search_weights = Some(w);
     }
+    if let Some(list) = home_new_exclude_dirs {
+        out.home_new_exclude_dirs = Some(validate_rel_dirs(list)?);
+    }
+    if let Some(list) = home_new_include_dirs {
+        out.home_new_include_dirs = Some(validate_rel_dirs(list)?);
+    }
     Ok(out)
+}
+
+fn validate_rel_dirs(list: Vec<String>) -> Result<Vec<String>, String> {
+    list.iter().map(|raw| validate_rel_dir(raw)).collect()
 }
 
 /// Reject an out-of-range weight at save time (spec §8: "权重非法 → 保存时
@@ -379,6 +399,8 @@ mod tests {
             search_large_file_threshold_mb: None,
             search_source_globs: None,
             search_weights: None,
+            home_new_exclude_dirs: None,
+            home_new_include_dirs: None,
         };
         write(dir.path(), &s).unwrap();
         assert_eq!(read(dir.path()), s);
@@ -444,8 +466,10 @@ mod tests {
             search_large_file_threshold_mb: None,
             search_source_globs: None,
             search_weights: None,
+            home_new_exclude_dirs: None,
+            home_new_include_dirs: None,
         };
-        let out = merge(base, Some("box".into()), None, None, None, None, None, None, None, None).unwrap();
+        let out = merge(base, Some("box".into()), None, None, None, None, None, None, None, None, None, None).unwrap();
         assert_eq!(out.sync_dir.as_deref(), Some("box"));
         assert_eq!(out.wikipage_dir.as_deref(), Some("wiki"));
         assert_eq!(out.dailynote_dir.as_deref(), Some("daily"));
@@ -454,13 +478,13 @@ mod tests {
 
     #[test]
     fn merge_rejects_invalid_provided_value() {
-        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None, None, None, None, None, None, None).is_err());
-        assert!(merge(VaultSettings::default(), None, None, None, None, Some("../x".into()), None, None, None, None).is_err());
+        assert!(merge(VaultSettings::default(), Some("../x".into()), None, None, None, None, None, None, None, None, None, None).is_err());
+        assert!(merge(VaultSettings::default(), None, None, None, None, Some("../x".into()), None, None, None, None, None, None).is_err());
     }
 
     #[test]
     fn merge_sets_inbox_dir() {
-        let out = merge(VaultSettings::default(), None, None, None, None, Some("box".into()), None, None, None, None).unwrap();
+        let out = merge(VaultSettings::default(), None, None, None, None, Some("box".into()), None, None, None, None, None, None).unwrap();
         assert_eq!(out.inbox_dir.as_deref(), Some("box"));
     }
 
@@ -523,15 +547,15 @@ mod tests {
 
     #[test]
     fn merge_sets_and_validates_threshold() {
-        let out = merge(VaultSettings::default(), None, None, None, Some(25), None, None, None, None, None).unwrap();
+        let out = merge(VaultSettings::default(), None, None, None, Some(25), None, None, None, None, None, None, None).unwrap();
         assert_eq!(out.large_file_threshold_mb, Some(25));
-        assert!(merge(VaultSettings::default(), None, None, None, Some(0), None, None, None, None, None).is_err());
+        assert!(merge(VaultSettings::default(), None, None, None, Some(0), None, None, None, None, None, None, None).is_err());
     }
 
     #[test]
     fn merge_keeps_threshold_when_none() {
         let base = VaultSettings { large_file_threshold_mb: Some(50), ..Default::default() };
-        let out = merge(base, Some("box".into()), None, None, None, None, None, None, None, None).unwrap();
+        let out = merge(base, Some("box".into()), None, None, None, None, None, None, None, None, None, None).unwrap();
         assert_eq!(out.large_file_threshold_mb, Some(50));
     }
 
@@ -563,7 +587,7 @@ mod tests {
             VaultSettings::default(),
             None, None, None, None, None,
             Some(vec!["a/b".into()]),
-            None, None, None,
+            None, None, None, None, None,
         )
         .unwrap();
         assert_eq!(ok.search_exclude_dirs, Some(vec!["a/b".to_string()]));
@@ -571,21 +595,21 @@ mod tests {
             VaultSettings::default(),
             None, None, None, None, None,
             Some(vec!["../x".into()]),
-            None, None, None,
+            None, None, None, None, None,
         )
         .is_err());
         assert!(merge(
             VaultSettings::default(),
             None, None, None, None, None,
             Some(vec!["/abs".into()]),
-            None, None, None,
+            None, None, None, None, None,
         )
         .is_err());
         assert!(merge(
             VaultSettings::default(),
             None, None, None, None, None,
             Some(vec!["C:\\x".into()]),
-            None, None, None,
+            None, None, None, None, None,
         )
         .is_err());
     }
@@ -597,18 +621,73 @@ mod tests {
     fn merge_rejects_a_drive_letter_in_every_directory_field() {
         let drive = || Some("C:\\Users\\x".to_string());
         let base = VaultSettings::default;
-        assert!(merge(base(), drive(), None, None, None, None, None, None, None, None).is_err(), "sync_dir");
-        assert!(merge(base(), None, drive(), None, None, None, None, None, None, None).is_err(), "wikipage_dir");
-        assert!(merge(base(), None, None, drive(), None, None, None, None, None, None).is_err(), "dailynote_dir");
-        assert!(merge(base(), None, None, None, None, drive(), None, None, None, None).is_err(), "inbox_dir");
+        assert!(merge(base(), drive(), None, None, None, None, None, None, None, None, None, None).is_err(), "sync_dir");
+        assert!(merge(base(), None, drive(), None, None, None, None, None, None, None, None, None).is_err(), "wikipage_dir");
+        assert!(merge(base(), None, None, drive(), None, None, None, None, None, None, None, None).is_err(), "dailynote_dir");
+        assert!(merge(base(), None, None, None, None, drive(), None, None, None, None, None, None).is_err(), "inbox_dir");
     }
 
     /// 空数组是有意义的输入(= 清空排除),不能被当成"没提供"。
     #[test]
     fn an_empty_list_clears_the_exclusions() {
         let base = VaultSettings { search_exclude_dirs: Some(vec!["x".into()]), ..Default::default() };
-        let out = merge(base, None, None, None, None, None, Some(vec![]), None, None, None).unwrap();
+        let out = merge(base, None, None, None, None, None, Some(vec![]), None, None, None, None, None).unwrap();
         assert_eq!(out.search_exclude_dirs, Some(vec![]));
+    }
+
+    /// 主页新内容的目录规则走同一道 `validate_rel_dir`:写法宽容(首尾空白、
+    /// `./`、尾 `/`),存下来的是规范化后的库相对目录;空列表 = 显式清空。
+    #[test]
+    fn merge_validates_home_new_dirs() {
+        let out = merge(
+            VaultSettings::default(),
+            None, None, None, None, None, None, None, None, None,
+            Some(vec![" agent-sessions/ ".into(), "./project/axe-research".into()]),
+            Some(vec![]),
+        )
+        .unwrap();
+        assert_eq!(
+            out.home_new_exclude_dirs,
+            Some(vec!["agent-sessions".to_string(), "project/axe-research".to_string()])
+        );
+        assert_eq!(out.home_new_include_dirs, Some(vec![]));
+    }
+
+    #[test]
+    fn merge_rejects_escaping_home_new_dir() {
+        let exclude = merge(
+            VaultSettings::default(),
+            None, None, None, None, None, None, None, None, None,
+            Some(vec!["../x".into()]),
+            None,
+        );
+        assert!(exclude.is_err());
+        let include = merge(
+            VaultSettings::default(),
+            None, None, None, None, None, None, None, None, None,
+            None,
+            Some(vec!["/abs".into()]),
+        );
+        assert!(include.is_err());
+    }
+
+    #[test]
+    fn home_new_dirs_round_trip_and_absent_by_default() {
+        let tmp = tempfile::tempdir().unwrap();
+        write(tmp.path(), &VaultSettings::default()).unwrap();
+        let txt = std::fs::read_to_string(tmp.path().join(".notemd/settings.json")).unwrap();
+        assert!(!txt.contains("homeNewExcludeDirs"), "{txt}");
+        assert!(!txt.contains("homeNewIncludeDirs"), "{txt}");
+
+        let s = VaultSettings {
+            home_new_exclude_dirs: Some(vec!["stat".into()]),
+            home_new_include_dirs: Some(vec!["project".into()]),
+            ..Default::default()
+        };
+        write(tmp.path(), &s).unwrap();
+        let txt = std::fs::read_to_string(tmp.path().join(".notemd/settings.json")).unwrap();
+        assert!(txt.contains("homeNewExcludeDirs"), "{txt}");
+        assert_eq!(read(tmp.path()), s);
     }
 
     #[test]
@@ -626,7 +705,7 @@ mod tests {
     #[test]
     fn merge_rejects_a_zero_search_threshold() {
         let base = VaultSettings::default();
-        assert!(merge(base, None, None, None, None, None, None, Some(0), None, None).is_err());
+        assert!(merge(base, None, None, None, None, None, None, Some(0), None, None, None, None).is_err());
     }
 
     /// Review round 1, Important 4 (spec §8: "权重非法 → 保存时拒绝,保留
@@ -636,7 +715,7 @@ mod tests {
     #[test]
     fn merge_rejects_an_out_of_range_weight() {
         let bad = |w: SearchWeights| {
-            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w))
+            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w), None, None)
         };
         assert!(bad(SearchWeights { human: Some(0.0), ..Default::default() }).is_err(), "0 不合法");
         assert!(bad(SearchWeights { human: Some(-1.0), ..Default::default() }).is_err(), "负数不合法");
@@ -648,7 +727,7 @@ mod tests {
     #[test]
     fn merge_accepts_boundary_and_ordinary_weights() {
         let ok = |w: SearchWeights| {
-            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w))
+            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w), None, None)
         };
         assert!(ok(SearchWeights { human: Some(5.0), ..Default::default() }).is_ok(), "5.0 是合法上界");
         assert!(ok(SearchWeights { source: Some(0.000_1), ..Default::default() }).is_ok(), "接近 0 但仍为正的合法值");
@@ -664,7 +743,7 @@ mod tests {
     #[test]
     fn attention_weight_allows_zero_at_save_time_but_the_origin_tiers_still_reject_it() {
         let save = |w: SearchWeights| {
-            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w))
+            merge(VaultSettings::default(), None, None, None, None, None, None, None, None, Some(w), None, None)
         };
         assert!(
             save(SearchWeights { attention: Some(0.0), ..Default::default() }).is_ok(),
@@ -694,7 +773,7 @@ mod tests {
         let out = merge(
             VaultSettings::default(),
             None, None, None, None, None, None, None, None,
-            Some(SearchWeights { human: Some(2.0), ..Default::default() }),
+            Some(SearchWeights { human: Some(2.0), ..Default::default() }), None, None,
         )
         .unwrap();
         assert_eq!(out.search_weights.unwrap().human, Some(2.0));
@@ -714,7 +793,7 @@ mod tests {
         let err = merge(
             base,
             None, None, None, None, None, None, None, None,
-            Some(SearchWeights { human: Some(-1.0), ..Default::default() }),
+            Some(SearchWeights { human: Some(-1.0), ..Default::default() }), None, None,
         );
         assert!(err.is_err(), "非法权重必须拒绝整次保存");
     }

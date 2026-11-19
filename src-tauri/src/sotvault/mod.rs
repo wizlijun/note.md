@@ -252,6 +252,8 @@ fn persist_vault_settings(
     search_large_file_threshold_mb: Option<u32>,
     search_source_globs: Option<Vec<String>>,
     search_weights: Option<vault_settings::SearchWeights>,
+    home_new_exclude_dirs: Option<Vec<String>>,
+    home_new_include_dirs: Option<Vec<String>>,
 ) -> Result<(vault_settings::VaultSettings, bool), String> {
     let base = vault_settings::read(vault_root);
     let merged = vault_settings::merge(
@@ -265,6 +267,8 @@ fn persist_vault_settings(
         search_large_file_threshold_mb,
         search_source_globs,
         search_weights,
+        home_new_exclude_dirs,
+        home_new_include_dirs,
     )?;
     vault_settings::write(vault_root, &merged)?;
     let reopen_index = crate::search::options::search_source_globs_changed(&base, &merged);
@@ -287,6 +291,8 @@ pub fn notemd_vault_settings_set(
     search_large_file_threshold_mb: Option<u32>,
     search_source_globs: Option<Vec<String>>,
     search_weights: Option<vault_settings::SearchWeights>,
+    home_new_exclude_dirs: Option<Vec<String>>,
+    home_new_include_dirs: Option<Vec<String>>,
 ) -> Result<vault_settings::VaultSettings, String> {
     let vault_root = resolve_vault_root(&app).ok_or("Vault not configured")?;
     let (merged, reopen_index) = persist_vault_settings(
@@ -300,6 +306,8 @@ pub fn notemd_vault_settings_set(
         search_large_file_threshold_mb,
         search_source_globs,
         search_weights,
+        home_new_exclude_dirs,
+        home_new_include_dirs,
     )?;
     // A frozen index snapshot must not revive after settings change and revert.
     crate::plugin_runtime::index_api::invalidate_all();
@@ -786,7 +794,7 @@ mod tests {
 
         let (merged, reopen) = persist_vault_settings(
             root, None, None, None, None, None, None, None,
-            Some(vec!["ebook/**".to_string()]), None,
+            Some(vec!["ebook/**".to_string()]), None, None, None,
         )
         .unwrap();
         assert_eq!(merged.search_source_globs, Some(vec!["ebook/**".to_string()]));
@@ -800,7 +808,7 @@ mod tests {
         // Re-saving the same value changes nothing the index reads.
         let (_, reopen) = persist_vault_settings(
             root, None, None, None, None, None, None, None,
-            Some(vec!["ebook/**".to_string()]), None,
+            Some(vec!["ebook/**".to_string()]), None, None, None,
         )
         .unwrap();
         assert!(!reopen, "an unchanged pattern list must not cost a full rebuild");
@@ -827,7 +835,7 @@ mod tests {
         .enumerate()
         {
             let (_, reopen) = persist_vault_settings(
-                root, args.0, args.1, args.2, args.3, args.4, args.5, args.6, None, args.7,
+                root, args.0, args.1, args.2, args.3, args.4, args.5, args.6, None, args.7, None, None,
             )
             .unwrap();
             assert!(!reopen, "settings field #{i} must not trigger an index rebuild");
@@ -854,7 +862,7 @@ mod tests {
         );
 
         let (_, reopen) =
-            persist_vault_settings(root, Some("box".to_string()), None, None, None, None, None, None, None, None)
+            persist_vault_settings(root, Some("box".to_string()), None, None, None, None, None, None, None, None, None, None)
                 .unwrap();
         assert!(reopen, "缺省模式下移动 syncDir 改变了实际解析出的 source_globs,必须重开索引");
     }
@@ -871,7 +879,7 @@ mod tests {
 
         let (merged, _) = persist_vault_settings(
             root, None, None, None, None, None, None, None, None,
-            Some(vault_settings::SearchWeights { human: Some(1.5), ..Default::default() }),
+            Some(vault_settings::SearchWeights { human: Some(1.5), ..Default::default() }), None, None,
         )
         .unwrap();
         assert_eq!(merged.search_weights.unwrap().human, Some(1.5));
@@ -879,7 +887,7 @@ mod tests {
 
         let err = persist_vault_settings(
             root, None, None, None, None, None, None, None, None,
-            Some(vault_settings::SearchWeights { human: Some(-1.0), ..Default::default() }),
+            Some(vault_settings::SearchWeights { human: Some(-1.0), ..Default::default() }), None, None,
         );
         assert!(err.is_err(), "非法权重必须拒绝整次保存");
 
