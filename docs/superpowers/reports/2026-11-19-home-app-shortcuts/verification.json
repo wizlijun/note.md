@@ -1,0 +1,25 @@
+{
+  "url": "http://127.0.0.1:5173/tasks/home-ui/index.html",
+  "checks": [
+    "Creation → Apps → settings order",
+    "Vault statistics stay visible, secondary details expand/collapse",
+    "Directory opens and Escape closes",
+    "Top actions align with Apps columns; exactly three icon tones",
+    "Context menu uses global accent/white hover and Escape restores tile focus",
+    "Keyboard auto→fixed swap and drag fixed→fixed swap persist across reload",
+    "Storage failure is visible and preserves prior pins; retry recovers",
+    "Offline directory search/empty results and disabled details without runnable entry",
+    "Failed installed-list read cannot delete pins",
+    "390px light/dark: no horizontal viewport overflow",
+    "Long plugin name fits narrow two-column layout",
+    "Vault error stays visible while details are collapsed",
+    "Cold start has no fake popular apps; edit mode reveals eight available positions",
+    "Eight pinned positions reject a ninth fixed item"
+  ],
+  "errors": [],
+  "status": "PASS",
+  "menuHover": {
+    "bg": "rgb(10, 99, 255)",
+    "fg": "rgb(255, 255, 255)"
+  }
+}
