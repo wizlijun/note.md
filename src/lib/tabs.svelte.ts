@@ -18,6 +18,7 @@ import { isReadonlyMarkdownTab } from './readonly-document'
 import type { CanvasDiskRevision, CanvasSaveResult } from './canvas/io'
 import { resetFileViewSelection } from './plugins/file-view-selection.svelte'
 import { formatJsonSource } from './json-format'
+import { sotvaultStore } from './sotvault.svelte'
 import { fileEditorSessionClosing, fileSourceGuard, fileEditorSession, closeFileEditorSession, captureFileSave, acknowledgeFileSave, type FileSaveRequest } from './file-editor-sessions'
 import { SUMI_PLUGIN_ID, sumiOwner, settleSumiOwner, openSumiOwner, flushSumiNative, saveSumiSource, rebaseSumiDraft, refreshSumiOwner, closeSumiOwner, finishSumiHandoff, type SumiSnapshot, type ProjectionIdentity } from './sumi/session'
 
@@ -867,7 +868,7 @@ export async function reloadTabFromDisk(path: string, options?: { expectedConten
 
 let questionCapture: typeof import('./outline/question-capture') | null = null
 
-export function setContent(id: string, md: string): void {
+export function setContent(id: string, md: string, userEdit = false): void {
   const t = tabs.find((x) => x.id === id)
   if (!t || isReadOnlyTab(t)) return
   const session = fileEditorSession(id)
@@ -876,7 +877,12 @@ export function setContent(id: string, md: string): void {
     if (!accepted.ok) return
     md = accepted.snapshot.raw
   }
+  const changed = t.currentContent !== md
   t.currentContent = md
+  if (changed && userEdit && t.filePath) {
+    const path = t.filePath, root = sotvaultStore.vaultRoot
+    void import('./home-content/store.svelte').then(m => m.recordHomeEdit(path, root)).catch(() => {})
+  }
   if (!t.filePath || t.kind === 'canvas') return
   // 提问捕获:模块加载后无条件调用(schedule 自带在途取消,批注整体删除也能撤回);
   // 首次加载仍由 {>> 门卫触发——加载前不存在在途 timer
@@ -1275,6 +1281,7 @@ export async function updateTabPath(oldPath: string, newPath: string): Promise<v
   if (t) {
     const wasCanvas = t.kind === 'canvas'
     t.filePath = newPath
+    if (activeId.value === t.id) notifyInsights('onActiveDocChanged')
     t.title = basename(newPath)
     const cls = classifyPath(newPath)
     if (cls) { t.kind = cls.kind; t.language = cls.language }
@@ -1285,6 +1292,8 @@ export async function updateTabPath(oldPath: string, newPath: string): Promise<v
       await copyCanvasViewport(oldPath, newPath, true)
     }
   }
+  const { renameHomeContent } = await import('./home-content/store.svelte')
+  await renameHomeContent(oldPath, newPath, sotvaultStore.vaultRoot).catch(error => console.warn('[home-content] rename:', error))
   await rewriteOpenCanvasReferences(oldPath, newPath)
 }
 
@@ -1377,6 +1386,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
       await copyCanvasViewport(sourceIdentity.path, saved.canonicalPath)
 
       t.filePath = saved.canonicalPath
+      if (activeId.value === t.id) notifyInsights('onActiveDocChanged')
       t.title = basename(saved.canonicalPath)
       t.canvasRevision = saved.revision
       t.initialContent = content
@@ -1395,6 +1405,7 @@ export async function saveAs(id: string, newPath: string): Promise<void> {
   if (t.filePath!==oldPath || epoch!==markdownWriteEpoch(oldPath) || isGuestUpdateBusy(oldPath) || isGuestUpdateBusy(newPath)) throw Error('GUEST_TAB_CHANGED')
   await writeMd(newPath, content)
   t.filePath = newPath
+  if (activeId.value === t.id) notifyInsights('onActiveDocChanged')
   t.title = basename(newPath)
   t.initialContent = content
   // Re-classify in case user changed extension
@@ -1498,6 +1509,7 @@ export async function closeTab(
   }
   if (activeId.value === id) {
     activeId.value = tabs[idx]?.id ?? tabs[idx - 1]?.id ?? null
+    notifyInsights('onActiveDocChanged')
   }
   return true
 }

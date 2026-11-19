@@ -9,6 +9,7 @@ import { createAnalyticsStore, type AnalyticsStore, type Fs } from './store.svel
 import { initTiming, applyEvent, activeNow, sessionActionFor, type TimingState, type TimingEvent, type TimingMode } from './timing'
 import { docKeyFor, localTzOffsetMinutes } from './model'
 import { analyticsObserverPlugin, type ObserverDelta } from './observer'
+import { beginHomeVisit, recordHomeAttention, flushHomeContent } from '../home-content/store.svelte'
 
 const TICK_MS = 5_000
 const FLUSH_EVERY_TICKS = 6 // ~30s
@@ -25,6 +26,7 @@ interface TrackerState {
   store: AnalyticsStore
   timing: TimingState
   currentDocKey: string | null
+  currentPath: string | null
   timer: ReturnType<typeof setInterval> | null
   tickCount: number
   disposers: Array<() => void>
@@ -37,7 +39,7 @@ let installed: { root: string; dispose: () => void | Promise<void> } | null = nu
 
 function currentDocKey(): string | null {
   const t = activeTab()
-  if (!t || !t.filePath || t.kind !== 'markdown') return null
+  if (!t || !t.filePath || t.kind === 'image') return null
   return docKeyFor(t.filePath, sotvaultStore.vaultRoot)
 }
 
@@ -58,6 +60,7 @@ function dispatch(ev: TimingEvent): void {
   const act = sessionActionFor(wasActive, activeNow(state.presence), accrued)
   if (act.start) tracker.store.sessionStart(docKey, now)
   if (act.extend) {
+    if (tracker.currentPath) recordHomeAttention(tracker.currentPath, act.extend.ms, now)
     tracker.store.accrue(
       docKey,
       act.extend.mode === 'read' ? { read_ms: act.extend.ms } : { edit_ms: act.extend.ms },
@@ -72,20 +75,26 @@ function dispatch(ev: TimingEvent): void {
  *  timing for the new, and open its interval (we're switching in the foreground). */
 export function onActiveDocChanged(): void {
   if (!tracker) return
+  const nextKey = currentDocKey()
+  if (nextKey === tracker.currentDocKey) return
+  const focused = tracker.timing.presence.appFocused
   dispatch({ type: 'tabInactive' }) // credit remaining time + close old doc's session
-  tracker.currentDocKey = currentDocKey()
+  tracker.currentDocKey = nextKey
+  tracker.currentPath = nextKey ? activeTab()?.filePath ?? null : null
+  beginHomeVisit(tracker.currentPath, sotvaultStore.vaultRoot)
   tracker.timing = initTiming(Date.now(), currentMode())
   if (tracker.currentDocKey) {
     tracker.store.accrue(tracker.currentDocKey, { open_count: 1 }, Date.now())
     // Assume focused + active tab (a doc switch happens in the foreground), so the
     // new doc's interval opens immediately — mirrors the install path below.
-    dispatch({ type: 'focus' })
+    if (focused) dispatch({ type: 'focus' })
     dispatch({ type: 'tabActive' })
   }
 }
 
 /** Record a delta only after the file controller has installed the full chain. */
-export function recordEditorDelta({ markOps, sizeDelta }: ObserverDelta): void {
+export function recordEditorDelta({ markOps, sizeDelta, userEdit }: ObserverDelta): void {
+  if (userEdit === false) return
   if (!tracker || !tracker.currentDocKey) return
   const now = Date.now()
   // A doc change counts as user activity (resumes from idle) and an edit.
@@ -95,6 +104,11 @@ export function recordEditorDelta({ markOps, sizeDelta }: ObserverDelta): void {
     { mark_ops: markOps, net_chars: Math.max(0, sizeDelta), edit_sessions: 1 },
     now,
   )
+}
+
+/** Native editor input has no DOM key event, but still resumes real activity. */
+export function onNativeUserEdit(path: string): void {
+  if (tracker?.currentPath === path) dispatch({ type: 'activity' })
 }
 
 /** Attach the analytics observer to a freshly mounted legacy editor. */
@@ -123,6 +137,7 @@ export async function installTracker(): Promise<() => void> {
     store,
     timing: initTiming(Date.now(), currentMode()),
     currentDocKey: currentDocKey(),
+    currentPath: currentDocKey() ? activeTab()?.filePath ?? null : null,
     timer: null,
     tickCount: 0,
     disposers: [],
@@ -132,6 +147,7 @@ export async function installTracker(): Promise<() => void> {
   // Window focus/blur.
   const unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
     dispatch({ type: focused ? 'focus' : 'blur' })
+    if (!focused) void flushHomeContent().catch(() => {})
   })
   tracker.disposers.push(unlistenFocus)
 
@@ -148,18 +164,21 @@ export async function installTracker(): Promise<() => void> {
     if (tracker && ++tracker.tickCount % FLUSH_EVERY_TICKS === 0) void store.flush()
   }, TICK_MS)
 
-  // Assume focused + active tab at install (app is in the foreground on mount).
-  dispatch({ type: 'focus' })
+  beginHomeVisit(tracker.currentPath, sotvaultStore.vaultRoot)
+  // Restored/background windows must not accrue attention before real focus.
+  if (await getCurrentWindow().isFocused()) dispatch({ type: 'focus' })
   dispatch({ type: 'tabActive' })
   if (tracker.currentDocKey) store.accrue(tracker.currentDocKey, { open_count: 1 }, Date.now())
 
   // Flush on page hide (app quit / backgrounding).
-  const onHide = () => { void store.flush() }
+  const onHide = () => { dispatch({ type: 'blur' }); void store.flush(); void flushHomeContent().catch(() => {}) }
   window.addEventListener('pagehide', onHide)
   tracker.disposers.push(() => window.removeEventListener('pagehide', onHide))
 
   return async () => {
     dispatch({ type: 'blur' })
+    beginHomeVisit(null, null)
+    await flushHomeContent()
     if (self.timer) clearInterval(self.timer)
     self.disposers.forEach((d) => d())
     await self.store.flush()

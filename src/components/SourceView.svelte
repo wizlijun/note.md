@@ -85,7 +85,7 @@
       if (selection) textareaEl.setSelectionRange(...selection)
       sourceInput.commitBuffer()
     } else if (tabId) {
-      setContent(tabId, next)
+      setContent(tabId, next, true)
       if (textareaEl) { textareaEl.value = next; if (selection) textareaEl.setSelectionRange(...selection) }
       bufferVersion++
     }

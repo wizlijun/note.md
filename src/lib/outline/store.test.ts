@@ -168,7 +168,8 @@ describe('dirty / armed 保存门控', () => {
   it('markSynced 只置 dirty；未 armed 不触发 sink，armed 后触发', async () => {
     await attachDoc('/v/c.note.md', '', null)   // armed=false
     let calls = 0
-    setChangeSink(() => { calls++ })
+    const origins: boolean[] = []
+    setChangeSink(userEdit => { calls++; origins.push(userEdit) })
     markSynced()
     expect(outline.dirty).toBe(true)
     expect(calls).toBe(0)
@@ -177,6 +178,7 @@ describe('dirty / armed 保存门控', () => {
     expect(calls).toBe(1)
     markSynced()                                 // 已 armed → sink 触发
     expect(calls).toBe(2)
+    expect(origins).toEqual([true, false])
     setChangeSink(null)
     detach()
   })

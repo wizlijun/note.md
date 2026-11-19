@@ -1,0 +1,40 @@
+{
+  "reviewedFiles": {
+    "src-tauri/src/lib.rs": "6c4cf548644b159c260f00eacd6eb3438657f8384a319d94393a75d4ea8ec664",
+    "src-tauri/src/sumi/mod.rs": "1394483fd7085eb60996cf0e8b9a630515212ac1b41b53685d78ba096503c785",
+    "src/editor-kit-v2/file-controller.ts": "7bd18d276853f09dc3e1556cddddd7c209c3d0b22362640c2460dc6dced11fcf",
+    "src/lib/editor-bridge.ts": "29ae0289aec46838e1c9c40a0a87e7dd9dced768b1cf012e3b3678a63bb70a13",
+    "src/lib/insights/tracker.svelte.ts": "48266fe8d69a15d8dbf9be2f7bb4a594a8b097139fb782b4a06dc74321e565b7",
+    "src/lib/home-content/store.svelte.ts": "7981271605d08b40b11b5478c1efae3da2d9d0114c2a2d3e7779e1d7f2f97ebf",
+    "src/lib/outline/store.svelte.ts": "64f98493c7f744211009f74eb91373c475d2a27b0f62039364baf253274dc307",
+    "src/components/outline/OutlineEditor.svelte": "c48ba75e5af5c2c5ec4923460b4ce5392c1fe2de932ffcd5718004500e3cabfc",
+    "src/App.svelte": "2703cd8fed0fe8160ea38bd7de82bf02c2078c4810d2ea8d1f04cf6f131ef550",
+    "src/lib/recent-sync.svelte.ts": "9c36a94590354ae8498166bf3f78e4f0a65dd72645844372c63435cb2ce293ad"
+  },
+  "reviewFindingsResolved": [
+    "Desktop unfiltered Open History submenu is separately populated by recent-sync with history:true and path IDs",
+    "Outline initialization is not a user edit; markDirty true and markSynced false",
+    "File-controller supplies userEdit:false for restore admissions; bridge and insights respect it",
+    "First edit is persisted immediately; later edits coalesced into 30-second checkpoints and flush",
+    "Visit lastAttentionAt is used for persisted lastReadAt",
+    "Sumi native edit uses selected_root plus physical-relative projection path"
+  ],
+  "sumiStaticVerification": {
+    "onlyChangedBranch": true,
+    "entryGuards": [
+      "current_native",
+      "writable",
+      "surface/generation/revision"
+    ],
+    "pathTypes": "projection paths -> PathBuf; strip_prefix(&ws.root) -> &Path; selected_root.join(relative) -> PathBuf; both path/root serializable by serde_json",
+    "nativeRuntimeAcceptance": false
+  },
+  "fullHostMetadataAttempt": {
+    "command": "CARGO_TARGET_DIR=/Users/bruce/git/mdeditor/src-tauri/target cargo +1.99.0 rustc --lib --release --target aarch64-apple-darwin --locked --offline -- --emit=metadata",
+    "exitCode": 130,
+    "reason": "Stopped as instructed when substantial external dependency recompilation appeared (tauri/ring/zstd/sqlite/objc/rustls). No complete host result.",
+    "remainingBuildProcesses": false,
+    "releaseCachePreserved": true
+  },
+  "noAdditionalBlockingFindingInRequestedFixes": true
+}

@@ -275,9 +275,9 @@
           if (out !== persistTab.currentContent && !wouldWipe(persistTab.currentContent)) {
             setContent(persistTab.id, out)
           }
-          setChangeSink(() => {
+          setChangeSink(userEdit => {
             if (wouldWipe(persistTab.currentContent)) return
-            setContent(persistTab.id, serializeDoc())
+            setContent(persistTab.id, serializeDoc(), userEdit)
           })
         } else {
           // panel-disk：种下冲突校验基线；不在挂载时自动写盘（避免“打开即写”/浏览即生成）。

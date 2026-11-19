@@ -73,11 +73,13 @@ export async function writeOwnDeviceFile(): Promise<void> {
 export async function refreshRecentMenu(): Promise<void> {
   const vaultRoot = sotvaultStore.vaultRoot
   const devices = await readOtherDeviceFiles(vaultRoot)
+  if (sotvaultStore.vaultRoot !== vaultRoot) return
   mergedRecents.paths = mergeRecents(localResolved(), devices, vaultRoot, [...getRecentTombstones()])
   const home = await homeDir().catch(() => null)
-  const items = mergedRecents.paths.map((p, index) => ({ index, label: formatRecentLabel(p, home) }))
+  if (sotvaultStore.vaultRoot !== vaultRoot) return
+  const items = mergedRecents.paths.map((p) => ({ path: p, label: formatRecentLabel(p, home) }))
   try {
-    await invoke('update_recent_menu', { items })
+    await invoke('update_recent_menu', { items, history: true })
   } catch {
     // No native menu on this platform (iOS); the DrawerNav still reads mergedRecents.
   }

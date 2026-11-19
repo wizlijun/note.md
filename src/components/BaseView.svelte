@@ -83,7 +83,7 @@
       pushToast({ level: 'error', message: t('base.writeError') })
       return
     }
-    setContent(tab.id, yaml)
+    setContent(tab.id, yaml, true)
   }
 
   function rawObj(): edit.Raw {

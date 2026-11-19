@@ -8,6 +8,18 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  "homeContent.partial": "{count} items could not be read. This list may be incomplete.",
+  "homeContent.label": "Reading",
+  "homeContent.new": "New content",
+  "homeContent.continue": "Continue reading",
+  "homeContent.emptyNew": "No new unread content.",
+  "homeContent.emptyContinue": "Documents you edit or spend time reading appear here.",
+  "homeContent.loading": "Loading documents…",
+  "homeContent.dismiss": "Remove {title} from this list",
+  "homeContent.error": "Could not update documents: {error}",
+  "homeContent.retry": "Retry",
+
+
   "homeApps.pdfGuide": "Open a Markdown or HTML document first, then choose Plugins → Import & Export → Export to PDF… from the existing menu.",
 
   "homeApps.noShortcuts": "Open All apps to launch an app or pin a shortcut.",

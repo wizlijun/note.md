@@ -44,6 +44,8 @@ pub mod vault_management;
 #[cfg(not(target_os = "ios"))]
 pub mod vault_stats;
 #[cfg(not(target_os = "ios"))]
+pub mod home_content;
+#[cfg(not(target_os = "ios"))]
 pub mod git_history;
 
 pub mod okf;
@@ -80,9 +82,6 @@ pub mod memory_control;
 #[cfg(any(target_os = "ios", test))]
 pub mod vault_ios;
 
-#[cfg(not(target_os = "ios"))]
-mod latest_files;
-
 pub struct PendingFiles(Mutex<Vec<String>>);
 /// Search-result jumps are delivered to the editor window through a durable
 /// mailbox. The main webview acknowledges a request only after `openFile` and
@@ -96,6 +95,8 @@ pub struct TrayRepoItem(Mutex<Option<MenuItem<tauri::Wry>>>);
 pub struct TrayStatusItem(Mutex<Option<IconMenuItem<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct RecentMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
+#[cfg(not(target_os = "ios"))]
+pub struct HistoryMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
 pub struct LatestMenu(pub Mutex<Option<Submenu<tauri::Wry>>>);
 #[cfg(not(target_os = "ios"))]
@@ -1478,7 +1479,7 @@ pub fn run() {
         }
     }).manage(RecentMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
-    let builder = builder.manage(LatestMenu(Mutex::new(None)));
+    let builder = builder.manage(LatestMenu(Mutex::new(None))).manage(HistoryMenu(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
     let builder = builder.manage(TraySyncNowItem(Mutex::new(None)));
     #[cfg(not(target_os = "ios"))]
@@ -1661,6 +1662,7 @@ pub fn run() {
                 vault_management::vault_set_onboarding,
                 vault_stats::notemd_vault_stats,
                 vault_stats::notemd_vault_stats_cancel,
+                home_content::home_content_catalog,
                 vault_sync::vault_sync_start,
                 vault_sync::vault_sync_stop,
                 vault_sync::vault_sync_now,
@@ -1732,7 +1734,6 @@ pub fn run() {
                 editor_open_remote_buffer,
                 update_recent_menu,
                 update_latest_menu,
-                latest_vault_files,
                 set_menu_locale,
                 file_exists,
                 dbg_log,
@@ -1852,9 +1853,10 @@ pub fn run() {
                 app.state::<Mutex<FileHistoryRouteState>>().lock().unwrap().focus("main", main_focused);
                 let menu_locale = read_saved_locale(&app.handle());
                 let plugin_items = plugin_host::collect_top_menu_items(&menu_locale);
-                let (menu, recent_submenu, latest_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
+                let (menu, recent_submenu, latest_submenu, history_submenu) = build_menu(&app.handle(), &plugin_items, &menu_locale)?;
                 *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
                 *app.state::<LatestMenu>().0.lock().unwrap() = Some(latest_submenu);
+                *app.state::<HistoryMenu>().0.lock().unwrap() = Some(history_submenu);
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, event| {
                     if event.id().0.as_str() == "vault-management" {
@@ -2257,18 +2259,19 @@ fn emit_open_file_delayed_with_focus<R: tauri::Runtime>(app: &tauri::AppHandle<R
 #[cfg(not(target_os = "ios"))]
 #[derive(serde::Deserialize)]
 struct RecentMenuItem {
-    index: usize,
+    path: String,
     label: String,
 }
 
-/// Rebuild the File ▸ Open Recent submenu from the frontend's merged list.
-/// Item ids are `open-recent:<index>`; clicks flow through the normal menu-event.
+/// Reading suggestions and unfiltered history have separate submenus. Both
+/// encode paths so an asynchronous refresh cannot redirect a click.
 #[cfg(not(target_os = "ios"))]
 #[tauri::command]
-fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Result<(), String> {
-    let state = app.state::<RecentMenu>();
-    let guard = state.0.lock().unwrap();
-    let submenu = guard.as_ref().ok_or("recent menu not initialized")?;
+fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>, history: Option<bool>) -> Result<(), String> {
+    let history = history.unwrap_or(false);
+    let submenu = if history { app.state::<HistoryMenu>().0.lock().unwrap().clone() }
+        else { app.state::<RecentMenu>().0.lock().unwrap().clone() };
+    let submenu = submenu.ok_or("recent menu not initialized")?;
 
     // Clear existing items.
     loop {
@@ -2280,32 +2283,21 @@ fn update_recent_menu(app: tauri::AppHandle, items: Vec<RecentMenuItem>) -> Resu
 
     if items.is_empty() {
         let locale = read_saved_locale(&app);
-        let placeholder = MenuItemBuilder::with_id("recent-none", menu_label(&locale, "file.noRecent"))
+        let placeholder = MenuItemBuilder::with_id(if history { "history-none" } else { "recent-none" }, menu_label(&locale, if history { "file.noHistory" } else { "file.noRecent" }))
             .enabled(false)
             .build(&app)
             .map_err(|e| e.to_string())?;
         submenu.append(&placeholder).map_err(|e| e.to_string())?;
     } else {
-        for it in items {
-            let mi = MenuItemBuilder::with_id(format!("open-recent:{}", it.index), it.label)
+        for it in items.into_iter().take(10) {
+            let id = format!("{}:{}", if history { "open-history" } else { "open-continue" }, it.path);
+            let mi = MenuItemBuilder::with_id(id, native_menu_literal(&it.label))
                 .build(&app)
                 .map_err(|e| e.to_string())?;
             submenu.append(&mi).map_err(|e| e.to_string())?;
         }
     }
     Ok(())
-}
-
-/// Metadata-only work runs off the UI thread, including on very large vaults.
-#[cfg(not(target_os = "ios"))]
-#[tauri::command]
-async fn latest_vault_files(app: tauri::AppHandle, vault_root: String) -> Result<Vec<String>, String> {
-    let root = std::path::PathBuf::from(vault_root);
-    if sotvault::resolve_vault_root(&app).as_deref() != Some(root.as_path()) {
-        return Err("Vault changed".into());
-    }
-    tauri::async_runtime::spawn_blocking(move || latest_files::scan_latest_files(&root))
-        .await.map_err(|e| e.to_string())?
 }
 
 #[cfg(not(target_os = "ios"))]
@@ -2328,7 +2320,7 @@ fn update_latest_menu(app: tauri::AppHandle, items: Vec<LatestMenuItem>) -> Resu
             .enabled(false).build(&app).map_err(|e| e.to_string())?;
         submenu.append(&placeholder).map_err(|e| e.to_string())?;
     } else {
-        for item in items.into_iter().take(latest_files::LIMIT) {
+        for item in items.into_iter().take(10) {
             // Encode the path in the ID so a refresh cannot redirect an in-flight click.
             let mi = MenuItemBuilder::with_id(format!("open-latest:{}", item.path), native_menu_literal(&item.label))
                 .build(&app).map_err(|e| e.to_string())?;
@@ -2366,10 +2358,12 @@ fn menu_label(locale: &str, key: &str) -> String {
             "Importieren & Exportieren",
         ),
         "plugins.group.experience" | "plugins.group.other" => ("Other", "其他", "その他", "Sonstiges"),
-        "file.latestCreated" => ("Latest Created", "最新创建", "最近作成したファイル", "Zuletzt erstellt"),
-        "file.noLatest" => ("No Markdown Files", "无 Markdown 文件", "Markdown ファイルなし", "Keine Markdown-Dateien"),
-        "file.openRecent" => ("Open Recent", "打开最近", "最近使ったファイルを開く", "Zuletzt geöffnet"),
-        "file.noRecent" => ("No Recent Files", "无最近文件", "最近のファイルなし", "Keine letzten Dateien"),
+        "file.latestCreated" => ("New Content", "新内容", "新しいコンテンツ", "Neue Inhalte"),
+        "file.noLatest" => ("No Unread Content", "暂无未读内容", "未読のコンテンツはありません", "Keine ungelesenen Inhalte"),
+        "file.openRecent" => ("Continue Reading", "继续阅读", "続きを読む", "Weiterlesen"),
+        "file.openHistory" => ("Open History", "打开历史", "開いた履歴", "Öffnungsverlauf"),
+        "file.noHistory" => ("No Open History", "暂无打开历史", "開いた履歴はありません", "Kein Öffnungsverlauf"),
+        "file.noRecent" => ("Nothing to Continue", "暂无继续阅读内容", "続けて読むコンテンツはありません", "Keine Inhalte zum Weiterlesen"),
         "file.new" => ("New", "新建", "新規", "Neu"),
         "file.newCanvas" => ("New Canvas", "新建画布", "新規キャンバス", "Neue Leinwand"),
         // Core feature, formerly carried by the bundled `base` plugin manifest —
@@ -2801,10 +2795,11 @@ fn set_menu_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
 #[cfg(not(target_os = "ios"))]
 fn apply_menu_locale(app: &tauri::AppHandle, locale: &str) -> Result<(), String> {
     let plugin_items = plugin_host::collect_top_menu_items(locale);
-    let (menu, recent_submenu, latest_submenu) =
+    let (menu, recent_submenu, latest_submenu, history_submenu) =
         build_menu(app, &plugin_items, locale).map_err(|e| e.to_string())?;
     *app.state::<RecentMenu>().0.lock().unwrap() = Some(recent_submenu);
     *app.state::<LatestMenu>().0.lock().unwrap() = Some(latest_submenu);
+    *app.state::<HistoryMenu>().0.lock().unwrap() = Some(history_submenu);
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
     // set_menu resets every item to its build-time enabled default. Runtime
@@ -2908,7 +2903,7 @@ fn build_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     plugin_items: &[plugin_host::LocatedMenuItem],
     locale: &str,
-) -> tauri::Result<(Menu<R>, Submenu<R>, Submenu<R>)> {
+) -> tauri::Result<(Menu<R>, Submenu<R>, Submenu<R>, Submenu<R>)> {
     let app_meta = AboutMetadata {
         name: Some("note.md".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
@@ -2945,6 +2940,11 @@ fn build_menu<R: tauri::Runtime>(
         )
         .build()?;
 
+    let history_menu = SubmenuBuilder::new(app, menu_label(locale, "file.openHistory"))
+        .item(&MenuItemBuilder::with_id("history-none", menu_label(locale, "file.noHistory"))
+            .enabled(false).build(app)?)
+        .build()?;
+
     let latest_menu = SubmenuBuilder::new(app, menu_label(locale, "file.latestCreated"))
         .item(&MenuItemBuilder::with_id("latest-none", menu_label(locale, "file.noLatest"))
             .enabled(false).build(app)?)
@@ -2963,6 +2963,7 @@ fn build_menu<R: tauri::Runtime>(
         .item(&MenuItemBuilder::with_id("open-share-link", menu_label(locale, "file.openShareLink")).build(app)?)
         .item(&recent_menu)
         .item(&latest_menu)
+        .item(&history_menu)
         .separator()
         .item(&MenuItemBuilder::with_id("vault-management", vault_menu_label(app, locale)).build(app)?)
         .separator()
@@ -3124,7 +3125,7 @@ fn build_menu<R: tauri::Runtime>(
     let menu = MenuBuilder::new(app)
         .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &plugins_menu, &window_menu, &help_menu])
         .build()?;
-    Ok((menu, recent_menu, latest_menu))
+    Ok((menu, recent_menu, latest_menu, history_menu))
 }
 
 #[cfg(all(test, not(target_os = "ios")))]

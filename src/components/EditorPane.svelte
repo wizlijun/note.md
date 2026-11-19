@@ -106,7 +106,7 @@
 
   function onSourceInput(e: Event) {
     const ta = e.currentTarget as HTMLTextAreaElement
-    setContent(tab.id, ta.value)
+    setContent(tab.id, ta.value, true)
   }
 
   function onRichFlush(md: string) {

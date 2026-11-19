@@ -116,7 +116,7 @@ export function noteTextHasContent(text: string): boolean {
 
 // ---------- 全屏大纲 tab 模式(phase 2):IO 由 tabs 体系接管,这里只有内存树 ----------
 
-let changeSink: (() => void) | null = null
+let changeSink: ((userEdit: boolean) => void) | null = null
 /** 镜像源解析器。由 App 注入(store 不直接依赖 sotvault,避免循环依赖);
  *  未注入时伴生笔记就不带 sources —— 缺字段永远比写错字段好。 */
 let mirrorSourceResolver: ((mainPath: string) => string | null) | null = null
@@ -125,7 +125,7 @@ export function setMirrorSourceResolver(fn: ((mainPath: string) => string | null
 }
 
 /** 编辑器注册:任何树变更(markDirty)后被调用,负责 serializeDoc → setContent(tab) */
-export function setChangeSink(fn: (() => void) | null): void { changeSink = fn }
+export function setChangeSink(fn: ((userEdit: boolean) => void) | null): void { changeSink = fn }
 
 /**
  * 挂载一篇 .note.md 文本到全局树。mainContent 非 null(伴生笔记)时对主文档
@@ -224,13 +224,13 @@ export function regenerate(mainContent: string): void {
 export function markDirty(): void {
   outline.dirty = true
   outline.armed = true
-  changeSink?.()
+  changeSink?.(true)
 }
 
 /** 同步派生：只置脏；仅在已激活时才落盘（浏览/主文档编辑不自动生成笔记）。 */
 export function markSynced(): void {
   outline.dirty = true
-  if (outline.armed) changeSink?.()
+  if (outline.armed) changeSink?.(false)
 }
 
 /** 落盘成功后清脏（写盘点回调）。 */

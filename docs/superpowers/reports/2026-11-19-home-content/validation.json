@@ -1,0 +1,60 @@
+{
+  "scope": "Local implementation and isolated validation; no installation, push or release",
+  "frontend": {
+    "fullSuite": {
+      "files": 448,
+      "passed": 6036,
+      "failed": 0,
+      "exitCode": 0,
+      "command": "node node_modules/vitest/vitest.mjs run --config /tmp/notemd-home-share-vitest.config.mts --maxWorkers=2"
+    },
+    "finalTargeted": {
+      "files": 6,
+      "passed": 95,
+      "failed": 0,
+      "includes": "Two additional raw history tests and enhanced derived/manual outline assertion added after the full suite"
+    },
+    "typecheck": {
+      "errors": 0,
+      "warnings": 30,
+      "warningsPreExisting": true
+    },
+    "productionBuild": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "includes": "Sumi pinned font verification, merge purity, share editor, Vite, editor kit and share editor checks"
+    }
+  },
+  "browser": {
+    "status": "PASS",
+    "checks": 8,
+    "pageErrors": 0,
+    "realComponents": true,
+    "isolatedIPC": true,
+    "physicalEInkOrOLEDTest": false
+  },
+  "backend": {
+    "scannerTestsPassed": 7,
+    "realCommandAndMenuMetadata": "PASS with same-shape dependency stubs; see backend reports",
+    "completeHostBuild": false,
+    "nativeRuntimeAcceptance": false,
+    "limitation": "Full Cargo test stopped at ENOSPC in dependencies; matched-toolchain metadata attempt stopped when dependencies rebuilt. No complete host build or native GUI acceptance is claimed."
+  },
+  "sourceSha256": {
+    "src-tauri/src/home_content.rs": "4dd8621a03ef270ae6ba9f5c417c9f11ad2c9af68ff1cf94b7d32722a8df709b",
+    "src-tauri/src/lib.rs": "6c4cf548644b159c260f00eacd6eb3438657f8384a319d94393a75d4ea8ec664",
+    "src-tauri/src/sumi/mod.rs": "1394483fd7085eb60996cf0e8b9a630515212ac1b41b53685d78ba096503c785",
+    "src/lib/home-content/model.ts": "7ce9fdf4d1532751ad75f036a36b14bf89525e70c997692d29174d63491a68b0",
+    "src/lib/home-content/store.svelte.ts": "7981271605d08b40b11b5478c1efae3da2d9d0114c2a2d3e7779e1d7f2f97ebf",
+    "src/lib/insights/tracker.svelte.ts": "48266fe8d69a15d8dbf9be2f7bb4a594a8b097139fb782b4a06dc74321e565b7",
+    "src/editor-kit-v2/file-controller.ts": "7bd18d276853f09dc3e1556cddddd7c209c3d0b22362640c2460dc6dced11fcf",
+    "src/lib/editor-bridge.ts": "29ae0289aec46838e1c9c40a0a87e7dd9dced768b1cf012e3b3678a63bb70a13",
+    "src/lib/tabs.svelte.ts": "4e71fa2fe5066b01bc8fadb4351254003cbda5deb30af178738bfc0e35b127c0",
+    "src/App.svelte": "2703cd8fed0fe8160ea38bd7de82bf02c2078c4810d2ea8d1f04cf6f131ef550",
+    "src/components/HomeContent.svelte": "1e82d05be611e6a6ed10bd060177fb0bc443ad011746d8636863349000564685",
+    "src/lib/project-share/browser.ts": "41d34b1a717b6d70c7b11edac301c3d4a4ea270f05335a871186d4ba3674234c",
+    "src/lib/recent-sync.svelte.ts": "9c36a94590354ae8498166bf3f78e4f0a65dd72645844372c63435cb2ce293ad"
+  },
+  "review": "Independent review findings resolved: history access, derived/restore origin, edit write coalescing, idle timestamps, selected-root native event identity",
+  "initialInterruptedValidation": "Earlier full runs were invalidated by ENOSPC and an eager mock-bound filesystem reference; fixed lazy adapters, freed regenerable caches, then final full suite passed."
+}

@@ -3,6 +3,18 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  "homeContent.partial": "{count} 件を読み込めませんでした。リストが不完全な可能性があります。",
+  "homeContent.label": "読書",
+  "homeContent.new": "新しいコンテンツ",
+  "homeContent.continue": "続きを読む",
+  "homeContent.emptyNew": "新しい未読コンテンツはありません。",
+  "homeContent.emptyContinue": "編集した文書や、時間をかけて読んだ文書がここに表示されます。",
+  "homeContent.loading": "文書を読み込み中…",
+  "homeContent.dismiss": "「{title}」をこのリストから除く",
+  "homeContent.error": "文書リストを更新できませんでした：{error}",
+  "homeContent.retry": "再試行",
+
+
   "homeApps.pdfGuide": "まず Markdown または HTML の文書を開き、既存のメニューから「プラグイン → 読み込みと書き出し → PDF に書き出す…」を選んでください。",
 
   "homeApps.noShortcuts": "「すべてのアプリ」から開くか、ショートカットを固定してください。",

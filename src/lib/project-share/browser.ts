@@ -18,7 +18,8 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
   const article = $('document')
   const submit = $('submit') as HTMLButtonElement
   const editButton = $('edit') as HTMLButtonElement
-  const desktopLink=document.createElement('a');desktopLink.id='open-notemd';desktopLink.className='reader-button menu-row';desktopLink.textContent='在 note.md 中打开';desktopLink.hidden=true;$('collaboration-options').querySelector('.secondary-actions')!.append(desktopLink)
+  const desktopLink=document.createElement('a');desktopLink.id='open-notemd';desktopLink.className='reader-button';desktopLink.textContent='在 note.md 中打开'
+  const desktopTools=document.createElement('div');desktopTools.className='toolbar';desktopTools.append(desktopLink);$('reader').append(desktopTools)
   let path = snapshot.entry
   let editing = false
   let baseline = false
@@ -531,12 +532,12 @@ export async function projectShareBrowser(parser: any, zipper?: any, scanCritic?
     }
   }
   const render = () => {
-    desktopLink.hidden=!editing || !token
-    if(editing && token) {
-      const share=new URL(location.origin+location.pathname)
-      share.hash=new URLSearchParams({feedback:token}).toString()
-      desktopLink.href='notemd://share/open?u='+encodeURIComponent(share.href)
-    } else desktopLink.removeAttribute('href')
+    const share=new URL(location.origin+location.pathname)
+    if(token) share.hash=new URLSearchParams({feedback:token}).toString()
+    desktopLink.href='notemd://share/open?u='+encodeURIComponent(share.href)
+    desktopTools.hidden=!!token
+    const desktopParent=token?$('collaboration'):desktopTools
+    if(desktopLink.parentElement!==desktopParent) desktopParent.append(desktopLink)
     floorFor(path)
     editor.value=displaySource(currentText())
     const publishedOriginal=(baseline?original(path):currentText())===files.get(path)?.markdown

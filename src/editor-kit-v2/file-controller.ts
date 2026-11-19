@@ -247,7 +247,7 @@ export function createFileController(options:FileControllerOptions){
     const value=snapshot(),subscribers=[...listeners],delta=editorDelta(result.transactions,base.doc,current.doc)
     queueMicrotask(()=>{
      for(const listener of subscribers)if(listeners.has(listener))try{listener(value)}catch(error){lastError=error}
-     try{options.onDelta?.(delta)}catch(error){lastError=error}
+     try{options.onDelta?.({...delta,userEdit:frame.rootKind!=='restore'})}catch(error){lastError=error}
     })
    }
    return true

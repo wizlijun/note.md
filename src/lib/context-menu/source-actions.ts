@@ -19,7 +19,7 @@ export interface SourceHandle {
 function applyBuffer(h: SourceHandle, next: string, start: number, end = start) {
   if (h.isCurrent?.() === false) return
   if (h.applyBuffer) h.applyBuffer(next, [start, end])
-  else setContent(h.tabId, next)
+  else setContent(h.tabId, next, true)
 }
 function capture(h: SourceHandle) {
   const value = h.value(), start = h.el.selectionStart, end = h.el.selectionEnd, version = h.version?.()

@@ -3,6 +3,7 @@ import {Plugin} from 'prosemirror-state'
 import {undoDepth,redoDepth,history} from 'prosemirror-history'
 import {ReplaceStep} from 'prosemirror-transform'
 import {open} from './file-test-utils'
+import type {ObserverDelta} from './file-contract'
 it('同 doc raw 编辑和原生 undo redo 保留字节与 lineage',()=>{
  const c=open('_甲_'),before=c.snapshot(),doc=c.state.doc
  expect(c.replaceSource({expectedGeneration:before.generation,value:'*甲*'}).ok).toBe(true)
@@ -151,4 +152,35 @@ it('ordinary Rich cannot register a preexisting own invert override as native ex
  const c=open('A'),before=c.state,snapshot=c.snapshot(),tr=c.state.tr.insertText('B',1,2)
  tr.steps[0].invert=()=>new ReplaceStep(0,0,Slice.empty)
  expect(c.dispatch(tr)).toBe(false);expect(c.state).toBe(before);expect(c.snapshot()).toEqual(snapshot);expect(undoDepth(c.state)).toBe(0)
+})
+
+
+it('admitted host restoration is not a user edit, while source, rich and undo changes are',async()=>{
+ const deltas:ObserverDelta[]=[],c=open('A',[],delta=>deltas.push(delta))
+ expect(c.restoreContent('B').ok).toBe(true)
+ await Promise.resolve()
+ expect(deltas.map(delta=>delta.userEdit)).toEqual([false])
+ expect(c.replaceSource({expectedGeneration:c.snapshot().generation,value:'C'}).ok).toBe(true)
+ await Promise.resolve()
+ expect(deltas.map(delta=>delta.userEdit)).toEqual([false,true])
+ expect(c.dispatch(c.state.tr.insertText('D',1,2))).toBe(true)
+ await Promise.resolve()
+ expect(deltas.map(delta=>delta.userEdit)).toEqual([false,true,true])
+ expect(c.runHistory('undo',true)).toBe(true)
+ await Promise.resolve()
+ expect(deltas.map(delta=>delta.userEdit)).toEqual([false,true,true,true])
+})
+it('rejected, no-op, selection-only and probe transactions publish no editing activity',async()=>{
+ const deltas:ObserverDelta[]=[],c=open('A',[new Plugin({filterTransaction:tr=>!tr.docChanged})],delta=>deltas.push(delta))
+ expect(c.restoreContent('A')).toMatchObject({ok:true,changed:false})
+ expect(c.replaceSource({expectedGeneration:c.snapshot().generation,value:'A'})).toMatchObject({ok:true,changed:false})
+ expect(c.restoreContent('B').ok).toBe(false)
+ expect(c.replaceSource({expectedGeneration:c.snapshot().generation,value:'B'}).ok).toBe(false)
+ expect(c.dispatch(c.state.tr.insertText('B',1,2))).toBe(false)
+ expect(c.dispatch(c.state.tr.setSelection(TextSelection.create(c.state.doc,1)))).toBe(true)
+ const probe=open('A',[],delta=>deltas.push(delta))
+ expect(probe.probe(probe.state.tr.insertText('B',1,2))).toBe(true)
+ expect(probe.snapshot().raw).toBe('A')
+ await Promise.resolve()
+ expect(deltas).toEqual([])
 })

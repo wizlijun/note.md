@@ -1,0 +1,32 @@
+{
+  "source": "/Users/bruce/git/mdeditor/.worktrees/home-content/src-tauri/src/home_content.rs",
+  "sourceSha256": "4dd8621a03ef270ae6ba9f5c417c9f11ad2c9af68ff1cf94b7d32722a8df709b",
+  "scannerTests": {
+    "passed": 7,
+    "failed": 0,
+    "tenThousandScanMs": 181.236625,
+    "hostLockSeeded": true,
+    "command": "cargo test --offline -- --nocapture",
+    "excluded": "Tauri wrapper only; local DocumentRules supplied"
+  },
+  "wrapperCheck": {
+    "exitCode": 0,
+    "command": "rustc +1.99.0 --edition=2021 --crate-type=lib --emit=metadata --target aarch64-apple-darwin wrapper.rs ...",
+    "realSourceIncluded": true,
+    "realTauriCommandMacro": true,
+    "realGenerateHandler": true,
+    "stubbed": [
+      "DocumentRules declaration same shape",
+      "Vault resolver/root_guard signatures"
+    ],
+    "rmetaBytes": 62756
+  },
+  "fullHostCargo": {
+    "exitCode": 101,
+    "reason": "ENOSPC during dependencies before application compile",
+    "newCacheRemovedMiB": 2298.2
+  },
+  "harnessTargetRemoved": true,
+  "rustfmtParsed": true,
+  "notFullHostBuild": true
+}

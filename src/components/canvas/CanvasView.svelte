@@ -526,7 +526,7 @@
     const encoded = encodeJsonCanvas(canvasDoc)
     observedTabContent = encoded
     markCanvasUiSessionContent(tab.id, encoded)
-    setContent(tab.id, encoded)
+    setContent(tab.id, encoded, true)
   }
 
   function commitDocument(label: string, next: CanvasDocument, nextNodes = selectedNodeIds, nextEdges = selectedEdgeIds): void {

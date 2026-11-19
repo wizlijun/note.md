@@ -14,6 +14,8 @@ import { desktopFrontmatterFactory, readonlyDesktopFrontmatterFactory, desktopFr
 import { focusRichBodyEnd } from './rich-editor-focus'
 import { activeTab } from './tabs.svelte'
 import { analyticsPluginForEditor, recordEditorDelta } from './insights/tracker.svelte'
+import { recordHomeEdit } from './home-content/store.svelte'
+import { sotvaultStore } from './sotvault.svelte'
 import type { Plugin } from 'prosemirror-state'
 import type { Tab } from './tabs.svelte'
 import { fileEditorSession, registerFileEditorSession } from './file-editor-sessions'
@@ -114,7 +116,10 @@ export async function mountRichEditor(
         }, { plugins: [desktopFrontmatterSelectionPlugin(view => {
           const owner = fileEditorSession(file.tab.id)?.owner
           if (owner) focusRichBodyEnd(view, owner)
-        }), ...file.plugins], onDelta: recordEditorDelta, externalSource: true, imeGuard })
+        }), ...file.plugins], onDelta: delta => {
+          recordEditorDelta(delta)
+          if (delta.userEdit !== false) recordHomeEdit(file.tab.filePath, sotvaultStore.vaultRoot)
+        }, externalSource: true, imeGuard })
         registerFileEditorSession(file.tab.id, session)
         await session.setMode(file.tab.mode)
       }

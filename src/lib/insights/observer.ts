@@ -6,6 +6,8 @@ import type { Transaction } from 'prosemirror-state'
 export interface ObserverDelta {
   markOps: number
   sizeDelta: number
+  /** False for an admitted host restoration, such as resource migration. */
+  userEdit?: boolean
 }
 
 /** Number of add/remove-mark steps in a transaction's step list. */

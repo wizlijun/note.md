@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
-const mocks = vi.hoisted(() => ({ platform: vi.fn(async () => 'ios'), note: vi.fn(), canvas: vi.fn(async () => {}), pick: vi.fn(async () => null), open: vi.fn(async () => {}), error: vi.fn() }))
+const mocks = vi.hoisted(() => ({ platform: vi.fn(async () => 'ios'), note: vi.fn(), canvas: vi.fn(async () => {}), pick: vi.fn(async () => null), open: vi.fn(async () => {}), error: vi.fn(), refreshContent: vi.fn() }))
 vi.mock('../lib/platform.svelte', () => ({ platform: mocks.platform }))
 vi.mock('../lib/tabs.svelte', () => ({ newFile: mocks.note, newCanvas: mocks.canvas, openFile: mocks.open }))
 vi.mock('../lib/dialogs', () => ({ pickOpenFile: mocks.pick, showError: mocks.error }))
 vi.mock('../lib/i18n/store.svelte', () => ({ i18n: { locale: 'en' }, t: (key: string) => key }))
+vi.mock('../lib/home-content/store.svelte', () => ({ homeContentStore: { newItems: [], continueItems: [], ready: true, busy: false, error: null, skipped: 0 }, dismissHomeContent: vi.fn(), refreshHomeContent: mocks.refreshContent }))
 import EmptyState from './EmptyState.svelte'
 let app: ReturnType<typeof mount> | undefined
 async function settle() { await new Promise(r => setTimeout(r, 0)); flushSync() }
@@ -18,6 +19,8 @@ it('places creation icon buttons first and omits desktop apps on iOS', async () 
   expect(buttons.map(b => b.textContent?.trim())).toEqual(['homeApps.newNote', 'homeApps.newCanvas', 'homeApps.openFile'])
   expect(buttons.every(b => b.querySelector('svg'))).toBe(true)
   expect(document.querySelector('.home-apps')).toBeNull()
+  expect(document.querySelector('.home-content')).toBeNull()
+  expect(mocks.refreshContent).not.toHaveBeenCalled()
   buttons[0].click(); expect(mocks.note).toHaveBeenCalledOnce()
   buttons[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); expect(mocks.note).toHaveBeenCalledOnce()
 })
@@ -29,4 +32,16 @@ it('reports asynchronous open and creation failures', async () => {
   buttons.find(b => b.textContent === 'homeApps.newNote')!.click(); await settle()
   expect(mocks.error).toHaveBeenCalledWith('Error: picker failed')
   expect(mocks.error).toHaveBeenCalledWith('Error: new failed')
+})
+
+it('does not create a note when the document-list background is double-clicked', async () => {
+  app = mount(EmptyState, { target: document.body }); await settle()
+  const region = document.createElement('div')
+  region.className = 'home-content'
+  const background = document.createElement('span')
+  region.append(background); document.querySelector('.welcome')!.append(region)
+  background.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+  expect(mocks.note).not.toHaveBeenCalled()
+  document.querySelector('.identity')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+  expect(mocks.note).toHaveBeenCalledOnce()
 })

@@ -1366,6 +1366,16 @@ fn handle_native<R: Runtime>(
         }
     }
     let accepted = if changed {
+        // This branch is exclusively an admitted local native input/action;
+        // remote merges and projection updates do not produce personal edits.
+        if let Some(filename) = p.entry.filename() {
+            if let Ok((path, _)) = write_core::projection::paths(&ws.root, &filename) {
+                if let Ok(relative) = path.strip_prefix(&ws.root) {
+                    let selected_path = ws.selected_root.join(relative);
+                    let _ = app.emit_to("main", "home-content-edit", json!({"path":selected_path,"root":ws.selected_root}));
+                }
+            }
+        }
         position_changed(p);
         let mut response = reply(p);
         if p.pending_local.is_some() {

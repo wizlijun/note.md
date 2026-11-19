@@ -37,7 +37,7 @@
       handleCustomEditorMessage(event, {
         pluginOrigin,
         expectedSource: iframeEl?.contentWindow,
-        onChange: (content) => setContent(tab.id, content),
+        onChange: (content) => setContent(tab.id, content, true),
       })
     }
     window.addEventListener('message', onMessage)

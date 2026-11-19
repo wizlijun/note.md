@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:5173/tasks/home-content-evidence/index.html",
+  "checks": [
+    "Actual EmptyState renders creation → two reading columns → Apps → settings; six fresh and three ongoing items, automated log filtered",
+    "Wide light/dark screenshots captured from actual Svelte components",
+    "Long title truncates with ellipsis without widening its column",
+    "Keyboard focus is visibly outlined; Enter dismisses without opening; dismissal survives reload",
+    "Failed dismissal preserves item and shows error; explicit retry succeeds",
+    "390px light/dark layout stacks columns and has no page or home horizontal overflow",
+    "Partial catalog scan is explicitly reported while readable documents remain",
+    "Document row opens through the real openFile path using isolated IPC"
+  ],
+  "errors": [],
+  "status": "PASS"
+}

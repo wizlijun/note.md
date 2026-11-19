@@ -75,9 +75,10 @@
   import { openAndRevealSearchHit, type SearchHitRevealRequest } from './lib/search/reveal-hit'
   import { requestReveal } from './lib/outline/reveal.svelte'
   import { displayTitleForDocument, windowTitleFor } from './lib/window-title'
-  import { installRecentsSync, refreshRecentMenu, mergedRecents } from './lib/recent-sync.svelte'
-  import { installLatestMenu } from './lib/latest-menu'
-  import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
+  import { installRecentsSync, refreshRecentMenu } from './lib/recent-sync.svelte'
+  import { installHomeContent, recordHomeEdit, flushHomeContent } from './lib/home-content/store.svelte'
+  import { vaultDocumentRules } from './lib/vault-stats'
+  import { maybeInstallTracker, shutdownTracker, onNativeUserEdit } from './lib/insights/tracker.svelte'
   import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
 
   function pluginCommandContext(pluginId: string): EnabledWhenContext {
@@ -145,7 +146,8 @@
 
   $effect(() => {
     const root = sotvaultStore.vaultRoot
-    if (platformName === 'macos') return installLatestMenu(root)
+    const rules = vaultDocumentRules(pluginRuntime.manifests)
+    if (platformName !== 'unknown' && platformName !== 'ios') return installHomeContent(root, rules)
   })
 
   let themeReady = $state(false)
@@ -205,6 +207,11 @@
     }).catch(error => console.warn('[file-history] init:', error))
 
     const unlistenManualAppOpens = observeManualAppOpens(listen<string>, usageDeps)
+    const unlistenContentEdit = listen<{ path: string; root: string }>('home-content-edit', event => {
+      if (event.payload.root !== sotvaultStore.vaultRoot) return
+      recordHomeEdit(event.payload.path, event.payload.root)
+      onNativeUserEdit(event.payload.path)
+    })
 
     const unlistenSumiPaths = listen<SumiPathChange>('sumi-path-changed', async event => {
       try { await reconcileSumiPath(event.payload) }
@@ -427,7 +434,10 @@
     // A native menu rebuild (plugin install/toggle, daily-notes toggle, locale
     // switch) resets every item to its build-time enabled default. Drop the
     // enabled-sync dedup cache so the effect re-pushes the real runtime state.
-    const unlistenMenuRebuilt = listen('menu-rebuilt', () => resyncMenuEnabled())
+    const unlistenMenuRebuilt = listen('menu-rebuilt', () => {
+      resyncMenuEnabled()
+      void refreshRecentMenu()
+    })
 
     invoke<string[]>('drain_pending_files').then(async (paths) => {
       for (const p of paths) {
@@ -736,6 +746,7 @@
           const id = tabs[0].id
           if (!await closeTab(id, async () => isDirty(id) ? 'save' : 'discard')) return
         }
+        await flushHomeContent().catch(error => console.warn('[home-content] close:', error))
         await win.hide()
       })
     })()
@@ -793,17 +804,15 @@
         }
         return
       }
-      if (id.startsWith('open-recent:')) {
-        const idx = parseInt(id.slice('open-recent:'.length), 10)
-        const path = mergedRecents.paths[idx]
-        if (path) {
-          try {
-            await openFile(path)
-          } catch (e) {
-            await removeRecentFile(path)
-            await showError(String(e))
-          }
-        }
+      if (id.startsWith('open-continue:')) {
+        try { await openFile(id.slice('open-continue:'.length)) }
+        catch (error) { await showError(String(error)) }
+        return
+      }
+      if (id.startsWith('open-history:')) {
+        const path = id.slice('open-history:'.length)
+        try { await openFile(path) }
+        catch (error) { await removeRecentFile(path); await showError(String(error)) }
         return
       }
       switch (id) {
@@ -960,6 +969,7 @@
       unlistenSumiFocus.then((fn) => fn())
       unlistenSumiPaths.then((fn) => fn())
       unlistenManualAppOpens.then((fn) => fn())
+      unlistenContentEdit.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())

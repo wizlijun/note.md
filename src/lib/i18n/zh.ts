@@ -3,6 +3,18 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  "homeContent.partial": "有 {count} 项无法读取，列表可能不完整。",
+  "homeContent.label": "阅读",
+  "homeContent.new": "新内容",
+  "homeContent.continue": "继续阅读",
+  "homeContent.emptyNew": "暂无未读的新内容。",
+  "homeContent.emptyContinue": "编辑过或持续阅读的文档会出现在这里。",
+  "homeContent.loading": "正在载入文档…",
+  "homeContent.dismiss": "从此列表移除《{title}》",
+  "homeContent.error": "无法更新文档列表：{error}",
+  "homeContent.retry": "重试",
+
+
   "homeApps.pdfGuide": "请先打开 Markdown 或 HTML 文档，再从现有菜单选择“插件 → 数据导入导出 → 导出为 PDF…”。",
 
   "homeApps.noShortcuts": "从“全部应用”打开应用，或固定常用快捷方式。",

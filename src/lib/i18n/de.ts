@@ -1,6 +1,18 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  "homeContent.partial": "{count} Einträge konnten nicht gelesen werden. Diese Liste ist möglicherweise unvollständig.",
+  "homeContent.label": "Lesen",
+  "homeContent.new": "Neue Inhalte",
+  "homeContent.continue": "Weiterlesen",
+  "homeContent.emptyNew": "Keine neuen ungelesenen Inhalte.",
+  "homeContent.emptyContinue": "Dokumente, die du bearbeitest oder länger liest, erscheinen hier.",
+  "homeContent.loading": "Dokumente werden geladen…",
+  "homeContent.dismiss": "{title} aus dieser Liste entfernen",
+  "homeContent.error": "Dokumentliste konnte nicht aktualisiert werden: {error}",
+  "homeContent.retry": "Erneut versuchen",
+
+
   "homeApps.pdfGuide": "Öffnen Sie zuerst ein Markdown- oder HTML-Dokument und wählen Sie dann im bestehenden Menü „Plugins → Importieren & Exportieren → Als PDF exportieren…“.",
 
   "homeApps.noShortcuts": "Öffnen Sie „Alle Apps“, um eine App zu starten oder eine Verknüpfung anzuheften.",

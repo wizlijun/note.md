@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- The desktop home page now separates unread new content from documents you edited or spent time reading. Process files are filtered from new content, brief previews do not crowd continuing reads, and each suggestion can be dismissed across restarts. The File menu uses the same suggestions and keeps unfiltered open history separately. Read-only shared pages now expose “Open in note.md” to continue in the app.
+
 ## v6.1119.1 — 2026-11-19
 
 - The desktop home page now puts creation tools and eight app shortcuts in one aligned grid, with installed-app search, categories, pinning and position editing. Daily suggestions stay stable; disabled pinned apps keep their positions and explain availability. Vault statistics remain visible while secondary folder controls are collapsed.

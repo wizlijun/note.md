@@ -6,7 +6,7 @@
   let { tab }: { tab: Tab } = $props()
 
   function handleChange(csv: string) {
-    setContent(tab.id, csv)
+    setContent(tab.id, csv, true)
   }
 </script>
 
