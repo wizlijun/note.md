@@ -41,6 +41,7 @@ describe('welcome Vault overview', () => {
   it.each(['/home/alice/Notes with spaces', '/home/alice/资料库'])('reveals the absolute Vault path through the permitted plugin command: %s', async (root) => {
     mocks.root.vaultRoot = root
     app = mount(VaultOverview, { target: document.body }); await settle()
+    document.querySelector<HTMLButtonElement>('[aria-expanded]')!.click(); await settle()
     const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'vaultOverview.reveal')!
     button.click(); await settle()
     expect(mocks.invoke).toHaveBeenCalledWith('plugin:opener|reveal_item_in_dir', { paths: [root] })
@@ -53,6 +54,7 @@ describe('welcome Vault overview', () => {
       return impl(cmd, args)
     })
     app = mount(VaultOverview, { target: document.body }); await settle()
+    document.querySelector<HTMLButtonElement>('[aria-expanded]')!.click(); await settle()
     const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'vaultOverview.reveal')!
     button.click(); await settle()
     expect(document.querySelector('[role="alert"]')?.textContent).toContain('Folder no longer exists')
@@ -73,6 +75,9 @@ describe('welcome Vault overview', () => {
     const doubleClick = vi.fn()
     document.addEventListener('dblclick', doubleClick)
     app = mount(VaultOverview, { target: document.body }); await settle()
+    expect(document.querySelector('.path')).toBeNull()
+    expect(document.body.textContent).toContain('120 B')
+    document.querySelector<HTMLButtonElement>('[aria-expanded]')!.click(); await settle()
     expect(document.querySelector('.path')?.textContent).toBe('~/Notes')
     const button = document.querySelector<HTMLButtonElement>('[aria-label="vaultOverview.copyPath"]')!
     button.click(); await settle()

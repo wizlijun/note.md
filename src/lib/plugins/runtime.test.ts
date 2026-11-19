@@ -1,9 +1,11 @@
 import { expect, it, vi } from 'vitest'
-import { dispatchPluginCommand, setPluginDispatcher } from './runtime.svelte'
+import { dispatchPluginCommand, setPluginDispatcher, pluginRuntime } from './runtime.svelte'
 
 it('forwards each explicit command source and keeps two-argument callers compatible', async () => {
   const dispatch = vi.fn(async () => {})
+  expect(pluginRuntime.ready).toBe(false)
   setPluginDispatcher(dispatch)
+  expect(pluginRuntime.ready).toBe(true)
   await dispatchPluginCommand('app', 'open')
   await dispatchPluginCommand('app', 'open', 'tab-context')
   await dispatchPluginCommand('app', 'open', 'editor-context')

@@ -1,0 +1,24 @@
+.home-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:24px 16px; }
+.home-tile { display:flex; flex-direction:column; align-items:center; gap:12px; min-width:0; padding:0; border:0; background:none; color:inherit; font:inherit; font-size:12px; cursor:pointer; text-align:center; }
+.home-tile .tile-label { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5; overflow-wrap:anywhere; max-width:100%; }
+.app-icon { display:grid; place-items:center; width:56px; height:56px; flex:none; border-radius:14px; color:var(--icon-fg); background:var(--icon-bg); }
+.app-icon svg { width:32px; height:32px; }
+.app-icon[data-tone=blue] { --icon-bg:#dae5ed; --icon-fg:#25475e; }
+.app-icon[data-tone=teal] { --icon-bg:#d9e7e1; --icon-fg:#28544e; }
+.app-icon[data-tone=ochre] { --icon-bg:#ece2ce; --icon-fg:#654d27; }
+.home-tile:focus-visible, .home-apps button:focus-visible, .app-directory button:focus-visible { outline:2px solid var(--ui-accent,Highlight); outline-offset:4px; }
+.home-tile[aria-disabled=true] .app-icon { outline:1px dashed GrayText; opacity:.65; }
+.home-control { border:1px solid color-mix(in srgb,CanvasText 20%,transparent); border-radius:6px; padding:5px 9px; font:inherit; font-size:12px; background:Canvas; color:CanvasText; cursor:pointer; }
+.home-control:disabled { opacity:.5; cursor:default; }
+.home-status { color:GrayText; font-size:12px; }
+.home-error { color:var(--ui-danger,#b3261e); font-size:12px; overflow-wrap:anywhere; }
+.home-section-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:24px; }
+.home-section-heading h2 { font-size:14px; font-weight:600; margin:0; }
+.home-section-heading .home-controls { display:flex; gap:8px; }
+@media(prefers-color-scheme:dark) {
+ .app-icon[data-tone=blue] { --icon-bg:#243744; --icon-fg:#b9ccda; }
+ .app-icon[data-tone=teal] { --icon-bg:#203c37; --icon-fg:#b3d0c6; }
+ .app-icon[data-tone=ochre] { --icon-bg:#3d3222; --icon-fg:#d4c19b; }
+}
+@container(max-width:420px) { .home-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(forced-colors:active) { .app-icon { border:1px solid CanvasText; } }

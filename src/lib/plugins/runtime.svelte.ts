@@ -14,8 +14,10 @@ type PluginDispatcher = (pluginId: string, command: string, source?: PluginComma
  */
 export const pluginRuntime = $state<{
   manifests: PluginManifest[]
+  ready: boolean
 }>({
   manifests: [],
+  ready: false,
 })
 
 let dispatcher: PluginDispatcher = async () => {
@@ -26,6 +28,7 @@ export function setPluginDispatcher(
   fn: PluginDispatcher,
 ): void {
   dispatcher = fn
+  pluginRuntime.ready = true
 }
 
 export function dispatchPluginCommand(pluginId: string, command: string, source: PluginCommandSource = 'menu'): Promise<void> {

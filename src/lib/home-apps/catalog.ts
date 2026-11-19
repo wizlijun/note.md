@@ -7,6 +7,7 @@ export interface HomeApp {
   id: string
   name: string
   description: string
+  compactName?: string
   category: PluginCategory
   enabled: boolean
   /** Runtime manifest exists; current context gates are checked when opening. */
@@ -44,6 +45,11 @@ export function buildHomeApps(installed: InstalledV2[], manifests: PluginManifes
     return {
       id: item.id,
       name: localizedPluginName(text, locale),
+      compactName: (() => {
+        const catalogs = text.i18n as Record<string, { name?: string }> | undefined
+        const key = locale.toLowerCase()
+        return catalogs?.[key]?.name?.trim() || catalogs?.[key.split('-')[0]]?.name?.trim() || text.name || item.id
+      })(),
       description: localizedPluginDescription(text, locale) ?? '',
       category: normalizePluginCategory(item.category, item.id),
       enabled: item.enabled,
@@ -54,11 +60,13 @@ export function buildHomeApps(installed: InstalledV2[], manifests: PluginManifes
   })
 }
 
-export type AppGlyph = 'app' | 'location' | 'import' | 'health' | 'book' | 'search' | 'spark' | 'brush' | 'tasks' | 'agent' | 'dictionary' | 'decision' | 'review' | 'timeline' | 'memory' | 'pdf' | 'power'
+export type AppGlyph = 'app' | 'location' | 'import' | 'health' | 'book' | 'search' | 'spark' | 'brush' | 'tasks' | 'agent' | 'dictionary' | 'decision' | 'review' | 'timeline' | 'memory' | 'pdf' | 'power' | 'meeting' | 'knowledge'
 export type AppTone = 'blue' | 'teal' | 'ochre'
 export interface AppIcon { glyph: AppGlyph; tone: AppTone }
 
 const ICONS: Readonly<Record<string, AppIcon>> = {
+  'notemd.meetings': { glyph: 'meeting', tone: 'teal' },
+  'notemd.knowledge-browser': { glyph: 'knowledge', tone: 'blue' },
   'notemd.pos-log': { glyph: 'location', tone: 'teal' },
   'notemd.roam-import': { glyph: 'import', tone: 'blue' },
   'notemd.apple-notes': { glyph: 'import', tone: 'ochre' },

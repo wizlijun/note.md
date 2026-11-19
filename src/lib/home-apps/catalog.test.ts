@@ -36,7 +36,7 @@ describe('installed home app catalog', () => {
       installed('third.party', { description: 'Fallback', category: 'inspiration' }),
     ], [manifest('third.party', { i18n: { zh: { name: '第三方', description: '补充说明' } } }), manifest('uninstalled')], 'zh-CN')
     expect(apps).toHaveLength(2)
-    expect(apps[0]).toMatchObject({ id: 'notemd.next', name: '任务（NEXT）', description: '安排任务', category: 'advance', enabled: false, available: false, entry: { kind: 'details' } })
+    expect(apps[0]).toMatchObject({ id: 'notemd.next', name: '任务（NEXT）', compactName: '任务', description: '安排任务', category: 'advance', enabled: false, available: false, entry: { kind: 'details' } })
     expect(apps[1]).toMatchObject({ description: '补充说明', category: 'create', enabled: true, available: true })
   })
 
@@ -44,6 +44,8 @@ describe('installed home app catalog', () => {
     expect(buildHomeApps([installed('a'), installed('a')], [], 'en')).toHaveLength(1)
     expect(appIcon('notemd.next')).toEqual(appIcon('notemd.next'))
     expect(appIcon('notemd.next').glyph).not.toBe('app')
+    expect(appIcon('notemd.meetings').glyph).toBe('meeting')
+    expect(appIcon('notemd.knowledge-browser').glyph).toBe('knowledge')
     expect(appIcon('unknown')).toEqual({ glyph: 'app', tone: 'blue' })
   })
 })
