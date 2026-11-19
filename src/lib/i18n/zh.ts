@@ -17,6 +17,18 @@ export const zh: Record<keyof Messages, string> = {
   "homeContent.error": "无法更新文档列表：{error}",
   "homeContent.retry": "重试",
   "homeContent.more": "更多",
+  "homeContent.less": "更少",
+  "homeContent.loadMore": "加载更多",
+  "homeContent.folderRules": "目录规则",
+  "homeContent.folderHint": "每行填写一个相对于 Vault 的目录路径，例如 Reports/Weekly。规则包含子目录，排除优先。",
+  "homeContent.folderInclude": "仅收录这些目录",
+  "homeContent.folderIncludeHint": "留空表示不限制收录目录。",
+  "homeContent.folderExclude": "排除这些目录",
+  "homeContent.folderAutomatic": "自动排除的目录",
+  "homeContent.folderAutomaticHint": "同一目录下有四篇文档从「新内容」移除后，该目录会自动排除。",
+  "homeContent.folderRestore": "取消《{path}》的自动排除",
+  "homeContent.folderRestoreButton": "恢复",
+  "homeContent.folderInvalid": "请输入相对于 Vault 的目录路径。",
 
 
   "homeApps.pdfGuide": "请先打开 Markdown 或 HTML 文档，再从现有菜单选择“插件 → 数据导入导出 → 导出为 PDF…”。",

@@ -1,12 +1,14 @@
 <script lang="ts">
   import { openFile } from '../lib/tabs.svelte'
+  import NewContentFolderRules from './NewContentFolderRules.svelte'
   import { homeContentStore, dismissHomeContent, refreshHomeContent } from '../lib/home-content/store.svelte'
   import { t, i18n } from '../lib/i18n/store.svelte'
 
   let actionError = $state<string | null>(null)
   let pending = $state(false)
   const PAGE_SIZE = 10
-  let visibleRows = $state({ new: PAGE_SIZE, continue: PAGE_SIZE })
+  let expanded = $state({ new: false, continue: false })
+  let expandedRows = $state({ new: 2 * PAGE_SIZE, continue: 2 * PAGE_SIZE })
   const sections = $derived([
     { kind: 'new' as const, title: t('homeContent.new'), empty: t('homeContent.emptyNew'), items: homeContentStore.newItems },
     { kind: 'continue' as const, title: t('homeContent.continue'), empty: t('homeContent.emptyContinue'), items: homeContentStore.continueItems },
@@ -35,16 +37,25 @@
   {#if homeContentStore.skipped > 0}<p class="content-partial" role="status">{t('homeContent.partial', { count: homeContentStore.skipped })}</p>{/if}
   <div class="content-columns">
     {#each sections as section (section.kind)}
+      {@const isExpanded = expanded[section.kind]}
+      {@const visibleRows = isExpanded ? expandedRows[section.kind] : PAGE_SIZE}
       <section aria-labelledby={`home-content-${section.kind}`}>
         <div class="content-heading">
           <h2 id={`home-content-${section.kind}`}>{section.title}</h2>
-          {#if section.items.length > visibleRows[section.kind]}
-            <button class="content-more" aria-controls={`home-content-list-${section.kind}`} onclick={() => { visibleRows[section.kind] += PAGE_SIZE }}>{t('homeContent.more')}</button>
+          {#if section.items.length > PAGE_SIZE}
+            <button class="content-more" aria-expanded={isExpanded} aria-controls={`home-content-list-${section.kind}`} onclick={() => { expanded[section.kind] = !isExpanded }}>
+              {t(isExpanded ? 'homeContent.less' : 'homeContent.more')}
+            </button>
           {/if}
         </div>
+        {#if section.kind === 'new' && homeContentStore.folderSettings}
+          {#key homeContentStore.folderSettings.root}
+            <NewContentFolderRules settings={homeContentStore.folderSettings} />
+          {/key}
+        {/if}
         {#if section.items.length}
           <ul id={`home-content-list-${section.kind}`}>
-            {#each section.items.slice(0, visibleRows[section.kind]) as item (item.path)}
+            {#each section.items.slice(0, visibleRows) as item (item.path)}
               <li data-content-kind={section.kind}>
                 <button class="content-open" disabled={pending} title={item.path} onclick={() => void action(() => openFile(item.path))}>
                   <span class="content-topline"><span class="content-title">{item.title}</span><span class="content-date">{dateLabel(item.at)}</span></span>
@@ -54,6 +65,11 @@
               </li>
             {/each}
           </ul>
+          {#if isExpanded && section.items.length > visibleRows}
+            <button class="home-control content-load-more" aria-controls={`home-content-list-${section.kind}`} onclick={() => { expandedRows[section.kind] += PAGE_SIZE }}>
+              {t('homeContent.loadMore')}
+            </button>
+          {/if}
         {:else if !homeContentStore.ready && homeContentStore.busy}
           <p class="content-empty" role="status">{t('homeContent.loading')}</p>
         {:else if homeContentStore.ready}
@@ -79,6 +95,7 @@
   .content-preview { display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:3.1em; width:100%; color:GrayText; font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
   .content-date { flex:none; color:GrayText; font-size:11px; line-height:1.5; }
   .content-more { flex:none; padding:3px 0; border:0; border-radius:4px; background:none; color:GrayText; font-size:12px; cursor:pointer; }
+  .content-load-more { display:block; margin:12px auto 0; }
   .content-dismiss { flex:none; display:grid; place-items:center; width:28px; height:28px; margin-right:6px; padding:0; border:0; border-radius:4px; background:none; color:GrayText; font-size:18px; cursor:pointer; }
   .content-open:hover, .content-dismiss:hover, .content-more:hover { background:color-mix(in srgb,CanvasText 6%,transparent); }
   button:focus-visible { outline:2px solid var(--ui-accent,Highlight); outline-offset:2px; }

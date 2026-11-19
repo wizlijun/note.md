@@ -7,11 +7,19 @@ import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type Fs } from '../insights/store.svelte'
 import { abbreviateHome, normalize } from '../paths'
 import { formatRecentLabel } from '../recent-merge'
-import { activityFor, applyAttention, applyEdit, contentLists, discoverContent, dismissContent,
-  emptyHomeContent, migrateOwnerHistory, normalizeHomeContent, READ_MS,
+import { activityFor, applyAttention, applyEdit, automaticallyExcludedFolders, contentLists, discoverContent, dismissContent,
+  emptyHomeContent, migrateOwnerHistory, newContentFolders, normalizeHomeContent, READ_MS,
   type ContentCandidate, type ContentList, type HomeContentData, type HomeContentItem, type VaultContent } from './model'
 
+export interface NewContentFolderSettings {
+  root: string
+  include: string[]
+  exclude: string[]
+  automatic: string[]
+}
+
 export const homeContentStore = $state({
+  folderSettings: null as NewContentFolderSettings | null,
   newItems: [] as HomeContentItem[], continueItems: [] as HomeContentItem[],
   ready: false, busy: false, error: null as string | null, skipped: 0,
 })
@@ -49,6 +57,11 @@ export function loadHomeContent(): Promise<void> {
 }
 
 function publish(): void {
+  const folders = root ? data.vaults[root]?.newContentFolders : undefined
+  homeContentStore.folderSettings = root && storage ? {
+    root, include: [...(folders?.include ?? [])], exclude: [...(folders?.exclude ?? [])],
+    automatic: automaticallyExcludedFolders(folders),
+  } : null
   const lists = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), Infinity, unavailable) : { newItems: [], continueItems: [] }
   const display = (item: HomeContentItem) => ({ ...item, detail: abbreviateHome(item.detail, home) })
   homeContentStore.newItems = lists.newItems.map(display)
@@ -144,11 +157,27 @@ export async function dismissHomeContent(list: ContentList, path: string): Promi
     ? { root: target, path, base: null, ms: 0, lastPublished: 0, lastAttentionAt: now } : null
   if (replacement) visit = replacement
   try {
-    await change(target, vault => dismissContent(activityFor(vault, path, target, now), list, now))
+    await change(target, vault => dismissContent(vault, path, target, list, now))
   } catch (error) {
     if (replacement && visit === replacement && previous) { previous.ms += replacement.ms; visit = previous }
     throw error
   }
+}
+
+export function saveNewContentFolders(target: string, include: string[], exclude: string[]): Promise<void> {
+  if (target !== root) return Promise.resolve()
+  return change(target, vault => {
+    const folders = newContentFolders(vault)
+    folders.include = [...include]
+    folders.exclude = [...exclude]
+  })
+}
+
+export function clearAutomaticFolderExclusion(target: string, folder: string): Promise<void> {
+  if (target !== root) return Promise.resolve()
+  return change(target, vault => {
+    if (vault.newContentFolders) delete vault.newContentFolders.dismissals[folder]
+  })
 }
 
 function saveVisit(current: Visit, now: number): Promise<void> {

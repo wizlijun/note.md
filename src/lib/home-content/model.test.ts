@@ -119,7 +119,7 @@ describe('home content selection', () => {
     const state = vault(), c = candidate('source.md')
     discoverContent(state, [c], ROOT, NOW)
     const doc = activityFor(state, c.path, ROOT, NOW)
-    dismissContent(doc, 'continue', NOW)
+    dismissContent(state, doc.path, ROOT, 'continue', NOW)
     const devices = [history(c.path, 0, 60_000)]
     migrateOwnerHistory(state, devices, ROOT)
     migrateOwnerHistory(state, devices, ROOT)
@@ -133,10 +133,10 @@ describe('home content selection', () => {
   it('persists independent dismissals across restart and requires new qualifying activity to return', () => {
     const state = vault(), fresh = candidate('fresh.md'), reading = candidate('reading.md')
     discoverContent(state, [fresh, reading], ROOT, NOW)
-    dismissContent(activityFor(state, fresh.path, ROOT, NOW), 'new', NOW + 1)
+    dismissContent(state, fresh.path, ROOT, 'new', NOW + 1)
     const active = activityFor(state, reading.path, ROOT, NOW)
     applyAttention(active, 60_000, 60_000, NOW + 60_000)
-    dismissContent(active, 'continue', NOW + 70_000)
+    dismissContent(state, active.path, ROOT, 'continue', NOW + 70_000)
     const restored = normalizeHomeContent(JSON.parse(JSON.stringify({ version: 1, vaults: { [ROOT]: state } }))).vaults[ROOT]
     fresh.modifiedAt = NOW + DAY
     discoverContent(restored, [fresh, reading], ROOT, NOW + DAY)

@@ -17,6 +17,18 @@ export const ja: Record<keyof Messages, string> = {
   "homeContent.error": "文書リストを更新できませんでした：{error}",
   "homeContent.retry": "再試行",
   "homeContent.more": "もっと見る",
+  "homeContent.less": "折りたたむ",
+  "homeContent.loadMore": "さらに読み込む",
+  "homeContent.folderRules": "フォルダーのルール",
+  "homeContent.folderHint": "Vault からの相対パスを1行につき1つ入力します（例：Reports/Weekly）。サブフォルダーを含み、除外が優先されます。",
+  "homeContent.folderInclude": "対象フォルダーを指定",
+  "homeContent.folderIncludeHint": "空欄の場合はすべてのフォルダーが対象になります。",
+  "homeContent.folderExclude": "除外するフォルダー",
+  "homeContent.folderAutomatic": "自動的に除外されたフォルダー",
+  "homeContent.folderAutomaticHint": "同じフォルダーの文書を「新しいコンテンツ」から4件除くと、そのフォルダーが自動的に除外されます。",
+  "homeContent.folderRestore": "{path} の自動除外を解除",
+  "homeContent.folderRestoreButton": "解除",
+  "homeContent.folderInvalid": "Vault からの相対フォルダーパスを入力してください。",
 
 
   "homeApps.pdfGuide": "まず Markdown または HTML の文書を開き、既存のメニューから「プラグイン → 読み込みと書き出し → PDF に書き出す…」を選んでください。",

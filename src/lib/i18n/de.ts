@@ -15,6 +15,18 @@ export const de: Record<keyof Messages, string> = {
   "homeContent.error": "Dokumentliste konnte nicht aktualisiert werden: {error}",
   "homeContent.retry": "Erneut versuchen",
   "homeContent.more": "Mehr",
+  "homeContent.less": "Weniger",
+  "homeContent.loadMore": "Mehr laden",
+  "homeContent.folderRules": "Ordnerregeln",
+  "homeContent.folderHint": "Gib pro Zeile einen Pfad relativ zum Vault ein, etwa Reports/Weekly. Unterordner werden berücksichtigt. Ausschlüsse haben Vorrang.",
+  "homeContent.folderInclude": "Nur diese Ordner berücksichtigen",
+  "homeContent.folderIncludeHint": "Leer lassen, um alle Ordner zu berücksichtigen.",
+  "homeContent.folderExclude": "Diese Ordner ausschließen",
+  "homeContent.folderAutomatic": "Automatisch ausgeschlossene Ordner",
+  "homeContent.folderAutomaticHint": "Ein Ordner wird ausgeschlossen, nachdem vier seiner Dokumente aus „Neue Inhalte“ entfernt wurden.",
+  "homeContent.folderRestore": "Automatischen Ausschluss für {path} aufheben",
+  "homeContent.folderRestoreButton": "Aufheben",
+  "homeContent.folderInvalid": "Gib Ordnerpfade relativ zum Vault ein.",
 
 
   "homeApps.pdfGuide": "Öffnen Sie zuerst ein Markdown- oder HTML-Dokument und wählen Sie dann im bestehenden Menü „Plugins → Importieren & Exportieren → Als PDF exportieren…“.",

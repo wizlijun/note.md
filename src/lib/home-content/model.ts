@@ -22,10 +22,16 @@ export interface ContentActivity {
   dismissedNew: boolean
   dismissedContinueAt: number
 }
+export interface NewContentFolders {
+  include: string[]
+  exclude: string[]
+  dismissals: Record<string, number>
+}
 export interface VaultContent {
   initializedAt: number
   migrated: boolean
   docs: Record<string, ContentActivity>
+  newContentFolders?: NewContentFolders
 }
 export interface HomeContentData { version: 1; vaults: Record<string, VaultContent> }
 export interface HomeContentItem { path: string; title: string; detail: string; at: number; preview?: string }
@@ -50,12 +56,72 @@ export function activityFor(vault: VaultContent, path: string, root: string, now
     lastReadAt: 0, lastEditedAt: 0, dismissedNew: false, dismissedContinueAt: 0,
   }
 }
+const FOLDER_DISMISSAL_LIMIT = 4
+
+function relativeFolder(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const value = raw.trim()
+  if (/^[\\/]|^[a-z]:|[\u0000-\u001F]/i.test(value)) return null
+  const path = normalize(value).replace(/^\.\//, '').replace(/\/$/, '')
+  return path && !path.split('/').some(p => p === '.' || p === '..') ? path : null
+}
+
+/** One Vault-relative directory per line. Empty input keeps the default scope. */
+export function parseFolderRules(text: string): string[] | null {
+  const folders = new Set<string>()
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue
+    const folder = relativeFolder(line)
+    if (!folder) return null
+    folders.add(folder)
+  }
+  return [...folders]
+}
+
+export function newContentFolders(vault: VaultContent): NewContentFolders {
+  return vault.newContentFolders ??= { include: [], exclude: [], dismissals: {} }
+}
+
+function normalizeFolders(raw: unknown): NewContentFolders | undefined {
+  if (!object(raw)) return undefined
+  const list = (value: unknown) => Array.isArray(value) ? [...new Set(value.map(relativeFolder).filter((path): path is string => path !== null))] : []
+  const dismissals: Array<[string, number]> = []
+  if (object(raw.dismissals)) {
+    for (const [key, n] of Object.entries(raw.dismissals)) {
+      const folder = relativeFolder(key)
+      if (folder && typeof n === 'number' && Number.isSafeInteger(n) && n > 0) {
+        dismissals.push([folder, Math.min(n, FOLDER_DISMISSAL_LIMIT)])
+      }
+    }
+  }
+  return { include: list(raw.include), exclude: list(raw.exclude), dismissals: Object.fromEntries(dismissals) }
+}
+
+export function automaticallyExcludedFolders(rules?: NewContentFolders): string[] {
+  return Object.entries(rules?.dismissals ?? {})
+    .filter(([, count]) => count >= FOLDER_DISMISSAL_LIMIT)
+    .map(([folder]) => folder).sort((a, b) => a.localeCompare(b))
+}
+
+function dismissNewContent(vault: VaultContent, doc: ContentActivity, key: string): void {
+  if (doc.dismissedNew) return
+  doc.dismissedNew = true
+  // Root-level files never exclude the entire Vault. Count only the direct parent.
+  const parent = key.startsWith('rel:') ? dirname(key.slice(4)) : '.'
+  if (parent === '.') return
+  const folders = newContentFolders(vault)
+  const count = Object.hasOwn(folders.dismissals, parent) ? folders.dismissals[parent] : 0
+  if (count < FOLDER_DISMISSAL_LIMIT) folders.dismissals = { ...folders.dismissals, [parent]: count + 1 }
+}
+
 export function normalizeHomeContent(value: unknown): HomeContentData {
   const out = emptyHomeContent()
   if (!object(value) || value.version !== 1 || !object(value.vaults)) return out
   for (const [root, raw] of Object.entries(value.vaults)) {
     if (!object(raw) || !object(raw.docs)) continue
     const vault: VaultContent = { initializedAt: time(raw.initializedAt), migrated: raw.migrated === true, docs: {} }
+    const folders = normalizeFolders(raw.newContentFolders)
+    if (folders) vault.newContentFolders = folders
     for (const [key, item] of Object.entries(raw.docs)) {
       const path = contentPath(key, root)
       if (!path || !object(item)) continue
@@ -125,14 +191,18 @@ export function applyEdit(doc: ContentActivity, now: number): void {
   doc.readAt ||= now
   doc.lastEditedAt = Math.max(doc.lastEditedAt, now)
 }
-export function dismissContent(doc: ContentActivity, list: ContentList, now: number): void {
-  if (list === 'new') doc.dismissedNew = true
+export function dismissContent(vault: VaultContent, path: string, root: string, list: ContentList, now: number): void {
+  const doc = activityFor(vault, path, root, now)
+  if (list === 'new') dismissNewContent(vault, doc, contentKey(path, root))
   else doc.dismissedContinueAt = Math.max(now, doc.lastReadAt, doc.lastEditedAt)
 }
 export function contentLists(vault: VaultContent, candidates: ContentCandidate[], root: string, now: number, limit = 10, unavailable: ReadonlySet<string> = new Set()) {
   const metadata = new Map(candidates.map(c => [contentKey(c.path, root), c]))
   const newItems: HomeContentItem[] = [], continueItems: HomeContentItem[] = []
   const cutoff = vault.initializedAt - INITIAL_DAYS * 86_400_000
+  const include = vault.newContentFolders?.include ?? []
+  const exclude = [...(vault.newContentFolders?.exclude ?? []), ...automaticallyExcludedFolders(vault.newContentFolders)]
+  const matchesFolder = (path: string, folders: string[]) => folders.some(folder => path.startsWith(folder + '/'))
   for (const [key, doc] of Object.entries(vault.docs)) {
     const c = metadata.get(key)
     // A completed catalog is authoritative for Vault documents; external paths
@@ -144,9 +214,10 @@ export function contentLists(vault: VaultContent, candidates: ContentCandidate[]
       ...(c?.preview?.trim() ? { preview: c.preview.trim() } : {}) }
     const activeAt = Math.max(doc.lastReadAt, doc.lastEditedAt)
     if (activeAt > doc.dismissedContinueAt) continueItems.push({ ...item, at: activeAt })
-    if (c && isNewContent(c, root) && !doc.readAt && !doc.dismissedNew && doc.discoveredAt > 0 && doc.discoveredAt >= cutoff && doc.discoveredAt <= now) {
-      newItems.push({ ...item, at: doc.discoveredAt })
-    }
+    if (!c || !isNewContent(c, root) || doc.readAt || doc.dismissedNew || doc.discoveredAt <= 0 || doc.discoveredAt < cutoff || doc.discoveredAt > now) continue
+    const relativePath = key.slice(4)
+    if (matchesFolder(relativePath, exclude) || (include.length > 0 && !matchesFolder(relativePath, include))) continue
+    newItems.push({ ...item, at: doc.discoveredAt })
   }
   const order = (a: HomeContentItem, b: HomeContentItem) => b.at - a.at || a.path.localeCompare(b.path)
   return { newItems: newItems.sort(order).slice(0, limit), continueItems: continueItems.sort(order).slice(0, limit) }

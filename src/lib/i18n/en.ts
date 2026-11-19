@@ -22,6 +22,18 @@ export const en = {
   "homeContent.error": "Could not update documents: {error}",
   "homeContent.retry": "Retry",
   "homeContent.more": "More",
+  "homeContent.less": "Less",
+  "homeContent.loadMore": "Load more",
+  "homeContent.folderRules": "Folder rules",
+  "homeContent.folderHint": "Enter one path relative to this Vault per line, such as Reports/Weekly. Subfolders are included. Exclusions take priority.",
+  "homeContent.folderInclude": "Only include these folders",
+  "homeContent.folderIncludeHint": "Leave blank to include all folders.",
+  "homeContent.folderExclude": "Exclude these folders",
+  "homeContent.folderAutomatic": "Automatically excluded folders",
+  "homeContent.folderAutomaticHint": "Folders are excluded after you remove four documents from New content.",
+  "homeContent.folderRestore": "Clear automatic exclusion for {path}",
+  "homeContent.folderRestoreButton": "Restore",
+  "homeContent.folderInvalid": "Enter folder paths relative to the Vault.",
 
 
   "homeApps.pdfGuide": "Open a Markdown or HTML document first, then choose Plugins → Import & Export → Export to PDF… from the existing menu.",

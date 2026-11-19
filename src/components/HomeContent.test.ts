@@ -5,10 +5,12 @@ const mocks = vi.hoisted(() => ({
   open: vi.fn(async (_path: string) => {}),
   dismiss: vi.fn(async (_kind: string, _path: string) => {}),
   refresh: vi.fn(async () => {}),
-  store: { newItems: [] as Array<{ path: string; title: string; detail: string; at: number; preview?: string }>, continueItems: [] as Array<{ path: string; title: string; detail: string; at: number; preview?: string }>, ready: true, busy: false, error: null as string | null, skipped: 0 },
+  saveFolders: vi.fn(async (_root: string, _include: string[], _exclude: string[]) => {}),
+  clearFolder: vi.fn(async (_root: string, _folder: string) => {}),
+  store: { folderSettings: null as null | { root: string; include: string[]; exclude: string[]; automatic: string[] }, newItems: [] as Array<{ path: string; title: string; detail: string; at: number; preview?: string }>, continueItems: [] as Array<{ path: string; title: string; detail: string; at: number; preview?: string }>, ready: true, busy: false, error: null as string | null, skipped: 0 },
 }))
 vi.mock('../lib/tabs.svelte', () => ({ openFile: mocks.open }))
-vi.mock('../lib/home-content/store.svelte', () => ({ homeContentStore: mocks.store, dismissHomeContent: mocks.dismiss, refreshHomeContent: mocks.refresh }))
+vi.mock('../lib/home-content/store.svelte', () => ({ homeContentStore: mocks.store, dismissHomeContent: mocks.dismiss, refreshHomeContent: mocks.refresh, saveNewContentFolders: mocks.saveFolders, clearAutomaticFolderExclusion: mocks.clearFolder }))
 vi.mock('../lib/i18n/store.svelte', async () => {
   const { en } = await import('../lib/i18n/en')
   return { i18n: { locale: 'en' }, t: (key: keyof typeof en, vars: Record<string, string> = {}) => en[key].replace(/\{(\w+)\}/g, (match, name) => vars[name] ?? match) }
@@ -24,7 +26,7 @@ beforeEach(() => {
   mocks.open.mockReset().mockResolvedValue(undefined)
   mocks.dismiss.mockReset().mockResolvedValue(undefined)
   mocks.refresh.mockReset().mockResolvedValue(undefined)
-  Object.assign(mocks.store, { newItems: [fresh], continueItems: [previous], ready: true, busy: false, error: null, skipped: 0 })
+  Object.assign(mocks.store, { folderSettings: null, newItems: [fresh], continueItems: [previous], ready: true, busy: false, error: null, skipped: 0 })
   document.body.innerHTML = ''
 })
 afterEach(async () => { if (app) await unmount(app); app = undefined })
@@ -39,26 +41,44 @@ it('renders document titles, dates, real previews and full path tooltips', async
   expect(document.querySelector('[data-content-kind="new"] .content-preview')?.textContent).toBe(fresh.preview)
   expect(document.querySelector('[data-content-kind="continue"] .content-preview')?.textContent).toBe(previous.detail)
 })
-it('shows ten rows and adds ten at a time independently until each list ends', async () => {
-  mocks.store.newItems = Array.from({ length: 25 }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md`, title: `New ${i}` }))
+it('toggles each list independently and loads the next ten rows from the bottom', async () => {
+  mocks.store.newItems = Array.from({ length: 35 }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md`, title: `New ${i}` }))
   mocks.store.continueItems = Array.from({ length: 21 }, (_, i) => ({ ...previous, path: `/vault/read-${i}.md`, title: `Read ${i}` }))
   app = mount(HomeContent, { target: document.body }); await settle()
   const rows = (kind: string) => document.querySelectorAll(`[data-content-kind="${kind}"]`).length
-  const more = (kind: string) => document.querySelector<HTMLButtonElement>(`[aria-controls="home-content-list-${kind}"]`)
+  const control = (selector: string, kind: string) => document.querySelector<HTMLButtonElement>(`${selector}[aria-controls="home-content-list-${kind}"]`)
+  const toggle = (kind: string) => control('.content-more', kind)!
+  const loadMore = (kind: string) => control('.content-load-more', kind)
+
   expect([rows('new'), rows('continue')]).toEqual([10, 10])
-  expect(more('new')?.textContent).toBe('More')
-  more('new')!.click(); await settle()
+  expect(toggle('new').textContent?.trim()).toBe('More')
+  expect(toggle('new').getAttribute('aria-expanded')).toBe('false')
+  expect(loadMore('new')).toBeNull()
+  toggle('new').click(); await settle()
   expect([rows('new'), rows('continue')]).toEqual([20, 10])
-  more('continue')!.click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([20, 20])
-  more('new')!.click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([25, 20])
-  expect(more('new')).toBeNull()
-  more('continue')!.click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([25, 21])
-  expect(more('continue')).toBeNull()
-  button('Remove New 24 from this list').click(); await settle()
-  expect(mocks.dismiss).toHaveBeenCalledExactlyOnceWith('new', '/vault/new-24.md')
+  expect(toggle('new').textContent?.trim()).toBe('Less')
+  expect(toggle('new').getAttribute('aria-expanded')).toBe('true')
+  expect(loadMore('new')?.previousElementSibling?.id).toBe('home-content-list-new')
+  expect(loadMore('new')?.textContent?.trim()).toBe('Load more')
+
+  loadMore('new')!.click(); await settle()
+  expect([rows('new'), rows('continue')]).toEqual([30, 10])
+  toggle('continue').click(); await settle()
+  expect([rows('new'), rows('continue')]).toEqual([30, 20])
+  loadMore('new')!.click(); await settle()
+  expect([rows('new'), rows('continue')]).toEqual([35, 20])
+  expect(loadMore('new')).toBeNull()
+  loadMore('continue')!.click(); await settle()
+  expect([rows('new'), rows('continue')]).toEqual([35, 21])
+  expect(loadMore('continue')).toBeNull()
+
+  toggle('new').click(); await settle()
+  expect([rows('new'), rows('continue')]).toEqual([10, 21])
+  expect(toggle('new').textContent?.trim()).toBe('More')
+  toggle('new').click(); await settle()
+  expect([rows('new'), rows('continue')]).toEqual([35, 21])
+  button('Remove New 34 from this list').click(); await settle()
+  expect(mocks.dismiss).toHaveBeenCalledExactlyOnceWith('new', '/vault/new-34.md')
   expect(mocks.open).not.toHaveBeenCalled()
 })
 it.each([0, 1, 10])('omits more when the list has %i rows', async count => {
@@ -76,6 +96,27 @@ it('keeps a large catalog bounded and resets to ten when home is reopened', asyn
   await unmount(app)
   app = mount(HomeContent, { target: document.body }); await settle()
   expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(10)
+})
+it('edits rules and restores an automatic exclusion through the New content controls', async () => {
+  mocks.store.folderSettings = { root: '/vault', include: ['Reports'], exclude: [], automatic: ['ssot/agentsession'] }
+  app = mount(HomeContent, { target: document.body }); await settle()
+  const panel = document.querySelector<HTMLDetailsElement>('.folder-rules')!
+  expect(panel.closest('section')?.getAttribute('aria-labelledby')).toBe('home-content-new')
+  panel.open = true; panel.dispatchEvent(new Event('toggle')); await settle()
+  const [include, exclude] = panel.querySelectorAll('textarea')
+  expect(include.value).toBe('Reports')
+  const enter = (field: HTMLTextAreaElement, value: string) => { field.value = value; field.dispatchEvent(new Event('input')) }
+  const submit = () => panel.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  enter(exclude, '../outside'); submit(); await settle()
+  expect(panel.querySelector('[role="alert"]')?.textContent).toContain('relative to the Vault')
+  expect(mocks.saveFolders).not.toHaveBeenCalled()
+  enter(exclude, 'ssot\nagentsession/'); submit(); await settle()
+  expect(mocks.saveFolders).toHaveBeenCalledExactlyOnceWith('/vault', ['Reports'], ['ssot', 'agentsession'])
+  expect(panel.open).toBe(false)
+  expect(document.activeElement).toBe(panel.querySelector('summary'))
+  panel.open = true; panel.dispatchEvent(new Event('toggle')); await settle()
+  button('Clear automatic exclusion for ssot/agentsession').click(); await settle()
+  expect(mocks.clearFolder).toHaveBeenCalledExactlyOnceWith('/vault', 'ssot/agentsession')
 })
 it('opens an item and independently dismisses an item in its own list', async () => {
   app = mount(HomeContent, { target: document.body }); await settle()

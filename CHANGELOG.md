@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- New Content supports Vault folder rules for including or excluding directories. Removing four different documents from a folder automatically excludes it, and the rule can be restored. Both home document lists now toggle More and Less and load another 10 items from the bottom.
+
 ## v6.1120.1 — 2026-11-20
 
 - The File menu now keeps Recently Opened and New Content, removing Open History. Each home document list starts with 10 items and adds 10 per More click instead of rendering the entire list at once.
