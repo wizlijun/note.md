@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-11-19T06:24:54.168619+00:00",
+  "frozenReleaseCommit": "c391032e80d294c8e941b041e0987e8b9555923f",
+  "preservedExcludedFiles": [
+    {
+      "path": "searchidx/src/store.rs",
+      "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "unchanged": true
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "sha256": "ac84b2e79ad8ab3051b5a1bb7aa1318365b33e98307be72a5f230a4fe40ca8f3",
+      "unchanged": true
+    },
+    {
+      "path": "output/design/home-app-shortcuts-concept.png",
+      "sha256": "3a251826cc1c15ecd0b26cb0856e574ee182a89dcd60a642e0c721076f2bb669",
+      "unchanged": true
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v2.png",
+      "sha256": "b6e39cbed5163df28d67d5389238fc7aebfe99b43866e2b81edf3ec3ac19bd7e",
+      "unchanged": true
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v3-light-dark.png",
+      "sha256": "eac8919a01a0b62fc11864018729d8fa650eee0e312f686fb959bc29dabe87aa",
+      "unchanged": true
+    }
+  ],
+  "stash": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c",
+  "rootStatus": " M searchidx/src/store.rs\n M src-tauri/src/smart_lookup.rs\n?? output/\n",
+  "worktrees": "worktree /Users/bruce/git/mdeditor\nHEAD 47e0832d0dc09c5a4a36bb8af940fada9d7ccf2b\nbranch refs/heads/main\n\nworktree /Users/bruce/git/mdeditor/.worktrees/home-apps\nHEAD 9b4b42723ad658aec5aa2893e35e6df9e0f1e089\nbranch refs/heads/feat/home-app-shortcuts\n\n",
+  "branchesNotMerged": ""
+}

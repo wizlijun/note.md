@@ -17,3 +17,9 @@
 报告记录签名构建 App、DMG 内 App、updater 中 App 的 7 个文件/链接逐项一致。`codesign -dvvv` 的成功记录给出 App CDHash `f4b5ad8d1e713afa1dffd9144bd7e1a3b1dc138b`、DMG CDHash `38a66d82f504bd0dcb6ef3c3bef2e69d04437541`，分别与 Accepted 票据及独立绑定文件一致；报告的命令均为零退出码。来源记录中的四项打包产物哈希与六附件清单中的对应条目一致。此复核只核对现有报告与关联证据，未重跑验包或重新下载附件。
 
 当时版本尚未公开；匿名公网六附件完整回读和实际 updater endpoint 仍须公开后单独验证，不能提前声称通过。
+
+## 公开回读报告一致性复核
+
+公开回读报告、六个独立收据、汇总、updater endpoint 报告及冻结附件清单一致：tag object `b4643a6169cb90340f3289b0c5badcd3901c445e` 对应报告中的提交 `c391032e80d294c8e941b041e0987e8b9555923f`；六附件合计 93,216,157 字节。已对本地保存的六个匿名下载文件重新计算 SHA-256，与收据和冻结清单相符；三项大附件收据的范围连续覆盖全文件，身份和规范下载地址一致。报告记录整份 updater tar 的 Minisign、批准 companion 均通过，无 fallback。
+
+实际 updater endpoint 报告为匿名 HTTP 200、740 字节，SHA-256 与冻结 `latest.json` 一致。以上是对现有报告及下载文件的有限复核；未重新联网下载或重新执行验包器，公开状态和远端 tag 对应关系依据回读报告。

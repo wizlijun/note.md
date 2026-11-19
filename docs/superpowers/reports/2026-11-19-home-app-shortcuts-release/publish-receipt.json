@@ -1,0 +1,10 @@
+{
+  "status": "Published",
+  "tag": "v6.1119.1",
+  "scope": "mac-arm64-only",
+  "userExactConfirmation": "v6.1119.1 mac-arm64-only",
+  "publisher": "scripts/release-publish.sh v6.1119.1 --mac-arm64-only",
+  "exitCode": 0,
+  "stdout": "Published v6.1119.1",
+  "recordedAt": "2026-11-19T06:24:43.040895+00:00"
+}
