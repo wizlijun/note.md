@@ -523,7 +523,7 @@ function extOf(path: string): string {
 async function openAsPlainText(path: string): Promise<void> {
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
-    activate(existing.id)
+    await activate(existing.id)
     return
   }
   const content = await readTextWithPermissionPrompt(path)
@@ -548,7 +548,7 @@ async function openAsPlainText(path: string): Promise<void> {
     pendingExternal: undefined,
   }
   tabs.push(tab)
-  activate(tab.id)
+  await activate(tab.id)
   await pushRecentFile(path)
   await startWatchingTab(tab)
 }
@@ -586,7 +586,7 @@ export async function openFile(path: string): Promise<void> {
 
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
-    activate(existing.id)
+    await activate(existing.id)
     return
   }
 
@@ -616,7 +616,7 @@ export async function openFile(path: string): Promise<void> {
     path = opened.canonicalPath
     const canonicalExisting = tabs.find((t) => t.filePath === path)
     if (canonicalExisting) {
-      activate(canonicalExisting.id)
+      await activate(canonicalExisting.id)
       return
     }
     content = opened.text
@@ -657,7 +657,7 @@ export async function openFile(path: string): Promise<void> {
     canvasRevision,
   }
   tabs.push(tab)
-  activate(tab.id)
+  await activate(tab.id)
   await pushRecentFile(path)
   await startWatchingTab(tab)
   // Sync-to-Vault: if this is a tracked vault copy whose source changed, prompt.

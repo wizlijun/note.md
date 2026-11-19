@@ -126,7 +126,7 @@
       return
     }
     try {
-      await dispatchPluginCommand(item.pluginId, item.command)
+      await dispatchPluginCommand(item.pluginId, item.command, 'tab-context')
     } catch (e) {
       console.warn('[TabBar] context menu dispatch failed:', e)
     }

@@ -47,15 +47,37 @@ describe('shared actual plugin app launch', () => {
   it('respects context-menu enabled_when and fails closed for invalid gates', async () => {
     const { m, deps } = harness()
     m.context_menus = [{ command: 'open', label: 'Open', location: 'tab', enabled_when: 'currentTab.hasContent' }]
-    await launchPluginApp('app', 'open', deps)
+    await launchPluginApp('app', 'open', deps, 'tab-context')
     expect(deps.openWindow).not.toHaveBeenCalled()
     m.context_menus[0].enabled_when = 'settings.allowed'
     deps.context.mockReturnValue({ ...context(), settings: { allowed: true } })
-    await launchPluginApp('app', 'open', deps)
+    await launchPluginApp('app', 'open', deps, 'tab-context')
     expect(deps.openWindow).toHaveBeenCalledOnce()
     m.available_when = '!!!'
-    await launchPluginApp('app', 'open', deps)
+    await launchPluginApp('app', 'open', deps, 'tab-context')
     expect(deps.openWindow).toHaveBeenCalledOnce()
+  })
+
+  it('keeps same-command menu and context gates tied to their own entry source', async () => {
+    const { m, deps } = harness()
+    m.menus = [{ command:'open',label:'Menu',location:'plugins',enabled_when:'settings.menu' }]
+    m.context_menus = [
+      {command:'open',label:'Editor',location:'editor',enabled_when:'settings.editor'},
+      {command:'open',label:'Tab',location:'tab',enabled_when:'settings.tab'},
+    ]
+    deps.context.mockReturnValue({...context(),settings:{menu:true,tab:false,editor:false}})
+    expect(pluginCommandEnabled(m,'open',deps.context(),'tab-context')).toBe(false)
+    await launchPluginApp('app','open',deps,'tab-context')
+    expect(deps.openWindow).not.toHaveBeenCalled()
+    await launchPluginApp('app','open',deps)
+    expect(deps.openWindow).toHaveBeenCalledOnce()
+    deps.context.mockReturnValue({...context(),settings:{menu:false,tab:true,editor:false}})
+    await launchPluginApp('app','open',deps,'menu')
+    expect(deps.openWindow).toHaveBeenCalledOnce()
+    await launchPluginApp('app','open',deps,'tab-context')
+    expect(deps.openWindow).toHaveBeenCalledTimes(2)
+    await launchPluginApp('app','open',deps,'editor-context')
+    expect(deps.openWindow).toHaveBeenCalledTimes(2)
   })
 
   it('reports rejected usage persistence without failing the open', async () => {

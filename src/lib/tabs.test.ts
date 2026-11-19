@@ -2141,6 +2141,37 @@ describe('return home navigation', () => {
     return { m, tab, controller, session, finish, sessions }
   }
 
+  it.each([false, true])('waits for real picker activation through a delayed flush (already open: %s)', async (alreadyOpen) => {
+    const m = await import('./tabs.svelte')
+    const picked = '/vault/picked.md'
+    if (alreadyOpen) await m.openFile(picked)
+    await m.openFile('/vault/source.md')
+    const source = m.activeTab()!
+    const { open } = await import('../editor-kit-v2/file-test-utils')
+    const controller = open(source.currentContent)
+    let finish!: () => void
+    const barrier = new Promise<void>(resolve => { finish = resolve })
+    const session = { baselineIdentity: {}, owner: controller,
+      flushForDetach: vi.fn(async () => { await barrier; return controller.snapshot() }),
+    } as unknown as import('../editor-kit-v2/file-main').FileMountSession
+    ;(await import('./file-editor-sessions')).registerFileEditorSession(source.id, session)
+    const { dispatchFileViewCommand } = await import('./plugins/file-view-commands')
+    const accepted = vi.fn(), openView = vi.fn((_detail, complete) => complete?.(true))
+    const dispatch = dispatchFileViewCommand({ id:'view', name:'View', version:'1', binary:'', host_capabilities:[],
+      file_views:[{id:'view',entry:'index.html',open_command:'open',selectors:[{file_extensions:['md']}]}],
+    }, 'open', { activeTab:m.activeTab, pickOpenFile:async()=>picked, openFile:m.openFile,
+      flush:vi.fn(), openView, unsupported:vi.fn(),
+    }, {alwaysPickFile:true,onAccepted:accepted})
+    await vi.waitFor(() => expect(session.flushForDetach).toHaveBeenCalledOnce())
+    const first = await Promise.race([dispatch.then(() => 'settled'), new Promise(resolve => setTimeout(() => resolve('pending'), 20))])
+    expect(first).toBe('pending')
+    expect(m.activeTab()).toBe(source)
+    finish(); await dispatch
+    expect(m.activeTab()?.filePath).toBe(picked)
+    expect(openView).toHaveBeenCalledOnce()
+    expect(accepted).toHaveBeenCalledOnce()
+  })
+
   it('awaits detach flush, retains unsaved content/session/undo and can reactivate', async () => {
     const { m, tab, controller, session, finish, sessions } = await mounted()
     const before = m.tabs.map(tab => tab.id)

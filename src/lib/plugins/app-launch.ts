@@ -1,13 +1,16 @@
 import { dispatchFileViewCommand, type FileViewCommandDeps } from './file-view-commands'
 import { evaluateEnabledWhen } from './enabled-when'
 import type { EnabledWhenContext, PluginManifest } from './types'
+import type { PluginCommandSource } from './runtime.svelte'
 
 /** Recheck the live manifest and per-command gates at every manual entry. */
-export function pluginCommandEnabled(manifest: PluginManifest, command: string | null, context: EnabledWhenContext): boolean {
+export function pluginCommandEnabled(manifest: PluginManifest, command: string | null, context: EnabledWhenContext, source: PluginCommandSource = 'menu'): boolean {
   try {
     if (manifest.available_when && !evaluateEnabledWhen(manifest.available_when, context)) return false
-    const menu = manifest.menus?.find(item => item.command === command)
-      ?? manifest.context_menus?.find(item => item.command === command)
+    const menu = source === 'menu'
+      ? manifest.menus?.find(item => item.command === command)
+      : manifest.context_menus?.find(item => item.command === command
+        && item.location === (source === 'tab-context' ? 'tab' : 'editor'))
     return !menu?.enabled_when || evaluateEnabledWhen(menu.enabled_when, context)
   } catch { return false }
 }
@@ -27,10 +30,10 @@ export function recordAcceptedAppUse(id: string, deps: Pick<AppLaunchDeps, 'reco
 }
 
 /** Host-owned manual branches shared by native menu and runtime UI dispatch. */
-export async function launchPluginApp(pluginId: string, command: string, deps: AppLaunchDeps): Promise<boolean> {
+export async function launchPluginApp(pluginId: string, command: string, deps: AppLaunchDeps, source: PluginCommandSource = 'menu'): Promise<boolean> {
   const manifest = deps.manifests().find(item => item.id === pluginId)
-  if (!manifest || !pluginCommandEnabled(manifest, command, deps.context(pluginId))) return true
-  const prompt = manifest.menus?.find(item => item.command === command)?.prompt
+  if (!manifest || !pluginCommandEnabled(manifest, command, deps.context(pluginId), source)) return true
+  const prompt = source === 'menu' ? manifest.menus?.find(item => item.command === command)?.prompt : undefined
   const handled = await dispatchFileViewCommand(manifest, command, deps.fileView, {
     alwaysPickFile: prompt?.kind === 'open-dialog',
     onAccepted: () => recordAcceptedAppUse(pluginId, deps),

@@ -1,5 +1,8 @@
 import type { PluginManifest } from './types'
 
+export type PluginCommandSource = 'menu' | 'tab-context' | 'editor-context'
+type PluginDispatcher = (pluginId: string, command: string, source?: PluginCommandSource) => Promise<void>
+
 /**
  * Runtime state shared between App.svelte (which owns the plugin lifecycle)
  * and other components (TabBar.svelte's right-click context menu, etc.).
@@ -15,16 +18,16 @@ export const pluginRuntime = $state<{
   manifests: [],
 })
 
-let dispatcher: (pluginId: string, command: string) => Promise<void> = async () => {
+let dispatcher: PluginDispatcher = async () => {
   console.warn('[plugins] dispatcher not yet registered; ignoring call')
 }
 
 export function setPluginDispatcher(
-  fn: (pluginId: string, command: string) => Promise<void>,
+  fn: PluginDispatcher,
 ): void {
   dispatcher = fn
 }
 
-export function dispatchPluginCommand(pluginId: string, command: string): Promise<void> {
-  return dispatcher(pluginId, command)
+export function dispatchPluginCommand(pluginId: string, command: string, source: PluginCommandSource = 'menu'): Promise<void> {
+  return dispatcher(pluginId, command, source)
 }

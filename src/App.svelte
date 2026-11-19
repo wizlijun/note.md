@@ -47,7 +47,7 @@
     collectMenuItems, evaluateEnabled, parsePluginMenuId, CORE_MENU_ENABLED_ITEMS,
     type CollectedItem, type CollectedItems,
   } from './lib/plugins/menu-registry'
-  import { pluginRuntime, setPluginDispatcher } from './lib/plugins/runtime.svelte'
+  import { pluginRuntime, setPluginDispatcher, type PluginCommandSource } from './lib/plugins/runtime.svelte'
   import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
@@ -190,7 +190,7 @@
     let stopThemes: (() => void) | undefined
     let stopVaultFirstVisible: (() => void) | undefined
     let disposed = false
-    let dispatchPlugin: (pluginId: string, command: string) => Promise<void> = async () => {}
+    let dispatchPlugin: (pluginId: string, command: string, source?: PluginCommandSource) => Promise<void> = async () => {}
 
     const win = getCurrentWindow()
     let stopHistoryRoute: (() => void) | undefined
@@ -577,7 +577,7 @@
         else { stopVaultFirstVisible = stop; void firstVisiblePrompts() }
       }
 
-      dispatchPlugin = async (pluginId: string, command: string) => {
+      dispatchPlugin = async (pluginId: string, command: string, source: PluginCommandSource = 'menu') => {
         // Side-view toggles: folder-view / outline-notes / git-history and any
         // future registered side view all route through the registry. The
         // per-side "one active tab" model replaces the old outline↔history
@@ -605,8 +605,8 @@
         // rebuilds the native menu without recreating this dispatcher.
         const m = pluginRuntime.manifests.find((manifest) => manifest.id === pluginId)
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
-        if (!pluginCommandEnabled(m, command, pluginCommandContext(pluginId))) return
-        const menu = m.menus?.find((me) => me.command === command)
+        if (!pluginCommandEnabled(m, command, pluginCommandContext(pluginId), source)) return
+        const menu = source === 'menu' ? m.menus?.find((me) => me.command === command) : undefined
         const openPrompt = menu?.prompt?.kind === 'open-dialog' ? menu.prompt : undefined
 
         // File-view menu commands are implemented by the host. A display-only
@@ -639,7 +639,7 @@
                 }),
               }),
             },
-          })
+          }, source)
           if (handled) return
         } catch (e) {
           showError(String(e))
@@ -782,7 +782,7 @@
       const id = e.payload
       const plugin = parsePluginMenuId(id)
       if (plugin) {
-        await dispatchPlugin(plugin.pluginId, plugin.command)
+        await dispatchPlugin(plugin.pluginId, plugin.command, 'menu')
         return
       }
       if (id.startsWith('open-latest:')) {
