@@ -6,7 +6,7 @@
   let actionError = $state<string | null>(null)
   let pending = $state(false)
   let expanded = $state({ new: false, continue: false })
-  const COLLAPSED_ROWS = 5
+  const COLLAPSED_ROWS = 4
   const sections = $derived([
     { kind: 'new' as const, title: t('homeContent.new'), empty: t('homeContent.emptyNew'), items: homeContentStore.newItems },
     { kind: 'continue' as const, title: t('homeContent.continue'), empty: t('homeContent.emptyContinue'), items: homeContentStore.continueItems },

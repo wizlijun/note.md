@@ -37,17 +37,17 @@ it('renders compact new and continue lists with title, date and full path toolti
   expect(document.querySelector('.content-open')?.getAttribute('title')).toBe(fresh.path)
   expect(document.querySelector('button button')).toBeNull()
 })
-it('shows five rows by default and independently expands each complete list', async () => {
+it('shows four rows by default and independently expands each complete list', async () => {
   mocks.store.newItems = Array.from({ length: 13 }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md`, title: `New ${i}` }))
   mocks.store.continueItems = Array.from({ length: 8 }, (_, i) => ({ ...previous, path: `/vault/read-${i}.md`, title: `Read ${i}` }))
   app = mount(HomeContent, { target: document.body }); await settle()
   const rows = (kind: string) => document.querySelectorAll(`[data-content-kind="${kind}"]`).length
   const moreNew = document.querySelector<HTMLButtonElement>('[aria-controls="home-content-list-new"]')!
   const moreContinue = document.querySelector<HTMLButtonElement>('[aria-controls="home-content-list-continue"]')!
-  expect([rows('new'), rows('continue')]).toEqual([5, 5])
+  expect([rows('new'), rows('continue')]).toEqual([4, 4])
   expect(moreNew.getAttribute('aria-expanded')).toBe('false')
   moreNew.click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([13, 5])
+  expect([rows('new'), rows('continue')]).toEqual([13, 4])
   expect(moreNew.textContent).toBe('Show less')
   expect(moreNew.getAttribute('aria-expanded')).toBe('true')
   moreContinue.click(); await settle()
@@ -56,23 +56,23 @@ it('shows five rows by default and independently expands each complete list', as
   expect(mocks.dismiss).toHaveBeenCalledExactlyOnceWith('new', '/vault/new-12.md')
   expect(mocks.open).not.toHaveBeenCalled()
   moreNew.click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([5, 8])
+  expect([rows('new'), rows('continue')]).toEqual([4, 8])
   expect(moreNew.textContent).toBe('More')
 })
-it.each([0, 1, 5])('omits expansion when the list has %i rows', async count => {
+it.each([0, 1, 4])('omits expansion when the list has %i rows', async count => {
   mocks.store.newItems = Array.from({ length: count }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md` }))
   app = mount(HomeContent, { target: document.body }); await settle()
   expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(count)
   expect(document.querySelector('.content-more')).toBeNull()
 })
-it('offers expansion for a sixth row and resets to five when home is reopened', async () => {
-  mocks.store.newItems = Array.from({ length: 6 }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md` }))
+it('offers expansion for a fifth row and resets to four when home is reopened', async () => {
+  mocks.store.newItems = Array.from({ length: 5 }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md` }))
   app = mount(HomeContent, { target: document.body }); await settle()
   button('More').click(); await settle()
-  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(6)
+  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(5)
   await unmount(app)
   app = mount(HomeContent, { target: document.body }); await settle()
-  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(5)
+  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(4)
   expect(button('More').getAttribute('aria-expanded')).toBe('false')
 })
 it('opens an item and independently dismisses an item in its own list', async () => {
