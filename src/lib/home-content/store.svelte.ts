@@ -7,13 +7,16 @@ import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type Fs } from '../insights/store.svelte'
 import { abbreviateHome, normalize } from '../paths'
 import { formatRecentLabel } from '../recent-merge'
-import { activityFor, applyAttention, applyEdit, contentLists, discoverContent, dismissContent, emptyVaultContent,
-  emptyHomeContent, migrateOwnerHistory, normalizeHomeContent, READ_MS,
-  type ContentCandidate, type ContentList, type HomeContentData, type HomeContentItem, type VaultContent } from './model'
+import { activityFor, applyAttention, applyEdit, contentKey, contentLists, countNewDismiss, discoverContent, dismissContent,
+  emptyVaultContent, emptyHomeContent, migrateOwnerHistory, noDirRules, normalizeHomeContent, passesDirRules, READ_MS,
+  type ContentCandidate, type ContentList, type HomeContentData, type HomeContentItem, type HomeDirRules, type VaultContent } from './model'
+import { homeDirRulesFrom, saveHomeNewDirs, type VaultSettingsDto } from '../vault-settings.svelte'
 
 export const homeContentStore = $state({
   newItems: [] as HomeContentItem[], continueItems: [] as HomeContentItem[],
   ready: false, busy: false, error: null as string | null, skipped: 0,
+  /** A first-level directory dismissed often enough to ask about excluding it. */
+  ask: null as { dir: string; count: number } | null,
 })
 let data: HomeContentData = emptyHomeContent()
 let storage: Awaited<ReturnType<typeof Store.load>> | null = null
@@ -21,6 +24,7 @@ let hydration: Promise<void> | null = null
 let writes: Promise<void> = Promise.resolve()
 let root: string | null = null
 let rules = { extensions: ['md'], names: [] as string[] }
+let dirRules: HomeDirRules = noDirRules
 let catalog: ContentCandidate[] = []
 let catalogReady = false
 let unavailable = new Set<string>()
@@ -49,13 +53,15 @@ export function loadHomeContent(): Promise<void> {
 }
 
 function publish(): void {
-  const lists = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), Infinity, unavailable) : { newItems: [], continueItems: [] }
+  const lists = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), Infinity, unavailable, dirRules) : { newItems: [], continueItems: [] }
+  const vault = root ? data.vaults[root] : undefined, asked = vault?.askDir
+  homeContentStore.ask = vault && asked && passesDirRules(`${asked}/`, dirRules) ? { dir: asked, count: vault.dismissCounts[asked] ?? 0 } : null
   const display = (item: HomeContentItem) => ({ ...item, detail: abbreviateHome(item.detail, home) })
   homeContentStore.newItems = lists.newItems.map(display)
   homeContentStore.continueItems = lists.continueItems.map(display)
   // Serial publication means an in-flight old-Vault IPC cannot be the final menu.
   menus = menus.catch(() => {}).then(async () => {
-    const current = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), 10, unavailable) : { newItems: [], continueItems: [] }
+    const current = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), 10, unavailable, dirRules) : { newItems: [], continueItems: [] }
     const items = (values: HomeContentItem[]) => values.map(item => ({ path: item.path, label: formatRecentLabel(item.path, home) }))
     await invoke('update_latest_menu', { items: items(current.newItems) })
     if (root) await invoke('update_recent_menu', { items: items(current.continueItems) })
@@ -102,10 +108,12 @@ export function refreshHomeContent(): Promise<void> {
   homeContentStore.busy = true
   const current = (async () => {
     await loadHomeContent()
-    const [result, history] = await Promise.all([
+    const [result, history, settings] = await Promise.all([
       invoke<{ root: string; items: ContentCandidate[]; skipped: number }>('home_content_catalog', { expectedRoot: target, rules }),
       vaultFor(target).migrated ? Promise.resolve([]) : createAnalyticsStore({ fs: analyticsFs, vaultRoot: () => target,
         deviceId: getDeviceId(), deviceName: '', tzOffsetMinutes: 0 }).readAllDevices(),
+      // Unreadable settings keep the rules already in force rather than unhiding everything.
+      invoke<VaultSettingsDto>('notemd_vault_settings_get').catch(() => null),
     ])
     if (generation !== epoch || target !== root || normalize(result.root) !== normalize(target)) return
     const migrated = structuredClone(vaultFor(target))
@@ -118,6 +126,7 @@ export function refreshHomeContent(): Promise<void> {
       migrateOwnerHistory(vault, history, target)
     })
     if (generation !== epoch || target !== root) return
+    if (settings && typeof settings === 'object') dirRules = homeDirRulesFrom(settings)
     catalog = result.skipped > 0 ? [...new Map([...catalog, ...result.items].map(c => [c.path, c])).values()] : result.items
     unavailable = missingExternal
     catalogReady = true
@@ -144,11 +153,53 @@ export async function dismissHomeContent(list: ContentList, path: string): Promi
     ? { root: target, path, base: null, ms: 0, lastPublished: 0, lastAttentionAt: now } : null
   if (replacement) visit = replacement
   try {
-    await change(target, vault => dismissContent(activityFor(vault, path, target, now), list, now))
+    await change(target, vault => {
+      dismissContent(activityFor(vault, path, target, now), list, now)
+      if (list === 'new') countNewDismiss(vault, contentKey(path, target), dirRules)
+    })
   } catch (error) {
     if (replacement && visit === replacement && previous) { previous.ms += replacement.ms; visit = previous }
     throw error
   }
+}
+
+/** Rules saved from the settings dialog; applied without waiting for a rescan. */
+export function applyHomeDirRules(next: HomeDirRules): void {
+  dirRules = next
+  publish()
+}
+
+/** 〔不再显示〕: append the asked directory to the vault's exclusions. On failure
+ *  the prompt and the count stay, and the error is shown. */
+export async function excludeAskedDir(): Promise<void> {
+  const target = root, asked = homeContentStore.ask, epoch = generation
+  if (!target || !asked) return
+  try {
+    // Re-read so a hand edit made since the last refresh is not overwritten.
+    const current = homeDirRulesFrom(await invoke<VaultSettingsDto>('notemd_vault_settings_get'))
+    const exclude = current.exclude.includes(asked.dir) ? current.exclude : [...current.exclude, asked.dir]
+    const next = await saveHomeNewDirs({ exclude })
+    if (generation !== epoch || target !== root) return
+    dirRules = next
+    await change(target, vault => {
+      if (vault.askDir === asked.dir) vault.askDir = null
+      delete vault.dismissCounts[asked.dir]
+    })
+  } catch (error) {
+    if (generation === epoch) homeContentStore.error = String(error)
+    throw error
+  }
+}
+
+/** 〔继续显示〕: never ask about this directory again on this device. */
+export function keepAskedDir(): Promise<void> {
+  const target = root, asked = homeContentStore.ask
+  if (!target || !asked) return Promise.resolve()
+  return change(target, vault => {
+    if (!vault.keepDirs.includes(asked.dir)) vault.keepDirs.push(asked.dir)
+    if (vault.askDir === asked.dir) vault.askDir = null
+    delete vault.dismissCounts[asked.dir]
+  })
 }
 
 function saveVisit(current: Visit, now: number): Promise<void> {
@@ -221,9 +272,10 @@ export async function renameHomeContent(oldPath: string, newPath: string, target
 
 export function installHomeContent(target: string | null, documentRules = rules): () => void {
   const epoch = ++generation
-  root = target; rules = documentRules; catalog = []; catalogReady = false; scan = null; unavailable = new Set()
+  root = target; rules = documentRules; dirRules = noDirRules; catalog = []; catalogReady = false; scan = null; unavailable = new Set()
   homeContentStore.newItems = []; homeContentStore.continueItems = []
   homeContentStore.ready = !target; homeContentStore.busy = false; homeContentStore.error = null; homeContentStore.skipped = 0
+  homeContentStore.ask = null
   publish()
   let disposed = false, dirty = false
   let timer: ReturnType<typeof setTimeout> | undefined

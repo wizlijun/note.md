@@ -2,6 +2,7 @@
 // `{vault}/.notemd/settings.json` file the Rust `notemd_vault_settings_*`
 // commands read/write, so these values travel with the git-synced vault.
 import { invoke } from '@tauri-apps/api/core'
+import type { HomeDirRules } from './home-content/model'
 
 /** Default sync sub-directory; mirrors `vault_settings::DEFAULT_SYNC_DIR`. */
 export const DEFAULT_SYNC_DIR = 'sync'
@@ -95,7 +96,15 @@ export interface VaultSettingsDto {
    *  explicitly cleared" indistinguishable to the settings page. */
   searchSourceGlobs?: string[] | null
   searchWeights?: Partial<SearchWeights> | null
+  /** Home "new content" folder rules; absent = not configured = no rule. */
+  homeNewExcludeDirs?: string[] | null
+  homeNewIncludeDirs?: string[] | null
 }
+
+/** The home new-list rules a settings DTO describes (absent field = no rule). */
+export const homeDirRulesFrom = (dto: VaultSettingsDto | null | undefined): HomeDirRules => ({
+  exclude: dto?.homeNewExcludeDirs ?? [], include: dto?.homeNewIncludeDirs ?? [],
+})
 
 export const vaultSettings = $state<{
   syncDir: string
@@ -120,6 +129,8 @@ export const vaultSettings = $state<{
   // is, see that field's doc comment.
   searchSourceGlobs: string[] | null
   searchWeights: SearchWeights
+  homeNewExcludeDirs: string[]
+  homeNewIncludeDirs: string[]
   vaultPath: string | null
   loaded: boolean
 }>({
@@ -130,6 +141,8 @@ export const vaultSettings = $state<{
   searchLargeFileThresholdExplicit: false,
   searchSourceGlobs: null,
   searchWeights: { ...DEFAULT_SEARCH_WEIGHTS },
+  homeNewExcludeDirs: [],
+  homeNewIncludeDirs: [],
   vaultPath: null,
   loaded: false,
 })
@@ -150,6 +163,8 @@ export async function loadVaultSettings(): Promise<void> {
     dto?.searchLargeFileThresholdMb ?? vaultSettings.largeFileThresholdMb
   vaultSettings.searchSourceGlobs = dto?.searchSourceGlobs ?? null
   vaultSettings.searchWeights = mergedWeights(dto?.searchWeights)
+  vaultSettings.homeNewExcludeDirs = dto?.homeNewExcludeDirs ?? []
+  vaultSettings.homeNewIncludeDirs = dto?.homeNewIncludeDirs ?? []
   vaultSettings.loaded = true
 }
 
@@ -193,6 +208,20 @@ export async function saveSearchExcludeDirs(dirs: string[]): Promise<void> {
     searchExcludeDirs: dirs,
   })
   vaultSettings.searchExcludeDirs = merged?.searchExcludeDirs ?? []
+}
+
+/** Persist the home new-list folder rules. Only the given lists are sent (an
+ *  empty array clears that list); the backend validates every entry. Returns
+ *  the rules now on disk so the home list can apply them without a rescan —
+ *  the home watcher ignores `.notemd/`. */
+export async function saveHomeNewDirs(patch: { exclude?: string[]; include?: string[] }): Promise<HomeDirRules> {
+  const args: Record<string, string[]> = {}
+  if (patch.exclude) args.homeNewExcludeDirs = patch.exclude
+  if (patch.include) args.homeNewIncludeDirs = patch.include
+  const rules = homeDirRulesFrom(await invoke<VaultSettingsDto>('notemd_vault_settings_set', args))
+  vaultSettings.homeNewExcludeDirs = rules.exclude
+  vaultSettings.homeNewIncludeDirs = rules.include
+  return rules
 }
 
 /** 持久化索引跳过阈值(MB,>=1)。**单向门**:保存后,索引阈值就与

@@ -283,3 +283,101 @@ describe('home content durable activity', () => {
     expect(persisted(external)).toMatchObject({ lastReadAt: activeAt, lastEditedAt: 0 })
   })
 })
+
+describe('home directory rules and the exclude prompt', () => {
+  let settings: Record<string, unknown>
+  let settingsFail: Error | null
+  let setFail: Error | null
+  beforeEach(() => {
+    settings = { homeNewExcludeDirs: ['stat'] }
+    settingsFail = null; setFail = null
+    mocks.invoke.mockImplementation(async (command: string, args: Record<string, unknown>) => {
+      if (command === 'home_content_catalog') return mocks.catalog(args)
+      if (command === 'notemd_vault_settings_get') { if (settingsFail) throw settingsFail; return clone(settings) }
+      if (command === 'notemd_vault_settings_set') { if (setFail) throw setFail; settings = { ...settings, ...args }; return clone(settings) }
+      return undefined
+    })
+  })
+  const sessions = (n: number) => Array.from({ length: n }, (_, i) => candidate(`agent-sessions/tool-${i % 2}/s${i}.md`))
+  const lastMenu = () => (mocks.invoke.mock.calls.filter(([command]) => command === 'update_latest_menu').at(-1)?.[1] as { items: { path: string }[] }).items.map(item => item.path)
+
+  it('hides excluded directories from the new list and the latest menu', async () => {
+    candidates.set(ROOT, [candidate('stat/a.md'), candidate('project/r.md')])
+    const s = await load()
+    expect(paths(s.homeContentStore.newItems)).toEqual([candidate('project/r.md').path])
+    await vi.waitFor(() => expect(lastMenu()).toEqual([candidate('project/r.md').path]))
+  })
+
+  it('asks on the fourth new-list dismissal in one first-level directory; continue dismissals do not count', async () => {
+    candidates.set(ROOT, sessions(6))
+    const s = await load()
+    for (const c of sessions(3)) await s.dismissHomeContent('new', c.path)
+    await s.dismissHomeContent('continue', sessions(6)[5].path)
+    expect(s.homeContentStore.ask).toBeNull()
+    await s.dismissHomeContent('new', sessions(6)[3].path)
+    expect(s.homeContentStore.ask).toEqual({ dir: 'agent-sessions', count: 4 })
+  })
+
+  it('excludes the asked directory through vault settings and drops its entries', async () => {
+    candidates.set(ROOT, [...sessions(6), candidate('project/r.md')])
+    const s = await load()
+    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
+    await s.excludeAskedDir()
+    expect(mocks.invoke).toHaveBeenCalledWith('notemd_vault_settings_set', { homeNewExcludeDirs: ['stat', 'agent-sessions'] })
+    expect(s.homeContentStore.ask).toBeNull()
+    expect(paths(s.homeContentStore.newItems)).toEqual([candidate('project/r.md').path])
+  })
+
+  it('keeps the prompt and the count when saving the exclusion fails', async () => {
+    candidates.set(ROOT, sessions(6))
+    const s = await load()
+    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
+    setFail = new Error('disk full')
+    await expect(s.excludeAskedDir()).rejects.toThrow('disk full')
+    expect(s.homeContentStore.ask).toEqual({ dir: 'agent-sessions', count: 4 })
+    expect(s.homeContentStore.error).toContain('disk full')
+    await s.dismissHomeContent('new', sessions(6)[4].path)
+    expect(s.homeContentStore.ask).toEqual({ dir: 'agent-sessions', count: 5 })
+  })
+
+  it('stops asking about a directory the user keeps, across restart', async () => {
+    candidates.set(ROOT, sessions(6))
+    let s = await load()
+    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
+    await s.keepAskedDir()
+    expect(s.homeContentStore.ask).toBeNull()
+    s = await restart()
+    await s.dismissHomeContent('new', sessions(6)[4].path)
+    expect(s.homeContentStore.ask).toBeNull()
+    expect(paths(s.homeContentStore.newItems)).toContain(sessions(6)[5].path)
+  })
+
+  it('applies rules saved from settings immediately', async () => {
+    candidates.set(ROOT, [candidate('stat/a.md'), candidate('project/r.md')])
+    const s = await load()
+    s.applyHomeDirRules({ exclude: [], include: ['stat'] })
+    expect(paths(s.homeContentStore.newItems)).toEqual([candidate('stat/a.md').path])
+  })
+
+  it('does not carry one vault\'s rules into the next vault', async () => {
+    const OTHER = '/fixture/other'
+    candidates.set(ROOT, [candidate('stat/a.md')])
+    candidates.set(OTHER, [candidate('stat/a.md', OTHER)])
+    const s = await load()
+    expect(s.homeContentStore.newItems).toEqual([])
+    disposers.splice(0).forEach(dispose => dispose())
+    settingsFail = new Error('no settings')
+    disposers.push(s.installHomeContent(OTHER))
+    await s.refreshHomeContent()
+    expect(paths(s.homeContentStore.newItems)).toEqual([candidate('stat/a.md', OTHER).path])
+  })
+
+  it('treats a rule removed by hand as no rule on the next refresh', async () => {
+    candidates.set(ROOT, [candidate('stat/a.md')])
+    const s = await load()
+    expect(s.homeContentStore.newItems).toEqual([])
+    settings = {}
+    await s.refreshHomeContent()
+    expect(paths(s.homeContentStore.newItems)).toEqual([candidate('stat/a.md').path])
+  })
+})
