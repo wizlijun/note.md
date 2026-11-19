@@ -293,6 +293,17 @@ pub(crate) fn plugin_window_url(plugin_id: &str, entry: &str, seed_json: Option<
     }
 }
 
+fn present_plugin_window<E: std::fmt::Display>(
+    show: impl FnOnce() -> Result<(), E>,
+    unminimize: impl FnOnce() -> Result<(), E>,
+    focus: impl FnOnce() -> Result<(), E>,
+) -> Result<(), String> {
+    show().map_err(|error| format!("cannot show plugin window: {error}"))?;
+    unminimize().map_err(|error| format!("cannot unminimize plugin window: {error}"))?;
+    focus().map_err(|error| format!("cannot focus plugin window: {error}"))?;
+    Ok(())
+}
+
 /// Open (or focus, if a singleton is already up) the window contributed under
 /// `window_id` by `plugin_id`. `locale`/`theme` are read from the app to seed
 /// the bridge. The window loads `plugin://<id>/<entry>` and gets NO capability
@@ -339,9 +350,9 @@ pub fn open_plugin_window<R: Runtime>(
     // Singleton: an existing window with this label is shown+focused, not rebuilt.
     if win.singleton {
         if let Some(existing) = app.get_webview_window(&label) {
-            let _ = existing.show();
-            let _ = existing.unminimize();
-            let _ = existing.set_focus();
+            present_plugin_window(
+                || existing.show(), || existing.unminimize(), || existing.set_focus(),
+            )?;
             crate::sumi::plugin_window_shown(app, &label);
             return Ok(());
         }
@@ -537,9 +548,9 @@ pub fn open_plugin_window<R: Runtime>(
 
     #[cfg(target_os = "macos")]
     if crate::sumi::show_created_plugin_window(&window) { return Ok(()); }
-    let _ = window.show();
-    let _ = window.unminimize();
-    let _ = window.set_focus();
+    present_plugin_window(
+        || window.show(), || window.unminimize(), || window.set_focus(),
+    )?;
     crate::sumi::plugin_window_shown(app, &label);
     Ok(())
 }
@@ -664,6 +675,38 @@ fn theme_id_from_settings(json: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn present_plugin_window_propagates_each_failure_without_manual_success() {
+        for (index, failure) in ["show", "unminimize", "focus"].iter().enumerate() {
+            let steps = std::cell::RefCell::new(Vec::new());
+            let events = std::cell::Cell::new(0);
+            let step = |name| {
+                steps.borrow_mut().push(name);
+                if name == *failure { Err("blocked") } else { Ok(()) }
+            };
+            let result = super::super::tray::open_manual_window(
+                || present_plugin_window(|| step("show"), || step("unminimize"), || step("focus")),
+                || events.set(events.get() + 1),
+            );
+            assert!(result.is_err(), "{failure} failure must reject the window open");
+            assert_eq!(events.get(), 0, "{failure} failure must not record manual success");
+            assert_eq!(*steps.borrow(), ["show", "unminimize", "focus"][..=index]);
+        }
+    }
+
+    #[test]
+    fn present_plugin_window_records_manual_success_only_after_all_steps() {
+        let steps = std::cell::RefCell::new(Vec::new());
+        let events = std::cell::Cell::new(0);
+        let step = |name| { steps.borrow_mut().push(name); Ok::<(), &str>(()) };
+        let result = super::super::tray::open_manual_window(
+            || present_plugin_window(|| step("show"), || step("unminimize"), || step("focus")),
+            || { assert_eq!(*steps.borrow(), ["show", "unminimize", "focus"]); events.set(events.get() + 1); },
+        );
+        assert!(result.is_ok());
+        assert_eq!(events.get(), 1);
+    }
 
     #[test]
     fn window_url_with_and_without_seed() {

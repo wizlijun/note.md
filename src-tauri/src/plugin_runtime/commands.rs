@@ -487,7 +487,11 @@ async fn prepare_plugin_window_replacement(
 #[tauri::command]
 pub fn plugin_market_installed(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let root = state::plugins_root(&app).ok_or("cannot resolve app data dir")?;
-    let install = state::load(&root);
+    installed_from_root(&root)
+}
+
+fn installed_from_root(root: &Path) -> Result<Vec<serde_json::Value>, String> {
+    let install = state::load_strict(root)?;
 
     let mut out = Vec::with_capacity(install.installed.len());
     for (id, entry) in &install.installed {
@@ -725,6 +729,40 @@ pub(crate) fn get_or_register<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn installed_inventory_accepts_missing_or_valid_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(installed_from_root(dir.path()).unwrap().is_empty());
+        std::fs::write(dir.path().join("state.json"), r#"{"installed":{}}"#).unwrap();
+        assert!(installed_from_root(dir.path()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn installed_inventory_rejects_corrupt_state() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"), "{ not json").unwrap();
+        assert!(installed_from_root(dir.path()).is_err());
+    }
+
+    #[test]
+    fn installed_inventory_rejects_io_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("state.json")).unwrap();
+        assert!(installed_from_root(dir.path()).is_err());
+    }
+
+    #[test]
+    fn installed_inventory_preserves_entries_with_unreadable_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"),
+            r#"{"installed":{"test.fixture":{"version":"1.0.0","enabled":false}}}"#).unwrap();
+        let rows = installed_from_root(dir.path()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "test.fixture");
+        assert_eq!(rows[0]["enabled"], false);
+        assert!(rows[0]["name"].is_null());
+    }
 
     #[test]
     fn install_result_uses_frontend_field_names() {

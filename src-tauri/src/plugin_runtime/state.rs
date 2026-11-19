@@ -20,6 +20,18 @@ pub fn load(root: &Path) -> InstallState {
         .unwrap_or_default()
 }
 
+/// A complete inventory may be empty only when no state exists yet or it parses as empty.
+pub fn load_strict(root: &Path) -> Result<InstallState, String> {
+    let path = root.join("state.json");
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(InstallState::default()),
+        Err(error) => return Err(format!("cannot read plugin install state {}: {error}", path.display())),
+    };
+    serde_json::from_slice(&bytes)
+        .map_err(|error| format!("cannot parse plugin install state {}: {error}", path.display()))
+}
+
 pub fn save(root: &Path, s: &InstallState) -> Result<(), String> {
     std::fs::create_dir_all(root).map_err(|e| e.to_string())?;
     let tmp = root.join("state.json.tmp");
@@ -31,6 +43,28 @@ pub fn save(root: &Path, s: &InstallState) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strict_load_allows_first_launch_and_valid_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(load_strict(&dir.path().join("missing-plugins")).unwrap().installed.is_empty());
+        std::fs::write(dir.path().join("state.json"), r#"{"installed":{}}"#).unwrap();
+        assert!(load_strict(dir.path()).unwrap().installed.is_empty());
+    }
+
+    #[test]
+    fn strict_load_rejects_corrupt_state_instead_of_claiming_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("state.json"), "{ not json").unwrap();
+        assert!(load_strict(dir.path()).is_err());
+    }
+
+    #[test]
+    fn strict_load_rejects_io_failure_instead_of_claiming_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("state.json")).unwrap();
+        assert!(load_strict(dir.path()).is_err());
+    }
 
     #[test]
     fn round_trip_and_atomic_write() {
