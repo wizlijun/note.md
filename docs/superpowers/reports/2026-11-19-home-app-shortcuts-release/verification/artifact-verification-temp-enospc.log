@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/home-release-20261119/verification/verify-host.py", line 92, in <module>
+    with tempfile.TemporaryDirectory(prefix='vault-release-verify-') as td:
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py", line 907, in __init__
+    self.name = mkdtemp(suffix, prefix, dir)
+                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py", line 381, in mkdtemp
+    _os.mkdir(file, 0o700)
+    ~~~~~~~~~^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device: '/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/vault-release-verify-tasj6_we'
