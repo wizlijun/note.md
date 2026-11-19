@@ -1,0 +1,141 @@
+{
+  "captured_at": "2026-11-19T05:18:10.023222+00:00",
+  "target_version": "6.1119.1",
+  "platform": "darwin-aarch64",
+  "user_authorization": "发布宿主版本；macOS Apple Silicon（沿用最近两版）",
+  "worktrees": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "head": "969f8e73905a7a1f6c2de1d5ecaf2e82bcdc2bfe",
+      "status": [
+        "M searchidx/src/store.rs",
+        " M src-tauri/src/smart_lookup.rs",
+        "?? output/design/home-app-shortcuts-concept.png",
+        "?? output/design/home-app-shortcuts-v2.png",
+        "?? output/design/home-app-shortcuts-v3-light-dark.png"
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/.worktrees/home-apps",
+      "head": "31678c70adc8d06f63bca270de3a52bfa964326a",
+      "status": []
+    }
+  ],
+  "branches": [
+    {
+      "branch": "feat/home-app-shortcuts",
+      "head": "31678c70adc8d06f63bca270de3a52bfa964326a",
+      "not_in_main": [
+        "31678c70adc8d06f63bca270de3a52bfa964326a docs(home): record verified implementation and UI evidence",
+        "df353a18ae4b26827e3e26e8ccdf18d71e0d694b fix(home-apps): require explicit installed map in complete inventory",
+        "7701d4928f9e6e930193de28d69a92d4c32826d4 fix(home-apps): reject incomplete inventory and failed window presentation",
+        "e4e6b56c513a302dfc0930e8508a418f89656f64 fix(home): share verified plugin runtime with app dispatch",
+        "248be430fa0c3c8f7cbad043fc6822315a952c66 fix(home): preserve directory focus and explain export workflow",
+        "34610ce052b44234a22304bdcc12b796f5f78566 feat(home): add app shortcuts and installed app directory",
+        "3f77e5c83cd0075d38916bfadff0b2de7d155b4c docs: clarify native user-launch usage tracking",
+        "a4e74ff5427e21b3ba41346f04d5e064a69b5b52 fix(home-apps): await file activation and preserve command entry gates",
+        "e68c9de95dbd6bce2a971c3e76b4e3c49957aa55 feat(home-apps): retain documents on home and count accepted launches",
+        "e7003ac04d01d8d18ec2b5f426625afa70093436 fix(home-apps): count usage after clock rollback",
+        "252062d1cdf5e3ac98b9176ffc1a5d61905dcf33 feat(home-apps): add shortcut model catalog and local store",
+        "9b8da8825894e8c1c3a9c3b917ce354e4ff831eb docs: specify home app shortcuts and focused layout"
+      ],
+      "patch_equivalence": [
+        "+ 9b8da8825894e8c1c3a9c3b917ce354e4ff831eb docs: specify home app shortcuts and focused layout",
+        "+ 252062d1cdf5e3ac98b9176ffc1a5d61905dcf33 feat(home-apps): add shortcut model catalog and local store",
+        "+ e7003ac04d01d8d18ec2b5f426625afa70093436 fix(home-apps): count usage after clock rollback",
+        "+ e68c9de95dbd6bce2a971c3e76b4e3c49957aa55 feat(home-apps): retain documents on home and count accepted launches",
+        "+ a4e74ff5427e21b3ba41346f04d5e064a69b5b52 fix(home-apps): await file activation and preserve command entry gates",
+        "+ 3f77e5c83cd0075d38916bfadff0b2de7d155b4c docs: clarify native user-launch usage tracking",
+        "+ 34610ce052b44234a22304bdcc12b796f5f78566 feat(home): add app shortcuts and installed app directory",
+        "+ 248be430fa0c3c8f7cbad043fc6822315a952c66 fix(home): preserve directory focus and explain export workflow",
+        "+ e4e6b56c513a302dfc0930e8508a418f89656f64 fix(home): share verified plugin runtime with app dispatch",
+        "+ 7701d4928f9e6e930193de28d69a92d4c32826d4 fix(home-apps): reject incomplete inventory and failed window presentation",
+        "+ df353a18ae4b26827e3e26e8ccdf18d71e0d694b fix(home-apps): require explicit installed map in complete inventory",
+        "+ 31678c70adc8d06f63bca270de3a52bfa964326a docs(home): record verified implementation and UI evidence"
+      ]
+    },
+    {
+      "branch": "main",
+      "head": "969f8e73905a7a1f6c2de1d5ecaf2e82bcdc2bfe",
+      "not_in_main": [],
+      "patch_equivalence": []
+    }
+  ],
+  "latest_release_tag": "v6.1117.1",
+  "main_since_latest_net_files": [
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/README.md",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/RELEASE.md",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/app-apple-notary-log.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/app-notary-binding.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/artifact-verification.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/dmg-apple-notary-log.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/dmg-notary-binding.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/frozen-source.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/host-assets.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/public-host-full-browser-verification.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/release-public.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/scope-audit.md",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/test_public_host.py",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/updater-endpoint-verification.json",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/verify-host.py",
+    "docs/superpowers/reports/2026-11-17-vault-reveal-fix/verify-public-host-full.py"
+  ],
+  "stash": {
+    "ref": "stash@{0}",
+    "commit": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c",
+    "parents": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c 2a1b2a120b5d17230ee2d5f0e15955a04df7f1e1 ebea208d352bf5ada631762ea4ea5d5e61b76b7a 9d1bdc31289fc678e73a42c984b8d48cb297962e",
+    "tracked_files": [
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+      "plugins-src/write/src/contract.ts",
+      "plugins-src/write/src/main.test.ts",
+      "plugins-src/write/src/main.ts",
+      "plugins-src/write/src/style.css",
+      "scripts/sumi/build.mjs",
+      "scripts/sumi/native/build.rs",
+      "scripts/sumi/run-native.mjs",
+      "scripts/sumi/verify-release.py",
+      "searchidx/src/store.rs",
+      "src-tauri/src/smart_lookup.rs",
+      "src-tauri/src/sumi/mod.rs",
+      "tauri-plugin-native-editor/build.rs",
+      "tauri-plugin-native-editor/native/editor.m",
+      "tauri-plugin-native-editor/src/lib.rs"
+    ],
+    "index_diff": [],
+    "untracked_tree": [
+      "tauri-plugin-native-editor/native/focus-probe.m",
+      "tauri-plugin-native-editor/native/focus.h"
+    ],
+    "disposition": "Retain unchanged; historical Sumi implementation superseded or already published; do not apply"
+  },
+  "preserved_excluded": [
+    {
+      "path": "searchidx/src/store.rs",
+      "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "reason": "pre-existing EOF-only changes"
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "sha256": "ac84b2e79ad8ab3051b5a1bb7aa1318365b33e98307be72a5f230a4fe40ca8f3",
+      "reason": "pre-existing EOF-only changes"
+    },
+    {
+      "path": "output/design/home-app-shortcuts-concept.png",
+      "sha256": "3a251826cc1c15ecd0b26cb0856e574ee182a89dcd60a642e0c721076f2bb669",
+      "reason": "design image output"
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v2.png",
+      "sha256": "b6e39cbed5163df28d67d5389238fc7aebfe99b43866e2b81edf3ec3ac19bd7e",
+      "reason": "design image output"
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v3-light-dark.png",
+      "sha256": "eac8919a01a0b62fc11864018729d8fa650eee0e312f686fb959bc29dabe87aa",
+      "reason": "design image output"
+    }
+  ],
+  "dependency_lock_sha256": "c1e40cf354e61d7301e0d9b967d7c7d4dcba8acab41489e4b6115a5d0e977c83"
+}
