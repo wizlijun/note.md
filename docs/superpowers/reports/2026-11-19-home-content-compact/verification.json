@@ -1,0 +1,46 @@
+{
+  "url": "http://127.0.0.1:5173/tasks/home-content-compact-evidence/index.html",
+  "checks": [
+    "Each list starts with five rows although real store supplies 15 new and 14 ongoing candidates",
+    "Real CSS rows measure at most 36px, with title and date on one line and long titles ellipsized",
+    "More displays every candidate beyond ten; lists expand and collapse independently without truncation",
+    "Dismiss from expanded lists updates counts, keeps expansion and does not open or read files",
+    "Reload returns to five rows per list while preserving expanded-list dismissals",
+    "English, Chinese, Japanese and German More/Show less labels switch live; keyboard toggles only focused list",
+    "390px dark layout stacks compact lists, remains within viewport both collapsed and expanded",
+    "Native menus remain capped at ten independently of complete homepage candidates"
+  ],
+  "errors": [],
+  "status": "PASS",
+  "rowHeights": [
+    32.5,
+    32.5,
+    32.5,
+    32.5,
+    32.5,
+    32.5,
+    32.5,
+    32.5,
+    32.5,
+    32.5
+  ],
+  "narrowGeometry": {
+    "viewport": 390,
+    "body": 390,
+    "html": 390,
+    "content": 390,
+    "columns": 1,
+    "heights": [
+      32.5,
+      32.5,
+      32.5,
+      32.5,
+      32.5,
+      32.5,
+      32.5,
+      32.5,
+      32.5,
+      32.5
+    ]
+  }
+}

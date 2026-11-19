@@ -49,10 +49,10 @@ export function loadHomeContent(): Promise<void> {
 }
 
 function publish(): void {
-  const lists = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), 10, unavailable) : { newItems: [], continueItems: [] }
+  const lists = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), Infinity, unavailable) : { newItems: [], continueItems: [] }
   const display = (item: HomeContentItem) => ({ ...item, detail: abbreviateHome(item.detail, home) })
-  homeContentStore.newItems = lists.newItems.slice(0, 6).map(display)
-  homeContentStore.continueItems = lists.continueItems.slice(0, 6).map(display)
+  homeContentStore.newItems = lists.newItems.map(display)
+  homeContentStore.continueItems = lists.continueItems.map(display)
   // Serial publication means an in-flight old-Vault IPC cannot be the final menu.
   menus = menus.catch(() => {}).then(async () => {
     const current = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), 10, unavailable) : { newItems: [], continueItems: [] }

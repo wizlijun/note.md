@@ -1,0 +1,26 @@
+{
+  "scope": "Compact single-line rows; five initially; independently expand and collapse all eligible entries; menu remains ten",
+  "tests": {
+    "files": 5,
+    "passed": 82,
+    "failed": 0
+  },
+  "typecheck": {
+    "errors": 0,
+    "preExistingWarnings": 30
+  },
+  "browser": {
+    "checks": 8,
+    "pageErrors": 0,
+    "rowHeightPx": 32.5,
+    "isolatedIPC": true,
+    "realComponentsAndStore": true
+  },
+  "sourceSha256": {
+    "src/components/HomeContent.svelte": "b90f7f8baeeb893708837882639565b76ef278d35598a60b3c681eed3c203e88",
+    "src/lib/home-content/store.svelte.ts": "2650f25600663da7387459d7c18af142e1023044fbee1ceba07cd2b4a58070e4",
+    "src/components/HomeContent.test.ts": "67328147518b38b87ffccbcd03eec3a7c5f1c24e6b72eab0cbb78ed2207e15ad",
+    "src/lib/home-content/store.test.ts": "b4e56a86f8333f0366705a3532bd05a0fe921563ad8a69a212e59d990fb3115c"
+  },
+  "release": false
+}

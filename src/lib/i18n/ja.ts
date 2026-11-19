@@ -13,6 +13,8 @@ export const ja: Record<keyof Messages, string> = {
   "homeContent.dismiss": "「{title}」をこのリストから除く",
   "homeContent.error": "文書リストを更新できませんでした：{error}",
   "homeContent.retry": "再試行",
+  "homeContent.more": "もっと見る",
+  "homeContent.less": "折りたたむ",
 
 
   "homeApps.pdfGuide": "まず Markdown または HTML の文書を開き、既存のメニューから「プラグイン → 読み込みと書き出し → PDF に書き出す…」を選んでください。",

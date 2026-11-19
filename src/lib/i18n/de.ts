@@ -11,6 +11,8 @@ export const de: Record<keyof Messages, string> = {
   "homeContent.dismiss": "{title} aus dieser Liste entfernen",
   "homeContent.error": "Dokumentliste konnte nicht aktualisiert werden: {error}",
   "homeContent.retry": "Erneut versuchen",
+  "homeContent.more": "Mehr",
+  "homeContent.less": "Weniger anzeigen",
 
 
   "homeApps.pdfGuide": "Öffnen Sie zuerst ein Markdown- oder HTML-Dokument und wählen Sie dann im bestehenden Menü „Plugins → Importieren & Exportieren → Als PDF exportieren…“.",

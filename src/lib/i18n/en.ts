@@ -18,6 +18,8 @@ export const en = {
   "homeContent.dismiss": "Remove {title} from this list",
   "homeContent.error": "Could not update documents: {error}",
   "homeContent.retry": "Retry",
+  "homeContent.more": "More",
+  "homeContent.less": "Show less",
 
 
   "homeApps.pdfGuide": "Open a Markdown or HTML document first, then choose Plugins → Import & Export → Export to PDF… from the existing menu.",

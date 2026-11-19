@@ -5,6 +5,8 @@
 
   let actionError = $state<string | null>(null)
   let pending = $state(false)
+  let expanded = $state({ new: false, continue: false })
+  const COLLAPSED_ROWS = 5
   const sections = $derived([
     { kind: 'new' as const, title: t('homeContent.new'), empty: t('homeContent.emptyNew'), items: homeContentStore.newItems },
     { kind: 'continue' as const, title: t('homeContent.continue'), empty: t('homeContent.emptyContinue'), items: homeContentStore.continueItems },
@@ -36,17 +38,20 @@
       <section aria-labelledby={`home-content-${section.kind}`}>
         <h2 id={`home-content-${section.kind}`}>{section.title}</h2>
         {#if section.items.length}
-          <ul>
-            {#each section.items as item (item.path)}
+          <ul id={`home-content-list-${section.kind}`}>
+            {#each (expanded[section.kind] ? section.items : section.items.slice(0, COLLAPSED_ROWS)) as item (item.path)}
               <li data-content-kind={section.kind}>
                 <button class="content-open" disabled={pending} title={item.path} onclick={() => void action(() => openFile(item.path))}>
                   <span class="content-title">{item.title}</span>
-                  <span class="content-meta"><span class="content-detail">{item.detail}</span><span class="content-date">{dateLabel(item.at)}</span></span>
+                  <span class="content-date">{dateLabel(item.at)}</span>
                 </button>
                 <button class="content-dismiss" disabled={pending || homeContentStore.busy} aria-label={t('homeContent.dismiss', { title: item.title })} title={t('homeContent.dismiss', { title: item.title })} onclick={() => void action(() => dismissHomeContent(section.kind, item.path))}>×</button>
               </li>
             {/each}
           </ul>
+          {#if section.items.length > COLLAPSED_ROWS}
+            <button class="content-more" aria-expanded={expanded[section.kind]} aria-controls={`home-content-list-${section.kind}`} onclick={() => { expanded[section.kind] = !expanded[section.kind] }}>{t(expanded[section.kind] ? 'homeContent.less' : 'homeContent.more')}</button>
+          {/if}
         {:else if !homeContentStore.ready && homeContentStore.busy}
           <p class="content-empty" role="status">{t('homeContent.loading')}</p>
         {:else if homeContentStore.ready}
@@ -61,17 +66,16 @@
   .home-content { margin-bottom:32px; }
   .content-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
   section { min-width:0; }
-  h2 { margin:0 0 12px; font-size:14px; font-weight:600; }
+  h2 { margin:0 0 8px; font-size:14px; font-weight:600; }
   ul { list-style:none; margin:0; padding:0; }
   li { display:flex; align-items:center; gap:4px; border-bottom:1px solid color-mix(in srgb,CanvasText 12%,transparent); }
   button { font:inherit; color:inherit; }
-  .content-open { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; border:0; padding:10px 6px; border-radius:4px; background:none; text-align:left; cursor:pointer; }
-  .content-title { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.5; }
-  .content-meta { display:flex; gap:8px; width:100%; min-width:0; color:GrayText; font-size:11px; line-height:1.5; }
-  .content-detail { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .content-date { flex:none; }
+  .content-open { flex:1; display:flex; align-items:center; gap:8px; min-width:0; border:0; padding:6px; border-radius:4px; background:none; text-align:left; cursor:pointer; }
+  .content-title { display:block; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.5; }
+  .content-date { flex:none; color:GrayText; font-size:11px; line-height:1.5; }
+  .content-more { margin-top:6px; padding:4px 6px; border:0; border-radius:4px; background:none; color:GrayText; font-size:12px; cursor:pointer; }
   .content-dismiss { flex:none; display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:4px; background:none; color:GrayText; font-size:18px; cursor:pointer; }
-  .content-open:hover, .content-dismiss:hover { background:color-mix(in srgb,CanvasText 6%,transparent); }
+  .content-open:hover, .content-dismiss:hover, .content-more:hover { background:color-mix(in srgb,CanvasText 6%,transparent); }
   button:focus-visible { outline:2px solid var(--ui-accent,Highlight); outline-offset:2px; }
   button:disabled { cursor:default; opacity:.6; }
   .content-partial { margin:0 0 12px; color:GrayText; font-size:12px; line-height:1.6; }

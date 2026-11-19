@@ -13,6 +13,8 @@ export const zh: Record<keyof Messages, string> = {
   "homeContent.dismiss": "从此列表移除《{title}》",
   "homeContent.error": "无法更新文档列表：{error}",
   "homeContent.retry": "重试",
+  "homeContent.more": "更多",
+  "homeContent.less": "收起",
 
 
   "homeApps.pdfGuide": "请先打开 Markdown 或 HTML 文档，再从现有菜单选择“插件 → 数据导入导出 → 导出为 PDF…”。",

@@ -74,12 +74,12 @@ afterEach(async () => {
 })
 
 describe('home content durable activity', () => {
-  it('fills the home six and menu ten after filtering more than ten newer process documents', async () => {
+  it('supplies all home candidates for expansion and caps only the menu at ten after filtering', async () => {
     const noise = Array.from({ length: 15 }, (_, n) => ({ ...candidate(`skills/${n}.md`), createdAt: NOW }))
     const documents = Array.from({ length: 12 }, (_, n) => ({ ...candidate(`${String(n).padStart(2, '0')}.md`), createdAt: NOW - n - 1 }))
     candidates.set(ROOT, [...noise, ...documents])
     const s = await load()
-    expect(paths(s.homeContentStore.newItems)).toEqual(documents.slice(0, 6).map(c => c.path))
+    expect(paths(s.homeContentStore.newItems)).toEqual(documents.map(c => c.path))
     await vi.waitFor(() => {
       const menu = mocks.invoke.mock.calls.filter(([command]) => command === 'update_latest_menu').at(-1)
       expect((menu?.[1] as { items: { path: string }[] }).items.map(item => item.path)).toEqual(documents.slice(0, 10).map(c => c.path))
