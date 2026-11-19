@@ -28,8 +28,9 @@
   import {
     vaultSettings, loadVaultSettings, saveSyncDir, DEFAULT_SYNC_DIR, saveLargeFileThreshold, DEFAULT_LARGE_FILE_THRESHOLD_MB,
     saveSearchExcludeDirs, saveSearchLargeFileThreshold, saveSearchSourceGlobs, saveSearchWeights, DEFAULT_SEARCH_WEIGHTS,
-    type SearchWeights,
+    saveHomeNewDirs, type SearchWeights,
   } from '../lib/vault-settings.svelte'
+  import { applyHomeDirRules } from '../lib/home-content/store.svelte'
   import { pushToast } from '../lib/toast.svelte'
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { indexStatus, estimateRebuildSeconds, elideMiddle, formatElapsedMs } from '../lib/search/index-status.svelte'
@@ -173,7 +174,7 @@
 
   function canClose(): boolean {
     return !linuxPolicyBusy && !importReport && !importBusy && !fontBusy && !busy && !cliBusy && !gitProxyBusy
-      && !syncDirBusy && !thresholdBusy && !searchExcludeDirsBusy && !searchThresholdBusy
+      && !syncDirBusy && !thresholdBusy && !searchExcludeDirsBusy && !searchThresholdBusy && !homeNewDirsBusy
       && !globSaveBusy && !weightsBusy && !vaultBusy && settingsSaveBusy === 0
       && !enhanceKeyBusy.jev && !enhanceKeyBusy.chat
   }
@@ -321,6 +322,10 @@
   let thresholdBusy = $state(false)
   let searchExcludeDirsDraft = $state('')
   let searchExcludeDirsBusy = $state(false)
+  // Home → new content folder rules (vault settings, applied to the home list on save).
+  let homeNewExcludeDraft = $state('')
+  let homeNewIncludeDraft = $state('')
+  let homeNewDirsBusy = $state(false)
   // Search & Index tab: index-skip threshold. Loaded from
   // `vaultSettings.searchLargeFileThresholdMb`, which is already the
   // *effective* value (explicit save, else the git gate, else the built-in
@@ -395,6 +400,8 @@
       syncDirDraft = vaultSettings.syncDir
       thresholdDraft = vaultSettings.largeFileThresholdMb
       searchExcludeDirsDraft = vaultSettings.searchExcludeDirs.join('\n')
+      homeNewExcludeDraft = vaultSettings.homeNewExcludeDirs.join('\n')
+      homeNewIncludeDraft = vaultSettings.homeNewIncludeDirs.join('\n')
       searchThresholdDraft = vaultSettings.searchLargeFileThresholdMb
       globRows = (vaultSettings.searchSourceGlobs ?? []).map((p) => ({ pattern: p, count: null }))
       globPatternBlankError = null
@@ -455,6 +462,21 @@
       pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
     } finally {
       thresholdBusy = false
+    }
+  }
+  const draftLines = (draft: string) => draft.split('\n').map((line) => line.trim()).filter((line) => line.length > 0)
+  async function onSaveHomeNewDirs() {
+    homeNewDirsBusy = true
+    try {
+      const rules = await saveHomeNewDirs({ exclude: draftLines(homeNewExcludeDraft), include: draftLines(homeNewIncludeDraft) })
+      applyHomeDirRules(rules)
+      homeNewExcludeDraft = rules.exclude.join('\n')
+      homeNewIncludeDraft = rules.include.join('\n')
+      pushToast({ level: 'success', message: t('vaultSync.saved') })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
+    } finally {
+      homeNewDirsBusy = false
     }
   }
   async function onSaveSearchExcludeDirs() {
@@ -1981,6 +2003,29 @@
                     disabled={!vaultSettings.vaultPath || searchThresholdBusy}>{t('vaultSync.save')}</button>
                 </div>
                 <p id="settings-search-threshold-hint" class="desc" style="margin: 0;">{t('search.index.thresholdHint')}</p>
+              </div>
+            </div>
+          </section>
+          <section class="block">
+            <h3>{t('settings.homeNewHeading')}</h3>
+            <div class="row" style="align-items: flex-start;">
+              <label class="lbl" for="settings-home-new-excludes">{t('settings.homeNewExcludeDirs')}</label>
+              <textarea id="settings-home-new-excludes" aria-describedby="settings-home-new-hint" rows="3" bind:value={homeNewExcludeDraft}
+                disabled={!vaultSettings.vaultPath || homeNewDirsBusy}
+                style="width: 100%; font: inherit; padding: 6px; border-radius: 4px; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); background: Canvas; color: CanvasText; resize: vertical;"
+              ></textarea>
+            </div>
+            <div class="row" style="align-items: flex-start;">
+              <label class="lbl" for="settings-home-new-includes">{t('settings.homeNewIncludeDirs')}</label>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <textarea id="settings-home-new-includes" aria-describedby="settings-home-new-hint" rows="2" bind:value={homeNewIncludeDraft}
+                  disabled={!vaultSettings.vaultPath || homeNewDirsBusy}
+                  style="width: 100%; font: inherit; padding: 6px; border-radius: 4px; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); background: Canvas; color: CanvasText; resize: vertical;"
+                ></textarea>
+                <p id="settings-home-new-hint" class="desc" style="margin: 0;">{t('settings.homeNewDirsHint')}</p>
+                <button onclick={onSaveHomeNewDirs}
+                  style="align-self: flex-start;"
+                  disabled={!vaultSettings.vaultPath || homeNewDirsBusy}>{t('vaultSync.save')}</button>
               </div>
             </div>
           </section>

@@ -17,6 +17,11 @@ export const ja: Record<keyof Messages, string> = {
   "homeContent.error": "文書リストを更新できませんでした：{error}",
   "homeContent.retry": "再試行",
   "homeContent.more": "もっと見る",
+  "homeContent.less": "閉じる",
+  "homeContent.askExclude": "{dir}/ から {count} 件を非表示にしました。このフォルダを今後表示しませんか?",
+  "homeContent.askExcludeYes": "表示しない",
+  "homeContent.askExcludeNo": "表示を続ける",
+  "homeContent.rules": "フォルダのルール",
 
 
   "homeApps.pdfGuide": "まず Markdown または HTML の文書を開き、既存のメニューから「プラグイン → 読み込みと書き出し → PDF に書き出す…」を選んでください。",
@@ -1177,6 +1182,10 @@ export const ja: Record<keyof Messages, string> = {
   'settings.themesLoadFailed': 'テーマの読み込みに失敗：{error}',
   'settings.searchExcludeDirs': '検索から除外するフォルダ',
   'settings.searchExcludeDirsHint': '1 行に 1 つ、vault ルートからの相対パス。既定では空です。',
+  "settings.homeNewHeading": "ホーム: 新しいコンテンツ",
+  "settings.homeNewExcludeDirs": "除外するフォルダ",
+  "settings.homeNewIncludeDirs": "これらのフォルダのみ",
+  "settings.homeNewDirsHint": "1 行に 1 つ、vault 内のフォルダ(サブフォルダを含む)。除外が優先されます。「のみ」を空にすると制限なし。",
   'settings.editor': 'エディター',
   'diagram.reset': '既定のサイズに戻す（100%）',
   'diagram.region': '図のプレビュー',

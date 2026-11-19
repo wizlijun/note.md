@@ -17,6 +17,11 @@ export const zh: Record<keyof Messages, string> = {
   "homeContent.error": "无法更新文档列表：{error}",
   "homeContent.retry": "重试",
   "homeContent.more": "更多",
+  "homeContent.less": "更少",
+  "homeContent.askExclude": "{dir}/ 里已关掉 {count} 篇,以后不再显示这个目录?",
+  "homeContent.askExcludeYes": "不再显示",
+  "homeContent.askExcludeNo": "继续显示",
+  "homeContent.rules": "目录规则",
 
 
   "homeApps.pdfGuide": "请先打开 Markdown 或 HTML 文档，再从现有菜单选择“插件 → 数据导入导出 → 导出为 PDF…”。",
@@ -1216,6 +1221,10 @@ export const zh: Record<keyof Messages, string> = {
   'settings.themesLoadFailed': '加载主题失败：{error}',
   'settings.searchExcludeDirs': '排除出搜索的目录',
   'settings.searchExcludeDirsHint': '每行一个，相对 vault 根目录。默认为空。',
+  "settings.homeNewHeading": "主页新内容",
+  "settings.homeNewExcludeDirs": "排除目录",
+  "settings.homeNewIncludeDirs": "只看这些目录",
+  "settings.homeNewDirsHint": "一行一个库内目录,含子目录;排除优先;「只看」留空表示不限。",
   'settings.editor': '编辑器',
   'diagram.reset': '恢复默认大小（100%）',
   'diagram.region': '图表预览',

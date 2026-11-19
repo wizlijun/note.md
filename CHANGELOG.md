@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- New content on the home page can exclude folders or show only the folders you choose. After you dismiss 4 items from one folder, it asks whether to stop showing that folder. The home lists' More now collapses back with Less, and keeps loading as you scroll once expanded.
+
 ## v6.1120.1 — 2026-11-20
 
 - The File menu now keeps Recently Opened and New Content, removing Open History. Each home document list starts with 10 items and adds 10 per More click instead of rendering the entire list at once.

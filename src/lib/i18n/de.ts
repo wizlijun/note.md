@@ -15,6 +15,11 @@ export const de: Record<keyof Messages, string> = {
   "homeContent.error": "Dokumentliste konnte nicht aktualisiert werden: {error}",
   "homeContent.retry": "Erneut versuchen",
   "homeContent.more": "Mehr",
+  "homeContent.less": "Weniger",
+  "homeContent.askExclude": "{count} Einträge aus {dir}/ ausgeblendet. Diesen Ordner nicht mehr anzeigen?",
+  "homeContent.askExcludeYes": "Nicht mehr anzeigen",
+  "homeContent.askExcludeNo": "Weiter anzeigen",
+  "homeContent.rules": "Ordnerregeln",
 
 
   "homeApps.pdfGuide": "Öffnen Sie zuerst ein Markdown- oder HTML-Dokument und wählen Sie dann im bestehenden Menü „Plugins → Importieren & Exportieren → Als PDF exportieren…“.",
@@ -1177,6 +1182,10 @@ export const de: Record<keyof Messages, string> = {
   'settings.themesLoadFailed': 'Themen konnten nicht geladen werden: {error}',
   'settings.searchExcludeDirs': 'Von der Suche ausgeschlossene Ordner',
   'settings.searchExcludeDirsHint': 'Ein Ordner pro Zeile, relativ zum Tresor-Stammverzeichnis. Standardmäßig leer.',
+  "settings.homeNewHeading": "Start: neue Inhalte",
+  "settings.homeNewExcludeDirs": "Ordner ausschließen",
+  "settings.homeNewIncludeDirs": "Nur diese Ordner",
+  "settings.homeNewDirsHint": "Ein Tresor-Ordner pro Zeile, einschließlich Unterordnern. Ausschlüsse haben Vorrang; „nur“ leer lassen für keine Einschränkung.",
   'settings.editor': 'Editor',
   'diagram.reset': 'Standardgröße wiederherstellen (100 %)',
   'diagram.region': 'Diagrammvorschau',

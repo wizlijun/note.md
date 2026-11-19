@@ -22,6 +22,11 @@ export const en = {
   "homeContent.error": "Could not update documents: {error}",
   "homeContent.retry": "Retry",
   "homeContent.more": "More",
+  "homeContent.less": "Less",
+  "homeContent.askExclude": "Hidden {count} items from {dir}/. Stop showing this folder?",
+  "homeContent.askExcludeYes": "Stop showing",
+  "homeContent.askExcludeNo": "Keep showing",
+  "homeContent.rules": "Folder rules",
 
 
   "homeApps.pdfGuide": "Open a Markdown or HTML document first, then choose Plugins → Import & Export → Export to PDF… from the existing menu.",
@@ -1227,6 +1232,10 @@ export const en = {
   'settings.themesLoadFailed': 'Failed to load themes: {error}',
   'settings.searchExcludeDirs': 'Directories excluded from search',
   'settings.searchExcludeDirsHint': 'One per line, relative to the vault root. Empty by default.',
+  "settings.homeNewHeading": "Home: new content",
+  "settings.homeNewExcludeDirs": "Exclude folders",
+  "settings.homeNewIncludeDirs": "Only these folders",
+  "settings.homeNewDirsHint": "One vault folder per line, including subfolders. Exclusions win; leave \"only\" empty for no limit.",
   'settings.editor': 'Editor',
   'diagram.reset': 'Reset to default size (100%)',
   'diagram.region': 'Diagram preview',
