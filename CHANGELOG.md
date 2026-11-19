@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- Fixed a Rich editor IME state mismatch after mouse interactions that could disable editing commands and leave mode switches or tab closure waiting indefinitely.
+
 ## v6.1119.1 — 2026-11-19
 
 - The desktop home page now puts creation tools and eight app shortcuts in one aligned grid, with installed-app search, categories, pinning and position editing. Daily suggestions stay stable; disabled pinned apps keep their positions and explain availability. Vault statistics remain visible while secondary folder controls are collapsed.

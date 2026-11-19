@@ -59,7 +59,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
   let pane: HTMLElement | undefined
   let mode: 'rich' | 'source' = 'rich'
   let closed = false, detached = false, readOnly = options.readOnly ?? false
-  let richComposing = false, richFrame: number | null = null
+  let richComposing = false, richFrame: number | null = null, richCompositionEpoch = 0
   let policy = options.policy
   let ownedEdit: NoteEditState | undefined
   const layers = new Map<string, readonly DecorationItem[]>()
@@ -245,8 +245,13 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     for (const listener of richCompositionListeners) listener()
     refreshFileHistoryRoute()
   }
+  function finishRichComposition() {
+    setRichComposing(false)
+    for (const waiter of richWaiters.splice(0)) waiter.resolve()
+  }
   rich.addEventListener('compositionstart', event => {
     if (!isRichEditorInput(event, rich)) return
+    richCompositionEpoch++
     if (richFrame !== null) { cancelAnimationFrame(richFrame); richFrame = null }
     setRichComposing(true)
   }, true)
@@ -254,9 +259,21 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     if (!isRichEditorInput(event, rich)) return
     if (richFrame !== null) cancelAnimationFrame(richFrame)
     richFrame = requestAnimationFrame(() => {
-      richFrame = null; setRichComposing(false)
-      for (const waiter of richWaiters.splice(0)) waiter.resolve()
+      richFrame = null; finishRichComposition()
     })
+  }, true)
+  // PM flushes native input and ends composition for these gestures without
+  // emitting compositionend. A task runs after the whole native event dispatch;
+  // a microtask can run between our capture listener and PM's target listener.
+  // Never release active composition or a delivered end's final-input frame.
+  for (const type of ['mousedown', 'contextmenu', 'touchstart']) rich.addEventListener(type, event => {
+    if (!richComposing || !isRichEditorInput(event, rich)) return
+    const epoch = richCompositionEpoch
+    setTimeout(() => {
+      if (closed || detached || epoch !== richCompositionEpoch || !richComposing || richFrame !== null || instance.view.composing) return
+      ime.reset()
+      finishRichComposition()
+    }, 0)
   }, true)
   rich.addEventListener('keydown', event => {
     if (isRichEditorInput(event, rich) && (event.metaKey || event.ctrlKey) && ['z', 'y'].includes(event.key.toLowerCase()) && (richComposing || ime.blocks(event))) {
@@ -374,6 +391,7 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
     focus() { if (!closed && !detached) { if (mode === 'source') pane?.querySelector('textarea')?.focus(); else instance.view.focus() } },
     destroyView() {
       if (detached || closed) return
+      richCompositionEpoch++
       menus.closeSlash(); menus.closeContext(); unbindRichHistory(); unbindSourceHistory(); source?.detach(); controller.bindView(null); detached = true; root.remove()
       if (richFrame !== null) cancelAnimationFrame(richFrame)
       richFrame = null
