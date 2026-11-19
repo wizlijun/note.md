@@ -70,6 +70,15 @@ describe('usage and daily ranking', () => {
     expect(next.usage.a.lastUsed).toBe(day() + 30_000)
   })
 
+  it('counts usage after the local clock moves backward', () => {
+    const base = recordUsage(emptyHomeAppsData(), 'a', day())
+    const afterRollback = recordUsage(base, 'a', day() - 60_000)
+    expect(afterRollback.usage.a.days['2026-11-19']).toBe(2)
+    expect(afterRollback.usage.a.lastUsed).toBe(day() - 60_000)
+    expect(recordUsage(afterRollback, 'a', day() - 30_001).usage.a.days['2026-11-19']).toBe(2)
+    expect(base.usage.a.days['2026-11-19']).toBe(1)
+  })
+
   it('freezes same-day snapshot, refreshes next local day and preserves fixed index', () => {
     let data = recordUsage(pinApp(emptyHomeAppsData(), 'fixed', 5), 'b', day())
     data = refreshRanking(data, ['b', 'c', 'fixed'], day())

@@ -134,7 +134,7 @@ export function recordUsage(data: HomeAppsData, id: string, now: number): HomeAp
   checkId(id)
   const today = localDay(now)
   const previous = Object.hasOwn(data.usage, id) ? data.usage[id] : undefined
-  if (previous && now - previous.lastUsed < 30_000) return data
+  if (previous && now >= previous.lastUsed && now - previous.lastUsed < 30_000) return data
   const usage = recentUsage(data, today)
   const days = Object.hasOwn(usage, id) ? usage[id].days : {}
   return {
