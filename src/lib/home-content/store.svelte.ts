@@ -7,7 +7,7 @@ import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type Fs } from '../insights/store.svelte'
 import { abbreviateHome, normalize } from '../paths'
 import { formatRecentLabel } from '../recent-merge'
-import { activityFor, applyAttention, applyEdit, contentLists, discoverContent, dismissContent,
+import { activityFor, applyAttention, applyEdit, contentLists, discoverContent, dismissContent, emptyVaultContent,
   emptyHomeContent, migrateOwnerHistory, normalizeHomeContent, READ_MS,
   type ContentCandidate, type ContentList, type HomeContentData, type HomeContentItem, type VaultContent } from './model'
 
@@ -35,7 +35,7 @@ const editCheckpoints = new Map<string, number>()
 let editTimer: ReturnType<typeof setTimeout> | undefined
 
 function vaultFor(target: string): VaultContent {
-  return data.vaults[target] ??= { initializedAt: 0, migrated: false, docs: {} }
+  return data.vaults[target] ??= emptyVaultContent()
 }
 export function loadHomeContent(): Promise<void> {
   if (storage) return Promise.resolve()

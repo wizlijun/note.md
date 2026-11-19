@@ -3,13 +3,14 @@ import { emptyCounters, type DeviceAnalytics } from '../insights/model'
 import {
   activityFor, applyAttention, applyEdit, contentKey, contentLists, discoverContent,
   dismissContent, migrateOwnerHistory, normalizeHomeContent,
-  type ContentCandidate, type VaultContent,
+  countNewDismiss, normalizeDirRule, passesDirRules, topDir,
+  type ContentCandidate, type HomeDirRules, type VaultContent,
 } from './model'
 
 const ROOT = '/fixture/vault'
 const NOW = Date.UTC(2026, 10, 19, 8)
 const DAY = 86_400_000
-const vault = (): VaultContent => ({ initializedAt: 0, migrated: false, docs: {} })
+const vault = (): VaultContent => ({ initializedAt: 0, migrated: false, docs: {}, dismissCounts: {}, keepDirs: [], askDir: null })
 const candidate = (name: string, createdAt: number | null = NOW - DAY, patch: Partial<ContentCandidate> = {}): ContentCandidate => ({
   path: ROOT + '/' + name, title: null, conceptType: null, createdAt, modifiedAt: NOW, ...patch,
 })
@@ -157,5 +158,89 @@ describe('home content selection', () => {
     const hidden = contentLists(state, [], ROOT, NOW, 10, new Set(missing))
     expect(paths(hidden.continueItems)).toEqual(present)
     expect(paths(contentLists(state, [], ROOT, NOW).continueItems)).toEqual(missing.slice(0, 10))
+  })
+})
+
+describe('directory rules', () => {
+  const rules = (exclude: string[] = [], include: string[] = []): HomeDirRules => ({ exclude, include })
+
+  it('normalizes hand-written rule entries and drops unusable ones', () => {
+    expect(normalizeDirRule('./agent-sessions/')).toBe('agent-sessions')
+    expect(normalizeDirRule(' a/b/ ')).toBe('a/b')
+    expect(normalizeDirRule('')).toBeNull()
+    expect(normalizeDirRule('  /  ')).toBeNull()
+    expect(normalizeDirRule('a/../b')).toBeNull()
+  })
+
+  it('matches whole path segments, covering every subdirectory', () => {
+    const r = rules(['agent-sessions'])
+    expect(passesDirRules('agent-sessions/openai/x.md', r)).toBe(false)
+    expect(passesDirRules('agent-sessionsx/y.md', r)).toBe(true)
+    expect(passesDirRules('agent-sessions/x.md', rules(['agent']))).toBe(true)
+    expect(passesDirRules('stat/a.md', rules(['./stat/']))).toBe(false)
+  })
+
+  it('limits to include dirs, with exclusions winning and an empty include meaning no limit', () => {
+    expect(passesDirRules('project/rapp/issues/1.md', rules([], ['project']))).toBe(true)
+    expect(passesDirRules('stat/a.md', rules([], ['project']))).toBe(false)
+    expect(passesDirRules('stat/a.md', rules([], []))).toBe(true)
+    const both = rules(['project/axe-research'], ['project'])
+    expect(passesDirRules('project/axe-research/a.md', both)).toBe(false)
+    expect(passesDirRules('project/rapp/a.md', both)).toBe(true)
+  })
+
+  it('applies rules to the new list only; reading history still continues', () => {
+    const state = vault(), stat = candidate('stat/a.md', NOW - 1000), report = candidate('project/r.md', NOW - 2000)
+    const read = candidate('stat/read.md', NOW - 3000)
+    discoverContent(state, [stat, report, read], ROOT, NOW)
+    applyEdit(activityFor(state, read.path, ROOT, NOW), NOW)
+    const lists = contentLists(state, [stat, report, read], ROOT, NOW, 10, new Set(), rules(['stat']))
+    expect(paths(lists.newItems)).toEqual([report.path])
+    expect(paths(lists.continueItems)).toEqual([read.path])
+  })
+
+  it('names the first-level directory of a vault document only', () => {
+    expect(topDir('rel:a/b/c.md')).toBe('a')
+    expect(topDir('rel:c.md')).toBeNull()
+    expect(topDir('abs:/outside/a/b.md')).toBeNull()
+  })
+
+  it('asks about a first-level directory on its fourth dismissal, across subdirectories', () => {
+    const state = vault()
+    for (const sub of ['openai/1', 'openai/2', 'claude/3']) countNewDismiss(state, `rel:agent-sessions/${sub}.md`, rules())
+    expect(state.askDir).toBeNull()
+    expect(state.dismissCounts['agent-sessions']).toBe(3)
+    countNewDismiss(state, 'rel:agent-sessions/codex/deep/4.md', rules())
+    expect(state.askDir).toBe('agent-sessions')
+  })
+
+  it('does not count root files, kept directories or already excluded directories', () => {
+    const state = vault()
+    state.keepDirs = ['stat']
+    for (let i = 0; i < 5; i++) {
+      countNewDismiss(state, `rel:root-${i}.md`, rules())
+      countNewDismiss(state, `rel:stat/${i}.md`, rules())
+      countNewDismiss(state, `rel:wechat/${i}.md`, rules(['./wechat/']))
+    }
+    expect(state.dismissCounts).toEqual({})
+    expect(state.askDir).toBeNull()
+  })
+
+  it('asks about the most recently dismissed directory when several reach the threshold', () => {
+    const state = vault()
+    for (let i = 0; i < 4; i++) countNewDismiss(state, `rel:stat/${i}.md`, rules())
+    for (let i = 0; i < 4; i++) countNewDismiss(state, `rel:tmp2/${i}.md`, rules())
+    expect(state.askDir).toBe('tmp2')
+    countNewDismiss(state, 'rel:stat/9.md', rules())
+    expect(state.askDir).toBe('stat')
+  })
+
+  it('reads stored data without the new fields, and repairs bad values', () => {
+    const legacy = normalizeHomeContent({ version: 1, vaults: { [ROOT]: { initializedAt: 1, migrated: true, docs: {} } } })
+    expect(legacy.vaults[ROOT]).toMatchObject({ dismissCounts: {}, keepDirs: [], askDir: null })
+    const bad = normalizeHomeContent({ version: 1, vaults: { [ROOT]: {
+      initializedAt: 1, migrated: true, docs: {}, dismissCounts: { stat: 4, x: -1, y: 'no' }, keepDirs: ['a', 3], askDir: 7,
+    } } })
+    expect(bad.vaults[ROOT]).toMatchObject({ dismissCounts: { stat: 4 }, keepDirs: ['a'], askDir: null })
   })
 })
