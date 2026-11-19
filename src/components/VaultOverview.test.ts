@@ -38,6 +38,33 @@ beforeEach(() => {
 afterEach(async () => { if (app) await unmount(app); app = undefined; clearMocks(); vi.useRealTimers() })
 
 describe('welcome Vault overview', () => {
+  it('supports a compact summary without losing statistics, details or failures', async () => {
+    app = mount(VaultOverview, { target: document.body, props: { compact: true } }); await settle()
+    expect(document.querySelector('.vault-overview.compact')).toBeTruthy()
+    expect(document.querySelector('.vault-name')?.textContent).toBe('Notes')
+    expect(document.querySelector('.metrics')?.textContent).toContain('120 B')
+    expect(document.querySelector('.path-row')).toBeNull()
+    document.querySelector<HTMLButtonElement>('[aria-expanded]')!.click(); await settle()
+    expect(document.querySelector('.path')?.textContent).toBe('~/Notes')
+    expect([...document.querySelectorAll('button')].some(b => b.textContent === 'vaultOverview.settings')).toBe(true)
+    const previous = mocks.invoke.getMockImplementation()!
+    mocks.invoke.mockImplementation(async (cmd, args) => {
+      if (cmd === 'plugin:opener|reveal_item_in_dir') throw Error('Folder unavailable')
+      return previous(cmd, args)
+    })
+    ;[...document.querySelectorAll('button')].find(b => b.textContent === 'vaultOverview.reveal')!.click(); await settle()
+    document.querySelector<HTMLButtonElement>('[aria-expanded]')!.click(); await settle()
+    expect(document.querySelector('.path-row')).toBeNull()
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Folder unavailable')
+  })
+  it('keeps setup available in the compact footer without invented statistics', async () => {
+    mocks.root.vaultRoot = null
+    app = mount(VaultOverview, { target: document.body, props: { compact: true } }); await settle()
+    expect(document.querySelector('.vault-overview.compact.configured')).toBeNull()
+    expect(document.querySelector('.metrics')).toBeNull()
+    ;[...document.querySelectorAll('button')].find(b => b.textContent === 'vaultOverview.setup')!.click(); await settle()
+    expect(mocks.open).toHaveBeenCalledOnce()
+  })
   it.each(['/home/alice/Notes with spaces', '/home/alice/资料库'])('reveals the absolute Vault path through the permitted plugin command: %s', async (root) => {
     mocks.root.vaultRoot = root
     app = mount(VaultOverview, { target: document.body }); await settle()

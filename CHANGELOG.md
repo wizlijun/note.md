@@ -7,7 +7,7 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- The desktop home page now separates unread new content from documents you edited or spent time reading. Process files are filtered from new content, brief previews do not crowd continuing reads, and each suggestion can be dismissed across restarts. The File menu uses the same suggestions and keeps unfiltered open history separately. Read-only shared pages now expose “Open in note.md” to continue in the app. Compact lists show four rows by default, with independent More/Show less controls.
+- The desktop home page now separates unread new content from documents you edited or spent time reading. Process files are filtered from new content, brief previews do not crowd continuing reads, and each suggestion can be dismissed across restarts. The File menu uses the same suggestions and keeps unfiltered open history separately. Read-only shared pages now expose “Open in note.md” to continue in the app. The Safari-inspired layout combines built-in tools, pinned and frequent apps in two shortcut rows, followed by two document columns with three body previews and independent Show All controls, an AI suggestions layout area, and a compact status/settings footer.
 
 ## v6.1119.1 — 2026-11-19
 

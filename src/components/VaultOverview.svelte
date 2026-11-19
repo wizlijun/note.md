@@ -14,6 +14,7 @@
   import { t, i18n } from '../lib/i18n/store.svelte'
   import { vaultManagement, refreshVaultManagement, openVaultManagement, abbreviateHome } from '../lib/vault-management.svelte'
   import { vaultDocumentRules, formatContentBytes, type VaultStats } from '../lib/vault-stats'
+  let { compact = false }: { compact?: boolean } = $props()
 
   let stats = $state<VaultStats | null>(null)
   let busy = $state(false)
@@ -108,13 +109,13 @@
 </script>
 
 <!-- Interactive content must not reach EmptyState's background double-click action. -->
-<section class="vault-overview" aria-label={t('vaultOverview.title')} ondblclick={(event) => event.stopPropagation()}>
+<section class="vault-overview" class:compact class:configured={Boolean(root)} aria-label={t('vaultOverview.title')} ondblclick={(event) => event.stopPropagation()}>
   <div class="heading">
     <h2>{root ? t('vaultOverview.title') : t('vaultOverview.unconfigured')}</h2>
     {#if root}<button aria-expanded={expanded} onclick={() => { expanded = !expanded }}>{t(expanded ? 'vaultOverview.hideDetails' : 'vaultOverview.showDetails')}</button>{/if}
   </div>
   {#if root}
-    <strong class="vault-name">{name}</strong>
+    <strong class="vault-name" title={name}>{name}</strong>
     {#if expanded}<div class="path-row">
       <span class="path" title={root}>{pathLabel}</span>
       <button aria-label={t('vaultOverview.copyPath')} onclick={() => void action(async () => { await writeText(root); copied = true })}>{copied ? t('vaultOverview.copied') : t('vaultOverview.copy')}</button>
@@ -160,4 +161,22 @@
   button:hover { background: color-mix(in srgb, CanvasText 8%, Canvas); }
   button:disabled { opacity: .5; cursor: default; }
   .primary { background: var(--ui-accent); color: var(--ui-accent-foreground, white); border-color: var(--ui-accent); }
+  .compact { margin:0; padding:0; border:0; border-radius:0; min-width:0; }
+  .compact.configured { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:start; gap:6px 12px; }
+  .compact.configured .heading { grid-column:3; grid-row:1; }
+  .compact.configured .heading h2 { display:none; }
+  .compact .vault-name { grid-column:1; grid-row:1; margin:4px 0; min-width:0; max-width:180px; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .compact .statistics { grid-column:2; grid-row:1; min-width:0; }
+  .compact .metrics { gap:4px 12px; margin:4px 0; font-size:11px; }
+  .compact .metrics strong { font-size:12px; font-weight:500; }
+  .compact .path-row { grid-column:1/-1; grid-row:2; }
+  .compact p { margin:4px 0; }
+  .compact .error { grid-column:1/-1; }
+  .compact button { padding:4px 7px; font-size:11px; }
+  @container(max-width:660px) {
+    .compact.configured { grid-template-columns:minmax(0,1fr) auto; }
+    .compact.configured .heading { grid-column:2; }
+    .compact .statistics { grid-column:1/-1; grid-row:2; }
+    .compact .path-row { grid-row:3; }
+  }
 </style>

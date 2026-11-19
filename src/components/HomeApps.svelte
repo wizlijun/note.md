@@ -3,6 +3,8 @@
   import { invoke } from '@tauri-apps/api/core'
   import { listen } from '@tauri-apps/api/event'
   import AppIcon from './AppIcon.svelte'
+  import { pickOpenFile } from '../lib/dialogs'
+  import { newFile, newCanvas, openFile } from '../lib/tabs.svelte'
   import AppDirectory from './AppDirectory.svelte'
   import '../styles/home-apps.css'
   import { buildHomeApps, type HomeApp } from '../lib/home-apps/catalog'
@@ -42,7 +44,6 @@
   })
   const slots = $derived(shortcutSlots(homeAppsStore.data, eligible))
   function lookup(id: string): HomeApp { return byId.get(id) ?? { id, name: id, description: '', category: 'experience', enabled: true, available: false, entry: { kind: 'details' } } }
-  const visibleSlots = $derived(editing ? slots : slots.slice(0, slots.reduce((last, id, index) => id !== null ? index + 1 : last, 0)))
   const selected = $derived(selectedId ? lookup(selectedId) : null)
   const error = $derived(homeAppsStore.error ? t('homeApps.storageError', { error: homeAppsStore.error }) : catalogError ?? actionError)
 
@@ -58,6 +59,7 @@
     actionError = null
     try { await action(); return true } catch (e) { if (!homeAppsStore.error) actionError = String(e); return false }
   }
+  async function openDocument() { const path = await pickOpenFile(); if (path) await openFile(path) }
   function details(app: HomeApp) {
     moveSource = undefined
     selectedId = app.id
@@ -133,26 +135,30 @@
 </script>
 
 <svelte:window onpointerdown={event => { if (menu && !(event.target instanceof Element && event.target.closest('.home-context-menu'))) menu = null }} />
-<section class="home-apps" aria-label={t('homeApps.apps')} ondblclick={event => event.stopPropagation()}>
+<section class="home-apps" aria-label={t('homeApps.commonFeatures')} ondblclick={event => event.stopPropagation()}>
   <div class="home-section-heading">
-    <h2>{t('homeApps.apps')}</h2>
-    <div class="home-controls"><button class="home-control" aria-pressed={editing} onclick={() => { editing = !editing }}>{t(editing ? 'homeApps.done' : 'homeApps.edit')}</button><button class="home-control apps-directory-button" onclick={() => showDirectory()}>{t('homeApps.allApps')}</button></div>
+    <h2>{t('homeApps.commonFeatures')}</h2>
+    <div class="home-controls"><button class="home-control" aria-pressed={editing} onclick={() => { editing = !editing }}>{t(editing ? 'homeApps.done' : 'homeApps.edit')}</button></div>
   </div>
   {#if loading || awaitingDispatcher}<p class="home-status" role="status">{t(awaitingDispatcher ? 'homeApps.starting' : 'homeApps.loading')}</p>{/if}
-  <div class="home-grid" aria-label={t('homeApps.shortcuts')}>
-    {#each visibleSlots as id, slot}
+  <div class="home-grid home-functions-grid" aria-label={t('homeApps.shortcuts')}>
+    <div class="builtin-slot" data-home-action="new-note"><button class="home-tile" title={t('emptyState.new')} onclick={() => void run(newFile)}><AppIcon glyph="note" tone="blue"/><span class="tile-label">{t('homeApps.newNote')}</span></button></div>
+    <div class="builtin-slot" data-home-action="new-canvas"><button class="home-tile" onclick={() => void run(newCanvas)}><AppIcon glyph="canvas" tone="teal"/><span class="tile-label">{t('homeApps.newCanvas')}</span></button></div>
+    <div class="builtin-slot" data-home-action="open-file"><button class="home-tile" onclick={() => void run(openDocument)}><AppIcon glyph="folder" tone="ochre"/><span class="tile-label">{t('homeApps.openFile')}</span></button></div>
+    {#each slots as id, slot}
       {@const app = id ? lookup(id) : undefined}
-      <div class="shortcut-slot" data-home-slot={slot} class:pinned={homeAppsStore.data.pins[slot] !== null} draggable={editing && Boolean(app)} ondragstart={event => { if (app) { dragged = { id: app.id, slot }; event.dataTransfer?.setData('text/plain', app.id) } }} ondragend={() => { dragged = null }} ondragover={event => { if (editing && dragged) event.preventDefault() }} ondrop={event => { event.preventDefault(); if (editing && dragged) void run(() => moveHomeApp(dragged!.id, slot, dragged!.slot)); dragged = null }} role="group" aria-label={t('homeApps.position', { n: slot + 1 })}>
+      <div class="shortcut-slot" data-home-slot={slot} class:pinned={homeAppsStore.data.pins[slot] !== null} draggable={editing && Boolean(app)} ondragstart={event => { if (app) { dragged = { id: app.id, slot }; event.dataTransfer?.setData('text/plain', app.id) } }} ondragend={() => { dragged = null }} ondragover={event => { if (editing && dragged) event.preventDefault() }} ondrop={event => { event.preventDefault(); if (editing && dragged) void run(() => moveHomeApp(dragged!.id, slot, dragged!.slot)); dragged = null }} role="group" aria-label={t('homeApps.position', { n: slot + 1 })} aria-hidden={!app && !editing ? true : undefined}>
         {#if app}
           <button class="home-tile" aria-disabled={Boolean(reason(app))} title={`${app.name}${reason(app) ? ` · ${reason(app)}` : ''}`} oncontextmenu={event => context(event, app, slot)} onclick={() => { if (editing) showDirectory(app, true, slot); else void open(app) }}>
             <AppIcon id={app.id}/><span class="tile-label">{app.compactName ?? app.name}</span>
           </button>
           {#if editing}<div class="slot-controls"><button class="home-control" data-move onclick={() => showDirectory(app, true, slot)}>{t('homeApps.move')}</button>{#if homeAppsStore.data.pins[slot]}<button class="home-control" aria-label={`${t('homeApps.unpin')} ${app.name}`} onclick={() => void run(() => unpinHomeApp(app.id))}>−</button>{/if}</div>{:else if homeAppsStore.data.pins[slot]}<span class="pin-mark" role="img" aria-label={t('homeApps.pinned')}><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 2 8 8-3 1-3 3-1-4-4-1 3-3z M7 10l-5 5"/></svg></span>{/if}
-        {:else}<button class="home-tile vacant" aria-label={t('homeApps.addAt', { n: slot + 1 })} onclick={() => showDirectory()}><span class="empty-icon" aria-hidden="true">+</span><span class="tile-label">{t('homeApps.add')}</span></button>{/if}
+        {:else if editing}<button class="home-tile vacant" aria-label={t('homeApps.addAt', { n: slot + 1 })} onclick={() => showDirectory()}><span class="empty-icon" aria-hidden="true">+</span><span class="tile-label">{t('homeApps.add')}</span></button>{:else}<span class="silent-slot" aria-hidden="true"></span>{/if}
       </div>
     {/each}
+    <div class="builtin-slot" data-home-action="all-apps"><button class="home-tile apps-directory-button" onclick={() => showDirectory()}><AppIcon glyph="knowledge" tone="blue"/><span class="tile-label">{t('homeApps.allApps')}</span></button></div>
   </div>
-  {#if complete && apps.length && !visibleSlots.length && !loading && !awaitingDispatcher}<p class="home-status">{t('homeApps.noShortcuts')}</p>{/if}
+  {#if complete && apps.length && !slots.some(Boolean) && !loading && !awaitingDispatcher}<p class="home-status">{t('homeApps.noShortcuts')}</p>{/if}
   {#if complete && !apps.length}<p class="home-status">{t('homeApps.empty')}</p>{/if}
   {#if error && !directory}<p class="home-error" role="alert">{error}</p><button class="home-control" onclick={() => { actionError = null; reload() }}>{t('homeApps.retry')}</button>{/if}
   {#if menu && byId.has(menu.id)}
@@ -166,13 +172,16 @@
   {#if directory}<AppDirectory {apps} loading={loading || awaitingDispatcher} catalogReady={complete} pins={homeAppsStore.data.pins} {selected} {chooseTarget} moving={moveSource !== undefined} busy={homeAppsStore.busy} {error} {reason} onclose={() => { void closeDirectory() }} ondetail={details} onopen={app => { void open(app) }} onplace={place} onunpin={app => run(() => unpinHomeApp(app.id))} onmanage={manage} onmarket={market} onretry={catalogError || !homeAppsStore.ready ? reload : undefined} onconfigure={configure} commandEnabled={(app, command) => !reason(app, command)} oncommand={(app, command) => { void openCommand(app, command) }}/>{/if}
 </section>
 <style>
-  .home-apps { border-top:1px solid color-mix(in srgb,CanvasText 12%,transparent); padding-top:24px; margin-top:32px; color:CanvasText; }
+  .home-apps { color:CanvasText; }
+  .builtin-slot { min-width:0; }
+  .silent-slot { display:block; width:var(--home-shortcut-size,56px); max-width:100%; height:var(--home-shortcut-size,56px); }
   .shortcut-slot { position:relative; min-width:0; display:flex; align-items:center; flex-direction:column; }
   .shortcut-slot[draggable=true] { cursor:grab; }
-  .empty-icon { display:grid; place-items:center; box-sizing:border-box; width:56px; height:56px; border:1px dashed color-mix(in srgb,CanvasText 28%,transparent); border-radius:14px; color:GrayText; font-size:24px; }
+  .empty-icon { display:grid; place-items:center; box-sizing:border-box; width:var(--home-shortcut-size,56px); max-width:100%; height:var(--home-shortcut-size,56px); border:1px dashed color-mix(in srgb,CanvasText 28%,transparent); border-radius:14px; color:GrayText; font-size:24px; }
   .vacant { color:GrayText; }
-  .pin-mark { position:absolute; display:grid; place-items:center; right:calc(50% - 34px); top:-5px; width:18px; height:18px; border-radius:50%; background:Canvas; color:CanvasText; }
-  .slot-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-top:8px; }
+  .pin-mark { position:absolute; display:grid; place-items:center; right:calc(50% - var(--home-pin-offset,34px)); top:-5px; width:18px; height:18px; border-radius:50%; background:Canvas; color:CanvasText; }
+  .slot-controls { width:100%; min-width:0; display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-top:8px; }
+  .slot-controls button { max-width:100%; min-width:0; box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; }
   .home-context-menu { position:fixed; z-index:450; min-width:180px; }
   .menu-row { width:100%; border:0; background:none; text-align:start; font:inherit; cursor:pointer; }
 </style>

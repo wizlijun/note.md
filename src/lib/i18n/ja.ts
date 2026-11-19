@@ -3,6 +3,10 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  "homeApps.commonFeatures": "よく使う機能",
+  "homeContent.showAll": "すべて表示",
+  "homeAi.title": "AIの提案",
+  "homeAi.empty": "提案がここに表示されます。",
   "homeContent.partial": "{count} 件を読み込めませんでした。リストが不完全な可能性があります。",
   "homeContent.label": "読書",
   "homeContent.new": "新しいコンテンツ",

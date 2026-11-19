@@ -22,3 +22,13 @@
 }
 @container(max-width:420px) { .home-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(forced-colors:active) { .app-icon { border:1px solid CanvasText; } }
+
+.home-grid.home-functions-grid { grid-template-columns:repeat(6,minmax(0,1fr)); --home-shortcut-size:56px; --home-pin-offset:34px; }
+.home-functions-grid .home-tile { width:100%; gap:10px; }
+.home-functions-grid .app-icon { width:var(--home-shortcut-size); max-width:100%; height:var(--home-shortcut-size); }
+@container(max-width:580px) {
+ .home-grid.home-functions-grid { gap:20px 8px; --home-shortcut-size:40px; --home-pin-offset:26px; }
+ .home-functions-grid .home-tile { gap:8px; font-size:10px; }
+ .home-functions-grid .app-icon { border-radius:11px; }
+ .home-functions-grid .app-icon svg { width:25px; height:25px; }
+}

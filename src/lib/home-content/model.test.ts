@@ -24,6 +24,28 @@ function history(path: string, readMs: number, sourceMs = 0): DeviceAnalytics {
 }
 
 describe('home content selection', () => {
+  it('passes catalog body previews to either list without storing them in activity records', () => {
+    const state = vault(), fresh = candidate('report.md', NOW - 1000, { preview: '  A real paragraph from the report.  ' })
+    const reading = candidate('reading.md', NOW - 2000, { preview: 'Another real paragraph.' })
+    discoverContent(state, [fresh, reading], ROOT, NOW)
+    applyEdit(activityFor(state, reading.path, ROOT, NOW), NOW)
+    const lists = contentLists(state, [fresh, reading], ROOT, NOW)
+    expect(lists.newItems[0].preview).toBe('A real paragraph from the report.')
+    expect(lists.continueItems[0].preview).toBe('Another real paragraph.')
+    expect(JSON.stringify(state)).not.toContain('preview')
+  })
+
+  it.each([undefined, null])('retains missing/null wire previews and external entries without inventing text: %s', preview => {
+    const state = vault(), legacy = candidate('legacy.md', undefined, { preview })
+    const external = '/outside/reading.pdf'
+    discoverContent(state, [legacy], ROOT, NOW)
+    applyEdit(activityFor(state, external, ROOT, NOW), NOW)
+    const lists = contentLists(state, [legacy], ROOT, NOW)
+    expect(lists.newItems[0]).not.toHaveProperty('preview')
+    expect(lists.continueItems[0]).toMatchObject({ path: external, detail: '/outside' })
+    expect(lists.continueItems[0]).not.toHaveProperty('preview')
+  })
+
   it('fills ten entries after excluding newer automation noise, while retaining agent reports and ordinary unknown types', () => {
     const state = vault()
     const noise = [

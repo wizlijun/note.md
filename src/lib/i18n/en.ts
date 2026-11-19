@@ -8,6 +8,10 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  "homeApps.commonFeatures": "Favorites",
+  "homeContent.showAll": "Show All",
+  "homeAi.title": "AI suggestions",
+  "homeAi.empty": "Suggestions will appear here.",
   "homeContent.partial": "{count} items could not be read. This list may be incomplete.",
   "homeContent.label": "Reading",
   "homeContent.new": "New content",

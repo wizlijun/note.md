@@ -1,0 +1,51 @@
+{
+  "scope": "Safari-inspired homepage structure requested by user; AI suggestions layout only",
+  "frontend": {
+    "fullTestFiles": 448,
+    "fullTestsPassed": 6055,
+    "failed": 0,
+    "typeErrors": 0,
+    "preExistingTypeWarnings": 30,
+    "productionBuildExitCode": 0,
+    "command": "npm run build",
+    "finalWireNullCompatibility": "Type accurately accepts Rust Option<String> as null; added missing/null regression after full suite",
+    "finalTargeted": {
+      "files": 5,
+      "passed": 73,
+      "failed": 0
+    }
+  },
+  "browser": {
+    "checksPassed": 9,
+    "pageErrors": 0,
+    "externalNetwork": 0,
+    "widths": [
+      1100,
+      390,
+      320
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "realComponentsAndState": true,
+    "isolatedVault": true
+  },
+  "backend": {
+    "scannerAndPreviewTests": 11,
+    "passed": 11,
+    "realTauriCommandMacrosMetadata": "PASS",
+    "completeHostBuild": false,
+    "boundary": "Actual scanner and test bodies run sequentially with reused panic=abort release dependencies; same-shape DocumentRules, Vault resolver/root_guard stubs for macro metadata. Not a complete host build."
+  },
+  "sourceSha256": {
+    "src/components/EmptyState.svelte": "0022e421fa5f77e9c563b5d94ad6e03803f724226610badbe97c72404824d2b7",
+    "src/components/HomeApps.svelte": "359887aa47bd78cc1ed80c21517f4be68f5e90748b3d89448b6ca16ce2cad497",
+    "src/components/HomeContent.svelte": "150b6341de928f01863aa188e4e9003475b74199989994cfef67e17ab225f8d2",
+    "src/components/VaultOverview.svelte": "cb2d5ba57443f4b01cc8f03134c3187ae95fad645a50b79e8a14afc264618155",
+    "src/styles/home-apps.css": "997019efe958cf147fa38420aac5db62baa826cfd395669d9c6c363496acfb1d",
+    "src/lib/home-content/model.ts": "eb0c5e19418e4db846a2f7171352077ae3d85f30e74c936578a7eb5001c1fc6c",
+    "src-tauri/src/home_content.rs": "ecfde84a52532c00bb7fa669e1197945eea4e34e2e6928107a5de2ffae50addb"
+  },
+  "notInstalledOrPublished": true
+}

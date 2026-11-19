@@ -1,6 +1,10 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  "homeApps.commonFeatures": "Häufige Funktionen",
+  "homeContent.showAll": "Alle anzeigen",
+  "homeAi.title": "KI-Vorschläge",
+  "homeAi.empty": "Vorschläge werden hier angezeigt.",
   "homeContent.partial": "{count} Einträge konnten nicht gelesen werden. Diese Liste ist möglicherweise unvollständig.",
   "homeContent.label": "Lesen",
   "homeContent.new": "Neue Inhalte",

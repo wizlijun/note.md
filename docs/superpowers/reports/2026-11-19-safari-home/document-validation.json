@@ -1,0 +1,91 @@
+{
+  "frontend": {
+    "passed": 26,
+    "failed": 0,
+    "success": true
+  },
+  "scanner": {
+    "sourceSha256": "ecfde84a52532c00bb7fa669e1197945eea4e34e2e6928107a5de2ffae50addb",
+    "compileExitCode": 0,
+    "command": [
+      "rustc",
+      "+1.99.0",
+      "--edition=2021",
+      "--target",
+      "aarch64-apple-darwin",
+      "-L",
+      "dependency=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps",
+      "-L",
+      "dependency=/Users/bruce/git/mdeditor/src-tauri/target/release/deps",
+      "/Users/bruce/git/mdeditor/.worktrees/safari-home/tasks/safari-home-evidence/documents/scanner-abort-runner.rs",
+      "-o",
+      "/Users/bruce/git/mdeditor/.worktrees/safari-home/tasks/safari-home-evidence/documents/scanner-tests",
+      "--extern",
+      "serde=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libserde-4b3d005db0191d85.rlib",
+      "--extern",
+      "serde_yaml=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libserde_yaml-e305019756c72840.rlib",
+      "--extern",
+      "serde_json=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libserde_json-d04de2b1ba974b7e.rlib",
+      "--extern",
+      "chrono=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libchrono-5974c255a985ad69.rlib",
+      "--extern",
+      "regex=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libregex-7a45cf55fc448914.rlib",
+      "--extern",
+      "tempfile=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libtempfile-fee385c31f48e790.rlib",
+      "-C",
+      "panic=abort"
+    ],
+    "testBoundary": "Actual production scanner/test bodies; only Tauri wrapper omitted and same-shape DocumentRules supplied. Test attributes replaced by a sequential main calling every test, because reused release dependencies require panic=abort. No dependencies rebuilt.",
+    "testExitCode": 0,
+    "testCount": 11
+  },
+  "tauriCommand": {
+    "sourceSha256": "ecfde84a52532c00bb7fa669e1197945eea4e34e2e6928107a5de2ffae50addb",
+    "command": [
+      "rustc",
+      "--edition=2021",
+      "--target",
+      "aarch64-apple-darwin",
+      "-L",
+      "dependency=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps",
+      "-L",
+      "dependency=/Users/bruce/git/mdeditor/src-tauri/target/release/deps",
+      "--crate-type=lib",
+      "--emit=metadata",
+      "-C",
+      "panic=abort",
+      "/Users/bruce/git/mdeditor/.worktrees/safari-home/tasks/safari-home-evidence/documents/command-wrapper.rs",
+      "-o",
+      "/Users/bruce/git/mdeditor/.worktrees/safari-home/tasks/safari-home-evidence/documents/command-wrapper.rmeta",
+      "--extern",
+      "tauri=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libtauri-368d7dd85ba79cee.rlib",
+      "--extern",
+      "serde=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libserde-962e407c029b463f.rlib",
+      "--extern",
+      "serde_yaml=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libserde_yaml-52cbb7c22881a88a.rlib",
+      "--extern",
+      "serde_json=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libserde_json-6e45c8f5c014af69.rlib",
+      "--extern",
+      "chrono=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libchrono-aa2ad3ba708ec217.rlib",
+      "--extern",
+      "regex=/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/deps/libregex-a2ebb21179a60380.rlib"
+    ],
+    "exitCode": 0,
+    "realProductionFile": true,
+    "realTauriCommandAndGenerateHandlerMacros": true,
+    "stubbed": [
+      "same-shape DocumentRules",
+      "Vault resolver/root_guard signatures"
+    ],
+    "notFullHostBuild": true
+  },
+  "ownedFiles": {
+    "src/components/HomeContent.svelte": "150b6341de928f01863aa188e4e9003475b74199989994cfef67e17ab225f8d2",
+    "src/components/HomeContent.test.ts": "637847104ebf2464cdb888faf0a9aaa894b497e3658170c8acb05d3549134eab",
+    "src/lib/home-content/model.ts": "ea1a699833ec7b664b5bb037c03f18b193c40174c02579987d8d4de14ecd684b",
+    "src/lib/home-content/model.test.ts": "1e30e6d2f6ea205fede182cc32787894363a4784cf148c1ef30f8a1a8a0a8581",
+    "src-tauri/src/home_content.rs": "ecfde84a52532c00bb7fa669e1197945eea4e34e2e6928107a5de2ffae50addb"
+  },
+  "recordedBeforeFinalCommit": true,
+  "postReviewCompatibility": "Candidate preview type now also accepts null from Rust Option serialization; final targeted regression and typecheck passed."
+}

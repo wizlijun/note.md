@@ -2,9 +2,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(async (..._args: any[]) => () => {}), dispatch: vi.fn(async (_pluginId: string, _command: string) => {}), settings: vi.fn(), save: vi.fn(async () => {}), data: undefined as any }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(async (..._args: any[]) => () => {}), dispatch: vi.fn(async (_pluginId: string, _command: string) => {}), settings: vi.fn(), note: vi.fn(async () => {}), canvas: vi.fn(async () => {}), open: vi.fn(async (_path: string) => {}), pick: vi.fn(async (): Promise<string | null> => null), save: vi.fn(async () => {}), data: undefined as any }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }))
 vi.mock('@tauri-apps/plugin-store', () => ({ Store: { load: async () => ({ get: async () => mocks.data, set: async (_key: string, data: any) => { mocks.data = data }, save: mocks.save }) } }))
+vi.mock('../lib/tabs.svelte', () => ({ newFile: mocks.note, newCanvas: mocks.canvas, openFile: mocks.open }))
+vi.mock('../lib/dialogs', async importOriginal => ({ ...await importOriginal<typeof import('../lib/dialogs')>(), pickOpenFile: mocks.pick }))
 vi.mock('../lib/plugins/runtime.svelte', async importOriginal => ({ ...await importOriginal<typeof import('../lib/plugins/runtime.svelte')>(), dispatchPluginCommand: mocks.dispatch }))
 vi.mock('../lib/settings.svelte', () => ({ getPluginScopedAll: () => ({}), pluginScopedVersion: { value: 0 } }))
 vi.mock('../lib/sotvault.svelte', () => ({ sotvaultStore: { vaultRoot: '/vault' } }))
@@ -25,7 +27,7 @@ const manifests = [{ id: 'a', name: 'Alpha', open_windows: { open: 'main' } }, {
 async function settle() { await new Promise(r => setTimeout(r, 0)); flushSync() }
 function button(text: string) { return [...document.querySelectorAll('button')].find(b => b.textContent?.trim() === text)! }
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.dispatch.mockReset().mockResolvedValue(undefined); pluginRuntime.manifests = []; pluginRuntime.ready = true; document.body.removeAttribute('tabindex'); document.body.innerHTML = ''; mocks.data = emptyHomeAppsData()
+  vi.clearAllMocks(); mocks.note.mockReset().mockResolvedValue(undefined); mocks.canvas.mockReset().mockResolvedValue(undefined); mocks.open.mockReset().mockResolvedValue(undefined); mocks.pick.mockReset().mockResolvedValue(null); mocks.dispatch.mockReset().mockResolvedValue(undefined); pluginRuntime.manifests = []; pluginRuntime.ready = true; document.body.removeAttribute('tabindex'); document.body.innerHTML = ''; mocks.data = emptyHomeAppsData()
   Object.assign(homeAppsStore, { data: emptyHomeAppsData(), ready: false, busy: false, error: null })
   mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? installed : manifests)
   mockIPC((cmd, args) => mocks.invoke(cmd, args))
@@ -38,7 +40,7 @@ it('loads installed and runtime catalogs before ranking and keeps all eight posi
   expect(homeAppsStore.data.snapshot.day).toBe('')
   resolve(manifests); await settle()
   expect(homeAppsStore.data.snapshot.day).not.toBe('')
-  expect(document.querySelectorAll('[data-home-slot]')).toHaveLength(0)
+  expect(document.querySelectorAll('[data-home-slot]')).toHaveLength(8)
   button('homeApps.edit').click(); await settle()
   expect(document.querySelectorAll('[data-home-slot]')).toHaveLength(8)
 })
@@ -349,4 +351,71 @@ it('tracks shared runtime removal and updates immediately without relying on its
   expect(tile.getAttribute('aria-disabled')).toBe('false')
   tile.click(); await settle()
   expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith('a', 'show')
+})
+
+it('renders one twelve-position grid with three built-ins, eight silent app slots and All apps last', async () => {
+  app = mount(HomeApps, { target: document.body }); await settle()
+  const grid = document.querySelector('.home-functions-grid')!
+  expect(grid.children).toHaveLength(12)
+  expect([...grid.children].map(child => child.getAttribute('data-home-action') ?? child.getAttribute('data-home-slot'))).toEqual(['new-note', 'new-canvas', 'open-file', '0', '1', '2', '3', '4', '5', '6', '7', 'all-apps'])
+  expect(document.querySelector('h2')?.textContent).toBe('homeApps.commonFeatures')
+  expect(document.querySelector('.home-section-heading .apps-directory-button')).toBeNull()
+  expect(document.querySelectorAll('.apps-directory-button')).toHaveLength(1)
+  expect(document.querySelectorAll('[data-home-slot] button')).toHaveLength(0)
+  expect(document.querySelectorAll('.silent-slot')).toHaveLength(8)
+  button('homeApps.edit').click(); await settle()
+  expect(document.querySelectorAll('[data-home-slot] button.vacant')).toHaveLength(8)
+  expect(grid.children).toHaveLength(12)
+  button('homeApps.done').click(); await settle()
+  expect(document.querySelectorAll('[data-home-slot] button')).toHaveLength(0)
+})
+it('uses the existing note, canvas and file picker actions without changing app usage', async () => {
+  mocks.pick.mockResolvedValueOnce('/vault/picked.md')
+  app = mount(HomeApps, { target: document.body }); await settle()
+  button('homeApps.newNote').click(); await settle()
+  button('homeApps.newCanvas').click(); await settle()
+  button('homeApps.openFile').click(); await settle()
+  expect(mocks.note).toHaveBeenCalledOnce()
+  expect(mocks.canvas).toHaveBeenCalledOnce()
+  expect(mocks.pick).toHaveBeenCalledOnce()
+  expect(mocks.open).toHaveBeenCalledExactlyOnceWith('/vault/picked.md')
+  button('homeApps.openFile').click(); await settle()
+  expect(mocks.open).toHaveBeenCalledTimes(1)
+  expect(homeAppsStore.data.usage).toEqual({})
+  expect(mocks.dispatch).not.toHaveBeenCalled()
+})
+it('reports failures from built-in actions and leaves All apps usable', async () => {
+  mocks.note.mockRejectedValueOnce(new Error('note failed'))
+  mocks.canvas.mockRejectedValueOnce(new Error('canvas failed'))
+  mocks.pick.mockRejectedValueOnce(new Error('picker failed'))
+  app = mount(HomeApps, { target: document.body }); await settle()
+  for (const [name, error] of [['homeApps.newNote', 'note failed'], ['homeApps.newCanvas', 'canvas failed'], ['homeApps.openFile', 'picker failed']]) {
+    button(name).click(); await settle()
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(error)
+  }
+  button('homeApps.allApps').click(); await settle()
+  expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+})
+it('retains all eight existing pins in their logical slots alongside four fixed functional entries', async () => {
+  const items = Array.from({ length: 8 }, (_, n) => ({ ...installed[0], id: `old-${n}`, name: `Old app ${n}` }))
+  mocks.data.pins = items.map(item => item.id)
+  mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? items : items.map(item => ({ ...manifests[0], id: item.id, name: item.name })))
+  app = mount(HomeApps, { target: document.body }); await settle()
+  expect(homeAppsStore.data.pins).toEqual(items.map(item => item.id))
+  expect([...document.querySelectorAll('[data-home-slot] .tile-label')].map(label => label.textContent)).toEqual(items.map(item => item.name))
+  expect(document.querySelector('.home-functions-grid')?.children).toHaveLength(12)
+  button('homeApps.edit').click(); await settle()
+  button('homeApps.done').click(); await settle()
+  expect(homeAppsStore.data.pins).toEqual(items.map(item => item.id))
+})
+it('only clears an uninstalled app after a complete refreshed catalog and retains its silent slot', async () => {
+  mocks.data.pins[6] = 'b'
+  app = mount(HomeApps, { target: document.body }); await settle()
+  expect(homeAppsStore.data.pins[6]).toBe('b')
+  mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? [installed[0]] : [manifests[0]])
+  mocks.listen.mock.calls[0][1]({ payload: {} }); await settle()
+  expect(homeAppsStore.data.pins[6]).toBeNull()
+  expect(document.querySelector('[data-home-slot="6"] .silent-slot')).toBeTruthy()
+  expect(document.querySelectorAll('[data-home-slot]')).toHaveLength(8)
+  expect(document.querySelector('.home-functions-grid')?.children).toHaveLength(12)
 })

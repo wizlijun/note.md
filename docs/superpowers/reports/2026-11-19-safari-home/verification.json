@@ -1,0 +1,645 @@
+{
+  "url": "http://127.0.0.1:5173/tasks/safari-home-evidence/index.html",
+  "checks": [
+    "Twelve unified slots retain three built-ins, eight app identities including first/last pins and disabled app, and final All apps",
+    "Three documents per list show safe two-line body previews; header Show All is independent and expanded × never opens a file",
+    "Functions → documents → honest AI placeholder → lightweight Vault/settings footer; no AI/external network request; details expand and collapse",
+    "1100/390/320px light/dark views retain exactly two rows of six, 40px narrow icons, two-line labels and no horizontal overflow",
+    "320px German edit controls wrap inside their own 41px slots without overlapping adjacent pins",
+    "Existing popup uses global accent and white-text hover; Escape restores original tile focus",
+    "Final All apps tile opens real directory/search; disabled item explains state; declared window uses isolated shared dispatcher",
+    "Existing edit drag swaps first and last fixed apps without losing their identities",
+    "Collapsed lightweight footer keeps scan errors visible"
+  ],
+  "errors": [],
+  "network": [],
+  "geometry": [
+    {
+      "width": 1100,
+      "theme": "light",
+      "viewport": 1100,
+      "body": 1100,
+      "html": 1100,
+      "content": 760,
+      "gridWidth": 760,
+      "columns": 6,
+      "rows": [
+        172,
+        280
+      ],
+      "icon": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "buttons": [
+        {
+          "left": 170,
+          "right": 283.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 299.328125,
+          "right": 412.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 428.65625,
+          "right": 542,
+          "width": 113.34375
+        },
+        {
+          "left": 558,
+          "right": 671.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 687.328125,
+          "right": 800.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 816.65625,
+          "right": 930,
+          "width": 113.34375
+        },
+        {
+          "left": 170,
+          "right": 283.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 299.328125,
+          "right": 412.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 428.65625,
+          "right": 542,
+          "width": 113.34375
+        },
+        {
+          "left": 558,
+          "right": 671.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 687.328125,
+          "right": 800.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 816.65625,
+          "right": 930,
+          "width": 113.34375
+        }
+      ]
+    },
+    {
+      "width": 1100,
+      "theme": "dark",
+      "viewport": 1100,
+      "body": 1100,
+      "html": 1100,
+      "content": 760,
+      "gridWidth": 760,
+      "columns": 6,
+      "rows": [
+        172,
+        280
+      ],
+      "icon": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "buttons": [
+        {
+          "left": 170,
+          "right": 283.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 299.328125,
+          "right": 412.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 428.65625,
+          "right": 542,
+          "width": 113.34375
+        },
+        {
+          "left": 558,
+          "right": 671.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 687.328125,
+          "right": 800.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 816.65625,
+          "right": 930,
+          "width": 113.34375
+        },
+        {
+          "left": 170,
+          "right": 283.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 299.328125,
+          "right": 412.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 428.65625,
+          "right": 542,
+          "width": 113.34375
+        },
+        {
+          "left": 558,
+          "right": 671.328125,
+          "width": 113.328125
+        },
+        {
+          "left": 687.328125,
+          "right": 800.65625,
+          "width": 113.328125
+        },
+        {
+          "left": 816.65625,
+          "right": 930,
+          "width": 113.34375
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "viewport": 390,
+      "body": 390,
+      "html": 390,
+      "content": 358,
+      "gridWidth": 358,
+      "columns": 6,
+      "rows": [
+        194,
+        277
+      ],
+      "icon": [
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40
+      ],
+      "buttons": [
+        {
+          "left": 16,
+          "right": 69,
+          "width": 53
+        },
+        {
+          "left": 77,
+          "right": 130,
+          "width": 53
+        },
+        {
+          "left": 138,
+          "right": 191,
+          "width": 53
+        },
+        {
+          "left": 199,
+          "right": 252,
+          "width": 53
+        },
+        {
+          "left": 260,
+          "right": 313,
+          "width": 53
+        },
+        {
+          "left": 321,
+          "right": 374,
+          "width": 53
+        },
+        {
+          "left": 16,
+          "right": 69,
+          "width": 53
+        },
+        {
+          "left": 77,
+          "right": 130,
+          "width": 53
+        },
+        {
+          "left": 138,
+          "right": 191,
+          "width": 53
+        },
+        {
+          "left": 199,
+          "right": 252,
+          "width": 53
+        },
+        {
+          "left": 260,
+          "right": 313,
+          "width": 53
+        },
+        {
+          "left": 321,
+          "right": 374,
+          "width": 53
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "viewport": 390,
+      "body": 390,
+      "html": 390,
+      "content": 358,
+      "gridWidth": 358,
+      "columns": 6,
+      "rows": [
+        194,
+        277
+      ],
+      "icon": [
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40
+      ],
+      "buttons": [
+        {
+          "left": 16,
+          "right": 69,
+          "width": 53
+        },
+        {
+          "left": 77,
+          "right": 130,
+          "width": 53
+        },
+        {
+          "left": 138,
+          "right": 191,
+          "width": 53
+        },
+        {
+          "left": 199,
+          "right": 252,
+          "width": 53
+        },
+        {
+          "left": 260,
+          "right": 313,
+          "width": 53
+        },
+        {
+          "left": 321,
+          "right": 374,
+          "width": 53
+        },
+        {
+          "left": 16,
+          "right": 69,
+          "width": 53
+        },
+        {
+          "left": 77,
+          "right": 130,
+          "width": 53
+        },
+        {
+          "left": 138,
+          "right": 191,
+          "width": 53
+        },
+        {
+          "left": 199,
+          "right": 252,
+          "width": 53
+        },
+        {
+          "left": 260,
+          "right": 313,
+          "width": 53
+        },
+        {
+          "left": 321,
+          "right": 374,
+          "width": 53
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "viewport": 320,
+      "body": 320,
+      "html": 320,
+      "content": 288,
+      "gridWidth": 288,
+      "columns": 6,
+      "rows": [
+        194,
+        277
+      ],
+      "icon": [
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40
+      ],
+      "buttons": [
+        {
+          "left": 16,
+          "right": 57.328125,
+          "width": 41.328125
+        },
+        {
+          "left": 65.328125,
+          "right": 106.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 114.65625,
+          "right": 155.984375,
+          "width": 41.328125
+        },
+        {
+          "left": 163.984375,
+          "right": 205.328125,
+          "width": 41.34375
+        },
+        {
+          "left": 213.328125,
+          "right": 254.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 262.65625,
+          "right": 303.984375,
+          "width": 41.328125
+        },
+        {
+          "left": 16,
+          "right": 57.328125,
+          "width": 41.328125
+        },
+        {
+          "left": 65.328125,
+          "right": 106.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 114.65625,
+          "right": 155.984375,
+          "width": 41.328125
+        },
+        {
+          "left": 163.984375,
+          "right": 205.328125,
+          "width": 41.34375
+        },
+        {
+          "left": 213.328125,
+          "right": 254.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 262.65625,
+          "right": 303.984375,
+          "width": 41.328125
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "theme": "dark",
+      "viewport": 320,
+      "body": 320,
+      "html": 320,
+      "content": 288,
+      "gridWidth": 288,
+      "columns": 6,
+      "rows": [
+        194,
+        277
+      ],
+      "icon": [
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40
+      ],
+      "buttons": [
+        {
+          "left": 16,
+          "right": 57.328125,
+          "width": 41.328125
+        },
+        {
+          "left": 65.328125,
+          "right": 106.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 114.65625,
+          "right": 155.984375,
+          "width": 41.328125
+        },
+        {
+          "left": 163.984375,
+          "right": 205.328125,
+          "width": 41.34375
+        },
+        {
+          "left": 213.328125,
+          "right": 254.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 262.65625,
+          "right": 303.984375,
+          "width": 41.328125
+        },
+        {
+          "left": 16,
+          "right": 57.328125,
+          "width": 41.328125
+        },
+        {
+          "left": 65.328125,
+          "right": 106.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 114.65625,
+          "right": 155.984375,
+          "width": 41.328125
+        },
+        {
+          "left": 163.984375,
+          "right": 205.328125,
+          "width": 41.34375
+        },
+        {
+          "left": 213.328125,
+          "right": 254.65625,
+          "width": 41.328125
+        },
+        {
+          "left": 262.65625,
+          "right": 303.984375,
+          "width": 41.328125
+        }
+      ]
+    }
+  ],
+  "status": "PASS",
+  "germanEditControls": [
+    {
+      "text": "Verschieben",
+      "slotLeft": 163.984375,
+      "slotRight": 205.328125,
+      "left": 163.984375,
+      "right": 205.328125,
+      "width": 41.34375
+    },
+    {
+      "text": "−",
+      "slotLeft": 163.984375,
+      "slotRight": 205.328125,
+      "left": 170.875,
+      "right": 198.4375,
+      "width": 27.5625
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 213.328125,
+      "slotRight": 254.65625,
+      "left": 213.328125,
+      "right": 254.65625,
+      "width": 41.328125
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 262.65625,
+      "slotRight": 303.984375,
+      "left": 262.65625,
+      "right": 303.984375,
+      "width": 41.328125
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 16,
+      "slotRight": 57.328125,
+      "left": 16,
+      "right": 57.328125,
+      "width": 41.328125
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 65.328125,
+      "slotRight": 106.65625,
+      "left": 65.328125,
+      "right": 106.65625,
+      "width": 41.328125
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 114.65625,
+      "slotRight": 155.984375,
+      "left": 114.65625,
+      "right": 155.984375,
+      "width": 41.328125
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 163.984375,
+      "slotRight": 205.328125,
+      "left": 163.984375,
+      "right": 205.328125,
+      "width": 41.34375
+    },
+    {
+      "text": "Verschieben",
+      "slotLeft": 213.328125,
+      "slotRight": 254.65625,
+      "left": 213.328125,
+      "right": 254.65625,
+      "width": 41.328125
+    },
+    {
+      "text": "−",
+      "slotLeft": 213.328125,
+      "slotRight": 254.65625,
+      "left": 220.203125,
+      "right": 247.765625,
+      "width": 27.5625
+    }
+  ],
+  "menuHover": {
+    "bg": "rgb(10, 99, 255)",
+    "fg": "rgb(255, 255, 255)"
+  }
+}

@@ -1,6 +1,6 @@
 //! A bounded-header document catalog for home; independent of full-text filters.
 
-use std::{collections::HashSet, fs, io::Read, path::Path, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashSet, fs, io::Read, path::Path, sync::LazyLock, time::{SystemTime, UNIX_EPOCH}};
 use serde::Serialize;
 use crate::vault_stats::DocumentRules;
 
@@ -14,6 +14,8 @@ pub struct CatalogItem {
     pub concept_type: Option<String>,
     pub created_at: Option<u64>,
     pub modified_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,22 +59,69 @@ fn created_timestamp(value: &str) -> Option<u64> {
 
 /// Only complete frontmatter within the prefix is metadata. A heading or a
 /// clipped YAML block must not accidentally classify the document.
-fn frontmatter(prefix: &str) -> Option<serde_yaml::Value> {
-    let mut lines = prefix.trim_start_matches('\u{feff}').lines();
-    if lines.next()?.trim_end() != "---" { return None; }
-    let mut yaml = String::new();
+fn markdown_parts(prefix: &str) -> (Option<serde_yaml::Value>, Option<&str>) {
+    let text = prefix.trim_start_matches('\u{feff}');
+    let mut lines = text.split_inclusive('\n');
+    let Some(first) = lines.next() else { return (None, Some(text)) };
+    if first.trim_end() != "---" { return (None, Some(text)); }
+    let mut offset = first.len();
     for line in lines {
         if matches!(line.trim_end(), "---" | "...") {
-            return serde_yaml::from_str(&yaml).ok();
+            return (serde_yaml::from_str(&text[first.len()..offset]).ok(), Some(&text[offset + line.len()..]));
         }
-        yaml.push_str(line);
-        yaml.push('\n');
+        offset += line.len();
     }
-    None
+    // A clipped frontmatter block has no safe body in this prefix.
+    (None, None)
 }
 
 fn metadata_field(metadata: &serde_yaml::Value, field: &str) -> Option<String> {
     metadata.get(field)?.as_str().map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned)
+}
+
+/// Text extraction only: no Markdown/HTML rendering or resource loading. These
+/// patterns are compiled once and only see the already-bounded file prefix.
+fn body_preview(body: &str, title: Option<&str>) -> Option<String> {
+    static HIDDEN_HTML: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?is)<!--.*?(?:-->|$)|<(?:script|style|iframe|object|svg)\b[^>]*>.*?(?:</(?:script|style|iframe|object|svg)\s*>|$)").unwrap());
+    static HTML_TAGS: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+    static IMAGES: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"!\[[^\]]*\]\([^\n)]*\)").unwrap());
+    static LINKS: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"\[([^\]]+)\]\([^\n)]*\)").unwrap());
+    let body = HIDDEN_HTML.replace_all(body, "");
+    let mut text = String::new();
+    let mut fence: Option<(char, usize)> = None;
+    for line in body.lines() {
+        let trimmed = line.trim();
+        let marker = trimmed.chars().next().filter(|c| matches!(c, '`' | '~'));
+        let count = marker.map(|marker| trimmed.chars().take_while(|c| *c == marker).count()).unwrap_or(0);
+        if count >= 3 {
+            match fence {
+                Some((open, length)) if marker == Some(open) && count >= length && trimmed[count..].trim().is_empty() => fence = None,
+                None => fence = marker.map(|marker| (marker, count)),
+                _ => {},
+            }
+            continue;
+        }
+        if fence.is_some() || line.starts_with("    ") || line.starts_with('\t') || trimmed.starts_with("[^") { continue; }
+        let without_images = IMAGES.replace_all(trimmed, "");
+        let without_links = LINKS.replace_all(&without_images, "$1");
+        let without_tags = HTML_TAGS.replace_all(&without_links, "");
+        let mut plain = without_tags.trim_start_matches(['#', '>']).trim();
+        if ["- ", "* ", "+ "].iter().any(|prefix| plain.starts_with(*prefix)) { plain = plain[2..].trim(); }
+        if let Some((number, rest)) = plain.split_once(['.', ')']) {
+            if !number.is_empty() && number.chars().all(|c| c.is_ascii_digit()) && rest.starts_with(char::is_whitespace) { plain = rest.trim(); }
+        }
+        if ["[ ] ", "[x] ", "[X] "].iter().any(|prefix| plain.starts_with(*prefix)) { plain = plain[4..].trim(); }
+        let plain = plain.replace(['*', '`', '~'], "").replace("__", "").replace('|', " ");
+        let plain = plain.split_whitespace().collect::<Vec<_>>().join(" ");
+        if plain.is_empty() || plain.chars().all(|c| matches!(c, '-' | '_' | '=' | ':' | ' '))
+            || title.is_some_and(|title| plain.eq_ignore_ascii_case(title.trim())) { continue; }
+        if !text.is_empty() { text.push(' '); }
+        text.extend(plain.chars().filter(|c| !c.is_control()));
+        if text.chars().count() > 180 { break; }
+    }
+    if text.is_empty() { return None; }
+    if text.chars().count() > 180 { text = text.chars().take(179).chain(std::iter::once('…')).collect(); }
+    Some(text)
 }
 
 fn scan(root: &Path, rules: &DocumentRules) -> Result<Catalog, String> {
@@ -109,14 +158,20 @@ fn scan(root: &Path, rules: &DocumentRules) -> Result<Catalog, String> {
             concept_type: None,
             created_at: metadata.created().ok().and_then(milliseconds),
             modified_at: metadata.modified().ok().and_then(milliseconds).unwrap_or(0),
+            preview: None,
         };
         if matches!(extension, "md" | "markdown" | "mdown" | "mkd" | "mdx") {
             let mut prefix = Vec::new();
             match fs::File::open(&path).and_then(|file| file.take(HEADER_BYTES).read_to_end(&mut prefix)) {
-                Ok(_) => if let Some(frontmatter) = frontmatter(&String::from_utf8_lossy(&prefix)) {
-                    if let Some(title) = metadata_field(&frontmatter, "title") { item.title = Some(title); }
-                    item.concept_type = metadata_field(&frontmatter, "type");
-                    item.created_at = metadata_field(&frontmatter, "created").as_deref().and_then(created_timestamp).or(item.created_at);
+                Ok(_) => {
+                    let prefix = String::from_utf8_lossy(&prefix);
+                    let (frontmatter, body) = markdown_parts(&prefix);
+                    if let Some(frontmatter) = frontmatter {
+                        if let Some(title) = metadata_field(&frontmatter, "title") { item.title = Some(title); }
+                        item.concept_type = metadata_field(&frontmatter, "type");
+                        item.created_at = metadata_field(&frontmatter, "created").as_deref().and_then(created_timestamp).or(item.created_at);
+                    }
+                    if extension != "mdx" { item.preview = body.and_then(|body| body_preview(body, item.title.as_deref())); }
                 },
                 Err(_) => { catalog.skipped += 1; continue },
             }
@@ -230,8 +285,48 @@ mod tests {
 
     #[test]
     fn wire_shape_uses_the_frontend_contract() {
-        let item = CatalogItem { path: "a.md".into(), title: None, concept_type: Some("Answer".into()), created_at: None, modified_at: 123 };
+        let item = CatalogItem { path: "a.md".into(), title: None, concept_type: Some("Answer".into()), created_at: None, modified_at: 123, preview: None };
         let wire = serde_json::to_value(item).unwrap();
         assert_eq!(wire, serde_json::json!({"path":"a.md","title":null,"conceptType":"Answer","createdAt":null,"modifiedAt":123}));
+    }
+
+    #[test]
+    fn previews_real_body_without_metadata_repeated_title_or_resources() {
+        let root = tempfile::tempdir().unwrap();
+        write(root.path(), "report.md", "\u{feff}---\r\ntitle: New report\r\ntype: Answer\r\ngenerated:\r\n  by: private-agent\r\n---\r\n# New report\r\n\r\n**Real** [evidence](https://remote.invalid/evidence).\r\n![secret image](https://remote.invalid/image.png)\r\n```sh\r\nprivate-command\r\n```\r\n<script>alert('private')</script>\r\n<p>Last line.</p>");
+        let catalog = scan(root.path(), &rules()).unwrap();
+        assert_eq!(catalog.items[0].preview.as_deref(), Some("Real evidence. Last line."));
+        let wire = serde_json::to_value(&catalog.items[0]).unwrap();
+        assert_eq!(wire["preview"], "Real evidence. Last line.");
+    }
+
+    #[test]
+    fn never_uses_clipped_or_invalid_frontmatter_as_a_preview() {
+        let root = tempfile::tempdir().unwrap();
+        write(root.path(), "clipped.md", &format!("---\nprivate: {}\n---\nUnseen body", "x".repeat(HEADER_BYTES as usize)));
+        write(root.path(), "invalid.md", "---\nprivate: [invalid\n---\nSafe body");
+        let catalog = scan(root.path(), &rules()).unwrap();
+        assert!(catalog.items[0].preview.is_none());
+        assert_eq!(catalog.items[1].preview.as_deref(), Some("Safe body"));
+    }
+
+    #[test]
+    fn unicode_preview_is_short_and_removes_list_markers_without_inventing_body() {
+        assert_eq!(body_preview("# Report\n---\n1. [x] **First** item\n> Next `word`", Some("Report")).as_deref(), Some("First item Next word"));
+        assert_eq!(body_preview("# Report\n===\n```js\nsecret()\n```\n![only image](https://remote.invalid)", Some("Report")), None);
+        let long = body_preview(&"深入阅读🚀".repeat(100), None).unwrap();
+        assert_eq!(long.chars().count(), 180);
+        assert!(long.ends_with('…'));
+    }
+
+    #[test]
+    fn does_not_make_previews_for_binary_or_mixed_code_formats() {
+        let root = tempfile::tempdir().unwrap();
+        for name in ["canvas.canvas", "plugin.custom", "Makefile"] { write(root.path(), name, "this must not be a pretend document excerpt"); }
+        write(root.path(), "code.mdx", "---\ntitle: Code\n---\nimport secret from 'remote';\n<Component />");
+        let mut formats = rules(); formats.extensions.push("mdx".into());
+        let catalog = scan(root.path(), &formats).unwrap();
+        assert_eq!(catalog.items.len(), 4);
+        assert!(catalog.items.iter().all(|item| item.preview.is_none()));
     }
 }

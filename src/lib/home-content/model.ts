@@ -10,6 +10,7 @@ export interface ContentCandidate {
   conceptType: string | null
   createdAt: number | null
   modifiedAt: number
+  preview?: string | null
 }
 export interface ContentActivity {
   path: string
@@ -27,7 +28,7 @@ export interface VaultContent {
   docs: Record<string, ContentActivity>
 }
 export interface HomeContentData { version: 1; vaults: Record<string, VaultContent> }
-export interface HomeContentItem { path: string; title: string; detail: string; at: number }
+export interface HomeContentItem { path: string; title: string; detail: string; at: number; preview?: string }
 export type ContentList = 'new' | 'continue'
 export const emptyHomeContent = (): HomeContentData => ({ version: 1, vaults: {} })
 const time = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0
@@ -139,7 +140,8 @@ export function contentLists(vault: VaultContent, candidates: ContentCandidate[]
     if (key.startsWith('rel:') && !c) continue
     const path = c?.path ?? doc.path
     if (unavailable.has(path)) continue
-    const item = { path, title: c?.title?.trim() || basename(path), detail: key.startsWith('rel:') ? dirname(key.slice(4)) : dirname(path), at: 0 }
+    const item = { path, title: c?.title?.trim() || basename(path), detail: key.startsWith('rel:') ? dirname(key.slice(4)) : dirname(path), at: 0,
+      ...(c?.preview?.trim() ? { preview: c.preview.trim() } : {}) }
     const activeAt = Math.max(doc.lastReadAt, doc.lastEditedAt)
     if (activeAt > doc.dismissedContinueAt) continueItems.push({ ...item, at: activeAt })
     if (c && isNewContent(c, root) && !doc.readAt && !doc.dismissedNew && doc.discoveredAt > 0 && doc.discoveredAt >= cutoff && doc.discoveredAt <= now) {

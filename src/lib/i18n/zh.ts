@@ -3,6 +3,10 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  "homeApps.commonFeatures": "常用功能",
+  "homeContent.showAll": "全部显示",
+  "homeAi.title": "AI 建议",
+  "homeAi.empty": "建议将在这里显示。",
   "homeContent.partial": "有 {count} 项无法读取，列表可能不完整。",
   "homeContent.label": "阅读",
   "homeContent.new": "新内容",
