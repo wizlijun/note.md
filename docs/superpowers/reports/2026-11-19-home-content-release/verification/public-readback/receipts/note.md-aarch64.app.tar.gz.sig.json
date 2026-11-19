@@ -1,0 +1,15 @@
+{
+  "name": "note.md-aarch64.app.tar.gz.sig",
+  "asset_id": "767324544",
+  "bytes": 416,
+  "sha256": "47ef04ef03d6ff9e9bb3708deea76e99bf63f361cdbae5f9cb7c9e6101aee21f",
+  "github_digest": "sha256:47ef04ef03d6ff9e9bb3708deea76e99bf63f361cdbae5f9cb7c9e6101aee21f",
+  "anonymous_full_file_download": true,
+  "transport": "browser",
+  "canonical_url": "https://github.com/wizlijun/note.md/releases/download/v6.1119.2/note.md-aarch64.app.tar.gz.sig",
+  "download_endpoint": "https://github.com/wizlijun/note.md/releases/download/v6.1119.2/note.md-aarch64.app.tar.gz.sig",
+  "download_path": "host-public-full-browser/note.md-aarch64.app.tar.gz.sig",
+  "ranges": [],
+  "tag": "v6.1119.2",
+  "downloaded_at_utc": "2026-11-19T11:16:20.174800+00:00"
+}

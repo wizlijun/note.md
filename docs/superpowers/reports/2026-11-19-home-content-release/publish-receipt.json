@@ -1,0 +1,13 @@
+{
+  "status": "PUBLISHED",
+  "tag": "v6.1119.2",
+  "releaseCommit": "8b811a5a31f7ba288063705bc5386b09b6f7261f",
+  "scope": "mac-arm64-only",
+  "userConfirmation": "v6.1119.2 mac-arm64-only",
+  "publisherCommand": "bash scripts/release-publish.sh v6.1119.2 --mac-arm64-only",
+  "observedExitCode": 0,
+  "observedOutput": "Published v6.1119.2",
+  "publishedAt": "2026-11-19T11:12:52Z",
+  "url": "https://github.com/wizlijun/note.md/releases/tag/v6.1119.2",
+  "publicReadback": "PASS: six complete anonymous downloads, SHA256, updater Minisign and actual updater endpoint"
+}

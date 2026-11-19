@@ -1,0 +1,15 @@
+{
+  "name": "latest.json",
+  "asset_id": "767327361",
+  "bytes": 740,
+  "sha256": "cf01defa87c5ddfbbbb94aec0403940e4eb91bb5b56e72039c8278864c2d95b5",
+  "github_digest": "sha256:cf01defa87c5ddfbbbb94aec0403940e4eb91bb5b56e72039c8278864c2d95b5",
+  "anonymous_full_file_download": true,
+  "transport": "browser",
+  "canonical_url": "https://github.com/wizlijun/note.md/releases/download/v6.1119.2/latest.json",
+  "download_endpoint": "https://github.com/wizlijun/note.md/releases/download/v6.1119.2/latest.json",
+  "download_path": "host-public-full-browser/latest.json",
+  "ranges": [],
+  "tag": "v6.1119.2",
+  "downloaded_at_utc": "2026-11-19T11:15:16.030081+00:00"
+}
